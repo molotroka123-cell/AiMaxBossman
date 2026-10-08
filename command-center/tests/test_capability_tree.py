@@ -407,3 +407,33 @@ def test_zone_scope_caps_verification(tmp_path):
     seed = {"nodes": [{"id": "z", "sources": [{"path": "command-center/bcc/features/plugins.py"}]}]}
     _, _, verify = tree._zone_scope(seed, seed["nodes"][0], repo)
     assert len(verify) == tree._ZONE_VERIFY_MAX
+
+
+def test_working_status_is_served_and_owner_notes_cannot_set_it(tmp_path, monkeypatch):
+    app = _app(tmp_path, monkeypatch, [
+        {"id": "bossman", "label": "Bossman", "parent": "", "status": "mixed", "sources": []},
+        {"id": "leaf", "label": "Leaf", "parent": "bossman", "status": "reported", "sources": []},
+        {"id": "inst", "label": "Inst", "parent": "bossman", "status": "working", "sources": []},
+    ], {"campaign_id": "test", "status": "RUNNING"})
+    with TestClient(app) as client:
+        for body in ({"node_id": "leaf", "text": "x", "state": "working"},
+                     {"node_id": "leaf", "text": "x", "state": "note", "status": "working"}):
+            client.post("/api/capability-tree/note", json=body)
+        nodes = {n["id"]: n["status"] for n in client.get("/api/capability-tree").json()["tree"]["nodes"]}
+        assert nodes == {"bossman": "mixed", "leaf": "reported", "inst": "working"}
+        assert client.post("/api/capability-tree/note",
+                           json={"node_id": "leaf", "text": "x", "state": "working-installed"}).status_code == 422
+
+
+def test_ui_declares_working_status_with_distinct_color():
+    import re
+    ui = Path(tree.__file__).resolve().parents[2] / "ui" / "pages"
+    js = (ui / "capability_tree.js").read_text(encoding="utf-8")
+    scene = (ui / "capability_tree_scene.js").read_text(encoding="utf-8")
+    m = re.search(r"working:\s*\['Работает в установленном Bossman',\s*'ok',\s*'(#[0-9a-fA-F]{6})'\]", js)
+    assert m, "working status missing from STATUS"
+    color = m.group(1).lower()
+    other = {c.lower() for c in re.findall(r"'(#[0-9a-fA-F]{6})'\]", js) if c.lower() != color}
+    other |= {c.lower() for c in re.findall(r"#[0-9a-fA-F]{6}", scene)}
+    assert color not in other
+    assert "const LEGEND = ['working', 'reported'" in js

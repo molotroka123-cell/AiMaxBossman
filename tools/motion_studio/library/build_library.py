@@ -409,7 +409,8 @@ def main() -> None:
         if errors:
             bad.append((sid, errors))
             continue
-        (out_dir / f"{sid}.json").write_text(json.dumps(spec, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        (out_dir / f"{sid}.json").write_text(json.dumps(spec, ensure_ascii=False, indent=1) + "\n", encoding="utf-8",
+                                             newline="\n")   # LF on Windows too: the library is diffed and hashed
         rows.append({"id": f"lib_{sid}", "source": "motion-studio library (Claude-written template)", "brief": brief,
                      "facts": facts, "spec": spec})
     if bad:
@@ -418,7 +419,8 @@ def main() -> None:
         raise SystemExit(1)
     ds = ROOT / "dataset" / "brief_to_spec.jsonl"
     keep = [line for line in ds.read_text(encoding="utf-8").splitlines() if line and not json.loads(line)["id"].startswith("lib_")]
-    ds.write_text("\n".join(keep + [json.dumps(r, ensure_ascii=False) for r in rows]) + "\n", encoding="utf-8")
+    ds.write_text("\n".join(keep + [json.dumps(r, ensure_ascii=False) for r in rows]) + "\n", encoding="utf-8",
+                  newline="\n")
     print(f"LIBRARY {len(rows)} scenarios valid; dataset rows: {len(keep) + len(rows)}")
 
 

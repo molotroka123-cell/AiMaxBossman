@@ -32325,7 +32325,7 @@
     "tests": {
      "state": "PASSED_RECORDED_RUN",
      "files": [
-      "tests/test_earning_emulator_cli.py"
+      "command-center/tests/test_earning_emulator_cli.py"
      ],
      "basis": "import-or-path",
      "passed": 4,

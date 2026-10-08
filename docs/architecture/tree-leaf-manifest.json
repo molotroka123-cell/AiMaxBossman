@@ -270,7 +270,7 @@
   "parent": "apps",
   "source": "tools/earning_emulator.py",
   "tests": [
-   "tests/test_earning_emulator_cli.py"
+   "command-center/tests/test_earning_emulator_cli.py"
   ]
  },
  {

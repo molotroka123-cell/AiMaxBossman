@@ -1,0 +1,33 @@
+node_id: module-464a2a956fa0
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.video_factory.model')" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_bakeoff_latency.py tests/test_model_fetch.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_model_health.py tests/test_model_intelligence.py tests/test_model_probe_reasoning.py tests/test_model_speed_tel001.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage9_recovery.py)
+
+import bossman.video_factory.model: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\video_factory\model.py
+
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_model_bakeoff_latency.py tests/test_model_fetch.py)
+[step shared by 2 leaf(s); exit 0 in 14.0s; reason=None]
+.............................................s......                     [100%]
+51 passed, 1 skipped in 13.61s
+
+[guard] product modules loaded from installed build: 0; from repo source: []; aux repo-source helper modules: 3
+
+module under test bossman.video_factory.model loaded by this test process from installed build: False
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_model_health.py tests/test_model_intelligence.py tests/test_model_probe_reasoning.py tests/test_model_speed_tel001.py)
+[step shared by 2 leaf(s); exit 0 in 12.7s; reason=None]
+...............................................................          [100%]
+63 passed in 11.29s
+
+[guard] product modules loaded from installed build: 334; from repo source: []; aux repo-source helper modules: 0
+
+module under test bossman.video_factory.model loaded by this test process from installed build: False
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_stage9_recovery.py)
+[step shared by 1 leaf(s); exit 0 in 1.2s; reason=None]
+...                                                                      [100%]
+3 passed in 0.65s
+
+[guard] product modules loaded from installed build: 120; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.video_factory.model loaded by this test process from installed build: True
+
+VERDICT PASS

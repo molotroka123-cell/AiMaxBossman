@@ -681,3 +681,63 @@ def test_roleplay_state_is_participant_exportable_but_security_scores_are_not(tm
     assert "detective" in exported
     assert "behavior.json" not in exported
     assert "risk.json" not in exported
+
+
+def _benign_discovery_candidate() -> DiscoveryCandidate:
+    return DiscoveryCandidate(
+        "style",
+        "Коротко или с примерами?",
+        0.9,
+        0.9,
+        0.8,
+        annoyance_cost=0.1,
+        sensitivity_risk=0.0,
+    )
+
+
+def test_discovery_never_selects_candidate_with_non_finite_numbers():
+    """Любое числовое поле кандидата обязано быть конечным числом.
+
+    NaN/±inf/None в любом поле — неизвестный риск: кандидат никогда не
+    выбирается и не роняет выбор. Неизвестный риск не превращается в
+    безопасный ноль и не влияет на то, какой корректный кандидат выиграет,
+    независимо от порядка кандидатов.
+    """
+    from bcc.pit.discovery import score
+
+    good = _benign_discovery_candidate()
+    broken = [
+        DiscoveryCandidate("nan-relevance", "q?", float("nan"), 0.9, 0.8),
+        DiscoveryCandidate("nan-uncertainty", "q?", 0.9, float("nan"), 0.8),
+        DiscoveryCandidate("nan-utility", "q?", 0.9, 0.9, float("nan")),
+        DiscoveryCandidate("nan-annoyance", "q?", 0.9, 0.9, 0.8, annoyance_cost=float("nan")),
+        DiscoveryCandidate("nan-risk", "q?", 0.9, 0.9, 0.8, sensitivity_risk=float("nan")),
+        DiscoveryCandidate("inf-utility", "q?", 0.9, 0.9, float("inf")),
+        DiscoveryCandidate("inf-annoyance", "q?", 0.9, 0.9, 0.8, annoyance_cost=float("inf")),
+        DiscoveryCandidate("none-relevance", "q?", None, 0.9, 0.8),
+        DiscoveryCandidate("none-annoyance", "q?", 0.9, 0.9, 0.8, annoyance_cost=None),
+        DiscoveryCandidate("none-risk", "q?", 0.9, 0.9, 0.8, sensitivity_risk=None),
+    ]
+    for bad in broken:
+        assert score(bad) == float("-inf"), bad.key
+        for order in ([bad, good], [good, bad]):
+            assert choose_discovery_question(order, enabled=True) is good, bad.key
+        assert choose_discovery_question([bad], enabled=True) is None, bad.key
+
+
+def test_discovery_broken_numbers_do_not_win_even_in_collection_first():
+    good = _benign_discovery_candidate()
+    bad = DiscoveryCandidate(
+        "nan-risk", "q?", 0.9, 0.9, 0.8, sensitivity_risk=float("nan")
+    )
+    for order in ([bad, good], [good, bad]):
+        selected = choose_discovery_question(
+            order, enabled=True, mode=DiscoveryMode.COLLECTION_FIRST, risk_score=3
+        )
+        assert selected is good, order
+    assert (
+        choose_discovery_question(
+            [bad], enabled=True, mode=DiscoveryMode.COLLECTION_FIRST, risk_score=3
+        )
+        is None
+    )

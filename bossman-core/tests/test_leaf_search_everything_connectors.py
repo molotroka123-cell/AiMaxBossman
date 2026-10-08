@@ -6,7 +6,7 @@ from bossman.search_everything.connectors import (
 )
 
 AWS = "AKIA" + "IOSFODNN7EXAMPLE"          # ci-secret-scan: allow (documented AWS example key id)
-PRIVATE = "-----BEGIN RSA PRIVATE KEY-----\nMIIB\n-----END RSA PRIVATE KEY-----"
+PRIVATE = "-----BEGIN RSA PRIVATE KEY-----\nMIIB\n-----END RSA PRIVATE KEY-----"  # ci-secret-scan: allow (truncated fake PEM)
 
 
 @pytest.mark.parametrize("path", [

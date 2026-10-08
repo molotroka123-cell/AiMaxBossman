@@ -104,6 +104,21 @@ async def test_catalog_is_built_from_the_real_routes(env):
         assert target in by_id, f"псевдоним «{word}» ведёт в никуда"
 
 
+async def test_default_catalog_is_complete_and_an_explicit_limit_says_it_truncated(env):
+    """The UI asks GET /api/command-bar without a limit; it must see every route.
+
+    A silent default cap of 500 dropped everything after ~"sys…" once the app grew past 500
+    routes (tasks.create was the first casualty) while `count` still reported the full size.
+    """
+    body = (await env.client.get("/api/command-bar")).json()
+    assert body["count"] > 500, "the regression only shows on a catalog larger than the old cap"
+    assert len(body["capabilities"]) == body["count"] and body["truncated"] is False
+    # negative control: an explicit limit still trims, and says so instead of looking complete
+    short = (await env.client.get("/api/command-bar", params={"limit": 5})).json()
+    assert len(short["capabilities"]) == 5 and short["count"] == body["count"]
+    assert short["truncated"] is True
+
+
 async def test_a_removed_route_disappears_from_the_catalog(env):
     """Каталог — зеркало маршрутов, а не их копия: список не переживает маршрут."""
     catalog = cb.build_catalog(env.app)

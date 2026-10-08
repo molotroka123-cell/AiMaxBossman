@@ -1,0 +1,22 @@
+# stage3 oss integration receipt output
+node: oss-67
+project: prompt-toolkit/python-prompt-toolkit
+sha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13
+build_site_packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+integration_code: command-center/bcc/terminal_cli/chat.py
+command: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-67   # = cd command-center && pytest -q -rs tests/test_terminal_cli_unit.py -k history + sys.modules check + probe prompt_toolkit_history
+exit_code: 0
+
+.                                                                        [100%]
+1 passed, 23 deselected in 0.15s
+
+@@ INTEGRATION CHECK (sys.modules after the test session) @@
+  bcc.terminal_cli.chat: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\terminal_cli\chat.py
+  upstream prompt_toolkit: loaded=False version=None file=None
+
+@@ PROBE prompt_toolkit_history @@
+  _make_history -> prompt_toolkit.history.FileHistory subclass; stored line redacted=True; text kept=True
+  _make_history(enabled=False) -> prompt_toolkit.history.InMemoryHistory
+  PROBE PASS
+
+@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@

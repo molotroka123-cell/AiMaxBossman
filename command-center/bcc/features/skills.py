@@ -198,7 +198,27 @@ async def assign_skill(skill_id: str, request: Request):
     agent_id = body.get("agent_id")
     if agent_id is None:
         raise HTTPException(422, {"message": "нужен agent_id"})
-    assigns = await _assignments(svc)
+    # Раньше любой skill_id / agent_id давал 200 «назначено» — фантомный успех.
+    # "3" и 3 — один агент: иначе в списке появлялись дубли [3, "3"].
+    if isinstance(agent_id, bool):
+        raise HTTPException(422, {"message": "agent_id должен быть числом"})
+    try:
+        agent_id = int(agent_id)
+    except (TypeError, ValueError):
+        raise HTTPException(422, {"message": "agent_id должен быть числом"}) from None
+    if await asyncio.to_thread(lambda: _lib(svc).by_id().get(skill_id)) is None:
+        raise HTTPException(404, {"message": "скилл не найден"})
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(agents_t.c.id).where(agents_t.c.id == agent_id))).first()
+    if row is None:
+        raise HTTPException(404, {"message": "агент не найден"})
+    try:
+        assigns = await _assignments(svc, strict=True)
+    except AssignmentsUnreadable as exc:
+        # Не перезаписывать нечитаемую запись пустым словарём: это стёрло бы
+        # все прежние назначения без возможности восстановления.
+        raise HTTPException(503, {"message": "список назначений нечитаем",
+                                  "hint": str(exc)}) from None
     lst = assigns.setdefault(skill_id, [])
     if agent_id not in lst:
         lst.append(agent_id)
@@ -355,15 +375,27 @@ def _validate_input(schema: dict, data: dict) -> list[str]:
     return errors
 
 
-async def _assignments(svc) -> dict:
+class AssignmentsUnreadable(RuntimeError):
+    pass
+
+
+async def _assignments(svc, *, strict: bool = False) -> dict:
+    """{skill_id: [agent_id]}. Чтение для показа терпимо (нечитаемо → {}),
+    ``strict=True`` (перед записью) поднимает AssignmentsUnreadable."""
     async with svc.db.session() as s:
         row = (await s.execute(sa.select(settings_kv.c.value_enc)
                                .where(settings_kv.c.key == ASSIGN_KEY))).first()
     if row and row[0]:
         try:
-            return json.loads(svc.vault.decrypt(row[0]))
-        except Exception:
-            pass
+            data = json.loads(svc.vault.decrypt(row[0]))
+        except Exception as exc:
+            if strict:
+                raise AssignmentsUnreadable(str(exc)[:200]) from exc
+            return {}
+        if isinstance(data, dict):
+            return data
+        if strict:
+            raise AssignmentsUnreadable("assignments is not an object")
     return {}
 
 

@@ -4,7 +4,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hashlib
+import json
 import os
+import random
 import re
 import secrets
 import time
@@ -21,6 +23,13 @@ from .store import Store
 from .secret_intake import (
     SecretField, SecretIntakeError, SecretIntakeManager, looks_like_secret_message, request_caption,
 )
+
+# SweetDrops sticker flourish (owner request 2026-10-07): after every long
+# text reply Jeff sends one random sticker from the pack.
+SWEET_DROPS_PACK = "SweetDrops"  # https://t.me/addstickers/SweetDrops
+SWEET_DROPS_MIN_CHARS = 200
+SWEET_DROPS_ENABLED = True
+
 
 HELP = ("Я Bossman, ваш ИИ-помощник на локальных моделях. Можно просто написать мне.\n\n"
         "/best — отвечать лучшей (самой умной) моделью; /best вопрос — один ответ ею\n"
@@ -270,6 +279,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
         self.monitor_failures = 0
         self.secret_intake = SecretIntakeManager()
         self.secret_executor = secret_executor
+        self._sweet_drops_ids: list = []
         if self.telegram is not None:
             self.telegram.authorize_delivery = self.delivery_allowed
 
@@ -1264,6 +1274,60 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
                 pass
             await asyncio.sleep(4.5)
 
+    def _sweet_drops_cache_path(self) -> str:
+        base = os.environ.get("LOCALAPPDATA", "")
+        if not base:
+            return ""
+        return os.path.join(base, "Bossman", "telegram-companion", "sweet_drops_cache.json")
+
+    async def _ensure_sweet_drops(self) -> list:
+        """file_ids of the SweetDrops pack: memory -> disk cache -> Bot API."""
+        try:
+            if self._sweet_drops_ids:
+                return self._sweet_drops_ids
+            if self.telegram is None:
+                return []
+            path = self._sweet_drops_cache_path()
+            if path:
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        ids = json.load(f)
+                    if isinstance(ids, list) and ids:
+                        self._sweet_drops_ids = [i for i in ids if isinstance(i, str) and i]
+                        return self._sweet_drops_ids
+                except (OSError, ValueError):
+                    pass
+            pack = await self.telegram.call("getStickerSet", {"name": SWEET_DROPS_PACK})
+            stickers = pack.get("stickers") if isinstance(pack, dict) else None
+            ids = [s.get("file_id") for s in (stickers or [])
+                   if isinstance(s, dict) and isinstance(s.get("file_id"), str)]
+            if ids:
+                self._sweet_drops_ids = ids
+                if path:
+                    try:
+                        with open(path, "w", encoding="utf-8") as f:
+                            json.dump(ids, f)
+                    except OSError:
+                        pass
+            return self._sweet_drops_ids
+        except Exception:
+            return []
+
+    async def maybe_long_message_sticker(self, person, answer) -> None:
+        """Best-effort: one random SweetDrops sticker after a long text reply."""
+        try:
+            if not SWEET_DROPS_ENABLED:
+                return
+            text = answer if isinstance(answer, str) else str(answer)
+            if len(text) < SWEET_DROPS_MIN_CHARS:
+                return
+            ids = await self._ensure_sweet_drops()
+            if not ids:
+                return
+            await self.telegram.send_sticker(person, random.choice(ids))
+        except Exception:
+            pass
+
     async def worker(self, original_person: Person, lane: str = "chat"):
         event = self.wake[(original_person.key, lane)]
         while True:
@@ -1332,6 +1396,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
             else:
                 self.store.finish(update_id, "done")
                 self.store.put("last_roundtrip:" + person.key, time.time())
+                await self.maybe_long_message_sticker(person, answer)
                 command = text.partition(" ")[0].lower()
                 request_id = None
                 if command == "/inputs":
@@ -1609,6 +1674,10 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
     async def run(self):
         await self.telegram.preflight()
         self.store.recover()
+        try:
+            await self._ensure_sweet_drops()
+        except Exception:
+            pass
         tasks = [asyncio.create_task(self.worker(p, lane)) for p in self.settings.people for lane in ("chat", "control")]
         tasks += [asyncio.create_task(self.poll()), asyncio.create_task(self.monitor())]
         try:

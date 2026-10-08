@@ -1,0 +1,18 @@
+node_id: module-637788ef482e
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.ai_lab.candidates')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_stage11_ai_lab.py tests/test_stage13_ailab_redteam.py)
+
+import bossman.ai_lab.candidates: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\ai_lab\candidates.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_stage11_ai_lab.py tests/test_stage13_ailab_redteam.py)
+[step shared by 1 leaf(s); exit 0 in 1.6s; reason=None]
+........................................................................ [ 69%]
+.........s.....................                                          [100%]
+102 passed, 1 skipped in 1.10s
+
+[guard] product modules loaded from installed build: 109; from repo source: []; aux repo-source helper modules: 2
+
+module under test bossman.ai_lab.candidates loaded by this test process from installed build: True
+
+VERDICT PASS

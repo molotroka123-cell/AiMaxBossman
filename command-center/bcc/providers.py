@@ -161,6 +161,10 @@ def is_local_url(url: str) -> bool:
     try:
         import ipaddress
         ip = ipaddress.ip_address(host)
+        # [::ffff:169.254.169.254] is the metadata endpoint too. CPython <= 3.12.3 classifies the mapped
+        # form by the IPv6 rules (is_private=True, is_link_local=False) and called it local; decide on the
+        # IPv4 address itself so the answer does not depend on the interpreter's patch level.
+        ip = getattr(ip, "ipv4_mapped", None) or ip
         return ip.is_private and not (ip.is_link_local or ip.is_unspecified)
     except ValueError:
         return False

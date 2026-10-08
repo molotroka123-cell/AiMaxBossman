@@ -166,6 +166,42 @@ def test_history_is_bounded_newest_first_and_tolerates_garbage_lines(home):
     assert len((home / "history.jsonl").read_text().splitlines()) <= 201
 
 
+def test_history_survives_a_non_utf8_byte_run_and_non_dict_lines(home):
+    """RED before 2026-10-08: a cp1251/torn tail raised UnicodeDecodeError (a ValueError, not the OSError the worker
+    guards) out of BOTH append_history and history; a bare ``7`` line reached callers that do ``row.get``."""
+    st = CallState(home)
+    st.append_history({"call_id": "c1", "outcome": "completed"})
+    with open(home / "history.jsonl", "ab") as f:
+        f.write(b'{"call_id": "c2", "note": "\xcf\xf0\xe8\xe2\xe5\xf2"}\n7\n[1, 2]\n')
+    st.append_history({"call_id": "c3", "outcome": "completed"})          # the end-of-call write goes through
+    rows = st.history(10)
+    assert [r["call_id"] for r in rows] == ["c3", "c2", "c1"], "valid rows kept newest-first; the garbled one is not lost"
+    assert all(isinstance(r, dict) for r in rows)
+    assert st.history(1) == [{"call_id": "c3", "outcome": "completed"}]
+
+
+def test_history_limit_zero_or_negative_is_empty_not_the_whole_file(home):
+    st = CallState(home)
+    for i in range(5):
+        st.append_history({"call_id": f"c{i}"})
+    assert st.history(0) == [] and st.history(-3) == []
+    assert [r["call_id"] for r in st.history(2)] == ["c4", "c3"], "paired control: a positive limit still works"
+
+
+def test_paired_control_history_tolerance_does_not_touch_stop_or_uncertainty(home):
+    """The relaxed reads are only for history (display data). STOP and the uncertain-previous-call gate stay strict."""
+    st = CallState(home)
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "history.jsonl").write_bytes(b"\xff\xfe garbage\n")
+    st.set_stop("owner")
+    assert st.stop_is_set()
+    st.note_call_started("c-x")
+    assert st.is_uncertain(), "a call that died in flight still makes the next dial need a confirm"
+    st.note_call_finished("c-x", Outcome.UNKNOWN)
+    assert st.is_uncertain()
+    assert st.history(5) == [], "nothing parseable: empty, not a crash"
+
+
 # ---------------------------------------------------------------- guard
 
 def ready(**kw):

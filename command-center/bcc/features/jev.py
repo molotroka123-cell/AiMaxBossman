@@ -91,7 +91,11 @@ async def _shadow_job(svc, state: _State, task: dict, agent: dict, waiter: async
         except asyncio.TimeoutError:
             model_id, source = agent.get("model_id"), "agent_model"
         finally:
-            state.waiters.pop(task_id, None)
+            # pick_model runs once per model step: by now the next step's hook may
+            # have registered ITS waiter under the same task id. Remove only ours,
+            # or that step's route lands in `routes` as a stale entry.
+            if state.waiters.get(task_id) is waiter:
+                state.waiters.pop(task_id, None)
             state.routes.pop(task_id, None)
         baseline = await _baseline(svc, model_id, agent, source)
         tools = [str(t) for t in (agent.get("tools") or []) if isinstance(t, (str, int))]

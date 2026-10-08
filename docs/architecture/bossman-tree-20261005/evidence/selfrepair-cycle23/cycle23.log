@@ -1,0 +1,52 @@
+task 4af43d85d619 started (discovery, worker glm-flash)
+SELF_REPAIR=INDEPENDENT_VERIFICATION_PASS
+{
+ "task_id": "4af43d85d619",
+ "case": "discovery",
+ "worker": "glm-flash",
+ "model": "z-ai/glm-5.3-flash",
+ "status": "completed",
+ "error": "",
+ "base_commit": "916f7c5ee95f5ff0369b951fed5d7ddb65a7c458",
+ "changed_files": [
+  "command-center/bcc/pit/discovery.py",
+  "command-center/tests/test_pit_foundation.py"
+ ],
+ "verification": {
+  "ran": true,
+  "runner": "pytest",
+  "exit_code": 0,
+  "passed": true
+ },
+ "holdout_base": {
+  "total": 72,
+  "failed": 35,
+  "passed": false,
+  "exit_code": 1
+ },
+ "holdout_patched": {
+  "total": 72,
+  "failed": 0,
+  "passed": true,
+  "exit_code": 0
+ },
+ "recipe_saved": {
+  "recipe_id": "tree-selfrepair-4af43d85d619",
+  "lesson_id": "coach-lesson:04753c6321f81d61",
+  "status": "VERIFIED",
+  "version": 3,
+  "project_id": "capability-tree",
+  "scope": "project",
+  "kind": "student_fix",
+  "learning_dir": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\learning"
+ },
+ "stages": {
+  "DEFECT_REPRODUCED": true,
+  "MODEL_PATCH_CREATED": true,
+  "BOSSMAN_ZONE_CHECK_PASS": true,
+  "HOLDOUT_PASS_ON_PATCH": true,
+  "SCOPE_RESPECTED": true,
+  "INDEPENDENT_VERIFICATION_PASS": true,
+  "EXPERIENCE_AUTO_SAVED": true
+ }
+}

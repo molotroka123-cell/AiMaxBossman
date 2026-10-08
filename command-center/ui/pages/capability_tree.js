@@ -4,17 +4,18 @@ import { btn, pageHead, panel, pill } from './_ui.js';
 import { createScene } from './capability_tree_scene.js';
 
 /* Дерево развития: живая карта Bossman (сцена — capability_tree_scene.js).
-   Цвет листа = статус доказательства из карты (не PASS): зелёный — сохранённый прогон,
-   синий — код, янтарный — отдельная ветка/подготовлено, фиолетовый — идея, красный — блокер,
+   Цвет листа = статус доказательства из карты (не PASS): бирюзовый — работает в установленном Bossman (тесты прошли на коде установленной сборки),
+   зелёный — сохранённый прогон, синий — код, янтарный — отдельная ветка/подготовлено, фиолетовый — идея, красный — блокер,
    серебро — запись. Маяк — над чем работает цикл; орбитальная искра — зона в работе. */
 const STATUS = {
+  working: ['Работает в установленном Bossman', 'ok', '#22d3ee'],
   reported: ['сохранённый прогон', 'ok', '#5dff8f'], code: ['код', 'info', '#4fa8ff'],
   branch: ['отдельная ветка', 'warn', '#ffb547'], prepared: ['подготовлено', 'warn', '#ffd166'],
   idea: ['идея', 'idle', '#b98bff'], blocked: ['блокер', 'err', '#ff5470'],
   recorded: ['запись', 'idle', '#c9d4e5'], mixed: ['смешано', 'idle', '#ffe8a3'],
 };
 const COLORS = Object.fromEntries(Object.entries(STATUS).map(([k, v]) => [k, v[2]]));
-const LEGEND = ['reported', 'code', 'branch', 'idea', 'blocked', 'recorded'];
+const LEGEND = ['working', 'reported', 'code', 'branch', 'idea', 'blocked', 'recorded'];
 const JOB_TONE = { running: 'info', completed: 'ok', failed: 'err', blocked: 'err', started: 'info' };
 const DONE = ['completed', 'failed', 'blocked'];
 let selectedId = null;

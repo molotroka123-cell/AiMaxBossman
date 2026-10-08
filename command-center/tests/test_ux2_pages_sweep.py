@@ -67,6 +67,34 @@ def _check_studio_empty_submit(page, button, hash_before):
         page.remove_listener('request', record_submission)
 
 
+def _check_direct_gen_empty_submit(page, button, hash_before):
+    """Direct Generation's «Создать» submits its inline form; an empty prompt must not queue a job.
+
+    Like Studio, this is not a modal opener: the contract is an inline, named error next to the
+    button, the prompt marked invalid, no POST to /api/direct-gen/jobs, no modal, no navigation.
+    """
+    from playwright.sync_api import expect
+
+    prompt = page.locator('#view textarea').first
+    expect(prompt).to_have_value('')
+    requests = []
+
+    def record_submission(request):
+        if request.method == 'POST' and request.url.split('?', 1)[0].endswith('/api/direct-gen/jobs'):
+            requests.append(request.url)
+
+    page.on('request', record_submission)
+    try:
+        button.click()
+        expect(page.locator('[data-testid="dg-create-error"]')).to_contain_text('Некорректный prompt')
+        expect(prompt).to_have_attribute('aria-invalid', 'true')
+        assert page.evaluate('location.hash') == hash_before
+        expect(page.locator('#modal-root .modal')).to_have_count(0)
+        assert requests == [], 'An empty Direct Generation prompt must not submit a job'
+    finally:
+        page.remove_listener('request', record_submission)
+
+
 def test_every_page_renders_and_buttons_work(live, tmp_path):  # noqa: F811
     from playwright.sync_api import sync_playwright
 
@@ -106,6 +134,10 @@ def test_every_page_renders_and_buttons_work(live, tmp_path):  # noqa: F811
                     # validation contract instead of accepting arbitrary toast feedback.
                     if (p['id'], label) == ('images?studio=1', 'Создать результат'):
                         _check_studio_empty_submit(page, btn, hash_before)
+                        row['opened_modal'].append({'label': label, 'ok': True, 'kind': 'inline_validation'})
+                        continue
+                    if (p['id'], label) == ('direct-gen', 'Создать'):
+                        _check_direct_gen_empty_submit(page, btn, hash_before)
                         row['opened_modal'].append({'label': label, 'ok': True, 'kind': 'inline_validation'})
                         continue
                     btn.click()

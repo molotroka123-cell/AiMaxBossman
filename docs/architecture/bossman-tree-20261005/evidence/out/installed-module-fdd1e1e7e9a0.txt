@@ -1,0 +1,25 @@
+node_id: module-fdd1e1e7e9a0
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.sandbox.secrets')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_tools_and_broker.py tests/test_secrem_f018_wiring.py)
+
+import bossman.sandbox.secrets: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\sandbox\secrets.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_sandbox_tools_and_broker.py tests/test_secrem_f018_wiring.py)
+[step shared by 1 leaf(s); exit 1 in 4.0s; reason=tests_failed]
+........F.....s                                                          [100%]
+================================== FAILURES ===================================
+______________ test_coder_agent_has_sandbox_tools_with_approval _______________
+tests\test_sandbox_tools_and_broker.py:153: in test_coder_agent_has_sandbox_tools_with_approval
+    a = load_all()["coder"]
+        ^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'coder'
+=========================== short test summary info ===========================
+FAILED tests/test_sandbox_tools_and_broker.py::test_coder_agent_has_sandbox_tools_with_approval
+1 failed, 13 passed, 1 skipped in 3.51s
+
+[guard] product modules loaded from installed build: 115; from repo source: []; aux repo-source helper modules: 2
+
+module under test bossman.sandbox.secrets loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+from ..single_flight import await_shared
 from . import catalog, sdcli
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .store import JobStore, valid_participant
@@ -594,14 +595,15 @@ class DirectGenService:
                 self._running = job_id
                 job["started_at"] = now_iso()
                 await self._set(job, "loading")
-                # shielded: a STOP that lands mid-request must still learn the prompt id, or the
-                # ComfyUI job would keep running with nobody left to interrupt it
+                # The submission outlives a STOP that lands mid-request: the job must still learn the
+                # prompt id, or ComfyUI would keep running with nobody left to interrupt it.
+                # await_shared, not asyncio.shield: see bcc/single_flight.py (Python 3.14 shield callback).
                 submission = asyncio.ensure_future(self._submit(job, template, inputs))
                 try:
-                    prompt_id = await asyncio.shield(submission)
+                    prompt_id = await await_shared(submission)
                 except asyncio.CancelledError:
                     with contextlib.suppress(Exception):
-                        prompt_id = await asyncio.wait_for(asyncio.shield(submission), 30)
+                        prompt_id = await asyncio.wait_for(await_shared(submission), 30)
                     raise
                 job["provenance"]["comfy_prompt_id"] = prompt_id
                 self.store.save(job)

@@ -218,8 +218,12 @@ def test_bug_fix_task_selects_debugging_tdd_verification():
 @pytest.mark.parametrize("task,expected", [
     ("Сколько видеопамяти нужно, чтобы модель Qwen GGUF влезла на GPU 16GB?", "huggingface/hf-mem"),
     ("Составь план миграции базы на новую схему", "superpowers/writing-plans"),
+    ("Execute the plan in docs/plan.md task by task, inline", "superpowers/executing-plans"),
+    ("Выполни план из docs/plan.md по задачам", "superpowers/executing-plans"),
     ("Address the reviewer's review comments on the pull request", "superpowers/receiving-code-review"),
     ("The button on the settings page does nothing in the browser", "anthropics/webapp-testing"),
+    ("Create a new skill and evaluate whether it improves task results", "anthropics/skill-creator"),
+    ("Создай новый скилл и улучши его описание по результатам оценки", "anthropics/skill-creator"),
 ])
 def test_selection_holdout(task, expected):
     assert expected in ids(SkillCatalog().select(task))

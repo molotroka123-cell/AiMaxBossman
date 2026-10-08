@@ -273,3 +273,38 @@ async def test_a_host_that_was_never_pinned_is_refused_not_resolved():
     backend = _PinnedBackend({"known.test": "127.0.0.1"})
     with pytest.raises(PluginSecurityError):
         await backend.connect_tcp("unknown.test", 80)
+
+
+# ------------------------------------------------- Content-Encoding: исходная метка (аудит 07.10)
+
+_REAL_ASYNC_CLIENT = httpx.AsyncClient   # настоящий клиент: повторные подмены в одном тесте не наслаиваются
+
+
+def _gzip_client(monkeypatch, headers: dict, body: bytes):
+    import gzip as _gz
+    payload = _gz.compress(body) if headers.get("content-encoding") == "gzip" else body
+
+    def handler(request):
+        return httpx.Response(200, headers=headers, content=payload)
+
+    monkeypatch.setattr(httpx, "AsyncClient",
+                        lambda *a, **k: _REAL_ASYNC_CLIENT(*a, transport=httpx.MockTransport(handler), follow_redirects=False))
+    monkeypatch.setattr(socket, "getaddrinfo", lambda host, *a, **k: [(socket.AF_INET, 1, 6, "", ("1.2.3.4", 0))])
+
+
+async def test_safe_get_gzip_body_is_decoded_once_and_original_encoding_kept_under_our_name(monkeypatch):
+    _gzip_client(monkeypatch, {"content-encoding": "gzip", "content-type": "text/plain"}, b"hello gzip")
+    r = await safe_get("http://ok.example/z", max_bytes=5000)
+    assert r.status_code == 200 and r.content == b"hello gzip"
+    assert "content-encoding" not in r.headers                      # тело уже распаковано: второй раз не декодировать
+    assert r.headers["x-bossman-original-content-encoding"] == "gzip"
+
+
+async def test_safe_get_server_cannot_forge_the_original_encoding_label(monkeypatch):
+    _gzip_client(monkeypatch, {"content-type": "text/plain", "x-bossman-original-content-encoding": "identity"}, b"plain")
+    r = await safe_get("http://ok.example/p", max_bytes=5000)
+    assert "x-bossman-original-content-encoding" not in r.headers   # метку ставим только мы
+    _gzip_client(monkeypatch, {"content-encoding": "gzip", "content-type": "text/plain",
+                               "x-bossman-original-content-encoding": "identity"}, b"zip")
+    r = await safe_get("http://ok.example/g", max_bytes=5000)
+    assert r.headers["x-bossman-original-content-encoding"] == "gzip"   # не подделка сервера

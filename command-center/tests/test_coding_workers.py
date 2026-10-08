@@ -41,6 +41,7 @@ def _svc(tmp_path):
 
 
 def test_a_cloud_worker_task_gets_only_its_own_key_and_command(tmp_path, monkeypatch):
+    monkeypatch.delenv("BOSSMAN_VERIFY_PYTHON", raising=False)  # the interpreter path is the one allowed extra
     seen = {}
 
     def fake_execute(record, repo, body, context, env, command):

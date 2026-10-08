@@ -1,0 +1,25 @@
+# stage3 oss integration receipt output
+node: oss-69
+project: openai/codex
+sha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13
+build_site_packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+integration_code: command-center/bcc/autonomy/workers.py, command-center/bcc/rave/connectors.py
+command: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-69   # = cd command-center && pytest -q -rs tests/test_autonomy_workers.py + sys.modules check + probe codex_cli
+exit_code: 0
+
+...................                                                      [100%]
+19 passed in 7.10s
+
+@@ INTEGRATION CHECK (sys.modules after the test session) @@
+  bcc.autonomy.workers: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\autonomy\workers.py
+  bcc.rave.connectors: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\rave\connectors.py
+
+@@ PROBE codex_cli @@
+  bcc.rave.connectors.codex_version() -> {"installed": true, "version": "0.157.1", "raw": "codex-cli 0.157.1", "exit_code": 0}
+  resolve_cli('codex') -> ['C:\\Users\\asd\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.EXE']
+  workers.cli_argv('codex', 'writer') flags: ['-', '--ephemeral', '--json', '--sandbox', '--skip-git-repo-check', '-C', '-o']
+  workers.cli_argv('codex', 'reviewer') flags: ['-', '--ephemeral', '--json', '--sandbox', '--skip-git-repo-check', '-C', '-o']
+  `codex exec --help` knows every Bossman flag: True missing=[]
+  PROBE PASS
+
+@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@

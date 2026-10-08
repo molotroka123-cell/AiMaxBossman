@@ -285,13 +285,17 @@ function Do-Configure {
 
 function New-OneTask([string]$name, [string]$kindArgs, [int]$delaySec, [bool]$enabled) {
   $user = "$env:USERDOMAIN\$env:USERNAME"
-  $act = New-ScheduledTaskAction -Execute $PyW -Argument "-I `"$Tool`" launch $kindArgs" -WorkingDirectory $HomeDir
+  # --ensure: the same task re-checks every 10 minutes and starts only what is down and not held
+  # by `stop --hold` (owner 07.10: Bossman, Jeff and the Пульт must always run).
+  $act = New-ScheduledTaskAction -Execute $PyW -Argument "-I `"$Tool`" launch $kindArgs --ensure" -WorkingDirectory $HomeDir
   $trg = New-ScheduledTaskTrigger -AtLogOn -User $user
   if ($delaySec -gt 0) { $trg.Delay = "PT${delaySec}S" }
   $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
            -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
   $pr = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
-  $t = Register-ScheduledTask -TaskName $name -Action $act -Trigger $trg -Settings $set -Principal $pr `
+  $triggers = @($trg)
+  if ($enabled) { $triggers += New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) -RepetitionInterval (New-TimeSpan -Minutes 10) }
+  $t = Register-ScheduledTask -TaskName $name -Action $act -Trigger $triggers -Settings $set -Principal $pr `
          -Description "One Bossman ($Sha) - tools/owner_one_bossman.ps1" -Force
   if (-not $enabled) { Disable-ScheduledTask -TaskName $name | Out-Null }
   Say "task $name ($(if ($enabled) { 'enabled' } else { 'DISABLED' }), logon +${delaySec}s): $PyW -I $Tool launch $kindArgs"

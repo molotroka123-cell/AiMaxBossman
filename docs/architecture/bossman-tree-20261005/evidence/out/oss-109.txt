@@ -1,0 +1,9 @@
+# oss-109 tonhowtf/omniget re-verification at 2026-10-07T19:07:22Z sha 71fd290557f188328ae903bc5e24166f396ac389
+seed external_url: https://github.com/tonhowtf/omniget (referenced only in docs/v8/audit-20260910-20260918/AUDIT_RU.md; no Bossman code references it)
+GET https://github.com/tonhowtf/omniget (redirects followed) -> HTTP 404 final=https://github.com/tonhowtf/omniget body='<!DOCTYPE html>\n<html\n  lang="en"\n  \n  data-color-mode="auto" data-light-theme="light" data-dark-theme="dark"\n  data-a11'
+GET https://api.github.com/repos/tonhowtf/omniget (redirects followed) -> HTTP 404 final=https://api.github.com/repos/tonhowtf/omniget body='{"message":"Not Found","documentation_url":"https://docs.github.com/rest","status":"404"}'
+GET https://api.github.com/users/tonhowtf (redirects followed) -> HTTP 404 final=https://api.github.com/users/tonhowtf body='{"message":"Not Found","documentation_url":"https://docs.github.com/rest","status":"404"}'
+GET https://github.com/tonhowtf (redirects followed) -> HTTP 404 final=https://github.com/tonhowtf body='Not Found'
+GitHub search 'omniget in:name': total=29; owners: OpenSelena/omniget, greedygains/omniget-mcp-server, Pranav-Nexus/omniget, MeadowlarkThink/omniget-pro-version, samuelcaldas/omniget, aotlover9-base-eth/omniget, alksnd/omniget, Ck1sap/omniget, solankisumit123/omniGet, Sandeep-Presents/Omniget
+tonhowtf/omniget among results: False
+conclusion: repository and owner account both return 404 from github.com and the REST API (no rename redirect); same-name repos by other owners are different projects, not a move. Verdict RETIRE (dead reference).

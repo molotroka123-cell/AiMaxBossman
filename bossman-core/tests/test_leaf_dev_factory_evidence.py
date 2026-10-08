@@ -18,7 +18,7 @@ def test_errors_count_as_failure():
 
 
 def test_write_evidence_redacts_secrets(tmp_path):
-    secret = "sk-" + "a1b2c3d4e5f6g7h8i9j0k1l2m3n4"
+    secret = "sk-" + "a1b2c3d4e5f6g7h8i9j0k1l2m3n4"  # ci-secret-scan: allow (fake canary for the redaction test)
     path = write_evidence(tmp_path / "ev", "out.txt", f"token={secret}\n5 passed")
     body = open(path, encoding="utf-8").read()
     assert secret not in body and "5 passed" in body

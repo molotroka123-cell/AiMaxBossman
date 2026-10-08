@@ -1,6 +1,93 @@
-== plugin-21 plugin:browser.open probe=handler_live_call ==
-[plugin:browser.open] error=True one_line='plugin:browser.open: not performed'
-content: NOT_TESTED_LIVE: plugin:browser.open — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.
-performed: False -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
-VERDICT FAIL
+node_id: plugin-21
+capability: plugin:browser.open
+sha: 76b66db353b8f3905301a07809f75896234d8b94
 
+$ (cd command-center && python -m pytest -v -rA -p no:cacheprovider tests/test_plugins_browser_telegram.py -k browser_open_live_example_com)  # real Chromium -> https://example.com via plugin:browser.open
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\asd\AppData\Local\Programs\Python\Python312\python.exe
+rootdir: C:\Users\asd\Bossman\wt-green-0610\command-center
+configfile: pyproject.toml
+plugins: anyio-4.15.1, platformdirs-4.12.3, asyncio-1.4.0, cov-7.1.0, timeout-2.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 15 items / 14 deselected / 1 selected
+
+tests/test_plugins_browser_telegram.py::test_browser_open_live_example_com PASSED [100%]
+
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_live_example_com
+====================== 1 passed, 14 deselected in 2.48s =======================
+[exit 0 in 3.6s]
+
+$ (cd command-center && python -m pytest -v -rA -p no:cacheprovider tests/test_plugins_browser_telegram.py tests/test_plugins_stub_not_success.py -k "browser or generic or unperformed")
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\asd\AppData\Local\Programs\Python\Python312\python.exe
+rootdir: C:\Users\asd\Bossman\wt-green-0610\command-center
+configfile: pyproject.toml
+plugins: anyio-4.15.1, platformdirs-4.12.3, asyncio-1.4.0, cov-7.1.0, timeout-2.4.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 28 items
+
+tests/test_plugins_browser_telegram.py::test_telegram_status_has_real_handler PASSED [  3%]
+tests/test_plugins_browser_telegram.py::test_telegram_status_reads_local_config_without_token_or_network PASSED [  7%]
+tests/test_plugins_browser_telegram.py::test_telegram_status_unconfigured PASSED [ 10%]
+tests/test_plugins_browser_telegram.py::test_telegram_status_bad_config_is_error PASSED [ 14%]
+tests/test_plugins_browser_telegram.py::test_browser_open_is_real_and_ask PASSED [ 17%]
+tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://127.0.0.1:8801/api/health] PASSED [ 21%]
+tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://localhost/] PASSED [ 25%]
+tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://169.254.169.254/latest/meta-data] PASSED [ 28%]
+tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://10.0.0.5/] PASSED [ 32%]
+tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[file:///C:/Windows/win.ini] PASSED [ 35%]
+tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[javascript:alert(1)] PASSED [ 39%]
+tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://user:pw@example.com/] PASSED [ 42%]
+tests/test_plugins_browser_telegram.py::test_browser_open_needs_a_task PASSED [ 46%]
+tests/test_plugins_browser_telegram.py::test_browser_open_uses_existing_browser_tool PASSED [ 50%]
+tests/test_plugins_browser_telegram.py::test_browser_open_live_example_com PASSED [ 53%]
+tests/test_plugins_stub_not_success.py::test_generic_set_is_what_we_think PASSED [ 57%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:mcp.tool_call] PASSED [ 60%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:github.issue_create] PASSED [ 64%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:gmail.search] PASSED [ 67%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:gmail.send] PASSED [ 71%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:calendar.search] PASSED [ 75%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:calendar.create] PASSED [ 78%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:drive.search] PASSED [ 82%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:drive.write] PASSED [ 85%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:telegram.send] PASSED [ 89%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:n8n.workflow_list] PASSED [ 92%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:n8n.workflow_run] PASSED [ 96%]
+tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:browser.form_submit] PASSED [100%]
+
+=================================== PASSES ====================================
+=========================== short test summary info ===========================
+PASSED tests/test_plugins_browser_telegram.py::test_telegram_status_has_real_handler
+PASSED tests/test_plugins_browser_telegram.py::test_telegram_status_reads_local_config_without_token_or_network
+PASSED tests/test_plugins_browser_telegram.py::test_telegram_status_unconfigured
+PASSED tests/test_plugins_browser_telegram.py::test_telegram_status_bad_config_is_error
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_is_real_and_ask
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://127.0.0.1:8801/api/health]
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://localhost/]
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://169.254.169.254/latest/meta-data]
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://10.0.0.5/]
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[file:///C:/Windows/win.ini]
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[javascript:alert(1)]
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_refuses_unsafe_targets[http://user:pw@example.com/]
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_needs_a_task
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_uses_existing_browser_tool
+PASSED tests/test_plugins_browser_telegram.py::test_browser_open_live_example_com
+PASSED tests/test_plugins_stub_not_success.py::test_generic_set_is_what_we_think
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:mcp.tool_call]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:github.issue_create]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:gmail.search]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:gmail.send]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:calendar.search]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:calendar.create]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:drive.search]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:drive.write]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:telegram.send]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:n8n.workflow_list]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:n8n.workflow_run]
+PASSED tests/test_plugins_stub_not_success.py::test_unperformed_action_is_an_error[plugin:browser.form_submit]
+============================= 28 passed in 2.98s ==============================
+[exit 0 in 4.2s]
+
+VERDICT: PASS

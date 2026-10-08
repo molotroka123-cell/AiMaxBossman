@@ -1,0 +1,5 @@
+# oss-15 URL fix re-check at 2026-10-07T19:07:21Z sha 71fd290557f188328ae903bc5e24166f396ac389
+old: https://github.com/VoltAgent/awesome-agent-skills.  (audit: HTTP 404, stray trailing dot = capture bug)
+GET https://github.com/VoltAgent/awesome-agent-skills -> HTTP 200 final=https://github.com/VoltAgent/awesome-agent-skills
+GET https://api.github.com/repos/VoltAgent/awesome-agent-skills -> HTTP 200 final=https://api.github.com/repos/VoltAgent/awesome-agent-skills
+licence (GitHub API): MIT

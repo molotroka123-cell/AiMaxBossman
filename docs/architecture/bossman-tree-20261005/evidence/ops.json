@@ -108,24 +108,6 @@
   "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
-  "node_id": "mod-autonomy",
-  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
-  "probe": "import+pytest",
-  "command": "python -c \"importlib.import_module('bcc.features.autonomy')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_autonomy_api.py tests/test_autonomy_bounded_loop.py tests/test_autonomy_cli.py tests/test_autonomy_constitution.py tests/test_autonomy_cycle.py tests/test_autonomy_goals.py tests/test_autonomy_hands.py tests/test_autonomy_hands_default.py)",
-  "exit_code": 1,
-  "started_at": "2026-10-06T21:42:35+00:00",
-  "finished_at": "2026-10-06T21:42:55+00:00",
-  "output_sha256": "88563acbe00297ba9c790f18e680070a27ce7f4d25a2682d6927841b185ca5d0",
-  "output_tail": "ids.append(pid)\r\n            procs.append(psutil.Process(pid))               # keeps the create time: a reused pid is not \"still running\"\r\n    \r\n        runner = TreeRunner(stop_check=stopmod.checker(root), poll_s=0.1, on_pid=on_pid)\r\n        loop = asyncio.get_running_loop()\r\n        loop.call_later(0.8, lambda: stopmod.request_stop(root, by=\"t\", reason=\"kill it\"))\r\n        started = time.monotonic()\r\n        res = await runner.run([sys.executable, \"-c\", \"import time; time.sleep(120)\"], cwd=tmp_path, stdin=b\"\",\r\n                               timeout=120.0, env=None)\r\n        assert time.monotonic() - started < 60 and runner.stopped.startswith(\"owner STOP\")\r\n>       assert res.timed_out is False and pids and not procs[0].is_running()\r\nE       AssertionError: assert (False is False and [28076] and not True)\r\nE        +  where False = ProcResult(returncode=1, stdout=b'', stderr=b'', timed_out=False).timed_out\r\nE        +  and   True = is_running()\r\nE        +    where is_running = psutil.Process(pid=28076, name='python.exe', status='terminated', started='14:42:53').is_running\r\n\r\ntests\\test_autonomy_bounded_loop.py:162: AssertionError\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_autonomy_bounded_loop.py::test_tree_runner_kills_the_whole_worker_tree_when_stop_appears\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n1 failed, 16 passed in 16.65s\r\n\n[exit 1 in 18.9s]\n\nVERDICT: FAIL tests_failed\n",
-  "verdict": "FAIL",
-  "kind": "pytest",
-  "reason": "tests_failed",
-  "module": "bcc.features.autonomy",
-  "test_files_run": 8,
-  "test_candidates": 26,
-  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
- },
- {
   "node_id": "mod-benchlab",
   "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
   "probe": "import+pytest",
@@ -483,24 +465,6 @@
   "module": "bcc.features.opencode",
   "test_files_run": 2,
   "test_candidates": 2,
-  "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
- },
- {
-  "node_id": "mod-osiris",
-  "sha": "a6296e2f8693fcfee213a20ece59ad0bac725956",
-  "probe": "import+pytest",
-  "command": "python -c \"importlib.import_module('bcc.features.osiris')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_osiris.py tests/test_searxng_setup.py tests/test_web_access_20260930.py tests/test_web_research_flag.py tests/test_web_research_net.py tests/test_web_research_refs.py tests/test_web_research_safety.py)",
-  "exit_code": 1,
-  "started_at": "2026-10-06T21:44:13+00:00",
-  "finished_at": "2026-10-06T21:45:00+00:00",
-  "output_sha256": "9a7e0eda9299f285416d8212f32696d378d52d3790ca860750e6add78ecb43f6",
-  "output_tail": "       несчастья: чужая библиотека распаковывает кусок ЦЕЛИКОМ до всякого потолка,\r\n        а `psec.safe_get` копирует `Content-Encoding` в ответ, положив туда уже\r\n        распакованное тело, — то есть любое последующее рассуждение о теле\r\n        опирается на заведомо неверный заголовок.\r\n    \r\n        Проверяется, что тело не идёт в дело: отказ типизирован кодом\r\n        `content_encoding`, а не растворён в общем «источник недоступен».\r\n        \"\"\"\r\n        # Байты действительно сжаты: объявить `gzip` и прислать открытый текст\r\n        # значило бы проверять обработку битого ответа, а вред здесь другой —\r\n        # ответ ПРАВИЛЬНО сжат, чужая библиотека распакует его молча и целиком.\r\n        mock = MockNet(lambda request: httpx.Response(\r\n            200, headers={\"content-type\": \"text/html; charset=utf-8\",\r\n                          \"content-encoding\": \"gzip\"},\r\n            content=gzip.compress(PAGE_HTML.encode(\"utf-8\"))))\r\n        mock.install(monkeypatch)\r\n    \r\n>       with pytest.raises(net.PageRefused) as caught:\r\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE       Failed: DID NOT RAISE PageRefused\r\n\r\ntests\\test_web_research_net.py:375: Failed\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_web_research_net.py::test_szhatyy_otvet_otvergaetsya_transportom\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n1 failed, 106 passed in 43.29s\r\n\n[exit 1 in 45.2s]\n\nVERDICT: FAIL tests_failed\n",
-  "verdict": "FAIL",
-  "kind": "pytest",
-  "reason": "tests_failed",
-  "module": "bcc.features.osiris",
-  "test_files_run": 7,
-  "test_candidates": 7,
   "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
  },
  {
@@ -4228,5 +4192,39 @@
   "test_files_run": 1,
   "test_candidates": 1,
   "restamped_from": "3c6f39dc (orphan; product code tree-identical to HEAD, verified by git diff)"
+ },
+ {
+  "node_id": "mod-autonomy",
+  "sha": "526e2e5513fa442ba7fdbcbc8e0699a32118b089",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.autonomy')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_autonomy_api.py tests/test_autonomy_bounded_loop.py tests/test_autonomy_cli.py tests/test_autonomy_constitution.py tests/test_autonomy_cycle.py tests/test_autonomy_goals.py tests/test_autonomy_hands.py tests/test_autonomy_hands_default.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-07T18:16:08+00:00",
+  "finished_at": "2026-10-07T18:17:55+00:00",
+  "output_sha256": "298a16e9fa9f754fdf38e2bc0ff23aedea226278e227da7b4bc097794349c70f",
+  "output_tail": "node_id: mod-autonomy\nmodule: bcc.features.autonomy\npath: command-center/bcc/features/autonomy.py\nsha: 526e2e5513fa442ba7fdbcbc8e0699a32118b089\ntest_files: ['command-center/tests/test_autonomy_api.py', 'command-center/tests/test_autonomy_bounded_loop.py', 'command-center/tests/test_autonomy_cli.py', 'command-center/tests/test_autonomy_constitution.py', 'command-center/tests/test_autonomy_cycle.py', 'command-center/tests/test_autonomy_goals.py', 'command-center/tests/test_autonomy_hands.py', 'command-center/tests/test_autonomy_hands_default.py'] (candidates=26)\n\n$ python -c \"importlib.import_module('bcc.features.autonomy')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.autonomy C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/autonomy.py\r\n\n[exit 0 in 0.4s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_autonomy_api.py tests/test_autonomy_bounded_loop.py tests/test_autonomy_cli.py tests/test_autonomy_constitution.py tests/test_autonomy_cycle.py tests/test_autonomy_goals.py tests/test_autonomy_hands.py tests/test_autonomy_hands_default.py)\n........................................................................ [ 45%]\r\n........................................................................ [ 90%]\r\n................                                                         [100%]\r\n160 passed in 97.63s (0:01:37)\r\n\n[exit 0 in 98.8s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "module": "bcc.features.autonomy",
+  "test_files_run": 8,
+  "test_candidates": 26
+ },
+ {
+  "node_id": "mod-osiris",
+  "sha": "526e2e5513fa442ba7fdbcbc8e0699a32118b089",
+  "probe": "import+pytest",
+  "command": "python -c \"importlib.import_module('bcc.features.osiris')\" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_osiris.py tests/test_searxng_setup.py tests/test_web_access_20260930.py tests/test_web_research_flag.py tests/test_web_research_net.py tests/test_web_research_refs.py tests/test_web_research_safety.py)",
+  "exit_code": 0,
+  "started_at": "2026-10-07T18:17:55+00:00",
+  "finished_at": "2026-10-07T18:18:40+00:00",
+  "output_sha256": "3c2a0112948acb5db3180b3bdb0837046f4ad0e1e0b1785a53e2c19658d8db17",
+  "output_tail": "node_id: mod-osiris\nmodule: bcc.features.osiris\npath: command-center/bcc/features/osiris.py\nsha: 526e2e5513fa442ba7fdbcbc8e0699a32118b089\ntest_files: ['command-center/tests/test_osiris.py', 'command-center/tests/test_searxng_setup.py', 'command-center/tests/test_web_access_20260930.py', 'command-center/tests/test_web_research_flag.py', 'command-center/tests/test_web_research_net.py', 'command-center/tests/test_web_research_refs.py', 'command-center/tests/test_web_research_safety.py'] (candidates=7)\n\n$ python -c \"importlib.import_module('bcc.features.osiris')\" [PYTHONPATH=command-center;bossman-core;.]\nIMPORTED bcc.features.osiris C:/Users/asd/Bossman/wt-green-0610/command-center/bcc/features/osiris.py\r\n\n[exit 0 in 0.6s]\n\n$ (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_osiris.py tests/test_searxng_setup.py tests/test_web_access_20260930.py tests/test_web_research_flag.py tests/test_web_research_net.py tests/test_web_research_refs.py tests/test_web_research_safety.py)\n........................................................................ [ 45%]\r\n........................................................................ [ 91%]\r\n..............                                                           [100%]\r\n158 passed in 43.29s\r\n\n[exit 0 in 44.5s]\n\nVERDICT: PASS \n",
+  "verdict": "PASS",
+  "kind": "pytest",
+  "reason": "",
+  "module": "bcc.features.osiris",
+  "test_files_run": 7,
+  "test_candidates": 7
  }
 ]

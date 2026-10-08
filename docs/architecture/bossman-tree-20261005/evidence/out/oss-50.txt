@@ -1,0 +1,19 @@
+# stage3 oss integration receipt output
+node: oss-50
+project: mltframework/shotcut
+sha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13
+build_site_packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+integration_code: command-center/bcc/video_studio/shotcut.py
+command: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-50   # = cd command-center && pytest -q -rs tests/test_video_studio_shotcut.py + sys.modules check
+exit_code: 0
+
+..ss                                                                     [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_video_studio_shotcut.py:57: install Shotcut portable and configure BOSSMAN_VIDEO_MELT
+SKIPPED [1] tests\test_video_studio_shotcut.py:74: Shotcut/MLT executable required
+2 passed, 2 skipped in 0.51s
+
+@@ INTEGRATION CHECK (sys.modules after the test session) @@
+  bcc.video_studio.shotcut: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\video_studio\shotcut.py
+
+@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@

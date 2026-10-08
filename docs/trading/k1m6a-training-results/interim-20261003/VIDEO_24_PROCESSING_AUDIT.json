@@ -1,0 +1,107 @@
+{
+  "schema": "bossman.k1m6a-video-audit/1",
+  "video_id": "zz2La2BT1-A",
+  "order": 24,
+  "title": "July 31st! Ending The Month Just Right!",
+  "display_date": "2025-07-31",
+  "url": "https://www.youtube.com/watch?v=zz2La2BT1-A",
+  "status": "LOCAL_PROCESSING_COMPLETE_UNVERIFIED",
+  "source": {
+    "video_file": "video.webm",
+    "video_sha256": "c2abe5976ef97eb3b18f754940af5187be0d74d1037f4af315da294632152a0e",
+    "subtitle_file": "subs.zz2La2BT1-A.en.en-orig.vtt",
+    "subtitle_sha256": "7dcf4de8af8d828addde190960d827c41fedf351526f9702f24dfdcd258d1583",
+    "duration_s": 1185.6,
+    "resolution": "1280x720",
+    "source_overwrite": false
+  },
+  "local_processing": {
+    "asr": {
+      "package": "faster-whisper",
+      "package_version": "1.2.1",
+      "model": "Systran/faster-whisper-small",
+      "model_revision": "536b0662742c02347bc0e980a01041f333bce120",
+      "device": "CPU",
+      "compute_type": "int8",
+      "threads": 4,
+      "segments": 265,
+      "runtime_s": 58.0,
+      "cloud_used": false,
+      "weights_downloaded": false
+    },
+    "lesson_extractor": {
+      "model": "bossman-community-qwen-uncensored:latest",
+      "source": [
+        "original_subtitles",
+        "local_asr"
+      ],
+      "window_s": 120,
+      "windows": 10,
+      "accepted_unverified": 12,
+      "rejected": 18,
+      "runtime_s": 151.21,
+      "claims_promoted": 0
+    },
+    "frame_selection": {
+      "algorithm": "semantic transcript/scene anchors; nonuniform",
+      "selected": 21,
+      "scene_changes": null,
+      "selection_runtime_s": 22.7
+    },
+    "vision": {
+      "model": "bossman-fast-qwen36-vision:latest",
+      "attempted": 21,
+      "success": 21,
+      "errors": 0,
+      "success_runtime_s": 616.16,
+      "cloud_used": false
+    },
+    "initial_import_attempt": {
+      "video_id": "zz2La2BT1-A",
+      "time_utc": "2026-10-03T21:05:54.780336+00:00",
+      "step": "initial_auto_ingest_frame_extraction",
+      "status": "FAILED_RECOVERED_LOCALLY",
+      "reason": "ffmpeg fps=1/3600 produced no frame for this 19m46s video; source download and original captions succeeded.",
+      "recovery": "remuxed original video locally, extracted audio, ran cached local ASR and semantic-frame selection.",
+      "source_overwritten": false,
+      "cloud_used": false,
+      "weights_downloaded": false
+    }
+  },
+  "manual_visual_review": {
+    "schema": "bossman.k1m6a-manual-visual-review/1",
+    "video_id": "zz2La2BT1-A",
+    "reviewed_utc": "2026-10-03T21:20:23.891193+00:00",
+    "method": "All 21 semantic frames reviewed via contact sheet; first selected frame checked full resolution.",
+    "findings": [
+      {
+        "frame": "smart_001_00115.jpg",
+        "time_s": 115.72,
+        "manual_observation": "Screenshot includes a YouTube replay interface layered over the trading stream, duplicated overlay text, channel promotions, chat and a chart. Visual content is compressed and nested in UI.",
+        "limitation": "Do not use tiny chart labels, values, or screenshot overlay captions as ground truth; no independently verified trading rule identified from this frame."
+      },
+      {
+        "frames": "smart_001..021",
+        "manual_observation": "Many screenshots repeat the same chart layout/period; several frames include handwritten drawing overlays and promotional/player UI. Later frames show a different panel view.",
+        "limitation": "Frames are not independent examples. Vision output remains raw until checked against video context."
+      }
+    ],
+    "claims_promoted": 0
+  },
+  "usefulness_evidence": {
+    "timestamped_asr_segments": 265,
+    "source_labeled_transcript_modes": true,
+    "manual_visual_verification": "Identified nested YouTube/player UI and repeated chart views; limits risk of attributing on-screen promo/player text to strategy.",
+    "limits": "No closed-book recall, market outcome validation or backtest run; useful as searchable/traversable source material only. Accepted candidates remain unverified."
+  },
+  "delivery": {
+    "telegram_pult": "NOT_SENT_IN_THIS_UPDATE",
+    "github": "PENDING_INTERIM_UPDATE"
+  },
+  "next": "Continue queue through #30; finish #22 audit and process #25–#30.",
+  "image_validation": {
+    "checked": 21,
+    "readable": 21,
+    "errors": []
+  }
+}

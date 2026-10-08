@@ -1,0 +1,15 @@
+node_id: skills-runtime
+installed_build: BOSSMAN-Windows-x64-84f721c6fe48 (source_sha 84f721c6fe48172498681a5880562dcfc6b94e17)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-84f721c6fe48\runtime\Lib\site-packages
+original receipt: skills.json sha=28a4bf72cb67c9e7a51503d761bae73542fd5f8a command=C:\Users\asd\AppData\Local\Programs\Python\Python312\python.exe -m pytest -q -x -p no:cacheprovider command-center/tests/test_skill_catalog.py command-center/tests/test_skill_catalog_crlf.py command-center/tests/test_skill_discovery_memoized.py command-center/tests/test_feat_skills.py
+
+
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard command-center/tests/test_skill_catalog.py command-center/tests/test_skill_catalog_crlf.py command-center/tests/test_skill_discovery_memoized.py command-center/tests/test_feat_skills.py)
+[step shared by 1 leaf(s); exit 0 in 13.0s; reason=None]
+...........................................                              [100%]
+43 passed in 10.84s
+
+[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0
+
+
+VERDICT PASS

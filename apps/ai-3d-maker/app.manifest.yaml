@@ -77,11 +77,14 @@ ui:
   theme: violet
   order: 2
   health_path: /health
-  metrics_path: /api/metrics
+  # Тот же путь, что control_contract.http.metrics и маршрут в api.py. Было
+  # /api/metrics (404): лаунчер молча терял метрики, «Очередь» всегда «пусто».
+  metrics_path: /metrics
   facts:
     - { label: Принтер, value: "ELEGOO Neptune 3 Plus" }
     - { label: "Область печати", value: "320 × 320 × 400 мм" }
-    - { label: Очередь, from: "metrics.queue_depth", fallback: "пусто" }
+    # Ключ из JobStore.metrics(); нет заданий в queued — ключа нет — «пусто».
+    - { label: Очередь, from: "metrics.jobs.jobs_by_status.queued", fallback: "пусто" }
   actions:
     - { id: open, label: "Открыть", primary: true }
     - { id: new-model, label: "Новая модель" }

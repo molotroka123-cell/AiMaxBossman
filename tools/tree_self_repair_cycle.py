@@ -6,7 +6,7 @@
 Stages, each reported on its own and never upgraded by a later one:
   DEFECT_REPRODUCED              the hidden holdout FAILS on the task's base commit
   MODEL_PATCH_CREATED            the free worker (not Claude) changed the target file in the isolated copy
-  INDEPENDENT_VERIFICATION_PASS  Bossman's own zone check passed AND the hidden holdout PASSES on base+patch
+  INDEPENDENT_VERIFICATION_PASS  Bossman's own zone check passed AND the hidden holdout PASSES on base+patch AND scope held
   EXPERIENCE_AUTO_SAVED          a VERIFIED coding recipe was written from the task's own artifacts (no hand-written text)
   RECIPE_RECALLED                (transfer) the new task's context carried a saved recipe id
   TRANSFER_PASS                  (transfer) recipe recalled AND independent verification passed on the NEW defect
@@ -33,7 +33,7 @@ from tree_self_improve import NODE_ID, refuse_worker  # noqa: E402
 
 # Owner 06.10: GLM 5.3 Flash via OpenRouter is approved (z-ai/glm-5.3-flash, $0.15/$0.50 per 1M tokens, verified on
 # openrouter.ai/api/v1/models 06.10). Only an explicit --allow-paid-worker naming it lifts the $0 rule, for that worker.
-OWNER_APPROVED_PAID = {"glm-flash": "z-ai/glm-5.3-flash"}
+OWNER_APPROVED_PAID = {"glm-flash": "z-ai/glm-5.3-flash", "haiku-5.5": "anthropic/claude-haiku-5.5"}  # Haiku: owner 07.10
 PROJECT = "capability-tree"            # the project id tree zone tasks run under; recipes are recalled per project
 CASES: dict[str, dict[str, Any]] = {
     "discovery": {
@@ -59,6 +59,25 @@ CASES: dict[str, dict[str, Any]] = {
                  "отчёта о стоимости 5.0 и не была заблокирована. Найди дефект и исправь так, чтобы потолок бюджета "
                  "всегда срабатывал. Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только "
                  "command-center/bcc/autonomy/goals.py и добавь тест-функции в command-center/tests/test_autonomy_goals.py."),
+    },
+    "atomic-json": {
+        # audit 07.10: found on the owner PC; mode task needs source_repo = a checkout inside the owner's allowed roots
+        "mode": "task", "target": "bossman-core/bossman_v3/self_improvement/runner.py",
+        "holdout": "tools/tree_holdout/atomic_json_replace.py",
+        "verify_tests": ["bossman-core/tests/test_v3_self_improvement.py"],
+        "allowed": ["bossman-core/bossman_v3/self_improvement/runner.py", "bossman-core/tests/test_v3_self_improvement.py"],
+        "search": "os.replace",
+        "cause": ("Запись состояния через os.replace падала на Windows, пока другой дескриптор держал файл-назначение "
+                  "(читатель или параллельная запись): гонка считалась ошибкой, а не ожидаемым состоянием"),
+        "keywords": ["atomic", "os.replace", "permissionerror", "windows", "race", "retry", "json", "tmp", "lock"],
+        # a symptom, not a patch: the fix has to come from the worker
+        "wish": ("Аудит на Windows: bossman_v3/self_improvement/runner.py, функция atomic_json. При работающей кампании запись "
+                 "state/evidence иногда падает с PermissionError на os.replace, хотя файл просто читает другой процесс или "
+                 "пишет параллельный поток. Найди причину и исправь так, чтобы атомарная запись переживала такую гонку, "
+                 "не оставляла временных файлов и не меняла прежнее поведение (редактирование секретов, allow_nan=False). "
+                 "Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только "
+                 "bossman-core/bossman_v3/self_improvement/runner.py и добавь тест-функции в "
+                 "bossman-core/tests/test_v3_self_improvement.py."),
     },
 }
 
@@ -124,8 +143,8 @@ def build_recipe(rec: dict, case: dict, check: dict) -> tuple[dict, dict, dict]:
         "id": f"tree-selfrepair-{rec['id']}",
         "title": f"Bossman self-repair: {case['target']}",
         "symptom": case["wish"][:1200],
-        "cause": ("Некорректное число (NaN/±inf/None/отрицательное) проходило проверку как допустимое: сравнения с NaN "
-                  f"ложны. До исправления holdout {before.get('total', 0) - before.get('failed', 0)}/{before.get('total')}; "
+        "cause": (f"{case.get('cause') or 'Некорректное число (NaN/±inf/None/отрицательное) проходило проверку как допустимое: сравнения с NaN ложны'}. "
+                  f"До исправления holdout {before.get('total', 0) - before.get('failed', 0)}/{before.get('total')}; "
                   f"падали: {', '.join(fails[:12])}"),
         "diagnosis": f"Скрытый holdout {Path(case['holdout']).name} на базе {check['base_commit'][:12]} воспроизводит дефект "
                      "по результату, а не по наличию проверки.",
@@ -134,10 +153,11 @@ def build_recipe(rec: dict, case: dict, check: dict) -> tuple[dict, dict, dict]:
         "counterexample": "Не трогать корректные значения: " + ", ".join(valid or ["valid cases of the holdout"]),
         "required_check": {"tool": "run_tests", "args": {"paths": paths}},
         "applies_when": {"project_id": PROJECT, "language": "python",
-                         "keywords": ["nan", "inf", "non-finite", "float", "budget", "score", "max", "comparison",
-                                      "isfinite", "cost", "threshold"]},
+                         "keywords": case.get("keywords") or [
+                             "nan", "inf", "non-finite", "float", "budget", "score", "max", "comparison",
+                             "isfinite", "cost", "threshold"]},
         "steps": [{"tool": "read_file", "args": {"path": case["target"]}},
-                  {"tool": "search", "args": {"pattern": "float(", "path": case["target"]}},
+                  {"tool": "search", "args": {"pattern": case.get("search", "float("), "path": case["target"]}},
                   {"tool": "run_tests", "args": {"paths": paths}}],
         "provenance": {"who": f"bossman-worker:{worker}", "source": "student", "assistance_level": "hint",
                        "what": "verified self-repair recipe", "code_refs": [case["target"]],
@@ -160,10 +180,14 @@ def stages(rec: dict, check: dict, case: dict, saved: dict | None, transfer: boo
         "MODEL_PATCH_CREATED": rec.get("status") == "completed" and case["target"] in changed,
         "BOSSMAN_ZONE_CHECK_PASS": bool(ver.get("ran") and ver.get("passed")),
         "HOLDOUT_PASS_ON_PATCH": after.get("passed") is True,
-        "SCOPE_RESPECTED": all(p == case["target"] or p.startswith("command-center/tests/test_") for p in changed),
+        "SCOPE_RESPECTED": all((p in case["allowed"]) if case.get("allowed") else
+                               (p == case["target"] or p.startswith("command-center/tests/test_")) for p in changed),
     }
+    # Scope is part of the pass (audit 08.10): a patch that also edits files outside the case's zone used to
+    # count as independently verified and was saved as a VERIFIED recipe, teaching the next cycle to do the same.
     out["INDEPENDENT_VERIFICATION_PASS"] = bool(out["DEFECT_REPRODUCED"] and out["MODEL_PATCH_CREATED"]
-                                                and out["BOSSMAN_ZONE_CHECK_PASS"] and out["HOLDOUT_PASS_ON_PATCH"])
+                                                and out["BOSSMAN_ZONE_CHECK_PASS"] and out["HOLDOUT_PASS_ON_PATCH"]
+                                                and out["SCOPE_RESPECTED"])
     out["EXPERIENCE_AUTO_SAVED"] = bool(saved and saved.get("lesson_id"))
     if transfer:
         ids = list(((rec.get("memory") or {}).get("recipe_ids")) or [])
@@ -171,6 +195,11 @@ def stages(rec: dict, check: dict, case: dict, saved: dict | None, transfer: boo
         out["recalled_recipe_ids"] = ids
         out["TRANSFER_PASS"] = bool(out["RECIPE_RECALLED"] and out["INDEPENDENT_VERIFICATION_PASS"])
     return out
+
+
+def wire_worker(name: str):
+    """The API takes worker=None for Bossman's local sidecar model; 'local' is only the tool's name for it."""
+    return None if name == "local" else name
 
 
 # Narrowed retry (owner 07.10, option 1): the base already carries the worker's OWN cycle-14 partial patch (NaN/inf done,
@@ -213,7 +242,7 @@ def main(argv: list[str] | None = None) -> int:
             task_id = args.task
             if not task_id:
                 if case["mode"] == "tree":
-                    body = {"node_id": case["node"], "instruction": case["wish"], "worker": args.worker}
+                    body = {"node_id": case["node"], "instruction": case["wish"], "worker": wire_worker(args.worker)}
                     if args.source_repo:
                         body["source_repo"] = args.source_repo
                     task_id = client.post("/api/capability-tree/work", body)["job"]["task_id"]
@@ -221,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
                     task_id = client.post("/api/coding-tasks", {
                         "instruction": case["wish"], "source_repo": args.source_repo, "allowed_paths": case["allowed"],
                         "verify_tests": case["verify_tests"], "project_id": PROJECT, "timeout_seconds": 1800,
-                        "worker": args.worker})["id"]
+                        "worker": wire_worker(args.worker)})["id"]
                 print(f"task {task_id} started ({args.case}, worker {args.worker})", flush=True)
             deadline = time.monotonic() + args.timeout
             rec = client.get(f"/api/coding-tasks/{task_id}")

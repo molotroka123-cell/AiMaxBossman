@@ -1,0 +1,262 @@
+{
+ "id": "b3a251063618",
+ "status": "completed",
+ "instruction": "Зона дерева развития Bossman: «pit/discovery.py» (module-a7105ffd5da5).\nОписание зоны: Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ eba6dc59: hidden discovery_nonfinite holdout 72/72 against the INSTALLED build code (module loaded from the installed site-packages); same code was repaired by a Bossman worker (cycle 23)\nСледующий шаг по карте: Проверить маршрутизацию и живой сценарий на итоговом SHA.\n\nЗадача: изучи файлы зоны, найди ОДИН реальный ограниченный дефект или недоработку, воспроизведи его тестом, исправь минимально и запусти проверку. Правь только разрешённые файлы. Если дефекта нет — так и напиши и ничего не меняй. Наличие кода не равно проверенной работе.\n\nПожелание владельца: В bcc/pit/discovery.py выбор вопроса (choose_discovery_question / score) ломается на некорректных числах. Прошлая попытка (задача 904e7a3c02be) закрыла только NaN в relevance, uncertainty и future_utility; остались annoyance_cost и sensitivity_risk, а также +inf/-inf и None в любом числовом поле. Контракт: кандидат, у которого любое числовое поле не является конечным числом, НИКОГДА не выбирается и не роняет выбор; неизвестный риск нельзя превращать в безопасный ноль; результат не зависит от порядка кандидатов; корректные кандидаты выбираются как раньше. Сначала напиши тест, который падает на старом коде. ОБЪЁМ (жёстко): меняй ТОЛЬКО command-center/bcc/pit/discovery.py и добавь тест-функции в уже существующий command-center/tests/test_pit_foundation.py; новых файлов не создавай.",
+ "boot_id": "7b8837bbdd65d03d",
+ "agent_id": null,
+ "agent": null,
+ "project_id": "capability-tree",
+ "memory": {
+  "requested": true,
+  "recalled": true,
+  "sources": [
+   "coach-lesson:04753c6321f81d61",
+   "coach-lesson:5923d65d96287aa1",
+   "coach-lesson:be4df8158e2e551f",
+   "BOSSMAN Memory/2026-09-24-2027-K1m6a-YouTube-step-03-ingest-probe-outcome-2026-09-24.md",
+   "BOSSMAN Memory/2026-10-02-1424-demo-params.md",
+   "coach-lesson:36a3f06100842da3",
+   "BOSSMAN Memory/2026-09-21-1958-GLM53-MATRIX-B2-125746.md",
+   "BOSSMAN Memory/2026-09-21-1958-GLM53-MATRIX-B3-125826.md",
+   "BOSSMAN Memory/2026-09-21-1956-GLM53-MATRIX-B1-1256.md"
+  ],
+  "recipe_ids": [
+   "tree-selfrepair-4af43d85d619",
+   "tree-selfrepair-d7f61c18f309",
+   "tree-selfrepair-48306dce403a"
+  ],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/test-driven-development",
+   "superpowers/verification-before-completion",
+   "superpowers/systematic-debugging"
+  ],
+  "error": ""
+ },
+ "verify_tests": [
+  "command-center/tests/test_discovery.py",
+  "command-center/tests/test_pit_foundation.py"
+ ],
+ "source_repo": "C:\\Users\\asd\\Bossman\\evo-tree-src",
+ "allowed_paths": [
+  "command-center/bcc/pit/discovery.py",
+  "command-center/tests"
+ ],
+ "protected_paths": [],
+ "model": "anthropic/claude-haiku-5.5",
+ "worker": "haiku-5.5",
+ "created_at": 1791408733.2255425,
+ "finished_at": 1791408813.3581371,
+ "changed_files": [
+  "command-center/bcc/pit/discovery.py",
+  "command-center/tests/test_pit_foundation.py"
+ ],
+ "diff": "diff --git a/command-center/bcc/pit/discovery.py b/command-center/bcc/pit/discovery.py\nindex c1b0c38..f6fc730 100644\n--- a/command-center/bcc/pit/discovery.py\n+++ b/command-center/bcc/pit/discovery.py\n@@ -1,5 +1,6 @@\n from __future__ import annotations\n \n+import math\n from dataclasses import dataclass\n from enum import StrEnum\n \n@@ -24,7 +25,29 @@ class DiscoveryCandidate:\n     previously_skipped: bool = False\n \n \n+_NUMERIC_FIELDS = (\n+    \"relevance\",\n+    \"uncertainty\",\n+    \"future_utility\",\n+    \"annoyance_cost\",\n+    \"sensitivity_risk\",\n+)\n+\n+\n+def _is_finite_number(value: object) -> bool:\n+    if isinstance(value, bool) or not isinstance(value, (int, float)):\n+        return False\n+    try:\n+        return math.isfinite(float(value))\n+    except OverflowError:\n+        return False\n+\n+\n def score(candidate: DiscoveryCandidate) -> float:\n+    # Any non-finite or non-numeric field is unknown risk: never a safe zero,\n+    # never selectable, and independent of candidate ordering.\n+    if not all(_is_finite_number(getattr(candidate, f)) for f in _NUMERIC_FIELDS):\n+        return float(\"-inf\")\n     if candidate.previously_skipped or candidate.sensitivity_risk >= 0.5:\n         return float(\"-inf\")\n     return (\n@@ -60,4 +83,7 @@ def choose_discovery_question(\n         threshold -= min(int(risk_score), 5) * 0.02\n     threshold += discovery_threshold_adjustment(engagement_score)\n     best = max(candidates, key=score)\n-    return best if score(best) >= threshold else None\n+    best_score = score(best)\n+    if best_score == float(\"-inf\"):\n+        return None\n+    return best if best_score >= threshold else None\ndiff --git a/command-center/tests/test_pit_foundation.py b/command-center/tests/test_pit_foundation.py\nindex bc62771..e7d489e 100644\n--- a/command-center/tests/test_pit_foundation.py\n+++ b/command-center/tests/test_pit_foundation.py\n@@ -262,6 +262,20 @@ def test_local_model_wins_after_ai_max_transition_when_quality_is_sufficient():\n     assert choose_route(request, [local, remote]).selected_model == \"local-main\"\n \n \n+@pytest.mark.parametrize(\"field\", [\"relevance\", \"uncertainty\", \"future_utility\", \"annoyance_cost\", \"sensitivity_risk\"])\n+@pytest.mark.parametrize(\"bad\", [float(\"nan\"), float(\"inf\"), float(\"-inf\"), None])\n+def test_discovery_never_selects_candidate_with_non_finite_numbers(field, bad):\n+    values = {\"relevance\": 0.9, \"uncertainty\": 0.9, \"future_utility\": 0.8, \"annoyance_cost\": 0.1, \"sensitivity_risk\": 0.0}\n+    values[field] = bad\n+    broken = DiscoveryCandidate(\"broken\", \"Broken?\", **values)\n+    good = DiscoveryCandidate(\"good\", \"Good?\", 0.9, 0.9, 0.8, annoyance_cost=0.1)\n+    for ordering in ([broken, good], [good, broken]):\n+        selected = choose_discovery_question(ordering, enabled=True)\n+        assert selected is not None\n+        assert selected.key == \"good\"\n+    assert choose_discovery_question([broken], enabled=True) is None\n+\n+\n def test_discovery_returns_at_most_one_and_suppresses_sensitive_probe():\n     selected = choose_discovery_question(\n         [\n",
+ "error": "",
+ "evidence": {
+  "modified_files": [
+   "command-center/bcc/pit/discovery.py",
+   "command-center/tests/test_pit_foundation.py"
+  ],
+  "added_files": [],
+  "deleted_files": [],
+  "patches": {
+   "command-center/bcc/pit/discovery.py": "diff --git a/command-center/bcc/pit/discovery.py b/command-center/bcc/pit/discovery.py\nindex c1b0c382..f6fc730c 100644\n--- a/command-center/bcc/pit/discovery.py\n+++ b/command-center/bcc/pit/discovery.py\n@@ -1,5 +1,6 @@\n from __future__ import annotations\n \n+import math\n from dataclasses import dataclass\n from enum import StrEnum\n \n@@ -24,7 +25,29 @@ class DiscoveryCandidate:\n     previously_skipped: bool = False\n \n \n+_NUMERIC_FIELDS = (\n+    \"relevance\",\n+    \"uncertainty\",\n+    \"future_utility\",\n+    \"annoyance_cost\",\n+    \"sensitivity_risk\",\n+)\n+\n+\n+def _is_finite_number(value: object) -> bool:\n+    if isinstance(value, bool) or not isinstance(value, (int, float)):\n+        return False\n+    try:\n+        return math.isfinite(float(value))\n+    except OverflowError:\n+        return False\n+\n+\n def score(candidate: DiscoveryCandidate) -> float:\n+    # Any non-finite or non-numeric field is unknown risk: never a safe zero,\n+    # never selectable, and independent of candidate ordering.\n+    if not all(_is_finite_number(getattr(candidate, f)) for f in _NUMERIC_FIELDS):\n+        return float(\"-inf\")\n     if candidate.previously_skipped or candidate.sensitivity_risk >= 0.5:\n         return float(\"-inf\")\n     return (\n@@ -60,4 +83,7 @@ def choose_discovery_question(\n         threshold -= min(int(risk_score), 5) * 0.02\n     threshold += discovery_threshold_adjustment(engagement_score)\n     best = max(candidates, key=score)\n-    return best if score(best) >= threshold else None\n+    best_score = score(best)\n+    if best_score == float(\"-inf\"):\n+        return None\n+    return best if best_score >= threshold else None\n",
+   "command-center/tests/test_pit_foundation.py": "diff --git a/command-center/tests/test_pit_foundation.py b/command-center/tests/test_pit_foundation.py\nindex bc627719..e7d489e1 100644\n--- a/command-center/tests/test_pit_foundation.py\n+++ b/command-center/tests/test_pit_foundation.py\n@@ -262,6 +262,20 @@ def test_local_model_wins_after_ai_max_transition_when_quality_is_sufficient():\n     assert choose_route(request, [local, remote]).selected_model == \"local-main\"\n \n \n+@pytest.mark.parametrize(\"field\", [\"relevance\", \"uncertainty\", \"future_utility\", \"annoyance_cost\", \"sensitivity_risk\"])\n+@pytest.mark.parametrize(\"bad\", [float(\"nan\"), float(\"inf\"), float(\"-inf\"), None])\n+def test_discovery_never_selects_candidate_with_non_finite_numbers(field, bad):\n+    values = {\"relevance\": 0.9, \"uncertainty\": 0.9, \"future_utility\": 0.8, \"annoyance_cost\": 0.1, \"sensitivity_risk\": 0.0}\n+    values[field] = bad\n+    broken = DiscoveryCandidate(\"broken\", \"Broken?\", **values)\n+    good = DiscoveryCandidate(\"good\", \"Good?\", 0.9, 0.9, 0.8, annoyance_cost=0.1)\n+    for ordering in ([broken, good], [good, broken]):\n+        selected = choose_discovery_question(ordering, enabled=True)\n+        assert selected is not None\n+        assert selected.key == \"good\"\n+    assert choose_discovery_question([broken], enabled=True) is None\n+\n+\n def test_discovery_returns_at_most_one_and_suppresses_sensitive_probe():\n     selected = choose_discovery_question(\n         [\n"
+  },
+  "head_before": "916f7c5ee95f5ff0369b951fed5d7ddb65a7c458",
+  "head_after": "916f7c5ee95f5ff0369b951fed5d7ddb65a7c458",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "completed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "completed",
+  "summary": "Confirmed a real defect in command-center/bcc/pit/discovery.py. Before the fix, a candidate with None in any numeric field raised TypeError during scoring. NaN and ±inf in some fields could produce NaN scores, which made the chosen candidate depend on ordering. I added a regression test, test_discovery_never_selects_candidate_with_non_finite_numbers, to command-center/tests/test_pit_foundation.py. It is parametrized over the 5 numeric fields and NaN/±inf/None, and checks both orderings. The fix in discovery.py: non-finite or non-numeric fields score -inf (bools are rejected too), and choose_discovery_question returns None when the best score is -inf. Valid candidates are unchanged. The new test failed on the old code (about 20 failures) and passes now. Final run: test_discovery.py and test_pit_foundation.py, 86 passed. I did not verify the installed site-packages build or the hidden holdout, since I only edited the repo copy.",
+  "tests": {
+   "ran": true,
+   "runner": "pytest",
+   "paths": [
+    "command-center/tests/test_discovery.py",
+    "command-center/tests/test_pit_foundation.py"
+   ],
+   "exit_code": 0,
+   "passed": true,
+   "timed_out": false
+  },
+  "notes": "stop_reason=finished",
+  "steps": 8,
+  "stop_reason": "finished",
+  "tool_calls": [
+   {
+    "step": 1,
+    "tool": "read_file",
+    "ok": true,
+    "t": 1.5,
+    "sig": "a61d8ed9dba5",
+    "path": "command-center/bcc/pit/discovery.py"
+   },
+   {
+    "step": 1,
+    "tool": "read_file",
+    "ok": true,
+    "t": 1.5,
+    "sig": "533421d140ea",
+    "path": "command-center/tests/test_pit_foundation.py"
+   },
+   {
+    "step": 2,
+    "tool": "search",
+    "ok": true,
+    "t": 3.125,
+    "sig": "da6356843f3c",
+    "path": "command-center/tests/test_pit_foundation.py",
+    "pattern": "discovery|non_finite|isfinite",
+    "hits": 14
+   },
+   {
+    "step": 3,
+    "tool": "read_file",
+    "ok": true,
+    "t": 4.594,
+    "sig": "d97e5341e4c2",
+    "path": "command-center/tests/test_pit_foundation.py"
+   },
+   {
+    "step": 4,
+    "tool": "run_tests",
+    "ok": true,
+    "t": 6.282,
+    "sig": "c91964cff053",
+    "paths": [
+     "command-center/tests/test_pit_foundation.py"
+    ],
+    "passed": true,
+    "timed_out": false
+   },
+   {
+    "step": 5,
+    "tool": "edit_file",
+    "ok": true,
+    "t": 11.157,
+    "sig": "f924cb969d32",
+    "path": "command-center/tests/test_pit_foundation.py"
+   },
+   {
+    "step": 5,
+    "tool": "run_tests",
+    "ok": false,
+    "t": 11.157,
+    "sig": "c91964cff053",
+    "paths": [
+     "command-center/tests/test_pit_foundation.py"
+    ],
+    "passed": false,
+    "timed_out": false
+   },
+   {
+    "step": 6,
+    "tool": "edit_file",
+    "ok": true,
+    "t": 17.422,
+    "sig": "0c3faefe4d69",
+    "path": "command-center/bcc/pit/discovery.py"
+   },
+   {
+    "step": 6,
+    "tool": "edit_file",
+    "ok": true,
+    "t": 17.422,
+    "sig": "78dc7187527c",
+    "path": "command-center/bcc/pit/discovery.py"
+   },
+   {
+    "step": 6,
+    "tool": "edit_file",
+    "ok": true,
+    "t": 17.422,
+    "sig": "a1a8e3aca16e",
+    "path": "command-center/bcc/pit/discovery.py"
+   },
+   {
+    "step": 7,
+    "tool": "run_tests",
+    "ok": true,
+    "t": 19.375,
+    "sig": "a88140ceb2b4",
+    "paths": [
+     "command-center/tests/test_discovery.py",
+     "command-center/tests/test_pit_foundation.py"
+    ],
+    "passed": true,
+    "timed_out": false
+   },
+   {
+    "step": 8,
+    "tool": "finish",
+    "ok": true,
+    "t": 33.969,
+    "sig": "9165f0fd65c8"
+   }
+  ],
+  "tool_calls_total": 12,
+  "elapsed_seconds": 34.032,
+  "recipes_applied": [
+   "tree-selfrepair-48306dce403a",
+   "tree-selfrepair-4af43d85d619",
+   "tree-selfrepair-d7f61c18f309"
+  ],
+  "profile": "",
+  "memory_used": true,
+  "skills_used": [
+   "superpowers/test-driven-development",
+   "superpowers/verification-before-completion",
+   "superpowers/systematic-debugging"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "anthropic/claude-haiku-5.5",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "https://openrouter.ai/api/v1"
+ },
+ "evidence_digest": "sha256:c181638a793a7e816eb14a45a8d24145fa738a890a8835d80068f116aef44baa",
+ "candidate_files": {
+  "command-center/bcc/pit/discovery.py": {
+   "deleted": false,
+   "sha256": "63946e5dfd02032d8db874bc9511e9ed2239b489e62404e03ce85dfeff4aa189",
+   "sha256_eol": "63946e5dfd02032d8db874bc9511e9ed2239b489e62404e03ce85dfeff4aa189"
+  },
+  "command-center/tests/test_pit_foundation.py": {
+   "deleted": false,
+   "sha256": "3bb19b53498cea2cda3ac649bca8dc6b7acca7116e9ec89d48938ea1f629cb6e",
+   "sha256_eol": "3bb19b53498cea2cda3ac649bca8dc6b7acca7116e9ec89d48938ea1f629cb6e"
+  }
+ },
+ "verification": {
+  "ran": true,
+  "runner": "pytest",
+  "paths": [
+   "command-center/tests/test_discovery.py",
+   "command-center/tests/test_pit_foundation.py"
+  ],
+  "exit_code": 0,
+  "passed": true,
+  "timed_out": false,
+  "output_tail": "........................................................................ [ 83%]\r\n..............                                                           [100%]\r\n86 passed in 8.46s\r\n"
+ },
+ "base_commit": "916f7c5ee95f5ff0369b951fed5d7ddb65a7c458",
+ "duration_seconds": 80.07
+}

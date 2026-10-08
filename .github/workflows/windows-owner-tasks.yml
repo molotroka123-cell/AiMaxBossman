@@ -28,6 +28,10 @@ on:
       # tests/test_windows_workflows_cover_owner_branches.py.
       - 'release/**'
       - 'integrate/bossman-1.7-unified-20260925'
+      # Owner 2026-10-08 (AGENTS.md): main is the canonical line; the 2.1 integration
+      # branch feeds it. Declared in tools/owner_facing_branches.json.
+      - 'main'
+      - 'integrate/bossman-2.1-one-20261006'
     paths:
       - 'scripts/windows_owner_tasks.py'
       - 'scripts/verify_clean_install.py'

@@ -193,7 +193,8 @@ def markup(keyboard) -> dict:
 
 class Telegram:
     METHODS = frozenset({"getMe", "getWebhookInfo", "getUpdates", "sendMessage", "sendChatAction", "getFile",
-                         "answerCallbackQuery", "setMyCommands", "deleteMessage", "editMessageText"})
+                         "answerCallbackQuery", "setMyCommands", "deleteMessage", "editMessageText",
+                         "sendSticker", "getStickerSet"})
 
     async def send_voice(self, person: Person, source_text: str, synthesize,
                          *, reply_to_message_id: int | None = None,
@@ -544,6 +545,31 @@ class Telegram:
                     raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
                 message_id = body["message_id"]
             return message_id
+
+    async def send_sticker(self, person: Person, file_id: str) -> int:
+        """Best-effort sticker send with the same per-chat pacing as text."""
+        if not isinstance(file_id, str) or not 0 < len(file_id) <= 256:
+            raise CompanionError("TELEGRAM_FILE_ID_INVALID")
+        lock = self._send_locks.setdefault(person.chat_id, asyncio.Lock())
+        async with lock:
+            now = asyncio.get_running_loop().time()
+            await asyncio.sleep(max(0, self._sent_at.get(person.chat_id, 0) + 1.05 - now))
+            try:
+                if not self.authorize_delivery(person):
+                    raise CompanionError("IDENTITY_REVOKED")
+                body = await self.call("sendSticker", {"chat_id": person.chat_id,
+                                                       "sticker": file_id})
+            except RateLimited as exc:
+                await asyncio.sleep(exc.retry_after)
+                if not self.authorize_delivery(person):
+                    raise CompanionError("IDENTITY_REVOKED")
+                body = await self.call("sendSticker", {"chat_id": person.chat_id,
+                                                       "sticker": file_id})
+            finally:
+                self._sent_at[person.chat_id] = asyncio.get_running_loop().time()
+            if not isinstance(body, dict) or type(body.get("message_id")) is not int:
+                raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+            return body["message_id"]
 
 
 class Core:

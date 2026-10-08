@@ -1,0 +1,370 @@
+{
+ "holdout": "discovery_nonfinite/1",
+ "module": "C:\\Users\\asd\\AppData\\Local\\Temp\\recheck-a03a61b2\\patched\\command-center\\bcc\\pit\\discovery.py",
+ "total": 72,
+ "failed": 0,
+ "passed": true,
+ "failures": [],
+ "cases": [
+  {
+   "case": "relevance=nan/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "relevance=nan/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "relevance=nan/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "relevance=+inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "relevance=+inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "relevance=+inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "relevance=-inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "relevance=-inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "relevance=-inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "relevance=None/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "relevance=None/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "relevance=None/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "uncertainty=nan/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "uncertainty=nan/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "uncertainty=nan/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "uncertainty=+inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "uncertainty=+inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "uncertainty=+inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "uncertainty=-inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "uncertainty=-inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "uncertainty=-inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "uncertainty=None/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "uncertainty=None/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "uncertainty=None/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "future_utility=nan/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "future_utility=nan/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "future_utility=nan/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "future_utility=+inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "future_utility=+inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "future_utility=+inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "future_utility=-inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "future_utility=-inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "future_utility=-inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "future_utility=None/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "future_utility=None/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "future_utility=None/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "annoyance_cost=nan/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "annoyance_cost=nan/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "annoyance_cost=nan/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "annoyance_cost=+inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "annoyance_cost=+inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "annoyance_cost=+inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "annoyance_cost=-inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "annoyance_cost=-inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "annoyance_cost=-inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "annoyance_cost=None/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "annoyance_cost=None/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "annoyance_cost=None/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "sensitivity_risk=nan/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "sensitivity_risk=nan/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "sensitivity_risk=nan/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "sensitivity_risk=+inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "sensitivity_risk=+inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "sensitivity_risk=+inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "sensitivity_risk=-inf/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "sensitivity_risk=-inf/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "sensitivity_risk=-inf/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "sensitivity_risk=None/bad_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "sensitivity_risk=None/good_first",
+   "ok": true,
+   "detail": "chosen=good"
+  },
+  {
+   "case": "sensitivity_risk=None/alone_is_not_chosen",
+   "ok": true,
+   "detail": "chosen=None"
+  },
+  {
+   "case": "valid/best_wins/abc",
+   "ok": true,
+   "detail": "chosen=a"
+  },
+  {
+   "case": "valid/best_wins/acb",
+   "ok": true,
+   "detail": "chosen=a"
+  },
+  {
+   "case": "valid/best_wins/bac",
+   "ok": true,
+   "detail": "chosen=a"
+  },
+  {
+   "case": "valid/best_wins/bca",
+   "ok": true,
+   "detail": "chosen=a"
+  },
+  {
+   "case": "valid/best_wins/cab",
+   "ok": true,
+   "detail": "chosen=a"
+  },
+  {
+   "case": "valid/best_wins/cba",
+   "ok": true,
+   "detail": "chosen=a"
+  },
+  {
+   "case": "valid/high_sensitivity_excluded",
+   "ok": true,
+   "detail": "None"
+  },
+  {
+   "case": "valid/previously_skipped_excluded",
+   "ok": true,
+   "detail": "None"
+  },
+  {
+   "case": "valid/disabled_returns_none",
+   "ok": true,
+   "detail": "None"
+  },
+  {
+   "case": "valid/empty_returns_none",
+   "ok": true,
+   "detail": "None"
+  },
+  {
+   "case": "valid/below_threshold_none",
+   "ok": true,
+   "detail": "None"
+  },
+  {
+   "case": "valid/score_of_good_is_finite_number",
+   "ok": true,
+   "detail": "0.5290000000000001"
+  }
+ ]
+}

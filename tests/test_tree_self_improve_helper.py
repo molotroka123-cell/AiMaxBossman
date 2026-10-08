@@ -22,7 +22,9 @@ def test_only_a_verified_completed_candidate_counts():
 
 def test_paid_or_unknown_workers_are_refused_and_free_ones_pass():
     assert tsi.refuse_worker("nemotron-ultra-free") is None and tsi.refuse_worker("openrouter-free") is None
-    for paid in ("glm-flash", "nvidia-nim", "claude", ""):
+    # владелец 07.10: NVIDIA NIM (build.nvidia.com, бесплатный доступ разработчика) допустим наравне с OpenRouter :free
+    assert tsi.refuse_worker("nvidia-nim") is None
+    for paid in ("glm-flash", "claude", ""):
         assert tsi.refuse_worker(paid), paid
     assert tsi.main(["--worker", "glm-flash"]) == 2          # refused before any network call
 

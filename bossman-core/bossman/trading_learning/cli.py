@@ -26,7 +26,9 @@ def _approval(args) -> OwnerApproval:
     """Одобрение владельца из аргументов. Без --approved-by работы не будет."""
     if not getattr(args, "approved_by", ""):
         raise OwnerApprovalRequired("--approved-by is required (a person, not an agent)")
-    return OwnerApproval(subject=args.source, stage="historical_analysis",
+    from .ingest import approval_subject
+    # Одобрение — на тот же файл, который приём реально откроет (а не на строку аргумента).
+    return OwnerApproval(subject=approval_subject(args.source), stage="historical_analysis",
                          granted_by=args.approved_by, granted_at=utcnow())
 
 

@@ -82,8 +82,9 @@ MANIFEST: list[Capability] = [
                "OBSIDIAN_VAULT", ("local-fs",), "Записать заметку внутри vault (ASK).",
                {"path": {"type": "string"}, "content": {"type": "string"}},
                ("path", "content")),
-    Capability("mcp", "tool_list", "mcp.read", "allow", False, "", "",
-               ("local-mcp",), "Список инструментов подключённого MCP-сервера.",
+    # ASK, а не ALLOW: обработчик запускает процесс настроенного MCP-сервера (ensure), пусть и из allowlist.
+    Capability("mcp", "tool_list", "mcp.read", "ask", False, "", "",
+               ("local-mcp",), "Список инструментов настроенного MCP-сервера (может запустить его процесс; ASK).",
                {"server": {"type": "string"}}, ("server",)),
     Capability("mcp", "tool_call", "mcp.execute", "ask", True, "", "",
                ("local-mcp",), "Вызов MCP-инструмента (ASK; неизвестный → DENY).",
@@ -131,8 +132,8 @@ MANIFEST: list[Capability] = [
                ("www.googleapis.com",), "Создать/обновить файл (ASK).",
                {"name": {"type": "string"}, "content": {"type": "string"}},
                ("name", "content")),
-    Capability("telegram", "status", "telegram.read", "allow", False, "", "TELEGRAM_BOT_TOKEN",
-               ("api.telegram.org",), "Статус бота (read).", {}, ()),
+    Capability("telegram", "status", "telegram.read", "allow", False, "", "",
+               ("local-fs",), "Статус Telegram-канала Bossman из локальной конфигурации (без сетевых вызовов, без токена).", {}, ()),
     Capability("telegram", "send", "telegram.send", "ask", True, "channel.send",
                "TELEGRAM_BOT_TOKEN", ("api.telegram.org",),
                "Отправить сообщение через существующий канал (ASK).",
@@ -142,8 +143,8 @@ MANIFEST: list[Capability] = [
     Capability("n8n", "workflow_run", "n8n.execute", "ask", True, "", "N8N_API_KEY",
                ("*configured-n8n*",), "Запуск workflow (ASK; url валидируется от SSRF).",
                {"workflow_id": {"type": "string"}}, ("workflow_id",)),
-    Capability("browser", "open", "browser.navigate", "allow", False, "browser.read", "",
-               ("*allowlisted*",), "Открыть/прочитать страницу (существующий браузер).",
+    Capability("browser", "open", "browser.navigate", "ask", False, "browser.read", "",
+               ("*public*",), "Открыть страницу в существующем браузере Bossman (только чтение, SSRF-защита; ASK).",
                {"url": {"type": "string"}}, ("url",)),
     Capability("browser", "form_submit", "browser.input", "ask", True, "browser.control", "",
                ("*allowlisted*",), "Отправка формы (ASK, существующий браузер).",
@@ -235,9 +236,21 @@ def sql_read_only_ok(sql: str) -> bool:
 
 def _known_secret_values() -> set[str]:
     """Значения настроенных кредов — для скраба из внешнего контента/ошибок.
-    Сами значения НИКОГДА не попадают в логи/аудит (см. plugin_security.redact)."""
-    return {os.environ[ref] for ref in {c.credential_ref for c in MANIFEST}
-            if ref and os.environ.get(ref)}
+    Сами значения НИКОГДА не попадают в логи/аудит (см. plugin_security.redact).
+
+    Имена берутся с алиасами (`_CRED_ALIASES`): `_cred` принимает ключ из
+    устаревшей переменной (BOSSMAN_OPENROUTER_API_KEY), значит и скрабить надо
+    его — иначе ключ, которым плагин реально пользуется, проходил бы эхом
+    страницы в http.get/github.repo_read нетронутым."""
+    out: set[str] = set()
+    for ref in {c.credential_ref for c in MANIFEST}:
+        if not ref:
+            continue
+        for name in _CRED_ALIASES.get(ref, (ref,)):
+            val = (os.environ.get(name) or "").strip()
+            if val:
+                out.add(val)
+    return out
 
 
 async def _h_http_get(args, ctx: ToolContext) -> ToolResult:
@@ -564,6 +577,159 @@ async def _h_mcp_tool_list(args, ctx: ToolContext) -> ToolResult:
                       data={"server": name, "tools": [t["name"] for t in tools]})
 
 
+async def _h_telegram_status(args, ctx) -> ToolResult:
+    import json
+    from pathlib import Path
+    from ..telegram_companion.paths import companion_config_path
+    from ..telegram_companion.store import instance_holder
+
+    data_dir = getattr(getattr(getattr(ctx, "svc", None), "settings", None), "data_dir", None)
+    cfg_path = Path(companion_config_path(data_dir, read_fallback=True))
+    home = cfg_path.parent
+
+    cfg = {}
+    if cfg_path.is_file():
+        try:
+            parsed = json.loads(cfg_path.read_text("utf-8"))
+        except (OSError, ValueError):
+            return ToolResult(content="telegram.status: config unreadable",
+                              one_line="telegram.status: config unreadable",
+                              error=True, data={"performed": False})
+        if not isinstance(parsed, dict):
+            return ToolResult(content="telegram.status: config unreadable",
+                              one_line="telegram.status: config unreadable",
+                              error=True, data={"performed": False})
+        cfg = parsed
+
+    token_stored = (home / "credentials.enc").is_file()
+
+    try:
+        holder = instance_holder(home)
+    except OSError:
+        holder = None
+    poller = "running" if holder is not None else "stopped"
+    pid = holder.get("pid") if isinstance(holder, dict) else None
+
+    log = home / "companion.log"
+    last_activity = None
+    if log.is_file():
+        from datetime import datetime, timezone
+        last_activity = datetime.fromtimestamp(log.stat().st_mtime, timezone.utc).isoformat()
+
+    people = cfg.get("people") if isinstance(cfg.get("people"), list) else []
+    username = cfg.get("bot_username")
+    status = {
+        "configured": bool(cfg) and token_stored,
+        "enabled": bool(cfg.get("enabled", True)) if cfg else False,
+        "token_stored": token_stored,
+        "bot_username": username if isinstance(username, str) and username else None,
+        "owner_configured": any(isinstance(p, dict) and p.get("role") == "owner" for p in people),
+        "people_count": len(people),
+        "poller": poller,
+        "pid": pid,
+        "last_activity": last_activity,
+        "config_path": str(cfg_path),
+    }
+
+    content = redact(json.dumps(status, ensure_ascii=False), secret_values=_known_secret_values())
+    return ToolResult(content=content,
+                      one_line=f"telegram.status: {poller}, configured={status['configured']}",
+                      data={"performed": True, "status": status})
+
+
+async def _h_browser_open(args, ctx) -> ToolResult:
+    url = str(args.get("url") or "").strip()
+    if not url or len(url) > 2000:
+        return ToolResult(content="blocked: нужен url (http/https)",
+                          one_line="browser.open blocked", error=True,
+                          data={"performed": False})
+    from ..v2.browser_control import resolved_target_refusal
+    refusal = await asyncio.to_thread(resolved_target_refusal, url)
+    if refusal:
+        return ToolResult(content=f"blocked: {refusal}",
+                          one_line="browser.open blocked (ssrf)", error=True,
+                          data={"performed": False})
+    svc = getattr(ctx, "svc", None)
+    task = getattr(ctx, "task", None) or {}
+    if svc is None or not task.get("id"):
+        return ToolResult(content="blocked: browser.open нужен запуск внутри задачи Bossman (svc и task)",
+                          one_line="browser.open blocked", error=True,
+                          data={"performed": False})
+    from . import tools_browser
+    res = await tools_browser._open({"url": url}, ctx)
+    if res.error:
+        return ToolResult(content=res.content, one_line=res.one_line, error=True,
+                          data={**(res.data or {}), "performed": False})
+    title = ""
+    for line in res.content.splitlines():
+        if line.startswith("Заголовок: "):
+            title = line[len("Заголовок: "):].strip()
+            break
+    content = redact(res.content[:8000], secret_values=_known_secret_values())
+    return ToolResult(content=content,
+                      one_line=f"browser.open: {title[:80]}",
+                      external=True,
+                      data={"performed": True,
+                            "url": (res.data or {}).get("url"),
+                            "session_id": (res.data or {}).get("session_id"),
+                            "title": title})
+
+
+def _mcp_blocked(why: str, line: str) -> ToolResult:
+    return ToolResult(content=f"blocked: {why}", one_line=f"mcp.tool_call {line}", error=True,
+                      data={"performed": False})
+
+
+async def _h_mcp_tool_call(args, ctx: ToolContext) -> ToolResult:
+    """Вызов инструмента УЖЕ настроенного MCP-сервера — тем же путём, что `mcp:<server>:<tool>`.
+
+    Второго MCP-клиента здесь нет: сервер — только из таблицы mcp_servers,
+    launch_refusal (allowlist бинарников) — до старта процесса, сам вызов —
+    `tools_mcp._handler_for` (лимит вывода, событие mcp.call_failed). ASK
+    плагина движок применяет ДО хендлера. Здесь добавлено то, что плагин обязан
+    не обойти: `deny` владельца в `mcp.policy` для этого инструмента остаётся
+    отказом, а инструмент, которого сервер не объявил, не вызывается (DENY)."""
+    svc = getattr(ctx, "svc", None)
+    name = str(args.get("server") or "").strip()
+    tool = args.get("tool")
+    call_args = args.get("args")
+    if call_args is None:
+        call_args = {}
+    if svc is None or not name or not isinstance(tool, str) or not tool.strip():
+        return _mcp_blocked("нужны server (имя настроенного MCP-сервера), tool и сервисы Command Center",
+                            "blocked")
+    if not isinstance(call_args, dict):
+        return _mcp_blocked("args должен быть объектом", "blocked (args)")
+    tool = tool.strip()
+    from fastapi import HTTPException
+
+    from ..v2.mcp_hub import namespaced_tool
+    from . import tools_mcp as _m
+    try:
+        row = await _m._server_row(svc, name, by_name=True)
+    except HTTPException:
+        return _mcp_blocked(f"MCP-сервер {name!r} не настроен", "unknown server")
+    if not row.get("enabled", True):
+        return _mcp_blocked(f"MCP-сервер {name!r} выключен", "disabled")
+    spec = _m._spec_from_row(row)
+    canonical = namespaced_tool(spec.id, tool)
+    if str((await _m._policy(svc)).get(canonical) or "ask") == "deny":
+        return _mcp_blocked(f"{canonical} запрещён политикой владельца (mcp.policy=deny)", "denied by policy")
+    refusal = _m.launch_refusal(spec)
+    if refusal:
+        return _mcp_blocked(refusal, "blocked (allowlist)")
+    rt = _m.runtime_of(svc)
+    try:
+        await rt.ensure(spec)
+        declared = {v.name for v in await rt.list_tools(spec.id)}
+    except (_m.MCPUnavailable, _m.MCPCallError) as exc:
+        return ToolResult(content=f"MCP-сервер {name} недоступен: {exc}", one_line="mcp.tool_call unavailable",
+                          error=True, data={"performed": False})
+    if tool not in declared:
+        return _mcp_blocked(f"сервер {name!r} не объявляет инструмент {tool!r}", "unknown tool")
+    return await _m._handler_for(svc, spec, tool)(call_args, ctx)
+
+
 async def _h_generic_external(cap: Capability):
     async def handler(args, ctx: ToolContext) -> ToolResult:
         if await resolve_cred(cap.credential_ref, getattr(ctx, "svc", None)) is None:
@@ -598,6 +764,12 @@ def _handler_for(cap: Capability):
         return _h_github_repo_read
     if cap.tool_name == "plugin:mcp.tool_list":
         return _h_mcp_tool_list
+    if cap.tool_name == "plugin:mcp.tool_call":
+        return _h_mcp_tool_call
+    if cap.tool_name == "plugin:telegram.status":
+        return _h_telegram_status
+    if cap.tool_name == "plugin:browser.open":
+        return _h_browser_open
     # остальные — generic (credential-gated / ready), политика решает эффект
     return None  # заполняется в setup через фабрику (нужен cap в замыкании)
 

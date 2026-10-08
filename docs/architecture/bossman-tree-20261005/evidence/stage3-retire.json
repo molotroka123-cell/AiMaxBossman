@@ -1,0 +1,16 @@
+[
+ {
+  "node_id": "oss-109",
+  "sha": "71fd290557f188328ae903bc5e24166f396ac389",
+  "probe": "audit: re-verify dead OSS reference (github.com + REST API repo/user endpoints, redirects followed, name search)",
+  "command": "python (urllib, follow redirects) GET https://github.com/tonhowtf/omniget, https://api.github.com/repos/tonhowtf/omniget, https://api.github.com/users/tonhowtf, https://api.github.com/search/repositories?q=omniget+in:name",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:07:22Z",
+  "finished_at": "2026-10-07T19:07:24Z",
+  "output_sha256": "beadff2b99bb692567bd12a9303fb9cb3c96953f4cc9156029aed47ace8d7940",
+  "output_tail": "ernal_url: https://github.com/tonhowtf/omniget (referenced only in docs/v8/audit-20260910-20260918/AUDIT_RU.md; no Bossman code references it)\nGET https://github.com/tonhowtf/omniget (redirects followed) -> HTTP 404 final=https://github.com/tonhowtf/omniget body='<!DOCTYPE html>\\n<html\\n  lang=\"en\"\\n  \\n  data-color-mode=\"auto\" data-light-theme=\"light\" data-dark-theme=\"dark\"\\n  data-a11'\nGET https://api.github.com/repos/tonhowtf/omniget (redirects followed) -> HTTP 404 final=https://api.github.com/repos/tonhowtf/omniget body='{\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest\",\"status\":\"404\"}'\nGET https://api.github.com/users/tonhowtf (redirects followed) -> HTTP 404 final=https://api.github.com/users/tonhowtf body='{\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest\",\"status\":\"404\"}'\nGET https://github.com/tonhowtf (redirects followed) -> HTTP 404 final=https://github.com/tonhowtf body='Not Found'\nGitHub search 'omniget in:name': total=29; owners: OpenSelena/omniget, greedygains/omniget-mcp-server, Pranav-Nexus/omniget, MeadowlarkThink/omniget-pro-version, samuelcaldas/omniget, aotlover9-base-eth/omniget, alksnd/omniget, Ck1sap/omniget, solankisumit123/omniGet, Sandeep-Presents/Omniget\ntonhowtf/omniget among results: False\nconclusion: repository and owner account both return 404 from github.com and the REST API (no rename redirect); same-name repos by other owners are different projects, not a move. Verdict RETIRE (dead reference).\n",
+  "verdict": "RETIRE",
+  "kind": "audit",
+  "reason": "Dead reference: github.com/tonhowtf/omniget and the owner account tonhowtf both return HTTP 404 on the web and the GitHub REST API (no rename redirect); other repos named omniget belong to different owners and are not this project; Bossman code never referenced it."
+ }
+]

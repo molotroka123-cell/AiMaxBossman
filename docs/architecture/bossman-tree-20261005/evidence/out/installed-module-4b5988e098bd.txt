@@ -1,0 +1,95 @@
+node_id: module-4b5988e098bd
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.gateway.config')" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_local_hardware_ab_portability.py) && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_alias_and_auth_boundary.py tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py)
+
+import bossman.gateway.config: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\gateway\config.py
+
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_local_hardware_ab_portability.py)
+[step shared by 1 leaf(s); exit 0 in 0.7s; reason=None]
+.....................                                                    [100%]
+21 passed in 0.26s
+
+[guard] product modules loaded from installed build: 6; from repo source: []; aux repo-source helper modules: 2
+
+module under test bossman.gateway.config loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_alias_and_auth_boundary.py tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py)
+[step shared by 1 leaf(s); exit 1 in 3.6s; reason=tests_failed]
+.FFF..F................................................................. [ 68%]
+.................................                                        [100%]
+================================== FAILURES ===================================
+___________ test_all_bundled_agents_resolve_against_gateway_example ___________
+tests\test_alias_and_auth_boundary.py:57: in test_all_bundled_agents_resolve_against_gateway_example
+    agents = load_all(AGENTS_DIR, gateway_config=cfg)   # не должно бросить
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\agents.py:145: in load_all
+    validate_agent_models(agents, cfg)
+..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\agents.py:161: in validate_agent_models
+    raise ValueError(
+E   ValueError: модели агентов не разрешаются в алиасы Gateway: analyst -> bossman-smart, coder -> bossman-coder, fresh-vibes -> bossman-fast; известные алиасы: []
+___________ test_canonical_alias_is_bossman_coder_in_example_config ___________
+tests\test_alias_and_auth_boundary.py:64: in test_canonical_alias_is_bossman_coder_in_example_config
+    text = GATEWAY_EXAMPLE.read_text(encoding="utf-8")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\config\\gateway.example.yaml'
+_____________ test_unknown_alias_fails_validation_with_agent_name _____________
+tests\test_alias_and_auth_boundary.py:88: in test_unknown_alias_fails_validation_with_agent_name
+    assert "bossman-coder" in msg
+E   AssertionError: assert 'bossman-coder' in 'модели агентов не разрешаются в алиасы Gateway: badagent -> bossman-nope; известные алиасы: []'
+__________ test_llm_gateway_client_hook_validates_before_first_call ___________
+tests\test_alias_and_auth_boundary.py:119: in test_llm_gateway_client_hook_validates_before_first_call
+    with pytest.raises(ValueError) as exc:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ValueError
+============================== warnings summary ===============================
+..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+tests/test_alias_and_auth_boundary.py::test_webhook_rejects_missing_and_wrong_secret
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\api.py:112: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_alias_and_auth_boundary.py::test_webhook_rejects_missing_and_wrong_secret
+tests/test_alias_and_auth_boundary.py::test_webhook_rejects_missing_and_wrong_secret
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_alias_and_auth_boundary.py::test_webhook_rejects_missing_and_wrong_secret
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\api.py:124: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example
+FAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config
+FAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name
+FAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call
+4 failed, 101 passed, 5 warnings in 3.05s
+
+[guard] product modules loaded from installed build: 206; from repo source: []; aux repo-source helper modules: 7
+
+module under test bossman.gateway.config loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

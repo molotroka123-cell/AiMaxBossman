@@ -8,13 +8,20 @@ import pytest
 
 from bossman.trading_learning import adapters, frames as frames_mod
 from bossman.trading_learning.benchmark import BenchmarkMode, run_benchmark
-from bossman.trading_learning.ingest import IngestError, ingest_video, write_manifest
+from bossman.trading_learning.ingest import (IngestError, approval_subject, ingest_video,
+                                             write_manifest)
 from bossman.trading_learning.routes import pipeline_status
 from bossman.trading_learning.safety import (EvidenceClass, OwnerApproval,
                                              OwnerApprovalRequired, utcnow)
 
-cv2 = pytest.importorskip("cv2")
-numpy = pytest.importorskip("numpy")
+# OpenCV нужен ТОЛЬКО кадрам. Раньше importorskip стоял на уровне модуля, и без
+# cv2 (в CI его нет) молча пропускались все 22 теста — приём, CLI, бенчмарк.
+try:
+    import cv2
+    import numpy
+except ImportError:
+    cv2 = numpy = None
+needs_cv2 = pytest.mark.skipif(cv2 is None, reason="opencv (cv2) + numpy not installed")
 
 
 def approval(subject: str, stage: str = "historical_analysis") -> OwnerApproval:
@@ -22,8 +29,22 @@ def approval(subject: str, stage: str = "historical_analysis") -> OwnerApproval:
                          granted_at=utcnow())
 
 
+def make_source(path: Path) -> Path:
+    """Источник для приёма: настоящий mp4, если есть cv2, иначе непрозрачные байты.
+
+    Приём только хеширует байты и никогда не декодирует видео, поэтому оба
+    варианта — честный вход; так тесты приёма идут и там, где OpenCV нет.
+    """
+    if cv2 is not None:
+        return make_video(path)
+    path.write_bytes(b"\x00\x00\x00\x18ftypmp42" + bytes(range(256)) * 4)
+    return path
+
+
 def make_video(path: Path, frames: int = 30, fps: float = 10.0) -> Path:
     """Настоящий mp4 средствами cv2 — не фикстура-заглушка, а реальный файл."""
+    if cv2 is None:
+        pytest.skip("opencv (cv2) + numpy not installed")
     writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), fps, (64, 48))
     assert writer.isOpened(), "cv2 VideoWriter unavailable"
     for i in range(frames):
@@ -35,13 +56,13 @@ def make_video(path: Path, frames: int = 30, fps: float = 10.0) -> Path:
 
 # ------------------------------------------------------------------- ingest
 def test_ingest_requires_owner_approval(tmp_path):
-    video = make_video(tmp_path / "v.mp4")
+    video = make_source(tmp_path / "v.mp4")
     with pytest.raises(OwnerApprovalRequired):
         ingest_video(str(video), approval=None)
 
 
 def test_ingest_hashes_the_source_immutably(tmp_path):
-    video = make_video(tmp_path / "v.mp4")
+    video = make_source(tmp_path / "v.mp4")
     rec = ingest_video(str(video), approval=approval(str(video.resolve())))
     again = ingest_video(str(video), approval=approval(str(video.resolve())))
     assert rec.video_hash and len(rec.video_hash) == 64
@@ -52,7 +73,7 @@ def test_ingest_hashes_the_source_immutably(tmp_path):
 
 
 def test_tampered_video_gets_a_different_hash(tmp_path):
-    video = make_video(tmp_path / "v.mp4")
+    video = make_source(tmp_path / "v.mp4")
     first = ingest_video(str(video), approval=approval(str(video.resolve())))
     video.write_bytes(video.read_bytes() + b"tampered")
     second = ingest_video(str(video), approval=approval(str(video.resolve())))
@@ -113,6 +134,7 @@ def test_chart_ocr_without_engine_is_blocked():
 
 
 # ------------------------------------------------------------------- кадры
+@needs_cv2
 def test_frame_extraction_is_real_and_produces_files(tmp_path):
     video = make_video(tmp_path / "v.mp4", frames=30, fps=10.0)
     result = frames_mod.extract_frames(str(video), str(tmp_path / "frames"),
@@ -125,6 +147,7 @@ def test_frame_extraction_is_real_and_produces_files(tmp_path):
         assert len(ref.sha256) == 64 and len(ref.dhash) == 16
 
 
+@needs_cv2
 def test_identical_frames_are_deduplicated(tmp_path):
     """Одинаковые кадры не сохраняются дважды — токены и место экономятся."""
     path = tmp_path / "flat.mp4"
@@ -139,9 +162,23 @@ def test_identical_frames_are_deduplicated(tmp_path):
     assert "deduplicated=" in result.reason
 
 
+@needs_cv2
 def test_missing_video_is_an_error_not_an_empty_success(tmp_path):
     result = frames_mod.extract_frames(str(tmp_path / "nope.mp4"), str(tmp_path / "o"))
     assert result.status == "ERROR" and not result.ok
+
+
+def test_frames_without_opencv_are_blocked_not_an_empty_success(tmp_path):
+    """Без OpenCV шаг кадров — BLOCKED с названной причиной и без файлов."""
+    if adapters.probe_frames().available:
+        pytest.skip("opencv present in this environment")
+    video = make_source(tmp_path / "v.mp4")
+    out = tmp_path / "frames"
+    result = frames_mod.extract_frames(str(video), str(out), timestamps=[0.0, 1.0])
+    assert result.status == "BLOCKED" and not result.ok
+    assert result.evidence_class is EvidenceClass.BLOCKED
+    assert "opencv-python" in result.missing
+    assert not result.payload and not out.exists()
 
 
 # ------------------------------------------------------------------ статус
@@ -208,7 +245,7 @@ def test_cli_blocked_steps_exit_with_the_blocked_code(capsys):
 
 def test_cli_ingest_without_approval_fails_loudly(capsys, tmp_path):
     from bossman.trading_learning.cli import EXIT_ERROR, main
-    video = make_video(tmp_path / "v.mp4")
+    video = make_source(tmp_path / "v.mp4")
     assert main(["ingest_video", str(video)]) == EXIT_ERROR
     payload = json.loads(capsys.readouterr().out)
     assert payload["error"] == "OwnerApprovalRequired"
@@ -228,3 +265,65 @@ def test_cli_status_and_seed_are_readable(capsys):
     assert main(["seed"]) == EXIT_OK
     payload = json.loads(capsys.readouterr().out)
     assert "SCREENSHOT_OBSERVED" in payload["labels"]
+
+
+# ------------------------------------- CLI: одобренный относительный путь
+# Регрессия: CLI строил одобрение на строку аргумента («clip.mp4»), а приём
+# требовал развёрнутый путь — одобренный владельцем относительный путь всегда
+# падал с «approval mismatch». Документированный путь владельца (routes.py:
+# «... then CLI ingest_video») из рабочей папки был недостижим.
+@pytest.mark.parametrize("typed", ["clip.mp4", "./clip.mp4", "sub/../clip.mp4", "~/clip.mp4"])
+def test_cli_ingest_with_approval_accepts_the_path_as_typed(capsys, tmp_path, monkeypatch, typed):
+    import hashlib
+    from bossman.trading_learning.cli import EXIT_OK, main
+    (tmp_path / "sub").mkdir()
+    video = make_source(tmp_path / "clip.mp4")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    assert main(["ingest_video", typed, "--approved-by", "Timur"]) == EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["locator"] == str(video.resolve())
+    assert payload["video_hash"] == hashlib.sha256(video.read_bytes()).hexdigest()
+    assert payload["approved_by"] == "Timur"
+    assert payload["evidence_class"] == EvidenceClass.REAL_SANDBOX.value
+
+
+def test_cli_ingest_url_stays_blocked_and_drops_query_secrets(capsys):
+    from bossman.trading_learning.cli import EXIT_BLOCKED, main
+    url = "https://example.com/stream.mp4?token=SECRET"
+    assert main(["ingest_video", url, "--approved-by", "Timur"]) == EXIT_BLOCKED
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["evidence_class"] == EvidenceClass.BLOCKED.value
+    assert payload["video_hash"] == "" and "SECRET" not in json.dumps(payload)
+
+
+def test_cli_ingest_missing_relative_file_is_an_error_not_ok(capsys, tmp_path, monkeypatch):
+    from bossman.trading_learning.cli import EXIT_ERROR, main
+    monkeypatch.chdir(tmp_path)
+    assert main(["ingest_video", "absent.mp4", "--approved-by", "Timur"]) == EXIT_ERROR
+    assert json.loads(capsys.readouterr().out)["error"] == "IngestError"
+
+
+# Негативные контроли: строгость самого приёма не ослаблена.
+def test_library_still_refuses_approval_for_a_different_file(tmp_path):
+    approved = make_source(tmp_path / "approved.mp4")
+    other = tmp_path / "other.mp4"
+    other.write_bytes(b"a different clip")
+    with pytest.raises(OwnerApprovalRequired):
+        ingest_video(str(other), approval=approval(str(approved.resolve())))
+
+
+def test_library_still_refuses_an_unresolved_approval_subject(tmp_path, monkeypatch):
+    make_source(tmp_path / "clip.mp4")
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(OwnerApprovalRequired):
+        ingest_video("clip.mp4", approval=approval("clip.mp4"))
+    # Каноничный предмет из approval_subject — ровно то, что приём примет.
+    rec = ingest_video("clip.mp4", approval=approval(approval_subject("clip.mp4")))
+    assert rec.locator == str((tmp_path / "clip.mp4").resolve())
+
+
+def test_approval_subject_keeps_urls_verbatim():
+    url = "https://example.com/a.mp4?x=1"
+    assert approval_subject(url) == url

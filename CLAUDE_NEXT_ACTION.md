@@ -1,3 +1,15 @@
+# 08.10.2026 — one Bossman line (read first)
+
+Canonical is `main`. The 2.1 one-line integration (green/tree-leaves 4a14c26c + old main + 08.10 fixes) lands
+through PR #98. Start with `docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md` (what exists / what is missing),
+`docs/owner/OWNER_RUN_20261008.md` (install, checks, rollback) and `docs/trading/K1M6A_DAY_RUNBOOK_20261008.md`
+(K1m6a from #26, sealed reference, BASELINE/LESSONS/RESTART_TRANSFER, unsupervised 2 h). Do not open new final
+branches; work on an isolated branch and integrate into `main` through a PR with green CI.
+The documentation-only checkpoints below (13-zone audit, K1m6a plan) were written earlier the same night; the owner
+then asked to finish ONE working Bossman from the latest green/tree-leaves line, which is what PR #98 carries.
+
+---
+
 # Owner directive — tree audit checkpoint, 2026-10-08 (documentation only)
 
 Read `docs/audits/2026-10-08-tree-audit-13-zones/README.md` first. It states, in plain words, what Bossman has, what is missing and where to start, and records that the 13-zone / 3-agents-per-branch / 2-open-source-per-leaf audit was launched but **not completed** (all agent waves failed on session limits; the tree site is unreachable from cloud containers). Re-run it per section 6 and `BRIEFS.md` before claiming any zone result. Owner 08.10: write documentation, do not write product code, land documentation in `main` and stop. Status ladder unchanged: `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT`; `tree-registry.json` has 0 leaves proven at `ci` or `owner_pc`.

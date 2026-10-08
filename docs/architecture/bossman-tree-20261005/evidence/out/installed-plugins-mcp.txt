@@ -1,0 +1,65 @@
+node_id: plugins-mcp
+installed_build: BOSSMAN-Windows-x64-84f721c6fe48 (source_sha 84f721c6fe48172498681a5880562dcfc6b94e17)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-84f721c6fe48\runtime\Lib\site-packages
+original receipt: opsplug.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "import bcc.features.tools_mcp" [PYTHONPATH=command-center first, then command-center;bossman-core;.] && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_bl110_mcp_delete_everywhere.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_golden_missions.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_mcp_numeric_server_name.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_secrem_mcp_boundary.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_secrem_sibling_sweep.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_v21_mcp.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_v22_fixes.py)
+
+import bcc.features.tools_mcp: ok c:\users\asd\bossman\app\bossman-windows-x64-84f721c6fe48\runtime\lib\site-packages\bcc\features\tools_mcp.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_bl110_mcp_delete_everywhere.py)
+[step shared by 1 leaf(s); exit 0 in 4.7s; reason=None]
+..                                                                       [100%]
+2 passed in 2.50s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.tools_mcp loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_golden_missions.py)
+[step shared by 1 leaf(s); exit 0 in 32.2s; reason=None]
+...s.........                                                            [100%]
+12 passed, 1 skipped in 29.86s
+
+[guard] product modules loaded from installed build: 405; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.tools_mcp loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_mcp_numeric_server_name.py)
+[step shared by 1 leaf(s); exit 0 in 4.0s; reason=None]
+...                                                                      [100%]
+3 passed in 2.33s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.tools_mcp loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_secrem_mcp_boundary.py)
+[step shared by 1 leaf(s); exit 0 in 3.3s; reason=None]
+.........                                                                [100%]
+9 passed in 1.60s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.tools_mcp loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_secrem_sibling_sweep.py)
+[step shared by 2 leaf(s); exit 0 in 1.7s; reason=None]
+...........................................                              [100%]
+43 passed in 0.30s
+
+[guard] product modules loaded from installed build: 43; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.tools_mcp loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_v21_mcp.py)
+[step shared by 1 leaf(s); exit 0 in 24.6s; reason=None]
+...............                                                          [100%]
+15 passed in 22.49s
+
+[guard] product modules loaded from installed build: 322; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.tools_mcp loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_v22_fixes.py)
+[step shared by 1 leaf(s); exit 0 in 1.3s; reason=None]
+.........                                                                [100%]
+9 passed in 0.17s
+
+[guard] product modules loaded from installed build: 45; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.tools_mcp loaded by this test process from installed build: True
+
+VERDICT PASS

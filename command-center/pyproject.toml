@@ -32,7 +32,9 @@ dependencies = [
 documents = ["docling-slim[convert-core,format-pdf,format-office]==2.127.0"]
 # Heavy local PDF layout models are opt-in and isolated from the normal Bossman runtime.
 master-parser-documents = ["docling-slim[convert-core,format-pdf,format-office,models-local,cli]==2.127.0"]
-speech = ["faster-whisper==1.2.1"]
+# av<19: faster-whisper 1.2.1 calls av.open(..., metadata_errors=...), which PyAV 19 removed (TypeError in
+# test_oss_whisper on CI 2026-10-08). The shipped Windows lock already carries av==18.1.0.
+speech = ["faster-whisper==1.2.1", "av>=11,<19"]
 semantic-memory = ["qdrant-client==1.15.1"]
 # Зависимости приложений, которые архив везёт внутри bcc/_apps: у них свои
 # pyproject.toml, но их никто не устанавливает. numpy до сих пор попадал в
@@ -73,7 +75,7 @@ terminal = ["prompt_toolkit==3.0.52"]
 # (tools/windows_bundle_lock.txt, recorded only on the Windows runner). On the embedded runtime `bossman call install`
 # installs the exact hash-verified add-on from bcc/telegram_calls/addon_lock.json instead. Voice reuses Jeff's tract
 # (faster-whisper from `speech`, the external Piper executable); numpy is already in the bundle.
-calls = ["telethon==1.45.0", "py-tgcalls==3.0.0", "ntgcalls==3.0.0", "pysilero-vad==3.4.0", "soxr==1.1.0", "numpy>=1.26", "faster-whisper==1.2.1"]
+calls = ["telethon==1.45.0", "py-tgcalls==3.0.0", "ntgcalls==3.0.0", "pysilero-vad==3.4.0", "soxr==1.1.0", "numpy>=1.26", "faster-whisper==1.2.1", "av>=11,<19"]
 
 [project.scripts]
 bcc = "bcc.app:main"
@@ -93,7 +95,7 @@ include = ["bcc*"]
 [tool.setuptools.package-data]
 bcc = ["telegram_calls/addon_lock.json", "skills_catalog/*/LICENSE", "skills_catalog/*/*/SKILL.md",
        "skills_catalog/*/*/provenance.json", "skills_catalog/*/*/LICENSE.txt",
-       "capability_tree_seed.json"]
+       "capability_tree_seed.json", "autonomy/schema_data/*.json"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

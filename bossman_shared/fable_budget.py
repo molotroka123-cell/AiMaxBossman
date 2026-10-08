@@ -61,6 +61,13 @@ PRICE_TABLE: dict[str, tuple[float, float, float, float]] = {
     "claude-opus-5": (15.0, 75.0, 1.50, 18.75),
     "claude-sonnet-5": (3.0, 15.0, 0.30, 3.75),
     "claude-fable-5-1": (15.0, 75.0, 1.50, 18.75),
+    # Haiku 5.5, added 2026-10-08 (owner-approved OpenRouter worker "haiku-5.5" since 07.10).
+    # Official list: $0.10/$0.50 per 1M for prompts up to 100K tokens, $0.50/$2.50 beyond.
+    # This table is a WORST-CASE bound, so the long-context tier is used; cache rates are the
+    # standard 0.1x read / 1.25x write of that tier. Both spellings: the API id and the
+    # OpenRouter slug (anthropic/claude-haiku-5.5).
+    "claude-haiku-5-5": (0.50, 2.50, 0.05, 0.625),
+    "claude-haiku-5.5": (0.50, 2.50, 0.05, 0.625),
 }
 # Legacy single-ratio bound, kept ONLY for the tightness test (TR-03). It is NOT an
 # upper bound for Cyrillic/CJK — see estimate_tokens_upper (TR-02).

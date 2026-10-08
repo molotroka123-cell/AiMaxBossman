@@ -19,7 +19,7 @@ import time
 from typing import Any
 
 NODE_ID = "module-a7105ffd5da5"            # leaf: command-center/bcc/pit/discovery.py (zone `jeff`)
-# nvidia-nim: build.nvidia.com free-tier endpoint (owner rule 07.10: OpenRouter :free + NVIDIA NIM only), key NVIDIA_API_KEY
+# nvidia-nim: бесплатный доступ разработчика build.nvidia.com (владелец назвал его допустимым вместе с OpenRouter :free)
 FREE_WORKERS = ("local", "nemotron-ultra-free", "openrouter-free", "openrouter-code-free", "nvidia-nim")
 WISH = ("В bcc/pit/discovery.py функция choose_discovery_question выбирает кандидата через max(candidates, key=score). Если у "
         "кандидата поле NaN (например relevance=float('nan')), его score — NaN; когда он стоит ПЕРВЫМ в списке, max() его не "

@@ -1,0 +1,18 @@
+node_id: mod-apps
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bcc.features.apps')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_apps_control.py tests/test_apps_control_child_encoding.py tests/test_apps_files_browser_owner.py tests/test_apps_files_http_owner.py tests/test_apps_files_lost_response.py tests/test_apps_launchable.py tests/test_apps_owner_path_regression.py tests/test_apps_pid_portability.py)
+
+import bcc.features.apps: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bcc\features\apps.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_apps_control.py tests/test_apps_control_child_encoding.py tests/test_apps_files_browser_owner.py tests/test_apps_files_http_owner.py tests/test_apps_files_lost_response.py tests/test_apps_launchable.py tests/test_apps_owner_path_regression.py tests/test_apps_pid_portability.py)
+[step shared by 1 leaf(s); exit 0 in 50.7s; reason=None]
+............................................s.s...........ssssssssss.... [ 83%]
+..............                                                           [100%]
+74 passed, 12 skipped in 49.32s
+
+[guard] product modules loaded from installed build: 333; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.apps loaded by this test process from installed build: True
+
+VERDICT PASS

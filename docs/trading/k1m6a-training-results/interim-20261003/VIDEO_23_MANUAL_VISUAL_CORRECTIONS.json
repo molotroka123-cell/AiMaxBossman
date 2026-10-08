@@ -1,0 +1,28 @@
+{
+  "schema": "bossman.k1m6a-manual-visual-review/1",
+  "video_id": "RdR-z4nQN7k",
+  "reviewed_utc": "2026-10-03T20:55:29.825478+00:00",
+  "method": "All 25 semantic frames reviewed in contact sheet; frame smart_001_00101.jpg and smart_011_00659.jpg checked at full resolution.",
+  "findings": [
+    {
+      "frame": "smart_001_00101.jpg",
+      "time_s": 101.82,
+      "manual_observation": "Chart header visibly reads BTCUSD · 5 · COINBASE; chart and stream overlay are visible.",
+      "model_agreement": "ticker and timeframe broadly match",
+      "limitations": "Do not treat chart labels or current values as a strategy/outcome."
+    },
+    {
+      "frame": "smart_011_00659.jpg",
+      "time_s": 659.9,
+      "manual_observation": "Chart header reads BTCUSD · 5 · COINBASE. The chart current marker at the right reads 114,573.28; the top OHLC open is 114,471.51.",
+      "model_correction": "VLM labeled 114,471.51 (the open) as current price; current marker is 114,573.28.",
+      "use": "Evidence of a specific OCR field-selection error; preserve raw output and correction separately."
+    },
+    {
+      "frames": "smart_001..025",
+      "manual_observation": "Many frames repeat the same chart layout; at least two contain visible image/compression artifacts; final frames show channel/stream graphics rather than independent market evidence.",
+      "limitation": "25 frames do not represent 25 independent observations; no price or trading rule promoted."
+    }
+  ],
+  "claims_promoted": 0
+}

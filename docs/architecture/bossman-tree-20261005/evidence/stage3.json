@@ -1,0 +1,275 @@
+[
+ {
+  "node_id": "oss-14",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its searxng/searxng integration at HEAD with the installed build's third-party packages: 21 passed, 15 deselected; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-14   # = cd command-center && pytest -q -rs tests/test_searxng_setup.py tests/test_web_research_net.py -k searx + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:10:51Z",
+  "finished_at": "2026-10-07T19:10:55Z",
+  "output_sha256": "1baba4797fac1e50f6785bafd4f0b7582e2465c2fd82cfb6cde8219850c5f379",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-14\nproject: searxng/searxng\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/features/web_research/net.py, command-center/bcc/features/web_research/config.py, command-center/bcc/features/web_research/sources.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-14   # = cd command-center && pytest -q -rs tests/test_searxng_setup.py tests/test_web_research_net.py -k searx + sys.modules check\nexit_code: 0\n\n.....................                                                    [100%]\n21 passed, 15 deselected in 2.63s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.features.web_research.net: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\features\\web_research\\net.py\n  bcc.features.web_research.config: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\features\\web_research\\config.py\n  bcc.features.web_research.sources: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\features\\web_research\\sources.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "FAIL",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/features/web_research/net.py",
+   "command-center/bcc/features/web_research/config.py",
+   "command-center/bcc/features/web_research/sources.py"
+  ],
+  "project": "searxng/searxng",
+  "reason": "contract tests against fakes only: the upstream project was not exercised, so this is not proof that it works with Bossman (owner audit 07.10)"
+ },
+ {
+  "node_id": "oss-16",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its ggml-org/llama.cpp integration at HEAD with the installed build's third-party packages: 14 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-16   # = cd command-center && pytest -q -rs tests/test_llamacpp_catalog.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:10:55Z",
+  "finished_at": "2026-10-07T19:10:57Z",
+  "output_sha256": "542b0eea8b1b4d508f64ae5e6546e7dd2b1523655c4408c3fe299aa7b0de6bc9",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-16\nproject: ggml-org/llama.cpp\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/providers.py, command-center/bcc/discovery.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-16   # = cd command-center && pytest -q -rs tests/test_llamacpp_catalog.py + sys.modules check\nexit_code: 0\n\n..............                                                           [100%]\n14 passed in 0.24s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.providers: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\providers.py\n  bcc.discovery: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\discovery.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "FAIL",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/providers.py",
+   "command-center/bcc/discovery.py"
+  ],
+  "project": "ggml-org/llama.cpp",
+  "reason": "contract tests against fakes only: the upstream project was not exercised, so this is not proof that it works with Bossman (owner audit 07.10)"
+ },
+ {
+  "node_id": "oss-17",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its docling-project/docling integration at HEAD with the installed build's third-party packages: 23 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-17   # = cd command-center && pytest -q -rs tests/test_oss_docling.py tests/test_master_parser_docling_adapter.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:10:57Z",
+  "finished_at": "2026-10-07T19:11:00Z",
+  "output_sha256": "687ae737e3861c174f83dc8232894542de38fa3e19a587aa5babe04d99017ade",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-17\nproject: docling-project/docling\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/oss/docling.py, command-center/bcc/pit/master_parser/documents.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-17   # = cd command-center && pytest -q -rs tests/test_oss_docling.py tests/test_master_parser_docling_adapter.py + sys.modules check\nexit_code: 0\n\n.......................                                                  [100%]\n23 passed in 2.06s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.oss.docling: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\oss\\docling.py\n  bcc.pit.master_parser.documents: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\pit\\master_parser\\documents.py\n  upstream docling: loaded=True version=2.127.0 file=C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\docling\\__init__.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "PASS",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/oss/docling.py",
+   "command-center/bcc/pit/master_parser/documents.py"
+  ],
+  "project": "docling-project/docling"
+ },
+ {
+  "node_id": "oss-19",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its SYSTRAN/faster-whisper integration at HEAD with the installed build's third-party packages: 23 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-19   # = cd command-center && pytest -q -rs tests/test_oss_whisper.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:00Z",
+  "finished_at": "2026-10-07T19:11:02Z",
+  "output_sha256": "1c0a6da62efa78ca5946bfae4ecc4171d752633b52572600acabc64dfe6eff9a",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-19\nproject: SYSTRAN/faster-whisper\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/oss/whisper.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-19   # = cd command-center && pytest -q -rs tests/test_oss_whisper.py + sys.modules check\nexit_code: 0\n\n.......................                                                  [100%]\n23 passed in 0.37s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.oss.whisper: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\oss\\whisper.py\n  upstream faster_whisper: loaded=True version=1.2.1 file=C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\faster_whisper\\__init__.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "PASS",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/oss/whisper.py"
+  ],
+  "project": "SYSTRAN/faster-whisper"
+ },
+ {
+  "node_id": "oss-20",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its Comfy-Org/ComfyUI integration at HEAD with the installed build's third-party packages: 34 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-20   # = cd command-center && pytest -q -rs tests/test_oss_comfyui.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:02Z",
+  "finished_at": "2026-10-07T19:11:09Z",
+  "output_sha256": "56d7ae5f30062facd730a4423b39a8876972c6263489a588ab4d371b56193d46",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-20\nproject: Comfy-Org/ComfyUI\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/oss/comfyui.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-20   # = cd command-center && pytest -q -rs tests/test_oss_comfyui.py + sys.modules check\nexit_code: 0\n\n..................................                                       [100%]\n34 passed in 5.49s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.oss.comfyui: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\oss\\comfyui.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "FAIL",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/oss/comfyui.py"
+  ],
+  "project": "Comfy-Org/ComfyUI",
+  "reason": "contract tests against fakes only: the upstream project was not exercised, so this is not proof that it works with Bossman (owner audit 07.10)"
+ },
+ {
+  "node_id": "oss-22",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its GrapesJS/grapesjs integration at HEAD with the installed build's third-party packages: 17 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-22   # = cd command-center && pytest -q -rs tests/test_web_designer_visual.py tests/test_web_designer_grapesjs_ui.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:09Z",
+  "finished_at": "2026-10-07T19:11:28Z",
+  "output_sha256": "c05f1706b10306431c01eebaa2a0c695bf85067d1db027a94e5fe91da70f58e6",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-22\nproject: GrapesJS/grapesjs\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/web_designer_visual.py, command-center/ui/vendor/grapesjs/grapes.min.js, command-center/ui/pages/web_designer_visual.js\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-22   # = cd command-center && pytest -q -rs tests/test_web_designer_visual.py tests/test_web_designer_grapesjs_ui.py + sys.modules check\nexit_code: 0\n\n.................                                                        [100%]\n17 passed in 18.42s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.web_designer_visual: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\web_designer_visual.py\n  asset command-center/ui/vendor/grapesjs/grapes.min.js: exists=True\n  asset command-center/ui/pages/web_designer_visual.js: exists=True\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "PASS",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/web_designer_visual.py",
+   "command-center/ui/vendor/grapesjs/grapes.min.js",
+   "command-center/ui/pages/web_designer_visual.js"
+  ],
+  "project": "GrapesJS/grapesjs"
+ },
+ {
+  "node_id": "oss-24",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its hyperfield/ai-file-sorter integration at HEAD with the installed build's third-party packages: 67 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-24   # = cd command-center && pytest -q -rs tests/test_file_intelligence_contract.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:28Z",
+  "finished_at": "2026-10-07T19:11:30Z",
+  "output_sha256": "115dd455a77d3345a6fd909c0341b529d44ed54d65261730c4c334259c0821e4",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-24\nproject: hyperfield/ai-file-sorter\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/file_intelligence/service.py, command-center/bcc/file_intelligence/discovery.py, integrations/ai-file-sorter/integration.json\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-24   # = cd command-center && pytest -q -rs tests/test_file_intelligence_contract.py + sys.modules check\nexit_code: 0\n\n...................................................................      [100%]\n67 passed in 0.81s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.file_intelligence.service: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\file_intelligence\\service.py\n  bcc.file_intelligence.discovery: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\file_intelligence\\discovery.py\n  asset integrations/ai-file-sorter/integration.json: exists=True\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "FAIL",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/file_intelligence/service.py",
+   "command-center/bcc/file_intelligence/discovery.py",
+   "integrations/ai-file-sorter/integration.json"
+  ],
+  "project": "hyperfield/ai-file-sorter",
+  "reason": "contract tests against fakes only: the upstream project was not exercised, so this is not proof that it works with Bossman (owner audit 07.10)"
+ },
+ {
+  "node_id": "oss-28",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its qdrant/qdrant-client integration at HEAD with the installed build's third-party packages: 22 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-28   # = cd command-center && pytest -q -rs tests/test_oss_qdrant.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:30Z",
+  "finished_at": "2026-10-07T19:11:39Z",
+  "output_sha256": "1926d5efafe9555e2a5c384f5b50c41e69173731f41a325cf3bf2894bd46da0a",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-28\nproject: qdrant/qdrant-client\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/oss/qdrant.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-28   # = cd command-center && pytest -q -rs tests/test_oss_qdrant.py + sys.modules check\nexit_code: 0\n\n......................                                                   [100%]\n22 passed in 7.33s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.oss.qdrant: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\oss\\qdrant.py\n  upstream qdrant_client: loaded=True version=1.15.1 file=C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\qdrant_client\\__init__.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "PASS",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/oss/qdrant.py"
+  ],
+  "project": "qdrant/qdrant-client"
+ },
+ {
+  "node_id": "oss-29",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its openclaw/openclaw integration at HEAD with the installed build's third-party packages: 40 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-29   # = cd command-center && pytest -q -rs tests/test_v23_openclaw_bridge.py tests/test_v23_openclaw_tools.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:39Z",
+  "finished_at": "2026-10-07T19:11:42Z",
+  "output_sha256": "1ce2caab42f200f965b3e34c1a522a574135bd27e7b2de02c8f6a0c47d729fd7",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-29\nproject: openclaw/openclaw\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/v2/openclaw_bridge.py, command-center/bcc/features/tools_openclaw.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-29   # = cd command-center && pytest -q -rs tests/test_v23_openclaw_bridge.py tests/test_v23_openclaw_tools.py + sys.modules check\nexit_code: 0\n\n........................................                                 [100%]\n40 passed in 1.71s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.v2.openclaw_bridge: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\v2\\openclaw_bridge.py\n  bcc.features.tools_openclaw: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\features\\tools_openclaw.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "FAIL",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/v2/openclaw_bridge.py",
+   "command-center/bcc/features/tools_openclaw.py"
+  ],
+  "project": "openclaw/openclaw",
+  "reason": "contract tests against fakes only: the upstream project was not exercised, so this is not proof that it works with Bossman (owner audit 07.10)"
+ },
+ {
+  "node_id": "oss-50",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its mltframework/shotcut integration at HEAD with the installed build's third-party packages: 2 passed, 2 skipped; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-50   # = cd command-center && pytest -q -rs tests/test_video_studio_shotcut.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:42Z",
+  "finished_at": "2026-10-07T19:11:44Z",
+  "output_sha256": "9da6855d66acea7a2f5783972eb0f54a8ddf502ba87268f6f9f45fd6d14ccca7",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-50\nproject: mltframework/shotcut\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/video_studio/shotcut.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-50   # = cd command-center && pytest -q -rs tests/test_video_studio_shotcut.py + sys.modules check\nexit_code: 0\n\n..ss                                                                     [100%]\n=========================== short test summary info ===========================\nSKIPPED [1] tests\\test_video_studio_shotcut.py:57: install Shotcut portable and configure BOSSMAN_VIDEO_MELT\nSKIPPED [1] tests\\test_video_studio_shotcut.py:74: Shotcut/MLT executable required\n2 passed, 2 skipped in 0.51s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.video_studio.shotcut: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\video_studio\\shotcut.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "FAIL",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/video_studio/shotcut.py"
+  ],
+  "project": "mltframework/shotcut",
+  "reason": "contract tests against fakes only: the upstream project was not exercised, so this is not proof that it works with Bossman (owner audit 07.10)"
+ },
+ {
+  "node_id": "oss-51",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its AcademySoftwareFoundation/OpenTimelineIO integration at HEAD with the installed build's third-party packages: 9 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-51   # = cd command-center && pytest -q -rs tests/test_video_studio_interchange.py tests/test_video_studio_otio_blocked.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:44Z",
+  "finished_at": "2026-10-07T19:11:47Z",
+  "output_sha256": "0813942f47878861f19c58b9c46587657b5b715c22d61c6c464f6cab46c771bd",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-51\nproject: AcademySoftwareFoundation/OpenTimelineIO\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/video_studio/interchange.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-51   # = cd command-center && pytest -q -rs tests/test_video_studio_interchange.py tests/test_video_studio_otio_blocked.py + sys.modules check\nexit_code: 0\n\n.........                                                                [100%]\n9 passed in 1.98s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.video_studio.interchange: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\video_studio\\interchange.py\n  upstream opentimelineio: loaded=True version=0.18.1 file=C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\opentimelineio\\__init__.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "PASS",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/video_studio/interchange.py"
+  ],
+  "project": "AcademySoftwareFoundation/OpenTimelineIO"
+ },
+ {
+  "node_id": "oss-67",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its prompt-toolkit/python-prompt-toolkit integration at HEAD with the installed build's third-party packages: 1 passed, 23 deselected; integration modules loaded from checkout; live local probe prompt_toolkit_history",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-67   # = cd command-center && pytest -q -rs tests/test_terminal_cli_unit.py -k history + sys.modules check + probe prompt_toolkit_history",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:47Z",
+  "finished_at": "2026-10-07T19:11:48Z",
+  "output_sha256": "ccfb1e2adbf3e6cf7788e54e34f6cc2cae62163e32e408f839355d030a1c8d9b",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-67\nproject: prompt-toolkit/python-prompt-toolkit\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/terminal_cli/chat.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-67   # = cd command-center && pytest -q -rs tests/test_terminal_cli_unit.py -k history + sys.modules check + probe prompt_toolkit_history\nexit_code: 0\n\n.                                                                        [100%]\n1 passed, 23 deselected in 0.15s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.terminal_cli.chat: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\terminal_cli\\chat.py\n  upstream prompt_toolkit: loaded=False version=None file=None\n\n@@ PROBE prompt_toolkit_history @@\n  _make_history -> prompt_toolkit.history.FileHistory subclass; stored line redacted=True; text kept=True\n  _make_history(enabled=False) -> prompt_toolkit.history.InMemoryHistory\n  PROBE PASS\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "PASS",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/terminal_cli/chat.py"
+  ],
+  "project": "prompt-toolkit/python-prompt-toolkit"
+ },
+ {
+  "node_id": "oss-68",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its Textualize/rich integration at HEAD with the installed build's third-party packages: 24 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-68   # = cd command-center && pytest -q -rs tests/test_terminal_cli_unit.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:48Z",
+  "finished_at": "2026-10-07T19:11:49Z",
+  "output_sha256": "066933765022238375274e9c90838fd7ac09573f20f2a206273ea17e58ac6f86",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-68\nproject: Textualize/rich\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/terminal_cli/console.py, command-center/bcc/terminal_cli/human.py, command-center/bcc/terminal_cli/theme.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-68   # = cd command-center && pytest -q -rs tests/test_terminal_cli_unit.py + sys.modules check\nexit_code: 0\n\n........................                                                 [100%]\n24 passed in 0.27s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.terminal_cli.console: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\terminal_cli\\console.py\n  bcc.terminal_cli.human: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\terminal_cli\\human.py\n  bcc.terminal_cli.theme: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\terminal_cli\\theme.py\n  upstream rich: loaded=True version=15.0.0 file=C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\rich\\__init__.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "PASS",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/terminal_cli/console.py",
+   "command-center/bcc/terminal_cli/human.py",
+   "command-center/bcc/terminal_cli/theme.py"
+  ],
+  "project": "Textualize/rich"
+ },
+ {
+  "node_id": "oss-69",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its openai/codex integration at HEAD with the installed build's third-party packages: 19 passed; integration modules loaded from checkout; live local probe codex_cli",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-69   # = cd command-center && pytest -q -rs tests/test_autonomy_workers.py + sys.modules check + probe codex_cli",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:49Z",
+  "finished_at": "2026-10-07T19:11:57Z",
+  "output_sha256": "cd048a8a4e382127de3c083a705549b247e5c38d374364f272dacec17e91e655",
+  "output_tail": "ers\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/autonomy/workers.py, command-center/bcc/rave/connectors.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-69   # = cd command-center && pytest -q -rs tests/test_autonomy_workers.py + sys.modules check + probe codex_cli\nexit_code: 0\n\n...................                                                      [100%]\n19 passed in 7.10s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.autonomy.workers: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\autonomy\\workers.py\n  bcc.rave.connectors: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\rave\\connectors.py\n\n@@ PROBE codex_cli @@\n  bcc.rave.connectors.codex_version() -> {\"installed\": true, \"version\": \"0.157.1\", \"raw\": \"codex-cli 0.157.1\", \"exit_code\": 0}\n  resolve_cli('codex') -> ['C:\\\\Users\\\\asd\\\\AppData\\\\Local\\\\Programs\\\\OpenAI\\\\Codex\\\\bin\\\\codex.EXE']\n  workers.cli_argv('codex', 'writer') flags: ['-', '--ephemeral', '--json', '--sandbox', '--skip-git-repo-check', '-C', '-o']\n  workers.cli_argv('codex', 'reviewer') flags: ['-', '--ephemeral', '--json', '--sandbox', '--skip-git-repo-check', '-C', '-o']\n  `codex exec --help` knows every Bossman flag: True missing=[]\n  PROBE PASS\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "PASS",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/autonomy/workers.py",
+   "command-center/bcc/rave/connectors.py"
+  ],
+  "project": "openai/codex"
+ },
+ {
+  "node_id": "oss-117",
+  "sha": "c8c3cfe0646277a51b4cc36f2d935af1735b9d13",
+  "probe": "Bossman's own tests for its modelcontextprotocol/python-sdk integration at HEAD with the installed build's third-party packages: 18 passed; integration modules loaded from checkout",
+  "command": "PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-117   # = cd command-center && pytest -q -rs tests/test_v21_mcp.py tests/test_v26_mcp_sdk_path.py + sys.modules check",
+  "exit_code": 0,
+  "started_at": "2026-10-07T19:11:57Z",
+  "finished_at": "2026-10-07T19:12:19Z",
+  "output_sha256": "0f97281eddc5f1ce19b22274baf85df95b9e27e8223dd1f84d7e349624a40ea0",
+  "output_tail": "# stage3 oss integration receipt output\nnode: oss-117\nproject: modelcontextprotocol/python-sdk\nsha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13\nbuild_site_packages: C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\nintegration_code: command-center/bcc/v2/mcp_runtime.py\ncommand: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-117   # = cd command-center && pytest -q -rs tests/test_v21_mcp.py tests/test_v26_mcp_sdk_path.py + sys.modules check\nexit_code: 0\n\n..................                                                       [100%]\n18 passed in 19.82s\n\n@@ INTEGRATION CHECK (sys.modules after the test session) @@\n  bcc.v2.mcp_runtime: loaded=True from_checkout=True file=C:\\Users\\asd\\Bossman\\wt-green-0610\\command-center\\bcc\\v2\\mcp_runtime.py\n  upstream mcp: loaded=True version=2.2.0 file=C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\mcp\\__init__.py\n\n@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@\n",
+  "verdict": "PASS",
+  "kind": "integration",
+  "integration_code": [
+   "command-center/bcc/v2/mcp_runtime.py"
+  ],
+  "project": "modelcontextprotocol/python-sdk"
+ }
+]

@@ -1,0 +1,19 @@
+node_id: mod-osiris
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=526e2e5513fa442ba7fdbcbc8e0699a32118b089 command=python -c "importlib.import_module('bcc.features.osiris')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_osiris.py tests/test_searxng_setup.py tests/test_web_access_20260930.py tests/test_web_research_flag.py tests/test_web_research_net.py tests/test_web_research_refs.py tests/test_web_research_safety.py)
+
+import bcc.features.osiris: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bcc\features\osiris.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_osiris.py tests/test_searxng_setup.py tests/test_web_access_20260930.py tests/test_web_research_flag.py tests/test_web_research_net.py tests/test_web_research_refs.py tests/test_web_research_safety.py)
+[step shared by 1 leaf(s); exit 0 in 43.1s; reason=None]
+........................................................................ [ 45%]
+........................................................................ [ 91%]
+..............                                                           [100%]
+158 passed in 41.78s
+
+[guard] product modules loaded from installed build: 310; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.osiris loaded by this test process from installed build: True
+
+VERDICT PASS

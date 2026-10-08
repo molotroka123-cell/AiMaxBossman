@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bossman.local/schemas/autonomy/action.schema.json",
+  "title": "Bossman structured hand request (bcc.autonomy.types.HandRequest)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["goal_id", "requested_by", "action", "target", "arguments", "expected_evidence", "risk_class",
+               "timeout_s", "rollback"],
+  "properties": {
+    "goal_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*(-[A-Z0-9]+)+$", "maxLength": 64},
+    "requested_by": {"enum": ["claude", "codex", "jev", "jeff"]},
+    "action": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 64},
+    "target": {"type": "string", "minLength": 1, "maxLength": 1024},
+    "arguments": {"type": "object"},
+    "expected_evidence": {"type": "array", "maxItems": 32,
+                          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 64}},
+    "risk_class": {"enum": ["low", "medium", "high"]},
+    "timeout_s": {"type": "integer", "minimum": 1, "maximum": 86400},
+    "rollback": {"type": "string", "minLength": 1, "maxLength": 2000}
+  }
+}

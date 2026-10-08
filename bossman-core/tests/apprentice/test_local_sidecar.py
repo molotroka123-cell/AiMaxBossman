@@ -580,3 +580,61 @@ def test_a_lone_surrogate_in_the_context_does_not_break_the_model_request(monkey
     assert out == {"ok": True}
     body = seen["body"].decode("utf-8")              # valid UTF-8, no lone-surrogate escape
     assert "\ud83d" not in body and "файл: ? конец 😀" in json.loads(body)["messages"][0]["content"]
+
+
+class _RawArgs:
+    """A model whose tool-call `arguments` strings are served verbatim (cut-off JSON included)."""
+
+    def __init__(self, calls):
+        self.calls, self.seen = iter(calls), []
+
+    def chat(self, messages, *, tools, timeout):
+        self.seen.extend(m["content"] for m in messages[-1:] if m.get("role") == "tool")
+        name, raw = next(self.calls)
+        return {"content": "", "tool_calls": [{"id": f"c{len(self.seen)}", "type": "function",
+                                               "function": {"name": name, "arguments": raw}}]}
+
+
+CUT_EDIT = ("edit_file", '{"path": "calc.py", "old": "return a - b", "new": "return a +')
+
+
+def _run_raw(repo, calls, max_steps=10):
+    model = _RawArgs(calls)
+    res = ls.run_task({"workspace": str(repo), "instruction": "x", "allowed_paths": ["calc.py"],
+                       "protected_paths": []}, model, max_steps=max_steps, test_timeout=30)
+    return res, model
+
+
+def test_a_cut_off_finish_is_not_executed_and_a_complete_one_is(repo):
+    """Owner box 07.10: the local coder emitted tool calls cut off mid-JSON. A cut `finish` used to
+    parse to {} and end the task as `completed` with an empty summary."""
+    res, model = _run_raw(repo, [("finish", '{"summary": "fixed every'), ("finish", '{"summary": "done"}')])
+    assert res["stop_reason"] == "finished" and res["summary"] == "done"
+    first = res["tool_calls"][0]
+    assert first["err"] == "bad_args" and first["ok"] is False
+    assert "NOT executed" in model.seen[0]
+
+
+def test_cut_off_calls_are_never_executed_and_stop_as_a_fail_after_a_bounded_retry(repo):
+    before = (repo / "calc.py").read_bytes()
+    res, model = _run_raw(repo, [CUT_EDIT] * 20, max_steps=20)
+    assert res["status"] == "failed" and res["stop_reason"] == "bad_tool_args"
+    assert res["tool_calls_total"] == ls.MAX_BAD_ARGS_TURNS
+    assert all(e["err"] == "bad_args" for e in res["tool_calls"])
+    assert (repo / "calc.py").read_bytes() == before, "a cut edit must not touch the file"
+    assert "none of those calls was executed" in res["summary"]
+
+
+def test_non_object_arguments_are_not_coerced_to_an_empty_call(repo):
+    res, _ = _run_raw(repo, [("finish", '["oops"]'), ("finish", "42"), ("finish", "null")])
+    assert res["stop_reason"] == "bad_tool_args" and res["status"] == "failed"
+
+
+def test_a_valid_call_between_cut_ones_resets_the_bound(repo):
+    """Negative control for the bound: two cut turns, a good call, two more cut turns, then a real
+    finish still completes; the stop is for cut calls IN A ROW, not for any cut call ever."""
+    calls = [CUT_EDIT, CUT_EDIT, ("read_file", '{"path": "calc.py"}'), CUT_EDIT, CUT_EDIT,
+             ("finish", '{"summary": "x"}')]
+    res, _ = _run_raw(repo, calls)
+    assert res["stop_reason"] == "finished"
+    assert sum(1 for e in res["tool_calls"] if e.get("err") == "bad_args") == 4

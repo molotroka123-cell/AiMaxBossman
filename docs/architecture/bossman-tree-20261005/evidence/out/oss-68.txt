@@ -1,0 +1,19 @@
+# stage3 oss integration receipt output
+node: oss-68
+project: Textualize/rich
+sha: c8c3cfe0646277a51b4cc36f2d935af1735b9d13
+build_site_packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+integration_code: command-center/bcc/terminal_cli/console.py, command-center/bcc/terminal_cli/human.py, command-center/bcc/terminal_cli/theme.py
+command: PYTHONPATH=<installed build site-packages> python tools/tree_proof/stage3_oss_integration.py --child oss-68   # = cd command-center && pytest -q -rs tests/test_terminal_cli_unit.py + sys.modules check
+exit_code: 0
+
+........................                                                 [100%]
+24 passed in 0.27s
+
+@@ INTEGRATION CHECK (sys.modules after the test session) @@
+  bcc.terminal_cli.console: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\terminal_cli\console.py
+  bcc.terminal_cli.human: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\terminal_cli\human.py
+  bcc.terminal_cli.theme: loaded=True from_checkout=True file=C:\Users\asd\Bossman\wt-green-0610\command-center\bcc\terminal_cli\theme.py
+  upstream rich: loaded=True version=15.0.0 file=C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\rich\__init__.py
+
+@@ RESULT pytest_exit=0 integration_modules_loaded=True probe_ok=True @@

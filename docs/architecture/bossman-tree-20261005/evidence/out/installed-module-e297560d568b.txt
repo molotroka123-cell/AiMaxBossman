@@ -1,0 +1,17 @@
+node_id: module-e297560d568b
+installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.company.synthetic_seo')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_company_mode.py tests/test_pass3_company_integrity.py tests/test_v3_organization_company_bridge.py)
+
+import bossman.company.synthetic_seo: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\company\synthetic_seo.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_company_mode.py tests/test_pass3_company_integrity.py tests/test_v3_organization_company_bridge.py)
+[step shared by 1 leaf(s); exit 0 in 0.7s; reason=None]
+...............................                                          [100%]
+31 passed in 0.33s
+
+[guard] product modules loaded from installed build: 52; from repo source: []; aux repo-source helper modules: 3
+
+module under test bossman.company.synthetic_seo loaded by this test process from installed build: True
+
+VERDICT PASS
