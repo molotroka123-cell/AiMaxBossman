@@ -214,6 +214,44 @@ async def test_stop_mid_run_interrupts_and_leaves_no_background_job(env, tmp_pat
     assert (await env.client.get(f"/api/direct-gen/jobs/{j}")).json()["status"] == "cancelled"
 
 
+class SlowSubmitComfy(FakeComfy):
+    """submit_video is still in flight when STOP arrives; it answers only when released."""
+
+    def __init__(self, **kw):
+        super().__init__(hold=True, **kw)
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def submit_video(self, workflow: dict, client_id: str) -> str:
+        self.entered.set()
+        await self.release.wait()
+        return await super().submit_video(workflow, client_id)
+
+
+async def test_stop_during_submission_still_interrupts_the_submitted_prompt(env, tmp_path):
+    """A STOP mid-request must not orphan the ComfyUI job: the submission finishes, its prompt id
+    is learned, and that exact prompt is interrupted. No asyncio.shield involved (bcc/single_flight.py)."""
+    fake = SlowSubmitComfy()
+    svc = install(env, tmp_path, fake)
+    j = (await create(env)).json()["job_id"]
+    await asyncio.wait_for(fake.entered.wait(), 5)
+
+    stop = asyncio.ensure_future(env.client.post(f"/api/direct-gen/jobs/{j}/cancel"))
+    await asyncio.sleep(0.05)
+    assert not stop.done(), "STOP waits for the in-flight submission instead of abandoning it"
+    fake.release.set()
+    r = await asyncio.wait_for(stop, 10)
+    assert r.status_code == 200
+    job = await finish(env, j)
+    assert job["status"] == "cancelled"
+    assert fake.interrupts == ["p1"], "the prompt that reached ComfyUI is the one interrupted"
+
+    async def idle():
+        return svc.active_tasks() == 0
+
+    await wait_for(idle, timeout=5)
+
+
 async def test_cancel_queued_job_never_reaches_backend(env, tmp_path):
     fake = FakeComfy(hold=True)
     svc = install(env, tmp_path, fake)
