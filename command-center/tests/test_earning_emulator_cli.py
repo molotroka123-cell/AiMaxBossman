@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("earning_emulator_cli", ROOT / "tools" / "earning_emulator.py")
 cli = importlib.util.module_from_spec(spec)
 sys.modules["earning_emulator_cli"] = cli

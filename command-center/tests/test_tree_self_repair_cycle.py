@@ -4,15 +4,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "command-center"))
 sys.path.insert(0, str(ROOT / "bossman-core"))
 sys.path.insert(0, str(ROOT))
 
-import pytest  # noqa: E402
-
-pytest.importorskip("fastapi", reason="root-ci installs no Command Center / media deps")
 import tree_self_repair_cycle as cyc  # noqa: E402
 from bcc.features.coding_recipes import validate_recipe  # noqa: E402
 from tree_holdout import discovery_nonfinite, goal_budget_nonfinite  # noqa: E402

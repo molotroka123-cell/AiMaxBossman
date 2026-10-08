@@ -18673,7 +18673,7 @@
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
       "reference_paths": [
         "tools/earning_emulator.py",
-        "tests/test_earning_emulator_cli.py"
+        "command-center/tests/test_earning_emulator_cli.py"
       ]
     },
     {
