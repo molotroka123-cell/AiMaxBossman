@@ -78,19 +78,6 @@
   "kind": "pytest"
  },
  {
-  "node_id": "module-7c917a080544",
-  "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
-  "probe": "pytest of the tests that cover bcc/telegram_calls/speech/scripted.py (testing) in main (leaf data still points at the old branch path tgcalls-work)",
-  "command": "python -m pytest -q tests/telegram_calls/test_selftest.py tests/telegram_calls/test_calls_e2e_offline.py",
-  "exit_code": 0,
-  "started_at": "2026-10-08T13:37:44.093047+00:00",
-  "finished_at": "2026-10-08T13:39:51.766956+00:00",
-  "output_sha256": "042024da08f6973ed63606b5f20eb48c5477b2741233ed8bc8e9ffef96191540",
-  "output_tail": "16 passed in 126.25s (0:02:06)",
-  "verdict": "PASS",
-  "kind": "pytest"
- },
- {
   "node_id": "module-b3a1a55f12b0",
   "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
   "probe": "pytest of the tests that cover bcc/telegram_calls/speech/jeff_engines.py (tts) in main (leaf data still points at the old branch path tgcalls-work)",

@@ -5263,8 +5263,8 @@
    "id": "module-7c917a080544",
    "label": "telegram_calls/speech/testing.py",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/s"
+   "status": "branch",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
   },
   {
    "id": "module-85f118831d7b",
