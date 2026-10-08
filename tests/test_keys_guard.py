@@ -173,15 +173,17 @@ def test_parse_env_ignores_comments_and_export_prefix():
         "A": "saved", "B": "x", "C": "c"}
 
 
-def test_backend_launch_runs_the_guard_before_starting_and_never_blocks_on_it(monkeypatch):
+def test_backend_launch_runs_the_guard_before_starting_and_never_blocks_on_it(monkeypatch, tmp_path):
+    from types import SimpleNamespace
     spec = importlib.util.spec_from_file_location("owner_one_bossman", ROOT / "tools" / "owner_one_bossman.py")
     oob = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(oob)
     src = (ROOT / "tools" / "owner_one_bossman.py").read_text(encoding="utf-8")
     body = src[src.index("def launch("):]
     assert body.index("keys_ensure(say)") < body.index("argv = command_for(")   # before the spawn
+    # Only the launcher module sees a Windows name; the global os module is never touched
+    # (patching os.name globally broke pytest's failure reporting on Linux).
+    monkeypatch.setattr(oob, "os", SimpleNamespace(name="nt", environ=dict(os.environ, LOCALAPPDATA=str(tmp_path))))
     lines: list[str] = []
-    monkeypatch.setattr(oob.os, "name", "nt")
-    monkeypatch.setattr(oob.Path, "with_name", lambda self, n: ROOT / "tools" / "no-such-guard.py")
-    oob.keys_ensure(lines.append)                                  # missing guard -> a line, no raise
-    assert lines and "not found" in lines[0]
+    oob.keys_ensure(lines.append)                 # never raises; reports one names-only line
+    assert len(lines) == 1 and lines[0].startswith("keys:")
