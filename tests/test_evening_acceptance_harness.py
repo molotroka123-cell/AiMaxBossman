@@ -174,6 +174,14 @@ def test_a_single_canonical_entrypoint_exists_for_each_platform():
     assert os.access(REPO / "start-bossman.sh", os.X_OK)
 
 
+def test_windows_launcher_is_saved_with_a_utf8_bom():
+    """Windows PowerShell 5.1 reads a .ps1 without a BOM in the ANSI code page: every Cyrillic
+    message of the launcher would be mojibake on a stock Windows 11 (port of 1e707db8)."""
+    raw = (REPO / "start-bossman.ps1").read_bytes()
+    assert any(b > 0x7F for b in raw), "the launcher has Russian messages"
+    assert raw.startswith(b"\xef\xbb\xbf")
+
+
 def test_windows_launcher_preserves_owner_vault_across_source_upgrades():
     script = (REPO / "start-bossman.ps1").read_text(encoding="utf-8")
     assert 'Join-Path $LocalData "Bossman\\CommandCenter"' in script
