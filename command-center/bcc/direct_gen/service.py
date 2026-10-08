@@ -28,6 +28,7 @@ from typing import Any, Awaitable, Callable
 from ..single_flight import await_shared
 from . import catalog, faceswap, genjutsu, sdcli
 from .client import ComfyUIVideoClient, classify_error, validate_template
+from .prompt_vault import PromptVault
 from .store import JobStore, valid_participant
 
 TERMINAL = ("completed", "failed", "cancelled")
@@ -130,6 +131,7 @@ class DirectGenService:
         self.svc = svc
         self.data_dir = Path(svc.settings.data_dir) / "direct-gen"
         self.store = JobStore(Path(svc.settings.data_dir))
+        self.prompt_vault = PromptVault(Path(svc.settings.data_dir))
         self.models_dir = Path(models_dir) if models_dir else catalog.default_models_dir()
         self.workflows_dir = Path(workflows_dir) if workflows_dir else self.data_dir / "workflows"
         self._client = client
@@ -370,6 +372,7 @@ class DirectGenService:
         folder.mkdir(parents=True, exist_ok=True)
         for k, data in inputs.items():
             (folder / f"input_{k}.bin").write_bytes(data)
+        self.prompt_vault.record(job)
         self.store.save(job)
         self._waiting.append(job_id)
         self._tasks[job_id] = asyncio.create_task(self._run(job, template, inputs), name=f"direct-gen-{job_id[:8]}")
@@ -425,6 +428,7 @@ class DirectGenService:
         folder.mkdir(parents=True, exist_ok=True)
         if image:
             (folder / "input_image.bin").write_bytes(image)
+        self.prompt_vault.record(job)
         self.store.save(job)
         self._waiting.append(job_id)
         self._tasks[job_id] = asyncio.create_task(self._run_sd(job, spec, image), name=f"direct-gen-{job_id[:8]}")

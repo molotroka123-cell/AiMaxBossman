@@ -7,6 +7,7 @@
   POST /direct-gen/jobs/{id}/cancel       STOP (queued or mid-run; interrupts that ComfyUI prompt only)
   POST /direct-gen/jobs/{id}/retry        same raw prompt and SAME seed
   GET  /direct-gen/jobs/{id}/file         the finished video
+  GET  /direct-gen/vault/prompts?q=&limit=  owner-only: encrypted history of the owner's own prompts
   POST /direct-gen/assist                 ASSISTED: local Qwen proposes an edit; nothing is generated or loaded
   GET  /direct-gen/faceswap               FaceFusion installed? presets
   POST /direct-gen/swap-jobs              face swap in a video (photos + consent), 16:9 + original audio;
@@ -155,6 +156,13 @@ async def genjutsu_info(request: Request):
 @router.post("/genjutsu/masks")
 async def genjutsu_masks(body: MasksIn, request: Request, x_participant: str | None = Header(default=None)):
     return await _guard(_svc(request).create_masks(_who(x_participant), body.model_dump()))
+
+
+@router.get("/vault/prompts")
+async def vault_prompts(request: Request, q: str = "", limit: int = 100, x_participant: str | None = Header(default=None)):
+    if _who(x_participant) != "owner":
+        raise HTTPException(404, {"code": "not_found", "message": "not found"})
+    return {"prompts": _svc(request).prompt_vault.search(q, limit)}
 
 
 @router.post("/assist")
