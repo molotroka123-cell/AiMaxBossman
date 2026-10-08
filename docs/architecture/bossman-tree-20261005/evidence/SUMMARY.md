@@ -1,22 +1,22 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=24, code=28, idea=22, mixed=16, prepared=18, recorded=175, reported=412, retired=5, working=164
+Статусы дерева: blocked=12, branch=24, code=22, idea=22, mixed=16, prepared=18, recorded=175, reported=418, retired=5, working=164
 
-Принято расписок: 7; отклонено: 849
+Принято расписок: 6; отклонено: 856
 
 ## По зонам
 
-- jeff: 7
+- apps: 2
+- memory: 4
 
 ## Принятые
 
-- `module-aacf13d1fab5` (jeff-telegram-calls-paths-20261008.json)
-- `module-8b9384b5a0ac` (jeff-telegram-calls-paths-20261008.json)
-- `module-7d6b56dd11d4` (jeff-telegram-calls-paths-20261008.json)
-- `module-fb3e7ddff256` (jeff-telegram-calls-paths-20261008.json)
-- `module-d25f75686dc7` (jeff-telegram-calls-paths-20261008.json)
-- `module-f4c52a69b401` (jeff-telegram-calls-paths-20261008.json)
-- `module-b3a1a55f12b0` (jeff-telegram-calls-paths-20261008.json)
+- `module-6bf6aca94f5f` (wave2-code-leaves-20261008.json)
+- `module-10135418ed52` (wave2-code-leaves-20261008.json)
+- `module-dca65ddd8cea` (wave2-code-leaves-20261008.json)
+- `module-72a2f39e685d` (wave2-code-leaves-20261008.json)
+- `pv-executor` (wave2-code-leaves-20261008.json)
+- `pv-ui` (wave2-code-leaves-20261008.json)
 
 ## Отклонённые
 
@@ -61,6 +61,13 @@
 - `mod-rave` (agcloud.json): status reported not eligible
 - `cap-22` (agcloud.json): status reported not eligible
 - `mod-openrouter` (agcloud.json): status reported not eligible
+- `module-aacf13d1fab5` (jeff-telegram-calls-paths-20261008.json): status reported not eligible
+- `module-8b9384b5a0ac` (jeff-telegram-calls-paths-20261008.json): status reported not eligible
+- `module-7d6b56dd11d4` (jeff-telegram-calls-paths-20261008.json): status reported not eligible
+- `module-fb3e7ddff256` (jeff-telegram-calls-paths-20261008.json): status reported not eligible
+- `module-d25f75686dc7` (jeff-telegram-calls-paths-20261008.json): status reported not eligible
+- `module-f4c52a69b401` (jeff-telegram-calls-paths-20261008.json): status reported not eligible
+- `module-b3a1a55f12b0` (jeff-telegram-calls-paths-20261008.json): status reported not eligible
 - `cap-1` (jeffa.json): status reported not eligible
 - `cap-2` (jeffa.json): status reported not eligible
 - `cap-3` (jeffa.json): status reported not eligible

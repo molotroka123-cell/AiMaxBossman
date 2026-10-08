@@ -13674,14 +13674,20 @@
       "id": "module-6bf6aca94f5f",
       "label": "bossman/trading_learning/benchmark.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossman/trading_learning/benchmark.py",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/benchmark.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/benchmark.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#module-6bf6aca94f5f",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13713,14 +13719,20 @@
       "id": "module-10135418ed52",
       "label": "bossman/trading_learning/cli.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossman/trading_learning/cli.py",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/cli.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/cli.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#module-10135418ed52",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13729,14 +13741,20 @@
       "id": "module-dca65ddd8cea",
       "label": "bossman/trading_learning/frames.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossman/trading_learning/frames.py",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/frames.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/frames.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#module-dca65ddd8cea",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13745,14 +13763,20 @@
       "id": "module-72a2f39e685d",
       "label": "bossman/trading_learning/ingest.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossman/trading_learning/ingest.py",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/ingest.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/ingest.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#module-72a2f39e685d",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -17674,8 +17698,8 @@
       "id": "pv-ui",
       "label": "Страница Poker Vision и один backend",
       "parent": "pv",
-      "status": "code",
-      "detail": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис.",
+      "status": "reported",
+      "detail": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import command-center/bcc/features/poker_vision.py",
       "sources": [
         {
           "path": "command-center/ui/pages/poker_vision.js",
@@ -17688,6 +17712,12 @@
           "branch": "poker-vision/pipeline-20261005",
           "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/command-center/bcc/features/poker_vision.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#pv-ui",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Выбор окна и захват mss проверить на Windows владельца (NOT_RUN в контейнере)."
@@ -17734,8 +17764,8 @@
       "id": "pv-executor",
       "label": "EXECUTOR: проверки → клик → подтверждение (только свой тренажёр)",
       "parent": "pv",
-      "status": "code",
-      "detail": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Computer Use, DPR 2, другие раскладки.",
+      "status": "reported",
+      "detail": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Computer Use, DPR 2, другие раскладки. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import apps/poker-vision/pokervision/control/executor.py",
       "sources": [
         {
           "path": "apps/poker-vision/pokervision/control/executor.py",
@@ -17748,6 +17778,12 @@
           "branch": "poker-vision/coach-executor-20261006",
           "sha": "a963599537f295c4266ec656ab35b233d632d71c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/evidence/REPORT_COACH_EXECUTOR.md"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#pv-executor",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ]
     },

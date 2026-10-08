@@ -1,0 +1,36 @@
+{
+ "model": "anthropic/claude-haiku-5.5",
+ "usd": 0.00059,
+ "verdicts": [
+  {
+   "leaf": "module-6bf6aca94f5f",
+   "verdict": "COVERS",
+   "reason": "Tests import benchmark.py directly; 29 passed, 3 skipped."
+  },
+  {
+   "leaf": "module-10135418ed52",
+   "verdict": "PARTIAL",
+   "reason": "Pipeline-benchmark tests only import cli.py indirectly; no CLI-specific tests named."
+  },
+  {
+   "leaf": "module-dca65ddd8cea",
+   "verdict": "PARTIAL",
+   "reason": "Benchmark-file tests import frames.py; behaviour under test is pipeline benchmarking."
+  },
+  {
+   "leaf": "module-72a2f39e685d",
+   "verdict": "PARTIAL",
+   "reason": "Wiring and benchmark tests import ingest.py; coverage is incidental to wiring."
+  },
+  {
+   "leaf": "pv-executor",
+   "verdict": "PARTIAL",
+   "reason": "test_control.py likely exercises executor, but output shows no pass summary."
+  },
+  {
+   "leaf": "pv-ui",
+   "verdict": "PARTIAL",
+   "reason": "Client-reuse test touches the single backend, not the page's behaviour."
+  }
+ ]
+}

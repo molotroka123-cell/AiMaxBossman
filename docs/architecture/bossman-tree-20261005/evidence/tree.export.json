@@ -4227,8 +4227,8 @@
    "id": "module-6bf6aca94f5f",
    "label": "bossman/trading_learning/benchmark.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossma"
   },
   {
    "id": "module-98c19da7eaec",
@@ -4241,22 +4241,22 @@
    "id": "module-10135418ed52",
    "label": "bossman/trading_learning/cli.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossma"
   },
   {
    "id": "module-dca65ddd8cea",
    "label": "bossman/trading_learning/frames.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossma"
   },
   {
    "id": "module-72a2f39e685d",
    "label": "bossman/trading_learning/ingest.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossma"
   },
   {
    "id": "module-9b294ff2bf89",
@@ -5473,8 +5473,8 @@
    "id": "pv-ui",
    "label": "Страница Poker Vision и один backend",
    "parent": "pv",
-   "status": "code",
-   "short": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис."
+   "status": "reported",
+   "short": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис. Прогон"
   },
   {
    "id": "pv-gpu",
@@ -5494,7 +5494,7 @@
    "id": "pv-executor",
    "label": "EXECUTOR: проверки → клик → подтверждение (только свой тренажёр)",
    "parent": "pv",
-   "status": "code",
+   "status": "reported",
    "short": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Compu"
   },
   {
