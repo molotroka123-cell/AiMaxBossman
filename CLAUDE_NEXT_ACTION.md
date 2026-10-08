@@ -1,3 +1,9 @@
+# Owner directive — K1m6a continuation on 2026-10-08
+
+Read `docs/trading/K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md` and current `AGENTS.md` before continuing the learning run. Resume from the verified local checkpoint (last recorded video #25), independently audit the next ten videos, and prove before/after gains on locked unseen screenshots plus restart transfer. The owner authorized continuation; this push prepares the work but does not launch the PC. Preserve release-critical fixes and the same-product contract. Canonical is `main`; historical destinations below are superseded.
+
+---
+
 # CURRENT OWNER PRIORITY — TERMINAL RUN 1.2
 
 Owner clarification: 2026-09-23. Read and implement `docs/terminal/TERMINAL_RUN_1_2_MASTER.md`, then its open-source shortlist, acceptance matrix and teacher prompt.
