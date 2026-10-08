@@ -20,7 +20,9 @@ REAL = {"plugin:http.get", "plugin:monitor.feed", "plugin:sql.read",
         "plugin:obsidian.read", "plugin:obsidian.write",
         # real handlers since 2026-10-06 (see test_leaf_plugins_real_handlers.py)
         "plugin:ollama.chat", "plugin:openrouter.chat", "plugin:github.repo_read", "plugin:mcp.tool_list",
-        "plugin:telegram.status", "plugin:browser.open"}
+        "plugin:telegram.status", "plugin:browser.open",
+        # real handler since 2026-10-08 (see test_plugin_mcp_tool_call.py)
+        "plugin:mcp.tool_call"}
 GENERIC = [c for c in P.MANIFEST if c.tool_name not in REAL]
 
 
@@ -39,7 +41,7 @@ def _ctx():
 
 
 def test_generic_set_is_what_we_think():
-    assert len(GENERIC) == 12 and len(P.MANIFEST) == 23
+    assert len(GENERIC) == 11 and len(P.MANIFEST) == 23
 
 
 @pytest.mark.parametrize("cap", GENERIC, ids=[c.tool_name for c in GENERIC])

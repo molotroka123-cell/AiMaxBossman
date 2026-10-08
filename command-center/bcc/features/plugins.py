@@ -236,9 +236,21 @@ def sql_read_only_ok(sql: str) -> bool:
 
 def _known_secret_values() -> set[str]:
     """Значения настроенных кредов — для скраба из внешнего контента/ошибок.
-    Сами значения НИКОГДА не попадают в логи/аудит (см. plugin_security.redact)."""
-    return {os.environ[ref] for ref in {c.credential_ref for c in MANIFEST}
-            if ref and os.environ.get(ref)}
+    Сами значения НИКОГДА не попадают в логи/аудит (см. plugin_security.redact).
+
+    Имена берутся с алиасами (`_CRED_ALIASES`): `_cred` принимает ключ из
+    устаревшей переменной (BOSSMAN_OPENROUTER_API_KEY), значит и скрабить надо
+    его — иначе ключ, которым плагин реально пользуется, проходил бы эхом
+    страницы в http.get/github.repo_read нетронутым."""
+    out: set[str] = set()
+    for ref in {c.credential_ref for c in MANIFEST}:
+        if not ref:
+            continue
+        for name in _CRED_ALIASES.get(ref, (ref,)):
+            val = (os.environ.get(name) or "").strip()
+            if val:
+                out.add(val)
+    return out
 
 
 async def _h_http_get(args, ctx: ToolContext) -> ToolResult:
@@ -663,6 +675,61 @@ async def _h_browser_open(args, ctx) -> ToolResult:
                             "title": title})
 
 
+def _mcp_blocked(why: str, line: str) -> ToolResult:
+    return ToolResult(content=f"blocked: {why}", one_line=f"mcp.tool_call {line}", error=True,
+                      data={"performed": False})
+
+
+async def _h_mcp_tool_call(args, ctx: ToolContext) -> ToolResult:
+    """Вызов инструмента УЖЕ настроенного MCP-сервера — тем же путём, что `mcp:<server>:<tool>`.
+
+    Второго MCP-клиента здесь нет: сервер — только из таблицы mcp_servers,
+    launch_refusal (allowlist бинарников) — до старта процесса, сам вызов —
+    `tools_mcp._handler_for` (лимит вывода, событие mcp.call_failed). ASK
+    плагина движок применяет ДО хендлера. Здесь добавлено то, что плагин обязан
+    не обойти: `deny` владельца в `mcp.policy` для этого инструмента остаётся
+    отказом, а инструмент, которого сервер не объявил, не вызывается (DENY)."""
+    svc = getattr(ctx, "svc", None)
+    name = str(args.get("server") or "").strip()
+    tool = args.get("tool")
+    call_args = args.get("args")
+    if call_args is None:
+        call_args = {}
+    if svc is None or not name or not isinstance(tool, str) or not tool.strip():
+        return _mcp_blocked("нужны server (имя настроенного MCP-сервера), tool и сервисы Command Center",
+                            "blocked")
+    if not isinstance(call_args, dict):
+        return _mcp_blocked("args должен быть объектом", "blocked (args)")
+    tool = tool.strip()
+    from fastapi import HTTPException
+
+    from ..v2.mcp_hub import namespaced_tool
+    from . import tools_mcp as _m
+    try:
+        row = await _m._server_row(svc, name, by_name=True)
+    except HTTPException:
+        return _mcp_blocked(f"MCP-сервер {name!r} не настроен", "unknown server")
+    if not row.get("enabled", True):
+        return _mcp_blocked(f"MCP-сервер {name!r} выключен", "disabled")
+    spec = _m._spec_from_row(row)
+    canonical = namespaced_tool(spec.id, tool)
+    if str((await _m._policy(svc)).get(canonical) or "ask") == "deny":
+        return _mcp_blocked(f"{canonical} запрещён политикой владельца (mcp.policy=deny)", "denied by policy")
+    refusal = _m.launch_refusal(spec)
+    if refusal:
+        return _mcp_blocked(refusal, "blocked (allowlist)")
+    rt = _m.runtime_of(svc)
+    try:
+        await rt.ensure(spec)
+        declared = {v.name for v in await rt.list_tools(spec.id)}
+    except (_m.MCPUnavailable, _m.MCPCallError) as exc:
+        return ToolResult(content=f"MCP-сервер {name} недоступен: {exc}", one_line="mcp.tool_call unavailable",
+                          error=True, data={"performed": False})
+    if tool not in declared:
+        return _mcp_blocked(f"сервер {name!r} не объявляет инструмент {tool!r}", "unknown tool")
+    return await _m._handler_for(svc, spec, tool)(call_args, ctx)
+
+
 async def _h_generic_external(cap: Capability):
     async def handler(args, ctx: ToolContext) -> ToolResult:
         if await resolve_cred(cap.credential_ref, getattr(ctx, "svc", None)) is None:
@@ -697,6 +764,8 @@ def _handler_for(cap: Capability):
         return _h_github_repo_read
     if cap.tool_name == "plugin:mcp.tool_list":
         return _h_mcp_tool_list
+    if cap.tool_name == "plugin:mcp.tool_call":
+        return _h_mcp_tool_call
     if cap.tool_name == "plugin:telegram.status":
         return _h_telegram_status
     if cap.tool_name == "plugin:browser.open":
