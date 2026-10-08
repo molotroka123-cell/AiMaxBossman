@@ -7,6 +7,7 @@ Before making product, release, training, memory, model-routing or self-improvem
 - `docs/evo/BOSSMAN_1_1_NORTH_STAR.md`;
 - `CLAUDE_NEXT_ACTION.md`;
 - current repair/audit checkpoints relevant to your work.
+- `docs/trading/K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md` — owner-authorized 08.10 continuation, independent ten-video audit and blind learning/transfer checks; read for K1m6a work.
 
 ## Non-negotiable direction
 
