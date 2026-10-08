@@ -496,8 +496,12 @@ def parse_calls(message: dict) -> list[tuple[str, str, dict]]:
         try:
             args = json.loads(raw) if isinstance(raw, str) else dict(raw)
         except (ValueError, TypeError):
+            args = None
+        if not isinstance(args, dict):
+            # Cut-off JSON (the model hit its output limit mid-call) or a non-object. It is marked,
+            # never coerced to {}: an empty dict made a cut `finish` look like a real one.
             args = {"__unparsed__": str(raw)[:500]}
-        calls.append((str(tc.get("id") or f"call_{i}"), str(fn.get("name") or ""), args if isinstance(args, dict) else {}))
+        calls.append((str(tc.get("id") or f"call_{i}"), str(fn.get("name") or ""), args))
     if calls:
         return calls
     content = message.get("content") or ""
@@ -587,6 +591,13 @@ def _err_code(message: str) -> str:
 
 OBSERVE_TOOLS = ("list_dir", "read_file", "search")
 MAX_NO_PROGRESS = 8   # fixed before the 2026-09-23 comparison; do not tune on its outcome
+#: Turns in a row whose every tool call had cut-off/invalid JSON arguments. Such a call is never
+#: executed; the model is asked to resend it, and after this many turns the attempt stops as a
+#: FAIL (owner box 07.10: the local coder kept emitting cut tool calls until the step budget ran out).
+MAX_BAD_ARGS_TURNS = 3
+BAD_ARGS_NOTE = ("ERROR: the arguments of this {name} call are not complete JSON (probably cut off by the "
+                 "output limit), so the call was NOT executed. Send it again with complete, valid JSON; "
+                 "for a large edit use a smaller old/new fragment.")
 
 
 def _repeat_without_progress(seen: dict, name: str, sig: str, result: str, edits: int) -> int:
@@ -667,6 +678,7 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
     seen: dict[tuple[str, str, int], int] = {}
     edits = 0
     no_progress = 0
+    bad_args_turns = 0
     summary = ""
     stop = "max_steps"
     started = time.monotonic()
@@ -699,13 +711,22 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                             "err": "no_tool_call"})
                 continue
             finished = False
+            if all("__unparsed__" in args for _, _, args in calls):
+                bad_args_turns += 1
+            else:
+                bad_args_turns = 0
             for call_id, name, args in calls:
                 ok, result = True, ""
                 entry: dict[str, Any] = {"step": step, "tool": name, "ok": True,
                                          "t": round(time.monotonic() - started, 3), "sig": _call_sig(name, args),
                                          **_call_facts(name, args)}
                 if "__unparsed__" in args:
-                    entry["err"] = "bad_args"
+                    # Never executed: not even finish or run_tests with guessed defaults.
+                    entry.update(ok=False, err="bad_args")
+                    log.append(entry)
+                    messages.append({"role": "tool", "tool_call_id": call_id, "name": name,
+                                     "content": BAD_ARGS_NOTE.format(name=name or "tool")})
+                    continue
                 try:
                     if name not in allowed_tools:
                         raise ToolError(f"tool not allowed for this agent: {name}")
@@ -762,6 +783,11 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                     break
             if finished:
                 stop = "finished"
+                break
+            if bad_args_turns >= MAX_BAD_ARGS_TURNS:
+                stop = "bad_tool_args"
+                summary = (f"stopped: {bad_args_turns} turns in a row with cut-off or invalid tool-call JSON; "
+                           "none of those calls was executed")
                 break
             if no_progress >= MAX_NO_PROGRESS:
                 stop = "no_progress_loop"
