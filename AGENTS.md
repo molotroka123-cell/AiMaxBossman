@@ -8,6 +8,7 @@ Before making product, release, training, memory, model-routing or self-improvem
 - `CLAUDE_NEXT_ACTION.md`;
 - current repair/audit checkpoints relevant to your work.
 - `docs/trading/K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md` — owner-authorized 08.10 continuation, independent ten-video audit and blind learning/transfer checks; read for K1m6a work.
+- `docs/audits/2026-10-08-tree-audit-13-zones/README.md` — 08.10 checkpoint of the 13-zone capability-tree audit (what exists, what is missing, where to start) and `BRIEFS.md` (3 auditor roles per branch, 2 open-source candidates per leaf, selection by the existing G·P·D·S·V ≥ 9/10 rule). Status PARTIAL: agent waves failed on session limits; re-run per section 6 of that README before claiming any zone result.
 
 ## Non-negotiable direction
 
@@ -33,6 +34,10 @@ A specification, generated screenshot or new CLI entry point is not proof of an 
 ## Owner amendment — 1.5 specification and consolidation
 
 Owner requested autonomous App/Skill acquisition, internet, an explicitly selected low-overrefusal local profile, own-voice/phone and shopping. Requirements live in `docs/v1.5/`. Reuse the existing backend and permission system; do not build four new cores. `LOCAL_UNRESTRICTED` controls model behavior, not authority over credentials, money or stable code.
+
+## Owner amendment — capability tree is a map, not a certificate (2026-10-08)
+
+The public tree site (`molotroka123-cell.github.io`, pages `ai/bossman-development.md` and `subtle-baklava-676893/`) is unreachable from cloud containers (network policy). Its data source in this repository is `command-center/bcc/capability_tree_seed.json`; per-leaf evidence levels live in `docs/architecture/tree-registry.json`. As of 08.10 that registry records **0 leaves at `ci` and 0 at `owner_pc`**; `reported`/`recorded`/`code` statuses are claims, not proof. Never change leaf statuses by hand — only via `tools/tree_registry_sync.py` / `tools/tree_apply_evidence.py` with evidence files. Owner 08.10: documentation-only work; do not write product code for the tree audit; reconcile site SHA, seed SHA, installed build SHA and registry head before any "green" claim.
 
 ## Owner amendment — canonical line (2026-10-08)
 
