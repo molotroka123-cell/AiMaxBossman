@@ -1,0 +1,435 @@
+{
+ "file": "C:\\Users\\asd\\Bossman\\Bossman_Motion_Concert_Faint\\pipeline\\out\\faint_concert_854x480.mp4",
+ "exists": true,
+ "expected_duration_s": 168.829388,
+ "tolerance_s": 0.041666666666666664,
+ "checks": {
+  "streams": {
+   "video": 1,
+   "audio": 1,
+   "ok": true,
+   "video_codec": "h264",
+   "size": "854x480",
+   "audio_codec": "mp3"
+  },
+  "duration": {
+   "format_s": 168.833333,
+   "video_s": 168.833333,
+   "audio_s": 168.79127,
+   "audio_vs_expected_s": -0.038118,
+   "video_vs_audio_s": 0.042063,
+   "video_frames": 4052,
+   "expected_frames": 4052,
+   "ok": false
+  },
+  "av_offset": {
+   "video_start_s": 0.0,
+   "audio_start_s": 0.0,
+   "offset_s": 0.0,
+   "ok": true
+  },
+  "audio_bit_exact": {
+   "source_packets_md5": "MD5=817501cfbd3155b3b783e2064d3e284c",
+   "final_packets_md5": "MD5=817501cfbd3155b3b783e2064d3e284c",
+   "ok": true
+  },
+  "full_decode": {
+   "returncode": 0,
+   "errors": "",
+   "ok": true
+  }
+ },
+ "gaps": [
+  {
+   "id": "s001",
+   "kind": "i2v",
+   "start_s": 0.0,
+   "end_s": 1.022,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s002",
+   "kind": "i2v",
+   "start_s": 1.022,
+   "end_s": 4.945941,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s003",
+   "kind": "i2v",
+   "start_s": 4.945941,
+   "end_s": 8.916529,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s004",
+   "kind": "i2v",
+   "start_s": 8.916529,
+   "end_s": 13.003,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s005",
+   "kind": "i2v",
+   "start_s": 13.003,
+   "end_s": 17.298882,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s007",
+   "kind": "s2v",
+   "start_s": 21.710647,
+   "end_s": 25.89,
+   "status": "failed",
+   "reason": "timed out"
+  },
+  {
+   "id": "s008",
+   "kind": "s2v",
+   "start_s": 25.89,
+   "end_s": 30.093,
+   "status": "failed",
+   "reason": "timed out"
+  },
+  {
+   "id": "s009",
+   "kind": "s2v",
+   "start_s": 30.093,
+   "end_s": 34.063588,
+   "status": "failed",
+   "reason": "timed out"
+  },
+  {
+   "id": "s010",
+   "kind": "s2v",
+   "start_s": 34.063588,
+   "end_s": 37.872,
+   "status": "failed",
+   "reason": "timed out"
+  },
+  {
+   "id": "s011",
+   "kind": "s2v",
+   "start_s": 37.872,
+   "end_s": 41.563588,
+   "status": "failed",
+   "reason": "timed out"
+  },
+  {
+   "id": "s012",
+   "kind": "s2v",
+   "start_s": 41.563588,
+   "end_s": 45.093,
+   "status": "failed",
+   "reason": "timed out"
+  },
+  {
+   "id": "s013",
+   "kind": "s2v",
+   "start_s": 45.093,
+   "end_s": 48.53,
+   "status": "failed",
+   "reason": "[WinError 1455] Файл подкачки слишком мал для завершения операции"
+  },
+  {
+   "id": "s014",
+   "kind": "s2v",
+   "start_s": 48.53,
+   "end_s": 52.151824,
+   "status": "failed",
+   "reason": "[WinError 2] Не удается найти указанный файл"
+  },
+  {
+   "id": "s015",
+   "kind": "s2v",
+   "start_s": 52.151824,
+   "end_s": 55.635,
+   "status": "failed",
+   "reason": "[WinError 2] Не удается найти указанный файл"
+  },
+  {
+   "id": "s016",
+   "kind": "s2v",
+   "start_s": 55.635,
+   "end_s": 59.210647,
+   "status": "failed",
+   "reason": "[WinError 1455] Файл подкачки слишком мал для завершения операции"
+  },
+  {
+   "id": "s017",
+   "kind": "s2v",
+   "start_s": 59.210647,
+   "end_s": 62.74,
+   "status": "failed",
+   "reason": "[WinError 2] Не удается найти указанный файл"
+  },
+  {
+   "id": "s018",
+   "kind": "s2v",
+   "start_s": 62.74,
+   "end_s": 66.269471,
+   "status": "failed",
+   "reason": "[WinError 2] Не удается найти указанный файл"
+  },
+  {
+   "id": "s019",
+   "kind": "s2v",
+   "start_s": 66.269471,
+   "end_s": 69.822,
+   "status": "failed",
+   "reason": "[WinError 2] Не удается найти указанный файл"
+  },
+  {
+   "id": "s020",
+   "kind": "s2v",
+   "start_s": 69.822,
+   "end_s": 73.769471,
+   "status": "failed",
+   "reason": "[WinError 1455] Файл подкачки слишком мал для завершения операции"
+  },
+  {
+   "id": "s021",
+   "kind": "s2v",
+   "start_s": 73.769471,
+   "end_s": 77.369,
+   "status": "failed",
+   "reason": "[WinError 1455] Файл подкачки слишком мал для завершения операции"
+  },
+  {
+   "id": "s022",
+   "kind": "s2v",
+   "start_s": 77.369,
+   "end_s": 80.828294,
+   "status": "failed",
+   "reason": "[WinError 2] Не удается найти указанный файл"
+  },
+  {
+   "id": "s023",
+   "kind": "s2v",
+   "start_s": 80.828294,
+   "end_s": 84.357706,
+   "status": "failed",
+   "reason": "[WinError 2] Не удается найти указанный файл"
+  },
+  {
+   "id": "s024",
+   "kind": "s2v",
+   "start_s": 84.357706,
+   "end_s": 87.586,
+   "status": "failed",
+   "reason": "[WinError 1455] Файл подкачки слишком мал для завершения операции"
+  },
+  {
+   "id": "s025",
+   "kind": "s2v",
+   "start_s": 87.586,
+   "end_s": 90.975353,
+   "status": "failed",
+   "reason": "[WinError 2] Не удается найти указанный файл"
+  },
+  {
+   "id": "s026",
+   "kind": "s2v",
+   "start_s": 90.975353,
+   "end_s": 94.691,
+   "status": "running",
+   "reason": null
+  },
+  {
+   "id": "s027",
+   "kind": "s2v",
+   "start_s": 94.691,
+   "end_s": 98.916529,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s028",
+   "kind": "s2v",
+   "start_s": 98.916529,
+   "end_s": 103.328294,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s029",
+   "kind": "i2v",
+   "start_s": 103.328294,
+   "end_s": 107.298882,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s030",
+   "kind": "s2v",
+   "start_s": 107.298882,
+   "end_s": 111.710647,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s031",
+   "kind": "s2v",
+   "start_s": 111.710647,
+   "end_s": 115.681235,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s032",
+   "kind": "s2v",
+   "start_s": 115.681235,
+   "end_s": 119.978,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s033",
+   "kind": "s2v",
+   "start_s": 119.978,
+   "end_s": 124.063588,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s034",
+   "kind": "s2v",
+   "start_s": 124.063588,
+   "end_s": 128.034176,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s035",
+   "kind": "s2v",
+   "start_s": 128.034176,
+   "end_s": 131.913,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s036",
+   "kind": "s2v",
+   "start_s": 131.913,
+   "end_s": 135.534176,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s037",
+   "kind": "s2v",
+   "start_s": 135.534176,
+   "end_s": 139.018,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s038",
+   "kind": "s2v",
+   "start_s": 139.018,
+   "end_s": 142.593,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s039",
+   "kind": "s2v",
+   "start_s": 142.593,
+   "end_s": 146.123,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s040",
+   "kind": "s2v",
+   "start_s": 146.123,
+   "end_s": 150.534176,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s041",
+   "kind": "i2v",
+   "start_s": 150.534176,
+   "end_s": 154.993,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s042",
+   "kind": "i2v",
+   "start_s": 154.993,
+   "end_s": 158.475353,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s043",
+   "kind": "i2v",
+   "start_s": 158.475353,
+   "end_s": 162.445941,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s044",
+   "kind": "i2v",
+   "start_s": 162.445941,
+   "end_s": 166.069,
+   "status": "planned",
+   "reason": null
+  },
+  {
+   "id": "s045",
+   "kind": "i2v",
+   "start_s": 166.069,
+   "end_s": 168.829388,
+   "status": "planned",
+   "reason": null
+  }
+ ],
+ "verdict": "FAIL",
+ "gap_seconds": 164.418,
+ "summary": {
+  "shots": 45,
+  "by_kind": {
+   "i2v": {
+    "shots": 11,
+    "seconds": 39.565
+   },
+   "s2v": {
+    "shots": 34,
+    "seconds": 129.266
+   }
+  },
+  "inserts_by_ref": {
+   "band_wide": 3,
+   "shamisen_hands": 3,
+   "crowd": 3,
+   "stage_led": 2
+  },
+  "status": {
+   "planned": 24,
+   "done": 1,
+   "failed": 19,
+   "running": 1
+  },
+  "covered_s": 168.829388,
+  "duration_s": 168.829388,
+  "s2v_fraction": 0.766,
+  "min_shot_s": 1.022,
+  "max_shot_s": 4.459
+ },
+ "not_verified": [
+  "lip-sync quality",
+  "instrument/hand accuracy",
+  "face identity consistency between shots",
+  "vocal on/off times (not detected; energy used as proxy)",
+  "visual artefacts / colour noise"
+ ]
+}
