@@ -328,6 +328,96 @@ def contaminated(lessons: list[dict], split: dict) -> list[str]:
     return bad
 
 
+_VTT_TS = re.compile(r"(\d+):(\d{2}):(\d{2})[.,](\d{3})\s+-->\s+(\d+):(\d{2}):(\d{2})[.,](\d{3})")
+
+
+def read_segments(video_dir: str | Path) -> list[dict]:
+    """Речь ролика: asr.segments.json (локальный ASR) или первый subs.*.vtt. Пусто — ExamError."""
+    d = Path(video_dir)
+    asr = d / "asr.segments.json"
+    if asr.is_file():
+        data = json.loads(asr.read_text(encoding="utf-8"))
+        rows = data.get("segments", data) if isinstance(data, dict) else data
+        segs = [{"start": float(r["start"]), "end": float(r.get("end", r["start"])), "text": str(r.get("text", ""))}
+                for r in rows if isinstance(r, dict) and "start" in r]
+        if segs:
+            return segs
+    for vtt in sorted(d.glob("subs.*.vtt")):
+        segs, cur = [], None
+        for line in vtt.read_text(encoding="utf-8", errors="replace").splitlines():
+            m = _VTT_TS.search(line)
+            if m:
+                h1, m1, s1, ms1, h2, m2, s2, ms2 = (int(x) for x in m.groups())
+                cur = {"start": h1 * 3600 + m1 * 60 + s1 + ms1 / 1000, "end": h2 * 3600 + m2 * 60 + s2 + ms2 / 1000,
+                       "text": ""}
+                segs.append(cur)
+            elif cur is not None and line.strip():
+                cur["text"] = (cur["text"] + " " + re.sub(r"<[^>]+>", "", line).strip()).strip()
+        if segs:
+            return segs
+    raise ExamError(f"{d}: no asr.segments.json or subs.*.vtt with timed text")
+
+
+_T_KEYS = ("t", "t_s", "timestamp", "time_s", "seconds", "ts")
+_F_KEYS = ("file", "path", "frame", "image", "frame_file")
+
+
+def read_frames(video_dir: str | Path) -> list[tuple[float, Path]]:
+    """Кадры из smart_frames.json (семантический выбор пайплайна). Формат читается терпимо."""
+    d = Path(video_dir)
+    src = d / "smart_frames.json"
+    if not src.is_file():
+        raise ExamError(f"{d}: smart_frames.json not found")
+    data = json.loads(src.read_text(encoding="utf-8"))
+    rows = data.get("frames", data.get("selected", data)) if isinstance(data, dict) else data
+    out = []
+    for r in rows if isinstance(rows, list) else []:
+        if not isinstance(r, dict):
+            continue
+        t = next((r[k] for k in _T_KEYS if k in r), None)
+        f = next((r[k] for k in _F_KEYS if k in r), None)
+        if t is None or not f:
+            continue
+        path = Path(str(f))
+        path = path if path.is_absolute() else d / path
+        if not path.is_file() and (d / "frames" / path.name).is_file():
+            path = d / "frames" / path.name
+        out.append((float(t), path))
+    if not out:
+        raise ExamError(f"{src}: no frames with a timestamp and a file (keys {_T_KEYS} / {_F_KEYS})")
+    return sorted(out)
+
+
+def build_situations(archive: str | Path, batch: dict, *, base: str | Path,
+                     min_gap_s: float = 20.0, min_context_chars: int = 200) -> tuple[list[Situation], dict[str, list[dict]]]:
+    """Ситуации экзамена из локального архива: кадр + речь строго до него.
+
+    Кадры ближе min_gap_s к предыдущему выбранному пропускаются (соседние кадры одной
+    ситуации не размножают выборку); кадр без предыстории речи не берётся.
+    """
+    root, base = Path(archive), Path(base)
+    situations: list[Situation] = []
+    segments: dict[str, list[dict]] = {}
+    for item in batch.get("items", []):
+        vid = item["video_id"]
+        vdir = next((p for p in (root / "raw" / vid, root / vid) if p.is_dir()), None)
+        if vdir is None or item.get("source") == "MISSING_SOURCE":
+            continue
+        segs = read_segments(vdir)
+        segments[vid] = segs
+        last = -1e9
+        for t, frame in read_frames(vdir):
+            if t - last < min_gap_s or not frame.is_file():
+                continue
+            ctx = context_until(segs, t)
+            if len(ctx) < min_context_chars:
+                continue
+            last = t
+            rel = frame.resolve().relative_to(base.resolve()).as_posix()
+            situations.append(Situation(f"{vid}-{int(t):05d}", vid, t, rel, sha256_bytes(frame.read_bytes()), ctx))
+    return situations, segments
+
+
 # ======================================================================
 # 4. Уроки: WHEN/OBSERVE/CONFIRM/INVALIDATE/UNKNOWN/COUNTEREXAMPLE
 # ======================================================================
@@ -741,6 +831,8 @@ def main(argv: list[str] | None = None) -> int:
     for a in ("--split", "--criteria", "--seal", "--situations", "--references", "--scores", "--out-dir"):
         p.add_argument(a, required=True)
     p.add_argument("--answers", nargs="+", required=True)
+    p = sub.add_parser("situations"); p.add_argument("--archive", required=True); p.add_argument("--batch", required=True)
+    p.add_argument("--base", required=True); p.add_argument("--out", required=True); p.add_argument("--segments-dir", required=True)
     p = sub.add_parser("unsupervised"); p.add_argument("--log", required=True)
     args = ap.parse_args(argv)
     try:
@@ -819,6 +911,19 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"verdict": summary["verdict"], "reasons": summary.get("reasons") or summary.get("problems")},
                              ensure_ascii=False))
             return 0 if summary["verdict"] == "PASS_PRELIMINARY" else 1
+        if args.cmd == "situations":
+            sits, segs = build_situations(args.archive, _load(args.batch), base=args.base)
+            Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.out).write_text("".join(json.dumps(s.__dict__, ensure_ascii=False) + "\n" for s in sits),
+                                      encoding="utf-8")
+            seg_dir = Path(args.segments_dir)
+            seg_dir.mkdir(parents=True, exist_ok=True)
+            for vid, rows in segs.items():
+                (seg_dir / f"{vid}.segments.jsonl").write_text("".join(json.dumps(r, ensure_ascii=False) + "\n"
+                                                                       for r in rows), encoding="utf-8")
+            per_video = {vid: sum(1 for s in sits if s.video_id == vid) for vid in segs}
+            print(json.dumps({"situations": len(sits), "per_video": per_video}))
+            return 0 if sits else 1
         if args.cmd == "unsupervised":
             v = unsupervised_verdict(_load(args.log))
             print(json.dumps(v, ensure_ascii=False))

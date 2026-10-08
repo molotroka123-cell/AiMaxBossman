@@ -214,3 +214,32 @@ def test_cli_pin_split_criteria_round_trip(tmp_path, capsys):
     assert ex.main(["split", "--batch", str(tmp_path / "b.json"), "--out", str(tmp_path / "s.json")]) == 0
     assert ex.main(["criteria", "--out", str(tmp_path / "c.json")]) == 0
     assert json.loads((tmp_path / "s.json").read_text())["test"] == ["v08", "v09"]
+
+
+def test_situations_come_from_the_archive_with_speech_strictly_before_the_frame(tmp_path):
+    batch = ex.pin_batch(queue(), after_video_id=STOP)
+    vid = batch["items"][0]["video_id"]
+    vdir = tmp_path / "arch" / "raw" / vid
+    (vdir / "frames").mkdir(parents=True)
+    words = " ".join(f"word{i}" for i in range(80))
+    (vdir / "asr.segments.json").write_text(json.dumps({"segments": [
+        {"start": 0, "end": 50, "text": words}, {"start": 61, "end": 70, "text": "future secret comment"}]}),
+        encoding="utf-8")
+    for t in (55, 60, 90):
+        (vdir / "frames" / f"f{t}.jpg").write_bytes(b"jpg" + bytes([t]))
+    (vdir / "smart_frames.json").write_text(json.dumps({"frames": [
+        {"t": 55, "file": "frames/f55.jpg"}, {"t": 60, "file": "frames/f60.jpg"}, {"t": 90, "file": "frames/f90.jpg"}]}),
+        encoding="utf-8")
+    sits, segs = ex.build_situations(tmp_path / "arch", batch, base=tmp_path)
+    assert [s.t_cutoff_s for s in sits] == [55.0, 90.0]            # 60 is within 20 s of 55: same situation
+    assert "future secret" not in sits[0].context_before and "future secret" in sits[1].context_before
+    assert ex.leaked_future(sits[0].context_before, segs[vid], sits[0].t_cutoff_s) == []
+    assert sits[0].frame_file == f"arch/raw/{vid}/frames/f55.jpg"
+
+
+def test_vtt_is_used_when_there_is_no_local_asr(tmp_path):
+    (tmp_path / "subs.x.en.vtt").write_text("WEBVTT\n\n00:00:01.000 --> 00:00:02.500\n<c>hello</c> there\n",
+                                           encoding="utf-8")
+    assert ex.read_segments(tmp_path) == [{"start": 1.0, "end": 2.5, "text": "hello there"}]
+    with pytest.raises(ex.ExamError):
+        ex.read_segments(tmp_path / "missing")
