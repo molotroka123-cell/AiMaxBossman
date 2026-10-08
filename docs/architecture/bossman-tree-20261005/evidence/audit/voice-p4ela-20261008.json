@@ -1,0 +1,24 @@
+{
+ "leaf": "reg-oss_chatterbox",
+ "profile": "p4ela",
+ "level": "owner_pc evidence note, status not changed (needs an installed-build receipt / live Jeff reply)",
+ "engine": "Chatterbox Multilingual V3 (ResembleAI, MIT) via bcc.oss.chatterbox_clone + chatterbox_worker, CPU",
+ "reference": "29.5 s from 4 owner videos (kept on the owner PC only, never in the repo)",
+ "sample": {
+  "seconds": 12.4,
+  "synth_seconds": 68,
+  "speaker_similarity_to_ref": 0.875,
+  "own_real_clip_vs_ref": 0.916,
+  "other_speaker_vs_ref": 0.559,
+  "asr_word_match": 0.93
+ },
+ "jeff_wiring": "BOSSMAN_PIT_TTS_BACKEND=chatterbox + CLONE_PYTHON/MODEL_DIR/REFERENCE user env; verified in the running Jeff process; clone voice answers the owner only (code rule), guests get Piper",
+ "broadcast": {
+  "started_at": "2026-10-08T14:59:07.263638+00:00",
+  "sent": 9,
+  "failed": 0,
+  "blocked": 0,
+  "caption": "disclosed as voice synthesized by Jeff"
+ },
+ "next": "collect replies as reviews; fine-tune needs 10-30 min of owner speech (have ~44 s)"
+}
