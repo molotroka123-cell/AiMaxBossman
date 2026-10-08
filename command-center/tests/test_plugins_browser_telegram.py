@@ -45,7 +45,7 @@ async def test_telegram_status_reads_local_config_without_token_or_network(tmp_p
     assert st["configured"] is True and st["enabled"] is True and st["token_stored"] is True
     assert st["bot_username"] == "demo_bot" and st["owner_configured"] is True and st["people_count"] == 2
     assert st["poller"] == "stopped"
-    for s in ("AAFAKE", "SECRET-CORE", "111222333"): 
+    for s in ("AAFAKE", "SECRET-CORE", "111222333"):
         assert s not in r.content
 
 

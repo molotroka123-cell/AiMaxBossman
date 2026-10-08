@@ -88,4 +88,3 @@ def test_the_transport_can_send_stickers_and_refuses_a_bad_file_id():
     t.authorize_delivery = lambda person: False
     with pytest.raises(CompanionError):
         run(t.send_sticker(PERSON, "FILEID"))
-
