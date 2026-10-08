@@ -69,6 +69,17 @@ def test_future_speech_in_the_prompt_is_found():
     assert ex.leaked_future(before + " we lost the single prints so shorts are in control", segs, 30) == ["40.0s"]
 
 
+def test_stock_phrase_said_before_the_cutoff_is_not_a_future_leak():
+    # The author repeats stock phrases; a 6-word overlap with a later segment that already
+    # occurs in the permitted past speech proves nothing about the future (real run: ALaeGhKHWIs-00617).
+    segs = [{"start": 0, "end": 10, "text": "honestly i don't know if you were here yesterday for the plan"},
+            {"start": 40, "end": 50, "text": "i don't know if you were here and now shorts are in control"}]
+    before = ex.context_until(segs, 30)
+    assert ex.leaked_future(before, segs, 30) == []
+    # a genuinely new future sentence is still caught
+    assert ex.leaked_future(before + " were here and now shorts are in control", segs, 30) == ["40.0s"]
+
+
 def test_lessons_from_test_videos_are_contaminated_and_rejected():
     split = pinned_split()
     good = {"lesson_id": "L1", "WHEN": "price returns into value after a failed breakdown",

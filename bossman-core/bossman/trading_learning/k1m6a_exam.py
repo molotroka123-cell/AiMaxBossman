@@ -302,7 +302,10 @@ def _shingles(text: str, n: int = 6) -> set[tuple[str, ...]]:
 
 def leaked_future(prompt_text: str, segments: list[dict], t_cutoff_s: float, *, n: int = 6) -> list[str]:
     """Фрагменты речи ПОСЛЕ контрольного момента, найденные в подсказке ученика."""
-    have = _shingles(prompt_text, n)
+    past = " ".join(str(s.get("text", "")) for s in segments
+                    if float(s.get("end", s.get("start", 0.0))) <= t_cutoff_s)
+    # A fragment the author already said before the cutoff (stock phrases) is not evidence of a leak.
+    have = _shingles(prompt_text, n) - _shingles(past, n)
     leaks = []
     for seg in segments:
         if float(seg.get("start", 0.0)) >= t_cutoff_s and _shingles(str(seg.get("text", "")), n) & have:
@@ -511,7 +514,8 @@ SYSTEM = (
     "1) Опиши видимую структуру и данные графика; нечитаемое и невидимое пиши UNKNOWN, цифры не придумывай. "
     "2) Предскажи, что K1m6a скорее всего скажет дальше: сценарии, условие подтверждения и условие отмены. "
     "3) Если данных мало, поставь need_more=true или abstain=true. Никаких торговых приказов и обещаний. "
-    "Ответь ТОЛЬКО одним JSON-объектом с ключами: fields (объект имя->значение или UNKNOWN), structure (строка), "
+    "Ответь ТОЛЬКО одним JSON-объектом с ключами: fields (объект с именами symbol, exchange, timeframe в виде 5m/30m/1h и last_close, "
+    "то есть число C из строки OHLC главного графика; нечитаемое значение пиши UNKNOWN), structure (строка), "
     "scenarios (список строк), confirm (строка), invalidate (строка), predicted_comment (строка, своими словами), "
     "unknowns (список строк), need_more (bool), abstain (bool).")
 
