@@ -253,6 +253,25 @@ def _known_secret_values() -> set[str]:
     return out
 
 
+async def _secret_values_for(svc) -> set[str]:
+    """`_known_secret_values()` + то, что `resolve_cred` реально отдаёт плагину.
+
+    Ключ OpenRouter, введённый в интерфейсе, лежит только в vault: env-набор его
+    не знал, и эхо страницы/файла/ответа модели возвращало его нетронутым.
+    Берутся только креды манифеста — прочие сохранённые значения секретами
+    здесь не считаются. Значения никуда не пишутся. Без svc — ровно env-набор."""
+    out = _known_secret_values()
+    if svc is None:
+        return out
+    for ref in {c.credential_ref for c in MANIFEST}:
+        if not ref:
+            continue
+        val = ((await resolve_cred(ref, svc)) or "").strip()
+        if val:
+            out.add(val)
+    return out
+
+
 async def _h_http_get(args, ctx: ToolContext) -> ToolResult:
     url = str(args.get("url") or "")
     try:
@@ -260,8 +279,8 @@ async def _h_http_get(args, ctx: ToolContext) -> ToolResult:
     except PluginSecurityError as exc:
         return ToolResult(content=f"blocked: {exc}", one_line=f"http.get blocked: {exc}", error=True)
     body = r.content[:1_000_000].decode("utf-8", "replace")
-    # настроенные секреты не должны утекать через эхо внешнего контента
-    body = redact(body, secret_values=_known_secret_values())
+    # настроенные секреты (env и vault) не должны утекать через эхо внешнего контента
+    body = redact(body, secret_values=await _secret_values_for(getattr(ctx, "svc", None)))
     return ToolResult(content=body, one_line=f"http.get {r.status_code}", external=True,
                       data={"status": r.status_code})
 
@@ -401,18 +420,22 @@ def _validated_chat(args) -> tuple[str, list[dict], int] | str:
 
 
 async def _chat_via_provider(label: str, base_url: str, api_key: str | None, model: str,
-                             messages: list[dict], max_tokens: int, *, local: bool) -> ToolResult:
+                             messages: list[dict], max_tokens: int, *, local: bool,
+                             svc=None) -> ToolResult:
     from .. import providers as _prov
+    secrets = await _secret_values_for(svc) | ({api_key} if api_key else set())
     try:
         adapter = _prov.build_adapter("openai_compat", base_url, api_key)
         res = await adapter.chat(model, messages, max_tokens=max_tokens, temperature=0.2, timeout=90.0)
     except _prov.ProviderError as exc:
-        return ToolResult(content=f"{label}: {exc}", one_line=f"{label}: provider error", error=True,
+        # текст ошибки несёт до 200 символов тела ответа провайдера — то же эхо
+        return ToolResult(content=redact(f"{label}: {exc}", secret_values=secrets),
+                          one_line=f"{label}: provider error", error=True,
                           data={"performed": False})
     except Exception as exc:                         # noqa: BLE001 — сеть/SDK: данные, не падение
         return ToolResult(content=f"{label}: {type(exc).__name__}", one_line=f"{label}: error",
                           error=True, data={"performed": False})
-    text = redact(res.text or "", secret_values=_known_secret_values() | ({api_key} if api_key else set()))
+    text = redact(res.text or "", secret_values=secrets)
     if not text:
         return ToolResult(content=f"{label}: модель вернула пустой ответ", one_line=f"{label}: empty",
                           error=True, data={"performed": False})
@@ -432,7 +455,8 @@ async def _h_ollama_chat(args, ctx: ToolContext) -> ToolResult:
     if _CLOUD_TAG_RE.search(model):
         return ToolResult(content="blocked: облачные модели Ollama запрещены этим плагином (cloud_policy=never)",
                           one_line="ollama.chat blocked (cloud)", error=True)
-    return await _chat_via_provider("ollama.chat", _OLLAMA_V1, None, model, messages, max_tokens, local=True)
+    return await _chat_via_provider("ollama.chat", _OLLAMA_V1, None, model, messages, max_tokens, local=True,
+                                    svc=getattr(ctx, "svc", None))
 
 
 async def _openrouter_key(svc) -> str | None:
@@ -455,10 +479,12 @@ async def _h_openrouter_chat(args, ctx: ToolContext) -> ToolResult:
         return ToolResult(content="blocked: плагин openrouter.chat принимает только бесплатные модели (…:free); "
                                   "платные идут через основной провайдер с лимитом расходов",
                           one_line="openrouter.chat blocked (paid model)", error=True)
-    key = await _openrouter_key(getattr(ctx, "svc", None))
+    svc = getattr(ctx, "svc", None)
+    key = await _openrouter_key(svc)
     if not key:
         return _skip_no_cred(next(c for c in MANIFEST if c.tool_name == "plugin:openrouter.chat"))
-    return await _chat_via_provider("openrouter.chat", _OPENROUTER_V1, key, model, messages, max_tokens, local=False)
+    return await _chat_via_provider("openrouter.chat", _OPENROUTER_V1, key, model, messages, max_tokens, local=False,
+                                    svc=svc)
 
 
 _GH_REPO_RE = _re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
@@ -510,7 +536,7 @@ async def _h_github_repo_read(args, ctx: ToolContext) -> ToolResult:
         body = r.json()
     except ValueError:
         return ToolResult(content="github.repo_read: ответ не JSON", one_line="github.repo_read bad body", error=True)
-    secrets = _known_secret_values()
+    secrets = await _secret_values_for(getattr(ctx, "svc", None))
     if isinstance(body, list):                       # каталог
         items = [{"name": str(i.get("name")), "type": str(i.get("type")), "size": i.get("size")}
                  for i in body[:500] if isinstance(i, dict)]
@@ -631,7 +657,8 @@ async def _h_telegram_status(args, ctx) -> ToolResult:
         "config_path": str(cfg_path),
     }
 
-    content = redact(json.dumps(status, ensure_ascii=False), secret_values=_known_secret_values())
+    content = redact(json.dumps(status, ensure_ascii=False),
+                     secret_values=await _secret_values_for(getattr(ctx, "svc", None)))
     return ToolResult(content=content,
                       one_line=f"telegram.status: {poller}, configured={status['configured']}",
                       data={"performed": True, "status": status})
@@ -665,7 +692,7 @@ async def _h_browser_open(args, ctx) -> ToolResult:
         if line.startswith("Заголовок: "):
             title = line[len("Заголовок: "):].strip()
             break
-    content = redact(res.content[:8000], secret_values=_known_secret_values())
+    content = redact(res.content[:8000], secret_values=await _secret_values_for(svc))
     return ToolResult(content=content,
                       one_line=f"browser.open: {title[:80]}",
                       external=True,

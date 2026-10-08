@@ -120,7 +120,8 @@ def _refuse_while_owner_stop(svc) -> None:
 
 @router.get("/status")
 async def status(request: Request):
-    return _view(request.app.state.svc)
+    # Polled by the dashboard; status() reads JSON, psutil and the lease synchronously.
+    return await asyncio.to_thread(_view, request.app.state.svc)
 
 
 @router.get("/report")
@@ -129,7 +130,7 @@ async def report(request: Request):
     work = _work(svc)
     if not (work / "loop-state.json").is_file():
         raise HTTPException(404, {"code": "NO_CAMPAIGN"})
-    return _loop().report(work)
+    return await asyncio.to_thread(_loop().report, work)
 
 
 @router.post("/start")

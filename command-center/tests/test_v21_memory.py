@@ -431,6 +431,48 @@ async def test_search_tool_keeps_memory_budget_separate(env, vault_dir, tmp_path
     assert len(wide["items"]) >= len(tight["items"])
 
 
+async def test_http_search_caps_candidate_and_rerank_k(env, vault_dir, monkeypatch):
+    """Тело `/api/memory/search` не раздувает один поиск до всего индекса.
+
+    Раньше `candidate_k`/`rerank_k` брались из запроса без потолка (ограничен
+    был только `max_context_tokens`): `candidate_k=10**6` тащил весь индекс
+    через синхронный переранжировщик. Потолок тот же, что у инструмента
+    `memory.search` (top_k ≤ 40); умолчания 16/8 и значения внутри потолка
+    не меняются.
+    """
+    from bcc.features import tools_memory
+
+    await _configure(env, vault_dir)
+    await env.client.post("/api/memory/index", json={})
+    service = await tools_memory.get_service(env.svc)
+    backend_search, rerank = service.backend.search, service.reranker.rerank
+    seen: dict[str, int] = {}
+
+    async def spy_search(query, *, top_k=16):
+        seen["candidate_k"] = top_k
+        return await backend_search(query, top_k=top_k)
+
+    def spy_rerank(query, hits, *, top_k=8):
+        seen["rerank_k"] = top_k
+        return rerank(query, hits, top_k=top_k)
+
+    monkeypatch.setattr(service.backend, "search", spy_search)
+    monkeypatch.setattr(service.reranker, "rerank", spy_rerank)
+
+    async def ask(**extra) -> dict[str, int]:
+        seen.clear()
+        r = await env.client.post("/api/memory/search",
+                                  json={"query": "какую базу данных выбрали", **extra})
+        assert r.status_code == 200, r.text
+        assert r.json()["items"], "поиск должен по-прежнему находить заметку"
+        return dict(seen)
+
+    assert await ask(candidate_k=10**6, rerank_k=10**6) == {"candidate_k": 40, "rerank_k": 40}
+    assert await ask() == {"candidate_k": 16, "rerank_k": 8}
+    assert await ask(candidate_k=24, rerank_k=12) == {"candidate_k": 24, "rerank_k": 12}
+    assert await ask(candidate_k=40, rerank_k=40) == {"candidate_k": 40, "rerank_k": 40}
+
+
 # ---------- 10. прогрессивное раскрытие и реестр ----------
 
 async def test_expand_returns_full_section(env, vault_dir):

@@ -6,11 +6,17 @@ file check); one test drives the real Epic renderer when numpy + Pillow are inst
 from __future__ import annotations
 
 import asyncio
+import builtins
+import hashlib
+import io
+import json
+import os
 import shutil
 import subprocess
 import sys
 import textwrap
 import time
+import tracemalloc
 from pathlib import Path
 
 import pytest
@@ -225,3 +231,135 @@ def test_page_is_registered_in_the_ui():
     index = (Path(__file__).resolve().parents[1] / "ui" / "pages" / "index.js").read_text(encoding="utf-8")
     assert "id: 'motion-studio'" in index and (Path(__file__).resolve().parents[1] / "ui" / "pages" / "motion_studio.js").is_file()
     assert (REPO_TOOL / "make_video.py").is_file()
+
+
+# --- polling I/O (reproduced 2026-10-08 on 1eac8ac8) -------------------------------------------
+# The page polls /status (and a job) every 2 s. Each poll used to settle a finished render inline
+# (ffprobe up to 60 s + sha256 of the whole MP4 in one read) ON the event loop, re-read and
+# re-parse every */job.json, and read the whole make_video.log to keep its last 2000 characters.
+
+
+async def test_settling_a_finished_render_never_blocks_the_event_loop_and_runs_once(env, stub_tool, monkeypatch):
+    calls = []
+
+    def slow_check(job):   # stands in for ffprobe + hashing a big video
+        calls.append(job["id"])
+        time.sleep(1.0)
+        return {"verified": True, "kind": "preview", "files": [], "reason": ""}
+
+    monkeypatch.setattr(ms, "_check", slow_check)
+    r = await env.client.post("/api/motion-studio/jobs", json={"mode": "preview", "spec": SPEC})
+    job_id = r.json()["id"]
+    await asyncio.wait_for(ms._PROCS[job_id].wait(), timeout=30)   # render ended; nobody settled it yet
+    beats = []
+
+    async def heartbeat():
+        while True:
+            beats.append(time.monotonic())
+            await asyncio.sleep(0.02)
+
+    beat = asyncio.create_task(heartbeat())
+    await asyncio.sleep(0.05)
+    try:
+        polls = await asyncio.gather(*(env.client.get(f"/api/motion-studio/jobs/{job_id}") for _ in range(3)),
+                                     env.client.get("/api/motion-studio/status"),
+                                     env.client.get("/api/motion-studio/jobs"))
+    finally:
+        beat.cancel()
+    worst = max(b - a for a, b in zip(beats, beats[1:]))
+    assert worst < 0.5, f"event loop frozen for {worst:.2f} s while a poll settled the render"
+    assert calls == [job_id]   # concurrent polls share one settle: one ffprobe, not one per poll
+    assert [p.json()["state"] for p in polls[:3]] == ["done"] * 3
+    assert polls[3].json()["jobs"][0]["state"] == "done" and polls[4].json()["jobs"][0]["state"] == "done"
+
+
+def test_file_check_hashes_the_video_in_chunks(tmp_path, monkeypatch):
+    block = bytes(range(256)) * 4096   # 1 MiB
+    digest = hashlib.sha256()
+    with (tmp_path / "video.mp4").open("wb") as fh:
+        for _ in range(48):
+            fh.write(block)
+            digest.update(block)
+    probe = {"streams": [{"codec_type": "video", "codec_name": "h264", "width": 320, "height": 180},
+                         {"codec_type": "audio", "codec_name": "aac"}], "format": {"duration": "2.0"}}
+    monkeypatch.setattr(ms.shutil, "which", lambda name: "ffprobe")
+    monkeypatch.setattr(ms.subprocess, "run",
+                        lambda argv, **kw: subprocess.CompletedProcess(argv, 0, stdout=json.dumps(probe), stderr=""))
+    tracemalloc.start()
+    try:
+        report = ms._check({"mode": "full", "dir": str(tmp_path), "subtitle_lines": 0})
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert report["verified"] and report["bytes"] == 48 << 20 and report["sha256"] == digest.hexdigest()
+    assert peak < 4 << 20, f"hashing a 48 MiB video allocated {peak / 2**20:.1f} MiB at once"
+
+
+@pytest.mark.parametrize("repeats", [0, 3, 40000])
+def test_log_tail_reads_only_the_end_and_keeps_the_old_text(tmp_path, repeats):
+    # make_video.py on Windows: Cyrillic, \r\n newlines, \r progress updates, the odd invalid byte.
+    chunk = "кадр 42/9000 — рендер ✓\r\nпрогресс 10%\rпрогресс 20%\n".encode("utf-8") + b"\xff\xc3 bad\n"
+    log = tmp_path / "make_video.log"
+    with log.open("wb") as fh:
+        for _ in range(repeats):
+            fh.write(chunk)
+        fh.write("финал 🎬 готово\r\n".encode("utf-8")[:-5])   # also ends mid-character
+    expected = log.read_text(encoding="utf-8", errors="replace")[-ms.LOG_TAIL:]   # the old contract
+    tracemalloc.start()
+    try:
+        tail = ms._log_tail({"dir": str(tmp_path)})
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert tail == expected
+    assert peak < 256 << 10, f"a {log.stat().st_size} byte log allocated {peak} bytes for a 2000-char tail"
+    assert ms._log_tail({"dir": str(tmp_path / "absent")}) == ""
+
+
+def _write_job(root: Path, job_id: str, text: str | None = None) -> Path:
+    folder = root / job_id
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "job.json"
+    path.write_text(text if text is not None else json.dumps(
+        {"id": job_id, "mode": "preview", "state": "done", "error": "", "started": time.time(),
+         "finished": time.time(), "style": "epic", "dir": str(folder), "times": [1.0], "source": "custom"}),
+        encoding="utf-8")
+    return path
+
+
+async def test_polls_parse_each_job_file_once_and_still_see_other_processes_jobs(env, stub_tool, monkeypatch):
+    root = Path(env.settings.data_dir) / "motion-studio"
+    for i in range(25):
+        _write_job(root, f"old{i:09d}")
+    reads = []
+    real_open = io.open
+
+    def counting_open(file, mode="r", *args, **kwargs):
+        if not isinstance(file, int) and Path(os.fsdecode(file)).name == "job.json" and not set(mode) & set("wax+"):
+            reads.append(Path(os.fsdecode(file)).parent.name)
+        return real_open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr(io, "open", counting_open)
+    monkeypatch.setattr(builtins, "open", counting_open)
+    get = env.client.get
+    assert len((await get("/api/motion-studio/jobs")).json()["jobs"]) == 20
+    assert sorted(reads) == sorted(f"old{i:09d}" for i in range(25))   # first use: everything is read once
+    reads.clear()
+    await get("/api/motion-studio/status")
+    await get("/api/motion-studio/jobs")
+    assert (await get("/api/motion-studio/jobs/old000000003")).json()["state"] == "done"
+    assert reads == [], f"unchanged job files re-read on every poll: {len(reads)} reads"
+    # another process starts a job: the next poll sees it, reading only that file
+    _write_job(root, "fromotherpid")
+    assert (await get("/api/motion-studio/jobs")).json()["jobs"][0]["id"] == "fromotherpid"
+    assert reads == ["fromotherpid"]
+    # negative control: a broken file is not re-parsed every poll, but is picked up once it changes
+    reads.clear()
+    broken = _write_job(root, "brokenjob001", "{")
+    await get("/api/motion-studio/jobs")
+    await get("/api/motion-studio/jobs")
+    assert reads == ["brokenjob001"] and (await get("/api/motion-studio/jobs/brokenjob001")).status_code == 404
+    _write_job(root, "brokenjob001")
+    later = broken.stat().st_mtime_ns + 2_000_000_000
+    os.utime(broken, ns=(later, later))
+    assert (await get("/api/motion-studio/jobs/brokenjob001")).json()["state"] == "done"
