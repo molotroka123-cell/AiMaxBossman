@@ -429,3 +429,13 @@ async def test_restart_marks_unfinished_jobs_interrupted(env, tmp_path):
     env.svc.direct_gen = svc2
     job = (await env.client.get(f"/api/direct-gen/jobs/{j}")).json()
     assert job["status"] == "failed" and job["error"]["code"] == "interrupted"
+
+
+async def test_owner_prompt_lands_in_the_hidden_vault_only_for_the_owner(env, tmp_path):
+    install(env, tmp_path, FakeComfy())
+    r = await create(env, prompt="vault-probe-приватный")
+    await finish(env, r.json()["job_id"])
+    got = await env.client.get("/api/direct-gen/vault/prompts", params={"q": "vault-probe"})
+    assert got.status_code == 200 and [p["prompt"] for p in got.json()["prompts"]] == ["vault-probe-приватный"]
+    other = await env.client.get("/api/direct-gen/vault/prompts", headers={"X-Participant": "f" * 64})
+    assert other.status_code == 404
