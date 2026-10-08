@@ -13,7 +13,7 @@ import pytest
 import bcc.features.plugins as P
 from bcc.tools import REGISTRY, ToolContext, execute_tool
 
-LEGACY_KEY = "sk-or-v1-legacyALIASvalue0123456789abcdef"
+LEGACY_KEY = "sk-or-v1-legacyALIASvalue0123456789abcdef"  # ci-secret-scan: allow (fake fixture value)
 
 
 @pytest.fixture
