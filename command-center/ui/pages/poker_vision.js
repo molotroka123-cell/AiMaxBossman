@@ -221,8 +221,22 @@ const Page = {
         sbtn('Свернуть', 'minimize', { on: true }), sbtn('Развернуть', 'minimize', { on: false }), sbtn('Закрыть', 'close', {}), sbtn('Открыть снова', 'reopen', {}))));
 
     try { await api.raw('/api/poker-vision/capabilities'); } catch (e) { msg.textContent = err(e) || 'Сервис Poker Vision не запущен'; }
-    timer = setInterval(tick, 700);
-    overlayTimer = setInterval(pollOverlay, 250);
+    // One request chain at a time: a slow Poker Vision service (proxy timeout 20 s) must not
+    // pile up a new tick every 700 ms and a new overlay fetch every 250 ms behind the stuck ones.
+    let ticking = false;
+    let overlayBusy = false;
+    const tickOnce = async () => {
+      if (ticking) return;
+      ticking = true;
+      try { await tick(); } finally { ticking = false; }
+    };
+    const overlayOnce = async () => {
+      if (overlayBusy) return;
+      overlayBusy = true;
+      try { await pollOverlay(); } finally { overlayBusy = false; }
+    };
+    timer = setInterval(tickOnce, 700);
+    overlayTimer = setInterval(overlayOnce, 250);
 
     return h('div.bx-page.pv-page',
       pageHead('Poker Vision', 'Источник → поток захвата → поля с уверенностью → проверенное состояние → рекомендация → (только в моём тренажёре) действие и проверка. UNKNOWN — нормальный ответ.', {
