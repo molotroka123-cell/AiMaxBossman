@@ -86,7 +86,7 @@ def test_dry_run_does_not_write(tmp_path):
 
 
 def test_scrub():
-    assert "sk-" not in t.scrub("key sk-abcdefghijklmnopqrstuvwx end")
+    assert "sk-" not in t.scrub("key sk-abcdefghijklmnopqrstuvwx end")  # ci-secret-scan: allow (fake canary)
 
 
 def test_retire_is_audit_only_and_never_green(tmp_path):
