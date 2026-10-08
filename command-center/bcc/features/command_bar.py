@@ -300,14 +300,31 @@ def build_catalog(app: Any) -> dict[str, Capability]:
 
 def catalog_for(app: Any) -> dict[str, Capability]:
     """Каталог с кэшем на приложении: маршруты за время жизни процесса не меняются,
-    но число маршрутов проверяется — фича, добавленная позже, не потеряется."""
+    но изменение маршрутов проверяется — фича, добавленная позже, не потеряется.
+
+    Ключ кэша дешёвый. Раньше им было число конечных маршрутов, и ради него
+    КАЖДЫЙ /command-bar, /parse и /run обходил все ~650 маршрутов с раскрытием
+    вложенных роутеров. Теперь ключ — версия маршрутов FastAPI (её растит
+    каждый add_api_route / include_router, в том числе во вложенном, уже
+    подключённом роутере; по ней же FastAPI сам решает, пересобирать ли свои
+    кандидаты) плюс сами объекты верхнего уровня app.routes — они ловят
+    прямую правку списка, которую версия не видит. Если FastAPI версии не
+    даёт, ключом остаётся прежнее число из полного обхода.
+    """
+    routes = tuple(getattr(app, "routes", []) or [])
+    version = None
+    with contextlib.suppress(Exception):
+        version = app.router._get_routes_version()
+    if not isinstance(version, int):
+        version = sum(1 for _ in _walk_routes(routes))
     cached = getattr(app.state, "command_bar_catalog", None)
-    size = sum(1 for _ in _walk_routes(getattr(app, "routes", []) or []))
-    if cached is not None and getattr(app.state, "command_bar_catalog_size", -1) == size:
+    known_version, known_routes = getattr(app.state, "command_bar_catalog_key", (None, ()))
+    if cached is not None and known_version == version and len(known_routes) == len(routes) \
+            and all(old is new for old, new in zip(known_routes, routes)):
         return cached
     catalog = build_catalog(app)
     app.state.command_bar_catalog = catalog
-    app.state.command_bar_catalog_size = size
+    app.state.command_bar_catalog_key = (version, routes)
     return catalog
 
 
