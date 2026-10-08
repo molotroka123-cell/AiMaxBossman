@@ -560,13 +560,17 @@ def parse_answer(raw: str) -> dict:
 class OpenAICompatStudent:
     """Тот же локальный ИИ, что у Bossman (Ollama/llama.cpp, OpenAI-совместимый /v1)."""
 
-    def __init__(self, endpoint: str, model: str, *, timeout: float = 300.0, max_tokens: int = 1500):
+    def __init__(self, endpoint: str, model: str, *, timeout: float = 300.0, max_tokens: int = 1500,
+                 reasoning_effort: str = ""):
         base = endpoint.rstrip("/")
         self.base = base if base.endswith("/v1") else base + "/v1"
         self.model, self.timeout, self.max_tokens = model, timeout, max_tokens
+        self.reasoning_effort = reasoning_effort      # "none" for thinking models: the answer must land in content
 
     def __call__(self, messages: list[dict]) -> str:
         body = {"model": self.model, "messages": messages, "temperature": 0, "max_tokens": self.max_tokens}
+        if self.reasoning_effort:
+            body["reasoning_effort"] = self.reasoning_effort
         req = urllib.request.Request(self.base + "/chat/completions", method="POST",
                                      data=json.dumps(body, ensure_ascii=False).encode("utf-8", "replace"),
                                      headers={"Content-Type": "application/json"})
@@ -861,6 +865,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--memory-token-file", default=""); p.add_argument("--segments-dir", default="")
     p.add_argument("--resume", action="store_true",
                    help="keep the OK rows already in --out and ask only the rest (after a restart)")
+    p.add_argument("--reasoning-effort", default="",
+                   help='"none" for thinking models (qwen3.x vision): without it the answer stays in `reasoning`')
     p = sub.add_parser("aggregate")
     for a in ("--split", "--criteria", "--seal", "--situations", "--references", "--scores", "--out-dir"):
         p.add_argument(a, required=True)
@@ -937,7 +943,8 @@ def main(argv: list[str] | None = None) -> int:
                     fh.write(json.dumps(row, ensure_ascii=False) + "\n")
                     fh.flush()
                     os.fsync(fh.fileno())
-            rows = kept + ask(sits, split, mode=args.mode, student=OpenAICompatStudent(args.endpoint, args.model),
+            rows = kept + ask(sits, split, mode=args.mode, student=OpenAICompatStudent(args.endpoint, args.model,
+                                                       reasoning_effort=args.reasoning_effort),
                               seal_sha=sealed["sha256"], criteria_sha=pinned["sha256"], base=args.base,
                               model_meta={"model": args.model, "endpoint_host": host}, lessons_for=lessons_for,
                               segments_for=segments_for, on_row=sink, skip={r["situation_id"] for r in kept})
