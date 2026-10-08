@@ -79,23 +79,30 @@ class CallState:
         self._write_state(s)
 
     # ---- history
+    # History is display/post-call data, never a dial gate. A history file with a non-UTF-8 byte run (torn sector, a
+    # foreign editor's encoding) must not raise UnicodeDecodeError out of the end-of-call path: the worker only guards
+    # these writes against OSError, so the old strict read left it «in a call» and swallowed the record.
+    def _history_lines(self, path: Path) -> list[str]:
+        return path.read_text(encoding="utf-8", errors="replace").splitlines() if path.is_file() else []
+
     def append_history(self, record: dict) -> None:
         self.home.mkdir(parents=True, exist_ok=True, mode=0o700)
         path = self.home / HISTORY_FILE
-        lines = path.read_text(encoding="utf-8").splitlines()[-(_HISTORY_KEEP - 1):] if path.is_file() else []
+        lines = self._history_lines(path)[-(_HISTORY_KEEP - 1):]
         lines.append(json.dumps(record, ensure_ascii=False))
         tmp = path.with_name(path.name + ".tmp")
         tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
         os.replace(tmp, path)
 
     def history(self, limit: int = 20) -> list[dict]:
-        path = self.home / HISTORY_FILE
-        if not path.is_file():
+        if limit <= 0:                                            # [-0:] would be the WHOLE file
             return []
         out = []
-        for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
+        for line in self._history_lines(self.home / HISTORY_FILE)[-limit:]:
             try:
-                out.append(json.loads(line))
+                row = json.loads(line)
             except ValueError:
                 continue
+            if isinstance(row, dict):                             # callers do row.get(...): a bare number/list line is garbage
+                out.append(row)
         return list(reversed(out))

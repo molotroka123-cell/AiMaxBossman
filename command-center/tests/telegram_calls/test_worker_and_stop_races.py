@@ -218,6 +218,21 @@ async def test_a_failing_state_write_at_the_end_of_a_call_still_frees_the_worker
     assert [e for e in rig.events if e.get("event") == "record"], "the record still reached the manager"
 
 
+async def test_a_non_utf8_history_file_does_not_leave_the_worker_in_a_call(rig):
+    """RED before 2026-10-08: append_history raised UnicodeDecodeError (not OSError) in the worker's finally, so
+    ``session`` stayed set (every later dial: CALL_IN_PROGRESS until a restart) and the record event was never emitted."""
+    rig.worker.state.home.mkdir(parents=True, exist_ok=True)
+    (rig.worker.state.home / "history.jsonl").write_bytes(b'{"call_id": "c-old", "note": "\xcf\xf0\xe8\xe2\xe5\xf2"}\n')
+    await rig.worker.op_dial({})
+    assert await until(lambda: rig.worker.session is not None and rig.lines and rig.lines[0].dial_calls == 1, 3)
+    await rig.finish()
+    assert rig.worker.session is None, "the dial guard would refuse everything until a restart"
+    records = [e for e in rig.events if e.get("event") == "record"]
+    assert records, "the record still reached the manager"
+    call_id = records[-1]["record"]["call_id"]
+    assert rig.worker.state.history(1)[0]["call_id"] == call_id, "and it was written to history"
+
+
 # ------------------------------------------------------------------ F14: offline mode never touches a real session
 
 async def test_offline_mode_refuses_to_start_over_a_real_session(tmp_path, monkeypatch):
