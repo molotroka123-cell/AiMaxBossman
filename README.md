@@ -1,19 +1,16 @@
 # BOSSMAN
 
-**Обновлено 2 октября 2026 года.** [Сводный аудит 2026-10-02](https://github.com/molotroka123-cell/AiMaxBossman/blob/integrate/bossman-1.7-unified-20260925/docs/owner/CURRENT_AUDIT_20261002.md). Текущий статус выпуска и доказательства: [рабочая ведомость владельца](docs/owner/WORKBENCH_20260926.md).
+**Обновлено 8 октября 2026 года.** Каноническая линия — `main` (решение владельца 08.10, AGENTS.md). Одна версия Bossman:
+последняя `green/tree-leaves-20261006` + прежний `main` + исправления 08.10 (PR #98).
 
-> **24.09 owner handoff:** today's implementation package is in [BOSSMAN_TOMORROW_2026-09-24_START_HERE.md](BOSSMAN_TOMORROW_2026-09-24_START_HERE.md). It covers Model Fleet GREEN, Bossman WebDesigner, 8xH200 fine-tuning, evaluation/holdout, OSS/data sources and the next Game Studio reuse target. **Important:** this main-branch package is documentation; do not overwrite the newer `release/bossman-owner` runtime with the historical main runtime.
+- Простыми словами — что есть, чего нет, с чего начать: [docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md](docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md)
+- Установка одной версии на ПК, проверки и откат: [docs/owner/OWNER_RUN_20261008.md](docs/owner/OWNER_RUN_20261008.md)
+- День K1m6a (ролики с #26, экзамен до/после, без надзирателя): [docs/trading/K1M6A_DAY_RUNBOOK_20261008.md](docs/trading/K1M6A_DAY_RUNBOOK_20261008.md) · план владельца: [K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md](docs/trading/K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md)
+- Целевая архитектура следующего автономного этапа (дизайн, ещё не LIVE-доказательство): [Bossman 2.1 — Autonomous Computer Operator](docs/autonomy/BOSSMAN_2_1_AUTONOMOUS_COMPUTER_OPERATOR.md)
 
-### Один компьютер. Одна программа. Проверяемый результат.
+Документ не равен проверке: «работает у владельца» — только то, что прошло на ПК владельца на точном SHA.
 
-Локальное AI-рабочее пространство: модели, агенты, память, управление компьютером, файлы, сайты, изображения, видео и связь через Telegram. Владелец задаёт результат обычным языком; Bossman должен выполнить работу, запросить нужные разрешения и проверить итог.
-
-> **Текущее направление: одна интеграция Bossman 1.5 + 1.6 + 1.7.**
-> Единая ветка закрытия — **`integrate/bossman-1.7-unified-20260925`**. Версии 1.5–1.7 ещё проходят живую приёмку, полный повтор регрессии и exact-SHA CI; финальный SHA не заморожен.
-> Этот README — карта продукта и направления, **не сертификат готовности**.
-> Версия считается принятой только по конкретному TESTED_SHA, Windows-архиву, owner-evidence и независимой проверке.
-
-[Полный аудит и Plan Maximum 1.6](docs/v1.6/FULL_AUDIT_PLAN_MAX_20260925.md) · [Мастер-прогон 1.6](docs/owner/BOSSMAN_16_MASTER_RUN_20260925.md) · [Карта 1.6](docs/v1.6/README.md) · [Установка](INSTALL.md) · [Приёмка](OWNER_ACCEPTANCE.md)
+Историческое (до 08.10): [сводный аудит 2026-10-02](https://github.com/molotroka123-cell/AiMaxBossman/blob/integrate/bossman-1.7-unified-20260925/docs/owner/CURRENT_AUDIT_20261002.md), [рабочая ведомость 26.09](docs/owner/WORKBENCH_20260926.md). Ветки `release/bossman-owner` и `integrate/bossman-1.7-unified-20260925` — исторические.
 
 ## Суть Bossman 1.6
 

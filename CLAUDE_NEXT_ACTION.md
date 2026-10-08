@@ -1,3 +1,13 @@
+# 08.10.2026 — one Bossman line (read first)
+
+Canonical is `main`. The 2.1 one-line integration (green/tree-leaves 4a14c26c + old main + 08.10 fixes) lands
+through PR #98. Start with `docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md` (what exists / what is missing),
+`docs/owner/OWNER_RUN_20261008.md` (install, checks, rollback) and `docs/trading/K1M6A_DAY_RUNBOOK_20261008.md`
+(K1m6a from #26, sealed reference, BASELINE/LESSONS/RESTART_TRANSFER, unsupervised 2 h). Do not open new final
+branches; work on an isolated branch and integrate into `main` through a PR with green CI.
+
+---
+
 # CURRENT OWNER PRIORITY — TERMINAL RUN 1.2
 
 Owner clarification: 2026-09-23. Read and implement `docs/terminal/TERMINAL_RUN_1_2_MASTER.md`, then its open-source shortlist, acceptance matrix and teacher prompt.
