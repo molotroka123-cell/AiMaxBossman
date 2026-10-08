@@ -127,6 +127,29 @@ def test_a_cut_off_answer_is_retried_then_recorded_as_bad_json(tmp_path):
     assert ok[0]["status"] == "OK" and ok[0]["answer"]["fields"]["price"] == "114573.28"
 
 
+def test_answers_are_saved_per_situation_and_a_restart_skips_the_answered(tmp_path):
+    # The real BASELINE run takes over an hour and used to write its file only at the very end:
+    # a crash lost everything. on_row is called as each row is final; skip resumes after a restart.
+    split = pinned_split()
+    sits = _situations(tmp_path, split)
+    saved, asked = [], []
+
+    def student(messages):
+        asked.append(1)
+        if len(asked) == 2:
+            raise KeyboardInterrupt           # the process dies in the middle of the run
+        return json.dumps(ANSWER)
+    with pytest.raises(KeyboardInterrupt):
+        ex.ask(sits, split, mode="BASELINE", student=student, seal_sha="s", criteria_sha="c", base=tmp_path,
+               model_meta={"model": "m"}, on_row=saved.append)
+    assert [r["situation_id"] for r in saved] == [sits[0].situation_id]       # the finished one survived
+    rest = ex.ask(sits, split, mode="BASELINE", student=lambda m: json.dumps(ANSWER), seal_sha="s",
+                  criteria_sha="c", base=tmp_path, model_meta={"model": "m"}, on_row=saved.append,
+                  skip={r["situation_id"] for r in saved if r["status"] == "OK"})
+    assert [r["situation_id"] for r in saved] == [s.situation_id for s in sits]    # no repeats, nothing lost
+    assert len(rest) == len(sits) - 1
+
+
 def test_the_student_cannot_answer_before_the_seal_or_see_lessons_in_baseline(tmp_path):
     split = pinned_split()
     sits = _situations(tmp_path, split)[:1]
