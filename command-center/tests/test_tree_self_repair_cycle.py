@@ -71,6 +71,17 @@ def test_scope_violation_is_reported():
     assert st["SCOPE_RESPECTED"] is False
 
 
+def test_a_patch_outside_the_zone_is_not_verified_and_saves_no_recipe():
+    """Audit 08.10: a holdout-green patch that also touched a file outside the case's zone was counted as
+    INDEPENDENT_VERIFICATION_PASS, and main() saves a VERIFIED recipe on exactly that flag."""
+    st = cyc.stages(rec(changed_files=[CASE["target"], "command-center/bcc/api.py"]), check(), CASE, None, False)
+    assert st["HOLDOUT_PASS_ON_PATCH"] and st["BOSSMAN_ZONE_CHECK_PASS"] and not st["SCOPE_RESPECTED"]
+    assert not st["INDEPENDENT_VERIFICATION_PASS"]
+    st = cyc.stages(rec(changed_files=[CASE["target"], "command-center/bcc/api.py"],
+                        memory={"recipe_ids": ["tree-selfrepair-t0"]}), check(), CASE, None, True)
+    assert st["RECIPE_RECALLED"] and not st["TRANSFER_PASS"]
+
+
 def test_the_auto_recipe_passes_the_store_grammar_and_cites_the_worker():
     recipe, evidence, verifier = cyc.build_recipe(rec(), CASE, check())
     assert validate_recipe(recipe) == []

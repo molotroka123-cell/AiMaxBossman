@@ -883,6 +883,12 @@ def main(argv: list[str] | None = None) -> int:
                                       "--memory-token-file (the one Bossman's /api/memory)"}))
                     return 3
                 mem = BackendMemory(args.memory_url, Path(args.memory_token_file).read_text(encoding="utf-8").strip())
+                try:
+                    mem.search("k1m6a lesson", 1)       # память настроена и отвечает? иначе честный BLOCKED
+                except (urllib.error.URLError, OSError, ValueError) as exc:
+                    print(json.dumps({"status": "BLOCKED", "reason": f"/api/memory/search: {type(exc).__name__}: "
+                                      f"{str(exc)[:200]}"}, ensure_ascii=False))
+                    return 3
                 lessons_for = lambda s: retrieve_lessons(mem.search, s.context_before[-400:] or s.video_id, split)[0]  # noqa: E731
             seg_dir = Path(args.segments_dir) if args.segments_dir else None
             segments_for = (lambda vid: read_jsonl(seg_dir / f"{vid}.segments.jsonl")) if seg_dir else None

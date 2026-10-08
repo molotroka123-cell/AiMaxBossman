@@ -6,7 +6,7 @@
 Stages, each reported on its own and never upgraded by a later one:
   DEFECT_REPRODUCED              the hidden holdout FAILS on the task's base commit
   MODEL_PATCH_CREATED            the free worker (not Claude) changed the target file in the isolated copy
-  INDEPENDENT_VERIFICATION_PASS  Bossman's own zone check passed AND the hidden holdout PASSES on base+patch
+  INDEPENDENT_VERIFICATION_PASS  Bossman's own zone check passed AND the hidden holdout PASSES on base+patch AND scope held
   EXPERIENCE_AUTO_SAVED          a VERIFIED coding recipe was written from the task's own artifacts (no hand-written text)
   RECIPE_RECALLED                (transfer) the new task's context carried a saved recipe id
   TRANSFER_PASS                  (transfer) recipe recalled AND independent verification passed on the NEW defect
@@ -183,8 +183,11 @@ def stages(rec: dict, check: dict, case: dict, saved: dict | None, transfer: boo
         "SCOPE_RESPECTED": all((p in case["allowed"]) if case.get("allowed") else
                                (p == case["target"] or p.startswith("command-center/tests/test_")) for p in changed),
     }
+    # Scope is part of the pass (audit 08.10): a patch that also edits files outside the case's zone used to
+    # count as independently verified and was saved as a VERIFIED recipe, teaching the next cycle to do the same.
     out["INDEPENDENT_VERIFICATION_PASS"] = bool(out["DEFECT_REPRODUCED"] and out["MODEL_PATCH_CREATED"]
-                                                and out["BOSSMAN_ZONE_CHECK_PASS"] and out["HOLDOUT_PASS_ON_PATCH"])
+                                                and out["BOSSMAN_ZONE_CHECK_PASS"] and out["HOLDOUT_PASS_ON_PATCH"]
+                                                and out["SCOPE_RESPECTED"])
     out["EXPERIENCE_AUTO_SAVED"] = bool(saved and saved.get("lesson_id"))
     if transfer:
         ids = list(((rec.get("memory") or {}).get("recipe_ids")) or [])
