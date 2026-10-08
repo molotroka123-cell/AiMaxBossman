@@ -46,6 +46,10 @@ CONFIG_KEY = "memory.vault"
 DEFAULT_WRITE_FOLDER = "BOSSMAN Memory"
 DEFAULT_CONTEXT_TOKENS = 4000       # бюджет ПАМЯТИ, не задачи
 MAX_CONTEXT_TOKENS = 12000
+# Потолок кандидатов поиска (инструмент: top_k; HTTP: candidate_k и rerank_k —
+# переранжировать больше, чем кандидатов, нельзя). Переранжировщик синхронный и
+# идёт на event loop: без потолка один запрос тащил через него весь индекс.
+MAX_CANDIDATE_K = 40
 
 router = APIRouter()
 
@@ -265,8 +269,8 @@ async def http_search(request: Request):
     try:
         pack = await service.search(
             query,
-            candidate_k=int(body.get("candidate_k") or 16),
-            rerank_k=int(body.get("rerank_k") or 8),
+            candidate_k=min(int(body.get("candidate_k") or 16), MAX_CANDIDATE_K),
+            rerank_k=min(int(body.get("rerank_k") or 8), MAX_CANDIDATE_K),
             context_tokens=min(int(body.get("max_context_tokens")
                                    or DEFAULT_CONTEXT_TOKENS), MAX_CONTEXT_TOKENS))
     except QdrantUnavailable as exc:
@@ -345,7 +349,7 @@ async def tool_search(args: dict, ctx: ToolContext) -> ToolResult:
         return _err(f"память недоступна: {exc}")
     budget = min(int(args.get("max_context_tokens") or DEFAULT_CONTEXT_TOKENS),
                  MAX_CONTEXT_TOKENS)
-    top_k = max(4, min(int(args.get("top_k") or 16), 40))
+    top_k = max(4, min(int(args.get("top_k") or 16), MAX_CANDIDATE_K))
     try:
         pack = await service.search(query, candidate_k=top_k, rerank_k=8,
                                     context_tokens=budget)
