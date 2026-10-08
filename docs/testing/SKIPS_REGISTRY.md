@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 414. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 415. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -367,6 +367,7 @@
 | `tests/test_intelligence_preservation_runner.py:106` | skip | `—` | f"bossman-core (production-петля) недоступен, необязательный "
                     f"пакет не установлен: {exc}" | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_jev_shadow_owner.py:146` | skipif | `not _chromium()` | Chromium/Playwright недоступен для BrowserManager | root (shared/tools) | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_keys_guard.py:160` | skipif | `os.name == "nt"` | the refusal is the non-Windows contract | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_leaf_motion_epic.py:14` | importorskip | `—` | нет пакета PIL | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_leaf_motion_epic.py:15` | importorskip | `—` | нет пакета numpy | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_leaf_motion_epic.py:27` | skipif | `not _font_available()` | no TTF font (set BOSSMAN_MOTION_FONT) | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
