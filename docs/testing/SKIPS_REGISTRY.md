@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 410. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 411. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -320,11 +320,12 @@
 | `bossman-core/tests/test_teacher_isolation.py:144` | skip | `—` | f"BLOCKED_BY_ENVIRONMENT: claude present but not authenticated ({errors[:120]})" | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_teacher_live.py:54` | skip | `—` | live teacher requires BOSSMAN_TEACHER_LIVE=1 (owner-authorized) | Bossman Core | живой внешний сервис / owner-authorized live | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_toolkit_subprocess_timeouts.py:49` | skipif | `os.name == "nt"` | NOT RUN: подставной git — POSIX-скрипт | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `bossman-core/tests/test_trading_pipeline_benchmark.py:16` | importorskip | `—` | нет пакета cv2 | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `bossman-core/tests/test_trading_pipeline_benchmark.py:17` | importorskip | `—` | нет пакета numpy | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `bossman-core/tests/test_trading_pipeline_benchmark.py:91` | skip | `—` | ffmpeg present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `bossman-core/tests/test_trading_pipeline_benchmark.py:102` | skip | `—` | ASR engine present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `bossman-core/tests/test_trading_pipeline_benchmark.py:109` | skip | `—` | OCR engine present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_trading_pipeline_benchmark.py:24` | skipif | `cv2 is None` | opencv (cv2) + numpy not installed | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_trading_pipeline_benchmark.py:47` | skip | `—` | opencv (cv2) + numpy not installed | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_trading_pipeline_benchmark.py:112` | skip | `—` | ffmpeg present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_trading_pipeline_benchmark.py:123` | skip | `—` | ASR engine present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_trading_pipeline_benchmark.py:130` | skip | `—` | OCR engine present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_trading_pipeline_benchmark.py:174` | skip | `—` | opencv present in this environment | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_uitars_grounding.py:41` | importorskip | `—` | UI-TARS image tests require the optional Pillow runtime | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_uitars_grounding.py:63` | importorskip | `—` | нет пакета PIL.Image | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_v26_artifacts_engine.py:21` | skipif | `not DSN` | SKIP_HOST: no BOSSMAN_TEST_PG_DSN (real PostgreSQL) available | Bossman Core | реальный PostgreSQL | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

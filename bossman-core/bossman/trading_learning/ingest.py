@@ -92,10 +92,27 @@ def ingest_url(url: str, *, approval: OwnerApproval | None, notes: str = "") -> 
         notes=notes or "no downloader available in this environment; nothing was fetched")
 
 
+def _is_url(locator: str) -> bool:
+    return locator.startswith(("http://", "https://"))
+
+
+def approval_subject(locator: str) -> str:
+    """Предмет одобрения, который ingest_video потребует для этого локатора.
+
+    Локальный путь сверяется в развёрнутом виде (как в ingest_local), URL — как
+    есть. Без этого CLI строил одобрение на «clip.mp4», а приём требовал
+    «/abs/clip.mp4», и одобренный владельцем относительный путь всегда падал.
+    Строгость не меняется: одобрение по-прежнему ровно на этот файл.
+    """
+    if _is_url(locator):
+        return locator
+    return str(Path(locator).expanduser().resolve())
+
+
 def ingest_video(locator: str, *, approval: OwnerApproval | None,
                  notes: str = "") -> SourceRecord:
     """Единая точка входа пайплайна: локальный файл или URL."""
-    if locator.startswith(("http://", "https://")):
+    if _is_url(locator):
         return ingest_url(locator, approval=approval, notes=notes)
     return ingest_local(locator, approval=approval, notes=notes)
 
