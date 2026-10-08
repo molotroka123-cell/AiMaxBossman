@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-10-08-bossman-2.1-one-line",
+  "candidate_label": "rc-2026-10-08-bossman-2.1-one-line-final",
   "declared_for": "integrate/bossman-2.1-one-20261006 -> main (PR #98)",
-  "note": "Bossman 2.1 one line: green/tree-leaves 4a14c26c + main f52ee111 + 08.10 fixes (direct-gen STOP without shield, full command catalog, secret-scan canaries, root-ci tests moved to command-center, Haiku 5.5 price, cut-off tool-call JSON never executed, owner-facing workflows cover main, av<19, OS-60 race, self-repair scope, K1m6a exam harness). This marker requests all mandatory workflows on this exact push, including the Windows archive. Candidate status is not release approval; owner live acceptance is separate and NOT_RUN."
+  "note": "Bossman 2.1 one line: green/tree-leaves 4a14c26c (owner's main Bossman) + main 278f27d2 + 08.10 fixes (direct-gen STOP without shield, full command catalog, secret-scan canaries, root-ci tests moved to command-center, Haiku 5.5 price, cut-off tool-call JSON never executed, owner-facing workflows cover main, av<19, OS-60 race, self-repair scope, K1m6a exam harness) + 8 zone fixes (telegram-calls history, command catalog, ai-3d-maker probe, Jev shadow waiter, Motion Studio orphan cancel, trading ingest relative path, plugins mcp.tool_call + alias scrub, skills assign) + ported studio vision GPU wait and start-bossman.ps1 BOM. This marker requests every mandatory workflow on this exact push, including the Windows archive. Candidate status is not release approval; owner live acceptance and the measured intelligence gate are separate and NOT_RUN."
 }
