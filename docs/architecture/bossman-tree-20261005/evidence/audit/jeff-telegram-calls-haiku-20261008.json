@@ -1,0 +1,46 @@
+{
+ "model": "anthropic/claude-haiku-5.5",
+ "usd": 0.00078,
+ "verdicts": [
+  {
+   "leaf": "module-aacf13d1fab5",
+   "verdict": "COVERS",
+   "reason": "test_addon.py directly targets the renamed addon module's behaviour."
+  },
+  {
+   "leaf": "module-8b9384b5a0ac",
+   "verdict": "PARTIAL",
+   "reason": "test_doctor_row.py covers doctor_rows, but the old doctor.py's full scope is unverified."
+  },
+  {
+   "leaf": "module-7d6b56dd11d4",
+   "verdict": "PARTIAL",
+   "reason": "Only test_account_store.py runs; guard behaviour is exercised indirectly at best."
+  },
+  {
+   "leaf": "module-fb3e7ddff256",
+   "verdict": "COVERS",
+   "reason": "Stop-race tests plus account store tests exercise stop-flag behaviour directly."
+  },
+  {
+   "leaf": "module-d25f75686dc7",
+   "verdict": "PARTIAL",
+   "reason": "brain.py to jeff_engines is a plausible rename; tests only indirectly exercise it."
+  },
+  {
+   "leaf": "module-f4c52a69b401",
+   "verdict": "COVERS",
+   "reason": "test_stt_real_path.py exercises the STT path in jeff_engines."
+  },
+  {
+   "leaf": "module-7c917a080544",
+   "verdict": "WEAK",
+   "reason": "testing.py to scripted.py is name-based guessing; tests don't name the module."
+  },
+  {
+   "leaf": "module-b3a1a55f12b0",
+   "verdict": "PARTIAL",
+   "reason": "TTS mapping to jeff_engines is plausible; voice-safety and engine tests only indirectly cover it."
+  }
+ ]
+}

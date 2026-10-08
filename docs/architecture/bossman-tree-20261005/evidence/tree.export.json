@@ -4227,8 +4227,8 @@
    "id": "module-6bf6aca94f5f",
    "label": "bossman/trading_learning/benchmark.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossma"
   },
   {
    "id": "module-98c19da7eaec",
@@ -4241,22 +4241,22 @@
    "id": "module-10135418ed52",
    "label": "bossman/trading_learning/cli.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossma"
   },
   {
    "id": "module-dca65ddd8cea",
    "label": "bossman/trading_learning/frames.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossma"
   },
   {
    "id": "module-72a2f39e685d",
    "label": "bossman/trading_learning/ingest.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossma"
   },
   {
    "id": "module-9b294ff2bf89",
@@ -5088,8 +5088,8 @@
    "id": "module-aacf13d1fab5",
    "label": "telegram_calls/addons.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/a"
   },
   {
    "id": "module-c0879a714994",
@@ -5186,8 +5186,8 @@
    "id": "module-8b9384b5a0ac",
    "label": "telegram_calls/doctor.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/d"
   },
   {
    "id": "module-7a8593010c20",
@@ -5200,8 +5200,8 @@
    "id": "module-7d6b56dd11d4",
    "label": "telegram_calls/guard.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/a"
   },
   {
    "id": "module-d87d5bf5141c",
@@ -5228,8 +5228,8 @@
    "id": "module-d25f75686dc7",
    "label": "telegram_calls/speech/brain.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/s"
   },
   {
    "id": "module-74990de09699",
@@ -5256,8 +5256,8 @@
    "id": "module-f4c52a69b401",
    "label": "telegram_calls/speech/stt.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/s"
   },
   {
    "id": "module-7c917a080544",
@@ -5277,15 +5277,15 @@
    "id": "module-b3a1a55f12b0",
    "label": "telegram_calls/speech/tts.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/s"
   },
   {
    "id": "module-fb3e7ddff256",
    "label": "telegram_calls/stopflag.py",
    "parent": "jeff",
-   "status": "branch",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/a"
   },
   {
    "id": "module-b1142d03395c",
@@ -5473,8 +5473,8 @@
    "id": "pv-ui",
    "label": "Страница Poker Vision и один backend",
    "parent": "pv",
-   "status": "code",
-   "short": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис."
+   "status": "reported",
+   "short": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис. Прогон"
   },
   {
    "id": "pv-gpu",
@@ -5494,7 +5494,7 @@
    "id": "pv-executor",
    "label": "EXECUTOR: проверки → клик → подтверждение (только свой тренажёр)",
    "parent": "pv",
-   "status": "code",
+   "status": "reported",
    "short": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Compu"
   },
   {

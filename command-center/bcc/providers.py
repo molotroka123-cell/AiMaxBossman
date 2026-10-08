@@ -76,6 +76,15 @@ class ChatResult:
         return bool(self.tool_calls)
 
 
+def _content_text(content: Any) -> str:
+    """Answer text of a chat message. Reasoning models (Mistral Large 4) send a list of blocks
+    ``[{"type": "thinking", ...}, {"type": "text", "text": ...}]``: keep the text, drop the reasoning."""
+    if isinstance(content, list):
+        content = "".join(str(b.get("text") or "") for b in content
+                          if isinstance(b, dict) and b.get("type", "text") == "text")
+    return str(content or "").strip()
+
+
 def _parse_tool_arguments(raw: Any) -> tuple[dict[str, Any], str]:
     """Аргументы приходят строкой JSON (OpenAI) или объектом (Anthropic).
     Кривой JSON не роняет run: отдаём {"_raw": …} — модель увидит ошибку."""
@@ -326,7 +335,7 @@ class OpenAICompatAdapter(_BaseAdapter):
                                   name=str(fn.get("name") or ""),
                                   arguments=args, raw_arguments=raw))
         return ChatResult(
-            text=(message.get("content") or "").strip(),
+            text=_content_text(message.get("content")),
             tokens_in=int(usage.get("prompt_tokens") or 0),
             tokens_out=int(usage.get("completion_tokens") or 0),
             finish=choices[0].get("finish_reason") or "stop",

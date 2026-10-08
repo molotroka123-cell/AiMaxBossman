@@ -102,10 +102,13 @@ async def _shadow_job(svc, state: _State, task: dict, agent: dict, waiter: async
         ctx = TaskContext(task_id=task_id, kind=str(task.get("kind") or "generic"),
                           prompt=str(task.get("prompt") or ""), tools=tools)
         if not await _egress_allowed(svc, task, agent):
-            state.recorder.write({"task_id": task_id, "task_class": ctx.kind, "mode": "shadow",
-                                  "prompt_sha": ctx.fingerprint(), "jev": None, "agreement": {},
-                                  "fallback_reason": "egress_not_allowed", "authoritative": False,
-                                  "baseline": baseline.__dict__})
+            # File append under the recorder's threading.Lock, which a worker
+            # thread (provider.shadow below) may hold mid-append: not on the loop.
+            await asyncio.to_thread(state.recorder.write, {
+                "task_id": task_id, "task_class": ctx.kind, "mode": "shadow",
+                "prompt_sha": ctx.fingerprint(), "jev": None, "agreement": {},
+                "fallback_reason": "egress_not_allowed", "authoritative": False,
+                "baseline": baseline.__dict__})
             return
         async with state.sem:
             record = await asyncio.to_thread(state.provider.shadow, ctx, baseline)

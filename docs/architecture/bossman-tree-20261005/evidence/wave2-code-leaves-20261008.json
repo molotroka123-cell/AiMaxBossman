@@ -1,0 +1,80 @@
+[
+ {
+  "node_id": "module-6bf6aca94f5f",
+  "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+  "probe": "pytest of the tests that import bossman-core/bossman/trading_learning/benchmark.py",
+  "command": "cd bossman-core && python -m pytest -q tests/test_trading_pipeline_benchmark.py",
+  "exit_code": 0,
+  "started_at": "2026-10-08T14:36:31.333326+00:00",
+  "finished_at": "2026-10-08T14:36:32.847066+00:00",
+  "output_sha256": "deb84bebd15409d871d6fcfe8aa2265fa104595d2b253b46f1a71294c078bf79",
+  "output_tail": "29 passed, 3 skipped in 0.96s",
+  "verdict": "PASS",
+  "kind": "pytest"
+ },
+ {
+  "node_id": "module-10135418ed52",
+  "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+  "probe": "pytest of the tests that import bossman-core/bossman/trading_learning/cli.py",
+  "command": "cd bossman-core && python -m pytest -q tests/test_trading_pipeline_benchmark.py",
+  "exit_code": 0,
+  "started_at": "2026-10-08T14:36:32.853565+00:00",
+  "finished_at": "2026-10-08T14:36:34.200094+00:00",
+  "output_sha256": "15a5977e9999ec45587d0d3af7256949782659f7daa762545b6a2415dc9e85b1",
+  "output_tail": "29 passed, 3 skipped in 0.88s",
+  "verdict": "PASS",
+  "kind": "pytest"
+ },
+ {
+  "node_id": "module-dca65ddd8cea",
+  "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+  "probe": "pytest of the tests that import bossman-core/bossman/trading_learning/frames.py",
+  "command": "cd bossman-core && python -m pytest -q tests/test_trading_pipeline_benchmark.py",
+  "exit_code": 0,
+  "started_at": "2026-10-08T14:36:34.206604+00:00",
+  "finished_at": "2026-10-08T14:36:35.506100+00:00",
+  "output_sha256": "b7970574f94ac72a650af82b3a8f8e518455f0f95038149b43ebdf94c9000e91",
+  "output_tail": "29 passed, 3 skipped in 0.87s",
+  "verdict": "PASS",
+  "kind": "pytest"
+ },
+ {
+  "node_id": "module-72a2f39e685d",
+  "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+  "probe": "pytest of the tests that import bossman-core/bossman/trading_learning/ingest.py",
+  "command": "cd bossman-core && python -m pytest -q tests/test_trading_pipeline_benchmark.py tests/test_trading_wiring.py",
+  "exit_code": 0,
+  "started_at": "2026-10-08T14:36:35.512609+00:00",
+  "finished_at": "2026-10-08T14:36:36.877761+00:00",
+  "output_sha256": "dc714cdaa64a6380433d033d8bc9c864c7fb96978338c905b099afe4fc950df9",
+  "output_tail": "35 passed, 3 skipped in 0.91s",
+  "verdict": "PASS",
+  "kind": "pytest"
+ },
+ {
+  "node_id": "pv-executor",
+  "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+  "probe": "pytest of the tests that import apps/poker-vision/pokervision/control/executor.py",
+  "command": "cd apps/poker-vision && python -m pytest -q tests/test_control.py tests/test_policy_route.py",
+  "exit_code": 0,
+  "started_at": "2026-10-08T14:36:36.885265+00:00",
+  "finished_at": "2026-10-08T14:36:38.098638+00:00",
+  "output_sha256": "b2c6720453f06d35157bf6fc9703ffce184bf1d11bc189b38e5a9b17338d728b",
+  "output_tail": "............................................. [100%]",
+  "verdict": "PASS",
+  "kind": "pytest"
+ },
+ {
+  "node_id": "pv-ui",
+  "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+  "probe": "pytest of the tests that import command-center/bcc/features/poker_vision.py",
+  "command": "cd command-center && python -m pytest -q tests/test_poker_vision_client_reuse.py",
+  "exit_code": 0,
+  "started_at": "2026-10-08T14:36:38.105138+00:00",
+  "finished_at": "2026-10-08T14:36:41.818989+00:00",
+  "output_sha256": "9ca6e9aadecd2bd74b5dc40211b4e4236114d80deb1bc928c3998b744eeab43c",
+  "output_tail": "3 passed in 2.81s",
+  "verdict": "PASS",
+  "kind": "pytest"
+ }
+]

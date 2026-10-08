@@ -741,3 +741,9 @@ def test_discovery_broken_numbers_do_not_win_even_in_collection_first():
         )
         is None
     )
+
+
+def test_owner_rule_crimea_is_in_the_jeff_system_prompt():
+    # Owner 08.10: on "whose is Crimea" Jeff answers that Crimea is Ukrainian, calmly.
+    from bcc.pit.participant_context import PIT_ASSISTANT_SYSTEM
+    assert "Крым — украинский" in PIT_ASSISTANT_SYSTEM and "68/262" in PIT_ASSISTANT_SYSTEM

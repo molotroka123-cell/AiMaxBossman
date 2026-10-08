@@ -13674,14 +13674,20 @@
       "id": "module-6bf6aca94f5f",
       "label": "bossman/trading_learning/benchmark.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossman/trading_learning/benchmark.py",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/benchmark.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/benchmark.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#module-6bf6aca94f5f",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13713,14 +13719,20 @@
       "id": "module-10135418ed52",
       "label": "bossman/trading_learning/cli.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossman/trading_learning/cli.py",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/cli.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/cli.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#module-10135418ed52",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13729,14 +13741,20 @@
       "id": "module-dca65ddd8cea",
       "label": "bossman/trading_learning/frames.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossman/trading_learning/frames.py",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/frames.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/frames.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#module-dca65ddd8cea",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13745,14 +13763,20 @@
       "id": "module-72a2f39e685d",
       "label": "bossman/trading_learning/ingest.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import bossman-core/bossman/trading_learning/ingest.py",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/ingest.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/ingest.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#module-72a2f39e685d",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -16523,14 +16547,20 @@
       "id": "module-aacf13d1fab5",
       "label": "telegram_calls/addons.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/addon.py in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/addons.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/addons.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-aacf13d1fab5",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -16838,14 +16868,20 @@
       "id": "module-8b9384b5a0ac",
       "label": "telegram_calls/doctor.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/doctor_rows.py in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/doctor.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/doctor.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-8b9384b5a0ac",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -16877,14 +16913,20 @@
       "id": "module-7d6b56dd11d4",
       "label": "telegram_calls/guard.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/account/guard.py in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/guard.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/guard.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-7d6b56dd11d4",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -16962,14 +17004,20 @@
       "id": "module-d25f75686dc7",
       "label": "telegram_calls/speech/brain.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/speech/jeff_engines.py (brain) in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/speech/brain.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/speech/brain.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-d25f75686dc7",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -17047,14 +17095,20 @@
       "id": "module-f4c52a69b401",
       "label": "telegram_calls/speech/stt.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/speech/jeff_engines.py (stt) in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/speech/stt.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/speech/stt.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-f4c52a69b401",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -17102,14 +17156,20 @@
       "id": "module-b3a1a55f12b0",
       "label": "telegram_calls/speech/tts.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/speech/jeff_engines.py (tts) in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/speech/tts.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/speech/tts.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-b3a1a55f12b0",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -17118,14 +17178,20 @@
       "id": "module-fb3e7ddff256",
       "label": "telegram_calls/stopflag.py",
       "parent": "jeff",
-      "status": "branch",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-08 @ 2f4af952: pytest of the tests that cover bcc/telegram_calls/account/stopflag.py in main (leaf data still points at the old branch path tgcalls-work)",
       "sources": [
         {
           "path": "command-center/bcc/telegram_calls/stopflag.py",
           "branch": "tgcalls-work",
           "sha": "5c681d5b2871cd750b20e81bd233f4d3fff2e4a5",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/5c681d5b2871cd750b20e81bd233f4d3fff2e4a5/command-center/bcc/telegram_calls/stopflag.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/jeff-telegram-calls-paths-20261008.json#module-fb3e7ddff256",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "2f4af952320b9156d066da3778dc7d12c8f0173a",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -17632,8 +17698,8 @@
       "id": "pv-ui",
       "label": "Страница Poker Vision и один backend",
       "parent": "pv",
-      "status": "code",
-      "detail": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис.",
+      "status": "reported",
+      "detail": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import command-center/bcc/features/poker_vision.py",
       "sources": [
         {
           "path": "command-center/ui/pages/poker_vision.js",
@@ -17646,6 +17712,12 @@
           "branch": "poker-vision/pipeline-20261005",
           "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/command-center/bcc/features/poker_vision.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#pv-ui",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ],
       "next_action": "Выбор окна и захват mss проверить на Windows владельца (NOT_RUN в контейнере)."
@@ -17692,8 +17764,8 @@
       "id": "pv-executor",
       "label": "EXECUTOR: проверки → клик → подтверждение (только свой тренажёр)",
       "parent": "pv",
-      "status": "code",
-      "detail": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Computer Use, DPR 2, другие раскладки.",
+      "status": "reported",
+      "detail": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Computer Use, DPR 2, другие раскладки. Прогон 2026-10-08 @ 1d0a34d4: pytest of the tests that import apps/poker-vision/pokervision/control/executor.py",
       "sources": [
         {
           "path": "apps/poker-vision/pokervision/control/executor.py",
@@ -17706,6 +17778,12 @@
           "branch": "poker-vision/coach-executor-20261006",
           "sha": "a963599537f295c4266ec656ab35b233d632d71c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/evidence/REPORT_COACH_EXECUTOR.md"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/wave2-code-leaves-20261008.json#pv-executor",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "1d0a34d47853d5ab23b9537be2223fee05d958e7",
+          "kind": "receipt"
         }
       ]
     },

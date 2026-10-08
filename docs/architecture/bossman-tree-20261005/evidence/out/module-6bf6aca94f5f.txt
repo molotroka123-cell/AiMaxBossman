@@ -1,18 +1,2 @@
-node_id: module-6bf6aca94f5f
-unit: bossman.trading_learning.benchmark
-path: bossman-core/bossman/trading_learning/benchmark.py
-sha: 3a1b84695d600fb8580387cd210cfe91a2ce4a8f
-test_files: ['bossman-core/tests/test_trading_pipeline_benchmark.py']
-
-$ python -c "importlib.import_module('bossman.trading_learning.benchmark')" [PYTHONPATH=command-center;bossman-core;.]
-IMPORTED bossman.trading_learning.benchmark C:/Users/asd/Bossman/wt-green-0610/bossman-core/bossman/trading_learning/benchmark.py
-
-[exit 0 in 0.2s]
-
-$ (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_trading_pipeline_benchmark.py)
-
-1 skipped in 1.14s
-
-[exit 5 in 2.2s]
-
-VERDICT: FAIL all_skipped_env_dependency
+......ss....s...................                                         [100%]
+29 passed, 3 skipped in 0.96s
