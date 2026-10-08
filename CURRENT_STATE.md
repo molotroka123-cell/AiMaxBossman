@@ -1,12 +1,13 @@
 # CURRENT STATE
 
-Canonical branch: **`release/bossman-owner`**. Canonical convergence PR: **#67**.
+Canonical integration and release destination: **`main`** (owner amendment 2026-10-08). `release/bossman-owner` and PR #67 are historical lines; do not send new consolidation work there.
 
 This file is a navigation pointer, not a certificate. Documentation preparation for the 21 September 2026 owner run does not declare the software ready.
 
 - [Install the chosen Windows artifact](INSTALL.md).
 - [Owner first-run protocol: HW-01…HW-13](OWNER_ACCEPTANCE.md).
 - [Final integrator instruction](CLAUDE_NEXT_ACTION.md).
+- [Capability-tree audit checkpoint 08.10 (13 zones, what exists / what is missing / where to start)](docs/audits/2026-10-08-tree-audit-13-zones/README.md) — PARTIAL, not a certificate.
 - [Known limitations](KNOWN_LIMITATIONS.md).
 - [Historical capability decisions](CONVERGENCE_DECISIONS.md).
 - [Salvage ledger](docs/final/FINAL_SALVAGE_LEDGER.md).

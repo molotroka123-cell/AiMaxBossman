@@ -5,6 +5,20 @@ through PR #98. Start with `docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md` (what e
 `docs/owner/OWNER_RUN_20261008.md` (install, checks, rollback) and `docs/trading/K1M6A_DAY_RUNBOOK_20261008.md`
 (K1m6a from #26, sealed reference, BASELINE/LESSONS/RESTART_TRANSFER, unsupervised 2 h). Do not open new final
 branches; work on an isolated branch and integrate into `main` through a PR with green CI.
+The documentation-only checkpoints below (13-zone audit, K1m6a plan) were written earlier the same night; the owner
+then asked to finish ONE working Bossman from the latest green/tree-leaves line, which is what PR #98 carries.
+
+---
+
+# Owner directive — tree audit checkpoint, 2026-10-08 (documentation only)
+
+Read `docs/audits/2026-10-08-tree-audit-13-zones/README.md` first. It states, in plain words, what Bossman has, what is missing and where to start, and records that the 13-zone / 3-agents-per-branch / 2-open-source-per-leaf audit was launched but **not completed** (all agent waves failed on session limits; the tree site is unreachable from cloud containers). Re-run it per section 6 and `BRIEFS.md` before claiming any zone result. Owner 08.10: write documentation, do not write product code, land documentation in `main` and stop. Status ladder unchanged: `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT`; `tree-registry.json` has 0 leaves proven at `ci` or `owner_pc`.
+
+---
+
+# Owner directive — K1m6a continuation on 2026-10-08
+
+Read `docs/trading/K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md` and current `AGENTS.md` before continuing the learning run. Resume from the verified local checkpoint (last recorded video #25), independently audit the next ten videos, and prove before/after gains on locked unseen screenshots plus restart transfer. The owner authorized continuation; this push prepares the work but does not launch the PC. Preserve release-critical fixes and the same-product contract. Canonical is `main`; historical destinations below are superseded.
 
 ---
 
@@ -20,7 +34,7 @@ Latest business horizon: 4–6 days after the accepted first owner-run to move t
 
 ## Implementation order now (CLOUD_PREPARE)
 
-1. Fetch current remote. Reconcile PR #73/#74, `codex/bossman-v1.1-evolution`, and newer shared release commits by meaning. Preserve their code/evidence. Final destination stays `release/bossman-owner`; no force-push or another final branch.
+1. Fetch current remote. Reconcile PR #73/#74, `codex/bossman-v1.1-evolution`, and newer shared release commits by meaning. Preserve their code/evidence. Final destination is now `main` (owner amendment 2026-10-08; `release/bossman-owner` is historical); no force-push or another final branch.
 2. Reuse `bossman-core/bossman/cli.py` and its existing argparse/entry point. Add the same-product API client, JSON exec/status/events/result first; interactive Russian chat second. Preserve old commands. Existing Core direct-DB task command is not automatically the Command Center task path.
 3. Reuse open source: prompt_toolkit for input, Rich for display; Codex is a UX reference, not a replacement engine. Pin actual dependencies/licenses in the shipped bundle. Do not build a new browser/dashboard/Electron app.
 4. Connect existing Coding/local_sidecar and bounded evolution to the CLI. Same scopes, verifier, STOP, budgets, memory/skills and model registry. All available product operations need a registry-backed parity mapping; unavailable ones must say why.
