@@ -199,13 +199,19 @@ function openLivePanel(id, ctx) {
   modal.footer.appendChild(actionsRow);
   modal.footer.appendChild(h('button.btn', { type: 'button', onClick: () => modal.close() }, 'Закрыть'));
 
-  refreshShot();
-  refreshState();
-  poll = setInterval(() => {
+  // Опрос не наслаивается: снимок на сервере может идти десятки секунд, и без
+  // флагов каждый тик (3 с) ставил бы ещё по запросу в очередь за зависшими.
+  // Фоновую вкладку не опрашиваем вовсе — вернётся видимость, вернётся и опрос.
+  let shotBusy = false;
+  let stateBusy = false;
+  const tick = () => {
     if (stopped) { clearInterval(poll); return; }
-    refreshShot();
-    refreshState();
-  }, 3000);
+    if (document.hidden) return;
+    if (!shotBusy) { shotBusy = true; refreshShot().finally(() => { shotBusy = false; }); }
+    if (!stateBusy) { stateBusy = true; refreshState().finally(() => { stateBusy = false; }); }
+  };
+  tick();
+  poll = setInterval(tick, 3000);
 }
 
 export default BrowserPage;
