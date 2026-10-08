@@ -79,7 +79,8 @@ def _load_owner(config_path: Path | None) -> tuple[Any, Any] | None:
 
 
 async def send_report(text: str, *, send: bool = False, config_path: Path | None = None,
-                      transport_factory: Callable[[Any], Any] | None = None) -> dict:
+                      transport_factory: Callable[[Any], Any] | None = None,
+                      html: bool = False, pin: bool = False) -> dict:
     """Plan (and with ``send=True`` deliver) one owner report. Never raises for the expected refusals."""
     text = (text or "").strip()
     if not text:
@@ -99,15 +100,23 @@ async def send_report(text: str, *, send: bool = False, config_path: Path | None
         transport_factory = Telegram
     transport = transport_factory(settings)
     ids: list = []
+    pinned = False
     try:
         for part in chunks:
-            ids.append(await transport.send(owner, part))
+            ids.append(await transport.send(owner, part, parse_mode="HTML" if html else None))
+        if pin and ids and type(ids[0]) is int:
+            try:   # a checkpoint is pinned for the owner; a refused pin never fails the report
+                await transport.call("pinChatMessage", {"chat_id": owner.chat_id, "message_id": ids[0],
+                                                        "disable_notification": True})
+                pinned = True
+            except Exception:  # noqa: BLE001
+                pinned = False
     except Exception as exc:  # noqa: BLE001 - delivery problems become an exit code, not a traceback
         return {"ok": False, "exit": EXIT_SEND_FAILED, "sent": bool(ids),
                 "reason": f"delivery failed: {type(exc).__name__}", **plan}
     finally:
         await transport.close()
-    return {"ok": True, "exit": EXIT_OK, "sent": True, "dry_run": False, "message_ids": ids, **plan}
+    return {"ok": True, "exit": EXIT_OK, "sent": True, "dry_run": False, "message_ids": ids, "pinned": pinned, **plan}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -116,13 +125,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--file", required=True, help="report text file ('-' = stdin)")
     parser.add_argument("--send", action="store_true", help="really send (default: dry run)")
     parser.add_argument("--config", type=Path, default=None, help="companion config.json (default: the installed one)")
+    parser.add_argument("--html", action="store_true", help="Telegram HTML formatting (bold, code, headings; plain fallback)")
+    parser.add_argument("--pin", action="store_true", help="pin the first message of this report (checkpoint)")
     args = parser.parse_args(argv)
     try:
         text = sys.stdin.read() if args.file == "-" else Path(args.file).read_text(encoding="utf-8")
     except OSError as exc:
         print(f"не удалось прочитать отчёт: {type(exc).__name__}", file=sys.stderr)
         return EXIT_USAGE
-    result = asyncio.run(send_report(text, send=args.send, config_path=args.config))
+    result = asyncio.run(send_report(text, send=args.send, config_path=args.config, html=args.html, pin=args.pin))
     if result.get("reason"):
         print(result["reason"], file=sys.stderr)
     elif result.get("dry_run"):

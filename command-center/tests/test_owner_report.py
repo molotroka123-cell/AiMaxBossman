@@ -100,3 +100,34 @@ def test_main_reads_a_file_and_dry_runs(tmp_path, monkeypatch, capsys):
     assert orp.main(["--file", str(report)]) == 0
     assert "DRY RUN" in capsys.readouterr().out
     assert orp.main(["--file", str(tmp_path / "missing.md")]) == orp.EXIT_USAGE
+
+
+class PinTransport(FakeTransport):
+    def __init__(self, settings, refuse_pin: bool = False):
+        super().__init__(settings)
+        self.calls, self.kw, self.refuse_pin = [], [], refuse_pin
+
+    async def send(self, person, text, **kw):
+        self.kw.append(kw)
+        return await super().send(person, text)
+
+    async def call(self, method, payload):
+        if self.refuse_pin:
+            raise RuntimeError("not enough rights")
+        self.calls.append((method, payload))
+        return True
+
+
+def test_html_and_pin_format_the_checkpoint_and_pin_its_first_message(monkeypatch):
+    # Owner 08.10: checkpoints in the Пульт must be formatted (no "каша") and pinned for convenience.
+    _configured(monkeypatch)
+    result = run("**Чекпоинт**\nвсё идёт", send=True, html=True, pin=True, transport_factory=PinTransport)
+    t = FakeTransport.instances[-1]
+    assert result["pinned"] is True and t.kw[0]["parse_mode"] == "HTML"
+    assert t.calls == [("pinChatMessage", {"chat_id": OWNER.chat_id, "message_id": result["message_ids"][0],
+                                           "disable_notification": True})]
+    # plain by default, and a refused pin never fails the report
+    plain = run("отчёт", send=True, transport_factory=PinTransport)
+    assert plain["pinned"] is False and FakeTransport.instances[-1].kw[0]["parse_mode"] is None
+    refused = run("отчёт", send=True, pin=True, transport_factory=lambda s: PinTransport(s, refuse_pin=True))
+    assert refused["exit"] == 0 and refused["sent"] is True and refused["pinned"] is False
