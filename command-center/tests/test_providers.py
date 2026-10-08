@@ -64,6 +64,20 @@ async def test_openai_compat_list_models():
     assert await adapter.list_models() == ["a", "b"]
 
 
+async def test_openai_compat_content_blocks_keep_text_and_drop_thinking():
+    # Mistral Large 4 answers with a list: [{"type": "thinking", ...}, {"type": "text", "text": ...}]
+    # (real run 08.10: AttributeError in _result_from because content was not a string).
+    body = {"model": "mistral-large-4", "usage": {"prompt_tokens": 5, "completion_tokens": 40},
+            "choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": [
+                {"type": "thinking", "thinking": [{"type": "text", "text": "private reasoning"}], "closed": True},
+                {"type": "text", "text": "ok "}, {"type": "text", "text": "done"}]}}]}
+    adapter = OpenAICompatAdapter(base_url="https://api.mistral.ai/v1",
+                                  transport=httpx.MockTransport(lambda r: httpx.Response(200, json=body)))
+    result = await adapter.chat("mistral-large-4", [{"role": "user", "content": "x"}])
+    assert result.text == "ok done" and "private" not in result.text
+    assert result.finish == "stop" and result.tokens_out == 40
+
+
 async def test_anthropic_chat_request_and_parsing():
     seen: dict = {}
 
