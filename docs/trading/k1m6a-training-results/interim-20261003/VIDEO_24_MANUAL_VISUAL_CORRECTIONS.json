@@ -1,0 +1,20 @@
+{
+  "schema": "bossman.k1m6a-manual-visual-review/1",
+  "video_id": "zz2La2BT1-A",
+  "reviewed_utc": "2026-10-03T21:20:23.891193+00:00",
+  "method": "All 21 semantic frames reviewed via contact sheet; first selected frame checked full resolution.",
+  "findings": [
+    {
+      "frame": "smart_001_00115.jpg",
+      "time_s": 115.72,
+      "manual_observation": "Screenshot includes a YouTube replay interface layered over the trading stream, duplicated overlay text, channel promotions, chat and a chart. Visual content is compressed and nested in UI.",
+      "limitation": "Do not use tiny chart labels, values, or screenshot overlay captions as ground truth; no independently verified trading rule identified from this frame."
+    },
+    {
+      "frames": "smart_001..021",
+      "manual_observation": "Many screenshots repeat the same chart layout/period; several frames include handwritten drawing overlays and promotional/player UI. Later frames show a different panel view.",
+      "limitation": "Frames are not independent examples. Vision output remains raw until checked against video context."
+    }
+  ],
+  "claims_promoted": 0
+}

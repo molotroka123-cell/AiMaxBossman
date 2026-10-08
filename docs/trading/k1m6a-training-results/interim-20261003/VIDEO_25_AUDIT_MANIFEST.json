@@ -1,0 +1,56 @@
+{
+  "schema": "k1m6a-video-audit-manifest/1",
+  "video_id": "8wItpyVUi2k",
+  "files": [
+    {
+      "path": "video.webm",
+      "size_bytes": 332639364,
+      "sha256": "7874f64091fb74d72e7b3707674efcb9e83422c0040a4e90fa0d42b740bd07ce"
+    },
+    {
+      "path": "video.mp4",
+      "size_bytes": 333771604,
+      "sha256": "6a9221a835a99266c40631517b9bfe7f84a550495a6b19e59b8afe6c38529546"
+    },
+    {
+      "path": "subs.8wItpyVUi2k.en.en-orig.vtt",
+      "size_bytes": 189470,
+      "sha256": "da14b77d1b219bf03d8bc1927e1211043deef965a418c7c0f7736d083b7dc0db"
+    },
+    {
+      "path": "asr.meta.json",
+      "size_bytes": 212,
+      "sha256": "89521a5503fd4f2412403fcecef97d8afcf70d9bda7abae397311929b007f812"
+    },
+    {
+      "path": "asr.segments.json",
+      "size_bytes": 37082,
+      "sha256": "02801a23d806a9a89d4816038e55aee61e9a58e4e437bc8894393a3a34063310"
+    },
+    {
+      "path": "study_notes.json",
+      "size_bytes": 21758,
+      "sha256": "509c8fa19de3a87b4f328f084ba270dce2a88af2efa5c6a661439409706e6db2"
+    },
+    {
+      "path": "study_sheet.md",
+      "size_bytes": 7150,
+      "sha256": "14f2b8f05e06dc50c7ade822eaf845ad91919e8252795588f083c5dc7885fafe"
+    },
+    {
+      "path": "smart_frames.json",
+      "size_bytes": 13917,
+      "sha256": "aaec0c420f76d8a6f567713af2971eea0955fe20e18d71e587b6b35fe20aa620"
+    },
+    {
+      "path": "smart_visual_audit.json",
+      "size_bytes": 136178,
+      "sha256": "58def4bdf87d195c2e811c61bda6296efa1ac7d0617cf7edf336cee3388b0497"
+    },
+    {
+      "path": "review_contact_sheet.jpg",
+      "size_bytes": 612708,
+      "sha256": "fb8807cbccbaf0db4063a9f08dc44d0175caac2053c3a5168b403c94ef53fd85"
+    }
+  ]
+}

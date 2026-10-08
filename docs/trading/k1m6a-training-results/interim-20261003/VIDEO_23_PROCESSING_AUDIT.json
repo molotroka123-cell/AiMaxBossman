@@ -1,0 +1,99 @@
+{
+  "schema": "bossman.k1m6a-video-audit/1",
+  "video_id": "RdR-z4nQN7k",
+  "order": 23,
+  "title": "August 1st! We Ready For The Month! Bitcoin Setups!",
+  "display_date": "2025-08-01",
+  "url": "https://www.youtube.com/watch?v=RdR-z4nQN7k",
+  "status": "LOCAL_PROCESSING_COMPLETE_UNVERIFIED",
+  "source": {
+    "video_file": "video.webm",
+    "video_sha256": "258ac45790a12f4967cd93f7d560dcfa54116b0e2eb26add52956546388bc1bb",
+    "video_codec": "VP9",
+    "resolution": "1280x720",
+    "duration_s": 1514.466,
+    "audio_codec": "Opus",
+    "subtitle_file": "subs.RdR-z4nQN7k.en.en-orig.vtt",
+    "subtitle_sha256": "069a96bc302c3a838312f1f746449fd951491c9f23374998ee7c2b2646ce8e22"
+  },
+  "local_processing": {
+    "asr": {
+      "model": "faster-whisper-small",
+      "revision": "Systran/small@536b0662742c02347bc0e980a01041f333bce120",
+      "device": "CPU",
+      "compute_type": "int8",
+      "threads": 4,
+      "segments": 361,
+      "runtime_s": 112.6,
+      "audio_duration_s": 1514.5,
+      "audio_extract_runtime_s": null,
+      "cloud_used": false
+    },
+    "lesson_extractor": {
+      "model": "bossman-community-qwen-uncensored:latest",
+      "transcript_sources": [
+        "original_subtitles",
+        "local_asr"
+      ],
+      "window_s": 120,
+      "windows": 13,
+      "accepted_unverified": 22,
+      "rejected": 17,
+      "runtime_s": 199.32,
+      "claims_promoted": 0
+    },
+    "frame_selection": {
+      "algorithm": "semantic transcript/scene anchors; not uniform sampling",
+      "selected": 25,
+      "scene_changes": null,
+      "selection_runtime_s": null
+    },
+    "vision": {
+      "model": "bossman-fast-qwen36-vision:latest",
+      "attempted": 25,
+      "success": 22,
+      "errors": 3,
+      "success_runtime_s": 729.95,
+      "cloud_used": false
+    }
+  },
+  "manual_visual_review": {
+    "schema": "bossman.k1m6a-manual-visual-review/1",
+    "video_id": "RdR-z4nQN7k",
+    "reviewed_utc": "2026-10-03T20:55:29.825478+00:00",
+    "method": "All 25 semantic frames reviewed in contact sheet; frame smart_001_00101.jpg and smart_011_00659.jpg checked at full resolution.",
+    "findings": [
+      {
+        "frame": "smart_001_00101.jpg",
+        "time_s": 101.82,
+        "manual_observation": "Chart header visibly reads BTCUSD · 5 · COINBASE; chart and stream overlay are visible.",
+        "model_agreement": "ticker and timeframe broadly match",
+        "limitations": "Do not treat chart labels or current values as a strategy/outcome."
+      },
+      {
+        "frame": "smart_011_00659.jpg",
+        "time_s": 659.9,
+        "manual_observation": "Chart header reads BTCUSD · 5 · COINBASE. The chart current marker at the right reads 114,573.28; the top OHLC open is 114,471.51.",
+        "model_correction": "VLM labeled 114,471.51 (the open) as current price; current marker is 114,573.28.",
+        "use": "Evidence of a specific OCR field-selection error; preserve raw output and correction separately."
+      },
+      {
+        "frames": "smart_001..025",
+        "manual_observation": "Many frames repeat the same chart layout; at least two contain visible image/compression artifacts; final frames show channel/stream graphics rather than independent market evidence.",
+        "limitation": "25 frames do not represent 25 independent observations; no price or trading rule promoted."
+      }
+    ],
+    "claims_promoted": 0
+  },
+  "usefulness_evidence": {
+    "timestamped_asr_segments": 361,
+    "caption_and_asr_sources_kept_separate": true,
+    "relevant_demonstration": "A manual frame review caught the local VLM confusing an OHLC open value with the current-price marker.",
+    "limits": "No closed-book retrieval test, independent market outcome validation, or trading backtest was run. Accepted lesson candidates are transcript-grounded but remain unverified."
+  },
+  "delivery": {
+    "telegram_pult": "NOT_SENT_IN_THIS_UPDATE",
+    "github": "PENDING_FINAL_ARCHIVE_EXPORT"
+  },
+  "next": "Continue queue through #30. #5 has no local source media. Complete #22 audit and process #24–#30; do not infer trade performance from educator commentary."
+}
