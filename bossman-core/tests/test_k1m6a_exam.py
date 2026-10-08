@@ -243,3 +243,39 @@ def test_vtt_is_used_when_there_is_no_local_asr(tmp_path):
     assert ex.read_segments(tmp_path) == [{"start": 1.0, "end": 2.5, "text": "hello there"}]
     with pytest.raises(ex.ExamError):
         ex.read_segments(tmp_path / "missing")
+
+
+def _serve_once(captured):
+    import http.server
+    import threading
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            captured.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            payload = json.dumps({"choices": [{"message": {"content": "{}"}}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *a):
+            pass
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+def test_student_can_switch_reasoning_off_so_a_thinking_model_answers_in_content():
+    # Real run 08.10: the local vision model spent all 900 tokens in `reasoning` and returned an empty
+    # `content` (finish=length), so every BASELINE answer was BAD_JSON. reasoning_effort=none fixes that.
+    seen = []
+    srv = _serve_once(seen)
+    try:
+        url = f"http://127.0.0.1:{srv.server_address[1]}/v1"
+        msgs = [{"role": "user", "content": "x"}]
+        ex.OpenAICompatStudent(url, "m", reasoning_effort="none")(msgs)
+        ex.OpenAICompatStudent(url, "m")(msgs)
+    finally:
+        srv.shutdown()
+    assert seen[0]["reasoning_effort"] == "none"
+    assert "reasoning_effort" not in seen[1]
