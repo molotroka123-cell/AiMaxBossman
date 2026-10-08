@@ -104,7 +104,9 @@ async def list_skills(request: Request):
     lib = _lib(svc)
     assigns = await _assignments(svc)
     out = []
-    for sk in lib.discover():
+    # discover() глобит/stat'ит шесть корней (в т.ч. ~/.agents, ~/.claude,
+    # ~/.config/opencode) и пере-парсит YAML после смены mtime — не в цикле событий.
+    for sk in await asyncio.to_thread(lib.discover):
         d = _skill_dict(sk)
         d["agents"] = assigns.get(sk.id, [])
         out.append(d)
@@ -114,7 +116,7 @@ async def list_skills(request: Request):
 @router.get("/skills/{skill_id}")
 async def get_skill(skill_id: str, request: Request):
     svc = request.app.state.svc
-    sk = _lib(svc).by_id().get(skill_id)
+    sk = await asyncio.to_thread(lambda: _lib(svc).by_id().get(skill_id))
     if sk is None:
         raise HTTPException(404, {"message": "скилл не найден"})
     d = _skill_dict(sk)
@@ -152,13 +154,13 @@ async def clone_skill(skill_id: str, request: Request):
     svc = request.app.state.svc
     body = await request.json()
     lib = _lib(svc)
-    sk = lib.by_id().get(skill_id)
+    sk = await asyncio.to_thread(lambda: lib.by_id().get(skill_id))
     if sk is None:
         raise HTTPException(404, {"message": "скилл не найден"})
     new_id = body.get("new_id") or f"{skill_id}-copy"
-    content = sk.path.read_text(encoding="utf-8")
+    content = await asyncio.to_thread(sk.path.read_text, encoding="utf-8")
     try:
-        clone = lib.create(new_id, content)
+        clone = await asyncio.to_thread(lib.create, new_id, content)
     except FileExistsError:
         raise _already_exists(new_id) from None
     except ValueError as exc:
@@ -169,11 +171,11 @@ async def clone_skill(skill_id: str, request: Request):
 @router.get("/skills/{skill_id}/export")
 async def export_skill(skill_id: str, request: Request):
     svc = request.app.state.svc
-    sk = _lib(svc).by_id().get(skill_id)
+    sk = await asyncio.to_thread(lambda: _lib(svc).by_id().get(skill_id))
     if sk is None:
         raise HTTPException(404, {"message": "скилл не найден"})
-    return {"id": sk.id, "content": sk.path.read_text(encoding="utf-8"),
-            "fingerprint": sk.fingerprint}
+    content = await asyncio.to_thread(sk.path.read_text, encoding="utf-8")
+    return {"id": sk.id, "content": content, "fingerprint": sk.fingerprint}
 
 
 @router.post("/skills/import")
@@ -236,7 +238,7 @@ async def run_skill(skill_id: str, request: Request):
     """
     svc = request.app.state.svc
     body = await request.json()
-    sk = _lib(svc).by_id().get(skill_id)
+    sk = await asyncio.to_thread(lambda: _lib(svc).by_id().get(skill_id))
     if sk is None:
         raise HTTPException(404, {"message": "скилл не найден"})
     con = skill_contract(sk)
@@ -834,7 +836,8 @@ async def catalog_revocations(svc) -> dict:
 async def revoke_catalog_skill(svc, skill_id: str, *, sha256: str | None = None,
                                reason: str = "") -> dict:
     """Отозвать версию (sha256) или весь скилл (sha256=None → "*")."""
-    entry = _catalog(svc).get(skill_id)
+    # get() перечитывает, хэширует и сканирует политикой каждый SKILL.md каталога.
+    entry = await asyncio.to_thread(lambda: _catalog(svc).get(skill_id))
     if entry is None:
         raise KeyError(skill_id)
     data = await catalog_revocations(svc)
@@ -917,7 +920,7 @@ async def get_catalog_skill(source: str, skill: str, request: Request):
         revoked = await catalog_revocations(svc)
     except RevocationsUnreadable as exc:
         raise HTTPException(503, {"message": "список отзывов нечитаем", "hint": str(exc)})
-    e = _catalog(svc).get(f"{source}/{skill}", revoked)
+    e = await asyncio.to_thread(lambda: _catalog(svc).get(f"{source}/{skill}", revoked))
     if e is None:
         raise HTTPException(404, {"message": "скилл каталога не найден"})
     d = e.summary()
