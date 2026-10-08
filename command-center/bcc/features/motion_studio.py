@@ -19,6 +19,7 @@ exists and passes the check; otherwise it is reported failed with the reason.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -95,12 +96,30 @@ def _save(job: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
-def _pid_alive(pid: int) -> bool:
+def _orphan(job: dict[str, Any]):
+    """This job's render process when only its pid survived a backend restart, else None.
+
+    A bare «pid exists» is not enough: after a restart the pid may belong to an unrelated
+    program (pid reuse), which must neither keep the job «running» nor ever be killed.
+    The process counts as ours only while its command line is make_video.py on THIS job's spec.
+    """
     try:
         import psutil
-        return psutil.pid_exists(pid)
-    except Exception:  # noqa: BLE001
-        return False
+        proc = psutil.Process(int(job.get("pid") or 0))
+        argv = proc.cmdline()
+    except Exception:  # noqa: BLE001 — gone, zombie, access denied or psutil missing: not confirmed ours
+        return None
+    spec = str(Path(job["dir"]) / "spec.json")
+    return proc if spec in argv and any(Path(a).name == "make_video.py" for a in argv) else None
+
+
+def _kill_orphan(proc) -> None:
+    import psutil
+    try:
+        proc.kill()
+        proc.wait(timeout=10)
+    except (psutil.NoSuchProcess, psutil.TimeoutExpired):
+        pass
 
 
 def _load_jobs(root: Path) -> None:
@@ -126,8 +145,15 @@ def _refresh(job: dict[str, Any]) -> dict[str, Any]:
                 _save(job)
             return job
         _settle(job, int(proc.returncode))
-    elif not _pid_alive(int(job.get("pid") or 0)):
+        return job
+    orphan = _orphan(job)
+    if orphan is None:
         _settle(job, None)
+    elif time.time() - float(job["started"]) > JOB_TIMEOUT_SECONDS:
+        with contextlib.suppress(Exception):   # it may have ended on its own in the meantime
+            orphan.kill()
+        job.update(state="failed", error="время рендера вышло", finished=time.time())
+        _save(job)
     return job
 
 
@@ -309,6 +335,8 @@ async def cancel(job_id: str, request: Request):
         if proc is not None and proc.returncode is None:
             proc.kill()
             await proc.wait()
+        elif proc is None and (orphan := _orphan(job)) is not None:
+            await asyncio.to_thread(_kill_orphan, orphan)   # render outlived a restart: stop it for real
         job.update(state="cancelled", error="остановлено владельцем", finished=time.time())
         _save(job)
     return _public(job)

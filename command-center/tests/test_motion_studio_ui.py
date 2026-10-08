@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import textwrap
+import time
 from pathlib import Path
 
 import pytest
@@ -140,6 +141,55 @@ async def test_one_job_at_a_time_cancel_and_file_whitelist(env, stub_tool):
     for bad in ("../../job.json", "job.json", "make_video.log", "epic-preview-..\\x.png"):
         assert (await env.client.get(f"/api/motion-studio/jobs/{job_id}/file", params={"name": bad})).status_code == 404
     assert (await env.client.get("/api/motion-studio/jobs/nope")).status_code == 404
+
+
+async def test_cancel_after_a_backend_restart_stops_the_orphaned_render(env, stub_tool):
+    # Reproduced 2026-10-08: after a restart the in-memory process handle is gone, the render
+    # (a separate process) keeps running and job.json still says «running». Cancel then only
+    # relabelled the job «cancelled»: the render kept burning CPU and the one-job guard opened,
+    # so a second render could start next to it.
+    r = await env.client.post("/api/motion-studio/jobs", json={"mode": "preview", "spec": dict(SPEC, note="SLOW")})
+    job_id = r.json()["id"]
+    held = ms._PROCS.pop(job_id)          # what a restart loses: the handle, not the process
+    ms._JOBS.clear()
+    try:
+        assert (await env.client.get(f"/api/motion-studio/jobs/{job_id}")).json()["state"] == "running"
+        blocked = await env.client.post("/api/motion-studio/jobs", json={"mode": "preview", "spec": SPEC})
+        assert blocked.status_code == 409   # our live render still holds the one-job slot
+        cancelled = (await env.client.post(f"/api/motion-studio/jobs/{job_id}/cancel")).json()
+        assert cancelled["state"] == "cancelled"
+        await asyncio.wait_for(held.wait(), timeout=15)   # the render process really stopped
+        assert held.returncode is not None
+    finally:
+        if held.returncode is None:
+            held.kill()
+            await held.wait()
+
+
+async def test_a_reused_pid_is_not_our_render_and_is_never_killed(env, stub_tool):
+    # Negative control for the restart path: job.json points at a pid that now belongs to an
+    # unrelated program (pid reuse). It must not keep the job «running» forever and must never
+    # be killed by cancel.
+    stranger = await asyncio.create_subprocess_exec(sys.executable, "-c", "import time; time.sleep(60)")
+    try:
+        folder = Path(env.settings.data_dir) / "motion-studio" / "deadbeef0001"
+        folder.mkdir(parents=True)
+        (folder / "spec.json").write_text("{}", encoding="utf-8")
+        ms._save({"id": "deadbeef0001", "mode": "preview", "state": "running", "error": "",
+                  "started": time.time(), "finished": None, "style": "epic", "no_voice": True,
+                  "pid": stranger.pid, "dir": str(folder), "times": [1.0], "music": False, "source": "custom"})
+        ms._JOBS.clear()
+        assert ms._orphan({"pid": stranger.pid, "dir": str(folder)}) is None   # alive, but not our render
+        job = (await env.client.get("/api/motion-studio/jobs/deadbeef0001")).json()
+        assert job["state"] == "interrupted", job
+        await env.client.post("/api/motion-studio/jobs/deadbeef0001/cancel")
+        assert stranger.returncode is None   # the unrelated program is untouched
+        fresh = await env.client.post("/api/motion-studio/jobs", json={"mode": "preview", "spec": SPEC})
+        assert fresh.status_code == 202, fresh.text   # a stale record does not block new work
+        await wait_done(env.client, fresh.json()["id"])
+    finally:
+        stranger.kill()
+        await stranger.wait()
 
 
 async def test_input_validation(env, stub_tool):
