@@ -17632,8 +17632,8 @@
       "id": "pv-ui",
       "label": "Страница Poker Vision и один backend",
       "parent": "pv",
-      "status": "code",
-      "detail": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис.",
+      "status": "reported",
+      "detail": "Выбор окна/источника, live/replay, наложение полей, история, объяснение неопределённости, калибровка, STOP; страница, CLI и тесты используют один сервис. Прогон 2026-10-09 @ 3b07c9ae: pytest 1 test file(s) importing bcc.features.poker_vision: command-center/tests/test_poker_vision_client_reuse.py",
       "sources": [
         {
           "path": "command-center/ui/pages/poker_vision.js",
@@ -17646,6 +17646,12 @@
           "branch": "poker-vision/pipeline-20261005",
           "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/command-center/bcc/features/poker_vision.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261009.json#pv-ui",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "3b07c9ae735bcda153667ab09a0f18f489dc677d",
+          "kind": "receipt"
         }
       ],
       "next_action": "Выбор окна и захват mss проверить на Windows владельца (NOT_RUN в контейнере)."

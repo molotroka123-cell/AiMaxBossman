@@ -1,0 +1,15 @@
+[
+  {
+    "node_id": "pv-ui",
+    "sha": "3b07c9ae735bcda153667ab09a0f18f489dc677d",
+    "probe": "pytest 1 test file(s) importing bcc.features.poker_vision: command-center/tests/test_poker_vision_client_reuse.py",
+    "command": "C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest -q tests\\test_poker_vision_client_reuse.py",
+    "exit_code": 0,
+    "started_at": "2026-10-09T14:57:36.030383+00:00",
+    "finished_at": "2026-10-09T14:57:40.162960+00:00",
+    "output_sha256": "ddb3e42bba1296d2abc64fac5b457211171273a589ca5d4153431248a0de9dcf",
+    "output_tail": "...                                                                      [100%]\n3 passed in 2.84s",
+    "verdict": "PASS",
+    "kind": "pytest"
+  }
+]

@@ -1,15 +1,16 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=31, code=28, idea=22, mixed=16, prepared=18, recorded=175, reported=405, retired=5, working=164
+Статусы дерева: blocked=12, branch=31, code=27, idea=22, mixed=16, prepared=18, recorded=175, reported=406, retired=5, working=164
 
-Принято расписок: 0; отклонено: 849
+Принято расписок: 1; отклонено: 849
 
 ## По зонам
 
-- нет
+- apps: 1
 
 ## Принятые
 
+- `pv-ui` (l2-20261009.json)
 
 ## Отклонённые
 
