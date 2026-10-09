@@ -69,6 +69,17 @@ def test_future_speech_in_the_prompt_is_found():
     assert ex.leaked_future(before + " we lost the single prints so shorts are in control", segs, 30) == ["40.0s"]
 
 
+def test_stock_phrase_said_before_the_cutoff_is_not_a_future_leak():
+    # The author repeats stock phrases; a 6-word overlap with a later segment that already
+    # occurs in the permitted past speech proves nothing about the future (real run: ALaeGhKHWIs-00617).
+    segs = [{"start": 0, "end": 10, "text": "honestly i don't know if you were here yesterday for the plan"},
+            {"start": 40, "end": 50, "text": "i don't know if you were here and now shorts are in control"}]
+    before = ex.context_until(segs, 30)
+    assert ex.leaked_future(before, segs, 30) == []
+    # a genuinely new future sentence is still caught
+    assert ex.leaked_future(before + " were here and now shorts are in control", segs, 30) == ["40.0s"]
+
+
 def test_lessons_from_test_videos_are_contaminated_and_rejected():
     split = pinned_split()
     good = {"lesson_id": "L1", "WHEN": "price returns into value after a failed breakdown",
@@ -125,6 +136,49 @@ def test_a_cut_off_answer_is_retried_then_recorded_as_bad_json(tmp_path):
     ok = ex.ask(sits, split, mode="BASELINE", student=lambda m: json.dumps(ANSWER), seal_sha="s",
                 criteria_sha="c", base=tmp_path, model_meta={"model": "m"})
     assert ok[0]["status"] == "OK" and ok[0]["answer"]["fields"]["price"] == "114573.28"
+
+
+def test_answers_are_saved_per_situation_and_a_restart_skips_the_answered(tmp_path):
+    # The real BASELINE run takes over an hour and used to write its file only at the very end:
+    # a crash lost everything. on_row is called as each row is final; skip resumes after a restart.
+    split = pinned_split()
+    sits = _situations(tmp_path, split)
+    saved, asked = [], []
+
+    def student(messages):
+        asked.append(1)
+        if len(asked) == 2:
+            raise KeyboardInterrupt           # the process dies in the middle of the run
+        return json.dumps(ANSWER)
+    with pytest.raises(KeyboardInterrupt):
+        ex.ask(sits, split, mode="BASELINE", student=student, seal_sha="s", criteria_sha="c", base=tmp_path,
+               model_meta={"model": "m"}, on_row=saved.append)
+    assert [r["situation_id"] for r in saved] == [sits[0].situation_id]       # the finished one survived
+    rest = ex.ask(sits, split, mode="BASELINE", student=lambda m: json.dumps(ANSWER), seal_sha="s",
+                  criteria_sha="c", base=tmp_path, model_meta={"model": "m"}, on_row=saved.append,
+                  skip={r["situation_id"] for r in saved if r["status"] == "OK"})
+    assert [r["situation_id"] for r in saved] == [s.situation_id for s in sits]    # no repeats, nothing lost
+    assert len(rest) == len(sits) - 1
+
+
+def _row(sid, mode="BASELINE", status="OK", seal="s", crit="c"):
+    return {"situation_id": sid, "mode": mode, "status": status, "seal_sha256": seal, "criteria_sha256": crit}
+
+
+def test_resume_keeps_only_matching_ok_rows_and_refuses_foreign_or_stale_files(tmp_path):
+    # Found by an independent Mistral Large 4 review: resume must never destroy another mode's rows
+    # and must never reuse answers given under a different seal / criteria.
+    f = tmp_path / "answers.jsonl"
+    f.write_text("".join(json.dumps(r) + "\n" for r in (_row("a"), _row("b", status="BAD_JSON"))), encoding="utf-8")
+    kept = ex.resume_rows(f, "BASELINE", "s", "c")
+    assert [r["situation_id"] for r in kept] == ["a"]                       # BAD_JSON is asked again
+    f.write_text(json.dumps(_row("a")) + "\n" + json.dumps(_row("x", mode="LESSONS")) + "\n", encoding="utf-8")
+    with pytest.raises(ex.ExamError, match="other mode"):
+        ex.resume_rows(f, "BASELINE", "s", "c")                              # would have deleted the LESSONS row
+    f.write_text(json.dumps(_row("a", crit="old")) + "\n", encoding="utf-8")
+    with pytest.raises(ex.ExamError, match="different seal or criteria"):
+        ex.resume_rows(f, "BASELINE", "s", "c")                              # answered under other criteria
+    assert ex.resume_rows(tmp_path / "missing.jsonl", "BASELINE", "s", "c") == []
 
 
 def test_the_student_cannot_answer_before_the_seal_or_see_lessons_in_baseline(tmp_path):
@@ -243,3 +297,39 @@ def test_vtt_is_used_when_there_is_no_local_asr(tmp_path):
     assert ex.read_segments(tmp_path) == [{"start": 1.0, "end": 2.5, "text": "hello there"}]
     with pytest.raises(ex.ExamError):
         ex.read_segments(tmp_path / "missing")
+
+
+def _serve_once(captured):
+    import http.server
+    import threading
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            captured.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+            payload = json.dumps({"choices": [{"message": {"content": "{}"}}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *a):
+            pass
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+def test_student_can_switch_reasoning_off_so_a_thinking_model_answers_in_content():
+    # Real run 08.10: the local vision model spent all 900 tokens in `reasoning` and returned an empty
+    # `content` (finish=length), so every BASELINE answer was BAD_JSON. reasoning_effort=none fixes that.
+    seen = []
+    srv = _serve_once(seen)
+    try:
+        url = f"http://127.0.0.1:{srv.server_address[1]}/v1"
+        msgs = [{"role": "user", "content": "x"}]
+        ex.OpenAICompatStudent(url, "m", reasoning_effort="none")(msgs)
+        ex.OpenAICompatStudent(url, "m")(msgs)
+    finally:
+        srv.shutdown()
+    assert seen[0]["reasoning_effort"] == "none"
+    assert "reasoning_effort" not in seen[1]
