@@ -46,6 +46,17 @@ EnginesFactory = Callable[[CallSettings, str], Awaitable[Any]]
 RunSession = Callable[[CallSession], Awaitable[dict]]
 
 
+def remember_call(seen: dict, call_ref: str, *, limit: int = 500, keep: int = 100) -> bool:
+    """Record a call ref in an insertion-ordered dict; False when it was already there. Over ``limit`` only the newest ``keep`` stay."""
+    if call_ref in seen:
+        return False
+    seen[call_ref] = None
+    if len(seen) > limit:
+        for old in list(seen)[:-keep]:
+            del seen[old]
+    return True
+
+
 @dataclass
 class _Pending:
     call: IncomingCall
@@ -82,7 +93,7 @@ class AnsweringMachine:
         self._stopped = False
         self._current: _Pending | None = None
         self._pending: dict[str, _Pending] = {}
-        self._seen: set[str] = set()
+        self._seen: dict[str, None] = {}              # insertion-ordered: pruning keeps the NEWEST refs (audit F8)
         self._early_gone: dict[str, str] = {}               # the call went away before its handler had registered
         self._tasks: set[asyncio.Task] = set()
         self._prep_task: asyncio.Task | None = None
@@ -227,11 +238,8 @@ class AnsweringMachine:
             self._early_gone[call_ref] = reason or "unknown"
 
     def _spawn(self, call: IncomingCall) -> None:
-        if call.call_ref in self._seen:
+        if not remember_call(self._seen, call.call_ref):
             return
-        self._seen.add(call.call_ref)
-        if len(self._seen) > 500:
-            self._seen = set(list(self._seen)[-100:])
         self.counters["rung"] += 1
         task = asyncio.get_running_loop().create_task(self._handle(call), name="answering-call")
         self._tasks.add(task)
