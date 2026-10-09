@@ -296,3 +296,18 @@ def test_the_stop_flag_is_replaced_when_the_old_file_cannot_be_written(tmp_path,
     monkeypatch.setattr(Path, "write_text", write_text)
     state.set_stop("second")
     assert denied["n"] == 1 and state.stop_is_set() and "second" in state.stop_path.read_text(encoding="utf-8")
+
+
+def test_logout_and_api_change_erase_the_full_login_phone(home, tmp_path):
+    """audit F4 (2026-10-07): after «logout» credentials.enc must not keep the full number."""
+    s = store_for(home, tmp_path)
+    s.save_phone("+7 (900) 123-45-67")
+    s.save_session("1A" + "Qz9_x-" * 20, 111, "+79001234567")
+    s.clear_session()
+    assert s.saved_phone() == "" and s.load().phone_last4 == ""
+    s.save_phone("+7 (900) 123-45-67")
+    s.save_api(API_ID + 1, API_HASH)                       # a different api_id: the old session (and number) belong to the old one
+    assert s.saved_phone() == ""
+    s.save_phone("+7 (900) 123-45-67")
+    s.save_api(API_ID + 1, API_HASH)                       # paired control: the SAME api credentials keep the saved number
+    assert s.saved_phone() == "+79001234567"

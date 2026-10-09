@@ -17,6 +17,7 @@ from bcc.pit import participant_profile
 from bcc.telegram_calls.speech import jeff_engines as je
 from bcc.telegram_calls.types import CallError, CancelToken
 
+from .fakes import ToneTTS
 from .signals import burst
 from .test_jeff_call_surface import PEER, LocalModel, make  # noqa: F401 - fixture re-export
 from .test_session import build, hush, say, start, until
@@ -164,6 +165,31 @@ async def test_paired_controls_a_greeting_that_says_it_or_no_disclosure_configur
     assert tts2.calls[0] == "Привет."
     s2.hangup()
     await task2
+
+
+class FailFirstTTS(ToneTTS):
+    """The first synthesis (the greeting) fails; every later one works."""
+    async def synthesize(self, text, cancel):
+        if not self.calls:
+            self.calls.append(text)
+            raise CallError("TTS_UNAVAILABLE")
+        async for chunk in super().synthesize(text, cancel):
+            yield chunk
+
+
+async def test_a_failed_greeting_does_not_count_as_the_ai_disclosure():
+    """audit F2 (2026-10-07): the greeting that never reached the caller must not mark the disclosure as spoken."""
+    s, t, stt, tts, brain = build(["алло"], ["Слушаю."], tts=FailFirstTTS(), greeting="Привет! Это Джефф, ИИ-ассистент.",
+                                  greet_wait_s=0.1, disclosure=DISCLOSURE, max_consecutive_failures=5)
+    task = await start(s)
+    assert await until(lambda: len(tts.calls) >= 1, 5)
+    await until(lambda: s.phase.value == "listening", 6)
+    await say(t, 700); await hush(t, 900)
+    assert await until(lambda: len(tts.calls) >= 3 and len(brain.calls) == 1, 8), tts.calls
+    assert tts.calls[0] == "Привет! Это Джефф, ИИ-ассистент.", "the greeting was attempted and failed"
+    assert tts.calls[1] == DISCLOSURE, f"the fixed disclosure must precede the first model reply: {tts.calls}"
+    s.hangup()
+    await task
 
 
 # ------------------------------------------------------------------ the perimeter of the WHOLE voice path (the shipped scan covers bcc/pit/*.py only)

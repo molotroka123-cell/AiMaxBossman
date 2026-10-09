@@ -108,8 +108,10 @@ def test_an_unknown_caller_follows_answer_allow_unknown_only():
     assert decide_incoming(CallSettings(), unknown).answer is True
     d = decide_incoming(CallSettings(answer_allow_unknown=False), unknown)
     assert (d.answer, d.reason) == (False, "unknown_caller_not_allowed")
-    # an allow-list does not by itself turn unknown callers away: that is what answer_allow_unknown is for
-    assert decide_incoming(CallSettings(answer_allow_ids=[1]), unknown).answer is True
+    # audit F3 (2026-10-07): an owner who set an allow-list expects strangers refused, whatever answer_allow_unknown says
+    d2 = decide_incoming(CallSettings(answer_allow_ids=[1]), unknown)
+    assert (d2.answer, d2.reason) == (False, "not_in_allow_list")
+    assert decide_incoming(CallSettings(answer_allow_ids=[1], answer_allow_unknown=True), unknown).answer is False
 
 
 # ------------------------------------------------------------------ what a caller may never obtain

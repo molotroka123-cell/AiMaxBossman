@@ -39,6 +39,7 @@ log = logging.getLogger("bcc.telegram_calls.answering")
 
 BUILD_TIMEOUT_S = 25.0
 LABEL_TIMEOUT_S = 3.0
+ANSWERING_DISCLOSURE = "Я Джефф, ИИ-ассистент владельца."      # spoken once if the greeting did not reach the caller (audit F2)
 CLOSING_TEXT = "Время разговора заканчивается. Я передам ваше сообщение владельцу. До свидания."
 
 EnginesFactory = Callable[[CallSettings, str], Awaitable[Any]]
@@ -387,7 +388,8 @@ class AnsweringMachine:
         base = dict(max_call_s=float(settings.answer_max_call_s), greeting=settings.answer_greeting, greet_wait_s=0.5,
                     greet_always=True, greeting_uninterruptible=True, keep_transcript=True, idle_prompt_s=10.0,
                     idle_hangup_s=25.0, barge_in=settings.barge_in, echo_mode=settings.echo_mode, answer_timeout_s=20.0,
-                    closing_text=CLOSING_TEXT, closing_lead_s=8.0)
+                    closing_text=CLOSING_TEXT, closing_lead_s=8.0,
+                    disclosure=ANSWERING_DISCLOSURE)
         base.update(self._cfg_overrides)
         return SessionConfig(**base)
 

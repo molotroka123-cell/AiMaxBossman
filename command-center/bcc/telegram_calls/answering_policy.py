@@ -46,6 +46,8 @@ class Decision:
 def decide_incoming(settings: CallSettings, call: IncomingCall) -> Decision:
     """Allow / deny by the owner's lists. Evaluated on the settings read from disk when the call rings AND again before answering."""
     if not call.known:
+        if settings.answer_allow_ids:                   # an owner who set an allow-list expects strangers refused (audit F3)
+            return Decision(False, "not_in_allow_list", notify=False)
         if settings.answer_allow_unknown:
             return Decision(True, "allowed")
         return Decision(False, "unknown_caller_not_allowed", notify=False)

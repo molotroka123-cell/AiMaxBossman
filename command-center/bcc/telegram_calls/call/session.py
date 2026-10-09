@@ -818,20 +818,22 @@ class CallSession:
         except Exception:  # noqa: BLE001
             raise CallError("TTS_UNAVAILABLE") from None
 
-    async def _say_canned(self, text: str) -> None:
-        """Speak a fixed phrase (greeting, prompts, apology) without the LLM."""
+    async def _say_canned(self, text: str) -> bool:
+        """Speak a fixed phrase (greeting, prompts, apology) without the LLM. True only when it was really spoken."""
         if self._stopping or self._outcome is not None:
-            return
+            return False
         cancel = self._cancel = CancelToken()
         gen = self.playout.generation
         try:
             await self._speak(text, gen, 0, cancel, None)
             self.playout.end(gen)
             await self.playout.wait_drained(gen, self.cfg.drain_timeout_s)
+            return True
         except CallError as exc:
             self.record.counters["tts_errors"] += 1
             self.emit("error", code=exc.code)
             self._register_failure(exc.code)
+            return False
         finally:
             self._recent_spoken.append((self._clock(), text))
             if not self._stopping and not self._utt_open and self.phase != Phase.LISTENING:
@@ -879,11 +881,11 @@ class CallSession:
         if self.cfg.greeting and not self._stopping and self._outcome is None:
             m = TurnMetrics(turn_id=0)
             self._gen_metrics[self.playout.generation] = m
-            if _DISCLOSES.search(self.cfg.greeting):
-                self._disclosed = True
             self._greeting_active = True
             try:
-                await self._say_canned(self.cfg.greeting)
+                spoken = await self._say_canned(self.cfg.greeting)
+                if spoken and _DISCLOSES.search(self.cfg.greeting):      # a greeting the caller never heard is not a disclosure (audit F2)
+                    self._disclosed = True
             finally:
                 self._greeting_active = False
 

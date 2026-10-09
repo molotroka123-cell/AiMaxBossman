@@ -287,7 +287,7 @@ class Worker:
         if factory is not None:
             return await factory(settings, mode)
         from ..speech.factory import build_engines
-        return await build_engines(settings, mode, answering=True)
+        return await build_engines(settings, mode, self.state.stop_is_set, answering=True)   # the durable STOP reaches answering STT/TTS/brain too
 
     async def _build_line(self) -> Any:
         if self._line_factory is not None:

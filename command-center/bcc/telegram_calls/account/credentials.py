@@ -88,7 +88,7 @@ class CredentialStore:
         changed = (cur.api_id, cur.api_hash) != (api_id, api_hash.strip())
         cur.api_id, cur.api_hash = api_id, api_hash.strip()
         if changed:                                   # a session belongs to the api_id it was created with
-            cur.session, cur.me_id, cur.phone_last4 = "", 0, ""
+            cur.session, cur.me_id, cur.phone_last4, cur.phone = "", 0, "", ""
         self._write(cur)
 
     def save_phone(self, phone: str) -> None:
@@ -115,7 +115,7 @@ class CredentialStore:
 
     def clear_session(self) -> None:
         cur = self._load_or_empty()
-        cur.session, cur.me_id, cur.phone_last4 = "", 0, ""
+        cur.session, cur.me_id, cur.phone_last4, cur.phone = "", 0, "", ""
         self._write(cur)
 
     def clear_all(self) -> None:
