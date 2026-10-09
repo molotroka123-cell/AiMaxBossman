@@ -23,6 +23,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from ...single_flight import await_shared
 from ..audio.echo import EchoGuard, is_text_echo
 from ..audio.endpointer import EndpointConfig, Endpointer
 from ..audio.pcm import FrameSlicer, StreamResampler, rms
@@ -323,7 +324,7 @@ class CallSession:
         try:
             if task is not None and not task.done() and self._stage == "stt":
                 with contextlib.suppress(asyncio.CancelledError, asyncio.TimeoutError, Exception):
-                    await asyncio.wait_for(asyncio.shield(task), self.cfg.stt_timeout_s)
+                    await asyncio.wait_for(await_shared(task), self.cfg.stt_timeout_s)
             stream, self._stt_stream = self._stt_stream, None
             if self._utt_open and stream is not None:
                 self._utt_open = False
