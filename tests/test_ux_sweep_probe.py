@@ -73,6 +73,48 @@ def test_nothing_at_all_is_still_dead():
     assert run()["verdict"] == "DEAD"
 
 
+REPLAY_PAGE = """<!doctype html><meta charset="utf-8"><body><div id="view">
+<button id="open" onclick="document.getElementById('dlg').hidden=false">Добавить модель</button>
+<div id="dlg" role="dialog" hidden><select><option>Ollama</option><option>OpenAI</option></select></div></div>
+<div id="scrim" style="position:fixed;inset:0;z-index:9;background:#0003" hidden></div>
+<script>if (!sessionStorage.seen) { sessionStorage.seen = 1; document.getElementById('scrim').hidden = false; }</script>"""
+
+
+@pytest.mark.skipif(not os.path.exists(U.EDGE), reason="Microsoft Edge is not installed")
+def test_depth1_replay_reloads_when_the_opener_is_covered(tmp_path):
+    # 09.10: models 'Ollama' select (child of 'Добавить модель') -> click_failed: the replay clicked the opener
+    # while something covered it and raised instead of trying the clean reload pass.
+    import functools
+    import http.server
+    import threading
+    from playwright.sync_api import sync_playwright
+    (tmp_path / "index.html").write_text(REPLAY_PAGE, encoding="utf-8")
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path))
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(executable_path=U.EDGE, headless=True)
+        try:
+            sess = object.__new__(U.Session)
+            sess.base, sess.token, sess.vp, sess.shots = base, "", "desktop", tmp_path
+            sess.ctx = b.new_context()
+            sess.ctx.add_init_script(U.INIT_JS)
+            sess.stub, sess.ev, sess.blocked_external, sess.crashes, sess.uses = False, U.Session._fresh_events(), {}, 0, 0
+            sess._attach()
+            sess.page.goto(base + "/#/p")                  # first visit: the scrim covers the opener
+            sess.wait_ready()
+            opener = next(x for x in sess.enum("view") if x["label"] == "Добавить модель")
+            sess.page.evaluate("document.getElementById('dlg').hidden = false")   # user-visible state after the opener
+            child = next(x for x in sess.enum("all") if x["kind"] == "select")
+            sess.page.evaluate("document.getElementById('dlg').hidden = true")
+            rec, _ = U._probe(sess, "view", "p", child, 0, [(opener, 0, "view")], 1)
+            assert rec["verdict"] == "OK", rec
+        finally:
+            b.close()
+            srv.shutdown()
+
+
 @pytest.mark.skipif(not os.path.exists(U.EDGE), reason="Microsoft Edge is not installed")
 def test_enumerator_skips_closed_details_but_keeps_the_summary_and_invalid_js_sees_required_fields():
     from playwright.sync_api import sync_playwright

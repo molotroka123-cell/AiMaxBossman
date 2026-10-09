@@ -599,9 +599,13 @@ def _probe(sess: Session, scope: str, route: str, c: dict, nth: int, prelude: li
                     oi = locate(sess, pscope if reload_first else "all", pc, pnth, tries=2)
                     if oi is None:
                         continue
-                    p.locator(f'[data-uxs="{oi}"]').scroll_into_view_if_needed(timeout=3000)
                     sess.stub = is_gated(pc)
-                    p.locator(f'[data-uxs="{oi}"]').click(timeout=4000)
+                    try:
+                        p.locator(f'[data-uxs="{oi}"]').scroll_into_view_if_needed(timeout=3000)
+                        p.locator(f'[data-uxs="{oi}"]').click(timeout=4000)
+                    except Exception:                       # noqa: BLE001 — e.g. a modal left open covers the opener:
+                        sess.stub = False                   # the reload pass below replays from a clean page
+                        break
                     sess.settle(500)
                     sess.stub = False
                 i = locate(sess, "all", c, nth, tries=2)
