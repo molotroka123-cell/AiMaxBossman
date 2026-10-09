@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 415. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 417. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -8,6 +8,7 @@
 | `command-center/tests/test_release_ux_torture.py:19` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/telegram_calls/test_acl_windows.py:26` | skipif | `os.name != "nt"` | Windows DACL semantics (icacls) | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/telegram_calls/test_acl_windows.py:119` | skipif | `os.name == "nt"` | POSIX contract | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/telegram_calls/test_answering_policy.py:284` | skipif | `os.name == "nt"` | POSIX mode bits | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/telegram_calls/test_control_plane_calls.py:17` | skipif | `not hasattr(control_plane, "_calls_inventory")` | S7 patch (the `calls` plane of the owner STOP) is not applied in features/control_plane.py | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/telegram_calls/test_doctor_row.py:119` | skipif | `not S6_APPLIED` | S6 patch (ASR/TTS/ACL rows) is not applied in scripts/bossman_doctor.py | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/telegram_calls/test_doctor_row.py:128` | skipif | `not S6_APPLIED` | S6 patch (ASR/TTS/ACL rows) is not applied in scripts/bossman_doctor.py | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -395,6 +396,7 @@
 | `tests/test_solana_safety.py:87` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:109` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:110` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_training_data_preflight.py:15` | importorskip | `—` | нет пакета PIL.Image | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_v5_human_speed.py:461` | skip | `—` | на этом хосте под объявленной кратностью нет запаса для замера | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_v5_observers.py:121` | skip | `—` | f"symlink privilege missing: {exc}" | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_windows_bundle_contract.py:125` | skip | `—` | this host IS Windows; the refusal path is for Linux/macOS builders | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
