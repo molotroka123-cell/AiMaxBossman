@@ -317,6 +317,25 @@ def test_build_argv_is_pure_and_json_safe(tmp_path):
     assert subprocess.list2cmdline(argv)
 
 
+def test_lora_dir_is_passed_to_sd_cli_only_when_the_prompt_names_a_lora(tmp_path, monkeypatch):
+    """The owner's own LoRA (trained 09.10) reaches sd-cli: --lora-model-dir, and only for a prompt that carries <lora:...>."""
+    media, binary = make_media(tmp_path)
+    loras = tmp_path / "loras"
+    loras.mkdir()
+    spec = sdcli.BY_ID["epicrealism-xl"]
+    params = {"width": 512, "height": 512, "steps": 25, "seed": 1}
+    tagged = "pchela, portrait <lora:pchela-lora:0.8>"
+    monkeypatch.delenv("BOSSMAN_DIRECT_GEN_LORA_DIR", raising=False)
+    assert "--lora-model-dir" not in sdcli.build_argv(spec, binary, media, params, tagged, "", tmp_path / "o.png", None)
+    monkeypatch.setenv("BOSSMAN_DIRECT_GEN_LORA_DIR", str(loras))
+    on = sdcli.build_argv(spec, binary, media, params, tagged, "", tmp_path / "o.png", None)
+    assert on[on.index("--lora-model-dir") + 1] == str(loras)
+    assert on[on.index("-p") + 1] == tagged, "the prompt is still passed verbatim"
+    assert "--lora-model-dir" not in sdcli.build_argv(spec, binary, media, params, NEUTRAL, "", tmp_path / "o.png", None)
+    monkeypatch.setenv("BOSSMAN_DIRECT_GEN_LORA_DIR", str(tmp_path / "missing"))
+    assert "--lora-model-dir" not in sdcli.build_argv(spec, binary, media, params, tagged, "", tmp_path / "o.png", None)
+
+
 def test_shipped_s2v_template_is_valid_and_fully_parameterised():
     from bcc.direct_gen import catalog
     from bcc.direct_gen.client import validate_template

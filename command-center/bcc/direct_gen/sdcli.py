@@ -220,6 +220,9 @@ def build_argv(spec: SdSpec, binary: Path, root: Path, params: dict, prompt: str
         argv += ["-r", str(image)]
     if negative:
         argv += ["-n", negative]
+    lora_dir = os.environ.get("BOSSMAN_DIRECT_GEN_LORA_DIR", "")
+    if lora_dir and "<lora:" in prompt and Path(lora_dir).is_absolute() and Path(lora_dir).is_dir():
+        argv += ["--lora-model-dir", lora_dir]           # the owner's own LoRA; the prompt itself stays verbatim
     return argv
 
 
