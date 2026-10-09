@@ -149,7 +149,8 @@ def test_stop_during_an_attempt_cancels_it_quickly_and_resume_finishes_the_cycle
     started = time.monotonic()
     state = L.EvolutionLoop(work, cfg).run()
     assert time.monotonic() - started < 30
-    assert state["status"] == "STOPPED"
+    assert state["status"] == "STOPPED", {k: state.get(k) for k in ("status", "halt_reason", "error", "reason")} | {
+        "last_cycle": {k: (state.get("cycles") or [{}])[-1].get(k) for k in ("status", "outcome", "error", "phases")}}
     cycle = state["cycles"][0]
     assert cycle["attempt"]["status"] == "STOPPED" and cycle["phases"]["VERIFY"]["status"] == "SKIPPED"
     L.clear_controls(work)
