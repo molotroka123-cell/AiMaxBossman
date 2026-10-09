@@ -152,6 +152,13 @@ async def _worker_key(name: str, svc) -> str | None:
         return None
 
 
+def _missing_key_hint(name: str) -> str:
+    """What the owner does about a missing worker key (the generic 5xx hint pointed to server logs)."""
+    where = (f"подключите OpenRouter с ключом на странице «OpenRouter» (или строкой {name}=… в {OWNER_KEYS_FILE})"
+             if name == "OPENROUTER_API_KEY" else f"добавьте строку {name}=… в {OWNER_KEYS_FILE}")
+    return f"Ключ не подключён: {where}. Без ключа выберите исполнителя «Локальная модель Bossman»."
+
+
 def _worker_command(worker: str) -> list[str]:
     spec = WORKERS[worker]
     return [sys.executable, "-I", "-m", "bossman.apprentice.local_sidecar", "--endpoint", spec["endpoint"],
@@ -282,6 +289,7 @@ async def readiness(svc, worker: str | None = None) -> dict[str, Any]:
             out["reason"] = f"неизвестный исполнитель: {worker}"
         elif not await _worker_key(WORKERS[worker]["key"], svc):
             out["reason"] = f"нет ключа {WORKERS[worker]['key']} для исполнителя {worker}"
+            out["hint"] = _missing_key_hint(WORKERS[worker]["key"])
         else:
             out["available"] = True
         return out
@@ -926,7 +934,7 @@ async def create_task(body: TaskIn, request: Request):
     ready = await readiness(svc, body.worker)
     if not ready["available"]:
         raise HTTPException(503, {"code": "OPENHANDS_UNAVAILABLE", "message": ready["reason"],
-                                  "readiness": ready})
+                                  **({"hint": ready["hint"]} if ready.get("hint") else {}), "readiness": ready})
     if not body.allowed_paths:
         raise HTTPException(422, {"message": "allowed_paths обязателен: агент должен получить явную область правок"})
     repo = await _confined_repo(svc, body.source_repo)
