@@ -73,6 +73,11 @@ def branch_module(ctx, name: str):
 def python_cmd(script: str) -> str:
     """Команда оболочки, запускающая короткий питон. Без цепочек и подстановок."""
     if os.name == "nt":
+        # quote for the shell the PRODUCT will really use: Git-for-Windows `sh` when present, else cmd.exe
+        from bcc.v2.terminal_control import host_shell  # noqa: PLC0415
+        shell = host_shell()
+        if shell and Path(shell[0]).name.lower() not in ("cmd", "cmd.exe"):
+            return f"{shlex.quote(sys.executable.replace(os.sep, '/'))} -c {shlex.quote(script)}"
         return subprocess.list2cmdline([sys.executable, "-c", script])
     return f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"
 
