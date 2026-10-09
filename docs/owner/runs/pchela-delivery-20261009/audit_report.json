@@ -1,0 +1,40 @@
+{
+ "checks": [
+  {
+   "name": "photoA decodes 1024x1024",
+   "ok": true,
+   "detail": "(1024, 1024) sha256 84491b400538d188"
+  },
+  {
+   "name": "photoA job record: model epicrealism-xl, status completed, LoRA tag in raw prompt, steps",
+   "ok": true,
+   "detail": "steps=40 seed=2026 prompt_verbatim=True"
+  },
+  {
+   "name": "photoB decodes 1024x1024",
+   "ok": true,
+   "detail": "(1024, 1024) sha256 a88e5279836675aa"
+  },
+  {
+   "name": "photoB job record: model epicrealism-xl, status completed, LoRA tag in raw prompt, steps",
+   "ok": true,
+   "detail": "steps=40 seed=2027 prompt_verbatim=True"
+  },
+  {
+   "name": "video 4 s",
+   "ok": true,
+   "detail": "4.000000s 448x448 vp8 frames=None model=wan2.2-ti2v-5b"
+  },
+  {
+   "name": "speech >= 30 s, ogg/opus",
+   "ok": true,
+   "detail": "34.832500s sha256 063d05336d909392"
+  }
+ ],
+ "files": {
+  "photoA_40steps.png": "84491b400538d18884b320145d270c2197cdfadf50c22fc458b463085d912fb9",
+  "photoB_40steps.png": "a88e5279836675aa6c40a2d96075d5e957449c18bab81ff493373817fc6dce8e",
+  "data/direct-gen/participants/owner/jobs/8b8052f7dba14189ac87a770f2bb9248/result\\video.webm": "bc37baa6fd4ed306ab7498cf0186b470516ac35046a5b3f64152814757cbe735",
+  "jeff_speech.ogg": "063d05336d909392e250ac08a0aa27c99310025f7b49931a932bd5d72336b150"
+ }
+}
