@@ -202,7 +202,8 @@ class Session:
     def __init__(self, pw, base: str, token: str, vp: str, out_shots: Path):
         self.base, self.token, self.vp, self.shots = base, token, vp, out_shots
         w, hgt = VIEWPORTS[vp]
-        self.browser = pw.chromium.launch(executable_path=EDGE, headless=True)
+        headed = os.environ.get("BOSSMAN_UX_SWEEP_HEADED") == "1"     # owner watches the sweep on the desktop
+        self.browser = pw.chromium.launch(executable_path=EDGE, headless=not headed, slow_mo=150 if headed else 0)
         self.ctx = self.browser.new_context(viewport={"width": w, "height": hgt}, is_mobile=(vp == "phone"),
                                             has_touch=(vp == "phone"), device_scale_factor=1)
         self.ctx.add_init_script(INIT_JS)

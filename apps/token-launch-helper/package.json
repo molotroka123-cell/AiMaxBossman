@@ -1,0 +1,14 @@
+{
+  "name": "token-launch-helper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "One pump.fun token, one transparent dev buy in the same transaction, signed locally by the owner",
+  "scripts": { "test": "node --test test/" },
+  "dependencies": {
+    "@pump-fun/pump-sdk": "4.0.0",
+    "@solana/web3.js": "1.98.2",
+    "bn.js": "5.2.2"
+  },
+  "license": "UNLICENSED"
+}
