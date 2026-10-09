@@ -292,7 +292,7 @@ def observed(tmp_path_factory) -> dict:
     driver = tmp_path_factory.mktemp("cmdbar") / "drive.mjs"
     driver.write_text(DRIVER, encoding="utf-8")
     run = subprocess.run([_node(), "--experimental-detect-module", "--no-warnings", str(driver)],
-                         capture_output=True, text=True, timeout=60, check=False,
+                         capture_output=True, text=True, encoding="utf-8", timeout=60, check=False,
                          env=dict(os.environ, MODULE_URL=(UI / "commandbar.js").as_uri()))
     assert run.returncode == 0, run.stdout + run.stderr
     return json.loads(run.stdout)
