@@ -124,7 +124,8 @@ class DirectGenService:
                  media_dir: Path | None = None, sd_bin: Path | None = None,
                  sd_runner: Callable[[], Any] | None = None,
                  free_memory: Callable[[], int | None] | None = None,
-                 foreign_engines: Callable[[], list[int]] | None = None):
+                 foreign_engines: Callable[[], list[int]] | None = None,
+                 gpu_grace_seconds: float = 10.0):
         self.svc = svc
         self.data_dir = Path(svc.settings.data_dir) / "direct-gen"
         self.store = JobStore(Path(svc.settings.data_dir))
@@ -139,6 +140,7 @@ class DirectGenService:
         self._sd_runner = sd_runner or sdcli.SdCliRunner
         self._free_memory = free_memory or sdcli.free_memory_bytes
         self._foreign = foreign_engines or sdcli.foreign_engines
+        self.gpu_grace_seconds = gpu_grace_seconds       # a just-finished engine may still be listed for a moment (seen on Windows)
         self._tasks: dict[str, asyncio.Task] = {}
         self._waiting: list[str] = []
         self._running: str | None = None
@@ -425,6 +427,10 @@ class DirectGenService:
 
     def _preflight(self, spec: sdcli.SdSpec) -> None:
         busy = self._foreign()
+        deadline = time.monotonic() + max(0.0, self.gpu_grace_seconds)
+        while busy and time.monotonic() < deadline:     # runs in a worker thread: a short blocking wait is fine
+            time.sleep(0.25)
+            busy = self._foreign()
         if busy:
             raise DirectGenError(0, "gpu_busy", f"another sd-cli process (PID {busy[0]}) already holds the GPU; nothing was started")
         need, free = sdcli.required_bytes(spec, self.media_dir), self._free_memory()

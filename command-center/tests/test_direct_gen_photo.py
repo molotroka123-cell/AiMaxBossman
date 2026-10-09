@@ -68,14 +68,14 @@ class FakeSd:
         self.killed = True
 
 
-def install(env, tmp_path, runner, *, free=64 * 1024 ** 3, foreign=(), only=None):
+def install(env, tmp_path, runner, *, free=64 * 1024 ** 3, foreign=(), only=None, foreign_fn=None, grace=0.0):
     media, binary = make_media(tmp_path, only=only)
     models, flows = make_models(tmp_path)
     FakeSd.instances = []
     svc = DirectGenService(env.svc, client=FakeComfy(), models_dir=models, workflows_dir=flows, poll_seconds=0.01,
                            verify=lambda p: {"verified": True, "duration_s": 1.0, "width": 480, "height": 272},
                            media_dir=media, sd_bin=binary, sd_runner=runner,
-                           free_memory=lambda: free, foreign_engines=lambda: list(foreign))
+                           free_memory=lambda: free, foreign_engines=foreign_fn or (lambda: list(foreign)), gpu_grace_seconds=grace)
     env.svc.direct_gen = svc
     return svc
 
@@ -211,6 +211,26 @@ async def test_foreign_engine_blocks_start(env, tmp_path):
     install(env, tmp_path, FakeSd, foreign=(4242,))
     job = await finish(env, (await create(env)).json()["job_id"])
     assert job["status"] == "failed" and job["error"]["code"] == "gpu_busy" and "4242" in job["error"]["message"]
+
+
+async def test_a_just_finished_engine_does_not_fail_the_next_job_with_gpu_busy(env, tmp_path):
+    """Seen 09.10 on the owner PC: the previous sd-cli had already finished but was still listed for a moment; the next job died with gpu_busy."""
+    polls = {"n": 0}
+
+    def foreign():
+        polls["n"] += 1
+        return [4242] if polls["n"] <= 3 else []
+
+    install(env, tmp_path, FakeSd, foreign_fn=foreign, grace=5.0)
+    job = await finish(env, (await create(env)).json()["job_id"])
+    assert job["status"] == "completed", job.get("error")
+    assert polls["n"] >= 4
+
+
+async def test_a_persistent_foreign_engine_still_blocks_after_the_grace_period(env, tmp_path):
+    install(env, tmp_path, FakeSd, foreign=(4242,), grace=0.3)
+    job = await finish(env, (await create(env)).json()["job_id"])
+    assert job["status"] == "failed" and job["error"]["code"] == "gpu_busy"
 
 
 async def test_engine_failure_is_reported_with_its_own_text(env, tmp_path):
