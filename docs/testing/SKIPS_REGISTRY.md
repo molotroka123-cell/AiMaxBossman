@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 426. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 432. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -56,6 +56,10 @@
 | `command-center/tests/test_desktop_dock_overlap.py:27` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_desktop_edge_relaunch.py:165` | skipif | `os.name != "nt"` | lockfile Chromium на Windows | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_desktop_edge_relaunch.py:178` | skipif | `os.name != "nt"` | lockfile Chromium на Windows | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_direct_gen_faceswap.py:355` | skipif | `shutil.which("ffmpeg") is None` | ffmpeg not installed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_direct_gen_faceswap.py:175` | importorskip | `—` | нет пакета numpy | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_direct_gen_faceswap.py:183` | importorskip | `—` | нет пакета cv2 | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_direct_gen_faceswap.py:184` | importorskip | `—` | нет пакета numpy | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_double_submit_real_buttons.py:24` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_download_false_success.py:156` | skipif | `not chromium_available()` | reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_fable_hard_cap.py:24` | skipif | `not fable_cap.LEDGER_AVAILABLE` | f"общий журнал потолка недоступен: {fable_cap.LEDGER_PROBLEM}" | Command Center | необязательный пакет / соседний компонент | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -405,7 +409,9 @@
 | `tests/test_solana_safety.py:110` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_training_data_preflight.py:15` | importorskip | `—` | нет пакета PIL.Image | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_ux_sweep_probe.py:83` | skipif | `not os.path.exists(U.EDGE)` | Microsoft Edge is not installed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `tests/test_ux_sweep_probe.py:118` | skipif | `not os.path.exists(U.EDGE)` | Microsoft Edge is not installed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_ux_sweep_probe.py:119` | skipif | `not os.path.exists(U.EDGE)` | Microsoft Edge is not installed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_ux_sweep_probe.py:87` | importorskip | `—` | root-ci installs no playwright (UX sweep probe needs a real browser) | root (shared/tools) | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_ux_sweep_probe.py:121` | importorskip | `—` | root-ci installs no playwright (UX sweep probe needs a real browser) | root (shared/tools) | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_v5_human_speed.py:461` | skip | `—` | на этом хосте под объявленной кратностью нет запаса для замера | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_v5_observers.py:121` | skip | `—` | f"symlink privilege missing: {exc}" | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_windows_bundle_contract.py:125` | skip | `—` | this host IS Windows; the refusal path is for Linux/macOS builders | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

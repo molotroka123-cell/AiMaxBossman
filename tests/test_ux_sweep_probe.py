@@ -84,6 +84,7 @@ REPLAY_PAGE = """<!doctype html><meta charset="utf-8"><body><div id="view">
 def test_depth1_replay_reloads_when_the_opener_is_covered(tmp_path):
     # 09.10: models 'Ollama' select (child of 'Добавить модель') -> click_failed: the replay clicked the opener
     # while something covered it and raised instead of trying the clean reload pass.
+    pytest.importorskip("playwright", reason="root-ci installs no playwright (UX sweep probe needs a real browser)")
     import functools
     import http.server
     import threading
@@ -117,6 +118,7 @@ def test_depth1_replay_reloads_when_the_opener_is_covered(tmp_path):
 
 @pytest.mark.skipif(not os.path.exists(U.EDGE), reason="Microsoft Edge is not installed")
 def test_enumerator_skips_closed_details_but_keeps_the_summary_and_invalid_js_sees_required_fields():
+    pytest.importorskip("playwright", reason="root-ci installs no playwright (UX sweep probe needs a real browser)")
     from playwright.sync_api import sync_playwright
     html = """<div id="view">
       <details><summary>Ветка</summary><button>скрытый лист</button></details>
