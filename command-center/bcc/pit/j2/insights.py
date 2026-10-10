@@ -568,7 +568,8 @@ class InsightsModule(BaseModule):
 
     async def _loop(self) -> None:
         while True:
-            await self.tick()
+            if self.switched_on():              # the owner switched «insights» off: no snapshot, no digest
+                await self.tick()
             await self._sleep(self._interval)
 
     def status(self) -> dict[str, Any]:

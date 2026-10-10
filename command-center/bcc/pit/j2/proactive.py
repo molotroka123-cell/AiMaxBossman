@@ -986,7 +986,8 @@ class ProactiveModule(BaseModule):
     async def _loop(self) -> None:
         while True:
             try:
-                await self.engine.tick()
+                if self.switched_on():          # owner switched «proactive» off: nothing is delivered or planned
+                    await self.engine.tick()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:                    # noqa: BLE001 - the loop outlives any single fault
