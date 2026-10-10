@@ -59,6 +59,22 @@ def test_public_view_and_repr_expose_only_masks(home, tmp_path):
     assert mask_phone("+7 (900) 123-45-67") == "+••••4567" and mask_phone("12") == ""
 
 
+def test_saved_login_phone_is_encrypted_masked_and_validated(home, tmp_path):
+    """eefc3705 (wt-calls-investor): the full login phone persists in credentials.enc, never in the clear."""
+    s = store_for(home, tmp_path)
+    assert s.saved_phone() == ""
+    s.save_phone("+7 (900) 123-45-67")
+    assert s.saved_phone() == "+79001234567" and s.load().phone_last4 == "4567"
+    raw = b"".join(p.read_bytes() for p in home.iterdir() if p.is_file())
+    assert b"79001234567" not in raw and b"900 123" not in raw
+    view = json.dumps(s.public())
+    assert "79001234567" not in view and s.public()["phone"] == "+••••4567"
+    assert "79001234567" not in repr(s.load())
+    with pytest.raises(CallError):
+        s.save_phone("12")
+    assert s.saved_phone() == "+79001234567"
+
+
 @pytest.mark.parametrize("api_id,api_hash", [(0, API_HASH), (-5, API_HASH), (API_ID, "short"), (API_ID, "z" * 32), ("1", API_HASH)])
 def test_bad_api_credentials_are_refused_without_echoing_them(home, tmp_path, api_id, api_hash):
     with pytest.raises(CallError) as ei:
@@ -280,3 +296,18 @@ def test_the_stop_flag_is_replaced_when_the_old_file_cannot_be_written(tmp_path,
     monkeypatch.setattr(Path, "write_text", write_text)
     state.set_stop("second")
     assert denied["n"] == 1 and state.stop_is_set() and "second" in state.stop_path.read_text(encoding="utf-8")
+
+
+def test_logout_and_api_change_erase_the_full_login_phone(home, tmp_path):
+    """audit F4 (2026-10-07): after «logout» credentials.enc must not keep the full number."""
+    s = store_for(home, tmp_path)
+    s.save_phone("+7 (900) 123-45-67")
+    s.save_session("1A" + "Qz9_x-" * 20, 111, "+79001234567")
+    s.clear_session()
+    assert s.saved_phone() == "" and s.load().phone_last4 == ""
+    s.save_phone("+7 (900) 123-45-67")
+    s.save_api(API_ID + 1, API_HASH)                       # a different api_id: the old session (and number) belong to the old one
+    assert s.saved_phone() == ""
+    s.save_phone("+7 (900) 123-45-67")
+    s.save_api(API_ID + 1, API_HASH)                       # paired control: the SAME api credentials keep the saved number
+    assert s.saved_phone() == "+79001234567"

@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 // The module must be importable in Node: no top-level document, window or fetch.
 assert.equal(typeof document, 'undefined');
 const mod = await import('../pages/telegram_calls.js');
-const { accountStep, callWords, controlState, peerPickState, isTestMode, summarizeHistoryItem, fmtMs, errorText, BASE, EVENT_KINDS } = mod;
+const { accountStep, callWords, controlState, peerPickState, isTestMode, summarizeHistoryItem, fmtMs, errorText, answeringWords, BASE, EVENT_KINDS } = mod;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SOURCE = readFileSync(join(here, '..', 'pages', 'telegram_calls.js'), 'utf8');
@@ -211,4 +211,192 @@ test('formatting and error text helpers never invent numbers', () => {
   assert.equal(fmtMs(511.6), '512 мс');
   assert.equal(errorText(null), null);
   assert.deepEqual(errorText({ message: 'Звонки выключены.', hint: 'Включите.' }), { message: 'Звонки выключены.', hint: 'Включите.' });
+});
+
+/* ---------------------------------------------------------------- the REAL CallsView polling, on a minimal DOM
+   A status reply that was already in flight when the owner pressed «Завершить» / STOP was the last word: run() returned
+   without a fresh poll and the button and the live state stayed stale for up to one interval. A hidden tab kept polling. */
+
+const { api } = await import('../api.js');
+
+function fakeDocument() {
+  const listeners = {};
+  class El {
+    constructor(tag) {
+      Object.assign(this, { tagName: String(tag).toUpperCase(), nodeType: 1, children: [], attrs: {}, ev: {}, style: { setProperty() {} },
+        dataset: {}, hidden: false, disabled: false, checked: false, value: '', text: '', isConnected: true });
+      const cls = new Set();
+      this.classList = { add: (...c) => c.forEach((x) => cls.add(x)), remove: (...c) => c.forEach((x) => cls.delete(x)),
+        toggle: (c, on) => ((on ?? !cls.has(c)) ? cls.add(c) : cls.delete(c)), contains: (c) => cls.has(c) };
+    }
+    setAttribute(k, v) { this.attrs[k] = String(v); }
+    getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
+    removeAttribute(k) { delete this.attrs[k]; }
+    appendChild(c) { this.children.push(c); return c; }
+    addEventListener(type, fn) { (this.ev[type] ||= []).push(fn); }
+    get textContent() { return this.text + this.children.map((c) => c.textContent).join(''); }
+    set textContent(v) { this.text = String(v); this.children = []; }
+    *walk() { for (const c of this.children) if (c.nodeType === 1) { yield c; yield* c.walk(); } }
+    querySelector(sel) { for (const e of this.walk()) if (e.tagName === sel.toUpperCase()) return e; return null; }
+    querySelectorAll(sel) { const m = /^\[([\w-]+)\]$/.exec(sel); return [...this.walk()].filter((e) => m && m[1] in e.attrs); }
+  }
+  return {
+    hidden: false, head: new El('head'), listeners,
+    createElement: (t) => new El(t), createElementNS: (_ns, t) => new El(t),
+    createTextNode: (t) => ({ nodeType: 3, textContent: String(t) }), getElementById: () => null,
+    addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
+    removeEventListener: (type, fn) => { listeners[type] = (listeners[type] || []).filter((f) => f !== fn); },
+  };
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((r) => { resolve = r; });
+  return { promise, resolve };
+}
+
+const flush = () => new Promise((r) => setImmediate(r));
+const LIVE = st({ call_active: true, call: { state: 'active', phase: 'listening' } });
+const IDLE = st();
+
+/** Render the real page with a fake document, a manual interval and a scripted /status. */
+async function mountPanel(t, firstStatus) {
+  const saved = { document: globalThis.document, setInterval: globalThis.setInterval, clearInterval: globalThis.clearInterval, raw: api.raw };
+  const doc = fakeDocument();
+  const timers = [];
+  globalThis.document = doc;
+  globalThis.setInterval = (fn, ms) => timers.push({ fn, ms, cleared: false });
+  globalThis.clearInterval = (id) => { if (timers[id - 1]) timers[id - 1].cleared = true; };
+  const panel = { requests: [], next: () => Promise.resolve(firstStatus) };
+  api.raw = (path, opts = {}) => {
+    panel.requests.push(`${opts.method || 'GET'} ${path.replace(BASE, '')}`);
+    if (path === `${BASE}/status`) return panel.next();
+    if (path.startsWith(`${BASE}/history`)) return Promise.resolve({ items: [] });
+    return Promise.resolve({ ok: true });
+  };
+  const root = await mod.default.render({});
+  t.after(() => {
+    root.isConnected = false;                       // later onEvent calls in this file must not reach this view
+    Object.assign(globalThis, { document: saved.document, setInterval: saved.setInterval, clearInterval: saved.clearInterval });
+    api.raw = saved.raw;
+  });
+  await flush();
+  const byTestId = (id) => [...root.walk()].find((e) => e.attrs['data-testid'] === id);
+  const button = (label) => [...root.walk()].find((e) => e.tagName === 'BUTTON' && e.textContent === label);
+  const click = (b) => Promise.all((b.ev.click || []).map((fn) => fn({ stopPropagation() {} })));
+  const statusPolls = () => panel.requests.filter((r) => r === 'GET /status').length;
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0].ms, 1500);
+  return { doc, root, panel, timers, tick: () => timers[0].fn(), byTestId, button, click, statusPolls };
+}
+
+test('after «Завершить» the panel shows the state AFTER the hangup even when a poll was already in flight', async (t) => {
+  const p = await mountPanel(t, LIVE);
+  assert.equal(p.byTestId('tc-live-state').textContent, 'Идёт разговор');
+  const before = deferred();
+  p.panel.next = () => before.promise;          // the interval's poll: its reply is taken BEFORE the hangup
+  p.tick();
+  await flush();
+  p.panel.next = () => Promise.resolve(IDLE);   // what the server says once the call is over
+  const clicking = p.click(p.button('Завершить'));
+  await flush();
+  before.resolve(LIVE);
+  await clicking;
+  await flush();
+  const hangupAt = p.panel.requests.indexOf('POST /hangup');
+  assert.ok(hangupAt > 0);
+  assert.ok(p.panel.requests.slice(hangupAt).includes('GET /status'), `no status poll after the hangup: ${p.panel.requests}`);
+  assert.equal(p.byTestId('tc-live-state').textContent, 'Нет звонка');
+  assert.equal(p.button('Завершить').disabled, true, 'the hangup button must not stay enabled on a stale status');
+});
+
+test('STOP refreshes after its reply too, and the refresh it waits for is the one AFTER the in-flight poll', async (t) => {
+  const p = await mountPanel(t, LIVE);
+  const before = deferred();
+  p.panel.next = () => before.promise;
+  p.tick();
+  await flush();
+  p.panel.next = () => Promise.resolve(st({ stop: { call: true, global: false, active: true } }));
+  const clicking = p.click(p.button('STOP'));
+  await flush();
+  before.resolve(LIVE);
+  await clicking;
+  await flush();
+  assert.equal(p.byTestId('tc-stop-note').hidden, false);
+  assert.equal(p.button('Продолжить').disabled, false, '«Продолжить» is offered right after STOP');
+  assert.equal(p.byTestId('tc-live-state').textContent, 'Нет звонка');
+});
+
+test('a hidden tab does not poll; it polls at once when shown again; leaving the page drops the listener', async (t) => {
+  const p = await mountPanel(t, IDLE);
+  assert.equal(p.statusPolls(), 1);
+  p.doc.hidden = true;
+  p.tick();
+  p.tick();
+  await flush();
+  assert.equal(p.statusPolls(), 1, 'no status request while the tab is hidden');
+  p.doc.hidden = false;
+  for (const fn of p.doc.listeners.visibilitychange || []) fn({ type: 'visibilitychange' });
+  await flush();
+  assert.equal(p.statusPolls(), 2, 'the tab came back: one immediate poll, without waiting for the next interval');
+  p.tick();
+  await flush();
+  assert.equal(p.statusPolls(), 3, 'visible again: the interval polls as before');
+  p.root.isConnected = false;
+  p.tick();
+  assert.equal(p.timers[0].cleared, true);
+  assert.equal((p.doc.listeners.visibilitychange || []).length, 0, 'the page left the document: no listener is left behind');
+});
+
+test('a slow status (the worker wait is up to 2 s, the interval 1.5 s) never stacks polls; a bus event during it gets ONE follow-up', async (t) => {
+  const p = await mountPanel(t, IDLE);
+  const slow = deferred();
+  p.panel.next = () => slow.promise;
+  p.tick();
+  p.tick();
+  p.tick();                                     // three intervals pass while the one poll waits
+  await flush();
+  assert.equal(p.statusPolls(), 2, 'one poll in flight at a time');
+  slow.resolve(IDLE);
+  await flush();
+  assert.equal(p.statusPolls(), 2, 'skipped intervals are not replayed back-to-back against a slow backend');
+  const slow2 = deferred();
+  p.panel.next = () => slow2.promise;
+  p.tick();
+  await flush();
+  p.panel.next = () => Promise.resolve(IDLE);
+  mod.default.onEvent({ kind: 'telegram_call.ended' });
+  mod.default.onEvent({ kind: 'telegram_call.state' });
+  await flush();
+  assert.equal(p.statusPolls(), 3);
+  slow2.resolve(LIVE);
+  await flush();
+  await flush();
+  assert.equal(p.statusPolls(), 4, 'the events arrived after the in-flight request was sent: exactly one more poll');
+  assert.equal(p.byTestId('tc-live-state').textContent, 'Нет звонка');
+});
+
+test('answeringWords: off by default, honest about what is not verified, and says why it would not answer', () => {
+  assert.equal(answeringWords(undefined).on, false);
+  assert.equal(answeringWords(st()).on, false);
+  assert.match(answeringWords(st({ answering: { enabled: false } })).text, /выключен/);
+  const unarmed = answeringWords(st({ answering: { enabled: true, armed: false } }));
+  assert.equal(unarmed.on, true);
+  assert.equal(unarmed.tone, 'warn');
+  assert.match(unarmed.text, /не запущен/);
+  const live = answeringWords(st({ answering: { enabled: true, armed: true, ready_state: 'ready', ring_delay_s: 12, live_tested: false } }));
+  assert.equal(live.tone, 'ok');
+  assert.match(live.text, /за 12 с/);
+  assert.match(live.text, /не проверен в живую/);
+  assert.doesNotMatch(answeringWords(st({ answering: { enabled: true, armed: true, ready_state: 'ready', ring_delay_s: 12, live_tested: true } })).text, /не проверен/);
+  assert.match(answeringWords(st({ answering: { enabled: true, armed: true, ready_state: 'loading', ring_delay_s: 12 } })).text, /будет пропущен/);
+  const stopped = answeringWords(st({ answering: { enabled: true, armed: true, ready_state: 'ready', ring_delay_s: 5, stopped: true, pending_reports: 2 } }));
+  assert.equal(stopped.tone, 'warn');
+  assert.match(stopped.text, /STOP/);
+  assert.match(stopped.text, /ещё не отправленных вам в Telegram: 2/);
+});
+
+test('the answering toggle only ever sends the answering_machine setting', () => {
+  assert.match(SOURCE, /body: \{ answering_machine: !!on \}/);
+  assert.doesNotMatch(SOURCE, /answer_greeting|answer_allow|answer_deny/);
 });

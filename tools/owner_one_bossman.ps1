@@ -258,6 +258,19 @@ function Do-Backup {
   if ($v.code -ne 0) { Fail "backup verify failed" }
   $meta = Get-Content -LiteralPath (Join-Path $dest 'backup.json') -Raw | ConvertFrom-Json
   Say "backup: $dest files=$($meta.files) bytes=$($meta.bytes) manifest_sha256=$($meta.manifest_sha256) (verified)"
+  # Owner order 07.10: provider keys must not be lost. Copy the keys folder and its DPAPI copies
+  # (protected for this Windows user) into a sibling folder, outside the verified data manifest.
+  # Names are never printed.
+  $keysHome = Join-Path $env:LOCALAPPDATA 'Bossman'
+  foreach ($sub in @('keys', 'backups\keys')) {
+    $src = Join-Path $keysHome $sub
+    if (Test-Path -LiteralPath $src) {
+      $to = Join-Path "$dest-keys" ($sub -replace '\\', '-')
+      New-Item -ItemType Directory -Force -Path "$dest-keys" | Out-Null
+      Copy-Item -LiteralPath $src -Destination $to -Recurse -Force
+      Say "backup: copied $sub ($(@(Get-ChildItem -LiteralPath $to -File).Count) file(s))"
+    }
+  }
 }
 
 function Do-Configure {

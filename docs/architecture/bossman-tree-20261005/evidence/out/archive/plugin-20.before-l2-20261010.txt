@@ -1,0 +1,5 @@
+== plugin-20 plugin:n8n.workflow_run probe=approval_gate_refuses ==
+[plugin:n8n.workflow_run] default_effect=ask decide_effect(agent without grants)='ask' reason=по умолчанию для plugin:n8n.workflow_run
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+VERDICT PASS
+

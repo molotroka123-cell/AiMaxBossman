@@ -50,9 +50,13 @@ def _autonomy_inventory(svc) -> list[str]:
 
 
 def _calls_inventory(svc) -> list[str]:
-    """A LIVE Telegram call (or a dial in flight). An idle calls worker is not owner work: only a call has to be stopped."""
+    """A LIVE Telegram call, a dial in flight, or an ARMED answering machine (it answers calls by itself, so it is autonomous
+    work; STOP's calls marker disables it, which is what ``remaining`` re-checks). An idle logged-in worker is not owner work."""
     manager = getattr(getattr(svc, "_calls", None), "manager", None)
-    return ["call"] if manager is not None and (manager.active_call is not None or manager.dial_pending) else []
+    if manager is None:
+        return []
+    listening = bool(getattr(manager, "answering_armed", False)) and not manager.state.stop_is_set()
+    return ["call"] if manager.active_call is not None or manager.dial_pending or listening else []
 
 
 def _rave_inventory(svc) -> list[str]:

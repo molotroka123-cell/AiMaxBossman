@@ -1,5 +1,8 @@
-== plugin-18 plugin:telegram.send probe=approval_gate_refuses ==
-[plugin:telegram.send] default_effect=ask decide_effect(agent without grants)='ask' reason=право channel.send не выдано агенту
-NOTE: the outward effect was NOT exercised; only the approval gate was checked.
-VERDICT PASS
+$ (cwd=command-center) pytest -q tests\test_feat_openrouter_owner_path.py tests\test_leaf_plugins_real_handlers.py tests\test_plugin_mcp_tool_call.py tests\test_plugin_security.py tests\test_plugin_security_malformed_url.py tests\test_plugins_adapter.py tests\test_plugins_browser_telegram.py tests\test_plugins_obsidian_not_a_file.py
+sha: ab7c54550bf8d832ef41d38ce0c7b622828e5db0
 
+...........................................ss...s....................... [ 41%]
+........................................................................ [ 82%]
+..............................                                           [100%]
+171 passed, 3 skipped in 30.23s
+exit_code: 0

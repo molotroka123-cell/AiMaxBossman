@@ -68,14 +68,14 @@ class FakeSd:
         self.killed = True
 
 
-def install(env, tmp_path, runner, *, free=64 * 1024 ** 3, foreign=(), only=None):
+def install(env, tmp_path, runner, *, free=64 * 1024 ** 3, foreign=(), only=None, foreign_fn=None, grace=0.0):
     media, binary = make_media(tmp_path, only=only)
     models, flows = make_models(tmp_path)
     FakeSd.instances = []
     svc = DirectGenService(env.svc, client=FakeComfy(), models_dir=models, workflows_dir=flows, poll_seconds=0.01,
                            verify=lambda p: {"verified": True, "duration_s": 1.0, "width": 480, "height": 272},
                            media_dir=media, sd_bin=binary, sd_runner=runner,
-                           free_memory=lambda: free, foreign_engines=lambda: list(foreign))
+                           free_memory=lambda: free, foreign_engines=foreign_fn or (lambda: list(foreign)), gpu_grace_seconds=grace)
     env.svc.direct_gen = svc
     return svc
 
@@ -213,6 +213,26 @@ async def test_foreign_engine_blocks_start(env, tmp_path):
     assert job["status"] == "failed" and job["error"]["code"] == "gpu_busy" and "4242" in job["error"]["message"]
 
 
+async def test_a_just_finished_engine_does_not_fail_the_next_job_with_gpu_busy(env, tmp_path):
+    """Seen 09.10 on the owner PC: the previous sd-cli had already finished but was still listed for a moment; the next job died with gpu_busy."""
+    polls = {"n": 0}
+
+    def foreign():
+        polls["n"] += 1
+        return [4242] if polls["n"] <= 3 else []
+
+    install(env, tmp_path, FakeSd, foreign_fn=foreign, grace=5.0)
+    job = await finish(env, (await create(env)).json()["job_id"])
+    assert job["status"] == "completed", job.get("error")
+    assert polls["n"] >= 4
+
+
+async def test_a_persistent_foreign_engine_still_blocks_after_the_grace_period(env, tmp_path):
+    install(env, tmp_path, FakeSd, foreign=(4242,), grace=0.3)
+    job = await finish(env, (await create(env)).json()["job_id"])
+    assert job["status"] == "failed" and job["error"]["code"] == "gpu_busy"
+
+
 async def test_engine_failure_is_reported_with_its_own_text(env, tmp_path):
     install(env, tmp_path, lambda: FakeSd(returncode=3, log=["something broke"]))
     job = await finish(env, (await create(env)).json()["job_id"])
@@ -315,6 +335,25 @@ def test_build_argv_is_pure_and_json_safe(tmp_path):
     json.dumps(argv)
     assert "-n" not in argv and argv[argv.index("-p") + 1] == NEUTRAL
     assert subprocess.list2cmdline(argv)
+
+
+def test_lora_dir_is_passed_to_sd_cli_only_when_the_prompt_names_a_lora(tmp_path, monkeypatch):
+    """The owner's own LoRA (trained 09.10) reaches sd-cli: --lora-model-dir, and only for a prompt that carries <lora:...>."""
+    media, binary = make_media(tmp_path)
+    loras = tmp_path / "loras"
+    loras.mkdir()
+    spec = sdcli.BY_ID["epicrealism-xl"]
+    params = {"width": 512, "height": 512, "steps": 25, "seed": 1}
+    tagged = "pchela, portrait <lora:pchela-lora:0.8>"
+    monkeypatch.delenv("BOSSMAN_DIRECT_GEN_LORA_DIR", raising=False)
+    assert "--lora-model-dir" not in sdcli.build_argv(spec, binary, media, params, tagged, "", tmp_path / "o.png", None)
+    monkeypatch.setenv("BOSSMAN_DIRECT_GEN_LORA_DIR", str(loras))
+    on = sdcli.build_argv(spec, binary, media, params, tagged, "", tmp_path / "o.png", None)
+    assert on[on.index("--lora-model-dir") + 1] == str(loras)
+    assert on[on.index("-p") + 1] == tagged, "the prompt is still passed verbatim"
+    assert "--lora-model-dir" not in sdcli.build_argv(spec, binary, media, params, NEUTRAL, "", tmp_path / "o.png", None)
+    monkeypatch.setenv("BOSSMAN_DIRECT_GEN_LORA_DIR", str(tmp_path / "missing"))
+    assert "--lora-model-dir" not in sdcli.build_argv(spec, binary, media, params, tagged, "", tmp_path / "o.png", None)
 
 
 def test_shipped_s2v_template_is_valid_and_fully_parameterised():

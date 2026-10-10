@@ -8,6 +8,9 @@
   POST /direct-gen/jobs/{id}/retry        same raw prompt and SAME seed
   GET  /direct-gen/jobs/{id}/file         the finished video
   POST /direct-gen/assist                 ASSISTED: local Qwen proposes an edit; nothing is generated or loaded
+  GET  /direct-gen/faceswap               FaceFusion installed? presets
+  POST /direct-gen/swap-jobs              face swap in a video (photos + consent), 16:9 + original audio;
+                                          the job shares /jobs/{id}, cancel and file with every other job
 Events: `direct_gen.job` on the shared event bus (status, stage, real progress, elapsed).
 The participant comes from the `X-Participant` header ('owner' by default or a 64-hex PIT key);
 jobs of one participant are invisible to another.
@@ -44,6 +47,16 @@ class JobIn(BaseModel):
 class AssistIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     prompt: str = Field(max_length=8000)
+
+
+class SwapIn(BaseModel):
+    """Face swap in a video (FaceFusion, local): the person on 1..5 photos replaces the face(s) in the clip."""
+    model_config = ConfigDict(extra="forbid")
+    video_b64: str = Field(max_length=410 * 1024 * 1024)
+    faces_b64: list[str] = Field(min_length=1, max_length=5)
+    preset: str = Field(default="fast", max_length=16)
+    frame: str = Field(default="original", max_length=16)
+    consent: bool = False
 
 
 def _svc(request: Request) -> DirectGenService:
@@ -109,6 +122,17 @@ async def file(job_id: str, request: Request, x_participant: str | None = Header
     except DirectGenError as exc:
         raise HTTPException(exc.status or 500, exc.detail) from None
     return FileResponse(path, media_type=mime, filename="bossman-direct" + path.suffix)
+
+
+@router.get("/faceswap")
+async def faceswap_info(request: Request):
+    from ..direct_gen import faceswap
+    return faceswap.describe(_svc(request).faceswap_home)
+
+
+@router.post("/swap-jobs", status_code=202)
+async def create_swap(body: SwapIn, request: Request, x_participant: str | None = Header(default=None)):
+    return await _guard(_svc(request).create_swap(_who(x_participant), body.model_dump()))
 
 
 @router.post("/assist")

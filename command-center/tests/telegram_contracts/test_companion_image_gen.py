@@ -197,8 +197,9 @@ def test_guests_and_disabled_setting(tmp_path):
     assert run(tmp_path / 'a', studio, person=GUEST)[0] == 'ERR:IMAGE_GEN_GUESTS_DISABLED'
     assert run(tmp_path / 'b', studio, settings=cfg(image_enabled=False))[0] == 'ERR:IMAGE_GEN_DISABLED'
     assert studio.requests == []
+    # Owner rule 10.10: the Pult writes to the owner only, so even with image_guests a guest receives nothing.
     reply, _, _ = run(tmp_path / 'c', FakeStudio(), person=GUEST, settings=cfg(image_guests=True))
-    assert reply is None
+    assert reply == 'ERR:IDENTITY_REVOKED'
 
 
 def test_image_settings_validation():

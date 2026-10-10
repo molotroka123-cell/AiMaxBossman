@@ -54,6 +54,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["bossman*"]
 
+# Снимок ставок pump.fun с mainnet читается в рантайме (pump_creator_cohort).
+[tool.setuptools.package-data]
+"bossman.trading_learning" = ["pump_fee_tables_*.json"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

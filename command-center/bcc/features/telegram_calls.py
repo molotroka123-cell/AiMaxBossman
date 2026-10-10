@@ -22,13 +22,20 @@ Endpoints (paths below are relative to /api/telegram; the normal auth applies):
   GET  /calls/history?limit=              finished calls: outcome, latency, short summary, proposals, post-call results
   POST /calls/history/{id}/save-memory    owner click: the short summary -> Bossman memory (idempotent)
   POST /calls/history/{id}/draft-tasks    owner click: proposals -> DRAFT tasks only (never run)
+  GET  /calls/answering                   answering machine: enabled / armed / ready / ringing / pending reports
+  POST /calls/answering/start|stop        arm / disarm the answering machine (owner action; needs the setting, a login, no STOP)
+  POST /calls/answering/simulate          OFFLINE TEST MODE ONLY: make the loopback line ring (409 against real Telegram)
+  GET  /calls/answering/reports?pending=  the log of incoming calls (caller, time, duration, transcript, summary, callback)
+  GET  /calls/answering/reports/{id}      one report
+  POST /calls/answering/reports/{id}/delivered   the Telegram companion told the owner: the report leaves the outbox
   POST /calls/selftest {scenario}         audio contour WITHOUT Telegram (label «ТЕСТ БЕЗ TELEGRAM»)
   POST /calls/doctor                      local diagnostics only, no external call
   GET|POST /calls/install                 add-on dependencies: status / start (owner-triggered)
 
 STOP: the durable calls STOP file is written first, then the call is hung up. The bus event ``computer.stop`` (the global
-Bossman STOP) does the same, and dialing is refused while the global STOP is set. Bus events: ``telegram_call.state`` /
-``telegram_call.ended`` (no text, no phone numbers, no secrets, at most ~5 per second).
+Bossman STOP) does the same, ``POST /api/control-plane/stop-all`` stops the ``calls`` plane, and dialing is refused while the
+global STOP is set. Bus events: ``telegram_call.state`` / ``telegram_call.ended`` (no text, no phone numbers, no secrets, at most
+~5 per second); ``telegram_call.report`` (report id + outcome only) when the log of an incoming call is ready.
 """
 from __future__ import annotations
 
@@ -60,7 +67,8 @@ _CALL_ID = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$"
 _STATUS = {
     **dict.fromkeys(("NOT_ENABLED", "NO_CREDENTIALS", "NOT_LOGGED_IN", "LOGIN_NOT_PENDING", "SESSION_REVOKED", "PEER_NOT_SELECTED",
                      "PEER_NOT_ALLOWED", "PEER_IS_SELF", "PEER_PRIVACY", "CALL_IN_PROGRESS", "STOP_ACTIVE",
-                     "UNCERTAIN_PREVIOUS_CALL", "DEPENDENCIES_MISSING", "BRAIN_NOT_CONFIGURED"), 409),
+                     "UNCERTAIN_PREVIOUS_CALL", "DEPENDENCIES_MISSING", "BRAIN_NOT_CONFIGURED", "ANSWERING_NOT_ENABLED",
+                     "ANSWERING_NOT_READY", "INCOMING_NOT_SUPPORTED"), 409),
     **dict.fromkeys(("LOGIN_PHONE_INVALID", "LOGIN_CODE_INVALID", "LOGIN_CODE_EXPIRED", "LOGIN_PASSWORD_INVALID", "PEER_INVALID"), 422),
     "PEER_NOT_FOUND": 404, "LOGIN_FLOOD_WAIT": 429, "WORKER_TIMEOUT": 504,
     **dict.fromkeys(("WORKER_UNAVAILABLE", "STT_UNAVAILABLE", "TTS_UNAVAILABLE", "BRAIN_UNAVAILABLE", "VAD_UNAVAILABLE"), 503),
@@ -111,7 +119,12 @@ class DialIn(_Strict):
 
 
 class SelftestIn(_Strict):
-    scenario: Literal["all", "basic", "barge_in", "echo", "stop", "no_redial"] = "all"
+    scenario: Literal["all", "basic", "barge_in", "echo", "stop", "no_redial", "answering_machine"] = "all"
+
+
+class SimulateIn(_Strict):
+    caller_id: int | None = Field(default=None, gt=0, lt=2 ** 52)
+    label: str = Field(default="", max_length=60)
 
 
 class SettingsIn(_Strict):
@@ -129,6 +142,14 @@ class SettingsIn(_Strict):
     stt_model_path: str | None = Field(default=None, max_length=500)
     tts_voice_path: str | None = Field(default=None, max_length=500)
     auto_save_to_bossman_memory: bool | None = None
+    # answering machine (incoming calls): OFF by default; changed only here, with the owner's own API token
+    answering_machine: bool | None = None
+    answer_ring_delay_s: int | None = None
+    answer_max_call_s: int | None = None
+    answer_allow_ids: list[int] | None = None
+    answer_deny_ids: list[int] | None = None
+    answer_allow_unknown: bool | None = None
+    answer_greeting: str | None = Field(default=None, max_length=240)
 
 
 # ---------------------------------------------------------------- runtime (one per backend process)
@@ -137,7 +158,7 @@ class _Runtime:
     def __init__(self, svc: Any):
         self.svc = svc
         self.manager = CallsManager(Path(svc.settings.data_dir), vault=svc.vault, on_record=self._on_record,
-                                    on_state=self._on_state)
+                                    on_state=self._on_state, on_report=self._on_report)
         self._last_emit = 0.0
         self._pending_state: dict | None = None
         self._flush: asyncio.TimerHandle | None = None
@@ -177,6 +198,13 @@ class _Runtime:
                 await self.svc.bus.emit(ENDED_EVENT, call_id=data.get("call_id"), outcome=data.get("outcome"),
                                         error_code=data.get("error_code"), transport=data.get("transport"),
                                         turns=data.get("turns"), latency_p50_ms=data.get("latency_p50_ms"))
+
+    async def _on_report(self, data: dict) -> None:
+        """The log of an incoming call is ready (report id + outcome only: no caller, no text). The Telegram companion polls the
+        outbox itself; this event is for the panel."""
+        with contextlib.suppress(Exception):
+            await self.svc.bus.emit("telegram_call.report", report_id=data.get("report_id"), outcome=data.get("outcome"),
+                                    notify=data.get("notify"), answered=data.get("answered"))
 
     async def _on_record(self, rec: dict) -> None:
         try:
@@ -273,7 +301,7 @@ async def put_settings(body: SettingsIn, request: Request):
     changes = {k: getattr(body, k) for k in body.model_fields_set if getattr(body, k) is not None}
     if not changes:
         return _settings_view(current)
-    if mgr.busy and changes.keys() - {"greeting"}:
+    if mgr.busy and changes.keys() - {"greeting", "answer_greeting"}:
         raise _http(CallError("CALL_IN_PROGRESS"))
     known = CallSettings.__dataclass_fields__
     direct = {k: v for k, v in changes.items() if k in known}
@@ -283,7 +311,23 @@ async def put_settings(body: SettingsIn, request: Request):
     except (ValueError, TypeError) as exc:
         raise _bad("SETTINGS_INVALID", "Настройки не приняты: " + str(exc)[:160], "Проверьте значения и повторите.") from None
     mgr.save_settings(updated)
-    return _settings_view(updated)
+    view = _settings_view(updated)
+    if "answering_machine" in changes and changes["answering_machine"] != current.answering_machine:
+        view["answering"] = await _apply_answering_switch(request, mgr, bool(changes["answering_machine"]))
+    return view
+
+
+async def _apply_answering_switch(request: Request, mgr: CallsManager, on: bool) -> dict:
+    """The owner flipped the answering machine: arm / disarm the listener. A refusal (not logged in, STOP, no dependencies) does not
+    undo the saved setting; it is reported so the panel can say what is missing."""
+    try:
+        if on:
+            result = await mgr.answering_start(global_stop=global_stop_active(request.app.state.svc))
+        else:
+            result = await mgr.answering_stop()
+    except CallError as exc:
+        return {"armed": False, "error": exc.as_dict()}
+    return result.get("answering") or {"armed": on}
 
 
 # ---------------------------------------------------------------- account
@@ -450,6 +494,73 @@ async def resume(request: Request):
     return {**result, "global_stop": global_stop_active(request.app.state.svc)}
 
 
+# ---------------------------------------------------------------- answering machine (incoming calls)
+
+@router.get("/calls/answering")
+async def answering_status(request: Request):
+    rt = _rt(request)
+    status = await rt.manager.status(global_stop=global_stop_active(request.app.state.svc))
+    return {**status["answering"], "mode": status["mode"], "stop": status["stop"]}
+
+
+@router.post("/calls/answering/start")
+async def answering_start(request: Request):
+    try:
+        return await _rt(request).manager.answering_start(global_stop=global_stop_active(request.app.state.svc))
+    except CallError as exc:
+        raise _http(exc) from None
+
+
+@router.post("/calls/answering/stop")
+async def answering_stop(request: Request):
+    try:
+        return await _rt(request).manager.answering_stop()
+    except CallError as exc:
+        raise _http(exc) from None
+
+
+@router.post("/calls/answering/simulate")
+async def answering_simulate(request: Request, body: SimulateIn | None = None):
+    mgr = _rt(request).manager
+    if not mgr.offline:
+        raise _bad("NOT_AVAILABLE", "Эмуляция входящего звонка есть только в тестовом режиме без Telegram.",
+                   "Настоящий входящий звонок принимает только запущенный автоответчик.", 409)
+    try:
+        return await mgr.answering_simulate(body.caller_id if body else None, body.label if body else "")
+    except CallError as exc:
+        raise _http(exc) from None
+
+
+_REPORT_ID = r"^ar-[0-9a-f]{12}$"
+
+
+@router.get("/calls/answering/reports")
+async def answering_reports(request: Request, pending: bool = False, limit: int = 20):
+    mgr = _rt(request).manager
+    items = await asyncio.to_thread(mgr.reports, pending=bool(pending), limit=max(1, min(int(limit), 200)))
+    if pending:                                       # the outbox consumer (the Telegram companion) gets the finished text to deliver
+        from ..telegram_calls.answering_store import render_notice
+        items = [{**item, "notice": render_notice(item)} for item in items]
+    return {"items": items}
+
+
+@router.get("/calls/answering/reports/{report_id}")
+async def answering_report(report_id: str, request: Request):
+    import re
+    report = _rt(request).manager.report(report_id) if re.match(_REPORT_ID, report_id) else None
+    if report is None:
+        raise _bad("REPORT_NOT_FOUND", "Такого отчёта автоответчика нет.", "Откройте список: bossman call answer reports.", 404)
+    return report
+
+
+@router.post("/calls/answering/reports/{report_id}/delivered")
+async def answering_report_delivered(report_id: str, request: Request):
+    import re
+    if not re.match(_REPORT_ID, report_id) or not _rt(request).manager.ack_report(report_id):
+        raise _bad("REPORT_NOT_FOUND", "Такого отчёта автоответчика нет.", "", 404)
+    return {"id": report_id, "delivered": True}
+
+
 # ---------------------------------------------------------------- events / history / post-call
 
 @router.get("/calls/events")
@@ -588,6 +699,8 @@ async def _watch_global_stop(svc: Any, rt: _Runtime) -> None:
             if not done:
                 if global_stop_active(svc) and (rt.manager.active_call is not None or rt.manager.running):
                     await _stop_guarded(rt)
+                elif global_stop_active(svc) and rt.manager.answering_armed and not rt.manager.state.stop_is_set():
+                    await _stop_guarded(rt)                              # a lost event must not leave the answering machine listening
                 continue
             msg = getter.result()
             getter = None

@@ -67,6 +67,23 @@ export function isTestMode(st) {
   return !!(st && (st.mode === 'offline_test' || st.transport === 'loopback' || st.test_label));
 }
 
+/** Автоответчик словами (входящие звонки). Не обещает ничего сверх того, что известно: настоящий приём ещё не проверен в живую. */
+export function answeringWords(st) {
+  const a = st && st.answering;
+  if (!a || !a.enabled) return { on: false, tone: 'dim', text: 'Автоответчик выключен (так задано по умолчанию): входящие звонят только вам.' };
+  if (!a.armed) {
+    return { on: true, tone: 'warn', text: 'Включён в настройках, но не запущен: входящие не принимаются. Подключите аккаунт и повторите включение.' };
+  }
+  const ready = { ready: 'готов', loading: 'модели загружаются — входящий будет пропущен', failed: 'модели не загрузились — входящий будет пропущен' }[a.ready_state] || 'готовится';
+  let text = `Слушает, ${ready}. Если вы не возьмёте трубку за ${a.ring_delay_s} с, ответит Джефф (представится ассистентом).`;
+  if (a.in_call) text += ' Сейчас отвечает на звонок.';
+  else if (a.ringing) text += ' Идёт звонок: ждёт, ответите ли вы сами.';
+  if (a.stopped) text += ' ОСТАНОВЛЕН (STOP): не отвечает, пока вы не нажмёте «Продолжить».';
+  if (a.pending_reports) text += ` Отчётов, ещё не отправленных вам в Telegram: ${a.pending_reports}.`;
+  if (!a.live_tested) text += ' Приём настоящих входящих ещё не проверен в живую.';
+  return { on: true, tone: a.stopped || a.ready_state !== 'ready' ? 'warn' : 'ok', text };
+}
+
 /** Что можно нажать сейчас и ПОЧЕМУ нельзя остальное (title у каждой недоступной кнопки). */
 export function controlState(st, { confirmUnknown = false } = {}) {
   const stopTitle = 'Остановить звонок и заблокировать звонки, пока вы не нажмёте «Продолжить»';
@@ -208,7 +225,8 @@ class CallsView {
     this.ctx = ctx;
     this.st = null;
     this.timer = null;
-    this.polling = false;
+    this.polling = null;          // the poll in flight (a promise) or null
+    this.pollAgain = false;       // an owner action / bus event came while it was in flight: one more poll right after it
     this.lastCallId = undefined;
     this.actionError = null;
     this.pickedConfirm = false;
@@ -216,29 +234,44 @@ class CallsView {
     this.refs = {};
     this.root = this.build();
     this.timer = setInterval(() => this.tick(), POLL_MS);
+    this.onVisible = () => { if (!document.hidden && this.root.isConnected) this.poll(); };
+    document.addEventListener('visibilitychange', this.onVisible);
     this.poll();
     this.loadHistory();
   }
 
-  /* ---- опрос: живёт, пока страница в документе */
+  /* ---- опрос: живёт, пока страница в документе; скрытая вкладка не опрашивает, при возврате — сразу опрос */
   tick() {
-    if (!this.root.isConnected) { clearInterval(this.timer); this.timer = null; return; }
+    if (!this.root.isConnected) { clearInterval(this.timer); this.timer = null; document.removeEventListener('visibilitychange', this.onVisible); return; }
+    if (document.hidden) return;
     this.poll();
   }
 
-  async poll() {
-    if (this.polling) return;
-    this.polling = true;
+  /* Один опрос за раз: тик, пока ответ не пришёл, пропускается (медленный сервер не долбим подряд).
+     fresh — после действия владельца или события шины: ответ в полёте мог быть снят ДО действия, поэтому сразу после
+     него идёт ещё один опрос, и вызывающий ждёт именно его (кнопки не остаются на устаревшем состоянии). */
+  async poll(fresh = false) {
+    if (this.polling) {
+      if (fresh) this.pollAgain = true;
+      return this.polling;
+    }
+    let settle;
+    this.polling = new Promise((resolve) => { settle = resolve; });
     try {
-      const st = await api.raw(`${BASE}/status`);
-      this.st = st;
-      this.refs.offline.hidden = true;
-      this.apply(st);
-    } catch (e) {
-      this.refs.offline.hidden = false;
-      this.refs.offline.textContent = 'Нет связи с Bossman. Состояние звонков не обновляется.';
-      if (e && e.isAuth) this.refs.offline.textContent = 'Нужен вход в Bossman.';
-    } finally { this.polling = false; }
+      do {
+        this.pollAgain = false;
+        try {
+          const st = await api.raw(`${BASE}/status`);
+          this.st = st;
+          this.refs.offline.hidden = true;
+          this.apply(st);
+        } catch (e) {
+          this.refs.offline.hidden = false;
+          this.refs.offline.textContent = 'Нет связи с Bossman. Состояние звонков не обновляется.';
+          if (e && e.isAuth) this.refs.offline.textContent = 'Нужен вход в Bossman.';
+        }
+      } while (this.pollAgain);
+    } finally { this.polling = null; settle(); }
   }
 
   async run(fn, { ok, fail = 'Не удалось выполнить действие', quiet = false } = {}) {
@@ -246,13 +279,13 @@ class CallsView {
       const res = await fn();
       this.actionError = null;
       if (ok) toastOk(ok);
-      await this.poll();
+      await this.poll(true);
       return res;
     } catch (e) {
       this.actionError = errorText(e);
       if (!quiet) toastError(e, fail);
       this.renderActionError();
-      await this.poll();
+      await this.poll(true);
       return null;
     }
   }
@@ -346,6 +379,12 @@ class CallsView {
     r.autoSaveBox = h('input', { type: 'checkbox', name: 'tc-autosave' });
     r.autoSaveBox.addEventListener('change', () => this.setAutoSave(r.autoSaveBox.checked));
 
+    const ans = toggle(false, (on) => this.setAnswering(on), 'Автоответчик: Джефф берёт входящий вместо вас, если вы не ответили');
+    r.ansInput = ans.querySelector('input');
+    r.ansInput.name = 'tc-answering';
+    r.ansInput.setAttribute('aria-label', 'Автоответчик для входящих звонков');
+    r.ansStatus = h('div.small', { 'data-testid': 'tc-answering-status' });
+
     r.liveState = h('span.tc-live-state', { 'data-testid': 'tc-live-state' }, STATE_WORDS.idle);
     r.livePhase = h('span.small.dim', { 'data-testid': 'tc-live-phase' });
     r.live = h('div.tc-live', r.liveState, r.livePhase);
@@ -368,6 +407,8 @@ class CallsView {
     return h('div.stack.sm',
       h('div.row', sw, h('b', 'Разрешить звонки'), r.enabledHint),
       h('label.check', r.autoSaveBox, h('span', 'Сразу записывать краткий итог звонка в память Bossman (по умолчанию выключено)')),
+      h('div.row', ans, h('b', 'Автоответчик (входящие)')),
+      r.ansStatus,
       r.uncertainNote,
       r.live,
       h('div.row', r.dial, r.hangup, r.stop, r.resume),
@@ -416,6 +457,10 @@ class CallsView {
     r.enabledInput.checked = !!st.enabled;
     r.enabledHint.textContent = st.enabled ? 'включены' : 'выключены';
     if (st.postcall) r.autoSaveBox.checked = !!st.postcall.auto_save_to_bossman_memory;
+    const aw = answeringWords(st);
+    r.ansInput.checked = aw.on;
+    r.ansStatus.textContent = aw.text;
+    r.ansStatus.className = `small tc-answering-${aw.tone}`;
 
     const stopped = st.stop || {};
     r.stopNote.hidden = !stopped.active;
@@ -568,6 +613,14 @@ class CallsView {
     if (!res && this.st) this.refs.enabledInput.checked = !!this.st.enabled;
   }
 
+  async setAnswering(on) {
+    const res = await this.run(() => api.raw(`${BASE}/settings`, { method: 'PUT', body: { answering_machine: !!on } }),
+      { ok: on ? 'Автоответчик включён' : 'Автоответчик выключен', fail: 'Настройка не сохранена' });
+    const err = res && res.answering && res.answering.error;
+    if (err) toastError(err, 'Автоответчик включён в настройках, но не запущен');
+    if (!res && this.st) this.refs.ansInput.checked = !!(this.st.answering && this.st.answering.enabled);
+  }
+
   async setAutoSave(on) {
     const res = await this.run(() => api.raw(`${BASE}/settings`, { method: 'PUT', body: { auto_save_to_bossman_memory: !!on } }),
       { ok: on ? 'Итоги звонков будут записываться в память' : 'Итоги в память не записываются', fail: 'Настройка не сохранена' });
@@ -599,7 +652,7 @@ class CallsView {
       this.renderActionError();
       toastError(e, 'STOP не подтверждён');
     }
-    await this.poll();
+    await this.poll(true);
   }
 
   async resume() {
@@ -702,7 +755,7 @@ const TelegramCallsPage = {
   /* события шины только подгоняют состояние на месте: страница не пересоздаётся, набранное не пропадает */
   onEvent(ev) {
     const kind = String((ev && ev.kind) || '');
-    if (EVENT_KINDS.includes(kind) && live && live.root.isConnected) live.poll();
+    if (EVENT_KINDS.includes(kind) && live && live.root.isConnected) live.poll(true);
     return false;
   },
 };

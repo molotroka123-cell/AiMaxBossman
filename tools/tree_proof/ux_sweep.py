@@ -73,6 +73,10 @@ ENUM_JS = r"""(scope) => {
     let anc = el, hidden = false;
     while (anc && anc !== document.body) { if (anc.hasAttribute && anc.hasAttribute('inert')) {hidden = true;break;} anc = anc.parentElement; }
     if (hidden) continue;
+    // inside a CLOSED <details> (not its own summary): a layout box exists but the user cannot see it;
+    // it becomes reachable as a depth-1 child once the summary is probed (09.10: 847 of 858 tree controls)
+    const shut = el.closest('details:not([open])');
+    if (shut) { const sm = shut.querySelector(':scope > summary'); if (!(sm && sm.contains(el))) continue; }
     const tag = el.tagName.toLowerCase();
     const type = (el.getAttribute('type') || '').toLowerCase();
     const label = ((el.innerText || '').trim() || el.getAttribute('aria-label') || el.title || el.getAttribute('placeholder') ||
@@ -113,6 +117,12 @@ INIT_JS = """
 window.__uxm = 0;
 new MutationObserver(m => { window.__uxm += m.length; }).observe(document, {subtree: true, childList: true, attributes: true, characterData: true});
 """
+
+# a submit button whose form is invalid: the click shows the browser's validation bubble (no DOM change)
+INVALID_JS = r"""(e) => { const f = e.form; const submit = e.type === 'submit' || (e.tagName === 'BUTTON' && !e.getAttribute('type'));
+  if (!f || !submit || f.noValidate) return [];
+  return [...f.elements].filter(x => x.willValidate && !x.validity.valid).map(x => x.validationMessage || 'invalid'); }"""
+INPUT_ONLY_TYPES = ("number", "range", "color", "date", "time")
 
 TARGET_JS = r"""(i) => { const e = document.querySelector('[data-uxs="' + i + '"]'); if (!e) return null;
   const p = e.parentElement; return {self: e.outerHTML, parent: p ? p.innerHTML.length + ':' + p.innerText.length : '', conn: e.isConnected}; }"""
@@ -202,7 +212,8 @@ class Session:
     def __init__(self, pw, base: str, token: str, vp: str, out_shots: Path):
         self.base, self.token, self.vp, self.shots = base, token, vp, out_shots
         w, hgt = VIEWPORTS[vp]
-        self.browser = pw.chromium.launch(executable_path=EDGE, headless=True)
+        headed = os.environ.get("BOSSMAN_UX_SWEEP_HEADED") == "1"     # owner watches the sweep on the desktop
+        self.browser = pw.chromium.launch(executable_path=EDGE, headless=not headed, slow_mo=150 if headed else 0)
         self.ctx = self.browser.new_context(viewport={"width": w, "height": hgt}, is_mobile=(vp == "phone"),
                                             has_touch=(vp == "phone"), device_scale_factor=1)
         self.ctx.add_init_script(INIT_JS)
@@ -224,6 +235,9 @@ class Session:
         self.page.on("requestfailed", self._on_failed)
         self.page.on("popup", lambda p: (self.ev["popups"].append(p.url), p.close()))
         self.page.on("download", lambda d: self.ev["downloads"].append(d.suggested_filename))
+        # a native file chooser is a real effect, not a DOM change (chat 'Прикрепить файлы'); with a listener
+        # Playwright intercepts it, so no OS dialog stays open
+        self.page.on("filechooser", lambda fc: self.ev["filechoosers"].append("multiple" if fc.is_multiple() else "single"))
         self.page.set_default_timeout(8000)
 
     def fresh_page(self, crashed: bool = False) -> None:
@@ -240,7 +254,7 @@ class Session:
     @staticmethod
     def _fresh_events() -> dict:
         return {"console": [], "pageerrors": [], "native": [], "requests": [], "responses": [], "failed": [],
-                "would_send": [], "popups": [], "downloads": [], "pending": set()}
+                "would_send": [], "popups": [], "downloads": [], "filechoosers": [], "pending": set()}
 
     def reset_events(self) -> None:
         self.ev = self._fresh_events()
@@ -409,13 +423,29 @@ def classify(sess: Session, c: dict, gated: bool, before: dict, after: dict, noi
     effects: list[str] = []
     errors: list[str] = []
     refusals: list[str] = []
+    new_toasts = set(after["toasts"]) - set(before["toasts"])
     errors += [f"pageerror: {e}" for e in ev["pageerrors"]]
-    errors += [f"console: {e}" for e in ev["console"] if not e.startswith("RES:")]
     errors += [f"request failed: {e}" for e in ev["failed"]]
     codes = [(m, p, s) for (m, p, s) in ev["responses"]]
-    visible_feedback = bool(set(after["toasts"]) - set(before["toasts"])) or after["html"] != before["html"]
+    visible_feedback = bool(new_toasts) or after["html"] != before["html"]
+    # 503 = a dependency is unavailable (sidecar down, no key, no Chromium). When the UI shows the server's
+    # own message in a new toast, the click got an honest, explained refusal - not a page failure.
+    explained = lambda msg: any(msg.strip().splitlines()[0][:80] in t for t in new_toasts) if msg.strip() else False  # noqa: E731
+    clicked_503 = [(m, p) for (m, p, s) in codes if s == 503 and (m, p) not in idle_reqs]
+    for e in ev["console"]:
+        if e.startswith("RES:"):
+            continue
+        api_msg = e[len("ApiError: "):] if e.startswith("ApiError: ") else None
+        if api_msg is not None and clicked_503 and explained(api_msg):
+            refusals.append("503 explained: " + api_msg.splitlines()[0][:90])
+        else:
+            errors.append(f"console: {e}")
     for m, p, s in codes:
-        if s >= 500:
+        if s >= 500 and (m, p) in idle_reqs:
+            continue                                     # background polling already failing before the click
+        if s == 503 and refusals and any(r.startswith("503 explained") for r in refusals):
+            refusals.append(f"HTTP 503 {m} {p}")
+        elif s >= 500:
             errors.append(f"HTTP {s} {m} {p}")
         elif s >= 400:
             if s in (400, 403, 409, 422, 423, 428, 429) and visible_feedback:
@@ -426,9 +456,12 @@ def classify(sess: Session, c: dict, gated: bool, before: dict, after: dict, noi
         effects.append("url:" + after["url"].replace(sess.base, ""))
     if set(after["dlg"]) - set(before["dlg"]):
         effects.append("opened:" + sorted(set(after["dlg"]) - set(before["dlg"]))[0][:50])
-    new_toasts = set(after["toasts"]) - set(before["toasts"])
     if new_toasts:
         effects.append("toast:" + sorted(new_toasts)[0][:60])
+    if ev["filechoosers"]:
+        effects.append("filechooser:" + ev["filechoosers"][0])
+    if ev.get("native_validation"):
+        refusals.append("native form validation: " + ev["native_validation"][0][:80])
     if new_ctrls:
         effects.append(f"{new_ctrls} new controls")
     mut = [(m, p, s) for (m, p, s) in codes if m != "GET"]
@@ -566,9 +599,13 @@ def _probe(sess: Session, scope: str, route: str, c: dict, nth: int, prelude: li
                     oi = locate(sess, pscope if reload_first else "all", pc, pnth, tries=2)
                     if oi is None:
                         continue
-                    p.locator(f'[data-uxs="{oi}"]').scroll_into_view_if_needed(timeout=3000)
                     sess.stub = is_gated(pc)
-                    p.locator(f'[data-uxs="{oi}"]').click(timeout=4000)
+                    try:
+                        p.locator(f'[data-uxs="{oi}"]').scroll_into_view_if_needed(timeout=3000)
+                        p.locator(f'[data-uxs="{oi}"]').click(timeout=4000)
+                    except Exception:                       # noqa: BLE001 — e.g. a modal left open covers the opener:
+                        sess.stub = False                   # the reload pass below replays from a clean page
+                        break
                     sess.settle(500)
                     sess.stub = False
                 i = locate(sess, "all", c, nth, tries=2)
@@ -597,6 +634,12 @@ def _probe(sess: Session, scope: str, route: str, c: dict, nth: int, prelude: li
         i = locate(sess, "all" if prelude else scope, c, nth) or i
         tgt_before = p.evaluate(TARGET_JS, i)
         loc = p.locator(f'[data-uxs="{i}"]')
+        invalid_before = []
+        if c["kind"] == "button":
+            try:
+                invalid_before = loc.evaluate(INVALID_JS)
+            except Exception:                            # noqa: BLE001
+                invalid_before = []
         sess.stub = gated
         def act() -> dict | None:
             loc.scroll_into_view_if_needed(timeout=3000)
@@ -633,21 +676,24 @@ def _probe(sess: Session, scope: str, route: str, c: dict, nth: int, prelude: li
             return early
         sess.settle()
         sess.stub = False
+        if invalid_before:                               # the browser's own "fill in this field" bubble
+            sess.ev["native_validation"] = invalid_before
         after = sess.state()
         tgt_after = p.evaluate(TARGET_JS, i)
+        typed = None
+        if c["kind"] == "text":                          # read now: enum() below renumbers data-uxs
+            try:
+                typed = loc.input_value(timeout=2000)
+            except Exception:                            # noqa: BLE001
+                typed = None
         if tgt_after and tgt_before and c["kind"] in ("text", "select"):
             pass
         after_all = sess.enum("all")
         newc = [x for x in after_all if sig_of(x) not in before_all]
         r = classify(sess, c, gated, before, after, noisy,
                      idle_reqs, (tgt_before or {}).get("self"), (tgt_after or {}).get("self") if tgt_after else None, len(newc))
-        if c["kind"] == "text" and r["verdict"] == "DEAD":
-            try:
-                val = loc.input_value()
-                if val == fill_value(c) or c["type"] in ("number", "range", "color", "date", "time"):
-                    r.update(verdict="OK", detail="value accepted and retained; no listener reacts (input only)", subtype="input_only")
-            except Exception:                               # noqa: BLE001
-                pass
+        if c["kind"] == "text" and r["verdict"] == "DEAD" and (typed == fill_value(c) or c["type"] in INPUT_ONLY_TYPES):
+            r.update(verdict="OK", detail="value accepted and retained; no listener reacts (input only)", subtype="input_only")
         if gated and r["verdict"] == "DEAD":
             r["detail"] = "GATED control produced no effect even up to the gate: " + r["detail"]
         rec.update(r)

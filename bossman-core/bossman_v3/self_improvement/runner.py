@@ -53,7 +53,17 @@ def atomic_json(path: Path, value: object) -> None:
             json.dump(redact_obj(value), stream, ensure_ascii=False, indent=2, allow_nan=False)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        # Windows: another process/thread may hold the destination open without
+        # FILE_SHARE_DELETE, making os.replace fail transiently with PermissionError.
+        deadline = time.monotonic() + 10.0
+        while True:
+            try:
+                os.replace(temporary, path)
+                return
+            except PermissionError:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.05)
     finally:
         temporary.unlink(missing_ok=True)
 

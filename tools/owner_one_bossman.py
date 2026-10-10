@@ -392,6 +392,30 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+def keys_ensure(say) -> None:
+    """Owner order 07.10: provider keys must not be lost. Before the backend starts, bring any
+    missing key back from the DPAPI copy and refresh the copy (tools/keys_guard.py). Names-only
+    status line; a failure here never blocks the launch. Windows only (DPAPI)."""
+    if os.name != "nt":
+        return
+    path = Path(__file__).with_name("keys_guard.py")
+    if not path.is_file():
+        say("keys: keys_guard.py not found next to this tool - keys not checked")
+        return
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("keys_guard", path)
+        kg = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(kg)
+        out = kg.ensure(kg.default_keys_dir(), kg.default_backup_dir())
+        restored = (out.get("restore") or {}).get("restored") or []
+        v = out.get("verify") or {}
+        say(f"keys: {v.get('verdict', '?')} ({len(v.get('env_names') or [])} names)"
+            + (f"; restored: {', '.join(restored)}" if restored else ""))
+    except Exception as exc:  # noqa: BLE001 — never block the launch on the guard
+        say(f"keys: not checked ({type(exc).__name__})")
+
+
 def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: Path | None,
            wait: float = 120.0, out=sys.stdout, ensure: bool = False) -> int:
     home, data_dir = Path(home), Path(data_dir)
@@ -423,6 +447,7 @@ def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: P
         if _health(port):
             say(f"REFUSED: port {port} already answers /health/live but does not hold {data_dir}")
             return 3
+        keys_ensure(say)
     elif kind == "jeff":
         if lock_held(data_dir / PIT_HOME / "poller.lock"):
             say("ALREADY RUNNING: pit-v1.7/poller.lock is held - one Jeff poller per data root")

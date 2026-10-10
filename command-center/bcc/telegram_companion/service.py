@@ -20,6 +20,7 @@ from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
 from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .store import Store
+from . import key_intake
 from .secret_intake import (
     SecretField, SecretIntakeError, SecretIntakeManager, looks_like_secret_message, request_caption,
 )
@@ -334,8 +335,10 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
         task.add_done_callback(self.secret_cleanup_tasks.discard)
 
     def delivery_allowed(self, person: Person) -> bool:
+        # Owner rule 10.10 («пульт пишет только владельцу»): the Пульт bot delivers to the owner only,
+        # even when other people are listed in its config. Jeff has his own bot and his own rule.
         try:
-            return person in self.policy_provider().people
+            return person in self.policy_provider().people and person.role == "owner"
         except (OSError, ValueError, TypeError):
             return False
 
@@ -452,6 +455,36 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
                 msg += " Telegram не подтвердил удаление сообщения — удалите его вручную."
         await self.telegram.send(person, msg)
 
+    async def _consume_key_update(self, person: Person, message: dict, update_id: int, text: str) -> None:
+        """Store an owner provider key in the local key file; reply with names only."""
+        if not self.store.acknowledge_without_body(update_id):
+            return
+        deleted = await self._delete_secret_message(person, message.get("message_id"))
+        suffix = "" if deleted else " Telegram не подтвердил удаление — удалите сообщение вручную."
+        if person.role != "owner":
+            await self.telegram.send(person, "🔐 Ключи принимает только владелец. Сообщение не сохранено." + suffix)
+            return
+        try:
+            keys = key_intake.parse_key_command(text)
+            out = await asyncio.to_thread(key_intake.store_keys, keys)
+        except key_intake.KeyIntakeError as exc:
+            await self.telegram.send(person, f"🔐 Ключ не принят: {exc}. Ничего не сохранено." + suffix)
+            return
+        except OSError as exc:
+            await self.telegram.send(person, f"🔐 Ключ не записан ({type(exc).__name__}). Ничего не сохранено." + suffix)
+            return
+        finally:
+            text = ""   # drop our reference to the plaintext as early as possible
+        parts = []
+        if out["added"]:
+            parts.append("добавлены: " + ", ".join(out["added"]))
+        if out["replaced"]:
+            parts.append("заменены: " + ", ".join(out["replaced"]))
+        if not parts:
+            parts.append("без изменений: " + ", ".join(sorted(keys)))
+        await self.telegram.send(person, "🔐 Ключи сохранены локально (" + "; ".join(parts) + "). "
+                                 "Защищённая копия обновится при следующем запуске backend." + suffix)
+
     async def ingest_callback(self, update: dict):
         cb = update.get("callback_query")
         if not isinstance(cb, dict) or not isinstance(cb.get("id"), str):
@@ -493,6 +526,12 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
         message = update.get("message")
         person = self.authorized(message)
         text = message.get("text") if isinstance(message, dict) else None
+
+        # Owner key intake (/key NAME=value): handled BEFORE the durable Store inbox, so the
+        # value never reaches SQLite, history, learning or a model. Anyone else's /key is
+        # refused the same way (acknowledged without body, deleted, never stored).
+        if person and isinstance(text, str) and key_intake.is_key_command(text):
+            return await self._consume_key_update(person, message, update["update_id"], text)
 
         # Secret lane is intercepted BEFORE the durable Store inbox. The next
         # owner text for an active one-time session is never encrypted into
@@ -1574,6 +1613,42 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
                 self.store.put(done_key, "delivered")
                 self.schedule_login_receipt_cleanup(owner, rid, 45.0)
 
+    async def notify_answering_reports(self):
+        """Tell the OWNER (and nobody else) about an incoming call the answering machine took or missed.
+
+        The text (``notice``) is rendered by the Command Center from the already scrubbed report; this method only delivers it
+        and knows nothing about calls, transcripts or callers. Delivery is
+        at-least-once: the report is acknowledged AFTER the send, so a crash in between sends it again rather than losing it
+        (a notice the owner already saw twice is better than a call he never heard about). It needs the owner console: with the
+        console off the report simply stays in the outbox. Nothing here reads a token or places a call.
+        """
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        if owner is None or not self.console_allowed(owner):
+            return
+        try:
+            if owner not in self.policy_provider().people:
+                return
+            rows = await self.core.answering_reports()
+        except (CompanionError, OSError, ValueError, TypeError):
+            return
+        for row in rows[:5]:
+            rid = str(row.get("id") or "")
+            notice = row.get("notice")
+            if not rid or self.store.get("answering_sent:" + rid) is not None:
+                if rid:                                         # sent earlier, the acknowledgement was lost: repeat only that
+                    with contextlib.suppress(CompanionError):
+                        await self.core.ack_answering_report(rid)
+                continue
+            if not isinstance(notice, str) or not notice.strip():
+                continue                                        # nothing to say; never invent a text from the raw report
+            try:
+                await self.telegram.send(owner, notice[:3500])
+            except CompanionError:
+                continue                                        # not sent: it stays in the outbox
+            self.store.put("answering_sent:" + rid, "delivered")
+            with contextlib.suppress(CompanionError):
+                await self.core.ack_answering_report(rid)
+
     async def notify_owner_inputs(self):
         """Proactively tell the owner about missing form fields; never include values."""
         owner = next((p for p in self.settings.people if p.role == "owner"), None)
@@ -1645,6 +1720,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
             await self.notify_owner_inputs()
             await self.notify_login_receipts()
             await self.notify_zone_reports()
+            await self.notify_answering_reports()
             with contextlib.suppress(CompanionError):
                 await self.refresh_profiles()
             if not self.store.get("watch", False):

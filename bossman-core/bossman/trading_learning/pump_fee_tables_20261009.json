@@ -1,0 +1,189 @@
+{
+ "schema": "bossman.pump_fee_tables.v1",
+ "fetched_at": "2026-10-09T17:51:25+00:00",
+ "source": "mainnet accounts via @pump-fun/pump-sdk 4.0.0 fetchGlobal/fetchFeeConfig and @pump-fun/pump-swap-sdk 2.1.0 fetchGlobalConfigAccount/fetchFeeConfigAccount",
+ "bonding_curve": {
+  "tiers": [
+   {
+    "mcap_sol": 0,
+    "lp": "0",
+    "protocol": "95",
+    "creator": "30"
+   }
+  ],
+  "flat": {
+   "lp": "0",
+   "protocol": "95",
+   "creator": "30"
+  },
+  "global": {
+   "feeBasisPoints": "95",
+   "creatorFeeBasisPoints": "5",
+   "creatorFeeConfigurable": true
+  }
+ },
+ "pumpswap": {
+  "tiers": [
+   {
+    "mcap_sol": 0,
+    "lp": "2",
+    "protocol": "93",
+    "creator": "30"
+   },
+   {
+    "mcap_sol": 420,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "95"
+   },
+   {
+    "mcap_sol": 1470,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "90"
+   },
+   {
+    "mcap_sol": 2460,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "85"
+   },
+   {
+    "mcap_sol": 3440,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "80"
+   },
+   {
+    "mcap_sol": 4420,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "75"
+   },
+   {
+    "mcap_sol": 9820,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "70"
+   },
+   {
+    "mcap_sol": 14740,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "65"
+   },
+   {
+    "mcap_sol": 19650,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "60"
+   },
+   {
+    "mcap_sol": 24560,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "55"
+   },
+   {
+    "mcap_sol": 29470,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "50"
+   },
+   {
+    "mcap_sol": 34380,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "45"
+   },
+   {
+    "mcap_sol": 39300,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "40"
+   },
+   {
+    "mcap_sol": 44210,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "35"
+   },
+   {
+    "mcap_sol": 49120,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "30"
+   },
+   {
+    "mcap_sol": 54030,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "28"
+   },
+   {
+    "mcap_sol": 58940,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "25"
+   },
+   {
+    "mcap_sol": 63860,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "23"
+   },
+   {
+    "mcap_sol": 68770,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "20"
+   },
+   {
+    "mcap_sol": 73681,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "18"
+   },
+   {
+    "mcap_sol": 78590,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "15"
+   },
+   {
+    "mcap_sol": 83500,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "13"
+   },
+   {
+    "mcap_sol": 88400,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "10"
+   },
+   {
+    "mcap_sol": 93330,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "8"
+   },
+   {
+    "mcap_sol": 98240,
+    "lp": "20",
+    "protocol": "5",
+    "creator": "5"
+   }
+  ],
+  "flat": {
+   "lp": "25",
+   "protocol": "5",
+   "creator": "0"
+  },
+  "global": {
+   "lpFeeBasisPoints": "20",
+   "protocolFeeBasisPoints": "5",
+   "coinCreatorFeeBasisPoints": "5"
+  }
+ }
+}

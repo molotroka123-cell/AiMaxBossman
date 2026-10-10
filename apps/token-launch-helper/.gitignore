@@ -1,0 +1,3 @@
+node_modules/
+evidence/*.secret
+*.keypair.json

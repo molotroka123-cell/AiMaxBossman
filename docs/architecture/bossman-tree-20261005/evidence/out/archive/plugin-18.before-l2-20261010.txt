@@ -1,0 +1,5 @@
+== plugin-18 plugin:telegram.send probe=approval_gate_refuses ==
+[plugin:telegram.send] default_effect=ask decide_effect(agent without grants)='ask' reason=право channel.send не выдано агенту
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+VERDICT PASS
+

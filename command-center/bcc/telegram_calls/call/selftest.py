@@ -21,11 +21,12 @@ from ..audio.vad import VAD, make_vad
 from ..settings import CallSettings
 from ..speech import scripted
 from ..types import CallError, CallState, CancelToken, Outcome, PeerRef
-from .loopback import LoopbackTransport
+from .loopback import LoopbackLine, LoopbackTransport
 from .session import CallSession, SessionConfig
 
 PEER = PeerRef(222000222, "synthetic interlocutor")
-SCENARIOS = ("basic", "barge_in", "echo", "stop", "no_redial")
+SCENARIOS = ("basic", "barge_in", "echo", "stop", "no_redial")      # what "all" runs
+EXTRA_SCENARIOS = ("answering_machine",)                              # run by name only (it takes ~20 s and has its own ring delay)
 CALLER_RATE = 16000
 
 
@@ -278,7 +279,140 @@ async def scenario_no_redial(engines_factory) -> dict:
     return _verdict("no_redial", checks, {"dial_calls": dials}, None, t0)
 
 
-_RUNNERS = {"basic": scenario_basic, "barge_in": scenario_barge_in, "echo": scenario_echo, "stop": scenario_stop, "no_redial": scenario_no_redial}
+# ---------------------------------------------------------------- answering machine (incoming calls)
+
+ANSWERING_CALLER_LINES = ("Здравствуйте, это Иван.", "Я звоню по поводу договора, перезвоните мне, пожалуйста.", "Спасибо, до свидания.")
+ANSWERING_GREETING = "Это ИИ-ассистент владельца. Приму сообщение."
+ANSWERING_REPLIES = ("Здравствуйте. Кто вы и по какому вопросу?", "Понял, передам. Нужно ли перезвонить?", "Хорошо, передам. До свидания! [конец]")
+
+
+async def _outgoing_quiet(transport: LoopbackTransport, *, start_timeout: float = 20.0, quiet_s: float = 1.2) -> None:
+    """Wait until we (the assistant) have started speaking and then stayed silent for ``quiet_s``."""
+    mark = len(transport.sent)
+    end = time.monotonic() + start_timeout
+    while len(transport.sent) <= mark and time.monotonic() < end and not transport.ended:
+        await asyncio.sleep(0.02)
+    last, since = len(transport.sent), time.monotonic()
+    while time.monotonic() - since < quiet_s and not transport.ended:
+        await asyncio.sleep(0.05)
+        if len(transport.sent) != last:
+            last, since = len(transport.sent), time.monotonic()
+
+
+def answering_caller_script(lines: tuple[str, ...] | list[str] | None = None, *, hang_up: bool = True):
+    """The synthetic CALLER of an answered call: waits for the greeting, speaks its lines (waiting for each answer), hangs up."""
+    texts = list(lines or ANSWERING_CALLER_LINES)
+
+    async def script(transport: LoopbackTransport) -> None:
+        eng = type("E", (), {"tts": scripted.ToneTTS()})()
+        await _outgoing_quiet(transport, start_timeout=30.0)                      # the greeting
+        for i, text in enumerate(texts):
+            if transport.ended:
+                return
+            await transport.feed_realtime(await synth_caller_audio(eng, text, seed=i + 1), CALLER_RATE)
+            await transport.feed_realtime(b"\x00\x00" * (CALLER_RATE * 700 // 1000), CALLER_RATE)
+            await _outgoing_quiet(transport)
+        if hang_up and not transport.ended:
+            transport.peer_hangup()
+    return script
+
+
+class _RecordingTTS:
+    """TTS that remembers what it was asked to say (the self-test checks the greeting and the refusals)."""
+
+    def __init__(self, inner):
+        self.inner, self.said = inner, []
+        self.name, self.voice, self.sample_rate = inner.name, inner.voice, inner.sample_rate
+
+    async def synthesize(self, text, cancel):
+        self.said.append(text)
+        async for chunk in self.inner.synthesize(text, cancel):
+            yield chunk
+
+    def status(self):
+        return self.inner.status()
+
+
+async def _wait_for(cond, timeout: float) -> bool:
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        if cond():
+            return True
+        await asyncio.sleep(0.02)
+    return False
+
+
+async def scenario_answering_machine(engines_factory) -> dict:
+    """Incoming call, owner silent -> Jeff answers after the ring delay and takes a message (>= 3 turns, a log with a summary);
+    the owner picks up in time -> Jeff never joins; STOP while ringing -> declined. All on the loopback line (NOT Telegram)."""
+    import tempfile
+
+    from ..answering import AnsweringMachine
+    from ..answering_store import render_notice
+    from ..speech.factory import Engines
+    t0 = time.monotonic()
+    made: list[Engines] = []
+
+    async def factory(settings, mode):
+        base = _default_engines(list(ANSWERING_REPLIES))
+        for line_text in ANSWERING_CALLER_LINES:
+            base.stt.expect(line_text)
+        base.tts = _RecordingTTS(base.tts)
+        made.append(base)
+        return base
+
+    with tempfile.TemporaryDirectory(prefix="calls-answering-selftest-") as home:
+        settings = CallSettings(answering_machine=True, answer_ring_delay_s=1, answer_greeting=ANSWERING_GREETING)
+        line = LoopbackLine(driver=answering_caller_script())
+        machine = AnsweringMachine(home=home, line=line, engines_factory=factory, settings_loader=lambda: settings,
+                                   stop_active=lambda: False, mode="offline_test",
+                                   cfg_overrides={"greet_wait_s": 0.3, "endpoint": EndpointConfig(hangover_ms=400), "speculative_ms": 200})
+        await machine.arm()
+        await _wait_for(lambda: machine.ready_state == "ready", 10)
+
+        # 1) the owner does not pick up: the ring delay passes, Jeff answers, takes a message, the caller hangs up
+        call = line.ring(555001, "Тестовый звонящий")
+        await asyncio.sleep(0.4)
+        not_before_delay = not line.accepted
+        await _wait_for(lambda: bool(machine.store.list()), 90)
+        report = (machine.store.list() or [{}])[0]
+        answered_engines = next((e for e in made if getattr(e.brain, "history_seen", None)), None)
+        brain_seen = answered_engines.brain.history_seen if answered_engines else []
+        said = answered_engines.tts.said if answered_engines else []
+        checks = {
+            "not_answered_before_ring_delay": not_before_delay,
+            "answered_after_ring_delay": call.call_ref in line.accepted,
+            "greeting_says_an_assistant_answers": bool(said) and "ассистент" in said[0],
+            "dialogue_of_3_turns": len(brain_seen) >= 3,
+            "report_written": bool(report) and report.get("outcome") == "message_taken",
+            "report_has_summary": len(report.get("summary") or []) >= 2,
+            "report_has_transcript": len(report.get("transcript") or []) >= 3,
+            "callback_request_found": bool((report.get("callback") or {}).get("requested")),
+            "owner_notice_is_ready": bool(report) and "Автоответчик" in render_notice(report) and bool(report.get("notify")),
+            "never_dialled_or_called_back": all(t.dial_calls == 0 for t in line.transports.values()),
+        }
+        # 2) the owner picks up himself in time: Jeff never joins
+        n_before = len(line.accepted)
+        call2 = line.ring(555002, "Другой звонящий")
+        await asyncio.sleep(0.3)
+        line.owner_answers_elsewhere(call2)
+        await asyncio.sleep(1.6)
+        checks["owner_picked_up_in_time_jeff_did_not_join"] = len(line.accepted) == n_before and call2.call_ref not in line.accepted
+        # 3) STOP while ringing: the call is declined, never answered
+        call3 = line.ring(555003, "Третий звонящий")
+        await asyncio.sleep(0.3)
+        machine.stop("selftest_stop")
+        await asyncio.sleep(0.2)
+        checks["stop_while_ringing_declines"] = any(ref == call3.call_ref for ref, _ in line.rejected) and call3.call_ref not in line.accepted
+        await machine.shutdown()
+        metrics = {"turns": report.get("turns"), "duration_s": report.get("duration_s"), "summary": report.get("summary"),
+                   "ring_delay_s": settings.answer_ring_delay_s, "outcomes": sorted({r.get("outcome") for r in machine.store.list()}),
+                   "speech_note": "scripted STT/LLM/TTS: proves control flow of the answering machine, not recognition quality"}
+    return _verdict("answering_machine", checks, metrics, None, t0, note="loopback line, not Telegram")
+
+
+_RUNNERS = {"basic": scenario_basic, "barge_in": scenario_barge_in, "echo": scenario_echo, "stop": scenario_stop, "no_redial": scenario_no_redial,
+            "answering_machine": scenario_answering_machine}
 
 
 async def run_selftest(settings: CallSettings, scenario: str = "all", *, real: bool = False,

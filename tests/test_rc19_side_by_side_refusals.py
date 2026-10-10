@@ -209,13 +209,16 @@ def test_stop_rc_counts_zero_and_one_process_under_strict_mode(tmp_path, shell, 
     procs = [subprocess.Popen([sys.executable, str(sleeper)]) for _ in range(running)]
     try:
         time.sleep(1.0)
+        import psutil
+        expected = sum(1 + len(psutil.Process(p.pid).children(recursive=True)) for p in procs)   # real OS processes
         done = subprocess.run([shell, "-NoProfile", "-NonInteractive", "-File", str(SCRIPT),
                                "-Action", "StopRC", "-Sha", SHA, "-Root", str(tmp_path / "root"),
                                "-DataDir", str(tmp_path / "rc-data"), "-Port", "8839"],
                               capture_output=True, text=True, encoding="utf-8", errors="replace",
                               timeout=120)
         assert done.returncode == 0, done.stdout + done.stderr
-        assert f"StopRC: stopped {running} process(es)" in done.stdout
+        # a venv python on Windows is a launcher + its python.exe child: StopRC stops both OS processes
+        assert f"StopRC: stopped {expected} process(es)" in done.stdout, (expected, done.stdout)
         assert "left: 0" in done.stdout
         for p in procs:
             assert p.wait(timeout=10) is not None

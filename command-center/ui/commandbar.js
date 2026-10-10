@@ -111,7 +111,9 @@ export function mountCommandBar({ api = defaultApi, mount = document.body,
   const parseBtn = h('button', { id: 'cmdbar-parse', type: 'submit' }, 'Разобрать');
   const form = h('form.bx-cmd-form', { id: 'cmdbar-form' }, input, parseBtn);
   const hints = h('div.bx-cmd-hints', { id: 'cmdbar-hints' });
-  const note = h('div.bx-cmd-note', { id: 'cmdbar-note' });
+  // Каталог большой (сотни возможностей), и до его прихода панель не должна
+  // молчать: текст заменяется числом возможностей или честной ошибкой.
+  const note = h('div.bx-cmd-note', { id: 'cmdbar-note' }, 'Загружаю каталог возможностей…');
   const intentBox = h('div.bx-cmd-intent', { id: 'cmdbar-intent', hidden: true });
   const tasksBox = h('div.bx-cmd-tasks', { id: 'cmdbar-tasks' });
   const pane = h('section.bx-cmd', { id: 'cmdbar', 'aria-label': 'Командная строка' },
@@ -273,10 +275,22 @@ export function mountCommandBar({ api = defaultApi, mount = document.body,
   form.addEventListener('submit', (e) => { e.preventDefault(); doParse(); });
   input.addEventListener('input', () => renderHints(input.value));
 
-  loadCatalog().then(refreshTasks).catch(() => {
-    note.textContent = 'Командная строка недоступна.';
+  loadCatalog().then(refreshTasks).catch((err) => {
+    note.textContent = err && err.message
+      ? `Командная строка недоступна: ${err.message}` : 'Командная строка недоступна.';
   });
-  timer = setInterval(refreshTasks, poll);
+
+  /* Скрытую вкладку никто не читает — опрос в ней только тратит запросы.
+     Скрыли — таймер снят; показали — список сразу свежий, и таймер снова идёт. */
+  const onVisibility = () => {
+    clearInterval(timer);
+    timer = null;
+    if (document.hidden) return;
+    refreshTasks();
+    timer = setInterval(refreshTasks, poll);
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+  if (!document.hidden) timer = setInterval(refreshTasks, poll);
 
   mounted = {
     pane,
@@ -285,7 +299,12 @@ export function mountCommandBar({ api = defaultApi, mount = document.body,
     execute,
     refresh: refreshTasks,
     intent: () => intent,
-    destroy: () => { clearInterval(timer); pane.remove(); mounted = null; },
+    destroy: () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+      pane.remove();
+      mounted = null;
+    },
   };
   return mounted;
 }

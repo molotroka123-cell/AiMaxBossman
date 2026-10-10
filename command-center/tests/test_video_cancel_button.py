@@ -38,7 +38,7 @@ esac
 exec "$BOSSMAN_TEST_REAL_FFMPEG" "$@"
 """
 WINDOWS_GATE = """@echo off
-echo %* | find "-frames:v" >nul
+echo %* | "%SystemRoot%\\System32\\find.exe" "-frames:v" >nul
 if errorlevel 1 goto run
 :wait
 if exist "%BOSSMAN_TEST_FFMPEG_HOLD%" (ping -n 2 127.0.0.1 >nul & goto wait)

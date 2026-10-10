@@ -1,0 +1,6 @@
+$ (cwd=command-center) C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest ... tests\test_poker_vision_client_reuse.py
+sha: 3b07c9ae735bcda153667ab09a0f18f489dc677d
+
+...                                                                      [100%]
+3 passed in 2.84s
+exit_code: 0

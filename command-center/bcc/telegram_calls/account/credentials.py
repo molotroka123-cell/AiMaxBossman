@@ -29,6 +29,7 @@ class Credentials:
     session: str = field(default="", repr=False)
     me_id: int = 0
     phone_last4: str = ""
+    phone: str = field(default="", repr=False)   # full login phone, vault-encrypted, never logged
 
     def __repr__(self) -> str:                       # explicit: no secret can reach a log through repr()
         return f"Credentials(api_id=…{str(self.api_id)[-2:]}, session={'set' if self.session else 'none'})"
@@ -65,7 +66,8 @@ class CredentialStore:
         data = json.loads(value)
         return Credentials(api_id=int(data.get("api_id") or 0), api_hash=str(data.get("api_hash") or ""),
                            session=str(data.get("session") or ""), me_id=int(data.get("me_id") or 0),
-                           phone_last4=str(data.get("phone_last4") or ""))
+                           phone_last4=str(data.get("phone_last4") or ""),
+                           phone=str(data.get("phone") or ""))
 
     def public(self) -> dict:
         try:
@@ -73,7 +75,7 @@ class CredentialStore:
         except CallError:
             return {"has_api": False, "has_session": False, "unreadable": True}
         return {"has_api": c.has_api, "api_id": mask(str(c.api_id)) if c.api_id else None,
-                "has_session": bool(c.session), "phone": f"+••••{c.phone_last4}" if c.phone_last4 else None,
+                "has_session": bool(c.session), "phone": (mask_phone(c.phone) if c.phone else (f"+••••{c.phone_last4}" if c.phone_last4 else None)),
                 "me_id": c.me_id or None, "unreadable": False}
 
     # ------------------------------------------------------------ write
@@ -86,8 +88,24 @@ class CredentialStore:
         changed = (cur.api_id, cur.api_hash) != (api_id, api_hash.strip())
         cur.api_id, cur.api_hash = api_id, api_hash.strip()
         if changed:                                   # a session belongs to the api_id it was created with
-            cur.session, cur.me_id, cur.phone_last4 = "", 0, ""
+            cur.session, cur.me_id, cur.phone_last4, cur.phone = "", 0, "", ""
         self._write(cur)
+
+    def save_phone(self, phone: str) -> None:
+        import re as _re
+        digits = _re.sub(r"\D", "", phone or "")
+        if not (7 <= len(digits) <= 15):
+            raise CallError("LOGIN_PHONE_INVALID")
+        cur = self._load_or_empty()
+        cur.phone = "+" + digits
+        cur.phone_last4 = digits[-4:]
+        self._write(cur)
+
+    def saved_phone(self) -> str:
+        try:
+            return self._load_or_empty().phone
+        except CallError:
+            return ""
 
     def save_session(self, session: str, me_id: int, phone: str) -> None:
         cur = self._load_or_empty()
@@ -97,7 +115,7 @@ class CredentialStore:
 
     def clear_session(self) -> None:
         cur = self._load_or_empty()
-        cur.session, cur.me_id, cur.phone_last4 = "", 0, ""
+        cur.session, cur.me_id, cur.phone_last4, cur.phone = "", 0, "", ""
         self._write(cur)
 
     def clear_all(self) -> None:
@@ -118,7 +136,8 @@ class CredentialStore:
         self.home.mkdir(parents=True, exist_ok=True, mode=0o700)
         restrict_to_owner(self.home)     # the directory variant: config/state/history already inside stay readable
         blob = self.vault.encrypt(json.dumps({"api_id": c.api_id, "api_hash": c.api_hash, "session": c.session,
-                                              "me_id": c.me_id, "phone_last4": c.phone_last4}))
+                                              "me_id": c.me_id, "phone_last4": c.phone_last4,
+                                              "phone": c.phone}))
         restrict_to_owner(self.vault.path)
         tmp = self.path.with_name(self.path.name + ".tmp")
         fd = os.open(tmp, os.O_CREAT | os.O_TRUNC | os.O_WRONLY, 0o600)

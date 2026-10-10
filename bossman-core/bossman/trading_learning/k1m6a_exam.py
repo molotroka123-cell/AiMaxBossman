@@ -36,6 +36,7 @@ import base64
 import csv
 import hashlib
 import json
+import os
 import re
 import statistics
 import sys
@@ -302,7 +303,10 @@ def _shingles(text: str, n: int = 6) -> set[tuple[str, ...]]:
 
 def leaked_future(prompt_text: str, segments: list[dict], t_cutoff_s: float, *, n: int = 6) -> list[str]:
     """Фрагменты речи ПОСЛЕ контрольного момента, найденные в подсказке ученика."""
-    have = _shingles(prompt_text, n)
+    past = " ".join(str(s.get("text", "")) for s in segments
+                    if float(s.get("end", s.get("start", 0.0))) <= t_cutoff_s)
+    # A fragment the author already said before the cutoff (stock phrases) is not evidence of a leak.
+    have = _shingles(prompt_text, n) - _shingles(past, n)
     leaks = []
     for seg in segments:
         if float(seg.get("start", 0.0)) >= t_cutoff_s and _shingles(str(seg.get("text", "")), n) & have:
@@ -511,7 +515,8 @@ SYSTEM = (
     "1) Опиши видимую структуру и данные графика; нечитаемое и невидимое пиши UNKNOWN, цифры не придумывай. "
     "2) Предскажи, что K1m6a скорее всего скажет дальше: сценарии, условие подтверждения и условие отмены. "
     "3) Если данных мало, поставь need_more=true или abstain=true. Никаких торговых приказов и обещаний. "
-    "Ответь ТОЛЬКО одним JSON-объектом с ключами: fields (объект имя->значение или UNKNOWN), structure (строка), "
+    "Ответь ТОЛЬКО одним JSON-объектом с ключами: fields (объект с именами symbol, exchange, timeframe в виде 5m/30m/1h и last_close, "
+    "то есть число C из строки OHLC главного графика; нечитаемое значение пиши UNKNOWN), structure (строка), "
     "scenarios (список строк), confirm (строка), invalidate (строка), predicted_comment (строка, своими словами), "
     "unknowns (список строк), need_more (bool), abstain (bool).")
 
@@ -555,13 +560,17 @@ def parse_answer(raw: str) -> dict:
 class OpenAICompatStudent:
     """Тот же локальный ИИ, что у Bossman (Ollama/llama.cpp, OpenAI-совместимый /v1)."""
 
-    def __init__(self, endpoint: str, model: str, *, timeout: float = 300.0, max_tokens: int = 1500):
+    def __init__(self, endpoint: str, model: str, *, timeout: float = 300.0, max_tokens: int = 1500,
+                 reasoning_effort: str = ""):
         base = endpoint.rstrip("/")
         self.base = base if base.endswith("/v1") else base + "/v1"
         self.model, self.timeout, self.max_tokens = model, timeout, max_tokens
+        self.reasoning_effort = reasoning_effort      # "none" for thinking models: the answer must land in content
 
     def __call__(self, messages: list[dict]) -> str:
         body = {"model": self.model, "messages": messages, "temperature": 0, "max_tokens": self.max_tokens}
+        if self.reasoning_effort:
+            body["reasoning_effort"] = self.reasoning_effort
         req = urllib.request.Request(self.base + "/chat/completions", method="POST",
                                      data=json.dumps(body, ensure_ascii=False).encode("utf-8", "replace"),
                                      headers={"Content-Type": "application/json"})
@@ -572,17 +581,42 @@ class OpenAICompatStudent:
         return str((choice.get("message") or {}).get("content") or "")
 
 
+def resume_rows(path: str | Path, mode: str, seal_sha: str, criteria_sha: str) -> list[dict]:
+    """OK rows of an earlier, interrupted run of the same mode, safe to keep after a restart.
+
+    Refuses (never silently drops) a file holding rows of another mode or rows answered under a different
+    reference seal / pinned criteria: those answers do not belong to this exam and rewriting the file would
+    destroy them. BAD_JSON / ERROR rows are not kept: they are asked again."""
+    path = Path(path)
+    if not path.is_file():
+        return []
+    rows = read_jsonl(path)
+    if any(r.get("mode") != mode for r in rows):
+        raise ExamError(f"{path.name} holds rows of another mode; use a separate --out per mode")
+    if any(r.get("seal_sha256") != seal_sha or r.get("criteria_sha256") != criteria_sha for r in rows):
+        raise ExamError(f"{path.name} holds rows answered under a different seal or criteria; "
+                        "start a new --out instead of resuming")
+    return [r for r in rows if r.get("status") == "OK"]
+
+
 def ask(situations: list[Situation], split: dict, *, mode: str, student: Callable[[list[dict]], str],
         seal_sha: str, criteria_sha: str, base: str | Path, model_meta: dict,
         lessons_for: Callable[[Situation], list[str]] | None = None,
-        segments_for: Callable[[str], list[dict]] | None = None) -> list[dict]:
-    """Ответы ученика в одном режиме. Каждая строка несёт печать эталона и хэш критериев."""
+        segments_for: Callable[[str], list[dict]] | None = None,
+        on_row: Callable[[dict], None] | None = None, skip: Iterable[str] = ()) -> list[dict]:
+    """Ответы ученика в одном режиме. Каждая строка несёт печать эталона и хэш критериев.
+
+    on_row вызывается, как только строка готова (час-два прогона не должны жить только в памяти);
+    skip — situation_id, уже отвеченные до перезапуска: они не спрашиваются повторно."""
+    skip = set(skip)
     if not seal_sha or not criteria_sha:
         raise ExamError("reference seal and pinned criteria are required BEFORE the student answers")
     if mode == "BASELINE" and lessons_for is not None:
         raise ExamError("BASELINE runs without lessons")
     rows = []
     for s in situations:
+        if s.situation_id in skip:
+            continue
         part = split_of(split, s.video_id)             # train/validation тоже спрашиваются: это учёба
         lessons = lessons_for(s) if (lessons_for and mode in LESSON_MODES) else []
         image = base64.b64encode((Path(base) / s.frame_file).read_bytes()).decode("ascii")
@@ -612,6 +646,8 @@ def ask(situations: list[Situation], split: dict, *, mode: str, student: Callabl
             except ExamError as exc:
                 row.update(status="BAD_JSON", error=str(exc)[:200])
         rows.append(row)
+        if on_row is not None:
+            on_row(row)
     return rows
 
 
@@ -827,6 +863,10 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument(a, required=True)
     p.add_argument("--base", default="."); p.add_argument("--memory-url", default="")
     p.add_argument("--memory-token-file", default=""); p.add_argument("--segments-dir", default="")
+    p.add_argument("--resume", action="store_true",
+                   help="keep the OK rows already in --out and ask only the rest (after a restart)")
+    p.add_argument("--reasoning-effort", default="",
+                   help='"none" for thinking models (qwen3.x vision): without it the answer stays in `reasoning`')
     p = sub.add_parser("aggregate")
     for a in ("--split", "--criteria", "--seal", "--situations", "--references", "--scores", "--out-dir"):
         p.add_argument(a, required=True)
@@ -893,12 +933,21 @@ def main(argv: list[str] | None = None) -> int:
             seg_dir = Path(args.segments_dir) if args.segments_dir else None
             segments_for = (lambda vid: read_jsonl(seg_dir / f"{vid}.segments.jsonl")) if seg_dir else None
             host = urllib.parse.urlsplit(args.endpoint).hostname or ""
-            rows = ask(sits, split, mode=args.mode, student=OpenAICompatStudent(args.endpoint, args.model),
-                       seal_sha=sealed["sha256"], criteria_sha=pinned["sha256"], base=args.base,
-                       model_meta={"model": args.model, "endpoint_host": host}, lessons_for=lessons_for,
-                       segments_for=segments_for)
-            Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.out).write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+            out = Path(args.out)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            kept = resume_rows(out, args.mode, sealed["sha256"], pinned["sha256"]) if args.resume else []
+            out.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in kept), encoding="utf-8")
+
+            def sink(row: dict) -> None:       # every finished answer is on disk before the next one starts
+                with out.open("a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    fh.flush()
+                    os.fsync(fh.fileno())
+            rows = kept + ask(sits, split, mode=args.mode, student=OpenAICompatStudent(args.endpoint, args.model,
+                                                       reasoning_effort=args.reasoning_effort),
+                              seal_sha=sealed["sha256"], criteria_sha=pinned["sha256"], base=args.base,
+                              model_meta={"model": args.model, "endpoint_host": host}, lessons_for=lessons_for,
+                              segments_for=segments_for, on_row=sink, skip={r["situation_id"] for r in kept})
             ok = sum(r["status"] == "OK" for r in rows)
             print(json.dumps({"mode": args.mode, "answered": ok, "failed": len(rows) - ok}))
             return 0 if ok == len(rows) else 1

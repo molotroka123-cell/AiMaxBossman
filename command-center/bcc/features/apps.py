@@ -142,6 +142,12 @@ def _describe(path: Path) -> dict[str, Any] | None:
     ui = raw.get("ui") if isinstance(raw.get("ui"), dict) else {}
     calls = _http_calls(raw)
     port = raw.get("default_port")
+    try:
+        order = int(ui.get("order") or 99)
+    except (TypeError, ValueError, OverflowError):
+        # Кривой ui.order ('first', список, .inf) сдвигает в конец ЭТУ карточку. Раньше
+        # исключение летело из _collect_fresh, и /api/apps терял карточки всех приложений.
+        order = 99
     return {
         "id": str(raw["id"]),
         "name": str(raw.get("name") or raw["id"]),
@@ -152,7 +158,7 @@ def _describe(path: Path) -> dict[str, Any] | None:
         "icon": str(ui.get("icon") or "box"),
         "accent": str(ui.get("accent") or ""),
         "theme": str(ui.get("theme") or ""),
-        "order": int(ui.get("order") or 99),
+        "order": order,
         "port": int(port) if isinstance(port, int) else None,
         "health_path": str(ui.get("health_path") or calls.get("health", "").split(" ")[-1]
                            or "/health"),
@@ -196,7 +202,15 @@ async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -
         if client is None:
             async with _probe_client() as own:
                 return await _probe(app, own)
-        health = await client.get(base + (app.get("health_path") or "/health"))
+        # Здоровье и метрики — одновременно, у каждого запроса свой PROBE_TIMEOUT. Подряд
+        # они складывались: health за 1.0 с + зависшие метрики держали опрос 2.2 с
+        # (измерено), а с ним и /api/apps. Ответ метрик учитывается только при живом health.
+        requests = [client.get(base + (app.get("health_path") or "/health"))]
+        if app.get("metrics_path"):
+            requests.append(client.get(base + app["metrics_path"]))
+        health, *metrics = await asyncio.gather(*requests, return_exceptions=True)
+        if isinstance(health, BaseException):
+            raise health
         out["reachable"] = True  # reachability is not readiness
         out["status"] = "DEGRADED"
         try:
@@ -211,12 +225,15 @@ async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -
             out["status"] = reported
         else:
             out["detail"] = f"health HTTP {health.status_code}: no healthy readiness response"
-        if app.get("metrics_path"):
+        for reply in metrics:          # не больше одного; пусто, если путь метрик не задан
+            if isinstance(reply, (httpx.HTTPError, ValueError)):
+                continue      # метрики необязательны, здоровье важнее
+            if isinstance(reply, BaseException):
+                raise reply   # как и раньше: не сетевая ошибка не глотается
             try:
-                metrics = await client.get(base + app["metrics_path"])
-                if metrics.status_code < 400:
-                    out["metrics"] = metrics.json()
-            except (httpx.HTTPError, ValueError):
+                if reply.status_code < 400:
+                    out["metrics"] = reply.json()
+            except ValueError:
                 pass          # метрики необязательны, здоровье важнее
     except httpx.HTTPError as exc:
         out["detail"] = f"{type(exc).__name__}: приложение не отвечает на {base}"
@@ -296,7 +313,11 @@ async def collect(force: bool = False) -> list[dict[str, Any]]:
 
 async def _collect_fresh() -> list[dict[str, Any]]:
     now = time.monotonic()
-    described = [d for d in (_describe_cached(p) for p in _manifest_files()) if d]
+    # Разбор изменившихся манифестов (yaml: ~31 мс на десять файлов холодным, измерено) —
+    # в рабочем потоке, а не в цикле событий. Кэши по штампу файла те же: неизменный
+    # манифест не разбирается, single-flight выше не даёт двум обходам идти разом.
+    described = await asyncio.to_thread(
+        lambda: [d for d in (_describe_cached(p) for p in _manifest_files()) if d])
     if described:
         async with _probe_client() as client:
             probes = await asyncio.gather(*(_probe(a, client) for a in described))

@@ -52,3 +52,23 @@
 * Окно Jeff (`jeff.html`) не содержит кнопки звонка: звонки — панель «Telegram-звонки» и `bossman call`.
 
 North Star: звонки лестницу не продвигают; уровень остаётся тем, что говорит последнее release-evidence. Тот же Bossman: никакого второго мозга, памяти, очереди или хранилища секретов.
+
+## Answering machine (incoming calls): emulator-verified, not live
+
+Branch `claude/telegram-answering-machine`. Jeff answers an incoming Telegram call for the owner (honest greeting, finds out what the caller
+needs, a log delivered to the owner's Telegram console). Design: `ARCHITECTURE.md` (section "Incoming calls"); evidence: `ACCEPTANCE.md` section E (AM-1…AM-12).
+
+**Owner steps to make it live (none of this has been done; all of it is local to the owner's machine):**
+1. ACCEPTANCE rows 21/22 first: `bossman call install`, then `bossman call setup` (api_id / api_hash, phone, code, 2FA are typed ONLY by the owner), and `bossman call doctor`
+   must show the Jeff voice tract (Whisper / Piper paths) and a local model; the answering machine uses the same engines.
+2. Keep the Telegram companion (owner console) running with the owner console ON, otherwise the reports wait in the outbox
+   (`bossman call answer reports --pending`).
+3. Optional: `bossman call answer config --ring-delay 12 --max-call 180 [--allow ID] [--deny ID] [--allow-unknown yes|no] [--greeting "..."]`.
+4. `bossman call answer on` (or the toggle in the panel). **After every Bossman restart arm it again** (`answer on`): the worker starts only on an owner action.
+5. Test with the second account: let it ring the main account and do not answer: Jeff must answer after the ring delay, say it is an assistant, take a message, and
+   the notice must arrive in the owner's Telegram. Then ring again and pick up on your phone inside the ring delay: Jeff must not join.
+   Write down what happens on the owner's other devices when Jeff answers or when STOP declines (ACCEPTANCE row AM-10): the engine does not report why a ringing call went away.
+6. STOP (`bossman call stop`, the panel, the global STOP) stops answering until `bossman call resume`; the setting stays on.
+
+Known limits: a phone number a caller dictates is masked in the log (the Telegram id / name is what you call back); reports are kept to the newest 200; the engine
+cannot tell "caller gave up" from "answered elsewhere", so both produce a notice unless the owner's pick-up is reported explicitly.

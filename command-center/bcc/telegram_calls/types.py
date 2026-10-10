@@ -103,6 +103,9 @@ ERRORS: dict[str, tuple[str, str]] = {
     "PEER_NOT_FOUND": ("Собеседник не найден в контактах.", "Проверьте юзернейм/номер и что второй аккаунт есть в контактах."),
     "PEER_PRIVACY": ("Второй аккаунт запретил звонки от вас.", "Разрешите звонки в Настройки → Конфиденциальность → Звонки."),
     "CALL_IN_PROGRESS": ("Звонок уже идёт.", "Завершите текущий звонок."),
+    "ANSWERING_NOT_ENABLED": ("Автоответчик выключен в настройках.", "Включите «Автоответчик» в разделе Telegram-звонки: bossman call answer on."),
+    "ANSWERING_NOT_READY": ("Автоответчик ещё не готов принять звонок.", "Подождите загрузки моделей; пропущенный звонок попадёт в журнал как «пропущен»."),
+    "INCOMING_NOT_SUPPORTED": ("Этот движок звонков не принимает входящие.", "Используйте движок с поддержкой входящих звонков."),
     "STOP_ACTIVE": ("Действует STOP: звонки заблокированы.", "Снимите STOP вручную («Продолжить»), затем повторите."),
     "UNCERTAIN_PREVIOUS_CALL": ("Исход предыдущего звонка неизвестен.",
                                 "Проверьте второй аккаунт; повторите с подтверждением, если уверены."),
@@ -247,6 +250,69 @@ class CallTransport(Protocol):
     async def close(self) -> None: ...
 
 
+# ---------------------------------------------------------------- incoming calls (answering machine)
+
+#: one namespace for every caller whose Telegram id the engine could not tell us (zero-start, nothing is ever stored for it)
+UNKNOWN_CALLER_ID = (1 << 52) - 2
+
+#: why an unanswered ringing call went away (``CallLine.set_gone_callback``)
+GONE_CALLER_HANGUP = "caller_hangup"            # the caller gave up before anybody answered
+GONE_ANSWERED_ELSEWHERE = "answered_elsewhere"  # the owner picked up on a device of his own
+GONE_UNKNOWN = "unknown"                        # the engine could not tell why
+
+
+@dataclass(frozen=True)
+class IncomingCall:
+    """A call that is ringing on the owner's account. ``call_ref`` is an opaque, secret-free handle of the engine."""
+    call_ref: str
+    caller_id: int | None            # None = the engine could not identify the caller
+    caller_label: str = ""           # display only (name / @username), may be empty
+    received_at: float = field(default_factory=time.time)
+    transport: str = ""
+
+    @property
+    def known(self) -> bool:
+        return type(self.caller_id) is int and 0 < self.caller_id < 2 ** 52
+
+
+@runtime_checkable
+class AnswerableTransport(CallTransport, Protocol):
+    """A per-call transport that can answer a ringing incoming call (``dial`` is never used for it).
+
+    ``accept`` returns only when media is connected, otherwise raises ``CallError`` (CALL_DISCARDED: the caller was already
+    gone, CALL_NO_ANSWER: the media path did not come up in ``answer_timeout``, TELEGRAM_*). ``hangup`` is idempotent and,
+    called before ``accept`` finished, declines the call.
+    """
+
+    async def accept(self, call: IncomingCall, *, answer_timeout: float) -> None: ...
+
+
+@runtime_checkable
+class CallLine(Protocol):
+    """The incoming-call hook of a transport: a long-lived listener that turns ringing calls into per-call transports.
+
+    Contract:
+    * ``listen`` starts watching for incoming calls; it never answers anything by itself;
+    * ``set_incoming_callback`` receives each ringing call (may run on any thread/loop callback; must not block);
+    * ``set_gone_callback`` is told when a call that was NOT answered by us stopped ringing (caller hung up, answered on
+      another device); never called for a call we accepted (that one is the per-call transport's ``ENDED`` event);
+    * ``new_transport(call)`` returns a fresh ``CallTransport`` for exactly that call; its ``accept`` answers it, and
+      ``dial`` must never be called on it;
+    * ``reject(call)`` declines a call we have not accepted (idempotent; safe when the call is already gone);
+    * nothing here ever places a call: there is no redial and no callback.
+    """
+
+    name: str
+    live_tested: bool                # False for any engine that has not been exercised against real Telegram
+
+    async def listen(self) -> None: ...
+    def set_incoming_callback(self, cb: Callable[[IncomingCall], None]) -> None: ...
+    def set_gone_callback(self, cb: Callable[[str, str], None]) -> None: ...
+    def new_transport(self, call: IncomingCall) -> CallTransport: ...
+    async def reject(self, call: IncomingCall, reason: str = "rejected") -> None: ...
+    async def close(self) -> None: ...
+
+
 # ---------------------------------------------------------------- speech engines
 
 @dataclass
@@ -365,6 +431,7 @@ class CallRecord:
     counters: dict[str, int] = field(default_factory=dict)  # barge_ins, echo_suppressed, stt_empty, ...
     summary: CallSummary | None = None
     recorded_audio: bool = False
+    direction: str = "outgoing"         # "outgoing" (the owner's dial) | "incoming" (answering machine)
 
     def as_dict(self) -> dict[str, Any]:
         latencies = [t.response_latency_ms for t in self.turns if t.response_latency_ms is not None]
@@ -373,7 +440,7 @@ class CallRecord:
                 "outcome": self.outcome.value if self.outcome else None, "error_code": self.error_code,
                 "state": self.state.value, "turns": [t.as_dict() for t in self.turns],
                 "latency_ms": latency_stats(latencies), "models": dict(self.models),
-                "counters": dict(self.counters), "recorded_audio": self.recorded_audio,
+                "counters": dict(self.counters), "recorded_audio": self.recorded_audio, "direction": self.direction,
                 "summary": ({"text": self.summary.text, "agreed_tasks": list(self.summary.agreed_tasks),
                              "generated_by": self.summary.generated_by} if self.summary else None)}
 

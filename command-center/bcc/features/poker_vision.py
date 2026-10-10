@@ -7,6 +7,7 @@ This feature is a thin, loopback-only proxy plus lifecycle glue. It owns no visi
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from datetime import datetime, timezone
@@ -27,6 +28,13 @@ TREE_NODE = "pv"
 DEFAULT_PORT = 8931
 TIMEOUT = httpx.Timeout(20.0, connect=2.0)
 
+# Один клиент на цикл событий вместо нового на каждый вызов: постройка httpx.AsyncClient —
+# ~18 мс синхронного CPU (SSL-контекст, измерено), а страница опрашивает overlay 4 раза в
+# секунду. Клиент привязан к циклу, в котором открыл соединения, поэтому другой цикл
+# получает свой. Хука остановки у фичи нет: соединения закрываются вместе с процессом.
+_client: httpx.AsyncClient | None = None
+_client_loop: asyncio.AbstractEventLoop | None = None
+
 
 def _port() -> int:
     app_dir = apps_control.find_app_dir(APP_ID)
@@ -45,12 +53,15 @@ def _base() -> str:
 
 
 async def _call(method: str, path: str, body: dict | None = None, raw: bool = False):
-    async with httpx.AsyncClient(timeout=TIMEOUT, trust_env=False) as client:
-        try:
-            r = await client.request(method, _base() + path, json=body)
-        except httpx.HTTPError as exc:
-            raise HTTPException(503, {"code": "PV_SERVICE_DOWN", "message": f"сервис Poker Vision не отвечает: {type(exc).__name__}",
-                                      "hint": "запустите его кнопкой «Запустить сервис» (политика приложений должна это разрешать)"}) from exc
+    global _client, _client_loop
+    loop = asyncio.get_running_loop()
+    if _client is None or _client.is_closed or _client_loop is not loop:
+        _client, _client_loop = httpx.AsyncClient(timeout=TIMEOUT, trust_env=False), loop
+    try:
+        r = await _client.request(method, _base() + path, json=body)
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, {"code": "PV_SERVICE_DOWN", "message": f"сервис Poker Vision не отвечает: {type(exc).__name__}",
+                                  "hint": "запустите его кнопкой «Запустить сервис» (политика приложений должна это разрешать)"}) from exc
     if raw:
         if r.status_code >= 400:
             raise HTTPException(r.status_code, {"code": "PV_NO_FRAME"})

@@ -272,7 +272,10 @@ jobs:
   owner-experience:
     needs: bundle
     runs-on: windows-latest
-    timeout-minutes: 45
+    # Measured 08.10: the passing run on 5f008c19 took 43.5 of 45 min (button inventory alone 36 min);
+    # on 1eac8ac8 a slower runner spent 8.8 min instead of 5.4 on the installed browser tests and the
+    # job hit 45 min mid-inventory (cancelled, no failed check). Every check is unchanged; only the budget grows.
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with:

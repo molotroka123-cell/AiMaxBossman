@@ -419,3 +419,20 @@ async def test_one_failing_stop_does_not_end_the_global_stop_watcher():
     assert await until(lambda: rt.manager.calls == 2, 3), "the NEXT global STOP still reaches the calls manager"
     watcher.cancel()
     await asyncio.wait({watcher})
+
+
+# ------------------------------------------------------------------ audit F1 (2026-10-07): answering engines see the durable STOP
+
+async def test_answering_engines_get_the_same_durable_stop_callable_as_the_dial_path(tmp_path, monkeypatch):
+    import bcc.telegram_calls.speech.factory as factory
+    seen = {}
+
+    async def fake_build(settings, mode="", stopped=lambda: False, *, answering=False):
+        seen["stopped"], seen["answering"] = stopped, answering
+        return "engines"
+
+    monkeypatch.setattr(factory, "build_engines", fake_build)
+    worker = Worker(tmp_path / "home", write=lambda e: None, mode="")
+    assert await worker._answering_engines(CallSettings(), "") == "engines"
+    assert seen["answering"] is True
+    assert seen["stopped"] == worker.state.stop_is_set, "the durable STOP flag must reach the answering STT/TTS/brain"

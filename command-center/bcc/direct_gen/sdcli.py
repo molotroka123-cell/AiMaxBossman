@@ -220,6 +220,9 @@ def build_argv(spec: SdSpec, binary: Path, root: Path, params: dict, prompt: str
         argv += ["-r", str(image)]
     if negative:
         argv += ["-n", negative]
+    lora_dir = os.environ.get("BOSSMAN_DIRECT_GEN_LORA_DIR", "")
+    if lora_dir and "<lora:" in prompt and Path(lora_dir).is_absolute() and Path(lora_dir).is_dir():
+        argv += ["--lora-model-dir", lora_dir]           # the owner's own LoRA; the prompt itself stays verbatim
     return argv
 
 
@@ -256,8 +259,9 @@ class RunResult:
 class SdCliRunner:
     """Runs one engine process; reports real step progress; STOP kills the whole process tree."""
 
-    def __init__(self) -> None:
+    def __init__(self, progress: re.Pattern = PROGRESS) -> None:
         self.proc: asyncio.subprocess.Process | None = None
+        self.progress = progress                    # the engine's own "value/max" progress line (sd-cli by default)
 
     async def run(self, argv: list[str], *, cwd: Path, on_progress: Callable[[int, int], Awaitable[None]] | None = None) -> RunResult:
         from ..studio.providers.sdcpp import bind_to_owner_lifetime
@@ -296,7 +300,7 @@ class SdCliRunner:
                     line = raw.decode("utf-8", "replace").strip()
                     if not line:
                         continue
-                    m = PROGRESS.search(line)
+                    m = self.progress.search(line)
                     if m and on_progress:
                         await on_progress(int(m.group(1)), int(m.group(2)))
                     elif not m:

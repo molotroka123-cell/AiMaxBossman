@@ -192,7 +192,7 @@ async function openAssignSkill(ctx, s) {
         try {
           await api.raw(`/api/skills/${encodeURIComponent(s.id)}/assign`, { method: 'POST', body: { agent_id: idVal(agentEl.value) } });
           handle.close();
-          toastOk('Навык назначен агенту');
+          toastOk('Назначение сохранено', 'Это отметка в списке: агент не применяет навык сам — запускайте его кнопкой «Запустить»');
           ctx.refresh();
         } catch (e) { toastError(e, 'Не удалось назначить'); }
       }, { cls: 'btn btn-primary', iconName: 'check' }),

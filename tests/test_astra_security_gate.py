@@ -72,7 +72,7 @@ def test_windows_bundle_audits_the_shipped_lock_not_this_runner(tmp_path, monkey
     assert gate.main() == 1                                   # a finding in the shipped lock blocks
     assert len(seen) == 1 and "bandit" not in seen[0]         # no SAST of source for a lock audit
     cmd = seen[0]
-    assert cmd[cmd.index("-r") + 1].endswith("tools/windows_bundle_lock.txt")
+    assert cmd[cmd.index("-r") + 1].replace("\\", "/").endswith("tools/windows_bundle_lock.txt")   # Windows path separators
     assert "--require-hashes" in cmd and "--disable-pip" in cmd
     report = json.loads((tmp_path / "summary.json").read_text())
     assert report["pip-audit"]["status"] == "FINDINGS" and report["pip-audit"]["findings"] == 1
