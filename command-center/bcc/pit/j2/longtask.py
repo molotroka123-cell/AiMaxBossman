@@ -105,7 +105,10 @@ class LongTaskModule(BaseModule):
             clean = redact_secrets(str(text or "").strip())[0][:RESULT_CHARS]
             if not clean:
                 raise ActionNotPerformed("empty result")      # nothing happened outside: safe to retry
-            _atomic_json(self._result_path(owner, task_id), {"text": clean})
+            try:
+                _atomic_json(self._result_path(owner, task_id), {"text": clean})
+            except OSError:
+                raise ActionNotPerformed("result not written") from None
             return f"chars:{len(clean)}"
 
         async def work_done(_key: str, _params: dict) -> bool:
@@ -116,7 +119,7 @@ class LongTaskModule(BaseModule):
             if result is None:
                 raise ActionNotPerformed("no result to deliver")
             raw = await self.sender(owner, f"Задача готова: «{goal[:120]}»\n\n{result}", key)
-            if raw is True or raw is None or raw == "sent":
+            if raw is True or raw == "sent":
                 return "sent"
             if raw == "undeliverable":
                 return "next_turn"                            # Jeff window: «результат задачи N» shows it
@@ -207,7 +210,7 @@ class LongTaskModule(BaseModule):
 
     async def pre_route(self, ctx: TurnContext) -> Advice | None:
         text = ctx.text.strip()
-        if not text or len(text) > 2000 or text.startswith("/"):
+        if not text or len(text) > 2000 or text.startswith("/") or not _PERSON.fullmatch(ctx.person_key):
             return None
         norm = _norm(text)
         create = _CREATE.match(text)
@@ -220,10 +223,18 @@ class LongTaskModule(BaseModule):
             return Advice(reply=self._result(ctx.person_key, int(m.group(1))), tags=("longtask",))
         m = _CANCEL.match(norm)
         if m:
-            return Advice(reply=self._cancel(ctx.person_key, int(m.group(1))), tags=("longtask",))
+            return Advice(reply=await self._cancel(ctx.person_key, int(m.group(1))), tags=("longtask",))
         if _FORGET.match(norm):
-            return Advice(reply=self._forget(ctx.person_key), tags=("longtask",))
+            return Advice(reply=await self._forget(ctx.person_key), tags=("longtask",))
         return None
+
+    async def _stop_runs(self, run_ids: list[str]) -> None:
+        """Cancel and WAIT: a run unwinding after the cancel must not write over the cancel or the deletion."""
+        runs = [self._runs.pop(r) for r in run_ids if r in self._runs]
+        for run in runs:
+            run.cancel()
+        if runs:
+            await asyncio.gather(*runs, return_exceptions=True)
 
     def _create(self, ctx: TurnContext, goal: str) -> str:
         owner = ctx.person_key
@@ -275,24 +286,21 @@ class LongTaskModule(BaseModule):
             return f"Задача {n} ещё {STATE_RU.get(task['state'], 'в работе')}; результата пока нет."
         return f"Результат задачи {n} («{task['goal'][:80]}»):\n\n{text}"
 
-    def _cancel(self, owner: str, n: int) -> str:
+    async def _cancel(self, owner: str, n: int) -> str:
         task = self._nth(owner, n)
         if task is None:
             return "Нет задачи с таким номером. Список: «мои задачи»."
         if task["state"] in TERMINAL:
             return f"Задача {n} уже завершена."
-        run = self._runs.pop(f"{owner}/{task['id']}", None)
-        if run is not None:
-            run.cancel()
+        await self._stop_runs([f"{owner}/{task['id']}"])
         try:
             self.store.cancel(owner, task["id"])
         except TaskError:
             return f"Задачу {n} сейчас нельзя отменить."
         return f"Отменил задачу {n}."
 
-    def _forget(self, owner: str) -> str:
-        for run_id in [k for k in self._runs if k.startswith(owner + "/")]:
-            self._runs.pop(run_id).cancel()
+    async def _forget(self, owner: str) -> str:
+        await self._stop_runs([k for k in self._runs if k.startswith(owner + "/")])
         try:
             folder = self.store._dir(owner)
         except TaskError:

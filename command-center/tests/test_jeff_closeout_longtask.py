@@ -224,3 +224,36 @@ def test_runtime_end_to_end_and_delete_me_removes_tasks(tmp_path, monkeypatch):
     asyncio.run(runtime.handle(person, message("подтверждаю", message_id=302)))
     assert not (runtime.home / "tasks" / key).exists()
     asyncio.run(runtime.close())
+
+
+def test_cancel_and_forget_wait_for_a_running_task(tmp_path):
+    """Review finding (Haiku 5.5): a cancelled run must not write its result after the cancel / deletion."""
+    started = []
+
+    class Slow:
+        async def __call__(self, person_key, goal):
+            started.append(goal)
+            await asyncio.sleep(30)
+            return "поздний результат"
+
+    async def scenario():
+        mod = module(tmp_path, drafter=Slow())
+        await mod.pre_route(ctx("поставь задачу: первая"))
+        while not started:
+            await asyncio.sleep(0.01)
+        assert (await mod.pre_route(ctx("отмени задачу 1"))).reply == "Отменил задачу 1."
+        task = mod._listed(PK)[0]
+        assert task["state"] == "FAILED" and mod.result_text(PK, task["id"]) is None
+        await mod.pre_route(ctx("поставь задачу: вторая"))
+        while len(started) < 2:
+            await asyncio.sleep(0.01)
+        assert "Удалил" in (await mod.pre_route(ctx("удали мои задачи"))).reply
+        await asyncio.sleep(0.05)
+        assert not (tmp_path / "tasks" / PK).exists()
+    asyncio.run(scenario())
+
+
+def test_non_participant_keys_are_ignored(tmp_path):
+    mod = module(tmp_path)
+    assert asyncio.run(mod.pre_route(ctx("мои задачи", key="owner"))) is None
+    assert asyncio.run(mod.pre_route(ctx("результат задачи 1", key="../x"))) is None

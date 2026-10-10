@@ -1919,8 +1919,9 @@ class ParticipantRuntime:
             if lowered in {"подтверждаю", "confirm", "да, подтверждаю"}:
                 # long tasks (goals and results) live under <pit home>/tasks/<key>, outside the persona folder
                 tasks_dir = self.home / "tasks" / person_key
-                had_tasks = tasks_dir.is_dir()
-                shutil.rmtree(tasks_dir, ignore_errors=True)
+                had_tasks = bool(re.fullmatch(r"[0-9a-f]{64}", person_key)) and tasks_dir.is_dir()
+                if had_tasks:
+                    shutil.rmtree(tasks_dir, ignore_errors=True)
                 if not self.vault.delete(person_key) and not had_tasks:
                     return "Удалять нечего — профиль уже отсутствует."
                 self._memory_epoch[person_key] = self._memory_epoch.get(person_key, 0) + 1
