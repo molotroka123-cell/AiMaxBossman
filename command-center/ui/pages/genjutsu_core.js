@@ -38,6 +38,20 @@ export const PRESETS = [
     hair: { on: true, color: '#c46e3d', strength: 75, lightness: 35 }, top: { on: true, color: '#667052', strength: 80, lightness: 45 } } },
   { id: 'platinum', label: 'Платина', note: 'платиновые волосы · белый верх', regions: {
     hair: { on: true, color: '#ebe6da', strength: 70, lightness: 55 }, top: { on: true, color: '#ecebe6', strength: 60, lightness: 70 } } },
+  { id: 'hair-blue', label: 'Волосы · синие', note: 'только волосы', regions: {
+    hair: { on: true, color: '#1f5fd1', strength: 85, lightness: 45 } } },
+  { id: 'hair-green', label: 'Волосы · зелёные', note: 'только волосы', regions: {
+    hair: { on: true, color: '#1f9d55', strength: 85, lightness: 45 } } },
+  { id: 'hair-white', label: 'Волосы · белые', note: 'только волосы', regions: {
+    hair: { on: true, color: '#f2f0ea', strength: 80, lightness: 70 } } },
+  { id: 'hair-black', label: 'Волосы · чёрные', note: 'вернуть чёрный', regions: {
+    hair: { on: true, color: '#0d0d10', strength: 90, lightness: 30 } } },
+  { id: 'uniform', label: 'Униформа', note: 'белая рубашка · тёмный низ', regions: {
+    top: { on: true, color: '#f1f0ec', strength: 85, lightness: 72 }, bottom: { on: true, color: '#2a2b30', strength: 85, lightness: 35 } } },
+  { id: 'denim', label: 'Деним', note: 'синий верх · светлый низ', regions: {
+    top: { on: true, color: '#3d5a86', strength: 80, lightness: 50 }, bottom: { on: true, color: '#9fb2c9', strength: 70, lightness: 60 } } },
+  { id: 'emerald-night', label: 'Изумруд', note: 'изумрудное платье/верх · чёрные волосы', regions: {
+    clothes: { on: true, color: '#2f6b4a', strength: 80, lightness: 45 }, hair: { on: true, color: '#0d0d10', strength: 85, lightness: 30 } } },
 ];
 
 export function defaultSettings() {

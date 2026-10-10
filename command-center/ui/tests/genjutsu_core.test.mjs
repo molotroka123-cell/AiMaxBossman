@@ -177,3 +177,15 @@ test('live speed: 1320x1108 frame with ~45% masked recolours fast enough for a s
   console.log(`recolour 1320x1108, ${prep.active.length} px in zones: ${ms.toFixed(0)} ms`);
   assert.ok(ms < 1500, `${ms} ms`);
 });
+
+test('presets: hair colours blue/green/white/black and outfit presets recolour only their zones', () => {
+  const need = ['hair-blue', 'hair-green', 'hair-white', 'hair-black', 'uniform', 'denim', 'emerald-night'];
+  for (const id of need) assert.ok(PRESETS.find((p) => p.id === id), id);
+  const hairOnly = presetSettings(PRESETS.find((p) => p.id === 'hair-blue'));
+  assert.equal(hairOnly.hair.on, true);
+  assert.equal(hairOnly.top.on, false);          // a hair preset never touches the clothes
+  const uni = presetSettings(PRESETS.find((p) => p.id === 'uniform'));
+  assert.equal(uni.top.on, true);
+  assert.equal(uni.hair.on, false);              // the outfit preset never touches the hair
+  assert.equal(new Set(PRESETS.map((p) => p.id)).size, PRESETS.length);   // unique ids
+});
