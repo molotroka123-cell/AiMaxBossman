@@ -555,7 +555,9 @@ class ComputerOperatorManager:
         """
         task=asyncio.ensure_future(coro)
         deadline=None if seconds is None else time.monotonic()+seconds
-        started=time.monotonic(); outcome="ok"
+        # Длительность — perf_counter: monotonic на Windows/Py3.12 = GetTickCount64
+        # с шагом 15.6 мс, фаза в 5 мс записывалась как 0. Дедлайн остаётся на monotonic.
+        started=time.perf_counter(); outcome="ok"
         try:
             while True:
                 budget=OWNER_POLL_S if deadline is None else min(OWNER_POLL_S,max(0.0,deadline-time.monotonic()))
@@ -576,7 +578,7 @@ class ComputerOperatorManager:
             outcome="error"
             raise
         finally:
-            self._record_phase(phase,(time.monotonic()-started)*1000,outcome)
+            self._record_phase(phase,(time.perf_counter()-started)*1000,outcome)
             if not task.done():
                 task.cancel()
                 # Ждём саму обёртку, а не работу: без этого «Task was destroyed
