@@ -180,10 +180,9 @@ async def test_ai_fallback_on_llm_error():
     )
 
     assert isinstance(decision, VolumeDecision)
-    assert decision.action in ["BUY", "SELL", "WAIT", "KOTH_PULSE", "FLOOR_DEFENSE"]
-    # Due to silence > 25s, it should trigger KOTH_PULSE
-    assert decision.action == "KOTH_PULSE"
-    assert 0.03 <= decision.amount_sol <= 0.08
+    assert decision.action == "WAIT"
+    assert decision.mode_tag == "POLICY_HOLD_NO_ACTIVITY"
+    assert decision.amount_sol == 0
     assert 4.0 <= decision.delay_sec <= 95.0
     assert 0 <= decision.wallet_index < 20
     assert orchestrator.total_fallback_calls == 1
@@ -199,23 +198,22 @@ def test_dashboard_endpoints():
     """
     client = TestClient(app)
 
-    # 1. Generate Vault
+    # 1. Real key generation is disabled in the paper-only control plane.
     res_gen = client.post("/api/vault/generate", json={
         "count": 15,
         "password": "MasterTestPassword777!"
     })
-    assert res_gen.status_code == 200
-    data_gen = res_gen.json()
-    assert data_gen["status"] == "SUCCESS"
-    assert data_gen["count"] == 15
+    assert res_gen.status_code == 403
+    assert res_gen.json()["reason"] == "PAPER_ONLY_REAL_KEY_GENERATION_DISABLED"
 
     # 2. Get Wallets
     res_wallets = client.get("/api/vault/wallets")
     assert res_wallets.status_code == 200
     data_wallets = res_wallets.json()
-    assert data_wallets["count"] == 15
-    assert len(data_wallets["wallets"]) == 15
+    assert data_wallets["count"] == 10
+    assert len(data_wallets["wallets"]) == 10
     assert "sol_balance" in data_wallets["wallets"][0]
+    assert data_wallets["wallets"][0]["role"] == "virtual_paper_wallet"
 
     # 3. Start Bot
     res_start = client.post("/api/bot/start", json={
@@ -226,8 +224,10 @@ def test_dashboard_endpoints():
     })
     assert res_start.status_code == 200
     data_start = res_start.json()
-    assert data_start["status"] == "SUCCESS"
+    assert data_start["status"] == "RUNNING"
     assert data_start["bot_status"] == "RUNNING"
+    assert data_start["mode"] == "PAPER_TRADING_ONLY"
+    assert data_start["live_execution_enabled"] is False
 
     # 4. Telemetry
     res_telem = client.get("/api/telemetry")
@@ -236,7 +236,7 @@ def test_dashboard_endpoints():
     assert data_telem["bot_status"] in ["RUNNING", "PAUSED", "STOPPED"]
     assert "metrics" in data_telem
     assert "jito_stats" in data_telem
-    assert data_telem["jito_stats"]["mempool_leak_prevention"] == "100%_SECURED"
+    assert data_telem["jito_stats"]["mempool_leak_prevention"] == "LIVE_BUNDLES_DISABLED"
 
     # 5. Stop Bot (Kill Switch)
     res_stop = client.post("/api/bot/stop")
@@ -245,16 +245,13 @@ def test_dashboard_endpoints():
     assert data_stop["status"] in ["SUCCESS", "STOPPED"]
     assert data_stop["bot_status"] == "STOPPED"
 
-    # 6. Emergency Sweep
-    cold_target = str(Keypair().pubkey())
+    # 6. A paper-only runtime cannot claim to sweep real funds.
     res_sweep = client.post("/api/bot/sweep", json={
-        "cold_destination_pubkey": cold_target,
+        "cold_destination_pubkey": str(Keypair().pubkey()),
         "password": "MasterTestPassword777!"
     })
-    assert res_sweep.status_code == 200
-    data_sweep = res_sweep.json()
-    assert data_sweep["status"] == "SUCCESS"
-    assert data_sweep["destination"] == cold_target
+    assert res_sweep.status_code == 409
+    assert res_sweep.json()["reason"] == "PAPER_ONLY_NO_REAL_WALLETS_OR_FUNDS"
 
 
 # ==============================================================================
