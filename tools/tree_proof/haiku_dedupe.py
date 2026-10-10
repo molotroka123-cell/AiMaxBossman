@@ -87,20 +87,11 @@ def retire(receipts: list, node: dict, keep: dict, match: str, reason: str, zone
     """Write the evidence file and the RETIRE audit receipt that tree_apply_evidence validates."""
     nid = node["id"]
     started = datetime.now(timezone.utc).isoformat()
-    text = (f"$ haiku_dedupe zone={zone} judge={tr.judge.MODEL}
-sha: {sha}
-
-judge: {reason}
-"
-            f"deterministic: {nid} vs {keep['id']}: {match}
-keep: {keep['id']} ({keep['status']}) «{keep['label']}»
-"
-            f"retire: {nid} ({node['status']}) «{node['label']}»
-exit_code: 0
-")
+    text = (f"$ haiku_dedupe zone={zone} judge={tr.judge.MODEL}\nsha: {sha}\n\njudge: {reason}\n"
+            f"deterministic: {nid} vs {keep['id']}: {match}\nkeep: {keep['id']} ({keep['status']}) «{keep['label']}»\n"
+            f"retire: {nid} ({node['status']}) «{node['label']}»\nexit_code: 0\n")
     out = EVID / "out" / f"{nid.replace('/', '_')}.txt"
-    out.write_text(text, encoding="utf-8", newline="
-")
+    out.write_text(text, encoding="utf-8", newline="\n")
     receipts = [r for r in receipts if r.get("node_id") != nid]
     receipts.append({"node_id": nid, "sha": sha, "probe": f"audit: duplicate of {keep['id']} ({match}), judge {tr.judge.MODEL}",
                      "command": "python tools/tree_proof/haiku_dedupe.py", "exit_code": 0, "started_at": started,
