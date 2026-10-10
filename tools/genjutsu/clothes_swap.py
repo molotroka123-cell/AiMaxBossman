@@ -65,6 +65,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--src", type=Path, required=True)
     ap.add_argument("--masks", type=Path, required=True, help="folder of PNG clothes masks named 0001.png.. for the frames")
+    ap.add_argument("--keep", type=Path, help="folder of PNG masks (same names) that must stay SOURCE pixels, e.g. hair")
     ap.add_argument("--ref", type=Path, required=True)
     ap.add_argument("--prompt", required=True)
     ap.add_argument("--job", type=Path, required=True)
@@ -94,6 +95,9 @@ def main(argv=None) -> int:
     (job / "hole").mkdir(exist_ok=True)
     for i, img in enumerate(frames, 1):
         hole = dilated(Image.open(a.masks / f"{i:04d}.png"), DILATE)
+        if a.keep is not None:   # smoke 10.10: long dark hair inside the dilated hole was repainted as a black blob
+            keep = Image.open(a.keep / f"{i:04d}.png").convert("L").point(lambda v: 255 if v > 127 else 0)
+            hole = Image.fromarray(((np.asarray(hole) > 127) & ~(np.asarray(keep) > 127)).astype(np.uint8) * 255)
         hole.save(job / "hole" / f"{i:04d}.png")
         small = img.resize((a.width, a.height), Image.LANCZOS)
         m = hole.resize((a.width, a.height), Image.NEAREST)
