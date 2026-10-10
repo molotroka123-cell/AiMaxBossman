@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from ..single_flight import await_shared
-from . import catalog, faceswap, sdcli
+from . import catalog, faceswap, genjutsu, sdcli
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .store import JobStore, valid_participant
 
@@ -143,6 +143,9 @@ class DirectGenService:
         self._foreign = foreign_engines or sdcli.foreign_engines
         self.faceswap_home = faceswap.default_root()
         self.faceswap_workers = faceswap.DEFAULT_WORKERS
+        self.genjutsu_model = genjutsu.default_segformer_model()
+        self.masks_runner: Callable[[list[str], Path, float], Any] = self._run_masks
+        self._masks_lock: asyncio.Lock | None = None
         self.gpu_grace_seconds = gpu_grace_seconds       # a just-finished engine may still be listed for a moment (seen on Windows)
         self._tasks: dict[str, asyncio.Task] = {}
         self._waiting: list[str] = []
@@ -596,6 +599,70 @@ class DirectGenService:
             if self._running == job_id:
                 self._running = None
             self._stopping.discard(job_id)
+
+    # ---------- Genjutsu live constructor: masks once, recolour live in the browser ----------
+
+    def genjutsu_info(self) -> dict:
+        info = genjutsu.describe(self.faceswap_home, self.genjutsu_model)
+        info["gpu_busy"] = self._running is not None
+        return info
+
+    async def create_masks(self, participant: str, body: dict) -> dict:
+        """Region masks for one picture. Nothing is stored: the work folder is deleted before the answer is sent."""
+        valid_participant(participant)
+        if body.get("consent") is not True:
+            raise DirectGenError(422, "consent_required",
+                                 "confirm that the person in the picture agreed to have their image edited")
+        info = genjutsu.describe(self.faceswap_home, self.genjutsu_model)
+        engine = body.get("engine") or info["default_engine"]
+        known = {e["id"]: e for e in info["engines"]}
+        if engine not in known:
+            if engine is None:
+                raise DirectGenError(409, "model_unavailable", "; ".join(e["reason"] for e in info["engines"]))
+            raise DirectGenError(422, "invalid_engine", "engine must be one of: " + ", ".join(genjutsu.ENGINES))
+        if not known[engine]["available"]:
+            raise DirectGenError(409, "model_unavailable", known[engine]["reason"])
+        image = self._decode(body.get("image_b64"), "image")
+        if image is None:
+            raise DirectGenError(422, "image_required", "a picture (PNG or JPEG) is needed")
+        ext = sdcli.image_extension(image)
+        size = genjutsu.image_size(image) if ext else None
+        if ext is None or size is None:
+            raise DirectGenError(422, "image_invalid", "image must be PNG or JPEG")
+        if max(size) > genjutsu.MAX_SIDE or min(size) < 16:
+            raise DirectGenError(422, "image_invalid", f"picture sides must be 16..{genjutsu.MAX_SIDE} px")
+        provider = "directml"
+        if self._running is not None:              # a GPU job holds DirectML: masks go to the CPU instead of racing it
+            if engine == "facefusion":
+                raise DirectGenError(409, "gpu_busy", "a GPU job is running; the FaceFusion engine needs the GPU")
+            provider = "cpu"
+        if self._masks_lock is None:
+            self._masks_lock = asyncio.Lock()
+        async with self._masks_lock:
+            work = self.data_dir / "genjutsu-tmp" / uuid.uuid4().hex
+            work.mkdir(parents=True, exist_ok=True)
+            started = time.perf_counter()
+            try:
+                src = work / f"frame{ext}"
+                src.write_bytes(image)
+                argv = genjutsu.worker_argv(engine, self.faceswap_home, self.genjutsu_model, src, work / "masks", provider)
+                run = await asyncio.to_thread(self.masks_runner, argv, self.faceswap_home, 300)
+                if run.returncode != 0 or not (work / "masks" / "masks.json").is_file():
+                    tail = ((run.stdout or "") + (run.stderr or ""))[-600:]
+                    raise DirectGenError(502, "engine_error", f"mask worker exited with code {run.returncode}: {tail}")
+                try:
+                    out = genjutsu.collect(work / "masks", engine)
+                except (OSError, ValueError) as exc:
+                    raise DirectGenError(502, "bad_output", f"mask worker output unusable: {exc}") from None
+            finally:
+                shutil.rmtree(work, ignore_errors=True)
+        out.update(seconds_total=round(time.perf_counter() - started, 3), provider=provider, consent_confirmed=True,
+                   image={"width": size[0], "height": size[1], "bytes": len(image)}, stored=False)
+        return out
+
+    @staticmethod
+    def _run_masks(argv: list[str], cwd: Path, timeout: float):
+        return subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True, timeout=timeout, check=False)
 
     def _preflight(self, spec: sdcli.SdSpec) -> None:
         busy = self._foreign()

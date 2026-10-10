@@ -244,6 +244,9 @@ jobs:
       - name: Telegram calls panel contracts
         run: node --test command-center/ui/tests/telegram_calls.test.mjs
 
+      - name: Genjutsu constructor contracts (recolour, per-zone history, LoRA ZIP)
+        run: node --test command-center/ui/tests/genjutsu_core.test.mjs
+
   windows-paths:
     # TRUTH-003 §16 / TL-01: только пути, где платформа реально ветвится (discovery, terminal
     # control, desktop, права ФС) и новые execution-truth контракты, зависящие от путей
