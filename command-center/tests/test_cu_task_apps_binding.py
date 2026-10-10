@@ -401,7 +401,7 @@ def test_secret_like_text_is_refused_by_the_engine():
     granted = {"permissions": {"computer.control": True}}
     for text in ("sk-proj-" + "a" * 40, "ghp_" + "b" * 36, "AKIA" + "C" * 16,
                  "123456789:" + "A" * 35, "4111 1111 1111 1111",
-                 "-----BEGIN OPENSSH PRIVATE KEY-----", "eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.abcdefghijkl"):
+                 "-----BEGIN OPENSSH PRIVATE KEY-----", "eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.abcdefghijkl"):  # ci-secret-scan: allow (synthetic samples the engine must refuse)
         assert decide_effect(spec, {"action": "type", "text": text}, granted)[0] == "deny", text
     for text in ("BOSSMAN LOCAL UI PROOF 2026-10-10 — мышь и клавиатура", "id=20260928T093405Z-1",
                  "Телефон 8 800 555 35 35", "sk-short"):
