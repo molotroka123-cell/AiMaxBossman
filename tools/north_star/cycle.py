@@ -437,7 +437,7 @@ def cmd_restart(a) -> int:
     pid = int((LAB / "backend.pid").read_text().strip())
     rec: dict = {"at": now(), "old_pid": pid}
     with client() as c:
-        rec["recipes_before"] = [i.get("id") or i.get("recipe_id") for i in c.get(f"/api/coding-recipes?project_id={PROJECT}")["items"]]
+        rec["recipes_before"] = [i.get("id") or i.get("recipe_id") for i in c.get("/api/coding-recipes?project_id=" + os.environ.get("NS_RECIPE_PROJECT", "capability-tree"))["items"]]
     try:
         p = psutil.Process(pid)
         for ch in p.children(recursive=True):
@@ -454,7 +454,7 @@ def cmd_restart(a) -> int:
             with client() as c:
                 rec["health"] = c.get("/health/live")
                 rec["recipes_after"] = [i.get("id") or i.get("recipe_id")
-                                        for i in c.get(f"/api/coding-recipes?project_id={PROJECT}")["items"]]
+                                        for i in c.get("/api/coding-recipes?project_id=" + os.environ.get("NS_RECIPE_PROJECT", "capability-tree"))["items"]]
                 break
         except Exception:  # noqa: BLE001
             time.sleep(3)

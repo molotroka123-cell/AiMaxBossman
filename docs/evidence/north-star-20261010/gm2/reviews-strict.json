@@ -1,0 +1,35 @@
+[
+ {
+  "reviewer": "nvidia:google/gemma-4-31b-it",
+  "response": {
+   "nonce": "2c73cb25ba474d54a990769a082497bc",
+   "base_sha": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+   "patch_sha256": "0316c0e69989ceab72cdef94c94bbec8098b2770239b78d131077784e4ba2a4e",
+   "verdict": "reject",
+   "covered_files": [
+    "command-center/bcc/autonomy/goals.py",
+    "command-center/tests/test_autonomy_goal_budget_ns.py"
+   ],
+   "findings": [
+    {
+     "path": "command-center/bcc/autonomy/goals.py",
+     "line": 456,
+     "reason": "The logic for handling unusable stored values in `charge` is flawed. If `prev_turns` is unusable (e.g., NaN), it is replaced by the current `agent_turns`. If `agent_turns` is 0, the usage is effectively reset to 0, potentially clearing a budget exhaustion state and allowing a goal to continue spending when it should have remained blocked."
+    },
+    {
+     "path": "command-center/bcc/autonomy/goals.py",
+     "line": 460,
+     "reason": "Similar to the turns logic, if `prev_cost` is unusable, it is replaced by the current `cost_usd`. If `cost_usd` is 0.0, the budget usage is reset, bypassing the budget ceiling."
+    },
+    {
+     "path": "command-center/bcc/autonomy/goals.py",
+     "line": 488,
+     "reason": "The `_finite_number` method treats negative numbers as finite. However, the test `test_negative_cost_does_not_unblock_or_overspend` in the provided test file claims that negative costs should be treated as 'unusable' and block the goal. The implementation does not match this intended policy; a negative cost will be treated as a valid finite number, potentially reducing the `spent` value and unblocking a goal or allowing more spending."
+    }
+   ]
+  },
+  "accepted": false,
+  "state": "reject",
+  "why": "Independent reviewer rejected or could not verify candidate"
+ }
+]

@@ -1,0 +1,80 @@
+diff --git a/command-center/bcc/terminal_cli/cli.py b/command-center/bcc/terminal_cli/cli.py
+--- a/command-center/bcc/terminal_cli/cli.py
++++ b/command-center/bcc/terminal_cli/cli.py
+@@ -1058,9 +1058,26 @@
+                  "reason": sanitize((c.get("grant") or {}).get("reason"))[:120] or None}
+                 for c in caps.get("capabilities") or []]
+     if what == "tasks":
+-        rows = client.get("/api/tasks", params={"limit": limit}) or []
++        rows: list[dict] = []
++        seen: set = set()
++        remaining = max(0, limit)
++        before_id = None
++        while remaining > 0:
++            page = client.get("/api/tasks", params={"limit": min(remaining, 500), "before_id": before_id}) or []
++            if not page:
++                break
++            fresh = [t for t in page if t.get("id") not in seen]
++            if not fresh:
++                break
++            for t in fresh:
++                seen.add(t.get("id"))
++            rows.extend(fresh)
++            remaining = max(0, limit) - len(rows)
++            before_id = fresh[-1].get("id")
++            if len(page) < min(remaining + len(fresh), 500):
++                break
+         return [{"id": t.get("id"), "status": t.get("status"), "task_state": state_of(t.get("status")),
+-                 "title": sanitize(t.get("title"))[:100]} for t in rows]
++                 "title": sanitize(t.get("title"))[:100]} for t in rows[:max(0, limit)]]
+     if what == "approvals":
+         rows = client.get("/api/approvals", params={"status": "pending"}) or []
+         return [{"id": a.get("id"), "task_id": a.get("task_id"), "kind": a.get("kind"),
+diff --git a/command-center/tests/test_terminal_task_paging.py b/command-center/tests/test_terminal_task_paging.py
+new file mode 100644
+--- /dev/null
++++ b/command-center/tests/test_terminal_task_paging.py
+@@ -0,0 +1,43 @@
++import pytest
++
++from bcc.terminal_cli.cli import list_items
++
++
++class FakeClient:
++    def __init__(self, tasks):
++        self.tasks = sorted(tasks, key=lambda t: t["id"], reverse=True)
++
++    def get(self, path, params=None):
++        assert path == "/api/tasks"
++        params = params or {}
++        limit = params.get("limit", 100)
++        before_id = params.get("before_id")
++        rows = self.tasks
++        if before_id is not None:
++            rows = [t for t in rows if t["id"] < before_id]
++        return rows[:limit]
++
++
++def _task(i):
++    return {"id": i, "status": "done", "title": f"task {i}"}
++
++
++def test_list_tasks_paginates_past_api_cap():
++    tasks = [_task(i) for i in range(1, 838)]
++    client = FakeClient(tasks)
++    rows = list_items(client, "tasks", limit=1000)
++    assert len(rows) == 837
++    assert [r["id"] for r in rows] == list(range(837, 0, -1))
++    assert len({r["id"] for r in rows}) == 837
++
++
++def test_list_tasks_small_limit_unchanged():
++    tasks = [_task(i) for i in range(1, 11)]
++    client = FakeClient(tasks)
++    rows = list_items(client, "tasks", limit=3)
++    assert [r["id"] for r in rows] == [10, 9, 8]
++
++
++def test_list_tasks_empty_store():
++    client = FakeClient([])
++    assert list_items(client, "tasks", limit=1000) == []

@@ -1,0 +1,118 @@
+{
+ "id": "d3cce23bd659",
+ "status": "failed",
+ "instruction": "Аудит бюджета целей автономии (bcc/autonomy/goals.py, GoalStore.charge и budget_exceeded): стоимость приходит из внешних отчётов, и в одном прогоне цель с потолком max_cost_usd=1.0 продолжила тратить после отчёта о стоимости 5.0 и не была заблокирована. Найди дефект и исправь так, чтобы потолок бюджета всегда срабатывал. Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только command-center/bcc/autonomy/goals.py и добавь тест-функции в command-center/tests/test_autonomy_goals.py.",
+ "boot_id": "1eb04b9fde464798",
+ "agent_id": null,
+ "agent": null,
+ "project_id": "capability-tree",
+ "memory": {
+  "requested": true,
+  "recalled": false,
+  "sources": [],
+  "recipe_ids": [],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "error": ""
+ },
+ "verify_tests": [
+  "command-center/tests/test_autonomy_goals.py"
+ ],
+ "source_repo": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\repo",
+ "allowed_paths": [
+  "command-center/bcc/autonomy/goals.py",
+  "command-center/tests/test_autonomy_goals.py"
+ ],
+ "protected_paths": [],
+ "model": "gemini-3.5-flash",
+ "worker": "gemini-flash",
+ "created_at": 1791660637.9205267,
+ "finished_at": 1791660764.7430265,
+ "changed_files": [],
+ "diff": "",
+ "error": "сайдкар сообщил о неудаче",
+ "evidence": {
+  "modified_files": [],
+  "added_files": [],
+  "deleted_files": [],
+  "patches": {},
+  "head_before": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "head_after": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "failed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "failed",
+  "summary": "model call failed: HTTPError 429: [{ \"error\": { \"code\": 429, \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded fo",
+  "tests": {
+   "ran": true,
+   "runner": "pytest",
+   "paths": [
+    "command-center/tests/test_autonomy_goals.py"
+   ],
+   "exit_code": 0,
+   "passed": true,
+   "timed_out": false
+  },
+  "notes": "stop_reason=model_error",
+  "steps": 2,
+  "stop_reason": "model_error",
+  "tool_calls": [
+   {
+    "step": 1,
+    "tool": "run_tests",
+    "ok": true,
+    "t": 1.704,
+    "sig": "ca8b99641f60",
+    "paths": [
+     "command-center/tests/test_autonomy_goals.py"
+    ],
+    "passed": true,
+    "timed_out": false
+   },
+   {
+    "step": 2,
+    "tool": "read_file",
+    "ok": true,
+    "t": 12.938,
+    "sig": "4c00dcf85ae4",
+    "path": "command-center/bcc/autonomy/goals.py"
+   }
+  ],
+  "tool_calls_total": 2,
+  "elapsed_seconds": 13.188,
+  "recipes_applied": [],
+  "profile": "",
+  "memory_used": false,
+  "skills_used": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "gemini-3.5-flash",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/v1"
+ },
+ "base_commit": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "duration_seconds": 126.74
+}

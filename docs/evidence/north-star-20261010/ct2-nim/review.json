@@ -1,0 +1,6 @@
+{
+ "reviewer": "gemini:gemini-3.5-flash",
+ "fixer_model": "nvidia/nemotron-3-super-120b-a12b",
+ "accepted": false,
+ "why": "gemini/gemini-3.5-flash failed: ['GEMINI_API_KEY: HTTP 429', 'GEMINI_API_KEY_2: HTTP 429', 'GEMINI_API_KEY_2: HTTP 429', 'GEMINI_API_KEY_2: HTTP 429']"
+}

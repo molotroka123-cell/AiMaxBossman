@@ -1,0 +1,15 @@
+{
+ "recorded": "2026-10-10T19:09:53Z",
+ "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "junit_totals": {
+  "tests": "9103",
+  "failures": "44",
+  "errors": "0",
+  "skipped": "52",
+  "time": "2033.880"
+ },
+ "failing_total": 44,
+ "with_source_in_traceback": 0,
+ "failures_per_test_file": {},
+ "candidates": []
+}

@@ -1,0 +1,160 @@
+{
+ "schema": "bossman.evolution.verdict/1",
+ "verifier": "tool:bossman-evolution-result-verifier",
+ "task_id": "ct-mistral91667408",
+ "base_sha": "f5ca6802f4981f9f1c807bd3094eb683376d20e3",
+ "patch_sha256": "6930f268caec31d7eb64310e6f0ab9f428bb5258363c18b4549da0a9205921af",
+ "model_kind": "REAL_MODEL",
+ "model": "mistralai/mistral-large-4-0",
+ "runner": {
+  "kind": "host-guarded",
+  "python": "C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+  "runner": "pytest"
+ },
+ "inputs": [
+  "base_sha",
+  "diff",
+  "evidence",
+  "task",
+  "tests"
+ ],
+ "explanation_used": false,
+ "verdict": "FAIL",
+ "reasons": [
+  "NEW_REGRESSION_FAILS_WITH_THE_FIX: command-center.tests.test_autonomy_goal_budget_ns::test_sweep_budgets_catches_nan_cost, command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[-1.0], command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[None], command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[not-a-number]"
+ ],
+ "checks": {
+  "changed": [
+   {
+    "path": "command-center/bcc/autonomy/goals.py",
+    "status": "M",
+    "old_mode": "100644",
+    "new_mode": "100644"
+   },
+   {
+    "path": "command-center/tests/test_autonomy_goal_budget_ns.py",
+    "status": "A",
+    "old_mode": "000000",
+    "new_mode": "100644"
+   }
+  ],
+  "static": {
+   "unsafe": [],
+   "invalid_test": []
+  },
+  "new_regression_tests": [
+   "command-center/tests/test_autonomy_goal_budget_ns.py"
+  ],
+  "baseline": {
+   "runner": "pytest",
+   "status": "FAIL",
+   "exit_code": 1,
+   "timed_out": false,
+   "reason": null,
+   "seconds": 9.86,
+   "tests": {
+    "command-center.tests.test_nsrepro_mistral91667408::test_hidden_holdout": "FAIL",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw0-budget]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw1-acceptance]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw2-not measurable]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw3-target_metric]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw4-risk_tier]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw5-protected]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw6-max_minutes]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_measurable": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_is_persisted_journaled_and_unique": "PASS",
+    "command-center.tests.test_autonomy_goals::test_transition_table_covers_every_state_and_complete_is_terminal": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[BUILDING]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[STAGING]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[DEPLOYED]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[COMPLETE]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[NOPE]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_every_transition_is_journaled": "PASS",
+    "command-center.tests.test_autonomy_goals::test_testing_needs_a_candidate_and_review_needs_passing_tests": "PASS",
+    "command-center.tests.test_autonomy_goals::test_full_happy_path_to_complete": "PASS",
+    "command-center.tests.test_autonomy_goals::test_codex_review_needs_claude_approval_and_staging_needs_both": "PASS",
+    "command-center.tests.test_autonomy_goals::test_review_of_a_different_sha_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_reject_blocks_and_disagreement_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_author_cannot_approve_own_unreviewed_candidate": "PASS",
+    "command-center.tests.test_autonomy_goals::test_changed_candidate_invalidates_approvals_and_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_revision_invalidates_both_approvals": "PASS",
+    "command-center.tests.test_autonomy_goals::test_user_reject_completes_with_outcome": "PASS",
+    "command-center.tests.test_autonomy_goals::test_user_approval_to_complete_only_as_reject": "PASS",
+    "command-center.tests.test_autonomy_goals::test_line_b_style_evidence_binds_candidate_tests_reviews_and_staging": "PASS",
+    "command-center.tests.test_autonomy_goals::test_docs_tests_auto_tier_deploy_needs_approvals_and_staging": "PASS",
+    "command-center.tests.test_autonomy_goals::test_auto_tier_is_refused_above_docs_tests": "PASS",
+    "command-center.tests.test_autonomy_goals::test_user_decision_bound_to_sha": "PASS",
+    "command-center.tests.test_autonomy_goals::test_staging_on_other_sha_or_failure_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_blocked_needs_reason_and_resumes_to_origin": "PASS",
+    "command-center.tests.test_autonomy_goals::test_budget_exhaustion_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_restart_resumes_from_persisted_state": "PASS"
+   }
+  },
+  "candidate": {
+   "runner": "pytest",
+   "status": "FAIL",
+   "exit_code": 1,
+   "timed_out": false,
+   "reason": null,
+   "seconds": 10.7,
+   "tests": {
+    "command-center.tests.test_nsrepro_mistral91667408::test_hidden_holdout": "FAIL",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw0-budget]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw1-acceptance]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw2-not measurable]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw3-target_metric]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw4-risk_tier]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw5-protected]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_refuses_unmeasurable_or_unbudgeted_goals[kw6-max_minutes]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_measurable": "PASS",
+    "command-center.tests.test_autonomy_goals::test_create_is_persisted_journaled_and_unique": "PASS",
+    "command-center.tests.test_autonomy_goals::test_transition_table_covers_every_state_and_complete_is_terminal": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[BUILDING]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[STAGING]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[DEPLOYED]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[COMPLETE]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_illegal_transitions_raise_and_do_not_journal[NOPE]": "PASS",
+    "command-center.tests.test_autonomy_goals::test_every_transition_is_journaled": "PASS",
+    "command-center.tests.test_autonomy_goals::test_testing_needs_a_candidate_and_review_needs_passing_tests": "PASS",
+    "command-center.tests.test_autonomy_goals::test_full_happy_path_to_complete": "PASS",
+    "command-center.tests.test_autonomy_goals::test_codex_review_needs_claude_approval_and_staging_needs_both": "PASS",
+    "command-center.tests.test_autonomy_goals::test_review_of_a_different_sha_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_reject_blocks_and_disagreement_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_author_cannot_approve_own_unreviewed_candidate": "PASS",
+    "command-center.tests.test_autonomy_goals::test_changed_candidate_invalidates_approvals_and_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_revision_invalidates_both_approvals": "PASS",
+    "command-center.tests.test_autonomy_goals::test_user_reject_completes_with_outcome": "PASS",
+    "command-center.tests.test_autonomy_goals::test_user_approval_to_complete_only_as_reject": "PASS",
+    "command-center.tests.test_autonomy_goals::test_line_b_style_evidence_binds_candidate_tests_reviews_and_staging": "PASS",
+    "command-center.tests.test_autonomy_goals::test_docs_tests_auto_tier_deploy_needs_approvals_and_staging": "PASS",
+    "command-center.tests.test_autonomy_goals::test_auto_tier_is_refused_above_docs_tests": "PASS",
+    "command-center.tests.test_autonomy_goals::test_user_decision_bound_to_sha": "PASS",
+    "command-center.tests.test_autonomy_goals::test_staging_on_other_sha_or_failure_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_blocked_needs_reason_and_resumes_to_origin": "PASS",
+    "command-center.tests.test_autonomy_goals::test_budget_exhaustion_blocks": "PASS",
+    "command-center.tests.test_autonomy_goals::test_restart_resumes_from_persisted_state": "PASS",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[5.0]": "PASS",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[nan]": "PASS",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[inf]": "PASS",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[-inf]": "PASS",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[-1.0]": "FAIL",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[not-a-number]": "FAIL",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_unusable_cost_blocks_goal[None]": "FAIL",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_valid_charging_behaves_as_before": "PASS",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_budget_exceeded_directly_with_nan": "PASS",
+    "command-center.tests.test_autonomy_goal_budget_ns::test_sweep_budgets_catches_nan_cost": "FAIL"
+   }
+  },
+  "task_tests_before": {
+   "command-center.tests.test_nsrepro_mistral91667408::test_hidden_holdout": "FAIL"
+  },
+  "task_tests_after": {
+   "command-center.tests.test_nsrepro_mistral91667408::test_hidden_holdout": "FAIL"
+  }
+ },
+ "counts_as_student_success": false,
+ "started_at": 1791667441.509719,
+ "candidate_tree": "3867dd9536c342238fc8e0861bd78c552592c9a9",
+ "finished_at": 1791667472.5612388,
+ "checkouts_removed": true
+}

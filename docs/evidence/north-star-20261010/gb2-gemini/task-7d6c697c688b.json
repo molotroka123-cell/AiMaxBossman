@@ -1,0 +1,95 @@
+{
+ "id": "7d6c697c688b",
+ "status": "failed",
+ "instruction": "Аудит бюджета целей автономии (bcc/autonomy/goals.py, GoalStore.charge и budget_exceeded): стоимость приходит из внешних отчётов, и в одном прогоне цель с потолком max_cost_usd=1.0 продолжила тратить после отчёта о стоимости 5.0 и не была заблокирована. Найди дефект и исправь так, чтобы потолок бюджета всегда срабатывал. Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только command-center/bcc/autonomy/goals.py и добавь тест-функции в command-center/tests/test_autonomy_goals.py.",
+ "boot_id": "1eb04b9fde464798",
+ "agent_id": null,
+ "agent": null,
+ "project_id": "capability-tree",
+ "memory": {
+  "requested": true,
+  "recalled": false,
+  "sources": [],
+  "recipe_ids": [],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "error": ""
+ },
+ "verify_tests": [
+  "command-center/tests/test_autonomy_goals.py"
+ ],
+ "source_repo": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\repo",
+ "allowed_paths": [
+  "command-center/bcc/autonomy/goals.py",
+  "command-center/tests/test_autonomy_goals.py"
+ ],
+ "protected_paths": [],
+ "model": "gemini-3.5-flash",
+ "worker": "gemini-flash",
+ "created_at": 1791660465.2649467,
+ "finished_at": 1791660585.6911926,
+ "changed_files": [],
+ "diff": "",
+ "error": "сайдкар сообщил о неудаче",
+ "evidence": {
+  "modified_files": [],
+  "added_files": [],
+  "deleted_files": [],
+  "patches": {},
+  "head_before": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "head_after": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "failed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "failed",
+  "summary": "model call failed: HTTPError 503: [{ \"error\": { \"code\": 503, \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\", \"status\": \"UNAVAILABLE\" } } ]",
+  "tests": {
+   "ran": false,
+   "runner": null,
+   "paths": null,
+   "exit_code": null,
+   "passed": false,
+   "timed_out": null
+  },
+  "notes": "stop_reason=model_error",
+  "steps": 0,
+  "stop_reason": "model_error",
+  "tool_calls": [],
+  "tool_calls_total": 0,
+  "elapsed_seconds": 1.812,
+  "recipes_applied": [],
+  "profile": "",
+  "memory_used": false,
+  "skills_used": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "gemini-3.5-flash",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/v1"
+ },
+ "base_commit": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "duration_seconds": 120.36
+}

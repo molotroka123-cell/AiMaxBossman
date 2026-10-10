@@ -1,0 +1,30 @@
+{
+ "task": "mistral91665054",
+ "worker": "mistral-large",
+ "model": "mistralai/mistral-large-4-0",
+ "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "changed": [
+  "command-center/bcc/terminal_cli/cli.py",
+  "command-center/tests/test_terminal_task_paging.py"
+ ],
+ "RESULT_VERIFIER": {
+  "verdict": "PASS",
+  "reasons": [
+   "task tests pass, nothing regressed, the regression fails without the fix"
+  ],
+  "counts_as_student_success": true
+ },
+ "reviews": [
+  {
+   "reviewer": "nvidia:microsoft/phi-3.5-moe-instruct",
+   "accepted": false,
+   "why": "nvidia/microsoft/phi-3.5-moe-instruct failed: ['NVIDIA_API_KEY: HTTP 404']"
+  },
+  {
+   "reviewer": "nvidia:google/gemma-4-31b-it",
+   "accepted": false,
+   "why": "nvidia/google/gemma-4-31b-it failed: ['NVIDIA_API_KEY: HTTP 529']"
+  }
+ ],
+ "PASS": false
+}

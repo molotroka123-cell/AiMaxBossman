@@ -1,0 +1,14 @@
+--- a/coding_tasks.py
++++ b/coding_tasks.py
+@@ -125,6 +125,11 @@
+     # owner 07.10: Haiku 5.5 via OpenRouter ($0.10/$0.50 per M, tools, 1M ctx) for self-repair step 3 and audits
+     "haiku-5.5": {"endpoint": "https://openrouter.ai/api/v1", "model": "anthropic/claude-haiku-5.5",
+                   "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Claude Haiku 5.5 (paid, cheap)"},
++    # LAB-ONLY (north star 10.10): Gemini free tier through its OpenAI-compatible endpoint, Mistral Large 4 via OpenRouter
++    "gemini-flash": {"endpoint": "https://generativelanguage.googleapis.com/v1beta/openai", "model": "gemini-3.5-flash",
++                     "key": "GEMINI_API_KEY", "label": "Google AI Studio · Gemini 3.5 Flash (free tier)"},
++    "mistral-large": {"endpoint": "https://openrouter.ai/api/v1", "model": "mistralai/mistral-large-4-0",
++                      "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Mistral Large 4 (paid)"},
+ }
+ #: The owner's local provider key file (user ACL); read only when the vault/env has no key.
+ OWNER_KEYS_FILE = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "keys" / "provider-keys.env"

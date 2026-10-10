@@ -1,0 +1,88 @@
+{
+ "schema": "bossman.evolution.verdict/1",
+ "verifier": "tool:bossman-evolution-result-verifier",
+ "task_id": "ct-mistral91664978",
+ "base_sha": "0b9e38b70c4443238bebbe98c6cebc67211e9b83",
+ "patch_sha256": "620a98fd977227265cbfc40dff9e0254a7dc734aae4310a751031d4f59599d71",
+ "model_kind": "REAL_MODEL",
+ "model": "mistralai/mistral-large-4-0",
+ "runner": {
+  "kind": "host-guarded",
+  "python": "C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+  "runner": "pytest"
+ },
+ "inputs": [
+  "base_sha",
+  "diff",
+  "evidence",
+  "task",
+  "tests"
+ ],
+ "explanation_used": false,
+ "verdict": "FAIL",
+ "reasons": [
+  "NEW_REGRESSION_FAILS_WITH_THE_FIX: command-center.tests.test_terminal_task_paging::test_list_tasks_explicit_limit_returns_min_n_available, command-center.tests.test_terminal_task_paging::test_list_tasks_paginates_past_api_cap, command-center.tests.test_terminal_task_paging::test_list_tasks_small_limit_unchanged"
+ ],
+ "checks": {
+  "changed": [
+   {
+    "path": "command-center/bcc/terminal_cli/cli.py",
+    "status": "M",
+    "old_mode": "100644",
+    "new_mode": "100644"
+   },
+   {
+    "path": "command-center/tests/test_terminal_task_paging.py",
+    "status": "A",
+    "old_mode": "000000",
+    "new_mode": "100644"
+   }
+  ],
+  "static": {
+   "unsafe": [],
+   "invalid_test": []
+  },
+  "new_regression_tests": [
+   "command-center/tests/test_terminal_task_paging.py"
+  ],
+  "baseline": {
+   "runner": "pytest",
+   "status": "FAIL",
+   "exit_code": 1,
+   "timed_out": false,
+   "reason": null,
+   "seconds": 2.98,
+   "tests": {
+    "command-center.tests.test_nsrepro_mistral91664978::test_cli_task_paging_holdout": "FAIL",
+    "command-center.tests.test_terminal_local_models::test_cmd_catalog_includes_unregistered_ollama_and_marks_stale_endpoint": "PASS"
+   }
+  },
+  "candidate": {
+   "runner": "pytest",
+   "status": "FAIL",
+   "exit_code": 1,
+   "timed_out": false,
+   "reason": null,
+   "seconds": 2.66,
+   "tests": {
+    "command-center.tests.test_nsrepro_mistral91664978::test_cli_task_paging_holdout": "PASS",
+    "command-center.tests.test_terminal_local_models::test_cmd_catalog_includes_unregistered_ollama_and_marks_stale_endpoint": "PASS",
+    "command-center.tests.test_terminal_task_paging::test_list_tasks_paginates_past_api_cap": "FAIL",
+    "command-center.tests.test_terminal_task_paging::test_list_tasks_explicit_limit_returns_min_n_available": "FAIL",
+    "command-center.tests.test_terminal_task_paging::test_list_tasks_small_limit_unchanged": "FAIL",
+    "command-center.tests.test_terminal_task_paging::test_list_tasks_empty_store": "PASS"
+   }
+  },
+  "task_tests_before": {
+   "command-center.tests.test_nsrepro_mistral91664978::test_cli_task_paging_holdout": "FAIL"
+  },
+  "task_tests_after": {
+   "command-center.tests.test_nsrepro_mistral91664978::test_cli_task_paging_holdout": "PASS"
+  }
+ },
+ "counts_as_student_success": false,
+ "started_at": 1791664995.1453917,
+ "candidate_tree": "f10c0e6f8c0720cfebb805e703c284e6206cc281",
+ "finished_at": 1791665008.0737867,
+ "checkouts_removed": true
+}

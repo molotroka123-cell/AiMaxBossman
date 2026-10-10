@@ -1,0 +1,41 @@
+task 924b24ea0a5c started (goal-budget, worker nemotron-ultra-free)
+SELF_REPAIR=FAILED
+{
+ "task_id": "924b24ea0a5c",
+ "case": "goal-budget",
+ "worker": "nemotron-ultra-free",
+ "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+ "status": "failed",
+ "error": "сайдкар сообщил о неудаче",
+ "base_commit": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "changed_files": [],
+ "verification": {
+  "ran": null,
+  "runner": null,
+  "exit_code": null,
+  "passed": null
+ },
+ "holdout_base": {
+  "total": 9,
+  "failed": 5,
+  "passed": false,
+  "exit_code": 1
+ },
+ "holdout_patched": {
+  "total": null,
+  "failed": null,
+  "passed": null,
+  "exit_code": null
+ },
+ "recipe_saved": null,
+ "stages": {
+  "DEFECT_REPRODUCED": true,
+  "MODEL_PATCH_CREATED": false,
+  "BOSSMAN_ZONE_CHECK_PASS": false,
+  "HOLDOUT_PASS_ON_PATCH": false,
+  "SCOPE_RESPECTED": true,
+  "INDEPENDENT_VERIFICATION_PASS": false,
+  "EXPERIENCE_AUTO_SAVED": false
+ }
+}
+REVIEW {"reviewer": null, "accepted": false, "why": "not reviewed: tool did not report INDEPENDENT_VERIFICATION_PASS"}

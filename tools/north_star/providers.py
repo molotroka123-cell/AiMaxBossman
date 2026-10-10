@@ -60,7 +60,7 @@ def extract_json(text: str) -> dict:
 
 
 def chat(provider: str, model: str, prompt: str, *, ledger: Path, purpose: str, system: str = "",
-         json_mode: bool = True, max_tokens: int = 4000, timeout: float = 240.0) -> dict:
+         json_mode: bool = True, max_tokens: int = 4000, timeout: float = 240.0, extra: dict | None = None) -> dict:
     """One completion. Returns {text, usage, cost_usd, provider, model, seconds}; raises on total failure."""
     messages = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": prompt}]
     body: dict = {"model": model, "messages": messages, "temperature": 0, "max_tokens": max_tokens}
@@ -68,6 +68,7 @@ def chat(provider: str, model: str, prompt: str, *, ledger: Path, purpose: str, 
         body["response_format"] = {"type": "json_object"}
     if provider == "openrouter":
         body["usage"] = {"include": True}
+    body.update(extra or {})
     errors = []
     for name in KEY_NAMES[provider]:
         key = _key(name)

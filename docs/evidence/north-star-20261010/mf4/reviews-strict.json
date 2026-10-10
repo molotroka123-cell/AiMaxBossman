@@ -1,0 +1,23 @@
+[
+ {
+  "reviewer": "openrouter:z-ai/glm-5.3-flash",
+  "accepted": false,
+  "why": "openrouter/z-ai/glm-5.3-flash failed: ['OPENROUTER_API_KEY: HTTP 400']"
+ },
+ {
+  "reviewer": "nvidia:google/gemma-4-31b-it",
+  "response": {
+   "nonce": "3fd35b587907452abe2ea4fa8f819841",
+   "base_sha": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+   "patch_sha256": "620a98fd977227265cbfc40dff9e0254a7dc734aae4310a751031d4f59599d71",
+   "verdict": "accept",
+   "covered_files": [
+    "command-center/bcc/terminal_cli/cli.py",
+    "command-center/tests/test_terminal_task_paging.py"
+   ],
+   "findings": []
+  },
+  "accepted": true,
+  "why": "accept with no findings"
+ }
+]

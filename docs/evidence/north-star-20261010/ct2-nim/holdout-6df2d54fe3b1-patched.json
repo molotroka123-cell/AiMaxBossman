@@ -1,0 +1,45 @@
+{
+ "holdout": "cli_task_paging/1",
+ "module": "C:\\Users\\asd\\AppData\\Local\\Temp\\selfrepair-cdwjceum\\wt\\command-center\\bcc\\terminal_cli\\cli.py",
+ "total": 7,
+ "failed": 0,
+ "passed": true,
+ "failures": [],
+ "cases": [
+  {
+   "case": "defect: --limit 1000 with 1200 tasks returns 1000",
+   "ok": true,
+   "detail": "returned 1000 (expected 1000), unique=1000, first=[1200], last=[201], api_calls=2"
+  },
+  {
+   "case": "defect: --limit 600 with 700 tasks returns 600",
+   "ok": true,
+   "detail": "returned 600 (expected 600), unique=600, first=[700], last=[101], api_calls=2"
+  },
+  {
+   "case": "defect: --limit 1500 with 837 tasks returns all 837",
+   "ok": true,
+   "detail": "returned 837 (expected 837), unique=837, first=[837], last=[1], api_calls=2"
+  },
+  {
+   "case": "valid: --limit 20 with 700 tasks returns the newest 20",
+   "ok": true,
+   "detail": "returned 20 (expected 20), unique=20, first=[700], last=[681], api_calls=1"
+  },
+  {
+   "case": "valid: --limit 500 with 800 tasks returns 500",
+   "ok": true,
+   "detail": "returned 500 (expected 500), unique=500, first=[800], last=[301], api_calls=1"
+  },
+  {
+   "case": "valid: --limit 1000 with 300 tasks returns 300 once",
+   "ok": true,
+   "detail": "returned 300 (expected 300), unique=300, first=[300], last=[1], api_calls=1"
+  },
+  {
+   "case": "valid: empty store returns nothing",
+   "ok": true,
+   "detail": "returned 0 (expected 0), unique=0, first=[], last=[], api_calls=1"
+  }
+ ]
+}

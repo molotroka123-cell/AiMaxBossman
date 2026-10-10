@@ -1,0 +1,233 @@
+diff --git a/command-center/bcc/autonomy/goals.py b/command-center/bcc/autonomy/goals.py
+--- a/command-center/bcc/autonomy/goals.py
++++ b/command-center/bcc/autonomy/goals.py
+@@ -445,11 +445,21 @@
+ 
+     # .......................................................... budget
+     def charge(self, goal_id: str, *, agent_turns: int = 0, cost_usd: float = 0.0) -> dict:
+-        """Account usage; an exhausted budget (turns, cost or time) blocks the goal."""
++        """Account usage; an exhausted budget (turns, cost or time) blocks the goal.
++        Any unusable cost/turns value (NaN, +-inf, non-numeric) is stored as-is
++        and immediately treated as budget exhaustion by budget_exceeded."""
+         def fn(rec: dict) -> None:
+             u = rec.setdefault("usage", {"agent_turns": 0, "cost_usd": 0.0})
+-            u["agent_turns"] = int(u.get("agent_turns", 0)) + int(agent_turns)
+-            u["cost_usd"] = round(float(u.get("cost_usd", 0.0)) + float(cost_usd), 6)
++            prev_turns = u.get("agent_turns", 0)
++            prev_cost = u.get("cost_usd", 0.0)
++            try:
++                u["agent_turns"] = int(prev_turns) + int(agent_turns)
++            except (TypeError, ValueError):
++                u["agent_turns"] = agent_turns          # unusable stored value: replace, do not crash
++            try:
++                u["cost_usd"] = round(float(prev_cost) + float(cost_usd), 6)
++            except (TypeError, ValueError):
++                u["cost_usd"] = cost_usd               # unusable stored value: replace, do not crash
+             reason = self.budget_exceeded(rec)
+             if reason and rec["state"] not in TERMINAL and rec["state"] != "BLOCKED":
+                 self._move(rec, "BLOCKED", {"reason": f"budget exhausted: {reason}"})
+@@ -468,17 +478,36 @@
+                 blocked.append(rec["goal"]["goal_id"])
+         return blocked
+ 
++    @staticmethod
++    def _finite_number(v: Any) -> float | None:
++        """Return v as a finite float, or None if it is not a usable number
++        (NaN, +-inf, non-numeric, bool). The budget ceiling must bind for any
++        unusable value, so callers treat None as 'already over budget'."""
++        if isinstance(v, bool):
++            return None
++        try:
++            f = float(v)
++        except (TypeError, ValueError):
++            return None
++        if f != f or f in (float("inf"), float("-inf")):
++            return None
++        return f
++
+     def budget_exceeded(self, rec: dict) -> str:
+         b = rec["goal"]["budget"]
+         u = rec.get("usage") or {}
+-        if int(u.get("agent_turns", 0)) > int(b["max_agent_turns"]):
++        turns = self._finite_number(u.get("agent_turns", 0))
++        if turns is None or turns > float(b["max_agent_turns"]):
+             return "agent turns"
+-        if float(u.get("cost_usd", 0.0)) > float(b["max_cost_usd"]) + 1e-9:
++        spent = self._finite_number(u.get("cost_usd", 0.0))
++        ceiling = self._finite_number(b["max_cost_usd"])
++        if spent is None or ceiling is None or spent > ceiling + 1e-9:
+             return "cost"
+-        started = rec.get("started_ts")
++        started = self._finite_number(rec.get("started_ts"))
+         if started is None and rec.get("state") != "PROPOSED":
+-            started = rec.get("created_ts")                   # goals stored before the start clock existed
+-        if started is not None and self._clock() - float(started) > float(b["max_minutes"]) * 60:
++            started = self._finite_number(rec.get("created_ts"))   # goals stored before the start clock existed
++        max_minutes = self._finite_number(b["max_minutes"])
++        if started is not None and max_minutes is not None and self._clock() - started > max_minutes * 60:
+             return "time"                                      # the clock runs from the start, not from creation
+         return ""
+ 
+diff --git a/command-center/tests/test_autonomy_goal_budget_ns.py b/command-center/tests/test_autonomy_goal_budget_ns.py
+new file mode 100644
+--- /dev/null
++++ b/command-center/tests/test_autonomy_goal_budget_ns.py
+@@ -0,0 +1,158 @@
++"""Regression: the budget ceiling must bind for every kind of unusable cost/usage value.
++
++Bossman audit 06.10: a goal with max_cost_usd=1.0 kept spending after a report of
++cost 5.0 and was never blocked. These tests pin the contract that the ceiling
++always binds, whatever the reported cost is (NaN, +-inf, negative, non-number),
++both when charging and when reading usage that is already stored.
++"""
++from __future__ import annotations
++
++import math
++import sys
++from pathlib import Path
++
++import pytest
++
++sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
++
++from bcc.autonomy.goals import GoalStore
++from bcc.autonomy.journal import Journal
++from bcc.autonomy.types import Budget, Goal
++
++
++def mk_goal(**kw) -> Goal:
++    base = dict(
++        goal_id="JEFF-0042",
++        problem="Jeff leaks the underlying model name",
++        desired_result="Jeff answers as Bossman",
++        constraints=("prompts only",),
++        acceptance_tests=("pytest:tests/test_identity.py::test_no_leak", "identity_redteam.leaks == 0"),
++        budget=Budget(max_minutes=60, max_agent_turns=5, max_cost_usd=1.0),
++        risk_tier="prompts_models",
++        target_metric="identity_redteam.leaks",
++        protected_metrics=("task_success", "latency_ms"),
++    )
++    base.update(kw)
++    return Goal(**base)
++
++
++def make_store(tmp_path: Path) -> GoalStore:
++    return GoalStore(tmp_path, Journal(tmp_path / "journal.jsonl"))
++
++
++def live_goal(store: GoalStore, **kw) -> str:
++    """Create a goal and drive it to BUILDING so it is spending."""
++    gid = kw.pop("goal_id", "JEFF-0042")
++    store.create(mk_goal(goal_id=gid, **kw))
++    store.transition(gid, "PLANNED")
++    store.transition(gid, "BUILDING")
++    return gid
++
++
++# ------------------------------------------------------------------ charging
++
++@pytest.mark.parametrize("bad_cost", [float("nan"), float("inf"), float("-inf"), "not-a-number", None, object()])
++def test_unusable_cost_blocks_goal(tmp_path, bad_cost):
++    """Any unusable reported cost must block the goal, never let it keep spending."""
++    store = make_store(tmp_path)
++    gid = live_goal(store)
++    rec = store.charge(gid, agent_turns=1, cost_usd=bad_cost)
++    assert rec["state"] == "BLOCKED"
++    assert "budget exhausted" in rec["blocked_reason"]
++
++
++def test_overspend_blocks_goal(tmp_path):
++    """The original audit case: ceiling 1.0, report 5.0 -> blocked."""
++    store = make_store(tmp_path)
++    gid = live_goal(store)
++    rec = store.charge(gid, agent_turns=1, cost_usd=5.0)
++    assert rec["state"] == "BLOCKED"
++    assert "cost" in rec["blocked_reason"]
++
++
++def test_valid_charge_below_ceiling_does_not_block(tmp_path):
++    """Valid charging behaves as before: under the ceiling the goal keeps running."""
++    store = make_store(tmp_path)
++    gid = live_goal(store)
++    rec = store.charge(gid, agent_turns=1, cost_usd=0.5)
++    assert rec["state"] == "BUILDING"
++    assert rec["usage"]["cost_usd"] == pytest.approx(0.5)
++    assert rec["usage"]["agent_turns"] == 1
++
++
++def test_valid_charge_accumulates_and_blocks_at_ceiling(tmp_path):
++    store = make_store(tmp_path)
++    gid = live_goal(store)
++    rec = store.charge(gid, agent_turns=1, cost_usd=0.6)
++    assert rec["state"] == "BUILDING"
++    rec = store.charge(gid, agent_turns=1, cost_usd=0.6)
++    assert rec["state"] == "BLOCKED"
++    assert "cost" in rec["blocked_reason"]
++
++
++def test_negative_cost_does_not_unblock_or_overspend(tmp_path):
++    """A negative cost is not a credit that un-blocks a goal; it is unusable and blocks."""
++    store = make_store(tmp_path)
++    gid = live_goal(store)
++    rec = store.charge(gid, agent_turns=1, cost_usd=5.0)
++    assert rec["state"] == "BLOCKED"
++    # a later negative report must not resurrect the goal
++    rec = store.charge(gid, agent_turns=0, cost_usd=-100.0)
++    assert rec["state"] == "BLOCKED"
++
++
++def test_non_numeric_cost_blocks_goal(tmp_path):
++    store = make_store(tmp_path)
++    gid = live_goal(store)
++    rec = store.charge(gid, agent_turns=1, cost_usd="5.0")
++    assert rec["state"] == "BLOCKED"
++
++
++# ------------------------------------------------------- already-stored usage
++
++def _store_with_usage(tmp_path: Path, usage: dict) -> GoalStore:
++    store = make_store(tmp_path)
++    gid = live_goal(store)
++    rec = store.get(gid)
++    rec["usage"] = usage
++    store._save(rec)
++    return store
++
++
++@pytest.mark.parametrize("bad_usage", [
++    {"agent_turns": 0, "cost_usd": float("nan")},
++    {"agent_turns": 0, "cost_usd": float("inf")},
++    {"agent_turns": 0, "cost_usd": float("-inf")},
++    {"agent_turns": 0, "cost_usd": "garbage"},
++    {"agent_turns": 0, "cost_usd": None},
++    {"agent_turns": float("nan"), "cost_usd": 0.0},
++    {"agent_turns": "many", "cost_usd": 0.0},
++])
++def test_budget_exceeded_reads_unusable_stored_usage(tmp_path, bad_usage):
++    """budget_exceeded must report exhaustion for unusable usage already on disk."""
++    store = _store_with_usage(tmp_path, bad_usage)
++    rec = store.get("JEFF-0042")
++    assert store.budget_exceeded(rec) != ""
++
++
++def test_sweep_budgets_blocks_goal_with_unusable_stored_cost(tmp_path):
++    store = _store_with_usage(tmp_path, {"agent_turns": 0, "cost_usd": float("nan")})
++    blocked = store.sweep_budgets()
++    assert "JEFF-0042" in blocked
++    assert store.get("JEFF-0042")["state"] == "BLOCKED"
++
++
++def test_budget_exceeded_clean_usage_is_empty(tmp_path):
++    store = _store_with_usage(tmp_path, {"agent_turns": 1, "cost_usd": 0.5})
++    rec = store.get("JEFF-0042")
++    assert store.budget_exceeded(rec) == ""
++
++
++def test_nan_ceiling_blocks_even_zero_spend(tmp_path):
++    """If the ceiling itself is unusable, the goal is over budget by definition."""
++    store = make_store(tmp_path)
++    gid = live_goal(store)
++    rec = store.get(gid)
++    rec["goal"]["budget"]["max_cost_usd"] = float("nan")
++    store._save(rec)
++    assert store.budget_exceeded(store.get(gid)) == "cost"

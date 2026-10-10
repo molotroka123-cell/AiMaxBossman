@@ -1,0 +1,462 @@
+{
+ "id": "58445182e656",
+ "status": "failed",
+ "instruction": "Аудит бюджета целей автономии (bcc/autonomy/goals.py, GoalStore.charge и budget_exceeded): стоимость приходит из внешних отчётов, и в одном прогоне цель с потолком max_cost_usd=1.0 продолжила тратить после отчёта о стоимости 5.0 и не была заблокирована. Найди дефект и исправь так, чтобы потолок бюджета всегда срабатывал. Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только command-center/bcc/autonomy/goals.py и добавь тест-функции в command-center/tests/test_autonomy_goals.py.",
+ "boot_id": "091323d4c930bb0c",
+ "agent_id": null,
+ "agent": null,
+ "project_id": "capability-tree",
+ "memory": {
+  "requested": true,
+  "recalled": false,
+  "sources": [],
+  "recipe_ids": [],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "error": ""
+ },
+ "verify_tests": [
+  "command-center/tests/test_autonomy_goals.py"
+ ],
+ "source_repo": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\repo",
+ "allowed_paths": [
+  "command-center/bcc/autonomy/goals.py",
+  "command-center/tests/test_autonomy_goals.py"
+ ],
+ "protected_paths": [],
+ "model": "z-ai/glm-5.3-flash",
+ "worker": "glm-flash",
+ "created_at": 1791659502.7121792,
+ "finished_at": 1791660300.4597952,
+ "changed_files": [],
+ "diff": "",
+ "error": "сайдкар сообщил о неудаче",
+ "evidence": {
+  "modified_files": [],
+  "added_files": [],
+  "deleted_files": [],
+  "patches": {},
+  "head_before": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "head_after": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "failed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "failed",
+  "summary": "",
+  "tests": {
+   "ran": false,
+   "runner": null,
+   "paths": null,
+   "exit_code": null,
+   "passed": false,
+   "timed_out": null
+  },
+  "notes": "stop_reason=max_steps",
+  "steps": 40,
+  "stop_reason": "max_steps",
+  "tool_calls": [
+   {
+    "step": 1,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 2.14,
+    "sig": "812e7120ad1c",
+    "path": "command-center"
+   },
+   {
+    "step": 1,
+    "tool": "read_file",
+    "ok": true,
+    "t": 2.14,
+    "sig": "d5865d62e27f",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 2,
+    "tool": "search",
+    "ok": true,
+    "t": 4.312,
+    "sig": "a1f8396fc59b",
+    "path": "command-center/bcc/autonomy/goals.py",
+    "pattern": "budget|charge|cost",
+    "hits": 19
+   },
+   {
+    "step": 2,
+    "tool": "search",
+    "ok": true,
+    "t": 4.312,
+    "sig": "efe09ba6d74e",
+    "path": "command-center/tests",
+    "pattern": "budget|charge|cost",
+    "hits": 60
+   },
+   {
+    "step": 3,
+    "tool": "read_file",
+    "ok": true,
+    "t": 10.547,
+    "sig": "449638b2bfac",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 3,
+    "tool": "search",
+    "ok": true,
+    "t": 10.547,
+    "sig": "f911a21ef875",
+    "path": "command-center/tests/test_autonomy_goals.py",
+    "pattern": "def test_",
+    "hits": 24
+   },
+   {
+    "step": 4,
+    "tool": "read_file",
+    "ok": true,
+    "t": 13.094,
+    "sig": "0da2812fca91",
+    "path": "command-center/tests/test_autonomy_goals.py"
+   },
+   {
+    "step": 4,
+    "tool": "read_file",
+    "ok": true,
+    "t": 13.094,
+    "sig": "c56c531ba6f6",
+    "path": "command-center/tests/test_autonomy_goals.py"
+   },
+   {
+    "step": 5,
+    "tool": "read_file",
+    "ok": true,
+    "t": 22.375,
+    "sig": "b10108821de1",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 6,
+    "tool": "read_file",
+    "ok": true,
+    "t": 23.687,
+    "sig": "28d3fdcbb8c2",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 7,
+    "tool": "read_file",
+    "ok": true,
+    "t": 25.078,
+    "sig": "4e64e1269f23",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 8,
+    "tool": "search",
+    "ok": true,
+    "t": 32.172,
+    "sig": "f4e3710b33d8",
+    "path": "command-center/bcc/autonomy/types.py",
+    "pattern": "class Budget|cost|turns|minutes",
+    "hits": 4
+   },
+   {
+    "step": 8,
+    "tool": "search",
+    "ok": true,
+    "t": 32.172,
+    "sig": "23fa2f09f94b",
+    "path": "command-center/bcc/autonomy/schemas.py",
+    "pattern": "budget|cost",
+    "hits": 3
+   },
+   {
+    "step": 9,
+    "tool": "read_file",
+    "ok": true,
+    "t": 33.344,
+    "sig": "a1c80183369e",
+    "path": "command-center/bcc/autonomy/schemas.py"
+   },
+   {
+    "step": 10,
+    "tool": "search",
+    "ok": true,
+    "t": 42.297,
+    "sig": "78ab24b1bc8f",
+    "path": "command-center/bcc/autonomy",
+    "pattern": "usage|charge|cost_usd",
+    "hits": 60
+   },
+   {
+    "step": 10,
+    "tool": "search",
+    "ok": true,
+    "t": 42.312,
+    "sig": "b6a754de5235",
+    "path": "command-center/bcc",
+    "pattern": "\\.charge\\(|sweep_budgets|budget_exceeded",
+    "hits": 14
+   },
+   {
+    "step": 11,
+    "tool": "read_file",
+    "ok": true,
+    "t": 44.781,
+    "sig": "75c0aed44959",
+    "path": "command-center/bcc/autonomy/cycle.py"
+   },
+   {
+    "step": 12,
+    "tool": "read_file",
+    "ok": true,
+    "t": 46.437,
+    "sig": "71db7d89df1e",
+    "path": "command-center/bcc/autonomy/cycle.py"
+   },
+   {
+    "step": 13,
+    "tool": "read_file",
+    "ok": true,
+    "t": 64.422,
+    "sig": "287cfd0bee0f",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 13,
+    "tool": "read_file",
+    "ok": true,
+    "t": 64.422,
+    "sig": "098e528fdf4d",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 14,
+    "tool": null,
+    "ok": false,
+    "t": 84.422,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 15,
+    "tool": null,
+    "ok": false,
+    "t": 103.187,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 16,
+    "tool": "read_file",
+    "ok": true,
+    "t": 122.25,
+    "sig": "d7effb352df4",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 17,
+    "tool": null,
+    "ok": false,
+    "t": 144.703,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 18,
+    "tool": null,
+    "ok": false,
+    "t": 175.469,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 19,
+    "tool": null,
+    "ok": false,
+    "t": 210.859,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 20,
+    "tool": null,
+    "ok": false,
+    "t": 245.922,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 21,
+    "tool": null,
+    "ok": false,
+    "t": 274.656,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 22,
+    "tool": null,
+    "ok": false,
+    "t": 302.328,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 23,
+    "tool": null,
+    "ok": false,
+    "t": 336.922,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 24,
+    "tool": null,
+    "ok": false,
+    "t": 359.172,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 25,
+    "tool": null,
+    "ok": false,
+    "t": 379.25,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 26,
+    "tool": null,
+    "ok": false,
+    "t": 397.625,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 27,
+    "tool": null,
+    "ok": false,
+    "t": 416.859,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 28,
+    "tool": null,
+    "ok": false,
+    "t": 437.281,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 29,
+    "tool": null,
+    "ok": false,
+    "t": 456.797,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 30,
+    "tool": null,
+    "ok": false,
+    "t": 472.984,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 31,
+    "tool": null,
+    "ok": false,
+    "t": 487.828,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 32,
+    "tool": null,
+    "ok": false,
+    "t": 506.453,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 33,
+    "tool": null,
+    "ok": false,
+    "t": 532.422,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 34,
+    "tool": null,
+    "ok": false,
+    "t": 552.031,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 35,
+    "tool": "read_file",
+    "ok": true,
+    "t": 553.765,
+    "sig": "d7effb352df4",
+    "path": "command-center/bcc/autonomy/goals.py",
+    "repeat_no_progress": 1
+   },
+   {
+    "step": 36,
+    "tool": null,
+    "ok": false,
+    "t": 573.5,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 37,
+    "tool": null,
+    "ok": false,
+    "t": 595.344,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 38,
+    "tool": null,
+    "ok": false,
+    "t": 615.64,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 39,
+    "tool": null,
+    "ok": false,
+    "t": 638.937,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 40,
+    "tool": null,
+    "ok": false,
+    "t": 658.281,
+    "err": "no_tool_call"
+   }
+  ],
+  "tool_calls_total": 47,
+  "elapsed_seconds": 658.281,
+  "recipes_applied": [],
+  "profile": "",
+  "memory_used": false,
+  "skills_used": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "z-ai/glm-5.3-flash",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "https://openrouter.ai/api/v1"
+ },
+ "base_commit": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "duration_seconds": 797.68
+}

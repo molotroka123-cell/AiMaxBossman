@@ -1,0 +1,81 @@
+{
+ "holdout": "goal_budget_nonfinite/1",
+ "module": "C:\\Users\\asd\\AppData\\Local\\Temp\\selfrepair-vi4zxkqw\\wt\\command-center\\bcc\\autonomy\\goals.py",
+ "total": 9,
+ "failed": 5,
+ "passed": false,
+ "failures": [
+  {
+   "case": "charge nan then $5 over a $1 cap -> budget binds",
+   "ok": false,
+   "detail": "usage={'agent_turns': 0, 'cost_usd': nan} state=PROPOSED exceeded=''"
+  },
+  {
+   "case": "charge -inf then $5 over a $1 cap -> budget binds",
+   "ok": false,
+   "detail": "usage={'agent_turns': 0, 'cost_usd': -inf} state=PROPOSED exceeded=''"
+  },
+  {
+   "case": "charge negative then $5 over a $1 cap -> budget binds",
+   "ok": false,
+   "detail": "usage={'agent_turns': 0, 'cost_usd': 0.0} state=PROPOSED exceeded=''"
+  },
+  {
+   "case": "charge str-nan then $5 over a $1 cap -> budget binds",
+   "ok": false,
+   "detail": "usage={'agent_turns': 0, 'cost_usd': nan} state=PROPOSED exceeded=''"
+  },
+  {
+   "case": "usage already NaN on disk (older build) counts as exceeded",
+   "ok": false,
+   "detail": "exceeded=''"
+  }
+ ],
+ "cases": [
+  {
+   "case": "charge nan then $5 over a $1 cap -> budget binds",
+   "ok": false,
+   "detail": "usage={'agent_turns': 0, 'cost_usd': nan} state=PROPOSED exceeded=''"
+  },
+  {
+   "case": "charge +inf then $5 over a $1 cap -> budget binds",
+   "ok": true,
+   "detail": "blocked right after the bad charge (state=BLOCKED)"
+  },
+  {
+   "case": "charge -inf then $5 over a $1 cap -> budget binds",
+   "ok": false,
+   "detail": "usage={'agent_turns': 0, 'cost_usd': -inf} state=PROPOSED exceeded=''"
+  },
+  {
+   "case": "charge negative then $5 over a $1 cap -> budget binds",
+   "ok": false,
+   "detail": "usage={'agent_turns': 0, 'cost_usd': 0.0} state=PROPOSED exceeded=''"
+  },
+  {
+   "case": "charge str-nan then $5 over a $1 cap -> budget binds",
+   "ok": false,
+   "detail": "usage={'agent_turns': 0, 'cost_usd': nan} state=PROPOSED exceeded=''"
+  },
+  {
+   "case": "usage already NaN on disk (older build) counts as exceeded",
+   "ok": false,
+   "detail": "exceeded=''"
+  },
+  {
+   "case": "valid: $0.8 under a $1 cap stays open and is summed",
+   "ok": true,
+   "detail": "usage={'agent_turns': 0, 'cost_usd': 0.8} state=PROPOSED"
+  },
+  {
+   "case": "valid: $1.2 over a $1 cap is 'cost'",
+   "ok": true,
+   "detail": "exceeded='cost'"
+  },
+  {
+   "case": "valid: a $0 charge is fine",
+   "ok": true,
+   "detail": "exceeded=''"
+  }
+ ]
+}
