@@ -1,0 +1,6 @@
+$ (cwd=command-center) C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest ... tests\test_cu_task_apps_binding.py
+sha: 93c81467c1fa8fda713cc3f7453fa995d192994c
+
+..................                                                       [100%]
+18 passed in 22.87s
+exit_code: 0

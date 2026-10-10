@@ -56,12 +56,15 @@ def write_seed(doc: dict, raw: str) -> None:
                     newline="\n")                                   # LF on Windows too (CRLF rewrote every line)
 
 
-def cmd_add(manifest: Path) -> int:
+def cmd_add(manifest: Path, update: bool = False) -> int:
+    """Add manifest leaves; with update=True also refresh label/detail/status of EXISTING reg-* leaves that are still
+    below green (code/idea/prepared/blocked). A green leaf (reported/working/...) is never touched: it moves only by
+    receipts (tree_apply_evidence)."""
     doc, raw = load_seed()
     nodes = doc["nodes"]
     byid = {n["id"]: n for n in nodes}
     zones = {n["id"] for n in nodes if n.get("parent") == "bossman"}
-    added, skipped = [], []
+    added, skipped, updated = [], [], []
     for e in json.loads(manifest.read_text(encoding="utf-8")):
         src = e["source"]
         if not (ROOT / src).is_file():
@@ -83,7 +86,18 @@ def cmd_add(manifest: Path) -> int:
             return 3
         nid = f"reg-{e['slug']}"
         if nid in byid:
-            skipped.append(nid)
+            cur = byid[nid]
+            if update and cur.get("status") in ENTRY_STATUSES:
+                if status == "code":
+                    lead = docstring_line(ROOT / src)
+                    cur["detail"] = (lead or "Описания в коде нет.") + " Код есть; польза и живая работа не доказаны."
+                else:
+                    cur["detail"] = str(e["detail"]).strip()
+                cur.update(label=e["label"], status=status, sources=[{"path": src, "sha": last_sha(src)}],
+                           reference_paths=[src, *e.get("tests", [])])
+                updated.append(nid)
+            else:
+                skipped.append(nid)
             continue
         lead = docstring_line(ROOT / src)
         detail = ((lead or "Описания в коде нет.") + " Код есть; польза и живая работа не доказаны." if status == "code"
@@ -97,7 +111,8 @@ def cmd_add(manifest: Path) -> int:
         byid[nid] = node
         added.append(nid)
     write_seed(doc, raw)
-    print(json.dumps({"added": len(added), "already_present": len(skipped), "nodes": len(nodes)}, ensure_ascii=False))
+    print(json.dumps({"added": len(added), "updated": len(updated), "already_present": len(skipped), "nodes": len(nodes)},
+                     ensure_ascii=False))
     return 0
 
 
@@ -168,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("add")
     a.add_argument("--manifest", type=Path, required=True)
+    a.add_argument("--update", action="store_true", help="refresh existing leaves that are still below green")
     r = sub.add_parser("registry")
     r.add_argument("--audit", type=Path, required=True)
     r.add_argument("--out", type=Path, required=True)
@@ -175,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--owner-evidence", type=Path)
     args = ap.parse_args(argv)
     if args.cmd == "add":
-        return cmd_add(args.manifest)
+        return cmd_add(args.manifest, update=args.update)
     return cmd_registry(args.audit, args.out, args.ci_evidence, args.owner_evidence)
 
 

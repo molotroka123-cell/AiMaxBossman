@@ -355,11 +355,11 @@
  },
  {
   "slug": "video_gate0_f1",
-  "label": "Видео Gate 0: повтор эталона F1 (только лицо)",
+  "label": "Видео Gate 0: сходство анимации (конвейер без эффектов)",
   "parent": "media",
   "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
   "status": "prepared",
-  "detail": "Конфиг, исходники и выходы F1 измерены (arcface 0.797 против 0.153 у исходника, 444 кадра за 4:14). Повтор на том же SHA ещё не выполнен."
+  "detail": "10.10, клип 441 кадр: мастер без потерь бит-в-бит = исходник (все метрики 0) — PASS конвейера; выдача H.264 crf 10 — FAIL T4/T6 только из-за шума кодека (пороги a704eda9 не менялись). Отчёты gate0-20261010."
  },
  {
   "slug": "video_gate1_face2face",
@@ -367,15 +367,15 @@
   "parent": "media",
   "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
   "status": "prepared",
-  "detail": "Пороги зафиксированы до теста (кадры/fps, 0 изменённых пикселей вне лица, мимика NME ≤ 0.05, похожесть ≥ 0.75). Вне лица 0 изменений доказано на 5 кадрах PNG-путём; полный прогон 90 кадров идёт, подтверждение владельца в пульте не получено."
+  "detail": "10.10: контрольный клип 90 кадров — PASS (metric v4): 0 пикселей вне лица, мимика 0.019, дрожание 0.014, похожесть 0.794. Стресс на реальных роликах: kisliy — похожесть 0.749 и дрожание 0.027 (FAIL), клип 1 — FAIL. Ждёт подтверждения владельца в пульте."
  },
  {
   "slug": "video_stage2_clothes",
   "label": "Видео этап 2: замена одежды",
   "parent": "media",
-  "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-  "status": "idea",
-  "detail": "Очередь после Gate 1. Кандидаты: CatV2TON и альтернативы сообщества; лицензии и запуск на AMD не проверены."
+  "source": "tools/genjutsu/clothes_swap.py",
+  "status": "prepared",
+  "detail": "Пороги 779cebc7. Пробный прогон 33 кадра (Wan2.1 VACE 1.3B, Vulkan, 25 с/кадр): вне маски 0, лицо 0.98, мерцание +1.18 — PASS; униформа ΔE 15.1 и тело 0.183 — FAIL (волосы в маске). Волосы вычитаются; идёт прогон 81 кадр."
  },
  {
   "slug": "video_stage3_mimics",
@@ -383,7 +383,7 @@
   "parent": "media",
   "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
   "status": "idea",
-  "detail": "Очередь после этапа 2. Какой модуль Bossman считать Mimics 2.0 — ждёт уточнения владельца; MimicMotion только как референс."
+  "detail": "Очередь после этапа 2. Что такое Mimics 2.0 — ждёт уточнения владельца (в коде и истории модуля с таким именем нет). Варианты дообучения на RunPod записаны в docs/owner/VIDEO_PIPELINE_STAGES_20261010.md."
  },
  {
   "slug": "video_stage4_background",
@@ -391,6 +391,57 @@
   "parent": "media",
   "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
   "status": "idea",
-  "detail": "Очередь после этапа 3. Кандидаты: SAM2Matting, VideoMaMa; на AMD не проверены."
+  "detail": "Очередь после этапа 3. Кандидаты: Grounded-SAM-2 + RobustVideoMatting (локально); варианты дообучения RVM на RunPod записаны в docs/owner/VIDEO_PIPELINE_STAGES_20261010.md."
+ },
+ {
+  "slug": "genjutsu_live_constructor",
+  "label": "Конструктор Genjutsu: живая смена цвета волос и одежды по маскам",
+  "parent": "media",
+  "source": "command-center/bcc/direct_gen/genjutsu.py",
+  "tests": [
+   "command-center/tests/test_direct_gen_genjutsu.py"
+  ]
+ },
+ {
+  "slug": "cu_task_scoped_apps",
+  "label": "Computer Use: приложения на задачу + привязка к окну HWND/PID",
+  "parent": "computer",
+  "source": "command-center/bcc/features/tools_computer.py",
+  "tests": [
+   "command-center/tests/test_cu_task_apps_binding.py"
+  ]
+ },
+ {
+  "slug": "faceswap_makeup_layer",
+  "label": "Слой макияжа поверх замены лица",
+  "parent": "media",
+  "source": "command-center/bcc/direct_gen/makeup_worker.py",
+  "status": "prepared",
+  "detail": "Гейт макияжа (правило c87a8d6d): A обычная замена 0.751/ΔE 27, C макияж из оригинала 0.602/ΔE 11.8, D слой 0.602/ΔE 16.4 — по правилу A; выбор между похожестью и макияжем за владельцем."
+ },
+ {
+  "slug": "faceswap_hairline_guard",
+  "label": "Страж линии волос (без пятен-чёлок на висках)",
+  "parent": "media",
+  "source": "command-center/bcc/direct_gen/pose_gate_worker.py",
+  "tests": [
+   "command-center/tests/test_direct_gen_faceswap.py"
+  ]
+ },
+ {
+  "slug": "video_animation_gate",
+  "label": "Замер гейтов видео: кадры, пиксели, мимика, тело, поток, дрожание",
+  "parent": "media",
+  "source": "tools/video_gate/animation_gate.py",
+  "status": "prepared",
+  "detail": "metric v4; пороги фиксируются до теста. Gate 0 и Gate 1 измерены 10.10 на реальных роликах; side-by-side и контакт-листы сохраняются локально."
+ },
+ {
+  "slug": "trend_edit_analyzer",
+  "label": "Разбор трендового эдита: склейки, бит, синхрон, хук",
+  "parent": "apps",
+  "source": "tools/trend_edit/analyze_edit.py",
+  "status": "prepared",
+  "detail": "Прототип 10.10: на двух роликах владельца 11 склеек, 129 BPM, синхрон склеек с битом 18–36%. Оценка структуры — эвристика, не прогноз просмотров."
  }
 ]

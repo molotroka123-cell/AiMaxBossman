@@ -196,5 +196,44 @@
       "verdict": "ACCEPT_NEW",
       "reason": "The NEW run exits 0 with 30 tests passing and only 2 skipped, so tests actually ran, and the test file is listed as importing this module, so it plausibly exercises the leaf."
     }
+  },
+  {
+    "node_id": "reg-genjutsu_live_constructor",
+    "sha": "93c81467c1fa8fda713cc3f7453fa995d192994c",
+    "probe": "pytest 1 test file(s) importing bcc.direct_gen.genjutsu: command-center/tests/test_direct_gen_genjutsu.py",
+    "command": "C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest -q tests\\test_direct_gen_genjutsu.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T13:59:53.697215+00:00",
+    "finished_at": "2026-10-10T14:00:08.267928+00:00",
+    "output_sha256": "e33010b500842fb92d6d96c764b7618bb777335cdfa23323c84ba884f3b2b4ec",
+    "output_tail": "........................                                                 [100%]\n24 passed in 11.60s",
+    "verdict": "PASS",
+    "kind": "pytest"
+  },
+  {
+    "node_id": "reg-cu_task_scoped_apps",
+    "sha": "93c81467c1fa8fda713cc3f7453fa995d192994c",
+    "probe": "pytest 1 test file(s) importing bcc.features.tools_computer: command-center/tests/test_cu_task_apps_binding.py",
+    "command": "C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest -q tests\\test_cu_task_apps_binding.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T14:00:08.750066+00:00",
+    "finished_at": "2026-10-10T14:00:35.353819+00:00",
+    "output_sha256": "0bc040711aef03c70a0c0f89ffbbc9fc0e39903c9c1c2b4c1d7980bc67e58db3",
+    "output_tail": "..................                                                       [100%]\n18 passed in 22.87s",
+    "verdict": "PASS",
+    "kind": "pytest"
+  },
+  {
+    "node_id": "reg-faceswap_hairline_guard",
+    "sha": "93c81467c1fa8fda713cc3f7453fa995d192994c",
+    "probe": "pytest 1 test file(s) importing bcc.direct_gen.pose_gate_worker: command-center/tests/test_direct_gen_faceswap.py",
+    "command": "C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest -q tests\\test_direct_gen_faceswap.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T14:00:35.820231+00:00",
+    "finished_at": "2026-10-10T14:00:49.640481+00:00",
+    "output_sha256": "4d37851d3827d494d731d6e42f80cf3922fd92ec07a0449aaa32471b1e930497",
+    "output_tail": ".......................                                                  [100%]\n23 passed in 10.91s",
+    "verdict": "PASS",
+    "kind": "pytest"
   }
 ]

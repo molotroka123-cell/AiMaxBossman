@@ -104,3 +104,19 @@ def test_registry_rows_carry_every_required_field(tmp_path, monkeypatch):
     assert {"id", "source", "sha", "integration_status", "levels", "proven_through", "evidence"} <= set(row)
     assert row["proven_through"] == "tests" and row["levels"]["ci"]["state"] == "NOT_RUN"
     assert "bossman" not in {r["id"] for r in reg["leaves"]}                 # the root is not a leaf
+
+
+def test_update_refreshes_a_non_green_leaf_and_never_touches_a_green_one(tmp_path, monkeypatch, capsys):
+    seed = _repo(tmp_path, monkeypatch)
+    assert trs.cmd_add(_manifest(tmp_path, status="prepared", detail="thresholds fixed, run pending")) == 0
+    assert trs.cmd_add(_manifest(tmp_path, status="blocked", detail="HIP launch failure after 8.5 min"), update=True) == 0
+    n = [x for x in json.loads(seed.read_text(encoding="utf-8"))["nodes"] if x["id"] == "reg-x"][0]
+    assert n["status"] == "blocked" and n["detail"].startswith("HIP launch failure")
+    doc = json.loads(seed.read_text(encoding="utf-8"))
+    for x in doc["nodes"]:
+        if x["id"] == "reg-x":
+            x["status"] = "working"                                     # green by a receipt
+    seed.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    assert trs.cmd_add(_manifest(tmp_path, status="idea", detail="must not downgrade a green leaf"), update=True) == 0
+    n = [x for x in json.loads(seed.read_text(encoding="utf-8"))["nodes"] if x["id"] == "reg-x"][0]
+    assert n["status"] == "working"

@@ -22177,7 +22177,7 @@
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22187,14 +22187,14 @@
     },
     {
       "id": "reg-video_gate0_f1",
-      "label": "Видео Gate 0: повтор эталона F1 (только лицо)",
+      "label": "Видео Gate 0: сходство анимации (конвейер без эффектов)",
       "parent": "media",
       "status": "prepared",
-      "detail": "Конфиг, исходники и выходы F1 измерены (arcface 0.797 против 0.153 у исходника, 444 кадра за 4:14). Повтор на том же SHA ещё не выполнен.",
+      "detail": "10.10, клип 441 кадр: мастер без потерь бит-в-бит = исходник (все метрики 0) — PASS конвейера; выдача H.264 crf 10 — FAIL T4/T6 только из-за шума кодека (пороги a704eda9 не менялись). Отчёты gate0-20261010.",
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22207,11 +22207,11 @@
       "label": "Видео Gate 1: лицо→лицо, вне лица пиксель в пиксель",
       "parent": "media",
       "status": "prepared",
-      "detail": "Пороги зафиксированы до теста (кадры/fps, 0 изменённых пикселей вне лица, мимика NME ≤ 0.05, похожесть ≥ 0.75). Вне лица 0 изменений доказано на 5 кадрах PNG-путём; полный прогон 90 кадров идёт, подтверждение владельца в пульте не получено.",
+      "detail": "10.10: контрольный клип 90 кадров — PASS (metric v4): 0 пикселей вне лица, мимика 0.019, дрожание 0.014, похожесть 0.794. Стресс на реальных роликах: kisliy — похожесть 0.749 и дрожание 0.027 (FAIL), клип 1 — FAIL. Ждёт подтверждения владельца в пульте.",
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22223,17 +22223,17 @@
       "id": "reg-video_stage2_clothes",
       "label": "Видео этап 2: замена одежды",
       "parent": "media",
-      "status": "idea",
-      "detail": "Очередь после Gate 1. Кандидаты: CatV2TON и альтернативы сообщества; лицензии и запуск на AMD не проверены.",
+      "status": "prepared",
+      "detail": "Пороги 779cebc7. Пробный прогон 33 кадра (Wan2.1 VACE 1.3B, Vulkan, 25 с/кадр): вне маски 0, лицо 0.98, мерцание +1.18 — PASS; униформа ΔE 15.1 и тело 0.183 — FAIL (волосы в маске). Волосы вычитаются; идёт прогон 81 кадр.",
       "sources": [
         {
-          "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+          "path": "tools/genjutsu/clothes_swap.py",
+          "sha": "4044058b0544a473e93f047c3087497f2e97c6ab"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
       "reference_paths": [
-        "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"
+        "tools/genjutsu/clothes_swap.py"
       ]
     },
     {
@@ -22241,11 +22241,11 @@
       "label": "Видео этап 3: Mimics 2.0 (мимика)",
       "parent": "media",
       "status": "idea",
-      "detail": "Очередь после этапа 2. Какой модуль Bossman считать Mimics 2.0 — ждёт уточнения владельца; MimicMotion только как референс.",
+      "detail": "Очередь после этапа 2. Что такое Mimics 2.0 — ждёт уточнения владельца (в коде и истории модуля с таким именем нет). Варианты дообучения на RunPod записаны в docs/owner/VIDEO_PIPELINE_STAGES_20261010.md.",
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22258,16 +22258,121 @@
       "label": "Видео этап 4: замена фона",
       "parent": "media",
       "status": "idea",
-      "detail": "Очередь после этапа 3. Кандидаты: SAM2Matting, VideoMaMa; на AMD не проверены.",
+      "detail": "Очередь после этапа 3. Кандидаты: Grounded-SAM-2 + RobustVideoMatting (локально); варианты дообучения RVM на RunPod записаны в docs/owner/VIDEO_PIPELINE_STAGES_20261010.md.",
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
       "reference_paths": [
         "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"
+      ]
+    },
+    {
+      "id": "reg-genjutsu_live_constructor",
+      "label": "Конструктор Genjutsu: живая смена цвета волос и одежды по маскам",
+      "parent": "media",
+      "status": "code",
+      "detail": "Genjutsu live constructor: region masks (hair / top / bottom / clothes) for live recolour in the browser. The backend computes masks ONCE per frame; the browser recolours live (canvas, Lab, debounced) — no round trip per slider move. Two local engines, both ru Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/direct_gen/genjutsu.py",
+          "sha": "64b541110c1b336585ed6dddd29afa4fce81ba4b"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/direct_gen/genjutsu.py",
+        "command-center/tests/test_direct_gen_genjutsu.py"
+      ]
+    },
+    {
+      "id": "reg-cu_task_scoped_apps",
+      "label": "Computer Use: приложения на задачу + привязка к окну HWND/PID",
+      "parent": "computer",
+      "status": "code",
+      "detail": "Computer Use в Command Center: observe → target → act → re-observe → verify. Owner audit 2026-09-21 (glm53 CP-07/08, Aster): установленный продукт не давал модели ни одного инструмента рабочего стола. Оператор компьютера жил только в bossman-core (`bossman.com Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/features/tools_computer.py",
+          "sha": "42cf9d062e5eb765cde286d68e43ae6a962aed65"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/features/tools_computer.py",
+        "command-center/tests/test_cu_task_apps_binding.py"
+      ]
+    },
+    {
+      "id": "reg-faceswap_makeup_layer",
+      "label": "Слой макияжа поверх замены лица",
+      "parent": "media",
+      "status": "prepared",
+      "detail": "Гейт макияжа (правило c87a8d6d): A обычная замена 0.751/ΔE 27, C макияж из оригинала 0.602/ΔE 11.8, D слой 0.602/ΔE 16.4 — по правилу A; выбор между похожестью и макияжем за владельцем.",
+      "sources": [
+        {
+          "path": "command-center/bcc/direct_gen/makeup_worker.py",
+          "sha": "ad782e4e21dbdbba1c4532e5d4aa958d411d11f6"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/direct_gen/makeup_worker.py"
+      ]
+    },
+    {
+      "id": "reg-faceswap_hairline_guard",
+      "label": "Страж линии волос (без пятен-чёлок на висках)",
+      "parent": "media",
+      "status": "code",
+      "detail": "Pose gate for the video face swap: keep the source face where the head is bowed toward the camera. FaceFusion's detector stays confident on a bowed head (10.10, two-person clip, 10.1-11.5 s: detector 0.78-0.80) and pastes a frontal face onto the crown — eyes a Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/direct_gen/pose_gate_worker.py",
+          "sha": "ad782e4e21dbdbba1c4532e5d4aa958d411d11f6"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/direct_gen/pose_gate_worker.py",
+        "command-center/tests/test_direct_gen_faceswap.py"
+      ]
+    },
+    {
+      "id": "reg-video_animation_gate",
+      "label": "Замер гейтов видео: кадры, пиксели, мимика, тело, поток, дрожание",
+      "parent": "media",
+      "status": "prepared",
+      "detail": "metric v4; пороги фиксируются до теста. Gate 0 и Gate 1 измерены 10.10 на реальных роликах; side-by-side и контакт-листы сохраняются локально.",
+      "sources": [
+        {
+          "path": "tools/video_gate/animation_gate.py",
+          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/video_gate/animation_gate.py"
+      ]
+    },
+    {
+      "id": "reg-trend_edit_analyzer",
+      "label": "Разбор трендового эдита: склейки, бит, синхрон, хук",
+      "parent": "apps",
+      "status": "prepared",
+      "detail": "Прототип 10.10: на двух роликах владельца 11 склеек, 129 BPM, синхрон склеек с битом 18–36%. Оценка структуры — эвристика, не прогноз просмотров.",
+      "sources": [
+        {
+          "path": "tools/trend_edit/analyze_edit.py",
+          "sha": "e741ea99c8ff0cf79da2bc592b298f25b026b919"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/trend_edit/analyze_edit.py"
       ]
     }
   ],
