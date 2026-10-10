@@ -1,6 +1,6 @@
 {
  "schema": "bossman-tree-registry-1",
- "head": "6565b05b6519744a76c213d7bbd9709b56ed8278",
+ "head": "6c0dd1f56a3f0d135556ec835a2183d2dae0d23e",
  "leaves": [
   {
    "id": "jeff",
@@ -34196,7 +34196,7 @@
    "label": "Wan2.2-Animate локально на Radeon (ROCm, Windows)",
    "zone_parent": "media",
    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-   "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0",
+   "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772",
    "integration_status": "blocked",
    "levels": {
     "code": {
@@ -34229,10 +34229,10 @@
   },
   {
    "id": "reg-video_gate0_f1",
-   "label": "Видео Gate 0: повтор эталона F1 (только лицо)",
+   "label": "Видео Gate 0: сходство анимации (конвейер без эффектов)",
    "zone_parent": "media",
    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-   "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0",
+   "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772",
    "integration_status": "prepared",
    "levels": {
     "code": {
@@ -34268,7 +34268,7 @@
    "label": "Видео Gate 1: лицо→лицо, вне лица пиксель в пиксель",
    "zone_parent": "media",
    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-   "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0",
+   "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772",
    "integration_status": "prepared",
    "levels": {
     "code": {
@@ -34303,9 +34303,9 @@
    "id": "reg-video_stage2_clothes",
    "label": "Видео этап 2: замена одежды",
    "zone_parent": "media",
-   "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-   "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0",
-   "integration_status": "idea",
+   "source": "tools/genjutsu/clothes_swap.py",
+   "sha": "4044058b0544a473e93f047c3087497f2e97c6ab",
+   "integration_status": "prepared",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -34340,7 +34340,7 @@
    "label": "Видео этап 3: Mimics 2.0 (мимика)",
    "zone_parent": "media",
    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-   "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0",
+   "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772",
    "integration_status": "idea",
    "levels": {
     "code": {
@@ -34376,8 +34376,224 @@
    "label": "Видео этап 4: замена фона",
    "zone_parent": "media",
    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-   "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0",
+   "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772",
    "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-genjutsu_live_constructor",
+   "label": "Конструктор Genjutsu: живая смена цвета волос и одежды по маскам",
+   "zone_parent": "media",
+   "source": "command-center/bcc/direct_gen/genjutsu.py",
+   "sha": "64b541110c1b336585ed6dddd29afa4fce81ba4b",
+   "integration_status": "reported",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-cu_task_scoped_apps",
+   "label": "Computer Use: приложения на задачу + привязка к окну HWND/PID",
+   "zone_parent": "computer",
+   "source": "command-center/bcc/features/tools_computer.py",
+   "sha": "42cf9d062e5eb765cde286d68e43ae6a962aed65",
+   "integration_status": "reported",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-faceswap_makeup_layer",
+   "label": "Слой макияжа поверх замены лица",
+   "zone_parent": "media",
+   "source": "command-center/bcc/direct_gen/makeup_worker.py",
+   "sha": "ad782e4e21dbdbba1c4532e5d4aa958d411d11f6",
+   "integration_status": "prepared",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-faceswap_hairline_guard",
+   "label": "Страж линии волос (без пятен-чёлок на висках)",
+   "zone_parent": "media",
+   "source": "command-center/bcc/direct_gen/pose_gate_worker.py",
+   "sha": "ad782e4e21dbdbba1c4532e5d4aa958d411d11f6",
+   "integration_status": "reported",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-video_animation_gate",
+   "label": "Замер гейтов видео: кадры, пиксели, мимика, тело, поток, дрожание",
+   "zone_parent": "media",
+   "source": "tools/video_gate/animation_gate.py",
+   "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772",
+   "integration_status": "prepared",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-trend_edit_analyzer",
+   "label": "Разбор трендового эдита: склейки, бит, синхрон, хук",
+   "zone_parent": "apps",
+   "source": "tools/trend_edit/analyze_edit.py",
+   "sha": "e741ea99c8ff0cf79da2bc592b298f25b026b919",
+   "integration_status": "prepared",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -34410,7 +34626,7 @@
  ],
  "proven_through_counts": {
   "none": 88,
-  "code": 313,
+  "code": 319,
   "tests": 485
  },
  "note": "tests = a recorded run in the cloud; ci = green on the stated SHA only when a CI evidence file is supplied; owner_pc only from an owner evidence file."
