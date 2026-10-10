@@ -15,6 +15,9 @@ T2 requires max|diff| == 0 outside the face mask; otherwise T2 is PSNR >= 40 dB 
 Metric version v2 (10.10): source twins are ties, faces/bodies are matched to the same person; thresholds unchanged.
 Metric version v3 (10.10): T4 body uses Pose points 11-32 only — points 0-10 are the face, which Gate 1 changes on purpose
 (owner spec: intentionally changed areas are not compared); the face has its own T3.
+Metric version v4 (10.10): for Gate >= 1 the pose model sees both frames with the face mask greyed — on the 90-frame F1
+clip the body area was pixel-identical (T2 = 0, flow 0.0075 px) yet MediaPipe moved the body points by 0.134 torso
+because the face changed; v4 measures the body, not the detector's reaction to the face. Thresholds unchanged.
 Body model: MediaPipe PoseLandmarker full (Apache-2.0), file from BOSSMAN_POSE_MODEL or <gate-venv>/models/.
 """
 from __future__ import annotations
@@ -249,7 +252,12 @@ def measure(src, res, faces, gate: int, lossless: bool, src_info, res_info, body
     jit = jitter_rms(dev)
     bodies = []
     if body:
-        bs, br = body_keypoints(src[:n]), body_keypoints(res[:n])
+        if gate >= 1:   # v4: the intentionally changed face area is greyed in BOTH frames before pose estimation
+            grey = lambda f, keep: np.where(keep[..., None], f, np.uint8(127))
+            bs = body_keypoints([grey(src[i], masks[i]) for i in range(n)])
+            br = body_keypoints([grey(res[i], masks[i]) for i in range(n)])
+        else:
+            bs, br = body_keypoints(src[:n]), body_keypoints(res[:n])
         for i in range(n):
             sp, rp = pick_bodies(bs[i], br[i])
             if sp is None or rp is None:
@@ -376,7 +384,7 @@ def main(argv=None) -> int:
     metrics, checks, rows = measure(src, res, faces, a.gate, a.lossless, src_info, res_info)
     side_by_side(src, res, src_info.get("fps"), out / "side_by_side.mp4")
     control = contact_sheet(src, res, out / "contact_sheet.jpg")
-    report = {"gate": a.gate, "metric_version": "v3", "thresholds": THRESHOLDS[a.gate], "lossless_declared": a.lossless,
+    report = {"gate": a.gate, "metric_version": "v4", "thresholds": THRESHOLDS[a.gate], "lossless_declared": a.lossless,
               "command": [Path(sys.executable).name, Path(__file__).name, *(argv if argv is not None else sys.argv[1:])],
               "versions": versions(), "source": {**src_info, "sha256": sha256_of(src_p)},
               "result": {**res_info, "sha256": sha256_of(res_p)}, "metrics": metrics, "checks": checks,
