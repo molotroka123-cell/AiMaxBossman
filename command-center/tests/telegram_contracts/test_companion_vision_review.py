@@ -6,6 +6,7 @@ import asyncio
 import json
 
 import httpx
+import pytest
 
 from bcc.telegram_companion.adapters import Core, Models, Telegram
 from bcc.telegram_companion.config import CompanionError
@@ -141,7 +142,7 @@ def test_rate_usage_and_bad_run_id(tmp_path):
 
 
 def test_a_guest_never_sees_local_paths_or_endpoints_from_a_failed_review(tmp_path):
-    """Review P2 (a): the reviewer's failure reason carries local paths and URLs; a guest gets none of it."""
+    """Review P2 (a) + owner rule 10.10: a guest gets nothing from the Pult at all — no paths, no URLs, no text."""
     reason = 'frames unavailable: C:/Users/asd/Bossman Test 0923/data/studio/x.mp4 via http://127.0.0.1:11435'
     studio = ReviewStudio(review={'verdict': 'INSUFFICIENT_EVIDENCE', 'reason': reason})
     rec = TelegramRecorder()
@@ -158,13 +159,10 @@ def test_a_guest_never_sees_local_paths_or_endpoints_from_a_failed_review(tmp_pa
         msg = {'from': {'id': GUEST.user_id, 'is_bot': False}, 'chat': {'id': GUEST.chat_id, 'type': 'private'},
                'text': '/video 5 лиса'}
         try:
-            await app.handle(GUEST, msg)
+            with pytest.raises(CompanionError):
+                await app.handle(GUEST, msg)
             await asyncio.gather(*app.vision_tasks)
         finally:
             await tg.close(); await core.close(); await models.close(); store.close()
     asyncio.run(go())
-    [verdict] = [t for t in sent_texts(rec) if 'Bossman Vision' in t]
-    assert 'не смог проверить' in verdict
-    for leak in ('C:/Users', 'Bossman Test', '127.0.0.1', '11435', 'http'):
-        assert leak not in verdict, verdict
-    assert video_buttons(rec) == ['🔁 Ещё вариант']      # and a guest gets no rating buttons
+    assert all(str(GUEST.chat_id).encode() not in content for _, content in rec.calls)

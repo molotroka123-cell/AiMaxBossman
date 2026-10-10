@@ -335,8 +335,10 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
         task.add_done_callback(self.secret_cleanup_tasks.discard)
 
     def delivery_allowed(self, person: Person) -> bool:
+        # Owner rule 10.10 («пульт пишет только владельцу»): the Пульт bot delivers to the owner only,
+        # even when other people are listed in its config. Jeff has his own bot and his own rule.
         try:
-            return person in self.policy_provider().people
+            return person in self.policy_provider().people and person.role == "owner"
         except (OSError, ValueError, TypeError):
             return False
 
