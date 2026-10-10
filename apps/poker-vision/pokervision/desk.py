@@ -42,6 +42,37 @@ def preflop_bb_for(spec: dict) -> float | None:
     return BOOTSTRAP_BB.get(spec.get("bootstrap") or "cash_nl10") if spec.get("kind") == "sandbox" else None
 
 
+def rec_key(cm) -> tuple:
+    """Every input of `recommend` is in the key: a stack or position committed one frame later must trigger a new decision (seen live,
+    10.10: a cached "stack not confirmed" answer kept the bot from ever acting in that spot)."""
+    return (tuple(cm.hero_cards), len([c for c in cm.board if c]), cm.pot.amount if cm.pot else None, tuple(map(tuple, cm.actions or [])),
+            cm.hero_turn, tuple(cm.blocked), cm.hero_stack.amount if cm.hero_stack else None, cm.hero_position)
+
+
+def screen_matches_committed(st, cm) -> bool:
+    return screen_mismatch(st, cm) is None
+
+
+def screen_mismatch(st, cm) -> str | None:
+    """Act only when the newest frame shows the same street and the same buttons as the committed state the decision used.
+    Measured live (24 hands, 10.10): 12 of 57 decisions were taken one street behind (the new board card was on screen but not yet
+    committed); a just-dealt street or a new bet must first be committed. Unknown readings on the newest frame also mean: wait.
+    Second live run (headful, 10.10): 8 of 45 decisions used the PREVIOUS hand's hero cards and 9 a pot from before the last bet —
+    so the hero cards and the pot of the newest frame must agree with the committed ones too."""
+    if not st.board_count.known or st.board_count.value != len([c for c in cm.board if c]):
+        return "board"
+    hero = [f.value if f.known else None for f in st.hero_cards]
+    if len(hero) != 2 or None in hero or hero != list(cm.hero_cards):
+        return "hero_cards"
+    if not st.pot.known or cm.pot is None or not st.pot.value.agrees(cm.pot):
+        return "pot"
+    if not st.actions.known or cm.actions is None:
+        return "actions_unread"
+    if [tuple(a) for a in st.actions.value] != [tuple(a) for a in cm.actions]:
+        return "actions_changed"
+    return None
+
+
 def control_allowed(spec: dict, adapter) -> tuple[bool, str]:
     if spec.get("kind") != "sandbox":
         return False, OBSERVE_ONLY_WHY.get(spec.get("kind"), "источник не подтверждён для управления")
@@ -235,7 +266,7 @@ class DeskMixin:
 
     def _coach_step(self, fresh: Fresh) -> None:
         d, cm = self.desk, fresh.committed
-        key = (tuple(cm.hero_cards), len([c for c in cm.board if c]), cm.pot.amount if cm.pot else None, tuple(map(tuple, cm.actions or [])), cm.hero_turn, tuple(cm.blocked))
+        key = rec_key(cm)
         if key == d["rec_key"]:
             return
         d["rec_key"] = key
@@ -255,6 +286,11 @@ class DeskMixin:
             d["rec_key"] = None                         # decided on an old state: re-decide on the current one
             return
         if len(self.decisions) >= self._max_hands * 6:
+            return
+        why = screen_mismatch(fresh.state, fresh.committed)
+        if why is not None:
+            d.setdefault("waits", {}); d["waits"][why] = d["waits"].get(why, 0) + 1
+            d["rec_key"] = None                         # the screen moved on (new street / new bet) but the vote has not caught up: wait
             return
         decision = rc.decision
         if d["bench"].get("decide"):

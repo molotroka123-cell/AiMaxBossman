@@ -119,7 +119,8 @@ class Reconciler:
     def _new_hand_votes(self) -> None:
         c = self.cfg
         self.v = {k: _Vote(c) for k in ("pot", "to_call", "hero_stack", "street", "dealer", "hero_turn", "actions", "board_count", "hero_position")}
-        self.v["actions"] = _Vote(c, expire=True)       # buttons that cannot be read any more must not stay "committed" (seen live: a stale
+        self.v["actions"] = _Vote(c, expire=True)
+        self.v["hero_turn"] = _Vote(c, expire=True)     # between hands nothing is readable: a stale "hero's turn" blocked the next DEAL       # buttons that cannot be read any more must not stay "committed" (seen live: a stale
                                                         # CALL from an earlier frame kept the policy deciding on buttons no longer on screen)
         self.v_hero = [_Vote(c), _Vote(c)]
         self.v_board = [_Vote(c) for _ in range(5)]

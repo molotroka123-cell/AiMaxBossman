@@ -11,6 +11,7 @@ import pytest
 from pokervision import play_report as pr
 from pokervision.coach import recommend
 from pokervision.reconcile import Committed, Reconciler
+from pokervision.schema import Field
 from tests.helpers import money, ok, state
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,41 @@ def test_chart_not_used_after_the_bot_already_acted_or_when_disabled():
 def test_chart_raise_without_raise_button_falls_back():
     rc = recommend(cm_(actions=(("FOLD", None), ("CALL", 10.0), ("ALL IN", 1000.0))), random.Random(1), 50, preflop_bb=10)
     assert rc.source == "heuristic"
+
+
+def test_control_waits_while_the_screen_is_ahead_of_the_committed_state():
+    from pokervision.desk import screen_matches_committed
+    cm = cm_(board=(), actions=(("FOLD", None), ("CHECK", None), ("RAISE", None)))
+    st = state(0, board=("4h", "9d", "3h")); st.actions = ok([("FOLD", None), ("CHECK", None), ("RAISE", None)])
+    assert not screen_matches_committed(st, cm)                        # flop on screen, committed still preflop
+    st0 = state(0, board=()); st0.actions = ok([("FOLD", None), ("CHECK", None), ("RAISE", None)])
+    assert screen_matches_committed(st0, cm)
+    st1 = state(0, board=()); st1.actions = ok([("FOLD", None), ("CALL", 125.0), ("RAISE", None)])
+    assert not screen_matches_committed(st1, cm)                       # a new bet appeared
+    st2 = state(0, board=())                                            # buttons unreadable on the newest frame
+    assert not screen_matches_committed(st2, cm)
+    st3 = state(0, hero=("9h", "Kc"), board=()); st3.actions = st0.actions
+    assert not screen_matches_committed(st3, cm)                       # a new hand is on screen, committed cards are the old hand's
+    st4 = state(0, board=(), pot=40); st4.actions = st0.actions
+    assert not screen_matches_committed(st4, cm)                       # the pot moved (a bet happened)
+    st5 = state(0, hero=("As", None), board=()); st5.actions = st0.actions
+    assert not screen_matches_committed(st5, cm)                       # a hero card unreadable now: wait
+
+
+def test_recommendation_is_recomputed_when_stack_or_position_commit_later():
+    from pokervision.desk import rec_key
+    a, b, c = cm_(), cm_(stack=990), cm_(pos=None)
+    assert rec_key(a) != rec_key(b) and rec_key(a) != rec_key(c)
+
+
+def test_hero_turn_expires_when_nothing_is_readable_between_hands():
+    rec = Reconciler()
+    for t in (0, 100):
+        cm = rec.push(state(t, hero_turn=True))
+    assert cm.hero_turn is True
+    for t in range(200, 200 + 100 * rec.cfg.window, 100):
+        st = state(t); st.hero_turn = Field.unknown(t, "test", "no_anchor"); cm = rec.push(st)
+    assert cm.hero_turn is None                                         # the deal assist may press DEAL again
 
 
 def test_desk_bb_comes_from_the_table_the_bot_opened():

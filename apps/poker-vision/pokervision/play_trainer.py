@@ -70,6 +70,7 @@ class Session:
         self.rows: list[dict] = []
         self.halts: list[dict] = []
         self.interventions: list[dict] = []      # harness presses (stuck detector); never counted as bot decisions
+        self.interventions_detail: list[dict] = []
         self.pending: dict = {}
         self.svc = VisionService(self.out / "service")
         self.source = {"kind": "sandbox", "url": args.url, "bootstrap": args.bootstrap, "headless": not args.headful}
@@ -138,6 +139,13 @@ class Session:
                     stuck_key, stuck_since = key, time.time()
                 elif key is not None and time.time() - stuck_since > a.stuck_s:
                     lab = "CHECK" if "CHECK" in labels else "FOLD"
+                    rv, cmx = svc.recommendation_view(), svc.committed
+                    if svc.last_frame is not None:
+                        cv2.imwrite(str(self.out / "frames" / f"stuck_{len(self.interventions) + 1:02d}_hand{tr.get('hand_header')}.png"), svc.last_frame.bgr)
+                    self.interventions_detail.append({"why_not": rv.get("why_not"), "blocked": list(cmx.blocked) if cmx else None,
+                                                      "hero_turn": cmx.hero_turn if cmx else None, "pending": list(cmx.pending) if cmx else None,
+                                                      "waits": dict(svc.desk.get("waits") or {}),
+                                                      "read": committed_view(cmx) if cmx else None, "truth": truth_view(tr)})
                     done = svc.sandbox_cmd("dom_click", label=lab).get("result")
                     self.interventions.append({"t": round(time.time() - t0, 1), "hand": tr.get("hand_header"), "pressed": lab, "ok": bool(done),
                                                "why": f"hero on turn {a.stuck_s:g}s without a bot action"})
@@ -213,10 +221,11 @@ class Session:
         bb = self.svc.desk.get("preflop_bb") if getattr(self.svc, "desk", None) else None
         hands = sorted({r["hand"] for r in self.rows if r["hand"]}, key=lambda h: int(h))
         rep = {"mode": mode, "url": self.args.url, "bootstrap": self.args.bootstrap, "seconds": round(secs, 1), "decisions": len(self.rows),
-               "hands_with_decisions": len(hands), "hands": hands, "halts": self.halts, "harness_interventions": self.interventions,
+               "hands_with_decisions": len(hands), "hands": hands, "halts": self.halts, "harness_interventions": self.interventions, "harness_interventions_detail": self.interventions_detail,
                "stack_start": s0, "stack_end": s1, "net_chips": (s1 - s0) if (s0 is not None and s1 is not None) else None, "bb": bb,
                "net_bb": round((s1 - s0) / bb, 2) if (s0 is not None and s1 is not None and bb) else None,
                "reading": summarize(self.rows),
+               "control_waits": dict((getattr(self.svc, "desk", None) or {}).get("waits") or {}),   # frames where the screen was ahead of the vote
                "by_source": {k: sum(1 for r in self.rows if r.get("source") == k) for k in {r.get("source") for r in self.rows}},
                "note": "stack_start/stack_end: the trainer's own numbers at the first decision / at the end (posted blinds make this ±1bb); "
                        "20 hands are far too few to measure skill — this is a functional run, not a win-rate claim."}

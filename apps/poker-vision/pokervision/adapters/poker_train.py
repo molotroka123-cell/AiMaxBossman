@@ -387,7 +387,8 @@ class PokerTrainAdapter(TableAdapter):
             cands, reasons = [], []
             for ln in self._lines(frame, zone, P["num_zone_h_css"][key], s):
                 m, conf, why = self._numeric(ln, key, s, c_px=c)
-                if abs(self._last_cy - (top + ycenter_dy * s)) > tol_y:
+                centres = ycenter_dy if isinstance(ycenter_dy, (list, tuple)) else (ycenter_dy,)
+                if min(abs(self._last_cy - (top + y_ * s)) for y_ in centres) > tol_y:
                     continue
                 if m is not None:
                     cands.append((m, conf))
@@ -401,7 +402,8 @@ class PokerTrainAdapter(TableAdapter):
             return Field.ok(cands[0][0], min(c_ for _, c_ in cands), t, SRC)
 
         zi = (0, max(int(top + P["info_dy"][0] * s), 0), W, max(int(top + P["info_dy"][1] * s), 1))
-        st.pot = field_from(zi, "pot", P["cy_dy"]["pot"], "pot")
+        # the pot line sits lower when there is no "To call" line under it (nothing to call): both calibrated positions are accepted
+        st.pot = field_from(zi, "pot", [P["cy_dy"]["pot"]] + ([P["cy_dy"]["pot_alone"]] if P["cy_dy"].get("pot_alone") is not None else []), "pot")
         st.to_call = field_from(zi, "to_call", P["cy_dy"]["to_call"], "to_call")
         zs = (0, int(top + P["stack_dy"][0] * s), W, min(int(top + P["stack_dy"][1] * s), H))
         st.hero_stack = field_from(zs, "hero_stack", P["cy_dy"]["hero_stack"], "hero_stack")
@@ -635,7 +637,7 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
     hero's cards, digit heights per field, seat slot angles, glyph and card exemplars."""
     gb, cb, wb, pb = GlyphBook(max_per_class=40), CardBook(max_per_class=60), WordBook(), WordBook()
     keys = ("hero_w", "hero_h", "board_dy", "board_w", "board_h", "board_pitch", "seat_ang", "bet_ang", "dealer_d", "btn_h",
-            "table_center_dy", "pot_dy", "call_dy", "stack_dy_c", "pos_cy")
+            "table_center_dy", "pot_dy", "call_dy", "stack_dy_c", "pos_cy", "pot_dy_alone")
     meas: dict[str, list] = {k: [] for k in keys}
     heights: dict[str, list] = {k: [] for k in ("pot", "to_call", "hero_stack", "seat", "bet")}
     NUM_V_MIN = 150
@@ -749,7 +751,7 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
             tc_y = bb[0].cy / dpr
             meas["table_center_dy"].append(tc_y - top_css)
         if t.get("pot_vis", 1) >= 0.99 and t.get("pot_text"):
-            meas["pot_dy"].append(t["pot_rect"]["cy"] - top_css)
+            meas["pot_dy" if t.get("to_call_text") else "pot_dy_alone"].append(t["pot_rect"]["cy"] - top_css)
             learn_number(img, t["pot_rect"], t["pot_text"], dpr, "pot", (6.0, 26.0), c_px=hc_px)
         if t.get("to_call_vis", 1) >= 0.99 and t.get("to_call_text"):
             meas["call_dy"].append(t["to_call_rect"]["cy"] - top_css)
@@ -808,7 +810,7 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
         "board_dy_css": med("board_dy", -212.0), "board_card_css_w": med("board_w", 54.0), "board_card_h_css": med("board_h", 76.0),
         "board_pitch_css": med("board_pitch", 62.0),
         "num_v_min": NUM_V_MIN, "digit_min_conf": 0.30, "digit_max_dist": 3.5, "num_h_css": hcss, "num_h_tol": 0.22, "field_y_tol_css": 14.0,
-        "cy_dy": {"pot": pot_dy, "to_call": call_dy, "hero_stack": stack_dy},
+        "cy_dy": {"pot": pot_dy, "to_call": call_dy, "hero_stack": stack_dy, "pot_alone": med("pot_dy_alone") if meas["pot_dy_alone"] else None},
         "label_w_css": {k: (float(np.median(v)) if v else None) for k, v in L_meas.items()}, "label_w_tol_css": 5.0,
         "info_dy": [pot_dy - 24.0, call_dy + 14.0],
         "num_zone_h_css": {"pot": [hcss["pot"] * 0.6, hcss["pot"] * 1.6], "to_call": [hcss["to_call"] * 0.6, hcss["to_call"] * 1.6],
