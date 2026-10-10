@@ -145,3 +145,36 @@ def test_module_never_signs_or_sends():
         assert word not in src
     with pytest.raises(PermissionError):
         sa.LiveMarket()._get("https://quote-api.jup.ag/v6/swap")
+
+
+def test_missing_quote_is_unknown_price_not_zero(tmp_path):
+    """09.10: один no_route по SOL обнулил hold_sol и убил эталон без убытка."""
+    m = FakeMarket()
+    ar = arena(tmp_path, m)
+    ar.tick()
+    hs = ar.agents["hold_sol"]
+    before = hs.equity_usd
+    real_quote = m.quote
+    m.quote = lambda i, o, amount, slip: None if i == SOL_MINT else real_quote(i, o, amount, slip)
+    ar.tick()
+    assert hs.alive and hs.positions and hs.equity_usd == pytest.approx(before, rel=1e-6)
+    journal = (tmp_path / "journal.jsonl").read_text(encoding="utf-8")
+    assert '"ev": "mark_unavailable"' in journal and '"ev": "dead"' not in journal
+
+
+def test_position_without_any_sale_route_is_written_off_and_agent_can_die(tmp_path):
+    m = FakeMarket()
+    ar = arena(tmp_path, m, write_off_ticks=3)
+    ar.tick()
+    ar.agents["momentum"].cash_usd = 1.0
+    real_quote = m.quote
+    m.quote = lambda i, o, amount, slip: None if i == TOKEN else real_quote(i, o, amount, slip)
+    m._universe = []
+    for _ in range(2):
+        ar.tick()
+        assert ar.agents["momentum"].alive                 # цена неизвестна — не хороним
+    ar.tick()                                              # маршрута нет 3 шага подряд: списано
+    mo = ar.agents["momentum"]
+    assert mo.equity_usd < 2.5 and not mo.alive and not mo.positions and mo.locked_rent_lamports == 0
+    journal = (tmp_path / "journal.jsonl").read_text(encoding="utf-8")
+    assert '"ev": "written_off"' in journal and '"ev": "dead"' in journal

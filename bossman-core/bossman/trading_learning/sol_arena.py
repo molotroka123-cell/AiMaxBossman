@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Callable, Protocol
 
 SOL_MINT = "So11111111111111111111111111111111111111112"
-USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  # ci-secret-scan: allow (публичный mint USDC)
 USDC_DECIMALS = 6
 LAMPORTS = 1_000_000_000
 BASE_FEE_LAMPORTS = 5_000                 # одна подпись
@@ -104,7 +104,7 @@ class LiveMarket:
 
     def priority_fee_micro_lamports(self):
         out = self._get(SOLANA_RPC, {"jsonrpc": "2.0", "id": 1, "method": "getRecentPrioritizationFees",
-                                     "params": [["JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"]]})
+                                     "params": [["JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"]]})  # ci-secret-scan: allow (публичная программа Jupiter v6)
         fees = sorted(int(x["prioritizationFee"]) for x in out.get("result", []))
         return fees[int(len(fees) * 0.75)] if fees else 0
 
@@ -217,6 +217,8 @@ class Position:
     cost_usd: float           # всё, что ушло: USDC + рента + комиссия входа
     opened_at: float
     rent_lamports: int
+    last_mark_usd: float | None = None   # последняя подтверждённая котировка продажи
+    unpriced_ticks: int = 0               # шагов подряд без котировки
 
 
 @dataclass
@@ -243,6 +245,7 @@ class Config:
     agents: list[str]
     start_usd: float = 50.0
     death_floor_usd: float = 2.5
+    write_off_ticks: int = 30          # столько шагов без маршрута продажи = позиция стоит 0 (rug)
     slippage_bps: int = 300
     latency_s: float = 2.0
     cu_limit: int = DEFAULT_CU_LIMIT
@@ -317,9 +320,14 @@ class Arena:
         return got
 
     def mark(self, pos: Position) -> float | None:
-        """Сколько USDC реально вернётся при продаже сейчас."""
+        """Сколько USDC реально вернётся при продаже сейчас; None — котировки сейчас нет."""
         q = self.m.quote(pos.mint, USDC_MINT, pos.amount, self.cfg.slippage_bps)
-        return int(q["outAmount"]) / 10 ** USDC_DECIMALS if q else None
+        if not q:
+            pos.unpriced_ticks += 1
+            return None
+        pos.unpriced_ticks = 0
+        pos.last_mark_usd = int(q["outAmount"]) / 10 ** USDC_DECIMALS
+        return pos.last_mark_usd
 
     # ---- один шаг
     def tick(self) -> None:
@@ -356,16 +364,33 @@ class Arena:
                         continue
                     a.seen.append(t["mint"])
                     self.open(a, t, a.cash_usd * s.size_frac, sol_usd, prio, "entry")
-            held = 0.0                                            # оценка и смерть
+            # Оценка и смерть. Сбой котировки — это незнание цены, а не нулевая цена:
+            # 09.10 один no_route по SOL обнулил hold_sol и убил его без убытка.
+            held, unknown = 0.0, []
             for pos in a.positions:
                 v = values[id(pos)] if id(pos) in values else self.mark(pos)
-                held += v or 0.0
+                if v is None and pos.unpriced_ticks >= self.cfg.write_off_ticks:
+                    v = 0.0                                       # продать нельзя давно — списано
+                elif v is None:
+                    unknown.append(pos.symbol)
+                    v = pos.last_mark_usd or 0.0
+                held += v
             a.equity_usd = a.cash_usd + held + a.locked_rent_lamports / LAMPORTS * sol_usd
-            if a.equity_usd < self.cfg.death_floor_usd:
+            if unknown:
+                self.log(agent=a.name, ev="mark_unavailable", symbols=unknown, equity_usd=a.equity_usd)
+            elif a.equity_usd < self.cfg.death_floor_usd:
                 for pos in list(a.positions):
-                    self.close(a, pos, sol_usd, prio, "liquidation")
-                a.alive, a.died_at = False, _now()
-                self.log(agent=a.name, ev="dead", equity_usd=a.equity_usd)
+                    if not self.close(a, pos, sol_usd, prio, "liquidation") and                             pos.unpriced_ticks >= self.cfg.write_off_ticks:
+                        a.positions.remove(pos)                   # продать нельзя: убыток целиком
+                        a.locked_rent_lamports -= pos.rent_lamports
+                        a.trades += 1
+                        a.realized_usd -= pos.cost_usd
+                        self.log(agent=a.name, ev="written_off", symbol=pos.symbol, loss_usd=pos.cost_usd)
+                if a.positions:                                   # ликвидация не прошла — пробуем на следующем шаге
+                    self.log(agent=a.name, ev="liquidation_pending", symbols=[p.symbol for p in a.positions])
+                else:
+                    a.alive, a.died_at = False, _now()
+                    self.log(agent=a.name, ev="dead", equity_usd=a.equity_usd)
         self.log(ev="tick", n=self.ticks, sol_usd=sol_usd, prio_micro=prio, universe=len(universe),
                  equity={a.name: round(a.equity_usd, 4) for a in self.agents.values()})
         self.save()
