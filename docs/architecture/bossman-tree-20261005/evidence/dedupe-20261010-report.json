@@ -1,0 +1,57 @@
+{
+  "sha": "aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd",
+  "judge": "anthropic/claude-haiku-5.5",
+  "spent_usd": 0.01354,
+  "retire_receipts": [
+    {
+      "id": "skill-38",
+      "keep": "skill-27",
+      "match": "same original name",
+      "reason": "Both entries are the same webapp-testing SKILL.md with identical name, label, status and detail, and only the source path differs (a project .agents/skills copy versus a catalog copy), so this is one skill listed twice."
+    },
+    {
+      "id": "skill-23",
+      "keep": "skill-43",
+      "match": "same original name",
+      "reason": "Both leaves point to a SKILL.md for the same skill name, and the path under skills_catalog/superpowers suggests A is a copy of the catalog entry B, so I keep B as the canonical source."
+    },
+    {
+      "id": "skill-24",
+      "keep": "skill-44",
+      "match": "same original name",
+      "reason": "Both leaves have the same name, label, status, and detail, and point to SKILL.md files for the same skill, so one is likely a copy of the other; I kept skill-44 because it sits in the canonical skills catalog rather than the .agents copy."
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "module-fb3e7ddff256",
+      "keep": "module-6f3b41ccd19f",
+      "reason": "Both are the same stop-flag module for calls (STOP), listed once at telegram_calls/stopflag.py and again at telegram_calls/account/stopflag.py.",
+      "why_not_applied": "no deterministic match (name/source differ)"
+    },
+    {
+      "id": "media-genjutsu",
+      "keep": "reg-genjutsu_tool",
+      "reason": "Both describe the same local Genjutsu capability: character or object swap and motion transfer on the owner's PC.",
+      "why_not_applied": "no deterministic match (name/source differ)"
+    },
+    {
+      "id": "pv-source-panel",
+      "keep": "pv-ui",
+      "reason": "Both describe the same Poker Vision page (command-center/ui/pages/poker_vision.js), and pv-ui already covers its window/source selection and field overlay.",
+      "why_not_applied": "no deterministic match (name/source differ)"
+    },
+    {
+      "id": "skill-22",
+      "keep": "app-solana-volume-suite",
+      "reason": "A is an application defined by apps/solana-volume-suite/app.manifest.yaml with code status, while B is a skill defined by .agents/skills/solana-volume-suite/SKILL.md with recorded status, so they are different kinds of artifact that only share a name.",
+      "why_not_applied": "same name, judge says different things"
+    },
+    {
+      "id": "skill-48",
+      "keep": "mod-mimik",
+      "reason": "Leaf A is a Python module at command-center/bcc/features/mimik.py with status branch, while leaf B is a skill documented in .agents/skills/mimik/SKILL.md with status recorded; they are different artifacts that only share the name 'mimik'.",
+      "why_not_applied": "same name, judge says different things"
+    }
+  ]
+}

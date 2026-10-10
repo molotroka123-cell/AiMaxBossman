@@ -24,6 +24,7 @@ def test_only_russian_answers_are_accepted_and_the_root_keeps_its_name():
     assert t.clean("Gmail: отправить письмо") == "Gmail: отправить письмо"
     assert t.clean("gmail.send") is None and t.clean(None) is None and t.clean("") is None
     assert len(t.clean("Очень " * 40)) <= t.MAX_LABEL
+    assert t.clean("Стресс-тест «атака против защиты»") == "Стресс-тест \"атака против защиты\""
     assert t.needs({"id": "bossman", "label": "Bossman"}) is False
     assert t.needs({"id": "plugin-12", "label": "gmail.send"}) is True
     assert t.needs({"id": "cap-7", "label": "Голос · STT · TTS"}) is False
@@ -37,5 +38,6 @@ def test_seed_labels_are_russian_unique_ids_and_originals_kept():
         assert (n.get("label") or "").strip(), n["id"]
         if n["status"] != "retired" and n["id"] != "bossman":
             assert t.CYR.search(n["label"]), f"{n['id']} label is not Russian: {n['label']}"
+            assert "«" not in n["label"], f"{n['id']}: «» is the site's hidden-path marker"
         if "label_en" in n:
             assert n["label_en"].strip() and n["label_en"] != n["label"]

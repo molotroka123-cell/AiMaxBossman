@@ -101,7 +101,8 @@ def relabel(node: dict, label: str) -> None:
 def clean(label: object) -> str | None:
     if not isinstance(label, str):
         return None
-    label = " ".join(label.split()).strip(" .")
+    # «» marks a hidden path on the public site (its test refuses such labels) — plain quotes instead
+    label = " ".join(label.replace("«", "\"").replace("»", "\"").split()).strip(" .")
     return label[:MAX_LABEL] if label and CYR.search(label) else None
 
 

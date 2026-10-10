@@ -1,9 +1,8 @@
-[ok] file exists .agents/skills/test-driven-development/SKILL.md
-[ok] frontmatter block present 
-[ok] parse_skill: name 'test-driven-development'
-[ok] parse_skill: description non-empty len=150
-[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'license', 'metadata', 'name']
-[ok] body non-empty len=3007
-[ok] no critical policy violation []
-[ok] SkillLibrary(default_skill_roots).discover finds it 
-VERDICT PASS
+$ haiku_dedupe zone=Навыки judge=anthropic/claude-haiku-5.5
+sha: aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd
+
+judge: Both leaves have the same name, label, status, and detail, and point to SKILL.md files for the same skill, so one is likely a copy of the other; I kept skill-44 because it sits in the canonical skills catalog rather than the .agents copy.
+deterministic: skill-24 vs skill-44: same original name «test-driven-development»
+keep: skill-44 (recorded) «Разработка через тесты»
+retire: skill-24 (recorded) «Разработка через тесты»
+exit_code: 0

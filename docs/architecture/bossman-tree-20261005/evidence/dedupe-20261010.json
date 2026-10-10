@@ -1,0 +1,44 @@
+[
+  {
+    "node_id": "skill-38",
+    "sha": "aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd",
+    "probe": "audit: duplicate of skill-27 (same original name «webapp-testing»), judge anthropic/claude-haiku-5.5",
+    "command": "python tools/tree_proof/haiku_dedupe.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T12:05:44.476273+00:00",
+    "finished_at": "2026-10-10T12:05:44.476773+00:00",
+    "output_sha256": "a83d88ae74686eeb7e0abd7ea98777f2b10a9aa57bab27e755decf502bf84f8e",
+    "output_tail": "$ haiku_dedupe zone=Навыки judge=anthropic/claude-haiku-5.5\nsha: aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd\n\njudge: Both entries are the same webapp-testing SKILL.md with identical name, label, status and detail, and only the source path differs (a project .agents/skills copy versus a catalog copy), so this is one skill listed twice.\ndeterministic: skill-38 vs skill-27: same original name «webapp-testing»\nkeep: skill-27 (recorded) «Тестирование веб-приложений»\nretire: skill-38 (recorded) «Тестирование веб-приложений»\nexit_code: 0\n",
+    "verdict": "RETIRE",
+    "kind": "audit",
+    "reason": "Дубликат листа skill-27 (same original name «webapp-testing»); судья anthropic/claude-haiku-5.5: Both entries are the same webapp-testing SKILL.md with identical name, label, status and detail, and only the source path differs (a project .agents/skills copy versus a catalog copy), so this is one skill listed twice."
+  },
+  {
+    "node_id": "skill-23",
+    "sha": "aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd",
+    "probe": "audit: duplicate of skill-43 (same original name «systematic-debugging»), judge anthropic/claude-haiku-5.5",
+    "command": "python tools/tree_proof/haiku_dedupe.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T12:05:47.332244+00:00",
+    "finished_at": "2026-10-10T12:05:47.332746+00:00",
+    "output_sha256": "7eb41345c44e18d6578f2e5ae50080d53131c6633b658efd66666ef4abd83256",
+    "output_tail": "$ haiku_dedupe zone=Навыки judge=anthropic/claude-haiku-5.5\nsha: aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd\n\njudge: Both leaves point to a SKILL.md for the same skill name, and the path under skills_catalog/superpowers suggests A is a copy of the catalog entry B, so I keep B as the canonical source.\ndeterministic: skill-23 vs skill-43: same original name «systematic-debugging»\nkeep: skill-43 (recorded) «Системная отладка»\nretire: skill-23 (recorded) «Систематическая отладка»\nexit_code: 0\n",
+    "verdict": "RETIRE",
+    "kind": "audit",
+    "reason": "Дубликат листа skill-43 (same original name «systematic-debugging»); судья anthropic/claude-haiku-5.5: Both leaves point to a SKILL.md for the same skill name, and the path under skills_catalog/superpowers suggests A is a copy of the catalog entry B, so I keep B as the canonical source."
+  },
+  {
+    "node_id": "skill-24",
+    "sha": "aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd",
+    "probe": "audit: duplicate of skill-44 (same original name «test-driven-development»), judge anthropic/claude-haiku-5.5",
+    "command": "python tools/tree_proof/haiku_dedupe.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T12:05:50.379787+00:00",
+    "finished_at": "2026-10-10T12:05:50.380793+00:00",
+    "output_sha256": "508aac6f8b5e5d0d2a12415b0b82f1faf416406b75283eebe94c036a78d1a2ba",
+    "output_tail": "$ haiku_dedupe zone=Навыки judge=anthropic/claude-haiku-5.5\nsha: aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd\n\njudge: Both leaves have the same name, label, status, and detail, and point to SKILL.md files for the same skill, so one is likely a copy of the other; I kept skill-44 because it sits in the canonical skills catalog rather than the .agents copy.\ndeterministic: skill-24 vs skill-44: same original name «test-driven-development»\nkeep: skill-44 (recorded) «Разработка через тесты»\nretire: skill-24 (recorded) «Разработка через тесты»\nexit_code: 0\n",
+    "verdict": "RETIRE",
+    "kind": "audit",
+    "reason": "Дубликат листа skill-44 (same original name «test-driven-development»); судья anthropic/claude-haiku-5.5: Both leaves have the same name, label, status, and detail, and point to SKILL.md files for the same skill, so one is likely a copy of the other; I kept skill-44 because it sits in the canonical skills catalog rather than the .agents copy."
+  }
+]

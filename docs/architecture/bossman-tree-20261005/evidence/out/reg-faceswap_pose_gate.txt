@@ -1,0 +1,6 @@
+$ (cwd=command-center) C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest ... tests\test_direct_gen_faceswap.py
+sha: 7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61
+
+.....................                                                    [100%]
+21 passed in 7.07s
+exit_code: 0

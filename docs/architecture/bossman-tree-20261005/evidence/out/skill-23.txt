@@ -1,9 +1,8 @@
-[ok] file exists .agents/skills/systematic-debugging/SKILL.md
-[ok] frontmatter block present 
-[ok] parse_skill: name 'systematic-debugging'
-[ok] parse_skill: description non-empty len=171
-[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'license', 'metadata', 'name']
-[ok] body non-empty len=3073
-[ok] no critical policy violation []
-[ok] SkillLibrary(default_skill_roots).discover finds it 
-VERDICT PASS
+$ haiku_dedupe zone=Навыки judge=anthropic/claude-haiku-5.5
+sha: aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd
+
+judge: Both leaves point to a SKILL.md for the same skill name, and the path under skills_catalog/superpowers suggests A is a copy of the catalog entry B, so I keep B as the canonical source.
+deterministic: skill-23 vs skill-43: same original name «systematic-debugging»
+keep: skill-43 (recorded) «Системная отладка»
+retire: skill-23 (recorded) «Систематическая отладка»
+exit_code: 0

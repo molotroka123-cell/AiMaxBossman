@@ -1,0 +1,67 @@
+[
+  {
+    "node_id": "reg-faceswap_video_job",
+    "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+    "probe": "pytest 1 test file(s) importing bcc.direct_gen.faceswap: command-center/tests/test_direct_gen_faceswap.py",
+    "command": "C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest -q tests\\test_direct_gen_faceswap.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T12:01:23.678630+00:00",
+    "finished_at": "2026-10-10T12:01:36.468564+00:00",
+    "output_sha256": "6ebbc4d1906f3716ce7459042ce7cbb11a9e5bf5daadcadc50e9bc42e94e3e5c",
+    "output_tail": ".....................                                                    [100%]\n21 passed in 10.18s",
+    "verdict": "PASS",
+    "kind": "pytest"
+  },
+  {
+    "node_id": "reg-faceswap_pose_gate",
+    "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+    "probe": "pytest 1 test file(s) importing bcc.direct_gen.pose_gate_worker: command-center/tests/test_direct_gen_faceswap.py",
+    "command": "C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest -q tests\\test_direct_gen_faceswap.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T12:01:36.702852+00:00",
+    "finished_at": "2026-10-10T12:01:45.956531+00:00",
+    "output_sha256": "618415b1859ef1bbee903de801bc52d5114a714f71c8dcfeb9d6b226abc8b645",
+    "output_tail": ".....................                                                    [100%]\n21 passed in 7.07s",
+    "verdict": "PASS",
+    "kind": "pytest"
+  },
+  {
+    "node_id": "reg-pult_owner_only",
+    "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+    "probe": "pytest 1 test file(s) importing bcc.telegram_companion.service: command-center/tests/telegram_contracts/test_pult_owner_only_delivery.py",
+    "command": "C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest -q tests\\telegram_contracts\\test_pult_owner_only_delivery.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T12:01:46.185206+00:00",
+    "finished_at": "2026-10-10T12:01:48.460027+00:00",
+    "output_sha256": "4e1ebac10009656d20f4b863f0544d82ee876673e36c2b3eaec008e46b53dc24",
+    "output_tail": "...                                                                      [100%]\n3 passed in 0.43s",
+    "verdict": "PASS",
+    "kind": "pytest"
+  },
+  {
+    "node_id": "reg-tree_haiku_judge",
+    "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+    "probe": "pytest 1 test file(s) importing tools.tree_proof.haiku_adjudicate: tests/test_tree_haiku_adjudicate.py",
+    "command": "C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest -q tests\\test_tree_haiku_adjudicate.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T12:01:48.726451+00:00",
+    "finished_at": "2026-10-10T12:01:49.709369+00:00",
+    "output_sha256": "674d28579f7728cf29141c3e4cc5d3636101779f752b99d0851e25b448fd7d90",
+    "output_tail": "..                                                                       [100%]\n2 passed in 0.10s",
+    "verdict": "PASS",
+    "kind": "pytest"
+  },
+  {
+    "node_id": "reg-tree_haiku_translate",
+    "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+    "probe": "pytest 1 test file(s) importing tools.tree_proof.haiku_translate: tests/test_tree_translate.py",
+    "command": "C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest -q tests\\test_tree_translate.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T12:01:49.937212+00:00",
+    "finished_at": "2026-10-10T12:01:50.594693+00:00",
+    "output_sha256": "91c4373b26c14126e833bf3365eb9c30580633ccc7cee9b01dd76d10acfa9903",
+    "output_tail": "...                                                                      [100%]\n3 passed in 0.07s",
+    "verdict": "PASS",
+    "kind": "pytest"
+  }
+]

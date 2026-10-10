@@ -1,0 +1,9 @@
+[ok] file exists .agents/skills/test-driven-development/SKILL.md
+[ok] frontmatter block present 
+[ok] parse_skill: name 'test-driven-development'
+[ok] parse_skill: description non-empty len=150
+[ok] frontmatter parsed to dict keys=['compatibility', 'description', 'license', 'metadata', 'name']
+[ok] body non-empty len=3007
+[ok] no critical policy violation []
+[ok] SkillLibrary(default_skill_roots).discover finds it 
+VERDICT PASS

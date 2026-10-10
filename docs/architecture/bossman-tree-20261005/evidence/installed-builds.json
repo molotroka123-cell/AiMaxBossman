@@ -3,6 +3,12 @@
     "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
     "build_dir": "BOSSMAN-Windows-x64-eba6dc592ad9",
     "verified_at": "2026-10-07T14:09:00Z",
-    "note": "currently installed build; a receipt for a build that is no longer installed does not prove \"works in the installed Bossman\""
+    "note": "installed 07.10; replaced by 6de18f8d — its receipts are history, not proof for the build installed now"
+  },
+  {
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "build_dir": "BOSSMAN-Windows-x64-6de18f8d9a08",
+    "verified_at": "2026-10-10T12:40:00Z",
+    "note": "currently installed build: :8801 /health/live build_sha=6de18f8d9a08…, source_identity PASS, source installed_build; runtime python from app/BOSSMAN-Windows-x64-6de18f8d9a08"
   }
 ]

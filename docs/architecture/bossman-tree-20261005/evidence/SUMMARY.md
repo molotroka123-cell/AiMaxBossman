@@ -1,27 +1,26 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=31, code=16, idea=22, mixed=16, prepared=18, recorded=175, reported=417, retired=5, working=164
+Статусы дерева: blocked=13, branch=31, code=16, idea=25, mixed=16, prepared=20, recorded=172, reported=422, retired=8, working=164
 
-Принято расписок: 11; отклонено: 851
+Принято расписок: 8; отклонено: 864
 
 ## По зонам
 
-- memory: 4
-- plugins: 7
+- media: 2
+- ops: 2
+- skills: 3
+- ux: 1
 
 ## Принятые
 
-- `plugin-6` (l2-20261010.json)
-- `plugin-11` (l2-20261010.json)
-- `plugin-12` (l2-20261010.json)
-- `plugin-14` (l2-20261010.json)
-- `plugin-16` (l2-20261010.json)
-- `plugin-18` (l2-20261010.json)
-- `plugin-20` (l2-20261010.json)
-- `module-6bf6aca94f5f` (l2-20261010.json)
-- `module-10135418ed52` (l2-20261010.json)
-- `module-dca65ddd8cea` (l2-20261010.json)
-- `module-72a2f39e685d` (l2-20261010.json)
+- `skill-38` (dedupe-20261010.json)
+- `skill-23` (dedupe-20261010.json)
+- `skill-24` (dedupe-20261010.json)
+- `reg-faceswap_video_job` (l2-20261010b.json)
+- `reg-faceswap_pose_gate` (l2-20261010b.json)
+- `reg-pult_owner_only` (l2-20261010b.json)
+- `reg-tree_haiku_judge` (l2-20261010b.json)
+- `reg-tree_haiku_translate` (l2-20261010b.json)
 
 ## Отклонённые
 
@@ -66,6 +65,7 @@
 - `mod-rave` (agcloud.json): status reported not eligible
 - `cap-22` (agcloud.json): status reported not eligible
 - `mod-openrouter` (agcloud.json): status reported not eligible
+- `None` (dedupe-20261010-report.json): unreadable lane file
 - `cap-1` (jeffa.json): status reported not eligible
 - `cap-2` (jeffa.json): status reported not eligible
 - `cap-3` (jeffa.json): status reported not eligible
@@ -193,6 +193,17 @@
 - `module-d794cbd77cf3` (jeffb.json): status reported not eligible
 - `pv-ui` (l2-20261009.json): status reported not eligible
 - `None` (l2-20261010-adjudication.json): unreadable lane file
+- `plugin-6` (l2-20261010.json): status reported not eligible
+- `plugin-11` (l2-20261010.json): status reported not eligible
+- `plugin-12` (l2-20261010.json): status reported not eligible
+- `plugin-14` (l2-20261010.json): status reported not eligible
+- `plugin-16` (l2-20261010.json): status reported not eligible
+- `plugin-18` (l2-20261010.json): status reported not eligible
+- `plugin-20` (l2-20261010.json): status reported not eligible
+- `module-6bf6aca94f5f` (l2-20261010.json): status reported not eligible
+- `module-10135418ed52` (l2-20261010.json): status reported not eligible
+- `module-dca65ddd8cea` (l2-20261010.json): status reported not eligible
+- `module-72a2f39e685d` (l2-20261010.json): status reported not eligible
 - `reg-promo_video` (mediaux-retire.json): status retired not eligible
 - `cap-29` (mediaux.json): status reported not eligible
 - `cap-12` (mediaux.json): status reported not eligible
@@ -663,6 +674,7 @@
 - `oss-117` (stage3.json): status reported not eligible
 - `plugin-17` (stage4.json): status reported not eligible
 - `plugin-21` (stage4.json): status reported not eligible
+- `None` (translate-20261010.json): unreadable lane file
 - `None` (ux-sweep-desktop-raw.json): unreadable lane file
 - `None` (ux-sweep-gaps.json): unreadable lane file
 - `None` (ux-sweep-notes.json): unreadable lane file

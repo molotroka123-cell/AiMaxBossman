@@ -4415,7 +4415,7 @@
     },
     {
       "id": "skill-14",
-      "label": "Доказательство перед «готово»",
+      "label": "Доказательство перед \"готово\"",
       "label_en": "proof-before-done",
       "parent": "skills",
       "status": "recorded",
@@ -4571,14 +4571,20 @@
       "label": "Систематическая отладка",
       "label_en": "systematic-debugging",
       "parent": "skills",
-      "status": "recorded",
-      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime.",
+      "status": "retired",
+      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime. Выбыл 2026-10-10 @ aff0aac0: Дубликат листа skill-43 (same original name «systematic-debugging»); судья anthropic/claude-haiku-5.5: Both leaves point to a SKILL.md for the same skill name, and the path under skills_catalog/superpowers suggests A is a copy of the catalog entry B, so I keep B as the canonical source.",
       "sources": [
         {
           "path": ".agents/skills/systematic-debugging/SKILL.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/.agents/skills/systematic-debugging/SKILL.md"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/dedupe-20261010.json#skill-23",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -4588,14 +4594,20 @@
       "label": "Разработка через тесты",
       "label_en": "test-driven-development",
       "parent": "skills",
-      "status": "recorded",
-      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime.",
+      "status": "retired",
+      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime. Выбыл 2026-10-10 @ aff0aac0: Дубликат листа skill-44 (same original name «test-driven-development»); судья anthropic/claude-haiku-5.5: Both leaves have the same name, label, status, and detail, and point to SKILL.md files for the same skill, so one is likely a copy of the other; I kept skill-44 because it sits in the canonical skills catalog rather than the .agents copy.",
       "sources": [
         {
           "path": ".agents/skills/test-driven-development/SKILL.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/.agents/skills/test-driven-development/SKILL.md"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/dedupe-20261010.json#skill-24",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -4826,14 +4838,20 @@
       "label": "Тестирование веб-приложений",
       "label_en": "webapp-testing",
       "parent": "skills",
-      "status": "recorded",
-      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime.",
+      "status": "retired",
+      "detail": "SKILL.md найден; не означает подключение навыка в текущий runtime. Выбыл 2026-10-10 @ aff0aac0: Дубликат листа skill-27 (same original name «webapp-testing»); судья anthropic/claude-haiku-5.5: Both entries are the same webapp-testing SKILL.md with identical name, label, status and detail, and only the source path differs (a project .agents/skills copy versus a catalog copy), so this is one skill listed twice.",
       "sources": [
         {
           "path": "command-center/bcc/skills_catalog/anthropics/webapp-testing/SKILL.md",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/skills_catalog/anthropics/webapp-testing/SKILL.md"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/dedupe-20261010.json#skill-38",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "aff0aac0c3fcf2b4b2f9e884dfa6d90143a6e7dd",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -11439,7 +11457,7 @@
     },
     {
       "id": "module-103910b19c50",
-      "label": "Заморожённый стресс-тест «атака против защиты»",
+      "label": "Заморожённый стресс-тест \"атака против защиты\"",
       "label_en": "bossman/cybersec/training.py",
       "parent": "ops",
       "status": "working",
@@ -14456,7 +14474,7 @@
     },
     {
       "id": "module-3b203abe62da",
-      "label": "Метрики качества стратегии: когда можно сказать «работает»",
+      "label": "Метрики качества стратегии: когда можно сказать \"работает\"",
       "label_en": "bossman/trading_learning/metrics.py",
       "parent": "memory",
       "status": "reported",
@@ -16208,7 +16226,7 @@
     },
     {
       "id": "module-b2e0eb3245b9",
-      "label": "Локальный чат Ollama без скрытого «размышления» для Джеффа",
+      "label": "Локальный чат Ollama без скрытого \"размышления\" для Джеффа",
       "label_en": "pit/ollama_native.py",
       "parent": "jeff",
       "status": "reported",
@@ -19618,7 +19636,7 @@
     },
     {
       "id": "s0710-top-03",
-      "label": "Скриншоты «до» и «после» для отчётов",
+      "label": "Скриншоты \"до\" и \"после\" для отчётов",
       "label_en": "screenshot-before-after",
       "parent": "skills",
       "status": "idea",
@@ -20066,12 +20084,18 @@
       "id": "reg-faceswap_video_job",
       "label": "Замена лица в видео: FaceFusion, куски без потерь, VFR→CFR",
       "parent": "media",
-      "status": "code",
-      "detail": "Face swap in a video («Genjutsu» по-нашему): one button, local, no credits. Engine: FaceFusion (OpenRAIL-AS, https://github.com/facefusion/facefusion), run as its own process from its own venv, on the GPU through ONNX Runtime (DirectML on the owner's Radeon 80 Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Face swap in a video («Genjutsu» по-нашему): one button, local, no credits. Engine: FaceFusion (OpenRAIL-AS, https://github.com/facefusion/facefusion), run as its own process from its own venv, on the GPU through ONNX Runtime (DirectML on the owner's Radeon 80 Код есть; польза и живая работа не доказаны. Прогон 2026-10-10 @ 7eb78e80: pytest 1 test file(s) importing bcc.direct_gen.faceswap: command-center/tests/test_direct_gen_faceswap.py",
       "sources": [
         {
           "path": "command-center/bcc/direct_gen/faceswap.py",
           "sha": "0482cf591d387d9bd918018dd968d61edeb63602"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010b.json#reg-faceswap_video_job",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -20084,12 +20108,18 @@
       "id": "reg-faceswap_pose_gate",
       "label": "Поза-гейт: не клеить лицо на опущенную голову",
       "parent": "media",
-      "status": "code",
-      "detail": "Pose gate for the video face swap: keep the source face where the head is bowed toward the camera. FaceFusion's detector stays confident on a bowed head (10.10, two-person clip, 10.1-11.5 s: detector 0.78-0.80) and pastes a frontal face onto the crown — eyes a Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Pose gate for the video face swap: keep the source face where the head is bowed toward the camera. FaceFusion's detector stays confident on a bowed head (10.10, two-person clip, 10.1-11.5 s: detector 0.78-0.80) and pastes a frontal face onto the crown — eyes a Код есть; польза и живая работа не доказаны. Прогон 2026-10-10 @ 7eb78e80: pytest 1 test file(s) importing bcc.direct_gen.pose_gate_worker: command-center/tests/test_direct_gen_faceswap.py",
       "sources": [
         {
           "path": "command-center/bcc/direct_gen/pose_gate_worker.py",
           "sha": "0482cf591d387d9bd918018dd968d61edeb63602"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010b.json#reg-faceswap_pose_gate",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -20102,12 +20132,18 @@
       "id": "reg-pult_owner_only",
       "label": "Пульт пишет только владельцу",
       "parent": "ux",
-      "status": "code",
-      "detail": "Private conversations, explicit delegation, and a model-independent status lane. Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Private conversations, explicit delegation, and a model-independent status lane. Код есть; польза и живая работа не доказаны. Прогон 2026-10-10 @ 7eb78e80: pytest 1 test file(s) importing bcc.telegram_companion.service: command-center/tests/telegram_contracts/test_pult_owner_only_delivery.py",
       "sources": [
         {
           "path": "command-center/bcc/telegram_companion/service.py",
           "sha": "6273524cd86aaa8aaf40b90075069c60e6f8bd90"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010b.json#reg-pult_owner_only",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -20120,12 +20156,18 @@
       "id": "reg-tree_haiku_judge",
       "label": "Судья дерева Haiku 5.5: спорные листья по тестам",
       "parent": "ops",
-      "status": "code",
-      "detail": "Adjudicate CONFLICT_PRIOR_EVIDENCE leaves with an independent judge (Haiku 5.5 via OpenRouter). leaf_pytest_probe never overwrites another probe's record. When a leaf already has an out/<id>.txt from an older run (e.g. its tests were skipped back then) and its Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Adjudicate CONFLICT_PRIOR_EVIDENCE leaves with an independent judge (Haiku 5.5 via OpenRouter). leaf_pytest_probe never overwrites another probe's record. When a leaf already has an out/<id>.txt from an older run (e.g. its tests were skipped back then) and its Код есть; польза и живая работа не доказаны. Прогон 2026-10-10 @ 7eb78e80: pytest 1 test file(s) importing tools.tree_proof.haiku_adjudicate: tests/test_tree_haiku_adjudicate.py",
       "sources": [
         {
           "path": "tools/tree_proof/haiku_adjudicate.py",
           "sha": "97dd3bcd63b2a5080a61c4a95f5587812339a9a0"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010b.json#reg-tree_haiku_judge",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -20138,12 +20180,18 @@
       "id": "reg-tree_haiku_translate",
       "label": "Перевод дерева на русский (Haiku 5.5, лимит $)",
       "parent": "ops",
-      "status": "code",
-      "detail": "Translate capability-tree leaf labels into Russian with an independent cheap model (Haiku 5.5 via OpenRouter). Owner 10.10: «переведи фулл на русский каждый листик», hard cap $2/day for Haiku. Only DISPLAY text changes: - every node whose `label` has no Cyrill Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Translate capability-tree leaf labels into Russian with an independent cheap model (Haiku 5.5 via OpenRouter). Owner 10.10: «переведи фулл на русский каждый листик», hard cap $2/day for Haiku. Only DISPLAY text changes: - every node whose `label` has no Cyrill Код есть; польза и живая работа не доказаны. Прогон 2026-10-10 @ 7eb78e80: pytest 1 test file(s) importing tools.tree_proof.haiku_translate: tests/test_tree_translate.py",
       "sources": [
         {
           "path": "tools/tree_proof/haiku_translate.py",
           "sha": "927c701b3691d0d3d081fd8ab0bc0198335e5680"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010b.json#reg-tree_haiku_translate",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",

@@ -1,0 +1,6 @@
+$ (cwd=command-center) C:/Users/asd/Bossman/venv-verify-20261009/Scripts/python.exe -m pytest ... tests\telegram_contracts\test_pult_owner_only_delivery.py
+sha: 7eb78e80f3eaf0c1e81a416b5d86349a79ea6f61
+
+...                                                                      [100%]
+3 passed in 0.43s
+exit_code: 0
