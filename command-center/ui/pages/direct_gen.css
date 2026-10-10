@@ -225,3 +225,34 @@ textarea.dg-input { resize: vertical; min-height: 64px; line-height: 1.5; }
 .dg-seg-opt:has(input:checked) { color: var(--bx-ink); background: color-mix(in srgb, var(--bx-azure) 20%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bx-azure) 50%, transparent); }
 .dg-seg-opt:has(input:focus-visible) { outline: 2px solid var(--bx-azure); outline-offset: 2px; }
 @media (max-width: 640px) { .dg-seg { width: 100%; } .dg-seg-opt { flex: 1 1 auto; justify-content: center; } .dg-seg-s { display: none; } }
+
+/* ---- Genjutsu: живой конструктор образа (pages/genjutsu.js), префикс gj- ---- */
+.gj-grid { display: grid; gap: var(--bx-5); grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); align-items: start; }
+.gj-stage-box { border: 1px solid var(--bx-hairline); border-radius: var(--bx-r); background: var(--bx-surface); min-height: 220px; display: grid; place-items: center; overflow: hidden; }
+.gj-stage { position: relative; width: 100%; line-height: 0; }
+.gj-canvas { width: 100%; height: auto; display: block; }
+.gj-after, .gj-overlay { position: absolute; inset: 0; }
+.gj-overlay { pointer-events: none; }
+.gj-split-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--bx-ink); opacity: .7; pointer-events: none; }
+.gj-video { width: 100%; max-height: 360px; border-radius: var(--bx-r-sm); background: #000; }
+.gj-range { width: 100%; min-height: 44px; accent-color: var(--bx-mint); }
+.gj-flex { display: flex; justify-content: space-between; align-items: center; gap: var(--bx-2); }
+.gj-inline { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin: 0; cursor: pointer; }
+.gj-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.gj-tab { min-height: 44px; border-radius: var(--bx-r-sm); border: 1px solid var(--bx-hairline-2); background: var(--bx-surface); color: var(--bx-ink-2); font: 600 12.5px var(--bx-font); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
+.gj-tab[aria-selected="true"] { color: var(--bx-ink); background: color-mix(in srgb, var(--bx-mint) 18%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bx-mint) 55%, transparent); }
+.gj-tab:focus-visible, .gj-swatch:focus-visible, .gj-preset:focus-visible { outline: 2px solid var(--bx-azure); outline-offset: 2px; }
+.gj-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 1px var(--bx-hairline-2); }
+.gj-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.gj-swatch { width: 44px; height: 44px; border-radius: 50%; border: 2px solid transparent; box-shadow: 0 0 0 1px var(--bx-hairline-2); cursor: pointer; }
+.gj-swatch[aria-pressed="true"] { border-color: var(--bx-surface); box-shadow: 0 0 0 3px var(--bx-mint); }
+.gj-color { width: 52px; min-height: 44px; padding: 2px; border-radius: var(--bx-r-sm); border: 1px solid var(--bx-hairline-2); background: var(--bx-surface); }
+.gj-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-top: 6px; }
+.gj-preset { min-height: 56px; text-align: left; padding: 9px 11px; border-radius: var(--bx-r-sm); border: 1px solid var(--bx-hairline-2); background: var(--bx-surface); color: var(--bx-ink); cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.gj-preset small { color: var(--bx-ink-3); font-size: 11.5px; }
+.gj-preset:hover { border-color: color-mix(in srgb, var(--bx-mint) 60%, transparent); }
+.gj-ds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--bx-3); }
+.gj-ds-item { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: var(--bx-3); align-items: start; }
+.gj-ds-item img { width: 96px; height: 96px; object-fit: cover; border-radius: var(--bx-r-sm); }
+@media (max-width: 900px) { .gj-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px) { .gj-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gj-ds-item { grid-template-columns: 64px minmax(0, 1fr); } .gj-ds-item img { width: 64px; height: 64px; } }

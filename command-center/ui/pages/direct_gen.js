@@ -17,6 +17,7 @@
 import { api } from '../api.js';
 import { h, toastOk, toastError, icon } from '../components.js';
 import { panel, pageHead, pill, btn, meter } from './_ui.js';
+import { genjutsuPanel } from './genjutsu.js';
 
 const STATUS_LABEL = { queued: 'В очереди', loading: 'Загрузка модели', generating: 'Генерация', postprocessing: 'Сохранение и проверка', completed: 'Готово', failed: 'Ошибка', cancelled: 'Остановлено' };
 const STATUS_SHORT = { queued: 'в очереди', loading: 'загрузка', generating: 'генерация', postprocessing: 'сохранение', completed: 'готово', failed: 'ошибка', cancelled: 'остановлено' };
@@ -812,6 +813,7 @@ const DirectGenPage = {
         h('div.dg-col', requestPanel),
         h('div.dg-col', modelPanel, readyPanel)),
       faceSwapPanel({ refresh, focusJob, setCurrent: (id) => { state.current = id; } }),
+      genjutsuPanel(),
       panel('Текущая задача', jobHost, { icon: 'play' }),
       panel('История (только ваша)', histBox),
       h('p.dg-legal', { dataset: { testid: 'dg-legal' } }, LEGAL));

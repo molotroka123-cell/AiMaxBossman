@@ -11,6 +11,10 @@
   GET  /direct-gen/faceswap               FaceFusion installed? presets
   POST /direct-gen/swap-jobs              face swap in a video (photos + consent), 16:9 + original audio;
                                           the job shares /jobs/{id}, cancel and file with every other job
+  GET  /direct-gen/genjutsu               live constructor: mask engines (availability, licence), LoRA training
+                                          status (honestly «не подключено»: there is no training backend)
+  POST /direct-gen/genjutsu/masks         region masks (hair/top/bottom/clothes) for one picture + consent;
+                                          PNG base64 + areas; nothing is stored. Recolour runs in the browser.
 Events: `direct_gen.job` on the shared event bus (status, stage, real progress, elapsed).
 The participant comes from the `X-Participant` header ('owner' by default or a 64-hex PIT key);
 jobs of one participant are invisible to another.
@@ -56,6 +60,14 @@ class SwapIn(BaseModel):
     faces_b64: list[str] = Field(min_length=1, max_length=5)
     preset: str = Field(default="fast", max_length=16)
     frame: str = Field(default="original", max_length=16)
+    consent: bool = False
+
+
+class MasksIn(BaseModel):
+    """Masks for the Genjutsu live constructor: one picture (a photo or a video frame) + the person's consent."""
+    model_config = ConfigDict(extra="forbid")
+    image_b64: str = Field(max_length=48 * 1024 * 1024)
+    engine: str | None = Field(default=None, max_length=16)
     consent: bool = False
 
 
@@ -133,6 +145,16 @@ async def faceswap_info(request: Request):
 @router.post("/swap-jobs", status_code=202)
 async def create_swap(body: SwapIn, request: Request, x_participant: str | None = Header(default=None)):
     return await _guard(_svc(request).create_swap(_who(x_participant), body.model_dump()))
+
+
+@router.get("/genjutsu")
+async def genjutsu_info(request: Request):
+    return _svc(request).genjutsu_info()
+
+
+@router.post("/genjutsu/masks")
+async def genjutsu_masks(body: MasksIn, request: Request, x_participant: str | None = Header(default=None)):
+    return await _guard(_svc(request).create_masks(_who(x_participant), body.model_dump()))
 
 
 @router.post("/assist")
