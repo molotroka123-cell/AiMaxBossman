@@ -153,12 +153,19 @@ def compose_16x9(src: Path, dst: Path, width: int = 1280, height: int = 720) -> 
     return n
 
 
+def video_seconds(video: Path) -> float:
+    r = subprocess.run([shutil.which("ffprobe") or "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                        "format=duration", "-of", "csv=p=0", str(video)], capture_output=True, text=True, timeout=120)
+    return float((r.stdout or "0").strip() or 0)
+
+
 def finish(video: Path, original: Path, dst: Path, *, fps: int | None = None) -> None:
-    """H.264 + the original audio of the source, at the source frame timing (no resampling), cut to the shorter of the two."""
+    """H.264 + the original audio of the source, at the source frame timing (no resampling). The VIDEO length wins:
+    a shorter audio track just ends (10.10: -shortest cut 1.8 s of picture when the source audio was shorter)."""
     cmd = [ffmpeg(), "-v", "error", "-y", "-i", str(video), "-i", str(original), "-map", "0:v:0", "-map", "1:a:0?",
            "-c:v", "libx264", "-crf", "16", "-preset", "slow", "-pix_fmt", "yuv420p",
            *(["-r", str(fps)] if fps else ["-fps_mode", "passthrough"]),
-           "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(dst)]
+           "-c:a", "aac", "-b:a", "192k", "-t", f"{video_seconds(video):.3f}", "-movflags", "+faststart", str(dst)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
     if r.returncode != 0 or not dst.is_file():
         raise RuntimeError("ffmpeg finish failed: " + (r.stderr or "")[-400:])
@@ -203,3 +210,33 @@ def join(parts: list[Path], dst: Path) -> None:
                        capture_output=True, text=True, timeout=1800)
     if r.returncode != 0 or not dst.is_file():
         raise RuntimeError("ffmpeg join failed: " + (r.stderr or "")[-300:])
+
+
+def stream_rates(video: Path) -> tuple[str, str]:
+    r = subprocess.run([shutil.which("ffprobe") or "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                        "stream=r_frame_rate,avg_frame_rate", "-of", "csv=p=0", str(video)], capture_output=True, text=True, timeout=120)
+    parts = (r.stdout or "").strip().split(",")
+    return (parts[0], parts[1]) if len(parts) >= 2 else ("0/0", "0/0")
+
+
+def _ratio(text: str) -> float:
+    a, _, b = text.partition("/")
+    try:
+        return float(a) / float(b or 1)
+    except (ValueError, ZeroDivisionError):
+        return 0.0
+
+
+def normalize_cfr(src: Path, dst: Path) -> bool:
+    """A variable-frame-rate source (phone/screen recordings) becomes constant-rate at its OWN average rate, losslessly
+    re-encoded (-qp 0). FaceFusion writes constant-rate video, so without this the chunks' timing drifts from the audio
+    (10.10: 503 frames over 19.97 s were written as 24 fps). Returns False (nothing written) when the source is already CFR."""
+    nominal, average = stream_rates(src)
+    if _ratio(average) <= 0 or abs(_ratio(nominal) - _ratio(average)) < 0.01:
+        return False
+    cmd = [ffmpeg(), "-v", "error", "-y", "-i", str(src), "-vf", f"fps={average}", "-an", "-c:v", "libx264", "-qp", "0",
+           "-preset", "ultrafast", str(dst)]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    if r.returncode != 0 or not dst.is_file():
+        raise RuntimeError("ffmpeg cfr failed: " + (r.stderr or "")[-300:])
+    return True

@@ -495,6 +495,11 @@ class DirectGenService:
                 source = work / "source.mp4"
                 shutil.copyfile(folder / "input_video.bin", source)
                 faces = sorted(folder.glob("input_face*"))
+                original = source                                  # its audio track and timing are restored at the end
+                cfr = work / "cfr.mp4"
+                if await asyncio.to_thread(faceswap.normalize_cfr, source, cfr):
+                    source = cfr
+                    job["provenance"]["normalized_cfr"] = True
                 swapped = work / "swapped.mp4"
                 frames = await asyncio.to_thread(faceswap.frame_count, source)
                 chunks = faceswap.plan_chunks(frames, self.faceswap_workers)
@@ -552,7 +557,7 @@ class DirectGenService:
                     framed = work / "framed.mp4"
                     await asyncio.to_thread(faceswap.compose_16x9, swapped, framed)
                 out = result / "video.mp4"
-                await asyncio.to_thread(faceswap.finish, framed, source, out)
+                await asyncio.to_thread(faceswap.finish, framed, original, out)
                 check = await asyncio.to_thread(self.verify, out)
                 if check.get("playable") is False:
                     raise DirectGenError(0, "bad_output", check.get("reason", "output is not a playable video"))

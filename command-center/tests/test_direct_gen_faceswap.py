@@ -282,3 +282,19 @@ def test_plan_chunks_splits_long_clips_and_keeps_short_or_unknown_ones_whole():
     assert faceswap.plan_chunks(90, 2) == [(0, 89)]                 # < 2 x 60 frames: one model load is cheaper
     assert faceswap.plan_chunks(444, 2) == [(0, 221), (222, 443)]
     assert faceswap.plan_chunks(898, 3) == [(0, 299), (300, 599), (600, 897)]
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
+def test_vfr_source_is_normalized_and_the_video_length_survives_a_shorter_audio(tmp_path):
+    """10.10 regressions: a VFR phone clip drifted after chunking, and -shortest cut the picture to a shorter audio."""
+    import subprocess
+    vfr, cfr, out = tmp_path / "vfr.mp4", tmp_path / "cfr.mp4", tmp_path / "out.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=160x120:rate=30:duration=4",
+                    "-f", "lavfi", "-i", "sine=duration=3", "-vf", "setpts='if(lt(N,60),N/(30*TB),2/TB+(N-60)/(15*TB))'",
+                    "-fps_mode", "vfr", "-c:v", "libx264", "-c:a", "aac", "-shortest", str(vfr)], check=True)
+    assert faceswap.normalize_cfr(vfr, cfr) is True
+    nominal, average = faceswap.stream_rates(cfr)
+    assert nominal == average
+    assert faceswap.normalize_cfr(cfr, tmp_path / "again.mp4") is False      # already constant: nothing written
+    faceswap.finish(cfr, vfr, out)
+    assert abs(faceswap.video_seconds(out) - faceswap.video_seconds(cfr)) < 0.1
