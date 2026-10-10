@@ -51,19 +51,64 @@ def deterministic_match(a: dict, b: dict) -> str | None:
     if original(a) and original(a) == original(b):
         return f"same original name «{original(a)}»"
     sa, sb = probe.source_of(a), probe.source_of(b)
-    pa = (a.get("sources") or [{}])[0].get("path")
-    pb = (b.get("sources") or [{}])[0].get("path")
-    if sa and sa == sb:
-        return f"same source module {sa}"
-    if pa and pa == pb and not pa.endswith(".md"):
-        return f"same source file {pa}"
+    if sa and sa == sb:                     # one python module listed twice; a shared page/doc file is NOT enough
+        return f"same source module {sa}"   # (10.10: a page sub-feature is not a duplicate of the page)
     return None
+
+
+CONFIRM = """Two leaves of a capability tree carry the same original name. Are they the SAME capability listed twice
+(e.g. one skill copied into two folders), or two different things that only share a name (e.g. a module and a skill)?
+A: {a}
+B: {b}
+Answer ONLY JSON: {{"same": true|false, "keep": "<id to keep if same>", "reason": "<one sentence>"}}"""
+
+
+def same_name_pairs(leaves: list[dict]) -> list[tuple[dict, dict]]:
+    """Retirable leaves whose original name equals another retirable leaf's — the judge then confirms or rejects."""
+    seen: dict[str, dict] = {}
+    pairs = []
+    for n in leaves:
+        if n["status"] not in RETIRABLE or not original(n):
+            continue
+        if original(n) in seen:
+            pairs.append((seen[original(n)], n))
+        else:
+            seen[original(n)] = n
+    return pairs
 
 
 def row(n: dict) -> str:
     return json.dumps({"id": n["id"], "name": n.get("label_en") or n["label"], "label": n["label"], "status": n["status"],
                        "source": (n.get("sources") or [{}])[0].get("path", ""), "detail": (n.get("detail") or "")[:100]},
                       ensure_ascii=False)
+
+
+def retire(receipts: list, node: dict, keep: dict, match: str, reason: str, zone: str, sha: str) -> list:
+    """Write the evidence file and the RETIRE audit receipt that tree_apply_evidence validates."""
+    nid = node["id"]
+    started = datetime.now(timezone.utc).isoformat()
+    text = (f"$ haiku_dedupe zone={zone} judge={tr.judge.MODEL}
+sha: {sha}
+
+judge: {reason}
+"
+            f"deterministic: {nid} vs {keep['id']}: {match}
+keep: {keep['id']} ({keep['status']}) «{keep['label']}»
+"
+            f"retire: {nid} ({node['status']}) «{node['label']}»
+exit_code: 0
+")
+    out = EVID / "out" / f"{nid.replace('/', '_')}.txt"
+    out.write_text(text, encoding="utf-8", newline="
+")
+    receipts = [r for r in receipts if r.get("node_id") != nid]
+    receipts.append({"node_id": nid, "sha": sha, "probe": f"audit: duplicate of {keep['id']} ({match}), judge {tr.judge.MODEL}",
+                     "command": "python tools/tree_proof/haiku_dedupe.py", "exit_code": 0, "started_at": started,
+                     "finished_at": datetime.now(timezone.utc).isoformat(),
+                     "output_sha256": hashlib.sha256(out.read_bytes()).hexdigest(), "output_tail": text[-1400:],
+                     "verdict": "RETIRE", "kind": "audit",
+                     "reason": f"Дубликат листа {keep['id']} ({match}); судья {tr.judge.MODEL}: {reason}"})
+    return receipts
 
 
 def main(argv=None) -> int:
@@ -105,21 +150,26 @@ def main(argv=None) -> int:
             if not match:
                 suggestions.append({**d, "why_not_applied": "no deterministic match (name/source differ)"})
                 continue
-            started = datetime.now(timezone.utc).isoformat()
-            text = (f"$ haiku_dedupe zone={zone} judge={tr.judge.MODEL}\nsha: {sha}\n\njudge: {json.dumps(d, ensure_ascii=False)}\n"
-                    f"deterministic: {nid} vs {keep}: {match}\nkeep: {keep} ({by[keep]['status']}) «{by[keep]['label']}»\n"
-                    f"retire: {nid} ({by[nid]['status']}) «{by[nid]['label']}»\nexit_code: 0\n")
-            out = EVID / "out" / f"{nid.replace('/', '_')}.txt"
-            out.write_text(text, encoding="utf-8", newline="\n")
-            full_reason = f"Дубликат листа {keep} ({match}); судья {tr.judge.MODEL}: {reason}"
-            receipts = [r for r in receipts if r.get("node_id") != nid]
-            receipts.append({"node_id": nid, "sha": sha, "probe": f"audit: duplicate of {keep} ({match}), judge {tr.judge.MODEL}",
-                             "command": "python tools/tree_proof/haiku_dedupe.py", "exit_code": 0, "started_at": started,
-                             "finished_at": datetime.now(timezone.utc).isoformat(),
-                             "output_sha256": hashlib.sha256(out.read_bytes()).hexdigest(), "output_tail": text[-1400:],
-                             "verdict": "RETIRE", "kind": "audit", "reason": full_reason})
+            receipts = retire(receipts, by[nid], by[keep], match, reason, zone, sha)
             applied.append({"id": nid, "keep": keep, "match": match, "reason": reason})
         print(f"{zone}: {len(cands)} candidates, spent ${spent:.4f}")
+    if not a.dry:
+        done = {r["id"] for r in applied}
+        for x, y in same_name_pairs(leaves):
+            if spent >= a.cap_usd or x["id"] in done or y["id"] in done:
+                continue
+            answer, cost = tr.ask_json(CONFIRM.format(a=row(x), b=row(y)))
+            spent += cost
+            keep = answer.get("keep")
+            if answer.get("same") is True and keep in (x["id"], y["id"]):
+                gone, kept = (y, x) if keep == x["id"] else (x, y)
+                reason = str(answer.get("reason", "")).strip()
+                receipts = retire(receipts, gone, kept, deterministic_match(gone, kept), reason, zones[gone["id"]], sha)
+                applied.append({"id": gone["id"], "keep": kept["id"], "match": "same original name", "reason": reason})
+                done.add(gone["id"])
+            else:
+                suggestions.append({"id": y["id"], "keep": x["id"], "reason": answer.get("reason"),
+                                    "why_not_applied": "same name, judge says different things"})
     if a.dry:
         return 0
     if receipts:

@@ -25,3 +25,13 @@ def test_related_but_different_leaves_and_shared_docs_never_match():
     b = leaf("oss-2", "Ревью кода · open-code-review", "BOSSMAN_V1_1_CLAUDE_IMPLEMENTATION.md", "alibaba/open-code-review")
     assert dd.deterministic_match(a, b) is None                   # one catalogue document lists many different repos
     assert dd.deterministic_match(a, a) is None
+    page = leaf("pv-ui", "Страница Poker Vision", "command-center/ui/pages/poker_vision.js", status="reported")
+    panel = leaf("pv-source-panel", "Панель источника", "command-center/ui/pages/poker_vision.js", status="code")
+    assert dd.deterministic_match(panel, page) is None            # 10.10: a page sub-feature is not a duplicate of the page
+
+
+def test_same_name_pairs_only_among_retirable_leaves():
+    a = leaf("skill-23", "Отладка", ".agents/skills/systematic-debugging/SKILL.md", "systematic-debugging")
+    b = leaf("skill-43", "Отладка (каталог)", "cat/systematic-debugging/SKILL.md", "systematic-debugging")
+    c = leaf("mod-x", "X", "x.py", "systematic-debugging", status="reported")
+    assert [(p["id"], q["id"]) for p, q in dd.same_name_pairs([a, b, c])] == [("skill-23", "skill-43")]
