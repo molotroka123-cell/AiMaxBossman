@@ -1,0 +1,14 @@
+{
+  "name": "Learned",
+  "description": "Learned by botlab CEM vs the TRAIN pool",
+  "vpip": 0.3297,
+  "pfr": 0.1027,
+  "value_threshold": 0.6046,
+  "aggression": 0.4847,
+  "bluff": 0.0441,
+  "call_slack": 0.2133,
+  "bet_size": 0.8857,
+  "open_size": 2.9048,
+  "sims": 80,
+  "training_opponent": false
+}

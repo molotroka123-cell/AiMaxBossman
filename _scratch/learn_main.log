@@ -1,0 +1,21 @@
+gen  0: best     47.6  elite     32.9  pop     -2.4  current-mean      0.9 bb/100
+gen  1: best    119.1  elite    101.2  pop     70.8  current-mean     80.4 bb/100
+gen  2: best    127.9  elite     48.7  pop    -16.3  current-mean    -19.0 bb/100
+gen  3: best    130.2  elite     95.4  pop     13.5  current-mean    -31.9 bb/100
+gen  4: best    115.6  elite     97.9  pop     51.9  current-mean     32.3 bb/100
+gen  5: best    404.9  elite    300.5  pop    171.9  current-mean    121.6 bb/100
+gen  6: best     60.2  elite     54.5  pop     22.6  current-mean     24.1 bb/100
+gen  7: best     58.3  elite     29.5  pop    -36.0  current-mean    -52.7 bb/100
+gen  8: best    173.1  elite    156.5  pop    117.0  current-mean    107.6 bb/100
+gen  9: best    109.1  elite     99.0  pop     59.4  current-mean     81.9 bb/100
+gen 10: best    241.3  elite    209.1  pop    152.2  current-mean    156.3 bb/100
+gen 11: best    192.7  elite    184.0  pop    130.7  current-mean     91.1 bb/100
+final evaluation on held-out seeds ...
+IMPROVED on unseen opponents: learned - start = +42.4 bb/100, 95% CI [+9.7, +75.2] over 12000 hands
+wrote C:\Users\asd\Bossman\main\.claude\worktrees\agent-a544b3f69558ee242\apps\poker-botlab\runs\20261005-102859\report.json
+{
+  "verdict": "IMPROVED on unseen opponents: learned - start = +42.4 bb/100, 95% CI [+9.7, +75.2] over 12000 hands",
+  "improvement_supported_on_unseen": true,
+  "elapsed_sec": 723.6,
+  "total_hands_simulated": 264000
+}

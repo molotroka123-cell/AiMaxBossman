@@ -1,0 +1,223 @@
+{
+  "kind": "botlab.learn.report",
+  "created": "2026-10-05T10:15:01",
+  "boundary": "local headless engine only; opponents are labelled training bots",
+  "config": {
+    "generations": 3,
+    "population": 8,
+    "elite_frac": 0.25,
+    "deals_per_candidate": 20,
+    "test_deals": 100,
+    "seed": 7,
+    "init_std_frac": 0.25,
+    "min_std_frac": 0.03,
+    "smoothing": 0.7
+  },
+  "table": {
+    "seats": 6,
+    "big_blind": 2,
+    "stack_bb": 100,
+    "duplicate_rotation": true
+  },
+  "train_pool": [
+    "Rock",
+    "Calling Station",
+    "Maniac",
+    "TAG Trainer"
+  ],
+  "unseen_pool": [
+    "LAG Trainer",
+    "Scared Money",
+    "Loose Limper",
+    "Trapper"
+  ],
+  "start_profile": {
+    "name": "Student (start)",
+    "description": "Learner starting point: generic middle-of-the-road settings before training.",
+    "vpip": 0.32,
+    "pfr": 0.14,
+    "value_threshold": 0.55,
+    "aggression": 0.5,
+    "bluff": 0.12,
+    "call_slack": 0.1,
+    "bet_size": 0.6,
+    "open_size": 3.0,
+    "sims": 80,
+    "training_opponent": false
+  },
+  "learned_profile": {
+    "name": "Learned",
+    "description": "Learned by botlab CEM vs the TRAIN pool",
+    "vpip": 0.3297,
+    "pfr": 0.1027,
+    "value_threshold": 0.6046,
+    "aggression": 0.4847,
+    "bluff": 0.0441,
+    "call_slack": 0.2133,
+    "bet_size": 0.8857,
+    "open_size": 2.9048,
+    "sims": 80,
+    "training_opponent": false
+  },
+  "generations": [
+    {
+      "generation": 0,
+      "seed": 7000,
+      "hands_per_candidate": 120,
+      "mean_candidate_bb100": -267.92,
+      "best_bb100": 69.58,
+      "elite_avg_bb100": 51.67,
+      "population_avg_bb100": -26.2,
+      "new_mean": {
+        "vpip": 0.3746,
+        "pfr": 0.1139,
+        "value_threshold": 0.589,
+        "aggression": 0.5102,
+        "bluff": 0.036,
+        "call_slack": 0.2178,
+        "bet_size": 0.7286,
+        "open_size": 3.3792
+      },
+      "new_std": {
+        "vpip": 0.1173,
+        "pfr": 0.0937,
+        "value_threshold": 0.042,
+        "aggression": 0.0918,
+        "bluff": 0.0375,
+        "call_slack": 0.0619,
+        "bet_size": 0.1116,
+        "open_size": 0.3423
+      }
+    },
+    {
+      "generation": 1,
+      "seed": 7001,
+      "hands_per_candidate": 120,
+      "mean_candidate_bb100": -18.33,
+      "best_bb100": 22.92,
+      "elite_avg_bb100": 5.42,
+      "population_avg_bb100": -37.66,
+      "new_mean": {
+        "vpip": 0.4065,
+        "pfr": 0.1122,
+        "value_threshold": 0.6061,
+        "aggression": 0.4693,
+        "bluff": 0.0325,
+        "call_slack": 0.2251,
+        "bet_size": 0.7681,
+        "open_size": 3.1744
+      },
+      "new_std": {
+        "vpip": 0.1215,
+        "pfr": 0.0536,
+        "value_threshold": 0.0262,
+        "aggression": 0.0702,
+        "bluff": 0.0309,
+        "call_slack": 0.0523,
+        "bet_size": 0.1084,
+        "open_size": 0.201
+      }
+    },
+    {
+      "generation": 2,
+      "seed": 7002,
+      "hands_per_candidate": 120,
+      "mean_candidate_bb100": -18.75,
+      "best_bb100": 198.33,
+      "elite_avg_bb100": 191.46,
+      "population_avg_bb100": 38.54,
+      "new_mean": {
+        "vpip": 0.3297,
+        "pfr": 0.1027,
+        "value_threshold": 0.6046,
+        "aggression": 0.4847,
+        "bluff": 0.0441,
+        "call_slack": 0.2133,
+        "bet_size": 0.8857,
+        "open_size": 2.9048
+      },
+      "new_std": {
+        "vpip": 0.0769,
+        "pfr": 0.0205,
+        "value_threshold": 0.015,
+        "aggression": 0.0511,
+        "bluff": 0.0281,
+        "call_slack": 0.0416,
+        "bet_size": 0.0544,
+        "open_size": 0.1515
+      }
+    }
+  ],
+  "eval_train_pool_heldout_seeds": {
+    "pool": [
+      "Rock",
+      "Calling Station",
+      "Maniac",
+      "TAG Trainer"
+    ],
+    "deals": 100,
+    "hands_each": 600,
+    "seed": 907001,
+    "start_bb100": {
+      "mean": 98.083,
+      "sd": 886.425,
+      "n": 100,
+      "ci95_lo": -75.653,
+      "ci95_hi": 271.819
+    },
+    "learned_bb100": {
+      "mean": 117.667,
+      "sd": 1092.109,
+      "n": 100,
+      "ci95_lo": -96.383,
+      "ci95_hi": 331.716
+    },
+    "paired_diff_bb100": {
+      "mean": 19.583,
+      "sd": 760.007,
+      "n": 100,
+      "ci95_lo": -129.375,
+      "ci95_hi": 168.542
+    },
+    "improvement_supported": false,
+    "regression_supported": false
+  },
+  "eval_unseen_pool": {
+    "pool": [
+      "LAG Trainer",
+      "Scared Money",
+      "Loose Limper",
+      "Trapper"
+    ],
+    "deals": 100,
+    "hands_each": 600,
+    "seed": 907002,
+    "start_bb100": {
+      "mean": 17.667,
+      "sd": 461.454,
+      "n": 100,
+      "ci95_lo": -72.777,
+      "ci95_hi": 108.11
+    },
+    "learned_bb100": {
+      "mean": 55.583,
+      "sd": 569.223,
+      "n": 100,
+      "ci95_lo": -55.982,
+      "ci95_hi": 167.149
+    },
+    "paired_diff_bb100": {
+      "mean": 37.917,
+      "sd": 476.82,
+      "n": 100,
+      "ci95_lo": -55.538,
+      "ci95_hi": 131.372
+    },
+    "improvement_supported": false,
+    "regression_supported": false
+  },
+  "improvement_supported_on_unseen": false,
+  "verdict": "NOT PROVEN: difference on unseen opponents is within noise: +37.9 bb/100, 95% CI [-55.5, +131.4] over 600 hands",
+  "total_hands_simulated": 5280,
+  "elapsed_sec": 12.9
+}
