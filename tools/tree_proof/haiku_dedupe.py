@@ -91,6 +91,9 @@ def retire(receipts: list, node: dict, keep: dict, match: str, reason: str, zone
             f"deterministic: {nid} vs {keep['id']}: {match}\nkeep: {keep['id']} ({keep['status']}) «{keep['label']}»\n"
             f"retire: {nid} ({node['status']}) «{node['label']}»\nexit_code: 0\n")
     out = EVID / "out" / f"{nid.replace('/', '_')}.txt"
+    if out.is_file() and out.read_text(encoding="utf-8", errors="replace") != text:   # an older record is kept, never lost
+        (EVID / "out" / "archive").mkdir(parents=True, exist_ok=True)
+        out.replace(EVID / "out" / "archive" / f"{nid.replace('/', '_')}.before-dedupe.txt")
     out.write_text(text, encoding="utf-8", newline="\n")
     receipts = [r for r in receipts if r.get("node_id") != nid]
     receipts.append({"node_id": nid, "sha": sha, "probe": f"audit: duplicate of {keep['id']} ({match}), judge {tr.judge.MODEL}",
