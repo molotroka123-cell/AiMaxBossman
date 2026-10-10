@@ -527,14 +527,25 @@ class InsightsModule(BaseModule):
         self._pult = pult_sender
         self._clock = clock
         self._tz = tz_offset_min
+        self.tz_provider: Callable[[], int] | None = None
         self._interval = interval
         self._sleep = sleep
         self._task: asyncio.Task | None = None
         self.errors = 0
         self.last_snapshot_at: float | None = None
 
+    def tz_minutes(self) -> int:
+        if self.tz_provider is not None:
+            try:
+                value = int(self.tz_provider())
+                if abs(value) <= 14 * 60:
+                    return value
+            except Exception:                           # noqa: BLE001 - a settings fault never stops the digest
+                pass
+        return self._tz
+
     def _digest_due(self, now: float) -> bool:
-        local = datetime.fromtimestamp(now, timezone(timedelta(minutes=self._tz)))
+        local = datetime.fromtimestamp(now, timezone(timedelta(minutes=self.tz_minutes())))
         return (local.weekday() == DIGEST_WEEKDAY and local.hour >= DIGEST_HOUR
                 and self.collector.last_digest_week() != self.collector._week_label(now))
 
@@ -583,8 +594,10 @@ def create(runtime: Any) -> InsightsModule:
     if home is None:
         raise ValueError("insights needs a runtime with a PIT home")
     provider = (lambda: runtime.j2.status()) if hasattr(type(runtime), "j2") else None
-    try:
-        tz = int(os.environ.get("BOSSMAN_JEFF_TZ_MIN", 180))
-    except ValueError:
-        tz = 180
-    return InsightsModule(InsightsCollector(Path(home)), status_provider=provider, tz_offset_min=tz)
+    from .. import jeff_settings
+    data_dir = getattr(getattr(runtime, "vault", None), "data_dir", None)
+    module = InsightsModule(InsightsCollector(Path(home)), status_provider=provider,
+                            tz_offset_min=jeff_settings.default_tz_offset_min(None))
+    if data_dir is not None:                    # the owner's panel time zone wins, re-read per check
+        module.tz_provider = lambda: jeff_settings.default_tz_offset_min(data_dir)
+    return module
