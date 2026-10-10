@@ -1,0 +1,25 @@
+node_id: reg-studio_sdcpp
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: mediaux.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('bcc.studio.providers.sdcpp')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src] && (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_sdcpp_provider_safety.py tests/test_studio_deadline_limits.py tests/test_studio_listing_does_not_block_loop.py tests/test_studio_media_lifecycle.py tests/test_studio_partial_job_layer.py) && (cd . && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_media_bootstrap.py)
+
+import bcc.studio.providers.sdcpp: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\studio\providers\sdcpp.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_sdcpp_provider_safety.py tests/test_studio_deadline_limits.py tests/test_studio_listing_does_not_block_loop.py tests/test_studio_media_lifecycle.py tests/test_studio_partial_job_layer.py)
+[step shared by 1 leaf(s); exit 0 in 49.8s; reason=None]
+..........................ss.............                                [100%]
+39 passed, 2 skipped in 47.53s
+
+[guard] product modules loaded from installed build: 309; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.studio.providers.sdcpp loaded by this test process from installed build: True
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_media_bootstrap.py)
+[step shared by 1 leaf(s); exit 0 in 1.4s; reason=None]
+...........................                                              [100%]
+27 passed in 0.54s
+
+[guard] product modules loaded from installed build: 7; from repo source: []; aux repo-source helper modules: 1
+
+module under test bcc.studio.providers.sdcpp loaded by this test process from installed build: True
+
+VERDICT PASS

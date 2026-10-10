@@ -1,0 +1,17 @@
+node_id: module-7c2b27fd9ac6
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: memapps.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('bossman.trading_learning.verify')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_trading_claims.py)
+
+import bossman.trading_learning.verify: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\trading_learning\verify.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_trading_claims.py)
+[step shared by 4 leaf(s); exit 0 in 1.2s; reason=None]
+.................................                                        [100%]
+33 passed in 0.29s
+
+[guard] product modules loaded from installed build: 36; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.trading_learning.verify loaded by this test process from installed build: True
+
+VERDICT PASS

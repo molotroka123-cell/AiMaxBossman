@@ -1,0 +1,17 @@
+node_id: module-d3f5977af5ba
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=da3ca4d381af32d708c0e1e74b184023ea992205 command=python -c "import bossman.benchmark.sandbox_row" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.] && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_benchmark_sandbox_row.py)
+
+import bossman.benchmark.sandbox_row: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\benchmark\sandbox_row.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_benchmark_sandbox_row.py)
+[step shared by 1 leaf(s); exit 0 in 1.2s; reason=None]
+..........                                                               [100%]
+10 passed in 0.28s
+
+[guard] product modules loaded from installed build: 40; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.benchmark.sandbox_row loaded by this test process from installed build: True
+
+VERDICT PASS

@@ -1,0 +1,190 @@
+node_id: module-dadaec7d827b
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=da3ca4d381af32d708c0e1e74b184023ea992205 command=python -c "import bossman.benchmark.engine" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.] && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_benchmark_power.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_benchmark_runtime.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_benchmark_truth.py)
+
+import bossman.benchmark.engine: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\benchmark\engine.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_benchmark_power.py)
+[step shared by 2 leaf(s); exit 0 in 1.0s; reason=None]
+..............                                                           [100%]
+14 passed in 0.27s
+
+[guard] product modules loaded from installed build: 39; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.benchmark.engine loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_benchmark_runtime.py)
+[step shared by 1 leaf(s); exit 1 in 1.8s; reason=tests_failed]
+FFFF                                                                     [100%]
+================================== FAILURES ===================================
+___ test_smoke_is_runtime_subprocess_bound_and_writes_json_markdown_history ___
+tests\test_benchmark_runtime.py:22: in test_smoke_is_runtime_subprocess_bound_and_writes_json_markdown_history
+    assert result.returncode == 0, result.stderr
+E   AssertionError: Traceback (most recent call last):
+E       File "<frozen runpy>", line 198, in _run_module_as_main
+E       File "<frozen runpy>", line 88, in _run_code
+E       File "C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\__main__.py", line 3, in <module>
+E         main()
+E       File "C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\cli.py", line 39, in main
+E         runner = BenchmarkRunner(output_root=getattr(args, "output", None))
+E                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       File "<string>", line 5, in __init__
+E       File "C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\engine.py", line 521, in __post_init__
+E         self.manifest = json.loads(self.manifest_file.read_text(encoding="utf-8"))
+E                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1027, in read_text
+E         with self.open(mode='r', encoding=encoding, errors=errors) as f:
+E              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1013, in open
+E         return io.open(self, mode, buffering, encoding, errors, newline)
+E                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E     FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\datasets\\v1\\manifest.json'
+E     
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe', '-m', 'bossman.bench...ws-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\bossman\\\\benchmark\\\\datasets\\\\v1\\\\manifest.json\'\n').returncode
+________ test_pr_has_required_repeats_and_never_relabels_mock_as_live _________
+tests\test_benchmark_runtime.py:36: in test_pr_has_required_repeats_and_never_relabels_mock_as_live
+    assert result.returncode == 0, result.stderr
+E   AssertionError: Traceback (most recent call last):
+E       File "<frozen runpy>", line 198, in _run_module_as_main
+E       File "<frozen runpy>", line 88, in _run_code
+E       File "C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\__main__.py", line 3, in <module>
+E         main()
+E       File "C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\cli.py", line 39, in main
+E         runner = BenchmarkRunner(output_root=getattr(args, "output", None))
+E                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       File "<string>", line 5, in __init__
+E       File "C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\engine.py", line 521, in __post_init__
+E         self.manifest = json.loads(self.manifest_file.read_text(encoding="utf-8"))
+E                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1027, in read_text
+E         with self.open(mode='r', encoding=encoding, errors=errors) as f:
+E              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1013, in open
+E         return io.open(self, mode, buffering, encoding, errors, newline)
+E                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E     FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\datasets\\v1\\manifest.json'
+E     
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe', '-m', 'bossman.bench...ws-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\bossman\\\\benchmark\\\\datasets\\\\v1\\\\manifest.json\'\n').returncode
+________ test_compare_fails_ready_gate_on_verified_success_regression _________
+tests\test_benchmark_runtime.py:47: in test_compare_fails_ready_gate_on_verified_success_regression
+    assert _cli("run", "--tier", "smoke", "--sha", HEAD, "--output", str(tmp_path)).returncode == 0
+E   AssertionError: assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe', '-m', 'bossman.bench...ws-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\bossman\\\\benchmark\\\\datasets\\\\v1\\\\manifest.json\'\n').returncode
+E    +    where CompletedProcess(args=['C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe', '-m', 'bossman.bench...ws-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\bossman\\\\benchmark\\\\datasets\\\\v1\\\\manifest.json\'\n') = _cli('run', '--tier', 'smoke', '--sha', '6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5', '--output', 'C:\\Users\\asd\\AppData\\Local\\Temp\\installed_rerun_axxqh9ut\\step57\\tmp\\pytest-of-asd\\pytest-0\\test_compare_fails_ready_gate_0')
+E    +      where 'C:\\Users\\asd\\AppData\\Local\\Temp\\installed_rerun_axxqh9ut\\step57\\tmp\\pytest-of-asd\\pytest-0\\test_compare_fails_ready_gate_0' = str(WindowsPath('C:/Users/asd/AppData/Local/Temp/installed_rerun_axxqh9ut/step57/tmp/pytest-of-asd/pytest-0/test_compare_fails_ready_gate_0'))
+_________ test_live_flag_requires_two_independent_owner_attestations __________
+tests\test_benchmark_runtime.py:65: in test_live_flag_requires_two_independent_owner_attestations
+    assert result.returncode == 0, result.stderr
+E   AssertionError: Traceback (most recent call last):
+E       File "<frozen runpy>", line 198, in _run_module_as_main
+E       File "<frozen runpy>", line 88, in _run_code
+E       File "C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\__main__.py", line 3, in <module>
+E         main()
+E       File "C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\cli.py", line 39, in main
+E         runner = BenchmarkRunner(output_root=getattr(args, "output", None))
+E                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       File "<string>", line 5, in __init__
+E       File "C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\engine.py", line 521, in __post_init__
+E         self.manifest = json.loads(self.manifest_file.read_text(encoding="utf-8"))
+E                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1027, in read_text
+E         with self.open(mode='r', encoding=encoding, errors=errors) as f:
+E              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1013, in open
+E         return io.open(self, mode, buffering, encoding, errors, newline)
+E                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E     FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\datasets\\v1\\manifest.json'
+E     
+E   assert 1 == 0
+E    +  where 1 = CompletedProcess(args=['C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe', '-m', 'bossman.bench...ws-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\bossman\\\\benchmark\\\\datasets\\\\v1\\\\manifest.json\'\n').returncode
+=========================== short test summary info ===========================
+FAILED tests/test_benchmark_runtime.py::test_smoke_is_runtime_subprocess_bound_and_writes_json_markdown_history
+FAILED tests/test_benchmark_runtime.py::test_pr_has_required_repeats_and_never_relabels_mock_as_live
+FAILED tests/test_benchmark_runtime.py::test_compare_fails_ready_gate_on_verified_success_regression
+FAILED tests/test_benchmark_runtime.py::test_live_flag_requires_two_independent_owner_attestations
+4 failed in 1.02s
+
+[guard] product modules loaded from installed build: 39; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.benchmark.engine loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_benchmark_truth.py)
+[step shared by 3 leaf(s); exit 1 in 2.0s; reason=tests_failed]
+FFFFF
+================================== FAILURES ===================================
+_____ test_bench_mode_001_mock_success_never_enters_real_capability_score _____
+tests\test_benchmark_truth.py:36: in test_bench_mode_001_mock_success_never_enters_real_capability_score
+    report, _, _ = BenchmarkRunner(output_root=tmp_path / "out").run("pr", sha=HEAD)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:5: in __init__
+    ???
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\engine.py:521: in __post_init__
+    self.manifest = json.loads(self.manifest_file.read_text(encoding="utf-8"))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\datasets\\v1\\manifest.json'
+________ test_bench_mode_002_fixture_cannot_self_declare_real_sandbox _________
+tests\test_benchmark_truth.py:59: in test_bench_mode_002_fixture_cannot_self_declare_real_sandbox
+    report, _, _ = BenchmarkRunner(manifest_file=_manifest_variant(tmp_path / "b", lying_child), output_root=tmp_path / "b" / "out").run("smoke", sha=HEAD)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\engine.py:555: in run
+    result_rows = [self._invoke(case_id, fixed_seed + n, runtime) for n in range(int(spec["repetitions"]))]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\engine.py:579: in _invoke
+    proc = subprocess.run(cmd, cwd=_root() / "bossman-core", text=True, capture_output=True, timeout=180, check=False,
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py:548: in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py:1026: in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py:1538: in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+E   NotADirectoryError: [WinError 267] Неверно задано имя папки
+________ test_bench_sha_003_label_without_matching_checkout_is_refused ________
+tests\test_benchmark_truth.py:68: in test_bench_sha_003_label_without_matching_checkout_is_refused
+    assert result.returncode == 3 and "ShaMismatch" in result.stderr
+E   AssertionError: assert (1 == 3)
+E    +  where 1 = CompletedProcess(args=['C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe', '-m', 'bossman.bench...ws-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\bossman\\\\benchmark\\\\datasets\\\\v1\\\\manifest.json\'\n').returncode
+_ test_bench_provenance_001_every_report_is_bound_to_actual_head_environment_dataset _
+tests\test_benchmark_truth.py:75: in test_bench_provenance_001_every_report_is_bound_to_actual_head_environment_dataset
+    report, _, _ = BenchmarkRunner(output_root=tmp_path).run("smoke", sha=HEAD)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<string>:5: in __init__
+    ???
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\engine.py:521: in __post_init__
+    self.manifest = json.loads(self.manifest_file.read_text(encoding="utf-8"))
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\datasets\\v1\\manifest.json'
+_____ test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit ______
+tests\test_benchmark_truth.py:88: in test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit
+    old = run_isolated(FIRST_BENCHMARK_SHA, "smoke", tmp_path)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\engine.py:621: in run_isolated
+    raise ShaMismatch(f"unknown commit {sha!r}")
+E   bossman.benchmark.engine.ShaMismatch: unknown commit '8a13f1d35cd68a57f1525bcc6a1a1c1b6c6d191a'
+=========================== short test summary info ===========================
+FAILED tests/test_benchmark_truth.py::test_bench_mode_001_mock_success_never_enters_real_capability_score
+FAILED tests/test_benchmark_truth.py::test_bench_mode_002_fixture_cannot_self_declare_real_sandbox
+FAILED tests/test_benchmark_truth.py::test_bench_sha_003_label_without_matching_checkout_is_refused
+FAILED tests/test_benchmark_truth.py::test_bench_provenance_001_every_report_is_bound_to_actual_head_environment_dataset
+FAILED tests/test_benchmark_truth.py::test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+5 failed in 1.11s
+
+[guard] product modules loaded from installed build: 39; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.benchmark.engine loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

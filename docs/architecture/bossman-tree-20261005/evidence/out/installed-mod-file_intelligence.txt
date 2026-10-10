@@ -1,12 +1,12 @@
 node_id: mod-file_intelligence
-installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bcc.features.file_intelligence')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_file_intelligence_contract.py tests/test_file_intelligence_feature.py tests/test_file_intelligence_hostile.py tests/test_file_intelligence_recovery.py tests/test_oss_docling.py)
 
-import bcc.features.file_intelligence: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bcc\features\file_intelligence.py
+import bcc.features.file_intelligence: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\file_intelligence.py
 
 $ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_file_intelligence_contract.py tests/test_file_intelligence_feature.py tests/test_file_intelligence_hostile.py tests/test_file_intelligence_recovery.py tests/test_oss_docling.py)
-[step shared by 1 leaf(s); exit 1 in 15.8s; reason=tests_failed]
+[step shared by 1 leaf(s); exit 1 in 33.4s; reason=tests_failed]
 ........................................................................ [ 48%]
 ......F...ss......ssss.................................................. [ 96%]
 ......                                                                   [100%]
@@ -22,7 +22,7 @@ E   assert 1 == 0
 E    +  where 1 = CompletedProcess(args=['C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe', '-c', '\nimport asyn...ck (most recent call last):\n  File "<string>", line 5, in <module>\nModuleNotFoundError: No module named \'tests\'\n').returncode
 =========================== short test summary info ===========================
 FAILED tests/test_file_intelligence_feature.py::test_every_endpoint_is_reachable_in_a_fresh_process
-1 failed, 143 passed, 6 skipped in 13.98s
+1 failed, 143 passed, 6 skipped in 28.87s
 
 [guard] product modules loaded from installed build: 309; from repo source: []; aux repo-source helper modules: 0
 

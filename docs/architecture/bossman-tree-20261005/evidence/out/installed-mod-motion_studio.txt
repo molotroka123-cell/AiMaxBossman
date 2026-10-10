@@ -1,0 +1,43 @@
+node_id: mod-motion_studio
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: mediaux.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('bcc.features.motion_studio')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src] && (cd . && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_motion_studio.py tests/test_motion_studio_bundle.py) && (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_motion_studio_ui.py)
+
+import bcc.features.motion_studio: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\motion_studio.py
+
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_motion_studio.py tests/test_motion_studio_bundle.py)
+[step shared by 2 leaf(s); exit 1 in 2.4s; reason=tests_failed]
+.........................F..                                             [100%]
+================================== FAILURES ===================================
+_______________ test_a_source_checkout_still_uses_its_own_tool ________________
+tests\test_motion_studio_bundle.py:41: in test_a_source_checkout_still_uses_its_own_tool
+    assert ms.tool_dir() == ROOT / "tools" / "motion_studio"
+E   AssertionError: assert WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib/tools/motion_studio') == ((WindowsPath('C:/Users/asd/Bossman/tree-build/6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5/src') / 'tools') / 'motion_studio')
+E    +  where WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib/tools/motion_studio') = <function tool_dir at 0x00000188057FBC40>()
+E    +    where <function tool_dir at 0x00000188057FBC40> = ms.tool_dir
+=========================== short test summary info ===========================
+FAILED tests/test_motion_studio_bundle.py::test_a_source_checkout_still_uses_its_own_tool
+1 failed, 27 passed in 1.64s
+
+[guard] product modules loaded from installed build: 3; from repo source: []; aux repo-source helper modules: 9
+
+module under test bcc.features.motion_studio loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_motion_studio_ui.py)
+[step shared by 2 leaf(s); exit 1 in 12.4s; reason=tests_failed]
+.........F.                                                              [100%]
+================================== FAILURES ===================================
+___________ test_real_epic_preview_when_renderer_dependencies_exist ___________
+tests\test_motion_studio_ui.py:168: in test_real_epic_preview_when_renderer_dependencies_exist
+    assert r.status_code == 202, r.text
+E   AssertionError: {"error":{"message":"Motion Studio не входит в эту сборку (нет tools/motion_studio)."}}
+E   assert 409 == 202
+E    +  where 409 = <Response [409 Conflict]>.status_code
+=========================== short test summary info ===========================
+FAILED tests/test_motion_studio_ui.py::test_real_epic_preview_when_renderer_dependencies_exist
+1 failed, 10 passed in 9.77s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.motion_studio loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

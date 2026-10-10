@@ -1,0 +1,34 @@
+node_id: module-73976a1cf54d
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=da3ca4d381af32d708c0e1e74b184023ea992205 command=python -c "import bossman.apprentice._bootstrap" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.] && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_apprentice_bootstrap.py)
+
+import bossman.apprentice._bootstrap: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\apprentice\_bootstrap.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_apprentice_bootstrap.py)
+[step shared by 1 leaf(s); exit 1 in 1.2s; reason=tests_failed]
+F.F..                                                                    [100%]
+================================== FAILURES ===================================
+_____ test_repo_root_is_this_checkout_and_has_the_shared_learning_package _____
+tests\test_leaf_apprentice_bootstrap.py:13: in test_repo_root_is_this_checkout_and_has_the_shared_learning_package
+    assert (root / "bossman-core" / "bossman" / "apprentice" / "_bootstrap.py").is_file()
+E   AssertionError: assert False
+E    +  where False = is_file()
+E    +    where is_file = ((((WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib') / 'bossman-core') / 'bossman') / 'apprentice') / '_bootstrap.py').is_file
+_ test_schema_dir_points_at_the_checkout_schemas_and_paths_are_derived_from_it _
+tests\test_leaf_apprentice_bootstrap.py:25: in test_schema_dir_points_at_the_checkout_schemas_and_paths_are_derived_from_it
+    assert bs.SCHEMA_DIR == bs.repo_root() / "schemas"
+E   AssertionError: assert WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib/site-packages/bossman_schemas') == (WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib') / 'schemas')
+E    +  where WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib/site-packages/bossman_schemas') = bs.SCHEMA_DIR
+E    +  and   WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib') = <function repo_root at 0x000002B222676020>()
+E    +    where <function repo_root at 0x000002B222676020> = bs.repo_root
+=========================== short test summary info ===========================
+FAILED tests/test_leaf_apprentice_bootstrap.py::test_repo_root_is_this_checkout_and_has_the_shared_learning_package
+FAILED tests/test_leaf_apprentice_bootstrap.py::test_schema_dir_points_at_the_checkout_schemas_and_paths_are_derived_from_it
+2 failed, 3 passed in 0.30s
+
+[guard] product modules loaded from installed build: 40; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.apprentice._bootstrap loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

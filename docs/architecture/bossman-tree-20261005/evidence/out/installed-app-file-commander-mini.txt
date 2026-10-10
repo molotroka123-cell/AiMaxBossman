@@ -1,0 +1,23 @@
+node_id: app-file-commander-mini
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: memapps.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('file_commander_mini')" [PYTHONPATH=apps/file-commander-mini/src;apps/file-commander-mini] && (cd apps/file-commander-mini && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests)
+
+import file_commander_mini: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\file_commander_mini\__init__.py
+
+$ (cd apps/file-commander-mini && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests)
+[step shared by 1 leaf(s); exit 0 in 5.1s; reason=None]
+..............................s.......s...                               [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+40 passed, 2 skipped, 1 warning in 4.10s
+
+[guard] product modules loaded from installed build: 9; from repo source: []; aux repo-source helper modules: 4
+
+module under test file_commander_mini loaded by this test process from installed build: True
+
+VERDICT PASS

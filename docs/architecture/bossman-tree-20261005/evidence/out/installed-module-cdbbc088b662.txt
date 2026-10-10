@@ -1,27 +1,27 @@
 node_id: module-cdbbc088b662
-installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.v7.nightly_run')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v7_nightly_run.py)
 
-import bossman.v7.nightly_run: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\v7\nightly_run.py
+import bossman.v7.nightly_run: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\v7\nightly_run.py
 
 $ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_v7_nightly_run.py)
-[step shared by 1 leaf(s); exit 1 in 0.7s; reason=tests_failed]
+[step shared by 1 leaf(s); exit 1 in 1.4s; reason=tests_failed]
 ................................................F......                  [100%]
 ================================== FAILURES ===================================
 ________________ test_list_and_dry_run_do_not_execute_anything ________________
 tests\test_v7_nightly_run.py:333: in test_list_and_dry_run_do_not_execute_anything
     assert nr.main(["--objectives", "B2,B3", "--dry-run"]) == 0
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\v7\nightly_run.py:374: in main
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\v7\nightly_run.py:374: in main
     root = repo_root()
            ^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\v7\nightly_run.py:64: in repo_root
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\v7\nightly_run.py:64: in repo_root
     raise RuntimeError("не найден корень репозитория (нет command-center/ рядом с bossman-core/)")
 E   RuntimeError: не найден корень репозитория (нет command-center/ рядом с bossman-core/)
 =========================== short test summary info ===========================
 FAILED tests/test_v7_nightly_run.py::test_list_and_dry_run_do_not_execute_anything
-1 failed, 54 passed in 0.33s
+1 failed, 54 passed in 0.61s
 
 [guard] product modules loaded from installed build: 29; from repo source: []; aux repo-source helper modules: 1
 

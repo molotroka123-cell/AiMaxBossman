@@ -1,0 +1,17 @@
+node_id: module-2057e75206c8
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: jeffa.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.pit.telegram_contract')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_foundation.py)
+
+import bcc.pit.telegram_contract: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\pit\telegram_contract.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_pit_foundation.py)
+[step shared by 9 leaf(s); exit 0 in 3.0s; reason=None]
+..................................................                       [100%]
+50 passed in 1.16s
+
+[guard] product modules loaded from installed build: 64; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.pit.telegram_contract loaded by this test process from installed build: True
+
+VERDICT PASS

@@ -1,0 +1,73 @@
+node_id: module-bc12e1784cb5
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "import bossman.apprentice.durable" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.] && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_durable_live_owner_auth.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_apprentice_live_safety.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_e2e_real_gui.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_e2e_real_outreach.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_teacher_live.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/audit001/test_f1_receipt_immutability.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/audit001/test_f2_abandon_race.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/audit001/test_f3_tx_poison.py)
+
+import bossman.apprentice.durable: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\apprentice\durable.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_durable_live_owner_auth.py)
+[step shared by 6 leaf(s); exit 0 in 2.5s; reason=None]
+.......                                                                  [100%]
+7 passed in 1.30s
+
+[guard] product modules loaded from installed build: 105; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.apprentice.durable loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_apprentice_live_safety.py)
+[step shared by 2 leaf(s); exit 0 in 2.1s; reason=None]
+.....                                                                    [100%]
+5 passed in 1.29s
+
+[guard] product modules loaded from installed build: 52; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.apprentice.durable loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_e2e_real_gui.py)
+[step shared by 2 leaf(s); exit 0 in 1.1s; reason=None]
+ss                                                                       [100%]
+2 skipped in 0.27s
+
+[guard] product modules loaded from installed build: 70; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.apprentice.durable loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_e2e_real_outreach.py)
+[step shared by 4 leaf(s); exit 0 in 2.3s; reason=None]
+s                                                                        [100%]
+1 skipped in 1.09s
+
+[guard] product modules loaded from installed build: 104; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.apprentice.durable loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_teacher_live.py)
+[step shared by 1 leaf(s); exit 0 in 1.2s; reason=None]
+s                                                                        [100%]
+1 skipped in 0.32s
+
+[guard] product modules loaded from installed build: 77; from repo source: []; aux repo-source helper modules: 2
+
+module under test bossman.apprentice.durable loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/audit001/test_f1_receipt_immutability.py)
+[step shared by 2 leaf(s); exit 0 in 3.8s; reason=None]
+.......                                                                  [100%]
+7 passed in 2.84s
+
+[guard] product modules loaded from installed build: 44; from repo source: []; aux repo-source helper modules: 2
+
+module under test bossman.apprentice.durable loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/audit001/test_f2_abandon_race.py)
+[step shared by 2 leaf(s); exit 0 in 1.7s; reason=None]
+........                                                                 [100%]
+8 passed in 0.73s
+
+[guard] product modules loaded from installed build: 71; from repo source: []; aux repo-source helper modules: 4
+
+module under test bossman.apprentice.durable loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/audit001/test_f3_tx_poison.py)
+[step shared by 1 leaf(s); exit 0 in 2.0s; reason=None]
+.........                                                                [100%]
+9 passed in 1.05s
+
+[guard] product modules loaded from installed build: 37; from repo source: []; aux repo-source helper modules: 2
+
+module under test bossman.apprentice.durable loaded by this test process from installed build: True
+
+VERDICT PASS

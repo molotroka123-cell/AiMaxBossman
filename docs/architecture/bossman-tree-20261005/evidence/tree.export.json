@@ -111,36 +111,36 @@
    "id": "cap-1",
    "label": "Память участника и согласие",
    "parent": "jeff",
-   "status": "reported",
-   "short": "/memory, /pause_memory, /forget; приватные training.jsonl и очистка. Прогон 2026-10-06 @ 6891bbed: import+pytest (capability proxy: vault, passport_commands)"
+   "status": "working",
+   "short": "/memory, /pause_memory, /forget; приватные training.jsonl и очистка. Прогон 2026-10-06 @ 6891bbed: import+pytest (capability proxy: vault, passport_commands) Ра"
   },
   {
    "id": "cap-2",
    "label": "Паспорта и master parser",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Факты, источники, уверенность, checkpoint и consent; не доказательство самообучения весов. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Факты, источники, уверенность, checkpoint и consent; не доказательство самообучения весов. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном "
   },
   {
    "id": "cap-3",
    "label": "Настроение и персона",
    "parent": "jeff",
-   "status": "reported",
-   "short": "participant/companion profile, behavior scores, roleplay policy; обновления в отдельных ветках. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "participant/companion profile, behavior scores, roleplay policy; обновления в отдельных ветках. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установле"
   },
   {
    "id": "cap-4",
    "label": "Панель администратора Jeff · настройки и участники",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Настройки Jeff, участники, presentation profile; единую работающую панель нужно подтвердить в выбранной сборке. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Настройки Jeff, участники, presentation profile; единую работающую панель нужно подтвердить в выбранной сборке. Прогон 2026-10-06 @ 679d019e: import+pytest Рабо"
   },
   {
    "id": "cap-5",
    "label": "Telegram polling и изоляция",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Существующий runtime, identity, vault, guard и participant policy; live cross-user тест сегодня отсутствует. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Существующий runtime, identity, vault, guard и participant policy; live cross-user тест сегодня отсутствует. Прогон 2026-10-06 @ 679d019e: import+pytest Работае"
   },
   {
    "id": "cap-6",
@@ -153,8 +153,8 @@
    "id": "cap-7",
    "label": "Голос · STT · TTS",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Голосовые маршруты и speech; качество реальной интонации и latency не подтверждены этой картой. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Голосовые маршруты и speech; качество реальной интонации и latency не подтверждены этой картой. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установле"
   },
   {
    "id": "cap-8",
@@ -188,15 +188,15 @@
    "id": "cap-12",
    "label": "Чат · история · streaming SSE",
    "parent": "ux",
-   "status": "reported",
+   "status": "working",
    "short": "Реализация и тесты присутствуют; drawer должен показывать этапы и краткое объяснение, а не обещать внутренние мысли модели. Прогон 2026-10-06 @ 3a1b8469: import"
   },
   {
    "id": "cap-13",
    "label": "CMD и пользовательские команды",
    "parent": "ux",
-   "status": "reported",
-   "short": "Каталог argparse ниже: объявления подкоманд, не доказанные запускаемые команды. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Каталог argparse ниже: объявления подкоманд, не доказанные запускаемые команды. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6"
   },
   {
    "id": "cap-14",
@@ -251,21 +251,21 @@
    "id": "cap-21",
    "label": "Free providers · лимиты · fallback",
    "parent": "cloud",
-   "status": "reported",
-   "short": "Пресеты и governor есть; free tier зависит от аккаунта, квоты и актуальных условий. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Пресеты и governor есть; free tier зависит от аккаунта, квоты и актуальных условий. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman"
   },
   {
    "id": "cap-22",
    "label": "Облака: OpenRouter, OpenAI-compatible, Anthropic",
    "parent": "cloud",
-   "status": "reported",
+   "status": "working",
    "short": "Адаптеры, маршрутизация и настройки; наличие адаптера не доказывает подписку или авторизацию. Прогон 2026-10-06 @ d394085d: import+pytest + live free OpenRouter"
   },
   {
    "id": "cap-23",
    "label": "Кэширование и экономия",
    "parent": "cloud",
-   "status": "reported",
+   "status": "working",
    "short": "cache_intel, context budget, coding limit saver; экономия должна измеряться usage/cache receipts. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_*"
   },
   {
@@ -279,15 +279,15 @@
    "id": "cap-25",
    "label": "Browser · браузер для агента с ограниченными действиями",
    "parent": "computer",
-   "status": "reported",
-   "short": "Browser runtime, help, tools и action gates. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Browser runtime, help, tools и action gates. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6de18f8d: installed import+pytest (r"
   },
   {
    "id": "cap-26",
    "label": "Jev · оператор рабочего стола (ограниченный)",
    "parent": "computer",
-   "status": "reported",
-   "short": "Адаптер и bounded operator; не доказано тотальное управление Windows. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Адаптер и bounded operator; не доказано тотальное управление Windows. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6de18f8d: i"
   },
   {
    "id": "cap-27",
@@ -335,15 +335,15 @@
    "id": "cap-33",
    "label": "Контекст · retrieval · knowledge fabric",
    "parent": "memory",
-   "status": "reported",
-   "short": "Память, контекстные бюджеты, evidence graph, vault и retrieval имеют отдельные модули. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Память, контекстные бюджеты, evidence graph, vault и retrieval имеют отдельные модули. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Boss"
   },
   {
    "id": "cap-34",
    "label": "Обучение на ошибках",
    "parent": "memory",
-   "status": "reported",
-   "short": "failure_to_case, failure memory, repair/evolution; сохранение кейса не равно улучшению весов. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "failure_to_case, failure memory, repair/evolution; сохранение кейса не равно улучшению весов. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленн"
   },
   {
    "id": "cap-35",
@@ -370,14 +370,14 @@
    "id": "cap-38",
    "label": "Agentic Rave · несколько агентов с паузой и STOP",
    "parent": "agents",
-   "status": "reported",
-   "short": "Многоагентные сессии и STOP; файловая изоляция и интегратор обязательны. Прогон 2026-10-06 @ d394085d: import+pytest"
+   "status": "working",
+   "short": "Многоагентные сессии и STOP; файловая изоляция и интегратор обязательны. Прогон 2026-10-06 @ d394085d: import+pytest Работает в установленном Bossman @ 6de18f8d"
   },
   {
    "id": "cap-39",
    "label": "Codex / Claude через CMD",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "CLI/coding sessions существуют; subscription login и общий сценарий нужно проверять отдельно. Прогон 2026-10-06 @ d394085d: import+pytest (incl. test_leaf_* aut"
   },
   {
@@ -391,8 +391,8 @@
    "id": "cap-41",
    "label": "Организация · fleet · swarm",
    "parent": "agents",
-   "status": "reported",
-   "short": "Control plane, provider fleet, economy swarm, remote nodes; границы authority отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Control plane, provider fleet, economy swarm, remote nodes; границы authority отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bos"
   },
   {
    "id": "cap-42",
@@ -426,8 +426,8 @@
    "id": "cap-46",
    "label": "Ресурсы · VRAM · offline · безопасность",
    "parent": "ops",
-   "status": "reported",
-   "short": "Budget, resources, offline, approvals, provenance, secrets vault и action contract. Прогон 2026-10-06 @ d394085d: import+pytest"
+   "status": "working",
+   "short": "Budget, resources, offline, approvals, provenance, secrets vault и action contract. Прогон 2026-10-06 @ d394085d: import+pytest Работает в установленном Bossman"
   },
   {
    "id": "mod-action_contract",
@@ -454,14 +454,14 @@
    "id": "mod-action_router",
    "label": "Маршрутизатор действий по возможностям",
    "parent": "cloud",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
    "id": "mod-agentmap",
    "label": "Карта агентов: граф из реальных данных",
    "parent": "ops",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085"
   },
   {
@@ -496,7 +496,7 @@
    "id": "mod-benchlab",
    "label": "Лаборатория замеров скорости моделей",
    "parent": "ops",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ da3ca4d"
   },
   {
@@ -510,21 +510,21 @@
    "id": "mod-browser",
    "label": "Браузер: живой просмотр и передача владельцу",
    "parent": "computer",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
    "id": "mod-browser_help",
    "label": "Поиск помощи в вебе при ошибках браузера",
    "parent": "computer",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
    "id": "mod-cache_intel",
    "label": "Экономика кэша провайдеров и повторное использование",
    "parent": "cloud",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085"
   },
   {
@@ -552,7 +552,7 @@
    "id": "mod-coding_limit_saver_v16",
    "label": "Экономия лимитов в задачах кодирования",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -566,7 +566,7 @@
    "id": "mod-coding_sessions",
    "label": "Сессии кодирования: сессия → diff → merge",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085"
   },
   {
@@ -587,14 +587,14 @@
    "id": "mod-context_budget_v16",
    "label": "Бюджет контекста для локальных моделей",
    "parent": "memory",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
    "id": "mod-control_plane",
    "label": "Снимок состояния CEO (control plane)",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -615,7 +615,7 @@
    "id": "mod-economy_swarm",
    "label": "Распределение этапов задач по моделям (free-first)",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -636,7 +636,7 @@
    "id": "mod-failure_to_case",
    "label": "Сбои → черновики учебных случаев",
    "parent": "memory",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
@@ -657,14 +657,14 @@
    "id": "mod-free_providers",
    "label": "Бесплатные провайдеры: NVIDIA NIM, Groq, AI Studio",
    "parent": "cloud",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
    "id": "mod-game_bootstrap_v16",
    "label": "План загрузки игры BossBlocks-001",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
@@ -678,21 +678,21 @@
    "id": "mod-healing",
    "label": "Самовосстановление при падении моделей",
    "parent": "memory",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
    "id": "mod-images",
    "label": "Библиотека изображений и генерация",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
    "id": "mod-jeff_insights",
    "label": "Jeff · обзор: участники, тренды, дайджест",
    "parent": "ops",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ da3ca4d"
   },
   {
@@ -713,14 +713,14 @@
    "id": "mod-jev",
    "label": "Движок решений Jev (теневой режим, по флагу)",
    "parent": "computer",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
    "id": "mod-knowledge_fabric_v16",
    "label": "Записи знаний с двойной временной меткой",
    "parent": "memory",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
@@ -748,7 +748,7 @@
    "id": "mod-memory_retrieval_v16",
    "label": "Поиск по памяти с бюджетом и переранжированием",
    "parent": "memory",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
@@ -783,21 +783,21 @@
    "id": "mod-music_studio",
    "label": "Локальная музыка через ACE-Step",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
    "id": "mod-nl_orchestra",
    "label": "Оркестрация команд по описанию на языке",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
    "id": "mod-nl_permissions",
    "label": "Права доступа из обычного текста",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -839,14 +839,14 @@
    "id": "mod-openrouter",
    "label": "OpenRouter: каталог моделей и проверка возможностей",
    "parent": "cloud",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Проверено вживую на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085d: import+pytest +"
   },
   {
    "id": "mod-organization",
    "label": "Слой организации: кто делает работу",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085"
   },
   {
@@ -888,7 +888,7 @@
    "id": "mod-provider_fleet_v16",
    "label": "Маршрутизация между провайдерами моделей (1.6)",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -902,7 +902,7 @@
    "id": "mod-rave",
    "label": "Rave: несколько агентов сразу, каждый в своей копии",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ d394085"
   },
   {
@@ -965,7 +965,7 @@
    "id": "mod-spend_meter",
    "label": "Учёт платных вызовов до старта (выкл.)",
    "parent": "cloud",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -979,14 +979,14 @@
    "id": "mod-studio_review",
    "label": "Проверка видео студии через Vision",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
    "id": "mod-task_exchange",
    "label": "Обмен задачами с приложениями через файлы",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -1007,7 +1007,7 @@
    "id": "mod-terminal",
    "label": "Терминал: песочница, проект, системный режим",
    "parent": "computer",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -1028,7 +1028,7 @@
    "id": "mod-tools_browser",
    "label": "Инструмент: браузер для модели",
    "parent": "computer",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -1042,7 +1042,7 @@
    "id": "mod-tools_computer",
    "label": "Инструмент: управление рабочим столом (Computer Use)",
    "parent": "computer",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -1070,7 +1070,7 @@
    "id": "mod-tools_memory",
    "label": "Инструмент: память и Obsidian для модели",
    "parent": "memory",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
@@ -1091,7 +1091,7 @@
    "id": "mod-tools_terminal",
    "label": "Инструмент: терминал для модели",
    "parent": "computer",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -1133,7 +1133,7 @@
    "id": "mod-v15_economy",
    "label": "Экономика агентов 1.5: запуск воркеров",
    "parent": "cloud",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 679d019"
   },
   {
@@ -1154,7 +1154,7 @@
    "id": "mod-video_studio",
    "label": "Студия видео (API)",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ 3a1b846"
   },
   {
@@ -1182,7 +1182,7 @@
    "id": "mod-workflow",
    "label": "Конструктор сценариев миссии (как n8n)",
    "parent": "ops",
-   "status": "reported",
+   "status": "working",
    "short": "Модуль найден. Импорт и существующие тесты прошли на указанном коммите; полная семантика и сквозная живая работа не сертифицированы. Прогон 2026-10-06 @ da3ca4d"
   },
   {
@@ -1203,22 +1203,22 @@
    "id": "app-bossman-accountant",
    "label": "Бухгалтер Bossman",
    "parent": "apps",
-   "status": "reported",
-   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6de18f8"
   },
   {
    "id": "app-exam-trainer-ai",
    "label": "ИИ-тренажёр для экзаменов",
    "parent": "apps",
-   "status": "reported",
-   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6de18f8"
   },
   {
    "id": "app-file-commander-mini",
    "label": "Мини-файловый менеджер",
    "parent": "apps",
-   "status": "reported",
-   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6de18f8"
   },
   {
    "id": "app-osiris",
@@ -1231,14 +1231,14 @@
    "id": "app-pc-autopilot-mini",
    "label": "Мини-автопилот ПК",
    "parent": "apps",
-   "status": "reported",
-   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6de18f8"
   },
   {
    "id": "app-social-farm",
    "label": "Ферма аккаунтов соцсетей (social-farm)",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Перенесён в ветку «Motion и медиа» из зоны «apps» по просьбе владельца 06.10.2026 (зна"
   },
   {
@@ -1252,8 +1252,8 @@
    "id": "app-travel-architect",
    "label": "Архитектор путешествий",
    "parent": "apps",
-   "status": "reported",
-   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Файлы приложения присутствуют; готовность владельцу проверяется отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6de18f8"
   },
   {
    "id": "skill-0",
@@ -1602,43 +1602,43 @@
    "id": "plugin-0",
    "label": "HTTP: получить страницу (GET)",
    "parent": "plugins",
-   "status": "reported",
-   "short": "Capability manifest; scope: network.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: live_get_public_and_ssrf_block"
+   "status": "working",
+   "short": "Capability manifest; scope: network.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: live_get_public_and_ssrf_block Работает в установ"
   },
   {
    "id": "plugin-1",
    "label": "Мониторинг RSS-лент",
    "parent": "plugins",
-   "status": "reported",
-   "short": "Capability manifest; scope: network.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: live_feed_public_rss"
+   "status": "working",
+   "short": "Capability manifest; scope: network.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: live_feed_public_rss Работает в установленном Bos"
   },
   {
    "id": "plugin-2",
    "label": "SQL: чтение базы данных",
    "parent": "plugins",
-   "status": "reported",
-   "short": "Capability manifest; scope: db.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: sqlite_ro_select_and_write_denied"
+   "status": "working",
+   "short": "Capability manifest; scope: db.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: sqlite_ro_select_and_write_denied Работает в установле"
   },
   {
    "id": "plugin-3",
    "label": "Obsidian: чтение заметок",
    "parent": "plugins",
-   "status": "reported",
-   "short": "Capability manifest; scope: vault.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: temp_vault_read_and_traversal_block"
+   "status": "working",
+   "short": "Capability manifest; scope: vault.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: temp_vault_read_and_traversal_block Работает в уста"
   },
   {
    "id": "plugin-4",
    "label": "Obsidian: запись заметок",
    "parent": "plugins",
-   "status": "reported",
-   "short": "Capability manifest; scope: vault.write. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: temp_vault_write_gate_and_confine"
+   "status": "working",
+   "short": "Capability manifest; scope: vault.write. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 20e2c879: temp_vault_write_gate_and_confine Работает в устан"
   },
   {
    "id": "plugin-5",
    "label": "MCP: список инструментов",
    "parent": "plugins",
-   "status": "reported",
-   "short": "Capability manifest; scope: mcp.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane"
+   "status": "working",
+   "short": "Capability manifest; scope: mcp.read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane Работает в установл"
   },
   {
    "id": "plugin-6",
@@ -1651,22 +1651,22 @@
    "id": "plugin-7",
    "label": "Ollama: чат с локальной моделью",
    "parent": "plugins",
-   "status": "reported",
-   "short": "Capability manifest; scope: llm.local. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane"
+   "status": "working",
+   "short": "Capability manifest; scope: llm.local. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane Работает в установ"
   },
   {
    "id": "plugin-8",
    "label": "OpenRouter: чат с облачной моделью",
    "parent": "plugins",
-   "status": "reported",
-   "short": "Capability manifest; scope: llm.cloud.use. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 9fc68e0d: live_call+pytest authored_by_lane"
+   "status": "working",
+   "short": "Capability manifest; scope: llm.cloud.use. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ 9fc68e0d: live_call+pytest authored_by_lane Работает в уст"
   },
   {
    "id": "plugin-9",
    "label": "GitHub: чтение репозитория",
    "parent": "plugins",
-   "status": "reported",
-   "short": "Capability manifest; scope: repo:read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane"
+   "status": "working",
+   "short": "Capability manifest; scope: repo:read. Проверено вживую на указанном коммите. Прогон 2026-10-06 @ da3ca4d3: live_call+pytest authored_by_lane Работает в установ"
   },
   {
    "id": "plugin-10",
@@ -2533,232 +2533,232 @@
    "id": "slash-help",
    "label": "/help — справка",
    "parent": "ux",
-   "status": "reported",
-   "short": "список команд; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "список команд; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установленном Bossman @ "
   },
   {
    "id": "slash-status",
    "label": "/status — подключение, модель, агент, бюджеты",
    "parent": "ux",
-   "status": "reported",
+   "status": "working",
    "short": "подключение, сборка, модель, агент, режим, бюджеты; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lan"
   },
   {
    "id": "slash-tasks",
    "label": "/tasks [N] — последние задачи",
    "parent": "ux",
-   "status": "reported",
-   "short": "последние задачи Bossman; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "последние задачи Bossman; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установленном"
   },
   {
    "id": "slash-models",
    "label": "/models [use <id|alias>] — список моделей, смена",
    "parent": "ux",
-   "status": "reported",
-   "short": "модели; use — сменить модель текущего агента; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "модели; use — сменить модель текущего агента; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Рабо"
   },
   {
    "id": "slash-agent",
    "label": "/agent [<id|имя>]",
    "parent": "ux",
-   "status": "reported",
-   "short": "агенты; с аргументом — выбрать; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "агенты; с аргументом — выбрать; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установ"
   },
   {
    "id": "slash-skills",
    "label": "/skills [запрос]",
    "parent": "ux",
-   "status": "reported",
-   "short": "навыки; с запросом — какие подошли бы к задаче; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "навыки; с запросом — какие подошли бы к задаче; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Ра"
   },
   {
    "id": "slash-tools",
    "label": "/tools — инструменты агента и их политика",
    "parent": "ux",
-   "status": "reported",
-   "short": "инструменты текущего агента и их политика; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "инструменты текущего агента и их политика; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работае"
   },
   {
    "id": "slash-memory",
    "label": "/memory <запрос>",
    "parent": "ux",
-   "status": "reported",
-   "short": "поиск по памяти и фактам; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "поиск по памяти и фактам; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установленном"
   },
   {
    "id": "slash-diff",
    "label": "/diff [coding-task-id] — diff последней задачи кодинга",
    "parent": "ux",
-   "status": "reported",
-   "short": "diff последней coding-задачи; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "diff последней coding-задачи; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установле"
   },
   {
    "id": "slash-code",
    "label": "/code --allow <путь> [--verify <тест>] <задача>",
    "parent": "ux",
-   "status": "reported",
-   "short": "coding task через coding path; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "coding task через coding path; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установл"
   },
   {
    "id": "slash-rave",
    "label": "/rave \"<задача>\" --agents a,b | status|pause|resume|stop|diff <id>",
    "parent": "ux",
-   "status": "reported",
-   "short": "Agentic Rave: несколько агентов на один prompt; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "Agentic Rave: несколько агентов на один prompt; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Ра"
   },
   {
    "id": "slash-approve",
    "label": "/approve [id] — одобрить ожидающее разрешение",
    "parent": "ux",
-   "status": "reported",
-   "short": "одобрить ожидающее разрешение; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "одобрить ожидающее разрешение; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установл"
   },
   {
    "id": "slash-deny",
    "label": "/deny [id] — отклонить разрешение",
    "parent": "ux",
-   "status": "reported",
-   "short": "отклонить ожидающее разрешение; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "отклонить ожидающее разрешение; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установ"
   },
   {
    "id": "slash-approvals",
    "label": "/approvals — ожидающие разрешения",
    "parent": "ux",
-   "status": "reported",
-   "short": "ожидающие разрешения; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "ожидающие разрешения; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установленном Bos"
   },
   {
    "id": "slash-pause",
    "label": "/pause [task] — пауза задачи",
    "parent": "ux",
-   "status": "reported",
-   "short": "пауза задачи; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "пауза задачи; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установленном Bossman @ 6"
   },
   {
    "id": "slash-stop",
    "label": "/stop [task|all] — остановить задачу (all — всё)",
    "parent": "ux",
-   "status": "reported",
-   "short": "остановить задачу; all — глобальный STOP; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "остановить задачу; all — глобальный STOP; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает"
   },
   {
    "id": "slash-resume",
    "label": "/resume [task] — продолжить задачу после паузы",
    "parent": "ux",
-   "status": "reported",
-   "short": "продолжить задачу после паузы; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "продолжить задачу после паузы; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установл"
   },
   {
    "id": "slash-computer",
    "label": "/computer [status|stop|resume] — управление компьютером",
    "parent": "ux",
-   "status": "reported",
-   "short": "управление компьютером; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "управление компьютером; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установленном B"
   },
   {
    "id": "slash-evolve",
    "label": "/evolve [status|pause|resume|stop|report] — самоулучшение",
    "parent": "ux",
-   "status": "reported",
-   "short": "цикл самоулучшения 1.1; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "цикл самоулучшения 1.1; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установленном B"
   },
   {
    "id": "slash-keys",
    "label": "/keys [set|remove|import-env] — ключи облачных моделей",
    "parent": "ux",
-   "status": "reported",
-   "short": "ключи облачных моделей; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "ключи облачных моделей; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установленном B"
   },
   {
    "id": "slash-panel",
    "label": "/panel — панель контекста: задача, инструменты, бюджет",
    "parent": "ux",
-   "status": "reported",
+   "status": "working",
    "short": "панель контекста: workspace, задача, инструменты, память, бюджет; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest a"
   },
   {
    "id": "slash-compact",
    "label": "/compact [инструкция]",
    "parent": "ux",
-   "status": "reported",
+   "status": "working",
    "short": "сжать беседу в резюме (задачей Bossman); дальше — резюме + новые ходы; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pyt"
   },
   {
    "id": "slash-context",
    "label": "/context — что уйдёт со следующим сообщением",
    "parent": "ux",
-   "status": "reported",
+   "status": "working",
    "short": "что уйдёт со следующим сообщением: резюме, ходы, размер; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_b"
   },
   {
    "id": "slash-cost",
    "label": "/cost — токены и стоимость задач сессии",
    "parent": "ux",
-   "status": "reported",
+   "status": "working",
    "short": "токены и стоимость задач этой сессии (из Bossman); команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
   },
   {
    "id": "slash-export",
    "label": "/export [путь] [--force]",
    "parent": "ux",
-   "status": "reported",
-   "short": "сохранить беседу в Markdown; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "сохранить беседу в Markdown; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установлен"
   },
   {
    "id": "slash-doctor",
    "label": "/doctor — проверка сборки, данных, агента, памяти",
    "parent": "ux",
-   "status": "reported",
+   "status": "working",
    "short": "проверка: сборка, данные, агент, coding path, память, компьютер; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest au"
   },
   {
    "id": "slash-expand",
    "label": "/expand [N] — развернуть свёрнутый блок",
    "parent": "ux",
-   "status": "reported",
+   "status": "working",
    "short": "развернуть свёрнутый блок (мысли модели, вывод инструмента); команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest author"
   },
   {
    "id": "slash-history",
    "label": "/history [on|off] — история ввода",
    "parent": "ux",
-   "status": "reported",
+   "status": "working",
    "short": "история ввода: показать состояние / включить / выключить; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_"
   },
   {
    "id": "slash-clear",
    "label": "/clear — очистить экран",
    "parent": "ux",
-   "status": "reported",
-   "short": "очистить экран; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "очистить экран; команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работает в установленном Bossman @"
   },
   {
    "id": "slash-exit",
    "label": "/exit — выйти, задачи продолжат работу",
    "parent": "ux",
-   "status": "reported",
-   "short": "выйти (задачи продолжают работу в Bossman); команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane"
+   "status": "working",
+   "short": "выйти (задачи продолжают работу в Bossman); команда зарегистрирована, живой запуск отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest authored_by_lane Работа"
   },
   {
    "id": "free-NVIDIA-NIM",
    "label": "NVIDIA NIM — бесплатный облачный провайдер",
    "parent": "cloud",
-   "status": "reported",
-   "short": "Free preset в коде. Доступ, квоты и работоспособность аккаунта не проверены. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Free preset в коде. Доступ, квоты и работоспособность аккаунта не проверены. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6de1"
   },
   {
    "id": "free-Groq",
    "label": "Groq — бесплатный облачный провайдер",
    "parent": "cloud",
-   "status": "reported",
-   "short": "Free preset в коде. Доступ, квоты и работоспособность аккаунта не проверены. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Free preset в коде. Доступ, квоты и работоспособность аккаунта не проверены. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6de1"
   },
   {
    "id": "free-Google-AI-Studio",
    "label": "Google AI Studio — бесплатный облачный провайдер",
    "parent": "cloud",
-   "status": "reported",
-   "short": "Free preset в коде. Доступ, квоты и работоспособность аккаунта не проверены. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Free preset в коде. Доступ, квоты и работоспособность аккаунта не проверены. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6de1"
   },
   {
    "id": "module-637788ef482e",
@@ -2806,15 +2806,15 @@
    "id": "module-a7ad0d90993c",
    "label": "Сборка защитных механизмов ученика (боевой режим)",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-bc12e1784cb5",
    "label": "Надёжное хранение состояния безопасности (SQLite)",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-a17a422c65d7",
@@ -2855,8 +2855,8 @@
    "id": "module-4780a1d5fdf7",
    "label": "Защитные проверки ученика: свежесть данных и подтверждения",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-c23f35941e16",
@@ -2904,15 +2904,15 @@
    "id": "module-d8ca33ba94f4",
    "label": "Исходящие обращения к бизнесам с подтверждением владельца",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-6c727703c8ea",
    "label": "Выдача подтверждений от владельца",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-9958189ad4d4",
@@ -3009,8 +3009,8 @@
    "id": "module-d3f5977af5ba",
    "label": "Фиксация фактов в тестах реальной песочницы",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-9f29d5a73f7f",
@@ -3086,8 +3086,8 @@
    "id": "module-eea9bcf7e3ac",
    "label": "Исполнение задач AI-компании с отчётом",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-e297560d568b",
@@ -3212,99 +3212,99 @@
    "id": "module-2efac2124b8a",
    "label": "Разбиение текста на фрагменты для памяти",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-fc4458307ec6",
    "label": "Сжатие контекста",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-e0361cc49cbe",
    "label": "Сборка контекста из памяти для модели",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-4464eb0b222b",
    "label": "Выжимка знаний из памяти",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-1754cbd5cf01",
    "label": "Векторные представления текста (эмбеддинги)",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-7337f0855536",
    "label": "Загрузка данных в движок контекста",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-5da7135e967e",
    "label": "Долговременная память",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-25fe3b1d97f3",
    "label": "Модели данных движка контекста",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-8740ba43b723",
    "label": "Плагины движка контекста",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-35d5cb7d9ebd",
    "label": "Поиск релевантных воспоминаний",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-c04cfc2bef49",
    "label": "Сервис движка контекста поверх bossman-core",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-690bf4d0f3a1",
    "label": "Хранилище движка контекста",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-54de14cfacf9",
    "label": "Телеметрия движка контекста",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-91d844ed59bd",
    "label": "Вспомогательные функции движка контекста",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-1c2e0a6599c0",
@@ -3338,8 +3338,8 @@
    "id": "module-6e615a668c7b",
    "label": "Маршруты API контроля расходов",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-4efbb2fd9c4a",
@@ -3359,15 +3359,15 @@
    "id": "module-df0754d72d22",
    "label": "Подсистема контроля расходов",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-028fe7482116",
    "label": "Оценка защиты: метрики безопасности",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-068b8f4fbeb2",
@@ -3387,8 +3387,8 @@
    "id": "module-3d1858d49e75",
    "label": "Журнал улик для разбора инцидентов",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-7a65bf88fb04",
@@ -3422,8 +3422,8 @@
    "id": "module-7e1490293776",
    "label": "Конвейер обучения на основе инцидентов",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-63389f3e655f",
@@ -3457,8 +3457,8 @@
    "id": "module-d68747affe30",
    "label": "Память об инцидентах безопасности",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-4b4e00d7c711",
@@ -3492,8 +3492,8 @@
    "id": "module-74d93ed6921a",
    "label": "Сбор доказательств успеха: тесты и артефакты",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-904a8396aa6c",
@@ -3534,8 +3534,8 @@
    "id": "module-7280885daae5",
    "label": "Read-only статус фабрики разработки",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-9a1970f7c3e5",
@@ -3632,64 +3632,64 @@
    "id": "module-8319884cf006",
    "label": "A/B-оценка и гейты против деградации",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-1c240a45339a",
    "label": "Тренер автономии: кандидаты и продвижение (shadow)",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-9bcb4ce56153",
    "label": "Журнал одноразовых доказательств продвижения",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-e298a2a29a4b",
    "label": "Скрытый набор задач для проверки обучения",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-6f6f10fdb204",
    "label": "Типы данных гарантии качества обучения",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-07d13d7463b7",
    "label": "Продвижение кандидата с гейтами без авто-выпуска",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-72d4da1606dd",
    "label": "Связка тренера автономии с рантаймом (выключено)",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-d33b374941cd",
    "label": "Адаптер гарантии качества обучения для памяти и навыков",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-725a466f4b8f",
    "label": "Мост системы уведомлений",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-24bbe5117ab0",
@@ -3716,8 +3716,8 @@
    "id": "module-45ef5a5cbb02",
    "label": "HTTP-маршруты уведомлений",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-76a14f0ce102",
@@ -3737,8 +3737,8 @@
    "id": "module-aaff14c2d261",
    "label": "Подсистема уведомлений",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-46de893ccfc9",
@@ -3758,8 +3758,8 @@
    "id": "module-9d355deb8dee",
    "label": "Память профиля: знания аккаунта",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-60f309b322d6",
@@ -3793,8 +3793,8 @@
    "id": "module-531fc123cd17",
    "label": "Подсистема профилей",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-ca6830e0de16",
@@ -3849,8 +3849,8 @@
    "id": "module-de49198eacce",
    "label": "Токены и права удалённого доступа",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ d394085d: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-2bd9c1e2cdfd",
@@ -3898,8 +3898,8 @@
    "id": "module-5bfdc6603e86",
    "label": "Подсистема удалённого доступа",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-8f7bb546924a",
@@ -3912,8 +3912,8 @@
    "id": "module-cb1aad058144",
    "label": "Модели исследований и источников",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-c5d464a7aa9e",
@@ -3926,8 +3926,8 @@
    "id": "module-0ef2333ef23c",
    "label": "Контроль ресурсов: допуск нагрузки",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-2f9db2f18c1b",
@@ -3940,8 +3940,8 @@
    "id": "module-22827787ecc5",
    "label": "Модели ресурсов памяти",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-dacafbe9e4ee",
@@ -3954,15 +3954,15 @@
    "id": "module-fe0ffb0d2f88",
    "label": "HTTP-показатели ресурсов",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-5fcedb9e4e99",
    "label": "Подсистема контроля ресурсов",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-9d055871ddff",
@@ -3975,8 +3975,8 @@
    "id": "module-abd99037a01e",
    "label": "Подготовка данных для обучения из траекторий",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-9d8ee6730907",
@@ -4024,15 +4024,15 @@
    "id": "module-a11338c485f5",
    "label": "Выделение ресурсов для песочницы",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-1622458b008a",
    "label": "Статус песочницы (только чтение)",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-5d128fcf8dab",
@@ -4059,8 +4059,8 @@
    "id": "module-0dc288edd324",
    "label": "Команды, git и файлы внутри песочницы",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-aab05d5c4f1a",
@@ -4080,8 +4080,8 @@
    "id": "module-e11418351fd7",
    "label": "Источники для поиска с правилами доступа",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-6fcdcfb4b872",
@@ -4101,8 +4101,8 @@
    "id": "module-5579b793e038",
    "label": "Сервис поиска по всем данным",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-76ae682ed2e4",
@@ -4115,8 +4115,8 @@
    "id": "module-59f6fbe27bd5",
    "label": "Запуск внешних процессов с лимитом времени",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-5f3e261c2cf4",
@@ -4178,8 +4178,8 @@
    "id": "module-ae9598734759",
    "label": "Gmail, CRM и документы (в разработке)",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-a91069ddd708",
@@ -4192,15 +4192,15 @@
    "id": "module-389fe1a92fa7",
    "label": "Подключение внешних технологий для обучения на сделках",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-2719fd94eacc",
    "label": "Проверка торговых правил на истории",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-6bf6aca94f5f",
@@ -4213,8 +4213,8 @@
    "id": "module-98c19da7eaec",
    "label": "Выделение утверждений из материалов",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-10135418ed52",
@@ -4241,99 +4241,99 @@
    "id": "module-9b294ff2bf89",
    "label": "Сборка уроков из торговых эпизодов",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-23fb0a4fb4a5",
    "label": "Определение режима рынка (цена, CVD, OI, ликвидации)",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-1e377785ed16",
    "label": "Слои памяти обучения и гейт повышения правил",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-3b203abe62da",
    "label": "Метрики качества стратегии: когда можно сказать \"работает\"",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-0ca465774554",
    "label": "Типы знаний: что может попасть в память обучения",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-b4a66a051db3",
    "label": "Симулятор бумажной торговли (paper trading)",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-cdb451a7640c",
    "label": "Воспроизведение истории без заглядывания в будущее",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-0eb18b3e4f15",
    "label": "HTTP-маршруты обучения на трейдинге (только чтение)",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-1f786cfcb2c8",
    "label": "Режим безопасности модуля обучения на трейдинге",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-4a2642e13aea",
    "label": "Очистка чужих материалов: субтитры, чат, OCR, графики",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-8c080805b7d7",
    "label": "Стартовый учебный эпизод по материалу K1mba",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-e4cfe203dd2c",
    "label": "Превращение утверждений в проверяемые правила решений",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-2911cc4fe8e0",
    "label": "Учёт токенов, стоимости и попаданий в кэш",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-7c2b27fd9ac6",
    "label": "Независимая проверка утверждений на данных",
    "parent": "memory",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-cdbbc088b662",
@@ -4381,8 +4381,8 @@
    "id": "module-a71668fad443",
    "label": "HTTP-эндпоинты видеофабрики",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-27cb1911d462",
@@ -4395,8 +4395,8 @@
    "id": "module-f21597ba1fd6",
    "label": "Подсистема видеофабрики для жизненного цикла сервера",
    "parent": "ops",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ da3ca4d3: import+pytest+authored_by_lane Работает в установле"
   },
   {
    "id": "module-266a95659ed4",
@@ -4416,106 +4416,106 @@
    "id": "module-ce4bec7cff7e",
    "label": "Контроллер поведения Jeff в диалоге",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-eff0fd116111",
    "label": "Оценки поведения Jeff",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-62de71348d62",
    "label": "Личный список блокировок Jeff в Telegram",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-8ebcf42d990a",
    "label": "Защита: один опрашиватель на токен Telegram-бота",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-6e060497c158",
    "label": "Рассылка объявления от Jeff знакомым контактам",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-08b732dc1d84",
    "label": "Jeff в голосовом звонке (речь)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-81ae3126d244",
    "label": "Возможности Jeff",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-d794cbd77cf3",
    "label": "Категории для Jeff",
    "parent": "jeff",
-   "status": "reported",
+   "status": "working",
    "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest (authored_by_lane: test_leaf_* writte"
   },
   {
    "id": "module-9a23ec9fe2eb",
    "label": "CLI-команды PIT: настройка, статус, запуск, остановка",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-f526d2fd0ef3",
    "label": "Бюджет облачных запросов Jeff через OpenRouter",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-e67d89bd6ff2",
    "label": "Сбор данных для Jeff",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-f8c8574f9ee2",
    "label": "Профиль собеседника Jeff",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-a28716ea704d",
    "label": "Настройки среды выполнения PIT",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-94819ae06213",
    "label": "Контекст разговора Jeff",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-7fe26d8e1063",
    "label": "Детектор кризисных сообщений и фиксированный ответ",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-a7105ffd5da5",
@@ -4528,393 +4528,393 @@
    "id": "module-9414ce79578c",
    "label": "Диагностика: кто я, какой бэкенд и кто запускает Джеффа",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-9818110824b0",
    "label": "Пульс Джеффа: доступность, задержка, движок (без секретов)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-83b0bd4a24b3",
    "label": "Модуль идентичности (описания в коде нет)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-67a5b6d5c767",
    "label": "Фильтр исходящих ответов: защита личности и раскрытия",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-10b906cde60e",
    "label": "Контракт между чатом Джеффа и модулями Jeff 2.0",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-e3621a3791e3",
    "label": "Директор диалога: решает, как Джефф отвечает в этот ход",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-1a35294a664a",
    "label": "Обзор Джеффа для владельца: что собрано и как работает",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-643bc9bd9ef3",
    "label": "Фото и документы через локальную модель зрения",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-64645c8f9fb0",
    "label": "Память участника: поиск по согласованным слоям паспорта",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-11fe3588a67d",
    "label": "Защита локальной модели: проверка здоровья и мусорных ответов",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-b2924df01fad",
    "label": "Персона и стиль: как Джефф говорит с каждым участником",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-9c7361a27b1a",
    "label": "Конвейер модулей Jeff 2.0: лимит времени и изоляция сбоев",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-67cee7d9cae4",
    "label": "Проактивность: напоминания и предложения от Джеффа",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-dc92260872d5",
    "label": "Оценка качества диалогов: Jeff 1.0 против Jeff 2.0",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-5b78e96e567a",
    "label": "Поиск и источники с цитатами, без вызова модели",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-91e8d95273c5",
    "label": "Безопасность: политика до модели, защита от инъекций",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-6f5944305093",
    "label": "Настройки манеры Джеффа для владельца",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-7afc7ce94420",
    "label": "Сводка задержек для статуса Джеффа",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-715359be81c9",
    "label": "Счётчики обучения по сборкам: до и после (реальные события)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-d6fff5861410",
    "label": "Точка входа Master Parser (python -m)",
    "parent": "jeff",
-   "status": "reported",
+   "status": "working",
    "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest (authored_by_lane: test_leaf_* writte"
   },
   {
    "id": "module-a090c121b689",
    "label": "Команда владельца bossman pit master-parse",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-4a1f6b8497c8",
    "label": "Хранилище переписок участников: без дублей, только добавление",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 6891bbed: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 6891bbed: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-d0bec156ed2c",
    "label": "Извлечение текста из документов экспорта Telegram (локально)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-b864400370f1",
    "label": "Master Parser: собрать все диалоги и обновить паспорта",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-566f6d772d69",
    "label": "Два коротких абзаца о каждом участнике по всей переписке",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-09f63bf64e58",
    "label": "Запись фактов Master Parser в паспорт участника",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 6891bbed: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 6891bbed: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-7974acf47711",
    "label": "Читатели источников диалогов Джеффа (только чтение)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-6429e61dd089",
    "label": "Отчёт о скорости прогона Master Parser (только числа)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-83a15f7aa768",
    "label": "Точный расчёт для Джеффа: подсказка по арифметике и процентам",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-e3b155c353db",
    "label": "Политика моделей: запрет Liquid/LFM, отказ по умолчанию",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-a2a8be1c06e1",
    "label": "Выбор бесплатной удалённой модели по живому каталогу цен",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-eeb5c7530a12",
    "label": "Список моделей Джеффа (описания в коде нет)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-7a7a9e12efb7",
    "label": "Модерация находок (описания в коде нет)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-b2e0eb3245b9",
    "label": "Локальный чат Ollama без скрытого \"размышления\" для Джеффа",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-639c8365e585",
    "label": "Администрирование данных одного участника (Jeff Admin)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-011a03489f77",
    "label": "Контекст участника для Джеффа (описания в коде нет)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-5eb076bfba97",
    "label": "Профиль участника Джеффа, ведёт владелец",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-90209d82364c",
    "label": "Паспорт участника Джеффа: версии и доказательства по фактам",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-fa8e48038ace",
    "label": "API окна паспорта участника (только свои данные)",
    "parent": "jeff",
-   "status": "reported",
+   "status": "working",
    "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a9c4efb0: import+pytest (authored_by_lane: test_leaf_* writte"
   },
   {
    "id": "module-842ef81754c0",
    "label": "Контрольная точка паспорта: сводка локальной памяти (владелец)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-01c789a2b739",
    "label": "Команды паспорта участника: просмотр, настройки, отзыв согласия",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-2a4383829dfa",
    "label": "Команды для работы с фото",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-0787a5345c6d",
    "label": "Редактирование фото",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-8f42d3cc74e5",
    "label": "Конвейер обработки фото",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-81fe82cd46bb",
    "label": "Среда выполнения обработки фото",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-958ca83ceaa8",
    "label": "Правила и ограничения собеседника",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-ca6609a6b448",
    "label": "Представление Jeff участнику",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-291791405b2c",
    "label": "Профиль внешнего вида Jeff: аватар и голос",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-f26b63157c2f",
    "label": "Защита публичного входа в чат с Jeff",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-476d3d1ef4a9",
    "label": "Анализ изображений через Qwen",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-7637ffa19df1",
    "label": "Потоковая выдача ответов Jeff (окно и Telegram)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-1d61f405af4c",
    "label": "Устойчивый чат с локальной моделью",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 6891bbed: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 6891bbed: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-dfb6c31ae04f",
    "label": "Контроль нагрузки на локальное железо",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a9c4efb0: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a9c4efb0: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-a513ff702c46",
    "label": "Оценка рисков",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-bc4dba6e1890",
    "label": "Ролевая игра с собеседником",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-5ca4b43f294a",
    "label": "Команды ролевой игры",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-0a1e9aa39f26",
@@ -4927,141 +4927,141 @@
    "id": "module-9f87418c31e0",
    "label": "Среда работы Jeff в Telegram",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-eddee4708a7d",
    "label": "Фильтр секретов в ответах",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-9502d104e91e",
    "label": "Речь Jeff в окне: распознавание и озвучка",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a9c4efb0: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a9c4efb0: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-e2624a8bf0fc",
    "label": "Аудит текста перед озвучкой",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-0bd270fb5248",
    "label": "Редактирование изображений в Studio",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-6ee86a43e787",
    "label": "Долгие задачи, переживающие перезапуск",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-2057e75206c8",
    "label": "Контракт Telegram-интерфейса Jeff",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-55c83e0493e7",
    "label": "Правила допустимых тем",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-ffd7b5564673",
    "label": "Движки синтеза речи (Piper, CosyVoice)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-d93b8a2e7320",
    "label": "Хранилище секретов участника",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-2cab55c89d9c",
    "label": "Версия продукта Jeff",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-e52098ab7553",
    "label": "Голосовые сообщения Telegram: расшифровка",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-5c2af9d244e7",
    "label": "Сравнение голосовых движков",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-41bd7c7bdbe4",
    "label": "Веб-окно чата с Jeff (только локально)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-bf7480cb496c",
    "label": "Процесс обработки звонков Telegram",
    "parent": "jeff",
-   "status": "reported",
+   "status": "working",
    "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest (authored_by_lane: test_leaf_* writte"
   },
   {
    "id": "module-b36c82e81920",
    "label": "Хранение данных входа Telegram (зашифровано)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-46ca918cf2a2",
    "label": "Проверка разрешения на звонок",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-579cbbb18435",
    "label": "Вход в аккаунт Telegram и поиск контактов",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-6f3b41ccd19f",
    "label": "Стоп-флаг и история звонков",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-a00067262226",
    "label": "Установка дополнения для звонков Telegram",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-aacf13d1fab5",
@@ -5074,92 +5074,92 @@
    "id": "module-c0879a714994",
    "label": "Подавление эха в звонках",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-ebc21c85581a",
    "label": "Определение начала и конца речи в звонке",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-8dfa4ca61d63",
    "label": "Преобразования аудио PCM16: ресемплинг и уровни",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-5a8578230115",
    "label": "Очередь воспроизведения речи с прерыванием (STOP)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-940780459eb4",
    "label": "Определение голосовой активности (VAD) для звонка",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-3fb56e2abdc6",
    "label": "Тестовый канал звонка без Telegram (loopback)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-679b42c085a9",
    "label": "Менеджер звонков в Командном центре",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-cf717b6f2546",
    "label": "Офлайн-режим тестирования звонков без Telegram",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-4c04aa7a520a",
    "label": "Реальный транспорт звонков через py-tgcalls",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-9de94c4cb278",
    "label": "Самопроверка аудиотракта звонка без Telegram",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-3c2cd6ed725d",
    "label": "Сессия одного звонка: набор, разговор, завершение",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-0b449131095b",
    "label": "Фоновый процесс звонков с сессией Telegram",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-27f9c4217e34",
    "label": "Проверка зависимостей для модуля звонков",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 6891bbed: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 6891bbed: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-8b9384b5a0ac",
@@ -5172,8 +5172,8 @@
    "id": "module-7a8593010c20",
    "label": "Строки готовности голосового тракта звонка",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-7d6b56dd11d4",
@@ -5186,22 +5186,22 @@
    "id": "module-d87d5bf5141c",
    "label": "Защита секретов и прав доступа для звонков",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a9c4efb0: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ a9c4efb0: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-5ab761d4c710",
    "label": "Итоги после звонка: заметка и черновики задач",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-6858e3e84765",
    "label": "Пути и настройки модуля звонков",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-d25f75686dc7",
@@ -5214,22 +5214,22 @@
    "id": "module-74990de09699",
    "label": "Сборка движков речи для звонка (STT/TTS/VAD)",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-459def4e9443",
    "label": "Реальные движки речи звонка на голосе Jeff",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-0df0a7bc5733",
    "label": "Заготовленные движки речи для офлайн-теста",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-f4c52a69b401",
@@ -5249,8 +5249,8 @@
    "id": "module-85f118831d7b",
    "label": "Подготовка текста ответа для озвучки по фразам",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 679d019e: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "module-b3a1a55f12b0",
@@ -5270,8 +5270,8 @@
    "id": "module-b1142d03395c",
    "label": "Общие контракты модуля звонков",
    "parent": "jeff",
-   "status": "reported",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest"
+   "status": "working",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-06 @ 3a1b8469: import+pytest Работает в установленном Bossman @ 6d"
   },
   {
    "id": "ci-37304275631",
@@ -5312,42 +5312,42 @@
    "id": "agents-graph",
    "label": "Карта агентов · граф оркестров",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Граф строится из БД агентов/оркестров и живых run'ов. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не сертифицирован"
   },
   {
    "id": "agents-lab",
    "label": "Лаборатория агентов · сравнение стратегий",
    "parent": "agents",
-   "status": "reported",
+   "status": "working",
    "short": "Шесть сохранённых стратегий над одним sidecar; честное сравнение на одном кейсе. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, жив"
   },
   {
    "id": "skills-runtime",
    "label": "Движок навыков · загрузка, каталог, оценка",
    "parent": "skills",
-   "status": "reported",
+   "status": "working",
    "short": "Код, который реально находит, дедуплицирует и оценивает SKILL.md. Без него зона навыков — только тексты. Код в этой сборке; Импорт и существующие тесты прошли н"
   },
   {
    "id": "plugins-mcp",
    "label": "MCP · хаб и runtime",
    "parent": "plugins",
-   "status": "reported",
+   "status": "working",
    "short": "Подключение MCP-серверов к общему реестру инструментов и разрешений. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не"
   },
   {
    "id": "plugins-security",
    "label": "Безопасность плагинов · scopes",
    "parent": "plugins",
-   "status": "reported",
+   "status": "working",
    "short": "Проверка scope/approval для каждого capability manifest. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не сертифициро"
   },
   {
    "id": "plugins-oss",
    "label": "OSS-движки · инвентарь",
    "parent": "plugins",
-   "status": "reported",
+   "status": "working",
    "short": "Опциональные локальные движки (whisper, UI-TARS) и их наличие. Код в этой сборке; Импорт и существующие тесты прошли на указанном коммите, живая работа не серти"
   },
   {
@@ -5466,7 +5466,7 @@
    "id": "pv-coach",
    "label": "COACH: рекомендация с объяснением и неопределённостью",
    "parent": "pv",
-   "status": "reported",
+   "status": "working",
    "short": "Варианты, объяснение, дисклеймер (карты и диапазоны неизвестны, эквити против случайных рук). Подсказки включены только для адаптеров с прогоном: Poker Train (п"
   },
   {
@@ -5508,7 +5508,7 @@
    "id": "pv-lora-route",
    "label": "Маршрут Vision → политика → проверка ответа → executor",
    "parent": "pv-lora",
-   "status": "reported",
+   "status": "working",
    "short": "Ответ модели принимается только после проверки (легальное действие, сумма, вероятности) и отображения на кнопки; иначе эвристика и очередь разбора. В живом трен"
   },
   {
@@ -5550,56 +5550,56 @@
    "id": "reg-video_studio_render",
    "label": "Video Studio: компилятор filtergraph (preview и export)",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "One deterministic filtergraph compiler for preview and export. Project ticks are converted only at the FFmpeg boundary. All filter expressions come from bounded"
   },
   {
    "id": "reg-video_studio_service",
    "label": "Video Studio: интеграция с хостом (БД, задачи, команды)",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Video Studio host integration: canonical DB, tasks, commands and bounded uploads. Код есть; польза и живая работа не доказаны. Прогон 2026-10-06 @ 3a1b8469: imp"
   },
   {
    "id": "reg-video_studio_storyboard",
    "label": "Video Studio: раскадровка и рецепты кадров",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Раздел 10: раскадровка и рецепты кадров для Video Studio. Откуда это взялось и чего здесь НЕТ ----------------------------------- `video-shotcraft` разобран в `"
   },
   {
    "id": "reg-video_studio_trained",
    "label": "Video Studio: черновик команд от модели + валидация",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Existing BCC provider transport -> untrusted model draft -> pure host validation. This module never applies a command or repairs predicted object identities. Th"
   },
   {
    "id": "reg-video_studio_shotcut",
    "label": "Video Studio: обмен проектами Shotcut/MLT",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Local editable Shotcut/MLT exchange with an explicit, checked subset. MLT XML can itself invoke plugins and open resources. We only *write* a fixed allowlist gr"
   },
   {
    "id": "reg-video_studio_interchange",
    "label": "Video Studio: обмен OpenTimelineIO",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "OpenTimelineIO interchange, with explicit preservation/loss boundaries. OTIO is an interchange library, not a renderer. Foreign external references are never op"
   },
   {
    "id": "reg-video_studio_analysis",
    "label": "Video Studio: диагностика, тайминг субтитров, ASR",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Local deterministic diagnostics, timed captions, and optional real local ASR. Diagnostics are observations, never unconditional quality failures: deliberate bla"
   },
   {
    "id": "reg-video_studio_retrieval",
    "label": "Video Studio: поиск B-roll и дубликатов",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Evidence-linked local retrieval, B-roll candidates and measured duplicates. BM25 searches caption text and owner-provided media metadata. It is not visual scene"
   },
   {
@@ -5613,91 +5613,91 @@
    "id": "reg-studio_provider",
    "label": "Studio: жизненный цикл провайдеров",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Generation observations, never task-completion evidence. No network on import. Код есть; польза и живая работа не доказаны. Прогон 2026-10-06 @ 3a1b8469: import"
   },
   {
    "id": "reg-studio_sdcpp",
    "label": "Studio: локальная генерация stable-diffusion.cpp",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Local AI generation through stable-diffusion.cpp (Vulkan) — Studio provider. Why this engine: on the owner's Radeon 8060S the LLM stack already runs on Vulkan ("
   },
   {
    "id": "reg-studio_comfyui",
    "label": "Studio: провайдер ComfyUI",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Local Studio wrapper over the existing native ComfyUI implementation. No worker/poller is started here. Cancellation abandons this wrapper's job; ComfyUI has no"
   },
   {
    "id": "reg-studio_openrouter",
    "label": "Studio: провайдер OpenRouter (изображения и видео)",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "OpenRouter image/video shapes already used by repository scripts. HTTP is bounded; no implicit retry, no token on CDN, no guessed audio API. An injectable trans"
   },
   {
    "id": "reg-studio_governance",
    "label": "Studio: бюджетные резервы по функциям",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Persistent per-feature reservations under the existing Governor/egress gate. Код есть; польза и живая работа не доказаны. Прогон 2026-10-06 @ 3a1b8469: import+p"
   },
   {
    "id": "reg-studio_review",
    "label": "Studio: локальный просмотр сгенерированных видео",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Bossman Vision: a local look at every generated Studio video, taught by the owner. After a video run is persisted, frames are sampled with the bundled FFmpeg an"
   },
   {
    "id": "reg-oss_comfyui",
    "label": "ComfyUI: ограниченный локальный адаптер",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Bounded local ComfyUI adapter using upstream /prompt, /history and /view APIs. No runtime/model download, custom nodes, cloud credentials or global interrupts. "
   },
   {
    "id": "reg-web_designer_gen",
    "label": "Web Designer: генерация сайтов",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Генератор сайтов визуального веб-дизайнера: шаблоны, палитры, пошаговая сборка. Принцип честности: генерация детерминирована. Один и тот же запрос даёт один и т"
   },
   {
    "id": "reg-web_designer_visual",
    "label": "Web Designer: визуальный редактор (версии)",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "GrapesJS edits the body; Bossman retains the document, versions and CAS. Do not send executable/unsupported markup through a lossy component importer. The exist"
   },
   {
    "id": "reg-web_designer_ai_build",
    "label": "Web Designer: сборка с помощью ИИ",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Local AI website creation through the canonical registry and creative brief. The existing Web Designer storage/preview/rollback remain the only editor. No cloud"
   },
   {
    "id": "reg-ai3d_pipeline",
    "label": "3D Maker: пайплайн от запроса до печатаемого артефакта",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "The job pipeline: explicit stages from request to a printable artifact. intake -> generate/import -> inspect -> repair -> re-inspect -> units/scale/orient/place"
   },
   {
    "id": "reg-ai3d_gcode",
    "label": "3D Maker: сканер безопасности G-code",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "G-code safety scanner. Generated G-code is executable machine control, not a document. This scanner is the last digital gate before anything is handed to a phys"
   },
   {
    "id": "reg-social_farm_media",
    "label": "Social Farm: преобразование медиа без изменения исходника",
    "parent": "media",
-   "status": "reported",
+   "status": "working",
    "short": "Преобразование медиа через ffmpeg. Исходник не трогается никогда. Этапы из `14_MEDIA_TRANSFORM_PIPELINE`: проба → целостность → профиль рендера → масштаб/поля →"
   },
   {
@@ -5725,35 +5725,35 @@
    "id": "reg-oss_piper",
    "label": "Piper: локальный русский TTS",
    "parent": "jeff",
-   "status": "reported",
+   "status": "working",
    "short": "Bounded, local Russian speech synthesis for existing Bossman surfaces. Piper and a voice model are optional host assets. No model is downloaded or started until"
   },
   {
    "id": "reg-oss_chatterbox",
    "label": "Chatterbox: офлайн-клон голоса (отдельный воркер)",
    "parent": "jeff",
-   "status": "reported",
+   "status": "working",
    "short": "Optional offline Russian voice clone using a separate, bounded local worker. The reference, model weights and Python environment are host assets, never packaged"
   },
   {
    "id": "reg-oss_whisper",
    "label": "Whisper: офлайн-распознавание речи",
    "parent": "jeff",
-   "status": "reported",
+   "status": "working",
    "short": "Offline speech recognition using the optional upstream faster-whisper engine. Only a host-configured, already installed CTranslate2 model is accepted. The calle"
   },
   {
    "id": "reg-voice_capability",
    "label": "Возможности голосовых провайдеров",
    "parent": "jeff",
-   "status": "reported",
+   "status": "working",
    "short": "Voice (V2.6, раздел 20) — слой provider-capability, и только он. Честный probe доступности голосовых провайдеров по tools/registry.yaml: STT — записи с can: tra"
   },
   {
    "id": "reg-earning_emulator",
    "label": "Эмулятор заработка на удалённой вакансии (симуляция)",
    "parent": "apps",
-   "status": "reported",
+   "status": "working",
    "short": "Earning EMULATOR: reads a public remote-job listing (text), drafts the deliverable, and writes a SIMULATED invoice to an append-only ledger. What it does NOT do"
   },
   {

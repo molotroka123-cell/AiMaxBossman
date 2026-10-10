@@ -1,23 +1,23 @@
 node_id: module-1b34d40914f1
-installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.computer_operator.observer')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_observation_pipeline.py tests/test_computer_operator_owner_control.py tests/test_stage13_wiring_notepad.py)
 
-import bossman.computer_operator.observer: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\computer_operator\observer.py
+import bossman.computer_operator.observer: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\computer_operator\observer.py
 
 $ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_observation_pipeline.py tests/test_computer_operator_owner_control.py tests/test_stage13_wiring_notepad.py)
-[step shared by 1 leaf(s); exit 1 in 4.0s; reason=tests_failed]
+[step shared by 1 leaf(s); exit 1 in 6.9s; reason=tests_failed]
 ...............................................................F...      [100%]
 ================================== FAILURES ===================================
 _____________________ test_live_notepad_actually_launches _____________________
 tests\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches
     assert procs and procs[0].returncode is None       # процесс живёт
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   assert ([<Process 7468>] and 3221225477 is None)
-E    +  where 3221225477 = <Process 7468>.returncode
+E   assert ([<Process 17108>] and 3221225477 is None)
+E    +  where 3221225477 = <Process 17108>.returncode
 =========================== short test summary info ===========================
 FAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches
-1 failed, 66 passed in 3.52s
+1 failed, 66 passed in 5.79s
 
 [guard] product modules loaded from installed build: 73; from repo source: []; aux repo-source helper modules: 3
 

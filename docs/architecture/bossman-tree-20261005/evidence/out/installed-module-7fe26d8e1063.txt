@@ -1,0 +1,56 @@
+node_id: module-7fe26d8e1063
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: jeffa.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.pit.crisis')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_audit_fixes.py)
+
+import bcc.pit.crisis: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\pit\crisis.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_jeff_audit_fixes.py)
+[step shared by 1 leaf(s); exit 0 in 31.5s; reason=None]
+........................................................................ [ 70%]
+..............................                                           [100%]
+============================== warnings summary ===============================
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_audit_fixes.py::test_d1_window_transcript_keeps_the_crisis_exchange
+tests/test_jeff_audit_fixes.py::test_d9_the_window_audits_and_refuses_to_speak_a_threat
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+102 passed, 9 warnings in 28.73s
+
+[guard] product modules loaded from installed build: 367; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.pit.crisis loaded by this test process from installed build: True
+
+VERDICT PASS

@@ -1,147 +1,29 @@
 node_id: mod-autonomy
-installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: ops.json sha=526e2e5513fa442ba7fdbcbc8e0699a32118b089 command=python -c "importlib.import_module('bcc.features.autonomy')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_autonomy_api.py tests/test_autonomy_bounded_loop.py tests/test_autonomy_cli.py tests/test_autonomy_constitution.py tests/test_autonomy_cycle.py tests/test_autonomy_goals.py tests/test_autonomy_hands.py tests/test_autonomy_hands_default.py)
 
-import bcc.features.autonomy: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bcc\features\autonomy.py
+import bcc.features.autonomy: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\autonomy.py
 
 $ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_autonomy_api.py tests/test_autonomy_bounded_loop.py tests/test_autonomy_cli.py tests/test_autonomy_constitution.py tests/test_autonomy_cycle.py tests/test_autonomy_goals.py tests/test_autonomy_hands.py tests/test_autonomy_hands_default.py)
-[step shared by 1 leaf(s); exit 1 in 5.6s; reason=tests_failed]
-..FFFFF
+[step shared by 1 leaf(s); exit 1 in 195.8s; reason=tests_failed]
+............................................................F........... [ 45%]
+........................................................................ [ 90%]
+................                                                         [100%]
 ================================== FAILURES ===================================
-___________ test_blocked_constitution_is_visible_and_disables_apply ___________
-tests\test_autonomy_api.py:72: in test_blocked_constitution_is_visible_and_disables_apply
-    to_user_approval(auto)
-tests\test_autonomy_api.py:31: in to_user_approval
-    s.create(goal())
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:150: in create
-    validate_goal(goal)
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:82: in validate_goal
-    schemas.validate("task", schemas.to_json(goal))
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:128: in validate
-    errors = errors_for(name, value)
-             ^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:123: in errors_for
-    _check(value, load(name), "$", errors)
-                  ^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:45: in load
-    return json.loads(path.read_text(encoding="utf-8"))
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
-    with self.open(mode='r', encoding=encoding, errors=errors) as f:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
-    return io.open(self, mode, buffering, encoding, errors, newline)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\schemas\\autonomy\\task.schema.json'
-_____ test_goal_detail_has_evidence_and_disabled_actions_before_the_gate ______
-tests\test_autonomy_api.py:83: in test_goal_detail_has_evidence_and_disabled_actions_before_the_gate
-    auto.goals.create(goal())
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:150: in create
-    validate_goal(goal)
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:82: in validate_goal
-    schemas.validate("task", schemas.to_json(goal))
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:128: in validate
-    errors = errors_for(name, value)
-             ^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:123: in errors_for
-    _check(value, load(name), "$", errors)
-                  ^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:45: in load
-    return json.loads(path.read_text(encoding="utf-8"))
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
-    with self.open(mode='r', encoding=encoding, errors=errors) as f:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
-    return io.open(self, mode, buffering, encoding, errors, newline)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\schemas\\autonomy\\task.schema.json'
-______ test_apply_records_decision_returns_commands_and_does_not_release ______
-tests\test_autonomy_api.py:92: in test_apply_records_decision_returns_commands_and_does_not_release
-    to_user_approval(api.svc.autonomy)
-tests\test_autonomy_api.py:31: in to_user_approval
-    s.create(goal())
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:150: in create
-    validate_goal(goal)
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:82: in validate_goal
-    schemas.validate("task", schemas.to_json(goal))
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:128: in validate
-    errors = errors_for(name, value)
-             ^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:123: in errors_for
-    _check(value, load(name), "$", errors)
-                  ^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:45: in load
-    return json.loads(path.read_text(encoding="utf-8"))
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
-    with self.open(mode='r', encoding=encoding, errors=errors) as f:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
-    return io.open(self, mode, buffering, encoding, errors, newline)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\schemas\\autonomy\\task.schema.json'
-___________________________ test_reject_and_revise ____________________________
-tests\test_autonomy_api.py:116: in test_reject_and_revise
-    to_user_approval(api.svc.autonomy)
-tests\test_autonomy_api.py:31: in to_user_approval
-    s.create(goal())
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:150: in create
-    validate_goal(goal)
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:82: in validate_goal
-    schemas.validate("task", schemas.to_json(goal))
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:128: in validate
-    errors = errors_for(name, value)
-             ^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:123: in errors_for
-    _check(value, load(name), "$", errors)
-                  ^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:45: in load
-    return json.loads(path.read_text(encoding="utf-8"))
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
-    with self.open(mode='r', encoding=encoding, errors=errors) as f:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
-    return io.open(self, mode, buffering, encoding, errors, newline)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\schemas\\autonomy\\task.schema.json'
-__________________ test_reject_completes_as_rejected_by_user __________________
-tests\test_autonomy_api.py:123: in test_reject_completes_as_rejected_by_user
-    to_user_approval(api.svc.autonomy)
-tests\test_autonomy_api.py:31: in to_user_approval
-    s.create(goal())
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:150: in create
-    validate_goal(goal)
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\goals.py:82: in validate_goal
-    schemas.validate("task", schemas.to_json(goal))
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:128: in validate
-    errors = errors_for(name, value)
-             ^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:123: in errors_for
-    _check(value, load(name), "$", errors)
-                  ^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bcc\autonomy\schemas.py:45: in load
-    return json.loads(path.read_text(encoding="utf-8"))
-                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
-    with self.open(mode='r', encoding=encoding, errors=errors) as f:
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
-    return io.open(self, mode, buffering, encoding, errors, newline)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\schemas\\autonomy\\task.schema.json'
+__________________ test_real_constitution_exists_and_hashes ___________________
+tests\test_autonomy_constitution.py:35: in test_real_constitution_exists_and_hashes
+    assert c.default_constitution_path().is_file()
+E   AssertionError: assert False
+E    +  where False = is_file()
+E    +    where is_file = WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib/docs/constitution/BOSSMAN_CONSTITUTION.md').is_file
+E    +      where WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib/docs/constitution/BOSSMAN_CONSTITUTION.md') = <function default_constitution_path at 0x000001504C5977E0>()
+E    +        where <function default_constitution_path at 0x000001504C5977E0> = c.default_constitution_path
 =========================== short test summary info ===========================
-FAILED tests/test_autonomy_api.py::test_blocked_constitution_is_visible_and_disables_apply
-FAILED tests/test_autonomy_api.py::test_goal_detail_has_evidence_and_disabled_actions_before_the_gate
-FAILED tests/test_autonomy_api.py::test_apply_records_decision_returns_commands_and_does_not_release
-FAILED tests/test_autonomy_api.py::test_reject_and_revise - FileNotFoundError...
-FAILED tests/test_autonomy_api.py::test_reject_completes_as_rejected_by_user
-!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
-5 failed, 2 passed in 4.38s
+FAILED tests/test_autonomy_constitution.py::test_real_constitution_exists_and_hashes
+1 failed, 159 passed in 192.88s (0:03:12)
 
-[guard] product modules loaded from installed build: 326; from repo source: []; aux repo-source helper modules: 0
+[guard] product modules loaded from installed build: 349; from repo source: []; aux repo-source helper modules: 0
 
 module under test bcc.features.autonomy loaded by this test process from installed build: True
 

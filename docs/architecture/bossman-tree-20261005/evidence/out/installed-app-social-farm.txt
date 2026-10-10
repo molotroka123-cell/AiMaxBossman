@@ -1,0 +1,23 @@
+node_id: app-social-farm
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: mediaux.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('social_farm')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src] && (cd apps/social-farm && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/unit)
+
+import social_farm: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\social_farm\__init__.py
+
+$ (cd apps/social-farm && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/unit)
+[step shared by 1 leaf(s); exit 0 in 10.5s; reason=None]
+........................................................................ [ 15%]
+............ss.........s.......sssssssssssss............................ [ 31%]
+........................................................................ [ 47%]
+.......s..................................s............................. [ 63%]
+..............................ss........................................ [ 79%]
+...................sss......................s..................ss....... [ 94%]
+.......................                                                  [100%]
+429 passed, 26 skipped in 9.17s
+
+[guard] product modules loaded from installed build: 66; from repo source: []; aux repo-source helper modules: 27
+
+module under test social_farm loaded by this test process from installed build: True
+
+VERDICT PASS

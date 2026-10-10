@@ -1,0 +1,25 @@
+node_id: mod-jeff_insights
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=da3ca4d381af32d708c0e1e74b184023ea992205 command=python -c "import bcc.features.jeff_insights" [PYTHONPATH=command-center first, then command-center;bossman-core;.] && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_jeff_insights.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_jeff_2_insights.py)
+
+import bcc.features.jeff_insights: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\jeff_insights.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_jeff_insights.py)
+[step shared by 1 leaf(s); exit 0 in 5.9s; reason=None]
+...                                                                      [100%]
+3 passed in 2.95s
+
+[guard] product modules loaded from installed build: 358; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.jeff_insights loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_jeff_2_insights.py)
+[step shared by 2 leaf(s); exit 0 in 12.3s; reason=None]
+.........................................ss                              [100%]
+41 passed, 2 skipped in 9.64s
+
+[guard] product modules loaded from installed build: 358; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.jeff_insights loaded by this test process from installed build: True
+
+VERDICT PASS

@@ -1,0 +1,25 @@
+node_id: module-eddee4708a7d
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: jeffb.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.pit.secret_filter')" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_blue_leaf_audit.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_secret_filter.py)
+
+import bcc.pit.secret_filter: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\pit\secret_filter.py
+
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_blue_leaf_audit.py)
+[step shared by 4 leaf(s); exit 0 in 0.9s; reason=None]
+.........                                                                [100%]
+9 passed in 0.16s
+
+[guard] product modules loaded from installed build: 0; from repo source: []; aux repo-source helper modules: 2
+
+module under test bcc.pit.secret_filter loaded by this test process from installed build: False
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_pit_secret_filter.py)
+[step shared by 1 leaf(s); exit 0 in 2.7s; reason=None]
+...............                                                          [100%]
+15 passed in 0.30s
+
+[guard] product modules loaded from installed build: 35; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.pit.secret_filter loaded by this test process from installed build: True
+
+VERDICT PASS

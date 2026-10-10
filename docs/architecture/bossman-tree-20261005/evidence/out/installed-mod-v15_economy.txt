@@ -1,0 +1,25 @@
+node_id: mod-v15_economy
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: agcloud.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.features.v15_economy')" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_economy_orchestrator.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_v15_economy_feature.py)
+
+import bcc.features.v15_economy: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\v15_economy.py
+
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_v15_economy_orchestrator.py)
+[step shared by 1 leaf(s); exit 0 in 1.4s; reason=None]
+.....                                                                    [100%]
+5 passed in 0.47s
+
+[guard] product modules loaded from installed build: 13; from repo source: []; aux repo-source helper modules: 4
+
+module under test bcc.features.v15_economy loaded by this test process from installed build: False
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_v15_economy_feature.py)
+[step shared by 1 leaf(s); exit 0 in 2.2s; reason=None]
+....                                                                     [100%]
+4 passed in 0.25s
+
+[guard] product modules loaded from installed build: 35; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.v15_economy loaded by this test process from installed build: True
+
+VERDICT PASS

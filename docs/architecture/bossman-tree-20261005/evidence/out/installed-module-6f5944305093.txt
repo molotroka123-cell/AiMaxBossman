@@ -1,0 +1,59 @@
+node_id: module-6f5944305093
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: jeffa.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('bcc.pit.jeff_settings')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_settings_overlay.py tests/test_jeff_2_persona.py tests/test_jeff_admin.py tests/test_jeff_audit_fixes.py tests/test_jeff_math_runtime.py tests/test_jeff_owner_bugtest_fixes.py)
+
+import bcc.pit.jeff_settings: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\pit\jeff_settings.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_jeff_settings_overlay.py tests/test_jeff_2_persona.py tests/test_jeff_admin.py tests/test_jeff_audit_fixes.py tests/test_jeff_math_runtime.py tests/test_jeff_owner_bugtest_fixes.py)
+[step shared by 1 leaf(s); exit 0 in 160.8s; reason=None]
+............................s........................................... [ 29%]
+.....................s.................................................. [ 59%]
+........................................................................ [ 88%]
+...........................                                              [100%]
+============================== warnings summary ===============================
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+tests/test_jeff_settings_overlay.py: 1 warning
+tests/test_jeff_audit_fixes.py: 2 warnings
+tests/test_jeff_owner_bugtest_fixes.py: 14 warnings
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_settings_overlay.py: 2 warnings
+tests/test_jeff_audit_fixes.py: 4 warnings
+tests/test_jeff_owner_bugtest_fixes.py: 28 warnings
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_settings_overlay.py: 1 warning
+tests/test_jeff_audit_fixes.py: 2 warnings
+tests/test_jeff_owner_bugtest_fixes.py: 14 warnings
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+241 passed, 2 skipped, 69 warnings in 154.98s (0:02:34)
+
+[guard] product modules loaded from installed build: 368; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.pit.jeff_settings loaded by this test process from installed build: True
+
+VERDICT PASS

@@ -1,0 +1,17 @@
+node_id: reg-earning_emulator
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: memapps.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('bcc.earning_emulator')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_earning_emulator.py)
+
+import bcc.earning_emulator: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\earning_emulator.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_earning_emulator.py)
+[step shared by 2 leaf(s); exit 0 in 3.0s; reason=None]
+..................                                                       [100%]
+18 passed in 0.39s
+
+[guard] product modules loaded from installed build: 35; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.earning_emulator loaded by this test process from installed build: True
+
+VERDICT PASS

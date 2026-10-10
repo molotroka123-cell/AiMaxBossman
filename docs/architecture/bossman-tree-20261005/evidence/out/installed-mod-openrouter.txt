@@ -1,0 +1,17 @@
+node_id: mod-openrouter
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: agcloud.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "importlib.import_module('bcc.features.openrouter')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_openrouter_connect_ui.py tests/test_openrouter_provider_isolation.py tests/v2/test_openrouter.py tests/test_rc19_model_recovery.py) && python tools/tree_proof/agcloud_live_probe.py
+
+import bcc.features.openrouter: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\openrouter.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_openrouter_connect_ui.py tests/test_openrouter_provider_isolation.py tests/v2/test_openrouter.py tests/test_rc19_model_recovery.py)
+[step shared by 2 leaf(s); exit 0 in 44.7s; reason=None]
+ss..........................................                             [100%]
+42 passed, 2 skipped in 41.58s
+
+[guard] product modules loaded from installed build: 323; from repo source: []; aux repo-source helper modules: 1
+
+module under test bcc.features.openrouter loaded by this test process from installed build: True
+
+VERDICT PASS

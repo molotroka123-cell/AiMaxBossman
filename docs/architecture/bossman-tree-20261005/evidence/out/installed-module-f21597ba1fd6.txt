@@ -1,0 +1,25 @@
+node_id: module-f21597ba1fd6
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=da3ca4d381af32d708c0e1e74b184023ea992205 command=python -c "import bossman.video_factory.subsystem" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.] && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_video_factory_subsystem.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_video_factory.py)
+
+import bossman.video_factory.subsystem: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\video_factory\subsystem.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_video_factory_subsystem.py)
+[step shared by 1 leaf(s); exit 0 in 3.4s; reason=None]
+....                                                                     [100%]
+4 passed in 1.45s
+
+[guard] product modules loaded from installed build: 99; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.video_factory.subsystem loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_video_factory.py)
+[step shared by 2 leaf(s); exit 0 in 3.3s; reason=None]
+.....................                                                    [100%]
+21 passed in 2.15s
+
+[guard] product modules loaded from installed build: 99; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.video_factory.subsystem loaded by this test process from installed build: True
+
+VERDICT PASS

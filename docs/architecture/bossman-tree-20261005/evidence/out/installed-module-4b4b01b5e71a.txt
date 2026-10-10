@@ -1,12 +1,12 @@
 node_id: module-4b4b01b5e71a
-installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.computer_operator.obligations')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_at01_completion_obligations.py tests/test_operator_at01_at03_regression.py tests/test_stage13_auth_redteam.py)
 
-import bossman.computer_operator.obligations: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\computer_operator\obligations.py
+import bossman.computer_operator.obligations: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\computer_operator\obligations.py
 
 $ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_at01_completion_obligations.py tests/test_operator_at01_at03_regression.py tests/test_stage13_auth_redteam.py)
-[step shared by 1 leaf(s); exit 1 in 16.6s; reason=tests_failed]
+[step shared by 1 leaf(s); exit 1 in 22.9s; reason=tests_failed]
 ................................F...............................         [100%]
 ================================== FAILURES ===================================
 ______________ test_route_matrix_every_data_route_requires_auth _______________
@@ -19,10 +19,10 @@ E     Extra items in the right set:
 E     ('GET', '/')
 E     Use -v to get more diff
 ---------------------------- Captured stderr setup ----------------------------
-{"ts": "2026-10-07T18:55:58.643888+00:00", "level": "INFO", "logger": "bossman.search.tools", "msg": "search: инструменты search.query/search.index зарегистрированы"}
+{"ts": "2026-10-10T12:08:30.328486+00:00", "level": "INFO", "logger": "bossman.search.tools", "msg": "search: инструменты search.query/search.index зарегистрированы"}
 ============================== warnings summary ===============================
 tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\api.py:112: DeprecationWarning: 
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\api.py:112: DeprecationWarning: 
           on_event is deprecated, use lifespan event handlers instead.
   
           Read more about it in the
@@ -32,7 +32,7 @@ tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_
 
 tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
 tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
           on_event is deprecated, use lifespan event handlers instead.
   
           Read more about it in the
@@ -41,7 +41,7 @@ tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_
     return self.router.on_event(event_type)  # ty: ignore[deprecated]
 
 tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\api.py:124: DeprecationWarning: 
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\api.py:124: DeprecationWarning: 
           on_event is deprecated, use lifespan event handlers instead.
   
           Read more about it in the
@@ -50,13 +50,13 @@ tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_
     @app.on_event("shutdown")
 
 tests/test_stage13_auth_redteam.py::test_b8a_ws_anonymous_closed_1008
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ===========================
 FAILED tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
-1 failed, 63 passed, 5 warnings in 16.05s
+1 failed, 63 passed, 5 warnings in 21.39s
 
 [guard] product modules loaded from installed build: 202; from repo source: []; aux repo-source helper modules: 3
 

@@ -1,0 +1,54 @@
+node_id: module-45ef5a5cbb02
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=da3ca4d381af32d708c0e1e74b184023ea992205 command=python -c "import bossman.notifications.routes" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.] && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_notifications_routes.py)
+
+import bossman.notifications.routes: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\notifications\routes.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_notifications_routes.py)
+[step shared by 1 leaf(s); exit 0 in 4.5s; reason=None]
+....                                                                     [100%]
+============================== warnings summary ===============================
+tests/test_leaf_notifications_routes.py::test_admin_can_queue_a_test_notification_and_see_it_counted
+tests/test_leaf_notifications_routes.py::test_admin_can_queue_a_test_notification_and_see_it_counted
+tests/test_leaf_notifications_routes.py::test_secrets_in_the_test_text_never_reach_the_queue
+tests/test_leaf_notifications_routes.py::test_chat_scope_and_anonymous_are_refused_and_nothing_is_queued
+tests/test_leaf_notifications_routes.py::test_overlong_text_is_rejected
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\api.py:112: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_leaf_notifications_routes.py: 10 warnings
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_leaf_notifications_routes.py::test_admin_can_queue_a_test_notification_and_see_it_counted
+tests/test_leaf_notifications_routes.py::test_admin_can_queue_a_test_notification_and_see_it_counted
+tests/test_leaf_notifications_routes.py::test_secrets_in_the_test_text_never_reach_the_queue
+tests/test_leaf_notifications_routes.py::test_chat_scope_and_anonymous_are_refused_and_nothing_is_queued
+tests/test_leaf_notifications_routes.py::test_overlong_text_is_rejected
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\api.py:124: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 20 warnings in 3.01s
+
+[guard] product modules loaded from installed build: 201; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.notifications.routes loaded by this test process from installed build: True
+
+VERDICT PASS

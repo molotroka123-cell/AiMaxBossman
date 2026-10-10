@@ -1,0 +1,17 @@
+node_id: module-459def4e9443
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: jeffa.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.telegram_calls.speech.jeff_engines')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/telegram_calls/test_jeff_engines.py tests/telegram_calls/test_call_voice_safety.py tests/telegram_calls/test_jeff_english.py tests/telegram_calls/test_stt_real_path.py)
+
+import bcc.telegram_calls.speech.jeff_engines: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\telegram_calls\speech\jeff_engines.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/telegram_calls/test_jeff_engines.py tests/telegram_calls/test_call_voice_safety.py tests/telegram_calls/test_jeff_english.py tests/telegram_calls/test_stt_real_path.py)
+[step shared by 1 leaf(s); exit 0 in 36.3s; reason=None]
+.....................................................................    [100%]
+69 passed in 33.53s
+
+[guard] product modules loaded from installed build: 151; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.telegram_calls.speech.jeff_engines loaded by this test process from installed build: True
+
+VERDICT PASS

@@ -1,0 +1,34 @@
+node_id: module-575dcc5a99f5
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "import bossman.computer_operator.applist" [PYTHONPATH=bossman-core first, then command-center;bossman-core;.] && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_computer_capabilities.py) && (cd bossman-core && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_stage13_wiring_notepad.py)
+
+import bossman.computer_operator.applist: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\computer_operator\applist.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_capabilities.py)
+[step shared by 1 leaf(s); exit 0 in 1.1s; reason=None]
+.........                                                                [100%]
+9 passed in 0.24s
+
+[guard] product modules loaded from installed build: 39; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.computer_operator.applist loaded by this test process from installed build: True
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_stage13_wiring_notepad.py)
+[step shared by 1 leaf(s); exit 1 in 5.4s; reason=tests_failed]
+............................................F...                         [100%]
+================================== FAILURES ===================================
+_____________________ test_live_notepad_actually_launches _____________________
+tests\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches
+    assert procs and procs[0].returncode is None       # процесс живёт
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert ([<Process 7928>] and 3221225477 is None)
+E    +  where 3221225477 = <Process 7928>.returncode
+=========================== short test summary info ===========================
+FAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches
+1 failed, 47 passed in 4.22s
+
+[guard] product modules loaded from installed build: 73; from repo source: []; aux repo-source helper modules: 1
+
+module under test bossman.computer_operator.applist loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

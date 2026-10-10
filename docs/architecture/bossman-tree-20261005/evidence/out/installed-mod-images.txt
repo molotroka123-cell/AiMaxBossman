@@ -1,0 +1,23 @@
+node_id: mod-images
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: mediaux.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('bcc.features.images')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src] && (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_images_cancel_button.py tests/test_images_import_measures_type.py tests/test_images_library_ui.py tests/test_images_native_transform.py tests/test_feat_images.py tests/test_media_roundtrip_studio.py)
+
+import bcc.features.images: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\images.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_images_cancel_button.py tests/test_images_import_measures_type.py tests/test_images_library_ui.py tests/test_images_native_transform.py tests/test_feat_images.py tests/test_media_roundtrip_studio.py)
+[step shared by 1 leaf(s); exit 0 in 52.5s; reason=None]
+ss................s..............................                        [100%]
+============================== warnings summary ===============================
+tests/test_images_native_transform.py::test_import_transform_reopen_and_verify_pixels
+  C:\Users\asd\Bossman\tree-build\6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5\src\command-center\tests\test_images_native_transform.py:49: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+    for r, g, b in img.getdata():
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+46 passed, 3 skipped, 1 warning in 48.43s
+
+[guard] product modules loaded from installed build: 309; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.images loaded by this test process from installed build: True
+
+VERDICT PASS

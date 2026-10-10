@@ -1,0 +1,26 @@
+node_id: mod-jev
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: agcloud.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.features.jev')" [PYTHONPATH=command-center;bossman-core;.] && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_shadow_owner.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jev_bounded_router.py tests/test_jev_browser_fastpath.py tests/test_jev_decision.py tests/test_jev_feature.py)
+
+import bcc.features.jev: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\jev.py
+
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_jev_shadow_owner.py)
+[step shared by 2 leaf(s); exit 0 in 2.7s; reason=None]
+.....s.                                                                  [100%]
+6 passed, 1 skipped in 1.73s
+
+[guard] product modules loaded from installed build: 12; from repo source: []; aux repo-source helper modules: 2
+
+module under test bcc.features.jev loaded by this test process from installed build: False
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_jev_bounded_router.py tests/test_jev_browser_fastpath.py tests/test_jev_decision.py tests/test_jev_feature.py)
+[step shared by 2 leaf(s); exit 0 in 47.7s; reason=None]
+..................................sssss................................. [ 96%]
+...                                                                      [100%]
+70 passed, 5 skipped in 42.73s
+
+[guard] product modules loaded from installed build: 323; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.jev loaded by this test process from installed build: True
+
+VERDICT PASS

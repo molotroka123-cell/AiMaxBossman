@@ -1,0 +1,24 @@
+node_id: reg-oss_whisper
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: jeffb.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.oss.whisper')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_oss_integrations.py tests/test_oss_integrations_routes.py tests/test_oss_whisper.py tests/telegram_calls/test_doctor_row.py tests/telegram_calls/test_manager.py tests/telegram_calls/test_stt_real_path.py)
+
+import bcc.oss.whisper: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\oss\whisper.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_oss_integrations.py tests/test_oss_integrations_routes.py tests/test_oss_whisper.py tests/telegram_calls/test_doctor_row.py tests/telegram_calls/test_manager.py tests/telegram_calls/test_stt_real_path.py)
+[step shared by 1 leaf(s); exit 0 in 24.5s; reason=None]
+........................................................................ [ 75%]
+........................                                                 [100%]
+============================== warnings summary ===============================
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+96 passed, 1 warning in 22.06s
+
+[guard] product modules loaded from installed build: 322; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.oss.whisper loaded by this test process from installed build: True
+
+VERDICT PASS

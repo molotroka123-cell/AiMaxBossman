@@ -1,0 +1,35 @@
+node_id: cap-30
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: mediaux.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('bcc.features.studio')" [PYTHONPATH=worktree command-center;bossman-core;.;apps/*/src] && (cd command-center && python -m pytest -q -rf --tb=line --timeout=60 -p no:cacheprovider tests/test_studio_cloud.py tests/test_studio_integrations.py tests/test_studio_deadline_limits.py tests/test_studio_job_shows_requested_settings.py tests/test_studio_gallery_ui.py)
+
+import bcc.features.studio: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\studio.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_studio_cloud.py tests/test_studio_integrations.py tests/test_studio_deadline_limits.py tests/test_studio_job_shows_requested_settings.py tests/test_studio_gallery_ui.py)
+[step shared by 1 leaf(s); exit 1 in 36.1s; reason=tests_failed]
+.........................................................FF              [100%]
+================================== FAILURES ===================================
+________________ test_studio_composer_gallery_reuse_and_trash _________________
+tests\test_studio_gallery_ui.py:38: in test_studio_composer_gallery_reuse_and_trash
+    browser=_launch(pw)
+            ^^^^^^^^^^^
+tests\test_ux2_thinking_pane.py:27: in _launch
+    raise RuntimeError(browser_reason())
+E   RuntimeError: Chromium недоступен: ни /opt/pw-browsers/chromium, ни путь от Playwright
+_________________ test_studio_reference_import_and_reframe_ui _________________
+tests\test_studio_gallery_ui.py:69: in test_studio_reference_import_and_reframe_ui
+    browser=_launch(pw)
+            ^^^^^^^^^^^
+tests\test_ux2_thinking_pane.py:27: in _launch
+    raise RuntimeError(browser_reason())
+E   RuntimeError: Chromium недоступен: ни /opt/pw-browsers/chromium, ни путь от Playwright
+=========================== short test summary info ===========================
+FAILED tests/test_studio_gallery_ui.py::test_studio_composer_gallery_reuse_and_trash
+FAILED tests/test_studio_gallery_ui.py::test_studio_reference_import_and_reframe_ui
+2 failed, 57 passed in 33.44s
+
+[guard] product modules loaded from installed build: 316; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.studio loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

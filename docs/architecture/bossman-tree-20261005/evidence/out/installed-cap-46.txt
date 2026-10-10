@@ -1,0 +1,41 @@
+node_id: cap-46
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "import bcc.features.resources" [PYTHONPATH=command-center first, then command-center;bossman-core;.] && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_metrics_async_read.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_v6_resources_unmeasured.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_video_studio_integration.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_video_studio_recovery_races.py)
+
+import bcc.features.resources: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\resources.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_metrics_async_read.py)
+[step shared by 1 leaf(s); exit 0 in 2.5s; reason=None]
+................                                                         [100%]
+16 passed in 0.37s
+
+[guard] product modules loaded from installed build: 36; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.resources loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_v6_resources_unmeasured.py)
+[step shared by 1 leaf(s); exit 0 in 7.1s; reason=None]
+......                                                                   [100%]
+6 passed in 3.40s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.resources loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_video_studio_integration.py)
+[step shared by 1 leaf(s); exit 0 in 22.5s; reason=None]
+..................s                                                      [100%]
+18 passed, 1 skipped in 18.60s
+
+[guard] product modules loaded from installed build: 314; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.resources loaded by this test process from installed build: True
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_video_studio_recovery_races.py)
+[step shared by 1 leaf(s); exit 0 in 10.4s; reason=None]
+.......                                                                  [100%]
+7 passed in 6.82s
+
+[guard] product modules loaded from installed build: 308; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.resources loaded by this test process from installed build: True
+
+VERDICT PASS

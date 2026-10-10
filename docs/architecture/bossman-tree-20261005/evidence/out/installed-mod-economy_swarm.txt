@@ -1,0 +1,25 @@
+node_id: mod-economy_swarm
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: agcloud.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.features.economy_swarm')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_economy_swarm.py) && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_bossman_15_economy_scripts.py)
+
+import bcc.features.economy_swarm: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\economy_swarm.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_economy_swarm.py)
+[step shared by 1 leaf(s); exit 0 in 3.8s; reason=None]
+......                                                                   [100%]
+6 passed in 0.29s
+
+[guard] product modules loaded from installed build: 38; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.economy_swarm loaded by this test process from installed build: True
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_bossman_15_economy_scripts.py)
+[step shared by 1 leaf(s); exit 0 in 1.0s; reason=None]
+.....                                                                    [100%]
+5 passed in 0.12s
+
+[guard] product modules loaded from installed build: 0; from repo source: []; aux repo-source helper modules: 2
+
+module under test bcc.features.economy_swarm loaded by this test process from installed build: False
+
+VERDICT PASS

@@ -1,22 +1,22 @@
 node_id: module-a548c779a998
-installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.gateway.router')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router.py tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_router_memory_pressure.py)
 
-import bossman.gateway.router: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\gateway\router.py
+import bossman.gateway.router: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\gateway\router.py
 
 $ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router.py tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py)
-[step shared by 1 leaf(s); exit 1 in 1.2s; reason=tests_failed]
+[step shared by 1 leaf(s); exit 1 in 3.4s; reason=tests_failed]
 FFFFF
 ================================== FAILURES ===================================
 _____________________ test_private_never_routes_to_cloud ______________________
 tests\test_router.py:8: in test_private_never_routes_to_cloud
     route = choose("i2v", private=True, clip_seconds=5, total_clips=96)
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
     reg = registry or load_registry()
                       ^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
     return yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
@@ -25,15 +25,15 @@ C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in rea
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
     return io.open(self, mode, buffering, encoding, errors, newline)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
 _______________________ test_long_series_goes_to_cloud ________________________
 tests\test_router.py:14: in test_long_series_goes_to_cloud
     route = choose("i2v", private=False, clip_seconds=6, total_clips=96)
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
     reg = registry or load_registry()
                       ^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
     return yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
@@ -42,15 +42,15 @@ C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in rea
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
     return io.open(self, mode, buffering, encoding, errors, newline)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
 _________________ test_frames_always_home_best_quality_first __________________
 tests\test_router.py:20: in test_frames_always_home_best_quality_first
     route = choose("frame")
             ^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
     reg = registry or load_registry()
                       ^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
     return yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
@@ -59,15 +59,15 @@ C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in rea
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
     return io.open(self, mode, buffering, encoding, errors, newline)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
 ____________________________ test_qa_prefers_home _____________________________
 tests\test_router.py:25: in test_qa_prefers_home
     route = choose("qa_clip", total_clips=96)
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
     reg = registry or load_registry()
                       ^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
     return yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
@@ -76,15 +76,15 @@ C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in rea
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
     return io.open(self, mode, buffering, encoding, errors, newline)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
 _________________ test_clip_length_ceiling_filters_candidates _________________
 tests\test_router.py:31: in test_clip_length_ceiling_filters_candidates
     choose("t2v", private=True, clip_seconds=60)   # дома нет инструмента на минуту
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:30: in choose
     reg = registry or load_registry()
                       ^^^^^^^^^^^^^^^
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\projects\router.py:24: in load_registry
     return yaml.safe_load(settings.tools_registry.read_text(encoding="utf-8")) or {}
                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
@@ -93,10 +93,10 @@ C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in rea
 C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
     return io.open(self, mode, buffering, encoding, errors, newline)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\tools\\registry.yaml'
 ============================== warnings summary ===============================
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
@@ -107,15 +107,15 @@ FAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...
 FAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...
 FAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...
 !!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
-5 failed, 1 warning in 0.76s
+5 failed, 1 warning in 2.15s
 
 [guard] product modules loaded from installed build: 44; from repo source: []; aux repo-source helper modules: 7
 
 module under test bossman.gateway.router loaded by this test process from installed build: True
 $ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)
-[step shared by 5 leaf(s); exit 0 in 6.6s; reason=None]
+[step shared by 5 leaf(s); exit 0 in 11.7s; reason=None]
 .......                                                                  [100%]
-7 passed in 5.15s
+7 passed in 9.08s
 
 [guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0
 

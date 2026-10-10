@@ -1,0 +1,43 @@
+node_id: mod-coding_recipes
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: agcloud.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "importlib.import_module('bcc.features.coding_recipes')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_coding_recipes.py tests/test_coding_tasks_local_sidecar.py) && (cd . && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_evolution_loop.py tests/test_tree_self_repair_cycle.py)
+
+import bcc.features.coding_recipes: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\coding_recipes.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_coding_recipes.py tests/test_coding_tasks_local_sidecar.py)
+[step shared by 1 leaf(s); exit 0 in 62.1s; reason=None]
+.....................................                                    [100%]
+37 passed in 58.81s
+
+[guard] product modules loaded from installed build: 346; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.coding_recipes loaded by this test process from installed build: True
+$ (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_evolution_loop.py tests/test_tree_self_repair_cycle.py)
+[step shared by 1 leaf(s); exit 1 in 124.0s; reason=tests_failed]
+..F..........................F........                                   [100%]
+================================== FAILURES ===================================
+_ test_stop_during_an_attempt_cancels_it_quickly_and_resume_finishes_the_cycle _
+tests\test_evolution_loop.py:152: in test_stop_during_an_attempt_cancels_it_quickly_and_resume_finishes_the_cycle
+    assert state["status"] == "STOPPED"
+E   AssertionError: assert 'BLOCKED' == 'STOPPED'
+E     
+E     - STOPPED
+E     + BLOCKED
+_________ test_holdouts_run_and_keep_valid_behaviour_on_this_checkout _________
+tests\test_tree_self_repair_cycle.py:91: in test_holdouts_run_and_keep_valid_behaviour_on_this_checkout
+    disc = discovery_nonfinite.run(ROOT)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tools\tree_holdout\discovery_nonfinite.py:71: in run
+    raise RuntimeError(f"imported {mod.__file__}, not the checkout {repo}")
+E   RuntimeError: imported C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bcc\pit\discovery.py, not the checkout C:\Users\asd\Bossman\tree-build\6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5\src
+=========================== short test summary info ===========================
+FAILED tests/test_evolution_loop.py::test_stop_during_an_attempt_cancels_it_quickly_and_resume_finishes_the_cycle
+FAILED tests/test_tree_self_repair_cycle.py::test_holdouts_run_and_keep_valid_behaviour_on_this_checkout
+2 failed, 36 passed in 123.03s (0:02:03)
+
+[guard] product modules loaded from installed build: 41; from repo source: []; aux repo-source helper modules: 7
+
+module under test bcc.features.coding_recipes loaded by this test process from installed build: True
+
+VERDICT FAIL reason=tests_failed

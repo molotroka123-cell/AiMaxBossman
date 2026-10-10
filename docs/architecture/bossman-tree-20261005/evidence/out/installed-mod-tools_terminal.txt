@@ -1,0 +1,56 @@
+node_id: mod-tools_terminal
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: agcloud.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.features.tools_terminal')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_clip_guard.py tests/test_feat_terminal_map.py tests/test_secrem_f009_terminal.py tests/test_secrem_s3_sandbox_default_deny.py tests/test_terminal_context_denial.py tests/test_terminal_remote_script_binding.py tests/test_terminal_remote_script_dispatch.py tests/test_terminal_unrecoverable_delete.py)
+
+import bcc.features.tools_terminal: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\tools_terminal.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_clip_guard.py tests/test_feat_terminal_map.py tests/test_secrem_f009_terminal.py tests/test_secrem_s3_sandbox_default_deny.py tests/test_terminal_context_denial.py tests/test_terminal_remote_script_binding.py tests/test_terminal_remote_script_dispatch.py tests/test_terminal_unrecoverable_delete.py)
+[step shared by 1 leaf(s); exit 0 in 35.7s; reason=None]
+................................................................s.s..... [ 54%]
+...........................................................              [100%]
+============================== warnings summary ===============================
+tests/test_secrem_f009_terminal.py::test_variant_dotdot_and_symlink_escape_resolved_before_authz
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-120 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_secrem_f009_terminal.py::test_ap001_a_planted_token_outside_the_roots_is_never_exfiltrated
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-152 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+129 passed, 2 skipped, 2 warnings in 32.88s
+
+[guard] product modules loaded from installed build: 322; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.tools_terminal loaded by this test process from installed build: True
+
+VERDICT PASS

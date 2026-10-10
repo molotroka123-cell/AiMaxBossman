@@ -1,0 +1,17 @@
+node_id: mod-coding_sessions
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: agcloud.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "importlib.import_module('bcc.features.coding_sessions')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_leaf_coding_sessions.py)
+
+import bcc.features.coding_sessions: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\coding_sessions.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_coding_sessions.py)
+[step shared by 2 leaf(s); exit 0 in 6.6s; reason=None]
+.....                                                                    [100%]
+5 passed in 3.33s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.coding_sessions loaded by this test process from installed build: True
+
+VERDICT PASS

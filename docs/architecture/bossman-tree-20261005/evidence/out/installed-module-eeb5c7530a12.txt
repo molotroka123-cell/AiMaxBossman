@@ -1,0 +1,54 @@
+node_id: module-eeb5c7530a12
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: jeffb.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.pit.models')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_cu_participant_perimeter.py tests/test_jeff_1_5_passport.py tests/test_jeff_2_insights.py tests/test_jeff_2_media.py tests/test_jeff_2_memory_palace.py tests/test_jeff_2_persona.py tests/test_jeff_admin.py tests/test_jeff_memory_self_description.py)
+
+import bcc.pit.models: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\pit\models.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_cu_participant_perimeter.py tests/test_jeff_1_5_passport.py tests/test_jeff_2_insights.py tests/test_jeff_2_media.py tests/test_jeff_2_memory_palace.py tests/test_jeff_2_persona.py tests/test_jeff_admin.py tests/test_jeff_memory_self_description.py)
+[step shared by 1 leaf(s); exit 0 in 50.5s; reason=None]
+................................................................ss...... [ 31%]
+........................................................................ [ 62%]
+........................................................................ [ 93%]
+........s.....                                                           [100%]
+============================== warnings summary ===============================
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_1_5_passport.py::test_window_api_view_and_consent_isolated_and_audited
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+227 passed, 3 skipped, 5 warnings in 46.42s
+
+[guard] product modules loaded from installed build: 377; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.pit.models loaded by this test process from installed build: True
+
+VERDICT PASS

@@ -1,12 +1,12 @@
 node_id: module-e6b90349c6c6
-installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.computer_operator.store')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_computer_loop_guard_manager.py tests/test_computer_operator_owner_control.py tests/test_computer_operator_recovery.py tests/test_operator_core_findings.py tests/test_profiles.py tests/test_secrem_s2_operator_consequence.py tests/test_stage13_auth_redteam.py tests/test_stage13_wiring_notepad.py)
 
-import bossman.computer_operator.store: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\computer_operator\store.py
+import bossman.computer_operator.store: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\computer_operator\store.py
 
 $ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_loop_guard_manager.py tests/test_computer_operator_owner_control.py tests/test_computer_operator_recovery.py tests/test_operator_core_findings.py tests/test_profiles.py tests/test_secrem_s2_operator_consequence.py tests/test_stage13_auth_redteam.py tests/test_stage13_wiring_notepad.py)
-[step shared by 1 leaf(s); exit 1 in 15.7s; reason=tests_failed]
+[step shared by 1 leaf(s); exit 1 in 19.7s; reason=tests_failed]
 ........................................................................ [ 39%]
 ..............................F......................................... [ 79%]
 ..................................F...                                   [100%]
@@ -21,16 +21,16 @@ E     Extra items in the right set:
 E     ('GET', '/')
 E     Use -v to get more diff
 ---------------------------- Captured stderr setup ----------------------------
-{"ts": "2026-10-07T18:57:16.236045+00:00", "level": "INFO", "logger": "bossman.search.tools", "msg": "search: инструменты search.query/search.index зарегистрированы"}
+{"ts": "2026-10-10T12:08:56.392758+00:00", "level": "INFO", "logger": "bossman.search.tools", "msg": "search: инструменты search.query/search.index зарегистрированы"}
 _____________________ test_live_notepad_actually_launches _____________________
 tests\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches
     assert procs and procs[0].returncode is None       # процесс живёт
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   assert ([<Process 24760>] and 3221225477 is None)
-E    +  where 3221225477 = <Process 24760>.returncode
+E   assert ([<Process 3916>] and 3221225477 is None)
+E    +  where 3221225477 = <Process 3916>.returncode
 ============================== warnings summary ===============================
 tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\api.py:112: DeprecationWarning: 
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\api.py:112: DeprecationWarning: 
           on_event is deprecated, use lifespan event handlers instead.
   
           Read more about it in the
@@ -40,7 +40,7 @@ tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_
 
 tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
 tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
           on_event is deprecated, use lifespan event handlers instead.
   
           Read more about it in the
@@ -49,7 +49,7 @@ tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_
     return self.router.on_event(event_type)  # ty: ignore[deprecated]
 
 tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\api.py:124: DeprecationWarning: 
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\api.py:124: DeprecationWarning: 
           on_event is deprecated, use lifespan event handlers instead.
   
           Read more about it in the
@@ -58,14 +58,14 @@ tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_
     @app.on_event("shutdown")
 
 tests/test_stage13_auth_redteam.py::test_b8a_ws_anonymous_closed_1008
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ===========================
 FAILED tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth
 FAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches
-2 failed, 180 passed, 5 warnings in 15.12s
+2 failed, 180 passed, 5 warnings in 18.32s
 
 [guard] product modules loaded from installed build: 203; from repo source: []; aux repo-source helper modules: 8
 

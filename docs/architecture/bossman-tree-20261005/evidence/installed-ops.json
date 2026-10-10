@@ -71,17 +71,17 @@
   },
   {
     "node_id": "mod-autonomy",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bcc.features.autonomy')\" [PYTHONPATH=<installed site-packages>] && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_autonomy_api.py tests/test_autonomy_bounded_loop.py tests/test_autonomy_cli.py tests/test_autonomy_constitution.py tests/test_autonomy_cycle.py tests/test_autonomy_goals.py tests/test_autonomy_hands.py tests/test_autonomy_hands_default.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:25:10+00:00",
-    "finished_at": "2026-10-07T18:25:15+00:00",
-    "output_sha256": "50929c2ce76fe22de14707f286c9148370934d23114cc4640858a6e5d7ba23f4",
-    "output_tail": "pData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1027: in read_text\r\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\r\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nC:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1013: in open\r\n    return io.open(self, mode, buffering, encoding, errors, newline)\r\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-eba6dc592ad9\\\\runtime\\\\Lib\\\\schemas\\\\autonomy\\\\task.schema.json'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_autonomy_api.py::test_blocked_constitution_is_visible_and_disables_apply\r\nFAILED tests/test_autonomy_api.py::test_goal_detail_has_evidence_and_disabled_actions_before_the_gate\r\nFAILED tests/test_autonomy_api.py::test_apply_records_decision_returns_commands_and_does_not_release\r\nFAILED tests/test_autonomy_api.py::test_reject_and_revise - FileNotFoundError...\r\nFAILED tests/test_autonomy_api.py::test_reject_completes_as_rejected_by_user\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed, 2 passed in 4.38s\r\n\n[guard] product modules loaded from installed build: 326; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.autonomy loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:16:28+00:00",
+    "finished_at": "2026-10-10T12:19:44+00:00",
+    "output_sha256": "f7fbe6e394b2b455aa1850c813421545d070f2f56cb6d288e1e480e3b5110ca0",
+    "output_tail": "...............F........... [ 45%]\r\n........................................................................ [ 90%]\r\n................                                                         [100%]\r\n================================== FAILURES ===================================\r\n__________________ test_real_constitution_exists_and_hashes ___________________\r\ntests\\test_autonomy_constitution.py:35: in test_real_constitution_exists_and_hashes\r\n    assert c.default_constitution_path().is_file()\r\nE   AssertionError: assert False\r\nE    +  where False = is_file()\r\nE    +    where is_file = WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib/docs/constitution/BOSSMAN_CONSTITUTION.md').is_file\r\nE    +      where WindowsPath('C:/Users/asd/Bossman/app/BOSSMAN-Windows-x64-6de18f8d9a08/runtime/Lib/docs/constitution/BOSSMAN_CONSTITUTION.md') = <function default_constitution_path at 0x000001504C5977E0>()\r\nE    +        where <function default_constitution_path at 0x000001504C5977E0> = c.default_constitution_path\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_autonomy_constitution.py::test_real_constitution_exists_and_hashes\r\n1 failed, 159 passed in 192.88s (0:03:12)\r\n\n[guard] product modules loaded from installed build: 349; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.autonomy loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "mod-bossnet_nodes_v16",
@@ -141,17 +141,17 @@
   },
   {
     "node_id": "mod-deep_fix",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bcc.features.deep_fix')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_deep_fix_mode.py) && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_deep_fix_gate.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:20:42+00:00",
-    "finished_at": "2026-10-07T18:27:46+00:00",
-    "output_sha256": "c0059d5fdd15d9e789fcbe6feca03032c918379413cf8edd32bc4d5bcccbd425",
-    "output_tail": "t_data, default_docs = default_dirs()\r\n                                 ^^^^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\learning\\trace.py:75: in default_dirs\r\n    raise LearningStoreLocationError(\r\nE   learning.trace.LearningStoreLocationError: learning package is installed at C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages; the checkout default would write into the installed application. Pass data_dir explicitly or set BOSSMAN_LEARNING_DIR.\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_deep_fix_mode.py::test_store_learning_record_routes_partial_to_failed_corpus\r\n1 failed, 7 passed in 0.21s\r\n\n[guard] product modules loaded from installed build: 31; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bcc.features.deep_fix loaded by this test process from installed build: False\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_deep_fix_gate.py)\n[step shared by 1 leaf(s); exit 0 in 4.1s; reason=None]\n...                                                                      [100%]\r\n3 passed in 2.84s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.deep_fix loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:09:49+00:00",
+    "finished_at": "2026-10-10T12:23:15+00:00",
+    "output_sha256": "2100240c85abd3327d6b35cd730b60bf764854dcf583c9cc874d1aac82b75887",
+    "output_tail": "t_data, default_docs = default_dirs()\r\n                                 ^^^^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\learning\\trace.py:75: in default_dirs\r\n    raise LearningStoreLocationError(\r\nE   learning.trace.LearningStoreLocationError: learning package is installed at C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages; the checkout default would write into the installed application. Pass data_dir explicitly or set BOSSMAN_LEARNING_DIR.\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_deep_fix_mode.py::test_store_learning_record_routes_partial_to_failed_corpus\r\n1 failed, 7 passed in 0.34s\r\n\n[guard] product modules loaded from installed build: 31; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bcc.features.deep_fix loaded by this test process from installed build: False\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_deep_fix_gate.py)\n[step shared by 1 leaf(s); exit 0 in 9.6s; reason=None]\n...                                                                      [100%]\r\n3 passed in 5.69s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.deep_fix loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "mod-diag_bundle",
@@ -169,17 +169,17 @@
   },
   {
     "node_id": "mod-file_intelligence",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bcc.features.file_intelligence')\" [PYTHONPATH=<installed site-packages>] && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_file_intelligence_contract.py tests/test_file_intelligence_feature.py tests/test_file_intelligence_hostile.py tests/test_file_intelligence_recovery.py tests/test_oss_docling.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:28:09+00:00",
-    "finished_at": "2026-10-07T18:28:25+00:00",
-    "output_sha256": "c37bf152e4d8334ceec2eba582c8cd2cd487b24aca7cd3acbbc7738b26b9ee07",
-    "output_tail": "led]\n........................................................................ [ 48%]\r\n......F...ss......ssss.................................................. [ 96%]\r\n......                                                                   [100%]\r\n================================== FAILURES ===================================\r\n_____________ test_every_endpoint_is_reachable_in_a_fresh_process _____________\r\ntests\\test_file_intelligence_feature.py:255: in test_every_endpoint_is_reachable_in_a_fresh_process\r\n    assert result.returncode == 0, result.stderr[-1500:]\r\nE   AssertionError: Traceback (most recent call last):\r\nE       File \"<string>\", line 5, in <module>\r\nE     ModuleNotFoundError: No module named 'tests'\r\nE     \r\nE   assert 1 == 0\r\nE    +  where 1 = CompletedProcess(args=['C:\\\\Users\\\\asd\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe', '-c', '\\nimport asyn...ck (most recent call last):\\n  File \"<string>\", line 5, in <module>\\nModuleNotFoundError: No module named \\'tests\\'\\n').returncode\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_file_intelligence_feature.py::test_every_endpoint_is_reachable_in_a_fresh_process\r\n1 failed, 143 passed, 6 skipped in 13.98s\r\n\n[guard] product modules loaded from installed build: 309; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.file_intelligence loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:24:15+00:00",
+    "finished_at": "2026-10-10T12:24:48+00:00",
+    "output_sha256": "cdc5a793291f576b44ac3d76512584ca5789d5557754d4e2142740e35d3ba79c",
+    "output_tail": "led]\n........................................................................ [ 48%]\r\n......F...ss......ssss.................................................. [ 96%]\r\n......                                                                   [100%]\r\n================================== FAILURES ===================================\r\n_____________ test_every_endpoint_is_reachable_in_a_fresh_process _____________\r\ntests\\test_file_intelligence_feature.py:255: in test_every_endpoint_is_reachable_in_a_fresh_process\r\n    assert result.returncode == 0, result.stderr[-1500:]\r\nE   AssertionError: Traceback (most recent call last):\r\nE       File \"<string>\", line 5, in <module>\r\nE     ModuleNotFoundError: No module named 'tests'\r\nE     \r\nE   assert 1 == 0\r\nE    +  where 1 = CompletedProcess(args=['C:\\\\Users\\\\asd\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe', '-c', '\\nimport asyn...ck (most recent call last):\\n  File \"<string>\", line 5, in <module>\\nModuleNotFoundError: No module named \\'tests\\'\\n').returncode\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_file_intelligence_feature.py::test_every_endpoint_is_reachable_in_a_fresh_process\r\n1 failed, 143 passed, 6 skipped in 28.87s\r\n\n[guard] product modules loaded from installed build: 309; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.file_intelligence loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "mod-forks",
@@ -379,17 +379,17 @@
   },
   {
     "node_id": "mod-plugins",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bcc.features.plugins')\" [PYTHONPATH=<installed site-packages>] && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_plugins_adapter.py tests/test_plugins_obsidian_not_a_file.py tests/test_plugins_sql_uri_encoding.py tests/test_plugins_stub_not_success.py tests/test_capability_tree.py tests/test_feat_openrouter_owner_path.py tests/test_plugin_security.py tests/test_plugin_security_malformed_url.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:32:19+00:00",
-    "finished_at": "2026-10-07T18:32:43+00:00",
-    "output_sha256": "e79b0c045a977e3318621ca6484dd9a878228092d33e15baa3109e60143368c3",
-    "output_tail": "======= warnings summary ===============================\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\r\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\r\n\r\ntests/test_capability_tree.py::test_full_app_mounts_capability_tree\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\fastapi\\openapi\\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__get for function file_commander_view at C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bcc\\features\\apps_control.py\r\n    warnings.warn(message, stacklevel=1)\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_capability_tree.py::test_ui_declares_working_status_with_distinct_color\r\n1 failed, 160 passed, 2 warnings in 22.22s\r\n\n[guard] product modules loaded from installed build: 331; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.plugins loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:38:14+00:00",
+    "finished_at": "2026-10-10T12:38:53+00:00",
+    "output_sha256": "1d101dbe20f2f2ff65ac03c6dbe31a0ea8a19e8ff9047e0c6fa6fb48ea3c3ad9",
+    "output_tail": "======= warnings summary ===============================\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\r\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\r\n\r\ntests/test_capability_tree.py::test_full_app_mounts_capability_tree\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\fastapi\\openapi\\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__get for function file_commander_view at C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bcc\\features\\apps_control.py\r\n    warnings.warn(message, stacklevel=1)\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_capability_tree.py::test_ui_declares_working_status_with_distinct_color\r\n1 failed, 158 passed, 2 warnings in 36.69s\r\n\n[guard] product modules loaded from installed build: 331; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.plugins loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "mod-provenance",
@@ -533,17 +533,17 @@
   },
   {
     "node_id": "mod-telegram_settings",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bcc.features.telegram_settings')\" [PYTHONPATH=<installed site-packages>] && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_telegram_settings.py tests/test_telegram_settings_ui.py tests/test_backend_target_rc19.py tests/test_telegram_orphan_rc19.py tests/test_telegram_store_location.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:33:36+00:00",
-    "finished_at": "2026-10-07T18:34:19+00:00",
-    "output_sha256": "b88710883ba985f7c3b6ad248e4923e1cc97d088dd59d14ea65d2163db1b52ab",
-    "output_tail": "                                              [100%]\r\n================================== FAILURES ===================================\r\n_______________ test_local_state_never_lands_in_the_repository ________________\r\ntests\\test_telegram_settings.py:424: in test_local_state_never_lands_in_the_repository\r\n    gitignore = (repo / \".gitignore\").read_text(encoding=\"utf-8\")\r\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nC:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1027: in read_text\r\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\r\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nC:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1013: in open\r\n    return io.open(self, mode, buffering, encoding, errors, newline)\r\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-eba6dc592ad9\\\\runtime\\\\Lib\\\\.gitignore'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_telegram_settings.py::test_local_state_never_lands_in_the_repository\r\n1 failed, 78 passed, 1 skipped in 42.15s\r\n\n[guard] product modules loaded from installed build: 419; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.telegram_settings loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:43:14+00:00",
+    "finished_at": "2026-10-10T12:44:44+00:00",
+    "output_sha256": "fb3d70d56ceec591345afb0973e9bea8beea5b6fadeeee7dd7313127b9a1aa37",
+    "output_tail": "                                    [100%]\r\n================================== FAILURES ===================================\r\n_______________ test_local_state_never_lands_in_the_repository ________________\r\ntests\\test_telegram_settings.py:424: in test_local_state_never_lands_in_the_repository\r\n    gitignore = (repo / \".gitignore\").read_text(encoding=\"utf-8\")\r\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nC:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1027: in read_text\r\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\r\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nC:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1013: in open\r\n    return io.open(self, mode, buffering, encoding, errors, newline)\r\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\.gitignore'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_telegram_settings.py::test_local_state_never_lands_in_the_repository\r\n1 failed, 78 passed, 1 skipped in 87.49s (0:01:27)\r\n\n[guard] product modules loaded from installed build: 419; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bcc.features.telegram_settings loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "mod-testing_period",
@@ -925,17 +925,17 @@
   },
   {
     "node_id": "module-1b34d40914f1",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.computer_operator.observer')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_observation_pipeline.py tests/test_computer_operator_owner_control.py tests/test_stage13_wiring_notepad.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:57:54+00:00",
-    "finished_at": "2026-10-07T18:57:58+00:00",
-    "output_sha256": "f8e1b0e5c985522b43696ead81f2de3bbf282aeda076eef35a959a87305b4dcf",
-    "output_tail": "pad.py)\n\nimport bossman.computer_operator.observer: ok c:\\users\\asd\\bossman\\app\\bossman-windows-x64-eba6dc592ad9\\runtime\\lib\\site-packages\\bossman\\computer_operator\\observer.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_observation_pipeline.py tests/test_computer_operator_owner_control.py tests/test_stage13_wiring_notepad.py)\n[step shared by 1 leaf(s); exit 1 in 4.0s; reason=tests_failed]\n...............................................................F...      [100%]\r\n================================== FAILURES ===================================\r\n_____________________ test_live_notepad_actually_launches _____________________\r\ntests\\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches\r\n    assert procs and procs[0].returncode is None       # процесс живёт\r\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   assert ([<Process 7468>] and 3221225477 is None)\r\nE    +  where 3221225477 = <Process 7468>.returncode\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches\r\n1 failed, 66 passed in 3.52s\r\n\n[guard] product modules loaded from installed build: 73; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.computer_operator.observer loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:08:58+00:00",
+    "finished_at": "2026-10-10T12:09:05+00:00",
+    "output_sha256": "3982deef467d42940434f9914779e2e72c9d936d6172990ccee548708d1875cd",
+    "output_tail": "d.py)\n\nimport bossman.computer_operator.observer: ok c:\\users\\asd\\bossman\\app\\bossman-windows-x64-6de18f8d9a08\\runtime\\lib\\site-packages\\bossman\\computer_operator\\observer.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_observation_pipeline.py tests/test_computer_operator_owner_control.py tests/test_stage13_wiring_notepad.py)\n[step shared by 1 leaf(s); exit 1 in 6.9s; reason=tests_failed]\n...............................................................F...      [100%]\r\n================================== FAILURES ===================================\r\n_____________________ test_live_notepad_actually_launches _____________________\r\ntests\\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches\r\n    assert procs and procs[0].returncode is None       # процесс живёт\r\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   assert ([<Process 17108>] and 3221225477 is None)\r\nE    +  where 3221225477 = <Process 17108>.returncode\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches\r\n1 failed, 66 passed in 5.79s\r\n\n[guard] product modules loaded from installed build: 73; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.computer_operator.observer loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-1c2e0a6599c0",
@@ -1009,17 +1009,17 @@
   },
   {
     "node_id": "module-28048916831a",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 5) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.projects.router')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router.py tests/test_core_subprocess_timeouts.py tests/test_memory_and_state_integrity.py) && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:00:44+00:00",
-    "finished_at": "2026-10-07T19:06:28+00:00",
-    "output_sha256": "557dcb0cdaa5ef9c9b55208c40fae2530eae00e321715810d7a204ed8b6b559d",
-    "output_tail": "irectory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-eba6dc592ad9\\\\runtime\\\\Lib\\\\site-packages\\\\tools\\\\registry.yaml'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 0.88s\r\n\n[guard] product modules loaded from installed build: 145; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.projects.router loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 6.6s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 5.15s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.projects.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:27+00:00",
+    "finished_at": "2026-10-10T12:41:15+00:00",
+    "output_sha256": "32482c1977a8ce96b0db2db0eb857b22af4ae96e7c019f283a0255079ed04724",
+    "output_tail": "rectory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\tools\\\\registry.yaml'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 1.99s\r\n\n[guard] product modules loaded from installed build: 145; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.projects.router loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 11.7s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 9.08s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.projects.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-2bd9c1e2cdfd",
@@ -1135,17 +1135,17 @@
   },
   {
     "node_id": "module-3a8ad5c2d247",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.computer_operator.subsystem')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_adapter_p1_findings.py tests/test_computer_control_authorization.py tests/test_profiles.py tests/test_stage13_wiring_notepad.py tests/test_uitars_grounding.py tests/test_v26_operator_fixes.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:54:58+00:00",
-    "finished_at": "2026-10-07T18:55:02+00:00",
-    "output_sha256": "2077c8ada86bc40b03418487a4f3fe0bf702c7dfb43ca4e302dde675a616aa8e",
-    "output_tail": "r\\subsystem.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_adapter_p1_findings.py tests/test_computer_control_authorization.py tests/test_profiles.py tests/test_stage13_wiring_notepad.py tests/test_uitars_grounding.py tests/test_v26_operator_fixes.py)\n[step shared by 1 leaf(s); exit 1 in 4.0s; reason=tests_failed]\n........................................................................ [ 56%]\r\n......................F................................                  [100%]\r\n================================== FAILURES ===================================\r\n_____________________ test_live_notepad_actually_launches _____________________\r\ntests\\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches\r\n    assert procs and procs[0].returncode is None       # процесс живёт\r\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   assert ([<Process 22096>] and 3221225477 is None)\r\nE    +  where 3221225477 = <Process 22096>.returncode\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches\r\n1 failed, 126 passed in 3.21s\r\n\n[guard] product modules loaded from installed build: 112; from repo source: []; aux repo-source helper modules: 6\n\nmodule under test bossman.computer_operator.subsystem loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:07:50+00:00",
+    "finished_at": "2026-10-10T12:07:57+00:00",
+    "output_sha256": "6da26e8078288eaceed60fec833309d06d575a49cb7696b89ad5ba966da08328",
+    "output_tail": "r\\subsystem.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_adapter_p1_findings.py tests/test_computer_control_authorization.py tests/test_profiles.py tests/test_stage13_wiring_notepad.py tests/test_uitars_grounding.py tests/test_v26_operator_fixes.py)\n[step shared by 1 leaf(s); exit 1 in 7.4s; reason=tests_failed]\n........................................................................ [ 56%]\r\n......................F................................                  [100%]\r\n================================== FAILURES ===================================\r\n_____________________ test_live_notepad_actually_launches _____________________\r\ntests\\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches\r\n    assert procs and procs[0].returncode is None       # процесс живёт\r\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   assert ([<Process 23356>] and 3221225477 is None)\r\nE    +  where 3221225477 = <Process 23356>.returncode\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches\r\n1 failed, 126 passed in 5.83s\r\n\n[guard] product modules loaded from installed build: 112; from repo source: []; aux repo-source helper modules: 6\n\nmodule under test bossman.computer_operator.subsystem loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-3adca9c27bdb",
@@ -1177,17 +1177,17 @@
   },
   {
     "node_id": "module-3e2b4af78a2e",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
-    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2, 5) [FAIL: tests_failed]",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 4, 5) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.search_everything.router')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router.py) && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:00:48+00:00",
-    "finished_at": "2026-10-07T19:06:28+00:00",
-    "output_sha256": "2806a6cacf3a2b320b4638b4727c5ca25dffe737b631dfc706c3e4b5b031c008",
-    "output_tail": "rs\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-eba6dc592ad9\\\\runtime\\\\Lib\\\\site-packages\\\\tools\\\\registry.yaml'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 0.20s\r\n\n[guard] product modules loaded from installed build: 30; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.search_everything.router loaded by this test process from installed build: False\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 6.6s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 5.15s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.search_everything.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:30+00:00",
+    "finished_at": "2026-10-10T12:41:15+00:00",
+    "output_sha256": "ae72fce92866c09e7463840e77f5080d9ba1cc7f1f4c0f360e6f7557349603ba",
+    "output_tail": "s\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\tools\\\\registry.yaml'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 0.46s\r\n\n[guard] product modules loaded from installed build: 30; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.search_everything.router loaded by this test process from installed build: False\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 11.7s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 9.08s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.search_everything.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-3f0a90670bba",
@@ -1261,17 +1261,17 @@
   },
   {
     "node_id": "module-46de893ccfc9",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.notifications.telegram_transport')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_telegram_transport_response_truth.py tests/test_alias_and_auth_boundary.py tests/test_approval_create_emits_event.py tests/test_auth_approval_findings.py tests/test_telegram_egress_guard.py tests/test_telegram_webhook_security.py) && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_local_russian_voice.py tests/telegram_calls/test_call_voice_safety.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:01:49+00:00",
-    "finished_at": "2026-10-07T19:05:32+00:00",
-    "output_sha256": "23397408d13df75c68ba429b0f5f64e849edadc4320d6ad4fe6ed49d5c467f36",
-    "output_tail": "    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 58 passed, 4 warnings in 2.24s\r\n\n[guard] product modules loaded from installed build: 223; from repo source: []; aux repo-source helper modules: 6\n\nmodule under test bossman.notifications.telegram_transport loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_local_russian_voice.py tests/telegram_calls/test_call_voice_safety.py)\n[step shared by 1 leaf(s); exit 0 in 15.6s; reason=None]\n.............................                                            [100%]\r\n29 passed in 14.32s\r\n\n[guard] product modules loaded from installed build: 150; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.notifications.telegram_transport loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:42+00:00",
+    "finished_at": "2026-10-10T12:35:09+00:00",
+    "output_sha256": "73fd3e0bb133f7d47fe0302ad015bcb11a68866579cd135db3e04804c175de55",
+    "output_tail": "    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 58 passed, 4 warnings in 3.30s\r\n\n[guard] product modules loaded from installed build: 223; from repo source: []; aux repo-source helper modules: 6\n\nmodule under test bossman.notifications.telegram_transport loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_local_russian_voice.py tests/telegram_calls/test_call_voice_safety.py)\n[step shared by 1 leaf(s); exit 0 in 20.4s; reason=None]\n.............................                                            [100%]\r\n29 passed in 18.08s\r\n\n[guard] product modules loaded from installed build: 150; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.notifications.telegram_transport loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-47931d1b717a",
@@ -1303,17 +1303,17 @@
   },
   {
     "node_id": "module-4b4b01b5e71a",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.computer_operator.obligations')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_at01_completion_obligations.py tests/test_operator_at01_at03_regression.py tests/test_stage13_auth_redteam.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:55:51+00:00",
-    "finished_at": "2026-10-07T18:56:07+00:00",
-    "output_sha256": "2c0f4625ddc544100f099c9ed823bda1ba98145c9a8453c1d2c641806c2e8d70",
-    "output_tail": "/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\ntests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\ntests/test_stage13_auth_redteam.py::test_b8a_ws_anonymous_closed_1008\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\r\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n1 failed, 63 passed, 5 warnings in 16.05s\r\n\n[guard] product modules loaded from installed build: 202; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.computer_operator.obligations loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:08:17+00:00",
+    "finished_at": "2026-10-10T12:08:40+00:00",
+    "output_sha256": "0378d997440bdc80918944e48efe6eb01afc1fb14585651b646c4a12b9003378",
+    "output_tail": "/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\ntests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\ntests/test_stage13_auth_redteam.py::test_b8a_ws_anonymous_closed_1008\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\r\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n1 failed, 63 passed, 5 warnings in 21.39s\r\n\n[guard] product modules loaded from installed build: 202; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.computer_operator.obligations loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-4b4e00d7c711",
@@ -1331,17 +1331,17 @@
   },
   {
     "node_id": "module-4b5988e098bd",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.gateway.config')\" [PYTHONPATH=<installed site-packages>] && (cd . && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_local_hardware_ab_portability.py) && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_alias_and_auth_boundary.py tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:52:55+00:00",
-    "finished_at": "2026-10-07T18:55:15+00:00",
-    "output_sha256": "d98c8d23b8bdb0579d7aa4235ad7394c6b24999b3ba14553bba9b7cf572e9322",
-    "output_tail": "e\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\ntests/test_alias_and_auth_boundary.py::test_webhook_rejects_missing_and_wrong_secret\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 101 passed, 5 warnings in 3.05s\r\n\n[guard] product modules loaded from installed build: 206; from repo source: []; aux repo-source helper modules: 7\n\nmodule under test bossman.gateway.config loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:07:13+00:00",
+    "finished_at": "2026-10-10T12:08:10+00:00",
+    "output_sha256": "de984c6c19fac3f66263d34d5ff7213edf17ebc7d4cdc63aa61448fe871ca50e",
+    "output_tail": "e\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\ntests/test_alias_and_auth_boundary.py::test_webhook_rejects_missing_and_wrong_secret\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 101 passed, 5 warnings in 5.07s\r\n\n[guard] product modules loaded from installed build: 206; from repo source: []; aux repo-source helper modules: 7\n\nmodule under test bossman.gateway.config loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-4c9ee5995fb6",
@@ -1387,17 +1387,17 @@
   },
   {
     "node_id": "module-5386412e9f11",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.ai_lab.sanitizer')\" [PYTHONPATH=<installed site-packages>] && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_telegram_settings.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:06:33+00:00",
-    "finished_at": "2026-10-07T19:07:01+00:00",
-    "output_sha256": "1328a65b1b91ba32b0c1eef553bf0e263866d9a2cd040940f7b729f333f264b7",
-    "output_tail": "..............................F.                               [100%]\r\n================================== FAILURES ===================================\r\n_______________ test_local_state_never_lands_in_the_repository ________________\r\ntests\\test_telegram_settings.py:424: in test_local_state_never_lands_in_the_repository\r\n    gitignore = (repo / \".gitignore\").read_text(encoding=\"utf-8\")\r\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nC:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1027: in read_text\r\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\r\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nC:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1013: in open\r\n    return io.open(self, mode, buffering, encoding, errors, newline)\r\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-eba6dc592ad9\\\\runtime\\\\Lib\\\\.gitignore'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_telegram_settings.py::test_local_state_never_lands_in_the_repository\r\n1 failed, 41 passed in 26.63s\r\n\n[guard] product modules loaded from installed build: 415; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.ai_lab.sanitizer loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:43:20+00:00",
+    "finished_at": "2026-10-10T12:44:08+00:00",
+    "output_sha256": "2bdae113ec7622281a212873fce7d4bd2ca654d1ecd5ec82413422709fa5e1a1",
+    "output_tail": "..............................F.                               [100%]\r\n================================== FAILURES ===================================\r\n_______________ test_local_state_never_lands_in_the_repository ________________\r\ntests\\test_telegram_settings.py:424: in test_local_state_never_lands_in_the_repository\r\n    gitignore = (repo / \".gitignore\").read_text(encoding=\"utf-8\")\r\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nC:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1027: in read_text\r\n    with self.open(mode='r', encoding=encoding, errors=errors) as f:\r\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nC:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\pathlib.py:1013: in open\r\n    return io.open(self, mode, buffering, encoding, errors, newline)\r\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\.gitignore'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_telegram_settings.py::test_local_state_never_lands_in_the_repository\r\n1 failed, 41 passed in 44.61s\r\n\n[guard] product modules loaded from installed build: 415; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.ai_lab.sanitizer loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-5c36f1523214",
@@ -1415,17 +1415,17 @@
   },
   {
     "node_id": "module-5c5bd2e61f67",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
-    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2, 5) [FAIL: tests_failed]",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 4, 5) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.profiles.router')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router.py) && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:00:48+00:00",
-    "finished_at": "2026-10-07T19:06:28+00:00",
-    "output_sha256": "efd0e86cfde6fd7f9aa01ce2f26c8f62aaa041d110e80a4d964ea053ca7209e6",
-    "output_tail": "irectory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-eba6dc592ad9\\\\runtime\\\\Lib\\\\site-packages\\\\tools\\\\registry.yaml'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 0.20s\r\n\n[guard] product modules loaded from installed build: 30; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.profiles.router loaded by this test process from installed build: False\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 6.6s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 5.15s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.profiles.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:30+00:00",
+    "finished_at": "2026-10-10T12:41:15+00:00",
+    "output_sha256": "e3c58d35687e0c2029bb523d444ea10e7d9ce37164a0a173f46eb63e3b3cf98c",
+    "output_tail": "rectory: 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\tools\\\\registry.yaml'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 0.46s\r\n\n[guard] product modules loaded from installed build: 30; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.profiles.router loaded by this test process from installed build: False\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 11.7s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 9.08s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.profiles.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-5d128fcf8dab",
@@ -1597,17 +1597,17 @@
   },
   {
     "node_id": "module-745ed9f64ff7",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.gateway.auth')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_auth_approval_findings.py tests/test_alias_and_auth_boundary.py tests/test_gateway_loopback_proxy.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:56:43+00:00",
-    "finished_at": "2026-10-07T18:56:46+00:00",
-    "output_sha256": "a082a412c6aa3f62ff2235ef3aeca523602a1d2358e8521260c032b406cabc8f",
-    "output_tail": "       [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\api.py:124\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 51 passed, 4 warnings in 2.05s\r\n\n[guard] product modules loaded from installed build: 223; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.gateway.auth loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:08:27+00:00",
+    "finished_at": "2026-10-10T12:08:32+00:00",
+    "output_sha256": "e025b1caa4f5f545f89c93308161aa19c24f67372cc2dfb4cc8bad868daa872c",
+    "output_tail": "       [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\api.py:124\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 51 passed, 4 warnings in 3.16s\r\n\n[guard] product modules loaded from installed build: 223; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.gateway.auth loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-74b9d09c9a49",
@@ -1625,17 +1625,17 @@
   },
   {
     "node_id": "module-76a14f0ce102",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
-    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3, 1) [FAIL: tests_failed]",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.notifications.runtime')\" [PYTHONPATH=<installed site-packages>] && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_runtime_package_contract.py tests/test_runtime_source_identity.py) && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_alias_and_auth_boundary.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:55:15+00:00",
-    "finished_at": "2026-10-07T19:06:33+00:00",
-    "output_sha256": "53a9a6cbd8e55bb2c63458d31920b8968aa511f02b35bbe4ed65103fbf322029",
-    "output_tail": "       [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\ntests/test_alias_and_auth_boundary.py::test_webhook_rejects_missing_and_wrong_secret\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 10 passed, 4 warnings in 1.10s\r\n\n[guard] product modules loaded from installed build: 202; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.notifications.runtime loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:08:06+00:00",
+    "finished_at": "2026-10-10T12:41:23+00:00",
+    "output_sha256": "a25d77733eacbeee25ad89153a813c0a8daff5cd16188a431d42b64edadfe7a9",
+    "output_tail": "       [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\ntests/test_alias_and_auth_boundary.py::test_webhook_rejects_missing_and_wrong_secret\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 10 passed, 4 warnings in 1.92s\r\n\n[guard] product modules loaded from installed build: 202; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.notifications.runtime loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-76ae682ed2e4",
@@ -1653,31 +1653,31 @@
   },
   {
     "node_id": "module-771a003071ca",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
-    "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2) [FAIL: tests_failed]",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.benchmark.fixture_runtime')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_benchmark_truth.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:56:57+00:00",
-    "finished_at": "2026-10-07T18:56:59+00:00",
-    "output_sha256": "7e63da7c275bb7707d0901643c64b99e68802c2bfe47ce5b963aeca974d1ebda",
-    "output_tail": "n_commit ______\r\ntests\\test_benchmark_truth.py:88: in test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit\r\n    old = run_isolated(FIRST_BENCHMARK_SHA, \"smoke\", tmp_path)\r\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit '8a13f1d35cd68a57f1525bcc6a1a1c1b6c6d191a'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_benchmark_truth.py::test_bench_mode_001_mock_success_never_enters_real_capability_score\r\nFAILED tests/test_benchmark_truth.py::test_bench_mode_002_fixture_cannot_self_declare_real_sandbox\r\nFAILED tests/test_benchmark_truth.py::test_bench_sha_003_label_without_matching_checkout_is_refused\r\nFAILED tests/test_benchmark_truth.py::test_bench_provenance_001_every_report_is_bound_to_actual_head_environment_dataset\r\nFAILED tests/test_benchmark_truth.py::test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 0.76s\r\n\n[guard] product modules loaded from installed build: 39; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.benchmark.fixture_runtime loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:08:38+00:00",
+    "finished_at": "2026-10-10T12:08:40+00:00",
+    "output_sha256": "d84fd49add3d96b9132e3b1efa377e0b512e548b59ab96d5f837add52798dd1a",
+    "output_tail": "n_commit ______\r\ntests\\test_benchmark_truth.py:88: in test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit\r\n    old = run_isolated(FIRST_BENCHMARK_SHA, \"smoke\", tmp_path)\r\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit '8a13f1d35cd68a57f1525bcc6a1a1c1b6c6d191a'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_benchmark_truth.py::test_bench_mode_001_mock_success_never_enters_real_capability_score\r\nFAILED tests/test_benchmark_truth.py::test_bench_mode_002_fixture_cannot_self_declare_real_sandbox\r\nFAILED tests/test_benchmark_truth.py::test_bench_sha_003_label_without_matching_checkout_is_refused\r\nFAILED tests/test_benchmark_truth.py::test_bench_provenance_001_every_report_is_bound_to_actual_head_environment_dataset\r\nFAILED tests/test_benchmark_truth.py::test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 1.11s\r\n\n[guard] product modules loaded from installed build: 39; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.benchmark.fixture_runtime loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-79d58034a65f",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
-    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2, 1) [FAIL: tests_failed]",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.computer_operator.manager')\" [PYTHONPATH=<installed site-packages>] && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/telegram_calls/test_manager.py) && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_loop_guard_manager.py tests/test_computer_operator_owner_control.py tests/test_computer_operator_recovery.py tests/test_operator_step_timeout.py tests/test_profiles.py tests/test_secrem_s2_operator_consequence.py tests/test_stage13_auth_redteam.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:57:28+00:00",
-    "finished_at": "2026-10-07T19:02:13+00:00",
-    "output_sha256": "8378368f9b91dbb8fcc406142a734bce3a3b1f6cb4e00aff4d0a514757193595",
-    "output_tail": "nts/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\ntests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\ntests/test_stage13_auth_redteam.py::test_b8a_ws_anonymous_closed_1008\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\r\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n1 failed, 115 passed, 5 warnings in 25.67s\r\n\n[guard] product modules loaded from installed build: 203; from repo source: []; aux repo-source helper modules: 7\n\nmodule under test bossman.computer_operator.manager loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:08:53+00:00",
+    "finished_at": "2026-10-10T12:15:48+00:00",
+    "output_sha256": "c683ec6209df5650c1fe340e0957626f1bf6f1cdc290cfbd406990e027ae8cf7",
+    "output_tail": "nts/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\ntests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\ntests/test_stage13_auth_redteam.py::test_b8a_ws_anonymous_closed_1008\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\r\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n1 failed, 115 passed, 5 warnings in 28.33s\r\n\n[guard] product modules loaded from installed build: 203; from repo source: []; aux repo-source helper modules: 7\n\nmodule under test bossman.computer_operator.manager loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-7a65bf88fb04",
@@ -1793,17 +1793,17 @@
   },
   {
     "node_id": "module-883a6692992b",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.projects.runner')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_runner_answer_contract.py tests/test_runner_cybersec_wiring.py tests/test_runner_holdout_exclusion.py tests/test_runner_memory_wiring.py tests/test_core_subprocess_timeouts.py tests/test_hardening_p0_p1.py tests/test_memory_and_state_integrity.py tests/test_secrem_f005_projects.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:00:48+00:00",
-    "finished_at": "2026-10-07T19:01:15+00:00",
-    "output_sha256": "f3636410f44be637b367d8b455f00bc6f867b94f9997cb8ab77b20ebb0b3e55f",
-    "output_tail": "_timeouts.py:342: in test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\n    assert len(head) == 40, \"this suite runs from a git checkout\"\r\nE   AssertionError: this suite runs from a git checkout\r\nE   assert 7 == 40\r\nE    +  where 7 = len('unknown')\r\n__ test_benchmark_negative_control_real_git_answers_and_failures_stay_typed ___\r\ntests\\test_core_subprocess_timeouts.py:377: in test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n    bench.run_isolated(bench._git(\"rev-parse\", \"HEAD\"), \"smoke\", tmp_path / \"out\")\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit 'unknown'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n3 failed, 52 passed, 4 skipped in 25.95s\r\n\n[guard] product modules loaded from installed build: 164; from repo source: []; aux repo-source helper modules: 8\n\nmodule under test bossman.projects.runner loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:31+00:00",
+    "finished_at": "2026-10-10T12:11:01+00:00",
+    "output_sha256": "9b8bf8bcd2b1c274cde964b8941c387177450e627aa848e66197f230ab29ef49",
+    "output_tail": "_timeouts.py:342: in test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\n    assert len(head) == 40, \"this suite runs from a git checkout\"\r\nE   AssertionError: this suite runs from a git checkout\r\nE   assert 7 == 40\r\nE    +  where 7 = len('unknown')\r\n__ test_benchmark_negative_control_real_git_answers_and_failures_stay_typed ___\r\ntests\\test_core_subprocess_timeouts.py:377: in test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n    bench.run_isolated(bench._git(\"rev-parse\", \"HEAD\"), \"smoke\", tmp_path / \"out\")\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit 'unknown'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n3 failed, 52 passed, 4 skipped in 28.78s\r\n\n[guard] product modules loaded from installed build: 164; from repo source: []; aux repo-source helper modules: 8\n\nmodule under test bossman.projects.runner loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-897d03f9aab0",
@@ -1933,17 +1933,17 @@
   },
   {
     "node_id": "module-9a0163231b1b",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.notifications.models')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_alias_and_auth_boundary.py tests/test_auth_approval_findings.py tests/test_notification_restart.py tests/test_notification_store_closes.py tests/test_notifications.py tests/test_telegram_callbacks.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:55:08+00:00",
-    "finished_at": "2026-10-07T18:55:11+00:00",
-    "output_sha256": "86ec09d1fdbada1a4482ae935d41e30209c57a43a70a84ced8389836282fcdd7",
-    "output_tail": "FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\api.py:124\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 50 passed, 4 warnings in 2.78s\r\n\n[guard] product modules loaded from installed build: 223; from repo source: []; aux repo-source helper modules: 6\n\nmodule under test bossman.notifications.models loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:07:57+00:00",
+    "finished_at": "2026-10-10T12:08:03+00:00",
+    "output_sha256": "827a9d4ca61ac28134d7f287d0ea5d7bb47a69487b7611c3301ef00806fa7263",
+    "output_tail": "FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    return self.router.on_event(event_type)  # ty: ignore[deprecated]\r\n\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\api.py:124\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_alias_and_auth_boundary.py::test_all_bundled_agents_resolve_against_gateway_example\r\nFAILED tests/test_alias_and_auth_boundary.py::test_canonical_alias_is_bossman_coder_in_example_config\r\nFAILED tests/test_alias_and_auth_boundary.py::test_unknown_alias_fails_validation_with_agent_name\r\nFAILED tests/test_alias_and_auth_boundary.py::test_llm_gateway_client_hook_validates_before_first_call\r\n4 failed, 50 passed, 4 warnings in 4.36s\r\n\n[guard] product modules loaded from installed build: 223; from repo source: []; aux repo-source helper modules: 6\n\nmodule under test bossman.notifications.models loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-9a1970f7c3e5",
@@ -1961,17 +1961,17 @@
   },
   {
     "node_id": "module-9c2c49d71c15",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.sandbox.netguard')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_core_subprocess_timeouts.py tests/test_sandbox_egress.py tests/test_sandbox_egress_lockdown.py tests/test_sandbox_redteam_findings.py tests/test_sandbox_safe_runtime.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:58:29+00:00",
-    "finished_at": "2026-10-07T18:58:55+00:00",
-    "output_sha256": "fd8b3c91dcdd8fb2d79c471cb5148587b520e828f5d15232120a9434ce20bda7",
-    "output_tail": "imeouts.py:342: in test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\n    assert len(head) == 40, \"this suite runs from a git checkout\"\r\nE   AssertionError: this suite runs from a git checkout\r\nE   assert 7 == 40\r\nE    +  where 7 = len('unknown')\r\n__ test_benchmark_negative_control_real_git_answers_and_failures_stay_typed ___\r\ntests\\test_core_subprocess_timeouts.py:377: in test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n    bench.run_isolated(bench._git(\"rev-parse\", \"HEAD\"), \"smoke\", tmp_path / \"out\")\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit 'unknown'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n3 failed, 31 passed, 21 skipped in 25.55s\r\n\n[guard] product modules loaded from installed build: 134; from repo source: []; aux repo-source helper modules: 5\n\nmodule under test bossman.sandbox.netguard loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:09:22+00:00",
+    "finished_at": "2026-10-10T12:09:50+00:00",
+    "output_sha256": "610b41726b7dc2b67300893df6041e30c96f8776022f116aba5d0d5a66c1a716",
+    "output_tail": "imeouts.py:342: in test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\n    assert len(head) == 40, \"this suite runs from a git checkout\"\r\nE   AssertionError: this suite runs from a git checkout\r\nE   assert 7 == 40\r\nE    +  where 7 = len('unknown')\r\n__ test_benchmark_negative_control_real_git_answers_and_failures_stay_typed ___\r\ntests\\test_core_subprocess_timeouts.py:377: in test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n    bench.run_isolated(bench._git(\"rev-parse\", \"HEAD\"), \"smoke\", tmp_path / \"out\")\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit 'unknown'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n3 failed, 31 passed, 21 skipped in 26.94s\r\n\n[guard] product modules loaded from installed build: 134; from repo source: []; aux repo-source helper modules: 5\n\nmodule under test bossman.sandbox.netguard loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-9d055871ddff",
@@ -2003,17 +2003,17 @@
   },
   {
     "node_id": "module-9f29d5a73f7f",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
-    "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 2) [FAIL: tests_failed]",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 3) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.benchmark.sandbox_runtime')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_benchmark_truth.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:56:57+00:00",
-    "finished_at": "2026-10-07T18:56:59+00:00",
-    "output_sha256": "e82fbe1479ff48e5a9202ab674cfd65bd7b698af35e610c9c33a8cd4c1a49e01",
-    "output_tail": "n_commit ______\r\ntests\\test_benchmark_truth.py:88: in test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit\r\n    old = run_isolated(FIRST_BENCHMARK_SHA, \"smoke\", tmp_path)\r\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit '8a13f1d35cd68a57f1525bcc6a1a1c1b6c6d191a'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_benchmark_truth.py::test_bench_mode_001_mock_success_never_enters_real_capability_score\r\nFAILED tests/test_benchmark_truth.py::test_bench_mode_002_fixture_cannot_self_declare_real_sandbox\r\nFAILED tests/test_benchmark_truth.py::test_bench_sha_003_label_without_matching_checkout_is_refused\r\nFAILED tests/test_benchmark_truth.py::test_bench_provenance_001_every_report_is_bound_to_actual_head_environment_dataset\r\nFAILED tests/test_benchmark_truth.py::test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 0.76s\r\n\n[guard] product modules loaded from installed build: 39; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.benchmark.sandbox_runtime loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:08:38+00:00",
+    "finished_at": "2026-10-10T12:08:40+00:00",
+    "output_sha256": "b975130432a80e84d7eeaeb8585c2a14c65adc532b5212dbb80d76811e169511",
+    "output_tail": "n_commit ______\r\ntests\\test_benchmark_truth.py:88: in test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit\r\n    old = run_isolated(FIRST_BENCHMARK_SHA, \"smoke\", tmp_path)\r\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit '8a13f1d35cd68a57f1525bcc6a1a1c1b6c6d191a'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_benchmark_truth.py::test_bench_mode_001_mock_success_never_enters_real_capability_score\r\nFAILED tests/test_benchmark_truth.py::test_bench_mode_002_fixture_cannot_self_declare_real_sandbox\r\nFAILED tests/test_benchmark_truth.py::test_bench_sha_003_label_without_matching_checkout_is_refused\r\nFAILED tests/test_benchmark_truth.py::test_bench_provenance_001_every_report_is_bound_to_actual_head_environment_dataset\r\nFAILED tests/test_benchmark_truth.py::test_bench_sha_001_002_isolated_worktrees_execute_their_own_commit\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 1.11s\r\n\n[guard] product modules loaded from installed build: 39; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.benchmark.sandbox_runtime loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-a17a422c65d7",
@@ -2073,17 +2073,17 @@
   },
   {
     "node_id": "module-a548c779a998",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 5) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.gateway.router')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router.py tests/test_gateway_anthropic_contract.py tests/test_gateway_circuit_breaker.py tests/test_gateway_cloud_policy.py tests/test_gateway_cost_governor.py tests/test_gateway_failover_4xx.py tests/test_gateway_free_only_policy.py) && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:00:45+00:00",
-    "finished_at": "2026-10-07T19:06:28+00:00",
-    "output_sha256": "4715024ea9c6e186057a6e29bca5b97781c20628aecff26f11e4b81863da4715",
-    "output_tail": "tContextManager[anyio.abc.BlockingPortal]]\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed, 1 warning in 0.76s\r\n\n[guard] product modules loaded from installed build: 44; from repo source: []; aux repo-source helper modules: 7\n\nmodule under test bossman.gateway.router loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 6.6s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 5.15s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.gateway.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:27+00:00",
+    "finished_at": "2026-10-10T12:41:15+00:00",
+    "output_sha256": "cfcf6f867e9dfe939f2e8156f557deeb01d32723b9a1b00977c224690dd042e5",
+    "output_tail": "ContextManager[anyio.abc.BlockingPortal]]\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed, 1 warning in 2.15s\r\n\n[guard] product modules loaded from installed build: 44; from repo source: []; aux repo-source helper modules: 7\n\nmodule under test bossman.gateway.router loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 11.7s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 9.08s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.gateway.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-a91069ddd708",
@@ -2101,17 +2101,17 @@
   },
   {
     "node_id": "module-aab05d5c4f1a",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.sandbox.tools')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_tools.py tests/test_sandbox_tools_and_broker.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:01:52+00:00",
-    "finished_at": "2026-10-07T19:01:53+00:00",
-    "output_sha256": "0dbc6d7981aae091d5c1ee66424655da1423d409bd9b214ebf26d737c697867c",
-    "output_tail": "\"importlib.import_module('bossman.sandbox.tools')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_tools.py tests/test_sandbox_tools_and_broker.py)\n\nimport bossman.sandbox.tools: ok c:\\users\\asd\\bossman\\app\\bossman-windows-x64-eba6dc592ad9\\runtime\\lib\\site-packages\\bossman\\sandbox\\tools.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_tools.py tests/test_sandbox_tools_and_broker.py)\n[step shared by 1 leaf(s); exit 1 in 1.3s; reason=tests_failed]\n....................F.                                                   [100%]\r\n================================== FAILURES ===================================\r\n______________ test_coder_agent_has_sandbox_tools_with_approval _______________\r\ntests\\test_sandbox_tools_and_broker.py:153: in test_coder_agent_has_sandbox_tools_with_approval\r\n    a = load_all()[\"coder\"]\r\n        ^^^^^^^^^^^^^^^^^^^\r\nE   KeyError: 'coder'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_sandbox_tools_and_broker.py::test_coder_agent_has_sandbox_tools_with_approval\r\n1 failed, 21 passed in 0.82s\r\n\n[guard] product modules loaded from installed build: 105; from repo source: []; aux repo-source helper modules: 2\n\nmodule under test bossman.sandbox.tools loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:44+00:00",
+    "finished_at": "2026-10-10T12:10:48+00:00",
+    "output_sha256": "45ccb8d5d554a121d890a272c309eb1c021749dee9d04ac880e78210eca8789d",
+    "output_tail": "\"importlib.import_module('bossman.sandbox.tools')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_tools.py tests/test_sandbox_tools_and_broker.py)\n\nimport bossman.sandbox.tools: ok c:\\users\\asd\\bossman\\app\\bossman-windows-x64-6de18f8d9a08\\runtime\\lib\\site-packages\\bossman\\sandbox\\tools.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_tools.py tests/test_sandbox_tools_and_broker.py)\n[step shared by 1 leaf(s); exit 1 in 3.4s; reason=tests_failed]\n....................F.                                                   [100%]\r\n================================== FAILURES ===================================\r\n______________ test_coder_agent_has_sandbox_tools_with_approval _______________\r\ntests\\test_sandbox_tools_and_broker.py:153: in test_coder_agent_has_sandbox_tools_with_approval\r\n    a = load_all()[\"coder\"]\r\n        ^^^^^^^^^^^^^^^^^^^\r\nE   KeyError: 'coder'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_sandbox_tools_and_broker.py::test_coder_agent_has_sandbox_tools_with_approval\r\n1 failed, 21 passed in 1.61s\r\n\n[guard] product modules loaded from installed build: 105; from repo source: []; aux repo-source helper modules: 2\n\nmodule under test bossman.sandbox.tools loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-ac2f6e6dc2d9",
@@ -2241,31 +2241,31 @@
   },
   {
     "node_id": "module-c64e6d1041b0",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.computer_operator.planner')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_operator_planner.py tests/test_stage13_wiring_notepad.py tests/test_v26_operator_fixes.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:57:58+00:00",
-    "finished_at": "2026-10-07T18:58:02+00:00",
-    "output_sha256": "5e87f378dc4df463d13ae5eb2249e483e65ec0112f3e80886a2952a557f98347",
-    "output_tail": "st_v26_operator_fixes.py)\n\nimport bossman.computer_operator.planner: ok c:\\users\\asd\\bossman\\app\\bossman-windows-x64-eba6dc592ad9\\runtime\\lib\\site-packages\\bossman\\computer_operator\\planner.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_operator_planner.py tests/test_stage13_wiring_notepad.py tests/test_v26_operator_fixes.py)\n[step shared by 1 leaf(s); exit 1 in 3.7s; reason=tests_failed]\n................................................F.............           [100%]\r\n================================== FAILURES ===================================\r\n_____________________ test_live_notepad_actually_launches _____________________\r\ntests\\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches\r\n    assert procs and procs[0].returncode is None       # процесс живёт\r\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   assert ([<Process 12120>] and 3221225477 is None)\r\nE    +  where 3221225477 = <Process 12120>.returncode\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches\r\n1 failed, 61 passed in 3.28s\r\n\n[guard] product modules loaded from installed build: 88; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.computer_operator.planner loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:09:05+00:00",
+    "finished_at": "2026-10-10T12:09:10+00:00",
+    "output_sha256": "e9ab5255e027614af1a21afdbc1f2d82f7565a31609139231ccf8afd34900ddf",
+    "output_tail": "rovider tests/test_computer_operator_planner.py tests/test_stage13_wiring_notepad.py tests/test_v26_operator_fixes.py)\n\nimport bossman.computer_operator.planner: ok c:\\users\\asd\\bossman\\app\\bossman-windows-x64-6de18f8d9a08\\runtime\\lib\\site-packages\\bossman\\computer_operator\\planner.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_operator_planner.py tests/test_stage13_wiring_notepad.py tests/test_v26_operator_fixes.py)\n[step shared by 1 leaf(s); exit 1 in 4.8s; reason=tests_failed]\n................................................F.............           [100%]\r\n================================== FAILURES ===================================\r\n_____________________ test_live_notepad_actually_launches _____________________\r\ntests\\test_stage13_wiring_notepad.py:443: in test_live_notepad_actually_launches\r\n    assert procs and procs[0].returncode is None       # процесс живёт\r\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nE   assert ([])\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches\r\n1 failed, 61 passed in 3.71s\r\n\n[guard] product modules loaded from installed build: 88; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.computer_operator.planner loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-ca6830e0de16",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.projects.plan')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_core_subprocess_timeouts.py tests/test_memory_and_state_integrity.py tests/test_stage9_recovery.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:58:03+00:00",
-    "finished_at": "2026-10-07T18:58:29+00:00",
-    "output_sha256": "5b12e2facfab6fc041c11f521f71c2fdfdeb134ca3c81cc60424756d9e0f0197",
-    "output_tail": "re_subprocess_timeouts.py:342: in test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\n    assert len(head) == 40, \"this suite runs from a git checkout\"\r\nE   AssertionError: this suite runs from a git checkout\r\nE   assert 7 == 40\r\nE    +  where 7 = len('unknown')\r\n__ test_benchmark_negative_control_real_git_answers_and_failures_stay_typed ___\r\ntests\\test_core_subprocess_timeouts.py:377: in test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n    bench.run_isolated(bench._git(\"rev-parse\", \"HEAD\"), \"smoke\", tmp_path / \"out\")\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit 'unknown'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n3 failed, 24 passed in 25.70s\r\n\n[guard] product modules loaded from installed build: 148; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.projects.plan loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:09:16+00:00",
+    "finished_at": "2026-10-10T12:09:44+00:00",
+    "output_sha256": "12ae95a3d4eb7b90f694cca43ccfae90483163b144750c031af2ac9ec7c923f3",
+    "output_tail": "re_subprocess_timeouts.py:342: in test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\n    assert len(head) == 40, \"this suite runs from a git checkout\"\r\nE   AssertionError: this suite runs from a git checkout\r\nE   assert 7 == 40\r\nE    +  where 7 = len('unknown')\r\n__ test_benchmark_negative_control_real_git_answers_and_failures_stay_typed ___\r\ntests\\test_core_subprocess_timeouts.py:377: in test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n    bench.run_isolated(bench._git(\"rev-parse\", \"HEAD\"), \"smoke\", tmp_path / \"out\")\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit 'unknown'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n3 failed, 24 passed in 27.21s\r\n\n[guard] product modules loaded from installed build: 148; from repo source: []; aux repo-source helper modules: 3\n\nmodule under test bossman.projects.plan loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-cc401f252307",
@@ -2297,17 +2297,17 @@
   },
   {
     "node_id": "module-cdbbc088b662",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.v7.nightly_run')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_v7_nightly_run.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:01:56+00:00",
-    "finished_at": "2026-10-07T19:01:57+00:00",
-    "output_sha256": "06bc6ffcb32fed80cd1684e403bab961e9109e8cb991e99f6b573918562c45b1",
-    "output_tail": "ovider --timeout=100 -p installed_guard tests/test_v7_nightly_run.py)\n[step shared by 1 leaf(s); exit 1 in 0.7s; reason=tests_failed]\n................................................F......                  [100%]\r\n================================== FAILURES ===================================\r\n________________ test_list_and_dry_run_do_not_execute_anything ________________\r\ntests\\test_v7_nightly_run.py:333: in test_list_and_dry_run_do_not_execute_anything\r\n    assert nr.main([\"--objectives\", \"B2,B3\", \"--dry-run\"]) == 0\r\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\v7\\nightly_run.py:374: in main\r\n    root = repo_root()\r\n           ^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\v7\\nightly_run.py:64: in repo_root\r\n    raise RuntimeError(\"не найден корень репозитория (нет command-center/ рядом с bossman-core/)\")\r\nE   RuntimeError: не найден корень репозитория (нет command-center/ рядом с bossman-core/)\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_v7_nightly_run.py::test_list_and_dry_run_do_not_execute_anything\r\n1 failed, 54 passed in 0.33s\r\n\n[guard] product modules loaded from installed build: 29; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.v7.nightly_run loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:52+00:00",
+    "finished_at": "2026-10-10T12:10:53+00:00",
+    "output_sha256": "d34fd21941372732f2a5f7085ed81e3cc63ea57030dac2eb16bcdbfc565a5ad1",
+    "output_tail": "ovider --timeout=100 -p installed_guard tests/test_v7_nightly_run.py)\n[step shared by 1 leaf(s); exit 1 in 1.4s; reason=tests_failed]\n................................................F......                  [100%]\r\n================================== FAILURES ===================================\r\n________________ test_list_and_dry_run_do_not_execute_anything ________________\r\ntests\\test_v7_nightly_run.py:333: in test_list_and_dry_run_do_not_execute_anything\r\n    assert nr.main([\"--objectives\", \"B2,B3\", \"--dry-run\"]) == 0\r\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\v7\\nightly_run.py:374: in main\r\n    root = repo_root()\r\n           ^^^^^^^^^^^\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\v7\\nightly_run.py:64: in repo_root\r\n    raise RuntimeError(\"не найден корень репозитория (нет command-center/ рядом с bossman-core/)\")\r\nE   RuntimeError: не найден корень репозитория (нет command-center/ рядом с bossman-core/)\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_v7_nightly_run.py::test_list_and_dry_run_do_not_execute_anything\r\n1 failed, 54 passed in 0.61s\r\n\n[guard] product modules loaded from installed build: 29; from repo source: []; aux repo-source helper modules: 1\n\nmodule under test bossman.v7.nightly_run loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-cf0d1b5d4d86",
@@ -2521,31 +2521,31 @@
   },
   {
     "node_id": "module-e6b90349c6c6",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.computer_operator.store')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_computer_loop_guard_manager.py tests/test_computer_operator_owner_control.py tests/test_computer_operator_recovery.py tests/test_operator_core_findings.py tests/test_profiles.py tests/test_secrem_s2_operator_consequence.py tests/test_stage13_auth_redteam.py tests/test_stage13_wiring_notepad.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:57:12+00:00",
-    "finished_at": "2026-10-07T18:57:28+00:00",
-    "output_sha256": "9a6139502aa6354a7403945ded43c4150fb5908602c4dc9412280f7ea6c69cd6",
-    "output_tail": "precated]\r\n\r\ntests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\ntests/test_stage13_auth_redteam.py::test_b8a_ws_anonymous_closed_1008\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\r\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\nFAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches\r\n2 failed, 180 passed, 5 warnings in 15.12s\r\n\n[guard] product modules loaded from installed build: 203; from repo source: []; aux repo-source helper modules: 8\n\nmodule under test bossman.computer_operator.store loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:08:50+00:00",
+    "finished_at": "2026-10-10T12:09:10+00:00",
+    "output_sha256": "5b394a301d92795668ae3f959cf0fabb65a4c72797b7adc2e8e40c8387160d80",
+    "output_tail": "precated]\r\n\r\ntests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\api.py:124: DeprecationWarning: \r\n          on_event is deprecated, use lifespan event handlers instead.\r\n  \r\n          Read more about it in the\r\n          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).\r\n          \r\n    @app.on_event(\"shutdown\")\r\n\r\ntests/test_stage13_auth_redteam.py::test_b8a_ws_anonymous_closed_1008\r\n  C:\\Users\\asd\\Bossman\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\starlette\\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.\r\n    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]\r\n\r\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_stage13_auth_redteam.py::test_route_matrix_every_data_route_requires_auth\r\nFAILED tests/test_stage13_wiring_notepad.py::test_live_notepad_actually_launches\r\n2 failed, 180 passed, 5 warnings in 18.32s\r\n\n[guard] product modules loaded from installed build: 203; from repo source: []; aux repo-source helper modules: 8\n\nmodule under test bossman.computer_operator.store loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-e84c7b61d7a6",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
-    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 1) [FAIL: tests_failed]",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 2) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.video_factory.ffmpeg')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_core_subprocess_timeouts.py tests/test_video_factory.py) && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_golden_missions.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T18:58:56+00:00",
-    "finished_at": "2026-10-07T19:05:16+00:00",
-    "output_sha256": "e3706349661eaa1f263fdeed2c4079b9901cb461be769778ec5a72716ea3684e",
-    "output_tail": "t\")\r\n..\\..\\..\\..\\app\\BOSSMAN-Windows-x64-eba6dc592ad9\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit 'unknown'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n3 failed, 33 passed in 26.00s\r\n\n[guard] product modules loaded from installed build: 131; from repo source: []; aux repo-source helper modules: 2\n\nmodule under test bossman.video_factory.ffmpeg loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_golden_missions.py)\n[step shared by 1 leaf(s); exit 0 in 27.1s; reason=None]\n...s.........                                                            [100%]\r\n12 passed, 1 skipped in 25.19s\r\n\n[guard] product modules loaded from installed build: 405; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.video_factory.ffmpeg loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:09:29+00:00",
+    "finished_at": "2026-10-10T12:25:38+00:00",
+    "output_sha256": "10934c5e57cc605d8f0e49bb92ad281524812dbd90cfc94f5a71578ddbd0405a",
+    "output_tail": "\\..\\..\\app\\BOSSMAN-Windows-x64-6de18f8d9a08\\runtime\\Lib\\site-packages\\bossman\\benchmark\\engine.py:621: in run_isolated\r\n    raise ShaMismatch(f\"unknown commit {sha!r}\")\r\nE   bossman.benchmark.engine.ShaMismatch: unknown commit 'unknown'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_remove_timeout_is_bounded\r\nFAILED tests/test_core_subprocess_timeouts.py::test_benchmark_negative_control_real_git_answers_and_failures_stay_typed\r\n3 failed, 33 passed in 27.66s\r\n\n[guard] product modules loaded from installed build: 131; from repo source: []; aux repo-source helper modules: 2\n\nmodule under test bossman.video_factory.ffmpeg loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_golden_missions.py)\n[step shared by 2 leaf(s); exit 0 in 67.5s; reason=None]\n...s.........                                                            [100%]\r\n12 passed, 1 skipped in 62.86s (0:01:02)\r\n\n[guard] product modules loaded from installed build: 405; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.video_factory.ffmpeg loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-e999698f8e9e",
@@ -2633,17 +2633,17 @@
   },
   {
     "node_id": "module-f1437d4e2221",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 2 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1, 5) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.remote_client.router')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router.py tests/test_remote_client.py) && (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:00:47+00:00",
-    "finished_at": "2026-10-07T19:06:28+00:00",
-    "output_sha256": "9c716a517592f78a95b92622a4f57706f1392c169a2dcd444cfecc1e7de85230",
-    "output_tail": " 'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-eba6dc592ad9\\\\runtime\\\\Lib\\\\site-packages\\\\tools\\\\registry.yaml'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 0.76s\r\n\n[guard] product modules loaded from installed build: 83; from repo source: []; aux repo-source helper modules: 2\n\nmodule under test bossman.remote_client.router loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 6.6s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 5.15s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.remote_client.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:28+00:00",
+    "finished_at": "2026-10-10T12:41:15+00:00",
+    "output_sha256": "4977d7be12dfd42052193a908c839cff06a61c8d6aec84da79d1658181fcf7c7",
+    "output_tail": "'C:\\\\Users\\\\asd\\\\Bossman\\\\app\\\\BOSSMAN-Windows-x64-6de18f8d9a08\\\\runtime\\\\Lib\\\\site-packages\\\\tools\\\\registry.yaml'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_router.py::test_private_never_routes_to_cloud - FileNotFoun...\r\nFAILED tests/test_router.py::test_long_series_goes_to_cloud - FileNotFoundErr...\r\nFAILED tests/test_router.py::test_frames_always_home_best_quality_first - Fil...\r\nFAILED tests/test_router.py::test_qa_prefers_home - FileNotFoundError: [Errno...\r\nFAILED tests/test_router.py::test_clip_length_ceiling_filters_candidates - Fi...\r\n!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 5 failures !!!!!!!!!!!!!!!!!!!!!!!!!!\r\n5 failed in 1.93s\r\n\n[guard] product modules loaded from installed build: 83; from repo source: []; aux repo-source helper modules: 2\n\nmodule under test bossman.remote_client.router loaded by this test process from installed build: True\n$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_router_memory_pressure.py)\n[step shared by 5 leaf(s); exit 0 in 11.7s; reason=None]\n.......                                                                  [100%]\r\n7 passed in 9.08s\r\n\n[guard] product modules loaded from installed build: 321; from repo source: []; aux repo-source helper modules: 0\n\nmodule under test bossman.remote_client.router loaded by this test process from installed build: False\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-f1cacda08a67",
@@ -2689,17 +2689,17 @@
   },
   {
     "node_id": "module-fdd1e1e7e9a0",
-    "sha": "eba6dc592ad9218a631c35d3d8a90e667c67968e",
+    "sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
     "probe": "installed import+pytest (replay of the same import + 1 pytest step(s); each (cwd, files, -k) step is run once per installed-code environment and attributed to every leaf whose receipt used exactly those files; leaves sharing each step: 1) [FAIL: tests_failed]",
     "command": "python -P -c \"importlib.import_module('bossman.sandbox.secrets')\" [PYTHONPATH=<installed site-packages>] && (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_sandbox_tools_and_broker.py tests/test_secrem_f018_wiring.py)",
     "exit_code": 1,
-    "started_at": "2026-10-07T19:01:22+00:00",
-    "finished_at": "2026-10-07T19:01:26+00:00",
-    "output_sha256": "f14f3bc2e79ada13a01867511ce90dfcc0190f8d7bc4b191f33d8459014204c8",
-    "output_tail": "rets')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_tools_and_broker.py tests/test_secrem_f018_wiring.py)\n\nimport bossman.sandbox.secrets: ok c:\\users\\asd\\bossman\\app\\bossman-windows-x64-eba6dc592ad9\\runtime\\lib\\site-packages\\bossman\\sandbox\\secrets.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_sandbox_tools_and_broker.py tests/test_secrem_f018_wiring.py)\n[step shared by 1 leaf(s); exit 1 in 4.0s; reason=tests_failed]\n........F.....s                                                          [100%]\r\n================================== FAILURES ===================================\r\n______________ test_coder_agent_has_sandbox_tools_with_approval _______________\r\ntests\\test_sandbox_tools_and_broker.py:153: in test_coder_agent_has_sandbox_tools_with_approval\r\n    a = load_all()[\"coder\"]\r\n        ^^^^^^^^^^^^^^^^^^^\r\nE   KeyError: 'coder'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_sandbox_tools_and_broker.py::test_coder_agent_has_sandbox_tools_with_approval\r\n1 failed, 13 passed, 1 skipped in 3.51s\r\n\n[guard] product modules loaded from installed build: 115; from repo source: []; aux repo-source helper modules: 2\n\nmodule under test bossman.sandbox.secrets loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
+    "started_at": "2026-10-10T12:10:32+00:00",
+    "finished_at": "2026-10-10T12:10:38+00:00",
+    "output_sha256": "27fa3608e8b17259a1e0eff07672a8adc2942edc919ecf8a54d34ede79c95930",
+    "output_tail": "rets')\" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_sandbox_tools_and_broker.py tests/test_secrem_f018_wiring.py)\n\nimport bossman.sandbox.secrets: ok c:\\users\\asd\\bossman\\app\\bossman-windows-x64-6de18f8d9a08\\runtime\\lib\\site-packages\\bossman\\sandbox\\secrets.py\n\n$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_sandbox_tools_and_broker.py tests/test_secrem_f018_wiring.py)\n[step shared by 1 leaf(s); exit 1 in 6.0s; reason=tests_failed]\n........F.....s                                                          [100%]\r\n================================== FAILURES ===================================\r\n______________ test_coder_agent_has_sandbox_tools_with_approval _______________\r\ntests\\test_sandbox_tools_and_broker.py:153: in test_coder_agent_has_sandbox_tools_with_approval\r\n    a = load_all()[\"coder\"]\r\n        ^^^^^^^^^^^^^^^^^^^\r\nE   KeyError: 'coder'\r\n=========================== short test summary info ===========================\r\nFAILED tests/test_sandbox_tools_and_broker.py::test_coder_agent_has_sandbox_tools_with_approval\r\n1 failed, 13 passed, 1 skipped in 4.37s\r\n\n[guard] product modules loaded from installed build: 115; from repo source: []; aux repo-source helper modules: 2\n\nmodule under test bossman.sandbox.secrets loaded by this test process from installed build: True\n\nVERDICT FAIL reason=tests_failed\n",
     "verdict": "FAIL",
     "kind": "installed_pytest",
-    "installed_build": "BOSSMAN-Windows-x64-eba6dc592ad9"
+    "installed_build": "BOSSMAN-Windows-x64-6de18f8d9a08"
   },
   {
     "node_id": "module-ff3e6bc1044b",

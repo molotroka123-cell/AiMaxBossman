@@ -1,11 +1,11 @@
 node_id: plugin-3
-installed_build: BOSSMAN-Windows-x64-84f721c6fe48 (source_sha 84f721c6fe48172498681a5880562dcfc6b94e17)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-84f721c6fe48\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: plugins.json sha=20e2c879a50ab2d18ac8cf81f2daefbcbbcafefb command=python tools/tree_proof/plugins_probe.py --only plugin-3
 
 $ python -P tools/tree_proof/installed_plugins_probe.py plugin-3 [PYTHONPATH=<installed site-packages>]
-IMPORTED bcc.features.plugins c:\users\asd\bossman\app\bossman-windows-x64-84f721c6fe48\runtime\lib\site-packages\bcc\features\plugins.py
-IMPORTED bcc.tools c:\users\asd\bossman\app\bossman-windows-x64-84f721c6fe48\runtime\lib\site-packages\bcc\tools.py
+IMPORTED bcc.features.plugins c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\plugins.py
+IMPORTED bcc.tools c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\tools.py
 == plugin-3 installed offline probe ==
 [plugin:obsidian.read] error=False one_line='obsidian.read n.md'
 content: hello vault

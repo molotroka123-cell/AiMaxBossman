@@ -1,28 +1,28 @@
 node_id: plugins-oss
-installed_build: BOSSMAN-Windows-x64-84f721c6fe48 (source_sha 84f721c6fe48172498681a5880562dcfc6b94e17)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-84f721c6fe48\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: opsplug.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "import bcc.features.oss_integrations" [PYTHONPATH=command-center first, then command-center;bossman-core;.] && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_oss_integrations.py) && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_oss_integrations_routes.py)
 
-import bcc.features.oss_integrations: ok c:\users\asd\bossman\app\bossman-windows-x64-84f721c6fe48\runtime\lib\site-packages\bcc\features\oss_integrations.py
+import bcc.features.oss_integrations: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\oss_integrations.py
 
 $ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_oss_integrations.py)
-[step shared by 1 leaf(s); exit 0 in 4.8s; reason=None]
+[step shared by 1 leaf(s); exit 0 in 7.1s; reason=None]
 ....                                                                     [100%]
-4 passed in 3.15s
+4 passed in 4.72s
 
 [guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
 
 module under test bcc.features.oss_integrations loaded by this test process from installed build: True
 $ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_oss_integrations_routes.py)
-[step shared by 1 leaf(s); exit 0 in 1.6s; reason=None]
+[step shared by 1 leaf(s); exit 0 in 2.6s; reason=None]
 ............                                                             [100%]
 ============================== warnings summary ===============================
-..\..\..\..\app\BOSSMAN-Windows-x64-84f721c6fe48\runtime\Lib\site-packages\starlette\testclient.py:53
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-84f721c6fe48\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-12 passed, 1 warning in 0.30s
+12 passed, 1 warning in 0.31s
 
 [guard] product modules loaded from installed build: 50; from repo source: []; aux repo-source helper modules: 0
 

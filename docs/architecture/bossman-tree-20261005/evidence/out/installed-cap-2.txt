@@ -1,0 +1,17 @@
+node_id: cap-2
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: jeffa.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.pit.passport_checkpoint')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_pit_master_parser_2_0.py tests/test_pit_passport_checkpoint.py)
+
+import bcc.pit.passport_checkpoint: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\pit\passport_checkpoint.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_pit_master_parser_2_0.py tests/test_pit_passport_checkpoint.py)
+[step shared by 2 leaf(s); exit 0 in 8.9s; reason=None]
+........                                                                 [100%]
+8 passed in 6.68s
+
+[guard] product modules loaded from installed build: 105; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.pit.passport_checkpoint loaded by this test process from installed build: True
+
+VERDICT PASS

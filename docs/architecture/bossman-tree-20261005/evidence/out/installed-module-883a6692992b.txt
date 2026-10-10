@@ -1,12 +1,12 @@
 node_id: module-883a6692992b
-installed_build: BOSSMAN-Windows-x64-eba6dc592ad9 (source_sha eba6dc592ad9218a631c35d3d8a90e667c67968e)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: ops.json sha=a6296e2f8693fcfee213a20ece59ad0bac725956 command=python -c "importlib.import_module('bossman.projects.runner')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_runner_answer_contract.py tests/test_runner_cybersec_wiring.py tests/test_runner_holdout_exclusion.py tests/test_runner_memory_wiring.py tests/test_core_subprocess_timeouts.py tests/test_hardening_p0_p1.py tests/test_memory_and_state_integrity.py tests/test_secrem_f005_projects.py)
 
-import bossman.projects.runner: ok c:\users\asd\bossman\app\bossman-windows-x64-eba6dc592ad9\runtime\lib\site-packages\bossman\projects\runner.py
+import bossman.projects.runner: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman\projects\runner.py
 
 $ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_runner_answer_contract.py tests/test_runner_cybersec_wiring.py tests/test_runner_holdout_exclusion.py tests/test_runner_memory_wiring.py tests/test_core_subprocess_timeouts.py tests/test_hardening_p0_p1.py tests/test_memory_and_state_integrity.py tests/test_secrem_f005_projects.py)
-[step shared by 1 leaf(s); exit 1 in 26.5s; reason=tests_failed]
+[step shared by 1 leaf(s); exit 1 in 30.4s; reason=tests_failed]
 .................ssss.........FFF..........................              [100%]
 ================================== FAILURES ===================================
 ______ test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git ______
@@ -24,14 +24,14 @@ E    +  where 7 = len('unknown')
 __ test_benchmark_negative_control_real_git_answers_and_failures_stay_typed ___
 tests\test_core_subprocess_timeouts.py:377: in test_benchmark_negative_control_real_git_answers_and_failures_stay_typed
     bench.run_isolated(bench._git("rev-parse", "HEAD"), "smoke", tmp_path / "out")
-..\..\..\..\app\BOSSMAN-Windows-x64-eba6dc592ad9\runtime\Lib\site-packages\bossman\benchmark\engine.py:621: in run_isolated
+..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\bossman\benchmark\engine.py:621: in run_isolated
     raise ShaMismatch(f"unknown commit {sha!r}")
 E   bossman.benchmark.engine.ShaMismatch: unknown commit 'unknown'
 =========================== short test summary info ===========================
 FAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_add_timeout_raises_and_kills_git
 FAILED tests/test_core_subprocess_timeouts.py::test_benchmark_isolated_worktree_remove_timeout_is_bounded
 FAILED tests/test_core_subprocess_timeouts.py::test_benchmark_negative_control_real_git_answers_and_failures_stay_typed
-3 failed, 52 passed, 4 skipped in 25.95s
+3 failed, 52 passed, 4 skipped in 28.78s
 
 [guard] product modules loaded from installed build: 164; from repo source: []; aux repo-source helper modules: 8
 

@@ -1,0 +1,17 @@
+node_id: agents-lab
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: agcloud.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.features.lab_agents')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_lab_agents.py)
+
+import bcc.features.lab_agents: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\lab_agents.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_lab_agents.py)
+[step shared by 1 leaf(s); exit 0 in 13.0s; reason=None]
+..........                                                               [100%]
+10 passed in 9.15s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.lab_agents loaded by this test process from installed build: True
+
+VERDICT PASS

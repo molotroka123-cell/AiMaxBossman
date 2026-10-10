@@ -1,0 +1,17 @@
+node_id: mod-agentmap
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: opsplug.json sha=d394085de749ae57c0778f158533470569b7d3e5 command=python -c "import bcc.features.agentmap" [PYTHONPATH=command-center first, then command-center;bossman-core;.] && (cd command-center && python -m pytest -q --timeout=60 -p no:cacheprovider tests/test_leaf_agentmap.py)
+
+import bcc.features.agentmap: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\agentmap.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_agentmap.py)
+[step shared by 2 leaf(s); exit 0 in 6.8s; reason=None]
+....                                                                     [100%]
+4 passed in 2.61s
+
+[guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.agentmap loaded by this test process from installed build: True
+
+VERDICT PASS

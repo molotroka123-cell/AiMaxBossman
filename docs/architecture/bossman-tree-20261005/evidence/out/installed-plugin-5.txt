@@ -1,13 +1,13 @@
 node_id: plugin-5
-installed_build: BOSSMAN-Windows-x64-84f721c6fe48 (source_sha 84f721c6fe48172498681a5880562dcfc6b94e17)
-site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-84f721c6fe48\runtime\Lib\site-packages
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
 original receipt: opsplug.json sha=da3ca4d381af32d708c0e1e74b184023ea992205 command=(cd command-center && python -m pytest -v -rA -p no:cacheprovider --timeout=100 tests/test_leaf_plugins_real_handlers.py -k "mcp_tool_list_live_real_server or mcp_tool_list_refuses or tool_list_needs")
 
 
 $ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_leaf_plugins_real_handlers.py -k "mcp_tool_list_live_real_server or mcp_tool_list_refuses or tool_list_needs")
-[step shared by 1 leaf(s); exit 0 in 5.3s; reason=None]
+[step shared by 1 leaf(s); exit 0 in 10.9s; reason=None]
 ...                                                                      [100%]
-3 passed, 24 deselected in 3.42s
+3 passed, 24 deselected in 7.45s
 
 [guard] product modules loaded from installed build: 307; from repo source: []; aux repo-source helper modules: 0
 

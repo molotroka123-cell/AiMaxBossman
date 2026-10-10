@@ -1,0 +1,23 @@
+node_id: app-bossman-accountant
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: memapps.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('bossman_accountant')" [PYTHONPATH=apps/bossman-accountant/src;apps/bossman-accountant] && (cd apps/bossman-accountant && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests)
+
+import bossman_accountant: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bossman_accountant\__init__.py
+
+$ (cd apps/bossman-accountant && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests)
+[step shared by 1 leaf(s); exit 0 in 2.0s; reason=None]
+.....                                                                    [100%]
+============================== warnings summary ===============================
+..\..\..\..\..\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53
+  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+5 passed, 1 warning in 0.97s
+
+[guard] product modules loaded from installed build: 7; from repo source: []; aux repo-source helper modules: 4
+
+module under test bossman_accountant loaded by this test process from installed build: True
+
+VERDICT PASS

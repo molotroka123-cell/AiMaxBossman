@@ -1,0 +1,17 @@
+node_id: mod-tools_memory
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: memapps.json sha=3a1b84695d600fb8580387cd210cfe91a2ce4a8f command=python -c "importlib.import_module('bcc.features.tools_memory')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_fable_context_memory_authority.py tests/test_oss_qdrant.py tests/telegram_calls/test_postcall.py)
+
+import bcc.features.tools_memory: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\tools_memory.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_fable_context_memory_authority.py tests/test_oss_qdrant.py tests/telegram_calls/test_postcall.py)
+[step shared by 1 leaf(s); exit 0 in 38.6s; reason=None]
+...........................................................              [100%]
+59 passed in 33.69s
+
+[guard] product modules loaded from installed build: 313; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.tools_memory loaded by this test process from installed build: True
+
+VERDICT PASS

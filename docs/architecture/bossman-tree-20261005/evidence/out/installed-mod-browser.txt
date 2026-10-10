@@ -1,0 +1,25 @@
+node_id: mod-browser
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: agcloud.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.features.browser')" [PYTHONPATH=command-center;bossman-core;.] && (cd bossman-core && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_approval_and_injection.py tests/test_browser_approvals_p1.py tests/test_browser_emulator_e2e.py tests/test_browser_headless_runpod.py tests/test_browser_pid_portability.py tests/test_browser_policy.py tests/test_browser_support_helper.py) && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_browser_download_b4.py)
+
+import bcc.features.browser: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\features\browser.py
+
+$ (cd bossman-core && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_browser_approval_and_injection.py tests/test_browser_approvals_p1.py tests/test_browser_emulator_e2e.py tests/test_browser_headless_runpod.py tests/test_browser_pid_portability.py tests/test_browser_policy.py tests/test_browser_support_helper.py)
+[step shared by 1 leaf(s); exit 0 in 2.7s; reason=None]
+...................sss....................s.........                     [100%]
+48 passed, 4 skipped in 1.68s
+
+[guard] product modules loaded from installed build: 48; from repo source: []; aux repo-source helper modules: 8
+
+module under test bcc.features.browser loaded by this test process from installed build: False
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_browser_download_b4.py)
+[step shared by 1 leaf(s); exit 0 in 2.3s; reason=None]
+ssss                                                                     [100%]
+4 skipped in 0.26s
+
+[guard] product modules loaded from installed build: 31; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.features.browser loaded by this test process from installed build: False
+
+VERDICT PASS

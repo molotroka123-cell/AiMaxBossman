@@ -1,0 +1,19 @@
+node_id: module-83a15f7aa768
+installed_build: BOSSMAN-Windows-x64-6de18f8d9a08 (source_sha 6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5)
+site-packages: C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-6de18f8d9a08\runtime\Lib\site-packages
+original receipt: jeffb.json sha=679d019e3978696b6c2ae4db52eef46a01f190e2 command=python -c "importlib.import_module('bcc.pit.math_assist')" [PYTHONPATH=command-center;bossman-core;.] && (cd command-center && python -m pytest -x -q --timeout=60 -p no:cacheprovider tests/test_jeff_math_assist.py tests/test_jeff_math_runtime.py)
+
+import bcc.pit.math_assist: ok c:\users\asd\bossman\app\bossman-windows-x64-6de18f8d9a08\runtime\lib\site-packages\bcc\pit\math_assist.py
+
+$ (cd command-center && python -P -m pytest -q -rf --tb=short --maxfail=5 -p no:cacheprovider --timeout=100 -p installed_guard tests/test_jeff_math_assist.py tests/test_jeff_math_runtime.py)
+[step shared by 1 leaf(s); exit 0 in 47.4s; reason=None]
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+...................                                                      [100%]
+163 passed in 42.91s
+
+[guard] product modules loaded from installed build: 367; from repo source: []; aux repo-source helper modules: 0
+
+module under test bcc.pit.math_assist loaded by this test process from installed build: True
+
+VERDICT PASS
