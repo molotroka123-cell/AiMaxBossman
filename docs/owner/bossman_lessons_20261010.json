@@ -1,0 +1,304 @@
+{
+ "schema": "bossman.critical_errors.v1",
+ "title": "Уроки дня 2026-10-10: Genjutsu Live, LoRA v3, RunPod, пульт",
+ "captured_utc": "2026-10-10T23:28:53Z",
+ "observed_head_sha": "12ebd12a1d29b2160832505ed402899e033119ab",
+ "environment": "owner-machine Windows 11 Pro 10.0.26200, Ryzen AI MAX+ 395, Radeon 8060S; RunPod A100 SECURE / community 3090",
+ "recorded_by": {
+  "principal_id": "agent:claude-fable-5.1-coordinator",
+  "model": "claude-fable-5-1",
+  "agent": "coordinator",
+  "run_id": "lessons-20261010"
+ },
+ "privacy_class": "internal-owner-ops",
+ "scope": "owner-machine/windows-11 + runpod",
+ "notes": [
+  "Каждый шаг дня пишется уроком по правилу владельца; CANDIDATE, пока нет внешнего верификатора."
+ ],
+ "entries": [
+  {
+   "id": "RUNPOD-COMMUNITY-STARVED",
+   "class": "cloud-gpu",
+   "title": "RunPod community-под голодает по сети: pip висит, GPU 0%",
+   "severity": "HIGH",
+   "status": "FIXED",
+   "symptom": "На community-хосте pip install -r requirements идёт 10+ мин при CPU 0.5%, входящий трафик ~190 КБ/с, GPU 0%; обучение не стартует.",
+   "symptom_examples": [
+    "pip install -q -r requirements.txt висит 14 мин",
+    "nvidia-smi 0 %, 1 MiB",
+    "rx ~190 KB/s"
+   ],
+   "symptom_regex": [
+    "(?i)pip install.*requirements.*\\d{2,} ?min",
+    "(?i)community.*(starv|слаб|медлен)"
+   ],
+   "keywords": [
+    "runpod",
+    "community",
+    "secure",
+    "network",
+    "pip",
+    "голодает",
+    "сеть пода"
+   ],
+   "detection": "Сразу после старта пода: тест скорости (100 МБ) >= 40 МБ/с; через 3 мин проверить ps -o etime,pcpu у pip и rx_bytes за 5 с.",
+   "root_cause": "Community-хосты отдают GPU с перегруженной сетью/CPU; час дёшев, но установка не завершается.",
+   "fix": "Терминировать под, поднять SECURE (A100 80GB $1.79/ч: установка 4–5 мин, 1500 шагов SDXL LoRA ~13 мин). Дешёвый час дороже пустого часа.",
+   "prevention": "Тест сети до установки; лимит на установку 8 мин, иначе пересоздать под; для SDXL LoRA по умолчанию SECURE.",
+   "evidence": [
+    {
+     "path": "docs/owner/PROMO_6_GENJUTSU_STUDIO_PLAN_20261010.md",
+     "sha256": "f92eb87e20fe8ecb8c8e0c02451d40badae5e38b60554637ce3d34c084f22987",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "наблюдение одного дня, внешний верификатор не оформлен"
+   }
+  },
+  {
+   "id": "CUDNN-CU13-OVER-CU12",
+   "class": "cloud-gpu",
+   "title": "pip тянет nvidia-cudnn-cu13 поверх cu12 -> CUDNN_STATUS_NOT_INITIALIZED",
+   "severity": "HIGH",
+   "status": "FIXED",
+   "symptom": "Первый запуск accelerate/kohya падает с CUDNN_STATUS_NOT_INITIALIZED на образе torch 2.4 cu124 после pip install -r requirements.",
+   "symptom_examples": [
+    "CUDNN_STATUS_NOT_INITIALIZED",
+    "nvidia-cudnn-cu13 9.24"
+   ],
+   "symptom_regex": [
+    "CUDNN_STATUS_NOT_INITIALIZED",
+    "nvidia-cudnn-cu13"
+   ],
+   "keywords": [
+    "cudnn",
+    "cu12",
+    "cu13",
+    "kohya",
+    "sd-scripts",
+    "torch 2.4"
+   ],
+   "detection": "pip list | grep nvidia-cudnn показывает две версии (cu12 9.1 и cu13 9.24).",
+   "root_cause": "requirements sd-scripts подтягивает свежий cudnn для CUDA 13, несовместимый с torch cu124.",
+   "fix": "pip install nvidia-cudnn-cu12==9.1.0.70 и перезапуск; обучение стартовало (2 it/s на A100).",
+   "prevention": "В pod_setup.sh после requirements закреплять cudnn под версию torch; smoke-тест torch.backends.cudnn.version() до старта.",
+   "evidence": [
+    {
+     "path": "docs/owner/PROMO_6_GENJUTSU_STUDIO_PLAN_20261010.md",
+     "sha256": "f92eb87e20fe8ecb8c8e0c02451d40badae5e38b60554637ce3d34c084f22987",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "исправлено агентом 10.10, лог на поде; внешний верификатор не оформлен"
+   }
+  },
+  {
+   "id": "LORA-ALONE-IDENTITY-PLATEAU",
+   "class": "identity-training",
+   "title": "SDXL LoRA сама по себе даёт сходство ~0.3–0.4; добавка фото не поднимает",
+   "severity": "HIGH",
+   "status": "OPEN",
+   "symptom": "v1 (57 кадров) 0.28/0.36, v2 (+5 фото) 0.30/0.34 по arcface на масштабе 0.8/1.0; прироста нет.",
+   "symptom_examples": [
+    "v2 +0.008 at 0.8, -0.039 at 1.0",
+    "arcface mean 0.342"
+   ],
+   "symptom_regex": [
+    "(?i)arcface.*0\\.[23]\\d",
+    "(?i)lora.*(плато|no .*gain|без прироста)"
+   ],
+   "keywords": [
+    "lora",
+    "arcface",
+    "identity",
+    "сходство",
+    "плато",
+    "gfgirl",
+    "InstantID",
+    "IP-Adapter FaceID"
+   ],
+   "detection": "Оценка: 6 фиксированных промптов x 2 сида, arcface к реальным фото; сравнивать одинаковым набором эталонов.",
+   "root_cause": "LoRA dim16 unet-only учит стиль/волосы/одежду, личность лица в SDXL держится слабо; метрика на 6 картинках шумит на +-0.03.",
+   "fix": "Личность держать адаптером лица (IP-Adapter-FaceID / InstantID; insightface некоммерческая) или FaceFusion поверх сгенерированных тел; LoRA — для одежды/волос/сцен. Проверяется руками B/C/D в v3.",
+   "prevention": "Пороги фиксировать до прогона (PASS >= 0.55 и >= prev+0.03); не называть «похоже» без числа; v1 пересчитывать тем же набором эталонов.",
+   "evidence": [
+    {
+     "path": "docs/owner/GENJUTSU_LIVE_V2_RETRAIN_PROMPT_20261010.md",
+     "sha256": "0ac4c28f047264b4f9788226538387be3f2fac6b47a2367667eed06886599d7b",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "v3-руки ещё идут; вывод по v1/v2"
+   }
+  },
+  {
+   "id": "HAIR-RECOLOR-MASK-JAGGED",
+   "class": "genjutsu-video",
+   "title": "Перекраска волос: зубчатый край, затекание на шею/руки, платиновый уходит в рыжий",
+   "severity": "MEDIUM",
+   "status": "OPEN",
+   "symptom": "Маска SegFormer даёт жёсткий зубчатый контур, синий блок на шее, руки у головы сливаются, WHITE — серая шапка без прядей, PLATINUM рендерится медным.",
+   "symptom_examples": [
+    "криво вырезан",
+    "PLATINUM looks copper",
+    "white hair grey cap"
+   ],
+   "symptom_regex": [
+    "(?i)(криво|jagged).*(вырез|mask)",
+    "(?i)platinum.*(copper|рыж)"
+   ],
+   "keywords": [
+    "hair",
+    "recolor",
+    "SegFormer",
+    "matting",
+    "alpha",
+    "Lab",
+    "платиновый",
+    "белые волосы"
+   ],
+   "detection": "Сравнить край перекраски с alpha-маттингом (MODNet/RVM): расстояние края > 2 px или утечка > 1% площади = дефект; dE до целевого цвета > 15.",
+   "root_cause": "Бинарная маска сегментации без мягкой альфы; перекраска по хроме без сохранения L и бликов; кожа/руки не исключены.",
+   "fix": "v2: мягкая альфа (маттинг/guided filter по trimap), исключение кожи/рук/шеи масками парсинга, перекраска в Lab с сохранением L, светлые цвета через подъём L + десатурация + блики, временное сглаживание альфы по оптическому потоку.",
+   "prevention": "Пороги до прогона: край <= 2 px, утечка <= 1%, кожа <= 0.5%, dE <= 15, std яркости >= 0.8x оригинала; тесты на утечку и цвет.",
+   "evidence": [
+    {
+     "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+     "sha256": "61933627298710693b77ea510344cebeb46973e4a5b2f231f8f91cd0864f93a7",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "план v2; реализация остановлена до конца обучения"
+   }
+  },
+  {
+   "id": "PULT-OWNER-ONLY-DELIVERY",
+   "class": "telegram",
+   "title": "Пульт пишет только владельцу: проверять на установленной сборке, а не в ветке",
+   "severity": "HIGH",
+   "status": "FIXED",
+   "symptom": "Владелец требует, чтобы управляющий бот никому кроме него не писал; риск — исправление есть в ветке, но не в запущенном процессе.",
+   "symptom_examples": [
+    "пульт никого кроме меня не уведомляет"
+   ],
+   "symptom_regex": [
+    "(?i)пульт.*(кроме|только).*владел"
+   ],
+   "keywords": [
+    "pult",
+    "telegram_companion",
+    "delivery_allowed",
+    "owner only",
+    "Jeff"
+   ],
+   "detection": "Найти процесс (Win32_Process CommandLine ~ telegram_companion), взять его site-packages, grep delivery_allowed; сравнить mtime файла и время старта процесса; counts по who в companion.sqlite3 (без тел).",
+   "root_cause": "Два хранилища: пульт (telegram-companion, только владелец) и Jeff/PIT (pit-v1.7, участники) — их легко перепутать.",
+   "fix": "Guard person.role == owner в delivery_allowed + authorize_delivery на всех send_*; в установленной сборке есть (hotfix 6273524c); 3 теста test_pult_owner_only_delivery проходят.",
+   "prevention": "Любое правило «бот пишет только X» проверять на запущенной сборке и по базе, а не по ветке; Jeff не трогать.",
+   "evidence": [
+    {
+     "path": "command-center/tests/telegram_contracts/test_pult_owner_only_delivery.py",
+     "sha256": "280c37ccd0aff9740dfb8458aa5e8dfa237d4275318b052bfa836ee86aaffc29",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "VERIFIED",
+    "observed_at": "2026-10-10T13:32:00Z",
+    "verifier": {
+     "principal_id": "tool:pytest",
+     "model_id": "",
+     "role": "verifier",
+     "independence_class": "external_tool"
+    },
+    "expected": "3 теста owner-only delivery проходят",
+    "actual": "3 passed in 0.37s",
+    "external_verification": "pytest tests/telegram_contracts/test_pult_owner_only_delivery.py"
+   }
+  },
+  {
+   "id": "SYNTH-REF-NO-IDENTITY",
+   "class": "identity-dataset",
+   "title": "Text-to-image без identity-условия игнорирует референс: «похожие» фото не личность",
+   "severity": "MEDIUM",
+   "status": "ENV",
+   "symptom": "Сгенерированные фото дают arcface 0.49–0.64 к реальным; профиль 0.31; фото с базой gf5 дают 0.78–0.83 только потому, что gf5 — эталон (без него 0.49–0.57).",
+   "symptom_examples": [
+    "sim 0.31 profile",
+    "0.83 vs ref gf5 but 0.57 without"
+   ],
+   "symptom_regex": [
+    "(?i)(soul|text-to-image).*(ignor|игнор).*(ref|референс)"
+   ],
+   "keywords": [
+    "higgsfield",
+    "soul",
+    "reference",
+    "arcface",
+    "leave-one-out",
+    "дубли",
+    "датасет"
+   ],
+   "detection": "Сходство считать с исключением эталона-источника (leave-one-out); дубли (sim > 0.92 между кандидатами) ограничивать <= 3 с одной базы.",
+   "root_cause": "Text-to-image без identity-условия рисует типаж, а не человека; высокая оценка к собственному источнику — утечка эталона.",
+   "fix": "Порог >= 0.59 к 5 эталонам + leave-one-out; синтетику хранить отдельной папкой и помечать; реальные фото в приоритете.",
+   "prevention": "В обучение только после одобрения владельца одним сообщением-сеткой; не выдавать генерации за реальные фото.",
+   "evidence": [
+    {
+     "path": "docs/owner/GENJUTSU_LIVE_V2_RETRAIN_PROMPT_20261010.md",
+     "sha256": "0ac4c28f047264b4f9788226538387be3f2fac6b47a2367667eed06886599d7b",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "замер одного дня"
+   }
+  },
+  {
+   "id": "WINPATH-UNICODEESCAPE",
+   "class": "tooling",
+   "title": "Windows-пути в не-raw строках Python ломают скрипт: truncated \\UXXXXXXXX",
+   "severity": "LOW",
+   "status": "FIXED",
+   "symptom": "SyntaxError (unicode error) unicodeescape при C:\\Users в обычной строке; sed с обратными слэшами не совпадает после сворачивания shell.",
+   "symptom_examples": [
+    "truncated \\UXXXXXXXX escape"
+   ],
+   "symptom_regex": [
+    "truncated \\\\\\\\UXXXXXXXX escape",
+    "(?i)unicodeescape"
+   ],
+   "keywords": [
+    "unicodeescape",
+    "raw string",
+    "heredoc",
+    "sed",
+    "windows path"
+   ],
+   "detection": "Трейсбек SyntaxError на строке с C:\\U…",
+   "root_cause": "\\U в не-raw строке трактуется как unicode-escape; shell дополнительно сворачивает двойные слэши.",
+   "fix": "Писать r-строки или прямые слэши; правки файлов делать Edit/Python по номеру строки, не sed с обратными слэшами.",
+   "prevention": "Проверять ast.parse перед запуском детачед-процессов.",
+   "evidence": [
+    {
+     "path": "docs/owner/PROMO_6_GENJUTSU_STUDIO_PLAN_20261010.md",
+     "sha256": "f92eb87e20fe8ecb8c8e0c02451d40badae5e38b60554637ce3d34c084f22987",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "повторяющаяся ошибка сессии"
+   }
+  }
+ ]
+}
