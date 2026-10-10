@@ -75,7 +75,7 @@ HAIR = 17                 # CelebAMask class of the face parser
 HAIRLINE_GUARD = 0.06     # x face side
 
 
-def hairline_guard(source, processed, hair_mask, side: float):
+def hairline_guard(source, processed, hair_mask, side: float, band_side: float = HAIRLINE_GUARD):
     """The swapper paints the source person's fringe/sideburns into the target's skin at the hairline (10.10, kisliy refs:
     a dark smudge on the temple with every swapper/padding/enhancer setting). A band of HAIRLINE_GUARD x face side around
     the TARGET's hair keeps the target's pixels, with a soft edge."""
@@ -83,7 +83,7 @@ def hairline_guard(source, processed, hair_mask, side: float):
     import numpy as np
     if not hair_mask.any():
         return processed
-    g = max(3, int(HAIRLINE_GUARD * side))
+    g = max(3, int(band_side * side))
     band = cv2.dilate(hair_mask.astype(np.uint8) * 255, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * g + 1, 2 * g + 1)))
     m = cv2.GaussianBlur(band.astype(np.float32) / 255.0, (0, 0), g / 2)[..., None]
     return (m * source.astype(np.float32) + (1 - m) * processed.astype(np.float32)).round().astype(np.uint8)
@@ -136,9 +136,10 @@ def _frames(path: str, w: int, h: int):
 # V2: smoothed pitch + a slew-limited ramp (no reversal inside an episode), lighting of the swapped face matched to the
 # source's low frequencies, and only pixels that the engine really changed are taken from the engine's frame.
 
-#: seconds for a full 0 -> 1 swap fade: long enough that the face does not pop, short enough that the head is not
-#: swapped while bowed (alpha is a lower envelope: it never exceeds the raw value, so the fade starts BEFORE the bow)
-RAMP_S = 0.40
+#: seconds for a full 0 -> 1 swap fade: long enough that the face does not pop, short enough that a 0.1 s dip of the head
+#: does not hide the swap for a second (candidate 1 with 0.4 s did exactly that on clip 2 at 59.9 fps: 63 frames
+#: reduced for a 7-frame bow, identity 0.759 -> 0.703). alpha is a lower envelope: it never exceeds the raw value.
+RAMP_S = 0.20
 PITCH_MEDIAN = 5          # frames
 RELIGHT_SIGMA = 0.12      # x face side: scale of the lighting that is transferred
 RELIGHT_MAX_L = 22.0      # Lab L units
@@ -182,34 +183,71 @@ def slew_limit(raw: list[float], step: float) -> list[float]:
     return a
 
 
+def mean_pitch(pitches: list, radius: int = 3) -> list:
+    """Moving average over +-radius frames after the median: a pitch hovering at the band's edge (0.505 / 0.498 / 0.513 on
+    10.10 pair clip frames 285-289) otherwise leaves +-5% wiggles in alpha, which the audit counts as reversals."""
+    n = len(pitches)
+    out: list = [None] * n
+    for i in range(n):
+        window = [p for p in pitches[max(0, i - radius):i + radius + 1] if p is not None]
+        if pitches[i] is not None and window:
+            out[i] = float(sum(window) / len(window))
+    return out
+
+
 def alpha_track(pitches: list, fps: float, on: float = PITCH_ON, off: float = PITCH_OFF, ramp_s: float = RAMP_S) -> list[float]:
-    """Per-frame swap alpha for the whole clip: median-smoothed pitch -> raw alpha -> slew-limited -> smoothstep."""
-    raw = [pose_alpha(p, on, off) for p in median_pitch(pitches)]
+    """Per-frame swap alpha for the whole clip: median + mean smoothed pitch -> raw alpha -> slew-limited -> smoothstep."""
+    raw = [pose_alpha(p, on, off) for p in mean_pitch(median_pitch(pitches))]
     step = 1.0 / max(1.0, ramp_s * fps)
     return [round(x * x * (3.0 - 2.0 * x), 4) for x in slew_limit(raw, step)]
 
 
-def fit_affine(source, processed, boxes, sample: int = 20000):
-    """3x3 matrix + offset (in 0..255 BGR) mapping the engine's frame back onto the source colours, fitted on pixels
-    outside the padded face boxes (where both are the same picture, the engine only re-ranged its colours). Identity
-    when there are too few pixels or the fit does not reduce the error."""
+def sample_outside(source, processed, boxes, count: int = 400, seed: int = 0):
+    """(engine, source) colour pairs from pixels outside the padded face boxes (+0.2 side margin), where both frames are the
+    same picture and the engine only re-ranged its colours."""
     import numpy as np
     h, w = source.shape[:2]
     outside = face_regions_mask((h, w), boxes, pad=FACE_PAD + 0.2, feather=0.01) < 0.01 if boxes else np.ones((h, w), bool)
     ys, xs = np.nonzero(outside[::4, ::4])
-    if len(ys) < 500:
-        return np.eye(3, dtype=np.float32), np.zeros(3, np.float32)
-    pick = np.random.default_rng(0).choice(len(ys), min(sample, len(ys)), replace=False)
+    if len(ys) < 50:
+        return np.zeros((0, 3), np.float32), np.zeros((0, 3), np.float32)
+    pick = np.random.default_rng(seed).choice(len(ys), min(count, len(ys)), replace=False)
     ys, xs = ys[pick] * 4, xs[pick] * 4
-    x = processed[ys, xs].astype(np.float32)
-    y = source[ys, xs].astype(np.float32)
+    return processed[ys, xs].astype(np.float32), source[ys, xs].astype(np.float32)
+
+
+def fit_pairs(x, y, min_pairs: int = 500):
+    """3x3 matrix + offset (0..255 BGR) mapping engine colours onto source colours: least squares, then refit without the
+    10% worst pairs. Identity when there are too few pairs or the fit does not reduce the error. Pooled over a whole clip
+    the pairs span the picture's brightness range; one frame of a dark close-up does not (its fit extrapolated to the
+    face with a 0.82 / 1.10 channel gain, 10.10 pair clip, frames 400-480)."""
+    import numpy as np
+    ident = (np.eye(3, dtype=np.float32), np.zeros(3, np.float32))
+    if len(x) < min_pairs:
+        return ident
     design = np.hstack([x, np.ones((len(x), 1), np.float32)])
     coef, *_ = np.linalg.lstsq(design, y, rcond=None)
-    fitted = design @ coef
-    before, after = float(np.abs(x - y).mean()), float(np.abs(fitted - y).mean())
-    if not after < before:
-        return np.eye(3, dtype=np.float32), np.zeros(3, np.float32)
+    err = np.abs(design @ coef - y).mean(axis=1)
+    keep = err <= np.percentile(err, 90)
+    coef, *_ = np.linalg.lstsq(design[keep], y[keep], rcond=None)
+    if not float(np.abs(design @ coef - y).mean()) < float(np.abs(x - y).mean()):
+        return ident
     return coef[:3].T.astype(np.float32), coef[3].astype(np.float32)
+
+
+def fit_affine(source, processed, boxes, sample: int = 20000):
+    """One frame's fit (tests and the per-frame fallback)."""
+    x, y = sample_outside(source, processed, boxes, sample)
+    return fit_pairs(x, y)
+
+
+def clip_affine(pairs: list):
+    """The engine's re-ranging is one fixed map for the whole clip: fit it once on the pairs pooled over all frames."""
+    import numpy as np
+    ok = [p for p in pairs if p is not None and len(p[0])]
+    if not ok:
+        return np.eye(3, dtype=np.float32), np.zeros(3, np.float32)
+    return fit_pairs(np.vstack([p[0] for p in ok]), np.vstack([p[1] for p in ok]), min_pairs=1000)
 
 
 def apply_affine(frame, matrix, offset):
@@ -232,13 +270,13 @@ def swap_mask(source, processed, hull, side: float):
     return np.clip(cv2.GaussianBlur(m, (0, 0), max(1.0, 0.015 * side)), 0.0, 1.0)
 
 
-def relight(source, processed, mask, side: float):
+def relight(source, processed, mask, side: float, gains: tuple[float, float] = (RELIGHT_L_GAIN, RELIGHT_AB_GAIN)):
     """Transfer the SOURCE's low-frequency lighting (and mean skin tone) onto the swapped face: the face keeps its own
     texture and identity but sits in the scene's light (a bowed head in deep shadow gets a shadowed face, not a flat lit
     one). Lab: L'_p = L_p + gain * clip(blur(L_s) - blur(L_p)) inside the mask, blurs normalised by the mask."""
     import cv2
     import numpy as np
-    if mask.max() < 0.05:
+    if mask.max() < 0.05 or max(gains) <= 0.0:
         return processed
     ls = cv2.cvtColor(source.astype(np.float32) / 255.0, cv2.COLOR_BGR2LAB)
     lp = cv2.cvtColor(processed.astype(np.float32) / 255.0, cv2.COLOR_BGR2LAB)
@@ -248,12 +286,12 @@ def relight(source, processed, mask, side: float):
     low_p = cv2.GaussianBlur(lp[..., 0] * mask, (0, 0), sigma) / den
     delta = np.clip(low_s - low_p, -RELIGHT_MAX_L, RELIGHT_MAX_L)
     out = lp.copy()
-    out[..., 0] = np.clip(lp[..., 0] + RELIGHT_L_GAIN * delta * mask, 0.0, 100.0)
+    out[..., 0] = np.clip(lp[..., 0] + gains[0] * delta * mask, 0.0, 100.0)
     core = mask > 0.5
     if core.sum() > 50:
         for c in (1, 2):
             shift = float(np.clip((ls[..., c][core] - lp[..., c][core]).mean(), -RELIGHT_AB_MAX, RELIGHT_AB_MAX))
-            out[..., c] = lp[..., c] + RELIGHT_AB_GAIN * shift * mask
+            out[..., c] = lp[..., c] + gains[1] * shift * mask
     return np.clip(cv2.cvtColor(out, cv2.COLOR_LAB2BGR) * 255.0, 0, 255).round().astype(np.uint8)
 
 
@@ -280,14 +318,15 @@ def face_region(shape, landmarks68, side: float):
     return np.clip(cv2.GaussianBlur(m.astype(np.float32) / 255.0, (0, 0), max(1.0, REGION_FEATHER * side)), 0.0, 1.0)
 
 
-def compose_v2(source, processed, faces, alpha: float, hair_masks=None):
+def compose_v2(source, processed, faces, alpha: float, hair_masks=None, guard: float = HAIRLINE_GUARD, affine=None,
+                gains: tuple[float, float] = (RELIGHT_L_GAIN, RELIGHT_AB_GAIN)):
     """One output frame. faces = [{"box": (x1,y1,x2,y2), "lm68": ndarray|None, "swapped": bool}]. Everything outside the
     padded face boxes is the source, byte for byte (the Gate 1 T2 mask)."""
     import numpy as np
     boxes = [tuple(float(v) for v in f["box"]) for f in faces]
     if not boxes or alpha <= 0.0:
         return keep_source_outside_faces(source, source, boxes) if boxes else source
-    matrix, offset = fit_affine(source, processed, boxes)
+    matrix, offset = affine if affine is not None else fit_affine(source, processed, boxes)
     p = apply_affine(processed, matrix, offset)
     h, w = source.shape[:2]
     gate = np.zeros((h, w), np.float32)
@@ -302,18 +341,30 @@ def compose_v2(source, processed, faces, alpha: float, hair_masks=None):
         else:                                                         # no landmarks: what the engine really changed
             m = swap_mask(source, p, np.zeros((h, w), bool), side)
         m = m * face_regions_mask((h, w), [tuple(float(v) for v in f["box"])], feather=0.05)
-        relit = relight(source, relit, m, side)
+        relit = relight(source, relit, m, side, gains)
         gate = np.maximum(gate, m)
     out = source.astype(np.float32) + (alpha * gate)[..., None] * (relit.astype(np.float32) - source.astype(np.float32))
     out = np.clip(out.round(), 0, 255).astype(np.uint8)
     for i, f in enumerate(faces):
-        if f.get("swapped") and hair_masks and hair_masks[i] is not None:
+        if guard > 0 and f.get("swapped") and hair_masks and hair_masks[i] is not None:
             x1, y1, x2, y2 = f["box"]
-            out = hairline_guard(source, out, hair_masks[i], float(max(x2 - x1, y2 - y1)))
+            out = hairline_guard(source, out, hair_masks[i], float(max(x2 - x1, y2 - y1)), guard)
     return keep_source_outside_faces(source, out, boxes)
 
 
 def main_v2(argv: list[str]) -> int:
+    """Options: --hairline-guard=X (band x face side, 0 = off; default HAIRLINE_GUARD). Measured 10.10 on the clip-1/2 masters:
+    the band costs ~0.05 mean arcface identity (it keeps the source's pixels around the hair); it exists for refs with a fringe
+    (kisliy), so callers that do not need it pass 0."""
+    guard = HAIRLINE_GUARD
+    for a in [a for a in argv if a.startswith("--hairline-guard=")]:
+        guard = float(a.split("=", 1)[1])
+    argv = [a for a in argv if not a.startswith("--hairline-guard=")]
+    gains = (RELIGHT_L_GAIN, RELIGHT_AB_GAIN)
+    for a in [a for a in argv if a.startswith("--relight=")]:           # --relight=L,AB (0,0 = off)
+        gl, _, ga = a.split("=", 1)[1].partition(",")
+        gains = (float(gl), float(ga or gl))
+    argv = [a for a in argv if not a.startswith("--relight=")]
     src, swp, dst, rep = argv[:4]
     on, off = (float(argv[4]), float(argv[5])) if len(argv) >= 6 and not argv[4].startswith("--") else (PITCH_ON, PITCH_OFF)
     import numpy as np
@@ -333,7 +384,7 @@ def main_v2(argv: list[str]) -> int:
     a_, _, b_ = rate.partition("/")
     fps = float(a_) / float(b_ or 1)
     # pass 1: faces of the source, which face the engine changed, its pitch
-    per_frame, pitches = [], []
+    per_frame, pitches, fits = [], [], []
     for s, r in zip(_frames(src, w, h), _frames(swp, w, h)):
         faces = get_many_faces([s])
         infos = []
@@ -344,9 +395,11 @@ def main_v2(argv: list[str]) -> int:
             infos.append({"box": [float(v) for v in f.bounding_box], "lm68": np.asarray(f.landmark_set["68"], np.float32),
                           "change": change, "face": f})
         target = max(infos, key=lambda x: x["change"]) if infos else None
+        fits.append(sample_outside(s, r, [tuple(x["box"]) for x in infos], seed=len(fits)) if infos else None)
         per_frame.append(infos)
-        pitches.append(pitch_of(target["lm68"]) if target is not None and target["change"] > SWAPPED_CHANGE else None)
+        pitches.append(pitch_of(target["lm68"]) if target is not None else None)
     alphas = alpha_track(pitches, fps, on, off)
+    affine = clip_affine(fits)
 
     enc = subprocess.Popen([shutil.which("ffmpeg") or "ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24",
                             "-s", f"{w}x{h}", "-r", rate, "-i", "-", "-c:v", "libx264rgb", "-qp", "0", "-preset", "ultrafast", dst],
@@ -358,15 +411,16 @@ def main_v2(argv: list[str]) -> int:
         # no face found in this source frame: the engine may still have swapped one the detector here missed (blur,
         # glasses), so its frame is kept, colour-range corrected, and only where it really differs from the source
         if not infos:
-            matrix, offset = fit_affine(s, r, [])
-            p = apply_affine(r, matrix, offset)
+            p = apply_affine(r, *affine)
             m = swap_mask(s, p, np.zeros((h, w), bool), 0.15 * h)[..., None] * a
             o = np.clip((s.astype(np.float32) + m * (p.astype(np.float32) - s.astype(np.float32))).round(), 0, 255).astype(np.uint8)
         else:
-            faces = [{"box": x["box"], "lm68": x["lm68"], "swapped": x["change"] > SWAPPED_CHANGE} for x in infos]
-            hair = [parse_hair(s, x["face"], face_masker.forward_parse_face) if (a > 0.0 and x["change"] > SWAPPED_CHANGE)
-                    else None for x in infos]
-            o = compose_v2(s, r, faces, a, hair)
+            # every detected face is composed: where the engine changed nothing the blend is the source itself. (A mean-change
+            # threshold on "was this face swapped" dropped the swap on dark close-ups: 55 of 90 frames, identity 0.54 -> 0.46.)
+            faces = [{"box": x["box"], "lm68": x["lm68"], "swapped": True} for x in infos]
+            hair = [parse_hair(s, x["face"], face_masker.forward_parse_face) if (guard > 0 and a > 0.0) else None
+                    for x in infos]
+            o = compose_v2(s, r, faces, a, hair, guard, affine, gains)
         enc.stdin.write(np.ascontiguousarray(o).tobytes())
         rows.append({"frame": i, "pitch": None if pitches[i] is None else round(pitches[i], 3), "alpha": round(a, 3)})
     enc.stdin.close()
@@ -374,15 +428,11 @@ def main_v2(argv: list[str]) -> int:
         print(json.dumps({"error": "encode_failed" if rows else "no_frames"}))
         return 2
     gated = [r["frame"] for r in rows if r["alpha"] < 1]
-    report = {"version": 2, "pitch_on": on, "pitch_off": off, "ramp_s": RAMP_S, "frames": len(rows), "gated_frames": len(gated),
+    report = {"version": 2, "pitch_on": on, "pitch_off": off, "ramp_s": RAMP_S, "hairline_guard": guard, "relight": list(gains), "frames": len(rows), "gated_frames": len(gated),
               "gated_range": [gated[0], gated[-1]] if gated else None}
     Path(rep).write_text(json.dumps({**report, "rows": rows}, indent=1), encoding="utf-8")
     print(json.dumps(report))
     return 0
-
-
-#: mean |source - engine| (0..255) inside a face box above which the engine is taken to have swapped that face
-SWAPPED_CHANGE = 4.0
 
 
 def main(argv: list[str]) -> int:

@@ -362,7 +362,7 @@ def test_v2_alpha_has_no_reversal_where_the_raw_pitch_jitters_around_the_band():
     assert reversals(v1) >= 3
     assert reversals(v2) <= 1
     assert all(x <= y + 1e-9 for x, y in zip(v2, [pose_alpha(p) for p in pitch])) or max(v2) <= 1.0
-    assert max(abs(b - a) for a, b in zip(v2, v2[1:])) <= 0.2         # no pop: 0.4 s ramp at 25 fps, smoothstep slope <= 1.5/10
+    assert max(abs(b - a) for a, b in zip(v2, v2[1:])) <= 0.31        # no pop: 0.2 s ramp = 5 frames at 25 fps, smoothstep slope <= 1.5/5 (V1 jumped 0.62)
     assert v2[0] == 1.0 and v2[-1] == 1.0 and min(v2) == 0.0
 
 
@@ -396,6 +396,26 @@ def test_v2_affine_undoes_the_engines_colour_rerange_outside_the_face_only():
     assert np.abs(eng.astype(int) - src.astype(int))[far].mean() > 5   # the squeeze was real
     ident = fit_affine(src, src, [box])
     assert np.allclose(ident[0], np.eye(3), atol=1e-3) and np.allclose(ident[1], 0, atol=0.5)
+
+
+def test_v2_pooled_clip_fit_stays_right_where_one_dark_frame_cannot_constrain_it():
+    """10.10 pair clip, dark close-up: the per-frame fit saw only near-black pixels and extrapolated a 0.82 / 1.10 channel gain
+    to the face. The clip-level fit pools the pairs of every frame, bright scenes included."""
+    import numpy as np
+    from bcc.direct_gen.pose_gate_worker import apply_affine, clip_affine, sample_outside
+    rng = np.random.default_rng(5)
+
+    def engine(src):
+        return np.clip(src.astype(np.float32) * np.array([0.93, 0.95, 0.92]) + 4, 0, 255).astype(np.uint8)
+    dark = [rng.integers(0, 14, (80, 120, 3), dtype=np.uint8) for _ in range(6)]
+    bright = [rng.integers(0, 255, (80, 120, 3), dtype=np.uint8) for _ in range(6)]
+    pairs = [sample_outside(s, engine(s), [], count=400, seed=i) for i, s in enumerate(dark + bright)]
+    m, o = clip_affine(pairs)
+    probe = np.full((2, 2, 3), 200, np.uint8)
+    fixed = apply_affine(engine(probe), m, o)
+    assert np.abs(fixed.astype(int) - 200).max() <= 3                 # bright face colours come back
+    only_dark = clip_affine(pairs[:6])                                # too little spread: not trusted blindly
+    assert only_dark[0].shape == (3, 3)
 
 
 def test_v2_swap_mask_keeps_source_pixels_where_the_engine_changed_nothing():
@@ -496,3 +516,47 @@ def test_vfr_source_is_normalized_and_the_video_length_survives_a_shorter_audio(
     assert faceswap.normalize_cfr(cfr, tmp_path / "again.mp4") is False      # already constant: nothing written
     faceswap.finish(cfr, vfr, out)
     assert abs(faceswap.video_seconds(out) - faceswap.video_seconds(cfr)) < 0.1
+
+
+def _audit_module():
+    import importlib.util
+    path = Path(__file__).resolve().parents[2] / "tools" / "video_gate" / "artifact_audit.py"
+    spec = importlib.util.spec_from_file_location("artifact_audit", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_artifact_audit_refs_table_and_scene_lookup():
+    audit = _audit_module()
+    table = audit.parse_refs("0-251=a.jpg,b.jpg;252-=c.jpg")
+    assert table == [(0, 251, ["a.jpg", "b.jpg"]), (252, None, ["c.jpg"])]
+    assert audit.refs_for(10, table) == 0 and audit.refs_for(252, table) == 1 and audit.refs_for(900, table) == 1
+    assert audit.parse_refs("x.jpg,y.jpg") == [(0, None, ["x.jpg", "y.jpg"])]
+
+
+def test_artifact_audit_alpha_reversals_and_worst_windows_are_distinct_moments():
+    audit = _audit_module()
+    clean = [1.0, 1.0, 0.6, 0.2, 0.0, 0.0, 0.3, 0.7, 1.0, 1.0]
+    flicker = [1.0, 0.29, 0.91, 0.84, 1.0, 0.78, 1.0]            # 10.10 two-person clip, V1
+    assert audit.alpha_reversals(clean) == 1
+    assert audit.alpha_reversals(flicker) >= 3
+    scores = [0.0] * 40
+    for i in range(10, 18):
+        scores[i] = 5.0
+    for i in range(30, 36):
+        scores[i] = 3.0
+    wins = audit.worst_windows(scores, width=8, count=2)
+    assert len(wins) == 2 and wins[0][0] <= 12 and wins[1][0] >= 27           # two moments, not one artifact twice
+
+
+def test_artifact_audit_jitter_ignores_gaps_and_scores_landmark_outliers():
+    import numpy as np
+    audit = _audit_module()
+    dev = [np.zeros((68, 2)) for _ in range(6)]
+    dev[3] = np.full((68, 2), 0.1)                                   # one frame shifted: a jitter spike
+    dev[5] = None
+    out = audit.jitter_series(dev)
+    assert out[0] is None and out[5] is None and out[4] is None      # ends and gaps are not scored
+    assert out[2] and out[2] > 0 and out[3] > 0
+    assert audit.frame_score({"flicker": 0.0, "lm_outlier": True}, None) >= 1.0   # a detector failure counts as one unit
