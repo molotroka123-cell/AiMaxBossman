@@ -1,0 +1,144 @@
+{
+  "backend_attempts": [],
+  "browser_attempts": [],
+  "page_errors": [],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/login-hint"
+    },
+    {
+      "method": "POST",
+      "path": "/api/login"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models"
+    },
+    {
+      "method": "GET",
+      "path": "/api/providers"
+    },
+    {
+      "method": "GET",
+      "path": "/api/testing/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command-bar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/identity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives"
+    },
+    {
+      "method": "GET",
+      "path": "/api/approvals"
+    },
+    {
+      "method": "POST",
+      "path": "/api/objectives/preview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives"
+    },
+    {
+      "method": "POST",
+      "path": "/api/objectives/preview"
+    },
+    {
+      "method": "POST",
+      "path": "/api/objectives"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system"
+    },
+    {
+      "method": "GET",
+      "path": "/api/testing/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/command-bar"
+    },
+    {
+      "method": "GET",
+      "path": "/api/identity"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives/status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives/ux-wizard-synthetic"
+    },
+    {
+      "method": "GET",
+      "path": "/api/objectives/status"
+    }
+  ],
+  "not_run": [
+    "model/provider save, health/discovery and external inference",
+    "positive agent, mission, schedule or task creation/execution",
+    "objective enrollment, activation, lifecycle changes or owner Apply/pin",
+    "live profiles, Telegram, app start/stop, paid or destructive controls",
+    "other routes, populated/edit variants, complete wizard/control inventory",
+    "real Windows ACL subprocess and git-backed runtime provenance (fixture replacements)"
+  ],
+  "fixture_stubs": [
+    "/api/system",
+    "/api/identity",
+    "/api/agents"
+  ]
+}

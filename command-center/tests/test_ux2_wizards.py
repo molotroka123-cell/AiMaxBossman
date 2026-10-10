@@ -36,6 +36,8 @@ NOT_RUN = [
 # Executed only in our identified subprocess. No pytest/conftest imports in it.
 SERVE = r'''
 import os, sys, json, socket, traceback
+# This UI fixture tests wizard behavior, not the optional owner session recorder.
+os.environ['BOSSMAN_TESTING_PERIOD'] = '0'
 from pathlib import Path
 root, folder, port = Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3])
 folder = folder.resolve()
