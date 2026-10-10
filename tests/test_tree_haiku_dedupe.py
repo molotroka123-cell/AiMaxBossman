@@ -1,0 +1,27 @@
+"""Duplicate leaves: the judge proposes, only a deterministic name/source match lets a retire receipt be written."""
+from __future__ import annotations
+
+from tools.tree_proof import haiku_dedupe as dd
+
+
+def leaf(nid, label, path, label_en=None, status="recorded"):
+    n = {"id": nid, "label": label, "status": status, "sources": [{"path": path}]}
+    if label_en:
+        n["label_en"] = label_en
+    return n
+
+
+def test_same_original_name_or_same_source_is_a_match():
+    a = leaf("skill-24", "Разработка через тесты", ".agents/skills/test-driven-development/SKILL.md", "test-driven-development")
+    b = leaf("skill-44", "TDD-навык", "command-center/bcc/skills_catalog/x/test-driven-development/SKILL.md", "Test-Driven-Development")
+    assert "same original name" in dd.deterministic_match(b, a)
+    c = leaf("cap-23", "Кэширование", "command-center/bcc/features/cache_intel.py", status="code")
+    d = leaf("mod-cache_intel", "Кэш-аналитика", "command-center/bcc/features/cache_intel.py", "cache_intel", status="reported")
+    assert dd.deterministic_match(c, d) == "same source module command-center/bcc/features/cache_intel.py"
+
+
+def test_related_but_different_leaves_and_shared_docs_never_match():
+    a = leaf("oss-1", "Аудит безопасности · security-audit-skill", "BOSSMAN_V1_1_CLAUDE_IMPLEMENTATION.md", "cloudflare/security-audit-skill")
+    b = leaf("oss-2", "Ревью кода · open-code-review", "BOSSMAN_V1_1_CLAUDE_IMPLEMENTATION.md", "alibaba/open-code-review")
+    assert dd.deterministic_match(a, b) is None                   # one catalogue document lists many different repos
+    assert dd.deterministic_match(a, a) is None
