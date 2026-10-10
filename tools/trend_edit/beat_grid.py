@@ -104,18 +104,20 @@ def section_edges(grid: BeatGrid, wanted: list[float]) -> list[float]:
     return out
 
 
-def audio_loop_plan(grid: BeatGrid, total: float, intro_beats: int, loop_beats: int) -> list[tuple[float, float]]:
-    """Source segments (start, duration) in the track that fill `total` seconds: the intro once (beat 0..intro_beats),
-    then the block [intro_beats, intro_beats+loop_beats) repeated, the last one truncated. Every seam is on a beat."""
+def audio_loop_plan(grid: BeatGrid, total: float, intro_beats: int, loop_beats: int,
+                    start_beat: int = 0) -> list[tuple[float, float]]:
+    """Source segments (start, duration) in the track that fill `total` seconds: the intro once (track beats
+    start_beat .. start_beat+intro_beats), then the block [start_beat+intro_beats, +loop_beats) repeated, the last one
+    truncated. Every seam is on a beat. start_beat lets the track's drop land on a chosen beat of the edit."""
     segs: list[tuple[float, float]] = []
     intro = intro_beats * grid.period
     take = min(intro, total)
-    segs.append((grid.time(0), take))
+    segs.append((grid.time(start_beat), take))
     got = take
     block = loop_beats * grid.period
     while got < total - 1e-9:
         d = min(block, total - got)
-        segs.append((grid.time(intro_beats), d))
+        segs.append((grid.time(start_beat + intro_beats), d))
         got += d
     return segs
 

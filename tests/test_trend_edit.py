@@ -243,3 +243,65 @@ def test_promo_plan_has_the_brief_sections_in_order_on_whole_beats():
     assert all(0.0 <= x.t0 < x.t1 <= 66 * period + 1e-6 for x in texts)
     assert any("GENJUTSU" in x.text for x in texts) and any("MOTION STUDIO" in x.text for x in texts)
     assert any("trial" in x.text for x in texts)                 # the outfit stage is labelled honestly
+
+
+# ------------------------------------------------------------------ v2 pieces
+def test_audio_loop_plan_start_beat_puts_the_drop_on_the_chosen_promo_beat():
+    g = bg.BeatGrid(period=0.5, phase=0.0)
+    segs = bg.audio_loop_plan(g, total=30.0, intro_beats=14, loop_beats=8, start_beat=6)
+    assert segs[0] == (pytest.approx(3.0), pytest.approx(7.0))          # track beats 6..20 = promo beats 0..14
+    assert all(s == pytest.approx(10.0) for s, _d in segs[1:])          # the drop (track beat 20) loops from promo beat 14
+    assert sum(d for _s, d in segs) == pytest.approx(30.0)
+
+
+def test_swap_schedule_is_gapless_8_beats_and_never_touches_the_failed_frames():
+    import build_promo_v2 as v2
+    beats = 0.0
+    for s, n, _who, f0, f1 in v2.SWAP_SCHEDULE:
+        assert s == pytest.approx(6.0 + beats)
+        beats += n
+        assert 0 <= f0 < f1 <= 95
+        assert not (set(range(f0, f1 + 1)) & set(v2.BAD_FRAMES)), (s, f0, f1)
+    assert beats == pytest.approx(8.0)
+    who, fr = v2.frame_for(6.0)
+    assert who == "her" and fr == pytest.approx(0)
+    who, fr = v2.frame_for(10.0)
+    assert who == "kisliy" and fr == pytest.approx(56)
+    sec = v2.SECTIONS
+    names = list(sec)
+    assert all(sec[a][1] == sec[b][0] for a, b in zip(names, names[1:]))      # sections are contiguous
+    assert v2.section_of(0.0) == "live" and v2.section_of(64.0) == "end"
+
+
+def test_recolor_hair_natural_keeps_outside_and_strand_detail():
+    pytest.importorskip("cv2")
+    import edit_core as ec
+    rng = np.random.default_rng(1)
+    f = np.full((80, 80, 3), 120, np.uint8)
+    hair = np.zeros((80, 80), np.uint8)
+    hair[20:60, 20:60] = 255
+    f[20:60, 20:60] = np.clip(18 + rng.normal(0, 7, (40, 40, 1)), 0, 60).astype(np.uint8)   # dark hair with strands
+    out = ec.recolor_hair_natural(f, hair, None, "#f2f0ea")
+    assert (out[:10] == f[:10]).all()                                  # outside the mask untouched
+    assert out[25:55, 25:55].astype(float).mean() > f[25:55, 25:55].astype(float).mean() + 60   # white is much lighter
+    assert out[25:55, 25:55].astype(float).std() > 3.0                 # not a flat cap: the strand texture survives
+    blue = ec.recolor_hair_natural(f, hair, None, "#1f5fd1")
+    px = blue[40, 40].astype(int)
+    assert px[0] > px[2]                                               # BGR: blue channel above red
+
+
+def test_fix_frame_never_removes_what_rvm_kept_and_adds_confident_segformer_pixels():
+    pytest.importorskip("cv2")
+    import fix_neon as fn
+    h, w = 60, 80
+    src = np.full((h, w, 3), 200, np.uint8)
+    plate = np.full((h, w, 3), 30, np.uint8)
+    alpha = np.zeros((h, w), np.uint8)
+    alpha[:, :30] = 255                                                # RVM keeps the left part
+    final = np.where((alpha > 0)[:, :, None], src, plate).astype(np.uint8)
+    seg = np.zeros((h, w), np.uint8)
+    seg[:, 30:42] = 255                                                # SegFormer adds a strip next to it
+    out, share = fn.fix_frame(src, alpha, final, seg, plate, match=False)
+    assert (out[:, :28] == 200).all()                                  # kept
+    assert out[30, 36, 0] > 150 and share > 0.0                        # added
+    assert (out[:, 60:] == 30).all()                                   # far away stays plate

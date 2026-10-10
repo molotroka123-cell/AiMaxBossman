@@ -89,6 +89,51 @@ def recolor(frame: np.ndarray, regions: dict[str, tuple[np.ndarray, dict]]) -> n
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
+def recolor_hair_natural(frame: np.ndarray, hair_u8: np.ndarray, skin_u8: np.ndarray | None, color: str,
+                         strength: float = 0.85, lightness: float = 0.8, detail: float = 0.9) -> np.ndarray:
+    """Hair dye that follows the light: v1's flat Lab shift made white hair look like a cap (external review 10.10).
+
+      * the mask is softened where it touches skin (forehead, temples) so no hard cut-out line appears;
+      * lightness is re-centred on the target colour but the ORIGINAL strand / shading detail is kept and amplified
+        (gain 1 + detail * how-far-up-we-lift), plus the original specular highlights ride on top;
+      * chroma is reduced for very light targets (white / platinum are low-chroma, not 'painted grey');
+      * a faint contact darkening next to the skin keeps the roots from glowing.
+    """
+    c = cv2()
+    w = hair_u8.astype(np.float32) / 255.0
+    lab = c.cvtColor(frame.astype(np.float32) / 255.0, c.COLOR_BGR2Lab)
+    L, a, b = lab[:, :, 0], lab[:, :, 1], lab[:, :, 2]
+    # SegFormer's mask is a smooth blob that spills onto the background next to dark hair (v1 looked like a cap):
+    # keep only what is actually dark in the source (hair), fading out between L 40 and 62
+    dark = np.clip((62.0 - L) / 22.0, 0.0, 1.0)
+    w = c.GaussianBlur(w * dark, (0, 0), 0.9)
+    near = np.zeros_like(w)
+    if skin_u8 is not None:
+        sk = (skin_u8 > 127).astype(np.uint8)
+        near = c.GaussianBlur(c.dilate(sk, c.getStructuringElement(c.MORPH_ELLIPSE, (9, 9))).astype(np.float32), (0, 0), 5)
+        w = w * (1.0 - 0.55 * near)
+    tot = float(w.sum())
+    if tot < 1.0:
+        return frame
+    mean_l = float((w * L).sum() / tot)
+    tl, ta, tb = hex_to_lab(color)
+    light_target = tl > 70.0                       # white / platinum: go all the way up, flatter exponent
+    target_l = mean_l + (tl - mean_l) * (1.0 if light_target else lightness)
+    # multiplicative shading: dark strands / shadows stay dark, highlights ride up (`detail` = exponent strength)
+    ratio = np.clip(c.GaussianBlur(L, (0, 0), 0.7) / max(mean_l, 1.0), 0.15, 3.2)
+    expo = 0.42 if light_target else 0.45 + 0.35 * detail
+    new_l = np.clip(target_l * ratio ** expo, 0.0, 100.0)
+    new_l = new_l * (1.0 - 0.18 * near * (new_l > 40))               # contact darkening at the roots
+    chroma_k = strength * (1.0 - 0.45 * np.clip((new_l - 65.0) / 30.0, 0.0, 1.0))
+    new = np.empty_like(lab)
+    new[:, :, 0] = new_l
+    new[:, :, 1] = a + (ta - a) * chroma_k
+    new[:, :, 2] = b + (tb - b) * chroma_k
+    rgb = np.clip(c.cvtColor(new, c.COLOR_Lab2BGR), 0, 1) * 255.0
+    out = frame.astype(np.float32) + (rgb - frame.astype(np.float32)) * w[:, :, None]
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
 # ------------------------------------------------------------------ clips / masks
 def probe(path: Path) -> dict:
     r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
@@ -185,7 +230,7 @@ class MaskSeq:
 
 
 def hit_fx(f: np.ndarray, tau: float, hits: list[tuple[float, float]], S: float = 1.0,
-           center: tuple[float, float] = (0.5, 0.5), window: float = 0.7) -> np.ndarray:
+           center: tuple[float, float] = (0.5, 0.5), window: float = 0.7, punch: bool = True) -> np.ndarray:
     """The latest hit (time, strength) within `window` seconds drives a zoom punch, an RGB split and a flash frame.
     strength 0.5 = soft punch, 1 = punch + split + flash, 2 = the drop (big flash)."""
     last = None
@@ -201,7 +246,8 @@ def hit_fx(f: np.ndarray, tau: float, hits: list[tuple[float, float]], S: float 
     fl = 0.5 * np.exp(-dt / 0.045) if st >= 1.0 else 0.0
     if st >= 2.0:
         fl = 0.8 * np.exp(-dt / 0.06)
-    f = fx.zoom_punch(f, sc, center)
+    if punch:
+        f = fx.zoom_punch(f, sc, center)
     f = fx.rgb_split(f, dx, 0)
     return fx.flash(f, float(fl))
 
