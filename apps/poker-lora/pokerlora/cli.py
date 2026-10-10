@@ -56,8 +56,32 @@ def cmd_study(a):
     return 0
 
 
+def cmd_solve(a):
+    """Study a river spot by hand (no screen, no live game): solve it and print the equilibrium mix for the hero's hand."""
+    from .ranges import range_text
+    from .solver_policy import SolverPolicy, study_input
+    hist = []
+    for step in (a.history.split(",") if a.history else []):
+        who, act = step.strip().split(":")
+        hist.append({"player": who, "action": act})
+    hr = a.hero_range or range_text(a.hero_pct)
+    vr = a.villain_range or range_text(a.villain_pct)
+    inp = study_input(a.board.split(), a.hole.split(), a.pos, a.pot, a.stack, hr, vr, hist)
+    out = SolverPolicy().act(inp)
+    print(json.dumps({"to_call": inp["to_call"], "pot_now": inp["pot_now"], "legal": inp["legal"], "answer": out,
+                      "note": "equilibrium of the abstracted river game for the GIVEN ranges (assumptions, not observed); not a profit guarantee"},
+                     ensure_ascii=False, indent=1))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(); sub = ap.add_subparsers(dest="cmd", required=True)
+    so = sub.add_parser("solve", help="study tool: solve one HU river spot typed in by hand")
+    so.add_argument("--board", required=True, help='five cards, e.g. "Ah Kd 7c 2s 9h"'); so.add_argument("--hole", required=True, help='e.g. "As Qs"')
+    so.add_argument("--pos", choices=("OOP", "IP"), required=True); so.add_argument("--pot", type=float, required=True); so.add_argument("--stack", type=float, required=True)
+    so.add_argument("--hero-pct", type=int, default=20); so.add_argument("--villain-pct", type=int, default=30)
+    so.add_argument("--hero-range", default=""); so.add_argument("--villain-range", default="")
+    so.add_argument("--history", default="", help='river actions before the hero, e.g. "OOP:check" or "OOP:bet50,IP:raise"'); so.set_defaults(fn=cmd_solve)
     b = sub.add_parser("build"); b.add_argument("--spots", type=int, default=300); b.add_argument("--seed", type=int, default=20261006)
     b.add_argument("--out", required=True); b.add_argument("--cap", type=int, default=6); b.add_argument("--workers", type=int, default=4); b.set_defaults(fn=cmd_build)
     s = sub.add_parser("sft"); s.add_argument("--data", required=True); s.add_argument("--out", required=True); s.set_defaults(fn=cmd_sft)
