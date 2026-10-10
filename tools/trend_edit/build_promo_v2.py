@@ -83,6 +83,10 @@ def section_of(beat: float) -> str:
     return "end"
 
 
+#: manual pick where the highest-cosine still has hallucinated signage / text (Kisliy p1, p2: a clinic sign with gibberish)
+PREFER_STILL = {"KISLIY": "kisliy_p3_s1.0.png"}
+
+
 def lora_cards() -> list[dict]:
     """Best SDXL+LoRA still per person (highest ArcFace cosine at scale 0.8 / 1.0) with the numbers read from results.json."""
     out = []
@@ -91,7 +95,9 @@ def lora_cards() -> list[dict]:
     for name, d, base, steps in spec:
         r = json.loads((LORA_EVAL / d / "results.json").read_text(encoding="utf-8"))
         cand = [x for x in r["results"] if x["scale"] in (0.8, 1.0) and x.get("faces") == 1]
-        best = max(cand, key=lambda x: x["cos"])
+        want = PREFER_STILL.get(name)
+        best = next((x for x in cand if x["png"] == want), None) if want else None
+        best = best or max(cand, key=lambda x: x["cos"])
         scale_mean = r["summary"][str(best["scale"])]["mean_cos"]
         b = json.loads((LORA_EVAL / base / "results.json").read_text(encoding="utf-8"))["summary"]
         base_mean = next(iter(b.values()))["mean_cos"]
@@ -117,7 +123,9 @@ class Promo:
         self.vsrc = self.vgen = None
         vj = V2 / "job-vace"
         if use_vace and (vj / "master.mp4").exists():
-            self.vsrc, self.vgen = ec.Clip(vj / "source.mp4"), ec.Clip(vj / "master.mp4")
+            gen = vj / "master-smooth.mp4" if (vj / "master-smooth.mp4").exists() else vj / "master.mp4"
+            self.vsrc, self.vgen = ec.Clip(vj / "source.mp4"), ec.Clip(gen)
+            self.vace_file = gen.name
         self.cards = lora_cards()
         self.card_imgs = []
         c = ec.cv2()
