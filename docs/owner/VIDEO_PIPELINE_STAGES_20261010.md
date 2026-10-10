@@ -38,3 +38,16 @@
 4. try4: падение на подготовке int8-весов (Comfy Kitchen HIP kernels).
 5. try5: `int8_kernels=disabled` + `MIOPEN_FIND_MODE=FAST` → VAE-кодирование 1 окна 1 мин 14 с; денойзинг идёт (~11 мин/шаг, 6 шагов, 2 окна).
 Причина нестабильности: ROCm под Windows для gfx1151 — preview; Triton не компилирует свои ядра (нет stdlib.h), часть быстрых ядер падает.
+
+## Stage 1 — кандидаты Person Swap (официальные страницы, проверено 10.10)
+| Кандидат | Код / веса | Что делает | AMD/ROCm | Статус |
+|---|---|---|---|---|
+| Wan2.2-Animate-14B (Wan2GP) | Apache-2.0 / Apache-2.0 | замена персонажа целиком (Replace + маска) | прогон на 8060S идёт (см. журнал) | IN_PROGRESS |
+| Lucy Edit Dev 1.1 (decartAI/lucy-edit-comfyui) | MIT / Lucy Edit 5B Community — **только некоммерческое** | правка видео по инструкции (персонаж, одежда, сцена) | не указано; проверка через ComfyUI ROCm | NOT_RUN |
+| Stand-In (WeChatCV) | Apache-2.0 | identity-preserving генерация на Wan2.1/2.2; face-swap — experimental | подтверждён только CUDA | NOT_RUN |
+| VFace (Sanoojan) | MIT / CC BY-NC 4.0 (CelebAMask-HQ), Paint-by-Example — OpenRAIL-M | video face swap (FACE_ONLY), 10 FPS | требует NVIDIA CUDA | BLOCKED_ON_TARGET_HARDWARE |
+| SwapAnyone (PKU-YuanGroup) | MIT | — | — | RESEARCH_ONLY: код и веса не выпущены (TODO) |
+| FaceFusion F1 | OpenRAIL-AS | FACE_ONLY контроль | DirectML, работает | baseline Gate 0 |
+
+## Stage 3 — «Mimics 2.0»
+Поиск по коду, истории и документам 10.10: модуля с таким именем нет. Ближайшие: Motion Studio 1.8 (`bcc/features/motion_studio.py`) и «оживить фото» (`/animate` в пульте). BLOCKED до уточнения владельца, какой модуль имеется в виду.
