@@ -38,7 +38,7 @@ ERROR_EXIT = {"disconnected": EXIT_DISCONNECTED, "auth": EXIT_DISCONNECTED,
 TERMINAL_COMMANDS = ("chat", "exec", "status", "events", "result", "resume", "approve", "deny",
                      "pause", "stop", "continue", "list", "keys", "code", "evolution", "repair",
                      "run", "evolve", "start", "version", "approvals", "tasks", "market", "review", "rate", "call", "rave",
-                     "autonomy")
+                     "autonomy", "gmail")
 
 
 class UsageError(Exception):
@@ -223,6 +223,10 @@ def build_parser() -> argparse.ArgumentParser:
     k.add_argument("--yes", action="store_true")
     k.add_argument("--no-models", action="store_true", help="не регистрировать модели провайдера")
     _fmt(k)
+
+    gm = sub.add_parser("gmail", help="подключить СВОЮ почту Gmail (OAuth или пароль приложения)")
+    from .gmail import configure_parser as _gmail_parser
+    _gmail_parser(gm, _common, _fmt)
 
     cd = sub.add_parser("code", help="coding task через coding path (diff + проверка); "
                                      "`code apply <id>` — применить проверенного кандидата")
@@ -1132,6 +1136,12 @@ def cmd_keys(args) -> int:
             return run_keys(client, out, args)
         except (BossmanError, UsageError) as exc:
             return fail(out, exc, what="keys")
+
+
+def cmd_gmail(args) -> int:
+    """Owner's Gmail connection (bcc.terminal_cli.gmail); secrets never in argv."""
+    from .gmail import run_gmail
+    return _simple(args, lambda client, out: run_gmail(client, out, args), what="gmail")
 
 
 def cmd_resume(args) -> int:
