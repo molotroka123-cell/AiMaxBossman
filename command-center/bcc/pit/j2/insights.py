@@ -27,6 +27,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
@@ -56,6 +57,7 @@ DAY = 86400.0
 _MONTHS = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября",
            "ноября", "декабря")
 PultSender = Callable[[str], Awaitable[Any]]
+OUTBOX_ID = re.compile(r"jd-\d{4}-W\d{2}(?:-f\d{1,12})?")
 
 
 # ---------------------------------------------------------------------------------------------------------
@@ -491,10 +493,14 @@ class InsightsCollector:
         (folder / "weekly").mkdir(exist_ok=True)
         (folder / "weekly" / f"{week}.txt").write_text(text + "\n", encoding="utf-8", newline="\n")
         error = None
+        queued = None
         try:
             if pult_sender is None:
-                _append_jsonl(folder / "pult-outbox.jsonl", {"at": _iso(self.clock()), "kind": "weekly_digest",
-                                                             "week": week, "text": text})
+                # The owner Pult (Telegram companion) drains this outbox through the owner-only API
+                # (/api/jeff-insights/pult-outbox) and acknowledges each id once it is sent: see pending_pult_items.
+                queued = f"jd-{week}" + (f"-f{int(self.clock())}" if force else "")
+                _append_jsonl(folder / "pult-outbox.jsonl", {"id": queued, "at": _iso(self.clock()),
+                                                             "kind": "weekly_digest", "week": week, "text": text})
                 delivered = True
             else:
                 delivered = bool(await pult_sender(text))
@@ -505,9 +511,55 @@ class InsightsCollector:
         if delivered:
             _atomic_json(self._state_path(), {"last_digest_week": week, "delivered_at": _iso(self.clock())})
         result: dict[str, Any] = {"week": week, "delivered": delivered, "already": False}
+        if queued:
+            result["queued_for_pult"] = queued
         if error:
             result["error"] = error
         return result
+
+    # -- the Pult outbox (read by the owner companion only) -------------------------------------------------------
+    def _outbox_path(self) -> Path:
+        return self.pit / "insights" / "pult-outbox.jsonl"
+
+    def _delivered_path(self) -> Path:
+        return self.pit / "insights" / "pult-delivered.json"
+
+    def _delivered_ids(self) -> list[str]:
+        data = _read_json(self._delivered_path())
+        rows = data.get("ids") if isinstance(data, dict) else None
+        return [str(i) for i in rows] if isinstance(rows, list) else []
+
+    def pending_pult_items(self, limit: int = 5) -> list[dict[str, Any]]:
+        """Outbox rows not yet acknowledged, one per id (the last row of an id wins), oldest first.
+
+        Rows from before ids existed get a stable id from their week, so an old outbox is delivered once too.
+        The text is the digest itself (numbers and neutral #labels only, no participant text)."""
+        rows: dict[str, dict[str, Any]] = {}
+        for row in _tail_rows(self._outbox_path()):
+            if row.get("kind") != "weekly_digest" or not isinstance(row.get("text"), str):
+                continue
+            item_id = str(row.get("id") or f"jd-{row.get('week')}")
+            if not OUTBOX_ID.fullmatch(item_id):
+                continue
+            rows.pop(item_id, None)
+            rows[item_id] = {"id": item_id, "kind": "weekly_digest", "week": str(row.get("week") or ""),
+                             "at": row.get("at"), "text": row["text"][:3500]}
+        done = set(self._delivered_ids())
+        return [r for r in rows.values() if r["id"] not in done][: max(1, min(int(limit), 20))]
+
+    def ack_pult_item(self, item_id: str) -> bool:
+        """Mark one outbox id as delivered to the owner; False for an unknown id. Idempotent."""
+        item_id = str(item_id or "")
+        if not OUTBOX_ID.fullmatch(item_id):
+            return False
+        known = {str(r.get("id") or f"jd-{r.get('week')}") for r in _tail_rows(self._outbox_path())}
+        if item_id not in known:
+            return False
+        ids = self._delivered_ids()
+        if item_id not in ids:
+            ids = (ids + [item_id])[-500:]
+            _atomic_json(self._delivered_path(), {"ids": ids, "updated_at": _iso(self.clock())})
+        return True
 
 
 # ---------------------------------------------------------------------------------------------------------

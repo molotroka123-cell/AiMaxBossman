@@ -16,6 +16,8 @@ from .config import CompanionError, Person, Settings
 
 # Who is waiting for the single local model: 0 = owner first (if enabled), 1 = everyone else.
 CURRENT_PRIORITY = contextvars.ContextVar("companion_priority", default=1)
+#: Ids of Jeff's weekly-digest outbox rows (bcc.pit.j2.insights.OUTBOX_ID).
+JEFF_DIGEST_ID = re.compile(r"jd-\d{4}-W\d{2}(?:-f\d{1,12})?")
 
 
 class PriorityLock:
@@ -788,6 +790,22 @@ class Core:
         body = await self._request("POST", f"/api/telegram/calls/answering/reports/{report_id}/delivered", {})
         if not isinstance(body, dict) or body.get("id") != report_id or body.get("delivered") is not True:
             raise CompanionError("ANSWERING_REPORT_ACK_UNKNOWN")
+        return body
+
+    async def jeff_digests(self) -> list:
+        """Jeff's weekly digests waiting for the owner (numbers and neutral labels only; built by the backend)."""
+        body = await self._request("GET", "/api/jeff-insights/pult-outbox?limit=5")
+        rows = body.get("items") if isinstance(body, dict) else None
+        if not isinstance(rows, list):
+            raise CompanionError("JEFF_DIGESTS_INVALID")
+        return [r for r in rows if isinstance(r, dict) and JEFF_DIGEST_ID.fullmatch(str(r.get("id") or ""))]
+
+    async def ack_jeff_digest(self, item_id: str) -> dict:
+        if not JEFF_DIGEST_ID.fullmatch(str(item_id or "")):
+            raise CompanionError("JEFF_DIGEST_ID_INVALID")
+        body = await self._request("POST", f"/api/jeff-insights/pult-outbox/{item_id}/delivered", {})
+        if not isinstance(body, dict) or body.get("id") != item_id or body.get("delivered") is not True:
+            raise CompanionError("JEFF_DIGEST_ACK_UNKNOWN")
         return body
 
     async def login_receipts(self) -> list:
