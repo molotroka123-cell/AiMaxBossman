@@ -331,6 +331,23 @@ def test_outside_the_padded_face_box_the_source_is_kept_exactly():
     assert keep_source_outside_faces(src, eng, []) is eng            # no face found: engine frame untouched
 
 
+def test_hairline_guard_keeps_the_target_next_to_its_hair():
+    """10.10 kisliy: the swapper painted the source's fringe onto the target's temple; the band at the hair keeps the target."""
+    import numpy as np
+    from bcc.direct_gen.pose_gate_worker import hairline_guard
+    src = np.full((200, 200, 3), 180, np.uint8)
+    eng = src.copy()
+    eng[60:70, 40:60] = 20                                           # painted fringe right below the hairline
+    eng[140:150, 90:110] = 120                                       # the swapped mouth, far from the hair
+    hair = np.zeros((200, 200), bool)
+    hair[40:58, 30:170] = True
+    out = hairline_guard(src, eng, hair, side=150.0)                 # band = 9 px
+    residual = (180 - int(out[62, 50, 0])) / (180 - 20)              # soft band: share of the smudge left 4 px from hair
+    assert residual <= 0.2
+    assert (out[140:150, 90:110] == 120).all()                       # the face itself stays swapped
+    assert hairline_guard(src, eng, np.zeros((200, 200), bool), 150.0) is eng
+
+
 async def test_pose_gate_runs_after_the_swap_and_is_recorded(env, tmp_path, monkeypatch):
     svc = install_swap(env, tmp_path, FakeFaceFusion)
     monkeypatch.setattr(faceswap, "finish", lambda video, original, dst, **k: shutil.copyfile(video, dst))

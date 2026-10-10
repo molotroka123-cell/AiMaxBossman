@@ -6,7 +6,8 @@ frames: pitch = (nose_y - eyes_y) / (chin_y - eyes_y) on the 68 landmarks of the
 0.54-0.62 bowed vs 0.32-0.46 normal. Per frame:
     alpha = clip((off - pitch) / (off - on), 0, 1);  out = alpha * swapped + (1 - alpha) * source
 so the swap fades out/in over the on..off band instead of popping. Frames without a face keep the swapped frame.
-Then everything outside the padded face boxes is restored from the source exactly (keep_source_outside_faces).
+Then a band around the target's hairline keeps the target (hairline_guard: the swapper paints the source person's fringe
+there), and everything outside the padded face boxes is restored from the source exactly (keep_source_outside_faces).
 
 Run ONLY with FaceFusion's interpreter (it imports `facefusion`, not `bcc`), cwd = the FaceFusion checkout:
     <facefusion>/.venv/Scripts/python.exe pose_gate_worker.py source.mp4 swapped.mp4 out.mp4 report.json [on off]
@@ -70,6 +71,41 @@ def keep_source_outside_faces(source, processed, boxes):
     return out
 
 
+HAIR = 17                 # CelebAMask class of the face parser
+HAIRLINE_GUARD = 0.06     # x face side
+
+
+def hairline_guard(source, processed, hair_mask, side: float):
+    """The swapper paints the source person's fringe/sideburns into the target's skin at the hairline (10.10, kisliy refs:
+    a dark smudge on the temple with every swapper/padding/enhancer setting). A band of HAIRLINE_GUARD x face side around
+    the TARGET's hair keeps the target's pixels, with a soft edge."""
+    import cv2
+    import numpy as np
+    if not hair_mask.any():
+        return processed
+    g = max(3, int(HAIRLINE_GUARD * side))
+    band = cv2.dilate(hair_mask.astype(np.uint8) * 255, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * g + 1, 2 * g + 1)))
+    m = cv2.GaussianBlur(band.astype(np.float32) / 255.0, (0, 0), g / 2)[..., None]
+    return (m * source.astype(np.float32) + (1 - m) * processed.astype(np.float32)).round().astype(np.uint8)
+
+
+def parse_hair(frame, face, forward_parse_face):
+    """Hair mask at frame size from the face parser run on a 1.6 x face crop."""
+    import cv2
+    import numpy as np
+    h, w = frame.shape[:2]
+    x1, y1, x2, y2 = [float(v) for v in face.bounding_box]
+    cx, cy, sz = (x1 + x2) / 2, (y1 + y2) / 2, max(x2 - x1, y2 - y1) * 1.6
+    bx1, by1, bx2, by2 = int(max(0, cx - sz / 2)), int(max(0, cy - sz / 2)), int(min(w, cx + sz / 2)), int(min(h, cy + sz / 2))
+    prep = cv2.resize(frame[by1:by2, bx1:bx2], (512, 512))[:, :, ::-1].astype(np.float32) / 255.0
+    prep = (prep - np.array([0.485, 0.456, 0.406], np.float32)) / np.array([0.229, 0.224, 0.225], np.float32)
+    labels = forward_parse_face(prep.transpose(2, 0, 1)[None]).argmax(0).astype(np.uint8)
+    full = np.zeros((h, w), bool)
+    full[by1:by2, bx1:bx2] = cv2.resize((labels == HAIR).astype(np.uint8), (bx2 - bx1, by2 - by1),
+                                        interpolation=cv2.INTER_NEAREST) > 0
+    return full
+
+
 def _probe(path: str) -> tuple[int, int, str]:
     out = subprocess.run([shutil.which("ffprobe") or "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
                           "stream=width,height,r_frame_rate", "-of", "csv=p=0", path], capture_output=True, text=True)
@@ -99,9 +135,12 @@ def main(argv: list[str]) -> int:
     for k, v in {"execution_providers": ["directml"], "execution_device_ids": ["0"], "download_providers": ["github", "huggingface"],
                  "face_detector_model": "yolo_face", "face_detector_size": "640x640", "face_detector_angles": [0],
                  "face_detector_margin": [0, 0, 0, 0], "face_detector_score": 0.5, "face_landmarker_model": "2dfan4",
-                 "face_landmarker_score": 0.5, "log_level": "error"}.items():
+                 "face_landmarker_score": 0.5, "log_level": "error", "face_parser_model": "bisenet_resnet_34",
+                 "face_occluder_model": "xseg_1"}.items():
         state_manager.init_item(k, v)
+    from facefusion import face_masker
     from facefusion.face_creator import get_many_faces
+    face_masker.pre_check()
 
     w, h, rate = _probe(src)
     enc = subprocess.Popen([shutil.which("ffmpeg") or "ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24",
@@ -113,6 +152,9 @@ def main(argv: list[str]) -> int:
         p = pitch_of(max(faces, key=lambda f: f.bounding_box[2] - f.bounding_box[0]).landmark_set["68"]) if faces else None
         a = pose_alpha(p, on, off)
         o = r if a == 1.0 else s if a == 0.0 else (a * r.astype(np.float32) + (1 - a) * s.astype(np.float32)).round().astype(np.uint8)
+        for f in faces if a > 0.0 else []:
+            side = max(f.bounding_box[2] - f.bounding_box[0], f.bounding_box[3] - f.bounding_box[1])
+            o = hairline_guard(s, o, parse_hair(s, f, face_masker.forward_parse_face), float(side))
         o = keep_source_outside_faces(s, o, [tuple(float(v) for v in f.bounding_box) for f in faces])
         enc.stdin.write(np.ascontiguousarray(o).tobytes())
         rows.append({"frame": i, "pitch": None if p is None else round(p, 3), "alpha": round(a, 3)})
