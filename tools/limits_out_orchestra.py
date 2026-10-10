@@ -40,12 +40,15 @@ def stop_requested() -> str:
     return ""
 
 
-def run_cycle(case: str, paid: str | None, evidence: Path, timeout: int) -> dict:
-    cmd = [sys.executable, str(ROOT / "tools" / "tree_self_repair_cycle.py"), "--case", case, "--worker", "openrouter-free",
-           "--evidence", str(evidence), "--timeout", str(timeout)]
+def run_cycle(case: str, paid: str | None, evidence: Path, timeout: int, cycle_py: str, source_repo: str) -> dict:
+    # The cycle must run from the SAME build as the server on :8801 (api_client refuses a foreign build), so it uses the
+    # installed bundle's interpreter (its own `bcc`) and no repo PYTHONPATH; the repo is only the tree's source_repo.
+    cmd = [cycle_py, str(ROOT / "tools" / "tree_self_repair_cycle.py"), "--case", case, "--worker", "openrouter-free",
+           "--source-repo", source_repo, "--evidence", str(evidence), "--timeout", str(timeout)]
     if paid:
         cmd += ["--allow-paid-worker", paid]
-    env = {**os.environ, "PYTHONUTF8": "1", "PYTHONPATH": f"{ROOT};{ROOT / 'bossman-core'};{ROOT / 'command-center'}"}
+    env = {**os.environ, "PYTHONUTF8": "1", "BCC_DATA_DIR": str(DATA)}
+    env.pop("PYTHONPATH", None)
     t0 = time.time()
     r = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True, timeout=timeout + 300)
     out = {"case": case, "rc": r.returncode, "minutes": round((time.time() - t0) / 60, 1), "tail": (r.stdout or r.stderr)[-600:]}
@@ -92,6 +95,10 @@ def main() -> int:
     ap.add_argument("--paid", choices=["glm-flash", "haiku-5.5"], default="glm-flash")
     ap.add_argument("--cycle-timeout", type=int, default=1900)
     ap.add_argument("--send", action="store_true", help="send the report to the pult (owner only) at the end")
+    ap.add_argument("--cycle-py", default=os.environ.get("BOSSMAN_INSTALLED_PY", sys.executable),
+                    help="interpreter of the INSTALLED build serving :8801 (bundle runtime\\python.exe)")
+    # The server accepts only checkouts inside its evolution roots (EVOLUTION_ROOT_DENIED otherwise): evo-tree-src is one.
+    ap.add_argument("--source-repo", default=r"C:\Users\asd\Bossman\evo-tree-src", help="checkout the tree works on")
     a = ap.parse_args()
     if not 1 <= a.max_cycles <= 25 or not 0 < a.max_hours <= 24:
         print("caps out of range")
@@ -113,7 +120,7 @@ def main() -> int:
         ev.mkdir(parents=True, exist_ok=True)
         log(f"cycle {i + 1} {case} start")
         try:
-            r = run_cycle(case, a.paid, ev, a.cycle_timeout)
+            r = run_cycle(case, a.paid, ev, a.cycle_timeout, a.cycle_py, a.source_repo)
         except subprocess.TimeoutExpired:
             r = {"case": case, "rc": -1, "minutes": round(a.cycle_timeout / 60), "tail": "timeout"}
         results.append(r)
