@@ -156,7 +156,8 @@ class TaskStore:
                 "done": [], "awaited_input": None, "inputs": {},
                 "constraints": [str(c)[:200] for c in (constraints or [])][:20],
                 "build_sha": self.build_sha, "approval_refs": list(approval_refs or [])[:20],
-                "actions": {}, "resumed_on_builds": [], "created_at": _now(), "error": ""}
+                "actions": {}, "resumed_on_builds": [], "created_at": _now(), "created_ns": time.time_ns(),
+                "error": ""}
         self._save(task)
         self._event(task, "create")
         return task
@@ -214,6 +215,15 @@ class TaskStore:
         else:
             self._save(task)
         self._event(task, "confirm_unknown", happened=happened, actor=actor)
+        return task
+
+    def cancel(self, owner: str, task_id: str, *, actor: str = "participant") -> dict[str, Any]:
+        """Explicit stop by the participant or the owner: any unfinished task becomes FAILED («cancelled»)."""
+        task = self.get(owner, task_id)
+        if task["state"] in TERMINAL:
+            raise TaskError("task is already finished")
+        task["error"] = f"cancelled by {actor if actor in {'participant', 'owner'} else 'participant'}"
+        self._move(task, "FAILED", why="cancelled")
         return task
 
     def resumable(self, owner: str | None = None) -> list[dict[str, Any]]:

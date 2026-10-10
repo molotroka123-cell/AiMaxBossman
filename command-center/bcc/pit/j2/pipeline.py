@@ -6,7 +6,7 @@ import importlib
 import logging
 import os
 import time
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 from .contract import Advice, J2Module, TurnContext
 
@@ -14,7 +14,9 @@ log = logging.getLogger("bcc.pit.j2")
 
 FLAG_ENV = "BOSSMAN_JEFF_J2"                    # "off" disables the whole layer
 KNOWN_MODULES = ("safety", "model_guard", "director", "memory_palace", "persona", "research",
-                 "media", "proactive", "quality_lab", "insights")
+                 "media", "proactive", "quality_lab", "insights", "longtask")
+#: Never switched off by the owner's per-module toggles (jeff-settings ``j2_modules``); only BOSSMAN_JEFF_J2=off.
+LOCKED_ON_MODULES = frozenset({"safety", "model_guard"})
 #: Deny by default on a live VOICE call (ctx.surface == "call"): only these modules run there. A call stores no conversation text
 #: and starts no network access or schedule: director / persona persist what was said, proactive schedules the spoken reminder
 #: in plain text, research searches the web, media deletes files by voice. A module opts in explicitly with ``call_safe = True``.
@@ -38,8 +40,10 @@ class _Breaker:
 class J2Pipeline:
     def __init__(self, modules: Iterable[J2Module] = (), *, clock=time.monotonic,
                  pre_timeout: float = PRE_TIMEOUT_S, augment_timeout: float = AUGMENT_TIMEOUT_S,
-                 post_timeout: float = POST_TIMEOUT_S, notes_budget: int = NOTES_CHAR_BUDGET) -> None:
+                 post_timeout: float = POST_TIMEOUT_S, notes_budget: int = NOTES_CHAR_BUDGET,
+                 module_switch: Callable[[str], bool] | None = None) -> None:
         self._clock = clock
+        self._module_switch = module_switch
         self._modules: list[J2Module] = []
         self._breakers: dict[str, _Breaker] = {}
         self._timeouts = {"pre": pre_timeout, "augment": augment_timeout, "post": post_timeout}
@@ -59,11 +63,34 @@ class J2Pipeline:
         self._modules.append(module)
         self._modules.sort(key=lambda m: (getattr(m, "order", 100), m.name))
         self._breakers[module.name] = _Breaker()
-        self._stats[module.name] = {"ok": 0, "timeout": 0, "error": 0, "skipped": 0}
+        self._stats[module.name] = {"ok": 0, "timeout": 0, "error": 0, "skipped": 0, "switched_off": 0}
+        try:            # background loops (proactive, insights, longtask) ask before each tick
+            module.switched_on = lambda name=module.name: self.module_on(name)
+        except (AttributeError, TypeError):
+            pass
+
+    def module_on(self, name: str) -> bool:
+        """The owner's per-module switch (jeff-settings ``j2_modules``); safety layers are always on.
+
+        A failing switch reader means ON: like the overlay itself, it can never break a reply."""
+        if name in LOCKED_ON_MODULES or self._module_switch is None:
+            return True
+        try:
+            return bool(self._module_switch(name))
+        except Exception:  # noqa: BLE001
+            return True
 
     @classmethod
     def discover(cls, runtime: Any, names: Iterable[str] = KNOWN_MODULES, **kw: Any) -> "J2Pipeline":
         """Load every ``bcc.pit.j2.<name>.create(runtime)`` that exists; a missing module is simply absent."""
+        if "module_switch" not in kw:
+            data_dir = getattr(getattr(runtime, "vault", None), "data_dir", None)
+            if data_dir is not None:
+                from .. import jeff_settings
+
+                def module_switch(name: str, _dir=data_dir) -> bool:
+                    return jeff_settings.j2_module_enabled(_dir, name)
+                kw["module_switch"] = module_switch
         pipeline = cls(**kw)
         for name in names:
             try:
@@ -87,9 +114,13 @@ class J2Pipeline:
         return tuple(self._modules)
 
     # -- one guarded call -------------------------------------------------------------------
-    @staticmethod
-    def _runs_on(module: J2Module, ctx: TurnContext) -> bool:
-        return ctx.surface != "call" or module.name in CALL_SAFE_MODULES or bool(getattr(module, "call_safe", False))
+    def _runs_on(self, module: J2Module, ctx: TurnContext) -> bool:
+        if not (ctx.surface != "call" or module.name in CALL_SAFE_MODULES or bool(getattr(module, "call_safe", False))):
+            return False
+        if not self.module_on(module.name):
+            self._stats[module.name]["switched_off"] += 1
+            return False
+        return True
 
     def _usable(self, module: J2Module) -> bool:
         breaker = self._breakers[module.name]
@@ -202,5 +233,6 @@ class J2Pipeline:
                 own = {"status_error": True}
             rows.append({"name": module.name, "version": getattr(module, "version", "?"),
                          "order": getattr(module, "order", 100), "calls": dict(self._stats[module.name]),
-                         "breaker_open": bool(breaker.open_until and self._clock() < breaker.open_until), **own})
+                         "breaker_open": bool(breaker.open_until and self._clock() < breaker.open_until),
+                         "switched_on": self.module_on(module.name), **own})
         return {"schema": "jeff.j2/1", "enabled": self.enabled, "modules": rows}

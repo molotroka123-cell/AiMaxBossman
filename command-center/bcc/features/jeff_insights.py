@@ -9,6 +9,8 @@ session, so they can never reach them):
   GET  /jeff-insights/trends?days=14       — daily series
   GET  /jeff-insights/digest               — the weekly digest text (numbers only, no participant text)
   POST /jeff-insights/digest/send          — put this week's digest into the Pult outbox (once per week)
+  GET  /jeff-insights/pult-outbox          — digests waiting for the owner Pult (read by the companion only)
+  POST /jeff-insights/pult-outbox/{id}/delivered — the companion acknowledges one sent digest
 
 All data comes from the files Jeff already keeps (``bcc.pit.j2.insights``); nothing here is a second database and
 no Telegram id or absolute path leaves the API.
@@ -89,6 +91,23 @@ async def get_digest(request: Request):
 async def send_digest(request: Request):
     collector, _, _ = _collector(request)
     return await collector.deliver_digest()
+
+
+# The owner Pult (Telegram companion, owner only) drains the digest outbox: it reads the pending items, sends each to
+# the OWNER, then acknowledges the id. Delivery is at-least-once (ack after send); the companion also remembers what it
+# sent, so a lost ack repeats only the ack. Same owner-only auth as the rest of this router.
+@router.get("/jeff-insights/pult-outbox")
+async def pult_outbox(request: Request, limit: int = 5):
+    collector, _, _ = _collector(request)
+    return {"items": collector.pending_pult_items(limit)}
+
+
+@router.post("/jeff-insights/pult-outbox/{item_id}/delivered")
+async def pult_outbox_delivered(item_id: str, request: Request):
+    collector, _, _ = _collector(request)
+    if not collector.ack_pult_item(item_id):
+        raise HTTPException(404, "Такой записи в исходящих Пульта нет.")
+    return {"id": item_id, "delivered": True}
 
 
 FEATURE = Feature(name="jeff_insights", router=router)

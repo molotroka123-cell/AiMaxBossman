@@ -37,7 +37,6 @@ import calendar
 import hashlib
 import inspect
 import logging
-import os
 import re
 import time
 from collections import Counter
@@ -415,6 +414,76 @@ def parse_reminder(text: str, now: float, tz_offset_min: int = DEFAULT_TZ_MIN) -
 
 
 # ---------------------------------------------------------------------------------------------------------
+# recurring reminders ("напоминай каждый день в 9 пить воду", "по пятницам в 18:00 созвон")
+# ---------------------------------------------------------------------------------------------------------
+_RECUR_WEEKDAYS = {"понедельник": 0, "понедельникам": 0, "вторник": 1, "вторникам": 1, "среду": 2, "средам": 2,
+                   "четверг": 3, "четвергам": 3, "пятницу": 4, "пятницам": 4, "субботу": 5, "субботам": 5,
+                   "воскресенье": 6, "воскресеньям": 6}
+_RECUR_PART = {"утро": 9, "день": 13, "вечер": 19}
+_RECUR_DAY_NAMES = ("понедельник", "вторник", "среду", "четверг", "пятницу", "субботу", "воскресенье")
+_RECUR_WD = "|".join(sorted(_RECUR_WEEKDAYS, key=len, reverse=True))
+_RECUR = re.compile(
+    r"^\W*(?:пожалуйста\W+)?(?:напоминай|напомни)\s+(?:мне\s+)?"
+    r"(?:(?P<daily>каждый\s+день|ежедневно)|кажд(?:ое|ый)\s+(?P<part>утро|вечер)|"
+    rf"по\s+(?P<plural>{_RECUR_WD})|кажд(?:ый|ую|ое)\s+(?P<single>{_RECUR_WD})|"
+    rf"каждую\s+неделю\s+(?:во?\s+)(?P<weekword>{_RECUR_WD}))"
+    r"(?:\s+[вк]\s+(?P<hour>\d{1,2})(?:[:.](?P<minute>\d{2}))?(?:\s*(?:час\w*|ч)\b)?)?"
+    r"(?:\s+(?P<what>.*))?$", re.S)
+
+
+def parse_recurrence(text: str) -> dict[str, Any] | None:
+    """A recurring reminder request -> ``{"every": "daily"|"weekly", ["weekday"], "hour", "minute", "what"}``.
+
+    Only an explicit «напоминай/напомни каждый .../по пятницам/ежедневно» counts; a one-shot reminder
+    («напомни завтра в 9») is not recurring. ``None`` when not recurring or the time is impossible."""
+    m = _RECUR.match(_norm(text).strip())
+    if not m:
+        return None
+    hour = int(m["hour"]) if m["hour"] is not None else None
+    minute = int(m["minute"]) if m["minute"] is not None else 0
+    rest = m["what"] or ""
+    if hour is None:                                       # «напоминай каждый день пить воду в 9»: time at the end
+        tail = re.search(r"\s+[вк]\s+(\d{1,2})(?:[:.](\d{2}))?(?:\s*(?:час\w*|ч)\b)?\W*$", " " + rest)
+        if tail:
+            hour, minute = int(tail.group(1)), int(tail.group(2) or 0)
+            rest = (" " + rest)[: tail.start()]
+    if m["part"]:
+        base = _RECUR_PART[m["part"]]
+        hour = base if hour is None else (hour + 12 if m["part"] == "вечер" and hour < 12 else hour)
+    if hour is None:
+        hour = _DEFAULT_HOUR
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
+    what = redact_secrets(" ".join(rest.split()).strip(" ,.;:!?-—"))[0][:300]
+    day = m["plural"] or m["single"] or m["weekword"]
+    if day:
+        return {"every": "weekly", "weekday": _RECUR_WEEKDAYS[day], "hour": hour, "minute": minute, "what": what}
+    return {"every": "daily", "hour": hour, "minute": minute, "what": what}
+
+
+def next_occurrence(rule: dict[str, Any], after: float, tz_min: int) -> float:
+    """The first moment strictly after ``after`` that matches the rule, in the participant's time zone."""
+    local = _local(after, tz_min)
+    day = local.date()
+    for _ in range(9):
+        if rule.get("every") != "weekly" or day.weekday() == int(rule.get("weekday", 0)):
+            due = _at(day, int(rule["hour"]), int(rule["minute"]), tz_min)
+            if due > after:
+                return due
+        day += timedelta(days=1)
+    raise ValueError("no occurrence within 9 days")        # unreachable for a valid rule
+
+
+def describe_rule(rule: dict[str, Any]) -> str:
+    clock = f"{int(rule['hour']):02d}:{int(rule['minute']):02d}"
+    if rule.get("every") == "weekly":
+        weekday = int(rule.get("weekday", 0))
+        prefix = "каждое" if weekday == 6 else "каждую" if weekday in (2, 4, 5) else "каждый"
+        return f"{prefix} {_RECUR_DAY_NAMES[weekday]} в {clock}"
+    return f"каждый день в {clock}"
+
+
+# ---------------------------------------------------------------------------------------------------------
 # open threads ("завтра у меня собеседование")
 # ---------------------------------------------------------------------------------------------------------
 _THREAD_TOPICS = (("собеседовани", "собеседование"), ("экзамен", "экзамен"), ("зачет", "зачёт"),
@@ -532,7 +601,8 @@ class ProactiveStore:
         return key in data["done_keys"] or any(i.get("key") == key for i in data["items"])
 
     def add_item(self, person_key: str, kind: str, text: str, due: float, key: str, *,
-                 source: str = "", now: float | None = None) -> dict[str, Any] | None:
+                 source: str = "", now: float | None = None, repeat: dict[str, Any] | None = None,
+                 series: str = "") -> dict[str, Any] | None:
         """Add one scheduled item; ``None`` when the key is known (idempotent) or the schedule is full."""
         data = self._load(person_key)
         if key in data["done_keys"] or any(i.get("key") == key for i in data["items"]):
@@ -544,6 +614,9 @@ class ProactiveStore:
                 "text": redact_secrets(str(text))[0][:400], "due": float(due), "key": str(key),
                 "state": "pending", "attempts": 0, "source": source[:120], "created": stamp,
                 "updated": stamp}
+        if repeat:
+            item["repeat"] = {k: repeat[k] for k in ("every", "weekday", "hour", "minute") if k in repeat}
+            item["series"] = str(series or key)[:64]
         data["items"].append(item)
         self._save(person_key, data, now)
         return item
@@ -666,20 +739,31 @@ def _short(text: str, limit: int = 80) -> str:
 class ProactiveEngine:
     def __init__(self, store: ProactiveStore, *, clock: Callable[[], float] = time.time, sender: Sender,
                  tasks: TasksProvider | None = None, access: Callable[[str], bool] | None = None,
-                 default_tz_min: int = DEFAULT_TZ_MIN):
+                 default_tz_min: int = DEFAULT_TZ_MIN, tz_provider: Callable[[], int] | None = None):
         self.store = store
         self.clock = clock
         self.sender = sender
         self.tasks = tasks
         self.access = access or (lambda person_key: True)
         self.default_tz_min = default_tz_min
+        self.tz_provider = tz_provider          # owner default (jeff-settings tz_offset_min), re-read per use
         self.totals: Counter = Counter()
         self.last_tick: float | None = None
 
     # -- helpers ----------------------------------------------------------------------------------------
+    def owner_default_tz(self) -> int:
+        if self.tz_provider is not None:
+            try:
+                value = int(self.tz_provider())
+                if abs(value) <= 14 * 60:
+                    return value
+            except Exception:                           # noqa: BLE001 - a settings fault never stops reminders
+                pass
+        return self.default_tz_min
+
     def tz_for(self, prefs: dict[str, Any]) -> int:
         value = prefs.get("tz_offset_min")
-        return self.default_tz_min if value is None else int(value)
+        return self.owner_default_tz() if value is None else int(value)
 
     def watch(self, person_key: str) -> None:
         self.store.touch(person_key)
@@ -726,6 +810,28 @@ class ProactiveEngine:
         for item in self.store.items(person_key, states=("pending",)):
             if item["due"] <= now:
                 await self._deliver(person_key, item, prefs, now, tz, stats)
+        self._continue_series(person_key, now, tz, stats)
+
+    def _continue_series(self, person_key: str, now: float, tz: int, stats: Counter) -> None:
+        """A recurring reminder keeps exactly one pending occurrence. Once the current one is finished (sent,
+        missed, expired, unknown or failed) the next is planned; a CANCELLED occurrence ends the series."""
+        latest: dict[str, dict[str, Any]] = {}
+        for item in self.store.items(person_key, kinds=("reminder",)):
+            series = item.get("series")
+            if series and isinstance(item.get("repeat"), dict):
+                if series not in latest or float(item["due"]) >= float(latest[series]["due"]):
+                    latest[series] = item
+        for series, item in latest.items():
+            if item.get("state") in ("pending", "sending", "cancelled"):
+                continue
+            try:
+                due = next_occurrence(item["repeat"], max(now, float(item["due"])), tz)
+            except (KeyError, TypeError, ValueError):
+                continue
+            if self.store.add_item(person_key, "reminder", item.get("text", ""), due, _key(series, int(due)),
+                                   source=f"series:{series[:12]}", now=now, repeat=item["repeat"],
+                                   series=series) is not None:
+                stats["series_next"] += 1
 
     async def _recover(self, person_key: str, stats: Counter) -> None:
         """Items left in ``sending`` by a crash: verify, otherwise never repeat."""
@@ -939,7 +1045,7 @@ _CMD = {
                        r"какие\s+у\s+меня\s+напоминания)\W*$"),
     "cancel_all": re.compile(r"^(?:отмени|удали)\s+все\s+напоминания\W*$"),
     "cancel_n": re.compile(r"^(?:отмени|удали)\s+напоминание\s+(?:№\s*)?(\d{1,3})\W*$"),
-    "tz": re.compile(r"^(?:мой\s+)?часовой\s+пояс\s*(?:это\s+|-\s*)?(utc|gmt|мск)\s*([+\-−]\s*\d{1,2})?\W*$"),
+    "tz": re.compile(r"^(?:мой\s+)?часовой\s+пояс\s*(?:это\s+|-\s*)?(utc|gmt|мск)\s*([+\-−]\s*\d{1,2}(?::(?:00|15|30|45))?)?\W*$"),
     "quiet": re.compile(r"^(?:тихие\s+часы|не\s+беспокой(?:\s+меня)?)\s+[сc]\s*(\d{1,2})(?::00)?\s*(?:до|по)\s*(\d{1,2})(?::00)?\W*$"),
     "quiet_off": re.compile(r"^(?:выключи|отключи)\s+тихие\s+часы\W*$"),
 }
@@ -986,7 +1092,8 @@ class ProactiveModule(BaseModule):
     async def _loop(self) -> None:
         while True:
             try:
-                await self.engine.tick()
+                if self.switched_on():          # owner switched «proactive» off: nothing is delivered or planned
+                    await self.engine.tick()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:                    # noqa: BLE001 - the loop outlives any single fault
@@ -1001,6 +1108,9 @@ class ProactiveModule(BaseModule):
         if command is not None:
             reply = self._run_command(person, *command)
             return Advice(reply=reply, tags=("proactive",)) if reply else None
+        rule = parse_recurrence(text) if _TRIGGER.match(text) else None
+        if rule is not None:
+            return Advice(reply=self._recurring(ctx, rule), tags=("proactive", "reminder", "recurring"))
         if _TRIGGER.match(text):
             return Advice(reply=self._reminder(ctx), tags=("proactive", "reminder"))
         prefs = self.store.prefs(person)
@@ -1063,15 +1173,20 @@ class ProactiveModule(BaseModule):
             store.update_item(person, rows[index - 1]["id"], state="cancelled")
             return f"Отменил напоминание {index}."
         if name == "tz":
-            base = 3 if args[0] == "мск" else 0
+            base = 180 if args[0] == "мск" else 0
             offset = 0
             if len(args) > 1:
-                offset = int(args[1].replace("−", "-").replace(" ", ""))
-            minutes = (base + offset) * 60
+                raw = args[1].replace("−", "-").replace(" ", "")
+                sign = -1 if raw.startswith("-") else 1
+                hours, _, mins = raw.lstrip("+-").partition(":")
+                offset = sign * (int(hours) * 60 + int(mins or 0))
+            minutes = base + offset
             if abs(minutes) > 14 * 60:
                 return "Такой часовой пояс не подходит. Пример: «мой часовой пояс UTC+5»."
             store.set_prefs(person, tz_offset_min=minutes)
-            return f"Запомнил часовой пояс: UTC{(minutes // 60):+d}."
+            hh, mm = divmod(abs(minutes), 60)
+            label = f"UTC{'-' if minutes < 0 else '+'}{hh}" + (f":{mm:02d}" if mm else "")
+            return f"Запомнил часовой пояс: {label}."
         if name == "quiet":
             start, end = int(args[0]), int(args[1])
             if not (0 <= start <= 23 and 0 <= end <= 23):
@@ -1089,9 +1204,32 @@ class ProactiveModule(BaseModule):
             return "Активных напоминаний нет."
         prefs = self.store.prefs(person)
         tz, now = self.engine.tz_for(prefs), self.engine.clock()
-        lines = [f"{n}. {format_when(item['due'], now, tz)} — {item['text'] or 'напоминание'}"
-                 for n, item in enumerate(rows[:20], 1)]
-        return "Твои напоминания:\n" + "\n".join(lines) + "\nОтменить: «отмени напоминание 1»."
+        lines = []
+        for n, item in enumerate(rows[:20], 1):
+            when = format_when(item["due"], now, tz)
+            if isinstance(item.get("repeat"), dict):
+                when = f"{describe_rule(item['repeat'])} (следующее: {when})"
+            lines.append(f"{n}. {when} — {item['text'] or 'напоминание'}")
+        return ("Твои напоминания:\n" + "\n".join(lines) + "\nОтменить: «отмени напоминание 1»"
+                + (" (повторяющееся отменяется целиком)." if any(r.get("repeat") for r in rows[:20]) else "."))
+
+    def _recurring(self, ctx: TurnContext, rule: dict[str, Any]) -> str:
+        person = ctx.person_key
+        prefs = self.store.prefs(person)
+        if prefs["opted_out"]:
+            return "Напоминания выключены. Напиши «включи напоминания», и я поставлю."
+        now, tz = self.engine.clock(), self.engine.tz_for(prefs)
+        series = _key(person, "series", ctx.message_id, rule["every"], rule.get("weekday"), rule["hour"],
+                      rule["minute"], rule["what"])
+        due = next_occurrence(rule, now, tz)
+        if not self.store.has_key(person, series):
+            if len(self.store.items(person, states=("pending",))) >= MAX_PENDING:
+                return "У тебя уже много напоминаний. Отмени лишние: «мои напоминания»."
+            self.store.add_item(person, "reminder", rule["what"], due, series, source=f"msg:{ctx.message_id}",
+                                now=now, repeat=rule, series=series)
+        what = f": «{rule['what']}»" if rule["what"] else ""
+        return (f"Хорошо, буду напоминать {describe_rule(rule)}{what}. Первый раз — {format_when(due, now, tz)} "
+                f"(UTC{tz / 60:+g}). Отменить: «мои напоминания» → «отмени напоминание N».")
 
     def _reminder(self, ctx: TurnContext) -> str:
         person = ctx.person_key
@@ -1140,10 +1278,11 @@ def create(runtime: Any) -> ProactiveModule:
         from .. import participant_profile
         return not participant_profile.is_revoked(data_dir, person_key)
 
-    try:
-        tz = int(os.environ.get("BOSSMAN_JEFF_TZ_MIN", DEFAULT_TZ_MIN))
-    except ValueError:
-        tz = DEFAULT_TZ_MIN
+    from .. import jeff_settings
+    tz = jeff_settings.default_tz_offset_min(None)            # env BOSSMAN_JEFF_TZ_MIN or Moscow
+
+    def owner_tz() -> int:                                     # the owner's panel setting wins, re-read per use
+        return jeff_settings.default_tz_offset_min(data_dir)
     engine = ProactiveEngine(store, sender=TelegramSender(runtime), tasks=tasks, access=access,
-                             default_tz_min=tz)
+                             default_tz_min=tz, tz_provider=owner_tz if data_dir is not None else None)
     return ProactiveModule(engine)

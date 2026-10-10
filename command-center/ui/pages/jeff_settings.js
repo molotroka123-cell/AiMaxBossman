@@ -363,6 +363,36 @@ const JeffSettingsPage = {
         ctx.refresh();
       } catch (e) { toastError(e); }
     }, { cls: 'btn', iconName: 'check' });
+    /* ---- модули Jeff 2.0 по отдельности (по умолчанию все включены; безопасность не выключается) ---- */
+    const moduleRows = (data.j2_modules || []).map((m) => {
+      const box = checkbox(m.label + (m.locked ? ' — всегда включено' : ''), m.on,
+        { name: 'js-j2-' + m.name, disabled: !!m.locked, dataset: { module: m.name } });
+      return { m, box };
+    });
+    const saveModules = actionButton('Сохранить модули', async () => {
+      const j2 = {};
+      for (const { m, box } of moduleRows) if (!m.locked) j2[m.name] = box.querySelector('input').checked;
+      try {
+        await api.raw('/api/jeff-settings', { method: 'PUT', body: {
+          defaults: { behavior_scales: s.defaults.behavior_scales, system_extra: s.defaults.system_extra || '' },
+          j2_modules: j2 } });
+        toastOk('Модули Jeff сохранены', 'Действует со следующего сообщения');
+        ctx.refresh();
+      } catch (e) { toastError(e); }
+    }, { cls: 'btn', iconName: 'check' });
+    /* ---- часовой пояс по умолчанию (минуты от UTC; участник может задать свой) ---- */
+    const tzOptions = [{ value: '', label: `По умолчанию (сейчас UTC${data.tz_effective_min >= 0 ? '+' : '-'}${Math.abs(data.tz_effective_min || 0) / 60})` }];
+    for (let hrs = -12; hrs <= 14; hrs += 1) tzOptions.push({ value: String(hrs * 60), label: `UTC${hrs >= 0 ? '+' : ''}${hrs}` });
+    const tzSel = select(tzOptions, { name: 'js-tz', value: data.tz_offset_min === null || data.tz_offset_min === undefined ? '' : String(data.tz_offset_min) });
+    const saveTz = actionButton('Сохранить пояс', async () => {
+      try {
+        await api.raw('/api/jeff-settings', { method: 'PUT', body: {
+          defaults: { behavior_scales: s.defaults.behavior_scales, system_extra: s.defaults.system_extra || '' },
+          tz_offset_min: tzSel.value === '' ? null : Number(tzSel.value) } });
+        toastOk('Часовой пояс сохранён', 'Напоминания и недельная сводка');
+        ctx.refresh();
+      } catch (e) { toastError(e); }
+    }, { cls: 'btn', iconName: 'check' });
     const truncated = (data.extra_truncated || []).length
       ? h('div.small', { style: { color: 'var(--err)' } },
         `Текст настроения в файле длиннее ${data.system_extra_max} символов: Jeff читает только начало (${data.extra_truncated.join(', ')}). `
@@ -390,6 +420,13 @@ const JeffSettingsPage = {
         h('div.small.dim', 'Подсказка строится только из чисел сообщения, без сети; на обычные сообщения не влияет. '
           + 'Выключенная опция записывается в файл настроек: старые версии Jeff такой файл не читают, обновите Jeff до выключения.'),
         h('div.row.tight', saveMathAssist))),
+      panel('Модули Jeff 2.0', h('div.stack.sm', ...moduleRows.map((r) => r.box),
+        h('div.small.dim', 'Выключенный модуль не участвует в ответах и не работает в фоне (напоминания, сводка, длинные задачи). '
+          + 'Безопасность и страж модели выключить нельзя. Выключенный модуль записывается в файл настроек: старые версии Jeff такой файл не читают.'),
+        h('div.row.tight', saveModules))),
+      panel('Часовой пояс', h('div.stack.sm', field('Пояс по умолчанию', tzSel,
+        'Для напоминаний и недельной сводки. Участник может задать свой: «мой часовой пояс UTC+5».'),
+        h('div.row.tight', saveTz))),
       panel('Лимит расходов', h('div.stack.sm',
         h('div.row.tight', { style: { gap: '12px', flexWrap: 'wrap' } },
           field('$ в день', perDay), field('$ на одну задачу', perJob)),

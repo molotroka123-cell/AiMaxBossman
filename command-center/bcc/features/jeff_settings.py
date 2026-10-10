@@ -218,6 +218,10 @@ class SettingsIn(BaseModel):
     cloud_session_context: bool | None = None
     # Exact-calculation hint (default ON): False switches it off, None leaves the file's value as it is.
     math_assist: bool | None = None
+    # Per-module Jeff 2.0 switches {name: bool}; None leaves them as they are. safety/model_guard cannot be switched.
+    j2_modules: dict[str, bool] | None = None
+    # Owner default time zone, minutes east of UTC (Moscow = 180). An explicit null clears it (env / Moscow again).
+    tz_offset_min: int | None = Field(default=None, strict=True)
     # 0 clears the expiry; 1..24 gives the default style a bounded lifetime.
     # Participant-specific overrides remain separate and are never modified.
     style_duration_hours: int | None = Field(default=None, ge=0, le=24, strict=True)
@@ -263,6 +267,11 @@ async def get_settings(request: Request):
         "path": str(path), "exists": path.is_file(), "valid": valid, "error": error,
         "settings": overlay, "cloud_session_context": bool(overlay.get("cloud_session_context")),
         "math_assist": overlay.get("math_assist") is not False,
+        "j2_modules": [{"name": name, "label": js.J2_LABELS.get(name, name), "locked": name in js.J2_LOCKED_ON,
+                        "on": (overlay.get("j2_modules") or {}).get(name) is not False}
+                       for name in (*js.J2_LOCKED_ON, *js.J2_SWITCHABLE)],
+        "tz_offset_min": overlay.get("tz_offset_min"),
+        "tz_effective_min": js.default_tz_offset_min(jeff_dir),
         "style_expired": js.style_expired(overlay),
         "extra_truncated": _over_limit(path),
         "presets": js.PRESETS, "preset_labels": js.PRESET_LABELS, "preset_notes": js.PRESET_NOTES,
@@ -308,6 +317,22 @@ async def put_settings(body: SettingsIn, request: Request):
             overlay.pop("math_assist", None)                 # default on = not written: older builds keep reading the file
         else:
             overlay["math_assist"] = False
+    if body.j2_modules is not None:
+        merged = {**(overlay.get("j2_modules") or {}), **dict(body.j2_modules)}
+        try:
+            overlay["j2_modules"] = js.normalize_j2_modules(merged)
+        except js.OverlayError as exc:
+            raise HTTPException(422, f"Модули Jeff не сохранены: {exc}") from None
+        if not overlay["j2_modules"]:
+            overlay.pop("j2_modules")                         # all on = not written: older builds keep reading the file
+    if "tz_offset_min" in body.model_fields_set:
+        if body.tz_offset_min is None:
+            overlay.pop("tz_offset_min", None)
+        else:
+            try:
+                overlay["tz_offset_min"] = js.normalize_tz_offset(body.tz_offset_min)
+            except js.OverlayError as exc:
+                raise HTTPException(422, f"Часовой пояс не сохранён: {exc}") from None
     return {"ok": True, "settings": _save(path, overlay)}
 
 
@@ -352,6 +377,9 @@ async def reset(request: Request):
     fresh["budgets"] = overlay.get("budgets") or fresh["budgets"]
     if overlay.get("math_assist") is False:
         fresh["math_assist"] = False                           # a feature switch, not a style: the owner's choice stays
+    for switch in ("j2_modules", "tz_offset_min"):            # feature switches too: a style reset keeps them
+        if overlay.get(switch) is not None:
+            fresh[switch] = overlay[switch]
     return {"ok": True, "settings": _save(path, fresh)}
 
 

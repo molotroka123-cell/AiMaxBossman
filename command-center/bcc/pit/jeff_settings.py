@@ -24,6 +24,12 @@ Contract:
 - ``math_assist`` (default ON) lets Jeff put an exact, program-computed result in front of the model when the message
   holds one unambiguous calculation (``bcc.pit.math_assist``). The owner switches it OFF here; the file carries the
   field ONLY when it is off (same compatibility rule as above: a default file stays readable by an older build).
+- ``j2_modules`` (default: every module ON) switches single Jeff 2.0 modules off (``{"research": false}``) without
+  the global ``BOSSMAN_JEFF_J2=off``. ``safety`` and ``model_guard`` are never switchable. Only OFF entries are
+  written (same compatibility rule).
+- ``tz_offset_min`` (default: ``BOSSMAN_JEFF_TZ_MIN`` or Moscow, UTC+3) is the owner's default time zone for
+  reminders and the weekly digest; a participant's own «мой часовой пояс UTC+5» still wins for that participant.
+  Written only when set.
 """
 from __future__ import annotations
 
@@ -51,6 +57,17 @@ MAX_FILE_BYTES = 256 * 1024
 MAX_USERS = 200
 USD_MAX = 1000.0
 DEFAULT_BUDGETS = {"usd_per_day": 2.0, "usd_per_job": 1.0}
+#: Jeff 2.0 modules the owner may switch off one by one (bcc/pit/j2/<name>.py). Safety layers are not in the list.
+J2_SWITCHABLE = ("director", "memory_palace", "persona", "research", "media", "proactive", "quality_lab",
+                 "insights", "longtask")
+J2_LOCKED_ON = ("safety", "model_guard")
+J2_LABELS = {"director": "Режиссёр ответа (длина, тон)", "memory_palace": "Дворец памяти",
+             "persona": "Персона и нарратив", "research": "Поиск в интернете с цитатами",
+             "media": "Разбор фото и документов", "proactive": "Напоминания и сообщения первым",
+             "quality_lab": "Проверка качества ответов", "insights": "Обзор и недельная сводка в Пульт",
+             "longtask": "Длинные задачи", "safety": "Безопасность", "model_guard": "Страж модели"}
+TZ_MIN_LIMIT = 14 * 60
+DEFAULT_TZ_MIN = 180                      # Moscow; owner-configurable (tz_offset_min) and per participant
 
 # Presets are plain slider positions. «Обычный» is stock Jeff: no overlay scales
 # at all, so the prompt is byte-identical to a machine without this file.
@@ -166,13 +183,38 @@ def normalize_budgets(raw: Any) -> dict[str, float]:
     return {name: _usd(raw.get(name, default), name) for name, default in DEFAULT_BUDGETS.items()}
 
 
+def normalize_j2_modules(raw: Any) -> dict[str, bool]:
+    """``{name: bool}`` -> only the switched-OFF modules (``{name: False}``). Unknown or locked names are refused."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise OverlayError("j2_modules must be an object")
+    out: dict[str, bool] = {}
+    for name, value in raw.items():
+        if name in J2_LOCKED_ON:
+            raise OverlayError(f"module {name} cannot be switched off")
+        if name not in J2_SWITCHABLE:
+            raise OverlayError("unknown Jeff module: " + str(name)[:40])
+        if not isinstance(value, bool):
+            raise OverlayError("j2_modules values must be true or false")
+        if not value:
+            out[name] = False
+    return out
+
+
+def normalize_tz_offset(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or abs(value) > TZ_MIN_LIMIT or value % 15:
+        raise OverlayError("tz_offset_min must be whole minutes in steps of 15 between -840 and 840")
+    return int(value)
+
+
 def normalize(raw: Any) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise OverlayError("overlay must be an object")
     if raw.get("version", SCHEMA_VERSION) != SCHEMA_VERSION:
         raise OverlayError("unsupported overlay version")
     unknown = set(raw) - {"version", "defaults", "users", "budgets", "cloud_session_context", "math_assist",
-                          "style_expires_at"}
+                          "style_expires_at", "j2_modules", "tz_offset_min"}
     if unknown:
         raise OverlayError("unknown overlay field")
     session_flag = raw.get("cloud_session_context", False)
@@ -210,6 +252,11 @@ def normalize(raw: Any) -> dict[str, Any]:
         out["cloud_session_context"] = True
     if not math_flag:
         out["math_assist"] = False
+    modules_off = normalize_j2_modules(raw.get("j2_modules"))
+    if modules_off:
+        out["j2_modules"] = modules_off
+    if raw.get("tz_offset_min") is not None:
+        out["tz_offset_min"] = normalize_tz_offset(raw["tz_offset_min"])
     return out
 
 
@@ -383,6 +430,35 @@ def math_assist_enabled(data_dir: Path | str) -> bool:
     except Exception:  # noqa: BLE001 - the overlay can never break a reply
         return True
     return not (overlay and overlay.get("math_assist") is False)
+
+
+def j2_module_enabled(data_dir: Path | str, name: str) -> bool:
+    """Owner switch per Jeff 2.0 module (default ON, re-read per call through the mtime cache).
+
+    Safety layers are always on; an absent, unreadable or invalid file means every module is on."""
+    if name in J2_LOCKED_ON:
+        return True
+    try:
+        overlay, _ = read_overlay(settings_path(data_dir))
+    except Exception:  # noqa: BLE001 - the overlay can never break a reply
+        return True
+    return not (overlay and (overlay.get("j2_modules") or {}).get(name) is False)
+
+
+def default_tz_offset_min(data_dir: Path | str | None = None) -> int:
+    """Owner default time zone in minutes east of UTC: jeff-settings ``tz_offset_min`` → ``BOSSMAN_JEFF_TZ_MIN`` → +180."""
+    if data_dir is not None:
+        try:
+            overlay, _ = read_overlay(settings_path(data_dir))
+        except Exception:  # noqa: BLE001
+            overlay = None
+        if overlay and isinstance(overlay.get("tz_offset_min"), int):
+            return overlay["tz_offset_min"]
+    try:
+        value = int(os.environ.get("BOSSMAN_JEFF_TZ_MIN", DEFAULT_TZ_MIN))
+    except ValueError:
+        return DEFAULT_TZ_MIN
+    return value if abs(value) <= TZ_MIN_LIMIT else DEFAULT_TZ_MIN
 
 
 def budget_caps(data_dir: Path | str, *, configured_usd_per_day: float,

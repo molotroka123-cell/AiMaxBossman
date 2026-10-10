@@ -63,6 +63,8 @@ from .secret_filter import redact_secrets
 from .heartbeat import Heartbeat, INTERVAL_SECONDS as HEARTBEAT_SECONDS
 from .participant_context import build_participant_context
 from .photo_commands import photo_intent
+# A photo caption asking to READ the text (OCR) goes to the j2 media module: the module's own words.
+from .j2.media import _EXTRACT_INTENT as _MEDIA_EXTRACT_INTENT
 from .photo_edit import PhotoEditPipeline
 from .photo_pipeline import PhotoPipeline
 from .photo_runtime import PhotoServices, build_photo_services
@@ -98,6 +100,11 @@ class StopRequested(RuntimeError):
 
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 DOCUMENT_TEXT_CHUNK = 12000
+#: Documents (not text) handed to the j2 media module: images sent as files and PDFs. Limits = the module's own.
+MEDIA_DOCUMENT_LIMITS = {".jpg": 10 * 1024 * 1024, ".jpeg": 10 * 1024 * 1024, ".png": 10 * 1024 * 1024,
+                         ".webp": 10 * 1024 * 1024, ".pdf": 20 * 1024 * 1024}
+MEDIA_UNAVAILABLE_RU = ("Этот формат пока не разбираю локально. Пришли текстом (txt/md) "
+                        "или вставь содержимое сообщением.")
 TEXT_DOCUMENT_SUFFIXES = frozenset({
     ".txt", ".md", ".py", ".js", ".ts", ".json", ".csv", ".log", ".yaml", ".yml",
     ".html", ".css", ".c", ".cpp", ".h", ".java", ".rs", ".go", ".sh", ".xml", ".sql", ".ini",
@@ -450,6 +457,11 @@ def _minimize_message(message: dict) -> dict:
     doc = None
     if isinstance(document, dict) and isinstance(document.get("file_id"), str):
         doc = {"file_id": document["file_id"], "file_name": str(document.get("file_name", ""))[:120]}
+        # the sender's claims, used only to refuse early; the real type is sniffed from the bytes (j2 media)
+        if isinstance(document.get("mime_type"), str):
+            doc["mime_type"] = document["mime_type"][:80]
+        if type(document.get("file_size")) is int:
+            doc["file_size"] = document["file_size"]
     voice = message.get("voice")
     voice_meta = None
     if isinstance(voice, dict):
@@ -1905,7 +1917,12 @@ class ParticipantRuntime:
         if self.store.get(f"delete_pending:{person.key}"):
             self.store.put(f"delete_pending:{person.key}", None)
             if lowered in {"подтверждаю", "confirm", "да, подтверждаю"}:
-                if not self.vault.delete(person_key):
+                # long tasks (goals and results) live under <pit home>/tasks/<key>, outside the persona folder
+                tasks_dir = self.home / "tasks" / person_key
+                had_tasks = bool(re.fullmatch(r"[0-9a-f]{64}", person_key)) and tasks_dir.is_dir()
+                if had_tasks:
+                    shutil.rmtree(tasks_dir, ignore_errors=True)
+                if not self.vault.delete(person_key) and not had_tasks:
                     return "Удалять нечего — профиль уже отсутствует."
                 self._memory_epoch[person_key] = self._memory_epoch.get(person_key, 0) + 1
                 self.photo_pipeline.invalidate_background_memory(person_key)
@@ -2195,7 +2212,9 @@ class ParticipantRuntime:
                           reply_to: dict | None = None,
                           update_id: int | None = None,
                           session_history: list[dict] | None = None,
-                          scan_crisis: bool = True) -> str:
+                          scan_crisis: bool = True,
+                          attachment: dict | None = None,
+                          attachment_fallback: str = "") -> str:
         from .j2 import TurnContext
         if scan_crisis:
             # handle() already checked plain text and voice transcripts; this covers the other callers (live
@@ -2214,11 +2233,18 @@ class ParticipantRuntime:
                           # nothing in it is ever shown to the participant
                           extra={"overlay_scales": dict(hints.get("scales") or {}),
                                  "overlay_abuse_ok": bool(hints.get("abuse_ok")),
-                                 "overlay_suspended": suspended})
+                                 "overlay_suspended": suspended,
+                                 # a Telegram photo/document for the j2 media module: bytes in memory only, never
+                                 # logged or stored here (the module asks before it keeps even a description)
+                                 **({"attachment": attachment} if attachment else {})})
         early = await self.j2.pre_route(ctx)
         if early is not None:
             # A j2 early reply (safety, quick facts) is participant-visible text like any other: same filter.
             return self.guard_outgoing(early)
+        if attachment:
+            # Nobody took the file (j2 off, media switched off or broken): never let the model guess at a file it
+            # cannot see from the caption alone.
+            return self.guard_outgoing(attachment_fallback or MEDIA_UNAVAILABLE_RU)
         reply = await self._chat_route_core(person, person_key, text, consent, message_id=message_id,
                                             reply_to=reply_to, update_id=update_id, j2_ctx=ctx,
                                             session_history=session_history)
@@ -2727,11 +2753,19 @@ class ParticipantRuntime:
     # -- media ------------------------------------------------------------------------------------
     async def _handle_photo(self, person: Person, person_key: str, message: dict,
                             photo_file_id: str, caption: str) -> str:
+        intent = photo_intent(caption, has_photo=True)
+        words = caption.strip().split(maxsplit=1)
+        if (intent.kind != "edit" and not (words and words[0].lower() == "/reference")
+                and _MEDIA_EXTRACT_INTENT.search(caption) and self._media_ready()):
+            # «распознай текст», «что написано»: the j2 media module reads the text (local vision, consent-gated
+            # storage). Without the module the photo pipeline below answers as before.
+            return await self._media_turn(person, person_key, message, file_id=photo_file_id, name="фото.jpg",
+                                          mime="image/jpeg", limit=IMAGE_MAX_BYTES, caption=caption,
+                                          fallback="С фото сейчас не получилось: модуль разбора недоступен.")
         try:
             data = await self.telegram.fetch_file(photo_file_id, IMAGE_MAX_BYTES)
         except CompanionError as exc:
             return _failure_text(str(exc))
-        intent = photo_intent(caption, has_photo=True)
         message_id = str(message.get("_message_id") or "0")
         # A consent file with memory disabled is an explicit pause. An absent
         # file is still the first-contact default, which starts memory on.
@@ -2773,13 +2807,48 @@ class ParticipantRuntime:
             return reply.text + "\n\nПамять на паузе: это фото не сохраняю для следующих правок."
         return reply.text
 
+    def _media_ready(self) -> bool:
+        """The j2 media module is loaded, the j2 layer is on and the owner has not switched «media» off."""
+        try:
+            j2 = self.j2
+            return j2.enabled and j2.module_on("media") and any(m.name == "media" for m in j2.modules)
+        except Exception:  # noqa: BLE001 - a broken layer means the old behaviour
+            return False
+
+    async def _media_turn(self, person: Person, person_key: str, message: dict, *, file_id: str, name: str,
+                          mime: str, limit: int, caption: str, fallback: str) -> str:
+        """Download one Telegram file (capped) and hand it to the j2 media module through the normal chat route."""
+        try:
+            data = await self.telegram.fetch_file(file_id, limit)
+        except CompanionError as exc:
+            if str(exc) == "IMAGE_TOO_LARGE":
+                return f"Файл слишком большой: максимум {limit // (1024 * 1024)} МБ для этого типа."
+            return _failure_text(str(exc))
+        consent = self.vault.consent(person_key)
+        return await self._chat_route(person, person_key, caption, consent,
+                                      message_id=str(message.get("_message_id") or "0"),
+                                      reply_to=message.get("_reply_to"),
+                                      attachment={"name": name[:120], "mime": mime[:80], "data": data,
+                                                  "caption": caption},
+                                      attachment_fallback=fallback)
+
     async def _handle_document(self, person: Person, person_key: str, message: dict,
                                text: str, document: dict) -> str:
         name = str(document.get("file_name", "")).strip()
         suffix = ("." + name.rsplit(".", 1)[-1].lower()) if "." in name else ""
+        claimed = str(document.get("mime_type") or "").lower()
+        if not suffix and claimed in ("image/jpeg", "image/png", "image/webp", "application/pdf"):
+            suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+                      "application/pdf": ".pdf"}[claimed]
+        if suffix in MEDIA_DOCUMENT_LIMITS and self._media_ready():
+            limit = MEDIA_DOCUMENT_LIMITS[suffix]
+            size = document.get("file_size")
+            if type(size) is int and size > limit:                 # refused before any download
+                return f"Файл слишком большой: максимум {limit // (1024 * 1024)} МБ для этого типа."
+            return await self._media_turn(person, person_key, message, file_id=document["file_id"], name=name,
+                                          mime=claimed, limit=limit, caption=text, fallback=MEDIA_UNAVAILABLE_RU)
         if suffix not in TEXT_DOCUMENT_SUFFIXES:
-            return ("Этот формат пока не разбираю локально. Пришли текстом (txt/md) "
-                    "или вставь содержимое сообщением.")
+            return MEDIA_UNAVAILABLE_RU
         try:
             data = await self.telegram.fetch_file(document["file_id"], MAX_DOCUMENT_BYTES)
         except CompanionError as exc:

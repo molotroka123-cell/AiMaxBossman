@@ -1649,6 +1649,42 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
             with contextlib.suppress(CompanionError):
                 await self.core.ack_answering_report(rid)
 
+    async def notify_jeff_digests(self):
+        """Deliver Jeff's weekly digest (bcc.pit.j2.insights outbox) to the OWNER and nobody else.
+
+        The backend builds the text from counts and neutral #labels (no participant text). At-least-once like the
+        answering reports: the id is acknowledged AFTER the send; an id this Pult already sent is never sent again,
+        only re-acknowledged. A text that looks like it holds a secret is not sent (it stays in the outbox).
+        """
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        if owner is None or not self.console_allowed(owner):
+            return
+        try:
+            if owner not in self.policy_provider().people:
+                return
+            rows = await self.core.jeff_digests()
+        except (CompanionError, OSError, ValueError, TypeError, AttributeError):   # older core: no outbox API
+            return
+        from .owner_report import looks_secret
+        for row in rows[:5]:
+            rid = str(row.get("id") or "")
+            if not rid:
+                continue
+            if self.store.get("jeff_digest_sent:" + rid) is not None:
+                with contextlib.suppress(CompanionError):
+                    await self.core.ack_jeff_digest(rid)
+                continue
+            text = row.get("text")
+            if not isinstance(text, str) or not text.strip() or looks_secret(text):
+                continue
+            try:
+                await self.telegram.send(owner, "📊 " + text.strip()[:3500])
+            except CompanionError:
+                continue                                        # not sent: it stays in the outbox
+            self.store.put("jeff_digest_sent:" + rid, "delivered")
+            with contextlib.suppress(CompanionError):
+                await self.core.ack_jeff_digest(rid)
+
     async def notify_owner_inputs(self):
         """Proactively tell the owner about missing form fields; never include values."""
         owner = next((p for p in self.settings.people if p.role == "owner"), None)
@@ -1721,6 +1757,7 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
             await self.notify_login_receipts()
             await self.notify_zone_reports()
             await self.notify_answering_reports()
+            await self.notify_jeff_digests()
             with contextlib.suppress(CompanionError):
                 await self.refresh_profiles()
             if not self.store.get("watch", False):
