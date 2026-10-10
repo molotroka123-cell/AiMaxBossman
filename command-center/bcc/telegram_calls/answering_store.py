@@ -226,7 +226,9 @@ class AnsweringStore:
     @staticmethod
     def _restrict(path: Path) -> None:
         try:
-            from ..auth import _restrict_to_owner
-            _restrict_to_owner(path)
+            # chmod 0700/0600 on POSIX too: auth._restrict_to_owner is Windows-only, and mkdir(parents=True,
+            # mode=0o700) leaves the intermediate answering/ directory at the umask default (0755 on CI).
+            from .hardening import restrict_to_owner
+            restrict_to_owner(path)
         except Exception:  # noqa: BLE001 - best effort; the doctor re-checks the calls home
             pass

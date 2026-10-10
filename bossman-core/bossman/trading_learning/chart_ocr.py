@@ -1,7 +1,5 @@
 import re
 from typing import Optional, Dict, List, Union, Any
-import numpy as np
-from PIL import Image
 
 
 def parse_price(token: str) -> Optional[float]:
@@ -144,6 +142,10 @@ def read_frame(path: str, *, ocr: Any = None) -> Dict[str, Union[str, float, Lis
     if ocr is None:
         from rapidocr_onnxruntime import RapidOCR
         ocr = RapidOCR()
+
+    # numpy/PIL only for reading pixels: the parsers above stay importable without them (CI, Claude fix)
+    import numpy as np
+    from PIL import Image
 
     img = Image.open(path)
     width, height = img.size

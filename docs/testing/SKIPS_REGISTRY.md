@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 417. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 426. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -289,6 +289,13 @@
 | `bossman-core/tests/test_browser_support_helper.py:100` | skip | `—` | playwright не установлен — искать нечего | Bossman Core | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_browser_support_helper.py:108` | skip | `—` | f"браузер ревизии {revision} не установлен; на диске: "
                     f"{present or 'ничего'} — это состояние установки, а не дефект хелпера" | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_chart_ocr.py:111` | skip | `—` | "Exam directory not found: " + exam_dir | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_chart_ocr.py:128` | skip | `—` | f"File not found: {path}" | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_chart_ocr.py:151` | skip | `—` | f"File not found: {path}" | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_chart_ocr.py:173` | skip | `—` | f"File not found: {path}" | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_chart_ocr.py:203` | skip | `—` | f"File not found: {path}" | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_chart_ocr.py:241` | skip | `—` | f"Frame file not found: {frame_path}" | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `bossman-core/tests/test_chart_ocr.py:120` | skip | `—` | rapidocr_onnxruntime not available | Bossman Core | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_e2e_real_gui.py:70` | skip | `—` | real browser acceptance requires BOSSMAN_GUI_LIVE=1 (owner-authorized) | Bossman Core | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_e2e_real_gui.py:137` | skip | `—` | Higgsfield real attempt requires BOSSMAN_HIGGSFIELD_LIVE=1 (owner-authorized) | Bossman Core | живой внешний сервис / owner-authorized live | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_e2e_real_gui.py:164` | skip | `—` | evidence["verdict"] | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -355,7 +362,7 @@
 | `tests/test_evolution_api_bootstrap.py:14` | importorskip | `—` | bcc.features.evolution needs pydantic (root-ci installs no Command Center deps) | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_embedded_python.py:58` | importorskip | `—` | нет пакета pytest | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_embedded_python.py:35` | importorskip | `—` | нет пакета pytest | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
-| `tests/test_evolution_loop.py:290` | skip | `—` | bcc not installed here (root CI); the product grammar is checked in command-center tests | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_evolution_loop.py:291` | skip | `—` | bcc not installed here (root CI); the product grammar is checked in command-center tests | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_protocol.py:128` | skip | `—` | Symlink privilege unavailable | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_runner.py:124` | skip | `—` | Symlinks unavailable in this Windows environment | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evolution_verifier.py:90` | importorskip | `—` | нет пакета pytest | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -397,6 +404,8 @@
 | `tests/test_solana_safety.py:109` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:110` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_training_data_preflight.py:15` | importorskip | `—` | нет пакета PIL.Image | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_ux_sweep_probe.py:83` | skipif | `not os.path.exists(U.EDGE)` | Microsoft Edge is not installed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_ux_sweep_probe.py:118` | skipif | `not os.path.exists(U.EDGE)` | Microsoft Edge is not installed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_v5_human_speed.py:461` | skip | `—` | на этом хосте под объявленной кратностью нет запаса для замера | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_v5_observers.py:121` | skip | `—` | f"symlink privilege missing: {exc}" | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_windows_bundle_contract.py:125` | skip | `—` | this host IS Windows; the refusal path is for Linux/macOS builders | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

@@ -129,7 +129,7 @@ def test_integration_hdr_0(exam_dir, ocr_engine):
 
     result, _ = ocr_engine(path)
     if not result:
-        pytest.skip("OCR returned None")
+        pytest.fail("OCR returned nothing on a real frame that exists - the reader is broken, not absent")
 
     closes = []
     for item in result:
@@ -152,7 +152,7 @@ def test_integration_hdr_1(exam_dir, ocr_engine):
 
     result, _ = ocr_engine(path)
     if not result:
-        pytest.skip("OCR returned None")
+        pytest.fail("OCR returned nothing on a real frame that exists - the reader is broken, not absent")
 
     closes = []
     for item in result:
@@ -174,7 +174,7 @@ def test_integration_hdr_2(exam_dir, ocr_engine):
 
     result, _ = ocr_engine(path)
     if not result:
-        pytest.skip("OCR returned None")
+        pytest.fail("OCR returned nothing on a real frame that exists - the reader is broken, not absent")
 
     closes = []
     titles = []
@@ -204,7 +204,7 @@ def test_integration_hdr_3(exam_dir, ocr_engine):
 
     result, _ = ocr_engine(path)
     if not result:
-        pytest.skip("OCR returned None")
+        pytest.fail("OCR returned nothing on a real frame that exists - the reader is broken, not absent")
 
     closes = []
     for item in result:
