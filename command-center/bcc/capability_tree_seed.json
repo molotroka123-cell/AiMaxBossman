@@ -5006,14 +5006,20 @@
       "id": "plugin-6",
       "label": "mcp.tool_call",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: mcp.execute. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: mcp.execute. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing bcc.features.plugins",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#plugin-6",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -5107,14 +5113,20 @@
       "id": "plugin-11",
       "label": "gmail.search",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: gmail.readonly. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: gmail.readonly. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing bcc.features.plugins",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#plugin-11",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -5123,14 +5135,20 @@
       "id": "plugin-12",
       "label": "gmail.send",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: gmail.send. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: gmail.send. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing bcc.features.plugins",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#plugin-12",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -5155,14 +5173,20 @@
       "id": "plugin-14",
       "label": "calendar.create",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: calendar.events. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: calendar.events. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing bcc.features.plugins",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#plugin-14",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -5187,14 +5211,20 @@
       "id": "plugin-16",
       "label": "drive.write",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: drive.file. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: drive.file. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing bcc.features.plugins",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#plugin-16",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -5225,14 +5255,20 @@
       "id": "plugin-18",
       "label": "telegram.send",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: telegram.send. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: telegram.send. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing bcc.features.plugins",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#plugin-18",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -5257,14 +5293,20 @@
       "id": "plugin-20",
       "label": "n8n.workflow_run",
       "parent": "plugins",
-      "status": "code",
-      "detail": "Capability manifest; scope: n8n.execute. Авторизация/live эффект не проверены.",
+      "status": "reported",
+      "detail": "Capability manifest; scope: n8n.execute. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing bcc.features.plugins",
       "sources": [
         {
           "path": "command-center/bcc/features/plugins.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/plugins.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#plugin-20",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13674,14 +13716,20 @@
       "id": "module-6bf6aca94f5f",
       "label": "bossman/trading_learning/benchmark.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-10 @ ab7c5455: pytest 1 test file(s) importing bossman.trading_learning.benchmark",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/benchmark.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/benchmark.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#module-6bf6aca94f5f",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13713,14 +13761,20 @@
       "id": "module-10135418ed52",
       "label": "bossman/trading_learning/cli.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-10 @ ab7c5455: pytest 1 test file(s) importing bossman.trading_learning.cli",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/cli.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/cli.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#module-10135418ed52",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13729,14 +13783,20 @@
       "id": "module-dca65ddd8cea",
       "label": "bossman/trading_learning/frames.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-10 @ ab7c5455: pytest 1 test file(s) importing bossman.trading_learning.frames",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/frames.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/frames.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#module-dca65ddd8cea",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."
@@ -13745,14 +13805,20 @@
       "id": "module-72a2f39e685d",
       "label": "bossman/trading_learning/ingest.py",
       "parent": "memory",
-      "status": "code",
-      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно.",
+      "status": "reported",
+      "detail": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-10 @ ab7c5455: pytest 1 test file(s) importing bossman.trading_learning.ingest",
       "sources": [
         {
           "path": "bossman-core/bossman/trading_learning/ingest.py",
           "branch": "feat/bossman-1.9-final-freeze",
           "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/trading_learning/ingest.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#module-72a2f39e685d",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить маршрутизацию и живой сценарий на итоговом SHA."

@@ -1665,8 +1665,8 @@
    "id": "plugin-6",
    "label": "mcp.tool_call",
    "parent": "plugins",
-   "status": "code",
-   "short": "Capability manifest; scope: mcp.execute. Авторизация/live эффект не проверены."
+   "status": "reported",
+   "short": "Capability manifest; scope: mcp.execute. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing"
   },
   {
    "id": "plugin-7",
@@ -1700,15 +1700,15 @@
    "id": "plugin-11",
    "label": "gmail.search",
    "parent": "plugins",
-   "status": "code",
-   "short": "Capability manifest; scope: gmail.readonly. Авторизация/live эффект не проверены."
+   "status": "reported",
+   "short": "Capability manifest; scope: gmail.readonly. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) import"
   },
   {
    "id": "plugin-12",
    "label": "gmail.send",
    "parent": "plugins",
-   "status": "code",
-   "short": "Capability manifest; scope: gmail.send. Авторизация/live эффект не проверены."
+   "status": "reported",
+   "short": "Capability manifest; scope: gmail.send. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing "
   },
   {
    "id": "plugin-13",
@@ -1721,8 +1721,8 @@
    "id": "plugin-14",
    "label": "calendar.create",
    "parent": "plugins",
-   "status": "code",
-   "short": "Capability manifest; scope: calendar.events. Авторизация/live эффект не проверены."
+   "status": "reported",
+   "short": "Capability manifest; scope: calendar.events. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) impor"
   },
   {
    "id": "plugin-15",
@@ -1735,8 +1735,8 @@
    "id": "plugin-16",
    "label": "drive.write",
    "parent": "plugins",
-   "status": "code",
-   "short": "Capability manifest; scope: drive.file. Авторизация/live эффект не проверены."
+   "status": "reported",
+   "short": "Capability manifest; scope: drive.file. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing "
   },
   {
    "id": "plugin-17",
@@ -1749,8 +1749,8 @@
    "id": "plugin-18",
    "label": "telegram.send",
    "parent": "plugins",
-   "status": "code",
-   "short": "Capability manifest; scope: telegram.send. Авторизация/live эффект не проверены."
+   "status": "reported",
+   "short": "Capability manifest; scope: telegram.send. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importi"
   },
   {
    "id": "plugin-19",
@@ -1763,8 +1763,8 @@
    "id": "plugin-20",
    "label": "n8n.workflow_run",
    "parent": "plugins",
-   "status": "code",
-   "short": "Capability manifest; scope: n8n.execute. Авторизация/live эффект не проверены."
+   "status": "reported",
+   "short": "Capability manifest; scope: n8n.execute. Импорт и существующие тесты прошли на указанном коммите. Прогон 2026-10-10 @ ab7c5455: pytest 13 test file(s) importing"
   },
   {
    "id": "plugin-21",
@@ -4227,8 +4227,8 @@
    "id": "module-6bf6aca94f5f",
    "label": "bossman/trading_learning/benchmark.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-10 @ ab7c5455: pytest 1 test file(s) importing bossman.trading_lea"
   },
   {
    "id": "module-98c19da7eaec",
@@ -4241,22 +4241,22 @@
    "id": "module-10135418ed52",
    "label": "bossman/trading_learning/cli.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-10 @ ab7c5455: pytest 1 test file(s) importing bossman.trading_lea"
   },
   {
    "id": "module-dca65ddd8cea",
    "label": "bossman/trading_learning/frames.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-10 @ ab7c5455: pytest 1 test file(s) importing bossman.trading_lea"
   },
   {
    "id": "module-72a2f39e685d",
    "label": "bossman/trading_learning/ingest.py",
    "parent": "memory",
-   "status": "code",
-   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно."
+   "status": "reported",
+   "short": "Найден исходный модуль. Наличие тестов и живой результат проверяются отдельно. Прогон 2026-10-10 @ ab7c5455: pytest 1 test file(s) importing bossman.trading_lea"
   },
   {
    "id": "module-9b294ff2bf89",

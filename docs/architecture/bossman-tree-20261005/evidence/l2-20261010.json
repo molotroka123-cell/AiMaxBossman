@@ -1,0 +1,200 @@
+[
+  {
+    "node_id": "plugin-6",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 13 test file(s) importing bcc.features.plugins",
+    "command": "(cwd=command-center) pytest -q tests\\test_feat_openrouter_owner_path.py tests\\test_leaf_plugins_real_handlers.py tests\\test_plugin_mcp_tool_call.py tests\\test_plugin_security.py tests\\test_plugin_security_malformed_url.py tests\\test_plugins_adapter.py tests\\test_plugins_browser_telegram.py tests\\test_plugins_obsidian_not_a_file.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:14:17.098300+00:00",
+    "finished_at": "2026-10-10T10:14:56.965074+00:00",
+    "output_sha256": "59dfb339314554b9ce63a041589fa1b58722eb17f4981f36b136dd5034b5f804",
+    "output_tail": "...........................................ss...s....................... [ 41%]\n........................................................................ [ 82%]\n..............................                                           [100%]\n171 passed, 3 skipped in 34.79s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 171 passed and only 3 skipped, so tests actually ran, and it includes test_plugin_mcp_tool_call.py, which imports this module and matches the mcp.tool_call label, so it is at least as strong as the OLD approval-gate-only probe."
+    }
+  },
+  {
+    "node_id": "plugin-11",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 13 test file(s) importing bcc.features.plugins",
+    "command": "(cwd=command-center) pytest -q tests\\test_feat_openrouter_owner_path.py tests\\test_leaf_plugins_real_handlers.py tests\\test_plugin_mcp_tool_call.py tests\\test_plugin_security.py tests\\test_plugin_security_malformed_url.py tests\\test_plugins_adapter.py tests\\test_plugins_browser_telegram.py tests\\test_plugins_obsidian_not_a_file.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:14:57.166669+00:00",
+    "finished_at": "2026-10-10T10:15:33.561795+00:00",
+    "output_sha256": "aa12cc8d89b36759aed1eed9d1f5ff5043d4392f841a30eb2f87e3891f39c26b",
+    "output_tail": "...........................................ss...s....................... [ 41%]\n........................................................................ [ 82%]\n..............................                                           [100%]\n171 passed, 3 skipped in 30.23s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests actually ran, and the eight listed test files import plugins.py, which contains gmail.search. The record does not show gmail.search itself being exercised or whether a credential skip applied to it, so this rests on module-level coverage."
+    }
+  },
+  {
+    "node_id": "plugin-12",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 13 test file(s) importing bcc.features.plugins",
+    "command": "(cwd=command-center) pytest -q tests\\test_feat_openrouter_owner_path.py tests\\test_leaf_plugins_real_handlers.py tests\\test_plugin_mcp_tool_call.py tests\\test_plugin_security.py tests\\test_plugin_security_malformed_url.py tests\\test_plugins_adapter.py tests\\test_plugins_browser_telegram.py tests\\test_plugins_obsidian_not_a_file.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:15:33.784579+00:00",
+    "finished_at": "2026-10-10T10:16:09.756039+00:00",
+    "output_sha256": "a2e3edec0e7a1601519d94c07cf8e3bb46d70b03130e543d3320dc0f9a5ab1cc",
+    "output_tail": "...........................................ss...s....................... [ 41%]\n........................................................................ [ 82%]\n..............................                                           [100%]\n171 passed, 3 skipped in 30.55s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests actually ran, and all eight listed test files import plugins.py, but none of the output names gmail.send specifically, so this is only a plausible match to the leaf rather than a confirmed one."
+    }
+  },
+  {
+    "node_id": "plugin-14",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 13 test file(s) importing bcc.features.plugins",
+    "command": "(cwd=command-center) pytest -q tests\\test_feat_openrouter_owner_path.py tests\\test_leaf_plugins_real_handlers.py tests\\test_plugin_mcp_tool_call.py tests\\test_plugin_security.py tests\\test_plugin_security_malformed_url.py tests\\test_plugins_adapter.py tests\\test_plugins_browser_telegram.py tests\\test_plugins_obsidian_not_a_file.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:16:09.973936+00:00",
+    "finished_at": "2026-10-10T10:16:45.476160+00:00",
+    "output_sha256": "7b05f987a88af384b0e0b65b12e2082adb1825308c1560d2b06ad9d8affdb14f",
+    "output_tail": "...........................................ss...s....................... [ 41%]\n........................................................................ [ 82%]\n..............................                                           [100%]\n171 passed, 3 skipped in 30.08s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests did run, and all eight listed test files import plugins.py, which plausibly covers the calendar.create leaf, though the output does not name calendar.create specifically."
+    }
+  },
+  {
+    "node_id": "plugin-16",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 13 test file(s) importing bcc.features.plugins",
+    "command": "(cwd=command-center) pytest -q tests\\test_feat_openrouter_owner_path.py tests\\test_leaf_plugins_real_handlers.py tests\\test_plugin_mcp_tool_call.py tests\\test_plugin_security.py tests\\test_plugin_security_malformed_url.py tests\\test_plugins_adapter.py tests\\test_plugins_browser_telegram.py tests\\test_plugins_obsidian_not_a_file.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:16:45.700238+00:00",
+    "finished_at": "2026-10-10T10:17:21.787307+00:00",
+    "output_sha256": "0854fd7bb26cf751dceee05bb1d66f4291dfac72ea5ae77daec36fa7b23a7af0",
+    "output_tail": "...........................................ss...s....................... [ 41%]\n........................................................................ [ 82%]\n..............................                                           [100%]\n171 passed, 3 skipped in 30.35s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests actually ran, and all eight listed test files import plugins.py, which plausibly covers the drive.write leaf, though the output does not name drive.write explicitly."
+    }
+  },
+  {
+    "node_id": "plugin-18",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 13 test file(s) importing bcc.features.plugins",
+    "command": "(cwd=command-center) pytest -q tests\\test_feat_openrouter_owner_path.py tests\\test_leaf_plugins_real_handlers.py tests\\test_plugin_mcp_tool_call.py tests\\test_plugin_security.py tests\\test_plugin_security_malformed_url.py tests\\test_plugins_adapter.py tests\\test_plugins_browser_telegram.py tests\\test_plugins_obsidian_not_a_file.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:17:22.009474+00:00",
+    "finished_at": "2026-10-10T10:17:57.686547+00:00",
+    "output_sha256": "aa12cc8d89b36759aed1eed9d1f5ff5043d4392f841a30eb2f87e3891f39c26b",
+    "output_tail": "...........................................ss...s....................... [ 41%]\n........................................................................ [ 82%]\n..............................                                           [100%]\n171 passed, 3 skipped in 30.23s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests actually ran, and the eight listed test files import plugins.py and plausibly exercise telegram.send, including test_plugins_browser_telegram.py. The run does not show which tests cover the telegram.send path or whether the skipped tests touch it, so the evidence is broader and less specific than the OLD approval-gate probe."
+    }
+  },
+  {
+    "node_id": "plugin-20",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 13 test file(s) importing bcc.features.plugins",
+    "command": "(cwd=command-center) pytest -q tests\\test_feat_openrouter_owner_path.py tests\\test_leaf_plugins_real_handlers.py tests\\test_plugin_mcp_tool_call.py tests\\test_plugin_security.py tests\\test_plugin_security_malformed_url.py tests\\test_plugins_adapter.py tests\\test_plugins_browser_telegram.py tests\\test_plugins_obsidian_not_a_file.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:17:57.888668+00:00",
+    "finished_at": "2026-10-10T10:18:34.597825+00:00",
+    "output_sha256": "2ca8b0f8c2feeb735d89424006d648f153324853ee64c83368972f0e4692ecd0",
+    "output_tail": "...........................................ss...s....................... [ 41%]\n........................................................................ [ 82%]\n..............................                                           [100%]\n171 passed, 3 skipped in 30.82s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 171 passed and 3 skipped, so tests ran, and all eight listed test files import the plugins module that contains this leaf, which meets the stated acceptance criteria. The run output does not name n8n.workflow_run specifically, so this is a module-level rather than leaf-specific check."
+    }
+  },
+  {
+    "node_id": "module-6bf6aca94f5f",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 1 test file(s) importing bossman.trading_learning.benchmark",
+    "command": "(cwd=bossman-core) pytest -q tests\\test_trading_pipeline_benchmark.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:18:34.818205+00:00",
+    "finished_at": "2026-10-10T10:18:37.878903+00:00",
+    "output_sha256": "29813526cbfd518e0533a8cfda181dfa8c99d2ad3c6a4f878b5f64bd34b3fe92",
+    "output_tail": "......s.....s...................                                         [100%]\n30 passed, 2 skipped in 1.02s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 30 tests passed and 2 skipped, so tests actually ran rather than all being skipped, and the test file named in the leaf imports and exercises bossman.trading_learning.benchmark, which the OLD record showed was all-skipped."
+    }
+  },
+  {
+    "node_id": "module-10135418ed52",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 1 test file(s) importing bossman.trading_learning.cli",
+    "command": "(cwd=bossman-core) pytest -q tests\\test_trading_pipeline_benchmark.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:18:38.097652+00:00",
+    "finished_at": "2026-10-10T10:18:41.624631+00:00",
+    "output_sha256": "a3cea9007bce61dec2c54baeb369f316eb07910d67b6ac3099f67009b016b05e",
+    "output_tail": "......s.....s...................                                         [100%]\n30 passed, 2 skipped in 0.85s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 30 tests passed and only 2 skipped, so tests actually ran, and the listed test file imports this module, so it plausibly exercises the leaf."
+    }
+  },
+  {
+    "node_id": "module-dca65ddd8cea",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 1 test file(s) importing bossman.trading_learning.frames",
+    "command": "(cwd=bossman-core) pytest -q tests\\test_trading_pipeline_benchmark.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:18:41.845698+00:00",
+    "finished_at": "2026-10-10T10:18:45.787699+00:00",
+    "output_sha256": "c078224b937771e8302762e48e6001374a5646374e3ef4d10768e0cb2952da1e",
+    "output_tail": "......s.....s...................                                         [100%]\n30 passed, 2 skipped in 1.11s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 30 passed and 2 skipped, so tests actually ran and were not all skipped, and the test file is listed as importing this module, so it plausibly exercises frames.py."
+    }
+  },
+  {
+    "node_id": "module-72a2f39e685d",
+    "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+    "probe": "pytest 1 test file(s) importing bossman.trading_learning.ingest",
+    "command": "(cwd=bossman-core) pytest -q tests\\test_trading_pipeline_benchmark.py",
+    "exit_code": 0,
+    "started_at": "2026-10-10T10:18:46.005978+00:00",
+    "finished_at": "2026-10-10T10:18:49.791397+00:00",
+    "output_sha256": "e2cb990c979c8a0c070f374e29aae0acf7c0961dbf74707a198224a9d9007be5",
+    "output_tail": "......s.....s...................                                         [100%]\n30 passed, 2 skipped in 0.82s",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "adjudication": {
+      "judge": "anthropic/claude-haiku-5.5",
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 30 tests passing and only 2 skipped, so tests actually ran, and the test file is listed as importing this module, so it plausibly exercises the leaf."
+    }
+  }
+]

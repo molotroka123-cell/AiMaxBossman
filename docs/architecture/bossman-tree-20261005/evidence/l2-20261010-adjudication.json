@@ -1,0 +1,95 @@
+{
+  "sha": "ab7c54550bf8d832ef41d38ce0c7b622828e5db0",
+  "judge": "anthropic/claude-haiku-5.5",
+  "spent_usd": 0.00384,
+  "rows": [
+    {
+      "leaf": "plugin-6",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 171 passed and only 3 skipped, so tests actually ran, and it includes test_plugin_mcp_tool_call.py, which imports this module and matches the mcp.tool_call label, so it is at least as strong as the OLD approval-gate-only probe.",
+      "cost_usd": 0.00032,
+      "installed": true
+    },
+    {
+      "leaf": "plugin-11",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests actually ran, and the eight listed test files import plugins.py, which contains gmail.search. The record does not show gmail.search itself being exercised or whether a credential skip applied to it, so this rests on module-level coverage.",
+      "cost_usd": 0.00048,
+      "installed": true
+    },
+    {
+      "leaf": "plugin-12",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests actually ran, and all eight listed test files import plugins.py, but none of the output names gmail.send specifically, so this is only a plausible match to the leaf rather than a confirmed one.",
+      "cost_usd": 0.00041,
+      "installed": true
+    },
+    {
+      "leaf": "plugin-14",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests did run, and all eight listed test files import plugins.py, which plausibly covers the calendar.create leaf, though the output does not name calendar.create specifically.",
+      "cost_usd": 0.00044,
+      "installed": true
+    },
+    {
+      "leaf": "plugin-16",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests actually ran, and all eight listed test files import plugins.py, which plausibly covers the drive.write leaf, though the output does not name drive.write explicitly.",
+      "cost_usd": 0.00043,
+      "installed": true
+    },
+    {
+      "leaf": "plugin-18",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 171 passed and 3 skipped, so tests actually ran, and the eight listed test files import plugins.py and plausibly exercise telegram.send, including test_plugins_browser_telegram.py. The run does not show which tests cover the telegram.send path or whether the skipped tests touch it, so the evidence is broader and less specific than the OLD approval-gate probe.",
+      "cost_usd": 0.00043,
+      "installed": true
+    },
+    {
+      "leaf": "plugin-20",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 171 passed and 3 skipped, so tests ran, and all eight listed test files import the plugins module that contains this leaf, which meets the stated acceptance criteria. The run output does not name n8n.workflow_run specifically, so this is a module-level rather than leaf-specific check.",
+      "cost_usd": 0.00043,
+      "installed": true
+    },
+    {
+      "leaf": "module-6bf6aca94f5f",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 30 tests passed and 2 skipped, so tests actually ran rather than all being skipped, and the test file named in the leaf imports and exercises bossman.trading_learning.benchmark, which the OLD record showed was all-skipped.",
+      "cost_usd": 0.00015,
+      "installed": true
+    },
+    {
+      "leaf": "module-10135418ed52",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 30 tests passed and only 2 skipped, so tests actually ran, and the listed test file imports this module, so it plausibly exercises the leaf.",
+      "cost_usd": 0.00023,
+      "installed": true
+    },
+    {
+      "leaf": "module-dca65ddd8cea",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exited 0 with 30 passed and 2 skipped, so tests actually ran and were not all skipped, and the test file is listed as importing this module, so it plausibly exercises frames.py.",
+      "cost_usd": 0.00025,
+      "installed": true
+    },
+    {
+      "leaf": "module-72a2f39e685d",
+      "exit_code": 0,
+      "verdict": "ACCEPT_NEW",
+      "reason": "The NEW run exits 0 with 30 tests passing and only 2 skipped, so tests actually ran, and the test file is listed as importing this module, so it plausibly exercises the leaf.",
+      "cost_usd": 0.00027,
+      "installed": true
+    }
+  ]
+}

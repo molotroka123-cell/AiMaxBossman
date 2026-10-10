@@ -1,16 +1,27 @@
 # Evidence summary
 
-Статусы дерева: blocked=12, branch=31, code=27, idea=22, mixed=16, prepared=18, recorded=175, reported=406, retired=5, working=164
+Статусы дерева: blocked=12, branch=31, code=16, idea=22, mixed=16, prepared=18, recorded=175, reported=417, retired=5, working=164
 
-Принято расписок: 1; отклонено: 849
+Принято расписок: 11; отклонено: 851
 
 ## По зонам
 
-- apps: 1
+- memory: 4
+- plugins: 7
 
 ## Принятые
 
-- `pv-ui` (l2-20261009.json)
+- `plugin-6` (l2-20261010.json)
+- `plugin-11` (l2-20261010.json)
+- `plugin-12` (l2-20261010.json)
+- `plugin-14` (l2-20261010.json)
+- `plugin-16` (l2-20261010.json)
+- `plugin-18` (l2-20261010.json)
+- `plugin-20` (l2-20261010.json)
+- `module-6bf6aca94f5f` (l2-20261010.json)
+- `module-10135418ed52` (l2-20261010.json)
+- `module-dca65ddd8cea` (l2-20261010.json)
+- `module-72a2f39e685d` (l2-20261010.json)
 
 ## Отклонённые
 
@@ -180,6 +191,8 @@
 - `module-bf7480cb496c` (jeffb.json): status reported not eligible
 - `module-d6fff5861410` (jeffb.json): status reported not eligible
 - `module-d794cbd77cf3` (jeffb.json): status reported not eligible
+- `pv-ui` (l2-20261009.json): status reported not eligible
+- `None` (l2-20261010-adjudication.json): unreadable lane file
 - `reg-promo_video` (mediaux-retire.json): status retired not eligible
 - `cap-29` (mediaux.json): status reported not eligible
 - `cap-12` (mediaux.json): status reported not eligible
@@ -294,11 +307,11 @@
 - `module-9d355deb8dee` (memapps.json): status reported not eligible
 - `module-389fe1a92fa7` (memapps.json): status reported not eligible
 - `module-2719fd94eacc` (memapps.json): status reported not eligible
-- `module-6bf6aca94f5f` (memapps.json): verdict not PASS
+- `module-6bf6aca94f5f` (memapps.json): status reported not eligible
 - `module-98c19da7eaec` (memapps.json): status reported not eligible
-- `module-10135418ed52` (memapps.json): verdict not PASS
-- `module-dca65ddd8cea` (memapps.json): verdict not PASS
-- `module-72a2f39e685d` (memapps.json): verdict not PASS
+- `module-10135418ed52` (memapps.json): status reported not eligible
+- `module-dca65ddd8cea` (memapps.json): status reported not eligible
+- `module-72a2f39e685d` (memapps.json): status reported not eligible
 - `module-9b294ff2bf89` (memapps.json): status reported not eligible
 - `module-23fb0a4fb4a5` (memapps.json): status reported not eligible
 - `module-1e377785ed16` (memapps.json): status reported not eligible
@@ -621,7 +634,7 @@
 - `plugin-7` (plugins.json): status reported not eligible
 - `plugin-8` (plugins.json): status reported not eligible
 - `plugin-9` (plugins.json): status reported not eligible
-- `plugin-11` (plugins.json): verdict not PASS
+- `plugin-11` (plugins.json): status reported not eligible
 - `plugin-13` (plugins.json): verdict not PASS
 - `plugin-15` (plugins.json): verdict not PASS
 - `plugin-17` (plugins.json): status reported not eligible

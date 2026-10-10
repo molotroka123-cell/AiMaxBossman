@@ -1,0 +1,5 @@
+== plugin-12 plugin:gmail.send probe=approval_gate_refuses ==
+[plugin:gmail.send] default_effect=ask decide_effect(agent without grants)='ask' reason=право email.send не выдано агенту
+NOTE: the outward effect was NOT exercised; only the approval gate was checked.
+VERDICT PASS
+

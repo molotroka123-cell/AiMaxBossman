@@ -1,0 +1,6 @@
+== plugin-11 plugin:gmail.search probe=handler_live_call ==
+[plugin:gmail.search] error=True one_line='plugin:gmail.search: no credential'
+content: SKIP_EXTERNAL_CREDENTIAL: gmail.search — нет креда GMAIL_OAUTH. Побочного эффекта нет.
+performed: None -> a handler that returns NOT_TESTED_LIVE/SKIP is not a pass
+VERDICT FAIL
+
