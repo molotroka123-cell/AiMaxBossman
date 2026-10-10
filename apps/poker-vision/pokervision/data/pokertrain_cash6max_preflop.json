@@ -1,0 +1,30 @@
+{
+  "source": {
+    "repo": "https://github.com/molotroka123-cell/pokertrain",
+    "path": "src/data/gtoRanges.js",
+    "commit": "6bc72bf0a7f839b290c3ea9f7ccaead4318fc30b",
+    "tables": ["CASH_6MAX_RFI_RANGES", "CASH_THREEBET_RANGES", "CASH_BB_DEFENSE"],
+    "note": "Copied verbatim from the owner's own trainer (its comment: 'Source: GTO Wizard (verified April 2026)', 6-max cash, 100bb). Bossman did not solve these ranges; they are the owner's reference charts."
+  },
+  "rfi": {
+    "UTG": {"raise": "22+, A2s+, K9s+, QTs+, JTs, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo", "open_bb": 2.5},
+    "HJ":  {"raise": "22+, A2s+, K9s+, Q9s+, J9s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo", "open_bb": 2.5},
+    "CO":  {"raise": "22+, A2s+, K6s+, Q8s+, J8s+, T7s+, 97s+, 86s+, 76s, 65s, 54s, A9o+, KTo+, QTo+, JTo", "open_bb": 2.5},
+    "BTN": {"raise": "22+, A2s+, K2s+, Q4s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, 53s+, 43s, A2o+, K7o+, Q8o+, J8o+, T8o+, 97o+, 87o, 76o", "open_bb": 2.5},
+    "SB":  {"raise": "22+, A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s, A2o+, K2o+, Q4o+, J6o+, T7o+, 97o+, 86o+, 76o, 65o, 54o", "open_bb": 3.5}
+  },
+  "vs_open": {
+    "vs_UTG": {"threebet": "QQ+, AKs, AKo, AQs, A5s, A4s", "call": "22-JJ, AQo, AJs, AJo, ATs, ATo, KQs, KJs, QJs, JTs, T9s, 98s, 87s, 76s"},
+    "vs_HJ":  {"threebet": "JJ+, AKs, AKo, AQs, AQo, A5s, A4s, A3s, KQs", "call": "22-TT, AJs, AJo, ATs, ATo, KJs, KJo, QJs, QTs, JTs, T9s, 98s, 87s, 76s, 65s"},
+    "vs_CO":  {"threebet": "TT+, AKs, AKo, AQs, AQo, AJs, A5s, A4s, A3s, A2s, KQs, KJs, QJs", "call": "22-99, ATo, A9s, A8s, KTs, KJo, QTs, JTs, J9s, T9s, T8s, 98s, 87s, 76s, 65s, 54s"},
+    "vs_BTN": {"threebet": "99+, AKs, AKo, AQs, AQo, AJs, AJo, A5s, A4s, A3s, A2s, KQs, KJs, K9s, QJs, Q9s, JTs, J9s, T9s, 98s, 87s, 76s", "call": "22-88, ATs, A9s, A8s, A7s, ATo, KTs, K8s, KQo, KJo, QTs, Q8s, J8s, T8s, 97s, 86s, 75s, 65s, 54s"},
+    "sb_vs_btn": {"threebet": "88+, AKs, AKo, AQs, AQo, AJs, AJo, ATs, A5s, A4s, A3s, A2s, KQs, KJs, KTs, K9s, QJs, QTs, Q9s, JTs, J9s, T9s, T8s, 98s, 87s, 76s, 65s", "call": ""}
+  },
+  "bb_defense": {
+    "vs_UTG": {"threebet": "JJ+, AKs, AKo, AQs, A5s, A4s", "call": "22-TT, AQo, AJs, ATs, A9s, A8s, A7s, A5s, KQs, KJs, KTs, K9s, QJs, QTs, Q9s, JTs, J9s, T9s, T8s, 98s, 97s, 87s, 76s, 65s, 54s"},
+    "vs_HJ":  {"threebet": "TT+, AKs, AKo, AQs, AQo, A5s, A4s, A3s", "call": "22-99, AJs, ATs, A9s, A8s, A7s, A6s, A5s, AJo, ATo, KQs, KJs, KTs, K9s, K8s, KQo, KJo, QJs, QTs, Q9s, Q8s, JTs, J9s, J8s, T9s, T8s, T7s, 98s, 97s, 96s, 87s, 86s, 76s, 75s, 65s, 64s, 54s, 53s, 43s"},
+    "vs_CO":  {"threebet": "99+, AKs, AKo, AQs, AQo, AJs, A5s, A4s, A3s, A2s, K9s, QJs", "call": "22-88, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, A2s, ATo, A9o, A8o, KQs, KJs, KTs, K9s, K8s, K7s, K6s, KJo, KTo, K9o, QTs, Q9s, Q8s, Q7s, QTo, Q9o, JTs, J9s, J8s, J7s, JTo, J9o, T9s, T8s, T7s, 98s, 97s, 96s, 87s, 86s, 85s, 76s, 75s, 74s, 65s, 64s, 63s, 54s, 53s, 43s"},
+    "vs_BTN": {"threebet": "88+, AKs, AKo, AQs, AQo, AJs, ATs, A9s, A5s, A4s, A3s, A2s, K8s, K7s, QJs, Q9s, JTs, J9s, T8s, 97s, 86s, 75s, 64s, 53s", "call": "22-77, A8s, A7s, A6s, A5s, A4s, A3s, A2s, ATo, A9o, A8o, A7o, A6o, A5o, A4o, A3o, A2o, KQs, KJs, KTs, K9s, K8s, K7s, K6s, K5s, K4s, KQo, KJo, KTo, K9o, K8o, K7o, QTs, Q9s, Q8s, Q7s, Q6s, QTo, Q9o, Q8o, JTs, J9s, J8s, J7s, J6s, JTo, J9o, J8o, T9s, T8s, T7s, T6s, T9o, T8o, 98s, 97s, 96s, 95s, 98o, 87s, 86s, 85s, 84s, 87o, 76s, 75s, 74s, 73s, 65s, 64s, 63s, 54s, 53s, 52s, 43s, 42s, 32s"},
+    "vs_SB":  {"threebet": "88+, AKs, AKo, AQs, AQo, AJs, ATs, A9s, A5s, A4s, A3s, A2s, K7s, K6s, K5s, QTs, Q9s, J9s, T8s, 97s, 86s, 75s, 64s, 53s", "call": "22-77, A8s, A7s, A6s, A5s, A4s, A3s, A2s, ATo, A9o, A8o, A7o, A6o, A5o, KQs, KJs, KTs, K9s, K8s, K7s, K6s, K5s, K4s, KTo, K9o, K8o, K7o, QTs, Q9s, Q8s, Q7s, Q6s, Q5s, QJo, QTo, Q9o, Q8o, JTs, J9s, J8s, J7s, J6s, JTo, J9o, J8o, T9s, T8s, T7s, T6s, T9o, T8o, 98s, 97s, 96s, 95s, 98o, 97o, 87s, 86s, 85s, 84s, 87o, 76s, 75s, 74s, 73s, 76o, 65s, 64s, 63s, 54s, 53s, 52s, 43s, 42s, 32s"}
+  }
+}
