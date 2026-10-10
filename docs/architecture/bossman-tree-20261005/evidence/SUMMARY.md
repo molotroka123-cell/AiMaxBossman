@@ -2,25 +2,14 @@
 
 Статусы дерева: blocked=13, branch=31, code=16, idea=25, mixed=16, prepared=20, recorded=172, reported=422, retired=8, working=164
 
-Принято расписок: 8; отклонено: 864
+Принято расписок: 0; отклонено: 872
 
 ## По зонам
 
-- media: 2
-- ops: 2
-- skills: 3
-- ux: 1
+- нет
 
 ## Принятые
 
-- `skill-38` (dedupe-20261010.json)
-- `skill-23` (dedupe-20261010.json)
-- `skill-24` (dedupe-20261010.json)
-- `reg-faceswap_video_job` (l2-20261010b.json)
-- `reg-faceswap_pose_gate` (l2-20261010b.json)
-- `reg-pult_owner_only` (l2-20261010b.json)
-- `reg-tree_haiku_judge` (l2-20261010b.json)
-- `reg-tree_haiku_translate` (l2-20261010b.json)
 
 ## Отклонённые
 
@@ -66,6 +55,9 @@
 - `cap-22` (agcloud.json): status reported not eligible
 - `mod-openrouter` (agcloud.json): status reported not eligible
 - `None` (dedupe-20261010-report.json): unreadable lane file
+- `skill-38` (dedupe-20261010.json): status retired not eligible
+- `skill-23` (dedupe-20261010.json): status retired not eligible
+- `skill-24` (dedupe-20261010.json): status retired not eligible
 - `cap-1` (jeffa.json): status reported not eligible
 - `cap-2` (jeffa.json): status reported not eligible
 - `cap-3` (jeffa.json): status reported not eligible
@@ -204,6 +196,11 @@
 - `module-10135418ed52` (l2-20261010.json): status reported not eligible
 - `module-dca65ddd8cea` (l2-20261010.json): status reported not eligible
 - `module-72a2f39e685d` (l2-20261010.json): status reported not eligible
+- `reg-faceswap_video_job` (l2-20261010b.json): status reported not eligible
+- `reg-faceswap_pose_gate` (l2-20261010b.json): status reported not eligible
+- `reg-pult_owner_only` (l2-20261010b.json): status reported not eligible
+- `reg-tree_haiku_judge` (l2-20261010b.json): status reported not eligible
+- `reg-tree_haiku_translate` (l2-20261010b.json): status reported not eligible
 - `reg-promo_video` (mediaux-retire.json): status retired not eligible
 - `cap-29` (mediaux.json): status reported not eligible
 - `cap-12` (mediaux.json): status reported not eligible
