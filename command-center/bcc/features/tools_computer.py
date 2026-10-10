@@ -404,6 +404,7 @@ def _state(svc) -> ComputerState:
             # Идентичность окна и тип поля — с настоящей ОС, в момент действия.
             window_process_allowed = staticmethod(window_allowlisted)
             focused_is_password = staticmethod(uia_focused_is_password)
+            focused_element = staticmethod(uia_focused_element)
             window_pid = staticmethod(_window_pid)
             root_owner = staticmethod(_root_owner)
 
@@ -1053,6 +1054,23 @@ def secret_like_text(text: Any) -> str | None:
     return None
 
 
+UIA_CONTROL_TYPES = {50004: "Edit", 50030: "Document", 50000: "Button", 50033: "Pane", 50032: "Window",
+                     50019: "TabItem", 50037: "TitleBar", 50003: "ComboBox"}
+EDITABLE_TYPES = frozenset({"Edit", "Document"})
+
+
+def uia_focused_element() -> dict | None:
+    """Элемент с клавиатурным фокусом по данным ОС: тип, процесс, имя. None — не узнать."""
+    try:
+        from pywinauto.uia_defines import IUIA
+        el = IUIA().iuia.GetFocusedElement()
+        ctype = int(el.CurrentControlType)
+        return {"control_type": UIA_CONTROL_TYPES.get(ctype, str(ctype)), "pid": int(el.CurrentProcessId),
+                "name": str(el.CurrentName or "")[:200]}
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def uia_focused_is_password() -> bool | None:
     """Поле с клавиатурным фокусом — секретное? None — не удалось узнать."""
     try:
@@ -1462,6 +1480,22 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             if secret is not False:
                 raise ActRefused("поле с фокусом секретное (пароль) или его тип не удалось проверить — "
                                  "ничего не введено")
+            # Живой прогон 2026-10-10 (локальный Qwen): сразу после запуска Win11
+            # Блокнот держал клавиатурный фокус на вкладках, UIA SetFocus документа
+            # не сработал, и Ctrl+V ушёл «в никуда» — шаг выглядел выполненным.
+            # В окне с полями ввода клавиши идут только когда фокус ОС в поле
+            # ввода ЭТОГО процесса; иначе отказ с подсказкой кликнуть в поле.
+            fprobe = getattr(st.desktop, "focused_element", None)
+            has_fields = any(e.get("control_type") in EDITABLE_TYPES for e in (before.get("elements") or []))
+            if fprobe is not None and has_fields:
+                fe = await asyncio.to_thread(fprobe)
+                bpid = int((before.get("window") or {}).get("pid") or 0)
+                if (not fe or fe.get("control_type") not in EDITABLE_TYPES
+                        or (bpid and int(fe.get("pid") or 0) != bpid)):
+                    got = "не определён" if not fe else f"{fe.get('control_type')} «{fe.get('name')}» pid={fe.get('pid')}"
+                    raise ActRefused(f"клавиатурный фокус не в поле ввода окна {_wdesc(before.get('window'))} "
+                                     f"(сейчас: {got}) — ничего не введено; кликните в поле (click по имени "
+                                     f"поля) и повторите по новому наблюдению")
         if kind in INPUT_KINDS:
             # Последний взгляд на передний план непосредственно перед вводом:
             # окно наблюдения, и никакое другое (фокус могли увести за время

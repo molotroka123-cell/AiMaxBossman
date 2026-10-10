@@ -87,6 +87,13 @@ class MultiDesk:
     def focused_is_password(self):
         return self.password_focus
 
+    focus_on = "Document"            # what the OS says has keyboard focus inside the front window
+
+    def focused_element(self):
+        if self.focus_on is None:
+            return None
+        return {"control_type": self.focus_on, "pid": self.wins[self.fg].pid, "name": "x"}
+
     def set_interrupt(self, ev):
         self.interrupt = ev
 
@@ -446,3 +453,24 @@ async def test_corrupted_grant_journal_fails_closed(env, md):
     assert md.st.launcher.calls == []
     assert (await env.client.put(f"/api/computer/tasks/{tid}/apps", json={"apps": ["notepad"]})).status_code == 409
     await asyncio.sleep(0)
+
+
+async def test_keys_are_not_sent_when_os_focus_is_not_in_the_field(env, md):
+    """Live run 2026-10-10: right after launch Win11 Notepad kept keyboard focus on its tab
+    strip; UIA SetFocus on the document did not take and Ctrl+V went nowhere while the
+    step looked executed. Now: refused, nothing sent; a click into the field fixes it."""
+    tid = await _task(env)
+    await _grant(env, tid)
+    h = await _launch_notepad(env, md, tid)
+    for focus in ("TabItem", None):
+        md.focus_on = focus
+        g = (await _observe(env, tid)).data["generation"]
+        res = await _act(env, tid, {"action": "type", "text": "x", "generation": g, "window": h,
+                                    "pid": NOTEPAD_PID})
+        assert res.error and "клавиатурный фокус не в поле ввода" in res.content, focus
+    assert [e for e in md.executed if e[0] == "TYPE"] == [] and md.wins[h].doc == ""
+    md.focus_on = "Document"
+    g = (await _observe(env, tid)).data["generation"]
+    res = await _act(env, tid, {"action": "type", "text": "теперь в поле", "generation": g, "window": h,
+                                "pid": NOTEPAD_PID, "expect": {"contains_text": "теперь в поле"}})
+    assert not res.error and md.wins[h].doc == "теперь в поле"
