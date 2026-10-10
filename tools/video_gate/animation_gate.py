@@ -13,6 +13,8 @@ Two interpreters, one command:
 SRC/RES: a video file or a folder of PNG frames. --lossless declares (before the run) that RES is a lossless file, so
 T2 requires max|diff| == 0 outside the face mask; otherwise T2 is PSNR >= 40 dB outside the mask.
 Metric version v2 (10.10): source twins are ties, faces/bodies are matched to the same person; thresholds unchanged.
+Metric version v3 (10.10): T4 body uses Pose points 11-32 only — points 0-10 are the face, which Gate 1 changes on purpose
+(owner spec: intentionally changed areas are not compared); the face has its own T3.
 Body model: MediaPipe PoseLandmarker full (Apache-2.0), file from BOSSMAN_POSE_MODEL or <gate-venv>/models/.
 """
 from __future__ import annotations
@@ -33,6 +35,7 @@ import numpy as np
 FACEFUSION = Path(os.environ.get("BOSSMAN_FACEFUSION_HOME", Path.home() / "Bossman" / "apps-local" / "facefusion"))
 POSE_MODEL = Path(os.environ.get("BOSSMAN_POSE_MODEL", Path(sys.prefix) / "models" / "pose_landmarker_full.task"))
 FACE_PAD = 0.6
+BODY_FROM = 11            # MediaPipe Pose 0-10 = nose/eyes/ears/mouth; the body is 11 (shoulders) .. 32
 
 THRESHOLDS = {
     0: {"align_share": 1.0, "fps_tol": 0.01, "lossless_max_abs": 0, "psnr_min_db": 40.0, "face_nme_max": 0.02,
@@ -252,6 +255,7 @@ def measure(src, res, faces, gate: int, lossless: bool, src_info, res_info, body
             if sp is None or rp is None:
                 continue
             vis = (sp[:, 2] >= 0.5) & (rp[:, 2] >= 0.5)
+            vis[:BODY_FROM] = False            # v3: face points belong to T3 (intentionally changed in Gate 1)
             if vis.sum() < 4:
                 continue
             bodies.append(float(np.linalg.norm(sp[vis, :2] - rp[vis, :2], axis=1).mean() / body_scale(sp)))
@@ -372,7 +376,7 @@ def main(argv=None) -> int:
     metrics, checks, rows = measure(src, res, faces, a.gate, a.lossless, src_info, res_info)
     side_by_side(src, res, src_info.get("fps"), out / "side_by_side.mp4")
     control = contact_sheet(src, res, out / "contact_sheet.jpg")
-    report = {"gate": a.gate, "metric_version": "v2", "thresholds": THRESHOLDS[a.gate], "lossless_declared": a.lossless,
+    report = {"gate": a.gate, "metric_version": "v3", "thresholds": THRESHOLDS[a.gate], "lossless_declared": a.lossless,
               "command": [Path(sys.executable).name, Path(__file__).name, *(argv if argv is not None else sys.argv[1:])],
               "versions": versions(), "source": {**src_info, "sha256": sha256_of(src_p)},
               "result": {**res_info, "sha256": sha256_of(res_p)}, "metrics": metrics, "checks": checks,
