@@ -1,4 +1,4 @@
-"""Preflop decisions from the OWNER'S OWN 6-max cash charts (copied from his Poker Train repo, see data/pokertrain_cash6max_preflop.json).
+"""Preflop decisions from the OWNER'S OWN 6-max cash charts (copied from his Poker Train repo, see data/pokertrain_cash6max_preflop.json). [ci-secret-scan: allow]
 
 These are reference ranges (the trainer's comment says GTO Wizard, 6-max cash 100bb); Bossman did not solve them. The chart answers only the
 spots it covers and says why when it does not:
@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-RANKS = "23456789TJQKA"  # ci-secret-scan: allow (file name, not a secret)
-DATA = Path(__file__).with_name("data") / "pokertrain_cash6max_preflop.json"
+RANKS = "23456789TJQKA"
+DATA = Path(__file__).with_name("data") / "pokertrain_cash6max_preflop.json"  # ci-secret-scan: allow (file name, not a secret)
 POSITIONS = ("UTG", "HJ", "CO", "BTN", "SB", "BB")
 POSITION_ALIASES = {"UTG+1": "HJ", "MP": "HJ", "LJ": "UTG"}      # 7-9 handed labels mapped onto the 6-max chart (said in the reason)
 
