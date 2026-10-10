@@ -46,3 +46,15 @@ The public tree site (`molotroka123-cell.github.io`, pages `ai/bossman-developme
 Use an existing isolated integration/owner/fix staging branch for candidate work, then integrate reviewed and verified changes into `main`. Do not create another final/canonical line, force-push, or automatically merge product changes into `main`. Required failures block product promotion. Explicit owner-authorized documentation corrections may be committed directly to `main`; they do not certify the product.
 
 Release and owner-test handoffs must record the accepted source SHA, installed build SHA, and capability-tree source SHA. Do not claim one unified Bossman until these identities are reconciled and verification is recorded for the accepted revision. Naming `main` canonical does not certify its current CI, installed build, or autonomy. Document presence does not enable calls, purchases, voice enrollment or background spending.
+
+## Owner amendment — video gates, pult, unified branch (2026-10-10)
+
+Current handoff: `docs/owner/HANDOFF_20261010.md`. Video work follows the owner's stage order in `docs/owner/VIDEO_PIPELINE_STAGES_20261010.md`: Gate 0 → 1 face/person swap → 2 clothes → 3 Mimics 2.0 → 4 background; a stage opens only after VERIFIED and the owner's confirmation in the pult.
+
+**Gate thresholds come before tests.** Thresholds are fixed and committed before the measuring tool runs (T1..T7 in `a704eda9`) and are never moved after a result is seen. If a metric itself is wrong, fix the method under a new `metric_version`, keep the failed version's result on record, and rerun everything (10.10: v1 FAILed on telecine twin frames and largest-face matching; v2 is the current method). QUEUED, mock, sampled frames or an old SHA are not PASS. Keep the source framing, timing and audio; never stretch to 16:9. Faces only with consent; personal media never leaves the PC. Wan runs only on an otherwise idle PC.
+
+**Pult is owner-only.** The companion pult bot delivers only to the owner (`6273524c`); Jeff answers everyone it talked with. No paid service (Genjutsu, Higgsfield, any paid API) without the owner's explicit yes.
+
+**Unified branch.** Candidate `claude/main-prod-20261009` (`a1564fef`, PR #107) plus the local `ux/genjutsu-live-constructor` work and the 6 product commits still only on `jeff/one-20261009` are to be combined in `feat/bossman-genjutsu-jeff-unified-20261010` (planned, not created on 10.10). Owner 10.10: it goes into `main` after 3 awaited generations and tests, through a PR with green required CI on the exact SHA. Never merge `claude/bossman-control-v03-43igbk` or `claude/busy-carson-ydh991` (fake windows-latest "100 scenarios" workflow). No force-push.
+
+**Video skills:** `.agents/skills/video-face-swap-facefusion/` (FaceFusion face swap through Bossman, pose gate, Gate 0/1 proof with `tools/video_gate/`), `.agents/skills/genjutsu-character-swap/` (`tools/genjutsu/film.py`, Wan2.1 VACE via sd-cli on Vulkan), `.agents/skills/video-editing/`. `tools/trend_edit/analyze_edit.py` describes an edit's structure; it is not a view predictor.

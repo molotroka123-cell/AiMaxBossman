@@ -1,4 +1,28 @@
-# 08.10.2026 — one Bossman line (read first)
+# 10.10.2026 — video gates, Jeff close-out, unified branch (read first)
+
+Read `docs/owner/HANDOFF_20261010.md` first (state, proof, owner blockers, ordered steps), then
+`docs/owner/VIDEO_PIPELINE_STAGES_20261010.md` and `docs/owner/BOSSMAN_PROD_AUDIT_AND_CLEANUP_TZ_20261010.md`.
+`main` = `2f4af952` (untouched). Candidate `claude/main-prod-20261009` = `a1564fef`, PR #107 → `main`, CI 76 pass /
+6 fail (root pytest py3.11/3.12, browser-user-paths, retention). Work continues on the local, unpushed
+`ux/genjutsu-live-constructor` (tip `7db5facf`). Installed build `6de18f8d` is 129 commits behind `a1564fef`.
+Owner stage order: Gate 0 → face/person swap → clothes → Mimics 2.0 → background; then Jeff close-out; then the
+unified branch `feat/bossman-genjutsu-jeff-unified-20261010` → `main` (owner 10.10: after 3 awaited generations + tests).
+
+Next 5 actions:
+1. Commit the uncommitted video files from the ux checkout (`tools/video_gate/*`, `tools/trend_edit/analyze_edit.py`,
+   `.agents/skills/video-face-swap-facefusion/SKILL.md`).
+2. Gate 0: finish the metric-v2 rerun on the final H.264 of `ref-clip-01` (v1 FAIL stays recorded; thresholds unchanged).
+3. Stage 1: full-clip face swap through Bossman + `animation_gate.py --gate 1`; owner confirms in the pult.
+4. Owner actions before Stage 2/3: set `TdrDelay` + reboot (Wan HIP crashes), clarify what «Mimics 2.0» is.
+5. Jeff close-out (7 audit gaps, each red → green) and the unified branch: + the 6 product commits from
+   `jeff/one-20261009` (`5b08411a`, `5f855ff0`, `87453f9d`, `1d0a34d4`, `d4ac267d`, `d8de6ccb`), fix the 6 red
+   check-runs, never merge `bossman-control-v03` / `busy-carson` (fake windows-100 workflow), no force-push.
+
+Pult writes only to the owner; no paid service without an explicit yes; personal media never to the cloud.
+
+---
+
+# 08.10.2026 — one Bossman line
 
 Canonical is `main`. The 2.1 one-line integration (green/tree-leaves 4a14c26c + old main + 08.10 fixes) lands
 through PR #98. Start with `docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md` (what exists / what is missing),
