@@ -21,3 +21,15 @@ def test_smoothing_touches_only_the_hole_and_halves_a_flicker_step():
     assert (out[~hole] == cur[~hole]).all()                 # outside the hole: unchanged, byte for byte
     assert (out[hole] == 150).all()                         # inside: halfway to the motion-compensated previous frame
     assert (ts.blend_step(cur, prev, hole, 1.0)[hole] == 200).all()   # alpha 1 = no smoothing
+
+
+def test_clothes_gate_t3_v2_rule_is_relative_to_the_flat_fill_control():
+    spec2 = importlib.util.spec_from_file_location("clothes_gate", ROOT / "tools" / "video_gate" / "clothes_gate.py")
+    import sys
+    sys.path.insert(0, str(ROOT / "tools" / "video_gate"))
+    cg = importlib.util.module_from_spec(spec2)
+    spec2.loader.exec_module(cg)
+    assert cg.T["body_over_control_max"] == 0.02 and cg.T["body_max"] == 0.03        # thresholds as fixed in the doc
+    assert cg.body_pass_v2(0.275, 0.256, 0.02) is True        # +0.019 over the control
+    assert cg.body_pass_v2(0.284, 0.256, 0.02) is False       # the 10.10 v2 smoothed run: +0.028 -> FAIL, not adjusted
+    assert cg.body_pass_v2(None, 0.256, 0.02) is False        # no measurement is never a pass

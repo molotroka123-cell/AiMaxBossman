@@ -23,7 +23,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import animation_gate as ag  # noqa: E402
 
 T = {"align_share": 1.0, "outside_max_abs": 0, "body_max": 0.03, "face_sim_min": 0.90, "palette_de_max": 15.0,
-     "flicker_de_max": 2.0}
+     "flicker_de_max": 2.0,
+     # T3 v2 (10.10, fixed before the next run, docs/owner/VIDEO_PIPELINE_STAGES_20261010.md): the pose error of the
+     # result may exceed the pose error of a flat-fill control (same frames, hole filled with one colour) by this much.
+     "body_over_control_max": 0.02, "control_fill": 225}
 
 
 def face_similarity_phase(src: Path, res: Path, out: Path) -> None:
@@ -69,6 +72,25 @@ def palette_de(a: np.ndarray, b: np.ndarray) -> float:
     """Mean dE of each colour of `a` to its nearest colour of `b` (order-free, symmetric average)."""
     d = np.linalg.norm(a[:, None, :] - b[None, :, :], axis=2)
     return float((d.min(1).mean() + d.min(0).mean()) / 2)
+
+
+def body_error(a_frames, b_frames) -> tuple[float | None, int]:
+    """Mean pose-point displacement / torso (points 11-32, same person matched), a_frames vs b_frames."""
+    ka, kb = ag.body_keypoints(a_frames), ag.body_keypoints(b_frames)
+    vals = []
+    for pa, pb in zip(ka, kb):
+        sp, rp = ag.pick_bodies(pa, pb)
+        if sp is None or rp is None:
+            continue
+        vis = (sp[:, 2] >= 0.5) & (rp[:, 2] >= 0.5)
+        vis[:ag.BODY_FROM] = False
+        if vis.sum() >= 4:
+            vals.append(float(np.linalg.norm(sp[vis, :2] - rp[vis, :2], axis=1).mean() / ag.body_scale(sp)))
+    return (float(np.mean(vals)) if vals else None), len(vals)
+
+
+def body_pass_v2(result_err: float | None, control_err: float | None, margin: float) -> bool:
+    return result_err is not None and control_err is not None and result_err <= control_err + margin
 
 
 def to_lab(bgr):
@@ -121,16 +143,10 @@ def main(argv=None) -> int:
         mx = int(d.max()) if d.size else 0
         max_abs = max(max_abs, mx)
         rows.append({"frame": i, "aligned": bool(ok), "max_abs_outside": mx, "face_sim": faces["sims"][i]})
-    bs, br = ag.body_keypoints(src[:n]), ag.body_keypoints(res[:n])
-    body = []
-    for i in range(n):
-        sp, rp = ag.pick_bodies(bs[i], br[i])
-        if sp is None or rp is None:
-            continue
-        vis = (sp[:, 2] >= 0.5) & (rp[:, 2] >= 0.5)
-        vis[:ag.BODY_FROM] = False
-        if vis.sum() >= 4:
-            body.append(float(np.linalg.norm(sp[vis, :2] - rp[vis, :2], axis=1).mean() / ag.body_scale(sp)))
+    body_res, body_n = body_error(src[:n], res[:n])
+    ctrl = [np.where(holes[i][..., None], np.uint8(T["control_fill"]), src[i]) for i in range(n)]
+    body_ctrl, _ = body_error(src[:n], ctrl)
+    body = [body_res] if body_res is not None else []
     ref = cv2.imread(a.ref_image)
     ref_mask = cv2.imread(a.ref_mask, cv2.IMREAD_GRAYSCALE)
     ref_mask = cv2.resize(ref_mask, (ref.shape[1], ref.shape[0]), interpolation=cv2.INTER_NEAREST) > 127
@@ -146,7 +162,8 @@ def main(argv=None) -> int:
             flick_s.append(float(np.linalg.norm(to_lab(src[i])[m] - to_lab(src[i - 1])[m], axis=1).mean()))
     sims = [s for s in faces["sims"][:n] if s == s]
     metrics = {"frames": [len(src), len(res)], "aligned_share": round(aligned / n, 4) if n else 0.0, "max_abs_outside": max_abs,
-               "body_nme_mean": round(float(np.mean(body)), 4) if body else None, "bodies_measured": len(body),
+               "body_nme_mean": round(float(np.mean(body)), 4) if body else None, "bodies_measured": body_n,
+               "body_control_nme": round(body_ctrl, 4) if body_ctrl is not None else None,
                "face_sim_mean": round(float(np.mean(sims)), 4) if sims else None, "faces_measured": len(sims),
                "palette_de_result": round(float(np.mean(pal)), 2) if pal else None,
                "palette_de_source_for_reference": round(float(np.mean(src_pal)), 2) if src_pal else None,
@@ -155,11 +172,12 @@ def main(argv=None) -> int:
     fl = (metrics["flicker_de_result"] - metrics["flicker_de_source"]) if flick_r else None
     checks = {"S2_T1_frames": len(src) == len(res), "S2_T1_alignment": metrics["aligned_share"] >= T["align_share"],
               "S2_T2_outside": max_abs <= T["outside_max_abs"],
-              "S2_T3_body": metrics["body_nme_mean"] is not None and metrics["body_nme_mean"] <= T["body_max"],
+              "S2_T3_body_v1": metrics["body_nme_mean"] is not None and metrics["body_nme_mean"] <= T["body_max"],
+              "S2_T3_body_v2": body_pass_v2(body_res, body_ctrl, T["body_over_control_max"]),
               "S2_T4_face": metrics["face_sim_mean"] is not None and metrics["face_sim_mean"] >= T["face_sim_min"],
               "S2_T5_outfit": metrics["palette_de_result"] is not None and metrics["palette_de_result"] <= T["palette_de_max"],
               "S2_T6_flicker": fl is not None and fl <= T["flicker_de_max"]}
-    report = {"gate": "stage2-clothes", "thresholds": T, "metrics": {**metrics, "flicker_added": None if fl is None else round(fl, 3)},
+    report = {"gate": "stage2-clothes", "method": "T3 v2 = pose error <= flat-fill control + 0.02 (v1 kept beside it)", "thresholds": T, "metrics": {**metrics, "flicker_added": None if fl is None else round(fl, 3)},
               "checks": checks, "verdict": "PASS" if all(checks.values()) else "FAIL", "per_frame": rows}
     (out / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
     ag.side_by_side(src[:n], res[:n], 30, out / "side_by_side.mp4")
