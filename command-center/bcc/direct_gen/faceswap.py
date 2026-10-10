@@ -79,7 +79,7 @@ def provider() -> str:
 
 
 def build_argv(root: Path, sources: list[Path], target: Path, output: Path, preset: str = "fast",
-               execution: str | None = None) -> list[str]:
+               execution: str | None = None, *, temp_path: Path | None = None, jobs_path: Path | None = None) -> list[str]:
     if preset not in PRESETS:
         raise ValueError(f"unknown preset {preset!r}")
     if not 1 <= len(sources) <= MAX_SOURCES:
@@ -88,7 +88,8 @@ def build_argv(root: Path, sources: list[Path], target: Path, output: Path, pres
     return [str(python_of(root)), str(root / "facefusion.py"), "headless-run",
             "--source-paths", *map(str, sources), "--target-path", str(target), "--output-path", str(output),
             "--processors", *p.processors, *p.args, "--face-selector-mode", "many",
-            "--execution-providers", execution or provider(), "--output-video-quality", "90"]
+            "--execution-providers", execution or provider(), "--output-video-quality", "90",
+            *(["--temp-path", str(temp_path)] if temp_path else []), *(["--jobs-path", str(jobs_path)] if jobs_path else [])]
 
 
 # ---------------------------------------------------------------- post-processing
@@ -152,11 +153,53 @@ def compose_16x9(src: Path, dst: Path, width: int = 1280, height: int = 720) -> 
     return n
 
 
-def finish(video: Path, original: Path, dst: Path, *, fps: int = 30) -> None:
-    """H.264 + the original audio of the source (if it has any), cut to the shorter of the two."""
+def finish(video: Path, original: Path, dst: Path, *, fps: int | None = None) -> None:
+    """H.264 + the original audio of the source, at the source frame timing (no resampling), cut to the shorter of the two."""
     cmd = [ffmpeg(), "-v", "error", "-y", "-i", str(video), "-i", str(original), "-map", "0:v:0", "-map", "1:a:0?",
-           "-c:v", "libx264", "-crf", "18", "-preset", "slow", "-pix_fmt", "yuv420p", "-r", str(fps),
+           "-c:v", "libx264", "-crf", "16", "-preset", "slow", "-pix_fmt", "yuv420p",
+           *(["-r", str(fps)] if fps else ["-fps_mode", "passthrough"]),
            "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(dst)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
     if r.returncode != 0 or not dst.is_file():
         raise RuntimeError("ffmpeg finish failed: " + (r.stderr or "")[-400:])
+
+
+# ---------------------------------------------------------------- lossless parallel chunks
+#: Measured 10.10 on the Radeon 8060S: 2 FaceFusion processes on halves of a clip took 40.5 s instead of 64.7 s and
+#: produced bit-identical decoded frames; a 3rd process added little on a 3 s clip (model load dominates).
+DEFAULT_WORKERS = 2
+MIN_FRAMES_PER_CHUNK = 60
+
+
+def frame_count(video: Path) -> int:
+    r = subprocess.run([shutil.which("ffprobe") or "ffprobe", "-v", "error", "-select_streams", "v:0", "-count_frames",
+                        "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0", str(video)],
+                       capture_output=True, text=True, timeout=600)
+    return int((r.stdout or "0").strip().split(",")[0] or 0)
+
+
+def plan_chunks(frames: int, workers: int) -> list[tuple[int, int]]:
+    """[(first, last)] frame ranges; one chunk when the clip is too short to pay for another model load."""
+    if frames <= 0:
+        return [(0, -1)]                                     # unknown length: the whole clip in one process
+    n = max(1, min(workers, frames // MIN_FRAMES_PER_CHUNK))
+    size = -(-frames // n)
+    return [(i * size, min(frames, (i + 1) * size) - 1) for i in range(n) if i * size < frames]
+
+
+def cut_lossless(src: Path, first: int, last: int, dst: Path) -> None:
+    """Exact frame range, H.264 -qp 0: the decoded frames FaceFusion sees are the source frames, bit for bit."""
+    cmd = [ffmpeg(), "-v", "error", "-y", "-i", str(src), "-vf", f"select='between(n,{first},{last})',setpts=PTS-STARTPTS",
+           "-an", "-c:v", "libx264", "-qp", "0", "-preset", "ultrafast", str(dst)]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    if r.returncode != 0 or not dst.is_file():
+        raise RuntimeError("ffmpeg cut failed: " + (r.stderr or "")[-300:])
+
+
+def join(parts: list[Path], dst: Path) -> None:
+    lst = dst.with_suffix(".txt")
+    lst.write_text("".join(f"file '{p.as_posix()}'" + chr(10) for p in parts), encoding="utf-8")
+    r = subprocess.run([ffmpeg(), "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(dst)],
+                       capture_output=True, text=True, timeout=1800)
+    if r.returncode != 0 or not dst.is_file():
+        raise RuntimeError("ffmpeg join failed: " + (r.stderr or "")[-300:])

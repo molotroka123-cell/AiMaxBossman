@@ -142,6 +142,7 @@ class DirectGenService:
         self._free_memory = free_memory or sdcli.free_memory_bytes
         self._foreign = foreign_engines or sdcli.foreign_engines
         self.faceswap_home = faceswap.default_root()
+        self.faceswap_workers = faceswap.DEFAULT_WORKERS
         self.gpu_grace_seconds = gpu_grace_seconds       # a just-finished engine may still be listed for a moment (seen on Windows)
         self._tasks: dict[str, asyncio.Task] = {}
         self._waiting: list[str] = []
@@ -441,7 +442,7 @@ class DirectGenService:
         preset = body.get("preset") or "fast"
         if preset not in faceswap.PRESETS:
             raise DirectGenError(422, "invalid_preset", "preset must be one of: " + ", ".join(faceswap.PRESETS))
-        frame = body.get("frame") or "16:9"
+        frame = body.get("frame") or "original"     # owner 10.10: keep the source framing unless 16:9 is asked for
         if frame not in ("16:9", "original"):
             raise DirectGenError(422, "invalid_frame", "frame must be 16:9 or original")
         video = self._decode(body.get("video_b64"), "video", limit=MAX_SWAP_VIDEO)
@@ -478,7 +479,8 @@ class DirectGenService:
         return self.view(job)
 
     async def _run_swap(self, job: dict) -> None:
-        job_id, runner = job["job_id"], self._sd_runner(faceswap.PROGRESS)
+        job_id = job["job_id"]
+        runners: list = []
         folder = self.store.job_dir(job["participant"], job_id)
         work, result = folder / "work", folder / "result"
         try:
@@ -494,24 +496,56 @@ class DirectGenService:
                 shutil.copyfile(folder / "input_video.bin", source)
                 faces = sorted(folder.glob("input_face*"))
                 swapped = work / "swapped.mp4"
-                argv = faceswap.build_argv(self.faceswap_home, faces, source, swapped, job["params"]["preset"])
+                frames = await asyncio.to_thread(faceswap.frame_count, source)
+                chunks = faceswap.plan_chunks(frames, self.faceswap_workers)
+                # Lossless parallel chunks (owner 10.10: «без потери качества»): each process gets its own temp/jobs
+                # dirs (FaceFusion refuses a second instance on a shared jobs dir) and one execution thread.
+                if len(chunks) == 1:
+                    parts = [(source, swapped)]
+                else:
+                    parts = []
+                    for i, (first, last) in enumerate(chunks):
+                        piece = work / f"in{i}.mp4"
+                        await asyncio.to_thread(faceswap.cut_lossless, source, first, last, piece)
+                        parts.append((piece, work / f"out{i}.mp4"))
+                done = [0] * len(parts)
+                total = max(frames, 1)
+
+                def progress_for(i):
+                    async def on_progress(value: int, maximum: int) -> None:
+                        done[i] = value
+                        top = total if frames > 0 else max(maximum, 1)   # unknown length: the engine knows
+                        job["progress"] = {"kind": "frames", "value": sum(done), "max": top,
+                                           "percent": round(100.0 * sum(done) / top, 1)}
+                        if job["stage"] == "loading":
+                            await self._set(job, "generating")
+                        else:
+                            self.store.save(job)
+                            await self._emit(job)
+                    return on_progress
+
+                calls = []
+                for i, (src, dst) in enumerate(parts):
+                    tmp, jobs = work / f"tmp{i}", work / f"jobs{i}"
+                    tmp.mkdir(exist_ok=True)
+                    jobs.mkdir(exist_ok=True)
+                    argv = faceswap.build_argv(self.faceswap_home, faces, src, dst, job["params"]["preset"],
+                                               temp_path=tmp, jobs_path=jobs)
+                    runners.append(self._sd_runner(faceswap.PROGRESS))
+                    calls.append(runners[-1].run(argv, cwd=self.faceswap_home, on_progress=progress_for(i)))
                 job["provenance"]["command"] = [Path(a).name if os.path.isabs(a) else a for a in argv]
-
-                async def on_progress(value: int, maximum: int) -> None:
-                    job["progress"] = {"kind": "frames", "value": value, "max": maximum,
-                                       "percent": round(100.0 * value / maximum, 1)}
-                    if job["stage"] == "loading":
-                        await self._set(job, "generating")
-                    else:
-                        self.store.save(job)
-                        await self._emit(job)
-
-                run = await runner.run(argv, cwd=self.faceswap_home, on_progress=on_progress)
-                job["provenance"].update(engine_returncode=run.returncode, engine_seconds=run.elapsed_s,
-                                         peak_rss_mb=round(run.peak_rss / 1048576))
-                if run.returncode != 0 or not swapped.is_file():
+                job["provenance"]["workers"] = len(parts)
+                runs = await asyncio.gather(*calls)
+                job["provenance"].update(engine_returncode=max(r.returncode for r in runs),
+                                         engine_seconds=max(r.elapsed_s for r in runs),
+                                         peak_rss_mb=round(sum(r.peak_rss for r in runs) / 1048576))
+                bad = [(r, dst) for r, (_, dst) in zip(runs, parts) if r.returncode != 0 or not dst.is_file()]
+                if bad:
+                    run = bad[0][0]
                     tail = " | ".join(run.log[-4:])[:600]
                     raise DirectGenError(0, "engine_error", f"FaceFusion exited with code {run.returncode}: {tail}")
+                if len(parts) > 1:
+                    await asyncio.to_thread(faceswap.join, [dst for _, dst in parts], swapped)
                 await self._set(job, "postprocessing")
                 framed = swapped
                 if job["params"]["frame"] == "16:9":
@@ -529,7 +563,8 @@ class DirectGenService:
                 job["finished_at"] = now_iso()
                 await self._set(job, "completed")
         except asyncio.CancelledError:
-            runner.kill()
+            for r in runners:
+                r.kill()
             if job_id in self._stopping:
                 job["finished_at"] = now_iso()
                 shutil.rmtree(result, ignore_errors=True)

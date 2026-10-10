@@ -55,7 +55,7 @@ class SwapIn(BaseModel):
     video_b64: str = Field(max_length=410 * 1024 * 1024)
     faces_b64: list[str] = Field(min_length=1, max_length=5)
     preset: str = Field(default="fast", max_length=16)
-    frame: str = Field(default="16:9", max_length=16)
+    frame: str = Field(default="original", max_length=16)
     consent: bool = False
 
 

@@ -308,8 +308,8 @@ function faceSwapPanel(ctx) {
   const facesInput = h('input.dg-file', { id: 'dg-swap-faces', name: 'dg-swap-faces', type: 'file', accept: 'image/png,image/jpeg', multiple: true });
   const faceCount = h('div.dg-note', '0 из 5');
   const presetSel = h('select.dg-input', { id: 'dg-swap-preset', name: 'dg-swap-preset' });
-  const frame169 = h('input', { type: 'radio', name: 'dg-swap-frame', value: '16:9', id: 'dg-swap-frame-169', checked: true });
-  const frameOrig = h('input', { type: 'radio', name: 'dg-swap-frame', value: 'original', id: 'dg-swap-frame-orig' });
+  const frame169 = h('input', { type: 'radio', name: 'dg-swap-frame', value: '16:9', id: 'dg-swap-frame-169' });
+  const frameOrig = h('input', { type: 'radio', name: 'dg-swap-frame', value: 'original', id: 'dg-swap-frame-orig', checked: true });
   const consent = h('input', { type: 'checkbox', id: 'dg-swap-consent', name: 'dg-swap-consent' });
   const swapErr = h('div', { dataset: { testid: 'dg-swap-error' } });
   const unavailBox = h('div');
@@ -327,7 +327,7 @@ function faceSwapPanel(ctx) {
   fillPresets(null);
 
   const frameGroup = h('div.dg-seg', { role: 'radiogroup', 'aria-label': 'Кадр' },
-    h('label.dg-seg-opt', { for: frame169.id }, frame169, h('span.dg-seg-t', '16:9 (YouTube)')),
+    h('label.dg-seg-opt', { for: frame169.id }, frame169, h('span.dg-seg-t', '16:9 (YouTube, только для обычных клипов)')),
     h('label.dg-seg-opt', { for: frameOrig.id }, frameOrig, h('span.dg-seg-t', 'Как в исходнике')));
   const consentLabel = h('label.dg-label', { for: consent.id }, consent, h('span', 'Человек на фото согласен на использование его лица'));
 

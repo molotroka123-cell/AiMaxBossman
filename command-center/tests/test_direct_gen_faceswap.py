@@ -262,3 +262,23 @@ async def test_stop_cancels_and_removes_result(env, tmp_path):
     folder = svc.store.job_dir("owner", job_id)
     assert not (folder / "result").exists()
     assert not (folder / "work").exists()
+
+
+async def test_default_keeps_the_source_framing_and_never_refits(env, tmp_path, monkeypatch):
+    """Owner 10.10: the per-frame 16:9 refit made edits look stretched; without an explicit 16:9 the frame is untouched."""
+    svc = install_swap(env, tmp_path, FakeFaceFusion)
+    refits = []
+    monkeypatch.setattr(faceswap, "compose_16x9", lambda *a, **k: refits.append(a) or 1)
+    monkeypatch.setattr(faceswap, "finish", lambda video, original, dst, **k: shutil.copyfile(video, dst))
+    body = swap_body()
+    body.pop("frame")
+    created = await svc.create_swap("owner", body)
+    job = await finish(svc, created["job_id"])
+    assert job["status"] == "completed" and job["params"]["frame"] == "original" and refits == []
+
+
+def test_plan_chunks_splits_long_clips_and_keeps_short_or_unknown_ones_whole():
+    assert faceswap.plan_chunks(0, 2) == [(0, -1)]
+    assert faceswap.plan_chunks(90, 2) == [(0, 89)]                 # < 2 x 60 frames: one model load is cheaper
+    assert faceswap.plan_chunks(444, 2) == [(0, 221), (222, 443)]
+    assert faceswap.plan_chunks(898, 3) == [(0, 299), (300, 599), (600, 897)]
