@@ -36,6 +36,11 @@ class TelegramToolPolicy:
         "filesystem",
         "vision",
         "file",
+        # Owner's mailbox (bcc.gmail_connector): never a participant tool, whatever the name form.
+        "gmail",
+        "plugin:gmail",
+        "mail",
+        "email",
     )
 
     def allows(self, tool_name: str) -> bool:
