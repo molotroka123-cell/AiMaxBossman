@@ -315,6 +315,22 @@ def test_pitch_of_separates_frontal_from_bowed_landmarks():
     assert abs(pitch_of(lm) - 0.60) < 1e-9
 
 
+def test_outside_the_padded_face_box_the_source_is_kept_exactly():
+    """Gate 1 T2 in production: FaceFusion's video path shifts every pixel's colour; only the face area may change."""
+    import numpy as np
+    from bcc.direct_gen.pose_gate_worker import face_regions_mask, keep_source_outside_faces
+    src = np.full((200, 300, 3), 40, np.uint8)
+    eng = np.full((200, 300, 3), 37, np.uint8)                       # engine output: whole frame darker
+    eng[90:110, 140:160] = 200                                       # the swapped face
+    box = (140.0, 90.0, 160.0, 110.0)                                # side 20 -> padded 12 -> 128..172 x 78..122
+    out = keep_source_outside_faces(src, eng, [box])
+    m = face_regions_mask(src.shape[:2], [box])
+    assert (out[m == 0] == src[m == 0]).all()                        # pixel for pixel outside
+    assert (out[90:110, 140:160] == 200).all()                       # the face is the engine's
+    assert m[100, 150] == 1.0 and m[0, 0] == 0.0 and 0 < m[79, 150] < 1   # linear seam at the padded edge
+    assert keep_source_outside_faces(src, eng, []) is eng            # no face found: engine frame untouched
+
+
 async def test_pose_gate_runs_after_the_swap_and_is_recorded(env, tmp_path, monkeypatch):
     svc = install_swap(env, tmp_path, FakeFaceFusion)
     monkeypatch.setattr(faceswap, "finish", lambda video, original, dst, **k: shutil.copyfile(video, dst))

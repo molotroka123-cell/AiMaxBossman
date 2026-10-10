@@ -6,10 +6,11 @@ frames: pitch = (nose_y - eyes_y) / (chin_y - eyes_y) on the 68 landmarks of the
 0.54-0.62 bowed vs 0.32-0.46 normal. Per frame:
     alpha = clip((off - pitch) / (off - on), 0, 1);  out = alpha * swapped + (1 - alpha) * source
 so the swap fades out/in over the on..off band instead of popping. Frames without a face keep the swapped frame.
+Then everything outside the padded face boxes is restored from the source exactly (keep_source_outside_faces).
 
 Run ONLY with FaceFusion's interpreter (it imports `facefusion`, not `bcc`), cwd = the FaceFusion checkout:
     <facefusion>/.venv/Scripts/python.exe pose_gate_worker.py source.mp4 swapped.mp4 out.mp4 report.json [on off]
-Writes out.mp4 (H.264 -qp 0, lossless) and report.json {frames, gated_frames, gated_range, rows:[{frame,pitch,alpha}]}.
+Writes out.mp4 (libx264rgb -qp 0: RGB-lossless) and report.json {frames, gated_frames, gated_range, rows:[{frame,pitch,alpha}]}.
 """
 from __future__ import annotations
 
@@ -32,6 +33,41 @@ def pose_alpha(pitch: float | None, on: float = PITCH_ON, off: float = PITCH_OFF
 def pitch_of(landmarks68) -> float:
     eyes = (landmarks68[36:42].mean(0) + landmarks68[42:48].mean(0)) / 2
     return float((landmarks68[30][1] - eyes[1]) / max(1e-3, landmarks68[8][1] - eyes[1]))
+
+
+#: Gate 1 (10.10): with the face box padded by 0.6 x its side, 0 of 90 frames changed a pixel outside it (frame path).
+FACE_PAD = 0.6
+FEATHER = 0.15
+
+
+def face_regions_mask(shape: tuple[int, int], boxes, pad: float = FACE_PAD, feather: float = FEATHER):
+    """Float mask 1 inside every padded face box, 0 outside, linear ramp of `feather` x box side at the inner edge."""
+    import numpy as np
+    h, w = shape
+    mask = np.zeros((h, w), np.float32)
+    ys, xs = np.arange(h, dtype=np.float32)[:, None], np.arange(w, dtype=np.float32)[None, :]
+    for x1, y1, x2, y2 in boxes:
+        side = max(x2 - x1, y2 - y1)
+        p, f = pad * side, max(1.0, feather * side)
+        bx1, by1, bx2, by2 = x1 - p, y1 - p, x2 + p, y2 + p
+        inside = np.minimum(np.minimum(xs - bx1, bx2 - xs), np.minimum(ys - by1, by2 - ys))
+        mask = np.maximum(mask, np.clip(inside / f, 0.0, 1.0))
+    return mask
+
+
+def keep_source_outside_faces(source, processed, boxes):
+    """FaceFusion's video path re-ranges colours of the WHOLE frame (10.10: mean 45.39 -> 42.93); everything outside the
+    padded face boxes is restored from the source exactly, so only the face area carries the engine's output."""
+    import numpy as np
+    if not boxes:
+        return processed
+    m = face_regions_mask(source.shape[:2], boxes)[..., None]
+    out = np.where(m >= 1.0, processed, source)
+    edge = (m > 0) & (m < 1)
+    if edge.any():
+        blend = (m * processed.astype(np.float32) + (1 - m) * source.astype(np.float32)).round().astype(np.uint8)
+        out = np.where(edge, blend, out)
+    return out
 
 
 def _probe(path: str) -> tuple[int, int, str]:
@@ -69,7 +105,7 @@ def main(argv: list[str]) -> int:
 
     w, h, rate = _probe(src)
     enc = subprocess.Popen([shutil.which("ffmpeg") or "ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24",
-                            "-s", f"{w}x{h}", "-r", rate, "-i", "-", "-c:v", "libx264", "-qp", "0", "-preset", "ultrafast", dst],
+                            "-s", f"{w}x{h}", "-r", rate, "-i", "-", "-c:v", "libx264rgb", "-qp", "0", "-preset", "ultrafast", dst],
                            stdin=subprocess.PIPE)
     rows = []
     for i, (s, r) in enumerate(zip(_frames(src, w, h), _frames(swp, w, h))):
@@ -77,6 +113,7 @@ def main(argv: list[str]) -> int:
         p = pitch_of(max(faces, key=lambda f: f.bounding_box[2] - f.bounding_box[0]).landmark_set["68"]) if faces else None
         a = pose_alpha(p, on, off)
         o = r if a == 1.0 else s if a == 0.0 else (a * r.astype(np.float32) + (1 - a) * s.astype(np.float32)).round().astype(np.uint8)
+        o = keep_source_outside_faces(s, o, [tuple(float(v) for v in f.bounding_box) for f in faces])
         enc.stdin.write(np.ascontiguousarray(o).tobytes())
         rows.append({"frame": i, "pitch": None if p is None else round(p, 3), "alpha": round(a, 3)})
     enc.stdin.close()
