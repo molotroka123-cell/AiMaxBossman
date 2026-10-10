@@ -1917,7 +1917,11 @@ class ParticipantRuntime:
         if self.store.get(f"delete_pending:{person.key}"):
             self.store.put(f"delete_pending:{person.key}", None)
             if lowered in {"подтверждаю", "confirm", "да, подтверждаю"}:
-                if not self.vault.delete(person_key):
+                # long tasks (goals and results) live under <pit home>/tasks/<key>, outside the persona folder
+                tasks_dir = self.home / "tasks" / person_key
+                had_tasks = tasks_dir.is_dir()
+                shutil.rmtree(tasks_dir, ignore_errors=True)
+                if not self.vault.delete(person_key) and not had_tasks:
                     return "Удалять нечего — профиль уже отсутствует."
                 self._memory_epoch[person_key] = self._memory_epoch.get(person_key, 0) + 1
                 self.photo_pipeline.invalidate_background_memory(person_key)
