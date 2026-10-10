@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 436. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 439. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -361,6 +361,9 @@
 | `tests/owner_journeys/test_admin_journeys.py:20` | importorskip | `—` | bcc task path: runs in command-center-ci core-runtime | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/owner_journeys/test_route_ladder.py:116` | importorskip | `—` | bcc harness: runs in command-center-ci core-runtime | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_audit_learn_store_location.py:55` | skip | `—` | running from an installed package | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_background_swap_gate.py:10` | importorskip | `—` | root-ci installs no media deps | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_background_swap_gate.py:11` | importorskip | `—` | root-ci installs no media deps | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_background_swap_gate.py:89` | importorskip | `—` | gate measures need opencv | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_context_slice.py:97` | skip | `—` | f"symlink privilege missing: {exc}" | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_context_slice.py:116` | skip | `—` | SKIP_HOST: Windows account lacks symlink creation privilege | root (shared/tools) | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_evening_acceptance_harness.py:213` | skip | `—` | POSIX-оболочка недоступна — синтаксис start-bossman.sh проверяется на POSIX/CI | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

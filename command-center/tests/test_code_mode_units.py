@@ -406,3 +406,14 @@ async def test_cyrillic_output_round_trip() -> None:
     out = await run_sandboxed(code, {"echo": "echo"}, _host_factory(calls), _limits())
     assert out.status == "ok", out.error
     assert "Привет, мир — ёлка" in out.output
+
+
+def test_sandbox_prefers_the_base_interpreter_inside_a_venv(monkeypatch):
+    """10.10: under a Windows venv `python -I -S` via the venv launcher failed (23 tests); the child uses the base python."""
+    import sys as _sys
+    from bcc.code_mode import sandbox
+    monkeypatch.setattr(_sys, "_base_executable", r"C:\Python312\python.exe", raising=False)
+    monkeypatch.setattr(_sys, "executable", r"C:\venv\Scripts\python.exe")
+    assert sandbox.sandbox_python() == r"C:\Python312\python.exe"
+    monkeypatch.setattr(_sys, "_base_executable", r"C:\App\Bossman.exe", raising=False)   # frozen launcher: not a python
+    assert sandbox.sandbox_python() == r"C:\venv\Scripts\python.exe"

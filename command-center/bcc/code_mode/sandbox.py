@@ -159,8 +159,16 @@ def _child_env() -> dict[str, str]:
     return env
 
 
+def sandbox_python() -> str:
+    """The interpreter that starts the child. Inside a venv the venv launcher breaks `-I -S` on Windows (the child
+    cannot find the standard library; 23 tests failed under venv-verify 10.10), so the BASE interpreter is used."""
+    exe = getattr(sys, "_base_executable", None) or sys.executable or ""
+    return exe if "python" in Path(exe).name.lower() else (sys.executable or "")
+
+
 async def _spawn(workdir: str, memory_mb: int) -> tuple[asyncio.subprocess.Process, Any]:
-    if "python" not in Path(sys.executable or "").name.lower():
+    interpreter = sandbox_python()
+    if "python" not in Path(interpreter).name.lower():
         # A frozen/embedded launcher would start the APPLICATION again with these arguments.
         raise RuntimeError(f"no standalone Python interpreter for the sandbox ({sys.executable!r})")
     kwargs: dict[str, Any] = {}
@@ -175,7 +183,7 @@ async def _spawn(workdir: str, memory_mb: int) -> tuple[asyncio.subprocess.Proce
             resource.setrlimit(resource.RLIMIT_NPROC, (64, 64))
         kwargs["preexec_fn"] = _preexec
     proc = await asyncio.create_subprocess_exec(
-        sys.executable, "-I", "-S", str(CHILD_PATH),
+        interpreter, "-I", "-S", str(CHILD_PATH),
         stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
         cwd=workdir, env=_child_env(), limit=8 * 1024 * 1024, **kwargs)
     job = None
