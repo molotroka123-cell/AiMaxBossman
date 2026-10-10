@@ -87,6 +87,10 @@ def test_the_hardware_runner_prints_its_whole_report_on_a_locale_console():
     Запускается отдельным процессом с `-I` — ровно так его зовёт приёмка, — и
     с потоком, насильно переведённым в cp1252, то есть в условиях Windows.
     """
+    # На целевом железе main() запустил бы настоящие получасовые проверки;
+    # тест проверяет только печать отчёта, поэтому run_on_target подменяется.
+    # runpy.run_path возвращает КОПИЮ глобальных имён, а main() разрешает
+    # имена в настоящем словаре модуля — подменять надо в main.__globals__.
     driver = (
         "import io, sys, runpy\n"
         "sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='cp1252',\n"
@@ -94,8 +98,13 @@ def test_the_hardware_runner_prints_its_whole_report_on_a_locale_console():
         "sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='cp1252',\n"
         "                              newline='')\n"
         "sys.argv = ['target_hardware_acceptance.py']\n"
-        f"runpy.run_path({str(REPO / 'scripts' / 'target_hardware_acceptance.py')!r},\n"
-        "               run_name='__main__')\n")
+        f"mod = runpy.run_path({str(REPO / 'scripts' / 'target_hardware_acceptance.py')!r},\n"
+        "                      run_name='target_hardware_acceptance')\n"
+        "mod['main'].__globals__['run_on_target'] = lambda: [\n"
+        "    {'check': 'кириллица-проверка', 'status': 'FAIL',\n"
+        "     'returncode': None,\n"
+        "     'tail': 'CPU не опознан как целевой'}]\n"
+        "raise SystemExit(mod['main']([]))\n")
     result = subprocess.run([sys.executable, "-I", "-c", driver],
                             capture_output=True, timeout=300)
     combined = (result.stdout + result.stderr).decode("utf-8", "replace")
