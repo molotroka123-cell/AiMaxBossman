@@ -356,6 +356,10 @@ def observe_step():
 
 
 def act(**arguments):
+    # 2026-10-10: an approved input action binds to the exact hwnd+pid of the observation.
+    if "generation" in arguments and arguments.get("action") not in ("launch", "wait", "focus_window"):
+        arguments.setdefault("window", "$WIN")
+        arguments.setdefault("pid", "$PID")
     return {"tool": "computer_act", "arguments": arguments}
 
 

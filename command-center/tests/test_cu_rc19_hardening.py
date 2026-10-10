@@ -97,7 +97,7 @@ async def test_computer_act_is_not_leasable(env):
 
 async def test_approval_must_be_real_consumed_fresh_and_unused(env, desk):
     await tc.observe(env.svc)
-    args = {"action": "type", "text": "one", "generation": desk.generation}
+    args = {"action": "type", "text": "one", "generation": desk.generation, "window": 1, "pid": 4242}
     # no such row
     res = await _handler(env, args, approval_id=987654)
     assert res.error and "не найдено" in res.content
@@ -179,7 +179,8 @@ async def test_approved_action_survives_an_observation_during_the_decision(env, 
     g = (await tc.observe(env.svc))["generation"]
     await env.client.post("/api/computer/observe")          # what the Пульт button does
     assert desk.generation != g
-    res = await _handler(env, {"action": "type", "text": "после одобрения", "generation": g},
+    res = await _handler(env, {"action": "type", "text": "после одобрения", "generation": g,
+                               "window": 1, "pid": 4242},
                          approval_id=await _consumed_approval(env))
     assert not res.error, res.content
     assert desk.desktop.doc.endswith("после одобрения")
@@ -189,7 +190,7 @@ async def test_approved_action_refused_after_resume_restart_or_window_change(env
     g = (await tc.observe(env.svc))["generation"]
     await env.client.post("/api/computer/stop")
     await env.client.post("/api/computer/resume")
-    res = await _handler(env, {"action": "type", "text": "x", "generation": g},
+    res = await _handler(env, {"action": "type", "text": "x", "generation": g, "window": 1, "pid": 4242},
                          approval_id=await _consumed_approval(env))
     assert res.error and "недействительно" in res.content
     # window changed between the question and the effect
@@ -202,7 +203,7 @@ async def test_approved_action_refused_after_resume_restart_or_window_change(env
         return {**fg, "handle": 77, "title": "Другой документ — Блокнот"}, tree
 
     desk.desktop.snapshot = other_window
-    res = await _handler(env, {"action": "type", "text": "x", "generation": g},
+    res = await _handler(env, {"action": "type", "text": "x", "generation": g, "window": 1, "pid": 4242},
                          approval_id=await _consumed_approval(env))
     assert res.error and "окно сменилось" in res.content
     desk.desktop.snapshot, desk.desktop.fg_handle = orig, 1
@@ -211,7 +212,7 @@ async def test_approved_action_refused_after_resume_restart_or_window_change(env
     env.svc._computer_state = None
     st2 = tc._owner_state(env.svc)
     st2.desktop, st2.shots = desk.desktop, FakeShots()
-    res = await _handler(env, {"action": "type", "text": "x", "generation": g},
+    res = await _handler(env, {"action": "type", "text": "x", "generation": g, "window": 1, "pid": 4242},
                          approval_id=await _consumed_approval(env))
     assert res.error and "недействительно" in res.content
     assert desk.desktop.executed == []
@@ -227,7 +228,8 @@ async def test_input_into_a_shell_window_is_refused(env, desk):
         g = (await tc.observe(env.svc))["generation"]
         for args in ({"action": "type", "text": "Remove-Item -Recurse C:\\data"},
                      {"action": "hotkey", "keys": ["enter"]}, {"action": "click", "target": "Файл"}):
-            res = await _handler(env, {**args, "generation": g}, approval_id=await _consumed_approval(env))
+            res = await _handler(env, {**args, "generation": g, "window": 1, "pid": 4242},
+                                 approval_id=await _consumed_approval(env))
             assert res.error and "вне allowlist" in res.content, (proc, args, res.content)
     assert desk.desktop.executed == []
 
@@ -292,7 +294,8 @@ async def test_payment_is_refused_even_with_an_owner_approval(env, desk):
     desk.desktop.title = "Checkout — оплата заказа — Блокнот"
     await tc.observe(env.svc)
     with pytest.raises(tc.ActRefused, match="платежи и учётные данные"):
-        await tc.act(env.svc, {"action": "click", "target": "Файл", "generation": desk.generation},
+        await tc.act(env.svc, {"action": "click", "target": "Файл", "generation": desk.generation,
+                               "window": 1, "pid": 4242},
                      approved_kind="pay", approval_ref=1)
     assert desk.desktop.executed == []
 
@@ -377,7 +380,7 @@ async def _pending_approval(env, task_id):
 
 async def test_engine_approve_executes_once_deny_never_replay_refused(env, desk):
     g = (await tc.observe(env.svc))["generation"]
-    call = {"action": "type", "text": "одобрено", "generation": g,
+    call = {"action": "type", "text": "одобрено", "generation": g, "window": 1, "pid": 4242,
             "expect": {"contains_text": "одобрено"}}
     stack, adapter = await _cu_stack(env, desk, [("tool", "computer_act", call), ("text", "готово")])
     tid = stack["task"]["id"]

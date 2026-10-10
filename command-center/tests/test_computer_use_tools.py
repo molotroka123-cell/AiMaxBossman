@@ -64,6 +64,11 @@ class FakeDesktop:
     # `_Desktop` reads them from the OS. Default: Notepad, ordinary text field.
     process = "notepad.exe"
     password_focus = False
+    pid = 4242
+
+    def window_pid(self, handle):
+        # 2026-10-10: observations carry the exact pid of the observed window
+        return self.pid
 
     def window_process_allowed(self, handle):
         # the REAL allowlist decision; only the OS lookups are faked
@@ -446,19 +451,22 @@ async def test_model_claim_is_not_approval(env, desk):
 async def test_owner_approval_from_context_executes_bound_kind(env, desk):
     await tc.observe(env.svc)
     spec = REGISTRY.get("computer.act")
-    base = {"action": "click", "target": "Удалить", "generation": desk.generation, "semantic": "delete"}
+    base = {"action": "click", "target": "Удалить", "generation": desk.generation, "semantic": "delete",
+            "window": 1, "pid": 4242}
     res = await spec.handler(base, _ctx(env, approval_id=await _consumed_approval(env)))
     assert not res.error, res.content
     assert desk.desktop.executed[-1][0] == "UI_INVOKE"
 
 
 async def test_approval_is_bound_to_the_consequence_kind(env, desk):
-    """Одобрено «send», а кнопка — «Удалить»: одобрение не переносится.
-    (rc19: was «pay» — payment is now refused outright, see test_cu_rc19_hardening.)"""
+    """Одобрено «submit», а кнопка — «Удалить»: одобрение не переносится.
+    (rc19: was «pay» — payment is now refused outright, see test_cu_rc19_hardening;
+    2026-10-10: «send» is an irreversible external action, refused outright too.)"""
     await tc.observe(env.svc)
     spec = REGISTRY.get("computer.act")
     res = await spec.handler({"action": "click", "target": "Удалить", "generation": desk.generation,
-                              "semantic": "send"}, _ctx(env, approval_id=await _consumed_approval(env)))
+                              "semantic": "submit", "window": 1, "pid": 4242},
+                             _ctx(env, approval_id=await _consumed_approval(env)))
     assert res.error and "не переносится" in res.content
     assert desk.desktop.executed == []
 
@@ -479,10 +487,14 @@ async def test_approval_rechecked_on_fresh_screen_before_effect(env, desk):
 
     desk.desktop.snapshot = snapshot
     res = await spec.handler({"action": "click", "target": "Удалить", "generation": desk.generation,
-                              "semantic": "delete"}, _ctx(env, approval_id=await _consumed_approval(env)))
+                              "semantic": "delete", "window": 1, "pid": 4242},
+                             _ctx(env, approval_id=await _consumed_approval(env)))
     # rc19: the approved call re-reads the screen FIRST (approval rebinding), so the
     # protected window is caught there by the policy — still before any effect.
-    assert res.error and ("перед эффектом" in res.content or "security surface" in res.content)
+    # 2026-10-10: the approved window is re-read by hwnd and its fingerprint (title/tabs/
+    # content) compared with the approved observation first — still before any effect.
+    assert res.error and ("перед эффектом" in res.content or "security surface" in res.content
+                          or "изменилось с момента вопроса" in res.content)
     assert desk.desktop.executed == []
 
 

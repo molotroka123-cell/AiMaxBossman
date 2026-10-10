@@ -103,8 +103,10 @@ class AppLaunchAdapter:
     async def supports(self, a, o) -> bool:
         return a.kind is ActionKind.APP_LAUNCH and canonical_app(a.target) is not None
 
-    async def execute(self, a, o) -> None:
-        app = canonical_app(a.target)
+    async def execute(self, a, o, *, allowed: dict | None = None) -> None:
+        # allowed — набор приложений, разрешённый владельцем задаче; None —
+        # набор по умолчанию. Каталог и резолв от этого не расширяются.
+        app = canonical_app(a.target, allowed)
         if app is None:                       # второй рубеж после policy
             raise RuntimeError("app is not allowlisted for launch")
         # resolver ходит по диску (System32, shutil.which): в событийном цикле

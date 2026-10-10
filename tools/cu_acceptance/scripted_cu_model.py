@@ -16,6 +16,8 @@ history lives in the run checkpoint). Step forms:
     {"text": "final answer"}
 String placeholders inside arguments:
     "$GEN"            -> int generation from the latest observation in the history
+    "$WIN" / "$PID"   -> hwnd / pid of the observed window ("окно: … [hwnd=…, pid=…]") in the
+                         latest observation (2026-10-10: input actions bind to exact hwnd+pid)
     "$PICK:a|b|c"     -> first candidate that occurs in the latest tool result
     "$VAR:name"       -> vars[name]
     "$IDX:name|Type"  -> index of the element <name>/<Type> in the latest observation (-1 if absent)
@@ -33,6 +35,7 @@ SCRIPT_FILE = os.environ.get("CU_SCRIPT_FILE", "")
 LOG_FILE = os.environ.get("CU_SCRIPT_LOG", "")
 PORT = int(os.environ.get("CU_SCRIPT_PORT", "8841"))
 GEN_RX = re.compile(r"generation: (\d+)")
+WIN_RX = re.compile(r"\[hwnd=(\d+), pid=(\d+)")
 TAG_RX = re.compile(r"\[cu:([a-z0-9_-]+)\]")
 
 
@@ -90,6 +93,12 @@ def _resolve(value, messages, variables):
     if value == "$GEN":
         gen = _latest_generation(messages)
         return gen if gen is not None else 0
+    if value in ("$WIN", "$PID"):
+        for m in reversed(messages):
+            found = WIN_RX.findall(_text(m))
+            if found:
+                return int(found[-1][0 if value == "$WIN" else 1])
+        return 0
     if value.startswith("$PICK:"):
         options = value[len("$PICK:"):].split("|")
         seen = _latest_tool_text(messages)
