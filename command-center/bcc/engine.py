@@ -1023,8 +1023,7 @@ class TaskEngine:
 
         # V2.1: инструменты, выданные этому run'у. Пусто — поведение как в V2
         # (один вызов модели, без tools в payload).
-        tool_specs = TOOLS.resolve(allowed_tools_for(task, agent))
-        tool_schemas = [t.schema() for t in tool_specs] or None
+        tool_specs, tool_schemas = _executable_and_presented_tools(task, agent)
         if isinstance(recovery_degrade, dict) and recovery_degrade.get("tools") is False:
             # Упрощённый путь: без инструментов. Это СУЖЕНИЕ возможностей, а не
             # расширение прав — модель, которая не справилась с tool-calling,
@@ -1484,8 +1483,12 @@ class TaskEngine:
     async def _execute_tool_calls(self, run_id: int, task: dict, agent: dict,
                                   messages: list[dict], calls: list[Any], step: int,
                                   policy_rules: list[dict], tool_specs: list[Any],
-                                  usage: dict) -> bool:
+                                  usage: dict, facade_probe: Any = None) -> bool:
         """Выполнить вызовы одного шага модели.
+
+        `facade_probe` (code mode): вызов, пришедший из песочницы `bossman.run`. Если ему нужен
+        человек (ASK / неоднозначный прежний эффект), конвейер НЕ создаёт одобрение и не паркует
+        run, а записывает вызов в `facade_probe.ask` и возвращает True — см. code_mode.engine_bridge.
 
         Возвращает True, если нужно ждать человека (ASK): состояние сохранено в
         checkpoint, задача переведена в waiting_approval, воркер освобождён.
@@ -1558,6 +1561,9 @@ class TaskEngine:
                 # "may it run" but "did it already happen" — ask that directly.
                 ambiguous = await self._ambiguous_prior(task["id"], run_id, spec.name, call.arguments)
                 if ambiguous is not None:
+                    if facade_probe is not None:
+                        facade_probe.ask = (call, spec)
+                        return True
                     await self._park_reconciliation(run_id, task, agent, messages, call, spec, step,
                                                     remaining=calls[index + 1:], prior=ambiguous, usage=usage)
                     return True
@@ -1601,11 +1607,20 @@ class TaskEngine:
                                                  approved_by=f"lease:{lease['id']}",
                                                  lease_id=int(lease["id"]))
                     except AmbiguousPriorEffect as exc:
+                        if facade_probe is not None:
+                            facade_probe.ask = (call, spec)
+                            return True
                         await self._park_reconciliation(run_id, task, agent, messages, call, spec,
                                                         step, remaining=calls[index + 1:],
                                                         prior=exc.prior, usage=usage)
                         return True
                     continue
+                if facade_probe is not None:
+                    # Code mode: a sandbox cannot be parked. The pipeline stops BEFORE it asks the
+                    # owner or parks anything; the caller re-submits this exact call as a normal
+                    # tool call (see code_mode.engine_bridge), where the usual ASK flow runs.
+                    facade_probe.ask = (call, spec)
+                    return True
                 reusable = await _scope.find_reusable(self.services, args_hash=call_hash, run_id=run_id)
                 if reusable is not None:
                     await self._record_tool_call(run_id, task["id"], step, call, spec,
@@ -1667,8 +1682,21 @@ class TaskEngine:
                 return True
 
             try:
+                from .code_mode.facade import facade_specs as _facade_specs
+                if spec is _facade_specs()[1]:        # the one facade `bossman.run` object, by identity
+                    from .code_mode.engine_bridge import run_code_step
+                    waiting, took_rest = await run_code_step(
+                        self, run_id=run_id, task=task, agent=agent, messages=messages, call=call,
+                        spec=spec, step=step, rest=calls[index + 1:], policy_rules=policy_rules,
+                        tool_specs=tool_specs, usage=usage)
+                    if waiting or took_rest:
+                        return waiting
+                    continue
                 await self._run_tool_now(run_id, task, agent, messages, call, spec, step)
             except AmbiguousPriorEffect as exc:
+                if facade_probe is not None:
+                    facade_probe.ask = (call, spec)
+                    return True
                 await self._park_reconciliation(run_id, task, agent, messages, call, spec, step,
                                                 remaining=calls[index + 1:], prior=exc.prior, usage=usage)
                 return True
@@ -1892,7 +1920,7 @@ class TaskEngine:
                             f"{pending.get('tool')}: отклонено пользователем")
 
         # остальные вызовы того же шага модели
-        specs = TOOLS.resolve(allowed_tools_for(task, agent))
+        specs = _executable_and_presented_tools(task, agent)[0]
         if remaining:
             waiting = await self._execute_tool_calls(
                 run_id, task, agent, messages, remaining, step, policy_rules, specs,
@@ -2847,6 +2875,21 @@ def _clip_stream(text: str | None) -> str:
     if len(text) <= STREAM_TEXT_CHARS:
         return text
     return text[:STREAM_TEXT_CHARS] + f"\n…[обрезано: {len(text) - STREAM_TEXT_CHARS} симв.]"
+
+
+def _executable_and_presented_tools(task: dict, agent: dict) -> tuple[list[Any], list[dict] | None]:
+    """(specs the run may execute, schemas shown to the model).
+
+    Default: the granted tools, each with its schema. Code mode (opt-in, see
+    bcc.code_mode.facade.code_mode_enabled): the granted tools stay executable - every call still
+    goes through the same pipeline - but the model is shown only the two facade schemas."""
+    specs = TOOLS.resolve(allowed_tools_for(task, agent))
+    if specs:
+        from .code_mode.facade import code_mode_enabled, facade_specs
+        if code_mode_enabled(task, agent):
+            facade = list(facade_specs())
+            return [*specs, *facade], [t.schema() for t in facade]
+    return specs, [t.schema() for t in specs] or None
 
 
 def _assistant_tool_message(result: ChatResult) -> dict:
