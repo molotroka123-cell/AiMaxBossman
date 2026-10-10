@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import re
+import socket
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -35,6 +36,7 @@ from .contract import Advice, BaseModule, TurnContext
 
 Search = Callable[[str], Awaitable[list[dict]]]
 Fetch = Callable[[str], Awaitable[str]]
+Resolver = Callable[[str, int], Awaitable[list[str]]]
 
 MAX_SUBQUERIES = 4
 RESULTS_PER_QUERY = 4
@@ -175,6 +177,69 @@ def safe_url(url: str) -> str | None:
     if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
         return None
     return str(url).strip()[:500]
+
+
+MAX_RESOLVED_ADDRESSES = 16
+
+
+def _address_is_public(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Globally routable unicast only; an IPv4 embedded in IPv6 (mapped, 6to4, Teredo) must be public too."""
+    if ip.is_multicast or not ip.is_global:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address):
+        embedded = ip.ipv4_mapped or ip.sixtofour or (ip.teredo[1] if ip.teredo else None)
+        if embedded is not None and (embedded.is_multicast or not embedded.is_global):
+            return False
+    return True
+
+
+async def _system_resolver(host: str, port: int) -> list[str]:
+    rows = await asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    return [str(row[4][0]).split("%", 1)[0] for row in rows]
+
+
+async def resolve_public(host: str, port: int, *, resolver: Resolver | None = None) -> bool:
+    """SSRF guard: True only when ``host`` resolves and EVERY address (first 16) is a public unicast address.
+
+    An IP literal is checked without resolving. A resolver error, an empty answer or a single private, loopback,
+    link-local, CGNAT, reserved or multicast address refuses the fetch (a name with a mix of public and private
+    records is refused: the connection could pick either)."""
+    host = str(host or "").strip().strip("[]").rstrip(".")
+    if not host:
+        return False
+    try:
+        literal = ipaddress.ip_address(host.split("%", 1)[0])
+    except ValueError:
+        literal = None
+    try:
+        addresses = [str(literal)] if literal is not None else await (resolver or _system_resolver)(host, int(port))
+    except Exception:  # noqa: BLE001 - gaierror, OSError, UnicodeError, timeouts: unresolvable == refused
+        return False
+    if not addresses:
+        return False
+    for raw in list(addresses)[:MAX_RESOLVED_ADDRESSES]:
+        try:
+            ip = ipaddress.ip_address(str(raw).split("%", 1)[0])
+        except ValueError:
+            return False
+        if not _address_is_public(ip):
+            return False
+    return True
+
+
+async def guarded_target(url: str, *, resolver: Resolver | None = None) -> str | None:
+    """``safe_url`` plus DNS: the URL to fetch, or ``None`` when its host is (or resolves to) a non-public address."""
+    clean = safe_url(url)
+    if clean is None:
+        return None
+    parts = urlsplit(clean)
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    try:
+        ok = await asyncio.wait_for(resolve_public(parts.hostname or "", port, resolver=resolver),
+                                    timeout=FETCH_TIMEOUT_S)
+    except asyncio.TimeoutError:
+        return None
+    return clean if ok else None
 
 
 class _TextExtractor(HTMLParser):
@@ -598,12 +663,17 @@ def _default_search(runtime: Any) -> Search:
     return search
 
 
-def _default_fetch(runtime: Any) -> Fetch:
+def _default_fetch(runtime: Any, *, resolver: Resolver | None = None) -> Fetch:
     async def fetch(url: str) -> str:
         from bcc.telegram_companion.adapters import text_request
-        if safe_url(url) is None:
+        # The host is resolved and every address must be public BEFORE any connection: a public-looking name that
+        # points at 127.0.0.1, 10.x, 169.254.169.254 (cloud metadata) or the owner's LAN is refused. The client does
+        # not follow redirects (follow_redirects=False), so a 30x cannot bounce the fetch to a private address.
+        # Residual risk (documented): DNS rebinding between this check and the connect inside httpx.
+        target = await guarded_target(url, resolver=resolver)
+        if target is None:
             raise ValueError("blocked url")
-        return await text_request(runtime.models.remote, url, headers={"Accept-Language": "ru,en;q=0.8"},
+        return await text_request(runtime.models.remote, target, headers={"Accept-Language": "ru,en;q=0.8"},
                                   timeout=FETCH_TIMEOUT_S)
     return fetch
 
