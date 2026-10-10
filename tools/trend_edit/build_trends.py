@@ -170,7 +170,7 @@ def recipe_neon(ctx: Ctx, args):
                rise=int(30 * S))
     texts = [
         ec.Text("Тот же ролик, другой фон по теме", ctx.B(6), ctx.duration - 0.4, lower),
-        ec.Text("ночной неоновый город | матирование RVM + SAM2, локально", ctx.B(6.5), ctx.duration - 0.4, sub),
+        ec.Text("ночной неоновый город | матирование RVM, локально на ПК", ctx.B(6.5), ctx.duration - 0.4, sub),
         ec.Text("ДО", ctx.B(0.5), ctx.B(4), dict(size=int(60 * S), x=str(int(40 * S)), y=str(int(40 * S)), font=fx.FONT_BOLD,
                                                     pop=0.1)),
         ec.Text("ПОСЛЕ", ctx.B(5.5), ctx.B(10), dict(size=int(60 * S), x=str(int(40 * S)), y=str(int(40 * S)),

@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 import time
 from dataclasses import dataclass
@@ -35,7 +36,8 @@ REF_SWAP = BOSS / "video-testset-private" / "ref-promo-08.mp4"
 ORIG_CROP = (166, 0, 948, 719)        # ref-clip-01 picture area that ref-promo-08 shows (registration, mean abs err ~8.7/255)
 CLOTHES_BEFORE = VID / "stage2-20261010" / "run81v2" / "source.mp4"
 CLOTHES_AFTER = VID / "stage2-20261010" / "run81v2" / "master-smooth.mp4"
-NEON_DIR = VID / "promo-bg-20261010" / "job-neon"
+#: background-swap job of ref-promo-08 over the neon plate (RVM, optional SAM2 subject gate); override with TREND_NEON_DIR
+NEON_DIR = Path(os.environ.get("TREND_NEON_DIR", str(VID / "promo-bg-20261010" / "job-neon")))
 MASKS = VID / "promo-queue-20261010" / "masks-promo08"
 HAIR_SEQ = ["blue", "green", "white", "black"]
 WIPE_KINDS = ["diag", "circle", "h", "v"]
