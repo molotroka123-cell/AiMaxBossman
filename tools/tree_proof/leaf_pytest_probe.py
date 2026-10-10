@@ -99,7 +99,10 @@ def main(argv=None) -> int:
         src = source_of(node) if node else None
         mod = dotted(src) if src else None
         tests = importing_tests(mod) if mod else []
-        if tests and sum(1 for o in seed.values() if o["id"] not in parents and source_of(o) == src) > 1:
+        declared = [t for t in (node or {}).get("reference_paths", [])[1:] if t in tests]
+        if declared:
+            tests = declared        # the manifest named the tests that prove THIS leaf (and they really import its module)
+        elif tests and sum(1 for o in seed.values() if o["id"] not in parents and source_of(o) == src) > 1:
             tests = narrow_by_label(tests, node.get("label", ""))     # shared module: the test must name THIS leaf
         if not tests:
             summary[nid] = f"NO_TEST ({src or 'no source'})"

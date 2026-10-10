@@ -52,6 +52,18 @@ def test_add_refuses_a_missing_source_a_missing_test_and_an_unknown_zone(tmp_pat
     assert seed.read_text(encoding="utf-8") == before            # nothing is written when anything is refused
 
 
+def test_add_takes_an_honest_non_green_status_with_a_reason_and_never_green(tmp_path, monkeypatch, capsys):
+    seed = _repo(tmp_path, monkeypatch)
+    before = seed.read_text(encoding="utf-8")
+    assert trs.cmd_add(_manifest(tmp_path, status="reported", detail="x" * 30)) == 3      # green only from receipts
+    assert trs.cmd_add(_manifest(tmp_path, status="working", detail="x" * 30)) == 3
+    assert trs.cmd_add(_manifest(tmp_path, status="blocked")) == 3                         # a block needs its reason
+    assert seed.read_text(encoding="utf-8") == before
+    assert trs.cmd_add(_manifest(tmp_path, status="blocked", detail="HIP launch failure on the 8060S after 8.5 min")) == 0
+    n = [x for x in json.loads(seed.read_text(encoding="utf-8"))["nodes"] if x["id"] == "reg-x"][0]
+    assert n["status"] == "blocked" and n["detail"] == "HIP launch failure on the 8060S after 8.5 min"
+
+
 ROW = {"id": "a", "verdict": "covered", "passed": 3, "failed": 0, "skipped": 0, "tests": ["t/test_a.py"], "basis": "import-or-path"}
 
 

@@ -299,5 +299,98 @@
   "tests": [
    "tests/test_blue_leaf_audit.py"
   ]
+ },
+ {
+  "slug": "faceswap_video_job",
+  "label": "Замена лица в видео: FaceFusion, куски без потерь, VFR→CFR",
+  "parent": "media",
+  "source": "command-center/bcc/direct_gen/faceswap.py",
+  "tests": [
+   "command-center/tests/test_direct_gen_faceswap.py"
+  ]
+ },
+ {
+  "slug": "faceswap_pose_gate",
+  "label": "Поза-гейт: не клеить лицо на опущенную голову",
+  "parent": "media",
+  "source": "command-center/bcc/direct_gen/pose_gate_worker.py",
+  "tests": [
+   "command-center/tests/test_direct_gen_faceswap.py"
+  ]
+ },
+ {
+  "slug": "pult_owner_only",
+  "label": "Пульт пишет только владельцу",
+  "parent": "ux",
+  "source": "command-center/bcc/telegram_companion/service.py",
+  "tests": [
+   "command-center/tests/telegram_contracts/test_pult_owner_only_delivery.py"
+  ]
+ },
+ {
+  "slug": "tree_haiku_judge",
+  "label": "Судья дерева Haiku 5.5: спорные листья по тестам",
+  "parent": "ops",
+  "source": "tools/tree_proof/haiku_adjudicate.py",
+  "tests": [
+   "tests/test_tree_haiku_adjudicate.py"
+  ]
+ },
+ {
+  "slug": "tree_haiku_translate",
+  "label": "Перевод дерева на русский (Haiku 5.5, лимит $)",
+  "parent": "ops",
+  "source": "tools/tree_proof/haiku_translate.py",
+  "tests": [
+   "tests/test_tree_translate.py"
+  ]
+ },
+ {
+  "slug": "wan_animate_rocm",
+  "label": "Wan2.2-Animate локально на Radeon (ROCm, Windows)",
+  "parent": "media",
+  "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+  "status": "blocked",
+  "detail": "7 попыток 10.10: после обходов (маска-видео, int8 выкл, MIOPEN_FIND_MODE=FAST) профиль 1 — нехватка памяти, профиль 3 — HIP launch failure через 8.5 мин. Гипотеза: сброс драйвера Windows (TDR); ждёт решения владельца (TdrDelay + перезагрузка)."
+ },
+ {
+  "slug": "video_gate0_f1",
+  "label": "Видео Gate 0: повтор эталона F1 (только лицо)",
+  "parent": "media",
+  "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+  "status": "prepared",
+  "detail": "Конфиг, исходники и выходы F1 измерены (arcface 0.797 против 0.153 у исходника, 444 кадра за 4:14). Повтор на том же SHA ещё не выполнен."
+ },
+ {
+  "slug": "video_gate1_face2face",
+  "label": "Видео Gate 1: лицо→лицо, вне лица пиксель в пиксель",
+  "parent": "media",
+  "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+  "status": "prepared",
+  "detail": "Пороги зафиксированы до теста (кадры/fps, 0 изменённых пикселей вне лица, мимика NME ≤ 0.05, похожесть ≥ 0.75). Вне лица 0 изменений доказано на 5 кадрах PNG-путём; полный прогон 90 кадров идёт, подтверждение владельца в пульте не получено."
+ },
+ {
+  "slug": "video_stage2_clothes",
+  "label": "Видео этап 2: замена одежды",
+  "parent": "media",
+  "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+  "status": "idea",
+  "detail": "Очередь после Gate 1. Кандидаты: CatV2TON и альтернативы сообщества; лицензии и запуск на AMD не проверены."
+ },
+ {
+  "slug": "video_stage3_mimics",
+  "label": "Видео этап 3: Mimics 2.0 (мимика)",
+  "parent": "media",
+  "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+  "status": "idea",
+  "detail": "Очередь после этапа 2. Какой модуль Bossman считать Mimics 2.0 — ждёт уточнения владельца; MimicMotion только как референс."
+ },
+ {
+  "slug": "video_stage4_background",
+  "label": "Видео этап 4: замена фона",
+  "parent": "media",
+  "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+  "status": "idea",
+  "detail": "Очередь после этапа 3. Кандидаты: SAM2Matting, VideoMaMa; на AMD не проверены."
  }
 ]

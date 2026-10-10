@@ -20061,6 +20061,198 @@
       ],
       "next_action": "Проверить лицензию кода/весов, зависимости, безопасность и локальный тест до любого внедрения.",
       "external_url": "https://github.com/microsoft/OmniParser"
+    },
+    {
+      "id": "reg-faceswap_video_job",
+      "label": "Замена лица в видео: FaceFusion, куски без потерь, VFR→CFR",
+      "parent": "media",
+      "status": "code",
+      "detail": "Face swap in a video («Genjutsu» по-нашему): one button, local, no credits. Engine: FaceFusion (OpenRAIL-AS, https://github.com/facefusion/facefusion), run as its own process from its own venv, on the GPU through ONNX Runtime (DirectML on the owner's Radeon 80 Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/direct_gen/faceswap.py",
+          "sha": "0482cf591d387d9bd918018dd968d61edeb63602"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/direct_gen/faceswap.py",
+        "command-center/tests/test_direct_gen_faceswap.py"
+      ]
+    },
+    {
+      "id": "reg-faceswap_pose_gate",
+      "label": "Поза-гейт: не клеить лицо на опущенную голову",
+      "parent": "media",
+      "status": "code",
+      "detail": "Pose gate for the video face swap: keep the source face where the head is bowed toward the camera. FaceFusion's detector stays confident on a bowed head (10.10, two-person clip, 10.1-11.5 s: detector 0.78-0.80) and pastes a frontal face onto the crown — eyes a Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/direct_gen/pose_gate_worker.py",
+          "sha": "0482cf591d387d9bd918018dd968d61edeb63602"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/direct_gen/pose_gate_worker.py",
+        "command-center/tests/test_direct_gen_faceswap.py"
+      ]
+    },
+    {
+      "id": "reg-pult_owner_only",
+      "label": "Пульт пишет только владельцу",
+      "parent": "ux",
+      "status": "code",
+      "detail": "Private conversations, explicit delegation, and a model-independent status lane. Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/telegram_companion/service.py",
+          "sha": "6273524cd86aaa8aaf40b90075069c60e6f8bd90"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/telegram_companion/service.py",
+        "command-center/tests/telegram_contracts/test_pult_owner_only_delivery.py"
+      ]
+    },
+    {
+      "id": "reg-tree_haiku_judge",
+      "label": "Судья дерева Haiku 5.5: спорные листья по тестам",
+      "parent": "ops",
+      "status": "code",
+      "detail": "Adjudicate CONFLICT_PRIOR_EVIDENCE leaves with an independent judge (Haiku 5.5 via OpenRouter). leaf_pytest_probe never overwrites another probe's record. When a leaf already has an out/<id>.txt from an older run (e.g. its tests were skipped back then) and its Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/tree_proof/haiku_adjudicate.py",
+          "sha": "97dd3bcd63b2a5080a61c4a95f5587812339a9a0"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/tree_proof/haiku_adjudicate.py",
+        "tests/test_tree_haiku_adjudicate.py"
+      ]
+    },
+    {
+      "id": "reg-tree_haiku_translate",
+      "label": "Перевод дерева на русский (Haiku 5.5, лимит $)",
+      "parent": "ops",
+      "status": "code",
+      "detail": "Translate capability-tree leaf labels into Russian with an independent cheap model (Haiku 5.5 via OpenRouter). Owner 10.10: «переведи фулл на русский каждый листик», hard cap $2/day for Haiku. Only DISPLAY text changes: - every node whose `label` has no Cyrill Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/tree_proof/haiku_translate.py",
+          "sha": "927c701b3691d0d3d081fd8ab0bc0198335e5680"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/tree_proof/haiku_translate.py",
+        "tests/test_tree_translate.py"
+      ]
+    },
+    {
+      "id": "reg-wan_animate_rocm",
+      "label": "Wan2.2-Animate локально на Radeon (ROCm, Windows)",
+      "parent": "media",
+      "status": "blocked",
+      "detail": "7 попыток 10.10: после обходов (маска-видео, int8 выкл, MIOPEN_FIND_MODE=FAST) профиль 1 — нехватка памяти, профиль 3 — HIP launch failure через 8.5 мин. Гипотеза: сброс драйвера Windows (TDR); ждёт решения владельца (TdrDelay + перезагрузка).",
+      "sources": [
+        {
+          "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"
+      ]
+    },
+    {
+      "id": "reg-video_gate0_f1",
+      "label": "Видео Gate 0: повтор эталона F1 (только лицо)",
+      "parent": "media",
+      "status": "prepared",
+      "detail": "Конфиг, исходники и выходы F1 измерены (arcface 0.797 против 0.153 у исходника, 444 кадра за 4:14). Повтор на том же SHA ещё не выполнен.",
+      "sources": [
+        {
+          "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"
+      ]
+    },
+    {
+      "id": "reg-video_gate1_face2face",
+      "label": "Видео Gate 1: лицо→лицо, вне лица пиксель в пиксель",
+      "parent": "media",
+      "status": "prepared",
+      "detail": "Пороги зафиксированы до теста (кадры/fps, 0 изменённых пикселей вне лица, мимика NME ≤ 0.05, похожесть ≥ 0.75). Вне лица 0 изменений доказано на 5 кадрах PNG-путём; полный прогон 90 кадров идёт, подтверждение владельца в пульте не получено.",
+      "sources": [
+        {
+          "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"
+      ]
+    },
+    {
+      "id": "reg-video_stage2_clothes",
+      "label": "Видео этап 2: замена одежды",
+      "parent": "media",
+      "status": "idea",
+      "detail": "Очередь после Gate 1. Кандидаты: CatV2TON и альтернативы сообщества; лицензии и запуск на AMD не проверены.",
+      "sources": [
+        {
+          "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"
+      ]
+    },
+    {
+      "id": "reg-video_stage3_mimics",
+      "label": "Видео этап 3: Mimics 2.0 (мимика)",
+      "parent": "media",
+      "status": "idea",
+      "detail": "Очередь после этапа 2. Какой модуль Bossman считать Mimics 2.0 — ждёт уточнения владельца; MimicMotion только как референс.",
+      "sources": [
+        {
+          "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"
+      ]
+    },
+    {
+      "id": "reg-video_stage4_background",
+      "label": "Видео этап 4: замена фона",
+      "parent": "media",
+      "status": "idea",
+      "detail": "Очередь после этапа 3. Кандидаты: SAM2Matting, VideoMaMa; на AMD не проверены.",
+      "sources": [
+        {
+          "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+          "sha": "dbcc41ee8b62b71ba638abb0681179065568faa0"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md"
+      ]
     }
   ],
   "memory_protocol": {

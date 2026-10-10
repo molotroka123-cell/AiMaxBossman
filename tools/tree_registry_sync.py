@@ -23,6 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SEED = ROOT / "command-center" / "bcc" / "capability_tree_seed.json"
 LEVELS = ("code", "tests", "ci", "owner_pc")
+#: A manifest may only add a leaf BELOW green: green ('reported'/'working') comes from receipts via tree_apply_evidence.
+ENTRY_STATUSES = {"code", "idea", "prepared", "blocked"}
 
 
 def git(*a: str) -> str:
@@ -50,7 +52,8 @@ def load_seed() -> tuple[dict, str]:
 
 def write_seed(doc: dict, raw: str) -> None:
     indent = 2 if '\n  "' in raw else 1
-    SEED.write_text(json.dumps(doc, ensure_ascii=False, indent=indent) + ("\n" if raw.endswith("\n") else ""), encoding="utf-8")
+    SEED.write_text(json.dumps(doc, ensure_ascii=False, indent=indent) + ("\n" if raw.endswith("\n") else ""), encoding="utf-8",
+                    newline="\n")                                   # LF on Windows too (CRLF rewrote every line)
 
 
 def cmd_add(manifest: Path) -> int:
@@ -71,13 +74,22 @@ def cmd_add(manifest: Path) -> int:
         if e["parent"] not in zones:
             print(f"REFUSED: {e['slug']}: parent {e['parent']!r} is not a zone")
             return 3
+        status = e.get("status", "code")
+        if status not in ENTRY_STATUSES:
+            print(f"REFUSED: {e['slug']}: status {status!r} cannot be set by a manifest (only {sorted(ENTRY_STATUSES)}; green needs receipts)")
+            return 3
+        if status != "code" and len(str(e.get("detail", "")).strip()) < 20:
+            print(f"REFUSED: {e['slug']}: status {status} needs a 'detail' saying why (>= 20 chars)")
+            return 3
         nid = f"reg-{e['slug']}"
         if nid in byid:
             skipped.append(nid)
             continue
         lead = docstring_line(ROOT / src)
-        node = {"id": nid, "label": e["label"], "parent": e["parent"], "status": "code",
-                "detail": (lead or "Описания в коде нет.") + " Код есть; польза и живая работа не доказаны.",
+        detail = ((lead or "Описания в коде нет.") + " Код есть; польза и живая работа не доказаны." if status == "code"
+                  else str(e["detail"]).strip())
+        node = {"id": nid, "label": e["label"], "parent": e["parent"], "status": status,
+                "detail": detail,
                 "sources": [{"path": src, "sha": last_sha(src)}],
                 "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
                 "reference_paths": [src, *e.get("tests", [])]}

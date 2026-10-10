@@ -2,13 +2,11 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tools" / "tree_proof"))
+from tools.tree_proof import haiku_translate as t
 
-import haiku_translate as t  # noqa: E402
+ROOT = Path(__file__).resolve().parents[1]
 
 SEED = ROOT / "command-center" / "bcc" / "capability_tree_seed.json"
 
