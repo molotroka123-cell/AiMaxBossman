@@ -191,6 +191,17 @@ def test_owner_action_from_hand_log():
     assert owner_action_from_log(["[BTN] Bob checks"]) is None
 
 
+def test_owner_action_counts_only_lines_added_since_the_decision_opened():
+    from pokervision.play_trainer import owner_action_from_log
+    before = ["[SB] Hero calls 10", "[BB] Bob checks", "--- FLOP ---"]
+    after = before + ["[SB] Hero checks", "[BB] Bob bets 20"]
+    assert owner_action_from_log(after, before) == "CHECK"             # not the earlier 'calls'
+    assert owner_action_from_log(before, before) is None               # nothing new yet
+    assert owner_action_from_log(before + ["[SB] Hero checks"], before) == "CHECK"
+    same = ["[SB] Hero checks"]
+    assert owner_action_from_log(same + ["[SB] Hero checks"], same) == "CHECK"   # identical text on a later street is still new
+
+
 def test_eval_runs_on_every_platform_and_reports_peak_memory():
     from pokervision.eval.run_eval import peak_rss_mb           # importing used to fail on Windows (POSIX-only `resource`)
     v = peak_rss_mb()

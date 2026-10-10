@@ -1,0 +1,806 @@
+{
+ "profile": "poker_train@24881eff",
+ "train_sessions": [
+  "A_tr1",
+  "A_tr2",
+  "A_tr3",
+  "A_tr4",
+  "A_tr5",
+  "A_tr6",
+  "A_tr7",
+  "A_tr8",
+  "A_tr9",
+  "A_tr10",
+  "P_tr1",
+  "P_tr2",
+  "P_tr3",
+  "P_tr4",
+  "P_tr5",
+  "P_tr6"
+ ],
+ "train_frames_used": 1059,
+ "splits": {
+  "test_in_win": {
+   "sessions": [
+    "A_te1",
+    "A_te2",
+    "A_te3"
+   ],
+   "frames": 519,
+   "scored_frames": 351,
+   "deal_overlap_with_train": 0,
+   "baseline_naive": {
+    "hero_cards": {
+     "ok": 349,
+     "wrong": 2,
+     "unknown": 0,
+     "na": 0,
+     "error_rate": 0.005698005698005698,
+     "unknown_rate": 0.0,
+     "acc_answered": 0.9943019943019943,
+     "wrong_ci95": [
+      0.0015639592395947058,
+      0.02053491530048177
+     ],
+     "n": 351
+    },
+    "board": {
+     "ok": 267,
+     "wrong": 34,
+     "unknown": 50,
+     "na": 0,
+     "error_rate": 0.09686609686609686,
+     "unknown_rate": 0.14245014245014245,
+     "acc_answered": 0.8870431893687708,
+     "wrong_ci95": [
+      0.07014739557658677,
+      0.13231364619529115
+     ],
+     "n": 351
+    },
+    "pot": {
+     "ok": 288,
+     "wrong": 11,
+     "unknown": 52,
+     "na": 0,
+     "error_rate": 0.03133903133903134,
+     "unknown_rate": 0.14814814814814814,
+     "acc_answered": 0.9632107023411371,
+     "wrong_ci95": [
+      0.017587489811815685,
+      0.05523824426220495
+     ],
+     "n": 351
+    },
+    "to_call": {
+     "ok": 102,
+     "wrong": 2,
+     "unknown": 68,
+     "na": 179,
+     "error_rate": 0.011627906976744186,
+     "unknown_rate": 0.3953488372093023,
+     "acc_answered": 0.9807692307692307,
+     "wrong_ci95": [
+      0.0031945381701374083,
+      0.04140014249700848
+     ],
+     "n": 172
+    },
+    "hero_stack": {
+     "ok": 288,
+     "wrong": 17,
+     "unknown": 46,
+     "na": 0,
+     "error_rate": 0.04843304843304843,
+     "unknown_rate": 0.13105413105413105,
+     "acc_answered": 0.9442622950819672,
+     "wrong_ci95": [
+      0.030455860994362247,
+      0.07618777943562116
+     ],
+     "n": 351
+    },
+    "street": {
+     "ok": 267,
+     "wrong": 34,
+     "unknown": 50,
+     "na": 0,
+     "error_rate": 0.09686609686609686,
+     "unknown_rate": 0.14245014245014245,
+     "acc_answered": 0.8870431893687708,
+     "wrong_ci95": [
+      0.07014739557658677,
+      0.13231364619529115
+     ],
+     "n": 351
+    },
+    "seat_stacks": {
+     "ok": 151,
+     "wrong": 74,
+     "unknown": 126,
+     "na": 0,
+     "error_rate": 0.21082621082621084,
+     "unknown_rate": 0.358974358974359,
+     "acc_answered": 0.6711111111111111,
+     "wrong_ci95": [
+      0.1714003871388545,
+      0.2565133636727753
+     ],
+     "n": 351
+    },
+    "bets": {
+     "ok": 30,
+     "wrong": 301,
+     "unknown": 20,
+     "na": 0,
+     "error_rate": 0.8575498575498576,
+     "unknown_rate": 0.05698005698005698,
+     "acc_answered": 0.09063444108761329,
+     "wrong_ci95": [
+      0.8171071337709127,
+      0.8902507408413086
+     ],
+     "n": 351
+    },
+    "dealer": {
+     "ok": 74,
+     "wrong": 0,
+     "unknown": 42,
+     "na": 235,
+     "error_rate": 0.0,
+     "unknown_rate": 0.3620689655172414,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.03205564678709229
+     ],
+     "n": 116
+    },
+    "actions": {
+     "ok": 260,
+     "wrong": 6,
+     "unknown": 85,
+     "na": 0,
+     "error_rate": 0.017094017094017096,
+     "unknown_rate": 0.24216524216524216,
+     "acc_answered": 0.9774436090225563,
+     "wrong_ci95": [
+      0.007857184338735033,
+      0.03678696110531662
+     ],
+     "n": 351
+    },
+    "hero_turn": {
+     "ok": 266,
+     "wrong": 0,
+     "unknown": 85,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.24216524216524216,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.010826239088088881
+     ],
+     "n": 351
+    },
+    "_state": {
+     "n": 351,
+     "exact_match": 0.21367521367521367,
+     "safe_no_wrong_core": 0.8262108262108262,
+     "exact_ci95": [
+      0.17401274725528118,
+      0.25953732128234236
+     ]
+    },
+    "latency_ms": {
+     "p50": 55.3,
+     "p95": 73.9
+    }
+   },
+   "after": {
+    "hero_cards": {
+     "ok": 349,
+     "wrong": 0,
+     "unknown": 2,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.005698005698005698,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.010826239088088881
+     ],
+     "n": 351
+    },
+    "board": {
+     "ok": 317,
+     "wrong": 0,
+     "unknown": 34,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.09686609686609686,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.010826239088088881
+     ],
+     "n": 351
+    },
+    "pot": {
+     "ok": 340,
+     "wrong": 0,
+     "unknown": 11,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.03133903133903134,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.010826239088088881
+     ],
+     "n": 351
+    },
+    "to_call": {
+     "ok": 107,
+     "wrong": 0,
+     "unknown": 65,
+     "na": 179,
+     "error_rate": 0.0,
+     "unknown_rate": 0.37790697674418605,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.021846934968744597
+     ],
+     "n": 172
+    },
+    "hero_stack": {
+     "ok": 288,
+     "wrong": 0,
+     "unknown": 63,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.1794871794871795,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.010826239088088881
+     ],
+     "n": 351
+    },
+    "street": {
+     "ok": 317,
+     "wrong": 0,
+     "unknown": 34,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.09686609686609686,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.010826239088088881
+     ],
+     "n": 351
+    },
+    "seat_stacks": {
+     "ok": 165,
+     "wrong": 2,
+     "unknown": 184,
+     "na": 0,
+     "error_rate": 0.005698005698005698,
+     "unknown_rate": 0.5242165242165242,
+     "acc_answered": 0.9880239520958084,
+     "wrong_ci95": [
+      0.0015639592395947058,
+      0.02053491530048177
+     ],
+     "n": 351
+    },
+    "bets": {
+     "ok": 199,
+     "wrong": 0,
+     "unknown": 152,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.43304843304843305,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.010826239088088881
+     ],
+     "n": 351
+    },
+    "dealer": {
+     "ok": 86,
+     "wrong": 0,
+     "unknown": 30,
+     "na": 235,
+     "error_rate": 0.0,
+     "unknown_rate": 0.25862068965517243,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.03205564678709229
+     ],
+     "n": 116
+    },
+    "actions": {
+     "ok": 310,
+     "wrong": 0,
+     "unknown": 41,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.1168091168091168,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.010826239088088881
+     ],
+     "n": 351
+    },
+    "hero_turn": {
+     "ok": 318,
+     "wrong": 0,
+     "unknown": 33,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.09401709401709402,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.010826239088088881
+     ],
+     "n": 351
+    },
+    "_state": {
+     "n": 351,
+     "exact_match": 0.22792022792022792,
+     "safe_no_wrong_core": 1.0,
+     "exact_ci95": [
+      0.18711885179556856,
+      0.274612805372024
+     ]
+    },
+    "latency_ms": {
+     "p50": 44.5,
+     "p95": 62.4
+    }
+   },
+   "unstable_frames_after": {
+    "frames": 168,
+    "hero_unknown": 36,
+    "pot_unknown": 11
+   }
+  },
+  "test_panel_win": {
+   "sessions": [
+    "P_te1",
+    "P_te2"
+   ],
+   "frames": 196,
+   "scored_frames": 125,
+   "deal_overlap_with_train": 0,
+   "baseline_naive": {
+    "hero_cards": {
+     "ok": 123,
+     "wrong": 0,
+     "unknown": 2,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.016,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "board": {
+     "ok": 87,
+     "wrong": 3,
+     "unknown": 35,
+     "na": 0,
+     "error_rate": 0.024,
+     "unknown_rate": 0.28,
+     "acc_answered": 0.9666666666666667,
+     "wrong_ci95": [
+      0.008195108073434177,
+      0.06819015879689341
+     ],
+     "n": 125
+    },
+    "pot": {
+     "ok": 80,
+     "wrong": 0,
+     "unknown": 45,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.36,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "to_call": {
+     "ok": 49,
+     "wrong": 2,
+     "unknown": 20,
+     "na": 54,
+     "error_rate": 0.028169014084507043,
+     "unknown_rate": 0.28169014084507044,
+     "acc_answered": 0.9607843137254902,
+     "wrong_ci95": [
+      0.007759100870383082,
+      0.09701685261003423
+     ],
+     "n": 71
+    },
+    "hero_stack": {
+     "ok": 125,
+     "wrong": 0,
+     "unknown": 0,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.0,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "street": {
+     "ok": 87,
+     "wrong": 3,
+     "unknown": 35,
+     "na": 0,
+     "error_rate": 0.024,
+     "unknown_rate": 0.28,
+     "acc_answered": 0.9666666666666667,
+     "wrong_ci95": [
+      0.008195108073434177,
+      0.06819015879689341
+     ],
+     "n": 125
+    },
+    "seat_stacks": {
+     "ok": 78,
+     "wrong": 3,
+     "unknown": 44,
+     "na": 0,
+     "error_rate": 0.024,
+     "unknown_rate": 0.352,
+     "acc_answered": 0.9629629629629629,
+     "wrong_ci95": [
+      0.008195108073434177,
+      0.06819015879689341
+     ],
+     "n": 125
+    },
+    "bets": {
+     "ok": 19,
+     "wrong": 90,
+     "unknown": 16,
+     "na": 0,
+     "error_rate": 0.72,
+     "unknown_rate": 0.128,
+     "acc_answered": 0.1743119266055046,
+     "wrong_ci95": [
+      0.6356327557701333,
+      0.791248003239379
+     ],
+     "n": 125
+    },
+    "dealer": {
+     "ok": 13,
+     "wrong": 0,
+     "unknown": 13,
+     "na": 99,
+     "error_rate": 0.0,
+     "unknown_rate": 0.5,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.12873304380462175
+     ],
+     "n": 26
+    },
+    "actions": {
+     "ok": 73,
+     "wrong": 2,
+     "unknown": 50,
+     "na": 0,
+     "error_rate": 0.016,
+     "unknown_rate": 0.4,
+     "acc_answered": 0.9733333333333334,
+     "wrong_ci95": [
+      0.004398708009065916,
+      0.05646362217000668
+     ],
+     "n": 125
+    },
+    "hero_turn": {
+     "ok": 75,
+     "wrong": 0,
+     "unknown": 50,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.4,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "_state": {
+     "n": 125,
+     "exact_match": 0.312,
+     "safe_no_wrong_core": 0.96,
+     "exact_ci95": [
+      0.2374075954530664,
+      0.39780339230244116
+     ]
+    },
+    "latency_ms": {
+     "p50": 54.5,
+     "p95": 78.8
+    }
+   },
+   "after": {
+    "hero_cards": {
+     "ok": 123,
+     "wrong": 0,
+     "unknown": 2,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.016,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "board": {
+     "ok": 120,
+     "wrong": 0,
+     "unknown": 5,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.04,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "pot": {
+     "ok": 123,
+     "wrong": 0,
+     "unknown": 2,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.016,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "to_call": {
+     "ok": 53,
+     "wrong": 0,
+     "unknown": 18,
+     "na": 54,
+     "error_rate": 0.0,
+     "unknown_rate": 0.2535211267605634,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.05132974174790491
+     ],
+     "n": 71
+    },
+    "hero_stack": {
+     "ok": 125,
+     "wrong": 0,
+     "unknown": 0,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.0,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "street": {
+     "ok": 120,
+     "wrong": 0,
+     "unknown": 5,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.04,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "seat_stacks": {
+     "ok": 83,
+     "wrong": 3,
+     "unknown": 39,
+     "na": 0,
+     "error_rate": 0.024,
+     "unknown_rate": 0.312,
+     "acc_answered": 0.9651162790697675,
+     "wrong_ci95": [
+      0.008195108073434177,
+      0.06819015879689341
+     ],
+     "n": 125
+    },
+    "bets": {
+     "ok": 51,
+     "wrong": 0,
+     "unknown": 74,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.592,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "dealer": {
+     "ok": 17,
+     "wrong": 0,
+     "unknown": 9,
+     "na": 99,
+     "error_rate": 0.0,
+     "unknown_rate": 0.34615384615384615,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.12873304380462175
+     ],
+     "n": 26
+    },
+    "actions": {
+     "ok": 106,
+     "wrong": 0,
+     "unknown": 19,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.152,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "hero_turn": {
+     "ok": 108,
+     "wrong": 0,
+     "unknown": 17,
+     "na": 0,
+     "error_rate": 0.0,
+     "unknown_rate": 0.136,
+     "acc_answered": 1.0,
+     "wrong_ci95": [
+      0.0,
+      0.0298164567965626
+     ],
+     "n": 125
+    },
+    "_state": {
+     "n": 125,
+     "exact_match": 0.424,
+     "safe_no_wrong_core": 1.0,
+     "exact_ci95": [
+      0.34090195211218616,
+      0.5116301493208913
+     ]
+    },
+    "latency_ms": {
+     "p50": 44.5,
+     "p95": 53.9
+    }
+   },
+   "unstable_frames_after": {
+    "frames": 71,
+    "hero_unknown": 18,
+    "pot_unknown": 7
+   }
+  }
+ },
+ "sequence": {
+  "A_te1": {
+   "after": {
+    "committed": {
+     "pot_ok": 42,
+     "hero_ok": 43,
+     "skipped_value_changed_within_last_3_frames": 57,
+     "pot_wrong": 1,
+     "pot_unknown": 1,
+     "hero_unknown": 1
+    },
+    "true_hands": 12,
+    "detected_hands": 12,
+    "mixed_hands": 0,
+    "split_hands": 0,
+    "ambiguous_frames": 11,
+    "frames": 203
+   },
+   "events": {
+    "reference_events": 34,
+    "observed_events": 16,
+    "matched": 6,
+    "missed": 28,
+    "spurious_or_duplicate": 10,
+    "reference": "DOM-truth state through the same event deriver"
+   }
+  },
+  "A_te2": {
+   "after": {
+    "committed": {
+     "skipped_value_changed_within_last_3_frames": 52,
+     "pot_ok": 34,
+     "hero_ok": 35,
+     "pot_wrong": 1
+    },
+    "true_hands": 12,
+    "detected_hands": 11,
+    "mixed_hands": 1,
+    "split_hands": 0,
+    "ambiguous_frames": 10,
+    "frames": 176
+   },
+   "events": {
+    "reference_events": 35,
+    "observed_events": 15,
+    "matched": 7,
+    "missed": 28,
+    "spurious_or_duplicate": 8,
+    "reference": "DOM-truth state through the same event deriver"
+   }
+  },
+  "A_te3": {
+   "after": {
+    "committed": {
+     "skipped_value_changed_within_last_3_frames": 36,
+     "pot_ok": 25,
+     "hero_ok": 25
+    },
+    "true_hands": 12,
+    "detected_hands": 12,
+    "mixed_hands": 0,
+    "split_hands": 0,
+    "ambiguous_frames": 11,
+    "frames": 140
+   },
+   "events": {
+    "reference_events": 30,
+    "observed_events": 20,
+    "matched": 10,
+    "missed": 20,
+    "spurious_or_duplicate": 10,
+    "reference": "DOM-truth state through the same event deriver"
+   }
+  }
+ },
+ "peak_rss_mb": 3713.6,
+ "gpu": "NOT_RUN (CPU only)"
+}

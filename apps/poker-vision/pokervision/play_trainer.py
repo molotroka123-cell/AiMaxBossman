@@ -21,6 +21,7 @@ from pathlib import Path
 
 import cv2
 
+from .desk import screen_mismatch
 from .play_report import annotate, committed_view, grade, summarize, truth_view
 from .service import VisionService
 from .sources import assert_loopback
@@ -29,9 +30,20 @@ TRUTH_JS = (Path(__file__).resolve().parents[1] / "tools" / "truth.js").read_tex
 HERO_LOG = re.compile(r"\]\s*Hero\s+(folds|checks|calls|bets|raises|all[- ]?in|goes all[- ]?in)", re.I)
 
 
-def owner_action_from_log(lines: list[str]) -> str | None:
-    """Last 'Hero ...' line of the trainer's hand log -> FOLD/CHECK/CALL/RAISE (bets, raises and all-ins are RAISE)."""
-    for ln in reversed(lines or []):
+def _hero_lines(lines: list[str]) -> list[str]:
+    return [ln for ln in (lines or []) if HERO_LOG.search(ln)]
+
+
+def owner_action_from_log(lines: list[str], before: list[str] | None = None) -> str | None:
+    """The owner's NEW 'Hero ...' line in the trainer's hand log -> FOLD/CHECK/CALL/RAISE (bets, raises and all-ins are RAISE).
+    ``before``: the hand log when the decision was opened; only lines added since then count (the log keeps earlier streets)."""
+    now = _hero_lines(lines)
+    if before is not None:
+        old = _hero_lines(before)
+        if len(now) <= len(old) and (not now or not old or now[-1] == old[-1]):
+            return None
+        now = now[len(old):] if len(now) > len(old) else now[-1:]
+    for ln in reversed(now):
         m = HERO_LOG.search(ln)
         if m:
             w = m.group(1).lower()
@@ -184,15 +196,17 @@ class Session:
                     start_truth = tr
                 hero_turn_dom = any(b["label"] == "FOLD" for b in tr.get("buttons", []))
                 rv = svc.recommendation_view()
-                if hero_turn_dom and rv.get("ok") and open_rec is None:
+                cm0, st0 = svc.committed, svc.last_state
+                synced = bool(cm0 and st0 and screen_mismatch(st0, cm0) is None)      # the same gate the clicking bot uses
+                if hero_turn_dom and rv.get("ok") and open_rec is None and synced:
                     key = (tr.get("hand_header"), len(tr.get("board", [])), tr.get("pot_text"))
                     if key != last_key:
                         last_key = key
                         cm, st, fr = svc.committed, svc.last_state, svc.last_frame
                         open_rec = {"frame": fr.bgr.copy(), "boxes": list((st.quality or {}).get("boxes", [])), "cm": committed_view(cm),
-                                    "rc": rv, "truth": tr, "t": time.time(), "log_len": len(tr.get("hand_log", []))}
+                                    "rc": rv, "truth": tr, "t": time.time(), "log": list(tr.get("hand_log", []))}
                 if open_rec is not None and not hero_turn_dom:
-                    owner = owner_action_from_log(tr.get("hand_log", []))
+                    owner = owner_action_from_log(tr.get("hand_log", []), open_rec["log"])
                     tv = truth_view(open_rec["truth"])
                     g = grade(open_rec["cm"], tv)
                     bot = open_rec["rc"].get("action")
