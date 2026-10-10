@@ -189,7 +189,7 @@ async def test_an_approval_created_after_resume_still_executes(env, desk):
     await env.client.post("/api/computer/stop")
     await env.client.post("/api/computer/resume")
     g = (await tc.observe(env.svc))["generation"]
-    res = await _handler(env, {"action": "type", "text": "ok", "generation": g},
+    res = await _handler(env, {"action": "type", "text": "ok", "generation": g, "window": 1, "pid": 4242},
                          approval_id=await _consumed_approval(env))
     assert not res.error, res.content
     assert desk.desktop.doc == "ok"
@@ -207,7 +207,7 @@ async def test_a_corrupted_used_approvals_journal_is_not_unlocked_by_an_observat
     assert st.outcome_unknown and st.journal_corrupt
     g = (await tc.observe(env.svc))["generation"]
     assert st.outcome_unknown, "one observation lifted the corrupted-journal lock"
-    res = await _handler(env, {"action": "type", "text": "x", "generation": g},
+    res = await _handler(env, {"action": "type", "text": "x", "generation": g, "window": 1, "pid": 4242},
                          approval_id=await _consumed_approval(env))
     assert res.error and "повреждён" in res.content
     assert used.read_text(encoding="utf-8") == "[1, 2,", "the corrupted journal was overwritten"
@@ -218,6 +218,6 @@ async def test_a_corrupted_used_approvals_journal_is_not_unlocked_by_an_observat
     aside = list(used.parent.glob("USED_APPROVALS.corrupt-*.json"))
     assert len(aside) == 1 and aside[0].read_text(encoding="utf-8") == "[1, 2,"
     g = (await tc.observe(env.svc))["generation"]
-    res = await _handler(env, {"action": "type", "text": "x", "generation": g},
+    res = await _handler(env, {"action": "type", "text": "x", "generation": g, "window": 1, "pid": 4242},
                          approval_id=await _consumed_approval(env))
     assert not res.error, res.content

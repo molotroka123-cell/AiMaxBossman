@@ -204,7 +204,9 @@ class ComputerPolicy:
             if any(tok in blob for tok in SECRET_REF_TOKENS):return True
         return False
     def classify(self,a:ComputerAction,*,mode:TaskMode,locked:bool=False,
-                 observation:Observation|None=None)->PolicyDecision:
+                 observation:Observation|None=None,allowed_apps:dict|None=None)->PolicyDecision:
+        """`allowed_apps` — набор приложений, разрешённый владельцем ЭТОЙ задаче
+        (applist.grant_specs); None — прежний набор по умолчанию."""
         if locked: return PolicyDecision(False,reason="operator locked")
         if self.touches_bossman_surface(a,observation):
             return PolicyDecision(False,reason="bossman security surface is not a desktop target")
@@ -234,7 +236,7 @@ class ComputerPolicy:
         # APP_LAUNCH — deny-by-default: запускается только логическое имя из
         # allowlist. Путь/аргументы/подстановки от модели отсекаются здесь, до
         # роутера, чтобы запуск приложения не превратился в произвольный exec.
-        if a.kind is ActionKind.APP_LAUNCH and canonical_app(a.target) is None:
+        if a.kind is ActionKind.APP_LAUNCH and canonical_app(a.target,allowed_apps) is None:
             return PolicyDecision(False,reason="app is not in launch allowlist")
         # Последствие сначала по уликам (наблюдаемая подпись цели/OCR, вид
         # действия, приложение переднего плана), и только потом — по тому, что

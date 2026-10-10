@@ -1864,6 +1864,15 @@ class ParticipantRuntime:
         if message.get("_forwarded"):
             # Someone else's words forwarded by the participant: answer, never learn from them.
             self._no_learn_messages.add(str(message.get("_message_id") or "0"))
+        # Keep trivial social turns deterministic. This avoids spending a model
+        # call on greetings and prevents an LLM style setting from turning a
+        # simple hello into an abusive or otherwise inappropriate reply.
+        normalized = " ".join(text.casefold().split()).strip(".,!?…🙂😊")
+        if normalized in {"привет", "здравствуй", "здравствуйте", "доброе утро",
+                         "добрый день", "добрый вечер", "как ты", "как дела"}:
+            return ("Хорошо, спасибо 🙂 Готов помочь." if normalized in {"как ты", "как дела"}
+                    else "Привет 🙂")
+
         return await self._chat_route(person, person_key, text, consent,
                                       message_id=str(message.get("_message_id") or "0"),
                                       reply_to=message.get("_reply_to"), update_id=update_id)
@@ -2356,13 +2365,26 @@ class ParticipantRuntime:
                                       and route_consent.memory_enabled)
             context_consent = route_consent if memory_context_allowed else replace(
                 route_consent, memory_enabled=False)
-            route_context = build_participant_context(
-                query=text, vault=self.vault, person_key=person_key,
-                consent=context_consent, selected_model_is_remote=route_is_remote,
-                profile_stability=snapshot.profile_stability,
-                behavior_scales=self.settings.behavior_scales,
-                surface=getattr(self, "surface", "telegram"),
-                suspend_overlay=overlay_suspended)
+            try:
+                route_context = build_participant_context(
+                    query=text, vault=self.vault, person_key=person_key,
+                    consent=context_consent, selected_model_is_remote=route_is_remote,
+                    profile_stability=snapshot.profile_stability,
+                    behavior_scales=self.settings.behavior_scales,
+                    surface=getattr(self, "surface", "telegram"),
+                    suspend_overlay=overlay_suspended)
+            except PermissionError:
+                # A locked per-person memory file must not turn a harmless
+                # chat into an opaque runtime error. Retry without memory so
+                # no inaccessible personal data is guessed or exposed.
+                route_context = build_participant_context(
+                    query=text, vault=self.vault, person_key=person_key,
+                    consent=replace(context_consent, memory_enabled=False),
+                    selected_model_is_remote=route_is_remote,
+                    profile_stability=snapshot.profile_stability,
+                    behavior_scales=self.settings.behavior_scales,
+                    surface=getattr(self, "surface", "telegram"),
+                    suspend_overlay=overlay_suspended)
             messages = route_context.as_messages()
             if provider == "local" and messages and messages[0]["role"] == "system":
                 # This community GGUF stopped mid-word with long conversation

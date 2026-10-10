@@ -51,6 +51,24 @@ wiring-дефект продукта, а не ограничение среды.
   8. rc19: ввод и focus_window — только в окна процессов из allowlist
      (Блокнот, Калькулятор); Win-клавиши, платежи и учётные данные (включая
      поле пароля по UIA IsPassword) не исполняются ни с каким одобрением.
+  9. 2026-10-10 (разбор задачи 83): приложения ЗАДАЧИ. Владелец (только через
+     панель/CLI: PUT /api/computer/tasks/{id}/apps) разрешает задаче набор
+     приложений из каталога applist.APP_CATALOG; с таким разрешением ввод,
+     focus_window и адресное наблюдение доходят ТОЛЬКО до окон, которые
+     запустила эта же задача (и их диалогов), а чужие окна того же процесса
+     (Win11 Блокнот держит все окна в одном процессе) не читаются и не
+     трогаются. Без разрешения действует прежний набор (Блокнот/Калькулятор).
+ 10. Привязка к окну: каждое наблюдение называет окно точными hwnd и pid.
+     Одобряемое действие ввода и focus_window обязано нести `window`+`pid`
+     (они попадают в digest одобрения и в вопрос владельцу) и совпасть с
+     окном наблюдения. Перед эффектом окно перечитывается адресно: другой
+     hwnd/pid, изменившиеся заголовок/вкладки/содержимое или окно не впереди
+     — отказ с требованием нового наблюдения и нового одобрения. Фокус
+     сервер сам не возвращает: focus_window — отдельное одобренное действие,
+     и отказ Windows отдать фокус — отказ, без обходных приёмов.
+ 11. Секреты в тексте (ключи, токены, номера карт), платежи и необратимые
+     внешние действия (send/upload/deploy/push/merge/release/uninstall) не
+     исполняются ни с каким одобрением.
 """
 from __future__ import annotations
 
@@ -154,7 +172,32 @@ REFUSED_HOTKEY_COMBOS = (frozenset({"ctrl", "esc"}), frozenset({"ctrl", "escape"
 # для них есть отдельные пути с собственными стенами (browser.confirmed_*,
 # secret_executor), а не набор с клавиатуры по выбору модели.
 HARD_REFUSED_CONSEQUENCES = frozenset({"pay", "purchase", "transfer", "secret_entry",
-                                       "account_change", "security_change"})
+                                       "account_change", "security_change",
+                                       # необратимые внешние действия (owner 2026-10-10)
+                                       "send", "external_upload", "deploy", "git_push", "merge",
+                                       "release", "uninstall"})
+HARD_REFUSAL_TEXT = ("платежи и учётные данные (а также необратимые внешние действия) "
+                     "Computer Use не выполняет ни с одобрением, ни без")
+# Действия, привязанные к конкретному окну: ввод и вывод окна на передний план.
+BOUND_KINDS = INPUT_KINDS | {"focus_window"}
+# Разрешения приложений на задачу (пишет только владелец через HTTP).
+TASK_APPS_FILE = "TASK_APPS.json"
+WINDOW_SCOPES = ("launched",)
+# Сколько ждать, пока Windows действительно отдаст передний план окну.
+FOCUS_WAIT_S = 2.0
+LAUNCH_FOCUS_WAIT_S = 4.0
+# Похоже на секрет — не печатаем ни с каким одобрением (ключи, токены, карты).
+SECRET_TEXT_PATTERNS = (
+    ("ключ API", re.compile(r"\b(?:sk|rk|pk)-(?:[a-z]+-)?[A-Za-z0-9_\-]{20,}")),
+    ("токен GitHub", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|\bgithub_pat_[A-Za-z0-9_]{30,}")),
+    ("ключ AWS", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    ("ключ Google", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b")),
+    ("токен Slack", re.compile(r"\bxox[abprs]-[A-Za-z0-9\-]{10,}")),
+    ("токен бота Telegram", re.compile(r"\b\d{8,10}:[A-Za-z0-9_\-]{35}\b")),
+    ("JWT", re.compile(r"\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}")),
+    ("приватный ключ", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+)
+_CARD_RX = re.compile(r"(?<!\d)(?:\d[ \-]?){12,18}\d(?!\d)")
 CREDENTIAL_TARGET_TOKENS = ("password", "passwd", "пароль", "passcode", "passphrase", "pin-код",
                             "pin code", "пин-код", "cvv", "cvc", "card number", "номер карты",
                             "секретн", "secret", "api key", "api-key", "token", "токен", "otp",
@@ -250,6 +293,9 @@ class ComputerState:
     journal_corrupt: bool = False
     # Последнее «Продолжить» (наивный UTC): одобрения старше него недействительны.
     resumed_at: datetime | None = None
+    # hwnd -> {"task_id", "pid", "app"}: окна, которые запустил Computer Use.
+    # Только в памяти: после перезапуска окно надо запустить заново (fail closed).
+    launched: dict[int, dict[str, Any]] = field(default_factory=dict)
 
     @property
     def unknown_path(self) -> Path | None:
@@ -452,6 +498,30 @@ def _state(svc) -> ComputerState:
             # Идентичность окна и тип поля — с настоящей ОС, в момент действия.
             window_process_allowed = staticmethod(window_allowlisted)
             focused_is_password = staticmethod(uia_focused_is_password)
+            focused_element = staticmethod(uia_focused_element)
+            window_pid = staticmethod(_window_pid)
+            root_owner = staticmethod(_root_owner)
+
+            async def snapshot_window(self, handle):
+                """Адресное наблюдение: дерево ИМЕННО этого окна, впереди оно или нет."""
+                self._req()
+
+                def f():
+                    from pywinauto import Desktop
+                    try:
+                        if not _is_window(handle):
+                            return {"title": "", "app": "", "handle": int(handle), "error": "окна нет"}, None
+                        w = Desktop(backend="uia").window(handle=int(handle))
+                        fg = {"title": w.window_text(), "app": str(getattr(w.element_info, "name", "") or ""),
+                              "handle": int(w.handle)}
+                    except Exception as e:  # noqa: BLE001
+                        return {"title": "", "app": "", "handle": int(handle), "error": type(e).__name__}, None
+                    try:
+                        tree = {"elements": self._walk(w)}
+                    except Exception:  # noqa: BLE001
+                        tree = None
+                    return fg, tree
+                return await asyncio.to_thread(f)
 
         st.desktop = _Desktop()
         st.desktop.set_interrupt(st.stop)
@@ -468,12 +538,115 @@ def _state(svc) -> ComputerState:
     return st
 
 
-async def observe(svc, *, screenshot: bool = True) -> dict[str, Any]:
+async def _pid_of(st: "ComputerState", handle: Any) -> int | None:
+    probe = getattr(st.desktop, "window_pid", None)
+    if probe is None or not handle:
+        return None
+    try:
+        pid = int(await asyncio.to_thread(probe, int(handle)) or 0)
+    except Exception:  # noqa: BLE001
+        return None
+    return pid or None
+
+
+async def _root_of(st: "ComputerState", handle: Any) -> int:
+    """Окно-владелец верхнего уровня (диалог «Сохранить как» -> окно Блокнота)."""
+    probe = getattr(st.desktop, "root_owner", None)
+    try:
+        h = int(handle or 0)
+    except (TypeError, ValueError):
+        return 0
+    if probe is None or not h:
+        return h
+    try:
+        return int(await asyncio.to_thread(probe, h) or h)
+    except Exception:  # noqa: BLE001
+        return h
+
+
+def _fingerprint(window: dict, elements: list[dict]) -> str:
+    """Состояние окна, к которому привязано одобрение: заголовок, вкладки,
+    содержимое полей. Сменилась вкладка/документ — это уже другое окно для
+    владельца, даже если hwnd тот же (Win11 Блокнот с вкладками)."""
+    tabs = sorted(str(e.get("name") or "") for e in elements if e.get("control_type") == "TabItem")
+    fields = [(str(e.get("name") or ""), str(e.get("value") or "")) for e in elements
+              if e.get("control_type") in ("Document", "Edit")]
+    blob = json.dumps({"title": str(window.get("title") or ""), "tabs": tabs, "fields": fields},
+                      ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:24]
+
+
+@dataclass
+class TaskScope:
+    """Что владелец разрешил ЭТОЙ задаче (None-поля — прежний режим по умолчанию)."""
+    task_id: int | None = None
+    apps: tuple[str, ...] | None = None          # None — DEFAULT_APPS без явного разрешения
+    launched_only: bool = False
+
+    @property
+    def allowed(self) -> dict | None:
+        if self.apps is None:
+            return None
+        from bossman.computer_operator.applist import grant_specs
+        return grant_specs(self.apps)
+
+    @property
+    def granted(self) -> bool:
+        return self.apps is not None
+
+
+def _task_owned(st: "ComputerState", scope: TaskScope | None, handle: Any, root: Any = None) -> bool:
+    if scope is None or not scope.launched_only:
+        return True
+    for h in (handle, root):
+        try:
+            rec = st.launched.get(int(h or 0))
+        except (TypeError, ValueError):
+            rec = None
+        if rec is not None and rec.get("task_id") == scope.task_id:
+            return True
+    return False
+
+
+async def _task_windows(st: "ComputerState", scope: TaskScope | None) -> list[dict[str, Any]] | None:
+    """Живые окна, запущенные этой задачей (только при разрешении владельца;
+    без него — None: список не ведётся)."""
+    if scope is None or not scope.launched_only:
+        return None
+    try:
+        alive = {h: (t, p) for h, t, p in await asyncio.to_thread(_top_windows)}
+    except Exception:  # noqa: BLE001
+        alive = {}
+    out = []
+    for h, rec in list(st.launched.items()):
+        if rec.get("task_id") != scope.task_id:
+            continue
+        if h not in alive:
+            continue
+        title, pid = alive[h]
+        out.append({"handle": h, "pid": pid or rec.get("pid"), "title": title[:120], "app": rec.get("app")})
+    return out
+
+
+async def observe(svc, *, screenshot: bool = True, window: Any = None,
+                  scope: TaskScope | None = None) -> dict[str, Any]:
+    """Наблюдение. `window` — адресно: дерево этого hwnd, даже если впереди
+    другое окно (вызывающий уже проверил, что окно разрешено задаче).
+    `scope` с разрешением владельца: окно вне разрешения задачи показывается
+    без элементов и значений — чужие документы (ключи, .env) модель не читает."""
     ok, why = availability()
     if not ok:
         raise RuntimeError(why)
     st = _state(svc)
-    fg, tree = await st.desktop.snapshot()
+    targeted = window is not None
+    snap_window = getattr(st.desktop, "snapshot_window", None)
+    if targeted and snap_window is not None:
+        fg, tree = await snap_window(int(window))
+        fg_now = await st.desktop.foreground()
+        in_front = int(fg_now.get("handle") or 0) == int(fg.get("handle") or 0)
+    else:
+        fg, tree = await st.desktop.snapshot()
+        in_front = True
     shot = None
     if screenshot:
         shot, _ = await st.shots.capture()
@@ -485,13 +658,30 @@ async def observe(svc, *, screenshot: bool = True) -> dict[str, Any]:
     elements = list((tree or {}).get("elements") or [])[:MAX_ELEMENTS]
     for i, el in enumerate(elements):
         el["i"] = i
+    win = {k: fg.get(k) for k in ("title", "app", "handle", "pid", "error") if k in fg}
+    if not win.get("pid"):
+        pid = await _pid_of(st, win.get("handle"))
+        if pid:
+            win["pid"] = pid
+    win["foreground"] = in_front
+    root = await _root_of(st, win.get("handle"))
+    if root and root != win.get("handle"):
+        win["root"] = root
+    hidden = False
+    if scope is not None and scope.launched_only and not _task_owned(st, scope, win.get("handle"), root):
+        # Окно вне разрешения задачи: ни элементов, ни значений, ни скриншота.
+        elements, shot, hidden = [], None, True
+        win["title"] = "(окно вне разрешения задачи — содержимое скрыто)"
     obs = {"generation": st.generation, "session": st.session, "observed_at": time.time(),
-           "window": {k: fg.get(k) for k in ("title", "app", "handle", "pid", "error") if k in fg},
-           "elements": elements, "screenshot": shot, "stopped": st.stopped()}
+           "window": win, "elements": elements, "screenshot": shot, "stopped": st.stopped(),
+           "targeted": targeted, "hidden": hidden,
+           "windows": await _task_windows(st, scope),
+           "task_id": None if scope is None else scope.task_id}
+    obs["fingerprint"] = _fingerprint(win, elements)
     st.last = obs
     st.remember(obs)
     await svc.bus.emit("computer.observe", generation=st.generation,
-                       window=str(fg.get("title") or "")[:200], elements=len(elements),
+                       window=str(win.get("title") or "")[:200], elements=len(elements),
                        screenshot=shot)
     return obs
 
@@ -636,11 +826,21 @@ def _find(obs: dict, target: str, index: Any = None) -> list[dict]:
 
 def _render_obs(obs: dict) -> str:
     w = obs.get("window") or {}
+    ident = (f" [hwnd={w.get('handle')}, pid={w.get('pid') or '?'}"
+             + ("" if w.get("foreground", True) else ", НЕ впереди") + "]") if w.get("handle") else ""
     lines = [f"generation: {obs['generation']}",
-             f"окно: {w.get('title') or '(нет активного окна)'}"
+             f"окно: {w.get('title') or '(нет активного окна)'}{ident}"
              + (f" [{w.get('error')}]" if w.get("error") else ""),
-             f"скриншот: {obs.get('screenshot') or 'не снят'}",
-             "элементы (name | тип | центр x,y):"]
+             f"скриншот: {obs.get('screenshot') or 'не снят'}"]
+    if obs.get("task_id") is not None and obs.get("windows") is not None:
+        wins = obs.get("windows") or []
+        lines.append("окна этой задачи (для window/pid в computer.act):" if wins
+                     else "окна этой задачи: нет (запустите разрешённое приложение: action=launch)")
+        for tw in wins:
+            lines.append(f"  - hwnd={tw['handle']}, pid={tw.get('pid')}: «{tw.get('title')}»"
+                         + (" (впереди)" if tw["handle"] == w.get("handle") and w.get("foreground", True)
+                            else ""))
+    lines.append("элементы (name | тип | центр x,y):")
     for el in obs.get("elements") or []:
         xy = f"{el['x']},{el['y']}" if "x" in el else "-"
         val = f" = «{str(el['value'])[:200]}»" if el.get("value") else ""
@@ -681,10 +881,41 @@ def _process_name(pid: int) -> str:
 
 def _expected_exes(app: str) -> set[str]:
     try:
-        from bossman.computer_operator.applist import APP_ALLOWLIST
-        return {n.lower() for n in APP_ALLOWLIST.get(app, {}).get("windows", ())}
+        from bossman.computer_operator.applist import APP_CATALOG
+        spec = APP_CATALOG.get(app, {})
+        return {n.lower() for n in (*spec.get("windows", ()), *spec.get("process", ()))}
     except Exception:  # noqa: BLE001
         return set()
+
+
+def _process_exe(pid: int) -> str:
+    try:
+        import psutil
+        return str(psutil.Process(pid).exe() or "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _is_window(handle: Any) -> bool:
+    try:
+        import ctypes
+        from ctypes import wintypes
+        return bool(ctypes.windll.user32.IsWindow(wintypes.HWND(int(handle))))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _root_owner(handle: int) -> int:
+    """GetAncestor(GA_ROOTOWNER): окно верхнего уровня, которому принадлежит диалог."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        u = ctypes.windll.user32
+        u.GetAncestor.restype = wintypes.HWND
+        root = u.GetAncestor(wintypes.HWND(int(handle)), 3)
+        return int(root or 0) or int(handle)
+    except Exception:  # noqa: BLE001
+        return int(handle)
 
 
 def _is_hosted_calculator_exe(path: str) -> bool:
@@ -777,30 +1008,58 @@ def _focus_editable(handle: int, name: str) -> bool:
     return False
 
 
+async def _wait_foreground(st: "ComputerState", handle: int, seconds: float) -> bool:
+    """Опрос: окно действительно впереди? Только чтение — ничего не активирует."""
+    deadline = time.monotonic() + max(0.0, seconds)
+    while True:
+        fg = await st.desktop.foreground()
+        if int(fg.get("handle") or 0) == int(handle):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        await asyncio.sleep(0.1)
+
+
 async def _focus(st: "ComputerState", handle: int) -> bool:
+    """Одна штатная просьба к ОС (UIA SetFocus -> SetForegroundWindow) и опрос.
+
+    Отказ Windows (foreground lock) — это отказ: ни нажатия Alt, ни
+    AttachThreadInput, ни клика ради фокуса здесь нет и быть не должно."""
     await asyncio.to_thread(_set_foreground, handle)
-    await asyncio.sleep(0.3)
-    fg = await st.desktop.foreground()
-    return int(fg.get("handle") or 0) == int(handle)
+    return await _wait_foreground(st, handle, FOCUS_WAIT_S)
 
 
-async def _window_allowed(st: "ComputerState", handle: Any) -> tuple[bool, str]:
+async def _window_allowed(st: "ComputerState", handle: Any,
+                          allowed: dict | None = None) -> tuple[bool, str]:
     probe = getattr(st.desktop, "window_process_allowed", None)
     if probe is None:            # бэкенд не умеет назвать процесс окна — не угадываем
         return False, "бэкенд не подтверждает приложение окна"
     try:
-        allowed, who = await asyncio.to_thread(probe, handle)
+        if allowed is None:
+            ok, who = await asyncio.to_thread(probe, handle)
+        else:
+            ok, who = await asyncio.to_thread(lambda: probe(handle, allowed=allowed))
     except Exception as exc:  # noqa: BLE001
         return False, f"проверка окна упала: {type(exc).__name__}"
-    return bool(allowed), str(who)
+    return bool(ok), str(who)
 
 
-async def _require_allowlisted_window(st: "ComputerState", obs: dict | None) -> None:
+def _apps_label(scope: "TaskScope | None") -> str:
+    from bossman.computer_operator.applist import DEFAULT_APPS
+    apps = DEFAULT_APPS if scope is None or scope.apps is None else scope.apps
+    return ", ".join(apps)
+
+
+async def _require_allowlisted_window(st: "ComputerState", obs: dict | None,
+                                      scope: "TaskScope | None" = None) -> None:
     window = (obs or {}).get("window") or {}
-    allowed, who = await _window_allowed(st, window.get("handle"))
+    allowed, who = await _window_allowed(st, window.get("handle"), None if scope is None else scope.allowed)
     if not allowed:
         raise ActRefused(f"окно «{window.get('title') or '?'}» (процесс {who}) вне allowlist Computer Use "
-                         f"(Блокнот, Калькулятор) — ввод не отправлен")
+                         f"(разрешено: {_apps_label(scope)}) — ввод не отправлен")
+    if not _task_owned(st, scope, window.get("handle"), window.get("root")):
+        raise ActRefused(f"окно hwnd={window.get('handle')} не запускалось этой задачей — по разрешению "
+                         f"владельца ввод идёт только в окна, которые задача открыла сама; ввод не отправлен")
 
 
 def _stop_check(st: ComputerState, phase: str, epoch: int | None = None) -> None:
@@ -821,20 +1080,28 @@ def _window_pid(handle: int) -> int:
     return int(pid.value)
 
 
-def _allowed_process_names() -> set[str]:
+def _allowed_process_names(allowed: dict | None = None) -> set[str]:
     from bossman.computer_operator.applist import APP_ALLOWLIST
-    return {str(n).lower() for spec in APP_ALLOWLIST.values() for n in spec.get("windows", ())}
+    table = APP_ALLOWLIST if allowed is None else allowed
+    return {str(n).lower() for spec in table.values()
+            for n in (*spec.get("windows", ()), *spec.get("process", ()))}
 
 
 def window_allowlisted(handle: Any, *, pid_of=None, name_of=None,
-                       hosted_matcher=None) -> tuple[bool, str]:
+                       hosted_matcher=None, allowed: dict | None = None,
+                       exe_of=None) -> tuple[bool, str]:
     """(можно ли слать ввод в это окно, имя процесса). Любое сомнение — отказ.
 
-    Окно принадлежит процессу из allowlist приложений (Блокнот; его диалоги
-    «Сохранить как» — тот же процесс) либо это окно ApplicationFrameHost, в
-    котором проверенно живёт пакет Калькулятора. Оболочки (cmd, PowerShell,
-    Terminal), браузер, мессенджеры и сам Bossman сюда не попадают.
+    Окно принадлежит процессу из разрешённого набора приложений (по умолчанию
+    Блокнот и Калькулятор; с разрешением владельца — набор задачи из каталога;
+    диалоги «Сохранить как» — тот же процесс), либо это окно
+    ApplicationFrameHost, в котором проверенно живёт пакет Калькулятора.
+    Упакованное приложение (Paint) — только если exe процесса лежит в каталоге
+    его пакета. Оболочки, браузер, мессенджеры, UAC/учётные данные и сам
+    Bossman не проходят НИКОГДА (applist.HARD_DENIED_PROCESSES).
     """
+    from bossman.computer_operator.applist import APP_ALLOWLIST, hard_denied_process, packaged_exe_ok
+    table = APP_ALLOWLIST if allowed is None else allowed
     try:
         h = int(handle or 0)
     except (TypeError, ValueError):
@@ -846,11 +1113,59 @@ def window_allowlisted(handle: Any, *, pid_of=None, name_of=None,
     except Exception:  # noqa: BLE001
         return False, "процесс окна не определён"
     name = str((name_of or _process_name)(pid) or "").lower() if pid else ""
-    if name and name in _allowed_process_names():
-        return True, name
-    if name == HOSTED_FRAME_PROCESS and (hosted_matcher or _hosted_calculator_window)(h):
+    if hard_denied_process(name):
+        return False, name
+    for spec in table.values():
+        names = {str(n).lower() for n in (*spec.get("windows", ()), *spec.get("process", ()))}
+        if name and name in names:
+            package = spec.get("package")
+            if package and not packaged_exe_ok((exe_of or _process_exe)(pid), package):
+                return False, f"{name} (не из пакета {package})"
+            return True, name
+    if (name == HOSTED_FRAME_PROCESS and "calculator" in table
+            and (hosted_matcher or _hosted_calculator_window)(h)):
         return True, "calculator"
     return False, name or "процесс не определён"
+
+
+def secret_like_text(text: Any) -> str | None:
+    """Похоже ли вводимое на секрет. Возвращает вид секрета или None."""
+    t = str(text or "")
+    if not t:
+        return None
+    for label, rx in SECRET_TEXT_PATTERNS:
+        if rx.search(t):
+            return label
+    for m in _CARD_RX.finditer(t):
+        digits = [int(c) for c in m.group(0) if c.isdigit()]
+        if 13 <= len(digits) <= 19:
+            total = 0
+            for i, d in enumerate(reversed(digits)):
+                if i % 2:
+                    d *= 2
+                    if d > 9:
+                        d -= 9
+                total += d
+            if total % 10 == 0:
+                return "номер карты"
+    return None
+
+
+UIA_CONTROL_TYPES = {50004: "Edit", 50030: "Document", 50000: "Button", 50033: "Pane", 50032: "Window",
+                     50019: "TabItem", 50037: "TitleBar", 50003: "ComboBox"}
+EDITABLE_TYPES = frozenset({"Edit", "Document"})
+
+
+def uia_focused_element() -> dict | None:
+    """Элемент с клавиатурным фокусом по данным ОС: тип, процесс, имя. None — не узнать."""
+    try:
+        from pywinauto.uia_defines import IUIA
+        el = IUIA().iuia.GetFocusedElement()
+        ctype = int(el.CurrentControlType)
+        return {"control_type": UIA_CONTROL_TYPES.get(ctype, str(ctype)), "pid": int(el.CurrentProcessId),
+                "name": str(el.CurrentName or "")[:200]}
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def uia_focused_is_password() -> bool | None:
@@ -906,13 +1221,14 @@ def type_budget_refusal(args: dict) -> str | None:
 
 def hard_refusal(args: dict) -> str | None:
     """Отказ, который не снимает никакое одобрение (виден уже по аргументам)."""
-    from bossman.computer_operator.applist import canonical_app
+    from bossman.computer_operator.applist import APP_CATALOG, canonical_app
     from bossman.computer_operator.policy import ComputerPolicy
     args = dict(args or {})
     kind = str(args.get("action") or "").strip().lower()
     target = str(args.get("target") or "").strip()
-    if kind == "launch" and canonical_app(target) is None:
-        return f"«{target[:80]}» вне allowlist запуска (только notepad/calculator)"
+    if kind == "launch" and canonical_app(target, APP_CATALOG) is None:
+        return (f"«{target[:80]}» вне allowlist запуска (каталог: {', '.join(sorted(APP_CATALOG))}; "
+                f"задаче — только приложения, разрешённые ей владельцем)")
     if kind == "hotkey":
         refusal = hotkey_refusal(args.get("keys"))
         if refusal:
@@ -920,10 +1236,13 @@ def hard_refusal(args: dict) -> str | None:
     for claim in (ComputerPolicy.declared_consequence(args),
                   ComputerPolicy.declared_consequence({"semantic": target}) if target else None):
         if claim in HARD_REFUSED_CONSEQUENCES:
-            return (f"последствие «{claim}»: платежи и учётные данные Computer Use не выполняет "
-                    f"ни с одобрением, ни без")
+            return f"последствие «{claim}»: {HARD_REFUSAL_TEXT}"
     if kind == "type" and credential_target(target):
         return f"ввод в поле «{target[:80]}» — это учётные данные; Computer Use их не вводит"
+    if kind == "type":
+        secret = secret_like_text(args.get("text"))
+        if secret:
+            return f"вводимый текст похож на секрет ({secret}) — Computer Use секреты не вводит"
     return None
 
 
@@ -1006,12 +1325,22 @@ async def _bounded(st: ComputerState, coro, what: str):
                          f"прежде чем действовать дальше")
 
 
+def _int_arg(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _wdesc(w: dict | None) -> str:
+    w = w or {}
+    return f"«{w.get('title') or '?'}» (hwnd={w.get('handle')}, pid={w.get('pid') or '?'})"
+
+
 async def act(svc, args: dict, *, approved_kind: str | None = None,
-              approval_ref: int | None = None) -> dict[str, Any]:
+              approval_ref: int | None = None, scope: TaskScope | None = None) -> dict[str, Any]:
     """Одно действие по свежему наблюдению + автоматическая проверка результата.
 
     `approved_kind` — вид последствия (например "delete"), который владелец
     одобрил ДЛЯ ЭТОГО вызова; приходит из доверенного контекста, не из args.
+    `scope` — разрешение владельца для задачи (приложения, только свои окна).
     """
     ok, why = availability()
     if not ok:
@@ -1031,12 +1360,25 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
         refusal = type_budget_refusal(args)
         if refusal:
             raise ActRefused(refusal)
+        secret = secret_like_text(args.get("text"))
+        if secret:
+            raise ActRefused(f"вводимый текст похож на секрет ({secret}) — Computer Use секреты не вводит")
+    allowed = None if scope is None else scope.allowed
+    if kind == "launch":
+        from bossman.computer_operator.applist import canonical_app
+        if canonical_app(str(args.get("target") or ""), allowed) is None:
+            raise ActRefused(f"«{str(args.get('target') or '')[:80]}» вне allowlist запуска этой задачи "
+                             f"(разрешено: {_apps_label(scope)}) — запуск не выполнен")
     # R6: эпоха стопа фиксируется при входе; любой «Стоп» (и «Продолжить») после
     # этого момента отменяет оставшиеся шаги действия.
     epoch = st.stop_epoch
     _stop_check(st, "до очереди", epoch)
     target = str(args.get("target") or "").strip()
     started_at = time.time()
+    raw_window, raw_pid = args.get("window"), args.get("pid")
+    want_h, want_pid = _int_arg(raw_window), _int_arg(raw_pid)
+    if (raw_window is not None and want_h is None) or (raw_pid is not None and want_pid is None):
+        raise ActRefused("window и pid — целые числа (hwnd и pid окна из computer.observe)")
     async with _EffectLock(st):                    # один рабочий стол — одно действие за раз
         # «Стоп» мог прийти, пока действие ждало замок: очередь из двух действий,
         # STOP между ними — второе не исполняется.
@@ -1047,31 +1389,28 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
         if st.outcome_unknown:
             raise ActRefused(f"исход прошлого действия неизвестен ({st.outcome_unknown}) — "
                              f"сначала computer.observe")
+        seen: dict = {}
+        gen = args.get("generation")
         if kind not in ("launch", "wait"):
-            gen = args.get("generation")
-            valid_gen = isinstance(gen, int) and not isinstance(gen, bool)
+            valid_gen = _int_arg(gen) is not None
             if approval_ref is not None:
                 # Одобренное действие: владелец отвечал не мгновенно, и за это время
                 # экран могли перечитать (кнопка «Разрешить» в Пульте сама делает
                 # свежее наблюдение). Поэтому не «generation == текущему», а:
                 # наблюдение, по которому спрашивали, ещё действительно (не было
-                # «Продолжить»/перезапуска/неизвестного исхода), окно — ТО ЖЕ на
-                # свежем экране, а цель ищется заново по свежему экрану ниже.
-                # Срок одобрения проверен в claim_approval.
-                seen = st.history.get(gen) if valid_gen else None
-                if seen is None:
+                # «Продолжить»/перезапуска/неизвестного исхода), окно — ТО ЖЕ
+                # (hwnd, pid, заголовок, вкладки, содержимое) на адресно
+                # перечитанном экране и оно впереди. Срок одобрения — в claim_approval.
+                if not valid_gen:
+                    raise ActRefused(
+                        f"generation обязателен (получено {gen!r}): одобряемое действие привязывается "
+                        f"к наблюдению — вызовите computer.observe и передайте его generation, window и pid")
+                seen = st.history.get(gen) or {}
+                if not seen:
                     raise ActRefused(
                         f"наблюдение generation={gen!r}, по которому одобрено действие, больше "
                         f"недействительно (перезапуск, «Стоп»/«Продолжить» или неизвестный исход) — "
                         f"одобрение не применено; нужен новый computer.observe и новый вопрос владельцу")
-                _stop_check(st, "перечитывание экрана после одобрения", epoch)
-                fresh = await _bounded(st, observe(svc, screenshot=False), "наблюдение")
-                was = seen.get("window") or {}
-                now = fresh.get("window") or {}
-                if not was.get("handle") or int(now.get("handle") or 0) != int(was.get("handle") or 0):
-                    raise ActRefused(
-                        f"окно сменилось с момента вопроса владельцу: одобрено для «{was.get('title')}», "
-                        f"сейчас впереди «{now.get('title')}» — одобрение не применено")
             else:
                 if not st.last or not valid_gen or gen != st.generation:
                     raise ActRefused(
@@ -1081,6 +1420,49 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 if age > MAX_OBS_AGE_S:
                     raise ActRefused(f"наблюдение старше {MAX_OBS_AGE_S:.0f} с ({age:.0f} с) — "
                                      f"перечитайте экран (computer.observe)")
+                seen = st.last
+        bound = dict(seen.get("window") or {})
+        if kind in INPUT_KINDS:
+            # Привязка к окну наблюдения: точные hwnd и pid. Для одобряемого
+            # действия они обязательны — владелец видит их в вопросе.
+            if approval_ref is not None and (want_h is None or want_pid is None):
+                raise ActRefused(
+                    f"действие ввода привязывается к окну: передайте window={bound.get('handle')} и "
+                    f"pid={bound.get('pid')} из наблюдения generation={gen} — без них одобрение не применяется")
+            if want_h is not None and want_h != int(bound.get("handle") or 0):
+                raise ActRefused(f"window={want_h} — не окно наблюдения generation={gen} "
+                                 f"({_wdesc(bound)}); нужен computer.observe этого окна")
+            if want_pid is not None and want_pid != int(bound.get("pid") or 0):
+                raise ActRefused(f"pid={want_pid} не совпадает с процессом окна {_wdesc(bound)} — "
+                                 f"окно не то, ввод не отправлен")
+            if seen.get("hidden"):
+                raise ActRefused("окно наблюдения вне разрешения задачи — ввод не отправлен; запустите "
+                                 "разрешённое приложение (launch) или наблюдайте окно задачи (window=hwnd)")
+            if approval_ref is not None:
+                _stop_check(st, "перечитывание экрана после одобрения", epoch)
+                fresh = await _bounded(st, observe(svc, screenshot=False, window=bound.get("handle") or None,
+                                                   scope=scope), "наблюдение")
+                now = fresh.get("window") or {}
+                if not bound.get("handle") or int(now.get("handle") or 0) != int(bound.get("handle") or 0):
+                    raise ActRefused(
+                        f"окно сменилось с момента вопроса владельцу: одобрено для «{bound.get('title')}», "
+                        f"сейчас впереди «{now.get('title')}» — одобрение не применено")
+                if bound.get("pid") and int(now.get("pid") or 0) != int(bound["pid"]):
+                    raise ActRefused(f"окно сменилось: hwnd={bound.get('handle')} теперь принадлежит "
+                                     f"процессу pid={now.get('pid')}, а одобрено для pid={bound.get('pid')} — "
+                                     f"одобрение не применено")
+                if not now.get("foreground", True):
+                    fgw = await _bounded(st, st.desktop.foreground(), "проверка окна")
+                    raise ActRefused(
+                        f"окно сменилось с момента вопроса владельцу: одобрено для {_wdesc(bound)}, "
+                        f"сейчас впереди «{fgw.get('title')}» — одобрение не применено. Фокус сервер сам "
+                        f"не возвращает: нужен новый computer.observe, при необходимости focus_window "
+                        f"отдельным одобрением, и новый вопрос владельцу")
+                if seen.get("fingerprint") and fresh.get("fingerprint") != seen.get("fingerprint"):
+                    raise ActRefused(
+                        f"окно {_wdesc(bound)} изменилось с момента вопроса владельцу (заголовок, вкладка "
+                        f"или содержимое) — одобрение не применено; нужен новый computer.observe и новый "
+                        f"вопрос владельцу")
         before = st.last
         if kind in INPUT_KINDS:
             _stop_check(st, "проверка окна", epoch)
@@ -1127,17 +1509,18 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             confidence=1.0, source="planner")
         pol_obs = _policy_observation(core, before, st.generation)
         policy = core["ComputerPolicy"]()
-        decision = policy.classify(a, mode=core["TaskMode"].CONTROL, observation=pol_obs)
+        decision = policy.classify(a, mode=core["TaskMode"].CONTROL, observation=pol_obs,
+                                   allowed_apps=allowed)
         if not decision.allow:
             raise ActRefused(f"политика запретила действие: {decision.reason}")
         required = (decision.approval_kind or "").removeprefix("computer_") if decision.requires_approval else None
         if required in HARD_REFUSED_CONSEQUENCES:
-            raise ActRefused(f"последствие «{required}» ({decision.reason}): платежи и учётные данные "
-                             f"Computer Use не выполняет ни с одобрением, ни без")
+            raise ActRefused(f"последствие «{required}» ({decision.reason}): {HARD_REFUSAL_TEXT}")
         if kind in INPUT_KINDS:
             # CU-ALLOWLIST: окно из наблюдения (оно же сейчас впереди — проверено
-            # выше) обязано принадлежать разрешённому приложению.
-            await _require_allowlisted_window(st, before)
+            # выше) обязано принадлежать разрешённому приложению, а с
+            # разрешением владельца — ещё и быть запущенным этой задачей.
+            await _require_allowlisted_window(st, before, scope)
         if kind == "type":
             if credential_target(target):
                 raise ActRefused(f"ввод в поле «{target}» — это учётные данные; Computer Use их не вводит")
@@ -1157,7 +1540,10 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             # Координатный запасной путь: ПЕРЕД кликом перечитываем экран и
             # требуем, чтобы точка лежала внутри названного элемента.
             _stop_check(st, "перечитывание экрана", epoch)
-            fresh = await _bounded(st, observe(svc, screenshot=False), "наблюдение")
+            fresh = await _bounded(st, observe(svc, screenshot=False, scope=scope), "наблюдение")
+            if int((fresh.get("window") or {}).get("handle") or 0) != int((before.get("window") or {}).get("handle") or 0):
+                raise ActRefused(f"перед кликом впереди другое окно «{(fresh.get('window') or {}).get('title')}» "
+                                 f"— клик не выполнен")
             hits = [e for e in _find(fresh, target, index) if "left" in e
                     and e["left"] <= x <= e["right"] and e["top"] <= y <= e["bottom"]]
             if not hits:
@@ -1200,9 +1586,10 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             # пересматривается по СВЕЖЕМУ окну. Если экран сменился так, что
             # последствие уже другое (или окно защищено) — отказ, не эффект.
             _stop_check(st, "перечитывание экрана", epoch)
-            fresh = await _bounded(st, observe(svc, screenshot=False), "наблюдение")
+            fresh = await _bounded(st, observe(svc, screenshot=False, scope=scope), "наблюдение")
             d2 = policy.classify(a, mode=core["TaskMode"].CONTROL,
-                                 observation=_policy_observation(core, fresh, st.generation))
+                                 observation=_policy_observation(core, fresh, st.generation),
+                                 allowed_apps=allowed)
             if not d2.allow:
                 raise ActRefused(f"перед эффектом политика запретила действие: {d2.reason}")
             now_required = (d2.approval_kind or "").removeprefix("computer_") if d2.requires_approval else None
@@ -1222,12 +1609,39 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             if secret is not False:
                 raise ActRefused("поле с фокусом секретное (пароль) или его тип не удалось проверить — "
                                  "ничего не введено")
+            # Живой прогон 2026-10-10 (локальный Qwen): сразу после запуска Win11
+            # Блокнот держал клавиатурный фокус на вкладках, UIA SetFocus документа
+            # не сработал, и Ctrl+V ушёл «в никуда» — шаг выглядел выполненным.
+            # В окне с полями ввода клавиши идут только когда фокус ОС в поле
+            # ввода ЭТОГО процесса; иначе отказ с подсказкой кликнуть в поле.
+            fprobe = getattr(st.desktop, "focused_element", None)
+            has_fields = any(e.get("control_type") in EDITABLE_TYPES for e in (before.get("elements") or []))
+            if fprobe is not None and has_fields:
+                fe = await asyncio.to_thread(fprobe)
+                bpid = int((before.get("window") or {}).get("pid") or 0)
+                if (not fe or fe.get("control_type") not in EDITABLE_TYPES
+                        or (bpid and int(fe.get("pid") or 0) != bpid)):
+                    got = "не определён" if not fe else f"{fe.get('control_type')} «{fe.get('name')}» pid={fe.get('pid')}"
+                    raise ActRefused(f"клавиатурный фокус не в поле ввода окна {_wdesc(before.get('window'))} "
+                                     f"(сейчас: {got}) — ничего не введено; кликните в поле (click по имени "
+                                     f"поля) и повторите по новому наблюдению")
+        if kind in INPUT_KINDS:
+            # Последний взгляд на передний план непосредственно перед вводом:
+            # окно наблюдения, и никакое другое (фокус могли увести за время
+            # проверок выше).
+            fg_last = await _bounded(st, st.desktop.foreground(), "проверка окна")
+            want = int((before.get("window") or {}).get("handle") or 0)
+            if want and int(fg_last.get("handle") or 0) != want:
+                raise ActRefused(f"фокус ушёл перед самым вводом: впереди «{fg_last.get('title')}», "
+                                 f"а не {_wdesc(before.get('window'))} — ввод не отправлен")
         # Последняя проверка «Стоп» — непосредственно перед эффектом.
         _stop_check(st, "перед эффектом", epoch)
         if kind == "type" and args.get("replace"):
             await _bounded(st, st.desktop.execute(core["ComputerAction"].make(
                 AK.HOTKEY, args={"keys": ["ctrl", "a"]}), None), "выделение")
         t0 = time.perf_counter()
+        after_window: int | None = None
+        acted_window: dict[str, Any] | None = None
         if kind == "wait":
             deadline = time.monotonic() + min(10.0, max(0.0, float(args.get("seconds") or 1)))
             while True:
@@ -1237,22 +1651,29 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                     break
                 await asyncio.sleep(min(0.1, remaining))
         elif kind == "launch":
-            from bossman.computer_operator.applist import canonical_app
-            app = canonical_app(target)
+            from bossman.computer_operator.applist import APP_CATALOG, canonical_app
+            app = canonical_app(target, allowed)
+            if app is None:
+                raise ActRefused(f"«{target}» не разрешён этой задаче (разрешено: {_apps_label(scope)})")
             known = {h for h, _, _ in await asyncio.to_thread(_top_windows)}
             st.launched_pid = None
             _stop_check(st, "запуск", epoch)
-            await _bounded(st, st.launcher.execute(a, None), "запуск")
-            # Windows не отдаёт передний план процессу, запущенному из фона:
-            # находим окно ЗАПУЩЕННОГО приложения и переводим фокус на него явно.
+            await _bounded(st, st.launcher.execute(a, None, allowed=allowed), "запуск")
+            # Окно ЗАПУЩЕННОГО приложения: новое, нужного процесса (для пакета —
+            # из каталога пакета). Чужие новые окна не берём.
             chosen = None
             seen_new: list[tuple[int, str, int]] = []
             for _ in range(int(LAUNCH_WAIT_S / 0.25)):
                 await asyncio.sleep(0.25)
                 seen_new = [w for w in await asyncio.to_thread(_top_windows) if w[0] not in known]
-                chosen = attribute_new_window(seen_new, launched_pid=st.launched_pid,
-                                              expected_exes=_expected_exes(app or ""),
-                                              hosted_app=app)
+                # Сначала окно самого запущенного процесса, затем остальные новые;
+                # принимается только то, чей процесс подтверждён как ЭТО приложение
+                # (имя образа, пакет, хост Калькулятора) — та же проверка, что и для ввода.
+                ordered = sorted(seen_new, key=lambda w: 0 if st.launched_pid and w[2] == st.launched_pid else 1)
+                for h_new, title_new, _pid in ordered:
+                    if (await _window_allowed(st, h_new, {app: APP_CATALOG[app]}))[0]:
+                        chosen = (h_new, title_new)
+                        break
                 if chosen:
                     break
             if not chosen:
@@ -1261,26 +1682,65 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                     f"«{target}» запущен, но окно запущенного приложения не появилось за "
                     f"{LAUNCH_WAIT_S:.0f} с"
                     + (f" (новые чужие окна: {foreign} — не трогаем)" if foreign else ""))
+            pid = await _pid_of(st, chosen[0])
+            st.launched[int(chosen[0])] = {"task_id": None if scope is None else scope.task_id,
+                                           "pid": pid, "app": app, "at": time.time()}
+            # Новое окно обычно само выходит вперёд; ждём это, затем ОДНА штатная
+            # просьба к ОС. Не вышло — запуск всё равно состоялся: это факт, а не
+            # ошибка; для ввода модель вызовет focus_window отдельным одобрением.
             _stop_check(st, "фокус окна", epoch)
-            if not await _focus(st, chosen[0]):
-                raise ActRefused(f"окно «{chosen[1]}» появилось, но фокус получить не удалось")
+            in_front = await _wait_foreground(st, chosen[0], LAUNCH_FOCUS_WAIT_S)
+            if not in_front:
+                _stop_check(st, "фокус окна", epoch)
+                in_front = await _focus(st, chosen[0])
+            after_window = int(chosen[0])
+            acted_window = {"handle": int(chosen[0]), "pid": pid, "title": chosen[1], "foreground": in_front}
         elif kind == "focus_window":
-            if not target:
-                raise ActRefused("focus_window: нужен target — часть заголовка окна")
-            matching = [(h, t) for h, t, _ in await asyncio.to_thread(_top_windows)
-                        if target.lower() in t.lower()]
-            wins, foreign = [], []
-            for h, t in matching:
-                allowed, who = await _window_allowed(st, h)
-                (wins if allowed else foreign).append((h, t) if allowed else f"«{t[:60]}» ({who})")
-            if len(wins) != 1:
-                raise ActRefused(f"разрешённых окон с «{target}» в заголовке: {len(wins)} — "
-                                 + ("уточните заголовок" if wins else "такого окна нет")
-                                 + (f"; вне allowlist Computer Use и не трогаются: {', '.join(foreign[:4])}"
-                                    if foreign else ""))
+            wins: list[tuple[int, str]] = []
+            if want_h is not None:
+                if approval_ref is not None and want_pid is None:
+                    raise ActRefused("focus_window: нужен pid окна из наблюдения вместе с window")
+                listed = {int(w.get("handle") or 0) for w in (seen.get("windows") or [])}
+                listed.add(int(bound.get("handle") or 0))
+                if want_h not in listed:
+                    raise ActRefused(f"окна hwnd={want_h} нет в наблюдении generation={gen} — "
+                                     f"вызовите computer.observe и возьмите hwnd/pid из него")
+                pid_now = await _pid_of(st, want_h)
+                if want_pid is not None and pid_now != want_pid:
+                    raise ActRefused(f"окно hwnd={want_h}: процесс сейчас pid={pid_now}, ожидался pid={want_pid} "
+                                     f"— окно закрыто или подменено, фокус не переводится")
+                ok_, who = await _window_allowed(st, want_h, allowed)
+                if not ok_:
+                    raise ActRefused(f"окно hwnd={want_h} (процесс {who}) вне allowlist Computer Use и "
+                                     f"не трогается (разрешено: {_apps_label(scope)})")
+                if not _task_owned(st, scope, want_h):
+                    raise ActRefused(f"окно hwnd={want_h} не запускалось этой задачей — не трогается")
+                title = next((t for h, t, _ in await asyncio.to_thread(_top_windows) if h == want_h), "")
+                wins = [(want_h, title)]
+            else:
+                if not target:
+                    raise ActRefused("focus_window: нужен window (hwnd) и pid из наблюдения "
+                                     "или target — часть заголовка окна")
+                if scope is not None and scope.launched_only:
+                    raise ActRefused("focus_window по заголовку недоступен при разрешении владельца на задачу: "
+                                     "укажите window и pid окна задачи из наблюдения")
+                matching = [(h, t) for h, t, _ in await asyncio.to_thread(_top_windows)
+                            if target.lower() in t.lower()]
+                foreign = []
+                for h, t in matching:
+                    allowed_, who = await _window_allowed(st, h, allowed)
+                    (wins if allowed_ else foreign).append((h, t) if allowed_ else f"«{t[:60]}» ({who})")
+                if len(wins) != 1:
+                    raise ActRefused(f"разрешённых окон с «{target}» в заголовке: {len(wins)} — "
+                                     + ("уточните заголовок (лучше window/pid из наблюдения)" if wins
+                                        else "такого окна нет")
+                                     + (f"; вне allowlist Computer Use и не трогаются: {', '.join(foreign[:4])}"
+                                        if foreign else ""))
             _stop_check(st, "фокус окна", epoch)
             if not await _focus(st, wins[0][0]):
-                raise ActRefused(f"не удалось вывести «{wins[0][1]}» на передний план")
+                raise ActRefused(f"Windows не отдал передний план окну «{wins[0][1]}» (hwnd={wins[0][0]}) — "
+                                 f"фокус не обходится; повторите позже или выведите окно вручную")
+            after_window = int(wins[0][0])
         else:
             _stop_check(st, "действие", epoch)
             if kind == "type":
@@ -1289,26 +1749,94 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 if want:
                     a.args["foreground_handle"] = want
             await _bounded(st, st.desktop.execute(a, None), "действие")
+        if kind in INPUT_KINDS:
+            # Проверка — по окну, в которое шёл ввод. Если впереди его же диалог
+            # (тот же владелец) — наблюдаем передний план, иначе — окно адресно.
+            bh = int((before.get("window") or {}).get("handle") or 0)
+            if bh:
+                fgh = int((await st.desktop.foreground()).get("handle") or 0)
+                if fgh != bh and await _root_of(st, fgh) != bh:
+                    after_window = bh
         await asyncio.sleep(SETTLE_S)
-        after = await _bounded(st, observe(svc), "наблюдение")
+        after = await _bounded(st, observe(svc, window=after_window, scope=scope), "наблюдение")
         verified, notes = verify(after, args.get("expect"), started_at=started_at)
         result = {"action": kind, "target": target, "coordinates": [x, y] if coords else None,
                   "before_generation": (before or {}).get("generation"),
                   "after_generation": after["generation"], "verified": verified, "checks": notes,
                   "approved_kind": approved_kind if required else None, "approval_ref": approval_ref,
+                  "window": acted_window or {k: (after.get("window") or {}).get(k)
+                                             for k in ("handle", "pid", "title", "foreground")},
                   "elapsed_ms": int((time.perf_counter() - t0) * 1000), "observation": after}
     await svc.bus.emit("computer.act", action=kind, target=target[:200], verified=verified,
                        before=result["before_generation"], after=result["after_generation"],
                        approved_kind=result["approved_kind"], approval_id=approval_ref,
-                       window=str((after.get("window") or {}).get("title") or "")[:200])
+                       window=str((after.get("window") or {}).get("title") or "")[:200],
+                       hwnd=(result["window"] or {}).get("handle"), pid=(result["window"] or {}).get("pid"))
     return result
 
 
 # ------------------------------------------------------------------ tools
 
+# ------------------------------------------------------------------ разрешения задачи
+
+def _grants_path(svc) -> Path:
+    return Path(svc.settings.data_dir) / "computer" / TASK_APPS_FILE
+
+
+def _read_grants(svc) -> dict[str, Any]:
+    """Журнал разрешений владельца. Читается заново на КАЖДОМ решении: снятое
+    разрешение действует сразу. Повреждённый журнал — отказ, а не «ничего»."""
+    path = _grants_path(svc)
+    if not path.is_file():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ActRefused(f"журнал разрешений приложений повреждён ({type(exc).__name__}) — "
+                         f"Computer Use остановлен до разбора владельцем (data_dir/computer/{TASK_APPS_FILE})") from exc
+    if not isinstance(raw, dict):
+        raise ActRefused("журнал разрешений приложений повреждён — Computer Use остановлен до разбора владельцем")
+    return raw
+
+
+def task_grant(svc, task_id: Any) -> dict | None:
+    if task_id is None or isinstance(task_id, bool):
+        return None
+    rec = _read_grants(svc).get(str(int(task_id)))
+    return rec if isinstance(rec, dict) else None
+
+
+def task_scope(svc, task: dict | None) -> TaskScope:
+    """Разрешение владельца для задачи вызова (контекст движка, не аргументы модели)."""
+    from bossman.computer_operator.applist import normalize_grant
+    task_id = (task or {}).get("id")
+    rec = task_grant(svc, task_id)
+    if rec is None:
+        return TaskScope(task_id=task_id)
+    try:
+        apps = normalize_grant(rec.get("apps"))
+    except ValueError as exc:
+        raise ActRefused(f"разрешение задачи #{task_id} некорректно: {exc}") from exc
+    return TaskScope(task_id=int(task_id), apps=apps,
+                     launched_only=str(rec.get("windows") or "launched") == "launched")
+
+
 async def _t_observe(args, ctx):
     try:
-        obs = await observe(ctx.svc)
+        scope = task_scope(ctx.svc, getattr(ctx, "task", None))
+        raw = (args or {}).get("window")
+        window = _int_arg(raw)
+        if raw is not None and window is None:
+            raise ActRefused("window: целое число (hwnd окна задачи из прошлого наблюдения)")
+        if window is not None:
+            st = _state(ctx.svc)
+            ok_, who = await _window_allowed(st, window, scope.allowed)
+            if not ok_:
+                raise ActRefused(f"окно hwnd={window} (процесс {who}) вне allowlist Computer Use "
+                                 f"(разрешено: {_apps_label(scope)}) — не наблюдается")
+            if not _task_owned(st, scope, window, await _root_of(st, window)):
+                raise ActRefused(f"окно hwnd={window} не запускалось этой задачей — не наблюдается")
+        obs = await observe(ctx.svc, window=window, scope=scope)
     except Exception as exc:  # noqa: BLE001
         return ToolResult(content=f"наблюдение недоступно: {exc}", one_line="computer.observe: нет",
                           error=True)
@@ -1358,7 +1886,9 @@ async def _t_act(args, ctx):
     if kind in MUTATION_FREE_KINDS:
         approval_ref = None            # `wait` ничего не меняет: одобрение не привязывает экран
     try:
-        res = await act(ctx.svc, args, approved_kind=approved_kind, approval_ref=approval_ref)
+        scope = task_scope(ctx.svc, getattr(ctx, "task", None))
+        res = await act(ctx.svc, args, approved_kind=approved_kind, approval_ref=approval_ref,
+                        scope=scope)
     except ActRefused as exc:
         return ToolResult(content=f"действие не выполнено: {exc}", one_line="computer.act: отказ",
                           error=True)
@@ -1373,6 +1903,25 @@ async def _t_act(args, ctx):
                       error=res["verified"] is False,
                       data={k: res[k] for k in ("verified", "after_generation", "checks")},
                       external=True)
+
+
+async def _act_context_deny(args: dict, ctx) -> str | None:
+    """Отказ ДО вопроса владельцу по разрешению задачи: не будить владельца ради
+    того, что обработчик всё равно не исполнит. Только запрещает."""
+    from bossman.computer_operator.applist import canonical_app
+    try:
+        scope = task_scope(ctx.svc, getattr(ctx, "task", None))
+    except ActRefused as exc:
+        return str(exc)
+    kind = str((args or {}).get("action") or "").strip().lower()
+    if kind == "launch" and canonical_app(str((args or {}).get("target") or ""), scope.allowed) is None:
+        return (f"приложение «{str((args or {}).get('target') or '')[:60]}» не разрешено этой задаче "
+                f"(разрешено: {_apps_label(scope)}); разрешение даёт только владелец")
+    if kind == "type":
+        secret = secret_like_text((args or {}).get("text"))
+        if secret:
+            return f"вводимый текст похож на секрет ({secret}) — Computer Use секреты не вводит"
+    return None
 
 
 def _act_effect(args: dict):
@@ -1395,27 +1944,39 @@ def _act_effect(args: dict):
 
 SPECS = [
     ToolSpec(name="computer.observe",
-             description="Посмотреть на рабочий стол: активное окно, элементы (имя, тип, центр x,y, "
-                         "значение полей) и скриншот. Возвращает generation для computer.act.",
-             handler=_t_observe, input_schema={}, category="read", permission="computer.observe",
+             description="Посмотреть на рабочий стол: окно (hwnd, pid), элементы (имя, тип, центр x,y, "
+                         "значение полей) и скриншот. Возвращает generation для computer.act. "
+                         "window=<hwnd> — адресно наблюдать окно ЭТОЙ задачи, даже если впереди другое; "
+                         "в ответе перечислены окна задачи (hwnd, pid).",
+             handler=_t_observe,
+             input_schema={"window": {"type": "integer",
+                                      "description": "hwnd окна задачи из прошлого наблюдения"}},
+             category="read", permission="computer.observe",
              source="computer", default_effect="ask", timeout_seconds=60.0, external_output=True),
     ToolSpec(name="computer.act",
              description="Одно действие на рабочем столе по свежему наблюдению (generation). "
                          "action: focus|click|double_click|type|hotkey|scroll|invoke|launch|wait|"
-                         "focus_window (target = часть заголовка окна). Ввод идёт только в "
-                         "окно из наблюдения — если фокус ушёл, отказ. "
+                         "focus_window. Действие ввода и focus_window привязываются к окну: передайте "
+                         "window (hwnd) и pid из наблюдения; ввод идёт только в это окно и только "
+                         "когда оно впереди — иначе отказ (нужны новое наблюдение и одобрение; фокус "
+                         "сервер сам не возвращает). focus_window: window+pid окна задачи. "
                          "Цель — имя элемента (target); при двух одинаковых именах укажите index "
                          "из наблюдения. Координаты x,y только с coordinate_fallback=true и target. "
                          "expect: {window_title_contains, contains_text, absent_text, file_exists "
                          "(абсолютный путь), file_contains, file_sha256} проверяется по новому "
                          "экрану/диску; неизвестные поля делают результат НЕ подтверждённым. "
-                         "launch: только notepad/calculator; ввод — только в их окна. Каждое "
-                         "действие, кроме wait, — отдельное одобрение владельца. Последствийное "
-                         "(удалить/отправить) — semantic=<вид>; платежи и учётные данные не "
-                         "выполняются вовсе; само слово semantic разрешением не является.",
+                         "launch: только приложения, разрешённые владельцем этой задаче (по "
+                         "умолчанию notepad/calculator); ввод — только в их окна (с разрешением "
+                         "владельца — только в окна, открытые этой задачей). Каждое действие, кроме "
+                         "wait, — отдельное одобрение владельца. Удаление — semantic=delete; "
+                         "платежи, учётные данные, секреты и необратимые внешние действия "
+                         "(отправка, публикация, push, деинсталляция) не выполняются вовсе; само "
+                         "слово semantic разрешением не является.",
              handler=_t_act,
              input_schema={"action": {"type": "string", "enum": list(KINDS)},
                            "generation": {"type": "integer"},
+                           "window": {"type": "integer", "description": "hwnd окна из наблюдения"},
+                           "pid": {"type": "integer", "description": "pid окна из наблюдения"},
                            "target": {"type": "string"}, "text": {"type": "string"},
                            "index": {"type": "integer",
                                      "description": "номер элемента из наблюдения при одинаковых именах"},
@@ -1429,7 +1990,7 @@ SPECS = [
                            "expect": {"type": "object"}},
              required=["action"], category="write", permission="computer.control",
              source="computer", default_effect="ask", timeout_seconds=180.0, idempotent=False,
-             external_output=True, effect_hook=_act_effect),
+             external_output=True, effect_hook=_act_effect, context_deny=_act_context_deny),
 ]
 
 
@@ -1496,6 +2057,92 @@ async def http_resume(request: Request):
     st.clear_stop()
     await svc.bus.emit("computer.resume", by="owner", generation=st.generation)
     return {"stopped": False, "generation": st.generation}
+
+
+@router.get("/computer/catalog")
+async def http_catalog():
+    """Что владелец может разрешить задаче (каталог) и что не разрешается никогда."""
+    from bossman.computer_operator.applist import APP_CATALOG, DEFAULT_APPS, HARD_DENIED_PROCESSES
+    return {"apps": {k: {"label": v.get("label"), "process": list(v.get("process", ()))}
+                     for k, v in APP_CATALOG.items()},
+            "default": list(DEFAULT_APPS), "window_scopes": list(WINDOW_SCOPES),
+            "never": sorted(HARD_DENIED_PROCESSES)}
+
+
+async def _task_exists(svc, task_id: int) -> bool:
+    import sqlalchemy as sa
+    from ..db import tasks as tasks_t
+    async with svc.db.session() as s:
+        return (await s.execute(sa.select(tasks_t.c.id).where(tasks_t.c.id == task_id))).first() is not None
+
+
+def _write_grants(svc, grants: dict) -> None:
+    path = _grants_path(svc)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(grants, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(path)
+
+
+@router.get("/computer/tasks/{task_id}/apps")
+async def http_task_apps(task_id: int, request: Request):
+    from bossman.computer_operator.applist import DEFAULT_APPS
+    svc = request.app.state.svc
+    try:
+        rec = task_grant(svc, task_id)
+    except ActRefused as exc:
+        raise HTTPException(409, {"message": str(exc)})
+    if rec is None:
+        return {"task_id": task_id, "granted": False, "apps": list(DEFAULT_APPS), "windows": "any"}
+    return {"task_id": task_id, "granted": True, **rec}
+
+
+@router.put("/computer/tasks/{task_id}/apps")
+async def http_grant_task_apps(task_id: int, request: Request):
+    """Разрешение владельца: какие приложения из каталога эта задача может
+    запускать и в окна каких (только своих) слать ввод. Только панель/CLI
+    владельца (сессия + CSRF); у модели нет инструмента, который сюда доходит."""
+    from bossman.computer_operator.applist import normalize_grant
+    svc = request.app.state.svc
+    hint = 'тело: JSON {"apps": ["notepad", ...], "windows": "launched"}'
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(422, {"message": hint})
+    if not isinstance(body, dict):
+        raise HTTPException(422, {"message": hint})
+    try:
+        apps = normalize_grant(body.get("apps"))
+    except ValueError as exc:
+        raise HTTPException(422, {"message": str(exc)})
+    windows = str(body.get("windows") or "launched")
+    if windows not in WINDOW_SCOPES:
+        raise HTTPException(422, {"message": f"windows: одно из {', '.join(WINDOW_SCOPES)}"})
+    if not await _task_exists(svc, task_id):
+        raise HTTPException(404, {"message": f"задача #{task_id} не найдена"})
+    try:
+        grants = _read_grants(svc)
+    except ActRefused as exc:
+        raise HTTPException(409, {"message": str(exc)})
+    rec = {"apps": list(apps), "windows": windows, "granted_by": "owner", "granted_at": time.time()}
+    grants[str(task_id)] = rec
+    _write_grants(svc, grants)
+    await svc.bus.emit("computer.grant", task_id=task_id, apps=list(apps), windows=windows, by="owner")
+    return {"task_id": task_id, "granted": True, **rec}
+
+
+@router.delete("/computer/tasks/{task_id}/apps")
+async def http_revoke_task_apps(task_id: int, request: Request):
+    svc = request.app.state.svc
+    try:
+        grants = _read_grants(svc)
+    except ActRefused as exc:
+        raise HTTPException(409, {"message": str(exc)})
+    existed = grants.pop(str(task_id), None) is not None
+    if existed:
+        _write_grants(svc, grants)
+        await svc.bus.emit("computer.grant", task_id=task_id, apps=[], windows=None, by="owner")
+    return {"task_id": task_id, "granted": False, "revoked": existed}
 
 
 async def _setup(svc) -> None:
