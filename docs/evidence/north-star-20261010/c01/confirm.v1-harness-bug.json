@@ -1,0 +1,11 @@
+{
+ "finder_changed": [
+  "command-center/tests/test_economy_swarm.py"
+ ],
+ "finder_tests": [
+  "test_ling_pass_does_not_offer_ling_repair_when_blockers_present"
+ ],
+ "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "confirmed": false,
+ "why": "finder produced no test (status failed)"
+}

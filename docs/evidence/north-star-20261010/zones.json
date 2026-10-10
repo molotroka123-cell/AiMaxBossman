@@ -1,0 +1,148 @@
+{
+ "seed": "north-star-20261010",
+ "repo_head": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "rule": "command-center/bcc/**/*.py, 60..320 lines, with command-center/tests/test_<stem>.py; random.Random(seed).shuffle",
+ "recorded": "2026-10-10T14:38:02Z",
+ "zones": [
+  {
+   "target": "command-center/bcc/features/economy_swarm.py",
+   "test": "command-center/tests/test_economy_swarm.py",
+   "lines": 238
+  },
+  {
+   "target": "command-center/bcc/telegram_companion/owner_report.py",
+   "test": "command-center/tests/test_owner_report.py",
+   "lines": 136
+  },
+  {
+   "target": "command-center/bcc/features/oss_integrations.py",
+   "test": "command-center/tests/test_oss_integrations.py",
+   "lines": 90
+  },
+  {
+   "target": "command-center/bcc/plugin_security.py",
+   "test": "command-center/tests/test_plugin_security.py",
+   "lines": 312
+  },
+  {
+   "target": "command-center/bcc/features/v15_self_repair.py",
+   "test": "command-center/tests/test_v15_self_repair.py",
+   "lines": 220
+  },
+  {
+   "target": "command-center/bcc/mission_budget.py",
+   "test": "command-center/tests/test_mission_budget.py",
+   "lines": 249
+  },
+  {
+   "target": "command-center/bcc/scheduler.py",
+   "test": "command-center/tests/test_scheduler.py",
+   "lines": 181
+  },
+  {
+   "target": "command-center/bcc/single_flight.py",
+   "test": "command-center/tests/test_single_flight.py",
+   "lines": 68
+  },
+  {
+   "target": "command-center/bcc/v2/model_intelligence.py",
+   "test": "command-center/tests/test_model_intelligence.py",
+   "lines": 239
+  },
+  {
+   "target": "command-center/bcc/probe_cache.py",
+   "test": "command-center/tests/test_probe_cache.py",
+   "lines": 79
+  },
+  {
+   "target": "command-center/bcc/features/qa_relay.py",
+   "test": "command-center/tests/test_qa_relay.py",
+   "lines": 147
+  },
+  {
+   "target": "command-center/bcc/features/coding_limit_saver_v16.py",
+   "test": "command-center/tests/test_coding_limit_saver_v16.py",
+   "lines": 238
+  },
+  {
+   "target": "command-center/bcc/v2/obs_normalize.py",
+   "test": "command-center/tests/test_obs_normalize.py",
+   "lines": 229
+  },
+  {
+   "target": "command-center/bcc/features/provenance.py",
+   "test": "command-center/tests/test_provenance.py",
+   "lines": 261
+  },
+  {
+   "target": "command-center/bcc/features/direct_gen.py",
+   "test": "command-center/tests/test_direct_gen.py",
+   "lines": 173
+  },
+  {
+   "target": "command-center/bcc/features/game_bootstrap_v16.py",
+   "test": "command-center/tests/test_game_bootstrap_v16.py",
+   "lines": 201
+  },
+  {
+   "target": "command-center/bcc/telegram_calls/call/offline_mode.py",
+   "test": "command-center/tests/test_offline_mode.py",
+   "lines": 107
+  },
+  {
+   "target": "command-center/bcc/run_provenance.py",
+   "test": "command-center/tests/test_run_provenance.py",
+   "lines": 267
+  },
+  {
+   "target": "command-center/bcc/clip_guard.py",
+   "test": "command-center/tests/test_clip_guard.py",
+   "lines": 101
+  },
+  {
+   "target": "command-center/bcc/web_designer_visual.py",
+   "test": "command-center/tests/test_web_designer_visual.py",
+   "lines": 83
+  },
+  {
+   "target": "command-center/bcc/earning_emulator.py",
+   "test": "command-center/tests/test_earning_emulator.py",
+   "lines": 114
+  },
+  {
+   "target": "command-center/bcc/v2/context_telemetry.py",
+   "test": "command-center/tests/test_context_telemetry.py",
+   "lines": 69
+  },
+  {
+   "target": "command-center/bcc/features/action_router.py",
+   "test": "command-center/tests/test_action_router.py",
+   "lines": 227
+  },
+  {
+   "target": "command-center/bcc/file_intelligence/discovery.py",
+   "test": "command-center/tests/test_discovery.py",
+   "lines": 221
+  },
+  {
+   "target": "command-center/bcc/features/unified_search.py",
+   "test": "command-center/tests/test_unified_search.py",
+   "lines": 245
+  },
+  {
+   "target": "command-center/bcc/features/action_gate.py",
+   "test": "command-center/tests/test_action_gate.py",
+   "lines": 201
+  },
+  {
+   "target": "command-center/bcc/pit/discovery.py",
+   "test": "command-center/tests/test_discovery.py",
+   "lines": 93
+  },
+  {
+   "target": "command-center/bcc/features/free_providers.py",
+   "test": "command-center/tests/test_free_providers.py",
+   "lines": 167
+  }
+ ]
+}

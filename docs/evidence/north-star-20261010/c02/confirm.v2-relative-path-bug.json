@@ -1,0 +1,19 @@
+{
+ "finder_changed": [
+  "command-center/tests/test_owner_report.py"
+ ],
+ "finder_tests": [
+  "test_send_report_does_not_raise_on_close_failure_after_send_failure"
+ ],
+ "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "finder_status": "failed",
+ "zone_check_failed_as_expected": true,
+ "repro": "command-center/tests/test_nsrepro_c02.py",
+ "verify_base": "bd3cec28c5bb33cc4ee8f7c4063b9fbad862062c",
+ "run_status": "BLOCKED",
+ "finder_results": {},
+ "other_failures": {},
+ "DEFECT_REPRODUCED": false,
+ "confirmed": false,
+ "why": "finder test does not fail cleanly on the base"
+}

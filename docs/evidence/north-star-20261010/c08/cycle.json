@@ -1,0 +1,27 @@
+{
+ "cycle": "c08",
+ "zone": {
+  "target": "command-center/bcc/single_flight.py",
+  "test": "command-center/tests/test_single_flight.py",
+  "lines": 68
+ },
+ "started": "2026-10-10T15:13:31Z",
+ "roles": {
+  "finder": "openrouter-free",
+  "judge": "gemini:gemini-3.5-flash"
+ },
+ "stages": {
+  "FIND_TASK": {
+   "task": "1b636e2026aa",
+   "status": "failed",
+   "steps": 40,
+   "changed": [],
+   "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d"
+  },
+  "DEFECT_REPRODUCED": false,
+  "DEFECT_CONFIRMED_BY_JUDGE": false
+ },
+ "result": "NO_CONFIRMED_DEFECT",
+ "why": "finder produced no test (status failed, stop max_steps)",
+ "finished": "2026-10-10T15:35:43Z"
+}

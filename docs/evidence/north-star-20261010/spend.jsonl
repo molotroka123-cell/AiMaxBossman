@@ -1,0 +1,6 @@
+{"at": "2026-10-10T14:29:08Z", "provider": "gemini", "model": "gemini-3.5-flash", "key_slot": "GEMINI_API_KEY", "purpose": "probe", "prompt_tokens": 10, "completion_tokens": 5, "cost_usd": 0.0, "seconds": 1.9}
+{"at": "2026-10-10T14:31:49Z", "provider": "nvidia", "model": "moonshotai/kimi-k3", "key_slot": "NVIDIA_API_KEY", "purpose": "probe", "prompt_tokens": 142, "completion_tokens": 34, "cost_usd": 0.0, "seconds": 160.5}
+{"at": "2026-10-10T14:45:41Z", "provider": "nvidia", "model": "z-ai/glm-5.3", "key_slot": "NVIDIA_API_KEY", "purpose": "probe", "prompt_tokens": 21, "completion_tokens": 40, "cost_usd": 0.0, "seconds": 96.8}
+{"at": "2026-10-10T14:55:50Z", "provider": "gemini", "model": "gemini-3.5-flash", "key_slot": "GEMINI_API_KEY", "purpose": "c02:judge", "prompt_tokens": 2929, "completion_tokens": 136, "cost_usd": 0.0, "seconds": 9.4}
+{"at": "2026-10-10T14:56:30Z", "provider": "gemini", "model": "gemini-3.5-flash", "key_slot": "GEMINI_API_KEY", "purpose": "c01:judge", "prompt_tokens": 3606, "completion_tokens": 136, "cost_usd": 0.0, "seconds": 5.8}
+{"at": "2026-10-10T15:22:07Z", "provider": "gemini", "model": "gemini-3.5-flash", "key_slot": "GEMINI_API_KEY", "purpose": "c05:judge", "prompt_tokens": 3144, "completion_tokens": 126, "cost_usd": 0.0, "seconds": 8.5}

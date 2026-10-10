@@ -1,0 +1,21 @@
+{
+  "start_utc": "2026-10-10T14:28:41Z",
+  "expected_end_utc": "2026-10-11T14:28:41Z",
+  "soak_pid": 26628,
+  "wrapper_cmd_pid": 31184,
+  "port": 8871,
+  "stub_port": 8878,
+  "dead_port": 8879,
+  "source_sha": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "source_dir": "C:\\Users\\asd\\Bossman\\soak-20261010\\src",
+  "data_dir": "C:\\Users\\asd\\Bossman\\soak-20261010\\data",
+  "out_dir": "C:\\Users\\asd\\Bossman\\soak-20261010\\out",
+  "launcher": "C:\\Users\\asd\\Bossman\\soak-20261010\\run-soak.cmd",
+  "launched_via": "WMI Win32_Process.Create (hidden, BELOW_NORMAL), detached from the Claude session",
+  "mode": "--launch server, headless Playwright Chromium, fake model stub (no live model)",
+  "minutes": 1440,
+  "restart_every": 25,
+  "monitor_pid": 25012,
+  "monitor_interval_s": 300,
+  "monitor_ends_utc": "2026-10-11T14:58:41Z"
+}
