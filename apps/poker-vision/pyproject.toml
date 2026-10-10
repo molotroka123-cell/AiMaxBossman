@@ -23,7 +23,8 @@ build-backend = "setuptools.build_meta"
 packages = ["pokervision", "pokervision.adapters", "pokervision.vision", "pokervision.eval", "pokervision.control"]
 
 [tool.setuptools.package-data]
-"pokervision.adapters" = ["profiles/*.json"]
+"pokervision" = ["data/*.json"]
+"pokervision.adapters" = ["profiles/*.json", "profiles/win32/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

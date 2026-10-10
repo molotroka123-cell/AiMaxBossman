@@ -18,7 +18,7 @@ import numpy as np
 from .adapters.base import Frame
 from .control.geometry import Rect
 from .control.identity import WindowIdentity, WindowState
-from .sources import CHROME_CANDIDATES, LOOPBACK_HOSTS, assert_loopback
+from .sources import CHROME_CANDIDATES, CONTEXT_LOCALE, LOOPBACK_HOSTS, assert_loopback
 
 HOST_HTML = """<!doctype html><meta charset=utf-8><body style="margin:0;background:#1d2733;overflow:hidden;width:100vw;height:100vh">
 <div id=desk style="position:absolute;inset:0"></div>
@@ -36,14 +36,15 @@ window.rmWin=(id)=>{const d=document.getElementById('w_'+id);if(d)d.remove()};
 class SandboxDesk:
     HOST_PATH = "/__sandbox_desk"
 
-    def __init__(self, url: str, bootstrap: str | None = "cash_nl10", screen=(1280, 900), win=(520, 900), dpr: float = 1.0, chrome: str | None = None):
+    def __init__(self, url: str, bootstrap: str | None = "cash_nl10", screen=(1280, 900), win=(520, 900), dpr: float = 1.0, chrome: str | None = None,
+                 headless: bool = True):
         self.url = assert_loopback(url)
         self.dpr, self.screen = dpr, screen
         from playwright.sync_api import sync_playwright
         self._pw = sync_playwright().start()
         exe = chrome or next((c for c in CHROME_CANDIDATES if Path(c).exists()), None)
-        self.browser = self._pw.chromium.launch(executable_path=exe) if exe else self._pw.chromium.launch()
-        self.ctx = self.browser.new_context(viewport={"width": screen[0], "height": screen[1]}, device_scale_factor=dpr)
+        self.browser = self._pw.chromium.launch(executable_path=exe, headless=headless) if exe else self._pw.chromium.launch(headless=headless)
+        self.ctx = self.browser.new_context(viewport={"width": screen[0], "height": screen[1]}, device_scale_factor=dpr, locale=CONTEXT_LOCALE)
         origin = f"{urlparse(self.url).scheme}://{urlparse(self.url).netloc}"
         self.host_url = origin + self.HOST_PATH
 
@@ -170,6 +171,14 @@ class SandboxDesk:
         r = f.evaluate("(l)=>{const b=[...document.querySelectorAll('button')].filter(x=>x.innerText.trim().split('\\n')[0]===l);if(b.length!==1)return null;const q=b[0].getBoundingClientRect();return [q.x,q.y,q.width,q.height]}", label)
         return None if r is None else Rect(r[0] * self.dpr, r[1] * self.dpr, r[2] * self.dpr, r[3] * self.dpr)
 
+    def truth(self, js: str, wid: str = "w1") -> dict | None:
+        """SCORING ONLY (play report / bench): the trainer's own DOM state, evaluated next to a decision so the reading can be graded.
+        Never passed to the policy or the executor."""
+        try:
+            return self._frame(wid).evaluate(js)
+        except Exception:
+            return None
+
     def dom_click(self, label: str, wid: str = "w1") -> bool:
         """Harness-only: the owner reviewing a halt and unblocking the trainer by hand (e.g. closing a half-open raise panel with FOLD)."""
         try:
@@ -246,8 +255,9 @@ class SandboxSource:
     kind = "live"
     sandbox = True
 
-    def __init__(self, url: str, bootstrap: str | None = "cash_nl10", dpr: float = 1.0, screen=(1280, 900), win=(520, 900), wid: str = "w1"):
-        self.desk = SandboxDesk(url, bootstrap, screen, win, dpr)
+    def __init__(self, url: str, bootstrap: str | None = "cash_nl10", dpr: float = 1.0, screen=(1280, 900), win=(520, 900), wid: str = "w1",
+                 headless: bool = True):
+        self.desk = SandboxDesk(url, bootstrap, screen, win, dpr, headless=headless)
         self.wid = wid
         self.ident = self.desk.identity(wid)
         self.probe = self.desk
@@ -270,7 +280,7 @@ class SandboxSource:
                 return
             try:
                 fn = getattr(self.desk, cmd)
-                if cmd in ("move", "resize", "minimize", "close", "reopen", "deal"):
+                if cmd in ("move", "resize", "minimize", "close", "reopen", "deal", "truth"):
                     kw = {"wid": self.wid, **kw}
                 if cmd == "cover":
                     kw["rect"] = Rect(*kw["rect"])

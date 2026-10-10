@@ -1,0 +1,110 @@
+{
+ "mode": "bot",
+ "url": "http://127.0.0.1:3417/",
+ "bootstrap": "cash_nl10",
+ "seconds": 179.7,
+ "decisions": 36,
+ "hands_with_decisions": 25,
+ "hands": [
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "11",
+  "12",
+  "13",
+  "14",
+  "15",
+  "17",
+  "18",
+  "19",
+  "20",
+  "21",
+  "23",
+  "24",
+  "25",
+  "26",
+  "27"
+ ],
+ "halts": [
+  {
+   "t": 145.7,
+   "reason": "RAISE: click not confirmed by a state change (panel not open); not retried",
+   "after_decision": 28
+  }
+ ],
+ "harness_interventions": [],
+ "harness_interventions_detail": [],
+ "stack_start": 1000.0,
+ "stack_end": 1048.0,
+ "net_chips": 48.0,
+ "bb": 10.0,
+ "net_bb": 4.8,
+ "reading": {
+  "hero_cards": {
+   "ok": 36,
+   "wrong": 0,
+   "unknown": 0,
+   "na": 0,
+   "acc_answered": 1.0
+  },
+  "board": {
+   "ok": 36,
+   "wrong": 0,
+   "unknown": 0,
+   "na": 0,
+   "acc_answered": 1.0
+  },
+  "pot": {
+   "ok": 36,
+   "wrong": 0,
+   "unknown": 0,
+   "na": 0,
+   "acc_answered": 1.0
+  },
+  "to_call": {
+   "ok": 36,
+   "wrong": 0,
+   "unknown": 0,
+   "na": 0,
+   "acc_answered": 1.0
+  },
+  "hero_stack": {
+   "ok": 36,
+   "wrong": 0,
+   "unknown": 0,
+   "na": 0,
+   "acc_answered": 1.0
+  },
+  "position": {
+   "ok": 36,
+   "wrong": 0,
+   "unknown": 0,
+   "na": 0,
+   "acc_answered": 1.0
+  },
+  "actions": {
+   "ok": 36,
+   "wrong": 0,
+   "unknown": 0,
+   "na": 0,
+   "acc_answered": 1.0
+  }
+ },
+ "control_waits": {
+  "hero_cards": 9,
+  "board": 30
+ },
+ "by_source": {
+  "preflop_chart": 25,
+  "heuristic": 11
+ },
+ "note": "stack_start/stack_end: the trainer's own numbers at the first decision / at the end (posted blinds make this ±1bb); 20 hands are far too few to measure skill — this is a functional run, not a win-rate claim.",
+ "verified_decisions": 35
+}

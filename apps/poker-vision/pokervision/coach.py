@@ -52,10 +52,43 @@ def _size(info: VisibleInfo, strong: bool) -> tuple[float, float, float]:
     return min(ideal, cap), min(lo, cap), min(hi, cap)
 
 
-def recommend(cm, rng: random.Random, sims: int = 300, policy=None, ctx: dict | None = None, review_root=None) -> Recommendation:
+CHART_DISCLAIMER = ("Префлоп по таблицам владельца из его Poker Train (6-max cash 100bb, по его пометке — GTO Wizard); Bossman их не решал. "
+                    "Карты соперников неизвестны. Это не гарантия результата.")
+
+
+def _chart_recommendation(cm, labels: tuple, to_call: float, bb: float) -> Recommendation | None:
+    """Preflop decision from the owner's chart, mapped onto the buttons that are on screen. None = not covered here."""
+    from . import preflop_chart
+    hero = tuple(cm.hero_cards)
+    a = preflop_chart.decide(hero, cm.hero_position, to_call, cm.pot.amount, bb)
+    if a is None:
+        return None
+    kind, raise_to, lo, hi = a.action, None, None, None
+    if kind == "FOLD" and "CHECK" in labels:
+        kind = "CHECK"                                            # never fold when checking is free
+    if kind == "RAISE":
+        raise_to = min(a.raise_to_bb * bb, cm.hero_stack.amount)
+        lo, hi = 0.8 * raise_to, 1.3 * raise_to                  # the trainer offers presets only; the executor picks one inside this range
+        if "RAISE" not in labels:
+            return None
+    if kind not in labels:
+        return None
+    d = PolicyDecision(kind, raise_to, hand_key(list(cm.hero_cards), list(cm.board)), "preflop", cm.t_ms, to_call if kind == "CALL" else (to_call or None),
+                       reason=f"chart {a.table}: {a.reason}", size_min=lo, size_max=hi)
+    opts = [Option(lab, raise_to if lab == "RAISE" and kind == "RAISE" else None, "по таблице" if lab == kind else "", chosen=(lab == kind)) for lab in labels]
+    expl = (f"Префлоп, позиция {cm.hero_position}, рука {preflop_chart.hand_class(*hero)}, к доплате {to_call:g} (bb={bb:g}). "
+            f"Таблица {a.table}: {kind}" + (f" до {raise_to:g}" if raise_to else "") + f" — {a.reason}.")
+    unc = [x for x in ("позиция открывшего не читается: взята самая тугая таблица" if "НЕ прочитана" in a.reason else "",) if x]
+    return Recommendation(True, "", d, opts, None, None, expl, unc, disclaimer=CHART_DISCLAIMER, source="preflop_chart", route_note=a.table)
+
+
+def recommend(cm, rng: random.Random, sims: int = 300, policy=None, ctx: dict | None = None, review_root=None,
+              preflop_bb: float | None = None, hero_acted_preflop: bool = False) -> Recommendation:
     """cm: reconcile.Committed (validated state). Returns a recommendation or the reason there is none.
     ``policy``/``ctx``: optional Poker-LoRA route (heads-up river only, ranges supplied and flagged as assumed); anything it cannot prove or any
-    answer that fails validation falls back to the heuristic below."""
+    answer that fails validation falls back to the heuristic below.
+    ``preflop_bb``: big blind of the table the bot opened; enables the owner's preflop charts (``preflop_chart``) when the position is read.
+    ``hero_acted_preflop``: the bot already acted in this hand preflop (it raised/called): the price it faces now is a re-raise -> not covered."""
     note = ""
     if policy is not None and ctx is not None:
         from .policy_route import decide_with_policy
@@ -85,6 +118,11 @@ def recommend(cm, rng: random.Random, sims: int = 300, policy=None, ctx: dict | 
         to_call = min(float(amounts["ALL IN"]), cm.hero_stack.amount)
     else:
         return Recommendation(False, "сумма колла не прочитана")
+    if preflop_bb and not hero_acted_preflop and not [c for c in cm.board if c]:
+        rc = _chart_recommendation(cm, labels, to_call, preflop_bb)
+        if rc is not None:
+            return rc
+        note = (note + "; " if note else "") + "preflop chart: spot not covered (position unread, 3-bet+ or no matching button) -> heuristic"
     n_opp = max(1, len([s for s in cm.seats.values() if s.get("stack")]))
     board = tuple(c for c in cm.board if c)
     info = VisibleInfo(tuple(cm.hero_cards), board, cm.pot.amount, to_call, cm.hero_stack.amount, min(n_opp, 5), labels)

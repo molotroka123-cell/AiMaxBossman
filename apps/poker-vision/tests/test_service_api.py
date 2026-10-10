@@ -71,6 +71,7 @@ def test_second_session_while_running_is_refused(client, tmp_path):
     {"mode": "trainer", "adapter": "poker_train", "url": "https://www.example.com/", "act": True},
     {"mode": "trainer", "adapter": "ton_poker", "url": "http://127.0.0.1:3000/"},
     {"mode": "window", "adapter": "ton_poker", "act": True, "window": {"rect": [0, 0, 500, 500]}},
+    {"mode": "window", "adapter": "poker_train", "window": {"rect": [0, 0, 500, 900]}},      # its WSOP-like theme must not read a captured client
     {"mode": "replay", "adapter": "poker_train", "path": "/nonexistent-dir"},
 ])
 def test_refusals(client, body):

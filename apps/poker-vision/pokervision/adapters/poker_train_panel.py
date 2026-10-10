@@ -19,7 +19,9 @@ from ..parse import parse_money
 from ..vision.glyphs import GlyphBook, read_glyphs
 from ..vision.textspot import spot_lines
 
-PANEL_PROFILE = Path(__file__).with_name("profiles") / "poker_train_panel.json"
+from .poker_train import platform_profile                  # noqa: E402
+
+PANEL_PROFILE = platform_profile("poker_train_panel.json")
 NUM = frozenset("0123456789KM")
 CELL_W = (120, 230)      # CSS px
 CELL_H = (36, 62)

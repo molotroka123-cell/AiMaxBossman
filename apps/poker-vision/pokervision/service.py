@@ -100,6 +100,11 @@ class VisionService(DeskMixin):
                 assert_loopback(url or "http://127.0.0.1:3000/")                         # refuse synchronously; the browser is built in the loop thread
                 src = ("lazy-trainer", url or "http://127.0.0.1:3000/", bootstrap)
             elif mode == "window":
+                if adapter == "poker_train":
+                    # the Poker Train profile is verified only for the owner's trainer inside the browser Bossman opens itself; its theme
+                    # imitates the commercial WSOP client, so reading an arbitrary captured window with it would be live reading of a
+                    # third-party game. Other windows need their own ROI calibration + held-out verification (ton_poker / RoiAdapter).
+                    raise ActionRefused("poker_train reads only the owner's trainer opened by Bossman (trainer/desk), not a captured window")
                 if not ad.capabilities.observe:
                     raise ValueError(f"{adapter}: observe not supported")
                 if act:

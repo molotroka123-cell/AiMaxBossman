@@ -14,6 +14,9 @@ from .adapters.base import Frame
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 CHROME_CANDIDATES = ["/opt/pw-browsers/chromium-1194/chrome-linux/chrome"]
+# The trainer formats numbers with the browser locale: a ru-RU Chromium (the owner's PC) renders "1 000", en-US "1,000".
+# Profiles and the DOM truth are calibrated on en-US formatting, so every browser context we open pins it.
+CONTEXT_LOCALE = "en-US"
 
 
 class NotLoopback(ValueError):
@@ -86,7 +89,7 @@ class LoopbackBrowserSource:
         self._pw = sync_playwright().start()
         exe = chrome or next((c for c in CHROME_CANDIDATES if Path(c).exists()), None)
         self.browser = self._pw.chromium.launch(executable_path=exe, headless=headless) if exe else self._pw.chromium.launch(headless=headless)
-        self.ctx = self.browser.new_context(viewport={"width": viewport[0], "height": viewport[1]}, device_scale_factor=dpr)
+        self.ctx = self.browser.new_context(viewport={"width": viewport[0], "height": viewport[1]}, device_scale_factor=dpr, locale=CONTEXT_LOCALE)
         self.ctx.route("**/*", lambda route: route.continue_() if (urlparse(route.request.url).hostname in LOOPBACK_HOSTS or route.request.url.startswith(("data:", "blob:"))) else route.abort())
         self.page = self.ctx.new_page()
         self.page.goto(self.url)

@@ -40,6 +40,7 @@ class Committed:
     hero_stack: Money | None = None
     street: str | None = None
     dealer_slot: int | None = None
+    hero_position: str | None = None              # header badge (UTG..BB); used by the preflop chart only
     seats: dict = field(default_factory=dict)     # slot -> {"stack": Money|None, "bet": Money|None}
     actions: list | None = None
     hero_turn: bool | None = None
@@ -50,7 +51,7 @@ class Committed:
         def m(x): return None if x is None else {"amount": x.amount, "step": x.step, "raw": x.raw}
         return {"hand_id": self.hand_id, "t_ms": self.t_ms, "hero_cards": self.hero_cards, "board": self.board,
                 "pot": m(self.pot), "to_call": m(self.to_call), "hero_stack": m(self.hero_stack), "street": self.street,
-                "dealer_slot": self.dealer_slot,
+                "dealer_slot": self.dealer_slot, "hero_position": self.hero_position,
                 "seats": {k: {"stack": m(v.get("stack")), "bet": m(v.get("bet"))} for k, v in self.seats.items()},
                 "actions": self.actions, "hero_turn": self.hero_turn, "blocked": self.blocked, "pending": self.pending}
 
@@ -64,11 +65,12 @@ def _same(a, b) -> bool:
 class _Vote:
     """Commit rule (recency, not majority, so a real change is adopted quickly): the last ``min_votes`` usable readings
     must agree. If the newest usable readings disagree with each other, the committed value is kept and flagged pending."""
-    def __init__(self, cfg: Config):
+    def __init__(self, cfg: Config, expire: bool = False):
         self.cfg = cfg
         self.buf: deque = deque(maxlen=cfg.window)
         self.value: Any = None
         self.pending = False
+        self.expire = expire        # a whole window of UNKNOWN readings drops the committed value instead of keeping a stale one
 
     def push(self, f: Field | None) -> None:
         if f is None:
@@ -78,6 +80,9 @@ class _Vote:
         else:
             self.buf.append(None)          # unknown reading: a frame that votes for nothing
         usable = [v for v in self.buf if v is not None]
+        if self.expire and not usable and len(self.buf) == self.buf.maxlen:
+            self.value = None; self.pending = False
+            return
         k = self.cfg.min_votes
         if len(usable) < k:
             self.pending = False
@@ -113,7 +118,10 @@ class Reconciler:
 
     def _new_hand_votes(self) -> None:
         c = self.cfg
-        self.v = {k: _Vote(c) for k in ("pot", "to_call", "hero_stack", "street", "dealer", "hero_turn", "actions", "board_count")}
+        self.v = {k: _Vote(c) for k in ("pot", "to_call", "hero_stack", "street", "dealer", "hero_turn", "actions", "board_count", "hero_position")}
+        self.v["actions"] = _Vote(c, expire=True)
+        self.v["hero_turn"] = _Vote(c, expire=True)     # between hands nothing is readable: a stale "hero's turn" blocked the next DEAL       # buttons that cannot be read any more must not stay "committed" (seen live: a stale
+                                                        # CALL from an earlier frame kept the policy deciding on buttons no longer on screen)
         self.v_hero = [_Vote(c), _Vote(c)]
         self.v_board = [_Vote(c) for _ in range(5)]
         self.v_seat: dict[int, dict[str, _Vote]] = {}
@@ -222,7 +230,7 @@ class Reconciler:
             self.v_board[i].push(st.board[i] if i < len(st.board) else None)
         self.v["board_count"].push(st.board_count)
         for k, f in (("pot", st.pot), ("to_call", st.to_call), ("hero_stack", st.hero_stack), ("street", st.street),
-                     ("dealer", st.dealer_slot), ("hero_turn", st.hero_turn)):
+                     ("dealer", st.dealer_slot), ("hero_turn", st.hero_turn), ("hero_position", st.hero_position)):
             self.v[k].push(f)
         self.v["actions"].push(Field(tuple(map(tuple, st.actions.value)), st.actions.confidence, st.actions.t_ms, st.actions.source, st.actions.status) if st.actions.known else st.actions)
         seen_slots = set()
@@ -254,12 +262,14 @@ class Reconciler:
         cm.pot, cm.to_call, cm.hero_stack = self.v["pot"].value, self.v["to_call"].value, self.v["hero_stack"].value
         cm.street = self.v["street"].value
         cm.dealer_slot = self.v["dealer"].value
+        # a position with a competing reading is withheld (None: the chart then does not answer) instead of blocking every action
+        cm.hero_position = None if self.v["hero_position"].pending else self.v["hero_position"].value
         cm.hero_turn = self.v["hero_turn"].value
         cm.actions = [list(a) for a in self.v["actions"].value] if self.v["actions"].value is not None else None
         for slot, d in self.v_seat.items():
             if d["present"].value:
                 cm.seats[slot] = {"stack": d["stack"].value, "bet": d["bet"].value}
-        cm.pending = [k for k, v in self.v.items() if v.pending] + [f"hero[{i}]" for i, v in enumerate(self.v_hero) if v.pending]
+        cm.pending = [k for k, v in self.v.items() if v.pending and k != "hero_position"] +[f"hero[{i}]" for i, v in enumerate(self.v_hero) if v.pending]
         cm.blocked = sorted(set(blocked))
         if cm.pending:
             cm.blocked.append("PENDING_CHANGE " + ",".join(cm.pending))

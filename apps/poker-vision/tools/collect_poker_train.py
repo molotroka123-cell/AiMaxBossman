@@ -66,8 +66,8 @@ def run(args) -> int:
     hand_idx = -1
     frame_n = 0
     with sync_playwright() as p:
-        b = p.chromium.launch(executable_path=CHROME)
-        ctx = b.new_context(viewport={"width": args.vw, "height": args.vh}, device_scale_factor=args.dpr)
+        b = p.chromium.launch(executable_path=CHROME) if Path(CHROME).exists() else p.chromium.launch()   # container path, else Playwright's Chromium
+        ctx = b.new_context(viewport={"width": args.vw, "height": args.vh}, device_scale_factor=args.dpr, locale="en-US")
         # guard: the page may only talk to loopback
         ctx.route("**/*", lambda route: route.continue_() if (urlparse(route.request.url).hostname in LOOPBACK or route.request.url.startswith(("data:", "blob:"))) else route.abort())
         pg = ctx.new_page()
