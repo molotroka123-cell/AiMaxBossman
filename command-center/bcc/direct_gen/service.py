@@ -552,6 +552,16 @@ class DirectGenService:
                 if len(parts) > 1:
                     await asyncio.to_thread(faceswap.join, [dst for _, dst in parts], swapped)
                 await self._set(job, "postprocessing")
+                # 10.10: a bowed head kept a confident detection and got a frontal face pasted on the crown
+                gated, report = work / "gated.mp4", work / "pose_gate.json"
+                gate = await asyncio.to_thread(subprocess.run, faceswap.pose_gate_argv(self.faceswap_home, source, swapped,
+                                                                                       gated, report),
+                                               cwd=self.faceswap_home, capture_output=True, text=True, timeout=3600)
+                if gate.returncode != 0 or not gated.is_file():
+                    raise DirectGenError(0, "pose_gate_failed", (gate.stdout + gate.stderr)[-600:])
+                summary = json.loads(report.read_text(encoding="utf-8"))
+                job["provenance"]["pose_gate"] = {k: summary[k] for k in ("frames", "gated_frames", "gated_range")}
+                swapped = gated
                 framed = swapped
                 if job["params"]["frame"] == "16:9":
                     framed = work / "framed.mp4"

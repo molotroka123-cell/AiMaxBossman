@@ -171,6 +171,12 @@ def finish(video: Path, original: Path, dst: Path, *, fps: int | None = None) ->
         raise RuntimeError("ffmpeg finish failed: " + (r.stderr or "")[-400:])
 
 
+def pose_gate_argv(root: Path, source: Path, swapped: Path, output: Path, report: Path) -> list[str]:
+    """Keep the source face on frames where the head is bowed toward the camera (see pose_gate_worker)."""
+    worker = Path(__file__).with_name("pose_gate_worker.py")
+    return [str(python_of(root)), str(worker), str(source), str(swapped), str(output), str(report)]
+
+
 # ---------------------------------------------------------------- lossless parallel chunks
 #: Measured 10.10 on the Radeon 8060S: 2 FaceFusion processes on halves of a clip took 40.5 s instead of 64.7 s and
 #: produced bit-identical decoded frames; a 3rd process added little on a 3 s clip (model load dominates).

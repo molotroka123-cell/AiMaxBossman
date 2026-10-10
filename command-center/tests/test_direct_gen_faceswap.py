@@ -59,6 +59,22 @@ async def finish(svc, job_id, timeout=5):
     return await wait_for(check, timeout=timeout)
 
 
+REAL_POSE_GATE_ARGV = faceswap.pose_gate_argv
+FAKE_POSE_GATE = (
+    "import json, shutil, sys; src, swp, out, rep = sys.argv[1:5]; shutil.copyfile(swp, out); "
+    "open(rep, 'w').write(json.dumps({'frames': 10, 'gated_frames': 2, 'gated_range': [3, 4], 'rows': []}))"
+)
+
+
+@pytest.fixture(autouse=True)
+def fake_pose_gate(monkeypatch):
+    """The real gate runs under FaceFusion's interpreter; here a plain Python copies the swap and reports 2 gated frames."""
+    import sys
+    monkeypatch.setattr(faceswap, "pose_gate_argv",
+                        lambda root, source, swapped, output, report: [sys.executable, "-c", FAKE_POSE_GATE,
+                                                                        str(source), str(swapped), str(output), str(report)])
+
+
 class FakeFaceFusion:
     """Scripted FaceFusion: writes --output-path, reports 5/10 then 10/10."""
 
@@ -275,6 +291,58 @@ async def test_default_keeps_the_source_framing_and_never_refits(env, tmp_path, 
     created = await svc.create_swap("owner", body)
     job = await finish(svc, created["job_id"])
     assert job["status"] == "completed" and job["params"]["frame"] == "original" and refits == []
+
+
+def test_pose_alpha_fades_the_swap_out_on_a_bowed_head():
+    """10.10 two-person clip: bowed head 0.54-0.62 (frontal face pasted on the crown), normal 0.32-0.46."""
+    from bcc.direct_gen.pose_gate_worker import PITCH_OFF, PITCH_ON, pose_alpha
+    assert (PITCH_ON, PITCH_OFF) == (0.50, 0.56)
+    assert pose_alpha(None) == 1.0                                   # no face: nothing to gate
+    assert pose_alpha(0.32) == pose_alpha(0.46) == pose_alpha(0.50) == 1.0
+    assert pose_alpha(0.56) == pose_alpha(0.62) == 0.0
+    assert abs(pose_alpha(0.53) - 0.5) < 1e-9
+
+
+def test_pitch_of_separates_frontal_from_bowed_landmarks():
+    import numpy as np
+    from bcc.direct_gen.pose_gate_worker import pitch_of
+    lm = np.zeros((68, 2))
+    lm[36:48, 1] = 100                                               # eyes
+    lm[8, 1] = 200                                                   # chin
+    lm[30, 1] = 140                                                  # nose tip: 0.40 of eyes->chin = frontal
+    assert abs(pitch_of(lm) - 0.40) < 1e-9
+    lm[30, 1] = 160                                                  # nose foreshortened toward the chin = bowed
+    assert abs(pitch_of(lm) - 0.60) < 1e-9
+
+
+async def test_pose_gate_runs_after_the_swap_and_is_recorded(env, tmp_path, monkeypatch):
+    svc = install_swap(env, tmp_path, FakeFaceFusion)
+    monkeypatch.setattr(faceswap, "finish", lambda video, original, dst, **k: shutil.copyfile(video, dst))
+    created = await svc.create_swap("owner", swap_body(frame="original"))
+    job = await finish(svc, created["job_id"])
+    assert job["status"] == "completed"
+    assert job["provenance"]["pose_gate"] == {"frames": 10, "gated_frames": 2, "gated_range": [3, 4]}
+    folder = svc.store.job_dir("owner", job["job_id"])
+    assert (folder / "result" / "video.mp4").read_bytes() == b"swapped"
+
+
+async def test_pose_gate_failure_fails_the_job_honestly(env, tmp_path, monkeypatch):
+    import sys
+    svc = install_swap(env, tmp_path, FakeFaceFusion)
+    monkeypatch.setattr(faceswap, "pose_gate_argv",
+                        lambda *a: [sys.executable, "-c", "import sys; print('no detector'); sys.exit(3)"])
+    created = await svc.create_swap("owner", swap_body(frame="original"))
+    job = await finish(svc, created["job_id"])
+    assert job["status"] == "failed" and job["error"]["code"] == "pose_gate_failed"
+    assert "no detector" in job["error"]["message"]
+
+
+def test_pose_gate_argv_uses_the_facefusion_interpreter(tmp_path):
+    root = make_faceswap_home(tmp_path)
+    argv = REAL_POSE_GATE_ARGV(root, *[tmp_path / n for n in ("s.mp4", "w.mp4", "o.mp4", "r.json")])
+    assert argv[0] == str(root / ".venv" / "Scripts" / "python.exe")
+    assert Path(argv[1]).name == "pose_gate_worker.py" and Path(argv[1]).is_file()
+    assert argv[2:] == [str(tmp_path / n) for n in ("s.mp4", "w.mp4", "o.mp4", "r.json")]
 
 
 def test_plan_chunks_splits_long_clips_and_keeps_short_or_unknown_ones_whole():
