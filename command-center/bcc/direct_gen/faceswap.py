@@ -159,11 +159,16 @@ def video_seconds(video: Path) -> float:
     return float((r.stdout or "0").strip() or 0)
 
 
+DELIVERY_CRF = 10
+
+
 def finish(video: Path, original: Path, dst: Path, *, fps: int | None = None) -> None:
     """H.264 + the original audio of the source, at the source frame timing (no resampling). The VIDEO length wins:
-    a shorter audio track just ends (10.10: -shortest cut 1.8 s of picture when the source audio was shorter)."""
+    a shorter audio track just ends (10.10: -shortest cut 1.8 s of picture when the source audio was shorter).
+    crf 10 (Gate 0, 10.10, ref-clip-01): the pipeline before this encode is bit-exact; at crf 16 the delivered copy moved
+    68-point face landmarks by 0.024 IOD on average (gate limit 0.02), at crf 10 by 0.017, min PSNR 41.7 -> 42.8 dB."""
     cmd = [ffmpeg(), "-v", "error", "-y", "-i", str(video), "-i", str(original), "-map", "0:v:0", "-map", "1:a:0?",
-           "-c:v", "libx264", "-crf", "16", "-preset", "slow", "-pix_fmt", "yuv420p",
+           "-c:v", "libx264", "-crf", str(DELIVERY_CRF), "-preset", "slow", "-pix_fmt", "yuv420p",
            *(["-r", str(fps)] if fps else ["-fps_mode", "passthrough"]),
            "-c:a", "aac", "-b:a", "192k", "-t", f"{video_seconds(video):.3f}", "-movflags", "+faststart", str(dst)]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
