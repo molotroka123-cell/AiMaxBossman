@@ -1,0 +1,131 @@
+diff --git a/command-center/bcc/autonomy/goals.py b/command-center/bcc/autonomy/goals.py
+--- a/command-center/bcc/autonomy/goals.py
++++ b/command-center/bcc/autonomy/goals.py
+@@ -473,7 +473,13 @@
+         u = rec.get("usage") or {}
+         if int(u.get("agent_turns", 0)) > int(b["max_agent_turns"]):
+             return "agent turns"
+-        if float(u.get("cost_usd", 0.0)) > float(b["max_cost_usd"]) + 1e-9:
++        try:
++            cost = float(u.get("cost_usd", 0.0))
++        except (TypeError, ValueError):
++            return "cost"                                   # unusable cost report: the ceiling must bind
++        if cost != cost or cost in (float("inf"), float("-inf")):
++            return "cost"                                   # NaN / +-inf: the ceiling must bind
++        if cost > float(b["max_cost_usd"]) + 1e-9:
+             return "cost"
+         started = rec.get("started_ts")
+         if started is None and rec.get("state") != "PROPOSED":
+diff --git a/command-center/tests/test_autonomy_goal_budget_ns.py b/command-center/tests/test_autonomy_goal_budget_ns.py
+new file mode 100644
+--- /dev/null
++++ b/command-center/tests/test_autonomy_goal_budget_ns.py
+@@ -0,0 +1,108 @@
++"""Regression: the budget ceiling must always bind, whatever the reported cost is.
++
++A goal with max_cost_usd=1.0 must be BLOCKED after a cost report of 5.0, and
++must also be BLOCKED when the reported cost is unusable (NaN, +-inf, negative,
++non-number) — the ceiling is a hard limit, not a suggestion.
++"""
++from __future__ import annotations
++
++import math
++
++import pytest
++
++from bcc.autonomy.goals import GoalStore
++from bcc.autonomy.journal import Journal
++from bcc.autonomy.types import Budget, Goal
++
++
++def _mk_goal(max_cost_usd: float = 1.0) -> Goal:
++    return Goal(
++        goal_id="JEFF-0042",
++        problem="Jeff leaks the underlying model name",
++        desired_result="Jeff answers as Bossman",
++        constraints=("prompts only",),
++        acceptance_tests=("pytest:tests/test_identity.py::test_no_leak", "identity_redteam.leaks == 0"),
++        budget=Budget(max_minutes=60, max_agent_turns=100, max_cost_usd=max_cost_usd),
++        risk_tier="prompts_models",
++        target_metric="identity_redteam.leaks",
++        protected_metrics=("task_success", "latency_ms"),
++    )
++
++
++def _store(tmp_path):
++    return GoalStore(tmp_path, Journal(tmp_path / "journal.jsonl"))
++
++
++def _live_goal(store: GoalStore) -> str:
++    """Create a goal and drive it to BUILDING (a spending state)."""
++    gid = "JEFF-0042"
++    store.create(_mk_goal())
++    store.transition(gid, "PLANNED")
++    store.transition(gid, "BUILDING")
++    return gid
++
++
++@pytest.mark.parametrize("bad_cost", [5.0, float("nan"), float("inf"), float("-inf"), -1.0, "not-a-number", None])
++def test_unusable_cost_blocks_goal(tmp_path, bad_cost):
++    """Any cost that is over the ceiling, or unusable, must block the goal."""
++    store = _store(tmp_path)
++    gid = _live_goal(store)
++
++    # charge() must not raise on a bad cost; it must record it and block the goal.
++    rec = store.charge(gid, agent_turns=1, cost_usd=bad_cost)
++
++    assert rec["state"] == "BLOCKED", f"cost_usd={bad_cost!r} did not block the goal"
++    assert "budget exhausted" in rec["blocked_reason"]
++
++
++def test_valid_charging_behaves_as_before(tmp_path):
++    """A cost within the ceiling does not block the goal."""
++    store = _store(tmp_path)
++    gid = _live_goal(store)
++
++    rec = store.charge(gid, agent_turns=1, cost_usd=0.5)
++
++    assert rec["state"] == "BUILDING"
++    assert rec["usage"]["cost_usd"] == pytest.approx(0.5)
++    assert rec["usage"]["agent_turns"] == 1
++
++
++def test_budget_exceeded_directly_with_nan(tmp_path):
++    """budget_exceeded() itself must report 'cost' for a NaN usage value."""
++    store = _store(tmp_path)
++    gid = _live_goal(store)
++
++    # Inject a NaN cost directly into the record via charge with a NaN.
++    rec = store.charge(gid, agent_turns=0, cost_usd=float("nan"))
++    assert rec["state"] == "BLOCKED"
++
++    # A fresh record with NaN cost must also be detected by budget_exceeded.
++    rec2 = store.get(gid)
++    assert store.budget_exceeded(rec2) == "cost"
++
++
++def test_sweep_budgets_catches_nan_cost(tmp_path):
++    """sweep_budgets must also catch goals whose cost became unusable."""
++    store = _store(tmp_path)
++    gid = _live_goal(store)
++
++    # Charge with NaN — the goal is blocked immediately by charge().
++    store.charge(gid, agent_turns=0, cost_usd=float("nan"))
++    assert store.get(gid)["state"] == "BLOCKED"
++
++    # A goal that somehow has a NaN cost but is still live must be swept.
++    gid2 = "JEFF-0043"
++    g2 = _mk_goal()
++    g2.goal_id = gid2
++    store.create(g2)
++    store.transition(gid2, "PLANNED")
++    store.transition(gid2, "BUILDING")
++    # Manually corrupt the cost to NaN (simulating a bad external report that
++    # bypassed charge's own blocking).
++    rec = store.get(gid2)
++    rec["usage"]["cost_usd"] = float("nan")
++    store._save(rec)
++
++    blocked = store.sweep_budgets()
++    assert gid2 in blocked
++    assert store.get(gid2)["state"] == "BLOCKED"

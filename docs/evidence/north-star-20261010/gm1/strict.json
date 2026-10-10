@@ -1,0 +1,31 @@
+{
+ "task": "mistral91666879",
+ "worker": "mistral-large",
+ "model": "mistralai/mistral-large-4-0",
+ "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "changed": [
+  "command-center/bcc/autonomy/goals.py",
+  "command-center/tests/test_autonomy_goal_budget_ns.py"
+ ],
+ "RESULT_VERIFIER": {
+  "verdict": "FAIL",
+  "reasons": [
+   "NEW_REGRESSION_FAILS_WITH_THE_FIX: command-center.tests.test_autonomy_goal_budget_ns::test_negative_cost_does_not_unblock_or_overspend, command-center.tests.test_autonomy_goal_budget_ns::test_non_numeric_cost_blocks_goal"
+  ],
+  "counts_as_student_success": false
+ },
+ "reviews": [
+  {
+   "reviewer": "nvidia:google/gemma-4-31b-it",
+   "state": "accept",
+   "accepted": true,
+   "why": "accept with no findings"
+  }
+ ],
+ "review_summary": {
+  "accept": 1,
+  "reject": 0,
+  "no_verdict": 0
+ },
+ "PASS": false
+}

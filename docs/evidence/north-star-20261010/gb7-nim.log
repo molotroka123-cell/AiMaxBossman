@@ -1,0 +1,43 @@
+task b4b61abe9055 started (goal-budget, worker nvidia-nim)
+SELF_REPAIR=FAILED
+{
+ "task_id": "b4b61abe9055",
+ "case": "goal-budget",
+ "worker": "nvidia-nim",
+ "model": "nvidia/nemotron-3-super-120b-a12b",
+ "status": "completed",
+ "error": "",
+ "base_commit": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "changed_files": [
+  "command-center/tests/test_autonomy_goals.py"
+ ],
+ "verification": {
+  "ran": true,
+  "runner": "pytest",
+  "exit_code": 0,
+  "passed": true
+ },
+ "holdout_base": {
+  "total": 9,
+  "failed": 5,
+  "passed": false,
+  "exit_code": 1
+ },
+ "holdout_patched": {
+  "total": 9,
+  "failed": 5,
+  "passed": false,
+  "exit_code": 1
+ },
+ "recipe_saved": null,
+ "stages": {
+  "DEFECT_REPRODUCED": true,
+  "MODEL_PATCH_CREATED": false,
+  "BOSSMAN_ZONE_CHECK_PASS": true,
+  "HOLDOUT_PASS_ON_PATCH": false,
+  "SCOPE_RESPECTED": true,
+  "INDEPENDENT_VERIFICATION_PASS": false,
+  "EXPERIENCE_AUTO_SAVED": false
+ }
+}
+REVIEW {"reviewer": null, "accepted": false, "why": "not reviewed: tool did not report INDEPENDENT_VERIFICATION_PASS"}

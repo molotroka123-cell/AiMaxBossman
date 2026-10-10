@@ -1,0 +1,27 @@
+{
+ "finder_changed": [
+  "command-center/tests/test_v15_self_repair.py"
+ ],
+ "finder_tests": [
+  "test_classify_does_not_exclude_error_with_exclusion_substring_in_filename"
+ ],
+ "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "finder_status": "failed",
+ "zone_check_failed_as_expected": true,
+ "repro": "command-center/tests/test_nsrepro_c05.py",
+ "verify_base": "756b4620391e0db572d2546da816a673a494e28f",
+ "run_status": "FAIL",
+ "finder_results": {
+  "command-center.tests.test_nsrepro_c05::test_classify_does_not_exclude_error_with_exclusion_substring_in_filename": "FAIL"
+ },
+ "other_failures": {},
+ "DEFECT_REPRODUCED": true,
+ "judge": {
+  "model": "gemini:gemini-3.5-flash",
+  "real_defect": false,
+  "contract_basis": "none",
+  "reason": "The module uses a broad regex check (`EXCLUDE_RX.search(clean)`) as a heuristic to filter out non-code errors such as timeouts and network issues. There is no specification or promise in the docstrings or type hints that `classify` will perform context-aware or path-aware parsing to ignore keywords like 'timeout' when they appear inside path names or module filenames. The test enforces a refined behavior that goes beyond the module's established simple regex filter contract."
+ },
+ "confirmed": false,
+ "why": "judge does not confirm a real defect"
+}

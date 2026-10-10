@@ -1,0 +1,406 @@
+{
+ "id": "924b24ea0a5c",
+ "status": "failed",
+ "instruction": "Аудит бюджета целей автономии (bcc/autonomy/goals.py, GoalStore.charge и budget_exceeded): стоимость приходит из внешних отчётов, и в одном прогоне цель с потолком max_cost_usd=1.0 продолжила тратить после отчёта о стоимости 5.0 и не была заблокирована. Найди дефект и исправь так, чтобы потолок бюджета всегда срабатывал. Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только command-center/bcc/autonomy/goals.py и добавь тест-функции в command-center/tests/test_autonomy_goals.py.",
+ "boot_id": "367faa542bf4bf53",
+ "agent_id": null,
+ "agent": null,
+ "project_id": "capability-tree",
+ "memory": {
+  "requested": true,
+  "recalled": false,
+  "sources": [],
+  "recipe_ids": [],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "error": ""
+ },
+ "verify_tests": [
+  "command-center/tests/test_autonomy_goals.py"
+ ],
+ "source_repo": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\repo",
+ "allowed_paths": [
+  "command-center/bcc/autonomy/goals.py",
+  "command-center/tests/test_autonomy_goals.py"
+ ],
+ "protected_paths": [],
+ "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+ "worker": "nemotron-ultra-free",
+ "created_at": 1791660860.0942645,
+ "finished_at": 1791661254.988405,
+ "changed_files": [],
+ "diff": "",
+ "error": "сайдкар сообщил о неудаче",
+ "evidence": {
+  "modified_files": [],
+  "added_files": [],
+  "deleted_files": [],
+  "patches": {},
+  "head_before": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "head_after": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "failed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "failed",
+  "summary": "",
+  "tests": {
+   "ran": false,
+   "runner": null,
+   "paths": null,
+   "exit_code": null,
+   "passed": false,
+   "timed_out": null
+  },
+  "notes": "stop_reason=max_steps",
+  "steps": 40,
+  "stop_reason": "max_steps",
+  "tool_calls": [
+   {
+    "step": 1,
+    "tool": null,
+    "ok": false,
+    "t": 3.672,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 2,
+    "tool": null,
+    "ok": false,
+    "t": 6.578,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 3,
+    "tool": null,
+    "ok": false,
+    "t": 9.093,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 4,
+    "tool": null,
+    "ok": false,
+    "t": 15.093,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 5,
+    "tool": null,
+    "ok": false,
+    "t": 20.234,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 6,
+    "tool": null,
+    "ok": false,
+    "t": 24.015,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 7,
+    "tool": null,
+    "ok": false,
+    "t": 26.203,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 8,
+    "tool": null,
+    "ok": false,
+    "t": 32.125,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 9,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 35.047,
+    "sig": "812e7120ad1c",
+    "path": "command-center"
+   },
+   {
+    "step": 9,
+    "tool": "read_file",
+    "ok": true,
+    "t": 35.047,
+    "sig": "d5865d62e27f",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 9,
+    "tool": "read_file",
+    "ok": true,
+    "t": 35.047,
+    "sig": "a0ca58fdc2a6",
+    "path": "command-center/tests/test_autonomy_goals.py"
+   },
+   {
+    "step": 10,
+    "tool": null,
+    "ok": false,
+    "t": 42.14,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 11,
+    "tool": null,
+    "ok": false,
+    "t": 46.265,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 12,
+    "tool": null,
+    "ok": false,
+    "t": 58.609,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 13,
+    "tool": null,
+    "ok": false,
+    "t": 61.234,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 14,
+    "tool": "read_file",
+    "ok": true,
+    "t": 64.672,
+    "sig": "b0d5e6dc9a88",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 15,
+    "tool": null,
+    "ok": false,
+    "t": 74.0,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 16,
+    "tool": null,
+    "ok": false,
+    "t": 76.109,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 17,
+    "tool": null,
+    "ok": false,
+    "t": 80.797,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 18,
+    "tool": "read_file",
+    "ok": true,
+    "t": 83.703,
+    "sig": "0e303a6864bc",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 19,
+    "tool": null,
+    "ok": false,
+    "t": 86.015,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 20,
+    "tool": "read_file",
+    "ok": true,
+    "t": 88.672,
+    "sig": "4c00dcf85ae4",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 21,
+    "tool": null,
+    "ok": false,
+    "t": 94.265,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 22,
+    "tool": "read_file",
+    "ok": true,
+    "t": 96.922,
+    "sig": "903d3cc46eca",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 23,
+    "tool": null,
+    "ok": false,
+    "t": 100.14,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 24,
+    "tool": null,
+    "ok": false,
+    "t": 103.281,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 25,
+    "tool": null,
+    "ok": false,
+    "t": 104.89,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 26,
+    "tool": "read_file",
+    "ok": true,
+    "t": 107.562,
+    "sig": "5423f0da8b3d",
+    "path": "command-center/bcc/autonomy/goals.py"
+   },
+   {
+    "step": 27,
+    "tool": null,
+    "ok": false,
+    "t": 113.672,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 28,
+    "tool": null,
+    "ok": false,
+    "t": 116.875,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 29,
+    "tool": null,
+    "ok": false,
+    "t": 120.343,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 30,
+    "tool": null,
+    "ok": false,
+    "t": 172.875,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 31,
+    "tool": null,
+    "ok": false,
+    "t": 175.531,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 32,
+    "tool": null,
+    "ok": false,
+    "t": 178.187,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 33,
+    "tool": "read_file",
+    "ok": true,
+    "t": 180.25,
+    "sig": "11a37fe4f32d",
+    "path": "command-center/tests/test_autonomy_goals.py"
+   },
+   {
+    "step": 34,
+    "tool": null,
+    "ok": false,
+    "t": 184.578,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 35,
+    "tool": "search",
+    "ok": true,
+    "t": 186.328,
+    "sig": "90461f0853bb",
+    "path": "command-center/tests/test_autonomy_goals.py",
+    "pattern": "budget|charge|cost_usd|max_cost",
+    "hits": 11
+   },
+   {
+    "step": 36,
+    "tool": null,
+    "ok": false,
+    "t": 189.281,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 37,
+    "tool": null,
+    "ok": false,
+    "t": 191.453,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 38,
+    "tool": null,
+    "ok": false,
+    "t": 206.359,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 39,
+    "tool": "read_file",
+    "ok": true,
+    "t": 208.984,
+    "sig": "611e5e8867df",
+    "path": "command-center/tests/test_autonomy_goals.py"
+   },
+   {
+    "step": 40,
+    "tool": "search",
+    "ok": true,
+    "t": 243.781,
+    "sig": "e893b2041cba",
+    "path": "command-center/bcc/autonomy",
+    "pattern": "usage.*cost_usd|cost_usd.*usage|record_cost|report_cost",
+    "hits": 2
+   }
+  ],
+  "tool_calls_total": 42,
+  "elapsed_seconds": 244.125,
+  "recipes_applied": [],
+  "profile": "",
+  "memory_used": false,
+  "skills_used": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "https://openrouter.ai/api/v1"
+ },
+ "base_commit": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "duration_seconds": 394.79
+}

@@ -1,0 +1,27 @@
+{
+ "cycle": "c07",
+ "zone": {
+  "target": "command-center/bcc/scheduler.py",
+  "test": "command-center/tests/test_scheduler.py",
+  "lines": 181
+ },
+ "started": "2026-10-10T15:13:30Z",
+ "roles": {
+  "finder": "haiku-5.5",
+  "judge": "gemini:gemini-3.5-flash"
+ },
+ "stages": {
+  "FIND_TASK": {
+   "task": "c0cd6a8959bb",
+   "status": "failed",
+   "steps": 40,
+   "changed": [],
+   "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d"
+  },
+  "DEFECT_REPRODUCED": false,
+  "DEFECT_CONFIRMED_BY_JUDGE": false
+ },
+ "result": "NO_CONFIRMED_DEFECT",
+ "why": "finder produced no test (status failed, stop max_steps)",
+ "finished": "2026-10-10T15:17:25Z"
+}

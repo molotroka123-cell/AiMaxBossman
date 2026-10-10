@@ -1,0 +1,23 @@
+[
+ {
+  "reviewer": "nvidia:openai/gpt-oss-20b",
+  "accepted": false,
+  "why": "Expecting value: line 1 column 1 (char 0)"
+ },
+ {
+  "reviewer": "nvidia:google/gemma-4-31b-it",
+  "response": {
+   "nonce": "f8563260d64643cea25c73616f53732c",
+   "base_sha": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+   "patch_sha256": "5197d2368bf31e702786adde5ca0b7ba77d1667e10b88102bc093e23996992ce",
+   "verdict": "accept",
+   "covered_files": [
+    "command-center/bcc/terminal_cli/cli.py",
+    "command-center/tests/test_terminal_task_paging.py"
+   ],
+   "findings": []
+  },
+  "accepted": true,
+  "why": "accept with no findings"
+ }
+]

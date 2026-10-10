@@ -1,0 +1,19 @@
+[
+ {
+  "reviewer": "nvidia:google/gemma-4-31b-it",
+  "response": {
+   "nonce": "7735ad82562149cfbe4ceea3e01b36da",
+   "base_sha": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+   "patch_sha256": "03f34bcf1124a4b84c5d3c70baa61c1db3224e1099c4a40592b81c966b20ce28",
+   "verdict": "accept",
+   "covered_files": [
+    "command-center/bcc/autonomy/goals.py",
+    "command-center/tests/test_autonomy_goal_budget_ns.py"
+   ],
+   "findings": []
+  },
+  "accepted": true,
+  "state": "accept",
+  "why": "accept with no findings"
+ }
+]

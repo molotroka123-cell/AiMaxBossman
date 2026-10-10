@@ -1,0 +1,84 @@
+{
+ "recipe": {
+  "id": "tree-selfrepair-mistral91665054",
+  "title": "Bossman self-repair: command-center/bcc/terminal_cli/cli.py",
+  "symptom": "`bossman list tasks --limit N` must return min(N, available) tasks, newest first, without duplicates, even when N exceeds the API's 500 per-request cap (GET /api/tasks offers before_id paging). Small limits and an empty store behave as before. Existing tests must not be weakened.",
+  "cause": "CLI list tasks passed limit through; the API clamps to 500 (before_id paging exists). До исправления holdout 4/7; падали: defect: --limit 1000 with 1200 tasks returns 1000, defect: --limit 1500 with 837 tasks returns all 837, defect: --limit 600 with 700 tasks returns 600",
+  "diagnosis": "Скрытый holdout cli_task_paging.py на базе 44caf0137861 воспроизводит дефект по результату, а не по наличию проверки.",
+  "action": "Исполнитель Bossman (mistral-large/mistralai/mistral-large-4-0, задача mistral91665054): Fix tasks branch to paginate with before_id until the requested limit is met or the store is exhausted, since the API clamps each request to 500. | Изменённые строки:         rows: list[dict] = [] ;         before_id: int | None = None ;         while len(rows) < limit: ;             batch = client.get(\"/api/tasks\", params={\"limit\": min(limit - len(rows), 500), \"before_id\": before_id}) or [] ;             if not batch: ;                 break ;             rows.extend(batch) ;             if len(batch) < min(limit - len(rows) + len(batch), 500): ;                 break ;             before_id = batch[-1].get(\"id\") ;         rows = rows[:limit]",
+  "counterexample": "Не трогать корректные значения: valid: --limit 20 with 700 tasks returns the newest 20, valid: --limit 500 with 800 tasks returns 500, valid: --limit 1000 with 300 tasks returns 300 once, valid: empty store returns nothing",
+  "required_check": {
+   "tool": "run_tests",
+   "args": {
+    "paths": [
+     "command-center/bcc/terminal_cli/cli.py"
+    ]
+   }
+  },
+  "applies_when": {
+   "project_id": "capability-tree",
+   "language": "python",
+   "keywords": [
+    "list",
+    "tasks",
+    "limit",
+    "before_id",
+    "pagination",
+    "cap",
+    "500",
+    "cli"
+   ]
+  },
+  "steps": [
+   {
+    "tool": "read_file",
+    "args": {
+     "path": "command-center/bcc/terminal_cli/cli.py"
+    }
+   },
+   {
+    "tool": "search",
+    "args": {
+     "pattern": "limit",
+     "path": "command-center/bcc/terminal_cli/cli.py"
+    }
+   },
+   {
+    "tool": "run_tests",
+    "args": {
+     "paths": [
+      "command-center/bcc/terminal_cli/cli.py"
+     ]
+    }
+   }
+  ],
+  "provenance": {
+   "who": "bossman-worker:mistral-large/mistralai/mistral-large-4-0",
+   "source": "student",
+   "assistance_level": "none",
+   "what": "verified self-repair recipe",
+   "code_refs": [
+    "command-center/bcc/terminal_cli/cli.py"
+   ],
+   "test_refs": [
+    "tools/tree_holdout/cli_task_paging.py"
+   ],
+   "evidence_refs": [
+    "coding-task:mistral91665054"
+   ]
+  },
+  "status": "VERIFIED",
+  "project_id": "capability-tree",
+  "scope": "project"
+ },
+ "saved": {
+  "recipe_id": "tree-selfrepair-mistral91665054",
+  "lesson_id": "coach-lesson:b7e81cd677a2ecbb",
+  "status": "VERIFIED",
+  "version": 3,
+  "project_id": "capability-tree",
+  "scope": "project",
+  "kind": "student_fix",
+  "learning_dir": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\data\\learning"
+ }
+}

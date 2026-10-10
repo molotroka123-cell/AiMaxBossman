@@ -1,0 +1,26 @@
+{
+ "discovery_nonfinite": {
+  "total": 72,
+  "failed": 0,
+  "passed": true,
+  "failing_cases": []
+ },
+ "goal_budget_nonfinite": {
+  "total": 9,
+  "failed": 5,
+  "passed": false,
+  "failing_cases": [
+   "charge -inf then $5 over a $1 cap -> budget binds",
+   "charge nan then $5 over a $1 cap -> budget binds",
+   "charge negative then $5 over a $1 cap -> budget binds",
+   "charge str-nan then $5 over a $1 cap -> budget binds",
+   "usage already NaN on disk (older build) counts as exceeded"
+  ]
+ },
+ "atomic_json_replace": {
+  "total": 10,
+  "failed": 0,
+  "passed": true,
+  "failing_cases": []
+ }
+}

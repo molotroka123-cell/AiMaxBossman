@@ -1,0 +1,75 @@
+diff --git a/command-center/bcc/terminal_cli/cli.py b/command-center/bcc/terminal_cli/cli.py
+--- a/command-center/bcc/terminal_cli/cli.py
++++ b/command-center/bcc/terminal_cli/cli.py
+@@ -1058,7 +1058,17 @@
+                  "reason": sanitize((c.get("grant") or {}).get("reason"))[:120] or None}
+                 for c in caps.get("capabilities") or []]
+     if what == "tasks":
+-        rows = client.get("/api/tasks", params={"limit": limit}) or []
++        rows: list[dict] = []
++        before_id: int | None = None
++        while len(rows) < limit:
++            batch = client.get("/api/tasks", params={"limit": min(limit - len(rows), 500), "before_id": before_id}) or []
++            if not batch:
++                break
++            rows.extend(batch)
++            if len(batch) < min(limit - len(rows) + len(batch), 500):
++                break
++            before_id = batch[-1].get("id")
++        rows = rows[:limit]
+         return [{"id": t.get("id"), "status": t.get("status"), "task_state": state_of(t.get("status")),
+                  "title": sanitize(t.get("title"))[:100]} for t in rows]
+     if what == "approvals":
+diff --git a/command-center/tests/test_terminal_task_paging.py b/command-center/tests/test_terminal_task_paging.py
+new file mode 100644
+--- /dev/null
++++ b/command-center/tests/test_terminal_task_paging.py
+@@ -0,0 +1,48 @@
++import pytest
++
++from bcc.terminal_cli.cli import list_items
++
++
++class FakeClient:
++    def __init__(self, tasks):
++        # tasks stored newest first (descending ids), like the real API
++        self.tasks = sorted(tasks, key=lambda t: t["id"], reverse=True)
++
++    def get(self, path, params=None):
++        assert path == "/api/tasks"
++        params = params or {}
++        limit = max(1, min(params.get("limit", 100), 500))
++        before_id = params.get("before_id")
++        rows = self.tasks
++        if before_id is not None:
++            rows = [t for t in rows if t["id"] < before_id]
++        return rows[:limit]
++
++
++def make_tasks(n):
++    return [{"id": i, "status": "done", "title": f"task {i}"} for i in range(1, n + 1)]
++
++
++def test_list_tasks_explicit_limit_returns_min_n_available():
++    client = FakeClient(make_tasks(837))
++    rows = list_items(client, "tasks", limit=1000)
++    assert len(rows) == 837
++    assert [r["id"] for r in rows] == list(range(837, 0, -1))
++
++
++def test_list_tasks_paginates_past_api_cap():
++    client = FakeClient(make_tasks(600))
++    rows = list_items(client, "tasks", limit=600)
++    assert len(rows) == 600
++    assert [r["id"] for r in rows] == list(range(600, 0, -1))
++
++
++def test_list_tasks_small_limit_unchanged():
++    client = FakeClient(make_tasks(10))
++    rows = list_items(client, "tasks", limit=3)
++    assert [r["id"] for r in rows] == [10, 9, 8]
++
++
++def test_list_tasks_empty_store():
++    client = FakeClient([])
++    assert list_items(client, "tasks", limit=100) == []

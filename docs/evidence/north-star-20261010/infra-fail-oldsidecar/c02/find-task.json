@@ -1,0 +1,94 @@
+{
+ "id": "87c4d9968a17",
+ "status": "failed",
+ "instruction": "Owner request: Improve Bossman. Audit the module command-center/bcc/telegram_companion/owner_report.py (read it fully first). Find ONE real, bounded defect in it: an input on which a public function returns a wrong result, raises an unexpected exception, or violates its own docstring/contract. You may NOT change command-center/bcc/telegram_companion/owner_report.py; do NOT fix anything. Reproduce the defect by adding ONE new test function at the end of command-center/tests/test_owner_report.py that FAILS on the current code because of the defect and would pass once it is fixed. The test must call the module's public API, must not use network, wall-clock time, randomness or machine specifics, and its expected value must follow from the module's docstring, names or established behaviour, not from taste. Run command-center/tests/test_owner_report.py with run_tests: your new test must fail for the reason you describe, every other test in the file must still pass. If you find no real defect, change nothing and answer NO_DEFECT. Final answer in this form: DEFECT: <function> | INPUT: <...> | EXPECTED: <...> | ACTUAL: <...> | TEST: <test function name>.",
+ "boot_id": "76b873b8e81f6394",
+ "agent_id": null,
+ "agent": null,
+ "project_id": "north-star-20261010",
+ "memory": {
+  "requested": false,
+  "recalled": false,
+  "sources": [],
+  "recipe_ids": [],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/systematic-debugging",
+   "superpowers/test-driven-development",
+   "superpowers/verification-before-completion"
+  ],
+  "error": ""
+ },
+ "verify_tests": [
+  "command-center/tests/test_owner_report.py"
+ ],
+ "source_repo": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\repo",
+ "allowed_paths": [
+  "command-center/tests/test_owner_report.py"
+ ],
+ "protected_paths": [],
+ "model": "nvidia/nemotron-3-super-120b-a12b:free",
+ "worker": "openrouter-free",
+ "created_at": 1791643109.518918,
+ "finished_at": 1791643270.856696,
+ "changed_files": [],
+ "diff": "",
+ "error": "сайдкар сообщил о неудаче",
+ "evidence": {
+  "modified_files": [],
+  "added_files": [],
+  "deleted_files": [],
+  "patches": {},
+  "head_before": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "head_after": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "failed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "failed",
+  "summary": "model call failed: HTTPError",
+  "tests": {
+   "ran": false,
+   "runner": null,
+   "paths": null,
+   "exit_code": null,
+   "passed": false,
+   "timed_out": null
+  },
+  "notes": "stop_reason=model_error",
+  "steps": 0,
+  "stop_reason": "model_error",
+  "tool_calls": [],
+  "tool_calls_total": 0,
+  "elapsed_seconds": 0.922,
+  "recipes_applied": [],
+  "profile": "",
+  "memory_used": false,
+  "skills_used": [
+   "superpowers/systematic-debugging",
+   "superpowers/test-driven-development",
+   "superpowers/verification-before-completion"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "nvidia/nemotron-3-super-120b-a12b:free",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "https://openrouter.ai/api/v1"
+ },
+ "base_commit": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "duration_seconds": 160.89
+}

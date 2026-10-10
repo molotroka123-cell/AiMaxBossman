@@ -1,0 +1,27 @@
+{
+ "cycle": "c06",
+ "zone": {
+  "target": "command-center/bcc/mission_budget.py",
+  "test": "command-center/tests/test_mission_budget.py",
+  "lines": 249
+ },
+ "started": "2026-10-10T14:56:43Z",
+ "roles": {
+  "finder": "glm-flash",
+  "judge": "gemini:gemini-3.5-flash"
+ },
+ "stages": {
+  "FIND_TASK": {
+   "task": "7d43d9ce484d",
+   "status": "failed",
+   "steps": 40,
+   "changed": [],
+   "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d"
+  },
+  "DEFECT_REPRODUCED": false,
+  "DEFECT_CONFIRMED_BY_JUDGE": false
+ },
+ "result": "NO_CONFIRMED_DEFECT",
+ "why": "finder produced no test (status failed, stop max_steps)",
+ "finished": "2026-10-10T15:02:33Z"
+}

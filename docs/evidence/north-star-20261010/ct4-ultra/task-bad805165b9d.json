@@ -1,0 +1,385 @@
+{
+ "id": "bad805165b9d",
+ "status": "failed",
+ "instruction": "UX-прогон Bossman (tools/ux_soak) зафиксировал 42 находки high: когда задач больше 500, команда `bossman list tasks --json --limit 1000` возвращает ровно 500 задач, хотя API держит 837 (cli=500 api=837). Найди причину в command-center/bcc/terminal_cli/cli.py (list_items, ветка tasks; маршрут GET /api/tasks в command-center/bcc/api.py читай, но не меняй) и исправь так, чтобы явный --limit N возвращал min(N, всего) задач, новые первыми, без повторов; малые лимиты и пустое хранилище работают как раньше. Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только command-center/bcc/terminal_cli/cli.py и добавь тест-функции в command-center/tests/test_terminal_local_models.py; новых файлов не создавай.",
+ "boot_id": "367faa542bf4bf53",
+ "agent_id": null,
+ "agent": null,
+ "project_id": "capability-tree",
+ "memory": {
+  "requested": true,
+  "recalled": false,
+  "sources": [],
+  "recipe_ids": [],
+  "error": ""
+ },
+ "skills": {
+  "ids": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "error": ""
+ },
+ "verify_tests": [
+  "command-center/tests/test_terminal_local_models.py"
+ ],
+ "source_repo": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\repo",
+ "allowed_paths": [
+  "command-center/bcc/terminal_cli/cli.py",
+  "command-center/tests/test_terminal_local_models.py"
+ ],
+ "protected_paths": [],
+ "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+ "worker": "nemotron-ultra-free",
+ "created_at": 1791662278.318725,
+ "finished_at": 1791662621.1417274,
+ "changed_files": [],
+ "diff": "",
+ "error": "сайдкар сообщил о неудаче",
+ "evidence": {
+  "modified_files": [],
+  "added_files": [],
+  "deleted_files": [],
+  "patches": {},
+  "head_before": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "head_after": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+  "untracked_files": []
+ },
+ "sandbox_cleanup": {
+  "removed": true,
+  "path": null,
+  "error": null,
+  "kept_on_purpose": false
+ },
+ "authority": {
+  "push": false,
+  "merge": false,
+  "deploy": false
+ },
+ "sidecar_status": "failed",
+ "sidecar": {
+  "schema": "bossman.openhands.v1",
+  "status": "failed",
+  "summary": "",
+  "tests": {
+   "ran": false,
+   "runner": null,
+   "paths": null,
+   "exit_code": null,
+   "passed": false,
+   "timed_out": null
+  },
+  "notes": "stop_reason=max_steps",
+  "steps": 40,
+  "stop_reason": "max_steps",
+  "tool_calls": [
+   {
+    "step": 1,
+    "tool": null,
+    "ok": false,
+    "t": 2.61,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 2,
+    "tool": null,
+    "ok": false,
+    "t": 3.782,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 3,
+    "tool": null,
+    "ok": false,
+    "t": 5.532,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 4,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 6.922,
+    "sig": "812e7120ad1c",
+    "path": "command-center"
+   },
+   {
+    "step": 5,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 11.578,
+    "sig": "b5a518e464c7",
+    "path": "command-center/bcc"
+   },
+   {
+    "step": 6,
+    "tool": "list_dir",
+    "ok": true,
+    "t": 12.719,
+    "sig": "e032322038a3",
+    "path": "command-center/bcc/terminal_cli"
+   },
+   {
+    "step": 7,
+    "tool": null,
+    "ok": false,
+    "t": 14.188,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 8,
+    "tool": null,
+    "ok": false,
+    "t": 16.735,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 9,
+    "tool": "read_file",
+    "ok": true,
+    "t": 17.953,
+    "sig": "3af8db8ba165",
+    "path": "command-center/bcc/terminal_cli/cli.py"
+   },
+   {
+    "step": 10,
+    "tool": null,
+    "ok": false,
+    "t": 20.907,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 11,
+    "tool": "search",
+    "ok": true,
+    "t": 22.797,
+    "sig": "21c2960deffe",
+    "path": "command-center/bcc/terminal_cli/cli.py",
+    "pattern": "def list_items",
+    "hits": 1
+   },
+   {
+    "step": 12,
+    "tool": null,
+    "ok": false,
+    "t": 24.157,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 13,
+    "tool": null,
+    "ok": false,
+    "t": 25.532,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 14,
+    "tool": null,
+    "ok": false,
+    "t": 26.875,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 15,
+    "tool": null,
+    "ok": false,
+    "t": 30.844,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 16,
+    "tool": null,
+    "ok": false,
+    "t": 36.125,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 17,
+    "tool": null,
+    "ok": false,
+    "t": 39.438,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 18,
+    "tool": null,
+    "ok": false,
+    "t": 40.735,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 19,
+    "tool": "read_file",
+    "ok": true,
+    "t": 51.797,
+    "sig": "44b8938a6f96",
+    "path": "command-center/bcc/terminal_cli/cli.py"
+   },
+   {
+    "step": 20,
+    "tool": null,
+    "ok": false,
+    "t": 57.563,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 21,
+    "tool": null,
+    "ok": false,
+    "t": 59.547,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 22,
+    "tool": null,
+    "ok": false,
+    "t": 68.563,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 23,
+    "tool": null,
+    "ok": false,
+    "t": 71.375,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 24,
+    "tool": null,
+    "ok": false,
+    "t": 74.657,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 25,
+    "tool": null,
+    "ok": false,
+    "t": 84.25,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 26,
+    "tool": null,
+    "ok": false,
+    "t": 91.032,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 27,
+    "tool": null,
+    "ok": false,
+    "t": 94.469,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 28,
+    "tool": "read_file",
+    "ok": true,
+    "t": 113.11,
+    "sig": "7ae04b0216d6",
+    "path": "command-center/bcc/terminal_cli/cli.py"
+   },
+   {
+    "step": 29,
+    "tool": null,
+    "ok": false,
+    "t": 140.5,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 30,
+    "tool": null,
+    "ok": false,
+    "t": 145.282,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 31,
+    "tool": null,
+    "ok": false,
+    "t": 147.75,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 32,
+    "tool": null,
+    "ok": false,
+    "t": 150.235,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 33,
+    "tool": null,
+    "ok": false,
+    "t": 151.532,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 34,
+    "tool": null,
+    "ok": false,
+    "t": 153.828,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 35,
+    "tool": null,
+    "ok": false,
+    "t": 156.297,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 36,
+    "tool": null,
+    "ok": false,
+    "t": 162.813,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 37,
+    "tool": null,
+    "ok": false,
+    "t": 165.813,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 38,
+    "tool": null,
+    "ok": false,
+    "t": 167.875,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 39,
+    "tool": null,
+    "ok": false,
+    "t": 170.407,
+    "err": "no_tool_call"
+   },
+   {
+    "step": 40,
+    "tool": null,
+    "ok": false,
+    "t": 173.75,
+    "err": "no_tool_call"
+   }
+  ],
+  "tool_calls_total": 40,
+  "elapsed_seconds": 173.766,
+  "recipes_applied": [],
+  "profile": "",
+  "memory_used": false,
+  "skills_used": [
+   "superpowers/test-driven-development",
+   "superpowers/systematic-debugging",
+   "superpowers/verification-before-completion"
+  ],
+  "executor": "bossman-local-sidecar",
+  "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "deterministic_test_model": false,
+  "model_kind": "REAL_MODEL",
+  "endpoint": "https://openrouter.ai/api/v1"
+ },
+ "base_commit": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "duration_seconds": 342.72
+}

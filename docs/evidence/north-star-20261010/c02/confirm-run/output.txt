@@ -1,0 +1,30 @@
+........F                                                                [100%]
+================================== FAILURES ===================================
+_____ test_send_report_does_not_raise_on_close_failure_after_send_failure _____
+command-center\tests\test_nsrepro_c02.py:125: in test_send_report_does_not_raise_on_close_failure_after_send_failure
+    result = asyncio.run(orp.send_report(text, send=True, transport_factory=factory))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\Programs\Python\Python312\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+..\..\..\Programs\Python\Python312\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\Programs\Python\Python312\Lib\asyncio\base_events.py:691: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+command-center\bcc\telegram_companion\owner_report.py:109: in send_report
+    await transport.close()
+command-center\tests\test_nsrepro_c02.py:118: in close
+    raise RuntimeError("close failed")
+E   RuntimeError: close failed
+============================== warnings summary ===============================
+..\..\..\Programs\Python\Python312\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: asyncio_mode
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED command-center/tests/test_nsrepro_c02.py::test_send_report_does_not_raise_on_close_failure_after_send_failure
+1 failed, 8 passed, 1 warning in 0.96s

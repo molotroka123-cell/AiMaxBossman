@@ -1,0 +1,27 @@
+{
+ "finder_changed": [
+  "command-center/tests/test_economy_swarm.py"
+ ],
+ "finder_tests": [
+  "test_ling_pass_does_not_offer_ling_repair_when_blockers_present"
+ ],
+ "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "finder_status": "failed",
+ "zone_check_failed_as_expected": true,
+ "repro": "command-center/tests/test_nsrepro_c01.py",
+ "verify_base": "caff7bef0dad6a9c2d9e10b06134aed29aed12aa",
+ "run_status": "FAIL",
+ "finder_results": {
+  "command-center.tests.test_nsrepro_c01::test_ling_pass_does_not_offer_ling_repair_when_blockers_present": "FAIL"
+ },
+ "other_failures": {},
+ "DEFECT_REPRODUCED": true,
+ "judge": {
+  "model": "gemini:gemini-3.5-flash",
+  "real_defect": false,
+  "contract_basis": "none",
+  "reason": "The module does not specify or promise that 'ling_repair' must be excluded from allowed actions when 'ling_verdict' is 'PASS' and there are unresolved blockers. The behavior of `allowed_actions` during the repair stage explicitly allows `ling_repair` as a default free action option unless both `ling_verdict == 'PASS'` and `unresolved_blockers == 0` are met. The test imposes the auditor's opinion on how stage options should be structured rather than testing a documented contract."
+ },
+ "confirmed": false,
+ "why": "judge does not confirm a real defect"
+}

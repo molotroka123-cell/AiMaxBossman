@@ -1,0 +1,47 @@
+{
+ "task": "mistral91665054",
+ "worker": "mistral-large",
+ "model": "mistralai/mistral-large-4-0",
+ "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "changed": [
+  "command-center/bcc/terminal_cli/cli.py",
+  "command-center/tests/test_terminal_task_paging.py"
+ ],
+ "RESULT_VERIFIER": {
+  "verdict": "PASS",
+  "reasons": [
+   "task tests pass, nothing regressed, the regression fails without the fix"
+  ],
+  "counts_as_student_success": true
+ },
+ "reviews": [
+  {
+   "reviewer": "nvidia:google/gemma-4-31b-it",
+   "state": "accept",
+   "accepted": true,
+   "why": "accept with no findings"
+  },
+  {
+   "reviewer": "nvidia:z-ai/glm-5.3",
+   "state": "no_verdict",
+   "accepted": false,
+   "why": "nvidia/z-ai/glm-5.3 failed: ['NVIDIA_API_KEY: HTTP 504']"
+  }
+ ],
+ "review_summary": {
+  "accept": 1,
+  "reject": 0,
+  "no_verdict": 1
+ },
+ "PASS": true,
+ "recipe_saved": {
+  "recipe_id": "tree-selfrepair-mistral91665054",
+  "lesson_id": "coach-lesson:b7e81cd677a2ecbb",
+  "status": "VERIFIED",
+  "version": 3,
+  "project_id": "capability-tree",
+  "scope": "project",
+  "kind": "student_fix",
+  "learning_dir": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\data\\learning"
+ }
+}

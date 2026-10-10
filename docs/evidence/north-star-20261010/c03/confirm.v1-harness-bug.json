@@ -1,0 +1,7 @@
+{
+ "finder_changed": [],
+ "finder_tests": [],
+ "base": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "confirmed": false,
+ "why": "finder produced no test (status failed)"
+}

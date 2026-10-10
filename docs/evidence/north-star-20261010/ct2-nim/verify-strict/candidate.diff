@@ -1,0 +1,117 @@
+diff --git a/command-center/bcc/terminal_cli/cli.py b/command-center/bcc/terminal_cli/cli.py
+index f06c10f..8127256 100644
+--- a/command-center/bcc/terminal_cli/cli.py
++++ b/command-center/bcc/terminal_cli/cli.py
+@@ -1058,7 +1058,25 @@ def list_items(client: Client, what: str, *, limit: int = 20) -> list[dict]:
+                  "reason": sanitize((c.get("grant") or {}).get("reason"))[:120] or None}
+                 for c in caps.get("capabilities") or []]
+     if what == "tasks":
+-        rows = client.get("/api/tasks", params={"limit": limit}) or []
++        rows = []
++        remaining = limit
++        before_id = None
++        while remaining > 0:
++            batch_limit = min(remaining, 500)
++            params = {"limit": batch_limit}
++            if before_id is not None:
++                params["before_id"] = before_id
++            batch = client.get("/api/tasks", params=params) or []
++            if not batch:
++                break
++            rows.extend(batch)
++            # Since order is descending by id, the last element in batch has the smallest id
++            before_id = batch[-1].get("id")
++            remaining -= len(batch)
++            if len(batch) < batch_limit:
++                break
++        # Trim to limit in case we collected more (should not happen, but safe)
++        rows = rows[:limit]
+         return [{"id": t.get("id"), "status": t.get("status"), "task_state": state_of(t.get("status")),
+                  "title": sanitize(t.get("title"))[:100]} for t in rows]
+     if what == "approvals":
+diff --git a/command-center/tests/test_terminal_local_models.py b/command-center/tests/test_terminal_local_models.py
+index 291f825..8f8f1dc 100644
+--- a/command-center/tests/test_terminal_local_models.py
++++ b/command-center/tests/test_terminal_local_models.py
+@@ -3,7 +3,12 @@ from bcc.terminal_cli.cli import list_items
+ 
+ 
+ class FakeClient:
+-    def get(self, path):
++    def __init__(self, tasks=None):
++        self.tasks = tasks or []
++        self.get_calls = []
++
++    def get(self, path, params=None):
++        self.get_calls.append((path, params))
+         if path == "/api/agents":
+             return []
+         if path == "/api/providers":
+@@ -16,7 +21,19 @@ class FakeClient:
+                       "alias": f"ollama-{i}", "kind": "local"} for i in range(1, 5)] +
+                     [{"id": 9, "provider_id": 2, "name": "stale-llama", "alias": "stale",
+                       "kind": "local"}])
+-        raise AssertionError(path)
++        if path == "/api/tasks":
++            limit = params.get("limit") if params else None
++            before_id = params.get("before_id") if params else None
++            # Simulate the API: order by id descending, limit, and before_id means id < before_id
++            filtered = self.tasks
++            if before_id is not None:
++                filtered = [t for t in filtered if t["id"] < before_id]
++            # Sort descending by id
++            filtered = sorted(filtered, key=lambda t: t["id"], reverse=True)
++            if limit is not None:
++                filtered = filtered[:limit]
++            return filtered
++        raise AssertionError(f"Unexpected GET {path} with params {params}")
+ 
+     def post(self, path, body):
+         assert path == "/api/models/discover" and body == {}
+@@ -37,3 +54,46 @@ def test_cmd_catalog_includes_unregistered_ollama_and_marks_stale_endpoint():
+     stale = next(row for row in rows if row["name"] == "stale-llama")
+     assert stale["catalog_status"] == "unavailable"
+     assert stale["registered"] is True
++
++
++def test_list_tasks_respects_limit_over_500():
++    # Create 800 fake tasks with ids 1..800
++    tasks = [{"id": i, "status": "pending", "title": f"Task {i}"} for i in range(1, 801)]
++    client = FakeClient(tasks=tasks)
++    rows = list_items(client, "tasks", limit=800)
++    # We should get exactly 800 tasks
++    assert len(rows) == 800
++    # Check that the IDs are in descending order (as per API) and we got all
++    ids = [r["id"] for r in rows]
++    assert ids == list(range(800, 0, -1))
++    # Ensure that the client made multiple calls due to pagination
++    # We expect at least two calls because limit per call is 500
++    assert len(client.get_calls) >= 2
++    # The first call should have limit=500, no before_id
++    first_path, first_params = client.get_calls[0]
++    assert first_path == "/api/tasks"
++    assert first_params.get("limit") == 500
++    assert first_params.get("before_id") is None
++    # The second call should have limit=300 (because 800-500=300 remaining) and before_id set to the last id from first batch (which is 301)
++    second_path, second_params = client.get_calls[1]
++    assert second_path == "/api/tasks"
++    assert second_params.get("limit") == 300
++    assert second_params.get("before_id") == 301
++    # If there were more calls, they should have appropriate before_id
++    # We can also check that the total number of tasks returned across calls is 800
++    # But we already checked the rows length.
++
++
++def test_list_tasks_limit_under_500_works_as_before():
++    tasks = [{"id": i, "status": "pending", "title": f"Task {i}"} for i in range(1, 300)]
++    client = FakeClient(tasks=tasks)
++    rows = list_items(client, "tasks", limit=200)
++    assert len(rows) == 200
++    ids = [r["id"] for r in rows]
++    assert ids == list(range(299, 99, -1))  # descending from 299 to 100
++    # Should be a single call because limit <= 500
++    assert len(client.get_calls) == 1
++    path, params = client.get_calls[0]
++    assert path == "/api/tasks"
++    assert params.get("limit") == 200
++    assert params.get("before_id") is None

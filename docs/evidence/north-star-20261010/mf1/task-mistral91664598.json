@@ -1,0 +1,18 @@
+{
+ "id": "mistral91664598",
+ "worker": "mistral-large",
+ "model": "mistralai/mistral-large-4-0",
+ "base_commit": "44caf01378615e30c8443ae7bd2442d2aa6b5d3d",
+ "source_repo": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\repo",
+ "status": "failed",
+ "changed_files": [],
+ "diff": "",
+ "cost_usd": 0.01793788,
+ "sidecar": {
+  "summary": "",
+  "steps": 1,
+  "stop_reason": "single_call"
+ },
+ "memory": {},
+ "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+}

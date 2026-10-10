@@ -1,0 +1,60 @@
+{
+ "holdout": "atomic_json_replace/1",
+ "module": "C:\\Users\\asd\\Bossman\\ns-lab-20261010\\repo\\bossman-core\\bossman_v3\\self_improvement\\runner.py",
+ "total": 10,
+ "failed": 0,
+ "passed": true,
+ "failures": [],
+ "cases": [
+  {
+   "case": "reader holds the destination open 0.4 s -> write completes with the new content",
+   "ok": true,
+   "detail": "err='' content={'v': 1, 'text': 'Привет'} after=0.41s tmp=[]"
+  },
+  {
+   "case": "reader holds the destination open 1.0 s -> write completes with the new content",
+   "ok": true,
+   "detail": "err='' content={'v': 1, 'text': 'Привет'} after=1.05s tmp=[]"
+  },
+  {
+   "case": "8 concurrent writers x 25 to one path -> no writer fails, file is valid JSON, no tmp left",
+   "ok": true,
+   "detail": "writer_errors=0 [] final={'writer': 1, 'n': 24} tmp=[]"
+  },
+  {
+   "case": "4 writers x 25 with 4 readers on the same path -> no writer fails",
+   "ok": true,
+   "detail": "writer_errors=0 [] tmp=[]"
+  },
+  {
+   "case": "a reader holding 2.5 s: returns within 15 s (success or a PermissionError), no tmp left",
+   "ok": true,
+   "detail": "err='' after=2.55s tmp=[]"
+  },
+  {
+   "case": "valid/creates parent dirs, roundtrips unicode, indented, no tmp",
+   "ok": true,
+   "detail": "text='{\\n  \"k\": [\\n    1,\\n    2.5,\\n    null,\\n    true\\n  ],\\n  \"ru\": \"Привет\"\\n}'"
+  },
+  {
+   "case": "valid/overwrite replaces the content",
+   "ok": true,
+   "detail": "{\n  \"v\": 2\n}"
+  },
+  {
+   "case": "valid/NaN is refused (ValueError), old file intact, no tmp",
+   "ok": true,
+   "detail": "kept the old file"
+  },
+  {
+   "case": "valid/content equals redact_obj(value)",
+   "ok": true,
+   "detail": "{\n  \"note\": \"ok\",\n  \"key\": \"***REDACTED***\",\n  \"auth\": \"Bearer ***REDACTED***\"\n}"
+  },
+  {
+   "case": "valid/unserialisable value fails cleanly, no tmp, no file",
+   "ok": true,
+   "detail": "files=[]"
+  }
+ ]
+}

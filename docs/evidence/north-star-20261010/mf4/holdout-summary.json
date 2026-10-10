@@ -1,0 +1,13 @@
+{
+ "holdout_base": {
+  "total": 7,
+  "failed": 3,
+  "passed": false
+ },
+ "holdout_patched": {
+  "total": 7,
+  "failed": 0,
+  "passed": true,
+  "error": null
+ }
+}

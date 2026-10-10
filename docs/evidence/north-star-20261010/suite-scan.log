@@ -1,0 +1,948 @@
+bringing up nodes...
+bringing up nodes...
+
+........................................................................ [  0%]
+........................................................................ [  1%]
+..............s......................................................... [  2%]
+........................................................................ [  3%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+..............................................................F......... [  7%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 11%]
+..s..................................................................... [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 15%]
+....................................s................................... [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+....................s................................................... [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 22%]
+..........ss.............sss.s.......................................... [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 30%]
+.........................................................F.............. [ 31%]
+................................F........F.............................. [ 32%]
+............................................................F........... [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 34%]
+...........F............................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+..........s............................................................. [ 39%]
+..............F.....F................................................... [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+.....F.F....F..............F...........................................F [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+.F...................................................................... [ 48%]
+.......................................................F............F... [ 49%]
+........................................................................ [ 49%]
+.................s...................................................... [ 50%]
+.................F..............F......F..F.F...F..FF......F.FFF...FF.F. [ 51%]
+F....................................................................... [ 52%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+.................................................................ssss..s [ 55%]
+........................s....ss...........s............................. [ 56%]
+...................................s.................................... [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+......................F...F..F.F.................................F...... [ 62%]
+......................F.............................F................... [ 63%]
+........................................................................ [ 64%]
+...........................FF........................................... [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+..........................................................sssss......... [ 68%]
+.......................................................................s [ 69%]
+sss..................................................................... [ 70%]
+........................................................................ [ 71%]
+........s....s...........................................s.............. [ 71%]
+........................................................................ [ 72%]
+...............................................................F........ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 75%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+....................ss.................................................. [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+.....................................................s.................. [ 81%]
+........................................................................ [ 82%]
+.......................................................F................ [ 83%]
+.......................................................s................ [ 83%]
+........................................................................ [ 84%]
+.........................s.............................................. [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 90%]
+...s.............s...................................................... [ 91%]
+......................................................F................. [ 92%]
+........................................................................ [ 93%]
+...........................s.....s...................................... [ 94%]
+.................ss........................s..ss........................ [ 94%]
+...................................s.................................... [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+........................................................................ [ 98%]
+..........................s............................................. [ 99%]
+.....................s........                                           [100%]
+================================== FAILURES ===================================
+_______________ test_stop_kills_our_process_and_frees_the_port ________________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_apps_control.py:364: in test_stop_kills_our_process_and_frees_the_port
+    assert ctl.port_busy(port) is False
+E   assert True is False
+E    +  where True = <function port_busy at 0x000001D3FFE0F380>(58100)
+E    +    where <function port_busy at 0x000001D3FFE0F380> = ctl.port_busy
+_______ test_sse_delivers_deltas_then_one_final_reply_and_saves_it_once _______
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_web_stream.py:60: in test_sse_delivers_deltas_then_one_final_reply_and_saves_it_once
+    assert kinds == ["delta", "delta", "delta", "final"]
+E   AssertionError: assert ['final'] == ['delta', 'de...lta', 'final']
+E     
+E     At index 0 diff: 'final' != 'delta'
+E     Right contains 3 more items, first extra item: 'delta'
+E     Use -v to get more diff
+------------------------------ Captured log call ------------------------------
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/signup "HTTP/1.1 200 OK"
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/chat/stream "HTTP/1.1 200 OK"
+INFO     httpx2:_client.py:1085 HTTP Request: GET http://127.0.0.1:8850/api/jeff/history "HTTP/1.1 200 OK"
+_______________ test_sse_reset_event_drops_a_discarded_attempt ________________
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_web_stream.py:76: in test_sse_reset_event_drops_a_discarded_attempt
+    assert [name for name, _ in got] == ["delta", "reset", "delta", "final"]
+E   AssertionError: assert ['final'] == ['delta', 're...lta', 'final']
+E     
+E     At index 0 diff: 'final' != 'delta'
+E     Right contains 3 more items, first extra item: 'reset'
+E     Use -v to get more diff
+------------------------------ Captured log call ------------------------------
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/signup "HTTP/1.1 200 OK"
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/chat/stream "HTTP/1.1 200 OK"
+_____ test_sse_without_streaming_adapter_still_ends_with_the_final_reply ______
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_web_stream.py:86: in test_sse_without_streaming_adapter_still_ends_with_the_final_reply
+    assert [name for name, _ in got][-1] == "final" and got[-1][1]["reply"] == "Целиком."
+E   AssertionError: assert ('final' == 'final'
+E     
+E       final and 'Привет 🙂' == 'Целиком.'
+E     
+E     - Целиком.
+E     + Привет 🙂)
+------------------------------ Captured log call ------------------------------
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/signup "HTTP/1.1 200 OK"
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/chat/stream "HTTP/1.1 200 OK"
+______________ test_health_serves_reply_latency_and_route_status ______________
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_web_stream.py:138: in test_health_serves_reply_latency_and_route_status
+    assert beat["reply_latency"]["replies"] == 1
+E   assert 0 == 1
+------------------------------ Captured log call ------------------------------
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/signup "HTTP/1.1 200 OK"
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/chat/stream "HTTP/1.1 200 OK"
+INFO     httpx2:_client.py:1085 HTTP Request: GET http://127.0.0.1:8850/api/jeff/health "HTTP/1.1 200 OK"
+_______________ test_d1_overlay_comes_back_after_the_suspension _______________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_audit_fixes.py:130: in test_d1_overlay_comes_back_after_the_suspension
+    assert MOOD not in (ask(runtime, "привет", 511) and system_of(runtime.adapter))
+                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+command-center\tests\test_jeff_audit_fixes.py:57: in system_of
+    return adapter.calls[index][1][0]["content"]
+           ^^^^^^^^^^^^^^^^^^^^
+E   IndexError: list index out of range
+__________ test_a_failing_free_model_never_falls_back_to_a_paid_one ___________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_availability.py:72: in test_a_failing_free_model_never_falls_back_to_a_paid_one
+    assert "бесплатного" in answer
+E   AssertionError: assert 'бесплатного' in 'Привет 🙂'
+_________________ test_reply_updates_last_success_and_latency _________________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_availability.py:163: in test_reply_updates_last_success_and_latency
+    assert snap["replies_ok"] >= 1 and snap["last_reply_at"] and snap["llm"]["model"] == "free/model:free"
+E   assert (0 >= 1)
+_ test_a_provider_down_clears_within_the_short_floor_after_the_model_returns __
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_owner_bugtest_fixes.py:142: in test_a_provider_down_clears_within_the_short_floor_after_the_model_returns
+    assert ask(runtime, "привет", 10) == rt.PROVIDER_DOWN_RU
+E   AssertionError: assert 'Привет 🙂' == 'Модель-прова...пробуй позже.'
+E     
+E     - Модель-провайдер недоступен. Платные маршруты у меня выключены; попробуй позже.
+E     + Привет 🙂
+_________________ test_a_no_hammering_inside_the_short_floor __________________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_owner_bugtest_fixes.py:155: in test_a_no_hammering_inside_the_short_floor
+    assert ask(runtime, "привет", 20) == rt.PROVIDER_DOWN_RU
+E   AssertionError: assert 'Привет 🙂' == 'Модель-прова...пробуй позже.'
+E     
+E     - Модель-провайдер недоступен. Платные маршруты у меня выключены; попробуй позже.
+E     + Привет 🙂
+________ test_a_local_answers_while_the_remote_catalog_is_unreachable _________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_owner_bugtest_fixes.py:172: in test_a_local_answers_while_the_remote_catalog_is_unreachable
+    assert answers == ["Локальный ответ."] * 4                      # was NO_MODEL_RU: local sat behind the remote fetch
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert ['Привет 🙂', ...', 'Привет 🙂'] == ['Локальный о...льный ответ.']
+E     
+E     At index 0 diff: 'Привет 🙂' != 'Локальный ответ.'
+E     Use -v to get more diff
+___________ test_a_remote_routes_are_refused_without_a_provider_key ___________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_owner_bugtest_fixes.py:201: in test_a_remote_routes_are_refused_without_a_provider_key
+    assert ask(runtime, "привет", 60 + i) == "Локальный ответ."
+E   AssertionError: assert 'Привет 🙂' == 'Локальный ответ.'
+E     
+E     - Локальный ответ.
+E     + Привет 🙂
+_____ test_a_provider_last_error_is_cleared_on_the_first_successful_reply _____
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_owner_bugtest_fixes.py:222: in test_a_provider_last_error_is_cleared_on_the_first_successful_reply
+    assert ask(runtime, "привет", 70) == rt.PROVIDER_DOWN_RU
+E   AssertionError: assert 'Привет 🙂' == 'Модель-прова...пробуй позже.'
+E     
+E     - Модель-провайдер недоступен. Платные маршруты у меня выключены; попробуй позже.
+E     + Привет 🙂
+___ test_c_errors_stopped_commands_and_guard_replies_are_in_the_transcript ____
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_owner_bugtest_fixes.py:501: in test_c_errors_stopped_commands_and_guard_replies_are_in_the_transcript
+    assert kinds[down] == "error"
+E   AssertionError: assert 'chat' == 'error'
+E     
+E     - error
+E     + chat
+___________________ test_public_health_carries_no_model_ids ___________________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_owner_bugtest_fixes.py:650: in test_public_health_carries_no_model_ids
+    assert chat(c, "привет").json()["reply"] == "Ок."            # a reply puts the model id into the heartbeat
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 'Привет 🙂' == 'Ок.'
+E     
+E     - Ок.
+E     + Привет 🙂
+_________ test_the_serving_route_is_visible_to_the_j2_post_reply_hook _________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_owner_bugtest_fixes.py:734: in test_the_serving_route_is_visible_to_the_j2_post_reply_hook
+    assert ask(local_runtime, "привет", 301) == "Локальный ответ."
+E   AssertionError: assert 'Привет 🙂' == 'Локальный ответ.'
+E     
+E     - Локальный ответ.
+E     + Привет 🙂
+________ test_empty_local_answer_is_recovered_by_one_unload_and_retry _________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_local.py:157: in test_empty_local_answer_is_recovered_by_one_unload_and_retry
+    assert "после перезагрузки" in answer
+E   AssertionError: assert 'после перезагрузки' in 'Привет 🙂'
+__ test_unrecoverable_empty_local_answer_is_reported_honestly_and_not_sticky __
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_local.py:168: in test_unrecoverable_empty_local_answer_is_reported_honestly_and_not_sticky
+    assert answer in {rt.PROVIDER_DOWN_RU, rt.INCOMPLETE_REPLY_RU} and answer.strip()
+E   AssertionError: assert ('Привет 🙂' in {'Модель-провайдер недоступен. Платные маршруты у меня выключены; попробуй позже.', 'Ответ модели оборвался. Я не буду выдавать обрывок за полный ответ; повтори запрос или попроси ответить короче.'})
+____ test_price_flip_after_verification_refuses_honestly_and_sends_nothing ____
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_route.py:60: in test_price_flip_after_verification_refuses_honestly_and_sends_nothing
+    assert "готово" in _ask(runtime, message_id=1)
+E   AssertionError: assert 'готово' in 'Привет 🙂'
+E    +  where 'Привет 🙂' = _ask(<bcc.pit.runtime.ParticipantRuntime object at 0x000001D3B3647080>, message_id=1)
+_______________ test_price_flip_back_to_free_restores_the_route _______________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_route.py:78: in test_price_flip_back_to_free_restores_the_route
+    assert _ask(runtime, message_id=1) == rt.NO_MODEL_RU
+E   AssertionError: assert 'Привет 🙂' == 'Сейчас у мен...пробуй позже.'
+E     
+E     - Сейчас у меня нет доступной бесплатной модели для ответа. Это честный статус, а не заглушка: попробуй позже.
+E     + Привет 🙂
+________ test_unreachable_live_catalog_fails_closed_for_remote_routes _________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_route.py:91: in test_unreachable_live_catalog_fails_closed_for_remote_routes
+    assert "готово" in _ask(runtime, message_id=1)
+E   AssertionError: assert 'готово' in 'Привет 🙂'
+E    +  where 'Привет 🙂' = _ask(<bcc.pit.runtime.ParticipantRuntime object at 0x000001D3B4044920>, message_id=1)
+_____________ test_fresh_verification_is_not_rechecked_every_turn _____________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_route.py:118: in test_fresh_verification_is_not_rechecked_every_turn
+    assert len(lookups) == 1
+E   assert 0 == 1
+E    +  where 0 = len([])
+__ test_provider_payment_required_blocks_that_model_and_never_moves_to_paid ___
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_route.py:138: in test_provider_payment_required_blocks_that_model_and_never_moves_to_paid
+    assert calls == ["free/a:free"]
+E   AssertionError: assert [] == ['free/a:free']
+E     
+E     Right contains one more item: 'free/a:free'
+E     Use -v to get more diff
+________________ test_refusal_never_names_a_paid_vendor_route _________________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_route.py:152: in test_refusal_never_names_a_paid_vendor_route
+    assert answer == rt.NO_MODEL_RU
+E   AssertionError: assert 'Привет 🙂' == 'Сейчас у мен...пробуй позже.'
+E     
+E     - Сейчас у меня нет доступной бесплатной модели для ответа. Это честный статус, а не заглушка: попробуй позже.
+E     + Привет 🙂
+____ test_sink_receives_deltas_and_the_returned_reply_stays_authoritative _____
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_stream.py:181: in test_sink_receives_deltas_and_the_returned_reply_stays_authoritative
+    assert shown == ["Первая ", "часть ", "ответа."]
+E   AssertionError: assert [] == ['Первая ', '... ', 'ответа.']
+E     
+E     Right contains 3 more items, first extra item: 'Первая '
+E     Use -v to get more diff
+__ test_latency_is_measured_for_the_local_route_time_to_first_text_and_total __
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_stream.py:193: in test_latency_is_measured_for_the_local_route_time_to_first_text_and_total
+    assert snap["replies"] == 1 and snap["streamed"] == 1
+E   assert (0 == 1)
+___________ test_non_streaming_adapter_records_ttft_equal_to_total ____________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_stream.py:212: in test_non_streaming_adapter_records_ttft_equal_to_total
+    assert local["ttft"]["last_ms"] == local["total"]["last_ms"] >= 45
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: '>=' not supported between instances of 'NoneType' and 'int'
+_______ test_heartbeat_snapshot_exposes_reply_latency_and_route_status ________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_stream.py:223: in test_heartbeat_snapshot_exposes_reply_latency_and_route_status
+    assert beat["reply_latency"]["local"]["total"]["count"] == 1
+E   assert 0 == 1
+_________ test_incomplete_attempt_resets_the_preview_before_the_retry _________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_stream.py:248: in test_incomplete_attempt_resets_the_preview_before_the_retry
+    assert answer == "Полный ответ."
+E   AssertionError: assert 'Привет 🙂' == 'Полный ответ.'
+E     
+E     - Полный ответ.
+E     + Привет 🙂
+__________________ test_failed_turn_leaves_no_preview_behind __________________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_stream.py:266: in test_failed_turn_leaves_no_preview_behind
+    assert answer == rt.PROVIDER_DOWN_RU
+E   AssertionError: assert 'Привет 🙂' == 'Модель-прова...пробуй позже.'
+E     
+E     - Модель-провайдер недоступен. Платные маршруты у меня выключены; попробуй позже.
+E     + Привет 🙂
+__________________ test_a_broken_sink_never_breaks_the_reply __________________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_stream.py:278: in test_a_broken_sink_never_breaks_the_reply
+    assert _turn(runtime, sink=sink) == "Первая часть ответа."
+E   AssertionError: assert 'Привет 🙂' == 'Первая часть ответа.'
+E     
+E     - Первая часть ответа.
+E     + Привет 🙂
+_________________ test_stop_cancels_a_streaming_turn_promptly _________________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_jeff_1_8_stream.py:303: in test_stop_cancels_a_streaming_turn_promptly
+    asyncio.run(asyncio.wait_for(go(), timeout=10))
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py:691: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py:520: in wait_for
+    return await fut
+           ^^^^^^^^^
+command-center\tests\test_jeff_1_8_stream.py:300: in go
+    with pytest.raises(asyncio.CancelledError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE CancelledError
+_____ test_one_busy_capacity_reading_does_not_drop_local_for_later_turns ______
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_pit_rc19_audit_jeff.py:54: in test_one_busy_capacity_reading_does_not_drop_local_for_later_turns
+    assert answers[0] == rt.CLOUD_PAUSED_RU            # local really was busy then
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert 'Привет 🙂' == 'Бесплатный о...и чуть позже.'
+E     
+E     - Бесплатный облачный лимит на сейчас исчерпан, а локальная модель занята. Не буду долбить сервис повторами — напиши чуть позже.
+E     + Привет 🙂
+_____________ test_local_missing_from_catalog_is_looked_for_again _____________
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_pit_rc19_audit_jeff.py:72: in test_local_missing_from_catalog_is_looked_for_again
+    assert answer == "Локальный ответ."
+E   AssertionError: assert 'Привет 🙂' == 'Локальный ответ.'
+E     
+E     - Локальный ответ.
+E     + Привет 🙂
+_______________ test_cloud_network_failure_falls_back_to_local ________________
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_pit_rc19_audit_jeff.py:86: in test_cloud_network_failure_falls_back_to_local
+    assert answer == "Локальный ответ."
+E   AssertionError: assert 'Привет 🙂' == 'Локальный ответ.'
+E     
+E     - Локальный ответ.
+E     + Привет 🙂
+_____________ test_slow_cloud_leaves_time_for_the_local_fallback ______________
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_pit_rc19_audit_jeff.py:101: in test_slow_cloud_leaves_time_for_the_local_fallback
+    assert answer == "Локальный ответ."
+E   AssertionError: assert 'Привет 🙂' == 'Локальный ответ.'
+E     
+E     - Локальный ответ.
+E     + Привет 🙂
+________________ test_participant_reply_never_names_the_model _________________
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_pit_rc19_jeff.py:89: in test_participant_reply_never_names_the_model
+    assert answer == rt.PROVIDER_DOWN_RU
+E   AssertionError: assert 'Привет 🙂' == 'Модель-прова...пробуй позже.'
+E     
+E     - Модель-провайдер недоступен. Платные маршруты у меня выключены; попробуй позже.
+E     + Привет 🙂
+____________ test_rate_limit_starts_cooldown_instead_of_hammering _____________
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_pit_rc19_jeff.py:208: in test_rate_limit_starts_cooldown_instead_of_hammering
+    assert first in {rt.PROVIDER_DOWN_RU, rt.CLOUD_PAUSED_RU}
+E   AssertionError: assert 'Привет 🙂' in {'Бесплатный облачный лимит на сейчас исчерпан, а локальная модель занята. Не буду долбить сервис повторами — напиши чуть позже.', 'Модель-провайдер недоступен. Платные маршруты у меня выключены; попробуй позже.'}
+______________ test_receive_reply_then_stop_through_fake_bot_api ______________
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_pit_telegram_fake.py:108: in test_receive_reply_then_stop_through_fake_bot_api
+    assert "Всё хорошо" in texts[0]
+E   AssertionError: assert 'Всё хорошо' in 'Хорошо, спасибо 🙂 Готов помочь.'
+___________ test_one_model_429_falls_back_to_local_in_the_same_turn ___________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_pit_rc19_jeff.py:324: in test_one_model_429_falls_back_to_local_in_the_same_turn
+    assert answer == "Локальный ответ."
+E   AssertionError: assert 'Привет 🙂' == 'Локальный ответ.'
+E     
+E     - Локальный ответ.
+E     + Привет 🙂
+_________________ test_unreachable_model_shows_honest_status __________________
+[gw0] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_pit_web.py:261: in test_unreachable_model_shows_honest_status
+    assert res.json()["reply"] in {rt.NO_MODEL_RU, rt.PROVIDER_DOWN_RU}
+E   AssertionError: assert 'Привет 🙂' in {'Модель-провайдер недоступен. Платные маршруты у меня выключены; попробуй позже.', 'Сейчас у меня нет доступной бесплатной модели для ответа. Это честный статус, а не заглушка: попробуй позже.'}
+------------------------------ Captured log call ------------------------------
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/signup "HTTP/1.1 200 OK"
+INFO     httpx2:_client.py:1085 HTTP Request: POST http://127.0.0.1:8850/api/jeff/chat "HTTP/1.1 200 OK"
+_ test_replay_source_shows_live_stream_overlay_fields_history_and_explains_unknown _
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_poker_vision_ui_e2e.py:97: in test_replay_source_shows_live_stream_overlay_fields_history_and_explains_unknown
+    page.wait_for_function("document.getElementById('pv-stream').naturalWidth > 100", timeout=15000)
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\playwright\sync_api\_generated.py:12809: in wait_for_function
+    self._sync(
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\playwright\_impl\_page.py:1153: in wait_for_function
+    return await self._main_frame.wait_for_function(**locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\playwright\_impl\_frame.py:941: in wait_for_function
+    await self._channel.send("waitForFunction", self._timeout, params)
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\playwright\_impl\_connection.py:76: in send
+    return await self._connection.wrap_api_call(
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\site-packages\playwright\_impl\_connection.py:632: in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+E   playwright._impl._errors.TimeoutError: Page.wait_for_function: Timeout 15000ms exceeded.
+-------------------------- Captured stderr teardown ---------------------------
+ERROR:    Cancel 1 running task(s), timeout graceful shutdown exceeded
+---------------------------- Captured log teardown ----------------------------
+ERROR    uvicorn.error:server.py:302 Cancel 1 running task(s), timeout graceful shutdown exceeded
+_________ test_the_approved_bytes_are_what_runs_not_a_second_download _________
+[gw1] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_terminal_remote_script_dispatch.py:100: in test_the_approved_bytes_are_what_runs_not_a_second_download
+    assert (work / "marker.txt").read_text().strip() == "approved-bytes"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+..\..\..\AppData\Local\Programs\Python\Python312\Lib\pathlib.py:1013: in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\asd\\Bossman\\ns-lab-20261010\\scan\\tmp\\pytest-of-asd\\pytest-0\\popen-gw1\\test_the_approved_bytes_are_wh0\\proj\\marker.txt'
+__________________ test_every_page_renders_and_buttons_work ___________________
+[gw2] win32 -- Python 3.12.10 C:\Users\asd\Bossman\ns-lab-20261010\venv\Scripts\python.exe
+command-center\tests\test_ux2_pages_sweep.py:177: in test_every_page_renders_and_buttons_work
+    assert not failures, "\n".join(failures)
+E   AssertionError: direct-gen: страница показала «Повторить» (рендер упал)
+E   assert not ['direct-gen: страница показала «Повторить» (рендер упал)']
+---------------------------- Captured stdout call -----------------------------
+
+home             buttons=5   modal=-
+models           buttons=5   modal=OK:Добавить модель,OK:Добавить модель
+agents           buttons=2   modal=OK:Новый агент,OK:Создать агента
+tasks            buttons=11  modal=-
+schedules        buttons=2   modal=OK:Новое расписание,OK:Новое расписание
+approvals        buttons=0   modal=-
+system           buttons=0   modal=-
+settings         buttons=12  modal=-
+capability-tree  buttons=869 modal=-
+poker-vision     buttons=20  modal=-
+oss              buttons=6   modal=-
+video-studio     buttons=14  modal=-
+music-studio     buttons=8   modal=-
+bossman-chat     buttons=1   modal=-
+home-v3          buttons=22  modal=OK:Новая модель,OK:Создать агента
+chat             buttons=0   modal=-
+apps             buttons=24  modal=OK:Новая модель
+overview         buttons=6   modal=OK:Новая миссия
+missions         buttons=2   modal=OK:Новая миссия,OK:Создать первую миссию
+router           buttons=3   modal=-
+governor         buttons=1   modal=-
+file-intelligence buttons=0   modal=-
+resources        buttons=4   modal=-
+skills           buttons=183 modal=OK:Новый навык,OK:Добавить сервер
+terminal         buttons=8   modal=-
+benchmarks       buttons=1   modal=-
+browser          buttons=1   modal=OK:Новое окно
+coding           buttons=3   modal=OK:Новая сессия
+rave             buttons=7   modal=OK:Добавить аккаунт
+agentmap         buttons=0   modal=-
+orchestras       buttons=2   modal=-
+forks            buttons=0   modal=-
+healing          buttons=1   modal=-
+openrouter       buttons=1   modal=-
+command          buttons=4   modal=-
+builder          buttons=1   modal=-
+images           buttons=11  modal=OK:Создать в Studio
+images?studio=1  buttons=14  modal=OK:Создать результат
+trading_lab      buttons=0   modal=-
+v15-owner-run    buttons=4   modal=-
+mission_console  buttons=6   modal=-
+web_research     buttons=0   modal=-
+control          buttons=3   modal=-
+web_designer     buttons=8   modal=-
+objectives       buttons=2   modal=OK:Новая цель,OK:Новая цель
+jeff-settings    buttons=10  modal=-
+motion-studio    buttons=2   modal=-
+direct-gen       buttons=34  modal=OK:Создать
+jeff-passports   buttons=0   modal=-
+jeff-insights    buttons=3   modal=-
+autonomy         buttons=2   modal=-
+telegram_calls   buttons=10  modal=-
+-------------------------- Captured stderr teardown ---------------------------
+ERROR:    Cancel 3 running task(s), timeout graceful shutdown exceeded
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\anyio\streams\memory.py", line 118, in receive
+    return self.receive_nowait()
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\anyio\streams\memory.py", line 113, in receive_nowait
+    raise WouldBlock
+anyio._core._exceptions.WouldBlock
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\base.py", line 197, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\Bossman\ns-lab-20261010\repo\command-center\bcc\api.py", line 585, in _log_requests
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\base.py", line 156, in call_next
+    message = await recv_stream.receive()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\anyio\streams\memory.py", line 126, in receive
+    await receive_event.wait()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\anyio\_backends\_asyncio.py", line 1936, in wait
+    await self._event.wait()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\locks.py", line 212, in wait
+    await fut
+asyncio.exceptions.CancelledError: Task cancelled, timeout graceful shutdown exceeded
+---------------------------- Captured log teardown ----------------------------
+ERROR    uvicorn.error:server.py:302 Cancel 3 running task(s), timeout graceful shutdown exceeded
+ERROR    uvicorn.error:httptools_impl.py:427 Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\anyio\streams\memory.py", line 118, in receive
+    return self.receive_nowait()
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\anyio\streams\memory.py", line 113, in receive_nowait
+    raise WouldBlock
+anyio._core._exceptions.WouldBlock
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 422, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 63, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py", line 1163, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\applications.py", line 96, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\base.py", line 197, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\Bossman\ns-lab-20261010\repo\command-center\bcc\api.py", line 585, in _log_requests
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\starlette\middleware\base.py", line 156, in call_next
+    message = await recv_stream.receive()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\anyio\streams\memory.py", line 126, in receive
+    await receive_event.wait()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\anyio\_backends\_asyncio.py", line 1936, in wait
+    await self._event.wait()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\locks.py", line 212, in wait
+    await fut
+asyncio.exceptions.CancelledError: Task cancelled, timeout graceful shutdown exceeded
+============================== warnings summary ===============================
+tests/telegram_calls/test_acl_windows.py::test_everyone_and_users_are_taken_off_and_a_foreign_account_is_reported
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-622 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0x8a in position 10: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_capability_tree.py::test_full_app_mounts_capability_tree
+tests/test_chat_ux_run.py::test_every_api_call_of_the_chat_window_is_a_real_server_route
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\openapi\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__get for function file_commander_view at C:\Users\asd\Bossman\ns-lab-20261010\repo\command-center\bcc\features\apps_control.py
+    warnings.warn(message, stacklevel=1)
+
+tests/test_jeff_1_8_web_stream.py: 6 warnings
+tests/test_jeff_audit_fixes.py: 2 warnings
+tests/test_jeff_availability.py: 1 warning
+tests/test_jeff_owner_bugtest_fixes.py: 14 warnings
+tests/test_mandatory_pre_tts_audit.py: 1 warning
+tests/test_jeff_privacy_in_code.py: 1 warning
+tests/test_jeff_1_5_passport.py: 1 warning
+tests/test_jeff_settings_overlay.py: 1 warning
+tests/test_pit_rc19_audit_jeff.py: 1 warning
+tests/test_pit_web.py: 19 warnings
+  C:\Users\asd\Bossman\ns-lab-20261010\repo\command-center\bcc\pit\web.py:410: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_jeff_1_8_web_stream.py: 12 warnings
+tests/test_jeff_audit_fixes.py: 4 warnings
+tests/test_jeff_availability.py: 2 warnings
+tests/test_jeff_owner_bugtest_fixes.py: 28 warnings
+tests/test_mandatory_pre_tts_audit.py: 2 warnings
+tests/test_jeff_privacy_in_code.py: 2 warnings
+tests/test_jeff_1_5_passport.py: 2 warnings
+tests/test_jeff_settings_overlay.py: 2 warnings
+tests/test_pit_rc19_audit_jeff.py: 2 warnings
+tests/test_pit_web.py: 38 warnings
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\applications.py:4681: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)  # ty: ignore[deprecated]
+
+tests/test_jeff_1_8_web_stream.py: 6 warnings
+tests/test_jeff_audit_fixes.py: 2 warnings
+tests/test_jeff_availability.py: 1 warning
+tests/test_jeff_owner_bugtest_fixes.py: 14 warnings
+tests/test_mandatory_pre_tts_audit.py: 1 warning
+tests/test_jeff_privacy_in_code.py: 1 warning
+tests/test_jeff_1_5_passport.py: 1 warning
+tests/test_jeff_settings_overlay.py: 1 warning
+tests/test_pit_rc19_audit_jeff.py: 1 warning
+tests/test_pit_web.py: 19 warnings
+  C:\Users\asd\Bossman\ns-lab-20261010\repo\command-center\bcc\pit\web.py:913: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+tests/test_images_native_transform.py::test_import_transform_reopen_and_verify_pixels
+  C:\Users\asd\Bossman\ns-lab-20261010\repo\command-center\tests\test_images_native_transform.py:49: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+    for r, g, b in img.getdata():
+
+tests/test_contract_keeps_agent_tools.py::test_routing_never_grants_computer_tools_the_agent_lacks[\u041e\u0442\u043a\u0440\u043e\u0439 \u0411\u043b\u043e\u043a\u043d\u043e\u0442 \u043d\u0430 \u043a\u043e\u043c\u043f\u044c\u044e\u0442\u0435\u0440\u0435 \u0438 \u043d\u0430\u043f\u0438\u0448\u0438 \u0432 \u043d\u0451\u043c: \u043f\u0440\u0438\u0432\u0435\u0442-agent_tools1]
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-5524 (_connection_worker_thread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_result, future, result)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 844, in call_soon_threadsafe
+      self._check_closed()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 545, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  During handling of the above exception, another exception occurred:
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+      future.get_loop().call_soon_threadsafe(set_exception, future, e)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 844, in call_soon_threadsafe
+      self._check_closed()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 545, in _check_closed
+      raise RuntimeError('Event loop is closed')
+  RuntimeError: Event loop is closed
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_secrem_f009_terminal.py::test_variant_dotdot_and_symlink_escape_resolved_before_authz
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-7901 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_secrem_f009_terminal.py::test_ap001_a_planted_token_outside_the_roots_is_never_exfiltrated
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-7927 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_secrem_facts_boundary.py: 5 warnings
+tests/test_studio_vision_review.py: 1 warning
+tests/test_v22_facts_api.py: 2 warnings
+tests/test_v2_poststate_verifiers.py: 2 warnings
+  C:\Users\asd\Bossman\ns-lab-20261010\repo\command-center\bcc\v2\memory\facts.py:682: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return to_naive_utc(default if default is not None else datetime.utcnow())
+
+tests/test_redteam_rc_20260921.py::test_rt_f2_symlink_escape_dotdot_and_reserved_names_are_refused_before_effect
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-10869 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_redteam_rc_20260921.py::test_rt_f3_scope_policy_hostile_paths
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-10874 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_redteam_rc_20260921.py::test_rt_f3_scope_policy_hostile_paths
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-10872 (_readerthread)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1599, in _readerthread
+      buffer.append(fh.read())
+                    ^^^^^^^^^
+    File "<frozen codecs>", line 322, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xa4 in position 3: invalid start byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_ux_navigation_shape.py::test_every_page_belongs_to_exactly_one_named_space
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-8686 (_run)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\Bossman\ns-lab-20261010\repo\command-center\tests\test_ux2_thinking_pane.py", line 68, in _run
+      self.loop.run_until_complete(self.server.serve())
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 691, in run_until_complete
+      return future.result()
+             ^^^^^^^^^^^^^^^
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\server.py", line 90, in serve
+      await self._serve(sockets)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\server.py", line 109, in _serve
+      await self.shutdown(sockets=sockets)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\server.py", line 292, in shutdown
+      connection.shutdown()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\protocols\websockets\websockets_sansio_impl.py", line 187, in shutdown
+      self.conn.send_close(1012)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\websockets\protocol.py", line 383, in send_close
+      raise InvalidState(f"connection is {self.state.name.lower()}")
+  websockets.exceptions.InvalidState: connection is closing
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_ux_navigation_shape.py::test_every_menu_entry_points_at_a_real_page
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-8808 (_run)
+  
+  Traceback (most recent call last):
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+      self.run()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+      self._target(*self._args, **self._kwargs)
+    File "C:\Users\asd\Bossman\ns-lab-20261010\repo\command-center\tests\test_ux2_thinking_pane.py", line 68, in _run
+      self.loop.run_until_complete(self.server.serve())
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 691, in run_until_complete
+      return future.result()
+             ^^^^^^^^^^^^^^^
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\server.py", line 90, in serve
+      await self._serve(sockets)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\server.py", line 109, in _serve
+      await self.shutdown(sockets=sockets)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\server.py", line 292, in shutdown
+      connection.shutdown()
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\uvicorn\protocols\websockets\websockets_sansio_impl.py", line 187, in shutdown
+      self.conn.send_close(1012)
+    File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\websockets\protocol.py", line 383, in send_close
+      raise InvalidState(f"connection is {self.state.name.lower()}")
+  websockets.exceptions.InvalidState: connection is closing
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED command-center\tests\test_apps_control.py::test_stop_kills_our_process_and_frees_the_port
+FAILED command-center\tests\test_jeff_1_8_web_stream.py::test_sse_delivers_deltas_then_one_final_reply_and_saves_it_once
+FAILED command-center\tests\test_jeff_1_8_web_stream.py::test_sse_reset_event_drops_a_discarded_attempt
+FAILED command-center\tests\test_jeff_1_8_web_stream.py::test_sse_without_streaming_adapter_still_ends_with_the_final_reply
+FAILED command-center\tests\test_jeff_1_8_web_stream.py::test_health_serves_reply_latency_and_route_status
+FAILED command-center\tests\test_jeff_audit_fixes.py::test_d1_overlay_comes_back_after_the_suspension
+FAILED command-center\tests\test_jeff_availability.py::test_a_failing_free_model_never_falls_back_to_a_paid_one
+FAILED command-center\tests\test_jeff_availability.py::test_reply_updates_last_success_and_latency
+FAILED command-center\tests\test_jeff_owner_bugtest_fixes.py::test_a_provider_down_clears_within_the_short_floor_after_the_model_returns
+FAILED command-center\tests\test_jeff_owner_bugtest_fixes.py::test_a_no_hammering_inside_the_short_floor
+FAILED command-center\tests\test_jeff_owner_bugtest_fixes.py::test_a_local_answers_while_the_remote_catalog_is_unreachable
+FAILED command-center\tests\test_jeff_owner_bugtest_fixes.py::test_a_remote_routes_are_refused_without_a_provider_key
+FAILED command-center\tests\test_jeff_owner_bugtest_fixes.py::test_a_provider_last_error_is_cleared_on_the_first_successful_reply
+FAILED command-center\tests\test_jeff_owner_bugtest_fixes.py::test_c_errors_stopped_commands_and_guard_replies_are_in_the_transcript
+FAILED command-center\tests\test_jeff_owner_bugtest_fixes.py::test_public_health_carries_no_model_ids
+FAILED command-center\tests\test_jeff_owner_bugtest_fixes.py::test_the_serving_route_is_visible_to_the_j2_post_reply_hook
+FAILED command-center\tests\test_jeff_1_8_local.py::test_empty_local_answer_is_recovered_by_one_unload_and_retry
+FAILED command-center\tests\test_jeff_1_8_local.py::test_unrecoverable_empty_local_answer_is_reported_honestly_and_not_sticky
+FAILED command-center\tests\test_jeff_1_8_route.py::test_price_flip_after_verification_refuses_honestly_and_sends_nothing
+FAILED command-center\tests\test_jeff_1_8_route.py::test_price_flip_back_to_free_restores_the_route
+FAILED command-center\tests\test_jeff_1_8_route.py::test_unreachable_live_catalog_fails_closed_for_remote_routes
+FAILED command-center\tests\test_jeff_1_8_route.py::test_fresh_verification_is_not_rechecked_every_turn
+FAILED command-center\tests\test_jeff_1_8_route.py::test_provider_payment_required_blocks_that_model_and_never_moves_to_paid
+FAILED command-center\tests\test_jeff_1_8_route.py::test_refusal_never_names_a_paid_vendor_route
+FAILED command-center\tests\test_jeff_1_8_stream.py::test_sink_receives_deltas_and_the_returned_reply_stays_authoritative
+FAILED command-center\tests\test_jeff_1_8_stream.py::test_latency_is_measured_for_the_local_route_time_to_first_text_and_total
+FAILED command-center\tests\test_jeff_1_8_stream.py::test_non_streaming_adapter_records_ttft_equal_to_total
+FAILED command-center\tests\test_jeff_1_8_stream.py::test_heartbeat_snapshot_exposes_reply_latency_and_route_status
+FAILED command-center\tests\test_jeff_1_8_stream.py::test_incomplete_attempt_resets_the_preview_before_the_retry
+FAILED command-center\tests\test_jeff_1_8_stream.py::test_failed_turn_leaves_no_preview_behind
+FAILED command-center\tests\test_jeff_1_8_stream.py::test_a_broken_sink_never_breaks_the_reply
+FAILED command-center\tests\test_jeff_1_8_stream.py::test_stop_cancels_a_streaming_turn_promptly
+FAILED command-center\tests\test_pit_rc19_audit_jeff.py::test_one_busy_capacity_reading_does_not_drop_local_for_later_turns
+FAILED command-center\tests\test_pit_rc19_audit_jeff.py::test_local_missing_from_catalog_is_looked_for_again
+FAILED command-center\tests\test_pit_rc19_audit_jeff.py::test_cloud_network_failure_falls_back_to_local
+FAILED command-center\tests\test_pit_rc19_audit_jeff.py::test_slow_cloud_leaves_time_for_the_local_fallback
+FAILED command-center\tests\test_pit_rc19_jeff.py::test_participant_reply_never_names_the_model
+FAILED command-center\tests\test_pit_rc19_jeff.py::test_rate_limit_starts_cooldown_instead_of_hammering
+FAILED command-center\tests\test_pit_telegram_fake.py::test_receive_reply_then_stop_through_fake_bot_api
+FAILED command-center\tests\test_pit_rc19_jeff.py::test_one_model_429_falls_back_to_local_in_the_same_turn
+FAILED command-center\tests\test_pit_web.py::test_unreachable_model_shows_honest_status
+FAILED command-center\tests\test_poker_vision_ui_e2e.py::test_replay_source_shows_live_stream_overlay_fields_history_and_explains_unknown
+FAILED command-center\tests\test_terminal_remote_script_dispatch.py::test_the_approved_bytes_are_what_runs_not_a_second_download
+FAILED command-center\tests\test_ux2_pages_sweep.py::test_every_page_renders_and_buttons_work
+44 failed, 9007 passed, 52 skipped, 210 warnings in 2034.55s (0:33:54)
