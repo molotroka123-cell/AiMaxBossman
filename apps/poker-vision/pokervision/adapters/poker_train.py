@@ -23,7 +23,18 @@ from ..vision.glyphs import GlyphBook, WordBook, canon, is_sep, read_glyphs, fea
 from ..vision.textspot import TextLine, spot_lines
 from .base import Capabilities, DetectResult, Frame, TableAdapter
 
-PROFILE_PATH = Path(__file__).with_name("profiles") / "poker_train.json"
+PROFILES_DIR = Path(__file__).with_name("profiles")
+
+
+def platform_profile(name: str, platform: str | None = None) -> Path:
+    """Glyph/card exemplars depend on the OS font rasteriser (a Linux-calibrated profile reads almost nothing on Windows Chromium).
+    A profile calibrated on this platform lives in ``profiles/<sys.platform>/``; without one the shared profile is used."""
+    import sys
+    plat = PROFILES_DIR / (platform or sys.platform) / name
+    return plat if plat.exists() else PROFILES_DIR / name
+
+
+PROFILE_PATH = platform_profile("poker_train.json")
 SRC = "poker_train.pixels"
 NUM_ALPHABET = frozenset("0123456789$KM")
 ACTION_ALPHABET = frozenset("ACDEFHIKLMNORS0123456789l")      # letters of FOLD CHECK CALL RAISE ALL IN CONFIRM + digits
@@ -36,6 +47,7 @@ class Profile:
     glyphs: GlyphBook
     cards: CardBook
     words: WordBook = field(default_factory=WordBook)
+    positions: WordBook = field(default_factory=WordBook)     # the hero's position badge in the header (UTG/HJ/CO/BTN/SB/BB); own book
 
     @property
     def id(self) -> str:
@@ -46,6 +58,8 @@ class Profile:
         d["glyph_book"] = self.glyphs.to_json()
         d["card_book"] = self.cards.to_json()
         d["word_book"] = self.words.to_json()
+        if self.positions.exemplars:
+            d["position_book"] = self.positions.to_json()
         return d
 
     @staticmethod
@@ -53,8 +67,9 @@ class Profile:
         gb = GlyphBook.from_json(d.get("glyph_book", {}))
         cb = CardBook.from_json(d["card_book"]) if "card_book" in d else CardBook()
         wb = WordBook.from_json(d.get("word_book", {}))
-        meta = {k: v for k, v in d.items() if k not in ("glyph_book", "card_book", "word_book")}
-        return Profile(meta, gb, cb, wb)
+        pb = WordBook.from_json(d.get("position_book", {}))
+        meta = {k: v for k, v in d.items() if k not in ("glyph_book", "card_book", "word_book", "position_book")}
+        return Profile(meta, gb, cb, wb, pb)
 
     def save(self, path: Path = PROFILE_PATH) -> str:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -104,9 +119,13 @@ class PokerTrainAdapter(TableAdapter):
         self.profile = profile or Profile.load()
         self.naive = naive
         self.scale_hint: float | None = None          # scale confirmed on a fully visible hero pair (per adapter instance = per session)
+        self._last_full: dict | None = None           # last anchor seen on a fully visible hero pair (same frame size), and its age in frames
 
     def reset(self) -> None:
         self.scale_hint = None
+        self._last_full = None
+
+    CACHED_ANCHOR_MAX_FRAMES = 40                     # ~10 s of capture: the raise panel can cover the hero cards for that long
 
     # ------------------------------------------------------------------ detection
     def profile_id(self) -> str:
@@ -160,7 +179,20 @@ class PokerTrainAdapter(TableAdapter):
         top = float(np.median([b.y for b in grp]))
         if all(b.visible_frac >= 0.9 for b in grp):
             self.scale_hint = s
+            if len(grp) == 2:
+                self._last_full = {"s": s, "top": top, "boxes": grp, "wh": (W, H), "age": 0}
         return {"s": s, "top": top, "boxes": grp}
+
+    def _cached_anchor(self, frame: Frame) -> dict | None:
+        """The open raise panel can hide most of the hero's cards (Windows Chromium layout). The table layout does not move while
+        the window keeps its size, so the last full anchor is reused for the OTHER fields; the hero cards are then NOT read."""
+        c = self._last_full
+        if self.naive or c is None or c["wh"] != (frame.w, frame.h):
+            return None
+        c["age"] += 1
+        if c["age"] > self.CACHED_ANCHOR_MAX_FRAMES:
+            return None
+        return {"s": c["s"], "top": c["top"], "boxes": c["boxes"], "cached": True}
 
     # ------------------------------------------------------------------ read
     def read(self, frame: Frame) -> TableState:
@@ -170,6 +202,8 @@ class PokerTrainAdapter(TableAdapter):
         if not self.profile:
             raise RuntimeError("PokerTrainAdapter has no calibrated profile")
         a = self._anchor(frame)
+        if a is None:
+            a = self._cached_anchor(frame)
         gray = cv2.cvtColor(frame.bgr, cv2.COLOR_BGR2GRAY)
         st.quality = {"sharp": float(cv2.Laplacian(gray, cv2.CV_64F).var()), "w": frame.w, "h": frame.h}
         if a is None:
@@ -179,7 +213,7 @@ class PokerTrainAdapter(TableAdapter):
             st.quality["anchor"] = False
             return st
         s, top = a["s"], a["top"]
-        st.quality.update({"anchor": True, "scale": round(s, 3)})
+        st.quality.update({"anchor": "cached" if a.get("cached") else True, "scale": round(s, 3)})
         P = self.profile.data
         col = None
         cx = float(np.mean([b.cx for b in a["boxes"]])) if len(a["boxes"]) == 2 else None
@@ -188,7 +222,7 @@ class PokerTrainAdapter(TableAdapter):
         boxes: list[dict] = []
         st.quality["boxes"] = boxes
         for b in a["boxes"]:
-            f_ = self._read_card(frame, b, t, s, P["hero_card_css_w"], "hero")
+            f_ = U("hero_cards_covered_anchor_cached") if a.get("cached") else self._read_card(frame, b, t, s, P["hero_card_css_w"], "hero")
             hero.append(f_)
             boxes.append({"field": "hero_card", "x": int(b.x), "y": int(b.y), "w": int(b.w), "h": int(b.h), "ok": f_.known, "conf": round(f_.confidence, 2), "label": f_.value if f_.known else f_.reason})
         while len(hero) < 2:
@@ -205,8 +239,28 @@ class PokerTrainAdapter(TableAdapter):
         n = st.board_count.value if st.board_count.known else None
         smap = {0: "preflop", 3: "flop", 4: "turn", 5: "river"}
         st.street = Field.ok(smap[n], st.board_count.confidence, t, SRC) if n in smap else U("board_count_unknown")
-        st.hero_position = U("derived_later")
+        st.hero_position = self._read_position(frame, s, t)
         return st
+
+    # ---- hero position badge (header strip, right part): whole-word match against the position book only
+    def _read_position(self, frame: Frame, s: float, t: int) -> Field:
+        P = self.profile.data
+        book = self.profile.positions
+        cy = P.get("position_cy_css")
+        if not book.exemplars or cy is None:
+            return Field.unknown(t, SRC, "position_not_calibrated")
+        y0, y1 = max(int((cy - 14) * s), 0), min(int((cy + 14) * s), frame.h)
+        lines = spot_lines(frame.bgr, (int(frame.w * 0.45), y0, frame.w, y1), (P.get("position_h_css", [5.0, 16.0])[0] * s, P.get("position_h_css", [5.0, 16.0])[1] * s),
+                           v_min=120, max_gap=0.9)       # tight gap: the badge word stays separate from "#1 M67" next to it
+        hits = []
+        for ln in lines:
+            w, conf, d = book.classify(ln.glyphs)
+            if w is not None and d <= P.get("position_max_dist", 2.5) and conf >= 0.15:
+                hits.append((w, conf, ln))
+        if len(hits) != 1:
+            return Field.unknown(t, SRC, "position_badge_not_found" if not hits else "position_badge_ambiguous")
+        w, conf, ln = hits[0]
+        return Field.ok(w, min(0.9, 0.5 + conf), t, SRC)
 
     # ---- cards
     def _read_card(self, frame: Frame, b: CardBox, t: int, s: float, css_w: float, kind: str) -> Field:
@@ -579,9 +633,9 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
 
     Everything is measured from the labelled TRAIN frames: card size/pitch, where the number lines sit relative to the
     hero's cards, digit heights per field, seat slot angles, glyph and card exemplars."""
-    gb, cb, wb = GlyphBook(max_per_class=40), CardBook(max_per_class=60), WordBook()
+    gb, cb, wb, pb = GlyphBook(max_per_class=40), CardBook(max_per_class=60), WordBook(), WordBook()
     keys = ("hero_w", "hero_h", "board_dy", "board_w", "board_h", "board_pitch", "seat_ang", "bet_ang", "dealer_d", "btn_h",
-            "table_center_dy", "pot_dy", "call_dy", "stack_dy_c")
+            "table_center_dy", "pot_dy", "call_dy", "stack_dy_c", "pos_cy")
     meas: dict[str, list] = {k: [] for k in keys}
     heights: dict[str, list] = {k: [] for k in ("pot", "to_call", "hero_stack", "seat", "bet")}
     NUM_V_MIN = 150
@@ -629,6 +683,42 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
             continue
         dpr = t["dpr"]
         img = lb.frame.bgr
+        # button words and the position badge do not depend on the hero cards being fully visible (an open raise panel covers
+        # their lower half on Windows Chromium): learn them first, from the DOM rects, on every stable frame
+        if t.get("position") and t.get("position_rect"):
+            pr = t["position_rect"]
+            y0p, y1p = max(int((pr["cy"] - 14) * dpr), 0), min(int((pr["cy"] + 14) * dpr), img.shape[0])
+            lns = spot_lines(img, (int(img.shape[1] * 0.45), y0p, img.shape[1], y1p), (5.0 * dpr, 16.0 * dpr), v_min=120, max_gap=0.9)
+            px0, _, px1, _ = _px(pr, dpr)
+            inside = [q for q in lns if px0 - 2 * dpr <= q.cx <= px1 + 2 * dpr]     # the line the reader will see at the badge
+            if len(inside) == 1:
+                pb.add(t["position"], inside[0].glyphs)
+                meas["pos_cy"].append(pr["cy"])
+        vocab = [b for b in t["buttons"] if b["label"] in ("FOLD", "CHECK", "CALL", "RAISE", "ALL IN", "CONFIRM")]
+        if vocab:
+            maxy = max(b["y"] for b in vocab)
+            for b in (b for b in vocab if b["y"] >= maxy - 12):
+                meas["btn_h"].append(b["h"])
+                lab = b["label"].replace(" ", "")
+                lns = spot_lines(img, _px(b, dpr), (5.0 * dpr, 20.0 * dpr), otsu=True, max_gap=1.6)
+                bx0, by0_, bx1, by1_ = _px(b, dpr)
+                lns = [q for q in lns if abs(q.cx - (bx0 + bx1) / 2) < 0.22 * (bx1 - bx0)]       # the label is centred in its button (not the floating P/F badge)
+                if lns:
+                    ln = min(lns, key=lambda q: q.y0)
+                    chars = list(lab)
+                    wb.add(canon(lab), ln.glyphs)                     # the whole label as one raster (robust to merged/odd glyphs)
+                    if b.get("amount") is not None:                   # the small white amount under CALL / ALL IN: learn its own digit shapes
+                        below = [q for q in lns if q.cy > ln.cy + 0.6 * ln.height]
+                        if below:
+                            ln2 = min(below, key=lambda q: q.cy)
+                            txt = f"{int(b['amount']):,}"
+                            if len(ln2.glyphs) == len([c for c in txt if c != ","]) + txt.count(","):
+                                for g, ch in zip(ln2.glyphs, txt):
+                                    if ch not in ",.":
+                                        gb.add(ch, g, "btnamt")
+                    if len(ln.glyphs) == len(chars):
+                        for g, ch in zip(ln.glyphs, chars):
+                            gb.add(ch, g, 'btn')
         hero = t["hero_cards"]
         # the anchor is what the DETECTOR sees (white blob incl. border), not the DOM rect: measure offsets from it
         hb = []
@@ -694,31 +784,6 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
             boxes = find_card_boxes(img, zone, int(0.8 * c["w"] * dpr), int(1.2 * c["w"] * dpr))
             if len(boxes) == 1 and boxes[0].visible_frac > 0.95:
                 cb.add(c["card"], boxes[0], img)
-        vocab = [b for b in t["buttons"] if b["label"] in ("FOLD", "CHECK", "CALL", "RAISE", "ALL IN", "CONFIRM")]
-        if vocab:
-            maxy = max(b["y"] for b in vocab)
-            for b in (b for b in vocab if b["y"] >= maxy - 12):
-                meas["btn_h"].append(b["h"])
-                lab = b["label"].replace(" ", "")
-                lns = spot_lines(img, _px(b, dpr), (5.0 * dpr, 20.0 * dpr), otsu=True, max_gap=1.6)
-                bx0, by0_, bx1, by1_ = _px(b, dpr)
-                lns = [q for q in lns if abs(q.cx - (bx0 + bx1) / 2) < 0.22 * (bx1 - bx0)]       # the label is centred in its button (not the floating P/F badge)
-                if lns:
-                    ln = min(lns, key=lambda q: q.y0)
-                    chars = list(lab)
-                    wb.add(canon(lab), ln.glyphs)                     # the whole label as one raster (robust to merged/odd glyphs)
-                    if b.get("amount") is not None:                   # the small white amount under CALL / ALL IN: learn its own digit shapes
-                        below = [q for q in lns if q.cy > ln.cy + 0.6 * ln.height]
-                        if below:
-                            ln2 = min(below, key=lambda q: q.cy)
-                            txt = f"{int(b['amount']):,}"
-                            if len(ln2.glyphs) == len([c for c in txt if c != ","]) + txt.count(","):
-                                for g, ch in zip(ln2.glyphs, txt):
-                                    if ch not in ",.":
-                                        gb.add(ch, g, "btnamt")
-                    if len(ln.glyphs) == len(chars):
-                        for g, ch in zip(ln.glyphs, chars):
-                            gb.add(ch, g, 'btn')
     med = lambda k, d=0.0: float(np.median(meas[k])) if meas[k] else d
 
     def cluster(angs, tol=7.0):
@@ -754,5 +819,7 @@ def calibrate_profile(labelled, source_note: str = "") -> Profile:
         "dealer_css_d": med("dealer_d", 20.0), "dealer_offsets": dealer_offsets, "dealer_off_tol_css": 9.0, "dealer_hero_css": 90.0,
         "action_dy0": 60.0, "action_btn_h_css": med("btn_h", 54.0), "action_h_css": [6.0, 20.0], "action_v_min": 150, "word_max_dist": 3.5,
     }
+    if meas["pos_cy"]:
+        data.update({"position_cy_css": med("pos_cy"), "position_h_css": [5.0, 16.0], "position_max_dist": 2.5})
     data["id"] = "poker_train@" + hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:8]
-    return Profile(data, gb, cb, wb)
+    return Profile(data, gb, cb, wb, pb)

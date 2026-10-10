@@ -30,6 +30,18 @@ OBSERVE_ONLY_WHY = {
 }
 
 
+BOOTSTRAP_BB = {"cash_nl2": 2.0, "cash_nl5": 5.0, "cash_nl10": 10.0, "cash_nl25": 25.0}     # chips shown by the trainer (cents) for each cash table
+
+
+def preflop_bb_for(spec: dict) -> float | None:
+    """Big blind of the table the bot itself opened (a known setting, not read from the screen). ``preflop_chart: false`` disables the chart."""
+    if spec.get("preflop_chart", True) is False:
+        return None
+    if spec.get("table_bb"):
+        return float(spec["table_bb"])
+    return BOOTSTRAP_BB.get(spec.get("bootstrap") or "cash_nl10") if spec.get("kind") == "sandbox" else None
+
+
 def control_allowed(spec: dict, adapter) -> tuple[bool, str]:
     if spec.get("kind") != "sandbox":
         return False, OBSERVE_ONLY_WHY.get(spec.get("kind"), "источник не подтверждён для управления")
@@ -75,7 +87,7 @@ class DeskMixin:
                 raise ValueError(f"unknown source kind {source.get('kind')!r}")
             self.rec = Reconciler(Config(stale_ms=1500))
             self.desk = {"mode": desk_mode, "paused": False, "source": dict(source), "lost": None, "window_reasons": [], "auto_deal": auto_deal,
-                         "recommendation": None, "rec_key": None, "executor": None, "verify_timeout_s": verify_timeout_s, "bench": bench or {}, "policy": policy, "policy_ctx": policy_ctx}
+                         "recommendation": None, "rec_key": None, "executor": None, "preflop_bb": preflop_bb_for(source), "verify_timeout_s": verify_timeout_s, "bench": bench or {}, "policy": policy, "policy_ctx": policy_ctx}
             self.session = {"id": f"s{int(time.time())}", "mode": "desk", "adapter": adapter, "act": desk_mode == "control", "started": time.time(),
                             "path": source.get("path"), "url": source.get("url"), "source_kind": source.get("kind")}
             self._rng = random.Random(seed); self._sims = sims; self._max_hands = max_hands
@@ -170,7 +182,8 @@ class DeskMixin:
         try:
             if d["source"]["kind"] == "sandbox":
                 s = d["source"]
-                self.src = SandboxSource(s.get("url") or "http://127.0.0.1:3000/", s.get("bootstrap", "cash_nl10"), float(s.get("dpr", 1.0)))
+                self.src = SandboxSource(s.get("url") or "http://127.0.0.1:3000/", s.get("bootstrap", "cash_nl10"), float(s.get("dpr", 1.0)),
+                                         headless=bool(s.get("headless", True)))
                 d["executor"] = self._build_executor()
                 d["guard"] = d["executor"].guard
             n = 0
@@ -227,7 +240,10 @@ class DeskMixin:
             return
         d["rec_key"] = key
         ctx = d["policy_ctx"]() if callable(d.get("policy_ctx")) else d.get("policy_ctx")
-        rc = recommend(cm, self._rng, self._sims, policy=d.get("policy"), ctx=ctx, review_root=self.data_dir / "poker_review")
+        acted = any(r.get("street") == "preflop" and r.get("hand") == list(cm.hero_cards) and r.get("hand_id") == cm.hand_id and r.get("ok")
+                    for r in self.decisions)
+        rc = recommend(cm, self._rng, self._sims, policy=d.get("policy"), ctx=ctx, review_root=self.data_dir / "poker_review",
+                       preflop_bb=d.get("preflop_bb"), hero_acted_preflop=acted)
         d["recommendation"] = rc
 
     def _control_step(self, fresh: Fresh) -> None:
@@ -249,9 +265,12 @@ class DeskMixin:
         d["rec_key"] = None
         if d["bench"].get("post_execute"):
             d["bench"]["post_execute"](self, decision, res)
-        rec = {"hand": list(fresh.committed.hero_cards), "board": list(fresh.committed.board), "decision": rc.decision.kind, "raise_to": rc.decision.raise_to,
+        rec = {"hand": list(fresh.committed.hero_cards), "hand_id": fresh.committed.hand_id, "street": rc.decision.street, "position": fresh.committed.hero_position,
+               "source": rc.source, "pot": fresh.committed.pot.amount if fresh.committed.pot else None,
+               "hero_stack": fresh.committed.hero_stack.amount if fresh.committed.hero_stack else None,
+               "board": list(fresh.committed.board), "decision": rc.decision.kind, "raise_to": rc.decision.raise_to,
                "reason": rc.decision.reason, "equity": rc.equity, "ok": res.ok, "halted": res.halted, "steps": res.steps, "t": time.time(),
-               "note": "equity vs random hands; not optimal play, not a profit claim"}
+               "note": "preflop: owner's chart" if rc.source == "preflop_chart" else "equity vs random hands; not optimal play, not a profit claim"}
         self.decisions.append(rec)
 
     # ------------------------------------------------------------ views for the page

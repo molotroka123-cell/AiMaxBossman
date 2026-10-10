@@ -26,11 +26,11 @@ def run(data: Path, sessions: list[str], profile: Path) -> dict:
         ad.reset()
         for line in (data / sess / "labels.jsonl").read_text(encoding="utf-8").splitlines():
             r = json.loads(line); t = r["truth"]
-            if not r["stable"] or t["animating"] or not t.get("raise_panel"):
-                continue
             img = cv2.imread(str(data / sess / r["frame"]))
             fr = Frame(img, r["t_ms"], "eval", r["frame"])
-            st = ad.read(fr)
+            st = ad.read(fr)              # every frame, in order, as the live loop does (the scale confirmed on open cards carries over)
+            if not r["stable"] or t["animating"] or not t.get("raise_panel"):
+                continue
             tot["frames"] += 1
             pn = rd.read(Fresh(fr, st, None, 0.0))
             if not pn.open:

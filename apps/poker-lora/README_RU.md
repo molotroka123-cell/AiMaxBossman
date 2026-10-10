@@ -21,6 +21,16 @@ Vision → проверенное состояние → Poker-LoRA (или эв
 | клиент локальной модели (loopback, OpenAI-совместимый) | `openai_policy.py` |
 | обучение LoRA и проверка окружения (**не запускались здесь**) | `train/lora_train.py`, `train/env_check.py` |
 
+## Разбор спота реки руками (учебный инструмент, без экрана и без живой игры)
+```
+python -m pokerlora.cli solve --board "Ah Kd 7c 2s 9h" --hole "As Qs" --pos IP --pot 40 --stack 100 --history "OOP:check"
+```
+`SolverPolicy` (`pokerlora/solver_policy.py`) решает спот тем же CFR+, что размечает датасет, и печатает равновесный микс для вашей руки.
+Диапазоны — допущения (`--hero-pct/--villain-pct` = top-X %, или свои `--hero-range/--villain-range`), абстракция ставок та же
+(check / 50 % / 100 % / pot-raise / all-in при малом SPR). Если история, кнопки или рука не ложатся в дерево — отказ, а не догадка.
+Та же политика подключается к маршруту Bossman (`pokervision.policy_route`) вместо LoRA, но маршрут применим только к доказанному
+heads-up на реке; в 6-max тренажёре зрение этого не доказывает, поэтому там она не используется.
+
 ## Команды
 ```
 python -m pokerlora.cli build --spots 400 --seed 20261006 --out DATA      # решает споты, делит ПО БОРДАМ, пишет manifest с sha256

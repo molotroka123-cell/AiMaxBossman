@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import resource
+import sys
 import time
 from collections import Counter
 from pathlib import Path
@@ -18,6 +18,31 @@ from ..adapters.poker_train import PokerTrainAdapter, Profile, calibrate_profile
 from ..reconcile import Config, Reconciler
 from .dataset import Labelled, assert_no_deal_overlap, load_session
 from .metrics import CORE, FIELDS, aggregate, score_frame, wilson
+
+
+def peak_rss_mb() -> float | None:
+    """Peak resident memory of this process. ``resource`` is POSIX-only; on Windows the PROCESS_MEMORY_COUNTERS peak working set is used."""
+    if sys.platform != "win32":
+        import resource
+        return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class PMC(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD), ("PeakWorkingSetSize", ctypes.c_size_t),
+                        ("WorkingSetSize", ctypes.c_size_t), ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                        ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                        ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+        c = PMC(); c.cb = ctypes.sizeof(PMC)
+        k32 = ctypes.WinDLL("kernel32"); psapi = ctypes.WinDLL("psapi")
+        k32.GetCurrentProcess.restype = wintypes.HANDLE
+        psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(PMC), wintypes.DWORD]
+        if not psapi.GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(c), c.cb):
+            return None
+        return round(c.PeakWorkingSetSize / 2 ** 20, 1)
+    except Exception:  # noqa: BLE001 - a missing metric is reported as None, never as 0
+        return None
 
 
 def stable(lb: Labelled) -> bool:
@@ -258,7 +283,7 @@ def main(argv=None) -> int:
         its = load_session(root, s)
         seqs[s] = {"after": sequence_eval(after, its, prof), "events": event_eval(after, its, prof)}
     report["sequence"] = seqs
-    report["peak_rss_mb"] = round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
+    report["peak_rss_mb"] = peak_rss_mb()
     report["gpu"] = "NOT_RUN (CPU only)"
     (out / "report.json").write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
     return 0
