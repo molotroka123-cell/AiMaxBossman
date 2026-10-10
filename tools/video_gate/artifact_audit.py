@@ -216,7 +216,8 @@ def iou(a, b) -> float:
 
 
 # ---------------------------------------------------------------- audit
-def audit(src: str, res: str, refs_text: str, pose_gate: str | None, out: Path, crops: int) -> dict:
+def audit(src: str, res: str, refs_text: str, pose_gate: str | None, out: Path, crops: int,
+          crops_at: list[tuple[int, int]] | None = None) -> dict:
     import cv2
     sys.path.insert(0, str(Path.cwd()))
     from facefusion import state_manager
@@ -346,7 +347,9 @@ def audit(src: str, res: str, refs_text: str, pose_gate: str | None, out: Path, 
               "refs": refs_text, "pose_gate": pose_gate, "summary": summary, "worst_segments": segs, "rows": rows}
     out.mkdir(parents=True, exist_ok=True)
     (out / "audit.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
-    if crops:
+    if crops_at:        # the same moments as another version's worst windows: V1 vs V2 reviewed on identical frames
+        write_crops(res, w, h, boxes, [{"frames": [a, b]} for a, b in crops_at], out / "crops")
+    elif crops:
         write_crops(res, w, h, boxes, segs[:crops], out / "crops")
     return report
 
@@ -385,8 +388,10 @@ def main(argv=None) -> int:
     ap.add_argument("--pose-gate")
     ap.add_argument("--out", required=True)
     ap.add_argument("--crops", type=int, default=0)
+    ap.add_argument("--crops-at", default="", help="a-b,c-d: frame windows to crop (e.g. another version's worst windows)")
     a = ap.parse_args(argv)
-    rep = audit(a.source, a.result, a.refs, a.pose_gate, Path(a.out), a.crops)
+    at = [(int(x.split("-")[0]), int(x.split("-")[1])) for x in a.crops_at.split(",") if x]
+    rep = audit(a.source, a.result, a.refs, a.pose_gate, Path(a.out), a.crops, at or None)
     print(json.dumps({"summary": rep["summary"], "worst_segments": rep["worst_segments"]}, indent=1))
     return 0
 

@@ -8,7 +8,7 @@ registry, decrypted in memory) and never printed or written.
 Economy routing (owner 10.10): Gemini and NVIDIA NIM are free tier; GLM vision (OpenRouter) and Mistral stop at
 `budget` USD each; the shared Haiku cap is not used.
 
-  python cloud_artifact_review.py --images a.jpg,b.jpg --out review.json [--models gemini,glm,nvidia,mistral]
+  python cloud_artifact_review.py --images a.jpg,b.jpg --out review.json [--models glm,nvidia,nvidia2,mistral]  (gemini: free quota is exhausted for the day, not retried)
 Writes review.json: per image, per model: parsed findings, raw text, tokens, cost.
 """
 from __future__ import annotations
@@ -48,7 +48,8 @@ PROMPT = (
 MODELS = {
     "gemini": ("gemini", "gemini-2.5-flash"),
     "glm": ("openrouter", "z-ai/glm-4.6v"),
-    "nvidia": ("nvidia", "meta/llama-3.2-90b-vision-instruct"),
+    "nvidia": ("nvidia", "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"),
+    "nvidia2": ("nvidia", "meta/llama-3.2-90b-vision-instruct"),
     "mistral": ("mistral", "mistral-medium-3.5"),
 }
 #: tried in order (and with the second key) when a free-tier quota answers 429
@@ -81,7 +82,9 @@ def load_keys() -> dict:
 
 def parse_findings(text: str) -> dict:
     """The first JSON object in the answer; unknown categories dropped; never raises."""
-    m = re.search(r"\{.*\}", text or "", re.S)
+    text = text or ""
+    cut = text.rfind('{"artifacts"')                  # reasoning models think aloud first: the answer is the last object
+    m = re.search(r"\{.*\}", text[cut:] if cut >= 0 else text, re.S)
     if not m:
         return {"artifacts": [], "overall": None, "parse_error": True}
     try:
@@ -100,7 +103,7 @@ def parse_findings(text: str) -> dict:
     return {"artifacts": arts, "overall": d.get("overall") if isinstance(d, dict) else None}
 
 
-def _post(url: str, body: dict, headers: dict, timeout: int = 120) -> dict:
+def _post(url: str, body: dict, headers: dict, timeout: int = 150) -> dict:
     req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", **headers})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read())
@@ -139,7 +142,7 @@ def ask(model_key: str, image: Path, keys: dict) -> dict:
                "nvidia": "https://integrate.api.nvidia.com/v1/chat/completions",
                "mistral": "https://api.mistral.ai/v1/chat/completions"}[kind]
         key = keys[{"openrouter": "OPENROUTER_API_KEY", "nvidia": "NVIDIA_API_KEY", "mistral": "MISTRAL_API_KEY"}[kind]]
-        body = {"model": model, "temperature": 0.2, "max_tokens": 1500,
+        body = {"model": model, "temperature": 0.2, "max_tokens": 4000 if kind == "nvidia" else 1500,
                 "messages": [{"role": "user", "content": [{"type": "text", "text": PROMPT},
                                                           {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + b64}}]}]}
         if kind == "openrouter":
@@ -158,36 +161,42 @@ def ask(model_key: str, image: Path, keys: dict) -> dict:
     return {"model": model, "seconds": round(time.time() - t0, 1), "usage": usage, "text": text[:3000], **parse_findings(text)}
 
 
+def _one(m: str, img: Path, keys: dict) -> dict:
+    res: dict = {}
+    for attempt in range(2):
+        try:
+            return ask(m, img, keys)
+        except urllib.error.HTTPError as e:
+            res = {"error": f"HTTP {e.code}", "detail": e.read()[:300].decode("utf-8", "replace")}
+            if e.code not in (429, 500, 502, 503):
+                break
+            time.sleep(8 * (attempt + 1))
+        except Exception as e:  # noqa: BLE001 - recorded, the other models still run
+            res = {"error": type(e).__name__, "detail": str(e)[:300]}
+    return res
+
+
 def review(images: list[Path], models: list[str], out: Path, budget: float = 0.15) -> dict:
-    """Paid models stop at `budget` USD each (cumulative over reruns that share `out`)."""
+    """Models run in parallel, one image at a time. Paid models stop at `budget` USD each (cumulative over reruns that
+    share `out`). The result file is rewritten after every image."""
+    from concurrent.futures import ThreadPoolExecutor
     keys = load_keys()
     data = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
     spent = {m: sum(r["usage"].get("cost_usd") or 0.0 for row in data.values() for k, r in row.items()
                     if k == m and "usage" in r) for m in models}
-    for img in images:
-        row = data.setdefault(str(img), {})
-        for m in models:
-            if m in row and "error" not in row[m]:
-                continue
-            if m in PAID and spent[m] >= budget:
+    with ThreadPoolExecutor(max(1, len(models))) as pool:
+        for img in images:
+            row = data.setdefault(str(img), {})
+            todo = [m for m in models if not (m in row and "error" not in row[m])]
+            skip = [m for m in todo if m in PAID and spent[m] >= budget]
+            for m in skip:
                 row[m] = {"error": "budget"}
-                continue
-            for attempt in range(3):
-                try:
-                    row[m] = ask(m, img, keys)
-                    break
-                except urllib.error.HTTPError as e:
-                    row[m] = {"error": f"HTTP {e.code}", "detail": e.read()[:300].decode("utf-8", "replace")}
-                    if e.code in (429, 500, 502, 503):
-                        time.sleep(10 * (attempt + 1))
-                        continue
-                    break
-                except Exception as e:  # noqa: BLE001 - recorded, the other models still run
-                    row[m] = {"error": type(e).__name__, "detail": str(e)[:300]}
-                    time.sleep(5)
-            if "usage" in row[m]:
-                spent[m] += row[m]["usage"].get("cost_usd") or 0.0
-        out.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+            run = [m for m in todo if m not in skip]
+            for m, res in zip(run, pool.map(lambda x: _one(x, img, keys), run)):
+                row[m] = res
+                if "usage" in res:
+                    spent[m] += res["usage"].get("cost_usd") or 0.0
+            out.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
     return data
 
 
@@ -205,7 +214,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--images", required=True)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--models", default="gemini,glm,nvidia,mistral")
+    ap.add_argument("--models", default="glm,nvidia,nvidia2,mistral")
     a = ap.parse_args(argv)
     data = review([Path(p) for p in a.images.split(",") if p], a.models.split(","), Path(a.out))
     for img, row in data.items():
