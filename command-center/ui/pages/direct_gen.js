@@ -65,6 +65,11 @@ const ERRORS = {
   image_invalid: ['Изображение не распознано', 'Нужен файл PNG или JPEG.'],
   invalid_steps: ['Недопустимое число шагов', 'Проверьте предел шагов выбранной модели.'],
   already_finished: ['Задача уже завершена', 'Останавливать нечего.'],
+  consent_required: ['Нужно согласие', 'Поставьте галочку: человек на фото согласен на использование его лица. Без согласия замена не запускается.'],
+  faces_required: ['Нужны фото лиц', 'Добавьте от 1 до 5 фотографий (PNG или JPEG) с лицом, которое переносится в видео.'],
+  video_required: ['Нужно видео', 'Выберите исходный видеофайл, в котором меняется лицо.'],
+  face_invalid: ['Фото лица не принято', 'Нужны чёткие фронтальные фото PNG/JPEG с одним лицом. Попробуйте другое фото.'],
+  video_invalid: ['Видео не принято', 'Нужен читаемый видеофайл, который понимает ffmpeg/ffprobe. Попробуйте другой файл.'],
 };
 
 const errText = (e) => (e && e.message) || String(e);
@@ -296,6 +301,103 @@ function createJobView(hooks) {
 }
 
 /* ------------------------------------------------------------------ страница */
+
+/* ---- Замена лица в видео (FaceFusion, локально): код — Mistral Large 4, проверка — Claude ---- */
+function faceSwapPanel(ctx) {
+  const videoInput = h('input.dg-file', { id: 'dg-swap-video', name: 'dg-swap-video', type: 'file', accept: 'video/*' });
+  const facesInput = h('input.dg-file', { id: 'dg-swap-faces', name: 'dg-swap-faces', type: 'file', accept: 'image/png,image/jpeg', multiple: true });
+  const faceCount = h('div.dg-note', '0 из 5');
+  const presetSel = h('select.dg-input', { id: 'dg-swap-preset', name: 'dg-swap-preset' });
+  const frame169 = h('input', { type: 'radio', name: 'dg-swap-frame', value: '16:9', id: 'dg-swap-frame-169', checked: true });
+  const frameOrig = h('input', { type: 'radio', name: 'dg-swap-frame', value: 'original', id: 'dg-swap-frame-orig' });
+  const consent = h('input', { type: 'checkbox', id: 'dg-swap-consent', name: 'dg-swap-consent' });
+  const swapErr = h('div', { dataset: { testid: 'dg-swap-error' } });
+  const unavailBox = h('div');
+
+  let videoFile = null;
+  let faceFiles = [];
+  let available = true;
+
+  const field = (text, id, input, note) => h('div', h('label.dg-label', { for: id }, text), input, note || null);
+  const fillPresets = (list) => {
+    const items = Array.isArray(list) && list.length ? list : [{ id: 'fast', label: 'Быстро' }, { id: 'quality', label: 'Качество' }];
+    presetSel.replaceChildren(...items.map((p) => h('option', { value: p.id }, p.label || p.id)));
+    presetSel.value = items.some((p) => p.id === 'fast') ? 'fast' : items[0].id;
+  };
+  fillPresets(null);
+
+  const frameGroup = h('div.dg-seg', { role: 'radiogroup', 'aria-label': 'Кадр' },
+    h('label.dg-seg-opt', { for: frame169.id }, frame169, h('span.dg-seg-t', '16:9 (YouTube)')),
+    h('label.dg-seg-opt', { for: frameOrig.id }, frameOrig, h('span.dg-seg-t', 'Как в исходнике')));
+  const consentLabel = h('label.dg-label', { for: consent.id }, consent, h('span', 'Человек на фото согласен на использование его лица'));
+
+  const showSwapErr = (e) => {
+    const code = (e && e.code) || 'unknown';
+    swapErr.replaceChildren(errorBlock(code, errText(e)));
+  };
+
+  const go = btn('Заменить лицо', async () => {
+    swapErr.replaceChildren();
+    if (!videoFile) { showSwapErr({ code: 'video_required', message: 'Видео не выбрано.' }); return; }
+    if (!faceFiles.length) { showSwapErr({ code: 'faces_required', message: 'Фото лица не выбраны.' }); return; }
+    try {
+      const video_b64 = await readB64(videoFile);
+      const faces_b64 = [];
+      for (const f of faceFiles) faces_b64.push(await readB64(f));
+      const frame = frameOrig.checked ? 'original' : '16:9';
+      const job = await api.raw(`${base}/swap-jobs`, { method: 'POST', body: { video_b64, faces_b64, preset: presetSel.value, frame, consent: true } });
+      ctx.setCurrent(job.job_id);
+      await ctx.refresh();
+      ctx.focusJob();
+      toastOk('Задача создана', 'FaceFusion, локально');
+    } catch (e) { toastError(e); showSwapErr(e); }
+  }, { variant: 'primary', iconName: 'user', disabled: true });
+  go.dataset.testid = 'dg-swap-go';
+
+  const setFormDisabled = (off) => {
+    for (const el of [videoInput, facesInput, presetSel, frame169, frameOrig, consent, go]) el.disabled = off;
+    if (!off) go.disabled = !consent.checked;
+  };
+  consent.addEventListener('change', () => { if (available) go.disabled = !consent.checked; });
+  videoInput.addEventListener('change', () => { videoFile = videoInput.files[0] || null; });
+  facesInput.addEventListener('change', () => {
+    faceFiles = Array.from(facesInput.files || []).slice(0, 5);
+    faceCount.textContent = `${faceFiles.length} из 5`;
+  });
+
+  const el = panel('Замена лица в видео', h('div.dg-stack',
+    field('Видео', videoInput.id, videoInput),
+    field('Фото лиц (1–5)', facesInput.id, facesInput, faceCount),
+    field('Качество', presetSel.id, presetSel),
+    h('div.dg-row', h('span.dg-label', { style: { margin: '0' } }, 'Кадр'), frameGroup),
+    h('div', consentLabel),
+    h('div.dg-actions', go),
+    swapErr,
+    unavailBox,
+    h('div.dg-note', 'Локально (FaceFusion), бесплатно. Звук берётся из оригинала. Только с согласия человека на фото.')), { icon: 'user' });
+
+  (async () => {
+    try {
+      const info = await api.raw(`${base}/faceswap`);
+      fillPresets(info.presets);
+      available = !!info.available;
+      if (!available) {
+        unavailBox.replaceChildren(h('div.dg-alert', { role: 'alert' },
+          h('div.dg-alert-title', 'Замена лица недоступна'),
+          h('pre.dg-raw', String(info.reason || 'Причина не указана.'))));
+        setFormDisabled(true);
+      }
+    } catch (e) {
+      available = false;
+      unavailBox.replaceChildren(h('div.dg-alert', { role: 'alert' },
+        h('div.dg-alert-title', 'Состояние замены лица не получено'),
+        h('pre.dg-raw', errText(e))));
+      setFormDisabled(true);
+    }
+  })();
+
+  return el;
+}
 
 const DirectGenPage = {
   id: 'direct-gen',
@@ -709,6 +811,7 @@ const DirectGenPage = {
       h('div.dg-grid',
         h('div.dg-col', requestPanel),
         h('div.dg-col', modelPanel, readyPanel)),
+      faceSwapPanel({ refresh, focusJob, setCurrent: (id) => { state.current = id; } }),
       panel('Текущая задача', jobHost, { icon: 'play' }),
       panel('История (только ваша)', histBox),
       h('p.dg-legal', { dataset: { testid: 'dg-legal' } }, LEGAL));

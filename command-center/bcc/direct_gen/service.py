@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from ..single_flight import await_shared
-from . import catalog, sdcli
+from . import catalog, faceswap, sdcli
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .store import JobStore, valid_participant
 
@@ -36,6 +36,7 @@ PLACEHOLDER = re.compile(r"^\{\{([a-z_]+)\}\}$")
 KNOWN = {"prompt", "negative", "seed", "width", "height", "frames", "fps", "duration", "image", "audio"}
 MAX_PROMPT = 8000
 MAX_INPUT_BYTES = 32 * 1024 * 1024
+MAX_SWAP_VIDEO = 300 * 1024 * 1024       # a phone clip for face swap; photos keep MAX_INPUT_BYTES
 ASSIST_SYSTEM = (
     "You edit text-to-video prompts. Rewrite the user's text as one clearer, concrete shot "
     "description (subject, setting, camera, light, motion). Keep every element the user "
@@ -140,6 +141,7 @@ class DirectGenService:
         self._sd_runner = sd_runner or sdcli.SdCliRunner
         self._free_memory = free_memory or sdcli.free_memory_bytes
         self._foreign = foreign_engines or sdcli.foreign_engines
+        self.faceswap_home = faceswap.default_root()
         self.gpu_grace_seconds = gpu_grace_seconds       # a just-finished engine may still be listed for a moment (seen on Windows)
         self._tasks: dict[str, asyncio.Task] = {}
         self._waiting: list[str] = []
@@ -425,6 +427,126 @@ class DirectGenService:
         await self._emit(job)
         return self.view(job)
 
+    # ---------- face swap (FaceFusion, local) ----------
+
+    async def create_swap(self, participant: str, body: dict) -> dict:
+        """Replace the face(s) in a video with the person on 1..5 photos. Local, no credits, original audio kept."""
+        participant = valid_participant(participant)
+        info = faceswap.describe(self.faceswap_home)
+        if not info["available"]:
+            raise DirectGenError(409, "model_unavailable", info["reason"])
+        if body.get("consent") is not True:
+            raise DirectGenError(422, "consent_required",
+                                 "confirm that the person on the photos agreed to have their face used")
+        preset = body.get("preset") or "fast"
+        if preset not in faceswap.PRESETS:
+            raise DirectGenError(422, "invalid_preset", "preset must be one of: " + ", ".join(faceswap.PRESETS))
+        frame = body.get("frame") or "16:9"
+        if frame not in ("16:9", "original"):
+            raise DirectGenError(422, "invalid_frame", "frame must be 16:9 or original")
+        video = self._decode(body.get("video_b64"), "video", limit=MAX_SWAP_VIDEO)
+        if video is None:
+            raise DirectGenError(422, "video_required", "a source video is needed")
+        faces = body.get("faces_b64") or []
+        if not isinstance(faces, list) or not 1 <= len(faces) <= faceswap.MAX_SOURCES:
+            raise DirectGenError(422, "faces_required", f"1..{faceswap.MAX_SOURCES} face photos are needed")
+        photos = [self._decode(f, "face") for f in faces]
+        for i, ph in enumerate(photos):
+            if ph is None or sdcli.image_extension(ph) is None:
+                raise DirectGenError(422, "face_invalid", f"face photo {i + 1} must be PNG or JPEG")
+        job_id = uuid.uuid4().hex
+        job = {
+            "job_id": job_id, "participant": participant, "model": "faceswap-facefusion", "kind": "faceswap",
+            "mode": "DIRECT", "status": "queued", "stage": "queued", "created_at": now_iso(),
+            "started_at": None, "finished_at": None, "raw_prompt": "", "effective_prompt": "", "negative": "",
+            "params": {"preset": preset, "frame": frame, "faces": len(photos)},
+            "assist": None, "progress": {"kind": "none"}, "result": None, "error": None, "retry_of": None,
+            "provenance": {"model_id": "faceswap-facefusion", "runtime": "facefusion", "license": info["license"],
+                           "preset": preset, "consent_confirmed": True},
+            "inputs": {"video": len(video), "faces": [len(ph) for ph in photos]},
+            "timeline": [{"stage": "queued", "at": now_iso()}],
+        }
+        folder = self.store.job_dir(participant, job_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "input_video.bin").write_bytes(video)
+        for i, ph in enumerate(photos):
+            (folder / f"input_face{i}{sdcli.image_extension(ph)}").write_bytes(ph)
+        self.store.save(job)
+        self._waiting.append(job_id)
+        self._tasks[job_id] = asyncio.create_task(self._run_swap(job), name=f"direct-gen-{job_id[:8]}")
+        await self._emit(job)
+        return self.view(job)
+
+    async def _run_swap(self, job: dict) -> None:
+        job_id, runner = job["job_id"], self._sd_runner(faceswap.PROGRESS)
+        folder = self.store.job_dir(job["participant"], job_id)
+        work, result = folder / "work", folder / "result"
+        try:
+            async with self._gate():
+                if job_id in self._waiting:
+                    self._waiting.remove(job_id)
+                self._running = job_id
+                job["started_at"] = now_iso()
+                await self._set(job, "loading")
+                work.mkdir(exist_ok=True)
+                result.mkdir(exist_ok=True)
+                source = work / "source.mp4"
+                shutil.copyfile(folder / "input_video.bin", source)
+                faces = sorted(folder.glob("input_face*"))
+                swapped = work / "swapped.mp4"
+                argv = faceswap.build_argv(self.faceswap_home, faces, source, swapped, job["params"]["preset"])
+                job["provenance"]["command"] = [Path(a).name if os.path.isabs(a) else a for a in argv]
+
+                async def on_progress(value: int, maximum: int) -> None:
+                    job["progress"] = {"kind": "frames", "value": value, "max": maximum,
+                                       "percent": round(100.0 * value / maximum, 1)}
+                    if job["stage"] == "loading":
+                        await self._set(job, "generating")
+                    else:
+                        self.store.save(job)
+                        await self._emit(job)
+
+                run = await runner.run(argv, cwd=self.faceswap_home, on_progress=on_progress)
+                job["provenance"].update(engine_returncode=run.returncode, engine_seconds=run.elapsed_s,
+                                         peak_rss_mb=round(run.peak_rss / 1048576))
+                if run.returncode != 0 or not swapped.is_file():
+                    tail = " | ".join(run.log[-4:])[:600]
+                    raise DirectGenError(0, "engine_error", f"FaceFusion exited with code {run.returncode}: {tail}")
+                await self._set(job, "postprocessing")
+                framed = swapped
+                if job["params"]["frame"] == "16:9":
+                    framed = work / "framed.mp4"
+                    await asyncio.to_thread(faceswap.compose_16x9, swapped, framed)
+                out = result / "video.mp4"
+                await asyncio.to_thread(faceswap.finish, framed, source, out)
+                check = await asyncio.to_thread(self.verify, out)
+                if check.get("playable") is False:
+                    raise DirectGenError(0, "bad_output", check.get("reason", "output is not a playable video"))
+                job["result"] = {"file": out.name, "bytes": out.stat().st_size, "sha256": _sha256_file(out),
+                                 "mime": "video/mp4", **{k: v for k, v in check.items()
+                                                         if k in ("verified", "reason", "duration_s", "codec", "width", "height")}}
+                shutil.rmtree(work, ignore_errors=True)
+                job["finished_at"] = now_iso()
+                await self._set(job, "completed")
+        except asyncio.CancelledError:
+            runner.kill()
+            if job_id in self._stopping:
+                job["finished_at"] = now_iso()
+                shutil.rmtree(result, ignore_errors=True)
+                shutil.rmtree(work, ignore_errors=True)
+                await self._set(job, "cancelled")
+            raise
+        except DirectGenError as exc:
+            await self._fail(job, exc.code, exc.message)
+        except Exception as exc:  # noqa: BLE001 - reported honestly below
+            await self._fail(job, "runtime_error", f"{type(exc).__name__}: {str(exc)[:600]}")
+        finally:
+            if job_id in self._waiting:
+                self._waiting.remove(job_id)
+            if self._running == job_id:
+                self._running = None
+            self._stopping.discard(job_id)
+
     def _preflight(self, spec: sdcli.SdSpec) -> None:
         busy = self._foreign()
         deadline = time.monotonic() + max(0.0, self.gpu_grace_seconds)
@@ -526,15 +648,15 @@ class DirectGenService:
         job["result"] = {"file": out.name, "bytes": out.stat().st_size, "sha256": _sha256_file(out), "mime": mime, **extra}
 
     @staticmethod
-    def _decode(value: Any, field: str) -> bytes | None:
+    def _decode(value: Any, field: str, limit: int = MAX_INPUT_BYTES) -> bytes | None:
         if value in (None, ""):
             return None
         try:
             data = base64.b64decode(str(value).split(",", 1)[-1], validate=True)
         except (binascii.Error, ValueError):
             raise DirectGenError(422, f"{field}_invalid", f"{field} must be base64") from None
-        if not data or len(data) > MAX_INPUT_BYTES:
-            raise DirectGenError(422, f"{field}_invalid", f"{field} must be 1 byte..32 MiB")
+        if not data or len(data) > limit:
+            raise DirectGenError(422, f"{field}_invalid", f"{field} must be 1 byte..{limit // 1048576} MiB")
         return data
 
     async def retry(self, participant: str, job_id: str) -> dict:
