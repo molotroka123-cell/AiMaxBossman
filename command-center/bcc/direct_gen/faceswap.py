@@ -40,17 +40,19 @@ PRESETS: dict[str, Preset] = {p.id: p for p in (
     # Measured 10.10 on the owner's Radeon 8060S (3 s clip, arcface identity to the photos): hyperswap_1a 0.82 beat
     # 1b 0.62 / 1c 0.57 / simswap_512 0.62. Several models in one process crash DirectML (segfault 139) unless the
     # execution thread count is 1 — hence the flag; xseg_2 crashed even alone, xseg_1 works.
+    # Enhancer blend 25 (Gate 1 sweep 10.10, kisliy segment, rule fixed before the run): gfpgan 25 passed 11/12 checks,
+    # identity 0.750 vs 0.736 at blend 50; no enhancer 10/12, GPEN 10/12 (0.746), CodeFormer 10/12 (0.702).
     Preset("quality", "Качество: детализация 1024, маска рук/очков; 1.7 кадра/с, похожесть 0.80",
            ("face_swapper", "face_enhancer"),
            ("--face-swapper-model", "hyperswap_1a_256", "--face-swapper-pixel-boost", "1024x1024",
             "--face-mask-types", "box", "occlusion", "--face-occluder-model", "xseg_1",
-            "--face-enhancer-model", "gfpgan_1.4", "--face-enhancer-blend", "50", "--execution-thread-count", "1")),
+            "--face-enhancer-model", "gfpgan_1.4", "--face-enhancer-blend", "25", "--execution-thread-count", "1")),
     Preset("lively", "Живая мимика: как «Качество» + мимика исходника 40% (похожесть 0.79)",
            ("face_swapper", "expression_restorer", "face_enhancer"),
            ("--face-swapper-model", "hyperswap_1a_256", "--face-swapper-pixel-boost", "1024x1024",
             "--face-mask-types", "box", "occlusion", "--face-occluder-model", "xseg_1",
             "--expression-restorer-model", "live_portrait", "--expression-restorer-factor", "40",
-            "--face-enhancer-model", "gfpgan_1.4", "--face-enhancer-blend", "50", "--execution-thread-count", "1")),
+            "--face-enhancer-model", "gfpgan_1.4", "--face-enhancer-blend", "25", "--execution-thread-count", "1")),
 )}
 
 
