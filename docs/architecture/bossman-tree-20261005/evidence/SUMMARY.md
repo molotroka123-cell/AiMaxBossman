@@ -1,15 +1,19 @@
 # Evidence summary
 
-Статусы дерева: blocked=13, branch=31, code=16, idea=25, mixed=16, prepared=20, recorded=172, reported=94, retired=8, working=492
+Статусы дерева: blocked=13, branch=31, code=16, idea=24, mixed=16, prepared=24, recorded=172, reported=97, retired=8, working=492
 
-Принято расписок: 0; отклонено: 1211
+Принято расписок: 3; отклонено: 1211
 
 ## По зонам
 
-- нет
+- computer: 1
+- media: 2
 
 ## Принятые
 
+- `reg-genjutsu_live_constructor` (l2-20261010.json)
+- `reg-cu_task_scoped_apps` (l2-20261010.json)
+- `reg-faceswap_hairline_guard` (l2-20261010.json)
 
 ## Отклонённые
 

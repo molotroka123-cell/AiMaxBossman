@@ -22274,12 +22274,18 @@
       "id": "reg-genjutsu_live_constructor",
       "label": "Конструктор Genjutsu: живая смена цвета волос и одежды по маскам",
       "parent": "media",
-      "status": "code",
-      "detail": "Genjutsu live constructor: region masks (hair / top / bottom / clothes) for live recolour in the browser. The backend computes masks ONCE per frame; the browser recolours live (canvas, Lab, debounced) — no round trip per slider move. Two local engines, both ru Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Genjutsu live constructor: region masks (hair / top / bottom / clothes) for live recolour in the browser. The backend computes masks ONCE per frame; the browser recolours live (canvas, Lab, debounced) — no round trip per slider move. Two local engines, both ru Код есть; польза и живая работа не доказаны. Прогон 2026-10-10 @ 93c81467: pytest 1 test file(s) importing bcc.direct_gen.genjutsu: command-center/tests/test_direct_gen_genjutsu.py",
       "sources": [
         {
           "path": "command-center/bcc/direct_gen/genjutsu.py",
           "sha": "64b541110c1b336585ed6dddd29afa4fce81ba4b"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#reg-genjutsu_live_constructor",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "93c81467c1fa8fda713cc3f7453fa995d192994c",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22292,12 +22298,18 @@
       "id": "reg-cu_task_scoped_apps",
       "label": "Computer Use: приложения на задачу + привязка к окну HWND/PID",
       "parent": "computer",
-      "status": "code",
-      "detail": "Computer Use в Command Center: observe → target → act → re-observe → verify. Owner audit 2026-09-21 (glm53 CP-07/08, Aster): установленный продукт не давал модели ни одного инструмента рабочего стола. Оператор компьютера жил только в bossman-core (`bossman.com Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Computer Use в Command Center: observe → target → act → re-observe → verify. Owner audit 2026-09-21 (glm53 CP-07/08, Aster): установленный продукт не давал модели ни одного инструмента рабочего стола. Оператор компьютера жил только в bossman-core (`bossman.com Код есть; польза и живая работа не доказаны. Прогон 2026-10-10 @ 93c81467: pytest 1 test file(s) importing bcc.features.tools_computer: command-center/tests/test_cu_task_apps_binding.py",
       "sources": [
         {
           "path": "command-center/bcc/features/tools_computer.py",
           "sha": "42cf9d062e5eb765cde286d68e43ae6a962aed65"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#reg-cu_task_scoped_apps",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "93c81467c1fa8fda713cc3f7453fa995d192994c",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22327,12 +22339,18 @@
       "id": "reg-faceswap_hairline_guard",
       "label": "Страж линии волос (без пятен-чёлок на висках)",
       "parent": "media",
-      "status": "code",
-      "detail": "Pose gate for the video face swap: keep the source face where the head is bowed toward the camera. FaceFusion's detector stays confident on a bowed head (10.10, two-person clip, 10.1-11.5 s: detector 0.78-0.80) and pastes a frontal face onto the crown — eyes a Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Pose gate for the video face swap: keep the source face where the head is bowed toward the camera. FaceFusion's detector stays confident on a bowed head (10.10, two-person clip, 10.1-11.5 s: detector 0.78-0.80) and pastes a frontal face onto the crown — eyes a Код есть; польза и живая работа не доказаны. Прогон 2026-10-10 @ 93c81467: pytest 1 test file(s) importing bcc.direct_gen.pose_gate_worker: command-center/tests/test_direct_gen_faceswap.py",
       "sources": [
         {
           "path": "command-center/bcc/direct_gen/pose_gate_worker.py",
           "sha": "ad782e4e21dbdbba1c4532e5d4aa958d411d11f6"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#reg-faceswap_hairline_guard",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "93c81467c1fa8fda713cc3f7453fa995d192994c",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
