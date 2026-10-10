@@ -1,0 +1,82 @@
+{
+  "created_at_utc": "2026-10-10T12:33:10Z",
+  "task": "Owner 10.10: drive owner's cloud Windows VM via Bossman computer_operator on a local model; open Notepad in the VM, type 'Bossman управляет моим VM', do not save.",
+  "verdict": "BLOCKED",
+  "blocker": "NO_VM_CHANNEL: Bossman has no configured connection that sees the VM screen or sends input to the VM. computer_operator only wires local backends (LocalScreenshotProvider = pyautogui.screenshot of this PC, WindowsDesktop = local pywinauto/pyautogui input, AppLaunchAdapter, ExistingBrowserAdapter). No VM endpoint exists in repo config, bcc.db settings or the data dir, and no remote-desktop session is active on this PC.",
+  "source_checkout": {
+    "repo": "C:/Users/asd/Bossman-unified",
+    "branch": "claude/bossman-freeze-closure-ohvmon",
+    "head": "8c45e0fe4344245a1559435cb48ffacca9801bfc"
+  },
+  "installed_backend": {
+    "host": "127.0.0.1",
+    "port": 8801,
+    "build_sha": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "listens_loopback_only": true
+  },
+  "connection": {
+    "type": null,
+    "endpoint": null,
+    "screen_capture_component": "bossman-core/bossman/computer_operator/adapters/screenshot.py LocalScreenshotProvider (pyautogui, LOCAL desktop only)",
+    "input_component": "bossman-core/bossman/computer_operator/adapters/windows.py WindowsDesktop (pywinauto/pyautogui, LOCAL desktop only)",
+    "remote_adapter_present": false,
+    "auth_method": null
+  },
+  "discovery": {
+    "this_pc": {
+      "hostname": "WIN-IQPRHTSAJL9",
+      "hardware": "physical mini PC: AMD Radeon 8060S (Strix Halo), AMI BIOS, SMBIOS manufacturer 'Default string'; HypervisorPresent=True reflects Hyper-V/VBS on the host, not a cloud VM",
+      "session": "console session 1 (user asd, Active); not an RDP session",
+      "inbound_rdp_enabled": false,
+      "sshd_listening_port_22": true,
+      "tailscale_running": true
+    },
+    "tailscale_peers": [
+      {"hostname": "win-iqprhtsajl9", "ip_last_octet": ".36", "note": "this PC"},
+      {"hostname": "muse", "ip_last_octet": ".6", "os": "not reported", "online": true, "note": "not identified as a Windows VM; nothing in Bossman references it"}
+    ],
+    "remote_clients_on_this_pc": {
+      "mstsc_server_history": "empty",
+      "rdp_files": "none in Documents/Desktop",
+      "windows_app_or_windows365_client": "not installed",
+      "running_processes_rdp_vnc_parsec_rustdesk_anydesk_teamviewer_sunshine_moonlight": "none",
+      "established_tcp_on_3389_5900_22_5985_47984": "none"
+    },
+    "ssh_client_config": "~/.ssh has only authorized_keys (inbound); no client config/hosts",
+    "bcc_db_settings_keys": ["apps.control_enabled", "higgsfield.api_key", "memory.vault", "openrouter.provider_id", "terminal.roots"],
+    "bcc_db_vm_related_tables_columns_values": "none",
+    "repo_grep": "rdp/vnc/tailscale/remote hits are only Stage-6 /remote phone-client API and Tailscale serve policy (exposing Bossman to the owner's phone), not a channel from Bossman to a VM"
+  },
+  "access_boundaries_observed": {
+    "server_allowlist": "Notepad and Calculator only (COMPUTER_USE_MASTER_PROMPT_RU.md, applist.py)",
+    "per_action_owner_approval": true,
+    "focus_change_refusal": "effect boundary refuses input if foreground changed after approval (see computer-use-local-qwen-20261010.json)",
+    "local_model_endpoint_must_be_loopback": "secret_executor.py rejects non-loopback model endpoints",
+    "remote_api_exposure": "/remote/* only via tailnet (docs/deployment/TAILSCALE_V1_POLICY.md); no funnel"
+  },
+  "model": {
+    "selected": "bossman-fast-qwen36-35b-a3b-q5:latest",
+    "digest": "0c57084a79bbc9abdd16f4e7e6b189eeeeb389d8644d4c18b38231934bf32a65",
+    "provider_endpoint": "http://127.0.0.1:11434 (Ollama, loopback)",
+    "agent_profile_id": 38,
+    "invoked": false,
+    "reason_not_invoked": "no VM channel; running the agent would only drive the local desktop, which the owner forbade substituting"
+  },
+  "run": {
+    "actions": [],
+    "observations": [],
+    "screenshots": {"before": null, "after": null, "note": "no VM screenshot is obtainable; local desktop deliberately NOT captured"},
+    "notepad_opened_in_vm": false,
+    "phrase_typed": false,
+    "file_saved": false,
+    "local_desktop_substituted": false,
+    "remote_access_software_installed_or_ports_opened": false
+  },
+  "owner_required": [
+    "Confirm which machine is 'the cloud Windows VM' (provider such as Azure/Windows 365/AWS/Hetzner, hostname or Tailscale node name). If you mean this PC WIN-IQPRHTSAJL9 itself, say so explicitly: then the target is the local desktop and the applicable evidence is computer-use-local-qwen-20261010.json (BLOCKED on focus retention).",
+    "Choose and approve the channel: (a) preferred, open-source-first: run the Bossman computer_operator agent (or a minimal observe/act agent) INSIDE the VM with the VM joined to the tailnet and Bossman calling it over tailnet with a device token + scope; or (b) RDP/VNC client on this PC with Bossman capturing that client window (weaker: input goes through a client window, focus binding is harder).",
+    "Provide credentials through the vault only (never in chat/repo); approve enabling RDP/VNC/agent and any firewall/Tailscale ACL change on the VM.",
+    "Approve a code change: computer_operator needs a remote backend (screenshot + input + window list bound to the VM session) — today only local backends exist."
+  ],
+  "related_evidence": ["owner-repair/evidence/computer-use-local-qwen-20261010.json", "owner-repair/evidence/computer-use-live-notepad.json"]
+}
