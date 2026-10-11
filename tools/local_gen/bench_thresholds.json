@@ -1,0 +1,15 @@
+{
+  "metric_version": "lg-v1",
+  "frozen_on": "2026-10-11",
+  "plan": "docs/owner/LOCAL_GEN_BENCH_PLAN_20261011.md",
+  "rungs": {
+    "480p": {"wall_cap_s": 3600, "sec_per_frame_pass": 30.0, "sec_per_frame_fast": 10.0},
+    "720p": {"wall_cap_s": 5400, "sec_per_frame_pass": 60.0, "sec_per_frame_fast": 20.0}
+  },
+  "validity": {"frame_mean_min": 8.0, "frame_mean_max": 247.0, "frame_std_min": 4.0, "valid_frame_share_min": 0.95},
+  "sharpness": {"laplacian_var_abs_min": 50.0, "ratio_to_baseline_min": 1.0},
+  "flicker": {"static_roi_mean_abs_diff_max": 2.0, "ratio_to_baseline_max": 1.5, "outpaint_gen_over_orig_ratio_max": 2.0},
+  "outpaint": {"psnr_original_region_min_db": 26.0, "psnr_original_region_mean_db": 30.0, "seam_brightness_diff_mean_max": 12.0},
+  "memory": {"peak_system_plus_gpu_shared_gb_max": 110.0, "swap_growth_gb_max": 2.0},
+  "static_roi_fraction": {"t2v": [0.0, 0.0, 0.25, 0.12], "i2v": [0.0, 0.0, 0.2, 0.2], "outpaint": null}
+}
