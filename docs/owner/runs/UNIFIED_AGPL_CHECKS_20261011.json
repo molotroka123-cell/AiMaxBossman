@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-11",
+  "branch": "feat/bossman-genjutsu-jeff-unified-20261010",
+  "code_sha": "dcd4d4f966317a4c5f48da59d6e8076641c7dd93",
+  "environment": {
+    "os": "Windows owner PC",
+    "python": "3.12",
+    "node": "v20.20.2",
+    "installed_product_tested": false,
+    "existing_untracked_fable_materials_preserved": true
+  },
+  "checks": {
+    "command_center": {
+      "passed": 661,
+      "failed": 1,
+      "skipped": 2,
+      "seconds": 386.33,
+      "exit_code": 1,
+      "files": [
+        "tests/test_direct_gen_faceswap.py",
+        "tests/test_health_model_components.py",
+        "tests/test_jeff_1_8_local.py",
+        "tests/test_jeff_1_8_route.py",
+        "tests/test_jeff_1_8_stream.py",
+        "tests/test_jeff_1_8_web_stream.py",
+        "tests/test_jeff_audit_fixes.py",
+        "tests/test_jeff_availability.py",
+        "tests/test_jeff_owner_bugtest_fixes.py",
+        "tests/test_jeff_ux_browser.py",
+        "tests/test_leaf_jeff_insights.py",
+        "tests/test_leaf_plugins_real_handlers.py",
+        "tests/test_open_news_skill.py",
+        "tests/test_pit_rc19_audit_jeff.py",
+        "tests/test_pit_rc19_jeff.py",
+        "tests/test_pit_telegram_fake.py",
+        "tests/test_pit_web.py",
+        "tests/test_terminal_session_retention.py",
+        "tests/test_ux2_pages_sweep.py",
+        "tests/test_video_descriptor_boundary.py",
+        "tests/test_long_run_profile.py",
+        "tests/test_vibe_studio.py",
+        "tests/test_vibe_ui_static.py",
+        "tests/test_vibe_sandbox_browser.py",
+        "tests/test_motion_studio_manifest.py",
+        "tests/test_mandatory_disclosure.py",
+        "tests/telegram_calls/test_answering_policy.py"
+      ],
+      "failed_test": "tests/test_leaf_plugins_real_handlers.py::test_ollama_chat_live_local_model",
+      "failure": "Local Ollama chat timed out after 90 seconds"
+    },
+    "root_targeted": {
+      "passed": 326,
+      "skipped": 1,
+      "exit_code": 0
+    },
+    "poker_botlab": {
+      "passed": 72,
+      "exit_code": 0
+    },
+    "api_unknown_agent": {
+      "passed": 1,
+      "exit_code": 0
+    },
+    "ui_node": {
+      "passed": 197,
+      "failed": 0,
+      "exit_code": 0
+    },
+    "python_wheels_agpl": {
+      "verified": 14,
+      "comparison": "complete license text, line endings normalized"
+    },
+    "secret_scan": {
+      "status": "PASS"
+    },
+    "runpod": {
+      "pods": []
+    }
+  },
+  "local_log_sha256": {
+    "rc-final.log": "cfe53bb61398bc288ce1b610b86de32d631e1a7d9000d3159e39b2e2751ce540",
+    "ui-node-final.log": "5b5e06ef15505d1ccd6b0376af3cb6256439d15aa36b325d92db572f18a3663d",
+    "license-wheels/build.log": "b09c6ace7848bbc7a6c2b2152793d67f53afc1d6c3b4c3e53c3fe2a5a92d94d6"
+  },
+  "final_freeze": false,
+  "mandatory_ci": "NOT_YET_VERIFIED",
+  "new_windows_archive": "NOT_BUILT",
+  "north_star_promotion": false
+}

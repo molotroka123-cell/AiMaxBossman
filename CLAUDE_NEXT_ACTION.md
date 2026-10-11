@@ -1,3 +1,18 @@
+# 11.10.2026 — owner-selected AGPL and unified candidate (read first)
+
+Owner selected AGPL. Continue in `wt-unified-20261010`, branch
+`feat/bossman-genjutsu-jeff-unified-20261010`. Read
+`docs/owner/UNIFIED_AGPL_20261011_RU.md` and its checks JSON before using older
+handoffs below. RC, ads/hair, Motion V2 and Vibe changes have been ported; existing
+Poker/exchange/trading/North Star/Jeff/voice changes were reconciled.
+First compare actual local/remote HEAD and required CI. One real local Ollama
+chat test still FAILs (90 s timeout); Motion V2 remains PARTIAL. No final freeze,
+main merge, new paid work or installed-build replacement has been approved by
+these test results. Preserve remaining untracked Fable materials. The older
+"planned/not created" unified-branch and license-choice notes are historical.
+
+---
+
 # 10.10.2026 — video gates, Jeff close-out, unified branch (read first)
 
 Read `docs/owner/HANDOFF_20261010.md` first (state, proof, owner blockers, ordered steps), then
