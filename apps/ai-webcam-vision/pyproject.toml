@@ -3,7 +3,7 @@ name = "ai-webcam-vision"
 version = "0.2.0"
 description = "Operational analytics for a fixed clinic camera (Tapo C200 class), independent of the BOSSMAN control plane"
 requires-python = ">=3.11"
-license = { text = "Proprietary" }
+license = { text = "AGPL-3.0-only" }
 dependencies = [
   "fastapi>=0.111",
   "uvicorn[standard]>=0.30",

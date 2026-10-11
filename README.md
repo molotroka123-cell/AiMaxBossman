@@ -323,3 +323,7 @@ _Среднее (вторично, не авторитетно): 8.0/10. 10.0 = 
 <!-- BOSSMAN_LIVE_SCORECARD_END -->
 
 </details>
+## License
+
+Bossman-authored code: [AGPL-3.0-only](LICENSE). Third-party and model terms:
+[LICENSING.md](LICENSING.md).

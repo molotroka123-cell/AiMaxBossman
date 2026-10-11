@@ -10,5 +10,5 @@
     "@solana/web3.js": "1.98.2",
     "bn.js": "5.2.2"
   },
-  "license": "UNLICENSED"
+  "license": "AGPL-3.0-only"
 }

@@ -41,6 +41,8 @@ Honesty rules this file obeys:
 """
 from __future__ import annotations
 
+import re
+
 import argparse
 import hashlib
 import json
@@ -991,8 +993,20 @@ def install_coaching_pack(target: Path) -> dict:
     return {"path": "app-support/coaching-pack", "files": shipped}
 
 
-def write_licenses(licenses: Path, contents: dict) -> None:
+def write_licenses(licenses: Path, contents: dict, *, sha: str) -> None:
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ValueError("License source offer requires an exact source SHA")
     licenses.mkdir(parents=True, exist_ok=True)
+    for name in ("LICENSE", "LICENSING.md"):
+        shutil.copyfile(ROOT / name, licenses.parent / name)
+    (licenses / "SOURCE.md").write_text(
+        "# Bossman corresponding source (AGPL-3.0-only)\n\n"
+        f"Source commit: `{sha}`\n\n"
+        f"https://github.com/molotroka123-cell/AiMaxBossman/tree/{sha}\n\n"
+        f"https://github.com/molotroka123-cell/AiMaxBossman/archive/{sha}.zip\n\n"
+        "Build/install scripts are included in that source tree. Third-party "
+        "components retain their own terms; see README.md and distribution notices.\n",
+        encoding="utf-8")
     (licenses / "README.md").write_text(
         "# Third-party components redistributed in this archive\n\n"
         f"* CPython {contents['runtime'].get('python_version', 'embeddable')} — "
@@ -1030,7 +1044,7 @@ def assemble(out: Path, sha: str, *, wheels: Path, work: Path,
         target = out / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(body.replace("\n", "\r\n"), encoding="utf-8")
-    write_licenses(out / "LICENSES", contents)
+    write_licenses(out / "LICENSES", contents, sha=sha)
     return contents, required
 
 

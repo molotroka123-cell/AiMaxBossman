@@ -1,4 +1,5 @@
 [project]
+license = { text = "AGPL-3.0-only" }
 name = "poker-vision"
 version = "0.1.0"
 description = "Poker Train x Vision: pixels -> validated table state -> history -> training/review. Observe/replay for external UIs; acting only in the owner's own trainer."

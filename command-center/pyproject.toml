@@ -1,4 +1,5 @@
 [project]
+license = { text = "AGPL-3.0-only" }
 name = "bossman-command-center"
 version = "0.1.0"
 description = "BOSSMAN AI Command Center — управление моделями, агентами, задачами и расписаниями"

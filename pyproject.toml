@@ -3,6 +3,7 @@
 # as a real distribution so wheels and containers do not depend on the repository
 # checkout (audit P0: "bossman_shared in wheels and Docker").
 [project]
+license = { text = "AGPL-3.0-only" }
 name = "bossman-shared"
 version = "0.1.0"
 description = "Shared contracts for Bossman: cache observation schema, learning trace store, JSON schemas"

@@ -272,6 +272,13 @@ def main() -> int:
         checks = verify(wheels, verifier, sha)
     when = datetime.now(timezone.utc).isoformat()
     (out / "README.md").write_text(README.format(sha=sha, when=when, status=checks["status"]), encoding="utf-8")
+    for name in ("LICENSE", "LICENSING.md"):
+        shutil.copyfile(ROOT / name, out / name)
+    (out / "SOURCE.md").write_text(
+        f"Bossman AGPL-3.0-only source: https://github.com/molotroka123-cell/AiMaxBossman/tree/{sha}\n"
+        f"Source snapshot: https://github.com/molotroka123-cell/AiMaxBossman/archive/{sha}.zip\n"
+        f"Dirty source: {dirty}. A dirty build requires its unpublished modifications too.\n",
+        encoding="utf-8")
     # Detect code changing while the build was running; never stamp a moving
     # workspace with an old commit and call it final acceptance.
     changed = _source_sha() != sha or _source_dirty()

@@ -1,4 +1,5 @@
 [project]
+license = { text = "AGPL-3.0-only" }
 name = "bossman-core"
 version = "0.3.0"
 description = "Bossman Control — личные агенты на домашнем сервере (ТЗ v0.3)"

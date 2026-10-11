@@ -3,6 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
+license = { text = "AGPL-3.0-only" }
 name = "exam-trainer-ai"
 version = "1.0.0"
 requires-python = ">=3.11"

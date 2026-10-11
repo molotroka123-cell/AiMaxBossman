@@ -1,4 +1,5 @@
 [project]
+license = { text = "AGPL-3.0-only" }
 name = "poker-lora"
 version = "0.1.0"
 description = "Poker-LoRA data, solver, evaluation and registry for heads-up no-limit hold'em river spots (numpy only; training deps are optional)"

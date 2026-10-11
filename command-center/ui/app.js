@@ -825,6 +825,11 @@ async function showBuildIdentity() {
     if (d && d.source_identity === 'PASS' && sha) {
       const source = d.source === 'installed_build' ? 'установленная сборка' : 'рабочий чекаут';
       set(`сборка ${sha.slice(0, 12)}`, `${sha}\n${source}`, false);
+      const sourceLink = document.getElementById('license-source');
+      if (sourceLink && /^[0-9a-f]{40}$/.test(sha)) {
+        sourceLink.href = `https://github.com/molotroka123-cell/AiMaxBossman/tree/${sha}`;
+        sourceLink.title = `AGPL-3.0-only · исходный код ${sha}`;
+      }
     } else {
       const detail = (d && d.detail) || 'источник не доказан';
       set('SOURCE_IDENTITY_UNKNOWN', `Код не назвал свой SHA: ${detail}`, true);
