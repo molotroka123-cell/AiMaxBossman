@@ -1,0 +1,172 @@
+{
+ "schema": "swapme.exchange-volume/2",
+ "generated_utc": "(volatile)",
+ "source": {
+  "type": "telegram_export_html",
+  "sha256": "dfcd417f7689e16a4c2e356f0d934cff7b60f7cbd5f6d328b47058e0f831e155",
+  "messages": 10,
+  "export_utc_offsets_min": {
+   "-480": 10
+  },
+  "first_ts_export_local": "2026-03-10T08:00:00",
+  "last_ts_export_local": "2026-03-22T09:00:00",
+  "senders": 1,
+  "media_without_text_messages": 0
+ },
+ "as_of_prague_date": "2026-03-22",
+ "assumptions": {
+  "business_time_zone": "Europe/Prague (EU DST rule, built in); NOT verified against operator",
+  "period": "business month 21st..20th inclusive, named by closing 20th",
+  "volume_definition": "USDT turnover = amount of the USDT leg of each counted deal (one leg, not in+out). Deals without a USDT leg are unpriced unless an external rate book is supplied.",
+  "duplicate_rule": "identical in/out legs within 10 min of an earlier counted deal",
+  "internal_turnover": "only operator-listed refs are excluded; mirror pairs are flagged not removed",
+  "rates": "no market rates in the chat; executed rate = sum_out/sum_in per pair; no external rate book",
+  "commission": "not present in chat messages; null unless every counted deal has fee in USDT"
+ },
+ "duplicates": {
+  "window_min": 10,
+  "excluded": 1,
+  "same_day_identical_candidates_kept": 0
+ },
+ "rate_outliers": {
+  "tolerance": "0.25",
+  "flagged": 0
+ },
+ "internal_excluded": 0,
+ "mirror_pair_rows_flagged": 0,
+ "periods": {
+  "2026-03-20": {
+   "from_prague": "2026-02-21",
+   "to_prague": "2026-03-20",
+   "status": "closed",
+   "deals_counted": 4,
+   "excluded_duplicates": 1,
+   "excluded_internal": 0,
+   "gross_usdt_direct": "3300",
+   "gross_usdt_converted_external_rate": null,
+   "usdt_received_from_clients": "1300",
+   "usdt_paid_to_clients": "2000",
+   "unpriced_deals": 1,
+   "unpriced_pairs": [
+    "EUR>CZK"
+   ],
+   "commission_usdt": null,
+   "net_usdt_direct": null,
+   "fee_known_deals": 0,
+   "per_currency_native": {
+    "CZK": {
+     "in": "42000",
+     "out": "39800"
+    },
+    "EUR": {
+     "in": "500",
+     "out": "0"
+    },
+    "USDT": {
+     "in": "1300",
+     "out": "2000"
+    }
+   },
+   "per_pair": {
+    "CZK>USDT": {
+     "deals": 1,
+     "sum_in": "42000",
+     "sum_out": "2000",
+     "vwap_out_per_in": "0.04761904761904761904761904762"
+    },
+    "EUR>CZK": {
+     "deals": 1,
+     "sum_in": "500",
+     "sum_out": "12500",
+     "vwap_out_per_in": "25"
+    },
+    "USDT>CZK": {
+     "deals": 2,
+     "sum_in": "1300",
+     "sum_out": "27300",
+     "vwap_out_per_in": "21"
+    }
+   },
+   "usdt_by_network": {},
+   "usdt_deals_network_unspecified": 3,
+   "rate_outlier_deals": 0,
+   "rate_outlier_usdt_leg": "0",
+   "provisional_complex_messages": 1,
+   "provisional_complex_usdt_leg_not_in_totals": "100",
+   "last_deal_date_prague": "2026-03-20"
+  },
+  "2026-04-20": {
+   "from_prague": "2026-03-21",
+   "to_prague": "2026-04-20",
+   "status": "open_partial_as_of_export",
+   "deals_counted": 1,
+   "excluded_duplicates": 0,
+   "excluded_internal": 0,
+   "gross_usdt_direct": "310",
+   "gross_usdt_converted_external_rate": null,
+   "usdt_received_from_clients": "310",
+   "usdt_paid_to_clients": "0",
+   "unpriced_deals": 0,
+   "unpriced_pairs": [],
+   "commission_usdt": null,
+   "net_usdt_direct": null,
+   "fee_known_deals": 0,
+   "per_currency_native": {
+    "CZK": {
+     "in": "0",
+     "out": "6510"
+    },
+    "USDT": {
+     "in": "310",
+     "out": "0"
+    }
+   },
+   "per_pair": {
+    "USDT>CZK": {
+     "deals": 1,
+     "sum_in": "310",
+     "sum_out": "6510",
+     "vwap_out_per_in": "21"
+    }
+   },
+   "usdt_by_network": {},
+   "usdt_deals_network_unspecified": 1,
+   "rate_outlier_deals": 0,
+   "rate_outlier_usdt_leg": "0",
+   "provisional_complex_messages": 0,
+   "provisional_complex_usdt_leg_not_in_totals": "0",
+   "last_deal_date_prague": "2026-03-21"
+  }
+ },
+ "message_classification": {
+  "kinds": {
+   "deal": 6,
+   "complex": 1,
+   "ignored": 1,
+   "ambiguous_amount": 1,
+   "incomplete": 1
+  },
+  "flags": {
+   "provisional_first_two_pairs": 1
+  },
+  "complex_refs": [
+   5
+  ],
+  "incomplete_refs": [
+   10
+  ],
+  "ambiguous_amount_refs": [
+   9
+  ],
+  "complex_provisional_usdt_leg_sum_not_in_totals": "100",
+  "complex_provisional_with_usdt_leg": 1
+ },
+ "sensitivity_export_wallclock_date_instead_of_prague": {
+  "2026-03-20": {
+   "deals_counted": 5,
+   "gross_usdt_direct": "3610"
+  }
+ },
+ "deals_that_change_business_period_with_zone_choice": 1,
+ "elapsed_s": null
+}
