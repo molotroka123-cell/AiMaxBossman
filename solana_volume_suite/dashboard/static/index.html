@@ -405,9 +405,21 @@
     }
 
     // ACTIONS
+    // State-changing endpoints need the per-process control token printed in the
+    // server console (or SVS_CONTROL_TOKEN). It is kept in sessionStorage only.
+    function controlHeaders() {
+      let t = '';
+      try { t = sessionStorage.getItem('svsToken') || ''; } catch (e) {}
+      if (!t) {
+        t = prompt('Control token (shown in the server console):') || '';
+        try { sessionStorage.setItem('svsToken', t); } catch (e) {}
+      }
+      return {'X-Control-Token': t};
+    }
+
     async function startMM() {
       try {
-        const res = await fetch('/api/orchestrator/start', {method: 'POST'});
+        const res = await fetch('/api/orchestrator/start', {method: 'POST', headers: controlHeaders()});
         if (res.ok) {
           fetchStatus();
         } else {

@@ -112,7 +112,9 @@ def test_dashboard_interactive_endpoints():
     Tests dashboard prototype endpoints:
     /api/status, /api/orchestrator/start, /api/orchestrator/stop, /api/sweep, /api/vault/generate.
     """
+    from dashboard.safety_app import CONTROL_TOKEN
     with TestClient(app) as client:
+        client.headers["X-Control-Token"] = CONTROL_TOKEN
         # 1. GET /api/status
         status_resp = client.get("/api/status")
         assert status_resp.status_code == 200

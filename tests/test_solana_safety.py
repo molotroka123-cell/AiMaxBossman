@@ -87,9 +87,12 @@ def test_control_plane_blocks_execution_and_preserves_unknown():
     pytest.importorskip("solders", reason="Solana SDK (solders) не установлен — панель безопасности не импортируется")
     from fastapi.testclient import TestClient
     from solana_volume_suite.dashboard.safety_app import app
+    from solana_volume_suite.dashboard.safety_app import CONTROL_TOKEN
+    hdr = {"X-Control-Token": CONTROL_TOKEN}
     with TestClient(app) as client:
         for route in ("/api/bot/start", "/api/bot/sweep", "/api/vault/generate"):
-            assert client.post(route, json={}).status_code == 403
+            assert client.post(route, json={}).status_code == 401   # no control token
+            assert client.post(route, json={}, headers=hdr).status_code in (403, 409)
         response = client.post("/api/trading/simulate")
         assert response.status_code == 409
         assert response.json()["verified_side_effect"] is False
