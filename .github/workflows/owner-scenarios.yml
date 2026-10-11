@@ -10,6 +10,7 @@ name: Owner scenarios (integrated, not unit tests)
 on:
   push:
     branches:
+      - 'feat/bossman-genjutsu-jeff-unified-20261010'
       - 'claude/**'
       - 'night/**'
       - 'release/**'

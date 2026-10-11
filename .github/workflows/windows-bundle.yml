@@ -25,6 +25,7 @@ on:
   # причине и по тому же замеру.
   push:
     branches:
+      - 'feat/bossman-genjutsu-jeff-unified-20261010'
       - 'claude/**'
       - 'night/**'
       # Ветка сведе́ния воедино. Заведена ПОСЛЕ того, как этот фильтр был

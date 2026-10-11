@@ -42,7 +42,8 @@
     "integrate/bossman-1.7-unified-20260925",
     "release/bossman-owner",
     "claude/bossman-final-convergence-hu2702",
-    "night/v7-convergence-20260908"
+    "night/v7-convergence-20260908",
+    "feat/bossman-genjutsu-jeff-unified-20261010"
   ],
   "must_not_be_covered": [
     "scratch/experiment",

@@ -21,6 +21,7 @@ on:
   # отличается от отсутствующей проверки.
   push:
     branches:
+      - 'feat/bossman-genjutsu-jeff-unified-20261010'
       - 'claude/**'
       - 'night/**'
       - 'release/**'

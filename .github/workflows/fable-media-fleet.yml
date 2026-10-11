@@ -5,6 +5,7 @@ env:
 on:
   push:
     branches:
+      - 'feat/bossman-genjutsu-jeff-unified-20261010'
       - fix/fable-current-media-fleet-20260906
       - claude/fable-system-hardening-lpqq9r
       # The integration branch too: this is the only gate that installs real

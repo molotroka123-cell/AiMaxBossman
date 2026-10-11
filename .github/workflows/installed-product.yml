@@ -35,6 +35,7 @@ on:
   # поднимал бы любой коммит, включая чужой.
   push:
     branches:
+      - 'feat/bossman-genjutsu-jeff-unified-20261010'
       # Тот же список, что у пары Windows-заданий. Объявлен в
       # tools/owner_facing_branches.json и сверяется
       # tests/test_windows_workflows_cover_owner_branches.py: ветка, выпавшая
