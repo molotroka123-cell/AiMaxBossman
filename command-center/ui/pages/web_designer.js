@@ -861,6 +861,7 @@ function generateBar() {
 /* ---------------- пустое состояние: создание проекта ---------------- */
 
 function emptyState(ctx, catalog) {
+  let createdHere = false;     // this form already created a project: ignore clicks until the editor replaces it
   const name = h('input', { type: 'text', placeholder: 'Название проекта, например «Кофейня Север»',
     style: { width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: '10px',
       border: '1px solid color-mix(in srgb, currentColor 22%, transparent)', background: 'transparent', color: 'inherit', font: 'inherit' } });
@@ -891,7 +892,9 @@ function emptyState(ctx, catalog) {
         name, prompt,
         h('div.bd-row', pal,
           btn('Открыть проект', async (event) => {
-            if (state.mutating || !state.creating) return;
+            // Guard per mounted form, not via state.creating: this form is also shown when there are no projects at
+            // all (creating === false), and then the first click must create one.
+            if (state.mutating || createdHere) return;
             state.mutating = true;
             const button = event?.currentTarget;
             if (button) button.disabled = true;
@@ -904,7 +907,7 @@ function emptyState(ctx, catalog) {
               state.selected = null;
               try { localStorage.setItem(LAST_KEY, String(state.id)); } catch { /* приватный режим */ }
               toastOk('Проект создан');
-              created = true;
+              created = true; createdHere = true;
               ctx.refresh();
             } catch (e) { await operationError(e, 'Не удалось создать проект'); }
             // After a successful create the old button stays disabled until the editor replaces it: re-enabling it

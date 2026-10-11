@@ -42,6 +42,10 @@ semantic-memory = ["qdrant-client==1.15.1"]
 # runtime только транзитивно через docling; ai-webcam-vision без него умирал
 # сразу после «Запустить» (BL-067).
 apps = ["numpy>=1.26"]
+# Media WORKERS (bcc/direct_gen/{pose_gate,masks,parsing,makeup}_worker.py and the v2 compose helpers in faceswap.py)
+# run inside FaceFusion's own interpreter, which brings numpy + OpenCV. They are deliberately NOT in `runtime`
+# (the hash-locked Windows bundle has no OpenCV); this extra exists so their pure functions are tested in CI.
+media-workers = ["numpy>=1.26", "opencv-python-headless>=4.9"]
 # The owner installation ships the existing integrations. Individual extras
 # remain available for small server-only/development installations.
 runtime = [

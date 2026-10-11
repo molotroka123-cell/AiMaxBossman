@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-np = pytest.importorskip("numpy", reason="root-ci installs no Command Center / media deps")
-pytest.importorskip("PIL", reason="root-ci installs no Command Center / media deps")
+np = pytest.importorskip("numpy", reason="media extra not installed (pip install -e \".[media]\"; root-ci installs it)")
+pytest.importorskip("PIL", reason="media extra not installed (pip install -e \".[media]\"; root-ci installs it)")
 from PIL import Image  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]

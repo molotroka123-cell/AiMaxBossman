@@ -14,6 +14,8 @@ import re
 import uuid
 from typing import Any, Callable
 
+from ..single_flight import await_shared
+
 from .generator import (Candidate, Ladder, ParseError, assert_cloud_payload, build_messages,
                         build_spec, parse_output)
 from .safety import (MAX_REQUEST_CHARS, UnsafePath, inline_for_preview, preview_csp, scan_files,
@@ -173,7 +175,9 @@ class VibeService:
     async def wait_idle(self, timeout: float = 30.0) -> None:
         w = self._worker
         if w is not None:
-            await asyncio.wait_for(asyncio.shield(w), timeout)
+            # await_shared, not asyncio.shield (Python 3.14 logs a false "exception in shielded future"):
+            # the timeout cancels only this wait, the queue worker keeps running; its error/cancel still reaches us.
+            await asyncio.wait_for(await_shared(w), timeout)
 
     async def close(self) -> None:
         w, self._worker = self._worker, None

@@ -69,7 +69,7 @@ jobs:
           python -m pip install -e ./bossman-core
           # mcp — опциональная группа: без неё рантайм честно отвечает
           # «недоступно», но в CI мы хотим прогонять и его тесты
-          python -m pip install -e "./command-center[dev,mcp,browser]"
+          python -m pip install -e "./command-center[dev,mcp,browser,media-workers]"
 
       - name: Python compile
         run: python -m compileall -q command-center/bcc command-center/tests

@@ -33,7 +33,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install test deps (no secrets, no network services)
         run: |
-          python -m pip install --quiet -e .
+          python -m pip install --quiet -e ".[media]"
           # pyyaml: корневой набор проверяет разбор OLLAMA_HOST в bossman.gateway.config,
           # а тот читает YAML-настройку. Ставится ровно этот пакет, а не весь
           # bossman-core: задание намеренно остаётся без сервисов и секретов.

@@ -4,7 +4,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 
-function mount() {
+function mount({creating=true}={}) {
   const nodes=[], calls=[], failures=[];
   const h=(tag,...parts)=>{
     const node={tag,children:[],props:{},handlers:{},value:'',disabled:false,
@@ -16,7 +16,7 @@ function mount() {
     node.children=parts.flat(Infinity);nodes.push(node);return node;
   };
   const ctx={refresh(){}};
-  const state={mutating:false,creating:true};
+  const state={mutating:false,creating};
   const context={h,state,styleNode:()=>null,recoveryPanel:()=>null,pageHead:()=>null,
     panel:(title,body)=>body,
     btn:(label,handler)=>h('button',{onClick:handler},label),
@@ -60,4 +60,14 @@ test('the actual catalog card reaches the production create endpoint with ai_loc
   assert.equal(t.calls[0].url,'/api/web-designer/projects');
   assert.equal(t.calls[0].options.method,'POST');assert.equal(t.calls[0].options.body.template,'ai_local');
   t.calls[0].resolve({meta:{id:9}});await pending;
+});
+
+test('with no projects at all (creating=false) the first click still creates exactly one project',async()=>{
+  // Regression of dcd4d4f9: the guard read state.creating, which is false when the form is shown because the
+  // owner has no projects yet, so "Открыть проект" silently did nothing (CI browser suites, 2026-10-11).
+  const t=mount({creating:false});const first=t.click();
+  assert.equal(t.calls.length,1);
+  t.calls[0].resolve({meta:{id:3}});await first;
+  assert.equal(t.state.id,3);
+  await t.click();assert.equal(t.calls.length,1);
 });

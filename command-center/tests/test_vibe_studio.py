@@ -241,6 +241,39 @@ def test_limits_and_secret_detection():
     assert "<script>var a=1;" in html and "<style>p{}</style>" in html
 
 
+async def test_wait_idle_timeout_leaves_the_queue_worker_running(tmp_path):
+    svc = VibeService(tmp_path, ladder=FakeLadder())
+    release = asyncio.Event()
+    svc._worker = asyncio.ensure_future(release.wait())
+    with pytest.raises(asyncio.TimeoutError):
+        await svc.wait_idle(timeout=0.05)
+    assert not svc._worker.cancelled() and not svc._worker.done()   # the wait gave up, the worker did not
+    release.set()
+    await svc.wait_idle(timeout=1)
+    assert svc._worker.done() and not svc._worker.cancelled()
+
+
+async def test_wait_idle_reports_a_failed_worker_instead_of_hiding_it(tmp_path):
+    svc = VibeService(tmp_path, ladder=FakeLadder())
+
+    async def boom():
+        await asyncio.sleep(0)
+        raise RuntimeError("queue crashed")
+    svc._worker = asyncio.ensure_future(boom())
+    with pytest.raises(RuntimeError, match="queue crashed"):
+        await svc.wait_idle(timeout=1)
+
+
+def test_inline_preview_escapes_closing_tags_inside_inlined_bodies():
+    # a literal "</script" / "</style" inside an inlined file would end the tag early in the preview frame
+    html = inline_for_preview({"index.html": GOOD_HTML, "app.js": "var s='</script>';", "style.css": "p{content:'</style>'}"})
+    assert "var s='<\\/script>';" in html and "</script>';" not in html
+    assert "p{content:'<\\/style>'}" in html
+    # negative control: ordinary bodies are not altered
+    plain = inline_for_preview({"index.html": GOOD_HTML, "app.js": "var a=1;", "style.css": "p{}"})
+    assert "\\/" not in plain
+
+
 # ----------------------------------------------------------------- ladder, privacy
 async def test_ladder_falls_back_local_then_free_and_never_touches_paid_when_free_works(env, autonomy):
     local = FakeAdapter(error=ProviderError("connection refused", kind="network"))

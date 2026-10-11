@@ -10,6 +10,11 @@ description = "Shared contracts for Bossman: cache observation schema, learning 
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+# Media tools under tools/ (genjutsu, trend_edit, dataset_check, video gates) and their root tests.
+# Headless OpenCV: CI and servers have no GUI; the owner PC uses the same wheels.
+media = ["numpy>=1.26", "opencv-python-headless>=4.9", "pillow>=10"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"

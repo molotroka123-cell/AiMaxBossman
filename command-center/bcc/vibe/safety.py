@@ -281,7 +281,9 @@ def inline_for_preview(files: dict[str, str]) -> str:
         if body is None:
             return m.group(0)
         attrs = re.sub(r"""(?i)\s*\bsrc\s*=\s*(['"]?)[^'"\s>]+\1""", "", m.group(1))
-        return f"<script{attrs}>{body.replace('</script', '<\\/script')}</script>"
+        # escaped outside the f-string: a backslash inside the expression is a SyntaxError before Python 3.12
+        escaped = body.replace("</script", "<\\/script")
+        return f"<script{attrs}>{escaped}</script>"
 
     def link(m: re.Match) -> str:
         tag = m.group(0)
@@ -291,7 +293,8 @@ def inline_for_preview(files: dict[str, str]) -> str:
         body = files.get(href.group(2).split("?")[0]) if href else None
         if body is None:
             return tag
-        return f"<style>{body.replace('</style', '<\\/style')}</style>"
+        escaped = body.replace("</style", "<\\/style")
+        return f"<style>{escaped}</style>"
 
     html = re.sub(r"""(?is)<script([^>]*?\bsrc\s*=\s*(['"]?)([^'"\s>]+)\2[^>]*)>\s*</script>""",
                   script, html)
