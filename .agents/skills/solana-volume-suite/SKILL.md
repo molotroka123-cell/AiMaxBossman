@@ -21,7 +21,7 @@ Use this skill for the paper-only simulation of Solana trading: hypothetical BUY
 Invoke this skill when the prompt or task mentions:
 - "Solana paper trading" / "бумажная симуляция на солане"
 - "Pump.fun bonding curve" / "Raydium AMM" price-impact checks
-- "Jito bundle" / "Zero-Knowledge vault"
+- "Zero-Knowledge vault"
 - "Запусти дашборд / command center solana volume"
 
 ## Quick Actions & CLI Commands
@@ -52,7 +52,7 @@ python -m pytest solana_volume_suite/tests/ tests/test_solana_safety.py -v
 ## Architectural Invariants
 
 1. **Zero-Knowledge Key Isolation**: Raw private keys are never exposed in prompt contexts or logs. The AI LLM operates solely with virtual wallet IDs (`wallet_0` ... `wallet_49`).
-2. **Jito-Only Invariant**: Trading swaps are routed exclusively through private atomic Jito MEV bundles (no public mempool transactions).
+2. **No transaction building**: Pump.fun instruction/bundle builders, Jupiter swap/sign helpers and Jito compilation were removed (audit H4, 2026-10-11). Only paper plans remain (`core/paper_plan.py`); `core/paper_guard.py::refuse_live_signing` is the single refusal point.
 3. **Price Impact Limiter**: Maximum 1.2% price impact allowed per transaction. Orders above the threshold are automatically sliced into micro-orders.
 4. **No volume faking / link obfuscation**: no wash trading, no KOTH/floor-defense modes, no cascaded funding or wallet rotation to hide links (removed 2026-10-11; `funding_router.py` deleted, history keeps it).
 5. **Kill Switch & Circuit Breaker**: Treasury loss is capped at `$40.00` per batch. If exceeded, the bot automatically triggers an emergency halt.

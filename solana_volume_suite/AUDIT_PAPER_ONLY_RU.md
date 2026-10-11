@@ -78,3 +78,35 @@ tests/test_solana_safety.py -q` — **73 passed**, 0 failed, 0 skipped.
 
 Оставлено как легитимное (не скрывает связи): `JitoBundleClient` jitter размера
 чаевых (оценка tip по загруженности сети).
+
+## Решение владельца 2026-10-11 («Дада»): удалён код сборки боевых транзакций (аудит H4)
+
+Удалено, а не заблокировано (история git сохраняет код):
+
+- `stages/pumpfun_engine.py`: `build_pump_buy_instruction`, `build_pump_sell_instruction`, `assemble_pump_buy_bundle`,
+  `assemble_pump_sell_bundle`, `get_bonding_curve_pda`, `get_associated_token_address`, `PumpFunEngine` (ручной список аккаунтов
+  расходился с IDL, ATA выводился для неверной token program);
+- `core/jupiter_engine.py` и `stages/raydium_jupiter_engine.py` целиком (`get_swap_quote`, `build_swap_transaction`,
+  `sign_jupiter_transaction`, `execute_swap`, quote-api.jup.ag/v6);
+- `core/jito_client.py`: `compile_v0_transaction`, `build_tip_instruction`, `get_bundle_status`, список tip-аккаунтов, импорты
+  `solders`/`httpx`; остались оценка размера чаевых и `send_bundle`, который всегда отказывает (`LIVE_EXECUTION_DISABLED`);
+- `core/key_vault/vault.py`: `RentReclaimer` (инструкция close_account) и `build_sweep_all_instructions`;
+- `core/paper_guard.py`: `unsigned_paper_transaction` (теперь модуль без `solders`; `LiveSigningDisabled` и
+  `refuse_live_signing` остались единственной точкой отказа).
+
+Что осталось, в виде чистых paper-планов (frozen dataclass, без `solders`/`httpx`, без ключей):
+`core/paper_plan.py` (отсечка 95% миграции, нарезка по price impact <= 1.2%, оценка impact, лимиты проскальзывания в целых
+lamports, rent-reclaim как пункт плана `RentReclaimPlanItem`), `stages/pumpfun_engine.py::PumpFunPaperPlanner`
+(`plan_buy`/`plan_sell`), `stages/amm_paper_plan.py::plan_amm_swap` (по резервам, переданным вызывающим кодом; проверка
+impact заменяет бывшую проверку Jupiter-котировки).
+
+Негативные контроли (`tests/test_paper_safety.py`, `tests/test_paper_plan.py`): удалённые функции/модули отсутствуют;
+статический AST-тест по пакету: `solders.keypair.Keypair` импортируется только в хранилище ключей и его
+zero-knowledge-обёртке, нет импортов `solders.transaction/message/instruction/system_program/signature/hash` и
+`spl.token.*`, нет вызовов `.sign*`, нет `httpx`/сетевых клиентов вне двух разрешённых файлов
+(`core/ai_orchestrator.py` — чат с LLM, `core/liquidity_gate.py` — чтение резервов DexScreener); в `stages/` ровно два
+модуля. Прежнее «Отдельный остаточный риск» выше закрыто этим пунктом.
+
+Осталось (честно): `core/liquidity_gate.py` и `core/ai_orchestrator.py` по-прежнему используют `httpx` для чтения
+(не для подписи); хранилище ключей (`SecurityKeyVault.load_keypairs`) возвращает `Keypair` и не удалено — решение владельца
+по vault отдельное (раздел 6, п. 3 аудита MP21-D).

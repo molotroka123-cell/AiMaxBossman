@@ -42,3 +42,12 @@
 - Evidence: `docs/owner/runs/TRADING_LEGIT_TOOLS_RUN_20261011.md` (file:line до/после, команды, синтетические прогоны).
 - Не запускалось: реальные данные биржи/RPC, CI, GUI владельца. Известный флейк `test_vault_security.py::test_pareto_distribution` (случайная величина), не тронут.
 - Открыто: PBKDF2 100k (повысить с хранением числа итераций в vault); H4 ручная сборка инструкций Pump.fun/Jupiter; прогон лаборатории на реальных котировках; живой режим — только решением владельца по гейту.
+
+## 2026-10-11 - H4 закрыт: код сборки боевых транзакций удалён, остались paper-планы (решение владельца «Дада»)
+
+- Ветка: `fix/h4-paper-only-20261011` (worktree `wt-h4-paper-20261011`), от `claude/bossman-final-convergence-hu2702` = `feat/bossman-genjutsu-jeff-unified-20261010` = `d925e8a4b09758d26ed0a4d43c56981453bf1145`. SHA до: `d925e8a4`; SHA после кода и тестов: `da8877790` (docs-коммит сверху; финальные SHA обеих веток - `git ls-remote`).
+- Удалено: `core/jupiter_engine.py`, `stages/raydium_jupiter_engine.py`; из `stages/pumpfun_engine.py` - `build_pump_buy/sell_instruction`, `assemble_pump_buy/sell_bundle`, PDA/ATA-хелперы, `PumpFunEngine`; из `core/jito_client.py` - `compile_v0_transaction`, `build_tip_instruction`, `get_bundle_status`, tip-аккаунты; `RentReclaimer` и `build_sweep_all_instructions` в vault; `unsigned_paper_transaction` в paper_guard.
+- Добавлено: `core/paper_plan.py` (отсечка 95%, нарезка <= 1.2%, оценка impact, лимиты проскальзывания в целых lamports, rent-reclaim как plan item), `PumpFunPaperPlanner`, `stages/amm_paper_plan.py`; `tests/test_paper_plan.py` (статические негативные контроли по пакету), обновлены `test_suite.py`, `test_paper_safety.py`, `test_jito.py`.
+- Команды (venv-solana-20261011, один процесс, без -n): `python -m pytest solana_volume_suite/tests tests/test_solana_safety.py -q` - до 99 passed, после 120 passed, rc=0. `set -o pipefail; python tools/ci_secret_scan.py | tail` - PASS, rc=0.
+- Не запускалось: RPC, Jupiter, Jito, подпись, сделки, сеть. `tests/test_mp21_d_volume_suite_quarantine.py` не собирается в этом venv (нет `yaml`), не связано с правкой.
+- Осталось: `httpx` в `core/liquidity_gate.py` (DexScreener, чтение) и `core/ai_orchestrator.py` (LLM); `SecurityKeyVault.load_keypairs` и хранилище ключей не удалены (отдельное решение владельца).

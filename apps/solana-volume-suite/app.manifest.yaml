@@ -8,8 +8,9 @@ kind: workload
 contract: "1.0"
 
 description: >-
-  Paper-only Solana trading simulation with Jito bundle tooling (live broadcast
-  disabled), order-size and price-impact guards, and a Zero-Knowledge KeyVault.
+  Paper-only Solana trading simulation (paper plans only: no transaction, bundle
+  or swap-API code since 2026-10-11), order-size and price-impact guards, and a
+  Zero-Knowledge KeyVault.
   Volume-faking and wallet-link-obfuscation modes were removed (2026-10-11).
 
 runtime:
