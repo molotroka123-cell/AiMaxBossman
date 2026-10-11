@@ -1,0 +1,201 @@
+{
+ "bundle": "C:\\Users\\asd\\Bossman\\release-rc-20261011\\dist3\\BOSSMAN-Windows-x64-db249bde16e2",
+ "port": 18931,
+ "checks": {
+  "boot_alive": {
+   "ok": true,
+   "detail": 4.1
+  },
+  "fresh_data_dir_created_db": {
+   "ok": true,
+   "detail": [
+    "backend.json",
+    "backend.lock",
+    "bcc.db",
+    "bcc.db-shm",
+    "bcc.db-wal",
+    "browser",
+    "evolution",
+    "owner-input",
+    "rave",
+    "secret.key",
+    "testing",
+    "token",
+    "vault-prompts",
+    "video-studio"
+   ]
+  },
+  "api_requires_auth": {
+   "ok": true,
+   "detail": 401
+  },
+  "login_screen_shown": {
+   "ok": true,
+   "detail": null
+  },
+  "login_ok_nav_built": {
+   "ok": true,
+   "detail": 48
+  },
+  "page_home-v3": {
+   "ok": true,
+   "detail": 400
+  },
+  "page_mission_console": {
+   "ok": true,
+   "detail": 400
+  },
+  "page_apps": {
+   "ok": true,
+   "detail": 400
+  },
+  "page_control": {
+   "ok": true,
+   "detail": 400
+  },
+  "page_video-studio": {
+   "ok": true,
+   "detail": 194
+  },
+  "page_router": {
+   "ok": true,
+   "detail": 400
+  },
+  "page_skills": {
+   "ok": true,
+   "detail": 400
+  },
+  "page_resources": {
+   "ok": true,
+   "detail": 400
+  },
+  "page_capability-tree": {
+   "ok": true,
+   "detail": 400
+  },
+  "page_openrouter": {
+   "ok": true,
+   "detail": 400
+  },
+  "api_login": {
+   "ok": true,
+   "detail": 200
+  },
+  "task_created": {
+   "ok": false,
+   "detail": {
+    "status": 500,
+    "id": null
+   }
+  },
+  "stop_all_api": {
+   "ok": true,
+   "detail": 200
+  }
+ },
+ "pages": {
+  "home-v3": {
+   "text_len": 400,
+   "problems": [],
+   "shot": "02_home-v3.png",
+   "head": "BOSSMAN\n\nДоброе утро — система работает.\n\nСИСТЕМА В СТРОЮ\nПРИЛОЖЕНИЙ ГОТОВО\n0/10\nАГЕНТОВ В РАБОТЕ\n0/0\nНАГРУЗКА\n—\nНичего "
+  },
+  "mission_console": {
+   "text_len": 400,
+   "problems": [],
+   "shot": "03_mission_console.png",
+   "head": "ОПЕРАТОРСКИЙ КАНАЛ\nМиссия не выбрана\n\nЦель появится здесь, как только миссия будет поставлена. Пока канал слушает систем"
+  },
+  "apps": {
+   "text_len": 400,
+   "problems": [],
+   "shot": "04_apps.png",
+   "head": "Приложения\n\n10 установлено, 0 в работе. Список читается из манифестов.\n\nПроверить состояние\nЗапуск приложений выключен. "
+  },
+  "control": {
+   "text_len": 400,
+   "problems": [],
+   "shot": "05_control.png",
+   "head": "ПУЛЬТ ВЛАДЕЛЬЦА\nкто, где, какой моделью, что делает, доказано ли, почему стоит и сколько стоило\nОбновить\nРабочий стол (C"
+  },
+  "video-studio": {
+   "text_len": 194,
+   "problems": [],
+   "shot": "06_video-studio.png",
+   "head": "BOSSMAN\nВыберите проект\n＋\n⋯\nМонтаж\nЦвет\nЗвук\nVFX\nИИ\n↶\n↷\n⌘\n✦\nEN\nЭкспорт\n▤\nВаш следующий монтаж начинается здесь\n\nСоздайте"
+  },
+  "router": {
+   "text_len": 400,
+   "problems": [],
+   "shot": "07_router.png",
+   "head": "Выбор модели\n\nКак BOSSMAN решает, какой модели отдать задачу: требования, предпросмотр выбора и объяснение.\n\nЧТО МОДЕЛЬ "
+  },
+  "skills": {
+   "text_len": 400,
+   "problems": [],
+   "shot": "08_skills.png",
+   "head": "Навыки\n\n2 готовых наборов действий для агентов\n\nЗагрузить\nНовый навык\nmimik\n\nmimik · v1.0\n\n0 агентов\nmimik.guide\nЛокальн"
+  },
+  "resources": {
+   "text_len": 400,
+   "problems": [],
+   "shot": "09_resources.png",
+   "head": "Нагрузка на память\n\nСколько оперативной памяти занято и сколько её отдавать под задачи. BOSSMAN следит, чтобы серверу вс"
+  },
+  "capability-tree": {
+   "text_len": 400,
+   "problems": [],
+   "shot": "10_capability-tree.png",
+   "head": "Дерево развития\n\nЖивая карта Bossman: что существует, что сейчас меняется и чем это доказано.\n\nNO_CAMPAIGN\n896 УЗЛОВ\nПро"
+  },
+  "openrouter": {
+   "text_len": 400,
+   "problems": [],
+   "shot": "11_openrouter.png",
+   "head": "OpenRouter\n\nКаталог облачных моделей OpenRouter: обновить список, закрепить нужные и проверить их возможности.\n\nПОДКЛЮЧЕ"
+  }
+ },
+ "defaults": {
+  "identity": {
+   "status": 200,
+   "body": "{\"app\": \"bossman-command-center-build-bound-v1\", \"version\": \"0.1.0\", \"started_at\": \"2026-10-11T13:22:51.016395\", \"pid\": 8836, \"data_dir_fingerprint\": \"99e46d5773cd\", \"build_sha\": \"db249bde16e234023feeb51568962db26d010541\", \"build_sha_short\": \"db249bde16e2\", \"source_identity\": \"PASS\", \"source\": \"installed_build\", \"detail\": \"\"}"
+  },
+  "offline": {
+   "status": 200,
+   "body": "{\"enabled\": false, \"flag\": \"BOSSMAN_OFFLINE_MODE_ENABLED\", \"local_only_enforced\": false, \"enforce_flag\": \"BOSSMAN_LOCAL_ONLY\", \"network\": {\"loopback\": {\"alive\": true, \"target\": \"127.0.0.1:58527\", \"detail\": \"HTTP 204\", \"elapsed_ms\": 235, \"proxy_env_ignored\": true, \"sanity\": {\"closed_port\": \"127.0.0.1:58530\", \"refused\": true, \"detail\": \"ConnectTimeout\"}}, \"external\": {\"checked\": false, \"reason\": \"флаг BOSSMAN_OFFLINE_MODE_ENABLED выключен: наружу не ходим и о доступности не судим\", \"targets\": [\"openrouter.ai\"], \"results\": []}, \"proxy_env\": []}, \"capabilities\": [{\"capability\": \"core.api\", \"requirement\": \"local\", \"detail\": \"сервер слушает 127.0.0.1: интерфейс и API живут без сети\", \"requires\": [], \"targets\": [], \"status\": \"offline_ok\", \"reason\": \"сеть не нужна: сервер слушает 127.0.0.1: интерфейс и API живут без сети\"}, {\"capability\": \"core.db\", \"requirement\": \"local\", \"detail\": \"SQLite в data_dir — единственный носитель состояния\", \"requires\": [], \"targets\": [], \"status\": \"offline_ok\", \"reason\": \"сеть не нужна: SQLite в data_dir — единственный носитель состояния\"}, {\"capability\": \"core.providers\", \"requirement\": \"providers\", \"detail\": \"путь к модели: зависит от настроенных провайдеров\", \"requires\": [], \"targets\": [], \"status\": \"unknown\", \"reason\": \"провайдеры не настроены: заранее сказать нельзя\"}, {\"capability\": \"action_contract\", \"requirement\": \"unsure\", \"detail\": \"записи в матрице нет: работает ли подсистема офлайн — неизвестно\", \"requires\": [], \"targets\": [], \"status\": \"unkn"
+  },
+  "models": {
+   "status": 200,
+   "body": "[]"
+  },
+  "providers": {
+   "status": 200,
+   "body": "[]"
+  },
+  "apps": {
+   "status": 200,
+   "body": "{\"apps\": [{\"id\": \"ai-webcam-vision\", \"name\": \"AI WebCam Vision\", \"subtitle\": \"Dental Operations Intelligence\", \"description\": \"\", \"version\": \"0.2.0\", \"app_number\": null, \"icon\": \"camera\", \"accent\": \"#3d8bff\", \"theme\": \"azure\", \"order\": 1, \"port\": 8870, \"health_path\": \"/readyz\", \"metrics_path\": \"/api/v1/metrics\", \"facts\": [{\"label\": \"Камера\", \"value\": \"нет данных\", \"live\": false}, {\"label\": \"CRM\", \"value\": \"не подключён\", \"live\": false}, {\"label\": \"Под наблюдением сегодня\", \"value\": \"—\", \"live\": false}], \"actions\": [{\"id\": \"open\", \"label\": \"Открыть\", \"primary\": true}, {\"id\": \"live\", \"label\": \"Живой вид\"}], \"commands\": [], \"operations\": [\"artifacts.list\", \"capabilities\", \"health\", \"jobs.cancel\", \"jobs.create\", \"jobs.list\", \"jobs.status\", \"metrics\"], \"permissions\": {\"camera.read\": \"auto\", \"camera.baseline.capture\": \"ask\", \"snapshot.capture\": \"deny_by_default\", \"raw_video.store\": \"deny\", \"audio.capture\": \"deny\", \"face.identify\": \"deny\", \"patient.identify\": \"deny\", \"crm.read\": \"deny_by_default\", \"telemetry.send\": \"deny_by_default\"}, \"providers\": {}, \"manifest_path\": \"apps\\\\ai-webcam-vision\\\\app.manifest.yaml\", \"route\": \"app/ai-webcam-vision\", \"reachable\": false, \"status\": \"STOPPED\", \"detail\": \"ConnectError: приложение не отвечает на http://127.0.0.1:8870\", \"base_url\": \"http://127.0.0.1:8870\"}, {\"id\": \"ai-3d-maker\", \"name\": \"AI 3D Maker\", \"subtitle\": \"Precision CAD & Generative 3D\", \"description\": \"Validated CAD/mesh-to-print pipeline for the ELEGOO Neptune 3 Plus.\", \"version\": \"0."
+  },
+  "agents": {
+   "status": 200,
+   "body": "[]"
+  },
+  "tasks": {
+   "status": 200,
+   "body": "[]"
+  },
+  "health": {
+   "status": 503,
+   "body": "{\"app\": \"bossman-command-center\", \"build_sha\": \"db249bde16e234023feeb51568962db26d010541\", \"build_sha_short\": \"db249bde16e2\", \"source_identity\": \"PASS\", \"source\": \"installed_build\", \"detail\": \"\", \"alive\": true, \"ready\": false, \"status\": \"DEGRADED\", \"components\": {\"db\": {\"status\": \"HEALTHY\", \"detail\": \"sqlite+aiosqlite\"}, \"queue_worker\": {\"status\": \"HEALTHY\", \"detail\": \"тик 0 с назад\", \"current_run_id\": null}, \"scheduler\": {\"status\": \"HEALTHY\", \"detail\": \"тик 4 с назад\"}, \"metrics\": {\"status\": \"HEALTHY\", \"detail\": \"тик 4 с назад\"}, \"tick:apps_control\": {\"status\": \"HEALTHY\", \"detail\": \"тик 4 с назад\"}, \"tick:capability_tree\": {\"status\": \"HEALTHY\", \"detail\": \"тик 4 с назад\"}, \"tick:control_plane\": {\"status\": \"HEALTHY\", \"detail\": \"тик 34 с назад\"}, \"tick:governor\": {\"status\": \"HEALTHY\", \"detail\": \"тик 4 с назад\"}, \"tick:healing\": {\"status\": \"HEALTHY\", \"detail\": \"тик 4 с назад\"}, \"tick:images\": {\"status\": \"HEALTHY\", \"detail\": \"тик 0 с назад\"}, \"tick:missions\": {\"status\": \"HEALTHY\", \"detail\": \"тик 3 с назад\"}, \"tick:organization\": {\"status\": \"HEALTHY\", \"detail\": \"тик 4 с назад\"}, \"tick:reality\": {\"status\": \"HEALTHY\", \"detail\": \"тик 33 с назад\"}, \"tick:resources\": {\"status\": \"HEALTHY\", \"detail\": \"тик 34 с назад\"}, \"tick:review_gate\": {\"status\": \"HEALTHY\", \"detail\": \"тик 3 с назад\"}, \"tick:task_exchange\": {\"status\": \"HEALTHY\", \"detail\": \"тик 1 с назад\"}, \"tick:terminal\": {\"status\": \"HEALTHY\", \"detail\": \"тик 4 с назад\"}, \"tick:tools_browser\": {\"status\": \"HEALTHY\", \"detail\": \"тик 4 с н"
+  }
+ },
+ "boot_seconds": 4.1,
+ "stop_button_found_in_ui": true,
+ "stop_all_api": {
+  "status": 200,
+  "body": "{\"ok\":true,\"computer\":{\"stopped\":true,\"persisted\":true},\"stopped\":{\"tasks\":[],\"terminal\":[],\"coding\":[],\"command_bar\":[],\"browser\":[],\"evolution\":[],\"v15_economy\":[],\"v15_owner_run\":[],\"pit\":[],\"studio\":[],\"studio_provider_unknown\":[],\"autonomy\":[],\"rave\":[],\"calls\":[]},\"requested\":{\"tasks\":[],\"terminal\":[],\"coding\":[],\"command_bar\":[],\"browser\":[],\"evolution\":[],\"v15_economy\":[],\"v15_owner_run\":[],\"pit\":[],\"studio\":[],\"studio_provider_unknown\":[],\"autonomy\":[],\"rave\":[],\"calls\":[]},\"remaining\":{\"tasks\":[],\"terminal\":[],\"coding\":[],\"command_bar\":[],\"browser\":[],\"evolution\":[],\"v15_economy\":[],"
+ },
+ "problems_total": 0,
+ "problems_sample": [],
+ "verdict": "FAIL"
+}

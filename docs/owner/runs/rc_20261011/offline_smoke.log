@@ -1,0 +1,12 @@
+{
+ "local_only_env": "1",
+ "openrouter": "blocked: BOSSMAN_LOCAL_ONLY egress blocked at provider boundary",
+ "anthropic": "blocked: BOSSMAN_LOCAL_ONLY is set: cloud providers are blocked",
+ "local_chat": {
+  "model": "ace-decider-08b:latest",
+  "ok": true,
+  "sec": 38.78
+ },
+ "external_connects_blocked": [],
+ "verdict": "PASS"
+}
