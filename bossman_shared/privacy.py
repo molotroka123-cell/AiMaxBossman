@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 import ipaddress
+import os
 from urllib.parse import urlsplit
 
 _privacy = ContextVar("bossman_execution_privacy", default="public")
@@ -20,11 +21,24 @@ def execution_privacy(level):
         _privacy.reset(token)
 
 
+# Process-wide local-only switch (MP21-A). Without it the boundary below closes only for
+# requests that carry a private/local_only mark, so an owner who wants "no cloud, no silent
+# fallback" had no single place to say so. Read on every call: flipping it needs no restart.
+LOCAL_ONLY_ENV = "BOSSMAN_LOCAL_ONLY"
+
+
+def local_only_switch() -> bool:
+    return os.environ.get(LOCAL_ONLY_ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def assert_provider_egress(kind: str, url: str):
-    if _privacy.get() not in ("private", "local_only"):
+    switch = local_only_switch()
+    if not switch and _privacy.get() not in ("private", "local_only"):
         return
+    reason = (f"{LOCAL_ONLY_ENV} is set: cloud providers are blocked" if switch
+              else "privacy requires a local provider")
     if kind in ("openrouter", "anthropic", "openai", "gemini"):
-        raise PermissionError("privacy requires a local provider")
+        raise PermissionError(reason)
     host = urlsplit(url).hostname or ""
     if host in ("localhost", "ollama", "llamacpp", "host.docker.internal"):
         return
@@ -37,4 +51,5 @@ def assert_provider_egress(kind: str, url: str):
             return
     except ValueError:
         pass
-    raise PermissionError("private context egress blocked at provider boundary")
+    raise PermissionError(f"{LOCAL_ONLY_ENV} egress blocked at provider boundary" if switch
+                          else "private context egress blocked at provider boundary")

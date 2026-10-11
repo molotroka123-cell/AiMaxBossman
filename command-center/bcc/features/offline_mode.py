@@ -70,6 +70,15 @@ def enabled() -> bool:
     return os.environ.get(FLAG, "").strip().lower() in ("1", "true", "yes")
 
 
+def local_only_enforced() -> bool:
+    """True when BOSSMAN_LOCAL_ONLY makes the provider boundary refuse cloud egress.
+
+    The report flag above only describes; this one is the enforcing switch.
+    """
+    from bossman_shared.privacy import local_only_switch
+    return local_only_switch()
+
+
 # --- требования подсистем -----------------------------------------------------
 
 LOCAL = "local"            # сеть не нужна вообще
@@ -364,6 +373,8 @@ async def _offline_report(svc) -> dict:
     return {
         "enabled": enabled(),
         "flag": FLAG,
+        "local_only_enforced": local_only_enforced(),
+        "enforce_flag": "BOSSMAN_LOCAL_ONLY",
         "network": {"loopback": loopback, "external": external, "proxy_env": _proxy_env()},
         "capabilities": rows,
         "summary": summary,

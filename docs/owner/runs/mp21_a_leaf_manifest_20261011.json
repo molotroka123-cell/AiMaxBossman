@@ -1,0 +1,11 @@
+[
+  {"slug": "local_only_switch", "label": "Локальный режим: BOSSMAN_LOCAL_ONLY закрывает выход к облачным провайдерам",
+   "parent": "models", "source": "bossman_shared/privacy.py",
+   "tests": ["command-center/tests/test_local_only_switch.py"], "status": "code"},
+  {"slug": "offline_smoke_local_only", "label": "Офлайн-смоук: облако отказано, локальная модель отвечает, внешних соединений 0",
+   "parent": "models", "source": "tools/offline_smoke_local_only.py",
+   "tests": ["command-center/tests/test_local_only_switch.py"], "status": "code"},
+  {"slug": "mp21_project_map", "label": "Карта проекта: модули, UI-страницы и инструменты против тестов, документов и листьев дерева",
+   "parent": "ops", "source": "tools/mp21_project_map.py",
+   "tests": [], "status": "code"}
+]

@@ -15,6 +15,7 @@
 | `BOSSMAN_ACTION_PREVIEW_ENABLED` | предпросмотр действия до нажатия | `POST /api/preview`, `GET /api/preview/actions` |
 | `BOSSMAN_SPEND_METER_ENABLED` | счётчик денег и жёсткий потолок | `GET /api/spend`, `POST /api/spend/limit`, `POST /api/spend/check` |
 | `BOSSMAN_OFFLINE_MODE_ENABLED` | честный офлайн-режим | `GET /api/offline`, `GET /api/offline/can/{capability}` |
+| `BOSSMAN_LOCAL_ONLY` | принудительный локальный режим: провайдерский выход закрыт для облака во всех запросах (веб-поиск, Gmail, Telegram не затрагивает) | `GET /api/offline` -> `local_only_enforced` |
 | `BOSSMAN_SECOND_OPINION_ENABLED` | второе мнение перед необратимым | `GET /api/second-opinion`, `.../decisions`, `POST /api/second-opinion/check` |
 | `BOSSMAN_UNIFIED_SEARCH_ENABLED` | один поиск по всему | `GET /api/search?q=…` |
 | `BOSSMAN_WATCHDOG_ENABLED` | сторож запуска приложения | `GET /api/watchdog`, `GET /api/watchdog/history` |
