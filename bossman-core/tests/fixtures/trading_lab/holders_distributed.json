@@ -1,0 +1,1002 @@
+[
+ {
+  "address": "FIXTURE000",
+  "balance": 517.28,
+  "first_seen_ts": 1786785169.756021
+ },
+ {
+  "address": "FIXTURE001",
+  "balance": 435.28,
+  "first_seen_ts": 1773327435.4015713
+ },
+ {
+  "address": "FIXTURE002",
+  "balance": 380.73,
+  "first_seen_ts": 1789851017.0536528
+ },
+ {
+  "address": "FIXTURE003",
+  "balance": 341.28,
+  "first_seen_ts": 1771031999.2902722
+ },
+ {
+  "address": "FIXTURE004",
+  "balance": 311.13,
+  "first_seen_ts": 1789574315.1577635
+ },
+ {
+  "address": "FIXTURE005",
+  "balance": 287.17,
+  "first_seen_ts": 1756344823.5939703
+ },
+ {
+  "address": "FIXTURE006",
+  "balance": 267.58,
+  "first_seen_ts": 1778918441.3417222
+ },
+ {
+  "address": "FIXTURE007",
+  "balance": 251.19,
+  "first_seen_ts": 1789661563.6480064
+ },
+ {
+  "address": "FIXTURE008",
+  "balance": 237.23,
+  "first_seen_ts": 1783266367.8801162
+ },
+ {
+  "address": "FIXTURE009",
+  "balance": 225.16,
+  "first_seen_ts": 1758271923.1242423
+ },
+ {
+  "address": "FIXTURE010",
+  "balance": 214.6,
+  "first_seen_ts": 1779140787.0150704
+ },
+ {
+  "address": "FIXTURE011",
+  "balance": 205.27,
+  "first_seen_ts": 1758023925.2158957
+ },
+ {
+  "address": "FIXTURE012",
+  "balance": 196.95,
+  "first_seen_ts": 1765017055.0687978
+ },
+ {
+  "address": "FIXTURE013",
+  "balance": 189.46,
+  "first_seen_ts": 1789967005.575693
+ },
+ {
+  "address": "FIXTURE014",
+  "balance": 182.7,
+  "first_seen_ts": 1773811464.8398423
+ },
+ {
+  "address": "FIXTURE015",
+  "balance": 176.54,
+  "first_seen_ts": 1789594100.2671807
+ },
+ {
+  "address": "FIXTURE016",
+  "balance": 170.9,
+  "first_seen_ts": 1761781537.184646
+ },
+ {
+  "address": "FIXTURE017",
+  "balance": 165.72,
+  "first_seen_ts": 1789628867.0445056
+ },
+ {
+  "address": "FIXTURE018",
+  "balance": 160.94,
+  "first_seen_ts": 1789626095.5891013
+ },
+ {
+  "address": "FIXTURE019",
+  "balance": 156.51,
+  "first_seen_ts": 1776565995.9837646
+ },
+ {
+  "address": "FIXTURE020",
+  "balance": 152.39,
+  "first_seen_ts": 1757784236.326811
+ },
+ {
+  "address": "FIXTURE021",
+  "balance": 148.55,
+  "first_seen_ts": 1783276941.5969462
+ },
+ {
+  "address": "FIXTURE022",
+  "balance": 144.96,
+  "first_seen_ts": 1779785672.5346594
+ },
+ {
+  "address": "FIXTURE023",
+  "balance": 141.58,
+  "first_seen_ts": 1782246795.4398077
+ },
+ {
+  "address": "FIXTURE024",
+  "balance": 138.41,
+  "first_seen_ts": 1789905939.3942013
+ },
+ {
+  "address": "FIXTURE025",
+  "balance": 135.43,
+  "first_seen_ts": 1777657587.4405968
+ },
+ {
+  "address": "FIXTURE026",
+  "balance": 132.61,
+  "first_seen_ts": 1778138532.0355318
+ },
+ {
+  "address": "FIXTURE027",
+  "balance": 129.94,
+  "first_seen_ts": 1781720896.501481
+ },
+ {
+  "address": "FIXTURE028",
+  "balance": 127.4,
+  "first_seen_ts": 1786827361.786007
+ },
+ {
+  "address": "FIXTURE029",
+  "balance": 125.0,
+  "first_seen_ts": 1786917415.317198
+ },
+ {
+  "address": "FIXTURE030",
+  "balance": 122.71,
+  "first_seen_ts": 1769792061.4757361
+ },
+ {
+  "address": "FIXTURE031",
+  "balance": 120.53,
+  "first_seen_ts": 1772230851.907865
+ },
+ {
+  "address": "FIXTURE032",
+  "balance": 118.46,
+  "first_seen_ts": 1784010397.962174
+ },
+ {
+  "address": "FIXTURE033",
+  "balance": 116.47,
+  "first_seen_ts": 1773592146.9376438
+ },
+ {
+  "address": "FIXTURE034",
+  "balance": 114.57,
+  "first_seen_ts": 1760727061.7792995
+ },
+ {
+  "address": "FIXTURE035",
+  "balance": 112.75,
+  "first_seen_ts": 1771210263.4815037
+ },
+ {
+  "address": "FIXTURE036",
+  "balance": 111.01,
+  "first_seen_ts": 1756001340.8040197
+ },
+ {
+  "address": "FIXTURE037",
+  "balance": 109.34,
+  "first_seen_ts": 1760801463.7849221
+ },
+ {
+  "address": "FIXTURE038",
+  "balance": 107.73,
+  "first_seen_ts": 1767077088.8980439
+ },
+ {
+  "address": "FIXTURE039",
+  "balance": 106.18,
+  "first_seen_ts": 1776297451.9047976
+ },
+ {
+  "address": "FIXTURE040",
+  "balance": 104.69,
+  "first_seen_ts": 1789936400.0054839
+ },
+ {
+  "address": "FIXTURE041",
+  "balance": 103.26,
+  "first_seen_ts": 1789677697.1490574
+ },
+ {
+  "address": "FIXTURE042",
+  "balance": 101.88,
+  "first_seen_ts": 1782189335.2398047
+ },
+ {
+  "address": "FIXTURE043",
+  "balance": 100.54,
+  "first_seen_ts": 1789635200.3638437
+ },
+ {
+  "address": "FIXTURE044",
+  "balance": 99.25,
+  "first_seen_ts": 1765972071.8524554
+ },
+ {
+  "address": "FIXTURE045",
+  "balance": 98.01,
+  "first_seen_ts": 1779664936.9261281
+ },
+ {
+  "address": "FIXTURE046",
+  "balance": 96.8,
+  "first_seen_ts": 1772720208.3055575
+ },
+ {
+  "address": "FIXTURE047",
+  "balance": 95.64,
+  "first_seen_ts": 1773155878.9239838
+ },
+ {
+  "address": "FIXTURE048",
+  "balance": 94.51,
+  "first_seen_ts": 1756661608.101464
+ },
+ {
+  "address": "FIXTURE049",
+  "balance": 93.41,
+  "first_seen_ts": 1769919158.3761668
+ },
+ {
+  "address": "FIXTURE050",
+  "balance": 92.35,
+  "first_seen_ts": 1756537564.6947608
+ },
+ {
+  "address": "FIXTURE051",
+  "balance": 91.32,
+  "first_seen_ts": 1776008725.3408968
+ },
+ {
+  "address": "FIXTURE052",
+  "balance": 90.32,
+  "first_seen_ts": 1789829794.5598245
+ },
+ {
+  "address": "FIXTURE053",
+  "balance": 89.35,
+  "first_seen_ts": 1771335640.2441592
+ },
+ {
+  "address": "FIXTURE054",
+  "balance": 88.4,
+  "first_seen_ts": 1771272611.0760064
+ },
+ {
+  "address": "FIXTURE055",
+  "balance": 87.49,
+  "first_seen_ts": 1789879521.5451791
+ },
+ {
+  "address": "FIXTURE056",
+  "balance": 86.59,
+  "first_seen_ts": 1789822222.9509466
+ },
+ {
+  "address": "FIXTURE057",
+  "balance": 85.73,
+  "first_seen_ts": 1789981836.8779387
+ },
+ {
+  "address": "FIXTURE058",
+  "balance": 84.88,
+  "first_seen_ts": 1779965543.7752252
+ },
+ {
+  "address": "FIXTURE059",
+  "balance": 84.06,
+  "first_seen_ts": 1770490868.520166
+ },
+ {
+  "address": "FIXTURE060",
+  "balance": 83.25,
+  "first_seen_ts": 1766387643.8515406
+ },
+ {
+  "address": "FIXTURE061",
+  "balance": 82.47,
+  "first_seen_ts": 1759305228.7080376
+ },
+ {
+  "address": "FIXTURE062",
+  "balance": 81.71,
+  "first_seen_ts": 1776982124.1800888
+ },
+ {
+  "address": "FIXTURE063",
+  "balance": 80.96,
+  "first_seen_ts": 1782629962.0514174
+ },
+ {
+  "address": "FIXTURE064",
+  "balance": 80.23,
+  "first_seen_ts": 1766845560.6318457
+ },
+ {
+  "address": "FIXTURE065",
+  "balance": 79.52,
+  "first_seen_ts": 1789637731.8189764
+ },
+ {
+  "address": "FIXTURE066",
+  "balance": 78.83,
+  "first_seen_ts": 1767353446.649357
+ },
+ {
+  "address": "FIXTURE067",
+  "balance": 78.15,
+  "first_seen_ts": 1761442985.7025063
+ },
+ {
+  "address": "FIXTURE068",
+  "balance": 77.49,
+  "first_seen_ts": 1770664527.1281924
+ },
+ {
+  "address": "FIXTURE069",
+  "balance": 76.84,
+  "first_seen_ts": 1760716715.0130053
+ },
+ {
+  "address": "FIXTURE070",
+  "balance": 76.21,
+  "first_seen_ts": 1760989353.2038248
+ },
+ {
+  "address": "FIXTURE071",
+  "balance": 75.59,
+  "first_seen_ts": 1758866018.9865887
+ },
+ {
+  "address": "FIXTURE072",
+  "balance": 74.98,
+  "first_seen_ts": 1765243750.1067526
+ },
+ {
+  "address": "FIXTURE073",
+  "balance": 74.39,
+  "first_seen_ts": 1786411860.295577
+ },
+ {
+  "address": "FIXTURE074",
+  "balance": 73.81,
+  "first_seen_ts": 1775876903.3933742
+ },
+ {
+  "address": "FIXTURE075",
+  "balance": 73.24,
+  "first_seen_ts": 1760688467.8847945
+ },
+ {
+  "address": "FIXTURE076",
+  "balance": 72.68,
+  "first_seen_ts": 1767339541.0747952
+ },
+ {
+  "address": "FIXTURE077",
+  "balance": 72.13,
+  "first_seen_ts": 1765648527.6190484
+ },
+ {
+  "address": "FIXTURE078",
+  "balance": 71.6,
+  "first_seen_ts": 1787302047.5903769
+ },
+ {
+  "address": "FIXTURE079",
+  "balance": 71.07,
+  "first_seen_ts": 1763487452.6446886
+ },
+ {
+  "address": "FIXTURE080",
+  "balance": 70.56,
+  "first_seen_ts": 1770298732.3387027
+ },
+ {
+  "address": "FIXTURE081",
+  "balance": 70.05,
+  "first_seen_ts": 1785296502.2122903
+ },
+ {
+  "address": "FIXTURE082",
+  "balance": 69.56,
+  "first_seen_ts": 1779345877.1862006
+ },
+ {
+  "address": "FIXTURE083",
+  "balance": 69.07,
+  "first_seen_ts": 1789878933.2710514
+ },
+ {
+  "address": "FIXTURE084",
+  "balance": 68.59,
+  "first_seen_ts": 1780847606.09424
+ },
+ {
+  "address": "FIXTURE085",
+  "balance": 68.13,
+  "first_seen_ts": 1756215700.5117226
+ },
+ {
+  "address": "FIXTURE086",
+  "balance": 67.67,
+  "first_seen_ts": 1775178306.663832
+ },
+ {
+  "address": "FIXTURE087",
+  "balance": 67.21,
+  "first_seen_ts": 1765551588.2835312
+ },
+ {
+  "address": "FIXTURE088",
+  "balance": 66.77,
+  "first_seen_ts": 1767684574.663601
+ },
+ {
+  "address": "FIXTURE089",
+  "balance": 66.33,
+  "first_seen_ts": 1784931380.8736548
+ },
+ {
+  "address": "FIXTURE090",
+  "balance": 65.9,
+  "first_seen_ts": 1779290037.0760243
+ },
+ {
+  "address": "FIXTURE091",
+  "balance": 65.48,
+  "first_seen_ts": 1777676392.9337192
+ },
+ {
+  "address": "FIXTURE092",
+  "balance": 65.07,
+  "first_seen_ts": 1787009384.1884284
+ },
+ {
+  "address": "FIXTURE093",
+  "balance": 64.66,
+  "first_seen_ts": 1789877572.3618755
+ },
+ {
+  "address": "FIXTURE094",
+  "balance": 64.26,
+  "first_seen_ts": 1765280224.4032679
+ },
+ {
+  "address": "FIXTURE095",
+  "balance": 63.87,
+  "first_seen_ts": 1778109900.09757
+ },
+ {
+  "address": "FIXTURE096",
+  "balance": 63.48,
+  "first_seen_ts": 1772553657.9033298
+ },
+ {
+  "address": "FIXTURE097",
+  "balance": 63.1,
+  "first_seen_ts": 1783619700.4851563
+ },
+ {
+  "address": "FIXTURE098",
+  "balance": 62.72,
+  "first_seen_ts": 1781038375.0454514
+ },
+ {
+  "address": "FIXTURE099",
+  "balance": 62.35,
+  "first_seen_ts": 1757477821.2283916
+ },
+ {
+  "address": "FIXTURE100",
+  "balance": 61.99,
+  "first_seen_ts": 1789797050.11239
+ },
+ {
+  "address": "FIXTURE101",
+  "balance": 61.63,
+  "first_seen_ts": 1756459515.4112303
+ },
+ {
+  "address": "FIXTURE102",
+  "balance": 61.28,
+  "first_seen_ts": 1778819565.3461308
+ },
+ {
+  "address": "FIXTURE103",
+  "balance": 60.93,
+  "first_seen_ts": 1757179465.9322248
+ },
+ {
+  "address": "FIXTURE104",
+  "balance": 60.59,
+  "first_seen_ts": 1768819491.3486927
+ },
+ {
+  "address": "FIXTURE105",
+  "balance": 60.25,
+  "first_seen_ts": 1770654667.3010476
+ },
+ {
+  "address": "FIXTURE106",
+  "balance": 59.92,
+  "first_seen_ts": 1783168881.0301394
+ },
+ {
+  "address": "FIXTURE107",
+  "balance": 59.59,
+  "first_seen_ts": 1771144460.5025558
+ },
+ {
+  "address": "FIXTURE108",
+  "balance": 59.27,
+  "first_seen_ts": 1764923721.543831
+ },
+ {
+  "address": "FIXTURE109",
+  "balance": 58.95,
+  "first_seen_ts": 1758710144.3230464
+ },
+ {
+  "address": "FIXTURE110",
+  "balance": 58.63,
+  "first_seen_ts": 1786614093.8019977
+ },
+ {
+  "address": "FIXTURE111",
+  "balance": 58.33,
+  "first_seen_ts": 1789783195.5350883
+ },
+ {
+  "address": "FIXTURE112",
+  "balance": 58.02,
+  "first_seen_ts": 1777755229.1125164
+ },
+ {
+  "address": "FIXTURE113",
+  "balance": 57.72,
+  "first_seen_ts": 1776412282.0389915
+ },
+ {
+  "address": "FIXTURE114",
+  "balance": 57.42,
+  "first_seen_ts": 1760547494.3163412
+ },
+ {
+  "address": "FIXTURE115",
+  "balance": 57.13,
+  "first_seen_ts": 1789673529.2363298
+ },
+ {
+  "address": "FIXTURE116",
+  "balance": 56.84,
+  "first_seen_ts": 1783570518.2001731
+ },
+ {
+  "address": "FIXTURE117",
+  "balance": 56.56,
+  "first_seen_ts": 1764614062.648604
+ },
+ {
+  "address": "FIXTURE118",
+  "balance": 56.28,
+  "first_seen_ts": 1778142619.9674704
+ },
+ {
+  "address": "FIXTURE119",
+  "balance": 56.0,
+  "first_seen_ts": 1774847792.55491
+ },
+ {
+  "address": "FIXTURE120",
+  "balance": 55.73,
+  "first_seen_ts": 1768573200.6806555
+ },
+ {
+  "address": "FIXTURE121",
+  "balance": 55.46,
+  "first_seen_ts": 1773724009.6435783
+ },
+ {
+  "address": "FIXTURE122",
+  "balance": 55.19,
+  "first_seen_ts": 1785864965.4831035
+ },
+ {
+  "address": "FIXTURE123",
+  "balance": 54.93,
+  "first_seen_ts": 1760725077.7925692
+ },
+ {
+  "address": "FIXTURE124",
+  "balance": 54.67,
+  "first_seen_ts": 1757499062.450465
+ },
+ {
+  "address": "FIXTURE125",
+  "balance": 54.41,
+  "first_seen_ts": 1778913206.8171968
+ },
+ {
+  "address": "FIXTURE126",
+  "balance": 54.16,
+  "first_seen_ts": 1781338905.660293
+ },
+ {
+  "address": "FIXTURE127",
+  "balance": 53.91,
+  "first_seen_ts": 1756841308.8163567
+ },
+ {
+  "address": "FIXTURE128",
+  "balance": 53.66,
+  "first_seen_ts": 1761451190.2334943
+ },
+ {
+  "address": "FIXTURE129",
+  "balance": 53.41,
+  "first_seen_ts": 1758207665.1656983
+ },
+ {
+  "address": "FIXTURE130",
+  "balance": 53.17,
+  "first_seen_ts": 1769850274.5587273
+ },
+ {
+  "address": "FIXTURE131",
+  "balance": 52.93,
+  "first_seen_ts": 1785826350.130908
+ },
+ {
+  "address": "FIXTURE132",
+  "balance": 52.7,
+  "first_seen_ts": 1772994893.99879
+ },
+ {
+  "address": "FIXTURE133",
+  "balance": 52.47,
+  "first_seen_ts": 1766804920.969341
+ },
+ {
+  "address": "FIXTURE134",
+  "balance": 52.24,
+  "first_seen_ts": 1785842306.301357
+ },
+ {
+  "address": "FIXTURE135",
+  "balance": 52.01,
+  "first_seen_ts": 1783338111.7099304
+ },
+ {
+  "address": "FIXTURE136",
+  "balance": 51.78,
+  "first_seen_ts": 1776421785.9262314
+ },
+ {
+  "address": "FIXTURE137",
+  "balance": 51.56,
+  "first_seen_ts": 1763782608.8802798
+ },
+ {
+  "address": "FIXTURE138",
+  "balance": 51.34,
+  "first_seen_ts": 1779090915.6620972
+ },
+ {
+  "address": "FIXTURE139",
+  "balance": 51.12,
+  "first_seen_ts": 1777790865.4480698
+ },
+ {
+  "address": "FIXTURE140",
+  "balance": 50.91,
+  "first_seen_ts": 1774800850.8823817
+ },
+ {
+  "address": "FIXTURE141",
+  "balance": 50.7,
+  "first_seen_ts": 1782240150.2578032
+ },
+ {
+  "address": "FIXTURE142",
+  "balance": 50.49,
+  "first_seen_ts": 1758446273.589369
+ },
+ {
+  "address": "FIXTURE143",
+  "balance": 50.28,
+  "first_seen_ts": 1780374232.7376525
+ },
+ {
+  "address": "FIXTURE144",
+  "balance": 50.07,
+  "first_seen_ts": 1755552683.5676458
+ },
+ {
+  "address": "FIXTURE145",
+  "balance": 49.87,
+  "first_seen_ts": 1782945393.0260568
+ },
+ {
+  "address": "FIXTURE146",
+  "balance": 49.67,
+  "first_seen_ts": 1784508038.6048508
+ },
+ {
+  "address": "FIXTURE147",
+  "balance": 49.47,
+  "first_seen_ts": 1784495896.1458282
+ },
+ {
+  "address": "FIXTURE148",
+  "balance": 49.27,
+  "first_seen_ts": 1779148825.2612236
+ },
+ {
+  "address": "FIXTURE149",
+  "balance": 49.08,
+  "first_seen_ts": 1759044345.3519197
+ },
+ {
+  "address": "FIXTURE150",
+  "balance": 48.89,
+  "first_seen_ts": 1774212195.9365714
+ },
+ {
+  "address": "FIXTURE151",
+  "balance": 48.7,
+  "first_seen_ts": 1770651392.8125393
+ },
+ {
+  "address": "FIXTURE152",
+  "balance": 48.51,
+  "first_seen_ts": 1776596323.28311
+ },
+ {
+  "address": "FIXTURE153",
+  "balance": 48.32,
+  "first_seen_ts": 1789873870.6793432
+ },
+ {
+  "address": "FIXTURE154",
+  "balance": 48.13,
+  "first_seen_ts": 1783384066.3053832
+ },
+ {
+  "address": "FIXTURE155",
+  "balance": 47.95,
+  "first_seen_ts": 1767280087.073917
+ },
+ {
+  "address": "FIXTURE156",
+  "balance": 47.77,
+  "first_seen_ts": 1780504090.3142676
+ },
+ {
+  "address": "FIXTURE157",
+  "balance": 47.59,
+  "first_seen_ts": 1779465433.7243614
+ },
+ {
+  "address": "FIXTURE158",
+  "balance": 47.41,
+  "first_seen_ts": 1773154798.9131439
+ },
+ {
+  "address": "FIXTURE159",
+  "balance": 47.24,
+  "first_seen_ts": 1760277280.2382648
+ },
+ {
+  "address": "FIXTURE160",
+  "balance": 47.06,
+  "first_seen_ts": 1786710761.6095257
+ },
+ {
+  "address": "FIXTURE161",
+  "balance": 46.89,
+  "first_seen_ts": 1789690981.0907283
+ },
+ {
+  "address": "FIXTURE162",
+  "balance": 46.72,
+  "first_seen_ts": 1772278559.6982687
+ },
+ {
+  "address": "FIXTURE163",
+  "balance": 46.55,
+  "first_seen_ts": 1787402287.7077901
+ },
+ {
+  "address": "FIXTURE164",
+  "balance": 46.38,
+  "first_seen_ts": 1757779185.713474
+ },
+ {
+  "address": "FIXTURE165",
+  "balance": 46.22,
+  "first_seen_ts": 1760060569.2435067
+ },
+ {
+  "address": "FIXTURE166",
+  "balance": 46.05,
+  "first_seen_ts": 1779465061.830205
+ },
+ {
+  "address": "FIXTURE167",
+  "balance": 45.89,
+  "first_seen_ts": 1782472831.7728243
+ },
+ {
+  "address": "FIXTURE168",
+  "balance": 45.73,
+  "first_seen_ts": 1765603424.4270844
+ },
+ {
+  "address": "FIXTURE169",
+  "balance": 45.57,
+  "first_seen_ts": 1764335566.282677
+ },
+ {
+  "address": "FIXTURE170",
+  "balance": 45.41,
+  "first_seen_ts": 1762958856.0888786
+ },
+ {
+  "address": "FIXTURE171",
+  "balance": 45.26,
+  "first_seen_ts": 1769777618.755082
+ },
+ {
+  "address": "FIXTURE172",
+  "balance": 45.1,
+  "first_seen_ts": 1789660166.0570831
+ },
+ {
+  "address": "FIXTURE173",
+  "balance": 44.95,
+  "first_seen_ts": 1757999993.9397445
+ },
+ {
+  "address": "FIXTURE174",
+  "balance": 44.79,
+  "first_seen_ts": 1777696688.6602707
+ },
+ {
+  "address": "FIXTURE175",
+  "balance": 44.64,
+  "first_seen_ts": 1779358651.09331
+ },
+ {
+  "address": "FIXTURE176",
+  "balance": 44.49,
+  "first_seen_ts": 1765075733.2672882
+ },
+ {
+  "address": "FIXTURE177",
+  "balance": 44.34,
+  "first_seen_ts": 1785158990.1935937
+ },
+ {
+  "address": "FIXTURE178",
+  "balance": 44.2,
+  "first_seen_ts": 1768774141.3456178
+ },
+ {
+  "address": "FIXTURE179",
+  "balance": 44.05,
+  "first_seen_ts": 1780260497.5815542
+ },
+ {
+  "address": "FIXTURE180",
+  "balance": 43.91,
+  "first_seen_ts": 1787073562.2959282
+ },
+ {
+  "address": "FIXTURE181",
+  "balance": 43.76,
+  "first_seen_ts": 1772680642.033261
+ },
+ {
+  "address": "FIXTURE182",
+  "balance": 43.62,
+  "first_seen_ts": 1766802205.9608526
+ },
+ {
+  "address": "FIXTURE183",
+  "balance": 43.48,
+  "first_seen_ts": 1772213474.6928809
+ },
+ {
+  "address": "FIXTURE184",
+  "balance": 43.34,
+  "first_seen_ts": 1779510037.5694628
+ },
+ {
+  "address": "FIXTURE185",
+  "balance": 43.2,
+  "first_seen_ts": 1764881631.7071915
+ },
+ {
+  "address": "FIXTURE186",
+  "balance": 43.06,
+  "first_seen_ts": 1786711500.9048173
+ },
+ {
+  "address": "FIXTURE187",
+  "balance": 42.93,
+  "first_seen_ts": 1765846758.4398935
+ },
+ {
+  "address": "FIXTURE188",
+  "balance": 42.79,
+  "first_seen_ts": 1779184036.2874
+ },
+ {
+  "address": "FIXTURE189",
+  "balance": 42.66,
+  "first_seen_ts": 1757832458.6501484
+ },
+ {
+  "address": "FIXTURE190",
+  "balance": 42.53,
+  "first_seen_ts": 1786317973.5696013
+ },
+ {
+  "address": "FIXTURE191",
+  "balance": 42.4,
+  "first_seen_ts": 1773963638.7477021
+ },
+ {
+  "address": "FIXTURE192",
+  "balance": 42.26,
+  "first_seen_ts": 1781075790.1249535
+ },
+ {
+  "address": "FIXTURE193",
+  "balance": 42.14,
+  "first_seen_ts": 1763779517.0382726
+ },
+ {
+  "address": "FIXTURE194",
+  "balance": 42.01,
+  "first_seen_ts": 1780847572.209549
+ },
+ {
+  "address": "FIXTURE195",
+  "balance": 41.88,
+  "first_seen_ts": 1777443071.137645
+ },
+ {
+  "address": "FIXTURE196",
+  "balance": 41.75,
+  "first_seen_ts": 1780029503.8703325
+ },
+ {
+  "address": "FIXTURE197",
+  "balance": 41.63,
+  "first_seen_ts": 1763097271.3941467
+ },
+ {
+  "address": "FIXTURE198",
+  "balance": 41.5,
+  "first_seen_ts": 1756976801.364905
+ },
+ {
+  "address": "FIXTURE199",
+  "balance": 41.38,
+  "first_seen_ts": 1781419971.2012815
+ }
+]

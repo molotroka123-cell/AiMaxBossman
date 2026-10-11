@@ -149,9 +149,12 @@ def evaluate(trades: list[TradeResult], *, costs: CostModel | None = None,
     turnover = sum(abs(t.entry) * t.size for t in trades) / n
     report.execution_error = turnover * cost.execution_error_rate
 
-    report.expected_value = (report.win_rate * report.average_win
-                             - report.loss_rate * report.average_loss
-                             - report.fees - report.funding - report.slippage
+    # EV = mean NET pnl per trade. ``net_pnl`` already has fees, funding and
+    # slippage subtracted, and win_rate*avg_win - loss_rate*avg_loss IS that
+    # mean, so subtracting fees/funding/slippage again double-counted them
+    # (audit MP21-D finding 7). Only the modelled execution error, which is NOT
+    # part of net_pnl, is subtracted on top.
+    report.expected_value = (sum(t.net_pnl for t in trades) / n
                              - report.execution_error)
     report.expectancy_r = sum(t.r_multiple for t in trades) / n
     gross_win = sum(t.net_pnl for t in wins)
@@ -174,9 +177,10 @@ def evaluate(trades: list[TradeResult], *, costs: CostModel | None = None,
         oos_losses = [t for t in oos if t.net_pnl <= 0]
         avg_w = (sum(t.net_pnl for t in oos_wins) / len(oos_wins)) if oos_wins else 0.0
         avg_l = (abs(sum(t.net_pnl for t in oos_losses)) / len(oos_losses)) if oos_losses else 0.0
-        wr = len(oos_wins) / len(oos)
-        report.out_of_sample_ev = (wr * avg_w - (1 - wr) * avg_l
-                                   - sum(t.fees + t.funding + t.slippage for t in oos) / len(oos))
+        oos_turnover = sum(abs(t.entry) * t.size for t in oos) / len(oos)
+        # mean net pnl (costs already inside) minus the modelled execution error
+        report.out_of_sample_ev = (sum(t.net_pnl for t in oos) / len(oos)
+                                   - oos_turnover * cost.execution_error_rate)
 
     by_regime: dict[str, list[TradeResult]] = {}
     for t in trades:
