@@ -18,8 +18,12 @@ def main() -> int:
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    text = sys.stdin.buffer.read(1201).decode("utf-8")
-    if not 0 < len(text.strip()) <= 280 or len(text.encode("utf-8")) > 1200:
+    # Up to 2400 bytes: the parent expands numbers and may add U+0301 stress marks.
+    raw = sys.stdin.buffer.read(2401)
+    if len(raw) > 2400:
+        return 2
+    text = raw.decode("utf-8")
+    if not 0 < len(text.strip()) <= 600:
         return 2
 
     import torch
