@@ -1,0 +1,15 @@
+{
+  "source_branch": "feat/openai-image-nextgen-20260920",
+  "source_sha": "43bc5e4bd2f291ea576f52eff301215567d428b8",
+  "status": "PRESERVED_NOT_ACTIVATED",
+  "runtime_active": false,
+  "files": {
+    "command-center/bcc/features/images.py": "34dfad9097b10b7cf42bfd0f881386d5196babc3",
+    "command-center/bcc/oss/openai_images.py": "2eb11c1825471fd93725dd3c566925afd92c7ce1",
+    "command-center/tests/test_openai_images_provider.py": "01e078313620d0168d7f497d80409f3497701a3d",
+    "command-center/ui/image_chat.js": "caf0a0e9e0d1c2cbf9358c686241d2d2ca5e21a3",
+    "command-center/ui/pages/home.js": "753819230d72c01a8d48c2879ea7150c818f865a"
+  },
+  "live_acceptance": "NOT_RUN",
+  "paid_calls_performed_in_this_session": 0
+}

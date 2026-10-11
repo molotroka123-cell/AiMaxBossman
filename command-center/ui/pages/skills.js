@@ -14,6 +14,7 @@ import {
 } from '../components.js';
 import { idVal, errorBanner } from './_shared.js';
 import * as ui from './_ui.js';
+import { collectSkillInputs, createSkillField } from '../skill_inputs.js';
 
 /* Совместимость: старые вызовы передают массив кнопок третьим аргументом. */
 const pageHead = (title, sub, opts) =>
@@ -226,7 +227,7 @@ async function openRunSkill(ctx, s) {
   const formFields = propNames.length
     ? propNames.map((name) => {
       const p = props[name] || {};
-      const el = input({ placeholder: p.description || '', value: '' });
+      const el = createSkillField(name, p, { input, textarea, select });
       inputEls[name] = el;
       return field(`${name}${required.has(name) ? ' *' : ''}`, el, p.description || '');
     })
@@ -256,16 +257,15 @@ async function openRunSkill(ctx, s) {
   modal.footer.appendChild(h('div.spacer'));
   modal.footer.appendChild(h('button.btn', { type: 'button', onClick: () => modal.close() }, 'Отмена'));
   modal.footer.appendChild(actionButton('Запустить', async () => {
-    const inputData = {};
-    if (propNames.length) {
-      for (const name of propNames) inputData[name] = inputEls[name].value;
-    } else {
-      for (const p of freePairs) if (p.keyEl.value.trim()) inputData[p.keyEl.value.trim()] = p.valEl.value;
-    }
-    for (const req of required) {
-      if (!inputData[req]) { toast(`Заполните обязательное поле «${req}»`, { type: 'warn' }); return; }
-    }
     try {
+      const raw = Object.fromEntries(propNames.map(name => [name, inputEls[name].value]));
+      const inputData = propNames.length ? collectSkillInputs(schema, raw) : Object.create(null);
+      if (!propNames.length) {
+        for (const p of freePairs) {
+          const key = p.keyEl.value.trim();
+          if (p.row.isConnected && key && !['__proto__', 'constructor', 'prototype'].includes(key)) inputData[key] = p.valEl.value;
+        }
+      }
       const r = await api.raw(`/api/skills/${encodeURIComponent(s.id)}/run`, {
         method: 'POST', body: { input: inputData, agent_id: idVal(agentEl.value) },
       });

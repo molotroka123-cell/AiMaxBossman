@@ -23,6 +23,11 @@
   процессе) даёт `REFERENCE_ONLY`: это НЕ доказательство об установленном
   архиве Windows, и дерево процессов там другое.
 
+Режим `--mode installed` без явных root/ZIP/hash остаётся fail-closed.
+С --installed-root, --archive, --expected-sha и --expected-archive-sha256
+он передаёт работу installed_responsiveness_probe.py: только Python архива -I.
+Это диагностика установленного backend/browser, не native cold/warm и не GUI-приёмка.
+
 Строка без замера получает `INSUFFICIENT_EVIDENCE`, а не `PASS`.
 
 Коды выхода: 0 — ни одного FAIL; 1 — есть FAIL; 2 — FAIL нет, но есть
@@ -32,12 +37,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import statistics
 import sys
 import tempfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parents[1]
 CC = REPO / "command-center"
@@ -84,6 +91,11 @@ class Line:
         self.verdict, self.detail = OWNER_REQUIRED, why
 
     def observe(self, value: float, *, reference: bool, detail: str = "") -> None:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+            self.measured = None
+            self.verdict = INSUFFICIENT
+            self.detail = "невалидный замер: нужны конечное неотрицательное число и полные улики"
+            return
         self.measured = value
         within = value <= self.limit
         if reference:
@@ -103,17 +115,6 @@ class Line:
 
 
 CHECKPOINT_SECONDS = 60.0
-
-
-def checkpoint_path(final: Path | None) -> Path | None:
-    """Куда писать промежуточные снимки — НЕ в файл итогового отчёта.
-
-    Раздел 30 директивы: порождаемое рантаймом состояние не держат под учётом
-    Git. Снимок переписывается раз в минуту и за час пачкает дерево шестьдесят
-    раз; под учёт должен попадать только завершённый отчёт. Поэтому снимки
-    ложатся рядом с расширением `.partial.json`, которое игнорируется.
-    """
-    return None if final is None else final.with_suffix(".partial.json")
 
 
 def write_checkpoint(target: Path, lines: dict, *, mode: str,
@@ -155,6 +156,11 @@ def idle_window_for(soak_seconds: float) -> float:
 
 def overall_verdict(verdicts: list[str]) -> str:
     """Один итог по строкам. Порядок строгости, а не порядок перечисления."""
+    known = {"PASS", "FAIL", INSUFFICIENT, REFERENCE_OVER, REFERENCE, OWNER_REQUIRED}
+    if "FAIL" in verdicts:
+        return "FAIL"
+    if not verdicts or any(state not in known for state in verdicts):
+        return INSUFFICIENT
     for state in ("FAIL", INSUFFICIENT, REFERENCE_OVER, REFERENCE, OWNER_REQUIRED):
         if state in verdicts:
             return state
@@ -192,6 +198,21 @@ def _tree_cpu_seconds(root_pid: int | None = None) -> float:
     return total
 
 
+def fixture_png() -> bytes:
+    """A deterministic decodable 64x64 RGB fixture, never model generation."""
+    import struct
+    import zlib
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (struct.pack(">I", len(data)) + kind + data
+                + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+
+    header = struct.pack(">IIBBBBB", 64, 64, 8, 2, 0, 0, 0)
+    scanlines = (b"\0" + bytes((72, 120, 160)) * 64) * 64
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header)
+            + chunk(b"IDAT", zlib.compress(scanlines)) + chunk(b"IEND", b""))
+
+
 def _seed_gallery(data_dir: Path, db_url: str, count: int, offset: int = 0) -> None:
     """Кладёт `count` настоящих записей галереи в настоящую схему."""
     import hashlib
@@ -203,7 +224,7 @@ def _seed_gallery(data_dir: Path, db_url: str, count: int, offset: int = 0) -> N
     media.mkdir(parents=True, exist_ok=True)
     payload = media / "seed.png"
     if not payload.exists():
-        payload.write_bytes(b"\x89PNG\r\n\x1a\n" + b"seeded gallery asset" * 32)
+        payload.write_bytes(fixture_png())
     digest = hashlib.sha256(payload.read_bytes()).hexdigest()
 
     engine = sa.create_engine(db_url.replace("sqlite+aiosqlite", "sqlite"))
@@ -294,21 +315,22 @@ class Walker:
         if current == route:
             raise RuntimeError(f"переход в текущий раздел {route!r} ничего не "
                                "перерисовывает и замером не является")
+        # Start BEFORE dispatch; evaluate() can consume most of the navigation.
+        started = time.perf_counter()
         self.page.evaluate("""r => {
           const view = document.querySelector('#view');
           for (const child of view.children) child.setAttribute('data-probe-stale','1');
           location.hash = '#/' + r;
         }""", route)
-        started = time.perf_counter()
-        if selector:
-            self.page.wait_for_selector(selector, timeout=25000)
-        else:
-            self.page.wait_for_function("""() => {
+        # Even a gallery selector must belong to the new view, not an old card.
+        self.page.wait_for_function("""() => {
               const view = document.querySelector('#view');
               if (!view || !view.childElementCount) return false;
               if (view.querySelector('.skeleton')) return false;
               return !view.querySelector('[data-probe-stale]');
             }""", timeout=25000)
+        if selector:
+            self.page.wait_for_selector(selector, timeout=25000)
         return (time.perf_counter() - started) * 1000
 
     def park(self, avoid: str) -> None:
@@ -324,8 +346,35 @@ class Walker:
 
 def measure(mode: str, soak_seconds: float, budget: dict,
             checkpoint: Path | None = None) -> dict:
+    if isinstance(soak_seconds, bool) or not math.isfinite(soak_seconds) or not 0 <= soak_seconds <= 7200:
+        raise ValueError("soak duration must be finite and between 0 and 7200 seconds")
+    if mode not in ("reference", "installed"):
+        raise ValueError(f"unsupported measurement mode: {mode!r}")
     reference = mode == "reference"
     lines = {k: Line(k, v) for k, v in budget["budgets"].items()}
+
+    # PREP-08: LiveApp below is source-only. Refuse BEFORE changing sys.path,
+    # loading runtime/browser modules, seeding data, or starting any process.
+    # A future installed launcher must bind exact archive bytes and measure
+    # the shipped process tree; changing a verdict label cannot replace it.
+    if not reference:
+        reason = ("installed launcher не реализован: исходники не запускаются; "
+                  "нужны точный application ZIP, поставленный runtime и замер "
+                  "полного дерева процессов на Windows")
+        for line in lines.values():
+            line.detail = reason
+        return {
+            "verdict": INSUFFICIENT,
+            "mode": mode,
+            "budget_fixed_at": budget["fixed_at"],
+            "reference_only": False,
+            "completed": False,
+            "measurement_executed": False,
+            "blocker": "installed_launcher_not_implemented",
+            "lines": [line.as_dict() for line in lines.values()],
+            "notes": [reason, "PREP-08 остаётся OPEN_REPO + OWNER_HARDWARE"],
+            "refusal_rules": budget["refusal_rules"],
+        }
 
     for key in ("cold_start_to_interactive_s", "warm_start_to_interactive_s"):
         lines[key].owner_required(
@@ -462,6 +511,7 @@ def measure(mode: str, soak_seconds: float, budget: dict,
         "budget_fixed_at": budget["fixed_at"],
         "reference_only": reference,
         "completed": True,
+        "navigation_samples_ms": samples,
         "lines": [line.as_dict() for line in lines.values()],
         "notes": notes,
         "refusal_rules": budget["refusal_rules"],
@@ -473,10 +523,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--mode", choices=("reference", "installed"), default="reference")
     parser.add_argument("--soak-seconds", type=float, default=0.0)
     parser.add_argument("--json", type=Path)
+    parser.add_argument("--installed-root", type=Path)
+    parser.add_argument("--archive", type=Path)
+    parser.add_argument("--expected-sha")
+    parser.add_argument("--expected-archive-sha256")
+    parser.add_argument("--headed", action="store_true")
     args = parser.parse_args(argv)
 
-    report = measure(args.mode, args.soak_seconds, load_budget(),
-                     checkpoint_path(args.json))
+    installed = None
+    supplied = (args.installed_root, args.archive, args.expected_sha, args.expected_archive_sha256)
+    if any(value is not None for value in supplied):
+        if args.mode != "installed" or not all(supplied) or args.json is None:
+            parser.error("installed diagnostics require --mode installed, --installed-root, --archive, "
+                         "--expected-sha, --expected-archive-sha256 and a NEW --json path")
+        installed = _load("_bossman_installed_responsiveness", Path(__file__).with_name("installed_responsiveness_probe.py"))
+        try:
+            report = installed.run_installed((sys.modules.get(__name__) or SimpleNamespace(**globals())), root=args.installed_root,
+                archive=args.archive, expected_hash=args.expected_archive_sha256,
+                expected_sha=args.expected_sha, output=args.json,
+                soak_seconds=args.soak_seconds, headed=args.headed)
+        except (ValueError, OSError) as error:
+            parser.error(str(error))
+    else:
+        report = measure(args.mode, args.soak_seconds, load_budget(), args.json)
 
     for line in report["lines"]:
         print(f"{line['verdict']:<21} {line['metric']}\n     {line['detail']}")
@@ -487,12 +556,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
-        args.json.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",
-                             encoding="utf-8")
+        if installed is not None:
+            installed.atomic_report(args.json, report)
+        else:
+            args.json.write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+                                 encoding="utf-8")
 
     if report["verdict"] == "FAIL":
         return 1
-    return 2 if any(l["verdict"] == INSUFFICIENT for l in report["lines"]) else 0
+    return 2 if any(l["verdict"] in (INSUFFICIENT, OWNER_REQUIRED) for l in report["lines"]) else 0
 
 
 if __name__ == "__main__":

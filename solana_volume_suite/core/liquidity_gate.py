@@ -6,7 +6,11 @@ Caller-supplied reserves are hypothetical inputs, not execution evidence.
 """
 from fractions import Fraction
 from typing import Dict, Any, Optional, List
+from math import isfinite
 import httpx
+
+MAX_PAPER_ORDER_SOL = 100.0
+MAX_PAPER_SLICES = 100
 
 
 def fetch_pool_reserves(mint: str, rpc_url: str) -> dict:
@@ -137,6 +141,29 @@ class LiquidityGate:
         Evaluates order impact against pool liquidity.
         If impact > 1.2%, slices order into smaller sub-orders or flags BLOCKED.
         """
+        if type(amount_sol) not in (int, float):
+            self.last_status = "BLOCK"
+            return {
+                "status": "BLOCK",
+                "execution_allowed": False,
+                "original_sol": None,
+                "slices_sol": [],
+                "estimated_impact_bps": 9999,
+                "reason": "INVALID_ORDER_SIZE",
+            }
+
+        order_sol = float(amount_sol)
+        if not isfinite(order_sol) or order_sol <= 0 or order_sol > MAX_PAPER_ORDER_SOL:
+            self.last_status = "BLOCK"
+            return {
+                "status": "BLOCK",
+                "execution_allowed": False,
+                "original_sol": order_sol if isfinite(order_sol) else None,
+                "slices_sol": [],
+                "estimated_impact_bps": 9999,
+                "reason": "ORDER_SIZE_OUT_OF_RANGE",
+            }
+
         reserves = pool_reserves or {
             "model": "CONSTANT_PRODUCT",
             "input_asset": "SOL",
@@ -144,7 +171,17 @@ class LiquidityGate:
             "reserve_out": int(1_000_000_000 * 10**6),
             "fee_bps": 25
         }
-        amount_lamports = int(amount_sol * 10**9)
+        amount_lamports = int(order_sol * 10**9)
+        if amount_lamports <= 0:
+            self.last_status = "BLOCK"
+            return {
+                "status": "BLOCK",
+                "execution_allowed": False,
+                "original_sol": order_sol,
+                "slices_sol": [],
+                "estimated_impact_bps": 9999,
+                "reason": "ORDER_SIZE_BELOW_LAMPORT_PRECISION",
+            }
         check = check_liquidity(
             amount_lamports=amount_lamports,
             reserves=reserves,
@@ -157,25 +194,60 @@ class LiquidityGate:
             return {
                 "status": "PASS",
                 "execution_allowed": True,
-                "original_sol": amount_sol,
-                "slices_sol": [round(amount_sol, 4)],
+                "original_sol": order_sol,
+                "slices_sol": [round(order_sol, 4)],
                 "estimated_impact_bps": check.get("estimated_impact_bps", 20),
                 "reason": "PRICE_IMPACT_WITHIN_BOUNDS"
             }
 
         max_allowed_lamports = check.get("max_allowed_order_lamports", 0) or 0
         if max_allowed_lamports > 10_000_000:
-            slice_sol = max_allowed_lamports / 1e9
+            slice_lamports = max_allowed_lamports * 95 // 100
+            if slice_lamports <= 0:
+                self.last_status = "BLOCK"
+                return {
+                    "status": "BLOCK",
+                    "execution_allowed": False,
+                    "original_sol": order_sol,
+                    "slices_sol": [],
+                    "estimated_impact_bps": check.get("estimated_impact_bps", 9999),
+                    "reason": "INVALID_SAFE_SLICE_BOUND",
+                }
+
+            slice_count = (amount_lamports + slice_lamports - 1) // slice_lamports
+            if slice_count > MAX_PAPER_SLICES:
+                self.last_status = "BLOCK"
+                return {
+                    "status": "BLOCK",
+                    "execution_allowed": False,
+                    "original_sol": order_sol,
+                    "slices_sol": [],
+                    "estimated_impact_bps": check.get("estimated_impact_bps", 9999),
+                    "reason": "ORDER_REQUIRES_TOO_MANY_SLICES",
+                }
+
+            remaining_lamports = amount_lamports
             slices = []
-            rem = amount_sol
-            while rem > 0.005:
-                take = min(rem, slice_sol * 0.95)
-                slices.append(round(take, 4))
-                rem -= take
+            for _ in range(slice_count):
+                take_lamports = min(remaining_lamports, slice_lamports)
+                slices.append(round(take_lamports / 1e9, 9))
+                remaining_lamports -= take_lamports
+
+            if remaining_lamports:
+                self.last_status = "BLOCK"
+                return {
+                    "status": "BLOCK",
+                    "execution_allowed": False,
+                    "original_sol": order_sol,
+                    "slices_sol": [],
+                    "estimated_impact_bps": check.get("estimated_impact_bps", 9999),
+                    "reason": "ORDER_SLICING_INCOMPLETE",
+                }
+
             return {
                 "status": "SLICED_PASS",
                 "execution_allowed": True,
-                "original_sol": amount_sol,
+                "original_sol": order_sol,
                 "slices_sol": slices,
                 "estimated_impact_bps": self.max_impact_bps,
                 "reason": f"Order sliced into {len(slices)} micro-orders to respect <= 1.2% impact"
@@ -184,7 +256,7 @@ class LiquidityGate:
         return {
             "status": "BLOCK",
             "execution_allowed": False,
-            "original_sol": amount_sol,
+            "original_sol": order_sol,
             "slices_sol": [],
             "estimated_impact_bps": check.get("estimated_impact_bps", 9999),
             "reason": "ORDER_EXCEEDS_MAX_PRICE_IMPACT_AND_CANNOT_BE_SAFELY_SLICED"

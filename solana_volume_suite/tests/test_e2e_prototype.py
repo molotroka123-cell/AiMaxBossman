@@ -22,7 +22,7 @@ from dashboard.safety_app import app, orchestrator
 async def test_orchestrator_loop_three_iterations(tmp_path):
     """
     Runs 3 iterations of VolumeOrchestratorLoop in test_mode=True.
-    Verifies event journal records trades (TRADE_EXECUTED or TRADE_HELD) and loop halts.
+    Verifies the paper loop never loads real keys or claims on-chain execution.
     """
     vault_file = str(tmp_path / "temp_vault.json")
     loop = VolumeOrchestratorLoop(
@@ -31,8 +31,9 @@ async def test_orchestrator_loop_three_iterations(tmp_path):
         test_mode=True
     )
     loop.initialize_vault_pool(count=10)
-    assert len(loop.cached_keypairs) == 10
+    assert loop.cached_keypairs == []
     assert len(loop.wallet_balances) == 10
+    assert not os.path.exists(vault_file)
 
     # Run exactly 3 iterations
     await loop.run(max_iterations=3)
@@ -42,7 +43,8 @@ async def test_orchestrator_loop_three_iterations(tmp_path):
     assert len(loop.event_journal) > 0
 
     journal_types = [entry["type"] for entry in loop.event_journal]
-    assert any(t in ("TRADE_EXECUTED", "TRADE_HELD") for t in journal_types)
+    assert any(t in ("PAPER_TRADE_RECORDED", "POLICY_BLOCKED", "TRADE_HELD") for t in journal_types)
+    assert all(entry.get("meta", {}).get("confirmed_onchain") is not True for entry in loop.event_journal)
 
 
 def test_liquidity_gate_evaluates_and_blocks_or_slices_orders():
@@ -134,25 +136,24 @@ def test_dashboard_interactive_endpoints():
         assert stop_resp.json()["status"] == "STOPPED"
         assert orchestrator.is_running is False
 
-        # 4. POST /api/sweep
+        # 4. Real-fund sweeps are unavailable in the paper-only app.
         sweep_resp = client.post("/api/sweep", json={"destination": "ColdDestTestAddress111111111111111111111111"})
-        assert sweep_resp.status_code == 200
+        assert sweep_resp.status_code == 409
         sweep_data = sweep_resp.json()
-        assert sweep_data["status"] == "SUCCESS"
-        assert sweep_data["mode"] == "PAPER_TRADING_SIMULATED"
-        assert "total_sol_swept" in sweep_data
+        assert sweep_data["status"] == "BLOCKED"
+        assert sweep_data["reason"] == "PAPER_ONLY_NO_REAL_WALLETS_OR_FUNDS"
 
         # 5. POST /api/vault/generate
         # Empty body -> 403 BLOCKED
         blocked_resp = client.post("/api/vault/generate", json={})
         assert blocked_resp.status_code == 403
 
-        # Valid body -> 200 SUCCESS
+        # Valid body must not generate or persist real keys.
         gen_resp = client.post("/api/vault/generate", json={
             "count": 5,
             "password": "ValidMasterPassword123!"
         })
-        assert gen_resp.status_code == 200
-        assert gen_resp.json()["status"] == "SUCCESS"
-        assert gen_resp.json()["count"] == 5
-        assert len(orchestrator.cached_keypairs) == 5
+        assert gen_resp.status_code == 403
+        assert gen_resp.json()["reason"] == "PAPER_ONLY_REAL_KEY_GENERATION_DISABLED"
+        assert orchestrator.cached_keypairs == []
+        assert len(orchestrator.sub_wallet_addresses) == 10

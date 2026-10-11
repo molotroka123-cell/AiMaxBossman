@@ -1,0 +1,881 @@
+"""BOSSMAN Images — library + generation jobs + collections + templates.
+
+This is a native V2 feature:
+- discovered automatically by bcc.features.load_features()
+- router mounted automatically under /api with BOSSMAN token auth
+- background `tick` processes queued image jobs
+- tables register on canonical db.metadata before create_all()
+"""
+from __future__ import annotations
+
+import asyncio
+import contextlib
+
+import base64
+import binascii
+import hashlib
+import io
+import json
+import secrets
+from pathlib import Path
+from typing import Any
+
+import sqlalchemy as sa
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
+from PIL import Image, ImageOps
+
+from ..db import models as models_t, rows_dicts, utcnow
+from ..v2.images_runtime import ImageStorage, MockImageProvider, safe_filename
+from ..oss.comfyui import ComfyUIImageProvider, image_configuration, validate_image_spec
+from ..oss.openai_images import (
+    OpenAIImageProvider, configured as openai_images_configured,
+    model_for_alias as openai_image_model, validate_spec as validate_openai_image_spec,
+)
+from ..v2.images_tables import (
+    image_assets as assets_t,
+    image_collections as collections_t,
+    image_jobs as jobs_t,
+    image_templates as templates_t,
+)
+from . import Feature
+
+router = APIRouter()
+PROVIDER = MockImageProvider()
+
+# Local mock is always available; ComfyUI requires explicit owner configuration.
+EXECUTABLE_ALIASES = frozenset({
+    "mock-image", "openai-image-fast", "openai-image-precise",
+})
+
+
+# ---------- request models ----------
+
+class ImageJobIn(BaseModel):
+    prompt: str = Field(min_length=1, max_length=12000)
+    negative_prompt: str = ""
+    model_alias: str = "mock-image"
+    aspect_ratio: str = "1:1"
+    width: int = Field(default=1024, ge=256, le=4096)
+    height: int = Field(default=1024, ge=256, le=4096)
+    steps: int = Field(default=30, ge=1, le=200)
+    seed: int | None = None
+    count: int = Field(default=1, ge=1, le=8)
+    collection_id: int | None = None
+    source_asset_id: int | None = None
+    reference_asset_ids: list[int] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    kind: str = "generate"
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
+class AssetPatch(BaseModel):
+    title: str | None = None
+    favorite: bool | None = None
+    status: str | None = None
+    collection_id: int | None = None
+    tags: list[str] | None = None
+
+
+class CollectionIn(BaseModel):
+    name: str = Field(min_length=1, max_length=180)
+    parent_id: int | None = None
+
+
+class TemplateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=180)
+    prompt: str = Field(min_length=1, max_length=12000)
+    negative_prompt: str = ""
+    model_alias: str = "mock-image"
+    aspect_ratio: str = "1:1"
+    width: int = Field(default=1024, ge=256, le=4096)
+    height: int = Field(default=1024, ge=256, le=4096)
+    steps: int = Field(default=30, ge=1, le=200)
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
+class ImportAssetIn(BaseModel):
+    filename: str
+    data_base64: str
+    title: str = ""
+    collection_id: int | None = None
+    tags: list[str] = Field(default_factory=list)
+
+
+class ImageTransformIn(BaseModel):
+    operation: str = Field(pattern="^(grayscale|rotate90|rotate180|flip_horizontal|resize)$")
+    width: int | None = Field(default=None, ge=16, le=8192)
+    height: int | None = Field(default=None, ge=16, le=8192)
+
+
+# ---------- helpers ----------
+
+def _storage(svc) -> ImageStorage:
+    return ImageStorage(svc.settings.data_dir / "images")
+
+
+def _clean_tags(values: list[str] | None) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in values or []:
+        tag = str(raw).strip()[:80]
+        if tag and tag.lower() not in seen:
+            seen.add(tag.lower())
+            out.append(tag)
+    return out[:50]
+
+
+def _job_public(row: dict) -> dict:
+    out = dict(row)
+    out["reference_asset_ids"] = list(out.get("reference_asset_ids") or [])
+    out["tags"] = list(out.get("tags") or [])
+    out["options"] = dict(out.get("options") or {})
+    return out
+
+
+def _asset_public(row: dict) -> dict:
+    out = dict(row)
+    out["tags"] = list(out.get("tags") or [])
+    out["meta"] = dict(out.get("meta") or {})
+    out["file_url"] = f"/api/images/assets/{out['id']}/file"
+    return out
+
+
+async def _find_one(svc, table, row_id: int) -> dict | None:
+    async with svc.db.session() as s:
+        res = await s.execute(sa.select(table).where(table.c.id == row_id))
+        row = res.first()
+    return dict(row._mapping) if row else None
+
+
+async def _collection_exists(svc, collection_id: int | None) -> bool:
+    if collection_id is None:
+        return True
+    return await _find_one(svc, collections_t, collection_id) is not None
+
+
+async def _asset_exists(svc, asset_id: int | None) -> bool:
+    if asset_id is None:
+        return True
+    return await _find_one(svc, assets_t, asset_id) is not None
+
+
+# ---------- catalog / overview ----------
+
+@router.get("/images/overview")
+async def images_overview(request: Request):
+    svc = request.app.state.svc
+    async with svc.db.session() as s:
+        assets = int((await s.execute(sa.select(sa.func.count()).select_from(assets_t)
+                                      .where(assets_t.c.status != "deleted"))).scalar_one())
+        fav = int((await s.execute(sa.select(sa.func.count()).select_from(assets_t)
+                                   .where(assets_t.c.favorite.is_(True),
+                                          assets_t.c.status != "deleted"))).scalar_one())
+        queued = int((await s.execute(sa.select(sa.func.count()).select_from(jobs_t)
+                                      .where(jobs_t.c.status.in_(("queued", "running"))))).scalar_one())
+        failed = int((await s.execute(sa.select(sa.func.count()).select_from(jobs_t)
+                                      .where(jobs_t.c.status == "failed"))).scalar_one())
+    return {"assets": assets, "favorites": fav, "active_jobs": queued, "failed_jobs": failed}
+
+
+@router.get("/images/models")
+async def image_models(request: Request):
+    """Return mock plus BOSSMAN models explicitly advertising image-generation caps."""
+    svc = request.app.state.svc
+    out = [{
+        "alias": "mock-image",
+        "name": "BOSSMAN Mock Image",
+        "provider": "local",
+        "status": "ok",
+        "executable": True,
+        "caps": {"image_generation": True, "mock": True},
+    }]
+    try:
+        comfy_config = image_configuration()
+        comfy_status = "configured" if comfy_config else "not_configured"
+    except ValueError:
+        comfy_config, comfy_status = None, "invalid_configuration"
+    out.append({"alias": "comfyui", "name": "ComfyUI (local text-to-image)",
+                "provider": "local", "status": comfy_status, "executable": bool(comfy_config),
+                "caps": {"image_generation": True, "mock": False, "text_to_image": True}})
+    openai_ready = openai_images_configured()
+    for alias, label in (
+        ("openai-image-fast", "OpenAI GPT Image · fast"),
+        ("openai-image-precise", "OpenAI GPT Image · precise"),
+    ):
+        try:
+            model_name = openai_image_model(alias)
+        except ValueError:
+            model_name = alias
+        out.append({
+            "alias": alias,
+            "name": f"{label} · {model_name}",
+            "provider": "openai",
+            "status": "configured" if openai_ready else "not_configured",
+            "executable": openai_ready,
+            "caps": {
+                "image_generation": True,
+                "mock": False,
+                "text_to_image": True,
+                "high_fidelity": True,
+                "quality_controls": True,
+            },
+        })
+    async with svc.db.session() as s:
+        rows = rows_dicts((await s.execute(sa.select(models_t))).fetchall())
+    for m in rows:
+        caps = dict(m.get("caps") or {})
+        if any(caps.get(k) for k in ("image_generation", "image", "images", "text_to_image")):
+            alias = m.get("alias") or m.get("name")
+            out.append({
+                "alias": alias,
+                "name": m.get("name") or m.get("alias"),
+                "provider_id": m.get("provider_id"),
+                "status": m.get("status"),
+                "executable": alias in EXECUTABLE_ALIASES,
+                "caps": caps,
+            })
+    return out
+
+
+# ---------- assets ----------
+
+@router.get("/images/assets")
+async def list_assets(request: Request, search: str = "", collection_id: int | None = None,
+                      favorite: bool | None = None, status: str = "ready",
+                      limit: int = 200, offset: int = 0):
+    svc = request.app.state.svc
+    stmt = sa.select(assets_t)
+    if status:
+        stmt = stmt.where(assets_t.c.status == status)
+    if collection_id is not None:
+        stmt = stmt.where(assets_t.c.collection_id == collection_id)
+    if favorite is not None:
+        stmt = stmt.where(assets_t.c.favorite == favorite)
+    if search:
+        q = f"%{search.lower()}%"
+        stmt = stmt.where(sa.or_(
+            sa.func.lower(assets_t.c.title).like(q),
+            sa.func.lower(assets_t.c.prompt).like(q),
+            sa.func.lower(assets_t.c.model_alias).like(q),
+        ))
+    stmt = stmt.order_by(assets_t.c.id.desc()).limit(min(max(limit, 1), 500)).offset(max(offset, 0))
+    count_stmt = sa.select(sa.func.count()).select_from(assets_t)
+    if status:
+        count_stmt = count_stmt.where(assets_t.c.status == status)
+    if collection_id is not None:
+        count_stmt = count_stmt.where(assets_t.c.collection_id == collection_id)
+    if favorite is not None:
+        count_stmt = count_stmt.where(assets_t.c.favorite == favorite)
+    if search:
+        q = f"%{search.lower()}%"
+        count_stmt = count_stmt.where(sa.or_(
+            sa.func.lower(assets_t.c.title).like(q),
+            sa.func.lower(assets_t.c.prompt).like(q),
+            sa.func.lower(assets_t.c.model_alias).like(q),
+        ))
+    async with svc.db.session() as s:
+        rows = rows_dicts((await s.execute(stmt)).fetchall())
+        total = int((await s.execute(count_stmt)).scalar_one())
+    return {"items": [_asset_public(x) for x in rows], "total": total}
+
+
+@router.get("/images/assets/{asset_id}")
+async def get_asset(asset_id: int, request: Request):
+    row = await _find_one(request.app.state.svc, assets_t, asset_id)
+    if row is None:
+        raise HTTPException(404, {"message": "изображение не найдено"})
+    return _asset_public(row)
+
+
+@router.get("/images/assets/{asset_id}/file")
+async def get_asset_file(asset_id: int, request: Request):
+    svc = request.app.state.svc
+    row = await _find_one(svc, assets_t, asset_id)
+    if row is None:
+        raise HTTPException(404, {"message": "изображение не найдено"})
+    try:
+        path = _storage(svc).resolve_existing(row["file_path"])
+    except FileNotFoundError:
+        raise HTTPException(404, {"message": "файл изображения отсутствует"})
+    except PermissionError:
+        raise HTTPException(403, {"message": "небезопасный путь изображения"})
+    return FileResponse(path, media_type=row.get("mime_type") or _storage(svc).mime_for(path),
+                        filename=path.name, headers={"Cache-Control": "private, max-age=60"})
+
+
+@router.patch("/images/assets/{asset_id}")
+async def patch_asset(asset_id: int, body: AssetPatch, request: Request):
+    svc = request.app.state.svc
+    if await _find_one(svc, assets_t, asset_id) is None:
+        raise HTTPException(404, {"message": "изображение не найдено"})
+    patch = {k: v for k, v in body.model_dump(exclude_unset=True).items()}
+    if "tags" in patch:
+        patch["tags"] = _clean_tags(patch["tags"])
+    if "collection_id" in patch and not await _collection_exists(svc, patch["collection_id"]):
+        raise HTTPException(404, {"message": "коллекция не найдена"})
+    if "status" in patch and patch["status"] not in ("ready", "archived", "deleted"):
+        raise HTTPException(422, {"message": "status: ready|archived|deleted"})
+    async with svc.db.session() as s:
+        await s.execute(sa.update(assets_t).where(assets_t.c.id == asset_id).values(**patch))
+        await s.commit()
+    await svc.bus.emit("image.asset.updated", asset_id=asset_id)
+    return _asset_public((await _find_one(svc, assets_t, asset_id)) or {})
+
+
+#: Тип импортируемой картинки МЕРЯЕТСЯ по байтам, а не читается из имени.
+#:
+#: До этой правки `mime_type` брался из расширения (`allowed[suffix]`), и
+#: страница ошибки 502, сохранённая браузером как `screenshot.png`,
+#: принималась библиотекой и отдавалась с `Content-Type: image/png`.
+#: Воспроизведено настоящим HTTP-запросом: 200 на импорт, `image/png` в базе,
+#: а в теле `<!doctype html><html><head><title>502 Ba`.
+#:
+#: Владельцу это стоит не безопасности, а правды: испорченная загрузка молча
+#: становится «картинкой», и ломается всё дальнейшее — предпросмотр, монтаж,
+#: экспорт, — но уже далеко от места, где ошиблись.
+_MAGIC: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def _looks_like_svg(raw: bytes) -> bool:
+    """SVG — текст, поэтому подпись ищется структурно, а не сигнатурой.
+
+    Разбор XML здесь НЕ используется намеренно: он открывает «миллиард смешков»
+    и разбор внешних сущностей на данных, которые нам только что прислали.
+    Вместо этого снимаются пролог, комментарии и DOCTYPE, после чего ПЕРВЫЙ же
+    тег обязан быть `<svg`. HTML-страница, внутри которой где-то встречается
+    `<svg`, так не проходит — а именно она и была дефектом.
+    """
+    head = raw[:4096].lstrip(b"\xef\xbb\xbf").lstrip()
+    while True:
+        if head[:5] == b"<?xml":
+            cut = head.find(b"?>")
+            if cut < 0:
+                return False
+            head = head[cut + 2:].lstrip()
+        elif head[:4] == b"<!--":
+            cut = head.find(b"-->")
+            if cut < 0:
+                return False
+            head = head[cut + 3:].lstrip()
+        elif head[:9].lower() == b"<!doctype":
+            cut = head.find(b">")
+            if cut < 0:
+                return False
+            # DOCTYPE html — это страница, а не картинка, и подменять одно
+            # другим нельзя даже если внутри потом встретится <svg>.
+            if b"html" in head[:cut].lower():
+                return False
+            head = head[cut + 1:].lstrip()
+        else:
+            break
+    return head[:4].lower() == b"<svg"
+
+
+def measured_image_type(raw: bytes) -> str | None:
+    """Что это НА САМОМ ДЕЛЕ. `None` — опознать не удалось."""
+    for signature, mime in _MAGIC:
+        if raw.startswith(signature):
+            return mime
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "image/webp"
+    if _looks_like_svg(raw):
+        return "image/svg+xml"
+    return None
+
+
+@router.post("/images/assets/import")
+async def import_asset(body: ImportAssetIn, request: Request):
+    svc = request.app.state.svc
+    if not await _collection_exists(svc, body.collection_id):
+        raise HTTPException(404, {"message": "коллекция не найдена"})
+    try:
+        raw = base64.b64decode(body.data_base64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(422, {"message": "data_base64 повреждён"})
+    if not raw:
+        raise HTTPException(422, {"message": "пустой файл"})
+    if len(raw) > 15 * 1024 * 1024:
+        raise HTTPException(413, {"message": "максимум 15 MB на импорт"})
+    suffix = Path(body.filename).suffix.lower()
+    allowed = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+               ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml"}
+    if suffix not in allowed:
+        raise HTTPException(422, {"message": "поддерживаются PNG/JPG/WEBP/GIF/SVG"})
+    measured = measured_image_type(raw)
+    if measured is None:
+        raise HTTPException(422, {"message": (
+            f"содержимое не опознано как картинка, хотя имя обещает {suffix}. "
+            f"Так выглядит сохранённая страница ошибки")})
+    if measured != allowed[suffix]:
+        raise HTTPException(422, {"message": (
+            f"содержимое — {measured}, а имя обещает {allowed[suffix]} ({suffix})")})
+    name = f"import-{secrets.token_hex(6)}-{safe_filename(Path(body.filename).stem)}{suffix}"
+    path = _storage(svc).save(f"imports/{name}", raw)
+    async with svc.db.session() as s:
+        res = await s.execute(sa.insert(assets_t).values(
+            title=(body.title.strip() or Path(body.filename).stem)[:240],
+            model_alias="import",
+            file_path=str(path),
+            file_bytes=len(raw),
+            mime_type=measured,
+            tags=_clean_tags(body.tags),
+            collection_id=body.collection_id,
+            meta={"imported": True, "original_filename": body.filename},
+            created_at=utcnow(),
+        ))
+        asset_id = int(res.inserted_primary_key[0])
+        await s.commit()
+    await svc.bus.emit("image.asset.created", asset_id=asset_id, imported=True)
+    return _asset_public((await _find_one(svc, assets_t, asset_id)) or {})
+
+
+@router.post("/images/assets/{asset_id}/transform")
+async def transform_asset(asset_id: int, body: ImageTransformIn, request: Request):
+    """Native Image Studio edit path: source asset -> transform -> persisted derived asset.
+
+    This is intentionally separate from image generation providers. The source file
+    is never mutated; every transform produces a new reopenable asset with provenance.
+    """
+    svc = request.app.state.svc
+    source = await _find_one(svc, assets_t, asset_id)
+    if source is None or source.get("status") == "deleted":
+        raise HTTPException(404, {"message": "исходное изображение не найдено"})
+    try:
+        path = _storage(svc).resolve_existing(source["file_path"])
+        raw = path.read_bytes()
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except (OSError, ValueError) as exc:
+        raise HTTPException(422, {"message": "изображение не декодируется редактором"}) from exc
+
+    op = body.operation
+    if op == "grayscale":
+        edited = ImageOps.grayscale(image).convert("RGB")
+    elif op == "rotate90":
+        edited = image.transpose(Image.Transpose.ROTATE_90)
+    elif op == "rotate180":
+        edited = image.transpose(Image.Transpose.ROTATE_180)
+    elif op == "flip_horizontal":
+        edited = ImageOps.mirror(image)
+    else:
+        if body.width is None or body.height is None:
+            raise HTTPException(422, {"message": "resize требует width и height"})
+        edited = image.resize((body.width, body.height), Image.Resampling.LANCZOS)
+
+    out = io.BytesIO()
+    edited.save(out, format="PNG")
+    payload = out.getvalue()
+    digest = hashlib.sha256(payload).hexdigest()[:16]
+    name = f"edits/{asset_id}-{op}-{secrets.token_hex(5)}.png"
+    saved = _storage(svc).save(name, payload)
+    meta = dict(source.get("meta") or {})
+    meta.update({"edited": True, "source_asset_id": asset_id, "operation": op,
+                 "sha256_16": digest})
+    width, height = edited.size
+    async with svc.db.session() as s:
+        res = await s.execute(sa.insert(assets_t).values(
+            title=(str(source.get("title") or f"image-{asset_id}") + f" · {op}")[:240],
+            prompt=source.get("prompt") or "", negative_prompt=source.get("negative_prompt") or "",
+            model_alias="image-editor", aspect_ratio=f"{width}:{height}", width=width, height=height,
+            mime_type="image/png", file_path=str(saved), file_bytes=len(payload),
+            collection_id=source.get("collection_id"), tags=list(source.get("tags") or []),
+            meta=meta, created_at=utcnow(),
+        ))
+        new_id = int(res.inserted_primary_key[0])
+        await s.commit()
+    await svc.bus.emit("image.asset.transformed", asset_id=new_id, source_asset_id=asset_id,
+                       operation=op)
+    row = await _find_one(svc, assets_t, new_id)
+    return _asset_public(row or {})
+
+
+# ---------- jobs ----------
+
+@router.get("/images/jobs")
+async def list_jobs(request: Request, status: str = "", limit: int = 100):
+    svc = request.app.state.svc
+    stmt = sa.select(jobs_t)
+    if status:
+        stmt = stmt.where(jobs_t.c.status == status)
+    stmt = stmt.order_by(jobs_t.c.id.desc()).limit(min(max(limit, 1), 300))
+    async with svc.db.session() as s:
+        rows = rows_dicts((await s.execute(stmt)).fetchall())
+    return {"items": [_job_public(x) for x in rows], "total": len(rows)}
+
+
+@router.get("/images/jobs/{job_id}")
+async def get_job(job_id: int, request: Request):
+    row = await _find_one(request.app.state.svc, jobs_t, job_id)
+    if row is None:
+        raise HTTPException(404, {"message": "задача генерации не найдена"})
+    return _job_public(row)
+
+
+@router.post("/images/jobs")
+async def create_job(body: ImageJobIn, request: Request):
+    svc = request.app.state.svc
+    if body.model_alias == "comfyui":
+        try:
+            validate_image_spec(body.model_dump())
+            config = image_configuration()
+        except ValueError as exc:
+            raise HTTPException(422, {"message": str(exc)}) from exc
+        if config is None:
+            raise HTTPException(503, {"message": "Configure BOSSMAN_COMFYUI_URL and BOSSMAN_COMFYUI_CHECKPOINT first"})
+    if body.model_alias in {"openai-image-fast", "openai-image-precise"}:
+        try:
+            validate_openai_image_spec(body.model_dump())
+        except ValueError as exc:
+            raise HTTPException(422, {"message": str(exc)}) from exc
+        if not openai_images_configured():
+            raise HTTPException(503, {"message": (
+                "Set OPENAI_API_KEY or BOSSMAN_OPENAI_IMAGE_API_KEY first. "
+                "Bossman will not queue a cloud image job without a configured key."
+            )})
+    if not await _collection_exists(svc, body.collection_id):
+        raise HTTPException(404, {"message": "коллекция не найдена"})
+    if not await _asset_exists(svc, body.source_asset_id):
+        raise HTTPException(404, {"message": "исходное изображение не найдено"})
+    for aid in body.reference_asset_ids:
+        if not await _asset_exists(svc, aid):
+            raise HTTPException(404, {"message": f"reference asset #{aid} не найден"})
+    seed = body.seed if body.seed is not None else secrets.randbelow(2_147_483_646) + 1
+    now = utcnow()
+    async with svc.db.session() as s:
+        res = await s.execute(sa.insert(jobs_t).values(
+            kind=body.kind,
+            status="queued",
+            prompt=body.prompt,
+            negative_prompt=body.negative_prompt,
+            model_alias=body.model_alias,
+            aspect_ratio=body.aspect_ratio,
+            width=body.width,
+            height=body.height,
+            steps=body.steps,
+            seed=seed,
+            count=body.count,
+            collection_id=body.collection_id,
+            source_asset_id=body.source_asset_id,
+            reference_asset_ids=list(dict.fromkeys(body.reference_asset_ids)),
+            tags=_clean_tags(body.tags),
+            options=body.options,
+            progress=0.0,
+            created_at=now,
+            updated_at=now,
+        ))
+        job_id = int(res.inserted_primary_key[0])
+        await s.commit()
+    await svc.bus.emit("image.job.queued", job_id=job_id, model=body.model_alias)
+    return _job_public((await _find_one(svc, jobs_t, job_id)) or {})
+
+
+@router.post("/images/jobs/{job_id}/cancel")
+async def cancel_job(job_id: int, request: Request):
+    svc = request.app.state.svc
+    row = await _find_one(svc, jobs_t, job_id)
+    if row is None:
+        raise HTTPException(404, {"message": "задача генерации не найдена"})
+    if row["status"] in ("completed", "failed", "cancelled"):
+        return _job_public(row)
+    async with svc.db.session() as s:
+        await s.execute(sa.update(jobs_t).where(jobs_t.c.id == job_id).values(
+            status="cancelled", finished_at=utcnow(), updated_at=utcnow()))
+        await s.commit()
+    await svc.bus.emit("image.job.cancelled", job_id=job_id)
+    return _job_public((await _find_one(svc, jobs_t, job_id)) or {})
+
+
+@router.post("/images/jobs/{job_id}/retry")
+async def retry_job(job_id: int, request: Request):
+    svc = request.app.state.svc
+    old = await _find_one(svc, jobs_t, job_id)
+    if old is None:
+        raise HTTPException(404, {"message": "задача генерации не найдена"})
+    clone = ImageJobIn(
+        prompt=old["prompt"],
+        negative_prompt=old.get("negative_prompt") or "",
+        model_alias=old.get("model_alias") or "mock-image",
+        aspect_ratio=old.get("aspect_ratio") or "1:1",
+        width=int(old.get("width") or 1024),
+        height=int(old.get("height") or 1024),
+        steps=int(old.get("steps") or 30),
+        seed=old.get("seed"),
+        count=int(old.get("count") or 1),
+        collection_id=old.get("collection_id"),
+        source_asset_id=old.get("source_asset_id"),
+        reference_asset_ids=list(old.get("reference_asset_ids") or []),
+        tags=list(old.get("tags") or []),
+        kind=old.get("kind") or "generate",
+        options=dict(old.get("options") or {}),
+    )
+    return await create_job(clone, request)
+
+
+# ---------- collections ----------
+
+@router.get("/images/collections")
+async def list_collections(request: Request):
+    svc = request.app.state.svc
+    async with svc.db.session() as s:
+        rows = rows_dicts((await s.execute(sa.select(collections_t)
+                                           .order_by(collections_t.c.name.asc()))).fetchall())
+        counts_res = await s.execute(sa.select(
+            assets_t.c.collection_id, sa.func.count(assets_t.c.id)
+        ).where(assets_t.c.status != "deleted").group_by(assets_t.c.collection_id))
+        counts = {r[0]: int(r[1]) for r in counts_res.fetchall()}
+    for row in rows:
+        row["count"] = counts.get(row["id"], 0)
+    return rows
+
+
+@router.post("/images/collections")
+async def create_collection(body: CollectionIn, request: Request):
+    svc = request.app.state.svc
+    if body.parent_id is not None and not await _collection_exists(svc, body.parent_id):
+        raise HTTPException(404, {"message": "родительская коллекция не найдена"})
+    try:
+        async with svc.db.session() as s:
+            res = await s.execute(sa.insert(collections_t).values(
+                name=body.name.strip(), parent_id=body.parent_id, created_at=utcnow()))
+            cid = int(res.inserted_primary_key[0])
+            await s.commit()
+    except Exception as exc:
+        if "unique" in str(exc).lower():
+            raise HTTPException(409, {"message": "коллекция с таким именем уже есть"})
+        raise
+    await svc.bus.emit("image.collection.created", collection_id=cid)
+    row = await _find_one(svc, collections_t, cid)
+    return {**(row or {}), "count": 0}
+
+
+# ---------- templates ----------
+
+@router.get("/images/templates")
+async def list_templates(request: Request):
+    svc = request.app.state.svc
+    async with svc.db.session() as s:
+        return rows_dicts((await s.execute(sa.select(templates_t)
+                                           .order_by(templates_t.c.id.desc()))).fetchall())
+
+
+@router.post("/images/templates")
+async def create_template(body: TemplateIn, request: Request):
+    svc = request.app.state.svc
+    async with svc.db.session() as s:
+        res = await s.execute(sa.insert(templates_t).values(
+            **body.model_dump(), created_at=utcnow()))
+        tid = int(res.inserted_primary_key[0])
+        await s.commit()
+    await svc.bus.emit("image.template.created", template_id=tid)
+    return await _find_one(svc, templates_t, tid)
+
+
+# ---------- storage ----------
+
+@router.get("/images/storage")
+async def storage_stats(request: Request):
+    svc = request.app.state.svc
+    async with svc.db.session() as s:
+        rows = rows_dicts((await s.execute(sa.select(
+            assets_t.c.file_bytes, assets_t.c.status
+        ))).fetchall())
+    used = sum(int(x.get("file_bytes") or 0) for x in rows if x.get("status") != "deleted")
+    archive = sum(int(x.get("file_bytes") or 0) for x in rows if x.get("status") == "archived")
+    deleted = sum(int(x.get("file_bytes") or 0) for x in rows if x.get("status") == "deleted")
+    return {
+        "used_bytes": used,
+        "library_bytes": used - archive,
+        "archive_bytes": archive,
+        "deleted_bytes": deleted,
+        "asset_count": len(rows),
+    }
+
+
+# ---------- background queue ----------
+
+async def process_one(svc) -> int | None:
+    """Atomically claim and execute one queued image job. Returns job id or None."""
+    now = utcnow()
+    async with svc.db.session() as s:
+        row = (await s.execute(
+            sa.select(jobs_t.c.id).where(jobs_t.c.status == "queued")
+            .order_by(jobs_t.c.id.asc()).limit(1)
+        )).first()
+        if row is None:
+            return None
+        job_id = int(row[0])
+        upd = await s.execute(sa.update(jobs_t).where(
+            jobs_t.c.id == job_id, jobs_t.c.status == "queued"
+        ).values(status="running", progress=0.05, started_at=now, updated_at=now))
+        await s.commit()
+        if not upd.rowcount:
+            return None
+
+    await svc.bus.emit("image.job.started", job_id=job_id)
+    job = await _find_one(svc, jobs_t, job_id)
+    if job is None:
+        return None
+
+    if (job.get("options") or {}).get("studio") is True:
+        from ..studio.runtime import process_claimed
+        await process_claimed(svc, job)
+        return job_id
+
+    if job.get("model_alias") not in EXECUTABLE_ALIASES | {"comfyui"}:
+        await _fail_job(svc, job_id,
+                        f"реальный image provider для «{job.get('model_alias')}» ещё не подключён")
+        return job_id
+
+    storage = _storage(svc)
+    created: list[int] = []
+    count = max(1, min(int(job.get("count") or 1), 8))
+    try:
+        provider = PROVIDER
+        if job.get("model_alias") == "comfyui":
+            config = image_configuration()
+            if config is None:
+                raise ValueError("Configure BOSSMAN_COMFYUI_URL and BOSSMAN_COMFYUI_CHECKPOINT first")
+            provider = ComfyUIImageProvider(*config)
+        elif job.get("model_alias") in {"openai-image-fast", "openai-image-precise"}:
+            provider = OpenAIImageProvider(str(job.get("model_alias")))
+        for index in range(count):
+            # honour cancellation between produced assets
+            latest = await _find_one(svc, jobs_t, job_id)
+            if latest is None or latest.get("status") == "cancelled":
+                return job_id
+
+            # Отмена обязана ОСВОБОЖДАТЬ воркер, а не только менять статус. Измерено
+            # (BL-066): пока провайдер ComfyUI опрашивал /history отменённой задачи,
+            # единственный воркер был занят ею, и соседняя задача не стартовала
+            # 9,9 с — до конца чужого расчёта; предел этого ожидания — 600 с.
+            # Здесь рендер идёт отдельной задачей, а статус перечитывается раз в
+            # полсекунды: отмена снимает ожидание. Удалённый расчёт при этом не
+            # прерывается — Bossman не зовёт /interrupt и чужую работу не трогает.
+            render = asyncio.ensure_future(provider.render(job, index))
+            try:
+                while True:
+                    done, _ = await asyncio.wait({render}, timeout=0.5)
+                    if done:
+                        break
+                    latest = await _find_one(svc, jobs_t, job_id)
+                    if latest is None or latest.get("status") != "running":
+                        render.cancel()
+                        with contextlib.suppress(BaseException):
+                            await render
+                        return job_id
+                data, mime, meta = render.result()
+            finally:
+                if not render.done():
+                    render.cancel()
+            latest = await _find_one(svc, jobs_t, job_id)
+            if latest is None or latest.get("status") != "running":
+                return job_id
+            suffix = {
+                "image/svg+xml": ".svg",
+                "image/png": ".png",
+                "image/jpeg": ".jpg",
+                "image/webp": ".webp",
+            }.get(mime, ".bin")
+            rel = f"generated/job-{job_id}/image-{index + 1}{suffix}"
+            path = storage.save(rel, data)
+            title = (str(job.get("prompt") or "Image").strip()[:120]
+                     or f"Image {job_id}-{index + 1}")
+
+            async with svc.db.session() as s:
+                claimed = await s.execute(sa.update(jobs_t).where(
+                    jobs_t.c.id == job_id, jobs_t.c.status == "running"
+                ).values(updated_at=utcnow()))
+                if not claimed.rowcount:
+                    path.unlink(missing_ok=True)
+                    return job_id
+                res = await s.execute(sa.insert(assets_t).values(
+                    source_job_id=job_id,
+                    title=title,
+                    prompt=job.get("prompt") or "",
+                    negative_prompt=job.get("negative_prompt") or "",
+                    model_alias=job.get("model_alias") or "mock-image",
+                    aspect_ratio=job.get("aspect_ratio") or "1:1",
+                    width=int(meta.get("width") or job.get("width") or 1024),
+                    height=int(meta.get("height") or job.get("height") or 1024),
+                    seed=int(meta["seed"] if meta.get("seed") is not None else
+                             (job["seed"] if job.get("seed") is not None else 1)),
+                    mime_type=mime,
+                    file_path=str(path),
+                    file_bytes=len(data),
+                    favorite=False,
+                    status="ready",
+                    collection_id=job.get("collection_id"),
+                    tags=list(job.get("tags") or []),
+                    meta=meta,
+                    created_at=utcnow(),
+                ))
+                asset_id = int(res.inserted_primary_key[0])
+                progress = 0.10 + (0.85 * ((index + 1) / count))
+                await s.execute(sa.update(jobs_t).where(jobs_t.c.id == job_id).values(
+                    progress=progress, updated_at=utcnow()))
+                await s.commit()
+            created.append(asset_id)
+            await svc.bus.emit("image.asset.created", asset_id=asset_id, job_id=job_id)
+
+        async with svc.db.session() as s:
+            completed = await s.execute(sa.update(jobs_t).where(
+                jobs_t.c.id == job_id, jobs_t.c.status == "running"
+            ).values(
+                status="completed", progress=1.0, finished_at=utcnow(), updated_at=utcnow(),
+                options={**dict(job.get("options") or {}), "asset_ids": created},
+            ))
+            await s.commit()
+        if completed.rowcount:
+            await svc.bus.emit("image.job.completed", job_id=job_id, asset_ids=created)
+    except Exception as exc:
+        await _fail_job(svc, job_id, _human_failure(job, exc))
+    return job_id
+
+
+def _human_failure(job: dict[str, Any], exc: BaseException) -> str:
+    """Текст отказа для владельца: сначала что случилось и что делать, потом
+    техническая деталь. «ConnectError: All connection attempts failed» в карточке
+    задачи — это не ответ человеку (BL-ledger, проверка §3)."""
+    import httpx
+    alias = job.get("model_alias") or "mock-image"
+    detail = f"{type(exc).__name__}: {exc}".strip()
+    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return (f"Сервис генерации для «{alias}» не отвечает: соединение не установлено. "
+                f"Запустите его (для comfyui — ComfyUI по адресу из BOSSMAN_COMFYUI_URL) "
+                f"и нажмите «Повторить». Техническая деталь: {detail}")
+    if isinstance(exc, httpx.TimeoutException):
+        return (f"Сервис генерации для «{alias}» не ответил вовремя. Проверьте, что он "
+                f"работает и не перегружен, затем нажмите «Повторить». Техническая деталь: {detail}")
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (401, 403):
+        return (f"Провайдер «{alias}» отклонил авторизацию. Проверьте ключ OpenAI "
+                f"и права проекта, затем нажмите «Повторить». Техническая деталь: {detail}")
+    if isinstance(exc, httpx.HTTPStatusError):
+        return (f"Сервис генерации для «{alias}» ответил ошибкой "
+                f"{exc.response.status_code}. Задача не выполнена; проверьте журнал сервиса "
+                f"и нажмите «Повторить». Техническая деталь: {detail}")
+    return detail
+
+
+async def _fail_job(svc, job_id: int, message: str) -> None:
+    async with svc.db.session() as s:
+        failed = await s.execute(sa.update(jobs_t).where(
+            jobs_t.c.id == job_id, jobs_t.c.status == "running"
+        ).values(
+            status="failed", error=message[:2000], finished_at=utcnow(), updated_at=utcnow()))
+        await s.commit()
+    if failed.rowcount:
+        await svc.bus.emit("image.job.failed", job_id=job_id, message=message[:500])
+
+
+async def _tick(svc) -> None:
+    await process_one(svc)
+
+
+FEATURE = Feature(name="images", router=router, tick=_tick, tick_seconds=0.7)

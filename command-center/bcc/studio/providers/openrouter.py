@@ -2,8 +2,12 @@
 
 HTTP is bounded; no implicit retry, no token on CDN, no guessed audio API.
 An injectable transport exists for contract tests only, never owner evidence.
+Before a live generation POST, the exact model and current provider tariff are
+read from OpenRouter's model catalog. Owner-entered ``prices`` are a spending
+estimate, never authoritative evidence that a cloud model is free.
 """
 import base64
+from decimal import Decimal, InvalidOperation
 import hashlib
 import ipaddress
 import json
@@ -16,26 +20,92 @@ from bcc.studio.provider import Submitted,ProviderOutput,ProviderStatus,Fetched,
 
 BASE='https://openrouter.ai/api/v1'
 LIMIT=256*1024*1024
+CATALOG_LIMIT=16*1024*1024
+
+
+def _pricing_state(pricing):
+    """Return ``free``, ``paid`` or ``unknown`` for provider pricing data.
+
+    Fail closed: empty/malformed/non-finite/negative provider prices are not a
+    free tariff. Nested pricing objects are accepted because provider schemas
+    can add media-specific fields without changing this safety rule.
+    """
+    numbers=[]
+    def visit(value):
+        if value is None:return True
+        if isinstance(value,dict):return all(visit(v) for v in value.values())
+        if isinstance(value,(list,tuple)):return all(visit(v) for v in value)
+        if isinstance(value,bool):return False
+        if isinstance(value,(str,int,float)):
+            try:number=Decimal(str(value))
+            except (InvalidOperation,ValueError):return False
+            if not number.is_finite() or number<0:return False
+            numbers.append(number);return True
+        return False
+    if not isinstance(pricing,dict) or not pricing or not visit(pricing) or not numbers:return 'unknown'
+    return 'paid' if any(value>0 for value in numbers) else 'free'
+
 
 class OpenRouterProvider:
     name='openrouter'
-    def __init__(self,key,*,transport=None,allowed_download_hosts=(),gate=None):
+    def __init__(self,key,*,transport=None,allowed_download_hosts=(),gate=None,enforce_authoritative=None):
         self.external_ids={};self._key=key;self._transport=transport;self._hosts=set(allowed_download_hosts);self._gate=gate
+        # Real network paths must verify provider truth. Contract tests use an
+        # injected transport and opt in explicitly when testing this boundary.
+        self._enforce_authoritative=(transport is None) if enforce_authoritative is None else bool(enforce_authoritative)
+        self.authoritative_pricing={}
         self._jobs={};self._outputs={};self.costs={}
 
     async def _request(self,method,path,payload=None):
         if self._gate:pricing=await self._gate()
         elif self._transport is not None:pricing={'kind':'cloud','pricing_known':True,'price_in':0,'price_out':0}  # isolated test transport
         else:raise ProviderFailure(ProviderStatus('failed','unauthorized'))
+        if (self._enforce_authoritative and method=='POST' and path in ('/images','/videos')):
+            model=payload.get('model') if isinstance(payload,dict) else None
+            await self._authoritative_preflight(model,free_only=bool(pricing.get('free_only')))
         from bcc.provider_governance import GovernedAdapter
         owner=self
         class Operation:
             async def chat(self):return await owner._http_request(method,path,payload)
         # The persisted reservation supplies an owner-approved per-generation
         # upper bound. GovernedAdapter additionally enforces execution privacy.
-        guarded=GovernedAdapter(Operation(),{'kind':'openai_compat','base_url':BASE},
-            pricing)
+        guarded=GovernedAdapter(Operation(),{'kind':'openai_compat','base_url':BASE},pricing)
         return await guarded.chat()
+
+    async def _catalog(self):
+        """Read public provider model facts without sending the owner's key."""
+        try:
+            async with httpx.AsyncClient(transport=self._transport,timeout=20,follow_redirects=False,trust_env=False) as c:
+                async with c.stream('GET',BASE+'/models') as r:
+                    if not 200<=r.status_code<300:raise ProviderFailure(classify_response(r.status_code,None))
+                    raw=bytearray()
+                    async for chunk in r.aiter_bytes():
+                        raw.extend(chunk)
+                        if len(raw)>CATALOG_LIMIT:raise ValueError('catalog too large')
+                    body=json.loads(raw)
+                    if not isinstance(body,dict) or not isinstance(body.get('data'),list):raise ValueError('catalog not object/list')
+                    return body['data']
+        except ProviderFailure:raise
+        except httpx.TimeoutException:raise ProviderFailure(ProviderStatus('timeout','timeout')) from None
+        except httpx.TransportError:raise ProviderFailure(ProviderStatus('failed','provider_down')) from None
+        except (ValueError,TypeError):raise ProviderFailure(ProviderStatus('failed','malformed')) from None
+
+    async def _authoritative_preflight(self,model,*,free_only):
+        from bcc.studio.runtime import StudioError
+        if not isinstance(model,str) or not model.strip():raise StudioError('unknown_price','Provider model identity missing','OWNER_REQUIRED')
+        model=model.removeprefix('openrouter:')
+        observed=self.authoritative_pricing.get(model)
+        if observed is None:
+            rows=await self._catalog()
+            record=next((row for row in rows if isinstance(row,dict) and row.get('id')==model),None)
+            if record is None:raise StudioError('unknown_price','Exact model absent from authoritative provider catalog','OWNER_REQUIRED')
+            state=_pricing_state(record.get('pricing'))
+            if state=='unknown':raise StudioError('unknown_price','Authoritative provider tariff is missing or malformed','OWNER_REQUIRED')
+            observed={'state':state,'pricing':record.get('pricing'),'supported_parameters':record.get('supported_parameters')}
+            self.authoritative_pricing[model]=observed
+        if free_only and observed['state']!='free':
+            raise StudioError('budget','free_only refuses model whose authoritative provider tariff is paid','OWNER_REQUIRED')
+        return observed
 
     async def _http_request(self,method,path,payload=None):
         if not self._key:raise ProviderFailure(ProviderStatus('failed','unauthorized'))

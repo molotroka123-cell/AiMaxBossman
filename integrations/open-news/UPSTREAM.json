@@ -1,0 +1,49 @@
+{
+  "repository": "https://github.com/alphap365/open-news",
+  "commit": "ebb0e9b4deb0bf8fa8983e6324276a51f091ab43",
+  "version": "1.0.3",
+  "license": "MIT",
+  "license_blob": "2676ef8f96d0d3e76a6e11ca5f68b3acd9542ac7",
+  "integration": "reviewed_subset",
+  "vendored_files": [
+    {
+      "upstream_path": "open_news/processing/summarizer.py",
+      "local_path": "command-center/bcc/open_news_skill/_vendor/summarizer.py",
+      "upstream_git_blob": "93bd9e9d45121df000d22805ebf482d8832336ea",
+      "sha256": "ea0e764ed726fdf4930a186d909292e80b1f6b9b3215b422926e9215003af37c",
+      "modified": false
+    },
+    {
+      "upstream_path": "open_news/processing/token_filter.py",
+      "local_path": "command-center/bcc/open_news_skill/_vendor/token_filter.py",
+      "upstream_git_blob": "e6288baa1c2df8a7134ff65ae12227a20c6b1c70",
+      "sha256": "3b745584ad639d49ed32f32ed3edfa9c1264ebdce51fbd5370b1576c36aa90d7",
+      "modified": false
+    }
+  ],
+  "adapted_algorithms": [
+    {
+      "path": "open_news/processing/dedupe.py",
+      "git_blob": "c0af8952bec2462e7607085305953643cbffbfae",
+      "change": "Exact offline URL normalization only; never resolve Google News redirects; no fuzzy cross-outlet suppression."
+    },
+    {
+      "path": "open_news/feeds/googlenews_engine.py",
+      "git_blob": "75cb2178e7803aea7bc7e02067c26e6b5121dd3e",
+      "change": "Fixed RSS search endpoint and query/locale shape only; bounded async httpx, no redirects, decoder, crawler, retries, fallback or environment proxy."
+    }
+  ],
+  "excluded": [
+    "DDGS",
+    "crawler",
+    "article download",
+    "arbitrary RSS URL",
+    "redirect resolution",
+    "JavaScript rendering",
+    "TUI",
+    "streaming"
+  ],
+  "new_dependencies": [],
+  "network_default": "canonical exact-call ASK; offline flag deny",
+  "live_acceptance": "NOT_RUN"
+}

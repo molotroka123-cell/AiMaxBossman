@@ -20,27 +20,21 @@ from pydantic import BaseModel, ConfigDict, Field
 
 try:
     from solana_volume_suite.core.liquidity_gate import check_liquidity, LiquidityGate
-    from solana_volume_suite.core.key_vault.vault import SecurityKeyVault
     from solana_volume_suite.orchestrator_loop import VolumeOrchestratorLoop
 except ImportError:
     from core.liquidity_gate import check_liquidity, LiquidityGate
-    from core.key_vault.vault import SecurityKeyVault
     from orchestrator_loop import VolumeOrchestratorLoop
 
 app = FastAPI(title="Solana AI Volume Suite - Safety Control Plane")
 
-# Global VolumeOrchestratorLoop instance
-# SEC-002: no hardcoded default password. Resolved from VAULT_MASTER_PASSWORD
-# env var by VolumeOrchestratorLoop; test_mode relaxes the fail-closed check so
-# the dashboard can still start (without a real vault) when the env var is
-# unset, e.g. in CI/dev.
+# Global paper-only simulation; it uses fixed synthetic reserves and virtual wallets.
 orchestrator = VolumeOrchestratorLoop(
     vault_path=os.path.join(SUITE_ROOT, "wallets_encrypted.json"),
-    test_mode=os.environ.get("VAULT_MASTER_PASSWORD") is None,
+    test_mode=True,
 )
 orchestrator_task: Optional[asyncio.Task] = None
 
-# Pre-initialize vault pool so wallet table has data immediately
+# Pre-initialize virtual wallets so the table has data immediately.
 try:
     orchestrator.initialize_vault_pool(count=10)
 except Exception:
@@ -101,9 +95,9 @@ def get_suite_telemetry():
             "bundles_sent": orchestrator.jito_client.total_bundles_sent,
             "bundles_confirmed": orchestrator.jito_client.total_bundles_confirmed,
             "bundles_dropped": orchestrator.jito_client.total_bundles_dropped,
-            "mempool_leak_prevention": "100%_SECURED"
+            "mempool_leak_prevention": "LIVE_BUNDLES_DISABLED"
         },
-        "total_tx_count": orchestrator.iteration_count,
+        "paper_iterations": orchestrator.iteration_count,
         "recent_events": orchestrator.event_journal[:30]
     }
 
@@ -117,7 +111,7 @@ def get_vault_wallets():
             "alias": f"wallet_{idx}",
             "pubkey": addr,
             "sol_balance": bal,
-            "role": "market_maker" if idx % 2 == 0 else "momentum_trader"
+            "role": "virtual_paper_wallet"
         })
     if not wallets:
         wallets = [
@@ -126,7 +120,7 @@ def get_vault_wallets():
                 "alias": f"wallet_{i}",
                 "pubkey": f"SimWallet{i}PubkeyMock111111111111111111111",
                 "sol_balance": 0.5,
-                "role": "market_maker" if i % 2 == 0 else "momentum_trader"
+                "role": "virtual_paper_wallet"
             }
             for i in range(10)
         ]
@@ -184,10 +178,15 @@ async def bot_start(request: Request):
         return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
     global orchestrator_task
     orchestrator.is_running = True
-    if not orchestrator.cached_keypairs:
+    if not orchestrator.sub_wallet_addresses:
         orchestrator.initialize_vault_pool(count=10)
     orchestrator_task = asyncio.create_task(orchestrator.run())
-    return {"status": "SUCCESS", "bot_status": "RUNNING"}
+    return {
+        "status": "RUNNING",
+        "bot_status": "RUNNING",
+        "mode": "PAPER_TRADING_ONLY",
+        "live_execution_enabled": False,
+    }
 
 
 @app.post("/api/bot/sweep")
@@ -198,18 +197,11 @@ async def bot_sweep(request: Request):
         body = None
     if not body or not isinstance(body, dict):
         return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
-    dest = body.get("cold_destination_pubkey") or body.get("destination") or "ColdDestination"
-    total_sol = sum(orchestrator.wallet_balances.values())
-    count = len(orchestrator.wallet_balances)
-    orchestrator.wallet_balances.clear()
-    sig = f"sim_sweep_sig_{int(time.time()*1000)}"
-    return {
-        "status": "SUCCESS",
-        "destination": dest,
-        "total_sol_swept": round(total_sol, 4),
-        "wallets_swept": count,
-        "tx_signature": sig
-    }
+    return JSONResponse(status_code=409, content={
+        "status": "BLOCKED",
+        "reason": "PAPER_ONLY_NO_REAL_WALLETS_OR_FUNDS",
+        "live_execution_enabled": False,
+    })
 
 
 # -------------------------------------------------------------
@@ -220,11 +212,11 @@ async def bot_sweep(request: Request):
 async def start_orchestrator():
     global orchestrator_task
     if not orchestrator.is_running:
-        if not orchestrator.cached_keypairs:
+        if not orchestrator.sub_wallet_addresses:
             orchestrator.initialize_vault_pool(count=10)
         orchestrator_task = asyncio.create_task(orchestrator.run())
         orchestrator.is_running = True
-    return {"status": "RUNNING"}
+    return {"status": "RUNNING", "mode": "PAPER_TRADING_ONLY", "live_execution_enabled": False}
 
 
 @app.post("/api/orchestrator/stop")
@@ -233,7 +225,7 @@ async def stop_orchestrator():
     orchestrator.stop()
     if orchestrator_task and not orchestrator_task.done():
         orchestrator_task.cancel()
-    return {"status": "STOPPED"}
+    return {"status": "STOPPED", "live_execution_enabled": False}
 
 
 @app.get("/api/status")
@@ -244,61 +236,27 @@ def get_status():
         "wallets": orchestrator.wallet_balances,
         "metrics": orchestrator.treasury_guard.get_recent_metrics(),
         "liquidity_gate_status": orchestrator.liquidity_gate.last_status,
-        "events": orchestrator.event_journal[:50]
+        "events": orchestrator.event_journal[:50],
+        "live_execution_enabled": False,
     }
 
 
 @app.post("/api/sweep")
 async def sweep(req: Optional[SweepRequest] = None):
-    dest = req.destination if (req and req.destination) else "SafeColdStorageDestinationAddress11111111111111"
-    total_sol = sum(orchestrator.wallet_balances.values())
-    count = len(orchestrator.wallet_balances)
-    for k in orchestrator.wallet_balances:
-        orchestrator.wallet_balances[k] = 0.005  # dust for rent
-    sig = f"sim_sweep_sig_{int(time.time()*1000)}"
-    orchestrator.log_event(
-        "EMERGENCY_SWEEP",
-        f"Simulated emergency sweep of {total_sol:.4f} SOL to cold storage {dest[:4]}...{dest[-4:]}",
-        meta={"destination": dest, "total_sol": total_sol, "sig": sig}
-    )
-    return {
-        "status": "SUCCESS",
-        "mode": "PAPER_TRADING_SIMULATED",
-        "destination": dest,
-        "total_sol_swept": round(total_sol, 4),
-        "wallets_swept": count,
-        "tx_signature": sig
-    }
+    return JSONResponse(status_code=409, content={
+        "status": "BLOCKED",
+        "reason": "PAPER_ONLY_NO_REAL_WALLETS_OR_FUNDS",
+        "live_execution_enabled": False,
+    })
 
 
 @app.post("/api/vault/generate")
 async def generate_vault(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-
-    if not body or not isinstance(body, dict):
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
-
-    count = body.get("count")
-    password = body.get("password")
-    if not isinstance(count, int) or count < 1 or not isinstance(password, str) or len(password) < 6:
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
-
-    try:
-        if os.path.exists(orchestrator.vault_path):
-            try:
-                os.remove(orchestrator.vault_path)
-            except OSError:
-                pass
-        orchestrator.master_password = password
-        orchestrator.vault = SecurityKeyVault(storage_path=orchestrator.vault_path)
-        orchestrator.wallet_balances.clear()
-        orchestrator.initialize_vault_pool(count=count)
-        return {"status": "SUCCESS", "count": count}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "ERROR", "message": str(e)})
+    return JSONResponse(status_code=403, content={
+        "status": "BLOCKED",
+        "reason": "PAPER_ONLY_REAL_KEY_GENERATION_DISABLED",
+        "live_execution_enabled": False,
+    })
 
 
 @app.websocket("/ws/telemetry")

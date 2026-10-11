@@ -8,6 +8,52 @@ from setuptools import setup
 from setuptools.command.build_py import build_py
 
 
+def copy_open_news_assets(repository: Path, build_lib: Path) -> None:
+    """The skill and MIT notice must survive wheel/Windows packaging together."""
+    import hashlib
+    upstream = repository / "integrations" / "open-news"
+    manifest = json.loads((upstream / "UPSTREAM.json").read_text(encoding="utf-8"))
+    for record in manifest["vendored_files"]:
+        source = repository / record["local_path"]
+        if hashlib.sha256(source.read_bytes()).hexdigest() != record["sha256"]:
+            raise RuntimeError("open-news vendored bytes differ from reviewed pin")
+    pairs = [
+        (repository / ".agents" / "skills" / "open-news" / "SKILL.md",
+         build_lib / "bcc" / "_skills" / "open-news" / "SKILL.md"),
+        *((upstream / name, build_lib / "bcc" / "open_news_skill" / name)
+          for name in ("LICENSE", "UPSTREAM.json", "NOTICE.md")),
+    ]
+    for source, target in pairs:
+        if not source.is_file():
+            raise RuntimeError(f"open-news required package asset missing: {source.name}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+
+
+def copy_mimik_assets(repository: Path, build_lib: Path) -> None:
+    """Ship the text adapter skill and provenance; never install the extension."""
+    import hashlib
+    upstream = repository / "integrations" / "mimik"
+    manifest = json.loads((upstream / "UPSTREAM.json").read_text(encoding="utf-8"))
+    for record in manifest["reference_files"]:
+        source = repository / record["local_path"]
+        if hashlib.sha256(source.read_bytes()).hexdigest() != record["sha256"]:
+            raise RuntimeError("mimik reference bytes differ from reviewed pin")
+    if hashlib.sha256((upstream / "LICENSE").read_bytes()).hexdigest() != manifest["license_sha256"]:
+        raise RuntimeError("mimik license differs from reviewed pin")
+    pairs = [
+        (repository / ".agents" / "skills" / "mimik" / "SKILL.md",
+         build_lib / "bcc" / "_skills" / "mimik" / "SKILL.md"),
+        *((upstream / name, build_lib / "bcc" / "mimik_skill" / name)
+          for name in ("LICENSE", "UPSTREAM.json", "NOTICE.md")),
+    ]
+    for source, target in pairs:
+        if not source.is_file():
+            raise RuntimeError(f"mimik required package asset missing: {source.name}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+
+
 class BuildWithUI(build_py):
     def run(self):
         repository = Path(__file__).resolve().parent.parent
@@ -19,6 +65,8 @@ class BuildWithUI(build_py):
             spec.loader.exec_module(module)
             identity = module.source_identity(repository)
         super().run()
+        copy_open_news_assets(repository, Path(self.build_lib))
+        copy_mimik_assets(repository, Path(self.build_lib))
         # The canonical source remains tools/studio_models.json; wheel receives
         # a build-time copy so installed Studio never reaches back into a clone.
         studio_catalog = repository / "tools" / "studio_models.json"

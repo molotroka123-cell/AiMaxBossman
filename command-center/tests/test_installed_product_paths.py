@@ -32,7 +32,7 @@ REPOSITORY = COMPONENT.parent
 #: the layout `command-center/setup.py` resolves them from. They are listed
 #: here rather than guessed, so a new external input added to the build shows
 #: up as a failure here instead of as a wheel that is missing something.
-SIBLING_BUILD_INPUTS = ("apps", "integrations", "tools")
+SIBLING_BUILD_INPUTS = ("apps", "integrations", "tools", ".agents")
 
 _BUILD_JUNK = shutil.ignore_patterns("build", "dist", "*.egg-info", "__pycache__",
                                      "data", ".pytest_cache", ".mypy_cache", "node_modules")
@@ -105,6 +105,12 @@ def test_the_wheel_carries_the_interface(tmp_path: Path) -> None:
     # is not the installed product either.
     assert "bcc/_integrations/ai-file-sorter/integration.json" in names, sorted(
         n for n in names if n.startswith("bcc/_integrations/"))[:20]
+
+    # Both bundled skills must survive the real wheel build, not just asset-copy tests.
+    for skill, package in (("open-news", "open_news_skill"), ("mimik", "mimik_skill")):
+        assert f"bcc/_skills/{skill}/SKILL.md" in names
+        for asset in ("LICENSE", "NOTICE.md", "UPSTREAM.json"):
+            assert f"bcc/{package}/{asset}" in names
 
 
 def test_the_interface_is_taken_from_the_package_when_it_is_packaged(tmp_path: Path,
