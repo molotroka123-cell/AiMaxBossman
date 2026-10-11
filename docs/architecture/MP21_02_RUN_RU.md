@@ -44,7 +44,9 @@ cd ..\.. ; python -m pytest -q -p no:cacheprovider tests/exchange_volume
 
 Известное ограничение Windows: тест с очень длинным параметром (`test_open_news_skill.py::test_http_failure_never_becomes_success...`)
 падает в teardown, потому что `PYTEST_CURRENT_TEST` больше 32767 символов; он отмечен как не пройденный здесь.
-`solana_volume_suite/tests` требуют пакет `solders`, которого в этом интерпретаторе нет (сбор тестов падает).
+`solana_volume_suite/tests` требуют пакет `solders`, которого в системном интерпретаторе нет (сбор тестов падает); их запускают
+изолированным окружением: `C:\Users\asd\Bossman\venv-solana-20261011\Scripts\python.exe -m pytest -q solana_volume_suite/tests`
+(53 passed на этом дереве).
 
 ## 4. Проверка секретов и точного SHA
 
