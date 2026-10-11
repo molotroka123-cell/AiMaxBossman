@@ -125,6 +125,12 @@ def free_only_refusal(provider: dict, model: dict) -> str:
     if (not free_only_policy_active() or is_governed_local(provider, model)
             or paid_fable_boundary(provider) or is_local_url(provider.get("base_url") or "")):
         return ""
+    # Owner-enabled long-run profile (bcc.long_run): exactly Mistral Large 4,
+    # GLM 5.3 Flash and Haiku 5.5 on their own hosts pass THIS gate; the daily
+    # EUR caps and STOP are enforced per call in GovernedAdapter.chat.
+    from . import long_run
+    if long_run.allows_paid(str(model.get("name") or ""), provider.get("base_url") or ""):
+        return ""
     name = str(model.get("name") or model.get("alias") or "?")
     prices = [v for v in (model.get("price_in"), model.get("price_out"))
               if isinstance(v, (int, float)) and not isinstance(v, bool)]
@@ -179,4 +185,36 @@ class GovernedAdapter:
             if removed and sink is not None:
                 sink.append({"provider": p.get("name") or p["kind"], "model": m.get("alias") or m.get("name"),
                              "messages": removed})
-        return await self.adapter.chat(*args, **kwargs)
+        family = None
+        if not local:
+            from . import long_run
+            family = long_run.classify(str(m.get("name") or ""), p.get("base_url") or "")
+            if family is not None and not long_run.enabled():
+                family = None              # profile off: the free-only gate already decided
+        if family is None:
+            return await self.adapter.chat(*args, **kwargs)
+        return await self._chat_long_run(family, args, kwargs)
+
+    async def _chat_long_run(self, family: str, args: tuple, kwargs: dict):
+        """Paid long-run call: STOP, per-provider daily cap, reserve -> call -> settle."""
+        from . import long_run
+        m = self.model
+        messages = kwargs.get("messages") if "messages" in kwargs else (args[1] if len(args) >= 2 else [])
+        max_out = int(kwargs.get("max_tokens") or 2048)
+        ledger = long_run.LongRunLedger()
+        worst = long_run.estimate_worst_case_eur(m, messages or [], max_out, kwargs.get("tools"))
+        try:
+            rid = ledger.reserve(family, worst, model=str(m.get("name") or ""),
+                                 purpose=str(m.get("alias") or m.get("name") or "")[:120])
+        except long_run.LongRunRefused as exc:
+            raise ProviderError(str(exc), kind="budget") from None
+        try:
+            result = await self.adapter.chat(*args, **kwargs)
+        except BaseException:
+            # network failure / timeout / cancel: the provider may have billed
+            # -> the worst-case reservation stays booked (no release).
+            raise
+        spent = long_run.actual_eur(m, result)
+        ledger.commit(rid, worst if spent is None else spent,
+                      tokens_in=getattr(result, "tokens_in", 0), tokens_out=getattr(result, "tokens_out", 0))
+        return result

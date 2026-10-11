@@ -205,14 +205,29 @@ class SpendLedger:
         return actual
 
 
+def _glm_run_budget() -> float:
+    """Per-run GLM budget: the explicit env value, else the long-run daily cap
+    when the owner enabled that profile (the daily ledger still bounds the sum
+    of all runs), else the historical USD 0.25."""
+    raw = os.environ.get("BOSSMAN_15_GLM_BUDGET_USD", "").strip()
+    if raw:
+        return float(raw)
+    try:
+        from . import long_run
+        prof = long_run.load_profile()
+        if prof["enabled"]:
+            return float(prof["caps_eur_per_day"]["glm"])
+    except Exception:  # noqa: BLE001
+        pass
+    return 0.25
+
+
 class BossmanOpenRouter:
     """OpenRouter access through Bossman's provider + governance layer."""
 
     def __init__(self, *, ledger: SpendLedger | None = None, key: str | None = None):
         self.key = key or _openrouter_key()
-        self.ledger = ledger or SpendLedger(
-            glm_budget_usd=float(os.environ.get("BOSSMAN_15_GLM_BUDGET_USD", "0.25") or "0.25")
-        )
+        self.ledger = ledger or SpendLedger(glm_budget_usd=_glm_run_budget())
         self.retry_events: list[dict[str, Any]] = []
 
     def _adapter(self, spec: ModelSpec) -> GovernedAdapter:
@@ -221,6 +236,7 @@ class BossmanOpenRouter:
         model = {
             "kind": "openai_compat", "alias": spec.alias, "name": spec.model,
             "pricing_known": True, "price_in": spec.price_in, "price_out": spec.price_out,
+            "price_unit": "per_token",            # registry rows are per 1M; this spec is per token
         }
         return GovernedAdapter(raw, provider, model)
 

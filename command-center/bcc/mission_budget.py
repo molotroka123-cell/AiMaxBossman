@@ -59,6 +59,17 @@ DEFAULT_MAX_IDENTICAL_CALLS = 6
 #: Consecutive model answers with no new information.
 DEFAULT_MAX_STALLED_STEPS = 3
 
+#: Long-run profile (owner 2026-10-11): larger but still FINITE per-mission
+#: ceilings. Applied only when (a) the owner enabled the profile
+#: (`bcc.long_run`, file autonomy/long_run.json) AND (b) the task asks for it
+#: with meta["budget_profile"] == "long_run". Explicit meta values still win.
+LONG_RUN_MAX_TOKENS = 3_000_000
+LONG_RUN_MAX_COST_USD = 12.0
+LONG_RUN_MAX_IDENTICAL_CALLS = 12
+LONG_RUN_MAX_STALLED_STEPS = 6
+PROFILE_KEY = "budget_profile"
+LONG_RUN = "long_run"
+
 TOKENS_KEY = "max_tokens_total"
 COST_KEY = "max_cost_usd"
 IDENTICAL_KEY = "max_identical_calls"
@@ -77,13 +88,26 @@ class Limits:
         meta = (task or {}).get("meta") or {}
         if not isinstance(meta, dict):
             meta = {}
+        d_tokens, d_cost = DEFAULT_MAX_TOKENS, DEFAULT_MAX_COST_USD
+        d_ident, d_stall = DEFAULT_MAX_IDENTICAL_CALLS, DEFAULT_MAX_STALLED_STEPS
+        if meta.get(PROFILE_KEY) == LONG_RUN and _long_run_enabled():
+            d_tokens, d_cost = LONG_RUN_MAX_TOKENS, LONG_RUN_MAX_COST_USD
+            d_ident, d_stall = LONG_RUN_MAX_IDENTICAL_CALLS, LONG_RUN_MAX_STALLED_STEPS
         return cls(
-            max_tokens=_positive_int(meta.get(TOKENS_KEY), DEFAULT_MAX_TOKENS),
-            max_cost_usd=_positive_float(meta.get(COST_KEY), DEFAULT_MAX_COST_USD),
-            max_identical_calls=_positive_int(meta.get(IDENTICAL_KEY),
-                                              DEFAULT_MAX_IDENTICAL_CALLS),
-            max_stalled_steps=_positive_int(meta.get(STALLED_KEY), DEFAULT_MAX_STALLED_STEPS),
+            max_tokens=_positive_int(meta.get(TOKENS_KEY), d_tokens),
+            max_cost_usd=_positive_float(meta.get(COST_KEY), d_cost),
+            max_identical_calls=_positive_int(meta.get(IDENTICAL_KEY), d_ident),
+            max_stalled_steps=_positive_int(meta.get(STALLED_KEY), d_stall),
         )
+
+
+def _long_run_enabled() -> bool:
+    """Owner-enabled profile only; any error means the default profile."""
+    try:
+        from . import long_run
+        return long_run.enabled()
+    except Exception:  # noqa: BLE001 - fail closed to the default limits
+        return False
 
 
 def _positive_int(value: Any, default: int) -> int:

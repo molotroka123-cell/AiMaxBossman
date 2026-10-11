@@ -102,6 +102,29 @@ def _manifest_files() -> list[Path]:
     return found
 
 
+PROMOTED_DIRS: list[Path] = []
+
+
+def register_promoted_dir(path: Path) -> None:
+    """Vibe Studio announces where its owner-approved apps live (<data>/vibe/promoted)."""
+    p = Path(path)
+    if p not in PROMOTED_DIRS:
+        PROMOTED_DIRS.append(p)
+
+
+def _promoted_manifest_files() -> list[Path]:
+    """Owner-approved Vibe Studio apps (static pages). Listed on the launcher
+    only; deliberately NOT part of `_manifest_files()`, which task exchange and
+    app control treat as real workloads with ports and data directories."""
+    out: list[Path] = []
+    for root in PROMOTED_DIRS:
+        try:
+            out.extend(sorted(root.glob("*/app.manifest.yaml")))
+        except OSError:
+            continue
+    return out
+
+
 def _load(path: Path) -> dict[str, Any] | None:
     """Разобранный манифест. Повторный разбор — только если файл изменился."""
     try:
@@ -133,6 +156,13 @@ def _http_calls(raw: dict[str, Any]) -> dict[str, str]:
             if isinstance(calls, dict):
                 return {str(k): str(v) for k, v in calls.items()}
     return {}
+
+
+def _manifest_label(path: Path) -> str:
+    try:
+        return str(Path("apps") / path.relative_to(APPS_DIR))
+    except ValueError:
+        return str(Path("vibe") / path.parent.name / path.name)
 
 
 def _describe(path: Path) -> dict[str, Any] | None:
@@ -171,7 +201,8 @@ def _describe(path: Path) -> dict[str, Any] | None:
         "permissions": raw.get("permissions") if isinstance(raw.get("permissions"),
                                                             dict) else {},
         "providers": raw.get("providers") if isinstance(raw.get("providers"), dict) else {},
-        "manifest_path": str(Path("apps") / path.relative_to(APPS_DIR)),
+        "manifest_path": _manifest_label(path),
+        "static_url": str(ui.get("static_url") or ""),
         "route": f"app/{raw['id']}",
     }
 
@@ -185,6 +216,9 @@ async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -
     прокси превратили бы «сосед на 127.0.0.1» в таймаут и показали бы
     работающее приложение остановленным.
     """
+    if app.get("static_url"):
+        return {"reachable": True, "status": "LIVE", "detail": "static page served by Command Center",
+                "health": {}, "metrics": {}}
     port = app.get("port")
     if not port:
         return {"reachable": False, "status": "NOT_CONFIGURED",
@@ -317,7 +351,7 @@ async def _collect_fresh() -> list[dict[str, Any]]:
     # в рабочем потоке, а не в цикле событий. Кэши по штампу файла те же: неизменный
     # манифест не разбирается, single-flight выше не даёт двум обходам идти разом.
     described = await asyncio.to_thread(
-        lambda: [d for d in (_describe_cached(p) for p in _manifest_files()) if d])
+        lambda: [d for d in (_describe_cached(p) for p in [*_manifest_files(), *_promoted_manifest_files()]) if d])
     if described:
         async with _probe_client() as client:
             probes = await asyncio.gather(*(_probe(a, client) for a in described))
