@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 import platform
 import shutil
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 # Каталог приложений, которые владелец МОЖЕТ разрешить конкретной задаче
 # (2026-10-10, задача 83). Ключи спецификации:
@@ -177,8 +177,9 @@ def packaged_exe_ok(exe_path: str | None, package_prefix: str) -> bool:
     """exe процесса лежит в каталоге пакета Program Files\\WindowsApps\\<prefix>*."""
     if not exe_path:
         return False
-    p = Path(str(exe_path))
-    parts = [x.lower() for x in p.parts]
+    # Always parse as a Windows path: the packaged apps live on Windows, and the
+    # platform Path would not split backslashes when this runs on Linux (CI).
+    parts = [x.lower() for x in PureWindowsPath(str(exe_path)).parts]
     try:
         i = parts.index("windowsapps")
     except ValueError:

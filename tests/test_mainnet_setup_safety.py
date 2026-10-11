@@ -1,66 +1,105 @@
-"""Offline regression checks of the real wizard function, without financial imports."""
-import ast
+"""The retired Mainnet setup wizard must stay a fail-closed stub.
+
+Live Mainnet was removed by the owner (commit b9adda71).  The module is kept only so
+old callers get a clear refusal: no network, no filesystem writes, no password prompt.
+"""
 import getpass
-import os
+import importlib.util
+import io
+import socket
+import sys
+import urllib.request
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Optional
-from unittest.mock import Mock
 
 import pytest
 
+SOURCE = Path(__file__).resolve().parents[1] / "solana_volume_suite/setup_mainnet.py"
+
+
+def _load(name="setup_mainnet_under_test"):
+    spec = importlib.util.spec_from_file_location(name, SOURCE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 
 @pytest.fixture
-def wizard(tmp_path):
-    source = Path(__file__).resolve().parents[1] / "solana_volume_suite/setup_mainnet.py"
-    tree = ast.parse(source.read_text(encoding="utf-8"))
-    function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "run_setup_wizard")
-    vault = Mock()
-    vault.get_public_addresses.side_effect = ValueError("synthetic unlock failure")
-    scope = {
-        "Optional": Optional, "os": os, "getpass": getpass,
-        "SUITE_ROOT": str(tmp_path), "DEFAULT_VAULT_PATH": "existing.vault",
-        "ENV_PATH": str(tmp_path / ".env"), "DEFAULT_MAINNET_RPC": "https://invalid.example",
-        "DEFAULT_JITO_ENGINE": "https://invalid.example/jito",
-        "test_rpc_connection": Mock(return_value=False),
-        "test_jito_connection": Mock(), "SecurityKeyVault": Mock(return_value=vault),
-        "Pubkey": SimpleNamespace(from_string=Mock()),
-    }
-    exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"), scope)
-    return scope, vault
+def guarded(tmp_path, monkeypatch):
+    """Load the module, then make every side-channel record or explode on use."""
+    module = _load()
+    calls = []
 
+    def trip(label):
+        def _inner(*a, **k):
+            calls.append(label)
+            raise AssertionError(f"forbidden side effect: {label}")
+        return _inner
 
-@pytest.mark.parametrize("password", [None, "", "short", "x" * 11])
-def test_invalid_password_rejected_before_network_or_vault(wizard, password):
-    scope, vault = wizard
-    with pytest.raises(ValueError, match="explicit vault password"):
-        scope["run_setup_wizard"](password=password, non_interactive=True)
-    scope["test_rpc_connection"].assert_not_called()
-    scope["test_jito_connection"].assert_not_called()
-    scope["SecurityKeyVault"].assert_not_called()
-    vault.create_and_store_pool.assert_not_called()
-
-
-def test_unlock_failure_preserves_existing_file_and_configuration(wizard):
-    scope, vault = wizard
-    path = Path(scope["SUITE_ROOT"]) / "existing.vault"
-    original = b"harmless preexisting ciphertext fixture"
-    path.write_bytes(original)
-    env = Path(scope["ENV_PATH"])
+    monkeypatch.setattr(socket, "socket", trip("socket.socket"))
+    monkeypatch.setattr(socket, "create_connection", trip("socket.create_connection"))
+    monkeypatch.setattr(socket, "getaddrinfo", trip("socket.getaddrinfo"))
+    monkeypatch.setattr(urllib.request, "urlopen", trip("urllib.request.urlopen"))
+    monkeypatch.setattr(getpass, "getpass", trip("getpass.getpass"))
+    monkeypatch.setattr("builtins.input", trip("input"))
+    try:
+        import requests
+        monkeypatch.setattr(requests.sessions.Session, "request", trip("requests"))
+    except ImportError:
+        pass
+    monkeypatch.chdir(tmp_path)
+    env = tmp_path / ".env"
+    vault = tmp_path / "existing.vault"
     env.write_bytes(b"preexisting configuration")
-    with pytest.raises(RuntimeError, match="original file preserved"):
-        scope["run_setup_wizard"](password="test-only-password", non_interactive=True)  # ci-secret-scan: allow -- synthetic password for stubbed vault
-    assert path.read_bytes() == original
+    vault.write_bytes(b"harmless preexisting ciphertext fixture")
+    return module, calls, tmp_path, env, vault
+
+
+def _snapshot(root: Path):
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+@pytest.mark.parametrize("args,kwargs", [
+    ((), {}),
+    ((), {"password": None, "non_interactive": True}),
+    ((), {"password": "", "non_interactive": True}),
+    ((), {"password": "short", "non_interactive": True}),
+    ((), {"password": "x" * 32, "non_interactive": True}),
+    (("x" * 32,), {"rpc_url": "https://invalid.example", "vault_path": "existing.vault"}),
+])
+def test_wizard_refuses_any_call_without_side_effects(guarded, args, kwargs):
+    module, calls, root, env, vault = guarded
+    before = _snapshot(root)
+    with pytest.raises(RuntimeError) as err:
+        module.run_setup_wizard(*args, **kwargs)
+    assert str(err.value) == module.DISABLED_REASON
+    assert calls == []
+    assert _snapshot(root) == before
     assert env.read_bytes() == b"preexisting configuration"
-    vault.create_and_store_pool.assert_not_called()
-    scope["test_jito_connection"].assert_not_called()
+    assert vault.read_bytes() == b"harmless preexisting ciphertext fixture"
 
 
-def test_interactive_password_uses_hidden_prompt_before_network(wizard, monkeypatch):
-    scope, _ = wizard
-    prompt = Mock(return_value="short")
-    monkeypatch.setattr(getpass, "getpass", prompt)
-    with pytest.raises(ValueError):
-        scope["run_setup_wizard"]()
-    prompt.assert_called_once()
-    scope["test_rpc_connection"].assert_not_called()
+def test_disabled_reason_states_the_refusal():
+    module = _load("setup_mainnet_reason")
+    text = module.DISABLED_REASON.lower()
+    assert "disabled" in text and ".env" in text and "live trading" in text
+
+
+def test_main_returns_2_and_prints_reason_to_stderr(guarded, capsys):
+    module, calls, root, env, vault = guarded
+    before = _snapshot(root)
+    assert module.main([]) == 2
+    out = capsys.readouterr()
+    assert module.DISABLED_REASON in out.err
+    assert out.out == ""
+    assert calls == []
+    assert _snapshot(root) == before
+
+
+def test_module_import_has_no_side_effects(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    def boom(*a, **k):
+        raise AssertionError("network on import")
+    monkeypatch.setattr(socket, "socket", boom)
+    monkeypatch.setattr(socket, "create_connection", boom)
+    _load("setup_mainnet_import_only")
+    assert list(tmp_path.iterdir()) == []

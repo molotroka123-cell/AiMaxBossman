@@ -117,6 +117,17 @@ class Line:
 CHECKPOINT_SECONDS = 60.0
 
 
+def checkpoint_path(final: Path | None) -> Path | None:
+    """Куда писать промежуточные снимки — НЕ в файл итогового отчёта.
+
+    Раздел 30 директивы: порождаемое рантаймом состояние не держат под учётом
+    Git. Снимок переписывается раз в минуту и за час пачкает дерево шестьдесят
+    раз; под учёт должен попадать только завершённый отчёт. Поэтому снимки
+    ложатся рядом с расширением `.partial.json`, которое игнорируется.
+    """
+    return None if final is None else final.with_suffix(".partial.json")
+
+
 def write_checkpoint(target: Path, lines: dict, *, mode: str,
                      elapsed_load_seconds: float, turns: int) -> None:
     """Записать, ДОКУДА дошёл прогон, не выдавая это за результат.
@@ -545,7 +556,8 @@ def main(argv: list[str] | None = None) -> int:
         except (ValueError, OSError) as error:
             parser.error(str(error))
     else:
-        report = measure(args.mode, args.soak_seconds, load_budget(), args.json)
+        report = measure(args.mode, args.soak_seconds, load_budget(),
+                         checkpoint_path(args.json))
 
     for line in report["lines"]:
         print(f"{line['verdict']:<21} {line['metric']}\n     {line['detail']}")

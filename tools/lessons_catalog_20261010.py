@@ -55,7 +55,7 @@ add("CUDNN-CU13-OVER-CU12", "cloud-gpu", "pip тянет nvidia-cudnn-cu13 по�
     ["cudnn", "cu12", "cu13", "kohya", "sd-scripts", "torch 2.4"],
     "pip list | grep nvidia-cudnn показывает две версии (cu12 9.1 и cu13 9.24).",
     "requirements sd-scripts подтягивает свежий cudnn для CUDA 13, несовместимый с torch cu124.",
-    "pip install nvidia-cudnn-cu12==9.1.0.70 и перезапуск; обучение стартовало (2 it/s на A100).",
+    "На поде закрепить cuDNN для CUDA 12 версии 9.1.0.70 (совместимой с torch cu124) и перезапустить; обучение стартовало (2 it/s на A100). Это шаг арендованного GPU-пода, не инструкция установки для продукта.",
     "В pod_setup.sh после requirements закреплять cudnn под версию torch; smoke-тест torch.backends.cudnn.version() до старта.",
     ev(PROMO6), cand("исправлено агентом 10.10, лог на поде; внешний верификатор не оформлен"))
 

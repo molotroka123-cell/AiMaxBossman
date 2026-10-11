@@ -234,6 +234,30 @@ def test_packaged_app_window_must_come_from_its_package():
     assert not ok("")
 
 
+def test_package_path_check_does_not_depend_on_the_host_path_flavour(monkeypatch):
+    """Linux CI parses ``C:\...`` as ONE path component; the check must still split it.
+
+    Regression: packaged_exe_ok used the platform Path, so on Linux a genuine
+    WindowsApps path was refused; the verdict must be identical on every host.
+    """
+    import pathlib
+
+    from bossman.computer_operator import applist
+
+    good = r"C:\Program Files\WindowsApps\Microsoft.Paint_11.2605.81.0_x64__8wekyb3d8bbwe\PaintApp\mspaint.exe"
+    bad = [r"C:\Users\asd\Downloads\mspaint.exe",
+           r"C:\Program Files\WindowsApps\Evil.Paint_1_x64\mspaint.exe",
+           r"C:\Users\asd\WindowsApps\Microsoft.Paint_1\mspaint.exe",   # wrong parent of WindowsApps
+           r"WindowsApps\Microsoft.Paint_1\mspaint.exe", "", None]
+    for flavour in (None, pathlib.PurePosixPath):
+        if flavour is not None:
+            monkeypatch.setattr(applist, "Path", flavour)      # emulate the Linux runner
+        assert applist.packaged_exe_ok(good, "microsoft.paint_")
+        assert applist.packaged_exe_ok(good.replace("\\", "/"), "microsoft.paint_")
+        for exe in bad:
+            assert not applist.packaged_exe_ok(exe, "microsoft.paint_"), (flavour, exe)
+
+
 # ------------------------------------------------------------------ launch within the grant
 
 async def test_launch_only_granted_apps_engine_and_handler(env, md):

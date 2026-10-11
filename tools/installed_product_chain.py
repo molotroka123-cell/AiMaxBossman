@@ -77,7 +77,9 @@ CHECKOUT_MARKERS = (("command-center", "bcc"), ("bossman-core", "bossman"))
 #: счётчик, а `#view`: в поставляемой разметке главная область ПУСТА
 #: (`<main class="view" id="view"></main>`), и текст в ней появляется, только
 #: если приложение действительно отрисовало страницу.
-SHIPPED_SHELL_CONTROLS = 8
+#: 9 = 8 прежних + ссылка «AGPL-3.0 · исходный код» (#license-source), добавленная
+#: лицензионным коммитом 892644be: AGPL требует предложить исходный код пользователю.
+SHIPPED_SHELL_CONTROLS = 9
 
 
 def _console_utf8() -> None:

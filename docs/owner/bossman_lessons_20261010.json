@@ -82,7 +82,7 @@
    ],
    "detection": "pip list | grep nvidia-cudnn показывает две версии (cu12 9.1 и cu13 9.24).",
    "root_cause": "requirements sd-scripts подтягивает свежий cudnn для CUDA 13, несовместимый с torch cu124.",
-   "fix": "pip install nvidia-cudnn-cu12==9.1.0.70 и перезапуск; обучение стартовало (2 it/s на A100).",
+   "fix": "На поде закрепить cuDNN для CUDA 12 версии 9.1.0.70 (совместимой с torch cu124) и перезапустить; обучение стартовало (2 it/s на A100). Это шаг арендованного GPU-пода, не инструкция установки для продукта.",
    "prevention": "В pod_setup.sh после requirements закреплять cudnn под версию torch; smoke-тест torch.backends.cudnn.version() до старта.",
    "evidence": [
     {

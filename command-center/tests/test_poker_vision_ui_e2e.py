@@ -87,6 +87,11 @@ def test_replay_source_shows_live_stream_overlay_fields_history_and_explains_unk
             _pick(page, "replay:sample", "observe")
             page.wait_for_function("document.querySelector('#pv-status')?.innerText.toLowerCase().includes('сессия завершена')", timeout=60000)
             page.wait_for_selector("tr[data-field='pot']", timeout=15000)
+            # The page draws the status pill first and fetches /state afterwards (up to one 700 ms tick later), so right after
+            # "сессия завершена" the table can still show the previous frame (seen in CI: board[0] UNKNOWN at 82160 ms, frame 0010).
+            # Wait until the table caption names the LAST recorded frame; values are then asserted unchanged against DOM truth.
+            last_frame = sorted(SAMPLE.glob("*.png"))[-1].name
+            page.wait_for_function("n => (document.querySelector('#pv-state')?.innerText || '').includes(n)", arg=last_frame, timeout=20000)
             row = lambda f: page.inner_text(f"tr[data-field='{f}']")
             assert expected["pot"] in row("pot")
             assert expected["hero_cards"][0] in row("hero_cards[0]") and expected["hero_cards"][1] in row("hero_cards[1]")
