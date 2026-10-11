@@ -174,6 +174,10 @@ class RobotsPolicy:
         self._cache: dict[str, tuple[float, robotparser.RobotFileParser | None]] = {}
 
     async def allowed(self, url: str) -> bool:
+        # Owner decision 11.10 («робот txt обходим»): explicit opt-in flag, OFF by default. Only the robots.txt courtesy
+        # check is skipped; the page/rate limits, public-http(s)-only, STOP and PII filters stay in force.
+        if os.environ.get("BOSSMAN_JEFF_BROWSER_IGNORE_ROBOTS", "").strip() == "1":
+            return True
         parts = urlsplit(url)
         origin = f"{parts.scheme}://{parts.netloc}"
         now = self._clock()

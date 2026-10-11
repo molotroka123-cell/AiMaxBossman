@@ -392,3 +392,16 @@ def test_factory_failure_is_swallowed():
     search = bs.BrowserSearch(factory, is_enabled=lambda: True, robots=bs.RobotsPolicy(robots_ok()), resolver=resolver)
     assert run(search.search("bridge")) == []
     assert search.counters["errors"] == 1
+
+
+def test_ignore_robots_flag_is_off_by_default_and_only_skips_robots(monkeypatch):
+    import asyncio
+
+    async def deny(origin):
+        return 200, "User-agent: *\nDisallow: /"
+
+    policy = bs.RobotsPolicy(fetch=deny)
+    monkeypatch.delenv("BOSSMAN_JEFF_BROWSER_IGNORE_ROBOTS", raising=False)
+    assert asyncio.run(policy.allowed("https://example.org/page")) is False      # default: robots honoured
+    monkeypatch.setenv("BOSSMAN_JEFF_BROWSER_IGNORE_ROBOTS", "1")
+    assert asyncio.run(bs.RobotsPolicy(fetch=deny).allowed("https://example.org/page")) is True
