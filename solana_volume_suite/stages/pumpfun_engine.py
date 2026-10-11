@@ -100,7 +100,6 @@ class PumpFunEngine:
     """
     Stage 1 Engine: Pump.fun Virtual Bonding Curve volume orchestrator.
     Features:
-    - KOTH Push & Micro-Pulse (Photon/BullX high frequency visibility)
     - Sub-Impact order subdivision (<= 1.2% price impact)
     - 95% Migration safeguard threshold
     - Jito-only atomic bundle assembly
@@ -111,7 +110,7 @@ class PumpFunEngine:
         self.jito_client = jito_client
 
     def validate_curve_safety(self, curve_progress_pct: float, action: str):
-        if action.upper() in ["BUY", "KOTH_PULSE"] and curve_progress_pct >= MIGRATION_CUTOFF_PCT:
+        if action.upper() == "BUY" and curve_progress_pct >= MIGRATION_CUTOFF_PCT:
             raise MigrationThresholdExceededException(
                 f"Curve progress is {curve_progress_pct:.2f}% >= {MIGRATION_CUTOFF_PCT}%. "
                 "Buying blocked to prevent capital lock during migration to Raydium."

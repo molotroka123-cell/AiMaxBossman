@@ -128,15 +128,7 @@ class VolumeOrchestratorLoop:
             }
 
         # 5. Execute Slices or Direct Order
-        if decision.action in {"KOTH_PULSE", "FLOOR_DEFENSE"}:
-            decision.confirmed_onchain = False
-            decision.tx_signature = None
-            self.log_event(
-                "POLICY_BLOCKED",
-                f"[{decision.action}] Automated volume-push/price-defense actions are disabled.",
-                meta={"action": decision.action, "reason": decision.reason},
-            )
-        elif gate_evaluation["execution_allowed"] and decision.action in ["BUY", "SELL"]:
+        if gate_evaluation["execution_allowed"] and decision.action in ["BUY", "SELL"]:
             slices = gate_evaluation.get("slices_sol", [decision.amount_sol])
             if not self.sub_wallet_addresses:
                 self.initialize_vault_pool()
