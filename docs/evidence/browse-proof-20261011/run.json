@@ -1,0 +1,12 @@
+{
+ "at": "2026-10-11T15:54:47",
+ "backend": "http://127.0.0.1:8801/api",
+ "session_id": 4,
+ "url": "https://en.wikipedia.org/wiki/Open_source",
+ "title": "Open source - Wikipedia",
+ "health": {
+  "available": true,
+  "detail": "Chromium установлен; доступность запуска проверяется при создании сессии",
+  "active_sessions": 0
+ }
+}
