@@ -56,7 +56,7 @@ def companion(tmp_path, monkeypatch, *, live=(), busy=(), **over):
     monkeypatch.setattr(remote_access, "remote_dir", lambda: tmp_path / "remote")
     monkeypatch.setattr(remote_access, "LAUNCHER", tmp_path / "claude_remote_service.ps1")
     monkeypatch.setattr(remote_access, "REPO_ROOT", tmp_path)
-    monkeypatch.setattr(remote_access.os, "name", "nt")
+    monkeypatch.setattr(remote_access, "IS_WINDOWS", True)
     (tmp_path / "claude_remote_service.ps1").write_text("# launcher", encoding="utf-8")
     c.settings.claude_cwd = str(tmp_path)
     return c
@@ -180,7 +180,7 @@ def test_claude_open_runs_the_cli_in_the_checkout(tmp_path, monkeypatch):
 
 def test_outside_windows_the_launches_report_the_platform(tmp_path, monkeypatch):
     c = companion(tmp_path, monkeypatch)
-    monkeypatch.setattr(remote_access.os, "name", "posix")
+    monkeypatch.setattr(remote_access, "IS_WINDOWS", False)
     assert "только на Windows" in run(c.remote_command(OWNER, "/chatgpt", "", msg("/chatgpt")))
     assert "только на Windows" in run(c.remote_command(OWNER, "/claude_open", "", msg("/claude_open")))
     assert c.spawned == []

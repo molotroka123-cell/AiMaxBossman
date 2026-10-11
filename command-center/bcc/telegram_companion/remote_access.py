@@ -48,6 +48,9 @@ BUSY_PATTERNS = ("facefusion", "sd-cli", "sd.exe", "kohya", "train_network", "ac
 REBOOT_DELAY_S = 90
 CONFIRM_WINDOW_S = 300
 LAUNCHER = REPO_ROOT / "tools" / "claude_remote_service.ps1"
+# One flag instead of os.name checks: tests toggle it without touching pathlib (a patched
+# os.name makes Path() pick WindowsPath on Linux CI and crash).
+IS_WINDOWS = os.name == "nt"
 # Constants, not config keys: the installed companion of an older build rejects unknown
 # keys in config.json (Settings(**data)), and one config file serves both builds.
 SESSION_NAME = "Bossman-Owner-PC"
@@ -82,7 +85,7 @@ def _powershell_json(script: str, timeout: float = 20) -> list[dict]:
 def list_processes(pattern: str) -> list[dict]:
     """Processes whose command line contains ``pattern`` (case-insensitive). Windows only;
     elsewhere empty (the pult runs on the owner's Windows PC)."""
-    if os.name != "nt":
+    if not IS_WINDOWS:
         return []
     safe = pattern.replace("'", "''")
     script = ("Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and "
@@ -125,7 +128,7 @@ def last_link(text: str) -> str | None:
 def spawn_detached(args: list[str], *, cwd: str) -> int:
     """Start a process that survives the companion. Returns its pid."""
     flags = 0
-    if os.name == "nt":
+    if IS_WINDOWS:
         flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
     proc = subprocess.Popen(args, cwd=cwd, creationflags=flags, stdin=subprocess.DEVNULL,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
@@ -254,7 +257,7 @@ class RemoteAccessMixin:
         launch = self.store.get("remote_launch")
         if not isinstance(launch, dict) or not launch.get("pid"):
             return "Из пульта ничего не запускалось — чужой Remote Control не трогаю."
-        if os.name == "nt":
+        if IS_WINDOWS:
             self._run_shutdown(["taskkill", "/T", "/F", "/PID", str(launch["pid"])])
         (remote_dir() / "STOP").write_text("pult", encoding="utf-8")
         self.store.put("remote_launch", None)
@@ -263,7 +266,7 @@ class RemoteAccessMixin:
     # ------------------------------------------------------------ apps
     def open_chatgpt(self, current) -> str:
         app_id = CHATGPT_APP_ID
-        if os.name != "nt":
+        if not IS_WINDOWS:
             return "Запуск ChatGPT доступен только на Windows-ПК владельца."
         try:
             self._spawn(["explorer.exe", f"shell:AppsFolder\\{app_id}"], cwd=str(Path.home()))
@@ -277,7 +280,7 @@ class RemoteAccessMixin:
         cwd = current.claude_cwd or str(REPO_ROOT.parent)
         if not Path(cwd).is_dir():
             return f"Папка claude_cwd не найдена: {cwd}"
-        if os.name != "nt":
+        if not IS_WINDOWS:
             return "Открытие терминала доступно только на Windows-ПК владельца."
         try:
             self._spawn(["cmd", "/c", "start", "Claude Code", "cmd", "/k", "claude"], cwd=cwd)
@@ -326,7 +329,7 @@ class RemoteAccessMixin:
         if not isinstance(pending, dict) or time.time() > pending.get("until", 0):
             return "Нет подготовленной перезагрузки или окно подтверждения истекло — сначала /reboot."
         self.store.put("reboot_pending", None)
-        if os.name != "nt":
+        if not IS_WINDOWS:
             return "Перезагрузка выполняется только на Windows-ПК владельца."
         self._run_shutdown(["shutdown", "/r", "/t", str(REBOOT_DELAY_S), "/c", "Bossman: перезагрузка по команде владельца"])
         self._agent_log({"command": "/reboot_confirm", "result": "scheduled", "delay_s": REBOOT_DELAY_S})
@@ -335,7 +338,7 @@ class RemoteAccessMixin:
 
     def reboot_cancel(self, person: Person) -> str:
         self.store.put("reboot_pending", None)
-        if os.name == "nt":
+        if IS_WINDOWS:
             self._run_shutdown(["shutdown", "/a"])
         return "Перезагрузка отменена."
 
