@@ -576,6 +576,41 @@ def install_packages(runtime: Path, wheels: Path, lock: dict | None = None,
             "resolver": "none: wheelhouse in pip hash-checking mode" if lock else "pip at build time"}
 
 
+BYTECODE_DISPLAY_ROOT = "site-packages"
+
+
+def bytecode_command(python: Path, site_packages: Path) -> list[str]:
+    """compileall command line. ``-d`` records a neutral display root in every code object.
+
+    Without it each .pyc embedded the absolute build path (the builder's user name and
+    output folder), found by the 11.10 RC scan in 9202 files. At import time Python
+    rewrites co_filename to the real location, so tracebacks are unaffected.
+    """
+    return [str(python), "-I", "-m", "compileall", "-q", "-f", "-d", BYTECODE_DISPLAY_ROOT,
+            "--invalidation-mode", "unchecked-hash", str(site_packages)]
+
+
+def scrub_direct_urls(site_packages: Path) -> int:
+    """Replace the build-time wheel path in ``*.dist-info/direct_url.json`` (PEP 610) by a neutral URL.
+
+    The file stays, because ``tools/installed_product_chain.py`` reads it to refuse editable
+    installs; only the machine-specific path goes. Returns how many files were changed.
+    """
+    changed = 0
+    for path in site_packages.glob("*.dist-info/direct_url.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        url = data.get("url") if isinstance(data, dict) else None
+        if not isinstance(url, str) or url.startswith("file:///build/"):
+            continue
+        data["url"] = "file:///build/" + url.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        path.write_text(json.dumps(data), encoding="utf-8")
+        changed += 1
+    return changed
+
+
 def normalize_bytecode(runtime: Path) -> dict:
     """Hash-based .pyc for the shipped packages: same sources, same bytes.
 
@@ -586,14 +621,14 @@ def normalize_bytecode(runtime: Path) -> dict:
     """
     python = runtime / "python.exe"
     site_packages = runtime / "Lib" / "site-packages"
-    done = subprocess.run([str(python), "-I", "-m", "compileall", "-q", "-f",
-                           "--invalidation-mode", "unchecked-hash", str(site_packages)],
+    done = subprocess.run(bytecode_command(python, site_packages),
                           capture_output=True, text=True, encoding="utf-8", errors="replace",
                           timeout=1800)
     if done.returncode:
         # Some vendored files never compiled anywhere; say so, ship as is.
         print("  bytecode normalisation incomplete: " + (done.stderr or done.stdout or "")[-800:], flush=True)
-    return {"normalized": done.returncode == 0, "mode": "unchecked-hash"}
+    return {"normalized": done.returncode == 0, "mode": "unchecked-hash",
+            "direct_urls_scrubbed": scrub_direct_urls(site_packages)}
 
 
 # What the shipped computer-use backend (bossman.computer_operator, Windows) needs at
@@ -1105,7 +1140,7 @@ def build_inputs_for(lock: dict | None, profile: str, contents: dict) -> dict:
                  "python": lock["python"]["version"], "ffmpeg": lock["ffmpeg"]["asset"],
                  "chromium": (lock.get("chromium") or {}).get("directories")},
         "known_differences_between_builds": [
-            "*.dist-info/direct_url.json of the three Bossman wheels carries the build-time wheel path",
+            "*.dist-info/direct_url.json of the Bossman wheels is rewritten to a neutral file:///build/<wheel> URL (no builder path)",
             "bytecode is unchecked-hash and identical for identical sources; files compileall could not "
             "compile keep pip's timestamp-based .pyc",
             "MANIFEST.json built_at and the zip entry order are the only build-time values in the archive",

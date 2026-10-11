@@ -502,3 +502,24 @@ def test_checked_in_owner_run_directory_matches_the_declared_contract() -> None:
     declared = set(bundle.OWNER_RUN_FILES)
     assert present - declared == set(), f"undeclared files in the owner-run kit: {sorted(present - declared)}"
     assert declared - present == set(), f"declared but missing: {sorted(declared - present)}"
+
+
+def test_bytecode_and_wheel_metadata_carry_no_builder_path(tmp_path) -> None:
+    """RC 11.10 scan: 9202 .pyc files embedded the builder's absolute path and 14 direct_url.json
+    files the build-time wheel path. Neither belongs in an archive handed to other people."""
+    command = bundle.bytecode_command(Path("runtime/python.exe"), Path("runtime/Lib/site-packages"))
+    assert "-d" in command
+    display = command[command.index("-d") + 1]
+    assert display == bundle.BYTECODE_DISPLAY_ROOT and ":" not in display and "\\" not in display
+
+    sp = tmp_path / "site-packages"
+    dist = sp / "bossman_core-0.3.0.dist-info"
+    dist.mkdir(parents=True)
+    (dist / "direct_url.json").write_text(
+        '{"url": "file:///C:/Users/someone/out/_work/wheels/bossman_core-0.3.0-py3-none-any.whl",'
+        ' "archive_info": {"hash": "sha256=abc"}}', encoding="utf-8")
+    assert bundle.scrub_direct_urls(sp) == 1
+    text = (dist / "direct_url.json").read_text(encoding="utf-8")
+    assert "someone" not in text and "C:/Users" not in text
+    assert "bossman_core-0.3.0-py3-none-any.whl" in text and "sha256=abc" in text
+    assert bundle.scrub_direct_urls(sp) == 0  # idempotent
