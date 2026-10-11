@@ -11,7 +11,6 @@ if PROJECT_ROOT not in sys.path:
 
 from core.key_vault.vault import SecurityKeyVault, PBKDF2_ITERATIONS
 from core.key_vault.hd_wallet import SolanaHDWallet
-from core.funding_router import FundingRouter, AntiClusteringFundingRouter
 from core.ai_interface import ZeroKnowledgeAIInterface, VaultAuditLogger, SecurityLeakException
 
 
@@ -121,68 +120,6 @@ def test_zero_knowledge_isolation(temp_vault_file):
     log_text = json.dumps(logs)
     assert "secret" not in log_text.lower()
     assert "private" not in log_text.lower()
-
-
-def test_anti_clustering_pattern():
-    """
-    1. Generate 50 wallets cascade structure: Master -> 3 Transit -> Sub-wallets.
-    2. Verify pattern detector flags direct 1-to-N fanout (1 Master -> 50 wallets).
-    3. Verify cascaded structure passes anti-clustering inspection.
-    """
-    router = FundingRouter(master_wallet="MasterWalletColdStorage11111111111111111111")
-    cascade = router.generate_cascade_structure(total_subwallets=50)
-
-    assert cascade["master"] == "MasterWalletColdStorage11111111111111111111"
-    assert len(cascade["transit_wallets"]) == 3
-
-    total_subs = sum(len(subs) for subs in cascade["sub_wallets"].values())
-    assert total_subs == 50
-
-    # Test direct fanout violation detector (Simulate direct 1 -> 50)
-    direct_violation_txs = [
-        {"from": "MasterWalletColdStorage11111111111111111111", "to": f"SubWallet_{i}", "lamports": 100_000}
-        for i in range(50)
-    ]
-    assert FundingRouter.detect_direct_fanout_violation(direct_violation_txs, max_allowed_direct_links=5) is True
-
-    # Test compliant cascaded funding transactions
-    compliant_txs = [
-        {"from": "MasterWalletColdStorage11111111111111111111", "to": transit, "lamports": 1_000_000}
-        for transit in cascade["transit_wallets"]
-    ]
-    # Master only funds 3 transit wallets (< 5)
-    assert FundingRouter.detect_direct_fanout_violation(compliant_txs, max_allowed_direct_links=5) is False
-
-
-def test_pareto_distribution():
-    """
-    Verifies that volume sizes follow Pareto distribution with noise and strictly avoid round numbers.
-    """
-    router = FundingRouter(master_wallet="TestMaster")
-    samples = [router.calculate_pareto_amount(base_sol=0.1, alpha=1.6) for _ in range(100)]
-
-    for amt in samples:
-        # Check minimum bound
-        assert amt >= 0.01
-        # Check that amount is NOT an exact round number like 0.1, 0.2, 0.5, 1.0
-        assert abs(amt - round(amt, 1)) > 1e-4, f"Amount {amt} is too round!"
-
-    # Pareto property: median should be lower than mean (positive skew)
-    mean_val = sum(samples) / len(samples)
-    sorted_samples = sorted(samples)
-    median_val = sorted_samples[len(samples) // 2]
-    assert median_val < mean_val
-
-
-def test_poisson_distribution():
-    """
-    Verifies that delay intervals follow Poisson arrival timing strictly within 3s to 120s.
-    """
-    router = FundingRouter(master_wallet="TestMaster")
-    delays = [router.calculate_poisson_delay(lambda_rate=20.0, min_sec=3.0, max_sec=120.0) for _ in range(100)]
-
-    for d in delays:
-        assert 3.0 <= d <= 120.0
 
 
 def test_hd_creation_remains_disabled_pending_validated_bip39(temp_vault_file):

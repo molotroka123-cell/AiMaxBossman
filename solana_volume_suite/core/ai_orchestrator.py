@@ -10,7 +10,7 @@ class VolumeDecision(BaseModel):
     """
     Strictly-typed Volume Decision contract.
     """
-    action: Literal["BUY", "SELL", "WAIT", "FLOOR_DEFENSE", "KOTH_PULSE", "MIGRATION_HOLD"]
+    action: Literal["BUY", "SELL", "WAIT", "MIGRATION_HOLD"]
     wallet_index: int = Field(ge=0, description="Virtual wallet index (Zero-Knowledge)")
     amount_sol: float = Field(
         ge=0.0,
@@ -146,7 +146,7 @@ class AIOrchestrator:
 
         system_prompt = (
             "You are a paper-trading risk evaluator. Never generate artificial volume, "
-            "support or defend a token price, evade wallet-cluster detection, or optimize rankings. "
+            "support or defend a token price, or optimize rankings. "
             "Recommend only hypothetical BUY, SELL, or WAIT decisions for local analysis. "
             "For inactivity or a large sell-off, choose WAIT. Never claim that a trade executed. "
             "Use only virtual wallet indices. "

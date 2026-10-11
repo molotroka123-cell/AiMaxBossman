@@ -6,8 +6,9 @@ kind: workload
 contract: "1.0"
 
 description: >-
-  Autonomous dual-stage AI market-making and volume suite on Solana with Jito MEV
-  sandwich protection, Anti-Bubblemaps cascading funding, and Zero-Knowledge KeyVault.
+  Paper-only Solana trading simulation with Jito bundle tooling (live broadcast
+  disabled), order-size and price-impact guards, and a Zero-Knowledge KeyVault.
+  Volume-faking and wallet-link-obfuscation modes were removed (2026-10-11).
 
 runtime:
   language: python
@@ -48,7 +49,7 @@ permissions:
 
 ui:
   title: "Solana Volume Suite"
-  subtitle: "AI Market Maker & Jito MEV Volume Generation"
+  subtitle: "Paper-only trading simulation"
   icon: activity
   order: 45
   health_path: /api/liquidity/status

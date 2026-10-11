@@ -14,7 +14,6 @@ if PROJECT_ROOT not in sys.path:
 
 from core.key_vault import SecurityKeyVault, RentReclaimer
 from core.ai_orchestrator import AIOrchestrator, DeterministicFallbackEngine, VolumeDecision
-from core.funding_router import AntiClusteringFundingRouter, CEXWithdrawalAdapter
 from core.jito_client import JitoBundleClient, JitoBundleDropException, MIN_JITO_TIP_LAMPORTS
 from core.treasury_guard import SubImpactEngine, TreasuryGuard
 from stages.pumpfun_engine import (
@@ -169,7 +168,7 @@ async def test_ai_fallback_on_llm_error():
         "stage": "pumpfun_bonding_curve",
         "token_mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public Solana program/mint/destination address
         "curve_progress_pct": 20.0,
-        "seconds_since_last_external_tx": 30.0,  # Stagnant > 25s triggers KOTH_PULSE
+        "seconds_since_last_external_tx": 30.0,  # Stagnant > 25s: fallback must hold, not fabricate volume
         "recent_dump_size_sol": 0.0,
         "wallets_count": 20
     }
@@ -252,48 +251,6 @@ def test_dashboard_endpoints():
     })
     assert res_sweep.status_code == 409
     assert res_sweep.json()["reason"] == "PAPER_ONLY_NO_REAL_WALLETS_OR_FUNDS"
-
-
-# ==============================================================================
-# TEST 6: Invariant Verification - Anti-Clustering, Pareto & Poisson
-# ==============================================================================
-def test_anti_clustering_pareto_and_poisson():
-    """
-    Verifies:
-    1. Volumes follow Pareto distribution and NEVER yield exact round numbers (0.1, 0.5, 1.0).
-    2. Intervals follow Poisson distribution within 4s to 95s.
-    3. Cascaded funding breaks 1-to-N direct links via 3 transit wallets.
-    """
-    # 1. Pareto non-round test
-    for _ in range(50):
-        vol = AntiClusteringFundingRouter.generate_pareto_volume(min_sol=0.03, max_sol=1.5)
-        assert vol >= 0.03
-        assert abs(vol - round(vol, 1)) > 1e-4, f"Volume {vol} should not be a round tenth!"
-
-    # 2. Poisson intervals test
-    for _ in range(50):
-        interval = AntiClusteringFundingRouter.generate_poisson_interval(lam=20.0, min_sec=4.0, max_sec=95.0)
-        assert 4.0 <= interval <= 95.0
-
-    # 3. Cascaded funding tree
-    router = AntiClusteringFundingRouter(transit_count=3)
-    master = Keypair()
-    sub_wallets = [Keypair().pubkey() for _ in range(12)]
-    plan = router.plan_cascaded_funding(master, sub_wallets, total_sol=3.0)
-
-    assert len(plan["transit_keypairs"]) == 3
-    assert len(plan["tier1_transfers"]) == 3
-    assert len(plan["tier2_transfers"]) == 12
-
-    # Verify no direct master -> sub_wallet transfers in tier2
-    for t2 in plan["tier2_transfers"]:
-        assert t2["from"] != str(master.pubkey())
-
-    # 4. Asymmetric rotation test
-    rot = router.register_rotation_step("TokenMint123", buyer_index=2, amount_tokens=10_000, available_wallet_indices=list(range(10)))
-    assert rot["buyer_wallet"] == 2
-    assert rot["seller_wallet_b"] != 2
-    assert rot["tokens_to_sell_b"] + rot["tokens_to_transfer_c"] + rot["tokens_held_a"] == 10_000
 
 
 # ==============================================================================

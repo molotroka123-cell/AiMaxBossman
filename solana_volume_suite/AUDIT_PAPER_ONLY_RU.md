@@ -56,3 +56,25 @@ lamports и ограничена 100 частями. Все такие отка�
 `requirements.txt`: `python -m pytest solana_volume_suite/tests
 tests/test_solana_safety.py -q` — **73 passed**, 0 failed, 0 skipped.
 Локальный GUI, токен-launcher, кошелёк и сетевой trading не запускались.
+
+## Решение владельца 2026-10-11 («Да»): удаление кода накрутки объёма
+
+Удалено, а не заблокировано (история git сохраняет код):
+
+- `core/funding_router.py` целиком (каскадное финансирование через транзитные
+  кошельки, ledger «ротации», Pareto/Poisson-генераторы объёма и пауз для
+  маскировки паттерна, CEX-адаптер вывода) и все импорты/тесты, зависевшие от него;
+- режимы `KOTH_PULSE` и `FLOOR_DEFENSE`: убраны из `VolumeDecision.action`
+  (модель, вернувшая такой action, получает fail-closed `WAIT`),
+  ветка в `orchestrator_loop.py`, `plan_floor_defense_ladder` в
+  `stages/raydium_jupiter_engine.py`, KOTH-логика `PumpFunEngine`;
+- тексты «Anti-Bubblemaps», «sever on-chain graphs», «evade wallet-cluster
+  detection» в промптах, SKILL, manifest и dashboard.
+
+Остаётся: paper_guard, лимиты размера ордера, vault safety, price-impact gate.
+Негативные контроли: `test_paper_safety.py` проверяет, что удалённые режимы
+невалидны, что `core.funding_router` не импортируется и что
+`plan_floor_defense_ladder` отсутствует.
+
+Оставлено как легитимное (не скрывает связи): `JitoBundleClient` jitter размера
+чаевых (оценка tip по загруженности сети).

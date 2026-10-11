@@ -23,3 +23,12 @@
 - Открыто: Pump.fun token creator в коде не найден (как и раньше); аудит торгового и токен-ботов (трек D) продолжается отдельным отчётом.
 - Следующий один шаг: убрать из `solana_volume_suite/stages/pumpfun_engine.py` и Jupiter-движков неиспользуемый путь «сборка боевой транзакции» целиком (оставить только paper-план) и добавить статический тест «нет импорта Keypair.sign».
 
+
+## 2026-10-11 — удаление кода накрутки объёма (решение владельца «Да»)
+
+- Ветка: `claude/bossman-final-convergence-hu2702`. SHA до: `e9ac78aad5f4` (e9ac78aad5f4); SHA после — в commit-сообщении/`git ls-remote` (см. ниже в отчёте шага).
+- Удалено: `solana_volume_suite/core/funding_router.py`; режимы `KOTH_PULSE`/`FLOOR_DEFENSE` (Literal, ветка loop, `plan_floor_defense_ladder`, KOTH в PumpFunEngine); тексты Anti-Bubblemaps / «evade wallet-cluster detection» в ai_orchestrator, SKILL, manifest, dashboard; 4 теста funding_router (anti_clustering x2, pareto, poisson).
+- Добавлено: негативные контроли в `test_paper_safety.py` (удалённые режимы -> ValidationError; ответ модели с таким action -> WAIT; funding_router не импортируется).
+- Команды: `python -m pytest solana_volume_suite/tests -q` (venv-solana-20261011): до 54 passed, после 53 passed; `tools/ci_secret_scan.py` PASS.
+- Блокеры/замечания: `tests/test_mainnet_setup_safety.py` — 6 падений уже до шага (NameError DISABLED_REASON в setup_mainnet.py, файлы не тронуты; в CI-воркфлоу не входит). Решение об удалении `pumpfun_engine.py` / Jupiter v6 (H4) остаётся открытым.
+- Следующий шаг: починить или удалить устаревший `tests/test_mainnet_setup_safety.py`; затем пункты 2-4 раздела 6 аудита MP21-D.
