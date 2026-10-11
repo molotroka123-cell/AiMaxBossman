@@ -28,7 +28,7 @@ JS_AUDIT = """() => {
   const unnamed = buttons.filter(b => !(b.textContent.trim() || b.getAttribute('aria-label') || b.getAttribute('title')))
     .map(b => b.outerHTML.slice(0, 120));
   const labels = buttons.filter(b => !b.disabled).map(b => b.textContent.trim()).filter(Boolean);
-  const retry = Array.from(view.querySelectorAll('button')).some(b => b.textContent.trim() === 'Повторить');
+  const retry = !!view.querySelector('[data-testid="page-render-error"]');
   return { buttons: buttons.length, unnamed, labels, retry, text: view.innerText };
 }"""
 
@@ -257,5 +257,19 @@ def test_mobile_drawer_items_are_actually_clickable(live):  # noqa: F811
             before = page.evaluate("location.hash")
             item.click(timeout=5000)
             page.wait_for_function("h => location.hash !== h", arg=before, timeout=5000)
+        finally:
+            browser.close()
+
+
+def test_render_error_detection_distinguishes_redo_from_a_failed_page():
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        browser = _launch(pw)
+        try:
+            page = browser.new_page()
+            page.set_content('<div id="view"><section><button>Повторить</button></section></div>')
+            assert page.evaluate(JS_AUDIT)["retry"] is False
+            page.locator('#view section').evaluate("el => el.dataset.testid = 'page-render-error'")
+            assert page.evaluate(JS_AUDIT)["retry"] is True
         finally:
             browser.close()

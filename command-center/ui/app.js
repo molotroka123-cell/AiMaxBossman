@@ -284,7 +284,7 @@ async function renderPage({ auto = false } = {}) {
   } catch (e) {
     if (token !== renderToken) return;
     if (e instanceof ApiError && e.isAuth) { showLogin('Сессия не подтверждена — введите токен заново.'); return; }
-    replace(el.view, h('section.panel', empty({
+    replace(el.view, h('section.panel', { dataset: { testid: 'page-render-error' } }, empty({
       iconName: 'info',
       title: (e && e.message) || 'Страница не загрузилась',
       hint: (e && e.hint) || 'Проверьте, что сервер Command Center работает, и повторите.',

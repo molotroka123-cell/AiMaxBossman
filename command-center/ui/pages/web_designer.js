@@ -891,7 +891,7 @@ function emptyState(ctx, catalog) {
         name, prompt,
         h('div.bd-row', pal,
           btn('Открыть проект', async (event) => {
-            if (state.mutating) return;
+            if (state.mutating || !state.creating) return;
             state.mutating = true;
             const button = event?.currentTarget;
             if (button) button.disabled = true;

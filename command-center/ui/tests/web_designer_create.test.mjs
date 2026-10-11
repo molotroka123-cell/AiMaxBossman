@@ -39,7 +39,10 @@ test('a second click does not create a duplicate project while first request is 
   const t=mount();const first=t.click();const second=t.click();
   assert.equal(t.calls.length,1);assert.equal(t.submit.disabled,true);
   t.calls[0].resolve({meta:{id:7}});await Promise.all([first,second]);
-  assert.equal(t.state.id,7);assert.equal(t.submit.disabled,false);assert.equal(t.state.mutating,false);
+  assert.equal(t.state.id,7);assert.equal(t.submit.disabled,true);assert.equal(t.state.mutating,false);
+  // The old form may still be mounted while refresh loads the editor. It must
+  // reject another invocation even after the request's pending guard clears.
+  await t.click();assert.equal(t.calls.length,1);assert.equal(t.state.id,7);
 });
 
 test('model/server failure leaves creation available for an explicit new attempt',async()=>{
