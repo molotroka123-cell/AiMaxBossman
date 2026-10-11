@@ -36,6 +36,7 @@ def masks(parser, bgr: np.ndarray) -> dict:
     skin = m["skin"].astype(np.float32) / 255.0
     person = m["person"].astype(np.float32) / 255.0
     a = hair * (1.0 - hv.smoothstep(0.08, 0.45, cv2.GaussianBlur(skin, (0, 0), 1.2)))
+    a = hv.bright_gate(a, hv.to_lab(bgr)[:, :, 0])
     return {"hair": hair, "alpha": a, "skin": skin, "person": person}
 
 

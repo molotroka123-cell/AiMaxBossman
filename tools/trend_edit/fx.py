@@ -237,7 +237,7 @@ def drawtext(text: str, t0: float, t1: float, *, size: int = 96, x: str = "(w-te
     """One drawtext filter: pops in (font grows from 60% to 100% over `pop` s with an overshoot-free ease), optional
     vertical rise, fades out over `fade_out` s. Everything is an ffmpeg expression of t, so one pass renders it."""
     d = max(1e-3, t1 - t0)
-    grow = f"min(1,(t-{t0:.4f})/{pop:.4f})"
+    grow = f"min(1,max(0,(t-{t0:.4f})/{pop:.4f}))"
     size_expr = f"{size}*(0.6+0.4*(1-pow(1-{grow},3)))"
     alpha = f"if(lt(t,{t0 + pop:.4f}),(t-{t0:.4f})/{pop:.4f},if(gt(t,{t1 - fade_out:.4f}),({t1:.4f}-t)/{fade_out:.4f},1))"
     y_expr = y if not rise else f"({y})+{rise}*pow(1-{grow},2)"

@@ -753,7 +753,7 @@ def render_showreel(parts: dict, out_video: Path) -> dict:
     proc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{OUT_W}x{OUT_H}",
                              "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "fast", "-crf", "10",
                              "-pix_fmt", "yuv420p", str(out_video)], stdin=subprocess.PIPE)
-    n = int(round(30 * FPS))
+    n = int(round(30 * P * FPS))
     for k in range(n):
         tau = k / FPS
         beat = tau / P
@@ -767,8 +767,8 @@ def render_showreel(parts: dict, out_video: Path) -> dict:
             proc.stdin.write(frame.tobytes())
             continue
         b0, nb, key, s0, fast, slow, z0, z1 = seg
-        d = nb
-        t_in = tau - b0
+        d = nb * P
+        t_in = tau - b0 * P
         kn = [(0.0, fast), (0.45 * d, 1.0), (d, slow)] if abs(fast - slow) > 1e-6 else [(0.0, fast), (d, fast)]
         st = s0 + fx.ramp_source_time(t_in, kn)
         cap = caps[key]

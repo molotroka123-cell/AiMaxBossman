@@ -329,6 +329,18 @@ if __name__ == "__main__":
     sys.exit(main())
 
 
+def bright_gate(a: np.ndarray, lab_l: np.ndarray, core_mask: np.ndarray | None = None) -> np.ndarray:
+    """Remove pixels far brighter than the hair itself (shirt / shoulder / skin the parser took for hair; the bright rim that
+    made the 'sticker outline'). Reference: p97 of L over the confident hair core of the SAME frame."""
+    core = (a > 0.8) if core_mask is None else core_mask
+    if core.sum() < 150:
+        return a
+    p97 = float(np.percentile(lab_l[core], 97))
+    p50 = float(np.percentile(lab_l[core], 50))
+    top = max(p97 + 6.0, p50 + 22.0)
+    return a * (1.0 - smoothstep(top, top + 12.0, cv2.GaussianBlur(lab_l, (0, 0), 1.0)))
+
+
 def refine_alpha(a_seg: np.ndarray, head: np.ndarray, skin: np.ndarray, frame: np.ndarray) -> np.ndarray:
     """Soft strand alpha: the high-res RVM head matte inside the (dilated) SegFormer hair region, skin kept out, holes of
     dark hair pixels closed. The SegFormer mask only says WHERE hair is; the matte says how opaque each edge pixel is."""
@@ -348,6 +360,7 @@ def refine_alpha(a_seg: np.ndarray, head: np.ndarray, skin: np.ndarray, frame: n
     # holes: dark pixels enclosed by hair (temples, between strands) are hair
     closed = cv2.morphologyEx(a, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
     a = np.maximum(a, np.minimum(closed, dark) * (1.0 - skin_ex))
+    a = bright_gate(a, lab[:, :, 0], a_seg > 0.8)
     return np.clip(a, 0, 1)
 
 
@@ -419,6 +432,7 @@ class RefLook:
         m = al > 0.6
         if m.sum() < 80:
             return frame
+        L = np.minimum(L, float(np.percentile(L[m], 97)) + 4.0)    # a bright rim (skin mixed into F) must not read as a highlight
         Ls = cv2.GaussianBlur(L, (0, 0), 1.8)
         samp = np.sort(Ls[m])
         qs = np.linspace(0, 1, self.NQ)
