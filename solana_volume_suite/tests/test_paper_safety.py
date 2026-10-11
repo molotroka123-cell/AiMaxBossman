@@ -96,7 +96,7 @@ async def test_paper_trade_is_never_reported_as_onchain():
 def test_mainnet_setup_is_disabled_without_side_effects(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     with pytest.raises(RuntimeError, match="Mainnet setup is disabled") as exc:
-        run_setup_wizard(password="must not be written", rpc_url="https://invalid.example")
+        run_setup_wizard(password="must not be written", rpc_url="https://invalid.example")  # ci-secret-scan: allow -- test placeholder, not a credential
     assert str(exc.value) == DISABLED_REASON
     assert list(tmp_path.iterdir()) == []
 
