@@ -26,12 +26,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import beat_grid as bg  # noqa: E402
 import fx  # noqa: E402
 import hair_v2 as hv  # noqa: E402
+import hair_fused as hf  # noqa: E402
 
 VID = Path.home() / "Videos" / "Bossman-Genjutsu"
 BOSS = Path.home() / "Bossman"
 OUT_W, OUT_H, FPS = 1080, 1920, 30
 SRC_SWAP = VID / "v2-20261010" / "final-v2-clip1.mp4"      # ref-clip-01 with her face (FaceFusion quality pass), 30 fps
 SRC_ORIG = BOSS / "video-testset-private" / "ref-clip-01.mp4"   # same frames, original face (clean before)
+FUSED = VID / "ads-20261011" / "prep" / "fused"
+USE_FUSED = bool(int(__import__("os").environ.get("BUILD_ADS_FUSED", "0")))
 LOOKS = VID / "ads-20261011" / "prep" / "accept" / "looks"
 CACHE = VID / "ads-20261011" / "prep" / "c1cache_f"
 TRACK = SRC_ORIG                                           # music: the reference's own track (personal use only)
@@ -106,6 +109,10 @@ class Source:
 
     def alpha(self, i: int) -> np.ndarray:
         if i not in self._alpha:
+            fz = FUSED / f"{i:05d}.npy"
+            if USE_FUSED and fz.exists():          # best-effort fused matte (hair_fused.py), already cropped to 720x720
+                self._alpha[i] = np.load(fz).astype(np.float32) / 255.0
+                return self._alpha[i]
             z = np.load(CACHE / f"{i:05d}.npz")
             a_seg = z["alpha"][:, 280:1000].astype(np.float32) / 255.0
             if "head" in z.files:
@@ -802,6 +809,8 @@ def main(argv=None) -> int:
     ap.add_argument("--work", default="")
     ap.add_argument("--parts", default="", help="showreel: a=...,b=...,c=...,d=... finished ad files")
     a = ap.parse_args(argv)
+    if USE_FUSED:
+        hf.low_priority()
     if a.preset == "showreel":
         spec = showreel_spec()
         out = Path(a.out)

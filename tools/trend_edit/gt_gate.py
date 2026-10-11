@@ -103,6 +103,19 @@ def halo_step(img_bgr, mask):
     return float(abs(L[ring_in].mean() - L[ring_out].mean())) if ring_in.any() and ring_out.any() else 0.0
 
 
+def halo_local(img_bgr, mask):
+    """Local edge step: for each pixel of the 3 px inner ring, |L - L of the nearest outside-ring pixels| (blurred), averaged.
+    Measured on the SAME mask (the GT contour) for ours / draft / reference, so only the image content differs."""
+    m = (mask > 0.5).astype(np.uint8)
+    ring_in = (m - cv2.erode(m, np.ones((5, 5), np.uint8))) > 0
+    ring_out = (cv2.dilate(m, np.ones((5, 5), np.uint8)) - m) > 0
+    L = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2Lab)[:, :, 0].astype(np.float32)
+    w = ring_out.astype(np.float32)
+    num = cv2.GaussianBlur(L * w, (0, 0), 6)
+    den = cv2.GaussianBlur(w, (0, 0), 6) + 1e-4
+    return float(np.abs(L - num / den)[ring_in].mean()) if ring_in.any() else 0.0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
