@@ -1,0 +1,22 @@
+# Tests-first evidence (run 11.10.2026). Baseline = original GameEngine.js / hhParser.js at pokertrain master 6bc72bf,
+# the new tests copied in unchanged (only the stacked-deck helper was adapted to the old engine's burn+card run-out).
+# node --test test/settlement.test.js (baseline)
+not ok 1 - side pot: uncalled part of the biggest stack is returned, not given to the 2nd best hand
+not ok 2 - split pot between players with different investments only splits the levels they both covered
+not ok 3 - three-way main pot split ... (baseline paid the pot to the wrong player: actual 121 vs expected 0 chips)
+ok 4 - chips are conserved on random-looking multiway all-ins
+# pass 1 / fail 3
+# node --test test/engine_rules.test.js (baseline)
+not ok 1 - rake: 5% of the contested pot, capped, taken from the winner          (rake never applied)
+not ok 2 - rake: no flop, no drop
+not ok 3 - rake: uncalled bet is never raked and chips + rake are conserved
+not ok 4 - min-raise equals the size of the previous raise, not the big blind
+not ok 5 - a live player facing an all-in is asked to act even when everyone else is all-in
+ok 6 - a long re-raise war is not cut short by the safety limit                   (NOT reproduced as a defect)
+ok 7 - settlePots unit / ok 8 - computeRake unit   (new module, pass by construction)
+# pass 3 / fail 5
+# node --test test/hhparser.test.js (baseline hhParser.js)
+not ok 1 raise amount is raise-to        not ok 2 position == engine labels        not ok 3 BTN/SB/BB recognised
+ok 4 result and blinds
+# pass 1 / fail 3
+# After the fixes (commits cd78920 + 4b6f8f3): npm test -> tests 28, pass 28, fail 0; vite build OK.

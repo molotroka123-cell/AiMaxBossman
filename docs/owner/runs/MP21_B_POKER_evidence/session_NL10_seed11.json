@@ -1,0 +1,9538 @@
+{
+ "sessionId": "sim_NL10_seed11",
+ "source": "headless simulation of the Poker Train engine (tools/simulate-session.mjs)",
+ "stake": "NL10",
+ "seed": 11,
+ "rake": {
+  "pct": 0.045,
+  "cap_chips": 20,
+  "no_flop_no_drop": true,
+  "total_chips": 428
+ },
+ "totalHands": 300,
+ "handSummaries": [
+  {
+   "hand": 1,
+   "position": "BTN",
+   "holeCards": [
+    "9d",
+    "3c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 2,
+   "position": "CO",
+   "holeCards": [
+    "9c",
+    "Js"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": true,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 3,
+   "position": "HJ",
+   "holeCards": [
+    "2c",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 4,
+   "position": "UTG",
+   "holeCards": [
+    "Jd",
+    "9d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 5,
+   "position": "BB",
+   "holeCards": [
+    "2h",
+    "Qs"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 6,
+   "position": "SB",
+   "holeCards": [
+    "Ac",
+    "2h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 7,
+   "position": "BTN",
+   "holeCards": [
+    "Kh",
+    "Qd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "flop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 935,
+   "netProfit": -65,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 6
+  },
+  {
+   "hand": 8,
+   "position": "CO",
+   "holeCards": [
+    "Jd",
+    "2h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 9,
+   "position": "HJ",
+   "holeCards": [
+    "7s",
+    "7d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 10,
+   "position": "UTG",
+   "holeCards": [
+    "Ah",
+    "9h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "flop",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "river",
+     "action": "check",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1014,
+   "netProfit": 14,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 11,
+   "position": "BB",
+   "holeCards": [
+    "2d",
+    "As"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 12,
+   "position": "SB",
+   "holeCards": [
+    "7c",
+    "4d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 13,
+   "position": "BTN",
+   "holeCards": [
+    "8s",
+    "6c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 5
+  },
+  {
+   "hand": 14,
+   "position": "CO",
+   "holeCards": [
+    "7h",
+    "Kd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 15,
+   "position": "HJ",
+   "holeCards": [
+    "Kc",
+    "Qd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "flop",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "river",
+     "action": "call",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1031,
+   "netProfit": 31,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 2
+  },
+  {
+   "hand": 16,
+   "position": "UTG",
+   "holeCards": [
+    "Ac",
+    "Kc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1015,
+   "netProfit": 15,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 17,
+   "position": "BB",
+   "holeCards": [
+    "As",
+    "Th"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 18,
+   "position": "SB",
+   "holeCards": [
+    "6d",
+    "Jc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 19,
+   "position": "BTN",
+   "holeCards": [
+    "3s",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 20,
+   "position": "CO",
+   "holeCards": [
+    "8h",
+    "3h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 21,
+   "position": "HJ",
+   "holeCards": [
+    "Qh",
+    "2d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 22,
+   "position": "UTG",
+   "holeCards": [
+    "Qd",
+    "5s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 23,
+   "position": "BB",
+   "holeCards": [
+    "As",
+    "Qs"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 150
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1055,
+   "netProfit": 55,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 24,
+   "position": "SB",
+   "holeCards": [
+    "Jd",
+    "Ah"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 25,
+   "position": "BTN",
+   "holeCards": [
+    "Jc",
+    "Kh"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 26,
+   "position": "CO",
+   "holeCards": [
+    "9h",
+    "Js"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 27,
+   "position": "HJ",
+   "holeCards": [
+    "4s",
+    "Jd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 28,
+   "position": "UTG",
+   "holeCards": [
+    "2s",
+    "3d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 29,
+   "position": "BB",
+   "holeCards": [
+    "Ad",
+    "8h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 30,
+   "position": "SB",
+   "holeCards": [
+    "Ac",
+    "8s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 31,
+   "position": "BTN",
+   "holeCards": [
+    "2d",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 32,
+   "position": "CO",
+   "holeCards": [
+    "6s",
+    "2d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 33,
+   "position": "HJ",
+   "holeCards": [
+    "2d",
+    "6s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 34,
+   "position": "UTG",
+   "holeCards": [
+    "8d",
+    "4c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 35,
+   "position": "BB",
+   "holeCards": [
+    "6s",
+    "Jh"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 36,
+   "position": "SB",
+   "holeCards": [
+    "5c",
+    "4c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 37,
+   "position": "BTN",
+   "holeCards": [
+    "Qs",
+    "Ts"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "flop",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "raise",
+     "amount": 15
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1014,
+   "netProfit": 14,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 38,
+   "position": "CO",
+   "holeCards": [
+    "Ts",
+    "3s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 39,
+   "position": "HJ",
+   "holeCards": [
+    "3c",
+    "3s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 40,
+   "position": "UTG",
+   "holeCards": [
+    "Kh",
+    "Ac"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1015,
+   "netProfit": 15,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 41,
+   "position": "BB",
+   "holeCards": [
+    "7h",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 42,
+   "position": "SB",
+   "holeCards": [
+    "7d",
+    "4c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 43,
+   "position": "BTN",
+   "holeCards": [
+    "Td",
+    "7c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 44,
+   "position": "CO",
+   "holeCards": [
+    "2d",
+    "8d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 45,
+   "position": "HJ",
+   "holeCards": [
+    "8c",
+    "3c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 46,
+   "position": "UTG",
+   "holeCards": [
+    "Ac",
+    "6d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 47,
+   "position": "BB",
+   "holeCards": [
+    "5d",
+    "Tc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 48,
+   "position": "SB",
+   "holeCards": [
+    "9d",
+    "Ah"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 49,
+   "position": "BTN",
+   "holeCards": [
+    "Ks",
+    "Js"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "flop",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "river",
+     "action": "check",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1019,
+   "netProfit": 19,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 50,
+   "position": "CO",
+   "holeCards": [
+    "Tc",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 51,
+   "position": "HJ",
+   "holeCards": [
+    "5h",
+    "3c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 52,
+   "position": "UTG",
+   "holeCards": [
+    "7h",
+    "6d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 53,
+   "position": "BB",
+   "holeCards": [
+    "Qd",
+    "Th"
+   ],
+   "actions": [],
+   "chipsBefore": 1000,
+   "chipsAfter": 1005,
+   "netProfit": 5,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 54,
+   "position": "SB",
+   "holeCards": [
+    "Th",
+    "Js"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 55,
+   "position": "BTN",
+   "holeCards": [
+    "2d",
+    "Th"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 56,
+   "position": "CO",
+   "holeCards": [
+    "Jd",
+    "Ks"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 2
+  },
+  {
+   "hand": 57,
+   "position": "HJ",
+   "holeCards": [
+    "4s",
+    "Kc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 4
+  },
+  {
+   "hand": 58,
+   "position": "UTG",
+   "holeCards": [
+    "3s",
+    "4h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 59,
+   "position": "BB",
+   "holeCards": [
+    "Jc",
+    "Qh"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 60,
+   "position": "SB",
+   "holeCards": [
+    "9d",
+    "Ac"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 61,
+   "position": "BTN",
+   "holeCards": [
+    "5c",
+    "8d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 62,
+   "position": "CO",
+   "holeCards": [
+    "7d",
+    "Qh"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 63,
+   "position": "HJ",
+   "holeCards": [
+    "2s",
+    "9c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 64,
+   "position": "UTG",
+   "holeCards": [
+    "2c",
+    "7s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 65,
+   "position": "BB",
+   "holeCards": [
+    "Ts",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 66,
+   "position": "SB",
+   "holeCards": [
+    "Kd",
+    "4h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 67,
+   "position": "BTN",
+   "holeCards": [
+    "Ac",
+    "9d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 68,
+   "position": "CO",
+   "holeCards": [
+    "Jh",
+    "2s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 69,
+   "position": "HJ",
+   "holeCards": [
+    "As",
+    "9c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 70,
+   "position": "UTG",
+   "holeCards": [
+    "Kh",
+    "Jc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 71,
+   "position": "BB",
+   "holeCards": [
+    "Ts",
+    "Tc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 180
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1065,
+   "netProfit": 65,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 72,
+   "position": "SB",
+   "holeCards": [
+    "7s",
+    "8h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 73,
+   "position": "BTN",
+   "holeCards": [
+    "Ac",
+    "2d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 74,
+   "position": "CO",
+   "holeCards": [
+    "Ah",
+    "8s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 75,
+   "position": "HJ",
+   "holeCards": [
+    "6s",
+    "Js"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 76,
+   "position": "UTG",
+   "holeCards": [
+    "7s",
+    "9h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 77,
+   "position": "BB",
+   "holeCards": [
+    "9c",
+    "8c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 78,
+   "position": "SB",
+   "holeCards": [
+    "7h",
+    "4c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 79,
+   "position": "BTN",
+   "holeCards": [
+    "Ah",
+    "8s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 80,
+   "position": "CO",
+   "holeCards": [
+    "2h",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 81,
+   "position": "HJ",
+   "holeCards": [
+    "6d",
+    "4h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 82,
+   "position": "UTG",
+   "holeCards": [
+    "Jc",
+    "3c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 83,
+   "position": "BB",
+   "holeCards": [
+    "Ts",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 84,
+   "position": "SB",
+   "holeCards": [
+    "9s",
+    "2s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 85,
+   "position": "BTN",
+   "holeCards": [
+    "Ts",
+    "5s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 86,
+   "position": "CO",
+   "holeCards": [
+    "9c",
+    "Ac"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 87,
+   "position": "HJ",
+   "holeCards": [
+    "8d",
+    "9s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 88,
+   "position": "UTG",
+   "holeCards": [
+    "Jh",
+    "2d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 89,
+   "position": "BB",
+   "holeCards": [
+    "Qs",
+    "8d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 90,
+   "position": "SB",
+   "holeCards": [
+    "Qc",
+    "9d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 91,
+   "position": "BTN",
+   "holeCards": [
+    "Kd",
+    "Tc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 92,
+   "position": "CO",
+   "holeCards": [
+    "2c",
+    "Ac"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 93,
+   "position": "HJ",
+   "holeCards": [
+    "Jd",
+    "5h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 94,
+   "position": "UTG",
+   "holeCards": [
+    "6s",
+    "7c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 95,
+   "position": "BB",
+   "holeCards": [
+    "Qs",
+    "6s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 96,
+   "position": "SB",
+   "holeCards": [
+    "6d",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 97,
+   "position": "BTN",
+   "holeCards": [
+    "Qc",
+    "Tc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "flop",
+     "action": "raise",
+     "amount": 15
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1014,
+   "netProfit": 14,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 98,
+   "position": "CO",
+   "holeCards": [
+    "Ks",
+    "7d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 99,
+   "position": "HJ",
+   "holeCards": [
+    "3c",
+    "Td"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 100,
+   "position": "UTG",
+   "holeCards": [
+    "Tc",
+    "9s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 101,
+   "position": "BB",
+   "holeCards": [
+    "5h",
+    "7c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 102,
+   "position": "SB",
+   "holeCards": [
+    "Kh",
+    "Qh"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    },
+    {
+     "stage": "flop",
+     "action": "raise",
+     "amount": 36
+    },
+    {
+     "stage": "turn",
+     "action": "raise",
+     "amount": 79
+    },
+    {
+     "stage": "river",
+     "action": "raise",
+     "amount": 174
+    },
+    {
+     "stage": "river",
+     "action": "call",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 0,
+   "netProfit": -1000,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 103,
+   "position": "BTN",
+   "holeCards": [
+    "8d",
+    "Jd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 104,
+   "position": "CO",
+   "holeCards": [
+    "Ad",
+    "Qs"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "flop",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "river",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 105,
+   "position": "HJ",
+   "holeCards": [
+    "2c",
+    "As"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 106,
+   "position": "UTG",
+   "holeCards": [
+    "5d",
+    "4h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 107,
+   "position": "BB",
+   "holeCards": [
+    "8d",
+    "Jd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 108,
+   "position": "SB",
+   "holeCards": [
+    "3s",
+    "Jd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 109,
+   "position": "BTN",
+   "holeCards": [
+    "5h",
+    "7h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 110,
+   "position": "CO",
+   "holeCards": [
+    "Qh",
+    "Qd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 240
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1095,
+   "netProfit": 95,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 111,
+   "position": "HJ",
+   "holeCards": [
+    "Jc",
+    "Ac"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    },
+    {
+     "stage": "flop",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "river",
+     "action": "check",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1033,
+   "netProfit": 33,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 2
+  },
+  {
+   "hand": 112,
+   "position": "UTG",
+   "holeCards": [
+    "5d",
+    "3s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 113,
+   "position": "BB",
+   "holeCards": [
+    "Qh",
+    "Ts"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 114,
+   "position": "SB",
+   "holeCards": [
+    "8h",
+    "Ad"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 115,
+   "position": "BTN",
+   "holeCards": [
+    "5d",
+    "7d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 116,
+   "position": "CO",
+   "holeCards": [
+    "8c",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 117,
+   "position": "HJ",
+   "holeCards": [
+    "3s",
+    "9s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 2
+  },
+  {
+   "hand": 118,
+   "position": "UTG",
+   "holeCards": [
+    "9s",
+    "Ac"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 119,
+   "position": "BB",
+   "holeCards": [
+    "As",
+    "9s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 120,
+   "position": "SB",
+   "holeCards": [
+    "8d",
+    "7h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 121,
+   "position": "BTN",
+   "holeCards": [
+    "Ah",
+    "4d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 122,
+   "position": "CO",
+   "holeCards": [
+    "9h",
+    "Ts"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 123,
+   "position": "HJ",
+   "holeCards": [
+    "Qh",
+    "4d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 124,
+   "position": "UTG",
+   "holeCards": [
+    "9h",
+    "Kd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 125,
+   "position": "BB",
+   "holeCards": [
+    "2h",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 126,
+   "position": "SB",
+   "holeCards": [
+    "9d",
+    "4h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 127,
+   "position": "BTN",
+   "holeCards": [
+    "3c",
+    "Jh"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 128,
+   "position": "CO",
+   "holeCards": [
+    "Ks",
+    "3c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 129,
+   "position": "HJ",
+   "holeCards": [
+    "4s",
+    "8d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 7
+  },
+  {
+   "hand": 130,
+   "position": "UTG",
+   "holeCards": [
+    "9s",
+    "4s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 131,
+   "position": "BB",
+   "holeCards": [
+    "9c",
+    "Ad"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 132,
+   "position": "SB",
+   "holeCards": [
+    "Ks",
+    "6c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 133,
+   "position": "BTN",
+   "holeCards": [
+    "3c",
+    "3s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 134,
+   "position": "CO",
+   "holeCards": [
+    "Qd",
+    "8s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": true,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 135,
+   "position": "HJ",
+   "holeCards": [
+    "Jh",
+    "8d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 7
+  },
+  {
+   "hand": 136,
+   "position": "UTG",
+   "holeCards": [
+    "9h",
+    "3h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 137,
+   "position": "BB",
+   "holeCards": [
+    "Qc",
+    "Qs"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 150
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1055,
+   "netProfit": 55,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 138,
+   "position": "SB",
+   "holeCards": [
+    "9s",
+    "4c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 139,
+   "position": "BTN",
+   "holeCards": [
+    "8h",
+    "7s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 140,
+   "position": "CO",
+   "holeCards": [
+    "Ac",
+    "Qh"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "flop",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "river",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "river",
+     "action": "call",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 881,
+   "netProfit": -119,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 11
+  },
+  {
+   "hand": 141,
+   "position": "HJ",
+   "holeCards": [
+    "7c",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 142,
+   "position": "UTG",
+   "holeCards": [
+    "Qc",
+    "5s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 143,
+   "position": "BB",
+   "holeCards": [
+    "Ac",
+    "7d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 144,
+   "position": "SB",
+   "holeCards": [
+    "Jd",
+    "7c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 145,
+   "position": "BTN",
+   "holeCards": [
+    "5d",
+    "6h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 146,
+   "position": "CO",
+   "holeCards": [
+    "Jc",
+    "3h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 147,
+   "position": "HJ",
+   "holeCards": [
+    "6s",
+    "2s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 148,
+   "position": "UTG",
+   "holeCards": [
+    "Kc",
+    "3d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 149,
+   "position": "BB",
+   "holeCards": [
+    "Ac",
+    "8c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 150,
+   "position": "SB",
+   "holeCards": [
+    "4d",
+    "Kd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 151,
+   "position": "BTN",
+   "holeCards": [
+    "7d",
+    "5s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 152,
+   "position": "CO",
+   "holeCards": [
+    "As",
+    "5s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 153,
+   "position": "HJ",
+   "holeCards": [
+    "9c",
+    "Ah"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 154,
+   "position": "UTG",
+   "holeCards": [
+    "6s",
+    "4h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 155,
+   "position": "BB",
+   "holeCards": [
+    "6d",
+    "2s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 156,
+   "position": "SB",
+   "holeCards": [
+    "Js",
+    "Ad"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 157,
+   "position": "BTN",
+   "holeCards": [
+    "6h",
+    "6d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 158,
+   "position": "CO",
+   "holeCards": [
+    "4c",
+    "6d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 159,
+   "position": "HJ",
+   "holeCards": [
+    "7d",
+    "8h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 160,
+   "position": "UTG",
+   "holeCards": [
+    "9d",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 161,
+   "position": "BB",
+   "holeCards": [
+    "5s",
+    "7c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 162,
+   "position": "SB",
+   "holeCards": [
+    "8s",
+    "3d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 163,
+   "position": "BTN",
+   "holeCards": [
+    "Qs",
+    "Js"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "flop",
+     "action": "raise",
+     "amount": 15
+    },
+    {
+     "stage": "turn",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "river",
+     "action": "check",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1028,
+   "netProfit": 28,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 2
+  },
+  {
+   "hand": 164,
+   "position": "CO",
+   "holeCards": [
+    "Jh",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 165,
+   "position": "HJ",
+   "holeCards": [
+    "Jd",
+    "5h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 166,
+   "position": "UTG",
+   "holeCards": [
+    "3c",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 167,
+   "position": "BB",
+   "holeCards": [
+    "Th",
+    "Qh"
+   ],
+   "actions": [],
+   "chipsBefore": 1000,
+   "chipsAfter": 1005,
+   "netProfit": 5,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 168,
+   "position": "SB",
+   "holeCards": [
+    "7c",
+    "5h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 169,
+   "position": "BTN",
+   "holeCards": [
+    "6h",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 170,
+   "position": "CO",
+   "holeCards": [
+    "9h",
+    "3d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 7
+  },
+  {
+   "hand": 171,
+   "position": "HJ",
+   "holeCards": [
+    "Ah",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 172,
+   "position": "UTG",
+   "holeCards": [
+    "Kd",
+    "4h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 173,
+   "position": "BB",
+   "holeCards": [
+    "7c",
+    "Kh"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 174,
+   "position": "SB",
+   "holeCards": [
+    "Th",
+    "2c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 175,
+   "position": "BTN",
+   "holeCards": [
+    "8s",
+    "7s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 176,
+   "position": "CO",
+   "holeCards": [
+    "6h",
+    "8c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 2
+  },
+  {
+   "hand": 177,
+   "position": "HJ",
+   "holeCards": [
+    "Qc",
+    "9c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 178,
+   "position": "UTG",
+   "holeCards": [
+    "3h",
+    "8s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 179,
+   "position": "BB",
+   "holeCards": [
+    "3c",
+    "2d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 180,
+   "position": "SB",
+   "holeCards": [
+    "Kc",
+    "2s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 181,
+   "position": "BTN",
+   "holeCards": [
+    "6d",
+    "Qd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 182,
+   "position": "CO",
+   "holeCards": [
+    "8s",
+    "2s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 183,
+   "position": "HJ",
+   "holeCards": [
+    "2c",
+    "3h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 184,
+   "position": "UTG",
+   "holeCards": [
+    "Ts",
+    "As"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    },
+    {
+     "stage": "flop",
+     "action": "raise",
+     "amount": 39
+    },
+    {
+     "stage": "turn",
+     "action": "raise",
+     "amount": 86
+    },
+    {
+     "stage": "river",
+     "action": "raise",
+     "amount": 189
+    },
+    {
+     "stage": "river",
+     "action": "call",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1985,
+   "netProfit": 985,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 185,
+   "position": "BB",
+   "holeCards": [
+    "2c",
+    "4s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 186,
+   "position": "SB",
+   "holeCards": [
+    "Tc",
+    "Ad"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 187,
+   "position": "BTN",
+   "holeCards": [
+    "5s",
+    "4s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 188,
+   "position": "CO",
+   "holeCards": [
+    "Kc",
+    "9h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 189,
+   "position": "HJ",
+   "holeCards": [
+    "As",
+    "3d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 5
+  },
+  {
+   "hand": 190,
+   "position": "UTG",
+   "holeCards": [
+    "5h",
+    "Qs"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 191,
+   "position": "BB",
+   "holeCards": [
+    "8d",
+    "4s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 192,
+   "position": "SB",
+   "holeCards": [
+    "6d",
+    "Td"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 193,
+   "position": "BTN",
+   "holeCards": [
+    "7s",
+    "4c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 194,
+   "position": "CO",
+   "holeCards": [
+    "As",
+    "4s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 195,
+   "position": "HJ",
+   "holeCards": [
+    "2h",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 196,
+   "position": "UTG",
+   "holeCards": [
+    "9c",
+    "Qs"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 197,
+   "position": "BB",
+   "holeCards": [
+    "Ks",
+    "9c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 198,
+   "position": "SB",
+   "holeCards": [
+    "8c",
+    "7d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 199,
+   "position": "BTN",
+   "holeCards": [
+    "8d",
+    "7h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 200,
+   "position": "CO",
+   "holeCards": [
+    "8h",
+    "Qd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 201,
+   "position": "HJ",
+   "holeCards": [
+    "4c",
+    "3c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 202,
+   "position": "UTG",
+   "holeCards": [
+    "Ks",
+    "3h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 203,
+   "position": "BB",
+   "holeCards": [
+    "8s",
+    "3s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 204,
+   "position": "SB",
+   "holeCards": [
+    "8s",
+    "2h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 205,
+   "position": "BTN",
+   "holeCards": [
+    "5d",
+    "As"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 206,
+   "position": "CO",
+   "holeCards": [
+    "2s",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 207,
+   "position": "HJ",
+   "holeCards": [
+    "7h",
+    "6h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 208,
+   "position": "UTG",
+   "holeCards": [
+    "Tc",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 209,
+   "position": "BB",
+   "holeCards": [
+    "9s",
+    "4d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 210,
+   "position": "SB",
+   "holeCards": [
+    "Td",
+    "8h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 211,
+   "position": "BTN",
+   "holeCards": [
+    "Ks",
+    "6h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 212,
+   "position": "CO",
+   "holeCards": [
+    "7h",
+    "Jd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 213,
+   "position": "HJ",
+   "holeCards": [
+    "Jd",
+    "4s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 214,
+   "position": "UTG",
+   "holeCards": [
+    "Ac",
+    "9d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 215,
+   "position": "BB",
+   "holeCards": [
+    "Td",
+    "8d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 216,
+   "position": "SB",
+   "holeCards": [
+    "3s",
+    "Jd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 217,
+   "position": "BTN",
+   "holeCards": [
+    "3s",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 218,
+   "position": "CO",
+   "holeCards": [
+    "Ac",
+    "Jc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 210
+    },
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 1000
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 0,
+   "netProfit": -1000,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 219,
+   "position": "HJ",
+   "holeCards": [
+    "7c",
+    "7s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 220,
+   "position": "UTG",
+   "holeCards": [
+    "Qc",
+    "7c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 221,
+   "position": "BB",
+   "holeCards": [
+    "2c",
+    "2d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 222,
+   "position": "SB",
+   "holeCards": [
+    "Th",
+    "Kc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 223,
+   "position": "BTN",
+   "holeCards": [
+    "9s",
+    "8c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 224,
+   "position": "CO",
+   "holeCards": [
+    "6d",
+    "9h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 225,
+   "position": "HJ",
+   "holeCards": [
+    "5c",
+    "3h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 226,
+   "position": "UTG",
+   "holeCards": [
+    "2h",
+    "2c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 227,
+   "position": "BB",
+   "holeCards": [
+    "9c",
+    "5h"
+   ],
+   "actions": [],
+   "chipsBefore": 1000,
+   "chipsAfter": 1005,
+   "netProfit": 5,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 228,
+   "position": "SB",
+   "holeCards": [
+    "6s",
+    "8d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 229,
+   "position": "BTN",
+   "holeCards": [
+    "Jd",
+    "9d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 230,
+   "position": "CO",
+   "holeCards": [
+    "9d",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 231,
+   "position": "HJ",
+   "holeCards": [
+    "Tc",
+    "Th"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1015,
+   "netProfit": 15,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 232,
+   "position": "UTG",
+   "holeCards": [
+    "3s",
+    "8s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 233,
+   "position": "BB",
+   "holeCards": [
+    "4h",
+    "9s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 234,
+   "position": "SB",
+   "holeCards": [
+    "5h",
+    "4d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 235,
+   "position": "BTN",
+   "holeCards": [
+    "Ts",
+    "7c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 236,
+   "position": "CO",
+   "holeCards": [
+    "4c",
+    "Tc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 237,
+   "position": "HJ",
+   "holeCards": [
+    "Ad",
+    "Kh"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    },
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 270
+    },
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 1000
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 0,
+   "netProfit": -1000,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 238,
+   "position": "UTG",
+   "holeCards": [
+    "Td",
+    "3c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 239,
+   "position": "BB",
+   "holeCards": [
+    "Kh",
+    "2c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 240,
+   "position": "SB",
+   "holeCards": [
+    "5h",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 241,
+   "position": "BTN",
+   "holeCards": [
+    "Ac",
+    "2h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 242,
+   "position": "CO",
+   "holeCards": [
+    "8s",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 243,
+   "position": "HJ",
+   "holeCards": [
+    "Kd",
+    "2c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 244,
+   "position": "UTG",
+   "holeCards": [
+    "3s",
+    "6h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 245,
+   "position": "BB",
+   "holeCards": [
+    "Ad",
+    "Kd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 180
+    },
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 1000
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 0,
+   "netProfit": -1000,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 246,
+   "position": "SB",
+   "holeCards": [
+    "6h",
+    "6s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 247,
+   "position": "BTN",
+   "holeCards": [
+    "Kc",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1015,
+   "netProfit": 15,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 248,
+   "position": "CO",
+   "holeCards": [
+    "2d",
+    "4s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 249,
+   "position": "HJ",
+   "holeCards": [
+    "4h",
+    "5h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 250,
+   "position": "UTG",
+   "holeCards": [
+    "Kh",
+    "As"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1015,
+   "netProfit": 15,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 251,
+   "position": "BB",
+   "holeCards": [
+    "Tc",
+    "7d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 252,
+   "position": "SB",
+   "holeCards": [
+    "Qc",
+    "7d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 253,
+   "position": "BTN",
+   "holeCards": [
+    "9d",
+    "7s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 254,
+   "position": "CO",
+   "holeCards": [
+    "4c",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 255,
+   "position": "HJ",
+   "holeCards": [
+    "Kd",
+    "9d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 256,
+   "position": "UTG",
+   "holeCards": [
+    "4s",
+    "5c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 257,
+   "position": "BB",
+   "holeCards": [
+    "8s",
+    "2h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 258,
+   "position": "SB",
+   "holeCards": [
+    "6c",
+    "Ks"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 259,
+   "position": "BTN",
+   "holeCards": [
+    "2s",
+    "5h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 260,
+   "position": "CO",
+   "holeCards": [
+    "5h",
+    "4c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 261,
+   "position": "HJ",
+   "holeCards": [
+    "5h",
+    "Qd"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 262,
+   "position": "UTG",
+   "holeCards": [
+    "2s",
+    "4d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 263,
+   "position": "BB",
+   "holeCards": [
+    "Ad",
+    "2h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 264,
+   "position": "SB",
+   "holeCards": [
+    "3d",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 265,
+   "position": "BTN",
+   "holeCards": [
+    "6s",
+    "9s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 266,
+   "position": "CO",
+   "holeCards": [
+    "9c",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 267,
+   "position": "HJ",
+   "holeCards": [
+    "6s",
+    "9s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 268,
+   "position": "UTG",
+   "holeCards": [
+    "9s",
+    "Ts"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 269,
+   "position": "BB",
+   "holeCards": [
+    "Qh",
+    "3d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 270,
+   "position": "SB",
+   "holeCards": [
+    "4c",
+    "3c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 271,
+   "position": "BTN",
+   "holeCards": [
+    "Js",
+    "9h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 272,
+   "position": "CO",
+   "holeCards": [
+    "7d",
+    "Jc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 273,
+   "position": "HJ",
+   "holeCards": [
+    "Ad",
+    "Jc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "call",
+     "amount": null
+    },
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 274,
+   "position": "UTG",
+   "holeCards": [
+    "Kh",
+    "9s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 7
+  },
+  {
+   "hand": 275,
+   "position": "BB",
+   "holeCards": [
+    "8s",
+    "As"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 276,
+   "position": "SB",
+   "holeCards": [
+    "Jc",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 277,
+   "position": "BTN",
+   "holeCards": [
+    "4s",
+    "8h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 278,
+   "position": "CO",
+   "holeCards": [
+    "Kh",
+    "Js"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 279,
+   "position": "HJ",
+   "holeCards": [
+    "7c",
+    "3c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 20
+  },
+  {
+   "hand": 280,
+   "position": "UTG",
+   "holeCards": [
+    "3c",
+    "9d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 281,
+   "position": "BB",
+   "holeCards": [
+    "Td",
+    "7d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 282,
+   "position": "SB",
+   "holeCards": [
+    "4d",
+    "Ac"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 283,
+   "position": "BTN",
+   "holeCards": [
+    "4d",
+    "Th"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 284,
+   "position": "CO",
+   "holeCards": [
+    "2s",
+    "Jc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 285,
+   "position": "HJ",
+   "holeCards": [
+    "Qh",
+    "7s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 286,
+   "position": "UTG",
+   "holeCards": [
+    "9s",
+    "3h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 287,
+   "position": "BB",
+   "holeCards": [
+    "6h",
+    "4s"
+   ],
+   "actions": [],
+   "chipsBefore": 1000,
+   "chipsAfter": 1005,
+   "netProfit": 5,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 288,
+   "position": "SB",
+   "holeCards": [
+    "Ac",
+    "8h"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 289,
+   "position": "BTN",
+   "holeCards": [
+    "8c",
+    "3d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 290,
+   "position": "CO",
+   "holeCards": [
+    "Kd",
+    "As"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    },
+    {
+     "stage": "flop",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "turn",
+     "action": "check",
+     "amount": null
+    },
+    {
+     "stage": "river",
+     "action": "check",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 970,
+   "netProfit": -30,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 2
+  },
+  {
+   "hand": 291,
+   "position": "HJ",
+   "holeCards": [
+    "4d",
+    "8d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 1
+  },
+  {
+   "hand": 292,
+   "position": "UTG",
+   "holeCards": [
+    "9h",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 2
+  },
+  {
+   "hand": 293,
+   "position": "BB",
+   "holeCards": [
+    "Qc",
+    "8d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 294,
+   "position": "SB",
+   "holeCards": [
+    "9s",
+    "Th"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 295,
+   "position": "BTN",
+   "holeCards": [
+    "Qd",
+    "Qc"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "raise",
+     "amount": 30
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1015,
+   "netProfit": 15,
+   "result": "won",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 296,
+   "position": "CO",
+   "holeCards": [
+    "2d",
+    "4c"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 297,
+   "position": "HJ",
+   "holeCards": [
+    "4d",
+    "Ts"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 298,
+   "position": "UTG",
+   "holeCards": [
+    "6h",
+    "5s"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 1000,
+   "netProfit": 0,
+   "result": "even",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 299,
+   "position": "BB",
+   "holeCards": [
+    "3d",
+    "5d"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 990,
+   "netProfit": -10,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  },
+  {
+   "hand": 300,
+   "position": "SB",
+   "holeCards": [
+    "Qs",
+    "Th"
+   ],
+   "actions": [
+    {
+     "stage": "preflop",
+     "action": "fold",
+     "amount": null
+    }
+   ],
+   "chipsBefore": 1000,
+   "chipsAfter": 995,
+   "netProfit": -5,
+   "result": "lost",
+   "isSplitPot": false,
+   "mistake": null,
+   "evLost": 0,
+   "rake": 0
+  }
+ ],
+ "records": [
+  {
+   "handNumber": 1,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 2,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 3,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 4,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 5,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 6,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 7,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 8,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 9,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 10,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 11,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 12,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 13,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 14,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 15,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 16,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 17,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 18,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 19,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 20,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 21,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 22,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 23,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 24,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 25,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 26,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 27,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 28,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 29,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 30,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 31,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 32,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 33,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 34,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 35,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 36,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 37,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 38,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 39,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 40,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 41,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 42,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 43,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 44,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 45,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 46,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 47,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 48,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 49,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 50,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 51,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 52,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 53,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 54,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 55,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 56,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 57,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 58,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 59,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 60,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 61,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 62,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 63,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 64,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 65,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 66,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 67,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 68,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 69,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 70,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 71,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 72,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 73,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 74,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 75,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 76,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 77,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 78,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 79,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 80,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 81,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 82,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 83,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 84,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 85,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 86,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 87,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 88,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 89,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 90,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 91,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 92,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 93,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 94,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 95,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 96,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 97,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 98,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 99,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 100,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 101,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 102,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 103,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 104,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 105,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 106,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 107,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 108,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 109,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 110,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 111,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 112,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 113,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 114,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 115,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 116,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 117,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 118,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 119,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 120,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 121,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 122,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 123,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 124,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 125,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 126,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 127,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 128,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 129,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 130,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 131,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 132,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 133,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 134,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 135,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 136,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 137,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 138,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 139,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 140,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 141,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 142,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 143,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 144,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 145,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 146,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 147,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 148,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 149,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 150,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 151,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 152,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 153,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 154,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 155,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 156,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 157,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 158,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 159,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 160,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 161,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 162,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 163,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 164,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 165,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 166,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 167,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 168,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 169,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 170,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 171,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 172,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 173,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 174,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 175,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 176,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 177,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 178,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 179,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 180,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 181,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 182,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 183,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 184,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 185,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 186,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 187,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 188,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 189,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 190,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 191,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 192,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 193,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 194,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 195,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 196,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 197,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 198,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 199,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 200,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 201,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 202,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 203,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 204,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 205,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 206,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 207,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 208,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 209,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 210,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 211,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 212,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 213,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 214,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 215,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 216,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 217,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 218,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 219,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 220,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 221,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 222,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 223,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 224,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 225,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 226,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 227,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 228,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 229,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 230,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 231,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 232,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 233,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 234,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 235,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 236,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 237,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 238,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 239,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 240,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 241,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 242,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 243,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 244,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 245,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 246,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 247,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 248,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 249,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 250,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 251,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 252,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 253,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 254,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 255,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 256,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 257,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 258,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 259,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 260,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 261,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 262,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 263,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 264,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 265,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 266,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 267,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 268,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 269,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 270,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 271,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 272,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 273,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 274,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 275,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 276,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 277,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 278,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 279,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 280,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 281,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 282,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 283,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 284,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 285,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 286,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 287,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 288,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 289,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 290,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 291,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 292,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 293,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 294,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 295,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 296,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 297,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 298,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 299,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  },
+  {
+   "handNumber": 300,
+   "blinds": {
+    "sb": 5,
+    "bb": 10
+   },
+   "stage": "preflop"
+  }
+ ]
+}
