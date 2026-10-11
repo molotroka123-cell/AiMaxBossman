@@ -102,3 +102,34 @@ Adherence checklists (binary, fixed):
 ## 6. Deliverables of Phase 2
 
 Per run: MP4, 5 sample PNG frames (0, 20, 40, 60, 80), metrics JSON (wall split, peaks, G2/G3 numbers), checklist and artifact list. Summary table of all runs with PASS/FAIL per gate, highest working resolution, seconds per frame, download size/time. If the model cannot run: exact failure reason + cheapest remote recipe (a single 80 GB-class GPU for ~1 h per 4K clip at 15 steps by the paper's scaling; not rented here).
+
+## 7. PHASE 2 RESULTS (2026-10-11, aborted by owner order after ~2.5 h; plan thresholds unchanged)
+
+Environment actually used: torch 2.9.1+rocm7.2.1 (Windows, gfx1151, 79.8 GB GPU-visible of 128 GB), venv `models\media\t3-video-4k\venv` (shares comfyui-venv site-packages), DiffSynth fork patched for (a) transformers import, (b) window layout rescaled to non-4K token grids, (c) `T3_MODE=full` control. Patch: `tools/t3_eval/eval-patch.diff`. SDPA needs `TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1`; without it the math path tries to allocate 48 GiB at 480p and OOMs.
+
+Downloads (public, free): T3 2.84 GB in 34 s; base Wan2.1-T2V-1.3B (fp32 DiT + bf16 UMT5 + VAE + tokenizer) ~17 GB; both in about 4 min total (~20 GB).
+
+| Rung | Prompt | Result | Wall | Denoise (15 steps) | VAE decode | Peak memory | G1 | G2 sharp | G3 flicker | Verdict |
+|------|--------|--------|------|---------------------|------------|-------------|----|----------|------------|---------|
+| attempt0 L0 control 832x480, math SDPA | P1 | OOM, tried 48 GiB alloc | 0 | - | - | 49 GiB allocated | FAIL | n/a | n/a | FAIL (config error, fixed by AOTriton flag) |
+| L0 control 832x480 full attention | P1 | watchdog kill at 1500 s while in VAE decode | >1500 s | 1220 s (~81 s/step, 15.0 s/frame) | not finished | n/a (not recorded; killed) | FAIL (timeout) | n/a | n/a | FAIL: plain Wan2.1 480p exceeds the 25-min cap on this stack |
+| L1 T3 832x480 | P1 | finished, output ALL BLACK (Laplacian var 0.0, flicker 0.0) | 1436 s | 368 s (23.5 s/step, 4.5 s/frame) | 1068 s | RSS 25.5 GB, system used 113.5 GB of 128, swap 17.6 GB, torch max alloc 10.7 GB, GPU free min 64.6 GB | FAIL (invalid output) | FAIL (0.0) | FAIL (0.0, degenerate) | FAIL |
+| L1 T3 832x480 | P2, P3 | "finished" in 10 s / 6 s, ALL BLACK (invalid, not real generation) | ~10 s | - | 0.2 s | torch max alloc 12.5 GB | FAIL | FAIL | FAIL | FAIL |
+| L2 720p, L3 1080p, L4 4K | - | NOT RUN (stop at first failure) | - | - | - | - | - | - | - | - |
+
+Diagnosis (isolated, small sizes, all measured):
+- T5 text encoder: finite embeddings on GPU and CPU. OK.
+- DiT forward, T3 weights loaded (all keys matched) and control, 256x448 x 21 latent frames: finite, std 0.56, no NaN, with and without AOTriton. OK. Note: the T3 module hardcodes T=21 latent frames (81 video frames only).
+- 3-step diagnostic at 832x480: latents finite (std 1.40), i.e. DiT stage works at 480p.
+- VAE decode (Wan2.1_VAE.pth) at 9 frames 256x448: correct on GPU bf16 (6.3 s), GPU fp32 (21.5 s) and CPU bf16 (7.5 s). At 81 frames 832x480 on GPU it takes 833-1068 s and returns a constant tensor (black video). So the failure is the ROCm Windows VAE conv3d decode at full 81-frame size (not the T3 attention).
+- A CPU-VAE rerun at 480p (`--vae cpu`) was started and abandoned by the 15-minute owner order before it produced a result. Not tested: tiled GPU VAE (`--tiled`), `MIOPEN_FIND_MODE` other than FAST.
+
+Quality metrics (sharpness vs control, flicker, adherence, artifacts): NOT measurable, no valid frames exist. Sample frames: none (all black); raw logs and attempt folders are under `C:\Users\asd\Videos\Bossman-Genjutsu\t3video-20261011\`.
+
+### Verdict
+
+- Highest working rung: NONE. No rung produced a valid video on this stack.
+- Seconds per frame (DiT stage only, measured): T3 480p 4.5 s/frame; plain Wan2.1 480p full attention 15.0 s/frame (3.3x slower; consistent with the ~31 s/frame class of sd-cli numbers). The VAE decode, not the DiT, was the limiting stage at 480p (>1000 s).
+- Extrapolation (labelled estimate, not measured): T3 token count at 1080p is ~5x of 480p and at 4K ~21x; with 23.5 s/step at 480p, 4K would be several hours of denoise alone, plus a VAE decode that already fails at 480p. 4K on this machine is not realistic within a 25-min cap.
+- Motion Studio: NOT usable as B-roll/background generator on the local stack today. Identity work stays FaceFusion. Plain Wan2.1 at 480p is also beyond the 25-min cap here.
+- Cheapest next step (no rent done): (1) cheap local retry: rerun L1 with `--vae cpu` and with `--tiled` (small, ~10 min each) to see whether valid 480p T3 video is obtainable; if yes continue the ladder to 720p; (2) the only realistic 4K path is one rented 80 GB-class CUDA GPU (paper: <60 GB, ~1,857 s DiT-only at 50 steps, ~560 s at 15 steps by scaling) running the official `infer_multi_gpu.py` with `--num_inference_steps 15 --tiled true`; budget about one GPU-hour per 3 clips.

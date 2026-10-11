@@ -1,0 +1,46 @@
+diff --git a/diffsynth/models/stepvideo_text_encoder.py b/diffsynth/models/stepvideo_text_encoder.py
+index 598825a..5bcb066 100644
+--- a/diffsynth/models/stepvideo_text_encoder.py
++++ b/diffsynth/models/stepvideo_text_encoder.py
+@@ -18,7 +18,7 @@ import torch.nn as nn
+ import torch.nn.functional as F
+ from .stepvideo_dit import RMSNorm
+ from safetensors.torch import load_file
+-from transformers.modeling_utils import PretrainedConfig, PreTrainedModel
++from transformers import PretrainedConfig, PreTrainedModel
+ from einops import rearrange
+ import json
+ from typing import List
+diff --git a/diffsynth/models/wan_video_dit.py b/diffsynth/models/wan_video_dit.py
+index 6d40fd1..20c8e7a 100644
+--- a/diffsynth/models/wan_video_dit.py
++++ b/diffsynth/models/wan_video_dit.py
+@@ -212,6 +212,18 @@ class SelfAttention(nn.Module):
+                 pass
+         else:
+             pass
++        # --- EVAL PATCH (2026-10-11): scale the 4K-trained window layout to other token grids ---
++        import os as _os
++        _th, _tw = _os.environ.get('T3_TOK_H'), _os.environ.get('T3_TOK_W')
++        if _th and _tw and (int(_th), int(_tw)) != (self.H, self.W):
++            def _adj(n, base, new):
++                w = base // n
++                target = new / w
++                divs = [d for d in range(1, new + 1) if new % d == 0]
++                return min(divs, key=lambda d: abs(d - target))
++            self.n_h = _adj(self.n_h, self.H, int(_th))
++            self.n_w = _adj(self.n_w, self.W, int(_tw))
++            self.H, self.W = int(_th), int(_tw)
+         print(f"=== Layer: {idx:d} ==> {self.n_t:<3d} - {self.n_h:<3d} - {self.n_w:<3d}")
+ 
+         assert self.use_remote or self.use_close
+@@ -334,7 +346,8 @@ class DiTBlock(nn.Module):
+         self.dim = dim
+         self.num_heads = num_heads
+         self.ffn_dim = ffn_dim
+-        self.self_attn = SelfAttention(dim, num_heads, eps, idx=idx)
++        import os as _os2
++        self.self_attn = (SelfAttention1 if _os2.environ.get('T3_MODE') == 'full' else SelfAttention)(dim, num_heads, eps, idx=idx)
+         self.cross_attn = CrossAttention(
+             dim, num_heads, eps, has_image_input=has_image_input)
+         self.norm1 = nn.LayerNorm(dim, eps=eps, elementwise_affine=False)
