@@ -1,0 +1,195 @@
+{
+  "kind": "poker_training_report",
+  "source": "simulation",
+  "generated_utc": "2026-10-11T09:52:55Z",
+  "input": {
+    "hero": "Student (start)",
+    "opponents": [
+      "Rock",
+      "TAG Trainer",
+      "Calling Station",
+      "Maniac",
+      "Scared Money"
+    ],
+    "hands_requested": 3000,
+    "seed": 11,
+    "big_blind": 2
+  },
+  "rake": {
+    "pct": 0.05,
+    "cap_bb": 3.0,
+    "no_flop_no_drop": true
+  },
+  "winrate": {
+    "hands": 3000,
+    "mean": 61.883,
+    "sd": 846.287,
+    "ci95_lo": -12.296,
+    "ci95_hi": 136.062
+  },
+  "vpip": {
+    "value": 21.6,
+    "n": 3000,
+    "ci95": [
+      20.2,
+      23.1
+    ]
+  },
+  "pfr": {
+    "value": 10.0,
+    "n": 3000,
+    "ci95": [
+      8.9,
+      11.1
+    ]
+  },
+  "af": 1.0,
+  "wtsd_pct": 80.2,
+  "showdown_win_pct": 50.5,
+  "table": {
+    "hands": 3000,
+    "deals": 500,
+    "big_blind": 2,
+    "seed": 11,
+    "duplicate": true,
+    "bots": [
+      {
+        "label": "Student (start)",
+        "profile": "Student (start)",
+        "hands": 3000,
+        "net_chips": 3713,
+        "bb_per_100": {
+          "mean": 61.883,
+          "sd": 846.287,
+          "n": 500,
+          "ci95_lo": -12.296,
+          "ci95_hi": 136.062
+        },
+        "vpip_pct": 21.6,
+        "pfr_pct": 10.0,
+        "af": 1.0,
+        "wtsd_pct": 80.2,
+        "showdown_win_pct": 50.5
+      },
+      {
+        "label": "Rock",
+        "profile": "Rock",
+        "hands": 3000,
+        "net_chips": 197,
+        "bb_per_100": {
+          "mean": 3.283,
+          "sd": 533.046,
+          "n": 500,
+          "ci95_lo": -43.439,
+          "ci95_hi": 50.006
+        },
+        "vpip_pct": 7.9,
+        "pfr_pct": 5.7,
+        "af": 0.8,
+        "wtsd_pct": 73.7,
+        "showdown_win_pct": 49.2
+      },
+      {
+        "label": "TAG Trainer",
+        "profile": "TAG Trainer",
+        "hands": 3000,
+        "net_chips": 2646,
+        "bb_per_100": {
+          "mean": 44.1,
+          "sd": 599.74,
+          "n": 500,
+          "ci95_lo": -8.469,
+          "ci95_hi": 96.669
+        },
+        "vpip_pct": 16.9,
+        "pfr_pct": 13.8,
+        "af": 1.64,
+        "wtsd_pct": 79.5,
+        "showdown_win_pct": 52.7
+      },
+      {
+        "label": "Calling Station",
+        "profile": "Calling Station",
+        "hands": 3000,
+        "net_chips": -2848,
+        "bb_per_100": {
+          "mean": -47.467,
+          "sd": 1097.996,
+          "n": 500,
+          "ci95_lo": -143.708,
+          "ci95_hi": 48.775
+        },
+        "vpip_pct": 40.4,
+        "pfr_pct": 3.3,
+        "af": 0.17,
+        "wtsd_pct": 92.5,
+        "showdown_win_pct": 53.2
+      },
+      {
+        "label": "Maniac",
+        "profile": "Maniac",
+        "hands": 3000,
+        "net_chips": -12439,
+        "bb_per_100": {
+          "mean": -207.317,
+          "sd": 1376.979,
+          "n": 500,
+          "ci95_lo": -328.012,
+          "ci95_hi": -86.621
+        },
+        "vpip_pct": 55.8,
+        "pfr_pct": 38.4,
+        "af": 4.83,
+        "wtsd_pct": 85.2,
+        "showdown_win_pct": 38.3
+      },
+      {
+        "label": "Scared Money",
+        "profile": "Scared Money",
+        "hands": 3000,
+        "net_chips": 3676,
+        "bb_per_100": {
+          "mean": 61.267,
+          "sd": 592.668,
+          "n": 500,
+          "ci95_lo": 9.318,
+          "ci95_hi": 113.215
+        },
+        "vpip_pct": 14.4,
+        "pfr_pct": 3.9,
+        "af": 0.51,
+        "wtsd_pct": 67.6,
+        "showdown_win_pct": 63.6
+      }
+    ],
+    "chip_conservation": true,
+    "rake": {
+      "pct": 0.05,
+      "cap_chips": 6,
+      "no_flop_no_drop": true
+    },
+    "rake_total_chips": 5055,
+    "rake_bb_per_100_hands": 84.25
+  },
+  "elapsed_sec": 7.93,
+  "runtime": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
+  "flags": [
+    "PFR 10.0% is below the 14-24% heuristic band.",
+    "VPIP-PFR gap 11.6 points: many calls relative to raises (passive/limp-heavy)."
+  ],
+  "limits": [
+    "This is a training report, not advice to wager and not a promise of winnings; poker results vary widely.",
+    "Sample: 3000 hands. Win-rate intervals below ~10,000 hands are wide; a positive point estimate is not proof of an edge.",
+    "Opponents are scripted training profiles, not people; results measure style vs those profiles only.",
+    "Hero equity inside the policy is computed against RANDOM hands, not realistic ranges.",
+    "Seeded and duplicate-dealt: the same seed and settings reproduce the same numbers exactly."
+  ],
+  "status": {
+    "technically_executed": true,
+    "accepted_by_customer": "NOT PROVEN",
+    "paid": "NOT PROVEN"
+  }
+}

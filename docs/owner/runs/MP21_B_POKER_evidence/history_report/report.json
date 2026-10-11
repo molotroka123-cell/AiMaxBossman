@@ -1,0 +1,121 @@
+{
+  "kind": "poker_training_report",
+  "source": "history",
+  "generated_utc": "2026-10-11T09:52:45Z",
+  "input": {
+    "file": "session_NL10_seed11.json",
+    "sha256": "d751f05d41799442ce053a992378344a578a696b92be0ccebef1d8b576d71cde",
+    "bytes": 139102,
+    "format": "poker-train session export",
+    "session_id": "sim_NL10_seed11",
+    "rake_recorded": {
+      "pct": 0.045,
+      "cap_chips": 20,
+      "no_flop_no_drop": true,
+      "total_chips": 428
+    },
+    "hands_parsed": 300
+  },
+  "rake": {
+    "pct": 0.045,
+    "cap_chips": 20,
+    "no_flop_no_drop": true,
+    "total_chips": 428
+  },
+  "winrate": {
+    "hands": 300,
+    "bb_per_100": -114.03,
+    "sd_bb_per_100_hands": 129.1,
+    "ci95_bb_per_100": [
+      -260.09,
+      32.02
+    ],
+    "hands_needed_for_plus_minus_5bb100": 255981
+  },
+  "vpip": {
+    "value": 10.5,
+    "n": 296,
+    "ci95": [
+      7.5,
+      14.5
+    ]
+  },
+  "pfr": {
+    "value": 5.7,
+    "n": 296,
+    "ci95": [
+      3.6,
+      9.0
+    ]
+  },
+  "by_position": {
+    "BB": {
+      "hands": 50,
+      "net_bb": -122.5,
+      "vpip_pct": 8.7,
+      "pfr_pct": 8.7
+    },
+    "BTN": {
+      "hands": 50,
+      "net_bb": 4.0,
+      "vpip_pct": 14.0,
+      "pfr_pct": 4.0
+    },
+    "CO": {
+      "hands": 50,
+      "net_bb": -107.4,
+      "vpip_pct": 12.0,
+      "pfr_pct": 6.0
+    },
+    "HJ": {
+      "hands": 50,
+      "net_bb": -96.1,
+      "vpip_pct": 16.0,
+      "pfr_pct": 6.0
+    },
+    "SB": {
+      "hands": 50,
+      "net_bb": -124.5,
+      "vpip_pct": 2.0,
+      "pfr_pct": 2.0
+    },
+    "UTG": {
+      "hands": 50,
+      "net_bb": 104.4,
+      "vpip_pct": 10.0,
+      "pfr_pct": 8.0
+    }
+  },
+  "mistakes": {
+    "count": 0,
+    "by_type": {},
+    "ev_lost_chips_sum": 0.0
+  },
+  "data_quality": {
+    "hands": 300,
+    "hands_without_big_blind": 0,
+    "hands_without_preflop_action": 4
+  },
+  "elapsed_sec": 0.01,
+  "runtime": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
+  "flags": [
+    "VPIP 10.5% is below the 18-28% heuristic band.",
+    "PFR 5.7% is below the 14-24% heuristic band."
+  ],
+  "limits": [
+    "This is a training report, not advice to wager and not a promise of winnings; poker results vary widely.",
+    "Sample: 300 hands. Win-rate intervals below ~10,000 hands are wide; a positive point estimate is not proof of an edge.",
+    "With the observed variance about 255,981 hands are needed for a +-5 bb/100 95% interval.",
+    "Chips are normalised to big blinds per hand; tournament chips are not money and blinds/ICM change value.",
+    "Positions, VPIP and PFR are taken from the file as recorded; hands without a preflop action are excluded from them.",
+    "Mistake labels / EV-lost come from the training app's own heuristic evaluator, not a solver."
+  ],
+  "status": {
+    "technically_executed": true,
+    "accepted_by_customer": "NOT PROVEN",
+    "paid": "NOT PROVEN"
+  }
+}
