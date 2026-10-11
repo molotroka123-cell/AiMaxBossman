@@ -189,7 +189,8 @@ def _quantile(sorted_vals: list[float], q: float) -> float:
     return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * (pos - lo)
 
 
-def summarize(paths: Sequence[PathResult], *, title: str = "synthetic book") -> Distribution:
+def summarize(paths: Sequence[PathResult], *, title: str = "synthetic book",
+              track_drawdown: bool = True) -> Distribution:
     n = len(paths)
     if n == 0:
         raise MMError("no paths")
@@ -209,11 +210,11 @@ def summarize(paths: Sequence[PathResult], *, title: str = "synthetic book") -> 
         mean_max_inventory=sum(p.max_abs_inventory for p in paths) / n,
         mean_max_drawdown=sum(p.max_drawdown for p in paths) / n,
         ci_includes_zero=ci[0] <= 0.0 <= ci[1], paths=list(paths))
-    dist.text = render(dist, title)
+    dist.text = render(dist, title, track_drawdown)
     return dist
 
 
-def render(d: Distribution, title: str) -> str:
+def render(d: Distribution, title: str, track_drawdown: bool = True) -> str:
     c = d.components
     lines = [f"MARKET-MAKING PAPER ANALYSIS ({title})", DISCLAIMER,
              f"paths: {d.n_paths}; mean fills/path: {d.mean_fills:.1f}",
@@ -226,7 +227,8 @@ def render(d: Distribution, title: str) -> str:
              f"inventory_risk={c['inventory_risk']:+.4f}, "
              f"flatten_cost=-{c['flatten_cost']:.4f}, fees=-{c['fees']:.4f}",
              f"mean max |inventory|: {d.mean_max_inventory:.1f}; mean max drawdown: "
-             f"{d.mean_max_drawdown:.3f}"]
+             + (f"{d.mean_max_drawdown:.3f}" if track_drawdown
+                else "n/a (not tracked in replay)")]
     if d.ci_includes_zero:
         lines.append("RESULT: the confidence interval INCLUDES ZERO under these assumptions.")
     elif d.mean < 0:
@@ -335,4 +337,4 @@ def replay_recorded(events: Iterable[BookEvent], params: MMParams, *,
         res.max_abs_inventory = abs(net_inv)
         _decompose(seg_fills, seg, params, adverse_horizon, res, net_inv)
         paths.append(res)
-    return summarize(paths, title="recorded book replay")
+    return summarize(paths, title="recorded book replay", track_drawdown=False)
