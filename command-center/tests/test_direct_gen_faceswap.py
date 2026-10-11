@@ -348,6 +348,123 @@ def test_hairline_guard_keeps_the_target_next_to_its_hair():
     assert hairline_guard(src, eng, np.zeros((200, 200), bool), 150.0) is eng
 
 
+def test_v2_alpha_has_no_reversal_where_the_raw_pitch_jitters_around_the_band():
+    """10.10 two-person clip 11.1-11.4 s: V1 alpha went 0.29 -> 0.91 -> 0.84 -> 1.0 -> 0.78 -> 1.0 (face flickered between the
+    original and the swap). V2: temporal median + slew limit leave one fade out and one fade in."""
+    from bcc.direct_gen.pose_gate_worker import alpha_track, pose_alpha
+    pitch = [0.40] * 10 + [0.60] * 20 + [0.54, 0.50, 0.55, 0.49, 0.54, 0.47, 0.50, 0.45, 0.44, 0.43] + [0.40] * 20
+    v1 = [pose_alpha(p) for p in pitch]
+    v2 = alpha_track(pitch, fps=25.0)
+
+    def reversals(a):
+        d = [b - c for c, b in zip(a, a[1:]) if abs(b - c) > 1e-6]
+        return sum(1 for x, y in zip(d, d[1:]) if x * y < 0)
+    assert reversals(v1) >= 3
+    assert reversals(v2) <= 1
+    assert all(x <= y + 1e-9 for x, y in zip(v2, [pose_alpha(p) for p in pitch])) or max(v2) <= 1.0
+    assert max(abs(b - a) for a, b in zip(v2, v2[1:])) <= 0.31        # no pop: 0.2 s ramp = 5 frames at 25 fps, smoothstep slope <= 1.5/5 (V1 jumped 0.62)
+    assert v2[0] == 1.0 and v2[-1] == 1.0 and min(v2) == 0.0
+
+
+def test_v2_slew_limit_is_a_lower_envelope_and_fades_before_the_bow():
+    from bcc.direct_gen.pose_gate_worker import slew_limit
+    out = slew_limit([1, 1, 1, 0, 0, 1, 1, 1], 0.5)
+    assert out == [1.0, 1.0, 0.5, 0.0, 0.0, 0.5, 1.0, 1.0]
+    assert all(o <= r for o, r in zip(out, [1, 1, 1, 0, 0, 1, 1, 1]))
+
+
+def test_v2_median_pitch_bridges_detector_gaps_and_ignores_single_spikes():
+    from bcc.direct_gen.pose_gate_worker import median_pitch
+    out = median_pitch([0.4, 0.4, 0.62, 0.4, None, None, 0.4, 0.4])
+    assert out[2] == 0.4                                              # one-frame spike removed
+    assert out[4] == out[5] == 0.4                                    # gap bridged from the neighbours
+
+
+def test_v2_affine_undoes_the_engines_colour_rerange_outside_the_face_only():
+    import numpy as np
+    from bcc.direct_gen.pose_gate_worker import apply_affine, fit_affine
+    rng = np.random.default_rng(1)
+    src = rng.integers(20, 235, (120, 160, 3), dtype=np.uint8)
+    eng = np.clip(src.astype(np.float32) * 0.92 + 4, 0, 255).astype(np.uint8)   # tv-range style squeeze
+    eng[40:80, 60:100] = 255                                          # the swapped face is unrelated to the source
+    box = (60.0, 40.0, 100.0, 80.0)
+    m, o = fit_affine(src, eng, [box])
+    fixed = apply_affine(eng, m, o)
+    far = np.ones((120, 160), bool)
+    far[10:110, 20:140] = False                                       # beyond the padded box
+    assert np.abs(fixed.astype(int) - src.astype(int))[far].mean() < 1.5
+    assert np.abs(eng.astype(int) - src.astype(int))[far].mean() > 5   # the squeeze was real
+    ident = fit_affine(src, src, [box])
+    assert np.allclose(ident[0], np.eye(3), atol=1e-3) and np.allclose(ident[1], 0, atol=0.5)
+
+
+def test_v2_pooled_clip_fit_stays_right_where_one_dark_frame_cannot_constrain_it():
+    """10.10 pair clip, dark close-up: the per-frame fit saw only near-black pixels and extrapolated a 0.82 / 1.10 channel gain
+    to the face. The clip-level fit pools the pairs of every frame, bright scenes included."""
+    import numpy as np
+    from bcc.direct_gen.pose_gate_worker import apply_affine, clip_affine, sample_outside
+    rng = np.random.default_rng(5)
+
+    def engine(src):
+        return np.clip(src.astype(np.float32) * np.array([0.93, 0.95, 0.92]) + 4, 0, 255).astype(np.uint8)
+    dark = [rng.integers(0, 14, (80, 120, 3), dtype=np.uint8) for _ in range(6)]
+    bright = [rng.integers(0, 255, (80, 120, 3), dtype=np.uint8) for _ in range(6)]
+    pairs = [sample_outside(s, engine(s), [], count=400, seed=i) for i, s in enumerate(dark + bright)]
+    m, o = clip_affine(pairs)
+    probe = np.full((2, 2, 3), 200, np.uint8)
+    fixed = apply_affine(engine(probe), m, o)
+    assert np.abs(fixed.astype(int) - 200).max() <= 3                 # bright face colours come back
+    only_dark = clip_affine(pairs[:6])                                # too little spread: not trusted blindly
+    assert only_dark[0].shape == (3, 3)
+
+
+def test_v2_swap_mask_keeps_source_pixels_where_the_engine_changed_nothing():
+    import numpy as np
+    from bcc.direct_gen.pose_gate_worker import swap_mask
+    src = np.full((160, 160, 3), 90, np.uint8)
+    eng = src.copy()
+    eng += np.random.default_rng(2).integers(0, 3, eng.shape, dtype=np.uint8)   # codec noise
+    eng[50:110, 50:110] = 200                                         # the swapped face
+    m = swap_mask(src, eng, np.zeros((160, 160), bool), side=60.0)
+    assert m[80, 80] > 0.95 and m[5, 5] < 0.02 and m[150, 20] < 0.02
+
+
+def test_v2_relight_moves_a_flat_lit_face_to_the_sources_shadow_but_keeps_texture():
+    """10.10 two-person clip: the swapped face was lighter than the shadowed neck. Low frequencies come from the source."""
+    import numpy as np
+    from bcc.direct_gen.pose_gate_worker import relight
+    src = np.full((160, 160, 3), 60, np.uint8)                        # dark scene
+    eng = np.full((160, 160, 3), 150, np.uint8)                       # flat, bright swapped face
+    eng[70:90:2, 60:100] = 140                                        # texture: stripes
+    mask = np.zeros((160, 160), np.float32)
+    mask[40:120, 40:120] = 1.0
+    out = relight(src, eng, mask, side=80.0)
+    assert out[80, 80].mean() < eng[80, 80].mean() - 40               # much darker, as in the source
+    assert (out[0, 0] == eng[0, 0]).all()                             # untouched outside the mask
+    stripes = out[70:90, 70, 0].astype(int)
+    assert stripes.max() - stripes.min() >= 5                         # the face's own detail survives
+    assert relight(src, eng, np.zeros((160, 160), np.float32), 80.0) is eng
+
+
+def test_v2_compose_is_source_outside_boxes_and_never_shows_the_engine_when_gated():
+    import numpy as np
+    from bcc.direct_gen.pose_gate_worker import compose_v2
+    rng = np.random.default_rng(3)
+    src = rng.integers(30, 220, (200, 300, 3), dtype=np.uint8)
+    eng = np.clip(src.astype(np.float32) * 0.93 + 3, 0, 255).astype(np.uint8)
+    eng[85:115, 135:165] = 230                                        # swapped face
+    face = {"box": (135.0, 85.0, 165.0, 115.0), "lm68": None, "swapped": True}
+    full = compose_v2(src, eng, [face], 1.0)
+    gated = compose_v2(src, eng, [face], 0.0)
+    half = compose_v2(src, eng, [face], 0.5)
+    from bcc.direct_gen.pose_gate_worker import face_regions_mask
+    outside = face_regions_mask(src.shape[:2], [face["box"]]) == 0
+    assert (full[outside] == src[outside]).all()
+    assert (gated == src).all()                                       # alpha 0: the source, byte for byte
+    assert full[100, 150].mean() > 180                                # alpha 1: the face is the engine's
+    assert abs(float(half[100, 150, 0]) - (float(src[100, 150, 0]) + float(full[100, 150, 0])) / 2) < 25
+
+
 async def test_pose_gate_runs_after_the_swap_and_is_recorded(env, tmp_path, monkeypatch):
     svc = install_swap(env, tmp_path, FakeFaceFusion)
     monkeypatch.setattr(faceswap, "finish", lambda video, original, dst, **k: shutil.copyfile(video, dst))
@@ -399,3 +516,47 @@ def test_vfr_source_is_normalized_and_the_video_length_survives_a_shorter_audio(
     assert faceswap.normalize_cfr(cfr, tmp_path / "again.mp4") is False      # already constant: nothing written
     faceswap.finish(cfr, vfr, out)
     assert abs(faceswap.video_seconds(out) - faceswap.video_seconds(cfr)) < 0.1
+
+
+def _audit_module():
+    import importlib.util
+    path = Path(__file__).resolve().parents[2] / "tools" / "video_gate" / "artifact_audit.py"
+    spec = importlib.util.spec_from_file_location("artifact_audit", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_artifact_audit_refs_table_and_scene_lookup():
+    audit = _audit_module()
+    table = audit.parse_refs("0-251=a.jpg,b.jpg;252-=c.jpg")
+    assert table == [(0, 251, ["a.jpg", "b.jpg"]), (252, None, ["c.jpg"])]
+    assert audit.refs_for(10, table) == 0 and audit.refs_for(252, table) == 1 and audit.refs_for(900, table) == 1
+    assert audit.parse_refs("x.jpg,y.jpg") == [(0, None, ["x.jpg", "y.jpg"])]
+
+
+def test_artifact_audit_alpha_reversals_and_worst_windows_are_distinct_moments():
+    audit = _audit_module()
+    clean = [1.0, 1.0, 0.6, 0.2, 0.0, 0.0, 0.3, 0.7, 1.0, 1.0]
+    flicker = [1.0, 0.29, 0.91, 0.84, 1.0, 0.78, 1.0]            # 10.10 two-person clip, V1
+    assert audit.alpha_reversals(clean) == 1
+    assert audit.alpha_reversals(flicker) >= 3
+    scores = [0.0] * 40
+    for i in range(10, 18):
+        scores[i] = 5.0
+    for i in range(30, 36):
+        scores[i] = 3.0
+    wins = audit.worst_windows(scores, width=8, count=2)
+    assert len(wins) == 2 and wins[0][0] <= 12 and wins[1][0] >= 27           # two moments, not one artifact twice
+
+
+def test_artifact_audit_jitter_ignores_gaps_and_scores_landmark_outliers():
+    import numpy as np
+    audit = _audit_module()
+    dev = [np.zeros((68, 2)) for _ in range(6)]
+    dev[3] = np.full((68, 2), 0.1)                                   # one frame shifted: a jitter spike
+    dev[5] = None
+    out = audit.jitter_series(dev)
+    assert out[0] is None and out[5] is None and out[4] is None      # ends and gaps are not scored
+    assert out[2] and out[2] > 0 and out[3] > 0
+    assert audit.frame_score({"flicker": 0.0, "lm_outlier": True}, None) >= 1.0   # a detector failure counts as one unit
