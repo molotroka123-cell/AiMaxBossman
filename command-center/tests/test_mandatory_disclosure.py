@@ -161,6 +161,23 @@ def test_output_filter_alone_discloses_nothing(disclosing_runtime, monkeypatch):
     assert "127.0.0.1" not in log and "sk-or" not in log     # the guard log holds categories, never text
 
 
+def test_financial_safety_note_reaches_the_shared_jeff_chat_prompt(tmp_path):
+    from bcc.pit.financial_safety import FINANCIAL_SAFETY_BRIEF
+
+    model = DisclosingModel()
+    runtime = make_runtime(tmp_path, adapter=model)
+    person = runtime.settings.people[0]
+    warm(runtime, runtime.vault.key_for_telegram(person.user_id))
+    try:
+        answer = asyncio.run(runtime.handle(person, message("Привет, расскажи чем можешь помочь", message_id=3001)))
+        assert answer
+        assert model.calls
+        prompts = [m["content"] for m in model.calls[-1][1] if m.get("role") == "system"]
+        assert any(FINANCIAL_SAFETY_BRIEF in prompt for prompt in prompts)
+    finally:
+        asyncio.run(runtime.close())
+
+
 @pytest.mark.parametrize("probe", [p for p in CORPUS if p["vector"] == "voice"], ids=lambda p: p["id"])
 def test_voice_probe_is_refused_before_any_model(tmp_path, monkeypatch, probe):
     model = DisclosingModel()

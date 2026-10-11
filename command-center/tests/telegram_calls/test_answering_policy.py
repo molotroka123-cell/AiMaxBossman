@@ -14,6 +14,7 @@ import pytest
 from bcc.telegram_calls import answering_store as store_mod
 from bcc.telegram_calls.answering_policy import (AnsweringBrain, REFUSAL_TEXT, decide_incoming, detect_callback,
                                                  mechanical_wants, private_request)
+from bcc.pit.financial_safety import FINANCIAL_SAFETY_BRIEF
 from bcc.telegram_calls.answering_store import AnsweringStore, build_report, render_notice
 from bcc.telegram_calls.settings import (CallSettings, DEFAULT_ANSWER_GREETING, check_answer_greeting, load_settings,
                                          save_settings)
@@ -138,6 +139,14 @@ def test_requests_for_private_data_settings_or_rule_breaking_are_caught(text):
 
 def test_the_refusal_text_is_not_itself_a_request_and_is_speakable():
     assert private_request(REFUSAL_TEXT) is None and len(REFUSAL_TEXT) < 200
+
+
+def test_call_answering_brief_includes_financial_safety_boundaries():
+    from bcc.telegram_calls.answering_policy import ANSWERING_BRIEF
+
+    assert FINANCIAL_SAFETY_BRIEF in ANSWERING_BRIEF
+    assert "не подталкивай к переводу" in ANSWERING_BRIEF
+    assert "Не придумывай отзывы" in ANSWERING_BRIEF
 
 
 def test_callback_detection_is_deterministic():

@@ -77,6 +77,7 @@ from .latency import ReplyMetrics
 from .reply_stream import EditPacer, TelegramDraft, TurnStream, reply_sink
 from .resilient_chat import ResilientChat
 from .public_guard import JEFF_SELF_DISCLOSURE_REPLY_RU, public_guard, reply_discloses_model
+from .financial_safety import FINANCIAL_SAFETY_BRIEF
 from .roleplay import RolePlayMode, roleplay_prompt
 from .roleplay_commands import load_roleplay, parse_roleplay_command, set_roleplay
 from .router import ModelEndpoint, NoEligibleRoute, PrivacyClass, RouteRequest, choose_route
@@ -2464,6 +2465,7 @@ class ParticipantRuntime:
                     messages.append({"role": "system", "content": roleplay_prompt(state)})
             if math_hint:
                 messages.append({"role": "system", "content": math_hint})
+            messages.append({"role": "system", "content": FINANCIAL_SAFETY_BRIEF})
             messages.append({"role": "system", "content": IDENTITY_REMINDER_RU})   # last word before the question (small models)
             messages.append({"role": "user", "content": text})
             if j2_ctx is not None:
