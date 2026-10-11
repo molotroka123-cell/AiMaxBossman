@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<title>Genjutsu constructor screencast harness</title>
+<!-- Deterministic screencast frame of the live constructor core (command-center/ui/pages/genjutsu_core.js):
+     ?t=0..1 selects the moment of a scripted 4-click session; the picture is recoloured by the REAL core functions
+     (imageToLab / prepare / recolor / SWATCHES / PRESETS). The panel chrome is a stand-in for the page's own UI
+     (genjutsu.js needs the BCC server); it is labelled as such in the video. Assets: ?a=<dir with frame/hair/top/bottom png>. -->
+<style>
+  html,body{margin:0;background:#0b0d12;color:#e8ecf4;font-family:'Segoe UI',Arial,sans-serif;width:1080px;height:1920px;overflow:hidden}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:42px 48px 8px}
+  .top h1{font-size:44px;margin:0;font-weight:700;letter-spacing:.5px}
+  .pill{font-size:26px;padding:8px 18px;border-radius:30px;background:#16301f;color:#7dffa6;border:1px solid #2a5a3a}
+  .steps{display:flex;gap:12px;padding:6px 48px 18px}
+  .step{flex:1;font-size:25px;padding:12px 14px;border-radius:14px;background:#151a24;color:#7d8aa3;border:1px solid #232b3b;text-align:center}
+  .step.on{background:#241b05;color:#ffd23c;border-color:#ffd23c}
+  .step.done{background:#10241a;color:#7dffa6;border-color:#2a5a3a}
+  .stage{margin:0 48px;border-radius:22px;overflow:hidden;position:relative;width:984px;height:984px;background:#000}
+  canvas{width:984px;height:984px;display:block}
+  .tag{position:absolute;left:18px;bottom:16px;font-size:24px;background:#000a;padding:6px 14px;border-radius:10px;color:#cfd8ea}
+  .panel{margin:20px 48px 0;padding:22px 26px;background:#121722;border:1px solid #232b3b;border-radius:22px}
+  .tabs{display:flex;gap:12px;margin-bottom:18px}
+  .tab{flex:1;text-align:center;font-size:30px;padding:16px 8px;border-radius:14px;background:#1a2130;color:#9fb0cc;border:2px solid transparent}
+  .tab.on{background:#2a1f06;color:#ffd23c;border-color:#ffd23c}
+  .sw{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px}
+  .sw div{width:104px;text-align:center;font-size:20px;color:#9fb0cc}
+  .sw i{display:block;width:104px;height:58px;border-radius:12px;border:3px solid #232b3b;margin-bottom:6px}
+  .sw .sel i{border-color:#fff}
+  .row{display:flex;align-items:center;gap:18px;margin:12px 0;font-size:26px;color:#cfd8ea}
+  .row b{width:200px;font-weight:600}
+  .bar{flex:1;height:14px;background:#232b3b;border-radius:8px;position:relative}
+  .bar u{position:absolute;left:0;top:0;bottom:0;background:#ffd23c;border-radius:8px}
+  .bar s{position:absolute;top:-9px;width:30px;height:30px;border-radius:50%;background:#fff;margin-left:-15px}
+  .val{width:70px;text-align:right}
+  .go{margin-top:16px;text-align:center;font-size:34px;font-weight:700;padding:20px;border-radius:16px;background:#ffd23c;color:#1b1500;position:relative;overflow:hidden}
+  .go em{position:absolute;left:0;top:0;bottom:0;background:#7dffa6;opacity:.85}
+  .go span{position:relative}
+  .foot{position:absolute;left:48px;right:48px;bottom:34px;font-size:23px;color:#7d8aa3}
+  #cur{position:absolute;width:44px;height:44px;z-index:9;filter:drop-shadow(0 4px 6px #000a)}
+  #rip{position:absolute;width:70px;height:70px;border:5px solid #ffd23c;border-radius:50%;z-index:8;margin:-35px 0 0 -35px}
+</style></head>
+<body>
+<div class="top"><h1>Genjutsu Studio</h1><div class="pill">считается на этом ПК</div></div>
+<div class="steps" id="steps"></div>
+<div class="stage"><canvas id="cv" width="720" height="720"></canvas><div class="tag" id="tag">перекраска по маскам · конструктор</div></div>
+<div class="panel">
+  <div class="tabs" id="tabs"></div>
+  <div class="sw" id="sw"></div>
+  <div class="row"><b>Сила цвета</b><div class="bar"><u id="u1"></u><s id="s1"></s></div><span class="val" id="v1"></span></div>
+  <div class="row"><b>Светлота</b><div class="bar"><u id="u2"></u><s id="s2"></s></div><span class="val" id="v2"></span></div>
+  <div class="go" id="go"><em id="goem" style="width:0"></em><span id="gotxt">Применить на весь клип</span></div>
+</div>
+<div class="foot">Живая перекраска: ядро конструктора (Lab) в браузере. Это перекраска по маскам, а не генерация: фасон одежды не меняется.</div>
+<svg id="cur" viewBox="0 0 24 24"><path d="M3 2l17 8-7 2-3 7z" fill="#fff" stroke="#000" stroke-width="1.5"/></svg>
+<div id="rip" style="display:none"></div>
+<script type="module">
+import {REGION_LABEL, SWATCHES, PRESETS, defaultSettings, imageToLab, prepare, recolor} from '/command-center/ui/pages/genjutsu_core.js';
+const q = new URLSearchParams(location.search);
+const T = Math.min(1, Math.max(0, parseFloat(q.get('t') || '0')));
+const A = q.get('a') || '/_assets';
+const load = (u) => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = u; });
+const px = (img) => { const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const x = c.getContext('2d'); x.drawImage(img, 0, 0); return x.getImageData(0, 0, c.width, c.height).data; };
+const ease = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+const seg = (a, b) => ease((T - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+
+const [fi, hi, ti, bi] = await Promise.all(['frame', 'hair', 'top', 'bottom'].map((n) => load(`${A}/${n}.png`)));
+const rgba = px(fi);
+const masks = {};
+for (const [n, im] of [['hair', hi], ['top', ti], ['bottom', bi]]) { const d = px(im); const m = new Uint8Array(d.length >> 2); for (let i = 0; i < m.length; i++) m[i] = d[4 * i]; masks[n] = m; }
+masks.clothes = null;
+
+/* scripted session: 0-.10 open, .10-.24 tab Волосы, .24-.46 swatch синий, .46-.62 swatch малиновый, .62-.80 sliders,
+   .80-.95 apply, .95-1 done */
+const hairSw = SWATCHES.hair;
+const idxBlue = hairSw.findIndex((s) => s[2] === 'blue'), idxMag = hairSw.findIndex((s) => s[2] === 'magenta');
+let region = T < 0.14 ? 'top' : 'hair';
+let selIdx = T < 0.24 ? -1 : (T < 0.5 ? idxBlue : idxMag);
+let strength = T < 0.62 ? 80 : lerp(80, 100, seg(0.62, 0.72));
+let light = T < 0.62 ? 50 : lerp(50, 66, seg(0.70, 0.80));
+const settings = defaultSettings();
+if (selIdx >= 0) settings.hair = {on: true, color: hairSw[selIdx][0], strength, lightness: light};
+const lab = imageToLab(rgba);
+const prep = prepare(lab, masks);
+const out = new Uint8ClampedArray(rgba.length);
+recolor({src: rgba, lab, masks, prep, settings, out});
+const cv = document.getElementById('cv'); const ctx = cv.getContext('2d');
+ctx.putImageData(new ImageData(out, 720, 720), 0, 0);
+
+/* chrome */
+const stepsEl = document.getElementById('steps');
+const stepNames = ['1  Открыть студию', '2  Выбрать слой', '3  Выбрать цвет', '4  Применить на клип'];
+const cur = T < 0.10 ? 0 : T < 0.24 ? 1 : T < 0.80 ? 2 : 3;
+stepNames.forEach((s, i) => { const d = document.createElement('div'); d.className = 'step' + (i === cur ? ' on' : i < cur ? ' done' : ''); d.textContent = s; stepsEl.append(d); });
+const tabs = document.getElementById('tabs');
+['hair', 'top', 'bottom', 'clothes'].forEach((r) => { const d = document.createElement('div'); d.className = 'tab' + (r === region ? ' on' : ''); d.textContent = REGION_LABEL[r]; d.id = 'tab-' + r; tabs.append(d); });
+const sw = document.getElementById('sw');
+const list = region === 'hair' ? SWATCHES.hair : SWATCHES.clothes;
+list.forEach((s, i) => { const d = document.createElement('div'); d.className = (region === 'hair' && i === selIdx) ? 'sel' : ''; d.id = 'sw-' + i; d.innerHTML = `<i style="background:${s[0]}"></i>${s[1]}`; sw.append(d); });
+const setBar = (u, s, v, val) => { document.getElementById(u).style.width = val + '%'; document.getElementById(s).style.left = val + '%'; document.getElementById(v).textContent = Math.round(val); };
+setBar('u1', 's1', 'v1', strength); setBar('u2', 's2', 'v2', light);
+const prog = T < 0.80 ? 0 : seg(0.80, 0.95);
+document.getElementById('goem').style.width = (prog * 100) + '%';
+document.getElementById('gotxt').textContent = T >= 0.95 ? 'Готово: клип перекрашен' : (prog > 0 ? 'Считаю клип… ' + Math.round(prog * 100) + '%' : 'Применить на весь клип');
+document.getElementById('tag').textContent = T < 0.24 ? 'оригинал' : 'живая перекраска · ' + (selIdx >= 0 ? hairSw[selIdx][1] : '');
+
+/* cursor path through element centres */
+const centre = (id) => { const r = document.getElementById(id).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+const hairTab = centre('tab-hair');
+const swIdx = (i) => { const prevRegion = null; return null; };
+// swatches only exist for the current region; compute target positions from the hair swatch grid even while on another tab
+const swRect = (i) => { const el = document.getElementById('sw-' + i); if (el) return centre('sw-' + i); const cols = 7; const base = centre('sw-0'); return [base[0] + (i % cols) * 118, base[1] + Math.floor(i / cols) * 92]; };
+const bar1 = document.getElementById('s1').getBoundingClientRect(), bar2 = document.getElementById('s2').getBoundingClientRect();
+const goC = centre('go');
+const pts = [
+  [0.00, [940, 300]], [0.10, hairTab], [0.14, hairTab], [0.24, swRect(idxBlue)], [0.28, swRect(idxBlue)],
+  [0.46, swRect(idxBlue)], [0.50, swRect(idxMag)], [0.58, swRect(idxMag)], [0.62, [bar1.left + 0.8 * 560, bar1.top + 15]],
+  [0.72, [bar1.left + 1.0 * 560, bar1.top + 15]], [0.76, [bar2.left + 0.5 * 560, bar2.top + 15]], [0.80, [bar2.left + 0.66 * 560, bar2.top + 15]],
+  [0.84, goC], [0.95, goC], [1.0, [960, 1500]],
+];
+let p = pts[0][1];
+for (let i = 0; i < pts.length - 1; i++) { if (T >= pts[i][0] && T <= pts[i + 1][0]) { const k = ease((T - pts[i][0]) / (pts[i + 1][0] - pts[i][0] || 1)); p = [lerp(pts[i][1][0], pts[i + 1][1][0], k), lerp(pts[i][1][1], pts[i + 1][1][1], k)]; } }
+const c = document.getElementById('cur'); c.style.left = p[0] + 'px'; c.style.top = p[1] + 'px';
+for (const [t0, pos] of [[0.14, hairTab], [0.24, swRect(idxBlue)], [0.50, swRect(idxMag)], [0.84, goC]]) {
+  const k = (T - t0) / 0.06;
+  if (k >= 0 && k <= 1) { const r = document.getElementById('rip'); r.style.display = 'block'; r.style.left = pos[0] + 'px'; r.style.top = pos[1] + 'px'; r.style.opacity = 1 - k; r.style.transform = `scale(${0.5 + k})`; }
+}
+document.title = 'ready';
+</script>
+</body></html>

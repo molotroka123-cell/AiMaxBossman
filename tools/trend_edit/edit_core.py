@@ -307,7 +307,13 @@ def final_pass(video: Path, audio: Path | None, texts: list[Text], out: Path, cr
     if audio:
         cmd += ["-i", str(audio)]
     if vf:
-        cmd += ["-vf", ",".join(vf)]
+        joined = ",".join(vf)
+        if len(joined) > 6000:          # Windows caps a command line at 32 767 chars: long type plans go through a script file
+            script = Path(out).with_suffix(".filter.txt")
+            script.write_text(joined, encoding="utf-8")
+            cmd += ["-filter_script:v", str(script)]
+        else:
+            cmd += ["-vf", joined]
     cmd += ["-c:v", "libx264", "-preset", "medium", "-crf", str(crf), "-maxrate", maxrate, "-bufsize", "18M",
             "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
     if audio:
