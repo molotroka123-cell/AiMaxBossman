@@ -104,4 +104,17 @@ python tools\local_gen\bench_local_gen.py report     # -> C:\Users\asd\Videos\Bo
 | smoke (не гейт): wan22-ti2v-5b-q8, t2v 480p, 9 кадров, 4 шага, кап 600 с | sd.cpp master-956 Vulkan | `DEVICE_LOST` на первом DiT-графе через 22.5 с (загрузка тензоров 2.5 с и umt5-кондишн 6.4 с прошли). `480p\wan22-ti2v-5b-q8\t2v\run.json` |
 | диагностика (не повтор): точный smoke координатора — prod sd-cli 74988b2, VACE 1.3B, 5 кадров 256x256, 2 шага | sd.cpp 74988b2 Vulkan | `device lost on Vulkan0` сразу после загрузки тензоров. `diag-gpu-alive\sd-cli.log` |
 
-Вердикт: GPU снова в сбойном состоянии (сброс драйвера Win+Ctrl+Shift+B не удержался или слетел на первой «большой» нагрузке); проблема не в новом билде и не в 5B. GPU-часть бенча = INSUFFICIENT_EVIDENCE до перезагрузки ПК и (желательно) TdrDelay=60. Параллельно на CPU шли агенты роликов `hq_v2.py a/b/d` + 3×ffmpeg (записано в `other_load` run.json).
+### Инструкция владельцу (перезагрузка после завершения пода H100; бенч стартует сам после входа)
+
+1. PowerShell **от имени администратора** (у агента прав нет, UAC на защищённом рабочем столе):
+   ```
+   reg add "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v TdrDelay /t REG_DWORD /d 60 /f
+   reg add "HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" /v TdrDdiDelay /t REG_DWORD /d 60 /f
+   ```
+2. Перед перезагрузкой (обычный PowerShell, без админа) один раз зарегистрировать пользовательскую задачу:
+   `powershell -ExecutionPolicy Bypass -File C:\Users\asd\Bossman\wt-unified-20261010\tools\local_gen\register_autorun_bench.ps1`
+   (задача `BossmanLocalGenBench`, триггер ONLOGON для `asd`, задержка 3 мин; удалить: тот же скрипт с `-Remove`).
+3. Перезагрузить ПК, войти под `asd`, ничего не запускать (ffmpeg/facefusion/ComfyUI/Wan2GP держат GPU — харнесс откажет).
+4. Через ~3 мин после входа задача сама выполняет `preflight` → smoke (TI2V-5B, 9 кадров) → `matrix --rung 480p` → `report` и удаляет себя. Лог: `C:\Users\asd\Videos\Bossman-Genjutsu\local-gen-bench-20261011\autorun.log`, итог — `results.md` там же. При `device lost` на smoke матрица не запускается (без слепых повторов). Ориентир по времени: до 4 прогонов × ≤ 1 ч.
+
+Вердикт 11.10 утро: GPU снова в сбойном состоянии (сброс драйвера Win+Ctrl+Shift+B не удержался или слетел на первой «большой» нагрузке); проблема не в новом билде и не в 5B. GPU-часть бенча = INSUFFICIENT_EVIDENCE до перезагрузки ПК и (желательно) TdrDelay=60. Параллельно на CPU шли агенты роликов `hq_v2.py a/b/d` + 3×ffmpeg (записано в `other_load` run.json).
