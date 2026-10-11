@@ -104,3 +104,30 @@ def test_a_failed_voice_never_loses_or_repeats_the_text(tmp_path, monkeypatch):
     texts, voices = _deliver(tmp_path / "c", monkeypatch, "Ответь голосом: что такое кэш?",
                              voice_error=rt.CompanionError("VOICE_TEXT_BLOCKED"))
     assert len(texts) == 1 and len(voices) == 1
+
+
+@pytest.mark.parametrize("text", [
+    "Поговори со мной", "давай поговорим немного", "поболтаем?", "говори со мной голосом", "включи голос", "talk to me",
+    "let's talk"])
+def test_talk_to_me_phrases_start_the_voice_mode(text):
+    assert rt.VOICE_SESSION_START_RE.search(text), text
+
+
+@pytest.mark.parametrize("text", [
+    "поговорим о погоде позже", "Что такое разговорная речь?", "он поговорил со мной вчера", "голосование завтра",
+    "напиши как поговорить с начальником"])
+def test_ordinary_messages_do_not_start_the_voice_mode(text):
+    assert not rt.VOICE_SESSION_START_RE.search(text), text
+
+
+def test_talk_to_me_turns_the_voice_session_on_for_the_owner_but_not_for_a_guest(tmp_path):
+    runtime = make_runtime(tmp_path)
+    owner = runtime.settings.people[0]
+    assert runtime._voice_reply_wanted(owner, {"text": "Поговори со мной"})
+    assert rt.voice_session_active(runtime.store.get("voice_reply:" + owner.key, False))
+    assert runtime._voice_reply_wanted(owner, {"text": "как дела?"}), "the session continues for the next turns"
+    assert not runtime._voice_reply_wanted(owner, {"text": "/help"})
+    assert not runtime._voice_reply_wanted(owner, {"text": "поговори со мной", "_photo": True})
+    guest = owner.__class__(user_id=777, chat_id=777, role="guest")
+    assert not runtime._voice_reply_wanted(guest, {"text": "Поговори со мной"})
+    assert runtime.store.get("voice_reply:" + guest.key) is None

@@ -151,6 +151,11 @@ VOICE_SESSION_SECONDS = 1800
 VOICE_REQUEST_RE = re.compile(
     r"\bголос(?:ом|ов(?:ой|ое|ые|ым|ого))\b|\bозвуч\w*|\bвслух\b|\bvoice (?:message|note|reply)\b|\b(?:out loud|aloud)\b",
     re.I)
+# Owner 11.10: «поговори со мной» and the like switch the voice MODE on (a 30-minute session).
+VOICE_SESSION_START_RE = re.compile(
+    r"\bпоговори(?:те)?\s+со\s+мной\b|\bдавай(?:те)?\s+(?:по)?говорим\b|\bпоболтаем\b|\bпоболтай\s+со\s+мной\b"
+    r"|\bговори\s+(?:со\s+мной\s+)?голосом\b|\bвключи\s+голос\w*\b|\btalk\s+to\s+me\b|\blet'?s\s+talk\b",
+    re.I)
 
 
 def voice_session_active(value: object, now: float | None = None) -> bool:
@@ -1713,14 +1718,19 @@ class ParticipantRuntime:
             return False
 
     def _voice_reply_wanted(self, fresh: Person, message: dict) -> bool:
+        text = str(message.get("text") or "")
+        if text.startswith("/") or message.get("_photo") or message.get("_document"):
+            return False
+        if fresh.role == "owner" and VOICE_SESSION_START_RE.search(text):
+            # «поговори со мной» starts the voice mode (owner 11.10). Guests stay text-only: the cloned voice is a real
+            # person's voice and is never given to guests (test_guest_never_gets_the_cloned_voice_even_with_a_forced_flag).
+            self.store.put("voice_reply:" + fresh.key, time.time() + VOICE_SESSION_SECONDS)
+            return True
         return bool(
             (fresh.role == "owner"
-             and (voice_session_active(self.store.get("voice_reply:" + fresh.key, False))
-                  or bool(VOICE_REQUEST_RE.search(str(message.get("text") or ""))))
-             or participant_profile.read_profile(
-                 self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
-            and not str(message.get("text") or "").startswith("/")
-            and not message.get("_photo") and not message.get("_document"))
+             and (voice_session_active(self.store.get("voice_reply:" + fresh.key, False)) or VOICE_REQUEST_RE.search(text)))
+            or participant_profile.read_profile(
+                self.vault.data_dir, self.vault.key_for_telegram(fresh.user_id))[0]["voice_reply"])
 
     def _start_draft(self, person: Person, message: dict) -> TelegramDraft | None:
         """Progressive reply (edit-in-place) for a plain text chat turn, if the transport can
