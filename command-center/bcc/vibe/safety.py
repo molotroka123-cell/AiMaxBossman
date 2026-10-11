@@ -300,4 +300,3 @@ def inline_for_preview(files: dict[str, str]) -> str:
                   script, html)
     html = re.sub(r"(?is)<link\b[^>]*>", link, html)
     return html
-
