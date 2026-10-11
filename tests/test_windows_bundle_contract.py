@@ -492,3 +492,13 @@ def test_the_package_lands_under_app_support_where_the_documents_promise_it(
     promise = (REPO / "docs" / "v8" / "owner-final-run" / "README_RU.md").read_text(
         encoding="utf-8")
     assert "app-support/owner-final-run/" in promise
+
+
+def test_checked_in_owner_run_directory_matches_the_declared_contract() -> None:
+    """RC 11.10: a night agent put NIGHTLY_PROGRESS_RU.md into docs/v8/owner-final-run and the
+    release build refused to assemble. The checked-in directory must equal OWNER_RUN_FILES in
+    both directions, so this is caught by a test and not by a failed archive build."""
+    present = {p.name for p in bundle.OWNER_RUN_SOURCE.iterdir() if p.is_file()}
+    declared = set(bundle.OWNER_RUN_FILES)
+    assert present - declared == set(), f"undeclared files in the owner-run kit: {sorted(present - declared)}"
+    assert declared - present == set(), f"declared but missing: {sorted(declared - present)}"
