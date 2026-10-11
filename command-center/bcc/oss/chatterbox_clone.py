@@ -6,11 +6,13 @@ packaged with Bossman. Callers must guard outgoing text before synthesis.
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import tempfile
 import threading
 from typing import Callable
 import wave
 
+from . import ru_stress
 from .piper import PiperError, _local_file, _run, _validate_wav
 from .voice_profile import VoiceProfile
 
@@ -19,6 +21,15 @@ MAX_TEXT_CHARS = 280
 MAX_TEXT_BYTES = 1200
 MAX_REFERENCE_BYTES = 4 * 1024 * 1024
 MAX_OUTPUT_BYTES = 4 * 1024 * 1024
+# What the worker may receive after number expansion and stress marks (input stays <= 280).
+MAX_SPOKEN_CHARS = 600
+MAX_SPOKEN_BYTES = 2400
+# Setting: BOSSMAN_PIT_TTS_STRESS = off | plus | acute | respell (see docs/owner/VOICE_STRESS_20261011.md).
+STRESS_ENV = "BOSSMAN_PIT_TTS_STRESS"
+STRESS_PYTHON_ENV = "BOSSMAN_PIT_TTS_STRESS_PYTHON"
+STRESS_MODEL_DIR_ENV = "BOSSMAN_PIT_TTS_STRESS_MODEL_DIR"
+STRESS_CACHE_DIR_ENV = "BOSSMAN_PIT_TTS_STRESS_CACHE_DIR"
+DEFAULT_STRESS_MODE = "off"
 MODEL_FILES = (
     "ve.pt", "t3_mtl23ls_v3.safetensors", "s3gen.pt",
     "grapheme_mtl_merged_expanded_v1.json", "conds.pt",
@@ -44,11 +55,43 @@ def _reference(path: str | Path) -> Path:
     return reference
 
 
+def stress_mode_setting(explicit: str | None = None) -> str:
+    """Resolve the stress setting: explicit argument, then env, then the default."""
+    value = (explicit if explicit is not None
+             else os.environ.get(STRESS_ENV, "")).strip().lower() or DEFAULT_STRESS_MODE
+    if value not in ru_stress.STRESS_MODES:
+        raise PiperError("VOICE_STRESS_MODE_INVALID")
+    return value
+
+
+def _spoken_text(text: str, explicit_mode: str | None, stopped: Callable[[], bool]) -> str:
+    """Normalize numbers and place stress marks; never fails because of the accentizer."""
+    mode = stress_mode_setting(explicit_mode)
+    if mode == "off":
+        return text
+    try:
+        spoken = ru_stress.prepare_for_tts(
+            text, mode,
+            python_executable=os.environ.get(STRESS_PYTHON_ENV) or None,
+            model_dir=os.environ.get(STRESS_MODEL_DIR_ENV) or None,
+            cache_dir=os.environ.get(STRESS_CACHE_DIR_ENV) or None,
+            stopped=stopped)
+    except PiperError:
+        raise
+    except Exception:  # an optional accentizer must never block the voice reply
+        return text
+    if (not spoken.strip() or len(spoken) > MAX_SPOKEN_CHARS or
+            len(spoken.encode("utf-8")) > MAX_SPOKEN_BYTES or "\x00" in spoken):
+        return text
+    return spoken
+
+
 def synthesize_ogg(
     text: str, *, python_executable: str | Path, model_dir: str | Path,
     reference_path: str | Path, ffmpeg_executable: str | Path,
     profile: VoiceProfile | None = None,
     stopped: Callable[[], bool] = lambda: False,
+    stress_mode: str | None = None,
 ) -> bytes:
     """Synthesize one short Russian utterance into OGG/Opus without a server.
 
@@ -71,6 +114,7 @@ def synthesize_ogg(
     worker = _local_file(Path(__file__).with_name("chatterbox_worker.py"), ".py")
     if stopped():
         raise PiperError("VOICE_STOPPED")
+    spoken = _spoken_text(text, stress_mode, stopped)
     if not _synthesis_lock.acquire(blocking=False):
         raise PiperError("VOICE_BUSY")
     try:
@@ -79,7 +123,7 @@ def synthesize_ogg(
             ogg = Path(temp) / "reply.ogg"
             _run([str(python), str(worker), str(directory.resolve()),
                   str(reference), str(wav), str(exaggeration), str(cfg_weight)],
-                 stdin=text.encode("utf-8"),
+                 stdin=spoken.encode("utf-8"),
                  stopped=stopped, timeout=180)
             _validate_wav(wav)
             _run([str(ffmpeg), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
