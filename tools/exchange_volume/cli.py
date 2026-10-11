@@ -81,7 +81,7 @@ def run(args) -> dict:
         "schema": calc.SCHEMA, "generated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": src_meta, "as_of_prague_date": as_of_date and as_of_date.isoformat(),
         "assumptions": {
-            "business_time_zone": "Europe/Prague (EU DST rule, built in); NOT verified against operator",
+            "business_time_zone": "Europe/Prague (EU DST rule, built in); confirmed by the owner 11.10",
             "period": "business month 21st..20th inclusive, named by closing 20th" if args.period == "business"
                       else "calendar month",
             "volume_definition": "USDT turnover = amount of the USDT leg of each counted deal (one leg, "
