@@ -150,3 +150,16 @@ async def test_ws_subscriber_gets_events_with_correct_kind(env):
     msg = queue.get_nowait()
     assert msg["kind"] == "approval.created" and msg["approval_kind"] == "demo"
     env.svc.bus.unsubscribe(queue)
+
+
+async def test_task_for_unknown_agent_is_a_client_error_not_a_500(env):
+    """RC 11.10: on a fresh install (no agents) POST /api/tasks with agent_id=1 and run_now=false
+    died on a FOREIGN KEY constraint and answered 500 Internal Server Error."""
+    resp = await env.client.post("/api/tasks", json={
+        "title": "x", "prompt": "hi", "agent_id": 424242, "run_now": False, "max_retries": 0})
+    assert resp.status_code in (404, 422), resp.text
+    assert resp.json()["error"]["message"]
+    # nothing was written
+    listed = (await env.client.get("/api/tasks")).json()
+    assert [t for t in (listed if isinstance(listed, list) else listed.get("tasks", []))
+            if t.get("title") == "x"] == []

@@ -1172,6 +1172,11 @@ def _api_router() -> APIRouter:
                                    hint=exc.hint) from None
                 agent_id = chosen["id"]
                 template["agent_id"] = agent_id
+            if agent_id is not None and type(agent_id) is int and (
+                    await fetch_one(s, agents_t, agent_id)) is None:
+                # A draft for an agent that does not exist hit the FOREIGN KEY and surfaced as a 500.
+                await s.rollback()
+                raise ApiError("агент не найден", status=404, hint="создайте агента или выберите существующего")
             extra = {"meta": {"client_request_id": request_id}} if request_id is not None else {}
             res = await s.execute(sa.insert(tasks_t).values(
                 title=body.title or body.prompt[:80], prompt=body.prompt, agent_id=agent_id,
