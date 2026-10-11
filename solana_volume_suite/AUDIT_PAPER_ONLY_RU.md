@@ -32,3 +32,27 @@
 ```powershell
 python -m pytest solana_volume_suite/tests tests/test_solana_safety.py
 ```
+
+## Дополнение 2026-10-11: ограничение paper-цикла
+
+Проверка решения модели выявила отказ в доступности: поле `amount_sol`
+принимало `1e20`, а float-цикл нарезки мог не уменьшать остаток из-за точности
+IEEE-754. Теперь контракт решения и `LiquidityGate` отклоняют не конечные,
+неположительные и больше 100 SOL значения; нарезка выполняется точными целыми
+lamports и ограничена 100 частями. Все такие отказы получают `BLOCK`; сумма не
+попадает в цикл торговли. Регрессия покрыта в
+`tests/test_order_size_safety.py`.
+
+Отдельный остаточный риск: token-creator Pump.fun в репозитории не найден.
+`stages/pumpfun_engine.py` строит buy/sell-инструкции для существующего mint и
+может собрать подписанный transaction-объект; `core/jupiter_engine.py` и
+`stages/raydium_jupiter_engine.py` сохраняют функции запроса swap/build/sign.
+Активный paper dashboard их не вызывает, а `JitoBundleClient.send_bundle()`
+блокирует broadcast, но прямой импорт этих экспериментальных helpers всё ещё
+позволяет создавать подписанные объекты. Это требует отдельного отключения до
+заявления, что всё дерево не способно подписывать транзакции.
+
+На Windows / Python 3.12.10, в изолированном окружении из закреплённых
+`requirements.txt`: `python -m pytest solana_volume_suite/tests
+tests/test_solana_safety.py -q` — **73 passed**, 0 failed, 0 skipped.
+Локальный GUI, токен-launcher, кошелёк и сетевой trading не запускались.

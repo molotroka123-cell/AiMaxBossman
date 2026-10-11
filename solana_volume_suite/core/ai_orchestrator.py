@@ -1,7 +1,9 @@
 import json
 import httpx
+from math import isfinite
 from typing import Literal, Optional, Dict, Any, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from core.liquidity_gate import MAX_PAPER_ORDER_SOL
 
 
 class VolumeDecision(BaseModel):
@@ -10,12 +12,23 @@ class VolumeDecision(BaseModel):
     """
     action: Literal["BUY", "SELL", "WAIT", "FLOOR_DEFENSE", "KOTH_PULSE", "MIGRATION_HOLD"]
     wallet_index: int = Field(ge=0, description="Virtual wallet index (Zero-Knowledge)")
-    amount_sol: float = Field(description="Hypothetical paper-trade size in SOL")
+    amount_sol: float = Field(
+        ge=0.0,
+        le=MAX_PAPER_ORDER_SOL,
+        description="Hypothetical paper-trade size in SOL (maximum 100 SOL per decision)",
+    )
     delay_sec: float = Field(ge=2.0, le=95.0, description="Delay before the next local simulation step")
     mode_tag: str = Field(description="Auditable paper-mode policy tag")
     reason: str = Field(description="Auditable decision justification")
     confirmed_onchain: bool = Field(default=False, description="Invariant: True ONLY if confirmed on-chain signature exists")
     tx_signature: Optional[str] = Field(default=None, description="On-chain confirmed signature")
+
+    @field_validator("amount_sol")
+    @classmethod
+    def amount_must_be_finite(cls, value: float) -> float:
+        if not isfinite(value):
+            raise ValueError("amount_sol must be finite")
+        return value
 
 
 class DeterministicFallbackEngine:
