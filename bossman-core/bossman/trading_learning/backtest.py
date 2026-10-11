@@ -93,7 +93,10 @@ def _exit_index(rule: StrategyRule, entry_price: float, future: list[Candle]) ->
     for i, bar in enumerate(future[:rule.max_hold_bars]):
         hit_stop = bar.low <= stop if long else bar.high >= stop
         if hit_stop:
-            return i, stop
+            # MP21-D: a bar that OPENS beyond the stop gapped through it; the stop
+            # order fills at the open, not at the (unreachable) stop price.
+            gapped = bar.open <= stop if long else bar.open >= stop
+            return i, (bar.open if gapped else stop)
         hit_take = bar.high >= take if long else bar.low <= take
         if hit_take:
             return i, take

@@ -1,12 +1,14 @@
 ---
 name: solana-volume-suite
-description: Autonomous Solana AI Market Making, volume generation, Pump.fun bonding curve progression, Raydium AMM / Jupiter v6 swaps, Zero-Knowledge AES-256-GCM sub-wallet management, Jito MEV sandwich protection, and real-time Command Center telemetry at http://localhost:8501.
+description: QUARANTINED (MP21-D audit 2026-10-11). Do not invoke. The suite generates artificial volume and hides wallet relationships; it is not a legitimate earning method and agents must not run it.
 compatibility: BOSSMAN, OpenCode, Claude-compatible agent skills
 metadata:
   owner: bossman
   version: "1.0"
   category: finance-execution
 ---
+> **QUARANTINED 2026-10-11.** Do not use this skill, do not run its commands, do not generate volume or
+> fund wallets through transit hops. See `docs/owner/MP21_D_TRADING_TOKEN_AUDIT_20261011.md`.
 
 # Solana AI Volume Suite & Autonomous Market Maker
 

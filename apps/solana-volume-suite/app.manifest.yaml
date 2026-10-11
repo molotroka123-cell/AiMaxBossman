@@ -1,6 +1,8 @@
 id: solana-volume-suite
 name: Solana AI Volume Suite
 version: "1.0.0"
+status: quarantined   # MP21-D 2026-10-11: see docs/owner/MP21_D_TRADING_TOKEN_AUDIT_20261011.md
+quarantine_reason: "design is volume generation / wallet-graph concealment (wash-trading class); not an earning method"
 app_number: 9
 kind: workload
 contract: "1.0"
@@ -41,9 +43,9 @@ commands:
   - /volume mainnet
 
 permissions:
-  network.rpc: allow
-  network.jito: allow
-  wallet.signing: ask
+  network.rpc: deny
+  network.jito: deny
+  wallet.signing: deny
   wallet.export: deny
 
 ui:

@@ -32,6 +32,9 @@ from typing import Any, Callable
 GT = "https://api.geckoterminal.com/api/v2/networks/solana"
 TABLES = Path(__file__).with_name("pump_fee_tables_20261009.json")
 DAY_S = 24 * 3600
+# A GeckoTerminal "h24" volume is the TRAILING 24 h at measurement time. It equals the
+# token's first day only if the measurement happens soon after the 24 h mark.
+FIRST_DAY_MAX_AGE_S = DAY_S + 2 * 3600
 
 
 def load_tables(path: Path = TABLES) -> dict:
@@ -112,14 +115,24 @@ class Cohort:
             age = self.now() - created
             if age < DAY_S:
                 continue
-            pools = self.get(f"{GT}/tokens/{r['token']}/pools").get("data", [])
+            try:
+                pools = self.get(f"{GT}/tokens/{r['token']}/pools").get("data", [])
+            except Exception as exc:  # noqa: BLE001 - one bad token must not block the cohort
+                # MP21-D: previously an exception here aborted the loop BEFORE _write(),
+                # so a single 404 token at the head of the queue blocked every later
+                # token forever and discarded the rows measured in the same pass.
+                r["measured"] = {"unmeasurable": True, "error": f"{type(exc).__name__}: {exc}"[:200],
+                                 "age_h": round(age / 3600, 2)}
+                done += 1
+                continue
             dex = lambda p: p["relationships"]["dex"]["data"]["id"]
             vol = lambda p: float(p["attributes"]["volume_usd"]["h24"] or 0)
             curve = sum(vol(p) for p in pools if dex(p) == "pump-fun")
             swap_pools = [p for p in pools if dex(p) == "pumpswap"]
             swap = sum(vol(p) for p in swap_pools)
             mcap = max((float(p["attributes"].get("fdv_usd") or 0) for p in (swap_pools or pools)), default=0.0)
-            r["measured"] = {"age_h": round(age / 3600, 2), "curve_vol_usd": curve, "swap_vol_usd": swap,
+            r["measured"] = {"age_h": round(age / 3600, 2), "first_day_window": age <= FIRST_DAY_MAX_AGE_S,
+                             "curve_vol_usd": curve, "swap_vol_usd": swap,
                              "migrated": bool(swap_pools), "mcap_usd": mcap, "sol_usd": sol_usd,
                              **creator_fee_usd(curve, swap, mcap, sol_usd, self.tables)}
             done += 1
@@ -128,12 +141,18 @@ class Cohort:
 
 
 def summarize(rows: list[dict]) -> dict:
-    m = [r["measured"] for r in rows if r.get("measured")]
+    allm = [r["measured"] for r in rows if r.get("measured")]
+    unmeasurable = sum(1 for x in allm if x.get("unmeasurable"))
+    # Only measurements taken close to the 24 h mark describe the "first day".
+    m = [x for x in allm if not x.get("unmeasurable") and x.get("first_day_window", True)]
+    late = len(allm) - unmeasurable - len(m)
     if not m:
-        return {"tokens_seen": len(rows), "measured": 0}
+        return {"tokens_seen": len(rows), "measured": 0, "unmeasurable": unmeasurable,
+                "late_window_excluded": late}
     fees = sorted(x["total_usd"] for x in m)
     share = lambda k: round(sum(f >= k for f in fees) / len(fees), 4)
-    return {"tokens_seen": len(rows), "measured": len(m),
+    return {"tokens_seen": len(rows), "measured": len(m), "unmeasurable": unmeasurable,
+            "late_window_excluded": late,
             "migrated_share": round(sum(x["migrated"] for x in m) / len(m), 4),
             "creator_fee_median_usd": round(statistics.median(fees), 4),
             "creator_fee_mean_usd": round(statistics.fmean(fees), 4),
@@ -148,7 +167,8 @@ def report_md(rows: list[dict], tables: dict) -> str:
     lines = ["# Creator fee pump.fun — замер на реальной когорте", "",
              f"Ставки — снимок mainnet {tables['fetched_at']}: кривая {tables['bonding_curve']['tiers'][0]['creator']} bps "
              "создателю; PumpSwap 95 bps при капитализации 420–1470 SOL, дальше ниже (до 5 bps).",
-             "Выборка: ВСЕ новые пулы pump.fun из GeckoTerminal new_pools, без отбора по успеху; замер через ≥24 ч.", ""]
+             "Выборка: новые пулы pump.fun из GeckoTerminal new_pools (не более 3 страниц за опрос; полнота "
+             "покрытия НЕ измерена), без отбора по успеху; замер через ≥24 ч.", ""]
     if not s.get("measured"):
         lines.append(f"Токенов в когорте: {s['tokens_seen']}. Замеров ещё нет — первым токенам нужно 24 ч.")
         return "\n".join(lines)
@@ -158,6 +178,8 @@ def report_md(rows: list[dict], tables: dict) -> str:
               f"90-й перцентиль ${s['creator_fee_p90_usd']}, максимум ${s['creator_fee_max_usd']}",
               f"- получили ≥$1: {s['share_ge_1usd'] * 100:.1f}%, ≥$10: {s['share_ge_10usd'] * 100:.1f}%, "
               f"≥$100: {s['share_ge_100usd'] * 100:.1f}%",
+              f"- не удалось замерить: {s['unmeasurable']}; замер позже окна первых суток (исключён): "
+              f"{s['late_window_excluded']}",
               "", "Объём включает самоторговлю создателей; она платит ≈1.25% комиссий ради 0.30% себе."]
     return "\n".join(lines)
 
