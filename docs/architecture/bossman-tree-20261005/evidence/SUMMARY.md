@@ -1,19 +1,15 @@
 # Evidence summary
 
-Статусы дерева: blocked=13, branch=31, code=16, idea=24, mixed=16, prepared=24, recorded=172, reported=97, retired=8, working=492
+Статусы дерева: blocked=13, branch=31, code=24, idea=24, mixed=16, prepared=24, recorded=172, reported=97, retired=8, working=492
 
-Принято расписок: 3; отклонено: 1211
+Принято расписок: 0; отклонено: 1214
 
 ## По зонам
 
-- computer: 1
-- media: 2
+- нет
 
 ## Принятые
 
-- `reg-genjutsu_live_constructor` (l2-20261010.json)
-- `reg-cu_task_scoped_apps` (l2-20261010.json)
-- `reg-faceswap_hairline_guard` (l2-20261010.json)
 
 ## Отклонённые
 
@@ -200,6 +196,9 @@
 - `module-10135418ed52` (l2-20261010.json): status reported not eligible
 - `module-dca65ddd8cea` (l2-20261010.json): status reported not eligible
 - `module-72a2f39e685d` (l2-20261010.json): status reported not eligible
+- `reg-genjutsu_live_constructor` (l2-20261010.json): status reported not eligible
+- `reg-cu_task_scoped_apps` (l2-20261010.json): status reported not eligible
+- `reg-faceswap_hairline_guard` (l2-20261010.json): status reported not eligible
 - `reg-faceswap_video_job` (l2-20261010b.json): status reported not eligible
 - `reg-faceswap_pose_gate` (l2-20261010b.json): status reported not eligible
 - `reg-pult_owner_only` (l2-20261010b.json): status reported not eligible

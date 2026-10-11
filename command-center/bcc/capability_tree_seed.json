@@ -22445,6 +22445,94 @@
       "reference_paths": [
         "tools/mp21_project_map.py"
       ]
+    },
+    {
+      "id": "reg-vibe_studio_service",
+      "label": "Vibe Studio: очередь задач, STOP, возобновление и версии",
+      "parent": "apps",
+      "status": "code",
+      "detail": "Vibe Studio job service: queue, STOP, cancel, resume, versions, promotion. One job at a time (FIFO). The worker task exists only while there is work: it starts on ``create``/``resume``/``kick`` and exits when the queue is empty or a STOP file is present (queue Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/vibe/service.py",
+          "sha": "250dabbf173fb7791fabbe4f99ac1d4296f9b10d"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/vibe/service.py",
+        "command-center/tests/test_vibe_studio.py"
+      ]
+    },
+    {
+      "id": "reg-jeff_browser_search",
+      "label": "Jeff: необязательный браузерный поиск (по умолчанию выключен)",
+      "parent": "jeff",
+      "status": "code",
+      "detail": "Jeff browser SEARCH fallback: a read-only, allowlisted, transparent browser behind an OFF-by-default flag. What it is: when the normal search path (the configured SearXNG / keyless helper used by the Research Desk) returned NOTHING, Jeff may open ONE public se Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/pit/j2/browser_search.py",
+          "sha": "72a686636170487a132a8ae5258169b4baf7c9b8"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/pit/j2/browser_search.py",
+        "command-center/tests/test_jeff_browser_search.py"
+      ]
+    },
+    {
+      "id": "reg-dataset_check_faces",
+      "label": "Проверка датасета лиц на CPU перед обучением (без загрузки наружу)",
+      "parent": "media",
+      "status": "code",
+      "detail": "Dataset check for face-model training data (CPU only, no uploads, no GPU). Owner instruction (11.10.2026): \"как обучение зайдёт, надо проверять новые данные\" -> every new batch of photos / videos goes through this tool BEFORE it is used for DFM / LoRA training Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/dataset_check/check_faces.py",
+          "sha": "c9d6b479eb3c0e3b5498f081a7b53b4642bf2e19"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/dataset_check/check_faces.py",
+        "tests/test_dataset_check_faces.py"
+      ]
+    },
+    {
+      "id": "reg-local_gen_bench",
+      "label": "Бенч локальной генерации видео: sd.cpp Vulkan, пороги заморожены до запуска",
+      "parent": "models",
+      "status": "code",
+      "detail": "Local video-generator bench harness (sd.cpp Vulkan candidates on Radeon 8060S / gfx1151, Windows). Fixed prompt + fixed input (input_04.mp4, 5 s), rungs 480p -> 720p, tasks t2v / i2v / outpaint (9:16 by VACE). Metrics per run (JSON next to the frames): seconds Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/local_gen/bench_local_gen.py",
+          "sha": "74ba2708479e75bcd32465b25107e343b168b8cb"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/local_gen/bench_local_gen.py"
+      ]
+    },
+    {
+      "id": "reg-studio_v2_e2e",
+      "label": "Motion Studio V2: приёмочный прогон на реальном бэкенде и браузере",
+      "parent": "media",
+      "status": "code",
+      "detail": "Motion Studio V2 acceptance run: real backend (own port, throwaway data dir) + headless Chromium. One process, low CPU: one backend subprocess, one browser, one mask pass on one frame, two short Motion Studio renders. It never touches the owner's :8801 and nev Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/studio_v2_e2e.py",
+          "sha": "6aa2b0cbb1400a8d243b257861e98faa0e8a8d4a"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/studio_v2_e2e.py"
+      ]
     }
   ],
   "memory_protocol": {

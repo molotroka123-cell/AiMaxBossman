@@ -443,5 +443,44 @@
   "source": "tools/trend_edit/analyze_edit.py",
   "status": "prepared",
   "detail": "Прототип 10.10: на двух роликах владельца 11 склеек, 129 BPM, синхрон склеек с битом 18–36%. Оценка структуры — эвристика, не прогноз просмотров."
+ },
+ {
+  "slug": "vibe_studio_service",
+  "label": "Vibe Studio: очередь задач, STOP, возобновление и версии",
+  "parent": "apps",
+  "source": "command-center/bcc/vibe/service.py",
+  "tests": [
+   "command-center/tests/test_vibe_studio.py"
+  ]
+ },
+ {
+  "slug": "jeff_browser_search",
+  "label": "Jeff: необязательный браузерный поиск (по умолчанию выключен)",
+  "parent": "jeff",
+  "source": "command-center/bcc/pit/j2/browser_search.py",
+  "tests": [
+   "command-center/tests/test_jeff_browser_search.py"
+  ]
+ },
+ {
+  "slug": "dataset_check_faces",
+  "label": "Проверка датасета лиц на CPU перед обучением (без загрузки наружу)",
+  "parent": "media",
+  "source": "tools/dataset_check/check_faces.py",
+  "tests": [
+   "tests/test_dataset_check_faces.py"
+  ]
+ },
+ {
+  "slug": "local_gen_bench",
+  "label": "Бенч локальной генерации видео: sd.cpp Vulkan, пороги заморожены до запуска",
+  "parent": "models",
+  "source": "tools/local_gen/bench_local_gen.py"
+ },
+ {
+  "slug": "studio_v2_e2e",
+  "label": "Motion Studio V2: приёмочный прогон на реальном бэкенде и браузере",
+  "parent": "media",
+  "source": "tools/studio_v2_e2e.py"
  }
 ]
