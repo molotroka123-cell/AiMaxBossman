@@ -15,6 +15,7 @@ from .adapters import (CURRENT_PRIORITY, IMAGE_MAX_BYTES, IMAGE_MIMES, Core, Mod
                        image_mime, scrub)
 from .config import CompanionError, Person, Settings
 from .agent_bridge import AGENT_COMMANDS, AgentBridgeMixin
+from .remote_access import REMOTE_COMMANDS, RemoteAccessMixin
 from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixin
 from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
@@ -260,7 +261,8 @@ def model_name(model_id: str) -> str:
     return re.sub(r"-0*1-of-\d+$", "", name)[:80] or "модель"
 
 
-class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin, ParseBridgeMixin):
+class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
+                ParseBridgeMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
@@ -895,6 +897,10 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
                 return await self.rate(person, pending["run"], pending["verdict"], text)
         command, _, arg = text.partition(" ")
         command, arg = command.lower(), arg.strip()
+        # Owner phrases «включи удалённый Claude», «открой ChatGPT», «перезагрузи компьютер» → commands.
+        spoken = self.phrase_command(text) if not text.startswith("/") else None
+        if spoken:
+            command, arg = spoken
         if command in {"/start", "/help", "/menu"}:
             title = "Пульт Bossman. Все действия идут через задачи и подтверждения." if command == "/menu" else HELP
             return Reply(title, self.main_menu(person))
@@ -929,6 +935,8 @@ class Companion(AgentBridgeMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
             return "Подробные уведомления рынка: " + ("включены" if arg.lower() == "on" else "выключены")
         if command in AGENT_COMMANDS:
             return await self.agent_command(person, command, arg, message)
+        if command in REMOTE_COMMANDS:
+            return await self.remote_command(person, command, arg, message)
         if command in FORM_COMMANDS:
             return await self.form_command(person, command, arg, message)
         if command in PARSE_COMMANDS:
