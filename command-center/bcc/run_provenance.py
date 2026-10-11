@@ -115,7 +115,7 @@ def _privacy_mode() -> str:
     """
     try:
         from .features import offline_mode
-        return "OFFLINE" if offline_mode.enabled() else "ONLINE"
+        return "OFFLINE" if (offline_mode.enabled() or offline_mode.local_only_enforced()) else "ONLINE"
     except Exception:                                   # pragma: no cover - защитный
         return "UNKNOWN"
 
