@@ -45,7 +45,7 @@
 ## 4. Установлено (изолированно, без изменения рабочего sd-cli)
 
 - `tools/local_gen/install_sdcpp_vulkan.ps1` → `models\media\sdcpp-vulkan-master-956-1b0ba10\sd-cli.exe` (commit 1b0ba10, 30 МБ). Выполнено.
-- `tools/local_gen/install_wan22_vace_fun_a14b.ps1` → `models\media\wan22-vace-fun-a14b\{HighNoise,LowNoise}\*Q8_0.gguf`, `loras\wan22_lightning_t2v_v1.1_{high,low}_noise.safetensors`, `wan_2.1_vae.safetensors`, `MANIFEST-local.json` (~40 ГБ). Запущено в фоне; статус в `models\media\install_wan22_vace_fun_a14b.log`.
+- `tools/local_gen/install_wan22_vace_fun_a14b.ps1` → `models\media\wan22-vace-fun-a14b\{HighNoise,LowNoise}\*Q8_0.gguf`, `loras\wan22_lightning_t2v_v1.1_{high,low}_noise.safetensors`, `wan_2.1_vae.safetensors`, `MANIFEST-local.json`. Выполнено 11.10 08:32: 18.66 ГБ × 2 + 1.23 ГБ × 2 + 0.24 ГБ (≈40 ГБ). sha256 обоих GGUF совпадают с HF LFS (high `89b43d99…`, low `854d70e5…`, файл `SHA256SUMS.txt` в папке).
 - `tools/local_gen/install_wan22_ti2v_5b.ps1` → проверка трёх файлов на диске, `MANIFEST-local.json`. Выполнено, 0 ГБ скачано.
 - Общие: umt5-xxl Q8 из `wan22-ti2v-5b\`, VAE 2.1 из `wan21-vace-1.3b\`.
 
