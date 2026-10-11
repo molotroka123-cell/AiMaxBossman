@@ -97,9 +97,8 @@ def test_funding_router_and_floor_defense_code_are_removed():
 
     with pytest.raises(ModuleNotFoundError):
         importlib.import_module("core.funding_router")
-    from stages.raydium_jupiter_engine import JupiterSwapEngine as StageJupiter
-
-    assert not hasattr(StageJupiter, "plan_floor_defense_ladder")
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("stages.raydium_jupiter_engine")  # also carried plan_floor_defense_ladder
     suite = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     assert not os.path.exists(os.path.join(suite, "core", "funding_router.py"))
 
@@ -170,61 +169,30 @@ def test_dashboard_blocks_key_generation_and_sweep_without_mutating_state(tmp_pa
         dashboard_orchestrator.vault_path = original_vault_path
 
 
-# ---- legacy engines must never sign or reach swap APIs (night 10.10-11 hardening) -------------------------------
-def test_compile_v0_transaction_never_signs_with_keypair():
-    from solders.hash import Hash
-    from solders.keypair import Keypair
-    from solders.signature import Signature
+# ---- H4 (2026-10-11): the live-transaction builders were REMOVED; absence and refusal are asserted ---------------
+def test_removed_transaction_builders_do_not_exist():
+    import importlib
+
     from core.jito_client import JitoBundleClient
+    from core.key_vault import vault as vault_module
+    import core.paper_guard as guard
+    import stages.pumpfun_engine as pump
 
-    kp = Keypair()
-    client = JitoBundleClient()
-    tx = client.compile_v0_transaction(
-        payer=kp.pubkey(), instructions=[client.build_tip_instruction(payer=kp.pubkey(), tip_lamports=1000)],
-        recent_blockhash=Hash.default(), signers=[kp],
-    )
-    assert all(sig == Signature.default() for sig in tx.signatures)
-    # negative control: a really signed transaction of the same message differs, so the assertion above is meaningful
-    from solders.transaction import VersionedTransaction
-    really_signed = VersionedTransaction(tx.message, [kp])
-    assert any(sig != Signature.default() for sig in really_signed.signatures)
-
-
-def test_pumpfun_bundles_are_unsigned_paper_plans():
-    from solders.hash import Hash
-    from solders.keypair import Keypair
-    from solders.pubkey import Pubkey
-    from solders.signature import Signature
-    from core.jito_client import JitoBundleClient
-    from stages.pumpfun_engine import PumpFunEngine
-
-    kp = Keypair()
-    engine = PumpFunEngine(jito_client=JitoBundleClient())
-    mint = Pubkey.new_unique()
-    buys = engine.assemble_pump_buy_bundle(kp, mint, 0.05, 10.0, Hash.default())
-    sell = engine.assemble_pump_sell_bundle(kp, mint, 1000, 1, Hash.default())
-    for tx in [*buys, sell]:
-        assert all(sig == Signature.default() for sig in tx.signatures)
+    for name in ("compile_v0_transaction", "build_tip_instruction", "get_bundle_status", "get_random_tip_account"):
+        assert not hasattr(JitoBundleClient, name), name
+    for name in ("build_pump_buy_instruction", "build_pump_sell_instruction", "assemble_pump_buy_bundle",
+                 "assemble_pump_sell_bundle", "get_bonding_curve_pda", "get_associated_token_address", "PumpFunEngine"):
+        assert not hasattr(pump, name), name
+    assert not hasattr(vault_module, "RentReclaimer")
+    assert not hasattr(vault_module.SecurityKeyVault, "build_sweep_all_instructions")
+    assert not hasattr(guard, "unsigned_paper_transaction")
+    for module in ("core.jupiter_engine", "stages.raydium_jupiter_engine"):
+        with pytest.raises(ModuleNotFoundError):
+            importlib.import_module(module)
 
 
-@pytest.mark.asyncio
-async def test_jupiter_engines_refuse_before_network_or_signing():
-    from solders.keypair import Keypair
-    from core.paper_guard import LiveSigningDisabled
-    from core.jupiter_engine import JupiterSwapEngine as CoreJupiter
-    from stages.raydium_jupiter_engine import JupiterSwapEngine as StageJupiter
+def test_refuse_live_signing_is_the_single_choke_point():
+    from core.paper_guard import LiveSigningDisabled, refuse_live_signing
 
-    called = {"net": 0}
-
-    class Boom:
-        def __getattr__(self, name):
-            called["net"] += 1
-            raise AssertionError("network client must not be touched")
-
-    kp = Keypair()
-    with pytest.raises(LiveSigningDisabled):
-        await CoreJupiter().execute_swap("So111", "Mint111", 1000, kp)
-    stage = StageJupiter.__new__(StageJupiter)
-    with pytest.raises(LiveSigningDisabled):
-        stage.sign_jupiter_transaction("AAAA", kp)
-    assert called["net"] == 0
+    with pytest.raises(LiveSigningDisabled, match="LIVE_SIGNING_DISABLED"):
+        refuse_live_signing("anything")

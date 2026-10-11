@@ -7,11 +7,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from solders.keypair import Keypair
-from solders.pubkey import Pubkey
-from solders.system_program import transfer, TransferParams
-from solders.instruction import Instruction
-from spl.token.constants import TOKEN_PROGRAM_ID
-import spl.token.instructions as spl_ix
 import base58
 
 from core.key_vault.hd_wallet import SolanaHDWallet
@@ -21,30 +16,6 @@ PBKDF2_ITERATIONS = 100_000
 # One password policy for every entry point (script, API, library). The older
 # generator script accepted 6+ characters while the library required 12.
 MIN_PASSWORD_LENGTH = 12
-
-
-class RentReclaimer:
-    """
-    Reclaims frozen rent (~0.002039 SOL per ATA) when token balance reaches zero.
-    Builds close_account SPL instruction to refund lamports back to wallet.
-    """
-
-    @staticmethod
-    def build_close_account_ix(
-        token_account: Pubkey,
-        destination_sol_wallet: Pubkey,
-        owner: Pubkey,
-        program_id: Pubkey = TOKEN_PROGRAM_ID
-    ) -> Instruction:
-        return spl_ix.close_account(
-            spl_ix.models.CloseAccountParams(
-                program_id=program_id,
-                account=token_account,
-                dest=destination_sol_wallet,
-                owner=owner,
-                signers=[]
-            )
-        )
 
 
 class SecurityKeyVault:
@@ -213,36 +184,3 @@ class SecurityKeyVault:
             }
             for idx, pk in enumerate(pubkeys)
         ]
-
-    def build_sweep_all_instructions(
-        self,
-        cold_destination: Pubkey,
-        wallet_balances: Dict[str, int],
-        password: str,
-        reserve_tx_fee_lamports: int = 5000
-    ) -> List[Dict[str, Any]]:
-        keypairs = self.load_keypairs(password)
-        sweep_plans = []
-
-        for idx, kp in enumerate(keypairs):
-            pk_str = str(kp.pubkey())
-            bal = wallet_balances.get(pk_str, 0)
-            transferable = bal - reserve_tx_fee_lamports
-            if transferable > 0:
-                ix = transfer(
-                    TransferParams(
-                        from_pubkey=kp.pubkey(),
-                        to_pubkey=cold_destination,
-                        lamports=transferable
-                    )
-                )
-                sweep_plans.append({
-                    "wallet_index": idx,
-                    "from_pubkey": pk_str,
-                    "to_pubkey": str(cold_destination),
-                    "lamports": transferable,
-                    "instruction": ix,
-                    "keypair": kp
-                })
-
-        return sweep_plans

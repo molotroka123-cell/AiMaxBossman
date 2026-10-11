@@ -1,207 +1,119 @@
-import struct
-from typing import Tuple, List, Optional
-from solders.pubkey import Pubkey
-from solders.keypair import Keypair
-from solders.instruction import Instruction, AccountMeta
-from solders.system_program import ID as SYS_PROGRAM_ID
-from solders.transaction import VersionedTransaction
-from solders.hash import Hash
-from spl.token.constants import TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
-from core.key_vault import RentReclaimer
-from core.jito_client import JitoBundleClient
-from core.treasury_guard import SubImpactEngine
+"""Stage 1: Pump.fun bonding-curve PAPER planner.
 
-PUMP_PROGRAM = Pubkey.from_string("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P")  # ci-secret-scan: allow -- public Solana program/mint/destination address
-PUMP_GLOBAL = Pubkey.from_string("4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf")  # ci-secret-scan: allow -- public Solana program/mint/destination address
-PUMP_FEE_RECIPIENT = Pubkey.from_string("CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM")  # ci-secret-scan: allow -- public Solana program/mint/destination address
-PUMP_EVENT_AUTHORITY = Pubkey.from_string("Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1")  # ci-secret-scan: allow -- public Solana program/mint/destination address
-SYSVAR_RENT = Pubkey.from_string("SysvarRent111111111111111111111111111111111")
+Owner decision 2026-10-11 (audit H4): the hand-built buy/sell instructions, bundle assembly and Jito tip/transaction
+compilation were removed. This module only turns inputs into immutable paper plans (`core.paper_plan`). It imports
+no Solana SDK, takes no keypair, builds no instruction/transaction and makes no network request.
+"""
+from __future__ import annotations
 
-BUY_DISCRIMINATOR = struct.pack("<Q", 16927863322537952870)
-SELL_DISCRIMINATOR = struct.pack("<Q", 12502976635542562355)
-MIGRATION_CUTOFF_PCT = 95.0
+import math
+from typing import Optional
 
+from core.paper_plan import (
+    DEFAULT_SLIPPAGE_BPS,
+    LAMPORTS_PER_SOL,
+    MAX_IMPACT_PCT,
+    MIGRATION_CUTOFF_PCT,
+    PUMP_INITIAL_VIRTUAL_SOL,
+    PUMP_INITIAL_VIRTUAL_TOKENS,
+    MigrationThresholdExceededException,
+    PaperBuyPlan,
+    PaperSellPlan,
+    PaperSlice,
+    PlanRejected,
+    RentReclaimPlanItem,
+    check_quoted_impact,
+    curve_sol_out,
+    curve_tokens_out,
+    estimate_price_impact_pct,
+    estimate_tip_lamports,
+    max_input_lamports,
+    min_output_lamports,
+    slice_order,
+    validate_curve_safety,
+)
 
-class MigrationThresholdExceededException(Exception):
-    """Raised when bonding curve is >= 95%. Purchases frozen to prevent getting trapped in migration lock."""
-    pass
-
-
-def get_bonding_curve_pda(mint: Pubkey) -> Tuple[Pubkey, int]:
-    seeds = [b"bonding-curve", bytes(mint)]
-    return Pubkey.find_program_address(seeds, PUMP_PROGRAM)
-
-
-def get_associated_token_address(wallet: Pubkey, mint: Pubkey) -> Pubkey:
-    seeds = [bytes(wallet), bytes(TOKEN_PROGRAM_ID), bytes(mint)]
-    pda, _ = Pubkey.find_program_address(seeds, ASSOCIATED_TOKEN_PROGRAM_ID)
-    return pda
-
-
-def build_pump_buy_instruction(
-    payer: Pubkey,
-    mint: Pubkey,
-    token_amount: int,
-    max_sol_cost_lamports: int
-) -> Instruction:
-    bonding_curve, _ = get_bonding_curve_pda(mint)
-    associated_bonding_curve = get_associated_token_address(bonding_curve, mint)
-    associated_user = get_associated_token_address(payer, mint)
-
-    accounts = [
-        AccountMeta(pubkey=PUMP_GLOBAL, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=PUMP_FEE_RECIPIENT, is_signer=False, is_writable=True),
-        AccountMeta(pubkey=mint, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=bonding_curve, is_signer=False, is_writable=True),
-        AccountMeta(pubkey=associated_bonding_curve, is_signer=False, is_writable=True),
-        AccountMeta(pubkey=associated_user, is_signer=False, is_writable=True),
-        AccountMeta(pubkey=payer, is_signer=True, is_writable=True),
-        AccountMeta(pubkey=SYS_PROGRAM_ID, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=TOKEN_PROGRAM_ID, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=SYSVAR_RENT, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=PUMP_EVENT_AUTHORITY, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=PUMP_PROGRAM, is_signer=False, is_writable=False),
-    ]
-
-    data = BUY_DISCRIMINATOR + struct.pack("<QQ", token_amount, max_sol_cost_lamports)
-    return Instruction(PUMP_PROGRAM, data, accounts)
+__all__ = [
+    "MIGRATION_CUTOFF_PCT",
+    "MigrationThresholdExceededException",
+    "PumpFunPaperPlanner",
+]
 
 
-def build_pump_sell_instruction(
-    payer: Pubkey,
-    mint: Pubkey,
-    token_amount: int,
-    min_sol_output_lamports: int
-) -> Instruction:
-    bonding_curve, _ = get_bonding_curve_pda(mint)
-    associated_bonding_curve = get_associated_token_address(bonding_curve, mint)
-    associated_user = get_associated_token_address(payer, mint)
-
-    accounts = [
-        AccountMeta(pubkey=PUMP_GLOBAL, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=PUMP_FEE_RECIPIENT, is_signer=False, is_writable=True),
-        AccountMeta(pubkey=mint, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=bonding_curve, is_signer=False, is_writable=True),
-        AccountMeta(pubkey=associated_bonding_curve, is_signer=False, is_writable=True),
-        AccountMeta(pubkey=associated_user, is_signer=False, is_writable=True),
-        AccountMeta(pubkey=payer, is_signer=True, is_writable=True),
-        AccountMeta(pubkey=SYS_PROGRAM_ID, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=ASSOCIATED_TOKEN_PROGRAM_ID, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=TOKEN_PROGRAM_ID, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=PUMP_EVENT_AUTHORITY, is_signer=False, is_writable=False),
-        AccountMeta(pubkey=PUMP_PROGRAM, is_signer=False, is_writable=False),
-    ]
-
-    data = SELL_DISCRIMINATOR + struct.pack("<QQ", token_amount, min_sol_output_lamports)
-    return Instruction(PUMP_PROGRAM, data, accounts)
-
-
-class PumpFunEngine:
+class PumpFunPaperPlanner:
     """
-    Stage 1 Engine: Pump.fun Virtual Bonding Curve volume orchestrator.
-    Features:
-    - Sub-Impact order subdivision (<= 1.2% price impact)
-    - 95% Migration safeguard threshold
-    - Jito-only atomic bundle assembly
-    - Rent recovery instruction on total sell
+    Paper planner for the Pump.fun virtual bonding curve.
+    - 95% migration cutoff for BUY plans
+    - sub-impact slicing (<= 1.2% impact per slice)
+    - integer-lamport slippage caps
+    - rent reclaim as a plan item on a full exit
     """
 
-    def __init__(self, jito_client: JitoBundleClient):
-        self.jito_client = jito_client
+    def validate_curve_safety(self, curve_progress_pct: float, action: str) -> None:
+        validate_curve_safety(curve_progress_pct, action)
 
-    def validate_curve_safety(self, curve_progress_pct: float, action: str):
-        if action.upper() == "BUY" and curve_progress_pct >= MIGRATION_CUTOFF_PCT:
-            raise MigrationThresholdExceededException(
-                f"Curve progress is {curve_progress_pct:.2f}% >= {MIGRATION_CUTOFF_PCT}%. "
-                "Buying blocked to prevent capital lock during migration to Raydium."
-            )
-
-    def assemble_pump_buy_bundle(
+    def plan_buy(
         self,
-        buyer_kp: Keypair,
-        mint: Pubkey,
+        mint: str,
         amount_sol: float,
         curve_progress_pct: float,
-        recent_blockhash: Hash,
-        pool_sol_reserve: float = 30.0,
-        tip_lamports: Optional[int] = None
-    ) -> List[VersionedTransaction]:
+        virtual_sol_reserve: float = PUMP_INITIAL_VIRTUAL_SOL,
+        virtual_token_reserve: float = PUMP_INITIAL_VIRTUAL_TOKENS,
+        slippage_bps: int = DEFAULT_SLIPPAGE_BPS,
+        tip_tier: str = "medium",
+    ) -> PaperBuyPlan:
         self.validate_curve_safety(curve_progress_pct, "BUY")
+        if not isinstance(mint, str) or not mint:
+            raise PlanRejected("mint must be a non-empty string")
+        if not math.isfinite(virtual_token_reserve) or virtual_token_reserve <= 0:
+            raise PlanRejected("virtual_token_reserve must be finite and > 0")
+        sizes = slice_order(amount_sol, virtual_sol_reserve, max_impact_pct=MAX_IMPACT_PCT)
+        sol_res, tok_res = float(virtual_sol_reserve), float(virtual_token_reserve)
+        slices = []
+        total_tokens = 0.0
+        for idx, size in enumerate(sizes):
+            impact = estimate_price_impact_pct(size, sol_res)
+            tokens = curve_tokens_out(size, sol_res, tok_res)
+            slices.append(PaperSlice(
+                index=idx, sol=size, impact_pct=round(impact, 4), est_tokens=round(tokens, 2),
+                cap_lamports=max_input_lamports(int(round(size * LAMPORTS_PER_SOL)), slippage_bps),
+            ))
+            total_tokens += tokens
+            sol_res += size          # the next paper slice sees the curve after this one
+            tok_res -= tokens
+        return PaperBuyPlan(
+            venue="pumpfun_bonding_curve", mint=mint, requested_sol=float(amount_sol),
+            curve_progress_pct=float(curve_progress_pct), slippage_bps=slippage_bps,
+            slices=tuple(slices), total_est_tokens=round(total_tokens, 2),
+            tip_estimate_lamports=estimate_tip_lamports(tip_tier),
+        )
 
-        # Slice order if price impact exceeds 1.2%
-        slices = SubImpactEngine.enforce_sub_impact_limits(amount_sol, pool_sol_reserve, max_impact_pct=1.2)
-        tx_bundle = []
-
-        for idx, slice_sol in enumerate(slices):
-            # Estimate tokens: approx 30M tokens per 1 SOL at base
-            token_amount = int(slice_sol * 30_000_000 * 10**6)
-            max_sol_lamports = int(slice_sol * 1.05 * 10**9)  # 5% max slippage cap
-
-            ix_buy = build_pump_buy_instruction(
-                payer=buyer_kp.pubkey(),
-                mint=mint,
-                token_amount=token_amount,
-                max_sol_cost_lamports=max_sol_lamports
-            )
-
-            instructions = [ix_buy]
-            # Attach Jito Tip to the final transaction in the bundle
-            if idx == len(slices) - 1:
-                ix_tip = self.jito_client.build_tip_instruction(
-                    payer=buyer_kp.pubkey(),
-                    tip_lamports=tip_lamports
-                )
-                instructions.append(ix_tip)
-
-            tx = self.jito_client.compile_v0_transaction(
-                payer=buyer_kp.pubkey(),
-                instructions=instructions,
-                recent_blockhash=recent_blockhash,
-                signers=[buyer_kp]
-            )
-            tx_bundle.append(tx)
-
-        return tx_bundle
-
-    def assemble_pump_sell_bundle(
+    def plan_sell(
         self,
-        seller_kp: Keypair,
-        mint: Pubkey,
-        token_amount: int,
-        min_sol_lamports: int,
-        recent_blockhash: Hash,
+        mint: str,
+        token_amount: float,
+        virtual_sol_reserve: float = PUMP_INITIAL_VIRTUAL_SOL,
+        virtual_token_reserve: float = PUMP_INITIAL_VIRTUAL_TOKENS,
+        slippage_bps: int = DEFAULT_SLIPPAGE_BPS,
         reclaim_rent: bool = True,
-        tip_lamports: Optional[int] = None
-    ) -> VersionedTransaction:
-        ix_sell = build_pump_sell_instruction(
-            payer=seller_kp.pubkey(),
-            mint=mint,
-            token_amount=token_amount,
-            min_sol_output_lamports=min_sol_lamports
-        )
-
-        instructions = [ix_sell]
-
-        # Rent Reclaimer: If fully exiting position, close ATA to recover 0.002039 SOL
-        if reclaim_rent:
-            ata = get_associated_token_address(seller_kp.pubkey(), mint)
-            ix_close = RentReclaimer.build_close_account_ix(
-                token_account=ata,
-                destination_sol_wallet=seller_kp.pubkey(),
-                owner=seller_kp.pubkey()
-            )
-            instructions.append(ix_close)
-
-        # Attach anti-MEV Jito Tip
-        ix_tip = self.jito_client.build_tip_instruction(
-            payer=seller_kp.pubkey(),
-            tip_lamports=tip_lamports
-        )
-        instructions.append(ix_tip)
-
-        return self.jito_client.compile_v0_transaction(
-            payer=seller_kp.pubkey(),
-            instructions=instructions,
-            recent_blockhash=recent_blockhash,
-            signers=[seller_kp]
+        tip_tier: str = "medium",
+        max_impact_pct: Optional[float] = None,
+    ) -> PaperSellPlan:
+        if not isinstance(mint, str) or not mint:
+            raise PlanRejected("mint must be a non-empty string")
+        for name, value in (("token_amount", token_amount), ("virtual_sol_reserve", virtual_sol_reserve),
+                            ("virtual_token_reserve", virtual_token_reserve)):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise PlanRejected(f"{name} must be a finite number > 0")
+        expected_sol = curve_sol_out(token_amount, virtual_sol_reserve, virtual_token_reserve)
+        impact = estimate_price_impact_pct(expected_sol, virtual_sol_reserve)
+        if max_impact_pct is not None:
+            check_quoted_impact(impact, max_impact_pct)
+        expected_lamports = int(round(expected_sol * LAMPORTS_PER_SOL))
+        return PaperSellPlan(
+            venue="pumpfun_bonding_curve", mint=mint, token_amount=float(token_amount),
+            slippage_bps=slippage_bps, expected_sol=expected_lamports / LAMPORTS_PER_SOL,
+            min_sol_lamports=min_output_lamports(expected_lamports, slippage_bps),
+            impact_pct=round(impact, 4), rent_reclaim=RentReclaimPlanItem(included=bool(reclaim_rent)),
+            tip_estimate_lamports=estimate_tip_lamports(tip_tier),
         )

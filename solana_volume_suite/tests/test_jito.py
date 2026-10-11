@@ -1,8 +1,6 @@
 import os
 import sys
 import pytest
-from solders.keypair import Keypair
-from solders.pubkey import Pubkey
 
 # Ensure root of solana_volume_suite is on path
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))

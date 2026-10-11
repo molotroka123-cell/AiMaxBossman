@@ -2,9 +2,7 @@ import os
 import sys
 import json
 import pytest
-from solders.pubkey import Pubkey
 from solders.keypair import Keypair
-from solders.hash import Hash
 from fastapi.testclient import TestClient
 
 # Add project root to sys.path
@@ -12,18 +10,15 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from core.key_vault import SecurityKeyVault, RentReclaimer
+from core.key_vault import SecurityKeyVault
 from core.ai_orchestrator import AIOrchestrator, DeterministicFallbackEngine, VolumeDecision
-from core.jito_client import JitoBundleClient, JitoBundleDropException, MIN_JITO_TIP_LAMPORTS
+from core.jito_client import JitoBundleClient, JitoBundleDropException
 from core.treasury_guard import SubImpactEngine, TreasuryGuard
-from stages.pumpfun_engine import (
-    get_bonding_curve_pda,
-    build_pump_buy_instruction,
-    build_pump_sell_instruction,
-    PumpFunEngine,
+from core.paper_plan import (
+    TOKEN_ACCOUNT_RENT_LAMPORTS,
     MigrationThresholdExceededException,
-    PUMP_PROGRAM
 )
+from stages.pumpfun_engine import PumpFunPaperPlanner
 from dashboard.app import app
 
 
@@ -113,43 +108,22 @@ def test_zero_knowledge_isolation(temp_vault_path):
 
 
 # ==============================================================================
-# TEST 3: Pump.fun PDA Derivation
+# TEST 3: Pump.fun paper plan (replaces the removed PDA / instruction builder test)
 # ==============================================================================
-def test_pumpfun_pda_derivation():
+def test_pumpfun_paper_plan_is_pure_data():
     """
-    Validates PDA derivation math: seeds=[b"bonding-curve", bytes(mint)]
-    on program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P.  # ci-secret-scan: allow -- public Solana program/mint/destination address
+    A buy plan is a frozen dataclass of numbers and strings: sliced <= 1.2% impact, with an integer slippage cap.
     """
-    test_mint = Pubkey.from_string("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263")  # ci-secret-scan: allow -- public Solana program/mint/destination address
-    pda, bump = get_bonding_curve_pda(test_mint)
-
-    assert isinstance(pda, Pubkey)
-    assert isinstance(bump, int)
-    assert 0 <= bump <= 255
-
-    # Re-derive directly with Solders
-    expected_pda, expected_bump = Pubkey.find_program_address(
-        [b"bonding-curve", bytes(test_mint)],
-        PUMP_PROGRAM
+    plan = PumpFunPaperPlanner().plan_buy(
+        mint="DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public Solana program/mint/destination address
+        amount_sol=0.05, curve_progress_pct=10.0, virtual_sol_reserve=30.0,
     )
-    assert pda == expected_pda
-    assert bump == expected_bump
-
-    # Verify instruction builder uses derived PDA
-    buyer = Keypair()
-    ix = build_pump_buy_instruction(
-        payer=buyer.pubkey(),
-        mint=test_mint,
-        token_amount=1_000_000,
-        max_sol_cost_lamports=100_000_000
-    )
-    assert ix.program_id == PUMP_PROGRAM
-    # Account at index 3 is bonding_curve
-    assert ix.accounts[3].pubkey == pda
-    assert ix.accounts[3].is_writable is True
-    # Account at index 6 is payer signer
-    assert ix.accounts[6].pubkey == buyer.pubkey()
-    assert ix.accounts[6].is_signer is True
+    assert plan.live_executable is False
+    assert len(plan.slices) == 1
+    only = plan.slices[0]
+    assert only.impact_pct <= 1.2
+    assert only.cap_lamports == 52_500_000          # 0.05 SOL * 1.05
+    assert plan.to_dict()["live_executable"] is False
 
 
 # ==============================================================================
@@ -254,30 +228,18 @@ def test_dashboard_endpoints():
 
 
 # ==============================================================================
-# TEST 7: Invariant Verification - Strict Jito-Only & Drop on Failure
+# TEST 7: Invariant Verification - Jito stub always refuses (drop, no fallback)
 # ==============================================================================
 @pytest.mark.asyncio
 async def test_jito_only_invariant_and_drop_on_failure():
     """
-    Verifies that if Jito Block Engine fails or is unreachable, the transaction
-    is strictly DROPPED with JitoBundleDropException and NEVER routes to standard RPC.
+    Verifies that the inert Jito stub drops every bundle with JitoBundleDropException and NEVER routes to standard RPC.
+    No transaction object can even be built any more, so the argument is an opaque placeholder.
     """
-    # Point to an invalid Jito endpoint to trigger transport drop
     client = JitoBundleClient(block_engine_url="http://127.0.0.1:58888/api/v1/bundles", timeout=0.5)
 
-    kp = Keypair()
-    tip_ix = client.build_tip_instruction(kp.pubkey(), tip_lamports=MIN_JITO_TIP_LAMPORTS)
-    assert tip_ix is not None
-
-    tx = client.compile_v0_transaction(
-        payer=kp.pubkey(),
-        instructions=[tip_ix],
-        recent_blockhash=Hash.default(),
-        signers=[kp]
-    )
-
     with pytest.raises(JitoBundleDropException) as excinfo:
-        await client.send_bundle([tx])
+        await client.send_bundle([object()])
 
     assert "Bundle DROPPED (no public mempool fallback)" in str(excinfo.value)
     assert client.total_bundles_dropped == 1
@@ -316,58 +278,39 @@ def test_sub_impact_engine_and_treasury_guard():
 
 
 # ==============================================================================
-# TEST 9: Invariant Verification - Pump.fun 95% Migration Threshold Safeguard
+# TEST 9: Invariant Verification - Pump.fun 95% Migration Threshold Safeguard (paper plan)
 # ==============================================================================
 def test_pumpfun_migration_threshold_safeguard():
     """
-    Verifies that when bonding curve reaches 95%, buying is strictly prohibited
-    to prevent getting stuck before migration to Raydium.
+    When the bonding curve reaches 95%, a BUY plan is refused to avoid capital lock before migration to Raydium.
     """
-    engine = PumpFunEngine(jito_client=JitoBundleClient())
-    kp = Keypair()
-    mint = Pubkey.from_string("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263")  # ci-secret-scan: allow -- public Solana program/mint/destination address
+    planner = PumpFunPaperPlanner()
+    mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"  # ci-secret-scan: allow -- public Solana program/mint/destination address
 
-    # Below 95% -> Success
-    bundles = engine.assemble_pump_buy_bundle(
-        buyer_kp=kp,
-        mint=mint,
-        amount_sol=0.05,
-        curve_progress_pct=94.5,
-        recent_blockhash=Hash.default(),
-        pool_sol_reserve=30.0
-    )
-    assert len(bundles) >= 1
+    # Below 95% -> a paper plan with at least one slice
+    plan = planner.plan_buy(mint=mint, amount_sol=0.05, curve_progress_pct=94.5, virtual_sol_reserve=30.0)
+    assert len(plan.slices) >= 1
+    assert plan.curve_progress_pct == 94.5
 
     # At or above 95% -> MUST RAISE MigrationThresholdExceededException
-    with pytest.raises(MigrationThresholdExceededException):
-        engine.assemble_pump_buy_bundle(
-            buyer_kp=kp,
-            mint=mint,
-            amount_sol=0.05,
-            curve_progress_pct=95.1,
-            recent_blockhash=Hash.default(),
-            pool_sol_reserve=30.0
-        )
+    for pct in (95.0, 95.1, 99.9):
+        with pytest.raises(MigrationThresholdExceededException):
+            planner.plan_buy(mint=mint, amount_sol=0.05, curve_progress_pct=pct, virtual_sol_reserve=30.0)
 
 
 # ==============================================================================
-# TEST 10: Invariant Verification - Rent Reclaimer (SPL Token Close Account)
+# TEST 10: Invariant Verification - Rent reclaim is a plan item (no instruction object)
 # ==============================================================================
-def test_rent_reclaimer_close_account():
+def test_rent_reclaim_is_a_plan_item():
     """
-    Verifies RentReclaimer generates valid close_account instruction to reclaim 0.002039 SOL rent.
+    A full exit carries a rent-reclaim plan item worth ~0.002039 SOL; it is data, not a close_account instruction.
     """
-    wallet = Keypair().pubkey()
-    ata = Keypair().pubkey()
-
-    ix = RentReclaimer.build_close_account_ix(
-        token_account=ata,
-        destination_sol_wallet=wallet,
-        owner=wallet
+    plan = PumpFunPaperPlanner().plan_sell(
+        mint="DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public Solana program/mint/destination address
+        token_amount=1_000_000.0, reclaim_rent=True,
     )
-    assert ix is not None
-    # close_account instruction discriminator/structure in SPL token program
-    assert len(ix.accounts) == 3
-    assert ix.accounts[0].pubkey == ata
-    assert ix.accounts[1].pubkey == wallet
-    assert ix.accounts[2].pubkey == wallet
+    assert plan.rent_reclaim.included is True
+    assert plan.rent_reclaim.estimated_lamports == TOKEN_ACCOUNT_RENT_LAMPORTS == 2_039_280
+    assert not hasattr(plan.rent_reclaim, "accounts")
+    skipped = PumpFunPaperPlanner().plan_sell(mint="m", token_amount=1.0, reclaim_rent=False)
+    assert skipped.rent_reclaim.included is False
