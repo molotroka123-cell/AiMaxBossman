@@ -29,12 +29,21 @@ def cmd_profiles(_: argparse.Namespace) -> int:
     return 0
 
 
+def _rake_from(args: argparse.Namespace, big_blind: int):
+    from .engine import Rake
+
+    if not getattr(args, "rake_pct", 0):
+        return None
+    return Rake(pct=args.rake_pct, cap=int(round(args.rake_cap_bb * big_blind)))
+
+
 def cmd_arena(args: argparse.Namespace) -> int:
     from .arena import run_arena
 
     profiles = [_load_profile(s) for s in args.bots.split(",")]
     res = run_arena(profiles, hands=args.hands, seed=args.seed, big_blind=args.big_blind,
-                    stack_bb=args.stack_bb, duplicate=not args.no_duplicate, keep_samples=args.samples)
+                    stack_bb=args.stack_bb, duplicate=not args.no_duplicate, keep_samples=args.samples,
+                    rake=_rake_from(args, args.big_blind))
     print(res.table())
     print(f"\nhands={res.hands} deals={res.deals} seed={res.seed} duplicate={res.duplicate} "
           f"chip_conservation={res.to_dict()['chip_conservation']}")
@@ -55,6 +64,38 @@ def cmd_learn(args: argparse.Namespace) -> int:
     report = learn(cfg, start=start, out_root=Path(args.runs_dir))
     print(json.dumps({k: report[k] for k in ("verdict", "improvement_supported_on_unseen", "elapsed_sec", "total_hands_simulated")},
                      ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    import time
+
+    from . import report as rp
+
+    started = time.time()
+    out = Path(args.out) if args.out else Path(args.runs_dir) / ("report-" + datetime.now().strftime("%Y%m%d-%H%M%S"))
+    if args.history:
+        path = Path(args.history)
+        if not path.is_file():
+            print(f"history file not found: {path}", file=sys.stderr)
+            return 2
+        hands, meta = rp.load_history(path, default_bb=args.big_blind or None)
+        if not hands:
+            print("no hands could be parsed from the file", file=sys.stderr)
+            return 3
+        body = rp.report_from_hands(hands, meta, args.big_blind or None)
+        rep = rp.build_report("history", body, meta, None, started)
+    else:
+        opps = [o for o in args.opponents.split(",") if o]
+        body = rp.report_from_simulation(args.hero, opps, args.hands, args.seed, args.big_blind or 2, args.rake_pct,
+                                         args.rake_cap_bb, _load_profile)
+        meta = {"hero": args.hero, "opponents": opps, "hands_requested": args.hands, "seed": args.seed,
+                "big_blind": args.big_blind or 2}
+        rake = {"pct": args.rake_pct, "cap_bb": args.rake_cap_bb, "no_flop_no_drop": True} if args.rake_pct > 0 else None
+        rep = rp.build_report("simulation", body, meta, rake, started)
+    j, m = rp.write_report(rep, out)
+    print(f"report: {m}")
+    print(f"json:   {j}")
     return 0
 
 
@@ -100,6 +141,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--stack-bb", type=int, default=100)
     p.add_argument("--no-duplicate", action="store_true", help="disable seat-rotation duplicate dealing")
     p.add_argument("--samples", type=int, default=0, help="print N sample hand summaries")
+    p.add_argument("--rake-pct", type=float, default=0.0, help="cash rake as a fraction of the contested pot (0 = none)")
+    p.add_argument("--rake-cap-bb", type=float, default=3.0, help="rake cap in big blinds (used with --rake-pct)")
     p.add_argument("--out", help="write JSON result here")
     p.set_defaults(fn=cmd_arena)
 
@@ -124,6 +167,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--runs-dir", default=str(RUNS))
     p.set_defaults(fn=cmd_trainer_ui)
+
+    p = sub.add_parser("report", help="training report from a local hand history (--history) or a seeded simulation")
+    p.add_argument("--history", help="Poker Train session export JSON or hands JSONL (local file)")
+    p.add_argument("--hero", default="Student (start)", help="simulation: hero profile name or learned_profile.json")
+    p.add_argument("--opponents", default="Rock,TAG Trainer,Calling Station,Maniac,Scared Money")
+    p.add_argument("--hands", type=int, default=3000)
+    p.add_argument("--seed", type=int, default=1)
+    p.add_argument("--big-blind", type=int, default=0, help="chips per big blind (history: fallback; simulation: default 2)")
+    p.add_argument("--rake-pct", type=float, default=0.0)
+    p.add_argument("--rake-cap-bb", type=float, default=3.0)
+    p.add_argument("--out", help="output directory (default runs/report-<time>)")
+    p.add_argument("--runs-dir", default=str(RUNS))
+    p.set_defaults(fn=cmd_report)
 
     p = sub.add_parser("gen-preflop", help="regenerate data/preflop_equity.json")
     p.add_argument("--sims", type=int, default=4000)

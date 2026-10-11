@@ -114,3 +114,32 @@ def test_learn_smoke_tiny_budget(tmp_path) -> None:  # type: ignore[no-untyped-d
     # same config -> same learned profile (fixed seeds)
     again = learn(cfg, out_root=None, log=lambda _: None)
     assert again["learned_profile"] == report["learned_profile"]
+
+
+def test_equity_stats_stderr_ci_and_reproducibility() -> None:
+    from botlab.equity import mc_equity_stats
+
+    hole, board = parse_cards("AsKd"), parse_cards("Ac 7d 2s Kc 9h")
+    a = mc_equity_stats(hole, board, 1, 1500, random.Random(9))
+    b = mc_equity_stats(hole, board, 1, 1500, random.Random(9))
+    assert a == b  # reproducible for a fixed seed
+    lo, hi = a.ci95
+    assert lo <= a.mean <= hi and a.stderr > 0
+    # exact answer by enumerating all opponent hands on the full board
+    from itertools import combinations
+
+    from botlab.cards import FULL_DECK
+    from botlab.evaluator import evaluate
+
+    rest = [c for c in FULL_DECK if c not in set(hole) | set(board)]
+    h = evaluate(list(hole) + list(board))
+    pts = []
+    for x, y in combinations(rest, 2):
+        o = evaluate([x, y] + list(board))
+        pts.append(1.0 if h > o else 0.5 if h == o else 0.0)
+    exact = sum(pts) / len(pts)
+    big = mc_equity_stats(hole, board, 1, 5000, random.Random(1))
+    assert abs(big.mean - exact) < 4 * big.stderr + 1e-9
+    # three-way tie: board plays, hero must get exactly 1/3 (not 1/2)
+    tie = mc_equity_stats(parse_cards("2c3d"), parse_cards("As Ks Qs Js Ts"), 2, 200, random.Random(1))
+    assert abs(tie.mean - 1 / 3) < 1e-12 and tie.stderr == 0.0

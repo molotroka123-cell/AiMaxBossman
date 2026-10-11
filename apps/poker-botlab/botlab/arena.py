@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .agent import ProfileAgent
-from .engine import HandResult, play_hand
+from .engine import HandResult, Rake, play_hand
 from .profiles import Profile
 
 Z95 = 1.959964
@@ -92,6 +92,8 @@ class ArenaResult:
     seed: int
     duplicate: bool
     sample_hands: list[str] = field(default_factory=list)
+    rake: Rake | None = None
+    rake_total: int = 0  # chips taken by the house over all hands (bots' net results are AFTER rake)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -101,7 +103,12 @@ class ArenaResult:
             "seed": self.seed,
             "duplicate": self.duplicate,
             "bots": [b.to_dict() for b in self.bots],
-            "chip_conservation": sum(b.net_chips for b in self.bots) == 0,
+            # bots' net chips are after rake, so they sum to -rake_total (0 without rake)
+            "chip_conservation": sum(b.net_chips for b in self.bots) + self.rake_total == 0,
+            "rake": None if self.rake is None else {"pct": self.rake.pct, "cap_chips": self.rake.cap,
+                                                    "no_flop_no_drop": self.rake.no_flop_no_drop},
+            "rake_total_chips": self.rake_total,
+            "rake_bb_per_100_hands": round(self.rake_total / self.big_blind / max(1, self.hands) * 100, 3),
         }
 
     def table(self) -> str:
@@ -138,6 +145,7 @@ def run_arena(
     stack_bb: int = 100,
     duplicate: bool = True,
     keep_samples: int = 0,
+    rake: Rake | None = None,
 ) -> ArenaResult:
     """Play ``hands`` hands (rounded down to whole deals in duplicate mode)."""
     n = len(profiles)
@@ -151,6 +159,7 @@ def run_arena(
     stack = stack_bb * big_blind
     samples: list[str] = []
     played = 0
+    rake_total = 0
     for d in range(deals):
         dseed = deal_seed(seed, d)
         block_chips = [0] * n
@@ -161,7 +170,8 @@ def run_arena(
             for i, s in enumerate(seat_of):
                 seated[s] = agents[i]
             res: HandResult = play_hand(seated, [stack] * n, button=d % n, small_blind=small_blind,
-                                        big_blind=big_blind, deck_seed=dseed, hand_id=played)
+                                        big_blind=big_blind, deck_seed=dseed, hand_id=played, rake=rake)
+            rake_total += res.rake
             played += 1
             if len(samples) < keep_samples:
                 samples.append(res.summary())
@@ -180,4 +190,5 @@ def run_arena(
                 b.showdown_wins += st.won_showdown
         for i in range(n):
             bots[i].block_bb.append(block_chips[i] / big_blind / rotations)
-    return ArenaResult(bots=bots, hands=played, deals=deals, big_blind=big_blind, seed=seed, duplicate=duplicate, sample_hands=samples)
+    return ArenaResult(bots=bots, hands=played, deals=deals, big_blind=big_blind, seed=seed, duplicate=duplicate, sample_hands=samples,
+                       rake=rake, rake_total=rake_total)

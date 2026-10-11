@@ -40,6 +40,24 @@ class IllegalAction(ValueError):
 
 
 @dataclass(frozen=True)
+class Rake:
+    """Cash-game rake: ``pct`` of the contested pot (uncalled bets excluded), at most ``cap`` chips,
+    nothing when the hand never reaches the flop ("no flop, no drop"). Taken from the main pot first.
+    Assumption: a generic room schedule, not any specific operator's."""
+
+    pct: float
+    cap: int
+    no_flop_no_drop: bool = True
+
+    def amount(self, contested: int, saw_flop: bool) -> int:
+        if self.pct <= 0 or contested <= 0:
+            return 0
+        if self.no_flop_no_drop and not saw_flop:
+            return 0
+        return max(0, min(int(contested * self.pct), self.cap))
+
+
+@dataclass(frozen=True)
 class Action:
     """``kind`` in fold/check/call/bet/raise. For bet/raise ``amount`` is the
     player's total street bet after the action ("raise to")."""
@@ -135,6 +153,7 @@ class HandResult:
     stats: list[SeatStats]
     pots: list[tuple[int, list[int], list[int]]] = field(default_factory=list)  # (amount, eligible, winners)
     showdown_hands: dict[int, str] = field(default_factory=dict)
+    rake: int = 0  # chips removed from the pots; sum(deltas) == -rake
 
     def summary(self) -> str:
         acts = " | ".join(f"s{a.seat}:{a.street[0]}:{a.kind}{'' if a.kind in ('fold', 'check') else ' ' + str(a.to)}" for a in self.actions)
@@ -165,6 +184,7 @@ def play_hand(
     deck_seed: int,
     hand_id: int = 0,
     deck: Sequence[Card] | None = None,
+    rake: Rake | None = None,
 ) -> HandResult:
     """Play one hand. ``deck`` (52 distinct cards) overrides the seeded shuffle; tests use it."""
     n = len(agents)
@@ -365,19 +385,36 @@ def play_hand(
     for _ in range(n_dealt):
         award_order.append(s)
         s = _next_seat(s, dealt)
+
+    # Rake base = everything except the uncalled part of the top bet; no flop, no drop.
+    top2 = sorted(committed, reverse=True)[:2]
+    uncalled_top = max(0, top2[0] - top2[1]) if len(top2) == 2 else 0
+    saw_flop = showdown or any(st.saw_flop for st in stats)
+    rake_left = rake.amount(sum(committed) - uncalled_top, saw_flop) if rake else 0
+    rake_taken = 0
+
     for lvl in levels:
         amount = sum(min(c, lvl) - min(c, prev) for c in committed) + carry
+        contributors = [x for x in range(n) if min(committed[x], lvl) - min(committed[x], prev) > 0]
         prev = lvl
         eligible = [x for x in contenders if committed[x] >= lvl]
         if not eligible:
             carry = amount
             continue
         carry = 0
-        if len(eligible) == 1:
+        uncalled = len(eligible) == 1 and contributors == eligible
+        if uncalled:
+            winners = eligible
+        elif len(eligible) == 1:
             winners = eligible
         else:
             best = max(scores[x] for x in eligible)
             winners = [x for x in eligible if scores[x] == best]
+        if not uncalled and rake_left > 0:
+            cut = min(amount, rake_left)
+            amount -= cut
+            rake_left -= cut
+            rake_taken += cut
         share, rem = divmod(amount, len(winners))
         for w in winners:
             stack[w] += share
@@ -391,8 +428,8 @@ def play_hand(
         stack[contenders[0]] += carry
 
     deltas = [stack[x] - stacks[x] for x in range(n)]
-    if sum(deltas) != 0:
-        raise RuntimeError(f"chip conservation violated: {deltas}")
+    if sum(deltas) + rake_taken != 0:
+        raise RuntimeError(f"chip conservation violated: {deltas} rake={rake_taken}")
     return HandResult(
         hand_id=hand_id,
         button=button,
@@ -405,6 +442,7 @@ def play_hand(
         stats=stats,
         pots=pots,
         showdown_hands=showdown_hands,
+        rake=rake_taken,
     )
 
 

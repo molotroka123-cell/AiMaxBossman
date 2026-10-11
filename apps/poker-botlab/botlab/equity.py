@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import random
 from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
@@ -29,14 +30,35 @@ MAX_OPPONENTS = 5
 DATA_FILE = Path(__file__).resolve().parent / "data" / "preflop_equity.json"
 
 
-def mc_equity(
+@dataclass(frozen=True)
+class EquityEstimate:
+    """Monte Carlo estimate with its sampling uncertainty (opponents hold UNIFORMLY RANDOM hands)."""
+
+    mean: float
+    stderr: float
+    sims: int
+
+    @property
+    def ci95(self) -> tuple[float, float]:
+        half = 1.959964 * self.stderr
+        return (max(0.0, self.mean - half), min(1.0, self.mean + half))
+
+    def to_dict(self) -> dict[str, float]:
+        lo, hi = self.ci95
+        return {"equity": round(self.mean, 4), "stderr": round(self.stderr, 4), "ci95_lo": round(lo, 4),
+                "ci95_hi": round(hi, 4), "sims": self.sims,
+                "assumption": "opponents hold uniformly random hands"}
+
+
+def mc_equity_stats(
     hole: Sequence[Card],
     board: Sequence[Card],
     n_opponents: int,
     sims: int,
     rng: random.Random,
-) -> float:
-    """Expected pot share of ``hole`` vs ``n_opponents`` random hands."""
+) -> EquityEstimate:
+    """Expected pot share of ``hole`` vs ``n_opponents`` random hands, with a standard error.
+    Deterministic for a given ``rng`` state (seed it for reproducible reports)."""
     if not 1 <= n_opponents <= MAX_OPPONENTS:
         raise ValueError(f"n_opponents must be 1..{MAX_OPPONENTS}")
     sims = max(1, min(int(sims), MAX_SIMS))
@@ -47,6 +69,7 @@ def mc_equity(
     hero_base = list(hole) + list(board)
     board_l = list(board)
     total = 0.0
+    total_sq = 0.0
     sample = rng.sample
     for _ in range(sims):
         drawn = sample(stub, draw)
@@ -66,8 +89,23 @@ def mc_equity(
             elif s == best:
                 ties += 1
         if hero_best and best == hero:
-            total += 1.0 / ties
-    return total / sims
+            share = 1.0 / ties
+            total += share
+            total_sq += share * share
+    mean = total / sims
+    var = max(0.0, (total_sq - sims * mean * mean) / (sims - 1)) if sims > 1 else 0.0
+    return EquityEstimate(mean=mean, stderr=(var / sims) ** 0.5, sims=sims)
+
+
+def mc_equity(
+    hole: Sequence[Card],
+    board: Sequence[Card],
+    n_opponents: int,
+    sims: int,
+    rng: random.Random,
+) -> float:
+    """Expected pot share of ``hole`` vs ``n_opponents`` random hands (point estimate)."""
+    return mc_equity_stats(hole, board, n_opponents, sims, rng).mean
 
 
 def generate_preflop_table(sims_per_class: int, seed: int = 20261005) -> dict[str, list[float]]:
