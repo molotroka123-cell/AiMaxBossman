@@ -37,16 +37,31 @@ def gt_mask(orig_bgr, refs, T=14.0):
     des = []
     for r in refs:
         des.append(np.sqrt(((hv.to_lab(r) - lo) ** 2).sum(axis=2)))
-    med = np.median(np.stack(des), axis=0)
-    m = (cv2.GaussianBlur(med, (0, 0), 1.0) > T).astype(np.uint8)
+    st = np.stack(des)
+    med = np.median(st, axis=0)
+    # v2 (11.10, after an eyeball check): hair in deep shadow differs little in L between the black original and a dark dye, so the
+    # median over the 4 colours can leave holes inside the hair. Use "median > T  OR  max over colours > 2.2 T", then fill the
+    # holes (a hair region has no holes that are not skin/background; fingers crossing it are real exceptions and are re-cut by
+    # the min over colours of the reference-vs-original difference being tiny).
+    m = ((cv2.GaussianBlur(med, (0, 0), 1.0) > T) | (cv2.GaussianBlur(st.max(axis=0), (0, 0), 1.0) > 2.2 * T)).astype(np.uint8)
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    # fill enclosed holes
+    inv = (1 - m).astype(np.uint8)
+    n0, lab0, st0, _ = cv2.connectedComponentsWithStats(inv, 4)
+    border = set(np.unique(np.concatenate([lab0[0], lab0[-1], lab0[:, 0], lab0[:, -1]])))
+    for i in range(1, n0):
+        if i not in border and st0[i, cv2.CC_STAT_AREA] < 0.01 * m.size:
+            m[lab0 == i] = 1
     # keep components larger than 0.2 % of the image (flyaway dust removed, hanging strands kept)
     n, lab, st, _ = cv2.connectedComponentsWithStats(m, 8)
     keep = np.zeros_like(m)
     for i in range(1, n):
         if st[i, cv2.CC_STAT_AREA] > 0.002 * m.size:
             keep[lab == i] = 1
+    n2, lab2, st2, _ = cv2.connectedComponentsWithStats(keep, 8)
+    if n2 > 1:
+        keep = (lab2 == 1 + int(np.argmax(st2[1:, cv2.CC_STAT_AREA]))).astype(np.uint8)    # the head only: no stray background blobs
     return keep.astype(np.float32), med
 
 
