@@ -23,7 +23,7 @@ def _runtime(tmp_path, adapter, models):
     return make_runtime(tmp_path, adapter=adapter, settings=settings)
 
 
-def _ask(runtime, text="Привет", message_id=1):
+def _ask(runtime, text="Объясни, как составить план задачи", message_id=1):
     person = runtime.settings.people[0]
     warm(runtime, runtime.vault.key_for_telegram(person.user_id))
     return asyncio.run(runtime.handle(person, message(text, message_id=message_id)))

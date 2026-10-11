@@ -68,7 +68,7 @@ def test_a_failing_free_model_never_falls_back_to_a_paid_one(tmp_path):
         person = settings.people[0]
         from .test_pit_runtime import warm
         warm(runtime, runtime.vault.key_for_telegram(person.user_id))
-        answer = asyncio.run(runtime.handle(person, message("Привет", message_id=31)))
+        answer = asyncio.run(runtime.handle(person, message("Объясни, как составить план задачи", message_id=31)))
         assert "бесплатного" in answer
         assert adapter_calls and set(adapter_calls) <= {"free/a:free", "free/b:free"}
         assert runtime._max_cost_usd() == 0.0
@@ -158,7 +158,7 @@ def test_reply_updates_last_success_and_latency(tmp_path):
         person = runtime.settings.people[0]
         from .test_pit_runtime import warm
         warm(runtime, runtime.vault.key_for_telegram(person.user_id))
-        asyncio.run(runtime.handle(person, message("Привет", message_id=41)))
+        asyncio.run(runtime.handle(person, message("Объясни, как составить план задачи", message_id=41)))
         snap = runtime.heartbeat_snapshot("running")
         assert snap["replies_ok"] >= 1 and snap["last_reply_at"] and snap["llm"]["model"] == "free/model:free"
         assert snap["queue"] >= 0
@@ -214,7 +214,7 @@ async def test_a_blocked_render_thread_does_not_delay_a_jeff_reply(tmp_path):
         from .test_pit_runtime import warm
         warm(runtime, runtime.vault.key_for_telegram(person.user_id))
         started = time.monotonic()
-        answer = await runtime.handle(person, message("Привет", message_id=51))
+        answer = await runtime.handle(person, message("Объясни, как составить план задачи", message_id=51))
         assert answer and time.monotonic() - started < 3
     finally:
         stop.set()

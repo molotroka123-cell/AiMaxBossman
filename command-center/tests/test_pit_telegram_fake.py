@@ -101,7 +101,7 @@ def test_receive_reply_then_stop_through_fake_bot_api(tmp_path):
     assert [row["text"] for row in api.sent] == [rt.INTRO_RU]
     # commands (control lane) and chat (chat lane) are separate workers, so the
     # chat turn is a second poll session after the zero-start intro
-    api.pending, api.sent = [update(2, "Как дела?")], []
+    api.pending, api.sent = [update(2, "Расскажи, как составить план")], []
     runtime = fake_runtime(tmp_path, api)
     run_until(runtime, api, replies=1)
     texts = [row["text"] for row in api.sent]

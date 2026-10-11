@@ -153,7 +153,7 @@ def test_empty_local_answer_is_recovered_by_one_unload_and_retry(tmp_path):
     local = Degraded()
     runtime = _local_runtime(tmp_path, local)
     try:
-        answer = _ask(runtime, "Привет", 1)
+        answer = _ask(runtime, "Объясни, как составить план задачи", 1)
         assert "после перезагрузки" in answer
         assert local.unloads == 1 and local.calls == 2
     finally:
@@ -164,7 +164,7 @@ def test_unrecoverable_empty_local_answer_is_reported_honestly_and_not_sticky(tm
     local = Degraded(heals=False)
     runtime = _local_runtime(tmp_path, local)
     try:
-        answer = _ask(runtime, "Привет", 1)
+        answer = _ask(runtime, "Объясни, как составить план задачи", 1)
         assert answer in {rt.PROVIDER_DOWN_RU, rt.INCOMPLETE_REPLY_RU} and answer.strip()
         assert local.unloads == 1, "at most one unload per turn"
         local.degraded, local.heals = False, True
@@ -178,7 +178,8 @@ def test_local_chat_call_never_asks_for_reasoning(tmp_path):
     local.degraded = False
     runtime = _local_runtime(tmp_path, local)
     try:
-        _ask(runtime, "Привет", 1)
+        _ask(runtime, "Объясни, как составить план задачи", 1)
+        assert local.kwargs, "a substantive request must reach the local adapter"
         assert all("think" not in kw and kw.get("reasoning_effort") in (None, "none")
                    for kw in local.kwargs)
     finally:

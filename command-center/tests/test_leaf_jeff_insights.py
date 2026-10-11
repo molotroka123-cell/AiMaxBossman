@@ -6,12 +6,13 @@ tests/test_jeff_2_insights.py (run together with this file by the probe).
 from bcc.features import jeff_insights
 
 
-def test_the_documented_endpoints_exist_and_only_the_digest_send_mutates():
+def test_the_documented_endpoints_include_digest_send_and_outbox_ack():
     routes = {(r.path, m) for r in jeff_insights.router.routes for m in r.methods if m not in ("HEAD",)}
     assert routes == {
         ("/jeff-insights/overview", "GET"), ("/jeff-insights/participants", "GET"),
         ("/jeff-insights/narratives", "GET"), ("/jeff-insights/narratives/{person_key}", "GET"),
         ("/jeff-insights/trends", "GET"), ("/jeff-insights/digest", "GET"), ("/jeff-insights/digest/send", "POST"),
+        ("/jeff-insights/pult-outbox", "GET"), ("/jeff-insights/pult-outbox/{item_id}/delivered", "POST"),
     }
     assert jeff_insights.FEATURE.name == "jeff_insights"
 

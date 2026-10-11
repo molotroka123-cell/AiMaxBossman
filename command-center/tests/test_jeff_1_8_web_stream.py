@@ -51,7 +51,7 @@ def test_sse_delivers_deltas_then_one_final_reply_and_saves_it_once(tmp_path):
     app, _ = make_app(tmp_path, adapter)
     with client_for(app) as c:
         signup(c)
-        with stream(c, "Привет") as response:
+        with stream(c, "Объясни, как составить план задачи") as response:
             assert response.status_code == 200
             assert response.headers["content-type"].startswith("text/event-stream")
             got = events(response)
@@ -71,7 +71,7 @@ def test_sse_reset_event_drops_a_discarded_attempt(tmp_path):
     app, _ = make_app(tmp_path, adapter)
     with client_for(app) as c:
         signup(c)
-        with stream(c, "Привет") as response:
+        with stream(c, "Объясни, как составить план задачи") as response:
             got = events(response)
     assert [name for name, _ in got] == ["delta", "reset", "delta", "final"]
     assert got[-1][1]["reply"] == "Полный ответ."
@@ -81,7 +81,7 @@ def test_sse_without_streaming_adapter_still_ends_with_the_final_reply(tmp_path)
     app, _ = make_app(tmp_path, RecordingAdapter("Целиком."))
     with client_for(app) as c:
         signup(c)
-        with stream(c, "Привет") as response:
+        with stream(c, "Объясни, как составить план задачи") as response:
             got = events(response)
     assert [name for name, _ in got][-1] == "final" and got[-1][1]["reply"] == "Целиком."
 
@@ -131,7 +131,7 @@ def test_health_serves_reply_latency_and_route_status(tmp_path):
     app, _ = make_app(tmp_path, StreamingAdapter())
     with client_for(app) as c:
         signup(c)
-        with stream(c, "Привет") as response:
+        with stream(c, "Объясни, как составить план задачи") as response:
             events(response)
         health = c.get("/api/jeff/health").json()
     beat = health["heartbeat"]

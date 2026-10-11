@@ -127,7 +127,7 @@ def test_d1_overlay_comes_back_after_the_suspension(tmp_path):
     rude(tmp_path)
     runtime = cloud_runtime(tmp_path)
     ask(runtime, "хочу умереть", 510)
-    assert MOOD not in (ask(runtime, "привет", 511) and system_of(runtime.adapter))
+    assert MOOD not in (ask(runtime, "Объясни, как составить план задачи", 511) and system_of(runtime.adapter))
     runtime.store.put("crisis_until:" + _person(runtime).key, 1.0)            # long ago
     ask(runtime, "расскажи про космос", 512)
     assert MOOD in system_of(runtime.adapter)

@@ -193,7 +193,7 @@ def test_single_search_get_has_no_credentials_redirects_or_private_env(monkeypat
     (200, {"content-type": "text/html"}, b"html", "rss_wrong_content_type"),
     (200, {"content-type": "application/xml"}, b"x" * (news.MAX_FEED_BYTES + 1), "rss_body_limit"),
     (200, {"content-type": "application/xml"}, b"<html/>", "rss_wrong_shape"),
-])
+], ids=["redirect", "rate-limit", "wrong-type", "oversize-feed", "wrong-shape"])
 def test_http_failure_never_becomes_success_or_follows_redirect(monkeypatch, status, headers, body, reason):
     calls, _ = mocked_http(monkeypatch, lambda req: httpx.Response(status, headers=headers, content=body))
     with pytest.raises(news.NewsFetchError, match=reason):

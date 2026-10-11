@@ -82,7 +82,7 @@ def test_jeff_window_chats_for_real_and_stays_participant_safe(jeff_server):
             page.keyboard.press("Shift+Enter")
             assert page.input_value("#message") == "Как\n"
             assert page.locator(".bubble.user").count() == 0
-            page.fill("#message", "Как дела?")
+            page.fill("#message", "Расскажи, как составить план задачи")
             page.press("#message", "Enter")
             # the page CSP forbids eval, so waits use locators, not wait_for_function
             page.locator(".bubble.assistant:not(.pending)").nth(1).wait_for()
@@ -93,7 +93,7 @@ def test_jeff_window_chats_for_real_and_stays_participant_safe(jeff_server):
 
             page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(".bubble.user")
-            assert "Как дела?" in page.locator(".bubble.user").last.inner_text()
+            assert "Расскажи, как составить план задачи" in page.locator(".bubble.user").last.inner_text()
 
             foreign = [u for _, u in requests if not u.startswith(jeff_server)]
             assert foreign == [], foreign

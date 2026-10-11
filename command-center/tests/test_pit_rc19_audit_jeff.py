@@ -50,7 +50,7 @@ def test_one_busy_capacity_reading_does_not_drop_local_for_later_turns(tmp_path)
     answers = []
     for i in range(3):
         _cloud_slot(runtime)
-        answers.append(asyncio.run(runtime.handle(_person(runtime), message("привет", message_id=200 + i))))
+        answers.append(asyncio.run(runtime.handle(_person(runtime), message("Объясни, как составить план задачи", message_id=200 + i))))
     assert answers[0] == rt.CLOUD_PAUSED_RU            # local really was busy then
     assert answers[1:] == ["Локальный ответ.", "Локальный ответ."]
     assert len(local.calls) == 2
@@ -68,7 +68,7 @@ def test_local_missing_from_catalog_is_looked_for_again(tmp_path):
     runtime.catalog.pop("jeff-local:latest")
     runtime.catalog_checked_at = time.monotonic() - rt.LOCAL_RECHECK_SECONDS - 1
     _cloud_slot(runtime)
-    answer = asyncio.run(runtime.handle(_person(runtime), message("привет", message_id=210)))
+    answer = asyncio.run(runtime.handle(_person(runtime), message("Объясни, как составить план задачи", message_id=210)))
     assert answer == "Локальный ответ."
     assert "jeff-local:latest" in runtime.catalog
 
@@ -82,7 +82,7 @@ def test_cloud_network_failure_falls_back_to_local(tmp_path):
     runtime = make_runtime(tmp_path, adapter=Down())
     _started(runtime)
     local = _with_local(runtime)
-    answer = asyncio.run(runtime.handle(_person(runtime), message("привет", message_id=220)))
+    answer = asyncio.run(runtime.handle(_person(runtime), message("Объясни, как составить план задачи", message_id=220)))
     assert answer == "Локальный ответ."
     assert len(local.calls) == 1
 
@@ -97,7 +97,7 @@ def test_slow_cloud_leaves_time_for_the_local_fallback(tmp_path):
     local = _with_local(runtime)
     runtime.settings = dataclasses.replace(runtime.settings, chat_deadline_seconds=10)
     started = time.monotonic()
-    answer = asyncio.run(runtime.handle(_person(runtime), message("привет", message_id=230)))
+    answer = asyncio.run(runtime.handle(_person(runtime), message("Объясни, как составить план задачи", message_id=230)))
     assert answer == "Локальный ответ."
     assert len(local.calls) == 1
     assert time.monotonic() - started < 10.5

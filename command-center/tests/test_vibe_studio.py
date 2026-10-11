@@ -205,7 +205,7 @@ async def test_path_traversal_slug_and_file_names_are_rejected(env, autonomy):
     ("form action", {"index.html": '<html><form action="https://evil.example/s"></form></html>'}),
     ("meta refresh", {"index.html": '<html><meta http-equiv="refresh" content="0;url=x"></html>'}),
     ("secret key stored", {"app.js": "localStorage.setItem('api_key', v)"}),
-    ("hardcoded key", {"app.js": "const k = 'sk-abcdefghijklmnopqrstuvwxyz012345';"}),
+    ("hardcoded key", {"app.js": "const k = 'sk-abcdefghijklmnopqrstuvwxyz012345';"}),  # ci-secret-scan: allow — deliberate synthetic secret-detection canary
     ("cookie write", {"app.js": "document.cookie = 'a=b'"}),
     ("javascript url", {"index.html": '<html><a href="javascript:alert(1)">x</a></html>'}),
     ("local path", {"app.js": "// C:\\Users\\asd\\Bossman\\secrets"}),
@@ -235,7 +235,7 @@ def test_limits_and_secret_detection():
     assert not scan_files(big).ok
     many = {f"f{i}.js": "1" for i in range(25)} | {"index.html": "ok"}
     assert not scan_files(many).ok
-    assert secret_findings("use key sk-or-v1-abcdef0123456789abcdef") and not secret_findings("a red counter")
+    assert secret_findings("use key sk-or-v1-abcdef0123456789abcdef") and not secret_findings("a red counter")  # ci-secret-scan: allow — deliberate synthetic secret-detection canary
     assert parse_output(GOOD).files["index.html"].startswith("<!doctype html>")
     html = inline_for_preview({"index.html": GOOD_HTML, "app.js": "var a=1;", "style.css": "p{}"})
     assert "<script>var a=1;" in html and "<style>p{}</style>" in html
@@ -265,7 +265,7 @@ async def test_local_only_never_calls_cloud_and_fails_when_no_local_model(env, a
 async def test_secret_like_request_text_keeps_the_job_off_the_cloud(env, autonomy):
     cloud, local = FakeAdapter([GOOD]), FakeAdapter([GOOD])
     make_service(env, FakeLadder(cand("local", local), cand("free", cloud)))
-    r = await post_job(env, request="a notes app; my key is sk-abcdefghijklmnopqrstuvwxyz0123456789")
+    r = await post_job(env, request="a notes app; my key is sk-abcdefghijklmnopqrstuvwxyz0123456789")  # ci-secret-scan: allow — deliberate synthetic secret-detection canary
     job = await finish(env, r.json()["job_id"])
     assert job["status"] == "completed" and job["result"]["tier"] == "local"
     assert cloud.calls == []

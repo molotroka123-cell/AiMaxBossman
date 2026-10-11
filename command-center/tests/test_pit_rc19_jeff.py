@@ -84,7 +84,7 @@ def test_participant_reply_never_names_the_model(tmp_path):
 
     runtime = make_runtime(tmp_path, adapter=Down())
     _started(runtime)
-    answer = asyncio.run(runtime.handle(_person(runtime), message("привет", message_id=3)))
+    answer = asyncio.run(runtime.handle(_person(runtime), message("Объясни, как составить план задачи", message_id=3)))
     assert "free/model" not in answer and "openrouter" not in answer.lower()
     assert answer == rt.PROVIDER_DOWN_RU
 
@@ -204,7 +204,7 @@ def test_rate_limit_starts_cooldown_instead_of_hammering(tmp_path):
     runtime = make_runtime(tmp_path, adapter=adapter)
     _started(runtime)
     person = _person(runtime)
-    first = asyncio.run(runtime.handle(person, message("привет", message_id=11)))
+    first = asyncio.run(runtime.handle(person, message("Объясни, как составить план задачи", message_id=11)))
     assert first in {rt.PROVIDER_DOWN_RU, rt.CLOUD_PAUSED_RU}
     calls_after_first = adapter.chat_calls
     assert calls_after_first == 1
@@ -244,7 +244,7 @@ def test_remote_attempts_per_turn_are_bounded(tmp_path):
     settings = dataclasses.replace(make_settings(tmp_path), chat_models=models)
     runtime = make_runtime(tmp_path, adapter=adapter, settings=settings)
     _started(runtime)
-    asyncio.run(runtime.handle(_person(runtime), message("привет", message_id=40)))
+    asyncio.run(runtime.handle(_person(runtime), message("Объясни, как составить план задачи", message_id=40)))
     assert len(adapter.calls) <= rt.MAX_REMOTE_ATTEMPTS_PER_TURN
 
 
@@ -320,7 +320,7 @@ def test_one_model_429_falls_back_to_local_in_the_same_turn(tmp_path):
     runtime = make_runtime(tmp_path, adapter=adapter)
     _started(runtime)
     local = _with_local(runtime)
-    answer = asyncio.run(runtime.handle(_person(runtime), message("привет", message_id=70)))
+    answer = asyncio.run(runtime.handle(_person(runtime), message("Объясни, как составить план задачи", message_id=70)))
     assert answer == "Локальный ответ."
     assert adapter.chat_calls == 1 and len(local.calls) == 1
     status = runtime.cloud_budget_status()
@@ -341,7 +341,7 @@ def test_provider_daily_free_limit_pauses_cloud_until_reset(tmp_path):
     adapter = DailyCap()
     runtime = make_runtime(tmp_path, adapter=adapter)
     _started(runtime)
-    asyncio.run(runtime.handle(_person(runtime), message("привет", message_id=71)))
+    asyncio.run(runtime.handle(_person(runtime), message("Объясни, как составить план задачи", message_id=71)))
     asyncio.run(runtime.handle(_person(runtime), message("ещё", message_id=72)))
     assert adapter.chat_calls == 1
     status = runtime.cloud_budget_status()

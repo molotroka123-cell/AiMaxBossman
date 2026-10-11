@@ -157,7 +157,7 @@ def _local_runtime(tmp_path, local):
     return runtime
 
 
-def _turn(runtime, text="Привет", message_id=1, sink=None):
+def _turn(runtime, text="Объясни, как составить план задачи", message_id=1, sink=None):
     person = runtime.settings.people[0]
     warm(runtime, runtime.vault.key_for_telegram(person.user_id))
 
@@ -292,7 +292,7 @@ def test_stop_cancels_a_streaming_turn_promptly(tmp_path):
     async def go():
         token = reply_sink.set(sink)
         try:
-            task = asyncio.create_task(runtime.handle(person, message("Привет", message_id=1)))
+            task = asyncio.create_task(runtime.handle(person, message("Объясни, как составить план задачи", message_id=1)))
         finally:
             reply_sink.reset(token)
         await asyncio.sleep(0.4)

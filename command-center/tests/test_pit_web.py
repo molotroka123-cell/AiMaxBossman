@@ -256,7 +256,7 @@ def test_unreachable_model_shows_honest_status(tmp_path):
     app = web.create_app(settings, port=PORT)     # real adapter, dead port
     with client_for(app) as c:
         signup(c)
-        res = chat(c, "привет")
+        res = chat(c, "Объясни, как составить план задачи")
     assert res.status_code == 200
     assert res.json()["reply"] in {rt.NO_MODEL_RU, rt.PROVIDER_DOWN_RU}
 
