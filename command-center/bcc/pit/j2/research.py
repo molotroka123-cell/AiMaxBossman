@@ -29,6 +29,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
@@ -679,4 +680,12 @@ def _default_fetch(runtime: Any, *, resolver: Resolver | None = None) -> Fetch:
 
 
 def create(runtime: Any, *, search: Search | None = None, fetch: Fetch | None = None) -> ResearchModule:
-    return ResearchModule(ResearchDesk(search or _default_search(runtime), fetch or _default_fetch(runtime)))
+    chosen = search or _default_search(runtime)
+    if search is None:
+        # Optional read-only browser fallback: OFF unless BOSSMAN_JEFF_BROWSER_SEARCH=1 AND a pinned MCP command is
+        # configured (see browser_search.py). The normal search always runs first; flag OFF returns ``chosen`` as is.
+        from . import browser_search
+        home = getattr(runtime, "home", None)
+        chosen, _ = browser_search.maybe_wrap(
+            chosen, stopped=lambda: bool(home) and (Path(home) / "stop.flag").exists())
+    return ResearchModule(ResearchDesk(chosen, fetch or _default_fetch(runtime)))
