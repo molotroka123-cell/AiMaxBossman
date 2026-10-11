@@ -196,6 +196,8 @@ def test_dashboard_endpoints():
     /api/vault/generate, /api/vault/wallets, /api/bot/start, /api/bot/stop, /api/telemetry, /api/bot/sweep
     """
     client = TestClient(app)
+    from solana_volume_suite.dashboard.safety_app import CONTROL_TOKEN
+    client.headers["X-Control-Token"] = CONTROL_TOKEN
 
     # 1. Real key generation is disabled in the paper-only control plane.
     res_gen = client.post("/api/vault/generate", json={
@@ -215,12 +217,10 @@ def test_dashboard_endpoints():
     assert data_wallets["wallets"][0]["role"] == "virtual_paper_wallet"
 
     # 3. Start Bot
-    res_start = client.post("/api/bot/start", json={
-        "stage": "BONDING_CURVE",
-        "target_token_mint": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",  # ci-secret-scan: allow -- public Solana program/mint/destination address
-        "password": "MasterTestPassword777!",
-        "max_loss_usd": 50.0
-    })
+    # strict SAFETY_ONLY acknowledgement: any extra field (password, mint...) is refused
+    assert client.post("/api/bot/start", json={
+        "paper_only": True, "password": "MasterTestPassword777!"}).status_code == 403
+    res_start = client.post("/api/bot/start", json={"paper_only": True})
     assert res_start.status_code == 200
     data_start = res_start.json()
     assert data_start["status"] == "RUNNING"

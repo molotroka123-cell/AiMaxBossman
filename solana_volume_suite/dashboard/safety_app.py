@@ -1,8 +1,12 @@
 """Local safety control plane and interactive prototype dashboard backend."""
+import hmac
 import os
+import secrets
 import sys
 import time
 import asyncio
+from contextlib import asynccontextmanager
+from typing import Literal
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
@@ -14,7 +18,7 @@ WORKSPACE_ROOT = os.path.dirname(SUITE_ROOT)
 if WORKSPACE_ROOT not in sys.path:
     sys.path.insert(0, WORKSPACE_ROOT)
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,7 +29,53 @@ except ImportError:
     from core.liquidity_gate import check_liquidity, LiquidityGate
     from orchestrator_loop import VolumeOrchestratorLoop
 
-app = FastAPI(title="Solana AI Volume Suite - Safety Control Plane")
+MIN_TOKEN_LENGTH = 16
+
+
+def _load_control_token() -> str:
+    """Control-plane secret. Env SVS_CONTROL_TOKEN (>=16 chars) or a random
+    per-process token. Never a default value, never written to disk."""
+    env = os.environ.get("SVS_CONTROL_TOKEN", "")
+    if len(env) >= MIN_TOKEN_LENGTH:
+        return env
+    return secrets.token_urlsafe(32)
+
+
+CONTROL_TOKEN = _load_control_token()
+
+
+def _origin_is_local(origin: str) -> bool:
+    from urllib.parse import urlsplit
+    try:
+        host = urlsplit(origin).hostname or ""
+    except ValueError:
+        return False
+    return host in {"127.0.0.1", "localhost", "::1"}
+
+
+def require_control(request: Request) -> None:
+    """Authenticate state-changing endpoints: constant-time token compare, plus
+    reject cross-site browser requests (Origin) so a web page cannot drive the
+    local control plane. Stop/kill-switch endpoints intentionally do NOT use this:
+    a kill switch must never depend on a secret."""
+    origin = request.headers.get("origin")
+    if origin and not _origin_is_local(origin):
+        raise HTTPException(status_code=403, detail="FOREIGN_ORIGIN")
+    supplied = request.headers.get("x-control-token", "")
+    if not supplied or not hmac.compare_digest(supplied.encode(), CONTROL_TOKEN.encode()):
+        raise HTTPException(status_code=401, detail="CONTROL_TOKEN_REQUIRED")
+
+
+@asynccontextmanager
+async def _lifespan(_app):
+    # Local console only: tells the operator the per-process token if none was set.
+    if not os.environ.get("SVS_CONTROL_TOKEN"):
+        print("[safety_app] control token for this process (POST endpoints, header "
+              f"X-Control-Token): {CONTROL_TOKEN}", file=sys.stderr)
+    yield
+
+
+app = FastAPI(title="Solana AI Volume Suite - Safety Control Plane", lifespan=_lifespan)
 
 # Global paper-only simulation; it uses fixed synthetic reserves and virtual wallets.
 orchestrator = VolumeOrchestratorLoop(
@@ -47,6 +97,13 @@ class Assessment(BaseModel):
     reserve_in: int = Field(strict=True, gt=0, le=2**64 - 1)
     reserve_out: int = Field(strict=True, gt=0, le=2**64 - 1)
     fee_bps: int = Field(default=25, strict=True, ge=0, lt=10000)
+
+
+class BotStartRequest(BaseModel):
+    """Strict SAFETY_ONLY acknowledgement: exactly {"paper_only": true}.
+    No passwords, keys or other fields are accepted on this endpoint."""
+    model_config = ConfigDict(extra="forbid")
+    paper_only: Literal[True]
 
 
 class SweepRequest(BaseModel):
@@ -168,13 +225,12 @@ def budget():
     return {"execution_budget_usd": 0, "spent_usd": None, "status": "DISABLED"}
 
 
-@app.post("/api/bot/start")
+@app.post("/api/bot/start", dependencies=[Depends(require_control)])
 async def bot_start(request: Request):
     try:
         body = await request.json()
+        BotStartRequest.model_validate(body)
     except Exception:
-        body = None
-    if not body or not isinstance(body, dict):
         return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
     global orchestrator_task
     orchestrator.is_running = True
@@ -189,14 +245,8 @@ async def bot_start(request: Request):
     }
 
 
-@app.post("/api/bot/sweep")
+@app.post("/api/bot/sweep", dependencies=[Depends(require_control)])
 async def bot_sweep(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-    if not body or not isinstance(body, dict):
-        return JSONResponse(status_code=403, content={"status": "BLOCKED", "reason": "SAFETY_ONLY_RUNTIME"})
     return JSONResponse(status_code=409, content={
         "status": "BLOCKED",
         "reason": "PAPER_ONLY_NO_REAL_WALLETS_OR_FUNDS",
@@ -208,7 +258,7 @@ async def bot_sweep(request: Request):
 # INTERACTIVE PROTOTYPE ENDPOINTS
 # -------------------------------------------------------------
 
-@app.post("/api/orchestrator/start")
+@app.post("/api/orchestrator/start", dependencies=[Depends(require_control)])
 async def start_orchestrator():
     global orchestrator_task
     if not orchestrator.is_running:
@@ -241,7 +291,7 @@ def get_status():
     }
 
 
-@app.post("/api/sweep")
+@app.post("/api/sweep", dependencies=[Depends(require_control)])
 async def sweep(req: Optional[SweepRequest] = None):
     return JSONResponse(status_code=409, content={
         "status": "BLOCKED",
@@ -250,7 +300,7 @@ async def sweep(req: Optional[SweepRequest] = None):
     })
 
 
-@app.post("/api/vault/generate")
+@app.post("/api/vault/generate", dependencies=[Depends(require_control)])
 async def generate_vault(request: Request):
     return JSONResponse(status_code=403, content={
         "status": "BLOCKED",

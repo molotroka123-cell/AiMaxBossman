@@ -150,7 +150,9 @@ def test_dashboard_blocks_key_generation_and_sweep_without_mutating_state(tmp_pa
     dashboard_orchestrator.vault_path = str(protected_vault)
     initial_balances = dict(dashboard_orchestrator.wallet_balances)
     try:
+        from dashboard.safety_app import CONTROL_TOKEN
         with TestClient(app) as client:
+            client.headers["X-Control-Token"] = CONTROL_TOKEN
             generate = client.post("/api/vault/generate", json={
                 "count": 1,
                 "password": "example-password",

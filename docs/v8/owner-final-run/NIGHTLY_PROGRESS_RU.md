@@ -32,3 +32,13 @@
 - Команды: `python -m pytest solana_volume_suite/tests -q` (venv-solana-20261011): до 54 passed, после 53 passed; `tools/ci_secret_scan.py` PASS.
 - Блокеры/замечания: `tests/test_mainnet_setup_safety.py` — 6 падений уже до шага (NameError DISABLED_REASON в setup_mainnet.py, файлы не тронуты; в CI-воркфлоу не входит). Решение об удалении `pumpfun_engine.py` / Jupiter v6 (H4) остаётся открытым.
 - Следующий шаг: починить или удалить устаревший `tests/test_mainnet_setup_safety.py`; затем пункты 2-4 раздела 6 аудита MP21-D.
+
+
+## 2026-10-11 — торговые инструменты (paper): лаборатория стратегий, MM-симулятор, монитор холдеров, гейт live
+
+- Ветка: `claude/bossman-final-convergence-hu2702` (worktree `wt-trading-legit-20261011`, локальная `trade/legit-20261011`). SHA до: `6f6a3873` (удаление накрутки объёма); SHA после — в `git ls-remote` после fast-forward push.
+- Сделано (только paper/синтетика, сети, ключей, подписи, средств нет): (1) `trading_learning/strategy_lab.py` — walk-forward, издержки на входе и выходе (комиссия, спред, проскальзывание), частичные исполнения, задержка, bootstrap-ДИ, отчёт «ДИ включает ноль»; в `metrics.evaluate` убран двойной счёт издержек в EV (finding 7), негативный контроль: случайная стратегия 0/20 ложных кандидатов; (2) `mm_sim.py` — симулятор котировок одного владельца, точная декомпозиция P&L (спред / adverse selection / инвентарь), синтетика + replay записи, дисклеймер «не доказательство прибыли»; (3) `solana_volume_suite`: токен-аутентификация control plane (X-Control-Token, Origin), строгий SAFETY_ONLY (`{"paper_only": true}`), пароль >=12 везде, скрипт не удаляет vault (backup + отказ, без `--password` в argv), `core/wallet_policy.py` (роли и лимиты по кошельку); (4) `holder_monitor.py` — top-N/Gini/HHI/доля новых кошельков, RPC-адаптер выключен по умолчанию, только чтение; (5) `docs/owner/TRADING_LIVE_READINESS_GATE_20261011.md` + `live_gate.py` (по умолчанию NO_GO).
+- Команды: `bossman-core: pytest tests/test_trading_*.py` — 159 passed, 2 skipped (было 123); `pytest solana_volume_suite/tests tests/test_solana_safety.py` (venv) — 99 passed; `tools/ci_secret_scan.py` PASS. rc=0.
+- Evidence: `docs/owner/runs/TRADING_LEGIT_TOOLS_RUN_20261011.md` (file:line до/после, команды, синтетические прогоны).
+- Не запускалось: реальные данные биржи/RPC, CI, GUI владельца. Известный флейк `test_vault_security.py::test_pareto_distribution` (случайная величина), не тронут.
+- Открыто: PBKDF2 100k (повысить с хранением числа итераций в vault); H4 ручная сборка инструкций Pump.fun/Jupiter; прогон лаборатории на реальных котировках; живой режим — только решением владельца по гейту.

@@ -18,6 +18,9 @@ from core.key_vault.hd_wallet import SolanaHDWallet
 
 DEFAULT_VAULT_PATH = "wallets_encrypted.json"
 PBKDF2_ITERATIONS = 100_000
+# One password policy for every entry point (script, API, library). The older
+# generator script accepted 6+ characters while the library required 12.
+MIN_PASSWORD_LENGTH = 12
 
 
 class RentReclaimer:
@@ -79,8 +82,9 @@ class SecurityKeyVault:
         """
         if type(count) is not int or not 1 <= count <= 1000:
             raise ValueError("Wallet count must be an integer between 1 and 1000")
-        if not isinstance(password, str) or len(password) < 12:
-            raise ValueError("Vault password must contain at least 12 characters")
+        if not isinstance(password, str) or len(password) < MIN_PASSWORD_LENGTH:
+            raise ValueError(
+                f"Vault password must contain at least {MIN_PASSWORD_LENGTH} characters")
         if mode not in {"random", "hd_bip44"}:
             raise ValueError("Unknown wallet mode")
         if mode == "hd_bip44":

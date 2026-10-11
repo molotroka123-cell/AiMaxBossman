@@ -19,4 +19,4 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install pytest fastapi httpx cryptography solana solders base58
-      - run: python -m pytest -q tests/test_solana_safety.py solana_volume_suite/tests/test_safety_vault.py
+      - run: python -m pytest -q tests/test_solana_safety.py solana_volume_suite/tests/test_safety_vault.py solana_volume_suite/tests/test_control_plane_hardening.py
