@@ -28,13 +28,14 @@ EV>0 после издержек; `metrics.py`) не прошла ни одна 
 |---|---|---|---|
 | C1 накрутка объёма / сокрытие связей | по решению владельца 11.10 удалены `core/funding_router.py`, режимы `KOTH_PULSE` и `FLOOR_DEFENSE`, тексты Anti-Bubblemaps; манифест `status: quarantined`, права `network.*`/`wallet.*` = deny, навык без триггерных фраз | коммит `6f6a3873` (ночная ветка), `tests/test_mp21_d_volume_suite_quarantine.py` 2 passed, `solana_volume_suite/tests` 53 passed | исправлено и закрыто |
 | Подпись транзакций legacy-хелперами | единая точка `core/paper_guard.py::refuse_live_signing` до ключа и сети; `send_bundle` блокирует broadcast | `a0debbef`/`1271a155`, 53 passed | закрыто для путей, проходящих через guard |
-| H1 удаление vault, H2 пароль в `.env` | `setup_mainnet.py` стал fail-closed заглушкой (без RPC, ключей, записи файлов); цикл не читает и не удаляет vault; API генерации/свипа отвечает BLOCKED | `AUDIT_PAPER_ONLY_RU.md` | закрыто в suite |
+| H1 удаление vault, H2 пароль в `.env` | цикл не читает и не удаляет vault; `setup_mainnet.py` fail-closed заглушка; `generate_vault.py` отказывается перезаписывать (резервная копия `.bak-<время>`, rc 3), пароль >= 12 везде, `--password` из argv убран | коммиты ночной ветки `b9adda71`, `6c7216ca`; `test_control_plane_hardening.py` | закрыто в suite; PBKDF2 остаётся 100k (OPEN: хранить число итераций в vault) |
 | H5 фальшивое on-chain подтверждение | `confirmed_onchain` всегда false, подпись отсутствует, виртуальные `SIM-WALLET-*` | `orchestrator_loop.py` | закрыто |
-| H3 контрольная плоскость без аутентификации | POST остаются без токена, хост loopback; опасные эндпоинты отвечают BLOCKED | `dashboard/safety_app.py` | частично |
+| H3 контрольная плоскость без аутентификации | `require_control`: заголовок `X-Control-Token` (`hmac.compare_digest`), чужой `Origin` отклоняется, строгий `SAFETY_ONLY`; `core/wallet_policy.py`: роли и лимиты по кошельку, default deny | `6c7216ca`, `solana_volume_suite/tests/test_control_plane_hardening.py` (24) | закрыто в suite |
 | H4 неверные инструкции pump.fun / Jupiter v6 | исполнение невозможно (guard), но код сборки инструкций не приведён к IDL и не удалён | аудит §2 H4 | OPEN |
 | M2 стоп по гэпу в бэктесте | исполняется по open бара | `bossman-core/tests/test_trading_mp21_d_fixes.py` 7 passed вместе с когортой | исправлено |
 | M4/M5 когорта: отравленная очередь, ложное «все пулы» | исправлено, формулировка честная | там же | исправлено |
-| M1 двойной счёт издержек в EV, M3 нет спреда/выходного проскальзывания/частичных исполнений | не исправлялось | аудит §6 п.6 | OPEN (консервативная ошибка, решение владельца) |
+| M1 двойной счёт издержек в EV | убран в `metrics.evaluate`; негативный контроль: случайная стратегия 0 из 20 ложных кандидатов | `9c394070`, `test_trading_strategy_lab.py` | исправлено |
+| M3 нет выходных издержек, спреда, частичных исполнений | новая paper-лаборатория `strategy_lab.py`: walk-forward, издержки на входе и выходе, спред, частичные исполнения, задержка, bootstrap-ДИ; `mm_sim.py`, `holder_monitor.py` (RPC выключен по умолчанию), `live_gate.py` (по умолчанию NO_GO) | `bossman-core/tests/test_trading_*.py`: 197 passed, 3 skipped на этом дереве | добавлено; на реальных котировках лаборатория не прогонялась |
 | M6 раскрытие dev-buy при `--uri` | не исправлялось | аудит | OPEN |
 
 ## 4. Токен-бот: полномочия (что проверено и что нет)
