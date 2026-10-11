@@ -278,7 +278,7 @@ export function genjutsuPanel() {
 
   function renderPresets() {
     presetBox.replaceChildren(...PRESETS.map((p) => {
-      const b = h('button.gj-preset', { type: 'button', dataset: { preset: p.id } }, h('b', p.label), h('small', p.note));
+      const b = h('button.gj-preset', { type: 'button', dataset: { preset: p.id, group: p.group || '' } }, h('b', p.label), h('small', p.note));
       b.addEventListener('click', () => { if (history.setAll(presetSettings(p))) { render(); renderRegion(); } toastOk(`Образ «${p.label}»`, 'Каждую зону можно отменить отдельно'); });
       return b;
     }));

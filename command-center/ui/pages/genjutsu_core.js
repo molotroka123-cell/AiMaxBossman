@@ -27,9 +27,40 @@ export const SWATCHES = {
   ],
 };
 
+/* Естественные оттенки волос (11.10): параметры кривых Lab лежат в tools/trend_edit/hair_natural/hair_presets_natural.json
+   (модель красителя: хрома растёт со светлотой до потолка, тени и корни темнее, блики белеют). Здесь — цвет образца для
+   живого конструктора; group 'natural' — по умолчанию, 'stylised' — насыщенные. */
+export const HAIR_PRESETS = [
+  { id: 'hair-chocolate', group: 'natural', label: "Шоколад", note: 'натуральный оттенок · только волосы', en: 'chocolate brown', model: 'chocolate', regions: {
+    hair: { on: true, color: '#412d1f', strength: 70, lightness: 45 } } },
+  { id: 'hair-chestnut', group: 'natural', label: "Каштан", note: 'натуральный оттенок · только волосы', en: 'chestnut', model: 'chestnut', regions: {
+    hair: { on: true, color: '#523421', strength: 70, lightness: 45 } } },
+  { id: 'hair-copper', group: 'natural', label: "Медный", note: 'натуральный оттенок · только волосы', en: 'copper', model: 'copper', regions: {
+    hair: { on: true, color: '#72381f', strength: 70, lightness: 45 } } },
+  { id: 'hair-burgundy', group: 'natural', label: "Бургунди", note: 'натуральный оттенок · только волосы', en: 'burgundy', model: 'burgundy', regions: {
+    hair: { on: true, color: '#5a242e', strength: 70, lightness: 45 } } },
+  { id: 'hair-plum', group: 'natural', label: "Слива", note: 'натуральный оттенок · только волосы', en: 'plum', model: 'plum', regions: {
+    hair: { on: true, color: '#4d2742', strength: 70, lightness: 45 } } },
+  { id: 'hair-ash-blonde', group: 'natural', label: "Пепельный блонд", note: 'натуральный оттенок · только волосы', en: 'ash blonde', model: 'ash-blonde', regions: {
+    hair: { on: true, color: '#ac9c8c', strength: 70, lightness: 60 } } },
+  { id: 'hair-platinum-natural', group: 'natural', label: "Платина (пепельная)", note: 'натуральный оттенок · только волосы', en: 'platinum blonde', model: 'platinum-natural', regions: {
+    hair: { on: true, color: '#c7b8aa', strength: 70, lightness: 60 } } },
+  { id: 'hair-navy-black', group: 'natural', label: "Иссиня-чёрный / глубокий синий", note: 'натуральный оттенок · только волосы', en: 'deep navy', model: 'navy-black', regions: {
+    hair: { on: true, color: '#1d2f46', strength: 70, lightness: 45 } } },
+  { id: 'hair-pink-natural', group: 'natural', label: "Розовый (мягкий)", note: 'натуральный оттенок · только волосы', en: 'soft pink', model: 'pink-natural', regions: {
+    hair: { on: true, color: '#a86169', strength: 70, lightness: 45 } } },
+  { id: 'hair-blue-natural', group: 'natural', label: "Синий (мягкий)", note: 'натуральный оттенок · только волосы', en: 'soft blue', model: 'blue-natural', regions: {
+    hair: { on: true, color: '#2d4d72', strength: 70, lightness: 45 } } },
+  { id: 'hair-red-natural', group: 'natural', label: "Красный (глубокий)", note: 'натуральный оттенок · только волосы', en: 'deep red', model: 'red-natural', regions: {
+    hair: { on: true, color: '#763324', strength: 70, lightness: 45 } } },
+  { id: 'hair-teal-green', group: 'stylised', label: "Бирюзово-зелёный", note: 'стилизованный · только волосы', en: 'teal green', model: 'teal-green', regions: {
+    hair: { on: true, color: '#005a5a', strength: 70, lightness: 45 } } },
+];
+
 /* Готовые образы (палитры): перечислены зоны, которые образ перекрашивает; остальные он выключает. */
 export const PRESETS = [
   { id: 'natural', label: 'Как в оригинале', note: 'все зоны выключены', regions: {} },
+  ...HAIR_PRESETS.filter((p) => p.group === 'natural'),
   { id: 'office', label: 'Офис', note: 'тёмно-синий верх · серый низ', regions: {
     top: { on: true, color: '#1f3354', strength: 85, lightness: 60 }, bottom: { on: true, color: '#7d8083', strength: 80, lightness: 50 } } },
   { id: 'night', label: 'Вечер', note: 'чёрное · бордовые акценты', regions: {
@@ -38,14 +69,15 @@ export const PRESETS = [
     hair: { on: true, color: '#c46e3d', strength: 75, lightness: 35 }, top: { on: true, color: '#667052', strength: 80, lightness: 45 } } },
   { id: 'platinum', label: 'Платина', note: 'платиновые волосы · белый верх', regions: {
     hair: { on: true, color: '#ebe6da', strength: 70, lightness: 55 }, top: { on: true, color: '#ecebe6', strength: 60, lightness: 70 } } },
-  { id: 'hair-blue', label: 'Волосы · синие', note: 'только волосы', regions: {
+  { id: 'hair-blue', group: 'stylised', label: 'Волосы · синие', note: 'только волосы', regions: {
     hair: { on: true, color: '#1f5fd1', strength: 85, lightness: 45 } } },
-  { id: 'hair-green', label: 'Волосы · зелёные', note: 'только волосы', regions: {
+  { id: 'hair-green', group: 'stylised', label: 'Волосы · зелёные', note: 'только волосы', regions: {
     hair: { on: true, color: '#1f9d55', strength: 85, lightness: 45 } } },
-  { id: 'hair-white', label: 'Волосы · белые', note: 'только волосы', regions: {
+  { id: 'hair-white', group: 'stylised', label: 'Волосы · белые', note: 'только волосы', regions: {
     hair: { on: true, color: '#f2f0ea', strength: 80, lightness: 70 } } },
-  { id: 'hair-black', label: 'Волосы · чёрные', note: 'вернуть чёрный', regions: {
+  { id: 'hair-black', group: 'stylised', label: 'Волосы · чёрные', note: 'вернуть чёрный', regions: {
     hair: { on: true, color: '#0d0d10', strength: 90, lightness: 30 } } },
+  ...HAIR_PRESETS.filter((p) => p.group === 'stylised'),
   { id: 'uniform', label: 'Униформа', note: 'белая рубашка · тёмный низ', regions: {
     top: { on: true, color: '#f1f0ec', strength: 85, lightness: 72 }, bottom: { on: true, color: '#2a2b30', strength: 85, lightness: 35 } } },
   { id: 'denim', label: 'Деним', note: 'синий верх · светлый низ', regions: {

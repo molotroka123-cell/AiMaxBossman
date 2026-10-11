@@ -6,7 +6,7 @@ assert.equal(typeof document, 'undefined');
 const core = await import('../pages/genjutsu_core.js');
 const {
   REGIONS, rgbToLab, labToRgb, imageToLab, prepare, recolor, createHistory, defaultSettings, presetSettings, PRESETS,
-  captionFor, validateDataset, datasetName, makeZip, crc32, debounce, DEFAULT_SETTING,
+  HAIR_PRESETS, captionFor, validateDataset, datasetName, makeZip, crc32, debounce, DEFAULT_SETTING,
 } = core;
 
 /* A 64x32 "fabric": grey stripes with folds (L varies by row and column). Left half = top, right = untouched. */
@@ -188,4 +188,18 @@ test('presets: hair colours blue/green/white/black and outfit presets recolour o
   assert.equal(uni.top.on, true);
   assert.equal(uni.hair.on, false);              // the outfit preset never touches the hair
   assert.equal(new Set(PRESETS.map((p) => p.id)).size, PRESETS.length);   // unique ids
+});
+
+test('natural hair presets are the defaults, saturated ones are kept under the stylised group', () => {
+  const nat = HAIR_PRESETS.filter((p) => p.group === 'natural');
+  assert.ok(nat.length >= 9, 'natural family present');
+  const ids = PRESETS.map((p) => p.id);
+  assert.ok(ids.indexOf('hair-chocolate') < ids.indexOf('hair-blue'), 'natural before stylised');
+  for (const p of HAIR_PRESETS) {
+    assert.match(p.regions.hair.color, /^#[0-9a-f]{6}$/);
+    assert.equal(presetSettings(PRESETS.find((q) => q.id === p.id)).hair.on, true);
+    const [, a, b] = rgbToLab(...[1, 3, 5].map((i) => parseInt(p.regions.hair.color.slice(i, i + 2), 16)));
+    if (p.group === 'natural') assert.ok(Math.hypot(a, b) < 45, `${p.id} chroma ceiling`);
+  }
+  for (const id of ['hair-blue', 'hair-green', 'hair-white', 'hair-black']) assert.equal(PRESETS.find((p) => p.id === id).group, 'stylised');
 });
