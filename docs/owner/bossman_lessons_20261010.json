@@ -1,8 +1,8 @@
 {
  "schema": "bossman.critical_errors.v1",
  "title": "Уроки дня 2026-10-10: Genjutsu Live, LoRA v3, RunPod, пульт",
- "captured_utc": "2026-10-10T23:28:53Z",
- "observed_head_sha": "12ebd12a1d29b2160832505ed402899e033119ab",
+ "captured_utc": "2026-10-11T00:48:31Z",
+ "observed_head_sha": "26bc8e359b6663813a3813653e019da29198054a",
  "environment": "owner-machine Windows 11 Pro 10.0.26200, Ryzen AI MAX+ 395, Radeon 8060S; RunPod A100 SECURE / community 3090",
  "recorded_by": {
   "principal_id": "agent:claude-fable-5.1-coordinator",
@@ -298,6 +298,85 @@
    "verification": {
     "state": "CANDIDATE",
     "reason": "повторяющаяся ошибка сессии"
+   }
+  },
+  {
+   "id": "MAX-LORA-TE-WORSE-THAN-SMALL",
+   "class": "identity-training",
+   "title": "Макс-LoRA (dim64 + текстовые энкодеры, 3000 шагов) дала сходство хуже dim16",
+   "severity": "MEDIUM",
+   "status": "OPEN",
+   "symptom": "Арм B (dim64, UNet+TE, 3000 шагов, регуляризация) — arcface 0.16–0.19 против 0.33 у dim16; diffusers не загрузил TE-часть (peft, ключи TE).",
+   "symptom_examples": [
+    "B mean 0.156/0.186/0.155/0.188",
+    "peft TE keys error"
+   ],
+   "symptom_regex": [
+    "(?i)dim ?64.*(хуже|worse)",
+    "(?i)peft.*text_encoder"
+   ],
+   "keywords": [
+    "lora",
+    "dim64",
+    "text encoder",
+    "overfit",
+    "regularization",
+    "sd-cli",
+    "diffusers"
+   ],
+   "detection": "Сравнивать чекпойнты 1500/2000/2500/3000 одним протоколом; если diffusers не грузит LoRA, вывод помечать «только sd-cli».",
+   "root_cause": "Большая ёмкость + TE на 88 картинках переобучается на стиль/фон, а не на лицо; возможен артефакт применения TE-LoRA в sd-cli.",
+   "fix": "Не гнаться за ёмкостью LoRA для личности; держать dim16 как базу, личность — адаптером лица.",
+   "prevention": "Любой «апгрейд» обучения сначала на одной руке с теми же порогами; слабый результат с оговоркой о загрузчике не выдавать за закон.",
+   "evidence": [
+    {
+     "path": "docs/owner/runs/LORA_V3_REPORT_20261010.md",
+     "sha256": "bd564e329827afbcd84b4d01946a78f4de91ef7c80f8fbd09552ccfd698f8553",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "одна серия 10.10; возможный артефакт загрузчика TE-LoRA"
+   }
+  },
+  {
+   "id": "FACE-ADAPTER-BEATS-LORA",
+   "class": "identity-training",
+   "title": "IP-Adapter-FaceID с её фото на инференсе даёт 0.61 против 0.31 у LoRA",
+   "severity": "HIGH",
+   "status": "OPEN",
+   "symptom": "LoRA A + IP-Adapter-FaceID-PlusV2 (7 референсов) — arcface 0.61 на 9 независимых фото; та же LoRA без адаптера 0.31.",
+   "symptom_examples": [
+    "C 7 refs 0.610 vs A 0.310"
+   ],
+   "symptom_regex": [
+    "(?i)ip-?adapter.*faceid",
+    "(?i)instantid"
+   ],
+   "keywords": [
+    "ip-adapter",
+    "faceid",
+    "instantid",
+    "identity",
+    "arcface",
+    "insightface",
+    "licence"
+   ],
+   "detection": "Замер только на фото, не использованных как референсы адаптера; официальный протокол: 6 промптов, sd-cli, 2 сида.",
+   "root_cause": "Личность в SDXL задаётся условием на эмбеддинг лица, LoRA такого условия не даёт; метрика частично циклична (insightface и arcface — одно семейство).",
+   "fix": "Личность — адаптером лица (или FaceFusion поверх), LoRA — для одежды/волос/сцен. Перед продакшеном: официальный замер, лицензия insightface некоммерческая.",
+   "prevention": "Не перебирать варианты на одном наборе и объявлять лучший: оценка завышена; фиксировать протокол до перебора.",
+   "evidence": [
+    {
+     "path": "docs/owner/runs/LORA_V3_REPORT_20261010.md",
+     "sha256": "bd564e329827afbcd84b4d01946a78f4de91ef7c80f8fbd09552ccfd698f8553",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "замер не по официальному протоколу; перебор 6 вариантов на одном наборе"
    }
   }
  ]

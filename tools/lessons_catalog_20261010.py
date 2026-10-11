@@ -112,6 +112,29 @@ add("WINPATH-UNICODEESCAPE", "tooling", "Windows-пути в не-raw строк
     "Проверять ast.parse перед запуском детачед-процессов.", ev(PROMO6), cand("повторяющаяся ошибка сессии"))
 
 
+LORA_REPORT = "docs/owner/runs/LORA_V3_REPORT_20261010.md"
+
+add("MAX-LORA-TE-WORSE-THAN-SMALL", "identity-training", "Макс-LoRA (dim64 + текстовые энкодеры, 3000 шагов) дала сходство хуже dim16", "MEDIUM", "OPEN",
+    "Арм B (dim64, UNet+TE, 3000 шагов, регуляризация) — arcface 0.16–0.19 против 0.33 у dim16; diffusers не загрузил TE-часть (peft, ключи TE).",
+    ["B mean 0.156/0.186/0.155/0.188", "peft TE keys error"], [r"(?i)dim ?64.*(хуже|worse)", r"(?i)peft.*text_encoder"],
+    ["lora", "dim64", "text encoder", "overfit", "regularization", "sd-cli", "diffusers"],
+    "Сравнивать чекпойнты 1500/2000/2500/3000 одним протоколом; если diffusers не грузит LoRA, вывод помечать «только sd-cli».",
+    "Большая ёмкость + TE на 88 картинках переобучается на стиль/фон, а не на лицо; возможен артефакт применения TE-LoRA в sd-cli.",
+    "Не гнаться за ёмкостью LoRA для личности; держать dim16 как базу, личность — адаптером лица.",
+    "Любой «апгрейд» обучения сначала на одной руке с теми же порогами; слабый результат с оговоркой о загрузчике не выдавать за закон.",
+    ev(LORA_REPORT), cand("одна серия 10.10; возможный артефакт загрузчика TE-LoRA"))
+
+add("FACE-ADAPTER-BEATS-LORA", "identity-training", "IP-Adapter-FaceID с её фото на инференсе даёт 0.61 против 0.31 у LoRA", "HIGH", "OPEN",
+    "LoRA A + IP-Adapter-FaceID-PlusV2 (7 референсов) — arcface 0.61 на 9 независимых фото; та же LoRA без адаптера 0.31.",
+    ["C 7 refs 0.610 vs A 0.310"], [r"(?i)ip-?adapter.*faceid", r"(?i)instantid"],
+    ["ip-adapter", "faceid", "instantid", "identity", "arcface", "insightface", "licence"],
+    "Замер только на фото, не использованных как референсы адаптера; официальный протокол: 6 промптов, sd-cli, 2 сида.",
+    "Личность в SDXL задаётся условием на эмбеддинг лица, LoRA такого условия не даёт; метрика частично циклична (insightface и arcface — одно семейство).",
+    "Личность — адаптером лица (или FaceFusion поверх), LoRA — для одежды/волос/сцен. Перед продакшеном: официальный замер, лицензия insightface некоммерческая.",
+    "Не перебирать варианты на одном наборе и объявлять лучший: оценка завышена; фиксировать протокол до перебора.",
+    ev(LORA_REPORT), cand("замер не по официальному протоколу; перебор 6 вариантов на одном наборе"))
+
+
 def main() -> int:
     head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     cat = {"schema": "bossman.critical_errors.v1", "title": "Уроки дня 2026-10-10: Genjutsu Live, LoRA v3, RunPod, пульт",
