@@ -131,3 +131,65 @@ def test_dashboard_blocks_key_generation_and_sweep_without_mutating_state(tmp_pa
         assert dashboard_orchestrator.cached_keypairs == []
     finally:
         dashboard_orchestrator.vault_path = original_vault_path
+
+
+# ---- legacy engines must never sign or reach swap APIs (night 10.10-11 hardening) -------------------------------
+def test_compile_v0_transaction_never_signs_with_keypair():
+    from solders.hash import Hash
+    from solders.keypair import Keypair
+    from solders.signature import Signature
+    from core.jito_client import JitoBundleClient
+
+    kp = Keypair()
+    client = JitoBundleClient()
+    tx = client.compile_v0_transaction(
+        payer=kp.pubkey(), instructions=[client.build_tip_instruction(payer=kp.pubkey(), tip_lamports=1000)],
+        recent_blockhash=Hash.default(), signers=[kp],
+    )
+    assert all(sig == Signature.default() for sig in tx.signatures)
+    # negative control: a really signed transaction of the same message differs, so the assertion above is meaningful
+    from solders.transaction import VersionedTransaction
+    really_signed = VersionedTransaction(tx.message, [kp])
+    assert any(sig != Signature.default() for sig in really_signed.signatures)
+
+
+def test_pumpfun_bundles_are_unsigned_paper_plans():
+    from solders.hash import Hash
+    from solders.keypair import Keypair
+    from solders.pubkey import Pubkey
+    from solders.signature import Signature
+    from core.jito_client import JitoBundleClient
+    from stages.pumpfun_engine import PumpFunEngine
+
+    kp = Keypair()
+    engine = PumpFunEngine(jito_client=JitoBundleClient())
+    mint = Pubkey.new_unique()
+    buys = engine.assemble_pump_buy_bundle(kp, mint, 0.05, 10.0, Hash.default())
+    sell = engine.assemble_pump_sell_bundle(kp, mint, 1000, 1, Hash.default())
+    for tx in [*buys, sell]:
+        assert all(sig == Signature.default() for sig in tx.signatures)
+
+
+@pytest.mark.asyncio
+async def test_jupiter_engines_refuse_before_network_or_signing():
+    from solders.keypair import Keypair
+    from core.paper_guard import LiveSigningDisabled
+    from core.jupiter_engine import JupiterSwapEngine as CoreJupiter
+    from stages.raydium_jupiter_engine import JupiterSwapEngine as StageJupiter
+
+    called = {"net": 0}
+
+    class Boom:
+        def __getattr__(self, name):
+            called["net"] += 1
+            raise AssertionError("network client must not be touched")
+
+    kp = Keypair()
+    with pytest.raises(LiveSigningDisabled):
+        await CoreJupiter().execute_swap("So111", "Mint111", 1000, kp)
+    stage = StageJupiter.__new__(StageJupiter)
+    with pytest.raises(LiveSigningDisabled):
+        stage.sign_jupiter_transaction("AAAA", kp)
+    with pytest.raises(LiveSigningDisabled):
+        await stage.plan_floor_defense_ladder("Mint111", 3.0, [kp, kp, kp], client=Boom())
+    assert called["net"] == 0

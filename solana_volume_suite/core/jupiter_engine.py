@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 from solders.pubkey import Pubkey
 from solders.transaction import VersionedTransaction
 from solders.keypair import Keypair
+from core.paper_guard import refuse_live_signing
 
 DEFAULT_RPC_URL = "https://api.mainnet-beta.solana.com"
 
@@ -70,6 +71,7 @@ class JupiterSwapEngine:
         user_keypair: Keypair,
         slippage_bps: int = 150
     ) -> str:
+        refuse_live_signing("JupiterSwapEngine.execute_swap")  # before any quote/swap API call or keypair use
         quote = await self.get_swap_quote(input_mint, output_mint, amount_lamports, slippage_bps)
         raw_tx_base64 = await self.build_swap_transaction(quote, str(user_keypair.pubkey()))
         tx_bytes = base64.b64decode(raw_tx_base64)

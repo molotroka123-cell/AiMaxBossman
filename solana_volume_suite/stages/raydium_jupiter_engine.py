@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional
 from solders.pubkey import Pubkey
 from solders.keypair import Keypair
 from solders.transaction import VersionedTransaction
+from core.paper_guard import refuse_live_signing
 from core.jito_client import JitoBundleClient
 from core.treasury_guard import SubImpactEngine
 
@@ -102,10 +103,8 @@ class JupiterSwapEngine:
         swap_tx_base64: str,
         keypair: Keypair
     ) -> VersionedTransaction:
-        tx_bytes = base64.b64decode(swap_tx_base64)
-        unsigned_tx = VersionedTransaction.from_bytes(tx_bytes)
-        # Sign with sub-wallet keypair
-        return VersionedTransaction(unsigned_tx.message, [keypair])
+        refuse_live_signing("sign_jupiter_transaction")  # never signs with a sub-wallet keypair
+        raise AssertionError("unreachable")
 
     async def plan_floor_defense_ladder(
         self,
@@ -118,6 +117,7 @@ class JupiterSwapEngine:
         Floor Defense Mode:
         When external dump > 2.0 SOL occurs, ladder buyback 30-50% across 3 distinct sub-wallets.
         """
+        refuse_live_signing("plan_floor_defense_ladder")  # would call quote/swap APIs and sign with wallets
         if len(defense_wallets) < 3:
             raise ValueError("Floor Defense requires at least 3 distinct defense sub-wallets")
 

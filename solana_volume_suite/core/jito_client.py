@@ -9,6 +9,7 @@ from solders.message import MessageV0
 from solders.hash import Hash
 from solders.instruction import Instruction
 from solders.system_program import transfer, TransferParams
+from core.paper_guard import unsigned_paper_transaction
 
 # Official Jito MEV Tip Accounts
 JITO_TIP_ACCOUNTS = [
@@ -118,7 +119,9 @@ class JitoBundleClient:
             address_lookup_table_accounts=luts,
             recent_blockhash=recent_blockhash
         )
-        return VersionedTransaction(msg, signers)
+        # Paper-only (owner rule): the keypairs in `signers` are NEVER used to sign. The result carries default
+        # (all-zero) signatures: inspectable in simulation, not acceptable by any cluster.
+        return unsigned_paper_transaction(msg)
 
     async def send_bundle(
         self,
