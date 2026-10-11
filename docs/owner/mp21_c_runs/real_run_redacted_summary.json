@@ -1,0 +1,127 @@
+{
+ "note": "REDACTED local-run summary: counts and hashes only; USDT totals stay in the local file runs/final/volume_result.json outside git",
+ "source": {
+  "type": "telegram_export_html",
+  "sha256": "ec0059f4ef8156b82dc56a517dc10b586846ad922653a062338951283c46c296",
+  "messages": 936,
+  "export_utc_offsets_min": {
+   "-480": 936
+  },
+  "senders": 1,
+  "media_without_text_messages": 55
+ },
+ "message_kinds": {
+  "ignored": 156,
+  "incomplete": 23,
+  "debt": 9,
+  "deal": 638,
+  "ambiguous_amount": 8,
+  "expense": 15,
+  "complex": 87
+ },
+ "flags": {
+  "direction_assumed_first_is_in": 33,
+  "provisional_first_two_pairs": 82,
+  "text_date_prefix_not_applied": 33
+ },
+ "duplicates": {
+  "window_min": 10,
+  "excluded": 2,
+  "same_day_identical_candidates_kept": 1
+ },
+ "mirror_pair_rows_flagged": 0,
+ "rate_outliers": {
+  "tolerance": "0.25",
+  "flagged": 13
+ },
+ "deals_that_change_business_period_with_zone_choice": 4,
+ "periods": {
+  "2026-02-20": {
+   "status": "closed",
+   "deals_counted": 24,
+   "excluded_duplicates": 0,
+   "unpriced_deals": 1,
+   "provisional_complex_messages": 3,
+   "rate_outlier_deals": 1
+  },
+  "2026-03-20": {
+   "status": "closed",
+   "deals_counted": 31,
+   "excluded_duplicates": 0,
+   "unpriced_deals": 0,
+   "provisional_complex_messages": 13,
+   "rate_outlier_deals": 1
+  },
+  "2026-04-20": {
+   "status": "closed",
+   "deals_counted": 46,
+   "excluded_duplicates": 1,
+   "unpriced_deals": 0,
+   "provisional_complex_messages": 14,
+   "rate_outlier_deals": 1
+  },
+  "2026-05-20": {
+   "status": "closed",
+   "deals_counted": 62,
+   "excluded_duplicates": 0,
+   "unpriced_deals": 0,
+   "provisional_complex_messages": 17,
+   "rate_outlier_deals": 4
+  },
+  "2026-06-20": {
+   "status": "closed",
+   "deals_counted": 120,
+   "excluded_duplicates": 0,
+   "unpriced_deals": 3,
+   "provisional_complex_messages": 4,
+   "rate_outlier_deals": 1
+  },
+  "2026-07-20": {
+   "status": "closed",
+   "deals_counted": 113,
+   "excluded_duplicates": 0,
+   "unpriced_deals": 7,
+   "provisional_complex_messages": 15,
+   "rate_outlier_deals": 3
+  },
+  "2026-08-20": {
+   "status": "closed",
+   "deals_counted": 90,
+   "excluded_duplicates": 0,
+   "unpriced_deals": 3,
+   "provisional_complex_messages": 7,
+   "rate_outlier_deals": 1
+  },
+  "2026-09-20": {
+   "status": "closed",
+   "deals_counted": 116,
+   "excluded_duplicates": 1,
+   "unpriced_deals": 1,
+   "provisional_complex_messages": 6,
+   "rate_outlier_deals": 1
+  },
+  "2026-10-20": {
+   "status": "open_partial_as_of_export",
+   "deals_counted": 34,
+   "excluded_duplicates": 0,
+   "unpriced_deals": 3,
+   "provisional_complex_messages": 3,
+   "rate_outlier_deals": 0
+  }
+ },
+ "workbook": {
+  "sha256": "282b37e7176f3f5c5631da5cfcee4f5d1a71f10a5a4bc02284f9364ff731440d",
+  "rows": 266,
+  "multi_leg_rows_not_matched": 15,
+  "matched": 229,
+  "chat_deals_in_window": 245,
+  "only_in_chat": 16,
+  "only_in_ledger": 37,
+  "overlap": [
+   "2026-06-18",
+   "2026-08-27"
+  ]
+ },
+ "baseline_file_sha256": "0c8d6a8d216810b5f8b0e2206dda7c5c37090ac144bc4368e15f3d0829d884eb",
+ "elapsed_s": 0.277
+}

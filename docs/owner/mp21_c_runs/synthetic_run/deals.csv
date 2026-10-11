@@ -1,0 +1,8 @@
+source,ref,ts_utc,ts_prague,business_period_close,in_ccy,in_amt,out_ccy,out_amt,network,status,dup_of,usdt_volume,volume_basis,rate_used,rate_source,rate_ts_utc,flags
+chat,1,2026-03-10 16:00:00,2026-03-10 17:00:00,2026-03-20,USDT,1000,CZK,21000,,counted,,1000,direct_usdt_leg,,,,
+chat,2,2026-03-10 16:03:00,2026-03-10 17:03:00,2026-03-20,USDT,1000,CZK,21000,,excluded_duplicate,1,,,,,,
+chat,3,2026-03-11 17:00:00,2026-03-11 18:00:00,2026-03-20,CZK,42000,USDT,2000,,counted,,2000,direct_usdt_leg,,,,
+chat,4,2026-03-11 17:30:00,2026-03-11 18:30:00,2026-03-20,EUR,500,CZK,12500,,counted,,,,,,,
+chat,5,2026-03-11 18:00:00,2026-03-11 19:00:00,2026-03-20,USDT,100,CZK,2000,,provisional,,100,direct_usdt_leg,,,,provisional_first_two_pairs
+chat,7,2026-03-20 22:30:00,2026-03-20 23:30:00,2026-03-20,USDT,300,CZK,6300,,counted,,300,direct_usdt_leg,,,,
+chat,8,2026-03-20 23:30:00,2026-03-21 00:30:00,2026-04-20,USDT,310,CZK,6510,,counted,,310,direct_usdt_leg,,,,
