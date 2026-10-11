@@ -1,0 +1,229 @@
+{
+ "image_sets": {
+  "identity/gf-refs-all (originals: 16 photos + 116 video frames)": {
+   "images": 132,
+   "unique_sha256": 132,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 0,
+   "min_side_min": 400,
+   "min_side_median": 400,
+   "min_side_lt512": 118
+  },
+  "identity/gf-train-refs-20261010": {
+   "images": 45,
+   "unique_sha256": 45,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 14,
+   "min_side_min": 851,
+   "min_side_median": 1040,
+   "min_side_lt512": 0
+  },
+  "identity/refs-kisliy": {
+   "images": 5,
+   "unique_sha256": 5,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 0,
+   "min_side_min": 1086,
+   "min_side_median": 1086,
+   "min_side_lt512": 0
+  },
+  "identity/man-refs-20261010": {
+   "images": 5,
+   "unique_sha256": 5,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 0,
+   "min_side_min": 1086,
+   "min_side_median": 1086,
+   "min_side_lt512": 0
+  },
+  "identity/hair-refs-owner-20261011": {
+   "images": 8,
+   "unique_sha256": 8,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 0,
+   "min_side_min": 1040,
+   "min_side_median": 1040,
+   "min_side_lt512": 0
+  },
+  "identity/gf-hair-clothes-20261010": {
+   "images": 8,
+   "unique_sha256": 8,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 8,
+   "min_side_min": 1040,
+   "min_side_median": 1040,
+   "min_side_lt512": 0
+  },
+  "hair/kisliy-hair-20261010 head crops": {
+   "images": 81,
+   "unique_sha256": 77,
+   "byte_identical_extra": 4,
+   "with_caption_sidecar": 0,
+   "min_side_min": 560,
+   "min_side_median": 560,
+   "min_side_lt512": 0
+  },
+  "train/lora-work gfgirl ds (v1/v2 set)": {
+   "images": 57,
+   "unique_sha256": 52,
+   "byte_identical_extra": 5,
+   "with_caption_sidecar": 57,
+   "min_side_min": 280,
+   "min_side_median": 768,
+   "min_side_lt512": 2
+  },
+  "train/lora-work kisliy ds": {
+   "images": 7,
+   "unique_sha256": 7,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 7,
+   "min_side_min": 960,
+   "min_side_median": 1086,
+   "min_side_lt512": 0
+  },
+  "train/gfgirl v3 dataset (88 images built 10.10)": {
+   "images": 88,
+   "unique_sha256": 83,
+   "byte_identical_extra": 5,
+   "with_caption_sidecar": 88,
+   "min_side_min": 280,
+   "min_side_median": 768,
+   "min_side_lt512": 2
+  },
+  "aug/gf-v3-approved (generated, owner approved)": {
+   "images": 30,
+   "unique_sha256": 30,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 30,
+   "min_side_min": 333,
+   "min_side_median": 1040,
+   "min_side_lt512": 9
+  },
+  "aug/gf-synth out (generated swaps)": {
+   "images": 26,
+   "unique_sha256": 26,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 0,
+   "min_side_min": 832,
+   "min_side_median": 832,
+   "min_side_lt512": 0
+  },
+  "aug/gf-aug-v2 synthetic_images (generated)": {
+   "images": 8,
+   "unique_sha256": 8,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 8,
+   "min_side_min": 1080,
+   "min_side_median": 1080,
+   "min_side_lt512": 0
+  },
+  "aug/gf-aug-v2 real_photo_candidates": {
+   "images": 3,
+   "unique_sha256": 3,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 3,
+   "min_side_min": 1080,
+   "min_side_median": 1320,
+   "min_side_lt512": 0
+  },
+  "aug/gf-aug-v2 video_frames_review_only": {
+   "images": 4,
+   "unique_sha256": 4,
+   "byte_identical_extra": 0,
+   "with_caption_sidecar": 4,
+   "min_side_min": 400,
+   "min_side_median": 400,
+   "min_side_lt512": 4
+  },
+  "voice+stage runpod-train-20261009 (images only)": {
+   "images": 169,
+   "unique_sha256": 124,
+   "byte_identical_extra": 45,
+   "with_caption_sidecar": 87,
+   "min_side_min": 554,
+   "min_side_median": 704,
+   "min_side_lt512": 0
+  }
+ },
+ "video_folders": {
+  "ads-20261011": {
+   "videos": 17,
+   "unique_sha256": 17,
+   "byte_identical_extra": 0
+  },
+  "final-20261010": {
+   "videos": 23,
+   "unique_sha256": 23,
+   "byte_identical_extra": 0
+  },
+  "gate0-20261010": {
+   "videos": 11,
+   "unique_sha256": 9,
+   "byte_identical_extra": 2
+  },
+  "gate1": {
+   "videos": 2,
+   "unique_sha256": 2,
+   "byte_identical_extra": 0
+  },
+  "gate1-20261010": {
+   "videos": 5,
+   "unique_sha256": 4,
+   "byte_identical_extra": 1
+  },
+  "makeup-20261010": {
+   "videos": 31,
+   "unique_sha256": 31,
+   "byte_identical_extra": 0
+  },
+  "promo-bg-20261010": {
+   "videos": 3,
+   "unique_sha256": 3,
+   "byte_identical_extra": 0
+  },
+  "promo-queue-20261010": {
+   "videos": 44,
+   "unique_sha256": 44,
+   "byte_identical_extra": 0
+  },
+  "run-20261010": {
+   "videos": 46,
+   "unique_sha256": 44,
+   "byte_identical_extra": 2
+  },
+  "run-20261010b": {
+   "videos": 3,
+   "unique_sha256": 3,
+   "byte_identical_extra": 0
+  },
+  "run-20261010c": {
+   "videos": 12,
+   "unique_sha256": 12,
+   "byte_identical_extra": 0
+  },
+  "run-20261010d": {
+   "videos": 2,
+   "unique_sha256": 2,
+   "byte_identical_extra": 0
+  },
+  "stage2-20261010": {
+   "videos": 14,
+   "unique_sha256": 13,
+   "byte_identical_extra": 1
+  },
+  "stage4-20261010": {
+   "videos": 15,
+   "unique_sha256": 12,
+   "byte_identical_extra": 3
+  },
+  "v2-20261010": {
+   "videos": 74,
+   "unique_sha256": 74,
+   "byte_identical_extra": 0
+  }
+ },
+ "video_total": {
+  "videos": 302,
+  "byte_identical_extra": 9
+ }
+}
