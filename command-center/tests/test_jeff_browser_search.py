@@ -322,7 +322,7 @@ def test_results_are_redacted_and_injection_stripped():
 
 
 def test_secret_shapes_are_redacted():
-    text, hits = bs.redact_pii("key sk-abcdefghijklmnopqrstuvwxyz0123 and password: hunter2 and 123456789:" + "A" * 35)
+    text, hits = bs.redact_pii("key sk-abcdefghijklmnopqrstuvwxyz0123 and password: hunter2 and 123456789:" + "A" * 35)  # ci-secret-scan: allow (synthetic canary, not a credential)
     assert "sk-abcdef" not in text and "hunter2" not in text and "AAAAAAAAAAAAAAAAAAAA" not in text and hits >= 1
 
 
