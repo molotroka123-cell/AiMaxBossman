@@ -344,9 +344,30 @@ def strip_marks(text: str) -> str:
     return text.replace(PLUS, "").replace(ACUTE, "")
 
 
-def to_acute(text_plus: str) -> str:
-    """``зам+ок`` -> ``замо́к`` (combining acute after the vowel)."""
-    return re.sub(rf"\+([{VOWELS}])", lambda m: m.group(1) + ACUTE, clean_plus(text_plus))
+def drop_monosyllable_marks(text_plus: str) -> str:
+    """Remove ``+`` from one-vowel words (``н+а``, ``м+ы``): their stress is trivial.
+
+    The accentizer marks them, but the TTS model's own stress tool does not,
+    so marking them only moves the input away from what the model was trained on.
+    """
+    def part(match: re.Match[str]) -> str:
+        token = match.group(0)
+        if sum(ch in _VOWEL_SET for ch in token) == 1:
+            return token.replace(PLUS, "")
+        return token
+
+    return re.sub(rf"[{_CYR}+]+", part, text_plus)
+
+
+def to_acute(text_plus: str, *, keep_monosyllables: bool = False) -> str:
+    """``зам+ок`` -> ``замо́к`` (combining acute after the vowel).
+
+    One-vowel words stay unmarked unless ``keep_monosyllables`` is true.
+    """
+    marked = clean_plus(text_plus)
+    if not keep_monosyllables:
+        marked = drop_monosyllable_marks(marked)
+    return re.sub(rf"\+([{VOWELS}])", lambda m: m.group(1) + ACUTE, marked)
 
 
 _PROCLITICS = frozenset("""в во на по от до из изо за над под при про без для об обо о к ко с со у

@@ -83,6 +83,11 @@ def test_to_acute_puts_mark_after_vowel_and_keeps_latin():
     assert rs.to_acute("Boss+man") == "Bossman"
 
 
+def test_acute_skips_monosyllables_but_not_polysyllables():
+    assert rs.to_acute("н+а двер+и м+ы") == "на дверѝ".replace("ѝ", "и" + ACUTE) + " мы"
+    assert rs.to_acute("н+а", keep_monosyllables=True) == "на" .replace("а", "а" + ACUTE)
+
+
 def test_minimal_pair_homographs_differ_after_conversion():
     # The accentizer decides; the converter must keep the two readings distinct.
     lock = rs.to_acute("зам+ок")

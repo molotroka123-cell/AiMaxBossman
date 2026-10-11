@@ -29,7 +29,9 @@ STRESS_ENV = "BOSSMAN_PIT_TTS_STRESS"
 STRESS_PYTHON_ENV = "BOSSMAN_PIT_TTS_STRESS_PYTHON"
 STRESS_MODEL_DIR_ENV = "BOSSMAN_PIT_TTS_STRESS_MODEL_DIR"
 STRESS_CACHE_DIR_ENV = "BOSSMAN_PIT_TTS_STRESS_CACHE_DIR"
-DEFAULT_STRESS_MODE = "off"
+# "acute": the combining-acute form is the format the Chatterbox tokenizer was
+# trained with; "plus" breaks speech (measured WER 0.9). "off" restores the old path.
+DEFAULT_STRESS_MODE = "acute"
 MODEL_FILES = (
     "ve.pt", "t3_mtl23ls_v3.safetensors", "s3gen.pt",
     "grapheme_mtl_merged_expanded_v1.json", "conds.pt",
