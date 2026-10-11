@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Hair stencil editor</title>
+<style>
+:root{--bg:#14161a;--panel:#1d2025;--line:#323843;--fg:#e8eaee;--mut:#9aa3b2;--acc:#ff4d6d;--ok:#3ecf8e}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.35 system-ui,Segoe UI,Arial,sans-serif}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:6px 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+header .grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+button,select,label.btn{background:#2a2f38;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font:inherit;cursor:pointer;min-height:36px}
+button:hover,label.btn:hover{border-color:#5b6677}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+button.ok{background:var(--ok);border-color:var(--ok);color:#06210f;font-weight:600}
+input[type=file]{display:none}
+input[type=range]{width:110px;vertical-align:middle}
+.lbl{color:var(--mut);font-size:12px;display:inline-flex;gap:4px;align-items:center}
+#stage{position:relative;flex:1;min-height:0;background:
+ conic-gradient(#20242b 25%,#262b33 0 50%,#20242b 0 75%,#262b33 0) 0 0/24px 24px}
+#view{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+#status{position:absolute;left:8px;bottom:8px;background:#000a;padding:3px 8px;border-radius:6px;font-size:12px;pointer-events:none;max-width:90%}
+#help{background:var(--panel);border-top:1px solid var(--line);padding:6px 10px;max-height:38vh;overflow:auto}
+#help summary{cursor:pointer;font-weight:600}
+#help ol,#help ul{margin:6px 0 6px 18px;padding:0}
+#help kbd{background:#2a2f38;border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:12px}
+@media (max-width:640px){
+  header{padding:4px}
+  button,select,label.btn{padding:6px 8px;min-height:40px}
+  input[type=range]{width:90px}
+  #help{max-height:30vh}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="grp">
+    <label class="btn" for="frame-file" id="frame-btn">Кадры</label>
+    <input type="file" id="frame-file" accept="image/*" multiple>
+    <label class="btn" for="mask-file" id="mask-btn">Маски</label>
+    <input type="file" id="mask-file" accept="image/*" multiple>
+  </div>
+  <div class="grp">
+    <button id="prev-item" title="Предыдущий кадр (PageUp)">&#9664;</button>
+    <select id="item-select" aria-label="Кадр"></select>
+    <button id="next-item" title="Следующий кадр (PageDown)">&#9654;</button>
+  </div>
+  <div class="grp">
+    <button id="tool-add" class="on" title="Добавить волосы (B)">Кисть +</button>
+    <button id="tool-erase" title="Стереть (E)">Ластик</button>
+    <button id="tool-pan" title="Двигать (пробел)">Рука</button>
+  </div>
+  <div class="grp">
+    <span class="lbl">размер <input type="range" id="brush-size" min="2" max="300" value="28"><b id="brush-size-val">28</b></span>
+    <span class="lbl">мягкость <input type="range" id="brush-soft" min="0" max="100" value="30"><b id="brush-soft-val">30</b></span>
+  </div>
+  <div class="grp">
+    <button id="overlay-toggle" class="on" title="Показать / скрыть маску (O)">Маска</button>
+    <span class="lbl">прозр. <input type="range" id="overlay-opacity" min="5" max="100" value="55"></span>
+    <button id="view-mode" title="Вид: кадр+маска / кадр / только маска (M)">Вид: кадр+маска</button>
+  </div>
+  <div class="grp">
+    <button id="zoom-out">&minus;</button>
+    <button id="zoom-fit" title="Вписать (F)">Вписать</button>
+    <button id="zoom-in">+</button>
+  </div>
+  <div class="grp">
+    <button id="undo" title="Ctrl+Z">Отмена</button>
+    <button id="redo" title="Ctrl+Y">Вернуть</button>
+    <button id="export" class="ok" title="Ctrl+S">Сохранить PNG</button>
+    <button id="export-all" title="Скачать все исправленные кадры">Сохранить все</button>
+  </div>
+</header>
+<div id="stage">
+  <canvas id="view"></canvas>
+  <div id="status">Выберите кадры и маски (две кнопки слева вверху).</div>
+</div>
+<details id="help" open>
+  <summary>Инструкция (около 10 минут на 9 кадров)</summary>
+  <ol>
+    <li>Нажмите <b>Кадры</b> и выберите все PNG из папки <code>frames</code>; затем <b>Маски</b> и выберите все PNG из <code>auto_masks</code> (файлы с одинаковыми именами пары находятся сами).</li>
+    <li>Красный слой = то, что система считает волосами. Нужно, чтобы красное лежало <b>ровно на волосах</b>: не на тени под подбородком, не на чёрной толстовке, не на фоне.</li>
+    <li><b>Ластик</b> (E) убирает лишнее. <b>Кисть +</b> (B) дорисовывает прядь, которую система пропустила. Размер: ползунок или клавиши <kbd>[</kbd> <kbd>]</kbd>. Край делайте с мягкостью 20-40, внутри волос можно 0.</li>
+    <li>Приближение: колесо мыши / щипок двумя пальцами. Двигать картинку: <b>Рука</b>, пробел с мышью или два пальца. Кнопка <b>Маска</b> (O) прячет красный слой, чтобы проверить край по кадру.</li>
+    <li>Сохраните кнопкой <b>Сохранить PNG</b> (Ctrl+S): файл получит то же имя с припиской <code>_edited</code>. Следующий кадр: <kbd>PageDown</kbd> или стрелка &#9654;. Правки при переходе не теряются.</li>
+    <li>Исправленные <code>*_edited.png</code> положите в папку <code>edited</code> рядом с <code>frames</code> и запустите распространение (см. HAIR_STENCIL_WORKFLOW_20261011.md).</li>
+  </ol>
+  <ul>
+    <li>Всё работает локально в браузере, ничего никуда не отправляется. Файл можно открыть двойным щелчком.</li>
+    <li>Достаточно поправить грубые ошибки (тень, одежда, пропущенный клок): мелкие волоски распространение само не вернёт, но и не испортит.</li>
+  </ul>
+</details>
+</div>
+<script>
+"use strict";
+(function(){
+const $ = id => document.getElementById(id);
+const view = $("view"), ctx = view.getContext("2d");
+const st = {
+  items: [], cur: -1, W: 0, H: 0,
+  frameCanvas: null, mask: null, ov: null, ovCtx: null, ovImg: null,
+  scale: 1, ox: 0, oy: 0,
+  tool: "add", size: 28, soft: 0.3, opacity: 0.55, showMask: true, mode: 0, spaceDown: false,
+  undo: [], redo: [], stroke: null, pointers: new Map(), pinch: null, hover: null,
+};
+const MAX_UNDO = 40;
+
+/* ---------- naming ---------- */
+function stemOf(name){ return name.replace(/\.[^.\/\\]+$/, ""); }
+function pairKey(name){ return stemOf(name).toLowerCase().replace(/[_-](mask|auto|automask)$/, ""); }
+// export name = the mask's own name + "_edited" (no double suffix), always .png
+function exportName(srcName){
+  let s = stemOf(srcName);
+  if (!/_edited$/.test(s)) s += "_edited";
+  return s + ".png";
+}
+window.__hairStencil = { exportName: exportName, pairKey: pairKey };
+
+/* ---------- status ---------- */
+function say(t){ $("status").textContent = t; }
+
+/* ---------- image loading ---------- */
+function loadImage(file){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const im = new Image();
+    im.onload = () => { URL.revokeObjectURL(url); res(im); };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error("не удалось открыть " + file.name)); };
+    im.src = url;
+  });
+}
+function maskFromImage(im, W, H){
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d", {willReadFrequently: true});
+  x.fillStyle = "#000"; x.fillRect(0, 0, W, H);
+  x.drawImage(im, 0, 0, W, H);
+  const d = x.getImageData(0, 0, W, H).data, m = new Uint8ClampedArray(W * H);
+  for (let i = 0, j = 0; i < m.length; i++, j += 4) m[i] = d[j];     // 8-bit grey PNG: R = G = B
+  return m;
+}
+
+let frameFiles = [], maskFiles = [];
+function rebuildItems(){
+  saveCurrentMask();
+  const masks = new Map(maskFiles.map(f => [pairKey(f.name), f]));
+  const prevName = st.cur >= 0 ? st.items[st.cur].name : null;
+  const old = new Map(st.items.map(it => [it.key, it]));
+  st.items = frameFiles.map(f => {
+    const key = pairKey(f.name), o = old.get(key);
+    if (o && o.frameFile === f && o.maskFile === (masks.get(key) || null)) return o;
+    return { key, name: f.name, frameFile: f, maskFile: masks.get(key) || null, mask: null, edited: false, img: null };
+  });
+  st.cur = -1; st.mask = null;
+  const sel = $("item-select"); sel.innerHTML = "";
+  st.items.forEach((it, i) => {
+    const o = document.createElement("option"); o.value = i;
+    o.textContent = (it.edited ? "* " : "") + it.name + (it.maskFile ? "" : "  (без маски)");
+    sel.appendChild(o);
+  });
+  if (st.items.length) {
+    let idx = prevName ? st.items.findIndex(it => it.name === prevName) : 0;
+    openItem(Math.max(0, idx));
+  } else { st.frameCanvas = null; draw(); }
+}
+function refreshSelectLabels(){
+  const sel = $("item-select");
+  st.items.forEach((it, i) => { const o = sel.options[i]; if (o) o.textContent = (it.edited ? "* " : "") + it.name + (it.maskFile ? "" : "  (без маски)"); });
+}
+async function openItem(i){
+  if (i < 0 || i >= st.items.length) return;
+  saveCurrentMask();
+  const it = st.items[i];
+  try {
+    if (!it.img) it.img = await loadImage(it.frameFile);
+    const W = it.img.naturalWidth, H = it.img.naturalHeight;
+    if (!it.mask) {
+      if (it.maskFile) { const mi = await loadImage(it.maskFile); it.mask = maskFromImage(mi, W, H);
+        if (mi.naturalWidth !== W || mi.naturalHeight !== H) say("Размер маски " + mi.naturalWidth + "x" + mi.naturalHeight + " не равен кадру " + W + "x" + H + ": маска растянута."); }
+      else it.mask = new Uint8ClampedArray(W * H);
+    }
+    st.cur = i; st.W = W; st.H = H;
+    st.frameCanvas = document.createElement("canvas"); st.frameCanvas.width = W; st.frameCanvas.height = H;
+    st.frameCanvas.getContext("2d").drawImage(it.img, 0, 0);
+    st.mask = it.mask;
+    st.ov = document.createElement("canvas"); st.ov.width = W; st.ov.height = H;
+    st.ovCtx = st.ov.getContext("2d");
+    st.ovImg = st.ovCtx.createImageData(W, H);
+    for (let k = 0, p = 0; k < st.mask.length; k++, p += 4) { st.ovImg.data[p] = 255; st.ovImg.data[p + 1] = 40; st.ovImg.data[p + 2] = 70; st.ovImg.data[p + 3] = st.mask[k]; }
+    st.ovCtx.putImageData(st.ovImg, 0, 0);
+    st.undo = []; st.redo = [];
+    $("item-select").value = String(i);
+    fit();
+    say((i + 1) + "/" + st.items.length + "  " + it.name + "  " + W + "x" + H);
+  } catch (e) { say(String(e.message || e)); }
+}
+function saveCurrentMask(){ if (st.cur >= 0 && st.mask) st.items[st.cur].mask = st.mask; }
+
+$("frame-file").addEventListener("change", e => { frameFiles = Array.from(e.target.files).sort((a, b) => a.name.localeCompare(b.name)); rebuildItems(); });
+$("mask-file").addEventListener("change", e => { maskFiles = Array.from(e.target.files); st.items.forEach(it => { it.mask = it.mask && it.edited ? it.mask : null; }); rebuildItems(); });
+$("item-select").addEventListener("change", e => openItem(parseInt(e.target.value, 10)));
+$("prev-item").addEventListener("click", () => openItem(st.cur - 1));
+$("next-item").addEventListener("click", () => openItem(st.cur + 1));
+
+/* ---------- view transform ---------- */
+function resize(){
+  const r = view.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  view.width = Math.max(1, Math.round(r.width * dpr)); view.height = Math.max(1, Math.round(r.height * dpr));
+  draw();
+}
+function fit(){
+  if (!st.W) { draw(); return; }
+  const r = view.getBoundingClientRect();
+  st.scale = Math.min(r.width / st.W, r.height / st.H) * 0.98;
+  st.ox = (r.width - st.W * st.scale) / 2; st.oy = (r.height - st.H * st.scale) / 2;
+  draw();
+}
+function zoomAt(cx, cy, f){
+  const ns = Math.min(40, Math.max(0.05, st.scale * f)), k = ns / st.scale;
+  st.ox = cx - (cx - st.ox) * k; st.oy = cy - (cy - st.oy) * k; st.scale = ns; draw();
+}
+function toImg(cx, cy){ return [(cx - st.ox) / st.scale, (cy - st.oy) / st.scale]; }
+function evPos(e){ const r = view.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+
+function draw(){
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, view.width, view.height);
+  if (!st.frameCanvas) return;
+  ctx.setTransform(st.scale * dpr, 0, 0, st.scale * dpr, st.ox * dpr, st.oy * dpr);
+  ctx.imageSmoothingEnabled = st.scale < 1;
+  if (st.mode === 2) { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, st.W, st.H); }
+  else ctx.drawImage(st.frameCanvas, 0, 0);
+  if (st.showMask || st.mode === 2) {
+    ctx.globalAlpha = st.mode === 2 ? 1 : st.opacity;
+    ctx.drawImage(st.ov, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+  if (st.hover && st.tool !== "pan") {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const rr = st.size / 2 * st.scale;
+    ctx.beginPath(); ctx.arc(st.hover[0], st.hover[1], Math.max(1, rr), 0, 7);
+    ctx.strokeStyle = st.tool === "add" ? "#fff" : "#6cf"; ctx.lineWidth = 1.5; ctx.stroke();
+    if (st.soft > 0.02) { ctx.beginPath(); ctx.arc(st.hover[0], st.hover[1], Math.max(1, rr * (1 - st.soft)), 0, 7); ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]); }
+  }
+}
+
+/* ---------- brush ---------- */
+function dab(x, y){
+  const r = st.size / 2, hard = 1 - st.soft, W = st.W, H = st.H, m = st.mask, od = st.ovImg.data;
+  const x0 = Math.max(0, Math.floor(x - r)), x1 = Math.min(W - 1, Math.ceil(x + r));
+  const y0 = Math.max(0, Math.floor(y - r)), y1 = Math.min(H - 1, Math.ceil(y + r));
+  if (x1 < x0 || y1 < y0) return;
+  const add = st.tool === "add";
+  for (let yy = y0; yy <= y1; yy++) {
+    for (let xx = x0; xx <= x1; xx++) {
+      const d = Math.hypot(xx + 0.5 - x, yy + 0.5 - y) / r;
+      if (d >= 1) continue;
+      let w = 1;
+      if (d > hard) { const t = (d - hard) / Math.max(1e-6, 1 - hard); w = 1 - t * t * (3 - 2 * t); }
+      const i = yy * W + xx, v = m[i];
+      const nv = add ? Math.max(v, Math.round(255 * w)) : Math.round(v * (1 - w));
+      if (nv !== v) { m[i] = nv; od[i * 4 + 3] = nv; }
+    }
+  }
+  const s = st.stroke;
+  s.x0 = Math.min(s.x0, x0); s.y0 = Math.min(s.y0, y0); s.x1 = Math.max(s.x1, x1); s.y1 = Math.max(s.y1, y1);
+  st.ovCtx.putImageData(st.ovImg, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+}
+function strokeTo(x, y){
+  const s = st.stroke, step = Math.max(1, st.size * 0.2);
+  if (!s.last) { dab(x, y); s.last = [x, y]; return; }
+  const dx = x - s.last[0], dy = y - s.last[1], n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / step));
+  for (let k = 1; k <= n; k++) dab(s.last[0] + dx * k / n, s.last[1] + dy * k / n);
+  s.last = [x, y];
+}
+function beginStroke(){ st.stroke = { before: st.mask.slice(), x0: 1e9, y0: 1e9, x1: -1, y1: -1, last: null }; }
+function cropMask(src, x0, y0, w, h){
+  const o = new Uint8ClampedArray(w * h);
+  for (let y = 0; y < h; y++) o.set(src.subarray((y0 + y) * st.W + x0, (y0 + y) * st.W + x0 + w), y * w);
+  return o;
+}
+function endStroke(){
+  const s = st.stroke; st.stroke = null;
+  if (!s || s.x1 < 0) return;
+  const w = s.x1 - s.x0 + 1, h = s.y1 - s.y0 + 1;
+  st.undo.push({ x: s.x0, y: s.y0, w, h, before: cropMask(s.before, s.x0, s.y0, w, h), after: cropMask(st.mask, s.x0, s.y0, w, h) });
+  if (st.undo.length > MAX_UNDO) st.undo.shift();
+  st.redo = [];
+  markEdited();
+}
+function abortStroke(){
+  const s = st.stroke; st.stroke = null;
+  if (!s || s.x1 < 0) return;
+  st.mask.set(s.before);
+  for (let k = 0, p = 0; k < st.mask.length; k++, p += 4) st.ovImg.data[p + 3] = st.mask[k];
+  st.ovCtx.putImageData(st.ovImg, 0, 0); draw();
+}
+function applyPatch(p, which){
+  const src = p[which];
+  for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) {
+    const i = (p.y + y) * st.W + p.x + x, v = src[y * p.w + x];
+    st.mask[i] = v; st.ovImg.data[i * 4 + 3] = v;
+  }
+  st.ovCtx.putImageData(st.ovImg, 0, 0, p.x, p.y, p.w, p.h);
+}
+function undo(){ const p = st.undo.pop(); if (!p) return; applyPatch(p, "before"); st.redo.push(p); markEdited(); draw(); }
+function redo(){ const p = st.redo.pop(); if (!p) return; applyPatch(p, "after"); st.undo.push(p); markEdited(); draw(); }
+function markEdited(){ if (st.cur >= 0) { st.items[st.cur].edited = true; refreshSelectLabels(); } }
+
+/* ---------- pointer input ---------- */
+function panning(e){ return st.tool === "pan" || st.spaceDown || e.button === 1 || e.button === 2; }
+view.addEventListener("contextmenu", e => e.preventDefault());
+view.addEventListener("pointerdown", e => {
+  if (!st.frameCanvas) return;
+  view.setPointerCapture(e.pointerId);
+  const p = evPos(e); st.pointers.set(e.pointerId, p);
+  if (st.pointers.size === 2) {                         // pinch: drop the stroke the first finger started
+    abortStroke();
+    const [a, b] = Array.from(st.pointers.values());
+    st.pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+    return;
+  }
+  if (st.pointers.size > 2) return;
+  if (panning(e)) { st.pan = { last: p }; return; }
+  beginStroke();
+  const q = toImg(p[0], p[1]); strokeTo(q[0], q[1]); draw();
+});
+view.addEventListener("pointermove", e => {
+  const p = evPos(e); st.hover = p;
+  if (st.pointers.has(e.pointerId)) st.pointers.set(e.pointerId, p);
+  if (st.pinch && st.pointers.size >= 2) {
+    const [a, b] = Array.from(st.pointers.values());
+    const d = Math.hypot(a[0] - b[0], a[1] - b[1]), c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    st.ox += c[0] - st.pinch.c[0]; st.oy += c[1] - st.pinch.c[1];
+    zoomAt(c[0], c[1], d / Math.max(1, st.pinch.d));
+    st.pinch = { d, c };
+    return;
+  }
+  if (st.pan && st.pointers.has(e.pointerId)) { st.ox += p[0] - st.pan.last[0]; st.oy += p[1] - st.pan.last[1]; st.pan.last = p; draw(); return; }
+  if (st.stroke && st.pointers.has(e.pointerId)) {
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ce of (evs.length ? evs : [e])) { const pp = evPos(ce), q = toImg(pp[0], pp[1]); strokeTo(q[0], q[1]); }
+  }
+  draw();
+});
+function up(e){
+  st.pointers.delete(e.pointerId);
+  if (st.pointers.size < 2) st.pinch = null;
+  if (st.pointers.size === 0) { st.pan = null; endStroke(); }
+  draw();
+}
+view.addEventListener("pointerup", up);
+view.addEventListener("pointercancel", up);
+view.addEventListener("pointerleave", () => { st.hover = null; draw(); });
+view.addEventListener("wheel", e => {
+  e.preventDefault();
+  const p = evPos(e);
+  if (e.ctrlKey || e.altKey) { setSize(st.size * (e.deltaY < 0 ? 1.1 : 0.9)); return; }
+  zoomAt(p[0], p[1], e.deltaY < 0 ? 1.15 : 1 / 1.15);
+}, { passive: false });
+
+/* ---------- controls ---------- */
+function setTool(t){
+  st.tool = t;
+  ["add", "erase", "pan"].forEach(k => $("tool-" + k).classList.toggle("on", k === t));
+  view.style.cursor = t === "pan" ? "grab" : "crosshair"; draw();
+}
+function setSize(v){ st.size = Math.round(Math.min(300, Math.max(2, v))); $("brush-size").value = st.size; $("brush-size-val").textContent = st.size; draw(); }
+function setMode(m){
+  st.mode = m % 3;
+  $("view-mode").textContent = "Вид: " + ["кадр+маска", "только кадр", "только маска"][st.mode];
+  draw();
+}
+$("tool-add").onclick = () => setTool("add");
+$("tool-erase").onclick = () => setTool("erase");
+$("tool-pan").onclick = () => setTool("pan");
+$("brush-size").oninput = e => setSize(parseFloat(e.target.value));
+$("brush-soft").oninput = e => { st.soft = parseFloat(e.target.value) / 100; $("brush-soft-val").textContent = e.target.value; draw(); };
+$("overlay-opacity").oninput = e => { st.opacity = parseFloat(e.target.value) / 100; draw(); };
+$("overlay-toggle").onclick = () => { st.showMask = !st.showMask; $("overlay-toggle").classList.toggle("on", st.showMask); draw(); };
+$("view-mode").onclick = () => setMode(st.mode + 1);
+$("zoom-in").onclick = () => { const r = view.getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, 1.3); };
+$("zoom-out").onclick = () => { const r = view.getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, 1 / 1.3); };
+$("zoom-fit").onclick = fit;
+$("undo").onclick = undo;
+$("redo").onclick = redo;
+
+/* ---------- export ---------- */
+function blobOf(mask, W, H){
+  return new Promise(res => {
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const x = c.getContext("2d"), im = x.createImageData(W, H);
+    for (let i = 0, p = 0; i < mask.length; i++, p += 4) { const v = mask[i]; im.data[p] = v; im.data[p + 1] = v; im.data[p + 2] = v; im.data[p + 3] = 255; }
+    x.putImageData(im, 0, 0);
+    c.toBlob(res, "image/png");
+  });
+}
+function download(blob, name){
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+async function exportCurrent(){
+  if (st.cur < 0) { say("Нечего сохранять: сначала загрузите кадр."); return; }
+  const it = st.items[st.cur];
+  const name = exportName(it.maskFile ? it.maskFile.name : it.name);
+  download(await blobOf(st.mask, st.W, st.H), name);
+  say("Сохранено: " + name + " (положите в папку edited)");
+}
+async function exportAll(){
+  saveCurrentMask();
+  let n = 0;
+  for (const it of st.items) {
+    if (!it.edited || !it.mask || !it.img) continue;
+    download(await blobOf(it.mask, it.img.naturalWidth, it.img.naturalHeight), exportName(it.maskFile ? it.maskFile.name : it.name));
+    n++; await new Promise(r => setTimeout(r, 350));
+  }
+  say("Скачано исправленных масок: " + n + " (браузер может спросить разрешение на несколько загрузок).");
+}
+$("export").onclick = exportCurrent;
+$("export-all").onclick = exportAll;
+
+/* ---------- keyboard ---------- */
+window.addEventListener("keydown", e => {
+  if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== "range") return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === "s") { e.preventDefault(); exportCurrent(); return; }
+  if (e.ctrlKey || e.metaKey) return;
+  if (k === " ") { st.spaceDown = true; view.style.cursor = "grab"; e.preventDefault(); }
+  else if (k === "b") setTool("add");
+  else if (k === "e") setTool("erase");
+  else if (k === "o") $("overlay-toggle").click();
+  else if (k === "m") setMode(st.mode + 1);
+  else if (k === "f") fit();
+  else if (k === "[") setSize(st.size * 0.85);
+  else if (k === "]") setSize(st.size / 0.85);
+  else if (k === "pagedown" || k === "arrowright") openItem(st.cur + 1);
+  else if (k === "pageup" || k === "arrowleft") openItem(st.cur - 1);
+});
+window.addEventListener("keyup", e => { if (e.key === " ") { st.spaceDown = false; setTool(st.tool); } });
+window.addEventListener("resize", resize);
+window.addEventListener("beforeunload", e => { if (st.items.some(it => it.edited)) { e.preventDefault(); e.returnValue = ""; } });
+resize();
+})();
+</script>
+</body>
+</html>
