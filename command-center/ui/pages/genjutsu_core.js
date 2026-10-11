@@ -57,6 +57,12 @@ export const HAIR_PRESETS = [
     hair: { on: true, color: '#005a5a', strength: 70, lightness: 45 } } },
 ];
 
+// The natural dye family and V2 caption/export controls share the same named swatches.
+for (const p of HAIR_PRESETS) {
+  if (!SWATCHES.hair.some(([color]) => color === p.regions.hair.color))
+    SWATCHES.hair.push([p.regions.hair.color, p.label, p.en]);
+}
+
 /* Готовые образы (палитры): перечислены зоны, которые образ перекрашивает; остальные он выключает. */
 export const PRESETS = [
   { id: 'natural', label: 'Как в оригинале', note: 'все зоны выключены', regions: {} },
@@ -85,6 +91,8 @@ export const PRESETS = [
   { id: 'emerald-night', label: 'Изумруд', note: 'изумрудное платье/верх · чёрные волосы', regions: {
     clothes: { on: true, color: '#2f6b4a', strength: 80, lightness: 45 }, hair: { on: true, color: '#0d0d10', strength: 85, lightness: 30 } } },
 ];
+
+export const NATURAL_HAIR_IDS = HAIR_PRESETS.filter((p) => p.group === 'natural').map((p) => p.id);
 
 export function defaultSettings() {
   const out = {};
@@ -321,4 +329,75 @@ export function makeZip(files, when = new Date(2026, 0, 1)) {
   let at = 0;
   for (const p of parts) { out.set(p, at); at += p.length; }
   return out;
+}
+
+
+/* ---------------------------------------------------------------- V2: frame-by-frame control */
+
+/* A frame i covers [i/fps, (i+1)/fps); seeking to its CENTRE avoids landing on the boundary of the previous frame. */
+export function frameIndex(t, fps) { return Math.max(0, Math.floor(t * fps + 1e-6)); }
+export function frameTime(index, fps) { return (Math.max(0, index) + 0.5) / fps; }
+export function frameCount(duration, fps) { return Math.max(1, Math.round(duration * fps)); }
+export function stepFrame(t, delta, fps, duration) {
+  const last = frameCount(duration, fps) - 1;
+  const next = Math.min(last, Math.max(0, frameIndex(t, fps) + Math.round(delta)));
+  return frameTime(next, fps);
+}
+
+/* ---------------------------------------------------------------- V2: clean variants + manifest */
+
+/* The clean frame (no effect) and the effect frame are always separate files; the manifest ties them by sha256. */
+export function cleanVariantNames(base, frame) {
+  const stem = `${String(base || 'frame').replace(/[^A-Za-z0-9_-]+/g, '_')}-f${String(frame).padStart(5, '0')}`;
+  return { clean: `${stem}-clean.png`, effect: `${stem}-effect.png`, manifest: `${stem}-manifest.json` };
+}
+
+export async function sha256Hex(bytes) {
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+const HEX64 = /^[0-9a-f]{64}$/;
+export function buildManifest({ kind, source, settings, engine = null, files, created = new Date() }) {
+  for (const f of files) if (!HEX64.test(f.sha256)) throw new Error(`manifest: bad sha256 for ${f.name}`);
+  return {
+    version: 1, kind, created: created.toISOString(), local_only: true,
+    source: { ...source }, engine, settings: JSON.parse(JSON.stringify(settings)),
+    files: files.map((f) => ({ name: f.name, role: f.role, sha256: f.sha256, bytes: f.bytes })),
+  };
+}
+
+/* ---------------------------------------------------------------- V2: session recovery */
+
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const clampInt = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt; };
+
+export function serializeSession({ settings, region, trigger = '', subject = 'woman', frame = null }) {
+  return JSON.stringify({ v: 1, settings, region, trigger, subject, frame, saved: new Date().toISOString() });
+}
+
+/* Anything that is not exactly our shape is dropped: a stored draft must never be able to inject a colour or a region. */
+export function restoreSession(raw) {
+  if (typeof raw !== 'string') return null;
+  let data;
+  try { data = JSON.parse(raw); } catch { return null; }
+  if (!data || data.v !== 1 || typeof data.settings !== 'object' || data.settings === null) return null;
+  const settings = defaultSettings();
+  for (const r of REGIONS) {
+    const v = data.settings[r];
+    if (!v || typeof v !== 'object') continue;
+    settings[r] = {
+      on: v.on === true,
+      color: HEX_COLOR.test(String(v.color)) ? String(v.color).toLowerCase() : DEFAULT_SETTING.color,
+      strength: clampInt(v.strength, 0, 100, DEFAULT_SETTING.strength),
+      lightness: clampInt(v.lightness, 0, 100, DEFAULT_SETTING.lightness),
+    };
+  }
+  const frame = data.frame && typeof data.frame === 'object'
+    ? { name: String(data.frame.name || '').slice(0, 200), frame_index: clampInt(data.frame.frame_index, 0, 10 ** 7, 0) } : null;
+  return {
+    settings, region: REGIONS.includes(data.region) ? data.region : 'hair',
+    trigger: typeof data.trigger === 'string' ? data.trigger.slice(0, 32) : '',
+    subject: ['woman', 'man', 'person'].includes(data.subject) ? data.subject : 'woman', frame,
+  };
 }

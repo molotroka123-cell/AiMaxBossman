@@ -44,7 +44,8 @@ router = APIRouter(prefix="/motion-studio", tags=["motion-studio"])
 MAX_SPEC_BYTES = 256 * 1024
 JOB_TIMEOUT_SECONDS = 40 * 60
 LOG_TAIL = 2000
-OUTPUTS = {"video.mp4", "video-telegram.mp4", "soundtrack.wav", "spec.json"}
+OUTPUTS = {"video.mp4", "video-telegram.mp4", "soundtrack.wav", "spec.json", "manifest.json"}
+FINISH_MARKERS = {"full": "video:", "preview": "preview frames:"}   # last lines make_video.py prints on success
 _JOBS: dict[str, dict[str, Any]] = {}
 _PROCS: dict[str, asyncio.subprocess.Process] = {}
 _SEEN: dict[Path, tuple[int, int, Any]] = {}   # job.json -> (mtime_ns, size, its job id; "" = unreadable)
@@ -187,16 +188,65 @@ async def _refresh(job: dict[str, Any]) -> dict[str, Any]:
     return job
 
 
+def _finished_in_log(job: dict[str, Any]) -> bool:
+    """True when the render log shows make_video.py reached its final success line (so a lost pid is not a lost render)."""
+    marker = FINISH_MARKERS.get(job.get("mode", ""), "video:")
+    tail = _log_tail(job)
+    return any(line.strip().startswith(marker) for line in tail.splitlines())
+
+
+def _sha256_file(path: Path) -> str:
+    with path.open("rb") as fh:
+        return hashlib.file_digest(fh, "sha256").hexdigest()
+
+
+def _write_manifest(job: dict[str, Any], report: dict[str, Any]) -> None:
+    """manifest.json next to the outputs: spec hash, every output with sha256 + size, the file-check report.
+
+    Written only for a verified render, atomically; a re-run of the same spec gives the same spec_sha256 and the
+    manifest lets the owner (or a later recovery) prove which bytes belong to which job without re-rendering.
+    """
+    folder = Path(job["dir"])
+    spec = folder / "spec.json"
+    names = sorted(n for n in os.listdir(folder)
+                   if (n in OUTPUTS and n != "manifest.json") or (n.startswith("epic-preview-") and n.endswith(".png")))
+    files = [{"name": n, "bytes": (folder / n).stat().st_size, "sha256": _sha256_file(folder / n)} for n in names]
+    tool = tool_dir() / "make_video.py"
+    manifest = {"version": 1, "job_id": job["id"], "mode": job["mode"], "verified": bool(report.get("verified")),
+                "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "style": job.get("style", "epic"),
+                "source": job.get("source", "custom"),
+                "spec_sha256": _sha256_file(spec) if spec.is_file() else "",
+                "tool": {"make_video_sha256": _sha256_file(tool) if tool.is_file() else "", "python": sys.version.split()[0]},
+                "recovered": bool(job.get("recovered")),
+                "check": {k: v for k, v in report.items() if k not in ("reason", "files")},
+                "files": files}
+    path = folder / "manifest.json"
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def _settle(job: dict[str, Any], code: int | None) -> None:
     job["finished"] = time.time()
+    recovered = False
     if code is None:
-        job.update(state="interrupted", error="процесс рендера потерян (перезапуск?)")
-    elif code != 0:
+        # The process is gone (backend restart / crash). If the log shows the final success line and the file
+        # check passes, the render DID finish: report it as done (recovered), never as a lost job.
+        if _finished_in_log(job) and _check(job)["verified"]:
+            recovered = True
+            code = 0
+        else:
+            job.update(state="interrupted", error="процесс рендера потерян (перезапуск?)")
+    if code is not None and code != 0:
         job.update(state="failed", error=f"make_video завершился с кодом {code}")
-    else:
+    elif code == 0:
         report = _check(job)
         if report["verified"]:
-            job.update(state="done", error="")
+            job.update(state="done", error="", recovered=recovered)
+            try:
+                _write_manifest(job, report)
+            except OSError as exc:   # the render itself is fine; the missing manifest is visible in outputs
+                job["error"] = f"manifest.json не записан: {type(exc).__name__}"
         else:
             job.update(state="failed", error="результат не прошёл проверку файла: " + report["reason"])
     _save(job)
@@ -217,7 +267,7 @@ def _log_tail(job: dict[str, Any]) -> str:
 
 def _public(job: dict[str, Any]) -> dict[str, Any]:
     keep = ("id", "mode", "state", "error", "started", "finished", "style", "no_voice", "scenes",
-            "subtitle_lines", "times", "music", "source")
+            "subtitle_lines", "times", "music", "source", "recovered")
     out = {k: job.get(k) for k in keep}
     out["log_tail"] = _log_tail(job)
     out["outputs"] = sorted(n for n in os.listdir(job["dir"])

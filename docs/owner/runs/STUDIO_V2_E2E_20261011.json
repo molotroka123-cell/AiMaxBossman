@@ -1,0 +1,149 @@
+{
+ "generated": "2026-10-11T05:50:22-0700",
+ "python": "3.12.10",
+ "notes": {
+  "source": {
+   "synthetic": false,
+   "clip_sha256_16": "6a619043dc34e8bf",
+   "webm_bytes": 391648
+  }
+ },
+ "results": {
+  "boot": {
+   "status": "PASS",
+   "port": 54568,
+   "page_errors": [],
+   "external_requests": [],
+   "engines": {
+    "segformer": true,
+    "facefusion": true
+   },
+   "default_engine": "segformer"
+  },
+  "import_image": {
+   "status": "PASS",
+   "canvas": [
+    640,
+    640
+   ],
+   "blocked_without_consent": true,
+   "enabled_with_consent": true
+  },
+  "import_video": {
+   "status": "PASS",
+   "frame_info": "Кадр 0 из 60 · 0.017 с · 30 к/с",
+   "canvas": {
+    "w": 640,
+    "h": 640,
+    "mean": 142.89681803381643,
+    "nonblack_share": 0.98124755859375
+   }
+  },
+  "masks": {
+   "status": "PASS",
+   "seconds": 5.3,
+   "info": "Зоны найдены за 4.445 с: модель 1.589 с (+ загрузка 1.902 с), GPU; подготовка в браузере 108 мс. Площадь: Волосы 4.5% · Верх 22.4% · Низ 0.0% · Одежда целиком 22.4%",
+   "error": ""
+  },
+  "preview": {
+   "status": "PASS",
+   "changed_px": 21049,
+   "total_px": 409600,
+   "mask_px": 21836,
+   "outside_mask_changed_px": 0,
+   "render_info": [
+    "Перекраска: 9 мс, изменено пикселей: 21836"
+   ]
+  },
+  "frame_step": {
+   "status": "PASS",
+   "fps": 25.0,
+   "frames": [
+    "0",
+    "1",
+    "0",
+    "20"
+   ],
+   "times": [
+    0.0167,
+    0.06,
+    0.02,
+    0.82
+   ],
+   "masks_reset_after_step": true
+  },
+  "clean_export": {
+   "status": "PASS",
+   "zip": "clip-f00020-variants.zip",
+   "files": [
+    "clip-f00020-clean.png",
+    "clip-f00020-effect.png",
+    "clip-f00020-manifest.json"
+   ],
+   "clean_sha": "29a452f4f13ffe9df908fc70b478c7a528880ae5e1249f2ab11c2b957306a730",
+   "effect_sha": "0d44c2f3dc52f88bfd061be1d195024d85e1cd25f568de90b76a0c2d57fce8b9",
+   "frame_index": 20
+  },
+  "presets": {
+   "status": "PASS",
+   "present": [
+    "hair-jet-black",
+    "hair-chocolate",
+    "hair-auburn",
+    "hair-copper",
+    "hair-ash-blonde",
+    "hair-platinum"
+   ],
+   "total": 18
+  },
+  "motion_render": {
+   "status": "PASS",
+   "previews": 3,
+   "render_seconds": 23.0,
+   "duration_s": 6.0,
+   "video": {
+    "codec": "h264",
+    "width": 1280,
+    "height": 720
+   },
+   "audio": {
+    "codec": "aac"
+   },
+   "sha256": "46a0ee132ff354a605fde312d50723450ff013c636877cdc9a08fd7e6d3f238f",
+   "manifest_files": [
+    "soundtrack.wav",
+    "spec.json",
+    "video.mp4"
+   ],
+   "manifest_status": 200
+  },
+  "crash_recovery": {
+   "status": "PASS",
+   "A_orphan_survives": {
+    "job": "fb35f0ce5ec7",
+    "state_after_restart": "done",
+    "recovered": true,
+    "error": "",
+    "ui_card": "ГОТОВО И ПРОВЕРЕНО\nполный рендер · Epic · сцен 2 · субтитров 2 · музыка да · озвучка нет\nВОССТАНОВЛЕН ПОСЛЕ СБОЯ: ФАЙЛ ПРОВЕРЕН ЗАНОВО\nСкачать видео\nManifest (sha256)\nПроверить файл"
+   },
+   "B_tree_killed": {
+    "job": "61c20a1cd02e",
+    "state_after_restart": "interrupted",
+    "recovered": null,
+    "error": "процесс рендера потерян (перезапуск?)",
+    "ui_card": "ПРЕРВАНО\nполный рендер · Epic · сцен 2 · субтитров 2 · музыка да · озвучка нет\nпроцесс рендера потерян (перезапуск?)"
+   },
+   "new_job_status": 202
+  },
+  "session_recovery": {
+   "status": "PASS",
+   "restored": "1",
+   "hair_color": "#c46e3d",
+   "note": "Настройки прошлого сеанса восстановлены (зоны: Волосы). Кадр и маски нужно загрузить заново."
+  },
+  "local_only": {
+   "status": "PASS",
+   "external_requests": []
+  }
+ }
+}

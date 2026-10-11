@@ -24,6 +24,7 @@ function jobCard(ctx, job) {
     pill(STATE_LABEL[job.state] || job.state, { tone: STATE_TONE[job.state] || 'idle', live: job.state === 'running' }),
     h('span.small.dim', `${job.mode === 'full' ? 'полный рендер' : 'предпросмотр'} · Epic · сцен ${job.scenes} · субтитров ${job.subtitle_lines}`
       + (job.mode === 'full' ? ` · музыка ${job.music ? 'да' : 'нет'} · озвучка ${job.no_voice ? 'нет' : 'да'}` : '')));
+  if (job.recovered) state.append(pill('восстановлен после сбоя: файл проверен заново', { tone: 'ok' }));
   const body = h('div.stack.sm', { dataset: { testid: 'motion-job', job: job.id } }, state,
     job.error ? h('div.small', { style: { color: 'var(--err)' } }, job.error) : null);
   if (job.state === 'running') {
@@ -41,6 +42,7 @@ function jobCard(ctx, job) {
     body.append(h('video', { src: fileUrl(job, 'video.mp4'), controls: true, preload: 'metadata', style: { maxWidth: '480px' } }),
       h('div.row.tight', { style: { gap: '8px' } },
         h('a.btn.btn-sm', { href: fileUrl(job, 'video.mp4'), download: 'video.mp4' }, 'Скачать видео'),
+        (job.outputs || []).includes('manifest.json') ? h('a.btn.btn-sm', { href: fileUrl(job, 'manifest.json'), download: 'manifest.json', dataset: { testid: 'motion-manifest' } }, 'Manifest (sha256)') : null,
         actionButton('Проверить файл', async () => {
           try {
             const c = await api.raw(`/api/motion-studio/jobs/${job.id}/check`);

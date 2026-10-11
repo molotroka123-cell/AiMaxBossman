@@ -14,7 +14,11 @@ import { panel, pill, btn } from './_ui.js';
 import {
   REGIONS, REGION_LABEL, SWATCHES, PRESETS, createHistory, presetSettings, imageToLab, prepare, recolor,
   debounce, captionFor, datasetName, validateDataset, makeZip,
+  frameIndex, frameTime, stepFrame, frameCount, cleanVariantNames, sha256Hex, buildManifest, serializeSession, restoreSession,
 } from './genjutsu_core.js';
+
+const SESSION_KEY = 'bx.genjutsu.session.v1';
+const DEFAULT_FPS = 30;
 
 const base = '/api/direct-gen';
 const MAX_SIDE = 4096;
@@ -57,7 +61,7 @@ export function genjutsuPanel() {
   /* ---- состояние ---- */
   const S = {
     info: null, engine: null, w: 0, h: 0, src: null, lab: null, masks: null, prep: null, out: null,
-    region: 'hair', result: null, dataset: [], fileUrl: null, editing: {},
+    region: 'hair', result: null, dataset: [], fileUrl: null, editing: {}, fileName: '', fps: DEFAULT_FPS, lastExport: null,
   };
   const history = createHistory();
 
@@ -66,6 +70,17 @@ export function genjutsuPanel() {
   const video = h('video.gj-video', { controls: true, playsinline: true, muted: true, preload: 'metadata', hidden: true, 'aria-label': 'Исходное видео' });
   const grabBtn = btn('Взять этот кадр', () => grabFrame(), { variant: 'secondary', iconName: 'plus' });
   grabBtn.hidden = true; grabBtn.dataset.testid = 'gj-grab';
+  const fpsInput = h('input.dg-input', { id: 'gj-fps', name: 'gj-fps', type: 'number', min: '1', max: '240', step: '0.001', value: String(DEFAULT_FPS), 'aria-label': 'Кадров в секунду' });
+  const frameInput = h('input.dg-input', { id: 'gj-frame-no', name: 'gj-frame-no', type: 'number', min: '0', step: '1', value: '0', 'aria-label': 'Номер кадра' });
+  const frameInfo = h('div.dg-small.dg-num', { dataset: { testid: 'gj-frame-info' }, 'aria-live': 'polite' });
+  const stepBack = btn('−1 кадр', () => stepBy(-1), { variant: 'secondary', size: 'sm' });
+  const stepFwd = btn('+1 кадр', () => stepBy(+1), { variant: 'secondary', size: 'sm' });
+  const gotoBtn = btn('Перейти', () => gotoFrame(Number(frameInput.value)), { variant: 'secondary', size: 'sm' });
+  stepBack.dataset.testid = 'gj-step-back'; stepFwd.dataset.testid = 'gj-step-fwd'; gotoBtn.dataset.testid = 'gj-goto';
+  const stepRow = h('div.dg-row', { hidden: true, dataset: { testid: 'gj-step-row' } },
+    stepBack, stepFwd,
+    h('label.dg-label.gj-inline', { for: 'gj-frame-no' }, h('span', 'Кадр №'), frameInput), gotoBtn,
+    h('label.dg-label.gj-inline', { for: 'gj-fps' }, h('span', 'к/с'), fpsInput), frameInfo);
   const engineSel = h('select.dg-input', { id: 'gj-engine', name: 'gj-engine' });
   const engineNote = h('div.dg-note', { dataset: { testid: 'gj-license' } });
   const consent = h('input', { type: 'checkbox', id: 'gj-consent', name: 'gj-consent' });
@@ -130,21 +145,58 @@ export function genjutsuPanel() {
     if (S.fileUrl) { URL.revokeObjectURL(S.fileUrl); S.fileUrl = null; }
     if (!f) return;
     S.fileUrl = URL.createObjectURL(f);
+    S.fileName = f.name;
     if (f.type.startsWith('video/')) {
-      video.src = S.fileUrl; video.hidden = false; grabBtn.hidden = false;
+      video.src = S.fileUrl; video.hidden = false; grabBtn.hidden = false; stepRow.hidden = false;
       S.src = null; setEnabled();
-      video.addEventListener('loadeddata', () => grabFrame(), { once: true });
+      // Seek to the centre of frame 0 instead of grabbing at an unseeked t=0: a video that was never presented
+      // draws as an all-black canvas in some Chromium builds, and the mask pass would then find nothing.
+      video.addEventListener('loadeddata', () => seekAndGrab(frameTime(0, fpsNow())), { once: true });
       return;
     }
-    video.hidden = true; grabBtn.hidden = true; video.removeAttribute('src');
+    video.hidden = true; grabBtn.hidden = true; stepRow.hidden = true; video.removeAttribute('src');
     try { const img = await loadImage(S.fileUrl); setFrame(img, img.naturalWidth, img.naturalHeight); }
     catch (e) { toastError(e); }
   }
 
   function grabFrame() {
     if (!video.videoWidth) { toastError(new Error('Видео ещё не загрузилось')); return; }
-    setFrame(video, video.videoWidth, video.videoHeight);
+    setFrame(video, video.videoWidth, video.videoHeight);   // setFrame drops the masks: they belong to the old frame
+    showFrame();
+    persist();
     toastOk('Кадр взят', `${video.currentTime.toFixed(2)} с`);
+  }
+
+  /* ---- покадровый переход: один кадр = один шаг, после перехода берётся именно этот кадр ---- */
+  const fpsNow = () => { const v = Number(fpsInput.value); S.fps = v > 0 ? v : DEFAULT_FPS; return S.fps; };
+
+  function showFrame() {
+    const fps = fpsNow();
+    const idx = frameIndex(video.currentTime || 0, fps);
+    frameInput.value = String(idx);
+    const total = Number.isFinite(video.duration) ? frameCount(video.duration, fps) : null;
+    frameInfo.textContent = `Кадр ${idx}${total ? ` из ${total}` : ''} · ${(video.currentTime || 0).toFixed(3)} с · ${fps} к/с`;
+  }
+
+  function seekAndGrab(t) {
+    return new Promise((resolve) => {
+      const done = () => { video.removeEventListener('seeked', done); grabFrame(); resolve(); };
+      video.addEventListener('seeked', done);
+      video.pause();
+      video.currentTime = t;
+    });
+  }
+
+  async function stepBy(delta) {
+    if (!video.videoWidth) { toastError(new Error('Видео ещё не загрузилось')); return; }
+    await seekAndGrab(stepFrame(video.currentTime, delta, fpsNow(), video.duration || 1e9));
+  }
+
+  async function gotoFrame(n) {
+    if (!video.videoWidth) { toastError(new Error('Видео ещё не загрузилось')); return; }
+    const fps = fpsNow();
+    const last = Number.isFinite(video.duration) ? frameCount(video.duration, fps) - 1 : Infinity;
+    await seekAndGrab(frameTime(Math.min(last, Math.max(0, Math.round(n) || 0)), fps));
   }
 
   /* ---------------------------------------------------------------- маски */
@@ -192,6 +244,15 @@ export function genjutsuPanel() {
 
   /* ---------------------------------------------------------------- перекраска */
 
+  /* ---- восстановление после сбоя: настройки зон переживают перезагрузку страницы (кадр и маски — нет) ---- */
+  const persist = debounce(() => {
+    try {
+      localStorage.setItem(SESSION_KEY, serializeSession({
+        settings: history.all(), region: S.region, trigger: trigger.value, subject: subject.value,
+        frame: S.fileName ? { name: S.fileName, frame_index: frameIndex(video.currentTime || 0, fpsNow()) } : null }));
+    } catch { /* storage may be blocked: the editor works without it */ }
+  }, 250);
+
   const render = debounce(() => {
     if (!S.src || !S.masks) return;
     const t0 = performance.now();
@@ -222,7 +283,7 @@ export function genjutsuPanel() {
   function edit(region, value, final) {
     if (!S.editing[region]) { history.set(region, value); S.editing[region] = !final; }
     else { history.replace(region, value); if (final) S.editing[region] = false; }
-    render();
+    render(); persist();
     if (final) renderRegion();
   }
 
@@ -261,9 +322,9 @@ export function genjutsuPanel() {
       input.addEventListener('change', () => edit(r, { [key]: Number(input.value), on: true }, true));
       return h('div', h('label.dg-label.gj-flex', { for: id }, h('span', label), val), input, h('div.dg-note', hint));
     };
-    const undo = btn('Отменить', () => { if (history.undo(r)) { render(); renderRegion(); } }, { variant: 'subtle', size: 'sm', iconName: 'retry', disabled: !history.canUndo(r) });
-    const redo = btn('Повторить', () => { if (history.redo(r)) { render(); renderRegion(); } }, { variant: 'subtle', size: 'sm', disabled: !history.canRedo(r) });
-    const reset = btn('Сбросить зону', () => { if (history.reset(r)) { render(); renderRegion(); } }, { variant: 'ghost', size: 'sm' });
+    const undo = btn('Отменить', () => { if (history.undo(r)) { render(); persist(); renderRegion(); } }, { variant: 'subtle', size: 'sm', iconName: 'retry', disabled: !history.canUndo(r) });
+    const redo = btn('Повторить', () => { if (history.redo(r)) { render(); persist(); renderRegion(); } }, { variant: 'subtle', size: 'sm', disabled: !history.canRedo(r) });
+    const reset = btn('Сбросить зону', () => { if (history.reset(r)) { render(); persist(); renderRegion(); } }, { variant: 'ghost', size: 'sm' });
     undo.dataset.testid = 'gj-undo'; redo.dataset.testid = 'gj-redo'; reset.dataset.testid = 'gj-reset';
     regionBody.replaceChildren(...[            // DOM replaceChildren prints null as text: filter it out
       h('div.dg-row', h('label.dg-label.gj-inline', { for: 'gj-on' }, on, h('span', `Перекрашивать: ${REGION_LABEL[r]}`)),
@@ -279,7 +340,7 @@ export function genjutsuPanel() {
   function renderPresets() {
     presetBox.replaceChildren(...PRESETS.map((p) => {
       const b = h('button.gj-preset', { type: 'button', dataset: { preset: p.id, group: p.group || '' } }, h('b', p.label), h('small', p.note));
-      b.addEventListener('click', () => { if (history.setAll(presetSettings(p))) { render(); renderRegion(); } toastOk(`Образ «${p.label}»`, 'Каждую зону можно отменить отдельно'); });
+      b.addEventListener('click', () => { if (history.setAll(presetSettings(p))) { render(); persist(); renderRegion(); } toastOk(`Образ «${p.label}»`, 'Каждую зону можно отменить отдельно'); });
       return b;
     }));
   }
@@ -290,6 +351,37 @@ export function genjutsuPanel() {
     if (!S.masks) { toastError(new Error('Сначала найдите зоны')); return; }
     render.flush();
     download(await canvasBlob(after), 'genjutsu-result.png');
+  }
+
+  /* Clean frame (no effect) and effect frame are SEPARATE files; the manifest ties both by sha256. One ZIP. */
+  async function exportVariants() {
+    if (!S.src) { toastError(new Error('Сначала выберите кадр')); return; }
+    render.flush();
+    const idx = frameIndex(video.currentTime || 0, fpsNow());
+    const names = cleanVariantNames(S.fileName.replace(/\.[^.]+$/, '') || 'frame', idx);
+    const files = [];
+    const entries = [];
+    const add = async (name, role, blob) => {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      files.push({ name, data: bytes });
+      entries.push({ name, role, sha256: await sha256Hex(bytes), bytes: bytes.length });
+    };
+    await add(names.clean, 'clean', await canvasBlob(before));
+    const withEffect = !!S.masks && Object.values(history.all()).some((v) => v.on);
+    if (withEffect) await add(names.effect, 'effect', await canvasBlob(after));
+    const manifest = buildManifest({
+      kind: 'genjutsu-frame',
+      source: { name: S.fileName, frame_index: idx, time_s: Number((video.currentTime || 0).toFixed(3)), fps: S.fps, width: S.w, height: S.h },
+      settings: history.all(), engine: S.masks ? S.engine : null, files: entries,
+    });
+    files.push({ name: names.manifest, data: JSON.stringify(manifest, null, 1) });
+    const zipName = names.clean.replace(/-clean\.png$/, '-variants.zip');
+    download(new Blob([makeZip(files)], { type: 'application/zip' }), zipName);
+    S.lastExport = { zip: zipName, manifest, with_effect: withEffect };
+    exportInfo.textContent = `Сохранено ${zipName}: ${entries.map((e) => `${e.role} ${e.sha256.slice(0, 12)}…`).join(' · ')}`
+      + (withEffect ? '' : ' · эффект не включён: только чистый кадр');
+    exportInfo.dataset.manifest = JSON.stringify(manifest);
+    toastOk('Варианты сохранены', 'чистый кадр, кадр с эффектом и manifest.json в одном ZIP');
   }
 
   async function addToDataset() {
@@ -347,9 +439,12 @@ export function genjutsuPanel() {
       `${e.license.text}.`, e.available ? '' : ` Недоступен: ${e.reason}`);
   }
 
-  const allReset = btn('Сбросить всё', () => { if (history.setAll(presetSettings(null))) { render(); renderRegion(); } }, { variant: 'ghost', size: 'sm' });
+  const allReset = btn('Сбросить всё', () => { if (history.setAll(presetSettings(null))) { render(); persist(); renderRegion(); } }, { variant: 'ghost', size: 'sm' });
   const saveBtn = btn('Сохранить PNG', savePng, { variant: 'secondary', iconName: 'check' });
   saveBtn.dataset.testid = 'gj-save';
+  const variantsBtn = btn('Чистый кадр + эффект (ZIP с manifest)', exportVariants, { variant: 'secondary', iconName: 'check' });
+  variantsBtn.dataset.testid = 'gj-variants';
+  const exportInfo = h('div.dg-small.dg-num', { dataset: { testid: 'gj-export-info' }, 'aria-live': 'polite' });
   const zipBtn = btn('Скачать набор ZIP', exportZip, { variant: 'primary' });
   zipBtn.dataset.testid = 'gj-zip';
 
@@ -369,19 +464,34 @@ export function genjutsuPanel() {
     h('div.dg-fields',
       h('div', h('label.dg-label', { for: 'gj-file' }, 'Фото или видео'), fileInput),
       h('div', h('label.dg-label', { for: 'gj-engine' }, 'Модель масок'), engineSel, engineNote)),
-    video, h('div.dg-row', grabBtn),
+    video, h('div.dg-row', grabBtn), stepRow,
     h('label.dg-label.gj-inline', { for: 'gj-consent' }, consent, h('span', 'Человек в кадре согласен на изменение его изображения')),
     h('div.dg-actions', maskBtn), maskErr, maskInfo,
     h('div.gj-grid',
       h('div.dg-stack', stageBox,
         h('div', h('label.dg-label.gj-flex', { for: 'gj-split' }, h('span', 'До'), h('span', 'После')), split),
-        h('div.dg-row', h('label.dg-label.gj-inline', { for: 'gj-show-mask' }, showMask, h('span', 'Подсветить маску зоны')), saveBtn),
-        renderInfo),
+        h('div.dg-row', h('label.dg-label.gj-inline', { for: 'gj-show-mask' }, showMask, h('span', 'Подсветить маску зоны')), saveBtn, variantsBtn),
+        exportInfo, renderInfo),
       h('div.dg-stack', tabs, regionBody,
         h('div', h('div.dg-row.gj-flex', h('span.dg-label', { style: { margin: '0' } }, 'Готовые образы'), allReset), presetBox))),
     loraBox), { icon: 'edit' });
 
+  let restoredNote = null;
+  try {
+    const restored = restoreSession(localStorage.getItem(SESSION_KEY));
+    if (restored) {
+      history.setAll(restored.settings); S.region = restored.region;
+      trigger.value = restored.trigger; subject.value = restored.subject;
+      restoredNote = Object.entries(restored.settings).filter(([, v]) => v.on).map(([r]) => REGION_LABEL[r]).join(', ');
+    }
+  } catch { /* no storage: start clean */ }
   renderRegion(); renderPresets(); renderDataset();
+  if (restoredNote !== null) {
+    maskInfo.textContent = `Настройки прошлого сеанса восстановлены${restoredNote ? ` (зоны: ${restoredNote})` : ''}. Кадр и маски нужно загрузить заново.`;
+    maskInfo.dataset.restored = '1';
+  }
+  fpsInput.addEventListener('change', () => { showFrame(); persist(); });
+  trigger.addEventListener('input', persist); subject.addEventListener('change', persist);
 
   (async () => {
     try {
