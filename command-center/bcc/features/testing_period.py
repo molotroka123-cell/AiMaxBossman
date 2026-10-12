@@ -181,6 +181,41 @@ class SessionLog:
             # обработчик запроса владельца.
             return False
 
+    async def write_many(self, source: str, items: list[tuple[str, dict | None]]) -> int:
+        """One batch, one lock, one file open. The browser sends up to MAX_EVENTS_PER_POST events per POST;
+        appending them one by one (lock + thread hop + open per event) made a busy page's batch outlive the
+        UI sweep's action timeout (installed sweep of bundle 0b15e00c, 11.10). Returns the number written."""
+        if not enabled() or not items:
+            return 0
+        records = [{"ts": _now_iso(), "session": self.session_id, "source": source, "kind": kind,
+                    "data": _safe_payload(payload or {})} for kind, payload in items]
+        try:
+            async with self._lock:
+                for rec in records:
+                    self.counts[rec["kind"]] = self.counts.get(rec["kind"], 0) + 1
+                return await asyncio.to_thread(self._append_many, records)
+        except asyncio.CancelledError:
+            raise
+        except Exception:              # noqa: BLE001 - the observer never takes down what it observes
+            return 0
+
+    def _append_many(self, records: list[dict]) -> int:
+        try:
+            path = self.path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if not self._full and path.exists() and path.stat().st_size > MAX_LOG_BYTES:
+                self._full = True
+                with open(path, "a", encoding="utf-8") as fh:
+                    fh.write(json.dumps({"ts": _now_iso(), "source": "server", "kind": "log.full",
+                                         "data": {"limit_bytes": MAX_LOG_BYTES}}, ensure_ascii=False) + "\n")
+            if self._full:
+                return 0
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records))
+            return len(records)
+        except OSError:
+            return 0
+
     def _append(self, record: dict) -> bool:
         try:
             path = self.path
@@ -465,13 +500,10 @@ async def ingest(request: Request):
     if not isinstance(events, list):
         raise HTTPException(400, {"message": "ожидается {\"events\": [...]}"})
     log = _log_of(request)
-    written = 0
-    for event in events[:MAX_EVENTS_PER_POST]:
-        if not isinstance(event, dict):
-            continue
-        kind = str(event.get("kind") or "ui.event")[:60]
-        if await log.write("ui", kind, event.get("data") if isinstance(event.get("data"), dict) else {"value": event.get("data")}):
-            written += 1
+    items = [(str(event.get("kind") or "ui.event")[:60],
+              event.get("data") if isinstance(event.get("data"), dict) else {"value": event.get("data")})
+             for event in events[:MAX_EVENTS_PER_POST] if isinstance(event, dict)]
+    written = await log.write_many("ui", items)
     return {"accepted": written, "dropped": max(0, len(events) - written),
             "total": sum(log.counts.values())}
 

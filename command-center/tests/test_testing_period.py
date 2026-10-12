@@ -44,6 +44,29 @@ async def test_status_reports_the_running_session(env):
     assert body["log_path"].endswith("session-log.jsonl")
 
 
+async def test_a_full_batch_is_one_append_not_two_hundred(env, monkeypatch):
+    """A busy page flushes up to 200 events per POST; the installed UI sweep of bundle 0b15e00c saw that POST
+    outlive its action timeout because every event took the lock, a thread hop and a file open of its own."""
+    opens = {"n": 0}
+    import builtins
+    orig = builtins.open
+
+    def counting_open(path, *a, **kw):
+        if str(path).endswith("session-log.jsonl") and a and a[0] == "a":
+            opens["n"] += 1
+        return orig(path, *a, **kw)
+    monkeypatch.setattr(builtins, "open", counting_open)
+    events = [{"kind": "ui.click", "data": {"element": f"button#b{i}", "page": "#/direct-gen"}} for i in range(200)]
+    t0 = time.perf_counter()
+    res = await env.client.post("/api/testing/log", json={"events": events})
+    took = time.perf_counter() - t0
+    assert res.status_code == 200 and res.json()["accepted"] == 200
+    assert opens["n"] == 1, opens
+    assert took < 2.0, took
+    got = (await env.client.get("/api/testing/events?limit=2000")).json()["events"]
+    assert sum(1 for e in got if e["kind"] == "ui.click") >= 200
+
+
 async def test_clicks_from_the_browser_are_written(env):
     res = await env.client.post("/api/testing/log", json={"events": [
         {"kind": "ui.click", "data": {"element": "button#run «Запустить»", "page": "#/tasks"}},
@@ -209,6 +232,7 @@ async def test_logging_never_breaks_the_app(env, monkeypatch):
         raise OSError("диск недоступен")
 
     monkeypatch.setattr(tp.SessionLog, "_append", _boom)
+    monkeypatch.setattr(tp.SessionLog, "_append_many", _boom)      # the batch path of /testing/log
     res = await env.client.get("/api/system")
     assert res.status_code == 200
     res = await env.client.post("/api/testing/log", json={"events": [
