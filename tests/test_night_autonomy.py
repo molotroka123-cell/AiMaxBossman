@@ -521,3 +521,31 @@ def test_a_pending_proof_may_use_one_more_rebuild_than_the_ordinary_cap(world):
     assert night.step_rebuild(ident)["status"] == "BLOCKED"          # ordinary churn: cap holds
     night.state["pending_proof"] = {"from": SRC, "to": "9" * 40, "baseline": {"ux_errors": 3}, "waits": 0}
     assert night.step_rebuild(ident)["status"] == "BUILT"             # a proof may use the extended cap
+
+
+def test_a_blocked_rebuild_is_retried_next_cycle_and_does_not_spend_the_cap(world, monkeypatch):
+    """Audit E2: a BLOCKED entry (no disk at that moment) must not be returned as this head's answer all night."""
+    night = world.build()
+    world.fake.diff = "command-center/bcc/app.py" + chr(10)
+    ident = {"archive_source_sha": SRC, "head": "9" * 40, "archive": str(world.tmp / "cand.zip"), "archive_sha256": "x"}
+    monkeypatch.setattr(na, "MIN_FREE_GB", 10 ** 9)                   # no PC has this much: the disk check blocks
+    first = night.step_rebuild(ident)
+    assert first["status"] == "BLOCKED" and "free" in first["detail"]
+    assert all(r.get("status") != "BLOCKED" for r in night.state["rebuilds"]), "a moment's condition is not a result"
+    monkeypatch.setattr(na, "MIN_FREE_GB", 0)
+    assert night.step_rebuild(ident)["status"] == "BUILT"             # same head, next cycle: built
+    assert night.step_rebuild(ident)["status"] == "BUILT"             # and from then on the finished build is the answer
+    assert sum(1 for r in night.state["rebuilds"] if r.get("head") == "9" * 40) == 1
+
+
+def test_a_pending_proof_gets_exactly_one_extra_rebuild(world):
+    """Audit E1: the extended cap is one build above the ordinary cap, not a second budget."""
+    night = world.build()
+    night.state["rebuilds"] = [{"status": "BUILT", "head": str(i) * 40} for i in range(na.MAX_REBUILDS)]
+    night.state["pending_proof"] = {"from": SRC, "to": "9" * 40, "baseline": {"ux_errors": 3}, "waits": 0}
+    world.fake.diff = "command-center/bcc/app.py" + chr(10)
+    one = {"archive_source_sha": SRC, "head": "9" * 40, "archive": str(world.tmp / "cand.zip"), "archive_sha256": "x"}
+    two = {"archive_source_sha": SRC, "head": "8" * 40, "archive": str(world.tmp / "cand.zip"), "archive_sha256": "x"}
+    assert night.step_rebuild(one)["status"] == "BUILT"
+    assert night.step_rebuild(two)["status"] == "BLOCKED"             # the one extra build is spent
+    assert na.MAX_REBUILDS_FOR_PROOF == na.MAX_REBUILDS + 1

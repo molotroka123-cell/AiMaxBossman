@@ -50,7 +50,7 @@ UX_TIMEOUT_S = 75 * 60
 BUILD_TIMEOUT_S = 90 * 60
 MIN_FREE_GB = 12
 MAX_REBUILDS = 3            # ordinary code churn per night
-MAX_REBUILDS_FOR_PROOF = 6  # a pending proof may need one more build (night 11.10, cycle 4: cap hit, fix never built)
+MAX_REBUILDS_FOR_PROOF = MAX_REBUILDS + 1   # a pending proof may use ONE more build (night 11.10, cycle 4: cap hit, fix never built; audit E1)
 RATE_LIMIT_RE = re.compile(r"rate.?limit|usage limit|limit reached|overloaded|429|quota|try again later", re.I)
 SECRET_ENV_RE = re.compile(r"TOKEN|SECRET|PASSW|API_KEY|_KEY$|^BCC_|^TG_COMPANION_|CREDENTIAL", re.I)
 SECRET_TEXT_RE = re.compile(r"(?i)(?<![A-Za-z])(token|secret|api[_-]?key|key|passw(?:or)?d|credential)([\"']?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\s\"',}]+)")
@@ -238,14 +238,18 @@ class Night:
         if not self.product_changed(ident):
             return None
         head = ident["head"]
-        if any(r.get("head") == head for r in self.state["rebuilds"]):
-            return next(r for r in self.state["rebuilds"] if r.get("head") == head)
+        # Only a finished build is this head's answer for the night. A BLOCKED entry (cap, disk) is a condition of the
+        # moment and is retried next cycle; a FAIL is a real build result and is not repeated (audit E2).
+        done = next((r for r in self.state["rebuilds"] if r.get("head") == head and r.get("status") in ("BUILT", "FAIL")), None)
+        if done:
+            return done
+        spent = [r for r in self.state["rebuilds"] if r.get("status") in ("BUILT", "FAIL")]
         cap = MAX_REBUILDS_FOR_PROOF if self.state.get("pending_proof") else MAX_REBUILDS
-        if len(self.state["rebuilds"]) >= cap:
+        if len(spent) >= cap:
             return {"status": "BLOCKED", "detail": f"rebuild cap {cap} reached", "head": head}
         base = REPO.parent / "night-builds"
         if shutil.disk_usage(str(REPO)).free < MIN_FREE_GB * 2**30:
-            res = {"status": "BLOCKED", "detail": f"less than {MIN_FREE_GB} GB free", "head": head}
+            return {"status": "BLOCKED", "detail": f"less than {MIN_FREE_GB} GB free", "head": head}
         else:
             wt, dist = base / f"wt-{head[:12]}", base / f"dist-{head[:12]}"
             if not wt.is_dir():
