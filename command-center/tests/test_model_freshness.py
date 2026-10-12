@@ -94,6 +94,23 @@ async def test_a_cycle_is_bounded(env):
     assert result["candidates"] == 6
 
 
+async def test_the_models_the_owner_runs_are_probed_before_the_oldest_leftovers(env):
+    """On the owner's data the oldest records were dead local ports and old free-tier models; the local model in use
+    (healthy a few hours ago) must not wait three cycles behind them."""
+    stack = await make_stack(env.client)
+    used = stack["model"]["id"]                                           # local, referenced by the agent
+    old_cloud = await _add_model(env, stack, "old-free-cloud:free", kind="cloud", price_in=0.0, price_out=0.0,
+                                 pricing_known=True)
+    dead_local = await _add_model(env, stack, "dead-local-port")
+    for model_id, minutes in ((old_cloud, 60 * 24 * 3), (dead_local, 60 * 24 * 2)):
+        await _set_health(env, model_id, mh.HEALTHY, minutes_ago=minutes)
+    await _set_health(env, used, mh.HEALTHY, minutes_ago=240)
+    picked, _skipped = await mf._candidates(env.svc, datetime.now(timezone.utc))
+    order = [row["id"] for row, _record in picked]
+    assert order[0] in (used, dead_local) and order.index(old_cloud) == len(order) - 1
+    assert order.index(used) < order.index(old_cloud)
+
+
 async def test_a_slow_model_is_recorded_as_a_timeout_not_as_health(env, monkeypatch):
     stack = await make_stack(env.client)
     mid = stack["model"]["id"]
@@ -154,11 +171,11 @@ async def test_the_switch_the_first_delay_and_the_status_endpoint(env, monkeypat
 
     monkeypatch.setenv("BOSSMAN_MODEL_FRESHNESS", "1")
     monkeypatch.setitem(mf._state, "first_seen", None)
-    await mf._tick(env.svc)                                               # first call only starts the delay
-    assert adapter.calls == 0
-    monkeypatch.setitem(mf._state, "first_seen", -10_000.0)
-    await mf._tick(env.svc)
-    assert adapter.calls == 1
+    monkeypatch.setattr(mf, "FIRST_DELAY_S", 0.05)
+    await mf._tick(env.svc)                       # the FIRST call waits the start-up grace inside and measures right after
+    assert adapter.calls == 1 and mf._state["cycles"] >= 1
+    await mf._tick(env.svc)                       # later calls measure at once (the tick period is the pacing)
+    assert adapter.calls == 1                     # ...and a fresh measurement is left alone
 
     body = (await env.client.get("/api/model-freshness")).json()
     assert body["enabled"] is True and body["limits"]["paid_models"] == "never probed here"

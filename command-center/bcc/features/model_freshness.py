@@ -94,7 +94,16 @@ async def _candidates(svc, now: datetime) -> tuple[list[tuple[dict, mh.HealthRec
             skipped["fresh"] = skipped.get("fresh", 0) + 1
             continue
         picked.append((row, record))
-    picked.sort(key=lambda p: _aware(p[1].checked_at) or datetime.min.replace(tzinfo=timezone.utc))
+    def priority(item: tuple[dict, mh.HealthRecord]) -> tuple:
+        row, record = item
+        local = (row.get("kind") or "local") == "local"
+        # the models the owner actually runs first (local, proven before), then other local, then free cloud;
+        # inside a group the oldest measurement goes first
+        proven = record.last_success_at is not None
+        return (0 if local and proven else 1 if local else 2,
+                _aware(record.checked_at) or datetime.min.replace(tzinfo=timezone.utc))
+
+    picked.sort(key=priority)
     return picked, skipped
 
 
@@ -137,9 +146,11 @@ async def _tick(svc) -> None:
     if not enabled():
         return
     if _state["first_seen"] is None:
+        # The tick runs every TICK_SECONDS; returning early here would postpone the first measurement by a whole
+        # period (found on the 12.10 compat run: no cycle for 400 s after start). Wait the start-up grace inside the
+        # task instead and measure right after it.
         _state["first_seen"] = time.monotonic()
-    if time.monotonic() - _state["first_seen"] < FIRST_DELAY_S:
-        return                                   # let the backend finish starting before the first probe
+        await asyncio.sleep(FIRST_DELAY_S)
     try:
         await run_cycle(svc)
     except asyncio.CancelledError:

@@ -51,7 +51,22 @@ def utc() -> str:
     return base.utc()
 
 
+#: Used ONLY when the master prompt document is not in the checkout (12.10: it never was committed on this line; the
+#: 10.10 evidence names it by sha256 5b2e42...). The run then says so (``master_prompt.fallback``) - this text is not
+#: the document and must never be reported under its hash.
+FALLBACK_PROMPT = (
+    "Ты — оператор рабочего стола Bossman. Инструменты: computer.observe (наблюдение: окна, элементы, поколение "
+    "generation, hwnd, pid) и computer.act (действие). Правила: 1) сначала всегда observe; 2) каждое действие "
+    "указывает generation, window (hwnd) и pid из ПОСЛЕДНЕГО наблюдения; 3) действуй только в приложениях, "
+    "разрешённых задаче, не открывай других окон и не трогай чужие; 4) после действия проверь результат "
+    "наблюдением и кратко скажи, что именно видишь; 5) если сервер отказал (Стоп, нет разрешения, не то окно) — "
+    "ничего не повторяй, назови причину; 6) не вводи секреты и не сохраняй файлы, если об этом не просили.")
+
+
 def master_prompt() -> tuple[str, str]:
+    """(prompt text, sha256). Falls back to ``FALLBACK_PROMPT`` when the document is missing (flagged in evidence)."""
+    if not PROMPT_DOC.is_file():
+        return FALLBACK_PROMPT, hashlib.sha256(FALLBACK_PROMPT.encode("utf-8")).hexdigest()
     text = PROMPT_DOC.read_text(encoding="utf-8")
     m = re.search(r"```text\n(.*?)```", text, re.S)
     if not m:
@@ -68,6 +83,27 @@ def ollama_model(name: str) -> dict:
     version = httpx.get(f"{OLLAMA}/api/version", timeout=10, trust_env=False).json().get("version")
     return {"name": row["name"], "digest": row.get("digest"), "size": row.get("size"),
             "details": row.get("details"), "ollama_version": version, "endpoint": f"{OLLAMA}/v1"}
+
+
+def all_notepad_handles() -> set[int]:
+    """EVERY top-level window of class ``Notepad`` - visible, minimised, cloaked or on another virtual desktop.
+
+    12.10: ``top_level()`` lists visible UIA windows only, so nine pre-existing Notepad windows were "new" later and the
+    cleanup closed them (two with "Don't save"). The pre-run snapshot must see all of them."""
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    found: set[int] = set()
+    buf = ctypes.create_unicode_buffer(256)
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def visit(hwnd, _lparam):
+        user32.GetClassNameW(hwnd, buf, 256)
+        if buf.value == "Notepad":
+            found.add(int(hwnd))
+        return True
+    user32.EnumWindows(visit, 0)
+    return found
 
 
 def top_level() -> list[dict]:
@@ -126,6 +162,7 @@ class Run:
         self.day = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
         self.phrase = f"BOSSMAN CU QWEN PROOF {self.day} RUN-{self.stamp} mouse+keyboard"
         self.ours: set[int] = set()               # notepad windows launched by THIS run
+        self.foreign: set[int] = set()            # new-looking windows holding somebody else's content: never touched
         self.pre: set[int] = set()
         self.ev: dict = {"created_utc": utc(), "repo_head": self.h._git_head(), "phrase": self.phrase,
                          "backend": f"http://127.0.0.1:{base.BACKEND_PORT}", "data_dir": str(a.data_dir),
@@ -136,7 +173,13 @@ class Run:
     def setup(self) -> None:
         c = self.h.client
         prompt, sha = master_prompt()
-        self.ev["master_prompt"] = {"file": str(PROMPT_DOC.relative_to(REPO)), "sha256": sha}
+        if PROMPT_DOC.is_file():
+            self.ev["master_prompt"] = {"file": str(PROMPT_DOC.relative_to(REPO)), "sha256": sha, "fallback": False}
+        else:
+            self.ev["master_prompt"] = {
+                "file": None, "sha256": sha, "fallback": True, "text": prompt,
+                "note": "the master prompt document is not in this checkout; the minimal operator prompt above was "
+                        "used instead and is NOT the document (the 10.10 run's document hash was 5b2e42...)"}
         provider = c.post("/api/providers", {"name": "local-ollama-11434", "kind": "openai_compat",
                                              "base_url": f"{OLLAMA}/v1", "api_key": "ollama-local"})
         model = c.post("/api/models", {"provider_id": provider["id"], "name": self.model,
@@ -160,9 +203,20 @@ class Run:
 
     # -- owner --------------------------------------------------------------------
     def refresh_ours(self) -> None:
-        for w in top_level():
-            if w["process"] == "notepad.exe" and w["handle"] not in self.pre:
-                self.ours.add(w["handle"])
+        """New Notepad windows since the snapshot - and only those that are fresh (empty) or already hold OUR phrase.
+        A window with anybody else's content is never "ours", however new its handle looks."""
+        for handle in all_notepad_handles() - self.pre:
+            if handle in self.ours or handle in self.foreign:
+                continue
+            try:
+                docs = doc_of(handle)["documents"]
+            except Exception:  # noqa: BLE001 - cannot read it: not ours
+                self.foreign.add(handle)
+                continue
+            if all(d in ("", self.phrase) for d in docs):
+                self.ours.add(handle)
+            else:
+                self.foreign.add(handle)
 
     def decide(self, appr: dict, launches: list) -> tuple[str, str]:
         args = parse_args(str(appr.get("preview") or ""))
@@ -211,7 +265,8 @@ class Run:
 
     # -- run ----------------------------------------------------------------------
     def main_task(self) -> None:
-        self.pre = {w["handle"] for w in top_level()}
+        self.pre = {w["handle"] for w in top_level()} | all_notepad_handles()
+        self.ev["pre_notepad_windows"] = len(all_notepad_handles())          # a count only, never their content
         prompt = ("Демонстрация Computer Use локальной моделью. Владелец разрешил этой задаче только "
                   "Блокнот. Открой новое окно Блокнота (computer.act action=launch, target=notepad), по "
                   "наблюдению убедись, что документ в новом окне пустой, и напечатай в нём ровно эту строку: "
@@ -283,12 +338,22 @@ class Run:
     def cleanup(self) -> None:
         """Close ONLY our window without saving: clear its document through UIA, then WM_CLOSE."""
         done = []
+        typed = {(r.get("args") or {}).get("window") for r in (self.ev.get("main_task") or {}).get("tool_calls", [])
+                 if r.get("tool") == "computer.act" and (r.get("args") or {}).get("action") == "type"}
         for h in sorted(self.ours):
             entry = {"handle": h}
+            if typed and h not in typed:
+                entry["left_open"] = "not the window the product typed into"
+                done.append(entry)
+                continue
             try:
                 from pywinauto import Desktop
                 w = Desktop(backend="uia").window(handle=h)
                 docs = w.descendants(control_type="Document")
+                if any(str(d.iface_value.CurrentValue or "") not in ("", self.phrase) for d in docs):
+                    entry["left_open"] = "its content is not empty and is not our phrase"      # never close it
+                    done.append(entry)
+                    continue
                 if docs and str(docs[0].iface_value.CurrentValue or "") in ("", self.phrase):
                     try:
                         docs[0].iface_value.SetValue("")
