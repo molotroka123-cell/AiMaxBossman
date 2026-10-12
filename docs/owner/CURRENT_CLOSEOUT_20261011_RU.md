@@ -114,3 +114,19 @@ READY_FOR_OWNER_RUN после CC CI + evening test.
 - Сборка `1757ff86` из чистого worktree `C:\Users\asd\Bossman\wt-build-1757ff86` → `dist-1757ff86` (в процессе на момент записи).
 - NOT_RUN/BLOCKED: Motion V2, Music, Fleet, обучение Poker, soak/transfer, коммерческие пилоты (по мастер-промту — после сборки);
   Intelligence Preservation — нужен комментарий владельца; freeze не объявляется.
+
+## Итог круга 12.10 (архив 1757ff86, кандидат)
+
+- Архив `1757ff86` из чистого worktree: 794 MB, SHA256 `a10699eade30aab04e6ca46fbb2f60aa089bdd0644d2fc5a1f6051e127fe8881`,
+  verifier PASS, LICENSE/LICENSES/LICENSING.md/MANIFEST в архиве, MANIFEST source_sha совпадает. Распаковка `nb\1757ff86e765`.
+- Вечерняя приёмка из архива: FAIL только по двум известным причинам — обход REVIEW_REQUIRED и live-model (ключ OpenRouter
+  в Actions — действие владельца). Полный обход v3 из архива: 1 ошибка (selftest звонков) — та же, что базовая линия v3
+  на 62d90843; остальные 53 страницы без error. `docs/evidence/archive-1757ff86/summary.json`.
+- Кандидат объявлен в `tools/release_candidate.json` (rc-2026-10-12-bossman-unified-closeout) на линии 1757ff86 + docs;
+  исправления аудита шага 3 (второй исполнитель, его правки в checkout не закоммичены) в кандидат НЕ входят — после их
+  push будет новое объявление. Сертификат `tools/exact_sha_certify.py` — по завершении всех прогонов на точном SHA.
+- Вердикт: **NOT_FROZEN / NO-GO**. Остаток: зелёный обязательный CI на точном SHA кандидата; комментарий Intelligence
+  Preservation; 3 дождавшиеся генерации и вечерняя проверка владельца; «да» на замену установки по
+  `INSTALL_SWAP_PLAN_20261012_RU.md`; решение по selftest (новая metric_version или фоновая задача).
+- North Star: SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT (не выше). Terminal Run: один backend для CLI, dashboard и Telegram
+  (установленный 6de18f8d на :8801; пульт из исходников).
