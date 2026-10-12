@@ -113,7 +113,7 @@ def test_buttons_inside_an_opened_details_are_still_swept():
 def test_the_telemetry_beacon_is_not_a_mutation_of_the_clicked_control():
     # Metric v3: POST /api/testing/log is the page's own observer (flushed on a 4 s timer); counting it as the
     # click's mutating request labelled five direct-gen buttons "request sent, no success observed" (bundle 0b15e00c).
-    assert sweep.SWEEP_METRIC_VERSION == 3
+    assert sweep.SWEEP_METRIC_VERSION == 4
     assert sweep._observer_request('http://127.0.0.1:1/api/testing/log')
     assert sweep._observer_request('http://127.0.0.1:1/api/testing/events?limit=5')
     assert not sweep._observer_request('http://127.0.0.1:1/api/testing/publish')
@@ -121,3 +121,17 @@ def test_the_telemetry_beacon_is_not_a_mutation_of_the_clicked_control():
     assert sweep._mutation('POST', 'http://127.0.0.1:1/api/direct-gen/jobs')
     assert not sweep._tracked_request('POST', 'http://127.0.0.1:1/api/testing/log')
     assert sweep._tracked_request('POST', 'http://127.0.0.1:1/api/apps/x/start')
+
+
+def test_call_selftest_gets_its_declared_deadline_and_other_posts_keep_the_default():
+    # Metric v4: the honest 24.4 s offline selftest must not be reported as a timeout (legitimate case), while an
+    # unrelated slow mutation still gets only the generic bound (negative control: the allowance is route-scoped).
+    selftest = 'POST http://127.0.0.1:1/api/telegram/calls/selftest'
+    assert sweep._action_timeout([selftest]) == sweep.CALL_SELFTEST_TIMEOUT > 25
+    assert sweep._action_timeout(['POST http://127.0.0.1:1/api/telegram/calls/dial']) == sweep.DEFAULT_ACTION_TIMEOUT
+    assert sweep._action_timeout(['POST http://127.0.0.1:1/api/telegram/calls/selftest/other']) == sweep.DEFAULT_ACTION_TIMEOUT
+    assert sweep._action_timeout([]) == sweep.DEFAULT_ACTION_TIMEOUT
+    # a hung selftest is still an error after the declared deadline, never a silent pass
+    assert sweep._classify(failures=[], console=[], page_errors=[], requests=[selftest], responses=[],
+                           new_dialogs=set(), new_toasts=set(), validation=None, dom_changed=False,
+                           url_changed=False, incomplete_requests=[selftest])[0] == 'error'

@@ -83,10 +83,16 @@ SETTLE_MS = 700          # сколько ждать последствий на
 # 3 (11.10): the testing-period observer beacon (POST /api/testing/log, flushed 4 s after any click) is
 # not evidence about the clicked control; it is excluded from requests/responses/pending/failures, as the
 # product's own dead-click watcher already does. Results of 2 and 3 are not comparable.
-SWEEP_METRIC_VERSION = 3
+# 4 (12.10): the offline call selftest (POST /api/telegram/calls/selftest) plays five real-time loopback
+# scenarios and measured 24.4 s PASS on the owner PC; the generic ten-second bound reported that honest PASS as
+# "no response within the action timeout". It now gets its own declared bound. Results of 3 and 4 are not comparable.
+SWEEP_METRIC_VERSION = 4
 PAGE_SETTLE_MS = 900     # сколько ждать первой отрисовки страницы
 APP_START_ROUTE = re.compile(r'/api/apps/[^/?#]+/start(?:\?[^#]*)?$')
 APP_REFRESH_ROUTE = re.compile(r'/api/apps\?refresh=true(?:&[^#]*)?$')
+CALL_SELFTEST_ROUTE = re.compile(r'/api/telegram/calls/selftest(?:\?[^#]*)?$')
+CALL_SELFTEST_TIMEOUT = 60       # measured 24.4 s (12.10); a hang still fails after one minute
+DEFAULT_ACTION_TIMEOUT = 10
 
 
 OBSERVER_ROUTE = re.compile(r'/api/testing/(log|events)(\?|$)')
@@ -106,6 +112,22 @@ def _tracked_request(method, url):
         return False
     return method in ('POST', 'PUT', 'PATCH', 'DELETE') or (
         method == 'GET' and bool(APP_REFRESH_ROUTE.search(url)))
+
+
+def _action_timeout(pending) -> int:
+    """How long the sweep waits for requests a click left open; routes with a declared deadline get it."""
+    pending = list(pending)
+    if any(APP_START_ROUTE.search(request) for request in pending):
+        # App startup deliberately waits READY_TIMEOUT (25 seconds) for cold imports.
+        from bcc.features.apps_control import READY_TIMEOUT
+        return READY_TIMEOUT + 5
+    if any(APP_REFRESH_ROUTE.search(request) for request in pending):
+        # Registry probes run concurrently; each can perform health and optional metrics sequentially.
+        from bcc.features.apps import PROBE_TIMEOUT
+        return 2 * PROBE_TIMEOUT + 5
+    if any(CALL_SELFTEST_ROUTE.search(request) for request in pending):
+        return CALL_SELFTEST_TIMEOUT
+    return DEFAULT_ACTION_TIMEOUT
 
 
 def _app_start_problem(payload):
@@ -587,15 +609,7 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                 # App startup deliberately waits READY_TIMEOUT (25 seconds)
                 # for cold imports. Allow its declared deadline plus transport
                 # margin; other mutations retain the normal ten-second bound.
-                timeout = 10
-                if any(APP_START_ROUTE.search(request) for request in pending):
-                    from bcc.features.apps_control import READY_TIMEOUT
-                    timeout = READY_TIMEOUT + 5
-                elif any(APP_REFRESH_ROUTE.search(request) for request in pending):
-                    # Registry probes run concurrently; each can perform
-                    # health and optional metrics sequentially.
-                    from bcc.features.apps import PROBE_TIMEOUT
-                    timeout = 2 * PROBE_TIMEOUT + 5
+                timeout = _action_timeout(pending)
                 deadline = time.monotonic() + timeout
                 while pending and time.monotonic() < deadline:
                     page.wait_for_timeout(100)
