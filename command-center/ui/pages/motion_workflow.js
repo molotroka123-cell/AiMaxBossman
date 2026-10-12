@@ -11,7 +11,7 @@
    ============================================================ */
 
 import { api } from '../api.js';
-import { h, toastOk, toastError, input, textarea, select, checkbox } from '../components.js';
+import { h, toastOk, toastError, input, textarea, select, checkbox, confirmDialog } from '../components.js';
 import { panel, pill, btn, field, segmented, bar, tag, errorNote } from './_ui.js';
 
 const BASE = '/api/motion-workflow';
@@ -308,6 +308,12 @@ export async function mountWorkflow(ctx) {
       nodes.push(h('div.small.dim', { dataset: { testid: 'mw-source' } }, 'Исходного видео в проекте нет: загрузите его выше.'));
     }
     const analyzeBtn = btn(src.analyzed ? 'Анализировать заново' : 'Анализировать', async () => {
+      if (src.analyzed) {
+        const sure = await confirmDialog({ title: 'Повторный анализ',
+          text: 'Сцены и правки сцен будут заменены результатом нового анализа. Материалы-ссылки, версии и готовые файлы сохранятся.',
+          okText: 'Анализировать заново', cancelText: 'Отмена' });
+        if (!sure) return;
+      }
       await act(async () => {
         analysisBox.textContent = 'Анализ идёт…';
         const poll = setInterval(async () => {

@@ -154,11 +154,11 @@ def package(tmp_path_factory):
 class Project:
     """A store project over the synthetic package, with helpers to edit it and build a ``prepared`` run."""
 
-    def __init__(self, folder: Path, package: Path) -> None:
+    def __init__(self, folder: Path, package: Path, *, category: str = "motion", source: str = "source.mp4") -> None:
         self.package = package
         self.store = store_mod.Store(folder / "data")
-        self.pid = self.store.create_project(title="render test")["project_id"]
-        self.store.analyze_source(self.pid, package / "source.mp4")
+        self.pid = self.store.create_project(title="render test", category=category)["project_id"]
+        self.store.analyze_source(self.pid, package / source)
         self.store.add_reference(self.pid, "song", "audio", package / "music.wav")
 
     def edit(self, *ops: dict) -> None:
@@ -297,6 +297,56 @@ def test_explicit_size_and_fps_changes_fit_and_pad_without_stretching(project, t
     chain = " ".join(result["video"]["filters"])
     assert "force_original_aspect_ratio=decrease" in chain and "pad=320:320" in chain and "fps=fps=10" in chain
     assert {o["what"] for o in prepared["resolved"]["operations"] if o["kind"] == "export"} == {"size", "fps"}
+
+
+@NEEDS_FFMPEG
+def test_an_unchanged_clipping_project_is_stream_copied_and_an_overlay_forces_a_re_encode(tmp_path, package):
+    clip = Project(tmp_path / "clip", package, category="clipping")
+    prepared, result, verification = clip.render(tmp_path / "copy")
+    assert result["video"]["codec_action"] == "copy" and verification["ok"], verification["checks"]
+    frames = next(c for c in verification["checks"] if c["name"] == "frame_count")
+    assert frames["actual"] == frames["expected"] == 150
+    clip.edit({"op": "set_policy", "scene": "s001", "element": "text", "policy": "replace", "reason": "owner"},
+              {"op": "set_prompt", "scene": "s001", "prompt": "needs a re-encode"})
+    prepared, result, verification = clip.render(tmp_path / "recode")
+    assert result["video"]["codec_action"] == "libx264" and verification["ok"], verification["checks"]
+
+
+@NEEDS_FFMPEG
+@NEEDS_TEXT
+def test_a_portrait_clip_keeps_its_geometry_and_the_text_fits(tmp_path):
+    portrait = tmp_path / "portrait"
+    synthetic_package.make_package(portrait, size="360x640", fps=25, scene_seconds=1.5, music_seconds=3.0)
+    project = Project(tmp_path / "p", portrait)
+    project.edit({"op": "set_policy", "scene": "s001", "element": "text", "policy": "replace", "reason": "owner"},
+                 {"op": "set_prompt", "scene": "s001", "prompt": "Очень длинный заголовок для узкого вертикального кадра"})
+    prepared, result, verification = project.render(tmp_path / "out")
+    assert verification["ok"], verification["checks"]
+    assert (verification["video"]["width"], verification["video"]["height"]) == (360, 640)
+    wrapped = result["graph"]["textfiles"]["scene_s001.txt"]
+    assert "\n" in wrapped and max(len(line) for line in wrapped.split("\n")) <= 24
+    evidence = render.overlay_evidence(prepared, Path(result["part"]), tmp_path / "ev")
+    assert evidence and evidence[0]["text_present_heuristic"], evidence
+
+
+@NEEDS_FFMPEG
+def test_a_source_without_audio_stays_silent_unless_a_track_is_chosen(tmp_path, package):
+    silent = tmp_path / "silent"
+    silent.mkdir()
+    subprocess.run([ENV["ffmpeg"], "-hide_banner", "-loglevel", "error", "-y", "-i", str(package / "source.mp4"),
+                    "-an", "-c:v", "copy", str(silent / "source.mp4")], check=True)
+    (silent / "music.wav").write_bytes((package / "music.wav").read_bytes())
+    project = Project(tmp_path / "p", silent)
+    plan = project.store.get_project(project.pid)
+    assert plan["source"]["has_audio"] is False
+    prepared, result, verification = project.render(tmp_path / "keep")
+    assert verification["ok"] and verification["audio"] == [] and result["audio"]["action"] == "none"
+    # a replacement track gives a silent video a soundtrack (both lanes become the replacement)
+    project.edit({"op": "set_track", "lane": "music", "settings": {"mode": "replace", "source": "@song"}},
+                 {"op": "set_track", "lane": "speech", "settings": {"mode": "mute"}})
+    prepared, result, verification = project.render(tmp_path / "replace")
+    assert verification["ok"], verification["checks"]
+    assert result["audio"]["action"] == "replace" and verification["audio"][0]["codec"] == "aac"
 
 
 @NEEDS_FFMPEG

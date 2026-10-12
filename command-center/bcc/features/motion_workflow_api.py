@@ -604,13 +604,16 @@ class Runtime:
             base = 0.92 if run.mode == "full" else 0.9
             overall = base + (1.0 - base) * fraction
         run.stage, run.progress, run.detail = stage, round(overall, 4), detail or {}
-        now = time.monotonic()
-        if now - run._persisted >= PROGRESS_PERSIST_SECONDS or fraction >= 1.0:
-            run._persisted = now
-            with contextlib.suppress(Exception):
-                _write_json(self.out_dir(run.project_id, run.job_id) / "progress.json",
-                            {"job_id": run.job_id, "stage": stage, "progress": run.progress, "detail": run.detail,
-                             "ts": _now()})
+        if time.monotonic() - run._persisted >= PROGRESS_PERSIST_SECONDS or fraction >= 1.0:
+            self._persist_progress(run)
+
+    def _persist_progress(self, run: JobRun) -> None:
+        """The last known stage / progress on disk: what a reopened (restarted) job shows as "last known"."""
+        run._persisted = time.monotonic()
+        with contextlib.suppress(Exception):
+            _write_json(self.out_dir(run.project_id, run.job_id) / "progress.json",
+                        {"job_id": run.job_id, "stage": run.stage, "progress": run.progress, "detail": run.detail,
+                         "ts": _now()})
 
     def _execute(self, run: JobRun) -> None:
         s = self.store
@@ -685,8 +688,7 @@ class Runtime:
             run.finished = True
             with contextlib.suppress(Exception):
                 shutil.rmtree(folder / "work", ignore_errors=True)
-            with contextlib.suppress(Exception):
-                self._progress(run, run.stage, run.progress if run.stage != "queued" else 0.0)
+            self._persist_progress(run)
 
     @staticmethod
     def _estimate_of(job: dict[str, Any]) -> dict[str, Any]:

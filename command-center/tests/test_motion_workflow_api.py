@@ -20,7 +20,6 @@ from bcc.features import motion_workflow_api as mwa
 from bcc.motion_workflow import analyze as analyze_mod
 from bcc.motion_workflow import plan as planmod
 from bcc.motion_workflow import render as render_mod
-from bcc.motion_workflow import store as store_mod
 
 from .conftest import client_for, start_app
 
@@ -373,6 +372,21 @@ async def test_preview_then_full_render_is_done_only_after_the_file_check(env, p
     reopened = (await env.client.get(f"{BASE}/projects/{pid}")).json()
     assert reopened["jobs"][0]["job_id"] == jid and reopened["jobs"][0]["state"] == "done"
     assert reopened["active_job"] is None
+
+
+async def test_the_telegram_variant_is_a_verified_second_file(env, package):
+    pid, _ = await analyzed(env.client, package)
+    job = await run_full(env.client, pid, telegram_variant=True)
+    assert job["state"] == "done" and "output-telegram.mp4" in job["outputs"]
+    assert job["telegram_variant"] is True and job["output"]["telegram_variant"] == "output-telegram.mp4"
+    got = await env.client.get(f"{BASE}/projects/{pid}/jobs/{job['job_id']}/file", params={"name": "output-telegram.mp4"})
+    assert got.status_code == 200
+    target = Path(env.settings.data_dir) / "tg.mp4"
+    target.write_bytes(got.content)
+    info = render_mod.ffprobe_json(target, ENV["ffprobe"])
+    video = next(s for s in info["streams"] if s["codec_type"] == "video")
+    assert video["codec_name"] == "h264" and video["pix_fmt"] == "yuv420p" and video["width"] <= 1280
+    assert any(s["codec_type"] == "audio" and s["codec_name"] == "aac" for s in info["streams"])
 
 
 async def test_unsupported_elements_are_reported_not_executed_and_never_faked(env, package):
