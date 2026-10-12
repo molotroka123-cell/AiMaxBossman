@@ -132,9 +132,10 @@ const Page = {
 
     // Calibration needs both folders; an empty request is a 400 by design (UI sweep 9520a45a).
     const CAL_WHY = 'Укажите обе папки: размеченные кадры и отложенные кадры других раздач.';
-    const calBtn = btn('Калибровать и проверить', calibrate);
+    const calBtn = btn('Калибровать и проверить', calibrate, { disabled: true, title: CAL_WHY });
     const syncCal = () => { const ok = Boolean(calDir.value.trim() && calHeld.value.trim()); calBtn.disabled = !ok; calBtn.title = ok ? '' : CAL_WHY; };
     calDir.addEventListener('input', syncCal); calHeld.addEventListener('input', syncCal);
+    syncCal();                     // autofilled values count from the start (review of 71ee3c5d)
     const modeBar = h('div.row', { id: 'pv-modes', role: 'group', 'aria-label': 'Режим' });
     const renderModeBar = (desk) => {
       modeBar.replaceChildren(...MODES.map(m => {
