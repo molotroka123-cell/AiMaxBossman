@@ -59,6 +59,8 @@ MAX_PENDING_ORDERS = 10     # per person, counted over UNEXPIRED orders only
 STALE_USAGE_SECONDS = 900.0  # a request still unsettled after this long belongs to a crashed turn
 MAX_USD = 1e9
 MAX_STARS = 10 ** 12
+MAX_REJECTED_ROWS = 500     # the rejected-events journal keeps the newest rows only
+MAX_CHARGE_ID_CHARS = 256   # a real Telegram charge id is ~60 characters; longer is not stored as a tombstone
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS orders(
@@ -82,12 +84,17 @@ CREATE TABLE IF NOT EXISTS tickets(
 CREATE TABLE IF NOT EXISTS finance(
   id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, stars INTEGER NOT NULL DEFAULT 0,
   usd REAL NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', ref TEXT NOT NULL DEFAULT '', ts REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS refund_tombstones(
+  charge_id TEXT PRIMARY KEY, seen_at REAL NOT NULL, matched_at REAL);
+CREATE TABLE IF NOT EXISTS rejected_events(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL NOT NULL, update_id INTEGER, kind TEXT NOT NULL,
+  charge_id TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL DEFAULT '');
 """
 
 
 @dataclass(frozen=True)
 class PaymentOutcome:
-    status: str                 # granted | duplicate | unmatched
+    status: str                 # granted | duplicate | unmatched | refunded (the refund event came first)
     charge_id: str
     stars: int = 0
     requests: int = 0
@@ -125,13 +132,42 @@ class StarsLedger:
         self._lock = threading.RLock()
         self._db = sqlite3.connect(str(self.path), isolation_level=None, check_same_thread=False, timeout=30)
         self._db.row_factory = sqlite3.Row
-        self._db.execute("PRAGMA journal_mode=WAL")
+        # The very first open of a file by several processes at once: switching to WAL needs the file to itself and
+        # SQLite answers "database is locked" at once instead of waiting (the busy timeout is not consulted).
+        self._retry_locked(lambda: self._db.execute("PRAGMA journal_mode=WAL"))
         self._db.execute("PRAGMA synchronous=FULL")
-        self._db.executescript(_SCHEMA)
-        columns = {row["name"] for row in self._db.execute("PRAGMA table_info(usage)").fetchall()}
-        if "final" not in columns:
-            # A ledger written by an earlier build: its rows are settled history, never "in progress".
-            self._db.execute("ALTER TABLE usage ADD COLUMN final INTEGER NOT NULL DEFAULT 1")
+        self._retry_locked(lambda: self._db.executescript(_SCHEMA))
+        self._migrate_usage_final()
+
+    @staticmethod
+    def _retry_locked(operation, attempts: int = 60):
+        for attempt in range(attempts):
+            try:
+                return operation()
+            except sqlite3.OperationalError as exc:
+                text = str(exc).lower()
+                if ("locked" not in text and "busy" not in text) or attempt == attempts - 1:
+                    raise
+                time.sleep(min(0.02 * (attempt + 1), 0.25))
+
+    def _migrate_usage_final(self) -> None:
+        """A ledger written by an earlier build: its rows are settled history, never "in progress".
+
+        Two processes (the Jeff window and the poller) may open an old ledger for the first time together: the check
+        and the ALTER run under one write lock and the column is looked at again inside it, so the loser of the race
+        finds the work done instead of failing with ``duplicate column name``."""
+        def has_final() -> bool:
+            return "final" in {row["name"] for row in self._db.execute("PRAGMA table_info(usage)").fetchall()}
+
+        if has_final():
+            return
+        try:
+            with self._tx() as db:
+                if not has_final():
+                    db.execute("ALTER TABLE usage ADD COLUMN final INTEGER NOT NULL DEFAULT 1")
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc).lower() or not has_final():
+                raise
 
     def close(self) -> None:
         with self._lock:
@@ -201,6 +237,19 @@ class StarsLedger:
             matched = (order is not None and order["user_id"] == int(user_id) and currency == "XTR"
                        and order["stars"] == int(total_amount) and order["status"] in ("pending", "expired")
                        and order["person_key"] == person_key)
+            tomb = db.execute("SELECT seen_at FROM refund_tombstones WHERE charge_id=?", (charge_id,)).fetchone()
+            if tomb is not None:
+                # The refund event of this charge arrived BEFORE its payment event: the Stars already went back, so
+                # nothing is granted. It is booked as paid-and-refunded (gross and refunded both, net zero) and the
+                # tombstone is marked so the owner's report shows that it happened.
+                db.execute("INSERT INTO payments VALUES(?,?,?,?,?,?,?,?,?,?)",
+                           (charge_id, str(payload)[:128], person_key, int(user_id),
+                            order["package"] if matched else "?", int(total_amount), "refunded", now,
+                            tomb["seen_at"], int(test_env)))
+                db.execute("UPDATE refund_tombstones SET matched_at=? WHERE charge_id=?", (now, charge_id))
+                if matched:
+                    db.execute("UPDATE orders SET status='paid' WHERE payload=?", (order["payload"],))
+                return PaymentOutcome("refunded", charge_id, int(total_amount), person_key=person_key)
             if not matched:
                 db.execute("INSERT INTO payments VALUES(?,?,?,?,?,?,?,?,NULL,?)",
                            (charge_id, str(payload)[:128], person_key, int(user_id), "?", int(total_amount),
@@ -226,6 +275,11 @@ class StarsLedger:
         with self._tx() as db:
             pay = db.execute("SELECT * FROM payments WHERE charge_id=?", (charge_id,)).fetchone()
             if pay is None:
+                # Telegram can deliver the refund before the payment event: remember it, so that payment is never
+                # granted when it shows up (``record_payment`` looks the charge id up here).
+                if charge_id and len(charge_id) <= MAX_CHARGE_ID_CHARS:
+                    db.execute("INSERT OR IGNORE INTO refund_tombstones(charge_id, seen_at) VALUES(?,?)",
+                               (charge_id, now))
                 return RefundOutcome("unknown", charge_id)
             if pay["status"] == "refunded":
                 return RefundOutcome("duplicate", charge_id, pay["person_key"], pay["user_id"], 0, pay["stars"])
@@ -389,6 +443,34 @@ class StarsLedger:
                              (now, int(ticket_id)))
             return cur.rowcount == 1
 
+    def erase_ticket_texts(self, person_key: str, marker: str = "[текст удалён по запросу участника]") -> int:
+        """``/delete_me``: the participant's own words in support tickets go; the row stays as a content-free
+        tombstone (number, status, dates, who) because it is part of the payment record. Returns rows blanked."""
+        with self._tx() as db:
+            cur = db.execute("UPDATE tickets SET text=? WHERE person_key=? AND text!=?", (marker, person_key, marker))
+            return cur.rowcount
+
+    # -- events that could not be booked -------------------------------------------------------
+    def add_rejected(self, kind: str, *, charge_id: str = "", reason: str = "", update_id: int | None = None,
+                     now: float | None = None) -> int:
+        """Journal one payment-related update that was refused (malformed, impossible parties...) and acknowledged.
+
+        Never message text: the kind, the charge id when there is one, and a short code. Newest MAX_REJECTED_ROWS
+        are kept."""
+        now = time.time() if now is None else now
+        with self._tx() as db:
+            cur = db.execute("INSERT INTO rejected_events(ts,update_id,kind,charge_id,reason) VALUES(?,?,?,?,?)",
+                             (now, update_id if type(update_id) is int else None, str(kind)[:40],
+                              str(charge_id)[:80], str(reason)[:80]))
+            db.execute("DELETE FROM rejected_events WHERE id NOT IN "
+                       "(SELECT id FROM rejected_events ORDER BY id DESC LIMIT ?)", (MAX_REJECTED_ROWS,))
+            return cur.lastrowid
+
+    def rejected_events(self, limit: int = 20) -> list[dict]:
+        with self._lock:
+            return [dict(r) for r in self._db.execute(
+                "SELECT * FROM rejected_events ORDER BY id DESC LIMIT ?", (int(limit),)).fetchall()]
+
     def add_finance(self, kind: str, *, stars: int = 0, usd: float = 0.0, note: str = "", ref: str = "",
                     now: float | None = None) -> int:
         if kind not in ("withdrawal", "expense"):
@@ -424,9 +506,14 @@ class StarsLedger:
                 "SELECT DISTINCT person_key FROM grants WHERE status='active'").fetchall()]
             active = sum(1 for holder in holders if any(end > now for _g, end in self._chain(db, holder)))
             tickets = one("SELECT COUNT(*) FROM tickets WHERE status='open'")
+            early_refunds = one("SELECT COUNT(*) FROM refund_tombstones WHERE matched_at IS NOT NULL")
+            orphan_refunds = one("SELECT COUNT(*) FROM refund_tombstones WHERE matched_at IS NULL")
+            rejected = one("SELECT COUNT(*) FROM rejected_events")
         net = gross - refunded
         return {
             "stars_gross_received": gross, "stars_refunded": refunded, "stars_net_received": net,
+            "refunds_before_payment": early_refunds, "refunds_without_payment": orphan_refunds,
+            "rejected_events": rejected,
             "stars_unmatched_needs_owner": unmatched, "test_environment_stars": test_stars,
             "stars_withdrawn": withdrawn_stars, "stars_estimated_on_balance": max(0, net - withdrawn_stars),
             "usd_withdrawn_recorded": round(withdrawn_usd, 2), "usd_expenses_recorded": round(expenses_usd, 2),

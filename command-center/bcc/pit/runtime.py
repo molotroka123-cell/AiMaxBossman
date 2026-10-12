@@ -25,6 +25,7 @@ import contextlib
 import contextvars
 import ipaddress
 import json
+import logging
 import os
 import re
 import shutil
@@ -559,6 +560,12 @@ def _rewrite_jsonl(path: Path, transform) -> None:
     tmp.replace(path)
 
 
+_LOG = logging.getLogger(__name__)
+#: Errors a malformed update raises every time it is processed: it is journaled and acknowledged, never retried.
+#: Storage errors (sqlite3.Error) and CompanionError are deliberately NOT here: those are retried by redelivery.
+_DETERMINISTIC_ERRORS = (ValueError, TypeError, KeyError, IndexError, AttributeError, OverflowError)
+
+
 def _payment_charge_id(message: dict) -> str:
     for key in ("successful_payment", "refunded_payment"):
         payment = message.get(key)
@@ -983,6 +990,15 @@ class PITStore(Store):
             if isinstance(value, (list, tuple)):
                 return any(mentions(v) for v in value)
             return False
+        def blanked(value):
+            """The same structure with every string that mentions a needle emptied (addressing numbers stay)."""
+            if isinstance(value, str):
+                return "" if mentions(value) else value
+            if isinstance(value, dict):
+                return {k: blanked(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [blanked(v) for v in value]
+            return value
         removed = 0
         with self.tx():
             for table, column in (("history", "body"), ("learning_log", "body"), ("transcript", "text")):
@@ -995,6 +1011,21 @@ class PITStore(Store):
                     if mentions(value):
                         self.db.execute(f"DELETE FROM {table} WHERE id=?", (row["id"],))
                         removed += 1
+            # The inbox keeps the original message of every update for a week (and a pending one for its turn).
+            # The row stays - its phase and the addressing numbers drive recovery - but the words go.
+            for row in self.db.execute("SELECT id, body FROM inbox WHERE who=?", (who,)).fetchall():
+                try:
+                    value = self.open(row["body"])
+                except Exception:  # noqa: BLE001
+                    continue
+                if mentions(value):
+                    self.db.execute("UPDATE inbox SET body=? WHERE id=?", (self.seal(blanked(value)), row["id"]))
+                    removed += 1
+            # ``/why_memory`` prints the last context the model was given: the forgotten fact must not be in it.
+            key = f"last_context:{who}"
+            items = self.get(key)
+            if isinstance(items, list) and any(mentions(item) for item in items):
+                self.put(key, [item for item in items if not mentions(item)])
         return removed
 
 
@@ -1730,15 +1761,16 @@ class ParticipantRuntime:
                     # it can never hold another person's payment hostage.
                     for update in updates:
                         if isinstance(update.get("pre_checkout_query"), dict):
-                            await self._answer_pre_checkout(update, ack=False)
+                            await self._answer_pre_checkout_checked(update, ack=False)
                     # The same holds for the money itself: a successful_payment behind another person's deferred
                     # message is booked now, in this pass; only its confirmation notice waits for room.
                     self._prebook_payments(updates)
                 for update in updates:
                     if self.paid_docs is not None and isinstance(update.get("pre_checkout_query"), dict):
-                        await self._answer_pre_checkout(update, ack=True)   # already answered: only acknowledges
+                        # already answered: only acknowledges
+                        await self._answer_pre_checkout_checked(update, ack=True)
                         continue
-                    if self._ingest_update(update) is False:
+                    if self._ingest_update_checked(update) is False:
                         # Lane full: keep this update and the rest at Telegram, retry shortly.
                         await asyncio.sleep(1.0)
                         break
@@ -1772,6 +1804,33 @@ class ParticipantRuntime:
                 self._transport_error_shown = False
         except Exception:  # noqa: BLE001 - observability never stops the poller
             pass
+
+    async def _answer_pre_checkout_checked(self, update: dict, *, ack: bool) -> None:
+        """``_answer_pre_checkout`` for the poll loop: a malformed query (a non-numeric id or amount) is journaled and
+        acknowledged on the in-order pass instead of raising out of the poller. Nothing is granted either way; the
+        unanswered query simply expires on Telegram's side."""
+        try:
+            await self._answer_pre_checkout(update, ack=ack)
+        except _DETERMINISTIC_ERRORS as exc:
+            if ack:
+                self._reject_update(update, exc, "pre_checkout_query")
+
+    def _ingest_update_checked(self, update: dict) -> bool | None:
+        """``_ingest_update`` for the poll loop. With the paid-documents feature on, a payment update that raises a
+        deterministic error is journaled and acknowledged (``_reject_update``); it can neither kill the poller nor be
+        redelivered for ever. Storage errors are NOT swallowed: the update must come again so the booking is
+        retried. Without the feature the behaviour is exactly as before."""
+        if self.paid_docs is None:
+            return self._ingest_update(update)
+        try:
+            return self._ingest_update(update)
+        except _DETERMINISTIC_ERRORS as exc:
+            message = update.get("message") if isinstance(update, dict) else None
+            kind = ("successful_payment" if isinstance(message, dict) and "successful_payment" in message
+                    else "refunded_payment" if isinstance(message, dict) and "refunded_payment" in message
+                    else "message")
+            self._reject_update(update, exc, kind)
+            return None
 
     async def _answer_pre_checkout(self, update: dict, *, ack: bool = True) -> None:
         """Answer one Stars ``pre_checkout_query`` once; ``ack`` also acknowledges its offset. Grants nothing."""
@@ -1823,8 +1882,12 @@ class ParticipantRuntime:
             self.store.ingest(update_id, None, None)
             return None
         blocked = self._blocked(user_id, chat_id)
+        listed = self.settings.participant(user_id, chat_id) is not None
+        # A closed allowlist and a payer who is not on it: the money is booked below, but nobody serves that person's
+        # lane, so a notice row for them would stay ``pending`` for ever and count against the 64-row cap.
+        unlisted = not blocked and not listed and not self.settings.allowlist_open
         person = self.settings.participant(user_id, chat_id) or Person(user_id=user_id, chat_id=chat_id, role="guest")
-        if not blocked and self.store.lane_full(update_id, person.key, {"text": ""}):
+        if not blocked and not unlisted and self.store.lane_full(update_id, person.key, {"text": ""}):
             # No room for the NOTICE: defer the update. A first-pass booking (see ``_prebook_payments``) stays in the
             # stash so the retry sends the notice of the real first booking, not a "duplicate".
             return False
@@ -1834,6 +1897,8 @@ class ParticipantRuntime:
         if event is None:                                       # malformed event: recorded, acknowledged, not retried
             self.store.ingest(update_id, None, None)
             return None
+        if unlisted:
+            return self._alert_unlisted_payment(update_id, event)
         self._booked_payments().pop(update_id, None)
         if blocked:
             self.store.ingest(update_id, None, None)
@@ -1845,14 +1910,66 @@ class ParticipantRuntime:
 
     @staticmethod
     def _payment_parties(message: dict) -> tuple[int, int] | None:
+        """(user id, chat id) of a payment service message. In a private chat the payer IS the chat: a refund
+        notice attributed to the bot (``from`` = a bot id) used to build a Person whose ids differ, raise
+        ValueError out of the poll loop and be redelivered for ever. Outside a private chat the event is not
+        booked to a person anyway (the sender is only used to say so)."""
         sender, chat = message.get("from") or {}, message.get("chat") or {}
         if not isinstance(sender, dict) or not isinstance(chat, dict):
             return None
-        user_id = sender.get("id") if type(sender.get("id")) is int else chat.get("id")
         chat_id = chat.get("id")
+        if chat.get("type") == "private" and type(chat_id) is int:
+            return chat_id, chat_id
+        user_id = sender.get("id") if type(sender.get("id")) is int else chat_id
         if type(user_id) is not int or type(chat_id) is not int:
             return None
         return user_id, chat_id
+
+    def _alert_unlisted_payment(self, update_id: int, event: dict) -> bool | None:
+        """A booked payment of a person who is not on the closed allowlist: acknowledge the update, enqueue NOTHING
+        for that person, and tell the owner once per charge (a notice on the owner's own lane)."""
+        charge = str(event.get("charge_id", ""))
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        marker = f"unlisted_payment:{charge}"
+        self.store.put("payment_error", f"payment from a person outside the closed allowlist: {charge}"[:120])
+        if owner is not None and charge and not self.store.get(marker):
+            alert = {"kind": "unlisted_paid", "status": event.get("status"), "stars": event.get("stars"),
+                     "charge_id": charge}
+            body = {"_user_id": owner.user_id, "_chat_id": owner.chat_id, "_message_id": None, "text": "",
+                    "_payment": alert}
+            if self.store.lane_full(update_id, owner.key, body):
+                return False                                    # no room yet: the booking stays in the stash
+            self.store.put(marker, time.time())
+            self._booked_payments().pop(update_id, None)
+            self.store.ingest(update_id, owner.key, body)
+            return True
+        self._booked_payments().pop(update_id, None)
+        self.store.ingest(update_id, None, None)
+        return None
+
+    def _reject_update(self, update: dict, exc: BaseException, kind: str) -> None:
+        """A payment-related update that raised a deterministic error: acknowledge it (a redelivery would fail the
+        same way and stop everyone behind it), say so where the owner looks and in the ledger journal. The record
+        holds the kind, the charge id when there is one and the place of the failure; never message text."""
+        message = update.get("message") if isinstance(update, dict) else None
+        charge = ""
+        if isinstance(message, dict):
+            charge = _payment_charge_id(message)
+        if not charge and isinstance(update, dict) and isinstance(update.get("pre_checkout_query"), dict):
+            charge = str(update["pre_checkout_query"].get("id", ""))[:60]
+        frames = traceback.extract_tb(exc.__traceback__)
+        where = frames[-1].name if frames else "?"
+        reason = f"{type(exc).__name__}@{where}"
+        update_id = update.get("update_id") if isinstance(update, dict) else None
+        _LOG.warning("payment update rejected: kind=%s charge=%s reason=%s", kind, charge or "-", reason)
+        with contextlib.suppress(Exception):
+            self.store.put("payment_error", f"update rejected: {kind} {charge} {reason}"[:120])
+        with contextlib.suppress(Exception):
+            self.paid_docs.ledger.add_rejected(kind, charge_id=charge, reason=reason, update_id=update_id)
+        if type(update_id) is int:
+            with contextlib.suppress(Exception):
+                self._booked_payments().pop(update_id, None)
+                self.store.ingest(update_id, None, None)
 
     def _booked_payments(self) -> dict:
         """update_id -> the small event of a payment already booked by the first pass of a poll cycle. Bounded."""
@@ -1876,7 +1993,16 @@ class ParticipantRuntime:
                 event = {"kind": "refunded", "status": out.status, "stars": out.stars, "charge_id": out.charge_id}
         except (ValueError, TypeError, OverflowError) as exc:
             self.store.put("payment_error", f"payment event rejected: {type(exc).__name__}: {exc}"[:120])
+            with contextlib.suppress(Exception):          # the journal is a record, never a reason to raise
+                self.paid_docs.ledger.add_rejected(
+                    "successful_payment" if isinstance(message.get("successful_payment"), dict)
+                    else "refunded_payment", charge_id=_payment_charge_id(message), reason=type(exc).__name__,
+                    update_id=update_id)
             return None
+        if event.get("kind") == "paid" and event.get("status") == "refunded":
+            # The refund of this charge was seen BEFORE its payment: nothing is granted, and the owner is told.
+            self.store.put("payment_error", ("refund arrived before the payment, no access granted: "
+                                             + str(event.get("charge_id", "")))[:120])
         stash = self._booked_payments()
         stash[update_id] = event
         while len(stash) > 256:                                   # bounded memory
@@ -1902,7 +2028,13 @@ class ParticipantRuntime:
             if not (isinstance(message.get("successful_payment"), dict)
                     or isinstance(message.get("refunded_payment"), dict)):
                 continue
-            self._book_payment(update_id, message, parties[0])
+            try:
+                self._book_payment(update_id, message, parties[0])
+            except _DETERMINISTIC_ERRORS:
+                # Not a storage failure. NOT acknowledged here: the offset is a high-water mark and an earlier,
+                # deferred update of the batch must not be skipped. The second pass meets the same error in order
+                # and journals + acknowledges it (``_ingest_update_checked``); a storage error still propagates.
+                continue
 
     def _ingest_update(self, update: dict) -> bool | None:
         update_id = update.get("update_id")
@@ -2247,7 +2379,7 @@ class ParticipantRuntime:
             if crisis_reply is not None:
                 return crisis_reply
 
-        consumed = self._consume_pending(person_key, person, text)
+        consumed = await self._consume_pending(person_key, person, text)
         if consumed is not None:
             return consumed
 
@@ -2315,7 +2447,21 @@ class ParticipantRuntime:
         self.vault.set_consent(person_key, consent)
         return INTRO_RU
 
-    def _consume_pending(self, person_key: str, person: Person, text: str) -> str | None:
+    def _erase_person_files(self, person_key: str) -> tuple[bool, bool]:
+        """The blocking part of ``/delete_me``: (had long tasks, profile removed). It waits for the person's library
+        lock (up to LOCK_WAIT_SECONDS) and removes a directory tree, so the caller runs it off the event loop."""
+        # long tasks (goals and results) live under <pit home>/tasks/<key>, outside the persona folder
+        tasks_dir = self.home / "tasks" / person_key
+        had_tasks = bool(re.fullmatch(r"[0-9a-f]{64}", person_key)) and tasks_dir.is_dir()
+        if had_tasks:
+            shutil.rmtree(tasks_dir, ignore_errors=True)
+        if self.paid_docs is not None:
+            # An upload parsing in a worker thread must not store its document into the profile that is
+            # being deleted: invalidate it and purge the library under the person's lock first.
+            self.paid_docs.forget_person(person_key)
+        return had_tasks, bool(self.vault.delete(person_key))
+
+    async def _consume_pending(self, person_key: str, person: Person, text: str) -> str | None:
         lowered = text.lower().strip()
         affirmative = lowered in {"да", "yes", "давай", "согласен", "согласна", "+", "ок", "ok"}
         declined = lowered in {"нет", "no", "-", "не хочу", "стоп"}
@@ -2323,16 +2469,13 @@ class ParticipantRuntime:
         if self.store.get(f"delete_pending:{person.key}"):
             self.store.put(f"delete_pending:{person.key}", None)
             if lowered in {"подтверждаю", "confirm", "да, подтверждаю"}:
-                # long tasks (goals and results) live under <pit home>/tasks/<key>, outside the persona folder
-                tasks_dir = self.home / "tasks" / person_key
-                had_tasks = bool(re.fullmatch(r"[0-9a-f]{64}", person_key)) and tasks_dir.is_dir()
-                if had_tasks:
-                    shutil.rmtree(tasks_dir, ignore_errors=True)
-                if self.paid_docs is not None:
-                    # An upload parsing in a worker thread must not store its document into the profile that is
-                    # being deleted: invalidate it and purge the library under the person's lock first.
-                    self.paid_docs.forget_person(person_key)
-                if not self.vault.delete(person_key) and not had_tasks:
+                if self.paid_docs is None:
+                    had_tasks, removed = self._erase_person_files(person_key)          # unchanged without the feature
+                else:
+                    # Like /deldoc: a wait for another commit's lock must not hold the event loop (which also
+                    # answers other people's pre-checkout queries inside Telegram's 10 seconds).
+                    had_tasks, removed = await asyncio.to_thread(self._erase_person_files, person_key)
+                if not removed and not had_tasks:
                     return "Удалять нечего — профиль уже отсутствует."
                 self._memory_epoch[person_key] = self._memory_epoch.get(person_key, 0) + 1
                 self.photo_pipeline.invalidate_background_memory(person_key)
@@ -2579,7 +2722,8 @@ class ParticipantRuntime:
         if not wanted:
             return
         if who:
-            self.store.scrub_text(who, wanted)
+            self.store.scrub_text(who, wanted)         # history, learning log, transcript, inbox, /why_memory context
+        self._forget_director_topics(person_key, wanted)
         base = self.vault.person_dir(person_key)
 
         def mentions(value) -> bool:
@@ -2601,6 +2745,21 @@ class ParticipantRuntime:
         _rewrite_jsonl(base / TRAINING_FILE, drop_pairs)
         _rewrite_jsonl(base / "corrections.jsonl", blank_fields)
         _rewrite_jsonl(base / "quality" / "scores.jsonl", drop_sample)
+
+    def _forget_director_topics(self, person_key: str, wanted: list[str]) -> None:
+        """The Jeff 2.0 director keeps keyword stems of the current topic per person (``j2/director.json`` and in
+        memory). They come from the participant's own words, so a forgotten text takes its keywords with it."""
+        try:
+            pipeline = self.__dict__.get("_j2_pipeline")
+            director = next((m for m in pipeline.modules if getattr(m, "name", "") == "director"), None) \
+                if pipeline is not None else None
+            if director is not None and hasattr(director, "forget_words"):
+                director.forget_words(person_key, wanted)
+                return
+            from .j2.director import scrub_topic_file          # not loaded in this process: the file is enough
+            scrub_topic_file(self.vault.person_dir(person_key) / "j2" / "director.json", wanted)
+        except Exception:  # noqa: BLE001 - a missing module or file never turns /forget into a failure
+            pass
 
     def _correct(self, person_key: str, argument: str) -> str:
         """``/correct <было> => <стало>``: the participant fixes a stored fact."""
@@ -3435,17 +3594,23 @@ class ParticipantRuntime:
         size = document.get("file_size")
         if type(size) is int and size > limit:
             return f"Файл больше {limit // (1024 * 1024)} МБ — такой не принимаю."
+        if not self.paid_docs.parse_has_room():                 # before the download: nothing is held while waiting
+            return paid_docs_mod.PARSE_BUSY_RU
         try:
             data = await self.telegram.fetch_file(document["file_id"], limit)
         except CompanionError as exc:
             return _failure_text(str(exc))
         owner = person.role == "owner"
+        # Parsing is CPU-bound (and a hostile office file can be heavy): never on the event loop, which also
+        # answers other people's pre-checkout queries inside Telegram's 10 seconds. It runs on the DEDICATED parse
+        # pool, not the default executor that retrieval, /deldoc and speech share: a burst of hostile uploads
+        # queues there and cannot delay anybody else's answer.
+        future = self.paid_docs.submit_parse(self.paid_docs.add_document, person_key, name or "документ" + suffix,
+                                             data, owner=owner)
+        if future is None:
+            return paid_docs_mod.PARSE_BUSY_RU
         try:
-            # Parsing is CPU-bound (and a hostile office file can be heavy): never on the event loop, which also
-            # answers other people's pre-checkout queries inside Telegram's 10 seconds.
-            stored_text, stored, code = await asyncio.wait_for(
-                asyncio.to_thread(self.paid_docs.add_document, person_key, name or "документ" + suffix, data,
-                                  owner=owner), timeout=90)
+            stored_text, stored, code = await asyncio.wait_for(asyncio.wrap_future(future), timeout=90)
         except TimeoutError:
             return "Разбор файла занимает слишком долго. Проверьте список через минуту: /docs."
         if code == "parser_unavailable" and suffix in MEDIA_DOCUMENT_LIMITS:

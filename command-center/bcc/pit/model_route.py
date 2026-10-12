@@ -9,6 +9,8 @@ code, never provider text.
 """
 from __future__ import annotations
 
+import re
+
 JEFF_MODEL_ROUTE_SCHEMA = "bossman.pit.model-route/1"
 
 #: A verified route is trusted for at most this long before prices are read again.
@@ -41,5 +43,16 @@ def route_verdict(model: str, listed: bool, prices: dict | None) -> str:
     return ""
 
 
+#: The head our own error formatter puts in front of a provider's answer for a 402 (never anywhere else in the text).
+_OWN_402_HEAD = re.compile(r"^(?:провайдер отказал|провайдер требует оплату) \(402\)")
+
+
 def is_payment_required(exc: BaseException) -> bool:
-    return "(402)" in str(exc) or getattr(exc, "status_code", None) == 402
+    """True only for a payment demand: the HTTP status carried on the error. The BODY a provider sends is its own
+    text (a 500 whose message mentions "(402)" must not close the free route for an hour). An error that carries no
+    status at all (a wrapper that only has text) is matched by the fixed head our formatter writes, never by a
+    substring of the rest."""
+    status = getattr(exc, "status_code", None)
+    if status is not None:
+        return status == 402
+    return bool(_OWN_402_HEAD.match(str(exc)))

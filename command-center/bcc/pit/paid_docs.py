@@ -8,25 +8,32 @@ Opt-in: ``BOSSMAN_JEFF_PAID_DOCS=1``. Without it Jeff behaves exactly as before.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import threading
 import time
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .doc_library import DocLibrary, Hit, LibraryError, tokens
+from .doc_library import DocLibrary, Hit, LibraryError, sweep_stale_temp, tokens
 from .stars_ledger import (DAILY_CAP_PAID, TRIAL_DOCS, TRIAL_REQUESTS, PaymentOutcome, RefundOutcome,
                            StarsLedger)
+
+log = logging.getLogger(__name__)
 
 ENV_FLAG = "BOSSMAN_JEFF_PAID_DOCS"
 OWNER_DOC_LIMIT = 500
 PARSES_PER_WINDOW = 6
 PARSE_WINDOW_SECONDS = 300.0
+PARSE_POOL_WORKERS = 2      # the dedicated document-parse pool: hostile uploads cannot take the loop's executor
+MAX_PARSE_BACKLOG = 8       # uploads waiting for a parse worker; the next one is answered "busy" at once
 LOCK_WAIT_SECONDS = 5.0     # /deldoc and /delete_me wait this long for a commit that is writing files
 MAX_OPEN_ORDERS_RU = "слишком много открытых счетов: оплатите или подождите час"
 KEPT_REQUEST_RU = "Этот запрос засчитан: дневной лимит возвратов исчерпан."
 UPLOAD_BUSY_RU = "Сейчас идёт сохранение документа. Повторите команду через минуту."
+PARSE_BUSY_RU = "Сейчас разбирается много файлов. Повторите загрузку через минуту."
 #: Formats the document assistant accepts as files (images stay with the media module).
 DOC_SUFFIXES = frozenset({".txt", ".md", ".csv", ".json", ".log", ".yaml", ".yml", ".xml", ".html",
                           ".docx", ".xlsx", ".pptx", ".epub", ".pdf"})
@@ -60,6 +67,7 @@ class Prepared:
     usage_id: int
     pool: str
     query: str = ""
+    partial_docs: list[str] = field(default_factory=list)   # names of retrieved documents stored only in part
 
 
 def _snippet(text: str, wanted: set[str], width: int = 220) -> str:
@@ -91,12 +99,45 @@ class PaidDocs:
     _guard: object = field(default_factory=threading.Lock, init=False, repr=False)
     _locks: dict = field(default_factory=dict, init=False, repr=False)
     _generations: dict = field(default_factory=dict, init=False, repr=False)
+    _pool: object = field(default=None, init=False, repr=False)
+    _backlog: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.ledger = StarsLedger(Path(self.data_dir) / "pit-v1.7" / "stars-ledger.sqlite3")
         # A crash between "request reserved" and "answer delivered" must not stay charged. Only rows older than the
         # sweep age are touched: a younger one may be a turn another process is running right now.
         self.ledger.sweep_unfinished()
+        # Plaintext temp copies of documents that a crashed parse left in the temp directory.
+        try:
+            sweep_stale_temp()
+        except Exception:  # noqa: BLE001 - housekeeping never stops the start
+            log.warning("jeff paid docs: stale temp sweep failed", exc_info=False)
+        self._pool = ThreadPoolExecutor(max_workers=PARSE_POOL_WORKERS, thread_name_prefix="jdoc-parse")
+
+    # -- the parse pool -----------------------------------------------------------------------
+    def parse_has_room(self) -> bool:
+        with self._guard:
+            return self._backlog < MAX_PARSE_BACKLOG
+
+    def submit_parse(self, fn, *args, **kwargs) -> Future | None:
+        """Run ``fn`` (a document parse) on the DEDICATED pool, never on the event loop's default executor that also
+        serves retrieval, /deldoc and speech: a burst of hostile uploads queues here and starves nobody else.
+        Returns None when MAX_PARSE_BACKLOG uploads are already waiting."""
+        with self._guard:
+            if self._backlog >= MAX_PARSE_BACKLOG:
+                return None
+            self._backlog += 1
+        try:
+            future = self._pool.submit(fn, *args, **kwargs)
+        except RuntimeError:                                   # the pool was shut down
+            self._parse_done(None)
+            return None
+        future.add_done_callback(self._parse_done)
+        return future
+
+    def _parse_done(self, _future) -> None:
+        with self._guard:
+            self._backlog = max(0, self._backlog - 1)
 
     def _parse_allowed(self, person_key: str, now: float) -> bool:
         """At most PARSES_PER_WINDOW document parses per person per window: parsing is the expensive step."""
@@ -141,6 +182,11 @@ class PaidDocs:
         finally:
             if got:
                 lock.release()
+        try:
+            # The participant's own words in support tickets go with the rest; the numbered row stays (payment record).
+            self.ledger.erase_ticket_texts(person_key)
+        except Exception:  # noqa: BLE001 - the deletion itself must not fail on the ledger
+            log.warning("jeff paid docs: ticket texts of a deleted person could not be erased", exc_info=False)
 
     # -- texts --------------------------------------------------------------------------------
     @staticmethod
@@ -178,6 +224,9 @@ class PaidDocs:
                 "• Ответ строится по найденным фрагментам и показывает источники; он может быть неточным — "
                 "проверяйте важное по цитатам. Это не юридическая, медицинская или финансовая консультация.\n"
                 "• Ваши документы доступны только вам; удалить документ: /deldoc, всё сразу: /delete_me.\n"
+                "• Где обрабатываются фрагменты: если для вас включена удалённая обработка (проверить и "
+                "выключить: /privacy), найденные под вопрос фрагменты документов могут отправляться настроенной "
+                "удалённой бесплатной модели; если она выключена, фрагменты остаются на этом компьютере.\n"
                 "• Возврат: если запрос не выполнен или услуга не оказана, напишите /paysupport — вернём ⭐ "
                 "полностью; после возврата доступ по этому платежу закрывается.\n"
                 "• Поддержка по оплате: /paysupport.") % (
@@ -240,8 +289,15 @@ class PaidDocs:
                             "напишите /paysupport — владелец разберётся или вернёт ⭐.")
                 state = self.plan_text(person_key) if person_key else "Состояние: /plan."
                 return "Платёж получен и учтён один раз — доступ не дублируется.\n\n" + state
+            if status == "refunded":                                    # the refund event arrived first
+                return ("Платёж получен, но Telegram уже вернул эти ⭐: доступ по нему не открывается. "
+                        "Состояние: /plan. Если это ошибка — напишите /paysupport.")
             return ("Платёж получен, но не сопоставлен со счётом. Доступ не выдан автоматически: "
                     "напишите /paysupport — владелец разберётся или вернёт ⭐.")
+        if kind == "unlisted_paid":                                     # owner's alert, one per charge
+            return (f"Оплата Stars от пользователя вне списка допущенных: {event.get('stars')} ⭐, "
+                    f"charge_id {event.get('charge_id')}, статус в журнале: {event.get('status')}. Сообщений ему "
+                    "не отправлено. Решение за вами: /refund <charge_id> или оставить как есть. Отчёт: /payments.")
         if kind == "refunded":
             if status in ("refunded", "duplicate"):
                 return (f"Оплата возвращена: {event.get('stars')} ⭐. Доступ по этому платежу закрыт, "
@@ -281,14 +337,22 @@ class PaidDocs:
         number = [d.id for d in lib.list()].index(rec.id) + 1
         head = (f"Документ №{number} «{rec.name}» сохранён: {rec.chars} симв., {rec.chunks} фрагм."
                 if new else f"Такой документ уже есть: №{number} «{rec.name}».")
-        return head + " Спросите: /ask <вопрос>, /summary " + str(number) + " или /draft <задача>.", True, ""
+        glue = " "
+        if rec.partial:
+            # The parser kept only the first part of the file: never "saved" without saying so.
+            head += (f"\n⚠ Документ {rec.partial_note} — остальное в поиск и сводки не попадёт. "
+                     "Разделите файл на части, если нужен весь текст.")
+            glue = "\n"
+        return head + glue + "Спросите: /ask <вопрос>, /summary " + str(number) + " или /draft <задача>.", True, ""
 
     def docs_text(self, person_key: str) -> str:
         docs = self.library(person_key).list()
         if not docs:
             return "Документов пока нет. Пришлите файл (txt, md, csv, json, docx, xlsx, pdf) — я его сохраню."
         lines = ["Ваши документы:"]
-        lines += [f"{i}. {d.name} — {d.chars} симв., {d.chunks} фрагм." for i, d in enumerate(docs, 1)]
+        for i, d in enumerate(docs, 1):
+            lines.append(f"{i}. {d.name} — {d.chars} симв., {d.chunks} фрагм."
+                         + (f" ({d.partial_note})" if d.partial else ""))
         return "\n".join(lines)
 
     def delete_document(self, person_key: str, number_text: str) -> str:
@@ -343,7 +407,9 @@ class PaidDocs:
         got = self.ledger.consume(person_key, kind, now, owner=owner)
         if not got.ok:
             return Refusal(self._refusal(got.reason))
-        return Prepared(kind, self._prompt(kind, text, hits), hits, got.usage_id, got.pool, text)
+        used = {h.doc_id for h in hits}
+        partial = [d.name for d in docs if d.partial and d.id in used]
+        return Prepared(kind, self._prompt(kind, text, hits), hits, got.usage_id, got.pool, text, partial)
 
     @staticmethod
     def _prompt(kind: str, text: str, hits: list[Hit]) -> str:
@@ -386,6 +452,9 @@ class PaidDocs:
             lines += ["", UNCITED_WARNING_RU, "Найденные фрагменты:"]
             for idx, hit in enumerate(prepared.hits[:3], 1):
                 lines.append(f"[{idx}] {hit.label} — «{_snippet(hit.text, asked, 140)}»")
+        if prepared.partial_docs:
+            names = ", ".join(f"«{n}»" for n in prepared.partial_docs[:3])
+            lines += ["", f"⚠ Ответ опирается только на сохранённую часть документа: {names} (см. /docs)."]
         return "\n".join(lines)
 
     def abort(self, prepared: Prepared, *, model_text: bool = False) -> bool:
@@ -414,5 +483,11 @@ class PaidDocs:
                 f"• На балансе, оценка: {r['stars_estimated_on_balance']} ⭐\n"
                 f"• Платящих: {r['paying_users']}, активных: {r['active_entitlements']}, "
                 f"открытых обращений: {r['open_support_tickets']}\n"
-                "Команды: /refund <charge_id>, /tickets, /ledger_add withdrawal <⭐> <USD> [ссылка], "
-                "/ledger_add expense <USD> <заметка>.")
+                + (f"• Возврат пришёл раньше платежа (доступ не выдан, учтено как возвращённое): "
+                   f"{r['refunds_before_payment']}\n" if r["refunds_before_payment"] else "")
+                + (f"• Возвратов по неизвестным платежам: {r['refunds_without_payment']}\n"
+                   if r["refunds_without_payment"] else "")
+                + (f"• Отклонённых событий оплаты (журнал в ledger): {r['rejected_events']}\n"
+                   if r["rejected_events"] else "")
+                + "Команды: /refund <charge_id>, /tickets, /ledger_add withdrawal <⭐> <USD> [ссылка], "
+                  "/ledger_add expense <USD> <заметка>.")

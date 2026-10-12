@@ -417,6 +417,51 @@ class TopicState:
                    asks=asks[-ASK_HISTORY:], topic=dict(list(topic.items())[:TOPIC_SLOTS]), updated=float(data.get("updated") or 0))
 
 
+def _topic_mentions(stem: str, word: str, wanted: list[str]) -> bool:
+    """Is this topic slot made of a forgotten text? Either direction: the forgotten text sits inside the keyword
+    (``/forget зебра`` and the keyword ``зебра7``), or the keyword sits inside the forgotten phrase (the removed fact
+    ``я люблю кактусы`` and the keyword ``кактусы``). Short stems are only matched the first way."""
+    w, s = word.casefold(), stem.casefold()
+    for needle in wanted:
+        if needle in w or needle in s:
+            return True
+        if len(w) >= 4 and w in needle or len(s) >= 4 and s in needle:
+            return True
+    return False
+
+
+def scrub_topic_file(path: Path, needles: list[str]) -> int:
+    """``/forget``: drop the topic keywords that came from the forgotten text out of a persisted director state.
+    Returns how many slots went. A missing or unreadable file is nothing to do."""
+    wanted = [n.casefold() for n in needles if len(str(n).strip()) >= 2]
+    if not wanted:
+        return 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    topic = data.get("topic") if isinstance(data, dict) else None
+    if not isinstance(topic, dict):
+        return 0
+    kept = {stem: item for stem, item in topic.items()
+            if not (isinstance(item, dict) and _topic_mentions(str(stem), str(item.get("w", "")), wanted))}
+    gone = len(topic) - len(kept)
+    if gone:
+        data["topic"] = kept
+        try:
+            fd, tmp = tempfile.mkstemp(prefix=".director.", suffix=".tmp", dir=path.parent)
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+                    json.dump(data, handle, ensure_ascii=False, sort_keys=True)
+                    handle.write("\n")
+                os.replace(tmp, path)
+            finally:
+                Path(tmp).unlink(missing_ok=True)
+        except OSError:
+            return 0
+    return gone
+
+
 def advance_topic(state: TopicState, text: str, intent: Intent) -> tuple[bool, bool]:
     """Update the topic with this message. Returns (follow_up, topic_shift)."""
     words = words_of(text)
@@ -584,6 +629,21 @@ class DirectorModule(BaseModule):
             return TopicState.from_json(json.loads(path.read_text(encoding="utf-8")))
         except (OSError, ValueError):
             return None
+
+    def forget_words(self, person_key: str, needles: list[str]) -> int:
+        """``/forget``: remove the forgotten text's keywords from this person's topic, in memory AND on disk (an
+        in-memory slot would be written back by the next turn). Returns how many slots went."""
+        wanted = [n.casefold() for n in needles if len(str(n).strip()) >= 2]
+        gone = 0
+        state = self._states.get(person_key)
+        if state is not None and wanted:
+            for stem in [s for s, v in state.topic.items() if _topic_mentions(s, str(v.get("w", "")), wanted)]:
+                del state.topic[stem]
+                gone += 1
+        path = self._path(person_key)
+        if path is not None:
+            gone += scrub_topic_file(path, needles)
+        return gone
 
     def _persist(self, ctx: TurnContext, state: TopicState) -> None:
         path = self._path(ctx.person_key)

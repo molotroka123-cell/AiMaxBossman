@@ -30,12 +30,16 @@ class ProviderError(RuntimeError):
     """Понятная человеку ошибка провайдера: показывается в UI как есть.
 
     kind: network — до endpoint'а не достучались; http — ответил, но отказом.
+    status_code: HTTP-статус ответа (или код ошибки из тела шлюза), если он известен. Решения вроде «маршрут просит
+    оплату» принимаются по нему, а не по тексту тела ответа, которое пишет провайдер.
     """
 
-    def __init__(self, message: str, *, kind: str = "http", hint: str | None = None):
+    def __init__(self, message: str, *, kind: str = "http", hint: str | None = None,
+                 status_code: int | None = None):
         super().__init__(message)
         self.kind = kind
         self.hint = hint
+        self.status_code = status_code
 
 
 @dataclass
@@ -251,7 +255,7 @@ class _BaseAdapter:
             raise ProviderError(f"нет связи с {_host(url)}: {net_reason(exc)}", kind="network",
                                 hint="проверьте base_url и что endpoint поднят") from None
         if resp.status_code >= 400:
-            raise ProviderError(_explain(resp), kind="http")
+            raise ProviderError(_explain(resp), kind="http", status_code=resp.status_code)
         return resp
 
     async def _health_via(self, url: str, headers: dict | None = None) -> Health:
@@ -312,11 +316,13 @@ class OpenAICompatAdapter(_BaseAdapter):
                 break
             code, message = upstream
             if code not in _TRANSIENT_CODES:
-                raise ProviderError(f"провайдер отказал ({code}): {message}", kind="http")
+                raise ProviderError(f"провайдер отказал ({code}): {message}", kind="http",
+                                    status_code=code or None)
             delay = next(delays, None)
             if delay is None:
                 raise ProviderError(f"провайдер временно перегружен ({code}): {message}",
-                                    kind="rate_limit", hint="повторите позже или выберите другую модель")
+                                    kind="rate_limit", hint="повторите позже или выберите другую модель",
+                                    status_code=code or None)
             await asyncio.sleep(delay)
         return self._result_from(data, model)
 
@@ -381,7 +387,7 @@ class OpenAICompatAdapter(_BaseAdapter):
                         await resp.aread()
                         if resp.status_code in _STREAM_REJECTED:
                             return None
-                        raise ProviderError(_explain(resp), kind="http")
+                        raise ProviderError(_explain(resp), kind="http", status_code=resp.status_code)
                     if "text/event-stream" not in resp.headers.get("content-type", "").lower():
                         await resp.aread()
                         data = _response_object(resp, what="chat/completions")
