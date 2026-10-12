@@ -15,7 +15,7 @@
     "момент его правки. Кандидатом становится SHA, который родится из push;",
     "его и подают в сертификатор."
   ],
-  "candidate_label": "rc-2026-10-12-bossman-unified-closeout",
+  "candidate_label": "rc-2026-10-12-bossman-unified-closeout-v2",
   "declared_for": "feat/bossman-genjutsu-jeff-unified-20261010 -> main",
   "note": "12.10 closeout candidate on the 1757ff86 line (+ docs/evidence only). Archive of 1757ff86 built from a clean worktree: verifier PASS, LICENSE/LICENSES/LICENSING.md shipped, evening FAIL only for ui-sweep REVIEW_REQUIRED (1 item: calls selftest, a harness settle limit) and the owner-only live-model key; see docs/evidence/archive-1757ff86/summary.json. Audit step-3 bug fixes (tools_terminal, remote_access, console, engine stop, mission_budget, db, api clamps) are NOT in this candidate; a later declaration will follow their push. Local Ollama live chat and Intelligence Preservation still need the owner's run/comment. This marker requests all required exact-SHA workflows; it is not release approval or final freeze."
 }
