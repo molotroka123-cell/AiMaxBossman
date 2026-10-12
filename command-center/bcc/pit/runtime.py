@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import contextvars
 import ipaddress
 import json
 import os
@@ -42,6 +43,7 @@ from bcc.telegram_companion.adapters import (
     Models,
     RateLimited,
     Telegram,
+    telegram_test_env,
 )
 from bcc.telegram_companion.config import CompanionError, Person, Settings as TransportSettings
 from bcc.telegram_companion.store import Store
@@ -83,6 +85,7 @@ from .roleplay_commands import load_roleplay, parse_roleplay_command, set_rolepl
 from .router import ModelEndpoint, NoEligibleRoute, PrivacyClass, RouteRequest, choose_route
 from .telegram_contract import USER_COMMANDS
 from .vault import PersonaVault, _append_jsonl, _atomic_json
+from . import paid_docs as paid_docs_mod
 from .voice import VoiceError, transcribe_telegram_voice
 
 STOP_FLAG = "stop.flag"
@@ -503,6 +506,20 @@ def _minimize_message(message: dict) -> dict:
 UNHANDLED_ERROR_PREFIX_RU = "Не удалось завершить запрос."
 
 
+class DocTurn:
+    """State of one paid-documents turn, carried in a ContextVar through ``_chat_route``.
+
+    ``answered`` is set only where an accepted MODEL answer exists (never from reply text), so a request is given
+    back exactly when no model answered: a j2 safety/flood reply, a provider outage, a replaced self-disclosure.
+    While a DocTurn is active the turn is not written to history, the learning log or the training set.
+    """
+
+    answered = False
+
+
+doc_turn: contextvars.ContextVar = contextvars.ContextVar("pit_doc_turn", default=None)
+
+
 def _record_unhandled_error(home: Path, exc: Exception, *, surface: str) -> str:
     """Write a content-free incident and return safe, actionable user wording."""
     incident_id = uuid.uuid4().hex[:10]
@@ -666,6 +683,10 @@ class PITStore(Store):
     def lane(body: dict) -> str:
         text = str(body.get("text", "")).strip()
         if text.startswith("/"):
+            # Model-bound document commands wait their turn with chat; they must not occupy the control lane.
+            # Only when the paid-docs feature is on: with the flag unset routing is exactly as before.
+            if paid_docs_mod.enabled() and text.partition(" ")[0].lower() in {"/ask", "/summary", "/draft"}:
+                return "chat"
             return "control"
         return Store.lane(body)
 
@@ -792,6 +813,10 @@ class ParticipantRuntime:
             resident_probe=(ollama_resident_probe(settings.local_url, settings.local_models)
                             if settings.local_url else None))
         self.surface = "telegram"
+        # Opt-in paid document assistant (Telegram Stars, BOSSMAN_JEFF_PAID_DOCS=1). None = Jeff is unchanged.
+        self.paid_docs = (paid_docs_mod.PaidDocs(Path(settings.data_dir), self.vault, test_env=telegram_test_env())
+                          if paid_docs_mod.enabled() else None)
+        self._catalog_task = None
         self.heartbeat = Heartbeat(self.home, "telegram")
         self.cloud = CloudBudget(self.home, settings.cloud_daily_request_budget)
         self.photo_services: PhotoServices = build_photo_services(
@@ -1479,10 +1504,21 @@ class ParticipantRuntime:
             try:
                 updates = await self.telegram.call("getUpdates", {
                     "offset": self.store.get("offset", 0), "timeout": 25, "limit": 20,
-                    "allowed_updates": ["message"]})
+                    "allowed_updates": (["message", "pre_checkout_query"] if self.paid_docs is not None
+                                        else ["message"])})
                 if not isinstance(updates, list):
                     raise CompanionError("TELEGRAM_UPDATES_INVALID")
+                if self.paid_docs is not None:
+                    # Telegram cancels the payment when this is not answered within 10 s. First pass: answer every
+                    # pre-checkout of the batch WITHOUT moving the offset, so a deferred message (full lane) ahead of
+                    # it can never hold another person's payment hostage.
+                    for update in updates:
+                        if isinstance(update.get("pre_checkout_query"), dict):
+                            await self._answer_pre_checkout(update, ack=False)
                 for update in updates:
+                    if self.paid_docs is not None and isinstance(update.get("pre_checkout_query"), dict):
+                        await self._answer_pre_checkout(update, ack=True)   # already answered: only acknowledges
+                        continue
                     if self._ingest_update(update) is False:
                         # Lane full: keep this update and the rest at Telegram, retry shortly.
                         await asyncio.sleep(1.0)
@@ -1491,7 +1527,11 @@ class ParticipantRuntime:
                 self.heartbeat.note_poll(True)
                 self._clear_transport_error()
                 if time.monotonic() - self.catalog_checked_at > self.settings.catalog_refresh_seconds:
-                    await self.refresh_catalog_safe()
+                    if self.paid_docs is None:
+                        await self.refresh_catalog_safe()
+                    elif self._catalog_task is None or self._catalog_task.done():
+                        # Never hold the poll loop (and a pending 10-second pre-checkout) behind a slow catalog.
+                        self._catalog_task = asyncio.create_task(self.refresh_catalog_safe())
             except CompanionError as exc:
                 self.store.put("transport_error", str(exc))
                 self._transport_error_shown = True
@@ -1514,11 +1554,77 @@ class ParticipantRuntime:
         except Exception:  # noqa: BLE001 - observability never stops the poller
             pass
 
+    async def _answer_pre_checkout(self, update: dict, *, ack: bool = True) -> None:
+        """Answer one Stars ``pre_checkout_query`` once; ``ack`` also acknowledges its offset. Grants nothing."""
+        query = update["pre_checkout_query"]
+        query_id = str(query.get("id", ""))
+        answered = self.__dict__.setdefault("_answered_pcq", {})
+        if query_id not in answered:
+            reply = self.paid_docs.pre_checkout(query)
+            sender = query.get("from") or {}
+            user_id = sender.get("id")
+            if reply["ok"]:
+                denied = (type(user_id) is not int or self._blocked(user_id, user_id)
+                          or participant_profile.gate_reply(self.vault.data_dir, self.vault.key_for_telegram(user_id),
+                                                            "telegram") is not None)
+                if denied:
+                    reply = {"pre_checkout_query_id": reply["pre_checkout_query_id"], "ok": False,
+                             "error_message": "Оплата сейчас недоступна."}
+            result = await self.telegram.payment_call("answerPreCheckoutQuery", reply, timeout=8)
+            if not result.get("ok"):
+                self.store.put("payment_error", str(result.get("description", ""))[:120])
+            answered[query_id] = time.monotonic()
+            while len(answered) > 256:                       # bounded memory; Telegram forgets old queries anyway
+                answered.pop(next(iter(answered)))
+        update_id = update.get("update_id")
+        if ack and type(update_id) is int:
+            self.store.ingest(update_id, None, None)
+
+    def _ingest_payment(self, update_id: int, message: dict) -> bool | None:
+        """Record ``successful_payment`` / ``refunded_payment`` in the ledger BEFORE the offset moves.
+
+        The ledger is idempotent on the charge id, so a redelivered update can never credit twice. The inbox row
+        carries only a small event for the confirmation reply; payment fields never reach ``_minimize_message``.
+        """
+        sender, chat = message.get("from") or {}, message.get("chat") or {}
+        user_id = sender.get("id") if type(sender.get("id")) is int else chat.get("id")
+        chat_id = chat.get("id")
+        if type(user_id) is not int or type(chat_id) is not int or chat.get("type") != "private":
+            self.store.ingest(update_id, None, None)
+            return None
+        person_key = self.vault.key_for_telegram(user_id)
+        if not (isinstance(message.get("successful_payment"), dict)
+                or isinstance(message.get("refunded_payment"), dict)):
+            self.store.ingest(update_id, None, None)
+            return None
+        blocked = self._blocked(user_id, chat_id)
+        person = self.settings.participant(user_id, chat_id) or Person(user_id=user_id, chat_id=chat_id, role="guest")
+        if not blocked and self.store.lane_full(update_id, person.key, {"text": ""}):
+            # No room for the confirmation: defer BEFORE booking (the ledger is idempotent, the retry books it) so
+            # the person is never charged and left without a word because the inbox dropped the notice.
+            return False
+        if isinstance(message.get("successful_payment"), dict):
+            out = self.paid_docs.on_successful_payment(person_key, user_id, message["successful_payment"])
+            event = {"kind": "paid", "status": out.status, "stars": out.stars, "requests": out.requests,
+                     "valid_until": out.valid_until, "charge_id": out.charge_id}
+        else:
+            out = self.paid_docs.on_refunded_payment(message["refunded_payment"])
+            event = {"kind": "refunded", "status": out.status, "stars": out.stars, "charge_id": out.charge_id}
+        if blocked:
+            self.store.ingest(update_id, None, None)
+            return None
+        self.store.ingest(update_id, person.key, {"_user_id": user_id, "_chat_id": chat_id,
+                                                  "_message_id": message.get("message_id"), "text": "",
+                                                  "_payment": event})
+        return True
+
     def _ingest_update(self, update: dict) -> bool | None:
         update_id = update.get("update_id")
         message = update.get("message")
         if type(update_id) is not int or not isinstance(message, dict):
             return
+        if self.paid_docs is not None and ("successful_payment" in message or "refunded_payment" in message):
+            return self._ingest_payment(update_id, message)
         body = _minimize_message(message)
         user_id, chat_id = body.get("_user_id"), body.get("_chat_id")
         if type(user_id) is not int or type(chat_id) is not int:
@@ -1801,6 +1907,9 @@ class ParticipantRuntime:
         if blocked_reason is not None:
             return blocked_reason
 
+        if self.paid_docs is not None and isinstance(message.get("_payment"), dict):
+            return self.paid_docs.payment_notice(message["_payment"], person_key)
+
         if photo_file_id := message.get("_photo"):
             return await self._handle_photo(person, person_key, message, photo_file_id, text)
         if document := message.get("_document"):
@@ -1968,7 +2077,12 @@ class ParticipantRuntime:
         if command == "/start":
             return self._start(person_key, consent)
         if command == "/help":
-            return HELP_RU
+            return HELP_RU + (paid_docs_mod.HELP_RU if self.paid_docs is not None
+                              and getattr(self, "surface", "telegram") == "telegram" else "")
+        if self.paid_docs is not None and getattr(self, "surface", "telegram") == "telegram":
+            paid = await self._paid_docs_command(person, person_key, command, argument)
+            if paid is not None:
+                return paid
         if command == "/voice":
             if person.role != "owner":
                 return "Голосовой режим пока доступен только владельцу."
@@ -2237,7 +2351,7 @@ class ParticipantRuntime:
         hints = ({} if suspended else pit_jeff_settings.overlay_hints(self.vault.data_dir, person_key))
         ctx = TurnContext(person_key=person_key, who=person.key, text=text,
                           surface=getattr(self, "surface", "telegram"), message_id=str(message_id),
-                          memory_enabled=bool(consent.memory_enabled),
+                          memory_enabled=bool(consent.memory_enabled) and doc_turn.get() is None,
                           personalization_enabled=bool(getattr(consent, "personalization_enabled", True)),
                           remote_processing_enabled=bool(consent.remote_processing_enabled),
                           # what the owner overlay means for the j2 layers (director length, insult handling);
@@ -2646,6 +2760,8 @@ class ParticipantRuntime:
             self._mark_catalog_dirty()
             return PROVIDER_DOWN_RU
         self._set_provider_error(None)                      # a model answered: the outage is over
+        if doc_turn.get() is not None:
+            doc_turn.get().answered = True
         total_ms = (time.perf_counter() - turn_started) * 1000.0
         self.reply_metrics.record(served_by, ttft_ms=turn_stream.ttft_ms or total_ms,
                                   total_ms=total_ms, streamed=turn_stream.shown)
@@ -2657,7 +2773,7 @@ class ParticipantRuntime:
         # The live worker records memory and learns only after Telegram accepts
         # the reply. Direct handle() calls retain synchronous test semantics.
         record_turn = (memory_at_start and self._memory_epoch.get(person_key, 0) == memory_epoch
-                       and self.vault.consent(person_key).memory_enabled)
+                       and self.vault.consent(person_key).memory_enabled and doc_turn.get() is None)
         question = (self._maybe_ask(person_key, text)
                     if record_turn and not answer.rstrip().endswith("?") else None)
         if question is not None:
@@ -2844,8 +2960,168 @@ class ParticipantRuntime:
                                                   "caption": caption},
                                       attachment_fallback=fallback)
 
+    # -- paid document assistant (Telegram Stars) -----------------------------------------------
+    async def _paid_docs_answer(self, person: Person, person_key: str, kind: str, text: str, *,
+                                number_text: str = "", message_id: str = "0",
+                                reply_to: dict | None = None) -> str:
+        if kind != "summary":
+            # A command skips the crisis check of plain text, and scan_crisis=False below skips it for the prompt:
+            # the participant's own words are checked here, before anything is charged.
+            crisis_reply = self._crisis_reply(person, person_key, text)
+            if crisis_reply is not None:
+                return crisis_reply
+        prepared = self.paid_docs.prepare(person_key, kind, text, owner=person.role == "owner",
+                                          number_text=number_text)
+        if isinstance(prepared, paid_docs_mod.Refusal):
+            return prepared.text
+        self._no_learn_messages.add(str(message_id))          # document text is never learned as a personal fact
+        state = DocTurn()
+        token = doc_turn.set(state)
+        try:
+            answer = await self._chat_route(person, person_key, prepared.prompt, self.vault.consent(person_key),
+                                            message_id=str(message_id), reply_to=reply_to, scan_crisis=False)
+        except BaseException:                                  # STOP / restart / crash: give the request back
+            self.paid_docs.abort(prepared)
+            raise
+        finally:
+            doc_turn.reset(token)
+        if not state.answered:                                 # structural signal, never the reply's wording
+            self.paid_docs.abort(prepared)
+            return answer
+        return self.paid_docs.finish(prepared, answer)
+
+    async def _paid_docs_command(self, person: Person, person_key: str, command: str, argument: str) -> str | None:
+        """Returns None for a command that is not part of the paid-docs set (the caller keeps dispatching)."""
+        owner = person.role == "owner"
+        pd = self.paid_docs
+        if command == "/plan":
+            return pd.plan_text(person_key, owner=owner)
+        if command == "/terms":
+            return pd.terms_text()
+        if command == "/paysupport":
+            if not argument.strip():
+                return pd.paysupport_text()
+            ticket = pd.ledger.add_ticket(person_key, person.user_id, argument.strip())
+            if not ticket:
+                return ("У вас уже есть несколько открытых обращений. Дождитесь ответа владельца — "
+                        "новое можно будет создать после их закрытия.")
+            return pd.paysupport_text(ticket)
+        if command == "/buy":
+            if owner:
+                return "Вы владелец: оплата не требуется. Отчёт: /payments."
+            invoice = pd.invoice(person_key, person.user_id)
+            result = await self.telegram.payment_call("sendInvoice", {"chat_id": person.chat_id, **invoice})
+            if not result.get("ok"):
+                self.store.put("payment_error", str(result.get("description", ""))[:120])
+                return "Не удалось выставить счёт. Попробуйте позже или напишите /paysupport."
+            return ""
+        if command == "/docs":
+            return pd.docs_text(person_key)
+        if command == "/deldoc":
+            return pd.delete_document(person_key, argument)
+        if command in ("/ask", "/summary", "/draft"):
+            kind = {"/ask": "ask", "/summary": "summary", "/draft": "draft"}[command]
+            return await self._paid_docs_answer(
+                person, person_key, kind, "" if kind == "summary" else argument,
+                number_text=argument if kind == "summary" else "")
+        if not owner:
+            return None
+        if command == "/payments":
+            return pd.payments_text()
+        if command == "/tickets":
+            return self._paid_tickets(argument)
+        if command == "/ledger_add":
+            return self._paid_ledger_add(argument)
+        if command == "/refund":
+            return await self._paid_refund(argument.strip())
+        return None
+
+    def _paid_tickets(self, argument: str) -> str:
+        pd = self.paid_docs
+        parts = argument.split()
+        if len(parts) == 2 and parts[0] == "close" and parts[1].isdigit():
+            return "Обращение закрыто." if pd.ledger.close_ticket(int(parts[1])) else "Открытого обращения с таким номером нет."
+        rows = pd.ledger.open_tickets()
+        if not rows:
+            return "Открытых обращений по оплате нет."
+        lines = ["Открытые обращения (закрыть: /tickets close <№>):"]
+        for row in rows:
+            charges = ", ".join(p["charge_id"] for p in pd.ledger.person_payments(row["person_key"])) or "платежей нет"
+            lines.append(f"№{row['id']} · {row['person_key'][:8]} · {row['text'][:200]} · платежи: {charges}")
+        return "\n".join(lines)
+
+    def _paid_ledger_add(self, argument: str) -> str:
+        parts = argument.split(maxsplit=3)
+        try:
+            if parts[0] == "withdrawal":
+                self.paid_docs.ledger.add_finance("withdrawal", stars=int(parts[1]), usd=float(parts[2]),
+                                                  ref=parts[3] if len(parts) > 3 else "")
+                return "Вывод записан. Отчёт: /payments."
+            if parts[0] == "expense":
+                self.paid_docs.ledger.add_finance("expense", usd=float(parts[1]),
+                                                  note=" ".join(parts[2:]) if len(parts) > 2 else "")
+                return "Расход записан. Отчёт: /payments."
+        except (IndexError, ValueError, OverflowError):
+            pass
+        return "Формат: /ledger_add withdrawal <⭐> <USD> [ссылка] или /ledger_add expense <USD> <заметка>."
+
+    async def _paid_refund(self, charge_id: str) -> str:
+        pd = self.paid_docs
+        if not charge_id:
+            return "Формат: /refund <charge_id> (идентификаторы — в /tickets)."
+        payment = pd.ledger.payment(charge_id)
+        if payment is None:
+            return "Платёж с таким charge_id не найден."
+        if payment["status"] == "refunded":
+            return "Этот платёж уже возвращён."
+        result = await self.telegram.payment_call(
+            "refundStarPayment", {"user_id": payment["user_id"], "telegram_payment_charge_id": charge_id})
+        already = "ALREADY_REFUNDED" in str(result.get("description", "")).upper()
+        if not result.get("ok") and not already:
+            return f"Telegram не выполнил возврат: {result.get('description') or 'ошибка'}. Состояние не изменено."
+        out = pd.ledger.record_refund(charge_id)
+        return (f"Возврат выполнен: {out.stars} ⭐, доступ по платежу закрыт, снято запросов: "
+                f"{out.revoked_requests}." if out.status == "refunded" else "Возврат уже был учтён.")
+
+    async def _paid_docs_upload(self, person: Person, person_key: str, message: dict, text: str,
+                                document: dict) -> str | None:
+        """Store a document in the person's own library. None = not ours (images, unsupported): old path."""
+        name = str(document.get("file_name", "")).strip()
+        suffix = ("." + name.rsplit(".", 1)[-1].lower()) if "." in name else ""
+        if suffix not in paid_docs_mod.DOC_SUFFIXES:
+            return None
+        limit = MEDIA_DOCUMENT_LIMITS.get(suffix, MAX_DOCUMENT_BYTES)      # a PDF keeps its 20 MB allowance
+        size = document.get("file_size")
+        if type(size) is int and size > limit:
+            return f"Файл больше {limit // (1024 * 1024)} МБ — такой не принимаю."
+        try:
+            data = await self.telegram.fetch_file(document["file_id"], limit)
+        except CompanionError as exc:
+            return _failure_text(str(exc))
+        owner = person.role == "owner"
+        try:
+            # Parsing is CPU-bound (and a hostile office file can be heavy): never on the event loop, which also
+            # answers other people's pre-checkout queries inside Telegram's 10 seconds.
+            stored_text, stored, code = await asyncio.wait_for(
+                asyncio.to_thread(self.paid_docs.add_document, person_key, name or "документ" + suffix, data,
+                                  owner=owner), timeout=90)
+        except TimeoutError:
+            return "Разбор файла занимает слишком долго. Проверьте список через минуту: /docs."
+        if code == "parser_unavailable" and suffix in MEDIA_DOCUMENT_LIMITS:
+            return None                                        # PDF without pypdf: the existing media path decides
+        if stored and text.strip():
+            answer = await self._paid_docs_answer(person, person_key, "ask", text,
+                                                  message_id=str(message.get("_message_id") or "0"),
+                                                  reply_to=message.get("_reply_to"))
+            return f"{stored_text}\n\n{answer}"
+        return stored_text
+
     async def _handle_document(self, person: Person, person_key: str, message: dict,
                                text: str, document: dict) -> str:
+        if self.paid_docs is not None and getattr(self, "surface", "telegram") == "telegram":
+            handled = await self._paid_docs_upload(person, person_key, message, text, document)
+            if handled is not None:
+                return handled
         name = str(document.get("file_name", "")).strip()
         suffix = ("." + name.rsplit(".", 1)[-1].lower()) if "." in name else ""
         claimed = str(document.get("mime_type") or "").lower()

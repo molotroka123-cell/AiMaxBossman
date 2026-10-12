@@ -6,6 +6,7 @@ import contextvars
 import hashlib
 import heapq
 import json
+import os
 import re
 from decimal import Decimal, ROUND_CEILING
 from urllib.parse import urlsplit
@@ -87,6 +88,17 @@ def image_mime(data: bytes) -> str | None:
     return None
 TELEGRAM_API = "https://api.telegram.org"
 OPENROUTER_API = "https://openrouter.ai/api/v1"
+#: Telegram's separate test environment (core.telegram.org/bots/features#testing-your-bot):
+#: ``https://api.telegram.org/bot<token>/test/METHOD``. Opt-in only; the default URL is unchanged.
+TEST_ENV_FLAG = "BOSSMAN_TELEGRAM_TEST_ENV"
+
+
+def telegram_test_env() -> bool:
+    return os.environ.get(TEST_ENV_FLAG, "").strip() == "1"
+
+
+def bot_api_url(token: str, method: str) -> str:
+    return f"{TELEGRAM_API}/bot{token}/{'test/' if telegram_test_env() else ''}{method}"
 
 
 def scrub(text: str, secrets=()) -> str:
@@ -243,7 +255,7 @@ class Telegram:
             try:
                 async with asyncio.timeout(120):
                     response = await self.client.post(
-                        f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendVoice",
+                        bot_api_url(self.settings.bot_token, "sendVoice"),
                         data=payload, files={"voice": ("bossman.ogg", audio, "audio/ogg")})
                 body = response.json()
             except (httpx.HTTPError, OSError, TimeoutError, ValueError):
@@ -273,7 +285,7 @@ class Telegram:
         clean = _egress_guard_text(scrub(caption, (self.settings.bot_token, self.settings.core_token)))[:1000]
         try:
             async with asyncio.timeout(300):
-                response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendVideo",
+                response = await self.client.post(bot_api_url(self.settings.bot_token, "sendVideo"),
                                                   data={"chat_id": str(person.chat_id), "caption": clean,
                                                         "supports_streaming": "true",
                                                         **({"reply_markup": json.dumps(markup(keyboard))} if keyboard else {})},
@@ -304,7 +316,7 @@ class Telegram:
         clean = _egress_guard_text(scrub(caption, secrets))[:1000]
         try:
             async with asyncio.timeout(120):
-                response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendDocument",
+                response = await self.client.post(bot_api_url(self.settings.bot_token, "sendDocument"),
                                                   data={"chat_id": str(person.chat_id), "caption": clean},
                                                   files={"document": (name[:120], body_bytes, "text/plain")})
             body = response.json()
@@ -328,7 +340,7 @@ class Telegram:
         name = "bossman.png" if mime == "image/png" else "bossman.jpg"
         try:
             async with asyncio.timeout(120):
-                response = await self.client.post(f"{TELEGRAM_API}/bot{self.settings.bot_token}/sendPhoto",
+                response = await self.client.post(bot_api_url(self.settings.bot_token, "sendPhoto"),
                                                   data={"chat_id": str(person.chat_id), **({"caption": clean} if clean else {}),
                                                         **({"reply_markup": json.dumps(markup(keyboard))} if keyboard else {})},
                                                   files={"photo": (name, data, mime)})
@@ -355,7 +367,7 @@ class Telegram:
     async def call(self, method: str, payload: dict):
         if method not in self.METHODS or not self.settings.bot_token:
             raise CompanionError("TELEGRAM_NOT_CONFIGURED")
-        body = await json_request(self.client, "POST", f"{TELEGRAM_API}/bot{self.settings.bot_token}/{method}",
+        body = await json_request(self.client, "POST", bot_api_url(self.settings.bot_token, method),
                                   payload=payload, timeout=35)
         if isinstance(body, dict) and body.get("ok") is False and body.get("error_code") == 429:
             parameters = body.get("parameters")
@@ -363,6 +375,33 @@ class Telegram:
         if not isinstance(body, dict) or body.get("ok") is not True or "result" not in body:
             raise CompanionError("TELEGRAM_API_REJECTED")
         return body["result"]
+
+    #: Telegram Stars (XTR) payment methods. Kept apart from ``METHODS`` so no existing caller can reach them.
+    PAYMENT_METHODS = frozenset({"sendInvoice", "answerPreCheckoutQuery", "refundStarPayment",
+                                 "getStarTransactions", "getMyStarBalance"})
+
+    async def payment_call(self, method: str, payload: dict, *, timeout: float = 15) -> dict:
+        """Call one Stars payment method and return ``{"ok", "result"|"description", "error_code"}``.
+
+        Unlike ``call`` this does not raise on a 4xx: a refund or an invoice that Telegram refuses carries a
+        human-readable ``description`` (e.g. CHARGE_ALREADY_REFUNDED) the billing code must act on. Network
+        failure is reported as ``ok=False, description='NETWORK_UNAVAILABLE'``; the token is never exposed.
+        """
+        if method not in self.PAYMENT_METHODS or not self.settings.bot_token:
+            raise CompanionError("TELEGRAM_NOT_CONFIGURED")
+        try:
+            async with asyncio.timeout(timeout):
+                response = await self.client.post(bot_api_url(self.settings.bot_token, method), json=payload)
+            body = response.json()
+        except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+            return {"ok": False, "description": "NETWORK_UNAVAILABLE", "error_code": 0}
+        if not isinstance(body, dict):
+            return {"ok": False, "description": "MALFORMED_RESPONSE", "error_code": response.status_code}
+        if body.get("ok") is True:
+            return {"ok": True, "result": body.get("result")}
+        return {"ok": False, "description": scrub(str(body.get("description", ""))[:200],
+                                                  (self.settings.bot_token,)),
+                "error_code": int(body.get("error_code") or response.status_code or 0)}
 
     async def delete_message(self, person: Person, message_id: int) -> bool:
         """Best-effort privacy cleanup for owner secret-input messages.
@@ -395,7 +434,9 @@ class Telegram:
         data = bytearray()
         try:
             async with asyncio.timeout(60):
-                async with self.client.stream("GET", f"{TELEGRAM_API}/file/bot{self.settings.bot_token}/{path}") as response:
+                async with self.client.stream(
+                        "GET", f"{TELEGRAM_API}/file/bot{self.settings.bot_token}/"
+                               f"{'test/' if telegram_test_env() else ''}{path}") as response:
                     if response.status_code != 200:
                         raise CompanionError("TELEGRAM_FILE_UNAVAILABLE")
                     declared = response.headers.get("content-length", "")
