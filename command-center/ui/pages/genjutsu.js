@@ -86,7 +86,8 @@ export function genjutsuPanel() {
   const consent = h('input', { type: 'checkbox', id: 'gj-consent', name: 'gj-consent' });
   const maskErr = h('div', { dataset: { testid: 'gj-error' } });
   const maskInfo = h('div.dg-small.dg-num', { dataset: { testid: 'gj-mask-info' }, 'aria-live': 'polite' });
-  const maskBtn = btn('Найти зоны', () => findMasks(), { variant: 'primary', iconName: 'bolt', disabled: true });
+  const maskBtn = btn('Найти зоны', () => findMasks(), { variant: 'primary', iconName: 'bolt', disabled: true,
+    title: 'Нужны: фото или кадр видео, согласие людей в кадре и доступный движок сегментации.' });
   maskBtn.dataset.testid = 'gj-masks';
 
   /* ---- сцена: до / после ---- */
@@ -117,6 +118,10 @@ export function genjutsuPanel() {
 
   const setEnabled = () => {
     maskBtn.disabled = !(S.src && consent.checked && S.engine);
+    // A disabled button says what is missing (UI sweep: disabled_silent).
+    maskBtn.title = !S.src ? 'Сначала выберите фото или возьмите кадр из видео.'
+      : !consent.checked ? 'Отметьте согласие людей в кадре.'
+      : !S.engine ? 'Движок сегментации недоступен на этом ПК.' : '';
   };
 
   /* ---------------------------------------------------------------- кадр */
@@ -322,8 +327,10 @@ export function genjutsuPanel() {
       input.addEventListener('change', () => edit(r, { [key]: Number(input.value), on: true }, true));
       return h('div', h('label.dg-label.gj-flex', { for: id }, h('span', label), val), input, h('div.dg-note', hint));
     };
-    const undo = btn('Отменить', () => { if (history.undo(r)) { render(); persist(); renderRegion(); } }, { variant: 'subtle', size: 'sm', iconName: 'retry', disabled: !history.canUndo(r) });
-    const redo = btn('Повторить', () => { if (history.redo(r)) { render(); persist(); renderRegion(); } }, { variant: 'subtle', size: 'sm', disabled: !history.canRedo(r) });
+    const undo = btn('Отменить', () => { if (history.undo(r)) { render(); persist(); renderRegion(); } }, { variant: 'subtle', size: 'sm', iconName: 'retry', disabled: !history.canUndo(r),
+      title: history.canUndo(r) ? '' : 'Нечего отменять: в этой зоне ещё не было изменений.' });
+    const redo = btn('Повторить', () => { if (history.redo(r)) { render(); persist(); renderRegion(); } }, { variant: 'subtle', size: 'sm', disabled: !history.canRedo(r),
+      title: history.canRedo(r) ? '' : 'Нечего повторять: нет отменённых изменений.' });
     const reset = btn('Сбросить зону', () => { if (history.reset(r)) { render(); persist(); renderRegion(); } }, { variant: 'ghost', size: 'sm' });
     undo.dataset.testid = 'gj-undo'; redo.dataset.testid = 'gj-redo'; reset.dataset.testid = 'gj-reset';
     regionBody.replaceChildren(...[            // DOM replaceChildren prints null as text: filter it out

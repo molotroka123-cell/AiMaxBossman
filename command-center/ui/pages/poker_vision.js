@@ -130,6 +130,11 @@ const Page = {
       } catch (e) { calOut.textContent = err(e); }
     };
 
+    // Calibration needs both folders; an empty request is a 400 by design (UI sweep 9520a45a).
+    const CAL_WHY = 'Укажите обе папки: размеченные кадры и отложенные кадры других раздач.';
+    const calBtn = btn('Калибровать и проверить', calibrate);
+    const syncCal = () => { const ok = Boolean(calDir.value.trim() && calHeld.value.trim()); calBtn.disabled = !ok; calBtn.title = ok ? '' : CAL_WHY; };
+    calDir.addEventListener('input', syncCal); calHeld.addEventListener('input', syncCal);
     const modeBar = h('div.row', { id: 'pv-modes', role: 'group', 'aria-label': 'Режим' });
     const renderModeBar = (desk) => {
       modeBar.replaceChildren(...MODES.map(m => {
@@ -161,6 +166,7 @@ const Page = {
         desk?.executor?.halted ? pill(`управление остановлено: ${desk.executor.halted}`, { tone: 'err' }) : null,
         s?.error ? pill(`ошибка: ${s.error}`, { tone: 'err' }) : null));
       renderModeBar(desk);
+      syncSandbox(desk);
       if (desk) {
         const id = desk.identity;
         put(sourceBox,
@@ -213,7 +219,19 @@ const Page = {
     };
     stream.addEventListener('load', () => drawOverlay(canvas, stream, lastOv, showLabels.checked));
 
-    const sbtn = (label, cmd, args) => btn(label, () => sandbox(cmd, args), { variant: 'secondary' });
+    // The sandbox commands exist only while the source is my Poker Train in the test desktop; until then the
+    // service answers 403 by design, so the buttons stay disabled and say why (UI sweep 9520a45a: 6 x 403).
+    const SANDBOX_WHY = 'Доступно, когда источник — «Мой Poker Train в тестовом рабочем столе» (Выбрать источник).';
+    const sandboxBtns = [];
+    const sbtn = (label, cmd, args) => {
+      const b = btn(label, () => sandbox(cmd, args), { variant: 'secondary', disabled: true, title: SANDBOX_WHY });
+      sandboxBtns.push(b);
+      return b;
+    };
+    const syncSandbox = (desk) => {
+      const on = Boolean(desk && desk.source && desk.source.kind === 'sandbox');
+      for (const b of sandboxBtns) { b.disabled = !on; b.title = on ? '' : SANDBOX_WHY; }
+    };
     const sandboxPanel = panel('Тестовое окно (двойник ОС для проверки)', h('div.stack',
       h('p.xsmall.dim', 'Имитирует действия владельца над окном: перемещение, размер, перекрытие, сворачивание, закрытие и повторное открытие. Это тестовый двойник, а не поведение Windows.'),
       h('div.row', sbtn('Сдвинуть', 'move', { x: 160, y: 30 }), sbtn('Вернуть', 'move', { x: 40, y: 0 }), sbtn('Размер 420×760', 'resize', { w_: 420, h_: 760 }), sbtn('Размер 520×900', 'resize', { w_: 520, h_: 900 }),
@@ -256,7 +274,7 @@ const Page = {
       panel('Почему не знаю (объяснение неопределённости)', uncBox),
       panel('История раздач (наблюдённые события, пропуски помечены)', histBox),
       sandboxPanel,
-      panel('Калибровка нового окна (например TON Poker): только наблюдение/replay', h('div.stack', calDir, calHeld, calRois, h('div.row', btn('Калибровать и проверить', calibrate)), calOut)));
+      panel('Калибровка нового окна (например TON Poker): только наблюдение/replay', h('div.stack', calDir, calHeld, calRois, h('div.row', calBtn), calOut)));
   },
   onEvent() { return false; },
 };

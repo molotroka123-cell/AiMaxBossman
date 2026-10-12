@@ -352,14 +352,18 @@ function faceSwapPanel(ctx) {
       ctx.focusJob();
       toastOk('Задача создана', 'FaceFusion, локально');
     } catch (e) { toastError(e); showSwapErr(e); }
-  }, { variant: 'primary', iconName: 'user', disabled: true });
+  }, { variant: 'primary', iconName: 'user', disabled: true, title: 'Отметьте согласие людей на видео.' });
   go.dataset.testid = 'dg-swap-go';
+  // A disabled button says what is missing (UI sweep: disabled_silent).
+  const goWhy = () => { go.title = !available ? 'Замена лица недоступна на этом ПК (FaceFusion не установлен).'
+    : go.disabled ? 'Отметьте согласие людей на видео.' : ''; };
 
   const setFormDisabled = (off) => {
     for (const el of [videoInput, facesInput, presetSel, frame169, frameOrig, consent, go]) el.disabled = off;
     if (!off) go.disabled = !consent.checked;
+    goWhy();
   };
-  consent.addEventListener('change', () => { if (available) go.disabled = !consent.checked; });
+  consent.addEventListener('change', () => { if (available) go.disabled = !consent.checked; goWhy(); });
   videoInput.addEventListener('change', () => { videoFile = videoInput.files[0] || null; });
   facesInput.addEventListener('change', () => {
     faceFiles = Array.from(facesInput.files || []).slice(0, 5);
