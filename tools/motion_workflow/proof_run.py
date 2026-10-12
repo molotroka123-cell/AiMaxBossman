@@ -569,7 +569,7 @@ def run_proof(out: Path) -> int:
 
     write_json(out / "api_trace.json", trace)
     # the temporary instance's access token and database are not evidence and must not be kept or shared
-    for leftover in [data_dir / "token", *data_dir.glob("bcc.db*")]:
+    for leftover in [data_dir / "token", data_dir / "secret.key", *data_dir.glob("bcc.db*")]:
         try:
             leftover.unlink()
         except OSError:
@@ -719,7 +719,7 @@ def write_proof(out: Path, steps: Steps, info: dict, status: dict, result: dict,
         "- The browser UI is covered by `command-center/tests/test_motion_workflow_ui.py` (real Chromium); this proof drives the API.",
         "- Backends here are started as separate `create_app` processes with `start_workers=False`; the installed Windows bundle "
         "(its own Python, its ffmpeg path) was not exercised.",
-        "- The access token and database of the temporary instance were deleted from `data-dir` after the run; the project folders "
+        "- The access token, vault key and database of the temporary instance were deleted from `data-dir` after the run; the project folders "
         "(`data-dir/data/motion-workflow`) are kept as evidence.",
         "",
     ]
