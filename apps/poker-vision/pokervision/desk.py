@@ -112,6 +112,7 @@ class DeskMixin:
                 assert_loopback(source.get("url") or "http://127.0.0.1:3000/")
             elif source.get("kind") == "replay":
                 src = DirSource(source["path"]); self.src = src
+                ad = registry.for_recording(adapter, ad, src); ad.reset(); self.adapter = ad
             elif source.get("kind") == "window":
                 raise NotImplementedError("live window capture is NOT_RUN in this build container (Windows only); use the sandbox or replay")
             else:

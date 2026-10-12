@@ -38,10 +38,13 @@ class DirSource:
         self.dir = Path(path)
         self.files = sorted(p for p in self.dir.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg"))
         self.t = {}
+        # OS rasteriser that rendered the recording (profiles/<platform>/), when the labels say so: a
+        # replay is read with the exemplars of the renderer that produced the frames, not of the host.
+        self.platform: str | None = None
         lab = self.dir / "labels.jsonl"
         if lab.exists():
             for line in lab.read_text(encoding="utf-8").splitlines():
-                r = json.loads(line); self.t[r["frame"]] = r["t_ms"]
+                r = json.loads(line); self.t[r["frame"]] = r["t_ms"]; self.platform = r.get("platform", self.platform)
         self.i = 0
         self.interval = interval_ms
 

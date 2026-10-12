@@ -92,6 +92,7 @@ class VisionService(DeskMixin):
                 if not (ad.capabilities.replay):
                     raise ValueError(f"{adapter}: replay not supported")
                 src = VideoSource(path) if str(path).lower().endswith((".mp4", ".mkv", ".avi", ".webm")) else DirSource(path)
+                ad = registry.for_recording(adapter, ad, src)
                 act = False
             elif mode == "trainer":
                 if adapter != "poker_train":
