@@ -1,0 +1,772 @@
+{
+ "name": "SYNTHETIC Operations Inbox (generated, no real data)",
+ "type": "private_group",
+ "id": 424242,
+ "messages": [
+  {
+   "id": 1,
+   "type": "service",
+   "date": "2026-10-10T07:00:00",
+   "date_unixtime": "1791608400",
+   "actor": "SYNTHETIC Staff",
+   "actor_id": "user900",
+   "action": "create_group",
+   "title": "SYNTHETIC inbox"
+  },
+  {
+   "id": 1001,
+   "type": "message",
+   "date": "2026-10-10T07:30:00",
+   "date_unixtime": "1791610200",
+   "from": "SYNTHETIC Client 122",
+   "from_id": "user122",
+   "text": "Нужен монтаж видео, +420 700 555 666"
+  },
+  {
+   "id": 1002,
+   "type": "message",
+   "date": "2026-10-10T20:15:00",
+   "date_unixtime": "1791656100",
+   "from": "SYNTHETIC Client 101",
+   "from_id": "user101",
+   "text": "Здравствуйте! Меня зовут Анна Новак. Нужен монтаж рилса, бюджет 5 000 Kč. Телефон +420 777 123 456"
+  },
+  {
+   "id": 1003,
+   "type": "message",
+   "date": "2026-10-10T20:40:00",
+   "date_unixtime": "1791657600",
+   "from": "SYNTHETIC Client 102",
+   "from_id": "user102",
+   "text": "Hi, I'm John Miller. Need a logo design, budget 300 USD. Email john.miller@example.com"
+  },
+  {
+   "id": 1004,
+   "type": "message",
+   "date": "2026-10-10T23:10:00",
+   "date_unixtime": "1791666600",
+   "from": "SYNTHETIC Client 161",
+   "from_id": "user161",
+   "text": "Привет"
+  },
+  {
+   "id": 1010,
+   "type": "message",
+   "date": "2026-10-11T08:05:00",
+   "date_unixtime": "1791698700",
+   "from": "SYNTHETIC Client 103",
+   "from_id": "user103",
+   "text": [
+    "Добрый день! Нужен сайт-визитка, бюджет 1.2k USDT, срок до 25.10. Меня зовут Игорь, ",
+    {
+     "type": "phone",
+     "text": "+7 999 123 45 67"
+    }
+   ]
+  },
+  {
+   "id": 1011,
+   "type": "message",
+   "date": "2026-10-11T08:20:00",
+   "date_unixtime": "1791699600",
+   "from": "SYNTHETIC Client 104",
+   "from_id": "user104",
+   "text": "need translation RU->EN, 15 pages, deadline tomorrow. contact: maria@example.org"
+  },
+  {
+   "id": 1012,
+   "type": "message",
+   "date": "2026-10-11T08:45:00",
+   "date_unixtime": "1791701100",
+   "from": "SYNTHETIC Client 105",
+   "from_id": "user105",
+   "text": "Хочу заказать озвучку ролика, 15000 руб, +7 (916) 555-12-34, Алексей"
+  },
+  {
+   "id": 2001,
+   "type": "message",
+   "date": "2026-10-11T09:00:00",
+   "date_unixtime": "1791702000",
+   "from": "SYNTHETIC Staff",
+   "from_id": "user900",
+   "reply_to_message_id": 1002,
+   "text": "Здравствуйте, Анна! Стоимость 5 500 Kč, срок 3 дня."
+  },
+  {
+   "id": 1013,
+   "type": "message",
+   "date": "2026-10-11T09:10:00",
+   "date_unixtime": "1791702600",
+   "from": "SYNTHETIC Client 106",
+   "from_id": "user106",
+   "text": "Здравствуйте, нужна замена лица в видео, 3 ролика. 8 (999) 123-45-67"
+  },
+  {
+   "id": 1014,
+   "type": "message",
+   "date": "2026-10-11T09:30:00",
+   "date_unixtime": "1791703800",
+   "from": "SYNTHETIC Client 107",
+   "from_id": "user107",
+   "text": "Нужен дизайн логотипа для кофейни. Бюджет 8000 Kč. petr@example.cz"
+  },
+  {
+   "id": 1015,
+   "type": "message",
+   "date": "2026-10-11T09:42:00",
+   "date_unixtime": "1791704520",
+   "from": "SYNTHETIC Client 107",
+   "from_id": "user107",
+   "text": "Добрый день! Жду ответа по логотипу, petr@example.cz"
+  },
+  {
+   "id": 1016,
+   "type": "message",
+   "date": "2026-10-11T10:00:00",
+   "date_unixtime": "1791705600",
+   "from": "SYNTHETIC Client 108",
+   "from_id": "user108",
+   "text": "Need video editing for YouTube, $250, call +1 (415) 555-0100"
+  },
+  {
+   "id": 1017,
+   "type": "message",
+   "date": "2026-10-11T10:01:00",
+   "date_unixtime": "1791705660",
+   "from": "SYNTHETIC Client 108",
+   "from_id": "user108",
+   "text": "Need video editing for YouTube, $250, call +1 (415) 555-0100"
+  },
+  {
+   "id": 2002,
+   "type": "message",
+   "date": "2026-10-11T10:10:00",
+   "date_unixtime": "1791706200",
+   "from": "SYNTHETIC Staff",
+   "from_id": "user900",
+   "reply_to_message_id": 1010,
+   "text": "Добрый день, Игорь. Принято, пришлём смету сегодня."
+  },
+  {
+   "id": 1018,
+   "type": "message",
+   "date": "2026-10-11T10:15:00",
+   "date_unixtime": "1791706500",
+   "from": "SYNTHETIC Client 109",
+   "from_id": "user109",
+   "text": "Нужен перевод договора на английский, 4 страницы. +420 602 111 222"
+  },
+  {
+   "id": 2003,
+   "type": "message",
+   "date": "2026-10-11T10:30:00",
+   "date_unixtime": "1791707400",
+   "from": "SYNTHETIC Staff",
+   "from_id": "user900",
+   "reply_to_message_id": 1016,
+   "text": "Hi, we can do this. Price: 220 USD."
+  },
+  {
+   "id": 1020,
+   "type": "message",
+   "date": "2026-10-11T10:40:00",
+   "date_unixtime": "1791708000",
+   "from": "SYNTHETIC Client 110",
+   "from_id": "user110",
+   "text": "Привет, хочу монтаж видео, @ivan_petrov_88"
+  },
+  {
+   "id": 1021,
+   "type": "message",
+   "date": "2026-10-11T10:55:00",
+   "date_unixtime": "1791708900",
+   "from": "SYNTHETIC Client 110",
+   "from_id": "user110",
+   "text": "Хочу монтаж видео, мой тг @Ivan_Petrov_88"
+  },
+  {
+   "id": 1022,
+   "type": "message",
+   "date": "2026-10-11T11:00:00",
+   "date_unixtime": "1791709200",
+   "from": "SYNTHETIC Client 111",
+   "from_id": "user111",
+   "text": "Меня зовут Сергей Иванов. Нужна озвучка видео, 7000 руб."
+  },
+  {
+   "id": 1023,
+   "type": "message",
+   "date": "2026-10-11T11:20:00",
+   "date_unixtime": "1791710400",
+   "from": "SYNTHETIC Client 111",
+   "from_id": "user111",
+   "text": "Сергей, пинг по озвучке видео"
+  },
+  {
+   "id": 1019,
+   "type": "message",
+   "date": "2026-10-11T11:30:00",
+   "date_unixtime": "1791711000",
+   "from": "SYNTHETIC Client 109",
+   "from_id": "user109",
+   "text": "Перевод договора, срочно! 00420602111222"
+  },
+  {
+   "id": 1024,
+   "type": "message",
+   "date": "2026-10-11T11:40:00",
+   "date_unixtime": "1791711600",
+   "from": "SYNTHETIC Client 113",
+   "from_id": "user113",
+   "text": "Looking for a website, budget 2,500 EUR, email: shop@example.com"
+  },
+  {
+   "id": 2004,
+   "type": "message",
+   "date": "2026-10-11T11:45:00",
+   "date_unixtime": "1791711900",
+   "from": "SYNTHETIC Staff",
+   "from_id": "user900",
+   "reply_to_message_id": 1018,
+   "text": "Добрый день, перевод договора: 1 200 Kč."
+  },
+  {
+   "id": 1040,
+   "type": "message",
+   "date": "2026-10-11T12:00:00",
+   "date_unixtime": "1791712800",
+   "from": "SYNTHETIC Client 122",
+   "from_id": "user122",
+   "text": "Нужен монтаж видео, +420 700 555 666"
+  },
+  {
+   "id": 1025,
+   "type": "message",
+   "date": "2026-10-11T12:10:00",
+   "date_unixtime": "1791713400",
+   "from": "SYNTHETIC Client 113",
+   "from_id": "user113",
+   "text": "Hello? Website for my shop, shop@EXAMPLE.com"
+  },
+  {
+   "id": 1026,
+   "type": "message",
+   "date": "2026-10-11T12:30:00",
+   "date_unixtime": "1791714600",
+   "from": "SYNTHETIC Client 114",
+   "from_id": "user114",
+   "text": "Нужен бот для телеграма, +380 50 123 45 67"
+  },
+  {
+   "id": 1027,
+   "type": "message",
+   "date": "2026-10-11T12:31:00",
+   "date_unixtime": "1791714660",
+   "from": "SYNTHETIC Client 114",
+   "from_id": "user114",
+   "text": "нужен бот для телеграма +380501234567"
+  },
+  {
+   "id": 1028,
+   "type": "message",
+   "date": "2026-10-11T13:00:00",
+   "date_unixtime": "1791716400",
+   "from": "SYNTHETIC Client 115",
+   "from_id": "user115",
+   "text": "Hi! Need dubbing for a product video, 400 EUR. Call +49 151 2345 6789"
+  },
+  {
+   "id": 1029,
+   "type": "message",
+   "date": "2026-10-11T13:05:00",
+   "date_unixtime": "1791716700",
+   "from": "SYNTHETIC Client 115",
+   "from_id": "user115",
+   "text": "Dubbing for product video, 400 EUR, +49 151 23456789"
+  },
+  {
+   "id": 2005,
+   "type": "message",
+   "date": "2026-10-11T13:10:00",
+   "date_unixtime": "1791717000",
+   "from": "SYNTHETIC Staff",
+   "from_id": "user900",
+   "reply_to_message_id": 1028,
+   "text": "Hello! Dubbing 400 EUR works. Please send the file."
+  },
+  {
+   "id": 1030,
+   "type": "message",
+   "date": "2026-10-11T13:20:00",
+   "date_unixtime": "1791717600",
+   "from": "SYNTHETIC Client 116",
+   "from_id": "user116",
+   "text": "Срочно! Нужна ретушь 20 фото, 2000 Kč, tel 777 654 321"
+  },
+  {
+   "id": 1031,
+   "type": "message",
+   "date": "2026-10-11T13:40:00",
+   "date_unixtime": "1791718800",
+   "from": "SYNTHETIC Client 116",
+   "from_id": "user116",
+   "text": "Ретушь 20 фото, 2000 CZK, телефон 777 654 321"
+  },
+  {
+   "id": 1032,
+   "type": "message",
+   "date": "2026-10-11T14:00:00",
+   "date_unixtime": "1791720000",
+   "from": "SYNTHETIC Client 117",
+   "from_id": "user117",
+   "text": [
+    "Please quote: translation EN->CZ, 10 pages. ",
+    {
+     "type": "email",
+     "text": "translator@example.net"
+    }
+   ]
+  },
+  {
+   "id": 1033,
+   "type": "message",
+   "date": "2026-10-11T14:02:00",
+   "date_unixtime": "1791720120",
+   "from": "SYNTHETIC Client 117",
+   "from_id": "user117",
+   "text": [
+    "Please quote: translation EN->CZ, 10 pages. ",
+    {
+     "type": "email",
+     "text": "translator@example.net"
+    }
+   ]
+  },
+  {
+   "id": 1034,
+   "type": "message",
+   "date": "2026-10-11T14:30:00",
+   "date_unixtime": "1791721800",
+   "from": "SYNTHETIC Client 118",
+   "from_id": "user118",
+   "text": "Нужен монтаж ролика до пятницы, 6 000 Kč, +420 608 333 444"
+  },
+  {
+   "id": 1035,
+   "type": "message",
+   "date": "2026-10-11T14:35:00",
+   "date_unixtime": "1791722100",
+   "from": "SYNTHETIC Client 118",
+   "from_id": "user118",
+   "text": "Нужен монтаж ролика до пятницы, 6000 Kč, +420 608 333 444"
+  },
+  {
+   "id": 1036,
+   "type": "message",
+   "date": "2026-10-11T15:00:00",
+   "date_unixtime": "1791723600",
+   "from": "SYNTHETIC Client 119",
+   "from_id": "user119",
+   "text": "Hello, I need a landing page. budget 900 USD. I'm Kate Brown, kate.brown@example.com"
+  },
+  {
+   "id": 1037,
+   "type": "message",
+   "date": "2026-10-11T15:20:00",
+   "date_unixtime": "1791724800",
+   "from": "SYNTHETIC Client 119",
+   "from_id": "user119",
+   "text": "Need the landing page asap please, kate.brown@example.com"
+  },
+  {
+   "id": 1038,
+   "type": "message",
+   "date": "2026-10-11T15:30:00",
+   "date_unixtime": "1791725400",
+   "from": "SYNTHETIC Client 120",
+   "from_id": "user120",
+   "text": "Нужен логотип, бюджет 5000 Kč, +420 721 000 111"
+  },
+  {
+   "id": 1039,
+   "type": "message",
+   "date": "2026-10-11T15:35:00",
+   "date_unixtime": "1791725700",
+   "from": "SYNTHETIC Client 121",
+   "from_id": "user121",
+   "text": "Нужен логотип, бюджет 5000 Kč, +420 721 000 222"
+  },
+  {
+   "id": 2006,
+   "type": "message",
+   "date": "2026-10-11T15:45:00",
+   "date_unixtime": "1791726300",
+   "from": "SYNTHETIC Staff",
+   "from_id": "user900",
+   "reply_to_message_id": 1036,
+   "text": "Hi Kate, landing page 900 USD OK."
+  },
+  {
+   "id": 1041,
+   "type": "message",
+   "date": "2026-10-11T16:00:00",
+   "date_unixtime": "1791727200",
+   "from": "SYNTHETIC Client 123",
+   "from_id": "user123",
+   "text": "Меня зовут Иван. Нужен сайт"
+  },
+  {
+   "id": 1042,
+   "type": "message",
+   "date": "2026-10-11T16:10:00",
+   "date_unixtime": "1791727800",
+   "from": "SYNTHETIC Client 124",
+   "from_id": "user124",
+   "text": "Меня зовут Иван. Нужен сайт, +420 733 100 200"
+  },
+  {
+   "id": 1043,
+   "type": "message",
+   "date": "2026-10-11T16:20:00",
+   "date_unixtime": "1791728400",
+   "from": "SYNTHETIC Client 125",
+   "from_id": "user125",
+   "text": "Нужен дизайн баннера за 5.000 Kč, пишите на design.client@example.com"
+  },
+  {
+   "id": 1044,
+   "type": "message",
+   "date": "2026-10-11T16:30:00",
+   "date_unixtime": "1791729000",
+   "from": "SYNTHETIC Client 126",
+   "from_id": "user126",
+   "text": "Нужен сайт. Мой номер 777 123 456"
+  },
+  {
+   "id": 1045,
+   "type": "message",
+   "date": "2026-10-11T16:40:00",
+   "date_unixtime": "1791729600",
+   "from": "SYNTHETIC Client 127",
+   "from_id": "user127",
+   "text": "Добрый день, вопрос по цене. +420 777 000 999"
+  },
+  {
+   "id": 1046,
+   "type": "message",
+   "date": "2026-10-11T16:50:00",
+   "date_unixtime": "1791730200",
+   "from": "SYNTHETIC Client 128",
+   "from_id": "user128",
+   "text": "Нужен монтаж, от 3000 до 5000 Kč, или 150 EUR если срочно"
+  },
+  {
+   "id": 1047,
+   "type": "message",
+   "date": "2026-10-11T17:00:00",
+   "date_unixtime": "1791730800",
+   "from": "SYNTHETIC Client 129",
+   "from_id": "user129",
+   "text": "Need website, budget 5000. email: bob@example.com"
+  },
+  {
+   "id": 1048,
+   "type": "message",
+   "date": "2026-10-11T17:10:00",
+   "date_unixtime": "1791731400",
+   "from": "SYNTHETIC Client 130",
+   "from_id": "user130",
+   "text": "Нужен перевод, пишите ivan@mail"
+  },
+  {
+   "id": 1049,
+   "type": "message",
+   "date": "2026-10-11T17:20:00",
+   "date_unixtime": "1791732000",
+   "from": "SYNTHETIC Client 131",
+   "from_id": "user131",
+   "text": "Нужна озвучка, звоните +420 777 111 222 или +420 608 999 888"
+  },
+  {
+   "id": 1050,
+   "type": "message",
+   "date": "2026-10-11T17:30:00",
+   "date_unixtime": "1791732600",
+   "from": "SYNTHETIC Client 132",
+   "from_id": "user132",
+   "text": "Need dubbing by 04/05, +44 7911 123456"
+  },
+  {
+   "id": 1051,
+   "type": "message",
+   "date": "2026-10-11T17:40:00",
+   "date_unixtime": "1791733200",
+   "from": "SYNTHETIC Client 133",
+   "from_id": "user133",
+   "text": "???"
+  },
+  {
+   "id": 1052,
+   "type": "message",
+   "date": "2026-10-11T17:45:00",
+   "date_unixtime": "1791733500",
+   "from": "SYNTHETIC Client 133",
+   "from_id": "user133",
+   "text": "Спасибо!"
+  },
+  {
+   "id": 1053,
+   "type": "message",
+   "date": "2026-10-11T17:50:00",
+   "date_unixtime": "1791733800",
+   "from": "SYNTHETIC Client 134",
+   "from_id": "user134",
+   "text": "+420 777 000 123"
+  },
+  {
+   "id": 1054,
+   "type": "message",
+   "date": "2026-10-11T18:00:00",
+   "date_unixtime": "1791734400",
+   "from": "SYNTHETIC Client 135",
+   "from_id": "user135",
+   "text": "Нужен монтаж, +420 77 123"
+  },
+  {
+   "id": 1055,
+   "type": "message",
+   "date": "2026-10-11T18:10:00",
+   "date_unixtime": "1791735000",
+   "from": "SYNTHETIC Client 136",
+   "from_id": "user136",
+   "text": "=HYPERLINK(\"http://evil.example\",\"click\") нужен монтаж"
+  },
+  {
+   "id": 1056,
+   "type": "message",
+   "date": "2026-10-11T18:20:00",
+   "date_unixtime": "1791735600",
+   "from": "SYNTHETIC Client 137",
+   "from_id": "user137",
+   "text": "Hello! Нужен dubbing для ролика, 100 USDT TRC20, +995 555 123 456"
+  },
+  {
+   "id": 1057,
+   "type": "message",
+   "date": "2026-10-11T18:30:00",
+   "date_unixtime": "1791736200",
+   "from": "SYNTHETIC Client 138",
+   "from_id": "user138",
+   "photo": "photos/photo_1@11-10-2026_18-30-00.jpg",
+   "text": ""
+  },
+  {
+   "id": 1058,
+   "type": "message",
+   "date": "2026-10-11T18:40:00",
+   "date_unixtime": "1791736800",
+   "from": "SYNTHETIC Client 140",
+   "from_id": "user140",
+   "text": "Нужна бухгалтерия для ИП, 3 000 Kč в месяц, +420 603 123 123, Мария"
+  },
+  {
+   "id": 1059,
+   "type": "message",
+   "date": "2026-10-11T18:50:00",
+   "date_unixtime": "1791737400",
+   "from": "SYNTHETIC Client 141",
+   "from_id": "user141",
+   "text": "Want a Telegram bot for my shop. Budget 700 USD. DM @shop_owner_cz"
+  },
+  {
+   "id": 1060,
+   "type": "message",
+   "date": "2026-10-11T19:00:00",
+   "date_unixtime": "1791738000",
+   "from": "SYNTHETIC Client 142",
+   "from_id": "user142",
+   "text": "Нужен перевод сайта на чешский, 12 000 руб, anna@example.ru"
+  },
+  {
+   "id": 2007,
+   "type": "message",
+   "date": "2026-10-11T19:00:00",
+   "date_unixtime": "1791738000",
+   "from": "SYNTHETIC Staff",
+   "from_id": "user900",
+   "reply_to_message_id": 1038,
+   "text": "Логотип: 4 500 Kč."
+  },
+  {
+   "id": 1061,
+   "type": "message",
+   "date": "2026-10-11T19:10:00",
+   "date_unixtime": "1791738600",
+   "from": "SYNTHETIC Client 143",
+   "from_id": "user143",
+   "text": "Нужен копирайтинг: 5 статей по 3000 знаков, 10 000 руб, +7 903 111 22 33"
+  },
+  {
+   "id": 1062,
+   "type": "message",
+   "date": "2026-10-11T19:20:00",
+   "date_unixtime": "1791739200",
+   "from": "SYNTHETIC Client 144",
+   "from_id": "user144",
+   "text": "Can you do consulting call about video strategy? Price? contact: lena@example.com"
+  },
+  {
+   "id": 1063,
+   "type": "message",
+   "date": "2026-10-11T19:30:00",
+   "date_unixtime": "1791739800",
+   "from": "SYNTHETIC Client 145",
+   "from_id": "user145",
+   "text": "Нужна ретушь свадебных фото, 150 фото, 4 500 Kč, +420 774 321 987"
+  },
+  {
+   "id": 1064,
+   "type": "message",
+   "date": "2026-10-11T19:40:00",
+   "date_unixtime": "1791740400",
+   "from": "SYNTHETIC Client 146",
+   "from_id": "user146",
+   "text": "Need face swap for 2 videos, 60 EUR each? WhatsApp +33 6 12 34 56 78"
+  },
+  {
+   "id": 1065,
+   "type": "message",
+   "date": "2026-10-11T19:50:00",
+   "date_unixtime": "1791741000",
+   "from": "SYNTHETIC Client 147",
+   "from_id": "user147",
+   "text": "Нужен монтаж подкаста, 90 минут, до 20 октября, 12 000 Kč, +420 604 700 800"
+  },
+  {
+   "id": 1066,
+   "type": "message",
+   "date": "2026-10-11T20:00:00",
+   "date_unixtime": "1791741600",
+   "from": "SYNTHETIC Client 148",
+   "from_id": "user148",
+   "text": "Hi, need website redesign by Oct 30. $1800. Contact: sam@example.com"
+  },
+  {
+   "id": 1067,
+   "type": "message",
+   "date": "2026-10-11T20:10:00",
+   "date_unixtime": "1791742200",
+   "from": "SYNTHETIC Client 149",
+   "from_id": "user149",
+   "text": "Привет! Сделайте логотип и сайт для кофейни, 20 000 Kč"
+  },
+  {
+   "id": 1068,
+   "type": "message",
+   "date": "2026-10-11T20:20:00",
+   "date_unixtime": "1791742800",
+   "from": "SYNTHETIC Client 150",
+   "from_id": "user150",
+   "text": "Озвучка рекламы 30 сек, 3 500 руб. Анна, tel +7 921 000 11 22"
+  },
+  {
+   "id": 1069,
+   "type": "message",
+   "date": "2026-10-11T20:30:00",
+   "date_unixtime": "1791743400",
+   "from": "SYNTHETIC Client 151",
+   "from_id": "user151",
+   "text": "Need voice clone for audiobook, 800 USDT. Name: Peter Novak. +420 775 100 200"
+  },
+  {
+   "id": 1070,
+   "type": "message",
+   "date": "2026-10-11T20:40:00",
+   "date_unixtime": "1791744000",
+   "from": "SYNTHETIC Client 152",
+   "from_id": "user152",
+   "text": "Добрый вечер, нужен дизайн презентации, бюджет 7000 руб, до завтра"
+  },
+  {
+   "id": 1071,
+   "type": "message",
+   "date": "2026-10-11T20:50:00",
+   "date_unixtime": "1791744600",
+   "from": "SYNTHETIC Client 153",
+   "from_id": "user153",
+   "text": "Нужен видеоролик для рекламы, 25 000 Kč, +420 606 888 999"
+  },
+  {
+   "id": 1072,
+   "type": "message",
+   "date": "2026-10-11T21:00:00",
+   "date_unixtime": "1791745200",
+   "from": "SYNTHETIC Client 154",
+   "from_id": "user154",
+   "text": "Заказать перевод документов, 3 страницы, +380 67 777 88 99, Олег"
+  },
+  {
+   "id": 1073,
+   "type": "message",
+   "date": "2026-10-11T21:10:00",
+   "date_unixtime": "1791745800",
+   "from": "SYNTHETIC Client 155",
+   "from_id": "user155",
+   "text": "Hi! Quote for translating a brochure CZ->EN, 8 pages? daniel@example.com"
+  },
+  {
+   "id": 1074,
+   "type": "message",
+   "date": "2026-10-11T21:20:00",
+   "date_unixtime": "1791746400",
+   "from": "SYNTHETIC Client 156",
+   "from_id": "user156",
+   "text": "Нужен дизайн визитки. 1500 Kč. Пишите @design_fan"
+  },
+  {
+   "id": 1075,
+   "type": "message",
+   "date": "2026-10-11T21:30:00",
+   "date_unixtime": "1791747000",
+   "from": "SYNTHETIC Client 157",
+   "from_id": "user157",
+   "text": "Нужен сайт для барбершопа, до 1 ноября, бюджет 30 000 Kč, +420 777 888 000"
+  },
+  {
+   "id": 1076,
+   "type": "message",
+   "date": "2026-10-11T21:40:00",
+   "date_unixtime": "1791747600",
+   "from": "SYNTHETIC Client 158",
+   "from_id": "user158",
+   "text": "Need dubbing EN->DE for explainer video. 1.5k EUR. +49 170 1234567"
+  },
+  {
+   "id": 1077,
+   "type": "message",
+   "date": "2026-10-11T21:50:00",
+   "date_unixtime": "1791748200",
+   "from": "SYNTHETIC Client 159",
+   "from_id": "user159",
+   "text": "Добрый день, интересует монтаж, +420 702 123 000"
+  },
+  {
+   "id": 1078,
+   "type": "message",
+   "date": "2026-10-11T22:00:00",
+   "date_unixtime": "1791748800",
+   "from": "SYNTHETIC Client 160",
+   "from_id": "user160",
+   "text": "ASAP! Face swap video needed, $75, my email vlad@example.com"
+  },
+  {
+   "id": 2008,
+   "type": "message",
+   "date": "2026-10-11T22:10:00",
+   "date_unixtime": "1791749400",
+   "from": "SYNTHETIC Staff",
+   "from_id": "user900",
+   "text": "Все заявки изучаем, ответим завтра."
+  }
+ ]
+}
