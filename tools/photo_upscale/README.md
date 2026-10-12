@@ -18,6 +18,18 @@ tool never labels the exported size as native detail: the JSON sidecar always ca
 `honesty.statement_en` / `statement_ru` and `resolution.native_px` vs `resolution.exported_px`.
 It is not evidence of appearance (text, faces, plates). Owner rule: measure before claiming.
 
+## Where FaceFusion is found
+
+No user-specific path is compiled in. `upscale.facefusion_dir()` takes, in this order:
+
+1. `PHOTO_UPSCALE_FACEFUSION_DIR` (this tool only), then `BOSSMAN_FACEFUSION_DIR` (the whole Bossman install);
+2. the first ancestor of the repository checkout that has `apps-local/facefusion` (the checkout's parent, or the
+   Bossman root when the checkout is a nested worktree);
+3. `~/Bossman/apps-local/facefusion` (`Path.home()`).
+
+On the owner's PC all three lead to `<Bossman root>\apps-local\facefusion`, so nothing needs to be set there.
+`tests/photo_upscale` covers the order and fails if a drive-letter `Users\<name>` path reappears in the sources.
+
 ## What it does
 
 * Neural enhancement with FaceFusion's ONNX models (same files in `apps-local/facefusion/.assets/models`, executed by
@@ -131,7 +143,7 @@ at the same positions). Treat `seam_excess` as meaningful only with many seams o
 
 ### Contextual generative refinement (tile img2img at <= 0.25 strength): feasibility only, NOT BUILT, NOT RUN
 
-* `C:\Users\asd\Bossman\media-runtime\sdcpp\vulkan\sd-cli.exe` supports `-M img_gen -i init.png --strength 0.2`,
+* `<Bossman root>\media-runtime\sdcpp\vulkan\sd-cli.exe` supports `-M img_gen -i init.png --strength 0.2`,
   `--mask`, `--vae-tiling`, `-M adetailer`, `--hires`, `-M upscale --upscale-model <esrgan .pth>`; SDXL base and
   epicRealism XL checkpoints are on disk. Feasible locally, no cloud.
 * Not wired: `bcc/direct_gen/sdcli.py` + `bcc/studio/providers/sdcpp.py::_argv` pass `-i` only for the Wan video model
@@ -150,8 +162,8 @@ at the same positions). Treat `seam_excess` as meaningful only with many seams o
 
 ## Files
 
-`tools/photo_upscale/{__init__,upscale,measure}.py`, `tests/photo_upscale/test_photo_upscale.py` (28 tests),
-`.agents/skills/photo-upscale-local/SKILL.md`. Lab (outside git): `C:\Users\asd\Bossman\apps-local\photo-upscale-lab\`
+`tools/photo_upscale/{__init__,upscale,measure}.py`, `tests/photo_upscale/test_photo_upscale.py` (31 tests),
+`.agents/skills/photo-upscale-local/SKILL.md`. Lab (outside git): `<Bossman root>\apps-local\photo-upscale-lab\`
 (corpus, outputs, JSON results, crops, scripts); demo run:
-`C:\Users\asd\Bossman\creative-runs\PHOTO-UPSCALE-20261012\demo\`.
+`<Bossman root>\creative-runs\PHOTO-UPSCALE-20261012\demo\`.
 

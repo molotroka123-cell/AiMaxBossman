@@ -63,6 +63,41 @@ def _run(src, out, **kw):
     return res, msgs
 
 
+# ----------------------------------------------------------------- FaceFusion location (no machine-specific path)
+def test_facefusion_dir_env_overrides_win_in_documented_order(monkeypatch, tmp_path):
+    specific, shared = tmp_path / "specific", tmp_path / "shared"
+    monkeypatch.delenv("PHOTO_UPSCALE_FACEFUSION_DIR", raising=False)
+    monkeypatch.setenv("BOSSMAN_FACEFUSION_DIR", str(shared))
+    assert U.facefusion_dir() == shared
+    monkeypatch.setenv("PHOTO_UPSCALE_FACEFUSION_DIR", str(specific))
+    assert U.facefusion_dir() == specific  # the tool-specific name stays first (unchanged behaviour)
+
+
+def test_facefusion_dir_default_comes_from_home_and_from_the_checkout_location(monkeypatch, tmp_path):
+    for name in U.FACEFUSION_DIR_ENV:
+        monkeypatch.delenv(name, raising=False)
+    home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    lonely = tmp_path / "lonely" / "repo" / "tools" / "photo_upscale" / "upscale.py"
+    monkeypatch.setattr(U, "__file__", str(lonely))
+    expected = home / "Bossman" / "apps-local" / "facefusion"
+    assert U.facefusion_dir() == expected == U.default_facefusion_dir()
+
+    # an apps-local/facefusion next to the checkout (or above a nested worktree) is found first
+    root = tmp_path / "bossman_root"
+    (root / "apps-local" / "facefusion").mkdir(parents=True)
+    nested = root / "wt" / "agent" / "tools" / "photo_upscale" / "upscale.py"
+    monkeypatch.setattr(U, "__file__", str(nested))
+    assert U.facefusion_dir() == root / "apps-local" / "facefusion"
+
+
+def test_no_machine_specific_user_path_in_the_tool_sources():
+    import re
+    for path in (TOOLS / "photo_upscale").glob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        assert not re.search(r"[A-Za-z]:[\\\\/]+Users[\\\\/]", text), f"{path.name} hard-codes a user profile path"
+
+
 # ----------------------------------------------------------------- geometry / identity
 def test_aspect_ratio_preserved_and_exact_long_edge(no_models, tmp_path):
     src = _make_image(tmp_path / "in.png", 120, 80)

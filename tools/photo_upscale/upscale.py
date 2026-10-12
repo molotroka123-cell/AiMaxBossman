@@ -78,18 +78,32 @@ FACE_NOTE = (
 # ----------------------------------------------------------------------------------------------------------------
 # paths
 # ----------------------------------------------------------------------------------------------------------------
-_DEFAULT_FF = Path(r"C:\Users\asd\Bossman\apps-local\facefusion")
+# Environment overrides, first one set wins: the tool-specific name, then the Bossman-wide one.
+FACEFUSION_DIR_ENV = ("PHOTO_UPSCALE_FACEFUSION_DIR", "BOSSMAN_FACEFUSION_DIR")
+
+
+def default_facefusion_dir() -> Path:
+    """``<Bossman root>/apps-local/facefusion`` for the current user (no machine-specific path in the source)."""
+    return Path.home() / "Bossman" / "apps-local" / "facefusion"
 
 
 def facefusion_dir() -> Path:
-    env = os.environ.get("PHOTO_UPSCALE_FACEFUSION_DIR")
-    if env:
-        return Path(env)
-    repo_root = Path(__file__).resolve().parents[2]  # <repo>/tools/photo_upscale/upscale.py
-    cand = repo_root.parent / "apps-local" / "facefusion"  # sibling "apps-local" of the repo checkout
-    if cand.exists():
-        return cand
-    return _DEFAULT_FF
+    """FaceFusion checkout: env override, else ``apps-local/facefusion`` beside this repo, else the home default.
+
+    "Beside this repo" means the first ancestor of the repository checkout that has an
+    ``apps-local/facefusion`` directory: the checkout's parent, or the Bossman root when the
+    checkout is a nested worktree.
+    """
+    for name in FACEFUSION_DIR_ENV:
+        env = os.environ.get(name)
+        if env:
+            return Path(env)
+    here = Path(__file__).resolve()  # <repo>/tools/photo_upscale/upscale.py -> parents[2] is <repo>
+    for ancestor in here.parents[3:]:
+        cand = ancestor / "apps-local" / "facefusion"
+        if cand.exists():
+            return cand
+    return default_facefusion_dir()
 
 
 def facefusion_python(ff: Optional[Path] = None) -> Optional[Path]:
