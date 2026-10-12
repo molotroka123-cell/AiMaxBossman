@@ -112,6 +112,34 @@ jobs:
         run: >-
           python -m pytest -q -n 4 --durations=15 --timeout=180 --timeout-method=signal
           --ignore=tests/telegram_calls --cov=bcc --cov-report=
+          --junitxml="${{ runner.temp }}/pytest-main-py${{ matrix.python }}.xml"
+
+      - name: Failed test ids as an annotation (diagnostic only; the logs of a public run need a login)
+        # Selection, flags and thresholds of the step above are unchanged (only --junitxml was added). This step reads
+        # the junit file and writes ONE annotation with the failed test ids and the first line of each message, which
+        # the check-run annotations API serves without authentication. It never changes the job result.
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          import os, sys, xml.etree.ElementTree as ET
+          path = os.path.join(r"${{ runner.temp }}", "pytest-main-py${{ matrix.python }}.xml")
+          if not os.path.exists(path):
+              print("::notice title=pytest junit::no junit file (the run ended before a result was written)")
+              sys.exit(0)
+          root = ET.parse(path).getroot()
+          bad = []
+          for case in root.iter("testcase"):
+              for kind in ("failure", "error"):
+                  node = case.find(kind)
+                  if node is not None:
+                      msg = (node.get("message") or "").replace("\n", " ")[:200]
+                      bad.append(f"{case.get('classname')}::{case.get('name')} [{kind}] {msg}")
+          text = " || ".join(bad)[:30000]
+          escaped = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+          print(f"failed {len(bad)}")
+          print(f"::error title=pytest failed ids ({len(bad)})::{escaped}")
+          PY
 
       - name: Pytest - Telegram Calls tests (serial, adds to the same coverage)
         # The call e2e/worker tests spawn real processes and are kept out of the parallel step; the two wall-clock-paced
