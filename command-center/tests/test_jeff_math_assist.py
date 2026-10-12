@@ -44,10 +44,13 @@ def test_safe_eval_is_exact(expr, expected):
     "1" + "*1" * 200, "2^1001", "2^-1001", "3**2**20",
 ])
 def test_safe_eval_refuses_everything_outside_the_subset(expr):
-    started = time.perf_counter()
+    # CPU time of this process, not wall clock: a refusal that computes a huge number burns CPU and
+    # still fails here, but a stalled shared CI runner no longer does (3**2**20: 0.4 ms locally on
+    # 3.12 and 3.14, yet 1.03 s and 1.10 s wall clock on loaded py3.14 runners, 11.10).
+    started = time.process_time()
     with pytest.raises(MathReject):
         safe_eval(expr)
-    assert time.perf_counter() - started < 1.0          # refused fast, no hang, no huge allocation
+    assert time.process_time() - started < 1.0          # refused fast, no hang, no huge allocation
 
 
 def test_a_big_but_allowed_power_stays_exact_and_bounded():
