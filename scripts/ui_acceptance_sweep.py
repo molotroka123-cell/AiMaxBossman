@@ -53,6 +53,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import os
 import re
 import socket
 import sys
@@ -637,6 +638,61 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
     return results
 
 
+class LoadSampler:
+    """CPU load while the sweep runs, so a timeout can be read for what it was.
+
+    12.10: two errors (a browser STOP past ten seconds, a page open past twenty) appeared only in the run that overlapped a
+    bundle verify and the Jeff proof; the same pages passed alone and under forty busy-loop processes. The
+    measurement stays as strict as before - an error is still an error - but the report now says how loaded the
+    machine was, so the next verdict can ask for a quiet re-run instead of guessing.  Additive: no verdict changes.
+    """
+
+    def __init__(self, interval: float = 2.0):
+        self.interval, self.samples, self._stop = interval, [], threading.Event()
+        self._thread = threading.Thread(target=self._run, name="sweep-load", daemon=True)
+        self.cpu_count = os.cpu_count() or 0
+        self.other_bossman_processes = self._count_other_bossman()
+
+    @staticmethod
+    def _count_other_bossman() -> int:
+        try:
+            import psutil
+            mine = os.getpid()
+            n = 0
+            for p in psutil.process_iter(["pid", "name", "cmdline"]):
+                cmd = " ".join(p.info.get("cmdline") or [])
+                if p.info["pid"] != mine and "python" in (p.info.get("name") or "").lower() and (
+                        "-m bcc" in cmd or "bossman" in cmd.lower()) and "ui_acceptance_sweep" not in cmd:
+                    n += 1
+            return n
+        except Exception:  # noqa: BLE001 - unmeasured is reported as -1, never as 0
+            return -1
+
+    def _run(self) -> None:
+        try:
+            import psutil
+            psutil.cpu_percent(interval=None)
+            while not self._stop.wait(self.interval):
+                self.samples.append(psutil.cpu_percent(interval=None))
+        except Exception:  # noqa: BLE001
+            pass
+
+    def start(self) -> "LoadSampler":
+        self._thread.start()
+        return self
+
+    def finish(self) -> dict:
+        self._stop.set()
+        self._thread.join(timeout=3)
+        s = self.samples
+        return {"cpu_count": self.cpu_count, "samples": len(s),
+                "cpu_mean_pct": round(sum(s) / len(s), 1) if s else None,
+                "cpu_max_pct": round(max(s), 1) if s else None,
+                "other_bossman_python_processes_at_start": self.other_bossman_processes,
+                "note": "measured with psutil during the run; an error recorded while cpu_max_pct >= 85 or other "
+                        "Bossman processes were running needs a quiet re-run before it is read as a product defect"}
+
+
 def utf8_console() -> None:
     """Печать не имеет права падать на кириллице.
 
@@ -674,11 +730,13 @@ def main() -> int:
 
     wanted = [p.strip() for p in args.pages.split(",") if p.strip()] or page_ids()
 
+    sampler = LoadSampler().start()
     app = LiveApp(data_dir).start()
     try:
         clicks = sweep(app, wanted, headed=args.headed)
     finally:
         app.stop()
+        environment = sampler.finish()
         if tmp is not None:
             tmp.cleanup()
 
@@ -700,6 +758,11 @@ def main() -> int:
         print("\nОШИБКИ:")
         for c in errs:
             print(f"  {c.page:20s} {c.label}: {c.detail[:120]}")
+        busy = (environment.get("cpu_max_pct") or 0) >= 85 or (
+            environment.get("other_bossman_python_processes_at_start") or 0) > 0
+        if busy:
+            print(f"  (загрузка машины: CPU max {environment.get('cpu_max_pct')}%, чужих процессов Bossman "
+                  f"{environment.get('other_bossman_python_processes_at_start')}: повторить на тихой машине)")
 
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
@@ -707,6 +770,7 @@ def main() -> int:
             "metric_version": SWEEP_METRIC_VERSION,
             "pages": wanted,
             "counts": counts,
+            "environment": environment,
             "clicks": [asdict(c) for c in clicks],
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\nзаписано: {args.json}")

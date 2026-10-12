@@ -994,6 +994,8 @@ class BrowserManager:
         self.profile_dir.mkdir(parents=True, exist_ok=True)
         self._pw: Any = None
         self._sessions: dict[int, BrowserRuntimeSession] = {}
+        self._closing: dict[int, asyncio.Future] = {}      # sessions whose close is still finishing
+        self.close_problems: dict[int, str] = {}           # why a background close was not clean
         self._lock = asyncio.Lock()
         self.preinstalled_executable = PREINSTALLED_CHROMIUM
         _MANAGERS.add(self)
@@ -1028,6 +1030,7 @@ class BrowserManager:
             executable = self.executable_path(headless=headless)
             if executable is None:
                 raise BrowserUnavailable(INSTALL_HINT)
+            await self._wait_closing()
             pw = await self._playwright()
             browser = None
             if policy.persistent_profile:
@@ -1241,22 +1244,66 @@ class BrowserManager:
     async def list_downloads(self, session_id: int) -> list[dict[str, Any]]:
         return list(self._session(session_id).downloads)
 
+    #: How long ``stop`` itself waits for a clean close before it answers. Playwright's ``close`` has no bound of its
+    #: own: on a saturated machine (verify + proof + sweep at once, 12.10) it took longer than the UI's ten seconds
+    #: and the STOP request hung. The session is unusable the moment ``stop`` begins; the close then finishes in
+    #: the background (and ``start`` waits for it, so a persistent profile is never opened twice).
+    CLOSE_WAIT_S = 6.0
+    #: Hard limit for the background close itself; past it the failure is recorded, not awaited forever.
+    CLOSE_HARD_S = 60.0
+
+    async def _close_session(self, sess: BrowserRuntimeSession) -> str:
+        """Close context then browser, each bounded. Returns "" or the reason the close was not clean."""
+        problems: list[str] = []
+        try:
+            await asyncio.wait_for(sess.context.close(), self.CLOSE_HARD_S)
+        except asyncio.TimeoutError:
+            problems.append(f"context.close не завершился за {int(self.CLOSE_HARD_S)} с")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            problems.append(f"context.close: {type(exc).__name__}")
+        finally:
+            if sess.browser is not None:
+                try:
+                    await asyncio.wait_for(sess.browser.close(), self.CLOSE_HARD_S)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    problems.append(f"browser.close: {type(exc).__name__}")
+        return "; ".join(problems)
+
     async def stop(self, session_id: int) -> None:
         sess = self._sessions.pop(session_id, None)
         if not sess:
             return
+        closing = asyncio.ensure_future(self._close_session(sess))
+        self._closing[session_id] = closing
+
+        def _done(task: asyncio.Future, sid: int = session_id) -> None:
+            self._closing.pop(sid, None)
+            try:
+                problem = "cancelled" if task.cancelled() else task.result()
+            except Exception as exc:  # noqa: BLE001
+                problem = type(exc).__name__
+            if problem:
+                self.close_problems[sid] = problem
+        closing.add_done_callback(_done)
         try:
-            await sess.context.close()
-        finally:
-            if sess.browser is not None:
-                try:
-                    await sess.browser.close()
-                except Exception:
-                    pass
+            await asyncio.wait_for(asyncio.shield(closing), self.CLOSE_WAIT_S)
+        except asyncio.TimeoutError:
+            pass                 # still closing in the background: the session is already gone for every caller
+
+    async def _wait_closing(self, timeout: float = 15.0) -> None:
+        """A new context must not open a profile that is still being closed."""
+        pending = [t for t in self._closing.values() if not t.done()]
+        if pending:
+            await asyncio.wait(pending, timeout=timeout)
 
     async def close(self) -> None:
         for sid in list(self._sessions):
             await self.stop(sid)
+        await self._wait_closing(self.CLOSE_WAIT_S + 4.0)
         if self._pw is not None:
             try:
                 await self._pw.stop()

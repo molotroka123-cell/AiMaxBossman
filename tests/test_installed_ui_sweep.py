@@ -160,6 +160,22 @@ def _report(tmp_path, capsys, clicks):
     return json.loads(out.read_text(encoding='utf-8')), capsys.readouterr().out
 
 
+def test_the_report_carries_machine_load_without_changing_the_verdict(tmp_path):
+    """12.10: a STOP past ten seconds and a page open past twenty only showed up while verify, the Jeff proof and the
+    sweep ran together. The load is recorded next to the verdict; the verdict itself is not softened by it."""
+    out = tmp_path / 'ui-sweep.json'
+    env = {'cpu_count': 32, 'samples': 40, 'cpu_mean_pct': 91.0, 'cpu_max_pct': 100.0,
+           'other_bossman_python_processes_at_start': 5}
+    sweep.write_report(out, 'a' * 40, {'source_sha': 'a' * 40}, ['command'],
+                       [_click('command', 'Закрыть', 'error', 'Не получен ответ в пределах тайм-аута действия')],
+                       environment=env)
+    report = json.loads(out.read_text(encoding='utf-8'))
+    assert report['status'] == 'REVIEW_REQUIRED' and report['environment'] == env
+    old = tmp_path / 'old.json'
+    sweep.write_report(old, 'a' * 40, {'source_sha': 'a' * 40}, ['command'], [_click('command', 'Ok', 'works')])
+    assert json.loads(old.read_text(encoding='utf-8'))['environment'] is None      # a driver without a sampler
+
+
 def test_a_control_needing_review_is_named_in_the_log_not_only_in_the_artifact(tmp_path, capsys):
     """`"error": 4` без имён нечем починить.
 

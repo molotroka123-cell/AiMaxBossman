@@ -72,7 +72,7 @@ def evidence_binding(sha: str) -> dict:
             'harness_sha': os.environ.get('BOSSMAN_HARNESS_SHA') or None}
 
 
-def write_report(output, sha, identity, pages, clicks, metric_version=None):
+def write_report(output, sha, identity, pages, clicks, metric_version=None, environment=None):
     counts = {}
     for click in clicks:
         counts[click.verdict] = counts.get(click.verdict, 0) + 1
@@ -81,6 +81,9 @@ def write_report(output, sha, identity, pages, clicks, metric_version=None):
               'binding': evidence_binding(sha),
               'identity': identity, 'pages': pages, 'counts': counts, 'metric_version': metric_version,
               'scope': 'Visible button classes in fresh empty app; nested dialogs, owner accounts and model work need separate scenarios.',
+              # Machine load while the sweep ran (cpu mean/max, other Bossman processes). Additive: the verdict is
+              # unchanged, but a timeout recorded under load is read as "re-run on a quiet machine", not guessed.
+              'environment': environment,
               'clicks': [asdict(click) for click in clicks]}
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=True, indent=2), encoding='utf-8')
@@ -206,11 +209,17 @@ def main() -> int:
                 client, _ = connect(process, data, port)
                 app = SimpleNamespace(url=f'http://127.0.0.1:{port}',
                     svc=SimpleNamespace(auth=SimpleNamespace(token=(data / TOKEN_FILE).read_text().strip())))
-                clicks = module.sweep(app, pages, headed=False)
+                sampler_class = getattr(module, 'LoadSampler', None)
+                sampler = sampler_class().start() if callable(sampler_class) else None
+                try:
+                    clicks = module.sweep(app, pages, headed=False)
+                finally:
+                    environment = sampler.finish() if sampler is not None else None
                 # Preserve observations even if process/data cleanup fails.
                 # The failed CI job still prevents a successful freeze.
                 write_report(args.output, args.expected_sha, identity, pages, clicks,
-                             metric_version=getattr(module, 'SWEEP_METRIC_VERSION', None))
+                             metric_version=getattr(module, 'SWEEP_METRIC_VERSION', None),
+                             environment=environment)
             finally:
                 try:
                     if client is not None:
