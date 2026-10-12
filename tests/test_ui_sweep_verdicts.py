@@ -108,4 +108,3 @@ def test_buttons_inside_a_closed_details_are_reported_as_closed_not_dropped():
 def test_buttons_inside_an_opened_details_are_still_swept():
     assert _controls_of(_DISCLOSURE, "document.getElementById('list').open = true", with_closed=True) == [
         ('Always', False), ('Leaf', False)]
-
