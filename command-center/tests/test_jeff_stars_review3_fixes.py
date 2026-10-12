@@ -177,7 +177,11 @@ def test_1_an_unavailable_ceiling_is_logged_and_the_parse_still_works(monkeypatc
         assert dl.extract_sections("a.txt", "Срок оплаты — десять дней.".encode())[0][1].startswith("Срок")
     if os.name == "nt":
         assert any("resource ceiling not applied" in r.getMessage() for r in caplog.records)
-    assert isinstance(dl.apply_child_limits(), str)                    # reports a reason, never raises
+    # In a CHILD: the function limits its own process (RLIMIT_AS / RLIMIT_CPU on POSIX, a Job Object on Windows).
+    # Called in the pytest worker it capped the whole xdist worker at 1 GiB / 30 CPU seconds on Linux CI and killed
+    # it (and every Chromium it launched) - the red `pytest (py3.x)` of 94e40cd1.
+    out = run_python("from bcc.pit import doc_library as dl\nprint(isinstance(dl.apply_child_limits(), str))")
+    assert out.returncode == 0 and out.stdout.strip() == "True", out.stderr   # reports a reason, never raises
 
 
 # ===================================================================================================== 2
