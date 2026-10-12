@@ -20,6 +20,10 @@ tools/windows_bundle_build_tools.txt -text
 docs/v8/owner-final-run/** -text
 .agents/skills/** -text
 
+# Licence texts the Windows bundle copies are byte-identical to their upstream (sha256 in
+# packaging/licenses/README.md): no whitespace rewrite and no EOL conversion.
+packaging/licenses/** -whitespace -text
+
 # Imported skills are byte-identical to their pinned upstream (sha256 in provenance.json):
 # no whitespace rewrite or hygiene check on them, and no EOL conversion.
 command-center/bcc/skills_catalog/** -whitespace -text

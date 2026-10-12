@@ -84,6 +84,11 @@ on:
       - 'tools/acceptance_registry.json'
       # Замок входов сборки (OA-03): новая запись — новая сборка.
       - 'tools/windows_bundle_lock.py'
+      # Помощники сборщика (чистота дерева, лицензионные уведомления) и тексты
+      # лицензий, которые они копируют: их правка меняет архив.
+      - 'tools/windows_bundle_hygiene.py'
+      - 'tools/windows_bundle_notices.py'
+      - 'packaging/licenses/**'
       - 'tools/windows_bundle_lock.json'
       - 'tools/windows_bundle_lock.txt'
       - 'tools/windows_bundle_build_tools.txt'

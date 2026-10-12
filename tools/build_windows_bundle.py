@@ -37,7 +37,17 @@ Honesty rules this file obeys:
   the freeze aggregator refuses to release such an archive;
 * the ``release`` profile (the default) fails on a missing FFmpeg instead of
   writing it into ``required_downloads``: a standalone product does not ask
-  the owner's first run to fetch its media tools.
+  the owner's first run to fetch its media tools;
+* the output tree is made clean BEFORE MANIFEST.json is computed
+  (``tools/windows_bundle_hygiene.py``): Playwright's ``browser/.links`` (it holds
+  the builder's absolute path) and zero-byte ``*.whl`` files are removed, no shipped
+  text file may contain the output directory or the user profile path, README.md
+  is written first, and every file except MANIFEST.json/SHA256SUMS must be listed;
+* LICENSES/ is complete or says so (``tools/windows_bundle_notices.py``): the
+  corresponding-source pointer for the GPL FFmpeg (``LICENSES/ffmpeg/SOURCE_OFFER.md``,
+  a missing field fails the release profile), a notice per redistributed component,
+  and one table row per Python distribution. Licence text is copied from the tree or
+  from ``packaging/licenses``, never composed: what is absent is ``NOT RECORDED``.
 """
 from __future__ import annotations
 
@@ -60,7 +70,9 @@ from terminal_launchers import TERMINAL_LAUNCHERS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
+import windows_bundle_hygiene as hygiene  # noqa: E402
 import windows_bundle_lock as lockmod  # noqa: E402
+import windows_bundle_notices as notices  # noqa: E402
 
 # python.org publishes an immutable embeddable build per patch release. The
 # version is taken from the interpreter doing the build, so the wheels that pip
@@ -1018,14 +1030,21 @@ def write_licenses(licenses: Path, contents: dict, *, sha: str) -> None:
         "listed in the browser directory.\n"
         "* ffmpeg/ffprobe under `media/`, when bundled — the licence of the build named "
         "in MANIFEST.json `contents.media.source`. Check that build's terms before "
-        "redistributing this archive outside your organisation.\n",
+        "redistributing this archive outside your organisation. Where the corresponding "
+        "source of that GPL build can be obtained: `LICENSES/ffmpeg/SOURCE_OFFER.md`.\n"
+        "* Component notices: `LICENSES/chromium/`, `LICENSES/playwright-winldd/`, "
+        "`LICENSES/codicon/`, `LICENSES/silero-vad/` — each `NOTICE.md` states the SPDX id, "
+        "the upstream and whether the licence text is bundled or `NOT RECORDED`.\n"
+        "* `LICENSES/python-distributions.md` — one row per installed Python distribution "
+        "(licence declared in its METADATA, licence file present or `NOT RECORDED`).\n",
         encoding="utf-8")
 
 
 # ------------------------------------------------------------------ assemble
 
 def assemble(out: Path, sha: str, *, wheels: Path, work: Path,
-             ffmpeg_zip: str | None, lock: dict | None = None) -> tuple[dict, list[dict]]:
+             ffmpeg_zip: str | None, lock: dict | None = None,
+             profile: str = "release") -> tuple[dict, list[dict]]:
     for name in BUNDLE_DIRS:
         (out / name).mkdir(parents=True, exist_ok=True)
     contents: dict = {}
@@ -1045,7 +1064,65 @@ def assemble(out: Path, sha: str, *, wheels: Path, work: Path,
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(body.replace("\n", "\r\n"), encoding="utf-8")
     write_licenses(out / "LICENSES", contents, sha=sha)
+    # After the browser, media and site-packages trees are final: the source offer for the GPL
+    # FFmpeg (a missing field fails the release profile), component notices, python table.
+    contents["notices"] = notices.install_notices(out, lock=lock, media=media, profile=profile)
     return contents, required
+
+
+def readme_text(sha: str, when: str) -> str:
+    return (
+        f"# BOSSMAN for Windows\n\nBuild `{sha}`, {when}.\n\n"
+        "Unzip anywhere, then double-click **Start-Bossman.cmd**.\n"
+        "There is nothing else to install: the Python runtime, every dependency, "
+        "the browser and the media tools are inside this folder.\n\n"
+        "**Evening-Test.cmd** runs the owner acceptance for exactly this build and "
+        "prints the build SHA, platform, doctor state and the final verdict.\n\n"
+        "`app-support/owner-final-run/` holds the owner's own run: start with "
+        "`README_RU.md` there. Those files are listed in MANIFEST.json, and "
+        "Evening-Test.cmd fails if any of them is missing or altered.\n\n"
+        "The current offline first-run protocol is in `OWNER_ACCEPTANCE.md` and "
+        "`tests/owner_hardware/manifest.json` (HW-01..HW-13). "
+        "`owner-acceptance.ps1` checks the installed core; it does not certify all hardware cases.\n\n"
+        "Your data lives in `%LOCALAPPDATA%\\Bossman\\CommandCenter` and survives "
+        "replacing this folder with a newer build.\n")
+
+
+def shipped_files(out: Path) -> list[dict]:
+    """Path, size and SHA-256 of every file in the tree (MANIFEST.json/SHA256SUMS describe the rest)."""
+    return [{"path": p.relative_to(out).as_posix(), "bytes": p.stat().st_size, "sha256": sha256_file(p)}
+            for p in sorted(out.rglob("*"))
+            if p.is_file() and p.relative_to(out).as_posix() not in hygiene.MANIFEST_SELF]
+
+
+def seal_output(out: Path, *, sha: str, when: str, contents: dict, required: list[dict],
+                lock: dict | None, profile: str,
+                builder_paths: dict[str, Path]) -> tuple[dict, list[dict]]:
+    """README, tree hygiene, MANIFEST.json and SHA256SUMS, in the one order that keeps them consistent.
+
+    README.md is written BEFORE the file list is taken (it used to be written after, so the
+    manifest never listed it); ``Playwright .links`` and zero-byte wheels are removed and the
+    text-file path scan has passed BEFORE a single hash is computed; and the manifest is
+    checked against the tree once it is written.
+    """
+    (out / "README.md").write_text(readme_text(sha, when), encoding="utf-8")
+    runtime = contents.get("runtime") or {}
+    first_party = {hygiene.normalize_name(str(wheel).split("-")[0]) for wheel in runtime.get("bossman_wheels", [])}
+    third_party = [item["name"] for item in runtime.get("packages", [])
+                   if hygiene.normalize_name(str(item.get("name", ""))) not in first_party]
+    contents["hygiene"] = hygiene.finalize_tree(out, builder_paths, third_party_distributions=third_party)
+    files = shipped_files(out)
+    manifest = manifest_for(sha=sha, when=when, files=files, contents=contents,
+                            checks={"installed_acceptance": "NOT_RUN"},
+                            required_downloads=required)
+    manifest["build_inputs"] = build_inputs_for(lock, profile, contents)
+    manifest["oss_directions"] = oss_directions_for(contents["runtime"].get("packages", []))
+    (out / "MANIFEST.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    (out / "SHA256SUMS").write_text(
+        "".join(f"{f['sha256']}  {f['path']}\n" for f in files), encoding="utf-8")
+    hygiene.assert_manifest_complete(out, files)
+    return manifest, files
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1075,11 +1152,20 @@ def main(argv: list[str] | None = None) -> int:
     out = out_root / bundle_name(sha)
     if out.exists():
         raise SystemExit(f"output already exists, choose another --out: {out}")
+
+    lock = lockmod.load()
+    if lock and args.profile == "release":
+        # Fail before the long build, not after it: the GPL ffmpeg must come with a written
+        # pointer to its corresponding source, and that pointer is derived from the lock.
+        gap = notices.missing_ffmpeg_fields(notices.ffmpeg_source_fields(lock, None))
+        if gap:
+            raise SystemExit("BOSSMAN_WINDOWS_BUNDLE=FAIL release profile: tools/windows_bundle_lock.json does "
+                             f"not record the FFmpeg corresponding source ({notices.NOT_RECORDED}: "
+                             + ", ".join(gap) + "); run `python tools/windows_bundle_lock.py record`")
     out.mkdir(parents=True)
     work = out_root / "_work"
     work.mkdir(parents=True, exist_ok=True)
 
-    lock = lockmod.load()
     print(f"building {out.name} from {sha} "
           f"({'inputs locked: ' + lock['recorded_at'] if lock else 'BOSSMAN_BUILD_INPUTS=UNLOCKED'})", flush=True)
     wheels = work / "wheels"
@@ -1088,7 +1174,8 @@ def main(argv: list[str] | None = None) -> int:
         # not by a setuptools pip would resolve at build time.
         local.build_wheels(wheels, snapshot, build_isolation=not lock)
 
-    contents, required = assemble(out, sha, wheels=wheels, work=work, ffmpeg_zip=args.ffmpeg_zip, lock=lock)
+    contents, required = assemble(out, sha, wheels=wheels, work=work, ffmpeg_zip=args.ffmpeg_zip, lock=lock,
+                                  profile=args.profile)
     if args.profile == "release" and required:
         raise SystemExit("BOSSMAN_WINDOWS_BUNDLE=FAIL release profile: the archive would still have to fetch "
                          + ", ".join(str(item.get("component")) for item in required)
@@ -1098,35 +1185,11 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("source changed during the build; artifact is not exact-SHA evidence")
 
     when = datetime.now(timezone.utc).isoformat()
-    build_inputs = build_inputs_for(lock, args.profile, contents)
-    files = [{"path": p.relative_to(out).as_posix(), "bytes": p.stat().st_size,
-              "sha256": sha256_file(p)}
-             for p in sorted(out.rglob("*")) if p.is_file()]
-    manifest = manifest_for(sha=sha, when=when, files=files, contents=contents,
-                            checks={"installed_acceptance": "NOT_RUN"},
-                            required_downloads=required)
-    manifest["build_inputs"] = build_inputs
-    manifest["oss_directions"] = oss_directions_for(contents["runtime"].get("packages", []))
-    (out / "MANIFEST.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    (out / "SHA256SUMS").write_text(
-        "".join(f"{f['sha256']}  {f['path']}\n" for f in files), encoding="utf-8")
-    (out / "README.md").write_text(
-        f"# BOSSMAN for Windows\n\nBuild `{sha}`, {when}.\n\n"
-        "Unzip anywhere, then double-click **Start-Bossman.cmd**.\n"
-        "There is nothing else to install: the Python runtime, every dependency, "
-        "the browser and the media tools are inside this folder.\n\n"
-        "**Evening-Test.cmd** runs the owner acceptance for exactly this build and "
-        "prints the build SHA, platform, doctor state and the final verdict.\n\n"
-        "`app-support/owner-final-run/` holds the owner's own run: start with "
-        "`README_RU.md` there. Those files are listed in MANIFEST.json, and "
-        "Evening-Test.cmd fails if any of them is missing or altered.\n\n"
-        "The current offline first-run protocol is in `OWNER_ACCEPTANCE.md` and "
-        "`tests/owner_hardware/manifest.json` (HW-01..HW-13). "
-        "`owner-acceptance.ps1` checks the installed core; it does not certify all hardware cases.\n\n"
-        "Your data lives in `%LOCALAPPDATA%\\Bossman\\CommandCenter` and survives "
-        "replacing this folder with a newer build.\n",
-        encoding="utf-8")
+    # The builder's own locations: neither may appear in any shipped text file.
+    manifest, files = seal_output(
+        out, sha=sha, when=when, contents=contents, required=required, lock=lock, profile=args.profile,
+        builder_paths={hygiene.OUTPUT_LABEL: out_root, hygiene.PROFILE_LABEL: Path.home()})
+    build_inputs = manifest["build_inputs"]
 
     total = sum(f["bytes"] for f in files)
     print(f"BOSSMAN_WINDOWS_BUNDLE=BUILT files={len(files)} bytes={total} "
@@ -1157,7 +1220,8 @@ def build_inputs_for(lock: dict | None, profile: str, contents: dict) -> dict:
             "*.dist-info/direct_url.json of the Bossman wheels is rewritten to a neutral file:///build/<wheel> URL (no builder path)",
             "bytecode is unchecked-hash and identical for identical sources; files compileall could not "
             "compile keep pip's timestamp-based .pyc",
-            "MANIFEST.json built_at and the zip entry order are the only build-time values in the archive",
+            "MANIFEST.json built_at, the README.md that prints it and the zip entry order are the only "
+            "build-time values in the archive",
         ],
     }
 
