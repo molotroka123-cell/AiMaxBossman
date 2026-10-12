@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +23,10 @@ ENV_FLAG = "BOSSMAN_JEFF_PAID_DOCS"
 OWNER_DOC_LIMIT = 500
 PARSES_PER_WINDOW = 6
 PARSE_WINDOW_SECONDS = 300.0
+LOCK_WAIT_SECONDS = 5.0     # /deldoc and /delete_me wait this long for a commit that is writing files
+MAX_OPEN_ORDERS_RU = "слишком много открытых счетов: оплатите или подождите час"
+KEPT_REQUEST_RU = "Этот запрос засчитан: дневной лимит возвратов исчерпан."
+UPLOAD_BUSY_RU = "Сейчас идёт сохранение документа. Повторите команду через минуту."
 #: Formats the document assistant accepts as files (images stay with the media module).
 DOC_SUFFIXES = frozenset({".txt", ".md", ".csv", ".json", ".log", ".yaml", ".yml", ".xml", ".html",
                           ".docx", ".xlsx", ".pptx", ".epub", ".pdf"})
@@ -83,22 +88,59 @@ class PaidDocs:
     ledger: StarsLedger = field(init=False)
     test_env: bool = False
     _parses: dict = field(default_factory=dict, init=False, repr=False)
+    _guard: object = field(default_factory=threading.Lock, init=False, repr=False)
+    _locks: dict = field(default_factory=dict, init=False, repr=False)
+    _generations: dict = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.ledger = StarsLedger(Path(self.data_dir) / "pit-v1.7" / "stars-ledger.sqlite3")
+        # A crash between "request reserved" and "answer delivered" must not stay charged. Only rows older than the
+        # sweep age are touched: a younger one may be a turn another process is running right now.
+        self.ledger.sweep_unfinished()
 
     def _parse_allowed(self, person_key: str, now: float) -> bool:
         """At most PARSES_PER_WINDOW document parses per person per window: parsing is the expensive step."""
-        stamps = [t for t in self._parses.get(person_key, []) if now - t < PARSE_WINDOW_SECONDS]
-        if len(stamps) >= PARSES_PER_WINDOW:
+        with self._guard:
+            stamps = [t for t in self._parses.get(person_key, []) if now - t < PARSE_WINDOW_SECONDS]
+            if len(stamps) >= PARSES_PER_WINDOW:
+                self._parses[person_key] = stamps
+                return False
+            stamps.append(now)
             self._parses[person_key] = stamps
-            return False
-        stamps.append(now)
-        self._parses[person_key] = stamps
-        return True
+            return True
 
     def library(self, person_key: str) -> DocLibrary:
         return DocLibrary(self.vault.person_dir(person_key) / "docs")
+
+    # -- one writer per person --------------------------------------------------------------
+    def person_lock(self, person_key: str) -> threading.Lock:
+        """The lock that serialises the index writes of one person's library (add / remove / purge). It is held for
+        the short commit only, never while a file is being parsed."""
+        with self._guard:
+            lock = self._locks.get(person_key)
+            if lock is None:
+                lock = self._locks[person_key] = threading.Lock()
+            return lock
+
+    def generation(self, person_key: str) -> int:
+        """Bumped by ``forget_person``: an upload that started before the bump must not store anything."""
+        with self._guard:
+            return self._generations.get(person_key, 0)
+
+    def forget_person(self, person_key: str) -> None:
+        """``/delete_me``: invalidate in-flight uploads first, then purge the library under the person's lock.
+        Called BEFORE the vault directory is removed."""
+        with self._guard:
+            self._generations[person_key] = self._generations.get(person_key, 0) + 1
+        lock = self.person_lock(person_key)
+        got = lock.acquire(timeout=LOCK_WAIT_SECONDS)
+        try:
+            self.library(person_key).purge()
+        except OSError:
+            pass                                               # the directory removal that follows takes the rest
+        finally:
+            if got:
+                lock.release()
 
     # -- texts --------------------------------------------------------------------------------
     @staticmethod
@@ -193,6 +235,9 @@ class PaidDocs:
             if status == "duplicate":
                 if refunded_now:
                     return "Этот платёж был возвращён, доступ по нему закрыт. Состояние: /plan."
+                if payment and payment["status"] == "unmatched":        # the first booking kept the money, no access
+                    return ("Платёж получен, но не сопоставлен со счётом. Доступ не выдан автоматически: "
+                            "напишите /paysupport — владелец разберётся или вернёт ⭐.")
                 state = self.plan_text(person_key) if person_key else "Состояние: /plan."
                 return "Платёж получен и учтён один раз — доступ не дублируется.\n\n" + state
             return ("Платёж получен, но не сопоставлен со счётом. Доступ не выдан автоматически: "
@@ -215,10 +260,24 @@ class PaidDocs:
             return ("Слишком много загрузок подряд. Подождите несколько минут и пришлите файл снова.",
                     False, "rate_limited")
         lib = self.library(person_key)
+        ensure = getattr(self.vault, "ensure", None)
+        if ensure is not None:                                  # the person's own folder, before the generation is read
+            ensure(person_key)
+        else:
+            lib.root.parent.mkdir(parents=True, exist_ok=True)
+        generation = self.generation(person_key)
+        lock = self.person_lock(person_key)
         try:
-            rec, new = lib.add(name, data, limit=self.doc_limit(person_key, owner=owner, now=now), now=now)
+            rec, new = lib.add(name, data, limit=self.doc_limit(person_key, owner=owner, now=now), now=now,
+                               lock=lock, valid=lambda: self.generation(person_key) == generation)
         except LibraryError as exc:
             return exc.text, False, exc.code
+        if new and self.generation(person_key) != generation:
+            # /delete_me ran between the commit and here: what this upload stored goes too (only this document: a
+            # newer upload of the same person, made after the deletion, is not ours to remove).
+            with lock:
+                lib.remove(rec.id)
+            return ("Профиль был удалён во время загрузки — документ не сохранён.", False, "gone")
         number = [d.id for d in lib.list()].index(rec.id) + 1
         head = (f"Документ №{number} «{rec.name}» сохранён: {rec.chars} симв., {rec.chunks} фрагм."
                 if new else f"Такой документ уже есть: №{number} «{rec.name}».")
@@ -233,14 +292,21 @@ class PaidDocs:
         return "\n".join(lines)
 
     def delete_document(self, person_key: str, number_text: str) -> str:
-        lib = self.library(person_key)
-        docs = lib.list()
-        number = _doc_number(number_text, len(docs))
-        if number is None:
-            return "Укажите номер документа из /docs: /deldoc <номер>."
-        doc = docs[number - 1]
-        lib.remove(doc.id)
-        return f"Документ «{doc.name}» удалён."
+        """Blocking (a short lock wait): the runtime calls it through ``asyncio.to_thread``, never on the loop."""
+        lock = self.person_lock(person_key)
+        if not lock.acquire(timeout=LOCK_WAIT_SECONDS):
+            return UPLOAD_BUSY_RU
+        try:
+            lib = self.library(person_key)
+            docs = lib.list()
+            number = _doc_number(number_text, len(docs))
+            if number is None:
+                return "Укажите номер документа из /docs: /deldoc <номер>."
+            doc = docs[number - 1]
+            lib.remove(doc.id)
+            return f"Документ «{doc.name}» удалён."
+        finally:
+            lock.release()
 
     def _refusal(self, reason: str) -> str:
         pkg = self.ledger.package
@@ -295,6 +361,7 @@ class PaidDocs:
 
     def finish(self, prepared: Prepared, answer: str) -> str:
         """Verify citations against what was retrieved and append the sources the answer really used."""
+        self.ledger.finalize(prepared.usage_id)                # settled as charged: the crash sweep leaves it alone
         n = len(prepared.hits)
         cited: list[int] = []
 
@@ -321,9 +388,15 @@ class PaidDocs:
                 lines.append(f"[{idx}] {hit.label} — «{_snippet(hit.text, asked, 140)}»")
         return "\n".join(lines)
 
-    def abort(self, prepared: Prepared) -> None:
-        """No answer was produced: the request is given back."""
-        self.ledger.void(prepared.usage_id)
+    def abort(self, prepared: Prepared, *, model_text: bool = False) -> bool:
+        """No answer was produced: the request is given back. ``model_text`` says a model DID write something that
+        was replaced afterwards (self-disclosure, garbage): only then is the per-day bound on given-back requests
+        applied. Returns whether it was given back."""
+        return self.ledger.void(prepared.usage_id, bounded=model_text)
+
+    def keep(self, prepared: Prepared) -> None:
+        """A model answered but the turn did not complete (cancelled afterwards): the request stays charged."""
+        self.ledger.finalize(prepared.usage_id)
 
     # -- owner view ---------------------------------------------------------------------------
     def payments_text(self, now: float | None = None) -> str:

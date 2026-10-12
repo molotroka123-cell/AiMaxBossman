@@ -205,7 +205,9 @@ def test_review10_a_refund_of_an_earlier_package_shortens_a_stacked_one_back(tmp
     assert out.valid_until == pytest.approx(t0 + 2 * DOCS30.days * DAY)
     ledger.record_refund("s1", now=t0 + 2 * DAY)
     ent = ledger.entitlement(key, now=t0 + 2 * DAY)
-    assert ent["valid_until"] == pytest.approx(t0 + DAY + DOCS30.days * DAY)    # its own 30 days, not 60
+    # the refunded package ran for 2 days, so the later one starts when that stopped and gets its OWN full 30 days
+    # (not 60: the refunded days are not added; not shorter: it never gives less than was paid for)
+    assert ent["valid_until"] == pytest.approx(t0 + 2 * DAY + DOCS30.days * DAY)
     assert ent["paid_requests_left"] == DOCS30.requests
 
 

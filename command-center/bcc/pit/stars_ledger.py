@@ -55,7 +55,8 @@ DAILY_CAP_PAID = 60         # one person cannot burn the whole package (or the m
 ORDER_TTL_SECONDS = 3600.0
 MAX_VOIDS_PER_DAY = 20      # a request given back (no model answer) is free only this often per day
 MAX_OPEN_TICKETS = 5        # per person
-MAX_PENDING_ORDERS = 10     # per person
+MAX_PENDING_ORDERS = 10     # per person, counted over UNEXPIRED orders only
+STALE_USAGE_SECONDS = 900.0  # a request still unsettled after this long belongs to a crashed turn
 MAX_USD = 1e9
 MAX_STARS = 10 ** 12
 
@@ -73,7 +74,7 @@ CREATE TABLE IF NOT EXISTS grants(
 CREATE INDEX IF NOT EXISTS grants_person ON grants(person_key, status);
 CREATE TABLE IF NOT EXISTS usage(
   id INTEGER PRIMARY KEY AUTOINCREMENT, person_key TEXT NOT NULL, kind TEXT NOT NULL, pool TEXT NOT NULL,
-  charge_id TEXT, ts REAL NOT NULL, voided INTEGER NOT NULL DEFAULT 0);
+  charge_id TEXT, ts REAL NOT NULL, voided INTEGER NOT NULL DEFAULT 0, final INTEGER NOT NULL DEFAULT 1);
 CREATE INDEX IF NOT EXISTS usage_person ON usage(person_key, pool, voided);
 CREATE TABLE IF NOT EXISTS tickets(
   id INTEGER PRIMARY KEY AUTOINCREMENT, person_key TEXT NOT NULL, user_id INTEGER NOT NULL, text TEXT NOT NULL,
@@ -112,6 +113,10 @@ class Consumed:
     reason: str = ""            # no_quota | expired | daily_cap
 
 
+class TooManyOrders(ValueError):
+    """The person already has MAX_PENDING_ORDERS open (unexpired) invoices."""
+
+
 class StarsLedger:
     def __init__(self, path: Path, *, package: Package = DOCS30):
         self.path = Path(path)
@@ -123,6 +128,10 @@ class StarsLedger:
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA synchronous=FULL")
         self._db.executescript(_SCHEMA)
+        columns = {row["name"] for row in self._db.execute("PRAGMA table_info(usage)").fetchall()}
+        if "final" not in columns:
+            # A ledger written by an earlier build: its rows are settled history, never "in progress".
+            self._db.execute("ALTER TABLE usage ADD COLUMN final INTEGER NOT NULL DEFAULT 1")
 
     def close(self) -> None:
         with self._lock:
@@ -144,13 +153,16 @@ class StarsLedger:
 
     # -- orders / payments --------------------------------------------------------------------
     def create_order(self, person_key: str, user_id: int, now: float | None = None) -> str:
+        """Open one invoice. An order that already passed pre-checkout is never evicted to make room: only EXPIRED
+        orders are cleaned up, and a person with MAX_PENDING_ORDERS unexpired ones gets ``TooManyOrders``."""
         now = time.time() if now is None else now
         payload = f"jd1:{self.package.id}:{secrets.token_hex(12)}"          # 1..128 bytes, opaque to the user
         with self._tx() as db:
             db.execute("DELETE FROM orders WHERE status='pending' AND expires_at<?", (now - 7 * DAY,))
-            db.execute("DELETE FROM orders WHERE payload IN (SELECT payload FROM orders WHERE person_key=? AND "
-                       "status='pending' ORDER BY created_at DESC LIMIT -1 OFFSET ?)",
-                       (person_key, MAX_PENDING_ORDERS - 1))
+            open_now = db.execute("SELECT COUNT(*) AS n FROM orders WHERE person_key=? AND status='pending' "
+                                  "AND expires_at>=?", (person_key, now)).fetchone()["n"]
+            if open_now >= MAX_PENDING_ORDERS:
+                raise TooManyOrders(person_key[:8])
             db.execute("INSERT INTO orders VALUES(?,?,?,?,?,?,?,?)",
                        (payload, person_key, int(user_id), self.package.id, self.package.stars, "pending",
                         now, now + ORDER_TTL_SECONDS))
@@ -239,14 +251,25 @@ class StarsLedger:
     @staticmethod
     def _chain(db, person_key: str) -> list[tuple]:
         """Non-revoked grants with their effective end. Each grant starts when it was paid or when the previous one
-        ends, whichever is later, so a refund of an earlier package shortens the later one back to its own length."""
-        rows = db.execute("SELECT * FROM grants WHERE person_key=? AND status='active' ORDER BY valid_from, charge_id",
-                          (person_key,)).fetchall()
+        ends, whichever is later, so a refund of an earlier package shortens the later one back to its own length.
+
+        A REVOKED grant still occupies the time it really ran: from its start to ``min(its end, refunded_at)``. So
+        refunding a package that has already elapsed (or is half way) never makes a later package start earlier and
+        end in the past; a package refunded before it even started occupies nothing."""
+        rows = db.execute(
+            "SELECT g.*, p.refunded_at AS refunded_at FROM grants g LEFT JOIN payments p ON p.charge_id=g.charge_id "
+            "WHERE g.person_key=? AND g.status IN ('active','revoked') ORDER BY g.valid_from, g.charge_id",
+            (person_key,)).fetchall()
         out, cursor = [], 0.0
         for g in rows:
-            end = max(g["valid_from"], cursor) + g["days"] * DAY
-            out.append((g, end))
-            cursor = end
+            start = max(g["valid_from"], cursor)
+            end = start + g["days"] * DAY
+            if g["status"] == "active":
+                out.append((g, end))
+                cursor = end
+            else:
+                refunded_at = g["refunded_at"]
+                cursor = start if refunded_at is None else min(end, max(start, float(refunded_at)))
         return out
 
     def _active_grants(self, db, person_key: str, now: float):
@@ -274,10 +297,10 @@ class StarsLedger:
     def consume(self, person_key: str, kind: str, now: float | None = None, *, owner: bool = False) -> Consumed:
         """Reserve one request atomically. The caller ``void``s it if no answer was produced."""
         now = time.time() if now is None else now
+        sql = "INSERT INTO usage(person_key,kind,pool,charge_id,ts,final) VALUES(?,?,?,?,?,?)"
         with self._tx() as db:
             if owner:
-                cur = db.execute("INSERT INTO usage(person_key,kind,pool,charge_id,ts) VALUES(?,?,?,?,?)",
-                                 (person_key, kind, "owner", None, now))
+                cur = db.execute(sql, (person_key, kind, "owner", None, now, 1))        # nothing to settle
                 return Consumed(True, "owner", cur.lastrowid)
             for g, _end in self._active_grants(db, person_key, now):
                 used = db.execute("SELECT COUNT(*) AS n FROM usage WHERE charge_id=? AND voided=0",
@@ -288,32 +311,53 @@ class StarsLedger:
                                    " AND ts>=?", (person_key, now - (now % DAY))).fetchone()["n"]
                 if today >= DAILY_CAP_PAID:
                     return Consumed(False, reason="daily_cap")
-                cur = db.execute("INSERT INTO usage(person_key,kind,pool,charge_id,ts) VALUES(?,?,?,?,?)",
-                                 (person_key, kind, "paid", g["charge_id"], now))
+                cur = db.execute(sql, (person_key, kind, "paid", g["charge_id"], now, 0))
                 return Consumed(True, "paid", cur.lastrowid)
             trial_used = db.execute("SELECT COUNT(*) AS n FROM usage WHERE person_key=? AND pool='trial'"
                                     " AND voided=0", (person_key,)).fetchone()["n"]
             if trial_used < TRIAL_REQUESTS:
-                cur = db.execute("INSERT INTO usage(person_key,kind,pool,charge_id,ts) VALUES(?,?,?,?,?)",
-                                 (person_key, kind, "trial", None, now))
+                cur = db.execute(sql, (person_key, kind, "trial", None, now, 0))
                 return Consumed(True, "trial", cur.lastrowid)
             expired = any(end <= now for _, end in self._chain(db, person_key))
             return Consumed(False, reason="expired" if expired else "no_quota")
 
-    def void(self, usage_id: int, now: float | None = None) -> bool:
-        """Give one request back (no model answered). Bounded per person per day: a trigger that always makes the
-        model not answer must not become an unlimited free path. Returns whether it was given back."""
+    def finalize(self, usage_id: int) -> None:
+        """The request is settled as charged (an answer was delivered): the crash sweep must leave it alone."""
+        with self._tx() as db:
+            db.execute("UPDATE usage SET final=1 WHERE id=?", (int(usage_id),))
+
+    def void(self, usage_id: int, now: float | None = None, *, bounded: bool = True) -> bool:
+        """Give one request back (no model answered); the request is settled either way.
+
+        ``bounded`` is for the case where a model DID produce text that was then replaced (self-disclosure, garbage):
+        a trigger that always makes the model say that must not become an unlimited free path, so only
+        MAX_VOIDS_PER_DAY of those per person per day are given back. With ``bounded=False`` (no model text at all:
+        outage, flood/safety early reply) the request is always given back and is not counted against the bound.
+        Returns whether it was given back."""
         now = time.time() if now is None else now
         with self._tx() as db:
             row = db.execute("SELECT person_key, voided FROM usage WHERE id=?", (int(usage_id),)).fetchone()
             if row is None or row["voided"]:
                 return False
-            given = db.execute("SELECT COUNT(*) AS n FROM usage WHERE person_key=? AND voided=1 AND ts>=?",
-                               (row["person_key"], now - DAY)).fetchone()["n"]
-            if given >= MAX_VOIDS_PER_DAY:
-                return False
-            db.execute("UPDATE usage SET voided=1 WHERE id=?", (int(usage_id),))
+            if bounded:
+                given = db.execute("SELECT COUNT(*) AS n FROM usage WHERE person_key=? AND voided=1 AND ts>=?",
+                                   (row["person_key"], now - DAY)).fetchone()["n"]
+                if given >= MAX_VOIDS_PER_DAY:
+                    db.execute("UPDATE usage SET final=1 WHERE id=?", (int(usage_id),))
+                    return False
+            db.execute("UPDATE usage SET voided=?, final=1 WHERE id=?", (1 if bounded else 2, int(usage_id)))
             return True
+
+    def sweep_unfinished(self, now: float | None = None, *, max_age: float = STALE_USAGE_SECONDS) -> int:
+        """Give back requests whose turn never finished (a crash between ``consume`` and the answer).
+
+        Only rows older than ``max_age`` are touched: a younger one may belong to a turn another process (the Jeff
+        window) is still running. Owner rows are never charged and are left alone. Returns how many were voided."""
+        now = time.time() if now is None else now
+        with self._tx() as db:
+            cur = db.execute("UPDATE usage SET voided=2, final=1 WHERE final=0 AND voided=0 AND pool!='owner' "
+                             "AND ts<?", (now - max_age,))
+            return cur.rowcount
 
     def usage_count(self, person_key: str) -> int:
         with self._lock:
@@ -374,8 +418,11 @@ class StarsLedger:
             withdrawn_usd = one("SELECT SUM(usd) FROM finance WHERE kind='withdrawal'")
             expenses_usd = one("SELECT SUM(usd) FROM finance WHERE kind='expense'")
             payers = one("SELECT COUNT(DISTINCT person_key) FROM payments WHERE test_env=0 AND status='paid'")
-            active = one("SELECT COUNT(DISTINCT person_key) FROM grants WHERE status='active' AND valid_until>?",
-                         now)
+            # Effective ends are recomputed from the chain (a refund moves later packages); the stored valid_until
+            # of a grant is only what was true when it was booked.
+            holders = [r["person_key"] for r in db.execute(
+                "SELECT DISTINCT person_key FROM grants WHERE status='active'").fetchall()]
+            active = sum(1 for holder in holders if any(end > now for _g, end in self._chain(db, holder)))
             tickets = one("SELECT COUNT(*) FROM tickets WHERE status='open'")
         net = gross - refunded
         return {

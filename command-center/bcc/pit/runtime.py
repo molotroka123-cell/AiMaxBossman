@@ -86,6 +86,7 @@ from .router import ModelEndpoint, NoEligibleRoute, PrivacyClass, RouteRequest, 
 from .telegram_contract import USER_COMMANDS
 from .vault import PersonaVault, _append_jsonl, _atomic_json
 from . import paid_docs as paid_docs_mod
+from .stars_ledger import TooManyOrders
 from .voice import VoiceError, transcribe_telegram_voice
 
 STOP_FLAG = "stop.flag"
@@ -511,13 +512,68 @@ class DocTurn:
 
     ``answered`` is set only where an accepted MODEL answer exists (never from reply text), so a request is given
     back exactly when no model answered: a j2 safety/flood reply, a provider outage, a replaced self-disclosure.
-    While a DocTurn is active the turn is not written to history, the learning log or the training set.
+    ``model_text`` is set earlier, where the model's text was accepted from a provider but may still be replaced
+    (self-disclosure): only such requests count against the per-day bound on requests given back; a turn in which no
+    model wrote anything (outage, safety/flood early reply) is always given back.
+    While a DocTurn is active the turn is not written to history, the learning log or the training set, and no web
+    search or discovery question is attached to it.
     """
 
     answered = False
+    model_text = False
 
 
 doc_turn: contextvars.ContextVar = contextvars.ContextVar("pit_doc_turn", default=None)
+
+
+def _rewrite_jsonl(path: Path, transform) -> None:
+    """Rewrite one JSON-lines file row by row: ``transform(row)`` returns the row to keep, or None to drop it.
+    A missing file is left alone, a line that is not a JSON object is kept as it is, and the replacement is atomic."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+    out: list[str] = []
+    changed = False
+    for line in lines:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            out.append(line)
+            continue
+        if not isinstance(row, dict):
+            out.append(line)
+            continue
+        new = transform(row)
+        if new is None:
+            changed = True
+            continue
+        if new != row:
+            changed = True
+            line = json.dumps(new, ensure_ascii=False, sort_keys=True)
+        out.append(line)
+    if not changed:
+        return
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text("".join(line + "\n" for line in out), encoding="utf-8")
+    tmp.replace(path)
+
+
+def _payment_charge_id(message: dict) -> str:
+    for key in ("successful_payment", "refunded_payment"):
+        payment = message.get(key)
+        if isinstance(payment, dict):
+            return str(payment.get("telegram_payment_charge_id", ""))[:60]
+    return ""
+
+
+def _is_model_guard_apology(reply: str) -> bool:
+    """The j2 model-health guard swaps a garbled local answer for a fixed apology AFTER the model answered."""
+    try:
+        from .j2.model_guard import APOLOGY
+    except Exception:  # noqa: BLE001 - without the module there is nothing to compare with
+        return False
+    return " ".join(str(reply or "").split()) == " ".join(APOLOGY.split())
 
 
 def _record_unhandled_error(home: Path, exc: Exception, *, surface: str) -> str:
@@ -783,6 +839,40 @@ class PITStore(Store):
         with self.tx():
             self.db.execute("DELETE FROM transcript WHERE who=?", (who,))
         self.forget_epoch[who] = self.forget_epoch.get(who, 0) + 1
+
+    def scrub_text(self, who: str, needles: list[str]) -> int:
+        """``/forget``: drop this person's saved turns that mention a forgotten text.
+
+        A fact removed from ``facts.jsonl`` is only part of "forget": the sentence it came from also lives in the
+        model-context ``history`` window (and is sent with the NEXT request), in the learning log and in the
+        display transcript. A row is removed whole when any of its texts contains a needle, case-insensitively;
+        every other row stays. Returns how many rows were removed."""
+        wanted = [n.casefold() for n in needles if len(n.strip()) >= 2]
+        if not wanted:
+            return 0
+
+        def mentions(value) -> bool:
+            if isinstance(value, str):
+                low = value.casefold()
+                return any(n in low for n in wanted)
+            if isinstance(value, dict):
+                return any(mentions(v) for v in value.values())
+            if isinstance(value, (list, tuple)):
+                return any(mentions(v) for v in value)
+            return False
+        removed = 0
+        with self.tx():
+            for table, column in (("history", "body"), ("learning_log", "body"), ("transcript", "text")):
+                rows = self.db.execute(f"SELECT id, {column} AS sealed FROM {table} WHERE who=?", (who,)).fetchall()
+                for row in rows:
+                    try:
+                        value = self.open(row["sealed"])
+                    except Exception:  # noqa: BLE001 - an unreadable row cannot be inspected and is left alone
+                        continue
+                    if mentions(value):
+                        self.db.execute(f"DELETE FROM {table} WHERE id=?", (row["id"],))
+                        removed += 1
+        return removed
 
 
 class ParticipantRuntime:
@@ -1515,6 +1605,9 @@ class ParticipantRuntime:
                     for update in updates:
                         if isinstance(update.get("pre_checkout_query"), dict):
                             await self._answer_pre_checkout(update, ack=False)
+                    # The same holds for the money itself: a successful_payment behind another person's deferred
+                    # message is booked now, in this pass; only its confirmation notice waits for room.
+                    self._prebook_payments(updates)
                 for update in updates:
                     if self.paid_docs is not None and isinstance(update.get("pre_checkout_query"), dict):
                         await self._answer_pre_checkout(update, ack=True)   # already answered: only acknowledges
@@ -1586,30 +1679,36 @@ class ParticipantRuntime:
         The ledger is idempotent on the charge id, so a redelivered update can never credit twice. The inbox row
         carries only a small event for the confirmation reply; payment fields never reach ``_minimize_message``.
         """
-        sender, chat = message.get("from") or {}, message.get("chat") or {}
-        user_id = sender.get("id") if type(sender.get("id")) is int else chat.get("id")
-        chat_id = chat.get("id")
-        if type(user_id) is not int or type(chat_id) is not int or chat.get("type") != "private":
+        parties = self._payment_parties(message)
+        if parties is None:
             self.store.ingest(update_id, None, None)
             return None
-        person_key = self.vault.key_for_telegram(user_id)
+        user_id, chat_id = parties
         if not (isinstance(message.get("successful_payment"), dict)
                 or isinstance(message.get("refunded_payment"), dict)):
+            self.store.ingest(update_id, None, None)
+            return None
+        if message.get("chat", {}).get("type") != "private":
+            # Invoices are sent into private chats only; money that arrives elsewhere is not booked to a person
+            # here. Say so where the owner looks (and keep the charge id so it can be found), then acknowledge:
+            # a redelivery of the same update would only fail the same way.
+            self.store.put("payment_error", ("payment event outside a private chat: "
+                                             + _payment_charge_id(message))[:120])
             self.store.ingest(update_id, None, None)
             return None
         blocked = self._blocked(user_id, chat_id)
         person = self.settings.participant(user_id, chat_id) or Person(user_id=user_id, chat_id=chat_id, role="guest")
         if not blocked and self.store.lane_full(update_id, person.key, {"text": ""}):
-            # No room for the confirmation: defer BEFORE booking (the ledger is idempotent, the retry books it) so
-            # the person is never charged and left without a word because the inbox dropped the notice.
+            # No room for the NOTICE: defer the update. A first-pass booking (see ``_prebook_payments``) stays in the
+            # stash so the retry sends the notice of the real first booking, not a "duplicate".
             return False
-        if isinstance(message.get("successful_payment"), dict):
-            out = self.paid_docs.on_successful_payment(person_key, user_id, message["successful_payment"])
-            event = {"kind": "paid", "status": out.status, "stars": out.stars, "requests": out.requests,
-                     "valid_until": out.valid_until, "charge_id": out.charge_id}
-        else:
-            out = self.paid_docs.on_refunded_payment(message["refunded_payment"])
-            event = {"kind": "refunded", "status": out.status, "stars": out.stars, "charge_id": out.charge_id}
+        event = self._booked_payments().get(update_id)
+        if event is None:
+            event = self._book_payment(update_id, message, user_id)
+        if event is None:                                       # malformed event: recorded, acknowledged, not retried
+            self.store.ingest(update_id, None, None)
+            return None
+        self._booked_payments().pop(update_id, None)
         if blocked:
             self.store.ingest(update_id, None, None)
             return None
@@ -1617,6 +1716,67 @@ class ParticipantRuntime:
                                                   "_message_id": message.get("message_id"), "text": "",
                                                   "_payment": event})
         return True
+
+    @staticmethod
+    def _payment_parties(message: dict) -> tuple[int, int] | None:
+        sender, chat = message.get("from") or {}, message.get("chat") or {}
+        if not isinstance(sender, dict) or not isinstance(chat, dict):
+            return None
+        user_id = sender.get("id") if type(sender.get("id")) is int else chat.get("id")
+        chat_id = chat.get("id")
+        if type(user_id) is not int or type(chat_id) is not int:
+            return None
+        return user_id, chat_id
+
+    def _booked_payments(self) -> dict:
+        """update_id -> the small event of a payment already booked by the first pass of a poll cycle. Bounded."""
+        return self.__dict__.setdefault("_booked_payments_stash", {})
+
+    def _book_payment(self, update_id: int, message: dict, user_id: int) -> dict | None:
+        """Book one ``successful_payment`` / ``refunded_payment`` (idempotent on the charge id) and return the event.
+
+        A deterministic refusal of the event itself (no charge id, a non-numeric amount) is recorded and returns None
+        so the caller acknowledges the update: left unacknowledged it would be redelivered and fail forever, which
+        stops every other person's updates behind it. Storage errors are NOT swallowed here: the update must be
+        redelivered so the booking is retried."""
+        person_key = self.vault.key_for_telegram(user_id)
+        try:
+            if isinstance(message.get("successful_payment"), dict):
+                out = self.paid_docs.on_successful_payment(person_key, user_id, message["successful_payment"])
+                event = {"kind": "paid", "status": out.status, "stars": out.stars, "requests": out.requests,
+                         "valid_until": out.valid_until, "charge_id": out.charge_id}
+            else:
+                out = self.paid_docs.on_refunded_payment(message["refunded_payment"])
+                event = {"kind": "refunded", "status": out.status, "stars": out.stars, "charge_id": out.charge_id}
+        except (ValueError, TypeError, OverflowError) as exc:
+            self.store.put("payment_error", f"payment event rejected: {type(exc).__name__}: {exc}"[:120])
+            return None
+        stash = self._booked_payments()
+        stash[update_id] = event
+        while len(stash) > 256:                                   # bounded memory
+            stash.pop(next(iter(stash)))
+        return event
+
+    def _prebook_payments(self, updates: list) -> None:
+        """First pass of a poll cycle: book every payment event of the batch, in order, BEFORE any message of another
+        person can defer the second pass. Telegram has already taken the Stars, so a payment sitting behind someone
+        else's full lane must still be booked now; the notice stays deferred, the booking does not."""
+        for update in updates:
+            message = update.get("message") if isinstance(update, dict) else None
+            update_id = update.get("update_id") if isinstance(update, dict) else None
+            if type(update_id) is not int or not isinstance(message, dict):
+                continue
+            if not ("successful_payment" in message or "refunded_payment" in message):
+                continue
+            if update_id in self._booked_payments():
+                continue
+            parties = self._payment_parties(message)
+            if parties is None or message.get("chat", {}).get("type") != "private":
+                continue                                          # the second pass records and acknowledges it
+            if not (isinstance(message.get("successful_payment"), dict)
+                    or isinstance(message.get("refunded_payment"), dict)):
+                continue
+            self._book_payment(update_id, message, parties[0])
 
     def _ingest_update(self, update: dict) -> bool | None:
         update_id = update.get("update_id")
@@ -2042,6 +2202,10 @@ class ParticipantRuntime:
                 had_tasks = bool(re.fullmatch(r"[0-9a-f]{64}", person_key)) and tasks_dir.is_dir()
                 if had_tasks:
                     shutil.rmtree(tasks_dir, ignore_errors=True)
+                if self.paid_docs is not None:
+                    # An upload parsing in a worker thread must not store its document into the profile that is
+                    # being deleted: invalidate it and purge the library under the person's lock first.
+                    self.paid_docs.forget_person(person_key)
                 if not self.vault.delete(person_key) and not had_tasks:
                     return "Удалять нечего — профиль уже отсутствует."
                 self._memory_epoch[person_key] = self._memory_epoch.get(person_key, 0) + 1
@@ -2125,7 +2289,7 @@ class ParticipantRuntime:
         if command == "/forget":
             if not argument.strip():
                 return "Напиши /forget и что забыть, например: /forget люблю кофе"
-            return self._forget(person_key, argument.strip())
+            return self._forget(person_key, argument.strip(), person.key)
         if command in {"/correct", "/style"} and not consent.memory_enabled:
             return MEMORY_PAUSED_WRITE_RU
         if command == "/correct":
@@ -2247,7 +2411,7 @@ class ParticipantRuntime:
         return (f"Память включена. Фактов: {len(facts)} ({listing}). "
                 "/forget — забыть факт, /delete_me — удалить всё.")
 
-    def _forget(self, person_key: str, query: str) -> str:
+    def _forget(self, person_key: str, query: str, who: str | None = None) -> str:
         needle = query.lower()
         facts_path = self.vault.person_dir(person_key) / "facts.jsonl"
         if not facts_path.is_file():
@@ -2270,13 +2434,47 @@ class ParticipantRuntime:
         for row in removed:
             self.collector.record_outcome(person_key, candidate_id=str(row.get("id", "")),
                                           outcome="FORGET_REQUESTED", useful=False, corrected=True)
+            # The id blocks the fact from coming back; the forgotten WORDS are not written down again.
             _append_jsonl(self.vault.ensure(person_key) / "corrections.jsonl",
-                          {"action": "forget", "candidate_id": row.get("id"), "query": query[:200]})
+                          {"action": "forget", "candidate_id": row.get("id"), "query_chars": len(query)})
         self.vault.audit(person_key, "forget", actor="participant",
                          fact_ids=[str(row.get("id", "")) for row in removed],
                          categories=[str(row.get("category", "")) for row in removed])
+        self._scrub_forgotten_text(person_key, who, [query, *(str(row.get("value", "")) for row in removed)])
         self.behavior.record(person_key, BehaviorEvent.MEMORY_CORRECTED)
         return f"Забыл: удалено {len(removed)} факт(ов). Это не вернётся после перезапуска."
+
+    def _scrub_forgotten_text(self, person_key: str, who: str | None, needles: list[str]) -> None:
+        """Remove the forgotten words from every place the participant's own text was kept besides the fact itself:
+        the model-context history, the learning log, the display transcript, the opt-in training set, the
+        corrections log and the quality-sample text. Rows that do not mention them are untouched; a corrections or
+        quality row keeps its ids and numbers and only loses the text field that mentioned them."""
+        wanted = [n.casefold() for n in needles if len(n.strip()) >= 2]
+        if not wanted:
+            return
+        if who:
+            self.store.scrub_text(who, wanted)
+        base = self.vault.person_dir(person_key)
+
+        def mentions(value) -> bool:
+            low = value.casefold()
+            return any(n in low for n in wanted)
+
+        def drop_pairs(row: dict):
+            texts = [v for v in row.values() if isinstance(v, str)]
+            return None if any(mentions(t) for t in texts) else row
+
+        def blank_fields(row: dict):
+            return {k: ("" if isinstance(v, str) and mentions(v) else v) for k, v in row.items()}
+
+        def drop_sample(row: dict):
+            sample = row.get("sample")
+            if isinstance(sample, dict) and any(isinstance(v, str) and mentions(v) for v in sample.values()):
+                return {k: v for k, v in row.items() if k != "sample"}
+            return row
+        _rewrite_jsonl(base / TRAINING_FILE, drop_pairs)
+        _rewrite_jsonl(base / "corrections.jsonl", blank_fields)
+        _rewrite_jsonl(base / "quality" / "scores.jsonl", drop_sample)
 
     def _correct(self, person_key: str, argument: str) -> str:
         """``/correct <было> => <стало>``: the participant fixes a stored fact."""
@@ -2387,7 +2585,9 @@ class ParticipantRuntime:
         overlay_suspended = self._overlay_suspended(who)
         memory_at_start = consent.memory_enabled
         memory_epoch = self._memory_epoch.get(person_key, 0)
-        if getattr(self, "surface", "telegram") != "call":        # a spoken answer must not be sealed into the learning log (master_parser ingests it)
+        if getattr(self, "surface", "telegram") != "call" and doc_turn.get() is None:
+            # A spoken answer must not be sealed into the learning log (master_parser ingests it), and neither must the
+            # document prompt of a paid-docs turn: it is not the participant's answer to a pending question.
             self._register_discovery_reply(person, person_key, text)
         complex_request = _is_complex_chat(text)
         deadline = time.monotonic() + (self.turn_deadline_seconds if self.turn_deadline_seconds
@@ -2437,7 +2637,9 @@ class ParticipantRuntime:
 
         web_sources: list[str] = []
         web_block = ""
-        needs_web = self.allow_web and bool(FRESH_INTENT.search(text))
+        # Never from a paid-docs prompt: its text is document fragments and a search for them would send the
+        # participant's document wording to a search engine and print foreign "sources" under the answer.
+        needs_web = self.allow_web and doc_turn.get() is None and bool(FRESH_INTENT.search(text))
         if needs_web:
             try:
                 results = await self.models.web_results(text)
@@ -2742,6 +2944,8 @@ class ParticipantRuntime:
                 return NO_REMOTE_RU
             return INCOMPLETE_REPLY_RU if incomplete_seen else PROVIDER_DOWN_RU
         answer = render_jeff_reply(result.text)
+        if doc_turn.get() is not None and answer.strip():
+            doc_turn.get().model_text = True                # a model wrote this; it may still be replaced below
         # Raw model text first: a reply that speaks as the model is replaced whole, before any rewriting guard.
         if reply_discloses_model(answer, route_model):
             # The model spoke as itself (vendor / "LFM от Liquid AI" / "учусь на обратной связи"): never shown to the participant.
@@ -2970,23 +3174,30 @@ class ParticipantRuntime:
             crisis_reply = self._crisis_reply(person, person_key, text)
             if crisis_reply is not None:
                 return crisis_reply
-        prepared = self.paid_docs.prepare(person_key, kind, text, owner=person.role == "owner",
-                                          number_text=number_text)
+        # Retrieval (BM25 over up to a few hundred chunks) is 0.5-0.9 s of pure Python: not on the event loop.
+        prepared = await asyncio.to_thread(self.paid_docs.prepare, person_key, kind, text,
+                                           owner=person.role == "owner", number_text=number_text)
         if isinstance(prepared, paid_docs_mod.Refusal):
             return prepared.text
-        self._no_learn_messages.add(str(message_id))          # document text is never learned as a personal fact
         state = DocTurn()
         token = doc_turn.set(state)
         try:
             answer = await self._chat_route(person, person_key, prepared.prompt, self.vault.consent(person_key),
                                             message_id=str(message_id), reply_to=reply_to, scan_crisis=False)
-        except BaseException:                                  # STOP / restart / crash: give the request back
-            self.paid_docs.abort(prepared)
+        except BaseException:                                  # STOP / restart / crash
+            if state.answered:
+                self.paid_docs.keep(prepared)                  # a model answered before the cancel: stays charged
+            else:
+                self.paid_docs.abort(prepared, model_text=state.model_text)
             raise
         finally:
             doc_turn.reset(token)
+        if state.answered and _is_model_guard_apology(answer):
+            state.answered = False                             # the guard replaced a garbled model answer
         if not state.answered:                                 # structural signal, never the reply's wording
-            self.paid_docs.abort(prepared)
+            given_back = self.paid_docs.abort(prepared, model_text=state.model_text)
+            if not given_back:
+                answer = f"{answer}\n\n({paid_docs_mod.KEPT_REQUEST_RU})"
             return answer
         return self.paid_docs.finish(prepared, answer)
 
@@ -3009,7 +3220,10 @@ class ParticipantRuntime:
         if command == "/buy":
             if owner:
                 return "Вы владелец: оплата не требуется. Отчёт: /payments."
-            invoice = pd.invoice(person_key, person.user_id)
+            try:
+                invoice = pd.invoice(person_key, person.user_id)
+            except TooManyOrders:
+                return "Сейчас " + paid_docs_mod.MAX_OPEN_ORDERS_RU + "."
             result = await self.telegram.payment_call("sendInvoice", {"chat_id": person.chat_id, **invoice})
             if not result.get("ok"):
                 self.store.put("payment_error", str(result.get("description", ""))[:120])
@@ -3018,7 +3232,8 @@ class ParticipantRuntime:
         if command == "/docs":
             return pd.docs_text(person_key)
         if command == "/deldoc":
-            return pd.delete_document(person_key, argument)
+            # Takes the person's library lock: a wait for a commit in progress must not hold the event loop.
+            return await asyncio.to_thread(pd.delete_document, person_key, argument)
         if command in ("/ask", "/summary", "/draft"):
             kind = {"/ask": "ask", "/summary": "summary", "/draft": "draft"}[command]
             return await self._paid_docs_answer(
