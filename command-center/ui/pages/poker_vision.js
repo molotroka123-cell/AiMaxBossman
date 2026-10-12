@@ -112,11 +112,11 @@ const Page = {
     };
     const setPause = async (p) => { try { await api.raw('/api/poker-vision/desk/pause', { method: 'POST', body: { paused: p } }); await tick(); } catch (e) { toastError(e); } };
     const stop = async () => {
-      try { const r = await api.raw('/api/poker-vision/stop', { method: 'POST', body: {} }); msg.textContent = `STOP выполнен (${r.via}).`; toastOk('STOP'); await tick(); }
+      try { const r = await api.raw('/api/poker-vision/stop', { method: 'POST', body: {} }); serviceUp = false; msg.textContent = `STOP выполнен (${r.via}).`; toastOk('STOP'); await tick(); }
       catch (e) { toastError(e, 'STOP не дошёл'); }
     };
     const startService = async () => {
-      try { await api.raw('/api/poker-vision/service/start', { method: 'POST', body: {} }); msg.textContent = 'Сервис запущен.'; }
+      try { await api.raw('/api/poker-vision/service/start', { method: 'POST', body: {} }); serviceUp = null; msg.textContent = 'Сервис запущен.'; }
       catch (e) { msg.textContent = err(e); toastError(e); }
     };
     const sandbox = async (cmd, args = {}) => {
@@ -171,6 +171,7 @@ const Page = {
       else { if (attached) { clearInterval(timer); clearInterval(overlayTimer); timer = overlayTimer = null; } return; }
       let st;
       try { st = await api.raw('/api/poker-vision/status'); } catch { return; }
+      serviceUp = Boolean(st.service_up);
       const s = st.session; const desk = s && s.desk;
       statusBox.replaceChildren(h('div.row',
         pill(st.service_up ? 'сервис работает' : 'сервис остановлен', { tone: st.service_up ? 'ok' : 'err' }),
@@ -233,8 +234,11 @@ const Page = {
         }
       } catch { /* следующий тик */ }
     };
+    // The overlay endpoint answers 503 while the service is down (the browser logs every one as a console error).
+    // `serviceUp` comes from the last status tick; a STOP flips it at once instead of waiting up to 700 ms.
+    let serviceUp = null;
     const pollOverlay = async () => {
-      if (!stage.isConnected) return;
+      if (!stage.isConnected || serviceUp === false) return;
       try { lastOv = await api.raw('/api/poker-vision/overlay.json'); drawOverlay(canvas, stream, lastOv, showLabels.checked); } catch { /* ещё нет кадра */ }
     };
     stream.addEventListener('load', () => drawOverlay(canvas, stream, lastOv, showLabels.checked));

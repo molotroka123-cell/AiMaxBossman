@@ -36,3 +36,14 @@ def test_mode_buttons_explain_why_they_are_disabled_without_a_desk():
 
 def test_sync_runs_on_every_status_tick():
     assert "syncDeskButtons(desk, st.control_policy);" in JS
+
+
+def test_overlay_is_not_polled_while_the_service_is_down():
+    # Candidate f34f7e56 UI sweep (12.10): STOP / «Сменить источник» -> the page kept fetching overlay.json every
+    # 250 ms and the 503 landed in the console as an error. Negative control: polling must stay on while the service
+    # is up or its state is unknown.
+    assert "let serviceUp = null;" in JS
+    assert "if (!stage.isConnected || serviceUp === false) return;" in JS
+    assert "serviceUp = Boolean(st.service_up);" in JS                 # follows the real status tick
+    assert re.search(r"/api/poker-vision/stop'[^\n]*serviceUp = false;", JS)   # a STOP does not wait for the tick
+    assert re.search(r"service/start'[^\n]*serviceUp = null;", JS)     # a started service resumes the overlay
