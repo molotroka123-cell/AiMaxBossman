@@ -27,14 +27,14 @@ Preflight раннера трактует 189 как минимум для **к�
 
 ## 2. Что показал последний настоящий замер (02.10, rc21, вне git)
 
-`C:\Users\asd\Bossman\ip-corpus-rc19\gate-report-rc21-candidate.json`: модель `bossman-fast-qwen36-35b-a3b-q5`,
+`%USERPROFILE%\Bossman\ip-corpus-rc19\gate-report-rc21-candidate.json`: модель `bossman-fast-qwen36-35b-a3b-q5`,
 SHA `4b9049a0`, 940 парных задач, вердикт **NO_GO**. Падения — точечные, не статистические:
 full/raw reasoning 0.926, coding 0.931, unknown 0.974; system,context/raw coding 0.969; long_context 0.90.
 Больший корпус это не исправит: регрессирует сама полоса full (агентная обвязка), её нужно чинить до замера.
 
 ## 3. Корпус v3 (подготовлен, вне git)
 
-- Файл: `C:\Users\asd\Bossman\ip-corpus-v3\intelligence_tasks_v3.json`, dataset_id `bossman-retention-v3-public-20261011`,
+- Файл: `%USERPROFILE%\Bossman\ip-corpus-v3\intelligence_tasks_v3.json`, dataset_id `bossman-retention-v3-public-20261011`,
   seed 20261011, **SHA256 `eb62e9b9df053f978dd3bc392cb78332380b9efb46e24a45e7f3ada422bb5e14`**.
 - Объём: 3080 задач — 4 основные метрики по 420 (20 базовых + 400 из публичных MIT-источников: GSM8K test,
   CRUXEval-O, BIG-Bench Hard; structured — 400 программных из трёх семейств шаблонов), 7 остальных по 200
