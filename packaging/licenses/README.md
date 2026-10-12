@@ -21,16 +21,28 @@ has to copy, and cannot read from a package it installs, live here, byte for byt
   `LICENSES/python-distributions.md` of the archive.
 * `CC-BY-4.0.txt` goes to `LICENSES/codicon/` next to the attribution for the VS Code codicon font.
 
+## Upstream files of projects with a per-project copyright line (fetched 12.10.2026, byte for byte)
+
+A licence text with a per-project copyright line (MIT, BSD) is never composed from a template. These four are the
+projects' OWN files, downloaded from their repositories and kept unchanged:
+
+| file here | project (licence) | fetched from | bytes | sha256 |
+|---|---|---|---|---|
+| `silero-vad/LICENSE` | Silero VAD (MIT) | `https://raw.githubusercontent.com/snakers4/silero-vad/master/LICENSE` | 1075 | `2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b` |
+| `dist/ctranslate2/LICENSE` | ctranslate2 (MIT) | `https://raw.githubusercontent.com/OpenNMT/CTranslate2/master/LICENSE` | 1115 | `54aa79d9fe3c09e67a16dcd95b9e88676405a6ec174efda31036983cf7672ecb` |
+| `dist/latex2mathml/LICENSE` | latex2mathml (MIT) | `https://raw.githubusercontent.com/roniemartinez/latex2mathml/master/LICENSE` | 1071 | `4ac1e1da07f6b343d54191c5e1716840534e08591b3f9eaec90d6800cdc47543` |
+| `dist/pygetwindow/LICENSE` | PyGetWindow (BSD-3-Clause) | `https://raw.githubusercontent.com/asweigart/PyGetWindow/master/LICENSE.txt` | 1482 | `f8c2193c7e92df1a8335548a69653fa56b0ea3536586d93932f8c79c206df9fd` |
+
+* `silero-vad/LICENSE` is copied to `LICENSES/silero-vad/` next to its notice.
+* `dist/<normalised distribution name>/LICENSE*` is attached as `<dist-info>/licenses/LICENSE` (RECORD updated) to the
+  installed Python distribution of that name when it ships no licence file of its own.
+
 ## What is deliberately not here
 
-A licence text with a per-project copyright line (MIT, BSD) is never composed from a template.
-Where the real file is not available offline the archive says `NOT RECORDED`:
+Where the real file is not available the archive says `NOT RECORDED` (nothing is composed):
 
-* Silero VAD (MIT, `snakers4/silero-vad`): put the upstream `LICENSE` of the model version
-  shipped by faster-whisper at `packaging/licenses/silero-vad/LICENSE` and the builder picks it up.
-* Python distributions that declare MIT/BSD and ship no file (ctranslate2, latex2mathml,
-  PyGetWindow at the 12.10 lock): they are listed as `NOT RECORDED` in
-  `LICENSES/python-distributions.md`.
+* any other Python distribution that declares MIT/BSD and ships no file: it is listed as `NOT RECORDED` in
+  `LICENSES/python-distributions.md`; to record it, add its upstream `LICENSE` under `dist/<name>/` and rebuild.
 
 The Chromium licence/credits file and Playwright's own `LICENSE` are copied at build time from the
 browser and the Playwright package that are already inside the output tree; optional fallbacks are
