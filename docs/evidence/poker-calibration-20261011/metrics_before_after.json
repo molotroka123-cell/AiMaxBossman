@@ -1,0 +1,193 @@
+{
+ "generated": "2026-10-12",
+ "source_sha_code": "d2d76834 (card-book coverage gate), b21db207 (replay EOF)",
+ "method": {
+  "adapter": "ton_poker (RoiAdapter)",
+  "calibrate": "POST /api/v1/calibrate on the loopback service, rois v1 (fractions), 8 labelled frames of 2 hands (recording B)",
+  "held_out_B": "11 frames of 2 OTHER hands, later in recording B (same device, 576x1280)",
+  "held_out_A": "8 frames of recording A (1320x2868, aspect within 3%); hero never dealt in -> hero_cards not scored",
+  "labels": "written by eye from the frames; UNKNOWN where not visible; to_call never labelled (no stable on-screen field); no action history claimed",
+  "before": "same process, same code, coverage gate disabled",
+  "after": "coverage gate enabled (d2d76834)"
+ },
+ "limitation": "Recording A's last hand is recording B's first hand (same table session); that hand is excluded from calibration, so A is independent of the calibration frames but not a different table. The ClubGG-style layout fans the two hero cards into one white blob, so hero cards are never located (always UNKNOWN) - a separate defect, not fixed here.",
+ "fields": {
+  "held_B": {
+   "hero_cards": {
+    "n": 22,
+    "before": {
+     "ok": 0,
+     "unknown": 22,
+     "false_confident": 0
+    },
+    "after": {
+     "ok": 0,
+     "unknown": 22,
+     "false_confident": 0
+    }
+   },
+   "board": {
+    "n": 22,
+    "before": {
+     "ok": 5,
+     "unknown": 8,
+     "false_confident": 9
+    },
+    "after": {
+     "ok": 0,
+     "unknown": 22,
+     "false_confident": 0
+    }
+   },
+   "pot": {
+    "n": 11,
+    "before": {
+     "ok": 8,
+     "unknown": 3,
+     "false_confident": 0
+    },
+    "after": {
+     "ok": 8,
+     "unknown": 3,
+     "false_confident": 0
+    }
+   },
+   "hero_stack": {
+    "n": 11,
+    "before": {
+     "ok": 0,
+     "unknown": 11,
+     "false_confident": 0
+    },
+    "after": {
+     "ok": 0,
+     "unknown": 11,
+     "false_confident": 0
+    }
+   }
+  },
+  "held_A": {
+   "board": {
+    "n": 19,
+    "before": {
+     "ok": 5,
+     "unknown": 11,
+     "false_confident": 3
+    },
+    "after": {
+     "ok": 0,
+     "unknown": 19,
+     "false_confident": 0
+    }
+   },
+   "pot": {
+    "n": 8,
+    "before": {
+     "ok": 5,
+     "unknown": 3,
+     "false_confident": 0
+    },
+    "after": {
+     "ok": 5,
+     "unknown": 3,
+     "false_confident": 0
+    }
+   },
+   "hero_stack": {
+    "n": 7,
+    "before": {
+     "ok": 7,
+     "unknown": 0,
+     "false_confident": 0
+    },
+    "after": {
+     "ok": 7,
+     "unknown": 0,
+     "false_confident": 0
+    }
+   }
+  }
+ },
+ "gate": {
+  "held_B": {
+   "before": {
+    "card_acc": 0.357,
+    "money_acc": 1.0,
+    "unknown_rate": 0.667,
+    "passed": false
+   },
+   "after": {
+    "card_acc": null,
+    "money_acc": 1.0,
+    "unknown_rate": 0.879,
+    "passed": false
+   }
+  },
+  "held_A": {
+   "before": {
+    "card_acc": 0.625,
+    "money_acc": 1.0,
+    "unknown_rate": 0.412,
+    "passed": false
+   },
+   "after": {
+    "card_acc": null,
+    "money_acc": 1.0,
+    "unknown_rate": 0.647,
+    "passed": false
+   }
+  },
+  "thresholds": "card>=0.98, money>=0.98, unknown<=0.35, >=8 frames - unchanged",
+  "verdict": "profile NOT saved, layout stays unverified -> product reads UNKNOWN (honest)"
+ },
+ "book_after_calibration": {
+  "ranks_present": "2 3 5 6 T K (6 of 13)",
+  "suits_present": "s h d c",
+  "missing": "4 7 8 9 J Q A"
+ },
+ "replay_product_run": {
+  "endpoint": "POST :8801/api/poker-vision/desk/start {source:{kind:replay,path},adapter:ton_poker,act:false}",
+  "before_fix_b21db207": {
+   "B": {
+    "frames": 312,
+    "finished": true,
+    "error": "AttributeError: 'NoneType' object has no attribute 't_ms'",
+    "history_items": 0
+   },
+   "A": {
+    "frames": 52,
+    "finished": true,
+    "error": "AttributeError: 'NoneType' object has no attribute 't_ms'",
+    "history_items": 0
+   }
+  },
+  "after_fix_b21db207": {
+   "B": {
+    "frames": 312,
+    "finished": true,
+    "error": null,
+    "elapsed_s": 10.6,
+    "history_items": 0,
+    "layout": "ton_poker@uncalibrated"
+   },
+   "A": {
+    "frames": 52,
+    "finished": true,
+    "error": null,
+    "elapsed_s": 5.5,
+    "history_items": 0,
+    "layout": "ton_poker@uncalibrated"
+   }
+  },
+  "installed_backend": "6de18f8d on :8801 proxying to the source-checkout poker service :8931 (b21db207)",
+  "installed_candidate_replay": "NOT_RUN"
+ },
+ "latency": {
+  "replay_throughput": "312 frames in 10.6 s and 52 frames in 5.5 s through :8801 (desk loop, uncalibrated reads)",
+  "per_field_latency": "NOT_RUN"
+ },
+ "live_airplay": {
+  "status": "BLOCKED",
+  "detail": "no 'AirPlay Video Stream' window appeared while the collector waited (iPhone mirroring not active on the receiver); no live frames, no live hints proven"
+ }
+}
