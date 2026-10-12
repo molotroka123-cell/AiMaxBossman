@@ -695,7 +695,10 @@ class TelegramSender:
                     continue
             for person in candidates:
                 try:
-                    people[derive_person_key(person.user_id, salt)] = person
+                    # The CONFIGURED person comes first and wins: a worker spawned for the same user id as a guest
+                    # must not replace the owner entry, or delivery to the owner is refused as IDENTITY_REVOKED
+                    # whenever the allowlist is closed.
+                    people.setdefault(derive_person_key(person.user_id, salt), person)
                 except (ValueError, AttributeError):
                     continue
             self._people = people

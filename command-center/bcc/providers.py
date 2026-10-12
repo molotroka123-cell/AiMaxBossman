@@ -707,6 +707,9 @@ def _explain(resp: httpx.Response) -> str:
     known = {
         400: "провайдер отклонил запрос (400)",
         401: "ключ отклонён (401): проверьте api_key",
+        # "(402)" is what ``pit.model_route.is_payment_required`` looks for: without it a real HTTP 402 did not close
+        # the route (an in-body 402 did) and the next turn asked the same provider for money again.
+        402: "провайдер требует оплату (402): на этом маршруте закончились бесплатные запросы или кредиты",
         403: "доступ запрещён (403): ключ без прав на эту модель",
         404: f"endpoint не найден (404): {_host(str(resp.request.url))} — проверьте base_url",
         408: "провайдер не успел ответить (408)",
