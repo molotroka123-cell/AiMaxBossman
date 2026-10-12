@@ -115,3 +115,66 @@ def test_json_text_entities_are_joined_and_a_message_without_unixtime_is_refused
         parse.parse_export_json(broken)
     with pytest.raises(ValueError, match="messages"):
         parse.parse_export_json(json.dumps({"chats": {"list": []}}))
+
+
+# -- period coverage: "closed by date" is not "the data covers the whole period" ----------------------
+def test_a_period_the_export_only_partly_covers_is_not_called_a_full_closed_month(run_dir):
+    result, deals = report.load(run_dir / "volume_result.json", run_dir / "deals.csv")
+    closed = result["periods"]["2026-03-20"]
+    assert closed["status"] == "closed" and closed["from_prague"] == "2026-02-21"
+    assert closed["coverage"]["complete"] is False                      # the synthetic export starts on 10 March
+    assert closed["coverage"]["reason"] == "data_starts_after_period_start"
+    assert closed["coverage"]["data_from"] == "2026-03-10"
+    text = report.render(result, deals)
+    assert "неполный период" in text and "нижняя граница" in text
+    assert "закрытых с полным покрытием данных: 0" in text
+    assert "оборот за часть периода" in text
+    assert "**3300**" in text                                           # the calculator's number is not altered
+    row = next(line for line in text.splitlines() if line.startswith("| 2026-03-20 |"))
+    assert "| закрыт |" not in row                                      # never the plain full-period label
+
+
+def test_negative_control_an_export_that_reaches_back_to_the_period_start_stays_closed(run_dir):
+    result, deals = report.load(run_dir / "volume_result.json", run_dir / "deals.csv")
+    full = copy.deepcopy(result)
+    full["source"]["first_ts_prague"] = "2026-02-21T08:00:00"
+    full["periods"]["2026-03-20"].pop("coverage")                        # recomputed from the source range
+    text = report.render(full, deals)
+    row = next(line for line in text.splitlines() if line.startswith("| 2026-03-20 |"))
+    assert "| закрыт |" in row and "неполный период" not in row
+    assert "закрытых с полным покрытием данных: 1" in text
+
+
+def test_an_older_result_without_coverage_falls_back_to_the_export_range_and_unknown_is_not_closed(run_dir):
+    result, deals = report.load(run_dir / "volume_result.json", run_dir / "deals.csv")
+    old = copy.deepcopy(result)
+    for p in old["periods"].values():
+        p.pop("coverage")
+    for key in ("first_ts_prague", "last_ts_prague"):
+        old["source"].pop(key)
+    assert report.coverage.for_period(old, old["periods"]["2026-03-20"])["basis"] == "export_local"
+    assert "неполный период" in report.render(old, deals)               # same verdict from the export wall clock
+    blind = copy.deepcopy(old)
+    for key in ("first_ts_export_local", "last_ts_export_local"):
+        blind["source"].pop(key)
+    row = next(line for line in report.render(blind, deals).splitlines() if line.startswith("| 2026-03-20 |"))
+    assert "покрытие данных не определено" in row and "| закрыт |" not in row
+
+
+def test_the_database_source_records_coverage_too(tmp_path):
+    import sqlite3
+    db = tmp_path / "s.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, state TEXT, from_ccy TEXT, from_amt REAL, "
+                "to_ccy TEXT, to_amt REAL, fee REAL, fee_ccy TEXT, created_at TEXT, client_type TEXT)")
+    con.executemany("INSERT INTO orders VALUES (?,?,?,?,?,?,?,?,?,?)", [
+        (1, "completed", "USDT", 1000, "CZK", 21000, 5, "USDT", "2026-03-10 12:00:00", "organic"),
+        (2, "completed", "CZK", 42000, "USDT", 2000, 7, "USDT", "2026-03-22 12:00:00", "organic")])
+    con.commit()
+    con.close()
+    out = tmp_path / "out"
+    cli.main(["run", "--db", str(db), "--period", "business", "--out", str(out)])
+    result = json.loads((out / "volume_result.json").read_text(encoding="utf-8"))
+    assert result["source"]["first_ts_prague"].startswith("2026-03-1")
+    assert result["periods"]["2026-03-20"]["status"] == "closed"
+    assert result["periods"]["2026-03-20"]["coverage"]["complete"] is False

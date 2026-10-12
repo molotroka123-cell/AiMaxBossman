@@ -17,7 +17,7 @@ import time
 from decimal import Decimal
 from pathlib import Path
 
-from . import calc, parse, reconcile
+from . import calc, coverage, parse, reconcile
 from .timeutil import to_prague
 
 
@@ -55,6 +55,8 @@ def run(args) -> dict:
                     "export_utc_offsets_min": dict(offs),
                     "first_ts_export_local": min(m.ts_local for m in msgs).isoformat() if msgs else None,
                     "last_ts_export_local": max(m.ts_local for m in msgs).isoformat() if msgs else None,
+                    "first_ts_prague": to_prague(min(m.ts_utc for m in msgs)).isoformat() if msgs else None,
+                    "last_ts_prague": to_prague(max(m.ts_utc for m in msgs)).isoformat() if msgs else None,
                     "senders": len({m.sender for m in msgs}),
                     "media_without_text_messages": sum(1 for m in msgs if m.has_media and not m.text)}
         as_of = max((m.ts_utc for m in msgs), default=None)
@@ -63,7 +65,9 @@ def run(args) -> dict:
         deals = calc.deals_from_db(str(p), args.db_time_zone, not args.exclude_ads)
         local = {}
         src_meta = {"type": "bot_sqlite_orders", "sha256": _sha(p), "db_time_zone_assumed": args.db_time_zone,
-                    "orders_completed": len(deals)}
+                    "orders_completed": len(deals),
+                    "first_ts_prague": min((d.ts_prague for d in deals), default=None),
+                    "last_ts_prague": max((d.ts_prague for d in deals), default=None)}
         as_of = max((d.ts_utc for d in deals), default=None)
     as_of_date = to_prague(as_of).date() if as_of else None
 
@@ -79,6 +83,8 @@ def run(args) -> dict:
     outl = calc.flag_rate_outliers(deals)
     calc.price(deals, rates)
     periods = calc.aggregate(deals, args.period, as_of_date)
+    for p in periods.values():  # "closed" is a date fact; whether the DATA covers the period is a separate one
+        p["coverage"] = coverage.assess(p, src_meta.get("first_ts_prague"), src_meta.get("last_ts_prague"), "prague")
 
     result = {
         "schema": calc.SCHEMA, "generated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

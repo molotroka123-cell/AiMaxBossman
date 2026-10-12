@@ -17,6 +17,8 @@ import csv
 import json
 from pathlib import Path
 
+from . import coverage
+
 SCHEMA = "swapme.exchange-volume/2"
 _STATUS = {
     "counted": "учтена",
@@ -102,9 +104,17 @@ def render(result: dict, deals: list[dict]) -> str:
            f"(время экспорта). Контрольная сумма файла: `{str(src.get('sha256', ''))[:16]}…`.",
            f"Расчёт на дату (Прага): {result.get('as_of_prague_date', '?')}. Схема результата: `{result.get('schema')}`.", "",
            "## Главное", ""]
-    closed = [k for k, p in periods.items() if p.get("status") == "closed"]
+    cov = {k: coverage.for_period(result, p) for k, p in periods.items()}
+    closed = [k for k, p in periods.items() if p.get("status") == "closed" and cov[k].get("complete") is not False]
+    partial = [k for k, p in periods.items() if p.get("status") == "closed" and cov[k].get("complete") is False]
     open_p = [k for k, p in periods.items() if p.get("status") != "closed"]
-    out.append(f"- Периодов в данных: {len(periods)} (закрытых: {len(closed)}, незакрытых на дату экспорта: {len(open_p)}).")
+    out.append(f"- Периодов в данных: {len(periods)} (закрытых с полным покрытием данных: {len(closed)}, "
+               f"закрытых по дате, но с неполными данными: {len(partial)}, незакрытых на дату экспорта: {len(open_p)}).")
+    if partial:
+        out.append("- **Неполное покрытие периода:** " + "; ".join(
+            f"период {k}: данные экспорта с {cov[k].get('data_from')} при начале периода {periods[k].get('from_prague')}"
+            for k in partial) + ". Оборот такого периода — **нижняя граница, оборот за часть периода**, а не оборот "
+            "периода; полный месяц по этому экспорту назвать нельзя.")
     if unresolved:
         out.append("- **Итоги ниже — по распознанным сделкам и могут быть занижены.** Не разобрано автоматически "
                    f"(сложные, неполные, с неоднозначной суммой): {unresolved}; они перечислены ниже и в итоговые "
@@ -118,8 +128,14 @@ def render(result: dict, deals: list[dict]) -> str:
             "|---|---|---|---|---|---|---|---|---|---|"]
     for key, p in periods.items():
         status = "закрыт" if p.get("status") == "closed" else "не закрыт на дату экспорта"
+        lower_bound = ""
+        if p.get("status") == "closed" and cov[key].get("complete") is False:
+            status = f"закрыт по дате, **данные с {cov[key].get('data_from')}: неполный период**"
+            lower_bound = " (нижняя граница)"
+        elif p.get("status") == "closed" and cov[key].get("complete") is None:
+            status = "закрыт по дате, покрытие данных не определено"
         out.append(f"| {key} | {p.get('from_prague')} … {p.get('to_prague')} | {status} | {p.get('deals_counted')} | "
-                   f"**{_num(p.get('gross_usdt_direct'))}** | {_num(p.get('usdt_received_from_clients'))} | "
+                   f"**{_num(p.get('gross_usdt_direct'))}**{lower_bound} | {_num(p.get('usdt_received_from_clients'))} | "
                    f"{_num(p.get('usdt_paid_to_clients'))} | {p.get('excluded_duplicates')} | "
                    f"{p.get('unpriced_deals')} ({', '.join(p.get('unpriced_pairs', [])) or '—'}) | "
                    f"{_num(p.get('commission_usdt')) if p.get('commission_usdt') is not None else 'не найдена в данных'} |")
