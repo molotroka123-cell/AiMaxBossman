@@ -463,3 +463,29 @@ def test_the_extraction_root_is_short_enough_for_the_real_bundle():
     # the deepest file of a real bundle is ~185 characters; root + separator + it must stay under 260
     root = na.REPO.parent / "nb" / ("0" * 12 + ".p9999")
     assert len(str(root)) + 1 + 190 < na.MAX_WIN_PATH or not na.IS_WINDOWS
+
+
+def test_a_fix_that_changes_the_measuring_tool_is_metric_changed_not_proven(world):
+    night = world.build()
+    world.fake.diff = "command-center/bcc/app.py\nscripts/ui_acceptance_sweep.py\n"
+    world.fake.claude_moves_head_to = "6" * 40
+    night.cycle()
+    world.fake.claude_moves_head_to = None
+    world.fake.ux_items = []                                  # far fewer errors... measured by a changed tool
+    rec = night.cycle()
+    assert rec["proof"]["status"] == "METRIC_CHANGED" and rec["proof"]["files"] == ["scripts/ui_acceptance_sweep.py"]
+    assert rec["proof"]["rebaseline"] is True and "FIX_PROVEN" not in [p["status"] for p in night.state["proofs"]]
+
+
+def test_ux_errors_come_from_the_sweep_counter_not_from_printed_lines(world):
+    night = world.build()
+    real = world.fake.__call__
+
+    def sweep(cmd, **kw):
+        if "installed_ui_sweep.py" in " ".join(map(str, cmd)):
+            out = __import__("pathlib").Path(cmd[cmd.index("--output") + 1])
+            out.write_text(json.dumps({"counts": {"works": 10, "error": 331}}), encoding="utf-8")
+            return 0, "REVIEW error  page  a :: 403\n"       # the sweep prints only some review lines
+        return real(cmd, **kw)
+    night.runner = sweep
+    assert night.cycle()["ux"]["errors"] == 331

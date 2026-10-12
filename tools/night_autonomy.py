@@ -57,6 +57,10 @@ SECRET_AUTH_RE = re.compile(r"(?i)\b(authorization|bearer|basic)(\s*:?\s+)(?:bea
 SECRET_SHAPE_RE = re.compile(r"\b(?:sk-[A-Za-z0-9_-]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abpr]-[A-Za-z0-9-]{10,}|\d{8,10}:[A-Za-z0-9_-]{30,})")
 MAX_CONSECUTIVE_CRASHES = 3
 MAX_WIN_PATH = 260
+# The code that MEASURES the product. A change here between a baseline and a fix makes the two
+# measurements incomparable (night 11.10: the night executor changed the sweep itself).
+HARNESS_FILES = frozenset({"scripts/ui_acceptance_sweep.py", "tools/installed_ui_sweep.py",
+                           "tools/bundle_evening_test.py", "tools/verify_windows_bundle.py"})
 IS_WINDOWS = os.name == "nt"
 PROOF_MAX_WAITS = 2
 MAX_FAIL_RETRIES = 1
@@ -360,7 +364,9 @@ class Night:
             status = ("TIMEOUT" if code is None else "FAIL" if code != 0 or not counts
                       else "PASS" if not items else "REVIEW_REQUIRED")
             ux = self.remember("ux", key, {"status": status, "exit": code, "review_items": items,
-                                           "errors": len([i for i in items if i.startswith("REVIEW error")]), "counts": counts})
+                                           "errors": (counts["error"] if isinstance(counts.get("error"), int)
+                                                      else len([i for i in items if i.startswith("REVIEW error")])),
+                                           "counts": counts})
         return evening, ux
 
     def step_security(self) -> dict:
@@ -427,7 +433,8 @@ class Night:
             baseline = findings.get("baseline", {})
             if isinstance(baseline.get("ux_errors"), int):
                 self.state["pending_proof"] = {"from": head_before, "to": head_after, "cycle": self.state["cycles"],
-                                               "baseline": baseline, "waits": 0}
+                                               "baseline": baseline, "waits": 0,
+                                               "baseline_source": (findings.get("identity") or {}).get("archive_source_sha")}
                 res["proof"] = "PENDING_REBUILD"
             else:
                 res["proof"] = "NO_BASELINE"           # this cycle had no valid UX result to compare against
@@ -490,6 +497,20 @@ class Night:
             if pend["waits"] < PROOF_MAX_WAITS + 1:
                 self.save()
                 return {"status": "PENDING_REBUILD", "to": pend["to"], "reason": "MEASUREMENT_INCONCLUSIVE"}
+        # The measuring tools themselves changed between the baseline build and the fix: fewer errors would
+        # be a different metric, not a fixed product (AGENTS.md: fix the method under a new version and
+        # re-baseline). Not proven; the next baseline is taken with the new tool.
+        base_src = pend.get("baseline_source") or pend["from"]
+        dcode, dout = self.runner(["git", "diff", "--name-only", base_src, pend["to"]], cwd=REPO, timeout=60)
+        harness = sorted({f for f in dout.split() if f in HARNESS_FILES}) if dcode == 0 else []
+        if valid and harness:
+            result = {"status": "METRIC_CHANGED", "reason": "MEASURING_TOOL_CHANGED", "files": harness,
+                      "from": pend["from"], "to": pend["to"], "build_source": ident["archive_source_sha"],
+                      "ux_errors_before": before, "ux_errors_after": ux.get("errors"), "rebaseline": True}
+            self.state.setdefault("proofs", []).append(result)
+            self.state.pop("pending_proof", None)
+            self.save()
+            return result
         better_ux = valid and ux["errors"] < before
         not_worse = (valid and verify.get("status") == "PASS"
                      and evening.get("status") in ("PASS", base.get("evening")) and ux["errors"] <= before)
