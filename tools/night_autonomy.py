@@ -52,11 +52,12 @@ MIN_FREE_GB = 12
 MAX_REBUILDS = 3
 RATE_LIMIT_RE = re.compile(r"rate.?limit|usage limit|limit reached|overloaded|429|quota|try again later", re.I)
 SECRET_ENV_RE = re.compile(r"TOKEN|SECRET|PASSW|API_KEY|_KEY$|^BCC_|^TG_COMPANION_|CREDENTIAL", re.I)
-SECRET_TEXT_RE = re.compile(r"(?i)(token|secret|api[_-]?key|key|passw(?:or)?d|credential)([\"']?\s*[:=]\s*[\"']?)[^\s\"',}]+")
-SECRET_AUTH_RE = re.compile(r"(?i)\b(authorization|bearer|basic)(\s*:?\s+)(?:bearer\s+|basic\s+)?[^\s\"',}]+")
+SECRET_TEXT_RE = re.compile(r"(?i)(?<![A-Za-z])(token|secret|api[_-]?key|key|passw(?:or)?d|credential)([\"']?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\s\"',}]+)")
+SECRET_AUTH_RE = re.compile(r"(?i)\b(authorization|bearer|basic)(\s*:?\s+)(?:bearer\s+|basic\s+)?[A-Za-z0-9._~+/=-]{8,}")
 SECRET_SHAPE_RE = re.compile(r"\b(?:sk-[A-Za-z0-9_-]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abpr]-[A-Za-z0-9-]{10,}|\d{8,10}:[A-Za-z0-9_-]{30,})")
 MAX_CONSECUTIVE_CRASHES = 3
 PROOF_MAX_WAITS = 2
+MAX_FAIL_RETRIES = 1
 DOC_ONLY_RE = re.compile(r"^docs/|\.md$")
 
 
@@ -70,7 +71,10 @@ def sanitize(text: str) -> str:
 def _kill_tree(pid: int):
     """Timeouts kill the whole tree: the bundle's python starts a backend and a browser that keep running."""
     if os.name == "nt":
-        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=60, check=False)
+        try:
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=60, check=False)
+        except (OSError, subprocess.SubprocessError):
+            pass
     else:
         import signal
         try:
@@ -179,6 +183,12 @@ class Night:
         return out.strip() if code == 0 else ""
 
     def pult(self, text: str, *, pin: bool = False):
+        try:
+            return self._pult(text, pin=pin)
+        except Exception:  # noqa: BLE001 - the pult is best effort; the evidence files are the record
+            return False
+
+    def _pult(self, text: str, *, pin: bool = False):
         f = self.ev / "pult-last.txt"
         f.write_text(text, encoding="utf-8")
         config = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "telegram-companion" / "config.json"
@@ -252,8 +262,12 @@ class Night:
 
     def remember(self, name: str, key: str, value: dict) -> dict:
         """A timeout is transient: it is reported but never cached as this build's verdict."""
+        tries = self.state.setdefault("fail_tries", {})
         if value.get("exit") is None or value.get("status") == "TIMEOUT":
             value = {**value, "status": "TIMEOUT", "cached": False}
+        elif value.get("status") == "FAIL" and tries.get(f"{key}:{name}", 0) < MAX_FAIL_RETRIES:
+            tries[f"{key}:{name}"] = tries.get(f"{key}:{name}", 0) + 1
+            value = {**value, "cached": False, "retry_next_cycle": True}
         else:
             self.state["results"].setdefault(key, {})[name] = value
         self.save()
@@ -277,13 +291,20 @@ class Night:
         so an interrupted extraction is never mistaken for an installed copy."""
         target = self.install_root / f"install-{ident['archive_sha256'][:12]}"
         if not target.is_dir():
-            part = target.with_name(target.name + ".part")
-            if part.exists():
-                shutil.rmtree(part, ignore_errors=True)
+            part = target.with_name(f"{target.name}.part-{os.getpid()}-{int(time.time())}")
             part.mkdir(parents=True)
             with zipfile.ZipFile(ident["archive"]) as z:
                 z.extractall(part)
-            part.rename(target)
+            for attempt in range(5):
+                try:
+                    part.rename(target)
+                    break
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    self.sleep(3)
+            for stale in target.parent.glob(f"{target.name}.part-*"):
+                shutil.rmtree(stale, ignore_errors=True)
         root = next(iter(target.glob("BOSSMAN-Windows-x64-*")), None)
         if root is None:
             return None, None
@@ -339,10 +360,15 @@ class Night:
         sec = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "security"
         latest = sorted((f for f in sec.glob("audit-*.json") if f.stat().st_mtime >= started),
                         key=lambda f: f.stat().st_mtime) if sec.is_dir() else []
+        rows = None
         if not latest:
             res = {"status": "BLOCKED", "detail": f"audit produced no report (exit {code}): {sanitize(out[-300:])}"}
         else:
-            rows = json.loads(latest[-1].read_text(encoding="utf-8-sig"))
+            try:
+                rows = json.loads(latest[-1].read_text(encoding="utf-8-sig"))
+            except (OSError, ValueError) as exc:
+                res = {"status": "BLOCKED", "detail": f"audit report unreadable: {type(exc).__name__}"}
+        if isinstance(rows, list):
             bad = {str(r.get("id")): r.get("status") for r in rows
                    if isinstance(r, dict) and r.get("status") in ("FAIL", "WARN")}
             prev = self.state.get("security", {}).get("bad", {})
@@ -423,7 +449,15 @@ class Night:
     def settle_proof(self, ident: dict, verify: dict, evening: dict, ux: dict) -> dict | None:
         """A pending fix is judged only on a build of a commit that contains it."""
         pend = self.state.get("pending_proof")
-        if not pend or not ident.get("archive_source_sha"):
+        if not pend:
+            return None
+        if not ident.get("archive_source_sha"):
+            pend["waits"] = pend.get("waits", 0) + 1
+            if pend["waits"] >= PROOF_MAX_WAITS:
+                self.state.pop("pending_proof", None)
+                self.state.setdefault("proofs", []).append({"status": "FIX_NOT_PROVEN", "reason": "NO_ARCHIVE",
+                                                            "from": pend["from"], "to": pend["to"]})
+            self.save()
             return None
         code, _ = self.runner(["git", "merge-base", "--is-ancestor", pend["to"], ident["archive_source_sha"]],
                               cwd=REPO, timeout=60)
@@ -440,6 +474,12 @@ class Night:
         base = pend.get("baseline", {})
         before = base.get("ux_errors") if isinstance(base.get("ux_errors"), int) else None
         valid = self.ux_valid(ux) and before is not None
+        measured = valid and verify.get("status") in ("PASS", "FAIL") and evening.get("status") not in (None, "TIMEOUT")
+        if not measured:
+            pend["waits"] = pend.get("waits", 0) + 1
+            if pend["waits"] < PROOF_MAX_WAITS + 1:
+                self.save()
+                return {"status": "PENDING_REBUILD", "to": pend["to"], "reason": "MEASUREMENT_INCONCLUSIVE"}
         better_ux = valid and ux["errors"] < before
         not_worse = (valid and verify.get("status") == "PASS"
                      and evening.get("status") in ("PASS", base.get("evening")) and ux["errors"] <= before)
@@ -494,8 +534,15 @@ class Night:
             if self.crashes >= MAX_CONSECUTIVE_CRASHES:
                 rec["halted"] = f"{self.crashes} crashed cycles in a row"
         rec["finished"] = self.clock().isoformat(timespec="seconds")
-        (self.ev / f"cycle-{rec['cycle']:02d}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
-        self.report(rec)
+        try:
+            (self.ev / f"cycle-{rec['cycle']:02d}.json").write_text(json.dumps(rec, ensure_ascii=False, indent=1),
+                                                                    encoding="utf-8")
+            self.report(rec)
+        except Exception as exc:  # noqa: BLE001 - a lost report must not end the night
+            rec["report_error"] = f"{type(exc).__name__}"
+        if rec.get("halted"):
+            self.state["halted"] = rec["halted"]
+            self.save()
         return rec
 
     def report(self, rec: dict):
@@ -550,7 +597,8 @@ class Night:
                   f"Claude ответил: {sum(c['status'] == 'CLAUDE_ANSWERED' for c in claude)}, "
                   f"недоступен: {sum(c['status'] == 'CLAUDE_UNAVAILABLE' for c in claude)}, "
                   f"фиксов доказано: {sum(p['status'] == 'FIX_PROVEN' for p in proofs)} из {len(proofs)}. "
-                  f"Отчёт: docs/evidence/{self.ev.name}/report.md", pin=True)
+                  + (f"Причина остановки: {self.state['halted']}. " if self.state.get("halted") else "")
+                  + f"Отчёт: docs/evidence/{self.ev.name}/report.md", pin=True)
 
 
 def main(argv=None) -> int:

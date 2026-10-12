@@ -218,7 +218,72 @@ def test_a_crashed_ux_sweep_never_proves_a_fix(world, monkeypatch):
     night.runner = crashing
     rec = night.cycle()
     assert rec["ux"]["status"] == "FAIL"
+    # one bad measurement does not burn the fix: it waits for the next cycle to measure again...
+    assert rec["proof"] == {"status": "PENDING_REBUILD", "to": "1" * 40, "reason": "MEASUREMENT_INCONCLUSIVE"}
+    for _ in range(na.PROOF_MAX_WAITS + 1):
+        rec = night.cycle()
+        if rec["proof"]["status"] != "PENDING_REBUILD":
+            break
+    # ...and a sweep that never finishes is never a proof
     assert rec["proof"]["status"] == "FIX_NOT_PROVEN" and rec["proof"]["reason"] == "UX_INCONCLUSIVE"
+
+
+def test_a_measurement_that_recovers_still_proves_the_fix(world):
+    night = world.build()
+    world.fake.diff = "command-center/bcc/app.py\n"
+    world.fake.claude_moves_head_to = "5" * 40
+    night.cycle()
+    world.fake.claude_moves_head_to = None
+    real = world.fake.__call__
+    sweeps = {"n": 0}
+
+    def once_slow(cmd, **kw):
+        if "installed_ui_sweep.py" in " ".join(map(str, cmd)):
+            sweeps["n"] += 1
+            if sweeps["n"] == 1:
+                return None, "TIMEOUT"                          # the PC was busy the first time
+        return real(cmd, **kw)
+    night.runner = once_slow
+    world.fake.ux_items = []
+    assert night.cycle()["proof"]["reason"] == "MEASUREMENT_INCONCLUSIVE"
+    assert night.cycle()["proof"]["status"] == "FIX_PROVEN"
+
+
+def test_a_one_off_failure_is_retried_once_before_it_is_the_verdict(world):
+    night = world.build()
+    real = world.fake.__call__
+    n = {"v": 0}
+
+    def flaky(cmd, **kw):
+        if "verify_windows_bundle.py" in " ".join(map(str, cmd)):
+            n["v"] += 1
+            return (1, "port in use") if n["v"] == 1 else (0, "PASS")
+        return real(cmd, **kw)
+    night.runner = flaky
+    assert night.cycle()["verify"].get("retry_next_cycle") is True
+    assert night.cycle()["verify"]["status"] == "PASS"
+
+
+def test_a_malformed_audit_report_is_blocked_not_a_crash(world):
+    night = world.build()
+
+    def broken(cmd, **kw):
+        if "security_audit" in " ".join(map(str, cmd)):
+            sec = world.tmp / "local" / "Bossman" / "security"
+            sec.mkdir(parents=True, exist_ok=True)
+            (sec / "audit-9.json").write_text("{half", encoding="utf-8")
+            return 0, ""
+        return world.fake(cmd, **kw)
+    night.runner = broken
+    res = night.step_security()
+    assert res["status"] == "BLOCKED" and "unreadable" in res["detail"]
+
+
+def test_a_broken_pult_never_ends_the_night(world, monkeypatch):
+    night = world.build()
+    monkeypatch.setattr(night, "_pult", lambda text, pin=False: (_ for _ in ()).throw(OSError("network")))
+    rec = night.cycle()
+    assert "error" not in rec and "report_error" not in rec and rec["verify"]["status"] == "PASS"
 
 
 def test_a_cycle_without_a_valid_ux_baseline_never_opens_a_proof(world):
@@ -319,10 +384,17 @@ def test_findings_reach_claude_fenced_as_data(world):
 
 
 def test_secrets_in_json_and_auth_headers_are_masked():
-    text = na.sanitize('{"api_key": "abc123", "token":"t0k"} Authorization: Bearer xyz sk-ABCDEFGHIJKLMN 123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
-    for leaked in ("abc123", "t0k", "xyz", "sk-ABCDEFGHIJKLMN", "AAAAAAAAAAAAAAAA"):
+    text = na.sanitize('{"api_key": "abc123", "token":"t0k", "password": "my secret pass"} '
+                       'Authorization: Bearer xyzTOKEN12345 sk-ABCDEFGHIJKLMN 123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+    for leaked in ("abc123", "t0k", "my secret pass", "secret pass", "xyzTOKEN12345", "sk-ABCDEFGHIJKLMN", "AAAAAAAAAAAAAAAA"):
         assert leaked not in text, leaked
     assert "4c29b2744bad34f7356907e1577003fc7ef33134" in na.sanitize("sha 4c29b2744bad34f7356907e1577003fc7ef33134")
+
+
+def test_ordinary_words_are_not_masked():
+    for plain in ("hotkey = Ctrl+K", "Basic usage of the page", "status: PASS", "monkey: banana",
+                  "REVIEW error poker-vision Перекрыть :: 403"):
+        assert na.sanitize(plain) == plain, plain
 
 
 def test_a_real_timeout_kills_the_process_tree_and_returns(tmp_path):
