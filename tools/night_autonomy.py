@@ -355,10 +355,11 @@ class Night:
                                      str(out_file), "--expected-sha", installed], cwd=root, timeout=self.budget(UX_TIMEOUT_S))
             items = [sanitize(re.sub(r"http://127\.0\.0\.1:\d+", "http://127.0.0.1:<port>", line))
                      for line in out.splitlines() if line.startswith("REVIEW ")]
-            counts = {}
+            counts, metric_version = {}, None
             if out_file.is_file():
                 try:
-                    counts = json.loads(out_file.read_text(encoding="utf-8")).get("counts", {})
+                    report = json.loads(out_file.read_text(encoding="utf-8"))
+                    counts, metric_version = report.get("counts", {}), report.get("metric_version")
                 except ValueError:
                     counts = {}
             status = ("TIMEOUT" if code is None else "FAIL" if code != 0 or not counts
@@ -366,7 +367,7 @@ class Night:
             ux = self.remember("ux", key, {"status": status, "exit": code, "review_items": items,
                                            "errors": (counts["error"] if isinstance(counts.get("error"), int)
                                                       else len([i for i in items if i.startswith("REVIEW error")])),
-                                           "counts": counts})
+                                           "counts": counts, "metric_version": metric_version})
         return evening, ux
 
     def step_security(self) -> dict:
@@ -503,6 +504,8 @@ class Night:
         base_src = pend.get("baseline_source") or pend["from"]
         dcode, dout = self.runner(["git", "diff", "--name-only", base_src, pend["to"]], cwd=REPO, timeout=60)
         harness = sorted({f for f in dout.split() if f in HARNESS_FILES}) if dcode == 0 else []
+        if base.get("metric_version") != ux.get("metric_version"):
+            harness = harness or [f"metric_version {base.get('metric_version')} -> {ux.get('metric_version')}"]
         if valid and harness:
             result = {"status": "METRIC_CHANGED", "reason": "MEASURING_TOOL_CHANGED", "files": harness,
                       "from": pend["from"], "to": pend["to"], "build_source": ident["archive_source_sha"],
@@ -551,6 +554,7 @@ class Night:
                         "ux_review_items": rec["ux"].get("review_items", [])[:30],
                         "security": rec["security"].get("bad", {}),
                         "baseline": {"ux_errors": rec["ux"].get("errors") if self.ux_valid(rec["ux"]) else None,
+                                     "metric_version": rec["ux"].get("metric_version"),
                                      "evening": rec["evening"].get("status")}}
             if self.state.get("pending_proof") and (rec["proof"] or {}).get("status") == "PENDING_REBUILD":
                 rec["dialogue"] = {"status": "SKIPPED", "detail": "previous fix still waits for its rebuild"}

@@ -75,6 +75,12 @@ KILLS_HARNESS = re.compile(
 )
 
 SETTLE_MS = 700          # сколько ждать последствий нажатия
+# Version of THIS measuring method (AGENTS.md: a changed metric gets a new version and the old
+# result stays on record). 1: every control with a rect was clicked, including the inside of a
+# closed <details> (false 'not visible' errors, one page reload each). 2 (11.10): controls in a
+# closed <details> are recorded as skipped_closed_details and not clicked; results of 1 and 2
+# are not comparable.
+SWEEP_METRIC_VERSION = 2
 PAGE_SETTLE_MS = 900     # сколько ждать первой отрисовки страницы
 APP_START_ROUTE = re.compile(r'/api/apps/[^/?#]+/start(?:\?[^#]*)?$')
 APP_REFRESH_ROUTE = re.compile(r'/api/apps\?refresh=true(?:&[^#]*)?$')
@@ -226,7 +232,7 @@ def _visible_controls(page) -> list[dict]:
                прямоугольник, но нет текста и нет возможности кликнуть. Владелец
                её не видит; обход, нажимавший такие кнопки, получал «element is
                not visible» на каждой и перезагружал страницу на каждую. */
-            if (el.closest('details:not([open])')) continue;
+            const closed = !!el.closest('details:not([open])');
             const label = (el.innerText || el.getAttribute('aria-label') || el.title || '').trim();
             const key = label + '|' + (el.className || '');
             if (seen.has(key)) continue;      /* строки списков дают один класс на все */
@@ -234,6 +240,7 @@ def _visible_controls(page) -> list[dict]:
             out.push({
                 label: label || '(без подписи)',
                 cls: String(el.className || ''),
+                closed: closed,
                 disabled: el.disabled === true || el.getAttribute('aria-disabled') === 'true',
                 reason: (el.title || el.getAttribute('aria-label')
                          || el.getAttribute('data-reason') || '').trim(),
@@ -465,6 +472,12 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
                                          "нажатие оборвало бы сам обход"))
                     continue
 
+                if ctl.get("closed"):
+                    # Metric v2: the owner opens the block first; one reload per hidden control
+                    # measured the harness, not the product. Recorded so the gap stays visible.
+                    results.append(Click(pid, label, ctl["cls"], "skipped_closed_details",
+                                         "внутри свёрнутого <details>: не нажималось"))
+                    continue
                 if ctl["disabled"]:
                     verdict = "disabled_reason" if ctl["reason"] else "disabled_silent"
                     results.append(Click(pid, label, ctl["cls"], verdict, ctl["reason"]))
@@ -660,6 +673,7 @@ def main() -> int:
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps({
+            "metric_version": SWEEP_METRIC_VERSION,
             "pages": wanted,
             "counts": counts,
             "clicks": [asdict(c) for c in clicks],

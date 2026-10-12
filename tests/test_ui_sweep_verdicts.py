@@ -74,7 +74,7 @@ def test_explicit_registry_refresh_is_awaited_without_tracking_background_gets()
     assert sweep._tracked_request('POST', 'http://127.0.0.1:123/api/tasks')
 
 
-def _controls_of(html, after=None):
+def _controls_of(html, after=None, with_closed=False):
     playwright = pytest.importorskip('playwright.sync_api')
     from bcc.browser_runtime import chromium_executable
     exe = chromium_executable(preinstalled='/opt/pw-browsers/chromium')
@@ -87,7 +87,8 @@ def _controls_of(html, after=None):
             page.set_content(html)
             if after:
                 page.evaluate(after)
-            return [c['label'] for c in sweep._visible_controls(page)]
+            found = sweep._visible_controls(page)
+            return [(c['label'], c.get('closed', False)) for c in found] if with_closed else [c['label'] for c in found]
         finally:
             browser.close()
 
@@ -97,11 +98,14 @@ _DISCLOSURE = ('<div id="view"><button>Always</button>'
                '<button title="leaf detail">Leaf</button></details></div>')
 
 
-def test_buttons_inside_a_closed_details_are_not_visible_controls():
-    # Negative control sits below: the same button is found once opened.
-    assert _controls_of(_DISCLOSURE) == ['Always']
+def test_buttons_inside_a_closed_details_are_reported_as_closed_not_dropped():
+    # Sweep metric v2: a control in a closed <details> is listed with closed=True (the sweep records it
+    # as skipped_closed_details) instead of being clicked (v1) or silently dropped (4398e6e7).
+    assert _controls_of(_DISCLOSURE, with_closed=True) == [('Always', False), ('leaf detail', True)]
+    assert sweep.SWEEP_METRIC_VERSION == 2
 
 
 def test_buttons_inside_an_opened_details_are_still_swept():
-    assert _controls_of(_DISCLOSURE, "document.getElementById('list').open = true") == ['Always', 'Leaf']
+    assert _controls_of(_DISCLOSURE, "document.getElementById('list').open = true", with_closed=True) == [
+        ('Always', False), ('Leaf', False)]
 

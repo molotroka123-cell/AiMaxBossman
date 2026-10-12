@@ -489,3 +489,25 @@ def test_ux_errors_come_from_the_sweep_counter_not_from_printed_lines(world):
         return real(cmd, **kw)
     night.runner = sweep
     assert night.cycle()["ux"]["errors"] == 331
+
+
+def test_a_different_sweep_metric_version_is_metric_changed(world):
+    night = world.build()
+    real = world.fake.__call__
+    version = {"v": 1}
+
+    def sweep(cmd, **kw):
+        if "installed_ui_sweep.py" in " ".join(map(str, cmd)):
+            out = __import__("pathlib").Path(cmd[cmd.index("--output") + 1])
+            out.write_text(json.dumps({"counts": {"works": 9, "error": 5 if version["v"] == 1 else 1},
+                                       "metric_version": version["v"]}), encoding="utf-8")
+            return 0, ""
+        return real(cmd, **kw)
+    night.runner = sweep
+    world.fake.diff = "command-center/bcc/app.py" + chr(10)          # no harness file in the diff
+    world.fake.claude_moves_head_to = "7" * 40
+    night.cycle()
+    world.fake.claude_moves_head_to = None
+    version["v"] = 2                                                   # the installed sweep reports a new method
+    rec = night.cycle()
+    assert rec["proof"]["status"] == "METRIC_CHANGED" and rec["proof"]["files"] == ["metric_version 1 -> 2"]
