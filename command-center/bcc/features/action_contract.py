@@ -131,10 +131,15 @@ _GEN_VERB = r"\b(generate|create|draw|edit)\b|сгенерируй\w*|нарис
 # формулировками владельца («Запомни это», «Напомни мне завтра»).
 _MEMORY_RE = re.compile(
     r"\bremember\b|\bnote\s+that\b|запомни\w*|сохрани\w*\s+в\s+памят\w*", re.I | re.U)
+# «automation»/«автоматизация» как ГОЛОЕ слово — это тема (исследование, отчёт про «автоматизацию заявок»), а не
+# просьба поставить расписание: на исследовательской задаче оно давало ложный отказ SCHEDULES_ACTION («инструмент
+# недоступен»; прогон поиска спроса 12.10). Просьба распознаётся по ГЛАГОЛУ рядом с темой.
 _SCHEDULE_RE = re.compile(
-    r"\bremind\s+me\b|\bschedule\s+(a|this)\b|\bautomation\b|напомни\w*|запланируй\w*|"
-    r"автоматизаци\w*|поставь\w*\s+на\s+автомат\w*|"
-    r"создай\w*[^.!?\n]{0,40}(миссию|automation|автоматизаци\w*)|create\s+a\s+mission",
+    r"\bremind\s+me\b|\bschedule\s+(a|this)\b|напомни\w*|запланируй\w*|"
+    r"поставь\w*\s+на\s+автомат\w*|"
+    r"\b(создай|настрой|запусти|включи|set\s+up|create|enable|configure|schedule)\w*\s+"
+    r"(?:(?!отч[её]т|обзор|report|summary|сводк|список|\blist\b|документ|\bdoc\b)[\w-]+\s+){0,3}"
+    r"(?:миссию|\bautomation\b|автоматизаци\w*)|create\s+a\s+mission",
     re.I | re.U)
 
 # GITHUB: «push»/«commit»/«запушь»/«закоммить» — тот же случай слияния

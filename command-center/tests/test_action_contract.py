@@ -900,3 +900,23 @@ def test_paraphrased_code_change_requests_require_a_code_action(prompt):
 @pytest.mark.parametrize("prompt", CODE_QUESTIONS)
 def test_questions_about_code_stay_informational(prompt):
     assert ac.classify(prompt) is None
+
+
+def test_automation_as_a_topic_is_not_a_schedule_request():
+    # Demand-search run 12.10: a research task that merely MENTIONED automation failed with SCHEDULES_ACTION
+    # ("инструмент недоступен") although it never asked to create a schedule.
+    for prompt in ("Найди три публичных запроса клиентов про automation обработки заявок и сохрани ссылки",
+                   "Сделай обзор рынка: автоматизация заявок и CRM для малого бизнеса",
+                   "Summarise how workflow automation is sold to small clinics"):
+        got = ac.classify(prompt)
+        assert got is None or got.name != "SCHEDULES_ACTION", prompt
+
+
+def test_real_schedule_requests_are_still_caught():
+    # negative control: the narrowing must not turn the contract off
+    for prompt in ("Создай автоматизацию, которая каждый день в 9 присылает отчёт",
+                   "Set up an automation to post the report every morning",
+                   "Напомни мне завтра про звонок",
+                   "Поставь на автомат ежедневную сводку"):
+        got = ac.classify(prompt)
+        assert got is not None and got.name == "SCHEDULES_ACTION", prompt
