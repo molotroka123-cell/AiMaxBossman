@@ -1289,10 +1289,10 @@ class BrowserManager:
             if problem:
                 self.close_problems[sid] = problem
         closing.add_done_callback(_done)
-        try:
-            await asyncio.wait_for(asyncio.shield(closing), self.CLOSE_WAIT_S)
-        except asyncio.TimeoutError:
-            pass                 # still closing in the background: the session is already gone for every caller
+        # ``asyncio.wait`` neither cancels the close on timeout nor when this request is cancelled: it keeps
+        # finishing in the background, the session is already gone for every caller. (No asyncio.shield: the
+        # repository forbids it, see tests/test_single_flight.py.)
+        await asyncio.wait({closing}, timeout=self.CLOSE_WAIT_S)
 
     async def _wait_closing(self, timeout: float = 15.0) -> None:
         """A new context must not open a profile that is still being closed."""

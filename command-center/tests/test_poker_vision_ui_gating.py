@@ -44,7 +44,15 @@ def test_overlay_is_polled_only_while_a_session_is_running():
     # and the browser logs each one as a console error. The first fix keyed on service_up and did NOT remove it.
     assert "let overlayLive = false;" in JS
     assert "if (!stage.isConnected || !overlayLive) return;" in JS
-    assert "overlayLive = Boolean(st.service_up && st.session && st.session.running);" in JS
+    # 12.10 (final run): a recording that finished BY ITSELF still has its last frame and boxes; the first gate
+    # (running only) stopped drawing them and tests/test_poker_vision_ui_e2e.py::test_replay_source_shows... failed.
+    # A STOP and a session without frames stay unpolled.
+    assert "overlayLive = Boolean(st.service_up && st.session && (st.session.running || finishedRecording));" in JS
+    assert re.search(r"finishedRecording = Boolean\(st\.service_up && st\.session && !st\.session\.running && "
+                     r"st\.session\.finished\s+&& !st\.session\.stopped && Number\(st\.session\.frames\) > 0\);", JS)
+    # the MJPEG stream of a finished recording ends: its last frame is shown once as a still image instead
+    assert "if (finishedRecording) showLastFrame();" in JS
+    assert "stream.src = `/api/poker-vision/frame.jpg?ts=${Date.now()}`;" in JS
     # a STOP clears the flag BEFORE its request is sent (in-flight polls would otherwise hit the stopped session)
     assert re.search(r"overlayLive = false;[^\n]*\n\s*try \{ const r = await api\.raw\('/api/poker-vision/stop'", JS)
     assert "serviceUp" not in JS                                         # the superseded, ineffective guard is gone

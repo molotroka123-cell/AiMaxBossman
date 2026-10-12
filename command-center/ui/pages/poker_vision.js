@@ -79,7 +79,14 @@ const Page = {
 
     const put = (box, ...nodes) => box.replaceChildren(...nodes.filter(Boolean));
     const err = (e) => (e && e.detail && (e.detail.message || e.detail.hint)) || (e && e.message) || String(e);
-    const startStream = () => { stream.src = `/api/poker-vision/stream.mjpeg?ts=${Date.now()}`; };
+    const startStream = () => { delete stream.dataset.still; stream.src = `/api/poker-vision/stream.mjpeg?ts=${Date.now()}`; };
+    // A recording that finished by itself ends its MJPEG stream: the picture would stay empty although the last frame and its
+    // boxes are still served. Show that last frame once, as a still image (12.10 replay e2e: naturalWidth 0 after "сессия завершена").
+    const showLastFrame = () => {
+      if (stream.dataset.still === '1') return;
+      stream.dataset.still = '1';
+      stream.src = `/api/poker-vision/frame.jpg?ts=${Date.now()}`;
+    };
 
     const startDesk = async (src, mode) => {
       try {
@@ -173,7 +180,13 @@ const Page = {
       else { if (attached) { clearInterval(timer); clearInterval(overlayTimer); timer = overlayTimer = null; } return; }
       let st;
       try { st = await api.raw('/api/poker-vision/status'); } catch { return; }
-      overlayLive = Boolean(st.service_up && st.session && st.session.running);   // overlay.json answers 503 otherwise
+      // overlay.json answers 503/404 when the service is down, no session exists or no frame was seen. It is polled while a
+      // session RUNS, and for a recording that FINISHED by itself (its last frame and boxes are still served: 200).
+      // A STOP (s.stopped) or a session without frames is never polled.
+      const finishedRecording = Boolean(st.service_up && st.session && !st.session.running && st.session.finished
+        && !st.session.stopped && Number(st.session.frames) > 0);
+      overlayLive = Boolean(st.service_up && st.session && (st.session.running || finishedRecording));
+      if (finishedRecording) showLastFrame();
       const s = st.session; const desk = s && s.desk;
       statusBox.replaceChildren(h('div.row',
         pill(st.service_up ? 'сервис работает' : 'сервис остановлен', { tone: st.service_up ? 'ok' : 'err' }),
