@@ -542,7 +542,21 @@ def install_python_distributions(out: Path, *, licenses_src: Path = REPO_LICENSE
     site = _site(out)
     rows = python_distribution_rows(site)
     for row in rows:
-        if row["files"] or row["canonical"] not in ATTACHABLE_TO_DISTRIBUTIONS:
+        if row["files"]:
+            continue
+        # A project's OWN licence file (per-project copyright line, MIT/BSD) kept byte for byte under
+        # packaging/licenses/dist/<normalised name>/LICENSE*: the real upstream text, never a template.
+        own_dir = licenses_src / "dist" / _norm_name(row["name"])
+        own = sorted(own_dir.glob("LICENSE*")) if own_dir.is_dir() else []
+        if own:
+            target = row["info"] / "licenses" / "LICENSE"
+            _copy(own[0], target)
+            relative = _rel(target, site)
+            _append_record(row["info"], relative, target.read_bytes())
+            row["files"] = [relative]
+            row["added"] = f"upstream licence file packaging/licenses/dist/{own_dir.name}/{own[0].name}"
+            continue
+        if row["canonical"] not in ATTACHABLE_TO_DISTRIBUTIONS:
             continue
         source = licenses_src / CANONICAL_TEXTS[row["canonical"]]
         if not source.is_file():

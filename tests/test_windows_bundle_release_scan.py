@@ -19,6 +19,7 @@ import inspect
 import json
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -482,11 +483,20 @@ def _site_with_distributions(tmp_path: Path) -> Path:
     return site
 
 
+def _canonical_only(tmp_path: Path) -> Path:
+    """A licence source with the canonical Apache/GPL texts and NO per-project upstream files."""
+    src = tmp_path / "canonical-only"
+    src.mkdir()
+    for name in ("Apache-2.0.txt", "GPL-3.0.txt"):
+        shutil.copyfile(notices.REPO_LICENSES / name, src / name)
+    return src
+
+
 def test_every_distribution_gets_a_row_and_nothing_is_silently_unmapped(tmp_path) -> None:
     site = _site_with_distributions(tmp_path)
     out = site.parents[2]
     dist_infos = sorted(p.name for p in site.glob("*.dist-info"))
-    report = notices.install_python_distributions(out)
+    report = notices.install_python_distributions(out, licenses_src=_canonical_only(tmp_path))
 
     table = (out / "LICENSES" / "python-distributions.md").read_text(encoding="utf-8")
     rows = [line for line in table.splitlines() if line.startswith("| ") and not line.startswith("| distribution")]
@@ -506,7 +516,7 @@ def test_every_distribution_gets_a_row_and_nothing_is_silently_unmapped(tmp_path
 def test_a_declared_apache_or_gpl3_distribution_without_a_file_gets_the_canonical_text(tmp_path) -> None:
     site = _site_with_distributions(tmp_path)
     out = site.parents[2]
-    report = notices.install_python_distributions(out)
+    report = notices.install_python_distributions(out, licenses_src=_canonical_only(tmp_path))
     assert report["added_by_build"] == ["MouseInfo==0.1.3", "flatbuffers==25.12.19", "tokenizers==0.23.2"]
 
     apache = (notices.REPO_LICENSES / "Apache-2.0.txt").read_bytes()
@@ -523,6 +533,40 @@ def test_a_declared_apache_or_gpl3_distribution_without_a_file_gets_the_canonica
     # MIT/BSD text carries a per-project copyright line: it is never composed
     for name in ("latex2mathml-3.81.1", "PyGetWindow-0.0.9", "onlyclassifier-1.0", "dual-1.0"):
         assert not (site / f"{name}.dist-info" / "licenses").exists(), name
+
+
+def test_the_tracked_upstream_files_are_attached_byte_for_byte_to_the_distributions_that_ship_none(tmp_path) -> None:
+    """12.10 final run: ctranslate2 / latex2mathml / PyGetWindow were NOT RECORDED. Their real upstream LICENSE files
+    (fetched from the projects' repositories, never composed) are tracked and attached to the dist-info."""
+    site = _site_with_distributions(tmp_path)
+    _dist(site, "ctranslate2", "4.8.2", "License: MIT")
+    out = site.parents[2]
+    report = notices.install_python_distributions(out)             # the committed packaging/licenses
+    upstream = {"latex2mathml-3.81.1": "latex2mathml", "PyGetWindow-0.0.9": "pygetwindow",
+                "ctranslate2-4.8.2": "ctranslate2"}
+    for info, folder in upstream.items():
+        tracked = (notices.REPO_LICENSES / "dist" / folder / "LICENSE").read_bytes()
+        assert (site / f"{info}.dist-info" / "licenses" / "LICENSE").read_bytes() == tracked
+        record = (site / f"{info}.dist-info" / "RECORD").read_text(encoding="utf-8")
+        digest = __import__("base64").urlsafe_b64encode(hashlib.sha256(tracked).digest()).rstrip(b"=").decode()
+        assert f"{info}.dist-info/licenses/LICENSE,sha256={digest},{len(tracked)}" in record
+    assert {"latex2mathml==3.81.1", "PyGetWindow==0.0.9", "ctranslate2==4.8.2"} <= set(report["added_by_build"])
+    assert not {"latex2mathml==3.81.1", "PyGetWindow==0.0.9", "ctranslate2==4.8.2"} & set(report["not_recorded"])
+    # a distribution with no tracked file is still honest about it
+    assert "nolicense==1.0" in report["not_recorded"]
+    # each tracked text names its project and is a real licence, not a template
+    for folder, needle in (("latex2mathml", "Ronie Martinez"), ("ctranslate2", "SYSTRAN"),
+                           ("pygetwindow", "Al Sweigart")):
+        text = (notices.REPO_LICENSES / "dist" / folder / "LICENSE").read_text(encoding="utf-8")
+        assert needle in text and "Copyright" in text
+
+
+def test_the_silero_upstream_licence_is_tracked_and_picked_up(tmp_path) -> None:
+    out, _src = _components(tmp_path)
+    report = notices.install_component_notices(out, licenses_src=notices.REPO_LICENSES)
+    assert report["silero_vad"]["status"] == "RECORDED"
+    text = (out / "LICENSES" / "silero-vad" / "LICENSE").read_text(encoding="utf-8")
+    assert "Silero Team" in text and "Permission is hereby granted" in text
 
 
 def test_canonical_text_requires_the_distribution_to_declare_exactly_that_licence() -> None:
