@@ -485,11 +485,22 @@ class Runtime:
                     with contextlib.suppress(store_mod.StoreError):
                         s.job_interrupt(project_id, job_id, "worker lost: no live render for this job")
                     job = s.get_job(project_id, job_id)
+        elif job["state"] == "PLANNED" and (run is None or not run.alive()):
+            # created, but the process that should have started it is gone: it will never start on its own
+            with self.lock:
+                run = self.runs.get(key)
+                if run is None or not run.alive():
+                    with contextlib.suppress(store_mod.StoreError):
+                        s.job_fail(project_id, job_id, "never started: the backend stopped before the job began")
+                    job = s.get_job(project_id, job_id)
         folder = self.out_dir(project_id, job_id)
         meta = self.job_meta(project_id, job_id)
         progress = _read_json(folder / "progress.json") or {}
         state = self.api_state(job)
         live = run if (run is not None and run.alive()) else None
+        if live is not None and ((state == "preview_done" and live.mode == "full")
+                                 or state in ("interrupted", "cancelled")):
+            state = "running"      # between phases / right after a resume: the worker is alive, the job is not at rest
         view: dict[str, Any] = {
             "job_id": job_id, "project_id": project_id, "state": state, "store_state": job["state"],
             "phase": job.get("phase"), "mode": meta.get("mode") or ("full" if job["state"] in ("RENDER_RUNNING", "RENDER_DONE") else "preview"),
@@ -732,6 +743,7 @@ class Runtime:
         timings["evidence_seconds"] = round(time.monotonic() - t, 3)
         timings["wall_total_seconds"] = round(time.time() - run.started, 3)
         timings["estimate"] = self._estimate_of(job)
+        timings["estimate_executed_only"] = self._estimate_of({"estimate": executed_estimate(plan)})
         report = render_mod.build_report(
             prepared=prepared, job=self._job_ref(plan, job), mode="full", status="done", render=render_result,
             verification=verification, preview=_read_json(folder / "preview.json"), cover=cover, output_file=output,
@@ -1093,6 +1105,20 @@ def _references(rt: Runtime, plan: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def executed_estimate(plan: dict[str, Any]) -> dict[str, Any]:
+    """The core machine-time model applied only to what THIS renderer executes (face / clothes / background /
+    product replacement are not run here, so their declared per-frame cost is left out)."""
+    clone = copy.deepcopy(plan)
+    for scene in clone.get("scenes") or []:
+        for name in render_mod.GENERATIVE_ELEMENTS:
+            element = (scene.get("elements") or {}).get(name)
+            if isinstance(element, dict) and element.get("policy") == "replace":
+                element["policy"] = "keep"
+    estimate = planmod.estimate(clone)
+    estimate["note"] = "only the operations this renderer executes; the declared constants are not measured"
+    return estimate
+
+
 def _execution_preview(resolved: dict[str, Any]) -> dict[str, Any]:
     return {"counts": resolved["counts"], "summary": render_mod.summary_line(resolved["counts"]),
             "not_executed": [o for o in resolved["operations"] if o["status"] == "not_executed"],
@@ -1117,8 +1143,8 @@ def _project_view(rt: Runtime, project_id: str, *, jobs: bool = True) -> dict[st
     view: dict[str, Any] = {
         "project": planmod.summary(plan), "plan": plan, "version": plan["version"],
         "readiness": {**ready, "render_blockers": blockers, "can_run": bool(ready["ready"] and not blockers)},
-        "estimate": planmod.estimate(plan), "limits": planmod.limits_report(plan),
-        "execution_preview": _execution_preview(resolved),
+        "estimate": planmod.estimate(plan), "estimate_executed": executed_estimate(plan),
+        "limits": planmod.limits_report(plan), "execution_preview": _execution_preview(resolved),
         "unknowns": {"count": len(unknowns), "items": unknowns[:60]},
         "history": s.history(project_id, limit=20),
         "source": {"analyzed": bool(source.get("asset")), "info": source or None,
@@ -1132,7 +1158,8 @@ def _project_view(rt: Runtime, project_id: str, *, jobs: bool = True) -> dict[st
         view["source"]["file_url"] = f"/api/motion-workflow/projects/{project_id}/source"
     if jobs:
         view["jobs"] = [rt.job_view(project_id, j["job_id"], light=False) for j in reversed(s.list_jobs(project_id))][:12]
-        view["active_job"] = next((j["job_id"] for j in view["jobs"] if j["state"] == "running"), None)
+        view["active_job"] = next((j["job_id"] for j in view["jobs"] if j["state"] in ("running", "planned")
+                                   and j.get("progress_is_live")), None)
     return view
 
 
@@ -1267,7 +1294,8 @@ def get_readiness(project_id: str, request: Request):
 def get_estimate(project_id: str, request: Request):
     rt = _rt(request)
     with _translate():
-        return rt.store.estimate(project_id)
+        plan = rt.store.get_project(project_id)
+    return {**planmod.estimate(plan), "executed_only": executed_estimate(plan)}
 
 
 @router.get("/projects/{project_id}/limits")
@@ -1306,8 +1334,9 @@ def edit_plan(project_id: str, body: OpsIn, request: Request):
                        current_version=current) from None
         view = _project_view(rt, project_id, jobs=False)
     return {"version": result["version"], "changed": result["changed"], "summary": result["summary"],
-            "diff": result["diff"], **{k: view[k] for k in ("plan", "readiness", "estimate", "limits",
-                                                             "execution_preview", "unknowns", "references")}}
+            "diff": result["diff"], **{k: view[k] for k in ("plan", "readiness", "estimate", "estimate_executed",
+                                                             "limits", "execution_preview", "unknowns",
+                                                             "references")}}
 
 
 @router.post("/projects/{project_id}/revert")
@@ -1425,7 +1454,7 @@ def start_job(project_id: str, body: JobIn, request: Request):
             if active is not None:
                 raise _err(409, "JOB_RUNNING", "уже идёт другая задача рендера: дождитесь её или остановите",
                            active={"project_id": active.project_id, "job_id": active.job_id})
-            blockers = rt.render_blockers(project_id, plan, env)
+            blockers = [*planmod.readiness(plan)["blockers"], *rt.render_blockers(project_id, plan, env)]
             if blockers:
                 raise _err(422, "NOT_READY", "проект не готов к запуску: " + "; ".join(blockers[:4]),
                            problems=blockers)

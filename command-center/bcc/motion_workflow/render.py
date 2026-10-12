@@ -910,7 +910,7 @@ def run_preview(prepared: dict[str, Any], out_dir: str | os.PathLike, *, cancel:
                     commands.append({"purpose": "preview frame (first one shown as an example)",
                                      "vf": ",".join(chain), "t": round(t, 3), "wall_seconds": done.wall_seconds})
             produced[sid] = names
-            if on_scene:
+            if on_scene and sid not in skip:        # a scene the job already recorded is regenerated, not re-recorded
                 on_scene(sid, names)
             if on_progress:
                 on_progress("preview", (index + 1) / max(1, len(scenes)), {"scene": sid})

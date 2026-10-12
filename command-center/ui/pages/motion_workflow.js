@@ -51,6 +51,7 @@ const REASON_RU = {
 
 const fmtSec = (s) => (s === null || s === undefined || Number.isNaN(Number(s)) ? '—' : `${Number(s).toFixed(1)} с`);
 const isUnknown = (v) => typeof v === 'string' && v.startsWith('UNKNOWN');
+const isLive = (job) => job && (job.state === 'running' || job.state === 'planned');
 function fmtBytes(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return '—';
@@ -120,12 +121,12 @@ export async function mountWorkflow(ctx) {
     remember(pid);
     const jobs = S.view.jobs || [];
     if (!keepJob || !jobs.some((j) => j.job_id === S.jobId)) {
-      const active = jobs.find((j) => j.state === 'running');
+      const active = jobs.find((j) => isLive(j));
       S.jobId = (active || jobs.find((j) => j.state === 'done') || jobs[0] || {}).job_id || '';
     }
     S.job = jobs.find((j) => j.job_id === S.jobId) || null;
     drawAll();
-    if (S.job && S.job.state === 'running') schedulePoll();
+    if (S.job && isLive(S.job)) schedulePoll();
   }
 
   async function reload() {
@@ -144,7 +145,7 @@ export async function mountWorkflow(ctx) {
       const job = await call(`/projects/${encodeURIComponent(S.pid)}/jobs/${encodeURIComponent(S.jobId)}`);
       if (!alive()) return;
       S.job = job;
-      if (job.state === 'running') {
+      if (isLive(job)) {
         updateProgress(job);          // обновляет узлы на месте: кнопка «Остановить» не пересоздаётся каждую секунду
         schedulePoll();
       } else {
@@ -165,21 +166,44 @@ export async function mountWorkflow(ctx) {
     if (ui.logNode && job.log_tail) ui.logNode.textContent = job.log_tail;
   }
 
-  async function act(fn, okTitle) {
-    try { const r = await fn(); if (okTitle) toastOk(okTitle); return r; } catch (e) { toastError(new Error(errText(e))); return null; }
+  /* Пока идёт сохранение и перечитывание проекта, панель не принимает кликов: иначе действие, начатое
+     в момент перерисовки, пропадало бы вместе с заменённым узлом. */
+  let busyCount = 0;
+  function setBusy(delta) {
+    busyCount = Math.max(0, busyCount + delta);
+    root.style.pointerEvents = busyCount ? 'none' : '';
+    root.style.opacity = busyCount ? '0.7' : '';
+    root.setAttribute('aria-busy', busyCount ? 'true' : 'false');
   }
 
-  async function edit(ops, summary) {
-    try {
-      const r = await call(`/projects/${encodeURIComponent(S.pid)}/ops`, { method: 'POST',
-        body: { ops, expected_version: S.view.version, summary: summary || undefined } });
-      toastOk('Сохранено', r.changed ? `версия ${r.version}: ${r.summary}` : 'без изменений');
-    } catch (e) {
-      if (e && e.status === 409) toastError(new Error('Проект изменился в другом месте: данные обновлены, повторите правку'));
-      else toastError(new Error(errText(e)));
-    }
-    await reload();
+  async function act(fn, okTitle) {
+    setBusy(1);
+    try { const r = await fn(); if (okTitle) toastOk(okTitle); return r; } catch (e) { toastError(new Error(errText(e))); return null; } finally { setBusy(-1); }
   }
+
+  /* Правки идут по очереди: следующая берёт версию ПОСЛЕ перечитывания проекта предыдущей, иначе быстрая
+     серия действий сама себе давала бы конфликт версий. Чужая правка по-прежнему даёт 409. */
+  let editChain = Promise.resolve();
+  function edit(ops, summary) {
+    setBusy(1);
+    const run = async () => {
+      try {
+        const r = await call(`/projects/${encodeURIComponent(S.pid)}/ops`, { method: 'POST',
+          body: { ops, expected_version: S.view.version, summary: summary || undefined } });
+        toastOk('Сохранено', r.changed ? `версия ${r.version}: ${r.summary}` : 'без изменений');
+      } catch (e) {
+        if (e && e.status === 409) toastError(new Error('Проект изменился в другом месте: данные обновлены, повторите правку'));
+        else toastError(new Error(errText(e)));
+      }
+      await reload();
+    };
+    editChain = editChain.then(run, run).finally(() => setBusy(-1));
+    return editChain;
+  }
+
+  const execLine = (c) => (c
+    ? `запрошено операций ${c.requested}: будет выполнено ${c.applied}${c.not_executed ? `, НЕ будет выполнено ${c.not_executed}` : ''}`
+    : '—');
 
   /* ---- секции ---- */
 
@@ -374,6 +398,7 @@ export async function mountWorkflow(ctx) {
       ['исходное видео, байт', lim.max_source_bytes ? `до ${fmtBytes(lim.max_source_bytes)}` : null],
     ].filter((r) => r[1]);
     const est = v.estimate || {};
+    const estx = v.estimate_executed || est;
     const ep = v.execution_preview || {};
     const ready = v.readiness || {};
     const blockers = [...(ready.blockers || []), ...(ready.render_blockers || [])];
@@ -387,10 +412,11 @@ export async function mountWorkflow(ctx) {
         (v.limits && v.limits.violations && v.limits.violations.length)
           ? h('div.small', { style: { color: 'var(--err)' } }, `Лимиты превышены: ${v.limits.violations.join('; ')}`) : null,
         h('div.small', { dataset: { testid: 'mw-estimate' } },
-          `Оценка машинного времени (константы модели, не замер): предпросмотр ≈ ${fmtSec(est.preview_seconds)}, полный рендер ≈ ${fmtSec(est.render_seconds)}. `
+          `Оценка машинного времени (объявленные константы модели, не замер): то, что исполнит этот рендерер — предпросмотр ≈ ${fmtSec(estx.preview_seconds)}, полный рендер ≈ ${fmtSec(estx.render_seconds)}`
+          + `${(est.render_seconds || 0) - (estx.render_seconds || 0) > 0.5 ? `; по полной модели плана (с операциями, которые здесь не выполняются) ≈ ${fmtSec(est.render_seconds)}` : ''}. `
           + `Облако: ${est.cloud_spend_usd === 0 ? '0 USD' : est.cloud_spend_usd}, платных вызовов: ${est.paid_calls === 0 ? '0' : est.paid_calls}.`),
         h('div.small', { dataset: { testid: 'mw-execution-preview' } },
-          `План выполнения: ${ep.summary || '—'}. Наложений текста: ${ep.overlays ?? 0}. Звук: ${ep.audio ? ({ keep: 'оставить исходный', replace: 'заменить дорожкой', mute: 'без звука', none: 'в файле нет звука' }[ep.audio.action] || ep.audio.action) : '—'}.`),
+          `План выполнения: ${execLine(ep.counts)}. Наложений текста: ${ep.overlays ?? 0}. Звук: ${ep.audio ? ({ keep: 'оставить исходный', replace: 'заменить дорожкой', mute: 'без звука', none: 'в файле нет звука' }[ep.audio.action] || ep.audio.action) : '—'}.`),
         notExec.length
           ? h('div.stack.sm', { dataset: { testid: 'mw-not-executed-preview' }, style: { borderLeft: '3px solid var(--warn)', paddingLeft: '10px' } },
             h('div.small', { style: { fontWeight: 600 } }, `Не будет выполнено (${notExec.length}):`),
@@ -449,14 +475,16 @@ export async function mountWorkflow(ctx) {
       const policyCell = (name) => {
         const e = el[name] || { policy: 'unknown' };
         const sel = select(Object.entries(POLICY_LABEL).map(([value, label]) => ({ value, label })), {
-          value: e.policy, dataset: { testid: `mw-policy-${scene.id}-${name}` }, 'aria-label': `${ELEMENT_LABEL[name]}, сцена ${scene.id}` });
+          value: e.policy, dataset: { testid: `mw-policy-${scene.id}-${name}` }, 'aria-label': `${ELEMENT_LABEL[name]}, сцена ${scene.id}`,
+          style: { minWidth: '112px' } });
         sel.addEventListener('change', async () => {
           await edit([{ op: 'set_policy', scene: scene.id, element: name, policy: sel.value, reason: 'выбор владельца в Motion Studio',
             with: sel.value === 'replace' && withSel.value ? withSel.value : undefined }]);
         });
         const kind = ELEMENT_KIND[name];
         const options = [{ value: '', label: '— без @ссылки —' }, ...((refsByKind[kind] || []).map((r) => ({ value: `@${r.name}`, label: `@${r.name}` })))];
-        const withSel = select(options, { value: e.with || '', dataset: { testid: `mw-with-${scene.id}-${name}` }, 'aria-label': `Чем заменить: ${ELEMENT_LABEL[name]}, сцена ${scene.id}` });
+        const withSel = select(options, { value: e.with || '', dataset: { testid: `mw-with-${scene.id}-${name}` }, 'aria-label': `Чем заменить: ${ELEMENT_LABEL[name]}, сцена ${scene.id}`,
+          style: { minWidth: '112px' } });
         withSel.addEventListener('change', async () => {
           if (sel.value !== 'replace') return;
           await edit([{ op: 'set_policy', scene: scene.id, element: name, policy: 'replace', reason: 'выбор владельца в Motion Studio', with: withSel.value || undefined }]);
@@ -491,7 +519,7 @@ export async function mountWorkflow(ctx) {
         h('p.small.dim', 'Неизмеренное показано как UNKNOWN. «Не решено» блокирует запуск: выберите «оставить» или «заменить». '
           + 'Замена лица, одежды, фона и товара требует отдельных инструментов: этот рендерер её не выполняет и скажет об этом в результате.'),
         h('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
-          h('table.fi-table', { dataset: { testid: 'mw-scenes-table' } },
+          h('table.fi-table', { dataset: { testid: 'mw-scenes-table' }, style: { minWidth: '1180px' } },
             h('thead', h('tr', ...head)), h('tbody', ...rows))))));
   }
 
@@ -507,8 +535,10 @@ export async function mountWorkflow(ctx) {
     const currentMode = music.mode === 'replace' ? 'replace'
       : (music.mode === 'mute' && speech.mode === 'mute') ? 'mute' : 'keep';
     let mode = currentMode;
+    const currentRef = (music.source || '').replace(/^@/, '');
     const refSel = select(audioRefs.length ? audioRefs.map((r) => ({ value: r.name, label: `@${r.name}` })) : [{ value: '', label: 'нет аудио-материалов' }],
-      { value: (music.source || '').replace(/^@/, ''), dataset: { testid: 'mw-audio-ref' }, 'aria-label': 'Аудио для замены' });
+      { value: audioRefs.some((r) => r.name === currentRef) ? currentRef : (audioRefs[0] || {}).name || '',
+        dataset: { testid: 'mw-audio-ref' }, 'aria-label': 'Аудио для замены' });
     const loud = checkbox('Выровнять громкость (-16 LUFS, двухпроходно)', opts.loudnorm !== false, { dataset: { testid: 'mw-audio-loudnorm' } });
     const fadeIn = input({ type: 'number', min: '0', max: '30', step: '0.1', value: String(opts.fade_in ?? 0.3), dataset: { testid: 'mw-audio-fade-in' }, 'aria-label': 'Нарастание, с' });
     const fadeOut = input({ type: 'number', min: '0', max: '30', step: '0.1', value: String(opts.fade_out ?? 0.8), dataset: { testid: 'mw-audio-fade-out' }, 'aria-label': 'Затухание, с' });
@@ -569,8 +599,9 @@ export async function mountWorkflow(ctx) {
           + 'Исходная дорожка — один смешанный поток: раздельно менять речь и музыку нельзя.'),
         (audioPreview.not_executed || []).length
           ? h('div.small', { style: { color: 'var(--warn)' } }, (audioPreview.not_executed || []).map((n) => `${n.lane}: ${ruReason(n.reason_code, n.reason)}`).join(' · ')) : null,
-        applyAudio)),
-      panel('Субтитры', h('div.stack.sm', field('Реплики: «начало-конец текст», по одной в строке', subsText), subsInfo, applySubs)),
+        h('div.row.tight', applyAudio))),
+      panel('Субтитры', h('div.stack.sm', field('Реплики: «начало-конец текст», по одной в строке', subsText), subsInfo,
+        h('div.row.tight', applySubs))),
       panel('Обложка', h('div.stack.sm',
         h('div.row.tight', { style: { flexWrap: 'wrap', gap: '8px', alignItems: 'flex-end' } },
           field('Секунда кадра', coverTime), field('Заголовок', coverTitle), field('Положение', coverPos)),
@@ -585,7 +616,7 @@ export async function mountWorkflow(ctx) {
     const v = S.view;
     if (!v) return;
     const can = !!(v.readiness && v.readiness.can_run);
-    const running = !!(S.job && S.job.state === 'running') || !!v.active_job;
+    const running = !!(S.job && isLive(S.job)) || !!v.active_job;
     const telegram = checkbox('Ещё и вариант для Telegram (1280 px)', false, { dataset: { testid: 'mw-telegram' } });
     const start = (mode) => async () => {
       await act(async () => {
@@ -623,7 +654,7 @@ export async function mountWorkflow(ctx) {
         job.state === 'running' || job.state === 'preview_done' || job.state === 'planned'
           ? h('div.stack.sm', barNode, pctText) : null,
         scenesText);
-      if (job.state === 'running') {
+      if (isLive(job)) {
         const stop = btn('Остановить', async () => {
           await act(async () => { await call(`/projects/${encodeURIComponent(S.pid)}/jobs/${encodeURIComponent(job.job_id)}/cancel`, { method: 'POST', body: {} }); await reload(); }, 'Остановлено');
         }, { variant: 'danger', size: 'sm' });
@@ -686,7 +717,7 @@ export async function mountWorkflow(ctx) {
       h('div.row.tight', { style: { gap: '8px', flexWrap: 'wrap' } },
         pill(r.verified ? 'файл проверен' : 'файл НЕ проверен', { tone: r.verified ? 'ok' : 'err' }),
         pill(partial ? `выполнено частично: не выполнено ${(r.not_executed || []).length}` : 'все запрошенные операции выполнены', { tone: partial ? 'warn' : 'ok' })),
-      h('div.small', ex.summary || '')));
+      h('div.small', execLine(ex))));
       nodes.push(h('div.row.tight', { style: { gap: '12px', flexWrap: 'wrap', alignItems: 'flex-start' } },
         h('video', { src: fileUrl(S.pid, job.job_id, 'output.mp4'), controls: true, preload: 'metadata',
           style: { maxWidth: '480px', width: '100%', borderRadius: '6px' }, dataset: { testid: 'mw-video' } }),
@@ -707,7 +738,7 @@ export async function mountWorkflow(ctx) {
         ['наложений текста', `${par.text_overlays || 0}, реплик субтитров: ${par.subtitle_cues ? par.subtitle_cues.used : 0}`],
         ['обложка', par.cover ? `cover.png, кадр ${fmtSec(par.cover.time)} (${par.cover.time_source || par.cover.frame_from || ''})${par.cover.title ? `, «${par.cover.title}»` : ''}` : '—'],
         ['ffmpeg', r.ffmpeg ? `${r.ffmpeg.version || ''}` : '—'],
-        ['время', r.timing ? `всего ${fmtSec(r.timing.wall_total_seconds)} (рендер ${fmtSec(r.timing.render_seconds)}; оценка до запуска ≈ ${fmtSec(r.timing.estimate && r.timing.estimate.render_seconds)})` : '—'],
+        ['время', r.timing ? `всего ${fmtSec(r.timing.wall_total_seconds)} (рендер ${fmtSec(r.timing.render_seconds)}; оценка до запуска ≈ ${fmtSec((r.timing.estimate_executed_only || r.timing.estimate || {}).render_seconds)})` : '—'],
         ['платные вызовы', `${r.paid_calls ?? 0}, облако ${r.cloud_spend_usd ?? 0} USD`],
       ];
       nodes.push(h('div', { style: { overflowX: 'auto', maxWidth: '100%' } },
