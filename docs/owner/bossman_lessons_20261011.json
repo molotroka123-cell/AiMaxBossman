@@ -1,0 +1,586 @@
+{
+ "schema": "bossman.critical_errors.v1",
+ "title": "Уроки дня 2026-10-11: удалённый доступ, ночная автономность, сборка, CI, дерево, UX",
+ "captured_utc": "2026-10-12T01:28:53Z",
+ "observed_head_sha": "eb90062e9489b0c35aedea801cd1e637f6371940",
+ "environment": "owner-machine Windows 11 Pro 10.0.26200, Ryzen AI MAX+ 395; GitHub Actions ubuntu/windows",
+ "recorded_by": {
+  "principal_id": "agent:claude-coordinator",
+  "model": "claude-opus-5-5",
+  "agent": "coordinator",
+  "run_id": "lessons-20261011"
+ },
+ "privacy_class": "internal-owner-ops",
+ "scope": "owner-machine/windows-11 + github-actions",
+ "notes": [
+  "Каждый урок CANDIDATE, пока нет внешнего верификатора; доказательства — файлы репозитория с sha256."
+ ],
+ "entries": [
+  {
+   "id": "PULT-OLD-BUILD-REJECTS-NEW-CONFIG-KEYS",
+   "class": "config-compat",
+   "title": "Установленный пульт старой сборки падает на новых ключах config.json",
+   "severity": "HIGH",
+   "status": "FIXED",
+   "symptom": "После добавления ключа в telegram-companion/config.json установленный пульт и owner_report падают при загрузке настроек.",
+   "symptom_examples": [
+    "TypeError: Settings.__init__() got an unexpected keyword argument 'remote_control_name'"
+   ],
+   "symptom_regex": [
+    "Settings\\.__init__\\(\\) got an unexpected keyword argument"
+   ],
+   "keywords": [
+    "config.json",
+    "companion",
+    "пульт",
+    "Settings",
+    "unexpected keyword",
+    "совместимость сборок"
+   ],
+   "detection": "Загрузить config.json кодом установленной сборки (owner_report --file x) до и после правки.",
+   "root_cause": "Settings(**data) строгий; один config.json читают и установленная сборка, и исходники новее неё.",
+   "fix": "Не добавлять ключи в общий config.json; новые параметры — константы модуля или существующие поля (claude_permission_mode). Откат из config.json.bak-*.",
+   "prevention": "Перед правкой общего конфига: проверка загрузки установленной сборкой; новые ключи — только вместе с установкой новой сборки.",
+   "evidence": [
+    {
+     "path": "command-center/bcc/telegram_companion/remote_access.py",
+     "sha256": "25cf6ca055f71107b57c7eb3be0518fdc7446f0a6870b0ff9df02082c8eb9fbe",
+     "kind": "code"
+    },
+    {
+     "path": "command-center/tests/test_companion_remote_access.py",
+     "sha256": "4e09a3b2183b9c1a26b18e3818033282f2267403679cb7352f8350da905878e6",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "наблюдение 11.10, откат из бэкапа; внешний верификатор не оформлен"
+   }
+  },
+  {
+   "id": "TEST-PATCHED-OS-NAME-WINDOWSPATH",
+   "class": "ci-portability",
+   "title": "Подмена os.name в тесте ломает pathlib на Linux CI",
+   "severity": "HIGH",
+   "status": "FIXED",
+   "symptom": "Тесты зелёные на Windows, на Linux-раннерах падают: pathlib создаёт WindowsPath.",
+   "symptom_examples": [
+    "NotImplementedError: cannot instantiate 'WindowsPath' on your system",
+    "RuntimeError: Could not determine home directory."
+   ],
+   "symptom_regex": [
+    "cannot instantiate 'WindowsPath' on your system",
+    "pathlib\\.UnsupportedOperation: cannot instantiate"
+   ],
+   "keywords": [
+    "os.name",
+    "monkeypatch",
+    "WindowsPath",
+    "pathlib",
+    "linux ci",
+    "кроссплатформенность"
+   ],
+   "detection": "grep monkeypatch.setattr(.*os, \"name\" в tests/.",
+   "root_cause": "pathlib.Path выбирает класс по os.name; подмена os.name на 'nt' в Linux-процессе даёт WindowsPath.",
+   "fix": "Модульный флаг IS_WINDOWS = os.name == 'nt'; тесты подменяют флаг, а не os.name.",
+   "prevention": "Никогда не подменять os.name/sys.platform в тестах; платформенные ветки через флаг модуля.",
+   "evidence": [
+    {
+     "path": "command-center/bcc/telegram_companion/remote_access.py",
+     "sha256": "25cf6ca055f71107b57c7eb3be0518fdc7446f0a6870b0ff9df02082c8eb9fbe",
+     "kind": "code"
+    },
+    {
+     "path": "command-center/tests/test_companion_remote_access.py",
+     "sha256": "4e09a3b2183b9c1a26b18e3818033282f2267403679cb7352f8350da905878e6",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "исправлено в 4c29b274, Command Center CI зелёный на py3.11/3.12/3.14"
+   }
+  },
+  {
+   "id": "VERIFY-ARCHIVE-AGAINST-ITS-OWN-SHA",
+   "class": "release",
+   "title": "Архив проверялся против HEAD, а не против SHA, из которого собран",
+   "severity": "HIGH",
+   "status": "FIXED",
+   "symptom": "Верификатор архива падает, как только в ветке появляется любой новый коммит после сборки.",
+   "symptom_examples": [
+    "verify_windows_bundle --expected-sha <HEAD> на архиве другого SHA"
+   ],
+   "symptom_regex": [
+    "expected-sha",
+    "source_sha .* differs"
+   ],
+   "keywords": [
+    "verify_windows_bundle",
+    "expected-sha",
+    "MANIFEST",
+    "source_sha",
+    "архив",
+    "сборка"
+   ],
+   "detection": "Сравнить MANIFEST.json/source_sha архива с HEAD до проверки.",
+   "root_cause": "Ожидаемый SHA брался из git rev-parse HEAD; HEAD уходит вперёд от коммита сборки.",
+   "fix": "Ожидаемый SHA = source_sha из MANIFEST.json архива; при изменении кода после сборки — пересборка из чистого worktree.",
+   "prevention": "Кэш результатов проверки — по ключу SHA256 архива + source SHA + installed SHA.",
+   "evidence": [
+    {
+     "path": "tools/night_autonomy.py",
+     "sha256": "d88b635d9cd47889ee99e533959ae38e676b62c906508010344f8b7920ac85c3",
+     "kind": "code"
+    },
+    {
+     "path": "tests/test_night_autonomy.py",
+     "sha256": "15c4d0336a203f1edca95e7ff40a0bff3a69718a8044bb34c257bb2078928f3d",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "найдено и исправлено до первого ночного прогона; 34 теста"
+   }
+  },
+  {
+   "id": "WINDOWS-TIMEOUT-HANGS-ON-GRANDCHILDREN",
+   "class": "process",
+   "title": "subprocess.run(timeout) зависает на Windows из-за внуков-процессов",
+   "severity": "HIGH",
+   "status": "FIXED",
+   "symptom": "Шаг с таймаутом не возвращается: убит только прямой потомок, бэкенд/браузер-внуки держат pipe.",
+   "symptom_examples": [
+    "процесс не вернулся после timeout",
+    "communicate() висит после kill"
+   ],
+   "symptom_regex": [
+    "TimeoutExpired",
+    "(?i)hang.*after.*timeout"
+   ],
+   "keywords": [
+    "subprocess",
+    "timeout",
+    "taskkill",
+    "process tree",
+    "pipe",
+    "windows",
+    "дерево процессов"
+   ],
+   "detection": "Запустить дочерний процесс, который сам стартует sleep 60, с timeout=3: возврат дольше 45 с — дефект.",
+   "root_cause": "capture_output использует pipe; после kill родителя внуки держат его открытым, communicate ждёт EOF.",
+   "fix": "Вывод в файл, CREATE_NEW_PROCESS_GROUP, по таймауту taskkill /T /F (POSIX: killpg), ограниченное ожидание.",
+   "prevention": "Для любых долгих шагов, которые стартуют сервер или браузер, — только run() с убийством дерева.",
+   "evidence": [
+    {
+     "path": "tools/night_autonomy.py",
+     "sha256": "d88b635d9cd47889ee99e533959ae38e676b62c906508010344f8b7920ac85c3",
+     "kind": "code"
+    },
+    {
+     "path": "tests/test_night_autonomy.py",
+     "sha256": "15c4d0336a203f1edca95e7ff40a0bff3a69718a8044bb34c257bb2078928f3d",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "реальный тест с внуком проходит на Windows; найдено независимым ревью"
+   }
+  },
+  {
+   "id": "AGENT-ANSWER-IS-A-CLAIM-NOT-A-PROOF",
+   "class": "autonomy",
+   "title": "Ответ агента «исправил» — заявка, а не доказательство",
+   "severity": "HIGH",
+   "status": "FIXED",
+   "symptom": "Ночной цикл засчитывал успешный ответ Claude как исправление без пересборки и замера.",
+   "symptom_examples": [
+    "Claude: done",
+    "result is_error=false без нового коммита"
+   ],
+   "symptom_regex": [
+    "(?i)claim[_ ]only|fix[_ ]proven"
+   ],
+   "keywords": [
+    "claim",
+    "proof",
+    "fix_proven",
+    "claude",
+    "агент",
+    "доказательство",
+    "north star"
+   ],
+   "detection": "Проверить: был ли новый коммит с кодом, пересобран ли архив, пройден ли замер на нём.",
+   "root_cause": "Успешный код возврата агента не связан с состоянием продукта.",
+   "fix": "Статусы CLAUDE_ANSWERED / UNAVAILABLE / FAILED отдельно от FIX_PROVEN; FIX_PROVEN только на пересобранном архиве с меньшим числом ошибок UX и не хуже по verify/evening.",
+   "prevention": "Любая метрика самоулучшения считает только FIX_PROVEN; CLAIM_ONLY и NOT_PROVEN — отдельно.",
+   "evidence": [
+    {
+     "path": "tools/night_autonomy.py",
+     "sha256": "d88b635d9cd47889ee99e533959ae38e676b62c906508010344f8b7920ac85c3",
+     "kind": "code"
+    },
+    {
+     "path": "tests/test_night_autonomy.py",
+     "sha256": "15c4d0336a203f1edca95e7ff40a0bff3a69718a8044bb34c257bb2078928f3d",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "логика и тесты есть; первый реальный FIX_PROVEN ещё не получен"
+   }
+  },
+  {
+   "id": "PS51-NEEDS-UTF8-BOM-FOR-CYRILLIC",
+   "class": "powershell",
+   "title": "PowerShell 5.1 ломает разбор скрипта с кириллицей без BOM",
+   "severity": "MEDIUM",
+   "status": "FIXED",
+   "symptom": "Скрипт .ps1 с русскими строками падает ParserError в Windows PowerShell 5.1, хотя в pwsh 7 работает.",
+   "symptom_examples": [
+    "Missing closing '}' in statement block",
+    "Unexpected token 'РЅРµ'"
+   ],
+   "symptom_regex": [
+    "Missing closing '\\}' in statement block",
+    "Unexpected token '.*Р[Ѓ-я]"
+   ],
+   "keywords": [
+    "powershell 5.1",
+    "utf-8",
+    "bom",
+    "кириллица",
+    "ParserError",
+    "ps1"
+   ],
+   "detection": "Кракозябры вида РЅРµ в тексте ошибки разбора.",
+   "root_cause": "PS 5.1 читает UTF-8 без BOM как ANSI-кодировку системы.",
+   "fix": "Сохранять .ps1 с кириллицей в UTF-8 с BOM.",
+   "prevention": "Проверка .ps1 в CI: файлы с не-ASCII символами обязаны начинаться с BOM.",
+   "evidence": [
+    {
+     "path": "tools/security_audit.ps1",
+     "sha256": "6587262ee67ed3a5c2bfa8a0ad062454db91f04488270e7fc1f2dc5f046ab162",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "наблюдение 11.10, аудит безопасности после BOM отработал"
+   }
+  },
+  {
+   "id": "PS-STRING-VAR-FOLLOWED-BY-COLON",
+   "class": "powershell",
+   "title": "\"$var:\" в строке PowerShell — ошибка разбора",
+   "severity": "LOW",
+   "status": "FIXED",
+   "symptom": "Скрипт не запускается: Variable reference is not valid. ':' was not followed by a valid variable name character.",
+   "symptom_examples": [
+    "Log \"attempt $attempt: starting\""
+   ],
+   "symptom_regex": [
+    "Variable reference is not valid\\. ':' was not followed"
+   ],
+   "keywords": [
+    "powershell",
+    "variable",
+    "colon",
+    "drive",
+    "строка"
+   ],
+   "detection": "Найти в .ps1 шаблон \\$\\w+: внутри двойных кавычек.",
+   "root_cause": "PowerShell трактует $name: как переменную с указанием диска.",
+   "fix": "Писать ${attempt}: .",
+   "prevention": "Перед запуском .ps1 — разбор Parser::ParseFile без ошибок.",
+   "evidence": [
+    {
+     "path": "tools/claude_remote_service.ps1",
+     "sha256": "923facd0694dd4a4a556aaf4581b59ba7d4ff5e6e1c9a437737967fb83c70307",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "наблюдение 11.10"
+   }
+  },
+  {
+   "id": "REMOTE-CONTROL-ONE-PER-FOLDER",
+   "class": "remote-access",
+   "title": "Claude Remote Control: один экземпляр на папку",
+   "severity": "MEDIUM",
+   "status": "ENV",
+   "symptom": "Второй claude remote-control в той же папке завершается сразу с кодом 1.",
+   "symptom_examples": [
+    "Error: This folder is already served by a terminal `claude remote-control` on this device. Stop it first."
+   ],
+   "symptom_regex": [
+    "already served by a terminal `claude remote-control`"
+   ],
+   "keywords": [
+    "remote-control",
+    "claude",
+    "remote",
+    "удалённый доступ",
+    "дубликат"
+   ],
+   "detection": "Перед запуском — процессы с remote-control и --name в командной строке.",
+   "root_cause": "CLI сам запрещает второй сервер на ту же папку.",
+   "fix": "Keeper проверяет живой процесс по имени сессии и не запускает второй; пульт /remote отдаёт PID и ссылку.",
+   "prevention": "Не запускать Remote Control поверх действующего; /remote_status до /remote.",
+   "evidence": [
+    {
+     "path": "tools/claude_remote_service.ps1",
+     "sha256": "923facd0694dd4a4a556aaf4581b59ba7d4ff5e6e1c9a437737967fb83c70307",
+     "kind": "code"
+    },
+    {
+     "path": "command-center/bcc/telegram_companion/remote_access.py",
+     "sha256": "25cf6ca055f71107b57c7eb3be0518fdc7446f0a6870b0ff9df02082c8eb9fbe",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "реальный прогон keeper'а 11.10 15:33"
+   }
+  },
+  {
+   "id": "PUSH-CANCELS-RUNNING-CI",
+   "class": "ci",
+   "title": "Push в ветку отменяет идущий Command Center CI предыдущего SHA",
+   "severity": "MEDIUM",
+   "status": "ENV",
+   "symptom": "Command Center CI на SHA помечен cancelled; зелёного CC CI нет ни на одном SHA.",
+   "symptom_examples": [
+    "Command Center CI cancelled"
+   ],
+   "symptom_regex": [
+    "(?i)command center ci.*cancelled"
+   ],
+   "keywords": [
+    "ci",
+    "concurrency",
+    "cancelled",
+    "push",
+    "github actions"
+   ],
+   "detection": "gh run list: conclusion=cancelled у Command Center CI сразу после нового push.",
+   "root_cause": "workflow с concurrency cancel-in-progress на ветку.",
+   "fix": "Не пушить, пока идёт CC CI нужного SHA; копить локальные коммиты и пушить после завершения.",
+   "prevention": "Монитор CI точного SHA до push; документы аудита коммитить пачкой.",
+   "evidence": [
+    {
+     "path": "docs/owner/PRODUCTION_READINESS_AUDIT_RU.md",
+     "sha256": "a91b036432d829d4c36d34d1da623f84c2959c9f3a803c807c313cf800350210",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "наблюдение 11.10 на 9520a45a и 4f4e7183"
+   }
+  },
+  {
+   "id": "TREE-PUBLISH-NEEDS-COMMITTED-REGISTRY-ABS-PATH",
+   "class": "tree",
+   "title": "Публикация дерева не видит реестр: git-снимок и относительный путь",
+   "severity": "MEDIUM",
+   "status": "FIXED",
+   "symptom": "Сайт дерева опубликован, но CI-улик на узлах нет; в выводе REGISTRY=UNREADABLE.",
+   "symptom_examples": [
+    "REGISTRY=UNREADABLE",
+    "источник git-snapshot"
+   ],
+   "symptom_regex": [
+    "REGISTRY=UNREADABLE"
+   ],
+   "keywords": [
+    "tree",
+    "дерево",
+    "registry",
+    "tree_publish_site",
+    "git-snapshot",
+    "github pages"
+   ],
+   "detection": "Проверить, что на сайте у листа есть GREEN_ON_SHA и SHA; Last-Modified Pages после сборки.",
+   "root_cause": "Публикатор берёт git-снимок HEAD (незакоммиченный реестр не виден) и резолвит --registry от папки сайта.",
+   "fix": "Сначала коммит реестра, потом tree_publish_site.py --registry <абсолютный путь> --push; дождаться pages build=built.",
+   "prevention": "После публикации — проверка живого JSON узла по сети, а не только вывода публикатора.",
+   "evidence": [
+    {
+     "path": "docs/owner/PRODUCTION_READINESS_AUDIT_RU.md",
+     "sha256": "a91b036432d829d4c36d34d1da623f84c2959c9f3a803c807c313cf800350210",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "11.10: 471 лист GREEN_ON_SHA виден на живом сайте после второй публикации"
+   }
+  },
+  {
+   "id": "INSTALLED-UI-SWEEP-SLOWER-THAN-CAP",
+   "class": "ux",
+   "title": "Обход интерфейса установленной сборки на ПК владельца в 3 раза дольше лимита",
+   "severity": "MEDIUM",
+   "status": "ENV",
+   "symptom": "Вечерний тест сборки: installed_ui_sweep TIMEOUT 900 с → OWNER_EVENING_RESULT=FAIL, хотя на CI-раннере укладывается.",
+   "symptom_examples": [
+    "OWNER_EVENING_REASON=ui-sweep_timeout [fail]: installed_ui_sweep.py did not finish within 900 s"
+   ],
+   "symptom_regex": [
+    "installed_ui_sweep\\.py did not finish within \\d+ s"
+   ],
+   "keywords": [
+    "ui sweep",
+    "evening test",
+    "timeout",
+    "обход интерфейса",
+    "приёмка"
+   ],
+   "detection": "Запустить installed_ui_sweep.py отдельно без лимита и замерить время (11.10: 2693 с, 630 кликов).",
+   "root_cause": "Обход кликает 630 элементов с ожиданиями; ПК владельца загружен и медленнее CI-раннера.",
+   "fix": "Ночной раннер запускает обход отдельно с лимитом 75 мин; результат — counts и review-пункты, а не таймаут.",
+   "prevention": "Не считать таймаут обхода ни PASS, ни регрессией: перезапуск без лимита.",
+   "evidence": [
+    {
+     "path": "tools/night_autonomy.py",
+     "sha256": "d88b635d9cd47889ee99e533959ae38e676b62c906508010344f8b7920ac85c3",
+     "kind": "code"
+    },
+    {
+     "path": "docs/owner/PRODUCTION_READINESS_AUDIT_RU.md",
+     "sha256": "a91b036432d829d4c36d34d1da623f84c2959c9f3a803c807c313cf800350210",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "замер 11.10; CI One-download с тем же обходом PASS"
+   }
+  },
+  {
+   "id": "DISABLED-BUTTON-MUST-SAY-WHY",
+   "class": "ux",
+   "title": "Кнопка, которая сейчас не может сработать, должна быть выключена с причиной",
+   "severity": "MEDIUM",
+   "status": "FIXED",
+   "symptom": "Обход UI: кнопки шлют запросы, получающие 403/400 по замыслу, или выключены без объяснения (disabled_silent).",
+   "symptom_examples": [
+    "403 /api/poker-vision/desk/sandbox/cover",
+    "400 /api/poker-vision/calibrate",
+    "disabled_silent"
+   ],
+   "symptom_regex": [
+    "REVIEW (error|disabled_silent)"
+   ],
+   "keywords": [
+    "ui",
+    "disabled",
+    "title",
+    "403",
+    "400",
+    "disabled_silent",
+    "кнопка",
+    "подсказка"
+   ],
+   "detection": "Классы ui_acceptance_sweep: error с 4xx по замыслу и disabled_silent.",
+   "root_cause": "Предусловие проверялось только сервером; страница не знала о нём.",
+   "fix": "Страница выключает кнопку и пишет причину в title, пока предусловие не выполнено; серверная проверка остаётся.",
+   "prevention": "Каждое предусловие действия — в состоянии кнопки на странице (класс disabled_reason).",
+   "evidence": [
+    {
+     "path": "command-center/ui/pages/poker_vision.js",
+     "sha256": "ac241cda6585293565a0fb09eb0a41105f773e45e6dcfa9bea2bf980be1b1309",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "исправлено 71ee3c5d/eb90062e; доказательство — повторный обход ночью"
+   }
+  },
+  {
+   "id": "FREE-MODEL-EMPTY-CONTENT",
+   "class": "model-routing",
+   "title": "Бесплатная/облачная модель вернула пустой content",
+   "severity": "LOW",
+   "status": "ENV",
+   "symptom": "Ревью от GLM 5.3 Flash пришло пустым; у Mistral Large 4 текст лежал в thinking-блоках.",
+   "symptom_examples": [
+    "content: None",
+    "[{'type': 'thinking', ...}]"
+   ],
+   "symptom_regex": [
+    "'content':\\s*None",
+    "'type':\\s*'thinking'"
+   ],
+   "keywords": [
+    "openrouter",
+    "glm",
+    "mistral",
+    "reasoning",
+    "empty content",
+    "пустой ответ"
+   ],
+   "detection": "Пустой content при ненулевых токенах ответа.",
+   "root_cause": "Рассуждающие модели кладут текст в reasoning/thinking; параметр reasoning у части провайдеров даёт 400.",
+   "fix": "Читать content, затем reasoning/thinking; при пустом — следующая модель в маршруте.",
+   "prevention": "Маршрутизатор считает пустой content отказом модели, а не ответом.",
+   "evidence": [
+    {
+     "path": "docs/owner/PRODUCTION_READINESS_AUDIT_RU.md",
+     "sha256": "a91b036432d829d4c36d34d1da623f84c2959c9f3a803c807c313cf800350210",
+     "kind": "doc"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "наблюдение 11.10 на ревью diff"
+   }
+  },
+  {
+   "id": "WINDOWS-LOCAL-E2E-NOT-A-REGRESSION",
+   "class": "ci-portability",
+   "title": "Локальный провал e2e на Windows — сравнить с базовым коммитом до вывода о регрессии",
+   "severity": "LOW",
+   "status": "OPEN",
+   "symptom": "test_replay_source_shows_live_stream… падает локально на Windows (hero_cards UNKNOWN), а на Linux CI проходит.",
+   "symptom_examples": [
+    "assert '6d' in 'hero_cards[0]\tUNKNOWN"
+   ],
+   "symptom_regex": [
+    "hero_cards\\[0\\]\\s+UNKNOWN"
+   ],
+   "keywords": [
+    "poker-vision",
+    "e2e",
+    "windows",
+    "regression",
+    "регрессия",
+    "базовый коммит"
+   ],
+   "detection": "Прогнать тот же тест на предыдущем зелёном SHA в отдельном worktree.",
+   "root_cause": "Распознавание по образцам чувствительно к окружению; падение воспроизводится и на 4c29b274.",
+   "fix": "Записать как окружение Windows, не откатывать чужой коммит; разбор — отдельной задачей Poker.",
+   "prevention": "Перед обвинением коммита — тот же тест на базовом SHA.",
+   "evidence": [
+    {
+     "path": "command-center/ui/pages/poker_vision.js",
+     "sha256": "ac241cda6585293565a0fb09eb0a41105f773e45e6dcfa9bea2bf980be1b1309",
+     "kind": "code"
+    }
+   ],
+   "verification": {
+    "state": "CANDIDATE",
+    "reason": "11.10: падает на 4c29b274 и 21fadc22 локально, CI Linux зелёный"
+   }
+  }
+ ]
+}
