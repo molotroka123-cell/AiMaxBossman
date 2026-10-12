@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import html as htmllib
+import json
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
@@ -117,6 +118,44 @@ def parse_export(html_text: str) -> list[Message]:
             ts_utc=local - dt.timedelta(minutes=off), sender=last_sender, text=text,
             reply_to=int(rep.group(1)) if rep else None,
             has_media="media_wrap" in chunk, forwarded="forwarded" in chunk))
+    return msgs
+
+
+def parse_export_json(json_text: str) -> list[Message]:
+    """Telegram Desktop ``result.json`` (one chat export) -> the same ``Message`` objects as ``parse_export``.
+
+    The UTC instant comes from ``date_unixtime`` and the export-machine offset is derived from it; a message
+    without ``date_unixtime`` is refused (``ValueError``) because the zone cannot be known and nothing is guessed.
+    Text may be a string or a list of strings / ``{"type", "text"}`` entities.
+    """
+    data = json.loads(json_text)
+    items = data.get("messages") if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        raise ValueError("result.json: no 'messages' list (export a single chat, not the whole account)")
+    msgs: list[Message] = []
+    senders: dict[str, str] = {}
+    for item in items:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        try:
+            local = dt.datetime.fromisoformat(str(item["date"]))
+            unix = int(item["date_unixtime"])
+        except (KeyError, ValueError, TypeError):
+            raise ValueError(f"result.json: message {item.get('id')} has no usable date/date_unixtime") from None
+        ts_utc = dt.datetime.fromtimestamp(unix, dt.timezone.utc).replace(tzinfo=None)
+        off = int(round((local - ts_utc).total_seconds() / 60))
+        raw = item.get("text", "")
+        if isinstance(raw, list):
+            raw = "".join(seg if isinstance(seg, str) else str(seg.get("text", "")) for seg in raw
+                          if isinstance(seg, (str, dict)))
+        who = str(item.get("from_id") or item.get("from") or "")
+        label = senders.setdefault(hashlib.sha256(who.encode("utf-8")).hexdigest()[:12], f"S{len(senders) + 1}")
+        reply = item.get("reply_to_message_id")
+        msgs.append(Message(
+            msg_id=int(item["id"]), ts_local=local, utc_offset_min=off, ts_utc=ts_utc, sender=label,
+            text=str(raw).strip(), reply_to=int(reply) if isinstance(reply, int) else None,
+            has_media=any(k in item for k in ("photo", "file", "media_type", "sticker_emoji")),
+            forwarded="forwarded_from" in item))
     return msgs
 
 

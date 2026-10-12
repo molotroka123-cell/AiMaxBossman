@@ -43,12 +43,15 @@ def run(args) -> dict:
     cands = []
     if args.export:
         p = Path(args.export)
-        msgs = parse.parse_export(p.read_text(encoding="utf-8"))
+        as_json = p.suffix.lower() == ".json"
+        text = p.read_text(encoding="utf-8")
+        msgs = parse.parse_export_json(text) if as_json else parse.parse_export(text)
         cands = [parse.classify(m) for m in msgs]
         deals = calc.deals_from_chat(cands, include_provisional=True)
         local = {str(m.msg_id): m.ts_local for m in msgs}
         offs = collections.Counter(m.utc_offset_min for m in msgs)
-        src_meta = {"type": "telegram_export_html", "sha256": _sha(p), "messages": len(msgs),
+        src_meta = {"type": "telegram_export_json" if as_json else "telegram_export_html",
+                    "sha256": _sha(p), "messages": len(msgs),
                     "export_utc_offsets_min": dict(offs),
                     "first_ts_export_local": min(m.ts_local for m in msgs).isoformat() if msgs else None,
                     "last_ts_export_local": max(m.ts_local for m in msgs).isoformat() if msgs else None,
