@@ -1282,10 +1282,8 @@ class Proof:
                 f"{own.get('status')}: {own.get('detail')}")
         s.check("doctor_backend_identity_ok", bi.get("status") == "PASS" and bundle.sha[:12] in bi.get("detail", ""),
                 f"{bi.get('status')}: {bi.get('detail')}")
-        if "Jeff 1.1" in own.get("detail", ""):
-            s.notes.append("the product's own version string (bcc/pit/version.py JEFF_VERSION, shown by doctor and the "
-                           "heartbeat) is '1.1'; the Jeff 2.0 module layer is bcc.pit.j2 (schema jeff.j2/1) - nothing in "
-                           "doctor says '2.0'.")
+        s.check("doctor_version_label_matches_j2_layer", "Jeff 2.0" in own.get("detail", ""),
+                f"own_build detail: {own.get('detail')} (the bcc.pit.j2 layer ships in this bundle)")
         count = len(base)
         s.check("doctor_pollers_at_most_one", pl.get("status") == "PASS" and count <= 1,
                 f"{pl.get('status')}: {pl.get('detail')} (host pollers at start: {count})")

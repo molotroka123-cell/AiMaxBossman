@@ -47,6 +47,10 @@ _LIST = re.compile(r"^(?:мои\s+задачи|покажи\s+(?:мои\s+)?за
 _RESULT = re.compile(r"^(?:покажи\s+)?(?:результат|итог)\s+задачи\s+(?:№\s*)?(\d{1,2})\W*$", re.I)
 _CANCEL = re.compile(r"^(?:отмени|останови)\s+задачу\s+(?:№\s*)?(\d{1,2})\W*$", re.I)
 _FORGET = re.compile(r"^(?:удали|сотри|забудь)\s+(?:все\s+)?мои\s+задачи\W*$", re.I)
+# The participant's own answer to «доставка не подтверждена»: the only way an UNKNOWN_OUTCOME task moves on.
+_GOT = re.compile(r"^(?:я\s+)?получил[аи]?\s+результат\s+задачи\s+(?:№\s*)?(\d{1,2})\W*$", re.I)
+_NOT_GOT = re.compile(r"^(?:я\s+)?не\s+получил[аи]?\s+результат\s+задачи\s+(?:№\s*)?(\d{1,2})\W*$", re.I)
+UNKNOWN_NOTICE_ATTEMPTS = 3
 
 STATE_RU = {"PLANNED": "в очереди", "RUNNING": "в работе", "WAITING_INPUT": "ждёт ответа",
             "WAITING_APPROVAL": "ждёт подтверждения", "DONE": "готово", "FAILED": "не выполнена",
@@ -180,11 +184,82 @@ class LongTaskModule(BaseModule):
         if self._loop_task is None or self._loop_task.done():
             self._loop_task = asyncio.create_task(self._loop())
 
+    # -- UNKNOWN_OUTCOME: say it once, never resend blindly -------------------------------------------------
+    def _notice_marker(self, owner: str, task_id: str) -> Path:
+        # NOT *.json (TaskStore.list() reads every *.json of the folder as a task record)
+        return self.store._dir(owner) / f"{task_id}.unknown-notice"
+
+    def _marker(self, marker: Path) -> tuple[int, str]:
+        """(attempts so far, state). ``sending`` means the process died inside the send: not repeated blindly."""
+        try:
+            import json
+            data = json.loads(marker.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                return UNKNOWN_NOTICE_ATTEMPTS, "unreadable"
+            return int(data.get("attempts", 0)), str(data.get("state", "retry"))
+        except FileNotFoundError:
+            return 0, "none"
+        except (OSError, ValueError, TypeError):
+            return UNKNOWN_NOTICE_ATTEMPTS, "unreadable"      # unreadable marker: do not risk spamming
+
+    async def announce_unknown(self) -> int:
+        """Tell the participant, once, that the result of a task may not have reached them.
+
+        The marker is written BEFORE the send (a crash in the send is not repeated blindly) and the text never
+        claims delivery: it says the delivery is unconfirmed, that nothing is resent on its own and which words
+        move the task on. Returns the number of notices sent."""
+        try:
+            rows = self.store.resumable()
+        except Exception:                                     # noqa: BLE001
+            return 0
+        sent = 0
+        for task in rows:
+            owner = str(task.get("owner") or "")
+            if task.get("state") != "UNKNOWN_OUTCOME" or not _PERSON.fullmatch(owner) or not self.allowed(owner):
+                continue
+            try:
+                marker = self._notice_marker(owner, task["id"])
+                attempts, state = self._marker(marker)
+                if attempts >= UNKNOWN_NOTICE_ATTEMPTS or state not in {"none", "retry"}:
+                    continue
+                _atomic_json(marker, {"attempts": attempts + 1, "state": "sending"})
+            except (OSError, TaskError):
+                continue
+            number = next((n for n, t in enumerate(self._listed(owner), 1) if t.get("id") == task["id"]), None)
+            label = f"Задача {number}" if number else "Задача"
+            has_result = self.result_text(owner, task["id"]) is not None
+            tail = (f"Я ничего не отправляю заново сам, чтобы не прислать дубль. Напиши «результат задачи {number}» — "
+                    f"покажу результат здесь; потом ответь «получил результат задачи {number}» или "
+                    f"«не получил результат задачи {number}»." if has_result and number else
+                    "Я ничего не отправляю заново сам, чтобы не прислать дубль. Список: «мои задачи».")
+            text = (f"{label} «{str(task.get('goal', ''))[:80]}»: меня перезапустили в момент отправки результата, "
+                    f"и я не знаю, дошёл ли он до тебя. {tail}")
+            outcome = "retry"
+            try:
+                raw = await self.sender(owner, text, f"unknown:{task['id']}:{task.get('updated_at', '')}")
+            except asyncio.CancelledError:
+                raise                                         # marker stays "sending": not repeated blindly
+            except Exception:                                 # noqa: BLE001 - attempts are bounded by the marker
+                raw = False
+            if raw is True or raw == "sent":
+                outcome = "sent"
+                sent += 1
+            elif raw == "undeliverable":
+                outcome = "undeliverable"                     # Jeff window: «мои задачи» shows the state next turn
+            try:
+                _atomic_json(marker, {"attempts": attempts + 1, "state": outcome})
+            except OSError:
+                pass
+        return sent
+
     async def _loop(self) -> None:
         while True:
             try:
                 if self.switched_on():
                     self.resume_all()
+                    await self.announce_unknown()
+            except asyncio.CancelledError:
+                raise
             except Exception as exc:                          # noqa: BLE001
                 log.warning("long task resume failed: %s", type(exc).__name__)
             await self._sleep(self._interval)
@@ -221,6 +296,11 @@ class LongTaskModule(BaseModule):
         m = _RESULT.match(norm)
         if m:
             return Advice(reply=self._result(ctx.person_key, int(m.group(1))), tags=("longtask",))
+        m = _NOT_GOT.match(norm) or _GOT.match(norm)
+        if m:
+            return Advice(reply=self._confirm_delivery(ctx.person_key, int(m.group(1)),
+                                                       happened=_NOT_GOT.match(norm) is None),
+                          tags=("longtask",))
         m = _CANCEL.match(norm)
         if m:
             return Advice(reply=await self._cancel(ctx.person_key, int(m.group(1))), tags=("longtask",))
@@ -285,6 +365,29 @@ class LongTaskModule(BaseModule):
         if text is None:
             return f"Задача {n} ещё {STATE_RU.get(task['state'], 'в работе')}; результата пока нет."
         return f"Результат задачи {n} («{task['goal'][:80]}»):\n\n{text}"
+
+    def _confirm_delivery(self, owner: str, n: int, *, happened: bool) -> str:
+        """The participant's explicit answer about an UNKNOWN_OUTCOME delivery (the audited ``confirm_unknown``)."""
+        task = self._nth(owner, n)
+        if task is None:
+            return "Нет задачи с таким номером. Список: «мои задачи»."
+        if task["state"] != "UNKNOWN_OUTCOME":
+            return f"Задача {n} не ждёт подтверждения доставки."
+        keys = [k for k, a in (task.get("actions") or {}).items() if a.get("status") == "UNKNOWN"]
+        if not keys:
+            return f"По задаче {n} нечего подтверждать."
+        try:
+            for key in keys:
+                self.store.confirm_unknown(owner, task["id"], key, happened=happened, actor="participant")
+        except TaskError:
+            return f"Задачу {n} сейчас нельзя подтвердить."
+        try:
+            self._schedule(owner, task["id"])
+        except RuntimeError:                                  # no running loop: the resume loop takes it
+            pass
+        if happened:
+            return f"Записал: результат задачи {n} до тебя дошёл. Закрываю задачу."
+        return f"Записал: результат задачи {n} не дошёл. Отправлю его ещё один раз."
 
     async def _cancel(self, owner: str, n: int) -> str:
         task = self._nth(owner, n)

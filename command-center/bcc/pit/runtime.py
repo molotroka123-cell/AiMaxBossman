@@ -652,8 +652,130 @@ class PITStore(Store):
             id INTEGER PRIMARY KEY, who TEXT NOT NULL, role TEXT NOT NULL, text TEXT NOT NULL,
             kind TEXT NOT NULL DEFAULT 'chat', created REAL NOT NULL)''')
         self.db.execute("CREATE INDEX IF NOT EXISTS transcript_who ON transcript(who, id)")
+        # Which chat updates may owe the participant ONE notice after a restart or a send that ended unknown.
+        # Numeric addressing and a state only (never message text), so it survives the inbox body scrub.
+        self.db.execute('''CREATE TABLE IF NOT EXISTS interruption_notices(
+            update_id INTEGER PRIMARY KEY, who TEXT NOT NULL, user_id INTEGER NOT NULL, chat_id INTEGER NOT NULL,
+            state TEXT NOT NULL DEFAULT 'open', attempts INTEGER NOT NULL DEFAULT 0,
+            created REAL NOT NULL, last_attempt REAL)''')
         #: Bumped by forget(): a turn that finished after the participant's data was erased must not re-create it.
         self.forget_epoch: dict[str, int] = {}
+
+    # -- interruption notices ---------------------------------------------------------------------
+    #: A notice is only useful while the participant still remembers the question.
+    NOTICE_MAX_AGE_S = 24 * 3600.0
+    NOTICE_MAX_ATTEMPTS = 3
+    NOTICE_RETRY_S = 90.0
+
+    def claim(self, who: str, lane: str = "chat"):
+        item = super().claim(who, lane)
+        if item is not None:
+            body = item[1]
+            user_id, chat_id = body.get("_user_id"), body.get("_chat_id")
+            if type(user_id) is int and type(chat_id) is int:
+                with contextlib.suppress(Exception):    # a notice record never blocks a turn
+                    self.db.execute("INSERT OR IGNORE INTO interruption_notices(update_id,who,user_id,chat_id,created) "
+                                    "VALUES(?,?,?,?,?)", (item[0], who, user_id, chat_id, time.time()))
+        return item
+
+    def finish(self, update_id: int, phase: str):
+        super().finish(update_id, phase)
+        with contextlib.suppress(Exception):
+            if phase in {"done", "failed"}:
+                self.db.execute("DELETE FROM interruption_notices WHERE update_id=? AND state='open'", (update_id,))
+            elif phase == "delivery_unknown" and (self.home / STOP_FLAG).exists():
+                # Owner STOP is not an invitation to retry: this update never gets a notice.
+                self.suppress_interruption_notice(update_id, "stop")
+
+    def recover(self):
+        with contextlib.suppress(Exception):
+            if (self.home / STOP_FLAG).exists():
+                self.db.execute("UPDATE interruption_notices SET state='suppressed_stop' WHERE state='open' AND "
+                                "update_id IN (SELECT id FROM inbox WHERE phase='processing')")
+        super().recover()
+
+    def _addressing(self, update_id: int) -> tuple[str, int, int] | None:
+        row = self.db.execute("SELECT who, body FROM inbox WHERE id=?", (update_id,)).fetchone()
+        if row is None:
+            return None
+        try:
+            body = self.open(row["body"])
+        except Exception:  # noqa: BLE001 - scrubbed or unreadable: not addressable
+            return None
+        user_id, chat_id = body.get("_user_id"), body.get("_chat_id")
+        if type(user_id) is int and type(chat_id) is int:
+            return str(row["who"]), user_id, chat_id
+        return None
+
+    def suppress_interruption_notice(self, update_id: int, why: str = "stop") -> None:
+        state = "suppressed_" + why
+        cursor = self.db.execute("UPDATE interruption_notices SET state=? WHERE update_id=? AND state='open'",
+                                 (state, update_id))
+        if cursor.rowcount == 0:
+            addressing = self._addressing(update_id)
+            if addressing is not None:
+                self.db.execute("INSERT OR IGNORE INTO interruption_notices(update_id,who,user_id,chat_id,state,"
+                                "created) VALUES(?,?,?,?,?,?)", (update_id, *addressing, state, time.time()))
+
+    def unannounced_interruptions(self) -> list[dict]:
+        """Chat updates whose outcome the participant was never told: the process restarted mid-turn
+        (``interrupted_unknown``) or the reply send ended in an unknown state (``delivery_unknown``)."""
+        rows = self.db.execute(
+            "SELECT i.id AS update_id, i.who, i.phase, i.created AS inbox_created, n.user_id, n.chat_id, "
+            "m.phase AS gen_phase FROM inbox i "
+            "LEFT JOIN interruption_notices n ON n.update_id=i.id "
+            "LEFT JOIN media_jobs m ON m.update_id=i.id "
+            "WHERE i.phase IN ('interrupted_unknown','delivery_unknown') "
+            "AND (n.update_id IS NULL OR n.state='open') ORDER BY i.id").fetchall()
+        out = []
+        for row in rows:
+            item = dict(row)
+            if item["user_id"] is None:
+                addressing = self._addressing(item["update_id"])
+                if addressing is not None and addressing[0] == item["who"]:
+                    item["user_id"], item["chat_id"] = addressing[1], addressing[2]
+            out.append(item)
+        return out
+
+    def begin_interruption_notice(self, update_id: int, who: str, user_id: int, chat_id: int, now: float) -> bool:
+        """Write-ahead mark before the send. False when another attempt holds it or the attempts are used up."""
+        with self.tx():
+            row = self.db.execute("SELECT state, attempts, last_attempt FROM interruption_notices WHERE update_id=?",
+                                  (update_id,)).fetchone()
+            if row is None:
+                self.db.execute("INSERT INTO interruption_notices(update_id,who,user_id,chat_id,state,attempts,"
+                                "created,last_attempt) VALUES(?,?,?,?,'sending',1,?,?)",
+                                (update_id, who, user_id, chat_id, now, now))
+                return True
+            if row["state"] != "open":
+                return False
+            if row["attempts"] >= self.NOTICE_MAX_ATTEMPTS:
+                self.db.execute("UPDATE interruption_notices SET state='unknown' WHERE update_id=?", (update_id,))
+                return False
+            if row["last_attempt"] is not None and now - float(row["last_attempt"]) < self.NOTICE_RETRY_S:
+                return False
+            self.db.execute("UPDATE interruption_notices SET state='sending', attempts=attempts+1, last_attempt=? "
+                            "WHERE update_id=?", (now, update_id))
+            return True
+
+    def settle_interruption_notice(self, update_id: int, state: str, *, who: str = "", user_id: int = 0,
+                                   chat_id: int = 0) -> None:
+        with self.tx():
+            cursor = self.db.execute("UPDATE interruption_notices SET state=? WHERE update_id=?",
+                                     (state, update_id))
+            if cursor.rowcount == 0 and who:
+                self.db.execute("INSERT INTO interruption_notices(update_id,who,user_id,chat_id,state,created) "
+                                "VALUES(?,?,?,?,?,?)", (update_id, who, user_id, chat_id, state, time.time()))
+
+    def interruption_summary(self) -> dict[str, int]:
+        rows = self.db.execute("SELECT state, count(*) AS n FROM interruption_notices GROUP BY state").fetchall()
+        summary = {str(r["state"]): int(r["n"]) for r in rows}
+        waiting = self.db.execute(
+            "SELECT count(*) FROM inbox i LEFT JOIN interruption_notices n ON n.update_id=i.id "
+            "WHERE i.phase IN ('interrupted_unknown','delivery_unknown') "
+            "AND (n.update_id IS NULL OR n.state='open')").fetchone()[0]
+        summary["unannounced"] = int(waiting)
+        return summary
 
     def begin_generation(self, update_id: int, who: str) -> None:
         with self.tx():
@@ -838,6 +960,7 @@ class PITStore(Store):
         super().forget(who)
         with self.tx():
             self.db.execute("DELETE FROM transcript WHERE who=?", (who,))
+            self.db.execute("DELETE FROM interruption_notices WHERE who=?", (who,))
         self.forget_epoch[who] = self.forget_epoch.get(who, 0) + 1
 
     def scrub_text(self, who: str, needles: list[str]) -> int:
@@ -1499,6 +1622,7 @@ class ParticipantRuntime:
         tasks = [asyncio.create_task(self._worker(person, lane))
                  for person in self.settings.people for lane in ("chat", "control")]
         tasks.append(asyncio.create_task(self._reconcile_generations()))
+        tasks.append(asyncio.create_task(self._interruption_notice_loop()))
         tasks.append(asyncio.create_task(self._poll()))
         tasks.append(asyncio.create_task(self._stop_watcher()))
         tasks.append(asyncio.create_task(self._heartbeat_loop()))
@@ -1535,6 +1659,8 @@ class ParticipantRuntime:
         snapshot["tts"] = {**snapshot["tts"], "latency": speech.latency_snapshot("tts")}
         snapshot["reply_latency"] = self.reply_metrics.snapshot()
         snapshot["route"] = self.model_route_status()
+        with contextlib.suppress(Exception):
+            snapshot["interruptions"] = self.store.interruption_summary()   # counts only, never text
         return snapshot
 
     async def _heartbeat_loop(self) -> None:
@@ -3529,3 +3655,97 @@ class ParticipantRuntime:
                         await self.telegram.send(person, render_jeff_reply(
                             "Генерация прервалась при перезапуске. Повтори запрос, пожалуйста."),
                             parse_mode="HTML")
+                    # This notice IS the announcement: the sweep below must not say it a second time.
+                    with contextlib.suppress(Exception):
+                        self.store.settle_interruption_notice(update_id, "sent")
+
+    #: What the participant is told when a turn of theirs ended in a state Jeff cannot prove. Never claims that a
+    #: reply was delivered, never resends it (a resend could be a duplicate), says what to do next.
+    INTERRUPTION_NOTICE_TEXT = {
+        "interrupted_unknown": (
+            "Меня перезапустили, пока я отвечал на твоё сообщение, и я не знаю, успел ли ответ до тебя дойти. "
+            "Заново я его не отправляю, чтобы не прислать дубль. Если ответа выше нет — напиши сообщение ещё раз."),
+        "delivery_unknown": (
+            "Не уверен, что мой ответ на твоё сообщение дошёл: связь оборвалась в момент отправки. "
+            "Повторно я его не отправляю, чтобы не прислать дубль. Если ответа выше нет — напиши ещё раз."),
+        "generation_unknown": (
+            "Картинка могла уже прийти — посмотри чат выше. Повторно я её не отправляю, чтобы не прислать дубль. "
+            "Если её там нет, повтори запрос."),
+    }
+    INTERRUPTION_SWEEP_SECONDS = 60.0
+
+    async def _announce_interruptions(self) -> int:
+        """Tell each participant, once, that a turn of theirs ended in an unknown state.
+
+        Sources: ``interrupted_unknown`` (the process died mid-turn) and ``delivery_unknown`` (a send ended
+        unconfirmed). Never after owner STOP, never for a blocked participant, never for an update older than a
+        day, and at most ``NOTICE_MAX_ATTEMPTS`` times: the attempt is marked BEFORE the send, so a crash during
+        the send is not repeated blindly. Returns how many notices were sent."""
+        if (self.home / STOP_FLAG).exists():
+            return 0
+        sent = 0
+        now = time.time()
+        for row in self.store.unannounced_interruptions():
+            if (self.home / STOP_FLAG).exists():
+                break
+            update_id, who, gen_phase = row["update_id"], row["who"], row.get("gen_phase")
+            if gen_phase in {"requesting", "studio_submitted", "sending", "sent"}:
+                continue        # _reconcile_generations resumes, fails, reclassifies or completes it itself
+            user_id, chat_id = row.get("user_id"), row.get("chat_id")
+            if now - float(row["inbox_created"]) > self.store.NOTICE_MAX_AGE_S:
+                self.store.settle_interruption_notice(update_id, "expired", who=who, user_id=user_id or 0,
+                                                      chat_id=chat_id or 0)
+                continue
+            person = None
+            if type(user_id) is int and type(chat_id) is int:
+                person = self.settings.participant(user_id, chat_id)
+                if person is None and self.settings.allowlist_open and user_id == chat_id:
+                    person = Person(user_id=user_id, chat_id=chat_id, role="guest")
+            if person is None or person.key != who:
+                self.store.settle_interruption_notice(update_id, "unaddressable", who=who, user_id=user_id or 0,
+                                                      chat_id=chat_id or 0)
+                continue
+            if (self._blocked(person.user_id, person.chat_id)
+                    or participant_profile.gate_reply(self.vault.data_dir, self.vault.key_for_telegram(person.user_id),
+                                                      getattr(self, "surface", "telegram")) is not None):
+                self.store.settle_interruption_notice(update_id, "suppressed_blocked")
+                continue
+            if row["phase"] == "interrupted_unknown":
+                kind = "interrupted_unknown"
+            elif gen_phase == "delivery_unknown":
+                kind = "generation_unknown"
+            else:
+                kind = "delivery_unknown"
+            if not self.store.begin_interruption_notice(update_id, who, user_id, chat_id, now):
+                continue
+            try:
+                text = self.guard_outgoing(self.INTERRUPTION_NOTICE_TEXT[kind])
+                sent_id = await self.telegram.send(person, render_jeff_reply(text), parse_mode="HTML")
+            except asyncio.CancelledError:
+                raise                       # stays 'sending': a crash mid-send is never repeated blindly
+            except Exception as exc:  # noqa: BLE001 - a notice never stops Jeff; the loop retries, bounded
+                self.store.settle_interruption_notice(update_id, "open")
+                with contextlib.suppress(OSError):
+                    _append_jsonl(self.home / "logs" / "runtime_error.jsonl", {
+                        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "kind": type(exc).__name__, "function": "announce_interruption",
+                        "update_id": update_id, "schema": "bossman.pit.runtime-error/1"})
+                continue
+            if type(sent_id) is int and sent_id > 0:
+                self.store.settle_interruption_notice(update_id, "sent")
+                sent += 1
+            else:
+                self.store.settle_interruption_notice(update_id, "unknown")   # unverified: never claimed, not repeated
+        return sent
+
+    async def _interruption_notice_loop(self) -> None:
+        """One sweep shortly after start (after Studio recovery classified its rows), then slowly."""
+        await asyncio.sleep(5.0)
+        while not (self.home / STOP_FLAG).exists():
+            try:
+                await self._announce_interruptions()
+            except asyncio.CancelledError:
+                raise
+            except Exception:  # noqa: BLE001 - never stops Jeff
+                pass
+            await asyncio.sleep(self.INTERRUPTION_SWEEP_SECONDS)

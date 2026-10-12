@@ -36,7 +36,7 @@ def task(home: str) -> dict:
 
 
 def test_version_constant_is_one_place():
-    assert JEFF_VERSION == "1.1"
+    assert JEFF_VERSION == "2.0"
 
 
 def test_own_and_backend_sha_match_passes_and_prints_data_path(tmp_path):
