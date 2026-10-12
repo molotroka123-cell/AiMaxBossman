@@ -27,7 +27,7 @@ PIT foundation PASS · 1.5 Economy PASS · ASTRA acceptance PASS · Owner scenar
 OSS integrations PASS · V2 Auto-Repair PASS · Windows 100 real checks PASS ·
 **Intelligence Preservation FAIL (по замыслу: нужен комментарий-улика владельца на SHA)** ·
 **Command Center CI CANCELLED** (отменён следующим push; concurrency) ·
-One-download Windows application: in_progress на момент записи.
+One-download Windows application **PASS** (jobs bundle, owner-experience, freeze — все success; на CI-раннере обход интерфейса уложился в 900 с, значит локальный таймаут — особенность ПК владельца, не сборки). CI-архив: 2 030 445 312 байт против 2 030 445 323 локально — побайтовая воспроизводимость НЕ подтверждена (различие в zip-метаданных не проверено), содержимое сверять по SHA256SUMS внутри архивов.
 
 `3910be96`: все workflow зелёные, кроме Intelligence Preservation (владелец) и **Command Center CI FAIL**: 5 тестов `test_companion_remote_access.py` падали только на Linux-раннере (тест подменял `os.name`, pathlib выбирал WindowsPath). Исправлено в коммите этого аудита флагом `IS_WINDOWS`; CI нового SHA — проверить `gh run list`.
 
