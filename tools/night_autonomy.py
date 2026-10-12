@@ -49,7 +49,8 @@ CLAUDE_TIMEOUT_S = 50 * 60
 UX_TIMEOUT_S = 75 * 60
 BUILD_TIMEOUT_S = 90 * 60
 MIN_FREE_GB = 12
-MAX_REBUILDS = 3
+MAX_REBUILDS = 3            # ordinary code churn per night
+MAX_REBUILDS_FOR_PROOF = 6  # a pending proof may need one more build (night 11.10, cycle 4: cap hit, fix never built)
 RATE_LIMIT_RE = re.compile(r"rate.?limit|usage limit|limit reached|overloaded|429|quota|try again later", re.I)
 SECRET_ENV_RE = re.compile(r"TOKEN|SECRET|PASSW|API_KEY|_KEY$|^BCC_|^TG_COMPANION_|CREDENTIAL", re.I)
 SECRET_TEXT_RE = re.compile(r"(?i)(?<![A-Za-z])(token|secret|api[_-]?key|key|passw(?:or)?d|credential)([\"']?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\s\"',}]+)")
@@ -239,8 +240,9 @@ class Night:
         head = ident["head"]
         if any(r.get("head") == head for r in self.state["rebuilds"]):
             return next(r for r in self.state["rebuilds"] if r.get("head") == head)
-        if len(self.state["rebuilds"]) >= MAX_REBUILDS:
-            return {"status": "BLOCKED", "detail": f"rebuild cap {MAX_REBUILDS} reached", "head": head}
+        cap = MAX_REBUILDS_FOR_PROOF if self.state.get("pending_proof") else MAX_REBUILDS
+        if len(self.state["rebuilds"]) >= cap:
+            return {"status": "BLOCKED", "detail": f"rebuild cap {cap} reached", "head": head}
         base = REPO.parent / "night-builds"
         if shutil.disk_usage(str(REPO)).free < MIN_FREE_GB * 2**30:
             res = {"status": "BLOCKED", "detail": f"less than {MIN_FREE_GB} GB free", "head": head}

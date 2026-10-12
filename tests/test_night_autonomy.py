@@ -511,3 +511,13 @@ def test_a_different_sweep_metric_version_is_metric_changed(world):
     version["v"] = 2                                                   # the installed sweep reports a new method
     rec = night.cycle()
     assert rec["proof"]["status"] == "METRIC_CHANGED" and rec["proof"]["files"] == ["metric_version 1 -> 2"]
+
+
+def test_a_pending_proof_may_use_one_more_rebuild_than_the_ordinary_cap(world):
+    night = world.build()
+    night.state["rebuilds"] = [{"status": "BUILT", "head": str(i) * 40} for i in range(na.MAX_REBUILDS)]
+    world.fake.diff = "command-center/bcc/app.py" + chr(10)
+    ident = {"archive_source_sha": SRC, "head": "9" * 40, "archive": str(world.tmp / "cand.zip"), "archive_sha256": "x"}
+    assert night.step_rebuild(ident)["status"] == "BLOCKED"          # ordinary churn: cap holds
+    night.state["pending_proof"] = {"from": SRC, "to": "9" * 40, "baseline": {"ux_errors": 3}, "waits": 0}
+    assert night.step_rebuild(ident)["status"] == "BUILT"             # a proof may use the extended cap
