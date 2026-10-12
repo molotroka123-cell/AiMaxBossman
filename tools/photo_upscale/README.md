@@ -166,4 +166,3 @@ at the same positions). Treat `seam_excess` as meaningful only with many seams o
 `.agents/skills/photo-upscale-local/SKILL.md`. Lab (outside git): `<Bossman root>\apps-local\photo-upscale-lab\`
 (corpus, outputs, JSON results, crops, scripts); demo run:
 `<Bossman root>\creative-runs\PHOTO-UPSCALE-20261012\demo\`.
-
