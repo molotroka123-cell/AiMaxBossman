@@ -1,0 +1,47 @@
+{
+  "dataset_id": "bossman-retention-v3-public-20261011",
+  "seed": 20261011,
+  "counts": {
+    "reasoning_accuracy": 420,
+    "coding_correctness": 420,
+    "structured_output_accuracy": 420,
+    "unknown_task_adaptation": 420,
+    "tool_selection_accuracy": 200,
+    "schema_argument_accuracy": 200,
+    "long_context_accuracy": 200,
+    "memory_retrieval_accuracy": 200,
+    "computer_use_planning_accuracy": 200,
+    "task_completion_rate": 200,
+    "hallucination_rate": 200
+  },
+  "corpus_sha256": "eb62e9b9df053f978dd3bc392cb78332380b9efb46e24a45e7f3ada422bb5e14",
+  "sources": [
+    {
+      "name": "GSM8K",
+      "license": "MIT",
+      "file": "gsm8k_test.jsonl"
+    },
+    {
+      "name": "CRUXEval",
+      "license": "MIT",
+      "file": "cruxeval.jsonl"
+    },
+    {
+      "name": "BBH",
+      "license": "MIT",
+      "files": [
+        "bbh_bbh_web_of_lies.json",
+        "bbh_bbh_causal_judgement.json",
+        "bbh_bbh_navigate.json",
+        "bbh_bbh_boolean_expressions.json",
+        "bbh_bbh_object_counting.json",
+        "bbh_bbh_formal_fallacies.json",
+        "bbh_bbh_multistep_arithmetic_two.json",
+        "bbh_bbh_sports_understanding.json"
+      ]
+    }
+  ],
+  "constraints": [
+    "programmatic families are template-dependent"
+  ]
+}
