@@ -84,7 +84,7 @@ One-download Windows application: in_progress на момент записи.
 5. Локальная модель без fallback и живая Ollama: после перезагрузки GPU.
 6. Установка на второй ПК/ноутбук и связь двух устройств: NOT_RUN.
 7. Motion V2 оценки ≥6/8 и промо: не подтверждены владельцем.
-8. Вечерний тест сборки: обход кнопок интерфейса (`installed_ui_sweep.py`) не уложился в 900 с на ПК владельца (улики `%LOCALAPPDATA%\Bossman\evening\9520a45a…61011T230323Z-22687c`). Воспроизведение: `runtime\python.exe -I app-support\installed_ui_sweep.py --output … --expected-sha 9520a45a…`; результат отдельного прогона и CI-job `owner-experience` того же SHA — в LONG_RUN_HANDOFF_RU.md.
+8. Вечерний тест сборки: обход кнопок интерфейса (`installed_ui_sweep.py`) не уложился в 900 с на ПК владельца (улики `%LOCALAPPDATA%\Bossman\evening\9520a45a…61011T230323Z-22687c`). Воспроизведение: `runtime\python.exe -I app-support\installed_ui_sweep.py --output … --expected-sha 9520a45a…`; отдельный прогон без лимита: **2693 с, 630 кликов, 53 страницы, статус REVIEW_REQUIRED**, 11 замечаний (poker-vision sandbox-контролы 403/400 в пустом приложении, direct-gen 3 невидимых/без ответа элемента, telegram_calls «Проверить аудиоконтур» таймаут) — `docs/evidence/ui-sweep-9520a45a/`. Вывод: сборка не виснет, обход на этом ПК втрое дольше лимита CI; замечания — вход для ночного диалога Bossman→Claude.
 
 ## 7. North Star
 

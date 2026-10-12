@@ -1,0 +1,16 @@
+sweep exit=0 seconds=2693
+REVIEW error            poker-vision         Перекрыть :: 403 http://127.0.0.1:<port>/api/poker-vision/desk/sandbox/cover; Failed to load resource: the server responded with a status of 403 (F
+REVIEW error            poker-vision         Убрать перекрытие :: 403 http://127.0.0.1:<port>/api/poker-vision/desk/sandbox/uncover; Failed to load resource: the server responded with a
+REVIEW error            poker-vision         Свернуть :: 403 http://127.0.0.1:<port>/api/poker-vision/desk/sandbox/minimize; Failed to load resource: the server responded with a status of 403 (
+REVIEW error            poker-vision         Развернуть :: 403 http://127.0.0.1:<port>/api/poker-vision/desk/sandbox/minimize; Failed to load resource: the server responded with a status of 4
+REVIEW error            poker-vision         Закрыть :: 403 http://127.0.0.1:<port>/api/poker-vision/desk/sandbox/close; Failed to load resource: the server responded with a status of 403 (Forbi
+REVIEW error            poker-vision         Открыть снова :: 403 http://127.0.0.1:<port>/api/poker-vision/desk/sandbox/reopen; Failed to load resource: the server responded with a status o
+REVIEW error            poker-vision         Калибровать и проверить :: 400 http://127.0.0.1:<port>/api/poker-vision/calibrate; Failed to load resource: the server responded with a
+REVIEW error            direct-gen           (без подписи) :: клик не прошёл: TimeoutError — element is not visible | элемента уже нет
+REVIEW disabled_silent  direct-gen           Заменить лицо
+REVIEW disabled_silent  direct-gen           Найти зоны
+REVIEW error            direct-gen           Малиновый :: Изменяющий запрос отправлен, но успешный ответ не наблюдался
+REVIEW disabled_silent  direct-gen           Отменить
+REVIEW disabled_silent  direct-gen           Повторить
+REVIEW error            direct-gen           (без подписи) :: клик не прошёл: TimeoutError — element is not visible | элемента уже нет
+REVIEW error            telegram_calls       Проверить аудиоконтур :: Не получен ответ в пределах тайм-аута действия: POST http://127.0.0.1:<port>

@@ -23,6 +23,7 @@
 | `tools/security_audit.ps1` | FAIL 0 / WARN 5 |
 | `/api/browser` сессия → Wikipedia → DOM → скриншот | PASS, vision-проверка совпала |
 | `app-support/bundle_evening_test.py --full --ui-sweep` (распакованный архив) | доктор OK, приёмка PASS (auth, restart persistence), ui-sweep TIMEOUT 900 с → OWNER_EVENING_RESULT=FAIL; live-model OWNER_REQUIRED |
+| `app-support/installed_ui_sweep.py` отдельно, без лимита | 2693 с, 630 кликов, 53 страницы, REVIEW_REQUIRED, 11 замечаний → `docs/evidence/ui-sweep-9520a45a/` |
 | CI `9520a45a` | зелёные все, кроме Intelligence Preservation (владелец) и Command Center CI (cancelled push'ем) |
 | CI `3910be96` | всё зелёное, кроме Intelligence Preservation (владелец) и Command Center CI (5 тестов remote_access падали на Linux: подмена os.name → WindowsPath; исправлено флагом IS_WINDOWS в коммите этого аудита) |
 
