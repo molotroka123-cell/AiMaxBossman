@@ -56,6 +56,8 @@ SECRET_TEXT_RE = re.compile(r"(?i)(?<![A-Za-z])(token|secret|api[_-]?key|key|pas
 SECRET_AUTH_RE = re.compile(r"(?i)\b(authorization|bearer|basic)(\s*:?\s+)(?:bearer\s+|basic\s+)?[A-Za-z0-9._~+/=-]{8,}")
 SECRET_SHAPE_RE = re.compile(r"\b(?:sk-[A-Za-z0-9_-]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abpr]-[A-Za-z0-9-]{10,}|\d{8,10}:[A-Za-z0-9_-]{30,})")
 MAX_CONSECUTIVE_CRASHES = 3
+MAX_WIN_PATH = 260
+IS_WINDOWS = os.name == "nt"
 PROOF_MAX_WAITS = 2
 MAX_FAIL_RETRIES = 1
 DOC_ONLY_RE = re.compile(r"^docs/|\.md$")
@@ -153,7 +155,7 @@ class Night:
         self.state.setdefault("rebuilds", [])
         self.state.setdefault("archive", str(a.archive))
         self.crashes = 0
-        self.install_root = Path(os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()) / "Bossman" / "night"
+        self.install_root = REPO.parent / "nb"          # short on purpose: see unpack()
         self.deadline = parse_until(a.until, self.clock())
         self.build_py = str(getattr(a, "build_python", "") or (BUILD_PY_DEFAULT if BUILD_PY_DEFAULT.is_file() else PY))
 
@@ -289,11 +291,19 @@ class Night:
     def unpack(self, ident: dict) -> tuple[Path | None, str | None]:
         """Short path outside the repo; extraction lands in .part and is renamed only when complete,
         so an interrupted extraction is never mistaken for an installed copy."""
-        target = self.install_root / f"install-{ident['archive_sha256'][:12]}"
+        target = self.install_root / ident["archive_sha256"][:12]
         if not target.is_dir():
-            part = target.with_name(f"{target.name}.part-{os.getpid()}-{int(time.time())}")
-            part.mkdir(parents=True)
+            part = target.with_name(f"{target.name}.p{os.getpid() % 10000}")
             with zipfile.ZipFile(ident["archive"]) as z:
+                # Windows without LongPathsEnabled stops at 260 characters; the bundle's deepest file is
+                # ~185 characters, so the extraction root must stay short (night 11.10: FileNotFoundError).
+                longest = max((len(n) for n in z.namelist()), default=0)
+                if IS_WINDOWS and len(str(part)) + 1 + longest >= MAX_WIN_PATH:
+                    raise RuntimeError(f"extraction path too long: {len(str(part)) + 1 + longest} >= {MAX_WIN_PATH} "
+                                       f"characters (root {part}); enable LongPathsEnabled or use a shorter root")
+                if part.exists():
+                    shutil.rmtree(part, ignore_errors=True)
+                part.mkdir(parents=True, exist_ok=True)
                 z.extractall(part)
             for attempt in range(5):
                 try:
@@ -303,7 +313,7 @@ class Night:
                     if attempt == 4:
                         raise
                     self.sleep(3)
-            for stale in target.parent.glob(f"{target.name}.part-*"):
+            for stale in target.parent.glob(f"{target.name}.p*"):
                 shutil.rmtree(stale, ignore_errors=True)
         root = next(iter(target.glob("BOSSMAN-Windows-x64-*")), None)
         if root is None:

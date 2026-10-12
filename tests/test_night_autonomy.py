@@ -448,3 +448,18 @@ def test_an_installed_copy_from_another_source_fails_closed(world, monkeypatch):
 
 def test_review_items_are_anonymised_and_secrets_masked():
     assert na.sanitize("X-BCC-Token: abc password=qwe ok") == "X-BCC-Token=*** password=*** ok"
+
+
+def test_an_extraction_root_too_long_for_windows_fails_with_a_clear_reason(world, monkeypatch):
+    night = world.build()
+    monkeypatch.setattr(na, "IS_WINDOWS", True)
+    monkeypatch.setattr(na, "MAX_WIN_PATH", 40)             # tmp paths are long: any real root exceeds this
+    with pytest.raises(RuntimeError, match="extraction path too long"):
+        night.unpack(night.identity())
+    assert not any(night.install_root.glob("*")), "nothing is extracted when the path check fails"
+
+
+def test_the_extraction_root_is_short_enough_for_the_real_bundle():
+    # the deepest file of a real bundle is ~185 characters; root + separator + it must stay under 260
+    root = na.REPO.parent / "nb" / ("0" * 12 + ".p9999")
+    assert len(str(root)) + 1 + 190 < na.MAX_WIN_PATH or not na.IS_WINDOWS
