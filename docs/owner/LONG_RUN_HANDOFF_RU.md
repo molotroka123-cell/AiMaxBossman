@@ -43,7 +43,7 @@ https://claude.ai/code/session_017MvqqBzRS5skEE9mTaZv4Q. После переза
 
 ## Что осталось
 
-1. Command Center CI зелёный на новом HEAD (после фикса теста) — проверить `gh run list`.
+1. ~~Command Center CI~~ зелёный на `4c29b274` (run 38185553138).
 2. Владелец: автологон → `/reboot` → `/remote_status` Connected → вход с телефона из мобильной
    сети (OWNER_VERIFICATION_PENDING) → комментарий Intelligence Preservation.
 3. Ночной прогон: `docs/evidence/night-20261011/report.md` утром; если Claude был недоступен —
@@ -54,6 +54,5 @@ https://claude.ai/code/session_017MvqqBzRS5skEE9mTaZv4Q. После переза
 
 ## Вердикт
 
-**NOT_READY для production release; READY_FOR_OWNER_RUN для кандидата `9520a45a610a` при
-зелёном CC CI и PASS вечернего теста.** Один следующий шаг: владелец запускает
+**NOT_READY для production release; READY_FOR_OWNER_RUN для кандидата `9520a45a610a` (CC CI зелёный на `4c29b274`, архив и приёмка PASS).** Один следующий шаг: владелец запускает
 `owner-autologon-20261011.ps1`, затем `/reboot` из пульта.

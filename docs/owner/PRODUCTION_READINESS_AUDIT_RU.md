@@ -29,7 +29,7 @@ OSS integrations PASS · V2 Auto-Repair PASS · Windows 100 real checks PASS ·
 **Command Center CI CANCELLED** (отменён следующим push; concurrency) ·
 One-download Windows application **PASS** (jobs bundle, owner-experience, freeze — все success; на CI-раннере обход интерфейса уложился в 900 с, значит локальный таймаут — особенность ПК владельца, не сборки). CI-архив: 2 030 445 312 байт против 2 030 445 323 локально — побайтовая воспроизводимость НЕ подтверждена (различие в zip-метаданных не проверено), содержимое сверять по SHA256SUMS внутри архивов.
 
-`3910be96`: все workflow зелёные, кроме Intelligence Preservation (владелец) и **Command Center CI FAIL**: 5 тестов `test_companion_remote_access.py` падали только на Linux-раннере (тест подменял `os.name`, pathlib выбирал WindowsPath). Исправлено в коммите этого аудита флагом `IS_WINDOWS`; CI нового SHA — проверить `gh run list`.
+`3910be96`: все workflow зелёные, кроме Intelligence Preservation (владелец) и **Command Center CI FAIL**: 5 тестов `test_companion_remote_access.py` падали только на Linux-раннере (тест подменял `os.name`, pathlib выбирал WindowsPath). Исправлено в `4c29b274` флагом `IS_WINDOWS`. **CI `4c29b274`: Command Center CI PASS** (run 38185553138: py3.11/3.12/3.14, windows paths, core runtime ubuntu+windows, секреты/JS — все success; параллельный run 38185555767 упал одним тайминг-тестом `test_jeff_math_assist[3**2**20]` 1.03 с > 1.0 с на нагруженном раннере, локально отказ 0.000 с — флейк, тест не менялся). Остальные workflow на `4c29b274` зелёные, кроме Intelligence Preservation (владелец).
 
 ## 3. Матрица требований
 
@@ -96,9 +96,7 @@ SELF_REPAIR_SINGLE_CYCLE_PASS только если Claude реально исп
 
 ## 8. Статус и вердикт
 
-- Кандидат `9520a45a610a`: **READY_FOR_OWNER_RUN** при условии зелёного Command Center CI на
-  HEAD (раздел 2) и PASS вечернего теста (раздел 3, последняя строка). До этого —
-  DIAGNOSTIC_CANDIDATE.
+- Кандидат `9520a45a610a`: **READY_FOR_OWNER_RUN** — обязательные workflow зелёные на `4c29b274` (кроме Intelligence Preservation, шаг владельца), архив verifier PASS, CI One-download PASS, локальная приёмка PASS; локальный обход интерфейса REVIEW_REQUIRED (11 замечаний) и таймаут 900 с на ПК владельца — открытые пункты, не блокирующие owner run.
 - **NOT PRODUCTION_READY / NOT FINAL_FREEZE**: открыты п. 1–4 раздела 6.
 
 ## 9. Вклад исполнителей (по проверенным изменениям)
