@@ -53,7 +53,7 @@ def test_the_owner_journey_through_the_workflow_panel(live, tmp_path):  # noqa: 
             page.wait_for_selector(tid("mw-root"), timeout=30000)
             # empty state: the upload control, the tabs, the renderer readiness are visible
             expect(page.locator(tid("mw-create"))).to_be_visible()
-            expect(page.locator(tid("motion-tabs"))).to_contain_text("Epic-трейлер")
+            expect(page.locator(tid("motion-epic"))).to_contain_text("Epic-трейлер")
             expect(page.locator("#view")).to_contain_text("ffmpeg: есть")
 
             page.fill(tid("mw-new-title"), "UI journey")
@@ -131,10 +131,11 @@ def test_the_owner_journey_through_the_workflow_panel(live, tmp_path):  # noqa: 
             assert widths["sw"] <= widths["cw"] + 1, widths
             page.set_viewport_size({"width": 1440, "height": 1000})
 
-            # the Epic panel is still on the same page
-            page.click(f"{tid('motion-tabs')} button:nth-child(2)")
-            expect(page.locator("#view")).to_contain_text("Готовность", timeout=20000)
+            # the Epic panel is on the same page (a collapsible block, no tab switching that replaces the page)
+            page.click(f"{tid('motion-epic')} > summary")
+            expect(page.locator(tid("motion-epic-panels"))).to_contain_text("Готовность", timeout=20000)
             expect(page.locator(tid("motion-studio"))).to_be_visible()
+            expect(page.locator(tid("mw-root"))).to_be_visible()                 # the workflow panel was not replaced
         finally:
             browser.close()
     assert errors == []

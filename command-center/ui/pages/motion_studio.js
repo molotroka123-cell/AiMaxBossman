@@ -9,18 +9,12 @@
 
 import { api } from '../api.js';
 import { h, toastOk, toastError, actionButton, field, textarea, select, checkbox } from '../components.js';
-import { panel, pageHead, pill, segmented } from './_ui.js';
+import { panel, pageHead, pill } from './_ui.js';
 
-/* Две панели одной страницы: «Рабочий процесс» (свой ролик: анализ -> правка -> локальный рендер;
-   код — motion_workflow.js рядом, API /api/motion-workflow) и «Epic-трейлер» (пресет по сценарию, как раньше). */
-const TABS = [{ value: 'workflow', label: 'Рабочий процесс' }, { value: 'epic', label: 'Epic-трейлер' }];
-const TAB_KEY = 'motion-studio.tab';
-function currentTab() {
-  try { return sessionStorage.getItem(TAB_KEY) === 'epic' ? 'epic' : 'workflow'; } catch { return 'workflow'; }
-}
-function rememberTab(value) {
-  try { sessionStorage.setItem(TAB_KEY, value); } catch { /* приватный режим */ }
-}
+/* Две секции ОДНОЙ страницы, без вкладок: «Рабочий процесс» (свой ролик: анализ -> правка -> локальный рендер;
+   код — motion_workflow.js рядом, API /api/motion-workflow) и «Epic-трейлер» (пресет по сценарию, как раньше) в
+   сворачиваемом блоке. Вкладки подменяли содержимое страницы на месте, и обход интерфейса (sweep, 12.10)
+   видел исчезнувшие органы управления; теперь переключать нечего, а Epic обновляет только себя. */
 
 const STATE_LABEL = { running: 'идёт', done: 'готово и проверено', failed: 'ошибка', cancelled: 'остановлено', interrupted: 'прервано' };
 const STATE_TONE = { running: 'warn', done: 'ok', failed: 'err', cancelled: 'idle', interrupted: 'err' };
@@ -80,25 +74,36 @@ const MotionStudioPage = {
     const head = pageHead('Motion Studio',
       'Свой ролик: разбор на сцены, правка текста, звука и обложки, локальный рендер с проверкой файла; '
       + 'и моушн-трейлер из сценария (пресет Epic). Всё локально, без облака.');
-    const tab = currentTab();
-    const tabs = h('div', { dataset: { testid: 'motion-tabs' }, style: { margin: '4px 0 12px' } },
-      segmented(TABS, tab, (value) => { rememberTab(value); ctx.refresh(); }));
-    if (tab === 'workflow') {
-      let body;
-      try {
-        const mod = await import('./motion_workflow.js');
-        body = await mod.mountWorkflow(ctx);
-      } catch (e) {
-        body = panel('Не удалось загрузить рабочий процесс', h('div.small', (e && e.message) || String(e)));
-      }
-      return h('div.bx-page', { dataset: { testid: 'motion-studio' } }, head, tabs, body);
+    let workflow;
+    try {
+      const mod = await import('./motion_workflow.js');
+      workflow = await mod.mountWorkflow(ctx);
+    } catch (e) {
+      workflow = panel('Не удалось загрузить рабочий процесс', h('div.small', (e && e.message) || String(e)));
     }
+    // Epic обновляет ТОЛЬКО себя (его опрос больше не пересобирает «Рабочий процесс»).
+    const epicHost = h('div', { dataset: { testid: 'motion-epic-body' } });
+    const redrawEpic = async () => {
+      const own = { ...ctx, refresh: redrawEpic };
+      epicHost.replaceChildren(await buildEpic(own));
+    };
+    await redrawEpic();
+    const epic = h('details', { dataset: { testid: 'motion-epic' }, style: { margin: '12px 0' } },
+      h('summary', { style: { cursor: 'pointer', fontWeight: '600' } }, 'Epic-трейлер: пресет по сценарию (предпросмотр, музыка, субтитры, полный рендер)'),
+      epicHost);
+    return h('div.bx-page', { dataset: { testid: 'motion-studio' } }, head, workflow, epic);
+  },
+
+  onEvent() { return false; },
+};
+
+async function buildEpic(ctx) {
     let st;
     try { st = await api.raw('/api/motion-studio/status'); } catch (e) {
-      return h('div.bx-page', head, tabs, panel('Не удалось загрузить', h('div.small', e.message || String(e))));
+      return panel('Не удалось загрузить', h('div.small', e.message || String(e)));
     }
     if (!st.available) {
-      return h('div.bx-page', head, tabs, panel('Недоступно', h('div.small', st.why_not || 'Motion Studio не входит в эту сборку.')));
+      return panel('Недоступно', h('div.small', st.why_not || 'Motion Studio не входит в эту сборку.'));
     }
     const dep = (name, ok) => pill(`${name}: ${ok ? 'есть' : 'нет'}`, { tone: ok ? 'ok' : 'warn' });
     const status = h('div.row.tight', { style: { flexWrap: 'wrap', gap: '8px' } },
@@ -126,7 +131,7 @@ const MotionStudioPage = {
       } catch (e) { toastError(e); }
     };
     const running = st.jobs.some((j) => j.state === 'running');
-    const root = h('div.bx-page', { dataset: { testid: 'motion-studio' } }, head, tabs,
+    const root = h('div.stack.sm', { dataset: { testid: 'motion-epic-panels' } },
       panel('Готовность', status),
       panel('Сценарий', h('div.stack.sm', field('Пример', exampleSel), field('Сценарий (JSON)', spec), noVoice,
         h('div.row.tight', { style: { gap: '8px' } },
@@ -138,9 +143,6 @@ const MotionStudioPage = {
       setTimeout(() => { if (root.isConnected) ctx.refresh(); }, POLL_MS);
     }
     return root;
-  },
-
-  onEvent() { return false; },
-};
+}
 
 export default MotionStudioPage;
