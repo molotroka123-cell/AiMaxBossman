@@ -130,3 +130,10 @@ READY_FOR_OWNER_RUN после CC CI + evening test.
   `INSTALL_SWAP_PLAN_20261012_RU.md`; решение по selftest (новая metric_version или фоновая задача).
 - North Star: SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT (не выше). Terminal Run: один backend для CLI, dashboard и Telegram
   (установленный 6de18f8d на :8801; пульт из исходников).
+- **Сертификат exact-SHA на `d6b578f3` (final=True): NOT_CERTIFIED** — 10 из 11 обязательных workflow success
+  (root-ci, Core CI, Command Center CI, V2 Auto-Repair, Solana, Fable media/Fleet, One-download, Windows owner run,
+  Windows 100 real checks, Owner scenarios); ASTRA acceptance — job «ASTRA real sandbox» skipped: он запускается только
+  `workflow_dispatch` с `sandbox=true` на self-hosted Linux runner с меткой `bossman-sandbox`, а в репозитории
+  зарегистрировано 0 self-hosted runners (28.09 RC19 был 11/11 — тогда runner был). Блокер инфраструктуры владельца:
+  без runner сертификат невозможен ни на одном SHA; список обязательных не ослабляется.
+  `docs/evidence/archive-1757ff86/certify-d6b578f3.json`.

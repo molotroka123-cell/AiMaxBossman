@@ -1,0 +1,492 @@
+{
+  "final": true,
+  "ignored_other_sha": 0,
+  "limitations": [
+    "Run/job metadata does not verify checkout contents, artifact source identity, or test contents.",
+    "Saved JSON is caller-supplied evidence, not an authenticated GitHub attestation."
+  ],
+  "reason": "not certified: ASTRA acceptance=NOT_PASS",
+  "required": [
+    "root-ci (shared contracts, learning layer, tools)",
+    "Bossman Core CI",
+    "Command Center CI",
+    "Bossman V2 Auto-Repair",
+    "ASTRA acceptance",
+    "Solana safety gates",
+    "Fable media and Fleet acceptance",
+    "One-download Windows application",
+    "Windows owner run — light, medium and super-long task",
+    "Windows 100 real checks",
+    "Owner scenarios (integrated, not unit tests)"
+  ],
+  "sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+  "verdict": "NOT_CERTIFIED",
+  "workflows": {
+    "ASTRA acceptance": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215011404",
+      "job_count": 4,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697608362,
+          "name": "ASTRA runner recovery",
+          "run_attempt": 1,
+          "run_id": 38215011404,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697608609,
+          "name": "ASTRA portable (ubuntu-latest)",
+          "run_attempt": 1,
+          "run_id": 38215011404,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697608613,
+          "name": "ASTRA portable (windows-latest)",
+          "run_attempt": 1,
+          "run_id": 38215011404,
+          "status": "completed"
+        },
+        {
+          "conclusion": "skipped",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697609690,
+          "name": "ASTRA real sandbox",
+          "run_attempt": 1,
+          "run_id": 38215011404,
+          "status": "completed"
+        }
+      ],
+      "reason": "non-success jobs: 114697609690=skipped",
+      "result": "NOT_PASS",
+      "run_attempt": 1,
+      "run_id": 38215011404,
+      "run_number": 3858,
+      "status": "completed"
+    },
+    "Bossman Core CI": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215011379",
+      "job_count": 12,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679219,
+          "name": "покрытие (неснижаемый порог)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679330,
+          "name": "pytest rest (py3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679331,
+          "name": "pytest security (py3.11)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679362,
+          "name": "Windows workspace and PID contracts (py3.11)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679415,
+          "name": "Windows workspace and PID contracts (py3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679515,
+          "name": "pytest stage8-14 (py3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679537,
+          "name": "pytest security (py3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679540,
+          "name": "pytest gateway-context (py3.11)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679575,
+          "name": "pytest rest (py3.11)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679577,
+          "name": "pytest stage8-14 (py3.11)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679599,
+          "name": "compile + секреты",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697679647,
+          "name": "pytest gateway-context (py3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011379,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215011379,
+      "run_number": 4173,
+      "status": "completed"
+    },
+    "Bossman V2 Auto-Repair": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215006530",
+      "job_count": 1,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114699879078,
+          "name": "repair-and-test",
+          "run_attempt": 1,
+          "run_id": 38215006530,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215006530,
+      "run_number": 1056,
+      "status": "completed"
+    },
+    "Command Center CI": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215011472",
+      "job_count": 7,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114709115782,
+          "name": "секреты, JS, запрещённые файлы",
+          "run_attempt": 1,
+          "run_id": 38215011472,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114709115811,
+          "name": "core runtime (ubuntu-latest)",
+          "run_attempt": 1,
+          "run_id": 38215011472,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114709115915,
+          "name": "windows paths (py3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011472,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114709116031,
+          "name": "pytest (py3.14)",
+          "run_attempt": 1,
+          "run_id": 38215011472,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114709116068,
+          "name": "core runtime (windows-latest)",
+          "run_attempt": 1,
+          "run_id": 38215011472,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114709116073,
+          "name": "pytest (py3.11)",
+          "run_attempt": 1,
+          "run_id": 38215011472,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114709116563,
+          "name": "pytest (py3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011472,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215011472,
+      "run_number": 4247,
+      "status": "completed"
+    },
+    "Fable media and Fleet acceptance": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215011460",
+      "job_count": 2,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114700785625,
+          "name": "Real media, Web and Fleet (py3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011460,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114700785751,
+          "name": "Real media, Web and Fleet (py3.11)",
+          "run_attempt": 1,
+          "run_id": 38215011460,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215011460,
+      "run_number": 1788,
+      "status": "completed"
+    },
+    "One-download Windows application": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215006624",
+      "job_count": 3,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114708354961,
+          "name": "bundle",
+          "run_attempt": 1,
+          "run_id": 38215006624,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114711268618,
+          "name": "owner-experience",
+          "run_attempt": 1,
+          "run_id": 38215006624,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114719288846,
+          "name": "freeze",
+          "run_attempt": 1,
+          "run_id": 38215006624,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215006624,
+      "run_number": 398,
+      "status": "completed"
+    },
+    "Owner scenarios (integrated, not unit tests)": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215006684",
+      "job_count": 1,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114698844984,
+          "name": "owner scenarios (ubuntu-latest)",
+          "run_attempt": 1,
+          "run_id": 38215006684,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215006684,
+      "run_number": 242,
+      "status": "completed"
+    },
+    "Solana safety gates": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215011419",
+      "job_count": 2,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697608396,
+          "name": "safety (3.11)",
+          "run_attempt": 1,
+          "run_id": 38215011419,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697608594,
+          "name": "safety (3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011419,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215011419,
+      "run_number": 3866,
+      "status": "completed"
+    },
+    "Windows 100 real checks": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215006427",
+      "job_count": 1,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114699584990,
+          "name": "Execute 100 actual pytest cases on Windows",
+          "run_attempt": 1,
+          "run_id": 38215006427,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215006427,
+      "run_number": 178,
+      "status": "completed"
+    },
+    "Windows owner run — light, medium and super-long task": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215006466",
+      "job_count": 1,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114703550123,
+          "name": "owner-run",
+          "run_attempt": 1,
+          "run_id": 38215006466,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215006466,
+      "run_number": 83,
+      "status": "completed"
+    },
+    "root-ci (shared contracts, learning layer, tools)": {
+      "conclusion": "success",
+      "html_url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38215011483",
+      "job_count": 3,
+      "jobs": [
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697608675,
+          "name": "bossman-core container ships bossman-shared",
+          "run_attempt": 1,
+          "run_id": 38215011483,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697608895,
+          "name": "root pytest + hygiene (py3.12)",
+          "run_attempt": 1,
+          "run_id": 38215011483,
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "head_sha": "d6b578f37ec4bd00cae22041979924dd1cfb0006",
+          "id": 114697608933,
+          "name": "root pytest + hygiene (py3.11)",
+          "run_attempt": 1,
+          "run_id": 38215011483,
+          "status": "completed"
+        }
+      ],
+      "result": "PASS",
+      "run_attempt": 1,
+      "run_id": 38215011483,
+      "run_number": 3997,
+      "status": "completed"
+    }
+  }
+}
