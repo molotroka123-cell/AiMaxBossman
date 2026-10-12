@@ -25,6 +25,14 @@
 | 13 | Упаковка, AGPL, notices | `LICENSE`, `LICENSING.md`, `tools/build_windows_bundle.py` (LICENSES/ создаётся в архиве) | ~118 | архив `9520a45a610a` verifier PASS; CI One-download PASS; локальная приёмка PASS, обход UI 2693 с REVIEW_REQUIRED | архив из принятого SHA, SHA256, состав, чистая установка, приёмка, восстановление | PARTIAL | подпись кода и правовая политика — владелец; флаги лицензий: GPL FFmpeg, GPLv3+ MouseInfo, ai-webcam-vision «Proprietary», NC-модели |
 | 14 | Локальные падения pytest на Windows | — | — | утренний RC (`db249bde`, `-n 2`): 51 failed + 2 errors локально; CI Linux зелёный на `4c29b274` | Windows-прогон CC pytest без необъяснённых падений | PARTIAL | первый разобран: poker replay e2e — дефект продукта, исправлен `28683894`; остальные ~50 локальных падений утреннего RC ещё не разобраны |
 | 15 | BUG_LEDGER | `docs/final/BUG_LEDGER.md` (115 записей, от 10.10) | — | FIXED 44, REPRODUCIBLE 29, REGRESSED 3, без класса 34 | каждая запись с классом и статусом на текущем SHA | PARTIAL | переклассификация на текущем SHA |
+| 16 | Обход интерфейса (UI sweep), метрика | `scripts/ui_acceptance_sweep.py`, `tools/installed_ui_sweep.py` | 31 (root) | v1: 331 ошибок на 9520a45a; v2: 9 на 0b15e00c (ночь, цикл 3); v3 на источнике direct-gen: 0 ошибок (`docs/evidence/ui-sweep-directgen-v3/`) | полный обход установленной сборки без error/disabled_silent по актуальной метрике | PARTIAL | метрика менялась дважды (v2 `416b5a6f`, v3 `2ee65b44`), числа между версиями несравнимы; полный обход установленной сборки по v3 ждёт ночной пересборки |
+| 17 | Retention (Intelligence Preservation) | `tools/intelligence_preservation_gate.py`, `tools/intelligence/corpus_v3/` | gate tests в CI | корпус v3 3080 задач, эталоны проверены независимо (CRUXEval 400/400 выполнением), preflight PASS без модельных запросов; последний реальный замер 02.10 — NO_GO (полоса full) | парный замер на текущем SHA, нижняя граница ≥0.98 по каждой основной метрике | BLOCKED | регрессия полосы full (reasoning 0.926, coding 0.931 на rc21); замер v3 ≈2.5–3.5 ч после перезагрузки GPU; порог не снижать (`RETENTION_PREFLIGHT_20261011_RU.md`) |
+
+## Кандидат
+
+Текущий кандидат — ветка на HEAD после `2ee65b44` (локально; push после Command Center CI на `8e3603bc`). Архив кандидата
+пересобирается ночным раннером из каждого нового HEAD; последний проверенный архив — из `0b15e00c` (verify PASS, приёмка
+FAIL только по таймауту обхода, обход v2: 9 ошибок). Строки матрицы закрываются только уликами из `docs/evidence/`.
 
 ## Поправки после независимого аудита (11.10, ночь)
 

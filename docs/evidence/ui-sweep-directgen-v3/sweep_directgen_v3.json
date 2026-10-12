@@ -1,0 +1,10 @@
+{
+ "metric_version": 3,
+ "counts": {
+  "skipped_closed_details": 3,
+  "works": 49,
+  "disabled_reason": 5,
+  "refresh_observed": 1
+ },
+ "review": []
+}

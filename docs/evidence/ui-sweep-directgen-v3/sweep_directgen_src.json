@@ -1,0 +1,18 @@
+{
+ "metric_version": 2,
+ "counts": {
+  "skipped_closed_details": 3,
+  "works": 46,
+  "disabled_reason": 5,
+  "refresh_observed": 1,
+  "request_accepted": 2,
+  "error": 1
+ },
+ "review": [
+  {
+   "label": "Изумруд\nизумрудное платье/верх · чёрные волосы",
+   "verdict": "error",
+   "detail": "Не получен ответ в пределах тайм-аута действия: POST http://127.0.0.1:<port>/api/testing/log"
+  }
+ ]
+}
