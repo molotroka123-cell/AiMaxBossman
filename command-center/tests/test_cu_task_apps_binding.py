@@ -235,7 +235,7 @@ def test_packaged_app_window_must_come_from_its_package():
 
 
 def test_package_path_check_does_not_depend_on_the_host_path_flavour(monkeypatch):
-    """Linux CI parses ``C:\...`` as ONE path component; the check must still split it.
+    r"""Linux CI parses ``C:\...`` as ONE path component; the check must still split it.
 
     Regression: packaged_exe_ok used the platform Path, so on Linux a genuine
     WindowsApps path was refused; the verdict must be identical on every host.

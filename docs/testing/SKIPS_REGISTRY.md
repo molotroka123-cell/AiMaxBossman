@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 450. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 452. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -426,6 +426,8 @@
 | `tests/test_trend_edit.py:13` | importorskip | `—` | media extra not installed (pip install -e ".[media]"; root-ci installs it) | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_trend_edit.py:277` | importorskip | `—` | нет пакета cv2 | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_trend_edit.py:294` | importorskip | `—` | нет пакета cv2 | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_ui_sweep_verdicts.py:78` | importorskip | `—` | нет пакета playwright.sync_api | root (shared/tools) | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_ui_sweep_verdicts.py:82` | skip | `—` | Chromium is not installed | root (shared/tools) | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_ux_sweep_probe.py:83` | skipif | `not os.path.exists(U.EDGE)` | Microsoft Edge is not installed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_ux_sweep_probe.py:119` | skipif | `not os.path.exists(U.EDGE)` | Microsoft Edge is not installed | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_ux_sweep_probe.py:87` | importorskip | `—` | root-ci installs no playwright (UX sweep probe needs a real browser) | root (shared/tools) | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
