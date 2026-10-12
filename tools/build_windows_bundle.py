@@ -105,6 +105,8 @@ SUPPORT_SCRIPTS = (
     # target_hardware_acceptance.py resolves its three checks beside itself.
     (ROOT / "tools" / "installed_ui_sweep.py", "installed_ui_sweep.py"),
     (ROOT / "scripts" / "ui_acceptance_sweep.py", "ui_acceptance_sweep.py"),
+    # 12.10: Reports / Operations manual-import entry point (packages ship under app-support/business_tools/).
+    (ROOT / "tools" / "bossman_business.py", "bossman_business.py"),
     (ROOT / "tools" / "live_openrouter_owner.py", "live_openrouter_owner.py"),
     # 1.0-RC (2026-09-21): владельческий прогон завтрашнего дня, настройка
     # локального медиадвижка, coaching runner и A/B пресетов едут в архиве —
@@ -303,6 +305,19 @@ if errorlevel 1 exit /b 1
 exit /b %ERRORLEVEL%
 """
 
+REPORTS_IMPORT_CMD = r"""@echo off
+setlocal
+rem Reports / Operations MANUAL import tools (stdlib only, local files, no network):
+rem   Reports-Import.cmd exchange --export result.json --period business --out RESULT_DIR
+rem   Reports-Import.cmd report --result RESULT_DIR\volume_result.json --deals RESULT_DIR\deals.csv --out RESULT_DIR
+rem   Reports-Import.cmd ops ... / Reports-Import.cmd ops-report ...
+set "BOSSMAN_HOME=%~dp0"
+call "%BOSSMAN_HOME%app-support\_env.cmd"
+if errorlevel 1 exit /b 1
+"%BOSSMAN_HOME%runtime\python.exe" -I -X utf8 "%BOSSMAN_HOME%app-support\bossman_business.py" %*
+exit /b %ERRORLEVEL%
+"""
+
 COACHING_CMD = r"""@echo off
 setlocal
 rem Coaching runner: 5 training + 5 holdout coding tasks against the local endpoint.
@@ -394,6 +409,7 @@ def launcher_files() -> dict[str, str]:
         "Owner-Run.cmd": OWNER_RUN_CMD,
         "Bossman-1.5.cmd": V15_OWNER_CMD,
         "Media-Setup.cmd": MEDIA_SETUP_CMD,
+        "Reports-Import.cmd": REPORTS_IMPORT_CMD,
         "Coaching.cmd": COACHING_CMD,
         "Collect-Diagnostics.cmd": DIAGNOSTICS_CMD,
         "app-support/_env.cmd": ENV_CMD,
@@ -989,6 +1005,28 @@ def install_motion_studio(support: Path) -> dict:
     return {"path": "app-support/motion_studio", "files": shipped}
 
 
+BUSINESS_TOOLS = ("exchange_volume", "ops_intake")   # ops_intake imports exchange_volume.parse
+
+
+def install_business_tools(support: Path) -> dict:
+    """Reports / Operations manual-import tools, so the INSTALLED build can run them (12.10: they were repo-only).
+
+    The entry point ``bossman_business.py`` is a SUPPORT_SCRIPTS file; the packages go under ``business_tools/``."""
+    shipped: dict[str, str] = {}
+    for name in BUSINESS_TOOLS:
+        source = ROOT / "tools" / name
+        if not (source / "cli.py").is_file():
+            raise RuntimeError(f"business tool missing: {source}")
+        for origin in sorted(p for p in source.rglob("*")
+                             if p.is_file() and "__pycache__" not in p.parts and p.suffix in {".py", ".md"}):
+            rel = origin.relative_to(source).as_posix()
+            target = support / "business_tools" / name / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(origin, target)
+            shipped[f"app-support/business_tools/{name}/{rel}"] = sha256_file(origin)
+    return {"path": "app-support/business_tools", "kind": "manual_import", "files": shipped}
+
+
 def install_coaching_pack(target: Path) -> dict:
     """Пак coaching (train/holdout JSON) — файл в файл, без чужих файлов."""
     if not COACHING_PACK_SOURCE.is_dir():
@@ -1059,6 +1097,7 @@ def assemble(out: Path, sha: str, *, wheels: Path, work: Path,
     contents["owner_run"] = install_support(out / "app-support")
     contents["self_improve"] = install_self_improve(out)
     contents["motion_studio"] = install_motion_studio(out / "app-support")
+    contents["business_tools"] = install_business_tools(out / "app-support")
     for name, body in launcher_files().items():
         target = out / name
         target.parent.mkdir(parents=True, exist_ok=True)
