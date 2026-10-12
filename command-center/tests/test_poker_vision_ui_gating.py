@@ -38,12 +38,13 @@ def test_sync_runs_on_every_status_tick():
     assert "syncDeskButtons(desk, st.control_policy);" in JS
 
 
-def test_overlay_is_not_polled_while_the_service_is_down():
-    # Candidate f34f7e56 UI sweep (12.10): STOP / «Сменить источник» -> the page kept fetching overlay.json every
-    # 250 ms and the 503 landed in the console as an error. Negative control: polling must stay on while the service
-    # is up or its state is unknown.
-    assert "let serviceUp = null;" in JS
-    assert "if (!stage.isConnected || serviceUp === false) return;" in JS
-    assert "serviceUp = Boolean(st.service_up);" in JS                 # follows the real status tick
-    assert re.search(r"/api/poker-vision/stop'[^\n]*serviceUp = false;", JS)   # a STOP does not wait for the tick
-    assert re.search(r"service/start'[^\n]*serviceUp = null;", JS)     # a started service resumes the overlay
+def test_overlay_is_polled_only_while_a_session_is_running():
+    # Candidate f34f7e56 / 3d2ef931eecd UI sweep (12.10): STOP and "Сменить источник" left the page fetching
+    # overlay.json every 250 ms; the service answers 503 whenever no session is running (not only when it is down),
+    # and the browser logs each one as a console error. The first fix keyed on service_up and did NOT remove it.
+    assert "let overlayLive = false;" in JS
+    assert "if (!stage.isConnected || !overlayLive) return;" in JS
+    assert "overlayLive = Boolean(st.service_up && st.session && st.session.running);" in JS
+    # a STOP clears the flag BEFORE its request is sent (in-flight polls would otherwise hit the stopped session)
+    assert re.search(r"overlayLive = false;[^\n]*\n\s*try \{ const r = await api\.raw\('/api/poker-vision/stop'", JS)
+    assert "serviceUp" not in JS                                         # the superseded, ineffective guard is gone

@@ -57,6 +57,7 @@ const Page = {
     clearInterval(timer); clearInterval(overlayTimer);
     let attached = false;
     let lastOv = null;
+    let overlayLive = false;
     const msg = h('p', { role: 'status', 'aria-live': 'polite', id: 'pv-msg' });
     const statusBox = h('div', { id: 'pv-status' });
     const sourceBox = h('div', { id: 'pv-source' }, h('p.dim', 'Источник не выбран.'));
@@ -112,11 +113,12 @@ const Page = {
     };
     const setPause = async (p) => { try { await api.raw('/api/poker-vision/desk/pause', { method: 'POST', body: { paused: p } }); await tick(); } catch (e) { toastError(e); } };
     const stop = async () => {
-      try { const r = await api.raw('/api/poker-vision/stop', { method: 'POST', body: {} }); serviceUp = false; msg.textContent = `STOP выполнен (${r.via}).`; toastOk('STOP'); await tick(); }
+      overlayLive = false;       // before the request: nothing may poll the overlay of a session that is being stopped
+      try { const r = await api.raw('/api/poker-vision/stop', { method: 'POST', body: {} }); msg.textContent = `STOP выполнен (${r.via}).`; toastOk('STOP'); await tick(); }
       catch (e) { toastError(e, 'STOP не дошёл'); }
     };
     const startService = async () => {
-      try { await api.raw('/api/poker-vision/service/start', { method: 'POST', body: {} }); serviceUp = null; msg.textContent = 'Сервис запущен.'; }
+      try { await api.raw('/api/poker-vision/service/start', { method: 'POST', body: {} }); msg.textContent = 'Сервис запущен.'; }
       catch (e) { msg.textContent = err(e); toastError(e); }
     };
     const sandbox = async (cmd, args = {}) => {
@@ -171,7 +173,7 @@ const Page = {
       else { if (attached) { clearInterval(timer); clearInterval(overlayTimer); timer = overlayTimer = null; } return; }
       let st;
       try { st = await api.raw('/api/poker-vision/status'); } catch { return; }
-      serviceUp = Boolean(st.service_up);
+      overlayLive = Boolean(st.service_up && st.session && st.session.running);   // overlay.json answers 503 otherwise
       const s = st.session; const desk = s && s.desk;
       statusBox.replaceChildren(h('div.row',
         pill(st.service_up ? 'сервис работает' : 'сервис остановлен', { tone: st.service_up ? 'ok' : 'err' }),
@@ -234,11 +236,11 @@ const Page = {
         }
       } catch { /* следующий тик */ }
     };
-    // The overlay endpoint answers 503 while the service is down (the browser logs every one as a console error).
-    // `serviceUp` comes from the last status tick; a STOP flips it at once instead of waiting up to 700 ms.
-    let serviceUp = null;
+    // The overlay endpoint answers 503 whenever there is no running session (service down OR stopped / no frame yet);
+    // the browser logs every such response as a console error that no JS catch can hide. So it is polled only while
+    // the last status tick says a session is running, and a STOP clears the flag before its request is sent.
     const pollOverlay = async () => {
-      if (!stage.isConnected || serviceUp === false) return;
+      if (!stage.isConnected || !overlayLive) return;
       try { lastOv = await api.raw('/api/poker-vision/overlay.json'); drawOverlay(canvas, stream, lastOv, showLabels.checked); } catch { /* ещё нет кадра */ }
     };
     stream.addEventListener('load', () => drawOverlay(canvas, stream, lastOv, showLabels.checked));
