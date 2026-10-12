@@ -66,6 +66,11 @@ def derive_events(hand: dict, unobservable: list[str] | None = None) -> dict:
             if slot not in sn["seats"] and sn["hero_cards"] and all(sn["hero_cards"]):
                 events.append({"type": "seat_left_hand", "slot": slot, "t": t, "note": "fold (seat hidden by the UI) — presumed, not shown"})
         prev = sn
+    for sd in hand.get("showdowns", []):
+        events.append({"type": "showdown", "slot": sd["slot"], "label": sd.get("label"),
+                       "label_source": sd.get("label_source"), "cards": sd.get("cards"), "ranks": sd.get("ranks"),
+                       "award": sd.get("award"), "board": sd.get("board"), "hand_id": sd.get("hand_id"),
+                       "t": sd.get("t_ms"), "note": "face-up cards as displayed; an unreadable card is None, a mucked hand is never recorded"})
     hand["events"] = events
     hand["unobservable"] = list(unobservable or [])
     hand["gaps"] = gaps

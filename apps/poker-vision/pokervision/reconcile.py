@@ -131,7 +131,7 @@ class Reconciler:
     def _fresh_hand(self, t) -> dict:
         self.hand_id += 1
         return {"id": self.hand_id, "t_start": t, "t_end": t, "status": "open", "linked": True, "frames": 0, "snapshots": [],
-                "gaps": [], "issues": [], "end_reason": None, "boundary_evidence": []}
+                "gaps": [], "issues": [], "end_reason": None, "boundary_evidence": [], "showdowns": []}
 
     # --------------------------------------------------------------- hand boundary
     def _boundary(self, st: TableState) -> tuple[str, str] | None:
@@ -280,11 +280,30 @@ class Reconciler:
         if cm.hero_turn and cm.actions is None:
             cm.blocked.append("ACTIONS_UNCOMMITTED")
         self.committed = cm
+        self._record_showdown(st, cm)
         self.prev_state = st if not any(i["severity"] == "error" for i in tr) else self.prev_state
         snap = cm.to_dict()
         if not self.cur["snapshots"] or {k: v for k, v in snap.items() if k not in ("t_ms", "blocked", "pending")} != {k: v for k, v in self.cur["snapshots"][-1].items() if k not in ("t_ms", "blocked", "pending")}:
             self.cur["snapshots"].append(snap)
         return cm
+
+    def _record_showdown(self, st: TableState, cm: "Committed") -> None:
+        """Face-up opponent cards / award seen at the end of the hand, kept per seat (the most complete reading wins).
+        Only what was displayed is stored; a seat that mucked or stayed face-down produces no record."""
+        for rec in getattr(st, "showdown", None) or []:
+            known = sum(1 for c in rec.get("cards", []) if c) * 2 + sum(1 for r in rec.get("ranks", []) if r)
+            seen = {r["slot"]: r for r in self.cur["showdowns"]}
+            old = seen.get(rec["slot"])
+            if old is not None and old["_score"] >= known + (1 if rec.get("award") else 0) * 3:
+                if rec.get("award") and not old.get("award"):
+                    old["award"] = rec["award"]
+                continue
+            item = {**rec, "board": [c for c in cm.board], "hand_id": self.cur["id"], "_score": known + (3 if rec.get("award") else 0)}
+            if old is not None:
+                if old.get("award") and not item.get("award"):
+                    item["award"] = old["award"]
+                self.cur["showdowns"].remove(old)
+            self.cur["showdowns"].append(item)
 
     def _update_boundary_counters(self, st: TableState) -> None:
         # consecutive-frame counters for board shrink / pot collapse evidence

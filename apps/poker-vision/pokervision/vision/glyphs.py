@@ -168,7 +168,8 @@ def is_sep(g: Glyph, med_h: float) -> bool:
     return g.h <= 0.55 * med_h and g.w <= 0.40 * med_h
 
 
-def read_glyphs(gl: list[Glyph], med_h: float, book: GlyphBook, min_conf: float = 0.10, max_dist: float = 4.8, allowed: frozenset | None = None) -> LineRead:
+def read_glyphs(gl: list[Glyph], med_h: float, book: GlyphBook, min_conf: float = 0.10, max_dist: float = 4.8, allowed: frozenset | None = None,
+                decimals: int | None = None) -> LineRead:
     """Read already-segmented glyphs. Separators are recognised by shape (small, low) and resolved by digit grouping."""
     if not gl:
         return LineRead(None, 0.0, "no_glyphs")
@@ -196,6 +197,8 @@ def read_glyphs(gl: list[Glyph], med_h: float, book: GlyphBook, min_conf: float 
             text += ","
         elif len(digits) == 1 and rest in ("K", "M") and text and text[-1].isdigit():
             text += "."
+        elif decimals and len(digits) == decimals and rest == "" and text and text[-1].isdigit() and "." not in text:
+            text += "."          # a layout that shows cents: exactly ``decimals`` digits after the point, at the end
         else:
             return LineRead(None, 0.2, "separator_unclear", [c for c, _ in chars])
     return LineRead(text, float(np.min(confs)), "", [c for c, _ in chars])

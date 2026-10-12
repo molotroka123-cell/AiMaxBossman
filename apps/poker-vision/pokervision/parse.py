@@ -26,6 +26,22 @@ def parse_money(text: str) -> Money | None:
     return Money(num * mult, float(step), _CUR.get(m.group("cur") or ""), t)
 
 
+_CASH = re.compile(r"^(?P<int>\d+)(?:\.(?P<frac>\d{2}))?$")
+
+
+def parse_cash(text: str) -> Money | None:
+    """Play-money display with cents: '35.18' -> 35.18 (step 0.01), '200' -> 200 (step 1). Anything else -> None.
+
+    Separate from ``parse_money`` on purpose: there a bare decimal is ambiguous and refused. A layout whose profile says
+    ``money_format = "cash2"`` shows exactly two decimals after the point and no thousands separators."""
+    t = (text or "").strip()
+    m = _CASH.match(t)
+    if not m:
+        return None
+    frac = m.group("frac")
+    return Money(float(m.group("int") + ("." + frac if frac else "")), 0.01 if frac else 1.0, None, t)
+
+
 def parse_card(text: str) -> str | None:
     t = (text or "").strip()
     if len(t) == 2 and t[0].upper() in RANKS and t[1].lower() in SUITS:
