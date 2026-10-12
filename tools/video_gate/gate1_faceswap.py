@@ -54,13 +54,15 @@ def frames(path):
     import shutil
     import subprocess
     probe = subprocess.run([shutil.which("ffprobe") or "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
-                            "stream=width,height,r_frame_rate", "-of", "csv=p=0", str(path)], capture_output=True, text=True)
+                            "stream=width,height,avg_frame_rate", "-of", "csv=p=0", str(path)], capture_output=True, text=True)
     w, h, rate = probe.stdout.strip().split(",")[:3]
     w, h = int(w), int(h)
     num, _, den = rate.partition("/")
     fps = float(num) / float(den or 1)
-    raw = subprocess.run([shutil.which("ffmpeg") or "ffmpeg", "-v", "error", "-i", str(path), "-f", "rawvideo",
-                          "-pix_fmt", "bgr24", "-"], capture_output=True).stdout
+    # metric v3 (12.10): a variable-frame-rate source was decoded as constant 24 fps (459 of 482 real frames) and the
+    # frames were compared shifted. `-fps_mode passthrough` reads every real frame once; fps is the AVERAGE rate.
+    raw = subprocess.run([shutil.which("ffmpeg") or "ffmpeg", "-v", "error", "-i", str(path), "-fps_mode", "passthrough",
+                          "-f", "rawvideo", "-pix_fmt", "bgr24", "-"], capture_output=True).stdout
     n = len(raw) // (w * h * 3)
     arr = np.frombuffer(raw[: n * w * h * 3], np.uint8).reshape(n, h, w, 3)
     return list(arr), fps
@@ -107,7 +109,8 @@ def main() -> int:
         "T4_identity_std": bool(ids) and float(np.std(ids)) <= t["identity_std_max"],
         "T4_source_identity": bool(sids) and float(np.mean(sids)) <= t["source_identity_max"],
     }
-    report = {"thresholds": t, "frames": [len(src), len(res)], "fps": [sfps, rfps],
+    report = {"metric_version": "gate1/v3-passthrough-avgfps", "thresholds": t, "frames": [len(src), len(res)],
+              "fps": [sfps, rfps],
               "frames_with_pixels_changed_outside_face": int(pix_bad), "faces_measured": len(ids),
               "landmark_nme_mean": round(float(np.mean(nme)), 4) if nme else None,
               "identity_mean": round(float(np.mean(ids)), 4) if ids else None,
