@@ -182,9 +182,11 @@ class DeskMixin:
         return s.submit(cmd, **kw)
 
     # ------------------------------------------------------------ loop
-    def _fresh(self) -> Fresh:
+    def _fresh(self) -> Fresh | None:
         src = self.src
         fr = src.read()
+        if fr is None:                      # a replay has no more frames: the desk finishes cleanly, this is not an error
+            return None
         st = self.adapter.read(fr)
         now_ms = src.now_ms() if hasattr(src, "now_ms") else fr.t_ms
         cm = self.rec.push(st, now_ms=now_ms, frame_bytes=None if hasattr(src, "alive") else fr.bgr.tobytes())
