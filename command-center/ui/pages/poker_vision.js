@@ -137,16 +137,34 @@ const Page = {
     calDir.addEventListener('input', syncCal); calHeld.addEventListener('input', syncCal);
     syncCal();                     // autofilled values count from the start (review of 71ee3c5d)
     const modeBar = h('div.row', { id: 'pv-modes', role: 'group', 'aria-label': 'Режим' });
+    // Without a running desk the service answers 400 to pause/mode, so these controls stay disabled and say why
+    // (UI sweep of 0b15e00c: 2 x 400 on pause, 3 silently disabled mode buttons).
+    const NO_DESK_WHY = 'Доступно после запуска: нажмите «Выбрать источник».';
     const renderModeBar = (desk) => {
       modeBar.replaceChildren(...MODES.map(m => {
         const allowed = !desk ? true : m.value === 'observe' ? true : (m.value === 'coach' ? desk.coach_allowed[0] : desk.control_allowed[0]);
-        const why = !desk ? '' : (m.value === 'coach' ? desk.coach_allowed[1] : m.value === 'control' ? desk.control_allowed[1] : '');
+        const why = !desk ? NO_DESK_WHY : (m.value === 'coach' ? desk.coach_allowed[1] : m.value === 'control' ? desk.control_allowed[1] : '');
         const on = desk && desk.mode === m.value;
         return h('button', { type: 'button', 'data-mode': m.value, disabled: !desk || !allowed, 'aria-pressed': on ? 'true' : 'false',
-          title: allowed ? '' : why, class: on ? 'btn btn-primary' : 'btn', onClick: () => changeMode(m.value) }, m.label);
+          title: (!desk || !allowed) ? why : '', class: on ? 'btn btn-primary' : 'btn', onClick: () => changeMode(m.value) }, m.label);
       }));
     };
     renderModeBar(null);
+    const pauseBtn = btn('Пауза', () => setPause(true), { variant: 'secondary', disabled: true, title: NO_DESK_WHY });
+    const resumeBtn = btn('Продолжить', () => setPause(false), { variant: 'secondary', disabled: true, title: NO_DESK_WHY });
+    const SERVICE_OFF_WHY = 'Управление приложениями выключено политикой владельца.';
+    // Disabled until the first status answer says whether the owner's policy allows starting apps (else a fast click is a 409).
+    const startBtn = btn('Запустить сервис', startService, { variant: 'secondary', disabled: true, title: 'Проверяю политику управления приложениями…' });
+    const syncDeskButtons = (desk, policy) => {
+      pauseBtn.disabled = !desk || Boolean(desk.paused);
+      pauseBtn.title = !desk ? NO_DESK_WHY : (desk.paused ? 'Уже на паузе.' : '');
+      resumeBtn.disabled = !desk || !desk.paused;
+      resumeBtn.title = !desk ? NO_DESK_WHY : (desk.paused ? '' : 'Сейчас не на паузе.');
+      const known = Boolean(policy) && typeof policy.enabled === 'boolean';
+      const off = !known || policy.enabled === false;
+      startBtn.disabled = off;
+      startBtn.title = !known ? 'Политика управления приложениями ещё не получена.' : (off ? (policy.hint || SERVICE_OFF_WHY) : '');
+    };
 
     const tick = async () => {
       if (stage.isConnected) attached = true;
@@ -167,6 +185,7 @@ const Page = {
         desk?.executor?.halted ? pill(`управление остановлено: ${desk.executor.halted}`, { tone: 'err' }) : null,
         s?.error ? pill(`ошибка: ${s.error}`, { tone: 'err' }) : null));
       renderModeBar(desk);
+      syncDeskButtons(desk, st.control_policy);
       syncSandbox(desk);
       if (desk) {
         const id = desk.identity;
@@ -260,11 +279,11 @@ const Page = {
     return h('div.bx-page.pv-page',
       pageHead('Poker Vision', 'Источник → поток захвата → поля с уверенностью → проверенное состояние → рекомендация → (только в моём тренажёре) действие и проверка. UNKNOWN — нормальный ответ.', {
         pills: [pill('внешние клиенты: только наблюдение', { tone: 'warn' })],
-        actions: [btn('Запустить сервис', startService, { variant: 'secondary' }), btn('STOP', stop, { variant: 'danger', iconName: 'stop' })],
+        actions: [startBtn, btn('STOP', stop, { variant: 'danger', iconName: 'stop' })],
       }),
       panel('Источник изображения', h('div.stack',
         h('div.row', btn('Выбрать источник', pickSource, { variant: 'primary' }), btn('Сменить источник', async () => { await stop(); await pickSource(); }, { variant: 'secondary' }),
-          btn('Пауза', () => setPause(true), { variant: 'secondary' }), btn('Продолжить', () => setPause(false), { variant: 'secondary' }), modeBar),
+          pauseBtn, resumeBtn, modeBar),
         h('label.row', confirmControl, h('span', 'Разрешаю режим «Управление» только в моём Poker Train (тестовые игры без денег). Во внешних клиентах он недоступен.')),
         h('label.row', showLabels, h('span', 'Подписи overlay')),
         msg, sourceBox, stage)),
