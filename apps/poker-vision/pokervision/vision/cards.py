@@ -189,6 +189,15 @@ class CardBook:
             return
         lst.append(vec)
 
+    RANKS = "23456789TJQKA"
+    SUITS = "shdc"
+
+    def missing_classes(self) -> str:
+        """Rank and suit classes with no exemplar. A nearest-neighbour vote can only be trusted when every class is a
+        candidate: with classes missing, an unseen rank lands on the closest stored one with a clean margin (measured
+        11.10.2026 on an owner recording: 7->2, J->3, 8->6, 9->6 at distances 1.3-2.7, confidence 0.1-0.34)."""
+        return "".join(r for r in self.RANKS if not self.rank.get(r)) + "".join(s for s in self.SUITS if not self.suit.get(s))
+
     @staticmethod
     def _knn(lib: dict, vec: np.ndarray, allowed=None):
         best = {}
@@ -208,6 +217,10 @@ class CardBook:
             return None, 0.0, "too_occluded"
         if box.fill < 0.85 and box.visible_frac >= 0.95 and not lax:
             return None, 0.0, "not_rectangular"
+        if not lax:
+            missing = self.missing_classes()
+            if missing:
+                return None, 0.0, f"book_incomplete:{missing}"
         sc = split_corner(box, bgr)
         if sc is None:
             return None, 0.0, "no_index"
