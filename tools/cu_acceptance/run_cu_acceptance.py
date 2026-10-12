@@ -187,20 +187,33 @@ class Harness:
     def start_backend(self) -> int:
         """Owner-like launch: a .cmd started by explorer.exe (medium integrity, like the
         installed product), pythonw so no console window steals focus."""
-        pythonw = Path(sys.executable).with_name("pythonw.exe")
+        # BOSSMAN_CU_BUNDLE_ROOT: run the INSTALLED product (the unzipped Windows bundle's own runtime, isolated -I,
+        # nothing from this checkout on sys.path) instead of the checkout. Evidence then names the bundle, not source.
+        bundle = os.environ.get("BOSSMAN_CU_BUNDLE_ROOT", "").strip()
         cmd = self.ws / "start_backend.cmd"
-        pp = ";".join([str(REPO / "command-center"), str(REPO / "bossman-core"), str(REPO)])
+        if bundle:
+            root = Path(bundle)
+            pythonw = root / "runtime" / "pythonw.exe"
+            if not pythonw.is_file():
+                raise RuntimeError(f"BOSSMAN_CU_BUNDLE_ROOT has no runtime\\pythonw.exe: {root}")
+            launch = f'start "" /B "{pythonw}" -I -X utf8 -m bcc'
+            workdir, pythonpath_line = root, "set PYTHONPATH="
+        else:
+            pythonw = Path(sys.executable).with_name("pythonw.exe")
+            pp = ";".join([str(REPO / "command-center"), str(REPO / "bossman-core"), str(REPO)])
+            launch = f'start "" /B "{pythonw}" -m bcc'
+            workdir, pythonpath_line = self.ws, f'set "PYTHONPATH={pp}"'
         cmd.write_text("\r\n".join([
             "@echo off",
             f'set "BCC_DATA_DIR={self.data}"',
             f"set BCC_PORT={BACKEND_PORT}",
             "set BCC_HOST=127.0.0.1",
-            f'set "PYTHONPATH={pp}"',
+            pythonpath_line,
             f"set BCC_COMPUTER_APPROVAL_TTL_S={TTL_S}",
             "set PYTHONIOENCODING=utf-8",
             "set PYTHONUTF8=1",
-            f'cd /d "{self.ws}"',
-            f'start "" /B "{pythonw}" -m bcc >> "{self.backend_log}" 2>&1',
+            f'cd /d "{workdir}"',
+            f'{launch} >> "{self.backend_log}" 2>&1',
             ""]), encoding="ascii" if str(self.ws).isascii() else "utf-8")
         subprocess.run(["explorer.exe", str(cmd)], check=False)
         deadline = time.time() + 120

@@ -123,13 +123,14 @@ class Run:
         self.h = base.Harness(a.workspace, a.data_dir, a.evidence)
         self.model = a.model
         self.stamp = dt.datetime.now(dt.timezone.utc).strftime("%H%M%S")
-        self.phrase = f"BOSSMAN CU QWEN PROOF 2026-10-10 RUN-{self.stamp} mouse+keyboard"
+        self.day = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
+        self.phrase = f"BOSSMAN CU QWEN PROOF {self.day} RUN-{self.stamp} mouse+keyboard"
         self.ours: set[int] = set()               # notepad windows launched by THIS run
         self.pre: set[int] = set()
         self.ev: dict = {"created_utc": utc(), "repo_head": self.h._git_head(), "phrase": self.phrase,
                          "backend": f"http://127.0.0.1:{base.BACKEND_PORT}", "data_dir": str(a.data_dir),
                          "decisions": [], "notes": []}
-        self.out = Path(a.evidence) / "computer-use-local-qwen-task-apps-20261010.json"
+        self.out = Path(a.evidence) / f"computer-use-local-qwen-task-apps-{self.day}.json"
 
     # -- setup --------------------------------------------------------------------
     def setup(self) -> None:
