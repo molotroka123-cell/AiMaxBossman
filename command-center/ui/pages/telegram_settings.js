@@ -210,26 +210,42 @@ export async function telegramPanel(ctx) {
     Object.assign(savedBest, { url: res.best_url, model: res.best_model });
     Object.assign(savedFastest, { url: res.fastest_url, model: res.fastest_model });
     setStatus(res.status);
+    setConfigured(!!res.configured);
     renderPeople();
     toastOk('Настройки Telegram сохранены', (res.warnings || []).join(' '));
   };
 
   const wrap = (fn, msg) => async () => { try { await fn(); } catch (e) { toastError(e, msg); } };
 
+  // Бот, команды и запуск читают сохранённый config.json: до первого сохранения
+  // сервер может ответить только 409. Кнопка выключена с названной причиной.
+  const NEEDS_SAVED = 'Сначала сохраните настройки Telegram (токен и ваш Telegram ID).';
+  const needSaved = [];
+  const gated = (label, handler) => {
+    const btn = actionButton(label, handler, { disabled: !data.configured, title: data.configured ? label : NEEDS_SAVED });
+    btn.dataset.label = label;
+    needSaved.push(btn);
+    return btn;
+  };
+  const setConfigured = (on) => needSaved.forEach((b) => {
+    b.disabled = !on;
+    b.title = on ? b.dataset.label : NEEDS_SAVED;
+  });
+
   const buttons = h('div.row', { style: 'gap:8px;flex-wrap:wrap' },
     actionButton('Сохранить', wrap(save, 'Настройки не сохранены'), { cls: 'btn btn-primary' }),
     actionButton('Проверить модели', wrap(() => checkModels(), 'Модели не проверены')),
-    actionButton('Проверить бота', wrap(async () => {
+    gated('Проверить бота', wrap(async () => {
       const res = await api.raw('/api/telegram/test', { method: 'POST' });
       if (res.ok) toastOk(`Бот @${res.username || '?'} отвечает`, 'Проверены только токен и отсутствие webhook; сообщений не отправлено.');
       else toastError(new Error(`Проверка бота: ${res.status}`));
     }, 'Бот не проверен')),
-    actionButton('Команды бота в меню Telegram', wrap(async () => {
+    gated('Команды бота в меню Telegram', wrap(async () => {
       const res = await api.raw('/api/telegram/commands', { method: 'POST' });
       if (res.ok) toastOk('Команды бота обновлены', (res.commands || []).map((c) => '/' + c).join(' '));
       else toastError(new Error(`Команды не обновлены: ${res.status}`));
     }, 'Команды не обновлены')),
-    actionButton('Старт', wrap(async () => setStatus(await api.raw('/api/telegram/start', { method: 'POST' })), 'Компаньон не запущен')),
+    gated('Старт', wrap(async () => setStatus(await api.raw('/api/telegram/start', { method: 'POST' })), 'Компаньон не запущен')),
     actionButton('Стоп', wrap(async () => setStatus(await api.raw('/api/telegram/stop', { method: 'POST' })), 'Компаньон не остановлен')),
     actionButton('Обновить статус', wrap(async () => setStatus(await api.raw('/api/telegram/status')), 'Статус недоступен'), { cls: 'btn btn-sm' }));
 

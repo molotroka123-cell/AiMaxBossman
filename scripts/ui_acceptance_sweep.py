@@ -222,6 +222,11 @@ def _visible_controls(page) -> list[dict]:
             if (r.width === 0 || r.height === 0) continue;
             const style = getComputedStyle(el);
             if (style.visibility === 'hidden' || style.display === 'none') continue;
+            /* Содержимое закрытого <details> не отрисовано: у кнопки есть
+               прямоугольник, но нет текста и нет возможности кликнуть. Владелец
+               её не видит; обход, нажимавший такие кнопки, получал «element is
+               not visible» на каждой и перезагружал страницу на каждую. */
+            if (el.closest('details:not([open])')) continue;
             const label = (el.innerText || el.getAttribute('aria-label') || el.title || '').trim();
             const key = label + '|' + (el.className || '');
             if (seen.has(key)) continue;      /* строки списков дают один класс на все */

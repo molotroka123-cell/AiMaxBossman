@@ -72,3 +72,36 @@ def test_explicit_registry_refresh_is_awaited_without_tracking_background_gets()
     assert not sweep._tracked_request('GET', 'http://127.0.0.1:123/api/apps')
     assert not sweep._tracked_request('GET', 'http://127.0.0.1:123/api/tasks')
     assert sweep._tracked_request('POST', 'http://127.0.0.1:123/api/tasks')
+
+
+def _controls_of(html, after=None):
+    playwright = pytest.importorskip('playwright.sync_api')
+    from bcc.browser_runtime import chromium_executable
+    exe = chromium_executable(preinstalled='/opt/pw-browsers/chromium')
+    if exe is None:
+        pytest.skip('Chromium is not installed')
+    with playwright.sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=exe)
+        try:
+            page = browser.new_page()
+            page.set_content(html)
+            if after:
+                page.evaluate(after)
+            return [c['label'] for c in sweep._visible_controls(page)]
+        finally:
+            browser.close()
+
+
+_DISCLOSURE = ('<div id="view"><button>Always</button>'
+               '<details id="list"><summary>All nodes</summary>'
+               '<button title="leaf detail">Leaf</button></details></div>')
+
+
+def test_buttons_inside_a_closed_details_are_not_visible_controls():
+    # Negative control sits below: the same button is found once opened.
+    assert _controls_of(_DISCLOSURE) == ['Always']
+
+
+def test_buttons_inside_an_opened_details_are_still_swept():
+    assert _controls_of(_DISCLOSURE, "document.getElementById('list').open = true") == ['Always', 'Leaf']
+

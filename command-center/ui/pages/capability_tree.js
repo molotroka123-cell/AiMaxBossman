@@ -27,7 +27,7 @@ function statusPill(value) {
   return pill(row[0], { tone: row[1] });
 }
 
-function detail(node, note, save, work, jobs, workers) {
+function detail(node, note, save, work, jobs, workers, workBlocked) {
   if (!node) return h('p.dim', 'Выберите ветку или лист дерева.');
   const text = h('textarea.input', { rows: '4', placeholder: 'Что уже есть, что сейчас делаем, что проверить…' }, note?.text || '');
   const state = h('select.input',
@@ -59,7 +59,7 @@ function detail(node, note, save, work, jobs, workers) {
       h('label.field', h('span.field-label', 'Исполнитель (через Bossman)'), worker),
       h('label.field', h('span.field-label', 'Пожелание'), wish),
       btn(running ? 'Bossman уже работает здесь' : '🚀 Bossman, работай здесь', () => work(node.id, wish.value, worker.value),
-        { variant: 'primary', disabled: running })));
+        { variant: 'primary', disabled: running || !!workBlocked, title: workBlocked || undefined })));
 }
 
 function campaignBody(activity, control) {
@@ -99,6 +99,8 @@ const Page = {
     catch (e) { return h('div.bx-page', pageHead('Дерево развития', 'Не удалось прочитать карту'), h('p', String(e))); }
     const nodes = (payload.tree || {}).nodes || [];
     const workers = payload.workers || [];
+    const sourceCount = ((payload.scan_source || {}).candidates || []).length;
+    const NO_SOURCE = 'Нет чекаута Bossman среди разрешённых папок кода: добавьте его в настройках кода.';
     const byId = new Map(nodes.map(n => [n.id, n]));
     let activity = payload.activity || {};
     let notes = payload.notes || {};
@@ -116,7 +118,9 @@ const Page = {
     let save;
     let work;
     let poll;
-    const renderDetail = () => details.replaceChildren(detail(selected, notes[selected?.id], save, work, jobs, workers));
+    const renderDetail = () => details.replaceChildren(detail(selected, notes[selected?.id], save, work, jobs, workers,
+      sourceCount === 1 ? null : sourceCount === 0 ? NO_SOURCE
+        : 'Найдено несколько чекаутов Bossman: оставьте в разрешённых папках кода один.'));
     const pick = (node) => { selected = node; selectedId = node.id; renderDetail(); scene?.update(marks()); };
     save = async (nodeId, text, state) => {
       try {
@@ -185,7 +189,8 @@ const Page = {
       pageHead('Дерево развития', 'Живая карта Bossman: что существует, что сейчас меняется и чем это доказано.', {
         pills: [pill(campaign.status || 'NO_CAMPAIGN', { tone: campaign.loop_running ? 'ok' : campaign.status === 'BLOCKED' ? 'err' : 'idle', live: !!campaign.loop_running }),
           pill(`${nodes.length} узлов`, { tone: 'info' })],
-        actions: [btn('Проверить репозиторий без ИИ', () => scan(), { variant: 'secondary', iconName: 'search' })],
+        actions: [btn('Проверить репозиторий без ИИ', () => scan(), { variant: 'secondary', iconName: 'search',
+          disabled: sourceCount === 0, title: sourceCount === 0 ? NO_SOURCE : undefined })],
       }),
       stage,
       h('div.ct-grid',

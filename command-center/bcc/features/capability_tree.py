@@ -218,8 +218,12 @@ async def tree(request: Request, lite: bool = False):
     from . import coding_tasks
     workers = [{"id": "local", "label": "Локальная модель Bossman (бесплатно, на ПК)"}] + [
         {"id": k, "label": v["label"]} for k, v in coding_tasks.WORKERS.items()]
+    # The scan and zone-work buttons need exactly the checkout _scan_source would
+    # pick; the page disables them with a reason instead of offering a 422.
+    candidates = [str(r) for r in await allowed_roots(svc) if _is_bossman_checkout(r)]
     return {"tree": _seed(), **live, "notes": _read(root / "owner-notes.json", {}),
-            "scan": _read(root / "scan-latest.json", None), "workers": workers}
+            "scan": _read(root / "scan-latest.json", None), "workers": workers,
+            "scan_source": {"candidates": candidates}}
 
 
 @router.post("/note")

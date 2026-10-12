@@ -101,11 +101,24 @@ def test_ui_scan_refuses_a_non_bossman_repo_and_lists_candidates(tmp_path, monke
         assert chosen.status_code == 200 and chosen.json()["repo"] == str(second.resolve())
 
 
+def test_tree_payload_names_the_checkouts_the_scan_and_work_buttons_can_use(tmp_path, monkeypatch):
+    game = _repo(tmp_path / "game")
+    bossman = _bossman_checkout(tmp_path / "bm")
+    with TestClient(_scan_app(tmp_path, monkeypatch, [game])) as client:
+        assert client.get("/api/capability-tree").json()["scan_source"] == {"candidates": []}
+    with TestClient(_scan_app(tmp_path, monkeypatch, [game, bossman])) as client:
+        assert client.get("/api/capability-tree").json()["scan_source"] == {"candidates": [str(bossman.resolve())]}
+
+
 def _app(tmp_path: Path, monkeypatch, nodes: list[dict], campaign: dict) -> FastAPI:
     seed_path = tmp_path / "seed.json"
     seed_path.write_text(json.dumps({"schema_version": "1.0", "nodes": nodes}), encoding="utf-8")
     monkeypatch.setattr(tree, "PACKAGE_MAP", seed_path)
     monkeypatch.setattr(evolution, "_view", lambda _svc: campaign)
+
+    async def no_roots(_svc):  # this fake svc has no settings DB to read code roots from
+        return []
+    monkeypatch.setattr(tree, "allowed_roots", no_roots)
     app = FastAPI()
     app.state.svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path / "data"))
     app.include_router(tree.router, prefix="/api")
