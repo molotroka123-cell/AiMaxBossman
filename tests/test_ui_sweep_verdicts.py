@@ -102,9 +102,22 @@ def test_buttons_inside_a_closed_details_are_reported_as_closed_not_dropped():
     # Sweep metric v2: a control in a closed <details> is listed with closed=True (the sweep records it
     # as skipped_closed_details) instead of being clicked (v1) or silently dropped (4398e6e7).
     assert _controls_of(_DISCLOSURE, with_closed=True) == [('Always', False), ('leaf detail', True)]
-    assert sweep.SWEEP_METRIC_VERSION == 2
+    assert sweep.SWEEP_METRIC_VERSION >= 2          # closed-details reporting came with metric v2
 
 
 def test_buttons_inside_an_opened_details_are_still_swept():
     assert _controls_of(_DISCLOSURE, "document.getElementById('list').open = true", with_closed=True) == [
         ('Always', False), ('Leaf', False)]
+
+
+def test_the_telemetry_beacon_is_not_a_mutation_of_the_clicked_control():
+    # Metric v3: POST /api/testing/log is the page's own observer (flushed on a 4 s timer); counting it as the
+    # click's mutating request labelled five direct-gen buttons "request sent, no success observed" (bundle 0b15e00c).
+    assert sweep.SWEEP_METRIC_VERSION == 3
+    assert sweep._observer_request('http://127.0.0.1:1/api/testing/log')
+    assert sweep._observer_request('http://127.0.0.1:1/api/testing/events?limit=5')
+    assert not sweep._observer_request('http://127.0.0.1:1/api/testing/publish')
+    assert not sweep._mutation('POST', 'http://127.0.0.1:1/api/testing/log')
+    assert sweep._mutation('POST', 'http://127.0.0.1:1/api/direct-gen/jobs')
+    assert not sweep._tracked_request('POST', 'http://127.0.0.1:1/api/testing/log')
+    assert sweep._tracked_request('POST', 'http://127.0.0.1:1/api/apps/x/start')

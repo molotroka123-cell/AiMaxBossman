@@ -80,13 +80,30 @@ SETTLE_MS = 700          # сколько ждать последствий на
 # closed <details> (false 'not visible' errors, one page reload each). 2 (11.10): controls in a
 # closed <details> are recorded as skipped_closed_details and not clicked; results of 1 and 2
 # are not comparable.
-SWEEP_METRIC_VERSION = 2
+# 3 (11.10): the testing-period observer beacon (POST /api/testing/log, flushed 4 s after any click) is
+# not evidence about the clicked control; it is excluded from requests/responses/pending/failures, as the
+# product's own dead-click watcher already does. Results of 2 and 3 are not comparable.
+SWEEP_METRIC_VERSION = 3
 PAGE_SETTLE_MS = 900     # сколько ждать первой отрисовки страницы
 APP_START_ROUTE = re.compile(r'/api/apps/[^/?#]+/start(?:\?[^#]*)?$')
 APP_REFRESH_ROUTE = re.compile(r'/api/apps\?refresh=true(?:&[^#]*)?$')
 
 
+OBSERVER_ROUTE = re.compile(r'/api/testing/(log|events)(\?|$)')
+
+
+def _observer_request(url) -> bool:
+    """The UI's own telemetry beacon: background, timer-driven, unrelated to the control under test."""
+    return bool(OBSERVER_ROUTE.search(str(url)))
+
+
+def _mutation(method, url) -> bool:
+    return method in ('POST', 'PUT', 'PATCH', 'DELETE') and not _observer_request(url)
+
+
 def _tracked_request(method, url):
+    if _observer_request(url):
+        return False
     return method in ('POST', 'PUT', 'PATCH', 'DELETE') or (
         method == 'GET' and bool(APP_REFRESH_ROUTE.search(url)))
 
@@ -411,12 +428,12 @@ def sweep(app: LiveApp, pages: list[str], *, headed: bool) -> list[Click]:
         page.on("console", lambda m: console.append(m.text) if m.type == "error" else None)
         page.on("pageerror", lambda e: page_errors.append(str(e)))
         page.on("request", lambda r: requests.append(f"{r.method} {r.url}")
-                if r.method in ("POST", "PUT", "PATCH", "DELETE") else None)
+                if _mutation(r.method, r.url) else None)
         failures: list[str] = []
         page.on("response", lambda r: failures.append(f"{r.status} {r.url}")
-                if r.status >= 500 or (r.status >= 400 and _tracked_request(r.request.method, r.url)) else None)
+                if not _observer_request(r.url) and (r.status >= 500 or (r.status >= 400 and _tracked_request(r.request.method, r.url))) else None)
         page.on("response", lambda r: responses.append(f"{r.status} {r.request.method} {r.url}")
-                if 200 <= r.status < 300 and r.request.method in ("POST", "PUT", "PATCH", "DELETE") else None)
+                if 200 <= r.status < 300 and _mutation(r.request.method, r.url) else None)
         page.on('response', lambda r: read_responses.append(f'{r.status} GET {r.url}')
                 if r.request.method == 'GET' and 200 <= r.status < 300 else None)
         page.on('request', lambda r: pending.add(f'{r.method} {r.url}')
