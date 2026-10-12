@@ -1,5 +1,8 @@
 # Bossman: актуальный срез завершения, 11.10.2026 (вечер)
 
+> **Заменён 12.10.2026:** актуальные SHA, проверки и вердикт — в `FINAL_CLOSE_20261012_RU.md`. SHA и счётчики CI ниже
+> (`4c89ad93`, «6 PASS / 5 NOT_PASS», «незакоммиченные исправления») — исторические.
+
 Наблюдение текущей сессии, не сертификат. Перед следующим действием заново сверить
 git status, HEAD, remote и CI. Подробности: `PRODUCTION_READINESS_AUDIT_RU.md`,
 `TOMORROW_RUNBOOK_RU.md`, `LONG_RUN_HANDOFF_RU.md`, `REMOTE_ACCESS_AFTER_REBOOT_RU.md`.

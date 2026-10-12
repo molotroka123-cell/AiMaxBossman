@@ -7,6 +7,7 @@ This file is a navigation pointer, not a certificate. Documentation preparation 
 - [Install the chosen Windows artifact](INSTALL.md).
 - [Owner first-run protocol: HW-01…HW-13](OWNER_ACCEPTANCE.md).
 - [Final integrator instruction](CLAUDE_NEXT_ACTION.md).
+- [Final close 12.10.2026: verdict CANDIDATE BLOCKED for source `94e40cd1`, check reconciliation, DEGRADED analysis, CI causes](docs/owner/FINAL_CLOSE_20261012_RU.md) — facts, not a certificate.
 - [Capability-tree audit checkpoint 08.10 (13 zones, what exists / what is missing / where to start)](docs/audits/2026-10-08-tree-audit-13-zones/README.md) — PARTIAL, not a certificate.
 - [Known limitations](KNOWN_LIMITATIONS.md).
 - [Historical capability decisions](CONVERGENCE_DECISIONS.md).

@@ -1,4 +1,23 @@
-# 11.10.2026 — owner-selected AGPL and unified candidate (read first)
+# 12.10.2026 — актуальное продолжение: CI на головном SHA → подтверждение владельца → PR в `main`
+
+Read `docs/owner/FINAL_CLOSE_20261012_RU.md` first (verdict, check reconciliation, DEGRADED analysis, CI causes).
+Verdict there is **CANDIDATE BLOCKED**: source `94e40cd17822ab04877433fa4979a3774485195e` is built, verified,
+accepted on Windows and installed (archive `BOSSMAN-Windows-x64-94e40cd17822.zip`, SHA256 `40cdbc17…a401`), but its CI
+is not certified. `main` = `2f4af952320b9156d066da3778dc7d12c8f0173a`, PR #108 is draft; do not merge before green
+required CI on the exact head SHA. Recheck local and remote HEAD before any push.
+
+Next, in this order: (1) read the CI result of the PR head (the `pytest (py3.x)` red since `0526eebc` has a code fix
+in BL-128 that is NOT proven until CI is green; `root-ci` whitespace failure BL-129 is fixed); (2) the owner-attested
+retention evidence must be produced for the FINAL head SHA (each new commit needs new evidence); (3) official Telegram
+Stars test, key of provider #5 and the other owner steps are listed in section 6 of the final-close document.
+`docs/owner/CURRENT_CLOSEOUT_20261011_RU.md`, `docs/owner/CONTINUATION_20261011.md` and the 11.10 master prompt are
+historical: their SHAs (`4c89ad93`, `928f54d3`) and "uncommitted fixes in Vibe/media/CI" entries are superseded.
+`final=True` from the certifier means runs finished, NOT production freeze.
+Keep the historical evidence below.
+
+---
+
+# 11.10.2026 — owner-selected AGPL and unified candidate (historical checkpoint)
 
 Owner selected AGPL. Continue in `wt-unified-20261010`, branch
 `feat/bossman-genjutsu-jeff-unified-20261010`. Read
