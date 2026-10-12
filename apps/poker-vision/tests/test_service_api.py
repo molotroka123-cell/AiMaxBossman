@@ -42,6 +42,7 @@ def test_replay_session_produces_status_state_overlay_history(client, tmp_path):
     assert r.status_code == 200, r.text
     s = wait_done(client)
     assert s["frames"] == 6 and s["error"] is None and s["latency_ms"]["p50"] is not None
+    assert int(client.get("/api/v1/frame.jpg").headers["X-Frame-Seq"]) == 6
     st = client.get("/api/v1/state").json()
     assert st["fields"]["hero_cards"][0]["status"] == "UNKNOWN"            # empty frame: UNKNOWN, nothing invented
     assert st["uncertainty"] and st["uncertainty"][0]["why"]

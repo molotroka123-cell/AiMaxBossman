@@ -106,13 +106,16 @@ labels.jsonl: запрещено автоматически выставлять
 
 ```powershell
 python tools/local_recording_ocr.py PRIVATE_DATASET_ROOT
-python tools/fit_numeric_candidate.py PRIVATE_DATASET_ROOT
+python tools/fit_numeric_candidate.py PRIVATE_DATASET_ROOT --train-sha TRAIN_VIDEO_SHA256 --eval-sha DIAGNOSTIC_VIDEO_SHA256 --output PRIVATE_NEW_CANDIDATE_DIR
 ```
 
 Первая команда локально распознаёт числовые токены, сохраняя confidence и
 координаты, но не назначает роли pot/stack. Вторая использует существующий
-GlyphBook: строит экземпляры цифр по OCR-псевдометкам из IMG_0909 и измеряет
-согласие с OCR на IMG_0910. Хеши источников закреплены в harness этого прогона.
+GlyphBook: строит экземпляры цифр по OCR-псевдометкам из явно выбранного
+train-видео и измеряет согласие с OCR на другом diagnostic-видео. Оба SHA256
+берутся из manifest.json, должны существовать и различаться. Diagnostic не
+является независимым размеченным holdout. --output позволяет повторить
+калибровку в новой папке без изменения прежних входов и результатов.
 Совпадающие кропы исключаются из проверки. Это калибровка k-NN, не LoRA.
 OCR-согласие не является независимой точностью, распознаванием карт или GTO.
 Кандидат всегда `verified=false`; никакой активации профиля или ставок.

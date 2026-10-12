@@ -166,6 +166,7 @@ class VisionService(DeskMixin):
                 with self.lock:
                     self.last_frame, self.last_state, self.committed = fr, st, cm
                     self.frames += 1
+                    self._frame_seq += 1
                     self.latency_ms.append((time.perf_counter() - t0) * 1000)
                 n += 1
                 self._queue_for_labelling(fr, st)
@@ -262,6 +263,7 @@ class VisionService(DeskMixin):
             with self.lock:
                 self.last_frame, self.last_state, self.committed = fr2, st2, cm2
                 self.frames += 1
+                self._frame_seq += 1
             if cm2.hero_turn is False or (cm2.pot and (cm2.pot.amount, len(cm2.board)) != base):
                 rec["verified"] = True; return
             time.sleep(0.15)

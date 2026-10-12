@@ -167,8 +167,9 @@ class ScreenWindowSource:
     observe_only = True
 
     def __init__(self, rect: list[int], label: str = "window"):
-        import mss
-        self.sct = mss.mss()
+        # Windows GDI handles must be created in the worker that reads/closes
+        # them, not in the API thread that constructs this source.
+        self.sct = None
         self.rect = {"left": rect[0], "top": rect[1], "width": rect[2], "height": rect[3]}
         self.t0 = time.monotonic(); self.n = 0; self.label = label
 
@@ -177,10 +178,15 @@ class ScreenWindowSource:
 
     def read(self) -> Frame | None:
         import numpy as np
+        if self.sct is None:
+            import mss
+            self.sct = mss.mss()
         shot = self.sct.grab(self.rect)
         img = cv2.cvtColor(np.array(shot), cv2.COLOR_BGRA2BGR)
         self.n += 1
         return Frame(img, int((time.monotonic() - self.t0) * 1000), f"live:window:{self.label}", f"{self.label}#{self.n}")
 
     def close(self) -> None:
-        self.sct.close()
+        if self.sct is not None:
+            self.sct.close()
+            self.sct = None
