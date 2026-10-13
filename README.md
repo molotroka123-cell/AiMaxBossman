@@ -9,7 +9,7 @@
 |---|---|
 | Windows-архив | `BOSSMAN-Windows-x64-94e40cd17822.zip` из исходника `94e40cd1`, SHA256 `40cdbc175e7e5e04bb817937be1f60d330ea989b299664dbd3adbf0a0f63a401`; проверен, принят на Windows, установлен у владельца |
 | приёмка на ПК владельца | Evening-Test `--full` PASS, обход интерфейса 53 страниц PASS, живая бесплатная модель PASS, Jeff S1–S7 7/7 |
-| CI на точном SHA | обязательные workflow сертификатора (`tools/exact_sha_certify.py`) — зелёные на голове `main` |
+| CI на точном SHA | НЕ сертифицирован: зелёные root-ci, Bossman Core, Command Center (сводно), V2 Auto-Repair, Solana, Fable media; ASTRA пропущен; 4 Windows-workflow запускаются только вручную (нет запуска на этом SHA); отдельные тесты pytest нестабильны под нагрузкой Linux-раннера (разные в каждом прогоне) |
 | Jeff на Telegram Stars | платный помощник по документам (флаг `BOSSMAN_JEFF_PAID_DOCS=1`); проверен на симуляции Bot API; официальная тестовая среда Telegram — ещё нет; реальные списания только после одобрения владельца |
 | Poker Vision | читатель карт/борда/банка/кнопок; профиль раскладки не `verified` до независимой сессии; режим только наблюдение |
 
