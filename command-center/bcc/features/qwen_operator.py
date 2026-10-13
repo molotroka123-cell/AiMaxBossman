@@ -781,9 +781,20 @@ class Run:
                 continue
             problems = []
             tracked = set(files)
+
+            def _known(f) -> bool:
+                return isinstance(f, str) and (f in tracked or (self.scope.worktree / f).exists()
+                                               or f.startswith(("docs/", "command-center/tests/", "tests/")))
+            if plan.get("read_only") is True or is_read_only(task, plan):
+                # an explanation / analysis: a guessed path the model got wrong is dropped, not a failed plan
+                plan["read_files"] = [f for f in plan.get("read_files") or [] if _known(f)]
+                plan["files"] = [f for f in plan.get("files") or [] if _known(f)]
+                if (not plan["read_files"] and not plan["files"] and not plan.get("extra_commands")
+                        and not plan.get("bossman_calls")):
+                    plan["read_files"] = hits[:8]                      # fall back to the files matched by name
+                plan["read_only"] = True
             for f in list(plan.get("files") or []) + list(plan.get("read_files") or []):
-                if not isinstance(f, str) or (f not in tracked and not (self.scope.worktree / f).exists()
-                                              and not f.startswith(("docs/", "command-center/tests/", "tests/"))):
+                if not _known(f):
                     problems.append(f"unknown path {f!r}")
             if (not plan.get("files") and not plan.get("read_files") and not plan.get("extra_commands")
                     and not plan.get("bossman_calls")):
