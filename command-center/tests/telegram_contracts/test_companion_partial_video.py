@@ -114,7 +114,8 @@ def run_cancelled(tmp_path, studio, text='/video 15 волны на закате
         app.free_memory_gb = lambda: 64.0
         app.english_prompt = lambda p: asyncio.sleep(0, result=p)
         msg = {'from': {'id': OWNER.user_id, 'is_bot': False},
-               'chat': {'id': OWNER.chat_id, 'type': 'private'}, 'text': text}
+               'chat': {'id': OWNER.chat_id, 'type': 'private'}, 'text': text,
+               '_callback': text.startswith('/img')}     # engine path (typed /img -> Qwen queue)
 
         async def press_cancel():
             for _ in range(500):

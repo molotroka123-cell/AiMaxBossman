@@ -11,8 +11,8 @@ import re
 import secrets
 import time
 
-from .adapters import (CURRENT_PRIORITY, IMAGE_MAX_BYTES, IMAGE_MIMES, Core, Models, RateLimited, Telegram,
-                       image_mime, scrub)
+from .adapters import (CURRENT_PRIORITY, IMAGE_MAX_BYTES, IMAGE_MIMES, OLLAMA_VISION_MODEL, Core, Models,
+                       RateLimited, Telegram, image_mime, scrub)
 from .config import CompanionError, Person, Settings
 from .agent_bridge import AGENT_COMMANDS, AgentBridgeMixin
 from .remote_access import REMOTE_COMMANDS, RemoteAccessMixin
@@ -20,7 +20,7 @@ from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixi
 from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
 from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
-from .gen_refine import GEN_COMMANDS, PHOTO_TRIGGERS, GenRefineMixin, gen_phrase
+from .gen_refine import GEN_COMMANDS, GenRefineMixin, gen_intent, gen_phrase, photo_kind, safety_violation
 from .store import Store
 from . import key_intake
 from .secret_intake import (
@@ -43,9 +43,11 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "Два референса: фото с /ref 1, затем фото с /ref 2; новое фото с /edit описание. /refs — статус\n"
         "/video описание — видео локально (Wan2.2): выберите длину 1 с TestRun / 5 / 10 / 15 / 30 с; "
         "сразу с длиной: /video 10 описание\n"
-        "/vid идея · /pic идея — локальная Qwen (uncensored) допишет подробный промпт, вы поправите текстом "
-        "и нажмёте «Запустить»; /style — ваш постоянный стиль; /speed — замеры скорости (владелец)\n"
-        "Фото с подписью /animate 5 (или «оживи 10») — оживить фото в клип 5–10 с; /cancel — отменить генерацию\n"
+        "/vid идея · /pic идея · /img идея · «нарисуй …» — локальная Qwen (uncensored) допишет промпт, и "
+        "генерация сразу встанет в очередь, без вопросов; «✏️ Переделать»/«✖️ Отмена» — после; можно просто "
+        "написать о генерации — Qwen ответит и запустит; /style — ваш стиль; /speed — замеры (владелец)\n"
+        "Фото с подписью /vid, /animate 5, «оживи 10» — оживить в клип 5–10 с; фото с /pic, /img, /edit — "
+        "правка фото; /cancel — отменить генерацию\n"
         "/claude задание · /codex задание — Claude Code и Codex на компьютере (только владелец); /agents; /audits — отчёты\n"
         "/menu — пульт владельца кнопками (статус, очередь, подтверждения, СТОП)\n"
         "/status — связь с компьютером (владелец)\n"
@@ -114,7 +116,7 @@ def failure_text(code: str) -> str:
         "FAST_MODEL_UNAVAILABLE": "Самая быстрая модель сейчас не отвечает (не загружена, занята или не та модель). Облако не использовано. Попробуйте /best.",
         "IMAGE_TOO_LARGE": "Картинка больше 10 МБ — я её не скачивал. Отправьте поменьше или сжатую.",
         "IMAGE_NOT_RECOGNISED": "Это не похоже на изображение JPEG, PNG или WebP. Такие файлы я не открываю.",
-        "NO_VISION_MODEL": "Сейчас нет локальной модели, которая видит изображения. Запустите модель с --mmproj (например, самую быструю на 8082) и выберите её в Настройки → Telegram → «Модель для фото».",
+        "NO_VISION_MODEL": "Сейчас нет локальной модели, которая видит изображения: ни llama.cpp с --mmproj, ни bossman-fast-qwen36-vision в Ollama (127.0.0.1:11434). Для генерации по фото зрение не нужно — подпись /vid, /pic или «оживи».",
         "VISION_MODEL_UNAVAILABLE": "Модель для фото не ответила вовремя или недоступна. Облако не использовано. Попробуйте ещё раз.",
         "TELEGRAM_FILE_UNAVAILABLE": "Не удалось получить файл из Telegram. Отправьте его ещё раз.",
         "IMAGE_GEN_DISABLED": "Генерация картинок выключена. Её включают в Bossman: Настройки → Telegram → «Генерация картинок».",
@@ -208,7 +210,7 @@ def frame_for_video(data: bytes) -> tuple[bytes, tuple[int, int]]:
     return out.getvalue(), (w, h)
 
 
-ROUTE_TITLE = {"main": "🧠 Лучшая", "fast": "⚡ Быстрая"}
+ROUTE_TITLE = {"main": "🧠 Лучшая", "fast": "⚡ Быстрая", "ollama": "🦙 Ollama (локально)"}
 BOT_COMMANDS = [("menu", "Пульт с кнопками"), ("status", "Состояние компьютера"), ("queue", "Очередь и подтверждения"),
                 ("task", "Новое поручение Bossman"), ("fill", "Заполнить видимую форму"),
                 ("approvals", "Подтвердить или отклонить"),
@@ -1014,9 +1016,14 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             del data
         self.store.remember(person.key, "[фото]" + (" " + caption if caption else ""), answer)
         self.learn(person, "[фото]" + (" " + caption if caption else ""), answer)
-        model = self.settings.local_model if route == "main" else self.settings.fast_model
+        model = self.vision_model_label(route)
         note = " (лучшая модель не видит изображения)" if route != self.chat_route(person) and route == "fast" else ""
-        return f"👁 {ROUTE_TITLE[route]} · {model_name(model or '')}{note}\n\n{answer}"
+        return f"👁 {ROUTE_TITLE[route]} · {model}{note}\n\n{answer}"
+
+    def vision_model_label(self, route: str) -> str:
+        if route == "ollama":
+            return OLLAMA_VISION_MODEL
+        return model_name((self.settings.local_model if route == "main" else self.settings.fast_model) or "")
 
     async def handle(self, person: Person, message: dict) -> str:
         # Authorization is checked again at the effect boundary, not inferred
@@ -1042,6 +1049,19 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 refs[slot] = file_id
                 self.store.put("media_refs:" + person.key, refs)
                 return f"Референс {slot} сохранён. Это работа по фото, не обучение LoRA. Для результата: новое фото с /edit и описанием."
+            if person.role == "owner":
+                # Pult 13.10 (owner: «я дал команду и промт — бот не должен спрашивать»): photo + a
+                # generation caption -> local Qwen writes the prompt -> queued at once. No vision needed.
+                spoken = gen_phrase(caption)
+                kind = photo_kind(spoken[0] if spoken else first)
+                if kind:
+                    idea = spoken[1] if spoken else caption.partition(" ")[2].strip()
+                    return await self.gen_photo_start(person, file_id, idea, kind=kind,
+                                                      use_refs=first == "/edit")
+            refused = safety_violation(caption, photo=True)
+            if refused:
+                # One line naming the fixed rule; no vision fallback text, no unrelated buttons.
+                return refused
             if first == "/edit":
                 return await self.edit_from_references(person, file_id, caption.partition(" ")[2])
             if first in {"/animate", "/оживи", "оживи", "оживить"}:
@@ -1049,15 +1069,12 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 if n not in ANIMATE_LENGTHS:
                     n, rest = "5", caption.partition(" ")[2].strip()
                 return await self.animate(person, n, "tg:" + file_id, rest)
-            if person.role == "owner" and first in PHOTO_TRIGGERS:
-                # Pult 13.10: photo + idea -> local Qwen writes the motion prompt -> owner launches.
-                return await self.gen_photo_start(person, file_id, caption.partition(" ")[2].strip())
             if caption and not first.startswith("/") and self.store.get("media_refs_active:" + person.key, False):
                 return await self.edit_from_references(person, file_id, caption)
             buttons = [[self.button(person, "🎞 Оживить 5 с", f"/animate 5 tg:{file_id}"),
                         self.button(person, "🎞 Оживить 10 с", f"/animate 10 tg:{file_id}")]]
             if person.role == "owner":
-                buttons.append([self.button(person, "🧠 Qwen допишет промпт для видео", f"/vidphoto tg:{file_id}")])
+                buttons.append([self.button(person, "🧠 Qwen: промпт и сразу оживить 5 с", f"/vidphoto tg:{file_id}")])
             try:
                 return Reply(await self.see(person, message), buttons)
             except CompanionError as exc:
@@ -1078,11 +1095,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         # Owner phrases «включи удалённый Claude», «открой ChatGPT», «перезагрузи компьютер» → commands.
         spoken = self.phrase_command(text) if not text.startswith("/") else None
         if not spoken and not text.startswith("/") and person.role == "owner":
-            # «сделай видео …» / «нарисуй картинку …» → /vid, /pic; any other plain text while a
-            # refined prompt is open is the owner's correction of that prompt.
+            # «сделай видео …» / «нарисуй …» → /vid, /pic: refined by the local Qwen and queued at once.
             spoken = gen_phrase(text)
-            if not spoken and self.gen_draft(person) is not None:
-                return await self.gen_correct(person, text)
         if spoken:
             command, arg = spoken
         if command in {"/start", "/help", "/menu"}:
@@ -1136,8 +1150,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             route = await self.models.vision_route()
             if route is None:
                 return failure_text("NO_VISION_MODEL")
-            model = self.settings.local_model if route == "main" else self.settings.fast_model
-            return f"Фото смотрит {ROUTE_TITLE[route]} · {model_name(model)}. Просто пришлите фото, вопрос — в подписи."
+            return (f"Фото смотрит {ROUTE_TITLE[route]} · {self.vision_model_label(route)}. "
+                    "Просто пришлите фото, вопрос — в подписи.")
         if command == "/forget":
             return Reply("Удалить вашу историю, журнал обучения и цифровой профиль с этого компьютера? Это необратимо.",
                          [[self.button(person, "🗑 Да, удалить", "/forget_confirm"), self.button(person, "Отмена", "/menu")]])
@@ -1326,6 +1340,10 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         if command == "/img":
             if not arg:
                 return "Напишите /img и что нарисовать, например: /img кот-астронавт в стиле акварели."
+            if person.role == "owner" and not message.get("_callback"):
+                # Typed by the owner = an idea: Qwen refines it and it is queued at once (like /pic).
+                # Buttons («🔁 Ещё вариант», /create choices) carry a final prompt -> engine directly.
+                return await self.gen_command(person, "/pic", arg, message)
             return await self.generate(person, arg)
         if command == "/rate":
             run_id, _, rest = arg.partition(" ")
@@ -1346,6 +1364,12 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         query = web_query(text) if person.role == "owner" else None
         if query:
             return await self.web_answer(person, query, self.chat_route(person), said=text)
+        if person.role == "owner" and gen_intent(text, self.gen_recent(person)):
+            # About generation: the uncensored local Qwen answers briefly and launches a concrete
+            # request at once. If Ollama is down, the ordinary chat route answers instead.
+            answer = await self.gen_chat(person, text)
+            if answer is not None:
+                return answer
         return await self.converse(person, message, text, self.chat_route(person))
 
     # ---------------------------------------------------------------- web search

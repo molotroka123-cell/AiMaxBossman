@@ -19,6 +19,11 @@ from .config import CompanionError, Person, Settings
 CURRENT_PRIORITY = contextvars.ContextVar("companion_priority", default=1)
 #: Ids of Jeff's weekly-digest outbox rows (bcc.pit.j2.insights.OUTBOX_ID).
 JEFF_DIGEST_ID = re.compile(r"jd-\d{4}-W\d{2}(?:-f\d{1,12})?")
+# Photo understanding fallback (pult 13.10): the owner's loopback Ollama vision model. Constants on
+# purpose: an installed companion of an older build rejects unknown config keys.
+OLLAMA_VISION_URL = "http://127.0.0.1:11434"
+OLLAMA_VISION_MODEL = "bossman-fast-qwen36-vision:latest"
+OLLAMA_VISION_TIMEOUT_S = 240.0     # first call may load the 35B model from disk
 
 
 class PriorityLock:
@@ -1062,6 +1067,25 @@ class Models:
         self.vision_cache[route] = (vision, now + ttl)
         return vision
 
+    async def has_ollama_vision(self) -> bool:
+        """Pult 13.10: the owner's Ollama (loopback only) serves a Qwen3.6 vision model.
+
+        Used only when neither llama.cpp route was started with --mmproj. The address and the
+        model are constants (no config key); /api/tags is the only probe."""
+        now = asyncio.get_running_loop().time()
+        cached = self.vision_cache.get("ollama")
+        if cached and cached[1] > now:
+            return cached[0]
+        try:
+            body = await json_request(self.local, "GET", OLLAMA_VISION_URL + "/api/tags", timeout=5)
+            models = body.get("models") if isinstance(body, dict) else None
+            names = {m.get("name") for m in models if isinstance(m, dict)} if isinstance(models, list) else set()
+            vision, ttl = OLLAMA_VISION_MODEL in names, 300
+        except CompanionError:
+            vision, ttl = False, 30
+        self.vision_cache["ollama"] = (vision, now + ttl)
+        return vision
+
     async def vision_route(self) -> str | None:
         choice = self.settings.vision_route
         if choice in {"main", "fast"}:
@@ -1069,11 +1093,41 @@ class Models:
         for route in ("main", "fast"):
             if await self.has_vision(route):
                 return route
+        if await self.has_ollama_vision():
+            return "ollama"
         return None
+
+    async def _ollama_image(self, prompt: str, mime: str, data: bytes, history: list) -> str:
+        """Ollama /api/chat with the image as base64 in `images`; 127.0.0.1 only, think off."""
+        import base64
+        system, history = system_message(history)
+        payload = {"model": OLLAMA_VISION_MODEL, "stream": False, "think": False, "keep_alive": "10m",
+                   "options": {"num_predict": self.settings.max_tokens},
+                   "messages": [{"role": "system", "content": system}, *history,
+                                {"role": "user", "content": prompt,
+                                 "images": [base64.b64encode(data).decode("ascii")]}]}
+        body = await json_request(self.local, "POST", OLLAMA_VISION_URL + "/api/chat", payload=payload,
+                                  timeout=max(self.settings.local_timeout, OLLAMA_VISION_TIMEOUT_S))
+        message = body.get("message") if isinstance(body, dict) else None
+        text = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(text, str):
+            raise CompanionError("MODEL_REPLY_INVALID")
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE).strip()
+        if not text or body.get("model") != OLLAMA_VISION_MODEL:
+            raise CompanionError("MODEL_REPLY_INVALID")
+        return text[:12000]
 
     async def answer_image(self, route: str, prompt: str, mime: str, data: bytes, history: list) -> str:
         """Local vision call; image travels only in this request, as a data URI."""
         import base64
+        if route == "ollama":
+            async with self.lock:
+                try:
+                    return await self._ollama_image(prompt, mime, data, history)
+                except CompanionError as exc:
+                    if str(exc) == "MODEL_REPLY_INVALID":
+                        raise
+                    raise CompanionError("VISION_MODEL_UNAVAILABLE") from None
         url, model, timeout = self.route_endpoint(route)
         content = [{"type": "text", "text": prompt},
                    {"type": "image_url", "image_url": {"url": f"data:{mime};base64," + base64.b64encode(data).decode("ascii")}}]

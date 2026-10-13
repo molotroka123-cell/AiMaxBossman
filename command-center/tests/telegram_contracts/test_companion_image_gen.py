@@ -83,6 +83,10 @@ def run(tmp_path, studio, text='/img кот-астронавт', person=OWNER, s
         app.free_memory_gb = lambda: free_gb
         msg = {'from': {'id': person.user_id, 'is_bot': False}, 'chat': {'id': person.chat_id, 'type': 'private'},
                'text': text}
+        if text.startswith('/img'):
+            # A typed owner /img now goes Qwen -> pult queue (test_companion_gen_refine.py); this module
+            # tests the engine path itself, which a button («🔁 Ещё вариант», /create) still takes.
+            msg['_callback'] = True
         try:
             if llm_busy:
                 await models.lock.acquire()
@@ -181,7 +185,7 @@ def test_one_at_a_time_and_ram_and_llm_guards(tmp_path):
                 break
             await asyncio.sleep(0.01)
         msg = {'from': {'id': person.user_id, 'is_bot': False}, 'chat': {'id': person.chat_id, 'type': 'private'},
-               'text': '/img ещё'}
+               'text': '/img ещё', '_callback': True}   # engine path; a typed /img would queue
         with pytest.raises(CompanionError, match='IMAGE_GEN_BUSY'):
             await app.handle(person, msg)
     reply, _, _ = run(tmp_path / 'a', FakeStudio(polls=5), during=second)
