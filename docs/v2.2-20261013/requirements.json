@@ -1,0 +1,311 @@
+{
+  "schema": "bossman.requirements/2.2-draft",
+  "source_sha": "ea7c9a3d9a46d8339a8917b6f4163cba0d9fb27c",
+  "status": "SPECIFICATION_NOT_CERTIFICATION",
+  "requirements": [
+    {
+      "id": "A22-01",
+      "title": ". Идентичность и карта доказательств",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-02",
+      "title": ". Один Bossman в CLI, UI и Telegram",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-03",
+      "title": ". Реальный Computer Use на Windows",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-04",
+      "title": ". Разрешения, конституция и выход к провайдерам",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-05",
+      "title": ". Сохранность миссий, восстановление и лимиты",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-06",
+      "title": ". Строгое самоисправление",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-07",
+      "title": ". Перенос навыка и сохранение способностей",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-08",
+      "title": ". Жизненный цикл памяти и уроков",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-09",
+      "title": ". Обучение моделей и продвижение кандидатов",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-10",
+      "title": ". Загрузка сервера и прогоны 24/48 часов",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-11",
+      "title": ". Подключение второго устройства",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "A22-12",
+      "title": ". Оркестрация без Claude/Codex",
+      "spec": "AUTONOMY_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-01",
+      "title": "Активировать единый проверенный runtime пульта",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-02",
+      "title": "Постоянные референсы до отмены",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-03",
+      "title": "Подготовка и исправление промпта локальной Qwen",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-04",
+      "title": "Доказать короткую генерацию изображения и измерить задержку",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-05",
+      "title": "Подключить и проверить выбранную видеомодель",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-06",
+      "title": "Сохранить и доказать стадии Genjutsu",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-07",
+      "title": "Применять эффект ко всему клипу из редактора",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-08",
+      "title": "Закончить существующий монтажный workflow Motion",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-09",
+      "title": "Соединить Motion с генеративными преобразованиями",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-10",
+      "title": "Завершить аппаратную приемку Music Creator",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-11",
+      "title": "Голос, биты, дорожки и место для fine-tune",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-12",
+      "title": "Пройти платежный сценарий Jeff Stars",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-13",
+      "title": "Проверить качество ответов Jeff и поддержку",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-14",
+      "title": "Завершить один вертикальный сценарий Social Farm",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "MC22-15",
+      "title": "Свести Apps, дерево и доказательства выпуска",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-POKER-01",
+      "title": "локальный импорт собственных записей и происхождение данных",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-POKER-02",
+      "title": "калибровка Vision, мест и безопасный отказ",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-POKER-03",
+      "title": "запись, подготовка выборки, перезапуск и хранение",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-POKER-04",
+      "title": "режимы coaching и разбор с подтверждённым solver/GTO-происхождением",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-TRADING-05",
+      "title": "paper trading и защита от утечки будущих данных",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-PUMP-06",
+      "title": "исследование Pump.fun без реального создания токенов",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-TIMESFM-07",
+      "title": "локальный прогноз и независимый backtest",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-EXCHANGE-08",
+      "title": "ручной локальный импорт и расчёт месяца с 21-го по 20-е",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-REPORTS-09",
+      "title": "точность отчётов, безопасный вывод и восстановление после сбоя",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-OPS-10",
+      "title": "очередь Operations, проверка человеком и черновики без отправки",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
+      "id": "P22-PROVENANCE-11",
+      "title": "лицензии, независимые данные и реестр артефактов",
+      "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    }
+  ]
+}

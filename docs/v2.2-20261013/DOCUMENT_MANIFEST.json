@@ -1,0 +1,31 @@
+{
+  "schema": "bossman.documentation-package/1",
+  "created_utc": "2026-10-13T12:49:52.143475+00:00",
+  "audited_source_sha": "ea7c9a3d9a46d8339a8917b6f4163cba0d9fb27c",
+  "document_status": "SPECIFICATION_NOT_RELEASE",
+  "requirement_count": 38,
+  "files_sha256": {
+    "ACCEPTANCE_RUNBOOK_RU.md": "91e6831f2d4c3a7b61ef51f0b2e8ac8d0525bd866ba0462f6278a82fe7a58ffb",
+    "AUDIT_RU.md": "813617170b437954ce93d621e682b79d50c773960366a03bff78308c6bd4a9c8",
+    "AUTONOMY_SPEC_RU.md": "9c53555841c76d43be6178d926c968038699dab834aaffa4c85faac95da416bd",
+    "evidence.schema.json": "fd76796b536f2926a0fce230f9ff06200bacf2eee58f97d097e270ec11898f4b",
+    "KEYS_RUNBOOK_RU.md": "24cf2138e1dd43809bf14cbb0e96221d10cc49ac56197471e1305fc0580c3fdf",
+    "MASTER_PROMPT_RU.md": "998f37e8e3c74d41af7882a271a4ef4da87668d1dd5ed69347ebdb0b91ab40e5",
+    "MEDIA_COMMERCIAL_SPEC_RU.md": "dc0bbc4dce46c97e2f2ef8445e53af788e769237c724b0d991853a4bbdea0cf3",
+    "POKER_TRADING_REPORTS_SPEC_RU.md": "2ec1ab77a2fdf16cfcf3cacc596ac8bc02e63a0d73b3d50ebd0224225c855202",
+    "README.md": "7e71d00186cce2fb5150ad74552efb40d74e08cf2caa4b1f52716bf7cf9ad5d5",
+    "requirements.json": "43453590334e4d9835c787a064e0b07d7f781052d0ba2c92d5e868bf5762c367",
+    "REQUIREMENTS_RU.md": "bd8f25e09ebd35e9e5d5b70e93f9902910e5e363c5eceae05d1e939a47e76280",
+    "inventory/all-feature-modules.json": "783f08ddad47ff28532ac753370a270b99c28baf99c87b54882782bc545bcbdb",
+    "inventory/all-manifest-leaves.json": "7c6e10912bf067c4ca3808187eebbb8af7bae87aadb9407f3c3f179400f26f0f",
+    "inventory/all-static-routes.json": "ea02b9a8e2ecc36cbb373a9660a9fea3f72f206b21caa571b3bb605093f8b727",
+    "inventory/all-static-tools.json": "61e50058f5c133c9aee8eb18212f88ced292d7f8092cb033664a54f1334e9413",
+    "inventory/all-tree-nodes.json": "746d3ada355d1199293eeb91841bd084f3258eddde658993382155f3314c70bf",
+    "inventory/all-ui-files.json": "5c85189caffaa7da07509c9af4d4513a9bde601b6194355dbd47763b8c04a75d",
+    "inventory/baseline.json": "5abe85e9a4570dd3f7cf0e91d9de29bb9b17df0569d4e233187a9ade1a81799c",
+    "inventory/capability-ledger.csv": "ba6816d1a7c89ba78923b18cded0911009bff6a257ff4e1e6cd13076eaa139fe",
+    "inventory/ci-checkpoint.json": "a475c40bbccac2418a0586368dd0aee2e333b90336f7620bde47505fe8e18309",
+    "inventory/missing-source-paths.csv": "87fc1c74c07eefd893d04e483cde6e719284a3321f2b614d22ed165d35156ae6",
+    "inventory/source-crosswalk.csv": "a8cd8fab3d47a094838daff90e97bf92365e582a1d4c6b8833672fe91b07e895"
+  }
+}

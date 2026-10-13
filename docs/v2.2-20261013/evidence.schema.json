@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:bossman:evidence:2.2",
+  "title": "Bossman acceptance evidence metadata (never prompts or secrets)",
+  "type": "object",
+  "required": [
+    "requirement_id",
+    "capability_ids",
+    "source_sha",
+    "dirty",
+    "environment",
+    "evidence_kind",
+    "verdict",
+    "created_utc",
+    "inputs",
+    "outputs",
+    "metrics",
+    "controls"
+  ],
+  "properties": {
+    "requirement_id": {
+      "type": "string",
+      "pattern": "^(A22-[0-9]{2}|MC22-[0-9]{2}|P22-[A-Z]+-[0-9]{2})$"
+    },
+    "capability_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "dirty": {
+      "type": "boolean"
+    },
+    "installed_source_sha": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "archive_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "environment": {
+      "type": "string"
+    },
+    "evidence_kind": {
+      "enum": [
+        "static",
+        "unit",
+        "mock",
+        "sandbox",
+        "hardware",
+        "official_test",
+        "live"
+      ]
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "PARTIAL",
+        "NOT_RUN",
+        "BLOCKED",
+        "OWNER_REQUIRED",
+        "UNKNOWN"
+      ]
+    },
+    "model_revision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "weights_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "sha256"
+        ],
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "sha256",
+          "bytes"
+        ],
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "metric_version": {
+          "type": "string"
+        },
+        "thresholds_frozen_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "queue_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "generation_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "postprocess_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "delivery_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "cost_amount": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "cost_currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "teacher_interventions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "controls": {
+      "type": "object",
+      "required": [
+        "negative_control",
+        "stop",
+        "restart"
+      ],
+      "properties": {
+        "negative_control": {
+          "type": "string"
+        },
+        "stop": {
+          "type": "string"
+        },
+        "restart": {
+          "type": "string"
+        },
+        "holdout": {
+          "type": "string"
+        }
+      }
+    },
+    "worker_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocker_code": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "next_step": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "private_artifacts": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "description": "Structure only. PASS needs independently verified product evidence; schema validation does not certify truth."
+}

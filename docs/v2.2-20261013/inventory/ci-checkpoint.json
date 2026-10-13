@@ -1,0 +1,451 @@
+{
+  "checked_utc": "2026-10-13T12:09:56.538872+00:00",
+  "source_sha": "ea7c9a3d9a46d8339a8917b6f4163cba0d9fb27c",
+  "total_count": 73,
+  "fetched_count": 73,
+  "counts": {
+    "in_progress": 7,
+    "success": 64,
+    "skipped": 2
+  },
+  "checks": [
+    {
+      "name": "bundle",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016405/job/115286385425"
+    },
+    {
+      "name": "core runtime (ubuntu-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016156/job/115285961508"
+    },
+    {
+      "name": "core runtime (windows-latest)",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016156/job/115285961435"
+    },
+    {
+      "name": "pytest (py3.11)",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016156/job/115285961297"
+    },
+    {
+      "name": "pytest (py3.12)",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016156/job/115285961220"
+    },
+    {
+      "name": "pytest (py3.14)",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016156/job/115285961210"
+    },
+    {
+      "name": "секреты, JS, запрещённые файлы",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016156/job/115285961000"
+    },
+    {
+      "name": "windows paths (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016156/job/115285960807"
+    },
+    {
+      "name": "repair-and-test",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019635/job/115281232007"
+    },
+    {
+      "name": "bundle",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019809/job/115281210729"
+    },
+    {
+      "name": "ASTRA real sandbox",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019645/job/115281210125"
+    },
+    {
+      "name": "compile + секреты",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281210064"
+    },
+    {
+      "name": "покрытие (неснижаемый порог)",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281210004"
+    },
+    {
+      "name": "pytest rest (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281210000"
+    },
+    {
+      "name": "Windows workspace and PID contracts (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281209990"
+    },
+    {
+      "name": "pytest gateway-context (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281209919"
+    },
+    {
+      "name": "pytest security (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281209889"
+    },
+    {
+      "name": "pytest security (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281209875"
+    },
+    {
+      "name": "pytest stage8-14 (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281209864"
+    },
+    {
+      "name": "pytest rest (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281209841"
+    },
+    {
+      "name": "pytest stage8-14 (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281209756"
+    },
+    {
+      "name": "pytest gateway-context (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281209736"
+    },
+    {
+      "name": "upstream-contracts (windows-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019698/job/115281209699"
+    },
+    {
+      "name": "Windows workspace and PID contracts (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019822/job/115281209514"
+    },
+    {
+      "name": "PostgreSQL contracts (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019716/job/115281209502"
+    },
+    {
+      "name": "PostgreSQL contracts (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019716/job/115281209490"
+    },
+    {
+      "name": "upstream-contracts (ubuntu-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019698/job/115281209440"
+    },
+    {
+      "name": "root pytest + hygiene (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019708/job/115281209370"
+    },
+    {
+      "name": "root pytest + hygiene (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019708/job/115281209322"
+    },
+    {
+      "name": "PostgreSQL contracts (py3.14)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019716/job/115281209267"
+    },
+    {
+      "name": "owner scenarios (ubuntu-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019718/job/115281209199"
+    },
+    {
+      "name": "bossman-core container ships bossman-shared",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019708/job/115281209074"
+    },
+    {
+      "name": "chain",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019609/job/115281208999"
+    },
+    {
+      "name": "Real media, Web and Fleet (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019625/job/115281208904"
+    },
+    {
+      "name": "Real media, Web and Fleet (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019625/job/115281208624"
+    },
+    {
+      "name": "safety (3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019642/job/115281208427"
+    },
+    {
+      "name": "ASTRA portable (ubuntu-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019645/job/115281208398"
+    },
+    {
+      "name": "ASTRA runner recovery",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019645/job/115281208385"
+    },
+    {
+      "name": "Execute 100 actual pytest cases on Windows",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019664/job/115281208350"
+    },
+    {
+      "name": "safety (3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019642/job/115281208144"
+    },
+    {
+      "name": "ASTRA portable (windows-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393019645/job/115281207997"
+    },
+    {
+      "name": "ASTRA real sandbox",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016319/job/115281198645"
+    },
+    {
+      "name": "root pytest + hygiene (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016417/job/115281198587"
+    },
+    {
+      "name": "bossman-core container ships bossman-shared",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016417/job/115281198442"
+    },
+    {
+      "name": "Execute 100 actual pytest cases on Windows",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016409/job/115281198381"
+    },
+    {
+      "name": "pytest stage8-14 (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198341"
+    },
+    {
+      "name": "pytest security (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198265"
+    },
+    {
+      "name": "pytest gateway-context (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198226"
+    },
+    {
+      "name": "pytest security (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198175"
+    },
+    {
+      "name": "pytest stage8-14 (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198156"
+    },
+    {
+      "name": "root pytest + hygiene (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016417/job/115281198150"
+    },
+    {
+      "name": "pytest rest (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198132"
+    },
+    {
+      "name": "pytest rest (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198130"
+    },
+    {
+      "name": "compile + секреты",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198126"
+    },
+    {
+      "name": "pytest gateway-context (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198112"
+    },
+    {
+      "name": "Windows workspace and PID contracts (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198074"
+    },
+    {
+      "name": "upstream-contracts (ubuntu-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016312/job/115281198071"
+    },
+    {
+      "name": "покрытие (неснижаемый порог)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281198060"
+    },
+    {
+      "name": "owner scenarios (ubuntu-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016347/job/115281198006"
+    },
+    {
+      "name": "PostgreSQL contracts (py3.14)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016193/job/115281197981"
+    },
+    {
+      "name": "Real media, Web and Fleet (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016113/job/115281197932"
+    },
+    {
+      "name": "PostgreSQL contracts (py3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016193/job/115281197901"
+    },
+    {
+      "name": "ASTRA portable (windows-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016319/job/115281197735"
+    },
+    {
+      "name": "Windows workspace and PID contracts (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016262/job/115281197716"
+    },
+    {
+      "name": "upstream-contracts (windows-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016312/job/115281197521"
+    },
+    {
+      "name": "PostgreSQL contracts (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016193/job/115281197490"
+    },
+    {
+      "name": "ASTRA portable (ubuntu-latest)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016319/job/115281197374"
+    },
+    {
+      "name": "Real media, Web and Fleet (py3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016113/job/115281197254"
+    },
+    {
+      "name": "ASTRA runner recovery",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016319/job/115281197201"
+    },
+    {
+      "name": "repair-and-test",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016105/job/115281197139"
+    },
+    {
+      "name": "chain",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016203/job/115281197079"
+    },
+    {
+      "name": "safety (3.12)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016084/job/115281196520"
+    },
+    {
+      "name": "safety (3.11)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38393016084/job/115281196188"
+    }
+  ]
+}

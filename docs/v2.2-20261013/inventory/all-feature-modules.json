@@ -1,0 +1,1438 @@
+[
+  {
+    "module": "action_contract",
+    "feature_declarations": [
+      "action_contract"
+    ],
+    "source": "command-center/bcc/features/action_contract.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-action_contract"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "action_gate",
+    "feature_declarations": [
+      "action_gate"
+    ],
+    "source": "command-center/bcc/features/action_gate.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-action_gate"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "action_preview",
+    "feature_declarations": [
+      "action_preview"
+    ],
+    "source": "command-center/bcc/features/action_preview.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-action_preview"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "action_router",
+    "feature_declarations": [
+      "action_router"
+    ],
+    "source": "command-center/bcc/features/action_router.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-action_router"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "agentmap",
+    "feature_declarations": [
+      "agentmap"
+    ],
+    "source": "command-center/bcc/features/agentmap.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-agentmap",
+      "agents-graph"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "apps",
+    "feature_declarations": [
+      "apps"
+    ],
+    "source": "command-center/bcc/features/apps.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-apps"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "apps_control",
+    "feature_declarations": [
+      "apps_control"
+    ],
+    "source": "command-center/bcc/features/apps_control.py",
+    "routes": 5,
+    "tree_nodes_by_exact_source": [
+      "mod-apps_control"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "autonomy",
+    "feature_declarations": [
+      "autonomy"
+    ],
+    "source": "command-center/bcc/features/autonomy.py",
+    "routes": 11,
+    "tree_nodes_by_exact_source": [
+      "mod-autonomy"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "benchlab",
+    "feature_declarations": [
+      "benchlab"
+    ],
+    "source": "command-center/bcc/features/benchlab.py",
+    "routes": 5,
+    "tree_nodes_by_exact_source": [
+      "mod-benchlab"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "bossnet_nodes_v16",
+    "feature_declarations": [],
+    "source": "command-center/bcc/features/bossnet_nodes_v16.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-bossnet_nodes_v16"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "browser",
+    "feature_declarations": [
+      "browser"
+    ],
+    "source": "command-center/bcc/features/browser.py",
+    "routes": 10,
+    "tree_nodes_by_exact_source": [
+      "mod-browser"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "browser_help",
+    "feature_declarations": [
+      "browser_help"
+    ],
+    "source": "command-center/bcc/features/browser_help.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-browser_help"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "cache_intel",
+    "feature_declarations": [
+      "cache_intel"
+    ],
+    "source": "command-center/bcc/features/cache_intel.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "cap-23",
+      "mod-cache_intel"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "capability_tree",
+    "feature_declarations": [
+      "capability_tree"
+    ],
+    "source": "command-center/bcc/features/capability_tree.py",
+    "routes": 5,
+    "tree_nodes_by_exact_source": [],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "chat_threads",
+    "feature_declarations": [
+      "chat_threads"
+    ],
+    "source": "command-center/bcc/features/chat_threads.py",
+    "routes": 11,
+    "tree_nodes_by_exact_source": [
+      "mod-chat_threads"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "code_intel",
+    "feature_declarations": [
+      "code_intel"
+    ],
+    "source": "command-center/bcc/features/code_intel.py",
+    "routes": 1,
+    "tree_nodes_by_exact_source": [
+      "mod-code_intel"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "coding_limit_saver_v16",
+    "feature_declarations": [
+      "coding_limit_saver_v16"
+    ],
+    "source": "command-center/bcc/features/coding_limit_saver_v16.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-coding_limit_saver_v16"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "coding_recipes",
+    "feature_declarations": [
+      "coding_recipes"
+    ],
+    "source": "command-center/bcc/features/coding_recipes.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-coding_recipes"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "coding_sessions",
+    "feature_declarations": [
+      "coding_sessions"
+    ],
+    "source": "command-center/bcc/features/coding_sessions.py",
+    "routes": 7,
+    "tree_nodes_by_exact_source": [
+      "cap-39",
+      "mod-coding_sessions"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "coding_tasks",
+    "feature_declarations": [
+      "coding_tasks"
+    ],
+    "source": "command-center/bcc/features/coding_tasks.py",
+    "routes": 6,
+    "tree_nodes_by_exact_source": [
+      "mod-coding_tasks"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "command_bar",
+    "feature_declarations": [
+      "command_bar"
+    ],
+    "source": "command-center/bcc/features/command_bar.py",
+    "routes": 6,
+    "tree_nodes_by_exact_source": [
+      "cap-12",
+      "mod-command_bar"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "context_budget_v16",
+    "feature_declarations": [],
+    "source": "command-center/bcc/features/context_budget_v16.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-context_budget_v16"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "control_plane",
+    "feature_declarations": [
+      "control_plane"
+    ],
+    "source": "command-center/bcc/features/control_plane.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "cap-41",
+      "mod-control_plane"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "deep_fix",
+    "feature_declarations": [
+      "deep_fix"
+    ],
+    "source": "command-center/bcc/features/deep_fix.py",
+    "routes": 1,
+    "tree_nodes_by_exact_source": [
+      "mod-deep_fix"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "diag_bundle",
+    "feature_declarations": [
+      "diag_bundle"
+    ],
+    "source": "command-center/bcc/features/diag_bundle.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-diag_bundle"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "direct_gen",
+    "feature_declarations": [
+      "direct_gen"
+    ],
+    "source": "command-center/bcc/features/direct_gen.py",
+    "routes": 14,
+    "tree_nodes_by_exact_source": [],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "economy_swarm",
+    "feature_declarations": [
+      "economy_swarm"
+    ],
+    "source": "command-center/bcc/features/economy_swarm.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-economy_swarm"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "evolution",
+    "feature_declarations": [
+      "evolution"
+    ],
+    "source": "command-center/bcc/features/evolution.py",
+    "routes": 6,
+    "tree_nodes_by_exact_source": [
+      "mod-evolution"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "failure_to_case",
+    "feature_declarations": [
+      "failure_to_case"
+    ],
+    "source": "command-center/bcc/features/failure_to_case.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "cap-34",
+      "mod-failure_to_case"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "file_intelligence",
+    "feature_declarations": [
+      "file_intelligence"
+    ],
+    "source": "command-center/bcc/features/file_intelligence.py",
+    "routes": 8,
+    "tree_nodes_by_exact_source": [
+      "mod-file_intelligence"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "forecast",
+    "feature_declarations": [
+      "forecast"
+    ],
+    "source": "command-center/bcc/features/forecast.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "forks",
+    "feature_declarations": [
+      "forks"
+    ],
+    "source": "command-center/bcc/features/forks.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-forks"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "free_providers",
+    "feature_declarations": [
+      "free_providers"
+    ],
+    "source": "command-center/bcc/features/free_providers.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "cap-21",
+      "mod-free_providers",
+      "free-NVIDIA-NIM",
+      "free-Groq",
+      "free-Google-AI-Studio"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "game_bootstrap_v16",
+    "feature_declarations": [
+      "game_bootstrap_v16"
+    ],
+    "source": "command-center/bcc/features/game_bootstrap_v16.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-game_bootstrap_v16"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "gmail_connect",
+    "feature_declarations": [
+      "gmail_connect"
+    ],
+    "source": "command-center/bcc/features/gmail_connect.py",
+    "routes": 8,
+    "tree_nodes_by_exact_source": [],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "governor",
+    "feature_declarations": [
+      "governor"
+    ],
+    "source": "command-center/bcc/features/governor.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-governor"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "healing",
+    "feature_declarations": [
+      "healing"
+    ],
+    "source": "command-center/bcc/features/healing.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-healing"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "images",
+    "feature_declarations": [
+      "images"
+    ],
+    "source": "command-center/bcc/features/images.py",
+    "routes": 18,
+    "tree_nodes_by_exact_source": [
+      "mod-images"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "jeff_insights",
+    "feature_declarations": [
+      "jeff_insights"
+    ],
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "routes": 9,
+    "tree_nodes_by_exact_source": [
+      "mod-jeff_insights"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "jeff_master_parser",
+    "feature_declarations": [
+      "jeff_master_parser"
+    ],
+    "source": "command-center/bcc/features/jeff_master_parser.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-jeff_master_parser"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "jeff_settings",
+    "feature_declarations": [
+      "jeff_settings"
+    ],
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "routes": 14,
+    "tree_nodes_by_exact_source": [
+      "mod-jeff_settings"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "jev",
+    "feature_declarations": [
+      "jev"
+    ],
+    "source": "command-center/bcc/features/jev.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "cap-26",
+      "mod-jev"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "knowledge_fabric_v16",
+    "feature_declarations": [],
+    "source": "command-center/bcc/features/knowledge_fabric_v16.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "cap-33",
+      "mod-knowledge_fabric_v16"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "lab_agents",
+    "feature_declarations": [
+      "lab_agents"
+    ],
+    "source": "command-center/bcc/features/lab_agents.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-lab_agents",
+      "agents-lab"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "local_first",
+    "feature_declarations": [
+      "local_first"
+    ],
+    "source": "command-center/bcc/features/local_first.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-local_first"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "market_metrics",
+    "feature_declarations": [
+      "market_metrics"
+    ],
+    "source": "command-center/bcc/features/market_metrics.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-market_metrics"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "memory_retrieval_v16",
+    "feature_declarations": [],
+    "source": "command-center/bcc/features/memory_retrieval_v16.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-memory_retrieval_v16"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "mimik",
+    "feature_declarations": [
+      "mimik"
+    ],
+    "source": "command-center/bcc/features/mimik.py",
+    "routes": 1,
+    "tree_nodes_by_exact_source": [
+      "mod-mimik"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "missions",
+    "feature_declarations": [
+      "missions"
+    ],
+    "source": "command-center/bcc/features/missions.py",
+    "routes": 10,
+    "tree_nodes_by_exact_source": [
+      "cap-40",
+      "mod-missions"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "model_foundry_v16",
+    "feature_declarations": [],
+    "source": "command-center/bcc/features/model_foundry_v16.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-model_foundry_v16"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "model_freshness",
+    "feature_declarations": [
+      "model_freshness"
+    ],
+    "source": "command-center/bcc/features/model_freshness.py",
+    "routes": 1,
+    "tree_nodes_by_exact_source": [],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "motion_studio",
+    "feature_declarations": [
+      "motion_studio"
+    ],
+    "source": "command-center/bcc/features/motion_studio.py",
+    "routes": 8,
+    "tree_nodes_by_exact_source": [
+      "cap-29",
+      "mod-motion_studio"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "motion_workflow_api",
+    "feature_declarations": [
+      "motion_workflow_api"
+    ],
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "routes": 29,
+    "tree_nodes_by_exact_source": [],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "music_studio",
+    "feature_declarations": [
+      "music_studio"
+    ],
+    "source": "command-center/bcc/features/music_studio.py",
+    "routes": 8,
+    "tree_nodes_by_exact_source": [
+      "mod-music_studio"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "nl_orchestra",
+    "feature_declarations": [
+      "nl_orchestra"
+    ],
+    "source": "command-center/bcc/features/nl_orchestra.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-nl_orchestra"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "nl_permissions",
+    "feature_declarations": [
+      "nl_permissions"
+    ],
+    "source": "command-center/bcc/features/nl_permissions.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-nl_permissions"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "objectives",
+    "feature_declarations": [
+      "objectives"
+    ],
+    "source": "command-center/bcc/features/objectives.py",
+    "routes": 9,
+    "tree_nodes_by_exact_source": [
+      "mod-objectives"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "offline_mode",
+    "feature_declarations": [
+      "offline_mode"
+    ],
+    "source": "command-center/bcc/features/offline_mode.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-offline_mode"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "open_news",
+    "feature_declarations": [
+      "open_news"
+    ],
+    "source": "command-center/bcc/features/open_news.py",
+    "routes": 1,
+    "tree_nodes_by_exact_source": [
+      "mod-open_news"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "opencode",
+    "feature_declarations": [
+      "opencode"
+    ],
+    "source": "command-center/bcc/features/opencode.py",
+    "routes": 12,
+    "tree_nodes_by_exact_source": [
+      "mod-opencode"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "openrouter",
+    "feature_declarations": [
+      "openrouter"
+    ],
+    "source": "command-center/bcc/features/openrouter.py",
+    "routes": 10,
+    "tree_nodes_by_exact_source": [
+      "cap-22",
+      "mod-openrouter"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "organization",
+    "feature_declarations": [
+      "organization"
+    ],
+    "source": "command-center/bcc/features/organization.py",
+    "routes": 11,
+    "tree_nodes_by_exact_source": [
+      "mod-organization"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "osiris",
+    "feature_declarations": [
+      "osiris"
+    ],
+    "source": "command-center/bcc/features/osiris.py",
+    "routes": 6,
+    "tree_nodes_by_exact_source": [
+      "mod-osiris"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "oss_integrations",
+    "feature_declarations": [
+      "oss_integrations"
+    ],
+    "source": "command-center/bcc/features/oss_integrations.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-oss_integrations",
+      "plugins-oss"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "owner_input",
+    "feature_declarations": [
+      "owner_input"
+    ],
+    "source": "command-center/bcc/features/owner_input.py",
+    "routes": 5,
+    "tree_nodes_by_exact_source": [
+      "mod-owner_input"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "plugins",
+    "feature_declarations": [
+      "plugins"
+    ],
+    "source": "command-center/bcc/features/plugins.py",
+    "routes": 1,
+    "tree_nodes_by_exact_source": [
+      "mod-plugins",
+      "plugin-0",
+      "plugin-1",
+      "plugin-2",
+      "plugin-3",
+      "plugin-4",
+      "plugin-5",
+      "plugin-6",
+      "plugin-7",
+      "plugin-8",
+      "plugin-9",
+      "plugin-10",
+      "plugin-11",
+      "plugin-12",
+      "plugin-13",
+      "plugin-14",
+      "plugin-15",
+      "plugin-16",
+      "plugin-17",
+      "plugin-18",
+      "plugin-19",
+      "plugin-20",
+      "plugin-21",
+      "plugin-22"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "poker_vision",
+    "feature_declarations": [
+      "poker_vision"
+    ],
+    "source": "command-center/bcc/features/poker_vision.py",
+    "routes": 23,
+    "tree_nodes_by_exact_source": [
+      "pv-ui"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "provenance",
+    "feature_declarations": [
+      "provenance"
+    ],
+    "source": "command-center/bcc/features/provenance.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-provenance"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "provider_fleet_v16",
+    "feature_declarations": [],
+    "source": "command-center/bcc/features/provider_fleet_v16.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-provider_fleet_v16"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "qa_relay",
+    "feature_declarations": [
+      "qa_relay"
+    ],
+    "source": "command-center/bcc/features/qa_relay.py",
+    "routes": 6,
+    "tree_nodes_by_exact_source": [
+      "mod-qa_relay"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "rave",
+    "feature_declarations": [
+      "rave"
+    ],
+    "source": "command-center/bcc/features/rave.py",
+    "routes": 21,
+    "tree_nodes_by_exact_source": [
+      "cap-38",
+      "mod-rave"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "reality",
+    "feature_declarations": [
+      "reality"
+    ],
+    "source": "command-center/bcc/features/reality.py",
+    "routes": 5,
+    "tree_nodes_by_exact_source": [
+      "mod-reality"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "resources",
+    "feature_declarations": [
+      "resources"
+    ],
+    "source": "command-center/bcc/features/resources.py",
+    "routes": 5,
+    "tree_nodes_by_exact_source": [
+      "cap-46",
+      "mod-resources"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "review_gate",
+    "feature_declarations": [
+      "review_gate"
+    ],
+    "source": "command-center/bcc/features/review_gate.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-review_gate"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "router",
+    "feature_declarations": [
+      "router"
+    ],
+    "source": "command-center/bcc/features/router.py",
+    "routes": 5,
+    "tree_nodes_by_exact_source": [
+      "mod-router"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "second_opinion",
+    "feature_declarations": [
+      "second_opinion"
+    ],
+    "source": "command-center/bcc/features/second_opinion.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-second_opinion"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "simulation_world_v16",
+    "feature_declarations": [],
+    "source": "command-center/bcc/features/simulation_world_v16.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-simulation_world_v16"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "skills",
+    "feature_declarations": [
+      "skills"
+    ],
+    "source": "command-center/bcc/features/skills.py",
+    "routes": 27,
+    "tree_nodes_by_exact_source": [
+      "mod-skills",
+      "skills-runtime"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "snapshot",
+    "feature_declarations": [
+      "snapshot"
+    ],
+    "source": "command-center/bcc/features/snapshot.py",
+    "routes": 5,
+    "tree_nodes_by_exact_source": [
+      "mod-snapshot"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "spend_meter",
+    "feature_declarations": [
+      "spend_meter"
+    ],
+    "source": "command-center/bcc/features/spend_meter.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-spend_meter"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "studio",
+    "feature_declarations": [
+      "studio"
+    ],
+    "source": "command-center/bcc/features/studio.py",
+    "routes": 29,
+    "tree_nodes_by_exact_source": [
+      "cap-30",
+      "mod-studio"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "studio_review",
+    "feature_declarations": [
+      "studio_review"
+    ],
+    "source": "command-center/bcc/features/studio_review.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-studio_review"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "task_exchange",
+    "feature_declarations": [
+      "task_exchange"
+    ],
+    "source": "command-center/bcc/features/task_exchange.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-task_exchange"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "telegram_calls",
+    "feature_declarations": [
+      "telegram_calls"
+    ],
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "routes": 30,
+    "tree_nodes_by_exact_source": [
+      "mod-telegram_calls"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "telegram_settings",
+    "feature_declarations": [
+      "telegram_settings"
+    ],
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "routes": 14,
+    "tree_nodes_by_exact_source": [
+      "mod-telegram_settings"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "terminal",
+    "feature_declarations": [
+      "terminal"
+    ],
+    "source": "command-center/bcc/features/terminal.py",
+    "routes": 10,
+    "tree_nodes_by_exact_source": [
+      "mod-terminal"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "testing_period",
+    "feature_declarations": [
+      "testing_period"
+    ],
+    "source": "command-center/bcc/features/testing_period.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-testing_period"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_apps",
+    "feature_declarations": [
+      "tools_apps"
+    ],
+    "source": "command-center/bcc/features/tools_apps.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_apps"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_browser",
+    "feature_declarations": [
+      "tools_browser"
+    ],
+    "source": "command-center/bcc/features/tools_browser.py",
+    "routes": 6,
+    "tree_nodes_by_exact_source": [
+      "cap-25",
+      "mod-tools_browser"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_code",
+    "feature_declarations": [
+      "tools_code"
+    ],
+    "source": "command-center/bcc/features/tools_code.py",
+    "routes": 6,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_code"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_computer",
+    "feature_declarations": [
+      "tools_computer"
+    ],
+    "source": "command-center/bcc/features/tools_computer.py",
+    "routes": 8,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_computer",
+      "reg-cu_task_scoped_apps"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_facts",
+    "feature_declarations": [
+      "tools_facts"
+    ],
+    "source": "command-center/bcc/features/tools_facts.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_facts"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_jeff",
+    "feature_declarations": [
+      "tools_jeff"
+    ],
+    "source": "command-center/bcc/features/tools_jeff.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_jeff"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_mcp",
+    "feature_declarations": [
+      "tools_mcp"
+    ],
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "routes": 9,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_mcp",
+      "plugins-mcp"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_memory",
+    "feature_declarations": [
+      "tools_memory"
+    ],
+    "source": "command-center/bcc/features/tools_memory.py",
+    "routes": 7,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_memory"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_openclaw",
+    "feature_declarations": [
+      "tools_openclaw"
+    ],
+    "source": "command-center/bcc/features/tools_openclaw.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_openclaw"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_opencode",
+    "feature_declarations": [
+      "tools_opencode"
+    ],
+    "source": "command-center/bcc/features/tools_opencode.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_opencode"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "tools_terminal",
+    "feature_declarations": [
+      "tools_terminal"
+    ],
+    "source": "command-center/bcc/features/tools_terminal.py",
+    "routes": 0,
+    "tree_nodes_by_exact_source": [
+      "mod-tools_terminal"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "trading_lab",
+    "feature_declarations": [
+      "trading_lab"
+    ],
+    "source": "command-center/bcc/features/trading_lab.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-trading_lab"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "unified_search",
+    "feature_declarations": [
+      "unified_search"
+    ],
+    "source": "command-center/bcc/features/unified_search.py",
+    "routes": 1,
+    "tree_nodes_by_exact_source": [
+      "mod-unified_search"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "v15_autonomy",
+    "feature_declarations": [
+      "v15_autonomy"
+    ],
+    "source": "command-center/bcc/features/v15_autonomy.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-v15_autonomy"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "v15_economy",
+    "feature_declarations": [
+      "v15_economy"
+    ],
+    "source": "command-center/bcc/features/v15_economy.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-v15_economy"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "v15_owner_run",
+    "feature_declarations": [
+      "v15_owner_run"
+    ],
+    "source": "command-center/bcc/features/v15_owner_run.py",
+    "routes": 4,
+    "tree_nodes_by_exact_source": [
+      "mod-v15_owner_run"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "v15_self_repair",
+    "feature_declarations": [
+      "v15_self_repair"
+    ],
+    "source": "command-center/bcc/features/v15_self_repair.py",
+    "routes": 1,
+    "tree_nodes_by_exact_source": [
+      "mod-v15_self_repair"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "vibe",
+    "feature_declarations": [
+      "vibe"
+    ],
+    "source": "command-center/bcc/features/vibe.py",
+    "routes": 18,
+    "tree_nodes_by_exact_source": [],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "video_studio",
+    "feature_declarations": [
+      "video_studio"
+    ],
+    "source": "command-center/bcc/features/video_studio.py",
+    "routes": 35,
+    "tree_nodes_by_exact_source": [
+      "mod-video_studio"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "watchdog",
+    "feature_declarations": [
+      "watchdog"
+    ],
+    "source": "command-center/bcc/features/watchdog.py",
+    "routes": 2,
+    "tree_nodes_by_exact_source": [
+      "mod-watchdog"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "web_designer",
+    "feature_declarations": [
+      "web_designer"
+    ],
+    "source": "command-center/bcc/features/web_designer.py",
+    "routes": 16,
+    "tree_nodes_by_exact_source": [
+      "mod-web_designer"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  },
+  {
+    "module": "workflow",
+    "feature_declarations": [
+      "workflow"
+    ],
+    "source": "command-center/bcc/features/workflow.py",
+    "routes": 3,
+    "tree_nodes_by_exact_source": [
+      "mod-workflow"
+    ],
+    "in_remote_main": true,
+    "state": "DECLARED_CODE_NOT_EXECUTION_PROOF"
+  }
+]

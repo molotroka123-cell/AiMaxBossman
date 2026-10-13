@@ -1,0 +1,5282 @@
+[
+  {
+    "method": "POST",
+    "path": "/api/preview",
+    "source": "command-center/bcc/features/action_preview.py",
+    "line": 367,
+    "handler": "preview",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/preview/actions",
+    "source": "command-center/bcc/features/action_preview.py",
+    "line": 387,
+    "handler": "preview_actions",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/agentmap",
+    "source": "command-center/bcc/features/agentmap.py",
+    "line": 43,
+    "handler": "agentmap",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/orchestras",
+    "source": "command-center/bcc/features/agentmap.py",
+    "line": 88,
+    "handler": "list_orchestras",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/apps",
+    "source": "command-center/bcc/features/apps.py",
+    "line": 383,
+    "handler": "list_apps",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/apps/{app_id}",
+    "source": "command-center/bcc/features/apps.py",
+    "line": 392,
+    "handler": "get_app",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/apps/control/policy",
+    "source": "command-center/bcc/features/apps_control.py",
+    "line": 983,
+    "handler": "get_control_policy",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/apps/control/policy",
+    "source": "command-center/bcc/features/apps_control.py",
+    "line": 990,
+    "handler": "put_control_policy",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/apps/{app_id}/start",
+    "source": "command-center/bcc/features/apps_control.py",
+    "line": 1004,
+    "handler": "start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/apps/{app_id}/stop",
+    "source": "command-center/bcc/features/apps_control.py",
+    "line": 1011,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/apps/{app_id}/process",
+    "source": "command-center/bcc/features/apps_control.py",
+    "line": 1018,
+    "handler": "process",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/autonomy/status",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 81,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/autonomy/goals",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 86,
+    "handler": "goals",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/autonomy/goals/{goal_id}",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 91,
+    "handler": "goal",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/autonomy/goals/{goal_id}/apply",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 96,
+    "handler": "apply",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/autonomy/goals/{goal_id}/confirm",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 102,
+    "handler": "confirm",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/autonomy/goals/{goal_id}/reject",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 108,
+    "handler": "reject",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/autonomy/goals/{goal_id}/revise",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 114,
+    "handler": "revise",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/autonomy/stop",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 120,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/autonomy/resume",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 128,
+    "handler": "resume",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/autonomy/journal",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 136,
+    "handler": "journal",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/autonomy/journal/verify",
+    "source": "command-center/bcc/features/autonomy.py",
+    "line": 142,
+    "handler": "journal_verify",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/benchmarks",
+    "source": "command-center/bcc/features/benchlab.py",
+    "line": 87,
+    "handler": "create_bench",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/benchmarks",
+    "source": "command-center/bcc/features/benchlab.py",
+    "line": 106,
+    "handler": "list_bench",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/benchmarks/{bench_id:int}",
+    "source": "command-center/bcc/features/benchlab.py",
+    "line": 117,
+    "handler": "get_bench",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/benchmarks/compare",
+    "source": "command-center/bcc/features/benchlab.py",
+    "line": 127,
+    "handler": "compare",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/benchmarks/recommendations",
+    "source": "command-center/bcc/features/benchlab.py",
+    "line": 146,
+    "handler": "recommendations",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/browser/health",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 49,
+    "handler": "browser_health",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/browser/sessions",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 60,
+    "handler": "create_session",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/browser/sessions",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 95,
+    "handler": "list_sessions",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/browser/sessions/{session_id}/state",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 108,
+    "handler": "state",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/browser/sessions/{session_id}/act",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 117,
+    "handler": "act",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/browser/sessions/{session_id}/downloads",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 202,
+    "handler": "downloads",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/browser/sessions/{session_id}/screenshot",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 211,
+    "handler": "screenshot",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/browser/sessions/{session_id}/takeover",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 237,
+    "handler": "takeover",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/browser/sessions/{session_id}/resume",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 249,
+    "handler": "resume",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/browser/sessions/{session_id}/stop",
+    "source": "command-center/bcc/features/browser.py",
+    "line": 294,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/browser-help/plan",
+    "source": "command-center/bcc/features/browser_help.py",
+    "line": 210,
+    "handler": "browser_help_plan",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/browser-help/policy",
+    "source": "command-center/bcc/features/browser_help.py",
+    "line": 230,
+    "handler": "browser_help_policy",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/cache/economics",
+    "source": "command-center/bcc/features/cache_intel.py",
+    "line": 150,
+    "handler": "get_economics",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/cache/intelligence",
+    "source": "command-center/bcc/features/cache_intel.py",
+    "line": 155,
+    "handler": "get_intelligence",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/capability-tree",
+    "source": "command-center/bcc/features/capability_tree.py",
+    "line": 211,
+    "handler": "tree",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/capability-tree/note",
+    "source": "command-center/bcc/features/capability_tree.py",
+    "line": 230,
+    "handler": "save_note",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/capability-tree/scan",
+    "source": "command-center/bcc/features/capability_tree.py",
+    "line": 270,
+    "handler": "scan",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/capability-tree/work",
+    "source": "command-center/bcc/features/capability_tree.py",
+    "line": 406,
+    "handler": "start_zone_work",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/capability-tree/reports",
+    "source": "command-center/bcc/features/capability_tree.py",
+    "line": 444,
+    "handler": "zone_reports",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/chat/threads",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 914,
+    "handler": "list_threads",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/chat/threads",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 946,
+    "handler": "create_thread",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/chat/projects",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 965,
+    "handler": "list_projects",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/chat/threads/{thread_id}",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 979,
+    "handler": "get_thread",
+    "declared_only": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/chat/threads/{thread_id}",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 1005,
+    "handler": "patch_thread",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/chat/threads/{thread_id}",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 1032,
+    "handler": "delete_thread",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/chat/threads/{thread_id}/send",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 1158,
+    "handler": "send_turn",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/chat/threads/{thread_id}/stop",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 1207,
+    "handler": "stop_thread",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/chat/attachments",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 1300,
+    "handler": "upload_attachment",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/chat/attachments/{attachment_id}",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 1351,
+    "handler": "get_attachment",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/chat/options",
+    "source": "command-center/bcc/features/chat_threads.py",
+    "line": 1506,
+    "handler": "chat_options",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/code-intel",
+    "source": "command-center/bcc/features/code_intel.py",
+    "line": 173,
+    "handler": "code_intel_status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/coding-limit/status",
+    "source": "command-center/bcc/features/coding_limit_saver_v16.py",
+    "line": 220,
+    "handler": "coding_limit_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-limit/route",
+    "source": "command-center/bcc/features/coding_limit_saver_v16.py",
+    "line": 234,
+    "handler": "coding_limit_route",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/coding-recipes",
+    "source": "command-center/bcc/features/coding_recipes.py",
+    "line": 557,
+    "handler": "get_recipes",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-recipes/validate",
+    "source": "command-center/bcc/features/coding_recipes.py",
+    "line": 564,
+    "handler": "post_validate",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-recipes",
+    "source": "command-center/bcc/features/coding_recipes.py",
+    "line": 570,
+    "handler": "post_recipe",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-recipes/match",
+    "source": "command-center/bcc/features/coding_recipes.py",
+    "line": 588,
+    "handler": "post_match",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/coding-sessions",
+    "source": "command-center/bcc/features/coding_sessions.py",
+    "line": 73,
+    "handler": "list_sessions",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-sessions",
+    "source": "command-center/bcc/features/coding_sessions.py",
+    "line": 79,
+    "handler": "create_session",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/coding-sessions/{session_id}",
+    "source": "command-center/bcc/features/coding_sessions.py",
+    "line": 92,
+    "handler": "session_status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/coding-sessions/{session_id}/diff",
+    "source": "command-center/bcc/features/coding_sessions.py",
+    "line": 100,
+    "handler": "session_diff",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-sessions/{session_id}/merge_preview",
+    "source": "command-center/bcc/features/coding_sessions.py",
+    "line": 108,
+    "handler": "merge_preview",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-sessions/{session_id}/merge",
+    "source": "command-center/bcc/features/coding_sessions.py",
+    "line": 116,
+    "handler": "merge",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-sessions/{session_id}/discard",
+    "source": "command-center/bcc/features/coding_sessions.py",
+    "line": 136,
+    "handler": "discard",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-tasks/{task_id}/apply",
+    "source": "command-center/bcc/features/coding_tasks.py",
+    "line": 888,
+    "handler": "apply_candidate",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/coding-tasks/readiness",
+    "source": "command-center/bcc/features/coding_tasks.py",
+    "line": 899,
+    "handler": "get_readiness",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/coding-tasks",
+    "source": "command-center/bcc/features/coding_tasks.py",
+    "line": 904,
+    "handler": "list_tasks",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/coding-tasks/{task_id}",
+    "source": "command-center/bcc/features/coding_tasks.py",
+    "line": 909,
+    "handler": "get_task",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-tasks/{task_id}/cancel",
+    "source": "command-center/bcc/features/coding_tasks.py",
+    "line": 914,
+    "handler": "cancel_task",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/coding-tasks",
+    "source": "command-center/bcc/features/coding_tasks.py",
+    "line": 930,
+    "handler": "create_task",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/command-bar",
+    "source": "command-center/bcc/features/command_bar.py",
+    "line": 970,
+    "handler": "catalog",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/command-bar/parse",
+    "source": "command-center/bcc/features/command_bar.py",
+    "line": 1001,
+    "handler": "parse",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/command-bar/run",
+    "source": "command-center/bcc/features/command_bar.py",
+    "line": 1023,
+    "handler": "run_command",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/command-bar/tasks",
+    "source": "command-center/bcc/features/command_bar.py",
+    "line": 1072,
+    "handler": "list_tasks",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/command-bar/tasks/{task_id}",
+    "source": "command-center/bcc/features/command_bar.py",
+    "line": 1084,
+    "handler": "get_task",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/command-bar/tasks/{task_id}/stop",
+    "source": "command-center/bcc/features/command_bar.py",
+    "line": 1095,
+    "handler": "stop_task",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/control-plane/active",
+    "source": "command-center/bcc/features/control_plane.py",
+    "line": 155,
+    "handler": "active_owner_work",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/control-plane/stop-all",
+    "source": "command-center/bcc/features/control_plane.py",
+    "line": 162,
+    "handler": "stop_all_owner_work",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/control-plane",
+    "source": "command-center/bcc/features/control_plane.py",
+    "line": 598,
+    "handler": "control_plane",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/observability/trace/{trace_id}",
+    "source": "command-center/bcc/features/control_plane.py",
+    "line": 610,
+    "handler": "trace_chain",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/deep_fix/status",
+    "source": "command-center/bcc/features/deep_fix.py",
+    "line": 101,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/diag/bundle",
+    "source": "command-center/bcc/features/diag_bundle.py",
+    "line": 394,
+    "handler": "preview",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/diag/bundle",
+    "source": "command-center/bcc/features/diag_bundle.py",
+    "line": 423,
+    "handler": "build",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/direct-gen/models",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 94,
+    "handler": "models",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/direct-gen/status",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 99,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/direct-gen/jobs",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 104,
+    "handler": "create",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/direct-gen/jobs",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 109,
+    "handler": "jobs",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/direct-gen/jobs/{job_id}",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 114,
+    "handler": "job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/direct-gen/jobs/{job_id}/cancel",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 119,
+    "handler": "cancel",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/direct-gen/jobs/{job_id}/retry",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 124,
+    "handler": "retry",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/direct-gen/jobs/{job_id}/file",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 129,
+    "handler": "file",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/direct-gen/faceswap",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 141,
+    "handler": "faceswap_info",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/direct-gen/swap-jobs",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 147,
+    "handler": "create_swap",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/direct-gen/genjutsu",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 152,
+    "handler": "genjutsu_info",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/direct-gen/genjutsu/masks",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 157,
+    "handler": "genjutsu_masks",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/direct-gen/vault/prompts",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 162,
+    "handler": "vault_prompts",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/direct-gen/assist",
+    "source": "command-center/bcc/features/direct_gen.py",
+    "line": 169,
+    "handler": "assist",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/economy/status",
+    "source": "command-center/bcc/features/economy_swarm.py",
+    "line": 203,
+    "handler": "economy_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/economy/route",
+    "source": "command-center/bcc/features/economy_swarm.py",
+    "line": 222,
+    "handler": "economy_route",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/evolution/status",
+    "source": "command-center/bcc/features/evolution.py",
+    "line": 122,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/evolution/report",
+    "source": "command-center/bcc/features/evolution.py",
+    "line": 128,
+    "handler": "report",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/evolution/start",
+    "source": "command-center/bcc/features/evolution.py",
+    "line": 137,
+    "handler": "start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/evolution/pause",
+    "source": "command-center/bcc/features/evolution.py",
+    "line": 170,
+    "handler": "pause",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/evolution/stop",
+    "source": "command-center/bcc/features/evolution.py",
+    "line": 176,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/evolution/resume",
+    "source": "command-center/bcc/features/evolution.py",
+    "line": 187,
+    "handler": "resume",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/failure-cases",
+    "source": "command-center/bcc/features/failure_to_case.py",
+    "line": 399,
+    "handler": "list_cases",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/failure-cases/{case_id}",
+    "source": "command-center/bcc/features/failure_to_case.py",
+    "line": 419,
+    "handler": "get_case",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/failure-cases/{case_id}",
+    "source": "command-center/bcc/features/failure_to_case.py",
+    "line": 428,
+    "handler": "delete_case",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/file-intelligence/status",
+    "source": "command-center/bcc/features/file_intelligence.py",
+    "line": 115,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/file-intelligence/analyze",
+    "source": "command-center/bcc/features/file_intelligence.py",
+    "line": 133,
+    "handler": "analyze",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/file-intelligence/extract",
+    "source": "command-center/bcc/features/file_intelligence.py",
+    "line": 146,
+    "handler": "extract",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/file-intelligence/jobs/{job_id}",
+    "source": "command-center/bcc/features/file_intelligence.py",
+    "line": 163,
+    "handler": "get_job",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/file-intelligence/jobs",
+    "source": "command-center/bcc/features/file_intelligence.py",
+    "line": 175,
+    "handler": "list_jobs",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/file-intelligence/apply",
+    "source": "command-center/bcc/features/file_intelligence.py",
+    "line": 185,
+    "handler": "apply",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/file-intelligence/jobs/{job_id}/cancel",
+    "source": "command-center/bcc/features/file_intelligence.py",
+    "line": 196,
+    "handler": "cancel",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/file-intelligence/jobs/{job_id}/reconcile",
+    "source": "command-center/bcc/features/file_intelligence.py",
+    "line": 206,
+    "handler": "reconcile",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/forecast/status",
+    "source": "command-center/bcc/features/forecast.py",
+    "line": 34,
+    "handler": "forecast_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/forecast",
+    "source": "command-center/bcc/features/forecast.py",
+    "line": 39,
+    "handler": "forecast",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/runs/{run_id}/checkpoints",
+    "source": "command-center/bcc/features/forks.py",
+    "line": 57,
+    "handler": "list_checkpoints",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/runs/{run_id}/fork",
+    "source": "command-center/bcc/features/forks.py",
+    "line": 66,
+    "handler": "fork",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/forks",
+    "source": "command-center/bcc/features/forks.py",
+    "line": 135,
+    "handler": "lineage",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/free-providers",
+    "source": "command-center/bcc/features/free_providers.py",
+    "line": 97,
+    "handler": "list_presets",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/free-providers/{name}/connect",
+    "source": "command-center/bcc/features/free_providers.py",
+    "line": 115,
+    "handler": "connect",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/game-bootstrap/status",
+    "source": "command-center/bcc/features/game_bootstrap_v16.py",
+    "line": 186,
+    "handler": "game_bootstrap_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/game-bootstrap/plan",
+    "source": "command-center/bcc/features/game_bootstrap_v16.py",
+    "line": 197,
+    "handler": "game_bootstrap_plan",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/gmail/status",
+    "source": "command-center/bcc/features/gmail_connect.py",
+    "line": 69,
+    "handler": "get_status",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/gmail/oauth-client",
+    "source": "command-center/bcc/features/gmail_connect.py",
+    "line": 78,
+    "handler": "put_client",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/gmail/settings",
+    "source": "command-center/bcc/features/gmail_connect.py",
+    "line": 87,
+    "handler": "put_settings",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/gmail/imap",
+    "source": "command-center/bcc/features/gmail_connect.py",
+    "line": 99,
+    "handler": "put_imap",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/gmail/oauth/start",
+    "source": "command-center/bcc/features/gmail_connect.py",
+    "line": 156,
+    "handler": "oauth_start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/gmail/oauth/complete",
+    "source": "command-center/bcc/features/gmail_connect.py",
+    "line": 181,
+    "handler": "oauth_complete",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/gmail/disconnect",
+    "source": "command-center/bcc/features/gmail_connect.py",
+    "line": 195,
+    "handler": "oauth_disconnect",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/gmail/test",
+    "source": "command-center/bcc/features/gmail_connect.py",
+    "line": 204,
+    "handler": "connection_test",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/governor/interventions",
+    "source": "command-center/bcc/features/governor.py",
+    "line": 165,
+    "handler": "list_interventions",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/governor/rules",
+    "source": "command-center/bcc/features/governor.py",
+    "line": 174,
+    "handler": "get_rules",
+    "declared_only": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/governor/rules",
+    "source": "command-center/bcc/features/governor.py",
+    "line": 179,
+    "handler": "patch_rules",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/healing/report",
+    "source": "command-center/bcc/features/healing.py",
+    "line": 158,
+    "handler": "report",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/healing/attempts",
+    "source": "command-center/bcc/features/healing.py",
+    "line": 178,
+    "handler": "attempts",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/healing/rules",
+    "source": "command-center/bcc/features/healing.py",
+    "line": 187,
+    "handler": "get_rules",
+    "declared_only": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/healing/rules",
+    "source": "command-center/bcc/features/healing.py",
+    "line": 192,
+    "handler": "patch_rules",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/overview",
+    "source": "command-center/bcc/features/images.py",
+    "line": 161,
+    "handler": "images_overview",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/models",
+    "source": "command-center/bcc/features/images.py",
+    "line": 177,
+    "handler": "image_models",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/assets",
+    "source": "command-center/bcc/features/images.py",
+    "line": 216,
+    "handler": "list_assets",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/assets/{asset_id}",
+    "source": "command-center/bcc/features/images.py",
+    "line": 256,
+    "handler": "get_asset",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/assets/{asset_id}/file",
+    "source": "command-center/bcc/features/images.py",
+    "line": 264,
+    "handler": "get_asset_file",
+    "declared_only": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/images/assets/{asset_id}",
+    "source": "command-center/bcc/features/images.py",
+    "line": 280,
+    "handler": "patch_asset",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/images/assets/import",
+    "source": "command-center/bcc/features/images.py",
+    "line": 365,
+    "handler": "import_asset",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/images/assets/{asset_id}/transform",
+    "source": "command-center/bcc/features/images.py",
+    "line": 411,
+    "handler": "transform_asset",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/jobs",
+    "source": "command-center/bcc/features/images.py",
+    "line": 473,
+    "handler": "list_jobs",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/jobs/{job_id}",
+    "source": "command-center/bcc/features/images.py",
+    "line": 485,
+    "handler": "get_job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/images/jobs",
+    "source": "command-center/bcc/features/images.py",
+    "line": 493,
+    "handler": "create_job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/images/jobs/{job_id}/cancel",
+    "source": "command-center/bcc/features/images.py",
+    "line": 541,
+    "handler": "cancel_job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/images/jobs/{job_id}/retry",
+    "source": "command-center/bcc/features/images.py",
+    "line": 561,
+    "handler": "retry_job",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/collections",
+    "source": "command-center/bcc/features/images.py",
+    "line": 589,
+    "handler": "list_collections",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/images/collections",
+    "source": "command-center/bcc/features/images.py",
+    "line": 604,
+    "handler": "create_collection",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/templates",
+    "source": "command-center/bcc/features/images.py",
+    "line": 626,
+    "handler": "list_templates",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/images/templates",
+    "source": "command-center/bcc/features/images.py",
+    "line": 634,
+    "handler": "create_template",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/images/storage",
+    "source": "command-center/bcc/features/images.py",
+    "line": 648,
+    "handler": "storage_stats",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-insights/overview",
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "line": 45,
+    "handler": "overview",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-insights/participants",
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "line": 54,
+    "handler": "list_participants",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-insights/narratives",
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "line": 60,
+    "handler": "list_narratives",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-insights/narratives/{person_key}",
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "line": 66,
+    "handler": "get_narrative",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-insights/trends",
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "line": 79,
+    "handler": "get_trends",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-insights/digest",
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "line": 85,
+    "handler": "get_digest",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/jeff-insights/digest/send",
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "line": 91,
+    "handler": "send_digest",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-insights/pult-outbox",
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "line": 100,
+    "handler": "pult_outbox",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/jeff-insights/pult-outbox/{item_id}/delivered",
+    "source": "command-center/bcc/features/jeff_insights.py",
+    "line": 106,
+    "handler": "pult_outbox_delivered",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/pit/master-parse",
+    "source": "command-center/bcc/features/jeff_master_parser.py",
+    "line": 66,
+    "handler": "master_parse_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/pit/master-parse",
+    "source": "command-center/bcc/features/jeff_master_parser.py",
+    "line": 77,
+    "handler": "master_parse_start",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/pit/master-parse/report",
+    "source": "command-center/bcc/features/jeff_master_parser.py",
+    "line": 111,
+    "handler": "master_parse_report",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-settings",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 261,
+    "handler": "get_settings",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/jeff-settings",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 293,
+    "handler": "put_settings",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-settings/users/{person_key}",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 340,
+    "handler": "get_user",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/jeff-settings/users/{person_key}",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 348,
+    "handler": "put_user",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/jeff-settings/users/{person_key}",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 360,
+    "handler": "delete_user",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/jeff-settings/reset",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 372,
+    "handler": "reset",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-settings/participants/{person_key}",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 428,
+    "handler": "get_participant",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/jeff-settings/participants/{person_key}/profile",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 441,
+    "handler": "put_participant_profile",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/jeff-settings/participants/{person_key}/clear",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 457,
+    "handler": "clear_participant",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/jeff-settings/participants/{person_key}/facts/{fact_id}",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 470,
+    "handler": "delete_participant_fact",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/jeff-settings/participants/{person_key}/pause-memory",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 479,
+    "handler": "pause_participant_memory",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/jeff-settings/participants/{person_key}/revoke",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 486,
+    "handler": "revoke_participant",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/jeff-settings/participants/{person_key}/restore",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 503,
+    "handler": "restore_participant",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jeff-settings/status",
+    "source": "command-center/bcc/features/jeff_settings.py",
+    "line": 530,
+    "handler": "jeff_status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jev/status",
+    "source": "command-center/bcc/features/jev.py",
+    "line": 183,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/jev/shadow",
+    "source": "command-center/bcc/features/jev.py",
+    "line": 204,
+    "handler": "shadow_records",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/lab-agents",
+    "source": "command-center/bcc/features/lab_agents.py",
+    "line": 335,
+    "handler": "get_lab_agents",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/lab-agents/ensure",
+    "source": "command-center/bcc/features/lab_agents.py",
+    "line": 343,
+    "handler": "post_ensure",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/local-first",
+    "source": "command-center/bcc/features/local_first.py",
+    "line": 288,
+    "handler": "state",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/local-first/decisions",
+    "source": "command-center/bcc/features/local_first.py",
+    "line": 298,
+    "handler": "decisions",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/local-first/decide",
+    "source": "command-center/bcc/features/local_first.py",
+    "line": 305,
+    "handler": "decide_endpoint",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/local-first/thresholds",
+    "source": "command-center/bcc/features/local_first.py",
+    "line": 322,
+    "handler": "set_thresholds",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/market/status",
+    "source": "command-center/bcc/features/market_metrics.py",
+    "line": 34,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/market/export",
+    "source": "command-center/bcc/features/market_metrics.py",
+    "line": 55,
+    "handler": "export",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/market/stop",
+    "source": "command-center/bcc/features/market_metrics.py",
+    "line": 68,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/mimik/status",
+    "source": "command-center/bcc/features/mimik.py",
+    "line": 35,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/missions",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 265,
+    "handler": "create_mission",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/missions",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 290,
+    "handler": "list_missions",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/missions/{mission_id}",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 298,
+    "handler": "get_mission",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/missions/{mission_id}/start",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 308,
+    "handler": "start_mission",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/missions/{mission_id}/pause",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 321,
+    "handler": "pause_mission",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/missions/{mission_id}/resume",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 333,
+    "handler": "resume_mission",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/missions/{mission_id}/stop",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 346,
+    "handler": "stop_mission",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/missions/{mission_id}/kpi",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 356,
+    "handler": "get_kpi",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/missions/{mission_id}/kpi",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 365,
+    "handler": "post_kpi",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/missions/{mission_id}/kpi/history",
+    "source": "command-center/bcc/features/missions.py",
+    "line": 375,
+    "handler": "kpi_history",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/model-freshness",
+    "source": "command-center/bcc/features/model_freshness.py",
+    "line": 164,
+    "handler": "freshness",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-studio/status",
+    "source": "command-center/bcc/features/motion_studio.py",
+    "line": 320,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-studio/examples/{name}",
+    "source": "command-center/bcc/features/motion_studio.py",
+    "line": 338,
+    "handler": "example",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-studio/jobs",
+    "source": "command-center/bcc/features/motion_studio.py",
+    "line": 345,
+    "handler": "start_job",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-studio/jobs",
+    "source": "command-center/bcc/features/motion_studio.py",
+    "line": 407,
+    "handler": "jobs",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-studio/jobs/{job_id}",
+    "source": "command-center/bcc/features/motion_studio.py",
+    "line": 413,
+    "handler": "get_job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-studio/jobs/{job_id}/cancel",
+    "source": "command-center/bcc/features/motion_studio.py",
+    "line": 418,
+    "handler": "cancel",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-studio/jobs/{job_id}/check",
+    "source": "command-center/bcc/features/motion_studio.py",
+    "line": 433,
+    "handler": "check",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-studio/jobs/{job_id}/file",
+    "source": "command-center/bcc/features/motion_studio.py",
+    "line": 441,
+    "handler": "file",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/status",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1171,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/limits",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1188,
+    "handler": "limits",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1197,
+    "handler": "projects",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1205,
+    "handler": "create_project",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1235,
+    "handler": "open_project",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects/{project_id}/source",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1242,
+    "handler": "upload_source",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects/{project_id}/analyze",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1257,
+    "handler": "analyze",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/analysis",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1270,
+    "handler": "analysis_state",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/plan",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1278,
+    "handler": "get_plan",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/readiness",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1286,
+    "handler": "get_readiness",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/estimate",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1296,
+    "handler": "get_estimate",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/limits",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1304,
+    "handler": "get_limits",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/history",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1311,
+    "handler": "get_history",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/versions/{version}",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1319,
+    "handler": "get_version",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects/{project_id}/ops",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1326,
+    "handler": "edit_plan",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects/{project_id}/revert",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1345,
+    "handler": "revert_plan",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/references",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1357,
+    "handler": "list_references",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects/{project_id}/references",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1367,
+    "handler": "add_reference",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/motion-workflow/projects/{project_id}/references/{name}",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1413,
+    "handler": "remove_reference",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/references/{name}/file",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1421,
+    "handler": "reference_file",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/source",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1433,
+    "handler": "source_file",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects/{project_id}/jobs",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1446,
+    "handler": "start_job",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/jobs",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1469,
+    "handler": "list_jobs",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/jobs/{job_id}",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1477,
+    "handler": "get_job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects/{project_id}/jobs/{job_id}/render",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1510,
+    "handler": "render_job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects/{project_id}/jobs/{job_id}/resume",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1517,
+    "handler": "resume_job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/motion-workflow/projects/{project_id}/jobs/{job_id}/cancel",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1524,
+    "handler": "cancel_job",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/jobs/{job_id}/check",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1544,
+    "handler": "check_job",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/motion-workflow/projects/{project_id}/jobs/{job_id}/file",
+    "source": "command-center/bcc/features/motion_workflow_api.py",
+    "line": 1580,
+    "handler": "job_file",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/music/health",
+    "source": "command-center/bcc/features/music_studio.py",
+    "line": 455,
+    "handler": "health",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/music/service/start",
+    "source": "command-center/bcc/features/music_studio.py",
+    "line": 617,
+    "handler": "service_start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/music/service/stop",
+    "source": "command-center/bcc/features/music_studio.py",
+    "line": 631,
+    "handler": "service_stop",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/music/service",
+    "source": "command-center/bcc/features/music_studio.py",
+    "line": 645,
+    "handler": "service_info",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/music/generate",
+    "source": "command-center/bcc/features/music_studio.py",
+    "line": 661,
+    "handler": "generate",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/music/tasks/{task_id}",
+    "source": "command-center/bcc/features/music_studio.py",
+    "line": 694,
+    "handler": "task",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/music/tasks/{task_id}/save",
+    "source": "command-center/bcc/features/music_studio.py",
+    "line": 724,
+    "handler": "save",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/music/presets",
+    "source": "command-center/bcc/features/music_studio.py",
+    "line": 758,
+    "handler": "presets",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/orchestras/parse",
+    "source": "command-center/bcc/features/nl_orchestra.py",
+    "line": 108,
+    "handler": "parse",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/orchestras/confirm",
+    "source": "command-center/bcc/features/nl_orchestra.py",
+    "line": 165,
+    "handler": "confirm",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/orchestras",
+    "source": "command-center/bcc/features/nl_orchestra.py",
+    "line": 196,
+    "handler": "create_orchestra",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/permissions/compile",
+    "source": "command-center/bcc/features/nl_permissions.py",
+    "line": 331,
+    "handler": "compile_permissions",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/permissions/apply",
+    "source": "command-center/bcc/features/nl_permissions.py",
+    "line": 354,
+    "handler": "apply_permissions",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/permissions/{agent_id}",
+    "source": "command-center/bcc/features/nl_permissions.py",
+    "line": 418,
+    "handler": "get_permissions",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/objectives/status",
+    "source": "command-center/bcc/features/objectives.py",
+    "line": 97,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/objectives",
+    "source": "command-center/bcc/features/objectives.py",
+    "line": 118,
+    "handler": "list_objectives",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/objectives/{objective_id}",
+    "source": "command-center/bcc/features/objectives.py",
+    "line": 127,
+    "handler": "get_objective",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/objectives/preview",
+    "source": "command-center/bcc/features/objectives.py",
+    "line": 195,
+    "handler": "preview_objective",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/objectives",
+    "source": "command-center/bcc/features/objectives.py",
+    "line": 209,
+    "handler": "create_objective",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/objectives/{objective_id}/evidence",
+    "source": "command-center/bcc/features/objectives.py",
+    "line": 231,
+    "handler": "objective_evidence",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/objectives/{objective_id}/revisions",
+    "source": "command-center/bcc/features/objectives.py",
+    "line": 266,
+    "handler": "objective_revisions",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/objectives/{objective_id}/lifecycle",
+    "source": "command-center/bcc/features/objectives.py",
+    "line": 296,
+    "handler": "set_lifecycle",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/objectives/{objective_id}/enrollment",
+    "source": "command-center/bcc/features/objectives.py",
+    "line": 320,
+    "handler": "set_enrollment",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/offline",
+    "source": "command-center/bcc/features/offline_mode.py",
+    "line": 359,
+    "handler": "offline_report",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/offline/can/{capability}",
+    "source": "command-center/bcc/features/offline_mode.py",
+    "line": 391,
+    "handler": "can",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/open-news/status",
+    "source": "command-center/bcc/features/open_news.py",
+    "line": 62,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/opencode/health",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 52,
+    "handler": "health",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/opencode/roots",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 59,
+    "handler": "roots",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/opencode/sessions",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 65,
+    "handler": "start_session",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/opencode/sessions/{session_id}/send",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 101,
+    "handler": "send",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/opencode/sessions/{session_id}/status",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 125,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/opencode/attach",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 137,
+    "handler": "attach",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/opencode/sessions",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 152,
+    "handler": "sessions",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/opencode/sessions/{session_id}/abort",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 160,
+    "handler": "abort",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/opencode/sessions/{session_id}/fork",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 173,
+    "handler": "fork",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/opencode/sessions/{session_id}/diff",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 191,
+    "handler": "diff",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/opencode/sessions/{session_id}/children",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 210,
+    "handler": "children",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/opencode/sessions/{session_id}/todo",
+    "source": "command-center/bcc/features/opencode.py",
+    "line": 221,
+    "handler": "todo",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/openrouter/provider",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 181,
+    "handler": "canonical_provider",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/openrouter/connect",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 207,
+    "handler": "connect_with_key",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/openrouter/{provider_id}/connect",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 255,
+    "handler": "connect",
+    "declared_only": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/openrouter/{provider_id}/key",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 279,
+    "handler": "set_key",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/openrouter/{provider_id}/status",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 306,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/openrouter/{provider_id}/sync",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 317,
+    "handler": "sync_catalog",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/openrouter/{provider_id}/catalog",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 353,
+    "handler": "catalog",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/openrouter/{provider_id}/pin",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 397,
+    "handler": "pin_model",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/openrouter/models/{model_id}/probe",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 456,
+    "handler": "probe",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/openrouter/models/{model_id}/capabilities",
+    "source": "command-center/bcc/features/openrouter.py",
+    "line": 497,
+    "handler": "capabilities",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/org/snapshot",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 271,
+    "handler": "snapshot",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/org/departments",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 277,
+    "handler": "departments",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/departments",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 282,
+    "handler": "add_department",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/org/agents",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 295,
+    "handler": "agents",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/agents",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 300,
+    "handler": "add_agent",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/org/missions",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 316,
+    "handler": "missions",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/missions",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 322,
+    "handler": "create_mission",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/missions/{mission_id}/run",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 368,
+    "handler": "run_mission",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/org/resume",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 376,
+    "handler": "resume",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/org/learning",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 381,
+    "handler": "learning",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/org/fleet",
+    "source": "command-center/bcc/features/organization.py",
+    "line": 408,
+    "handler": "fleet",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/osiris",
+    "source": "command-center/bcc/features/osiris.py",
+    "line": 983,
+    "handler": "state",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/osiris/sources",
+    "source": "command-center/bcc/features/osiris.py",
+    "line": 996,
+    "handler": "list_sources",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/osiris/sources",
+    "source": "command-center/bcc/features/osiris.py",
+    "line": 1004,
+    "handler": "register_source",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/osiris/collect",
+    "source": "command-center/bcc/features/osiris.py",
+    "line": 1028,
+    "handler": "collect_endpoint",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/osiris/observations",
+    "source": "command-center/bcc/features/osiris.py",
+    "line": 1046,
+    "handler": "list_observations",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/osiris/subjects/{subject_id}",
+    "source": "command-center/bcc/features/osiris.py",
+    "line": 1054,
+    "handler": "delete_subject",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/oss/status",
+    "source": "command-center/bcc/features/oss_integrations.py",
+    "line": 23,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/oss/speech/transcribe",
+    "source": "command-center/bcc/features/oss_integrations.py",
+    "line": 68,
+    "handler": "transcribe",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/owner-input/pending",
+    "source": "command-center/bcc/features/owner_input.py",
+    "line": 23,
+    "handler": "pending",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/owner-input/{request_id}",
+    "source": "command-center/bcc/features/owner_input.py",
+    "line": 28,
+    "handler": "get_one",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/owner-input/{request_id}/screenshot",
+    "source": "command-center/bcc/features/owner_input.py",
+    "line": 35,
+    "handler": "screenshot",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/owner-input/{request_id}/answer",
+    "source": "command-center/bcc/features/owner_input.py",
+    "line": 59,
+    "handler": "answer",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/owner-input/{request_id}/cancel",
+    "source": "command-center/bcc/features/owner_input.py",
+    "line": 69,
+    "handler": "cancel",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/plugins",
+    "source": "command-center/bcc/features/plugins.py",
+    "line": 898,
+    "handler": "list_plugins",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/status",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 91,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/service/start",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 104,
+    "handler": "service_start",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/capabilities",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 113,
+    "handler": "capabilities",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/session",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 118,
+    "handler": "session",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/calibrate",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 130,
+    "handler": "calibrate",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/stop",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 136,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/state",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 151,
+    "handler": "state",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/history",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 156,
+    "handler": "history",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/labelqueue",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 161,
+    "handler": "labelqueue",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/overlay.png",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 166,
+    "handler": "overlay",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/sources",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 183,
+    "handler": "sources",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/desk/start",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 188,
+    "handler": "desk_start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/desk/mode",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 201,
+    "handler": "desk_mode",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/desk/pause",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 212,
+    "handler": "desk_pause",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/desk/resume-executor",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 217,
+    "handler": "desk_resume",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/desk/sandbox/{cmd}",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 226,
+    "handler": "desk_sandbox",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/frame.jpg",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 233,
+    "handler": "frame_jpg",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/stream.mjpeg",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 239,
+    "handler": "stream_mjpeg",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/overlay.json",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 260,
+    "handler": "overlay_json",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/recommendation",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 265,
+    "handler": "recommendation",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/journal",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 270,
+    "handler": "journal",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/poker-vision/journal/frame",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 275,
+    "handler": "journal_frame",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/poker-vision/tree-sync",
+    "source": "command-center/bcc/features/poker_vision.py",
+    "line": 290,
+    "handler": "tree_sync",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/provenance",
+    "source": "command-center/bcc/features/provenance.py",
+    "line": 244,
+    "handler": "list_facts",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/provenance/{key}",
+    "source": "command-center/bcc/features/provenance.py",
+    "line": 251,
+    "handler": "get_fact",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/qa-relay",
+    "source": "command-center/bcc/features/qa_relay.py",
+    "line": 79,
+    "handler": "get_state",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/qa-relay/enable",
+    "source": "command-center/bcc/features/qa_relay.py",
+    "line": 84,
+    "handler": "enable",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/qa-relay/disable",
+    "source": "command-center/bcc/features/qa_relay.py",
+    "line": 99,
+    "handler": "disable",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/qa-relay/secret",
+    "source": "command-center/bcc/features/qa_relay.py",
+    "line": 109,
+    "handler": "rotate_secret",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/qa-relay/job",
+    "source": "command-center/bcc/features/qa_relay.py",
+    "line": 125,
+    "handler": "submit_job",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/qa-relay/audit",
+    "source": "command-center/bcc/features/qa_relay.py",
+    "line": 140,
+    "handler": "audit",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 90,
+    "handler": "create_rave",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/rave",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 97,
+    "handler": "list_raves",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/rave/connectors",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 135,
+    "handler": "connectors_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/stop-all",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 153,
+    "handler": "stop_all",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/prune",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 159,
+    "handler": "prune_raves",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/rave/pool",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 169,
+    "handler": "pool_state",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/pool/accounts",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 176,
+    "handler": "pool_add_account",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/rave/pool/accounts/{account_id}",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 185,
+    "handler": "pool_remove_account",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/pool/accounts/{account_id}/check",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 193,
+    "handler": "pool_check_account",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/pool/accounts/{account_id}/clear-limit",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 202,
+    "handler": "pool_clear_limit",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/pool/accounts/{account_id}/enabled",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 210,
+    "handler": "pool_account_enabled",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/pool/enable",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 218,
+    "handler": "pool_enable",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/pool/disable",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 226,
+    "handler": "pool_disable",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/rave/{rid}",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 234,
+    "handler": "get_rave",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/rave/{rid}/events",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 240,
+    "handler": "rave_events",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/{rid}/pause",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 245,
+    "handler": "pause_rave",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/{rid}/resume",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 250,
+    "handler": "resume_rave",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/{rid}/stop",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 255,
+    "handler": "stop_rave",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/rave/{rid}/agents/{name}/diff",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 260,
+    "handler": "agent_diff",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/rave/{rid}/conflicts",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 265,
+    "handler": "rave_conflicts",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/rave/{rid}/agents/{name}/apply",
+    "source": "command-center/bcc/features/rave.py",
+    "line": 272,
+    "handler": "apply_agent",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/reality/compile",
+    "source": "command-center/bcc/features/reality.py",
+    "line": 26,
+    "handler": "compile_mission",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/reality/observe",
+    "source": "command-center/bcc/features/reality.py",
+    "line": 39,
+    "handler": "observe",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/reality/world",
+    "source": "command-center/bcc/features/reality.py",
+    "line": 53,
+    "handler": "world_state",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/reality/strategies",
+    "source": "command-center/bcc/features/reality.py",
+    "line": 110,
+    "handler": "strategies",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/reality/shadow",
+    "source": "command-center/bcc/features/reality.py",
+    "line": 155,
+    "handler": "shadow",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/resources",
+    "source": "command-center/bcc/features/resources.py",
+    "line": 247,
+    "handler": "resources",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/resources/policy",
+    "source": "command-center/bcc/features/resources.py",
+    "line": 263,
+    "handler": "set_policy",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/resources/estimate",
+    "source": "command-center/bcc/features/resources.py",
+    "line": 277,
+    "handler": "estimate",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/resources/reserve",
+    "source": "command-center/bcc/features/resources.py",
+    "line": 285,
+    "handler": "manual_reserve",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/resources/release",
+    "source": "command-center/bcc/features/resources.py",
+    "line": 294,
+    "handler": "manual_release",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/review/enable",
+    "source": "command-center/bcc/features/review_gate.py",
+    "line": 260,
+    "handler": "enable_review",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/review/deadlocks",
+    "source": "command-center/bcc/features/review_gate.py",
+    "line": 281,
+    "handler": "review_deadlocks",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/review/reconcile",
+    "source": "command-center/bcc/features/review_gate.py",
+    "line": 290,
+    "handler": "review_reconcile",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/review/status",
+    "source": "command-center/bcc/features/review_gate.py",
+    "line": 298,
+    "handler": "review_status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/router/rules",
+    "source": "command-center/bcc/features/router.py",
+    "line": 559,
+    "handler": "get_rules",
+    "declared_only": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/router/rules",
+    "source": "command-center/bcc/features/router.py",
+    "line": 564,
+    "handler": "patch_rules",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/router/explain",
+    "source": "command-center/bcc/features/router.py",
+    "line": 574,
+    "handler": "explain",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/router/preview",
+    "source": "command-center/bcc/features/router.py",
+    "line": 587,
+    "handler": "preview",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/router/candidates",
+    "source": "command-center/bcc/features/router.py",
+    "line": 618,
+    "handler": "candidates",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/second-opinion",
+    "source": "command-center/bcc/features/second_opinion.py",
+    "line": 487,
+    "handler": "rules",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/second-opinion/decisions",
+    "source": "command-center/bcc/features/second_opinion.py",
+    "line": 505,
+    "handler": "decisions",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/second-opinion/check",
+    "source": "command-center/bcc/features/second_opinion.py",
+    "line": 512,
+    "handler": "check",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/skills",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 102,
+    "handler": "list_skills",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/skills/{skill_id}",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 117,
+    "handler": "get_skill",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skills",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 135,
+    "handler": "create_skill",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skills/{skill_id}/clone",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 153,
+    "handler": "clone_skill",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/skills/{skill_id}/export",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 172,
+    "handler": "export_skill",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skills/import",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 182,
+    "handler": "import_skill",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skills/{skill_id}/assign",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 197,
+    "handler": "assign_skill",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skills/{skill_id}/run",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 233,
+    "handler": "run_skill",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/skill-retrospectives",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 514,
+    "handler": "list_retrospectives",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skill-retrospectives/{task_id}/dismiss",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 524,
+    "handler": "dismiss_retrospective",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/skill-evaluations",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 537,
+    "handler": "list_evaluations",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skill-evaluations",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 551,
+    "handler": "create_evaluation",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skill-evaluations/{evaluation_id}/refresh",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 574,
+    "handler": "refresh_evaluation",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skill-evaluations/{evaluation_id}/decide",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 582,
+    "handler": "decide_evaluation",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skills/forge/observe",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 607,
+    "handler": "forge_observe",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skills/forge/propose",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 626,
+    "handler": "forge_propose",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skills/forge/apply",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 679,
+    "handler": "forge_apply",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/skill-catalog",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 901,
+    "handler": "list_catalog",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/skill-catalog/select",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 912,
+    "handler": "select_catalog",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/skill-catalog/{source}/{skill}",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 917,
+    "handler": "get_catalog_skill",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skill-catalog/{source}/{skill}/revoke",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 933,
+    "handler": "revoke_catalog",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/skill-catalog/{source}/{skill}/restore",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 947,
+    "handler": "restore_catalog",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/mcp/servers",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 959,
+    "handler": "list_mcp",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/mcp/servers",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 974,
+    "handler": "add_mcp",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/mcp/servers/{server_id}",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 1006,
+    "handler": "del_mcp",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/mcp/tools",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 1072,
+    "handler": "list_mcp_tools",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/mcp/policy",
+    "source": "command-center/bcc/features/skills.py",
+    "line": 1090,
+    "handler": "set_mcp_policy",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/snapshots",
+    "source": "command-center/bcc/features/snapshot.py",
+    "line": 264,
+    "handler": "create_snapshot",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/snapshots",
+    "source": "command-center/bcc/features/snapshot.py",
+    "line": 378,
+    "handler": "list_snapshots",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/snapshots/{snapshot_id}",
+    "source": "command-center/bcc/features/snapshot.py",
+    "line": 398,
+    "handler": "get_snapshot",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/snapshots/{snapshot_id}/restore-preview",
+    "source": "command-center/bcc/features/snapshot.py",
+    "line": 408,
+    "handler": "restore_preview",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/snapshots/{snapshot_id}/restore",
+    "source": "command-center/bcc/features/snapshot.py",
+    "line": 517,
+    "handler": "restore",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/spend",
+    "source": "command-center/bcc/features/spend_meter.py",
+    "line": 321,
+    "handler": "spend",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/spend/limit",
+    "source": "command-center/bcc/features/spend_meter.py",
+    "line": 372,
+    "handler": "set_limit",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/spend/check",
+    "source": "command-center/bcc/features/spend_meter.py",
+    "line": 419,
+    "handler": "check",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/models",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 36,
+    "handler": "models",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/jobs",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 38,
+    "handler": "create",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/jobs",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 40,
+    "handler": "list_jobs",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/jobs/{jid}",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 46,
+    "handler": "job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/jobs/{jid}/cancel",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 48,
+    "handler": "cancel",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/jobs/{jid}/retry",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 66,
+    "handler": "retry",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/runs",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 80,
+    "handler": "list_runs",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/runs/{rid}",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 98,
+    "handler": "get_run",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/runs/{rid}/file",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 100,
+    "handler": "file",
+    "declared_only": true
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/studio/runs/{rid}",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 108,
+    "handler": "patch",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/studio/runs/{rid}",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 118,
+    "handler": "trash",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/runs/{rid}/restore",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 120,
+    "handler": "restore",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/runs/{rid}/reuse",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 127,
+    "handler": "reuse",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/policy",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 140,
+    "handler": "get_policy",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/studio/policy",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 144,
+    "handler": "put_policy",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/budget",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 148,
+    "handler": "get_budget",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/egress/confirm",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 155,
+    "handler": "consent",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/studio/egress/confirmations",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 165,
+    "handler": "revoke",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/references",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 175,
+    "handler": "reference",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/runs/{rid}/video",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 183,
+    "handler": "video",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/runs/{rid}/reframe",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 193,
+    "handler": "reframe",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/storyboard",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 203,
+    "handler": "storyboard",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/runs/package",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 208,
+    "handler": "package",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/packages/{pid}",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 213,
+    "handler": "package_file",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/runs/{rid}/web",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 229,
+    "handler": "web",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/capabilities",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 253,
+    "handler": "capabilities",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/models/refresh",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 261,
+    "handler": "refresh",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/models/recommend",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 264,
+    "handler": "recommend",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/runs/{rid}/memory",
+    "source": "command-center/bcc/features/studio.py",
+    "line": 271,
+    "handler": "memory_reference",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/runs/{rid}/review",
+    "source": "command-center/bcc/features/studio_review.py",
+    "line": 20,
+    "handler": "get_review",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/runs/{rid}/review",
+    "source": "command-center/bcc/features/studio_review.py",
+    "line": 22,
+    "handler": "run_review",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/studio/runs/{rid}/feedback",
+    "source": "command-center/bcc/features/studio_review.py",
+    "line": 27,
+    "handler": "feedback",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/studio/review/stats",
+    "source": "command-center/bcc/features/studio_review.py",
+    "line": 32,
+    "handler": "stats",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/taskxchange/queue",
+    "source": "command-center/bcc/features/task_exchange.py",
+    "line": 298,
+    "handler": "queue_view",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/taskxchange/tick",
+    "source": "command-center/bcc/features/task_exchange.py",
+    "line": 318,
+    "handler": "tick_now",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/taskxchange/result/{app_id}/{task_id}",
+    "source": "command-center/bcc/features/task_exchange.py",
+    "line": 329,
+    "handler": "result",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/calls/status",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 274,
+    "handler": "calls_status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/calls/settings",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 285,
+    "handler": "get_settings",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/calls/settings",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 295,
+    "handler": "put_settings",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/credentials",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 336,
+    "handler": "save_credentials",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/login/start",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 366,
+    "handler": "login_start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/login/code",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 375,
+    "handler": "login_code",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/login/password",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 386,
+    "handler": "login_password",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/logout",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 397,
+    "handler": "logout",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/calls/contacts",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 409,
+    "handler": "contacts",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/calls/peer",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 420,
+    "handler": "put_peer",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/calls/peer",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 447,
+    "handler": "delete_peer",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/call",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 461,
+    "handler": "dial",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/hangup",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 473,
+    "handler": "hangup",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/stop",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 481,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/resume",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 491,
+    "handler": "resume",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/calls/answering",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 500,
+    "handler": "answering_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/answering/start",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 507,
+    "handler": "answering_start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/answering/stop",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 515,
+    "handler": "answering_stop",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/answering/simulate",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 523,
+    "handler": "answering_simulate",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/calls/answering/reports",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 538,
+    "handler": "answering_reports",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/calls/answering/reports/{report_id}",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 548,
+    "handler": "answering_report",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/answering/reports/{report_id}/delivered",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 557,
+    "handler": "answering_report_delivered",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/calls/events",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 567,
+    "handler": "events",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/calls/history",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 572,
+    "handler": "history",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/history/{call_id}/save-memory",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 584,
+    "handler": "save_memory",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/history/{call_id}/draft-tasks",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 594,
+    "handler": "draft_tasks",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/selftest",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 606,
+    "handler": "selftest",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/doctor",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 616,
+    "handler": "doctor",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/calls/install",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 635,
+    "handler": "install_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/calls/install",
+    "source": "command-center/bcc/features/telegram_calls.py",
+    "line": 642,
+    "handler": "install_start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/telegram/models",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 262,
+    "handler": "check_models",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/telegram/settings",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 319,
+    "handler": "get_settings",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/telegram/settings",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 332,
+    "handler": "put_settings",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/telegram/test",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 478,
+    "handler": "test_bot",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/telegram/token",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 514,
+    "handler": "rotate_token",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/telegram/token",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 542,
+    "handler": "revoke_token",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/telegram/commands",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 570,
+    "handler": "set_commands",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/telegram/people",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 615,
+    "handler": "people",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/telegram/profile/{uid}",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 641,
+    "handler": "edit_profile",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/telegram/profile/{uid}",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 662,
+    "handler": "delete_profile",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/telegram/export",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 680,
+    "handler": "export",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/telegram/status",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 820,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/telegram/start",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 825,
+    "handler": "start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/telegram/stop",
+    "source": "command-center/bcc/features/telegram_settings.py",
+    "line": 853,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/terminal/capabilities",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 96,
+    "handler": "capabilities",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/terminal/roots",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 185,
+    "handler": "get_roots",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/terminal/roots",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 191,
+    "handler": "set_roots",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/terminal/preview",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 206,
+    "handler": "preview",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/terminal/run",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 219,
+    "handler": "run",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/terminal/sessions",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 269,
+    "handler": "sessions",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/terminal/sessions/{session_id}/log",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 294,
+    "handler": "session_log",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/terminal/sessions/{session_id}",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 308,
+    "handler": "session_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/terminal/sessions/{session_id}/stdin",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 328,
+    "handler": "stdin",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/terminal/sessions/{session_id}/kill",
+    "source": "command-center/bcc/features/terminal.py",
+    "line": 339,
+    "handler": "kill",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/testing/status",
+    "source": "command-center/bcc/features/testing_period.py",
+    "line": 463,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/testing/log",
+    "source": "command-center/bcc/features/testing_period.py",
+    "line": 481,
+    "handler": "ingest",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/testing/events",
+    "source": "command-center/bcc/features/testing_period.py",
+    "line": 512,
+    "handler": "events",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/testing/publish",
+    "source": "command-center/bcc/features/testing_period.py",
+    "line": 521,
+    "handler": "publish",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/browser/login-receipts",
+    "source": "command-center/bcc/features/tools_browser.py",
+    "line": 1011,
+    "handler": "http_login_receipts",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/browser/login-receipts/{receipt_id}/screenshot",
+    "source": "command-center/bcc/features/tools_browser.py",
+    "line": 1017,
+    "handler": "http_login_receipt_screenshot",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/browser/login-receipts/{receipt_id}/consumed",
+    "source": "command-center/bcc/features/tools_browser.py",
+    "line": 1032,
+    "handler": "http_consume_login_receipt",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/browser/credentials",
+    "source": "command-center/bcc/features/tools_browser.py",
+    "line": 1048,
+    "handler": "http_list_credentials",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/browser/credentials",
+    "source": "command-center/bcc/features/tools_browser.py",
+    "line": 1056,
+    "handler": "http_save_credential",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/browser/credentials/{credential_id}",
+    "source": "command-center/bcc/features/tools_browser.py",
+    "line": 1075,
+    "handler": "http_delete_credential",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/code/config",
+    "source": "command-center/bcc/features/tools_code.py",
+    "line": 211,
+    "handler": "http_config",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/code/config",
+    "source": "command-center/bcc/features/tools_code.py",
+    "line": 221,
+    "handler": "http_set_config",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/code/index",
+    "source": "command-center/bcc/features/tools_code.py",
+    "line": 250,
+    "handler": "http_index",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/code/status",
+    "source": "command-center/bcc/features/tools_code.py",
+    "line": 263,
+    "handler": "http_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/code/search",
+    "source": "command-center/bcc/features/tools_code.py",
+    "line": 276,
+    "handler": "http_search",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/code/expand",
+    "source": "command-center/bcc/features/tools_code.py",
+    "line": 298,
+    "handler": "http_expand",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/computer/status",
+    "source": "command-center/bcc/features/tools_computer.py",
+    "line": 2000,
+    "handler": "http_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/computer/observe",
+    "source": "command-center/bcc/features/tools_computer.py",
+    "line": 2033,
+    "handler": "http_observe",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/computer/stop",
+    "source": "command-center/bcc/features/tools_computer.py",
+    "line": 2041,
+    "handler": "http_stop",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/computer/resume",
+    "source": "command-center/bcc/features/tools_computer.py",
+    "line": 2052,
+    "handler": "http_resume",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/computer/catalog",
+    "source": "command-center/bcc/features/tools_computer.py",
+    "line": 2063,
+    "handler": "http_catalog",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/computer/tasks/{task_id}/apps",
+    "source": "command-center/bcc/features/tools_computer.py",
+    "line": 2088,
+    "handler": "http_task_apps",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/computer/tasks/{task_id}/apps",
+    "source": "command-center/bcc/features/tools_computer.py",
+    "line": 2101,
+    "handler": "http_grant_task_apps",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/computer/tasks/{task_id}/apps",
+    "source": "command-center/bcc/features/tools_computer.py",
+    "line": 2135,
+    "handler": "http_revoke_task_apps",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/memory/facts",
+    "source": "command-center/bcc/features/tools_facts.py",
+    "line": 50,
+    "handler": "http_add_fact",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/memory/facts",
+    "source": "command-center/bcc/features/tools_facts.py",
+    "line": 65,
+    "handler": "http_search_facts",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/memory/facts/as-of",
+    "source": "command-center/bcc/features/tools_facts.py",
+    "line": 75,
+    "handler": "http_facts_as_of",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/memory/facts/history",
+    "source": "command-center/bcc/features/tools_facts.py",
+    "line": 90,
+    "handler": "http_fact_history",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/mcp/runtime",
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "line": 463,
+    "handler": "runtime_status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/mcp/runtime/servers/{ref}/connect",
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "line": 472,
+    "handler": "connect_server",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/mcp/runtime/servers/{ref}/disconnect",
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "line": 492,
+    "handler": "disconnect_server",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/mcp/runtime/servers/{ref}/health",
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "line": 502,
+    "handler": "server_health",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/mcp/runtime/servers/{ref}/refresh",
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "line": 511,
+    "handler": "refresh",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/mcp/runtime/servers/{ref}/tools",
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "line": 524,
+    "handler": "server_tools",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/mcp/runtime/servers/{ref}/resources",
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "line": 536,
+    "handler": "server_resources",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/mcp/runtime/servers/{ref}/prompts",
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "line": 546,
+    "handler": "server_prompts",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/mcp/runtime/servers/{ref}/call",
+    "source": "command-center/bcc/features/tools_mcp.py",
+    "line": 556,
+    "handler": "call",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/memory/config",
+    "source": "command-center/bcc/features/tools_memory.py",
+    "line": 173,
+    "handler": "get_config",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/memory/config",
+    "source": "command-center/bcc/features/tools_memory.py",
+    "line": 193,
+    "handler": "set_config",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/memory/index",
+    "source": "command-center/bcc/features/tools_memory.py",
+    "line": 248,
+    "handler": "http_index",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/memory/search",
+    "source": "command-center/bcc/features/tools_memory.py",
+    "line": 259,
+    "handler": "http_search",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/memory/expand",
+    "source": "command-center/bcc/features/tools_memory.py",
+    "line": 285,
+    "handler": "http_expand",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/memory/write",
+    "source": "command-center/bcc/features/tools_memory.py",
+    "line": 298,
+    "handler": "http_write",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/memory/stats",
+    "source": "command-center/bcc/features/tools_memory.py",
+    "line": 323,
+    "handler": "http_stats",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/openclaw/config",
+    "source": "command-center/bcc/features/tools_openclaw.py",
+    "line": 531,
+    "handler": "get_config",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/openclaw/config",
+    "source": "command-center/bcc/features/tools_openclaw.py",
+    "line": 536,
+    "handler": "set_config",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/openclaw/health",
+    "source": "command-center/bcc/features/tools_openclaw.py",
+    "line": 554,
+    "handler": "check",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/trading-lab/status",
+    "source": "command-center/bcc/features/trading_lab.py",
+    "line": 68,
+    "handler": "trading_lab_status",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/trading-lab/seed",
+    "source": "command-center/bcc/features/trading_lab.py",
+    "line": 74,
+    "handler": "trading_lab_seed",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/trading-lab/benchmark",
+    "source": "command-center/bcc/features/trading_lab.py",
+    "line": 83,
+    "handler": "trading_lab_benchmark",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/trading-lab/memory",
+    "source": "command-center/bcc/features/trading_lab.py",
+    "line": 92,
+    "handler": "trading_lab_memory",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/search",
+    "source": "command-center/bcc/features/unified_search.py",
+    "line": 229,
+    "handler": "search",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/v15/autonomy/status",
+    "source": "command-center/bcc/features/v15_autonomy.py",
+    "line": 72,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v15/autonomy/plan",
+    "source": "command-center/bcc/features/v15_autonomy.py",
+    "line": 89,
+    "handler": "plan",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/v15/economy/status",
+    "source": "command-center/bcc/features/v15_economy.py",
+    "line": 113,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v15/economy/start",
+    "source": "command-center/bcc/features/v15_economy.py",
+    "line": 135,
+    "handler": "start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v15/economy/stop",
+    "source": "command-center/bcc/features/v15_economy.py",
+    "line": 177,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v15/economy/reconcile",
+    "source": "command-center/bcc/features/v15_economy.py",
+    "line": 184,
+    "handler": "reconcile",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/v15/owner-run/status",
+    "source": "command-center/bcc/features/v15_owner_run.py",
+    "line": 64,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v15/owner-run/quick-test",
+    "source": "command-center/bcc/features/v15_owner_run.py",
+    "line": 74,
+    "handler": "quick_test",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v15/owner-run/start",
+    "source": "command-center/bcc/features/v15_owner_run.py",
+    "line": 100,
+    "handler": "start",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/v15/owner-run/stop",
+    "source": "command-center/bcc/features/v15_owner_run.py",
+    "line": 108,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/v15/self-repair/inbox",
+    "source": "command-center/bcc/features/v15_self_repair.py",
+    "line": 210,
+    "handler": "inbox",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/status",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 76,
+    "handler": "status",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/vibe/jobs",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 90,
+    "handler": "create_job",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/jobs",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 95,
+    "handler": "jobs",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/jobs/{job_id}",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 100,
+    "handler": "job",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/jobs/{job_id}/events",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 105,
+    "handler": "job_events",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/vibe/jobs/{job_id}/cancel",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 110,
+    "handler": "cancel",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/vibe/jobs/{job_id}/retry",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 115,
+    "handler": "retry",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/apps",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 120,
+    "handler": "apps",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/apps/{slug}",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 125,
+    "handler": "app_meta",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/apps/{slug}/versions/{n}/preview",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 130,
+    "handler": "preview",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/apps/{slug}/diff",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 135,
+    "handler": "diff",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/vibe/apps/{slug}/rollback",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 140,
+    "handler": "rollback",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/vibe/apps/{slug}/promote",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 145,
+    "handler": "promote",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/vibe/apps/{slug}/promote/finish",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 150,
+    "handler": "promote_finish",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/promoted/{slug}/",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 155,
+    "handler": "promoted",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/vibe/long-run",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 160,
+    "handler": "long_run_report",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/vibe/stop",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 165,
+    "handler": "stop",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/vibe/resume",
+    "source": "command-center/bcc/features/vibe.py",
+    "line": 170,
+    "handler": "resume",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/capabilities",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 130,
+    "handler": "capabilities",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 151,
+    "handler": "projects",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/projects",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 155,
+    "handler": "create",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects/{project_id}",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 162,
+    "handler": "project",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects/{project_id}/history",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 166,
+    "handler": "history",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/projects/{project_id}/lease",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 170,
+    "handler": "lease",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/projects/{project_id}/lease/release",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 175,
+    "handler": "release_lease",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/video-studio/projects/{project_id}/lease",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 175,
+    "handler": "release_lease",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/commands",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 179,
+    "handler": "command",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/media",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 183,
+    "handler": "upload",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/media/{media_id}/file",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 191,
+    "handler": "media_file",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/media/{media_id}/thumbnail",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 196,
+    "handler": "thumbnail",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/media/{media_id}/proxy",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 201,
+    "handler": "proxy",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/media/{media_id}/waveform",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 206,
+    "handler": "waveform",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects/{project_id}/exports",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 211,
+    "handler": "project_exports",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/proposals",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 220,
+    "handler": "proposal",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/portable",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 224,
+    "handler": "portable",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/portable/import",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 230,
+    "handler": "portable_import",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/analysis",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 234,
+    "handler": "analysis",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/media/relink",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 238,
+    "handler": "relink",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/captions/import",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 242,
+    "handler": "caption_import",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects/{project_id}/captions",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 251,
+    "handler": "caption_export",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/otio/import",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 258,
+    "handler": "otio_import",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects/{project_id}/otio",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 266,
+    "handler": "otio_export",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects/{project_id}/shotcut",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 282,
+    "handler": "shotcut_export",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects/{project_id}/versions/{revision}",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 295,
+    "handler": "version",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects/{project_id}/compare",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 299,
+    "handler": "compare",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/projects/{project_id}/media-health",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 305,
+    "handler": "media_health",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/exports",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 319,
+    "handler": "export",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/exports/{job_id}",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 323,
+    "handler": "job",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/exports/{job_id}/cancel",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 327,
+    "handler": "cancel",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/exports/{job_id}/file",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 334,
+    "handler": "output",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/chat",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 345,
+    "handler": "chat",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/video-studio/chat",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 349,
+    "handler": "chat_history",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/video-studio/chat/{task_id}/run",
+    "source": "command-center/bcc/features/video_studio.py",
+    "line": 355,
+    "handler": "chat_run",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/watchdog",
+    "source": "command-center/bcc/features/watchdog.py",
+    "line": 388,
+    "handler": "watchdog",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/watchdog/history",
+    "source": "command-center/bcc/features/watchdog.py",
+    "line": 404,
+    "handler": "history",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/web-designer/models",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 412,
+    "handler": "ai_models",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/web-designer/projects",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 431,
+    "handler": "list_projects",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/web-designer/projects",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 451,
+    "handler": "create_project",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/web-designer/templates",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 503,
+    "handler": "templates",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/web-designer/projects/{pid}",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 509,
+    "handler": "get_project",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/web-designer/projects/{pid}/code",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 517,
+    "handler": "put_code",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/web-designer/visual-editor",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 530,
+    "handler": "visual_editor",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/web-designer/projects/{pid}/visual",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 545,
+    "handler": "get_visual",
+    "declared_only": true
+  },
+  {
+    "method": "PUT",
+    "path": "/api/web-designer/projects/{pid}/visual",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 559,
+    "handler": "put_visual",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/web-designer/projects/{pid}/generate",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 576,
+    "handler": "generate_site",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/web-designer/projects/{pid}/edit",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 602,
+    "handler": "edit_project",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/web-designer/projects/{pid}/preview",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 668,
+    "handler": "preview",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/web-designer/projects/{pid}/ai-edit",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 687,
+    "handler": "ai_edit",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/web-designer/projects/{pid}/versions",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 815,
+    "handler": "versions",
+    "declared_only": true
+  },
+  {
+    "method": "POST",
+    "path": "/api/web-designer/projects/{pid}/versions/{version}/restore",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 822,
+    "handler": "restore_version",
+    "declared_only": true
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/web-designer/projects/{pid}",
+    "source": "command-center/bcc/features/web_designer.py",
+    "line": 836,
+    "handler": "delete_project",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/workflow/missions",
+    "source": "command-center/bcc/features/workflow.py",
+    "line": 466,
+    "handler": "workflow_missions",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/workflow/missions/{mission_id}",
+    "source": "command-center/bcc/features/workflow.py",
+    "line": 477,
+    "handler": "workflow_mission",
+    "declared_only": true
+  },
+  {
+    "method": "GET",
+    "path": "/api/workflow/missions/{mission_id}/log",
+    "source": "command-center/bcc/features/workflow.py",
+    "line": 500,
+    "handler": "workflow_log",
+    "declared_only": true
+  }
+]

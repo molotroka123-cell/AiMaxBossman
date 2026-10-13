@@ -1,0 +1,1160 @@
+[
+  {
+    "slug": "video_studio_render",
+    "label": "Video Studio: компилятор filtergraph (preview и export)",
+    "parent": "media",
+    "source": "command-center/bcc/video_studio/render.py",
+    "tests": [
+      "command-center/tests/test_video_studio_render.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_video_studio_render.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_studio_render"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_studio_service",
+    "label": "Video Studio: интеграция с хостом (БД, задачи, команды)",
+    "parent": "media",
+    "source": "command-center/bcc/video_studio/service.py",
+    "tests": [
+      "command-center/tests/test_video_studio_domain.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_video_studio_domain.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_studio_service"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_studio_storyboard",
+    "label": "Video Studio: раскадровка и рецепты кадров",
+    "parent": "media",
+    "source": "command-center/bcc/video_studio/storyboard.py",
+    "tests": [
+      "command-center/tests/test_video_storyboard.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_video_storyboard.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_studio_storyboard"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_studio_trained",
+    "label": "Video Studio: черновик команд от модели + валидация",
+    "parent": "media",
+    "source": "command-center/bcc/video_studio/trained.py",
+    "tests": [
+      "command-center/tests/test_video_studio_trained.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_video_studio_trained.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_studio_trained"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_studio_shotcut",
+    "label": "Video Studio: обмен проектами Shotcut/MLT",
+    "parent": "media",
+    "source": "command-center/bcc/video_studio/shotcut.py",
+    "tests": [
+      "command-center/tests/test_video_studio_shotcut.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_video_studio_shotcut.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_studio_shotcut"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_studio_interchange",
+    "label": "Video Studio: обмен OpenTimelineIO",
+    "parent": "media",
+    "source": "command-center/bcc/video_studio/interchange.py",
+    "tests": [
+      "command-center/tests/test_video_studio_interchange.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_video_studio_interchange.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_studio_interchange"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_studio_analysis",
+    "label": "Video Studio: диагностика, тайминг субтитров, ASR",
+    "parent": "media",
+    "source": "command-center/bcc/video_studio/analysis.py",
+    "tests": [],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_studio_analysis"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_studio_retrieval",
+    "label": "Video Studio: поиск B-roll и дубликатов",
+    "parent": "media",
+    "source": "command-center/bcc/video_studio/retrieval.py",
+    "tests": [],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_studio_retrieval"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_adapter_train",
+    "label": "Video Studio: обучение LoRA-адаптера команд",
+    "parent": "media",
+    "source": "tools/video_studio/train_adapter.py",
+    "tests": [
+      "command-center/tests/test_video_studio_trained.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_video_studio_trained.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_adapter_train"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "studio_provider",
+    "label": "Studio: жизненный цикл провайдеров",
+    "parent": "media",
+    "source": "command-center/bcc/studio/provider.py",
+    "tests": [
+      "command-center/tests/test_studio_provider_states.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_studio_provider_states.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-studio_provider"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "studio_sdcpp",
+    "label": "Studio: локальная генерация stable-diffusion.cpp",
+    "parent": "media",
+    "source": "command-center/bcc/studio/providers/sdcpp.py",
+    "tests": [
+      "command-center/tests/test_studio_sdcpp_hostile.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_studio_sdcpp_hostile.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-studio_sdcpp"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "studio_comfyui",
+    "label": "Studio: провайдер ComfyUI",
+    "parent": "media",
+    "source": "command-center/bcc/studio/providers/comfyui.py",
+    "tests": [],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-studio_comfyui"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "studio_openrouter",
+    "label": "Studio: провайдер OpenRouter (изображения и видео)",
+    "parent": "media",
+    "source": "command-center/bcc/studio/providers/openrouter.py",
+    "tests": [
+      "command-center/tests/test_studio_paid_dispatch_audit.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_studio_paid_dispatch_audit.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-studio_openrouter"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "studio_governance",
+    "label": "Studio: бюджетные резервы по функциям",
+    "parent": "media",
+    "source": "command-center/bcc/studio/governance.py",
+    "tests": [
+      "command-center/tests/test_studio_paid_dispatch_audit.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_studio_paid_dispatch_audit.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-studio_governance"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "studio_review",
+    "label": "Studio: локальный просмотр сгенерированных видео",
+    "parent": "media",
+    "source": "command-center/bcc/studio/review.py",
+    "tests": [
+      "command-center/tests/test_studio_vision_review.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_studio_vision_review.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-studio_review"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "oss_comfyui",
+    "label": "ComfyUI: ограниченный локальный адаптер",
+    "parent": "media",
+    "source": "command-center/bcc/oss/comfyui.py",
+    "tests": [
+      "command-center/tests/test_oss_comfyui.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_oss_comfyui.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-oss_comfyui"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "web_designer_gen",
+    "label": "Web Designer: генерация сайтов",
+    "parent": "media",
+    "source": "command-center/bcc/web_designer_gen.py",
+    "tests": [
+      "command-center/tests/test_web_designer.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_web_designer.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-web_designer_gen"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "web_designer_visual",
+    "label": "Web Designer: визуальный редактор (версии)",
+    "parent": "media",
+    "source": "command-center/bcc/web_designer_visual.py",
+    "tests": [
+      "command-center/tests/test_web_designer_visual.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_web_designer_visual.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-web_designer_visual"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "web_designer_ai_build",
+    "label": "Web Designer: сборка с помощью ИИ",
+    "parent": "media",
+    "source": "command-center/bcc/web_designer_ai_build.py",
+    "tests": [],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-web_designer_ai_build"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "ai3d_pipeline",
+    "label": "3D Maker: пайплайн от запроса до печатаемого артефакта",
+    "parent": "media",
+    "source": "apps/ai-3d-maker/src/ai_3d_maker/pipeline.py",
+    "tests": [
+      "apps/ai-3d-maker/tests/test_pipeline.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "apps/ai-3d-maker/tests/test_pipeline.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-ai3d_pipeline"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "ai3d_gcode",
+    "label": "3D Maker: сканер безопасности G-code",
+    "parent": "media",
+    "source": "apps/ai-3d-maker/src/ai_3d_maker/gcode.py",
+    "tests": [
+      "apps/ai-3d-maker/tests/test_gcode.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "apps/ai-3d-maker/tests/test_gcode.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-ai3d_gcode"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "social_farm_media",
+    "label": "Social Farm: преобразование медиа без изменения исходника",
+    "parent": "media",
+    "source": "apps/social-farm/src/social_farm/media/transform.py",
+    "tests": [
+      "apps/social-farm/tests/unit/test_media_transform.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "apps/social-farm/tests/unit/test_media_transform.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-social_farm_media"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "motion_make_video",
+    "label": "Motion Studio: сцена в видео (озвучка, музыка)",
+    "parent": "media",
+    "source": "tools/motion_studio/make_video.py",
+    "tests": [
+      "tests/test_motion_studio.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "tests/test_motion_studio.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-motion_make_video"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "motion_epic",
+    "label": "Motion Studio: оффлайн-трейлер на Pillow",
+    "parent": "media",
+    "source": "tools/motion_studio/epic.py",
+    "tests": [
+      "tests/test_motion_epic.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "tests/test_motion_epic.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-motion_epic"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "genjutsu_tool",
+    "label": "Genjutsu: локальная замена персонажа и перенос движения",
+    "parent": "media",
+    "source": "tools/genjutsu/genjutsu.py",
+    "tests": [],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-genjutsu_tool"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "promo_video",
+    "label": "Промо-видео: рендер с саундтреком",
+    "parent": "media",
+    "source": "tools/promo_video/render.py",
+    "tests": [],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-promo_video"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "oss_piper",
+    "label": "Piper: локальный русский TTS",
+    "parent": "jeff",
+    "source": "command-center/bcc/oss/piper.py",
+    "tests": [
+      "command-center/tests/test_local_russian_voice.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_local_russian_voice.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-oss_piper"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "oss_chatterbox",
+    "label": "Chatterbox: офлайн-клон голоса (отдельный воркер)",
+    "parent": "jeff",
+    "source": "command-center/bcc/oss/chatterbox_clone.py",
+    "tests": [
+      "command-center/tests/test_local_voice_clone.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_local_voice_clone.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-oss_chatterbox"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "oss_whisper",
+    "label": "Whisper: офлайн-распознавание речи",
+    "parent": "jeff",
+    "source": "command-center/bcc/oss/whisper.py",
+    "tests": [],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-oss_whisper"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "voice_capability",
+    "label": "Возможности голосовых провайдеров",
+    "parent": "jeff",
+    "source": "bossman-core/bossman/voice_capability.py",
+    "tests": [
+      "bossman-core/tests/test_v26_voice_capability.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "bossman-core/tests/test_v26_voice_capability.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-voice_capability"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "earning_emulator",
+    "label": "Эмулятор заработка на удалённой вакансии (симуляция)",
+    "parent": "apps",
+    "source": "command-center/bcc/earning_emulator.py",
+    "tests": [
+      "command-center/tests/test_earning_emulator.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_earning_emulator.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-earning_emulator"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "earning_emulator_cli",
+    "label": "Эмулятор заработка: командная строка (один GET публичной страницы)",
+    "parent": "apps",
+    "source": "tools/earning_emulator.py",
+    "tests": [
+      "command-center/tests/test_earning_emulator_cli.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_earning_emulator_cli.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-earning_emulator_cli"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "leaf_usefulness_queue",
+    "label": "Очередь проверки листьев по полезности (гипотеза)",
+    "parent": "ops",
+    "source": "tools/leaf_usefulness_queue.py",
+    "tests": [
+      "tests/test_leaf_usefulness_queue.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "tests/test_leaf_usefulness_queue.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-leaf_usefulness_queue"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "tree_registry_sync",
+    "label": "Синхронизация дерева с реестром: уровни доказательств",
+    "parent": "ops",
+    "source": "tools/tree_registry_sync.py",
+    "tests": [
+      "tests/test_tree_registry_sync.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "tests/test_tree_registry_sync.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-tree_registry_sync"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "blue_leaf_audit_tool",
+    "label": "Аудит синих листьев по записанным прогонам тестов",
+    "parent": "ops",
+    "source": "tools/blue_leaf_audit.py",
+    "tests": [
+      "tests/test_blue_leaf_audit.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "tests/test_blue_leaf_audit.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-blue_leaf_audit_tool"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "faceswap_video_job",
+    "label": "Замена лица в видео: FaceFusion, куски без потерь, VFR→CFR",
+    "parent": "media",
+    "source": "command-center/bcc/direct_gen/faceswap.py",
+    "tests": [
+      "command-center/tests/test_direct_gen_faceswap.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_direct_gen_faceswap.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-faceswap_video_job"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "faceswap_pose_gate",
+    "label": "Поза-гейт: не клеить лицо на опущенную голову",
+    "parent": "media",
+    "source": "command-center/bcc/direct_gen/pose_gate_worker.py",
+    "tests": [
+      "command-center/tests/test_direct_gen_faceswap.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_direct_gen_faceswap.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-faceswap_pose_gate",
+      "reg-faceswap_hairline_guard"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "pult_owner_only",
+    "label": "Пульт пишет только владельцу",
+    "parent": "ux",
+    "source": "command-center/bcc/telegram_companion/service.py",
+    "tests": [
+      "command-center/tests/telegram_contracts/test_pult_owner_only_delivery.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/telegram_contracts/test_pult_owner_only_delivery.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-pult_owner_only"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "tree_haiku_judge",
+    "label": "Судья дерева Haiku 5.5: спорные листья по тестам",
+    "parent": "ops",
+    "source": "tools/tree_proof/haiku_adjudicate.py",
+    "tests": [
+      "tests/test_tree_haiku_adjudicate.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "tests/test_tree_haiku_adjudicate.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-tree_haiku_judge"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "tree_haiku_translate",
+    "label": "Перевод дерева на русский (Haiku 5.5, лимит $)",
+    "parent": "ops",
+    "source": "tools/tree_proof/haiku_translate.py",
+    "tests": [
+      "tests/test_tree_translate.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "tests/test_tree_translate.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-tree_haiku_translate"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "wan_animate_rocm",
+    "label": "Wan2.2-Animate локально на Radeon (ROCm, Windows)",
+    "parent": "media",
+    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+    "status": "blocked",
+    "detail": "7 попыток 10.10: после обходов (маска-видео, int8 выкл, MIOPEN_FIND_MODE=FAST) профиль 1 — нехватка памяти, профиль 3 — HIP launch failure через 8.5 мин. Гипотеза: сброс драйвера Windows (TDR); ждёт решения владельца (TdrDelay + перезагрузка).",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-wan_animate_rocm",
+      "reg-video_gate0_f1",
+      "reg-video_gate1_face2face",
+      "reg-video_stage3_mimics",
+      "reg-video_stage4_background"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_gate0_f1",
+    "label": "Видео Gate 0: сходство анимации (конвейер без эффектов)",
+    "parent": "media",
+    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+    "status": "prepared",
+    "detail": "10.10, клип 441 кадр: мастер без потерь бит-в-бит = исходник (все метрики 0) — PASS конвейера; выдача H.264 crf 10 — FAIL T4/T6 только из-за шума кодека (пороги a704eda9 не менялись). Отчёты gate0-20261010.",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-wan_animate_rocm",
+      "reg-video_gate0_f1",
+      "reg-video_gate1_face2face",
+      "reg-video_stage3_mimics",
+      "reg-video_stage4_background"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_gate1_face2face",
+    "label": "Видео Gate 1: лицо→лицо, вне лица пиксель в пиксель",
+    "parent": "media",
+    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+    "status": "prepared",
+    "detail": "10.10: контрольный клип 90 кадров — PASS (metric v4): 0 пикселей вне лица, мимика 0.019, дрожание 0.014, похожесть 0.794. Стресс на реальных роликах: kisliy — похожесть 0.749 и дрожание 0.027 (FAIL), клип 1 — FAIL. Ждёт подтверждения владельца в пульте.",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-wan_animate_rocm",
+      "reg-video_gate0_f1",
+      "reg-video_gate1_face2face",
+      "reg-video_stage3_mimics",
+      "reg-video_stage4_background"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_stage2_clothes",
+    "label": "Видео этап 2: замена одежды",
+    "parent": "media",
+    "source": "tools/genjutsu/clothes_swap.py",
+    "status": "prepared",
+    "detail": "Пороги 779cebc7. Пробный прогон 33 кадра (Wan2.1 VACE 1.3B, Vulkan, 25 с/кадр): вне маски 0, лицо 0.98, мерцание +1.18 — PASS; униформа ΔE 15.1 и тело 0.183 — FAIL (волосы в маске). Волосы вычитаются; идёт прогон 81 кадр.",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_stage2_clothes"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_stage3_mimics",
+    "label": "Видео этап 3: Mimics 2.0 (мимика)",
+    "parent": "media",
+    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+    "status": "idea",
+    "detail": "Очередь после этапа 2. Что такое Mimics 2.0 — ждёт уточнения владельца (в коде и истории модуля с таким именем нет). Варианты дообучения на RunPod записаны в docs/owner/VIDEO_PIPELINE_STAGES_20261010.md.",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-wan_animate_rocm",
+      "reg-video_gate0_f1",
+      "reg-video_gate1_face2face",
+      "reg-video_stage3_mimics",
+      "reg-video_stage4_background"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_stage4_background",
+    "label": "Видео этап 4: замена фона",
+    "parent": "media",
+    "source": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
+    "status": "idea",
+    "detail": "Очередь после этапа 3. Кандидаты: Grounded-SAM-2 + RobustVideoMatting (локально); варианты дообучения RVM на RunPod записаны в docs/owner/VIDEO_PIPELINE_STAGES_20261010.md.",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-wan_animate_rocm",
+      "reg-video_gate0_f1",
+      "reg-video_gate1_face2face",
+      "reg-video_stage3_mimics",
+      "reg-video_stage4_background"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "genjutsu_live_constructor",
+    "label": "Конструктор Genjutsu: живая смена цвета волос и одежды по маскам",
+    "parent": "media",
+    "source": "command-center/bcc/direct_gen/genjutsu.py",
+    "tests": [
+      "command-center/tests/test_direct_gen_genjutsu.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_direct_gen_genjutsu.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-genjutsu_live_constructor"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "cu_task_scoped_apps",
+    "label": "Computer Use: приложения на задачу + привязка к окну HWND/PID",
+    "parent": "computer",
+    "source": "command-center/bcc/features/tools_computer.py",
+    "tests": [
+      "command-center/tests/test_cu_task_apps_binding.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_cu_task_apps_binding.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "mod-tools_computer",
+      "reg-cu_task_scoped_apps"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "faceswap_makeup_layer",
+    "label": "Слой макияжа поверх замены лица",
+    "parent": "media",
+    "source": "command-center/bcc/direct_gen/makeup_worker.py",
+    "status": "prepared",
+    "detail": "Гейт макияжа (правило c87a8d6d): A обычная замена 0.751/ΔE 27, C макияж из оригинала 0.602/ΔE 11.8, D слой 0.602/ΔE 16.4 — по правилу A; выбор между похожестью и макияжем за владельцем.",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-faceswap_makeup_layer"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "faceswap_hairline_guard",
+    "label": "Страж линии волос (без пятен-чёлок на висках)",
+    "parent": "media",
+    "source": "command-center/bcc/direct_gen/pose_gate_worker.py",
+    "tests": [
+      "command-center/tests/test_direct_gen_faceswap.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_direct_gen_faceswap.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-faceswap_pose_gate",
+      "reg-faceswap_hairline_guard"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "video_animation_gate",
+    "label": "Замер гейтов видео: кадры, пиксели, мимика, тело, поток, дрожание",
+    "parent": "media",
+    "source": "tools/video_gate/animation_gate.py",
+    "status": "prepared",
+    "detail": "metric v4; пороги фиксируются до теста. Gate 0 и Gate 1 измерены 10.10 на реальных роликах; side-by-side и контакт-листы сохраняются локально.",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-video_animation_gate"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "trend_edit_analyzer",
+    "label": "Разбор трендового эдита: склейки, бит, синхрон, хук",
+    "parent": "apps",
+    "source": "tools/trend_edit/analyze_edit.py",
+    "status": "prepared",
+    "detail": "Прототип 10.10: на двух роликах владельца 11 склеек, 129 BPM, синхрон склеек с битом 18–36%. Оценка структуры — эвристика, не прогноз просмотров.",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-trend_edit_analyzer"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "vibe_studio_service",
+    "label": "Vibe Studio: очередь задач, STOP, возобновление и версии",
+    "parent": "apps",
+    "source": "command-center/bcc/vibe/service.py",
+    "tests": [
+      "command-center/tests/test_vibe_studio.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_vibe_studio.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-vibe_studio_service"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "jeff_browser_search",
+    "label": "Jeff: необязательный браузерный поиск (по умолчанию выключен)",
+    "parent": "jeff",
+    "source": "command-center/bcc/pit/j2/browser_search.py",
+    "tests": [
+      "command-center/tests/test_jeff_browser_search.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "command-center/tests/test_jeff_browser_search.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-jeff_browser_search"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "dataset_check_faces",
+    "label": "Проверка датасета лиц на CPU перед обучением (без загрузки наружу)",
+    "parent": "media",
+    "source": "tools/dataset_check/check_faces.py",
+    "tests": [
+      "tests/test_dataset_check_faces.py"
+    ],
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [
+      {
+        "path": "tests/test_dataset_check_faces.py",
+        "exists": true
+      }
+    ],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-dataset_check_faces"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "local_gen_bench",
+    "label": "Бенч локальной генерации видео: sd.cpp Vulkan, пороги заморожены до запуска",
+    "parent": "models",
+    "source": "tools/local_gen/bench_local_gen.py",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-local_gen_bench"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  },
+  {
+    "slug": "studio_v2_e2e",
+    "label": "Motion Studio V2: приёмочный прогон на реальном бэкенде и браузере",
+    "parent": "media",
+    "source": "tools/studio_v2_e2e.py",
+    "source_exists": true,
+    "source_in_main": true,
+    "test_files": [],
+    "seed_id_present": false,
+    "matching_seed_sources": [
+      "reg-studio_v2_e2e"
+    ],
+    "execution_status": "NOT_RUN_IN_THIS_AUDIT"
+  }
+]
