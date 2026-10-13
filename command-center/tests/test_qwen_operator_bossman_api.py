@@ -133,3 +133,16 @@ async def test_call_uses_the_really_bound_port(stack, monkeypatch):  # noqa: F81
     monkeypatch.setenv("BCC_ACTUAL_PORT", "8801")
     await qo.call_bossman_api(svc, "GET", "/api/motion-studio/status")
     assert urls == ["http://127.0.0.1:8801/api/motion-studio/status"]
+
+
+async def test_read_only_task_with_no_readable_file_still_answers(stack, repo):  # noqa: F811
+    """Seen live 13.10 (15c792545a28): the plan named files that do not exist -> 'анализ не получен'."""
+    svc, _c, _a = stack
+    plan = {**PLAN, "files": [], "read_files": ["docs/owner/DOES_NOT_EXIST.md"], "read_only": True}
+    f = Fakes(repo, plan)
+    rec = await qo.start_task(svc, "объясни, как работает pkg", source_repo=str(repo), decision_wait_s=0,
+                              local_chat=f.local_chat, free_cloud=f.free_cloud, coder=f.coder)
+    await qo._JOBS[rec["id"]]
+    saved = json.loads((Path(svc.settings.data_dir) / "qwen-operator" / f"{rec['id']}.json").read_text("utf-8"))
+    assert saved["status"] == "completed", saved.get("error")
+    assert saved["analysis"] and not saved.get("commit_sha")

@@ -59,6 +59,9 @@ CTX_LADDER = (65536, 131072, 262144)  # sufficiency monitor escalates along this
 CTX_MIN = 4096
 CTX_PRESSURE_LIMIT = 0.8             # prompt + reserve above 80% of ctx = "context was not enough"
 MAX_QUEUE = 20
+#: One local planner / analysis / verifier call. Seen live 13.10: a call stalled 40 min behind the pult's own
+#: generation (model swap) and held the single operator slot; 15 min covers a 27B load plus a 64k prompt.
+LOCAL_CHAT_TIMEOUT_S = 900.0
 DEFAULT_DECISION_WAIT_S = None      # no deadline: wait for the owner until STOP / cancel (0 = do not wait)
 DECISION_KIND = "operator_decision"
 TERMINAL = ("completed", "completed_with_pending_decisions", "failed", "stopped")
@@ -385,7 +388,7 @@ async def ollama_ps(client: httpx.AsyncClient | None = None) -> list[dict]:
 
 
 async def ollama_chat(model: str, messages: list[dict], *, num_ctx: int = CTX_DEFAULT, json_mode: bool = False,
-                      num_predict: int = 2048, timeout: float = 1800.0, transport: Any = None) -> dict:
+                      num_predict: int = 2048, timeout: float = LOCAL_CHAT_TIMEOUT_S, transport: Any = None) -> dict:
     """One request to the local Ollama (native API: ``num_ctx`` is only settable here). Returns text + measured
     receipts; never raises for a model failure - the caller records ``error``."""
     payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False, "think": False,
@@ -761,6 +764,7 @@ class Run:
                   '(вызовы Motion Studio Bossman; только эти маршруты, до 12 вызовов)}. '
                   "Правь только то, что просит задача. Пути бери из списка файлов репозитория.")
         user = f"ЗАДАЧА ВЛАДЕЛЬЦА:\n{task}\n\nФАЙЛЫ РЕПОЗИТОРИЯ (отобраны по задаче):\n{context}"
+        self.rec["name_hits"] = hits[:40]
         cfg = self.cfg["planner"]
         last_problem = ""
         for attempt in range(1, 3):
@@ -1014,7 +1018,11 @@ async def _execute(run: Run) -> dict:
                 await run.gate_bossman_api(c)
         calls_text = "\n".join(f"{c.get('method')} {c.get('path')} -> {c.get('status')}: "
                                f"{str(c.get('response') or '')[:1500]}" for c in rec.get("bossman_calls", []))
-        analysis = await analyze(run, task, plan, got, calls_text) if (got or calls_text) else ""
+        if not got and not calls_text:
+            # nothing readable: still answer, from the task text and the files matched by name
+            calls_text = "Прочитать файлы не удалось. Файлы репозитория, подходящие по имени:\n" + "\n".join(
+                rec.get("name_hits") or ["(совпадений по именам нет)"])
+        analysis = await analyze(run, task, plan, got, calls_text)
         rec["analysis"] = analysis
         await run.settle_decisions()
         rec["promotion"] = {"status": "NOT_APPLICABLE", "reason": "read-only task: nothing changed",
