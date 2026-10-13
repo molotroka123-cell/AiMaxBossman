@@ -1085,6 +1085,18 @@ class Models:
                     raise
                 raise CompanionError("VISION_MODEL_UNAVAILABLE") from None
 
+    async def refine_media_prompt(self, instructions: str, prompt: str) -> str:
+        """Explicit configured uncensored Qwen route; no alternate/cloud fallback."""
+        s = self.settings
+        choices = [(s.local_url, s.local_model, s.local_timeout),
+                   (s.fast_url, s.fast_model, s.fast_timeout)]
+        chosen = next((r for r in choices if "qwen" in r[1].lower() and "uncensored" in r[1].lower()), None)
+        if chosen is None:
+            raise CompanionError("MEDIA_QWEN_NOT_CONFIGURED")
+        async with self.lock:
+            return await self._local(*chosen, prompt,
+                                     [{"role": "system", "content": instructions}])
+
     async def summarize(self, instructions: str, transcript: str) -> str:
         """Profile building: prefer the fast route; low priority, never cloud."""
         route = "fast" if self.settings.fast_model else "main"
