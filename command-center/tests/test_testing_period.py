@@ -56,13 +56,20 @@ async def test_a_full_batch_is_one_append_not_two_hundred(env, monkeypatch):
             opens["n"] += 1
         return orig(path, *a, **kw)
     monkeypatch.setattr(builtins, "open", counting_open)
+    one = [{"kind": "ui.click", "data": {"element": "button#warm", "page": "#/direct-gen"}}]
+    t0 = time.perf_counter()
+    assert (await env.client.post("/api/testing/log", json={"events": one})).status_code == 200
+    single = time.perf_counter() - t0
+    opens["n"] = 0
     events = [{"kind": "ui.click", "data": {"element": f"button#b{i}", "page": "#/direct-gen"}} for i in range(200)]
     t0 = time.perf_counter()
     res = await env.client.post("/api/testing/log", json={"events": events})
     took = time.perf_counter() - t0
     assert res.status_code == 200 and res.json()["accepted"] == 200
-    assert opens["n"] == 1, opens
-    assert took < 2.0, took
+    assert opens["n"] == 1, opens                                  # the structural fix: one open for the batch
+    # Relative to a one-event POST on the same machine: the old per-event lock + thread hop + open made it ~200x;
+    # a fixed 2 s failed on loaded CI runners with coverage (2.6-3.3 s on py3.12, 12.10).
+    assert took < max(2.0, 25 * single), (took, single)
     got = (await env.client.get("/api/testing/events?limit=2000")).json()["events"]
     assert sum(1 for e in got if e["kind"] == "ui.click") >= 200
 

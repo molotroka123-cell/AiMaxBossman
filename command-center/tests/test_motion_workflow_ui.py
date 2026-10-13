@@ -63,7 +63,8 @@ def test_the_owner_journey_through_the_workflow_panel(live, tmp_path):  # noqa: 
             expect(page.locator(tid("mw-source"))).to_contain_text("Анализ ещё не запускался")
             page.click(tid("mw-analyze"))
             page.wait_for_selector(tid("mw-scenes-table"), timeout=120000)
-            expect(page.locator(tid("mw-scenes-table") + " tbody tr")).to_have_count(3)
+            # rows render after the table node; the default 5 s ran out on a loaded CI runner (py3.14, 12.10)
+            expect(page.locator(tid("mw-scenes-table") + " tbody tr")).to_have_count(3, timeout=20000)
             # limits, estimate and the readiness verdict are shown BEFORE any run
             expect(page.locator(tid("mw-limits"))).to_contain_text("сцены")
             expect(page.locator(tid("mw-estimate"))).to_contain_text("платных вызовов: 0")

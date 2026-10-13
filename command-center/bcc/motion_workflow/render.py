@@ -62,6 +62,8 @@ MAX_OVERLAY_CHARS = 400
 MAX_COVER_TITLE_CHARS = 120
 EVIDENCE_SAMPLES = 6
 CHANGED_PIXEL_DELTA = 32          # luma delta (0..255) above which a pixel counts as changed by an overlay
+TEXT_LINE_EM = 1.25               # drawtext line height estimate (em) for the evidence band
+EVIDENCE_GUARD = 0.015            # band margin (frame fraction); twice it separates band and rest
 
 # Why an element is not run by this renderer.  The strings are stable: the UI maps ``reason_code``.
 REASON_GENERATIVE = {
@@ -688,11 +690,32 @@ def summary_line(counts: dict[str, Any]) -> str:
 
 # --------------------------------------------------------------------------------------------- graphs
 
+def _text_size(overlay: dict[str, Any], frame_h: int) -> int:
+    ratio = {"scene_text": 0.055, "subtitle": 0.045, "cover_title": 0.09}.get(overlay.get("kind"), 0.05)
+    return max(16, int(round(frame_h * ratio)))
+
+
+def text_block_band(overlay: dict[str, Any], frame_w: int, frame_h: int) -> tuple[float, float]:
+    """Vertical span of an overlay's text box as fractions of the frame height, from the same layout rules as
+    ``_drawtext`` / ``_write_textfiles``.  An estimate: drawtext's real line height depends on the font (about
+    1.15-1.2 em), so ``TEXT_LINE_EM`` errs on the tall side."""
+    size = _text_size(overlay, frame_h)
+    pad = max(6, int(round(size * 0.3)))
+    wrapped, _ = wrap_text(overlay.get("text") or "", frame_w * 0.86, size)
+    block = (wrapped.count("\n") + 1) * size * TEXT_LINE_EM + 2 * pad
+    position = overlay.get("position", "bottom")
+    if position == "top":
+        top = int(round(frame_h * 0.12)) - pad
+    elif position == "center":
+        top = (frame_h - block) / 2.0
+    else:
+        top = frame_h - int(round(frame_h * 0.07)) - block + pad
+    return max(0.0, top / frame_h), min(1.0, (top + block) / frame_h)
+
+
 def _drawtext(overlay: dict[str, Any], frame_w: int, frame_h: int, textfile: str, *, enable: bool = True,
               font_name: str = "font.ttf") -> str:
-    kind = overlay.get("kind")
-    ratio = {"scene_text": 0.055, "subtitle": 0.045, "cover_title": 0.09}.get(kind, 0.05)
-    size = max(16, int(round(frame_h * ratio)))
+    size = _text_size(overlay, frame_h)
     border = max(1, size // 16)
     pad = max(6, int(round(size * 0.3)))
     position = overlay.get("position", "bottom")
@@ -717,9 +740,7 @@ def _write_textfiles(overlays: Iterable[dict[str, Any]], frame_w: int, frame_h: 
     written: dict[str, str] = {}
     folder.mkdir(parents=True, exist_ok=True)
     for overlay in overlays:
-        kind = overlay.get("kind")
-        ratio = {"scene_text": 0.055, "subtitle": 0.045, "cover_title": 0.09}.get(kind, 0.05)
-        size = max(16, int(round(frame_h * ratio)))
+        size = _text_size(overlay, frame_h)
         wrapped, truncated = wrap_text(overlay["text"], frame_w * 0.86, size)
         if truncated:
             warnings.append(f"{overlay['id']}: text did not fit in {MAX_TEXT_LINES} lines and was truncated")
@@ -1292,6 +1313,7 @@ def overlay_evidence(prepared: dict[str, Any], output: Path, work_dir: Path, *,
         return [{"note": "Pillow is not importable; text presence was not measured"}]
     env, resolved = prepared["env"], prepared["resolved"]
     overlays = resolved["overlays"]
+    geo = resolved.get("geometry") or {}
     if not overlays:
         return []
     step = max(1, len(overlays) // EVIDENCE_SAMPLES)
@@ -1311,9 +1333,18 @@ def overlay_evidence(prepared: dict[str, Any], output: Path, work_dir: Path, *,
                     ia = ia.resize(ib.size)
                 diff = ImageChops.difference(ia, ib)
                 w, h = diff.size
-                lo, hi = bands[overlay["position"]]
+                if overlay.get("text"):
+                    # where THIS text box sits (a five-line title in a portrait frame reaches ~45 % of the height;
+                    # a fixed band let its box spill into "rest" and called present text absent - 12.10 CI on Linux)
+                    lo, hi = text_block_band(overlay, int(geo.get("width") or w), int(geo.get("height") or h))
+                    lo, hi = max(0.0, lo - EVIDENCE_GUARD), min(1.0, hi + EVIDENCE_GUARD)
+                    method = "layout_v2"
+                else:
+                    lo, hi = bands[overlay["position"]]
+                    method = "fixed_band_v1"
+                glo, ghi = max(0.0, lo - 2 * EVIDENCE_GUARD), min(1.0, hi + 2 * EVIDENCE_GUARD)
                 band = diff.crop((0, int(h * lo), w, int(h * hi)))
-                rest_boxes = [diff.crop((0, 0, w, int(h * lo))), diff.crop((0, int(h * hi), w, h))]
+                rest_boxes = [diff.crop((0, 0, w, int(h * glo))), diff.crop((0, int(h * ghi), w, h))]
                 rest_boxes = [r for r in rest_boxes if r.size[1] > 0]
 
                 def changed(image: Any) -> float:      # share of pixels that moved by more than codec noise
@@ -1330,6 +1361,7 @@ def overlay_evidence(prepared: dict[str, Any], output: Path, work_dir: Path, *,
             continue
         present = band_ratio >= 0.004 and band_ratio >= 5.0 * max(rest_ratio, 0.0005)
         out.append({"overlay_id": overlay["id"], "t": round(t, 3), "position": overlay["position"],
+                    "band": [round(lo, 4), round(hi, 4)], "band_method": method,
                     "band_changed_pixel_ratio": round(band_ratio, 5), "rest_changed_pixel_ratio": round(rest_ratio, 5),
                     "band_mean_abs_diff": round(band_mean, 3), "changed_pixel_delta": CHANGED_PIXEL_DELTA,
                     "text_present_heuristic": bool(present)})
