@@ -216,6 +216,18 @@ class AutonomyCycle:
             return V1_POLICY
         return p if isinstance(p, ApproverPolicy) else V1_POLICY
 
+    def _level_cap(self) -> int:
+        """A policy BLOCK of the pinned constitution can only LOWER the level (its max_level is already <= L2);
+        without a block the configured level stands (the hard L2 cap lives in hands / the CLI)."""
+        from .policy import LEVELS
+        p = self._policy()
+        if p.source != "block":
+            return len(LEVELS) - 1
+        try:
+            return LEVELS.index(p.max_level)
+        except ValueError:
+            return 0
+
     def _pick_verifier(self, ctx: dict, stage: int) -> str:
         """v2: the verifier for review stage 1 or 2: configured, valid, never the writer or its family, and
         (stage 2) of a family different from stage 1's. Blocked when none is eligible."""
@@ -718,7 +730,7 @@ class AutonomyCycle:
         if not ok:
             raise Blocked("staging failed")
         evaluation = await self._evaluate_candidate(ctx, goal)          # REJECT -> Blocked before the owner is asked
-        if goal.risk_tier == "docs_tests" and self.c.level >= self.c.auto_deploy_min_level:
+        if goal.risk_tier == "docs_tests" and min(self.c.level, self._level_cap()) >= self.c.auto_deploy_min_level:
             await self._deploy(ctx)
             return
         self._capture_trace(ctx, "USER_APPROVAL")       # the evidence trace is there while the owner decides
