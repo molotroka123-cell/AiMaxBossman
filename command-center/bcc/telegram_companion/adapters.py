@@ -902,8 +902,11 @@ class Core:
             raise CompanionError("CORE_IDENTITY_UNVERIFIED")
         return {"reachable": True, "readiness": "NOT_CHECKED", "source_sha": data.get("source_sha")}
 
-    async def operator_start(self, task: str) -> dict:
-        body = await self._request("POST", "/api/qwen-operator/tasks", {"task": task}, timeout=60)
+    async def operator_start(self, task: str, num_ctx: int | None = None) -> dict:
+        payload: dict = {"task": task}
+        if num_ctx:
+            payload["num_ctx"] = int(num_ctx)
+        body = await self._request("POST", "/api/qwen-operator/tasks", payload, timeout=60)
         if not isinstance(body, dict) or not isinstance(body.get("id"), str):
             raise CompanionError("OPERATOR_RESULT_INVALID")
         return body
@@ -922,6 +925,14 @@ class Core:
             if isinstance(item, dict) and item.get("status") in {"queued", "running"} and isinstance(item.get("id"), str):
                 return item
         return None
+
+    async def operator_queue(self) -> list[dict]:
+        """Running + queued operator tasks, oldest first (the running one first)."""
+        body = await self._request("GET", "/api/qwen-operator/tasks")
+        items = body.get("items") if isinstance(body, dict) else body
+        rows = [i for i in (items or []) if isinstance(i, dict) and i.get("status") in {"queued", "running"}]
+        rows.sort(key=lambda r: (r.get("status") != "running", r.get("queue_position") or 0, r.get("created_at") or 0))
+        return rows
 
     async def operator_cancel(self, task_id: str) -> dict:
         return await self._request("POST", f"/api/qwen-operator/tasks/{task_id}/cancel")
