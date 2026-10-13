@@ -67,7 +67,7 @@ class AutonomyService:
         self.root = self.data_dir / "autonomy"
         self.root.mkdir(parents=True, exist_ok=True)
         self.journal = Journal(self.root)
-        self.goals = GoalStore(self.root, self.journal)
+        self.goals = GoalStore(self.root, self.journal, policy_provider=self._approver_policy)
         self.lease = EngineeringLease(self.root, journal=self.journal)
         self.budget = DailyBudget(self.root, journal=self.journal)
         self._cpath = constitution_path
@@ -75,6 +75,10 @@ class AutonomyService:
         self._cstatus = constitution_status
 
     # .......................................................... status
+    def _approver_policy(self):
+        from . import approver_policy
+        return approver_policy.load_policy(self._cpath, self._ppath)
+
     def constitution(self):
         if self._cstatus is not None:
             return self._cstatus()
@@ -204,7 +208,7 @@ class AutonomyService:
     def release_actions(self, rec: dict) -> dict:
         c_ok = bool(self.constitution().ok)
         in_gate = rec["state"] == "USER_APPROVAL"
-        approvals = GoalStore.approvals_valid(rec)
+        approvals = GoalStore.approvals_valid(rec, self.goals.policy())
         staging = GoalStore.staging_passed(rec)
         decided = GoalStore.apply_decided(rec)
 
@@ -213,7 +217,7 @@ class AutonomyService:
 
         apply_reason = ("constitution is not pinned / changed" if not c_ok else
                         f"the goal is {rec['state']}, not USER_APPROVAL" if not in_gate else
-                        "both approvals bound to the current SHA+diff are required" if not approvals else
+                        "the required approvals bound to the current SHA+diff are missing" if not approvals else
                         "staging did not pass for this SHA" if not staging else
                         "already applied: confirm after running the commands" if decided else "")
         return {"apply": act(not apply_reason, apply_reason),
@@ -226,7 +230,8 @@ class AutonomyService:
         evidence = self.journal.entries(goal_id=goal_id, limit=300)
         evaluations = self.journal.entries(kind="staging_evaluation", goal_id=goal_id, limit=1)
         view = {**self.summary(rec), "record": rec, "evidence": evidence, "actions": self.release_actions(rec),
-                "approvals_valid": GoalStore.approvals_valid(rec), "staging_passed": GoalStore.staging_passed(rec),
+                "approvals_valid": GoalStore.approvals_valid(rec, self.goals.policy()),
+                "approver_policy": self.goals.policy().as_dict(), "staging_passed": GoalStore.staging_passed(rec),
                 "evaluation": (evaluations[-1]["payload"] if evaluations else None),
                 "weights": WEIGHTS, "learning_kind": LEARNING_KIND}
         if GoalStore.apply_decided(rec):

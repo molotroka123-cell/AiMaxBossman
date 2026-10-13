@@ -251,8 +251,10 @@ def _run(args, auto: AutonomyService) -> int:
             deps.nemotron, deps.nemotron_facts, _why = asyncio.run(openrouter_nemotron())
         models = {k: v for k, v in (("claude", args.claude_model), ("codex", args.codex_model)) if v}
         # level: the constitution starts the system at L2 at most; there is no flag that raises it
+        from .approver_policy import default_verifiers
         return AutonomyCycle(deps, CycleConfig(level=2, seed=args.seed, models=models,
-                                               max_cli_turns=args.max_cli_turns or None))
+                                               max_cli_turns=args.max_cli_turns or None,
+                                               verifiers=default_verifiers()))
 
     rep = asyncio.run(Supervisor(auto, make_cycle, cfg).run())
     _emit(args, rep.as_dict(), f"supervisor: {rep.status}" + (f" ({rep.reason})" if rep.reason else "") +

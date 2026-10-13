@@ -36,8 +36,21 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+_REL = Path("docs") / "constitution" / "BOSSMAN_CONSTITUTION.md"
+
+
 def default_constitution_path() -> Path:
-    return repo_root() / "docs" / "constitution" / "BOSSMAN_CONSTITUTION.md"
+    """The repo / checkout copy. An installed build keeps its python under ``<install>/runtime/Lib/site-packages``,
+    where ``repo_root()`` is ``<install>/runtime/Lib``: there the file lives at ``<install>/docs/constitution/``."""
+    primary = repo_root() / _REL
+    if primary.exists():
+        return primary
+    here = Path(__file__).resolve()
+    if len(here.parents) > 5 and here.parents[2].name.lower() == "site-packages":
+        installed = here.parents[5] / _REL
+        if installed.exists():
+            return installed
+    return primary
 
 
 def default_pin_path(env: Mapping[str, str] | None = None) -> Path:

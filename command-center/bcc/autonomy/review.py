@@ -1,4 +1,5 @@
-"""Dual-approval gate: Claude AND Codex must APPROVE the same immutable candidate.
+"""Dual-approval gate: Claude AND Codex (v1) or two independent verifier families (v2, see approver_policy)
+must APPROVE the same immutable candidate.
 
 A candidate is the tuple (sha, diff_sha256, evidence_sha256) - the commit, the
 exact diff bytes and the hash of the Bossman-executed test evidence. Rules:
@@ -21,6 +22,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
+from .approver_policy import ApproverPolicy, V1
 from .types import Review
 from .workers import json_objects
 
@@ -46,10 +48,11 @@ class Candidate:
         return (self.sha, self.diff_sha256, self.evidence_sha256)
 
 
-def parse_review(text: str, *, goal_id: str, reviewer: str, candidate: Candidate) -> tuple[Review | None, str]:
+def parse_review(text: str, *, goal_id: str, reviewer: str, candidate: Candidate,
+                 policy: ApproverPolicy | None = None) -> tuple[Review | None, str]:
     """Strict: exactly one verdict object; fields exactly the schema; the echoed sha
     and diff hash must be the candidate's. Returns (review, "") or (None, reason)."""
-    if reviewer not in REVIEWERS:
+    if not (policy.valid_reviewer(reviewer) if policy is not None else reviewer in REVIEWERS):
         return None, "unknown reviewer"
     objs = json_objects(text or "", "verdict")
     if not objs:
@@ -83,7 +86,8 @@ class GateState:
 
 class ReviewGate:
     def __init__(self, goal_id: str, *, max_disagreements: int = 1, journal: JournalPort | None = None,
-                 state: dict | None = None):
+                 state: dict | None = None, policy: ApproverPolicy | None = None):
+        self.policy = policy or V1
         self.max_disagreements = max(1, int(max_disagreements))
         self.journal = journal
         self.s = GateState(goal_id=goal_id)
@@ -166,7 +170,8 @@ class ReviewGate:
     def approvals(self) -> dict[str, bool]:
         cand = self.candidate
         out = {}
-        for r in REVIEWERS:
+        names = REVIEWERS if not self.policy.is_v2 else tuple(sorted(set(REVIEWERS) | set(self.s.verdicts)))
+        for r in names:
             v = self.s.verdicts.get(r)
             out[r] = bool(cand and v and v["verdict"] == "APPROVE" and tuple(v["key"]) == cand.key)
         return out
@@ -178,7 +183,11 @@ class ReviewGate:
         if any(v["verdict"] == "REQUEST_CHANGES" for v in self.s.verdicts.values()):
             return "CHANGES_REQUESTED"
         appr = self.approvals()
-        if all(appr.values()):
+        if self.policy.is_v2:
+            cand = self.candidate
+            ev = self.policy.evaluate([r for r, ok in appr.items() if ok], cand.author if cand else "")
+            return "APPROVED" if ev.ok else "PENDING"
+        if all(appr.get(r) for r in REVIEWERS):
             # an author approval stands only with the other agent's independent approval
             return "APPROVED"
         return "PENDING"
