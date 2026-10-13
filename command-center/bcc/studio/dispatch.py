@@ -7,6 +7,7 @@ from bcc.studio.provider import GenerationPlane,ProviderFailure
 from bcc.studio.runtime import StudioError,storage,persist,one,verified_handle,provider_fingerprint
 from bcc.studio.tables import jobs,runs,config
 from bcc.studio import governance as gov
+from bcc.studio.progress import JobProgressWriter
 from bcc.v2.images_tables import image_jobs
 from sqlalchemy.dialects.sqlite import insert
 
@@ -131,6 +132,18 @@ async def generate(svc,job,ext,model):
                 await s.execute(sa.update(jobs).where(jobs.c.job_id==job['id']).values(cost_usd=value));await s.commit()
             noted[0]=value
     poll=POLL_SECONDS.get(model['provider'],0.5)
+    # Live progress (sd-cli output -> job record); other providers report none, never a fake number.
+    progress_fn=getattr(provider,'progress',None) if model['provider']=='sdcpp' else None
+    writer=JobProgressWriter(svc,job) if callable(progress_fn) else None
+    async def note_progress(index,force=False):
+        if writer is None:return
+        try:
+            snap=progress_fn(receipt.request_id)
+            if snap and plane['count']>1:
+                snap={'progress':(index+snap['progress'])/plane['count'],
+                      'progress_detail':{**snap['progress_detail'],'output':index+1,'outputs':plane['count']}}
+            await writer(snap,force=force)
+        except Exception:pass          # progress is advisory: it never fails a generation
     try:
         for index in range(plane['count']):
             async with svc.db.session() as s:
@@ -161,10 +174,12 @@ async def generate(svc,job,ext,model):
                         from bcc.studio.providers.sdcpp import SdCppFailure
                         raise SdCppFailure(status.reason,detail)
                     raise ProviderFailure(status)
-                if status.state=='completed':break
+                if status.state=='completed':
+                    await note_progress(index,force=True);break
                 if status.state=='canceled':
                     await salvage_partial(svc,job,plane,model,provider,receipt.request_id,'canceled')
                     raise StudioError('canceled','Provider canceled')
+                await note_progress(index)
                 await asyncio.sleep(poll)
             for n,output in enumerate(status.outputs):
                 suffix='.png' if model['surface']=='image' else '.mp4'

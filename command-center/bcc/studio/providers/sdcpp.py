@@ -65,6 +65,7 @@ import uuid
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from bcc.studio.catalog import validate_settings
+from bcc.studio.progress import SdProgress
 from bcc.studio.provider import (Fetched, GenerationPlane, ProviderFailure, ProviderOutput,
                                  ProviderStatus, Submitted)
 
@@ -1038,6 +1039,12 @@ class SdCppProvider:
     def job_record(self, rid: str) -> dict:
         return self._jobs[rid]
 
+    def progress(self, rid: str) -> dict | None:
+        """Overall fraction + phase/step/ETA of a run, read from sd-cli output; None if unknown rid."""
+        job = self._jobs.get(rid)
+        tracker = None if job is None else job.get("progress")
+        return None if tracker is None else tracker.snapshot()
+
     def failure_detail(self, rid: str) -> str | None:
         job = self._jobs.get(rid)
         return None if job is None else job.get("failure_detail")
@@ -1120,7 +1127,10 @@ class SdCppProvider:
                "elapsed_s": None, "failure": None, "failure_detail": None, "raw_meta": None,
                "sidecar": sidecar, "record": record, "state": "pending",
                "plane": plane, "raws": raws, "frame_files": frame_files, "segment_results": [],
-               "hard_timeout_s": segment_s, "budget_at": record["budget_at"]}
+               "hard_timeout_s": segment_s, "budget_at": record["budget_at"],
+               # Live progress parsed from the engine output (bcc.studio.progress).
+               "progress": SdProgress(steps=settings.get("steps"), segments=segments,
+                                      surface=self.model.get("surface", "image"))}
         self._jobs[rid] = job
         job["task"] = asyncio.create_task(self._run(rid, job))
         return Submitted(rid, cancel_ref=rid)
@@ -1203,6 +1213,9 @@ class SdCppProvider:
                                       "deadline_at": time.time() + job["hard_timeout_s"]})
                 with contextlib.suppress(OSError):
                     _write_sidecar(job["sidecar"], job["record"])
+            tracker = job.get("progress")
+            if tracker is not None:
+                tracker.begin_segment(i)
             t0 = time.time()
             await self._run_engine(job)
             if job["failure"] is not None or job["canceled"] or job["raw_meta"] is None:
@@ -1211,6 +1224,8 @@ class SdCppProvider:
                 if len(raws) > 1 and job.get("failure_detail"):
                     job["failure_detail"] = f"segment {i + 1}/{len(raws)}: {job['failure_detail']}"[:500]
                 return
+            if tracker is not None:
+                tracker.segment_done(i)       # this pass's raw output probed and decoded
             if len(raws) > 1:
                 job["segment_results"].append({
                     "index": i, "name": raw.name, "sha256": await asyncio.to_thread(_sha256, raw),
@@ -1321,6 +1336,12 @@ class SdCppProvider:
             chunk = await proc.stdout.read(65536)
             if not chunk:
                 break
+            tracker = job.get("progress")
+            if tracker is not None:
+                try:
+                    tracker.feed(chunk)       # \r-separated bars; never allowed to break the pump
+                except Exception:  # noqa: BLE001 - progress is advisory, the log is the record
+                    job["progress"] = None
             buf.extend(chunk)
             while buf:
                 nl = buf.find(b"\n")

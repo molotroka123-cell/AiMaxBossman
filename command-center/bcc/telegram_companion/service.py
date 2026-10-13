@@ -21,6 +21,7 @@ from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
 from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .gen_refine import GEN_COMMANDS, PHOTO_TRIGGERS, GenRefineMixin, gen_phrase
+from .gen_progress import GenProgressPlate
 from .store import Store
 from . import key_intake
 from .secret_intake import (
@@ -759,10 +760,12 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             job_id = await self.core.studio_create(model_id, engine_prompt[:2000], params, media)
             self.image_job["id"] = job_id
             created_at, running_at = time.monotonic(), None
+            status_text = (f"{what} локально ({IMAGE_MODELS.get(model_id, model_id)}, {size}). "
+                           f"Обычно {eta}. /cancel — отменить.")
+            status_keys, status_mid = [[self.button(person, "✖️ Отмена", "/cancel")]], None
             with contextlib.suppress(CompanionError):
-                await self.telegram.send(person, f"{what} локально ({IMAGE_MODELS.get(model_id, model_id)}, {size}). "
-                                                 f"Обычно {eta}. /cancel — отменить.",
-                                         [[self.button(person, "✖️ Отмена", "/cancel")]])
+                status_mid = await self.telegram.send(person, status_text, status_keys)
+            plate = GenProgressPlate(self.telegram, person, status_mid, status_text, status_keys)
             while True:
                 if self.image_job["cancel"]:
                     stopped = await self.stop_studio_job(job_id)
@@ -784,6 +787,7 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                     if status == "failed" and "0xc0e90002" in str(job.get("error") or "").lower():
                         raise CompanionError("IMAGE_RUNTIME_BLOCKED_BY_WINDOWS")
                     raise CompanionError("IMAGE_GEN_CANCELLED" if status == "cancelled" else "IMAGE_GEN_FAILED")
+                await plate.tick(job)            # «▓▓▓░░ 42% · шаг 9/20 · осталось ~6 мин», edited in place
                 await asyncio.sleep(self.image_poll_seconds)
             runs = await self.core.studio_runs(job_id, surface)
             run = next((r for r in runs if str(r.get("mime", "")).startswith(surface + "/")), None)
@@ -836,6 +840,7 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 again.append([self.button(person, "🎞 Оживить 5 с", f"/animate 5 run:{run['id']}"),
                               self.button(person, "🎞 Оживить 10 с", f"/animate 10 run:{run['id']}")])
                 await self.telegram.send_photo(person, data, caption, again)
+            await plate.done(elapsed)
             self.store.remember(person.key, ("[видео] " if video else "[картинка] ") + prompt[:500],
                                 f"Сгенерировано локально ({label}), seed {seed}.")
             return run["id"] if return_run else None   # the media itself is the reply
