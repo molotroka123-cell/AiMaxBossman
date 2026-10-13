@@ -89,6 +89,44 @@ OPERATOR_EXTRA_PROTECTED = (
 SECRET_READ_NAMES = ("provider-keys.env", ".env", "constitution.sha256", "bcc.db", "vault.key", "secrets.json")
 PROMOTION_GIT = frozenset({"push", "merge", "pull", "rebase", "cherry-pick", "remote", "tag", "am", "fetch"})
 LAB_BRANCH_RE = re.compile(r"^lab/op-[0-9a-f]{12}$")
+_ID = r"[A-Za-z0-9_-]{1,64}"
+#: Bossman's OWN routes the operator may call (stage 2.2 package E): Motion Studio, read anything under it,
+#: write only create / analyze / edit-ops / revert / references / render jobs and their cancel. No delete, no
+#: publication or delivery route, no other feature. Every call is logged in the task record.
+BOSSMAN_API_GET = re.compile(r"^/api/motion-(workflow|studio)(/[A-Za-z0-9_.-]+){0,8}$")
+BOSSMAN_API_POST = re.compile(
+    rf"^/api/(motion-workflow/projects(/{_ID}/(analyze|ops|revert|jobs|references)"
+    rf"|/{_ID}/jobs/{_ID}/(render|resume|cancel))?|motion-studio/jobs(/{_ID}/cancel)?)$")
+
+
+def bossman_api_allowed(method: str, path: str) -> bool:
+    m = str(method or "").upper()
+    if not isinstance(path, str) or ".." in path or "?" in path or "#" in path:
+        return False
+    if m == "GET":
+        return bool(BOSSMAN_API_GET.match(path))
+    if m == "POST":
+        return bool(BOSSMAN_API_POST.match(path))
+    return False
+
+
+async def call_bossman_api(svc, method: str, path: str, body: dict | None = None) -> dict:
+    """One call to this backend's own HTTP API with its own token, which never leaves this function (not in
+    the plan, the prompt, the record or the log). Only after ``bossman_api_allowed``."""
+    import httpx
+    token = ""
+    with contextlib.suppress(OSError):
+        token = (Path(svc.settings.data_dir) / "token").read_text(encoding="utf-8").strip()
+    url = f"http://127.0.0.1:{int(getattr(svc.settings, 'port', 8800))}{path}"
+    try:
+        async with httpx.AsyncClient(timeout=120, trust_env=False) as c:
+            r = await c.request(method.upper(), url, headers={"X-BCC-Token": token},
+                                json=body if method.upper() == "POST" else None)
+        text = r.text[:2500]
+        return {"method": method.upper(), "path": path, "status": r.status_code, "ok": r.status_code < 400,
+                "response": text}
+    except Exception as exc:  # noqa: BLE001
+        return {"method": method.upper(), "path": path, "status": None, "ok": False, "response": f"{type(exc).__name__}"}
 SECRET_ARG_WORDS = ("vault", "secrets", "provider-keys", "constitution.sha256", "bcc.db", "vault.key", ".env")
 
 
@@ -528,6 +566,22 @@ class Run:
         self.step("owner_decision", "parked", approval_id=decision["approval_id"], category=category, action=action)
         return decision
 
+    async def gate_bossman_api(self, call: dict) -> dict:
+        method, path = str(call.get("method") or "GET").upper(), str(call.get("path") or "")
+        entry = {"method": method, "path": path, "why": str(call.get("why") or "")[:300], "at": _now()}
+        if not bossman_api_allowed(method, path):
+            entry.update(ok=False, status=None, response="REFUSED: route is not in the operator allow-list")
+            self.rec.setdefault("bossman_calls", []).append(entry)
+            self.step("bossman_api", "REFUSED", method=method, path=path)
+            return entry
+        body = call.get("body") if isinstance(call.get("body"), dict) else None
+        res = await call_bossman_api(self.svc, method, path, body)
+        entry.update({k: res[k] for k in ("status", "ok", "response")})
+        self.rec.setdefault("bossman_calls", []).append(entry)
+        self.step("bossman_api", "ok" if res["ok"] else "FAILED", method=method, path=path,
+                  http_status=res["status"])
+        return entry
+
     async def gate_host_command(self, argv: list[str], host_cwd: str, *, why: str, recommendation: str = "",
                                 concerns: str = "") -> dict:
         """A command on the computer outside the lab: ALWAYS parked for the owner's button, never run here.
@@ -701,7 +755,9 @@ class Run:
                   'если не нужна), "extra_commands": [{"argv": [..], "why": str, "recommendation": str, '
                   '"concerns": str, "host_cwd": абсолютная папка на ПК, если команда должна выполняться на '
                   'компьютере вне лаборатории (всегда только после кнопки владельца)}] (только если действительно '
-                  'нужны команды вне правки кода)}. '
+                  'нужны команды вне правки кода), "bossman_calls": [{"method": "GET"|"POST", "path": '
+                  '"/api/motion-workflow/..." или "/api/motion-studio/...", "body": {..}, "why": str}] '
+                  '(вызовы Motion Studio Bossman; только эти маршруты, до 12 вызовов)}. '
                   "Правь только то, что просит задача. Пути бери из списка файлов репозитория.")
         user = f"ЗАДАЧА ВЛАДЕЛЬЦА:\n{task}\n\nФАЙЛЫ РЕПОЗИТОРИЯ (отобраны по задаче):\n{context}"
         cfg = self.cfg["planner"]
@@ -729,7 +785,8 @@ class Run:
                 if not isinstance(f, str) or (f not in tracked and not (self.scope.worktree / f).exists()
                                               and not f.startswith(("docs/", "command-center/tests/", "tests/"))):
                     problems.append(f"unknown path {f!r}")
-            if not plan.get("files") and not plan.get("read_files") and not plan.get("extra_commands"):
+            if (not plan.get("files") and not plan.get("read_files") and not plan.get("extra_commands")
+                    and not plan.get("bossman_calls")):
                 problems.append("plan has no files and no commands")
             if problems:
                 last_problem = "; ".join(problems)[:300]
@@ -858,7 +915,7 @@ def is_read_only(task: str, plan: dict) -> bool:
     flag = plan.get("read_only")
     if isinstance(flag, bool):
         return flag
-    if plan.get("extra_commands"):
+    if plan.get("extra_commands") or plan.get("bossman_calls"):
         return False
     low = task.lower()
     return bool(_READ_RE.search(low)) and not _WRITE_RE.search(low)
@@ -966,6 +1023,11 @@ async def _execute(run: Run) -> dict:
                                    concerns=str(c.get("concerns") or ""),
                                    host_cwd=str(c["host_cwd"]) if c.get("host_cwd") else None)
 
+    for c in (plan.get("bossman_calls") or [])[:12]:
+        if isinstance(c, dict) and not run.stopped():
+            run.phase("bossman_api")
+            await run.gate_bossman_api(c)
+
     draft = ""
     if str(plan.get("worker_prompt") or "").strip() and not run.stopped():
         run.phase("worker")
@@ -979,7 +1041,7 @@ async def _execute(run: Run) -> dict:
     commit_sha, final_diff = "", ""
     if paths_ok:
         commit_sha, final_diff = await edit_loop(run, plan, paths_ok, draft)
-    elif not rec["decisions"]:
+    elif not rec["decisions"] and not rec.get("bossman_calls"):
         return await run.finish("failed", "в плане нет файлов, которые оператор может менять")
     rec["commit_sha"], rec["diff"] = commit_sha, final_diff
 

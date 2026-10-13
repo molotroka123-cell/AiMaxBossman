@@ -156,6 +156,11 @@ def receipt_text(rec: dict) -> str:
     pend = [d for d in decs if d.get("status") == "PENDING"]
     if pend:
         lines.append(f"Ждут вашего решения: {len(pend)}")
+    calls = rec.get("bossman_calls") or []
+    if calls:
+        ok = sum(1 for c in calls if c.get("ok"))
+        lines.append(f"Вызовы Bossman: {ok}/{len(calls)} успешно · " +
+                     "; ".join(f"{c.get('method')} {c.get('path')} → {c.get('status')}" for c in calls[:5]))
     rel = [d for d in rec.get("decisions", []) if d.get("category") == "release_main"]
     if rel and rel[0].get("status") == "APPROVED_EXECUTED":
         lines.append("✅ Слито в main по вашей кнопке. " + str(rel[0].get("note") or ""))
