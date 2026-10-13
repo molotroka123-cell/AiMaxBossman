@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import threading
 import time
@@ -395,6 +396,18 @@ class ModelAssist:
                                          "written": time.strftime("%Y-%m-%dT%H:%M:%S")}, ensure_ascii=False) + "\n")
         except OSError:
             pass                                     # learning material is optional; reading never fails because of it
+
+
+ENV_FLAG = "BOSSMAN_POKER_MODEL_ASSIST"
+
+
+def assist_from_env() -> "ModelAssist | None":
+    """OFF unless the owner opts in with ``BOSSMAN_POKER_MODEL_ASSIST=1``. Optional ``BOSSMAN_POKER_MODEL_ASSIST_URL`` /
+    ``..._MODEL`` (the URL must still be local) and ``..._CANDIDATES`` (a JSONL path outside git)."""
+    if os.environ.get(ENV_FLAG, "").strip() != "1":
+        return None
+    cli = OllamaClient(os.environ.get(ENV_FLAG + "_URL", DEFAULT_URL), os.environ.get(ENV_FLAG + "_MODEL", DEFAULT_MODEL))
+    return ModelAssist(cli, candidates_path=os.environ.get(ENV_FLAG + "_CANDIDATES") or None)
 
 
 def _refuse_inside_git(path: Path) -> None:

@@ -376,3 +376,20 @@ def test_candidates_go_outside_git_only(tmp_path):
     inside = Path(__file__).resolve().parent / "candidates.jsonl"
     with pytest.raises(ValueError):
         ModelAssist(Scripted(), candidates_path=inside)
+
+
+# ----------------------------------------------------------------------------------------------- opt-in only
+def test_model_assist_is_off_by_default(monkeypatch):
+    monkeypatch.delenv("BOSSMAN_POKER_MODEL_ASSIST", raising=False)
+    assert TonPokerAdapter().model_assist is None
+    monkeypatch.setenv("BOSSMAN_POKER_MODEL_ASSIST", "yes")          # only the exact "1" opts in
+    assert TonPokerAdapter().model_assist is None
+
+
+def test_opt_in_flag_enables_a_local_client_only(monkeypatch):
+    monkeypatch.setenv("BOSSMAN_POKER_MODEL_ASSIST", "1")
+    ad = TonPokerAdapter()
+    assert isinstance(ad.model_assist, ModelAssist) and is_local_url(ad.model_assist.client.url)
+    monkeypatch.setenv("BOSSMAN_POKER_MODEL_ASSIST_URL", "http://10.1.2.3:11434/api/chat")
+    with pytest.raises(ValueError):
+        TonPokerAdapter()

@@ -29,6 +29,7 @@ from ..vision.buttons import LabelBook, read_amount, read_band, slot_vector, yel
 from ..vision.cards import find_card_boxes
 from ..vision.corner import CornerBook, DigitBook, digit_vec
 from ..vision.glyphs import GlyphBook, is_sep
+from ..vision.model_assist import assist_from_env
 from ..vision.pipshape import suit_from_centre_pip
 from ..vision.textspot import spot_lines
 from .base import Capabilities, Frame
@@ -54,6 +55,11 @@ class TonPokerAdapter(RoiAdapter):
     decimals = 2
     MIN_TABLE_FELT = 0.30
     model_assist = None          # optional ``vision.model_assist.ModelAssist``: fills only fields left UNKNOWN (off by default)
+
+    def __init__(self, profile: RoiProfile | None = None, model_assist=None):
+        super().__init__(profile)
+        # OFF by default: only an explicit object or the owner's opt-in BOSSMAN_POKER_MODEL_ASSIST=1 enables it
+        self.model_assist = model_assist if model_assist is not None else assist_from_env()
 
     def parse_amount(self, text: str):
         return parse_cash(text) or parse_money(text)
