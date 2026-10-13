@@ -64,7 +64,8 @@ def suit_from_centre_pip(bgr: np.ndarray, x: int, y: int, w: int, red: bool) -> 
     if f is None:
         return None, "centre_pip_not_found"
     if red:
-        if f["w_top"] >= 0.60 and f["aspect"] >= 0.97:
+        # a heart has the notch between its lobes (sol <= 0.95 measured); a solid red blob (badge, chip) is no heart
+        if f["w_top"] >= 0.60 and f["aspect"] >= 0.97 and f["sol"] <= 0.97:
             return "h", ""
         if f["w_top"] <= 0.40 and f["aspect"] <= 0.95:
             return "d", ""

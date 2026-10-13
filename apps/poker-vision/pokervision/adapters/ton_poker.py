@@ -29,6 +29,7 @@ from ..vision.buttons import LabelBook, read_amount, read_band, slot_vector, yel
 from ..vision.cards import find_card_boxes
 from ..vision.corner import CornerBook, DigitBook, digit_vec
 from ..vision.glyphs import GlyphBook, is_sep
+from ..vision.pipshape import suit_from_centre_pip
 from ..vision.textspot import spot_lines
 from .base import Capabilities, Frame
 from .roi import RoiAdapter, RoiProfile, _px
@@ -52,6 +53,7 @@ class TonPokerAdapter(RoiAdapter):
                                 notes="needs owner-provided recordings or an allowed test table; calibration + held-out verification required")
     decimals = 2
     MIN_TABLE_FELT = 0.30
+    model_assist = None          # optional ``vision.model_assist.ModelAssist``: fills only fields left UNKNOWN (off by default)
 
     def parse_amount(self, text: str):
         return parse_cash(text) or parse_money(text)
@@ -222,6 +224,27 @@ class TonPokerAdapter(RoiAdapter):
             return None
         return x0 + x, y0 + y, int(round(cw))
 
+    # ------------------------------------------------------------------ per-slot evidence (for the model-assist path)
+    @staticmethod
+    def _evidence(bgr: np.ndarray, c, book: CornerBook | None, x: int, y: int, w: int, centre_pip: bool) -> dict:
+        """What the deterministic reader SAW on one card, field by field, even when the card as a whole is UNKNOWN:
+        red/black from the rank glyph's ink, strict (open-set) rank and suit from the book, the relaxed nearest classes
+        (no thresholds: evidence only, never a reading) and the suit of the large centre pip when it is visible."""
+        ev = {"box": [int(x), int(y), int(w)], "corner_ok": c.rank is not None, "red": bool(c.red) if c.rank is not None else None,
+              "red_conf": round(float(c.red_conf), 3), "rank": None, "suit": None, "rank_near": None, "suit_near": None,
+              "pip_suit": None, "pip_why": "" if centre_pip else "not_used_on_this_card"}
+        if book is not None and c.rank is not None:
+            r, s, _, _ = book.read_parts(c)
+            ev["rank"], ev["suit"] = r, s
+            rk = book._best(book.rank, c.rank)
+            ev["rank_near"] = rk[0][1] if rk else None
+            if c.pip is not None:
+                sk = book._best(book.suit, c.pip, "hd" if c.red else "sc")
+                ev["suit_near"] = sk[0][1] if sk else None
+        if centre_pip and c.rank is not None:
+            ev["pip_suit"], ev["pip_why"] = suit_from_centre_pip(bgr, x, y, w, bool(c.red))
+        return ev
+
     # ------------------------------------------------------------------ reading
     def _read_rois(self, frame: Frame, st: TableState) -> TableState:
         L = self._layout()
@@ -249,13 +272,15 @@ class TonPokerAdapter(RoiAdapter):
         while n_cards < len(kinds) and kinds[n_cards] == "card":
             n_cards += 1
         rest_empty = all(k == "empty" for k in kinds[n_cards:])
+        ev_board: list[dict] = []
         for k, (kind, box) in enumerate(slots):
             if kind != "card":
                 break
+            c = corner_mod.extract(bgr, box[0], box[1], box[2])
+            ev_board.append(self._evidence(bgr, c, book, box[0], box[1], box[2], centre_pip=True))
             if book is None:
                 board.append(U(bwhy))
                 continue
-            c = corner_mod.extract(bgr, box[0], box[1], box[2])
             card, conf, why = book.read(c)
             board.append(Field.ok(card, conf, t, src) if card else Field.unknown(t, src, why, conf))
         st.board = board
@@ -267,20 +292,28 @@ class TonPokerAdapter(RoiAdapter):
             st.board_count, st.street = U(why), U(why)
         # ---- hero fan
         fan = self._fan(bgr, L["hero_fan"])
+        ev_hero: list[dict] | None = None
+        if fan is not None:
+            fx, fy, cw = fan
+            xs = (fx, fx + int(round(L["hero_fan"]["offset"] * cw)))
+            corners = [corner_mod.extract(bgr, x, fy, cw) for x in xs]
+            # no centre-pip evidence on the fan: the left card's centre is under the right card, and on the right card the
+            # big-pip shape was measured once confidently wrong (7h read as d under a cover, 12.10 recording B frame 63)
+            ev_hero = [self._evidence(bgr, c, book, x, fy, cw, centre_pip=False) for c, x in zip(corners, xs)]
         if fan is None:
             st.hero_cards = [U("hero_fan_not_found(dimmed/covered/absent)")] * 2
         elif book is None:
             st.hero_cards = [U(bwhy)] * 2
         else:
-            fx, fy, cw = fan
-            offs = L["hero_fan"]["offset"]
             hero = []
-            for x in (fx, fx + int(round(offs * cw))):
-                card, conf, why = book.read(corner_mod.extract(bgr, x, fy, cw))
+            for c in corners:
+                card, conf, why = book.read(c)
                 hero.append(Field.ok(card, conf, t, src) if card else Field.unknown(t, src, why, conf))
             if all(h.known for h in hero) and hero[0].value == hero[1].value:
                 hero = [U("duplicate_hero_cards")] * 2
             st.hero_cards = hero
+        st.quality["evidence"] = {"board": ev_board, "board_count": n_cards if (rest_empty and n_cards in (0, 3, 4, 5)) else None,
+                                  "fan": fan is not None, "hero": ev_hero, "frame_w": int(W)}
         # ---- amounts
         for name in ("pot", "hero_stack"):
             roi = self.profile.data["rois"].get(name)
@@ -313,7 +346,14 @@ class TonPokerAdapter(RoiAdapter):
             setattr(st, n, U("roi_not_defined"))
         if L.get("seats") and book is not None:
             st.showdown = self._read_showdown(frame, L, book, t)
+        # second source, ONLY for fields left UNKNOWN; reached only past the profile gate and with the table visible
+        if self.model_assist is not None:
+            st = self.model_assist.apply(frame, st)
         return st
+
+    def reset(self) -> None:
+        if self.model_assist is not None:
+            self.model_assist.reset()
 
     # ------------------------------------------------------------------ showdown capture
     def _read_showdown(self, frame: Frame, L: dict, book: CornerBook, t: int) -> list[dict]:

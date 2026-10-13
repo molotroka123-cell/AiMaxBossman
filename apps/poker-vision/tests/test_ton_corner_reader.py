@@ -174,3 +174,20 @@ def test_award_with_a_lost_decimal_point_is_refused():
     # a frame region without any orange text has no award at all
     img = np.full((300, 300, 3), (40, 110, 45), np.uint8)
     assert ad._award(img, 100, 150, 80, 40, ad._digits()) is None
+
+
+def test_evidence_keeps_colour_and_suit_when_the_rank_was_never_seen():
+    """Per-card evidence for the model-assist path: the card is UNKNOWN (rank 9 not in the book) but colour, strict suit
+    and the relaxed nearest classes are still exported; the relaxed rank is evidence only, never a reading."""
+    book = _book([("A", "s"), ("K", "h"), ("7", "d"), ("5", "c"), ("Q", "s"), ("4", "h")])
+    im = card("9", "s")
+    c = C.extract(im, 10, 10, 65)
+    assert book.read(c)[0] is None
+    ev = TonPokerAdapter._evidence(im, c, book, 10, 10, 65, centre_pip=True)
+    assert ev["red"] is False and ev["rank"] is None and ev["suit"] == "s"
+    assert ev["rank_near"] in "AK7 5Q4".replace(" ", "") and ev["suit_near"] == "s"
+    assert ev["pip_suit"] is None and ev["pip_why"]          # this synthetic card has no big centre pip
+    ev_fan = TonPokerAdapter._evidence(im, c, book, 10, 10, 65, centre_pip=False)
+    assert ev_fan["pip_suit"] is None and ev_fan["pip_why"] == "not_used_on_this_card"
+    ev_nobook = TonPokerAdapter._evidence(im, c, None, 10, 10, 65, centre_pip=False)
+    assert ev_nobook["red"] is False and ev_nobook["rank"] is None and ev_nobook["suit"] is None
