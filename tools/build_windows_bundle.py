@@ -175,6 +175,19 @@ SELF_IMPROVE_CASES_TARGET = "self_improve_cases"
 # Документы профиля — по тем же относительным путям, что и в репозитории.
 SELF_IMPROVE_DOCS = ("docs/owner/OWNER_RUN_NEXT.md",)
 
+# Конституция и поток пина (спринт 2.2, пакет C). Живой файл v1 едет БЕЗ изменений
+# по пути, который `default_constitution_path()` находит у установленной сборки:
+# <bundle>/docs/constitution/BOSSMAN_CONSTITUTION.md (python лежит в runtime/Lib/site-packages).
+# Без него пин владельца поставить нельзя. Список явный; хэши идут в MANIFEST.json.
+CONSTITUTION_LIVE = "docs/constitution/BOSSMAN_CONSTITUTION.md"
+CONSTITUTION_FILES = (
+    CONSTITUTION_LIVE,
+    "docs/constitution/proposals/BOSSMAN_CONSTITUTION_v2_DRAFT.md",
+    "tools/adopt_constitution_v2.ps1",
+    "docs/owner/CONTINUATION.md",
+)
+
+
 # Пак задач coaching (5 обучающих + 5 holdout) едет каталогом рядом с раннером.
 COACHING_PACK_SOURCE = ROOT / "tests" / "coaching_pack"
 COACHING_PACK_TARGET = "coaching-pack"
@@ -986,6 +999,30 @@ def install_self_improve(home: Path) -> dict:
     return {"profile": "self-improve-mvcr", "files": shipped}
 
 
+def install_constitution(home: Path) -> dict:
+    """Ship the live constitution (byte-identical), the v2 proposal, the adopt script and the 2.2 docs index.
+
+    The live file is copied with ``copyfile`` and re-hashed after the copy: a mismatch fails the build.
+    ``tools/adopt_constitution_v2.ps1`` lands at the same relative path (``tools/``) it has in the checkout,
+    where the script's own default for ``-Draft`` resolves relative to its location.
+    """
+    missing = [name for name in CONSTITUTION_FILES if not (ROOT / name).is_file()]
+    if missing:
+        raise RuntimeError("constitution input missing: " + ", ".join(missing))
+    shipped: dict[str, str] = {}
+    for name in CONSTITUTION_FILES:
+        target = home / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, target)
+        digest = sha256_file(ROOT / name)
+        if sha256_file(target) != digest:
+            raise RuntimeError(f"constitution copy differs from the source: {name}")
+        shipped[name] = digest
+    return {"live": CONSTITUTION_LIVE, "live_sha256": shipped[CONSTITUTION_LIVE],
+            "pin": "OWNER_REQUIRED: bossman.cmd autonomy constitution pin (not written by the build)",
+            "files": shipped}
+
+
 MOTION_STUDIO_DIRS = ("motion_studio", "intro_video")  # make_video.py reaches ../intro_video/render.py
 
 
@@ -1096,6 +1133,7 @@ def assemble(out: Path, sha: str, *, wheels: Path, work: Path,
     contents["icons"] = install_icons(out / "icons")
     contents["owner_run"] = install_support(out / "app-support")
     contents["self_improve"] = install_self_improve(out)
+    contents["constitution"] = install_constitution(out)
     contents["motion_studio"] = install_motion_studio(out / "app-support")
     contents["business_tools"] = install_business_tools(out / "app-support")
     for name, body in launcher_files().items():

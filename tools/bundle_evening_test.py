@@ -410,6 +410,37 @@ def _stage(python: Path, evidence: Path, sha: str, name: str) -> dict:
 
 # -------------------------------------------------------------------- main
 
+def constitution_info(manifest: dict, *, home: Path | None = None, env: dict | None = None) -> dict:
+    """Informational only: never adds a reason, never changes the verdict.
+
+    ``pin: absent`` is OWNER_REQUIRED information (only the owner pins). The file path and the pin
+    location mirror ``bcc.autonomy.constitution`` (``<install>/docs/constitution`` and
+    ``<LOCALAPPDATA>/Bossman/autonomy/constitution.sha256``) without importing the product.
+    """
+    home = HOME if home is None else home
+    env = os.environ if env is None else env
+    live = home / "docs" / "constitution" / "BOSSMAN_CONSTITUTION.md"
+    info: dict = {"constitution": "absent", "pin": "absent", "path": str(live), "sha256": "",
+                  "manifest_sha256": "", "note": ""}
+    try:
+        listed = {f.get("path"): f.get("sha256") for f in manifest.get("files", []) if isinstance(f, dict)}
+        info["manifest_sha256"] = str(listed.get("docs/constitution/BOSSMAN_CONSTITUTION.md") or "")
+        if live.is_file():
+            info["constitution"] = "present"
+            info["sha256"] = _sha256(live)
+        base = env.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        pin_path = Path(base) / "Bossman" / "autonomy" / "constitution.sha256"
+        info["pin_path"] = str(pin_path)
+        if pin_path.is_file() and info["sha256"]:
+            pinned = pin_path.read_text(encoding="utf-8", errors="replace").strip().lower()
+            info["pin"] = "valid" if pinned == info["sha256"] else "mismatch"
+        if info["constitution"] == "present" and info["manifest_sha256"]                 and info["manifest_sha256"] != info["sha256"]:
+            info["note"] = "file differs from MANIFEST.json (owner adopted v2 or edited it; re-pin required)"
+    except Exception as exc:  # noqa: BLE001 — informational, must never break the run
+        info["note"] = f"unreadable: {type(exc).__name__}: {exc}"
+    return info
+
+
 def _accept(args, manifest: dict, sha: str, python: Path, evidence: Path, result: dict) -> str:
     print("=" * 66)
     print("BOSSMAN — вечерняя приёмка владельца (этот загруженный билд)")
@@ -427,6 +458,11 @@ def _accept(args, manifest: dict, sha: str, python: Path, evidence: Path, result
         print("  докачивает при первом запуске: "
               + ", ".join(str(item.get("component")) for item in required if isinstance(item, dict)))
     print("-" * 66, flush=True)
+
+    cinfo = constitution_info(manifest)
+    result["constitution"] = cinfo
+    print(f"  constitution: {cinfo['constitution']} / pin: {cinfo['pin']}"
+          + (" (OWNER_REQUIRED: bossman.cmd autonomy constitution pin)" if cinfo["pin"] != "valid" else ""))
 
     identity, reasons = _harness_identity(manifest)
     result["harness"] = identity
