@@ -58,7 +58,22 @@ The user pins this file by running `bossman autonomy constitution pin` in an int
 stored outside the repository (`%LOCALAPPDATA%\Bossman\autonomy\constitution.sha256`). No agent may write that pin.
 A missing or mismatching pin puts the loop in `BLOCKED` with the reason shown to the user.
 
-## Amendment note (v2 draft)
+## Policy block (machine-readable)
+
+The block below is what the autonomy gate reads. It can only restate the approval rule of rule 4 and the level
+ceiling; it cannot change the owner decisions, STOP, protected paths, release tiers or the pin.
+
+```bossman-policy
+{
+  "schema_version": 1,
+  "approvers": {"mode": "independent", "min_independent": 2, "require_external": true},
+  "writer_may_verify": false,
+  "auto_tier_requires": ["tests", "verifiers"],
+  "max_autonomy_level": "L2"
+}
+```
+
+## Amendment note
 
 Unchanged on purpose: the whole list "Always the user's decision" (money, publications, keys, deleting data, disabling safety
 mechanisms, constitution and approval gate changes), the owner pin outside the repository, the L0-L4 levels and the

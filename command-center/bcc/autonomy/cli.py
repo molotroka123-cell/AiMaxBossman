@@ -5,6 +5,9 @@
     bossman autonomy journal verify [--json]
     bossman autonomy constitution status [--json]
     bossman autonomy constitution pin            (the user, in an interactive terminal only)
+    bossman autonomy constitution explain [--path FILE] [--json]
+                                                 the EFFECTIVE policy a constitution file would produce
+                                                 (approver mode, verifiers, level, warnings); pins nothing
     bossman autonomy stop [--reason R]           emergency STOP of the loop (also kills the worker trees)
     bossman autonomy resume                      clear the autonomy STOP (not the owner's global STOP)
     bossman autonomy plan [--redteam-model M]    propose ONE goal from metrics / JUnit / backlog / verified lessons
@@ -52,7 +55,9 @@ def build_parser() -> argparse.ArgumentParser:
     j = sub.add_parser("journal", help="journal operations")
     j.add_argument("action", choices=("verify",))
     c = sub.add_parser("constitution", help="constitution status / owner pin (pin: interactive terminal only)")
-    c.add_argument("action", choices=("status", "pin"))
+    c.add_argument("action", choices=("status", "pin", "explain"))
+    c.add_argument("--path", default="", help="explain: constitution file to preview (default: --constitution / "
+                                              "the checkout's file); nothing is pinned or written")
     sp_stop = sub.add_parser("stop", help="emergency STOP of the autonomy loop")
     sp_stop.add_argument("--reason", default="", help="why (kept in the STOP file and the journal)")
     sp_resume = sub.add_parser("resume", help="clear the autonomy STOP (the owner's global STOP stays)")
@@ -137,6 +142,11 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_USAGE
 
     if args.cmd == "constitution":
+        if args.action == "explain":
+            from . import approver_policy
+            rep = approver_policy.explain(args.path or args.constitution, args.pin_path)
+            _emit(args, rep, approver_policy.format_explain(rep))
+            return EXIT_OK if rep.get("ok") else EXIT_FAIL
         if args.action == "pin":
             auto = AutonomyService(_data_dir(args), constitution_path=args.constitution,
                                    pin_path=args.pin_path)
@@ -251,8 +261,10 @@ def _run(args, auto: AutonomyService) -> int:
             deps.nemotron, deps.nemotron_facts, _why = asyncio.run(openrouter_nemotron())
         models = {k: v for k, v in (("claude", args.claude_model), ("codex", args.codex_model)) if v}
         # level: the constitution starts the system at L2 at most; there is no flag that raises it
-        from .approver_policy import default_verifiers
-        return AutonomyCycle(deps, CycleConfig(level=2, seed=args.seed, models=models,
+        from .approver_policy import default_verifiers, load_policy
+        from .policy import LEVELS
+        cap = LEVELS.index(load_policy(args.constitution, args.pin_path).max_level)   # the pinned block can only lower
+        return AutonomyCycle(deps, CycleConfig(level=min(2, cap), seed=args.seed, models=models,
                                                max_cli_turns=args.max_cli_turns or None,
                                                verifiers=default_verifiers()))
 

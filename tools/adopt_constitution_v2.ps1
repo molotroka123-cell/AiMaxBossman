@@ -9,7 +9,7 @@
   What it does, in order:
     1. finds the constitution file the runtime of the chosen build actually hashes
        (asks that build's own Python for default_constitution_path()),
-    2. shows a unified diff live-vs-draft,
+    2. shows a unified diff live-vs-draft and the EFFECTIVE policy of the draft (`constitution explain`),
     3. asks you to type the confirmation word ADOPT-V2,
     4. backs the live file up next to itself (<file>.bak-<timestamp>),
     5. replaces ONLY that one file with the v2 draft (byte-identical copy, hash verified),
@@ -122,6 +122,20 @@ Write-Host '=== end of diff ===' -ForegroundColor Cyan
 Write-Host ''
 Write-Host 'Unchanged on purpose: the "Always the user''s decision" list, the owner pin outside the repository,'
 Write-Host 'levels L0-L4, 25 clean cycles + your confirmation for promotion, STOP, release tiers (you press Release).'
+Write-Host ''
+
+# ---- 2b. what this text MEANS to the gate (the build's own parser; pins and writes nothing) ----------------------
+Write-Host '=== effective policy of the draft (what the autonomy gate will do with this text) ===' -ForegroundColor Cyan
+Push-Location $workDir
+try {
+    & $py -m bossman.cli autonomy constitution explain --path $Draft
+    $explainCode = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+if ($explainCode -ne 0) { Stop-Refuse "the build could not explain the draft (exit $explainCode); nothing was changed" }
+Write-Host '=== end of effective policy ===' -ForegroundColor Cyan
+Write-Host 'Read the WARNINGS above: a block that was rejected means the gate falls back to Claude + Codex (v1).'
 Write-Host ''
 
 # ---- 3. typed confirmation ------------------------------------------------------------------------------------
