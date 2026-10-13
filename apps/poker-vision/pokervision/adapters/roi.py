@@ -48,6 +48,11 @@ def _px(r, W, H):
 class RoiAdapter(TableAdapter):
     id = "roi"
     min_verify_frames = 8
+    decimals: int | None = None          # digits after the point in this layout's amounts (None = K/M style only)
+
+    def parse_amount(self, text: str):
+        """Amount text -> Money | None. Layouts that show cents override this (see ``TonPokerAdapter``)."""
+        return parse_money(text)
 
     def __init__(self, profile: RoiProfile | None = None):
         self.profile = profile
@@ -122,10 +127,10 @@ class RoiAdapter(TableAdapter):
         if len(lines) != 1:
             return Field.unknown(t, src, f"{name}: {len(lines)} text lines in ROI")
         ln = lines[0]
-        r = read_glyphs(ln.glyphs, ln.height, self.profile.glyphs, allowed=NUM)
+        r = read_glyphs(ln.glyphs, ln.height, self.profile.glyphs, allowed=NUM, decimals=self.decimals)
         if r.text is None:
             return Field.unknown(t, src, f"{name}: {r.reason}", r.confidence)
-        m = parse_money(r.text.lstrip("$"))
+        m = self.parse_amount(r.text.lstrip("$"))
         return Field.ok(m, r.confidence, t, src) if m else Field.unknown(t, src, f"{name}: malformed")
 
     # ---- calibration + verification
@@ -182,7 +187,8 @@ class RoiAdapter(TableAdapter):
                     tot += 1
                     f = getattr(st, key)
                     if not f.known: unk += 1; continue
-                    m_n += 1; m_ok += int(f.value.agrees(parse_money(truth[key].lstrip("$"))))
+                    want = self.parse_amount(truth[key].lstrip("$"))
+                    m_n += 1; m_ok += int(want is not None and f.value.agrees(want))
         card_acc = c_ok / c_n if c_n else None
         money_acc = m_ok / m_n if m_n else None
         unknown = unk / tot if tot else None

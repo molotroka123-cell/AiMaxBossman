@@ -75,6 +75,7 @@ class TableState:
     num_seats: Field = field(default_factory=Field)
     hero_turn: Field = field(default_factory=Field)
     actions: Field = field(default_factory=Field)           # [(label, amount|None)]
+    showdown: list = field(default_factory=list)            # [{slot, label, cards, ranks, award, ...}]: face-up opponent cards / award
     quality: dict = field(default_factory=dict)             # blur, animating score, occlusion, stale
     issues: list[dict] = field(default_factory=list)
 
