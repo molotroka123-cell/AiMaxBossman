@@ -914,6 +914,15 @@ class Core:
             raise CompanionError("OPERATOR_RESULT_INVALID")
         return body
 
+    async def operator_active(self) -> dict | None:
+        """The task the backend operator is running right now (it may have been started by the API or another chat)."""
+        body = await self._request("GET", "/api/qwen-operator/tasks")
+        items = body if isinstance(body, list) else (body.get("tasks") or body.get("items") or []) if isinstance(body, dict) else []
+        for item in items:
+            if isinstance(item, dict) and item.get("status") in {"queued", "running"} and isinstance(item.get("id"), str):
+                return item
+        return None
+
     async def operator_cancel(self, task_id: str) -> dict:
         return await self._request("POST", f"/api/qwen-operator/tasks/{task_id}/cancel")
 

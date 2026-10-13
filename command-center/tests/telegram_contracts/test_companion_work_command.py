@@ -142,3 +142,30 @@ def test_stop_cancels_running_operator_and_backend_task(tmp_path, monkeypatch):
 def test_no_new_companion_config_keys():
     fields = {f.name for f in dataclasses.fields(Settings)}
     assert not any('operator' in f or f.startswith('work') for f in fields)
+
+
+def test_a_task_held_by_the_backend_is_named_and_can_be_stopped_not_a_bare_conflict(tmp_path):
+    """13.10 live: an API-started operator task held the single slot and the owner's /work answered
+    «Действие не подтверждено: CONFLICT». Now the reply names the holder and gives stop/status buttons."""
+    from bcc.telegram_companion.config import CompanionError
+
+    class BusyCore(FakeCore):
+        async def operator_start(self, task):
+            raise CompanionError("CONFLICT")
+
+        async def operator_active(self):
+            return {"id": "11026bf88acb", "status": "running", "task": "поправь is_loopback_host"}
+
+    core = BusyCore()
+    app, tg = build(tmp_path, core)
+
+    async def go():
+        first = await app.handle(OWNER, msg(OWNER, '/work сделай что-нибудь'))
+        stop = await app.handle(OWNER, msg(OWNER, '/work_stop 11026bf88acb'))
+        return first, stop
+
+    first, stop = asyncio.run(go())
+    text = first.text if hasattr(first, 'text') else str(first)
+    assert 'CONFLICT' not in text and '11026bf88acb' in text and 'Остановить' in str(getattr(first, 'keyboard', '')) + text
+    assert core.cancelled == ['11026bf88acb']
+    assert 'Остановка запрошена' in (stop if isinstance(stop, str) else getattr(stop, 'text', str(stop)))

@@ -68,6 +68,10 @@ class OperatorBridgeMixin:
         job = self.agent_jobs.get("operator")
         busy = job is not None and not job.done()
         if command == "/work_stop":
+            if arg.strip():                       # a task the backend holds but this chat did not start
+                with contextlib.suppress(CompanionError):
+                    await self.core.operator_cancel(arg.strip())
+                return "✋ Остановка запрошена; в лаборатории остаётся только то, что уже закоммичено."
             if not busy:
                 return "Оператор сейчас ничего не делает."
             job.cancel()
@@ -95,7 +99,22 @@ class OperatorBridgeMixin:
         if busy:
             return Reply("Оператор ещё работает над прошлым заданием.",
                          [[self.button(person, "✋ Стоп оператору", "/work_stop")]])
-        rec = await self.core.operator_start(arg.strip())
+        try:
+            rec = await self.core.operator_start(arg.strip())
+        except CompanionError as exc:
+            if str(exc) != "CONFLICT":
+                raise
+            # The backend allows one operator task at a time and it is held by a task this chat did not start
+            # (API call, another session). Say so and give the way out instead of a generic «CONFLICT».
+            active = None
+            with contextlib.suppress(CompanionError):
+                active = await self.core.operator_active()
+            if active is None:
+                return "Оператор сейчас занят (одна задача за раз). Подождите минуту и повторите /work."
+            return Reply(f"Оператор занят задачей {active['id']}: {str(active.get('task') or '')[:200]}\n"
+                         "Одна задача за раз. Остановите её или дождитесь конца, затем повторите /work.",
+                         [[self.button(person, "📋 Статус", f"/work_status {active['id']}"),
+                           self.button(person, "✋ Остановить её", f"/work_stop {active['id']}")]])
         self.store.put("operator_last_task", rec["id"])
         self.agent_jobs["operator"] = asyncio.create_task(self.work_turn(person, rec["id"]))
         return Reply(f"🛠 Оператор Qwen принял задание, задача {rec['id']}. Работает в лаборатории (ветка "

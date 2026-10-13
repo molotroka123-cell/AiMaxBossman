@@ -1,4 +1,6 @@
-# 12.10.2026 — актуальное продолжение: CI на головном SHA → подтверждение владельца → PR в `main`
+# 13.10.2026 — продолжение без Claude и Codex: читать `docs/owner/CONTINUATION.md` (оператор Qwen, `/work`, карта правил, открытое)
+
+## 12.10.2026 — актуальное продолжение: CI на головном SHA → подтверждение владельца → PR в `main`
 
 Read `docs/owner/FINAL_CLOSE_20261012_RU.md` first (verdict, check reconciliation, DEGRADED analysis, CI causes).
 Verdict there is **CANDIDATE BLOCKED**: source `94e40cd17822ab04877433fa4979a3774485195e` is built, verified,
