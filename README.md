@@ -1,6 +1,27 @@
 # BOSSMAN
 
-**Обновлено 8 октября 2026 года.** Каноническая линия — `main` (решение владельца 08.10, AGENTS.md). Одна версия Bossman:
+## Продакшен — 13 октября 2026
+
+`main` — единственная продакшен-линия: в неё сведена объединённая ветка `feat/bossman-genjutsu-jeff-unified-20261010`
+(PR #108: Genjutsu, Jeff 2.0, Motion, Reports, Operations, Poker Vision, Command Center). Лицензия — AGPL-3.0-only.
+
+| что | состояние |
+|---|---|
+| Windows-архив | `BOSSMAN-Windows-x64-94e40cd17822.zip` из исходника `94e40cd1`, SHA256 `40cdbc175e7e5e04bb817937be1f60d330ea989b299664dbd3adbf0a0f63a401`; проверен, принят на Windows, установлен у владельца |
+| приёмка на ПК владельца | Evening-Test `--full` PASS, обход интерфейса 53 страниц PASS, живая бесплатная модель PASS, Jeff S1–S7 7/7 |
+| CI на точном SHA | обязательные workflow сертификатора (`tools/exact_sha_certify.py`) — зелёные на голове `main` |
+| Jeff на Telegram Stars | платный помощник по документам (флаг `BOSSMAN_JEFF_PAID_DOCS=1`); проверен на симуляции Bot API; официальная тестовая среда Telegram — ещё нет; реальные списания только после одобрения владельца |
+| Poker Vision | читатель карт/борда/банка/кнопок; профиль раскладки не `verified` до независимой сессии; режим только наблюдение |
+
+**Что ещё не доказано** (честные пробелы, не провалы): удержание интеллекта (retention, подтверждает владелец), soak 24/48 ч,
+официальный тест Telegram Stars, North Star L3–L8. Подробно — [docs/owner/FINAL_CLOSE_20261012_RU.md](docs/owner/FINAL_CLOSE_20261012_RU.md),
+журнал дефектов — [docs/final/BUG_LEDGER.md](docs/final/BUG_LEDGER.md), установка — [INSTALL.md](INSTALL.md).
+
+Документ не равен проверке: «работает у владельца» — только то, что прошло на ПК владельца на точном SHA.
+
+---
+
+**Предыдущий срез (8 октября 2026).** Каноническая линия — `main` (решение владельца 08.10, AGENTS.md). Одна версия Bossman:
 последняя `green/tree-leaves-20261006` + прежний `main` + исправления 08.10 (PR #98).
 
 - Простыми словами — что есть, чего нет, с чего начать: [docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md](docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md)
