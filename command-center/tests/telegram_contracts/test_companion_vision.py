@@ -36,8 +36,9 @@ class World:
     """Fake Telegram + fake llama.cpp servers; records every request."""
 
     def __init__(self, *, main_vision=False, fast_vision=True, file_bytes=JPEG, file_size=None,
-                 content_length=None):
+                 content_length=None, ollama_models=()):
         self.requests = []
+        self.ollama_models = list(ollama_models)
         self.main_vision, self.fast_vision = main_vision, fast_vision
         self.file_bytes, self.file_size, self.content_length = file_bytes, file_size, content_length
 
@@ -54,6 +55,12 @@ class World:
         if url.endswith('/props'):
             vision = self.main_vision if url.startswith('http://127.0.0.1:8083') else self.fast_vision
             return httpx.Response(200, json={'modalities': {'vision': vision, 'audio': False}})
+        if url == 'http://127.0.0.1:11434/api/tags':
+            return httpx.Response(200, json={'models': [{'name': m} for m in self.ollama_models]})
+        if url == 'http://127.0.0.1:11434/api/chat':
+            body = json.loads(request.content)
+            return httpx.Response(200, json={'model': body['model'], 'done': True, 'message': {
+                'role': 'assistant', 'content': '<think>x</think>На фото кот (Ollama).'}})
         if url.endswith('/chat/completions'):
             model = MAIN_ID if url.startswith(MAIN_URL) else FAST_ID
             return httpx.Response(200, json={'model': model, 'choices': [
@@ -190,7 +197,7 @@ def test_vision_route_selection(tmp_path):
     assert reply.startswith(failure_text('NO_VISION_MODEL')) and world.urls('getFile') == []
     assert [label for label, _ in reply.keyboard[0]] == ['🎞 Оживить 5 с', '🎞 Оживить 10 с']
     # owner extra row (pult 13.10): the photo can go to the Qwen prompt flow
-    assert [label for row in reply.keyboard[1:] for label, _ in row] == ['🧠 Qwen допишет промпт для видео']
+    assert [label for row in reply.keyboard[1:] for label, _ in row] == ['🧠 Qwen: промпт и сразу оживить 5 с']
     # explicit owner setting wins without probing
     world = World(main_vision=False, fast_vision=False)
     reply, _, _ = run_photo(tmp_path / 'c', world, photo_msg(), settings=cfg(vision_route='fast'))
@@ -208,3 +215,56 @@ def test_magic_bytes():
     assert image_mime(JPEG) == 'image/jpeg' and image_mime(PNG) == 'image/png'
     assert image_mime(b'RIFF\x00\x00\x00\x00WEBPVP8 ') == 'image/webp'
     assert image_mime(b'GIF89a') is None and image_mime(b'') is None
+
+
+VISION = 'bossman-fast-qwen36-vision:latest'
+
+
+def test_ollama_vision_model_is_the_fallback_when_no_mmproj_route(tmp_path):
+    # Owner 13.10: «нет локальной модели, которая видит… --mmproj… 8082» must not appear while the
+    # loopback Ollama has the Qwen3.6 vision model.
+    world = World(main_vision=False, fast_vision=False, ollama_models=['bossman-uncensored-chat:latest', VISION])
+    reply, history, _ = run_photo(tmp_path, world, photo_msg(caption='Что за животное?'))
+    assert reply.startswith('👁 🦙 Ollama (локально) · ' + VISION) and reply.endswith('На фото кот (Ollama).')
+    assert '--mmproj' not in reply and failure_text('NO_VISION_MODEL') not in reply
+    [chat] = [json.loads(c) for _, u, c in world.requests if u.endswith('/api/chat')]
+    assert chat['model'] == VISION and chat['stream'] is False and chat['think'] is False
+    assert chat['messages'][-1]['content'] == 'Что за животное?'
+    assert chat['messages'][-1]['images'] == [base64.b64encode(JPEG).decode()]
+    assert 'tools' not in chat
+    # loopback only: every model request went to 127.0.0.1
+    assert {u.split('/')[2].split(':')[0] for _, u, _ in world.requests if 'api.telegram' not in u} == {'127.0.0.1'}
+    assert history[0] == {'role': 'user', 'content': '[фото] Что за животное?'}
+
+
+def test_ollama_without_the_vision_model_still_reports_no_vision(tmp_path):
+    world = World(main_vision=False, fast_vision=False, ollama_models=['bossman-uncensored-chat:latest'])
+    reply, _, _ = run_photo(tmp_path, world, photo_msg())
+    assert reply.startswith(failure_text('NO_VISION_MODEL')) and world.urls('/api/chat') == []
+    assert '--mmproj' in failure_text('NO_VISION_MODEL') and '11434' in failure_text('NO_VISION_MODEL')
+
+
+def test_photo_command_names_the_ollama_vision_model(tmp_path):
+    async def go():
+        world = World(main_vision=False, fast_vision=False, ollama_models=[VISION])
+        s = cfg()
+        store = Store(tmp_path)
+        models = Models(s, tmp_path, transport=httpx.MockTransport(world))
+        app = Companion(s, store, None, None, models)
+        try:
+            msg = {'from': {'id': OWNER.user_id, 'is_bot': False}, 'chat': {'id': OWNER.user_id, 'type': 'private'},
+                   'text': '/photo'}
+            return await app.handle(OWNER, msg)
+        finally:
+            await models.close(); store.close()
+    assert VISION in asyncio.run(go())
+
+
+@pytest.mark.parametrize('caption', ['раздень её', 'сделай её голой', 'make her nude'])
+def test_sexualising_caption_on_a_photo_is_one_rule_line_without_buttons(tmp_path, caption):
+    world = World(main_vision=False, fast_vision=False, ollama_models=[VISION])
+    reply, _, _ = run_photo(tmp_path, world, photo_msg(caption=caption))
+    assert reply.startswith('⛔ Отказ по правилу') and '\n' not in reply
+    assert getattr(reply, 'keyboard', None) is None
+    assert failure_text('NO_VISION_MODEL') not in reply
+    assert world.urls('getFile') == [] and world.urls('/api/chat') == [] and world.chat_payloads() == []

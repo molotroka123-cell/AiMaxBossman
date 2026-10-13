@@ -71,7 +71,9 @@ def run_message(tmp_path, studio, message, photo=b''):
         msg = {'from': {'id': OWNER.user_id, 'is_bot': False}, 'chat': {'id': OWNER.chat_id, 'type': 'private'},
                **message}
         try:
-            return await app.handle(OWNER, msg)
+            reply = await app.handle(OWNER, msg)
+            await app.gen_queue_join()          # owner photo captions are queued at once (pult 13.10)
+            return reply
         except CompanionError as exc:
             return 'ERR:' + str(exc)
         finally:
@@ -116,7 +118,8 @@ def test_photo_with_animate_caption_becomes_an_i2v_job_from_the_imported_frame(t
     photo = jpeg(1280, 960)
     reply, world = run_message(tmp_path, studio, {'_image': {'file_id': 'PHOTO1', 'kind': 'photo'},
                                                   'text': '/animate 10 волны набегают на берег'}, photo)
-    assert reply is None
+    # Owner 13.10: queued at once, no question. No Ollama in this test -> the owner's own words are the prompt.
+    assert 'запущено без вопросов' in reply and 'позиция 1' in reply
     [ref] = studio.references
     assert Image.open(io.BytesIO(__import__('base64').b64decode(ref['data_base64']))).size == (832, 480)
     [job] = studio.created
@@ -131,7 +134,7 @@ def test_russian_trigger_and_default_length_and_prompt(tmp_path):
     reply, _ = run_message(tmp_path, studio, {'_image': {'file_id': 'P', 'kind': 'photo'}, 'text': 'оживи'},
                            jpeg(900, 1600))
     [job] = studio.created
-    assert reply is None and job['settings']['length'] == '5s'
+    assert 'запущено без вопросов' in reply and job['settings']['length'] == '5s'
     assert (job['settings']['width'], job['settings']['height']) == (640, 1120)
     assert job['prompt'].startswith('оживи это фото')
 

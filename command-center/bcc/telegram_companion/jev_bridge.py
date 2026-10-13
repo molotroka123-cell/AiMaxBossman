@@ -42,9 +42,9 @@ ACTIONS: dict[str, tuple[str, bool, str]] = {
     "img": ("/img", True, "Generate a picture locally from the request."),
     "video": ("/video", True, "Generate a video locally from the request (owner picks the length)."),
     "vid": ("/vid", True, "Owner wants a video and its prompt worked out: the local model writes a detailed "
-                          "video prompt from the request, the owner corrects it and presses Launch."),
+                          "video prompt from the request and the generation starts at once."),
     "pic": ("/pic", True, "Owner wants a picture and its prompt worked out: the local model writes a detailed "
-                          "image prompt from the request, the owner corrects it and presses Launch."),
+                          "image prompt from the request and the generation starts at once."),
     "search": ("/search", True, "Web search for the request."),
     "chat": ("", True, "Just answer the request in chat; no action on the PC."),
 }
