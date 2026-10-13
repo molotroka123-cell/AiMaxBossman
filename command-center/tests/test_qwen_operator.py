@@ -92,6 +92,14 @@ async def stack(tmp_path, monkeypatch):
     async def has(model, transport=None):
         return model == qo.LOCAL_UNCENSORED[0]
     monkeypatch.setattr(qo, "ollama_has", has)
+
+    async def variant(base, n, transport=None):
+        return {"ok": True, "tag": base, "created": False}
+
+    async def nothing(model):
+        return None
+    monkeypatch.setattr(qo, "ensure_ctx_variant", variant)
+    monkeypatch.setattr(qo, "unload_model", nothing)
     settings = make_settings(tmp_path)
     app, svc = await start_app(settings)
     client = client_for(app, svc)

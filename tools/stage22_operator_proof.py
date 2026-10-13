@@ -63,7 +63,8 @@ def free_ram_gb() -> float:
 
 
 async def phase_ctx(out: Path) -> dict:
-    model = next((m for m in qo.LOCAL_UNCENSORED if await qo.ollama_has(m)), None)
+    have = [m for m in qo.LOCAL_UNCENSORED if await qo.ollama_has(m)]
+    model = have[0] if have else None
     rows = []
     for num_ctx in (32768, 131072, qo.CTX_256K):
         before = free_ram_gb()

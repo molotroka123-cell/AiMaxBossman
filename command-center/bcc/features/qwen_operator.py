@@ -25,6 +25,7 @@ Authority model (constitution v1 stays in force; nothing here edits, pins or byp
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import os
@@ -569,16 +570,37 @@ async def run_cloud_worker(svc, role: str, system: str, prompt: str, cfg: dict) 
             "error": "NOT_RUN: no free cloud model answered" if cands else "NOT_RUN: no free cloud model in the registry"}
 
 
+async def unload_model(model: str) -> None:
+    """Free the RAM of a loaded Ollama runner (keep_alive=0) so two tags of one model are never both resident."""
+    with contextlib.suppress(Exception):
+        async with httpx.AsyncClient(timeout=30, trust_env=False) as c:
+            await c.post(OLLAMA + "/api/generate", json={"model": model, "keep_alive": 0})
+
+
 async def resolve_local_roles(run: Run) -> None:
-    """Use the uncensored Qwen that Ollama actually has (default tag, else bossman-uncensored-chat) and record
-    which one answered; a role set explicitly by the owner is kept as is."""
+    """Use the uncensored Qwen that Ollama actually has (default tag, else bossman-uncensored-chat), pin it to
+    ONE derived tag with the requested context baked in (so planner, diagnostician and the OpenAI-compatible
+    sidecar share one resident runner), and record what was chosen. A role the owner set explicitly is kept."""
     have = {m: await ollama_has(m) for m in LOCAL_UNCENSORED}
     chosen = next((m for m in LOCAL_UNCENSORED if have[m]), None)
+    variants = {}
     for role in ("planner", "coder", "diagnostician"):
-        if run.cfg[role].get("model") in LOCAL_UNCENSORED and chosen:
-            run.cfg[role]["model"] = chosen
+        cfg = run.cfg[role]
+        if cfg.get("model") in LOCAL_UNCENSORED and chosen:
+            cfg["base_model"] = chosen
+            cfg["model"] = chosen
+        base = cfg.get("base_model") or cfg.get("model")
+        n = int(cfg.get("num_ctx") or CTX_256K)
+        if (base, n) not in variants:
+            variants[(base, n)] = await ensure_ctx_variant(base, n)
+            if variants[(base, n)].get("ok") and variants[(base, n)]["tag"] != base:
+                await unload_model(base)
+        v = variants[(base, n)]
+        cfg["model"] = v["tag"]
+        cfg["ctx_variant"] = v
     run.rec["roles"] = run.cfg
-    run.step("resolve_models", "ok" if chosen else "failed", uncensored_available=have, chosen=chosen)
+    run.step("resolve_models", "ok" if chosen else "failed", uncensored_available=have, chosen=chosen,
+             variants={f"{b}@{n}": v for (b, n), v in variants.items()})
 
 
 async def local_verifier(run: Run, task: str, diff: str) -> dict:
@@ -798,8 +820,8 @@ async def run_sidecar(run: Run, instruction: str, paths: list[str], tests: list[
     rec, svc = run.rec, run.svc
     cfg = run.cfg["coder"]
     num_ctx = int(cfg.get("num_ctx") or CTX_256K)
-    variant = await ensure_ctx_variant(cfg["model"], num_ctx)
-    model = variant["tag"]
+    variant = cfg.get("ctx_variant") or await ensure_ctx_variant(cfg["model"], num_ctx)
+    model = cfg["model"] if cfg.get("ctx_variant") else variant["tag"]
     oc, _wt, reason = ct._runtime()
     if oc is None:
         return {"ok": False, "model": model, "error": reason}
