@@ -524,3 +524,41 @@ def test_a_whole_run_records_the_package_as_passing_when_it_is_whole(bundle) -> 
     rc, result = bundle.run()
     assert result["owner_run_package"] == "PASS"
     assert not [c for c in codes(result) if c.startswith("owner_run_package")]
+
+
+# ------------------------------------------------ constitution line (2.2, package C)
+
+def _constitution_manifest(body: bytes) -> dict:
+    return {"files": [{"path": "docs/constitution/BOSSMAN_CONSTITUTION.md",
+                       "sha256": hashlib.sha256(body).hexdigest()}]}
+
+
+def test_constitution_info_absent_pin_is_information_not_a_failure(bundle, capsys, monkeypatch, tmp_path):
+    body = b"# constitution\n"
+    live = bundle.home / "docs" / "constitution" / "BOSSMAN_CONSTITUTION.md"
+    live.parent.mkdir(parents=True)
+    live.write_bytes(body)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "no-local-appdata"))
+    rc, result = bundle.run()
+    assert (rc, result["verdict"]) == (0, "PASS"), result["reasons"]
+    assert result["constitution"]["constitution"] == "present"
+    assert result["constitution"]["pin"] == "absent"
+    assert all("constitution" not in r["code"] for r in result["reasons"])
+    assert "constitution: present / pin: absent" in capsys.readouterr().out
+
+
+def test_constitution_info_valid_mismatch_and_missing(bundle, tmp_path):
+    ev = bundle.evening
+    body = b"# constitution\n"
+    live = bundle.home / "docs" / "constitution" / "BOSSMAN_CONSTITUTION.md"
+    manifest = _constitution_manifest(body)
+    env = {"LOCALAPPDATA": str(tmp_path / "local")}
+    assert ev.constitution_info(manifest, home=bundle.home, env=env)["constitution"] == "absent"
+    live.parent.mkdir(parents=True)
+    live.write_bytes(body)
+    pin = tmp_path / "local" / "Bossman" / "autonomy" / "constitution.sha256"
+    pin.parent.mkdir(parents=True)
+    pin.write_text(hashlib.sha256(body).hexdigest() + "\n", encoding="utf-8")
+    assert ev.constitution_info(manifest, home=bundle.home, env=env)["pin"] == "valid"
+    pin.write_text("0" * 64, encoding="utf-8")
+    assert ev.constitution_info(manifest, home=bundle.home, env=env)["pin"] == "mismatch"

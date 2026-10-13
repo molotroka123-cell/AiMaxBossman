@@ -523,3 +523,66 @@ def test_bytecode_and_wheel_metadata_carry_no_builder_path(tmp_path) -> None:
     assert "someone" not in text and "C:/Users" not in text
     assert "bossman_core-0.3.0-py3-none-any.whl" in text and "sha256=abc" in text
     assert bundle.scrub_direct_urls(sp) == 0  # idempotent
+
+
+# ------------------------------------------------- constitution / pin flow (2.2, package C)
+
+def test_the_constitution_lands_where_the_installed_runtime_resolves_it(tmp_path) -> None:
+    """The installed 94e40cd1 had no constitution file, so the owner pin could never be set.
+    The shipped copy must be byte-identical to the repo file AND be the very path that the
+    product's own default_constitution_path() returns from an installed layout."""
+    import hashlib
+    import shutil
+    import subprocess
+
+    home = tmp_path / "BOSSMAN-Windows-x64-synthetic"
+    home.mkdir()
+    contents = bundle.install_constitution(home)
+
+    live_repo = REPO / bundle.CONSTITUTION_LIVE
+    landed = home / bundle.CONSTITUTION_LIVE
+    assert landed.read_bytes() == live_repo.read_bytes()
+    digest = hashlib.sha256(live_repo.read_bytes()).hexdigest()
+    assert contents["live_sha256"] == digest
+    assert contents["files"][bundle.CONSTITUTION_LIVE] == digest
+    assert "OWNER_REQUIRED" in contents["pin"]
+    for name in bundle.CONSTITUTION_FILES:
+        assert (home / name).is_file(), name
+        assert contents["files"][name] == hashlib.sha256((REPO / name).read_bytes()).hexdigest()
+    assert (home / "docs/constitution/proposals/BOSSMAN_CONSTITUTION_v2_DRAFT.md").is_file()
+    assert (home / "tools/adopt_constitution_v2.ps1").is_file()
+    assert (home / "docs/owner/CONTINUATION.md").is_file()
+
+    # Installed layout: <home>/runtime/Lib/site-packages/bcc/autonomy/constitution.py
+    pkg = home / "runtime" / "Lib" / "site-packages" / "bcc"
+    (pkg / "autonomy").mkdir(parents=True)
+    (pkg / "__init__.py").write_text("", encoding="utf-8")
+    (pkg / "autonomy" / "__init__.py").write_text("", encoding="utf-8")
+    for name in ("constitution.py", "journal.py"):
+        shutil.copyfile(REPO / "command-center" / "bcc" / "autonomy" / name, pkg / "autonomy" / name)
+    done = subprocess.run(
+        [sys.executable, "-I", "-c",
+         "import sys; sys.path.insert(0, sys.argv[1]);"
+         "from bcc.autonomy import constitution as c; print(c.default_constitution_path())",
+         str(pkg.parent)],
+        capture_output=True, text=True, timeout=60)
+    assert done.returncode == 0, done.stderr
+    assert Path(done.stdout.strip()).resolve() == landed.resolve()
+
+
+def test_the_constitution_is_a_declared_input_and_a_missing_one_fails_the_build(
+        tmp_path, monkeypatch) -> None:
+    assert bundle.CONSTITUTION_LIVE in bundle.CONSTITUTION_FILES
+    monkeypatch.setattr(bundle, "ROOT", tmp_path / "empty-checkout")
+    with pytest.raises(RuntimeError, match="constitution input missing"):
+        bundle.install_constitution(tmp_path / "home")
+
+
+def test_the_manifest_file_list_carries_the_constitution_hash(tmp_path) -> None:
+    import hashlib
+
+    bundle.install_constitution(tmp_path)
+    listed = {f["path"]: f["sha256"] for f in bundle.shipped_files(tmp_path)}
+    assert listed[bundle.CONSTITUTION_LIVE] == hashlib.sha256(
+        (REPO / bundle.CONSTITUTION_LIVE).read_bytes()).hexdigest()
+    assert set(bundle.CONSTITUTION_FILES) <= set(listed)
