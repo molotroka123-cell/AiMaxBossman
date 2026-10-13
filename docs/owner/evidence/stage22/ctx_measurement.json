@@ -1,0 +1,45 @@
+{
+ "model": "bossman-community-qwen-uncensored:latest",
+ "stages": [
+  {
+   "num_ctx": 32768,
+   "ok": true,
+   "seconds": 35.9,
+   "load_seconds": 32.2,
+   "context_length_loaded": null,
+   "size_gb": 0.0,
+   "size_vram_gb": 0.0,
+   "free_ram_gb_before": 72.0,
+   "free_ram_gb_after": 90.4,
+   "error": null,
+   "answer": "Да"
+  },
+  {
+   "num_ctx": 131072,
+   "ok": true,
+   "seconds": 64.0,
+   "load_seconds": 59.1,
+   "context_length_loaded": null,
+   "size_gb": 0.0,
+   "size_vram_gb": 0.0,
+   "free_ram_gb_before": 90.4,
+   "free_ram_gb_after": 89.9,
+   "error": null,
+   "answer": "Да"
+  },
+  {
+   "num_ctx": 262144,
+   "ok": true,
+   "seconds": 60.3,
+   "load_seconds": 59.6,
+   "context_length_loaded": 262144,
+   "size_gb": 39.6,
+   "size_vram_gb": 39.6,
+   "free_ram_gb_before": 89.9,
+   "free_ram_gb_after": 49.6,
+   "error": null,
+   "answer": "Да"
+  }
+ ],
+ "largest_that_works": 262144
+}

@@ -32,7 +32,7 @@ from bcc.config import Settings  # noqa: E402
 from bcc.features import qwen_operator as qo  # noqa: E402
 
 KEYS_FILE = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "keys" / "provider-keys.env"
-DATA = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "stage22-proof" / "data"
+DATA = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "stage22-proof" / ("data-" + time.strftime("%Y%m%d-%H%M%S"))
 TASK_RU = ("В файле command-center/bcc/portcheck.py у функции is_loopback_host нет докстринга: добавь короткий "
            "докстринг на русском (что считается loopback). Попроси независимую бесплатную облачную модель "
            "предложить формулировку. Добавь новый тест command-center/tests/test_portcheck_loopback_host.py: "
@@ -139,7 +139,7 @@ async def phase_task(out: Path) -> dict:
     # --- the pult: real Companion + real Core over the in-process backend; Telegram is a recording fake
     owner = Person(11111, 11111, "owner", None)
     csettings = CSettings((owner,), local_url="http://127.0.0.1:8083/v1", local_model="best", bot_token="x",
-                          core_url="http://test", core_token=svc.auth.token)
+                          core_url="http://127.0.0.1:8801", core_token=svc.auth.token)
 
     class RecTelegram:
         def __init__(self):
