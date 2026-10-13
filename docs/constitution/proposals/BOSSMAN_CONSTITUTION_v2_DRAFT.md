@@ -1,6 +1,6 @@
 # Bossman Constitution (user-owned)
 
-DRAFT Version 2 - proposed 2026-10-13 by Claude at the owner's request (NOT in force until the owner replaces the live file and pins it). This file is changed ONLY by the user. Bossman, Jeff, Jev, Claude, Codex and every other
+Version 2 - 2026-10-13. This file is changed ONLY by the user. Bossman, Jeff, Jev, Claude, Codex and every other
 agent may read it and may change the ways goals are reached, never the goals and rules below. The runtime refuses
 to run the autonomy loop if this file's SHA-256 differs from the user's pin (see "Enforcement").
 

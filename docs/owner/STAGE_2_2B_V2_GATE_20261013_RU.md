@@ -47,9 +47,8 @@ Claude и Codex: это отдельный ворота, в этот этап н
 
 1. **Прочитать diff.** Живая v1 против v2: `git diff --no-index docs/constitution/BOSSMAN_CONSTITUTION.md
    docs/constitution/proposals/BOSSMAN_CONSTITUTION_v2_DRAFT.md`. Значимое отличие только правило 4 и формулировки
-   «оба одобрения» -> «верификаторы». Заголовок черновика содержит слово DRAFT и «NOT in force until...»: если не
-   хотите этого в действующем тексте, отредактируйте строку до запуска скрипта (пинится тот файл, что лежит в
-   `docs/constitution/proposals/`, байт-в-байт).
+   «оба одобрения» -> «верификаторы». Заголовок уже чистый («Version 2 - 2026-10-13»), слово DRAFT убрано; скрипт пинит ровно этот файл из
+   `docs/constitution/proposals/`, байт-в-байт.
 2. **Запустить скрипт в СВОЁМ окне PowerShell** (не через агента):
    `powershell -File tools\adopt_constitution_v2.ps1 -Build <корень сборки>`.
    Корень сборки: установленный бандл `C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-94e40cd17822` **или** чекаут с
