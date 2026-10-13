@@ -7,7 +7,8 @@
   "required": ["goal_id", "reviewer", "sha", "diff_sha256", "verdict", "notes"],
   "properties": {
     "goal_id": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*(-[A-Z0-9]+)+$", "maxLength": 64},
-    "reviewer": {"enum": ["claude", "codex"]},
+    "reviewer": {"type": "string", "maxLength": 160,
+      "pattern": "^(claude|codex|[A-Za-z0-9._-]+:[A-Za-z0-9._/:@+-]+)$"},
     "sha": {"type": "string", "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"},
     "diff_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "verdict": {"enum": ["APPROVE", "REQUEST_CHANGES", "REJECT"]},

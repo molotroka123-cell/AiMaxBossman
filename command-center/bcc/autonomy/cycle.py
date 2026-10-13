@@ -48,6 +48,7 @@ from ..rave import workspace as rws
 from .budget import DailyBudget
 from .experience import LEARNING_KIND, WEIGHTS, ExperienceWriter
 from .planner import ModelFacts, facts_dict, planner_model_allowed
+from .approver_policy import V1 as V1_POLICY, ApproverPolicy, family_of, verifier_info
 from .review import Candidate, ReviewGate, parse_review
 from .savings import SavingsLedger
 from .skills import SkillStore, capture_trace
@@ -55,7 +56,7 @@ from .goals import GoalError, TransitionError
 from .probes import STAGING_PROBES
 from .types import Budget, Goal, HandRequest
 from .journal import atomic_write_bytes
-from .workers import (HandsPort, JournalPort, LeasePort, NemotronWriter, ProcessRunner, ReviewerSession,
+from .workers import (review_prompt, HandsPort, JournalPort, LeasePort, NemotronWriter, ProcessRunner, ReviewerSession,
                       TreeRunner, WriterSession, assign_roles, full_diff, goal_rollback, goal_scope,
                       hand_result_dict, maybe_await, sha256_bytes, sha256_json)
 
@@ -157,6 +158,7 @@ class CycleConfig:
     auto_deploy_min_level: int = 3
     models: dict = field(default_factory=dict)         # agent -> CLI model alias (e.g. {"claude": "haiku"})
     max_cli_turns: int | None = None                   # `claude -p --max-turns N` (Codex has no such flag)
+    verifiers: tuple[str, ...] = ()                    # v2: ordered verifier ids (<provider>:<model>, claude, codex)
 
 
 @dataclass
@@ -181,6 +183,8 @@ class CycleDeps:
     candidate_probe: Callable[[Goal, Path], Any] | None = None   # metrics of the STAGED candidate (its own worktree)
     daily: DailyBudget | None = None                   # global daily cap (cycles / turns / usd)
     experience: ExperienceWriter | None = None         # lesson CANDIDATES (retrieval memory, never training)
+    approver_policy: Callable[[], ApproverPolicy] | None = None   # pinned-constitution policy (default v1)
+    verifier_chat: Callable[[str, str], Any] | None = None  # v2 model verifier: (verifier_id, prompt) -> {text,...}
 
 
 @dataclass
@@ -204,6 +208,31 @@ class Blocked(Exception):
 class AutonomyCycle:
     def __init__(self, deps: CycleDeps, config: CycleConfig | None = None):
         self.d, self.c = deps, config or CycleConfig()
+
+    def _policy(self) -> ApproverPolicy:
+        try:
+            p = self.d.approver_policy() if self.d.approver_policy is not None else V1_POLICY
+        except Exception:  # noqa: BLE001 - fail closed to the strict v1 pair
+            return V1_POLICY
+        return p if isinstance(p, ApproverPolicy) else V1_POLICY
+
+    def _pick_verifier(self, ctx: dict, stage: int) -> str:
+        """v2: the verifier for review stage 1 or 2: configured, valid, never the writer or its family, and
+        (stage 2) of a family different from stage 1's. Blocked when none is eligible."""
+        writer = str(ctx.get("author") or "")
+        wfam = family_of(writer)
+        if not writer or not wfam:
+            raise Blocked("v2 verifiers: the writer's model family is unknown; independence cannot be shown")
+        used = [str(v) for v in ctx.get("verifiers_used") or []]
+        used_fams = {verifier_info(v).family for v in used}
+        for vid in self.c.verifiers:
+            info = verifier_info(vid)
+            if not info.valid or vid.lower() == writer.lower() or info.model == writer.lower() \
+                    or info.family == wfam or vid in used or info.family in used_fams:
+                continue
+            return vid
+        raise Blocked(f"v2 verifiers: no eligible independent verifier for stage {stage} "
+                      f"(writer family {wfam}; configured {list(self.c.verifiers)})")
 
     # ------------------------------------------------------------ persistence
     def _dir(self, goal_id: str) -> Path:
@@ -546,7 +575,7 @@ class AutonomyCycle:
         ctx["evidence"] = evidence
         ctx["evidence_sha256"] = sha256_json(evidence)
         gate = ReviewGate(goal.goal_id, max_disagreements=self.c.max_disagreements, journal=self.d.journal,
-                          state=ctx.get("gate"))
+                          state=ctx.get("gate"), policy=self._policy())
         gate.set_candidate(Candidate(sha=ctx["sha"], diff_sha256=ctx["diff_sha256"],
                                      evidence_sha256=ctx["evidence_sha256"], author=ctx["author"],
                                      author_session=ctx["author_session"]))
@@ -571,23 +600,55 @@ class AutonomyCycle:
             self.d.lease.release(token)
 
     async def _s_claude_review(self, ctx: dict) -> None:
-        await self._review(ctx, "claude")
+        await self._review(ctx, "claude" if not self._policy().is_v2 else self._pick_verifier(ctx, 1), stage=1)
 
     async def _s_codex_review(self, ctx: dict) -> None:
-        await self._review(ctx, "codex")
+        await self._review(ctx, "codex" if not self._policy().is_v2 else self._pick_verifier(ctx, 2), stage=2)
 
-    async def _review(self, ctx: dict, agent: str) -> None:
+    async def _review(self, ctx: dict, agent: str, stage: int = 0) -> None:
         goal = self._goal(ctx)
         if not ctx.get("gate") or not ctx.get("evidence_sha256"):
             raise Blocked("ambiguous state: review without tested candidate")
         self._check_budget(ctx)
         self._head_unchanged(ctx)
         gate = ReviewGate(goal.goal_id, max_disagreements=self.c.max_disagreements, journal=self.d.journal,
-                          state=ctx["gate"])
+                          state=ctx["gate"], policy=self._policy())
         cand = gate.candidate
         if cand is None or cand.sha != ctx["sha"] or cand.evidence_sha256 != ctx["evidence_sha256"]:
             raise Blocked("ambiguous state: gate not bound to the candidate")
         diff = full_diff(Path(ctx["worktree"]), ctx["base_sha"], ctx["sha"]).decode("utf-8", "replace")
+        if agent not in ("claude", "codex"):             # v2 model verifier: prompt in, one JSON verdict out
+            out = await self._model_verdict(ctx, agent, review_prompt(goal, ctx["sha"], ctx["diff_sha256"],
+                                                                      ctx["evidence_sha256"], ctx["evidence"], diff))
+        else:
+            out = await self._cli_verdict(ctx, goal, agent, diff)
+        await self._finish_review(ctx, goal, gate, cand, agent, stage, out)
+
+    async def _model_verdict(self, ctx: dict, verifier: str, prompt: str):
+        from .workers import ReviewSessionResult
+        res = ReviewSessionResult(status="failed", reviewer=verifier,
+                                  session_id=f"{ctx['goal']['goal_id']}-v-{verifier}-{ctx['sha'][:12]}")
+        if self.d.verifier_chat is None:
+            res.status, res.reason = "unavailable", "no verifier model transport configured"
+            return res
+        stopped = self._stop_reason()
+        if stopped:
+            res.status, res.reason = "stopped", stopped
+            return res
+        try:
+            data = await maybe_await(self.d.verifier_chat(verifier, prompt))
+        except Exception as exc:  # noqa: BLE001 - a failed verifier call is not an approval
+            res.status, res.reason = "failed", f"{type(exc).__name__}: {str(exc)[:200]}"
+            return res
+        text = str((data or {}).get("text") or "") if isinstance(data, dict) else str(data or "")
+        res.text, res.status = text, "ok"
+        if isinstance(data, dict):
+            res.tokens_in, res.tokens_out = int(data.get("tokens_in") or 0), int(data.get("tokens_out") or 0)
+        self._log("verifier_call", ctx, {"verifier": verifier, "sha": ctx["sha"], "tokens_in": res.tokens_in,
+                                         "tokens_out": res.tokens_out})
+        return res
+
+    async def _cli_verdict(self, ctx: dict, goal: Goal, agent: str, diff: str):
         sess = ReviewerSession(goal=goal, reviewer=agent, source_worktree=Path(ctx["worktree"]), sha=ctx["sha"],
                                diff_sha256=ctx["diff_sha256"], evidence_sha256=ctx["evidence_sha256"],
                                evidence=ctx["evidence"], session_dir=self._dir(goal.goal_id)
@@ -595,7 +656,10 @@ class AutonomyCycle:
                                runner=self.d.runner, timeout_s=self.c.reviewer_timeout_s,
                                base_sha=ctx["base_sha"], diff_text=diff, model=self.c.models.get(agent),
                                stop_check=self.d.stop_check, max_cli_turns=self.c.max_cli_turns)
-        out = await sess.run()
+        return await sess.run()
+
+    async def _finish_review(self, ctx: dict, goal: Goal, gate: ReviewGate, cand: Candidate, agent: str,
+                             stage: int, out) -> None:
         ctx["turns_used"] += 1
         if out.status == "stopped":                     # an owner STOP is not a failed review: nothing was decided
             self._save(ctx)
@@ -607,7 +671,8 @@ class AutonomyCycle:
             self._charge(ctx, turns=1)
             raise Blocked(gate.blocked_reason)
         self._charge(ctx, turns=1)
-        review, why = parse_review(out.text, goal_id=goal.goal_id, reviewer=agent, candidate=cand)
+        review, why = parse_review(out.text, goal_id=goal.goal_id, reviewer=agent, candidate=cand,
+                                   policy=self._policy())
         if review is None:
             gate.record_failure(agent, f"malformed verdict: {why}")
             ctx["gate"] = gate.to_dict()
@@ -627,8 +692,12 @@ class AutonomyCycle:
             ctx["feedback"] = gate.change_notes()
             self._to(ctx, "BUILDING", {"reason": "changes requested", "by": agent, "revision": ctx["revisions"]})
             return
-        if agent == "claude":
-            self._to(ctx, "CODEX_REVIEW", {"claude": review.verdict, "sha": ctx["sha"]})
+        if agent not in ("claude", "codex"):
+            ctx["verifiers_used"] = [*ctx.get("verifiers_used", []), agent]
+        if ctx["state"] == "CLAUDE_REVIEW":
+            self._to(ctx, "CODEX_REVIEW", {**({"claude": review.verdict} if agent == "claude" else {}),
+                                           "first_reviewer": agent, "first_review": review.verdict,
+                                           "sha": ctx["sha"]})
             return
         if status != "APPROVED":
             raise Blocked("ambiguous state: review sequence finished without dual approval")
@@ -637,7 +706,7 @@ class AutonomyCycle:
     async def _s_staging(self, ctx: dict) -> None:
         goal = self._goal(ctx)
         self._head_unchanged(ctx)
-        gate = ReviewGate(goal.goal_id, state=ctx["gate"])
+        gate = ReviewGate(goal.goal_id, state=ctx["gate"], policy=self._policy())
         if gate.status() != "APPROVED" or gate.candidate is None or gate.candidate.sha != ctx["sha"]:
             raise Blocked("ambiguous state: staging without dual approval of this sha")
         report = await maybe_await(self.d.staging.run(ctx["sha"], list(self.c.staging_checks)))
@@ -862,7 +931,14 @@ def real_deps(root: Path, repo: Path, *, data_dir: Path | None = None, constitut
     async def probe(goal: Goal) -> dict | None:                      # the baseline: the source checkout's own code
         return await measure(goal, Path(repo))
 
-    return CycleDeps(goals=GoalStore(root, journal), lease=EngineeringLease(root, journal=journal),
+    from . import approver_policy
+
+    def policy() -> Any:                                   # the PINNED constitution's approver policy (v1 / v2)
+        return approver_policy.load_policy(constitution_path, pin_path)
+
+    return CycleDeps(goals=GoalStore(root, journal, policy_provider=policy),
+                     lease=EngineeringLease(root, journal=journal),
+                     approver_policy=policy, verifier_chat=openrouter_free_verifier_chat(),
                      hands=build_default_broker(root, journal, constitution_status=verify, stop_check=stop),
                      journal=journal, staging=build_default_runner(root, repo, journal=journal),
                      gate_decide=metrics_gate.decide, constitution_verify=verify, metrics_probe=probe,
@@ -873,6 +949,30 @@ def real_deps(root: Path, repo: Path, *, data_dir: Path | None = None, constitut
 
 
 _real_deps = real_deps      # the old private name
+
+
+def openrouter_free_verifier_chat() -> Callable[[str, str], Any] | None:  # pragma: no cover - live network
+    """v2 verifier transport: ``(verifier_id, prompt) -> {text, tokens_in, tokens_out}`` through OpenRouter.
+    Only ``openrouter:<model>:free`` ids go out (owner rule: free models only for self-improvement); anything
+    else raises. None without a key (the v2 cycle then BLOCKS honestly: no verifier transport)."""
+    from ..v2.openrouter_ext import OpenRouterClient
+    from ..v2.openrouter_identity import env_credential
+
+    key = getattr(env_credential(), "value", "") or ""
+    if not key:
+        return None
+    client = OpenRouterClient(key)
+
+    async def chat(verifier: str, prompt: str) -> dict:
+        provider, _, model = str(verifier).partition(":")
+        if provider.lower() != "openrouter" or not model.endswith(":free"):
+            raise ValueError("verifier transport serves only openrouter ':free' models")
+        data = await client.chat_raw(model, [{"role": "user", "content": prompt}], max_tokens=1500, temperature=0)
+        usage = data.get("usage") or {}
+        text = ((data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+        return {"text": text, "tokens_in": usage.get("prompt_tokens", 0), "tokens_out": usage.get("completion_tokens", 0)}
+
+    return chat
 
 
 async def openrouter_nemotron() -> tuple[NemotronWriter | None, ModelFacts | None, str]:  # pragma: no cover

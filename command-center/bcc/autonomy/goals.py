@@ -18,7 +18,8 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
-from . import schemas
+from . import approver_policy, schemas
+from .approver_policy import ApproverPolicy
 from .journal import Journal, atomic_write_bytes, canonical, file_lock, sha256_bytes, utc_now
 from .policy import CANONICAL_TARGET_BRANCH, scope_violations
 from .types import GOAL_STATES, Goal, Review
@@ -95,13 +96,24 @@ def validate_goal(goal: Goal) -> None:
 
 class GoalStore:
     def __init__(self, root: str | os.PathLike, journal: Journal | None = None, *,
-                 clock: Callable[[], float] = time.time):
+                 clock: Callable[[], float] = time.time,
+                 policy_provider: Callable[[], ApproverPolicy] | None = None):
         self.root = Path(root)
         self.dir = self.root / "goals"
         self.dir.mkdir(parents=True, exist_ok=True)
         self.journal = journal if journal is not None else Journal(self.root)
         self._clock = clock
         self._lock = self.dir / ".lock"
+        self._policy_provider = policy_provider
+
+    def policy(self) -> ApproverPolicy:
+        """Required-approver policy of the PINNED constitution (v1: Claude+Codex; v2: independent verifiers).
+        Any failure to establish v2 yields v1."""
+        try:
+            p = (self._policy_provider or approver_policy.load_policy)()
+            return p if isinstance(p, ApproverPolicy) else approver_policy.V1
+        except Exception:  # noqa: BLE001 - fail closed to the strict v1 pair
+            return approver_policy.V1
 
     # .......................................................... io
     def _path(self, goal_id: str) -> Path:
@@ -174,8 +186,17 @@ class GoalStore:
         return bool(r) and r.get("verdict") == "APPROVE" and cls._bound(rec, r.get("sha"), r.get("diff_sha256"))
 
     @classmethod
-    def approvals_valid(cls, rec: dict) -> bool:
-        return cls._approved_by(rec, "claude") and cls._approved_by(rec, "codex")
+    def approved_reviewers(cls, rec: dict) -> list[str]:
+        return sorted(k for k in (rec.get("approvals") or {}) if cls._approved_by(rec, k))
+
+    @classmethod
+    def approvals_valid(cls, rec: dict, policy: ApproverPolicy | None = None) -> bool:
+        """v1 (default): Claude AND Codex for the current SHA+diff. v2: two verifiers of different families,
+        one external, never the writer (see approver_policy). Tests green is a separate guard."""
+        if policy is None or not policy.is_v2:
+            return cls._approved_by(rec, "claude") and cls._approved_by(rec, "codex")
+        author = str((rec.get("candidate") or {}).get("author") or "")
+        return policy.evaluate(cls.approved_reviewers(rec), author).ok
 
     @classmethod
     def staging_passed(cls, rec: dict) -> bool:
@@ -208,15 +229,19 @@ class GoalStore:
             t = rec.get("tests") or {}
             if not (t.get("passed") and self._bound(rec, t.get("sha"), t.get("diff_sha256"))):
                 raise GuardError("missing evidence: tests did not pass for the current candidate")
-        if new == "CODEX_REVIEW" and not self._approved_by(rec, "claude"):
+        pol = self.policy()
+        if new == "CODEX_REVIEW" and pol.is_v2 and not self.approved_reviewers(rec):
+            raise GuardError("the first verifier's APPROVE for the current SHA+diff is missing")
+        if new == "CODEX_REVIEW" and not pol.is_v2 and not self._approved_by(rec, "claude"):
             raise GuardError("Claude's APPROVE for the current SHA+diff is missing")
-        if new == "STAGING" and not self.approvals_valid(rec):
-            raise GuardError("both approvals for the current SHA+diff are required")
-        if new == "USER_APPROVAL" and not (self.approvals_valid(rec) and self.staging_passed(rec)):
+        if new == "STAGING" and not self.approvals_valid(rec, pol):
+            raise GuardError("independent verifier approvals for the current SHA+diff are required" if pol.is_v2
+                             else "both approvals for the current SHA+diff are required")
+        if new == "USER_APPROVAL" and not (self.approvals_valid(rec, pol) and self.staging_passed(rec)):
             raise GuardError("staging did not pass for the approved SHA")
         if new == "DEPLOYED":
             auto = (rec["goal"]["risk_tier"] == "docs_tests" and evidence.get("auto_tier") is True
-                    and self.approvals_valid(rec) and self.staging_passed(rec))
+                    and self.approvals_valid(rec, pol) and self.staging_passed(rec))
             if rec["state"] == "STAGING" and not auto:
                 raise GuardError("STAGING -> DEPLOYED only in the automatic docs/tests tier with both approvals "
                                  "and a passed staging")
@@ -255,6 +280,11 @@ class GoalStore:
         if new == "CODEX_REVIEW" and evidence.get("claude") == "APPROVE":
             rec.setdefault("approvals", {}).setdefault("claude", {"goal_id": gid, "reviewer": "claude", **bound,
                                                                   "verdict": "APPROVE", "notes": "via transition"})
+        first = str(evidence.get("first_reviewer") or "")
+        if new == "CODEX_REVIEW" and first and first != "claude" and evidence.get("first_review") == "APPROVE" \
+                and self.policy().is_v2 and self.policy().valid_reviewer(first):
+            rec.setdefault("approvals", {}).setdefault(first, {"goal_id": gid, "reviewer": first, **bound,
+                                                               "verdict": "APPROVE", "notes": "via transition"})
         if new in ("USER_APPROVAL", "DEPLOYED") and evidence.get("staging_ok") is True                 and rec["state"] == "STAGING" and not self.staging_passed(rec):
             rec["staging"] = {**bound, "passed": True, "via": "transition evidence"}
 
@@ -263,10 +293,11 @@ class GoalStore:
         c = rec.get("candidate") or {}
         if not isinstance(g, Mapping) or not c:
             return
+        pol = self.policy()
         for reviewer, v in (g.get("verdicts") or {}).items():
             key = list(v.get("key") or []) if isinstance(v, Mapping) else []
-            if reviewer in ("claude", "codex") and v.get("verdict") == "APPROVE" and key[:2] == [c["sha"],
-                                                                                              c["diff_sha256"]]:
+            if pol.valid_reviewer(str(reviewer)) and v.get("verdict") == "APPROVE" \
+                    and key[:2] == [c["sha"], c["diff_sha256"]]:
                 rec.setdefault("approvals", {})[reviewer] = {
                     "goal_id": rec["goal"]["goal_id"], "reviewer": reviewer, "sha": c["sha"],
                     "diff_sha256": c["diff_sha256"], "verdict": "APPROVE", "notes": str(v.get("notes", ""))[:2000],
@@ -319,6 +350,7 @@ class GoalStore:
     def transition(self, goal_id: str, new_state: str, evidence: Mapping[str, Any] | None = None) -> dict:
         if evidence is not None and not isinstance(evidence, Mapping):
             raise TransitionError("evidence must be a mapping")
+        new_state = approver_policy.STATE_ALIASES.get(new_state, new_state)   # VERIFY_1/2 -> the stored names
         return self._mutate(goal_id, lambda rec: self._move(rec, new_state, evidence or {}))
 
     def block(self, goal_id: str, reason: str, **evidence: Any) -> dict:
@@ -389,9 +421,21 @@ class GoalStore:
                                             "sha": review.sha})
                 return
             author = (rec.get("candidate") or {}).get("author")
-            other = "codex" if review.reviewer == "claude" else "claude"
-            if review.verdict == "APPROVE" and author == review.reviewer and not self._approved_by(rec, other):
-                raise GuardError(f"{review.reviewer} cannot approve its own unreviewed candidate")
+            pol = self.policy()
+            if not pol.valid_reviewer(review.reviewer):
+                raise GuardError(f"{review.reviewer!r} is not an accepted reviewer under the "
+                                 f"{pol.mode} approver policy")
+            if pol.is_v2:
+                writer = str(author or "")
+                if review.verdict == "APPROVE" and (not writer or review.reviewer.lower() == writer.lower()
+                                                    or approver_policy.verifier_info(review.reviewer).family
+                                                    == approver_policy.family_of(writer)):
+                    raise GuardError(f"{review.reviewer} is not independent of the writer {writer!r}: "
+                                     "the writer's model family cannot verify its own change")
+            else:
+                other = "codex" if review.reviewer == "claude" else "claude"
+                if review.verdict == "APPROVE" and author == review.reviewer and not self._approved_by(rec, other):
+                    raise GuardError(f"{review.reviewer} cannot approve its own unreviewed candidate")
             rec.setdefault("approvals", {})[review.reviewer] = asdict(review)
             self.journal.append("goal.review", payload)
             if review.verdict == "REJECT":
@@ -430,8 +474,9 @@ class GoalStore:
                 raise TransitionError(f"the user decides in USER_APPROVAL, the goal is {rec['state']}")
             if not self._bound(rec, sha, diff_sha256):
                 raise GuardError("the decision names a different SHA/diff than the candidate")
-            if action == "apply" and not (self.approvals_valid(rec) and self.staging_passed(rec)):
-                raise GuardError("Apply needs both approvals and a passed staging for this SHA")
+            if action == "apply" and not (self.approvals_valid(rec, self.policy()) and self.staging_passed(rec)):
+                raise GuardError("Apply needs both approvals and a passed staging for this SHA" if not self.policy().is_v2
+                                 else "Apply needs the independent verifier approvals and a passed staging")
             decision = {"action": action, "sha": sha, "diff_sha256": diff_sha256, "note": note[:2000], "by": by,
                         "at": utc_now()}
             self.journal.append("goal.user_decision", {"goal_id": goal_id, **decision})
