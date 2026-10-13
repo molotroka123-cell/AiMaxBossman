@@ -199,7 +199,7 @@ def test_no_deadline_and_all_roles_default_to_uncensored_qwen():
     assert qo.DEFAULT_DECISION_WAIT_S is None
     for role in ("planner", "coder", "diagnostician"):
         assert qo.DEFAULT_ROLES[role]["model"] in qo.LOCAL_UNCENSORED
-        assert qo.DEFAULT_ROLES[role]["num_ctx"] == 262144
+        assert qo.DEFAULT_ROLES[role]["num_ctx"] == qo.CTX_DEFAULT == 65536
     src = Path(qo.__file__).read_text(encoding="utf-8")
     assert "time_budget_s" not in src
 

@@ -54,6 +54,11 @@ LAB_BRANCH_PREFIX = "lab/"
 MAX_ATTEMPTS = 3
 OLLAMA = "http://127.0.0.1:11434"
 CTX_256K = 262144
+CTX_DEFAULT = 65536                  # owner 13.10 (test phase): 64k default; 256k stays available per task
+CTX_LADDER = (65536, 131072, 262144)  # sufficiency monitor escalates along this ladder
+CTX_MIN = 4096
+CTX_PRESSURE_LIMIT = 0.8             # prompt + reserve above 80% of ctx = "context was not enough"
+MAX_QUEUE = 20
 DEFAULT_DECISION_WAIT_S = None      # no deadline: wait for the owner until STOP / cancel (0 = do not wait)
 DECISION_KIND = "operator_decision"
 TERMINAL = ("completed", "completed_with_pending_decisions", "failed", "stopped")
@@ -63,9 +68,9 @@ LOCAL_UNCENSORED = ("bossman-community-qwen-uncensored:latest", "bossman-uncenso
 #: Defaults only; the owner reconfigures through POST /api/qwen-operator/config.
 DEFAULT_ROLES: dict[str, dict[str, Any]] = {
     # owner 2026-10-13: ALL operator roles default to the uncensored Qwen (the first of these Ollama has)
-    "planner": {"model": LOCAL_UNCENSORED[0], "num_ctx": CTX_256K},
-    "coder": {"model": LOCAL_UNCENSORED[0], "num_ctx": CTX_256K},
-    "diagnostician": {"model": LOCAL_UNCENSORED[0], "num_ctx": CTX_256K},
+    "planner": {"model": LOCAL_UNCENSORED[0], "num_ctx": CTX_DEFAULT},
+    "coder": {"model": LOCAL_UNCENSORED[0], "num_ctx": CTX_DEFAULT},
+    "diagnostician": {"model": LOCAL_UNCENSORED[0], "num_ctx": CTX_DEFAULT},
     # cloud, free, a different family than the planner/coder (qwen): picked from the registry
     "verifier": {"prefer": ["nvidia/nemotron-3-ultra-550b-a55b:free", "nvidia/nemotron-3-ultra-550b-a55b"],
                  "avoid_family": "qwen"},
@@ -217,10 +222,60 @@ def constitution_state() -> dict:
         return {"autonomy_loop": "UNKNOWN", "reason": f"{type(exc).__name__}"}
 
 
+LOCAL_ROLES = ("planner", "coder", "diagnostician")
+
+
+def next_ctx(n: int) -> int | None:
+    return next((c for c in CTX_LADDER if c > n), None)
+
+
+def ctx_pressure(res: dict, num_ctx: int, reserve: int = 2048) -> dict:
+    """How full the context was: prompt tokens + the room the answer needs, against num_ctx. A call that
+    Ollama truncated counts as insufficient whatever the percentage."""
+    tin = int(res.get("tokens_in") or 0)
+    pct = round(100.0 * (tin + reserve) / max(1, num_ctx))
+    truncated = bool(res.get("truncated"))
+    return {"pct": pct, "truncated": truncated, "over": truncated or (tin + reserve) > CTX_PRESSURE_LIMIT * num_ctx}
+
+
+def ctx_report(calls: list[dict]) -> dict:
+    local = [c["ctx_pressure_pct"] for c in calls if c.get("ctx_pressure_pct") is not None]
+    retries = [c["ctx_retry"] for c in calls if c.get("ctx_retry")]
+    first = [r.get("first_pct") for r in retries if r.get("first_pct") is not None]
+    peak = max(local + first + [0])
+    truncated = any(c.get("ctx_truncated") for c in calls) or any(r.get("first_truncated") for r in retries)
+    return {"max_pct": peak, "retries": retries, "truncated": truncated,
+            "insufficient": bool(retries) or truncated or peak > CTX_PRESSURE_LIMIT * 100}
+
+
+def timings(rec: dict) -> dict:
+    """Measured, not estimated: where the time of one task went (shown in the pult receipt)."""
+    calls = rec.get("model_calls") or []
+    by_role: dict[str, float] = {}
+    for c in calls:
+        role = c.get("role") or "?"
+        by_role[role] = round(by_role.get(role, 0.0) + float(c.get("wall_seconds") or c.get("seconds") or 0), 1)
+    end = rec.get("finished_at") or _now()
+    return {"total_s": round(end - float(rec.get("created_at") or end), 1), "by_role_s": by_role,
+            "phase_s": {k: round(v, 1) for k, v in (rec.get("phase_seconds") or {}).items()},
+            "tests_s": round(float(rec.get("test_seconds") or 0), 1),
+            "load_s": round(sum(float(c.get("load_seconds") or 0) for c in calls), 1),
+            "ctx_by_role": {r: (rec.get("roles") or {}).get(r, {}).get("num_ctx") for r in LOCAL_ROLES}}
+
+
+def _is_promotion(d: dict) -> bool:
+    argv = d.get("argv") or []
+    return d.get("category") in ("promotion", "force_push") or (
+        len(argv) > 1 and argv[0] == "git" and argv[1] in PROMOTION_GIT)
+
+
 def load_config(svc) -> dict:
     cfg = json.loads(json.dumps(DEFAULT_ROLES))
     try:
         user = json.loads((_store(svc) / "config.json").read_text(encoding="utf-8"))
+        if isinstance(user.get("num_ctx"), int) and CTX_MIN <= user["num_ctx"] <= CTX_256K:
+            for r in LOCAL_ROLES:
+                cfg[r]["num_ctx"] = user["num_ctx"]
         for role, values in (user.get("roles") or {}).items():
             if role in cfg and isinstance(values, dict):
                 cfg[role].update(values)
@@ -266,7 +321,7 @@ async def ollama_ps(client: httpx.AsyncClient | None = None) -> list[dict]:
         return []
 
 
-async def ollama_chat(model: str, messages: list[dict], *, num_ctx: int = CTX_256K, json_mode: bool = False,
+async def ollama_chat(model: str, messages: list[dict], *, num_ctx: int = CTX_DEFAULT, json_mode: bool = False,
                       num_predict: int = 2048, timeout: float = 1800.0, transport: Any = None) -> dict:
     """One request to the local Ollama (native API: ``num_ctx`` is only settable here). Returns text + measured
     receipts; never raises for a model failure - the caller records ``error``."""
@@ -288,7 +343,10 @@ async def ollama_chat(model: str, messages: list[dict], *, num_ctx: int = CTX_25
     text = str((data.get("message") or {}).get("content") or "")
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
     loaded = next((m for m in ps if m.get("name") == model or m.get("model") == model), {})
+    tin = int(data.get("prompt_eval_count") or 0)
     return {"ok": True, "model": model, "text": text, "tokens_in": data.get("prompt_eval_count", 0),
+            # Ollama silently drops the oldest prompt tokens when the prompt fills the window
+            "truncated": tin >= int(num_ctx * 0.98),
             "tokens_out": data.get("eval_count", 0), "cost_usd": 0.0,
             "seconds": round(time.monotonic() - started, 1),
             "load_seconds": round((data.get("load_duration") or 0) / 1e9, 1),
@@ -381,11 +439,41 @@ class Run:
                "tokens_out": res.get("tokens_out", 0), "cost_usd": res.get("cost_usd", 0.0),
                "seconds": res.get("seconds"), "ok": res.get("ok", False)}
         for k in ("num_ctx_requested", "context_length_loaded", "size_bytes", "size_vram_bytes", "load_seconds",
-                  "error", "provider", "task_id", "run_id"):
+                  "error", "provider", "task_id", "run_id", "ctx_pressure_pct", "ctx_truncated", "ctx_retry"):
             if res.get(k) is not None:
                 row[k] = res[k]
         self.rec["model_calls"].append(row)
         return row
+
+    def phase(self, name: str) -> None:
+        """Wall-clock bookkeeping: where the time goes. Closes the previous phase, opens ``name``."""
+        now = _now()
+        cur = self.rec.get("phase")
+        if cur:
+            ps = self.rec.setdefault("phase_seconds", {})
+            ps[cur["name"]] = round(ps.get(cur["name"], 0.0) + (now - cur["since"]), 2)
+        self.rec["phase"] = {"name": name, "since": now} if name else None
+
+    async def chat(self, role: str, messages: list[dict], *, json_mode: bool = False,
+                   num_predict: int = 2048) -> dict:
+        """One LOCAL call with the sufficiency monitor: prompt tokens against ctx; over ~80% (or truncated) ->
+        recorded and retried ONCE with the next larger ctx instead of silently degrading."""
+        cfg = self.cfg[role]
+        n = int(cfg.get("num_ctx") or CTX_DEFAULT)
+        kw: dict[str, Any] = {"json_mode": True} if json_mode else {}
+        res = await self.local_chat(cfg["model"], messages, num_ctx=n, **kw)
+        p = ctx_pressure(res, n, num_predict) if res.get("ok") else {"pct": None, "truncated": False, "over": False}
+        nxt = next_ctx(n)
+        if res.get("ok") and p["over"] and nxt:
+            again = await self.local_chat(cfg["model"], messages, num_ctx=nxt, **kw)
+            if again.get("ok"):
+                again["ctx_retry"] = {"from": n, "to": nxt, "first_pct": p["pct"], "first_truncated": p["truncated"]}
+                cfg["num_ctx"] = nxt                       # later calls of this task start at the larger ctx
+                res, p = again, ctx_pressure(again, nxt, num_predict)
+                res["num_ctx_requested"] = nxt
+        res["ctx_pressure_pct"] = p["pct"]
+        res["ctx_truncated"] = p["truncated"]
+        return res
 
     # ---- owner decisions (park + continue)
     async def park(self, *, action: str, category: str, why: str, recommendation: str, concerns: str,
@@ -419,6 +507,27 @@ class Run:
                                      "approval_id": d["approval_id"]})
         return {"ran": False, "parked": d["approval_id"]}
 
+    async def pump_decisions(self) -> None:
+        """While the work goes on: record the owner's answer AS SOON AS it is known when applying it executes
+        nothing (denied, protected-file note, rule-4 block). Commands that would run in the lab still wait for
+        the end of the step (no concurrent writes into the worktree)."""
+        while True:
+            await asyncio.sleep(2.0)
+            pending = [d for d in self.rec["decisions"] if d["status"] == "PENDING"]
+            if not pending:
+                continue
+            try:
+                rows = {r["id"]: r for r in await self.svc.approvals.list("all", 200)}
+            except Exception:  # noqa: BLE001
+                continue
+            for d in pending:
+                st = (rows.get(d["approval_id"]) or {}).get("status")
+                if st not in ("approved", "rejected", "denied", "expired", "revoked", "cancelled"):
+                    continue
+                if st == "approved" and d.get("executable") and d.get("argv") and not _is_promotion(d):
+                    continue
+                await self.apply_decision(d, st)
+
     async def settle_decisions(self) -> None:
         """Wait (bounded) for the owner's answers, then execute what is executable. Never loops forever."""
         deadline = None if self.decision_wait_s is None else time.monotonic() + self.decision_wait_s
@@ -441,11 +550,11 @@ class Run:
     async def apply_decision(self, d: dict, status: str) -> None:
         if status != "approved":
             d["status"] = "DENIED_BY_OWNER" if status in ("rejected", "denied") else status.upper()
+            d["decided_at"] = _now()
+            d["note"] = "владелец отклонил: шаг не выполнялся" if d["status"] == "DENIED_BY_OWNER" else d["status"]
             self.step("owner_decision", d["status"], approval_id=d["approval_id"], action=d["action"])
             return
-        cat = d["category"]
-        if cat in ("promotion", "force_push") or (d.get("argv") and d["argv"][:2] and d["argv"][0] == "git"
-                                                   and d["argv"][1] in PROMOTION_GIT):
+        if _is_promotion(d):
             d["status"] = "APPROVED_BLOCKED_BY_RULE_4"
             d["note"] = ("владелец одобрил, но конституция v1 (правило 4) требует одобрения Claude и Codex для "
                          "того же SHA; оператор push/merge не выполняет. " + RELEASE_STEPS_RU)
@@ -459,16 +568,21 @@ class Run:
             d["status"] = "APPROVED_NOT_EXECUTED"
             d["note"] = ("одобрено, но оператор такие изменения не выполняет (конституция / гейт одобрений / "
                          "деньги / публикации / ключи правит и делает сам владелец)")
-        self.step("owner_decision", d["status"], approval_id=d["approval_id"], action=d["action"])
+        d["decided_at"] = _now()
+        self.step("owner_decision", d["status"], approval_id=d["approval_id"], action=d["action"],
+                  note=d.get("note"))
 
     # ---- planning
     async def plan(self, task: str) -> dict | None:
-        files = _git(self.scope.worktree, "ls-files").stdout.decode("utf-8", "replace").splitlines()
+        listed = await asyncio.to_thread(_git, self.scope.worktree, "ls-files")
+        files = listed.stdout.decode("utf-8", "replace").splitlines()
         words = {w.lower() for w in re.findall(r"[\w./\\-]{4,}", task)}
         hits = [f for f in files if any(w.strip("./\\") and w.strip("./\\") in f.lower() for w in words)][:60]
         context = "\n".join(hits) or "(нет совпадений по именам файлов; опирайся на текст задачи)"
         system = ("Ты — оператор Bossman (L1 Lab). Составь план в формате СТРОГО JSON без пояснений: "
-                  '{"summary": str, "files": [repo-relative paths to change], "edit_instruction": str, '
+                  '{"summary": str, "files": [repo-relative paths to CHANGE: only files that will be written], '
+                  '"read_files": [repo-relative paths to only READ], "read_only": bool (true when nothing is '
+                  'changed: analysis / explanation / review), "edit_instruction": str, '
                   '"verify_tests": [repo-relative test files or node ids], "worker_prompt": str (опционально: '
                   'подзадача для независимой бесплатной облачной модели, например черновик формулировки; пусто '
                   'если не нужна), "extra_commands": [{"argv": [..], "why": str, "recommendation": str, '
@@ -480,8 +594,7 @@ class Run:
         for attempt in range(1, 3):
             msgs = [{"role": "system", "content": system}, {"role": "user", "content": user +
                     (f"\n\nПРОШЛЫЙ ПЛАН ОТКЛОНЁН: {last_problem}. Исправь." if last_problem else "")}]
-            res = await self.local_chat(cfg["model"], msgs, num_ctx=int(cfg.get("num_ctx") or CTX_256K),
-                                        json_mode=True)
+            res = await self.chat("planner", msgs, json_mode=True)
             row = self.usage(res, "planner")
             self.step("plan", "ok" if res.get("ok") else "failed", attempt=attempt, model=cfg["model"],
                       tokens_in=row["tokens_in"], tokens_out=row["tokens_out"], error=res.get("error"))
@@ -497,11 +610,11 @@ class Run:
                 continue
             problems = []
             tracked = set(files)
-            for f in plan.get("files") or []:
+            for f in list(plan.get("files") or []) + list(plan.get("read_files") or []):
                 if not isinstance(f, str) or (f not in tracked and not (self.scope.worktree / f).exists()
                                               and not f.startswith(("docs/", "command-center/tests/", "tests/"))):
                     problems.append(f"unknown path {f!r}")
-            if not plan.get("files") and not plan.get("extra_commands"):
+            if not plan.get("files") and not plan.get("read_files") and not plan.get("extra_commands"):
                 problems.append("plan has no files and no commands")
             if problems:
                 last_problem = "; ".join(problems)[:300]
@@ -520,7 +633,10 @@ class Run:
         return await run_cloud_worker(self.svc, role, system, prompt, self.cfg["verifier"])
 
     async def finish(self, status: str, error: str = "") -> dict:
+        self.phase("")
         self.rec.update(status=status, finished_at=_now(), error=error)
+        self.rec["timings"] = timings(self.rec)
+        self.rec["ctx_report"] = ctx_report(self.rec.get("model_calls") or [])
         _save(self.svc, self.rec)
         return self.rec
 
@@ -590,7 +706,7 @@ async def resolve_local_roles(run: Run) -> None:
             cfg["base_model"] = chosen
             cfg["model"] = chosen
         base = cfg.get("base_model") or cfg.get("model")
-        n = int(cfg.get("num_ctx") or CTX_256K)
+        n = int(cfg.get("num_ctx") or CTX_DEFAULT)
         if (base, n) not in variants:
             variants[(base, n)] = await ensure_ctx_variant(base, n)
             if variants[(base, n)].get("ok") and variants[(base, n)]["tag"] != base:
@@ -606,37 +722,124 @@ async def resolve_local_roles(run: Run) -> None:
 async def local_verifier(run: Run, task: str, diff: str) -> dict:
     """Fallback when no free cloud verifier answered: a SECOND local Qwen request with a fresh context (no
     history of the change). Not an independent family - the receipts say so."""
-    cfg = run.cfg["planner"]
-    res = await run.local_chat(cfg["model"], [
+    res = await run.chat("planner", [
         {"role": "system", "content": "Ты — независимый рецензент изменений. Ответь: VERDICT: APPROVE или "
                                       "VERDICT: REJECT, затем 2-4 предложения. Проверяй только присланный diff."},
-        {"role": "user", "content": "ЗАДАЧА:\n" + task[:1500] + "\n\nDIFF:\n" + diff[:12000]}],
-        num_ctx=int(cfg.get("num_ctx") or CTX_256K))
+        {"role": "user", "content": "ЗАДАЧА:\n" + task[:1500] + "\n\nDIFF:\n" + diff[:12000]}])
     res["role"] = "verifier"
     return res
 
 
 # ---------------------------------------------------------------- the task
+_WRITE_RE = re.compile(r"измени|поправ|исправ|добав|напиш|замен|удал|созда|перепиш|реализ|внедр|"
+                      r"\b(edit|fix|change|write|implement|add|rename|refactor|delete|create|patch|update)\b")
+_READ_RE = re.compile(r"прочита|проанализ|анализ|изуч|покаж|объясн|расскаж|оцен|только чита|без правок|"
+                      r"\b(read|analy[sz]e|explain|review|audit|summari[sz]e|inspect|read-only)\b")
+
+
+def is_read_only(task: str, plan: dict) -> bool:
+    """A task that changes nothing must never ask «изменить файл»: the planner says so (``read_only``), else a
+    deterministic reading of the owner's words. Reads of protected files are fine; only credentials ask."""
+    flag = plan.get("read_only")
+    if isinstance(flag, bool):
+        return flag
+    if plan.get("extra_commands"):
+        return False
+    low = task.lower()
+    return bool(_READ_RE.search(low)) and not _WRITE_RE.search(low)
+
+
+async def read_targets(run: Run, names: list[str], *, why: str) -> list[str]:
+    """Paths the operator may READ (protected code is readable); credential-like paths park one decision."""
+    ok: list[str] = []
+    for f in names:
+        v = run.scope.check_read(f)
+        if v.kind == "allow":
+            ok.append(f)
+        else:
+            await run.park(action=f"прочитать файл {f}", category=v.category, why=why[:300],
+                           recommendation="не давать, если файл не нужен для задачи", concerns=v.reason,
+                           path=f, executable=False)
+    return ok
+
+
+def _read_files_sync(scope: OperatorScope, names: list[str], budget: int = 60000) -> list[tuple[str, str]]:
+    out, left = [], budget
+    for f in names:
+        p = scope.policy.resolve(f)
+        if p is None or not p.is_file() or left <= 0:
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")[: min(12000, left)]
+        left -= len(text)
+        out.append((f, text))
+    return out
+
+
+async def analyze(run: Run, task: str, plan: dict, names: list[str]) -> str:
+    run.phase("analysis")
+    files = await asyncio.to_thread(_read_files_sync, run.scope, names)
+    body = "\n\n".join(f"### {n}\n{t}" for n, t in files) or "(файлы не прочитаны)"
+    res = await run.chat("planner", [
+        {"role": "system", "content": "Ты — оператор Bossman (L1 Lab), режим ТОЛЬКО ЧТЕНИЕ. Ответь на задачу "
+                                      "владельца по присланным файлам, кратко и по делу. Ничего не меняй."},
+        {"role": "user", "content": f"ЗАДАЧА:\n{task[:3000]}\n\nФАЙЛЫ:\n{body}"}], num_predict=2048)
+    run.usage(res, "analysis")
+    run.step("analysis", "ok" if res.get("ok") else "failed", files=[n for n, _t in files], error=res.get("error"))
+    return res.get("text", "") if res.get("ok") else ""
+
+
 async def execute(run: Run) -> dict:
+    """Pipeline + a background pump that records the owner's decisions the moment they are answered."""
+    pump = asyncio.create_task(run.pump_decisions())
+    try:
+        return await _execute(run)
+    finally:
+        pump.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await pump
+
+
+async def _execute(run: Run) -> dict:
     rec, scope, svc = run.rec, run.scope, run.svc
     task = rec["task"]
     rec["status"] = "running"
+    rec["started_at"] = _now()
     _save(svc, rec)
     if (why := run.stopped()):
         return await run.finish("stopped", why)
+    run.phase("resolve_models")
     await resolve_local_roles(run)
+    run.phase("plan")
     plan = await run.plan(task)
     if plan is None:
         return await run.finish("failed", "планировщик не дал валидный план")
 
     # parked owner decisions come first so the owner sees them while the work goes on
     paths_ok: list[str] = []
+    read_only = is_read_only(task, plan)
+    rec["read_only"] = read_only
+    why_text = str(plan.get("summary") or task)
+    if read_only:
+        names = [f for f in list(plan.get("files") or []) + list(plan.get("read_files") or []) if isinstance(f, str)]
+        got = await read_targets(run, names, why=why_text)
+        analysis = await analyze(run, task, plan, got) if got else ""
+        rec["analysis"] = analysis
+        await run.settle_decisions()
+        rec["promotion"] = {"status": "NOT_APPLICABLE", "reason": "read-only task: nothing changed",
+                            "what_the_owner_does": RELEASE_STEPS_RU, "lab_branch": rec.get("lab", {}).get("branch"),
+                            "commit": None}
+        pending = [d for d in rec["decisions"] if d["status"] == "PENDING"]
+        if not analysis and not pending:
+            return await run.finish("failed", "анализ не получен (нет читаемых файлов или модель не ответила)")
+        return await run.finish("completed_with_pending_decisions" if pending else "completed")
+    rec["read_files"] = await read_targets(run, [f for f in plan.get("read_files") or [] if isinstance(f, str)],
+                                           why=why_text)
     for f in plan.get("files") or []:
         v = scope.check_write(f)
         if v.kind == "allow":
             paths_ok.append(f)
         else:
-            await run.park(action=f"изменить файл {f}", category=v.category, why=str(plan.get("summary") or task)[:300],
+            await run.park(action=f"изменить файл {f}", category=v.category, why=why_text[:300],
                            recommendation=("правку этого файла лучше сделать вам самому или через поправку "
                                            "конституции v2" if v.category == "protected_file"
                                            else "разрешить только если файл действительно нужно трогать"),
@@ -649,6 +852,7 @@ async def execute(run: Run) -> dict:
 
     draft = ""
     if str(plan.get("worker_prompt") or "").strip() and not run.stopped():
+        run.phase("worker")
         res = await run.cloud("worker", "Ты — независимый помощник. Отвечай коротко и по делу.",
                               str(plan["worker_prompt"])[:4000])
         run.usage(res, "worker")
@@ -664,6 +868,7 @@ async def execute(run: Run) -> dict:
     rec["commit_sha"], rec["diff"] = commit_sha, final_diff
 
     if final_diff and not run.stopped():
+        run.phase("verify")
         review = await run.cloud(
             "verifier", "Ты — независимый рецензент изменений. Ответь: VERDICT: APPROVE или REJECT, затем 2-4 "
             "предложения с причинами. Проверяй только присланный diff и результат тестов.",
@@ -683,6 +888,7 @@ async def execute(run: Run) -> dict:
         run.step("verify_cloud", verdict if review.get("ok") else "NOT_RUN", model=review.get("model"),
                  error=review.get("error"))
 
+    run.phase("settle_decisions")
     await run.settle_decisions()
     rec["promotion"] = {"status": "BLOCKED", "reason": "constitution v1 rule 4 + L1 Lab never merges",
                         "what_the_owner_does": RELEASE_STEPS_RU,
@@ -708,7 +914,31 @@ async def edit_loop(run: Run, plan: dict, paths: list[str], draft: str) -> tuple
             instruction += f"\n\nЧерновик от независимой облачной модели (используй по усмотрению):\n{draft[:3000]}"
         if feedback:
             instruction += f"\n\nПРОШЛАЯ ПОПЫТКА НЕ ПРОШЛА. Диагностика:\n{feedback[:3000]}"
+        if plan.get("read_files"):
+            instruction += "\n\nДля контекста прочитай (не меняй): " + ", ".join(map(str, plan["read_files"][:10]))
+        run.phase("coder")
+        t0 = time.monotonic()
         coded = await (run.coder or run_sidecar)(run, instruction, paths, tests, attempt)
+        cfg_c = run.cfg["coder"]
+        cur = int(cfg_c.get("num_ctx") or CTX_DEFAULT)
+        peak = coded.get("max_prompt_tokens")
+        insufficient = bool(coded.get("truncated")) or (peak is not None and peak + 2048 > CTX_PRESSURE_LIMIT * cur)
+        if insufficient and next_ctx(cur) and (not coded.get("ok") or not coded.get("diff")):
+            nxt = next_ctx(cur)            # failed AND the window was short: one retry with the larger ctx
+            cfg_c["model"] = cfg_c.get("base_model") or cfg_c["model"]
+            cfg_c.pop("ctx_variant", None)
+            cfg_c["num_ctx"] = nxt
+            run.rec["model_calls"].append({"role": "coder", "model": coded.get("model"), "ok": False,
+                                           "ctx_pressure_pct": round(100.0 * ((peak or cur) + 2048) / cur),
+                                           "ctx_truncated": bool(coded.get("truncated")),
+                                           "num_ctx_requested": cur, "wall_seconds": round(time.monotonic() - t0, 1),
+                                           "ctx_retry": {"from": cur, "to": nxt, "first_truncated":
+                                                         bool(coded.get("truncated")),
+                                                         "first_pct": round(100.0 * ((peak or cur) + 2048) / cur)}})
+            t0 = time.monotonic()
+            coded = await (run.coder or run_sidecar)(run, instruction, paths, tests, attempt)
+            cur = nxt
+        coder_wall = round(time.monotonic() - t0, 1)
         run.step("edit", "ok" if coded.get("ok") else "failed", attempt=attempt, model=coded.get("model"),
                  changed_files=coded.get("changed_files"), error=coded.get("error"),
                  verification=coded.get("verification"))
@@ -716,17 +946,23 @@ async def edit_loop(run: Run, plan: dict, paths: list[str], draft: str) -> tuple
                                        "tokens_in": coded.get("tokens_in"), "tokens_out": coded.get("tokens_out"),
                                        "cost_usd": 0.0, "seconds": coded.get("seconds"),
                                        "num_ctx_requested": coded.get("num_ctx"), "ctx_variant": coded.get("ctx_variant"),
-                                       "coding_task_id": coded.get("coding_task_id")})
+                                       "coding_task_id": coded.get("coding_task_id"), "wall_seconds": coder_wall,
+                                       "ctx_truncated": bool(coded.get("truncated")),
+                                       "ctx_pressure_pct": (round(100.0 * (coded["max_prompt_tokens"] + 2048) / cur)
+                                                            if coded.get("max_prompt_tokens") else None)})
         problem = ""
         diff = coded.get("diff") or ""
         if not coded.get("ok") or not diff:
             problem = coded.get("error") or "пустой diff"
         else:
+            run.phase("tests")
             applied = await asyncio.to_thread(apply_in_lab, scope, diff, paths)
             if applied.get("error"):
                 problem = applied["error"]
             else:
+                t_tests = time.monotonic()
                 ran = await asyncio.to_thread(run_tests_in_lab, scope, tests or [])
+                rec["test_seconds"] = round(float(rec.get("test_seconds") or 0) + time.monotonic() - t_tests, 1)
                 rec["test_summary"] = (ran.get("stdout", "") + ran.get("stderr", ""))[-2500:]
                 rec["commands"].append({**ran, "verdict": "allow", "why": "mandatory verification"})
                 if ran.get("exit_code") != 0 or not tests:
@@ -736,6 +972,7 @@ async def edit_loop(run: Run, plan: dict, paths: list[str], draft: str) -> tuple
                                     + rec["test_summary"][-800:])
                     run.step("rollback", "done", attempt=attempt, reason=problem[:200])
                 else:
+                    run.phase("commit")
                     sha = await asyncio.to_thread(commit_in_lab, run, applied["paths"], rec["task"])
                     if sha.get("error"):
                         await asyncio.to_thread(rollback_in_lab, scope, diff)
@@ -748,10 +985,10 @@ async def edit_loop(run: Run, plan: dict, paths: list[str], draft: str) -> tuple
         if attempt == MAX_ATTEMPTS:
             break
         cfg = run.cfg["diagnostician"]
-        res = await run.local_chat(cfg["model"], [
+        run.phase("diagnose")
+        res = await run.chat("diagnostician", [
             {"role": "system", "content": "Ты — диагност. Объясни коротко причину сбоя и что именно исправить."},
-            {"role": "user", "content": f"Инструкция:\n{instruction[:2000]}\n\nСбой:\n{problem[:2500]}"}],
-            num_ctx=int(cfg.get("num_ctx") or CTX_256K))
+            {"role": "user", "content": f"Инструкция:\n{instruction[:2000]}\n\nСбой:\n{problem[:2500]}"}])
         run.usage(res, "diagnostician")
         run.step("diagnose", "ok" if res.get("ok") else "failed", attempt=attempt, model=cfg["model"])
         feedback = res.get("text", "") if res.get("ok") else problem
@@ -819,10 +1056,10 @@ async def run_sidecar(run: Run, instruction: str, paths: list[str], tests: list[
     from . import coding_tasks as ct
     rec, svc = run.rec, run.svc
     cfg = run.cfg["coder"]
-    num_ctx = int(cfg.get("num_ctx") or CTX_256K)
-    variant = cfg.get("ctx_variant") or await ensure_ctx_variant(cfg["model"], num_ctx)
+    num_ctx = int(cfg.get("num_ctx") or CTX_DEFAULT)
+    variant = cfg.get("ctx_variant") or await ensure_ctx_variant(cfg.get("base_model") or cfg["model"], num_ctx)
     model = cfg["model"] if cfg.get("ctx_variant") else variant["tag"]
-    oc, _wt, reason = ct._runtime()
+    oc, _wt, reason = await asyncio.to_thread(ct._runtime)
     if oc is None:
         return {"ok": False, "model": model, "error": reason}
     agent_id = rec.get("operator_agent_id")
@@ -842,8 +1079,9 @@ async def run_sidecar(run: Run, instruction: str, paths: list[str], tests: list[
               "model": model, "worker": None, "created_at": _now(), "finished_at": None, "changed_files": [],
               "diff": "", "error": "", "evidence": None, "sandbox_cleanup": None, "operator_task": rec["id"],
               "authority": {"push": False, "merge": False, "deploy": False}}
-    final = await asyncio.to_thread(ct._execute, record, run.scope.worktree, body, context,
-                                    ct._verify_python_env(), argv)
+    def _go():                      # env probing and the clone/sidecar run stay off the event loop
+        return ct._execute(record, run.scope.worktree, body, context, ct._verify_python_env(), argv)
+    final = await asyncio.to_thread(_go)
     ct._write(svc, final)
     side = final.get("sidecar") or {}
     ok = final.get("status") == "completed" and bool(final.get("diff"))
@@ -851,7 +1089,8 @@ async def run_sidecar(run: Run, instruction: str, paths: list[str], tests: list[
             "error": final.get("error") or ("" if ok else "sidecar: " + str(side.get("summary") or final.get("status"))),
             "verification": final.get("verification"), "coding_task_id": final.get("id"),
             "seconds": final.get("duration_seconds"), "num_ctx": num_ctx, "ctx_variant": variant,
-            "tokens_in": side.get("tokens_in"), "tokens_out": side.get("tokens_out")}
+            "tokens_in": side.get("tokens_in"), "tokens_out": side.get("tokens_out"),
+            "max_prompt_tokens": side.get("max_prompt_tokens"), "truncated": bool(side.get("truncated"))}
 
 
 def create_lab(svc, source_repo: Path, task_id: str, base_ref: str = "HEAD") -> dict:
@@ -864,12 +1103,17 @@ def create_lab(svc, source_repo: Path, task_id: str, base_ref: str = "HEAD") -> 
     return {"path": str(lab), "branch": branch, "base_commit": base, "source_repo": str(source_repo)}
 
 
-_LOCK = asyncio.Lock()
+_LOCK = asyncio.Lock()          # asyncio.Lock wakes waiters FIFO: the queue order is the order of /work
 _JOBS: dict[str, asyncio.Task] = {}
+_QUEUE: list[str] = []          # task ids waiting for the lock, oldest first
+
+
+def queue_position(rid: str) -> int | None:
+    return _QUEUE.index(rid) + 1 if rid in _QUEUE else None
 
 
 async def start_task(svc, task: str, *, source_repo: str | None = None, base_ref: str = "HEAD",
-                     decision_wait_s: float | None = None, **inject: Any) -> dict:
+                     decision_wait_s: float | None = None, num_ctx: int | None = None, **inject: Any) -> dict:
     reason = stop_reason(svc)
     if reason:
         raise HTTPException(423, {"code": "OWNER_STOP", "message": f"владелец остановил систему: {reason}"})
@@ -880,8 +1124,10 @@ async def start_task(svc, task: str, *, source_repo: str | None = None, base_ref
     if row is None or not row["enabled"]:
         raise HTTPException(409, {"code": "OPERATOR_NOT_CONFIGURED",
                                   "message": "агент «Qwen-Operator L1» не создан или выключен (POST /api/agents)"})
-    if _LOCK.locked():
-        raise HTTPException(409, {"code": "OPERATOR_BUSY", "message": "оператор уже выполняет задачу"})
+    if num_ctx is not None and not (CTX_MIN <= int(num_ctx) <= CTX_256K):
+        raise HTTPException(422, {"code": "BAD_CTX", "message": f"num_ctx должен быть {CTX_MIN}..{CTX_256K}"})
+    if len(_QUEUE) >= MAX_QUEUE:
+        raise HTTPException(409, {"code": "QUEUE_FULL", "message": f"в очереди уже {MAX_QUEUE} задач"})
     repo = Path(source_repo or Path(__file__).resolve().parents[3]).resolve()
     if not (repo / ".git").exists():
         raise HTTPException(409, {"code": "NO_GIT_REPO", "message": f"{repo} не git-репозиторий"})
@@ -892,24 +1138,42 @@ async def start_task(svc, task: str, *, source_repo: str | None = None, base_ref
         raise HTTPException(409, {"code": "LAB_CREATE_FAILED", "message": str(exc)})
     rec = {"id": rid, "task": task, "status": "queued", "created_at": _now(), "finished_at": None,
            "operator_agent_id": int(row["id"]), "lab": lab, "steps": [], "model_calls": [], "commands": [],
-           "decisions": [], "attempts": [], "constitution": constitution_state(),
+           "decisions": [], "attempts": [], "constitution": await asyncio.to_thread(constitution_state),
            "authority": {"push": False, "merge": False, "deploy": False, "level": "L1 Lab"},
            "roles": load_config(svc), "cost_usd": 0.0}
+    if num_ctx is not None:
+        for role in LOCAL_ROLES:
+            rec["roles"][role]["num_ctx"] = int(num_ctx)
+        rec["num_ctx_override"] = int(num_ctx)
     _save(svc, rec)
     run = Run(svc, rec, rec["roles"], OperatorScope(Path(lab["path"]), data_dir=Path(svc.settings.data_dir)),
               decision_wait_s=DEFAULT_DECISION_WAIT_S if decision_wait_s is None else decision_wait_s, **inject)
 
+    _QUEUE.append(rid)           # synchronously, so the position is right the moment this returns
+
     async def go():
-        async with _LOCK:
-            try:
-                await execute(run)
-            except asyncio.CancelledError:
-                await run.finish("stopped", "cancelled")
-                raise
-            except Exception as exc:  # noqa: BLE001
-                await run.finish("failed", f"{type(exc).__name__}: {exc}"[:500])
+        try:
+            async with _LOCK:
+                if rid in _QUEUE:
+                    _QUEUE.remove(rid)
+                try:
+                    await execute(run)
+                except asyncio.CancelledError:
+                    await run.finish("stopped", "cancelled")
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    await run.finish("failed", f"{type(exc).__name__}: {exc}"[:500])
+        except asyncio.CancelledError:      # cancelled while still queued: never started, say so
+            if rec.get("status") == "queued":
+                await run.finish("stopped", "снято из очереди владельцем")
+            raise
+        finally:
+            if rid in _QUEUE:
+                _QUEUE.remove(rid)
 
     _JOBS[rid] = asyncio.create_task(go())
+    pos = queue_position(rid)
+    rec["queue_position"] = pos if (_LOCK.locked() or (pos or 0) > 1) else None
     return rec
 
 
@@ -918,6 +1182,9 @@ def public(rec: dict) -> dict:
     out["diff_bytes"] = len(rec.get("diff") or "")
     out["cost_usd"] = round(sum(float(c.get("cost_usd") or 0) for c in rec.get("model_calls", [])), 6)
     out["pending_decisions"] = [d for d in rec.get("decisions", []) if d.get("status") == "PENDING"]
+    out["queue_position"] = queue_position(rec.get("id", "")) if rec.get("status") == "queued" else None
+    out["timings"] = rec.get("timings") or timings(rec)
+    out["ctx_report"] = rec.get("ctx_report") or ctx_report(rec.get("model_calls") or [])
     return out
 
 
@@ -927,6 +1194,7 @@ class TaskIn(BaseModel):
     source_repo: str | None = Field(default=None, max_length=1000)
     base_ref: str = Field(default="HEAD", max_length=200)
     decision_wait_s: float | None = Field(default=None, ge=0, le=7200)
+    num_ctx: int | None = Field(default=None, ge=CTX_MIN, le=CTX_256K)
 
 
 class CommandIn(BaseModel):
@@ -938,6 +1206,7 @@ class CommandIn(BaseModel):
 
 class ConfigIn(BaseModel):
     roles: dict[str, dict] = Field(default_factory=dict)
+    num_ctx: int | None = Field(default=None, ge=CTX_MIN, le=CTX_256K)   # default context of the local roles
 
 
 @router.get("/qwen-operator/status")
@@ -946,7 +1215,8 @@ async def get_status(request: Request):
     return {"operator_role": OPERATOR_ROLE, "level": "L1 Lab", "roles": load_config(svc),
             "stop": stop_reason(svc) or None, "constitution": constitution_state(),
             "authority": {"push": False, "merge": False, "deploy": False},
-            "busy": _LOCK.locked(), "max_attempts": MAX_ATTEMPTS}
+            "busy": _LOCK.locked(), "queue": list(_QUEUE), "max_attempts": MAX_ATTEMPTS,
+            "default_num_ctx": CTX_DEFAULT, "ctx_ladder": list(CTX_LADDER)}
 
 
 @router.get("/qwen-operator/config")
@@ -960,30 +1230,39 @@ async def set_config(body: ConfigIn, request: Request):
     bad = [r for r in body.roles if r not in DEFAULT_ROLES]
     if bad:
         raise HTTPException(422, {"message": f"неизвестные роли: {bad}", "roles": sorted(DEFAULT_ROLES)})
-    (_store(svc) / "config.json").write_text(json.dumps({"roles": body.roles}, ensure_ascii=False), encoding="utf-8")
+    data: dict[str, Any] = {"roles": body.roles}
+    if body.num_ctx:
+        data["num_ctx"] = body.num_ctx
+    (_store(svc) / "config.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     return {"roles": load_config(svc)}
 
 
 @router.post("/qwen-operator/tasks")
 async def create_task(body: TaskIn, request: Request):
     rec = await start_task(request.app.state.svc, body.task, source_repo=body.source_repo,
-                           base_ref=body.base_ref, decision_wait_s=body.decision_wait_s)
+                           base_ref=body.base_ref, decision_wait_s=body.decision_wait_s, num_ctx=body.num_ctx)
     return public(rec)
 
 
 @router.get("/qwen-operator/tasks")
 async def list_tasks(request: Request):
     svc = request.app.state.svc
-    items = []
-    for p in _store(svc).glob("*.json"):
-        if re.fullmatch(r"[a-f0-9]{12}\.json", p.name):
-            try:
-                items.append(public(json.loads(p.read_text(encoding="utf-8"))))
-            except (OSError, ValueError):
-                continue
+
+    def _scan() -> list[dict]:
+        found = []
+        for p in _store(svc).glob("*.json"):
+            if re.fullmatch(r"[a-f0-9]{12}\.json", p.name):
+                try:
+                    found.append(public(json.loads(p.read_text(encoding="utf-8"))))
+                except (OSError, ValueError):
+                    continue
+        return found
+
+    items = await asyncio.to_thread(_scan)
     items.sort(key=lambda r: r.get("created_at") or 0, reverse=True)
     return {"items": [{k: i.get(k) for k in ("id", "task", "status", "created_at", "commit_sha", "cost_usd",
-                                             "pending_decisions")} for i in items]}
+                                             "pending_decisions", "queue_position", "phase")} for i in items],
+            "queue": list(_QUEUE)}
 
 
 @router.get("/qwen-operator/tasks/{rid}")
