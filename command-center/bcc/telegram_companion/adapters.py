@@ -483,7 +483,7 @@ class Telegram:
         return True
 
     async def edit_message(self, person: Person, message_id: int, text: str,
-                           parse_mode: str | None = None, final: bool = False) -> bool:
+                           parse_mode: str | None = None, final: bool = False, keyboard=None) -> bool:
         """Edit one earlier bot message in place (Jeff's progressive replies).
 
         Same guards and pacing as ``send``: identity, token scrub, egress guard, one
@@ -505,6 +505,9 @@ class Telegram:
             await asyncio.sleep(max(0, self._sent_at.get(person.chat_id, 0) + 1.05 - now))
             payload = {"chat_id": person.chat_id, "message_id": message_id, "text": clean,
                        "disable_web_page_preview": True}
+            if keyboard:
+                # Without reply_markup Telegram drops the inline keyboard (e.g. the Cancel button).
+                payload["reply_markup"] = markup(keyboard)
             if parse_mode:
                 from .formatting import to_telegram_html
                 payload["text"] = to_telegram_html(clean)

@@ -31,3 +31,6 @@ command-center/bcc/skills_catalog/** -whitespace -text
 # Unified diffs: a blank context line is a single space by format; stripping it breaks the patch.
 *.diff whitespace=-trailing-space
 *.patch whitespace=-trailing-space
+
+# Raw sd-cli output (carriage-return progress bars, ANSI escapes): parser tests read the exact bytes.
+command-center/tests/fixtures/sdcpp/** binary

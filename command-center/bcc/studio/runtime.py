@@ -179,7 +179,8 @@ async def get_job(svc,jid):
     row=await one(svc,image_jobs,image_jobs.c.id,jid)
     ext=await one(svc,jobs,jobs.c.job_id,jid)
     if not row or not ext: raise KeyError('studio job not found')
-    return {**row,'studio':ext}
+    # Live engine progress (bcc.studio.progress): phase/step/segment/ETA, or None when unknown.
+    return {**row,'studio':ext,'progress_detail':(row.get('options') or {}).get('progress_detail')}
 
 # Причины, при которых явно помеченный неполный выход остаётся: перерасход бюджета
 # (байты оплачены и проверены), остановка владельцем и исчерпанный лимит времени.
