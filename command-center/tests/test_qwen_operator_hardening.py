@@ -112,7 +112,7 @@ async def test_real_write_to_protected_file_still_parks(stack, repo):  # noqa: F
     svc, _c, _a = stack
     plan = {**PLAN, "files": ["pkg/mod.py", "docs/constitution/BOSSMAN_CONSTITUTION.md"], "read_only": False}
     rec = await run_task(svc, repo, Fakes(repo, plan))
-    assert [d["category"] for d in rec["decisions"]] == ["protected_file"]
+    assert [d["category"] for d in rec["decisions"]] == ["protected_file", "release_main"]
     assert rec["decisions"][0]["action"].startswith("изменить файл")
 
 
@@ -124,7 +124,7 @@ async def test_per_task_ctx_override_and_timings(stack, repo):  # noqa: F811
                               local_chat=f.local_chat, free_cloud=f.free_cloud, coder=f.coder)
     await qo._JOBS[rec["id"]]
     saved = _saved(svc, rec["id"])
-    assert saved["status"] == "completed" and saved["num_ctx_override"] == 131072
+    assert saved["status"] in ("completed", "completed_with_pending_decisions") and saved["num_ctx_override"] == 131072
     assert {saved["roles"][r]["num_ctx"] for r in qo.LOCAL_ROLES} == {131072}
     tm = saved["timings"]
     assert "coder" in tm["by_role_s"] and tm["phase_s"] and tm["tests_s"] >= 0
@@ -179,8 +179,8 @@ async def test_second_task_is_queued_fifo_and_can_be_cancelled(stack, repo):  # 
     g.release.set()
     await qo._JOBS[first["id"]]
     await qo._JOBS[third["id"]]
-    assert _saved(svc, first["id"])["status"] == "completed"
-    assert _saved(svc, third["id"])["status"] in ("completed", "failed")      # ran after the first, in order
+    assert _saved(svc, first["id"])["status"] in ("completed", "completed_with_pending_decisions")
+    assert _saved(svc, third["id"])["status"] in ("completed", "completed_with_pending_decisions", "failed")      # ran after the first, in order
     assert qo._QUEUE == []
 
 

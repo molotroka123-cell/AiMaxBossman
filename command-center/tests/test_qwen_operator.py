@@ -209,7 +209,8 @@ async def test_happy_path_commits_on_lab_branch_only(stack, repo):
     svc, _c, agent = stack
     f = Fakes(repo, PLAN)
     rec = await run_task(svc, repo, f)
-    assert rec["status"] == "completed", (rec.get("error"), rec["decisions"])
+    assert rec["status"] == "completed_with_pending_decisions", (rec.get("error"), rec["decisions"])
+    assert [d["category"] for d in rec["decisions"]] == ["release_main"]   # the owner's merge button, parked
     assert rec["commit_sha"] and rec["lab"]["branch"].startswith("lab/")
     assert git(repo, "rev-parse", "main") == rec["lab"]["base_commit"]          # canonical branch untouched
     assert git(Path(rec["lab"]["path"]), "rev-parse", "HEAD") == rec["commit_sha"]
@@ -232,7 +233,7 @@ async def test_owner_decisions_park_and_other_steps_continue(stack, repo):
     assert rec["status"] == "completed_with_pending_decisions"
     assert rec["commit_sha"], "the allowed step continued"
     cats = sorted(d["category"] for d in rec["decisions"])
-    assert cats == ["promotion", "protected_file"]
+    assert cats == ["promotion", "protected_file", "release_main"]
     assert all(d["status"] == "PENDING" and d["approval_id"] for d in rec["decisions"])
     rows = await svc.approvals.list("pending")
     assert {r["kind"] for r in rows} == {qo.DECISION_KIND}
@@ -259,7 +260,7 @@ async def test_approved_push_is_still_blocked_by_rule_4(stack, repo):
     saved = json.loads((Path(svc.settings.data_dir) / "qwen-operator" / f"{rec['id']}.json").read_text("utf-8"))
     d = saved["decisions"][0]
     assert d["status"] == "APPROVED_BLOCKED_BY_RULE_4" and "Release" in d["note"]
-    assert saved["status"] == "completed"
+    assert saved["status"] in ("completed", "completed_with_pending_decisions")
 
 
 async def test_denied_decision_is_recorded_not_executed(stack, repo):
@@ -284,7 +285,7 @@ async def test_self_correction_rolls_back_then_succeeds(stack, repo):
     svc, _c, _a = stack
     f = Fakes(repo, PLAN, bodies=(BAD, GOOD))
     rec = await run_task(svc, repo, f)
-    assert rec["status"] == "completed"
+    assert rec["status"] == "completed_with_pending_decisions"      # only the owner's merge button is pending
     assert f.coder_calls == 2
     assert [a["attempt"] for a in rec["attempts"]] == [1]
     assert any(s["kind"] == "rollback" for s in rec["steps"])
@@ -306,7 +307,7 @@ async def test_three_attempts_then_stop_with_clean_lab(stack, repo):
 async def test_no_verifier_cloud_falls_back_to_fresh_local_and_says_so(stack, repo):
     svc, _c, _a = stack
     rec = await run_task(svc, repo, Fakes(repo, PLAN, cloud_ok=False))
-    assert rec["status"] == "completed"
+    assert rec["status"] == "completed_with_pending_decisions"
     assert rec["verifier"]["independence"].startswith("NOT_INDEPENDENT")
     assert any(s["kind"] == "worker_draft" and s["status"] == "NOT_RUN" for s in rec["steps"])
 

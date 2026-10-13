@@ -88,6 +88,23 @@ OPERATOR_EXTRA_PROTECTED = (
 )
 SECRET_READ_NAMES = ("provider-keys.env", ".env", "constitution.sha256", "bcc.db", "vault.key", "secrets.json")
 PROMOTION_GIT = frozenset({"push", "merge", "pull", "rebase", "cherry-pick", "remote", "tag", "am", "fetch"})
+LAB_BRANCH_RE = re.compile(r"^lab/op-[0-9a-f]{12}$")
+SECRET_ARG_WORDS = ("vault", "secrets", "provider-keys", "constitution.sha256", "bcc.db", "vault.key", ".env")
+
+
+def lab_push_kind(argv: Any) -> str | None:
+    """The only two pushes the owner may approve: ``git push origin lab/op-X[:lab/op-X]`` (publish the lab
+    branch, never main) and ``git push origin lab/op-X:main`` (merge a verified lab commit into main; git itself
+    refuses a non fast-forward, no force flag exists in this shape). Anything else is not a pass-through."""
+    if not (isinstance(argv, list) and len(argv) == 4 and argv[0] == "git" and argv[1] == "push"
+            and argv[2] == "origin" and isinstance(argv[3], str)):
+        return None
+    src, _, dst = argv[3].partition(":")
+    if not LAB_BRANCH_RE.match(src):
+        return None
+    if dst in ("", src):
+        return "lab_push"
+    return "release_main" if dst == "main" else None
 
 RELEASE_STEPS_RU = (
     "Продвижение кандидата в основной проект делает только владелец (конституция v1, правило 4): "
@@ -148,6 +165,11 @@ class OperatorScope:
         if not isinstance(argv, list) or not argv or not all(isinstance(a, str) and a for a in argv):
             return Verdict("refuse", "malformed", "argv must be a non-empty list of strings (no shell strings)")
         base = Path(argv[0].replace("\\", "/")).name.lower().removesuffix(".exe")
+        kind = lab_push_kind(argv)
+        if kind == "lab_push":
+            return Verdict("ask", "lab_push", "publishes the lab branch only (never main): the owner's button", True)
+        if kind == "release_main":
+            return Verdict("ask", "release_main", "merges a verified lab commit into main: the owner's button", True)
         if base == "git" and len(argv) > 1 and argv[1] in PROMOTION_GIT:
             force = any(a in ("--force", "-f", "--force-with-lease") or a.startswith("+") for a in argv[2:])
             return Verdict("ask", "force_push" if force and argv[1] == "push" else "promotion",
@@ -265,6 +287,8 @@ def timings(rec: dict) -> dict:
 
 def _is_promotion(d: dict) -> bool:
     argv = d.get("argv") or []
+    if lab_push_kind(argv):          # owner-approved pushes of the lab branch / release of a verified commit
+        return False
     return d.get("category") in ("promotion", "force_push") or (
         len(argv) > 1 and argv[0] == "git" and argv[1] in PROMOTION_GIT)
 
@@ -408,6 +432,22 @@ def run_in_lab(scope: OperatorScope, argv: list[str], *, cwd: str = ".", timeout
             "stderr": out.stderr.decode("utf-8", "replace")[-3000:]}
 
 
+def run_on_host(argv: list[str], *, cwd: str, timeout_s: int = 600) -> dict:
+    """The computer itself, outside the lab: argv-only, no shell, child env without secrets. Called ONLY for
+    an exact argv the owner approved with the button (``gate_host_command`` parks it, never runs it)."""
+    out = {"argv": argv, "cwd": cwd, "exit_code": None, "timed_out": False, "error": "", "stdout": "", "stderr": ""}
+    try:
+        p = subprocess.run(argv, cwd=cwd, env=_env_factory(), capture_output=True, timeout=timeout_s, check=False,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        out.update(exit_code=p.returncode, stdout=p.stdout.decode("utf-8", "replace")[-6000:],
+                   stderr=p.stderr.decode("utf-8", "replace")[-3000:])
+    except subprocess.TimeoutExpired:
+        out.update(timed_out=True, error="timeout")
+    except OSError as exc:
+        out.update(error=str(exc)[:300])
+    return out
+
+
 # ---------------------------------------------------------------- pipeline
 @dataclass
 class Run:
@@ -488,8 +528,35 @@ class Run:
         self.step("owner_decision", "parked", approval_id=decision["approval_id"], category=category, action=action)
         return decision
 
+    async def gate_host_command(self, argv: list[str], host_cwd: str, *, why: str, recommendation: str = "",
+                                concerns: str = "") -> dict:
+        """A command on the computer outside the lab: ALWAYS parked for the owner's button, never run here.
+        Keys / vault / pin material in any argument or directory make it a non-executable credentials decision."""
+        base = self.scope.check_command(argv)
+        where = Path(host_cwd)
+        if base.kind == "refuse" or not where.is_absolute() or not where.is_dir():
+            reason = base.reason if base.kind == "refuse" else "host_cwd must be an existing absolute directory"
+            self.rec["commands"].append({"argv": argv, "verdict": "refuse", "reason": reason, "host_cwd": host_cwd})
+            return {"ran": False, "refused": reason}
+        low = " ".join([*argv, host_cwd]).lower().replace("\\", "/")
+        secret = any(w in low for w in SECRET_ARG_WORDS)
+        d = await self.park(action=" ".join(argv) + f"  [в {host_cwd}]",
+                            category="credentials" if secret else "host_command",
+                            why=why or "команда на компьютере вне лаборатории",
+                            recommendation=recommendation or "выполнить только если вы сами этого хотите",
+                            concerns=concerns or ("затрагивает ключи / хранилище: оператор это не выполняет"
+                                                  if secret else "выполняется на вашем ПК без оболочки, без ключей в среде"),
+                            argv=argv, executable=not secret)
+        d["host_cwd"] = str(where)
+        self.rec["commands"].append({"argv": argv, "verdict": "ask", "category": d["category"],
+                                     "approval_id": d["approval_id"], "host_cwd": str(where)})
+        return {"ran": False, "parked": d["approval_id"]}
+
     async def gate_command(self, argv: list[str], *, why: str, recommendation: str = "", concerns: str = "",
-                           cwd: str = ".") -> dict:
+                           cwd: str = ".", host_cwd: str | None = None) -> dict:
+        if host_cwd:
+            return await self.gate_host_command(argv, host_cwd, why=why, recommendation=recommendation,
+                                                concerns=concerns)
         verdict = self.scope.check_command(argv)
         if verdict.kind == "allow":
             res = await asyncio.to_thread(run_in_lab, self.scope, argv, cwd=cwd)
@@ -554,12 +621,18 @@ class Run:
             d["note"] = "владелец отклонил: шаг не выполнялся" if d["status"] == "DENIED_BY_OWNER" else d["status"]
             self.step("owner_decision", d["status"], approval_id=d["approval_id"], action=d["action"])
             return
-        if _is_promotion(d):
+        pushed = lab_push_kind(d.get("argv") or [])
+        if pushed:
+            await self.apply_lab_push(d, pushed)
+        elif _is_promotion(d):
             d["status"] = "APPROVED_BLOCKED_BY_RULE_4"
             d["note"] = ("владелец одобрил, но конституция v1 (правило 4) требует одобрения Claude и Codex для "
                          "того же SHA; оператор push/merge не выполняет. " + RELEASE_STEPS_RU)
         elif d.get("executable") and d.get("argv"):
-            res = await asyncio.to_thread(run_in_lab, self.scope, d["argv"], cwd=d.get("cwd", "."))
+            if d.get("host_cwd"):
+                res = await asyncio.to_thread(run_on_host, d["argv"], cwd=d["host_cwd"])
+            else:
+                res = await asyncio.to_thread(run_in_lab, self.scope, d["argv"], cwd=d.get("cwd", "."))
             self.rec["commands"].append({**res, "verdict": "executed_after_owner_approval",
                                          "approval_id": d["approval_id"]})
             d["status"] = "APPROVED_EXECUTED" if res["exit_code"] == 0 else "APPROVED_EXECUTED_FAILED"
@@ -571,6 +644,46 @@ class Run:
         d["decided_at"] = _now()
         self.step("owner_decision", d["status"], approval_id=d["approval_id"], action=d["action"],
                   note=d.get("note"))
+
+    async def apply_lab_push(self, d: dict, kind: str) -> None:
+        """The owner pressed the button for ``git push origin lab/op-X[:main]``. Publishing the lab branch needs
+        only that button. A merge into main also needs: the pushed branch is THIS task's lab branch, its head is
+        the commit that was tested and verified, the verifier did not REJECT, and no changed file is a protected
+        one (constitution / approval gate / operator guard / keys: those the owner merges by hand)."""
+        argv = d["argv"]
+        branch = (self.rec.get("lab") or {}).get("branch")
+        refuse = ""
+        if argv[3].partition(":")[0] != branch:
+            refuse = "ветка не принадлежит этой задаче"
+        elif kind == "release_main":
+            wt = self.scope.worktree
+            head = (await asyncio.to_thread(_git, wt, "rev-parse", "HEAD")).stdout.decode().strip()
+            verdict = (self.rec.get("verifier") or {}).get("verdict")
+            if not self.rec.get("commit_sha") or head != self.rec.get("commit_sha"):
+                refuse = "HEAD лаборатории не совпадает с проверенным коммитом"
+            elif verdict == "REJECT":
+                refuse = "независимый проверяющий отклонил изменения (REJECT)"
+            else:
+                base = (await asyncio.to_thread(_git, wt, "merge-base", "HEAD", "origin/main")).stdout.decode().strip()
+                names = (await asyncio.to_thread(_git, wt, "diff", "--name-only", f"{base or 'origin/main'}..HEAD")
+                         ).stdout.decode("utf-8", "replace").split()
+                hit = [n for n in names if self.scope.policy._protected(wt / n)]
+                if hit:
+                    refuse = "затронуты защищённые файлы (их сливает владелец сам): " + ", ".join(hit[:5])
+        if refuse:
+            d["status"] = "APPROVED_REFUSED"
+            d["note"] = "одобрено, но оператор не выполняет: " + refuse
+            return
+        res = await asyncio.to_thread(run_on_host, argv, cwd=str(self.scope.worktree), timeout_s=300)
+        self.rec["commands"].append({**res, "verdict": "executed_after_owner_approval", "approval_id": d["approval_id"]})
+        d["exit_code"] = res["exit_code"]
+        ok = res["exit_code"] == 0
+        d["status"] = "APPROVED_EXECUTED" if ok else "APPROVED_EXECUTED_FAILED"
+        verdict = (self.rec.get("verifier") or {}).get("verdict")
+        indep = (self.rec.get("verifier") or {}).get("independence")
+        d["note"] = ((("слито в main" if kind == "release_main" else "ветка опубликована") if ok else
+                      "push не прошёл: " + (res["stderr"] or res["error"])[-300:])
+                     + (f" · проверка: {verdict} ({indep})" if kind == "release_main" else ""))
 
     # ---- planning
     async def plan(self, task: str) -> dict | None:
@@ -586,7 +699,9 @@ class Run:
                   '"verify_tests": [repo-relative test files or node ids], "worker_prompt": str (опционально: '
                   'подзадача для независимой бесплатной облачной модели, например черновик формулировки; пусто '
                   'если не нужна), "extra_commands": [{"argv": [..], "why": str, "recommendation": str, '
-                  '"concerns": str}] (только если действительно нужны команды вне правки кода)}. '
+                  '"concerns": str, "host_cwd": абсолютная папка на ПК, если команда должна выполняться на '
+                  'компьютере вне лаборатории (всегда только после кнопки владельца)}] (только если действительно '
+                  'нужны команды вне правки кода)}. '
                   "Правь только то, что просит задача. Пути бери из списка файлов репозитория.")
         user = f"ЗАДАЧА ВЛАДЕЛЬЦА:\n{task}\n\nФАЙЛЫ РЕПОЗИТОРИЯ (отобраны по задаче):\n{context}"
         cfg = self.cfg["planner"]
@@ -848,7 +963,8 @@ async def _execute(run: Run) -> dict:
         if isinstance(c, dict):
             await run.gate_command([str(a) for a in c.get("argv") or []], why=str(c.get("why") or ""),
                                    recommendation=str(c.get("recommendation") or ""),
-                                   concerns=str(c.get("concerns") or ""))
+                                   concerns=str(c.get("concerns") or ""),
+                                   host_cwd=str(c["host_cwd"]) if c.get("host_cwd") else None)
 
     draft = ""
     if str(plan.get("worker_prompt") or "").strip() and not run.stopped():
@@ -888,6 +1004,14 @@ async def _execute(run: Run) -> dict:
         run.step("verify_cloud", verdict if review.get("ok") else "NOT_RUN", model=review.get("model"),
                  error=review.get("error"))
 
+    ver = rec.get("verifier") or {}
+    branch = (rec.get("lab") or {}).get("branch") or ""
+    if commit_sha and not run.stopped() and ver.get("verdict") == "APPROVE" and LAB_BRANCH_RE.match(branch):
+        run.phase("release_request")
+        await run.gate_command(
+            ["git", "push", "origin", f"{branch}:main"], why="слить проверенный коммит в main",
+            recommendation=f"слить: тесты зелёные, проверка {ver.get('verdict')} ({ver.get('independence')})",
+            concerns="после кнопки изменение попадает в main; защищённые файлы оператор не сливает")
     run.phase("settle_decisions")
     await run.settle_decisions()
     rec["promotion"] = {"status": "BLOCKED", "reason": "constitution v1 rule 4 + L1 Lab never merges",

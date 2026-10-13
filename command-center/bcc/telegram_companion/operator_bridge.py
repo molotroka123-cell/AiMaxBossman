@@ -103,7 +103,8 @@ def decision_text(task_id: str, d: dict) -> str:
             f"Зачем: {str(d.get('why'))[:500]}\n"
             f"Рекомендация оператора: {str(d.get('recommendation'))[:500]}\n"
             f"Опасения: {str(d.get('concerns'))[:500]}\n"
-            "Этот шаг приостановлен, остальные продолжаются. Ваш ответ применится в конце ТЕКУЩЕГО шага "
+            + ("Кнопка «Разрешить» СЛОЕТ проверенный коммит в main. " if d.get("category") == "release_main" else "")
+            + "Этот шаг приостановлен, остальные продолжаются. Ваш ответ применится в конце ТЕКУЩЕГО шага "
             "оператора; фактический итог (выполнено / не выполнено и почему) пришлю сразу.")
 
 
@@ -155,8 +156,16 @@ def receipt_text(rec: dict) -> str:
     pend = [d for d in decs if d.get("status") == "PENDING"]
     if pend:
         lines.append(f"Ждут вашего решения: {len(pend)}")
-    lines.append("Продвижение в основной проект заблокировано (L1 Lab): " +
-                 str((rec.get("promotion") or {}).get("reason", "правило 4 конституции v1")))
+    rel = [d for d in rec.get("decisions", []) if d.get("category") == "release_main"]
+    if rel and rel[0].get("status") == "APPROVED_EXECUTED":
+        lines.append("✅ Слито в main по вашей кнопке. " + str(rel[0].get("note") or ""))
+    elif rel and rel[0].get("status") == "PENDING":
+        lines.append("⏳ Слияние в main ждёт вашей кнопки «Разрешить» (после неё изменение попадёт в main).")
+    elif rel and rel[0].get("status") == "APPROVED_REFUSED":
+        lines.append("⛔ " + str(rel[0].get("note") or "слияние в main не выполнено"))
+    else:
+        lines.append("Продвижение в основной проект заблокировано (L1 Lab): " +
+                     str((rec.get("promotion") or {}).get("reason", "правило 4 конституции v1")))
     return "\n".join(lines)[:TEXT_LIMIT]
 
 
