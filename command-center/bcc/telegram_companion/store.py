@@ -122,7 +122,7 @@ class Store:
         if command in {"/status", "/help", "/rate", "/lock", "/watch", "/cloud", "/model", "/cancel", "/menu", "/start", "/photo",
                        "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning",
                        "/imgmodel", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
-                       "/screen", "/diag", "/lessons", "/bossman",
+                       "/screen", "/diag", "/lessons", "/bossman", "/style", "/speed", "/gen_cancel",
                        "/evolution_status", "/evolution_start", "/evolution_pause",
                        "/evolution_resume", "/evolution_stop", "/evolution_report",
                        "/pc", "/claude", "/claude_new", "/claude_stop", "/mode", "/sh"}:

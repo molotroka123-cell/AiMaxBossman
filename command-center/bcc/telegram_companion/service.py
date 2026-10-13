@@ -20,6 +20,7 @@ from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixi
 from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
 from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
+from .gen_refine import GEN_COMMANDS, PHOTO_TRIGGERS, GenRefineMixin, gen_phrase
 from .store import Store
 from . import key_intake
 from .secret_intake import (
@@ -42,6 +43,8 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "Два референса: фото с /ref 1, затем фото с /ref 2; новое фото с /edit описание. /refs — статус\n"
         "/video описание — видео локально (Wan2.2): выберите длину 1 с TestRun / 5 / 10 / 15 / 30 с; "
         "сразу с длиной: /video 10 описание\n"
+        "/vid идея · /pic идея — локальная Qwen (uncensored) допишет подробный промпт, вы поправите текстом "
+        "и нажмёте «Запустить»; /style — ваш постоянный стиль; /speed — замеры скорости (владелец)\n"
         "Фото с подписью /animate 5 (или «оживи 10») — оживить фото в клип 5–10 с; /cancel — отменить генерацию\n"
         "/claude задание · /codex задание — Claude Code и Codex на компьютере (только владелец); /agents; /audits — отчёты\n"
         "/menu — пульт владельца кнопками (статус, очередь, подтверждения, СТОП)\n"
@@ -144,6 +147,12 @@ def failure_text(code: str) -> str:
         "COMPUTER_OBSERVATION_INVALID": "Наблюдение экрана пришло в неожидаемом виде. Действие не разрешено.",
         "APPROVALS_RESPONSE_INVALID": "Очередь подтверждений пришла в неожидаемом виде. Пустым списком это не подменяю.",
         "IDENTITY_REVOKED": "Доступ этого чата к Bossman отозван или изменён. Действие не выполнено.",
+        "REFINE_HOST_NOT_LOCAL": "Доработка промпта разрешена только локальной Ollama на 127.0.0.1. Другой адрес отклонён, ничего не отправлено.",
+        "REFINE_MODEL_MISSING": "В локальной Ollama нет модели bossman-uncensored-chat (и запасной bossman-community-qwen-uncensored). Промпт не доработан, ничего не запущено.",
+        "REFINE_UNAVAILABLE": "Локальная Ollama (127.0.0.1:11434) не ответила. Промпт не доработан, ничего не запущено.",
+        "REFINE_TIMEOUT": "Локальная Qwen не уложилась во время. Промпт не доработан, ничего не запущено — попробуйте ещё раз.",
+        "REFINE_EMPTY": "Qwen вернула пустой или непонятный ответ. Промпт не доработан, ничего не запущено — нажмите «Переделать» или напишите идею иначе.",
+        "REFINE_BUSY": "Qwen уже дорабатывает другой промпт — по одному за раз. Подождите несколько секунд.",
     }
     return known.get(code, f"Действие не подтверждено: {code}. /status и /help помогут продолжить.")
 
@@ -209,7 +218,8 @@ BOT_COMMANDS = [("menu", "Пульт с кнопками"), ("status", "Сост
                 ("screen", "Снимок экрана"), ("diag", "Диагностика"), ("lessons", "Найденные уроки"),
                 ("best", "Отвечать лучшей моделью"), ("fast", "Отвечать самой быстрой"),
                 ("model", "Какая модель отвечает"), ("img", "Нарисовать картинку"), ("imgmodel", "Модель картинок"),
-                ("video", "Снять видео"), ("animate", "Оживить фото"), ("cancel", "Отменить генерацию"),
+                ("video", "Снять видео"), ("vid", "Видео: Qwen допишет промпт"), ("pic", "Картинка: Qwen допишет промпт"),
+                ("style", "Мой стиль для промптов"), ("speed", "Замеры скорости генерации"), ("animate", "Оживить фото"), ("cancel", "Отменить генерацию"),
                 ("forget", "Очистить историю"), ("help", "Помощь")]
 
 
@@ -264,7 +274,7 @@ def model_name(model_id: str) -> str:
 
 
 class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
-                ParseBridgeMixin):
+                ParseBridgeMixin, GenRefineMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
@@ -674,9 +684,11 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
 
     async def generate(self, person: Person, prompt: str, surface: str = "image", length: str | None = None,
                        start_run: str | None = None, size: tuple[int, int] | None = None,
-                       reference_runs: list[str] | None = None, return_run: bool = False) -> str | None:
+                       reference_runs: list[str] | None = None, return_run: bool = False,
+                       timings: dict | None = None) -> str | None:
         """Local text->image / text->video (or photo->video with start_run) via Bossman Studio;
-        media is sent only after byte verification."""
+        media is sent only after byte verification. ``timings`` (pult /vid, /pic) is filled with
+        measured queue/generation seconds and the effective size/frames/steps."""
         s = self.settings
         video = surface == "video"
         if not s.image_enabled:
@@ -746,6 +758,7 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 raise CompanionError("MEDIA_STOPPED")
             job_id = await self.core.studio_create(model_id, engine_prompt[:2000], params, media)
             self.image_job["id"] = job_id
+            created_at, running_at = time.monotonic(), None
             with contextlib.suppress(CompanionError):
                 await self.telegram.send(person, f"{what} локально ({IMAGE_MODELS.get(model_id, model_id)}, {size}). "
                                                  f"Обычно {eta}. /cancel — отменить.",
@@ -761,6 +774,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                     raise CompanionError("IMAGE_GEN_TIMEOUT" if stopped else "IMAGE_GEN_CANCEL_UNCONFIRMED")
                 job = await self.core.studio_job(job_id)
                 status = job.get("status")
+                if running_at is None and status not in {"queued", "pending"}:
+                    running_at = time.monotonic()
                 if status == "completed":
                     break
                 if status in {"failed", "cancelled"}:
@@ -785,6 +800,21 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             translated = f"\n(для модели по-английски: {engine_prompt[:300]})" if engine_prompt != prompt else ""
             caption = (f"{'🎬' if video else '🎨'} {prompt[:300]}{translated}\nМодель: {label} · seed {seed} · {elapsed} с · "
                        f"локально, Bossman Studio (проверено: sha256 совпал)")
+            if timings is not None:
+                eff_now = eff if video else params
+                done_at = time.monotonic()
+                running_at = running_at or done_at
+                timings.update({
+                    "prep_s": round(created_at - started, 1), "queue_s": round(running_at - created_at, 1),
+                    "gen_s": round(done_at - running_at, 1), "width": eff_now.get("width"),
+                    "height": eff_now.get("height"), "frames": eff_now.get("frames") if video else None,
+                    "steps": eff_now.get("steps"), "seconds": seconds if video else None})
+                pressed = timings.get("pressed", started)
+                timings["total_s"] = round(float(timings.get("refine_s") or 0) + done_at - pressed, 1)
+                caption += (f"\n⏱ промпт {timings.get('refine_s') or 0:g} с · очередь пульта "
+                            f"{timings.get('wait_s') or 0:g} с · очередь Студии {timings['queue_s']:g} с · "
+                            f"генерация {timings['gen_s']:g} с · всего {timings['total_s']:g} с · "
+                            f"шаги {timings['steps'] or 'по умолч.'}")
             if video and start_run:
                 caption += f"\nОживлено из фото · {VIDEO_LENGTH_LABEL.get(length, '')}"
                 repeat = f"/animate {next((k for k, v in ANIMATE_LENGTHS.items() if v == length), '5')} run:{start_run} {prompt}"
@@ -947,7 +977,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         except Exception:
             return 0.0
 
-    async def animate(self, person: Person, n: str, source: str, prompt: str = "") -> str | None:
+    async def animate(self, person: Person, n: str, source: str, prompt: str = "",
+                      timings: dict | None = None) -> str | None:
         """Photo -> 5/10 s clip: the photo is cropped to Wan's frame, imported into Studio (byte-verified
         there) and used as the I2V start frame. Source: `tg:<file_id>` (owner's photo) or `run:<id>` (Studio)."""
         if self.image_job is not None:
@@ -963,7 +994,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         framed, size = await asyncio.to_thread(frame_for_video, data)
         start_run = await self.core.studio_reference("telegram-animate.png", framed)
         return await self.generate(person, prompt.strip() or ANIMATE_PROMPT, "video",
-                                   length=ANIMATE_LENGTHS.get(n, "5s"), start_run=start_run, size=size)
+                                   length=ANIMATE_LENGTHS.get(n, "5s"), start_run=start_run, size=size,
+                                   timings=timings)
 
     async def see(self, person: Person, message: dict) -> str:
         """Photo question: vision-capable local route only; bytes live in memory for this call."""
@@ -1017,10 +1049,15 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 if n not in ANIMATE_LENGTHS:
                     n, rest = "5", caption.partition(" ")[2].strip()
                 return await self.animate(person, n, "tg:" + file_id, rest)
+            if person.role == "owner" and first in PHOTO_TRIGGERS:
+                # Pult 13.10: photo + idea -> local Qwen writes the motion prompt -> owner launches.
+                return await self.gen_photo_start(person, file_id, caption.partition(" ")[2].strip())
             if caption and not first.startswith("/") and self.store.get("media_refs_active:" + person.key, False):
                 return await self.edit_from_references(person, file_id, caption)
             buttons = [[self.button(person, "🎞 Оживить 5 с", f"/animate 5 tg:{file_id}"),
                         self.button(person, "🎞 Оживить 10 с", f"/animate 10 tg:{file_id}")]]
+            if person.role == "owner":
+                buttons.append([self.button(person, "🧠 Qwen допишет промпт для видео", f"/vidphoto tg:{file_id}")])
             try:
                 return Reply(await self.see(person, message), buttons)
             except CompanionError as exc:
@@ -1040,6 +1077,12 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         command, arg = command.lower(), arg.strip()
         # Owner phrases «включи удалённый Claude», «открой ChatGPT», «перезагрузи компьютер» → commands.
         spoken = self.phrase_command(text) if not text.startswith("/") else None
+        if not spoken and not text.startswith("/") and person.role == "owner":
+            # «сделай видео …» / «нарисуй картинку …» → /vid, /pic; any other plain text while a
+            # refined prompt is open is the owner's correction of that prompt.
+            spoken = gen_phrase(text)
+            if not spoken and self.gen_draft(person) is not None:
+                return await self.gen_correct(person, text)
         if spoken:
             command, arg = spoken
         if command in {"/start", "/help", "/menu"}:
@@ -1047,6 +1090,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             return Reply(title, self.main_menu(person))
         if command == "/jev":
             return await self.jev_command(person, arg, message)
+        if command in GEN_COMMANDS:
+            return await self.gen_command(person, command, arg, message)
         if command == "/market_deep":
             if person.role != "owner":
                 return "Глубокий анализ рынка доступен только владельцу."
@@ -1290,10 +1335,12 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             return await self.rate(person, run_id, verdict, reason.strip())
         if command == "/cancel":
             job = self.image_job
+            dropped = self.gen_queue_drop(person)
+            queued = f" Из очереди пульта убрано: {dropped}." if dropped else ""
             if job is None or job["who"] != person.key:
-                return "Сейчас нечего отменять."
+                return ("Текущую генерацию не отменяю — её нет." + queued) if dropped else "Сейчас нечего отменять."
             job["cancel"] = True
-            return "Отменяю генерацию…"
+            return "Отменяю генерацию…" + queued
         if command.startswith("/"):
             return "Неизвестная команда. /help — доступные действия."
         query = web_query(text) if person.role == "owner" else None
@@ -1560,7 +1607,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             await asyncio.sleep(pause)
             text = str(message.get("text", "")).strip()
             slow = lane == "chat" and bool(message.get("_image")) or lane == "chat" and bool(text) and (not text.startswith("/") or
-                                                      text.lower().startswith(("/fast ", "/best ", "/img ", "/video ", "/create ", "/jev ")))
+                                                      text.lower().startswith(("/fast ", "/best ", "/img ", "/video ", "/create ", "/jev ",
+                                                                              "/vid ", "/pic ", "/gen_go ", "/gen_redo ")))
             indicator = asyncio.create_task(self.typing(person)) if slow and self.telegram is not None else None
             model_lock = getattr(self.models, "lock", None)
             if slow and model_lock is not None and model_lock.locked():
