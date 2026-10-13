@@ -19,6 +19,7 @@ from .remote_access import REMOTE_COMMANDS, RemoteAccessMixin
 from .console import CONSOLE_COMMANDS, CONSOLE_OFF, NO_DIRECT_SHELL, ConsoleMixin
 from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
+from .operator_bridge import WORK_COMMANDS, OperatorBridgeMixin
 from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .gen_refine import GEN_COMMANDS, GenRefineMixin, gen_intent, gen_phrase, photo_kind, safety_violation
 from .gen_progress import GenProgressPlate
@@ -49,6 +50,7 @@ HELP = ("Я Bossman, ваш ИИ-помощник на локальных мод
         "написать о генерации — Qwen ответит и запустит; /style — ваш стиль; /speed — замеры (владелец)\n"
         "Фото с подписью /vid, /animate 5, «оживи 10» — оживить в клип 5–10 с; фото с /pic, /img, /edit — "
         "правка фото; /cancel — отменить генерацию\n"
+        "/work задание — локальная Qwen-оператор правит Bossman в лаборатории (L1, без push/merge), присылает отчёт и вопросы; /work_stop (только владелец)\n"
         "/claude задание · /codex задание — Claude Code и Codex на компьютере (только владелец); /agents; /audits — отчёты\n"
         "/menu — пульт владельца кнопками (статус, очередь, подтверждения, СТОП)\n"
         "/status — связь с компьютером (владелец)\n"
@@ -277,7 +279,7 @@ def model_name(model_id: str) -> str:
 
 
 class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
-                ParseBridgeMixin, GenRefineMixin):
+                ParseBridgeMixin, OperatorBridgeMixin, GenRefineMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
@@ -1140,6 +1142,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             return "Подробные уведомления рынка: " + ("включены" if arg.lower() == "on" else "выключены")
         if command in AGENT_COMMANDS:
             return await self.agent_command(person, command, arg, message)
+        if command in WORK_COMMANDS:
+            return await self.work_command(person, command, arg, message)
         if command in REMOTE_COMMANDS:
             return await self.remote_command(person, command, arg, message)
         if command in FORM_COMMANDS:

@@ -902,6 +902,21 @@ class Core:
             raise CompanionError("CORE_IDENTITY_UNVERIFIED")
         return {"reachable": True, "readiness": "NOT_CHECKED", "source_sha": data.get("source_sha")}
 
+    async def operator_start(self, task: str) -> dict:
+        body = await self._request("POST", "/api/qwen-operator/tasks", {"task": task}, timeout=60)
+        if not isinstance(body, dict) or not isinstance(body.get("id"), str):
+            raise CompanionError("OPERATOR_RESULT_INVALID")
+        return body
+
+    async def operator_task(self, task_id: str) -> dict:
+        body = await self._request("GET", f"/api/qwen-operator/tasks/{task_id}")
+        if not isinstance(body, dict) or body.get("id") != task_id:
+            raise CompanionError("OPERATOR_RESULT_INVALID")
+        return body
+
+    async def operator_cancel(self, task_id: str) -> dict:
+        return await self._request("POST", f"/api/qwen-operator/tasks/{task_id}/cancel")
+
     async def executor(self, person: Person):
         if person.agent_id is None:
             raise CompanionError("DELEGATION_NOT_CONFIGURED")
