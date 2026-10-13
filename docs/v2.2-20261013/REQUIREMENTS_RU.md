@@ -1,6 +1,6 @@
 # Единый реестр требований
 
-38 устойчивых ID. Для каждого в соответствующей спецификации есть исходное состояние,
+39 устойчивых ID. Прежние 38 ID сохранены; добавлен MC22-16. Для каждого в соответствующей спецификации есть исходное состояние,
 вход, выход, приёмка, отказ/STOP/перезапуск и зависимости. Приоритеты указаны там же.
 NOT_RUN в таблице означает отсутствие нового acceptance 2.2, а не отсутствие кода.
 
@@ -39,6 +39,7 @@ NOT_RUN в таблице означает отсутствие нового acc
 | MC22-13 | Проверить качество ответов Jeff и поддержку | [MEDIA_COMMERCIAL_SPEC_RU.md](MEDIA_COMMERCIAL_SPEC_RU.md) | NOT_RUN для acceptance 2.2 |
 | MC22-14 | Завершить один вертикальный сценарий Social Farm | [MEDIA_COMMERCIAL_SPEC_RU.md](MEDIA_COMMERCIAL_SPEC_RU.md) | NOT_RUN для acceptance 2.2 |
 | MC22-15 | Свести Apps, дерево и доказательства выпуска | [MEDIA_COMMERCIAL_SPEC_RU.md](MEDIA_COMMERCIAL_SPEC_RU.md) | NOT_RUN для acceptance 2.2 |
+| MC22-16 | Выбор моделей генерации и предпочтительный uncensored-профиль | [GENERATION_MODEL_SELECTION_RU.md](GENERATION_MODEL_SELECTION_RU.md) | NOT_RUN для acceptance 2.2 |
 | P22-POKER-01 | локальный импорт собственных записей и происхождение данных | [POKER_TRADING_REPORTS_SPEC_RU.md](POKER_TRADING_REPORTS_SPEC_RU.md) | NOT_RUN для acceptance 2.2 |
 | P22-POKER-02 | калибровка Vision, мест и безопасный отказ | [POKER_TRADING_REPORTS_SPEC_RU.md](POKER_TRADING_REPORTS_SPEC_RU.md) | NOT_RUN для acceptance 2.2 |
 | P22-POKER-03 | запись, подготовка выборки, перезапуск и хранение | [POKER_TRADING_REPORTS_SPEC_RU.md](POKER_TRADING_REPORTS_SPEC_RU.md) | NOT_RUN для acceptance 2.2 |

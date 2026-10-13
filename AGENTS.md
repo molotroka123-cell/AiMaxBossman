@@ -1,5 +1,46 @@
 # AGENTS.md — Mandatory context for AI contributors
 
+## Owner amendment — Windows agent and model selection (2026-10-13)
+
+Latest owner instruction: Argon is the sole implementer of further changes.
+Follow `docs/v2.2-20261013/ARGON_IMPLEMENTATION_PLAN_RU.md` for the Windows agent,
+model selection, four monetization paths and one completed commercial pilot.
+Do not appoint parallel coding executors. A separate later audit will assess his
+diff and evidence against the quality rubric; no quality score is proven yet.
+
+This is the active architecture contract; dated handoffs below remain historical.
+Read `docs/v2.2-20261013/README.md`, `AGENT_ARCHITECTURE_RU.md`,
+`GENERATION_MODEL_SELECTION_RU.md`, `MASTER_PROMPT_RU.md` in that directory and
+`docs/owner/CONTINUATION.md`. Owner wants one agent with broad Windows access from
+the existing owner-only Telegram pult: task -> real observation/action -> independent
+postcondition check -> result/file delivery. Reuse the same backend, storage, tasks,
+models, permissions, memory and queues. Prove GUI work with actual mouse/keyboard,
+window identity, STOP/restart and receipts; API-only work is not a GUI proof.
+
+Source checkpoint: main b046b3b3; occupied checkout wt-unified-20261010 is on
+feat/bossman-2-2-20261013 at af92a0fd before this documentation change. Recheck all
+refs and runtime; do not switch/reset the busy checkout or steal dirty changes.
+Canonical destination remains main through applicable promotion gates. The Qwen
+operator already has Lab, read-only and approved host/Motion API capabilities;
+extend its real task/tool flow instead of building a second agent core.
+Commit af92a0fd records owner-adopted constitution v2; old "not adopted" claims are
+historical. Check current runtime pin/hash; agents must not write the owner pin.
+
+New MC22-16 specifies owner-only selection of prompt/image/edit/video models,
+preferred uncensored profile per role, encrypted preferences, compatible catalog
+entries and immutable enqueue snapshots. This documentation does not activate the
+proposed /genmodel command. Unavailable profiles are explicit; never silently label
+ordinary Qwen-Image-Edit/Wan5B uncensored or claim downloaded A14B is connected.
+Text Qwen is not the image/video engine; read actual context config, not old 256k
+claims (checkpoint operator has adaptive default 64k). Existing permissions and
+media rules remain. Benign clothing edits should not fail on one keyword alone.
+
+Retain all 39 requirement IDs, the full capability tree, four commercial pilots,
+North Star, licenses, source/runtime/archive identity and evidence gates. Do not
+resume cancelled hourly audits or the completed readiness monitor. Existing owner
+authorization remains valid within scope; do not repeatedly ask for the same action.
+
+
 Before making product, release, training, memory, model-routing or self-improvement decisions, read:
 
 - `BOSSMAN_1_5_START_HERE.md` and `docs/v1.5/README.md` — owner-authorized 1.5 specification and today's convergence handoff, 2026-09-23; documentation is not activation or certification;
