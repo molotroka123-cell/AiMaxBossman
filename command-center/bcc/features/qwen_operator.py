@@ -117,7 +117,8 @@ async def call_bossman_api(svc, method: str, path: str, body: dict | None = None
     token = ""
     with contextlib.suppress(OSError):
         token = (Path(svc.settings.data_dir) / "token").read_text(encoding="utf-8").strip()
-    url = f"http://127.0.0.1:{int(getattr(svc.settings, 'port', 8800))}{path}"
+    port = int(os.environ.get("BCC_ACTUAL_PORT") or getattr(svc.settings, "port", 8800))
+    url = f"http://127.0.0.1:{port}{path}"
     try:
         async with httpx.AsyncClient(timeout=120, trust_env=False) as c:
             r = await c.request(method.upper(), url, headers={"X-BCC-Token": token},

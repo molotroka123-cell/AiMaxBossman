@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import os
+
 import argparse
 import ipaddress
 import socket
@@ -67,6 +69,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         print(f"bcc {__version__}", flush=True)
         return
     host, port = args.host or settings.host, args.port or settings.port
+    os.environ["BCC_ACTUAL_PORT"] = str(port)     # the operator calls this backend's own API on the bound port
     settings.ensure_dirs()
     from .backend_lock import BackendAlreadyRunning, acquire
     from .build_identity import source_identity

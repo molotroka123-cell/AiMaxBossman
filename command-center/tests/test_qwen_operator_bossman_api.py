@@ -108,3 +108,28 @@ async def test_read_only_task_with_bossman_calls_answers_from_the_responses(stac
     assert saved["status"] == "completed", saved.get("error")
     assert seen == [("GET", "/api/motion-studio/status")] and saved["analysis"]
     assert not saved.get("commit_sha")                                        # nothing was changed
+
+
+async def test_call_uses_the_really_bound_port(stack, monkeypatch):  # noqa: F811
+    """Seen live 13.10 (d029679aea7d): settings.port said 8800 while the backend was started with --port 8801."""
+    svc, _c, _a = stack
+    urls = []
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def request(self, method, url, headers=None, json=None):
+            urls.append(url)
+            return type("R", (), {"status_code": 200, "text": "{}"})()
+    import httpx
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
+    monkeypatch.setenv("BCC_ACTUAL_PORT", "8801")
+    await qo.call_bossman_api(svc, "GET", "/api/motion-studio/status")
+    assert urls == ["http://127.0.0.1:8801/api/motion-studio/status"]
