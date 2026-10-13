@@ -87,3 +87,24 @@ async def test_token_never_lands_in_the_record(stack, repo, monkeypatch):  # noq
     monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
     res = await qo.call_bossman_api(svc, "GET", "/api/motion-workflow/projects")
     assert res["ok"] and "SECRET-TOKEN-VALUE" not in json.dumps(res)      # ... and never returned
+
+
+async def test_read_only_task_with_bossman_calls_answers_from_the_responses(stack, repo, monkeypatch):  # noqa: F811
+    """Seen live 13.10: a read-only wording plus calls went down the read-only path that ignored the calls."""
+    svc, _c, _a = stack
+    seen = []
+
+    async def fake_call(_svc, method, path, body=None):
+        seen.append((method, path))
+        return {"method": method, "path": path, "status": 200, "ok": True, "response": '{"status": "ok"}'}
+    monkeypatch.setattr(qo, "call_bossman_api", fake_call)
+    plan = {**PLAN, "files": [], "read_files": [], "read_only": True, "bossman_calls": [
+        {"method": "GET", "path": "/api/motion-studio/status", "why": "состояние"}]}
+    f = Fakes(repo, plan)
+    rec = await qo.start_task(svc, "прочитай статус Motion Studio, ничего не меняй", source_repo=str(repo),
+                              decision_wait_s=0, local_chat=f.local_chat, free_cloud=f.free_cloud, coder=f.coder)
+    await qo._JOBS[rec["id"]]
+    saved = json.loads((Path(svc.settings.data_dir) / "qwen-operator" / f"{rec['id']}.json").read_text("utf-8"))
+    assert saved["status"] == "completed", saved.get("error")
+    assert seen == [("GET", "/api/motion-studio/status")] and saved["analysis"]
+    assert not saved.get("commit_sha")                                        # nothing was changed

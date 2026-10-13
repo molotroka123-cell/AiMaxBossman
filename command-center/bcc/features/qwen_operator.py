@@ -958,10 +958,12 @@ def _read_files_sync(scope: OperatorScope, names: list[str], budget: int = 60000
     return out
 
 
-async def analyze(run: Run, task: str, plan: dict, names: list[str]) -> str:
+async def analyze(run: Run, task: str, plan: dict, names: list[str], extra: str = "") -> str:
     run.phase("analysis")
     files = await asyncio.to_thread(_read_files_sync, run.scope, names)
     body = "\n\n".join(f"### {n}\n{t}" for n, t in files) or "(файлы не прочитаны)"
+    if extra:
+        body += "\n\n### Ответы API Bossman (только что получены)\n" + extra
     res = await run.chat("planner", [
         {"role": "system", "content": "Ты — оператор Bossman (L1 Lab), режим ТОЛЬКО ЧТЕНИЕ. Ответь на задачу "
                                       "владельца по присланным файлам, кратко и по делу. Ничего не меняй."},
@@ -1005,7 +1007,13 @@ async def _execute(run: Run) -> dict:
     if read_only:
         names = [f for f in list(plan.get("files") or []) + list(plan.get("read_files") or []) if isinstance(f, str)]
         got = await read_targets(run, names, why=why_text)
-        analysis = await analyze(run, task, plan, got) if got else ""
+        for c in (plan.get("bossman_calls") or [])[:12]:        # a read-only task may still ask Bossman itself
+            if isinstance(c, dict) and not run.stopped():
+                run.phase("bossman_api")
+                await run.gate_bossman_api(c)
+        calls_text = "\n".join(f"{c.get('method')} {c.get('path')} -> {c.get('status')}: "
+                               f"{str(c.get('response') or '')[:1500]}" for c in rec.get("bossman_calls", []))
+        analysis = await analyze(run, task, plan, got, calls_text) if (got or calls_text) else ""
         rec["analysis"] = analysis
         await run.settle_decisions()
         rec["promotion"] = {"status": "NOT_APPLICABLE", "reason": "read-only task: nothing changed",
