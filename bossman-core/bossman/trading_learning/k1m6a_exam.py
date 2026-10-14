@@ -749,23 +749,39 @@ def aggregate(*, split: dict, pinned_criteria: dict, seal_sha: str, situations: 
     if problems:
         return {"schema": SCHEMA, "verdict": "PROTOCOL_VIOLATION", "problems": problems[:20]}
 
+    non_ocr_modes = {"BASELINE", "LESSONS", "RESTART_TRANSFER"}
     total = {}
     crit_fab = 0
+    crit_fab_by_mode: dict[str, int] = {m: 0 for m in MODES}
     for sc in scores:
         key = (sc["situation_id"], sc["mode"])
         total[key] = validate_score(sc)
-        crit_fab += bool(sc.get("critical_fabrication"))
+        is_cf = int(bool(sc.get("critical_fabrication")))
+        if sc["mode"] in crit_fab_by_mode:
+            crit_fab_by_mode[sc["mode"]] += is_cf
+        if sc["mode"] in non_ocr_modes:
+            crit_fab += is_cf
     fields_acc = []
     fields_by_mode_lists: dict[str, list[float]] = {m: [] for m in MODES}
     fabricated_numbers = 0
+    fabricated_by_mode: dict[str, int] = {m: 0 for m in MODES}
     for a in answers:
         if a["situation_id"] in test_ids and a.get("status") == "OK" and a["situation_id"] in references:
             fm = field_match(references[a["situation_id"]].get("fields", {}), a["answer"].get("fields", {}))
-            fabricated_numbers += fm["fabricated_numbers"]
+            m_name = a.get("mode")
+            if m_name in fabricated_by_mode:
+                fabricated_by_mode[m_name] += int(fm["fabricated_numbers"])
+            if m_name in non_ocr_modes or not any(ans.get("mode") in non_ocr_modes for ans in answers):
+                fabricated_numbers += int(fm["fabricated_numbers"])
             if fm["accuracy"] is not None:
-                fields_acc.append(fm["accuracy"])
-                if a.get("mode") in fields_by_mode_lists:
-                    fields_by_mode_lists[a["mode"]].append(fm["accuracy"])
+                if m_name in non_ocr_modes:
+                    fields_acc.append(fm["accuracy"])
+                if m_name in fields_by_mode_lists:
+                    fields_by_mode_lists[m_name].append(fm["accuracy"])
+    if not fields_acc:
+        # Fallback if only OCR modes were provided in answers
+        for vals in fields_by_mode_lists.values():
+            fields_acc.extend(vals)
     fields_by_mode = {m: round(statistics.fmean(vals), 4) if vals else None
                       for m, vals in fields_by_mode_lists.items()}
     per_mode: dict[str, dict] = {}
@@ -794,7 +810,9 @@ def aggregate(*, split: dict, pinned_criteria: dict, seal_sha: str, situations: 
                "paired": paired, "gain": _stats([float(d) for d in deltas]),
                "matched_fields_accuracy": round(statistics.fmean(fields_acc), 4) if fields_acc else None,
                "fields_by_mode": fields_by_mode, "decomposition": decomposition,
-               "fabricated_numbers": fabricated_numbers, "critical_fabrications": crit_fab, "criteria": crit}
+               "fabricated_numbers": fabricated_numbers, "critical_fabrications": crit_fab,
+               "fabricated_by_mode": fabricated_by_mode, "critical_fabrications_by_mode": crit_fab_by_mode,
+               "criteria": crit}
     summary["verdict"], summary["reasons"] = _verdict(summary, crit)
     summary["verdict_ocr"], summary["reasons_ocr"] = _verdict(
         summary, crit, base="BASELINE", lessons="LESSONS_OCR", restart="RESTART_TRANSFER_OCR"
@@ -811,8 +829,17 @@ def _verdict(s: dict, c: dict, *, base: str = "BASELINE", lessons: str = "LESSON
     b_m, l_m, r_m = (s["modes"][m] for m in (base, lessons, restart))
     if not b_m["n"] or not l_m["n"]:
         return "INCOMPLETE", [f"{base} and {lessons} must both be scored on the locked test"]
-    if s["critical_fabrications"] > c["critical_fabrications_max"] or s["fabricated_numbers"]:
-        reasons.append(f"fabrication: {s['critical_fabrications']} critical, {s['fabricated_numbers']} numbers "
+    protocol_modes = (base, lessons, restart) if lessons == "LESSONS" else (base, "BASELINE_OCR", lessons, restart)
+    fab_by_mode = s.get("fabricated_by_mode")
+    cf_by_mode = s.get("critical_fabrications_by_mode")
+    if isinstance(fab_by_mode, dict) and isinstance(cf_by_mode, dict):
+        proto_fab = sum(int(fab_by_mode.get(m, 0)) for m in protocol_modes)
+        proto_cf = sum(int(cf_by_mode.get(m, 0)) for m in protocol_modes)
+    else:
+        proto_fab = int(s["fabricated_numbers"])
+        proto_cf = int(s["critical_fabrications"])
+    if proto_cf > c["critical_fabrications_max"] or proto_fab:
+        reasons.append(f"fabrication: {proto_cf} critical, {proto_fab} numbers "
                        "given where the reference is UNKNOWN")
     acc = s["matched_fields_accuracy"] if lessons == "LESSONS" else (s.get("fields_by_mode") or {}).get(lessons)
     if acc is None or acc < c["matched_fields_min"]:

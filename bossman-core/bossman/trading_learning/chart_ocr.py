@@ -207,19 +207,30 @@ def read_frame(path: str, *, ocr: Any = None) -> Dict[str, Union[str, float, Lis
                 info['low'] = ohlc['low']
                 info['close'] = ohlc['close']
 
-    # Fallback: TradingView top toolbar ticker ('QBTCUSD', 'QBTC1!') + standalone active timeframe ('5m', '30m', '1h')
+    # Fallback: TradingView top toolbar ticker ('QBTCUSD', 'QBTC1!', 'QNTUSD') + unambiguous standalone timeframe
     if info['symbol'] == 'UNKNOWN':
         for raw_item in info['raw']:
-            m_sym = re.fullmatch(r'Q([A-Z]{2,6}(?:USD|USDT|1!))', raw_item.strip())
+            token = raw_item.strip()
+            m_sym = re.fullmatch(
+                r'(?:Q(?=[A-Z]{3,6}(?:USD|USDT|1!)$)(?!(?:QNT|QTUM|QUICK|QKC|QSR)(?:USD|USDT|1!)$))?'
+                r'([A-Z]{2,6}(?:USD|USDT|1!))',
+                token,
+            )
             if m_sym:
                 info['symbol'] = m_sym.group(1)
                 break
         if info['symbol'] != 'UNKNOWN' and info['timeframe'] == 'UNKNOWN':
+            tf_candidates: list[str] = []
             for raw_item in info['raw']:
-                m_tf = re.fullmatch(r'(\d{1,2}m|[14]h|1d)', raw_item.strip())
+                m_tf = re.fullmatch(r'(\d{1,2}m|[12468]h|12h|1[dD]|1[wW])', raw_item.strip())
                 if m_tf:
-                    info['timeframe'] = m_tf.group(1)
-                    break
+                    norm_tf = m_tf.group(1).lower()
+                    if norm_tf not in tf_candidates:
+                        tf_candidates.append(norm_tf)
+            if len(tf_candidates) == 1:
+                info['timeframe'] = tf_candidates[0]
+            else:
+                info['timeframe'] = 'UNKNOWN'
 
     return info
 

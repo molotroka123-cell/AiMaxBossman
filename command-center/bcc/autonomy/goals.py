@@ -492,6 +492,14 @@ class GoalStore:
     # .......................................................... budget
     def charge(self, goal_id: str, *, agent_turns: int = 0, cost_usd: float = 0.0) -> dict:
         """Account usage; an exhausted budget (turns, cost or time) blocks the goal."""
+        if isinstance(agent_turns, bool):
+            raise GoalError(f"agent_turns must be a non-negative integer, got {agent_turns!r}")
+        try:
+            turns_val = int(agent_turns)
+        except (TypeError, ValueError) as exc:
+            raise GoalError(f"agent_turns must be a non-negative integer, got {agent_turns!r}") from exc
+        if turns_val < 0:
+            raise GoalError(f"agent_turns must be a non-negative integer, got {agent_turns!r}")
         if isinstance(cost_usd, bool):
             raise GoalError(f"cost_usd must be a finite non-negative number, got {cost_usd!r}")
         try:
@@ -503,9 +511,19 @@ class GoalStore:
 
         def fn(rec: dict) -> None:
             u = rec.setdefault("usage", {"agent_turns": 0, "cost_usd": 0.0})
-            u["agent_turns"] = int(u.get("agent_turns", 0)) + int(agent_turns)
-            prev_cost = float(u.get("cost_usd", 0.0))
-            u["cost_usd"] = round(prev_cost + cost_val, 6) if math.isfinite(prev_cost) else cost_val
+            try:
+                prev_turns = int(u.get("agent_turns", 0))
+            except (TypeError, ValueError):
+                prev_turns = -1
+            u["agent_turns"] = (prev_turns + turns_val) if prev_turns >= 0 else int(rec["goal"]["budget"]["max_agent_turns"]) + 1
+            try:
+                prev_cost = float(u.get("cost_usd", 0.0))
+            except (TypeError, ValueError):
+                prev_cost = float("nan")
+            if not math.isfinite(prev_cost) or prev_cost < 0.0:
+                u["cost_usd"] = float("inf")
+            else:
+                u["cost_usd"] = round(prev_cost + cost_val, 6)
             reason = self.budget_exceeded(rec)
             if reason and rec["state"] not in TERMINAL and rec["state"] != "BLOCKED":
                 self._move(rec, "BLOCKED", {"reason": f"budget exhausted: {reason}"})

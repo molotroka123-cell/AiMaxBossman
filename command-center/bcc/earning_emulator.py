@@ -156,7 +156,42 @@ def check_arithmetic_claims(text: str, *, expected_total: int | None = None) -> 
                 issues.append(
                     f"total_mismatch: {ready_n} ready + ({len(table_lines)} blocks × {per_row} = {subtotal}) = {ready_n + subtotal} != {expected_total}"
                 )
+    if expected_total is not None and not hdr:
+        m_tot = re.search(
+            r"(?:всего|итого|total|в\s+наборе|пакет(?:\s+из)?\s*[:—\-]?)\s*(\d{1,4})\s+"
+            r"(?:коммерческ\w*\s+)?(?:фотопромпт\w*|промпт\w*|пункт\w*|позиц\w*|строк\w*|элемент\w*|шаг\w*|услуг\w*)",
+            text,
+            re.I,
+        )
+        if m_tot and int(m_tot.group(1)) != int(expected_total):
+            issues.append(f"expected_total_mismatch: claimed {int(m_tot.group(1))} != expected {int(expected_total)}")
     return issues
+
+
+_BRIEF_STOPWORDS = frozenset({
+    "собери", "сделай", "напиши", "нужен", "нужна", "нужно", "пакет", "таблицу", "таблица", "готовую",
+    "готовый", "клиенту", "указанием", "оценочной", "стоимости", "каждого", "каждой", "пункта", "пунктов",
+    "смету", "смета", "план", "заказ", "задача", "ровно", "блоков", "блока", "вариации", "вариаций",
+    "промптов", "промпта", "промпты", "описанием", "описание", "список", "create", "make", "build",
+    "prepare", "deliverable", "client", "table", "with", "from", "that", "this",
+})
+
+
+def check_brief_alignment(text: str, brief: str | None) -> list[str]:
+    """Verify that the deliverable actually addresses the domain/topic of the brief rather than an unrelated template."""
+    if not brief or not brief.strip():
+        return []
+    body_low = (text or "").lower()
+    brief_low = brief.lower()
+    # Extract domain stems (first 5 chars of words >= 5 chars not in stopwords)
+    words = [w for w in re.findall(r"[а-яёa-z]{5,}", brief_low) if w not in _BRIEF_STOPWORDS]
+    if not words:
+        return []
+    stems = {w[:5] for w in words}
+    matched = {s for s in stems if s in body_low}
+    if not matched:
+        return [f"brief_topic_mismatch: deliverable does not mention any key topic from brief ({sorted(words)[:5]})"]
+    return []
 
 
 def check_price_estimates(text: str) -> list[str]:
@@ -177,6 +212,7 @@ def verify_commercial_deliverable(
     require_price_estimate_label: bool = True,
     verified_runs: int = 0,
     min_chars: int = 200,
+    brief: str | None = None,
 ) -> dict:
     """Deterministic audit of a commercial deliverable before sending to the owner or customer."""
     body = (text or "").strip()
@@ -187,6 +223,8 @@ def verify_commercial_deliverable(
     issues.extend(check_arithmetic_claims(body, expected_total=expected_total))
     if require_price_estimate_label:
         issues.extend(check_price_estimates(body))
+    if brief:
+        issues.extend(check_brief_alignment(body, brief))
     return {
         "passed": len(issues) == 0,
         "verdict": "VERIFIED_CLEAN" if not issues else "NEEDS_REVISION",

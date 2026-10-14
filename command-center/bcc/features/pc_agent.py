@@ -116,7 +116,7 @@ HARD_INVARIANTS = (
 _CSAM_RE = re.compile(
     r"(?iu)\b(csam|child\s*(?:sex|porn|nude)|underage\s*(?:sex|nude|erotic)|"
     r"несовершеннолетн\w*\s+(?:секс\w*|обнаж\w*|эротик\w*|порн\w*)|"
-    r"(?:детск\w*|школьни\w*|подростк\w*)\s+(?:порн\w*|эротик\w*|обнаж\w*| интим\w*))\b"
+    r"(?:детск\w*|школьни\w*|подростк\w*)\s+(?:порн\w*|эротик\w*|обнаж\w*|интим\w*))\b"
 )
 _NCII_RE = re.compile(
     r"(?iu)\b(deepfake\s*nude|undress\s*(?:photo|her|him|person)|nudify|"
@@ -135,11 +135,16 @@ _T3_SECRET_PATTERNS = (
     re.compile(r"(?i)(?:^|[\\/])vault\.key$"),
     re.compile(r"(?i)(?:^|[\\/])provider-keys\.env$"),
     re.compile(r"(?i)(?:^|[\\/])api-token$"),
+    re.compile(r"(?i)(?:^|[\\/])token$"),
+    re.compile(r"(?i)(?:^|[\\/])companion\.enc(?:\.key)?$"),
     re.compile(r"(?i)(?:^|[\\/])\.env(?:\.[a-z0-9_-]+)?$"),
     re.compile(r"(?i)(?:^|[\\/])companion\.sqlite3(?:-wal|-shm)?$"),
+    re.compile(r"(?i)(?:^|[\\/])bossman\.db(?:-wal|-shm)?$"),
     re.compile(r"(?i)(?:^|[\\/])constitution\.sha256$"),
     re.compile(r"(?i)(?:^|[\\/])adopt_constitution_v2\.ps1$"),
     re.compile(r"(?i)(?:^|[\\/])id_(?:rsa|ed25519|ecdsa|dsa)$"),
+    re.compile(r"(?i)[\\/]pc-agent[\\/](?:STOP|audit\.jsonl)$"),
+    re.compile(r"(?i)[\\/]pc-agent[\\/](?:tasks|rollback)(?:[\\/]|$)"),
     re.compile(r"(?i)[\\/]AppData[\\/]Local[\\/]Bossman[\\/]keys(?:[\\/]|$)"),
     re.compile(r"(?i)[\\/]AppData[\\/]Local[\\/]Bossman[\\/]autonomy[\\/]constitution\.sha256"),
     re.compile(r"(?i)[\\/]User Data[\\/]Default[\\/](?:Login Data|Cookies|Web Data)$"),
@@ -174,7 +179,7 @@ _T3_CMD_PATTERNS = (
     (re.compile(r"(?i)\breg\s+(?:add|delete)\b[^\n]*Policies\\System[^\n]*EnableLUA"), "disable_uac_forbidden"),
     (re.compile(r"(?i)\badopt_constitution_v2\.ps1\b"), "constitution_pin_owner_only"),
     (re.compile(r"(?i)\bconstitution\.sha256\b"), "constitution_pin_owner_only"),
-    (re.compile(r"(?i)\b(?:vault\.key|credentials\.enc|provider-keys\.env)\b"), "secret_store_forbidden"),
+    (re.compile(r"(?i)\b(?:vault\.key|credentials\.enc|provider-keys\.env|api-token|companion\.enc)\b"), "secret_store_forbidden"),
     (re.compile(r"(?i)\b(?:CryptUnprotectData|ProtectedData::Unprotect)\b"), "dpapi_unprotect_forbidden"),
     (re.compile(r"(?i)\bbcdedit(?:\.exe)?\b"), "bcdedit_boot_config_forbidden"),
 )
@@ -208,6 +213,49 @@ _SAFE_ARGV_HEADS = frozenset({
 })
 
 _GIT_READONLY_SUBCOMMANDS = frozenset({"status", "diff", "log", "branch", "rev-parse", "show"})
+_GIT_BRANCH_SAFE_ARGS = frozenset({"--show-current", "-a", "--all", "-r", "--remotes", "-v", "-vv", "--list"})
+
+
+def _is_git_readonly_invocation(argv: list[str]) -> bool:
+    """Строгая проверка git-вызова на чистое чтение (исключает git branch -D/-m/создание ветки и опасные флаги)."""
+    if len(argv) < 2:
+        return False
+    sub = argv[1].lower()
+    if sub not in _GIT_READONLY_SUBCOMMANDS:
+        return False
+    rest = argv[2:]
+    for a in rest:
+        low_a = a.lower()
+        if (
+            low_a in {"-c", "--config-env", "--exec-path", "--git-dir", "--work-tree", "--no-index", "--ext-diff", "--textconv"}
+            or low_a.startswith(("--output", "--exec=", "--git-dir=", "--work-tree="))
+        ):
+            return False
+    if sub == "branch":
+        # Любые позиционные аргументы или флаги удаления/переименования/копирования/перезаписи запрещены в T0
+        return all(a in _GIT_BRANCH_SAFE_ARGS for a in rest)
+    return True
+
+
+def _is_readonly_sys_cmd(argv: list[str]) -> bool:
+    """Проверяет, что системная утилита чтения вызвана без модифицирующих или сетевых флагов."""
+    if not argv:
+        return False
+    head = Path(argv[0]).name.lower()
+    if head not in {"whoami", "whoami.exe", "hostname", "hostname.exe", "where", "where.exe", "systeminfo", "systeminfo.exe", "ipconfig", "ipconfig.exe", "tasklist", "tasklist.exe"}:
+        return False
+    rest_low = [a.strip().lower() for a in argv[1:]]
+    if head in {"ipconfig", "ipconfig.exe"}:
+        return all(a in {"/all", "-all"} for a in rest_low)
+    if head in {"systeminfo", "systeminfo.exe", "tasklist", "tasklist.exe"}:
+        if any(a in {"/s", "-s", "/u", "-u", "/p", "-p"} or a.startswith(("/s:", "/u:", "/p:")) for a in rest_low):
+            return False
+        return True
+    if head in {"whoami", "whoami.exe"}:
+        return len(rest_low) == 0
+    if head in {"hostname", "hostname.exe"}:
+        return len(rest_low) == 0
+    return True
 
 # Запрещённые расширения для автоматической записи T1 (скрипты, исполняемые файлы, ярлыки, конфиги)
 _UNSAFE_WRITE_SUFFIXES = frozenset({
@@ -230,6 +278,23 @@ class PolicyVerdict:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def _collect_runtime_secrets(data_dir: Path | None = None) -> tuple[str, ...]:
+    """Собирает известные значения runtime-токенов из data_dir для гарантированной очистки из выводов и журналов."""
+    vals: list[str] = []
+    dirs: list[Path] = []
+    if data_dir is not None:
+        dirs.append(Path(data_dir))
+    for d in dirs:
+        for fname in ("token", "api-token"):
+            p = d / fname
+            with contextlib.suppress(OSError):
+                if p.is_file():
+                    tok = p.read_text(encoding="utf-8", errors="replace").strip()
+                    if len(tok) >= 6 and tok not in vals:
+                        vals.append(tok)
+    return tuple(vals)
 
 
 def scrub_secrets(text: str, extra_secrets: tuple[str, ...] = ()) -> str:
@@ -309,9 +374,25 @@ def _norm_path(path_str: str) -> str:
     return _strip_ntfs_ads_and_dots(path_str)
 
 
-def is_t3_secret_or_protected_path(path_str: str, *, for_write: bool = False, repo_root: Path | None = None) -> tuple[bool, str]:
-    """Проверка пути на принадлежность к T3 (секреты, ключи, конституция, гейты)."""
+def _has_ntfs_ads(path_str: str) -> bool:
+    s = str(path_str or "").strip().replace("\\", "/")
+    if s.startswith("//?/"):
+        s = s[4:]
+    rest = s[2:] if (len(s) >= 2 and s[0].isalpha() and s[1] == ":") else s
+    return ":" in rest
+
+
+def is_t3_secret_or_protected_path(
+    path_str: str | Path,
+    *,
+    for_write: bool = False,
+    repo_root: Path | None = None,
+    data_dir: Path | None = None,
+) -> tuple[bool, str]:
+    """Проверка пути на принадлежность к T3 (секреты, ключи, конституция, гейты, токен data_dir)."""
     raw = str(path_str or "").strip()
+    if for_write and _has_ntfs_ads(raw):
+        return True, f"запись в NTFS Alternate Data Stream ({raw}) запрещена (T3)"
     norm = _norm_path(raw)
     if not norm:
         return True, "пустой путь"
@@ -321,6 +402,7 @@ def is_t3_secret_or_protected_path(path_str: str, *, for_write: bool = False, re
     for pat in _T3_SECRET_PATTERNS:
         if pat.search(norm) or pat.search(raw.replace("\\", "/")):
             return True, f"доступ к защищённому хранилищу секретов/пин-файлу ({Path(norm).name}) запрещён (T3)"
+    resolved = None
     try:
         resolved = Path(norm).expanduser().resolve()
         resolved_norm = _strip_ntfs_ads_and_dots(str(resolved))
@@ -329,6 +411,15 @@ def is_t3_secret_or_protected_path(path_str: str, *, for_write: bool = False, re
     for pat in _T3_SECRET_PATTERNS:
         if pat.search(resolved_norm):
             return True, f"доступ к защищённому хранилищу секретов/пин-файлу ({Path(resolved_norm).name}) запрещён (T3)"
+
+    # Защита служебных файлов data_dir (разрешён только рабочий каталог data_dir/pc-agent/workspace)
+    if data_dir is not None and resolved is not None:
+        with contextlib.suppress(OSError):
+            dd_resolved = Path(data_dir).expanduser().resolve()
+            if resolved == dd_resolved or dd_resolved in resolved.parents:
+                ws_resolved = (dd_resolved / "pc-agent" / "workspace").resolve()
+                if resolved != ws_resolved and ws_resolved not in resolved.parents:
+                    return True, f"доступ к внутреннему хранилищу ядра ({resolved.name} в data_dir) запрещён (T3)"
 
     # Защита .git/hooks и .git/config от подмены хуков и remote
     for c_git in (norm.lower(), resolved_norm.lower()):
@@ -445,6 +536,7 @@ def classify_pc_action(
     trust_active: bool = False,
     repo_root: Path | None = None,
     safe_roots: list[Path] | None = None,
+    data_dir: Path | None = None,
 ) -> PolicyVerdict:
     """Классификатор T0 / T1 / T2 / T3 для каждого шага PC-Agent."""
     args = dict(args or {})
@@ -474,15 +566,23 @@ def classify_pc_action(
 
     if tool in {"pc.read_file", "pc.list_dir"}:
         path = str(args.get("path") or "").strip()
-        bad, why = is_t3_secret_or_protected_path(path, for_write=False, repo_root=repo_root)
+        bad, why = is_t3_secret_or_protected_path(path, for_write=False, repo_root=repo_root, data_dir=data_dir)
         if bad:
             return PolicyVerdict("T3", "deny", "secret_or_protected_path", why, always_owner_button=True)
         return PolicyVerdict("T0", "auto", "filesystem_read", f"Чтение {path} (T0).")
 
     if tool in {"pc.write_file", "pc.edit_file", "pc.copy_file", "pc.move_file"}:
-        dst_path = str(args.get("path") or args.get("dst") or "").strip()
+        raw_path_arg = str(args.get("path") or "").strip()
+        raw_dst_arg = str(args.get("dst") or "").strip()
+        if raw_path_arg and raw_dst_arg and _norm_path(raw_path_arg) != _norm_path(raw_dst_arg):
+            return PolicyVerdict(
+                "T3", "deny", "inconsistent_path_dst",
+                "Несовпадающие аргументы path и dst запрещены (защита от расхождения классификатора и исполнителя, T3).",
+                always_owner_button=True,
+            )
+        dst_path = raw_path_arg or raw_dst_arg
         src_path = str(args.get("src") or "").strip()
-        bad_dst, why_dst = is_t3_secret_or_protected_path(dst_path, for_write=True, repo_root=repo_root)
+        bad_dst, why_dst = is_t3_secret_or_protected_path(dst_path, for_write=True, repo_root=repo_root, data_dir=data_dir)
         if bad_dst:
             return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_dst, always_owner_button=True)
         if src_path:
@@ -490,6 +590,7 @@ def classify_pc_action(
                 src_path,
                 for_write=(tool == "pc.move_file"),
                 repo_root=repo_root,
+                data_dir=data_dir,
             )
             if bad_src:
                 return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_src, always_owner_button=True)
@@ -499,8 +600,9 @@ def classify_pc_action(
                 "Задача владельца запрашивала только чтение; модификация файлов отклонена.",
                 always_owner_button=True,
             )
-        dst_safe = is_within_safe_roots(dst_path, safe_roots)
-        src_safe = True if (tool != "pc.move_file" or not src_path) else is_within_safe_roots(src_path, safe_roots)
+        effective_safe_roots = safe_roots if safe_roots is not None else default_safe_roots(data_dir)
+        dst_safe = is_within_safe_roots(dst_path, effective_safe_roots)
+        src_safe = True if (tool != "pc.move_file" or not src_path) else is_within_safe_roots(src_path, effective_safe_roots)
         if dst_safe and src_safe:
             return PolicyVerdict("T1", "auto", "filesystem_write_safe", f"Обратимая запись в рабочей папке {dst_path} с откатом (T1).")
         decision = "trust_window" if trust_active else "ask"
@@ -508,17 +610,19 @@ def classify_pc_action(
 
     if tool == "pc.delete_file":
         path = str(args.get("path") or "").strip()
-        bad, why = is_t3_secret_or_protected_path(path, for_write=True, repo_root=repo_root)
+        bad, why = is_t3_secret_or_protected_path(path, for_write=True, repo_root=repo_root, data_dir=data_dir)
         if bad:
             return PolicyVerdict("T3", "deny", "secret_or_protected_path", why, always_owner_button=True)
         if PromptIntentReadOnly(task_prompt):
             return PolicyVerdict("T3", "deny", "unrequested_mutation", "Удаление не запрашивалось в задаче чтения.", always_owner_button=True)
         # Удаление всегда T2 (кнопка Разрешить, либо окно доверия только внутри scratch/temp)
         in_temp = False
-        with contextlib.suppress(OSError):
-            resolved = Path(_norm_path(path)).expanduser().resolve()
-            temp_root = Path(os.environ.get("TEMP", "")).resolve()
-            in_temp = str(resolved).lower().startswith(str(temp_root).lower())
+        temp_env = str(os.environ.get("TEMP") or "").strip()
+        if temp_env:
+            with contextlib.suppress(OSError, ValueError):
+                resolved = Path(_norm_path(path)).expanduser().resolve()
+                temp_root = Path(temp_env).expanduser().resolve()
+                in_temp = resolved != temp_root and resolved.is_relative_to(temp_root)
         decision = "trust_window" if (trust_active and in_temp) else "ask"
         return PolicyVerdict(
             "T2", decision, "file_delete",
@@ -533,9 +637,12 @@ def classify_pc_action(
         protected_names = (
             "bcc", "bossman", "lsass", "csrss", "wininit", "services",
             "svchost", "defender", "smss", "winlogon", "dwm", "system",
+            "python", "python.exe", "ollama", "ollama.exe", "claude", "codex",
         )
         if any(p in target for p in protected_names) or any(p in raw_name for p in protected_names):
             return PolicyVerdict("T3", "deny", "protected_process", f"Остановка защищённого процесса {target} запрещена (T3).", always_owner_button=True)
+        if raw_pid is None and len(raw_name) < 3:
+            return PolicyVerdict("T3", "deny", "invalid_process_name", f"Слишком короткое имя процесса {raw_name!r} запрещено (T3).", always_owner_button=True)
         if raw_pid is not None:
             try:
                 pid_int = int(raw_pid)
@@ -559,8 +666,8 @@ def classify_pc_action(
         if action in {"focus", "minimize", "maximize", "restore"}:
             return PolicyVerdict("T1", "auto", "window_reversible", f"Управление окном ({action}: {target}, T1).")
         if action == "close":
-            decision = "trust_window" if trust_active else "auto"
-            return PolicyVerdict("T1", decision, "window_close", f"Закрытие окна «{target}» (T1).")
+            decision = "trust_window" if trust_active else "ask"
+            return PolicyVerdict("T2", decision, "window_close", f"Закрытие окна «{target}» может привести к потере несохранённых данных (T2).")
         return PolicyVerdict("T2", "ask", "window_unknown", f"Действие с окном {action} ({target}) требует подтверждения (T2).")
 
     if tool == "pc.control_service":
@@ -577,10 +684,39 @@ def classify_pc_action(
         action = str(args.get("action") or "").strip().lower()
         target = str(args.get("target") or "").strip()
         semantic = str(args.get("semantic") or "").strip().lower()
+        desk_path = str(args.get("path") or "").strip()
         if semantic in {"pay", "payment", "purchase", "wallet", "bank_transfer", "resume", "approve yourself"}:
             return PolicyVerdict("T3", "deny", "desktop_forbidden_semantic", f"Действие {semantic} на рабочем столе запрещено (T3).", always_owner_button=True)
         if re.search(r"(?iu)\b(оплат\w*|перевод\w*|купить|pay|purchase|wallet|bossman\s+approvals)\b", f"{target} {semantic}"):
             return PolicyVerdict("T3", "deny", "desktop_payment_or_gate", f"Цель «{target}» затрагивает оплату или защищённый гейт (T3).", always_owner_button=True)
+        if action == "notepad_roundtrip" or desk_path:
+            if desk_path:
+                bad_p, why_p = is_t3_secret_or_protected_path(desk_path, for_write=True, repo_root=repo_root, data_dir=data_dir)
+                if bad_p:
+                    return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_p, always_owner_button=True)
+            if PromptIntentReadOnly(task_prompt):
+                return PolicyVerdict("T3", "deny", "unrequested_mutation", "Запись через GUI не запрашивалась в задаче чтения.", always_owner_button=True)
+            if desk_path:
+                effective_safe_roots = safe_roots if safe_roots is not None else default_safe_roots(data_dir)
+                if not is_within_safe_roots(desk_path, effective_safe_roots):
+                    decision = "trust_window" if trust_active else "ask"
+                    return PolicyVerdict("T2", decision, "desktop_write_outside_workspace", f"GUI-сохранение вне рабочих папок ({desk_path}) требует подтверждения (T2).")
+        if action == "launch":
+            app_name = Path(str(args.get("app") or target or "notepad")).name.lower().removesuffix(".exe")
+            if app_name not in {"notepad", "calc", "mspaint", "charmap"}:
+                return PolicyVerdict(
+                    "T2", "ask", "desktop_launch_unlisted",
+                    f"Запуск приложения «{app_name}» через рабочий стол требует подтверждения владельца (T2).",
+                    always_owner_button=True,
+                )
+        if action in {"hotkey", "key"}:
+            keys_str = "+".join(str(k).lower() for k in (args.get("keys") or [args.get("key") or target]))
+            if any(k in keys_str for k in ("win+r", "win+x", "alt+f4", "ctrl+shift+esc")):
+                return PolicyVerdict(
+                    "T2", "ask", "desktop_sensitive_hotkey",
+                    f"Системное сочетание клавиш `{keys_str}` требует подтверждения владельца (T2).",
+                    always_owner_button=True,
+                )
         if re.search(r"(?iu)\b(удал\w*|delete|uninstall|форматир\w*|отправ\w*|публик\w*|send|publish|submit)\b", f"{target} {semantic}"):
             decision = "trust_window" if trust_active else "ask"
             return PolicyVerdict("T2", decision, "desktop_consequential", f"Действие «{action}» по цели «{target}» имеет последствия (T2).")
@@ -631,16 +767,16 @@ def classify_pc_action(
             norm_tok = _norm_path(token)
             if any(p.search(token) or p.search(norm_tok) for p in _T3_SECRET_PATTERNS):
                 return PolicyVerdict("T3", "deny", "secret_path_in_argv", f"Аргумент обращается к защищённому секрету ({token}, T3).", always_owner_button=True)
-            if "/" in norm_tok or "\\" in token or any(k in norm_tok.lower() for k in ("constitution", "vault.key", "credentials.enc", "api-token", "secrets.py", "approvals.py", "permissions.py", "autonomy")):
-                bad_tok, why_tok = is_t3_secret_or_protected_path(token, for_write=True, repo_root=repo_root)
+            if "/" in norm_tok or "\\" in token or any(k in norm_tok.lower() for k in ("constitution", "vault.key", "credentials.enc", "companion.enc", "bossman.db", "api-token", "token", "secrets.py", "approvals.py", "permissions.py", "autonomy")):
+                bad_tok, why_tok = is_t3_secret_or_protected_path(token, for_write=True, repo_root=repo_root, data_dir=data_dir)
                 if bad_tok:
                     return PolicyVerdict("T3", "deny", "protected_path_in_argv", why_tok, always_owner_button=True)
 
         if PromptIntentReadOnly(task_prompt):
             head_ro = Path(argv[0]).name.lower()
             is_ro_cmd = (
-                head_ro in {"whoami", "whoami.exe", "hostname", "hostname.exe", "where", "where.exe", "systeminfo", "systeminfo.exe", "ipconfig", "ipconfig.exe", "tasklist", "tasklist.exe"}
-                or (head_ro in {"git", "git.exe"} and len(argv) >= 2 and argv[1] in _GIT_READONLY_SUBCOMMANDS)
+                _is_readonly_sys_cmd(argv)
+                or (head_ro in {"git", "git.exe"} and _is_git_readonly_invocation(argv))
                 or (head_ro in {"python", "python.exe", "python3", "python3.exe", "py", "py.exe"} and len(argv) == 2 and argv[1] in {"--version", "-V"})
             )
             if not is_ro_cmd or _DANGEROUS_SHELL_CHAIN_RE.search(joined):
@@ -673,46 +809,80 @@ def classify_pc_action(
                 )
 
         head = Path(argv[0]).name.lower()
-        # Git: только чистое чтение без -c / --output идёт как T0 auto; остальные git-команды — T2
+        # Git: только чистое чтение без мутирующих флагов идёт как T0 auto; остальные git-команды — T2
         if head in {"git", "git.exe"}:
             sub = argv[1].lower() if len(argv) >= 2 else ""
-            has_unsafe_git_flag = any(
-                a in {"-c", "--config-env", "--exec-path", "--git-dir", "--work-tree"}
-                or a.startswith("--output")
-                for a in argv[1:]
-            )
-            if sub in _GIT_READONLY_SUBCOMMANDS and not has_unsafe_git_flag:
+            if _is_git_readonly_invocation(argv):
                 return PolicyVerdict("T0", "auto", "git_read", f"Чтение состояния git ({sub}, T0).")
             decision = "trust_window" if trust_active else "ask"
             return PolicyVerdict("T2", decision, "git_mutation", f"Команда git `{joined[:120]}` изменяет состояние репозитория — уровень T2.")
 
-        # Python: только --version / -V идёт как T0 auto; любой скрипт, -c или -m — это произвольный код (T2)
+        # Python: только --version / -V идёт как T0 auto; любой скрипт, -c или -m — это произвольный код (T2 через кнопку владельца)
         if head in {"python", "python.exe", "python3", "python3.exe", "py", "py.exe"}:
             if len(argv) == 2 and argv[1] in {"--version", "-V"}:
                 return PolicyVerdict("T0", "auto", "python_version", "Проверка версии Python (T0).")
-            decision = "trust_window" if trust_active else "ask"
-            return PolicyVerdict("T2", decision, "interpreter_execution", f"Запуск интерпретатора Python (`{joined[:120]}`) требует подтверждения или окна доверия (T2).")
-
-        if head not in _SAFE_ARGV_HEADS:
-            decision = "trust_window" if trust_active else "ask"
             return PolicyVerdict(
-                "T2", decision, "unlisted_executable",
-                f"Исполняемый файл {head!r} не входит в белый список T1 — требуется подтверждение (T2).",
+                "T2", "ask", "interpreter_execution",
+                f"Запуск интерпретатора Python (`{joined[:120]}`) требует явного подтверждения владельца (T2).",
+                always_owner_button=True,
             )
 
-        # Чистые чтения (whoami, hostname, ipconfig, tasklist, systeminfo, where) -> T0, иначе T1
-        if head in {"whoami", "whoami.exe", "hostname", "hostname.exe", "where", "where.exe", "systeminfo", "systeminfo.exe", "ipconfig", "ipconfig.exe", "tasklist", "tasklist.exe"}:
+        if head not in _SAFE_ARGV_HEADS:
+            return PolicyVerdict(
+                "T2", "ask", "unlisted_executable",
+                f"Исполняемый файл {head!r} не входит в белый список T1 — требуется явное подтверждение владельца (T2).",
+                always_owner_button=True,
+            )
+
+        # Чистые чтения (whoami, hostname, ipconfig /all, tasklist, systeminfo, where) -> T0, иначе T1
+        if _is_readonly_sys_cmd(argv):
             return PolicyVerdict("T0", "auto", "command_read", f"Информационная команда {head} (T0).")
+        if head in {"ipconfig", "ipconfig.exe", "systeminfo", "systeminfo.exe"}:
+            decision = "trust_window" if trust_active else "ask"
+            return PolicyVerdict("T2", decision, "network_or_remote_sys_command", f"Команда {joined[:120]} изменяет сеть или опрашивает внешний узел (T2).")
         return PolicyVerdict("T1", "auto", "command_safe", f"Разрешённая локальная команда {head} со списком аргументов (T1).")
 
     if tool == "pc.bossman_api":
+        import posixpath
         method = str(args.get("method") or "GET").upper()
-        path = str(args.get("path") or "").strip()
-        if not path.startswith("/api/") or any(seg in path for seg in ("/api/approvals", "/api/autonomy", "/api/control-plane")):
-            return PolicyVerdict("T3", "deny", "bossman_api_forbidden", f"Вызов {method} {path} запрещён для агента (T3).", always_owner_button=True)
-        if method == "GET":
-            return PolicyVerdict("T0", "auto", "bossman_api_read", f"Чтение Bossman API {path} (T0).")
-        return PolicyVerdict("T1", "auto", "bossman_api_call", f"Вызов Bossman API {method} {path} (T1).")
+        raw_api_path = str(args.get("path") or "").strip()
+        q_part = ""
+        path_only = raw_api_path
+        if "?" in raw_api_path:
+            path_only, q_part = raw_api_path.split("?", 1)
+        norm_api_path = posixpath.normpath(path_only) if path_only else ""
+        allowed_readonly_prefixes = (
+            "/api/system",
+            "/api/status",
+            "/api/health/live",
+            "/api/tasks",
+            "/api/agents",
+            "/api/models",
+            "/api/studio/models",
+            "/api/oss/status",
+            "/api/capability-tree",
+        )
+        forbidden_api_prefixes = (
+            "/api/approvals",
+            "/api/autonomy",
+            "/api/control-plane",
+            "/api/pc-agent",
+            "/api/providers",
+            "/api/secrets",
+            "/api/auth",
+        )
+        if (
+            method != "GET"
+            or not norm_api_path.startswith("/api/")
+            or "%" in raw_api_path
+            or "\\" in raw_api_path
+            or ".." in raw_api_path
+            or "//" in path_only
+            or any(norm_api_path.startswith(fp) for fp in forbidden_api_prefixes)
+            or not any(norm_api_path == ap or norm_api_path.startswith(ap + "/") for ap in allowed_readonly_prefixes)
+        ):
+            return PolicyVerdict("T3", "deny", "bossman_api_forbidden", f"Вызов {method} {raw_api_path} запрещён для агента (разрешены только безопасные GET-маршруты чтения, T3).", always_owner_button=True)
+        return PolicyVerdict("T0", "auto", "bossman_api_read", f"Чтение Bossman API {norm_api_path} (T0).")
 
     if tool == "pc.earn":
         action = str(args.get("action") or "status").lower()
@@ -720,8 +890,10 @@ def classify_pc_action(
         edition_arg = str(args.get("edition") or "").strip().lower()
         try:
             real_money_arg = float(args.get("real_money") or 0.0)
+            if not math.isfinite(real_money_arg):
+                real_money_arg = 1.0
         except (TypeError, ValueError):
-            real_money_arg = 0.0
+            real_money_arg = 1.0
         if (
             action in {"pay", "withdraw", "live_trade", "publish_external", "submit_bid", "fincept_enterprise", "fincept_live_broker", "vibe_trading_live"}
             or mode_arg in {"live", "real", "real_money", "broker"}
@@ -739,7 +911,7 @@ def classify_pc_action(
                 "Внешняя публикация поста/сторис в Instagram Fresh Vibes требует явного нажатия кнопки «Разрешить» владельцем на каждую конкретную отправку (T2).",
                 always_owner_button=True,
             )
-        if action in {"status", "arena", "exam", "roi", "poker", "studio", "self_improve", "oss", "product", "weekly", "report", "blender", "fincept", "vibe_trading", "vibe_trade"}:
+        if action in {"status", "arena", "exam", "roi", "poker", "studio", "oss", "product", "weekly", "report", "blender", "fincept", "vibe_trading", "vibe_trade"}:
             return PolicyVerdict("T0", "auto", f"earn_{action}", f"Чтение и проверка контура Bossman Product/Earn ({action}, T0).")
         return PolicyVerdict("T1", "auto", f"earn_{action}", f"Выполнение и верификация задачи Bossman Earn ({action}, SIMULATED/$0, T1).")
 
@@ -921,12 +1093,13 @@ class PCAgentRuntime:
             st = tc._owner_state(svc)
             st.set_stop("owner")
 
-        # Убиваем все запущенные дочерние процессы PC-Agent
+        # Убиваем все запущенные дочерние процессы PC-Agent (не блокируя event loop)
         killed_pids: list[int] = []
         for pid, proc in list(self.active_procs.items()):
             with contextlib.suppress(Exception):
                 if os.name == "nt" and pid > 0:
-                    subprocess.run(
+                    await asyncio.to_thread(
+                        subprocess.run,
                         ["taskkill", "/T", "/F", "/PID", str(pid)],
                         capture_output=True,
                         timeout=3,
@@ -936,12 +1109,19 @@ class PCAgentRuntime:
                 killed_pids.append(pid)
             self.active_procs.pop(pid, None)
 
-        # Отменяем активные asyncio-задачи PC-Agent
+        # Отменяем активные asyncio-задачи PC-Agent и припаркованные задачи waiting_approval
         cancelled_tasks: list[int] = []
         for tid, task in list(self.active_tasks.items()):
             if not task.done():
                 task.cancel()
                 cancelled_tasks.append(tid)
+
+        for path in sorted(self.tasks_dir.glob("task-*.json")):
+            with contextlib.suppress(Exception):
+                rec = json.loads(path.read_text(encoding="utf-8"))
+                tid = int(rec.get("task_id") or 0)
+                if tid > 0 and rec.get("status") in {"running", "waiting_approval"} and tid not in cancelled_tasks:
+                    cancelled_tasks.append(tid)
 
         for tid in cancelled_tasks:
             with contextlib.suppress(Exception):
@@ -949,6 +1129,7 @@ class PCAgentRuntime:
                 rec = self.load_task_record(tid)
                 if rec and rec.get("status") not in {"completed", "failed", "stopped"}:
                     rec["status"] = "stopped"
+                    rec["pending_approval"] = None
                     rec["stopped_at"] = time.time()
                     self.save_task_record(tid, rec)
 
@@ -963,6 +1144,7 @@ class PCAgentRuntime:
             decision="auto",
             result={"stopped": True, "killed_pids": killed_pids, "cancelled_tasks": cancelled_tasks, "latency_ms": elapsed_ms},
             verified=True,
+            extra_secrets=_collect_runtime_secrets(self.data_dir),
         )
         return {
             "stopped": True,
@@ -988,6 +1170,7 @@ class PCAgentRuntime:
             decision="auto",
             result={"stopped": False},
             verified=True,
+            extra_secrets=_collect_runtime_secrets(self.data_dir),
         )
         return {"stopped": False, "trust_active": self.trust_active(svc)}
 
@@ -1044,17 +1227,15 @@ def get_runtime(svc: Any) -> PCAgentRuntime:
 # ------------------------------------------------------------------ DB Synchronization Helpers
 
 async def ensure_argon_agent(svc: Any) -> dict[str, Any]:
-    """Гарантирует наличие записи агента Argon PC-Agent в таблице `agents`."""
+    """Гарантирует наличие записи агента Argon PC-Agent в таблице `agents` (строго локальная модель $0)."""
     async with svc.db.session() as s:
         row = row_dict((await s.execute(sa.select(agents_t).where(agents_t.c.role == AGENT_ROLE))).first())
         if row:
             return row
-        # Выбираем локальную модель Qwen uncensored (или любую доступную локальную модель)
+        # Выбираем только разрешённую локальную модель Qwen ($0); никогда не откатываемся на платные модели
         model_row = row_dict(
             (await s.execute(sa.select(models_t).where(models_t.c.name.in_(LOCAL_MODELS)).order_by(models_t.c.id.desc()))).first()
         )
-        if not model_row:
-            model_row = row_dict((await s.execute(sa.select(models_t).order_by(models_t.c.id.asc()))).first())
         model_id = model_row["id"] if model_row else None
         now = utcnow()
         res = await s.execute(

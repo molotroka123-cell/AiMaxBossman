@@ -71,7 +71,9 @@ async def status() -> dict:
             page="studio",
             license=blender_st["license"],
             state=blender_st["status"],
-            detail="Управление 3D-сценой Blender (ранее blender-mcp, v2.0.3 MIT): сборка сцен, света и камер с AST-защитой скриптов bpy (только loopback 127.0.0.1).",
+            activation_status="NOT_ACTIVATED",
+            enabled=False,
+            detail="Статус: NOT_ACTIVATED (внешний аддон не активирован по умолчанию). Управление 3D-сценой Blender (v2.0.3 MIT) с AST-защитой скриптов bpy (только loopback 127.0.0.1).",
             upstream=blender_st["upstream"],
         ),
         dict(
@@ -80,7 +82,9 @@ async def status() -> dict:
             page="market",
             license=fincept_st["license"],
             state=fincept_st["status"],
-            detail="Рыночная аналитика, макро-исследования и оценка режима CHOP/TREND (бесплатная AGPL-3.0 редакция; платные Enterprise-тарифы и живой брокер заблокированы T3).",
+            activation_status="NOT_ACTIVATED",
+            enabled=False,
+            detail="Статус: NOT_ACTIVATED (внешний пакет не активирован по умолчанию; лицензия AGPL-3.0 распространяется на использующий его сценарий). Платные Enterprise-тарифы и живой брокер заблокированы T3.",
             upstream=fincept_st["upstream"],
         ),
         dict(
@@ -89,7 +93,9 @@ async def status() -> dict:
             page="market",
             license=vibe_st["license"],
             state=vibe_st["status"],
-            detail="Персональный торговый агент (v0.1.15 MIT) строго в режиме Shadow Account (PAPER_ONLY, real_money=0, фильтр S4_regime_trend). Живые ордера заблокированы T3.",
+            activation_status="NOT_ACTIVATED",
+            enabled=False,
+            detail="Статус: NOT_ACTIVATED (внешний агент не активирован по умолчанию). Персональный торговый агент (v0.1.15 MIT) строго в режиме Shadow Account (PAPER_ONLY, real_money=0, фильтр S4_regime_trend). Живые ордера заблокированы T3.",
             upstream=vibe_st["upstream"],
         ),
     ]
@@ -118,40 +124,57 @@ async def blender_scene(body: dict = Body(default_factory=dict)) -> dict:
 
 @router.post("/fincept/analyze")
 async def fincept_analyze(body: dict = Body(default_factory=dict)) -> dict:
+    import math
     symbol = str(body.get("symbol") or "SOL/USDT").strip()
-    closes = body.get("closes")
-    if not isinstance(closes, list):
-        closes = [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
+    raw_closes = body.get("closes")
+    is_demo = not isinstance(raw_closes, list)
+    closes = raw_closes if isinstance(raw_closes, list) else [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
     edition = str(body.get("edition") or fincept_terminal.ALLOWED_EDITION)
     action = str(body.get("action") or "research")
-    fee_bps_rt = float(body.get("fee_bps_rt") or 28.0)
     try:
-        return fincept_terminal.analyze_series(
+        raw_fee = body.get("fee_bps_rt")
+        fee_bps_rt = 28.0 if raw_fee is None else float(raw_fee)
+        if isinstance(raw_fee, bool) or not math.isfinite(fee_bps_rt) or fee_bps_rt < 0.0:
+            raise ValueError("fee_bps_rt должен быть конечным неотрицательным числом")
+        res = fincept_terminal.analyze_series(
             symbol,
             closes,
             fee_bps_rt=fee_bps_rt,
             edition=edition,
             action=action,
         )
+        res["data_source"] = "synthetic_demo" if is_demo else "caller_provided"
+        res["is_demo"] = is_demo
+        return res
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
-    except ValueError as exc:
+    except (ValueError, TypeError) as exc:
         raise HTTPException(422, str(exc)) from exc
 
 
 @router.post("/vibe-trading/shadow")
 async def vibe_trading_shadow(body: dict = Body(default_factory=dict)) -> dict:
+    import math
     symbol = str(body.get("symbol") or "SOL/USDT").strip()
-    closes = body.get("closes")
-    if not isinstance(closes, list):
-        closes = [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
+    raw_closes = body.get("closes")
+    is_demo = not isinstance(raw_closes, list)
+    closes = raw_closes if isinstance(raw_closes, list) else [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
     mode = str(body.get("mode") or "shadow")
-    real_money = float(body.get("real_money") or 0.0)
     live_api_key = str(body.get("live_api_key") or "")
-    equity_usd = float(body.get("equity_usd") or 100.0)
-    fee_bps_rt = float(body.get("fee_bps_rt") or 28.0)
     try:
-        return vibe_trading.simulate_shadow_step(
+        raw_rm = body.get("real_money")
+        raw_eq = body.get("equity_usd")
+        raw_fee = body.get("fee_bps_rt")
+        if isinstance(raw_rm, bool) or isinstance(raw_eq, bool) or isinstance(raw_fee, bool):
+            raise ValueError("Числовые параметры не могут быть boolean")
+        real_money = 0.0 if raw_rm is None else float(raw_rm)
+        equity_usd = 100.0 if raw_eq is None else float(raw_eq)
+        fee_bps_rt = 28.0 if raw_fee is None else float(raw_fee)
+        if not (math.isfinite(real_money) and math.isfinite(equity_usd) and math.isfinite(fee_bps_rt)):
+            raise ValueError("Числовые параметры должны быть конечными (finite)")
+        if equity_usd <= 0.0 or fee_bps_rt < 0.0:
+            raise ValueError("equity_usd > 0 и fee_bps_rt >= 0 обязательны")
+        res = vibe_trading.simulate_shadow_step(
             symbol,
             closes,
             equity_usd=equity_usd,
@@ -160,9 +183,12 @@ async def vibe_trading_shadow(body: dict = Body(default_factory=dict)) -> dict:
             real_money=real_money,
             live_api_key=live_api_key,
         )
+        res["data_source"] = "synthetic_demo" if is_demo else "caller_provided"
+        res["is_demo"] = is_demo
+        return res
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
-    except ValueError as exc:
+    except (ValueError, TypeError) as exc:
         raise HTTPException(422, str(exc)) from exc
 
 
