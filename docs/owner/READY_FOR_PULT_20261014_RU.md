@@ -160,3 +160,16 @@ python -m pytest command-center/tests/test_pc_agent_argon.py command-center/test
 
 Финальный порядок закрытия зафиксирован в
 `docs/owner/MASTER_PROMPT_ARGON_FINAL_WEEK_CLOSE_20261014_RU.md`.
+
+---
+
+## 8. Уточнение по истории коммитов (аудит Claude, 14.10)
+
+Сообщение коммита 8040bac («split policy <=300 lines/<=120 chars, single audit.jsonl journal, remove personal paths, record task 84») **не соответствует его содержимому**: git show --stat a8040bac — один файл, docs/owner/READY_FOR_PULT_20261014_RU.md, 1 вставка, 1 удаление. История не переписывалась. Код, о котором говорит сообщение, фактически лежит в **db345cdb** («feat(argon): close privacy policy and reports audit gaps», 14 файлов):
+
+- разделение политики: pc_agent_policy.py + pc_agent_policy_paths.py;
+- удаление личных путей и отказ вместо молчаливой синтетики: eports_runner.py, pc_agent.py;
+- единый журнал udit.jsonl (ead_receipts как чтение): pc_agent.py;
+- тесты: 	est_pc_agent_argon.py, 	est_testing_period.py.
+
+Что в db345cdb оказалось НЕ доведено и исправляется отдельными коммитами этой ветки: ограничение «≤120» проверялось по символам, а не по байтам UTF-8 (по байтам 57 строк длиннее 120), и файлы были уложены в «300 строк» плотной склейкой. См. коммиты рефакторинга политики в ветке ix/argon-poker-gto-20261015.
