@@ -267,6 +267,9 @@ function createJobView(hooks) {
     if (key !== state.announceKey) { state.announceKey = key; announce.textContent = `Задача: ${label}`; }
 
     stopBtn.hidden = !live; retryBtn.hidden = live;
+    const retryLabel = job.kind === 'faceswap' ? 'Повторить' : 'Повторить с тем же seed';   // face swap has no seed
+    const retrySpan = retryBtn.querySelector('span');
+    if (retrySpan && retrySpan.textContent !== retryLabel) { retrySpan.textContent = retryLabel; retryBtn.title = retryLabel; }
     const done = job.status === 'completed' && job.result;
     saveLink.hidden = !done;
     if (done) saveLink.href = `${base}/jobs/${encodeURIComponent(job.job_id)}/file`;
