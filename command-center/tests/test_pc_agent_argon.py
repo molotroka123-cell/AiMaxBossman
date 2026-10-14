@@ -433,3 +433,67 @@ def test_natural_language_pc_phrases_and_planner(tmp_path: Path):
     assert compile_plan_for_prompt("проверь службу Spooler", workspace_dir=tmp_path) == [
         {"tool": "pc.control_service", "args": {"name": "Spooler", "action": "status"}}
     ]
+    assert compile_plan_for_prompt("заработай на коммерческой задаче аудит", workspace_dir=tmp_path) == [
+        {"tool": "pc.earn", "args": {"action": "task", "brief": "заработай на коммерческой задаче аудит"}}
+    ]
+
+
+# ------------------------------------------------------------------ 5. Bossman Earn: уроки LessonBook, верификация, симуляция инвойса и защита T3
+
+@pytest.mark.asyncio
+async def test_bossman_earn_coached_deliverable_lessons_and_t3_deny(fake_svc: FakeSvc, tmp_path: Path):
+    owner = Person(777001, 777001, "owner", 1)
+    settings = Settings(
+        (owner,),
+        local_url="http://127.0.0.1:8083/v1",
+        local_model="best",
+        core_url="http://127.0.0.1:8801",
+        bot_token="123456:TEST_TOKEN",
+        pc_control=True,
+    )
+    store = Store(tmp_path)
+
+    class FakeTelegram:
+        async def send(self, person, text, keyboard=None):
+            return None
+
+        async def send_photo(self, person, data, caption=""):
+            return None
+
+    comp = Companion(settings, store, FakeTelegram(), FakeCoreForCompanion(fake_svc), SimpleNamespace())
+    owner_msg = {"chat": {"id": 777001, "type": "private"}, "from": {"id": 777001, "is_bot": False}, "text": "/earn"}
+
+    # 1. /earn (status) засевает проверенные уроки в LessonBook и показывает статус арены + уроков
+    status_reply = await comp.pc_agent_command(owner, "/earn", "", owner_msg)
+    assert "Bossman Earn" in str(status_reply)
+    assert "LessonBook" in str(status_reply)
+    assert "VERIFIED" in str(status_reply)
+    assert "PAPER_ONLY" in str(status_reply)
+
+    # 2. /earn <бриф> создаёт коммерческий отчёт, проверяет через verify_commercial_deliverable и начисляет симуляционный счёт
+    task_reply = await comp.pc_agent_command(
+        owner,
+        "/earn",
+        "Подготовь коммерческий план и смету внедрения локального ИИ-ассистента для малого бизнеса",
+        owner_msg,
+    )
+    assert "VERIFIED_CLEAN" in str(task_reply)
+    assert "SIMULATED=True" in str(task_reply)
+    assert "real_money=0" in str(task_reply)
+
+    # Проверяем, что отчёт реально создан на диске и откатывается через rollback
+    import bcc.features.pc_agent as pca
+    rt = pca.get_runtime(fake_svc)
+    last_tid = max(int(p.stem.removeprefix("task-")) for p in rt.tasks_dir.glob("task-*.json"))
+    rec = rt.load_task_record(last_tid)
+    deliverable_path = Path(rec["step_results"][0]["deliverable_path"])
+    assert deliverable_path.exists()
+    rb = pca.rollback_task_files(rt, last_tid)
+    assert rb["ok"] is True
+    assert not deliverable_path.exists()
+
+    # 3. Запрещённые действия T3 (live_trade, pay, publish_external) жестко блокируются без кнопок
+    for forbidden_action in ("live_trade", "pay", "publish_external"):
+        verdict = classify_pc_action("pc.earn", {"action": forbidden_action})
+        assert verdict.tier == "T3" and verdict.decision == "deny", f"{forbidden_action} must be T3 deny, got {verdict}"
+

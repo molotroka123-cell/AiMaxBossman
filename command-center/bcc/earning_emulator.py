@@ -91,6 +91,108 @@ def simulated_invoice(l: Listing) -> dict:
     return {"simulated": True, "amount": l.pay_amount, "currency": l.currency, "basis": "фиксированная сумма из объявления"}
 
 
+_UNVERIFIED_CLAIM_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("false_model_test_claim", r"(?i)\b(все\s+промпты\s+(проверены|протестированы)|промпты\s+протестированы\s+на|all\s+prompts\s+(are\s+)?(tested|verified)\s+on|tested\s+and\s+verified\s+on\s+(midjourney|sdxl|stable\s+diffusion|dall[·\-]?e))"),
+    ("false_live_metric_claim", r"(?i)\b(гарантированн(ый|ая)\s+(доход|прибыль|конверсия)|100\s*%\s*гаранти[яи]|guaranteed\s+(profit|income|roi))\b"),
+)
+_ESTIMATE_MARKERS = re.compile(
+    r"(?i)(оценк[аиеуой]|ориентир\w*|приблизительн\w*|примерн\w*|допущени\w*|расчётн\w*|estimate\w*|approx\w*|~|≈)"
+)
+_PRICE_TOKEN = re.compile(r"(?:\$\s?\d+(?:[.,]\d+)?(?:\s?[-–]\s?\$?\s?\d+(?:[.,]\d+)?)?|₽\s?\d[\d\s]*(?:[.,]\d+)?|\d[\d\s]*\s?(?:руб|₽|usd|\$))", re.I)
+
+
+def check_unverified_claims(text: str, *, verified_runs: int = 0) -> list[str]:
+    """Catch claims that prompts/code/deliverables were tested on external engines when verified_runs == 0."""
+    if verified_runs > 0:
+        return []
+    issues: list[str] = []
+    for code, pat in _UNVERIFIED_CLAIM_PATTERNS:
+        m = re.search(pat, text)
+        if m:
+            issues.append(f"{code}: '{m.group(0).strip()}' (verified_runs=0)")
+    return issues
+
+
+def check_arithmetic_claims(text: str, *, expected_total: int | None = None) -> list[str]:
+    """Catch arithmetic mismatches in commercial deliverables (e.g. '5 × 4 = 20' when 5 blocks × 5 items = 25, or A × B != C)."""
+    issues: list[str] = []
+    # 1. Explicit multiplication expressions: A × B = C or A * B = C
+    for m in re.finditer(r"\b(\d{1,4})\s*[×*xх]\s*(\d{1,4})\s*=\s*(\d{1,6})\b", text, re.I):
+        a, b, c = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if a * b != c:
+            issues.append(f"arithmetic_mismatch: {a} × {b} = {c} (expected {a * b})")
+        else:
+            # Check if the surrounding sentence contradicts the per-block factor (e.g. '5 × 4 = 20... Каждый блок содержит 5')
+            window = text[max(0, m.start() - 160): min(len(text), m.end() + 160)]
+            per_block = re.search(r"(?:по|содержит|в\s+каждом)\s+(\d{1,3})\s+(?:промпт\w*|вариац\w*|элемент\w*|пункт\w*|шаг\w*)", window, re.I)
+            if per_block:
+                k = int(per_block.group(1))
+                if b != k and (k not in (a, b) or a == k):
+                    issues.append(f"block_count_contradiction: formula uses {a}×{b}={c} but text says {k} per block ({a}×{k}={a * k})")
+    # 2. Check markdown table block rows vs 'N промптов в каждом' header
+    hdr = re.search(r"\|\s*Блок\s*\|\s*[^|\n]*?\((\d{1,3})\s+промпт\w*\s+в\s+каждом\)[^\n]*", text, re.I)
+    if hdr:
+        per_row = int(hdr.group(1))
+        after = text[hdr.end():]
+        table_lines = []
+        for ln in after.splitlines():
+            s = ln.strip()
+            if not s:
+                if table_lines:
+                    break
+                continue
+            if s.startswith("|"):
+                if not re.match(r"^\|[\s\-:|]+\|$", s):
+                    table_lines.append(s)
+            elif table_lines:
+                break
+        if table_lines:
+            subtotal = len(table_lines) * per_row
+            ready_m = re.search(r"\b(\d{1,3})\s+полностью\s+готовых\s+промпт\w*", text, re.I)
+            ready_n = int(ready_m.group(1)) if ready_m else 0
+            if expected_total is not None and ready_n and (ready_n + subtotal != expected_total):
+                issues.append(
+                    f"total_mismatch: {ready_n} ready + ({len(table_lines)} blocks × {per_row} = {subtotal}) = {ready_n + subtotal} != {expected_total}"
+                )
+    return issues
+
+
+def check_price_estimates(text: str) -> list[str]:
+    """Ensure price/rate figures in a commercial deliverable are marked as estimates (оценка / estimate / ≈)."""
+    issues: list[str] = []
+    prices = [m.group(0).strip() for m in _PRICE_TOKEN.finditer(text)]
+    if not prices:
+        return issues
+    if not _ESTIMATE_MARKERS.search(text):
+        issues.append(f"unlabeled_price_estimate: prices {prices[:3]} stated without an estimate marker (оценка/estimate/≈)")
+    return issues
+
+
+def verify_commercial_deliverable(
+    text: str,
+    *,
+    expected_total: int | None = None,
+    require_price_estimate_label: bool = True,
+    verified_runs: int = 0,
+    min_chars: int = 200,
+) -> dict:
+    """Deterministic audit of a commercial deliverable before sending to the owner or customer."""
+    body = (text or "").strip()
+    issues: list[str] = []
+    if len(body) < min_chars:
+        issues.append(f"too_short: {len(body)} chars < {min_chars}")
+    issues.extend(check_unverified_claims(body, verified_runs=verified_runs))
+    issues.extend(check_arithmetic_claims(body, expected_total=expected_total))
+    if require_price_estimate_label:
+        issues.extend(check_price_estimates(body))
+    return {
+        "passed": len(issues) == 0,
+        "verdict": "VERIFIED_CLEAN" if not issues else "NEEDS_REVISION",
+        "issues": issues,
+        "chars": len(body),
+    }
+
+
 def run(text: str, source: str, worker: Callable[[str], str] = template_worker, worker_name: str = "template",
         ledger: Path | None = None, now: float | None = None) -> dict:
     if worker_name not in FREE_WORKERS:
@@ -105,8 +207,10 @@ def run(text: str, source: str, worker: Callable[[str], str] = template_worker, 
     else:
         prompt = f"Задача из объявления ({l.kind}): {l.title}\n" + "\n".join(f"- {s.strip()}" for s in re.split(r"[.\n]", text) if len(s.strip()) > 20)[:1500]
         deliverable = (worker(prompt) or "")[:MAX_DELIVERABLE]
+        audit = verify_commercial_deliverable(deliverable, require_price_estimate_label=False, min_chars=10)
         rec.update(verdict="SIMULATED_DONE", reasons=[], deliverable_sha256=hashlib.sha256(deliverable.encode("utf-8")).hexdigest(),
-                   deliverable_chars=len(deliverable), deliverable_preview=deliverable[:300], invoice=simulated_invoice(l))
+                   deliverable_chars=len(deliverable), deliverable_preview=deliverable[:300], invoice=simulated_invoice(l),
+                   quality_audit=audit)
     if ledger is not None:
         ledger.parent.mkdir(parents=True, exist_ok=True)
         with ledger.open("a", encoding="utf-8") as f:                      # append-only: records are never rewritten

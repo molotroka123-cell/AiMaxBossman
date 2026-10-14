@@ -34,6 +34,10 @@ PC_AGENT_COMMANDS = {
     "/services",
     "/sys",
     "/run",
+    "/earn",
+    "/earn_arena",
+    "/earn_exam",
+    "/earn_coach",
     "/trust",
     "/untrust",
     "/rollback",
@@ -58,7 +62,8 @@ _PC_NATURAL_RE = re.compile(
     r"((?:какие\s+процессы|покажи\s+процессы|список\s+процессов|кто\s+жр[её]т\s+память|диспетчер\s+задач)\b.*)|"
     r"((?:покажи\s+окна|какие\s+окна\s+открыты|список\s+окон|переключись\s+на\s+окно|сфокусируй\s+окно|закрой\s+окно|сверни\s+окно|разверни\s+окно)\b.*)|"
     r"((?:проверь\s+служб[уы]|покажи\s+службы|список\s+служб|запусти\s+службу|останови\s+службу)\b.*)|"
-    r"((?:сколько\s+места\s+на\s+диске|сколько\s+памяти|нагрузка\s+на\s+(?:пк|цп|систему)|состояние\s+железа)\b.*)"
+    r"((?:сколько\s+места\s+на\s+диске|сколько\s+памяти|нагрузка\s+на\s+(?:пк|цп|систему)|состояние\s+железа)\b.*)|"
+    r"((?:боссман\s+заработок|bossman\s+earn|статус\s+заработка|выполни\s+коммерческий\s+заказ)\b.*)"
     r")$",
     re.IGNORECASE | re.DOTALL,
 )
@@ -132,6 +137,9 @@ class PCAgentBridgeMixin:
             [b("⚙️ Процессы (/procs)", "/procs"),
              b("🪟 Окна (/windows)", "/windows"),
              b("🖥 Железо (/sys)", "/sys")],
+            [b("💰 Bossman Earn (/earn)", "/earn"),
+             b("📊 Paper Arena", "/earn_arena"),
+             b("🎓 K1m6a OCR", "/earn_exam")],
             [b("📸 Экран и окна (T0)", "/argon покажи скриншот экрана и открытые окна"),
              b("🧩 Службы (/services)", "/services")],
             [b("📝 Тест Блокнота (T1)", "/argon открой Блокнот и напиши «Argon PC-Agent проверено»"),
@@ -173,6 +181,12 @@ class PCAgentBridgeMixin:
                         win_btns.append(b(f"🎯 {title}", f"/focus {pid}"))
                 if win_btns:
                     rows.append(win_btns)
+            elif step.get("tool") == "pc.earn":
+                rows.append([
+                    b("💼 Заказ (T1)", "/earn task"),
+                    b("📊 Арена", "/earn_arena"),
+                    b("🎓 K1m6a OCR", "/earn_exam"),
+                ])
         rows.append([
             b("📜 Журнал", "/pc_audit 5"),
             b("⏪ Откат", f"/rollback {task_id}"),
@@ -263,7 +277,7 @@ class PCAgentBridgeMixin:
         if command in {"/pc_yes", "/pc_no"}:
             return await self._pc_agent_decide(person, command == "/pc_yes", arg, message)
 
-        # Прямые быстрые команды управления процессами, окнами, службами и системой
+        # Прямые быстрые команды управления процессами, окнами, службами, системой и заработком (Bossman Earn)
         if command == "/procs":
             if arg.lower() in {"cpu", "цп"}:
                 arg = "покажи процессы по цп"
@@ -293,6 +307,14 @@ class PCAgentBridgeMixin:
             if not arg:
                 return "Укажите команду для выполнения: `/run <команда и аргументы>`."
             arg = f"выполни в терминале {arg}"
+        elif command == "/earn":
+            arg = f"earn {arg}".strip() if arg else "earn status"
+        elif command == "/earn_arena":
+            arg = "earn arena"
+        elif command == "/earn_exam":
+            arg = "earn exam"
+        elif command == "/earn_coach":
+            arg = f"earn coach {arg}".strip()
 
         # Команды /argon, /jarvis, /pc <задание> (и транслированные выше быстрые команды)
         if not arg:

@@ -86,11 +86,11 @@ def parse_title(text: str) -> Optional[Dict[str, Optional[str]]]:
 
     text = text.strip()
 
-    # Bybit format: Bybit:SYMBOL
-    bybit_match = re.fullmatch(r'Bybit:([A-Z0-9]+)', text)
+    # Bybit format: Bybit:SYMBOL (RapidOCR sometimes reads 'b' as 'o': Byoit:BTCUSD)
+    bybit_match = re.fullmatch(r'By[bo]it:([A-Z0-9]+)', text, re.IGNORECASE)
     if bybit_match:
         return {
-            'symbol': bybit_match.group(1),
+            'symbol': bybit_match.group(1).upper(),
             'timeframe': None,
             'exchange': 'Bybit'
         }
@@ -101,6 +101,8 @@ def parse_title(text: str) -> Optional[Dict[str, Optional[str]]]:
         return None
 
     symbol, tf_raw, exchange = parts
+    # Normalize continuous futures contract suffix where '!' is read as 'I', 'l', or '|'
+    symbol = re.sub(r'^([A-Z]+1)[Il|]$', r'\1!', symbol)
 
     # Validate symbol (alphanumeric and !)
     if not re.match(r'^[A-Z0-9!]+$', symbol):
@@ -204,6 +206,20 @@ def read_frame(path: str, *, ocr: Any = None) -> Dict[str, Union[str, float, Lis
                 info['high'] = ohlc['high']
                 info['low'] = ohlc['low']
                 info['close'] = ohlc['close']
+
+    # Fallback: TradingView top toolbar ticker ('QBTCUSD', 'QBTC1!') + standalone active timeframe ('5m', '30m', '1h')
+    if info['symbol'] == 'UNKNOWN':
+        for raw_item in info['raw']:
+            m_sym = re.fullmatch(r'Q([A-Z]{2,6}(?:USD|USDT|1!))', raw_item.strip())
+            if m_sym:
+                info['symbol'] = m_sym.group(1)
+                break
+        if info['symbol'] != 'UNKNOWN' and info['timeframe'] == 'UNKNOWN':
+            for raw_item in info['raw']:
+                m_tf = re.fullmatch(r'(\d{1,2}m|[14]h|1d)', raw_item.strip())
+                if m_tf:
+                    info['timeframe'] = m_tf.group(1)
+                    break
 
     return info
 

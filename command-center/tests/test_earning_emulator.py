@@ -87,3 +87,42 @@ def test_the_module_performs_no_network_and_no_process_calls():
     imported = {a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
     imported |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
     assert not imported & {"socket", "urllib", "requests", "httpx", "aiohttp", "subprocess", "smtplib", "http", "playwright", "selenium", "os"}
+
+
+def test_commercial_deliverable_verifier_catches_false_test_claims_arithmetic_and_unlabeled_prices():
+    bad_text = (
+        "## 10 полностью готовых промптов\n"
+        "Все промпты проверены на Midjourney v6 / SDXL – работают без доработки.\n\n"
+        "| Блок | Тема (5 промптов в каждом) | Описание |\n"
+        "|---|---|---|\n"
+        "| A | Портреты | x |\n"
+        "| B | Улица | x |\n"
+        "| C | Продукт | x |\n"
+        "| D | Среда | x |\n"
+        "| E | Спец | x |\n\n"
+        "Всего 5 × 4 = 20 промптов. Каждый блок содержит 5 вариаций.\n"
+        "Цена пакета: $19 / 1800 руб.\n" + ("Описание продукта. " * 15)
+    )
+    res = em.verify_commercial_deliverable(bad_text, expected_total=30)
+    assert res["passed"] is False and res["verdict"] == "NEEDS_REVISION"
+    assert any("false_model_test_claim" in i for i in res["issues"])
+    assert any("block_count_contradiction" in i for i in res["issues"])
+    assert any("total_mismatch" in i for i in res["issues"])
+    assert any("unlabeled_price_estimate" in i for i in res["issues"])
+
+    clean_text = (
+        "## 10 полностью готовых промптов\n"
+        "Промпты составлены под синтаксис Midjourney v6 и SDXL (требуют тестового рендера перед продажей).\n\n"
+        "| Блок | Тема (4 промпта в каждом) | Описание |\n"
+        "|---|---|---|\n"
+        "| A | Портреты | x |\n"
+        "| B | Улица | x |\n"
+        "| C | Продукт | x |\n"
+        "| D | Среда | x |\n"
+        "| E | Спец | x |\n\n"
+        "Всего 5 × 4 = 20 промптов. Каждый блок содержит 4 вариации.\n"
+        "Рекомендованная цена: ≈ $19 (оценка).\n" + ("Описание продукта. " * 15)
+    )
+    ok = em.verify_commercial_deliverable(clean_text, expected_total=30)
+    assert ok["passed"] is True and ok["verdict"] == "VERIFIED_CLEAN" and ok["issues"] == []
+
