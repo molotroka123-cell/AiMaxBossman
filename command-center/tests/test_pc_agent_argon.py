@@ -730,6 +730,51 @@ async def test_master_prompt_eternal_prohibitions_and_local_only():
     assert "qwen/qwen3-coder:free" not in called_models
 
 
+@pytest.mark.asyncio
+async def test_local_qwen_ollama_summary_disables_thinking(monkeypatch: pytest.MonkeyPatch):
+    """A reasoning model must leave answer tokens for the owner-facing report."""
+    import bcc.features.pc_agent as pca
+
+    seen = []
+
+    class _Response:
+        status_code = 200
+
+        def json(self):
+            return {"message": {"content": "Готовый отчёт"}}
+
+    class _Client:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        async def post(self, _url, *, json):
+            seen.append(json)
+            return _Response()
+
+    monkeypatch.setattr(pca.httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(pca, "LOCAL_MODELS", ("local-qwen",))
+    result = await pca.call_local_qwen("Отчёт", "Локально", svc=None)
+    assert result["ok"] is True and result["text"] == "Готовый отчёт"
+    assert seen[0]["think"] is False
+
+
+def test_reports_llm_summary_preserves_cautions():
+    from bcc.features.pc_agent import reports_summary_cautions_present
+
+    source = "ДЕМО НА СИНТЕТИКЕ; неполный период; оборот USDT, НЕ прибыль"
+    assert reports_summary_cautions_present(
+        source, "Демо на синтетике. Период неполный, оборот — не прибыль."
+    )
+    assert not reports_summary_cautions_present(source, "Оборот составил 3300 USDT.")
+    assert not reports_summary_cautions_present(source, "Демо, период неполный, прибыль 3300 USDT.")
+
+
 # ------------------------------------------------------------------ 6. Аудит-блокеры PC-Agent: реальный FastAPI create_app + EventBus, /untrust (minutes=0), defense-in-depth, /stop при долгом approve, честный VERIFIED, /boost и Fresh Vibes
 
 @pytest.mark.asyncio
