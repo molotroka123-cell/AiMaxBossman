@@ -33,8 +33,8 @@
 
   /* ---------- типографика ---------- */
   --bx-font: "Inter var", Inter, "SF Pro Display", -apple-system, BlinkMacSystemFont,
-             "Segoe UI Variable Display", "Segoe UI", system-ui, Roboto, sans-serif;
-  --bx-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+             "Segoe UI Variable Text", "Segoe UI", system-ui, Roboto, sans-serif;
+  --bx-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, "Cascadia Mono", Consolas, monospace;
 
   /* Роли, а не размеры: «заголовок карточки» переживает смену масштаба,
      «18 пикселей» — нет. */
