@@ -128,7 +128,7 @@ Get-CimInstance Win32_Process | Where-Object {
    - `command-center/bcc/features/pc_agent_policy_paths.py` — пути, процессы, службы, очистка секретов (`<= 300` строк, макс. длина строки `<= 120`).
    - `command-center/bcc/features/pc_agent_policy.py` — команды, API-белый список и классификатор T0–T3 (`<= 300` строк, макс. длина строки `<= 120`).
 2. **Никаких личных путей в коде и честная синтетика (`reports_runner.py`):**
-   - Личные пути (`ChatExport_2026-10-02` и `SwapMe_BusinessMonths_Report.xlsx`) полностью удалены из кода; пути передаются в аргументах команды или через конфиг владельца `data_dir/pc-agent/reports_config.json`.
+   - Личные пути к пользовательскому экспорту и контрольной таблице полностью удалены из кода; пути передаются в аргументах команды или через конфиг владельца `data_dir/pc-agent/reports_config.json`.
    - Логика двух независимых прогонов и сравнения SHA-256 (`volume_result.json`, `deals.csv`, `report.md`, `disputed.csv`) вынесена в `command-center/bcc/features/reports_runner.py`.
    - Если экспорт владельца не указан или не найден — возвращается честный отказ (`«укажите файл экспорта»`), без молчаливого отката на `SYNTHETIC_export.html`. При явном запросе демо на синтетике в `report.md` и в сообщение пульта добавляется заметный баннер `ДЕМО НА СИНТЕТИКЕ`.
 3. **Один журнал на диске (`audit.jsonl`):**
