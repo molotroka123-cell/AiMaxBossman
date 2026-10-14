@@ -125,7 +125,10 @@ class Store:
                        "/screen", "/diag", "/lessons", "/bossman", "/style", "/speed", "/gen_cancel",
                        "/evolution_status", "/evolution_start", "/evolution_pause",
                        "/evolution_resume", "/evolution_stop", "/evolution_report",
-                       "/pc", "/claude", "/claude_new", "/claude_stop", "/mode", "/sh"}:
+                       "/pc", "/argon", "/jarvis", "/pc_status", "/pc_audit", "/procs", "/kill",
+                       "/windows", "/focus", "/close_win", "/services", "/sys", "/run",
+                       "/trust", "/untrust", "/rollback", "/pc_yes", "/pc_no",
+                       "/claude", "/claude_new", "/claude_stop", "/mode", "/sh"}:
             return "control"
         # "/best" or "/fast" alone only switches the route; with a question it is chat.
         bare = not str(body.get("text", "")).strip().partition(" ")[2].strip()

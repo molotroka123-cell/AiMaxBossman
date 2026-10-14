@@ -85,7 +85,7 @@ class ConsoleMixin:
                 [b("📝 Новая задача", "/task"), b("✍️ Данные форм", "/inputs"),
                  b("✅ Подтвердить / ⛔ Отклонить", "/approvals")],
                 [b("📸 Экран", "/screen"), b("🚀 Открыть приложение/папку", "/open")],
-                [b("📂 Файлы проекта", "/files"), b("🩺 Диагностика", "/diag")],
+                [b("📂 Файлы проекта", "/files"), b("🩺 Диагностика", "/diag"), b("🤖 Argon ПК", "/argon")],
                 [b("🎨 Фото", "/img"), b("🎬 Видео / TestRun", "/video")],
                 [b("📚 Найденные уроки", "/lessons"), b("🛠 Предложить исправление", "/fix")],
                 [b("⏸ Пауза", "/pause"), b("⛔ СТОП", "/stop"), b("▶️ Продолжить", "/resume")]]
@@ -445,6 +445,13 @@ class ConsoleMixin:
                 cancelled = True
             if self.cancel_agents():
                 lines.append("• Claude/Codex остановлены, их процессы завершены.")
+        if self.store.get("pc_agent_trust_active", False) or self.store.get("pc_agent_active", False):
+            self.store.put("pc_agent_trust_active", False)
+            if self.core is not None and hasattr(self.core, "pc_agent_stop"):
+                import contextlib
+                with contextlib.suppress(CompanionError):
+                    await self.core.pc_agent_stop(actor="owner", reason="stop" if full else "pause")
+            lines.append("• Временное окно доверия T2 сброшено, процессы Argon PC-Agent остановлены.")
         try:
             await self.core.computer_stop()
             lines.append("• Управление компьютером остановлено: набор текста прерван, новые действия "

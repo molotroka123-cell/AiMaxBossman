@@ -21,6 +21,7 @@ from .jev_bridge import JevBridgeMixin
 from .form_bridge import FORM_COMMANDS, FormBridgeMixin
 from .operator_bridge import WORK_COMMANDS, OperatorBridgeMixin
 from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
+from .pc_agent_bridge import PC_AGENT_COMMANDS, PCAgentBridgeMixin, pc_phrase
 from .gen_refine import GEN_COMMANDS, GenRefineMixin, gen_intent, gen_phrase, photo_kind, safety_violation
 from .gen_progress import GenProgressPlate
 from .store import Store
@@ -279,7 +280,7 @@ def model_name(model_id: str) -> str:
 
 
 class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
-                ParseBridgeMixin, OperatorBridgeMixin, GenRefineMixin):
+                ParseBridgeMixin, OperatorBridgeMixin, PCAgentBridgeMixin, GenRefineMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
@@ -1104,6 +1105,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         if not spoken and not text.startswith("/") and person.role == "owner":
             # «сделай видео …» / «нарисуй …» → /vid, /pic: refined by the local Qwen and queued at once.
             spoken = gen_phrase(text)
+        if not spoken and not text.startswith("/") and person.role == "owner" and self.console_allowed(person) and self.core is not None:
+            spoken = pc_phrase(text)
         if spoken:
             command, arg = spoken
         if command in {"/start", "/help", "/menu"}:
@@ -1150,6 +1153,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             return await self.form_command(person, command, arg, message)
         if command in PARSE_COMMANDS:
             return await self.parse_command(person, command, arg, message)
+        if command in PC_AGENT_COMMANDS or (command == "/pc" and arg and self.core is not None):
+            return await self.pc_agent_command(person, command, arg, message)
         if command in REMOVED_DIRECT_COMMANDS:
             # Второй путь исполнения удалён: отказ даже владельцу и при включённом тумблере.
             return NO_DIRECT_SHELL if self.console_allowed(person) else CONSOLE_OFF

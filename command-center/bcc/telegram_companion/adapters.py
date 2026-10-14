@@ -937,6 +937,72 @@ class Core:
     async def operator_cancel(self, task_id: str) -> dict:
         return await self._request("POST", f"/api/qwen-operator/tasks/{task_id}/cancel")
 
+    # ---- Argon PC-Agent (единое ядро Bossman: observe -> act -> verify, уровни T0..T3)
+    async def pc_agent_status(self) -> dict:
+        body = await self._request("GET", "/api/pc-agent/status")
+        if not isinstance(body, dict) or body.get("profile") != "Argon":
+            raise CompanionError("PC_AGENT_RESULT_INVALID")
+        return body
+
+    async def pc_agent_start(self, prompt: str, *, actor: str = "owner", wait: bool = False,
+                             plan: list | None = None, use_local_llm_summary: bool = True) -> dict:
+        payload: dict = {"prompt": prompt, "actor": actor, "wait": bool(wait),
+                         "use_local_llm_summary": bool(use_local_llm_summary)}
+        if isinstance(plan, list):
+            payload["plan"] = plan
+        body = await self._request("POST", "/api/pc-agent/tasks", payload, timeout=120 if wait else 30)
+        if not isinstance(body, dict) or type(body.get("task_id")) is not int:
+            raise CompanionError("PC_AGENT_RESULT_INVALID")
+        return body
+
+    async def pc_agent_task(self, task_id: int) -> dict:
+        body = await self._request("GET", f"/api/pc-agent/tasks/{int(task_id)}", timeout=30)
+        if not isinstance(body, dict) or body.get("task_id") != int(task_id):
+            raise CompanionError("PC_AGENT_RESULT_INVALID")
+        return body
+
+    async def pc_agent_approve(self, task_id: int, approval_id: int, approve: bool, by: str) -> dict:
+        body = await self._request(
+            "POST", f"/api/pc-agent/tasks/{int(task_id)}/approve",
+            {"approval_id": int(approval_id), "approve": bool(approve), "by": by},
+            timeout=90,
+        )
+        if not isinstance(body, dict) or body.get("task_id") != int(task_id):
+            raise CompanionError("PC_AGENT_RESULT_INVALID")
+        return body
+
+    async def pc_agent_rollback(self, task_id: int) -> dict:
+        body = await self._request("POST", f"/api/pc-agent/tasks/{int(task_id)}/rollback", {})
+        if not isinstance(body, dict) or body.get("task_id") != int(task_id):
+            raise CompanionError("PC_AGENT_RESULT_INVALID")
+        return body
+
+    async def pc_agent_stop(self, *, actor: str = "owner", reason: str = "stop") -> dict:
+        body = await self._request("POST", "/api/pc-agent/stop", {"actor": actor, "reason": reason})
+        if not isinstance(body, dict) or body.get("stopped") is not True:
+            raise CompanionError("PC_AGENT_STOP_UNCONFIRMED")
+        return body
+
+    async def pc_agent_resume(self, *, actor: str = "owner") -> dict:
+        body = await self._request("POST", "/api/pc-agent/resume", {"actor": actor})
+        if not isinstance(body, dict) or body.get("stopped") is not False:
+            raise CompanionError("PC_AGENT_RESUME_UNCONFIRMED")
+        return body
+
+    async def pc_agent_trust(self, minutes: int, *, actor: str = "owner") -> dict:
+        body = await self._request("POST", "/api/pc-agent/trust", {"minutes": int(minutes), "actor": actor})
+        if not isinstance(body, dict) or "trust_active" not in body:
+            raise CompanionError("PC_AGENT_RESULT_INVALID")
+        return body
+
+    async def pc_agent_audit(self, *, limit: int = 10, task_id: int | None = None) -> list[dict]:
+        suffix = f"?limit={int(limit)}" + (f"&task_id={int(task_id)}" if isinstance(task_id, int) else "")
+        body = await self._request("GET", "/api/pc-agent/audit" + suffix)
+        items = body.get("items") if isinstance(body, dict) else None
+        if not isinstance(items, list):
+            raise CompanionError("PC_AGENT_RESULT_INVALID")
+        return [r for r in items if isinstance(r, dict)]
+
     async def executor(self, person: Person):
         if person.agent_id is None:
             raise CompanionError("DELEGATION_NOT_CONFIGURED")
