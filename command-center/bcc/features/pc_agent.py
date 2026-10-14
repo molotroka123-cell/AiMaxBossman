@@ -716,10 +716,21 @@ def classify_pc_action(
 
     if tool == "pc.earn":
         action = str(args.get("action") or "status").lower()
-        if action in {"pay", "withdraw", "live_trade", "publish_external", "submit_bid"}:
+        mode_arg = str(args.get("mode") or "").strip().lower()
+        edition_arg = str(args.get("edition") or "").strip().lower()
+        try:
+            real_money_arg = float(args.get("real_money") or 0.0)
+        except (TypeError, ValueError):
+            real_money_arg = 0.0
+        if (
+            action in {"pay", "withdraw", "live_trade", "publish_external", "submit_bid", "fincept_enterprise", "fincept_live_broker", "vibe_trading_live"}
+            or mode_arg in {"live", "real", "real_money", "broker"}
+            or edition_arg in {"enterprise", "exclusive", "exclusive+", "exclusive_pro", "paid"}
+            or real_money_arg > 0.0
+        ):
             return PolicyVerdict(
                 "T3", "deny", "earn_external_or_live_forbidden",
-                f"Действие заработка {action} (реальные деньги/биржа/внешняя автопубликация) запрещено без решения владельца (T3).",
+                f"Действие заработка {action} (реальные деньги/биржа/платная Enterprise-подписка/внешняя автопубликация) запрещено без решения владельца (T3).",
                 always_owner_button=True,
             )
         if action == "fresh_vibes_publish":
@@ -728,7 +739,7 @@ def classify_pc_action(
                 "Внешняя публикация поста/сторис в Instagram Fresh Vibes требует явного нажатия кнопки «Разрешить» владельцем на каждую конкретную отправку (T2).",
                 always_owner_button=True,
             )
-        if action in {"status", "arena", "exam", "roi", "poker", "studio", "self_improve", "oss", "product", "weekly", "report"}:
+        if action in {"status", "arena", "exam", "roi", "poker", "studio", "self_improve", "oss", "product", "weekly", "report", "blender", "fincept", "vibe_trading", "vibe_trade"}:
             return PolicyVerdict("T0", "auto", f"earn_{action}", f"Чтение и проверка контура Bossman Product/Earn ({action}, T0).")
         return PolicyVerdict("T1", "auto", f"earn_{action}", f"Выполнение и верификация задачи Bossman Earn ({action}, SIMULATED/$0, T1).")
 
@@ -979,6 +990,30 @@ class PCAgentRuntime:
             verified=True,
         )
         return {"stopped": False, "trust_active": self.trust_active(svc)}
+
+    def get_edit_engine(self) -> str:
+        from ..telegram_companion.gen_refine import EDIT_ENGINES
+        cfg = self.root_dir / "edit_engine.json"
+        with contextlib.suppress(Exception):
+            if cfg.is_file():
+                val = str(json.loads(cfg.read_text(encoding="utf-8")).get("edit_engine") or "").strip().lower()
+                if val in EDIT_ENGINES:
+                    return val
+        return "qwen"
+
+    def set_edit_engine(self, engine: str, actor: str = "owner") -> dict[str, Any]:
+        from ..telegram_companion.gen_refine import EDIT_ENGINES
+        choice = str(engine or "").strip().lower()
+        if choice == "z_image_nsfw_v2":
+            choice = "uncensored"
+        if choice not in EDIT_ENGINES:
+            raise ValueError(f"Unsupported edit_engine: {engine!r}")
+        cfg = self.root_dir / "edit_engine.json"
+        cfg.write_text(
+            json.dumps({"edit_engine": choice, "updated_at": time.time(), "actor": actor}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        return {"edit_engine": choice, "profile": dict(EDIT_ENGINES[choice])}
 
     def task_record_path(self, task_id: int) -> Path:
         return self.tasks_dir / f"task-{int(task_id)}.json"
@@ -2111,6 +2146,7 @@ async def _execute_earn_step(
     from bcc import earning_emulator as em
 
     action = str(args.get("action") or "status").strip().lower()
+    repo_root = Path(__file__).resolve().parents[3]
     earn_dir = rt.workspace_dir / "earn"
     earn_dir.mkdir(parents=True, exist_ok=True)
     ledger_path = earn_dir / "simulated_ledger.jsonl"
@@ -2154,6 +2190,12 @@ async def _execute_earn_step(
         }
 
     if action == "exam":
+        core_pkg = str(repo_root / "bossman-core")
+        if core_pkg not in sys.path:
+            sys.path.insert(0, core_pkg)
+        elif sys.path[0] != core_pkg:
+            sys.path.remove(core_pkg)
+            sys.path.insert(0, core_pkg)
         from bossman.trading_learning import k1m6a_exam as kex
 
         summary = (
@@ -2294,6 +2336,7 @@ async def _execute_earn_step(
             worker=lambda _p: deliverable,
             worker_name="local",
             ledger=ledger_path,
+            quality_audit=audit,
         )
         return {
             "ok": True,
@@ -2334,7 +2377,7 @@ async def _execute_earn_step(
         for df in deliverables_files:
             with contextlib.suppress(Exception):
                 txt = df.read_text(encoding="utf-8")
-                aud = em.verify_commercial_deliverable(txt, require_price_estimate_label=False, min_chars=100)
+                aud = em.verify_commercial_deliverable(txt)
                 ledger_records.append({
                     "SIMULATED": True,
                     "real_money": 0,
@@ -2342,8 +2385,6 @@ async def _execute_earn_step(
                     "invoice": {"amount": 45.0, "currency": "$"},
                     "quality_audit": aud,
                 })
-
-    repo_root = Path(__file__).resolve().parents[3]
     fv_path = earn_dir / "fresh_vibes_tracker.json"
     fv_state: dict[str, Any] = {
         "day": 1,
@@ -2787,7 +2828,80 @@ async def _execute_earn_step(
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
+    if action == "blender":
+        from ..oss import blender_mcp
+
+        prompt_3d = str(args.get("brief") or args.get("prompt") or "Предметная 3D-сцена продукта на подиуме").strip()
+        preset_3d = str(args.get("preset") or "studio_product").strip()
+        plan_3d = blender_mcp.build_scene_plan(prompt_3d, preset=preset_3d)
+        summary = (
+            f"🧊 **MCP for Blender (`{plan_3d['package']}` v{plan_3d['version_declared']}, {plan_3d['license']})**:\n"
+            f"  - Сцена: `{plan_3d['preset_title']}` (`{plan_3d['engine']}`, {plan_3d['resolution'][0]}×{plan_3d['resolution'][1]}, {plan_3d['samples']} samples)\n"
+            f"  - Объекты ({len(plan_3d['objects'])}): `{', '.join(plan_3d['objects'])}`\n"
+            f"  - AST-проверка безопасности `bpy`: `script_verified_safe={plan_3d['script_verified_safe']}` (без shell/сети, только loopback `127.0.0.1:9876`)."
+        )
+        return {
+            "ok": True,
+            "verified": bool(plan_3d["script_verified_safe"]),
+            "action": "blender",
+            "scene_plan": plan_3d,
+            "tainted": False,
+            "summary": summary,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    if action == "fincept":
+        from ..oss import fincept_terminal
+
+        symbol_f = str(args.get("symbol") or "SOL/USDT").strip()
+        closes_f = args.get("closes")
+        if not isinstance(closes_f, list) or len(closes_f) < 3:
+            closes_f = [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
+        res_f = fincept_terminal.analyze_series(symbol_f, closes_f)
+        summary = (
+            f"📈 **Fincept Terminal (`{res_f['package']}`, лицензия `{res_f['license']}`, режим `{res_f['mode']}`, $0)**:\n"
+            f"  - Инструмент: `{res_f['symbol']}` ({res_f['samples']} точек, close `{res_f['first_close']} → {res_f['last_close']}`, доходность `{res_f['total_return_pct']}%`)\n"
+            f"  - Режим рынка: **`{res_f['regime']}`** (`Efficiency Ratio = {res_f['efficiency_ratio']}`, Sharpe `{res_f['sharpe_annualized']}`, макс. просадка `{res_f['max_drawdown_pct']}%`)\n"
+            f"  - Рекомендация: {res_f['recommendation']}\n"
+            "  - Политика T3: платные тарифы Enterprise ($10/$20/$40) и живой брокер заблокированы."
+        )
+        return {
+            "ok": True,
+            "verified": True,
+            "action": "fincept",
+            "analytics": res_f,
+            "tainted": False,
+            "summary": summary,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    if action in {"vibe_trading", "vibe_trade"}:
+        from ..oss import vibe_trading
+
+        symbol_v = str(args.get("symbol") or "SOL/USDT").strip()
+        closes_v = args.get("closes")
+        if not isinstance(closes_v, list) or len(closes_v) < 3:
+            closes_v = [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
+        res_v = vibe_trading.simulate_shadow_step(symbol_v, closes_v)
+        summary = (
+            f"🦞 **Vibe-Trading (`{res_v['package']}` v{res_v['version_declared']}, `{res_v['license']}`, Shadow Account `PAPER_ONLY=True`, `real_money=0`)**:\n"
+            f"  - Инструмент: `{res_v['symbol']}` · Стратегия: `{res_v['strategy']}` · Режим: **`{res_v['regime']}`** (ER={res_v['efficiency_ratio']})\n"
+            f"  - Действие: `{res_v['action_taken']}` · Позиция: `{res_v['position_side']}` · Эквити: **${res_v['equity_start_usd']:.2f} → ${res_v['equity_end_usd']:.2f}** (комиссия: ${res_v['fee_paid_usd']:.2f})\n"
+            f"  - Live Gate: `{res_v['live_gate']}` (живая торговля заблокирована T3)."
+        )
+        return {
+            "ok": True,
+            "verified": True,
+            "action": "vibe_trading",
+            "shadow_step": res_v,
+            "tainted": False,
+            "summary": summary,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
     if action == "oss":
+        from ..oss import blender_mcp, fincept_terminal, vibe_trading
+
         oss_checks: list[tuple[str, bool, str]] = []
         for mod_label, mod_import, desc in [
             ("Docling", "docling", "локальный разбор PDF/DOCX/таблиц в Markdown"),
@@ -2804,6 +2918,9 @@ async def _execute_earn_step(
             oss_checks.append((mod_label, ok_m, desc))
         grapes_ok = (repo_root / "command-center" / "static" / "vendor" / "grapes.min.js").is_file() or (repo_root / "command-center" / "bcc" / "oss" / "web_builder.py").is_file()
         oss_checks.append(("GrapesJS", grapes_ok, "визуальный конструктор лендингов в Vibe Studio"))
+        oss_checks.append(("MCP for Blender (mcp-for-blender)", blender_mcp.status()["loopback_only"], "3D-моделирование и сборка сцен Blender с AST-защитой bpy (MIT)"))
+        oss_checks.append(("Fincept Terminal (AGPL-3.0)", fincept_terminal.status()["paid_enterprise_blocked"], "рыночная аналитика и режим CHOP/TREND (только чтение, $0)"))
+        oss_checks.append(("Vibe-Trading (Shadow Account)", vibe_trading.status()["paper_only"], "персональный торговый агент строго в режиме PAPER_ONLY (real_money=0, MIT)"))
         ready_n = sum(1 for _, ok_m, _ in oss_checks if ok_m)
         lines_oss = [f"  - **{'✅' if ok_m else '⚪'} {lbl}**: {desc}" for lbl, ok_m, desc in oss_checks]
         summary = (
@@ -2812,7 +2929,7 @@ async def _execute_earn_step(
         )
         return {
             "ok": True,
-            "verified": ready_n >= 6,
+            "verified": ready_n >= 9,
             "action": "oss",
             "ready_count": ready_n,
             "total_count": len(oss_checks),
@@ -3298,7 +3415,7 @@ def compile_plan_for_prompt(prompt: str, *, workspace_dir: Path) -> list[dict[st
         if any(w in tail_fv.lower() for w in ("опубликуй", "publish", "отправь в инстаграм", "выложи пост")):
             return [{"tool": "pc.earn", "args": {"action": "fresh_vibes_publish", "brief": tail_fv}}]
         return [{"tool": "pc.earn", "args": {"action": "fresh_vibes", "brief": tail_fv}}]
-    earn_prefix = re.match(r"(?is)^earn(?:\s+(status|arena|exam|coach|task|roi|poker|studio|self_improve|boost|oss|product|weekly|report|fresh_vibes|fv|fresh_vibes_publish))?(?:\s+(.+))?$", raw)
+    earn_prefix = re.match(r"(?is)^earn(?:\s+(status|arena|exam|coach|task|roi|poker|studio|self_improve|boost|oss|product|weekly|report|fresh_vibes|fv|fresh_vibes_publish|blender|fincept|vibe_trading|vibe_trade))?(?:\s+(.+))?$", raw)
     if earn_prefix:
         sub_act = (earn_prefix.group(1) or "status").lower()
         tail = (earn_prefix.group(2) or "").strip()
@@ -3820,9 +3937,12 @@ def _svc_of(request: Request) -> Any:
 
 @router.get("/status")
 async def api_pc_agent_status(request: Request):
+    from ..telegram_companion.gen_refine import EDIT_ENGINES
+
     svc = _svc_of(request)
     rt = get_runtime(svc)
     agent = await ensure_argon_agent(svc)
+    edit_eng = rt.get_edit_engine()
     return {
         "profile": PROFILE_NAME,
         "agent_id": agent.get("id"),
@@ -3834,6 +3954,9 @@ async def api_pc_agent_status(request: Request):
         "active_tasks": sorted(rt.active_tasks.keys()),
         "active_pids": sorted(rt.active_procs.keys()),
         "local_models": list(LOCAL_MODELS),
+        "edit_engine": edit_eng,
+        "edit_engine_profile": dict(EDIT_ENGINES.get(edit_eng, EDIT_ENGINES["qwen"])),
+        "edit_engines": {k: dict(v) for k, v in EDIT_ENGINES.items()},
         "stack_mode": "local_only",
         "max_repair_attempts": MAX_REPAIR_ATTEMPTS,
         "proven_monetization_rule": "real_user + real_payment + metric",
@@ -3841,6 +3964,33 @@ async def api_pc_agent_status(request: Request):
         "hard_invariants": list(HARD_INVARIANTS),
         "source_sha": source_identity().get("build_sha"),
     }
+
+
+@router.post("/edit-engine")
+async def api_pc_agent_set_edit_engine(request: Request, body: dict[str, Any]):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    engine = str((body or {}).get("edit_engine") or (body or {}).get("engine") or "").strip().lower()
+    actor = str((body or {}).get("actor") or "owner").strip()
+    try:
+        res = rt.set_edit_engine(engine, actor=actor)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "INVALID_EDIT_ENGINE", "message": "Поддерживаются профили: qwen | uncensored (z_image_nsfw_v2).", "detail": str(exc)},
+        ) from exc
+    rt.journal.append(
+        actor=actor,
+        task_id=None,
+        run_id=None,
+        tool="pc.edit_engine",
+        args={"edit_engine": res["edit_engine"]},
+        tier="T0",
+        decision="auto",
+        result=res,
+        verified=True,
+    )
+    return res
 
 
 @router.post("/tasks")

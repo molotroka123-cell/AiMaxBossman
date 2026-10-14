@@ -48,6 +48,9 @@ PC_AGENT_COMMANDS = {
     "/fresh_vibes",
     "/fv",
     "/oss",
+    "/blender",
+    "/fincept",
+    "/vibe_trade",
     "/trust",
     "/untrust",
     "/rollback",
@@ -146,24 +149,27 @@ class PCAgentBridgeMixin:
         return [
             [b("🚀 Продукт ($3200)", "/product"),
              b("📊 Отчёт (/weekly)", "/weekly"),
-             b("💎 Окупаемость (/roi)", "/roi"),
+             b("💎 ROI", "/roi"),
              b("🌿 Fresh Vibes", "/fresh_vibes")],
             [b("💰 Earn (/earn)", "/earn"),
-             b("♠️ Покер (/poker)", "/poker"),
-             b("🎬 Киностудия", "/studio_check")],
-            [b("🧬 Boost (/boost)", "/boost"),
-             b("⚙️ Процессы (/procs)", "/procs"),
-             b("🪟 Окна (/windows)", "/windows")],
-            [b("🖥 Железо (/sys)", "/sys"),
-             b("🖌 Редактор (/edit_engine)", "/edit_engine"),
-             b("🎓 K1m6a OCR", "/earn_exam")],
-            [b("🧩 Open-Source (/oss)", "/oss"),
-             b("📸 Экран и окна (T0)", "/argon покажи скриншот экрана и открытые окна"),
-             b("🧩 Службы (/services)", "/services")],
-            [b("🔓 Доверие T2 на 15 мин", "/trust 15"),
-             b("🔒 Снять доверие T2", "/untrust")],
-            [b("📜 Журнал Argon", "/pc_audit 5"),
-             b("⏪ Откат последней задачи", "/rollback"),
+             b("♠️ Покер", "/poker"),
+             b("🎬 Студия", "/studio_check"),
+             b("🧬 Boost", "/boost")],
+            [b("🧊 Blender 3D", "/blender"),
+             b("📈 Fincept", "/fincept"),
+             b("🦞 Vibe-Trade", "/vibe_trade"),
+             b("🧩 OSS (/oss)", "/oss")],
+            [b("🖌 Редактор", "/edit_engine"),
+             b("🎓 K1m6a OCR", "/earn_exam"),
+             b("⚙️ Процессы", "/procs"),
+             b("🪟 Окна", "/windows")],
+            [b("🖥 Железо", "/sys"),
+             b("📸 Экран (T0)", "/argon покажи скриншот экрана и открытые окна"),
+             b("🧩 Службы", "/services")],
+            [b("🔓 Доверие T2 (15м)", "/trust 15"),
+             b("🔒 Снять T2", "/untrust")],
+            [b("📜 Журнал", "/pc_audit 5"),
+             b("⏪ Откат", "/rollback"),
              b("⛔ СТОП", "/stop")],
         ]
 
@@ -356,6 +362,12 @@ class PCAgentBridgeMixin:
             arg = f"earn fresh_vibes {arg}".strip() if arg else "earn fresh_vibes"
         elif command == "/oss":
             arg = "earn oss"
+        elif command == "/blender":
+            arg = f"earn blender {arg}".strip() if arg else "earn blender"
+        elif command == "/fincept":
+            arg = f"earn fincept {arg}".strip() if arg else "earn fincept"
+        elif command == "/vibe_trade":
+            arg = f"earn vibe_trading {arg}".strip() if arg else "earn vibe_trading"
 
         # Команды /argon, /jarvis, /pc <задание> (и транслированные выше быстрые команды)
         if not arg:
@@ -520,12 +532,15 @@ class PCAgentBridgeMixin:
         stopped = "ВКЛЮЧЁН (действия заблокированы)" if st.get("stopped") else "выключен"
         models = ", ".join(st.get("local_models") or []) or "—"
         last_tid = self.store.get("pc_agent_last_task:" + person.key)
+        edit_eng = self.edit_engine_for(person) if hasattr(self, "edit_engine_for") else str(st.get("edit_engine") or "qwen")
+        edit_label = "z_image_nsfw_v2 (sdcpp:z-image-turbo)" if edit_eng == "uncensored" else "qwen (sdcpp:qwen-image-edit-2509)"
         lines = [
             f"🤖 Argon PC-Agent (профиль `{st.get('profile')}`, агент #{st.get('agent_id')})",
             f"• СТОП: {stopped}",
             f"• Окно доверия T2: {trust}",
             f"• Активные задачи: {st.get('active_tasks') or 'нет'}",
             f"• Локальные модели в реестре: {models}",
+            f"• Движок правки фото (/edit_engine): `{edit_eng}` → `{edit_label}`",
             f"• Последняя задача чата: {('#' + str(last_tid)) if last_tid else 'ещё не было'}",
             "\nНапишите `/argon <задание>` или `/pc <задание>` (либо просто выберите действие кнопкой ниже):",
         ]

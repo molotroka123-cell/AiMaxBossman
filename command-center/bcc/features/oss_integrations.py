@@ -4,9 +4,9 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Body, HTTPException, Request
 
-from ..oss import whisper, uitars
+from ..oss import blender_mcp, fincept_terminal, uitars, vibe_trading, whisper
 from . import Feature
 
 router = APIRouter(prefix="/oss", tags=["oss"])
@@ -30,6 +30,9 @@ async def status() -> dict:
     except ValueError:
         comfy_state = "invalid_configuration"
     from .web_research import config as web_config
+    blender_st = blender_mcp.status()
+    fincept_st = fincept_terminal.status()
+    vibe_st = vibe_trading.status()
     cards = [
         dict(id="llamacpp", name="llama.cpp", page="models", state="integrated",
              detail="Подключите локальный сервер в разделе моделей и проверьте ответ.",
@@ -61,7 +64,106 @@ async def status() -> dict:
              detail="Конструктор блоков в существующем редакторе сайтов.",
              upstream="https://github.com/GrapesJS/grapesjs"),
     ]
-    return {"items": cards, "inference_verified": False, "speech": speech}
+    community_integrations = [
+        dict(
+            id="blender_mcp",
+            name="MCP for Blender (mcp-for-blender)",
+            page="studio",
+            license=blender_st["license"],
+            state=blender_st["status"],
+            detail="Управление 3D-сценой Blender (ранее blender-mcp, v2.0.3 MIT): сборка сцен, света и камер с AST-защитой скриптов bpy (только loopback 127.0.0.1).",
+            upstream=blender_st["upstream"],
+        ),
+        dict(
+            id="fincept_terminal",
+            name="Fincept Terminal (AGPL-3.0 Research)",
+            page="market",
+            license=fincept_st["license"],
+            state=fincept_st["status"],
+            detail="Рыночная аналитика, макро-исследования и оценка режима CHOP/TREND (бесплатная AGPL-3.0 редакция; платные Enterprise-тарифы и живой брокер заблокированы T3).",
+            upstream=fincept_st["upstream"],
+        ),
+        dict(
+            id="vibe_trading",
+            name="Vibe-Trading (Shadow Account PAPER_ONLY)",
+            page="market",
+            license=vibe_st["license"],
+            state=vibe_st["status"],
+            detail="Персональный торговый агент (v0.1.15 MIT) строго в режиме Shadow Account (PAPER_ONLY, real_money=0, фильтр S4_regime_trend). Живые ордера заблокированы T3.",
+            upstream=vibe_st["upstream"],
+        ),
+    ]
+    return {
+        "items": cards,
+        "community_integrations": community_integrations,
+        "inference_verified": False,
+        "speech": speech,
+    }
+
+
+@router.post("/blender/scene")
+async def blender_scene(body: dict = Body(default_factory=dict)) -> dict:
+    prompt = str(body.get("prompt") or "").strip()
+    preset = str(body.get("preset") or "studio_product").strip()
+    custom_script = body.get("bpy_script")
+    if custom_script is not None:
+        ok, issues = blender_mcp.validate_bpy_script(str(custom_script))
+        if not ok:
+            raise HTTPException(403, f"T3 DENY: небезопасный скрипт bpy заблокирован: {', '.join(issues)}")
+    try:
+        return blender_mcp.build_scene_plan(prompt, preset=preset)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.post("/fincept/analyze")
+async def fincept_analyze(body: dict = Body(default_factory=dict)) -> dict:
+    symbol = str(body.get("symbol") or "SOL/USDT").strip()
+    closes = body.get("closes")
+    if not isinstance(closes, list):
+        closes = [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
+    edition = str(body.get("edition") or fincept_terminal.ALLOWED_EDITION)
+    action = str(body.get("action") or "research")
+    fee_bps_rt = float(body.get("fee_bps_rt") or 28.0)
+    try:
+        return fincept_terminal.analyze_series(
+            symbol,
+            closes,
+            fee_bps_rt=fee_bps_rt,
+            edition=edition,
+            action=action,
+        )
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.post("/vibe-trading/shadow")
+async def vibe_trading_shadow(body: dict = Body(default_factory=dict)) -> dict:
+    symbol = str(body.get("symbol") or "SOL/USDT").strip()
+    closes = body.get("closes")
+    if not isinstance(closes, list):
+        closes = [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
+    mode = str(body.get("mode") or "shadow")
+    real_money = float(body.get("real_money") or 0.0)
+    live_api_key = str(body.get("live_api_key") or "")
+    equity_usd = float(body.get("equity_usd") or 100.0)
+    fee_bps_rt = float(body.get("fee_bps_rt") or 28.0)
+    try:
+        return vibe_trading.simulate_shadow_step(
+            symbol,
+            closes,
+            equity_usd=equity_usd,
+            fee_bps_rt=fee_bps_rt,
+            mode=mode,
+            real_money=real_money,
+            live_api_key=live_api_key,
+        )
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @router.post("/speech/transcribe")
@@ -88,3 +190,4 @@ async def transcribe(request: Request, language: str = "auto") -> dict:
 
 
 FEATURE = Feature(name="oss_integrations", router=router)
+

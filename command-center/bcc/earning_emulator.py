@@ -195,8 +195,19 @@ def verify_commercial_deliverable(
     }
 
 
-def run(text: str, source: str, worker: Callable[[str], str] = template_worker, worker_name: str = "template",
-        ledger: Path | None = None, now: float | None = None) -> dict:
+def run(
+    text: str,
+    source: str,
+    worker: Callable[[str], str] = template_worker,
+    worker_name: str = "template",
+    ledger: Path | None = None,
+    now: float | None = None,
+    *,
+    quality_audit: dict | None = None,
+    expected_total: int | None = None,
+    require_price_estimate_label: bool = False,
+    min_chars: int = 10,
+) -> dict:
     if worker_name not in FREE_WORKERS:
         raise ValueError(f"исполнитель {worker_name!r} не входит в $0-список {list(FREE_WORKERS)}: платные и неизвестные запрещены")
     l = parse_listing(text)
@@ -209,8 +220,20 @@ def run(text: str, source: str, worker: Callable[[str], str] = template_worker, 
     else:
         prompt = f"Задача из объявления ({l.kind}): {l.title}\n" + "\n".join(f"- {s.strip()}" for s in re.split(r"[.\n]", text) if len(s.strip()) > 20)[:1500]
         deliverable = (worker(prompt) or "")[:MAX_DELIVERABLE]
-        audit = verify_commercial_deliverable(deliverable, require_price_estimate_label=False, min_chars=10)
-        rec.update(verdict="SIMULATED_DONE", reasons=[], deliverable_sha256=hashlib.sha256(deliverable.encode("utf-8")).hexdigest(),
+        audit = (
+            dict(quality_audit)
+            if isinstance(quality_audit, dict)
+            else verify_commercial_deliverable(
+                deliverable,
+                expected_total=expected_total,
+                require_price_estimate_label=require_price_estimate_label,
+                min_chars=min_chars,
+            )
+        )
+        passed = bool(audit.get("passed", True))
+        verdict = "SIMULATED_DONE" if passed else "NEEDS_REVISION"
+        reasons_out = [] if passed else list(audit.get("issues") or [])
+        rec.update(verdict=verdict, reasons=reasons_out, deliverable_sha256=hashlib.sha256(deliverable.encode("utf-8")).hexdigest(),
                    deliverable_chars=len(deliverable), deliverable_preview=deliverable[:300], invoice=simulated_invoice(l),
                    quality_audit=audit)
     if ledger is not None:

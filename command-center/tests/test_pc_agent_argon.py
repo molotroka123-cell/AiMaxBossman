@@ -1006,3 +1006,48 @@ async def test_fresh_vibes_14d_instagram_hypothesis_and_owner_publish_gate(fake_
     assert "ждёт вашего решения" in str(pub_reply)
     assert "fresh_vibes_publish" in str(pub_reply)
 
+    # 7. Экзамен трейдинга /earn_exam (K1m6a OCR A/B) отрабатывает из текущего дерева без ошибки импорта OCR_MODES
+    exam_reply = await comp.pc_agent_command(owner, "/earn_exam", "vision_plus_ocr", owner_msg)
+    assert "Экзамен K1m6a" in str(exam_reply)
+    assert "98.21%" in str(exam_reply) and "RapidOCR" in str(exam_reply)
+
+    # 8. Интеграция 3 новых OSS-инструментов в пульт: MCP for Blender, Fincept Terminal (AGPL-3.0), Vibe-Trading (Shadow Account PAPER_ONLY)
+    blender_reply = await comp.pc_agent_command(owner, "/blender", "Предметная студия часов", owner_msg)
+    assert "mcp-for-blender" in str(blender_reply) and "script_verified_safe=True" in str(blender_reply)
+
+    fincept_reply = await comp.pc_agent_command(owner, "/fincept", "", owner_msg)
+    assert "FinceptTerminal" in str(fincept_reply) and "AGPL-3.0" in str(fincept_reply) and "CHOP" in str(fincept_reply)
+
+    vibe_reply = await comp.pc_agent_command(owner, "/vibe_trade", "", owner_msg)
+    assert "vibe-trading" in str(vibe_reply) and "PAPER_ONLY=True" in str(vibe_reply) and "real_money=0" in str(vibe_reply)
+
+    # Попытка живой торговли или платного Enterprise в pc.earn блокируется на уровне T3 deny
+    v_deny = classify_pc_action("pc.earn", {"action": "vibe_trading", "mode": "live"})
+    assert v_deny.tier == "T3" and v_deny.decision == "deny"
+    f_deny = classify_pc_action("pc.earn", {"action": "fincept", "edition": "exclusive_pro"})
+    assert f_deny.tier == "T3" and f_deny.decision == "deny"
+
+    # 9. Сохранение строгого результата проверки (quality_audit) в simulated_ledger.jsonl
+    import json
+    from bcc import earning_emulator as em_mod
+
+    strict_led = tmp_path / "strict_ledger.jsonl"
+    bad_deliverable = "Короткий черновик с неразмеченной ценой $19 без слова оценка."
+    strict_audit = em_mod.verify_commercial_deliverable(bad_deliverable, expected_total=30)
+    assert strict_audit["passed"] is False
+    rec_led = em_mod.run(
+        "Remote Digital Product Specialist\n$45 fixed for the project. Work from anywhere.",
+        source="unit:strict_audit",
+        worker=lambda _p: bad_deliverable,
+        worker_name="local",
+        ledger=strict_led,
+        quality_audit=strict_audit,
+    )
+    assert rec_led["verdict"] == "NEEDS_REVISION"
+    assert rec_led["quality_audit"]["passed"] is False
+    saved_line = json.loads(strict_led.read_text(encoding="utf-8").splitlines()[-1])
+    assert saved_line["verdict"] == "NEEDS_REVISION" and saved_line["quality_audit"]["passed"] is False
+    roi_check = em_mod.hardware_roi_summary([saved_line])
+    assert roi_check["verified_count"] == 0 and roi_check["needs_revision_count"] == 1
+
+

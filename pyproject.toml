@@ -29,3 +29,7 @@ bossman_schemas = "schemas"
 [tool.setuptools.package-data]
 bossman_schemas = ["*.json"]
 "bossman_shared.market_cases" = ["*.json", "*.jsonl"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = [".", "command-center", "bossman-core"]

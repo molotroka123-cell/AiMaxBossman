@@ -271,6 +271,9 @@ class ConsoleMixin:
         lines.append("• Новые поручения: " + ("заблокированы" if self.store.get("delegation_locked", False) else "по подтверждению"))
         lines.append(f"• Локальная модель: {'настроена' if self.settings.local_model else 'не настроена'} "
                      "(готовность подтверждает только реальный ответ)")
+        edit_eng = str(self.store.get("edit_engine:" + person.key) or "qwen")
+        lines.append(f"• Движок правок (/edit_engine): {edit_eng} "
+                     f"({'sdcpp:z-image-turbo (NSFW v2)' if edit_eng == 'uncensored' else 'sdcpp:qwen-image-edit-2509'})")
         error = self.store.get("transport_error")
         if error:
             lines.append(f"• Последняя ошибка транспорта: {_short(error, 80)}")
