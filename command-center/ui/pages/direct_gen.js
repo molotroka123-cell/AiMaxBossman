@@ -253,7 +253,11 @@ function createJobView(hooks) {
     if (statusEl.textContent !== label) statusEl.textContent = label;
     elapsedEl.textContent = job.status === 'queued' && !job.elapsed_s ? '' : fmtClock(job.elapsed_s);
     const p = job.params;
-    metaEl.textContent = `${job.model} · ${job.mode} · seed ${p.seed} · ${p.width}×${p.height}`
+    // face-swap jobs carry preset/faces/frame, not seed/size: never print "seed undefined · undefined×undefined"
+    const swapMeta = job.kind === 'faceswap'
+      ? ` · ${p.preset === 'quality' ? 'качество' : (p.preset || 'быстро')} · фото ${p.faces ?? '?'} · кадр ${p.frame === 'original' ? 'как в исходнике' : (p.frame || '?')}`
+      : '';
+    metaEl.textContent = `${job.model} · ${job.mode}` + (swapMeta || ` · seed ${p.seed} · ${p.width}×${p.height}`)
       + (job.kind === 'video' ? ` · ${p.duration} с (${p.frames} кадров)` : '') + (p.steps ? ` · шагов ${p.steps}` : '')
       + (job.status === 'queued' ? ` · позиция в очереди: ${job.queue_position}` : '');
     setStages(job); setProgress(job);
@@ -737,7 +741,7 @@ const DirectGenPage = {
           h('div.dg-hist-body',
             h('div.dg-row', pill(STATUS_SHORT[j.status] || j.status, { tone: STATUS_TONE[j.status] || 'idle' })),
             h('div.dg-hist-prompt', j.raw_prompt),
-            h('div.dg-hist-meta.dg-num', `${fmtWhen(j.created_at)} · ${j.model} · seed ${j.params.seed}`)));
+            h('div.dg-hist-meta.dg-num', `${fmtWhen(j.created_at)} · ${j.model}` + (j.kind === 'faceswap' ? ` · фото ${j.params.faces ?? '?'}` : ` · seed ${j.params.seed}`))));
         b.setAttribute('aria-label', `Открыть задачу: ${STATUS_SHORT[j.status] || j.status}, ${j.model}, ${fmtWhen(j.created_at)}`);
         b.addEventListener('click', () => { state.current = j.job_id; refresh(); focusJob(); });
         return h('li', b);
