@@ -9,6 +9,94 @@ const STATES = {
   invalid_configuration: 'Исправьте настройки подключения',
 };
 
+const TONES = {
+  integrated: 'ok',
+  installed: 'ok',
+  configured: 'info',
+  needs_setup: 'warn',
+  invalid_configuration: 'err',
+};
+
+function renderCommunityCard(item) {
+  const resultOut = h('p.mono.xsmall.dim', { role: 'status', 'aria-live': 'polite', style: { margin: '4px 0 0' } }, '');
+  let probeBtn = null;
+  if (item.id === 'blender_mcp') {
+    probeBtn = h('button.btn.btn-sm', {
+      type: 'button',
+      title: 'Проверить контур MCP for Blender (127.0.0.1:9876, AST-защита скрипта)',
+      onClick: async () => {
+        probeBtn.disabled = true;
+        resultOut.textContent = 'Проверяю контур MCP for Blender…';
+        try {
+          const res = await api.raw('/api/oss/blender/scene', {
+            method: 'POST',
+            body: { prompt: 'студийный куб с контровым светом', action: 'inspect_scene' },
+          });
+          resultOut.textContent = `✓ ${res.package} v${res.package_version || '2.0.3'} (${res.license}) · ${res.host || '127.0.0.1'}:${res.port || 9876} · AST-проверка=${res.script_verified_safe}`;
+        } catch (err) {
+          resultOut.textContent = err.message;
+          toastError(err);
+        } finally {
+          probeBtn.disabled = false;
+        }
+      },
+    }, 'Проверить 3D-сцену');
+  } else if (item.id === 'fincept_terminal') {
+    probeBtn = h('button.btn.btn-sm', {
+      type: 'button',
+      title: 'Запустить бесплатное аналитическое исследование рынка в Fincept (AGPL-3.0, $0)',
+      onClick: async () => {
+        probeBtn.disabled = true;
+        resultOut.textContent = 'Запускаю аналитику Fincept…';
+        try {
+          const res = await api.raw('/api/oss/fincept/analyze', {
+            method: 'POST',
+            body: { symbol: 'BTCUSDT', edition: 'community_oss', live_broker: false },
+          });
+          resultOut.textContent = `✓ ${res.edition} (${res.license}, $${res.cost_usd}) · режим=${res.regime} · фильтр=${res.fee_drag_warning ? 'СТОП (боковик)' : 'ТРЕНД'}`;
+        } catch (err) {
+          resultOut.textContent = err.message;
+          toastError(err);
+        } finally {
+          probeBtn.disabled = false;
+        }
+      },
+    }, 'Анализ режима (CHOP/TREND)');
+  } else if (item.id === 'vibe_trading') {
+    probeBtn = h('button.btn.btn-sm', {
+      type: 'button',
+      title: 'Проверить Shadow Account в Vibe-Trading (PAPER_ONLY=True, real_money=0)',
+      onClick: async () => {
+        probeBtn.disabled = true;
+        resultOut.textContent = 'Проверяю Shadow Account…';
+        try {
+          const res = await api.raw('/api/oss/vibe-trading/shadow', {
+            method: 'POST',
+            body: { symbol: 'BTCUSDT', strategy: 'S4_regime_trend', mode: 'shadow', real_money: 0 },
+          });
+          resultOut.textContent = `✓ ${res.package} v${res.version_declared || '0.1.15'} (${res.license}) · PAPER_ONLY=${res.PAPER_ONLY} · real_money=${res.real_money} · сигнал=${res.action_taken}`;
+        } catch (err) {
+          resultOut.textContent = err.message;
+          toastError(err);
+        } finally {
+          probeBtn.disabled = false;
+        }
+      },
+    }, 'Shadow-проверка ($0)');
+  }
+
+  return panel(item.name, h('div.stack.sm',
+    h('div.row.tight',
+      pill(STATES[item.state] || 'Подключено', { tone: TONES[item.state] || 'ok' }),
+      item.license ? h('span.badge.badge-accent', item.license) : null,
+      item.tier ? h('span.badge', `Уровень ${item.tier}`) : null),
+    h('p.small', { style: { margin: '4px 0' } }, item.detail),
+    h('div.row.tight',
+      probeBtn,
+      item.upstream ? h('a.btn.btn-sm', { href: item.upstream, target: '_blank', rel: 'noopener noreferrer' }, 'Исходный код') : null),
+    resultOut));
+}
+
 export default {
   id: 'oss', title: 'Локальные инструменты', icon: 'system', nav: 'more', section: 'system',
   async render(ctx) {
@@ -16,10 +104,17 @@ export default {
     try { data = await api.raw('/api/oss/status'); }
     catch (error) { return h('div.stack', pageHead('Локальные инструменты'), errorBanner(error, ctx)); }
     const cards = data.items.map(item => panel(item.name, h('div.stack',
-      pill(STATES[item.state] || 'Нужна проверка'), h('p', item.detail),
+      pill(STATES[item.state] || 'Нужна проверка', { tone: TONES[item.state] || 'idle' }), h('p', item.detail),
       h('div.row',
         item.page ? h('a.btn', { href: `#/${item.page}` }, 'Открыть') : null,
         h('a.btn', { href: item.upstream, target: '_blank', rel: 'noopener noreferrer' }, 'Исходный код')))));
+    const community = Array.isArray(data.community_integrations) ? data.community_integrations : [];
+    const communitySection = community.length
+      ? h('section.stack',
+        h('div.section-title', { style: { marginBottom: '2px' } }, 'Интеграции сообщества (Open Source · $0 · T0–T3)'),
+        h('div.oss-community-grid', ...community.map(renderCommunityCard)))
+      : null;
+
     const output = textarea({ rows: 8, readOnly: true, placeholder: 'Здесь появится расшифровка' });
     const file = h('input', { type: 'file', accept: '.wav,audio/wav', 'aria-label': 'Запись WAV' });
     const language = select([{value:'auto',label:'Определить язык'}, {value:'ru',label:'Русский'},
@@ -82,7 +177,8 @@ export default {
     };
     return h('div.stack.lg', pageHead('Локальные инструменты',
       'Готовые движки для задач Bossman. Настройка подключения ещё не подтверждает выполнение задачи.'),
-      ...cards,
+      communitySection,
+      h('div.oss-grid', ...cards),
       panel('Документ → текст', h('div.stack',
         h('p', 'PDF с текстом, DOCX, PPTX, XLSX и CSV из разрешённых папок. До 20 МиБ. Распознавание сканов здесь не включено.'),
         field('Путь к файлу на компьютере Bossman', documentPath), extract, documentMessage, documentText)),
@@ -112,3 +208,4 @@ export default {
         file, language, button, message, output)));
   },
 };
+

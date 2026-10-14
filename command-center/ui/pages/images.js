@@ -57,19 +57,20 @@ const ImagesPage = {
       catch(e) { return errorBanner(e,ctx); }
     }
     let assets = []; let jobs = []; let collections = []; let models = [];
-    let storage = null; let overview = null; let err = null; let assetTotal = 0;
+    let storage = null; let overview = null; let pcStatus = null; let err = null; let assetTotal = 0;
     try {
       const assetQuery = new URLSearchParams({ limit: '120' });
       if (libraryFilter === 'favorites') assetQuery.set('favorite', 'true');
       if (libraryFilter.startsWith('collection:')) assetQuery.set('collection_id', libraryFilter.slice(11));
       if (librarySearch) assetQuery.set('search', librarySearch);
-      const [a, j, c, m, s, o] = await Promise.all([
+      const [a, j, c, m, s, o, pc] = await Promise.all([
         api.raw(`/api/images/assets?${assetQuery}`),
         api.raw('/api/images/jobs?limit=40'),
         api.raw('/api/images/collections'),
         api.raw('/api/images/models'),
         api.raw('/api/images/storage'),
         api.raw('/api/images/overview'),
+        api.raw('/api/pc-agent/status').catch(() => null),
       ]);
       assets = listOf(a);
       assetTotal = a.total ?? assets.length;
@@ -78,6 +79,7 @@ const ImagesPage = {
       models = listOf(m);
       storage = s;
       overview = o;
+      pcStatus = pc;
     } catch (e) { err = e; }
 
     const head = pageHead(
@@ -102,6 +104,7 @@ const ImagesPage = {
     return h('div.stack.lg',
       head,
       statsStrip(overview, storage),
+      editEngineBanner(pcStatus, models, ctx),
       tabs(ctx),
       composer(models, collections, ctx),
       h('div.images-workspace',
@@ -117,6 +120,41 @@ const ImagesPage = {
     return String(ev.kind || '').startsWith('image.') || String(ev.kind || '').startsWith('studio.');
   },
 };
+
+function editEngineBanner(pcStatus, models, ctx) {
+  const editEng = (pcStatus && pcStatus.edit_engine) || 'qwen';
+  const realModels = (models || []).filter((m) => !(m.caps && m.caps.mock)).map((m) => m.alias || m.name);
+  const modelList = realModels.length
+    ? realModels.slice(0, 4).join(' · ')
+    : 'sdcpp:z-image-turbo · sdcpp:qwen-image-edit-2509 · sdcpp:wan2.2-ti2v-5b';
+  const switchEngine = async (engine) => {
+    try {
+      await api.raw('/api/pc-agent/edit-engine', { method: 'POST', body: { edit_engine: engine, actor: 'owner' } });
+      toastOk(engine === 'uncensored'
+        ? 'Активен Z-Image NSFW v2 (sdcpp:z-image-turbo · 1 кадр role=start, --strength 0.6)'
+        : 'Активен Qwen-Image-Edit (sdcpp:qwen-image-edit-2509 · до 3 референсов)');
+      await ctx.refresh();
+    } catch (e) { toastError(e, 'Не удалось переключить edit-engine'); }
+  };
+  return h('div.engine-selector-bar',
+    h('div', { style: { minWidth: 0, flex: '1 1 280px' } },
+      h('div.xsmall.dim', 'Локальные модели Studio и активный движок редактирования (/edit_engine)'),
+      h('div.mono.small', { style: { marginTop: '3px' } },
+        `${modelList} · edit-engine: ${editEng === 'uncensored' ? 'z_image_nsfw_v2 (sdcpp:z-image-turbo · 1 кадр role=start)' : 'qwen (sdcpp:qwen-image-edit-2509 · до 3 референсов)'}`)),
+    h('div.row.tight',
+      h('button.btn.btn-sm' + (editEng === 'qwen' ? '.btn-primary' : ''), {
+        type: 'button',
+        'aria-pressed': String(editEng === 'qwen'),
+        title: 'Стандартный многокадровый редактор Qwen-Image-Edit-2509 (до 3 референсов)',
+        onClick: () => switchEngine('qwen'),
+      }, 'Qwen-Image-Edit (qwen)'),
+      h('button.btn.btn-sm' + (editEng === 'uncensored' ? '.btn-primary' : ''), {
+        type: 'button',
+        'aria-pressed': String(editEng === 'uncensored'),
+        title: 'Профиль без цензуры Z-Image NSFW v2 (sdcpp:z-image-turbo · 1 входной кадр role=start, --strength 0.6)',
+        onClick: () => switchEngine('uncensored'),
+      }, 'Z-Image NSFW v2 (uncensored)')));
+}
 
 function statsStrip(overview, storage) {
   return h('div.images-stats',
@@ -388,6 +426,7 @@ function retryControl(job, models, ctx) {
 }
 
 function jobMini(job, models, ctx) {
+  const isRunning = job.status === 'queued' || job.status === 'running';
   return h('div.images-job-mini',
     h('div.row.tight',
       statusBadge(job.status || 'queued', { live: job.status === 'running' }),
@@ -401,7 +440,9 @@ function jobMini(job, models, ctx) {
       h('span', '·'),
       h('span', `${Math.round((job.progress || 0) * 100)}%`)),
     jobError(job),
-    ['failed', 'cancelled'].includes(job.status) ? retryControl(job, models, ctx) : null);
+    isRunning
+      ? h('button.btn.btn-sm.btn-danger', { type: 'button', title: 'Остановить задачу генерации', onClick: () => cancelJob(job.id, ctx) }, 'Стоп')
+      : (['failed', 'cancelled'].includes(job.status) ? retryControl(job, models, ctx) : null));
 }
 
 function generationsTable(jobs, models, ctx) {

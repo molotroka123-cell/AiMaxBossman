@@ -12,7 +12,7 @@
    ============================================================ */
 
 import { api } from '../api.js';
-import { h, icon, toastError } from '../components.js';
+import { h, icon, toastOk, toastError } from '../components.js';
 import { panel, pageHead, errorBanner } from './_shared.js';
 
 /* Цвет = уровень доказанности, а не оптимизм. Зелёный — только COMPLETE. */
@@ -24,6 +24,7 @@ const STATE_TONE = {
   DISPATCHED: 'idle',
   PLACED: 'idle',
   BLOCKED: 'warn',
+  UNVERIFIED: 'warn',
   FAILED: 'err',
   STOPPED: 'idle',
 };
@@ -57,6 +58,26 @@ function money(v) {
   return `$${n.toFixed(n > 0 && n < 0.01 ? 6 : 4)}`;
 }
 
+/* Человеческое форматирование сложных причин блокировки/ошибок API без потери
+   точного текста для аудита и тестов. */
+function formatWhyBlocked(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return '—';
+  const jsonIdx = text.indexOf('{');
+  if (jsonIdx > 0 && text.includes('"error"')) {
+    const prefix = text.slice(0, jsonIdx).replace(/[:\s]+$/, '');
+    let msg = '';
+    try {
+      const parsed = JSON.parse(text.slice(jsonIdx));
+      msg = (parsed && parsed.error && parsed.error.message) ? String(parsed.error.message) : '';
+    } catch { /* оставляем исходный фрагмент */ }
+    return h('div.why-blocked-cell', { title: text },
+      h('div.why-blocked-summary', msg ? `${prefix} — ${msg}` : prefix),
+      h('div.why-blocked-raw', text.slice(jsonIdx)));
+  }
+  return h('div.why-blocked-cell', { title: text }, text);
+}
+
 function rowNode(r) {
   return h('tr', { class: r.attention ? 'attention' : '' },
     h('td', h('a.mono.xsmall', { href: `#/tasks?task=${encodeURIComponent(r.task_id)}`,
@@ -67,14 +88,14 @@ function rowNode(r) {
     h('td', stateChip(r),
       r.effects ? h('div.xsmall.dim',
         `вызвано ${r.effects.executed} · наблюдалось ${r.effects.observed} · подтверждено ${r.effects.verified}`) : null),
-    h('td.small', r.why_blocked || '—'),
+    h('td.small', formatWhyBlocked(r.why_blocked)),
     h('td.mono.small', money(r.cost_usd)),
     h('td', r.attention ? h('span.badge.badge-warn', 'да') : h('span.dim', '—')));
 }
 
 function table(rows) {
   if (!rows.length) return h('div.dim.small', 'работ пока нет');
-  return h('div', { style: { overflowX: 'auto' } },
+  return h('div.control-table-wrap',
     h('table.table',
       h('thead', h('tr',
         h('th', 'ЧТО'), h('th', 'КТО'), h('th', 'ГДЕ'), h('th', 'МОДЕЛЬ'),
@@ -92,9 +113,6 @@ function facts(body) {
     line('очередь', Object.entries(body.queue || {}).map(([k, v]) => `${k}:${v}`).join(' · ') || '—'),
     line('расход за час', money(t.burn_rate_usd_per_h)),
     line('остаток бюджета', t.fable && t.fable.status === 'OK' ? money(t.fable.remaining_usd) : (t.fable && t.fable.status) || '—'),
-    /* Флот — V3 за тремя env-флагами, и его транспорт/аутентификация узлов
-       сервер честно объявляет непромышленными. Без пометки строка «узлов N»
-       читается наравне с бюджетом и p95, то есть как штатный факт системы. */
     line('флот', [
       fleet.enabled
         ? `узлов ${(fleet.nodes || []).length} · очередь ${fleet.queue_depth ?? '—'}`
@@ -108,11 +126,9 @@ function facts(body) {
     line('проверка p95', lat.verification_ms ? `${lat.verification_ms.p95 ?? '—'} мс` : '—'));
 }
 
-/* Рабочий стол (Computer Use): владельческие «Стоп»/«Продолжить». Кнопки
-   существуют ТОЛЬКО здесь — у модели нет инструмента, который доходит до
-   /api/computer/stop|resume (сессия + CSRF панели). «Стоп» переживает
-   перезапуск backend; «Продолжить» обесценивает прежние наблюдения агента. */
-function desktopPanel(status, ctx) {
+/* Рабочий стол (Computer Use): владельческие «Стоп»/«Продолжить» всегда на первом
+   экране Пульта — без прокрутки через длинные таблицы. */
+function desktopPanel(status, pcStatus, ctx) {
   const stopped = !!(status && status.stopped);
   const avail = status ? status.available : null;
   const call = async (op) => {
@@ -121,26 +137,82 @@ function desktopPanel(status, ctx) {
       await ctx.refresh();
     } catch (e) { toastError(e, op === 'stop' ? 'Не удалось остановить' : 'Не удалось продолжить'); }
   };
-  const line = h('div.row.tight',
-    h('span', { id: 'computer-stop-state', class: `badge badge-${stopped ? 'warn' : (avail ? 'ok' : 'idle')}` },
-      stopped ? 'СТОП' : (avail ? 'РАЗРЕШЕНО' : 'НЕДОСТУПНО')),
-    h('span.small.dim', { style: { marginLeft: '8px' } },
-      stopped ? 'действия агента на рабочем столе остановлены до «Продолжить»'
-        : (status && status.detail) || ''),
-    status && status.outcome_unknown ? h('span.badge.badge-warn', { style: { marginLeft: '8px' } },
-      `исход неизвестен: ${status.outcome_unknown}`) : null,
-    h('div.spacer'),
-    /* Выключенная кнопка обязана объяснять почему (installed UI sweep:
-       disabled_silent — блокер заморозки), поэтому title стоит всегда. */
-    h('button.btn.btn-sm.btn-danger', { id: 'computer-stop', type: 'button', disabled: stopped,
-      title: stopped ? 'Уже остановлено — действия агента на рабочем столе запрещены'
-        : 'Остановить действия агента на рабочем столе (переживает перезапуск)',
-      onClick: () => call('stop') }, icon('stop', 12), h('span', 'Стоп')),
-    h('button.btn.btn-sm', { id: 'computer-resume', type: 'button', disabled: !stopped,
-      title: stopped ? 'Снять «Стоп»: агент обязан заново прочитать экран'
-        : 'Нечего продолжать — «Стоп» не нажат',
-      onClick: () => call('resume') }, icon('retry', 12), h('span', 'Продолжить')));
-  return panel('Рабочий стол (Computer Use)', line);
+  const switchEngine = async (engine) => {
+    try {
+      await api.raw('/api/pc-agent/edit-engine', { method: 'POST', body: { edit_engine: engine, actor: 'owner' } });
+      toastOk(engine === 'uncensored'
+        ? 'Движок правки фото: Z-Image NSFW v2 (sdcpp:z-image-turbo)'
+        : 'Движок правки фото: Qwen-Image-Edit (sdcpp:qwen-image-edit-2509)');
+      await ctx.refresh();
+    } catch (e) { toastError(e, 'Не удалось переключить edit-engine'); }
+  };
+  const editEng = (pcStatus && pcStatus.edit_engine) || 'qwen';
+  const localModels = (pcStatus && Array.isArray(pcStatus.local_models) && pcStatus.local_models.length)
+    ? pcStatus.local_models.slice(0, 3).join(' · ')
+    : 'qwen3.5:4b · glm-4.7-flash';
+
+  const line = h('div.stack.sm',
+    h('div.row.tight',
+      h('span', { id: 'computer-stop-state', class: `badge badge-${stopped ? 'warn' : (avail ? 'ok' : 'idle')}` },
+        stopped ? 'СТОП' : (avail ? 'РАЗРЕШЕНО' : 'НЕДОСТУПНО')),
+      h('span.small.dim', { style: { marginLeft: '8px' } },
+        stopped ? 'действия агента на рабочем столе остановлены до «Продолжить»'
+          : (status && status.detail) || ''),
+      status && status.outcome_unknown ? h('span.badge.badge-warn', { style: { marginLeft: '8px' } },
+        `исход неизвестен: ${status.outcome_unknown}`) : null,
+      h('div.spacer'),
+      h('button.btn.btn-sm.btn-danger', { id: 'computer-stop', type: 'button', disabled: stopped,
+        title: stopped ? 'Уже остановлено — действия агента на рабочем столе запрещены'
+          : 'Остановить действия агента на рабочем столе (переживает перезапуск)',
+        onClick: () => call('stop') }, icon('stop', 12), h('span', 'Стоп')),
+      h('button.btn.btn-sm', { id: 'computer-resume', type: 'button', disabled: !stopped,
+        title: stopped ? 'Снять «Стоп»: агент обязан заново прочитать экран'
+          : 'Нечего продолжать — «Стоп» не нажат',
+        onClick: () => call('resume') }, icon('retry', 12), h('span', 'Продолжить'))),
+    h('div.engine-selector-bar',
+      h('div', { style: { minWidth: 0, flex: '1 1 240px' } },
+        h('div.xsmall.dim', 'Актуальные локальные модели · Движок редактирования (/edit_engine)'),
+        h('div.mono.small', { style: { marginTop: '2px' } },
+          `${localModels} · edit-engine: ${editEng === 'uncensored' ? 'z_image_nsfw_v2 (sdcpp:z-image-turbo)' : 'qwen (sdcpp:qwen-image-edit-2509)'}`)),
+      h('div.row.tight',
+        h('button.btn.btn-sm' + (editEng === 'qwen' ? '.btn-primary' : ''), {
+          type: 'button',
+          'aria-pressed': String(editEng === 'qwen'),
+          title: 'Qwen-Image-Edit-2509 (до 3 референсов role=reference)',
+          onClick: () => switchEngine('qwen'),
+        }, 'Qwen-Image-Edit (qwen)'),
+        h('button.btn.btn-sm' + (editEng === 'uncensored' ? '.btn-primary' : ''), {
+          type: 'button',
+          'aria-pressed': String(editEng === 'uncensored'),
+          title: 'Z-Image Turbo NSFW v2 (sdcpp:z-image-turbo · 1 кадр role=start, --strength 0.6)',
+          onClick: () => switchEngine('uncensored'),
+        }, 'Z-Image NSFW v2 (uncensored)'))));
+  return panel('Рабочий стол (Computer Use) и активные движки', line);
+}
+
+function controlSummaryStrip(rows, body, pcStatus) {
+  const activeCount = rows.filter((r) => ['PLACED', 'DISPATCHED', 'EXECUTED', 'OBSERVED', 'VERIFIED'].includes(r.action_state)).length;
+  const completeCount = rows.filter((r) => r.action_state === 'COMPLETE').length;
+  const attentionCount = rows.filter((r) => r.attention).length;
+  const qText = Object.entries(body.queue || {}).map(([k, v]) => `${k}:${v}`).join(' · ') || 'пусто';
+  const editEng = (pcStatus && pcStatus.edit_engine) || 'qwen';
+  return h('div.control-strip',
+    h('div.control-kpi',
+      h('span.control-kpi-label', 'Текущий статус / Очередь'),
+      h('span.control-kpi-val', activeCount ? `${activeCount} в работе` : 'свободен'),
+      h('span.control-kpi-sub', `очередь: ${qText}`)),
+    h('div.control-kpi',
+      h('span.control-kpi-label', 'Требует внимания'),
+      h('span.control-kpi-val', { style: attentionCount ? { color: 'var(--warn)' } : null }, String(attentionCount)),
+      h('span.control-kpi-sub', attentionCount ? 'ошибки или незакрытая проверка' : 'нет заблокированных задач')),
+    h('div.control-kpi',
+      h('span.control-kpi-label', 'Подтверждено (COMPLETE)'),
+      h('span.control-kpi-val', { style: completeCount ? { color: 'var(--ok)' } : null }, String(completeCount)),
+      h('span.control-kpi-sub', 'только после финализатора')),
+    h('div.control-kpi',
+      h('span.control-kpi-label', 'Профиль Edit-Engine'),
+      h('span.control-kpi-val', editEng === 'uncensored' ? 'Z-Image v2' : 'Qwen-Edit'),
+      h('span.control-kpi-sub', editEng === 'uncensored' ? 'sdcpp:z-image-turbo (1 кадр)' : 'sdcpp:qwen-image-edit-2509')));
 }
 
 const ControlPage = {
@@ -158,7 +230,9 @@ const ControlPage = {
       return errorBanner(e, ctx);
     }
     let computer = null;
+    let pcStatus = null;
     try { computer = await api.raw('/api/computer/status'); } catch { computer = null; }
+    try { pcStatus = await api.raw('/api/pc-agent/status'); } catch { pcStatus = null; }
     const view = body.owner_view || { rows: [], rule: '' };
     const rows = view.rows || [];
     const attention = rows.filter((r) => r.attention);
@@ -171,10 +245,11 @@ const ControlPage = {
           type: 'button',
           onClick: async () => { try { await ctx.refresh(); } catch (e) { toastError(e, 'Не удалось обновить'); } },
         }, icon('retry', 12), h('span', 'Обновить'))]),
+      desktopPanel(computer, pcStatus, ctx),
+      controlSummaryStrip(rows, body, pcStatus),
       attention.length
         ? panel(h('h2', `Требует вашего решения (${attention.length})`), table(attention))
         : null,
-      desktopPanel(computer, ctx),
       panel('Работы', table(rows)),
       panel('Состояние системы', facts(body)),
       h('div.xsmall.dim', view.rule || ''));
@@ -189,3 +264,4 @@ const ControlPage = {
 };
 
 export default ControlPage;
+
