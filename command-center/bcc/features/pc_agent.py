@@ -2118,7 +2118,7 @@ async def _execute_earn_step(
     verified_lessons = lesson_info["verified_lessons"]
 
     if action == "arena":
-        arena_state_path = Path(r"C:\Users\asd\Bossman\paper-arena-20261010\state.json")
+        arena_state_path = Path.home() / "Bossman" / "paper-arena-20261010" / "state.json"
         arena_summary = "Solana Paper Arena (PAPER_ONLY, real_money=0, исполнение сделок ВЫКЛЮЧЕНО):"
         strategies_lines: list[str] = []
         if arena_state_path.is_file():

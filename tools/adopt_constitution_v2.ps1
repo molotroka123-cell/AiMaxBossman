@@ -20,7 +20,7 @@
 
 .PARAMETER Build
   Root of the build to adopt in: either an installed bundle (has runtime\python.exe, e.g.
-  C:\Users\asd\Bossman\app\BOSSMAN-Windows-x64-94e40cd17822) or a source checkout (has command-center\bcc\autonomy).
+  C:\Bossman\app\BOSSMAN-Windows-x64-94e40cd17822) or a source checkout (has command-center\bcc\autonomy).
   Default: the checkout this script lives in. Run the script once per build the loop will run from.
 
 .PARAMETER Draft
