@@ -123,6 +123,7 @@ class Store:
                        "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning",
                        "/imgmodel", "/edit_engine", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
                        "/screen", "/diag", "/lessons", "/bossman", "/style", "/speed", "/gen_cancel",
+                       "/presets", "/identitylock", "/poseonly", "/studioquality", "/cleanup", "/outfitonly",
                        "/evolution_status", "/evolution_start", "/evolution_pause",
                        "/evolution_resume", "/evolution_stop", "/evolution_report",
                        "/pc", "/argon", "/jarvis", "/pc_status", "/pc_audit", "/procs", "/kill",
