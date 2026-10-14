@@ -94,11 +94,20 @@ Get-CimInstance Win32_Process | Where-Object {
   - `attempt=2`: `pytest` в лаборатории упал (`exit 1`) → `{"n": 7, "kind": "rollback", "status": "done", "attempt": 2}` → `diagnose`.
   - `attempt=3`: `pytest` в лаборатории прошёл (`exit 0`, `1 passed`) → коммит `9012b391c7f0c274984502ad2f2ae5b488c0256c` на ветке `lab/op-d00bf4d25ca2`, рабочее дерево чистое.
 
+### Шаг 5. Открытые интеграции (`Blender MCP`, `Fincept`, `Vibe-Trading`), `/edit_engine`, запись `quality_audit` в ledger и UX — ПРОВЕРЕНО
+- **Строгая запись `quality_audit` в `simulated_ledger.jsonl`:** `run_pc_task` передаёт результат `verify_deliverable_strict` в `log_earning_attempt(..., quality_audit=...)`, сохраняя хэш, размер и статус проверки в `simulated_ledger.jsonl`; пустой или битый артефакт переводит задачу в `NEEDS_REVISION` (`verified=False`).
+- **Переключатель `/edit_engine qwen|uncensored` (`POST /api/pc-agent/edit-engine`) и разведка кандидатов:** явно переключает профиль редактирования между `qwen` (`Qwen-Image-Edit-2509-Q4_K_M.gguf`) и `uncensored` (`z_image_nsfw_v2`, `sdcpp:z-image-turbo -i <path> --strength 0.6`) и отображается в шапке `#/control`, `#/images` и в пульте Telegram. Живой `Qwen-Image-Edit-2509-Q4_K_M.gguf` сохранён без подмены; для будущей лабораторной проверки зафиксированы два открытых кандидата: (1) `ChrisColeTech/qwen-image-edit-uncensored-v1.1-GGUF` (~54 загрузки на HF, требуется проверка совместимости с `sd-cli` и качества сохранения лица) и (2) `Phr00t/Qwen-Image-Edit-Rapid-AIO` (ускорение до 4 шагов, v5–v19 NSFW-capable по описанию автора, требуется проверка формата весов и лицензии).
+- **3 открытых инструмента владельца (`$0`, `T0–T3`):**
+  1. `MCP for Blender` (`v2.0.3`, MIT, `127.0.0.1:9876`) — `/api/oss/blender/*`, `/blender` (с AST-защитой `bpy`-скриптов).
+  2. `Fincept Terminal` (`AGPL-3.0`, `$0` аналитика и фильтр `CHOP`/`TREND`) — `/api/oss/fincept/*`, `/fincept` (`T3 deny` на платные тарифы и живых брокеров).
+  3. `Vibe-Trading` (`v0.1.15`, MIT, `Shadow Account` `real_money=0`) — `/api/oss/vibe-trading/*`, `/vibe_trading` (`S4_regime_trend` + `T3 deny` на реальные сделки).
+- **Косметическое обновление UX (скриншоты ДО и ПОСЛЕ):** обновлены `#/home-v3`, `#/control`, `#/images`, `#/oss` и мобильная версия (`390×844`); скриншоты сохранены в `docs/owner/screenshots/before/` и `docs/owner/screenshots/after/`.
+
 ---
 
 ## 5. Что НЕ ПРОВЕРЕНО (честный список)
 
 1. **Фактическое слияние в `main` по кнопке владельца (`/work_yes 42` / `✅ Разрешить`):** намеренно НЕ нажималось агентом.
-2. **Живой сквозной GUI-прогон Argon PC-Agent из реального сообщения Telegram в окно Windows:** проверен контрактными и интеграционными автотестами (`18/18 passed`), но не живым кликом в реальном окне из чата владельца.
+2. **Живой сквозной GUI-прогон Argon PC-Agent из реального сообщения Telegram в окно Windows:** проверен контрактными и интеграционными автотестами (`26/26 passed` в `test_pc_agent_argon.py`), но не живым кликом в реальном окне из чата владельца.
 3. **Платежи, Telegram Stars и внешние рассылки/публикации:** на паузе по решению владельца.
 4. **Поведение после перезагрузки самой Windows 11:** автозапуск после ребута ОС в рамках этого прогона не тестировался.

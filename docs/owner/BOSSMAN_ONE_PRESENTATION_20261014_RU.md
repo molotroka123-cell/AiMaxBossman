@@ -18,8 +18,9 @@
 | `/work_yes N` / `/work_no N` | Личная кнопка владельца для `release_main` (`git push origin lab/op-X:main`) или опасных команд | **ОЖИДАЕТ КНОПКИ ВЛАДЕЛЬЦА** (`#42` не нажималась агентом) |
 | `/pc <цель>`, `/screen`, `/apps`, `/processes`, `/services` | Argon PC-Agent: снимок экрана, окна, процессы, службы, цепочка шагов с независимым верификатором и защитой от shell/path-обходов | **ПРОВЕРЕНО ТЕСТАМИ** (`18/18 passed`); живой GUI-прогон в Telegram — **НЕ ПРОВЕРЕНО** |
 | `/trust [мин]` / `/untrust` / `/stop` / `/resume` | Окно доверия 15 мин для обратимых шагов ПК, мгновенный сброс `/untrust` (работает даже во время `STOP`), глобальный `STOP` по шине `EventBus` | **ПРОВЕРЕНО** (`test_pc_agent_argon.py`, `18/18 passed`) |
-| `/img <промпт>`, `/edit <правки>`, `/edit_engine` | Генерация фото (`Z-Image-Turbo`), правка с сохранением лица (`Qwen-Image-Edit` GGUF) и переключение движка правки (`qwen` / `z_image_nsfw_v2` / честный отказ `uncensored`) | **ПРОВЕРЕНО** (`89/89 passed` в `test_companion_gen_refine.py` + `test_studio_sdcpp_provider.py`) |
-| `/earn`, `/earn_hypothesis`, `/boost` | Эмулятор заработка с независимым верификатором, 14-дневная гипотеза `Fresh Vibes` (Instagram Direct, `$0` старт), цикл самоулучшения `/boost` (OpenRouter `:free` + локальный Qwen) | **ПРОВЕРЕНО** (`19/19 passed` в `test_earning_emulator.py` + тесты `/boost`) |
+| `/img <промпт>`, `/edit <правки>`, `/edit_engine qwen\|uncensored` | Генерация фото (`Z-Image-Turbo`), правка с сохранением лица (`Qwen-Image-Edit` GGUF) и переключение движка правки (`qwen` / `uncensored` → `z_image_nsfw_v2` `-i <path> --strength 0.6`) | **ПРОВЕРЕНО** (`89/89 passed` в `test_companion_gen_refine.py` + `test_studio_sdcpp_provider.py` + `test_pc_agent_argon.py`) |
+| `/earn`, `/earn_hypothesis`, `/boost` | Эмулятор тестового пилота с независимым верификатором и записью `quality_audit` в `simulated_ledger.jsonl`, 14-дневная проверка гипотезы `Fresh Vibes` (Instagram Direct, `$0` старт), цикл самоулучшения `/boost` (OpenRouter `:free` + локальный Qwen) | **ПРОВЕРЕНО** (`test_earning_emulator.py` + `test_pc_agent_argon.py`) |
+| `/blender`, `/fincept`, `/vibe_trading`, `/oss` | Интеграция 3 открытых инструментов: **MCP for Blender** (`v2.0.3`, MIT, `127.0.0.1:9876`, AST-защита), **Fincept Terminal** (`AGPL-3.0`, `$0` аналитика и фильтр `CHOP`/`TREND`, `T3 deny` на платные тарифы и живых брокеров), **Vibe-Trading** (`v0.1.15`, MIT, `Shadow Account` `real_money=0`, `S4_regime_trend`) | **ПРОВЕРЕНО** (`54/54 passed` в `test_oss_integrations.py`, `test_oss_integrations_routes.py`, `test_pc_agent_argon.py`) |
 | `/video <промпт>` | Локальный рендер видео `Wan2.2 TI2V 5B` через Vulkan (`sd-cli`) | **ПРОВЕРЕНО ТЕХНИЧЕСКИ** (2s/5s клипы); коммерчески **NO-GO** (см. §4) |
 
 ---
@@ -66,6 +67,13 @@ Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*bcc.telegr
    - Исправлены 3 пробела безопасности/объяснимости: (а) конкурирующее чтение на уже открытой карте борда (`board[i]`) теперь попадает в `cm.pending` и блокирует ход (`PENDING_CHANGE board[i]`); (б) `validate_state` проверяет карты шоудауна на дубликаты с героем/бордом (`SHOWDOWN_DUPLICATE_CARD`) и сбрасывает невозможный дубликат в `None`, не трогая валидные карты; (в) словарь `EXPLAIN` дополнен русскими пояснениями для всех 18 новых кодов отказа адаптеров.
 4. **Поток №4 — Живая приёмка этапа 2.2 (`docs/owner/READY_FOR_PULT_20261014_RU.md`):**
    - Подтверждены `/work_status`, read-only задача с `bossman_calls` (`db5935c0b31d`), docs-задача `c56a43b1d89c` до карточки владельца **`#42`** (`release_main`, `PENDING`, `VERDICT: APPROVE` от `nemotron-3-ultra:free`) и задача-ловушка `d00bf4d25ca2` (2 реальных отката `rollback=done` на попытках 1 и 2, успех на попытке 3).
+5. **Поток №5 — Интеграция 3 открытых инструментов владельца (`$0`, `T0–T3`):**
+   - **MCP for Blender** (`mcp-for-blender` v2.0.3, MIT): управление 3D-сценами и ассетами через локальный сокет `127.0.0.1:9876` с AST-блокировкой сетевых и shell-вызовов в `bpy`-скриптах (`/api/oss/blender/*`, `/blender`).
+   - **Fincept Terminal** (`FinceptTerminal`, AGPL-3.0 Open Source): локальная рыночная аналитика и детектор режима `CHOP`/`TREND` за `$0` с жёстким запретом `T3 deny` на платные тарифы (`$10/$20/$40`) и подключение живых брокеров (`/api/oss/fincept/*`, `/fincept`).
+   - **Vibe-Trading** (`vibe-trading` v0.1.15, MIT): агент гипотез строго в режиме **Shadow Account (`PAPER_ONLY=True`, `real_money=0`)** с фильтром боковика `S4_regime_trend` и блокировкой `T3 deny` любых реальных ордеров (`/api/oss/vibe-trading/*`, `/vibe_trading`).
+6. **Поток №6 — Косметическое обновление UX дашборда и пульта (со скриншотами ДО / ПОСЛЕ) и разведка edit-кандидатов:**
+   - Вынесены наверх кнопочная панель `STOP` / `Снять STOP` и индикатор активных локальных моделей с переключателем движка правки (`qwen` / `uncensored` → `z_image_nsfw_v2`) на `#/control` и `#/images`, добавлены табличные стили `.table`, карточки открытых интеграций на `#/oss` и адаптивная мобильная вёрстка (`390×844`). Скриншоты сохранены в `docs/owner/screenshots/before/` и `docs/owner/screenshots/after/`.
+   - Живой `Qwen-Image-Edit-2509-Q4_K_M.gguf` не подменялся; для будущей лабораторной проверки зафиксированы два открытых кандидата: `ChrisColeTech/qwen-image-edit-uncensored-v1.1-GGUF` (HF, ~54 загрузки, проверка совместимости с `sd-cli` и сохранения лица) и `Phr00t/Qwen-Image-Edit-Rapid-AIO` (4 шага, v5–v19 NSFW-capable, проверка формата весов и лицензии).
 
 ---
 
@@ -73,6 +81,6 @@ Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*bcc.telegr
 
 - **Что НЕ доказано:**
   1. Слияние в `main` по кнопке владельца (`/work_yes 42`) — кнопка намеренно оставлена владельцу; **этап 2.2 не закрыт до нажатия**.
-  2. Полный живой GUI-прогон Argon PC-Agent из реального сообщения Telegram в окно Windows с доставкой файла в чат (сейчас доказано контрактными/интеграционными тестами `18/18` и FastAPI lifespan).
+  2. Полный живой GUI-прогон Argon PC-Agent из реального сообщения Telegram в окно Windows с доставкой файла в чат (сейчас доказано контрактными/интеграционными тестами и FastAPI lifespan).
   3. Официальная тестовая среда Telegram Stars (на паузе по решению владельца) и выживание после перезагрузки самой Windows 11.
 - **Один следующий шаг:** Владельцу в пульте Telegram нажать кнопку `✅ Разрешить` (`/work_yes 42`) для проверки живого слияния `lab/op-c56a43b1d89c:main`, после чего отправить одну живую команду `/pc Открой Блокнот, напиши тест и пришли скриншот`.
