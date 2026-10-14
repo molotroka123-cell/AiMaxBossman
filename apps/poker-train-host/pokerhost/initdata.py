@@ -47,6 +47,15 @@ def verify(init_data: str, bot_tokens: list[str] | tuple[str, ...], *, now: floa
     return user
 
 
+def verify_bot(init_data: str, bots: dict[str, str], **kw) -> tuple[dict | None, str | None]:
+    """Like verify(), but also says WHICH bot signed it ('jeff' / 'pult'), so the reply goes through that bot."""
+    for name, token in bots.items():
+        user = verify(init_data, [token], **kw) if token else None
+        if user is not None:
+            return user, name
+    return None, None
+
+
 def display_name(user: dict) -> str:
     name = " ".join(str(user.get(k) or "").strip() for k in ("first_name", "last_name")).strip()
     name = name or (("@" + user["username"]) if user.get("username") else f"Игрок {user['id'] % 10000}")

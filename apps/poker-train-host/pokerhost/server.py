@@ -24,9 +24,17 @@ from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from .initdata import display_name, verify
+import asyncio
+import hashlib
+
+from . import analysis
+from .initdata import display_name, verify, verify_bot
 
 MAX_BODY = 8 * 1024
+SESSION_MAX = 2 * 1024 * 1024  # one whole session (every hand + decision), trimmed by the game
+SESSION_EVERY_S = 120.0        # one debrief request per player per 2 min
+MAX_PENDING = 5                # debriefs waiting at once (the owner's GPU is shared)
+SESSIONS_KEPT = 20             # per player, newest first
 POST_EVERY_S = 10.0            # one leaderboard update per player per 10 s
 IP_RPS_WINDOW_S, IP_RPS_MAX = 10.0, 60
 CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline' https://telegram.org; "
@@ -91,7 +99,8 @@ class Guard(BaseHTTPMiddleware):
         self.hits[ip] = recent + [now]
         if len(self.hits) > 50_000:
             self.hits.clear()
-        if int(request.headers.get("content-length") or 0) > MAX_BODY:
+        limit = SESSION_MAX if request.url.path == "/api/session" else MAX_BODY
+        if int(request.headers.get("content-length") or 0) > limit:
             return JSONResponse({"error": "too_large"}, status_code=413)
         resp: Response = await call_next(request)
         resp.headers.update({"Content-Security-Policy": CSP, "X-Content-Type-Options": "nosniff",
@@ -99,10 +108,63 @@ class Guard(BaseHTTPMiddleware):
         return resp
 
 
-def create_app(dist: Path, data_dir: Path, bot_tokens: list[str]) -> Starlette:
+def create_app(dist: Path, data_dir: Path, bot_tokens: list[str], *, bots: dict[str, str] | None = None,
+               deliver=None, coach=None) -> Starlette:
+    """bots = {'jeff': token, 'pult': token} (which bot answers); deliver(bot, chat_id, text) and
+    coach(summary) -> str | None are async callables injected by __main__ (fakes in tests)."""
     dist = Path(dist).resolve()
     store = Store(Path(data_dir) / "leaderboard.sqlite3")
     last_post: dict[int, float] = {}
+    bots = bots or {f"bot{i}": t for i, t in enumerate(bot_tokens)}
+    last_session: dict[int, float] = {}
+    pending: set = set()
+    debrief_lock = asyncio.Lock()
+
+    async def debrief(user: dict, bot: str, session: dict) -> None:
+        async with debrief_lock:                      # one at a time: shared GPU / Ollama
+            summary = analysis.summarize(session)
+            text = analysis.render(summary, display_name(user))
+            if coach is not None and summary["hands"]:
+                try:
+                    note = await coach(summary)
+                except Exception:                     # noqa: BLE001 — the numbers still go out without the comment
+                    note = None
+                if note:
+                    text += "\n\nКомментарий тренера (локальная модель на ПК владельца):\n" + note.strip()[:1500]
+            if deliver is not None:
+                await deliver(bot, user["id"], text)
+
+    async def session_post(request: Request):
+        body = await request.body()
+        if len(body) > SESSION_MAX:
+            return JSONResponse({"error": "too_large"}, status_code=413)
+        try:
+            data = json.loads(body or b"{}")
+        except json.JSONDecodeError:
+            return JSONResponse({"error": "bad_json"}, status_code=400)
+        if not isinstance(data, dict):
+            return JSONResponse({"error": "bad_json"}, status_code=400)
+        user, bot = verify_bot(str(data.get("initData") or ""), bots)
+        if user is None:
+            return JSONResponse({"error": "telegram_signature_required"}, status_code=401)
+        session = data.get("session")
+        if not isinstance(session, dict) or not isinstance(session.get("handSummaries", []), list):
+            return JSONResponse({"error": "bad_session"}, status_code=400)
+        now = time.monotonic()
+        if now - last_session.get(user["id"], -1e9) < SESSION_EVERY_S:
+            return JSONResponse({"error": "too_often"}, status_code=429)
+        if len(pending) >= MAX_PENDING:
+            return JSONResponse({"error": "busy"}, status_code=429)
+        last_session[user["id"]] = now
+        folder = Path(data_dir) / "sessions" / hashlib.sha256(str(user["id"]).encode()).hexdigest()[:16]
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{int(time.time() * 1000)}.json").write_text(json.dumps(session, ensure_ascii=False), "utf-8")
+        for old in sorted(folder.glob("*.json"))[:-SESSIONS_KEPT]:
+            old.unlink(missing_ok=True)
+        task = asyncio.create_task(debrief(user, bot, session))
+        pending.add(task)
+        task.add_done_callback(pending.discard)
+        return JSONResponse({"ok": True, "queued": True, "hands": len(session.get("handSummaries") or [])})
 
     async def leaderboard(request: Request):
         if request.method == "GET":
@@ -141,6 +203,7 @@ def create_app(dist: Path, data_dir: Path, bot_tokens: list[str]) -> Starlette:
         return FileResponse(dist / "index.html", headers={"Cache-Control": "no-cache"})
 
     routes = [Route("/api/leaderboard", leaderboard, methods=["GET", "POST"]),
+              Route("/api/session", session_post, methods=["POST"]),
               Route("/api/claude", claude_off, methods=["GET", "POST"]),
               Route("/api/health", health, methods=["GET"]),
               Route("/", index, methods=["GET"]),
