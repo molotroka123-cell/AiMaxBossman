@@ -1073,6 +1073,8 @@ async def test_bypass_1a_notepad_roundtrip_secret_and_backup(fake_svc: FakeSvc, 
     - применяет T3/T2 защиту к `path` ДО `save_rollback_backup` и ДО `mkdir`;
     - блокирует пины, ключи, vault, `.env`, конституцию, Startup/Run/schtasks, `.git/hooks`, `bcc/approvals.py`;
     - откатные копии секретов (`backup-1-api-token` или внутри `rollback/`) не читаемы через `pc.read_file`."""
+    import io
+    import tokenize
     import bcc.features.pc_agent as pca
     from bcc.features import pc_agent_policy as policy
     from bcc.features import pc_agent_policy_paths as policy_paths
@@ -1494,7 +1496,9 @@ def test_unquoted_notepad_text_and_receipts_journal_mirror(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(tmp_path: Path):
+async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(fake_svc: FakeSvc, tmp_path: Path):
+    import json
+    import shutil
     import bcc.features.pc_agent as pca
     from bcc.features import reports_runner
 
@@ -1504,6 +1508,12 @@ async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(tmp_path: 
     for forbidden in ("ChatExport_" + "2026-10-02", "SwapMe_" + "BusinessMonths_Report.xlsx", r"Users\asd\Downloads"):
         assert forbidden not in pca_src, f"Personal path {forbidden} found in pc_agent.py"
         assert forbidden not in rr_src, f"Personal path {forbidden} found in reports_runner.py"
+
+    # 0. Проверка маршрутизации compile_plan_for_prompt для earn reports / reports
+    plan_earn = pca.compile_plan_for_prompt("earn reports --demo", workspace_dir=tmp_path)
+    assert plan_earn == [{"tool": "pc.earn", "args": {"action": "reports", "brief": "--demo"}}]
+    plan_rep = pca.compile_plan_for_prompt("reports --demo", workspace_dir=tmp_path)
+    assert plan_rep == [{"tool": "pc.earn", "args": {"action": "reports", "brief": "--demo"}}]
 
     earn_dir = tmp_path / "earn"
     data_dir = tmp_path / "data"
@@ -1519,17 +1529,38 @@ async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(tmp_path: 
     assert res_no_exp["verified"] is False
     assert "укажите файл экспорта" in res_no_exp["error"].lower()
 
-    # 2. Несуществующий файл экспорта — честный отказ с «укажите файл экспорта»
+    # Сквозной вызов через start_pc_task без экспорта -> статус failed с «укажите файл экспорта»
+    rec_e2e_fail = await start_pc_task(
+        fake_svc,
+        "earn reports",
+        actor="owner",
+        wait=True,
+        use_local_llm_summary=False,
+    )
+    assert rec_e2e_fail["status"] == "failed"
+    assert "укажите файл экспорта" in str(rec_e2e_fail.get("error") or "").lower()
+
+    # 2. Несуществующий файл экспорта (в том числе при demo=True) — честный отказ, без тихого отката на фикстуру
     missing_file = tmp_path / "no_such_export.html"
-    res_missing = await reports_runner.run_exchange_report(
-        args={"action": "reports", "export": str(missing_file)},
+    for extra_args in ({}, {"demo": True}):
+        res_missing = await reports_runner.run_exchange_report(
+            args={"action": "reports", "export": str(missing_file), **extra_args},
+            repo_root=repo_root,
+            data_dir=data_dir,
+            earn_dir=earn_dir,
+        )
+        assert res_missing["ok"] is False
+        assert res_missing["verified"] is False
+        assert "укажите файл экспорта" in res_missing["error"].lower()
+
+    # 2b. Несуществующий или T3-защищённый workbook — честный отказ, а не тихое игнорирование
+    res_bad_wb = await reports_runner.run_exchange_report(
+        args={"action": "reports", "brief": "--demo", "workbook": str(tmp_path / "missing_book.xlsx")},
         repo_root=repo_root,
         data_dir=data_dir,
         earn_dir=earn_dir,
     )
-    assert res_missing["ok"] is False
-    assert res_missing["verified"] is False
-    assert "укажите файл экспорта" in res_missing["error"].lower()
+    assert res_bad_wb["ok"] is False and res_bad_wb["verified"] is False
 
     # 3. Явный демо-прогон на синтетике — баннер ДЕМО НА СИНТЕТИКЕ в report.md и в сообщении пульта,
     #    и два независимых прогона дают одинаковый SHA-256 для deals.csv, disputed.csv, report.md, volume_result.json
@@ -1549,3 +1580,25 @@ async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(tmp_path: 
     for artifact in ("deals.csv", "disputed.csv", "report.md", "volume_result.json"):
         assert artifact in res_demo["hashes_run1"]
         assert res_demo["hashes_run1"][artifact] == res_demo["hashes_run2"][artifact]
+
+    # 4. Конфиг владельца reports_config.json с кириллицей и пробелами в пути (без флага синтетики)
+    cyr_dir = tmp_path / "Папка владельца с пробелами"
+    cyr_dir.mkdir(parents=True, exist_ok=True)
+    cyr_export = cyr_dir / "messages.html"
+    shutil.copyfile(repo_root / "tests" / "exchange_volume" / "fixtures" / "SYNTHETIC_export.html", cyr_export)
+    cfg_dir = data_dir / "pc-agent"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    (cfg_dir / "reports_config.json").write_text(
+        json.dumps({"export": str(cyr_export)}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    res_cfg = await reports_runner.run_exchange_report(
+        args={"action": "reports", "brief": ""},
+        repo_root=repo_root,
+        data_dir=data_dir,
+        earn_dir=earn_dir,
+    )
+    assert res_cfg["ok"] is True and res_cfg["verified"] is True
+    assert res_cfg["synthetic"] is False
+    assert "ДЕМО НА СИНТЕТИКЕ" not in res_cfg["summary"]
+

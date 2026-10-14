@@ -79,11 +79,11 @@ def _extract_paths_from_args(args: dict[str, Any], data_dir: Path | None) -> tup
     is_synthetic = _is_explicit_synthetic_request(args, brief_rep, exp_arg)
 
     if not exp_arg and brief_rep:
-        m_exp = re.search(r'([A-Za-z]:[\\/][^\r\n"*?<>|]+\.(?:html|json))', brief_rep, re.IGNORECASE)
+        m_exp = re.search(r'([A-Za-z]:[\\/][^\r\n"\'«»*?<>|]+\.(?:html|json))', brief_rep, re.IGNORECASE)
         if m_exp:
             exp_arg = m_exp.group(1).strip()
         elif not is_synthetic:
-            cand_str = brief_rep.strip("\"' ")
+            cand_str = brief_rep.strip("\"'«» ")
             if cand_str and not any(ch in cand_str for ch in ("\n", "\r", "*", "?", "<", ">", "|")):
                 with contextlib.suppress(OSError):
                     cand_dir = Path(cand_str)
@@ -96,7 +96,7 @@ def _extract_paths_from_args(args: dict[str, Any], data_dir: Path | None) -> tup
                         exp_arg = str(cand_dir)
 
     if not wb_arg and brief_rep:
-        m_wb = re.search(r'([A-Za-z]:[\\/][^\r\n"*?<>|]+\.xlsx)', brief_rep, re.IGNORECASE)
+        m_wb = re.search(r'([A-Za-z]:[\\/][^\r\n"\'«»*?<>|]+\.xlsx)', brief_rep, re.IGNORECASE)
         if m_wb:
             wb_arg = m_wb.group(1).strip()
 
@@ -245,7 +245,14 @@ async def run_exchange_report(
     synth_exp = repo_root / "tests" / "exchange_volume" / "fixtures" / "SYNTHETIC_export.html"
 
     if is_synthetic:
-        export_path = Path(exp_arg) if (exp_arg and Path(exp_arg).is_file()) else synth_exp
+        norm_exp = exp_arg.replace("\\", "/").strip().lower()
+        if exp_arg and norm_exp not in {
+            "synthetic_export.html",
+            "tests/exchange_volume/fixtures/synthetic_export.html",
+        }:
+            export_path = Path(exp_arg)
+        else:
+            export_path = synth_exp
     else:
         if not exp_arg:
             msg = (
@@ -288,9 +295,26 @@ async def run_exchange_report(
     workbook_path: Path | None = None
     if wb_arg:
         cand_wb = Path(wb_arg)
-        t3_wb, _ = is_t3_secret_or_protected_path(str(cand_wb), for_write=False, data_dir=data_dir)
-        if not t3_wb and cand_wb.is_file():
-            workbook_path = cand_wb
+        t3_wb, t3_wb_reason = is_t3_secret_or_protected_path(
+            str(cand_wb), for_write=False, data_dir=data_dir
+        )
+        if t3_wb or not cand_wb.is_file():
+            wb_err = (
+                t3_wb_reason
+                if t3_wb
+                else f"Файл контрольной таблицы не найден ({cand_wb}): укажите существующий файл .xlsx."
+            )
+            return {
+                "ok": False,
+                "verified": False,
+                "action": "reports",
+                "synthetic": is_synthetic,
+                "error": wb_err,
+                "summary": f"🛑 {wb_err}",
+                "tainted": False,
+                "duration_ms": round((time.perf_counter() - start_t) * 1000),
+            }
+        workbook_path = cand_wb
 
     script_path = repo_root / "tools" / "bossman_business.py"
     out_run1 = earn_dir / "exchange_report_run1"

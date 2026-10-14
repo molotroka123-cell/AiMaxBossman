@@ -3131,7 +3131,16 @@ def compile_plan_for_prompt(prompt: str, *, workspace_dir: Path) -> list[dict[st
         if any(w in tail_fv.lower() for w in ("опубликуй", "publish", "отправь в инстаграм", "выложи пост")):
             return [{"tool": "pc.earn", "args": {"action": "fresh_vibes_publish", "brief": tail_fv}}]
         return [{"tool": "pc.earn", "args": {"action": "fresh_vibes", "brief": tail_fv}}]
-    earn_prefix = re.match(r"(?is)^earn(?:\s+(status|arena|exam|coach|task|roi|poker|studio|self_improve|boost|oss|product|weekly|report|fresh_vibes|fv|fresh_vibes_publish|blender|fincept|vibe_trading|vibe_trade))?(?:\s+(.+))?$", raw)
+    reports_prefix = re.match(
+        r"(?is)^(?:reports|/reports|exchange_report|/exchange_report)(?:\s+(.+))?$",
+        raw,
+    )
+    if reports_prefix:
+        return [{"tool": "pc.earn", "args": {"action": "reports", "brief": (reports_prefix.group(1) or "").strip()}}]
+    earn_prefix = re.match(
+        r"(?is)^earn(?:\s+(status|arena|exam|coach|task|roi|poker|studio|self_improve|boost|oss|product|weekly|report|reports|exchange_report|exchange|fresh_vibes|fv|fresh_vibes_publish|blender|fincept|vibe_trading|vibe_trade))?(?:\s+(.+))?$",
+        raw,
+    )
     if earn_prefix:
         sub_act = (earn_prefix.group(1) or "status").lower()
         tail = (earn_prefix.group(2) or "").strip()
