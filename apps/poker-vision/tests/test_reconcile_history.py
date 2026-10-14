@@ -93,3 +93,15 @@ def test_events_only_from_observation_and_flagged_incomplete():
     assert ("bet", 1) in types and ("call", 2) in types
     assert h["complete"] is False
     assert "complete = false" in to_phh(h)
+
+
+def test_pending_board_slot_blocks_action():
+    rec = Reconciler()
+    flop = ("Qs", "7c", "2d")
+    feed(rec, [state(0, board=flop), state(1, board=flop)])
+    # A competing single-frame reading on an already-committed board slot (board[1]) sets pending=True
+    cm = rec.push(state(2, board=("Qs", "8c", "2d")))
+    assert "board[1]" in cm.pending
+    assert any("PENDING_CHANGE" in b and "board[1]" in b for b in cm.blocked)
+
+

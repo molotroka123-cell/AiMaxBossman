@@ -20138,8 +20138,8 @@
       "id": "pv-pipeline",
       "label": "Конвейер: кадр → поля → сверка → история",
       "parent": "pv",
-      "status": "code",
-      "detail": "Адаптер Poker Train (якорь по картам героя, масштаб/DPI), валидаторы, временная сверка, границы раздач без склейки, события и PHH. Код есть; метрики холдаута — в evidence/REPORT.md.",
+      "status": "reported",
+      "detail": "Адаптер Poker Train (якорь по картам героя, масштаб/DPI), валидаторы, временная сверка, границы раздач без склейки, события и PHH. Код есть; метрики холдаута — в evidence/REPORT.md. Прогон 2026-10-14 @ 34324346: pytest pokervision pipeline & adapters",
       "sources": [
         {
           "path": "apps/poker-vision/pokervision/adapters/poker_train.py",
@@ -20164,6 +20164,12 @@
           "branch": "poker-vision/pipeline-20261005",
           "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/history.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#pv-pipeline",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Расширить полноту чтения ставок/стеков соперников на новых темах (сейчас много UNKNOWN)."
@@ -20194,8 +20200,8 @@
       "id": "pv-act",
       "label": "Автоматические действия: только свой тренажёр",
       "parent": "pv",
-      "status": "code",
-      "detail": "Клики через loopback-Playwright, гейты (STOP, устаревший/замёрзший кадр, pending-изменение, ход героя, проверка смены состояния). Во внешнем клиенте запрещено.",
+      "status": "reported",
+      "detail": "Клики через loopback-Playwright, гейты (STOP, устаревший/замёрзший кадр, pending-изменение, ход героя, проверка смены состояния). Во внешнем клиенте запрещено. Прогон 2026-10-14 @ 34324346: pytest pokervision actuator & sandbox session",
       "sources": [
         {
           "path": "apps/poker-vision/pokervision/actuator.py",
@@ -20208,6 +20214,12 @@
           "branch": "poker-vision/pipeline-20261005",
           "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/pokervision/service.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#pv-act",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Повторить живой прогон на точном SHA сборки владельца (Windows)."
@@ -20216,8 +20228,8 @@
       "id": "pv-eval",
       "label": "Оценка: сплиты, baseline→after, p50/p95",
       "parent": "pv",
-      "status": "code",
-      "detail": "Сплиты по сессиям без пересечения раздач, новые темы/раскладки отдельно, naive-baseline на тех же кадрах, PokerKit-оракул, стратегии с CI, генерик-OCR. Отчёт: apps/poker-vision/evidence/REPORT.md.",
+      "status": "reported",
+      "detail": "Сплиты по сессиям без пересечения раздач, новые темы/раскладки отдельно, naive-baseline на тех же кадрах, PokerKit-оракул, стратегии с CI, генерик-OCR. Отчёт: apps/poker-vision/evidence/REPORT.md. Прогон 2026-10-14 @ 34324346: pytest pokervision eval & dataset splits",
       "sources": [
         {
           "path": "apps/poker-vision/pokervision/eval/run_eval.py",
@@ -20230,6 +20242,12 @@
           "branch": "poker-vision/pipeline-20261005",
           "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/d22601a41020e1a921627c5dc3b0d5005c4fe356/apps/poker-vision/evidence/REPORT.md"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#pv-eval",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Пополнить обучающий набор форматами K/M и новыми темами; повторить holdout на свежем наборе."
@@ -20310,8 +20328,8 @@
       "id": "pv-executor",
       "label": "EXECUTOR: проверки → клик → подтверждение (только свой тренажёр)",
       "parent": "pv",
-      "status": "code",
-      "detail": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Computer Use, DPR 2, другие раскладки.",
+      "status": "reported",
+      "detail": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Computer Use, DPR 2, другие раскладки. Прогон 2026-10-14 @ 34324346: pytest pokervision control executor & verifier",
       "sources": [
         {
           "path": "apps/poker-vision/pokervision/control/executor.py",
@@ -20324,6 +20342,12 @@
           "branch": "poker-vision/coach-executor-20261006",
           "sha": "a963599537f295c4266ec656ab35b233d632d71c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/evidence/REPORT_COACH_EXECUTOR.md"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#pv-executor",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ]
     },
@@ -20331,8 +20355,8 @@
       "id": "pv-source-panel",
       "label": "Панель источника: выбор окна с превью, живой поток, overlay",
       "parent": "pv",
-      "status": "code",
-      "detail": "Выбор источника, MJPEG-поток, overlay карт/чисел/кнопок с confidence, режимы, пауза, смена источника, STOP. Захват реальных окон Windows — NOT_RUN.",
+      "status": "reported",
+      "detail": "Выбор источника, MJPEG-поток, overlay карт/чисел/кнопок с confidence, режимы, пауза, смена источника, STOP. Захват реальных окон Windows — NOT_RUN. Прогон 2026-10-14 @ 34324346: pytest pokervision desk & service API source panel",
       "sources": [
         {
           "path": "command-center/ui/pages/poker_vision.js",
@@ -20345,6 +20369,12 @@
           "branch": "poker-vision/coach-executor-20261006",
           "sha": "a963599537f295c4266ec656ab35b233d632d71c",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/a963599537f295c4266ec656ab35b233d632d71c/apps/poker-vision/pokervision/desk.py"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#pv-source-panel",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ]
     },
@@ -21191,12 +21221,18 @@
       "id": "reg-motion_make_video",
       "label": "Motion Studio: сцена в видео (озвучка, музыка)",
       "parent": "media",
-      "status": "code",
-      "detail": "Scene spec -> finished video: voice-over, original score, deterministic frames, MP4. python tools/motion_studio/make_video.py SPEC.json --work DIR [--tts-models DIR_WITH_KOKORO] [--chromium PATH] [--preview 3.0 13.2 ...] [--no-voice] Steps (each one checkable  Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Scene spec -> finished video: voice-over, original score, deterministic frames, MP4. python tools/motion_studio/make_video.py SPEC.json --work DIR [--tts-models DIR_WITH_KOKORO] [--chromium PATH] [--preview 3.0 13.2 ...] [--no-voice] Steps (each one checkable  Код есть; польза и живая работа не доказаны. Прогон 2026-10-14 @ 34324346: pytest motion_studio make_video & templates",
       "sources": [
         {
           "path": "tools/motion_studio/make_video.py",
           "sha": "6ed6da8493cff0b65a3ebd8c58c9fe297572fc21"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#reg-motion_make_video",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22397,12 +22433,18 @@
       "id": "reg-local_only_switch",
       "label": "Локальный режим: BOSSMAN_LOCAL_ONLY закрывает выход к облачным провайдерам",
       "parent": "models",
-      "status": "code",
-      "detail": "Request-scoped privacy carried through threads/async tasks and provider fallbacks. Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Request-scoped privacy carried through threads/async tasks and provider fallbacks. Код есть; польза и живая работа не доказаны. Прогон 2026-10-14 @ 34324346: pytest BOSSMAN_LOCAL_ONLY switch",
       "sources": [
         {
           "path": "bossman_shared/privacy.py",
           "sha": "7ee527e8367dff80db9eb7ffc00f87950d906002"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#reg-local_only_switch",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22415,12 +22457,18 @@
       "id": "reg-offline_smoke_local_only",
       "label": "Офлайн-смоук: облако отказано, локальная модель отвечает, внешних соединений 0",
       "parent": "models",
-      "status": "code",
-      "detail": "Offline / local-only smoke (MP21-A). No network: any non-loopback connect raises. Run: BOSSMAN_LOCAL_ONLY=1 python tools/offline_smoke_local_only.py Checks: (1) cloud adapters refuse at the provider boundary, (2) a loopback model answers one tiny chat, (3) a s Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Offline / local-only smoke (MP21-A). No network: any non-loopback connect raises. Run: BOSSMAN_LOCAL_ONLY=1 python tools/offline_smoke_local_only.py Checks: (1) cloud adapters refuse at the provider boundary, (2) a loopback model answers one tiny chat, (3) a s Код есть; польза и живая работа не доказаны. Прогон 2026-10-14 @ 34324346: offline local-only smoke (MP21-A)",
       "sources": [
         {
           "path": "tools/offline_smoke_local_only.py",
           "sha": ""
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#reg-offline_smoke_local_only",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22433,12 +22481,18 @@
       "id": "reg-mp21_project_map",
       "label": "Карта проекта: модули, UI-страницы и инструменты против тестов, документов и листьев дерева",
       "parent": "ops",
-      "status": "code",
-      "detail": "MP21-A project-map generator: module inventory vs tests / docs / TODO / tree leaves. Static analysis only (reads files, one `git log`); runs no tests. Statuses are therefore capped at `partial` unless the module name appears in EXECUTED_TESTS, the test files t Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "MP21-A project-map generator: module inventory vs tests / docs / TODO / tree leaves. Static analysis only (reads files, one `git log`); runs no tests. Statuses are therefore capped at `partial` unless the module name appears in EXECUTED_TESTS, the test files t Код есть; польза и живая работа не доказаны. Прогон 2026-10-14 @ 34324346: MP21 project-map generator",
       "sources": [
         {
           "path": "tools/mp21_project_map.py",
           "sha": ""
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#reg-mp21_project_map",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22450,12 +22504,18 @@
       "id": "reg-vibe_studio_service",
       "label": "Vibe Studio: очередь задач, STOP, возобновление и версии",
       "parent": "apps",
-      "status": "code",
-      "detail": "Vibe Studio job service: queue, STOP, cancel, resume, versions, promotion. One job at a time (FIFO). The worker task exists only while there is work: it starts on ``create``/``resume``/``kick`` and exits when the queue is empty or a STOP file is present (queue Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Vibe Studio job service: queue, STOP, cancel, resume, versions, promotion. One job at a time (FIFO). The worker task exists only while there is work: it starts on ``create``/``resume``/``kick`` and exits when the queue is empty or a STOP file is present (queue Код есть; польза и живая работа не доказаны. Прогон 2026-10-14 @ 34324346: pytest Vibe Studio UI & service static contract",
       "sources": [
         {
           "path": "command-center/bcc/vibe/service.py",
           "sha": "250dabbf173fb7791fabbe4f99ac1d4296f9b10d"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#reg-vibe_studio_service",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22468,12 +22528,18 @@
       "id": "reg-jeff_browser_search",
       "label": "Jeff: необязательный браузерный поиск (по умолчанию выключен)",
       "parent": "jeff",
-      "status": "code",
-      "detail": "Jeff browser SEARCH fallback: a read-only, allowlisted, transparent browser behind an OFF-by-default flag. What it is: when the normal search path (the configured SearXNG / keyless helper used by the Research Desk) returned NOTHING, Jeff may open ONE public se Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Jeff browser SEARCH fallback: a read-only, allowlisted, transparent browser behind an OFF-by-default flag. What it is: when the normal search path (the configured SearXNG / keyless helper used by the Research Desk) returned NOTHING, Jeff may open ONE public se Код есть; польза и живая работа не доказаны. Прогон 2026-10-14 @ 34324346: pytest Jeff browser search fallback",
       "sources": [
         {
           "path": "command-center/bcc/pit/j2/browser_search.py",
           "sha": "72a686636170487a132a8ae5258169b4baf7c9b8"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#reg-jeff_browser_search",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22486,12 +22552,18 @@
       "id": "reg-dataset_check_faces",
       "label": "Проверка датасета лиц на CPU перед обучением (без загрузки наружу)",
       "parent": "media",
-      "status": "code",
-      "detail": "Dataset check for face-model training data (CPU only, no uploads, no GPU). Owner instruction (11.10.2026): \"как обучение зайдёт, надо проверять новые данные\" -> every new batch of photos / videos goes through this tool BEFORE it is used for DFM / LoRA training Код есть; польза и живая работа не доказаны.",
+      "status": "reported",
+      "detail": "Dataset check for face-model training data (CPU only, no uploads, no GPU). Owner instruction (11.10.2026): \"как обучение зайдёт, надо проверять новые данные\" -> every new batch of photos / videos goes through this tool BEFORE it is used for DFM / LoRA training Код есть; польза и живая работа не доказаны. Прогон 2026-10-14 @ 34324346: pytest dataset_check check_faces",
       "sources": [
         {
           "path": "tools/dataset_check/check_faces.py",
           "sha": "c9d6b479eb3c0e3b5498f081a7b53b4642bf2e19"
+        },
+        {
+          "path": "docs/architecture/bossman-tree-20261005/evidence/argon-product-20261013.json#reg-dataset_check_faces",
+          "branch": "green/tree-leaves-20261006",
+          "sha": "34324346a579190214d4c7a656e6d316093abf26",
+          "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",

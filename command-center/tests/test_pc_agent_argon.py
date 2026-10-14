@@ -497,3 +497,512 @@ async def test_bossman_earn_coached_deliverable_lessons_and_t3_deny(fake_svc: Fa
         verdict = classify_pc_action("pc.earn", {"action": forbidden_action})
         assert verdict.tier == "T3" and verdict.decision == "deny", f"{forbidden_action} must be T3 deny, got {verdict}"
 
+
+def test_hardware_roi_summary_3200_target():
+    """Детерминированный расчёт окупаемости железа $3,200 учитывает только VERIFIED_CLEAN работы."""
+    from bcc.earning_emulator import HARDWARE_TARGET_USD, hardware_roi_summary
+
+    assert HARDWARE_TARGET_USD == 3200.0
+    records = [
+        {
+            "verdict": "SIMULATED_DONE",
+            "invoice": {"amount": 45.0, "currency": "$"},
+            "quality_audit": {"passed": True, "verdict": "VERIFIED_CLEAN"},
+        },
+        {
+            "verdict": "SIMULATED_DONE",
+            "invoice": {"amount": 55.0, "currency": "$"},
+            "quality_audit": {"passed": True, "verdict": "VERIFIED_CLEAN"},
+        },
+        {
+            # Дефектный черновик с непрошедшим аудитом не должен засчитываться в окупаемость $3,200
+            "verdict": "SIMULATED_DONE",
+            "invoice": {"amount": 500.0, "currency": "$"},
+            "quality_audit": {"passed": False, "verdict": "NEEDS_REVISION"},
+        },
+        {
+            "verdict": "REFUSED",
+            "invoice": None,
+        },
+    ]
+    roi = hardware_roi_summary(records, cloud_savings_usd=20.0)
+    assert roi["SIMULATED"] is True
+    assert roi["real_money"] == 0
+    assert roi["hardware_target_usd"] == 3200.0
+    assert roi["verified_count"] == 2
+    assert roi["needs_revision_count"] == 1
+    assert roi["refused_count"] == 1
+    assert roi["verified_simulated_usd"] == 100.0
+    assert roi["needs_revision_usd"] == 500.0
+    assert roi["total_tracked_value_usd"] == 120.0
+    assert roi["remaining_to_payback_usd"] == 3080.0
+    assert len(roi["pillars"]) == 5
+
+
+@pytest.mark.asyncio
+async def test_product_5_pillars_pult_commands(fake_svc: FakeSvc, tmp_path: Path):
+    """Проверка команд пульта 5 столпов продукта и еженедельного отчёта: /product, /weekly, /roi, /poker, /studio_check, /self_repair, /oss."""
+    owner = Person(777001, 777001, "owner", 1)
+    settings = Settings(
+        (owner,),
+        local_url="http://127.0.0.1:8083/v1",
+        local_model="best",
+        core_url="http://127.0.0.1:8801",
+        bot_token="123456:TEST_TOKEN",
+        pc_control=True,
+    )
+    store = Store(tmp_path)
+
+    class FakeTelegram:
+        async def send(self, person, text, keyboard=None):
+            return None
+
+        async def send_photo(self, person, data, caption=""):
+            return None
+
+    comp = Companion(settings, store, FakeTelegram(), FakeCoreForCompanion(fake_svc), SimpleNamespace())
+    owner_msg = {"chat": {"id": 777001, "type": "private"}, "from": {"id": 777001, "is_bot": False}, "text": "/roi"}
+
+    roi_reply = await comp.pc_agent_command(owner, "/roi", "", owner_msg)
+    assert "3,200" in str(roi_reply) or "3200" in str(roi_reply)
+    assert "Доказанная монетизация" in str(roi_reply)
+    assert "SIMULATED=True" in str(roi_reply)
+
+    weekly_reply = await comp.pc_agent_command(owner, "/weekly", "", owner_msg)
+    assert "Еженедельный отчёт Bossman по монетизации" in str(weekly_reply)
+    assert "real_user + real_payment + metric" in str(weekly_reply)
+    assert "Что убито" in str(weekly_reply)
+    assert "Что следующее" in str(weekly_reply)
+
+    poker_reply = await comp.pc_agent_command(owner, "/poker", "", owner_msg)
+    assert "52.05" in str(poker_reply) and "36/36" in str(poker_reply)
+
+    studio_reply = await comp.pc_agent_command(owner, "/studio_check", "", owner_msg)
+    assert "Motion Studio" in str(studio_reply) and "37" in str(studio_reply)
+
+    oss_reply = await comp.pc_agent_command(owner, "/oss", "", owner_msg)
+    assert "Docling" in str(oss_reply) and "RapidOCR" in str(oss_reply)
+
+    prod_reply = await comp.pc_agent_command(owner, "/product", "", owner_msg)
+    assert "3,200" in str(prod_reply) or "3200" in str(prod_reply)
+    assert "Покер" in str(prod_reply) and "Киностудия" in str(prod_reply)
+
+
+def test_proven_monetization_rule_and_weekly_report():
+    """Правило MASTER_PROMPT: «Доказано» = реальный пользователь + реальная оплата + метрика.
+    Симуляционные черновики (SIMULATED=True, real_money=0) никогда не засчитываются в proven_monetization_usd."""
+    from bcc.earning_emulator import (
+        PROVEN_MONETIZATION_RULE,
+        hardware_roi_summary,
+        is_proven_monetization,
+        verify_commercial_deliverable,
+        weekly_monetization_report,
+    )
+
+    assert PROVEN_MONETIZATION_RULE == "real_user + real_payment + metric"
+
+    # Симуляционная запись — НЕ доказанная монетизация, даже если есть все поля
+    sim_rec = {
+        "SIMULATED": True,
+        "real_money": 0,
+        "verdict": "SIMULATED_DONE",
+        "real_user": "client_1",
+        "payment_proof": "tx_123",
+        "metric": {"name": "retention", "value": 1.0},
+        "invoice": {"amount": 45.0, "currency": "$"},
+        "quality_audit": {"passed": True, "verdict": "VERIFIED_CLEAN"},
+    }
+    sim_ok, sim_missing = is_proven_monetization(sim_rec)
+    assert sim_ok is False
+    assert any("SIMULATED=True" in m for m in sim_missing)
+
+    # Запись без одного из 3 обязательных доказательств (real_user, real_payment, metric) — НЕ доказана
+    missing_metric = {
+        "SIMULATED": False,
+        "real_money": 19.0,
+        "real_user": "buyer@example.com",
+        "payment_proof": "invoice_paid_001",
+        "metric": None,
+        "invoice": {"amount": 19.0, "currency": "$"},
+    }
+    mm_ok, mm_missing = is_proven_monetization(missing_metric)
+    assert mm_ok is False
+    assert any("metric" in m for m in mm_missing)
+
+    # Полностью доказанная сделка (реальный пользователь + реальная оплата + метрика)
+    proven_rec = {
+        "SIMULATED": False,
+        "real_money": 19.0,
+        "verdict": "VERIFIED_CLEAN",
+        "real_user": "buyer@example.com",
+        "payment_proof": "receipt_20261013_001",
+        "metric": {"name": "conversion_rate", "value": 0.05},
+        "invoice": {"amount": 19.0, "currency": "$"},
+        "quality_audit": {"passed": True, "verdict": "VERIFIED_CLEAN"},
+    }
+    pr_ok, pr_missing = is_proven_monetization(proven_rec)
+    assert pr_ok is True
+    assert pr_missing == []
+
+    roi_sim_only = hardware_roi_summary([sim_rec])
+    assert roi_sim_only["proven_monetization_usd"] == 0.0
+    assert roi_sim_only["proven_count"] == 0
+    assert roi_sim_only["verified_simulated_usd"] == 45.0
+
+    roi_with_proven = hardware_roi_summary([sim_rec, proven_rec])
+    assert roi_with_proven["proven_monetization_usd"] == 19.0
+    assert roi_with_proven["proven_count"] == 1
+    assert roi_with_proven["verified_simulated_usd"] == 64.0
+
+    rep = weekly_monetization_report([sim_rec])
+    assert rep["earned_proven"]["proven_usd"] == 0.0
+    assert isinstance(rep["verified_facts"], list) and len(rep["verified_facts"]) >= 4
+    assert len(rep["killed"]) >= 3
+    assert "hypothesis" in rep["next_step"] and "pipeline" in rep["next_step"]
+
+    # Проверка вечного запрета №5 (юридические обещания от имени пользователя)
+    bad_legal = (
+        "# Коммерческое предложение\n"
+        "Цена: ≈ $19 (оценка).\n"
+        "Мы даём юридическую гарантию 100% возврата средств по договору оферты от имени владельца.\n"
+        + ("Описание блока. " * 20)
+    )
+    aud_legal = verify_commercial_deliverable(bad_legal)
+    assert aud_legal["passed"] is False
+    assert any("unauthorized_legal_promise" in i for i in aud_legal["issues"])
+
+
+@pytest.mark.asyncio
+async def test_master_prompt_eternal_prohibitions_and_local_only():
+    """Проверка вечных запретов 1–8 (force-push, --no-verify, отключение watchdog) и строго локального стека."""
+    import bcc.features.pc_agent as pca
+
+    # Вечный запрет №8: force-push и обход selftest (--no-verify) — всегда T3 deny
+    v_force = pca.classify_pc_action("pc.run_command", {"argv": ["git", "push", "--force", "origin", "main"]})
+    assert v_force.tier == "T3" and v_force.decision == "deny"
+
+    v_noverify = pca.classify_pc_action("pc.run_command", {"argv": ["git", "commit", "-m", "msg", "--no-verify"]})
+    assert v_noverify.tier == "T3" and v_noverify.decision == "deny"
+
+    # Вечный запрет №6: отключение watchdog/аудита — всегда T3 deny
+    v_wd = pca.classify_pc_action("pc.run_command", {"argv": ["powershell", "-Command", "STOP_WATCHDOG"]})
+    assert v_wd.tier == "T3" and v_wd.decision == "deny"
+
+    # Стек: только локально — облачные :free модели в реестре игнорируются при local_only=True
+    called_models: list[str] = []
+
+    class _FakeAdapter:
+        async def chat(self, model_name, messages, **kwargs):
+            called_models.append(model_name)
+            return type("R", (), {"text": "Локальный ответ Qwen"})()
+
+    class _FakeRegistry:
+        async def list_models(self):
+            return [
+                {"id": 1, "name": "qwen/qwen3-coder:free", "provider": "openrouter"},
+                {"id": 2, "name": "huihui_ai/qwen2.5-abliterate:7b", "provider": "ollama"},
+            ]
+
+        async def adapter_for(self, mid: int):
+            if mid == 1:
+                return _FakeAdapter(), {"id": 1, "name": "qwen/qwen3-coder:free"}
+            return _FakeAdapter(), {"id": 2, "name": "huihui_ai/qwen2.5-abliterate:7b"}
+
+    fake_svc = type("S", (), {"registry": _FakeRegistry()})()
+    res = await pca.call_local_qwen("Проверка", "Система", svc=fake_svc, local_only=True)
+    assert res["ok"] is True
+    assert res["model"] == "huihui_ai/qwen2.5-abliterate:7b"
+    assert res["local_only"] is True
+    assert "qwen/qwen3-coder:free" not in called_models
+
+
+# ------------------------------------------------------------------ 6. Аудит-блокеры PC-Agent: реальный FastAPI create_app + EventBus, /untrust (minutes=0), defense-in-depth, /stop при долгом approve, честный VERIFIED, /boost и Fresh Vibes
+
+@pytest.mark.asyncio
+async def test_real_fastapi_create_app_startup_auth_and_eventbus_stop(tmp_path: Path):
+    """Реальный тест старта FastAPI `create_app` (с настоящим `EventBus.subscribe()`), авторизации Bearer,
+    `/untrust` (`minutes=0`) даже при активном STOP, и остановки по событию `control.stop` из шины."""
+    import httpx
+    from bcc.app import create_app
+    from bcc.config import Settings as BccSettings
+    import bcc.features.pc_agent as pca
+
+    app = create_app(BccSettings(data_dir=tmp_path / "bcc_data"))
+    async with app.router.lifespan_context(app):
+        svc = app.state.svc
+        rt = pca.get_runtime(svc)
+        assert rt._bus_listener_task is not None and not rt._bus_listener_task.done()
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8801") as client:
+            # Без токена — 401
+            r_unauth = await client.get("/api/pc-agent/status")
+            assert r_unauth.status_code == 401
+
+            from bcc.auth import HEADER
+            headers = {HEADER: svc.auth.token}
+            r_status = await client.get("/api/pc-agent/status", headers=headers)
+            assert r_status.status_code == 200
+            assert r_status.json()["profile"] == "Argon"
+
+            # Включаем окно доверия на 15 минут
+            r_trust_on = await client.post("/api/pc-agent/trust", json={"minutes": 15}, headers=headers)
+            assert r_trust_on.status_code == 200
+            assert r_trust_on.json()["trust_active"] is True
+
+            # Сброс доверия через minutes=0 (/untrust) обязан выключать доверие, а не превращать 0 в 15
+            r_trust_zero = await client.post("/api/pc-agent/trust", json={"minutes": 0}, headers=headers)
+            assert r_trust_zero.status_code == 200
+            assert r_trust_zero.json()["trust_active"] is False
+
+            # Даже если включён STOP, minutes=0 (/untrust) обязан отрабатывать 200 (а включение minutes=15 при STOP -> 409)
+            rt.enable_trust(15, "owner")
+            rt.stop_event.set()
+            r_trust_blocked = await client.post("/api/pc-agent/trust", json={"minutes": 15}, headers=headers)
+            assert r_trust_blocked.status_code == 409
+            r_untrust_while_stopped = await client.post("/api/pc-agent/trust", json={"minutes": 0}, headers=headers)
+            assert r_untrust_while_stopped.status_code == 200
+            assert r_untrust_while_stopped.json()["trust_active"] is False
+
+            # Снимаем STOP и проверяем, что событие control.stop в настоящем EventBus мгновенно включает STOP в PC-Agent
+            await client.post("/api/pc-agent/resume", json={"actor": "owner"}, headers=headers)
+            assert rt.is_stopped(svc) is False
+            rt.enable_trust(10, "owner")
+            await svc.bus.emit("control.stop", by="bus-test", reason="global_stop")
+            await asyncio.sleep(0.15)
+            assert rt.is_stopped(svc) is True
+            assert rt.trust_active(svc) is False
+
+
+@pytest.mark.asyncio
+async def test_execute_pc_step_defense_in_depth_and_path_cmd_bypasses(fake_svc: FakeSvc, tmp_path: Path):
+    """Повторная проверка политики внутри `execute_pc_step` (defense-in-depth) + защита от обходов путей
+    (NTFS ADS `:$DATA`, завершающие точки, `\\\\?\\`, симлинки) и опасных команд (`powercfg`, `bcdedit`, `whoami /priv`, `cmd /c ... & ...`)."""
+    import bcc.features.pc_agent as pca
+    rt = pca.get_runtime(fake_svc)
+
+    # 1. Прямой вызов execute_pc_step с T3-действием без оркестратора обязан блокироваться внутри execute_pc_step
+    direct_t3 = await execute_pc_step(
+        fake_svc,
+        rt,
+        task_id=999,
+        run_id=999,
+        step_idx=0,
+        tool="pc.read_file",
+        args={"path": "C:/Users/asd/.bossman/vault.key"},
+    )
+    assert direct_t3["ok"] is False
+    assert direct_t3["verified"] is False
+    assert direct_t3["tier"] == "T3" and direct_t3["decision"] == "deny"
+
+    # 2. Прямой вызов execute_pc_step с неодобренным T2-действием (`approved_by_owner=False`) обязан отклоняться
+    direct_t2 = await execute_pc_step(
+        fake_svc,
+        rt,
+        task_id=999,
+        run_id=999,
+        step_idx=0,
+        tool="pc.kill_process",
+        args={"name": "notepad.exe"},
+        approved_by_owner=False,
+    )
+    assert direct_t2["ok"] is False
+    assert direct_t2["verified"] is False
+    assert direct_t2["tier"] == "T2"
+
+    # 3. Защита путей от NTFS ADS (:$DATA), завершающих точек и префикса \\?\
+    for trick_path in (
+        "C:/Users/asd/.bossman/vault.key:$DATA",
+        "C:/Users/asd/.bossman/credentials.enc...",
+        r"\\?\C:\Users\asd\.bossman\api-token",
+        "docs/constitution/constitution.sha256::$DATA",
+    ):
+        v = classify_pc_action("pc.read_file", {"path": trick_path}, trust_active=True)
+        assert v.tier == "T3" and v.decision == "deny", f"Bypass not blocked: {trick_path} -> {v}"
+
+    # 4. Защита опасных команд и цепочек в аргументах
+    for argv_case, expected_tiers in (
+        (["powercfg", "/hibernate", "off"], ("T2", "T3")),
+        (["bcdedit", "/set", "testsigning", "on"], ("T3",)),
+        (["whoami", "/priv"], ("T2", "T3")),
+        (["cmd", "/c", "dir & calc.exe"], ("T2", "T3")),
+    ):
+        v_cmd = classify_pc_action("pc.run_command", {"argv": argv_case}, trust_active=False)
+        assert v_cmd.tier in expected_tiers and v_cmd.decision in ("ask", "deny"), f"Unsafe command allowed as {v_cmd}: {argv_case}"
+
+
+@pytest.mark.asyncio
+async def test_no_false_verified_and_nonblocking_stop_during_approval(fake_svc: FakeSvc, tmp_path: Path):
+    """Запрет ложного `VERIFIED` при отсутствии окна/проверки и неблокирующий `/stop` во время долгого исполнения после одобрения T2."""
+    import bcc.features.pc_agent as pca
+    rt = pca.get_runtime(fake_svc)
+
+    # 1. Действие над несуществующим окном не должно получать verified=True
+    win_res = await execute_pc_step(
+        fake_svc,
+        rt,
+        task_id=501,
+        run_id=501,
+        step_idx=0,
+        tool="pc.window_act",
+        args={"action": "focus", "title": "NonExistentWindow_999888777"},
+    )
+    assert win_res["verified"] is False
+
+    # 2. Долгая команда T2: после нажатия Разрешить (wait=False) управление возвращается немедленно, и /stop убивает процесс
+    rec = await start_pc_task(
+        fake_svc,
+        'выполни в терминале python -c "import time; time.sleep(30)"',
+        actor="owner",
+        wait=True,
+        use_local_llm_summary=False,
+    )
+    assert rec["status"] == "waiting_approval"
+    aid = rec["pending_approval"]["approval_id"]
+    await fake_svc.approvals.decide(aid, True, "owner")
+
+    t0 = asyncio.get_running_loop().time()
+    resumed = await resume_after_approval(fake_svc, aid, approve=True, actor="owner", wait=False)
+    elapsed = asyncio.get_running_loop().time() - t0
+    assert elapsed < 2.0, f"resume_after_approval(wait=False) blocked for {elapsed:.2f}s"
+    assert resumed is not None
+
+    await asyncio.sleep(0.4)
+    stop_res = await rt.trigger_stop(fake_svc, actor="owner", reason="stop_during_long_approve")
+    assert stop_res["stopped"] is True
+    assert len(rt.active_procs) == 0
+
+
+@pytest.mark.asyncio
+async def test_local_self_improvement_boost_cycle_and_rollback(fake_svc: FakeSvc, tmp_path: Path):
+    """100% локальный цикл самоулучшения `/boost`:
+    1) план с критериями готовности (local_only, cloud_calls=0, external_big_brothers=[]),
+    2) проверка фактом (4/4 tree_holdout = 98/98 + песочница),
+    3) диагностика -> ремонт -> перепроверка (<= 3 попыток),
+    4) автоматический откат к бэкапу при неисправимом сбое."""
+    owner = Person(777001, 777001, "owner", 1)
+    settings = Settings(
+        (owner,),
+        local_url="http://127.0.0.1:8083/v1",
+        local_model="best",
+        core_url="http://127.0.0.1:8801",
+        bot_token="123456:TEST_TOKEN",
+        pc_control=True,
+    )
+    store = Store(tmp_path)
+
+    class FakeTelegram:
+        async def send(self, person, text, keyboard=None):
+            return None
+
+        async def send_photo(self, person, data, caption=""):
+            return None
+
+    comp = Companion(settings, store, FakeTelegram(), FakeCoreForCompanion(fake_svc), SimpleNamespace())
+    owner_msg = {"chat": {"id": 777001, "type": "private"}, "from": {"id": 777001, "is_bot": False}, "text": "/boost"}
+
+    boost_reply = await comp.pc_agent_command(owner, "/boost", "", owner_msg)
+    assert "Цикл локального самоулучшения Bossman" in str(boost_reply)
+    assert "98/98" in str(boost_reply)
+    assert "cloud_calls=0" in str(boost_reply)
+
+    import bcc.features.pc_agent as pca
+    rt = pca.get_runtime(fake_svc)
+    last_tid = max(int(p.stem.removeprefix("task-")) for p in rt.tasks_dir.glob("task-*.json"))
+    step_res = rt.load_task_record(last_tid)["step_results"][0]
+    assert step_res["verified"] is True
+    assert step_res["stack_mode"] == "local_only"
+    assert step_res["external_big_brothers_used"] is False
+    assert step_res["background_loops_spawned"] is False
+    assert step_res["cloud_calls"] == 0
+    assert 1 <= step_res["repair_attempts_used"] <= 3
+    assert step_res["rolled_back"] is False
+
+    # Сценарий неисправимой ошибки: ровно 3 попытки и автоматический откат файла к рабочей версии
+    unfixable_rec = await start_pc_task(
+        fake_svc,
+        "earn boost simulate_unfixable",
+        actor="owner",
+        plan_override=[{"tool": "pc.earn", "args": {"action": "boost", "simulate_unfixable": True}}],
+        wait=True,
+        use_local_llm_summary=False,
+    )
+    u_step = unfixable_rec["step_results"][0]
+    assert u_step["repair_attempts_used"] == 3
+    assert u_step["rolled_back"] is True
+    assert "math.isfinite" in Path(u_step["drill_path"]).read_text(encoding="utf-8")
+
+
+@pytest.mark.asyncio
+async def test_fresh_vibes_14d_instagram_hypothesis_and_owner_publish_gate(fake_svc: FakeSvc, tmp_path: Path):
+    """Проверка личной гипотезы владельца Fresh Vibes (14-дневный тест Instagram Direct):
+    - Вечерний отчёт одной строкой: `день N, постов M, запросов всего K`
+    - Метрика: ≥5 запросов в Direct за 14 дней → CONFIRMED_SCALE; 0–1 запрос за 14 дней → KILLED
+    - Правила: только реальные фото из GitHub, без AI-лиц и выдуманных цен
+    - Внешняя публикация требует явной кнопки подтверждения владельца (T2 `always_owner_button=True`)."""
+    from bcc.earning_emulator import (
+        FRESH_VIBES_HYPOTHESIS,
+        evaluate_fresh_vibes_test,
+        fresh_vibes_evening_line,
+        weekly_monetization_report,
+    )
+
+    assert FRESH_VIBES_HYPOTHESIS["duration_days"] == 14
+    assert FRESH_VIBES_HYPOTHESIS["scale_threshold"] == 5
+    assert FRESH_VIBES_HYPOTHESIS["kill_threshold_max"] == 1
+    assert fresh_vibes_evening_line(3, 3, 2) == "день 3, постов 3, запросов всего 2"
+
+    # 1. Идёт тест (день 4, 2 запроса)
+    ev_prog = evaluate_fresh_vibes_test(4, 4, 2, stories=8)
+    assert ev_prog["decision"] == "IN_PROGRESS"
+    assert ev_prog["evening_line"] == "день 4, постов 4, запросов всего 2"
+    assert ev_prog["likes_and_reach_ignored"] is True
+
+    # 2. ≥5 запросов за 14 дней -> гипотеза подтверждена, масштабируй
+    ev_scale = evaluate_fresh_vibes_test(10, 10, 5, stories=20)
+    assert ev_scale["decision"] == "CONFIRMED_SCALE"
+
+    # 3. 0–1 запрос за 14 дней -> гипотеза убита, канал не зарабатывает
+    ev_kill = evaluate_fresh_vibes_test(14, 14, 1, stories=28)
+    assert ev_kill["decision"] == "KILLED"
+    rep_killed = weekly_monetization_report([], fresh_vibes_state={"day": 14, "posts": 14, "direct_requests": 0})
+    assert any("Fresh Vibes" in k and "УБИТА" in k for k in rep_killed["killed"])
+
+    # 4. Нарушение правил (AI-лица или выдуманные цены) -> RULE_VIOLATION
+    ev_ai = evaluate_fresh_vibes_test(2, 2, 0, has_ai_faces=True)
+    assert ev_ai["decision"] == "RULE_VIOLATION"
+    ev_price = evaluate_fresh_vibes_test(2, 2, 0, has_invented_prices=True)
+    assert ev_price["decision"] == "RULE_VIOLATION"
+
+    # 5. Вызов через пульт /fresh_vibes обновляет трекер, возвращает вечернюю строку и НЕ публикует без кнопки
+    owner = Person(777001, 777001, "owner", 1)
+    settings = Settings(
+        (owner,),
+        local_url="http://127.0.0.1:8083/v1",
+        local_model="best",
+        core_url="http://127.0.0.1:8801",
+        bot_token="123456:TEST_TOKEN",
+        pc_control=True,
+    )
+    store = Store(tmp_path)
+
+    class FakeTelegram:
+        async def send(self, person, text, keyboard=None):
+            return None
+
+        async def send_photo(self, person, data, caption=""):
+            return None
+
+    comp = Companion(settings, store, FakeTelegram(), FakeCoreForCompanion(fake_svc), SimpleNamespace())
+    owner_msg = {"chat": {"id": 777001, "type": "private"}, "from": {"id": 777001, "is_bot": False}, "text": "/fresh_vibes"}
+
+    fv_reply = await comp.pc_agent_command(owner, "/fresh_vibes", "день 5 постов 5 сторис 10 запросов 3", owner_msg)
+    assert "день 5, постов 5, запросов всего 3" in str(fv_reply)
+    assert "Запись в Direct" in str(fv_reply)
+    assert "НЕ ОТПРАВЛЕНО" in str(fv_reply)
+
+    # 6. Запрос внешней публикации в Instagram обязан требовать одноразовой кнопки владельца (T2 waiting_approval)
+    pub_reply = await comp.pc_agent_command(owner, "/fresh_vibes", "опубликуй пост день 5", owner_msg)
+    assert "ждёт вашего решения" in str(pub_reply)
+    assert "fresh_vibes_publish" in str(pub_reply)
+

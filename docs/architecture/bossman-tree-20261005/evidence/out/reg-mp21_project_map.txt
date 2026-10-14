@@ -1,0 +1,12 @@
+$ (cwd=.) python tools/mp21_project_map.py
+sha: 34324346a579190214d4c7a656e6d316093abf26
+
+| tool | `windows_bundle_notices` | 613 | 1 | 0 | 0 | 0 | 2026-10-12 | partial (tests mention the name; not executed here) |
+| tool | `worker_client` | 228 | 2 | 1 | 0 | 0 | 2026-09-25 | partial (tests mention the name; not executed here) |
+| tool | `workflow_filters` | 113 | 2 | 2 | 0 | 0 | 2026-09-19 | partial (tests mention the name; not executed here) |
+| tool | `youtube_trader_ingest` | 572 | 4 | 5 | 0 | 0 | 2026-10-08 | partial (tests mention the name; not executed here) |
+| tool | `youtube_trader_ingest_asr` | 71 | 0 | 2 | 0 | 0 | 2026-09-28 | partial (code only, no test reference) |
+| tool | `youtube_trader_ingest_auto` | 164 | 3 | 6 | 0 | 0 | 2026-09-29 | partial (tests mention the name; not executed here) |
+| tool | `youtube_trader_ingest_batch` | 133 | 1 | 3 | 0 | 0 | 2026-09-25 | partial (tests mention the name; not executed here) |
+| tool | `youtube_trader_ingest_claims` | 549 | 2 | 2 | 0 | 0 | 2026-09-29 | partial (tests mention the name; not executed here) |
+exit_code: 0

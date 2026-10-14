@@ -1,5 +1,10 @@
 # AGENTS.md — Mandatory context for AI contributors
 
+**READ FIRST (owner sync 2026-10-14):** `docs/owner/ARGON_SYNC_20261014_RU.md` — current branch/SHA map, owner limits that
+must not change (constitution v2 + pin, merge into `main` only by the owner's button, Stars paused, no RunPod, keys never
+pushed), what is proven vs not proven for stage 2.2, how the live system is started, and the pult acceptance steps.
+Branch `feat/pc-agent-20261013` is based on `b046b3b3` and lacks `cd71cddc`; merge `origin/main` normally before promotion.
+
 Before making product, release, training, memory, model-routing or self-improvement decisions, read:
 
 - `BOSSMAN_1_5_START_HERE.md` and `docs/v1.5/README.md` — owner-authorized 1.5 specification and today's convergence handoff, 2026-09-23; documentation is not activation or certification;

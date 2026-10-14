@@ -1,0 +1,6 @@
+$ python -m pytest -q -p no:cacheprovider command-center/tests/test_local_only_switch.py
+sha: 34324346a579190214d4c7a656e6d316093abf26
+
+..........                                                               [100%]
+10 passed in 0.19s
+exit_code: 0

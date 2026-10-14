@@ -38,6 +38,16 @@ PC_AGENT_COMMANDS = {
     "/earn_arena",
     "/earn_exam",
     "/earn_coach",
+    "/weekly",
+    "/product",
+    "/roi",
+    "/poker",
+    "/studio_check",
+    "/self_repair",
+    "/boost",
+    "/fresh_vibes",
+    "/fv",
+    "/oss",
     "/trust",
     "/untrust",
     "/rollback",
@@ -63,7 +73,7 @@ _PC_NATURAL_RE = re.compile(
     r"((?:покажи\s+окна|какие\s+окна\s+открыты|список\s+окон|переключись\s+на\s+окно|сфокусируй\s+окно|закрой\s+окно|сверни\s+окно|разверни\s+окно)\b.*)|"
     r"((?:проверь\s+служб[уы]|покажи\s+службы|список\s+служб|запусти\s+службу|останови\s+службу)\b.*)|"
     r"((?:сколько\s+места\s+на\s+диске|сколько\s+памяти|нагрузка\s+на\s+(?:пк|цп|систему)|состояние\s+железа)\b.*)|"
-    r"((?:боссман\s+заработок|bossman\s+earn|статус\s+заработка|выполни\s+коммерческий\s+заказ)\b.*)"
+    r"((?:боссман\s+заработок|bossman\s+earn|статус\s+заработка|еженедельный\s+отч[её]т|отч[её]т\s+по\s+монетизации|выполни\s+коммерческий\s+заказ|окупаемость\s+железа|готовый\s+продукт|покер\s+тренер|статус\s+киностудии|самоулучшение\s+боссмана|прокачай\s+боссмана|fresh\s+vibes|фреш\s+вайбс)\b.*)"
     r")$",
     re.IGNORECASE | re.DOTALL,
 )
@@ -134,16 +144,22 @@ class PCAgentBridgeMixin:
     def pc_agent_menu(self, person: Person):
         b = lambda label, cmd: self.button(person, label, cmd)  # noqa: E731
         return [
-            [b("⚙️ Процессы (/procs)", "/procs"),
-             b("🪟 Окна (/windows)", "/windows"),
-             b("🖥 Железо (/sys)", "/sys")],
-            [b("💰 Bossman Earn (/earn)", "/earn"),
-             b("📊 Paper Arena", "/earn_arena"),
+            [b("🚀 Продукт ($3200)", "/product"),
+             b("📊 Отчёт (/weekly)", "/weekly"),
+             b("💎 Окупаемость (/roi)", "/roi"),
+             b("🌿 Fresh Vibes", "/fresh_vibes")],
+            [b("💰 Earn (/earn)", "/earn"),
+             b("♠️ Покер (/poker)", "/poker"),
+             b("🎬 Киностудия", "/studio_check")],
+            [b("🧬 Boost (/boost)", "/boost"),
+             b("⚙️ Процессы (/procs)", "/procs"),
+             b("🪟 Окна (/windows)", "/windows")],
+            [b("🖥 Железо (/sys)", "/sys"),
+             b("🖌 Редактор (/edit_engine)", "/edit_engine"),
              b("🎓 K1m6a OCR", "/earn_exam")],
-            [b("📸 Экран и окна (T0)", "/argon покажи скриншот экрана и открытые окна"),
+            [b("🧩 Open-Source (/oss)", "/oss"),
+             b("📸 Экран и окна (T0)", "/argon покажи скриншот экрана и открытые окна"),
              b("🧩 Службы (/services)", "/services")],
-            [b("📝 Тест Блокнота (T1)", "/argon открой Блокнот и напиши «Argon PC-Agent проверено»"),
-             b("🌐 Тест Браузера (T1)", "/argon открой в браузере https://example.com")],
             [b("🔓 Доверие T2 на 15 мин", "/trust 15"),
              b("🔒 Снять доверие T2", "/untrust")],
             [b("📜 Журнал Argon", "/pc_audit 5"),
@@ -183,9 +199,16 @@ class PCAgentBridgeMixin:
                     rows.append(win_btns)
             elif step.get("tool") == "pc.earn":
                 rows.append([
+                    b("🌿 Fresh Vibes", "/fresh_vibes"),
+                    b("📊 Еженедельный отчёт", "/weekly"),
                     b("💼 Заказ (T1)", "/earn task"),
-                    b("📊 Арена", "/earn_arena"),
-                    b("🎓 K1m6a OCR", "/earn_exam"),
+                    b("💎 ROI $3200", "/roi"),
+                ])
+                rows.append([
+                    b("🚀 5 столпов", "/product"),
+                    b("♠️ Покер", "/poker"),
+                    b("🎬 Студия", "/studio_check"),
+                    b("🧬 Boost", "/boost"),
                 ])
         rows.append([
             b("📜 Журнал", "/pc_audit 5"),
@@ -315,6 +338,24 @@ class PCAgentBridgeMixin:
             arg = "earn exam"
         elif command == "/earn_coach":
             arg = f"earn coach {arg}".strip()
+        elif command == "/weekly":
+            arg = "earn weekly"
+        elif command == "/product":
+            arg = "earn product"
+        elif command == "/roi":
+            arg = "earn roi"
+        elif command == "/poker":
+            arg = "earn poker"
+        elif command == "/studio_check":
+            arg = "earn studio"
+        elif command == "/self_repair":
+            arg = "earn self_improve"
+        elif command == "/boost":
+            arg = f"earn boost {arg}".strip() if arg else "earn boost"
+        elif command in {"/fresh_vibes", "/fv"}:
+            arg = f"earn fresh_vibes {arg}".strip() if arg else "earn fresh_vibes"
+        elif command == "/oss":
+            arg = "earn oss"
 
         # Команды /argon, /jarvis, /pc <задание> (и транслированные выше быстрые команды)
         if not arg:
@@ -433,6 +474,24 @@ class PCAgentBridgeMixin:
             self.store.close_gate(nonce, "decide_unknown")
             raise
         self.store.close_gate(nonce, "decided")
+        status_now = decided_rec.get("status")
+        if status_now == "waiting_approval":
+            return self._build_pc_approval_reply(person, decided_rec)
+        if status_now == "running":
+            job_key = f"pc_agent:{task_id}"
+            old_watch = self.agent_jobs.get(job_key)
+            if old_watch is None or old_watch.done():
+                watch_task = asyncio.create_task(
+                    self._watch_pc_agent_task(person, task_id),
+                    name=f"pc-agent-watch-{task_id}",
+                )
+                self.agent_jobs[job_key] = watch_task
+                watch_task.add_done_callback(lambda _f, k=job_key: self.agent_jobs.pop(k, None))
+            return Reply(
+                f"⚙️ Подтверждение #{aid} принято. Задача #{task_id} выполняется в фоне (можно прервать кнопкой СТОП).",
+                [[self.button(person, "📋 Статус", f"/pc_status {task_id}"),
+                  self.button(person, "⛔ СТОП", "/stop")]],
+            )
         await self._maybe_send_pc_screenshot(person, decided_rec)
         return Reply(
             format_pc_task_report(decided_rec),

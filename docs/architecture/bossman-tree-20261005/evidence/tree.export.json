@@ -5424,7 +5424,7 @@
    "id": "pv-pipeline",
    "label": "Конвейер: кадр → поля → сверка → история",
    "parent": "pv",
-   "status": "code",
+   "status": "reported",
    "short": "Адаптер Poker Train (якорь по картам героя, масштаб/DPI), валидаторы, временная сверка, границы раздач без склейки, события и PHH. Код есть; метрики холдаута — "
   },
   {
@@ -5438,14 +5438,14 @@
    "id": "pv-act",
    "label": "Автоматические действия: только свой тренажёр",
    "parent": "pv",
-   "status": "code",
-   "short": "Клики через loopback-Playwright, гейты (STOP, устаревший/замёрзший кадр, pending-изменение, ход героя, проверка смены состояния). Во внешнем клиенте запрещено."
+   "status": "reported",
+   "short": "Клики через loopback-Playwright, гейты (STOP, устаревший/замёрзший кадр, pending-изменение, ход героя, проверка смены состояния). Во внешнем клиенте запрещено. "
   },
   {
    "id": "pv-eval",
    "label": "Оценка: сплиты, baseline→after, p50/p95",
    "parent": "pv",
-   "status": "code",
+   "status": "reported",
    "short": "Сплиты по сессиям без пересечения раздач, новые темы/раскладки отдельно, naive-baseline на тех же кадрах, PokerKit-оракул, стратегии с CI, генерик-OCR. Отчёт: a"
   },
   {
@@ -5473,15 +5473,15 @@
    "id": "pv-executor",
    "label": "EXECUTOR: проверки → клик → подтверждение (только свой тренажёр)",
    "parent": "pv",
-   "status": "code",
+   "status": "reported",
    "short": "Роли Vision→Policy→Locator→Executor→Verifier. Прогон в песочнице без денег: 0 ошибочных кликов в сценариях сравнения. Не проверено: реальные окна Windows, Compu"
   },
   {
    "id": "pv-source-panel",
    "label": "Панель источника: выбор окна с превью, живой поток, overlay",
    "parent": "pv",
-   "status": "code",
-   "short": "Выбор источника, MJPEG-поток, overlay карт/чисел/кнопок с confidence, режимы, пауза, смена источника, STOP. Захват реальных окон Windows — NOT_RUN."
+   "status": "reported",
+   "short": "Выбор источника, MJPEG-поток, overlay карт/чисел/кнопок с confidence, режимы, пауза, смена источника, STOP. Захват реальных окон Windows — NOT_RUN. Прогон 2026-"
   },
   {
    "id": "pv-candidates",
@@ -5704,7 +5704,7 @@
    "id": "reg-motion_make_video",
    "label": "Motion Studio: сцена в видео (озвучка, музыка)",
    "parent": "media",
-   "status": "code",
+   "status": "reported",
    "short": "Scene spec -> finished video: voice-over, original score, deterministic frames, MP4. python tools/motion_studio/make_video.py SPEC.json --work DIR [--tts-models"
   },
   {
@@ -6201,42 +6201,42 @@
    "id": "reg-local_only_switch",
    "label": "Локальный режим: BOSSMAN_LOCAL_ONLY закрывает выход к облачным провайдерам",
    "parent": "models",
-   "status": "code",
-   "short": "Request-scoped privacy carried through threads/async tasks and provider fallbacks. Код есть; польза и живая работа не доказаны."
+   "status": "reported",
+   "short": "Request-scoped privacy carried through threads/async tasks and provider fallbacks. Код есть; польза и живая работа не доказаны. Прогон 2026-10-14 @ 34324346: py"
   },
   {
    "id": "reg-offline_smoke_local_only",
    "label": "Офлайн-смоук: облако отказано, локальная модель отвечает, внешних соединений 0",
    "parent": "models",
-   "status": "code",
+   "status": "reported",
    "short": "Offline / local-only smoke (MP21-A). No network: any non-loopback connect raises. Run: BOSSMAN_LOCAL_ONLY=1 python tools/offline_smoke_local_only.py Checks: (1)"
   },
   {
    "id": "reg-mp21_project_map",
    "label": "Карта проекта: модули, UI-страницы и инструменты против тестов, документов и листьев дерева",
    "parent": "ops",
-   "status": "code",
+   "status": "reported",
    "short": "MP21-A project-map generator: module inventory vs tests / docs / TODO / tree leaves. Static analysis only (reads files, one `git log`); runs no tests. Statuses "
   },
   {
    "id": "reg-vibe_studio_service",
    "label": "Vibe Studio: очередь задач, STOP, возобновление и версии",
    "parent": "apps",
-   "status": "code",
+   "status": "reported",
    "short": "Vibe Studio job service: queue, STOP, cancel, resume, versions, promotion. One job at a time (FIFO). The worker task exists only while there is work: it starts "
   },
   {
    "id": "reg-jeff_browser_search",
    "label": "Jeff: необязательный браузерный поиск (по умолчанию выключен)",
    "parent": "jeff",
-   "status": "code",
+   "status": "reported",
    "short": "Jeff browser SEARCH fallback: a read-only, allowlisted, transparent browser behind an OFF-by-default flag. What it is: when the normal search path (the configur"
   },
   {
    "id": "reg-dataset_check_faces",
    "label": "Проверка датасета лиц на CPU перед обучением (без загрузки наружу)",
    "parent": "media",
-   "status": "code",
+   "status": "reported",
    "short": "Dataset check for face-model training data (CPU only, no uploads, no GPU). Owner instruction (11.10.2026): \"как обучение зайдёт, надо проверять новые данные\" ->"
   },
   {

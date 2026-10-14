@@ -1062,9 +1062,35 @@ def list_items(client: Client, what: str, *, limit: int = 20) -> list[dict]:
                  "reason": sanitize((c.get("grant") or {}).get("reason"))[:120] or None}
                 for c in caps.get("capabilities") or []]
     if what == "tasks":
-        rows = client.get("/api/tasks", params={"limit": limit}) or []
+        target = max(0, int(limit))
+        rows: list[dict] = []
+        seen_ids: set[Any] = set()
+        before_id: Any = None
+        while len(rows) < target:
+            page_limit = min(500, target - len(rows))
+            params: dict[str, Any] = {"limit": page_limit}
+            if before_id is not None:
+                params["before_id"] = before_id
+            batch = client.get("/api/tasks", params=params) or []
+            if not batch:
+                break
+            added = 0
+            for t in batch:
+                tid = t.get("id")
+                if tid is not None and tid in seen_ids:
+                    continue
+                if tid is not None:
+                    seen_ids.add(tid)
+                rows.append(t)
+                added += 1
+                if len(rows) >= target:
+                    break
+            last_id = batch[-1].get("id") if isinstance(batch[-1], dict) else None
+            if added == 0 or last_id is None or last_id == before_id or len(batch) < page_limit:
+                break
+            before_id = last_id
         return [{"id": t.get("id"), "status": t.get("status"), "task_state": state_of(t.get("status")),
-                 "title": sanitize(t.get("title"))[:100]} for t in rows]
+                 "title": sanitize(t.get("title"))[:100]} for t in rows[:target]]
     if what == "approvals":
         rows = client.get("/api/approvals", params={"status": "pending"}) or []
         return [{"id": a.get("id"), "task_id": a.get("task_id"), "kind": a.get("kind"),

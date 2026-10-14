@@ -511,7 +511,9 @@
           "integer": true
         }
       },
-      "roles": {},
+      "roles": {
+        "start": 1
+      },
       "source": "command-center/bcc/studio/providers/sdcpp.py; leejet/Z-Image-Turbo-GGUF@c61c0e42",
       "deadline_seconds": 900,
       "license": "Apache-2.0 (Tongyi-MAI/Z-Image-Turbo)",

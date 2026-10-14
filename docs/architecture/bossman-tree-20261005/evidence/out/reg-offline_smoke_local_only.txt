@@ -1,0 +1,12 @@
+$ (cwd=.) python tools/offline_smoke_local_only.py
+sha: 34324346a579190214d4c7a656e6d316093abf26
+
+ "local_chat": {
+  "model": "ace-decider-08b:latest",
+  "ok": true,
+  "sec": 3.18
+ },
+ "external_connects_blocked": [],
+ "verdict": "PASS"
+}
+exit_code: 0

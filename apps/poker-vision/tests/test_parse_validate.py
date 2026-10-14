@@ -67,3 +67,26 @@ def test_transitions():
     changed = state(3, board=("Qs", "8c", "2d", "9h"))
     assert "BOARD_CARD_CHANGED" in {i["code"] for i in check_transition(turn, changed)}
     assert "HERO_CARDS_CHANGED" in {i["code"] for i in check_transition(state(1), state(2, hero=("2c", "3d")))}
+
+
+def test_showdown_duplicate_card_demoted_without_touching_valid_hero_or_board():
+    st = state(1, hero=("As", "Kd"), board=("Qs", "7c", "2d"))
+    st.showdown = [
+        {"slot": 2, "cards": ["As", "Jh"], "ranks": ["A", "Q"], "award": 100},
+        {"slot": 3, "cards": ["Jh", "9c"], "ranks": ["J", "9"], "award": None},
+    ]
+    validate_state(st)
+    assert any(i["code"] == "SHOWDOWN_DUPLICATE_CARD" for i in st.issues)
+    # Hero and board stay valid; only conflicting showdown cards are demoted to None
+    assert st.hero_cards[0].known and st.hero_cards[0].value == "As"
+    assert st.showdown[0]["cards"] == [None, "Jh"]
+    assert st.showdown[0]["ranks"] == [None, "J"]  # rank aligned with card[1][0]
+    assert st.showdown[1]["cards"] == [None, "9c"]
+
+
+def test_explain_covers_newer_adapter_reasons():
+    from pokervision.service import explain
+    for code in ("no_width_corner_book", "rank_not_calibrated", "suit_not_calibrated", "digit_template_miss", "action_buttons_closed"):
+        msg = explain(code)
+        assert msg and msg != code
+

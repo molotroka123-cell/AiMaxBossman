@@ -1,8 +1,8 @@
 # Evidence summary
 
-Статусы дерева: blocked=13, branch=31, code=24, idea=24, mixed=16, prepared=24, recorded=172, reported=97, retired=8, working=492
+Статусы дерева: blocked=13, branch=31, code=12, idea=24, mixed=16, prepared=24, recorded=172, reported=109, retired=8, working=492
 
-Принято расписок: 0; отклонено: 1214
+Принято расписок: 0; отклонено: 1226
 
 ## По зонам
 
@@ -54,6 +54,18 @@
 - `mod-rave` (agcloud.json): status working not eligible
 - `cap-22` (agcloud.json): status working not eligible
 - `mod-openrouter` (agcloud.json): status working not eligible
+- `pv-pipeline` (argon-product-20261013.json): status reported not eligible
+- `pv-act` (argon-product-20261013.json): status reported not eligible
+- `pv-eval` (argon-product-20261013.json): status reported not eligible
+- `pv-executor` (argon-product-20261013.json): status reported not eligible
+- `pv-source-panel` (argon-product-20261013.json): status reported not eligible
+- `reg-motion_make_video` (argon-product-20261013.json): status reported not eligible
+- `reg-local_only_switch` (argon-product-20261013.json): status reported not eligible
+- `reg-jeff_browser_search` (argon-product-20261013.json): status reported not eligible
+- `reg-dataset_check_faces` (argon-product-20261013.json): status reported not eligible
+- `reg-offline_smoke_local_only` (argon-product-20261013.json): status reported not eligible
+- `reg-mp21_project_map` (argon-product-20261013.json): status reported not eligible
+- `reg-vibe_studio_service` (argon-product-20261013.json): status reported not eligible
 - `None` (dedupe-20261010-report.json): unreadable lane file
 - `skill-38` (dedupe-20261010.json): status retired not eligible
 - `skill-23` (dedupe-20261010.json): status retired not eligible
@@ -267,7 +279,7 @@
 - `reg-web_designer_ai_build` (mediaux.json): status working not eligible
 - `reg-ai3d_pipeline` (mediaux.json): status working not eligible
 - `reg-social_farm_media` (mediaux.json): status working not eligible
-- `reg-motion_make_video` (mediaux.json): verdict not PASS
+- `reg-motion_make_video` (mediaux.json): status reported not eligible
 - `reg-ai3d_gcode` (mediaux.json): status working not eligible
 - `reg-motion_epic` (mediaux.json): status reported not eligible
 - `reg-genjutsu_tool` (mediaux.json): status reported not eligible
@@ -337,11 +349,11 @@
 - `module-e4cfe203dd2c` (memapps.json): status working not eligible
 - `module-2911cc4fe8e0` (memapps.json): status working not eligible
 - `module-7c2b27fd9ac6` (memapps.json): status working not eligible
-- `pv-pipeline` (memapps.json): verdict not PASS
-- `pv-act` (memapps.json): verdict not PASS
-- `pv-eval` (memapps.json): verdict not PASS
+- `pv-pipeline` (memapps.json): status reported not eligible
+- `pv-act` (memapps.json): status reported not eligible
+- `pv-eval` (memapps.json): status reported not eligible
 - `pv-coach` (memapps.json): status working not eligible
-- `pv-executor` (memapps.json): verdict not PASS
+- `pv-executor` (memapps.json): status reported not eligible
 - `pv-lora-route` (memapps.json): status working not eligible
 - `reg-earning_emulator` (memapps.json): status working not eligible
 - `reg-earning_emulator_cli` (memapps.json): status reported not eligible

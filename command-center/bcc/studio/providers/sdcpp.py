@@ -95,6 +95,15 @@ REQUIRED_ROLES = {
     "sdcpp:qwen-image-2.1": ("diffusion", "vae", "llm", "llm_vision"),
     "sdcpp:qwen-image-edit-2509": ("diffusion", "vae", "llm", "llm_vision"),
 }
+Z_IMAGE_NSFW_V2_PROFILE = {
+    "id": "z_image_nsfw_v2",
+    "model_id": "sdcpp:z-image-turbo",
+    "repo": "lesliemore/z-image-turbo-nsfw-v2-GGUF",
+    "revision": "7567e753c45bdd16ea9c1c052af97c27a8a4a071",
+    "filename": "z-image-turbo-nsfw-v2-Q8_0.gguf",
+    "sha256": "e5924b423618390e72ba478997307fa1a7e8d85aaa755c6e2dd57bbeb6430034",
+    "bytes": 7224707264,
+}
 ALLOWED_INPUT_ROLES = frozenset({"start", "reference"})
 ALLOWED_INPUT_FORMATS = frozenset({"PNG", "JPEG"})
 MAX_INPUT_BYTES = 15 * 1024 * 1024          # consistent with dispatch.inputs_for
@@ -650,6 +659,8 @@ def _argv(cfg: dict, model_id: str, plane: GenerationPlane, settings: dict,
     else:
         argv += ["--diffusion-model", str(files["diffusion"]), "--vae", str(files["vae"]),
                  "--llm", str(files["text_encoder"]), "--cfg-scale", "1.0"]
+        if init is not None:
+            argv += ["-i", str(init), "--strength", "0.6"]
     argv += ["-p", plane.prompt, "-W", str(settings["width"]), "-H", str(settings["height"]),
              "--steps", str(settings["steps"]), "-s", str(settings["seed"]),
              "-o", str(out)]
@@ -1065,7 +1076,7 @@ class SdCppProvider:
                 if len(plane.media) > 3 or any(item.get("role") != "reference" for item in plane.media):
                     raise ValueError("media: Qwen accepts 1-3 reference images only")
                 ref_data = [await asyncio.to_thread(_decode_start_image, item) for item in plane.media]
-            elif not video:
+            elif not video and plane.model != "sdcpp:z-image-turbo":
                 raise ValueError("media: image model is text-to-image only")
             else:
                 if len(plane.media) != 1 or plane.media[0].get("role") != "start":

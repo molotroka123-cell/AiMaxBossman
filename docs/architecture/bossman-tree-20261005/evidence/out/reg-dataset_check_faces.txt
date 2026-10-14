@@ -1,0 +1,6 @@
+$ python -m pytest -q -p no:cacheprovider tests/test_dataset_check_faces.py
+sha: 34324346a579190214d4c7a656e6d316093abf26
+
+.............                                                            [100%]
+13 passed in 2.28s
+exit_code: 0

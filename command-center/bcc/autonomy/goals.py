@@ -11,6 +11,7 @@ invalidates both approvals.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import time
@@ -491,10 +492,20 @@ class GoalStore:
     # .......................................................... budget
     def charge(self, goal_id: str, *, agent_turns: int = 0, cost_usd: float = 0.0) -> dict:
         """Account usage; an exhausted budget (turns, cost or time) blocks the goal."""
+        if isinstance(cost_usd, bool):
+            raise GoalError(f"cost_usd must be a finite non-negative number, got {cost_usd!r}")
+        try:
+            cost_val = float(cost_usd)
+        except (TypeError, ValueError) as exc:
+            raise GoalError(f"cost_usd must be a finite non-negative number, got {cost_usd!r}") from exc
+        if not math.isfinite(cost_val) or cost_val < 0.0:
+            raise GoalError(f"cost_usd must be a finite non-negative number, got {cost_usd!r}")
+
         def fn(rec: dict) -> None:
             u = rec.setdefault("usage", {"agent_turns": 0, "cost_usd": 0.0})
             u["agent_turns"] = int(u.get("agent_turns", 0)) + int(agent_turns)
-            u["cost_usd"] = round(float(u.get("cost_usd", 0.0)) + float(cost_usd), 6)
+            prev_cost = float(u.get("cost_usd", 0.0))
+            u["cost_usd"] = round(prev_cost + cost_val, 6) if math.isfinite(prev_cost) else cost_val
             reason = self.budget_exceeded(rec)
             if reason and rec["state"] not in TERMINAL and rec["state"] != "BLOCKED":
                 self._move(rec, "BLOCKED", {"reason": f"budget exhausted: {reason}"})
@@ -518,7 +529,12 @@ class GoalStore:
         u = rec.get("usage") or {}
         if int(u.get("agent_turns", 0)) > int(b["max_agent_turns"]):
             return "agent turns"
-        if float(u.get("cost_usd", 0.0)) > float(b["max_cost_usd"]) + 1e-9:
+        try:
+            cost_val = float(u.get("cost_usd", 0.0))
+            max_cost = float(b["max_cost_usd"])
+        except (TypeError, ValueError):
+            return "cost"
+        if not math.isfinite(cost_val) or cost_val < 0.0 or not math.isfinite(max_cost) or cost_val > max_cost + 1e-9:
             return "cost"
         started = rec.get("started_ts")
         if started is None and rec.get("state") != "PROPOSED":

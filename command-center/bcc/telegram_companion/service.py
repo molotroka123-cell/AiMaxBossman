@@ -159,6 +159,7 @@ def failure_text(code: str) -> str:
         "REFINE_TIMEOUT": "Локальная Qwen не уложилась во время. Промпт не доработан, ничего не запущено — попробуйте ещё раз.",
         "REFINE_EMPTY": "Qwen вернула пустой или непонятный ответ. Промпт не доработан, ничего не запущено — нажмите «Переделать» или напишите идею иначе.",
         "REFINE_BUSY": "Qwen уже дорабатывает другой промпт — по одному за раз. Подождите несколько секунд.",
+        "EDIT_REFS_INCOMPATIBLE": "Движок Z-Image NSFW v2 (z_image_nsfw_v2 · sdcpp:z-image-turbo) принимает ровно 1 входной кадр (role=start) и не поддерживает сохранённые референсы (/ref 1, /ref 2). Переключитесь на /edit_engine qwen или выключите референсы (/refs off).",
     }
     return known.get(code, f"Действие не подтверждено: {code}. /status и /help помогут продолжить.")
 
@@ -691,8 +692,9 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
     async def generate(self, person: Person, prompt: str, surface: str = "image", length: str | None = None,
                        start_run: str | None = None, size: tuple[int, int] | None = None,
                        reference_runs: list[str] | None = None, return_run: bool = False,
-                       timings: dict | None = None) -> str | None:
-        """Local text->image / text->video (or photo->video with start_run) via Bossman Studio;
+                       timings: dict | None = None, *, model_override: str | None = None,
+                       profile_label: str | None = None) -> str | None:
+        """Local text->image / text->video (or photo->video / photo->image edit with start_run) via Bossman Studio;
         media is sent only after byte verification. ``timings`` (pult /vid, /pic) is filled with
         measured queue/generation seconds and the effective size/frames/steps."""
         s = self.settings
@@ -701,7 +703,7 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             raise CompanionError("IMAGE_GEN_DISABLED")
         if self.store.get("delegation_locked", False):
             raise CompanionError("MEDIA_STOPPED")
-        if person.role == "owner" and reference_runs is None and self.store.get("media_refs_active:" + person.key, False):
+        if person.role == "owner" and reference_runs is None and not start_run and self.store.get("media_refs_active:" + person.key, False):
             if video and not start_run:
                 # Video has one start frame, not a multi-reference identity interface.
                 image_run = await self.generate(person, prompt, return_run=True)
@@ -713,7 +715,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 prompt = ("Both reference images show the same consenting person (multiple views may be in each sheet). "
                           "Generate that person consistently, preserve face identity and body proportions. "
                           "Follow only this requested scene/edit: " + prompt[:1200])
-        model_id = ("sdcpp:qwen-image-edit-2509" if reference_runs else
+        model_id = (model_override if model_override else
+                    "sdcpp:qwen-image-edit-2509" if reference_runs else
                     VIDEO_MODEL if video else self.image_model_for(person))
         if self.store.get("delegation_locked", False):
             raise CompanionError("MEDIA_STOPPED")
@@ -759,13 +762,14 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             params["seed"] = seed
             engine_prompt = await self.english_prompt(prompt) if model_id in ENGLISH_ONLY_MODELS else prompt
             media = ([{"run_id": rid, "role": "reference"} for rid in reference_runs] if reference_runs else
-                     [{"run_id": start_run, "role": "start"}] if (video and start_run) else None)
+                     [{"run_id": start_run, "role": "start"}] if start_run else None)
             if self.store.get("delegation_locked", False):
                 raise CompanionError("MEDIA_STOPPED")
             job_id = await self.core.studio_create(model_id, engine_prompt[:2000], params, media)
             self.image_job["id"] = job_id
             created_at, running_at = time.monotonic(), None
-            status_text = (f"{what} локально ({IMAGE_MODELS.get(model_id, model_id)}, {size}). "
+            label = profile_label or IMAGE_MODELS.get(model_id, model_id)
+            status_text = (f"{what} локально ({label}, {size}). "
                            f"Обычно {eta}. /cancel — отменить.")
             status_keys, status_mid = [[self.button(person, "✖️ Отмена", "/cancel")]], None
             with contextlib.suppress(CompanionError):
@@ -805,7 +809,6 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             if hashlib.sha256(data).hexdigest() != run.get("sha256") or not ok_type:
                 raise CompanionError("IMAGE_BYTES_UNVERIFIED")
             elapsed = round(time.monotonic() - started)
-            label = IMAGE_MODELS.get(model_id, model_id)
             translated = f"\n(для модели по-английски: {engine_prompt[:300]})" if engine_prompt != prompt else ""
             caption = (f"{'🎬' if video else '🎨'} {prompt[:300]}{translated}\nМодель: {label} · seed {seed} · {elapsed} с · "
                        f"локально, Bossman Studio (проверено: sha256 совпал)")
@@ -893,6 +896,17 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             raise CompanionError("MEDIA_STOPPED")
         if self.image_job is not None:
             raise CompanionError("IMAGE_GEN_BUSY")
+        if self.edit_engine_for(person) == "uncensored":
+            b = lambda label, cmd: self.button(person, label, cmd)  # noqa: E731
+            return Reply(
+                "⚠️ Движок редактирования `z_image_nsfw_v2` (`sdcpp:z-image-turbo`) принимает ровно 1 входной "
+                "кадр (`role=\"start\"`, `--strength 0.6`) и НЕ поддерживает сохранённые референсы лица/тела "
+                "(`/ref 1`, `/ref 2`, `/refs on`).\n"
+                "Референсы не игнорируются молча — запуск остановлен. Переключите движок на Qwen "
+                "(`/edit_engine qwen`) для работы с референсами или отключите референсы (`/refs off`).",
+                [[b("🎨 На Qwen (/edit_engine qwen)", "/edit_engine qwen"),
+                  b("🧹 Выключить /refs off", "/refs off")]],
+            )
         refs = self.store.get("media_refs:" + person.key, {})
         if not isinstance(refs, dict) or not all(refs.get(k) for k in ("1", "2")):
             return "Сначала пришлите портрет с подписью /ref 1 и фото тела с подписью /ref 2. Затем новое фото с /edit и описанием."
@@ -1351,6 +1365,15 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             if not source.startswith(("tg:", "run:")):
                 return failure_text("ANIMATE_NO_SOURCE")
             return await self.animate(person, n, source, prompt)
+        if command == "/edit":
+            if person.role != "owner":
+                raise CompanionError("IMAGE_GEN_GUESTS_DISABLED")
+            refs = self.store.get("media_refs:" + person.key, {})
+            have_any = isinstance(refs, dict) and any(refs.get(k) for k in ("1", "2"))
+            refs_active = bool(self.store.get("media_refs_active:" + person.key, False))
+            if self.edit_engine_for(person) == "uncensored" and (refs_active or have_any):
+                return await self.edit_from_references(person, "", arg)
+            return "Пришлите фото с подписью /edit и опишите нужное изменение."
         if command == "/img":
             if not arg:
                 return "Напишите /img и что нарисовать, например: /img кот-астронавт в стиле акварели."

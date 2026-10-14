@@ -269,7 +269,11 @@ class Reconciler:
         for slot, d in self.v_seat.items():
             if d["present"].value:
                 cm.seats[slot] = {"stack": d["stack"].value, "bet": d["bet"].value}
-        cm.pending = [k for k, v in self.v.items() if v.pending and k != "hero_position"] +[f"hero[{i}]" for i, v in enumerate(self.v_hero) if v.pending]
+        cm.pending = (
+            [k for k, v in self.v.items() if v.pending and k != "hero_position"]
+            + [f"hero[{i}]" for i, v in enumerate(self.v_hero) if v.pending]
+            + [f"board[{i}]" for i, v in enumerate(self.v_board) if v.pending and i < len(cm.board)]
+        )
         cm.blocked = sorted(set(blocked))
         if cm.pending:
             cm.blocked.append("PENDING_CHANGE " + ",".join(cm.pending))

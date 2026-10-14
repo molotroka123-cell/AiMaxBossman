@@ -260,3 +260,68 @@ def test_deadline_scales_with_work_and_never_drops_below_the_catalog():
     hq = sdcpp.workload_scale({"width": 1280, "height": 704, "frames": 81, "steps": 50})
     assert 9.0 < hq < 9.5, hq
     assert sdcpp.workload_scale({"width": 1024, "height": 1024, "steps": 8}) == 1.0  # images: no frames
+
+
+async def test_z_image_turbo_accepts_one_start_frame_with_strength_and_keeps_t2i(env, engine):
+    """Проверка подключения Z-Image NSFW v2 (`sdcpp:z-image-turbo`) к редактированию 1 кадра `role="start"`:
+    - В каталоге `tools/studio_models.json` у `sdcpp:z-image-turbo` разрешён `"roles": {"start": 1}`.
+    - При наличии `role="start"` в `_argv()` передаются `["-i", str(init), "--strength", "0.6"]`.
+    - T2I без входного кадра (`media=[]`) работает как прежде без `-i` и `--strength`.
+    - Профиль `Z_IMAGE_NSFW_V2_PROFILE` фиксирует проверенный sha256, ревизию и размер."""
+    import io
+    from PIL import Image
+
+    assert sdcpp.Z_IMAGE_NSFW_V2_PROFILE["id"] == "z_image_nsfw_v2"
+    assert sdcpp.Z_IMAGE_NSFW_V2_PROFILE["revision"] == "7567e753c45bdd16ea9c1c052af97c27a8a4a071"
+    assert sdcpp.Z_IMAGE_NSFW_V2_PROFILE["sha256"] == "e5924b423618390e72ba478997307fa1a7e8d85aaa755c6e2dd57bbeb6430034"
+    assert sdcpp.Z_IMAGE_NSFW_V2_PROFILE["bytes"] == 7224707264
+
+    models = {m["id"]: m for m in (await env.client.get("/api/studio/models")).json()["items"]}
+    assert models["sdcpp:z-image-turbo"]["configured"] is True
+    assert models["sdcpp:z-image-turbo"]["roles"] == {"start": 1}
+    catalog_path = Path(__file__).resolve().parents[2] / "tools" / "studio_models.json"
+    cat_models = {m["id"]: m for m in json.loads(catalog_path.read_text(encoding="utf-8"))["models"]}
+    assert cat_models["sdcpp:z-image-turbo"]["roles"] == {"start": 1}
+
+    # 1. T2I без входного кадра: нет -i и нет --strength
+    jid_t2i = await _job(env, "sdcpp:z-image-turbo", width=256, height=256, steps=4, seed=11)
+    assert await process_one(env.svc) == jid_t2i
+    job_t2i = (await env.client.get(f"/api/studio/jobs/{jid_t2i}")).json()
+    assert job_t2i["status"] == "completed", job_t2i
+    runs_after_t2i = (await env.client.get("/api/studio/runs")).json()["items"]
+    argv_t2i = runs_after_t2i[0]["provenance"]["settings_resolved"]["engine_trace"]["generation"]["argv"]
+    assert "-i" not in argv_t2i and "--strength" not in argv_t2i
+
+    # 2. Редактирование с 1 входным кадром role="start": добавляются ["-i", str(init), "--strength", "0.6"]
+    import base64
+    buf = io.BytesIO()
+    Image.new("RGB", (256, 256), (40, 140, 220)).save(buf, format="PNG")
+    ref_resp = await env.client.post(
+        "/api/studio/references",
+        json={"filename": "input.png", "data_base64": base64.b64encode(buf.getvalue()).decode()},
+    )
+    assert ref_resp.status_code == 200, ref_resp.text
+    ref_run_id = ref_resp.json()["id"]
+
+    r_edit = await env.client.post(
+        "/api/studio/jobs",
+        json={
+            "model": "sdcpp:z-image-turbo",
+            "prompt": "добавь неоновый свет на фоне",
+            "settings": {"width": 256, "height": 256, "steps": 4, "seed": 22},
+            "media": [{"run_id": ref_run_id, "role": "start"}],
+        },
+    )
+    assert r_edit.status_code == 200, r_edit.text
+    jid_edit = r_edit.json()["id"]
+    assert await process_one(env.svc) == jid_edit
+    job_edit = (await env.client.get(f"/api/studio/jobs/{jid_edit}")).json()
+    assert job_edit["status"] == "completed", job_edit
+    runs_after_edit = (await env.client.get("/api/studio/runs")).json()["items"]
+    edit_run = next(r for r in runs_after_edit if r["job_id"] == jid_edit)
+    argv_edit = edit_run["provenance"]["settings_resolved"]["engine_trace"]["generation"]["argv"]
+    assert "-i" in argv_edit
+    assert "--strength" in argv_edit
+    strength_idx = argv_edit.index("--strength")
+    assert argv_edit[strength_idx + 1] == "0.6"
+

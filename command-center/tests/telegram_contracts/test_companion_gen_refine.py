@@ -802,3 +802,99 @@ def test_jev_vid_launches_through_the_same_flow_with_the_owners_own_text(tmp_pat
             await h.done()
             assert len(h.studio.created) == 1
     go(scenario())
+
+
+# ------------------------------------------------------------------ /edit_engine qwen|uncensored (z_image_nsfw_v2)
+def test_edit_engine_switch_owner_only_and_z_image_nsfw_v2_single_photo_edit(tmp_path):
+    """Переключатель `/edit_engine qwen|uncensored` (по умолчанию `qwen`, только владелец):
+    - В режиме `uncensored` используется профиль `z_image_nsfw_v2` (`sdcpp:z-image-turbo`, `role="start"`),
+      а обычные веса в `IMAGE_MODELS` не переименовываются.
+    - В `draft` и `speed_log` при постановке в очередь фиксируются `engine`, `revision` и `inputs`."""
+    async def scenario():
+        async with Harness(tmp_path, FakeOllama(['PROMPT: ' + EDIT_PROMPT, 'PROMPT: ' + EDIT_PROMPT]),
+                           studio=EditStudio(file_bytes=PNG)) as h:
+            # 1. Гостю команда /edit_engine недоступна
+            guest_out = await h.say('/edit_engine uncensored', person=GUEST)
+            assert 'только для владельца' in guest_out
+
+            # 2. По умолчанию выбран qwen
+            status_default = await h.say('/edit_engine')
+            assert isinstance(status_default, Reply)
+            assert 'Qwen-Image-Edit-2509' in status_default
+            assert '7567e753c45bdd16ea9c1c052af97c27a8a4a071' in status_default
+
+            # 3. Переключаем на uncensored (z_image_nsfw_v2)
+            switched = await h.say('/edit_engine uncensored')
+            assert isinstance(switched, Reply)
+            assert 'Z-Image NSFW v2' in switched
+            assert 'z_image_nsfw_v2' in switched
+            assert h.app.edit_engine_for(OWNER) == 'uncensored'
+
+            # 4. Обычная картинка в IMAGE_MODELS не переименована
+            from bcc.telegram_companion.service import IMAGE_MODELS
+            assert IMAGE_MODELS['sdcpp:z-image-turbo'] == 'Z-Image-Turbo'
+
+            # 5. Редактирование 1 фото через GenRefine в режиме uncensored идёт через sdcpp:z-image-turbo с role="start"
+            reply = await h.photo('/edit сделай фон закатом')
+            assert_launched(reply)
+            assert 'Z-Image NSFW v2' in reply and 'z_image_nsfw_v2' in reply
+            assert '7567e753c45bdd16ea9c1c052af97c27a8a4a071' in h.ollama.system(0)
+
+            draft = h.app.gen_draft(OWNER)
+            assert draft['engine'] == 'z_image_nsfw_v2'
+            assert draft['revision'] == '7567e753c45bdd16ea9c1c052af97c27a8a4a071'
+            assert draft['inputs'] == [{'role': 'start', 'source': 'tg:PHOTO1'}]
+
+            await h.done()
+            [job] = h.studio.created
+            assert job['model'] == 'sdcpp:z-image-turbo'
+            assert job['media'] == [{'run_id': 'ref-1', 'role': 'start'}]
+            assert job['prompt'].startswith('Edit image 1.')
+
+            [row] = h.speed_rows()
+            assert row['ok'] is True
+            assert row['engine'] == 'z_image_nsfw_v2'
+            assert row['revision'] == '7567e753c45bdd16ea9c1c052af97c27a8a4a071'
+            assert row['inputs'] == [{'role': 'start', 'source': 'tg:PHOTO1'}]
+    go(scenario())
+
+
+def test_edit_engine_uncensored_refuses_incompatible_persistent_references_honestly(tmp_path):
+    """Z-Image NSFW v2 принимает только 1 кадр (`role="start"`): при наличии постоянных референсов
+    (`/refs on` или сохранённых `media_refs`) система НЕ игнорирует их молча, а предупреждает и предлагает
+    переключиться на Qwen (`/edit_engine qwen`) или отключить референсы (`/refs off`)."""
+    async def scenario():
+        async with Harness(tmp_path, FakeOllama(['PROMPT: ' + EDIT_PROMPT]), studio=EditStudio(file_bytes=PNG)) as h:
+            await h.say('/edit_engine uncensored')
+            h.store.put('media_refs:' + OWNER.key, {'1': {'run_id': 'face'}, '2': {'run_id': 'body'}})
+            h.store.put('media_refs_active:' + OWNER.key, True)
+
+            # 1. Прямая отправка фото с подписью /edit при активных референсах и uncensored
+            reply_photo = await h.photo('/edit сделай фон закатом')
+            assert isinstance(reply_photo, Reply)
+            assert 'принимает ровно 1 входной кадр' in reply_photo
+            assert 'не игнорируются молча' in reply_photo
+            assert '/edit_engine qwen' in reply_photo
+            assert h.ollama.chats == [] and h.studio.created == []
+
+            # 2. Текстовая команда /edit по сохранённым референсам при uncensored
+            reply_cmd = await h.say('/edit деловой костюм в офисе')
+            assert isinstance(reply_cmd, Reply)
+            assert 'принимает ровно 1 входной кадр' in reply_cmd
+            assert '/edit_engine qwen' in reply_cmd
+            assert h.studio.created == []
+
+            # 3. После нажатия кнопки переключения на Qwen редактирование с 3 референсами проходит штатно
+            await h.press(reply_photo, '🎨 На Qwen (/edit_engine qwen)')
+            assert h.app.edit_engine_for(OWNER) == 'qwen'
+            launched = await h.photo('/edit сделай фон закатом')
+            assert_launched(launched)
+            draft = h.app.gen_draft(OWNER)
+            assert draft['engine'] == 'qwen'
+            assert len(draft['inputs']) == 3
+            await h.done()
+            [job] = h.studio.created
+            assert job['model'] == 'sdcpp:qwen-image-edit-2509'
+            assert [m['run_id'] for m in job['media']] == ['ref-1', 'face', 'body']
+    go(scenario())
+

@@ -1,0 +1,5 @@
+$ python -m pytest -q -p no:cacheprovider apps/poker-vision/tests/test_service_api.py apps/poker-vision/tests/test_desk_replay_end.py apps/poker-vision/tests/test_window_capture_thread.py
+sha: 34324346a579190214d4c7a656e6d316093abf26
+
+...............                                                          [100%]
+exit_code: 0

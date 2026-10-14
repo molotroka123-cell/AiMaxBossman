@@ -68,6 +68,35 @@ def validate_state(state: TableState) -> TableState:
     # 5) hero cards count
     if len(state.hero_cards) not in (0, 2):
         _issue(state, "BAD_HERO_COUNT", "error", ["hero_cards"], f"{len(state.hero_cards)} slots")
+    # 6) showdown duplicate / rank-consistency check (never repair, demote offending showdown card to None)
+    sd_seen: dict[str, str] = dict(seen)
+    sd_dups: list[str] = []
+    for sd in getattr(state, "showdown", None) or []:
+        slot = sd.get("slot")
+        cards = list(sd.get("cards") or [])
+        ranks = list(sd.get("ranks") or [])
+        changed = False
+        for i, c in enumerate(cards):
+            if not c:
+                continue
+            loc = f"showdown[{slot}].cards[{i}]"
+            if c in sd_seen:
+                sd_dups.extend([sd_seen[c], loc])
+                cards[i] = None
+                if i < len(ranks):
+                    ranks[i] = None
+                changed = True
+            else:
+                sd_seen[c] = loc
+                if i < len(ranks) and ranks[i] and ranks[i] != c[0]:
+                    ranks[i] = c[0]
+                    changed = True
+        if changed:
+            sd["cards"] = cards
+            if ranks:
+                sd["ranks"] = ranks
+    if sd_dups:
+        _issue(state, "SHOWDOWN_DUPLICATE_CARD", "warn", sorted(set(sd_dups)), "showdown card duplicates hero/board/showdown")
     return state
 
 

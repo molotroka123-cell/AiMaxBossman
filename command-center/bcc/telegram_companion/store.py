@@ -121,13 +121,15 @@ class Store:
         # local model or a running generation.
         if command in {"/status", "/help", "/rate", "/lock", "/watch", "/cloud", "/model", "/cancel", "/menu", "/start", "/photo",
                        "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning",
-                       "/imgmodel", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
+                       "/imgmodel", "/edit_engine", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
                        "/screen", "/diag", "/lessons", "/bossman", "/style", "/speed", "/gen_cancel",
                        "/evolution_status", "/evolution_start", "/evolution_pause",
                        "/evolution_resume", "/evolution_stop", "/evolution_report",
                        "/pc", "/argon", "/jarvis", "/pc_status", "/pc_audit", "/procs", "/kill",
                        "/windows", "/focus", "/close_win", "/services", "/sys", "/run",
                        "/trust", "/untrust", "/rollback", "/pc_yes", "/pc_no",
+                       "/earn", "/weekly", "/roi", "/product", "/poker", "/studio_check",
+                       "/earn_exam", "/oss", "/boost", "/fresh_vibes", "/fv",
                        "/claude", "/claude_new", "/claude_stop", "/mode", "/sh"}:
             return "control"
         # "/best" or "/fast" alone only switches the route; with a question it is chat.
