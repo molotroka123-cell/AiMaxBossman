@@ -24,7 +24,9 @@ _T3_SECRET_PATTERNS = tuple(re.compile(p) for p in (
     r"(?i)bossman_constitution", r"(?i)adopt_constitution_v2\.ps1",
     r"(?i)(?:^|[\\/]|[_.-]|backup-\d+-)id_(?:rsa|ed25519|ecdsa|dsa)(?:\.pub)?(?:$|[._-])", r"(?i)[\\/]pc-agent[\\/](?:STOP|audit\.jsonl)$",
     r"(?i)[\\/]pc-agent[\\/](?:tasks|rollback)(?:[\\/]|$)", r"(?i)[\\/]AppData[\\/]Local[\\/]Bossman[\\/](?:keys|autonomy|telegram-companion)(?:[\\/]|$)|(?:^|[\\/]|[_.-]|backup-\d+-)pin\.(?:json|sha256|txt)(?:$|[._-])",
-    r"(?i)[\\/]User Data[\\/]Default[\\/](?:Login Data|Cookies|Web Data)$", r"(?i)(?:start\s*menu[\\/]programs[\\/]startup|currentversion[\\/]run\b)",
+    r"(?i)[\\/]User Data[\\/](?:Default|Profile [^\\/]+)[\\/](?:Network[\\/])?(?:Login Data|Cookies|Web Data)(?:-journal)?$",
+    r"(?i)[\\/]User Data[\\/]Local State$", r"(?i)(?:start\s*menu[\\/]programs[\\/]startup|currentversion[\\/]run\b)",
+    r"(?i)(?:^|[\\/])\.(?:git-credentials|netrc|_netrc|npmrc|pypirc)$", r"(?i)[\\/]\.(?:aws|azure|kube|docker)[\\/](?:credentials|config(?:\.json)?)$",
     r"(?i)\bdpapi\b",
 ))
 _SENSITIVE_ENV_RE = re.compile(r"(?i)(TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|APIKEY|PRIVATE_KEY|VAULT|CREDENTIAL|OPENROUTER|ANTHROPIC|OPENAI|GEMINI_API|MISTRAL|DEEPSEEK|TG_COMPANION|BCC_TOKEN)")
@@ -368,12 +370,18 @@ def classify_pc_action(tool: str, args: dict[str, Any], *, task_prompt: str = ""
             return PolicyVerdict("T2", "ask", "shell_chain", f"Цепочка операторов ({joined[:120]}) требует кнопки владельца (T2).", True)
         for pat, cat in _T2_CMD_PATTERNS:
             if pat.search(joined) or pat.search(expanded_joined): return PolicyVerdict("T2", "trust_window" if trust_active else "ask", cat, f"Рискованная команда «{cat}» ({joined[:120]}, T2).", False)
+        if head in {"git", "git.exe"} and any(a.lower() in {"-c", "--config-env", "--exec-path", "--ext-diff", "--textconv", "--upload-pack", "--receive-pack"} or a.lower().startswith(("--output", "--exec=", "--exec-path=", "--config-env=", "--upload-pack=", "--receive-pack=")) for a in argv[1:]):
+            # -c core.pager=..., --output=..., --upload-pack=... run or write arbitrary things: never inside /trust
+            return PolicyVerdict("T2", "ask", "git_option_exec", f"Опция git, исполняющая или пишущая произвольное (`{joined[:120]}`), требует кнопки владельца (T2).", True)
         if head in {"git", "git.exe"}:
             return PolicyVerdict("T0", "auto", "git_read", f"Чтение git ({argv[1].lower()}, T0).") if _is_git_readonly_invocation(argv) else PolicyVerdict("T2", "trust_window" if trust_active else "ask", "git_mutation", f"Команда git `{joined[:120]}` (T2).")
         if head in {"python", "python.exe", "python3", "python3.exe", "py", "py.exe"}:
             return PolicyVerdict("T0", "auto", "python_version", "Проверка версии Python (T0).") if (len(argv) == 2 and argv[1] in {"--version", "-V"}) else PolicyVerdict("T2", "ask", "interpreter_execution", f"Запуск интерпретатора Python (`{joined[:120]}`) требует кнопки владельца (T2).", True)
         if head not in _SAFE_ARGV_HEADS: return PolicyVerdict("T2", "ask", "unlisted_executable", f"Исполняемый файл {head!r} не входит в белый список — требуется кнопка владельца (T2).", True)
         if _is_readonly_sys_cmd(argv): return PolicyVerdict("T0", "auto", "command_read", f"Информационная команда {head} (T0).")
+        if head in {"tasklist", "tasklist.exe", "systeminfo", "systeminfo.exe", "whoami", "whoami.exe", "hostname", "hostname.exe"}:
+            # the read-only check refused it (remote /s /u /p or extra switches): not a safe local read any more
+            return PolicyVerdict("T2", "ask", "remote_or_credentialed_sys_command", f"Команда {joined[:120]} с удалённой целью или учётными данными требует кнопки владельца (T2).", True)
         if head in {"ipconfig", "ipconfig.exe", "systeminfo", "systeminfo.exe"}: return PolicyVerdict("T2", "trust_window" if trust_active else "ask", "network_or_remote_sys_command", f"Команда {joined[:120]} (T2).")
         return PolicyVerdict("T1", "auto", "command_safe", f"Разрешённая команда {head} (T1).")
     if tool == "pc.bossman_api": return classify_bossman_api(str(args.get("method") or "GET"), str(args.get("path") or ""))
@@ -390,5 +398,3 @@ def classify_pc_action(tool: str, args: dict[str, Any], *, task_prompt: str = ""
             return PolicyVerdict("T0", "auto", f"earn_{action}", f"Чтение контура Bossman Earn ({action}, T0).")
         return PolicyVerdict("T1", "auto", f"earn_{action}", f"Задача Bossman Earn ({action}, SIMULATED/$0, T1).")
     return PolicyVerdict("T2", "ask", "unknown_tool", f"Неизвестный инструмент {tool} требует кнопки владельца (T2).", True)
-
-

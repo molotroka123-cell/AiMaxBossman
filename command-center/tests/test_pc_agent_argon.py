@@ -1405,3 +1405,35 @@ async def test_bypass_1e_kill_process_by_name_cmdline_and_service_guard(fake_svc
     assert res_multi["tier"] == "T2" and res_multi["decision"] == "ask"
     assert np1.killed is False and np2.killed is False
 
+
+
+@pytest.mark.parametrize("path", [
+    r"C:\Users\o\.git-credentials", r"C:\Users\o\.aws\credentials", r"C:\Users\o\.docker\config.json",
+    r"C:\Users\o\AppData\Local\Google\Chrome\User Data\Default\Network\Cookies",
+    r"C:\Users\o\AppData\Local\Google\Chrome\User Data\Profile 2\Login Data",
+    r"C:\Users\o\AppData\Local\Google\Chrome\User Data\Local State",
+])
+def test_audit_r2_credential_stores_are_t3_for_read(path: str):
+    """Independent probe 14.10: these credential stores were readable as T0 without a button."""
+    from bcc.features.pc_agent_policy import classify_pc_action
+    v = classify_pc_action("pc.read_file", {"path": path}, task_prompt="покажи файл")
+    assert (v.tier, v.decision) == ("T3", "deny"), v
+
+
+@pytest.mark.parametrize("argv", [
+    ["git", "-c", "core.pager=calc", "log"], ["git", "log", "--output=x.txt"],
+    ["git", "--exec-path=C:/x", "status"], ["tasklist", "/s", "remote-host"], ["systeminfo", "/u", "admin"],
+])
+def test_audit_r2_exec_options_need_owner_button_even_in_trust_window(argv: list[str]):
+    """Independent probe 14.10: under /trust these ran without the owner's button."""
+    from bcc.features.pc_agent_policy import classify_pc_action
+    v = classify_pc_action("pc.run_command", {"argv": argv}, task_prompt="сделай задачу", trust_active=True)
+    assert v.decision in {"ask", "deny"} and (v.always_owner_button or v.decision == "deny"), v
+
+
+def test_audit_r2_plain_readonly_commands_stay_automatic():
+    """The fix must not turn ordinary local reads into button prompts."""
+    from bcc.features.pc_agent_policy import classify_pc_action
+    for argv in (["git", "status"], ["git", "log", "-5"], ["tasklist"], ["whoami"], ["hostname"]):
+        v = classify_pc_action("pc.run_command", {"argv": argv}, task_prompt="покажи статус")
+        assert v.decision == "auto", (argv, v)
