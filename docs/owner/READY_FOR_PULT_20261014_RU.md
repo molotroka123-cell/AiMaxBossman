@@ -115,7 +115,7 @@ Get-CimInstance Win32_Process | Where-Object {
 - **Сохранённый файл:** `C:\Users\asd\AppData\Local\Bossman\CommandCenter\pc-agent\workspace\argon_notepad_note.txt`
   - Размер: `84` байт
   - SHA-256: `86eaacfc458781c62cdfa20c98b20f8fa43a697b18a52c9e5a894bc306e19cc6`
-  - Проверка содержимого: `text_in_file=True` (`"тест"`)
+  - Содержимое (`reopened_content`): `"Argon PC-Agent: проверено реальным запуском на Windows 11"` (после `task 84` в `compile_plan_for_prompt` также добавлен разбор некавыченного текста `напиши <текст>`, проверенный в `test_unquoted_notepad_text_and_receipts_journal_mirror`)
 - **Записи в едином журнале `audit.jsonl` (`verify_chain() -> ok=True`):**
   - `seq=9` (`2026-10-14T12:00:07.392476`, `tool="pc.observe_screen"`, `tier="T0"`, `decision="auto"`, `verified=true`, `entry_hash="880686b5761ba7312bbdd208f116e34972c974a2441a42d7e8b0a8ab5b51e510"`)
   - `seq=10` (`2026-10-14T12:00:15.646421`, `tool="pc.desktop_act"`, `action="notepad_roundtrip"`, `tier="T1"`, `decision="auto"`, `verified=true`, `entry_hash="4f7b0a456c576a5e7a3257b5e4d89ad7b947751289298c73994b7811b14a5f39"`)

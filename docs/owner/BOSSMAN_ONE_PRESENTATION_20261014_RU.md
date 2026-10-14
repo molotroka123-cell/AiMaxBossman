@@ -47,7 +47,7 @@ Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*bcc.telegr
   - `C:\Users\asd\AppData\Local\Bossman\one-bossman-logs\backend-source-20261013.log`
   - `C:\Users\asd\AppData\Local\Bossman\one-bossman-logs\companion-source-20261013.log`
   - `C:\Users\asd\AppData\Local\Bossman\one-bossman-logs\ollama-20261013.log`
-  - Журнал шагов Argon PC-Agent: `%LOCALAPPDATA%\Bossman\CommandCenter\pc_agent_receipts.jsonl`
+  - Единый журнал шагов Argon PC-Agent (с цепочкой SHA-256 и read-view квитанций): `%LOCALAPPDATA%\Bossman\CommandCenter\pc-agent\audit.jsonl`
 - **Как откатиться за 10 секунд:**
   1. Остановить процессы командой №3 выше.
   2. Запустить стабильный `origin/main` (`cd71cddc`): передать `"C:\Users\asd\Bossman\wt-pult-live"` вместо `"C:\Users\asd\Bossman\wt-pc-agent-argon-20261013"` в команды №1 и №2 (или запустить архив `BOSSMAN-Windows-x64-94e40cd17822\Start-Bossman.cmd`).
