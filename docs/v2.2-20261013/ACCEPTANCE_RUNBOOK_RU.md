@@ -2,15 +2,23 @@
 
 ## 0. Зафиксировать безопасный рабочий срез
 
-Прочитать AGENTS и свежие refs, сохранить чужие изменения. Ветка на базе пакета —
-feat/bossman-genjutsu-jeff-unified-20261010; main совпадал с ea7c9a3d. Не повторять
-старую консолидацию. Выбрать одного интегратора. При новом HEAD проверить дельту,
+Прочитать AGENTS и свежие refs, сохранить чужие изменения. Рабочий checkpoint —
+feat/bossman-2-2-20261013 на af92a0fd; remote main проверен на b046b3b3. Не повторять
+старую консолидацию; занятый checkout не переключать. Выбрать одного интегратора. При новом HEAD проверить дельту,
 не переносить прежние PASS без оценки зависимостей. Committed AGENTS актуализировать
 отдельно после сверки уже имеющейся рабочей правки; не присваивать чужой diff.
 
-## 1. Довести один пульт до проверенного файла
+## 1. Принять исполняемый агентный контур, затем генерацию
 
-Связанные ID: MC22-01..04, A22-01/02/04/05.
+Связанные ID: A22-01..05/10/12, MC22-01..05/16.
+
+Первый сценарий — настоящий owner Telegram → наблюдение Windows → действия в Блокноте
+→ сохранённый файл → verifier → доставка. Проверить GUI/window identity, STOP/restart,
+чужой sender и negative controls по разделу 3. Основная архитектура —
+[AGENT_ARCHITECTURE_RU.md](AGENT_ARCHITECTURE_RU.md). Затем принять MC22-16 по
+[GENERATION_MODEL_SELECTION_RU.md](GENERATION_MODEL_SELECTION_RU.md): выбор четырёх
+ролей, предпочтительный uncensored, compatibility, сохранение preference и snapshot,
+смена настройки во время очереди, отсутствие silent fallback. Далее медиа roundtrip:
 
 - Идентифицировать единственный poller, backend, модель и место хранения.
 - Сверить update → inbox → lane → draft → generation job → output → delivery.

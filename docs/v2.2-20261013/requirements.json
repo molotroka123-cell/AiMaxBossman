@@ -220,6 +220,15 @@
       "evidence": null
     },
     {
+      "id": "MC22-16",
+      "title": "Выбор моделей генерации и предпочтительный uncensored-профиль",
+      "spec": "MEDIA_COMMERCIAL_SPEC_RU.md",
+      "detail": "GENERATION_MODEL_SELECTION_RU.md",
+      "acceptance_state": "NOT_RUN_FOR_2_2",
+      "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
+      "evidence": null
+    },
+    {
       "id": "P22-POKER-01",
       "title": "локальный импорт собственных записей и происхождение данных",
       "spec": "POKER_TRADING_REPORTS_SPEC_RU.md",
@@ -307,5 +316,10 @@
       "release_scope": "CLASSIFY_WITH_OWNER_CONTRACT",
       "evidence": null
     }
-  ]
+  ],
+  "implementation_checkpoint_sha": "b046b3b3830ee9fe1a3ee2e59444982caa15cade",
+  "documentation_base_sha": "af92a0fdbe9e231cbb68fcb10dfa095be2ffc6d4",
+  "audit_baseline_sha": "ea7c9a3d9a46d8339a8917b6f4163cba0d9fb27c",
+  "source_sha_semantics": "HISTORICAL_AUDIT_BASELINE",
+  "latest_remote_main_sha": "cd71cddc9423d9781dff7eb24ba5b09fb24a990d"
 }
