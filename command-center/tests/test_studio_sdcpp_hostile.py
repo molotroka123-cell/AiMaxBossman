@@ -810,11 +810,16 @@ async def test_bad_start_media_rejected(harness, case):
     assert not list(harness.work().glob("*.job.json"))
 
 
-async def test_image_model_rejects_media(harness):
+async def test_image_model_rejects_media(harness, spawn_counter):
+    """Since 14.10 z-image-turbo takes exactly ONE start frame (img2img for photo edits; the accepted case is
+    test_z_image_turbo_accepts_one_start_frame...). A reference frame or several frames are still refused, before
+    any engine process starts. (The old version sent one start frame and expected a refusal: it now hung the run.)"""
     p = harness.provider()
-    media = [{"role": "start", "run_id": "r", "sha256": "x", "data_uri": data_uri(png_bytes())}]
-    with pytest.raises(ValueError):
-        await p.submit(plane(media=media))
+    frame = {"run_id": "r", "sha256": "x", "data_uri": data_uri(png_bytes())}
+    for media in ([{**frame, "role": "reference"}], [{**frame, "role": "start"}, {**frame, "role": "start"}]):
+        with pytest.raises(ValueError):
+            await p.submit(plane(media=media))
+    assert spawn_counter == []
 
 
 async def test_disk_space_check_before_generation(harness, monkeypatch, spawn_counter):
