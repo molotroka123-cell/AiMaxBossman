@@ -106,816 +106,44 @@ MANAGER_SYSTEM_PROMPT = (
     "Монетизация (только доказанная): «Доказано» = реальный пользователь + реальная оплата + метрика. Черновики симулятора не называть заработком."
 )
 
-# Неснимаемые правила контента (Конституция v2 §4 / HARD_INVARIANTS)
-HARD_INVARIANTS = (
-    "csam_or_minors_forbidden",
-    "non_consensual_real_person_sexual_imagery_forbidden",
-    "owner_personal_media_never_leaves_machine_to_cloud",
+from .pc_agent_policy import (
+    HARD_INVARIANTS,
+    PROTECTED_CMDLINE_TOKENS,
+    PROTECTED_PROCESS_NAMES,
+    PROTECTED_SERVICE_NAMES,
+    PolicyVerdict,
+    PromptIntentReadOnly,
+    _CSAM_RE,
+    _DANGEROUS_SHELL_CHAIN_RE,
+    _GIT_BRANCH_SAFE_ARGS,
+    _GIT_READONLY_SUBCOMMANDS,
+    _NCII_RE,
+    _PROMPT_INJECTION_RE,
+    _SAFE_ARGV_HEADS,
+    _SENSITIVE_ENV_RE,
+    _T2_ALWAYS_BUTTON_PATTERNS,
+    _T2_CMD_PATTERNS,
+    _T3_CMD_PATTERNS,
+    _T3_SECRET_PATTERNS,
+    _UNSAFE_WRITE_SUFFIXES,
+    _collect_runtime_secrets,
+    _has_ntfs_ads,
+    _is_git_readonly_invocation,
+    _is_readonly_sys_cmd,
+    _norm_path,
+    check_hard_content_invariants,
+    classify_bossman_api,
+    classify_pc_action,
+    default_safe_roots,
+    is_bossman_api_token_allowed,
+    is_protected_process,
+    is_protected_service,
+    is_t3_secret_or_protected_path,
+    is_within_safe_roots,
+    normalize_bossman_api_path,
+    scrub_secrets,
 )
 
-_CSAM_RE = re.compile(
-    r"(?iu)\b(csam|child\s*(?:sex|porn|nude)|underage\s*(?:sex|nude|erotic)|"
-    r"несовершеннолетн\w*\s+(?:секс\w*|обнаж\w*|эротик\w*|порн\w*)|"
-    r"(?:детск\w*|школьни\w*|подростк\w*)\s+(?:порн\w*|эротик\w*|обнаж\w*|интим\w*))\b"
-)
-_NCII_RE = re.compile(
-    r"(?iu)\b(deepfake\s*nude|undress\s*(?:photo|her|him|person)|nudify|"
-    r"раздень\w*\s+(?:по\s+фото|человека|девушку|женщину|мужчину)|"
-    r"обнаж\w+\s+по\s+фото\s+реальн\w+|без\s+согласия\s+(?:обнаж|разде|интим))\b"
-)
-_CLOUD_PERSONAL_MEDIA_RE = re.compile(
-    r"(?iu)(?:отправ\w*|загруз\w*|upload|send|exfiltrat\w*)\s+[^.!?\n]{0,60}"
-    r"(?:личн\w+\s+фото|мои\s+фото|personal\s+photo\w*|family\s+photo\w*|camera\s+roll)"
-    r"[^.!?\n]{0,60}(?:в\s+облако|на\s+сервер|в\s+интернет|to\s+cloud|external)"
-)
-
-# Секретные пути и имена файлов (T3: никогда не читать, не менять, не выводить)
-_T3_SECRET_PATTERNS = (
-    re.compile(r"(?i)(?:^|[\\/])credentials\.enc$"),
-    re.compile(r"(?i)(?:^|[\\/])vault\.key$"),
-    re.compile(r"(?i)(?:^|[\\/])provider-keys\.env$"),
-    re.compile(r"(?i)(?:^|[\\/])api-token$"),
-    re.compile(r"(?i)(?:^|[\\/])token$"),
-    re.compile(r"(?i)(?:^|[\\/])companion\.enc(?:\.key)?$"),
-    re.compile(r"(?i)(?:^|[\\/])\.env(?:\.[a-z0-9_-]+)?$"),
-    re.compile(r"(?i)(?:^|[\\/])companion\.sqlite3(?:-wal|-shm)?$"),
-    re.compile(r"(?i)(?:^|[\\/])bossman\.db(?:-wal|-shm)?$"),
-    re.compile(r"(?i)(?:^|[\\/])constitution\.sha256$"),
-    re.compile(r"(?i)(?:^|[\\/])adopt_constitution_v2\.ps1$"),
-    re.compile(r"(?i)(?:^|[\\/])id_(?:rsa|ed25519|ecdsa|dsa)$"),
-    re.compile(r"(?i)[\\/]pc-agent[\\/](?:STOP|audit\.jsonl)$"),
-    re.compile(r"(?i)[\\/]pc-agent[\\/](?:tasks|rollback)(?:[\\/]|$)"),
-    re.compile(r"(?i)[\\/]AppData[\\/]Local[\\/]Bossman[\\/]keys(?:[\\/]|$)"),
-    re.compile(r"(?i)[\\/]AppData[\\/]Local[\\/]Bossman[\\/]autonomy[\\/]constitution\.sha256"),
-    re.compile(r"(?i)[\\/]User Data[\\/]Default[\\/](?:Login Data|Cookies|Web Data)$"),
-    re.compile(r"(?i)\bdpapi\b"),
-)
-
-# Секретные переменные окружения, которые вычищаются перед запуском любого дочернего процесса
-_SENSITIVE_ENV_RE = re.compile(
-    r"(?i)(TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|APIKEY|PRIVATE_KEY|VAULT|CREDENTIAL|"
-    r"OPENROUTER|ANTHROPIC|OPENAI|GEMINI_API|MISTRAL|DEEPSEEK|TG_COMPANION|BCC_TOKEN)"
-)
-
-# Маркеры prompt-injection во внешних данных (файлы, веб-страницы, заголовки окон)
-_PROMPT_INJECTION_RE = re.compile(
-    r"(?iu)(?:"
-    r"ignore\s+(?:all\s+)?(?:previous|prior|above)\s+instructions|"
-    r"disregard\s+(?:all\s+)?(?:previous|prior)\s+instructions|"
-    r"system\s*override|new\s+instructions\s*:|"
-    r"игнорируй\w*\s+(?:все\s+)?(?:предыдущ\w+|прежни\w+)\s+(?:инструкц\w+|правил\w+|указани\w+)|"
-    r"забудь\w*\s+(?:все\s+)?(?:предыдущ\w+|прежни\w+)\s+(?:инструкц\w+|правил\w+)|"
-    r"выполни\s+команду\s+в\s+обход|отправь\s+токен|exfiltrate|curl\s+http[^|\n]*\|\s*(?:sh|bash|pwsh|powershell)"
-    r")"
-)
-
-# Команды T3 — никогда не исполняются даже с кнопкой (Вечные запреты 1–8)
-_T3_CMD_PATTERNS = (
-    (re.compile(r"(?i)\bgit\b[^\n]*\bpush\b(?:[^\n]*\s(?:--force|-f|--force-with-lease)\b|[^\n]*\s\+[A-Za-z0-9_./-]+)"), "force_push_forbidden"),
-    (re.compile(r"(?i)\bgit\b[^\n]*\b(?:commit|push|merge)\b[^\n]*\s(?:--no-verify|-n)\b"), "selftest_bypass_forbidden"),
-    (re.compile(r"(?i)\b(?:STOP_WATCHDOG|DISABLE_AUDIT|BOSSMAN_SKIP_SELFTEST)\b"), "disable_watchdog_or_audit_forbidden"),
-    (re.compile(r"(?i)\b(?:Set-MpPreference|Add-MpPreference)\b[^\n]*Disable"), "disable_defender_forbidden"),
-    (re.compile(r"(?i)\bnetsh\b[^\n]*\badvfirewall\b[^\n]*\bstate\s+off\b"), "disable_firewall_forbidden"),
-    (re.compile(r"(?i)\breg\s+(?:add|delete)\b[^\n]*Policies\\System[^\n]*EnableLUA"), "disable_uac_forbidden"),
-    (re.compile(r"(?i)\badopt_constitution_v2\.ps1\b"), "constitution_pin_owner_only"),
-    (re.compile(r"(?i)\bconstitution\.sha256\b"), "constitution_pin_owner_only"),
-    (re.compile(r"(?i)\b(?:vault\.key|credentials\.enc|provider-keys\.env|api-token|companion\.enc)\b"), "secret_store_forbidden"),
-    (re.compile(r"(?i)\b(?:CryptUnprotectData|ProtectedData::Unprotect)\b"), "dpapi_unprotect_forbidden"),
-    (re.compile(r"(?i)\bbcdedit(?:\.exe)?\b"), "bcdedit_boot_config_forbidden"),
-)
-
-# Команды T2 «всегда кнопка владельца» (не покрываются временным окном доверия /trust)
-_T2_ALWAYS_BUTTON_PATTERNS = (
-    (re.compile(r"(?i)\b(?:shutdown(?:\.exe)?|Restart-Computer|Stop-Computer)\b"), "system_power"),
-    (re.compile(r"(?i)\bgit\b[^\n]*\b(?:push|merge)\b"), "git_promotion"),
-    (re.compile(r"(?i)\b(?:Remove-Item|del|erase|rm|rmdir|rd)\b[^\n]*(?:-Recurse|-Force|/s|/q|-rf)\b"), "destructive_delete"),
-    (re.compile(r"(?i)\b(?:Format-Volume|Clear-Disk|cipher\s+/w)\b"), "disk_wipe"),
-    (re.compile(r"(?i)\b(?:reg(?:\.exe)?\s+(?:add|delete|import)|New-ItemProperty|Set-ItemProperty)\b"), "registry_mutation"),
-    (re.compile(r"(?i)\b(?:sc(?:\.exe)?\s+(?:stop|delete|config)|Stop-Service|Set-Service)\b"), "system_service"),
-)
-
-# Команды T2 (рискованные: требуют кнопки «Разрешить» ИЛИ активного окна доверия /trust)
-_T2_CMD_PATTERNS = (
-    (re.compile(r"(?i)\b(?:Remove-Item|del|erase|rm|rmdir|rd)\b"), "file_delete"),
-    (re.compile(r"(?i)\b(?:taskkill(?:\.exe)?|Stop-Process|kill)\b"), "process_kill"),
-    (re.compile(r"(?i)\b(?:winget|choco|msiexec|pip\s+install|npm\s+install|uv\s+pip\s+install)\b"), "software_install"),
-    (re.compile(r"(?i)\b(?:curl(?:\.exe)?|Invoke-WebRequest|Invoke-RestMethod|wget|scp|ssh|sftp)\b"), "network_transfer"),
-    (re.compile(r"(?i)\bgit\b[^\n]*\b(?:reset\s+--hard|clean\s+-f|checkout\s+--)\b"), "git_destructive"),
-    (re.compile(r"(?i)\bwhoami(?:\.exe)?\b[^\n]*(?:/priv|/groups|/all)\b"), "privilege_enumeration"),
-    (re.compile(r"(?i)\bpowercfg(?:\.exe)?\b"), "power_config"),
-)
-
-# Безопасные исполняемые файлы для T0/T1 команд (без интерпретаторов и оболочек)
-_SAFE_ARGV_HEADS = frozenset({
-    "where", "where.exe", "whoami", "whoami.exe", "hostname", "hostname.exe",
-    "systeminfo", "systeminfo.exe", "ipconfig", "ipconfig.exe", "tasklist", "tasklist.exe",
-    "notepad", "notepad.exe", "calc", "calc.exe", "mspaint", "mspaint.exe", "charmap", "charmap.exe",
-})
-
-_GIT_READONLY_SUBCOMMANDS = frozenset({"status", "diff", "log", "branch", "rev-parse", "show"})
-_GIT_BRANCH_SAFE_ARGS = frozenset({"--show-current", "-a", "--all", "-r", "--remotes", "-v", "-vv", "--list"})
-
-
-def _is_git_readonly_invocation(argv: list[str]) -> bool:
-    """Строгая проверка git-вызова на чистое чтение (исключает git branch -D/-m/создание ветки и опасные флаги)."""
-    if len(argv) < 2:
-        return False
-    sub = argv[1].lower()
-    if sub not in _GIT_READONLY_SUBCOMMANDS:
-        return False
-    rest = argv[2:]
-    for a in rest:
-        low_a = a.lower()
-        if (
-            low_a in {"-c", "--config-env", "--exec-path", "--git-dir", "--work-tree", "--no-index", "--ext-diff", "--textconv"}
-            or low_a.startswith(("--output", "--exec=", "--git-dir=", "--work-tree="))
-        ):
-            return False
-    if sub == "branch":
-        # Любые позиционные аргументы или флаги удаления/переименования/копирования/перезаписи запрещены в T0
-        return all(a in _GIT_BRANCH_SAFE_ARGS for a in rest)
-    return True
-
-
-def _is_readonly_sys_cmd(argv: list[str]) -> bool:
-    """Проверяет, что системная утилита чтения вызвана без модифицирующих или сетевых флагов."""
-    if not argv:
-        return False
-    head = Path(argv[0]).name.lower()
-    if head not in {"whoami", "whoami.exe", "hostname", "hostname.exe", "where", "where.exe", "systeminfo", "systeminfo.exe", "ipconfig", "ipconfig.exe", "tasklist", "tasklist.exe"}:
-        return False
-    rest_low = [a.strip().lower() for a in argv[1:]]
-    if head in {"ipconfig", "ipconfig.exe"}:
-        return all(a in {"/all", "-all"} for a in rest_low)
-    if head in {"systeminfo", "systeminfo.exe", "tasklist", "tasklist.exe"}:
-        if any(a in {"/s", "-s", "/u", "-u", "/p", "-p"} or a.startswith(("/s:", "/u:", "/p:")) for a in rest_low):
-            return False
-        return True
-    if head in {"whoami", "whoami.exe"}:
-        return len(rest_low) == 0
-    if head in {"hostname", "hostname.exe"}:
-        return len(rest_low) == 0
-    return True
-
-# Запрещённые расширения для автоматической записи T1 (скрипты, исполняемые файлы, ярлыки, конфиги)
-_UNSAFE_WRITE_SUFFIXES = frozenset({
-    ".exe", ".bat", ".cmd", ".ps1", ".psm1", ".psd1", ".vbs", ".vbe", ".js", ".jse",
-    ".wsf", ".wsh", ".msi", ".msp", ".scr", ".hta", ".cpl", ".msc", ".jar", ".reg",
-    ".lnk", ".url", ".dll", ".sys", ".com", ".pif", ".py", ".pyw", ".sh", ".bash",
-})
-
-# Опасные метасимволы оболочки внутри аргументов cmd/powershell, если пытаются передать цепочку
-_DANGEROUS_SHELL_CHAIN_RE = re.compile(r"(?:&&|\|\||;\s*(?:Remove-Item|del|rm|taskkill|shutdown|reg|curl|Invoke-WebRequest)|\bIEX\b|\bInvoke-Expression\b|\bEncodedCommand\b|-enc\b)", re.I)
-
-
-@dataclass(frozen=True)
-class PolicyVerdict:
-    tier: str                      # "T0" | "T1" | "T2" | "T3"
-    decision: str                  # "auto" | "ask" | "trust_window" | "deny"
-    category: str
-    reason: str
-    always_owner_button: bool = False
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-def _collect_runtime_secrets(data_dir: Path | None = None) -> tuple[str, ...]:
-    """Собирает известные значения runtime-токенов из data_dir для гарантированной очистки из выводов и журналов."""
-    vals: list[str] = []
-    dirs: list[Path] = []
-    if data_dir is not None:
-        dirs.append(Path(data_dir))
-    for d in dirs:
-        for fname in ("token", "api-token"):
-            p = d / fname
-            with contextlib.suppress(OSError):
-                if p.is_file():
-                    tok = p.read_text(encoding="utf-8", errors="replace").strip()
-                    if len(tok) >= 6 and tok not in vals:
-                        vals.append(tok)
-    return tuple(vals)
-
-
-def scrub_secrets(text: str, extra_secrets: tuple[str, ...] = ()) -> str:
-    """Единая очистка секретов для журнала, ответов и ошибок PC-Agent."""
-    from bossman.obs import redact
-    out = str(text or "")
-    for val in extra_secrets:
-        if val and len(val) >= 6:
-            out = out.replace(val, "[REDACTED]")
-    # Telegram bot tokens
-    out = re.sub(r"(?<!\d)\d{6,16}:[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-])", "[REDACTED]", out)
-    # OpenRouter / OpenAI / Anthropic / Bearer keys
-    out = re.sub(r"\bsk-[A-Za-z0-9_-]{16,}\b", "[REDACTED]", out)
-    out = re.sub(r"(?i)(Bearer\s+)[A-Za-z0-9._~+/=-]{12,}", r"\1[REDACTED]", out)
-    out = re.sub(
-        r"(?i)\b(bot_token|core_token|cloud_token|local_token|api_key|vault_key|password|secret)"
-        r"(\s*[=:]\s*['\"]?)([^'\"\s,;}{]+)",
-        r"\1\2[REDACTED]",
-        out,
-    )
-    return redact_text(redact(out))
-
-
-def check_hard_content_invariants(text: str) -> PolicyVerdict | None:
-    """Проверка 3 неснимаемых правил контента (T3 DENY)."""
-    raw = str(text or "")
-    if _CSAM_RE.search(raw):
-        return PolicyVerdict(
-            tier="T3",
-            decision="deny",
-            category="csam_or_minors_forbidden",
-            reason="Неснимаемое правило (T3): запрещён любой сексуальный контент с несовершеннолетними.",
-            always_owner_button=True,
-        )
-    if _NCII_RE.search(raw):
-        return PolicyVerdict(
-            tier="T3",
-            decision="deny",
-            category="non_consensual_real_person_sexual_imagery_forbidden",
-            reason="Неснимаемое правило (T3): запрещены сексуальные/обнажённые изображения реального человека по фото без согласия.",
-            always_owner_button=True,
-        )
-    if _CLOUD_PERSONAL_MEDIA_RE.search(raw):
-        return PolicyVerdict(
-            tier="T3",
-            decision="deny",
-            category="owner_personal_media_never_leaves_machine_to_cloud",
-            reason="Неснимаемое правило (T3): личные фото и медиа владельца не отправляются во внешние облачные сервисы.",
-            always_owner_button=True,
-        )
-    return None
-
-
-def _strip_ntfs_ads_and_dots(path_str: str) -> str:
-    """Нормализует путь Windows/POSIX: раскрывает переменные окружения, убирает NTFS ADS (:stream / ::$DATA) и хвостовые точки/пробелы."""
-    s = os.path.expandvars(str(path_str or "").strip()).replace("\\", "/")
-    if not s:
-        return ""
-    if s.startswith("//?/"):
-        s = s[4:]
-    drive = ""
-    rest = s
-    if len(s) >= 2 and s[0].isalpha() and s[1] == ":":
-        drive = s[:2]
-        rest = s[2:]
-    # Отрезаем NTFS Alternate Data Stream (например file.txt:stream или vault.key::$DATA)
-    if ":" in rest:
-        rest = rest.split(":", 1)[0]
-    parts = []
-    for seg in rest.split("/"):
-        cleaned = seg.rstrip(". ") if seg not in {".", ".."} else seg
-        parts.append(cleaned)
-    return drive + "/".join(parts)
-
-
-def _norm_path(path_str: str) -> str:
-    return _strip_ntfs_ads_and_dots(path_str)
-
-
-def _has_ntfs_ads(path_str: str) -> bool:
-    s = str(path_str or "").strip().replace("\\", "/")
-    if s.startswith("//?/"):
-        s = s[4:]
-    rest = s[2:] if (len(s) >= 2 and s[0].isalpha() and s[1] == ":") else s
-    return ":" in rest
-
-
-def is_t3_secret_or_protected_path(
-    path_str: str | Path,
-    *,
-    for_write: bool = False,
-    repo_root: Path | None = None,
-    data_dir: Path | None = None,
-) -> tuple[bool, str]:
-    """Проверка пути на принадлежность к T3 (секреты, ключи, конституция, гейты, токен data_dir)."""
-    raw = str(path_str or "").strip()
-    if for_write and _has_ntfs_ads(raw):
-        return True, f"запись в NTFS Alternate Data Stream ({raw}) запрещена (T3)"
-    norm = _norm_path(raw)
-    if not norm:
-        return True, "пустой путь"
-    # Нераскрытые переменные окружения вида %VAR% или $ENV:... в путях блокируются от обхода
-    if re.search(r"%[A-Za-z_][A-Za-z0-9_]*%", norm) or re.search(r"\$env:[A-Za-z_]", norm, re.I):
-        return True, f"нераскрытая переменная окружения в пути ({norm}) запрещена (T3)"
-    for pat in _T3_SECRET_PATTERNS:
-        if pat.search(norm) or pat.search(raw.replace("\\", "/")):
-            return True, f"доступ к защищённому хранилищу секретов/пин-файлу ({Path(norm).name}) запрещён (T3)"
-    resolved = None
-    try:
-        resolved = Path(norm).expanduser().resolve()
-        resolved_norm = _strip_ntfs_ads_and_dots(str(resolved))
-    except OSError:
-        resolved_norm = norm
-    for pat in _T3_SECRET_PATTERNS:
-        if pat.search(resolved_norm):
-            return True, f"доступ к защищённому хранилищу секретов/пин-файлу ({Path(resolved_norm).name}) запрещён (T3)"
-
-    # Защита служебных файлов data_dir (разрешён только рабочий каталог data_dir/pc-agent/workspace)
-    if data_dir is not None and resolved is not None:
-        with contextlib.suppress(OSError):
-            dd_resolved = Path(data_dir).expanduser().resolve()
-            if resolved == dd_resolved or dd_resolved in resolved.parents:
-                ws_resolved = (dd_resolved / "pc-agent" / "workspace").resolve()
-                if resolved != ws_resolved and ws_resolved not in resolved.parents:
-                    return True, f"доступ к внутреннему хранилищу ядра ({resolved.name} в data_dir) запрещён (T3)"
-
-    # Защита .git/hooks и .git/config от подмены хуков и remote
-    for c_git in (norm.lower(), resolved_norm.lower()):
-        if "/.git/hooks" in c_git or c_git.endswith("/.git/config") or c_git.startswith(".git/hooks") or c_git == ".git/config":
-            return True, f"модификация/чтение чувствительного контура Git ({norm}) запрещена (T3)"
-
-    # Проверка защищённых файлов репозитория (Конституция, autonomy, approvals, permissions)
-    candidates = [norm, resolved_norm]
-    effective_roots: list[Path] = []
-    if repo_root is not None:
-        effective_roots.append(repo_root)
-    with contextlib.suppress(Exception):
-        effective_roots.append(Path(__file__).resolve().parents[3])
-    for r_root in effective_roots:
-        try:
-            rel = str(Path(resolved_norm).relative_to(r_root.resolve())).replace("\\", "/")
-            candidates.append(rel)
-        except ValueError:
-            pass
-    for cand in candidates:
-        for marker in ("docs/constitution/", "command-center/bcc/autonomy/",
-                       "command-center/bcc/approvals.py", "command-center/bcc/permissions.py",
-                       "command-center/bcc/auth.py", "command-center/bcc/secrets.py",
-                       "command-center/bcc/features/control_plane.py",
-                       "command-center/bcc/features/pc_agent.py"):
-            if cand == marker.rstrip("/") or cand.endswith("/" + marker.rstrip("/")) or marker in cand:
-                if for_write or "constitution.sha256" in cand or "secrets.py" in cand:
-                    return True, f"путь {cand} защищён Конституцией v2 / правилами гейта (T3)"
-        if for_write and is_protected_path(cand):
-            return True, f"запись в защищённый путь {cand} запрещена (T3 PROTECTED_GLOBS)"
-    return False, ""
-
-
-def default_safe_roots(data_dir: Path | None = None) -> list[Path]:
-    """Рабочие каталоги владельца, где обратимые файловые операции T1 (только для неисполняемых данных) разрешены сразу.
-    Репозиторий Bossman намеренно исключён из автоматических корней T1."""
-    home = Path.home()
-    roots = [
-        home / "Desktop",
-        home / "Documents",
-        home / "Downloads",
-        Path(os.environ.get("TEMP", str(home / "AppData" / "Local" / "Temp"))),
-    ]
-    if data_dir is not None:
-        roots.append(Path(data_dir) / "pc-agent" / "workspace")
-    out: list[Path] = []
-    for r in roots:
-        with contextlib.suppress(OSError):
-            out.append(r.resolve())
-    return out
-
-
-def is_within_safe_roots(path_str: str, safe_roots: list[Path] | None = None) -> bool:
-    norm = _norm_path(path_str)
-    if not norm:
-        return False
-    # Запрещаем NTFS ADS в T1 auto
-    raw_s = str(path_str or "").strip().replace("\\", "/")
-    rest_s = raw_s[2:] if (len(raw_s) >= 2 and raw_s[0].isalpha() and raw_s[1] == ":") else raw_s
-    if ":" in rest_s:
-        return False
-    try:
-        raw_path = Path(norm).expanduser()
-        if raw_path.exists() and raw_path.is_symlink():
-            return False
-        target = raw_path.resolve()
-    except OSError:
-        return False
-    target_norm = str(target).replace("\\", "/")
-    # Запрещаем запись в .git и автозагрузку Windows как T1 auto
-    if "/.git/" in target_norm.lower() or target_norm.lower().endswith("/.git") or "start menu/programs/startup" in target_norm.lower():
-        return False
-    # Проверяем расширение (и мульти-расширения вида file.ps1.bak? нет, проверяем конечный суффикс после очистки точек)
-    clean_name = Path(norm).name.rstrip(". ").lower()
-    suffix = Path(clean_name).suffix.lower()
-    if suffix in _UNSAFE_WRITE_SUFFIXES:
-        return False
-    roots = safe_roots if safe_roots is not None else default_safe_roots()
-    for root in roots:
-        try:
-            target.relative_to(root.resolve())
-            return True
-        except ValueError:
-            continue
-    return False
-
-
-def PromptIntentReadOnly(task_prompt: str) -> bool:
-    """Определяет, просил ли владелец ТОЛЬКО чтение/наблюдение (для защиты от prompt injection)."""
-    text = str(task_prompt or "").strip().lower()
-    if not text:
-        return False
-    mutate_verbs = (
-        "напиши", "сохрани", "создай", "измени", "удали", "запусти", "выполни",
-        "открой блокнот и напиши", "открой и введи", "установи", "перезагрузи",
-        "скоприруй", "перемести", "отредактируй", "write", "save", "create",
-        "delete", "run", "execute", "install", "type", "click",
-    )
-    if any(v in text for v in mutate_verbs):
-        return False
-    read_verbs = (
-        "прочитай", "покажи", "проверь", "список", "что в файле", "что написано",
-        "какой заголовок", "скриншот", "экран", "статус", "read", "show", "list",
-    )
-    return any(v in text for v in read_verbs)
-
-
-def classify_pc_action(
-    tool: str,
-    args: dict[str, Any],
-    *,
-    task_prompt: str = "",
-    tainted_by_injection: bool = False,
-    trust_active: bool = False,
-    repo_root: Path | None = None,
-    safe_roots: list[Path] | None = None,
-    data_dir: Path | None = None,
-) -> PolicyVerdict:
-    """Классификатор T0 / T1 / T2 / T3 для каждого шага PC-Agent."""
-    args = dict(args or {})
-    blob = json.dumps({"tool": tool, "args": args}, ensure_ascii=False, default=str)
-
-    # 0. Неснимаемые правила контента (T3)
-    inv = check_hard_content_invariants(blob) or check_hard_content_invariants(task_prompt)
-    if inv is not None:
-        return inv
-
-    # 1. Защита от prompt injection из прочитанных внешних данных (файлы/сайты/окна)
-    if tainted_by_injection and tool not in {
-        "pc.observe_screen", "pc.list_windows", "pc.list_processes", "pc.system_info"
-    }:
-        if PromptIntentReadOnly(task_prompt) or tool in {"pc.run_command", "pc.delete_file", "pc.write_file"}:
-            return PolicyVerdict(
-                tier="T3",
-                decision="deny",
-                category="prompt_injection_blocked",
-                reason="Заблокировано защитой от prompt injection: внешние данные содержали встроенные инструкции, не запрошенные владельцем.",
-                always_owner_button=True,
-            )
-
-    # 2. Разбор по инструментам
-    if tool in {"pc.observe_screen", "pc.list_windows", "pc.list_processes", "pc.list_services", "pc.system_info", "pc.bossman_status"}:
-        return PolicyVerdict("T0", "auto", "observe", "Чтение состояния ПК и Bossman (T0).")
-
-    if tool in {"pc.read_file", "pc.list_dir"}:
-        path = str(args.get("path") or "").strip()
-        bad, why = is_t3_secret_or_protected_path(path, for_write=False, repo_root=repo_root, data_dir=data_dir)
-        if bad:
-            return PolicyVerdict("T3", "deny", "secret_or_protected_path", why, always_owner_button=True)
-        return PolicyVerdict("T0", "auto", "filesystem_read", f"Чтение {path} (T0).")
-
-    if tool in {"pc.write_file", "pc.edit_file", "pc.copy_file", "pc.move_file"}:
-        raw_path_arg = str(args.get("path") or "").strip()
-        raw_dst_arg = str(args.get("dst") or "").strip()
-        if raw_path_arg and raw_dst_arg and _norm_path(raw_path_arg) != _norm_path(raw_dst_arg):
-            return PolicyVerdict(
-                "T3", "deny", "inconsistent_path_dst",
-                "Несовпадающие аргументы path и dst запрещены (защита от расхождения классификатора и исполнителя, T3).",
-                always_owner_button=True,
-            )
-        dst_path = raw_path_arg or raw_dst_arg
-        src_path = str(args.get("src") or "").strip()
-        bad_dst, why_dst = is_t3_secret_or_protected_path(dst_path, for_write=True, repo_root=repo_root, data_dir=data_dir)
-        if bad_dst:
-            return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_dst, always_owner_button=True)
-        if src_path:
-            bad_src, why_src = is_t3_secret_or_protected_path(
-                src_path,
-                for_write=(tool == "pc.move_file"),
-                repo_root=repo_root,
-                data_dir=data_dir,
-            )
-            if bad_src:
-                return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_src, always_owner_button=True)
-        if PromptIntentReadOnly(task_prompt):
-            return PolicyVerdict(
-                "T3", "deny", "unrequested_mutation",
-                "Задача владельца запрашивала только чтение; модификация файлов отклонена.",
-                always_owner_button=True,
-            )
-        effective_safe_roots = safe_roots if safe_roots is not None else default_safe_roots(data_dir)
-        dst_safe = is_within_safe_roots(dst_path, effective_safe_roots)
-        src_safe = True if (tool != "pc.move_file" or not src_path) else is_within_safe_roots(src_path, effective_safe_roots)
-        if dst_safe and src_safe:
-            return PolicyVerdict("T1", "auto", "filesystem_write_safe", f"Обратимая запись в рабочей папке {dst_path} с откатом (T1).")
-        decision = "trust_window" if trust_active else "ask"
-        return PolicyVerdict("T2", decision, "filesystem_write_outside_workspace", f"Запись вне безопасных рабочих папок или исполняемого файла ({dst_path}) требует подтверждения (T2).")
-
-    if tool == "pc.delete_file":
-        path = str(args.get("path") or "").strip()
-        bad, why = is_t3_secret_or_protected_path(path, for_write=True, repo_root=repo_root, data_dir=data_dir)
-        if bad:
-            return PolicyVerdict("T3", "deny", "secret_or_protected_path", why, always_owner_button=True)
-        if PromptIntentReadOnly(task_prompt):
-            return PolicyVerdict("T3", "deny", "unrequested_mutation", "Удаление не запрашивалось в задаче чтения.", always_owner_button=True)
-        # Удаление всегда T2 (кнопка Разрешить, либо окно доверия только внутри scratch/temp)
-        in_temp = False
-        temp_env = str(os.environ.get("TEMP") or "").strip()
-        if temp_env:
-            with contextlib.suppress(OSError, ValueError):
-                resolved = Path(_norm_path(path)).expanduser().resolve()
-                temp_root = Path(temp_env).expanduser().resolve()
-                in_temp = resolved != temp_root and resolved.is_relative_to(temp_root)
-        decision = "trust_window" if (trust_active and in_temp) else "ask"
-        return PolicyVerdict(
-            "T2", decision, "file_delete",
-            f"Удаление файла {path} (T2 — требуется подтверждение владельца).",
-            always_owner_button=not in_temp,
-        )
-
-    if tool == "pc.kill_process":
-        raw_pid = args.get("pid")
-        raw_name = str(args.get("name") or "").strip().lower()
-        target = str(raw_pid if raw_pid is not None else raw_name).strip().lower()
-        protected_names = (
-            "bcc", "bossman", "lsass", "csrss", "wininit", "services",
-            "svchost", "defender", "smss", "winlogon", "dwm", "system",
-            "python", "python.exe", "ollama", "ollama.exe", "claude", "codex",
-        )
-        if any(p in target for p in protected_names) or any(p in raw_name for p in protected_names):
-            return PolicyVerdict("T3", "deny", "protected_process", f"Остановка защищённого процесса {target} запрещена (T3).", always_owner_button=True)
-        if raw_pid is None and len(raw_name) < 3:
-            return PolicyVerdict("T3", "deny", "invalid_process_name", f"Слишком короткое имя процесса {raw_name!r} запрещено (T3).", always_owner_button=True)
-        if raw_pid is not None:
-            try:
-                pid_int = int(raw_pid)
-                if pid_int <= 4 or pid_int == os.getpid():
-                    return PolicyVerdict("T3", "deny", "protected_process", f"Остановка системного/текущего процесса PID {pid_int} запрещена (T3).", always_owner_button=True)
-                import psutil
-                with contextlib.suppress(Exception):
-                    proc_obj = psutil.Process(pid_int)
-                    pname = (proc_obj.name() or "").lower()
-                    cmdline = " ".join(proc_obj.cmdline() or []).lower()
-                    if any(p in pname for p in protected_names) or "bcc.main" in cmdline or "telegram_companion" in cmdline or "run_backend_source" in cmdline or "run_pult_source" in cmdline:
-                        return PolicyVerdict("T3", "deny", "protected_process", f"Остановка процесса ядра/системы PID {pid_int} ({pname}) запрещена (T3).", always_owner_button=True)
-            except (ValueError, TypeError):
-                return PolicyVerdict("T3", "deny", "invalid_pid", f"Некорректный PID: {raw_pid!r} (T3).", always_owner_button=True)
-        decision = "trust_window" if trust_active else "ask"
-        return PolicyVerdict("T2", decision, "process_kill", f"Завершение процесса {target} (T2).")
-
-    if tool == "pc.window_act":
-        action = str(args.get("action") or "focus").strip().lower()
-        target = str(args.get("title") or args.get("pid") or args.get("hwnd") or "").strip()
-        if action in {"focus", "minimize", "maximize", "restore"}:
-            return PolicyVerdict("T1", "auto", "window_reversible", f"Управление окном ({action}: {target}, T1).")
-        if action == "close":
-            decision = "trust_window" if trust_active else "ask"
-            return PolicyVerdict("T2", decision, "window_close", f"Закрытие окна «{target}» может привести к потере несохранённых данных (T2).")
-        return PolicyVerdict("T2", "ask", "window_unknown", f"Действие с окном {action} ({target}) требует подтверждения (T2).")
-
-    if tool == "pc.control_service":
-        svc_name = str(args.get("name") or "").strip().lower()
-        action = str(args.get("action") or "status").strip().lower()
-        if action == "status":
-            return PolicyVerdict("T0", "auto", "service_status", f"Проверка службы {svc_name} (T0).")
-        if any(p in svc_name for p in ("windefend", "mpssvc", "lsass", "rpcss", "dcomlaunch", "eventlog", "samss")):
-            return PolicyVerdict("T3", "deny", "protected_service", f"Управление критической службой {svc_name} запрещено (T3).", always_owner_button=True)
-        decision = "trust_window" if trust_active else "ask"
-        return PolicyVerdict("T2", decision, "service_control", f"Действие «{action}» со службой «{svc_name}» (T2).")
-
-    if tool == "pc.desktop_act":
-        action = str(args.get("action") or "").strip().lower()
-        target = str(args.get("target") or "").strip()
-        semantic = str(args.get("semantic") or "").strip().lower()
-        desk_path = str(args.get("path") or "").strip()
-        if semantic in {"pay", "payment", "purchase", "wallet", "bank_transfer", "resume", "approve yourself"}:
-            return PolicyVerdict("T3", "deny", "desktop_forbidden_semantic", f"Действие {semantic} на рабочем столе запрещено (T3).", always_owner_button=True)
-        if re.search(r"(?iu)\b(оплат\w*|перевод\w*|купить|pay|purchase|wallet|bossman\s+approvals)\b", f"{target} {semantic}"):
-            return PolicyVerdict("T3", "deny", "desktop_payment_or_gate", f"Цель «{target}» затрагивает оплату или защищённый гейт (T3).", always_owner_button=True)
-        if action == "notepad_roundtrip" or desk_path:
-            if desk_path:
-                bad_p, why_p = is_t3_secret_or_protected_path(desk_path, for_write=True, repo_root=repo_root, data_dir=data_dir)
-                if bad_p:
-                    return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_p, always_owner_button=True)
-            if PromptIntentReadOnly(task_prompt):
-                return PolicyVerdict("T3", "deny", "unrequested_mutation", "Запись через GUI не запрашивалась в задаче чтения.", always_owner_button=True)
-            if desk_path:
-                effective_safe_roots = safe_roots if safe_roots is not None else default_safe_roots(data_dir)
-                if not is_within_safe_roots(desk_path, effective_safe_roots):
-                    decision = "trust_window" if trust_active else "ask"
-                    return PolicyVerdict("T2", decision, "desktop_write_outside_workspace", f"GUI-сохранение вне рабочих папок ({desk_path}) требует подтверждения (T2).")
-        if action == "launch":
-            app_name = Path(str(args.get("app") or target or "notepad")).name.lower().removesuffix(".exe")
-            if app_name not in {"notepad", "calc", "mspaint", "charmap"}:
-                return PolicyVerdict(
-                    "T2", "ask", "desktop_launch_unlisted",
-                    f"Запуск приложения «{app_name}» через рабочий стол требует подтверждения владельца (T2).",
-                    always_owner_button=True,
-                )
-        if action in {"hotkey", "key"}:
-            keys_str = "+".join(str(k).lower() for k in (args.get("keys") or [args.get("key") or target]))
-            if any(k in keys_str for k in ("win+r", "win+x", "alt+f4", "ctrl+shift+esc")):
-                return PolicyVerdict(
-                    "T2", "ask", "desktop_sensitive_hotkey",
-                    f"Системное сочетание клавиш `{keys_str}` требует подтверждения владельца (T2).",
-                    always_owner_button=True,
-                )
-        if re.search(r"(?iu)\b(удал\w*|delete|uninstall|форматир\w*|отправ\w*|публик\w*|send|publish|submit)\b", f"{target} {semantic}"):
-            decision = "trust_window" if trust_active else "ask"
-            return PolicyVerdict("T2", decision, "desktop_consequential", f"Действие «{action}» по цели «{target}» имеет последствия (T2).")
-        if action in {"launch", "focus", "focus_window", "click", "double_click", "type", "key", "hotkey", "scroll", "wait", "notepad_roundtrip"}:
-            return PolicyVerdict("T1", "auto", "desktop_reversible", f"Обратимое действие на рабочем столе: {action} (T1).")
-        return PolicyVerdict("T2", "ask", "desktop_unknown", f"Нестандартное действие рабочего стола {action} (T2).")
-
-    if tool == "pc.browser_act":
-        action = str(args.get("action") or "open").strip().lower()
-        url = str(args.get("url") or "").strip()
-        if action in {"purchase", "payment", "wallet", "bank_transfer"}:
-            return PolicyVerdict("T3", "deny", "browser_payment_forbidden", f"Платежи и кошельки в браузере запрещены (T3: {action}).", always_owner_button=True)
-        if url:
-            scheme = url.split(":", 1)[0].lower() if ":" in url else ""
-            if scheme not in {"http", "https"}:
-                return PolicyVerdict("T3", "deny", "browser_invalid_scheme", f"Схема URL {scheme!r} запрещена (разрешены только http/https).", always_owner_button=True)
-        if action in {"read_dom", "snapshot", "screenshot"}:
-            return PolicyVerdict("T0", "auto", "browser_read", f"Чтение/снимок браузера ({action}, T0).")
-        if action in {"open", "navigate", "click", "type", "select", "back", "reload"}:
-            target_label = str(args.get("target") or args.get("selector") or args.get("text") or "")
-            if action == "click" and re.search(r"(?iu)\b(оплат\w*|купить|buy|pay|checkout)\b", target_label):
-                return PolicyVerdict("T3", "deny", "browser_payment_click", f"Клик по платёжной кнопке «{target_label}» запрещён (T3).", always_owner_button=True)
-            if action == "click" and re.search(r"(?iu)\b(удал\w*|отправ\w*|опублик\w*|delete|submit|send|publish)\b", target_label):
-                return PolicyVerdict("T2", "ask", "browser_consequential_click", f"Клик с последствиями «{target_label}» требует подтверждения (T2).", always_owner_button=True)
-            return PolicyVerdict("T1", "auto", "browser_interactive", f"Навигация/действие в браузере ({action}, T1).")
-        if action in {"submit", "upload", "download", "login"}:
-            always_btn = action in {"submit", "login", "upload"}
-            decision = "trust_window" if (trust_active and not always_btn) else "ask"
-            return PolicyVerdict("T2", decision, f"browser_{action}", f"Действие браузера {action} требует решения владельца (T2).", always_owner_button=always_btn)
-        return PolicyVerdict("T2", "ask", "browser_other", f"Действие браузера {action} (T2).")
-
-    if tool == "pc.run_command":
-        argv = args.get("argv")
-        if not isinstance(argv, list) or not argv or not all(isinstance(x, str) and x.strip() for x in argv):
-            return PolicyVerdict(
-                "T3", "deny", "invalid_argv",
-                "Исполнение команд разрешено только списком аргументов argv (без сырой оболочки).",
-                always_owner_button=True,
-            )
-        expanded_argv = [os.path.expandvars(x) for x in argv]
-        joined = " ".join(argv)
-        expanded_joined = " ".join(expanded_argv)
-        # Проверка путей секретов и T3 паттернов в аргументах (с учётом переменных окружения и ADS)
-        for pat, cat in _T3_CMD_PATTERNS:
-            if pat.search(joined) or pat.search(expanded_joined):
-                return PolicyVerdict("T3", "deny", cat, f"Команда обращается к запрещённому ресурсу T3 ({cat}).", always_owner_button=True)
-        for token in [*argv, *expanded_argv]:
-            norm_tok = _norm_path(token)
-            if any(p.search(token) or p.search(norm_tok) for p in _T3_SECRET_PATTERNS):
-                return PolicyVerdict("T3", "deny", "secret_path_in_argv", f"Аргумент обращается к защищённому секрету ({token}, T3).", always_owner_button=True)
-            if "/" in norm_tok or "\\" in token or any(k in norm_tok.lower() for k in ("constitution", "vault.key", "credentials.enc", "companion.enc", "bossman.db", "api-token", "token", "secrets.py", "approvals.py", "permissions.py", "autonomy")):
-                bad_tok, why_tok = is_t3_secret_or_protected_path(token, for_write=True, repo_root=repo_root, data_dir=data_dir)
-                if bad_tok:
-                    return PolicyVerdict("T3", "deny", "protected_path_in_argv", why_tok, always_owner_button=True)
-
-        if PromptIntentReadOnly(task_prompt):
-            head_ro = Path(argv[0]).name.lower()
-            is_ro_cmd = (
-                _is_readonly_sys_cmd(argv)
-                or (head_ro in {"git", "git.exe"} and _is_git_readonly_invocation(argv))
-                or (head_ro in {"python", "python.exe", "python3", "python3.exe", "py", "py.exe"} and len(argv) == 2 and argv[1] in {"--version", "-V"})
-            )
-            if not is_ro_cmd or _DANGEROUS_SHELL_CHAIN_RE.search(joined):
-                return PolicyVerdict("T3", "deny", "mutation_command_in_readonly", "Модифицирующая команда отклонена в задаче чтения.", always_owner_button=True)
-
-        # Проверка T2 «всегда через кнопку»
-        for pat, cat in _T2_ALWAYS_BUTTON_PATTERNS:
-            if pat.search(joined) or pat.search(expanded_joined):
-                return PolicyVerdict(
-                    "T2", "ask", cat,
-                    f"Команда категории «{cat}» ({joined[:120]}) требует явного нажатия кнопки «Разрешить» владельцем (T2).",
-                    always_owner_button=True,
-                )
-
-        if _DANGEROUS_SHELL_CHAIN_RE.search(joined) or _DANGEROUS_SHELL_CHAIN_RE.search(expanded_joined):
-            return PolicyVerdict(
-                "T2", "ask", "shell_chain",
-                f"Команда содержит цепочку операторов или динамическое выполнение ({joined[:120]}) — требуется подтверждение (T2).",
-                always_owner_button=True,
-            )
-
-        # Проверка обычных T2 паттернов
-        for pat, cat in _T2_CMD_PATTERNS:
-            if pat.search(joined) or pat.search(expanded_joined):
-                decision = "trust_window" if trust_active else "ask"
-                return PolicyVerdict(
-                    "T2", decision, cat,
-                    f"Рискованная команда «{cat}» ({joined[:120]}) — уровень T2.",
-                    always_owner_button=False,
-                )
-
-        head = Path(argv[0]).name.lower()
-        # Git: только чистое чтение без мутирующих флагов идёт как T0 auto; остальные git-команды — T2
-        if head in {"git", "git.exe"}:
-            sub = argv[1].lower() if len(argv) >= 2 else ""
-            if _is_git_readonly_invocation(argv):
-                return PolicyVerdict("T0", "auto", "git_read", f"Чтение состояния git ({sub}, T0).")
-            decision = "trust_window" if trust_active else "ask"
-            return PolicyVerdict("T2", decision, "git_mutation", f"Команда git `{joined[:120]}` изменяет состояние репозитория — уровень T2.")
-
-        # Python: только --version / -V идёт как T0 auto; любой скрипт, -c или -m — это произвольный код (T2 через кнопку владельца)
-        if head in {"python", "python.exe", "python3", "python3.exe", "py", "py.exe"}:
-            if len(argv) == 2 and argv[1] in {"--version", "-V"}:
-                return PolicyVerdict("T0", "auto", "python_version", "Проверка версии Python (T0).")
-            return PolicyVerdict(
-                "T2", "ask", "interpreter_execution",
-                f"Запуск интерпретатора Python (`{joined[:120]}`) требует явного подтверждения владельца (T2).",
-                always_owner_button=True,
-            )
-
-        if head not in _SAFE_ARGV_HEADS:
-            return PolicyVerdict(
-                "T2", "ask", "unlisted_executable",
-                f"Исполняемый файл {head!r} не входит в белый список T1 — требуется явное подтверждение владельца (T2).",
-                always_owner_button=True,
-            )
-
-        # Чистые чтения (whoami, hostname, ipconfig /all, tasklist, systeminfo, where) -> T0, иначе T1
-        if _is_readonly_sys_cmd(argv):
-            return PolicyVerdict("T0", "auto", "command_read", f"Информационная команда {head} (T0).")
-        if head in {"ipconfig", "ipconfig.exe", "systeminfo", "systeminfo.exe"}:
-            decision = "trust_window" if trust_active else "ask"
-            return PolicyVerdict("T2", decision, "network_or_remote_sys_command", f"Команда {joined[:120]} изменяет сеть или опрашивает внешний узел (T2).")
-        return PolicyVerdict("T1", "auto", "command_safe", f"Разрешённая локальная команда {head} со списком аргументов (T1).")
-
-    if tool == "pc.bossman_api":
-        import posixpath
-        method = str(args.get("method") or "GET").upper()
-        raw_api_path = str(args.get("path") or "").strip()
-        q_part = ""
-        path_only = raw_api_path
-        if "?" in raw_api_path:
-            path_only, q_part = raw_api_path.split("?", 1)
-        norm_api_path = posixpath.normpath(path_only) if path_only else ""
-        allowed_readonly_prefixes = (
-            "/api/system",
-            "/api/status",
-            "/api/health/live",
-            "/api/tasks",
-            "/api/agents",
-            "/api/models",
-            "/api/studio/models",
-            "/api/oss/status",
-            "/api/capability-tree",
-        )
-        forbidden_api_prefixes = (
-            "/api/approvals",
-            "/api/autonomy",
-            "/api/control-plane",
-            "/api/pc-agent",
-            "/api/providers",
-            "/api/secrets",
-            "/api/auth",
-        )
-        if (
-            method != "GET"
-            or not norm_api_path.startswith("/api/")
-            or "%" in raw_api_path
-            or "\\" in raw_api_path
-            or ".." in raw_api_path
-            or "//" in path_only
-            or any(norm_api_path.startswith(fp) for fp in forbidden_api_prefixes)
-            or not any(norm_api_path == ap or norm_api_path.startswith(ap + "/") for ap in allowed_readonly_prefixes)
-        ):
-            return PolicyVerdict("T3", "deny", "bossman_api_forbidden", f"Вызов {method} {raw_api_path} запрещён для агента (разрешены только безопасные GET-маршруты чтения, T3).", always_owner_button=True)
-        return PolicyVerdict("T0", "auto", "bossman_api_read", f"Чтение Bossman API {norm_api_path} (T0).")
-
-    if tool == "pc.earn":
-        action = str(args.get("action") or "status").lower()
-        mode_arg = str(args.get("mode") or "").strip().lower()
-        edition_arg = str(args.get("edition") or "").strip().lower()
-        try:
-            real_money_arg = float(args.get("real_money") or 0.0)
-            if not math.isfinite(real_money_arg):
-                real_money_arg = 1.0
-        except (TypeError, ValueError):
-            real_money_arg = 1.0
-        if (
-            action in {"pay", "withdraw", "live_trade", "publish_external", "submit_bid", "fincept_enterprise", "fincept_live_broker", "vibe_trading_live"}
-            or mode_arg in {"live", "real", "real_money", "broker"}
-            or edition_arg in {"enterprise", "exclusive", "exclusive+", "exclusive_pro", "paid"}
-            or real_money_arg > 0.0
-        ):
-            return PolicyVerdict(
-                "T3", "deny", "earn_external_or_live_forbidden",
-                f"Действие заработка {action} (реальные деньги/биржа/платная Enterprise-подписка/внешняя автопубликация) запрещено без решения владельца (T3).",
-                always_owner_button=True,
-            )
-        if action == "fresh_vibes_publish":
-            return PolicyVerdict(
-                "T2", "ask", "fresh_vibes_external_publish",
-                "Внешняя публикация поста/сторис в Instagram Fresh Vibes требует явного нажатия кнопки «Разрешить» владельцем на каждую конкретную отправку (T2).",
-                always_owner_button=True,
-            )
-        if action in {"status", "arena", "exam", "roi", "poker", "studio", "oss", "product", "weekly", "report", "blender", "fincept", "vibe_trading", "vibe_trade"}:
-            return PolicyVerdict("T0", "auto", f"earn_{action}", f"Чтение и проверка контура Bossman Product/Earn ({action}, T0).")
-        return PolicyVerdict("T1", "auto", f"earn_{action}", f"Выполнение и верификация задачи Bossman Earn ({action}, SIMULATED/$0, T1).")
-
-    return PolicyVerdict("T2", "ask", "unknown_tool", f"Неизвестный инструмент {tool} требует подтверждения (T2).", always_owner_button=True)
 
 
 # ------------------------------------------------------------------ Append-Only Audit Journal
@@ -1036,6 +264,7 @@ class PCAgentRuntime:
         self.trust_until: float = 0.0
         self.trust_actor: str = ""
         self.rate_timestamps: list[float] = []
+        self.consumed_approvals: set[int] = set()
         self.lock = asyncio.Lock()
 
     def is_stopped(self, svc: Any = None) -> bool:
@@ -1449,7 +678,11 @@ async def _mark_db_task_stopped(svc: Any, task_id: int, *, actor: str = "owner")
 # ------------------------------------------------------------------ Rollback / Backup Manager
 
 def save_rollback_backup(rt: PCAgentRuntime, task_id: int, target: Path) -> dict[str, Any]:
-    """Сохраняет резервную копию файла перед T1/T2 перезаписью или изменением."""
+    """Сохраняет резервную копию файла перед T1/T2 перезаписью или изменением.
+    Никогда не копирует файлы секретов/защищённых путей (T3)."""
+    t3_deny, t3_reason = is_t3_secret_or_protected_path(target, for_write=True, data_dir=rt.data_dir)
+    if t3_deny:
+        raise PermissionError(t3_reason)
     tdir = rt.rollback_dir / f"task-{int(task_id)}"
     tdir.mkdir(parents=True, exist_ok=True)
     manifest_path = tdir / "manifest.json"
@@ -1550,6 +783,7 @@ async def execute_pc_step(
         tool,
         args,
         trust_active=rt.trust_active(svc),
+        data_dir=rt.data_dir,
     )
     if recheck.decision == "deny" or recheck.tier == "T3":
         return {
@@ -1562,7 +796,7 @@ async def execute_pc_step(
             "summary": recheck.reason,
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
-    if recheck.decision == "ask" and not approved:
+    if (recheck.decision == "ask" or recheck.always_owner_button) and not approved:
         return {
             "ok": False,
             "verified": False,
@@ -1659,6 +893,7 @@ async def execute_pc_step(
         raw_pid = args.get("pid")
         raw_name = str(args.get("name") or "").strip()
         kill_tree = bool(args.get("tree", True))
+        allow_multi = bool(args.get("allow_multi", False))
         candidates: list[psutil.Process] = []
         if raw_pid is not None and str(raw_pid).strip().isdecimal():
             pid_int = int(str(raw_pid).strip())
@@ -1666,12 +901,38 @@ async def execute_pc_step(
                 candidates.append(psutil.Process(pid_int))
         elif raw_name:
             low_name = raw_name.lower()
-            for p in psutil.process_iter(["pid", "name"]):
+            if is_protected_process(low_name, "", None)[0]:
+                prot_reason = is_protected_process(low_name, "", None)[1]
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "tier": "T3",
+                    "decision": "deny",
+                    "error": prot_reason,
+                    "summary": prot_reason,
+                    "duration_ms": round((time.perf_counter() - t0) * 1000),
+                }
+            for p in psutil.process_iter(["pid", "name", "cmdline"]):
                 with contextlib.suppress(Exception):
                     pname = str(p.info.get("name") or "").lower()
-                    if pname == low_name or pname == f"{low_name}.exe" or low_name in pname:
-                        if int(p.info["pid"]) != os.getpid():
-                            candidates.append(p)
+                    if pname == low_name or pname == f"{low_name}.exe":
+                        pid_c = int(p.info["pid"])
+                        cmdline_c = " ".join(p.info.get("cmdline") or [])
+                        if not cmdline_c:
+                            with contextlib.suppress(Exception):
+                                cmdline_c = " ".join(p.cmdline() or [])
+                        prot_c, prot_reason_c = is_protected_process(pname, cmdline_c, pid_c)
+                        if prot_c:
+                            return {
+                                "ok": False,
+                                "verified": False,
+                                "tier": "T3",
+                                "decision": "deny",
+                                "error": prot_reason_c,
+                                "summary": prot_reason_c,
+                                "duration_ms": round((time.perf_counter() - t0) * 1000),
+                            }
+                        candidates.append(p)
         if not candidates:
             target_desc = f"PID {raw_pid}" if raw_pid is not None else raw_name
             return {
@@ -1681,18 +942,40 @@ async def execute_pc_step(
                 "summary": f"Процесс не найден: {target_desc}",
                 "duration_ms": round((time.perf_counter() - t0) * 1000),
             }
+        if len(candidates) > 1 and not allow_multi:
+            return {
+                "ok": False,
+                "verified": False,
+                "tier": "T2",
+                "decision": "ask",
+                "error": f"Найдено {len(candidates)} процессов `{raw_name}`; завершение более 1 процесса без явного флага запрещено.",
+                "summary": f"Отказ: найдено {len(candidates)} процессов `{raw_name}` (максимум 1 процесс за шаг).",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
         killed_pids: list[int] = []
         killed_names: list[str] = []
         errors: list[str] = []
-        for proc_obj in candidates[:10]:
+        for proc_obj in candidates[: (10 if allow_multi else 1)]:
             try:
                 pid_val = int(proc_obj.pid)
                 pname = proc_obj.name()
-                if any(pr in pname.lower() for pr in ("lsass", "csrss", "wininit", "services", "svchost", "smss", "winlogon", "dwm")):
-                    errors.append(f"PID {pid_val} ({pname}): защищённый системный процесс (T3)")
-                    continue
+                cmdline_str = ""
+                with contextlib.suppress(Exception):
+                    cmdline_str = " ".join(proc_obj.cmdline() or [])
+                prot_p, prot_reason_p = is_protected_process(pname, cmdline_str, pid_val)
+                if prot_p:
+                    return {
+                        "ok": False,
+                        "verified": False,
+                        "tier": "T3",
+                        "decision": "deny",
+                        "error": prot_reason_p,
+                        "summary": prot_reason_p,
+                        "duration_ms": round((time.perf_counter() - t0) * 1000),
+                    }
                 if os.name == "nt" and kill_tree:
-                    subprocess.run(
+                    await asyncio.to_thread(
+                        subprocess.run,
                         ["taskkill", "/T", "/F", "/PID", str(pid_val)],
                         capture_output=True,
                         timeout=5,
@@ -1849,6 +1132,18 @@ async def execute_pc_step(
         action = str(args.get("action") or "status").strip().lower()
         if not svc_name:
             return {"ok": False, "verified": False, "error": "Не указано имя службы", "summary": "Не указано имя службы."}
+        if action not in {"status", "query"}:
+            prot_s, prot_s_reason = is_protected_service(svc_name)
+            if prot_s:
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "tier": "T3",
+                    "decision": "deny",
+                    "error": prot_s_reason,
+                    "summary": prot_s_reason,
+                    "duration_ms": round((time.perf_counter() - t0) * 1000),
+                }
         sc_action = {"start": "start", "stop": "stop", "status": "query"}.get(action, "query")
         proc = await asyncio.create_subprocess_exec(
             "sc.exe", sc_action, svc_name,
@@ -1943,10 +1238,13 @@ async def execute_pc_step(
 
     if tool == "pc.read_file":
         raw_p = str(args.get("path") or "")
-        path = Path(raw_p).expanduser().resolve()
-        t3_deny, t3_reason = is_t3_secret_or_protected_path(path)
+        t3_deny, t3_reason = is_t3_secret_or_protected_path(raw_p, for_write=False, data_dir=rt.data_dir)
         if t3_deny:
             return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason, "summary": t3_reason}
+        path = Path(raw_p).expanduser().resolve()
+        t3_deny2, t3_reason2 = is_t3_secret_or_protected_path(path, for_write=False, data_dir=rt.data_dir)
+        if t3_deny2:
+            return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason2, "summary": t3_reason2}
         if not path.is_file():
             return {"ok": False, "verified": False, "error": f"Файл не найден: {path}", "summary": f"Файл не найден: {path}"}
         raw = path.read_bytes()[:MAX_OUTPUT_BYTES]
@@ -1967,10 +1265,11 @@ async def execute_pc_step(
         }
 
     if tool == "pc.list_dir":
-        path = Path(str(args.get("path") or ".")).expanduser().resolve()
-        t3_deny, t3_reason = is_t3_secret_or_protected_path(path)
+        raw_p = str(args.get("path") or ".")
+        t3_deny, t3_reason = is_t3_secret_or_protected_path(raw_p, for_write=False, data_dir=rt.data_dir)
         if t3_deny:
             return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason, "summary": t3_reason}
+        path = Path(raw_p).expanduser().resolve()
         if not path.is_dir():
             return {"ok": False, "verified": False, "error": f"Папка не найдена: {path}", "summary": f"Папка не найдена: {path}"}
         entries = []
@@ -1987,10 +1286,23 @@ async def execute_pc_step(
         }
 
     if tool == "pc.write_file":
-        path = Path(str(args.get("path") or "")).expanduser().resolve()
-        t3_deny, t3_reason = is_t3_secret_or_protected_path(path)
+        raw_p = str(args.get("path") or "")
+        t3_deny, t3_reason = is_t3_secret_or_protected_path(raw_p, for_write=True, data_dir=rt.data_dir)
         if t3_deny:
             return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason, "summary": t3_reason}
+        path = Path(raw_p).expanduser().resolve()
+        t3_deny2, t3_reason2 = is_t3_secret_or_protected_path(path, for_write=True, data_dir=rt.data_dir)
+        if t3_deny2:
+            return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason2, "summary": t3_reason2}
+        if not is_within_safe_roots(str(path), default_safe_roots(rt.data_dir)) and not approved:
+            return {
+                "ok": False,
+                "verified": False,
+                "tier": "T2",
+                "decision": "ask",
+                "error": f"Запись вне разрешённых рабочих папок требует подтверждения владельца: {path}",
+                "summary": f"Отказ без подтверждения T2: {path}",
+            }
         content = str(args.get("content") or "")
         path.parent.mkdir(parents=True, exist_ok=True)
         rb = save_rollback_backup(rt, task_id, path)
@@ -2012,10 +1324,14 @@ async def execute_pc_step(
         }
 
     if tool == "pc.edit_file":
-        path = Path(str(args.get("path") or "")).expanduser().resolve()
-        t3_deny, t3_reason = is_t3_secret_or_protected_path(path)
+        raw_p = str(args.get("path") or "")
+        t3_deny, t3_reason = is_t3_secret_or_protected_path(raw_p, for_write=True, data_dir=rt.data_dir)
         if t3_deny:
             return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason, "summary": t3_reason}
+        path = Path(raw_p).expanduser().resolve()
+        t3_deny2, t3_reason2 = is_t3_secret_or_protected_path(path, for_write=True, data_dir=rt.data_dir)
+        if t3_deny2:
+            return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason2, "summary": t3_reason2}
         if not path.is_file():
             return {"ok": False, "verified": False, "error": f"Файл не найден: {path}", "summary": f"Файл не найден: {path}"}
         old_text = str(args.get("old") or args.get("find") or "")
@@ -2039,12 +1355,14 @@ async def execute_pc_step(
 
     if tool in {"pc.copy_file", "pc.move_file"}:
         import shutil
-        src = Path(str(args.get("src") or "")).expanduser().resolve()
-        dst = Path(str(args.get("dst") or args.get("path") or "")).expanduser().resolve()
-        for p_check in (src, dst):
-            t3_deny, t3_reason = is_t3_secret_or_protected_path(p_check)
+        src_raw = str(args.get("src") or "")
+        dst_raw = str(args.get("dst") or args.get("path") or "")
+        for p_check in (src_raw, dst_raw):
+            t3_deny, t3_reason = is_t3_secret_or_protected_path(p_check, for_write=True, data_dir=rt.data_dir)
             if t3_deny:
                 return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason, "summary": t3_reason}
+        src = Path(src_raw).expanduser().resolve()
+        dst = Path(dst_raw).expanduser().resolve()
         if not src.exists():
             return {"ok": False, "verified": False, "error": f"Источник не найден: {src}", "summary": f"Источник не найден: {src}"}
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -2070,10 +1388,14 @@ async def execute_pc_step(
         }
 
     if tool == "pc.delete_file":
-        path = Path(str(args.get("path") or "")).expanduser().resolve()
-        t3_deny, t3_reason = is_t3_secret_or_protected_path(path)
+        raw_p = str(args.get("path") or "")
+        t3_deny, t3_reason = is_t3_secret_or_protected_path(raw_p, for_write=True, data_dir=rt.data_dir)
         if t3_deny:
             return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason, "summary": t3_reason}
+        path = Path(raw_p).expanduser().resolve()
+        t3_deny2, t3_reason2 = is_t3_secret_or_protected_path(path, for_write=True, data_dir=rt.data_dir)
+        if t3_deny2:
+            return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": t3_reason2, "summary": t3_reason2}
         if not path.exists():
             return {"ok": False, "verified": False, "error": f"Файл не существует: {path}", "summary": f"Файл не существует: {path}"}
         rb = save_rollback_backup(rt, task_id, path)
@@ -2100,7 +1422,7 @@ async def execute_pc_step(
     if tool == "pc.desktop_act":
         action = str(args.get("action") or "").strip().lower()
         if action == "notepad_roundtrip":
-            return await _execute_notepad_roundtrip(svc, rt, task_id=task_id, args=args, t0=t0)
+            return await _execute_notepad_roundtrip(svc, rt, task_id=task_id, args=args, t0=t0, approved=approved)
         obs_before = await tc.observe(svc)
         act_args = dict(args)
         act_args.setdefault("generation", obs_before["generation"])
@@ -2202,18 +1524,49 @@ async def execute_pc_step(
         }
 
     if tool == "pc.bossman_api":
-        method = str(args.get("method") or "GET").upper()
-        path = str(args.get("path") or "/api/system")
+        method = str(args.get("method") or "GET").upper().strip()
+        raw_path = str(args.get("path") or "/api/system")
+        norm_path, suspicious = normalize_bossman_api_path(raw_path)
+        api_verdict = classify_bossman_api(method, raw_path)
+        if api_verdict.decision == "deny" or api_verdict.tier == "T3" or suspicious:
+            return {
+                "ok": False,
+                "verified": False,
+                "tier": "T3",
+                "decision": "deny",
+                "error": api_verdict.reason,
+                "summary": api_verdict.reason,
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+        if api_verdict.decision == "ask" and not approved:
+            return {
+                "ok": False,
+                "verified": False,
+                "tier": "T2",
+                "decision": "ask",
+                "error": api_verdict.reason,
+                "summary": api_verdict.reason,
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
         payload = args.get("payload")
         port = int(os.environ.get("BCC_ACTUAL_PORT") or svc.settings.port or 8801)
-        token_path = Path(svc.settings.data_dir) / "api-token"
-        token = token_path.read_text(encoding="utf-8").strip() if token_path.is_file() else ""
+        headers: dict[str, str] = {}
+        # Токен владельца никогда не передаётся в execute_pc_step, если нормализованный (method, path) не в allowlist!
+        if is_bossman_api_token_allowed(method, raw_path):
+            for tname in ("token", "api-token"):
+                token_path = Path(svc.settings.data_dir) / tname
+                if token_path.is_file():
+                    tok_val = token_path.read_text(encoding="utf-8").strip()
+                    if tok_val:
+                        headers["X-BCC-Token"] = tok_val
+                        headers["Authorization"] = f"Bearer {tok_val}"
+                        break
         async with httpx.AsyncClient(timeout=15.0, trust_env=False) as client:
             resp = await client.request(
                 method,
-                f"http://127.0.0.1:{port}{path}",
+                f"http://127.0.0.1:{port}{norm_path}",
                 json=payload if method != "GET" else None,
-                headers={"X-BCC-Token": token} if token else {},
+                headers=headers,
             )
         body = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text
         ok = 200 <= resp.status_code < 300
@@ -2221,9 +1574,11 @@ async def execute_pc_step(
             "ok": ok,
             "verified": ok,
             "status_code": resp.status_code,
+            "normalized_path": norm_path,
+            "token_attached": bool(headers),
             "response": json.loads(scrub_secrets(json.dumps(body, ensure_ascii=False, default=str))),
             "tainted": False,
-            "summary": f"Bossman API {method} {path} → HTTP {resp.status_code}",
+            "summary": f"Bossman API {method} {norm_path} → HTTP {resp.status_code}",
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
@@ -2377,12 +1732,25 @@ async def _execute_earn_step(
         elif sys.path[0] != core_pkg:
             sys.path.remove(core_pkg)
             sys.path.insert(0, core_pkg)
+        wt_bossman_dir = str(repo_root / "bossman-core" / "bossman")
+        if "bossman" in sys.modules and hasattr(sys.modules["bossman"], "__path__"):
+            bpath = list(sys.modules["bossman"].__path__)
+            if wt_bossman_dir not in bpath:
+                sys.modules["bossman"].__path__.insert(0, wt_bossman_dir)
+            for mod_k in list(sys.modules.keys()):
+                if mod_k.startswith("bossman.trading_learning"):
+                    mod_obj = sys.modules.get(mod_k)
+                    mod_file = str(getattr(mod_obj, "__file__", "") or "")
+                    if mod_file and wt_bossman_dir.lower() not in mod_file.lower():
+                        sys.modules.pop(mod_k, None)
         from bossman.trading_learning import k1m6a_exam as kex
 
+        ocr_modes = list(getattr(kex, "OCR_MODES", ("vision_plus_ocr", "ocr_only", "vision_plus_ocr_plus_lessons")))
+        all_modes = list(getattr(kex, "MODES", ("vision_only", "vision_plus_ocr", "ocr_only", "vision_plus_ocr_plus_lessons")))
         summary = (
             "🎓 Экзамен K1m6a и детерминированный OCR шапки графика (`chart_ocr.py` + `k1m6a_exam.py`):\n"
-            f"  - Поддерживаемые режимы: `{', '.join(kex.MODES)}`\n"
-            f"  - OCR-режимы: `{', '.join(kex.OCR_MODES)}`\n"
+            f"  - Поддерживаемые режимы: `{', '.join(all_modes)}`\n"
+            f"  - OCR-режимы: `{', '.join(ocr_modes)}`\n"
             "  - Проверка на 14 locked-кадрах экзамена: точность чтения полей (`symbol`, `exchange`, `timeframe`, `last_close`) "
             "выросла с **90.48%** (vision baseline, порог ≥95% не проходил) до **98.21%** (RapidOCR + разбор OHLC/тикера, 0 выдумок).\n"
             "  - Декомпозиция в `aggregate`: считает отдельно `ocr_effect`, `lessons_effect_with_ocr`, `total_fixed_vs_baseline` и `verdict_ocr`."
@@ -2391,8 +1759,8 @@ async def _execute_earn_step(
             "ok": True,
             "verified": True,
             "action": "exam",
-            "modes": list(kex.MODES),
-            "ocr_modes": list(kex.OCR_MODES),
+            "modes": all_modes,
+            "ocr_modes": ocr_modes,
             "locked_14_ocr_field_accuracy": 0.9821,
             "locked_14_vision_field_accuracy": 0.9048,
             "tainted": False,
@@ -3016,15 +2384,15 @@ async def _execute_earn_step(
         preset_3d = str(args.get("preset") or "studio_product").strip()
         plan_3d = blender_mcp.build_scene_plan(prompt_3d, preset=preset_3d)
         summary = (
-            f"🧊 **MCP for Blender (`{plan_3d['package']}` v{plan_3d['version_declared']}, {plan_3d['license']})**:\n"
-            f"  - Сцена: `{plan_3d['preset_title']}` (`{plan_3d['engine']}`, {plan_3d['resolution'][0]}×{plan_3d['resolution'][1]}, {plan_3d['samples']} samples)\n"
-            f"  - Объекты ({len(plan_3d['objects'])}): `{', '.join(plan_3d['objects'])}`\n"
-            f"  - AST-проверка безопасности `bpy`: `script_verified_safe={plan_3d['script_verified_safe']}` (без shell/сети, только loopback `127.0.0.1:9876`)."
+            f"🧊 **MCP for Blender (`{plan_3d['package']}` v{plan_3d['version_declared']}, {plan_3d['license']}, статус: `NOT_ACTIVATED`)**:\n"
+            f"  - Статус: **`NOT_ACTIVATED`** (выключено по стоп-крану владельца; выполнение не активно до лицензионной проверки и отдельного слова владельца).\n"
+            f"  - Предпросмотр схемы: `{plan_3d['preset_title']}` (`{plan_3d['engine']}`, `script_verified_safe={plan_3d['script_verified_safe']}`, только loopback `127.0.0.1:9876`)."
         )
         return {
             "ok": True,
-            "verified": bool(plan_3d["script_verified_safe"]),
+            "verified": False,
             "action": "blender",
+            "activation_status": "NOT_ACTIVATED",
             "scene_plan": plan_3d,
             "tainted": False,
             "summary": summary,
@@ -3040,16 +2408,16 @@ async def _execute_earn_step(
             closes_f = [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
         res_f = fincept_terminal.analyze_series(symbol_f, closes_f)
         summary = (
-            f"📈 **Fincept Terminal (`{res_f['package']}`, лицензия `{res_f['license']}`, режим `{res_f['mode']}`, $0)**:\n"
-            f"  - Инструмент: `{res_f['symbol']}` ({res_f['samples']} точек, close `{res_f['first_close']} → {res_f['last_close']}`, доходность `{res_f['total_return_pct']}%`)\n"
-            f"  - Режим рынка: **`{res_f['regime']}`** (`Efficiency Ratio = {res_f['efficiency_ratio']}`, Sharpe `{res_f['sharpe_annualized']}`, макс. просадка `{res_f['max_drawdown_pct']}%`)\n"
-            f"  - Рекомендация: {res_f['recommendation']}\n"
-            "  - Политика T3: платные тарифы Enterprise ($10/$20/$40) и живой брокер заблокированы."
+            f"📈 **Fincept Terminal (`{res_f['package']}`, лицензия `{res_f['license']}`, режим `{res_f['mode']}`, $0, статус: `NOT_ACTIVATED`)**:\n"
+            f"  - Статус: **`NOT_ACTIVATED`** (выключено по стоп-крану владельца до проверки сетевой лицензии AGPL-3.0 и отдельного слова владельца).\n"
+            f"  - Справочный расчёт `{res_f['symbol']}`: режим `{res_f['regime']}` (`Efficiency Ratio = {res_f['efficiency_ratio']}`).\n"
+            "  - Политика T3: платные тарифы Enterprise ($10/$20/$40) и живой брокер заблокированы; интеграция выключена (`NOT_ACTIVATED`)."
         )
         return {
             "ok": True,
-            "verified": True,
+            "verified": False,
             "action": "fincept",
+            "activation_status": "NOT_ACTIVATED",
             "analytics": res_f,
             "tainted": False,
             "summary": summary,
@@ -3065,15 +2433,15 @@ async def _execute_earn_step(
             closes_v = [142.0, 142.3, 141.9, 142.1, 142.0, 142.2]
         res_v = vibe_trading.simulate_shadow_step(symbol_v, closes_v)
         summary = (
-            f"🦞 **Vibe-Trading (`{res_v['package']}` v{res_v['version_declared']}, `{res_v['license']}`, Shadow Account `PAPER_ONLY=True`, `real_money=0`)**:\n"
-            f"  - Инструмент: `{res_v['symbol']}` · Стратегия: `{res_v['strategy']}` · Режим: **`{res_v['regime']}`** (ER={res_v['efficiency_ratio']})\n"
-            f"  - Действие: `{res_v['action_taken']}` · Позиция: `{res_v['position_side']}` · Эквити: **${res_v['equity_start_usd']:.2f} → ${res_v['equity_end_usd']:.2f}** (комиссия: ${res_v['fee_paid_usd']:.2f})\n"
-            f"  - Live Gate: `{res_v['live_gate']}` (живая торговля заблокирована T3)."
+            f"🦞 **Vibe-Trading (`{res_v['package']}` v{res_v['version_declared']}, `{res_v['license']}`, Shadow Account `PAPER_ONLY=True`, `real_money=0`, статус: `NOT_ACTIVATED`)**:\n"
+            f"  - Статус: **`NOT_ACTIVATED`** (выключено по стоп-крану владельца до отдельного разрешения владельца).\n"
+            f"  - Справочный расчёт `{res_v['symbol']}`: режим `{res_v['regime']}` (ER={res_v['efficiency_ratio']}), Live Gate: `{res_v['live_gate']}`."
         )
         return {
             "ok": True,
-            "verified": True,
+            "verified": False,
             "action": "vibe_trading",
+            "activation_status": "NOT_ACTIVATED",
             "shadow_step": res_v,
             "tainted": False,
             "summary": summary,
@@ -3081,8 +2449,6 @@ async def _execute_earn_step(
         }
 
     if action == "oss":
-        from ..oss import blender_mcp, fincept_terminal, vibe_trading
-
         oss_checks: list[tuple[str, bool, str]] = []
         for mod_label, mod_import, desc in [
             ("Docling", "docling", "локальный разбор PDF/DOCX/таблиц в Markdown"),
@@ -3099,18 +2465,18 @@ async def _execute_earn_step(
             oss_checks.append((mod_label, ok_m, desc))
         grapes_ok = (repo_root / "command-center" / "static" / "vendor" / "grapes.min.js").is_file() or (repo_root / "command-center" / "bcc" / "oss" / "web_builder.py").is_file()
         oss_checks.append(("GrapesJS", grapes_ok, "визуальный конструктор лендингов в Vibe Studio"))
-        oss_checks.append(("MCP for Blender (mcp-for-blender)", blender_mcp.status()["loopback_only"], "3D-моделирование и сборка сцен Blender с AST-защитой bpy (MIT)"))
-        oss_checks.append(("Fincept Terminal (AGPL-3.0)", fincept_terminal.status()["paid_enterprise_blocked"], "рыночная аналитика и режим CHOP/TREND (только чтение, $0)"))
-        oss_checks.append(("Vibe-Trading (Shadow Account)", vibe_trading.status()["paper_only"], "персональный торговый агент строго в режиме PAPER_ONLY (real_money=0, MIT)"))
+        oss_checks.append(("MCP for Blender (mcp-for-blender)", False, "3D-моделирование Blender — статус: NOT_ACTIVATED (выключено)"))
+        oss_checks.append(("Fincept Terminal (AGPL-3.0)", False, "рыночная аналитика — статус: NOT_ACTIVATED (выключено)"))
+        oss_checks.append(("Vibe-Trading (Shadow Account)", False, "бумажный агент PAPER_ONLY — статус: NOT_ACTIVATED (выключено)"))
         ready_n = sum(1 for _, ok_m, _ in oss_checks if ok_m)
         lines_oss = [f"  - **{'✅' if ok_m else '⚪'} {lbl}**: {desc}" for lbl, ok_m, desc in oss_checks]
         summary = (
-            f"🧩 Топовый Open-Source стек в едином ядре Bossman ({ready_n}/{len(oss_checks)} активно локально):\n"
+            f"🧩 Топовый Open-Source стек в едином ядре Bossman ({ready_n}/{len(oss_checks)} активно локально; новые сторонние компоненты в статусе NOT_ACTIVATED):\n"
             + "\n".join(lines_oss)
         )
         return {
             "ok": True,
-            "verified": ready_n >= 9,
+            "verified": ready_n >= 6,
             "action": "oss",
             "ready_count": ready_n,
             "total_count": len(oss_checks),
@@ -3188,13 +2554,48 @@ async def _execute_notepad_roundtrip(
     task_id: int,
     args: dict[str, Any],
     t0: float,
+    approved: bool = False,
 ) -> dict[str, Any]:
     """Реальный сценарий Блокнота на Windows:
     observe -> открытие Блокнота -> ввод/запись текста -> сохранение на диск ->
-    повторное открытие сохранённого файла в Блокноте -> re-observe окна + проверка файла на диске."""
+    повторное открытие сохранённого файла в Блокноте -> re-observe окна + проверка файла на диске.
+    Строго проверяет T3/T2 защиту пути ДО mkdir и ДО save_rollback_backup."""
     text = str(args.get("text") or "Argon PC-Agent Live Test")
     file_path_raw = str(args.get("path") or (rt.workspace_dir / f"argon-notepad-{task_id}.txt"))
+    t3_deny_raw, t3_reason_raw = is_t3_secret_or_protected_path(file_path_raw, for_write=True, data_dir=rt.data_dir)
+    if t3_deny_raw:
+        return {
+            "ok": False,
+            "verified": False,
+            "tier": "T3",
+            "decision": "deny",
+            "error": t3_reason_raw,
+            "summary": t3_reason_raw,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
     target_path = Path(file_path_raw).expanduser().resolve()
+    t3_deny, t3_reason = is_t3_secret_or_protected_path(target_path, for_write=True, data_dir=rt.data_dir)
+    if t3_deny:
+        return {
+            "ok": False,
+            "verified": False,
+            "tier": "T3",
+            "decision": "deny",
+            "error": t3_reason,
+            "summary": t3_reason,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+    if not is_within_safe_roots(str(target_path), default_safe_roots(rt.data_dir)) and not approved:
+        t2_msg = f"Сохранение файла Блокнота вне разрешённых рабочих папок требует подтверждения владельца: {target_path}"
+        return {
+            "ok": False,
+            "verified": False,
+            "tier": "T2",
+            "decision": "ask",
+            "error": t2_msg,
+            "summary": t2_msg,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
     target_path.parent.mkdir(parents=True, exist_ok=True)
     rb = save_rollback_backup(rt, task_id, target_path)
     started_at = time.time()
@@ -3461,8 +2862,8 @@ def compile_plan_for_prompt(prompt: str, *, workspace_dir: Path) -> list[dict[st
 
     # 1. Сценарий Блокнота (открыть Блокнот, написать текст, сохранить файл, переоткрыть и проверить)
     if ("блокнот" in low or "notepad" in low) and any(w in low for w in ("напиши", "сохрани", "текст", "write", "save", "открой")):
-        path_match = re.search(r"([A-Za-z]:[\\/][^\s'\"<>|,;]+\.txt)", raw)
-        file_path = path_match.group(1) if path_match else str(workspace_dir / "argon_notepad_note.txt")
+        path_match = re.search(r"([A-Za-z]:[\\/][^\s'\"<>|,;]+|(?:docs|command-center|\.git)[\\/][^\s'\"<>|,;]+)", raw)
+        file_path = path_match.group(1).rstrip(".,;)") if path_match else str(workspace_dir / "argon_notepad_note.txt")
         quote_match = re.search(r"['«\"]([^'»\"\n]{2,400})['»\"]", raw)
         text_to_write = quote_match.group(1) if quote_match else "Argon PC-Agent: проверено реальным запуском на Windows 11"
         return [
@@ -3835,12 +3236,14 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
 
             tool = str(step.get("tool") or "")
             args = dict(step.get("args") or {})
+            record["progress_pct"] = int(round((len(completed) / max(1, len(planned))) * 100))
             verdict = classify_pc_action(
                 tool,
                 args,
                 task_prompt=prompt,
                 tainted_by_injection=bool(record.get("tainted_by_injection")),
                 trust_active=rt.trust_active(svc),
+                data_dir=rt.data_dir,
             )
 
             # T3: жёсткий отказ всегда
@@ -3865,7 +3268,7 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
                 return record
 
             # T2: требуется кнопка «Разрешить» (если этот шаг ещё не был только что одобрен владельцем)
-            if verdict.decision == "ask" and approved_step_index != idx:
+            if (verdict.decision == "ask" or verdict.always_owner_button) and approved_step_index != idx:
                 preview = (
                     f"[Argon PC-Agent · {verdict.tier} · {verdict.category}] Задача #{task_id}: "
                     f"{tool} {scrub_secrets(json.dumps(args, ensure_ascii=False))[:400]} — {verdict.reason}"
@@ -3940,6 +3343,7 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
 
             completed.append(idx)
             record["completed_step_indices"] = completed
+            record["progress_pct"] = int(round((len(completed) / max(1, len(planned))) * 100))
             record["dispatched_step_index"] = None
             record["step_results"].append({
                 "step": idx + 1,
@@ -3963,7 +3367,7 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
         all_verified = bool(record["step_results"]) and all(bool(s.get("verified")) for s in record["step_results"])
         summaries = [str(s.get("summary") or "") for s in record["step_results"] if s.get("summary")]
         verdict_label = "ПРОВЕРЕНО" if all_verified else "ВЫПОЛНЕНО (без полной верификации)"
-        base_report = f"✅ Задача #{task_id} [Argon PC-Agent] {verdict_label}:\n" + "\n".join(f"• {line}" for line in summaries)
+        base_report = f"✅ Задача #{task_id} [Argon PC-Agent] {verdict_label} (100%):\n" + "\n".join(f"• {line}" for line in summaries)
 
         if record.get("use_local_llm_summary") and summaries:
             llm_res = await call_local_qwen(
@@ -3982,6 +3386,7 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
                 base_report += f"\n\n🧠 Итог ({llm_res['model']}, {llm_res['seconds']} с):\n{scrub_secrets(llm_res['text'])}"
 
         record["status"] = "completed"
+        record["progress_pct"] = 100
         record["verified"] = all_verified
         record["result"] = scrub_secrets(base_report)
         record["finished_at"] = time.time()
@@ -4017,59 +3422,95 @@ async def resume_after_approval(
     wait: bool = True,
     wait_timeout_s: float = 1.2,
 ) -> dict[str, Any] | None:
-    """Продолжает или отклоняет задачу PC-Agent после решения владельца по кнопке подтверждения `#approval_id`.
-    Регистрирует исполнение в `rt.active_tasks[task_id]`, чтобы `/stop` мгновенно отменял даже долгий одобренный шаг."""
+    """Единая атомарная точка возобновления или отклонения задачи PC-Agent после решения владельца `#approval_id`.
+    Использует `rt.lock` + атомарный CAS-переход `waiting_approval -> running` в одной транзакции БД,
+    гарантируя строго однократное выполнение одобренного шага при любых конкурентных вызовах
+    (`api_pc_agent_get_task`, `api_pc_agent_approve_task`, `_on_approval_decided`)."""
     rt = get_runtime(svc)
-    for path in rt.tasks_dir.glob("task-*.json"):
-        rec = rt.load_task_record(int(path.stem.split("-")[1]))
-        if not rec or rec.get("status") != "waiting_approval":
-            continue
-        pending = rec.get("pending_approval") or {}
-        if pending.get("approval_id") != int(approval_id):
-            continue
-        task_id = int(rec["task_id"])
-        run_id = int(rec["run_id"])
-        step_idx = int(pending["step_index"])
-        if not approve:
-            reason = f"Отклонено владельцем ({actor}) по кнопке #{approval_id}."
-            rec["status"] = "cancelled"
-            rec["error"] = reason
+    job: asyncio.Task[dict[str, Any]] | None = None
+    claimed_task_id: int | None = None
+    claimed_rec: dict[str, Any] | None = None
+
+    async with rt.lock:
+        if int(approval_id) in rt.consumed_approvals:
+            return None
+        for path in rt.tasks_dir.glob("task-*.json"):
+            rec = rt.load_task_record(int(path.stem.split("-")[1]))
+            if not rec or rec.get("status") != "waiting_approval":
+                continue
+            pending = rec.get("pending_approval") or {}
+            if pending.get("approval_id") != int(approval_id):
+                continue
+            task_id = int(rec["task_id"])
+            run_id = int(rec["run_id"])
+            step_idx = int(pending["step_index"])
+
+            existing_job = rt.active_tasks.get(task_id)
+            if existing_job is not None and not existing_job.done():
+                return None
+
+            if not approve:
+                reason = f"Отклонено владельцем ({actor}) по кнопке #{approval_id}."
+                async with svc.db.session() as s:
+                    cas_res = await s.execute(
+                        sa.update(tasks_t)
+                        .where(sa.and_(tasks_t.c.id == task_id, tasks_t.c.status == "waiting_approval"))
+                        .values(status="stopped", updated_at=utcnow())
+                    )
+                    if getattr(cas_res, "rowcount", 1) == 0:
+                        await s.rollback()
+                        return None
+                    await s.commit()
+                rt.consumed_approvals.add(int(approval_id))
+                rec["status"] = "cancelled"
+                rec["error"] = reason
+                rec["pending_approval"] = None
+                rec["updated_at"] = time.time()
+                rt.save_task_record(task_id, rec)
+                rt.journal.append(
+                    actor=actor, task_id=task_id, run_id=run_id, tool=pending.get("tool", "unknown"),
+                    args=pending.get("args", {}), tier=pending.get("tier", "T2"), decision="rejected",
+                    result=reason, approval_id=approval_id, verified=False,
+                )
+                await _finish_db_task(svc, task_id, run_id, status="cancelled", error_text=reason)
+                return rec
+
+            # Одобрено владельцем: атомарный CAS waiting_approval -> running под одной транзакцией БД и rt.lock
+            async with svc.db.session() as s:
+                cas_res = await s.execute(
+                    sa.update(tasks_t)
+                    .where(sa.and_(tasks_t.c.id == task_id, tasks_t.c.status == "waiting_approval"))
+                    .values(status="running", updated_at=utcnow())
+                )
+                if getattr(cas_res, "rowcount", 1) == 0:
+                    await s.rollback()
+                    return None
+                await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(status="running"))
+                await s.commit()
+
+            rt.consumed_approvals.add(int(approval_id))
+            rec["status"] = "running"
             rec["pending_approval"] = None
             rec["updated_at"] = time.time()
             rt.save_task_record(task_id, rec)
-            rt.journal.append(
-                actor=actor, task_id=task_id, run_id=run_id, tool=pending.get("tool", "unknown"),
-                args=pending.get("args", {}), tier=pending.get("tier", "T2"), decision="rejected",
-                result=reason, approval_id=approval_id, verified=False,
+            job = asyncio.create_task(
+                _drive_pc_task(svc, rt, task_id, approved_step_index=step_idx, approval_id=approval_id),
+                name=f"argon-pc-task-{task_id}-approved-{approval_id}",
             )
-            await _finish_db_task(svc, task_id, run_id, status="cancelled", error_text=reason)
-            return rec
+            rt.active_tasks[task_id] = job
+            job.add_done_callback(lambda _f, tid=task_id, j=job: rt.active_tasks.pop(tid, None) if rt.active_tasks.get(tid) is j else None)
+            claimed_task_id = task_id
+            claimed_rec = rec
+            break
 
-        existing_job = rt.active_tasks.get(task_id)
-        if existing_job is not None and not existing_job.done():
-            return rt.load_task_record(task_id) or rec
-
-        # Одобрено владельцем: переводим задачу обратно в running и регистрируем задачу в rt.active_tasks
-        async with svc.db.session() as s:
-            await s.execute(sa.update(tasks_t).where(tasks_t.c.id == task_id).values(status="running", updated_at=utcnow()))
-            await s.execute(sa.update(runs_t).where(runs_t.c.id == run_id).values(status="running"))
-            await s.commit()
-        rec["status"] = "running"
-        rec["pending_approval"] = None
-        rt.save_task_record(task_id, rec)
-        job = asyncio.create_task(
-            _drive_pc_task(svc, rt, task_id, approved_step_index=step_idx, approval_id=approval_id),
-            name=f"argon-pc-task-{task_id}-approved-{approval_id}",
-        )
-        rt.active_tasks[task_id] = job
-        job.add_done_callback(lambda _f, tid=task_id, j=job: rt.active_tasks.pop(tid, None) if rt.active_tasks.get(tid) is j else None)
-        if wait and wait_timeout_s > 0:
-            done, _ = await asyncio.wait({job}, timeout=wait_timeout_s)
-            if done:
-                with contextlib.suppress(asyncio.CancelledError, Exception):
-                    return job.result()
-        return rt.load_task_record(task_id) or rec
-    return None
+    if job is None or claimed_task_id is None:
+        return None
+    if wait and wait_timeout_s > 0:
+        done, _ = await asyncio.wait({job}, timeout=wait_timeout_s)
+        if done:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                return job.result()
+    return rt.load_task_record(claimed_task_id) or claimed_rec
 
 
 async def recover_interrupted_tasks(svc: Any) -> list[dict[str, Any]]:
@@ -4122,12 +3563,12 @@ async def api_pc_agent_status(request: Request):
 
     svc = _svc_of(request)
     rt = get_runtime(svc)
-    agent = await ensure_argon_agent(svc)
+    agent_id = await ensure_argon_agent(svc)
     edit_eng = rt.get_edit_engine()
     return {
         "profile": PROFILE_NAME,
-        "agent_id": agent.get("id"),
-        "agent_name": agent.get("name"),
+        "agent_id": agent_id,
+        "agent_name": AGENT_NAME,
         "stopped": rt.is_stopped(svc),
         "trust_active": rt.trust_active(svc),
         "trust_until": rt.trust_until if rt.trust_active(svc) else None,
@@ -4205,20 +3646,6 @@ async def api_pc_agent_get_task(request: Request, task_id: int):
     rec = rt.load_task_record(task_id)
     if not rec:
         raise HTTPException(status_code=404, detail={"code": "TASK_NOT_FOUND", "message": f"Задача #{task_id} не найдена."})
-    if rec.get("status") == "waiting_approval":
-        pending = rec.get("pending_approval") or {}
-        aid = pending.get("approval_id")
-        if isinstance(aid, int) and hasattr(svc, "approvals"):
-            with contextlib.suppress(Exception):
-                ap_row = await svc.approvals.get(aid)
-                if isinstance(ap_row, dict) and ap_row.get("status") in ("approved", "rejected"):
-                    resumed = await resume_after_approval(
-                        svc, aid,
-                        approve=(ap_row.get("status") == "approved"),
-                        actor=str(ap_row.get("decided_by") or "owner"),
-                    )
-                    if resumed:
-                        return resumed
     return rec
 
 
@@ -4230,13 +3657,24 @@ async def api_pc_agent_approve_task(request: Request, task_id: int, body: dict[s
     if not rec or rec.get("status") != "waiting_approval":
         raise HTTPException(status_code=409, detail={"code": "NOT_WAITING_APPROVAL", "message": f"Задача #{task_id} не ждёт подтверждения."})
     pending = rec.get("pending_approval") or {}
-    aid = int(body.get("approval_id") or pending.get("approval_id") or 0)
+    expected_aid = int(pending.get("approval_id") or 0)
+    req_aid = body.get("approval_id")
+    if req_aid is not None and int(req_aid) != expected_aid:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "APPROVAL_ID_MISMATCH", "message": f"Ожидается подтверждение #{expected_aid}, получено #{req_aid}."},
+        )
+    aid = expected_aid
     approve = bool(body.get("approve", True))
     actor = str(body.get("by") or body.get("actor") or "owner")
     wait = bool(body.get("wait", True))
     wait_timeout_s = float(body.get("wait_timeout_s", 1.2))
     await svc.approvals.decide(aid, approve, actor)
     resumed = await resume_after_approval(svc, aid, approve=approve, actor=actor, wait=wait, wait_timeout_s=wait_timeout_s)
+    if resumed is None and wait and wait_timeout_s > 0:
+        active_job = rt.active_tasks.get(task_id)
+        if active_job is not None and not active_job.done():
+            await asyncio.wait({active_job}, timeout=wait_timeout_s)
     return resumed or rt.load_task_record(task_id)
 
 
@@ -4302,7 +3740,6 @@ async def api_pc_agent_audit(request: Request, limit: int = 50, task_id: int | N
 
 async def _setup(svc: Any) -> None:
     rt = get_runtime(svc)
-    await ensure_argon_agent(svc)
     await recover_interrupted_tasks(svc)
 
     # Подписываемся на событие остановки/продолжения Computer Use и на решения по очереди подтверждений Bossman

@@ -13,7 +13,7 @@
 | Компонент | Статус | Адрес / Порт | Лог-файл |
 |---|---|---|---|
 | **Ollama** (`bossman-community-qwen-uncensored-ctx64k:latest`) | `RUNNING` | `http://127.0.0.1:11434` | `C:\Users\asd\AppData\Local\Bossman\one-bossman-logs\ollama-20261013.log` |
-| **Backend Command Center (`bcc.main:app`)** | `ALIVE` (`source_identity: PASS`) | `http://127.0.0.1:8801` | `C:\Users\asd\AppData\Local\Bossman\one-bossman-logs\backend-source-20261013.log` |
+| **Backend Command Center (`bcc.main:app`)** | На момент первичного отчёта бэкенд был `SOURCE_IDENTITY_STALE` до перезапуска; перезапущен с финального SHA ветки `fix/pc-agent-security-20261014` | `http://127.0.0.1:8801` | `C:\Users\asd\AppData\Local\Bossman\one-bossman-logs\backend-source-20261013.log` |
 | **Пульт владельца (`bcc.telegram_companion`)** | `RUNNING` (1 poller) | Telegram long-polling | `C:\Users\asd\AppData\Local\Bossman\one-bossman-logs\companion-source-20261013.log` |
 
 ---
@@ -43,7 +43,7 @@
 Invoke-RestMethod http://127.0.0.1:8801/health/live | ConvertTo-Json -Depth 5
 ```
 
-### Запуск (из единой ветки `release/bossman-one-20261014`)
+### Запуск (из ветки `fix/pc-agent-security-20261014`)
 ```powershell
 # 1. Бэкенд :8801
 & "C:\Users\asd\Bossman\venv-tests-20261012\Scripts\python.exe" `
@@ -65,12 +65,13 @@ Get-CimInstance Win32_Process | Where-Object {
 
 ---
 
-## 4. Что ПРОВЕРЕНО живыми прогонами (с выводами)
+## 4. Что проверено живыми прогонами и автотестами (с выводами)
 
-### Шаг 1. Подъём системы, `/health/live`, статус оператора и пин конституции v2 — ПРОВЕРЕНО
-- `GET http://127.0.0.1:8801/health/live` → `alive: true`, `status: "ALIVE"`, `source_identity: "PASS"`, `source: "checkout"`.
+### Шаг 1. Подъём системы, `/health/live`, статус оператора и пин конституции v2
+- На момент первичного отчёта бэкенд `:8801` находился в состоянии `SOURCE_IDENTITY_STALE` до перезапуска (из-за незакоммиченных правок в рабочем дереве). После коммита и перезапуска из чистого SHA ветки `fix/pc-agent-security-20261014` в `/health/live` нет `SOURCE_IDENTITY_STALE`.
 - `GET http://127.0.0.1:8801/api/qwen-operator/status` → `operator_role: "operator:l1-lab"`, `constitution.autonomy_loop: "OK"`, `authority: {"push": false, "merge": false, "deploy": false}`.
 - Файл `docs/constitution/BOSSMAN_CONSTITUTION.md` и пин `%LOCALAPPDATA%\Bossman\autonomy\constitution.sha256` побайтово совпадают: `7d845db367b3acfb58418ee9d844a4c887c512e4804e91fd708034667d768970`.
+- **Защита от shell/path-обходов в `pc_agent.py` (`pc_agent_policy.py`):** **ЧАСТИЧНО**; обходы 1–5 (`1a` `notepad_roundtrip` до `mkdir`/`save_rollback_backup` и запрет чтения бэкапов секретов, `1b` нормализация путей и запрет передачи токена вне белого списка `pc.bossman_api`, `1c` атомарное однократное возобновление `resume_after_approval` под `rt.lock` + БД CAS без побочного эффекта в `GET`, `1d` блокировка `always_owner_button` и неизвестных бинарников при `/trust`, `1e` защита служб и проверка `cmdline` при `kill_process` по имени с лимитом 1 процесс) исправлены в ветке `fix/pc-agent-security-20261014` (`23/23 passed` в `test_pc_agent_argon.py`), независимая проверка — не проведена.
 
 ### Шаг 2. UX-прогон пульта (`/help`, `/work` read-only Motion Studio через `bossman_calls`, `/work_status`) — ПРОВЕРЕНО
 1. **`/help`**: доставлен в Telegram со всеми инлайн-кнопками.
@@ -94,20 +95,16 @@ Get-CimInstance Win32_Process | Where-Object {
   - `attempt=2`: `pytest` в лаборатории упал (`exit 1`) → `{"n": 7, "kind": "rollback", "status": "done", "attempt": 2}` → `diagnose`.
   - `attempt=3`: `pytest` в лаборатории прошёл (`exit 0`, `1 passed`) → коммит `9012b391c7f0c274984502ad2f2ae5b488c0256c` на ветке `lab/op-d00bf4d25ca2`, рабочее дерево чистое.
 
-### Шаг 5. Открытые интеграции (`Blender MCP`, `Fincept`, `Vibe-Trading`), `/edit_engine`, запись `quality_audit` в ledger и UX — ПРОВЕРЕНО
+### Шаг 5. Запись `quality_audit` в ledger, `/edit_engine` и стоп-кран сторонних интеграций (`NOT_ACTIVATED`)
 - **Строгая запись `quality_audit` в `simulated_ledger.jsonl`:** `run_pc_task` передаёт результат `verify_deliverable_strict` в `log_earning_attempt(..., quality_audit=...)`, сохраняя хэш, размер и статус проверки в `simulated_ledger.jsonl`; пустой или битый артефакт переводит задачу в `NEEDS_REVISION` (`verified=False`).
-- **Переключатель `/edit_engine qwen|uncensored` (`POST /api/pc-agent/edit-engine`) и разведка кандидатов:** явно переключает профиль редактирования между `qwen` (`Qwen-Image-Edit-2509-Q4_K_M.gguf`) и `uncensored` (`z_image_nsfw_v2`, `sdcpp:z-image-turbo -i <path> --strength 0.6`) и отображается в шапке `#/control`, `#/images` и в пульте Telegram. Живой `Qwen-Image-Edit-2509-Q4_K_M.gguf` сохранён без подмены; для будущей лабораторной проверки зафиксированы два открытых кандидата: (1) `ChrisColeTech/qwen-image-edit-uncensored-v1.1-GGUF` (~54 загрузки на HF, требуется проверка совместимости с `sd-cli` и качества сохранения лица) и (2) `Phr00t/Qwen-Image-Edit-Rapid-AIO` (ускорение до 4 шагов, v5–v19 NSFW-capable по описанию автора, требуется проверка формата весов и лицензии).
-- **3 открытых инструмента владельца (`$0`, `T0–T3`):**
-  1. `MCP for Blender` (`v2.0.3`, MIT, `127.0.0.1:9876`) — `/api/oss/blender/*`, `/blender` (с AST-защитой `bpy`-скриптов).
-  2. `Fincept Terminal` (`AGPL-3.0`, `$0` аналитика и фильтр `CHOP`/`TREND`) — `/api/oss/fincept/*`, `/fincept` (`T3 deny` на платные тарифы и живых брокеров).
-  3. `Vibe-Trading` (`v0.1.15`, MIT, `Shadow Account` `real_money=0`) — `/api/oss/vibe-trading/*`, `/vibe_trading` (`S4_regime_trend` + `T3 deny` на реальные сделки).
-- **Косметическое обновление UX (скриншоты ДО и ПОСЛЕ):** обновлены `#/home-v3`, `#/control`, `#/images`, `#/oss` и мобильная версия (`390×844`); скриншоты сохранены в `docs/owner/screenshots/before/` и `docs/owner/screenshots/after/`.
+- **Переключатель `/edit_engine qwen|uncensored` (`POST /api/pc-agent/edit-engine`):** явно переключает профиль редактирования между `qwen` (`Qwen-Image-Edit-2509-Q4_K_M.gguf`) и `uncensored` (`z_image_nsfw_v2`, `sdcpp:z-image-turbo -i <path> --strength 0.6`).
+- **Сторонние интеграции (`Blender MCP`, `Fincept`, `Vibe-Trading`):** по стоп-крану владельца оставлены выключенными (**`NOT_ACTIVATED`**).
 
 ---
 
 ## 5. Что НЕ ПРОВЕРЕНО (честный список)
 
 1. **Фактическое слияние в `main` по кнопке владельца (`/work_yes 42` / `✅ Разрешить`):** намеренно НЕ нажималось агентом.
-2. **Живой сквозной GUI-прогон Argon PC-Agent из реального сообщения Telegram в окно Windows:** проверен контрактными и интеграционными автотестами (`26/26 passed` в `test_pc_agent_argon.py`), но не живым кликом в реальном окне из чата владельца.
+2. **Независимая проверка исправлений обходов 1–5 в `pc_agent.py` / `pc_agent_policy.py`:** статус **ЧАСТИЧНО**; обходы 1–5 исправлены и покрыты 5 байпас-тестами в ветке `fix/pc-agent-security-20261014`, но независимый внешний аудит после патча ещё не проведён.
 3. **Платежи, Telegram Stars и внешние рассылки/публикации:** на паузе по решению владельца.
 4. **Поведение после перезагрузки самой Windows 11:** автозапуск после ребута ОС в рамках этого прогона не тестировался.

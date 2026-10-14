@@ -293,16 +293,30 @@ async def test_stop_kills_running_command_within_seconds(fake_svc: FakeSvc):
         fake_svc,
         "выполни в терминале python -c \"import time; time.sleep(30)\"",
         actor="owner",
-        wait=False,
+        wait=True,
         use_local_llm_summary=False,
     )
-    await asyncio.sleep(0.5)
-    assert len(rt.active_procs) >= 1
+    # По правилу 1(d) `python -c` всегда требует кнопки владельца даже при включённом /trust
+    assert rec["status"] == "waiting_approval"
+    aid = rec["pending_approval"]["approval_id"]
+    await fake_svc.approvals.decide(aid, True, "owner")
+    resume_task = asyncio.create_task(resume_after_approval(fake_svc, aid, approve=True, actor="owner"))
+    try:
+        for _ in range(20):
+            if len(rt.active_procs) >= 1:
+                break
+            await asyncio.sleep(0.1)
+        assert len(rt.active_procs) >= 1
 
-    stop_res = await rt.trigger_stop(fake_svc, actor="owner", reason="emergency_stop")
-    assert stop_res["stopped"] is True
-    assert rt.trust_active(fake_svc) is False
-    assert len(rt.active_procs) == 0
+        stop_res = await rt.trigger_stop(fake_svc, actor="owner", reason="emergency_stop")
+        assert stop_res["stopped"] is True
+        assert rt.trust_active(fake_svc) is False
+        assert len(rt.active_procs) == 0
+    finally:
+        try:
+            await asyncio.wait_for(resume_task, timeout=3.0)
+        except Exception:
+            pass
 
 
 # ------------------------------------------------------------------ 4. Канал Telegram → Companion → Argon PC-Agent (Owner-Only & Idempotency)
@@ -1011,15 +1025,15 @@ async def test_fresh_vibes_14d_instagram_hypothesis_and_owner_publish_gate(fake_
     assert "Экзамен K1m6a" in str(exam_reply)
     assert "98.21%" in str(exam_reply) and "RapidOCR" in str(exam_reply)
 
-    # 8. Интеграция 3 новых OSS-инструментов в пульт: MCP for Blender, Fincept Terminal (AGPL-3.0), Vibe-Trading (Shadow Account PAPER_ONLY)
+    # 8. Проверка стоп-крана `NOT_ACTIVATED` для 3 сторонних OSS-инструментов: MCP for Blender, Fincept Terminal (AGPL-3.0), Vibe-Trading (Shadow Account PAPER_ONLY)
     blender_reply = await comp.pc_agent_command(owner, "/blender", "Предметная студия часов", owner_msg)
-    assert "mcp-for-blender" in str(blender_reply) and "script_verified_safe=True" in str(blender_reply)
+    assert "mcp-for-blender" in str(blender_reply) and "NOT_ACTIVATED" in str(blender_reply) and "script_verified_safe=True" in str(blender_reply)
 
     fincept_reply = await comp.pc_agent_command(owner, "/fincept", "", owner_msg)
-    assert "FinceptTerminal" in str(fincept_reply) and "AGPL-3.0" in str(fincept_reply) and "CHOP" in str(fincept_reply)
+    assert "FinceptTerminal" in str(fincept_reply) and "NOT_ACTIVATED" in str(fincept_reply) and "AGPL-3.0" in str(fincept_reply)
 
     vibe_reply = await comp.pc_agent_command(owner, "/vibe_trade", "", owner_msg)
-    assert "vibe-trading" in str(vibe_reply) and "PAPER_ONLY=True" in str(vibe_reply) and "real_money=0" in str(vibe_reply)
+    assert "vibe-trading" in str(vibe_reply) and "NOT_ACTIVATED" in str(vibe_reply) and "PAPER_ONLY=True" in str(vibe_reply) and "real_money=0" in str(vibe_reply)
 
     # Попытка живой торговли или платного Enterprise в pc.earn блокируется на уровне T3 deny
     v_deny = classify_pc_action("pc.earn", {"action": "vibe_trading", "mode": "live"})
@@ -1050,4 +1064,344 @@ async def test_fresh_vibes_14d_instagram_hypothesis_and_owner_publish_gate(fake_
     roi_check = em_mod.hardware_roi_summary([saved_line])
     assert roi_check["verified_count"] == 0 and roi_check["needs_revision_count"] == 1
 
+
+# ------------------------------------------------------------------ 7. Исправление 5 обходов безопасности (1a–1e) + выделенный модуль политики pc_agent_policy.py
+
+@pytest.mark.asyncio
+async def test_bypass_1a_notepad_roundtrip_secret_and_backup(fake_svc: FakeSvc, tmp_path: Path):
+    """1(a) `notepad_roundtrip`:
+    - применяет T3/T2 защиту к `path` ДО `save_rollback_backup` и ДО `mkdir`;
+    - блокирует пины, ключи, vault, `.env`, конституцию, Startup/Run/schtasks, `.git/hooks`, `bcc/approvals.py`;
+    - откатные копии секретов (`backup-1-api-token` или внутри `rollback/`) не читаемы через `pc.read_file`."""
+    import bcc.features.pc_agent as pca
+    from bcc.features import pc_agent_policy as policy
+
+    # Проверяем, что выделенный модуль политики <= 400 строк
+    policy_file = Path(policy.__file__).resolve()
+    assert len(policy_file.read_text(encoding="utf-8").splitlines()) <= 400
+
+    rt = pca.get_runtime(fake_svc)
+    secret_parent = tmp_path / "nonexistent_vault_dir" / ".bossman" / "nested"
+    secret_target = secret_parent / "vault.key"
+
+    # 0. Полный сквозной вход-обход через промпт (планировщик compile_plan_for_prompt -> классификатор -> исполнитель)
+    plan_from_prompt = pca.compile_plan_for_prompt(
+        f'открой Блокнот и сохрани текст "pwn" в {secret_target}',
+        workspace_dir=rt.workspace_dir,
+    )
+    assert any(s.get("tool") == "pc.desktop_act" and s["args"].get("path") == str(secret_target) for s in plan_from_prompt)
+    rec_prompt_bypass = await start_pc_task(
+        fake_svc,
+        f'открой Блокнот и сохрани текст "pwn" в {secret_target}',
+        actor="owner",
+        wait=True,
+        use_local_llm_summary=False,
+    )
+    assert rec_prompt_bypass["status"] == "failed"
+    assert not secret_parent.exists()
+
+    # Классификатор обязан блокировать T3 пути для notepad_roundtrip даже при включённом окне доверия
+    for forbidden_path in (
+        str(secret_target),
+        "C:/Users/asd/AppData/Local/Bossman/telegram-companion/pin.json",
+        "C:/Users/asd/.env",
+        "C:/Users/asd/Bossman/docs/constitution/CONSTITUTION.md",
+        "C:/Users/asd/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/autorun.bat",
+        "C:/Users/asd/Bossman/.git/hooks/pre-commit",
+        "C:/Users/asd/Bossman/command-center/bcc/approvals.py",
+    ):
+        v = classify_pc_action(
+            "pc.desktop_act",
+            {"action": "notepad_roundtrip", "path": forbidden_path, "text": "pwn"},
+            trust_active=True,
+            data_dir=rt.data_dir,
+        )
+        assert v.tier == "T3" and v.decision == "deny", f"1a classifier bypass: {forbidden_path} -> {v}"
+
+    # Прямой вызов исполнителя `_execute_notepad_roundtrip` обязан отказать ДО mkdir и ДО save_rollback_backup
+    res_direct = await pca._execute_notepad_roundtrip(
+        fake_svc,
+        rt,
+        task_id=701,
+        args={"action": "notepad_roundtrip", "path": str(secret_target), "text": "overwrite"},
+        t0=0.0,
+        approved=True,
+    )
+    assert res_direct["ok"] is False
+    assert res_direct["tier"] == "T3" and res_direct["decision"] == "deny"
+    assert not secret_parent.exists(), "mkdir must NOT run before T3 path check in notepad_roundtrip"
+    assert not (rt.rollback_dir / "task-701").exists(), "save_rollback_backup must NOT run before T3 path check"
+
+    # Путь вне safe_roots (но не T3) в notepad_roundtrip требует T2 кнопки владельца ДО mkdir и ДО backup
+    outside_dir = Path("C:/Windows/Temp/argon_unapproved_subdir_701")
+    outside_file = outside_dir / "note.txt"
+    v_t2 = classify_pc_action(
+        "pc.desktop_act",
+        {"action": "notepad_roundtrip", "path": str(outside_file), "text": "test"},
+        trust_active=True,
+        data_dir=rt.data_dir,
+    )
+    assert v_t2.tier == "T2" and v_t2.decision == "ask" and v_t2.always_owner_button is True
+    res_t2 = await pca._execute_notepad_roundtrip(
+        fake_svc,
+        rt,
+        task_id=702,
+        args={"action": "notepad_roundtrip", "path": str(outside_file), "text": "test"},
+        t0=0.0,
+        approved=False,
+    )
+    assert res_t2["ok"] is False and res_t2["tier"] == "T2" and res_t2["decision"] == "ask"
+    assert not outside_dir.exists()
+
+    # Откатные копии секретов (`backup-1-api-token`, `backup-1-token` или любой файл в `rollback/`) не должны читаться через pc.read_file
+    fake_backup_dir = rt.rollback_dir / "task-999"
+    fake_backup_dir.mkdir(parents=True, exist_ok=True)
+    fake_secret_backup = fake_backup_dir / "backup-1-api-token"
+    fake_secret_backup.write_text("SECRET_TOKEN_VALUE", encoding="utf-8")
+    standalone_backup = rt.workspace_dir / "backup-1-pin.json"
+    standalone_backup.write_text("SECRET_PIN", encoding="utf-8")
+    standalone_token_backup = rt.workspace_dir / "backup-2-token"
+    standalone_token_backup.write_text("SECRET_RAW_TOKEN", encoding="utf-8")
+
+    for bpath in (fake_secret_backup, standalone_backup, standalone_token_backup):
+        v_read = classify_pc_action("pc.read_file", {"path": str(bpath)}, trust_active=True, data_dir=rt.data_dir)
+        assert v_read.tier == "T3" and v_read.decision == "deny", f"Rollback secret readable via classifier: {bpath}"
+        r_read = await execute_pc_step(
+            fake_svc, rt, task_id=703, run_id=703, step_idx=0,
+            tool="pc.read_file", args={"path": str(bpath)}, approved=True,
+        )
+        assert r_read["ok"] is False and r_read["tier"] == "T3" and r_read["decision"] == "deny"
+        assert "SECRET_" not in str(r_read)
+
+
+@pytest.mark.asyncio
+async def test_bypass_1b_bossman_api_traversal_and_token_guard(fake_svc: FakeSvc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """1(b) `pc.bossman_api`:
+    - нормализует путь (unquote, dot-segments, `%2e`, двойные слэши, регистр) ДО проверки;
+    - allowlist `method + path`; всё остальное — `T2 ask` (`always_owner_button=True`);
+    - явный запрет (`T3`) на `/api/pc-agent/trust`, `/api/pc-agent/*/approve`, `/api/providers/*`, `approvals`/`autonomy`/`control-plane`;
+    - токен владельца никогда не передаётся в `execute_pc_step`, если нормализованный `(method, path)` не в allowlist."""
+    import httpx
+    import bcc.features.pc_agent as pca
+
+    rt = pca.get_runtime(fake_svc)
+    (Path(fake_svc.settings.data_dir) / "api-token").write_text("OWNER_SUPER_SECRET_TOKEN", encoding="utf-8")
+
+    # 1. Обходы нормализации пути на запрещённые T3 маршруты
+    for method, raw_path in (
+        ("POST", "/api/system/../pc-agent/trust"),
+        ("POST", "/api/%70%63-agent/trust"),
+        ("POST", "/api/system/%2e%2e/pc-agent/42/approve"),
+        ("GET", "//API//PROVIDERS//openai"),
+        ("POST", "/api/system/%252e%252e/approvals/1/decide"),
+        ("POST", "/api/autonomy/enable"),
+        ("POST", "/api/control-plane/override"),
+    ):
+        v = classify_pc_action("pc.bossman_api", {"method": method, "path": raw_path}, trust_active=True)
+        assert v.tier == "T3" and v.decision == "deny", f"1b T3 traversal not blocked: {method} {raw_path} -> {v}"
+        step_res = await execute_pc_step(
+            fake_svc, rt, task_id=710, run_id=710, step_idx=0,
+            tool="pc.bossman_api", args={"method": method, "path": raw_path}, approved=True,
+        )
+        assert step_res["ok"] is False and step_res["tier"] == "T3" and step_res["decision"] == "deny"
+
+    # 2. Не входящие в allowlist маршруты — всегда T2 ask с always_owner_button=True (даже при trust_active=True)
+    for method, raw_path in (
+        ("GET", "/api/tasks/secret-dump"),
+        ("DELETE", "/api/agents/1"),
+        ("POST", "/api/models"),
+    ):
+        v_ask = classify_pc_action("pc.bossman_api", {"method": method, "path": raw_path}, trust_active=True)
+        assert v_ask.tier == "T2" and v_ask.decision == "ask" and v_ask.always_owner_button is True
+
+    # 3. Проверка, что токен владельца НИКОГДА не прикладывается к не-allowlist запросам даже при approved=True
+    captured_headers: list[dict[str, str]] = []
+
+    async def _fake_request(self, method: str, url: str, **kwargs):
+        captured_headers.append(dict(kwargs.get("headers") or {}))
+        return httpx.Response(200, json={"ok": True}, headers={"content-type": "application/json"})
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", _fake_request)
+
+    res_non_allow = await execute_pc_step(
+        fake_svc, rt, task_id=711, run_id=711, step_idx=0,
+        tool="pc.bossman_api", args={"method": "GET", "path": "/api/tasks"}, approved=True,
+    )
+    assert res_non_allow["ok"] is True
+    assert res_non_allow["token_attached"] is False
+    assert captured_headers[-1] == {}, f"Owner token leaked on non-allowlisted path: {captured_headers[-1]}"
+
+    # А для маршрута из белого списка (GET /api/system) токен прикладывается штатно
+    res_allow = await execute_pc_step(
+        fake_svc, rt, task_id=712, run_id=712, step_idx=0,
+        tool="pc.bossman_api", args={"method": "GET", "path": "/api/system"}, approved=False,
+    )
+    assert res_allow["ok"] is True
+    assert res_allow["token_attached"] is True
+    assert captured_headers[-1].get("X-BCC-Token") == "OWNER_SUPER_SECRET_TOKEN"
+
+
+@pytest.mark.asyncio
+async def test_bypass_1c_concurrent_resume_after_approval_single_exec(fake_svc: FakeSvc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """1(c) Однократное выполнение одобренного шага:
+    три одновременных вызова `resume_after_approval` (и отсутствие побочного эффекта в GET) -> ровно одно выполнение."""
+    import bcc.features.pc_agent as pca
+
+    exec_counter = {"count": 0}
+    orig_execute = pca.execute_pc_step
+
+    async def _counted_execute(svc, rt, **kwargs):
+        if kwargs.get("tool") == "pc.delete_file":
+            exec_counter["count"] += 1
+            await asyncio.sleep(0.15)
+        return await orig_execute(svc, rt, **kwargs)
+
+    monkeypatch.setattr(pca, "execute_pc_step", _counted_execute)
+
+    victim = tmp_path / "workspace" / "single_exec_victim.txt"
+    victim.parent.mkdir(parents=True, exist_ok=True)
+    victim.write_text("important data for single exec test", encoding="utf-8")
+
+    rec = await start_pc_task(
+        fake_svc,
+        f"удали файл {victim}",
+        actor="owner",
+        wait=True,
+        use_local_llm_summary=False,
+    )
+    assert rec["status"] == "waiting_approval"
+    aid = int(rec["pending_approval"]["approval_id"])
+    await fake_svc.approvals.decide(aid, True, "owner")
+
+    # Запускаем три одновременных вызова resume_after_approval на один и тот же approval_id
+    r1, r2, r3 = await asyncio.gather(
+        resume_after_approval(fake_svc, aid, approve=True, actor="owner", wait=True, wait_timeout_s=3.0),
+        resume_after_approval(fake_svc, aid, approve=True, actor="owner", wait=True, wait_timeout_s=3.0),
+        resume_after_approval(fake_svc, aid, approve=True, actor="owner", wait=False),
+    )
+    non_none = [r for r in (r1, r2, r3) if r is not None]
+    assert len(non_none) == 1, f"Expected exactly 1 caller to claim execution, got {len(non_none)}"
+    assert exec_counter["count"] == 1, f"Approved step executed {exec_counter['count']} times instead of 1!"
+
+
+@pytest.mark.asyncio
+async def test_bypass_1d_trust_window_blocks_always_button_and_unknown_exe(fake_svc: FakeSvc, tmp_path: Path):
+    """1(d) `/trust` никогда не выполняет команды из T2 `always_owner_button` и неизвестные бинарники (`head not in _SAFE_ARGV_HEADS`)."""
+    import bcc.features.pc_agent as pca
+
+    rt = pca.get_runtime(fake_svc)
+    rt.enable_trust(15, "owner")
+    assert rt.trust_active(fake_svc) is True
+
+    always_button_cases = [
+        ["powershell", "-e", "UwB0AGEAcgB0AC0AUAByAG8AYwBlAHMAcwA="],
+        ["powershell", "-ec", "UwB0AGEAcgB0AC0AUAByAG8AYwBlAHMAcwA="],
+        ["powershell", "-enc", "UwB0AGEAcgB0AC0AUAByAG8AYwBlAHMAcwA="],
+        ["powershell", "-encoded", "UwB0AGEAcgB0AC0AUAByAG8AYwBlAHMAcwA="],
+        ["pwsh", "-encodedcommand", "UwB0AGEAcgB0AC0AUAByAG8AYwBlAHMAcwA="],
+        ["cmd", "/c", "echo hello"],
+        ["schtasks", "/create", "/tn", "test", "/tr", "notepad.exe", "/sc", "once", "/st", "12:00"],
+        ["certutil", "-urlcache", "-split", "-f", "http://127.0.0.1/x"],
+        ["bitsadmin", "/transfer", "job", "http://127.0.0.1/x", "C:\\temp\\x"],
+        ["wmic", "process", "call", "create", "calc.exe"],
+        ["setx", "MY_VAR", "123"],
+        ["icacls", "C:\\temp\\file.txt", "/grant", "Everyone:F"],
+        ["takeown", "/f", "C:\\temp\\file.txt"],
+        ["net", "user", "testuser", "Pass123!", "/add"],
+        ["python", "-c", "print(123)"],
+        ["node", "-e", "console.log(1)"],
+        ["curl", "https://example.com/upload"],
+        ["scp", "file.txt", "user@example.com:/tmp/"],
+        ["reg", "query", "HKCU\\Software"],
+        ["sc", "stop", "Spooler"],
+        ["msiexec", "/i", "package.msi"],
+        ["pip", "install", "requests"],
+        ["winget", "install", "SomeApp"],
+        # Неизвестный исполняемый файл (не в _SAFE_ARGV_HEADS)
+        ["unknown_custom_binary.exe", "--flag"],
+        ["C:/Users/asd/Downloads/dropper.exe"],
+    ]
+
+    for argv_case in always_button_cases:
+        v = classify_pc_action("pc.run_command", {"argv": argv_case}, trust_active=True, data_dir=rt.data_dir)
+        assert v.decision in ("ask", "deny"), f"1d bypass: {argv_case} allowed as {v} under /trust!"
+        if v.decision == "ask":
+            assert v.always_owner_button is True, f"1d: {argv_case} missing always_owner_button=True"
+        step_res = await execute_pc_step(
+            fake_svc, rt, task_id=730, run_id=730, step_idx=0,
+            tool="pc.run_command", args={"argv": argv_case}, approved=False,
+        )
+        assert step_res["ok"] is False and step_res["decision"] in ("ask", "deny")
+
+    rt.revoke_trust("test_done")
+
+
+@pytest.mark.asyncio
+async def test_bypass_1e_kill_process_by_name_cmdline_and_service_guard(fake_svc: FakeSvc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """1(e) `kill_process` по `name` и `control_service`:
+    - защищает процессы Bossman backend/пульта (проверяет `cmdline` в ветке `name` так же, как в `pid`);
+    - защищает службы безопасности (`WdNisSvc`, `Sense`, `wscsvc`, `SecurityHealthService`, `WinDefend`, `mpssvc`);
+    - убивает максимум 1 процесс без явного флага `allow_multi`."""
+    import psutil
+    import bcc.features.pc_agent as pca
+
+    rt = pca.get_runtime(fake_svc)
+
+    # 1. Защита служб безопасности (T3 deny) + требование кнопки владельца для остальных служб даже под /trust
+    for svc_name in ("WdNisSvc", "Sense", "wscsvc", "SecurityHealthService", "WinDefend", "mpssvc", "Bossman"):
+        v_svc = classify_pc_action("pc.control_service", {"name": svc_name, "action": "stop"}, trust_active=True)
+        assert v_svc.tier == "T3" and v_svc.decision == "deny", f"1e service not protected: {svc_name} -> {v_svc}"
+        res_svc = await execute_pc_step(
+            fake_svc, rt, task_id=740, run_id=740, step_idx=0,
+            tool="pc.control_service", args={"name": svc_name, "action": "stop"}, approved=True,
+        )
+        assert res_svc["ok"] is False and res_svc["tier"] == "T3" and res_svc["decision"] == "deny"
+
+    v_nonprot_svc = classify_pc_action("pc.control_service", {"name": "Spooler", "action": "stop"}, trust_active=True)
+    assert v_nonprot_svc.tier == "T2" and v_nonprot_svc.decision == "ask" and v_nonprot_svc.always_owner_button is True
+
+    # 2. Ветка `name` в `pc.kill_process` проверяет `cmdline` и блокирует убийство процесса Bossman backend/пульта
+    class _FakeProc:
+        def __init__(self, pid: int, name: str, cmdline: list[str]):
+            self.pid = pid
+            self._name = name
+            self._cmdline = cmdline
+            self.info = {"pid": pid, "name": name, "cmdline": cmdline}
+            self.killed = False
+
+        def name(self) -> str:
+            return self._name
+
+        def cmdline(self) -> list[str]:
+            return self._cmdline
+
+        def is_running(self) -> bool:
+            return not self.killed
+
+        def kill(self) -> None:
+            self.killed = True
+
+    bossman_proc = _FakeProc(88801, "python.exe", ["python.exe", "-m", "uvicorn", "bcc.app:app", "--port", "8801"])
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: [bossman_proc])
+
+    res_kill_bossman = await execute_pc_step(
+        fake_svc, rt, task_id=741, run_id=741, step_idx=0,
+        tool="pc.kill_process", args={"name": "python.exe", "tree": False}, approved=True,
+    )
+    assert res_kill_bossman["ok"] is False
+    assert res_kill_bossman["tier"] == "T3" and res_kill_bossman["decision"] == "deny"
+    assert bossman_proc.killed is False
+
+    # 3. Если найдено >1 обычных процессов по имени — отказ (максимум 1 процесс без отдельного подтверждения allow_multi)
+    np1 = _FakeProc(90001, "notepad.exe", ["notepad.exe", "a.txt"])
+    np2 = _FakeProc(90002, "notepad.exe", ["notepad.exe", "b.txt"])
+    monkeypatch.setattr(psutil, "process_iter", lambda attrs=None: [np1, np2])
+
+    res_multi = await execute_pc_step(
+        fake_svc, rt, task_id=742, run_id=742, step_idx=0,
+        tool="pc.kill_process", args={"name": "notepad.exe", "tree": False}, approved=True,
+    )
+    assert res_multi["ok"] is False
+    assert res_multi["tier"] == "T2" and res_multi["decision"] == "ask"
+    assert np1.killed is False and np2.killed is False
 

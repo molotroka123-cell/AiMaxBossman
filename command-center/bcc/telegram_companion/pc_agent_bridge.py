@@ -109,17 +109,27 @@ def _pc_approval_digest(task_id: int, pending: dict) -> str:
 
 
 def format_pc_task_report(rec: dict) -> str:
-    """Форматирует проверенный отчёт задачи Argon PC-Agent для Telegram."""
+    """Форматирует проверенный отчёт задачи Argon PC-Agent для Telegram с указанием прогресса в процентах (%)."""
     tid = rec.get("task_id") or rec.get("id")
     status = str(rec.get("status") or "unknown")
     profile = str(rec.get("profile") or "Argon")
+    steps = rec.get("step_results") or []
+    planned = rec.get("steps_planned") or []
+    pct = rec.get("progress_pct")
+    if pct is None:
+        if status == "completed":
+            pct = 100
+        elif planned:
+            pct = int(round((len(steps) / max(1, len(planned))) * 100))
+        else:
+            pct = 0
     if status == "completed" and rec.get("result"):
         return str(rec["result"])[:3600]
     if status == "waiting_approval":
         pending = rec.get("pending_approval") or {}
         aid = pending.get("approval_id")
         return (
-            f"⏳ Задача #{tid} [{profile} PC-Agent] ждёт вашего решения (#{aid}):\n"
+            f"⏳ Задача #{tid} [{profile} PC-Agent · прогресс {pct}%] ждёт вашего решения (#{aid}):\n"
             f"• Уровень: {pending.get('tier', 'T2')} ({pending.get('category', 'risky')})\n"
             f"• Инструмент: `{pending.get('tool')}`\n"
             f"• Аргументы: `{json.dumps(pending.get('args') or {}, ensure_ascii=False)[:400]}`\n"
@@ -129,9 +139,8 @@ def format_pc_task_report(rec: dict) -> str:
     if status in {"failed", "stopped", "cancelled"}:
         err = str(rec.get("error") or "без подробностей")
         icon = "⛔" if status in {"stopped", "cancelled"} else "❌"
-        return f"{icon} Задача #{tid} [{profile} PC-Agent] ({status}):\n{err}"[:3600]
-    steps = rec.get("step_results") or []
-    return f"⚙️ Задача #{tid} [{profile} PC-Agent]: состояние `{status}`, выполнено шагов: {len(steps)}."
+        return f"{icon} Задача #{tid} [{profile} PC-Agent · {pct}%] ({status}):\n{err}"[:3600]
+    return f"⚙️ Задача #{tid} [{profile} PC-Agent]: состояние `{status}`, прогресс **{pct}%** (выполнено шагов: {len(steps)}/{max(len(planned), len(steps))})."
 
 
 class PCAgentBridgeMixin:
