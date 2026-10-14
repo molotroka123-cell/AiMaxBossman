@@ -22,6 +22,7 @@ from .form_bridge import FORM_COMMANDS, FormBridgeMixin
 from .operator_bridge import WORK_COMMANDS, OperatorBridgeMixin
 from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .pc_agent_bridge import PC_AGENT_COMMANDS, PCAgentBridgeMixin, pc_phrase
+from .poker_app_bridge import POKER_APP_COMMANDS, poker_app_text
 from .gen_refine import GEN_COMMANDS, GenRefineMixin, gen_intent, gen_phrase, photo_kind, safety_violation
 from .gen_progress import GenProgressPlate
 from .store import Store
@@ -1126,6 +1127,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         if command in {"/start", "/help", "/menu"}:
             title = "Пульт Bossman. Все действия идут через задачи и подтверждения." if command == "/menu" else HELP
             return Reply(title, self.main_menu(person))
+        if command in POKER_APP_COMMANDS:
+            return poker_app_text(person, arg)
         if command == "/jev":
             return await self.jev_command(person, arg, message)
         if command in GEN_COMMANDS:
