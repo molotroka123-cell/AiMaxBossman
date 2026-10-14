@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import sqlite3
 import threading
 import time
@@ -83,6 +84,36 @@ def clean_stats(raw: dict) -> dict:
     return out
 
 
+JEFF_EVERY_S = 2.0             # one Jeff decision per player per 2 s
+JEFF_TIMEOUT_S = 25.0
+CARD = re.compile(r"^[2-9TJQKA][shdc]$")
+STAGES = ("preflop", "flop", "turn", "river")
+ACTIONS = ("fold", "check", "call", "raise")
+
+
+def clean_spot(raw) -> dict | None:
+    """Only cards, a street, an action hint and bounded numbers — no free text reaches the model."""
+    if not isinstance(raw, dict):
+        return None
+    hole, board = raw.get("holeCards"), raw.get("community") or []
+    if not (isinstance(hole, list) and len(hole) == 2 and isinstance(board, list) and len(board) <= 5):
+        return None
+    if not all(isinstance(c, str) and CARD.match(c) for c in hole + board) or raw.get("stage") not in STAGES:
+        return None
+    spot = {"holeCards": hole, "community": board, "stage": raw["stage"],
+            "position": raw.get("position") if raw.get("position") in POSITIONS else "?",
+            "suggest": raw.get("suggest") if raw.get("suggest") in ACTIONS else "check"}
+    for key in ("pot", "toCall", "myChips", "bigBlind", "playersInHand", "currentBet"):
+        val = raw.get(key, 0)
+        if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(val) or val < 0:
+            return None
+        spot[key] = min(int(val), 10**9)
+    return spot
+
+
+POSITIONS = ("UTG", "UTG+1", "MP", "HJ", "CO", "BTN", "SB", "BB")
+
+
 class Guard(BaseHTTPMiddleware):
     """Security headers, request size cap and a per-IP rate limit."""
 
@@ -109,9 +140,12 @@ class Guard(BaseHTTPMiddleware):
 
 
 def create_app(dist: Path, data_dir: Path, bot_tokens: list[str], *, bots: dict[str, str] | None = None,
-               deliver=None, coach=None) -> Starlette:
-    """bots = {'jeff': token, 'pult': token} (which bot answers); deliver(bot, chat_id, text) and
-    coach(summary) -> str | None are async callables injected by __main__ (fakes in tests)."""
+               deliver=None, coach=None, jeff=None) -> Starlette:
+    """bots = {'jeff': token, 'pult': token} (which bot answers); deliver(bot, chat_id, text),
+    coach(summary) -> str | None and jeff(spot) -> {action, amount} | None are async callables injected by
+    __main__ (fakes in tests)."""
+    last_jeff: dict[int, float] = {}
+    jeff_busy = asyncio.Lock()
     dist = Path(dist).resolve()
     store = Store(Path(data_dir) / "leaderboard.sqlite3")
     last_post: dict[int, float] = {}
@@ -192,6 +226,37 @@ def create_app(dist: Path, data_dir: Path, bot_tokens: list[str], *, bots: dict[
         store.upsert(user["id"], display_name(user), clean_stats(data))
         return JSONResponse({"ok": True})
 
+    async def jeff_move(request: Request):
+        """HARDCORE: Jeff (local model on the owner's PC) decides key spots. Only validated numbers/cards reach the
+        prompt, the player must be signed by Telegram, and the GPU serves one decision at a time."""
+        if jeff is None:
+            return JSONResponse({"error": "jeff_off"}, status_code=503)
+        body = await request.body()
+        if len(body) > MAX_BODY:
+            return JSONResponse({"error": "too_large"}, status_code=413)
+        try:
+            data = json.loads(body or b"{}")
+        except json.JSONDecodeError:
+            return JSONResponse({"error": "bad_json"}, status_code=400)
+        user = verify(str(data.get("initData") or ""), bot_tokens) if isinstance(data, dict) else None
+        if user is None:
+            return JSONResponse({"error": "telegram_signature_required"}, status_code=401)
+        spot = clean_spot(data.get("spot"))
+        if spot is None:
+            return JSONResponse({"error": "bad_spot"}, status_code=400)
+        now = time.monotonic()
+        if now - last_jeff.get(user["id"], -1e9) < JEFF_EVERY_S or jeff_busy.locked():
+            return JSONResponse({"error": "busy"}, status_code=429)
+        last_jeff[user["id"]] = now
+        async with jeff_busy:
+            try:
+                move = await asyncio.wait_for(jeff(spot), JEFF_TIMEOUT_S)
+            except Exception:  # noqa: BLE001 — the game falls back to its local bot
+                move = None
+        if not move:
+            return JSONResponse({"error": "no_answer"}, status_code=504)
+        return JSONResponse({"action": move["action"], "amount": move.get("amount"), "by": "Jeff"})
+
     async def claude_off(_request: Request):
         return JSONResponse({"error": "disabled_on_host", "message": "Платная модель на хосте выключена; "
                              "играет локальный ИИ."}, status_code=503)
@@ -204,6 +269,7 @@ def create_app(dist: Path, data_dir: Path, bot_tokens: list[str], *, bots: dict[
 
     routes = [Route("/api/leaderboard", leaderboard, methods=["GET", "POST"]),
               Route("/api/session", session_post, methods=["POST"]),
+              Route("/api/jeff", jeff_move, methods=["POST"]),
               Route("/api/claude", claude_off, methods=["GET", "POST"]),
               Route("/api/health", health, methods=["GET"]),
               Route("/", index, methods=["GET"]),

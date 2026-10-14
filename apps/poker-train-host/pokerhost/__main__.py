@@ -115,12 +115,47 @@ async def coach(summary: dict) -> str | None:
     return re.sub(r"<think>.*?</think>", "", text or "", flags=re.S).strip() or None
 
 
+JEFF_MODEL = os.environ.get("POKERHOST_JEFF_MODEL", COACH_MODEL)
+
+
+async def jeff(spot: dict) -> dict | None:
+    """Jeff plays HARDCORE against the player: one local-model decision for a validated spot (cards + numbers only)."""
+    prompt = ("Ты Джефф, сильный турнирный игрок в покер, играешь против человека в 6-max. Реши ход.\n"
+              f"Карты: {' '.join(spot['holeCards'])}. Борд: {' '.join(spot['community']) or 'префлоп'}. "
+              f"Улица: {spot['stage']}. Позиция: {spot['position']}. Банк: {spot['pot']}. К коллу: {spot['toCall']}. "
+              f"Стек: {spot['myChips']}. Большой блайнд: {spot['bigBlind']}. Игроков в раздаче: {spot['playersInHand']}. "
+              f"Локальный бот советует: {spot['suggest']}.\n"
+              'Ответь только JSON: {"action":"fold|check|call|raise","amount":число или null}')
+    body = {"model": JEFF_MODEL, "stream": False, "think": False, "keep_alive": "10m", "format": "json",
+            "options": {"num_predict": 60, "temperature": 0.3}, "messages": [{"role": "user", "content": prompt}]}
+
+    def call():
+        req = urllib.request.Request(OLLAMA + "/api/chat", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            return json.loads(r.read()).get("message", {}).get("content", "")
+    try:
+        d = json.loads(re.sub(r"<think>.*?</think>", "", await asyncio.to_thread(call), flags=re.S))
+    except Exception:            # noqa: BLE001 — the game falls back to its local bot
+        return None
+    action = str(d.get("action", "")).lower()
+    if action not in ("fold", "check", "call", "raise"):
+        return None
+    if action == "check" and spot["toCall"] > 0:      # cannot check facing a bet — keep him in the hand
+        action = "call"
+    elif action == "call" and spot["toCall"] == 0:
+        action = "check"
+    amount = d.get("amount")
+    return {"action": action, "amount": int(amount) if isinstance(amount, (int, float)) and amount > 0 else None}
+
+
 async def run(dist: Path, port: int) -> None:
     import uvicorn
     from .server import create_app
     tok = tokens()
     bots = {k: tok[k] for k in ("jeff", "pult") if tok.get(k)}
-    app = create_app(dist, DATA, list(bots.values()), bots=bots, deliver=make_deliver(tok), coach=coach)
+    app = create_app(dist, DATA, list(bots.values()), bots=bots, deliver=make_deliver(tok), coach=coach,
+                     jeff=jeff)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning",
                                            proxy_headers=False))
     serve = asyncio.create_task(server.serve())
