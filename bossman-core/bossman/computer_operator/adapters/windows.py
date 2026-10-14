@@ -118,10 +118,15 @@ class WindowsDesktop:
         import ctypes
         from pywinauto import Desktop
         hwnd=ctypes.windll.user32.GetForegroundWindow()
+        d=Desktop(backend="uia")
         if hwnd:
-            w=Desktop(backend="uia").window(handle=hwnd)
+            w=d.window(handle=hwnd)
             if w is not None: return w
-        return Desktop(backend="uia").top_window()
+        top=getattr(d,"top_window",None)
+        if callable(top): return top()
+        wins=d.windows() if hasattr(d,"windows") else []
+        if wins: return wins[0]
+        return d.window(found_index=0)
     async def foreground(self):
         self._req()
         def f():

@@ -86,8 +86,13 @@ def run(args) -> dict:
     for p in periods.values():  # "closed" is a date fact; whether the DATA covers the period is a separate one
         p["coverage"] = coverage.assess(p, src_meta.get("first_ts_prague"), src_meta.get("last_ts_prague"), "prague")
 
+    det_utc = (
+        as_of.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if isinstance(as_of, dt.datetime)
+        else (str(as_of)[:19].replace(" ", "T") + "Z" if as_of else "1970-01-01T00:00:00Z")
+    )
     result = {
-        "schema": calc.SCHEMA, "generated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "schema": calc.SCHEMA, "generated_utc": det_utc,
         "source": src_meta, "as_of_prague_date": as_of_date and as_of_date.isoformat(),
         "assumptions": {
             "business_time_zone": "Europe/Prague (EU DST rule, built in); confirmed by the owner 11.10",
@@ -142,12 +147,13 @@ def run(args) -> dict:
                                   deals, rows, statuses=("counted", "provisional"))}
     if args.baseline:
         result["baseline_comparison"] = reconcile.compare_baseline(periods, args.baseline)
-    result["elapsed_s"] = round(time.perf_counter() - t0, 3)
+    elapsed_s = round(time.perf_counter() - t0, 3)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "volume_result.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=1, default=_jsonable), encoding="utf-8")
+    result["elapsed_s"] = elapsed_s
     with open(out / "deals.csv", "w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
         w.writerow(["source", "ref", "ts_utc", "ts_prague", "business_period_close", "in_ccy", "in_amt",

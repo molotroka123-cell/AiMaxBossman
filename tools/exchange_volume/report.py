@@ -166,6 +166,30 @@ def render(result: dict, deals: list[dict]) -> str:
                     f"{result['deals_that_change_business_period_with_zone_choice']} (граница 20-го числа около полуночи). "
                     f"Расчёт идёт по времени Праги; при другом поясе итог периода изменится: {json.dumps(sens, ensure_ascii=False)}."]
 
+    wb = result.get("workbook")
+    if isinstance(wb, dict) and wb.get("reconcile"):
+        rec = wb["reconcile"]
+        rec_prov = wb.get("reconcile_with_provisional_complex") or {}
+        out += [
+            "",
+            "## Сверка с контрольной таблицей (workbook)",
+            "",
+            f"- Контрольная таблица (SHA-256: `{str(wb.get('sha256', ''))[:16]}…`): строк в листе «Сделки»: {wb.get('rows', 0)} "
+            f"(период дат таблицы: {wb.get('date_min', '?')} … {wb.get('date_max', '?')}), "
+            f"мульти-ногих строк (`+` в ячейке, не сопоставляются 1-к-1 со строкой простой сделки): "
+            f"{wb.get('multi_leg_rows_not_matched', 0)} (на сумму {wb.get('multi_leg_rows_usdt_book_value', '0')} USDT по книге).",
+            f"- Сделок чата в окне дат таблицы (`counted`): {rec.get('chat_deals_in_window', 0)}; "
+            f"**совпало 1-в-1 (по суммам и валютам обеих ног в окне ±{rec.get('window_days', 1)} дн.)**: **{rec.get('matched', 0)}**.",
+            f"- С учётом сложных (`provisional`) сообщений чата: совпало **{rec_prov.get('matched', rec.get('matched', 0))}** из {rec_prov.get('chat_deals_in_window', 0)}.",
+            f"- Только в чате (нет строки с такими же двумя ногами в таблице): {_refs(rec.get('only_in_chat_refs'))} "
+            f"(при учёте `provisional`: {_refs(rec_prov.get('only_in_chat_refs'))}).",
+            f"- Только в таблице (индексы строк 0-based без пары в `counted`-сделках чата): "
+            f"{len(rec.get('only_in_ledger_row_indexes') or [])} шт. "
+            f"({', '.join(str(i) for i in (rec.get('only_in_ledger_row_indexes') or [])[:25]) or 'нет'}) "
+            f"на сумму {rec.get('only_in_ledger_usdt_book_value', '0')} USDT по книге "
+            f"(причина: часть сделок в чате записана сложным сообщением с несколькими парами или без одной из сторон).",
+        ]
+
     out += ["", "## Правила расчёта и границы", ""]
     for key, label in (("business_time_zone", "Часовой пояс"), ("period", "Период"), ("volume_definition", "Оборот"),
                        ("duplicate_rule", "Дубли"), ("internal_turnover", "Внутренние сделки"), ("rates", "Курсы"),

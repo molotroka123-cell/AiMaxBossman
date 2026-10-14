@@ -789,3 +789,135 @@ def test_git_output_is_utf8_even_when_the_process_code_page_is_not(tmp_path):
                           capture_output=True, timeout=60)
     assert proc.returncode == 0, proc.stderr.decode("utf-8", "replace")[-600:]
     assert proc.stdout.decode("utf-8") == subject
+
+
+async def test_status_honestly_reports_recording_false_when_log_is_full_and_rotates(
+    env, monkeypatch
+):
+    """Когда журнал достигает MAX_LOG_BYTES, /testing/status обязан честно сообщить
+    recording=False, full=True и сменить плашку, а /testing/rotate — архивировать
+    переполненный файл и начать новую чистую сессию."""
+    monkeypatch.setattr(tp, "MAX_LOG_BYTES", 200)
+    log_path = tp._log_path(env.settings)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "a", encoding="utf-8") as fh:
+        fh.write("x" * 300 + "\n")
+
+    # Попытка дописать фиксирует _full=True
+    await env.client.post("/api/testing/log", json={"events": [
+        {"kind": "ui.click", "data": {"element": "button#overflow"}}]})
+
+    st = (await env.client.get("/api/testing/status")).json()
+    assert st["enabled"] is True
+    assert st["full"] is True
+    assert st["recording"] is False
+    assert "остановлена" in st["banner"]
+
+    old_session = st["session"]
+    monkeypatch.setattr(tp, "MAX_LOG_BYTES", 32 * 1024 * 1024)
+    rot = (await env.client.post("/api/testing/rotate")).json()
+    assert rot["ok"] is True
+    assert rot["session"] != old_session
+    assert rot["recording"] is True and rot["full"] is False
+    assert rot["rotated_from"] and old_session in rot["rotated_from"]
+
+    st_after = (await env.client.get("/api/testing/status")).json()
+    assert st_after["recording"] is True and st_after["full"] is False
+    assert "идёт запись" in st_after["banner"]
+
+
+async def test_publish_filters_to_current_session_and_blocks_synthetic_canaries(
+    env, tmp_path, monkeypatch
+):
+    """Канареечный тест: имитация текста модели, промпта задачи, пути C:\\Users\\...
+    и имени видео/фото файла, а также чужой сессии — ни одна канарейка не попадает
+    в публикуемый пакет (events.jsonl и SUMMARY.md) или в /testing/preview."""
+    canaries = [
+        "CANARY_MODEL_OUTPUT_99182_SECRET_STORY",
+        "CANARY_TASK_PROMPT_77261_PRIVATE_INSTRUCTION",
+        r"C:\Users\asd\PrivateFolder\canary_doc_551.txt",
+        "/Users/asd/Private/canary_unix_path.txt",
+        "canary_private_video_88412.mp4",
+        "canary_private_photo_33190.jpg",
+        "OLD_SESSION_EVENT_CANARY_44109",
+    ]
+    log_path = tp._log_path(env.settings)
+    cur_session = env.svc.testing_log.session_id
+
+    # 1. Событие из старой сессии (не должно попасть в публикацию текущей сессии)
+    with open(log_path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps({
+            "ts": "2026-10-01T00:00:00Z",
+            "session": "oldsession00",
+            "source": "ui",
+            "kind": "ui.click",
+            "data": {"element": "OLD_SESSION_EVENT_CANARY_44109", "page": "#/old"},
+        }, ensure_ascii=False) + "\n")
+
+    # 2. События текущей сессии на шине и в UI с канарейками (промпт, ответ модели, пути, медиафайлы)
+    with open(log_path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps({
+            "ts": "2026-10-14T08:00:00Z",
+            "session": cur_session,
+            "source": "bus",
+            "kind": "run.assistant_message",
+            "data": {
+                "text": "CANARY_MODEL_OUTPUT_99182_SECRET_STORY",
+                "prompt": "CANARY_TASK_PROMPT_77261_PRIVATE_INSTRUCTION",
+            },
+        }, ensure_ascii=False) + "\n")
+        fh.write(json.dumps({
+            "ts": "2026-10-14T08:00:01Z",
+            "session": cur_session,
+            "source": "bus",
+            "kind": "task.created",
+            "data": {
+                "prompt": "CANARY_TASK_PROMPT_77261_PRIVATE_INSTRUCTION",
+                "file": r"C:\Users\asd\PrivateFolder\canary_doc_551.txt",
+                "status": 200,
+            },
+        }, ensure_ascii=False) + "\n")
+
+    await env.client.post("/api/testing/log", json={"events": [
+        {
+            "kind": "ui.click",
+            "data": {
+                "element": r"button#open C:\Users\asd\PrivateFolder\canary_doc_551.txt canary_private_video_88412.mp4",
+                "page": "#/motion?file=canary_private_photo_33190.jpg&path=/Users/asd/Private/canary_unix_path.txt",
+                "prompt": "CANARY_TASK_PROMPT_77261_PRIVATE_INSTRUCTION",
+                "response": "CANARY_MODEL_OUTPUT_99182_SECRET_STORY",
+            },
+        },
+        {
+            "kind": "ui.error",
+            "data": {
+                "message": r"Failed loading C:\Users\asd\PrivateFolder\canary_doc_551.txt and canary_private_video_88412.mp4",
+                "line": 42,
+            },
+        },
+    ]})
+
+    # Проверяем /api/testing/preview
+    preview = (await env.client.get("/api/testing/preview")).json()
+    preview_blob = json.dumps(preview, ensure_ascii=False)
+    for c in canaries:
+        assert c not in preview_blob, f"Канарейка {c!r} утекла в /testing/preview!"
+
+    # Проверяем реальную публикацию в тестовый git-репозиторий
+    repo = tmp_path / "repo"
+    _make_repo(repo)
+    monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
+
+    res = await env.client.post("/api/testing/publish")
+    assert res.status_code == 200, res.text
+    published = list((repo / tp.PUBLISH_SUBDIR).glob("*"))
+    assert len(published) == 2
+    for path in published:
+        content = path.read_text(encoding="utf-8")
+        for c in canaries:
+            assert c not in content, f"Канарейка {c!r} утекла в опубликованный файл {path.name}!"
+        if path.suffix == ".jsonl":
+            for line in content.splitlines():
+                if line.strip():
+                    row = json.loads(line)
+                    assert row["session"] == cur_session, f"Чужая сессия в публикации: {row}"

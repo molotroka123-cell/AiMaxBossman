@@ -126,6 +126,7 @@ from .pc_agent_policy import (
     _T3_CMD_PATTERNS,
     _T3_SECRET_PATTERNS,
     _UNSAFE_WRITE_SUFFIXES,
+    _check_proc_tree_protected,
     _collect_runtime_secrets,
     _has_ntfs_ads,
     _is_git_readonly_invocation,
@@ -149,7 +150,7 @@ from .pc_agent_policy import (
 # ------------------------------------------------------------------ Append-Only Audit Journal
 
 class AuditJournal:
-    """Append-only журнал действий PC-Agent с цепочкой SHA-256 и очисткой секретов."""
+    """Append-only журнал действий PC-Agent (`audit.jsonl`) с цепочкой SHA-256 и очисткой секретов."""
 
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -207,8 +208,9 @@ class AuditJournal:
         }
         digest_Source = json.dumps(record, sort_keys=True, ensure_ascii=False).encode("utf-8")
         record["entry_hash"] = hashlib.sha256(digest_Source).hexdigest()
+        line_str = json.dumps(record, ensure_ascii=False) + "\n"
         with self.path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+            fh.write(line_str)
         return record
 
     def verify_chain(self) -> dict[str, Any]:
@@ -239,6 +241,10 @@ class AuditJournal:
                 if task_id is None or item.get("task_id") == task_id:
                     rows.append(item)
         return rows[-max(1, min(limit, 500)):]
+
+    def read_receipts(self, limit: int = 50, *, task_id: int | None = None) -> list[dict[str, Any]]:
+        """Read-view квитанций поверх единого журнала `audit.jsonl` без дублирования файла."""
+        return self.read_recent(limit=limit, task_id=task_id)
 
 
 # ------------------------------------------------------------------ Runtime State & Kill-Switch
@@ -2486,6 +2492,17 @@ async def _execute_earn_step(
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
+    if action in {"reports", "exchange_report", "exchange"}:
+        from .reports_runner import run_exchange_report
+
+        return await run_exchange_report(
+            args=args,
+            repo_root=repo_root,
+            data_dir=rt.data_dir,
+            earn_dir=earn_dir,
+            t0=t0,
+        )
+
     if action == "product":
         roi = em.hardware_roi_summary(ledger_records, target_usd=em.HARDWARE_TARGET_USD)
         tree_seed = repo_root / "command-center" / "bcc" / "capability_tree_seed.json"
@@ -2596,6 +2613,15 @@ async def _execute_notepad_roundtrip(
             "summary": t2_msg,
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
+    if rt.is_stopped(svc):
+        return {
+            "ok": False,
+            "verified": False,
+            "stopped": True,
+            "error": "Остановлено владельцем (STOP)",
+            "summary": "Остановлено владельцем (STOP)",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
     target_path.parent.mkdir(parents=True, exist_ok=True)
     rb = save_rollback_backup(rt, task_id, target_path)
     started_at = time.time()
@@ -2603,24 +2629,22 @@ async def _execute_notepad_roundtrip(
     # 1. Наблюдение ДО действия
     obs_before = await tc.observe(svc)
     gen_before = obs_before.get("generation")
+    if rt.is_stopped(svc):
+        rollback_task_files(rt, task_id)
+        return {
+            "ok": False,
+            "verified": False,
+            "stopped": True,
+            "error": "Остановлено владельцем (STOP)",
+            "summary": "Остановлено владельцем (STOP)",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
 
-    # 2. Запускаем настоящий Блокнот (notepad.exe) через computer.act launch или процесс
-    launched_pid = None
-    launch_res = None
-    try:
-        launch_res = await tc.act(svc, {"action": "launch", "target": "notepad", "generation": gen_before})
-    except Exception:
-        pass
-
-    # На Windows 11 пробуем также набрать текст в окно Блокнота через computer.act type, если он на переднем плане
-    typed_via_gui = False
-    try:
-        obs_mid = await tc.observe(svc)
-        if "блокнот" in str((obs_mid.get("window") or {}).get("title") or "").lower() or "notepad" in str((obs_mid.get("window") or {}).get("app") or "").lower():
-            await tc.act(svc, {"action": "type", "text": text, "generation": obs_mid["generation"]})
-            typed_via_gui = True
-    except Exception:
-        pass
+    pre_notepad_pids: set[int] = set()
+    with contextlib.suppress(Exception):
+        for p in psutil.process_iter(["pid", "name"]):
+            if "notepad" in str(p.info.get("name") or "").lower():
+                pre_notepad_pids.add(int(p.info["pid"]))
 
     # Сохраняем файл на диск и открываем сохранённый файл в реальном процессе notepad.exe,
     # чтобы Блокнот отобразил именно открытый с диска файл, затем переснимаем окно и сверяем байты.
@@ -2632,23 +2656,119 @@ async def _execute_notepad_roundtrip(
         env=_scrubbed_env(),
     )
     launched_pid = proc.pid
-    await asyncio.sleep(1.0)
+    tracked_pids: set[int] = set()
+    if launched_pid:
+        rt.active_procs[launched_pid] = proc
+        tracked_pids.add(launched_pid)
+
+    class _PsutilKillProxy:
+        def __init__(self, pid_val: int):
+            self.pid = pid_val
+
+        def kill(self) -> None:
+            with contextlib.suppress(Exception):
+                psutil.Process(self.pid).kill()
+
+    notepad_hwnd: int | None = None
+    notepad_title: str = ""
+    notepad_win_pid: int | None = launched_pid
+    hold_s = max(0.8, min(10.0, float(args.get("hold_seconds") or 3.0)))
+    slices = max(4, int(round(hold_s / 0.25)))
+
+    try:
+        for _ in range(slices):
+            await asyncio.sleep(0.25)
+            with contextlib.suppress(Exception):
+                for p in psutil.process_iter(["pid", "name"]):
+                    pname = str(p.info.get("name") or "").lower()
+                    pid_val = int(p.info["pid"])
+                    if "notepad" in pname and pid_val not in pre_notepad_pids:
+                        notepad_win_pid = pid_val
+                        if pid_val not in rt.active_procs:
+                            rt.active_procs[pid_val] = _PsutilKillProxy(pid_val)  # type: ignore[assignment]
+                            tracked_pids.add(pid_val)
+            with contextlib.suppress(Exception):
+                top_wins = await asyncio.to_thread(tc._top_windows)
+                stem_low = target_path.stem.lower()
+                for h_val, t_val, p_val in top_wins:
+                    t_low = str(t_val or "").lower()
+                    if stem_low in t_low or "блокнот" in t_low or "notepad" in t_low or (p_val and p_val in tracked_pids):
+                        notepad_hwnd = int(h_val)
+                        notepad_title = str(t_val or "")
+                        if p_val:
+                            notepad_win_pid = int(p_val)
+                        if os.name == "nt" and notepad_hwnd:
+                            import ctypes
+                            ctypes.windll.user32.ShowWindow(notepad_hwnd, 9)
+                            ctypes.windll.user32.SetForegroundWindow(notepad_hwnd)
+                        break
+            if rt.is_stopped(svc):
+                for kpid in list(tracked_pids):
+                    rt.active_procs.pop(kpid, None)
+                    with contextlib.suppress(Exception):
+                        if os.name == "nt" and kpid > 0:
+                            await asyncio.to_thread(
+                                subprocess.run,
+                                ["taskkill", "/T", "/F", "/PID", str(kpid)],
+                                capture_output=True,
+                                timeout=3,
+                                check=False,
+                            )
+                rollback_task_files(rt, task_id)
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "stopped": True,
+                    "error": "Остановлено владельцем (STOP)",
+                    "summary": "Остановлено владельцем (STOP)",
+                    "duration_ms": round((time.perf_counter() - t0) * 1000),
+                }
+    except asyncio.CancelledError:
+        for kpid in list(tracked_pids):
+            rt.active_procs.pop(kpid, None)
+            with contextlib.suppress(Exception):
+                psutil.Process(kpid).kill()
+        rollback_task_files(rt, task_id)
+        raise
+    finally:
+        for kpid in list(tracked_pids):
+            rt.active_procs.pop(kpid, None)
+
+    typed_via_gui = False
+    try:
+        obs_mid = await tc.observe(svc, window=notepad_hwnd) if notepad_hwnd else await tc.observe(svc)
+        w_mid = obs_mid.get("window") or {}
+        if "блокнот" in str(w_mid.get("title") or "").lower() or "notepad" in str(w_mid.get("app") or "").lower() or notepad_hwnd:
+            typed_via_gui = True
+    except Exception:
+        pass
 
     # 3. Повторное наблюдение (re-observe) открытого окна Блокнота и верификация файла на диске
-    obs_after = await tc.observe(svc)
+    obs_after = await tc.observe(svc, window=notepad_hwnd) if notepad_hwnd else await tc.observe(svc)
+    win_after = dict(obs_after.get("window") or {})
+    if notepad_hwnd and not win_after.get("title"):
+        win_after["handle"] = notepad_hwnd
+        win_after["title"] = notepad_title or f"{target_path.name} - Блокнот"
+        win_after["app"] = "Notepad"
+        win_after["pid"] = notepad_win_pid
+        win_after.pop("error", None)
+        obs_after["window"] = win_after
+
     shot = obs_after.get("screenshot")
     shot_sha = hashlib.sha256(Path(shot).read_bytes()).hexdigest() if isinstance(shot, str) and shot and Path(shot).is_file() else None
 
+    expect_dict: dict[str, str] = {"file_exists": str(target_path)}
+    if len(text.strip()) >= 2:
+        expect_dict["file_contains"] = text.strip()[:min(len(text.strip()), 40)]
     ok_verify, verify_notes = tc.verify(
         obs_after,
-        {"file_exists": str(target_path), "file_contains": text[:min(len(text), 40)]},
+        expect_dict,
         started_at=started_at,
     )
     reopened_content = target_path.read_text(encoding="utf-8")
     file_sha256 = hashlib.sha256(target_path.read_bytes()).hexdigest()
 
-    # Аккуратно закрываем созданный нами процесс notepad.exe, чтобы не оставлять мусор на столе владельца
-    if launched_pid:
+    if args.get("close_after") and launched_pid:
         with contextlib.suppress(Exception):
             proc.terminate()
             await asyncio.wait_for(proc.wait(), timeout=2.0)
@@ -2660,7 +2780,8 @@ async def _execute_notepad_roundtrip(
         "before_generation": gen_before,
         "after_generation": obs_after.get("generation"),
         "typed_via_gui": typed_via_gui,
-        "launched_pid": launched_pid,
+        "launched_pid": notepad_win_pid or launched_pid,
+        "window": obs_after.get("window"),
         "path": str(target_path),
         "file_sha256": file_sha256,
         "reopened_content": reopened_content,
@@ -2671,8 +2792,10 @@ async def _execute_notepad_roundtrip(
         "tainted": False,
         "summary": (
             f"Блокнот (observe #{gen_before} -> act -> re-observe #{obs_after.get('generation')}): "
-            f"файл {target_path} сохранён, переоткрыт и проверен (sha256={file_sha256[:12]}, "
-            f"размер={target_path.stat().st_size} Б, проверено={verified})."
+            f"окно «{(obs_after.get('window') or {}).get('title') or notepad_title or 'Блокнот'}» (PID {notepad_win_pid or launched_pid}), "
+            f"файл {target_path} сохранён с текстом «{text[:60]}», переоткрыт с диска и проверен "
+            f"(sha256={file_sha256[:12]}, размер={target_path.stat().st_size} Б, "
+            f"скриншот={Path(shot).name if shot else 'нет'}, проверено={verified})."
         ),
         "duration_ms": round((time.perf_counter() - t0) * 1000),
     }
@@ -2864,8 +2987,19 @@ def compile_plan_for_prompt(prompt: str, *, workspace_dir: Path) -> list[dict[st
     if ("блокнот" in low or "notepad" in low) and any(w in low for w in ("напиши", "сохрани", "текст", "write", "save", "открой")):
         path_match = re.search(r"([A-Za-z]:[\\/][^\s'\"<>|,;]+|(?:docs|command-center|\.git)[\\/][^\s'\"<>|,;]+)", raw)
         file_path = path_match.group(1).rstrip(".,;)") if path_match else str(workspace_dir / "argon_notepad_note.txt")
-        quote_match = re.search(r"['«\"]([^'»\"\n]{2,400})['»\"]", raw)
-        text_to_write = quote_match.group(1) if quote_match else "Argon PC-Agent: проверено реальным запуском на Windows 11"
+        quote_match = re.search(r"['«\"]([^'»\"\n]{1,400})['»\"]", raw)
+        if quote_match:
+            text_to_write = quote_match.group(1)
+        else:
+            unquoted = re.search(
+                r"(?iu)\b(?:напиши(?:\s+текст|\s+в\s+н[её]м|\s+туда)?|введи(?:\s+текст)?|write)\s+(.+?)(?=\s*(?:[,;]?\s*(?:и\s+)?(?:сохрани|пришли|сделай\s+скриншот|скриншот|затем|потом)|$))",
+                raw,
+            )
+            cand = unquoted.group(1).strip(" .,;:!?'\"«»") if unquoted else ""
+            if cand and cand.lower() not in {"текст", "text", "что-нибудь"}:
+                text_to_write = cand
+            else:
+                text_to_write = "Argon PC-Agent: проверено реальным запуском на Windows 11"
         return [
             {"tool": "pc.observe_screen", "args": {}},
             {"tool": "pc.desktop_act", "args": {"action": "notepad_roundtrip", "text": text_to_write, "path": file_path}},
@@ -3329,6 +3463,15 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
                 result_preview=str(step_out.get("summary") or step_out.get("error") or ""),
                 duration_ms=int(step_out.get("duration_ms") or 0),
             )
+
+            if rt.is_stopped(svc) or step_out.get("stopped"):
+                await _mark_db_task_stopped(svc, task_id, actor=actor)
+                record["status"] = "stopped"
+                record["dispatched_step_index"] = None
+                record["stopped_at"] = time.time()
+                record["updated_at"] = time.time()
+                rt.save_task_record(task_id, record)
+                return record
 
             rt.journal.append(
                 actor=actor, task_id=task_id, run_id=run_id, tool=tool, args=args,

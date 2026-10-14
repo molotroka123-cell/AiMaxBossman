@@ -147,17 +147,83 @@ class SessionLog:
     уехать в git одним файлом, а не выгрузкой.
     """
 
-    def __init__(self, settings) -> None:
+    def __init__(self, settings, *, rotate_existing: bool = False) -> None:
         self.settings = settings
         self.session_id = uuid.uuid4().hex[:12]
         self.started_at = _now_iso()
         self.counts: dict[str, int] = {}
         self._lock = asyncio.Lock()
         self._full = False
+        self.rotated_from: str | None = None
+        if rotate_existing:
+            self._rotate_on_init()
 
     @property
     def path(self) -> Path:
         return _log_path(self.settings)
+
+    def _rotate_on_init(self) -> None:
+        """Если session-log.jsonl остался от прошлой серверной сессии или переполнен (>= MAX_LOG_BYTES),
+        архивируем его рядом в session-log-<old_session>.jsonl, сохраняя записи текущего запуска desktop.launch."""
+        try:
+            path = self.path
+            if not path.is_file():
+                return
+            size = path.stat().st_size
+            if size == 0:
+                return
+            oversized = size >= MAX_LOG_BYTES
+            prev_session: str | None = None
+            trailing_launcher: list[str] = []
+            if not oversized:
+                lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+                for line in lines:
+                    if not line.strip():
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    sess = str(rec.get("session") or "")
+                    src = str(rec.get("source") or "")
+                    if src == "desktop" or sess == "launcher":
+                        trailing_launcher.append(line)
+                    elif sess and sess != self.session_id:
+                        prev_session = sess
+                        trailing_launcher = []
+            if not oversized and prev_session is None:
+                return
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            suffix = prev_session or "full"
+            archive_path = path.parent / f"session-log-{stamp}-{suffix}.jsonl"
+            os.replace(path, archive_path)
+            self.rotated_from = archive_path.name
+            if trailing_launcher:
+                path.write_text("\n".join(trailing_launcher) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+
+    def rotate_now(self) -> dict[str, Any]:
+        """Принудительная ротация журнала для начала чистой сессии без потери старого архива."""
+        old_session = self.session_id
+        try:
+            path = self.path
+            if path.is_file() and path.stat().st_size > 0:
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                archive_path = path.parent / f"session-log-{stamp}-{old_session}.jsonl"
+                os.replace(path, archive_path)
+                self.rotated_from = archive_path.name
+        except OSError:
+            pass
+        self.session_id = uuid.uuid4().hex[:12]
+        self.started_at = _now_iso()
+        self.counts = {}
+        self._full = False
+        return {"session": self.session_id, "rotated_from": self.rotated_from}
+
+    @property
+    def is_full(self) -> bool:
+        return bool(self._full or self.size_bytes() > MAX_LOG_BYTES)
 
     async def write(self, source: str, kind: str, payload: dict | None = None) -> bool:
         if not enabled():
@@ -206,7 +272,8 @@ class SessionLog:
             if not self._full and path.exists() and path.stat().st_size > MAX_LOG_BYTES:
                 self._full = True
                 with open(path, "a", encoding="utf-8") as fh:
-                    fh.write(json.dumps({"ts": _now_iso(), "source": "server", "kind": "log.full",
+                    fh.write(json.dumps({"ts": _now_iso(), "session": self.session_id, "source": "server",
+                                         "kind": "log.full",
                                          "data": {"limit_bytes": MAX_LOG_BYTES}}, ensure_ascii=False) + "\n")
             if self._full:
                 return 0
@@ -224,7 +291,7 @@ class SessionLog:
                 # Предел, а не тихое переполнение диска: об этом надо сказать вслух.
                 self._full = True
                 with open(path, "a", encoding="utf-8") as fh:
-                    fh.write(json.dumps({"ts": _now_iso(), "source": "server",
+                    fh.write(json.dumps({"ts": _now_iso(), "session": self.session_id, "source": "server",
                                          "kind": "log.full",
                                          "data": {"limit_bytes": MAX_LOG_BYTES}},
                                         ensure_ascii=False) + "\n")
@@ -450,6 +517,115 @@ def _env_snapshot(svc) -> dict:
     }
 
 
+# Строгий UX-whitelist для публикации: никаких промптов, ответов моделей, путей на диске и имён медиафайлов.
+_UI_UX_KEYS = frozenset({
+    "element", "page", "to", "from", "form", "method", "path", "status", "ms",
+    "waited_ms", "checked", "hits", "within_ms", "screen", "dpr", "lang",
+    "theme", "online", "state", "dropped", "line", "code",
+})
+_SERVER_UX_KEYS = frozenset({
+    "method", "path", "status", "ms", "host", "port", "version", "python",
+    "platform", "release", "testing_period", "flags_on", "flags_off_count",
+    "features", "uptime_s", "events", "top", "bytes", "limit_bytes",
+})
+_BUS_UX_KEYS = frozenset({
+    "status", "code", "duration_ms", "step", "attempt", "ok", "verified",
+})
+_DISK_PATH_RE = re.compile(
+    r"(?:[A-Za-z]:[\\/][^\s\"'<>|]*|\\\\[^\s\"'<>|]+|/(?:Users|home|var|tmp|opt|etc|private|mnt|Volumes)/[^\s\"'<>|]+)",
+    re.IGNORECASE,
+)
+_MEDIA_FILE_RE = re.compile(
+    r"\b[^\s/\\\"'<>|]+\.(?:mp4|mov|mkv|avi|webm|mp3|wav|ogg|flac|m4a|jpg|jpeg|png|webp|gif|bmp|pdf|xlsx|xls|docx|doc|csv|zip|7z|tar|gz|jsonl|db|sqlite|pem|key|kdbx|pfx|p12|env)\b",
+    re.IGNORECASE,
+)
+
+
+def _sanitize_ux_string(val: str, *, is_route: bool = False) -> tuple[str, int]:
+    """Удаляет пути к файлам на диске, имена медиафайлов и query-параметры из UX-строки."""
+    cleaned = str(val or "")
+    redacted = 0
+    if is_route and "?" in cleaned:
+        cleaned = cleaned.split("?", 1)[0]
+        redacted += 1
+    if _DISK_PATH_RE.search(cleaned):
+        cleaned, n = _DISK_PATH_RE.subn("[путь скрыт]", cleaned)
+        redacted += n
+    if _MEDIA_FILE_RE.search(cleaned):
+        cleaned, n = _MEDIA_FILE_RE.subn("[файл скрыт]", cleaned)
+        redacted += n
+    return cleaned[:160], redacted
+
+
+def sanitize_event_for_publish(event: dict[str, Any], session_id: str) -> tuple[dict[str, Any] | None, int]:
+    """Фильтрует событие строго по текущей сессии (`event['session'] == session_id`)
+    и оставляет только разрешённые UX-поля без промптов, ответов моделей, путей на диске и медиафайлов."""
+    if not isinstance(event, dict) or event.get("session") != session_id:
+        return None, 0
+    source = str(event.get("source") or "")
+    kind = str(event.get("kind") or "")
+    if source not in {"ui", "server", "bus", "desktop"} or not kind:
+        return None, 0
+    # Потоковые дельты/ответы моделей с шины не публикуем вовсе
+    if source == "bus" and kind in {
+        "run.assistant_delta", "run.assistant_message", "run.reasoning_delta",
+        "run.answer_delta", "run.answer_reset", "run.log",
+    }:
+        return None, 1
+
+    raw_data = event.get("data")
+    if not isinstance(raw_data, dict):
+        raw_data = {}
+
+    allowed_keys = (
+        _UI_UX_KEYS if source == "ui"
+        else _SERVER_UX_KEYS if source == "server"
+        else _BUS_UX_KEYS
+    )
+    clean_data: dict[str, Any] = {}
+    redacted = 0
+
+    for k, v in raw_data.items():
+        key = str(k)
+        if key not in allowed_keys:
+            redacted += 1
+            continue
+        if isinstance(v, (bool, int, float)) or v is None:
+            clean_data[key] = v
+        elif isinstance(v, str):
+            s_val, n_red = _sanitize_ux_string(v, is_route=(key in {"path", "page", "to", "from"}))
+            clean_data[key] = s_val
+            redacted += n_red
+        elif key in {"flags_on", "features"} and isinstance(v, list):
+            clean_data[key] = [str(item)[:64] for item in v[:200] if isinstance(item, str)]
+        elif key == "top" and isinstance(v, dict):
+            clean_data[key] = {str(tk)[:64]: int(tv) for tk, tv in list(v.items())[:10] if isinstance(tv, (int, float))}
+        else:
+            redacted += 1
+
+    clean_kind, kind_red = _sanitize_ux_string(kind)
+    redacted += kind_red
+    return {
+        "ts": str(event.get("ts") or ""),
+        "session": session_id,
+        "source": source,
+        "kind": clean_kind[:80],
+        "data": clean_data,
+    }, redacted
+
+
+def sanitize_events_for_publish(events: list[dict[str, Any]], session_id: str) -> tuple[list[dict[str, Any]], int]:
+    """Возвращает список очищенных UX-событий строго текущей сессии и счётчик отфильтрованных полей."""
+    out: list[dict[str, Any]] = []
+    redacted_total = 0
+    for ev in events:
+        clean_ev, n_red = sanitize_event_for_publish(ev, session_id)
+        redacted_total += n_red
+        if clean_ev is not None:
+            out.append(clean_ev)
+    return out, redacted_total
+
+
 # ------------------------------------------------------------------ ручки
 
 def _log_of(request: Request) -> SessionLog:
@@ -461,19 +637,76 @@ def _log_of(request: Request) -> SessionLog:
 
 @router.get("/testing/status")
 async def status(request: Request):
-    """Состояние режима. Читающая: отвечает и при выключенном режиме."""
+    """Состояние режима. Читающая: отвечает и при выключенном режиме.
+    Если достигнут лимит MAX_LOG_BYTES (log.is_full), честно сообщает recording=False и full=True."""
     if not enabled():
-        return {"enabled": False, "banner": None, "session": None, "events": 0, "bytes": 0}
+        return {"enabled": False, "recording": False, "full": False, "banner": None, "session": None, "events": 0, "bytes": 0}
     log = _log_of(request)
+    size = log.size_bytes()
+    is_full = log.is_full
     return {
         "enabled": True,
-        "banner": "TESTING PERIOD — идёт запись действий",
+        "recording": not is_full,
+        "full": is_full,
+        "banner": (
+            "TESTING PERIOD — запись остановлена (лимит журнала 32 МБ исчерпан)"
+            if is_full
+            else "TESTING PERIOD — идёт запись действий"
+        ),
         "session": log.session_id,
         "started_at": log.started_at,
         "events": sum(log.counts.values()),
         "by_kind": dict(sorted(log.counts.items(), key=lambda kv: -kv[1])),
-        "bytes": log.size_bytes(),
+        "bytes": size,
+        "max_bytes": MAX_LOG_BYTES,
+        "rotated_from": log.rotated_from,
         "log_path": str(log.path),
+    }
+
+
+@router.post("/testing/rotate")
+async def rotate_session(request: Request):
+    """Архивирует текущий session-log.jsonl и начинает новую чистую сессию."""
+    if not enabled():
+        raise HTTPException(409, {"message": "режим тестового периода выключен"})
+    log = _log_of(request)
+    svc = request.app.state.svc
+    res = await asyncio.to_thread(log.rotate_now)
+    await log.write("server", "session.start", {"host": svc.settings.host, "port": svc.settings.port})
+    await log.write("server", "session.env", _env_snapshot(svc))
+    return {
+        "ok": True,
+        "session": log.session_id,
+        "rotated_from": res.get("rotated_from"),
+        "recording": not log.is_full,
+        "full": log.is_full,
+    }
+
+
+@router.get("/testing/preview")
+async def preview_publish(request: Request):
+    """Безопасный предпросмотр пакета публикации (строго текущая сессия, только UX-поля, без коммита/push)."""
+    if not enabled():
+        raise HTTPException(409, {"message": "режим тестового периода выключен"})
+    log = _log_of(request)
+    svc = request.app.state.svc
+    raw_events = log.read(MAX_PUBLISH_EVENTS)
+    secrets = _secret_values(svc)
+    _, raw_redactions = scrub(json.dumps(raw_events, ensure_ascii=False), secrets)
+    ux_events, _ = sanitize_events_for_publish(raw_events, log.session_id)
+    raw_jsonl = "\n".join(json.dumps(e, ensure_ascii=False) for e in ux_events)
+    clean_jsonl, clean_redactions = scrub(raw_jsonl, secrets)
+    parsed_clean = [json.loads(line) for line in clean_jsonl.splitlines() if line.strip()]
+    summary = _summary(parsed_clean)
+    report, more = scrub(_render_report(parsed_clean, summary, log.session_id), secrets)
+    return {
+        "session": log.session_id,
+        "raw_total": len(raw_events),
+        "session_ux_total": len(parsed_clean),
+        "redactions": max(raw_redactions, clean_redactions) + more,
+        "summary": summary,
+        "events": parsed_clean[:200],
+        "report": report,
     }
 
 
@@ -482,17 +715,9 @@ async def ingest(request: Request):
     """Пачка событий из браузера: клики, переходы, ошибки JS, неудачные запросы."""
     if not enabled():
         raise HTTPException(409, {"message": "режим тестового периода выключен"})
-    # BL-025. Маячок телеметрии отправляется в том числе на УХОДЕ со страницы,
-    # поэтому обрыв соединения здесь — штатное поведение браузера, а не сбой.
-    # Голый `await request.json()` превращал каждую такую перезагрузку в
-    # необработанный ClientDisconnect и полный traceback в журнале сервера —
-    # ровно там, где владелец потом ищет настоящие ошибки. Испорченное тело
-    # ловится тем же блоком: раньше клиент получал 500 вместо 400.
     try:
         body = await request.json()
     except ClientDisconnect:
-        # Отвечать некому: соединения уже нет. Важно не притвориться, что
-        # события записаны — их не было.
         return {"accepted": 0, "dropped": 0, "disconnected": True}
     except (ValueError, UnicodeDecodeError):
         raise HTTPException(400, {"message": "тело запроса не разбирается как JSON"})
@@ -539,16 +764,25 @@ async def publish(request: Request):
 
 
 def _publish_sync(log: SessionLog, svc) -> dict:
-    events = log.read(MAX_PUBLISH_EVENTS)
-    if not events:
+    raw_events = log.read(MAX_PUBLISH_EVENTS)
+    if not raw_events:
         raise HTTPException(400, {"message": "журнал пуст — публиковать нечего"})
 
     secrets = _secret_values(svc)
-    raw = "\n".join(json.dumps(e, ensure_ascii=False) for e in events)
-    clean_jsonl, redactions = scrub(raw, secrets)
-    summary = _summary([json.loads(line) for line in clean_jsonl.splitlines() if line.strip()])
-    report, more = scrub(_render_report(events, summary, log.session_id), secrets)
-    redactions += more
+    raw_all = "\n".join(json.dumps(e, ensure_ascii=False) for e in raw_events)
+    _, raw_secret_redactions = scrub(raw_all, secrets)
+
+    # Строгая фильтрация по текущей сессии (session == log.session_id) и UX-whitelist полей
+    ux_events, _ = sanitize_events_for_publish(raw_events, log.session_id)
+    if not ux_events:
+        raise HTTPException(400, {"message": "журнал текущей сессии пуст — публиковать нечего"})
+
+    raw_ux = "\n".join(json.dumps(e, ensure_ascii=False) for e in ux_events)
+    clean_jsonl, ux_secret_redactions = scrub(raw_ux, secrets)
+    parsed_clean = [json.loads(line) for line in clean_jsonl.splitlines() if line.strip()]
+    summary = _summary(parsed_clean)
+    report, more = scrub(_render_report(parsed_clean, summary, log.session_id), secrets)
+    redactions = max(raw_secret_redactions, ux_secret_redactions) + more
 
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
     base = f"{stamp}__{log.session_id}"
@@ -562,7 +796,7 @@ def _publish_sync(log: SessionLog, svc) -> dict:
     md_path.write_text(report, encoding="utf-8")
     jsonl_path.write_text(clean_jsonl + "\n", encoding="utf-8")
 
-    # Последняя страховка: секрета не должно быть в том, что уходит в git.
+    # Последняя страховка: секрета, путей диска и медиафайлов не должно быть в том, что уходит в git.
     for path in (md_path, jsonl_path):
         body = path.read_text(encoding="utf-8", errors="replace")
         for value in secrets:
@@ -617,8 +851,8 @@ async def setup(svc) -> None:
     """Заводит журнал и подписку на шину: система сама тоже пишет, что делает."""
     if not enabled():
         return
-    log = SessionLog(svc.settings)
     _log_dir(svc.settings).mkdir(parents=True, exist_ok=True)
+    log = SessionLog(svc.settings, rotate_existing=True)
     svc.testing_log = log
     await log.write("server", "session.start",
                     {"host": svc.settings.host, "port": svc.settings.port})

@@ -543,23 +543,42 @@ class GoalStore:
         return blocked
 
     def budget_exceeded(self, rec: dict) -> str:
-        b = rec["goal"]["budget"]
+        b = (rec.get("goal") or {}).get("budget") or {}
         u = rec.get("usage") or {}
-        if int(u.get("agent_turns", 0)) > int(b["max_agent_turns"]):
+        try:
+            turns_f = float(u.get("agent_turns", 0))
+            max_turns_f = float(b["max_agent_turns"])
+            if not math.isfinite(turns_f) or not math.isfinite(max_turns_f) or turns_f < 0 or max_turns_f < 0:
+                return "agent turns"
+            if int(turns_f) > int(max_turns_f):
+                return "agent turns"
+        except (TypeError, ValueError, KeyError, OverflowError):
             return "agent turns"
         try:
             cost_val = float(u.get("cost_usd", 0.0))
             max_cost = float(b["max_cost_usd"])
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, KeyError):
             return "cost"
-        if not math.isfinite(cost_val) or cost_val < 0.0 or not math.isfinite(max_cost) or cost_val > max_cost + 1e-9:
+        if not math.isfinite(cost_val) or cost_val < 0.0 or not math.isfinite(max_cost) or max_cost < 0.0 or cost_val > max_cost + 1e-9:
             return "cost"
+        try:
+            max_min = float(b["max_minutes"])
+        except (TypeError, ValueError, KeyError):
+            return "time"
+        if not math.isfinite(max_min) or max_min < 0.0:
+            return "time"
         started = rec.get("started_ts")
         if started is None and rec.get("state") != "PROPOSED":
             started = rec.get("created_ts")                   # goals stored before the start clock existed
-        if started is not None and self._clock() - float(started) > float(b["max_minutes"]) * 60:
-            return "time"                                      # the clock runs from the start, not from creation
+        if started is not None:
+            try:
+                started_f = float(started)
+            except (TypeError, ValueError):
+                return "time"
+            if not math.isfinite(started_f) or self._clock() - started_f > max_min * 60:
+                return "time"                                  # the clock runs from the start, not from creation
         return ""
+
 
 
 __all__ = ["GoalError", "GoalNotFound", "GoalStore", "GuardError", "TERMINAL", "TRANSITIONS", "TransitionError",

@@ -105,9 +105,12 @@ function mountBanner(status) {
   const bar = document.createElement('div');
   bar.className = 'bcc-testing-bar';
   bar.setAttribute('role', 'status');
+  const stateLabel = status && status.full
+    ? 'запись остановлена (журнал полон)'
+    : 'идёт запись действий';
   bar.innerHTML = `
     <b>TESTING PERIOD</b>
-    <span>идёт запись действий — сессия <code id="bcc-testing-session"></code></span>
+    <span><span id="bcc-testing-state">${stateLabel}</span> — сессия <code id="bcc-testing-session"></code></span>
     <span class="bcc-testing-sp"></span>
     <span class="bcc-testing-msg" id="bcc-testing-msg"></span>
     <span class="bcc-testing-count" id="bcc-testing-count"></span>
@@ -141,6 +144,12 @@ async function refreshCount() {
     const status = await api.raw('/api/testing/status');
     const box = document.getElementById('bcc-testing-count');
     if (box) box.textContent = `${status.events ?? 0} записей`;
+    const stateEl = document.getElementById('bcc-testing-state');
+    if (stateEl) {
+      stateEl.textContent = status && status.full
+        ? 'запись остановлена (журнал полон)'
+        : 'идёт запись действий';
+    }
   } catch { /* счётчик — удобство, его отказ не важен */ }
 }
 
