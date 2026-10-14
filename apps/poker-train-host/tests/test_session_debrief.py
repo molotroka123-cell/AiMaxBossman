@@ -126,3 +126,29 @@ def test_analysis_handles_junk_and_empty_sessions():
                             "records": [{"mistakeType": "bad_fold", "evLost": float("inf")}]})
     assert s["hands"] == 1 and s["ev_lost"] == 0 and s["mistakes"] == 1
     assert "нечего" in analysis.render(analysis.summarize({}), "Ann")
+
+
+def test_gto_math_and_street_ev_in_analysis():
+    assert analysis.pot_odds(100, 50) == pytest.approx(0.25)
+    assert analysis.mdf(100, 50) == pytest.approx(2.0 / 3.0)
+    assert analysis.optimal_bluff_alpha(100, 50) == pytest.approx(1.0 / 3.0)
+    assert analysis.spr(200, 100) == pytest.approx(2.0)
+    f = analysis.geometric_bet_fraction(150, 100, 2)
+    assert 100 * ((1 + 2 * f) ** 2) == pytest.approx(100 + 2 * 150)
+
+    assert analysis.classify_board(["As", "7d", "2c"]) == "dry"
+    assert analysis.classify_board(["Ks", "9s", "4s"]) == "monotone"
+    assert analysis.classify_board(["Jh", "Th", "9c"]) == "wet"
+
+    spot = analysis.evaluate_record_gto(
+        {"stage": "river", "action": "call", "pot": 150, "toCall": 50, "stack": 200, "blinds": {"bb": 2}, "equity": 0.10, "board": ["As", "Kd", "7c", "2h", "9s"]}
+    )
+    assert spot["pot_odds"] == pytest.approx(0.25)
+    assert spot["mdf"] == pytest.approx(2.0 / 3.0, abs=1e-4)
+    assert spot["ev_call"] < 0.0 and spot["delta_ev_bb"] > 10.0
+
+
+    s = analysis.summarize(SESSION)
+    assert "gto" in s and s["gto"]["avg_ev_loss_bb_per_hand"] > 0
+
+
