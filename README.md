@@ -1,5 +1,11 @@
 # BOSSMAN
 
+> **Коротко (14.10.2026 — единый кандидат `release/bossman-one-20261014`):**
+> - **Что это:** Единая локальная система владельца на Windows 11 с управлением через закрытый пульт Telegram: оператор кода Qwen L1 (`/work`), агент ПК Argon (`/pc`, `/screen`, `/trust`, `/stop`), локальная генерация фото/правок (`/img`, `/edit`, `/edit_engine` Z-Image NSFW v2), самоулучшение (`/boost`), сверка отчётов 21–20 (`Reports-Import.cmd`) и наблюдатель `Poker Vision`.
+> - **Как запустить (2 команды):** `python creative-runs\PULT-SOURCE-20261013\run_backend_source.py <worktree>` (поднимает `:8801`) и `python creative-runs\PULT-SOURCE-20261013\run_pult_source.py <worktree>` (поднимает единственный poller пульта); в пакетной сборке — `Start-Bossman.cmd`.
+> - **Как остановить (1 команда):** `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*bcc.telegram_companion*' -or $_.CommandLine -like '*bcc.main:app*8801*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }` (или `/stop` в пульте).
+> - **Куда смотреть:** презентация на 1 экран — [docs/owner/BOSSMAN_ONE_PRESENTATION_20261014_RU.md](docs/owner/BOSSMAN_ONE_PRESENTATION_20261014_RU.md), живая приёмка пульта и кнопка `#42` — [docs/owner/READY_FOR_PULT_20261014_RU.md](docs/owner/READY_FOR_PULT_20261014_RU.md), синхронизация веток и границ — [docs/owner/ARGON_SYNC_20261014_RU.md](docs/owner/ARGON_SYNC_20261014_RU.md), логи — `%LOCALAPPDATA%\Bossman\one-bossman-logs\`.
+
 ## Продакшен — 13 октября 2026
 
 `main` — единственная продакшен-линия: в неё сведена объединённая ветка `feat/bossman-genjutsu-jeff-unified-20261010`
