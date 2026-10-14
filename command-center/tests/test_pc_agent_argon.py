@@ -1077,13 +1077,41 @@ async def test_bypass_1a_notepad_roundtrip_secret_and_backup(fake_svc: FakeSvc, 
     from bcc.features import pc_agent_policy as policy
     from bcc.features import pc_agent_policy_paths as policy_paths
 
-    # Проверяем, что оба модуля политики <= 300 строк и каждая строка <= 120 символов
-    for mod in (policy, policy_paths):
-        mod_file = Path(mod.__file__).resolve()
-        mod_lines = mod_file.read_text(encoding="utf-8").splitlines()
+    # Все модули pc_agent_policy*.py: <= 300 строк, <= 120 БАЙТ UTF-8, без `;` и однострочных compound-инструкций
+    import io
+    import tokenize
+
+    policy_files = sorted(Path(policy.__file__).resolve().parent.glob("pc_agent_policy*.py"))
+    assert Path(policy_paths.__file__).resolve() in policy_files and len(policy_files) >= 2
+    compound_kw = {"if", "elif", "else", "for", "while", "with", "try", "except", "finally", "def", "class", "async"}
+    skip = {tokenize.NL, tokenize.COMMENT, tokenize.INDENT, tokenize.DEDENT}
+    for mod_file in policy_files:
+        source = mod_file.read_text(encoding="utf-8")
+        mod_lines = source.splitlines()
         assert len(mod_lines) <= 300, f"{mod_file.name}: {len(mod_lines)} lines > 300"
-        long_lines = [(idx + 1, len(ln)) for idx, ln in enumerate(mod_lines) if len(ln) > 120]
-        assert not long_lines, f"{mod_file.name} has lines > 120 chars: {long_lines}"
+        long_lines = [(idx + 1, len(ln.encode("utf-8"))) for idx, ln in enumerate(mod_lines)
+                      if len(ln.encode("utf-8")) > 120]
+        assert not long_lines, f"{mod_file.name} has lines > 120 bytes: {long_lines}"
+        toks = list(tokenize.generate_tokens(io.StringIO(source).readline))
+        semis = [t.start[0] for t in toks if t.type == tokenize.OP and t.string == ";"]
+        assert not semis, f"{mod_file.name}: `;` separators on lines {semis}"
+        one_liners, logical, depth = [], [], 0
+        for tok in toks:
+            if tok.type == tokenize.NEWLINE or tok.type == tokenize.ENDMARKER:
+                if logical and logical[0].type == tokenize.NAME and logical[0].string in compound_kw:
+                    depth, has_lambda = 0, False
+                    for i, lt in enumerate(logical):
+                        has_lambda = has_lambda or lt.string == "lambda"
+                        depth += lt.string in "([{" and lt.type == tokenize.OP
+                        depth -= lt.string in ")]}" and lt.type == tokenize.OP
+                        if lt.type == tokenize.OP and lt.string == ":" and depth == 0 and not has_lambda:
+                            if i != len(logical) - 1:
+                                one_liners.append(lt.start[0])
+                            break
+                logical = []
+            elif tok.type not in skip:
+                logical.append(tok)
+        assert not one_liners, f"{mod_file.name}: one-line compound statements at lines {one_liners}"
 
     rt = pca.get_runtime(fake_svc)
     secret_parent = tmp_path / "nonexistent_vault_dir" / ".bossman" / "nested"
