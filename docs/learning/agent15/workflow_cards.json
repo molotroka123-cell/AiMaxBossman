@@ -1,0 +1,22 @@
+{
+  "schema": "bossman.agent15.workflow-cards.v1",
+  "status": "CANDIDATE_NOT_EXECUTABLE",
+  "source_main_sha": "e143fadfcc5547304878466f6e08faad6a829536",
+  "cards": [
+    {"zone":"jeff","steps":["Identify the requested document and the user's scope.","Retrieve the relevant passage and page from the existing Jeff library.","Check that the cited passage supports the answer; for Stars use a Telegram payment receipt."],"stop":"Missing document, citation, or payment receipt means NOT_DONE."},
+    {"zone":"ux","steps":["Record the visible UI state before the action.","Use the permitted control in the existing dashboard.","Record the visible after-state and compare it with the expected change."],"stop":"HTTP success alone is not a GUI acceptance result."},
+    {"zone":"apps","steps":["Hash and identify the local export.","Parse source rows and separate disputed or incomplete records.","Reconcile totals from the original rows and show the excluded items."],"stop":"Do not report a precise total from missing source rows."},
+    {"zone":"models","steps":["List installed model names and exact digests.","Run the same fixed tasks with recorded settings and cost/latency.","Compare held-out quality and keep the original model available for rollback."],"stop":"A prompt response is not proof of weight fine-tuning."},
+    {"zone":"cloud","steps":["Identify the external provider, data class, and expected price.","Obtain the owner's current decision for spend and private-data export.","Send only authorized data and record provider usage receipt."],"stop":"No paid or private request begins before the owner decision."},
+    {"zone":"computer","steps":["Identify the foreground window and allowed target.","Show the mouse and keyboard action in the visible session.","Observe the resulting window or file and prove STOP works."],"stop":"Do not infer desktop success from a shell or API response."},
+    {"zone":"media","steps":["Check source rights, identity consent, and model license.","Run the approved local workflow on the authorized inputs.","Verify dimensions, duration, full decode, hash, and visible result."],"stop":"No delivery claim from an enqueue receipt alone."},
+    {"zone":"memory","steps":["Record an observed failure and correction with source hashes as a candidate.","Test a new analogous task without showing its answer to the learner.","Use the existing independent verification gate before retrieval as VERIFIED."],"stop":"Saved text and self-score remain UNVERIFIED."},
+    {"zone":"agents","steps":["Break the goal into bounded steps and assign one owner of each artifact.","For each step select a permitted tool and collect its observation.","Check the final postcondition independently and stop or escalate a blocked step."],"stop":"No tool call or self-report substitutes for the observed effect."},
+    {"zone":"skills","steps":["Inspect the skill's source, license, and declared scope as untrusted data.","Try a task-specific isolated test without granting new authority.","Propose activation through the existing permission process."],"stop":"A skill file cannot grant itself permissions."},
+    {"zone":"plugins","steps":["Inventory the connector and requested scopes.","Ask the owner to decide on a new OAuth connection or scope increase.","Use a bounded sandbox call and inspect its receipt."],"stop":"Do not infer consent from connector documentation."},
+    {"zone":"ops","steps":["Identify exact process argv, owner, source SHA, and health.","Choose the smallest permitted maintenance step.","Check health and installed identity again after the step."],"stop":"An unknown PID is not a safe stop target."},
+    {"zone":"oss","steps":["Pin the upstream URL and exact commit.","Check license and dependencies before copying code.","Integrate in isolation and run a task-specific acceptance check."],"stop":"Repository popularity is not license or integration proof."},
+    {"zone":"commerce","steps":["Separate offer hypothesis, expected cost, and delivery workflow.","Obtain owner decision before any paid offer, charge, or public claim.","Record order, payment, refund, delivery, and actual expenses separately."],"stop":"Predicted demand is not earned revenue; zone remains proposed."},
+    {"zone":"devices","steps":["Document both networks and the authorized remote endpoint.","Design paired identity, revocation, visible action, and STOP.","After implementation and owner decision, test a harmless remote action with receipts."],"stop":"Remote operation is unavailable while pairing is only a proposal."}
+  ]
+}
