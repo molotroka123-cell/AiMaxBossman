@@ -1,0 +1,154 @@
+[
+  {
+    "slug": "commerce_product_packages",
+    "parent": "commerce",
+    "label": "Четыре продуктовых пакета",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "Reports, Motion, Operations и Jeff: сформировать отдельные пакеты. Stars на паузе; готовность каждого подтверждается отдельно."
+  },
+  {
+    "slug": "commerce_buyer_demand",
+    "parent": "commerce",
+    "label": "Проверка покупательского спроса",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "Источники реальных публичных запросов, дата и задача клиента. Объявления продавцов не считать заказами."
+  },
+  {
+    "slug": "commerce_offer_cost",
+    "parent": "commerce",
+    "label": "Предложение, цена и себестоимость",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "Описать результат, сроки, ручные шаги, лицензии и затраты; цена пока является гипотезой."
+  },
+  {
+    "slug": "commerce_order_delivery",
+    "parent": "commerce",
+    "label": "Заказ, качество и доставка",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "Спроектировать единый путь заказа, проверки качества, выдачи файла и клиентской приёмки."
+  },
+  {
+    "slug": "commerce_revenue_accounting",
+    "parent": "commerce",
+    "label": "Выручка, расходы и прибыль",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "Раздельный учёт заказа, платежа, выручки и расходов. Симуляции и оборот не считать прибылью."
+  },
+  {
+    "slug": "commerce_support_refunds",
+    "parent": "commerce",
+    "label": "Поддержка и возвраты",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "Подготовить регламент поддержки и возврата с журналом обращений и привязкой к заказу."
+  },
+  {
+    "slug": "devices_registry",
+    "parent": "devices",
+    "label": "Реестр собственных устройств",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "План реестра разрешённых устройств, worker-версий, возможностей и статуса связи."
+  },
+  {
+    "slug": "devices_pair_revoke",
+    "parent": "devices",
+    "label": "Подключение и отзыв доступа",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "План явного owner pairing и немедленного отзыва доступа без передачи общей учётки."
+  },
+  {
+    "slug": "devices_remote_tasks",
+    "parent": "devices",
+    "label": "Задачи на втором ПК",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "Один backend и task lifecycle, выбор устройства, проверка результата и доставка в общий пульт."
+  },
+  {
+    "slug": "devices_resource_queue",
+    "parent": "devices",
+    "label": "Ресурсы и очередь устройств",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "План наблюдения CPU/GPU/RAM и распределения разрешённых задач без конфликтующих генераций."
+  },
+  {
+    "slug": "devices_file_integrity",
+    "parent": "devices",
+    "label": "Файлы, доступ и целостность",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "План передачи только разрешённых файлов, проверка хешей, запрет экспорта секретов."
+  },
+  {
+    "slug": "devices_reconnect_stop",
+    "parent": "devices",
+    "label": "Потеря связи, recovery и STOP",
+    "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+    "status": "idea",
+    "detail": "План heartbeat/checkpoint/reconnect, без повторных эффектов; общий STOP сохраняет приоритет."
+  },
+  {
+    "slug": "pc_agent_runtime",
+    "parent": "computer",
+    "label": "PC-Agent: исполнитель задач Windows",
+    "source": "command-center/bcc/features/pc_agent.py",
+    "status": "code"
+  },
+  {
+    "slug": "pc_agent_policy",
+    "parent": "computer",
+    "label": "PC-Agent: политика действий и защита путей",
+    "source": "command-center/bcc/features/pc_agent_policy.py",
+    "status": "code"
+  },
+  {
+    "slug": "edit_engine_selection",
+    "parent": "media",
+    "label": "Выбор edit-engine Qwen / Z-Image",
+    "source": "command-center/bcc/telegram_companion/gen_refine.py",
+    "status": "code"
+  },
+  {
+    "slug": "jeff_stars_ledger",
+    "parent": "jeff",
+    "label": "Jeff Stars: учёт платежей и доступа",
+    "source": "command-center/bcc/pit/stars_ledger.py",
+    "status": "code"
+  },
+  {
+    "slug": "reports_export",
+    "parent": "apps",
+    "label": "Reports: сверяемый отчёт из экспорта",
+    "source": "tools/exchange_volume/report.py",
+    "status": "code"
+  },
+  {
+    "slug": "blender_adapter",
+    "parent": "plugins",
+    "label": "Blender MCP: адаптер, активация отдельно",
+    "source": "command-center/bcc/oss/blender_mcp.py",
+    "status": "code"
+  },
+  {
+    "slug": "fincept_adapter",
+    "parent": "plugins",
+    "label": "Fincept: адаптер, активация отдельно",
+    "source": "command-center/bcc/oss/fincept_terminal.py",
+    "status": "code"
+  },
+  {
+    "slug": "vibe_trading_adapter",
+    "parent": "plugins",
+    "label": "Vibe-Trading: paper-адаптер, активация отдельно",
+    "source": "command-center/bcc/oss/vibe_trading.py",
+    "status": "code"
+  }
+]
