@@ -37,7 +37,42 @@ class ManualError(ValueError):
 
 
 def manual_path(data_dir: Path | str) -> Path:
-    return Path(data_dir) / FILE_NAME
+    from .config import pit_home        # next to jeff-settings.json (pit-v1.7), same root the runtime reads
+    return pit_home(Path(data_dir)) / FILE_NAME
+
+
+MAX_DOC_BYTES = 2 * 1024 * 1024
+DOC_SUFFIXES = (".txt", ".md", ".docx")
+
+
+def text_from_document(name: str, data: bytes) -> str:
+    """Plain text of a .txt / .md / .docx sent to the pult; nothing is written to disk."""
+    suffix = Path(str(name or "")).suffix.lower()
+    if len(data) > MAX_DOC_BYTES:
+        raise ManualError("document is larger than 2 MB")
+    if suffix in (".txt", ".md"):
+        for enc in ("utf-8-sig", "cp1251"):
+            try:
+                return data.decode(enc)
+            except UnicodeDecodeError:
+                continue
+        raise ManualError("text encoding is not UTF-8 or Windows-1251")
+    if suffix == ".docx":
+        import io
+        import zipfile
+        from xml.etree import ElementTree as ET
+        w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                info = zf.getinfo("word/document.xml")
+                if info.file_size > 20 * MAX_DOC_BYTES:
+                    raise ManualError("document is too large when unpacked")
+                root = ET.fromstring(zf.read(info))
+        except (zipfile.BadZipFile, KeyError, ET.ParseError) as exc:
+            raise ManualError("not a readable .docx") from exc
+        paras = ["".join(t.text or "" for t in p.iter(w + "t")) for p in root.iter(w + "p")]
+        return "\n".join(p for p in paras if p.strip())
+    raise ManualError("send the manual as .txt, .md or .docx")
 
 
 def clean_text(text: Any) -> str:

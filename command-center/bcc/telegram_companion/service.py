@@ -27,6 +27,8 @@ from .gen_refine import GEN_COMMANDS, GenRefineMixin, gen_intent, gen_phrase, ph
 from .gen_progress import GenProgressPlate
 from .store import Store
 from . import key_intake
+
+MANUAL_COMMAND = re.compile(r"^/(?:manual|методичка)(?:@\w+)?(?:\s+(\S+))?\s*$", re.I)
 from .secret_intake import (
     SecretField, SecretIntakeError, SecretIntakeManager, looks_like_secret_message, request_caption,
 )
@@ -477,6 +479,48 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 msg += " Telegram не подтвердил удаление сообщения — удалите его вручную."
         await self.telegram.send(person, msg)
 
+    async def _consume_manual_update(self, person: Person, message: dict, update_id: int, command: str) -> None:
+        """/manual: put the owner's methodology note in front of Jeff's local model for N minutes.
+
+        The document is fetched into memory, converted to text and written to jeff-manual.json; it is never
+        stored in the pult inbox and never echoed back. Replies carry only status: size, hash prefix, deadline."""
+        if not self.store.acknowledge_without_body(update_id):
+            return
+        from bcc.pit import jeff_manual
+        from .backend_target import default_core_data_dir
+        data_dir = self.settings.core_data_dir or default_core_data_dir()
+        m = MANUAL_COMMAND.match(command)
+        arg = (m.group(1) or "").strip().lower() if m else ""
+        doc = message.get("document") if isinstance(message.get("document"), dict) else None
+        try:
+            if not data_dir:
+                raise jeff_manual.ManualError("Bossman data folder is unknown")
+            if doc is None:
+                if arg in ("off", "стоп", "выкл"):
+                    gone = await asyncio.to_thread(jeff_manual.clear_manual, data_dir)
+                    await self.telegram.send(person, "📘 Методичка снята." if gone else "📘 Методички не было.")
+                    return
+                live = await asyncio.to_thread(jeff_manual.active_manual, data_dir)
+                await self.telegram.send(person, (
+                    f"📘 Методичка активна до {live['expires_at']} UTC · {live['chars']} знаков · "
+                    f"sha {live['sha256'][:12]}. Читает только локальная модель Jeff." if live else
+                    "📘 Методички нет. Пришлите документ (.txt, .md, .docx) с подписью /manual или /manual 60 "
+                    "(минуты, 1–240; по умолчанию 30). Снять: /manual off"))
+                return
+            minutes = int(arg) if arg.isdigit() else jeff_manual.DEFAULT_MINUTES
+            if type(doc.get("file_size")) is int and doc["file_size"] > jeff_manual.MAX_DOC_BYTES:
+                raise jeff_manual.ManualError("document is larger than 2 MB")
+            data = await self.telegram.fetch_file(doc.get("file_id"), max_bytes=jeff_manual.MAX_DOC_BYTES)
+            text = jeff_manual.text_from_document(str(doc.get("file_name") or ""), bytes(data))
+            info = await asyncio.to_thread(jeff_manual.set_manual, data_dir, text, minutes=minutes)
+        except (jeff_manual.ManualError, CompanionError, ValueError) as exc:
+            await self.telegram.send(person, f"📘 Методичка не принята: {str(exc)[:200]}")
+            return
+        await self.telegram.send(person, (
+            f"✅ Методичка принята: {info['chars']} знаков, sha {info['sha256'][:12]}, действует до "
+            f"{info['expires_at']} UTC ({minutes} мин). Читает только локальная модель Jeff; в облако не уходит. "
+            "Статус: /manual · снять: /manual off"))
+
     async def _consume_key_update(self, person: Person, message: dict, update_id: int, text: str) -> None:
         """Store an owner provider key in the local key file; reply with names only."""
         if not self.store.acknowledge_without_body(update_id):
@@ -554,6 +598,14 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         # refused the same way (acknowledged without body, deleted, never stored).
         if person and isinstance(text, str) and key_intake.is_key_command(text):
             return await self._consume_key_update(person, message, update["update_id"], text)
+
+        # Owner's Jeff methodology note (/manual): a document captioned "/manual [minutes]", or "/manual" /
+        # "/manual off" as text. Handled BEFORE the Store inbox: the text never reaches SQLite, history or a model
+        # here — it goes straight to jeff-manual.json, which only Jeff's LOCAL model reads.
+        if person and person.role == "owner" and isinstance(message, dict):
+            command = text if isinstance(text, str) else message.get("caption")
+            if isinstance(command, str) and MANUAL_COMMAND.match(command.strip()):
+                return await self._consume_manual_update(person, message, update["update_id"], command.strip())
 
         # Secret lane is intercepted BEFORE the durable Store inbox. The next
         # owner text for an active one-time session is never encrypted into
