@@ -1,0 +1,273 @@
+{
+  "authors": {
+    "claude": 1313,
+    "codex": 470,
+    "local_handles_unverified": 185,
+    "other": 29,
+    "owner_handle": 1892
+  },
+  "calculated_on": "2026-10-15",
+  "commits_all": 3889,
+  "commits_main": 3721,
+  "day_span": 49,
+  "files": 7026,
+  "first_commit": {
+    "prague_day": "2026-08-28",
+    "sha": "1e6c8c564690b0f9a9701033f7be1ee1417384ea",
+    "subject": "Bossman Control v0.3: инфраструктура + ядро агентов",
+    "utc": "2026-08-27T23:10:55+00:00"
+  },
+  "last_commit": {
+    "prague_day": "2026-10-15",
+    "sha": "53dadac34ec4749a3e7536a2f4c92fd7dd537fa3"
+  },
+  "milestones": [
+    {
+      "day": "2026-09-03",
+      "key": "desktop",
+      "sha": "7d40900c9a2c22b66e3e688c049781ebec6c4275",
+      "subject": "feat(desktop): bcc-desktop — Command Center as an app window on the installed Chromium (UX 2.0)"
+    },
+    {
+      "day": "2026-09-18",
+      "key": "studio",
+      "sha": "d05354112b314582fdeda1c4fff7621463b0946e",
+      "subject": "feat(studio): фаза 0 — каталог, шесть причин отказа и локальный ComfyUI-контракт"
+    },
+    {
+      "day": "2026-09-19",
+      "key": "telegram",
+      "sha": "67c8e757972b568df8efecb8722d9dfb4f6c89df",
+      "subject": "feat(telegram): add opt-in local companion with scoped delegation and Claude fallback"
+    },
+    {
+      "day": "2026-09-29",
+      "key": "motion",
+      "sha": "dfaaaa3ffeb93ddd9c01704d1686ce91ef9e02d0",
+      "subject": "feat(motion): add reusable Epic trailer style and 22-second owner example"
+    },
+    {
+      "day": "2026-10-05",
+      "key": "tree",
+      "sha": "9beb4012411c60c9f35657099d1dc2ee75070c63",
+      "subject": "feat(tree): leaves show what Bossman's own zone work earned (verified candidate -> applied by owner)"
+    },
+    {
+      "day": "2026-10-10",
+      "key": "face_swap",
+      "sha": "2a77afbafcb901a61d0935b7d632c60e1c7243b3",
+      "subject": "feat(direct-gen): face swap in a video by one button — FaceFusion local, 16:9, original audio"
+    },
+    {
+      "day": "2026-10-14",
+      "key": "bossman_one",
+      "sha": "9cbba46eeaa11cc0a40a72c15a84ac6e430a8fbc",
+      "subject": "feat(argon-one): PC-Agent defense-in-depth, Z-Image NSFW v2 /edit_engine, /boost self-improvement, Fresh Vibes 14d hypothesis, and poker-vision validation"
+    }
+  ],
+  "per_day": [
+    [
+      "2026-08-28",
+      102
+    ],
+    [
+      "2026-08-29",
+      140
+    ],
+    [
+      "2026-08-30",
+      60
+    ],
+    [
+      "2026-08-31",
+      43
+    ],
+    [
+      "2026-09-01",
+      22
+    ],
+    [
+      "2026-09-02",
+      89
+    ],
+    [
+      "2026-09-03",
+      50
+    ],
+    [
+      "2026-09-04",
+      49
+    ],
+    [
+      "2026-09-05",
+      106
+    ],
+    [
+      "2026-09-06",
+      131
+    ],
+    [
+      "2026-09-07",
+      129
+    ],
+    [
+      "2026-09-08",
+      90
+    ],
+    [
+      "2026-09-09",
+      75
+    ],
+    [
+      "2026-09-10",
+      17
+    ],
+    [
+      "2026-09-11",
+      69
+    ],
+    [
+      "2026-09-12",
+      7
+    ],
+    [
+      "2026-09-13",
+      2
+    ],
+    [
+      "2026-09-14",
+      5
+    ],
+    [
+      "2026-09-15",
+      60
+    ],
+    [
+      "2026-09-16",
+      43
+    ],
+    [
+      "2026-09-17",
+      12
+    ],
+    [
+      "2026-09-18",
+      32
+    ],
+    [
+      "2026-09-19",
+      96
+    ],
+    [
+      "2026-09-20",
+      45
+    ],
+    [
+      "2026-09-21",
+      126
+    ],
+    [
+      "2026-09-22",
+      129
+    ],
+    [
+      "2026-09-23",
+      168
+    ],
+    [
+      "2026-09-24",
+      173
+    ],
+    [
+      "2026-09-25",
+      383
+    ],
+    [
+      "2026-09-26",
+      55
+    ],
+    [
+      "2026-09-27",
+      42
+    ],
+    [
+      "2026-09-28",
+      185
+    ],
+    [
+      "2026-09-29",
+      95
+    ],
+    [
+      "2026-09-30",
+      117
+    ],
+    [
+      "2026-10-01",
+      44
+    ],
+    [
+      "2026-10-02",
+      15
+    ],
+    [
+      "2026-10-03",
+      19
+    ],
+    [
+      "2026-10-04",
+      2
+    ],
+    [
+      "2026-10-05",
+      41
+    ],
+    [
+      "2026-10-06",
+      144
+    ],
+    [
+      "2026-10-07",
+      76
+    ],
+    [
+      "2026-10-08",
+      139
+    ],
+    [
+      "2026-10-09",
+      33
+    ],
+    [
+      "2026-10-10",
+      104
+    ],
+    [
+      "2026-10-11",
+      116
+    ],
+    [
+      "2026-10-12",
+      88
+    ],
+    [
+      "2026-10-13",
+      62
+    ],
+    [
+      "2026-10-14",
+      53
+    ],
+    [
+      "2026-10-15",
+      6
+    ]
+  ],
+  "prs": 97,
+  "prs_method": "maximum Merge pull request #N in local Git history",
+  "py_files": 3263,
+  "refs_sha256": "1ed44a51a1143685a816599666a7878db014d40d94829c9674d1d4dd9466f1cd",
+  "source_sha": "e143fadfcc5547304878466f6e08faad6a829536",
+  "test_files": 1433,
+  "timezone": "Europe/Prague"
+}

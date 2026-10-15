@@ -43,6 +43,13 @@
 
 **Честно о пробелах:** в `main` красные тесты (`owner_scenarios` 2, `installed_responsiveness_probe` 5, ещё 3) — зелёного CI на SHA нет; 24/48-часовой прогон и заработок не доказаны. Замены на open source для 22 пробелов — `docs/owner/OSS_REPLACEMENTS_20261015_RU.md` (в ветке agent-school).
 
+## Эволюция Bossman
+
+[Видео на русском](docs/evolution/2026-10-15/bossman_evolution_ru.mp4) ·
+[English video](docs/evolution/2026-10-15/bossman_evolution_en.mp4) ·
+[постер](docs/evolution/2026-10-15/poster_ru.png). Цифры пересчитаны по
+[зафиксированному снимку Git](docs/evolution/2026-10-15/README.md); ролик не является актом продакшен-приёмки.
+
 > **Коротко (14.10.2026 — единый кандидат `release/bossman-one-20261014`):**
 > - **Что это:** Единая локальная система владельца на Windows 11 с управлением через закрытый пульт Telegram: оператор кода Qwen L1 (`/work`), агент ПК Argon (`/pc`, `/screen`, `/trust`, `/stop`), локальная генерация фото/правок (`/img`, `/edit`, `/edit_engine` Z-Image NSFW v2), самоулучшение (`/boost`), сверка отчётов 21–20 (`Reports-Import.cmd`) и наблюдатель `Poker Vision`.
 > - **Как запустить (2 команды):** `python creative-runs\PULT-SOURCE-20261013\run_backend_source.py <worktree>` (поднимает `:8801`) и `python creative-runs\PULT-SOURCE-20261013\run_pult_source.py <worktree>` (поднимает единственный poller пульта); в пакетной сборке — `Start-Bossman.cmd`.

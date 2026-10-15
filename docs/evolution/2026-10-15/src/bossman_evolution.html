@@ -1,0 +1,304 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Bossman Evolution</title>
+<style>
+@font-face{font-family:Unb;src:url(fonts/unbounded-latin-400-normal.woff2);font-weight:400;unicode-range:U+0000-024F,U+1E00-1EFF}
+@font-face{font-family:Unb;src:url(fonts/unbounded-latin-700-normal.woff2);font-weight:700;unicode-range:U+0000-024F,U+1E00-1EFF}
+@font-face{font-family:Unb;src:url(fonts/unbounded-latin-900-normal.woff2);font-weight:900;unicode-range:U+0000-024F,U+1E00-1EFF}
+@font-face{font-family:Unb;src:url(fonts/unbounded-cyrillic-400-normal.woff2);font-weight:400;unicode-range:U+0400-052F}
+@font-face{font-family:Unb;src:url(fonts/unbounded-cyrillic-700-normal.woff2);font-weight:700;unicode-range:U+0400-052F}
+@font-face{font-family:Unb;src:url(fonts/unbounded-cyrillic-900-normal.woff2);font-weight:900;unicode-range:U+0400-052F}
+@font-face{font-family:JBM;src:url(fonts/jetbrains-mono-latin-400-normal.woff2);font-weight:400;unicode-range:U+0000-024F,U+1E00-1EFF}
+@font-face{font-family:JBM;src:url(fonts/jetbrains-mono-latin-700-normal.woff2);font-weight:700;unicode-range:U+0000-024F,U+1E00-1EFF}
+@font-face{font-family:JBM;src:url(fonts/jetbrains-mono-cyrillic-400-normal.woff2);font-weight:400;unicode-range:U+0400-052F}
+html,body{margin:0;background:#0A0D13;overflow:hidden}
+canvas{display:block}
+</style></head><body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script>
+const W=1920,H=1080,c=document.getElementById('c'),g=c.getContext('2d');
+const DATA=window.BOSSMAN_DATA;
+const LANG=new URLSearchParams(location.search).get('lang')==='en'?'en':'ru';
+const DICT=window.BOSSMAN_I18N[LANG]||{};
+const tr=s=>DICT[s]||s;
+const number=n=>Number(n).toLocaleString(LANG==='ru'?'ru-RU':'en-US');
+const C={bg:'#0A0D13',ink:'#EDE6D8',mute:'#7D8596',dim:'#2A303C',gold:'#F2A93B',goldD:'#9A6A22',blue:'#6FB7FF',red:'#FF6B5B',green:'#5FD39A'};
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const eo=x=>1-Math.pow(1-x,3);
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const lerp=(a,b,x)=>a+(b-a)*x;
+
+function T(s,x,y,o={}){
+  s=tr(String(s));
+  g.save();
+  g.globalAlpha*= (o.a??1);
+  g.font=`${o.w||400} ${o.s||32}px ${o.f||'Arial'}`;
+  g.fillStyle=o.c||C.ink; g.textAlign=o.al||'left'; g.textBaseline=o.bl||'alphabetic';
+  if(o.ls){g.letterSpacing=o.ls+'px'}
+  if(o.glow){g.shadowColor=o.glow;g.shadowBlur=o.gb||24}
+  const maxW=o.maxW||(o.al==='center'?Math.min(2*(x-160),2*(1760-x)):o.al==='right'?x-160:1760-x);
+  g.fillText(s,x,y,Math.max(100,maxW)); g.restore();
+}
+function tw(s,o){g.save();g.font=`${o.w||400} ${o.s||32}px ${o.f||'Inter'}`;if(o.ls)g.letterSpacing=o.ls+'px';const w=g.measureText(s).width;g.restore();return w}
+const typed=(s,p)=>s.slice(0,Math.floor(s.length*clamp(p)));
+function circle(x,y,r,o={}){g.save();g.globalAlpha*=(o.a??1);g.beginPath();g.arc(x,y,r,o.s0||0,o.s1??Math.PI*2);
+  if(o.fill){g.fillStyle=o.fill;if(o.glow){g.shadowColor=o.glow;g.shadowBlur=o.gb||30}g.fill()}
+  if(o.stroke){g.strokeStyle=o.stroke;g.lineWidth=o.lw||2;if(o.dash)g.setLineDash(o.dash);g.lineDashOffset=o.off||0;g.stroke()}
+  g.restore()}
+function line(x1,y1,x2,y2,o={}){g.save();g.globalAlpha*=(o.a??1);g.strokeStyle=o.c||C.dim;g.lineWidth=o.lw||2;if(o.dash)g.setLineDash(o.dash);g.lineDashOffset=o.off||0;g.beginPath();g.moveTo(x1,y1);g.lineTo(x2,y2);g.stroke();g.restore()}
+function rr(x,y,w,h,r,o={}){g.save();g.globalAlpha*=(o.a??1);g.beginPath();g.roundRect(x,y,w,h,r);
+  if(o.fill){g.fillStyle=o.fill;g.fill()} if(o.stroke){g.strokeStyle=o.stroke;g.lineWidth=o.lw||2;if(o.dash)g.setLineDash(o.dash);g.stroke()} g.restore()}
+
+/* ---------- persistent layers ---------- */
+function background(t){
+  g.fillStyle=C.bg;g.fillRect(0,0,W,H);
+  // dot field, slow drift
+  g.save();g.fillStyle='#1B212C';
+  const off=(t*6)%48;
+  for(let y=-48;y<H+48;y+=48)for(let x=-48;x<W+48;x+=48){g.fillRect(x+off,y+off*0.5,2,2)}
+  g.restore();
+  const grd=g.createRadialGradient(W/2,H/2,200,W/2,H/2,1150);
+  grd.addColorStop(0,'rgba(10,13,19,0)');grd.addColorStop(1,'rgba(5,7,10,.85)');
+  g.fillStyle=grd;g.fillRect(0,0,W,H);
+}
+// timeline rail Apr 1 → Oct 31 2026
+const D0=Date.UTC(2026,3,1),D1=Date.UTC(2026,9,31);
+const dx=d=>lerp(160,1760,(d-D0)/(D1-D0));
+const day=(m,d)=>Date.UTC(2026,m-1,d);
+function rail(date,a){
+  if(a<=0)return; g.save();g.globalAlpha=a;
+  const y=1010; line(160,y,1760,y,{c:C.dim,lw:2});
+  ['APR','MAY','JUN','JUL','AUG','SEP','OCT'].forEach((m,i)=>{const x=dx(Date.UTC(2026,3+i,1));line(x,y-6,x,y+6,{c:C.dim});T(m,x+8,y+28,{f:'JBM',s:16,c:C.mute,ls:2})});
+  const x=dx(date); line(160,y,x,y,{c:C.gold,lw:3});
+  circle(x,y,7,{fill:C.gold,glow:C.gold,gb:20});
+  g.restore();
+}
+function eyebrow(s,x,y,a){T(s,x,y,{f:'JBM',s:22,w:700,c:C.gold,ls:4,a})}
+
+/* ---------- scenes ---------- */
+const S=[];
+function scene(dur,date,fn){S.push({dur,date,fn})}
+
+// 0 Title
+scene(5.5,()=>day(4,1),(t,d)=>{
+  const a=eo(P(t,.2,1.4));
+  T('THE EVOLUTION OF',W/2,380,{f:'JBM',s:26,w:700,c:C.gold,ls:10,al:'center',a});
+  const s=lerp(0.92,1,eo(P(t,.4,2)));
+  g.save();g.translate(W/2,560);g.scale(s,s);
+  T('BOSSMAN',0,0,{f:'Unb',w:900,s:180,al:'center',maxW:1500,a:eo(P(t,.4,1.6)),glow:'rgba(242,169,59,.35)',gb:60});
+  g.restore();
+  const w=lerp(0,700,eio(P(t,1.2,2.4)));line(W/2-w/2,620,W/2+w/2,620,{c:C.gold,lw:2});
+  T('From one Python file to a home AI operating system',W/2,700,{s:34,c:C.ink,al:'center',a:eo(P(t,1.8,2.8))});
+  T('APRIL → OCTOBER 2026 · PRAGUE',W/2,760,{f:'JBM',s:20,c:C.mute,ls:4,al:'center',a:eo(P(t,2.3,3.2))});
+});
+
+function chapterText(t,eb,title,bullets){
+  eyebrow(eb,160,250,eo(P(t,.1,.8)));
+  T(title,160,345,{f:'Unb',w:700,s:72,maxW:800,a:eo(P(t,.25,1))});
+  bullets.forEach((b,i)=>{const p=eo(P(t,.9+i*.35,1.5+i*.35));
+    g.save();g.translate(lerp(-20,0,p),0);
+    circle(170,452+i*66-9,5,{fill:C.gold,a:p});
+    T(b,196,452+i*66,{s:32,c:C.ink,maxW:760,a:p});g.restore()});
+}
+
+// 1 JARVIS
+scene(7.5,()=>day(4,10),(t)=>{
+  chapterText(t,'APR 2026 · WHERE IT STARTED','JARVIS',['One file: jarvis.py','FastAPI + WebSocket core','Voice control in Russian','Controls the PC: keys, sound, apps','Iron Man boot sequence, 4 themes']);
+  const cx=1380,cy=540,a=eo(P(t,.5,1.5));
+  [[230,C.gold,[22,10],1],[180,C.blue,[36,12],-1.4],[130,C.gold,[8,14],.8]].forEach(([r,col,dash,sp],i)=>{
+    circle(cx,cy,r*lerp(.6,1,a),{stroke:col,lw:i==1?1.5:2.5,dash,off:t*40*sp,a:a*.9});
+  });
+  circle(cx,cy,70,{fill:'rgba(242,169,59,.08)',a});
+  // file glyph
+  g.save();g.globalAlpha=a;rr(cx-34,cy-52,68,84,8,{stroke:C.ink,lw:3});line(cx-18,cy-20,cx+18,cy-20,{c:C.ink});line(cx-18,cy-4,cx+18,cy-4,{c:C.ink});line(cx-18,cy+12,cx+8,cy+12,{c:C.ink});g.restore();
+  T('jarvis.py',cx,cy+80,{f:'JBM',s:24,w:700,c:C.gold,al:'center',a});
+  ['voice · RU','PC control','WebSocket','4 themes'].forEach((s,i)=>{
+    const ang=t*.35+i*Math.PI/2+.5, r=345, p=eo(P(t,1.2+i*.2,2+i*.2));
+    const x=cx+Math.cos(ang)*r,y=cy+Math.sin(ang)*r*.9;
+    circle(x,y,5,{fill:C.blue,a:p}); T(s,x+14,y+7,{f:'JBM',s:20,c:C.mute,a:p});
+  });
+});
+
+// 2 ATLAS
+scene(7.5,()=>day(6,10),(t)=>{
+  chapterText(t,'JUN 2026 · ONE SCREEN FOR EVERYTHING','ATLAS',['Command deck for every project','Pulls GitHub and Vercel live','Status: PROD · LIVE · BUILD · BLOCKED','Neural-core visual, voice recap']);
+  const cx=1380,cy=540,a=eo(P(t,.4,1.4));
+  const nodes=[['SwapMe','LIVE',C.green],['FreshVibe','BLOCKED',C.red],['DentBot','BUILD',C.gold],['Loft #8','PLANNED',C.mute],['Trading','LIVE',C.green],['JARVIS','PROD',C.blue]];
+  nodes.forEach((n,i)=>{
+    const ang=-Math.PI/2+i*Math.PI*2/6+t*.08, r=260*lerp(.5,1,a);
+    const x=cx+Math.cos(ang)*r,y=cy+Math.sin(ang)*r*.85, p=eo(P(t,.8+i*.15,1.4+i*.15));
+    line(cx,cy,x,y,{c:'#2E3542',lw:1.5,a:p});
+    const k=((t*.5+i*.17)%1); circle(lerp(cx,x,k),lerp(cy,y,k),3.5,{fill:n[2],glow:n[2],gb:12,a:p});
+    circle(x,y,10,{fill:n[2],glow:n[2],gb:18,a:p});
+    T(n[0],x,y-24,{s:24,w:600,al:'center',a:p});
+    T(n[1],x,y+38,{f:'JBM',s:16,w:700,c:n[2],al:'center',ls:2,a:p});
+  });
+  circle(cx,cy,56+Math.sin(t*3)*3,{fill:'rgba(242,169,59,.18)',glow:C.gold,gb:50,a});
+  circle(cx,cy,26,{fill:C.gold,a});
+  T('ATLAS',cx,cy+100,{f:'JBM',s:18,w:700,c:C.gold,al:'center',ls:6,a});
+});
+
+// 3 Orchestration question
+scene(7,()=>day(8,22),(t)=>{
+  chapterText(t,'AUG 22 · THE BIG QUESTION','Many models, one door',[]);
+  T('Run local and cloud models together.',160,470,{s:32,maxW:620,a:eo(P(t,.8,1.4))});
+  T('Keep long tasks alive after you log off.',160,530,{s:32,maxW:620,a:eo(P(t,1.1,1.7))});
+  T('Nothing leaks unless you say so.',160,590,{s:32,maxW:620,c:C.gold,a:eo(P(t,1.4,2))});
+  const gx=1180,gy=540,a=eo(P(t,.6,1.6));
+  rr(gx-120,gy-50,240,100,14,{fill:'#141923',stroke:C.gold,lw:2,a});
+  T('LiteLLM',gx,gy-4,{f:'JBM',s:28,w:700,c:C.gold,al:'center',a});
+  T('one gateway',gx,gy+28,{f:'JBM',s:16,c:C.mute,al:'center',a});
+  ['Phone','Laptop'].forEach((s,i)=>{const y=gy-80+i*160,p=eo(P(t,1+i*.2,1.6+i*.2));
+    T(s,890,y+8,{f:'JBM',s:22,al:'right',a:p});line(905,y,gx-125,gy,{c:'#333B49',a:p});
+    const k=(t*.6+i*.5)%1;circle(lerp(905,gx-125,k),lerp(y,gy,k),4,{fill:C.ink,a:p})});
+  const loc=['bossman-fast','bossman-smart','bossman-coder','bossman-writer','bossman-embed'];
+  loc.forEach((s,i)=>{const y=gy-240+i*70,p=eo(P(t,1.6+i*.12,2.2+i*.12));
+    line(gx+125,gy,1440,y-7,{c:'#3A4250',a:p});T(s,1455,y,{f:'JBM',s:20,c:C.ink,a:p});
+    const k=(t*.7+i*.21)%1;circle(lerp(gx+125,1440,k),lerp(gy,y-7,k),3.5,{fill:C.gold,glow:C.gold,gb:10,a:p})});
+  T('LOCAL',1455,gy-285,{f:'JBM',s:16,w:700,c:C.gold,ls:4,a:eo(P(t,1.6,2.2))});
+  ['Claude','OpenRouter'].forEach((s,i)=>{const y=gy+150+i*60,p=eo(P(t,2.4+i*.15,3+i*.15));
+    line(gx+125,gy,1440,y-7,{c:C.blue,dash:[8,10],off:-t*20,a:p*.8});T(s,1455,y,{f:'JBM',s:20,c:C.blue,a:p})});
+  T('CLOUD · ONLY WHEN YOU CHOOSE',1455,gy+270,{f:'JBM',s:16,w:700,c:C.blue,ls:3,a:eo(P(t,2.6,3.2))});
+});
+
+// 4 Day one
+scene(9.5,()=>day(8,27),(t)=>{
+  eyebrow('AUG 27 · DAY ONE',160,200,eo(P(t,.1,.8)));
+  T('Bossman is born',160,290,{f:'Unb',w:700,s:72,a:eo(P(t,.25,1))});
+  const cx=1200,cy=610,a=eo(P(t,.6,1.6));
+  const POS=[[880,480],[1250,420],[1490,500],[1490,690],[880,720]];
+  const apps=[['Coder','builds sites & apps, fixes code'],['Fresh Vibes Agent','mail, CRM, docs for the clinic'],['Studio','photo, video, voice, subtitles'],['Analyst','business, ads, crypto reports'],['Phone','tasks in, results out']];
+  apps.forEach((ap,i)=>{
+    const ang=-Math.PI/2+(i-2)*0.62+(i>=2?0:0), r=330;
+    const angs=[-2.55,-1.75,-0.95,-0.2, 2.6][i];
+    const x=POS[i][0],y=POS[i][1], p=eo(P(t,1.4+i*.35,2.1+i*.35));
+    line(cx,cy,lerp(cx,x,p),lerp(cy,y,p),{c:'#3A4250',lw:2});
+    const k=(t*.5+i*.2)%1; if(p>.99)circle(lerp(cx,x,k),lerp(cy,y,k),4,{fill:C.gold,glow:C.gold,gb:10});
+    circle(x,y,9,{fill:C.ink,a:p});
+    const left=x<cx-40;
+    T(ap[0],x+(left?-22:22),y-4,{s:28,w:700,al:left?'right':'left',a:p});
+    T(ap[1],x+(left?-22:22),y+28,{f:'JBM',s:17,c:C.mute,al:left?'right':'left',a:p});
+  });
+  rr(cx-180,cy-46,360,92,16,{fill:'#17140E',stroke:C.gold,lw:3,a});
+  T('BOSSMAN CONTROL',cx,cy+10,{f:'Unb',w:700,s:24,c:C.gold,al:'center',a,glow:'rgba(242,169,59,.5)'});
+  // hardware
+  const hp=eo(P(t,3.4,4.2));
+  rr(cx-300,cy+140,600,64,12,{fill:'#11151D',stroke:'#2E3542',a:hp});
+  T('HOME BOX · ACEMAGIC · RYZEN AI MAX+ 395 · 128 GB',cx,cy+179,{f:'JBM',s:17,w:700,c:C.ink,al:'center',ls:1,a:hp});
+  line(cx,cy+46,cx,cy+140,{c:C.gold,dash:[6,8],off:-t*30,a:hp});
+  // terminal
+  const tp=P(t,4.6,7.2);
+  rr(160,875,1600,80,12,{fill:'#0E1219',stroke:'#232A36',a:eo(P(t,4.3,4.8))});
+  const cmd='$ git commit -m "Bossman Control v0.3: infrastructure + agent core"';
+  T(typed(cmd,tp)+(Math.floor(t*2)%2?'▍':''),190,925,{f:'JBM',s:24,c:C.ink,a:eo(P(t,4.3,4.8))});
+  T('first commit',1730,925,{f:'JBM',s:18,c:C.gold,al:'right',a:eo(P(t,7.3,7.8))});
+});
+
+// 5 Commit chart
+const days=DATA.per_day;
+const MS=DATA.milestones.map((m,i)=>[days.findIndex(d=>d[0]===m.day),'milestone.'+m.key,i%4,m.day>='2026-10-01'?1:0]).filter(m=>m[0]>=0);
+const CH={x0:160,w:1600,base:900,hmax:380};
+const bx=i=>CH.x0+i*(CH.w/days.length)+CH.w/days.length/2;
+const SWEEP=[1.2,13];
+scene(16,(t)=>{const k=eio(P(t,...SWEEP));return lerp(Date.parse(days[0][0]),Date.parse(days.at(-1)[0]),k)},(t)=>{
+  eyebrow(LANG==='ru'?`${days[0][0]} → ${days.at(-1)[0]} · РАЗВИТИЕ`:`${days[0][0]} → ${days.at(-1)[0]} · THE BUILD`,160,170,eo(P(t,.1,.8)));
+  T(LANG==='ru'?`${DATA.day_span} дней, коммит за коммитом`:`${DATA.day_span} days, commit by commit`,160,250,{f:'Unb',w:700,s:56,maxW:1000,a:eo(P(t,.25,1))});
+  const k=eio(P(t,...SWEEP)), sweepX=lerp(CH.x0,CH.x0+CH.w,k);
+  line(CH.x0,CH.base,CH.x0+CH.w,CH.base,{c:'#2E3542'});
+  const bw=CH.w/days.length*.62; let cum=0;
+  const maxDay=Math.max(...days.map(d=>d[1]));
+  days.forEach(([d,n],i)=>{
+    const x=bx(i); const p=clamp((sweepX-(x-bw/2))/bw*1.2);
+    if(p>0){const h=n/maxDay*CH.hmax*eo(p); const top=n>=maxDay*.4;
+      g.save();g.fillStyle=top?C.gold:'#C9A465';g.globalAlpha=top?1:.55;
+      if(top){g.shadowColor=C.gold;g.shadowBlur=20}
+      g.fillRect(x-bw/2,CH.base-h,bw,h);g.restore(); cum+=n*clamp(p*1.5)}
+  });
+  [0,Math.floor(days.length*.25),Math.floor(days.length*.5),Math.floor(days.length*.75),days.length-1].forEach(i=>T(days[i][0].slice(5),bx(i),CH.base+34,{f:'JBM',s:16,c:C.mute,al:'center',ls:1,a:eo(P(t,.6,1.2))}));
+  // counter
+  T(number(Math.round(cum)),1760,250,{f:'Unb',w:900,s:72,c:C.gold,al:'right',glow:'rgba(242,169,59,.35)'});
+  T(LANG==='ru'?'КОММИТЫ · ВСЕ ВЕТКИ':'COMMITS · ALL BRANCHES',1760,170,{f:'JBM',s:22,w:700,c:C.mute,al:'right',ls:4});
+  // milestones
+  MS.forEach(([i,label,lane,right])=>{
+    const x=bx(i); if(sweepX<x)return; const p=eo(clamp((sweepX-x)/60));
+    const ly=330+lane*52, h=days[i][1]/maxDay*CH.hmax;
+    line(x,ly+10,x,CH.base-h-6,{c:C.gold,lw:1.5,dash:[3,5],a:p*.8});
+    circle(x,ly,5,{fill:C.gold,a:p});
+    T(label,x+(right?-14:14),ly+7,{f:'JBM',s:20,w:700,c:C.ink,al:right?'right':'left',maxW:300,a:p});
+  });
+  // sweep head
+  if(k>0&&k<1)line(sweepX,320,sweepX,CH.base,{c:'rgba(242,169,59,.35)',lw:2});
+});
+
+// 6 Capabilities
+const CAP=[['Command Center','Desktop app, missions, agent map'],['Pult & Jeff','Telegram: voice, photos, calls'],['Studio','Local images, video, face swap, Motion'],['Coder','Tool loop, sandbox, worktrees, OpenHands'],['PC Agent','Guarded control of the Windows PC'],['Analyst','Market data, exchange reports, alerts'],['Poker Vision','Table reader plus GTO math'],['Print3D','STL to checked Neptune 4 Pro gcode'],['Security','Fail-closed cloud, approvals, CyberSec']];
+scene(10,()=>day(10,15),(t)=>{
+  eyebrow('OCT 15 · TODAY',160,170,eo(P(t,.1,.8)));
+  T('What Bossman does now',160,250,{f:'Unb',w:700,s:56,a:eo(P(t,.25,1))});
+  const cw=512,chh=150,gap=32;
+  CAP.forEach(([h,s],i)=>{const col=i%3,row=Math.floor(i/3),x=160+col*(cw+gap),y=320+row*(chh+gap);
+    const p=eo(P(t,.8+i*.22,1.5+i*.22));
+    g.save();g.translate(0,lerp(24,0,p));
+    rr(x,y,cw,chh,14,{fill:'#11151D',stroke:'#262D39',a:p});
+    const lit=P(t,4.5+((i*4)%9)*.15,4.9+((i*4)%9)*.15);
+    circle(x+40,y+52,7,{fill:lit>0?C.gold:'#3A4250',glow:lit>0?C.gold:null,gb:16,a:p});
+    T(h,x+64,y+64,{s:32,w:700,maxW:cw-90,a:p});
+    T(s,x+40,y+110,{s:22,c:C.mute,maxW:cw-70,a:p});
+    g.restore();});
+});
+
+// 7 Numbers
+scene(9,()=>day(10,15),(t)=>{
+  eyebrow('BY THE NUMBERS',160,170,eo(P(t,.1,.8)));
+  T('From one file to a codebase',160,250,{f:'Unb',w:700,s:56,a:eo(P(t,.25,1))});
+  const N=[[DATA.commits_all,'commits'],[DATA.day_span,'days'],[DATA.prs,'pull requests'],[DATA.files,'files'],[DATA.test_files,'test files']];
+  N.forEach(([n,l],i)=>{const x=160+i*330,p=P(t,.6+i*.2,2.4+i*.2);
+    T(number(Math.round(n*eo(p))),x,430,{f:'Unb',w:900,s:68,c:i==0?C.gold:C.ink,maxW:300,a:eo(P(t,.6+i*.2,1+i*.2))});
+    T(tr(l).toUpperCase(),x,475,{f:'JBM',s:18,w:700,c:C.mute,ls:1,maxW:300,a:eo(P(t,.6+i*.2,1+i*.2))});});
+  // contributors bar
+  const parts=[['Owner handle',DATA.authors.owner_handle||0,C.gold],['Claude',DATA.authors.claude||0,C.ink],['Codex',DATA.authors.codex||0,C.blue],['Local handles*',DATA.authors.local_handles_unverified||0,'#88919F'],['Other',(DATA.authors.other||0)+(DATA.authors.argon||0),'#4A5262']];
+  const tot=DATA.commits_all,y=700,bw=1600; let x=160; const bp=eio(P(t,2.6,4.4));
+  T('WHO WROTE THE COMMITS',160,660,{f:'JBM',s:18,w:700,c:C.mute,ls:3,a:eo(P(t,2.4,2.9))});
+  parts.forEach(([n,v,col],i)=>{const w=bw*v/tot*bp; rr(x,y,Math.max(0,w-6),56,6,{fill:col});
+    const lp=eo(P(t,4.4+i*.2,4.9+i*.2));
+    if(i<3){T(n,x,y+110,{s:26,w:600,c:col==C.ink?C.ink:col,maxW:420,a:lp});T(number(v),x,y+148,{f:'JBM',s:22,c:C.mute,a:lp})}
+    x+=bw*v/tot*bp;});
+  T(`${tr('Local handles*')}: ${number(DATA.authors.local_handles_unverified||0)} · ${tr('Other')}: ${number((DATA.authors.other||0)+(DATA.authors.argon||0))}`,1760,y+205,{s:22,c:C.mute,al:'right',maxW:900,a:eo(P(t,5,5.5))});
+});
+
+// 8 Close
+scene(7.5,()=>day(10,15),(t)=>{
+  const a=eo(P(t,.2,1.2));
+  T('APR',560,400,{f:'JBM',s:22,w:700,c:C.mute,al:'center',ls:4,a});
+  T('1 file',560,480,{f:'Unb',w:700,s:60,al:'center',a});
+  const ap=eio(P(t,.8,2));line(760,462,lerp(760,1160,ap),462,{c:C.gold,lw:3});
+  if(ap>.98){g.save();g.fillStyle=C.gold;g.beginPath();g.moveTo(1172,462);g.lineTo(1150,450);g.lineTo(1150,474);g.fill();g.restore()}
+  const b=eo(P(t,1.6,2.6));
+  T('OCT',1360,400,{f:'JBM',s:22,w:700,c:C.mute,al:'center',ls:4,a:b});
+  T(`${number(DATA.files)} ${tr('files')}`,1360,480,{f:'Unb',w:700,s:60,al:'center',c:C.gold,maxW:750,a:b});
+  T('BOSSMAN ONE',W/2,680,{f:'Unb',w:900,s:120,al:'center',a:eo(P(t,2.6,3.8)),glow:'rgba(242,169,59,.4)',gb:60});
+  T('Your agents. Your machine. Cloud only when you choose.',W/2,760,{s:32,c:C.ink,al:'center',a:eo(P(t,3.4,4.4))});
+  T('15 OCTOBER 2026',W/2,820,{f:'JBM',s:20,c:C.mute,al:'center',ls:4,a:eo(P(t,3.8,4.6))});
+});
+
+const TOTAL=S.reduce((s,x)=>s+x.dur,0);
+window.TOTAL=TOTAL;
+window.renderAt=function(t){
+  background(t);
+  let acc=0;
+  for(const sc of S){
+    if(t<acc+sc.dur||sc===S[S.length-1]){
+      const lt=t-acc;
+      const fade=Math.min(eo(P(lt,0,.5)), sc===S[S.length-1]?1:1-eo(P(lt,sc.dur-.5,sc.dur)));
+      g.save();g.globalAlpha=fade;sc.fn(lt,sc.dur);g.restore();
+      rail(sc.date(lt), S.indexOf(sc)===0?eo(P(lt,2.8,3.6)):1);
+      // global end fade
+      const ef=P(t,TOTAL-1,TOTAL); if(ef>0){g.fillStyle=`rgba(10,13,19,${ef})`;g.fillRect(0,0,W,H)}
+      return;
+    }
+    acc+=sc.dur;
+  }
+};
+window.ready=document.fonts.load('900 20px Unb').then(()=>Promise.all(['400 20px Unb','700 20px Unb','400 20px JBM','700 20px JBM','400 20px Inter','700 20px Inter'].map(f=>document.fonts.load(f)))).then(()=>{renderAt(0);return TOTAL});
+if(!navigator.webdriver){let s=performance.now();(function loop(){renderAt(((performance.now()-s)/1000)%TOTAL);requestAnimationFrame(loop)})()}
+</script></body></html>
