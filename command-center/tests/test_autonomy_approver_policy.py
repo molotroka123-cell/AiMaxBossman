@@ -30,10 +30,9 @@ REPO = Path(__file__).resolve().parents[2]
 LIVE_CONSTITUTION_FILE = REPO / "docs" / "constitution" / "BOSSMAN_CONSTITUTION.md"
 V2_FILE = REPO / "docs" / "constitution" / "proposals" / "BOSSMAN_CONSTITUTION_v2_DRAFT.md"
 V1_COMMIT = "d162237ba6d8443040296b1aa8668133f3a17705"
-V1_TEXT = subprocess.run(
-    ["git", "-C", str(REPO), "show", f"{V1_COMMIT}:docs/constitution/BOSSMAN_CONSTITUTION.md"],
-    capture_output=True, text=True, encoding="utf-8", check=True,
-).stdout
+# The v1 constitution text exactly as committed in V1_COMMIT (pinned file: CI checks out without history,
+# so `git show <old commit>` fails there at collection time).
+V1_TEXT = (Path(__file__).resolve().parent / "fixtures" / "constitution_v1_d162237b.md").read_text(encoding="utf-8")
 V1_FILE = LIVE_CONSTITUTION_FILE
 
 GEMMA = "openrouter:google/gemma-3-27b-it:free"

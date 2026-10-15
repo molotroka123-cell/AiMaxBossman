@@ -34,3 +34,10 @@ command-center/bcc/skills_catalog/** -whitespace -text
 
 # Raw sd-cli output (carriage-return progress bars, ANSI escapes): parser tests read the exact bytes.
 command-center/tests/fixtures/sdcpp/** binary
+
+# Код и данные хранятся с LF: root-ci `git diff --check` считает CR в конце строки ошибкой пробелов (15.10).
+*.py text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.jsonl text eol=lf
+tools/**/*.json text eol=lf

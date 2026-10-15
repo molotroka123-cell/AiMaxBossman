@@ -3023,7 +3023,10 @@ def compile_plan_for_prompt(prompt: str, *, workspace_dir: Path) -> list[dict[st
 
     # 1. Сценарий Блокнота (открыть Блокнот, написать текст, сохранить файл, переоткрыть и проверить)
     if ("блокнот" in low or "notepad" in low) and any(w in low for w in ("напиши", "сохрани", "текст", "write", "save", "открой")):
-        path_match = re.search(r"([A-Za-z]:[\\/][^\s'\"<>|,;]+|(?:docs|command-center|\.git)[\\/][^\s'\"<>|,;]+)", raw)
+        # Windows drive paths, repo-relative paths, and absolute POSIX paths (a target is never silently dropped:
+        # a dropped path would fall back to the workspace and skip the T2/T3 guard on the real target).
+        path_match = re.search(r"([A-Za-z]:[\\/][^\s'\"<>|,;]+|(?:docs|command-center|\.git)[\\/][^\s'\"<>|,;]+"
+                               r"|(?:(?<=\s)|^)/[^\s'\"<>|,;]+)", raw)
         file_path = path_match.group(1).rstrip(".,;)") if path_match else str(workspace_dir / "argon_notepad_note.txt")
         quote_match = re.search(r"['«\"]([^'»\"\n]{1,400})['»\"]", raw)
         if quote_match:

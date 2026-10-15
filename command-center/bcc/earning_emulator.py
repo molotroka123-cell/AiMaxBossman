@@ -633,6 +633,3 @@ def weekly_monetization_report(
         "fresh_vibes": fv,
         "roi": roi,
     }
-
-
-

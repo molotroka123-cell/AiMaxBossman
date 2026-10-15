@@ -56,18 +56,19 @@ async def test_preview_encodes_faster_than_the_quality_default(tmp_path):
     # 1.45 с по умолчанию против 0.45 с — разница в 3.2 раза.
     project = await _fixture(tmp_path, duration=6)
 
-    async def best_of_two(name, options):
-        times = []
-        for attempt in range(2):
-            start = time.perf_counter()
-            result = await render_project(project, tmp_path, tmp_path / f"{attempt}-{name}", options)
-            assert result["verification"]["passed"], result["verification"]
-            times.append(time.perf_counter() - start)
-        return min(times)   # общий раннер шумит вверх, но не вниз
+    async def timed(name, options):
+        start = time.perf_counter()
+        result = await render_project(project, tmp_path, tmp_path / name, options)
+        assert result["verification"]["passed"], result["verification"]
+        return time.perf_counter() - start
 
-    quality = await best_of_two("quality.webm", {k: v for k, v in PREVIEW.items()
-                                                 if k not in ("deadline", "cpu_used")})
-    fast = await best_of_two("preview.webm", PREVIEW)
+    quality_opts = {k: v for k, v in PREVIEW.items() if k not in ("deadline", "cpu_used")}
+    q_times, f_times = [], []
+    for attempt in range(3):
+        # Чередование: всплеск нагрузки общего раннера бьёт по обоим режимам, а не по одному блоку замеров.
+        q_times.append(await timed(f"{attempt}-quality.webm", quality_opts))
+        f_times.append(await timed(f"{attempt}-preview.webm", PREVIEW))
+    quality, fast = min(q_times), min(f_times)   # общий раннер шумит вверх, но не вниз
     # Запас намеренно грубый: доказывается, что режим ВЛИЯЕТ, а не конкретное
     # ускорение. Настоящий разрыв — 3.2 раза, порог — 20 %.
     assert fast < quality * 0.8, f"быстрый режим не быстрее: {fast:.2f} с против {quality:.2f} с"

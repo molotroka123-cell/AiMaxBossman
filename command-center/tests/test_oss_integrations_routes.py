@@ -122,4 +122,3 @@ def test_community_oss_integrations_blender_fincept_and_vibe_trading_shadow_acco
     assert v_deny_live.status_code == 403 and "T3 DENY" in v_deny_live.text
     v_deny_money = client.post("/api/oss/vibe-trading/shadow", json={"symbol": "SOL/USDT", "real_money": 50.0})
     assert v_deny_money.status_code == 403 and "T3 DENY" in v_deny_money.text
-

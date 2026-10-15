@@ -897,4 +897,3 @@ def test_edit_engine_uncensored_refuses_incompatible_persistent_references_hones
             assert job['model'] == 'sdcpp:qwen-image-edit-2509'
             assert [m['run_id'] for m in job['media']] == ['ref-1', 'face', 'body']
     go(scenario())
-

@@ -125,4 +125,3 @@ def test_commercial_deliverable_verifier_catches_false_test_claims_arithmetic_an
     )
     ok = em.verify_commercial_deliverable(clean_text, expected_total=30)
     assert ok["passed"] is True and ok["verdict"] == "VERIFIED_CLEAN" and ok["issues"] == []
-
