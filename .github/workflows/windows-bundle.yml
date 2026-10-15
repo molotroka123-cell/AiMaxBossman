@@ -290,7 +290,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: bossman-windows-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
           path: ${{ runner.temp }}/download
@@ -554,7 +554,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: '*-${{ env.BOSSMAN_ACCEPTANCE_SHA }}'
           path: ${{ runner.temp }}/freeze-evidence
