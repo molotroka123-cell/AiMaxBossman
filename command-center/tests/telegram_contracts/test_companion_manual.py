@@ -90,6 +90,14 @@ def test_owner_document_becomes_the_manual_and_is_never_echoed(tmp_path):
     assert jeff_manual.active_manual(tmp_path) is None
 
 
+def test_reply_manual_to_an_earlier_document(tmp_path):
+    c = companion(OWNER, tmp_path, {"F9": BODY.encode("utf-8")})
+    upd = text_update("/manual 20", uid=12)
+    upd["message"]["reply_to_message"] = {"message_id": 5, "document": {"file_id": "F9", "file_name": "m.txt"}}
+    asyncio.run(c.ingest(upd))
+    assert jeff_manual.active_manual(tmp_path)["text"] == BODY and "20 мин" in c.telegram.sent[-1]
+
+
 def test_docx_is_read(tmp_path):
     c = companion(OWNER, tmp_path, {"F2": docx_bytes("Тренерский стиль")})
     asyncio.run(c.ingest(doc_update("m.docx", file_id="F2", caption="/методичка")))

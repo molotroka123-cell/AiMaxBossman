@@ -492,6 +492,9 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         m = MANUAL_COMMAND.match(command)
         arg = (m.group(1) or "").strip().lower() if m else ""
         doc = message.get("document") if isinstance(message.get("document"), dict) else None
+        reply = message.get("reply_to_message") if isinstance(message.get("reply_to_message"), dict) else {}
+        if doc is None and isinstance(reply.get("document"), dict) and arg not in ("off", "стоп", "выкл"):
+            doc = reply["document"]           # "/manual" sent as a reply to a document already in the chat
         try:
             if not data_dir:
                 raise jeff_manual.ManualError("Bossman data folder is unknown")
@@ -505,7 +508,7 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                     f"📘 Методичка активна до {live['expires_at']} UTC · {live['chars']} знаков · "
                     f"sha {live['sha256'][:12]}. Читает только локальная модель Jeff." if live else
                     "📘 Методички нет. Пришлите документ (.txt, .md, .docx) с подписью /manual или /manual 60 "
-                    "(минуты, 1–240; по умолчанию 30). Снять: /manual off"))
+                    "(минуты, 1–240; по умолчанию 30) или ответьте /manual на уже присланный документ. Снять: /manual off"))
                 return
             minutes = int(arg) if arg.isdigit() else jeff_manual.DEFAULT_MINUTES
             if type(doc.get("file_size")) is int and doc["file_size"] > jeff_manual.MAX_DOC_BYTES:
