@@ -53,6 +53,12 @@ PRESETS: dict[str, Preset] = {
         "", "https://aistudio.google.com/apikey",
         "free tier Gemini API для проекта без биллинга: только flash/flash-lite/gemma, лимиты RPM/RPD",
         allow=r"^(models/)?(gemini-[0-9.]+-flash(-lite)?|gemini-flash(-lite)?-latest|gemma-[0-9][\w.-]*-it)$"),
+    # Owner 15.10: «Цена бесплатная у хау ту фикс» — free tier of the owner's HowToFix key, DeepSeek flash only.
+    "howtofix": Preset(
+        "howtofix", "HowToFix", "https://api.howtofix.id/v1", "sk-",
+        "https://howtofix.id/keys",
+        "бесплатный тариф ключа владельца (по словам владельца 15.10): только DeepSeek v4/v4.1 flash",
+        allow=r"^deepseek-v4(\.\d+)?-flash$"),
 }
 
 # Не чат-модели каталога: эмбеддинги, реранкеры, модерация, речь, reward.

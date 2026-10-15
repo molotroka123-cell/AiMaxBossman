@@ -83,6 +83,21 @@ def test_cli_vendors_route_to_the_free_provider_endpoint():
     assert keys.vendor_of("groq").free_preset == "groq"
 
 
+def test_howtofix_free_tier_is_deepseek_flash_only_and_passes_free_only_rule(monkeypatch):
+    from bcc.features.free_providers import PRESETS, is_chat_model
+    from bcc.provider_governance import ALLOW_PAID_CLOUD_ENV, free_only_policy_active, free_only_refusal
+    monkeypatch.delenv(ALLOW_PAID_CLOUD_ENV, raising=False)
+    assert free_only_policy_active()
+    p = PRESETS["howtofix"]
+    assert all(is_chat_model(m, p) for m in ("deepseek-v4-flash", "deepseek-v4.1-flash"))
+    assert not any(is_chat_model(m, p) for m in ("deepseek-v4.1-pro", "deepseek-r2", "gpt-5"))
+    prov = {"base_url": "https://api.howtofix.id/v1", "kind": "openai_compat"}
+    free = {"name": "deepseek-v4.1-flash", "price_in": 0.0, "price_out": 0.0, "caps": {"free_tier": True}}
+    assert free_only_refusal(prov, free) == ""
+    assert free_only_refusal(prov, {**free, "caps": {}}) != ""          # 0/0 alone is not proof
+    assert free_only_refusal(prov, {**free, "price_out": 0.4}) != ""    # a price is refused
+
+
 def test_ai_studio_registers_only_free_tier_models():
     from bcc.features.free_providers import PRESETS, is_chat_model
     p = PRESETS["google_ai_studio"]
