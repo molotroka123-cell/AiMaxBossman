@@ -59,6 +59,7 @@ from .cloud_budget import CloudBudget, classify_rate_limit, next_utc_midnight
 from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
 from . import crisis
+from . import jeff_manual as pit_jeff_manual
 from . import jeff_settings as pit_jeff_settings
 from . import math_assist as pit_math_assist
 from . import participant_profile, speech, speech_audit
@@ -2908,6 +2909,11 @@ class ParticipantRuntime:
             and consent.remote_processing_enabled and not consent.remote_personalization_enabled
             and not cloud_session and time.monotonic() >= self._local_down_until
             and self.store.recent_history(who, SESSION_CONTEXT_MAX_AGE_SECONDS))
+        # The owner's methodology note is read only by the local model: while it is live, prefer the local route.
+        if (not prefer_local and not self.settings.local_chat_only and not overlay_suspended
+                and time.monotonic() >= self._local_down_until
+                and pit_jeff_manual.active_manual(self.vault.data_dir) is not None):
+            prefer_local = True
         try:
             model, is_local = (self._free_route() if self.settings.local_chat_only
                                else self._mixed_route(text, consent, catalog=turn_catalog,

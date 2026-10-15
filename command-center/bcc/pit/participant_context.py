@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import jeff_settings, participant_profile, passport
+from . import jeff_manual, jeff_settings, participant_profile, passport
 from .context import select_persona_context
 from .models import ConsentState
 from .vault import PersonaVault
@@ -149,6 +149,10 @@ def build_participant_context(
     style = jeff_settings.STOCK_STYLE if suspend_overlay else jeff_settings.style_for(vault.data_dir, person_key)
     if style.system_extra:
         system += " " + jeff_settings.owner_extra_text(style.system_extra)
+    # Owner's time-boxed methodology note: read by the LOCAL model only, never put into a cloud payload.
+    manual = None if (suspend_overlay or selected_model_is_remote) else jeff_manual.active_manual(vault.data_dir)
+    if manual:
+        system += " " + jeff_manual.manual_system_text(manual["text"])
     if suspend_overlay:
         system += " " + CRISIS_STYLE_RU
     behavior_scales = jeff_settings.effective_scales(behavior_scales, style)
