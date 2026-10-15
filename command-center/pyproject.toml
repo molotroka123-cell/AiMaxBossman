@@ -85,7 +85,7 @@ terminal = ["prompt_toolkit==3.0.52"]
 # (tools/windows_bundle_lock.txt, recorded only on the Windows runner). On the embedded runtime `bossman call install`
 # installs the exact hash-verified add-on from bcc/telegram_calls/addon_lock.json instead. Voice reuses Jeff's tract
 # (faster-whisper from `speech`, the external Piper executable); numpy is already in the bundle.
-calls = ["telethon==1.45.0", "py-tgcalls==3.0.0", "ntgcalls==3.0.0", "pysilero-vad==3.4.0", "soxr==1.1.0", "numpy>=1.26", "faster-whisper==1.2.1", "av>=11,<19"]
+calls = ["telethon==1.45.0", "py-tgcalls==3.0.0", "ntgcalls==3.0.3", "pysilero-vad==3.4.0", "soxr==1.1.0", "numpy>=1.26", "faster-whisper==1.2.1", "av>=11,<19"]
 
 [project.scripts]
 bcc = "bcc.app:main"
