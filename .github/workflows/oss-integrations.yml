@@ -99,7 +99,7 @@ jobs:
                   raise SystemExit(f'{name}: {len(skipped)} skipped tests; upstream validation incomplete')
       - name: Preserve exact-commit test evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: oss-tests-${{ matrix.os }}-${{ github.sha }}
           path: |
