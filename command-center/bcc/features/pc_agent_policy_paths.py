@@ -162,8 +162,10 @@ def is_t3_secret_or_protected_path(
 
 
 def default_safe_roots(data_dir: Path | None = None) -> list[Path]:
+    import tempfile
+
     h = Path.home()
-    tmp = Path(os.environ.get("TEMP", str(h / "AppData/Local/Temp")))
+    tmp = Path(os.environ.get("TEMP", tempfile.gettempdir()))
     roots = [h / "Desktop", h / "Documents", h / "Downloads", tmp]
     if data_dir is not None:
         roots.append(Path(data_dir) / "pc-agent" / "workspace")

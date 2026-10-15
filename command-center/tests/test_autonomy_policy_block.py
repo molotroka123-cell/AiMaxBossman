@@ -17,7 +17,7 @@ from bcc.autonomy.journal import Journal
 from bcc.autonomy.lease import EngineeringLease
 
 from .autonomy_fakes import kinds, make_goal, of
-from .test_autonomy_approver_policy import (GEMMA, NEMO, V1_FILE, V2_FILE, make_cycle, verdict_chat,  # noqa: F401
+from .test_autonomy_approver_policy import (GEMMA, NEMO, V1_FILE, V1_TEXT, V2_FILE, make_cycle, verdict_chat,  # noqa: F401
                                             world)
 
 BODY = "# Bossman Constitution (user-owned)\n\n## Top goals\n\n{rule4}\n\n## Enforcement\n\nThe user pins this file.\n"
@@ -58,7 +58,8 @@ def block(**over) -> dict:
 def test_v1_text_without_block_is_v1_named_claude_codex():
     p = pol(doc(rule4=RULE_V1))
     assert p.mode == "v1" and p.source == "legacy" and p.rule.startswith("legacy")
-    assert pol(V1_FILE.read_text(encoding="utf-8")).mode == "v1"
+    assert pol(V1_TEXT).mode == "v1"
+    assert pol(V1_FILE.read_text(encoding="utf-8")).mode == "v2"
 
 
 def test_v2_sentence_without_block_is_independent():

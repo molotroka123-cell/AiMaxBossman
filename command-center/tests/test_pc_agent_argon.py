@@ -276,6 +276,7 @@ async def test_real_process_kill_requires_t2_approval_and_verifies_death(fake_sv
         assert resumed is not None
         assert resumed["status"] == "completed"
         assert resumed["step_results"][0]["verified"] is True
+        sleeper.wait(timeout=2)
         assert not psutil.pid_exists(sleeper.pid)
     finally:
         if sleeper.poll() is None:

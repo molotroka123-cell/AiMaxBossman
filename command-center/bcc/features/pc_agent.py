@@ -789,6 +789,7 @@ async def execute_pc_step(
         tool,
         args,
         trust_active=rt.trust_active(svc),
+        safe_roots=default_safe_roots(rt.data_dir),
         data_dir=rt.data_dir,
     )
     if recheck.decision == "deny" or recheck.tier == "T3":
@@ -841,7 +842,10 @@ async def execute_pc_step(
 
     if tool == "pc.list_windows":
         query = str(args.get("query") or args.get("filter") or "").strip().lower()
-        wins = tc._top_windows() if hasattr(tc, "_top_windows") else []
+        wins: list[tuple[int, str, int]] = []
+        if hasattr(tc, "_top_windows"):
+            with contextlib.suppress(Exception):
+                wins = tc._top_windows()
         items = [
             {"hwnd": h, "title": title, "pid": pid}
             for h, title, pid in wins[:60]
@@ -995,7 +999,12 @@ async def execute_pc_step(
                 errors.append(f"PID {getattr(proc_obj, 'pid', '?')}: {exc}")
 
         await asyncio.sleep(0.25)
-        still_alive = [pid for pid in killed_pids if psutil.pid_exists(pid)]
+        still_alive: list[int] = []
+        for pid in killed_pids:
+            if psutil.pid_exists(pid):
+                with contextlib.suppress(psutil.Error):
+                    if psutil.Process(pid).status() != getattr(psutil, "STATUS_ZOMBIE", "zombie"):
+                        still_alive.append(pid)
         verified = bool(killed_pids) and not still_alive
         return {
             "ok": verified,
@@ -1018,7 +1027,10 @@ async def execute_pc_step(
         target_pid = int(args["pid"]) if str(args.get("pid") or "").strip().isdecimal() else None
         target_hwnd = int(args["hwnd"]) if str(args.get("hwnd") or "").strip().isdecimal() else None
 
-        wins = tc._top_windows() if hasattr(tc, "_top_windows") else []
+        wins = []
+        if hasattr(tc, "_top_windows"):
+            with contextlib.suppress(Exception):
+                wins = tc._top_windows()
         matched = None
         for h, title, pid in wins:
             if target_hwnd is not None and h == target_hwnd:
@@ -1061,7 +1073,10 @@ async def execute_pc_step(
             elif action == "close":
                 user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
         await asyncio.sleep(0.3)
-        wins_after = tc._top_windows() if hasattr(tc, "_top_windows") else []
+        wins_after = []
+        if hasattr(tc, "_top_windows"):
+            with contextlib.suppress(Exception):
+                wins_after = tc._top_windows()
         hwnds_after = {h for h, _, _ in wins_after}
         if action == "close":
             verified = hwnd not in hwnds_after
@@ -2590,6 +2605,18 @@ async def _execute_notepad_roundtrip(
             "summary": t3_reason_raw,
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
+    safe_roots = default_safe_roots(rt.data_dir)
+    if not is_within_safe_roots(file_path_raw, safe_roots) and not approved:
+        t2_msg = f"Сохранение файла Блокнота вне разрешённых рабочих папок требует подтверждения владельца: {file_path_raw}"
+        return {
+            "ok": False,
+            "verified": False,
+            "tier": "T2",
+            "decision": "ask",
+            "error": t2_msg,
+            "summary": t2_msg,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
     target_path = Path(file_path_raw).expanduser().resolve()
     t3_deny, t3_reason = is_t3_secret_or_protected_path(target_path, for_write=True, data_dir=rt.data_dir)
     if t3_deny:
@@ -2602,7 +2629,7 @@ async def _execute_notepad_roundtrip(
             "summary": t3_reason,
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
-    if not is_within_safe_roots(str(target_path), default_safe_roots(rt.data_dir)) and not approved:
+    if not is_within_safe_roots(str(target_path), safe_roots) and not approved:
         t2_msg = f"Сохранение файла Блокнота вне разрешённых рабочих папок требует подтверждения владельца: {target_path}"
         return {
             "ok": False,
@@ -3397,6 +3424,7 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
                 task_prompt=prompt,
                 tainted_by_injection=bool(record.get("tainted_by_injection")),
                 trust_active=rt.trust_active(svc),
+                safe_roots=default_safe_roots(rt.data_dir),
                 data_dir=rt.data_dir,
             )
 

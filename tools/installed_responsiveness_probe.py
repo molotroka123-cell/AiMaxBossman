@@ -54,6 +54,14 @@ def verify_payload(root: Path, archive: Path, expected_hash: str) -> dict:
         if digest_stream(raw) != expected_hash:
             raise ValueError('application archive SHA-256 mismatch')
         raw.seek(0)
+        raw_bytes = raw.read()
+        idx = 0
+        while (pos := raw_bytes.find(b'PK\x01\x02', idx)) != -1 and pos + 46 <= len(raw_bytes):
+            fn_len = int.from_bytes(raw_bytes[pos + 28:pos + 30], 'little')
+            if b'\\' in raw_bytes[pos + 46:pos + 46 + fn_len]:
+                raise ValueError('unsafe archive path')
+            idx = pos + 46 + fn_len
+        raw.seek(0)
         with zipfile.ZipFile(raw) as bundle:
             entries = bundle.infolist()
             if not entries or len(entries) > 50000 or sum(i.file_size for i in entries) > 8 * 1024**3:

@@ -35,17 +35,19 @@ def guarded(tmp_path, monkeypatch):
             raise AssertionError(f"forbidden side effect: {label}")
         return _inner
 
+    try:
+        import requests
+    except ImportError:
+        requests = None
+
     monkeypatch.setattr(socket, "socket", trip("socket.socket"))
     monkeypatch.setattr(socket, "create_connection", trip("socket.create_connection"))
     monkeypatch.setattr(socket, "getaddrinfo", trip("socket.getaddrinfo"))
     monkeypatch.setattr(urllib.request, "urlopen", trip("urllib.request.urlopen"))
     monkeypatch.setattr(getpass, "getpass", trip("getpass.getpass"))
     monkeypatch.setattr("builtins.input", trip("input"))
-    try:
-        import requests
+    if requests is not None:
         monkeypatch.setattr(requests.sessions.Session, "request", trip("requests"))
-    except ImportError:
-        pass
     monkeypatch.chdir(tmp_path)
     env = tmp_path / ".env"
     vault = tmp_path / "existing.vault"

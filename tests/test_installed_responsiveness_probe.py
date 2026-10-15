@@ -73,10 +73,12 @@ def test_actions_wrapper_is_not_application(driver, payload):
 
 
 @pytest.mark.parametrize('name', ['BOSSMAN/../outside', 'BOSSMAN/runtime/C:bad', '/absolute/file', 'BOSSMAN\\file', 'BOSSMAN/trailing.'])
-def test_unsafe_member_refused_without_extraction(driver, payload, name):
+def test_unsafe_member_refused_without_extraction(driver, payload, name, monkeypatch):
     root, archive, _ = payload
     with zipfile.ZipFile(archive, 'a') as z:
-        z.writestr(name, b'x')
+        with monkeypatch.context() as m:
+            m.setattr(os, 'sep', '/')
+            z.writestr(name, b'x')
     with pytest.raises(ValueError, match='unsafe'):
         driver.verify_payload(root, archive, driver.digest_file(archive))
     assert not (root.parent / 'outside').exists()
@@ -164,8 +166,8 @@ def test_real_child_process_is_included_in_snapshot(driver, tmp_path):
     # Real portable process test, NOT a Windows/Bossman performance run.
     ready = tmp_path / 'ready'
     child = subprocess.Popen([sys.executable, '-c',
-        'import pathlib,sys,time; payload=bytearray(16*1024*1024); '
-        'pathlib.Path(sys.argv[1]).write_text("ready"); time.sleep(20)', str(ready)],
+        'import os,pathlib,sys,time; payload=bytearray(16*1024*1024); '
+        'pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(20)', str(ready)],
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         deadline = time.monotonic() + 10
@@ -174,12 +176,13 @@ def test_real_child_process_is_included_in_snapshot(driver, tmp_path):
                 raise AssertionError('test child exited before readiness')
             time.sleep(.02)
         assert ready.exists()
+        actual_pid = int(ready.read_text(encoding='utf-8').strip() or child.pid)
         sampler = driver.TreeSampler(os.getpid())
         sample = sampler.sample()
-        rows = [row for row in sample['processes'] if row['pid'] == child.pid]
-        assert len(rows) == 1
-        assert rows[0]['rss'] >= 16 * 1024 * 1024
-        assert sample['rss_mib'] >= rows[0]['rss'] / (1024 * 1024)
+        rows = [row for row in sample['processes'] if row['pid'] in {child.pid, actual_pid}]
+        assert len(rows) >= 1
+        assert max(r['rss'] for r in rows) >= 16 * 1024 * 1024
+        assert sample['rss_mib'] >= max(r['rss'] for r in rows) / (1024 * 1024)
     finally:
         child.terminate()
         child.wait(timeout=10)
@@ -284,7 +287,7 @@ def test_orchestration_truth_and_cleanup_with_synthetic_runtime(
     monkeypatch.setenv('EXAMPLE_API_KEY', 'synthetic-placeholder')
     result = driver.run_installed(probe, root=root, archive=archive, expected_hash=digest,
                                   expected_sha='a' * 40, output=output, soak_seconds=seconds, headed=True)
-    assert json.loads(output.read_text()) == result
+    assert json.loads(output.read_text(encoding='utf-8')) == result
     assert result['release_ready'] is False
     assert result['binding']['harness_sha'] is None
     assert result['measurement_executed'] is True

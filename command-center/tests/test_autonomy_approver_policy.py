@@ -24,9 +24,17 @@ from bcc.autonomy.types import Budget, Goal, Review
 from .autonomy_fakes import (OK_CONSTITUTION, Act, FakeExecutor, ScriptedCLIs, done, goal_of, install_fake_clis,
                              kinds, make_broker, make_goal, make_repo, make_staging, of)
 
+import subprocess
+
 REPO = Path(__file__).resolve().parents[2]
-V1_FILE = REPO / "docs" / "constitution" / "BOSSMAN_CONSTITUTION.md"
+LIVE_CONSTITUTION_FILE = REPO / "docs" / "constitution" / "BOSSMAN_CONSTITUTION.md"
 V2_FILE = REPO / "docs" / "constitution" / "proposals" / "BOSSMAN_CONSTITUTION_v2_DRAFT.md"
+V1_COMMIT = "d162237ba6d8443040296b1aa8668133f3a17705"
+V1_TEXT = subprocess.run(
+    ["git", "-C", str(REPO), "show", f"{V1_COMMIT}:docs/constitution/BOSSMAN_CONSTITUTION.md"],
+    capture_output=True, text=True, encoding="utf-8", check=True,
+).stdout
+V1_FILE = LIVE_CONSTITUTION_FILE
 
 GEMMA = "openrouter:google/gemma-3-27b-it:free"
 GEMINI = "openrouter:google/gemini-2.5-flash:free"
@@ -40,11 +48,13 @@ V2 = AP.ApproverPolicy("v2", "test", "x" * 64)
 V1 = AP.V1
 
 
-def pinned(tmp_path, source: Path, *, pin_sha: str | None = None):
+def pinned(tmp_path, source: Path | bytes | str, *, pin_sha: str | None = None):
     c = tmp_path / "constitution.md"
-    c.write_bytes(source.read_bytes())
+    c.parent.mkdir(parents=True, exist_ok=True)
+    raw = source.read_bytes() if isinstance(source, Path) else (source.encode("utf-8") if isinstance(source, str) else source)
+    c.write_bytes(raw)
     p = tmp_path / "pin" / "constitution.sha256"
-    p.parent.mkdir()
+    p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text((pin_sha or hashlib.sha256(c.read_bytes()).hexdigest()) + "\n", encoding="ascii")
     return c, p
 
@@ -52,9 +62,12 @@ def pinned(tmp_path, source: Path, *, pin_sha: str | None = None):
 # ------------------------------------------------------------------ policy selection from the pinned text
 
 def test_live_v1_file_selects_v1_even_when_pinned(tmp_path):
-    c, p = pinned(tmp_path, V1_FILE)
+    c, p = pinned(tmp_path, V1_TEXT)
     pol = AP.load_policy(str(c), str(p))
     assert pol.mode == "v1" and not pol.is_v2
+    c_live, p_live = pinned(tmp_path / "live", LIVE_CONSTITUTION_FILE)
+    pol_live = AP.load_policy(str(c_live), str(p_live))
+    assert pol_live.mode == "v2" and pol_live.is_v2
 
 
 def test_v2_draft_selects_v2_only_when_pinned_and_hash_matches(tmp_path):
@@ -78,12 +91,12 @@ def test_sentence_outside_rule_4_or_next_to_the_v1_pair_is_not_v2():
 
 
 def test_v2_draft_keeps_every_owner_only_clause_of_v1():
-    v1, v2 = V1_FILE.read_text(encoding="utf-8"), V2_FILE.read_text(encoding="utf-8")
+    v1, v2 = LIVE_CONSTITUTION_FILE.read_text(encoding="utf-8"), V2_FILE.read_text(encoding="utf-8")
     block = lambda t: t.split("## Always the user's decision", 1)[1].split("## Release tiers", 1)[0]  # noqa: E731
     assert block(v1) == block(v2)
     for must in ("Promotion to the next level requires the configured number of successful cycles (default 25)",
                  "No agent may write that pin.", "L4 Long autonomy", "never the goals and rules below"):
-        assert must in v1 and must in v2
+        assert must in V1_TEXT and must in v1 and must in v2
 
 
 # ------------------------------------------------------------------ verifier identity

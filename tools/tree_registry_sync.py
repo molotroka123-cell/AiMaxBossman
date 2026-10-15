@@ -173,7 +173,7 @@ def cmd_registry(audit: Path, out: Path, ci_path: Path | None, owner_path: Path 
     result = {"schema": "bossman-tree-registry-1", "head": git("rev-parse", "HEAD"), "leaves": leaves, "proven_through_counts": reached,
               "note": "tests = a recorded run in the cloud; ci = green on the stated SHA only when a CI evidence file is supplied; owner_pc only from an owner evidence file."}
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    out.write_text(json.dumps(result, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps({"leaves": len(leaves), "proven_through": reached}, ensure_ascii=False))
     return 0
 

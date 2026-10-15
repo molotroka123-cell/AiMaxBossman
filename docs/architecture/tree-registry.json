@@ -1,6 +1,6 @@
 {
  "schema": "bossman-tree-registry-1",
- "head": "436e3dd11e060ee70ff15554af42df42b7d3726f",
+ "head": "8c3b1de924849d3485e4f94c94efde0672bad3b5",
  "leaves": [
   {
    "id": "jeff",
@@ -30069,7 +30069,7 @@
    "label": "OSS-движки · инвентарь",
    "zone_parent": "plugins",
    "source": "command-center/bcc/features/oss_integrations.py",
-   "sha": "16020d0b5297ef4542147d9960e08c4b89e07c41",
+   "sha": "684f6ce9e3baefd66cc7683095f372731473ce3c",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -30468,7 +30468,7 @@
    "zone_parent": "pv",
    "source": "apps/poker-vision/pokervision/adapters/poker_train.py",
    "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -30544,7 +30544,7 @@
    "zone_parent": "pv",
    "source": "apps/poker-vision/pokervision/actuator.py",
    "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -30583,7 +30583,7 @@
    "zone_parent": "pv",
    "source": "apps/poker-vision/pokervision/eval/run_eval.py",
    "sha": "d22601a41020e1a921627c5dc3b0d5005c4fe356",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -30732,7 +30732,7 @@
    "zone_parent": "pv",
    "source": "apps/poker-vision/pokervision/control/executor.py",
    "sha": "a963599537f295c4266ec656ab35b233d632d71c",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -30770,7 +30770,7 @@
    "zone_parent": "pv",
    "source": "command-center/ui/pages/poker_vision.js",
    "sha": "a963599537f295c4266ec656ab35b233d632d71c",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32009,7 +32009,7 @@
    "zone_parent": "media",
    "source": "tools/motion_studio/make_video.py",
    "sha": "6ed6da8493cff0b65a3ebd8c58c9fe297572fc21",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -32314,7 +32314,7 @@
    "label": "Эмулятор заработка на удалённой вакансии (симуляция)",
    "zone_parent": "apps",
    "source": "command-center/bcc/earning_emulator.py",
-   "sha": "40f8f9078f1ec75f22f9bcaf69a26b4b1f0f047f",
+   "sha": "684f6ce9e3baefd66cc7683095f372731473ce3c",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -34629,7 +34629,7 @@
    "zone_parent": "models",
    "source": "bossman_shared/privacy.py",
    "sha": "7ee527e8367dff80db9eb7ffc00f87950d906002",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -34665,7 +34665,7 @@
    "zone_parent": "models",
    "source": "tools/offline_smoke_local_only.py",
    "sha": "c1f5f5eb9b6b6ab481e43add63bfdd9ce1184785",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -34701,7 +34701,7 @@
    "zone_parent": "ops",
    "source": "tools/mp21_project_map.py",
    "sha": "c1f5f5eb9b6b6ab481e43add63bfdd9ce1184785",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -34737,7 +34737,7 @@
    "zone_parent": "apps",
    "source": "command-center/bcc/vibe/service.py",
    "sha": "250dabbf173fb7791fabbe4f99ac1d4296f9b10d",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -34773,7 +34773,7 @@
    "zone_parent": "jeff",
    "source": "command-center/bcc/pit/j2/browser_search.py",
    "sha": "72a686636170487a132a8ae5258169b4baf7c9b8",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -34809,7 +34809,7 @@
    "zone_parent": "media",
    "source": "tools/dataset_check/check_faces.py",
    "sha": "c9d6b479eb3c0e3b5498f081a7b53b4642bf2e19",
-   "integration_status": "code",
+   "integration_status": "reported",
    "levels": {
     "code": {
      "state": "PRESENT"
@@ -34910,11 +34910,803 @@
     "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
     "owner_pc": null
    }
+  },
+  {
+   "id": "commerce",
+   "label": "Commerce · заработок и клиенты",
+   "zone_parent": "bossman",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "devices",
+   "label": "Devices · другие устройства",
+   "zone_parent": "bossman",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-commerce_product_packages",
+   "label": "Четыре продуктовых пакета",
+   "zone_parent": "commerce",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-commerce_buyer_demand",
+   "label": "Проверка покупательского спроса",
+   "zone_parent": "commerce",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-commerce_offer_cost",
+   "label": "Предложение, цена и себестоимость",
+   "zone_parent": "commerce",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-commerce_order_delivery",
+   "label": "Заказ, качество и доставка",
+   "zone_parent": "commerce",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-commerce_revenue_accounting",
+   "label": "Выручка, расходы и прибыль",
+   "zone_parent": "commerce",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-commerce_support_refunds",
+   "label": "Поддержка и возвраты",
+   "zone_parent": "commerce",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-devices_registry",
+   "label": "Реестр собственных устройств",
+   "zone_parent": "devices",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-devices_pair_revoke",
+   "label": "Подключение и отзыв доступа",
+   "zone_parent": "devices",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-devices_remote_tasks",
+   "label": "Задачи на втором ПК",
+   "zone_parent": "devices",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-devices_resource_queue",
+   "label": "Ресурсы и очередь устройств",
+   "zone_parent": "devices",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-devices_file_integrity",
+   "label": "Файлы, доступ и целостность",
+   "zone_parent": "devices",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-devices_reconnect_stop",
+   "label": "Потеря связи, recovery и STOP",
+   "zone_parent": "devices",
+   "source": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+   "sha": "f91e1dc4899703ce980193ec82568dd5982801bf",
+   "integration_status": "idea",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-pc_agent_runtime",
+   "label": "PC-Agent: исполнитель задач Windows",
+   "zone_parent": "computer",
+   "source": "command-center/bcc/features/pc_agent.py",
+   "sha": "806ac86f4bddb0905861f747ceb3888c5a04b147",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-pc_agent_policy",
+   "label": "PC-Agent: политика действий и защита путей",
+   "zone_parent": "computer",
+   "source": "command-center/bcc/features/pc_agent_policy.py",
+   "sha": "cb6df08e4b74b8d4fdd4e0dd36db9311c4459744",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-edit_engine_selection",
+   "label": "Выбор edit-engine Qwen / Z-Image",
+   "zone_parent": "media",
+   "source": "command-center/bcc/telegram_companion/gen_refine.py",
+   "sha": "9cbba46eeaa11cc0a40a72c15a84ac6e430a8fbc",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-jeff_stars_ledger",
+   "label": "Jeff Stars: учёт платежей и доступа",
+   "zone_parent": "jeff",
+   "source": "command-center/bcc/pit/stars_ledger.py",
+   "sha": "dc8a055698d861595bfbb2814fc8c6c75eb7decb",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-reports_export",
+   "label": "Reports: сверяемый отчёт из экспорта",
+   "zone_parent": "apps",
+   "source": "tools/exchange_volume/report.py",
+   "sha": "7d8167c01fd5f93740f15d6cee84fa2c6b52d412",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-blender_adapter",
+   "label": "Blender MCP: адаптер, активация отдельно",
+   "zone_parent": "plugins",
+   "source": "command-center/bcc/oss/blender_mcp.py",
+   "sha": "3b0c04e6ebfd4a5e4756c19f5950191b15a874f2",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-fincept_adapter",
+   "label": "Fincept: адаптер, активация отдельно",
+   "zone_parent": "plugins",
+   "source": "command-center/bcc/oss/fincept_terminal.py",
+   "sha": "3b0c04e6ebfd4a5e4756c19f5950191b15a874f2",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-vibe_trading_adapter",
+   "label": "Vibe-Trading: paper-адаптер, активация отдельно",
+   "zone_parent": "plugins",
+   "source": "command-center/bcc/oss/vibe_trading.py",
+   "sha": "3b0c04e6ebfd4a5e4756c19f5950191b15a874f2",
+   "integration_status": "code",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": "https://github.com/molotroka123-cell/AiMaxBossman/actions/runs/38185553138",
+    "owner_pc": null
+   }
   }
  ],
  "proven_through_counts": {
   "none": 84,
-  "code": 331,
+  "code": 353,
   "ci": 471,
   "tests": 14
  },

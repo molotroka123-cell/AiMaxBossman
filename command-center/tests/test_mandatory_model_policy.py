@@ -47,8 +47,12 @@ def test_defaults_carry_no_banned_model():
 
 _SCAN_ROOTS = ("command-center/bcc", "bossman-core/bossman", "bossman-core/config", "bossman_shared", "config")
 _SCAN_SUFFIXES = {".py", ".json", ".toml", ".yaml", ".yml", ".js", ".ps1", ".env", ".example"}
-# The files that DEFINE the ban necessarily name it.
-_BAN_DEFINITIONS = {"command-center/bcc/pit/model_policy.py", "bossman-core/bossman/gateway/router.py"}
+# The files that DEFINE the ban or family detector necessarily name it.
+_BAN_DEFINITIONS = {
+    "command-center/bcc/pit/model_policy.py",
+    "bossman-core/bossman/gateway/router.py",
+    "command-center/bcc/autonomy/approver_policy.py",
+}
 _MODEL_LITERAL = re.compile(r"[\"'][^\"'\s]*(?:lfm|liquid/)[^\"'\s]*[\"']", re.I)
 
 
