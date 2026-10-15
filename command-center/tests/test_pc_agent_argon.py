@@ -730,6 +730,51 @@ async def test_master_prompt_eternal_prohibitions_and_local_only():
     assert "qwen/qwen3-coder:free" not in called_models
 
 
+@pytest.mark.asyncio
+async def test_local_qwen_ollama_summary_disables_thinking(monkeypatch: pytest.MonkeyPatch):
+    """A reasoning model must leave answer tokens for the owner-facing report."""
+    import bcc.features.pc_agent as pca
+
+    seen = []
+
+    class _Response:
+        status_code = 200
+
+        def json(self):
+            return {"message": {"content": "Готовый отчёт"}}
+
+    class _Client:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        async def post(self, _url, *, json):
+            seen.append(json)
+            return _Response()
+
+    monkeypatch.setattr(pca.httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(pca, "LOCAL_MODELS", ("local-qwen",))
+    result = await pca.call_local_qwen("Отчёт", "Локально", svc=None)
+    assert result["ok"] is True and result["text"] == "Готовый отчёт"
+    assert seen[0]["think"] is False
+
+
+def test_reports_llm_summary_preserves_cautions():
+    from bcc.features.pc_agent import reports_summary_cautions_present
+
+    source = "ДЕМО НА СИНТЕТИКЕ; неполный период; оборот USDT, НЕ прибыль"
+    assert reports_summary_cautions_present(
+        source, "Демо на синтетике. Период неполный, оборот — не прибыль."
+    )
+    assert not reports_summary_cautions_present(source, "Оборот составил 3300 USDT.")
+    assert not reports_summary_cautions_present(source, "Демо, период неполный, прибыль 3300 USDT.")
+
+
 # ------------------------------------------------------------------ 6. Аудит-блокеры PC-Agent: реальный FastAPI create_app + EventBus, /untrust (minutes=0), defense-in-depth, /stop при долгом approve, честный VERIFIED, /boost и Fresh Vibes
 
 @pytest.mark.asyncio
@@ -1073,17 +1118,47 @@ async def test_bypass_1a_notepad_roundtrip_secret_and_backup(fake_svc: FakeSvc, 
     - применяет T3/T2 защиту к `path` ДО `save_rollback_backup` и ДО `mkdir`;
     - блокирует пины, ключи, vault, `.env`, конституцию, Startup/Run/schtasks, `.git/hooks`, `bcc/approvals.py`;
     - откатные копии секретов (`backup-1-api-token` или внутри `rollback/`) не читаемы через `pc.read_file`."""
+    import io
+    import tokenize
     import bcc.features.pc_agent as pca
     from bcc.features import pc_agent_policy as policy
     from bcc.features import pc_agent_policy_paths as policy_paths
 
-    # Проверяем, что оба модуля политики <= 300 строк и каждая строка <= 120 символов
-    for mod in (policy, policy_paths):
-        mod_file = Path(mod.__file__).resolve()
-        mod_lines = mod_file.read_text(encoding="utf-8").splitlines()
+    # Все модули pc_agent_policy*.py: <= 300 строк, <= 120 БАЙТ UTF-8, без `;` и однострочных compound-инструкций
+    import io
+    import tokenize
+
+    policy_files = sorted(Path(policy.__file__).resolve().parent.glob("pc_agent_policy*.py"))
+    assert Path(policy_paths.__file__).resolve() in policy_files and len(policy_files) >= 2
+    compound_kw = {"if", "elif", "else", "for", "while", "with", "try", "except", "finally", "def", "class", "async"}
+    skip = {tokenize.NL, tokenize.COMMENT, tokenize.INDENT, tokenize.DEDENT}
+    for mod_file in policy_files:
+        source = mod_file.read_text(encoding="utf-8")
+        mod_lines = source.splitlines()
         assert len(mod_lines) <= 300, f"{mod_file.name}: {len(mod_lines)} lines > 300"
-        long_lines = [(idx + 1, len(ln)) for idx, ln in enumerate(mod_lines) if len(ln) > 120]
-        assert not long_lines, f"{mod_file.name} has lines > 120 chars: {long_lines}"
+        long_lines = [(idx + 1, len(ln.encode("utf-8"))) for idx, ln in enumerate(mod_lines)
+                      if len(ln.encode("utf-8")) > 120]
+        assert not long_lines, f"{mod_file.name} has lines > 120 bytes: {long_lines}"
+        toks = list(tokenize.generate_tokens(io.StringIO(source).readline))
+        semis = [t.start[0] for t in toks if t.type == tokenize.OP and t.string == ";"]
+        assert not semis, f"{mod_file.name}: `;` separators on lines {semis}"
+        one_liners, logical, depth = [], [], 0
+        for tok in toks:
+            if tok.type == tokenize.NEWLINE or tok.type == tokenize.ENDMARKER:
+                if logical and logical[0].type == tokenize.NAME and logical[0].string in compound_kw:
+                    depth, has_lambda = 0, False
+                    for i, lt in enumerate(logical):
+                        has_lambda = has_lambda or lt.string == "lambda"
+                        depth += lt.string in "([{" and lt.type == tokenize.OP
+                        depth -= lt.string in ")]}" and lt.type == tokenize.OP
+                        if lt.type == tokenize.OP and lt.string == ":" and depth == 0 and not has_lambda:
+                            if i != len(logical) - 1:
+                                one_liners.append(lt.start[0])
+                            break
+                logical = []
+            elif tok.type not in skip:
+                logical.append(tok)
+        assert not one_liners, f"{mod_file.name}: one-line compound statements at lines {one_liners}"
 
     rt = pca.get_runtime(fake_svc)
     secret_parent = tmp_path / "nonexistent_vault_dir" / ".bossman" / "nested"
@@ -1466,7 +1541,9 @@ def test_unquoted_notepad_text_and_receipts_journal_mirror(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(tmp_path: Path):
+async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(fake_svc: FakeSvc, tmp_path: Path):
+    import json
+    import shutil
     import bcc.features.pc_agent as pca
     from bcc.features import reports_runner
 
@@ -1476,6 +1553,12 @@ async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(tmp_path: 
     for forbidden in ("ChatExport_" + "2026-10-02", "SwapMe_" + "BusinessMonths_Report.xlsx", r"Users\asd\Downloads"):
         assert forbidden not in pca_src, f"Personal path {forbidden} found in pc_agent.py"
         assert forbidden not in rr_src, f"Personal path {forbidden} found in reports_runner.py"
+
+    # 0. Проверка маршрутизации compile_plan_for_prompt для earn reports / reports
+    plan_earn = pca.compile_plan_for_prompt("earn reports --demo", workspace_dir=tmp_path)
+    assert plan_earn == [{"tool": "pc.earn", "args": {"action": "reports", "brief": "--demo"}}]
+    plan_rep = pca.compile_plan_for_prompt("reports --demo", workspace_dir=tmp_path)
+    assert plan_rep == [{"tool": "pc.earn", "args": {"action": "reports", "brief": "--demo"}}]
 
     earn_dir = tmp_path / "earn"
     data_dir = tmp_path / "data"
@@ -1491,17 +1574,38 @@ async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(tmp_path: 
     assert res_no_exp["verified"] is False
     assert "укажите файл экспорта" in res_no_exp["error"].lower()
 
-    # 2. Несуществующий файл экспорта — честный отказ с «укажите файл экспорта»
+    # Сквозной вызов через start_pc_task без экспорта -> статус failed с «укажите файл экспорта»
+    rec_e2e_fail = await start_pc_task(
+        fake_svc,
+        "earn reports",
+        actor="owner",
+        wait=True,
+        use_local_llm_summary=False,
+    )
+    assert rec_e2e_fail["status"] == "failed"
+    assert "укажите файл экспорта" in str(rec_e2e_fail.get("error") or "").lower()
+
+    # 2. Несуществующий файл экспорта (в том числе при demo=True) — честный отказ, без тихого отката на фикстуру
     missing_file = tmp_path / "no_such_export.html"
-    res_missing = await reports_runner.run_exchange_report(
-        args={"action": "reports", "export": str(missing_file)},
+    for extra_args in ({}, {"demo": True}):
+        res_missing = await reports_runner.run_exchange_report(
+            args={"action": "reports", "export": str(missing_file), **extra_args},
+            repo_root=repo_root,
+            data_dir=data_dir,
+            earn_dir=earn_dir,
+        )
+        assert res_missing["ok"] is False
+        assert res_missing["verified"] is False
+        assert "укажите файл экспорта" in res_missing["error"].lower()
+
+    # 2b. Несуществующий или T3-защищённый workbook — честный отказ, а не тихое игнорирование
+    res_bad_wb = await reports_runner.run_exchange_report(
+        args={"action": "reports", "brief": "--demo", "workbook": str(tmp_path / "missing_book.xlsx")},
         repo_root=repo_root,
         data_dir=data_dir,
         earn_dir=earn_dir,
     )
-    assert res_missing["ok"] is False
-    assert res_missing["verified"] is False
-    assert "укажите файл экспорта" in res_missing["error"].lower()
+    assert res_bad_wb["ok"] is False and res_bad_wb["verified"] is False
 
     # 3. Явный демо-прогон на синтетике — баннер ДЕМО НА СИНТЕТИКЕ в report.md и в сообщении пульта,
     #    и два независимых прогона дают одинаковый SHA-256 для deals.csv, disputed.csv, report.md, volume_result.json
@@ -1521,3 +1625,25 @@ async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(tmp_path: 
     for artifact in ("deals.csv", "disputed.csv", "report.md", "volume_result.json"):
         assert artifact in res_demo["hashes_run1"]
         assert res_demo["hashes_run1"][artifact] == res_demo["hashes_run2"][artifact]
+
+    # 4. Конфиг владельца reports_config.json с кириллицей и пробелами в пути (без флага синтетики)
+    cyr_dir = tmp_path / "Папка владельца с пробелами"
+    cyr_dir.mkdir(parents=True, exist_ok=True)
+    cyr_export = cyr_dir / "messages.html"
+    shutil.copyfile(repo_root / "tests" / "exchange_volume" / "fixtures" / "SYNTHETIC_export.html", cyr_export)
+    cfg_dir = data_dir / "pc-agent"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    (cfg_dir / "reports_config.json").write_text(
+        json.dumps({"export": str(cyr_export)}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    res_cfg = await reports_runner.run_exchange_report(
+        args={"action": "reports", "brief": ""},
+        repo_root=repo_root,
+        data_dir=data_dir,
+        earn_dir=earn_dir,
+    )
+    assert res_cfg["ok"] is True and res_cfg["verified"] is True
+    assert res_cfg["synthetic"] is False
+    assert "ДЕМО НА СИНТЕТИКЕ" not in res_cfg["summary"]
+

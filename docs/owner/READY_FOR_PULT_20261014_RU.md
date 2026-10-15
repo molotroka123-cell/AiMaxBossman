@@ -115,7 +115,7 @@ Get-CimInstance Win32_Process | Where-Object {
 - **Сохранённый файл:** `C:\Users\asd\AppData\Local\Bossman\CommandCenter\pc-agent\workspace\argon_notepad_note.txt`
   - Размер: `84` байт
   - SHA-256: `86eaacfc458781c62cdfa20c98b20f8fa43a697b18a52c9e5a894bc306e19cc6`
-  - Проверка содержимого: `text_in_file=True` (`"тест"`)
+  - Содержимое (`reopened_content`): `"Argon PC-Agent: проверено реальным запуском на Windows 11"` (после `task 84` в `compile_plan_for_prompt` также добавлен разбор некавыченного текста `напиши <текст>`, проверенный в `test_unquoted_notepad_text_and_receipts_journal_mirror`)
 - **Записи в едином журнале `audit.jsonl` (`verify_chain() -> ok=True`):**
   - `seq=9` (`2026-10-14T12:00:07.392476`, `tool="pc.observe_screen"`, `tier="T0"`, `decision="auto"`, `verified=true`, `entry_hash="880686b5761ba7312bbdd208f116e34972c974a2441a42d7e8b0a8ab5b51e510"`)
   - `seq=10` (`2026-10-14T12:00:15.646421`, `tool="pc.desktop_act"`, `action="notepad_roundtrip"`, `tier="T1"`, `decision="auto"`, `verified=true`, `entry_hash="4f7b0a456c576a5e7a3257b5e4d89ad7b947751289298c73994b7811b14a5f39"`)
@@ -160,3 +160,16 @@ python -m pytest command-center/tests/test_pc_agent_argon.py command-center/test
 
 Финальный порядок закрытия зафиксирован в
 `docs/owner/MASTER_PROMPT_ARGON_FINAL_WEEK_CLOSE_20261014_RU.md`.
+
+---
+
+## 8. Уточнение по истории коммитов (аудит Claude, 14.10)
+
+Сообщение коммита 8040bac («split policy <=300 lines/<=120 chars, single audit.jsonl journal, remove personal paths, record task 84») **не соответствует его содержимому**: git show --stat a8040bac — один файл, docs/owner/READY_FOR_PULT_20261014_RU.md, 1 вставка, 1 удаление. История не переписывалась. Код, о котором говорит сообщение, фактически лежит в **db345cdb** («feat(argon): close privacy policy and reports audit gaps», 14 файлов):
+
+- разделение политики: pc_agent_policy.py + pc_agent_policy_paths.py;
+- удаление личных путей и отказ вместо молчаливой синтетики: eports_runner.py, pc_agent.py;
+- единый журнал udit.jsonl (ead_receipts как чтение): pc_agent.py;
+- тесты: 	est_pc_agent_argon.py, 	est_testing_period.py.
+
+Что в db345cdb оказалось НЕ доведено и исправляется отдельными коммитами этой ветки: ограничение «≤120» проверялось по символам, а не по байтам UTF-8 (по байтам 57 строк длиннее 120), и файлы были уложены в «300 строк» плотной склейкой. См. коммиты рефакторинга политики в ветке ix/argon-poker-gto-20261015.
