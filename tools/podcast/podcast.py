@@ -1,6 +1,7 @@
 """Bossman Podcast — foundation: script by the best free LLM, local voices, rendered segments, a live spool.
 
     python tools/podcast/podcast.py promo   [--out DIR]       # 15 s English promo, hosts switch 7/5/3 s
+    python tools/podcast/podcast.py episode --topic "..." [--minutes 3]   # multi-block episode with memory
 
 Design (owner, 16.10): characters (Девушка/girl, Kisliy, p4ela) host on the owner's studio backgrounds; the text comes
 from the best FREE model reachable now (cascade below, every hop logged); voices are local (Kokoro ONNX, CPU); faces
@@ -70,21 +71,30 @@ async def chat(messages: list[dict], max_tokens: int = 3000) -> tuple[str, str, 
         db = Database(settings.database_url)
         reg = Registry(db, Vault(settings.data_dir), EventBus(db))
         adapters = {}
-        for pid, model in CASCADE:
-            t = time.monotonic()
-            try:
-                if pid not in adapters:
-                    async with db.session() as s:
-                        row = (await s.execute(sa.select(providers_t).where(providers_t.c.id == pid))).mappings().first()
-                    adapters[pid] = build_adapter("openai_compat", row["base_url"], reg.vault.decrypt(row["api_key_enc"]))
-                r = await asyncio.wait_for(adapters[pid].chat(model, messages, max_tokens=max_tokens, temperature=0.8), 150)
-                text = (r.text or "").strip()
-                attempts.append({"model": model, "s": round(time.monotonic() - t, 1), "chars": len(text)})
-                if text:
-                    return text, model, attempts
-            except Exception as exc:  # noqa: BLE001 - next hop
-                attempts.append({"model": model, "s": round(time.monotonic() - t, 1),
-                                 "error": f"{type(exc).__name__}: {str(exc)[:90]}"})
+        try:
+            for pid, model in CASCADE:
+                t = time.monotonic()
+                try:
+                    if pid not in adapters:
+                        async with db.session() as s:
+                            row = (await s.execute(sa.select(providers_t).where(providers_t.c.id == pid))).mappings().first()
+                        adapters[pid] = build_adapter("openai_compat", row["base_url"], reg.vault.decrypt(row["api_key_enc"]))
+                    r = await asyncio.wait_for(adapters[pid].chat(model, messages, max_tokens=max_tokens, temperature=0.8), 150)
+                    text = (r.text or "").strip()
+                    attempts.append({"model": model, "s": round(time.monotonic() - t, 1), "chars": len(text)})
+                    if text:
+                        return text, model, attempts
+                except Exception as exc:  # noqa: BLE001 - next hop
+                    attempts.append({"model": model, "s": round(time.monotonic() - t, 1),
+                                     "error": f"{type(exc).__name__}: {str(exc)[:90]}"})
+        finally:   # an undisposed engine/HTTP client kept the process alive ~19 min after the episode finished
+            for ad in adapters.values():
+                close = getattr(ad, "aclose", None) or getattr(ad, "close", None)
+                if close:
+                    res = close()
+                    if asyncio.iscoroutine(res):
+                        await res
+            await db.close()
     except Exception as exc:  # noqa: BLE001 - registry unavailable: local only
         attempts.append({"model": "registry", "error": str(exc)[:120]})
     import urllib.request
@@ -115,6 +125,39 @@ def promo_prompt() -> str:
             "AI hosts that talk live, switch every few seconds and can keep a show going for hours. Three hosts, in this "
             f"order: {parts}. The last line ends with a short call to action (no websites, links or handles). Output a JSON array like "
             '[{"speaker":"girl","text":"..."},{"speaker":"kisliy","text":"..."},{"speaker":"p4ela","text":"..."}].')
+
+
+def episode_prompt(topic: str, n_lines: int, covered: list[str], last: list[dict]) -> str:
+    """One 2-3 minute block; the model sees what was already said so the show moves on instead of looping."""
+    hosts = ('"girl" (Mia: the host, steers the talk), "kisliy" (sceptic, dry humour), '
+             '"p4ela" (hype, practical examples)')
+    memory = ""
+    if covered:
+        memory += "Already covered (do NOT repeat): " + "; ".join(covered[-24:]) + ". "
+    if last:
+        memory += "Last lines so far: " + " ".join(f'{l["speaker"]}: {l["text"]}' for l in last[-4:]) + " "
+    opener = "Continue the conversation naturally from the last line." if last else "Mia opens the show and introduces the topic."
+    return (f"Bossman Podcast episode. Topic: {topic}. Hosts: {hosts}. {memory}{opener} Write the next {n_lines} lines, "
+            "hosts take turns (never the same host twice in a row), each line 15-40 words, one new idea or reaction per "
+            "line. No websites, links or handles; no invented quotes or facts about real people. "
+            'Output a JSON array like [{"speaker":"girl","text":"..."},{"speaker":"kisliy","text":"..."}].')
+
+
+URL_RE = re.compile(r"\b(?:https?://|www\.)\S+|\b\S+\.(?:com|net|org|io|ai)\b", re.I)
+
+
+def clean_lines(lines: list[dict]) -> list[dict]:
+    """Text check before voice: drop links, collapse a host speaking twice in a row."""
+    out: list[dict] = []
+    for l in lines:
+        text = URL_RE.sub("", l["text"]).strip(" ,")
+        if len(text.split()) < 3:
+            continue
+        if out and out[-1]["speaker"] == l["speaker"]:
+            out[-1]["text"] += " " + text
+        else:
+            out.append({"speaker": l["speaker"], "text": text})
+    return out
 
 
 # ------------------------------------------------------------------ voice
@@ -237,13 +280,68 @@ def cmd_promo(a) -> int:
     return 0
 
 
+def cmd_episode(a) -> int:
+    """Blocks of lines until the voiced length reaches --minutes; every block is voiced and rendered as it arrives,
+    so the same loop later feeds the live spool."""
+    out = Path(a.out)
+    work = out / "work"
+    work.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+    bgs = sorted((STUDIO / "backgrounds").glob("*.*"))
+    target = a.minutes * 60
+    segs: list[Path] = []
+    lines_all: list[dict] = []
+    blocks: list[dict] = []
+    covered: list[str] = []
+    total = 0.0
+    while total < target and len(blocks) < a.max_blocks:
+        b = len(blocks)
+        tb = time.time()
+        text, model, attempts = asyncio.run(chat([{"role": "system", "content": SYS},
+                                                  {"role": "user", "content": episode_prompt(a.topic, a.lines, covered, lines_all)}]))
+        lines = clean_lines(parse_lines(text, set(CAST)))
+        t_text = time.time() - tb
+        jobs = [{"text": l["text"], "voice": CAST[l["speaker"]]["voice"], "out": str(work / f"b{b}_v{i}.wav")}
+                for i, l in enumerate(lines)]
+        synthesize(jobs, work)
+        t_voice = time.time() - tb - t_text
+        for i, (l, job) in enumerate(zip(lines, jobs)):
+            n = len(segs)
+            l["seconds"] = round(duration(Path(job["out"])) + 0.35, 2)   # short breath between hosts
+            segs.append(render_segment(n, l["speaker"], l["text"], l["seconds"], bgs[n % len(bgs)], Path(job["out"]), work))
+            total += l["seconds"]
+            covered.append(" ".join(l["text"].split()[:8]))
+        lines_all.extend(lines)
+        blocks.append({"block": b, "model": model, "attempts": attempts, "lines": len(lines),
+                       "audio_s": round(sum(l["seconds"] for l in lines), 1), "text_s": round(t_text, 1),
+                       "voice_s": round(t_voice, 1), "render_s": round(time.time() - tb - t_text - t_voice, 1)})
+        print(f"block {b}: {len(lines)} lines, {blocks[-1]['audio_s']} s audio by {model}, total {total:.0f}/{target:.0f} s",
+              flush=True)
+    final = out / "bossman_podcast_episode.mp4"
+    concat(segs, final)
+    wall = time.time() - t0
+    final_s = duration(final)
+    report = {"topic": a.topic, "target_s": target, "final": str(final), "final_s": round(final_s, 1),
+              "wall_s": round(wall, 1), "realtime_factor": round(final_s / wall, 2), "blocks": blocks,
+              "speakers": {c: sum(1 for l in lines_all if l["speaker"] == c) for c in CAST}, "lines": lines_all}
+    (out / "episode_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(json.dumps({k: v for k, v in report.items() if k != "lines"}, ensure_ascii=False, indent=1))
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("promo")
     p.add_argument("--out", default=str(STUDIO / "out" / time.strftime("promo_%Y%m%d_%H%M")))
+    e = sub.add_parser("episode")
+    e.add_argument("--topic", required=True)
+    e.add_argument("--minutes", type=float, default=3.0)
+    e.add_argument("--lines", type=int, default=12, help="lines per block (~2-3 min)")
+    e.add_argument("--max-blocks", type=int, default=40)
+    e.add_argument("--out", default=str(STUDIO / "out" / time.strftime("episode_%Y%m%d_%H%M")))
     a = ap.parse_args(argv)
-    return cmd_promo(a) if a.cmd == "promo" else 2
+    return {"promo": cmd_promo, "episode": cmd_episode}[a.cmd](a)
 
 
 if __name__ == "__main__":
