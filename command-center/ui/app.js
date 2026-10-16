@@ -84,7 +84,7 @@ const SECTIONS = [
 // Страница, не перечисленная здесь, идёт после перечисленных.
 const MAIN_ORDER = ['home-v3', 'apps', 'missions', 'agents', 'approvals'];
 const SECTION_ORDER = {
-  work: ['capability-tree', 'mission_console', 'missions', 'builder', 'objectives', 'control'],
+  work: ['capability-tree', 'control-lab', 'mission_console', 'missions', 'builder', 'objectives', 'control'],
   studio: ['video-studio', 'web_designer', 'browser', 'coding', 'terminal',
            'images', 'web_research', 'trading_lab', 'bossman-chat'],
   brains: ['agentmap', 'orchestras', 'skills', 'router', 'openrouter', 'benchmarks'],
