@@ -1,0 +1,9 @@
+# Мини-промпт для внедрения Control Lab в Bossman
+
+Работай в репозитории `molotroka123-cell/AiMaxBossman`, ветка `feat/mission-control-roadmap-tree-20261016`. Прочти `prototypes/control-lab/index.html` и `README.md` в этой папке, а также текущую структуру owner Command Center. **Не ломай существующий интерфейс и не мержи PR #112 автоматически.**
+
+**Задача:** внедри три вкладки в единый owner-only UI: (1) Capability Tree, (2) Live Mission Control, (3) Roadmap Simulator до 01.01.2027. Используй уже существующие роуты/компоненты, не создавай второй backend без необходимости. Отдельно покажи источники данных: DEMO, GITHUB_SNAPSHOT, OWNER_TELEMETRY; любые неподключённые реальные показатели = N/A, а не выдуманное число. Snapshot из PR #112 не равен VERIFIED production. У каждого real value: `source`, `timestamp`, `sha` где применимо, `quality`.
+
+Сначала подключи **только чтение**: registry/evidence по точному SHA GitHub; Windows CPU/GPU/RAM/VRAM и доступность локальных моделей; agent queue/job durations; реальные токены и фактическую цену по провайдерам; CI и PR status. Используй безопасные существующие endpoints, owner auth, минимальную частоту опроса, кеширование, никаких секретов в JSON/логах. Сценарии roadmap делай параметризованными, подпиши допущения, показывай зависимости/gates и неопределённость. Слайдеры не должны запускать платные jobs.
+
+Добавь smoke/E2E тесты: переключение вкладок; slider recalculation; разграничение DEMO/REAL; fallback N/A при отсутствии телеметрии; ошибочные/устаревшие timestamp; authorization; отсутствие мутирующих действий. Прогони локальную сборку, тесты и owner Windows acceptance; составь evidence-отчёт с SHA и PASS/FAIL/NOT_RUN. Если у тебя нет доступа к owner ПК — честно пометь NOT_RUN. Сделай отдельный PR в main; не мержи, пока я явно не одобрю. Дай мне ссылку на UI, отчёт и список оставшихся blockers.
