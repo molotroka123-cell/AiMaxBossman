@@ -14,6 +14,7 @@ def test_control_lab_live_demo_tree_and_roadmap_are_read_only(live):  # noqa: F8
 
     errors: list[str] = []
     writes: list[str] = []
+    api_reads: list[str] = []
     with sync_playwright() as pw:
         browser = _launch(pw)
         page = browser.new_page(viewport={"width": 1440, "height": 950})
@@ -22,15 +23,20 @@ def test_control_lab_live_demo_tree_and_roadmap_are_read_only(live):  # noqa: F8
         page.on("request", lambda request: writes.append(f"{request.method} {request.url}")
                 if "/api/" in request.url and not request.url.endswith("/api/login")
                 and request.method not in {"GET", "HEAD"} else None)
+        page.on("request", lambda request: api_reads.append(request.url)
+                if "/api/" in request.url and request.method == "GET" else None)
         try:
             _login(page, live)
             page.goto(f"{live.url}/#/control-lab", wait_until="domcontentloaded")
             page.get_by_role("heading", name="Control Lab", exact=True).wait_for(timeout=20000)
             page.get_by_role("button", name="Mission Control", exact=True).wait_for()
             page.get_by_text("LIVE · API чтение", exact=False).wait_for()
+            assert not any(url.split("?")[0].endswith("/api/capability-tree") for url in api_reads)
             page.get_by_role("button", name="Capability Tree", exact=True).click()
             page.get_by_text("Capability Tree · реестр и evidence", exact=True).wait_for()
+            page.locator("#view .cl-tree-row").first.wait_for()
             assert page.locator(".cl-tree-row").count() <= 60
+            assert sum(url.split("?")[0].endswith("/api/capability-tree") for url in api_reads) == 1
             page.locator("#view .cl-tabs").get_by_role("button", name="Roadmap Simulator", exact=True).click()
             page.get_by_text("Roadmap Simulator · до 01.01.2027", exact=True).wait_for()
             page.get_by_role("slider", name="Плановый бюджет в долларах").evaluate(

@@ -18,11 +18,13 @@ const DEMO = {
   ] } },
 };
 const SOURCES = [
-  ['/api/capability-tree', 'Capability Tree'], ['/api/system', 'Ресурсы системы'],
+  ['/api/system', 'Ресурсы системы'],
   ['/api/tasks?limit=100', 'Задачи'], ['/api/agents', 'Агенты'],
   ['/api/spend', 'Учёт расходов'], ['/api/resources', 'Планировщик памяти'],
 ];
-const state = { mode: 'live', tab: 'mission', query: '', branch: '', budget: 0, speed: 1, data: null, fetchedAt: null, errors: [] };
+const TREE_SOURCE = '/api/capability-tree';
+const state = { mode: 'live', tab: 'mission', query: '', branch: '', budget: 0, speed: 1,
+  data: null, fetchedAt: null, treeFetchedAt: null, treeLoading: false, treeError: false, errors: [] };
 
 function ensureCss() {
   if (document.getElementById(CSS_ID)) return Promise.resolve();
@@ -38,12 +40,23 @@ async function loadLive() {
   const settled = await Promise.allSettled(SOURCES.map(([url]) => api.raw(url)));
   const data = {}; const errors = [];
   settled.forEach((entry, i) => {
-    const key = ['capability', 'system', 'tasks', 'agents', 'spend', 'resources'][i];
+    const key = ['system', 'tasks', 'agents', 'spend', 'resources'][i];
     if (entry.status === 'fulfilled') data[key] = entry.value;
     else { data[key] = null; errors.push(SOURCES[i][0]); }
   });
-  data.tree = data.capability?.tree || null;
   state.data = data; state.errors = errors; state.fetchedAt = new Date().toISOString();
+}
+
+async function loadTree() {
+  state.treeLoading = true; state.treeError = false;
+  try {
+    const capability = await api.raw(TREE_SOURCE);
+    state.data = { ...(state.data || {}), capability };
+    state.treeFetchedAt = new Date().toISOString();
+  } catch {
+    state.data = { ...(state.data || {}), capability: null };
+    state.treeError = true;
+  } finally { state.treeLoading = false; }
 }
 
 function value(value, format = (x) => String(x)) {
@@ -99,6 +112,8 @@ function descendants(nodes, rootId) {
 }
 
 function treePanel(data) {
+  if (state.mode === 'live' && state.treeLoading) return panel('Capability Tree · реестр и evidence', h('p.cl-note', 'Загружаю реестр из owner API…'), { icon: 'agents' });
+  if (state.mode === 'live' && state.treeError) return panel('Capability Tree · реестр и evidence', h('p.cl-warning', 'Реестр недоступен: значения показаны как N/A. Нажмите «Обновить снимок», чтобы повторить запрос.'), { icon: 'agents' });
   const nodes = list(data.capability?.tree?.nodes, 'nodes');
   const roots = nodes.filter((node) => node.parent === 'bossman');
   const query = state.query.trim().toLowerCase();
@@ -120,7 +135,7 @@ function treePanel(data) {
     h('div.cl-toolbar', branchSelect, search, btn('Найти', () => rerender(), { variant: 'secondary' })),
     h('div.cl-counts', ...Object.entries(counts).map(([status, count]) => pill(`${statusLabel(status)} · ${count}`, { tone: status === 'blocked' ? 'err' : 'idle' }))),
     h('p.cl-note', `${filtered.length} совпадений · показано ${shown.length} из максимум 60. `
-      + (data.capability ? `${sourceNote('/api/capability-tree')} · реестр ${data.capability.tree?.as_of || 'N/A'}` : 'Источник: N/A')),
+      + (data.capability ? `${TREE_SOURCE} · получено ${state.treeFetchedAt ? new Date(state.treeFetchedAt).toLocaleTimeString() : 'N/A'} · реестр ${data.capability.tree?.as_of || 'N/A'}` : 'Источник: N/A')),
     h('div.cl-tree-list', ...rows)), { icon: 'agents' });
 }
 
@@ -148,15 +163,28 @@ function renderBody() {
   const root = h('div.bx-page.cl-page', { 'data-page': 'control-lab' },
     pageHead('Control Lab', 'Единый обзор функций, исполнения и плановых сценариев. Источники подписаны, отсутствие данных показывается как N/A.', {
       pills: [pill(state.mode === 'demo' ? 'DEMO · синтетика' : 'LIVE · API чтение', { tone: state.mode === 'demo' ? 'warn' : 'info' })],
-      actions: [btn('Обновить снимок', async () => { await loadLive(); rerender(); }, { variant: 'secondary' })],
+      actions: [btn('Обновить снимок', async () => {
+        await loadLive();
+        if (state.tab === 'tree' || state.data?.capability) await loadTree();
+        rerender();
+      }, { variant: 'secondary' })],
     }),
-    h('div.cl-mode', h('button.cl-mode-button', { type: 'button', 'aria-pressed': String(state.mode === 'live'), onClick: () => { state.mode = 'live'; if (!state.data) loadLive().then(rerender); rerender(); } }, 'LIVE'),
+    h('div.cl-mode', h('button.cl-mode-button', { type: 'button', 'aria-pressed': String(state.mode === 'live'), onClick: async () => {
+      state.mode = 'live';
+      if (!state.data || !state.fetchedAt || Date.now() - Date.parse(state.fetchedAt) > 30000) await loadLive();
+      if (state.tab === 'tree' && !state.data?.capability) await loadTree();
+      rerender();
+    } }, 'LIVE'),
       h('button.cl-mode-button', { type: 'button', 'aria-pressed': String(state.mode === 'demo'), onClick: () => { state.mode = 'demo'; rerender(); } }, 'DEMO')),
     state.mode === 'demo' ? h('p.cl-warning', 'DEMO: все показатели ниже синтетические примеры и не описывают эту машину.') : null,
     state.mode === 'live' ? h('p.cl-note', metricTime(data)) : null,
     state.mode === 'live' && state.errors.length ? h('p.cl-warning', `Нет ответа от источников: ${state.errors.join(', ')}. Эти поля показаны как N/A.`) : null,
     h('nav.cl-tabs', h('button.cl-tab', { type: 'button', 'aria-pressed': String(state.tab === 'mission'), onClick: () => { state.tab = 'mission'; rerender(); } }, 'Mission Control'),
-      h('button.cl-tab', { type: 'button', 'aria-pressed': String(state.tab === 'tree'), onClick: () => { state.tab = 'tree'; rerender(); } }, 'Capability Tree'),
+      h('button.cl-tab', { type: 'button', 'aria-pressed': String(state.tab === 'tree'), onClick: () => {
+        state.tab = 'tree';
+        if (state.mode === 'live' && !state.data?.capability && !state.treeLoading) loadTree().then(rerender);
+        rerender();
+      } }, 'Capability Tree'),
       h('button.cl-tab', { type: 'button', 'aria-pressed': String(state.tab === 'roadmap'), onClick: () => { state.tab = 'roadmap'; rerender(); } }, 'Roadmap Simulator')),
     state.tab === 'mission' ? missionPanel(data) : state.tab === 'tree' ? treePanel(data) : roadmapPanel());
   return root;
@@ -167,6 +195,7 @@ const Page = {
   async render() {
     await ensureCss();
     if (state.mode === 'live' && (!state.data || !state.fetchedAt || Date.now() - Date.parse(state.fetchedAt) > 30000)) await loadLive();
+    if (state.mode === 'live' && state.tab === 'tree' && !state.data?.capability && !state.treeLoading) await loadTree();
     return renderBody();
   },
   onEvent() { return false; },
