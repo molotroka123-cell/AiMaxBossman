@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AiMaxBossman — Control Lab</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,Arial,sans-serif;background:#080e19;color:#edf4ff}
+*{box-sizing:border-box}body{margin:0;padding:24px;max-width:1360px;margin:auto}
+h1{font-size:clamp(25px,3vw,42px);margin:4px 0}h2{font-size:21px}p,small{color:#9fb0c7}a{color:#9aceff}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.eyebrow{color:#86a9ce;letter-spacing:.15em;font-size:11px;font-weight:700}
+.tabs,.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.tabs{margin:24px 0}
+button,select,input{font:inherit}button{background:#14233a;color:#d9eafa;border:1px solid #34506c;padding:11px 16px;border-radius:12px;cursor:pointer}
+button.active{background:#24624c;border-color:#58c999;color:white}button:hover{filter:brightness(1.16)}
+.panel{display:none}.panel.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.card{background:linear-gradient(145deg,#132139,#101b2c);border:1px solid #263e59;border-radius:18px;padding:18px;margin-bottom:14px}
+.kpi{font-size:30px;font-weight:780;margin-top:8px;font-variant-numeric:tabular-nums}.sub{color:#94a9c3;font-size:13px}
+.tag{display:inline-block;padding:4px 10px;border-radius:999px;background:#264961;color:#d3efff;font-size:11px;font-weight:700}
+.tag.demo{background:#5d3f1e;color:#ffe0a1}.tag.real{background:#1d5249;color:#a7ffe2}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+label{display:block;color:#bdcee4;font-size:14px}input[type=range]{width:100%;accent-color:#5bcba2;margin:15px 0}
+.progress{background:#27384d;height:10px;border-radius:10px;overflow:hidden;margin:12px 0}.progress>span{display:block;height:100%;background:linear-gradient(90deg,#429ed5,#61d7a5)}
+ul{padding-left:19px}li{padding:7px 0}.ok{color:#67e1ad}.warn{color:#ffca78}.bad{color:#ff8585}
+.timeline{display:grid;gap:10px}.milestone{display:flex;gap:15px;align-items:center;border-bottom:1px solid #28364a;padding:10px 0}
+.date{min-width:110px;color:#9fc0df;font-variant-numeric:tabular-nums}
+.tree details{margin:9px 0;background:#16243a;border:1px solid #29415c;border-radius:12px;padding:12px}
+.tree summary{cursor:pointer;font-weight:650}.leaves{display:flex;gap:8px;flex-wrap:wrap;padding:12px 0 2px}
+.leaf{font-size:12px;background:#26384f;padding:7px 10px;border-radius:8px}
+hr{border:0;border-top:1px solid #2e4057;margin:22px 0}
+svg{width:100%;height:auto}.footer{color:#8195b0;font-size:12px;margin-top:30px}
+#banner{margin:14px 0;padding:11px 16px;border:1px solid #5b4b29;border-radius:12px;background:#30271b;color:#ffe3a9}
+</style></head><body>
+<header><div><div class="eyebrow">BOSSMAN / OWNER CONSOLE / PROTOTYPE</div><h1>AiMaxBossman Control Lab</h1><p>Дерево возможностей · Mission Control · Roadmap 2027</p></div><div><span class="tag demo">SIMULATION / NOT LIVE</span> <a href="https://github.com/molotroka123-cell/AiMaxBossman" target="_blank" rel="noopener">GitHub ↗</a></div></header>
+<div id="banner">⚠️ Все метрики CPU/GPU, токенов, денег, задач и агентской активности — демонстрация. Сведения GitHub помечены «GitHub snapshot 16.10.2026». Ни один агент здесь не запускается.</div>
+<nav class="tabs" aria-label="Выбрать панель"><button class="active" data-tab="tree">01 · Capability Tree</button><button data-tab="mission">02 · Live Mission Control</button><button data-tab="roadmap">03 · Roadmap Simulator</button></nav>
+<main>
+<section id="tree" class="panel active"><h2>Интерактивное дерево функций</h2><p>Показаны направления, а не все 922 листа реестра. Реальный статус конкретного листа требует импорта registry/evidence из GitHub и тестов с точным SHA.</p>
+<div class="grid"><div class="card"><span class="tag real">GitHub snapshot / PR #112</span><div class="kpi">922</div><div class="sub">Листа в реестре интеграционной ветки — не 922 проверенных функции</div></div><div class="card"><span class="tag real">GitHub snapshot</span><div class="kpi">7</div><div class="sub">Интегрируемых веток в PR #112</div></div><div class="card"><span class="tag real">GitHub snapshot</span><div class="kpi">OPEN</div><div class="sub">PR #112 ожидал решения владельца на момент проверки</div></div></div>
+<div class="card tree" id="treeItems"></div><button id="expandAll">Развернуть все ветки</button> <button id="collapseAll">Свернуть все ветки</button>
+<p><small>Источники: <a href="https://github.com/molotroka123-cell/AiMaxBossman/pull/112">PR #112</a>, <a href="https://github.com/molotroka123-cell/AiMaxBossman/pull/108">PR #108</a>. Статусы не обновляются автоматически.</small></p></section>
+<section id="mission" class="panel"><h2>Live Mission Control <span class="tag demo">DEMO</span></h2>
+<div class="controls card"><label>Симуляция загрузки, % <strong id="loadVal"></strong><input id="load" type="range" min="0" max="100" value="57"></label>
+<label>Число активных агентов <strong id="liveAgentsVal"></strong><input id="liveAgents" type="range" min="0" max="16" value="5"></label>
+<label>Средний расход токенов, тыс./ч <strong id="tokensVal"></strong><input id="tokens" type="range" min="0" max="2000" value="240" step="10"></label>
+<label>Стоимость 1 млн токенов, $ <strong id="priceVal"></strong><input id="price" type="range" min="0" max="12" value="2" step=".25"></label></div>
+<div class="grid"><div class="card"><div class="sub">Ryzen AI Max+ 395 · CPU, DEMO</div><div class="kpi" id="cpu"></div><div class="progress"><span id="cpuBar"></span></div></div>
+<div class="card"><div class="sub">Radeon 8060S · GPU, DEMO</div><div class="kpi" id="gpu"></div><div class="progress"><span id="gpuBar"></span></div></div>
+<div class="card"><div class="sub">Память из 128 ГБ, DEMO</div><div class="kpi" id="ram"></div><div class="progress"><span id="ramBar"></span></div></div>
+<div class="card"><div class="sub">Облачные токены, DEMO</div><div class="kpi" id="tokenTotal"></div><div class="sub">тыс. за сутки при заданном темпе</div></div>
+<div class="card"><div class="sub">Плановые API расходы, DEMO</div><div class="kpi" id="spend"></div><div class="sub">за 30 дней · только условная токенная ставка</div></div>
+<div class="card"><div class="sub">Агенты, DEMO</div><div class="kpi" id="aCount"></div><div class="sub">Интерактивная модель, а не опрос процессов</div></div></div>
+<div class="card"><h3>Очередь задач — вымышленные примеры</h3><div id="missionTasks"></div><button id="nextTask">Симулировать завершение задачи</button> <button id="resetTasks">Сбросить симуляцию</button></div>
+<p><small>Для реальных цифр нужны локальные read-only API (CPU, GPU, RAM), журнал исполнения, токенный ledger и учёт фактических счетов. Без них система обязана показывать N/A, а не правдоподобные числа.</small></p></section>
+<section id="roadmap" class="panel"><h2>Roadmap Simulator · до 01.01.2027</h2>
+<p>Прогноз условный, не обещание релиза. Старт — 16.10.2026, 77 календарных дней; модель учитывает убывающую отдачу от числа агентов и задержки проверок.</p>
+<div class="card controls"><label>Бюджет API в месяц, $ <strong id="bVal"></strong><input id="budget" type="range" min="0" max="2500" value="300" step="25"></label>
+<label>Параллельные агенты <strong id="nVal"></strong><input id="agents" type="range" min="1" max="20" value="5"></label>
+<label>Темп относительно базового, % <strong id="sVal"></strong><input id="speed" type="range" min="40" max="200" value="100" step="5"></label>
+<label>Локальная доля работы, % <strong id="lVal"></strong><input id="local" type="range" min="0" max="100" value="65" step="5"></label></div>
+<div class="tabs"><button data-scenario="pessimistic">Пессимистичный</button><button class="active" data-scenario="base">Базовый</button><button data-scenario="optimistic">Оптимистичный</button></div>
+<div class="grid"><div class="card"><div class="sub">Оценка завершения дорожной карты к 01.01</div><div id="completion" class="kpi"></div><div class="progress"><span id="doneBar"></span></div></div>
+<div class="card"><div class="sub">Оценка срока 100% при этом темпе</div><div id="finish" class="kpi" style="font-size:22px"></div></div>
+<div class="card"><div class="sub">Смоделированные API расходы до 01.01</div><div id="roadSpend" class="kpi"></div></div>
+<div class="card"><div class="sub">Эффективная параллельность (модель)</div><div id="parallel" class="kpi"></div></div></div>
+<div class="card"><h3>Сценарный прогресс</h3><div id="compare"></div></div><div class="card"><h3>Этапы · прогнозные даты</h3><div class="timeline" id="milestones"></div></div>
+<div class="card"><strong>Смысл модели</strong><p>Базовые даты этапов — предположения планирования (10, 23, 38, 54, 68, 77 дней), а не измеренный GitHub velocity. Фактор эффективности = сценарий × темп × ограниченная отдача от числа агентов × бюджетное ограничение. Расходы — бюджетная оценка, не выписки провайдеров. Процент завершения — условная доля шести этапов, не доля production-проверок.</p>
+<p>Блокирующие гейты остаются: CI точного SHA, Windows owner acceptance, локальный inference/UX, retention, подтверждённая работа self-improvement. Их не снимают увеличение бюджета и число агентов.</p></div>
+</section></main><div class="footer">READ-ONLY PROTOTYPE · Никаких сетевых запросов, ключей, команд в ОС, автоматических merge, GPU/cloud оплат или изменений GitHub. Проверка snapshot: 16.10.2026.</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id),v=id=>Number($(id).value),money=n=>"$"+Math.round(n).toLocaleString("en-US");
+document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".panel").forEach(x=>x.classList.toggle("active",x.id===b.dataset.tab));});
+const groups=[["Core / Computer Use",["PC agent","Browser / JEV","Owner approvals","Windows acceptance"]],["Intelligence",["Model routing","Long-term memory","Self-improvement loop","Agent School"]],["Jeff / Communication",["Voice & TTS","Live translation","Telegram","Jeff manual"]],["Genjutsu / Media",["Motion V2","Face swap","Clothes swap","Video pipeline"]],["Business Modules",["Poker GTO","Crypto Exchange","Vibes OS","3D printing"]]];
+$("treeItems").innerHTML=groups.map(g=>'<details><summary>'+g[0]+'</summary><div class="leaves">'+g[1].map(x=>'<span class="leaf">'+x+' · status unverified</span>').join('')+'</div></details>').join('');
+$("expandAll").onclick=()=>document.querySelectorAll("#treeItems details").forEach(x=>x.open=true);
+$("collapseAll").onclick=()=>document.querySelectorAll("#treeItems details").forEach(x=>x.open=false);
+let completed=0;const tasks=["Code review: integration branch","Agent School: smoke test","Windows packaging check","Jeff: voice latency benchmark","Self-improvement: holdout gate"];
+function mission(){const l=v("load"),a=v("liveAgents"),t=v("tokens"),p=v("price");const cpu=Math.min(100,Math.round(l*.8+a*1.3)),gpu=Math.min(100,Math.round(l*1.08)),ram=Math.min(128,Math.round(12+l*.53+a*2.1));[["loadVal",l+"%"],["liveAgentsVal",a],["tokensVal",t+"k"],["priceVal",money(p)],["cpu",cpu+"%"],["gpu",gpu+"%"],["ram",ram+" / 128 GB"],["tokenTotal",(t*24).toLocaleString("en-US")],["spend",money(t*1000*24*30/1e6*p)],["aCount",a]].forEach(([id,x])=>$(id).textContent=x);
+[["cpuBar",cpu],["gpuBar",gpu],["ramBar",ram/128*100]].forEach(([id,x])=>$(id).style.width=x+"%");
+$("missionTasks").innerHTML=tasks.map((t,i)=>'<p>'+(i<completed?'<span class="ok">✓ DONE (DEMO)</span>':'<span class="warn">◷ QUEUED (DEMO)</span>')+" · "+t+"</p>").join("");}
+["load","liveAgents","tokens","price"].forEach(id=>$(id).oninput=mission);
+$("nextTask").onclick=()=>{completed=Math.min(tasks.length,completed+1);mission()};$("resetTasks").onclick=()=>{completed=0;mission()};mission();
+let scenario="base";
+document.querySelectorAll("[data-scenario]").forEach(b=>b.onclick=()=>{scenario=b.dataset.scenario;document.querySelectorAll("[data-scenario]").forEach(x=>x.classList.toggle("active",x===b));road()});
+const steps=[["Единая production-сборка",10],["Jeff + Computer Use",23],["Память и обучение",38],["Самоулучшение с проверкой",54],["Genjutsu + Voice + Apps",68],["Release candidate 2.2",77]];
+const start=Date.UTC(2026,9,16);const fmt=d=>new Date(start+Math.round(d)*86400000).toLocaleDateString("ru-RU",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"});
+function calc(kind){const k={pessimistic:.63,base:1,optimistic:1.28}[kind];const a=v("agents");const parallel=(1+2.5*(1-Math.exp(-(a-1)/4)))/(1+2.5*(1-Math.exp(-4/4)));const spendGate=.55+.45*Math.min(1,v("budget")/300);const local=.85+.15*v("local")/65;const efficiency=k*v("speed")/100*parallel*spendGate*Math.min(1.16,local);return {efficiency,progress:Math.min(100,Math.round(100*77*efficiency/77)),parallel};}
+function road(){const b=v("budget"),a=v("agents"),s=v("speed"),l=v("local");[["bVal",money(b)],["nVal",a],["sVal",s+"%"],["lVal",l+"%"]].forEach(([id,x])=>$(id).textContent=x);
+const c=calc(scenario),days=77/c.efficiency;$("completion").textContent=c.progress+"%";$("doneBar").style.width=c.progress+"%";$("finish").textContent=fmt(days);$("parallel").textContent=c.parallel.toFixed(2)+"×";$("roadSpend").textContent=money(b*77/30*(1-l/100*.2));
+$("compare").innerHTML=["pessimistic","base","optimistic"].map(k=>{let z=calc(k);return '<p>'+({pessimistic:"Пессимистичный",base:"Базовый",optimistic:"Оптимистичный"}[k])+' · '+z.progress+'%</p><div class="progress"><span style="width:'+z.progress+'%"></span></div>'}).join('');
+$("milestones").innerHTML=steps.map(([name,d])=>'<div class="milestone"><span class="date">'+fmt(d/c.efficiency)+'</span><span>'+name+'</span></div>').join('');}
+["budget","agents","speed","local"].forEach(id=>$(id).oninput=road);road();
+</script></body></html>
