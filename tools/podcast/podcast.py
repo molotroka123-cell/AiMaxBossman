@@ -41,6 +41,7 @@ LOCAL_FALLBACK = "bossman-fast-qwen36-35b-a3b-q5:latest"
 SYS = ("You write spoken lines for the Bossman Podcast, an AI-hosted show. Natural spoken English, contractions, short "
        "sentences, confident and warm, no stage directions, no emojis, no markdown. Return ONLY JSON.")
 PROMO_PLAN = [("girl", 7.0), ("kisliy", 5.0), ("p4ela", 3.0)]
+AAC_PRIMING_S = 1024 / 48000 + 0.002   # one AAC frame at 48 kHz (+2 ms margin) between live segments
 
 
 def run(cmd: list, timeout: float = 900) -> subprocess.CompletedProcess:
@@ -107,7 +108,11 @@ async def chat(messages: list[dict], max_tokens: int = 3000) -> tuple[str, str, 
 
 def parse_lines(text: str, allowed: set[str]) -> list[dict]:
     m = re.search(r"\[.*\]", text, re.S)
-    data = json.loads(m.group(0) if m else text)
+    try:
+        data = json.loads(m.group(0) if m else text)
+    except json.JSONDecodeError:
+        # free models sometimes stop mid-string: keep every complete {"speaker": ..., "text": ...} object
+        data = [json.loads(o) for o in re.findall(r'\{\s*"speaker"\s*:\s*"[^"]*"\s*,\s*"text"\s*:\s*"(?:[^"\\]|\\.)*"\s*\}', text)]
     out = []
     for item in data:
         who = str(item.get("speaker", "")).strip().lower()
@@ -226,7 +231,7 @@ def render_segment(i: int, who: str, text: str, seconds: float, bg: Path, voice:
     frames = int(round(seconds * FPS))
     flt = (
         f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},eq=brightness=-0.05[bg];"
-        f"[1:v]scale=760:-1,crop=760:900,zoompan=z='min(1.0+0.0009*on,1.12)':d={frames}:s=760x900:fps={FPS},"
+        f"[1:v]scale=760:900:force_original_aspect_ratio=increase,crop=760:900,zoompan=z='min(1.0+0.0009*on,1.12)':d={frames}:s=760x900:fps={FPS},"
         f"pad=780:920:10:10:color=0x29d3ff[card];"
         f"[bg][card]overlay=(W-w)/2:250[v1];"
         f"[v1]drawbox=x=0:y=60:w={W}:h=96:color=black@0.55:t=fill,"
@@ -329,6 +334,136 @@ def cmd_episode(a) -> int:
     return 0
 
 
+def produce_block(topic: str, n_lines: int, covered: list[str], said: list[dict], work: Path, start: int,
+                  bgs: list[Path]) -> tuple[list[tuple[Path, float]], dict]:
+    """One block of the show: text -> voices -> rendered segments (path, seconds)."""
+    tb = time.time()
+    text, model, attempts = asyncio.run(chat([{"role": "system", "content": SYS},
+                                              {"role": "user", "content": episode_prompt(topic, n_lines, covered, said)}]))
+    lines = clean_lines(parse_lines(text, set(CAST)))
+    jobs = [{"text": l["text"], "voice": CAST[l["speaker"]]["voice"], "out": str(work / f"v{start + i}.wav")}
+            for i, l in enumerate(lines)]
+    synthesize(jobs, work)
+    out = []
+    for i, (l, job) in enumerate(zip(lines, jobs)):
+        n = start + i
+        sec = round(duration(Path(job["out"])) + 0.35, 2)
+        out.append((render_segment(n, l["speaker"], l["text"], sec, bgs[n % len(bgs)], Path(job["out"]), work), sec))
+        covered.append(" ".join(l["text"].split()[:8]))
+    said.extend(lines)
+    return out, {"model": model, "attempts": len(attempts), "lines": len(lines), "audio_s": round(sum(s for _, s in out), 1),
+                 "wall_s": round(time.time() - tb, 1)}
+
+
+def ts_span(p: Path) -> float:
+    """Earliest start to latest end over ALL streams: the container duration missed the video tail (~7 ms)."""
+    out = run(["ffprobe", "-v", "error", "-show_entries", "stream=start_time,duration", "-of", "csv=p=0", p]).stdout
+    spans = [tuple(map(float, l.split(",")[:2])) for l in out.split() if l.count(",") >= 1 and "N/A" not in l]
+    return max(s + d for s, d in spans) - min(s for s, _ in spans)
+
+
+def write_playlist(live: Path, window: list[tuple[int, str, float, bool]], ended: bool = False) -> None:
+    """Sliding HLS playlist; written to a temp file and renamed so a player never reads half a file."""
+    target = max(int(s) + 1 for _, _, s, _ in window)
+    lines = ["#EXTM3U", "#EXT-X-VERSION:3", f"#EXT-X-TARGETDURATION:{target}", f"#EXT-X-MEDIA-SEQUENCE:{window[0][0]}"]
+    for _, name, sec, disc in window:
+        if disc:
+            lines.append("#EXT-X-DISCONTINUITY")
+        lines += [f"#EXTINF:{sec:.3f},", name]
+    if ended:
+        lines.append("#EXT-X-ENDLIST")
+    tmp = live / "live.m3u8.tmp"
+    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    os.replace(tmp, live / "live.m3u8")
+
+
+def cmd_live(a) -> int:
+    """Endless show: a producer thread keeps >= --ahead seconds rendered; the broadcaster publishes each segment
+    into a sliding HLS playlist at real-time pace. Empty buffer -> a filler card goes on air, the show never stops.
+    STOP file (or --minutes) ends it after the current segment. Open live/live.m3u8 in a player/OBS (or serve the dir)."""
+    import queue
+    import threading
+    out = Path(a.out)
+    work, live = out / "work", out / "live"
+    for d in (work, live):
+        d.mkdir(parents=True, exist_ok=True)
+    stop_file = live / "STOP"
+    stop_file.unlink(missing_ok=True)
+    bgs = sorted((STUDIO / "backgrounds").glob("*.*"))
+    filler = work / "filler.mp4"
+    run(["ffmpeg", "-v", "error", "-y", "-loop", "1", "-i", bgs[0], "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+         "-vf", f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+                f"drawtext=fontfile='{FONT}':text='BOSSMAN PODCAST - BACK IN A MOMENT':fontcolor=0x29d3ff:fontsize=54:"
+                f"x=(w-tw)/2:y=(h-th)/2,format=yuv420p",
+         "-t", "4", "-r", FPS, "-c:v", "libx264", "-c:a", "aac", "-ar", "48000", filler])
+    buf: "queue.Queue[tuple[Path, float]]" = queue.Queue()
+    stats = {"blocks": [], "errors": [], "buffered_s": 0.0}
+    done = threading.Event()
+
+    def producer() -> None:
+        covered: list[str] = []
+        said: list[dict] = []
+        n = 0
+        while not done.is_set():
+            if stats["buffered_s"] >= a.ahead:
+                time.sleep(1)
+                continue
+            try:
+                segs, info = produce_block(a.topic, a.lines, covered, said, work, n, bgs)
+            except Exception as exc:  # noqa: BLE001 - the show goes on with the filler; logged
+                stats["errors"].append(f"{time.strftime('%H:%M:%S')} {type(exc).__name__}: {str(exc)[:160]}")
+                time.sleep(10)
+                continue
+            n += len(segs)
+            stats["blocks"].append(info)
+            for s in segs:
+                stats["buffered_s"] += s[1]
+                buf.put(s)
+
+    threading.Thread(target=producer, daemon=True).start()
+    seq, window, prev_filler = 0, [], None
+    t_start = time.time()
+    on_air = {"show_s": 0.0, "filler_s": 0.0}
+    air_t = 0.0
+    try:
+        while not stop_file.exists() and (a.minutes <= 0 or time.time() - t_start < a.minutes * 60):
+            try:
+                seg, sec = buf.get(timeout=0.5 if seq else a.first_wait)
+                stats["buffered_s"] -= sec
+                is_filler = False
+            except queue.Empty:
+                seg, sec, is_filler = filler, 4.0, True
+            name = f"seg_{seq:06d}.ts"
+            # every rendered segment starts at t=0; shift it to the running air time so the stream is continuous.
+            # The offset is the REAL container length (AAC frames overshoot the nominal length by a few ms; the
+            # nominal one made audio DTS go backwards at every joint)
+            # and +1 AAC frame: the encoder's priming packet sits at -21.3 ms and overlapped the previous segment
+            air_t += AAC_PRIMING_S
+            run(["ffmpeg", "-v", "error", "-y", "-i", seg, "-c", "copy", "-bsf:v", "h264_mp4toannexb",
+                 "-output_ts_offset", f"{air_t:.6f}", "-f", "mpegts", live / name])
+            air_t += ts_span(live / name)
+            window.append((seq, name, sec, prev_filler is not None and prev_filler != is_filler))
+            prev_filler = is_filler
+            window = window[-max(3, int(a.window / 4)):]
+            write_playlist(live, window)
+            for old in live.glob("seg_*.ts"):           # keep a little history behind the window for slow players
+                if int(old.stem[4:]) < window[0][0] - 3:
+                    old.unlink(missing_ok=True)
+            on_air["filler_s" if is_filler else "show_s"] += sec
+            seq += 1
+            time.sleep(sec)                              # real-time pace: the next segment goes up when this one ends
+    finally:
+        done.set()
+        if window:   # players stop waiting for new segments instead of hanging on a dead live playlist
+            write_playlist(live, window, ended=True)
+    report = {"topic": a.topic, "wall_s": round(time.time() - t_start, 1), "segments": seq, **{k: round(v, 1) for k, v in on_air.items()},
+              "buffer_left_s": round(stats["buffered_s"], 1), "blocks": stats["blocks"], "errors": stats["errors"],
+              "stopped_by": "STOP file" if stop_file.exists() else "minutes"}
+    (out / "live_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(json.dumps(report, ensure_ascii=False, indent=1))
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -340,8 +475,16 @@ def main(argv=None) -> int:
     e.add_argument("--lines", type=int, default=12, help="lines per block (~2-3 min)")
     e.add_argument("--max-blocks", type=int, default=40)
     e.add_argument("--out", default=str(STUDIO / "out" / time.strftime("episode_%Y%m%d_%H%M")))
+    lv = sub.add_parser("live")
+    lv.add_argument("--topic", required=True)
+    lv.add_argument("--minutes", type=float, default=0, help="0 = until the STOP file appears")
+    lv.add_argument("--ahead", type=float, default=600, help="seconds rendered ahead of the air")
+    lv.add_argument("--lines", type=int, default=12)
+    lv.add_argument("--window", type=float, default=300, help="playlist window, seconds")
+    lv.add_argument("--first-wait", type=float, default=300, help="seconds to wait for the first block before filler")
+    lv.add_argument("--out", default=str(STUDIO / "out" / time.strftime("live_%Y%m%d_%H%M")))
     a = ap.parse_args(argv)
-    return {"promo": cmd_promo, "episode": cmd_episode}[a.cmd](a)
+    return {"promo": cmd_promo, "episode": cmd_episode, "live": cmd_live}[a.cmd](a)
 
 
 if __name__ == "__main__":
