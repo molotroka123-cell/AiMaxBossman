@@ -30,7 +30,7 @@ FONT = "C\\:/Windows/Fonts/bahnschrift.ttf"
 W, H, FPS = 1080, 1920, 30
 
 CAST = {   # id -> display name, Kokoro voice, still
-    "girl": {"name": "MIA", "voice": "af_heart", "image": "cast/girl.png"},
+    "girl": {"name": "SANDRA", "voice": "af_heart", "image": "cast/girl.png"},
     "kisliy": {"name": "KISLIY", "voice": "am_michael", "image": "cast/kisliy.png"},
     "p4ela": {"name": "P4ELA", "voice": "am_fenrir", "image": "cast/p4ela.png"},
 }
