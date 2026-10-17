@@ -1,0 +1,332 @@
+{
+ "run_at": "2026-10-17T10:35:43+00:00",
+ "base": "http://127.0.0.1:8831",
+ "passed": 20,
+ "total": 20,
+ "note": "одобрения сделаны скриптом в отдельном экземпляре (proof-script), это не решения владельца",
+ "steps": [
+  {
+   "step": "health",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.04,
+   "role": "viewer",
+   "evidence": {
+    "status": "ok",
+    "version": "0.1.0",
+    "api": "v1",
+    "mode": "DEMO",
+    "live_enabled": true,
+    "demo_tenders": 0,
+    "watermark": "DEMO / NOT LIVE",
+    "audit_chain_ok": true,
+    "ai_configured": true
+   },
+   "at": "2026-10-17T10:35:14+00:00"
+  },
+  {
+   "step": "TED Чехия (топливо/еда/логистика, 30 дней)",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 1.89,
+   "role": "analyst",
+   "evidence": {
+    "fetched": 200,
+    "new": 200,
+    "total_available": 263,
+    "snapshot_sha256": "fe66bb270c8c915f33d4d6d88750e16c4420ae4f9b4810422bb03cd53b0e9ec1"
+   },
+   "at": "2026-10-17T10:35:16+00:00"
+  },
+  {
+   "step": "TED весь мир (14 дней)",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 1.86,
+   "role": "analyst",
+   "evidence": {
+    "fetched": 200,
+    "new": 195,
+    "total_available": 3038
+   },
+   "at": "2026-10-17T10:35:18+00:00"
+  },
+  {
+   "step": "World Bank весь мир",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 1.1,
+   "role": "analyst",
+   "evidence": {
+    "fetched": 100,
+    "new": 100
+   },
+   "at": "2026-10-17T10:35:19+00:00"
+  },
+  {
+   "step": "Санкции OFAC + ООН",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 7.95,
+   "role": "compliance",
+   "evidence": {
+    "stored": 23063,
+    "by_source": {
+     "ofac": 19457,
+     "un": 3776
+    },
+    "list_version": "ofac:0dee0d2de5e5,un:8e4b38c37a8d",
+    "as_of": "2026-10-17"
+   },
+   "at": "2026-10-17T10:35:27+00:00"
+  },
+  {
+   "step": "Курсы ЧНБ",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.1,
+   "role": "analyst",
+   "evidence": {
+    "as_of": "2026-10-16",
+    "pairs": 30,
+    "source": "ČNB daily fixing"
+   },
+   "at": "2026-10-17T10:35:27+00:00"
+  },
+  {
+   "step": "Конфликты UCDP",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 6.71,
+   "role": "compliance",
+   "evidence": {
+    "year": 2024,
+    "countries": 58,
+    "events": 28816,
+    "acd_conflicts": 61
+   },
+   "at": "2026-10-17T10:35:34+00:00"
+  },
+  {
+   "step": "Профиль компании -> запрос одобрения",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.02,
+   "role": "analyst",
+   "evidence": {
+    "status": "approval_required",
+    "approval_id": 1
+   },
+   "at": "2026-10-17T10:35:34+00:00"
+  },
+  {
+   "step": "Одобрение профиля (proof-script, не владелец)",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.04,
+   "role": "owner",
+   "evidence": {
+    "applied": "company.profile.update"
+   },
+   "at": "2026-10-17T10:35:34+00:00"
+  },
+  {
+   "step": "Поставщик CZ (проверка по санкциям)",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.11,
+   "role": "analyst",
+   "evidence": {
+    "screening": "CLEAR"
+   },
+   "at": "2026-10-17T10:35:34+00:00"
+  },
+  {
+   "step": "Поставщик из запрещённой юрисдикции -> отказ",
+   "ok": true,
+   "http": 422,
+   "expected": 422,
+   "seconds": 0.02,
+   "role": "analyst",
+   "evidence": null,
+   "at": "2026-10-17T10:35:34+00:00"
+  },
+  {
+   "step": "Открытые тендеры Чехии",
+   "ok": true,
+   "evidence": {
+    "open_cz": 36,
+    "top": {
+     "key": "EU:675266-2026",
+     "title": "Czechia – Solar photovoltaic modules – FVE Sportoviště Metylovice",
+     "estimated_value": null,
+     "currency": null,
+     "deadline": "2026-11-04T23:59:59Z",
+     "source_url": "https://ted.europa.eu/en/notice/675266-2026"
+    }
+   }
+  },
+  {
+   "step": "Оценка тендера (сохранить)",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 8.46,
+   "role": "analyst",
+   "evidence": {
+    "complexity": "REVIEW_REQUIRED",
+    "tier_if_cleared": "EASY",
+    "fit": 76,
+    "confidence": 0.8,
+    "usd_value": null,
+    "ai": {
+     "status": "OK",
+     "tier": "REVIEW_REQUIRED",
+     "rationale": "Estimated value is missing, so threshold regime, bond requirements, and contract size cannot be assessed. A new firm with limited working capital would struggle to finance PV module inventory upfront and meet experience/financial criteria.",
+     "risks": [
+      "Upfront payment for solar modules strains limited working capital before client payment",
+      "New company may lack references or financial history for qualification criteria",
+      "Unknown contract value prevents assessing bid/performance security exposure"
+     ]
+    },
+    "ai_disagreement": false,
+    "gates": {
+     "jurisdiction": "PASS",
+     "controlled_goods": "PASS",
+     "deadline": "PASS",
+     "currency": "PASS",
+     "eligibility": "PASS",
+     "documents": "REVIEW_REQUIRED",
+     "counterparty_screening": "PASS"
+    }
+   },
+   "at": "2026-10-17T10:35:42+00:00"
+  },
+  {
+   "step": "Подпись проверки документов (compliance)",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.03,
+   "role": "compliance",
+   "evidence": {
+    "review_id": 1,
+    "note": "BLOCKED-проверки (эмбарго, срок, отмена) этим решением не снимаются"
+   },
+   "at": "2026-10-17T10:35:42+00:00"
+  },
+  {
+   "step": "Чек-лист заявки (черновик)",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.02,
+   "role": "viewer",
+   "evidence": {
+    "items": 4,
+    "draft": true
+   },
+   "at": "2026-10-17T10:35:43+00:00"
+  },
+  {
+   "step": "Сделка Чехия <-> заказчик (состыковка)",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.02,
+   "role": "analyst",
+   "evidence": {
+    "matched": true,
+    "screening": "CLEAR"
+   },
+   "at": "2026-10-17T10:35:43+00:00"
+  },
+  {
+   "step": "Финансы: landed cost, cashflow, стресс 30/60/90, лимит 50k",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.03,
+   "role": "analyst",
+   "evidence": {
+    "landed": "740000.00",
+    "margin_pct": "9.76",
+    "markup_pct": "10.81",
+    "peak_usd": "34224.40",
+    "capital": "WITHIN_LIMIT",
+    "stress_profit": [
+     "80000.00",
+     "72701.37",
+     "65402.74",
+     "58104.11"
+    ]
+   },
+   "at": "2026-10-17T10:35:43+00:00"
+  },
+  {
+   "step": "Подача заявки -> запрещено",
+   "ok": true,
+   "http": 403,
+   "expected": 403,
+   "seconds": 0.02,
+   "role": "owner",
+   "evidence": null,
+   "at": "2026-10-17T10:35:43+00:00"
+  },
+  {
+   "step": "Аудит: хеш-цепочка цела",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.02,
+   "role": "compliance",
+   "evidence": {
+    "ok": true,
+    "broken_at": null
+   },
+   "at": "2026-10-17T10:35:43+00:00"
+  },
+  {
+   "step": "Источники: статусы",
+   "ok": true,
+   "http": 200,
+   "expected": 200,
+   "seconds": 0.03,
+   "role": "viewer",
+   "evidence": {
+    "ted": "LIVE",
+    "sam": "NOT_CONNECTED",
+    "usaspending": "NOT_RUN",
+    "eu_ft": "NOT_CONNECTED",
+    "ungm": "NOT_CONNECTED",
+    "worldbank": "LIVE",
+    "ukfts": "NOT_CONNECTED",
+    "cz_nen": "NOT_CONNECTED",
+    "cz_vvz": "NOT_CONNECTED",
+    "gdelt": "NOT_RUN",
+    "ucdp": "LIVE",
+    "acled": "NOT_CONNECTED",
+    "reliefweb": "NOT_CONNECTED",
+    "icrc": "NOT_CONNECTED",
+    "eu_sanctions": "NOT_CONNECTED",
+    "ofac": "LIVE",
+    "un_sanctions": "LIVE",
+    "cnb": "LIVE",
+    "sipri": "NOT_CONNECTED",
+    "comtrade": "NOT_CONNECTED",
+    "demo": "DEMO"
+   },
+   "at": "2026-10-17T10:35:43+00:00"
+  }
+ ]
+}

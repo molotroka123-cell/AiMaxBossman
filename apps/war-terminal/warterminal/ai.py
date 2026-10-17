@@ -44,12 +44,28 @@ def parse_reply(text: str) -> dict:
 
 def make_chat(base_url: str, model: str, api_key: str | None = None, timeout: int = 180):
     """OpenAI-compatible chat. base_url like http://127.0.0.1:11435/v1 (Bossman local) or https://openrouter.ai/api/v1."""
+    models = [m.strip() for m in model.split(",") if m.strip()]
+
     def chat(messages: list[dict]) -> str:
+        import time
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-        r = httpx.post(base_url.rstrip("/") + "/chat/completions", headers=headers, timeout=timeout,
-                       json={"model": model, "messages": messages, "temperature": 0.1, "max_tokens": 3000})
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"].get("content") or ""
+        last: Exception | None = None
+        for m in models:                               # fallback chain: next model on 429/5xx/empty
+            for attempt in range(2):
+                try:
+                    r = httpx.post(base_url.rstrip("/") + "/chat/completions", headers=headers, timeout=timeout,
+                                   json={"model": m, "messages": messages, "temperature": 0.1, "max_tokens": 3000})
+                    if r.status_code == 429 or r.status_code >= 500:
+                        raise httpx.HTTPStatusError(f"{r.status_code} from {m}", request=r.request, response=r)
+                    r.raise_for_status()
+                    text = r.json()["choices"][0]["message"].get("content") or ""
+                    if text.strip():
+                        return text
+                    raise ValueError(f"empty reply from {m}")
+                except (httpx.HTTPError, ValueError, KeyError) as exc:
+                    last = exc
+                    time.sleep(1.5 * (attempt + 1))
+        raise RuntimeError(f"все модели недоступны: {last}")
     return chat
 
 

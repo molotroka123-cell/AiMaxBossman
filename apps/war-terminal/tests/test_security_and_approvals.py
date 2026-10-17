@@ -49,7 +49,7 @@ def test_audit_chain_detects_tampering(env):
 def test_sources_are_honest_about_status(tmp_path):
     off = Env(tmp_path / "off", live=False)
     rows = {s["id"]: s for s in off.req("GET", "/sources/status", "viewer").json()["sources"]}
-    assert rows["ted"]["status"] == "DISABLED" and rows["sam"]["status"] == "NOT_CONNECTED" and rows["ucdp"]["status"] == "NOT_CONNECTED"
+    assert rows["ted"]["status"] == "DISABLED" and rows["sam"]["status"] == "NOT_CONNECTED" and rows["ucdp"]["status"] == "DISABLED" and rows["eu_ft"]["status"] == "NOT_CONNECTED"
     on = Env(tmp_path / "on", live=True)
     assert {s["id"]: s for s in on.req("GET", "/sources/status", "viewer").json()["sources"]}["ted"]["status"] == "NOT_RUN"
     on.ingest_ted()

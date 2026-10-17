@@ -26,6 +26,9 @@ def to_base(amount, currency: str, base: str, fx: dict | None) -> Decimal:
         return amount * _d(fx[direct])
     if inverse in fx:
         return amount / _d(fx[inverse])
+    for pair, rate in fx.items():                  # cross rate: EURCZK and USDCZK -> EUR->USD
+        if len(pair) == 6 and pair.startswith(currency) and f"{base}{pair[3:]}" in fx:
+            return amount * _d(rate) / _d(fx[f"{base}{pair[3:]}"])
     raise ValueError(f"нет курса {currency}->{base}: передайте fx явно (источник и дату курса вносит человек)")
 
 

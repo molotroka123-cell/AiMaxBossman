@@ -180,3 +180,30 @@ def test_tender_docs_validate_against_the_spec_schema(env):
     env.req("POST", "/ingest", "analyst", json={"source": "demo"})
     for t in env.store.latest_tenders():
         jsonschema.validate(t, schema, format_checker=jsonschema.FormatChecker())
+
+
+def test_ted_placeholder_values_and_majority_category():
+    from warterminal.connectors import ted as tedc
+    n = ted_notice("200001-2026", "Glassware", cpv=("15000000", "33790000", "33790000", "33790000"), value=("0",), cur=("EUR",))
+    d = tedc.normalize(n, "2026-10-17T00:00:00+00:00", "x", TODAY)
+    assert d["estimated_value"] is None and d["data_quality"] == "partial"      # 0 EUR is "not stated", not a price
+    assert d["category"] == "medical"                                           # 3 of 4 codes, not the first code
+    one = tedc.normalize(ted_notice("200002-2026", "x", value=("1",), cur=("EUR",)), "t", "x", TODAY)
+    assert one["estimated_value"] is None
+
+
+def test_open_tenders_are_listed_before_closed(env):
+    env.ingest_ted()
+    items = env.req("GET", "/tenders?include_demo=false", "viewer").json()["items"]
+    statuses = [i["status"] for i in items]
+    assert statuses.index("closed") > max(i for i, s in enumerate(statuses) if s == "open")
+
+
+def test_qualification_uses_share_of_cpv_not_any_single_code():
+    from decimal import Decimal
+    from warterminal import scoring
+    prof = {"cpv_capabilities": ["09", "15"]}
+    lab = {"cpv": ["15000000", "33790000", "33791000", "33792000", "33793000"]}            # 1 of 5 codes is food: subject is lab glassware
+    fuel = {"cpv": ["09134200", "09134100"]}
+    q = lambda t: scoring.components(t, prof, [], [], capital_limit_usd=Decimal(50000), back_to_back=False, usd_value=None, today=TODAY)["qualification"][0]
+    assert q(fuel) == 1.0 and q(lab) == 0.4 and q({"cpv": ["33790000"]}) == 0.1

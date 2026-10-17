@@ -157,6 +157,29 @@ async function loadHealth() {
   }
 }
 
+/* Header badges: FX date and sanctions list size. Hidden when absent or when the endpoint is not available; never invented. */
+const isCnb = (s) => /ČNB|CNB|cnb\.cz/i.test(String(s || ""));
+async function loadBadges() {
+  const fb = $("#fxb"), sbg = $("#sancb");
+  try {
+    const fx = await GET("/fx");
+    if (fx && fx.as_of) {
+      fb.textContent = (isCnb(fx.source) ? "курсы ЧНБ: " : "курсы: ") + fx.as_of;
+      fb.title = "источник: " + txt(fx.source) + (fx.url ? " — " + fx.url : "") + ", пар: " + Object.keys(fx.rates || {}).length;
+      fb.hidden = false;
+    } else fb.hidden = true;
+  } catch (e) { fb.hidden = true; }
+  try {
+    const st = await GET("/sanctions/status");
+    if (st && typeof st.count === "number" && st.count > 0) {
+      sbg.textContent = "санкции: " + st.count;
+      sbg.title = "as_of: " + txt(st.as_of) + ", list_version: " + txt(st.list_version) + ", источник: " + txt(st.source);
+      sbg.className = "badge b-info"; sbg.hidden = false;
+    } else if (st && st.count === 0) { sbg.textContent = "санкции: не загружены"; sbg.title = ""; sbg.className = "badge b-warn"; sbg.hidden = false; }
+    else sbg.hidden = true;
+  } catch (e) { sbg.hidden = true; }
+}
+
 /* ---------- generic loader ---------- */
 async function load(el, fn) {
   clear(el).append(stateBox("load", "Загрузка…"));
@@ -190,32 +213,72 @@ function worldMap(items) {
   for (let lon = -180; lon <= 180; lon += 30) { const [x] = px(lon, 0); svg.append(svgEl("line", { x1: x, y1: 0, x2: x, y2: MH, stroke: "#1e3a55", "stroke-width": 0.5 })); }
   for (let lat = -90; lat <= 90; lat += 30) { const [, y] = px(0, lat); svg.append(svgEl("line", { x1: 0, y1: y, x2: MW, y2: y, stroke: "#1e3a55", "stroke-width": 0.5 })); }
   for (const poly of LAND) svg.append(svgEl("polygon", { points: poly.map(([lo, la]) => px(lo, la).join(",")).join(" "), fill: "#17324a", stroke: "#3b6288", "stroke-width": 0.8 }));
-  for (const c of items) {
+  const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
+  const radius = (c) => { const d = num(c.deaths); return d == null ? 4 : Math.min(16, Math.max(3, 3 + Math.sqrt(Math.max(0, d)) / 20)); };
+  // real dots largest first so small ones stay clickable on top; DEMO drawn last (outline only)
+  const real = items.filter((c) => !c.demo).sort((a, b) => radius(b) - radius(a)), demo = items.filter((c) => c.demo);
+  for (const c of real.concat(demo)) {
     if (typeof c.lat !== "number" || typeof c.lon !== "number") continue;
     const [x, y] = px(c.lon, c.lat);
+    const col = SEV[c.severity] || "#9ab";
     const g = svgEl("g", {});
-    const dot = svgEl("circle", { cx: x, cy: y, r: 5, fill: c.demo ? "none" : (SEV[c.severity] || "#9ab"), stroke: SEV[c.severity] || "#9ab", "stroke-width": 1.8 });
-    if (c.demo) { dot.setAttribute("stroke-dasharray", "2.5 2"); dot.setAttribute("fill", (SEV[c.severity] || "#9ab")); dot.setAttribute("fill-opacity", "0.25"); }
-    const t = svgEl("title"); t.textContent = `${c.name} (${c.country}) — ${c.severity}${c.demo ? " — DEMO" : ""}`;
+    let dot;
+    if (c.demo) {
+      dot = svgEl("circle", { cx: x, cy: y, r: 5, fill: col, "fill-opacity": "0.25", stroke: col, "stroke-width": 1.8, "stroke-dasharray": "2.5 2" });
+    } else {
+      dot = svgEl("circle", { cx: x, cy: y, r: radius(c).toFixed(1), fill: col, "fill-opacity": "0.78", stroke: "#07111f", "stroke-width": 0.8 });
+    }
+    const t = svgEl("title");
+    t.textContent = c.demo ? `${txt(c.name)} (${txt(c.country)}) — ${txt(c.severity)} — DEMO`
+      : `${txt(c.country)}: событий ${txt(c.events)}, погибших ${txt(c.deaths)}, год ${txt(c.since)}`;
     g.append(dot, t); svg.append(g);
   }
   return svg;
 }
+const sevBadge = (s) => badge(s, s === "high" ? "b-bad" : s === "medium" ? "b-warn" : "b-grey");
+const uniq = (arr) => [...new Set(arr.filter((x) => x != null && x !== ""))];
 function conflictsPanel(d, compact) {
   const wrap = h("div", { class: "map" });
+  const items = d.items || [], real = items.filter((c) => !c.demo);
   if (d.status === "NOT_CONNECTED") wrap.append(stateBox("load", "NOT_CONNECTED: " + txt(d.message)));
-  wrap.append(worldMap(d.items || []));
-  wrap.append(h("div", { class: "legend" },
-    ...["low", "medium", "high"].map((k) => h("span", {}, h("i", { style: "background:" + SEV[k] }), k)),
-    h("span", {}, h("i", { style: "border:1.5px dashed #ffcf71" }), "DEMO — пунктир, синтетические данные")));
+  wrap.append(worldMap(items));
+  const lg = h("div", { class: "legend" }, ...["low", "medium", "high"].map((k) => h("span", {}, h("i", { style: "background:" + SEV[k] }), k)));
+  if (real.length) lg.append(h("span", {}, h("i", { style: "background:#9ab;width:6px;height:6px" }), h("i", { style: "background:#9ab;width:14px;height:14px" }), "радиус ∝ √погибших"));
+  if (items.some((c) => c.demo)) lg.append(h("span", {}, h("i", { style: "border:1.5px dashed #ffcf71" }), "DEMO — пунктир, синтетические данные"));
+  wrap.append(lg);
+  if (real.length) {
+    const PREC = "средняя точка событий страны за год; не координаты событий";
+    const prec = uniq(real.map((c) => c.precision)).filter((p) => p !== PREC);
+    wrap.append(h("div", { class: "legend src" },
+      h("span", {}, "Источник: ", h("b", {}, uniq(real.map((c) => c.source_id)).join(", ") || "—")),
+      h("span", {}, "Год: ", h("b", {}, uniq(real.map((c) => c.since)).join(", ") || "—")),
+      h("span", {}, "Лицензия: ", h("b", {}, uniq(real.map((c) => c.licence)).join(", ") || "—")),
+      h("span", {}, "Точность: " + PREC + (prec.length ? " (precision: " + prec.join(", ") + ")" : ""))));
+  }
   wrap.append(h("div", { class: "safety" }, txt(d.safety)));
-  if (!(d.items || []).length) wrap.append(stateBox("load", "Нет данных о конфликтах."));
-  else if (!compact) wrap.append(conflictList(d.items));
+  if (!items.length) wrap.append(stateBox("load", "Нет данных о конфликтах."));
+  else if (!compact) wrap.append(conflictList(items));
   return wrap;
+}
+function realConflictTable(items, limit) {
+  const num = (v) => (typeof v === "number" && isFinite(v) ? v : -1);
+  const rows = items.filter((c) => !c.demo).slice().sort((a, b) => num(b.deaths) - num(a.deaths)).slice(0, limit || undefined);
+  return table(["Страна", "Событий", "Погибших", "Серьёзность", "Год", "Источник", "Лицензия"], rows.map((c) => ({ cells: [
+    h("span", {}, txt(c.country), c.region ? h("div", { class: "mut" }, c.region) : null),
+    txt(c.events), txt(c.deaths), sevBadge(c.severity), txt(c.since),
+    c.source_url && /^https?:\/\//.test(c.source_url) ? h("a", { href: c.source_url, target: "_blank", rel: "noopener noreferrer" }, txt(c.source_id)) : txt(c.source_id),
+    h("span", { class: "lic" }, txt(c.licence))] })));
+}
+const INTENSITY = { war: ["война", "b-bad"], minor: ["малый", "b-warn"] };
+function acdTable(acd) {
+  const items = (acd && acd.items) || [];
+  return table(["Место", "Стороны", "Интенсивность", "Тип", "Год"], items.map((c) => ({ cells: [
+    txt(c.location), h("span", {}, txt(c.side_a), h("span", { class: "mut" }, " vs "), txt(c.side_b)),
+    INTENSITY[c.intensity] ? badge(INTENSITY[c.intensity][0] + " (" + c.intensity + ")", INTENSITY[c.intensity][1]) : badge(c.intensity), txt(c.type), txt(c.year)] })));
 }
 function conflictList(items) {
   return table(["Название", "Страна", "Серьёзность", "С даты", "Источник", "Лицензия"], items.map((c) => ({ cells: [
-    c.name, c.country, badge(c.severity, c.severity === "high" ? "b-bad" : c.severity === "medium" ? "b-warn" : "b-grey"), txt(c.since),
+    txt(c.name), txt(c.country), sevBadge(c.severity), txt(c.since),
     c.source_url ? h("a", { href: /^https?:\/\//.test(c.source_url) ? c.source_url : "#", target: "_blank", rel: "noopener noreferrer" }, txt(c.source_id)) : txt(c.source_id),
     txt(c.licence)].map((x, i) => (i === 0 && c.demo ? h("span", {}, x, " ", badge("DEMO", "b-warn")) : x)) })));
 }
@@ -261,13 +324,27 @@ async function viewOverview(el) {
         statCard("Сложные (HARD)", c.HARD), statCard("Не допущены (BLOCKED)", c.BLOCKED, "b"), statCard("На проверке (REVIEW)", c.REVIEW_REQUIRED, "w"));
     }),
     load(mapBox, async () => conflictsPanel(await GET("/conflicts"), true)),
-    load(confBox, async () => { const d = await GET("/conflicts"); if (!d.items.length) return stateBox("load", "Нет данных."); return conflictList(d.items); }),
+    load(confBox, async () => {
+      const d = await GET("/conflicts"); const items = d.items || [];
+      if (!items.length) return stateBox("load", "Нет данных.");
+      if (items.some((c) => !c.demo)) return h("div", {}, h("div", { class: "mut" }, "Топ-10 стран по числу погибших (UCDP); полный список — в разделе Conflicts"), realConflictTable(items, 10));
+      return conflictList(items);
+    }),
     load(tblBox, async () => { const d = S.tenders || await GET("/tenders?limit=200"); if (!d.items.length) return stateBox("load", "Тендеров нет. Загрузите данные в разделе Sources."); return tenderTable(d.items.slice(0, 25), (k) => { S.sel = k; go("tenders"); }); }),
   ]);
 }
 async function viewConflicts(el) {
-  const box = h("div"); el.append(card("Карта и список конфликтов", box));
-  await load(box, async () => conflictsPanel(await GET("/conflicts")));
+  const box = h("div"), realBox = h("div"), acdBox = h("div"), demoBox = h("div");
+  el.append(card("Карта конфликтов", box), h("div", { class: "grid", style: "margin-top:12px;grid-template-columns:minmax(0,1fr)" },
+    card("UCDP: агрегаты по странам (по числу погибших)", realBox), card("UCDP/PRIO ACD: вооружённые конфликты", acdBox), demoBox));
+  let d;
+  await load(box, async () => { d = await GET("/conflicts"); return conflictsPanel(d, true); });
+  if (!d) { clear(realBox).append(stateBox("err", "Нет ответа /conflicts")); clear(acdBox); return; }
+  const items = d.items || [], real = items.filter((c) => !c.demo), demo = items.filter((c) => c.demo);
+  clear(realBox).append(real.length ? realConflictTable(real) : stateBox("load", "Реальных данных UCDP нет. Загрузите их в разделе Sources («Конфликты UCDP»)."));
+  const acd = d.acd;
+  clear(acdBox).append(acd && (acd.items || []).length ? h("div", {}, h("div", { class: "mut" }, "Год: " + txt(acd.year) + " · конфликтов: " + acd.items.length), acdTable(acd)) : stateBox("load", "Данных ACD нет."));
+  if (demo.length) demoBox.append(card("DEMO-регионы (синтетические, не для решений)", conflictList(demo)));
 }
 
 const FILTERS = [["all", "Все"], ["EASY", "Лёгкие"], ["MEDIUM", "Средние"], ["HARD", "Сложные"], ["BLOCKED", "Не допущены"], ["REVIEW_REQUIRED", "На проверке"]];
@@ -276,8 +353,14 @@ async function viewTenders(el) {
   const bar = h("div", { class: "bar", role: "toolbar", "aria-label": "Фильтры тендеров" });
   const q = h("input", { type: "search", value: S.filters.q, placeholder: "Поиск q", "aria-label": "Текстовый поиск" });
   const cat = h("input", { value: S.filters.category, placeholder: "Категория", "aria-label": "Категория", size: 10 });
-  const ctry = h("input", { value: S.filters.country, placeholder: "Страна (ISO)", "aria-label": "Страна", size: 10 });
-  const refresh = () => { S.filters.q = q.value.trim(); S.filters.category = cat.value.trim(); S.filters.country = ctry.value.trim(); renderTenders(); };
+  const ctry = h("input", { value: S.filters.country || "все", placeholder: "Страна (ISO) или «все»", "aria-label": "Страна (ISO-код или «все» для всего мира)", title: "ISO-код страны, например CZE; «все» или пусто — весь мир", size: 12 });
+  const ALL = ["", "все", "всё", "all", "*", "весь мир"];
+  const refresh = () => {
+    S.filters.q = q.value.trim(); S.filters.category = cat.value.trim();
+    const c = ctry.value.trim(); S.filters.country = ALL.includes(c.toLowerCase()) ? "" : c;
+    if (!S.filters.country) ctry.value = "все";
+    renderTenders();
+  };
   for (const [id, l] of FILTERS) bar.append(h("button", { type: "button", class: S.filters.f === id ? "on" : "", "aria-pressed": String(S.filters.f === id), onclick: () => { S.filters.f = id; refresh(); viewRefreshBar(); } }, l));
   function viewRefreshBar() { for (const b of bar.querySelectorAll("button")) { const on = b.textContent === FILTERS.find((x) => x[0] === S.filters.f)[1]; b.className = on ? "on" : ""; b.setAttribute("aria-pressed", String(on)); } }
   for (const i of [q, cat, ctry]) i.addEventListener("keydown", (e) => { if (e.key === "Enter") refresh(); });
@@ -287,7 +370,7 @@ async function viewTenders(el) {
     await load(listBox, async () => {
       const d = await loadTenders(); S.tenders = d;
       if (!d.items.length) return stateBox("load", "Нет тендеров по этим фильтрам.");
-      return h("div", {}, h("div", { class: "mut" }, `Показано ${d.items.length} из ${d.total}`), tenderTable(d.items, (k) => { S.sel = k; renderTenders(); showDetail(det, k); }));
+      return h("div", {}, h("div", { class: "mut" }, `Показано ${d.items.length} из ${d.total} · страна: ${S.filters.country || "весь мир"}`), tenderTable(d.items, (k) => { S.sel = k; renderTenders(); showDetail(det, k); }));
     });
   }
   await renderTenders();
@@ -519,13 +602,37 @@ async function viewLearning(el) {
 
 /* ---------- sources ---------- */
 async function viewSources(el) {
-  const res = h("div"), box = h("div");
-  const ingest = (label, body) => h("button", { type: "button", onclick: async () => {
-    clear(res);
-    try { const r = await POST("/ingest", body); res.append(msgBox("ok", label + ": " + JSON.stringify(r))); loadHealth(); S.tenders = null; refresh(); }
-    catch (e) { if (e.status !== 401) res.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); }
+  const res = h("div"), box = h("div"), ref = h("div");
+  /* each button posts once, shows the server result or its error verbatim, then refreshes status */
+  const act = (label, path, body, role) => h("button", { type: "button", title: "POST /api/v1" + path + " " + JSON.stringify(body) + " — роль " + role, onclick: async (ev) => {
+    const b = ev.currentTarget; clear(res); b.disabled = true;
+    res.append(stateBox("load", label + ": выполняется…"));
+    try { const r = await POST(path, body); clear(res).append(msgBox("ok", label + " — OK: " + JSON.stringify(r))); S.tenders = null; }
+    catch (e) { clear(res); if (e.status !== 401) res.append(msgBox("err", label + " — HTTP " + e.status + " — " + e.message)); }
+    finally { b.disabled = false; loadHealth(); loadBadges(); refresh(); refRefresh(); }
   } }, label);
-  el.append(card("Источники данных", h("div", { class: "bar" }, ingest("Загрузить DEMO", { source: "demo" }), ingest("Загрузить TED (Чехия)", { source: "ted", country: "CZE" })), res, box));
+  el.append(card("Источники данных",
+    h("h3", {}, "Тендеры (роль analyst)"),
+    h("div", { class: "bar" }, act("Загрузить DEMO", "/ingest", { source: "demo" }, "analyst"), act("TED: Чехия", "/ingest", { source: "ted", country: "CZE" }, "analyst"),
+      act("TED: весь мир", "/ingest", { source: "ted", country: null }, "analyst"), act("World Bank (весь мир)", "/ingest", { source: "worldbank" }, "analyst")),
+    h("h3", {}, "Справочники"),
+    h("div", { class: "bar" }, act("Загрузить санкции (OFAC+ООН)", "/sanctions/fetch", { sources: ["ofac", "un"] }, "compliance"), act("Курсы ЧНБ", "/fx/fetch", {}, "analyst"),
+      act("Конфликты UCDP", "/conflicts/fetch", {}, "compliance")),
+    h("p", { class: "mut" }, "Внешние источники работают только при WAR_TERMINAL_LIVE=true; иначе сервер отвечает LIVE_DISABLED. Санкции и конфликты требуют роль compliance."),
+    res, h("h3", {}, "Справочные данные"), ref, h("h3", {}, "Статус источников"), box));
+  function refRefresh() {
+    load(ref, async () => {
+      const [sx, fx] = [await GET("/sanctions/status").catch((e) => ({ error: e })), await GET("/fx").catch((e) => ({ error: e }))];
+      const errTxt = (e) => "HTTP " + e.status + " — " + e.message;
+      return kv([
+        ["Санкции: записей", sx.error ? errTxt(sx.error) : (sx.count ? String(sx.count) : "0 — не загружены")],
+        ["Санкции: as_of", sx.error ? null : sx.as_of], ["Санкции: list_version", sx.error ? null : sx.list_version], ["Санкции: источник", sx.error ? null : sx.source],
+        ["Курсы: as_of", fx.error ? errTxt(fx.error) : (fx.as_of || "не загружены")], ["Курсы: источник", fx.error ? null : fx.source],
+        ["Курсы: пар", fx.error ? null : String(Object.keys(fx.rates || {}).length)],
+        ["Курсы: URL", !fx.error && fx.url && /^https?:\/\//.test(fx.url) ? h("a", { href: fx.url, target: "_blank", rel: "noopener noreferrer" }, fx.url) : null]]);
+    });
+  }
+  refRefresh();
   function refresh() {
     load(box, async () => {
       const d = await GET("/sources/status");
@@ -565,7 +672,7 @@ async function render() {
 function boot() {
   $("#whoami").textContent = "роль: " + S.role;
   $("#logout").hidden = false;
-  loadHealth(); renderNav(); render();
+  loadHealth(); renderNav(); render(); loadBadges();
 }
 document.addEventListener("DOMContentLoaded", () => {
   tick(); setInterval(tick, 30000);

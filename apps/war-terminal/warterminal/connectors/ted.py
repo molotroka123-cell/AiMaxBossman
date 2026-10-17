@@ -16,11 +16,14 @@ CATEGORY = (("09", "fuel_energy"), ("15", "food"), ("60", "logistics"), ("63", "
 
 
 def category_of(cpvs: list[str]) -> str:
+    """Majority category over all CPV codes of the notice (multi-lot notices list many codes; the first one is not the subject)."""
+    votes: dict[str, int] = {}
     for c in cpvs:
         for prefix, name in CATEGORY:
             if c.startswith(prefix):
-                return name
-    return "other"
+                votes[name] = votes.get(name, 0) + 1
+                break
+    return max(votes, key=lambda k: (votes[k], -list(votes).index(k))) if votes else "other"
 
 
 def build_query(cpv_prefixes=DEFAULT_CPV, country: str | None = "CZE", days: int = 30, today: date | None = None) -> str:
@@ -58,7 +61,9 @@ def normalize(n: dict, retrieved_at: str, snapshot_sha: str, today: date | None 
     vals = []
     for v in n.get("estimated-value-lot") or []:
         try:
-            vals.append(Decimal(str(v)))
+            d = Decimal(str(v))
+            if d > 1:                                      # TED placeholders 0 / 1 are "not stated", not a price
+                vals.append(d)
         except InvalidOperation:
             pass
     if ntype.startswith("can"):
@@ -67,12 +72,13 @@ def normalize(n: dict, retrieved_at: str, snapshot_sha: str, today: date | None 
         status = "open" if date.fromisoformat(deadline_day) >= today else "closed"
     else:
         status = "unknown"                                  # prior information / no deadline: not biddable as is
-    cpv = sorted({str(c) for c in (n.get("classification-cpv") or [])})
+    cpv_all = [str(c) for c in (n.get("classification-cpv") or [])]
+    cpv = sorted(set(cpv_all))
     quality = "ok" if (vals and deadline_day) else "partial"
     return {
         "id": f"ted:{pub}", "official_notice_id": pub, "title": _text(n.get("notice-title")) or pub, "jurisdiction": "EU",
         "country": _text(n.get("buyer-country")) or _text(n.get("place-of-performance-country-lot")),
-        "category": category_of(cpv), "status": status,
+        "category": category_of(cpv_all), "status": status,
         "deadline": f"{deadline_day}T23:59:59Z" if deadline_day else None,
         "estimated_value": float(sum(vals)) if vals else None, "currency": _text(n.get("estimated-value-cur-lot")) or None,
         "value_basis": "sum of lot estimates" if vals else None,

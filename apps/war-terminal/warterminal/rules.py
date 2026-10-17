@@ -147,12 +147,35 @@ def _norm(s: str) -> set[str]:
     return {t for t in re.split(r"[^a-z0-9]+", s) if len(t) > 1 and t not in ("ltd", "llc", "inc", "gmbh", "sro", "as", "the", "of", "co", "company")}
 
 
-def screen_party(name: str, sanctions: list[str]) -> dict | None:
+class SanctionsIndex:
+    """Inverted token index over tens of thousands of names: screening one party touches only entries sharing a token."""
+
+    def __init__(self, entries: list[str]) -> None:
+        self.entries = entries
+        self.tokens = [_norm(e) for e in entries]
+        self.postings: dict[str, list[int]] = {}
+        for i, toks in enumerate(self.tokens):
+            for t in toks:
+                self.postings.setdefault(t, []).append(i)
+
+    def __len__(self) -> int:
+        return len(self.entries)
+
+    def candidates(self, toks: set[str]):
+        seen: set[int] = set()
+        for t in toks:
+            for i in self.postings.get(t, ()):
+                if i not in seen:
+                    seen.add(i)
+                    yield self.entries[i], self.tokens[i]
+
+
+def screen_party(name: str, sanctions) -> dict | None:
     """Token overlap against a sanctions list. exact=all tokens of the entry match (BLOCK); partial >=0.6 => human review."""
     a = _norm(name)
     best = None
-    for entry in sanctions:
-        b = _norm(entry)
+    pairs = sanctions.candidates(a) if isinstance(sanctions, SanctionsIndex) else ((e, _norm(e)) for e in sanctions)
+    for entry, b in pairs:
         if not a or not b:
             continue
         j = len(a & b) / len(a | b)

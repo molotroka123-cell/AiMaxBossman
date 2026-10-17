@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import API_VERSION, VERSION, ai as ai_mod, finance, learning, rules, scoring, sources
-from .connectors import demo as demo_conn, demo_conflicts, gdelt, http as http_mod, sam, ted, usaspending
+from .connectors import cnb, demo as demo_conn, demo_conflicts, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
 from .store import Store, now
 
 ROLE_RANK = {"viewer": 0, "analyst": 1, "compliance": 2, "owner": 3}
@@ -47,10 +47,10 @@ def _load_tokens(data_dir: Path) -> dict[str, str]:
 
 
 class IngestIn(BaseModel):
-    source: str = Field(pattern=r"^(ted|sam|usaspending|gdelt|demo)$")
+    source: str = Field(pattern=r"^(ted|sam|usaspending|gdelt|worldbank|demo)$")
     days: int = Field(default=30, ge=1, le=365)
     cpv_prefixes: list[str] | None = None
-    country: str | None = "CZE"
+    country: str | None = None              # None = all countries (owner: Czech company, whole world)
     limit: int = Field(default=50, ge=1, le=200)
     keyword: str | None = None
 
@@ -139,6 +139,10 @@ class SanctionsIn(BaseModel):
     as_of: str
 
 
+class SanctionsFetchIn(BaseModel):
+    sources: list[str] = ["ofac", "un"]
+
+
 class ConflictIn(BaseModel):
     name: str
     country: str
@@ -169,13 +173,29 @@ class OutcomeIn(BaseModel):
 
 
 def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, tokens: dict | None = None, post=None, get=None,
-               chat=None, today: date | None = None) -> FastAPI:
+               chat=None, today: date | None = None, download=None) -> FastAPI:
     data_dir = Path(data_dir or os.environ.get("WAR_TERMINAL_DATA") or Path.home() / ".war-terminal")
     data_dir.mkdir(parents=True, exist_ok=True)
     store = Store(data_dir / "war.db")
     live = live if live is not None else os.environ.get("WAR_TERMINAL_LIVE", "").lower() in ("1", "true", "yes")
     tokens = tokens or _load_tokens(data_dir)
     post, get = post or http_mod.post_json, get or http_mod.get_json
+    download = download or http_mod.get_bytes
+    _sidx: dict = {"version": None, "index": None}
+
+    def sanctions_index():
+        """Sanctions list as an in-memory token index, rebuilt only when the stored list version changes."""
+        ver = store.kv_get("sanctions_version")
+        if ver is None:
+            return None
+        if _sidx["version"] != ver:
+            entries = (store.kv_get("sanctions") or {}).get("entries") or []
+            _sidx.update(version=ver, index=rules.SanctionsIndex(entries) if entries else None)
+        return _sidx["index"]
+
+    def store_sanctions(doc: dict) -> None:
+        store.kv_set("sanctions", doc)
+        store.kv_set("sanctions_version", f"{doc.get('list_version')}|{len(doc.get('entries', []))}|{now()}")
     if chat is None and os.environ.get("WAR_TERMINAL_AI_URL") and os.environ.get("WAR_TERMINAL_AI_MODEL"):
         chat = ai_mod.make_chat(os.environ["WAR_TERMINAL_AI_URL"], os.environ["WAR_TERMINAL_AI_MODEL"], os.environ.get("WAR_TERMINAL_AI_KEY"))
     sam_key = os.environ.get("SAM_API_KEY", "")
@@ -207,8 +227,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     # ------------------------------------------------------------------ assessment core
     def assess_tender(t: dict, back_to_back: bool = False) -> dict:
         profile = store.kv_get("profile", {})
-        sanctions = (store.kv_get("sanctions") or {}).get("entries")
-        gates = rules.evaluate_gates(t, profile, store.reviews(t["key"]), sanctions, _day())
+        gates = rules.evaluate_gates(t, profile, store.reviews(t["key"]), sanctions_index(), _day())
         gate_overall = rules.overall(gates)
         fx = (store.kv_get("fx") or {}).get("rates", {})
         usd = None
@@ -223,7 +242,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
                           capital_limit_usd=Decimal(str(profile.get("capital_limit_usd", 50000))), back_to_back=b2b, usd_value=usd,
                           today=_day(), weights=store.kv_get("weights"))
         return {"tender_key": t["key"], "tender_version": t["version"], "demo": bool(t.get("demo")), "compliance_status": gate_overall,
-                "gates": gates, "fit": fit, **scoring.classify(gate_overall, fit), "usd_value": str(usd) if usd is not None else None,
+                "gates": gates, "fit": fit, **scoring.classify(gate_overall, fit), "usd_value": str(usd.quantize(Decimal("0.01"))) if usd is not None else None,
                 "back_to_back": b2b, "assessed_at": now()}
 
     def brief(a: dict) -> dict:
@@ -290,6 +309,19 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             audit(role, "ingest.ted", {"fetched": len(docs), "new": new, "updated": upd, "snapshot": digest, "query": req["query"]})
             return {"source": "ted", "fetched": len(docs), "new": new, "updated": upd, "duplicates": len(docs) - new - upd,
                     "snapshot_sha256": digest, "snapshot_new": fresh, "total_available": raw.get("totalNoticeCount")}
+        if body.source == "worldbank":
+            req, raw = worldbank.fetch(get, query=body.keyword, rows=body.limit, today=_day(),
+                                       country=(rules.country2(body.country) if body.country else None))
+            sid, digest, fresh = store.save_snapshot("worldbank", "https://search.worldbank.org/api/v2/procnotices", raw)
+            docs = worldbank.normalize_all(raw, t0, digest, _day())
+            new = upd = 0
+            for d in docs:
+                _, version, changed = store.upsert_tender(d)
+                new += changed and version == 1
+                upd += changed and version > 1
+            store.kv_set("last:worldbank", {"at": t0, "count": len(docs)})
+            audit(role, "ingest.worldbank", {"fetched": len(docs), "new": new, "updated": upd, "snapshot": digest})
+            return {"source": "worldbank", "fetched": len(docs), "new": new, "updated": upd, "duplicates": len(docs) - new - upd, "snapshot_sha256": digest}
         if body.source == "sam":
             if not sam_key:
                 raise HTTPException(409, {"code": "NOT_CONNECTED", "message": "нет SAM_API_KEY (бесплатный ключ на sam.gov)"})
@@ -331,7 +363,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             items = [c for c in items if region.lower() in (c.get("country", "") + c.get("name", "")).lower()]
         if since:
             items = [c for c in items if not c.get("since") or c["since"] >= since]
-        return {"items": items, "real_count": len(real), "status": "OK" if real else "NOT_CONNECTED",
+        return {"items": items, "real_count": len(real), "status": "OK" if real else "NOT_CONNECTED", "acd": store.kv_get("conflicts_acd"),
                 "message": None if real else "реальных данных о конфликтах нет: импортируйте UCDP/ACLED (POST /conflicts/import) с источником и лицензией",
                 "safety": "карта показывает регионы для коммерческого контекста; тактический анализ и целеуказание не поддерживаются"}
 
@@ -370,7 +402,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             out.append({**{k: t.get(k) for k in ("key", "version", "id", "official_notice_id", "title", "jurisdiction", "country", "category", "status",
                                                   "deadline", "estimated_value", "currency", "source_url", "source_id", "retrieved_at", "published_at",
                                                   "data_quality", "buyer", "cpv", "demo")}, "assessment": a})
-        out.sort(key=lambda r: (r["demo"], -r["assessment"]["fit_score"]))
+        out.sort(key=lambda r: (r["demo"], r["status"] != "open", -r["assessment"]["fit_score"]))   # open first
         return {"items": out[offset:offset + limit], "total": len(out), "data": data_mode()}
 
     @app.get(P + "/tenders/{key:path}/checklist")
@@ -517,7 +549,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         c = rules.country2(s.country)
         if c in rules.RESTRICTED_SEED:
             raise HTTPException(422, {"code": "SUPPLIER_JURISDICTION_BLOCKED", "message": f"поставщик из {c}: ограничения по seed-списку"})
-        sanc = (store.kv_get("sanctions") or {}).get("entries")
+        sanc = sanctions_index()
         hit = rules.screen_party(s.name, sanc) if sanc else None
         return {"screening": "NOT_CONNECTED" if not sanc else ("POSSIBLE_MATCH" if hit else "CLEAR"), "match": hit}
 
@@ -556,9 +588,68 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
 
     @app.post(f"{P}/sanctions/import")
     def sanctions_import(body: SanctionsIn, role=Depends(compliance)):
-        store.kv_set("sanctions", body.model_dump())
+        store_sanctions(body.model_dump())
         audit(role, "sanctions.import", {"count": len(body.entries), "source": body.source, "version": body.list_version, "as_of": body.as_of})
         return {"stored": len(body.entries)}
+
+    # ------------------------------------------------------------------ official keyless live sources: sanctions, FX, conflicts
+    def need_live():
+        if not live:
+            raise HTTPException(403, {"code": "LIVE_DISABLED", "message": "WAR_TERMINAL_LIVE=false: внешние источники отключены"})
+
+    @app.post(f"{P}/sanctions/fetch")
+    def sanctions_fetch(body: SanctionsFetchIn, role=Depends(compliance)):
+        need_live()
+        names, by, shas = set(), {}, {}
+        for s in body.sources:
+            if s == "ofac":
+                url, parse = sanc_conn.OFAC_URL, sanc_conn.parse_ofac
+            elif s == "un":
+                url, parse = sanc_conn.UN_URL, sanc_conn.parse_un
+            else:
+                raise HTTPException(422, {"message": f"неизвестный список {s}"})
+            data = download(url)
+            recs = parse(data)
+            if not recs:
+                raise HTTPException(502, {"code": "EMPTY_LIST", "message": f"{s}: список пуст или формат изменился"})
+            shas[s], by[s] = sanc_conn.digest(data), len(recs)
+            names.update(r["name"] for r in recs)
+            store.save_snapshot(f"sanctions_{s}", url, {"sha256": shas[s], "bytes": len(data), "records": len(recs)})
+            store.kv_set(f"last:{'ofac' if s == 'ofac' else 'un_sanctions'}", {"at": now(), "count": len(recs)})
+        version = ",".join(f"{k}:{v[:12]}" for k, v in sorted(shas.items()))
+        store_sanctions({"entries": sorted(names), "source": "+".join(sorted(by)), "list_version": version, "as_of": _day().isoformat()})
+        audit(role, "sanctions.fetch", {"by_source": by, "sha256": shas, "unique_names": len(names)})
+        return {"stored": len(names), "by_source": by, "sha256": shas, "as_of": _day().isoformat(), "list_version": version}
+
+    @app.get(f"{P}/sanctions/status")
+    def sanctions_status(_=Depends(viewer)):
+        doc = store.kv_get("sanctions") or {}
+        return {"count": len(doc.get("entries", [])), "as_of": doc.get("as_of"), "source": doc.get("source"), "list_version": doc.get("list_version")}
+
+    @app.post(f"{P}/fx/fetch")
+    def fx_fetch(role=Depends(analyst)):
+        need_live()
+        data = download(cnb.URL)
+        fx = cnb.parse(data.decode("utf-8", "replace"))
+        store.save_snapshot("cnb", cnb.URL, {"sha256": sanc_conn.digest(data), "as_of": fx["as_of"]})
+        store.kv_set("fx", fx)
+        store.kv_set("last:cnb", {"at": now(), "count": len(fx["rates"])})
+        audit(role, "fx.fetch", {"as_of": fx["as_of"], "pairs": len(fx["rates"])})
+        return {"as_of": fx["as_of"], "pairs": len(fx["rates"]), "source": fx["source"]}
+
+    @app.post(f"{P}/conflicts/fetch")
+    def conflicts_fetch(role=Depends(compliance)):
+        need_live()
+        t0 = now()
+        ged_raw, acd_raw = download(ucdp.GED_URL), download(ucdp.ACD_URL)
+        ged, acd = ucdp.parse_ged(ged_raw, t0), ucdp.parse_acd(acd_raw)
+        store.save_snapshot("ucdp_ged", ucdp.GED_URL, {"sha256": sanc_conn.digest(ged_raw), "year": ged["year"], "countries": len(ged["items"])})
+        store.save_snapshot("ucdp_acd", ucdp.ACD_URL, {"sha256": sanc_conn.digest(acd_raw), "year": acd["year"], "conflicts": len(acd["items"])})
+        store.kv_set("conflicts", ged["items"])
+        store.kv_set("conflicts_acd", acd)
+        store.kv_set("last:ucdp", {"at": t0, "count": len(ged["items"])})
+        audit(role, "conflicts.fetch", {"year": ged["year"], "countries": len(ged["items"]), "events": ged["events_total"], "acd": len(acd["items"])})
+        return {"year": ged["year"], "countries": len(ged["items"]), "events": ged["events_total"], "acd_conflicts": len(acd["items"])}
 
     # ------------------------------------------------------------------ learning
     @app.post(f"{P}/learning/decisions")

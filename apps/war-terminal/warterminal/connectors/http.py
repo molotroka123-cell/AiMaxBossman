@@ -38,6 +38,18 @@ def post_json(url: str, body: dict, headers: dict | None = None, timeout: int = 
         return _curl("POST", url, body, headers, timeout)
 
 
+def get_bytes(url: str, timeout: int = 240) -> bytes:
+    try:
+        r = httpx.get(url, headers={"User-Agent": UA}, timeout=timeout, verify=_VERIFY, follow_redirects=True)
+        r.raise_for_status()
+        return r.content
+    except (httpx.ConnectError, ssl.SSLError):
+        p = subprocess.run(["curl", "-s", "-L", "-m", str(timeout), url, "-H", f"User-Agent: {UA}"], capture_output=True, timeout=timeout + 15)
+        if p.returncode != 0:
+            raise RuntimeError(f"curl exit {p.returncode}")
+        return p.stdout
+
+
 def get_json(url: str, params: dict | None = None, headers: dict | None = None, timeout: int = 60) -> dict:
     try:
         r = httpx.get(url, params=params, headers={"User-Agent": UA, **(headers or {})}, timeout=timeout, verify=_VERIFY)

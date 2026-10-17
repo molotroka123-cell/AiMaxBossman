@@ -24,9 +24,13 @@ def components(tender: dict, profile: dict, suppliers: list[dict], outcomes: lis
     out: dict[str, tuple[float | None, str]] = {}
 
     caps = profile.get("cpv_capabilities") or []
-    if caps:
-        hit = _prefix_match(cpvs, caps)
-        out["qualification"] = (1.0 if hit else 0.2, "CPV входит в заявленные возможности" if hit else "CPV вне заявленных возможностей")
+    if caps and cpvs:
+        share = sum(1 for c in cpvs if c.startswith(tuple(caps))) / len(cpvs)       # share of the notice's CPV codes we cover
+        out["qualification"] = ((1.0, f"возможности покрывают {share:.0%} CPV тендера") if share >= 0.5
+                                else (0.4, f"покрыто только {share:.0%} CPV тендера: основной предмет вне профиля") if share > 0
+                                else (0.1, "CPV вне заявленных возможностей"))
+    elif caps:
+        out["qualification"] = (None, "у тендера нет CPV")
     else:
         out["qualification"] = (None, "возможности компании не заполнены")
 

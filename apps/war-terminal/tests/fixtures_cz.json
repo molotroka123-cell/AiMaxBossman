@@ -1,0 +1,927 @@
+{
+ "_provenance": {
+  "source": "https://isvz.nipez.cz/sites/default/files/content/opendata-rvz/VZ-09-2026.zip",
+  "sha256": "df656fc03e25950a2e25a466d782bc18a6684b105efd33641ed44f342fd117ea",
+  "downloaded": "2026-10-17",
+  "note": "real records, bulky sub-trees pruned by cz._prune"
+ },
+ "header": {
+  "obdobi_od": "2026-09-01T00:00:00",
+  "obdobi_do": "2026-09-30T23:59:59",
+  "verze": "2.10.2"
+ },
+ "data": [
+  {
+   "verejna_zakazka": {
+    "casova_znacka": "2026-09-25T09:12:36.6930000",
+    "identifikator_NIPEZ": "RVZ2600165495",
+    "identifikatory_v_elektronickem_nastroji": [
+     {
+      "kod_nastroje": "NEN",
+      "identifikator": "N006/26/V00028773"
+     }
+    ],
+    "nazev_verejne_zakazky": "Vedolizumab II.",
+    "predpokladana_hodnota_bez_DPH_v_CZK": 35615320.0,
+    "predpokladana_hodnota_bez_DPH": 35615320.0,
+    "predpokladana_hodnota_bude_uverejnena": true,
+    "predpokladana_hodnota_bez_DPH_mena": "CZK",
+    "druh_verejne_zakazky": "Dodávky",
+    "rezim_verejne_zakazky": "Nadlimitní",
+    "rezim_dle_volby_zadavatele": "Nadlimitní",
+    "predmet": {
+     "popis_predmetu": "Předmětem této veřejné zakázky jsou průběžné dodávky léčivého přípravku s léčivou látkou Vedolizumab pro potřeby Ústřední vojenské nemocnice – Vojenské fakultní nemocnice Praha v souladu se zadávacími podmínkami",
+     "v_oblasti_obrany_a_bezpecnosti": false,
+     "predmet_vz_je_uveden_v_seznamu_zbozi_ktery_je_prilohou_narizeni_vlady": false,
+     "hlavni_kod_CPV": "33652300",
+     "mista_plneni": [
+      {
+       "nuts": "CZ010",
+       "kod_zeme_mista_plneni": "CZE"
+      }
+     ]
+    },
+    "typ_verejne_zakazky_dle_vyse_predpokladane_hodnoty": "Nadlimitní veřejná zakázka",
+    "casti_verejne_zakazky": [
+     {
+      "identifikator_NIPEZ": "RVZ2600165495/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "NEN",
+        "identifikator": "N006/26/V00028773"
+       }
+      ],
+      "nazev_casti_verejne_zakazky": "Vedolizumab II.",
+      "druh_casti_verejne_zakazky": "Dodávky",
+      "rezim_casti_verejne_zakazky": "Nadlimitní",
+      "rezim_dle_volby_zadavatele": "Nadlimitní",
+      "predpokladana_hodnota_casti_bez_DPH_v_CZK": 35615320.0,
+      "predpokladana_hodnota_casti_bez_DPH": 35615320.0,
+      "predpokladana_hodnota_casti_bez_DPH_mena": "CZK",
+      "predpokladana_hodnota_bude_uverejnena": true,
+      "predmet": {
+       "popis_predmetu": "Předmětem této veřejné zakázky jsou průběžné dodávky léčivého přípravku s léčivou látkou Vedolizumab pro potřeby Ústřední vojenské nemocnice – Vojenské fakultní nemocnice Praha v souladu se zadávacími podmínkami",
+       "v_oblasti_obrany_a_bezpecnosti": false,
+       "predmet_vz_je_uveden_v_seznamu_zbozi_ktery_je_prilohou_narizeni_vlady": false,
+       "hlavni_kod_CPV": "33652300",
+       "mista_plneni": [
+        {
+         "nuts": "CZ010",
+         "kod_zeme_mista_plneni": "CZE"
+        }
+       ]
+      },
+      "zadavaci_postup_pro_cast": {
+       "stav": "Aktivní/Neukončen",
+       "kategorie_zadavaciho_postupu": "Zadávací řízení",
+       "druh_zadavaciho_postupu": "Otevřené řízení",
+       "datum_zahajeni_zadavaciho_postupu": "2026-09-08T00:00:00.0000000",
+       "pocet_zaslanych_zaevidovanych_vysvetleni_zadavaci_dokumentace": 1,
+       "zkraceni_lhuty": false,
+       "odkaz_na_profil": "https://nen.nipez.cz/verejne-zakazky/detail-zakazky/N006-26-V00028773",
+       "verejny_ZP": true,
+       "specifikace_podani": {
+        "nabidky_musi_byt_podany_ve_forme_elektronickych_katalogu_nebo_musi_zahrnovat_elektronicky_katalog": false,
+        "zadavatel_provede_nakup_z_elektronickych_katalogu_vice_dodavatelu": false,
+        "budou_prijimany_varianty_nabidky": false,
+        "zpusob_podani": "Elektronicky",
+        "typ_aktualniho_podani": "Nabídka"
+       },
+       "lhuty": [
+        {
+         "druh_lhuty": "Lhůta pro vysvětlení zadávací dokumentace",
+         "datum_a_cas_konce_lhuty": "2026-09-30T23:59:59.0000000"
+        },
+        {
+         "druh_lhuty": "Lhůta pro podání žádosti o vysvětlení zadávací dokumentace",
+         "datum_a_cas_konce_lhuty": "2026-10-23T23:59:59.0000000"
+        },
+        {
+         "druh_lhuty": "Lhůta pro podání nabídky",
+         "datum_a_cas_konce_lhuty": "2026-11-05T10:00:00.0000000",
+         "aktivni": true,
+         "identifikator": "eef6c31e-0fdd-49f3-a7c2-d76355983ec9"
+        }
+       ],
+       "nestandardni_stavy": [
+        {
+         "oduvodneni": "viz Vysvětlení zadávací dokumentace č. 1",
+         "typ_nestandardniho_stavu": "Změna zadávacích podmínek"
+        }
+       ]
+      }
+     }
+    ],
+    "zadavaci_postupy": [
+     {
+      "zadavatel_zadavaciho_postupu": {
+       "pravidla_pro_postup_zadavatele": "Pravidla pro veřejného zadavatele",
+       "zadavatele": [
+        {
+         "kategorie_zadavatele": "Státní příspěvková organizace",
+         "role_zadavatele": "Bez spolupráce na zadávání",
+         "zadava_zadavaci_postup": true,
+         "adresa_profilu": "https://nen.nipez.cz/profil/UVN",
+         "subjekt": {
+          "nazev_subjektu": "Ústřední vojenská nemocnice - Vojenská fakultní nemocnice Praha",
+          "ico": "61383082",
+          "sidlo": "U vojenské nemocnice 1/1200, Praha 6-Břevnov 16200",
+          "kod_NUTS": "CZ010",
+          "maly_a_stredni_podnik": false,
+          "nipez_id_subjektu": "82891dfe-a5e1-4177-9703-6038e96cc74b",
+          "identifikator_v_elektronickem_nastroji": "79958c03-80da-4d37-a57e-d99c7f676c67",
+          "stat_adresa": "CZE"
+         }
+        }
+       ]
+      },
+      "evidencni_cislo_zadavaciho_postupu_ve_vestniku_verejnych_zakazek": "Z2026-048568",
+      "zadavaci_postupy_pro_casti": [
+       {
+        "identifikator_NIPEZ": "RVZ2600165495/001",
+        "identifikatory_v_elektronickem_nastroji": [
+         {
+          "kod_nastroje": "NEN",
+          "identifikator": "N006/26/V00028773"
+         }
+        ]
+       }
+      ],
+      "identifikator_NIPEZ": "ZP/RVZ2600165495/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "NEN",
+        "identifikator": "N006/26/V00028773"
+       }
+      ]
+     }
+    ]
+   },
+   "zdroj_dat": "Národní elektronický nástroj"
+  },
+  {
+   "verejna_zakazka": {
+    "casova_znacka": "2026-09-07T10:59:25.2950000",
+    "identifikator_NIPEZ": "RVZ2400068840",
+    "identifikatory_v_elektronickem_nastroji": [
+     {
+      "kod_nastroje": "NEN",
+      "identifikator": "N006/20/V00015902"
+     }
+    ],
+    "nazev_verejne_zakazky": "JA – Dodávka nábytku pro výdejnu stravy s jídelnou",
+    "predpokladana_hodnota_bude_uverejnena": false,
+    "druh_verejne_zakazky": "Dodávky",
+    "rezim_verejne_zakazky": "Veřejné zakázky malého rozsahu",
+    "rezim_dle_volby_zadavatele": "Veřejné zakázky malého rozsahu",
+    "predmet": {
+     "popis_predmetu": "Předmětem plnění veřejné zakázky je dodávka nábytku pro výdejnu stravy s jídelnou, která je umístěna v hospodářské budově Justiční akademie v Kroměříži, včetně dopravy a montáže. Bližší specifikace předmětu plnění je uvedena v zadávacích podmínkách. ",
+     "v_oblasti_obrany_a_bezpecnosti": false,
+     "predmet_vz_je_uveden_v_seznamu_zbozi_ktery_je_prilohou_narizeni_vlady": false,
+     "hlavni_kod_CPV": "39100000",
+     "mista_plneni": [
+      {
+       "nuts": "CZ072",
+       "kod_zeme_mista_plneni": "CZE"
+      }
+     ],
+     "vedlejsi_kod_CPV": [
+      "39100000"
+     ],
+     "polozky_predmetu": [
+      {
+       "hlavni_kod_CPV": "39100000",
+       "nazev_polozky": "Nábytek",
+       "mnozstvi": 0.0,
+       "polozka_je_soucasti_nabidkoveho_formulare": false,
+       "identifikator_polozky": "5B4914DB-589E-4DDB-9973-78C1E47F9FA5"
+      }
+     ]
+    },
+    "typ_verejne_zakazky_dle_vyse_predpokladane_hodnoty": "Veřejná zakázka malého rozsahu",
+    "casti_verejne_zakazky": [
+     {
+      "identifikator_NIPEZ": "RVZ2400068840/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "NEN",
+        "identifikator": "N006/20/V00015902"
+       }
+      ],
+      "nazev_casti_verejne_zakazky": "JA – Dodávka nábytku pro výdejnu stravy s jídelnou",
+      "druh_casti_verejne_zakazky": "Dodávky",
+      "rezim_casti_verejne_zakazky": "Veřejné zakázky malého rozsahu",
+      "rezim_dle_volby_zadavatele": "Veřejné zakázky malého rozsahu",
+      "predpokladana_hodnota_bude_uverejnena": false,
+      "predmet": {
+       "popis_predmetu": "Předmětem plnění veřejné zakázky je dodávka nábytku pro výdejnu stravy s jídelnou, která je umístěna v hospodářské budově Justiční akademie v Kroměříži, včetně dopravy a montáže. Bližší specifikace předmětu plnění je uvedena v zadávacích podmínkách. ",
+       "v_oblasti_obrany_a_bezpecnosti": false,
+       "predmet_vz_je_uveden_v_seznamu_zbozi_ktery_je_prilohou_narizeni_vlady": false,
+       "hlavni_kod_CPV": "39100000",
+       "mista_plneni": [
+        {
+         "nuts": "CZ072",
+         "kod_zeme_mista_plneni": "CZE"
+        }
+       ],
+       "vedlejsi_kod_CPV": [
+        "39100000"
+       ],
+       "polozky_predmetu": [
+        {
+         "hlavni_kod_CPV": "39100000",
+         "nazev_polozky": "Nábytek",
+         "mnozstvi": 0.0,
+         "polozka_je_soucasti_nabidkoveho_formulare": false,
+         "identifikator_polozky": "5B4914DB-589E-4DDB-9973-78C1E47F9FA5"
+        }
+       ]
+      },
+      "zadavaci_postup_pro_cast": {
+       "stav": "Zrušen",
+       "kategorie_zadavaciho_postupu": "Zadávání výjimek ze zákona",
+       "druh_zadavaciho_postupu": "Otevřená výzva při zadávání veřejných zakázek malého rozsahu",
+       "datum_zahajeni_zadavaciho_postupu": "2020-06-24T14:35:40.0000000",
+       "pocet_zaslanych_zaevidovanych_vysvetleni_zadavaci_dokumentace": 0,
+       "zkraceni_lhuty": false,
+       "odkaz_na_profil": "https://nen.nipez.cz/Zadavaci_postup/N006-20-V00015902",
+       "verejny_ZP": true,
+       "specifikace_podani": {
+        "nabidky_musi_byt_podany_ve_forme_elektronickych_katalogu_nebo_musi_zahrnovat_elektronicky_katalog": false,
+        "zadavatel_provede_nakup_z_elektronickych_katalogu_vice_dodavatelu": false,
+        "budou_prijimany_varianty_nabidky": false,
+        "zpusob_podani": "Elektronicky",
+        "typ_aktualniho_podani": "Nabídka"
+       },
+       "lhuty": [
+        {
+         "druh_lhuty": "Lhůta pro podání žádosti o vysvětlení zadávací dokumentace",
+         "datum_a_cas_konce_lhuty": "2020-06-30T23:59:59.0000000"
+        },
+        {
+         "druh_lhuty": "Lhůta pro podání nabídky",
+         "datum_a_cas_konce_lhuty": "2020-07-07T10:00:00.0000000",
+         "aktivni": false,
+         "identifikator": "ee038ad3-76f1-4eb2-ad74-e58c79609f4f"
+        }
+       ],
+       "zadavatel_postupuje_dle_parag_61_odst_3_ZZVZ": false
+      }
+     }
+    ],
+    "zadavaci_postupy": [
+     {
+      "zadavatel_zadavaciho_postupu": {
+       "pravidla_pro_postup_zadavatele": "Pravidla pro veřejného zadavatele",
+       "zadavatele": [
+        {
+         "kategorie_zadavatele": "Česká republika",
+         "role_zadavatele": "Bez spolupráce na zadávání",
+         "zadava_zadavaci_postup": true,
+         "adresa_profilu": "https://nen.nipez.cz/profil/JA",
+         "subjekt": {
+          "nazev_subjektu": "Justiční akademie",
+          "ico": "70961808",
+          "sidlo": "Masarykovo náměstí 15/183, Kroměříž 76701",
+          "maly_a_stredni_podnik": false,
+          "identifikator_v_elektronickem_nastroji": "ce09f608-051c-4d31-9e42-edaaa7725d81",
+          "stat_adresa": "CZE"
+         }
+        }
+       ]
+      },
+      "zadavaci_postupy_pro_casti": [
+       {
+        "identifikator_NIPEZ": "RVZ2400068840/001",
+        "identifikatory_v_elektronickem_nastroji": [
+         {
+          "kod_nastroje": "NEN",
+          "identifikator": "N006/20/V00015902"
+         }
+        ]
+       }
+      ],
+      "identifikator_NIPEZ": "ZP/RVZ2400068840/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "NEN",
+        "identifikator": "N006/20/V00015902"
+       }
+      ]
+     }
+    ]
+   },
+   "zdroj_dat": "Národní elektronický nástroj"
+  },
+  {
+   "verejna_zakazka": {
+    "casova_znacka": "2026-09-25T21:22:30.6400000",
+    "identifikator_NIPEZ": "RVZ2400007949",
+    "identifikatory_v_elektronickem_nastroji": [
+     {
+      "kod_nastroje": "NEN",
+      "identifikator": "N006/20/V00010021"
+     }
+    ],
+    "nazev_verejne_zakazky": "Rekonstrukce sýpky",
+    "predpokladana_hodnota_bez_DPH_v_CZK": 5770153.0,
+    "predpokladana_hodnota_bez_DPH": 5770153.0,
+    "predpokladana_hodnota_bude_uverejnena": true,
+    "predpokladana_hodnota_bez_DPH_mena": "CZK",
+    "druh_verejne_zakazky": "Stavební práce",
+    "rezim_verejne_zakazky": "Veřejné zakázky malého rozsahu",
+    "rezim_dle_volby_zadavatele": "Veřejné zakázky malého rozsahu",
+    "predmet": {
+     "v_oblasti_obrany_a_bezpecnosti": false,
+     "predmet_vz_je_uveden_v_seznamu_zbozi_ktery_je_prilohou_narizeni_vlady": false,
+     "hlavni_kod_CPV": "45200000",
+     "mista_plneni": [
+      {
+       "nuts": "CZ020",
+       "kod_zeme_mista_plneni": "CZE"
+      }
+     ],
+     "vedlejsi_kod_CPV": [
+      "45200000"
+     ],
+     "polozky_predmetu": [
+      {
+       "hlavni_kod_CPV": "45200000",
+       "nazev_polozky": "Práce pro kompletní nebo částečnou výstavbu inženýrské stavitelství",
+       "mnozstvi": 0.0,
+       "polozka_je_soucasti_nabidkoveho_formulare": false,
+       "identifikator_polozky": "EC7BD3B5-14B0-4B4D-B19B-F3AD1763BB1D"
+      }
+     ]
+    },
+    "typ_verejne_zakazky_dle_vyse_predpokladane_hodnoty": "Veřejná zakázka malého rozsahu",
+    "casti_verejne_zakazky": [
+     {
+      "identifikator_NIPEZ": "RVZ2400007949/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "NEN",
+        "identifikator": "N006/20/V00010021"
+       }
+      ],
+      "nazev_casti_verejne_zakazky": "Rekonstrukce sýpky",
+      "druh_casti_verejne_zakazky": "Stavební práce",
+      "rezim_casti_verejne_zakazky": "Veřejné zakázky malého rozsahu",
+      "rezim_dle_volby_zadavatele": "Veřejné zakázky malého rozsahu",
+      "predpokladana_hodnota_casti_bez_DPH_v_CZK": 5770153.0,
+      "predpokladana_hodnota_casti_bez_DPH": 5770153.0,
+      "predpokladana_hodnota_casti_bez_DPH_mena": "CZK",
+      "predpokladana_hodnota_bude_uverejnena": true,
+      "predmet": {
+       "v_oblasti_obrany_a_bezpecnosti": false,
+       "predmet_vz_je_uveden_v_seznamu_zbozi_ktery_je_prilohou_narizeni_vlady": false,
+       "hlavni_kod_CPV": "45200000",
+       "mista_plneni": [
+        {
+         "nuts": "CZ020",
+         "kod_zeme_mista_plneni": "CZE"
+        }
+       ],
+       "vedlejsi_kod_CPV": [
+        "45200000"
+       ],
+       "polozky_predmetu": [
+        {
+         "hlavni_kod_CPV": "45200000",
+         "nazev_polozky": "Práce pro kompletní nebo částečnou výstavbu inženýrské stavitelství",
+         "mnozstvi": 0.0,
+         "polozka_je_soucasti_nabidkoveho_formulare": false,
+         "identifikator_polozky": "EC7BD3B5-14B0-4B4D-B19B-F3AD1763BB1D"
+        }
+       ]
+      },
+      "zadavaci_postup_pro_cast": {
+       "stav": "Dokončen/Zadán",
+       "kategorie_zadavaciho_postupu": "Zadávací řízení",
+       "druh_zadavaciho_postupu": "Jednací řízení s uveřejněním",
+       "evidence_vysledku_zadavaciho_postupu": "Uzavření smlouvy",
+       "datum_zahajeni_zadavaciho_postupu": "2020-03-30T00:00:00.0000000",
+       "pocet_zaslanych_zaevidovanych_vysvetleni_zadavaci_dokumentace": 0,
+       "zkraceni_lhuty": false,
+       "oduvodneni_pouziti_jrsu_nebo_soutezniho_dialogu": "Předchozí otevřené řízení nebo užší řízení bylo zrušeno podle § 127 odst. 1 ZZVZ",
+       "odkaz_na_profil": "https://nen.nipez.cz/Zadavaci_postup/N006-20-V00010021",
+       "verejny_ZP": true,
+       "specifikace_podani": {
+        "nabidky_musi_byt_podany_ve_forme_elektronickych_katalogu_nebo_musi_zahrnovat_elektronicky_katalog": false,
+        "zadavatel_provede_nakup_z_elektronickych_katalogu_vice_dodavatelu": false,
+        "budou_prijimany_varianty_nabidky": false,
+        "zpusob_podani": "Listinně",
+        "typ_aktualniho_podani": "Předběžný zájem"
+       },
+       "zadavatel_postupuje_dle_parag_61_odst_3_ZZVZ": false
+      }
+     }
+    ],
+    "zadavaci_postupy": [
+     {
+      "zadavatel_zadavaciho_postupu": {
+       "pravidla_pro_postup_zadavatele": "Pravidla pro veřejného zadavatele",
+       "zadavatele": [
+        {
+         "kategorie_zadavatele": "Příspěvková organizace kraje",
+         "role_zadavatele": "Člen sdružení",
+         "hlavni_predmet_cinnosti_verejneho_zadavatele": "Služby pro širokou veřejnost",
+         "zadava_zadavaci_postup": true,
+         "adresa_profilu": "https://nen.nipez.cz/profil/UHY",
+         "subjekt": {
+          "nazev_subjektu": "Obec Uhy",
+          "ico": "00235067",
+          "sidlo": "31, Uhy 27324",
+          "kod_NUTS": "CZ020",
+          "maly_a_stredni_podnik": false,
+          "identifikator_v_elektronickem_nastroji": "1d7f24f6-0f11-4961-9b9c-cb4e298c23be",
+          "stat_adresa": "CZE"
+         }
+        },
+        {
+         "kategorie_zadavatele": "Příspěvková organizace kraje",
+         "role_zadavatele": "Hlavní člen sdružení",
+         "zadava_zadavaci_postup": false,
+         "adresa_profilu": "https://nen.nipez.cz/profil/UHY",
+         "subjekt": {
+          "nazev_subjektu": "Veřejná zakázka na stavební práce",
+          "maly_a_stredni_podnik": false,
+          "stat_adresa": "CZE"
+         }
+        }
+       ]
+      },
+      "zadavaci_postupy_pro_casti": [
+       {
+        "identifikator_NIPEZ": "RVZ2400007949/001",
+        "identifikatory_v_elektronickem_nastroji": [
+         {
+          "kod_nastroje": "NEN",
+          "identifikator": "N006/20/V00010021"
+         }
+        ]
+       }
+      ],
+      "identifikator_NIPEZ": "ZP/RVZ2400007949/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "NEN",
+        "identifikator": "N006/20/V00010021"
+       }
+      ]
+     }
+    ]
+   },
+   "zdroj_dat": "Národní elektronický nástroj"
+  },
+  {
+   "verejna_zakazka": {
+    "casova_znacka": "2026-09-02T11:20:03.0000000",
+    "identifikator_NIPEZ": "RVZ2500139483",
+    "identifikatory_v_elektronickem_nastroji": [
+     {
+      "kod_nastroje": "VVZ",
+      "identifikator": "Z2025-057728"
+     }
+    ],
+    "nazev_verejne_zakazky": "KOMUNIKACE PZ LHOTKA – SILNICE III/11249",
+    "predpokladana_hodnota_bez_DPH_v_CZK": 33651521.35,
+    "predpokladana_hodnota_bez_DPH": 33651521.35,
+    "predpokladana_hodnota_bude_uverejnena": true,
+    "predpokladana_hodnota_bez_DPH_mena": "CZK",
+    "druh_verejne_zakazky": "Stavební práce",
+    "rezim_verejne_zakazky": "Zjednodušený",
+    "predmet": {
+     "popis_predmetu": "Předmětem veřejné zakázky je novostavba komunikace v průmyslové zóně, zahrnující následující stavební objekty:\nSO01 Pozemní komunikace\nSO02.1 Vodovod\nSO02.2 Armaturní předávací šachta\nPráce budou provedeny dle Projektové dokumentace a v rozsahu Soupisů stavebních prací, dodávek a služeb s výkazy výměr.",
+     "hlavni_kod_CPV": "45000000",
+     "mista_plneni": [
+      {
+       "nuts": "CZ063",
+       "kod_zeme_mista_plneni": "CZE"
+      }
+     ],
+     "vedlejsi_kod_CPV": [
+      "45233000",
+      "45231300"
+     ]
+    },
+    "typ_verejne_zakazky_dle_vyse_predpokladane_hodnoty": "Podlimitní veřejná zakázka",
+    "hodnoty_koncese": [
+     {}
+    ],
+    "casti_verejne_zakazky": [
+     {
+      "identifikator_NIPEZ": "RVZ2500139483/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "VVZ",
+        "identifikator": "LOT-0001"
+       }
+      ],
+      "interniIdentifikatorVerejneZakazkyPridelenyZadavatelem": "-",
+      "nazev_casti_verejne_zakazky": "KOMUNIKACE PZ LHOTKA – SILNICE III/11249",
+      "druh_casti_verejne_zakazky": "Stavební práce",
+      "predpokladana_hodnota_casti_bez_DPH": 33651521.35,
+      "predpokladana_hodnota_casti_bez_DPH_mena": "CZK",
+      "predpokladana_hodnota_bude_uverejnena": true,
+      "predmet": {
+       "popis_predmetu": "Předmětem veřejné zakázky je novostavba komunikace v průmyslové zóně, zahrnující následující stavební objekty:\nSO01 Pozemní komunikace\nSO02.1 Vodovod\nSO02.2 Armaturní předávací šachta\nPráce budou provedeny dle Projektové dokumentace a v rozsahu Soupisů stavebních prací, dodávek a služeb s výkazy výměr.",
+       "hlavni_kod_CPV": "45000000",
+       "mista_plneni": [
+        {
+         "nuts": "CZ063",
+         "kod_zeme_mista_plneni": "CZE"
+        }
+       ],
+       "vedlejsi_kod_CPV": [
+        "45233000",
+        "45231300"
+       ]
+      },
+      "verejna_zakazka_je_alespon_castecne_financovana_z_prostredku_Evropske_unie": false,
+      "zadavaci_postup_pro_cast": {
+       "druh_zadavaciho_postupu": "Zjednodušené podlimitní řízení",
+       "pravni_predpis_EU": "Spadá do působnosti Směrnice 2014/24/EU",
+       "pusobnost_mezinarodni_dohody_o_verejnych_zakazkach": false,
+       "informace_o_ramcove_dohode": {},
+       "specifikace_podani": {},
+       "doba_trvani": {
+        "datum_zacatku_doby_trvani": "2025-10-07T00:00:00.0000000",
+        "datum_konce_doby_trvani": "2026-11-30T00:00:00.0000000"
+       },
+       "dalsi_pozadavky": {},
+       "obchodni_nebo_jine_podminky": {},
+       "spolecne_zadavani_zadavatelu_z_ruznych_statu": [
+        {
+         "rozhodny_pravni_predpis_pro_zadavani_verejne_zakazky_a_jeho_prezkum": "CrossBorderLaw",
+         "popis": "Zákon č. 134/2016 Sb., o zadávání veřejných zakázek"
+        }
+       ],
+       "namitky": [
+        {
+         "pocet_stezovatelu": 0
+        }
+       ],
+       "environmentalni_zadavani": [
+        "Prevence a omezování znečištění"
+       ],
+       "popis_odpovedneho_zadavani": [
+        {
+         "popis_odpovedneho_zadavani": "Prvky environmentálně odpovědného zadávání jsou stanoveny v požadavku na vybraného dodavatele, aby při realizaci předmětu smlouvy dodržel platné technické normy a ekologické požadavky, provedl uložení stavební suti a ekologickou likvidaci odpadu a doložil doklady o této likvidaci.",
+         "typ_odpovedneho_zadavani": "Enviromentálně odpovědné zadávání"
+        }
+       ]
+      }
+     }
+    ],
+    "zadavaci_postupy": [
+     {
+      "zadavatel_zadavaciho_postupu": {
+       "zadavatele": [
+        {
+         "subjekt": {
+          "nazev_subjektu": "Město Pelhřimov",
+          "ico": "00248801",
+          "kod_NUTS": "CZ063"
+         },
+         "provozni_jednotka_s_funkcni_samostatnosti": {}
+        }
+       ]
+      },
+      "evidencni_cislo_zadavaciho_postupu_ve_vestniku_verejnych_zakazek": "Z2025-057728",
+      "uverejnovaci_formulare": [
+       {
+        "evidencni_cislo_formulare": "F2026-047600",
+        "datum_a_cas_odeslani_k_uverejneni": "2026-09-02T11:19:20.0000000",
+        "datum_a_cas_uverejneni_ve_VVZ": "2026-09-02T11:20:03.0000000",
+        "typ_formulare": "Změna závazku ze smlouvy",
+        "typ_oznameni": "38 – Oznámení o změně závazku ze smlouvy – obecná veřejná zakázka",
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni": 19900000.0,
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni_mena": "CZK"
+       },
+       {
+        "evidencni_cislo_formulare": "F2025-057728",
+        "datum_a_cas_odeslani_k_uverejneni": "2025-10-16T15:20:07.0000000",
+        "datum_a_cas_uverejneni_ve_VVZ": "2025-10-16T15:30:02.0000000",
+        "typ_formulare": "Výsledek",
+        "typ_oznameni": "29 – Oznámení o výsledku zadávacího řízení – obecná veřejná zakázka",
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni": 19900000.0,
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni_mena": "CZK"
+       }
+      ],
+      "zadavaci_postupy_pro_casti": [
+       {
+        "identifikator_NIPEZ": "RVZ2500139483/001",
+        "identifikatory_v_elektronickem_nastroji": [
+         {
+          "kod_nastroje": "VVZ",
+          "identifikator": "LOT-0001"
+         }
+        ]
+       }
+      ],
+      "externi_administrator": [
+       {
+        "subjekt": {
+         "nazev_subjektu": "AUTHORIA, s.r.o.",
+         "ico": "27728439",
+         "kod_NUTS": "CZ071"
+        }
+       }
+      ],
+      "identifikator_NIPEZ": "ZP/RVZ2500139483/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "VVZ",
+        "identifikator": "Z2025-057728"
+       }
+      ]
+     }
+    ]
+   },
+   "zdroj_dat": "Věstník veřejných zakázek"
+  },
+  {
+   "verejna_zakazka": {
+    "casova_znacka": "2026-09-02T14:30:01.0000000",
+    "identifikator_NIPEZ": "RVZ2500107706",
+    "identifikatory_v_elektronickem_nastroji": [
+     {
+      "kod_nastroje": "VVZ",
+      "identifikator": "Z2025-043798"
+     }
+    ],
+    "nazev_verejne_zakazky": "Skladová hala a přístřešek na kolovou techniku",
+    "predpokladana_hodnota_bude_uverejnena": false,
+    "druh_verejne_zakazky": "Stavební práce",
+    "rezim_verejne_zakazky": "Podlimitní",
+    "predmet": {
+     "popis_predmetu": "Předmětem plnění byla výstavba skladové haly a přístřešku na kolovou techniku.",
+     "hlavni_kod_CPV": "45000000",
+     "mista_plneni": [
+      {
+       "nuts": "CZ020",
+       "kod_zeme_mista_plneni": "CZE"
+      }
+     ]
+    },
+    "typ_verejne_zakazky_dle_vyse_predpokladane_hodnoty": "Podlimitní veřejná zakázka",
+    "hodnoty_koncese": [
+     {}
+    ],
+    "casti_verejne_zakazky": [
+     {
+      "identifikator_NIPEZ": "RVZ2500107706/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "VVZ",
+        "identifikator": "LOT-0001"
+       }
+      ],
+      "interniIdentifikatorVerejneZakazkyPridelenyZadavatelem": "10014/018/2024",
+      "nazev_casti_verejne_zakazky": "Skladová hala a přístřešek na kolovou techniku",
+      "druh_casti_verejne_zakazky": "Stavební práce",
+      "predpokladana_hodnota_casti_bez_DPH": 22800000.0,
+      "predpokladana_hodnota_casti_bez_DPH_mena": "CZK",
+      "predpokladana_hodnota_bude_uverejnena": true,
+      "predmet": {
+       "popis_predmetu": "Předmětem plnění byla výstavba skladové haly a přístřešku na kolovou techniku.",
+       "hlavni_kod_CPV": "45000000",
+       "mista_plneni": [
+        {
+         "nuts": "CZ020",
+         "kod_zeme_mista_plneni": "CZE"
+        }
+       ]
+      },
+      "verejna_zakazka_je_alespon_castecne_financovana_z_prostredku_Evropske_unie": false,
+      "zadavaci_postup_pro_cast": {
+       "druh_zadavaciho_postupu": "Zjednodušené podlimitní řízení",
+       "pravni_predpis_EU": "Spadá do působnosti Směrnice 2014/24/EU",
+       "pusobnost_mezinarodni_dohody_o_verejnych_zakazkach": true,
+       "informace_o_ramcove_dohode": {},
+       "specifikace_podani": {},
+       "doba_trvani": {
+        "datum_zacatku_doby_trvani": "2025-07-30T00:00:00.0000000",
+        "doba_trvani": 10,
+        "doba_trvani_jednotka": "Měsíc"
+       },
+       "dalsi_pozadavky": {},
+       "obchodni_nebo_jine_podminky": {},
+       "spolecne_zadavani_zadavatelu_z_ruznych_statu": [
+        {
+         "rozhodny_pravni_predpis_pro_zadavani_verejne_zakazky_a_jeho_prezkum": "CrossBorderLaw",
+         "popis": "Zákon č. 134/2016 Sb., o zadávání veřejných zakázek"
+        }
+       ],
+       "namitky": [
+        {
+         "pocet_stezovatelu": 0
+        }
+       ],
+       "popis_odpovedneho_zadavani": [
+        {
+         "typ_odpovedneho_zadavani": "Žádné odpovědné zadávání"
+        }
+       ]
+      }
+     }
+    ],
+    "zadavaci_postupy": [
+     {
+      "zadavatel_zadavaciho_postupu": {
+       "zadavatele": [
+        {
+         "subjekt": {
+          "nazev_subjektu": "Řízení letového provozu České republiky, státní podnik (ŘLP ČR, s.p.)",
+          "ico": "49710371",
+          "kod_NUTS": "CZ020"
+         },
+         "provozni_jednotka_s_funkcni_samostatnosti": {}
+        }
+       ]
+      },
+      "evidencni_cislo_zadavaciho_postupu_ve_vestniku_verejnych_zakazek": "Z2025-043798",
+      "uverejnovaci_formulare": [
+       {
+        "evidencni_cislo_formulare": "F2026-047683",
+        "datum_a_cas_odeslani_k_uverejneni": "2026-09-02T14:27:34.0000000",
+        "datum_a_cas_uverejneni_ve_VVZ": "2026-09-02T14:30:01.0000000",
+        "typ_formulare": "Změna závazku ze smlouvy",
+        "typ_oznameni": "38 – Oznámení o změně závazku ze smlouvy – obecná veřejná zakázka",
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni": 28742066.27,
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni_mena": "CZK"
+       },
+       {
+        "evidencni_cislo_formulare": "F2025-043798",
+        "datum_a_cas_odeslani_k_uverejneni": "2025-08-04T16:50:29.0000000",
+        "datum_a_cas_uverejneni_ve_VVZ": "2025-08-04T17:00:01.0000000",
+        "typ_formulare": "Výsledek",
+        "typ_oznameni": "29 – Oznámení o výsledku zadávacího řízení – obecná veřejná zakázka",
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni": 26605554.48,
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni_mena": "CZK"
+       }
+      ],
+      "zadavaci_postupy_pro_casti": [
+       {
+        "identifikator_NIPEZ": "RVZ2500107706/001",
+        "identifikatory_v_elektronickem_nastroji": [
+         {
+          "kod_nastroje": "VVZ",
+          "identifikator": "LOT-0001"
+         }
+        ]
+       }
+      ],
+      "identifikator_NIPEZ": "ZP/RVZ2500107706/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "VVZ",
+        "identifikator": "Z2025-043798"
+       }
+      ]
+     }
+    ]
+   },
+   "zdroj_dat": "Věstník veřejných zakázek"
+  },
+  {
+   "verejna_zakazka": {
+    "casova_znacka": "2026-09-25T10:20:01.0000000",
+    "identifikator_NIPEZ": "RVZ2500070480",
+    "identifikatory_v_elektronickem_nastroji": [
+     {
+      "kod_nastroje": "VVZ",
+      "identifikator": "Z2022-039983"
+     }
+    ],
+    "nazev_verejne_zakazky": "Komplexní pozemkové úpravy v k. ú. Blažejovice",
+    "druh_verejne_zakazky": "Služby",
+    "rezim_verejne_zakazky": "Zjednodušený",
+    "predmet": {
+     "popis_predmetu": "Předmětem plnění této veřejné zakázky je zpracování návrhu komplexních pozemkových úprav (dále jen „KoPÚ“) v katastrálním území Blažejovice, včetně nezbytných geodetických prací v třídě přesnosti určené pro obnovu katastru nemovitostí vyhláškou č. 357/2013 Sb., o katastru nemovitostí (katastrální vyhláška), ve znění pozdějších předpisů (dále jen „katastrální vyhláška“).\nNávrh KoPÚ bude zpracován tak, aby jej bylo možno zapsat do katastru nemovitostí.\n",
+     "hlavni_kod_CPV": "71250000",
+     "mista_plneni": [
+      {
+       "nuts": "CZ020",
+       "kod_zeme_mista_plneni": "CZE",
+       "dalsi_informace_o_miste_plneni": "Středočeský kraj, okres Benešov, k. ú. Blažejovice"
+      }
+     ]
+    },
+    "typ_verejne_zakazky_dle_vyse_predpokladane_hodnoty": "Podlimitní veřejná zakázka",
+    "hodnoty_koncese": [
+     {}
+    ],
+    "casti_verejne_zakazky": [
+     {
+      "identifikator_NIPEZ": "RVZ2500070480/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "VVZ",
+        "identifikator": "LOT-0001"
+       }
+      ],
+      "interniIdentifikatorVerejneZakazkyPridelenyZadavatelem": "SP7155/2022-537101",
+      "nazev_casti_verejne_zakazky": "Komplexní pozemkové úpravy v k. ú. Blažejovice",
+      "druh_casti_verejne_zakazky": "Služby",
+      "predmet": {
+       "popis_predmetu": "Předmětem plnění této veřejné zakázky je zpracování návrhu komplexních pozemkových úprav (dále jen „KoPÚ“) v katastrálním území Blažejovice, včetně nezbytných geodetických prací v třídě přesnosti určené pro obnovu katastru nemovitostí vyhláškou č. 357/2013 Sb., o katastru nemovitostí (katastrální vyhláška), ve znění pozdějších předpisů (dále jen „katastrální vyhláška“).\nNávrh KoPÚ bude zpracován tak, aby jej bylo možno zapsat do katastru nemovitostí.",
+       "hlavni_kod_CPV": "71250000",
+       "mista_plneni": [
+        {
+         "nuts": "CZ020",
+         "kod_zeme_mista_plneni": "CZE",
+         "dalsi_informace_o_miste_plneni": "Středočeský kraj, okres Benešov, k. ú. Blažejovice"
+        }
+       ]
+      },
+      "verejna_zakazka_je_alespon_castecne_financovana_z_prostredku_Evropske_unie": false,
+      "zadavaci_postup_pro_cast": {
+       "pravni_predpis_EU": "Spadá do působnosti Směrnice 2014/24/EU",
+       "pusobnost_mezinarodni_dohody_o_verejnych_zakazkach": false,
+       "informace_o_ramcove_dohode": {},
+       "specifikace_podani": {},
+       "dalsi_pozadavky": {},
+       "obchodni_nebo_jine_podminky": {},
+       "namitky": [
+        {
+         "pocet_stezovatelu": 0
+        }
+       ],
+       "popis_odpovedneho_zadavani": [
+        {
+         "typ_odpovedneho_zadavani": "Žádné odpovědné zadávání"
+        }
+       ]
+      }
+     }
+    ],
+    "zadavaci_postupy": [
+     {
+      "zadavatel_zadavaciho_postupu": {
+       "zadavatele": [
+        {
+         "subjekt": {
+          "nazev_subjektu": "Státní pozemkový úřad",
+          "ico": "01312774",
+          "kod_NUTS": "CZ010"
+         },
+         "provozni_jednotka_s_funkcni_samostatnosti": {}
+        }
+       ]
+      },
+      "evidencni_cislo_zadavaciho_postupu_ve_vestniku_verejnych_zakazek": "Z2022-039983",
+      "uverejnovaci_formulare": [
+       {
+        "evidencni_cislo_formulare": "F2026-051726",
+        "datum_a_cas_odeslani_k_uverejneni": "2026-09-25T10:10:11.0000000",
+        "datum_a_cas_uverejneni_ve_VVZ": "2026-09-25T10:20:01.0000000",
+        "typ_formulare": "Změna závazku ze smlouvy",
+        "typ_oznameni": "38 – Oznámení o změně závazku ze smlouvy – obecná veřejná zakázka",
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni": 2341038.5,
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni_mena": "CZK"
+       },
+       {
+        "evidencni_cislo_formulare": "F2024-043200",
+        "datum_a_cas_odeslani_k_uverejneni": "2024-09-05T09:51:39.0000000",
+        "datum_a_cas_uverejneni_ve_VVZ": "2024-09-05T10:00:01.0000000",
+        "typ_formulare": "Změna závazku ze smlouvy",
+        "typ_oznameni": "38 – Oznámení o změně závazku ze smlouvy – obecná veřejná zakázka",
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni": 1984050.0,
+        "hodnota_vsech_verejnych_zakazek_uvedenych_v_oznameni_mena": "CZK"
+       }
+      ],
+      "zadavaci_postupy_pro_casti": [
+       {
+        "identifikator_NIPEZ": "RVZ2500070480/001",
+        "identifikatory_v_elektronickem_nastroji": [
+         {
+          "kod_nastroje": "VVZ",
+          "identifikator": "LOT-0001"
+         }
+        ]
+       }
+      ],
+      "identifikator_NIPEZ": "ZP/RVZ2500070480/001",
+      "identifikatory_v_elektronickem_nastroji": [
+       {
+        "kod_nastroje": "VVZ",
+        "identifikator": "Z2022-039983"
+       }
+      ]
+     }
+    ]
+   },
+   "zdroj_dat": "Věstník veřejných zakázek"
+  }
+ ],
+ "labels": [
+  "open_nen",
+  "cancelled",
+  "closed",
+  "unknown",
+  "partsum",
+  "vvz"
+ ]
+}
