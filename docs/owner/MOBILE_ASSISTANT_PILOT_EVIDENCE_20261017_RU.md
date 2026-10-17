@@ -31,6 +31,8 @@
 | Mobile PWA unit tests на `e1f574b` | PASS |
 | Выборочные backend contract tests на `85f952b` | PASS для отдельных перечисленных наборов |
 | Исторический широкий набор на `85f952b` | FAIL: 3 timeout случая |
+| Локальные health endpoints mobile и Bossman API | PASS, только GET с этого ПК |
+| Совпадение запущенного backend с проверенным исходным SHA | BLOCKED: `SOURCE_IDENTITY_UNKNOWN` |
 | Живой телефон → домашний Bossman runtime | NOT_RUN |
 | Реальное видимое управление мышью/клавиатурой | NOT_RUN |
 | Реальная проверка mobile/global STOP | NOT_RUN |
@@ -41,3 +43,13 @@
 ## Интерпретация
 
 Успешные результаты выше подтверждают только перечисленные тесты и соответствующий исходный код. Исторические тесты обозначены их исходной точкой; старый dirty-файл, конфигурация, README или тестовый сценарий не считаются доказательством текущего работающего сервиса. Нет evidence живой модели, подключения телефона, устройства, почтового ящика или работы фонового watcher.
+
+## Безопасный runtime check — 17.10.2026, 14:34 PDT
+
+Только read-only GET-запросы с этого ПК и чтение конфигурации Tailscale Serve:
+
+- `GET http://127.0.0.1:8840/m/api/health` → `{"app":"bossman-mobile","version":"0.1.0","ok":true}`.
+- `GET http://127.0.0.1:8801/health/live` → `status=ALIVE`, `source_identity=SOURCE_IDENTITY_UNKNOWN`, `build_sha` отсутствует.
+- `tailscale serve status` показывает loopback proxy на `127.0.0.1:8840`, доступный только в tailnet; Funnel не указан.
+
+Это подтверждает, что локальный мобильный HTTP-сервис и Bossman health endpoint отвечают, а мобильный UI опубликован только внутри tailnet. Это **не** подтверждает запрос с реального телефона, успешное сопряжение, выполнение задания, фактическую отмену задачи, работу Gmail или совпадение запущенного backend с исходниками `e1f574b`. Пока backend выдаёт `SOURCE_IDENTITY_UNKNOWN`, runtime/source SHA reconciliation остаётся блокером.
