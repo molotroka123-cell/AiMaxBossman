@@ -7,6 +7,7 @@
 - Проверенный HEAD: `e1f574b65699922e0f9306f1262f1520080b1262`
 - Перед документационным коммитом: рабочее дерево чистое, Command Center не менялся относительно `85f952b56ee6326b086aec982e02b8e8283c22d6`.
 - Проверка команды: `git diff --quiet 85f952b56ee6326b086aec982e02b8e8283c22d6 e1f574b65699922e0f9306f1262f1520080b1262 -- command-center`; результат — diff отсутствует.
+- Актуальный `origin/main` при повторной сверке: `1579a8f3deb3de8d12d95bb2fffd58c793d86885`; от `e1f574b` добавлены только `.agents/skills/bossblocks-video-style/SKILL.md` и `docs/owner/CONTINUATION_20261018_RU.md`. `git diff --quiet e1f574b..origin/main -- apps/bossman-mobile command-center` прошёл: проверенные мобильный и backend исходники не менялись.
 
 ## Тестовые результаты
 
