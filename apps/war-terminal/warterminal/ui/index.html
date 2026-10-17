@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bossman War &amp; Procurement Terminal</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top" role="banner">
+  <h1>BOSSMAN <span>WAR &amp; PROCUREMENT TERMINAL</span></h1>
+  <span id="wm" class="badge wm b-grey" role="status" aria-label="Режим данных">…</span>
+  <span id="audit" class="badge b-grey" aria-label="Цепочка аудита">аудит: …</span>
+  <span class="grow"></span>
+  <span id="utc" class="mut" aria-label="Дата UTC"></span>
+  <input id="gsearch" type="search" placeholder="Поиск по тендерам" aria-label="Поиск по тендерам">
+  <span id="whoami" class="mut"></span>
+  <button id="logout" type="button" hidden>Выйти</button>
+</header>
+<div class="layout">
+  <nav id="nav" aria-label="Разделы"></nav>
+  <main id="main" tabindex="-1" aria-live="polite"></main>
+</div>
+<div id="gate" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

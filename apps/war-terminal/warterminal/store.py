@@ -40,6 +40,18 @@ def _dump(doc) -> str:
     return json.dumps(doc, ensure_ascii=False, sort_keys=True, default=str)
 
 
+def _locked(fn):
+    """Every Store call runs under one re-entrant lock: a single sqlite connection is shared by FastAPI worker threads,
+    and a read racing a write on it gave random 500s / false 'not found' (found by the UI review)."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(self, *a, **k):
+        with self._lock:
+            return fn(self, *a, **k)
+    return wrapper
+
+
 class Store:
     def __init__(self, path: str | Path = ":memory:") -> None:
         self.path = str(path)
@@ -50,6 +62,7 @@ class Store:
         self.db.commit()
 
     # ---- snapshots (immutable, deduplicated by content hash) ----
+    @_locked
     def save_snapshot(self, source_id: str, url: str, payload: object) -> tuple[int, str, bool]:
         text = _dump(payload)
         digest = sha(text)
@@ -63,6 +76,7 @@ class Store:
             return cur.lastrowid, digest, True
 
     # ---- tenders: key = jurisdiction + official_notice_id; a changed notice gets a new version ----
+    @_locked
     def upsert_tender(self, doc: dict) -> tuple[str, int, bool]:
         key = f"{doc['jurisdiction']}:{doc['official_notice_id']}"
         volatile = ("retrieved_at", "version", "key", "snapshot_sha256")
@@ -82,28 +96,34 @@ class Store:
             self.db.commit()
             return key, version, True
 
+    @_locked
     def latest_tenders(self) -> list[dict]:
         rows = self.db.execute("SELECT doc FROM tenders t WHERE version=(SELECT MAX(version) FROM tenders WHERE key=t.key)").fetchall()
         return [json.loads(r["doc"]) for r in rows]
 
+    @_locked
     def get_tender(self, key: str) -> dict | None:
         row = self.db.execute("SELECT doc FROM tenders WHERE key=? ORDER BY version DESC LIMIT 1", (key,)).fetchone()
         return json.loads(row["doc"]) if row else None
 
+    @_locked
     def tender_versions(self, key: str) -> list[dict]:
         return [json.loads(r["doc"]) for r in self.db.execute("SELECT doc FROM tenders WHERE key=? ORDER BY version", (key,))]
 
     # ---- generic JSON docs ----
+    @_locked
     def kv_get(self, k: str, default=None):
         row = self.db.execute("SELECT v FROM kv WHERE k=?", (k,)).fetchone()
         return json.loads(row["v"]) if row else default
 
+    @_locked
     def kv_set(self, k: str, v) -> None:
         with self._lock:
             self.db.execute("INSERT INTO kv(k,v,updated_at) VALUES(?,?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v, updated_at=excluded.updated_at",
                             (k, _dump(v), now()))
             self.db.commit()
 
+    @_locked
     def add_doc(self, table: str, tender_key: str | None, doc: dict, dry_run: bool = True) -> int:
         assert table in ("assessments", "decisions", "outcomes", "deals")
         with self._lock:
@@ -117,6 +137,7 @@ class Store:
             self.db.commit()
             return cur.lastrowid
 
+    @_locked
     def docs(self, table: str, where: str = "", args: tuple = ()) -> list[dict]:
         assert table in ("assessments", "decisions", "outcomes", "deals")
         cols = "id, doc, created_at" + ("" if table == "deals" else ", tender_key")
@@ -124,6 +145,7 @@ class Store:
         return [dict(json.loads(r["doc"]), id=r["id"], created_at=r["created_at"], **({} if table == "deals" else {"tender_key": r["tender_key"]})) for r in rows]
 
     # ---- gate reviews signed by a human ----
+    @_locked
     def add_review(self, tender_key: str, gate_id: str, decision: str, reviewer: str, note: str) -> int:
         with self._lock:
             cur = self.db.execute("INSERT INTO reviews(tender_key,gate_id,decision,reviewer,note,created_at) VALUES(?,?,?,?,?,?)",
@@ -131,6 +153,7 @@ class Store:
             self.db.commit()
             return cur.lastrowid
 
+    @_locked
     def reviews(self, tender_key: str) -> dict[str, dict]:
         """Latest review per gate."""
         out: dict[str, dict] = {}
@@ -139,6 +162,7 @@ class Store:
         return out
 
     # ---- audit: hash chain, any edit breaks verification ----
+    @_locked
     def audit(self, actor: str, event: str, payload: dict | None = None) -> dict:
         with self._lock:
             prev = self.db.execute("SELECT hash FROM audit ORDER BY seq DESC LIMIT 1").fetchone()
@@ -150,10 +174,12 @@ class Store:
             self.db.commit()
             return dict(seq=cur.lastrowid, ts=ts, actor=actor, event=event, hash=h)
 
+    @_locked
     def audit_events(self, limit: int = 100) -> list[dict]:
         rows = self.db.execute("SELECT seq,ts,actor,event,payload,hash FROM audit ORDER BY seq DESC LIMIT ?", (limit,)).fetchall()
         return [dict(seq=r["seq"], ts=r["ts"], actor=r["actor"], event=r["event"], payload=json.loads(r["payload"]), hash=r["hash"]) for r in rows]
 
+    @_locked
     def verify_audit(self) -> dict:
         prev = "0" * 64
         for r in self.db.execute("SELECT * FROM audit ORDER BY seq"):
@@ -163,6 +189,7 @@ class Store:
         return {"ok": True, "broken_at": None}
 
     # ---- approvals ----
+    @_locked
     def request_approval(self, action: str, payload: dict, requested_by: str) -> int:
         with self._lock:
             cur = self.db.execute("INSERT INTO approvals(action,payload,status,requested_by,requested_at) VALUES(?,?,?,?,?)",
@@ -170,15 +197,18 @@ class Store:
             self.db.commit()
             return cur.lastrowid
 
+    @_locked
     def get_approval(self, approval_id: int) -> dict | None:
         r = self.db.execute("SELECT * FROM approvals WHERE id=?", (approval_id,)).fetchone()
         return dict(r, payload=json.loads(r["payload"])) if r else None
 
+    @_locked
     def list_approvals(self, status: str | None = None) -> list[dict]:
         rows = self.db.execute("SELECT * FROM approvals" + (" WHERE status=?" if status else "") + " ORDER BY id DESC",
                                (status,) if status else ()).fetchall()
         return [dict(r, payload=json.loads(r["payload"])) for r in rows]
 
+    @_locked
     def decide_approval(self, approval_id: int, approve: bool, decided_by: str, note: str) -> dict | None:
         with self._lock:
             r = self.db.execute("SELECT * FROM approvals WHERE id=? AND status='pending'", (approval_id,)).fetchone()

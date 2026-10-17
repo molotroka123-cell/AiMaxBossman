@@ -88,3 +88,32 @@ def test_checklist_is_a_read_only_draft(env):
     env.ingest_ted()
     c = env.req("GET", "/tenders/EU:100001-2026/checklist", "viewer").json()
     assert c["draft"] is True and any(i["status"] == "REQUIRED" for i in c["items"]) and any("documents" in i["step"] for i in c["items"])
+
+
+def test_concurrent_reads_and_writes_do_not_corrupt_or_500(env):
+    """Regression: one sqlite connection shared by worker threads used to give random 500s and false 'not found'."""
+    import concurrent.futures as cf
+    env.ingest_ted()
+    errors = []
+
+    def reader(_):
+        for _i in range(15):
+            r = env.req("GET", "/tenders?include_demo=false", "viewer")
+            d = env.req("GET", "/tenders/EU:100001-2026", "viewer")
+            if r.status_code != 200 or r.json()["total"] != 6 or d.status_code != 200:
+                errors.append((r.status_code, d.status_code))
+
+    def writer(i):
+        for j in range(15):
+            r = env.req("PUT", "/fx", "analyst", json={"rates": {"EURUSD": 1.0 + (i * 15 + j) / 1000}, "as_of": "2026-10-16", "source": "manual"})
+            if r.status_code != 200:
+                errors.append(("fx", r.status_code))
+
+    with cf.ThreadPoolExecutor(8) as ex:
+        list(ex.map(reader, range(5)))
+        list(ex.map(writer, range(3)))
+        futs = [ex.submit(reader, i) for i in range(5)] + [ex.submit(writer, i) for i in range(3)]
+        for f in futs:
+            f.result()
+    assert errors == []
+    assert env.req("GET", "/audit/verify", "compliance").json()["ok"] is True

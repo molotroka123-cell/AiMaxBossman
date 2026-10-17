@@ -1,0 +1,1928 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Bossman War & Procurement Terminal",
+  "description": "API v1. DEMO data is always marked demo=true.",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/api/v1/health": {
+   "get": {
+    "summary": "Health",
+    "operationId": "health_api_v1_health_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/capabilities": {
+   "get": {
+    "summary": "Capabilities",
+    "operationId": "capabilities_api_v1_capabilities_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/sources/status": {
+   "get": {
+    "summary": "Sources Status",
+    "operationId": "sources_status_api_v1_sources_status_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/ingest": {
+   "post": {
+    "summary": "Ingest",
+    "operationId": "ingest_api_v1_ingest_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/IngestIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/conflicts": {
+   "get": {
+    "summary": "Conflicts",
+    "operationId": "conflicts_api_v1_conflicts_get",
+    "parameters": [
+     {
+      "name": "region",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Region"
+      }
+     },
+     {
+      "name": "severity",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Severity"
+      }
+     },
+     {
+      "name": "since",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Since"
+      }
+     },
+     {
+      "name": "include_demo",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": true,
+       "title": "Include Demo"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/conflicts/import": {
+   "post": {
+    "summary": "Conflicts Import",
+    "operationId": "conflicts_import_api_v1_conflicts_import_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ConflictImport"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/conflicts/news": {
+   "get": {
+    "summary": "Conflict News",
+    "operationId": "conflict_news_api_v1_conflicts_news_get",
+    "parameters": [
+     {
+      "name": "query",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Query"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/tenders": {
+   "get": {
+    "summary": "Tenders",
+    "operationId": "tenders_api_v1_tenders_get",
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     },
+     {
+      "name": "complexity",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Complexity"
+      }
+     },
+     {
+      "name": "tier",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Tier"
+      }
+     },
+     {
+      "name": "jurisdiction",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Jurisdiction"
+      }
+     },
+     {
+      "name": "category",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Category"
+      }
+     },
+     {
+      "name": "country",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Country"
+      }
+     },
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Q"
+      }
+     },
+     {
+      "name": "include_demo",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": true,
+       "title": "Include Demo"
+      }
+     },
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 200,
+       "title": "Limit"
+      }
+     },
+     {
+      "name": "offset",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 0,
+       "title": "Offset"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/tenders/{key}/checklist": {
+   "get": {
+    "summary": "Checklist",
+    "operationId": "checklist_api_v1_tenders__key__checklist_get",
+    "parameters": [
+     {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/tenders/{key}": {
+   "get": {
+    "summary": "Tender Detail",
+    "operationId": "tender_detail_api_v1_tenders__key__get",
+    "parameters": [
+     {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/assessments": {
+   "post": {
+    "summary": "Create Assessment",
+    "operationId": "create_assessment_api_v1_assessments_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AssessIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/assessments/{aid}": {
+   "get": {
+    "summary": "Get Assessment",
+    "operationId": "get_assessment_api_v1_assessments__aid__get",
+    "parameters": [
+     {
+      "name": "aid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Aid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/assessments/{aid}/review": {
+   "post": {
+    "summary": "Review",
+    "operationId": "review_api_v1_assessments__aid__review_post",
+    "parameters": [
+     {
+      "name": "aid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Aid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ReviewIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/company/profile": {
+   "get": {
+    "summary": "Get Profile",
+    "operationId": "get_profile_api_v1_company_profile_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "patch": {
+    "summary": "Patch Profile",
+    "operationId": "patch_profile_api_v1_company_profile_patch",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProfilePatch"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/approvals": {
+   "get": {
+    "summary": "Approvals",
+    "operationId": "approvals_api_v1_approvals_get",
+    "parameters": [
+     {
+      "name": "status",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/approvals/{aid}/decide": {
+   "post": {
+    "summary": "Decide",
+    "operationId": "decide_api_v1_approvals__aid__decide_post",
+    "parameters": [
+     {
+      "name": "aid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Aid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DecideIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/finance/estimate": {
+   "post": {
+    "summary": "Finance Estimate",
+    "operationId": "finance_estimate_api_v1_finance_estimate_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FinanceIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/fx": {
+   "get": {
+    "summary": "Get Fx",
+    "operationId": "get_fx_api_v1_fx_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "summary": "Put Fx",
+    "operationId": "put_fx_api_v1_fx_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FxIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/suppliers": {
+   "get": {
+    "summary": "List Suppliers",
+    "operationId": "list_suppliers_api_v1_suppliers_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Add Supplier",
+    "operationId": "add_supplier_api_v1_suppliers_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SupplierIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/deals": {
+   "get": {
+    "summary": "List Deals",
+    "operationId": "list_deals_api_v1_deals_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Add Deal",
+    "operationId": "add_deal_api_v1_deals_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DealIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/deals/{did}/request-approval": {
+   "post": {
+    "summary": "Deal Approval",
+    "operationId": "deal_approval_api_v1_deals__did__request_approval_post",
+    "parameters": [
+     {
+      "name": "did",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Did"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/sanctions/import": {
+   "post": {
+    "summary": "Sanctions Import",
+    "operationId": "sanctions_import_api_v1_sanctions_import_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SanctionsIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/learning/decisions": {
+   "post": {
+    "summary": "Learn Decision",
+    "operationId": "learn_decision_api_v1_learning_decisions_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DecisionIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/learning/outcomes": {
+   "post": {
+    "summary": "Learn Outcome",
+    "operationId": "learn_outcome_api_v1_learning_outcomes_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OutcomeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/learning/calibration": {
+   "get": {
+    "summary": "Learn Cal",
+    "operationId": "learn_cal_api_v1_learning_calibration_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/learning/proposal": {
+   "get": {
+    "summary": "Learn Prop",
+    "operationId": "learn_prop_api_v1_learning_proposal_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/learning/proposal/apply": {
+   "post": {
+    "summary": "Learn Apply",
+    "operationId": "learn_apply_api_v1_learning_proposal_apply_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/learning/dataset": {
+   "get": {
+    "summary": "Learn Dataset",
+    "operationId": "learn_dataset_api_v1_learning_dataset_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "text/plain": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/audit/events": {
+   "get": {
+    "summary": "Audit Events",
+    "operationId": "audit_events_api_v1_audit_events_get",
+    "parameters": [
+     {
+      "name": "limit",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 100,
+       "title": "Limit"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/audit/verify": {
+   "get": {
+    "summary": "Audit Verify",
+    "operationId": "audit_verify_api_v1_audit_verify_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/actions/{name}": {
+   "post": {
+    "summary": "Forbidden",
+    "operationId": "forbidden_api_v1_actions__name__post",
+    "parameters": [
+     {
+      "name": "name",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Name"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "AssessIn": {
+    "properties": {
+     "tender_key": {
+      "type": "string",
+      "title": "Tender Key"
+     },
+     "dry_run": {
+      "type": "boolean",
+      "title": "Dry Run",
+      "default": true
+     },
+     "use_ai": {
+      "type": "boolean",
+      "title": "Use Ai",
+      "default": false
+     },
+     "back_to_back": {
+      "type": "boolean",
+      "title": "Back To Back",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "tender_key"
+    ],
+    "title": "AssessIn"
+   },
+   "ConflictImport": {
+    "properties": {
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/ConflictIn"
+      },
+      "type": "array",
+      "maxItems": 5000,
+      "minItems": 1,
+      "title": "Items"
+     }
+    },
+    "type": "object",
+    "required": [
+     "items"
+    ],
+    "title": "ConflictImport"
+   },
+   "ConflictIn": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "country": {
+      "type": "string",
+      "title": "Country"
+     },
+     "lat": {
+      "type": "number",
+      "maximum": 90.0,
+      "minimum": -90.0,
+      "title": "Lat"
+     },
+     "lon": {
+      "type": "number",
+      "maximum": 180.0,
+      "minimum": -180.0,
+      "title": "Lon"
+     },
+     "severity": {
+      "type": "string",
+      "pattern": "^(low|medium|high)$",
+      "title": "Severity"
+     },
+     "since": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Since"
+     },
+     "source_id": {
+      "type": "string",
+      "minLength": 2,
+      "title": "Source Id"
+     },
+     "source_url": {
+      "type": "string",
+      "pattern": "^https?://",
+      "title": "Source Url"
+     },
+     "licence": {
+      "type": "string",
+      "minLength": 2,
+      "title": "Licence"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "country",
+     "lat",
+     "lon",
+     "severity",
+     "source_id",
+     "source_url",
+     "licence"
+    ],
+    "title": "ConflictIn"
+   },
+   "DealIn": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "tender_key": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tender Key"
+     },
+     "buyer_country": {
+      "type": "string",
+      "title": "Buyer Country"
+     },
+     "goods": {
+      "type": "string",
+      "title": "Goods"
+     },
+     "cpv": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Cpv",
+      "default": []
+     },
+     "order_value": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Order Value"
+     },
+     "currency": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Currency"
+     },
+     "order_confirmed": {
+      "type": "boolean",
+      "title": "Order Confirmed",
+      "default": false
+     },
+     "supplier": {
+      "$ref": "#/components/schemas/SupplierIn"
+     },
+     "supplier_contract_signed": {
+      "type": "boolean",
+      "title": "Supplier Contract Signed",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "buyer_country",
+     "goods",
+     "supplier"
+    ],
+    "title": "DealIn"
+   },
+   "DecideIn": {
+    "properties": {
+     "approve": {
+      "type": "boolean",
+      "title": "Approve"
+     },
+     "note": {
+      "type": "string",
+      "maxLength": 500,
+      "title": "Note",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "approve"
+    ],
+    "title": "DecideIn"
+   },
+   "DecisionIn": {
+    "properties": {
+     "tender_key": {
+      "type": "string",
+      "title": "Tender Key"
+     },
+     "decision": {
+      "type": "string",
+      "pattern": "^(go|no_go|watch)$",
+      "title": "Decision"
+     },
+     "reasons": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 3,
+      "title": "Reasons"
+     }
+    },
+    "type": "object",
+    "required": [
+     "tender_key",
+     "decision",
+     "reasons"
+    ],
+    "title": "DecisionIn"
+   },
+   "FinanceIn": {
+    "properties": {
+     "currency": {
+      "type": "string",
+      "title": "Currency",
+      "default": "USD"
+     },
+     "fx": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "type": "object",
+      "title": "Fx",
+      "default": {}
+     },
+     "purchase": {
+      "type": "number",
+      "title": "Purchase"
+     },
+     "freight": {
+      "type": "number",
+      "title": "Freight",
+      "default": 0
+     },
+     "insurance": {
+      "type": "number",
+      "title": "Insurance",
+      "default": 0
+     },
+     "duties_pct": {
+      "type": "number",
+      "title": "Duties Pct",
+      "default": 0
+     },
+     "certification": {
+      "type": "number",
+      "title": "Certification",
+      "default": 0
+     },
+     "financing": {
+      "type": "number",
+      "title": "Financing",
+      "default": 0
+     },
+     "risk_reserve_pct": {
+      "type": "number",
+      "title": "Risk Reserve Pct",
+      "default": 0
+     },
+     "overhead": {
+      "type": "number",
+      "title": "Overhead",
+      "default": 0
+     },
+     "bid_price": {
+      "type": "number",
+      "title": "Bid Price"
+     },
+     "supplier_prepay_pct": {
+      "type": "number",
+      "title": "Supplier Prepay Pct",
+      "default": 30
+     },
+     "delivery_day": {
+      "type": "integer",
+      "title": "Delivery Day",
+      "default": 30
+     },
+     "acceptance_day": {
+      "type": "integer",
+      "title": "Acceptance Day",
+      "default": 40
+     },
+     "customer_pay_delay_days": {
+      "type": "integer",
+      "title": "Customer Pay Delay Days",
+      "default": 30
+     },
+     "vat_import": {
+      "type": "number",
+      "title": "Vat Import",
+      "default": 0
+     },
+     "vat_recovery_days": {
+      "type": "integer",
+      "title": "Vat Recovery Days",
+      "default": 60
+     },
+     "logistics_cost": {
+      "type": "number",
+      "title": "Logistics Cost",
+      "default": 0
+     },
+     "buyer_prepay_pct": {
+      "type": "number",
+      "title": "Buyer Prepay Pct",
+      "default": 0
+     },
+     "annual_rate": {
+      "type": "number",
+      "title": "Annual Rate",
+      "default": 0.12
+     },
+     "capital_limit_usd": {
+      "type": "number",
+      "title": "Capital Limit Usd",
+      "default": 50000
+     },
+     "order_confirmed": {
+      "type": "boolean",
+      "title": "Order Confirmed",
+      "default": false
+     },
+     "supplier_contract_signed": {
+      "type": "boolean",
+      "title": "Supplier Contract Signed",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "purchase",
+     "bid_price"
+    ],
+    "title": "FinanceIn"
+   },
+   "FxIn": {
+    "properties": {
+     "rates": {
+      "additionalProperties": {
+       "type": "number"
+      },
+      "type": "object",
+      "title": "Rates"
+     },
+     "as_of": {
+      "type": "string",
+      "title": "As Of"
+     },
+     "source": {
+      "type": "string",
+      "minLength": 3,
+      "title": "Source"
+     }
+    },
+    "type": "object",
+    "required": [
+     "rates",
+     "as_of",
+     "source"
+    ],
+    "title": "FxIn"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "IngestIn": {
+    "properties": {
+     "source": {
+      "type": "string",
+      "pattern": "^(ted|sam|usaspending|gdelt|demo)$",
+      "title": "Source"
+     },
+     "days": {
+      "type": "integer",
+      "maximum": 365.0,
+      "minimum": 1.0,
+      "title": "Days",
+      "default": 30
+     },
+     "cpv_prefixes": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cpv Prefixes"
+     },
+     "country": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Country",
+      "default": "CZE"
+     },
+     "limit": {
+      "type": "integer",
+      "maximum": 200.0,
+      "minimum": 1.0,
+      "title": "Limit",
+      "default": 50
+     },
+     "keyword": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Keyword"
+     }
+    },
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "title": "IngestIn"
+   },
+   "OutcomeIn": {
+    "properties": {
+     "tender_key": {
+      "type": "string",
+      "title": "Tender Key"
+     },
+     "result": {
+      "type": "string",
+      "pattern": "^(won|lost|withdrawn|not_submitted)$",
+      "title": "Result"
+     },
+     "actual_margin_pct": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Actual Margin Pct"
+     },
+     "note": {
+      "type": "string",
+      "title": "Note",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "tender_key",
+     "result"
+    ],
+    "title": "OutcomeIn"
+   },
+   "ProfilePatch": {
+    "properties": {
+     "changes": {
+      "additionalProperties": true,
+      "type": "object",
+      "title": "Changes"
+     }
+    },
+    "type": "object",
+    "required": [
+     "changes"
+    ],
+    "title": "ProfilePatch"
+   },
+   "ReviewIn": {
+    "properties": {
+     "gate_id": {
+      "type": "string",
+      "title": "Gate Id"
+     },
+     "decision": {
+      "type": "string",
+      "pattern": "^(cleared|rejected)$",
+      "title": "Decision"
+     },
+     "note": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 5,
+      "title": "Note"
+     },
+     "legal_reference": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Legal Reference"
+     }
+    },
+    "type": "object",
+    "required": [
+     "gate_id",
+     "decision",
+     "note"
+    ],
+    "title": "ReviewIn"
+   },
+   "SanctionsIn": {
+    "properties": {
+     "entries": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 200000,
+      "minItems": 1,
+      "title": "Entries"
+     },
+     "source": {
+      "type": "string",
+      "minLength": 3,
+      "title": "Source"
+     },
+     "list_version": {
+      "type": "string",
+      "title": "List Version"
+     },
+     "as_of": {
+      "type": "string",
+      "title": "As Of"
+     }
+    },
+    "type": "object",
+    "required": [
+     "entries",
+     "source",
+     "list_version",
+     "as_of"
+    ],
+    "title": "SanctionsIn"
+   },
+   "SupplierIn": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 2,
+      "title": "Name"
+     },
+     "country": {
+      "type": "string",
+      "maxLength": 3,
+      "minLength": 2,
+      "title": "Country"
+     },
+     "cpv_prefixes": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Cpv Prefixes",
+      "default": []
+     },
+     "confirmed": {
+      "type": "boolean",
+      "title": "Confirmed",
+      "default": false
+     },
+     "source_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Source Url"
+     },
+     "notes": {
+      "type": "string",
+      "title": "Notes",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "country"
+    ],
+    "title": "SupplierIn"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  }
+ }
+}

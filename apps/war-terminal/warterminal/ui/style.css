@@ -1,0 +1,65 @@
+:root{color-scheme:dark;--bg:#07111f;--bg2:#091827;--card:#0d2032;--line:#24374f;--line2:#34516c;--txt:#e4edf9;--mut:#8fa5bf;--acc:#62c5f9;--ok:#4ce0ae;--warn:#ffcf71;--bad:#ff8b8b;--info:#aabefb;--btn:#102b43;--btnh:#1763a5}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,"Segoe UI",system-ui,Arial,sans-serif;font-size:14px}
+a{color:var(--acc)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.sr{position:absolute;left:-9999px}
+header.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--bg2)}
+header.top h1{font-size:17px;margin:0;white-space:nowrap}
+header.top h1 span{color:var(--acc)}
+.badge{display:inline-block;padding:4px 9px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap}
+.b-warn{color:var(--warn);background:#443215}.b-ok{color:var(--ok);background:#104536}.b-bad{color:var(--bad);background:#4d252a}.b-info{color:var(--info);background:#26365a}.b-grey{color:#b5c3d4;background:#2a3a4c}
+.wm{font-size:13px;padding:6px 12px;border:1px solid currentColor}
+.grow{flex:1}
+.mut{color:var(--mut)}
+input,select,textarea,button{font:inherit;background:var(--btn);color:var(--txt);border:1px solid var(--line2);padding:7px 9px;border-radius:7px}
+input[type=checkbox]{padding:0;width:auto}
+textarea{width:100%}
+button{cursor:pointer}button:hover:not(:disabled){background:var(--btnh)}
+button:disabled{opacity:.55;cursor:not-allowed}
+button.on{background:var(--btnh);border-color:var(--acc)}
+.layout{display:flex;min-height:calc(100vh - 56px)}
+nav#nav{width:200px;flex-shrink:0;background:#091725;border-right:1px solid var(--line);padding:12px 8px}
+nav#nav button{display:block;width:100%;text-align:left;border:0;background:none;color:#a7bbd3;padding:10px 12px;margin-bottom:2px}
+nav#nav button[aria-current=page]{background:#143459;color:#fff}
+#navsel{display:none;width:100%}
+main{flex:1;min-width:0;padding:14px}
+.grid{display:grid;gap:12px}
+.stats{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.two{grid-template-columns:1.5fr 1fr;margin-top:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.card h2{font-size:15px;margin:0 0 10px}
+.card h3{font-size:13px;margin:12px 0 6px;color:var(--mut)}
+.stat{font-size:26px;font-weight:750;color:var(--ok)}
+.stat.w{color:var(--warn)}.stat.b{color:var(--bad)}
+.state{padding:14px;border:1px dashed var(--line2);border-radius:8px;color:var(--mut)}
+.state.err{color:var(--bad);border-color:var(--bad);white-space:pre-wrap}
+.tw{overflow-x:auto;max-width:100%}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--mut);font-weight:600;white-space:nowrap}
+td,th{padding:8px 8px;border-bottom:1px solid #253a50;vertical-align:top}
+tr.row{cursor:pointer}tr.row:hover,tr.row:focus-visible,tr.sel{background:#153149}
+.bar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;align-items:center}
+.form{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
+.form label.chk{flex-direction:row;align-items:center;gap:6px}
+.map svg{width:100%;height:auto;display:block;background:radial-gradient(ellipse at 50% 50%,#163b56,#091927 75%);border-radius:8px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.safety{font-size:12px;color:var(--warn);margin-top:6px}
+.list{list-style:none;margin:0;padding:0}
+.list li{padding:7px 0;border-bottom:1px solid #253a50}
+.score{font-size:40px;font-weight:800;color:var(--ok)}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:3px 12px;font-size:13px}
+.kv dt{color:var(--mut)}.kv dd{margin:0;word-break:break-word}
+.msg{margin:8px 0;padding:8px 10px;border-radius:7px;white-space:pre-wrap;font-size:13px}
+.msg.ok{background:#104536;color:var(--ok)}.msg.err{background:#4d252a;color:var(--bad)}
+.detail{margin-top:12px}
+@media(max-width:950px){.two{grid-template-columns:1fr}}
+@media(max-width:700px){
+  nav#nav{display:none}#navsel{display:block}
+  .layout{display:block}main{padding:10px}
+  header.top{padding:8px 10px}header.top input[type=search]{width:100%}
+  .stat{font-size:21px}td,th{padding:6px 5px;font-size:12px}
+}
+[hidden]{display:none!important}

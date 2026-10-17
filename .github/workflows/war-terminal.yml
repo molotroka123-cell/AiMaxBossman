@@ -1,0 +1,33 @@
+name: war-terminal
+on:
+  push:
+    paths: ['apps/war-terminal/**', 'command-center/bcc/features/war_terminal.py', 'command-center/tests/test_war_terminal_proxy.py', '.github/workflows/war-terminal.yml']
+  pull_request:
+    paths: ['apps/war-terminal/**', 'command-center/bcc/features/war_terminal.py', '.github/workflows/war-terminal.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        py: ['3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '${{ matrix.py }}' }
+      - name: install
+        run: python -m pip install -e "apps/war-terminal[test]" httpx pytest
+      - name: war-terminal tests (offline, no network)
+        working-directory: apps/war-terminal
+        run: python -m pytest tests -q
+      - name: openapi is exportable
+        working-directory: apps/war-terminal
+        run: python -c "import json,tempfile; from warterminal.api import create_app; json.dumps(create_app(tempfile.mkdtemp()).openapi())"
+      - name: secrets scan (no keys in the app)
+        shell: bash
+        run: |
+          if grep -rEn "(sk-[A-Za-z0-9]{20,}|api[_-]?key *= *['\"][A-Za-z0-9]{16,})" apps/war-terminal --include=*.py --include=*.md --include=*.js --include=*.html; then echo "possible secret"; exit 1; fi
