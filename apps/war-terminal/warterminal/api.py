@@ -15,8 +15,8 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import API_VERSION, VERSION, ai as ai_mod, finance, learning, rules, scoring, sources
-from .connectors import cnb, demo as demo_conn, demo_conflicts, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
+from . import API_VERSION, VERSION, ai as ai_mod, finance, geo, learning, rules, scoring, sources
+from .connectors import cnb, cz, demo as demo_conn, demo_conflicts, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
 from .store import Store, now
 
 ROLE_RANK = {"viewer": 0, "analyst": 1, "compliance": 2, "owner": 3}
@@ -47,7 +47,7 @@ def _load_tokens(data_dir: Path) -> dict[str, str]:
 
 
 class IngestIn(BaseModel):
-    source: str = Field(pattern=r"^(ted|sam|usaspending|gdelt|worldbank|demo)$")
+    source: str = Field(pattern=r"^(ted|sam|usaspending|gdelt|worldbank|cz|demo)$")
     days: int = Field(default=30, ge=1, le=365)
     cpv_prefixes: list[str] | None = None
     country: str | None = None              # None = all countries (owner: Czech company, whole world)
@@ -309,6 +309,20 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             audit(role, "ingest.ted", {"fetched": len(docs), "new": new, "updated": upd, "snapshot": digest, "query": req["query"]})
             return {"source": "ted", "fetched": len(docs), "new": new, "updated": upd, "duplicates": len(docs) - new - upd,
                     "snapshot_sha256": digest, "snapshot_new": fresh, "total_available": raw.get("totalNoticeCount")}
+        if body.source == "cz":
+            # Owner decision 17.10.2026: enable the ISVZ open-data monthly export despite robots.txt "Disallow: /".
+            # Only the documented ZIP is downloaded (no HTML pages), one file per month, identified User-Agent.
+            req, raw = cz.fetch(download, days=body.days, limit=body.limit, today=_day())
+            sid, digest, fresh = store.save_snapshot("cz_nen", cz.PAGE, raw)
+            docs = cz.normalize_all(raw, t0, digest, _day())
+            new = upd = 0
+            for d in docs:
+                _, version, changed = store.upsert_tender(d)
+                new += changed and version == 1
+                upd += changed and version > 1
+            store.kv_set("last:cz_nen", {"at": t0, "count": len(docs)})
+            audit(role, "ingest.cz", {"fetched": len(docs), "new": new, "updated": upd, "snapshot": digest, "owner_decision": "2026-10-17 enable despite robots.txt"})
+            return {"source": "cz", "fetched": len(docs), "new": new, "updated": upd, "duplicates": len(docs) - new - upd, "snapshot_sha256": digest}
         if body.source == "worldbank":
             req, raw = worldbank.fetch(get, query=body.keyword, rows=body.limit, today=_day(),
                                        country=(rules.country2(body.country) if body.country else None))
@@ -380,6 +394,36 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         if items is None:
             return {"status": "NOT_RUN", "items": [], "message": "новости не загружены: POST /ingest {source:gdelt, keyword}"}
         return {"status": "OK", "items": items, "disclaimer": "упоминания в СМИ, не подтверждённые события"}
+
+    # ------------------------------------------------------------------ map layers (country choropleth)
+    @app.get(f"{P}/map/layers")
+    def map_layers(include_demo: bool = False, _=Depends(viewer)):
+        countries: dict[str, dict] = {}
+        unmapped_conflicts, unmapped_tenders = [], 0
+
+        def row(iso3):
+            return countries.setdefault(iso3, {"open_tenders": 0, "tenders": 0, "conflict_deaths": 0, "conflict_events": 0, "severity": None, "conflict_year": None})
+        for t in store.latest_tenders():
+            if t.get("demo") and not include_demo:
+                continue
+            iso3 = geo.to_iso3(t.get("country"))
+            if not iso3:
+                unmapped_tenders += 1
+                continue
+            r = row(iso3)
+            r["tenders"] += 1
+            r["open_tenders"] += t.get("status") == "open"
+        for c in store.kv_get("conflicts", []):
+            iso3 = geo.to_iso3(c.get("country"))
+            if not iso3:
+                unmapped_conflicts.append(c.get("country"))
+                continue
+            r = row(iso3)
+            r.update(conflict_deaths=r["conflict_deaths"] + int(c.get("deaths") or 0), conflict_events=r["conflict_events"] + int(c.get("events") or 0),
+                     severity=c.get("severity"), conflict_year=c.get("since"))
+        return {"countries": countries, "unmapped_conflicts": sorted(set(unmapped_conflicts)), "unmapped_tenders": unmapped_tenders,
+                "geometry": "/ui/vendor/countries-110m.geojson", "geometry_source": geo.index()["source"],
+                "conflict_source": (store.kv_get("conflicts") or [{}])[0].get("source_id"), "note": "страны закрашиваются по данным; без данных — серым"}
 
     # ------------------------------------------------------------------ tenders
     @app.get(f"{P}/tenders")

@@ -96,3 +96,14 @@ def test_conflicts_fetch_gives_a_real_sourced_layer(tmp_path):
     assert c["acd"]["year"] == 2024 and len(c["acd"]["items"]) == 2
     rows = {s["id"]: s for s in e.req("GET", "/sources/status", "viewer").json()["sources"]}
     assert rows["ucdp"]["status"] == "LIVE" and rows["ofac"]["status"] == "NOT_RUN"
+
+
+def test_map_layers_join_tenders_and_ucdp_conflicts_by_iso3(tmp_path):
+    e = env_live(tmp_path)
+    e.ingest_ted()
+    e.req("POST", "/conflicts/fetch", "compliance", json={})
+    m = e.req("GET", "/map/layers", "viewer").json()
+    c = m["countries"]
+    assert c["CZE"]["tenders"] >= 1 and c["UKR"]["conflict_deaths"] == 1500 and c["UKR"]["severity"] == "high"
+    assert c["MLI"]["conflict_deaths"] == 50 and c["RUS"]["tenders"] == 1          # "Russia (Soviet Union)" style names map too
+    assert m["unmapped_conflicts"] == [] and m["geometry"].endswith("countries-110m.geojson") and "Natural Earth" in m["geometry_source"]

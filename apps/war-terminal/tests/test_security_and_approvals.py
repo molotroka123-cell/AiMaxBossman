@@ -54,7 +54,7 @@ def test_sources_are_honest_about_status(tmp_path):
     assert {s["id"]: s for s in on.req("GET", "/sources/status", "viewer").json()["sources"]}["ted"]["status"] == "NOT_RUN"
     on.ingest_ted()
     st = {s["id"]: s for s in on.req("GET", "/sources/status", "viewer").json()["sources"]}
-    assert st["ted"]["status"] == "LIVE" and st["ted"]["last_count"] == 6 and st["cz_nen"]["status"] == "NOT_CONNECTED"
+    assert st["ted"]["status"] == "LIVE" and st["ted"]["last_count"] == 6 and st["cz_nen"]["status"] == "NOT_RUN" and st["eu_ft"]["status"] == "NOT_CONNECTED"
     h = on.c.get("/api/v1/health").json()
     assert h["mode"] == "LIVE" and h["watermark"] is None
 
