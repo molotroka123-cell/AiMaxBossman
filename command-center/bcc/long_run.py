@@ -6,8 +6,9 @@ default profile is unchanged (``mission_budget.DEFAULT_*``, free-only policy in
 
   * is switched on only by an owner-written file ``<data>/autonomy/long_run.json``
     (``python -m bcc.long_run enable``); nothing in the product creates it;
-  * admits exactly three paid model families through the free-only gate:
-    Mistral Large 4 (api.mistral.ai), GLM 5.3 Flash and Haiku 5.5 (OpenRouter);
+  * admits exactly four paid model families through the free-only gate:
+    Mistral Large 4 (api.mistral.ai), GLM 5.3 Flash, Haiku 5.5 and
+    DeepSeek V4.1 Flash (OpenRouter);
   * puts a per-provider DAILY cap on each (default and HARD maximum EUR 10 --
     the file can lower it, never raise it above ``HARD_MAX_EUR_PER_PROVIDER``);
   * reserves the worst case BEFORE the network call and settles after it, in
@@ -56,8 +57,17 @@ FAMILIES: dict[str, dict[str, Any]] = {
             "tokens": ("glm-5.3-flash",)},
     "haiku": {"label": "Haiku 5.5", "hosts": ("openrouter.ai",),
               "tokens": ("claude-haiku-5.5", "claude-5.5-haiku", "claude-haiku-5-5")},
+    # Owner 2026-10-17: DeepSeek V4.1 Flash, its OWN line, default EUR 2/day (not 10).
+    "deepseek": {"label": "DeepSeek V4.1 Flash", "hosts": ("openrouter.ai",),
+                 "tokens": ("deepseek/deepseek-v4.1-flash",), "default_cap_eur": 2.0},
 }
 PROVIDERS = tuple(FAMILIES)
+
+
+def default_cap(provider: str) -> float:
+    """Per-family default cap; a family may default LOWER than DEFAULT_CAP_EUR."""
+    return min(float(FAMILIES[provider].get("default_cap_eur", DEFAULT_CAP_EUR)),
+               HARD_MAX_EUR_PER_PROVIDER)
 
 
 class LongRunRefused(Exception):
@@ -98,7 +108,7 @@ def load_profile(root: str | os.PathLike | None = None) -> dict:
     Fail closed: a malformed file, a non-true ``enabled`` or a bad cap never
     widens anything; a bad cap falls back to the default (not to "unlimited")
     and every cap is clamped to ``HARD_MAX_EUR_PER_PROVIDER``."""
-    out = {"enabled": False, "caps_eur_per_day": {p: DEFAULT_CAP_EUR for p in PROVIDERS}}
+    out = {"enabled": False, "caps_eur_per_day": {p: default_cap(p) for p in PROVIDERS}}
     try:
         raw = json.loads(profile_path(root).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -124,7 +134,7 @@ def write_profile(*, enable: bool, caps: dict | None = None,
                   root: str | os.PathLike | None = None) -> dict:
     """Owner action (CLI). Caps above the hard maximum are clamped, not stored."""
     body = {"enabled": bool(enable),
-            "caps_eur_per_day": {p: min(float((caps or {}).get(p, DEFAULT_CAP_EUR)),
+            "caps_eur_per_day": {p: min(float((caps or {}).get(p, default_cap(p))),
                                         HARD_MAX_EUR_PER_PROVIDER) for p in PROVIDERS},
             "written_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "note": "owner-written; delete the file or set enabled=false to return to the default profile"}
@@ -359,7 +369,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     en = sub.add_parser("enable", help="write the owner profile")
     for p in PROVIDERS:
-        en.add_argument(f"--{p}", type=float, default=DEFAULT_CAP_EUR,
+        en.add_argument(f"--{p}", type=float, default=default_cap(p),
                         help=f"EUR/day cap for {FAMILIES[p]['label']} (max {HARD_MAX_EUR_PER_PROVIDER})")
     sub.add_parser("disable", help="return to the default profile")
     sub.add_parser("status", help="profile, STOP and today's ledger as JSON")

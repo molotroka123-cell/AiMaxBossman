@@ -90,11 +90,11 @@ def test_enabled_admits_exactly_the_three_approved_families_on_their_hosts(root)
 def test_caps_are_clamped_to_the_hard_maximum(root):
     long_run.write_profile(enable=True, caps={"glm": 500, "haiku": 3.5, "mistral": -1}, root=root)
     caps = long_run.load_profile(root)["caps_eur_per_day"]
-    assert caps == {"mistral": 10.0, "glm": 10.0, "haiku": 3.5}
+    assert caps == {"mistral": 10.0, "glm": 10.0, "haiku": 3.5, "deepseek": 2.0}
     # a hand-edited file cannot exceed the maximum either
     long_run.profile_path(root).write_text(json.dumps(
         {"enabled": True, "caps_eur_per_day": {"glm": 99999, "haiku": "x", "mistral": True}}), encoding="utf-8")
-    assert long_run.load_profile(root)["caps_eur_per_day"] == {"mistral": 10.0, "glm": 10.0, "haiku": 10.0}
+    assert long_run.load_profile(root)["caps_eur_per_day"] == {"mistral": 10.0, "glm": 10.0, "haiku": 10.0, "deepseek": 2.0}
 
 
 # ----------------------------------------------------------------- per-call enforcement
@@ -196,7 +196,7 @@ def test_long_run_mission_limits_are_larger_but_finite(root):
 
 def test_cli_roundtrip(root, capsys):
     assert long_run.main(["--root", str(root), "enable", "--glm", "7", "--haiku", "20", "--mistral", "1.5"]) == 0
-    assert long_run.load_profile(root)["caps_eur_per_day"] == {"mistral": 1.5, "glm": 7.0, "haiku": 10.0}
+    assert long_run.load_profile(root)["caps_eur_per_day"] == {"mistral": 1.5, "glm": 7.0, "haiku": 10.0, "deepseek": 2.0}
     long_run.main(["--root", str(root), "stop", "--reason", "t"])
     assert (root / "STOP").is_file()
     long_run.main(["--root", str(root), "resume"])
@@ -216,3 +216,31 @@ def test_price_units_registry_per_million_vs_orchestrator_per_token():
     a = long_run.estimate_worst_case_eur(reg, msgs, 1000)
     b = long_run.estimate_worst_case_eur(orch, msgs, 1000)
     assert a == pytest.approx(b) and 0 < a < 0.001
+
+
+# ----------------------------------------------------------------- deepseek: its own line, default 2.0
+def test_deepseek_is_its_own_family_with_default_cap_two(root):
+    assert long_run.classify("deepseek/deepseek-v4.1-flash", OR) == "deepseek"
+    assert long_run.classify("deepseek/deepseek-v4.1-flash-1017", OR) == "deepseek"
+    assert long_run.classify("deepseek/deepseek-v4.1-flash", "https://evil.example/v1") is None
+    assert long_run.classify("deepseek/deepseek-r1", OR) is None            # other DeepSeek models not approved
+    assert long_run.classify("deepseek/deepseek-v4.1-flash:free", OR) is None
+    # a profile file written before this line existed gets 2.0, never the generic 10
+    long_run.profile_path(root).parent.mkdir(parents=True, exist_ok=True)
+    long_run.profile_path(root).write_text(json.dumps(
+        {"enabled": True, "caps_eur_per_day": {"glm": 2, "haiku": 2, "mistral": 0}}), encoding="utf-8")
+    assert long_run.load_profile(root)["caps_eur_per_day"]["deepseek"] == 2.0
+    assert free_only_refusal(prov(OR), model("deepseek/deepseek-v4.1-flash", 0.15, 0.6)) == ""
+
+
+async def test_deepseek_cap_refuses_and_does_not_touch_glm_line(root):
+    long_run.write_profile(enable=True, caps={"glm": 2.0, "haiku": 2.0, "mistral": 0.0, "deepseek": 0.001}, root=root)
+    inner = Inner(cost=0.0)
+    g = GovernedAdapter(inner, prov(OR), model("deepseek/deepseek-v4.1-flash", 0.15, 0.6))
+    with pytest.raises(ProviderError) as ei:
+        await g.chat("deepseek/deepseek-v4.1-flash", [{"role": "user", "content": "x" * 5000}], max_tokens=4000)
+    assert ei.value.kind == "budget" and inner.calls == 0
+    inner2 = Inner(cost=0.001)
+    g2 = GovernedAdapter(inner2, prov(OR), model("z-ai/glm-5.3-flash"))
+    await g2.chat("z-ai/glm-5.3-flash", [{"role": "user", "content": "hi"}], max_tokens=10)
+    assert inner2.calls == 1
