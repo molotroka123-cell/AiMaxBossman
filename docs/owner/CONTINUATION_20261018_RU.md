@@ -40,3 +40,26 @@
 
 ## Деньги
 Лимиты в `autonomy\long_run.json`: DeepSeek 2, GLM 2, Haiku 2, Mistral 0 (в день). 17.10 потрачено: DeepSeek 0,125 $.
+
+## Дополнение 17.10, вторая половина дня
+
+**Автозапуск теперь из исходников.** `C:\Users\asd\Bossman\one-bossman\owner_one_bossman.py` получил флаги `launch … --src <command-center> --python <Python312>` (копия до правки: `owner_one_bossman.py.bak-20261017-src`, файл вне git). Задачи `BossmanOne-1-Backend`, `-2-Jeff`, `-3-Companion` запускают код из `wt-checkpoint-20261015\command-center` системным Python 3.12. Пульт после убийства старого поллера ~40 с отвечает CONFLICT — просто перезапустить.
+
+**Разгрузка:** Джефф на паузе (`one-bossman\hold-jeff`), Ollama-модели выгружены. Снять: `owner_one_bossman.py launch jeff --home … --data-dir … --src … --python …`.
+
+**Мобильное :8840 отдаёт СТАРУЮ копию UI** (`/m/app.js` без `sideFor`). Найти, откуда запущен `python -m bossmobile`, перезапустить из `apps/bossman-mobile` с сохранением входа.
+
+**Ветка `wip/ref-tags-20261017` (c8faf987, на GitHub, НЕ в main, не проверена):** формат/размер по референсу («как у фото W×H») для edit-фото и видео; @-отсылки (@1, @2 → «image 1/2») — `bcc/direct_gen/ref_tags.py`, `bossmobile/reftags.py`, правки `sdcli.py`, `service.py`, `features/direct_gen.py`. Агент остановлен до тестов.
+
+**Пульт** очищен владельцем (всё младше 48 ч). Получатель один (`assert len(people) == 1`).
+
+**«Гречка»** — открывать только по прямой просьбе. Файлы без расширений (29 jpg + 10 mp4); `grechka-retrieve.ps1` надо научить ставить расширение.
+
+**Облачные uncensored** — ждут «да» + лимит: Atlas Cloud (Wan 2.2 Turbo Spicy ~0,02 $/ролик, Seedance 1.5 Pro Spicy ~0,049 $), Venice (фото), OpenRouter Venice Uncensored (текст, free). Личные фото в облако нельзя. Альтернатива — uncensored-доработки Wan 2.2 локально.
+
+## Промпт на 18.10
+
+> Продолжаем Bossman. Прочитай `docs/owner/CONTINUATION_20261018_RU.md`. Проверь после включения: бэкенд :8801 (из исходников, BCC_DATA_DIR), пульт, мобильное :8840; Джефф на паузе — без моей команды не поднимать. Затем:
+> 1. **Мобильное приложение:** перезапусти из worktree (свежий UI); доведи `wip/ref-tags-20261017` — тесты, живой короткий прогон edit с @1/@2 при свободной GPU, скриншот 390px, потом в main.
+> 2. **Агент с телефона, этап 2:** убрать `bypassPermissions` у Claude/Codex в пульте и у задач `BossmanClaudeRemote`, `BossmanNightAutonomy`; одноразовый `/work_yes`; отсекать чужих на входе; один STOP = stop-all. Каждый шаг: тест → живая проверка из Telegram → отчёт в пульт.
+> 3. Отчёты только мне в пульт, с экономией vs облако. Платное — только с моим «да».
