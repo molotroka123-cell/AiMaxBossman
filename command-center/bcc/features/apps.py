@@ -368,6 +368,9 @@ async def _collect_fresh() -> list[dict[str, Any]]:
         if app["id"] == "file-commander-mini":
             # Same-origin session authentication. Never expose the child token.
             card["view_url"] = "/api/apps/file-commander-mini/view/"
+        elif app["id"] == "bossman-accountant":
+            # 127.0.0.1:<port> means "the phone itself" for a remote viewer, so the iframe got an empty frame.
+            card["view_url"] = "/api/apps/bossman-accountant/view/"
         result.append(card)
     result.sort(key=lambda a: (a["order"], a["name"]))
     _cache.update({"at": now, "apps": result})

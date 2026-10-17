@@ -1109,6 +1109,77 @@ async def file_commander_view(app_path: str, request: Request) -> Response:
                                   "message": "File Commander is not responding; refresh Apps and start it again"}) from exc
 
 
+_ACCOUNTANT_GET = {"", "health", "capabilities", "metrics", "api/transactions", "api/jobs", "api/audit",
+                   "api/reports/pnl", "api/reports/cashflow", "api/reports/owner-digest", "api/reports/health-score",
+                   "api/reports/anomalies", "api/reports/explain-cash", "api/reports/compare"}
+_ACCOUNTANT_POST = {"api/transactions/import", "api/transactions/import-csv", "api/jobs", "api/forecast/what-if",
+                    "api/reconcile"}
+_ACCOUNTANT_ID = re.compile(r"api/jobs/[A-Za-z0-9-]{1,64}(/cancel|/artifacts)?")
+
+
+@router.api_route("/apps/bossman-accountant/view/{app_path:path}", methods=["GET", "POST"])
+async def accountant_view(app_path: str, request: Request) -> Response:
+    """Bossman Accountant UI for a viewer that is NOT on this PC (the phone, through Bossman Mobile).
+
+    The app listens on 127.0.0.1 only, so its own URL is empty on the phone. This route is the same-origin door:
+    BCC session auth (and CSRF on POST, enforced by the router dependency), a fixed allowlist of the app's own
+    paths, one fixed upstream (loopback port from the reviewed manifest), no redirects, no headers or credentials
+    from the browser, bounded sizes. Writes also need the owner's apps-control policy, like File Commander.
+    """
+    is_get = request.method == "GET"
+    if is_get:
+        valid = app_path in _ACCOUNTANT_GET or bool(_ACCOUNTANT_ID.fullmatch(app_path))
+    else:
+        valid = app_path in _ACCOUNTANT_POST or bool(re.fullmatch(r"api/jobs/[A-Za-z0-9-]{1,64}/cancel", app_path))
+    if not valid:
+        raise HTTPException(404, "Bossman Accountant operation not found")
+    svc = request.app.state.svc
+    if not is_get:
+        await _require_enabled(svc)
+    app_dir, card = _require_app("bossman-accountant")
+    if not app_path:
+        # UI bytes come from the reviewed package, never from the port: a foreign process that grabbed 8910 must
+        # not become script running in the BCC origin (same rule as File Commander).
+        path = app_dir / "src" / "bossman_accountant" / "ui.html"
+        if not path.is_file():
+            raise HTTPException(503, "Bossman Accountant packaged UI is missing; repair the installation")
+        html = path.read_text(encoding="utf-8")
+        scripts = re.findall(r"<script>([\s\S]*?)</script>", html)
+        if len(scripts) != 1:
+            raise HTTPException(503, "Bossman Accountant packaged UI is invalid")
+        digest = base64.b64encode(hashlib.sha256(scripts[0].encode()).digest()).decode()
+        return Response(html, media_type="text/html", headers={
+            "Content-Security-Policy": "default-src 'none'; script-src 'sha256-" + digest + "'; style-src 'unsafe-inline'; "
+                                       "connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; "
+                                       "object-src 'none'; frame-ancestors 'self'",
+            "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+    if not card.get("port"):
+        raise HTTPException(409, "Bossman Accountant has no configured port")
+    payload = bytearray()
+    async for part in request.stream():
+        payload.extend(part)
+        if len(payload) > 2 * 1024 * 1024:
+            raise HTTPException(413, "Bossman Accountant request is too large")
+    target = "/" + app_path
+    if request.url.query:
+        target += "?" + request.url.query
+    url = httpx.URL(f"http://127.0.0.1:{card['port']}" + target)
+    try:
+        async with httpx.AsyncClient(timeout=30, trust_env=False, follow_redirects=False) as client:
+            upstream = await client.request(request.method, url, content=bytes(payload) if payload else None,
+                                            headers={"Content-Type": "application/json"} if payload else None)
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, {"code": "ACCOUNTANT_UNAVAILABLE",
+                                  "message": "Bossman Accountant не отвечает: обновите «Приложения» и запустите его снова"}) from exc
+    body = upstream.content
+    if len(body) > _PROXY_MAX_BYTES:
+        raise HTTPException(502, "Bossman Accountant response exceeded its limit")
+    if 300 <= upstream.status_code < 400:
+        raise HTTPException(502, "Unexpected Bossman Accountant redirect")
+    headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+    return Response(body, status_code=upstream.status_code, media_type="application/json", headers=headers)
+
+
 async def _tick(svc) -> None:
     """Пока приложение работает, его журнал растёт. Здесь он остаётся в рамках,
     а записи об умерших процессах перестают врать про «запущено»."""
