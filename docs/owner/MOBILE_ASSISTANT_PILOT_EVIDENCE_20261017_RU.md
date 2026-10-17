@@ -39,6 +39,8 @@
 | Живой телефон → домашний Bossman runtime | NOT_RUN |
 | Реальное видимое управление мышью/клавиатурой | NOT_RUN |
 | Реальная проверка mobile/global STOP | NOT_RUN |
+| Прямой resume остановленной задачи из mobile chat | NOT_RUN; явной кнопки в chat view нет, panel path не проверен |
+| Push-уведомление PWA после закрытия/сна страницы | NOT_RUN; Web Push API не найден, текущий чат использует SSE/polling |
 | Реальный read-only Gmail сценарий с тестовым аккаунтом | NOT_RUN |
 | Уведомление о новом входящем письме | NOT_RUN |
 | Windows owner acceptance и ресурсный soak | NOT_RUN |
@@ -58,3 +60,5 @@
 - `tailscale serve status --json` показывает только HTTP listener на порту 80 для мобильного proxy `127.0.0.1:8840` и порт 8830; Funnel не настроен. GET на HTTPS/443 завершился `connection refused`.
 
 Это подтверждает, что мобильный HTTP-сервис отвечает через текущую tailnet URL с этого же ПК, а отдаваемые статические файлы совпадают с проверенным checkout; публикация не использует Funnel. Это **не** подтверждает запрос с реального телефона, успешное сопряжение, выполнение задания, фактическую отмену задачи, работу Gmail или совпадение запущенного backend с исходниками `e1f574b`. HTTPS listener не активен; браузерные возможности secure-context (в частности service worker) могут быть недоступны. Пока backend выдаёт `SOURCE_IDENTITY_UNKNOWN`, runtime/source SHA reconciliation остаётся блокером.
+
+По исходникам дополнительно подтверждено: chat view имеет `/threads/{id}/stop`, но явного мобильного действия `resume` нет; backend task action `resume` существует и доступен только через authenticated Bossman API, а мобильный full-panel путь не проверен. Мобильные task results доставляются SSE плюс опросом при открытой странице; service worker кэширует оболочку, Web Push не найден. Telegram-компаньон уведомляет по своим submitted proposals, но связь этих уведомлений с mobile-created tasks не подтверждена.
