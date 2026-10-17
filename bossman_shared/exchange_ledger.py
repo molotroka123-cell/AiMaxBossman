@@ -120,6 +120,43 @@ def period_report(deals: list[Deal], start: datetime, end: datetime) -> dict:
             "deals": sum(r["deals"] for r in pairs), "pairs": pairs}
 
 
+def render_report(rep: dict, rejected: list[Rejected], flagged: list[dict]) -> str:
+    """Текст отчёта для владельца обменника: цифры, отвергнутые строки и спорные комиссии."""
+    lines = [f"Отчёт за период {rep['start']} — {rep['end']}", f"Сделок: {rep['deals']}"]
+    for p in rep["pairs"]:
+        lines.append(f"{p['asset']}/{p['currency']}: сделок {p['deals']}, куплено {p['bought']}, продано {p['sold']}, "
+                     f"выплачено {p['paid_out']}, получено {p['received']}, движение денег {p['cash_flow']}, "
+                     f"позиция {p['net_position']}, комиссии {p['fees']}")
+    if rep["deals"] == 0:
+        lines.append("В периоде сделок нет.")
+    lines.append(f"Отвергнуто строк: {len(rejected)}")
+    lines += [f"  строка {r.line}: {r.reason}" for r in rejected]
+    lines.append(f"Комиссия расходится со ставкой: {len(flagged)}")
+    lines += [f"  {f['ts']} {f['asset']}: факт {f['fee']}, по ставке {f['expected']}" for f in flagged]
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+    ap = argparse.ArgumentParser(description="Отчёт обменника за период по CSV сделок")
+    ap.add_argument("csv_path")
+    ap.add_argument("--start", required=True, help="ISO-дата начала (UTC), например 2026-10-01")
+    ap.add_argument("--end", required=True, help="ISO-дата конца, не включительно")
+    ap.add_argument("--fee-pct", default="", help="договорная ставка комиссии в %% для сверки")
+    args = ap.parse_args(argv)
+    with open(args.csv_path, encoding="utf-8-sig", newline="") as fh:
+        imp = parse_csv(fh.read())
+
+    def day(s: str) -> datetime:
+        d = datetime.fromisoformat(s)
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+    rep = period_report(imp.deals, day(args.start), day(args.end))
+    flagged = fee_check(imp.deals, Decimal(args.fee_pct)) if args.fee_pct else []
+    print(render_report(rep, imp.rejected, flagged))
+    return 1 if (imp.rejected and not imp.deals) else 0
+
+
 def fee_check(deals: list[Deal], rate_pct: Decimal, tolerance: Decimal = Decimal("0.01")) -> list[dict]:
     """Сделки, где комиссия отличается от notional*rate_pct/100 больше чем на tolerance."""
     bad = []
@@ -128,3 +165,7 @@ def fee_check(deals: list[Deal], rate_pct: Decimal, tolerance: Decimal = Decimal
         if abs(d.fee - expected) > tolerance:
             bad.append(dict(ts=d.ts.isoformat(), asset=d.asset, fee=d.fee, expected=expected))
     return bad
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

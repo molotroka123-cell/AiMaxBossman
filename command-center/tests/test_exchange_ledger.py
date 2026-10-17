@@ -66,3 +66,19 @@ def test_fee_check_flags_only_real_mismatches():
     # buy 30000 -> 30 (ок), sell 12200 -> 12.2 (ок), usdt 1000 -> 1 (факт 10, расхождение), 60000 -> 60 (ок)
     assert [f["asset"] for f in flagged] == ["USDT"]
     assert fee_check(deals, Decimal("0.1"), tolerance=Decimal("20")) == []
+
+
+def test_cli_end_to_end_reports_rejected_rows_and_fee_mismatch(tmp_path, capsys):
+    from bossman_shared.exchange_ledger import main
+    f = tmp_path / "deals.csv"
+    f.write_text(GOOD + "2026-10-03T11:00:00Z,hold,eth,1,3000,3,usd\n", encoding="utf-8")
+    assert main([str(f), "--start", "2026-10-01", "--end", "2026-11-01", "--fee-pct", "0.1"]) == 0
+    out = capsys.readouterr().out
+    assert "Сделок: 3" in out and "Отвергнуто строк: 1" in out and "USDT" in out.split("расходится")[1]
+
+
+def test_cli_exit_code_is_failure_when_every_row_is_rejected(tmp_path, capsys):
+    from bossman_shared.exchange_ledger import main
+    f = tmp_path / "bad.csv"
+    f.write_text(HEAD + "2026-10-01T09:30:00Z,hold,btc,1,60000,0,usd\n", encoding="utf-8")
+    assert main([str(f), "--start", "2026-10-01", "--end", "2026-11-01"]) == 1
