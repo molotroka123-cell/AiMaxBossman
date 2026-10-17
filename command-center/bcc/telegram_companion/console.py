@@ -81,7 +81,7 @@ class ConsoleMixin:
     def console_menu(self, person: Person):
         """Главный экран. Кнопки — те же opaque-токены, привязанные к человеку."""
         b = lambda label, cmd: self.button(person, label, cmd)  # noqa: E731
-        rows = [[b("📊 Статус", "/status"), b("🗂 Очередь", "/queue")],
+        rows = [[b("📊 Статус", "/status"), b("🗂 Очередь", "/queue"), b("🛰 Терминал", "/terminal")],
                 [b("📝 Новая задача", "/task"), b("✍️ Данные форм", "/inputs"),
                  b("✅ Подтвердить / ⛔ Отклонить", "/approvals")],
                 [b("📸 Экран", "/screen"), b("🚀 Открыть приложение/папку", "/open"), b("🧬 Boost (/boost)", "/boost")],

@@ -124,7 +124,7 @@ class Store:
                        "/imgmodel", "/edit_engine", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
                        "/screen", "/diag", "/lessons", "/bossman", "/style", "/speed", "/gen_cancel",
                        "/presets", "/identitylock", "/poseonly", "/studioquality", "/cleanup", "/outfitonly",
-                       "/poker_app",
+                       "/poker_app", "/terminal",
                        "/evolution_status", "/evolution_start", "/evolution_pause",
                        "/evolution_resume", "/evolution_stop", "/evolution_report",
                        "/pc", "/argon", "/jarvis", "/pc_status", "/pc_audit", "/procs", "/kill",

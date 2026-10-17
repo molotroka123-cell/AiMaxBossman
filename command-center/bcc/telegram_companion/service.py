@@ -23,6 +23,7 @@ from .operator_bridge import WORK_COMMANDS, OperatorBridgeMixin
 from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .pc_agent_bridge import PC_AGENT_COMMANDS, PCAgentBridgeMixin, pc_phrase
 from .poker_app_bridge import POKER_APP_COMMANDS, poker_app_text
+from .war_terminal_button import TERMINAL_COMMANDS, terminal_text
 from .gen_refine import GEN_COMMANDS, GenRefineMixin, gen_intent, gen_phrase, photo_kind, safety_violation
 from .gen_progress import GenProgressPlate
 from .store import Store
@@ -1184,6 +1185,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             return Reply(title, self.main_menu(person))
         if command in POKER_APP_COMMANDS:
             return poker_app_text(person, arg)
+        if command in TERMINAL_COMMANDS:
+            return terminal_text(person)
         if command == "/jev":
             return await self.jev_command(person, arg, message)
         if command in GEN_COMMANDS:

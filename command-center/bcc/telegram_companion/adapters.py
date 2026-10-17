@@ -199,12 +199,30 @@ def split_message(text: str, limit: int = 3500, max_parts: int = 5) -> list[str]
     return parts
 
 
+def _link_ok(data: dict) -> bool:
+    """Exactly one of url (http/https) or web_app.url (https only, as Telegram requires)."""
+    if set(data) == {"url"}:
+        url = data["url"]
+        return isinstance(url, str) and url.startswith(("http://", "https://")) and len(url) <= 512
+    if set(data) == {"web_app"} and isinstance(data["web_app"], dict) and set(data["web_app"]) == {"url"}:
+        url = data["web_app"]["url"]
+        return isinstance(url, str) and url.startswith("https://") and len(url) <= 512
+    return False
+
+
 def markup(keyboard) -> dict:
-    """[[(label, callback_data), ...], ...] -> InlineKeyboardMarkup (data <= 64 bytes)."""
+    """[[(label, callback_data), ...], ...] -> InlineKeyboardMarkup (data <= 64 bytes).
+
+    A button may instead carry {"url": "http(s)://..."} or {"web_app": {"url": "https://..."}} (link / Mini App).
+    """
     rows = []
     for row in keyboard[:8]:
-        buttons = [{"text": str(label)[:40], "callback_data": data} for label, data in row[:4]
-                   if isinstance(data, str) and 0 < len(data.encode()) <= 64]
+        buttons = []
+        for label, data in row[:4]:
+            if isinstance(data, str) and 0 < len(data.encode()) <= 64:
+                buttons.append({"text": str(label)[:40], "callback_data": data})
+            elif isinstance(data, dict) and _link_ok(data):
+                buttons.append({"text": str(label)[:40], **data})
         if buttons:
             rows.append(buttons)
     return {"inline_keyboard": rows}

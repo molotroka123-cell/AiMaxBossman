@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .config import CompanionError, Person
 from .console import APPROVE_TTL_S, CONSOLE_OFF, NONCE_RE, _short
+from .war_terminal_button import terminal_button
 
 PC_AGENT_COMMANDS = {
     "/argon",
@@ -162,8 +163,8 @@ class PCAgentBridgeMixin:
              b("🌿 Fresh Vibes", "/fresh_vibes")],
             [b("💰 Earn (/earn)", "/earn"),
              b("♠️ Покер", "/poker"),
-             b("🎬 Студия", "/studio_check"),
-             b("🧬 Boost", "/boost")],
+             terminal_button(),
+             b("🎬 Студия", "/studio_check")],
             [b("🧊 Blender 3D", "/blender"),
              b("📈 Fincept", "/fincept"),
              b("🦞 Vibe-Trade", "/vibe_trade"),
@@ -174,7 +175,8 @@ class PCAgentBridgeMixin:
              b("🪟 Окна", "/windows")],
             [b("🖥 Железо", "/sys"),
              b("📸 Экран (T0)", "/argon покажи скриншот экрана и открытые окна"),
-             b("🧩 Службы", "/services")],
+             b("🧩 Службы", "/services"),
+             b("🧬 Boost", "/boost")],
             [b("🔓 Доверие T2 (15м)", "/trust 15"),
              b("🔒 Снять T2", "/untrust")],
             [b("📜 Журнал", "/pc_audit 5"),
@@ -222,8 +224,8 @@ class PCAgentBridgeMixin:
                 rows.append([
                     b("🚀 5 столпов", "/product"),
                     b("♠️ Покер", "/poker"),
+                    terminal_button(),
                     b("🎬 Студия", "/studio_check"),
-                    b("🧬 Boost", "/boost"),
                 ])
         rows.append([
             b("📜 Журнал", "/pc_audit 5"),
