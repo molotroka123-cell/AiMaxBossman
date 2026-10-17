@@ -68,7 +68,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 # CONFIG
 # ═══════════════════════════════════════════════════════════════════════════════
 BOT_TOKEN  = os.environ["BOT_TOKEN"]  # обязательная переменная окружения
-ADMIN_IDS  = list(map(int, os.getenv("ADMIN_IDS", "386321847").split(",")))
+ADMIN_IDS  = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]  # set ADMIN_IDS in the env; no personal id in the repo
 DB_PATH    = os.getenv("DB_PATH", "swapme.db")
 XE_API_ID  = os.getenv("XE_API_ID", "")
 XE_API_KEY = os.getenv("XE_API_KEY", "")
