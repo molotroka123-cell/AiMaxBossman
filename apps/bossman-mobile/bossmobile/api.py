@@ -10,6 +10,7 @@ No approval is ever decided here without the owner's explicit tap (POST /m/api/a
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
 import json
 import mimetypes
@@ -30,6 +31,7 @@ from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
 from .policy import is_photo_model, local_agents, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
+from . import video, video_timing
 from .timing import from_history, queue_view, step_range, timing_for
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -123,10 +125,12 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             resp.headers.setdefault("X-Frame-Options", "DENY")
             resp.headers.setdefault("Content-Security-Policy",
                                     "default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; "
-                                    "connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
+                                    "connect-src 'self'; media-src 'self' blob:; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
                                     "form-action 'self'")
             if p.startswith("/m/api/") or p.endswith("sw.js"):
                 resp.headers["Cache-Control"] = "no-store"
+            elif p in ("/m/", "/m/index.html") or p.endswith((".js", ".css", ".webmanifest")):
+                resp.headers["Cache-Control"] = "no-cache"   # revalidate (ETag): phones get a new shell at once
         return resp
 
     # ------------------------------------------------------------------ helpers
@@ -202,6 +206,51 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                                                                    "timing": timing_for(str(m.get("id")), hist)})
             return out
         return await cached("photo_models", 20, load)
+
+    async def history_all() -> dict[str, dict]:
+        try:
+            jobs = (await call("GET", "/api/direct-gen/jobs")).get("jobs") or []
+            return from_history(jobs) | video_timing.from_history(jobs)
+        except Exception:  # noqa: BLE001 - history is optional; the tables of earlier measurements still apply
+            return {}
+
+    async def video_catalog() -> dict:
+        async def load():
+            body, st, fs, hist = await asyncio.gather(
+                call("GET", "/api/direct-gen/models"), guarded_call("GET", "/api/direct-gen/status"),
+                guarded_call("GET", "/api/direct-gen/faceswap"), history_all())
+            models = [video.model_view(m, st, hist) for m in body.get("models") or []
+                      if isinstance(m, dict) and m.get("kind") == "video"]
+            models.sort(key=lambda m: (not m["ready"], not m["available"]))
+            q = st.get("queue") or {}
+            return {"models": models,
+                    "faceswap": video.faceswap_view(fs, hist) if fs else None,
+                    "gpu": {"busy": bool(q.get("running")), "waiting": q.get("waiting") or 0,
+                            "comfyui": (st.get("runtime") or {}).get("reachable"),
+                            "memory_free_gb": round((st.get("memory") or {}).get("free_mb", 0) / 1024, 1)
+                            if (st.get("memory") or {}).get("measured") else None}}
+        return await cached("video_catalog", 15, load)
+
+    async def guarded_call(method: str, path: str) -> dict:
+        try:
+            body = await call(method, path)
+            return body if isinstance(body, dict) else {}
+        except HTTPException:
+            return {}
+
+    async def vcall(method: str, path: str, **kw) -> Any:
+        """Bossman call for the video section: Bossman's error codes come back in Russian (original kept)."""
+        try:
+            return await call(method, path, **kw)
+        except HTTPException as exc:
+            d = exc.detail if isinstance(exc.detail, dict) else {}
+            code = d.get("code")
+            if code in video.ERRORS_RU:
+                msg = video.ERRORS_RU[code]
+                if code == "model_unavailable" and d.get("message"):
+                    msg += ": " + video.reason_ru(d["message"])
+                raise HTTPException(exc.status_code, {**d, "message": msg, "bossman": d.get("message")}) from None
+            raise
 
     def job_view(j: dict) -> dict:
         keep = ("job_id", "model", "kind", "status", "stage", "created_at", "started_at", "finished_at", "raw_prompt",
@@ -455,20 +504,31 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def p_cancel(job_id: str, _=Depends(session)):
         return await call("POST", f"/api/direct-gen/jobs/{_jid(job_id)}/cancel")
 
-    @app.get("/m/api/photo/jobs/{job_id}/file")
-    async def p_file(job_id: str, download: bool = False, _=Depends(session)):
+    EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm",
+           "video/quicktime": "mov", "video/x-matroska": "mkv", "image/gif": "gif"}
+
+    async def result_file(job_id: str, download: bool, request: Request) -> StreamingResponse:
+        """The finished file of a Bossman job, streamed. Range is passed through: iPhone Safari plays video only with
+        206 partial answers (Bossman's FileResponse supports them)."""
         jid = _jid(job_id)
+        rng = request.headers.get("range", "")
+        hdrs = {"range": rng} if re.fullmatch(r"bytes=\d*-\d*", rng) else None
         try:
-            r = await bm.send("GET", f"/api/direct-gen/jobs/{jid}/file", stream=True, timeout=120)
+            r = await bm.send("GET", f"/api/direct-gen/jobs/{jid}/file", headers=hdrs, stream=True, timeout=120)
         except BossmanUnavailable as exc:
             raise fail(502, str(exc), "BOSSMAN_UNAVAILABLE") from None
-        if r.status_code != 200:
+        if r.status_code not in (200, 206):
             await r.aread()
             await r.aclose()
-            raise fail(r.status_code, "файл недоступен")
+            raise fail(r.status_code if r.status_code != 416 else 416, "файл недоступен")
         mime = r.headers.get("content-type", "application/octet-stream")
-        ext = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4"}.get(mime.split(";")[0], "bin")
+        ext = EXT.get(mime.split(";")[0], "bin")
         disp = "attachment" if download else "inline"
+        out = {"Content-Disposition": f'{disp}; filename="bossman-{jid[:8]}.{ext}"', "Cache-Control": "private, max-age=86400",
+               "Accept-Ranges": "bytes"}
+        for k in ("content-range", "content-length"):
+            if r.headers.get(k):
+                out[k] = r.headers[k]
 
         async def gen():
             try:
@@ -477,8 +537,136 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             finally:
                 await r.aclose()
 
-        return StreamingResponse(gen(), media_type=mime, headers={
-            "Content-Disposition": f'{disp}; filename="bossman-{jid[:8]}.{ext}"', "Cache-Control": "private, max-age=86400"})
+        return StreamingResponse(gen(), status_code=r.status_code, media_type=mime, headers=out)
+
+    @app.get("/m/api/photo/jobs/{job_id}/file")
+    async def p_file(job_id: str, request: Request, download: bool = False, _=Depends(session)):
+        return await result_file(job_id, download, request)
+
+    # ------------------------------------------------------------------ video (Bossman Direct Generator + FaceFusion)
+    @app.get("/m/api/video/models")
+    async def v_models(_=Depends(session)):
+        return await video_catalog()
+
+    @app.get("/m/api/video/queue")
+    async def v_queue(_=Depends(session)):
+        """Read-only. Every active job of Bossman's ONE GPU queue (photo jobs too: they delay a video) + recent videos."""
+        body = await call("GET", "/api/direct-gen/jobs")
+        jobs = body.get("jobs") or []
+        try:
+            hist = from_history(jobs) | video_timing.from_history(jobs)
+        except Exception:  # noqa: BLE001
+            hist = {}
+        view = queue_view(jobs, hist, kinds={"photo", "video", "faceswap"}, done_kinds=video_timing.VIDEO_KINDS)
+        return {"jobs": [job_view(j) | {"ui": j["ui"]} for j in view]}
+
+    @app.get("/m/api/video/jobs")
+    async def v_jobs(_=Depends(session)):
+        body = await call("GET", "/api/direct-gen/jobs")
+        return {"jobs": [job_view(j) for j in body.get("jobs") or [] if j.get("kind") in video_timing.VIDEO_KINDS]}
+
+    async def read_upload(item: Any, limit: int, what: str) -> bytes | None:
+        if item is None or isinstance(item, str):
+            return None
+        data = bytearray()
+        while chunk := await item.read(1 << 20):
+            data += chunk
+            if len(data) > limit:
+                raise fail(413, f"{what}: файл больше {limit // 1048576} МБ", "BM_TOO_LARGE")
+        return bytes(data) or None
+
+    async def form_of(request: Request, files: int):
+        if not request.headers.get("content-type", "").startswith(("multipart/form-data", "application/x-www-form-urlencoded")):
+            raise fail(415, "нужна отправка формы с файлами", "BM_FORM")
+        try:
+            return await request.form(max_files=files, max_fields=24, max_part_size=64 * 1024)
+        except Exception as exc:  # noqa: BLE001 - malformed form from the phone
+            raise fail(400, f"не удалось прочитать форму ({type(exc).__name__})", "BM_FORM") from None
+
+    def num(form, key: str, kind=int):
+        raw = str(form.get(key) or "").strip()
+        if not raw:
+            return None
+        try:
+            return kind(raw)
+        except ValueError:
+            raise fail(422, f"{key}: нужно число", "BM_BAD_NUMBER") from None
+
+    @app.post("/m/api/video/jobs", status_code=202)
+    async def v_create(request: Request, _=Depends(session)):
+        form = await form_of(request, 2)
+        model_id = str(form.get("model") or "")
+        prompt = str(form.get("prompt") or "").strip()
+        negative = str(form.get("negative") or "")
+        if not 1 <= len(prompt) <= 8000 or len(negative) > 8000:
+            raise fail(422, "промпт: от 1 до 8000 символов", "BM_BAD_PROMPT")
+        cache.pop("video_catalog", None)               # decide on fresh availability (ComfyUI may have started)
+        spec = next((m for m in (await video_catalog())["models"] if m["id"] == model_id), None)
+        if spec is None:
+            raise fail(404, "такой видео-модели нет в Bossman", "BM_UNKNOWN_VIDEO_MODEL")
+        duration, steps, seed = num(form, "duration", float), num(form, "steps"), num(form, "seed")
+        if seed is not None and not 0 <= seed < 2**63:
+            raise fail(422, "сид должен быть целым неотрицательным числом", "BM_BAD_SEED")
+        resolution = str(form.get("resolution") or spec["default_resolution"])
+        image = await read_upload(form.get("image"), video.MAX_INPUT, "картинка")
+        audio = await read_upload(form.get("audio"), video.MAX_INPUT, "звук")
+        if image is not None and video.image_kind(image) is None:
+            raise fail(422, "картинка должна быть PNG или JPEG", "BM_BAD_IMAGE")
+        why = video.check_job(spec, resolution=resolution, duration=duration if duration is not None else 1.0,
+                              steps=steps, has_image=image is not None, has_audio=audio is not None)
+        if why:
+            raise fail(422, why, "BM_VIDEO_LIMIT")
+        payload: dict[str, Any] = {"model": model_id, "prompt": prompt, "negative": negative, "mode": "DIRECT",
+                                   "resolution": resolution, "duration": duration if duration is not None else 1.0}
+        if steps is not None:
+            payload["steps"] = steps
+        if seed is not None:
+            payload["seed"] = seed
+        if image is not None:
+            payload["image_b64"] = base64.b64encode(image).decode()
+        if audio is not None:
+            payload["audio_b64"] = base64.b64encode(audio).decode()
+        return job_view(await vcall("POST", "/api/direct-gen/jobs", json=payload, timeout=300))
+
+    @app.post("/m/api/video/swap", status_code=202)
+    async def v_swap(request: Request, _=Depends(session)):
+        form = await form_of(request, 1 + video.MAX_FACES)
+        cache.pop("video_catalog", None)
+        fs = (await video_catalog()).get("faceswap")
+        if not fs or not fs["available"]:
+            raise fail(409, (fs or {}).get("reason") or "замена лица сейчас недоступна", "BM_FACESWAP_UNAVAILABLE")
+        if str(form.get("consent") or "").lower() not in ("1", "true", "yes", "on"):
+            raise fail(422, "нужно подтвердить согласие человека на фото", "BM_CONSENT")
+        preset, frame = str(form.get("preset") or "fast"), str(form.get("frame") or "original")
+        if preset not in {p["id"] for p in fs["presets"]}:
+            raise fail(422, "нет такого пресета замены лица", "BM_BAD_PRESET")
+        if frame not in {f["id"] for f in fs["frames"]}:
+            raise fail(422, "кадр: «как в исходнике» или 16:9", "BM_BAD_FRAME")
+        clip = await read_upload(form.get("video"), video.MAX_SWAP_VIDEO, "видео")
+        if clip is None:
+            raise fail(422, "нужно исходное видео", "BM_NO_VIDEO")
+        faces = [f for f in form.getlist("faces") if not isinstance(f, str)]
+        if not 1 <= len(faces) <= video.MAX_FACES:
+            raise fail(422, f"нужно от 1 до {video.MAX_FACES} фото лица", "BM_FACES")
+        photos = [await read_upload(f, video.MAX_INPUT, "фото лица") for f in faces]
+        if any(p is None or video.image_kind(p) is None for p in photos):
+            raise fail(422, "фото лица должны быть PNG или JPEG", "BM_BAD_FACE")
+        payload = {"video_b64": base64.b64encode(clip).decode(), "faces_b64": [base64.b64encode(p).decode() for p in photos],
+                   "preset": preset, "frame": frame, "consent": True}
+        del clip, photos
+        return job_view(await vcall("POST", "/api/direct-gen/swap-jobs", json=payload, timeout=600))
+
+    @app.get("/m/api/video/jobs/{job_id}")
+    async def v_job(job_id: str, _=Depends(session)):
+        return job_view(await call("GET", f"/api/direct-gen/jobs/{_jid(job_id)}"))
+
+    @app.post("/m/api/video/jobs/{job_id}/cancel")
+    async def v_cancel(job_id: str, _=Depends(session)):
+        return await vcall("POST", f"/api/direct-gen/jobs/{_jid(job_id)}/cancel")
+
+    @app.get("/m/api/video/jobs/{job_id}/file")
+    async def v_file(job_id: str, request: Request, download: bool = False, _=Depends(session)):
+        return await result_file(job_id, download, request)
 
     @app.api_route("/m/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def m_api_unknown(rest: str):

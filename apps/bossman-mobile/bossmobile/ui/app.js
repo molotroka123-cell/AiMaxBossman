@@ -65,6 +65,7 @@
     document.querySelectorAll('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
     document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
     if (name === 'photo') openPhoto();
+    if (name === 'video') openVideo();
     if (name === 'panel') openPanel();
     if (name === 'status') loadStatus();
     store.set('tab', name);
@@ -512,6 +513,368 @@
     window.open(url + '?download=1', '_blank');
   });
   $('viewer-reuse').addEventListener('click', () => { if (!viewing) return; $('viewer').hidden = true; $('photo-prompt').value = viewing.raw_prompt || ''; showTab('photo'); $('photo-prompt').focus(); });
+
+  /* ================= Видео: модели Bossman + замена лица FaceFusion ================= */
+  // Время: загрузка + шаги × с/шаг × масштаб(объём ролика) + сборка (bossmobile/video_timing.py, та же формула)
+  const V = { cat: null, mode: 'gen', aspect: '16:9', side: 480, image: null, audio: null, audioDur: null,
+    swapVideo: null, swapDur: null, faces: [], preset: 'fast', frame: 'original', busy: false };
+  const ASPECTS = [['16:9', '16:9'], ['9:16', '9:16'], ['3:2', '3:2'], ['2:3', '2:3'], ['1:1', '1:1']];
+  const LONG_SIDES = [320, 480, 640, 832, 1024, 1280];
+  const PRESET_SHORT = { fast: 'Быстро', quality: 'Качество', lively: 'Живая мимика' };
+  const framesFor = (fps, step, sec) => { const raw = Math.max(1, Math.round(sec * fps)); return Math.max(1, Math.round((raw - 1) / step)) * step + 1; };
+  const vscale = (r, a) => (r <= 1 ? r : Math.pow(r, a));
+  function wanSeconds(t, steps, w, h, frames) {
+    const r = (w * h * frames) / t.ref; const run = steps * t.s_per_step * vscale(r, t.alpha);
+    return { load: t.load_s, run, decode: t.decode_s || 0, total: t.load_s + run + (t.decode_s || 0), ratio: r };
+  }
+  function swapSeconds(t, preset, frames) {
+    const p = (t.presets || {})[preset] || (t.presets || {}).quality || { gen_fps: 1.6 };
+    const gen = frames / p.gen_fps; const post = frames * t.post_s_per_frame;
+    return { load: t.load_s, gen, post, total: t.load_s + gen + post, p };
+  }
+  async function apiForm(path, fd, onUp) {
+    return new Promise((resolve, reject) => {
+      const x = new XMLHttpRequest(); x.open('POST', '/m/api' + path); x.withCredentials = true;
+      x.setRequestHeader('X-BM-CSRF', S.csrf); x.setRequestHeader('Accept', 'application/json');
+      if (onUp) x.upload.onprogress = (e) => { if (e.lengthComputable) onUp(e.loaded / e.total); };
+      x.onerror = () => reject(new ApiError(0, { detail: { message: 'нет связи с ПК' } }));
+      x.onload = () => {
+        let data = null; try { data = JSON.parse(x.responseText); } catch { /* */ }
+        if (x.status === 401) { showLogin(); reject(new ApiError(401, data)); return; }
+        if (x.status < 200 || x.status >= 300) { reject(new ApiError(x.status, data)); return; }
+        resolve(data);
+      };
+      x.send(fd);
+    });
+  }
+  function toBlob(file, max) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file); const img = new Image();
+      img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); c.toBlob((b) => (b ? resolve(b) : reject(new Error('img'))), 'image/jpeg', 0.92); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img')); }; img.src = url;
+    });
+  }
+  function mediaDuration(file, tagName) {
+    return new Promise((resolve) => {
+      const m = document.createElement(tagName); const url = URL.createObjectURL(file); m.preload = 'metadata';
+      m.onloadedmetadata = () => { const d = m.duration; URL.revokeObjectURL(url); resolve(Number.isFinite(d) ? d : null); };
+      m.onerror = () => { URL.revokeObjectURL(url); resolve(null); }; m.src = url;
+    });
+  }
+  const plural = (n, one, few, many) => { const m10 = n % 10, m100 = n % 100; return `${n} ${m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many}`; };
+  const kadr = (n) => plural(n, 'кадр', 'кадра', 'кадров');
+  const mb = (n) => `${(n / 1048576).toFixed(n < 10 * 1048576 ? 1 : 0)} МБ`;
+
+  async function loadVideoCat() { V.cat = await api('GET', '/video/models'); return V.cat; }
+  async function openVideo() {
+    try {
+      await loadVideoCat();
+      const sel = $('video-model');
+      if (!sel.options.length) {
+        V.cat.models.forEach((m) => { const o = el('option', '', `${m.label}${m.ready ? '' : m.available ? ' — сейчас не запустится' : ' — недоступна'}`); o.value = m.id; o.disabled = !m.available; sel.appendChild(o); });
+        const saved = store.get('videoModel'); const first = V.cat.models.find((m) => m.id === saved && m.available) || V.cat.models.find((m) => m.ready) || V.cat.models.find((m) => m.available);
+        if (first) sel.value = first.id;
+        renderMode(); onVModel(); setupSwap();
+      } else { onVModel(); setupSwap(); }
+      const g = V.cat.gpu || {}; $('video-gpu').textContent = g.busy ? `видеокарта занята · ждут ${g.waiting || 0}` : (g.waiting ? `ждут ${g.waiting}` : 'видеокарта свободна');
+    } catch (err) { toast(err.message); }
+    loadVQueue(); loadVideos();
+  }
+  function renderMode() {
+    const fs = V.cat && V.cat.faceswap;
+    seg('video-mode', [['gen', 'Генерация'], ['swap', 'Замена лица']], V.mode, (v) => { V.mode = v; $('video-form').hidden = v !== 'gen'; $('swap-form').hidden = v !== 'swap'; if (v === 'swap') swapTime(); });
+    if (!fs) { const b = $('video-mode').querySelectorAll('button')[1]; if (b) { b.disabled = true; b.title = 'Bossman не отдаёт замену лица'; } }
+    $('video-form').hidden = V.mode !== 'gen'; $('swap-form').hidden = V.mode !== 'swap';
+  }
+  const curV = () => ((V.cat && V.cat.models) || []).find((m) => m.id === $('video-model').value);
+  function onVModel() {
+    const m = curV(); if (!m) return; store.set('videoModel', m.id);
+    const f = $('video-flags'); f.replaceChildren();
+    if (m.uncensored_label) f.appendChild(el('span', 'badge-uc', 'без цензуры (по метке Bossman)'));
+    f.appendChild(el('span', 'badge-local', 'на ПК'));
+    f.appendChild(el('span', 'pill', (m.modes || []).map((x) => ({ T2V: 'текст→видео', I2V: 'картинка→видео', S2V: 'речь→видео', ANIMATE: 'анимация' }[x] || x)).join(' · ')));
+    if (m.license) f.appendChild(el('span', 'pill', m.license));
+    $('video-reason').hidden = m.ready; $('video-reason').textContent = m.ready ? '' : m.reason;
+    $('video-notes').hidden = !m.notes; $('video-notes').textContent = m.notes || '';
+    $('vimg-block').hidden = !m.accepts_image;
+    $('vimg-title').textContent = m.requires_image ? 'Стартовая картинка (обязательно)' : 'Стартовая картинка (необязательно — без неё видео строится по тексту)';
+    $('vaud-block').hidden = !m.accepts_audio;
+    if (!m.accepts_image) clearVImage(); if (!m.accepts_audio) clearVAudio();
+    const d = $('video-dur'); d.min = 1; d.max = Math.max(1, Math.floor(m.max_seconds));
+    const want = V.audioDur && m.accepts_audio ? Math.ceil(V.audioDur) : (m.requires_audio ? 4 : 2);
+    d.value = Math.min(Number(d.max), want); $('vdur-range').textContent = `(от 1 до ${d.max} с)`;
+    const [dw, dh] = String(m.default_resolution).split('x').map(Number); const dl = Math.max(dw, dh);
+    V.aspect = m.default_aspect || '16:9';
+    const sides = LONG_SIDES.filter((s) => s <= m.max_side && s >= m.min_side);
+    V.side = sides.includes(dl) ? dl : (sides.find((s) => s >= dl) || sides[sides.length - 1]);
+    seg('video-aspect', ASPECTS, V.aspect, (v) => { V.aspect = v; vTime(); });
+    seg('video-side', sides.map((s) => [s, `${s}`]), V.side, (v) => { V.side = v; vTime(); });
+    const st = $('video-steps');
+    if (m.steps) {
+      $('vsteps-block').hidden = false; $('vsteps-fixed').hidden = true;
+      st.min = m.steps.min_steps; st.max = m.steps.max_steps; st.value = m.steps.default_steps;
+      $('vsteps-range').textContent = `(от ${st.min} до ${st.max}, по умолчанию ${m.steps.default_steps})`; setVSteps(st.value);
+    } else {
+      $('vsteps-block').hidden = true; $('vsteps-fixed').hidden = false;
+      $('vsteps-fixed').textContent = m.fixed_steps ? `Шаги: ${m.fixed_steps} — заданы графом модели (Lightning), не меняются` : 'Шаги заданы графом модели и не меняются';
+    }
+    setVDur(d.value);
+  }
+  function vResolution(m) {
+    const [a, c] = V.aspect.split(':').map(Number); const k = m.side_multiple || 16;
+    let w = V.side; let h = V.side; if (a > c) h = V.side * c / a; else if (c > a) w = V.side * a / c;
+    const r = (v) => Math.min(m.max_side, Math.max(m.min_side, Math.round(v / k) * k));
+    return [r(w), r(h)];
+  }
+  function setVDur(v) { const d = $('video-dur'); const n = Math.min(Number(d.max), Math.max(1, Math.round(Number(v)) || 1)); d.value = n; vTime(); }
+  function setVSteps(v) { const st = $('video-steps'); const n = Math.min(Number(st.max), Math.max(Number(st.min), Math.round(Number(v)) || Number(st.min))); st.value = n; $('vsteps-val').textContent = n; vTime(); }
+  function vSettings(m) {
+    const sec = Number($('video-dur').value); const frames = framesFor(m.fps, m.frame_step, sec); const [w, h] = vResolution(m);
+    const steps = m.steps ? Number($('video-steps').value) : (m.fixed_steps || 20);
+    return { sec, frames, w, h, steps };
+  }
+  function vTime() {
+    const m = curV(); const box = $('video-time'); if (!m) { box.replaceChildren(); return; }
+    const s = vSettings(m); const t = m.timing || {}; const p = wanSeconds(t, s.steps, s.w, s.h, s.frames);
+    $('vdur-val').textContent = `${s.sec} с`;
+    box.replaceChildren(el('b', '', `≈ ${fmtDur(p.total)}`), tag(t),
+      el('span', 'muted', `${s.w}×${s.h} · ${kadr(s.frames)} при ${m.fps} к/с (задано моделью) · ${s.steps} шаг. · загрузка ${fmtDur(p.load)} + генерация ${fmtDur(p.run)}${p.decode ? ' + сборка ' + fmtDur(p.decode) : ''}`));
+    if (t.basis) box.appendChild(el('span', 'hint', t.basis));
+    if (p.total > 3600) box.appendChild(el('span', 'warn', 'Больше часа — для видео на этом ПК это нормально; всё это время видеокарта занята.'));
+    if (p.ratio > 3) box.appendChild(el('span', 'warn', 'Большой ролик для этой модели: сильно дольше и есть риск нехватки памяти ПК (Bossman проверит память перед стартом).'));
+    if (m.accepts_audio && V.audioDur && s.sec < V.audioDur - 0.5) box.appendChild(el('span', 'warn', `Звук длиннее (${V.audioDur.toFixed(1)} с): в видео войдут первые ${s.sec} с.`));
+    vTable(); vGo();
+  }
+  function vTable() {
+    const box = $('video-table'); box.replaceChildren();
+    ((V.cat && V.cat.models) || []).forEach((m) => {
+      const r = el('button', `mrow${m.id === $('video-model').value ? ' on' : ''}`); r.type = 'button'; r.disabled = !m.available;
+      r.appendChild(el('span', 'mn', m.label));
+      const [w, h] = String(m.default_resolution).split('x').map(Number); const sec = m.requires_audio ? 4 : 2; const fr = framesFor(m.fps, m.frame_step, sec);
+      const steps = m.steps ? m.steps.default_steps : (m.fixed_steps || 20);
+      r.appendChild(el('span', 'ms', m.available ? `${w}×${h}, ${sec} с (${kadr(fr)}) · ${m.steps ? `шаги ${m.steps.min_steps}–${m.steps.max_steps}` : `шаги ${m.fixed_steps || '—'} (граф)`} · до ${m.max_seconds} с${m.ready ? '' : ' · ' + m.reason}` : m.reason));
+      const mt = el('span', 'mt');
+      if (m.available) { const p = wanSeconds(m.timing, steps, w, h, fr); mt.append(el('b', '', `≈ ${fmtDur(p.total)}`), tag(m.timing)); } else mt.append(el('b', '', '—'));
+      r.appendChild(mt);
+      r.addEventListener('click', () => { tap(); $('video-model').value = m.id; onVModel(); });
+      box.appendChild(r);
+    });
+    const fs = V.cat && V.cat.faceswap;
+    if (fs) {
+      const r = el('button', 'mrow'); r.type = 'button'; r.disabled = !fs.available; r.appendChild(el('span', 'mn', fs.label));
+      const p = swapSeconds(fs.timing, 'quality', 10 * fs.timing.assumed_fps);
+      r.appendChild(el('span', 'ms', fs.available ? `ролик 10 с при ${fs.timing.assumed_fps} к/с, пресет «Качество»` : fs.reason));
+      const mt = el('span', 'mt'); mt.append(el('b', '', `≈ ${fmtDur(p.total)}`), tag(p.p)); r.appendChild(mt);
+      r.addEventListener('click', () => { tap(); V.mode = 'swap'; renderMode(); swapTime(); });
+      box.appendChild(r);
+    }
+  }
+  function vGo() {
+    const m = curV(); const b = $('video-go'); if (!m) { b.disabled = true; return; }
+    b.disabled = V.busy || !m.ready || (m.requires_image && !V.image) || (m.requires_audio && !V.audio);
+  }
+  function clearVImage() { V.image = null; $('video-image').value = ''; $('vimg-preview').hidden = true; $('vimg-clear').hidden = true; $('vimg-label').textContent = 'Выбрать из «Фото»'; }
+  function clearVAudio() { V.audio = null; V.audioDur = null; $('video-audio').value = ''; $('vaud-clear').hidden = true; $('vaud-label').textContent = 'Выбрать аудио'; }
+  $('video-model').addEventListener('change', onVModel);
+  $('video-dur').addEventListener('input', () => setVDur($('video-dur').value));
+  $('vdur-minus').addEventListener('click', () => { tap(); setVDur(Number($('video-dur').value) - 1); });
+  $('vdur-plus').addEventListener('click', () => { tap(); setVDur(Number($('video-dur').value) + 1); });
+  $('video-steps').addEventListener('input', () => setVSteps($('video-steps').value));
+  $('vsteps-minus').addEventListener('click', () => { tap(); setVSteps(Number($('video-steps').value) - 1); });
+  $('vsteps-plus').addEventListener('click', () => { tap(); setVSteps(Number($('video-steps').value) + 1); });
+  $('video-image').addEventListener('change', async () => {
+    const f = $('video-image').files[0]; if (!f) return; const m = curV();
+    try { V.image = await toBlob(f, Math.min(1536, (m && m.max_side) || 1280)); $('vimg-preview').src = URL.createObjectURL(V.image); $('vimg-preview').hidden = false; $('vimg-clear').hidden = false; $('vimg-label').textContent = 'Заменить'; }
+    catch { toast('не удалось прочитать картинку'); }
+    vGo();
+  });
+  $('vimg-clear').addEventListener('click', () => { clearVImage(); vGo(); });
+  $('video-audio').addEventListener('change', async () => {
+    const f = $('video-audio').files[0]; if (!f) return;
+    if (f.size > 32 * 1048576) { toast('Звук больше 32 МБ — Bossman его не примет'); clearVAudio(); return; }
+    V.audio = f; V.audioDur = await mediaDuration(f, 'audio');
+    $('vaud-label').textContent = `${f.name.slice(0, 24)} · ${mb(f.size)}${V.audioDur ? ' · ' + V.audioDur.toFixed(1) + ' с' : ''}`; $('vaud-clear').hidden = false;
+    const m = curV(); if (m && V.audioDur) setVDur(Math.min(Math.floor(m.max_seconds), Math.ceil(V.audioDur)));
+    vGo();
+  });
+  $('vaud-clear').addEventListener('click', () => { clearVAudio(); vTime(); });
+  function uploadCard(text, frac) {
+    const c = $('video-upload'); c.hidden = false; c.replaceChildren();
+    const row = el('div', 'row'); row.append(el('span', 'stage', text)); c.appendChild(row);
+    if (frac != null) { const bar = el('div', 'bar'); const i = el('i'); i.style.width = `${Math.max(2, Math.round(frac * 100))}%`; bar.appendChild(i); c.appendChild(bar); c.appendChild(el('div', 'stats', `${Math.round(frac * 100)} %`)); }
+  }
+  $('video-form').addEventListener('submit', async (e) => {
+    e.preventDefault(); tap(); const m = curV(); if (!m || V.busy) return;
+    const prompt = $('video-prompt').value.trim(); if (!prompt) { toast('Напишите промпт'); return; }
+    if (!m.ready) { toast(m.reason); return; }
+    const s = vSettings(m); const fd = new FormData();
+    fd.append('model', m.id); fd.append('prompt', prompt); fd.append('negative', $('video-negative').value.trim());
+    fd.append('duration', String(s.sec)); fd.append('resolution', `${s.w}x${s.h}`);
+    if (m.steps) fd.append('steps', String(s.steps));
+    const seed = $('video-seed').value.trim(); if (seed) fd.append('seed', seed);
+    if (V.image && m.accepts_image) fd.append('image', V.image, 'start.jpg');
+    if (V.audio && m.accepts_audio) fd.append('audio', V.audio, V.audio.name || 'voice');
+    V.busy = true; vGo();
+    try {
+      uploadCard('Отправка на ПК…', 0);
+      const job = await apiForm('/video/jobs', fd, (f) => uploadCard('Отправка на ПК…', f));
+      $('video-upload').hidden = true; toast(job.queue_position ? `Видео в очереди: перед вами ${job.queue_position}` : 'Видео запущено на ПК');
+      loadVQueue(); $('video-queue-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) { $('video-upload').hidden = true; toast(err.message); }
+    V.busy = false; vGo();
+  });
+
+  /* ---------- замена лица ---------- */
+  function setupSwap() {
+    const fs = V.cat && V.cat.faceswap; if (!fs) return;
+    const f = $('swap-flags'); f.replaceChildren(el('span', 'badge-local', 'на ПК'), el('span', 'pill', 'FaceFusion')); if (fs.license) f.appendChild(el('span', 'pill', fs.license));
+    $('swap-reason').hidden = fs.available; $('swap-reason').textContent = fs.available ? '' : fs.reason;
+    if (!fs.presets.some((p) => p.id === V.preset)) V.preset = (fs.presets[0] || {}).id;
+    seg('swap-preset', fs.presets.map((p) => [p.id, PRESET_SHORT[p.id] || p.id]), V.preset, (v) => { V.preset = v; swapTime(); });
+    seg('swap-frame', fs.frames.map((x) => [x.id, x.label]), V.frame, (v) => { V.frame = v; });
+    swapTime();
+  }
+  function swapTime() {
+    const fs = V.cat && V.cat.faceswap; const box = $('swap-time'); if (!fs) { box.replaceChildren(); return; }
+    const pr = fs.presets.find((p) => p.id === V.preset); $('swap-preset-hint').textContent = pr ? pr.label : '';
+    const fps = fs.timing.assumed_fps; const sec = V.swapDur || 10; const p = swapSeconds(fs.timing, V.preset, Math.round(sec * fps));
+    box.replaceChildren(el('b', '', `≈ ${fmtDur(p.total)}`), tag(p.p),
+      el('span', 'muted', `${V.swapDur ? 'ваш ролик ' + sec.toFixed(1) + ' с' : 'для ролика 10 с'} при ${fps} к/с · загрузка ${fmtDur(p.load)} + лица ${fmtDur(p.gen)} + проверка позы и сборка ${fmtDur(p.post)}`),
+      el('span', 'hint', `${p.p.basis}. Для ролика 60 к/с — примерно вдвое дольше.`));
+    swapGo();
+  }
+  function swapGo() {
+    const fs = V.cat && V.cat.faceswap;
+    $('swap-go').disabled = V.busy || !fs || !fs.available || !V.swapVideo || !V.faces.length || !$('swap-consent').checked;
+  }
+  function renderFaces() {
+    const row = $('swap-faces-row'); row.querySelectorAll('.face-thumb').forEach((n) => n.remove());
+    V.faces.forEach((b, i) => {
+      const t = el('div', 'face-thumb'); const img = el('img'); img.src = URL.createObjectURL(b); img.alt = `лицо ${i + 1}`;
+      const x = el('button'); x.type = 'button'; x.setAttribute('aria-label', 'Убрать фото'); x.appendChild(icon('close'));
+      x.addEventListener('click', () => { V.faces.splice(i, 1); renderFaces(); swapGo(); });
+      t.append(img, x); row.appendChild(t);
+    });
+  }
+  $('swap-video').addEventListener('change', async () => {
+    const f = $('swap-video').files[0]; if (!f) return;
+    const max = ((V.cat && V.cat.faceswap && V.cat.faceswap.max_video_mb) || 300) * 1048576;
+    if (f.size > max) { toast(`Видео больше ${Math.round(max / 1048576)} МБ — Bossman его не примет`); $('swap-video').value = ''; return; }
+    V.swapVideo = f; V.swapDur = await mediaDuration(f, 'video');
+    $('swap-video-label').textContent = `${f.name.slice(0, 22)} · ${mb(f.size)}${V.swapDur ? ' · ' + V.swapDur.toFixed(1) + ' с' : ''}`; $('swap-video-clear').hidden = false;
+    const pv = $('swap-preview'); pv.src = URL.createObjectURL(f); pv.hidden = false; swapTime();
+  });
+  $('swap-video-clear').addEventListener('click', () => { V.swapVideo = null; V.swapDur = null; $('swap-video').value = ''; $('swap-video-clear').hidden = true; $('swap-video-label').textContent = 'Выбрать видео'; $('swap-preview').hidden = true; $('swap-preview').removeAttribute('src'); swapTime(); });
+  $('swap-faces').addEventListener('change', async () => {
+    const files = Array.from($('swap-faces').files || []); $('swap-faces').value = '';
+    for (const f of files) { if (V.faces.length >= 5) { toast('Не больше 5 фото лица'); break; } try { V.faces.push(await toBlob(f, 1536)); } catch { toast('не удалось прочитать фото'); } }
+    renderFaces(); swapGo();
+  });
+  $('swap-consent').addEventListener('change', swapGo);
+  $('swap-form').addEventListener('submit', async (e) => {
+    e.preventDefault(); tap(); if (V.busy) return;
+    if (!$('swap-consent').checked) { toast('Подтвердите согласие человека на фото'); return; }
+    const fd = new FormData(); fd.append('video', V.swapVideo, V.swapVideo.name || 'clip.mp4');
+    V.faces.forEach((b, i) => fd.append('faces', b, `face${i + 1}.jpg`));
+    fd.append('preset', V.preset); fd.append('frame', V.frame); fd.append('consent', 'true');
+    V.busy = true; swapGo();
+    try {
+      uploadCard('Загрузка видео на ПК…', 0);
+      const job = await apiForm('/video/swap', fd, (f) => uploadCard('Загрузка видео на ПК…', f));
+      $('video-upload').hidden = true; toast(job.queue_position ? `Замена лица в очереди: перед вами ${job.queue_position}` : 'Замена лица запущена на ПК');
+      loadVQueue(); $('video-queue-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) { $('video-upload').hidden = true; toast(err.message); }
+    V.busy = false; swapGo();
+  });
+
+  /* ---------- очередь видеокарты: реальные шаги/кадры, где Bossman их сообщает; иначе «оценка»; 100 % только у готового ---------- */
+  function jobLabel(j) {
+    if (j.kind === 'faceswap') return 'Замена лица';
+    const m = ((V.cat && V.cat.models) || []).find((x) => x.id === j.model) || (S.photoModels || []).find((x) => x.id === j.model);
+    return m ? m.label : j.model;
+  }
+  const KIND_RU = { photo: 'фото', video: 'видео', faceswap: 'замена лица' };
+  function renderVQueueItem(j) {
+    const u = j.ui || {}; const card = el('div', 'qitem ' + (u.state || ''));
+    const head = el('div', 'row'); const name = el('span', 'stage', jobLabel(j)); name.appendChild(el('span', 'kind-tag', KIND_RU[j.kind] || j.kind)); head.append(name);
+    if ((u.state === 'running' || u.state === 'queued') && j.kind !== 'photo') { const c = el('button', 'btn small danger', 'Стоп'); c.type = 'button'; c.addEventListener('click', async () => { tap(); try { await api('POST', `/video/jobs/${j.job_id}/cancel`); loadVQueue(); } catch (err) { toast(err.message); } }); head.append(c); }
+    card.appendChild(head);
+    const stats = el('div', 'stats');
+    if (u.state === 'running') {
+      const pct = Math.min(99, Math.max(0, u.percent || 0)); const bar = el('div', 'bar'); const i = el('i'); i.style.width = `${Math.max(2, pct)}%`; bar.appendChild(i); card.appendChild(bar);
+      stats.appendChild(el('b', '', `${Math.round(pct)} %${u.real ? '' : ' (оценка)'}`));
+      if (u.step != null) stats.appendChild(el('span', '', `${u.unit || 'шаг'} ${u.step}/${u.steps}`));
+      stats.appendChild(el('span', '', u.phase));
+      if (u.remaining_s != null) stats.appendChild(el('span', '', `≈ осталось ${fmtMin(u.remaining_s)}`));
+      if (u.label) stats.appendChild(el('span', 'muted', u.label));
+    } else if (u.state === 'queued') {
+      stats.appendChild(el('b', '', `в очереди №${u.position}`)); stats.appendChild(el('span', '', `(≈ ждать ${fmtMin(u.wait_s)}, займёт ≈ ${fmtMin(u.total_s)}, оценка)`));
+    } else if (u.state === 'done') {
+      stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
+      if (j.result && /^video\//.test(String(j.result.mime || ''))) { const b = el('button', 'btn small primary'); b.type = 'button'; b.append(icon('play'), document.createTextNode('Смотреть')); b.addEventListener('click', () => openVViewer(j)); head.append(b); }
+    } else {
+      stats.appendChild(el('span', '', STAGES[j.stage || j.status] || j.status));
+      if (j.error) card.appendChild(el('div', 'err', typeof j.error === 'string' ? j.error : (j.error.message || j.error.code || '')));
+    }
+    const p = j.params || {};
+    if (j.kind === 'faceswap') stats.appendChild(el('span', 'muted', `пресет «${PRESET_SHORT[p.preset] || p.preset}» · фото лица: ${p.faces}`));
+    else if (p.width) stats.appendChild(el('span', 'muted', `${p.width}×${p.height}${p.frames > 1 ? ` · ${kadr(p.frames)}` : ''}${p.steps ? ` · ${p.steps} шагов` : ''}`));
+    card.appendChild(stats); return card;
+  }
+  let vqTimer = null;
+  async function loadVQueue() {
+    clearTimeout(vqTimer); let active = false;
+    try {
+      const r = await api('GET', '/video/queue'); const box = $('video-queue-list'); box.replaceChildren();
+      const jobs = r.jobs || []; jobs.forEach((j) => box.appendChild(renderVQueueItem(j)));
+      if (!jobs.length) box.appendChild(el('p', 'muted', 'Очередь пуста'));
+      active = jobs.some((j) => j.ui && (j.ui.state === 'running' || j.ui.state === 'queued'));
+      if (!active && box.dataset.active === '1') loadVideos();
+      box.dataset.active = active ? '1' : '';
+    } catch (err) { if (err.status === 401) return; }
+    if (active && !document.hidden && !$('view-video').hidden) vqTimer = setTimeout(loadVQueue, 5000);
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('view-video').hidden) loadVQueue(); });
+  async function loadVideos() {
+    try {
+      const r = await api('GET', '/video/jobs'); const box = $('video-list'); box.replaceChildren();
+      const done = (r.jobs || []).filter((j) => j.status === 'completed' && j.result && /^video\//.test(String(j.result.mime || '')));
+      done.forEach((j) => {
+        const c = el('div', 'card vcard'); const res = j.result || {};
+        c.appendChild(el('b', '', jobLabel(j)));
+        if (j.raw_prompt) c.appendChild(el('div', 'vp', j.raw_prompt));
+        c.appendChild(el('div', 'muted small', [res.width && `${res.width}×${res.height}`, res.duration_s && `${Number(res.duration_s).toFixed(1)} с`, res.codec, res.bytes && mb(res.bytes), (j.created_at || '').replace('T', ' ').slice(0, 16)].filter(Boolean).join(' · ')));
+        const row = el('div', 'row'); const play = el('button', 'btn small primary'); play.type = 'button'; play.append(icon('play'), document.createTextNode('Смотреть')); play.addEventListener('click', () => openVViewer(j));
+        const dl = el('a', 'btn small'); dl.href = `/m/api/video/jobs/${j.job_id}/file?download=1`; dl.setAttribute('download', ''); dl.append(icon('down'), document.createTextNode('Скачать'));
+        row.append(play, dl); c.appendChild(row); box.appendChild(c);
+      });
+      if (!done.length) box.appendChild(el('p', 'muted', 'Пока нет готовых видео'));
+    } catch { /* */ }
+  }
+  let vviewing = null;
+  function openVViewer(j) {
+    vviewing = j; const v = $('vviewer-video'); const url = `/m/api/video/jobs/${j.job_id}/file`; v.src = url;
+    const res = j.result || {};
+    $('vviewer-meta').textContent = `${j.raw_prompt || ''}\n${jobLabel(j)} · ${res.width ? res.width + '×' + res.height : ''} · ${res.duration_s ? Number(res.duration_s).toFixed(1) + ' с' : ''} · ${fmtS(j.elapsed_s)}`;
+    const webm = String(res.mime || '').includes('webm');
+    $('vviewer-note').hidden = !webm; $('vviewer-note').textContent = webm ? 'Формат WebM: если iPhone не воспроизводит, нажмите «Скачать» и откройте в VLC.' : '';
+    v.onerror = () => { $('vviewer-note').hidden = false; $('vviewer-note').textContent = 'Телефон не может воспроизвести этот файл — нажмите «Скачать».'; };
+    $('vviewer-download').href = url + '?download=1'; $('vviewer-reuse').hidden = !j.raw_prompt;
+    $('vviewer').hidden = false;
+  }
+  $('vviewer-close').addEventListener('click', () => { const v = $('vviewer-video'); v.pause(); v.removeAttribute('src'); v.load(); $('vviewer').hidden = true; });
+  $('vviewer-save').addEventListener('click', async () => {
+    if (!vviewing) return; tap(); const url = `/m/api/video/jobs/${vviewing.job_id}/file`; const res = vviewing.result || {};
+    try {
+      if ((res.bytes || 0) <= 150 * 1048576 && navigator.canShare) {
+        const blob = await (await fetch(url, { credentials: 'same-origin' })).blob();
+        const file = new File([blob], `bossman-${vviewing.job_id.slice(0, 8)}.${blob.type.includes('webm') ? 'webm' : 'mp4'}`, { type: blob.type });
+        if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+      }
+    } catch (err) { if (err && err.name === 'AbortError') return; }
+    window.open(url + '?download=1', '_blank');
+  });
+  $('vviewer-reuse').addEventListener('click', () => { if (!vviewing) return; $('vviewer-close').click(); V.mode = 'gen'; renderMode(); $('video-prompt').value = vviewing.raw_prompt || ''; $('video-prompt').focus(); });
 
   /* ================= Панель (Bossman 1:1) ================= */
   function openPanel(force) {

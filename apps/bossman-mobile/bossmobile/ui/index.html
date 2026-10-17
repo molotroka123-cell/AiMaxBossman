@@ -27,6 +27,9 @@
   <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor"/></symbol>
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h-1A.5.5 0 0 1 4 15.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-photo" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="m4 18 5-5 4 4 3-3 4 4" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="5.5" width="13" height="13" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="m16 10.5 5-3v9l-5-3z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" fill="none"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/></symbol>
   <symbol id="i-status" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
@@ -133,6 +136,104 @@
     </div>
   </section>
 
+  <!-- Видео -->
+  <section class="view" id="view-video" data-view="video" hidden>
+    <header class="topbar plain"><h1 class="serif title">Видео</h1><span class="pill" id="video-gpu"></span></header>
+    <div class="scroll" id="video-scroll">
+      <div class="warn-card" id="video-warn" role="note"><b>Видео занимает видеокарту ПК целиком</b> на всё время генерации — от нескольких минут до часа и дольше. Фото, другие видео и замена лица в это время ждут в общей очереди.</div>
+      <div class="seg mode-seg" id="video-mode" role="radiogroup"></div>
+
+      <form id="video-form" class="card form" autocomplete="off">
+        <label class="lbl" for="video-model">Модель</label>
+        <div class="select-wrap"><select id="video-model" class="field"></select><svg class="chev"><use href="#i-chev"/></svg></div>
+        <div class="model-flags" id="video-flags"></div>
+        <p class="reason-text" id="video-reason" role="alert" hidden></p>
+        <p class="hint" id="video-notes" hidden></p>
+        <label class="lbl" for="video-prompt">Промпт</label>
+        <textarea id="video-prompt" class="field area" rows="4" placeholder="Опишите сцену и движение — текст уйдёт в модель как написано" required></textarea>
+        <div id="vimg-block" hidden>
+          <label class="lbl" id="vimg-title">Стартовая картинка</label>
+          <div class="ref-row">
+            <label class="btn ghost file-btn"><input id="video-image" type="file" accept="image/*" hidden><svg><use href="#i-plus"/></svg><span id="vimg-label">Выбрать из «Фото»</span></label>
+            <img id="vimg-preview" class="ref-preview" alt="" hidden>
+            <button type="button" class="icon-btn small" id="vimg-clear" aria-label="Убрать картинку" hidden><svg><use href="#i-close"/></svg></button>
+          </div>
+        </div>
+        <div id="vaud-block" hidden>
+          <label class="lbl">Звук: речь или песня (обязательно)</label>
+          <div class="ref-row">
+            <label class="btn ghost file-btn"><input id="video-audio" type="file" accept="audio/*" hidden><svg><use href="#i-plus"/></svg><span id="vaud-label">Выбрать аудио</span></label>
+            <button type="button" class="icon-btn small" id="vaud-clear" aria-label="Убрать звук" hidden><svg><use href="#i-close"/></svg></button>
+          </div>
+        </div>
+        <label class="lbl" for="video-dur">Длительность: <b id="vdur-val"></b> <span class="muted" id="vdur-range"></span></label>
+        <div class="steps-row">
+          <button type="button" class="icon-btn small" id="vdur-minus" aria-label="Короче">−</button>
+          <input id="video-dur" type="range" min="1" max="5" step="1" value="2">
+          <button type="button" class="icon-btn small" id="vdur-plus" aria-label="Длиннее">+</button>
+        </div>
+        <label class="lbl">Формат</label>
+        <div class="seg" id="video-aspect" role="radiogroup"></div>
+        <label class="lbl">Размер (длинная сторона)</label>
+        <div class="seg" id="video-side" role="radiogroup"></div>
+        <div id="vsteps-block">
+          <label class="lbl" for="video-steps">Шаги: <b id="vsteps-val"></b> <span class="muted" id="vsteps-range"></span></label>
+          <div class="steps-row">
+            <button type="button" class="icon-btn small" id="vsteps-minus" aria-label="Меньше шагов">−</button>
+            <input id="video-steps" type="range" min="1" max="40" value="20">
+            <button type="button" class="icon-btn small" id="vsteps-plus" aria-label="Больше шагов">+</button>
+          </div>
+        </div>
+        <p class="hint" id="vsteps-fixed" hidden></p>
+        <div class="time-box" id="video-time" aria-live="polite"></div>
+        <details class="more">
+          <summary>Дополнительно</summary>
+          <label class="lbl" for="video-seed">Сид (пусто — случайный)</label>
+          <input id="video-seed" class="field mono" inputmode="numeric" pattern="[0-9]*" placeholder="случайный">
+          <label class="lbl" for="video-negative">Негатив</label>
+          <textarea id="video-negative" class="field area" rows="2" placeholder="чего не должно быть"></textarea>
+        </details>
+        <details class="more">
+          <summary>Все видео-модели: доступность и время</summary>
+          <div class="models-table" id="video-table"></div>
+          <p class="hint">Время = загрузка модели + шаги × секунд на шаг × объём ролика (ширина × высота × кадры) + сборка файла; в списке — для настроек модели по умолчанию. «по замеру» — только по готовым задачам в журнале Bossman на этом ПК; «оценка» — расчёт по запускам вне журнала или по похожей модели.</p>
+        </details>
+        <button class="btn primary big" id="video-go" type="submit"><svg><use href="#i-video"/></svg>Сгенерировать видео на ПК</button>
+        <p class="hint">Считает ваш ПК локальными моделями «Прямого генератора» Bossman. Видео остаётся на ПК и приходит только в этот телефон.</p>
+      </form>
+
+      <form id="swap-form" class="card form" autocomplete="off" hidden>
+        <div class="model-flags" id="swap-flags"></div>
+        <p class="reason-text" id="swap-reason" role="alert" hidden></p>
+        <label class="lbl">Исходное видео (до 300 МБ)</label>
+        <div class="ref-row">
+          <label class="btn ghost file-btn"><input id="swap-video" type="file" accept="video/*" hidden><svg><use href="#i-plus"/></svg><span id="swap-video-label">Выбрать видео</span></label>
+          <button type="button" class="icon-btn small" id="swap-video-clear" aria-label="Убрать видео" hidden><svg><use href="#i-close"/></svg></button>
+        </div>
+        <video id="swap-preview" class="swap-preview" muted playsinline preload="metadata" hidden></video>
+        <label class="lbl">Фото лица: от 1 до 5, один и тот же человек</label>
+        <div class="ref-row faces-row" id="swap-faces-row">
+          <label class="btn ghost file-btn"><input id="swap-faces" type="file" accept="image/*" multiple hidden><svg><use href="#i-plus"/></svg><span>Добавить фото</span></label>
+        </div>
+        <label class="lbl">Пресет</label>
+        <div class="seg" id="swap-preset" role="radiogroup"></div>
+        <p class="hint" id="swap-preset-hint"></p>
+        <label class="lbl">Кадр</label>
+        <div class="seg" id="swap-frame" role="radiogroup"></div>
+        <label class="consent"><input type="checkbox" id="swap-consent"><span>Человек на фото согласен, чтобы его лицо использовали в этом видео</span></label>
+        <div class="time-box" id="swap-time" aria-live="polite"></div>
+        <button class="btn primary big" id="swap-go" type="submit"><svg><use href="#i-video"/></svg>Заменить лицо на ПК</button>
+        <p class="hint">FaceFusion на этом ПК, без облака; звук исходника сохраняется. Проверяйте результат по всему ролику, а не по одному кадру.</p>
+      </form>
+
+      <div id="video-upload" class="card progress" hidden></div>
+      <h3 class="section">Очередь видеокарты</h3>
+      <div id="video-queue-list" class="qlist" aria-live="polite"></div>
+      <h3 class="section">Готовые видео</h3>
+      <div class="vlist" id="video-list"></div>
+    </div>
+  </section>
+
   <!-- Панель -->
   <section class="view" id="view-panel" data-view="panel" hidden>
     <header class="topbar plain">
@@ -155,6 +256,7 @@
   <nav class="tabbar" id="tabbar">
     <button class="tab active" data-tab="chat"><svg><use href="#i-chat"/></svg><span>Чат</span></button>
     <button class="tab" data-tab="photo"><svg><use href="#i-photo"/></svg><span>Фото</span></button>
+    <button class="tab" data-tab="video"><svg><use href="#i-video"/></svg><span>Видео</span></button>
     <button class="tab" data-tab="panel"><svg><use href="#i-panel"/></svg><span>Панель</span><i class="tab-badge" id="badge-approvals" hidden></i></button>
     <button class="tab" data-tab="status"><svg><use href="#i-status"/></svg><span>Статус</span></button>
   </nav>
@@ -187,6 +289,21 @@
     <div class="viewer-actions">
       <button class="btn light" id="viewer-save"><svg><use href="#i-share"/></svg>Сохранить в Фото</button>
       <button class="btn ghost-light" id="viewer-reuse">Промпт</button>
+    </div>
+  </div>
+</div>
+
+<!-- Просмотр видео -->
+<div class="viewer" id="vviewer" hidden role="dialog" aria-label="Просмотр видео">
+  <button class="icon-btn viewer-close" id="vviewer-close" aria-label="Закрыть"><svg><use href="#i-close"/></svg></button>
+  <video id="vviewer-video" controls playsinline preload="metadata"></video>
+  <div class="viewer-bar">
+    <p id="vviewer-meta" class="viewer-meta"></p>
+    <p id="vviewer-note" class="viewer-meta" hidden></p>
+    <div class="viewer-actions">
+      <button class="btn light" id="vviewer-save"><svg><use href="#i-share"/></svg>Сохранить</button>
+      <a class="btn ghost-light" id="vviewer-download" href="#" download><svg><use href="#i-down"/></svg>Скачать</a>
+      <button class="btn ghost-light" id="vviewer-reuse">Промпт</button>
     </div>
   </div>
 </div>

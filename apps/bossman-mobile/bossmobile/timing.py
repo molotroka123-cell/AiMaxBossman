@@ -16,6 +16,8 @@ from datetime import datetime
 from statistics import mean
 from typing import Any
 
+from . import video_timing
+
 REF_PIXELS = 512 * 512
 
 # model id -> sensible UI range (backend accepts 1..max_steps; max_steps comes from Bossman's own catalog)
@@ -137,30 +139,43 @@ def _running_view(job: dict, total: float, history: dict[str, dict] | None, now:
             "phase": phase, "remaining_s": max(total - elapsed, 0.0), "label": "оценка по времени"}
 
 
+def _total_any(job: dict, history: dict[str, dict] | None) -> float:
+    if job.get("kind") in video_timing.VIDEO_KINDS:
+        return video_timing.job_total(job, history)["total_s"]
+    return _job_total(job, history)
+
+
 def queue_view(jobs: list[dict], history: dict[str, dict] | None = None, now: float | None = None,
-               recent: int = 5) -> list[dict[str, Any]]:
-    """Active photo jobs (running first, then queue order) + a few latest finished ones, each with a ready `ui` block."""
+               recent: int = 5, kinds: frozenset[str] | set[str] = frozenset({"photo"}),
+               done_kinds: frozenset[str] | set[str] | None = None) -> list[dict[str, Any]]:
+    """Active jobs of `kinds` (running first, then queue order) + a few latest finished ones of `done_kinds`
+    (default: the same kinds), each with a ready `ui` block. The video tab passes every kind as active, because
+    photo and video share Bossman's one GPU queue, and only video kinds as finished."""
     import time as _t
     now = _t.time() if now is None else now
-    photo = [j for j in jobs if j.get("kind") == "photo"]
-    active = [j for j in photo if j.get("status") in ACTIVE]
+    done_kinds = kinds if done_kinds is None else done_kinds
+    active = [j for j in jobs if j.get("kind") in kinds and j.get("status") in ACTIVE]
     running = [j for j in active if j.get("status") != "queued"]
     queued = sorted((j for j in active if j.get("status") == "queued"),
                     key=lambda j: (j.get("queue_position") or 10**6, str(j.get("created_at"))))
     out: list[dict[str, Any]] = []
     ahead = 0.0
     for j in running:
-        total = _job_total(j, history)
-        ui = _running_view(j, total, history, now)
+        if j.get("kind") in video_timing.VIDEO_KINDS:
+            ui = video_timing.running_view(j, history, now)
+            total = ui.pop("total_s")
+        else:
+            total = _job_total(j, history)
+            ui = _running_view(j, total, history, now)
         ahead += ui["remaining_s"] or 0.0
         out.append({**j, "ui": {"state": "running", **ui, "total_s": total}})
     for n, j in enumerate(queued, 1):
-        total = _job_total(j, history)
+        total = _total_any(j, history)
         pos = j.get("queue_position") or n
         out.append({**j, "ui": {"state": "queued", "position": pos, "wait_s": ahead, "total_s": total, "real": False,
                                 "percent": 0.0, "label": "оценка по замерам"}})
         ahead += total
-    finished = sorted((j for j in photo if j.get("status") not in ACTIVE),
+    finished = sorted((j for j in jobs if j.get("kind") in done_kinds and j.get("status") not in ACTIVE),
                       key=lambda j: str(j.get("created_at")), reverse=True)[:recent]
     for j in finished:
         out.append({**j, "ui": {"state": "done" if j.get("status") in DONE_OK else "ended", "elapsed_s": j.get("elapsed_s"),

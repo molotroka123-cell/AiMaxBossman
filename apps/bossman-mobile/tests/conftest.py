@@ -43,6 +43,12 @@ JOB = {"job_id": "a" * 32, "model": "z-image-turbo", "kind": "photo", "status": 
        "raw_prompt": "горы", "params": {"width": 512, "height": 512, "seed": 1}, "progress": {"kind": "steps", "percent": 100},
        "result": {"mime": "image/png", "file": "image.png"}, "elapsed_s": 20.0, "provenance": {"command": ["sd-cli"]}}
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+MP4 = b"\x00\x00\x00\x18ftypmp42" + bytes(range(256)) * 4
+DG_STATUS = {"queue": {"running": None, "waiting": 0}, "sd_cli": {"present": True}}
+FACESWAP = None          # GET /api/direct-gen/faceswap (None: 404, as an older Bossman)
+SWAP_JOB = {"job_id": "d" * 32, "model": "faceswap-facefusion", "kind": "faceswap", "status": "queued", "stage": "queued",
+            "params": {"preset": "fast", "frame": "original", "faces": 1}, "progress": {"kind": "none"}}
+FAIL_NEXT: list = []     # [(status, body)] answered once by POST /api/direct-gen/jobs
 
 
 class FakeBossman:
@@ -122,7 +128,21 @@ class FakeBossman:
         if path == "/api/direct-gen/models":
             return httpx.Response(200, json=DG_MODELS)
         if path == "/api/direct-gen/status":
-            return httpx.Response(200, json={"queue": {"running": None, "waiting": 0}, "sd_cli": {"present": True}})
+            return httpx.Response(200, json=DG_STATUS)
+        if path == "/api/direct-gen/faceswap":
+            return httpx.Response(200, json=FACESWAP) if FACESWAP else httpx.Response(404, json={"detail": "Not Found"})
+        if path == "/api/direct-gen/swap-jobs" and method == "POST":
+            return httpx.Response(202, json=SWAP_JOB)
+        if path == f"/api/direct-gen/jobs/{'c' * 32}/file":
+            rng = request.headers.get("range")
+            if rng:
+                a, b = (int(x) for x in rng[6:].split("-"))
+                return httpx.Response(206, content=MP4[a:b + 1], headers={
+                    "content-type": "video/mp4", "content-range": f"bytes {a}-{b}/{len(MP4)}", "accept-ranges": "bytes"})
+            return httpx.Response(200, content=MP4, headers={"content-type": "video/mp4", "accept-ranges": "bytes"})
+        if path == "/api/direct-gen/jobs" and method == "POST" and FAIL_NEXT:
+            code, err = FAIL_NEXT.pop(0)
+            return httpx.Response(code, json={"detail": err})
         if path == "/api/direct-gen/jobs" and method == "POST":
             return httpx.Response(202, json={**JOB, "status": "queued", "stage": "queued"})
         if path == "/api/direct-gen/jobs" and method == "GET":
