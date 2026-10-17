@@ -3,11 +3,11 @@
 const API = "/api/v1";
 const ROLES = ["viewer", "analyst", "compliance", "owner"];
 const SECTIONS = [
-  ["overview", "Overview"], ["conflicts", "Conflicts"], ["tenders", "Tenders"], ["fit", "Company Fit"], ["compliance", "Compliance"],
-  ["finance", "Finance"], ["deals", "Deals"], ["learning", "Learning"], ["sources", "Sources"], ["approvals", "Approvals"],
+  ["overview", "Карта"], ["conflicts", "Конфликты"], ["tenders", "Закупки"], ["fit", "Компания"], ["compliance", "Комплаенс"],
+  ["finance", "Финансы"], ["deals", "Сделки"], ["learning", "Аналитика"], ["sources", "Источники"], ["approvals", "Одобрения"],
 ];
 const S = { token: "", role: "viewer", view: "overview", tenders: null, sel: null, filters: { f: "all", q: "", category: "", country: "" },
-  lastAssessment: {}, health: null };
+  lastAssessment: {}, health: null, cache: {}, mapLayer: "conflict", mapSel: null, mapApi: null };
 try { S.token = sessionStorage.getItem("wt_token") || ""; S.role = sessionStorage.getItem("wt_role") || "viewer"; } catch (e) { /* storage may be blocked */ }
 
 /* ---------- DOM helpers ---------- */
@@ -103,6 +103,11 @@ async function api1(method, path, body) {
 }
 const GET = (p) => api("GET", p);
 const POST = (p, b) => api("POST", p, b === undefined ? {} : b);
+/* Per-render read cache: several widgets of one view share a request; cleared on every navigation. */
+const FETCH = { openT: () => GET("/tenders?status=open&limit=1000"), allT: () => GET("/tenders?limit=1"), layers: () => GET("/map/layers"),
+  conf: () => GET("/conflicts"), src: () => GET("/sources/status"), sanc: () => GET("/sanctions/status"), fx: () => GET("/fx") };
+function cached(k) { return S.cache[k] || (S.cache[k] = FETCH[k]().catch((e) => { delete S.cache[k]; throw e; })); }
+const fmtN = (n) => (typeof n === "number" && isFinite(n) ? n.toLocaleString("ru-RU", { maximumFractionDigits: 0 }) : "—");
 
 /* ---------- token gate ---------- */
 function showGate(note) {
@@ -134,7 +139,7 @@ function renderNav() {
   let s = $("#navsel");
   if (!s) {
     s = h("select", { id: "navsel", "aria-label": "Раздел", onchange: (e) => go(e.target.value) }, SECTIONS.map(([id, l]) => h("option", { value: id }, l)));
-    $(".layout").prepend(s);
+    $("#main").before(s);
   }
   s.value = S.view;
 }
@@ -196,56 +201,281 @@ function submit(form, fn, out) {
   });
 }
 
-/* ---------- map ---------- */
-const MW = 720, MH = 360;
-const px = (lon, lat) => [((lon + 180) / 360 * MW).toFixed(1), ((90 - lat) / 180 * MH).toFixed(1)];
-const LAND = [ // schematic only, hand-written
-  [[-168, 66], [-140, 70], [-95, 72], [-65, 60], [-55, 50], [-80, 25], [-97, 18], [-85, 10], [-105, 22], [-125, 40], [-135, 58]],
-  [[-80, 10], [-60, 10], [-35, -6], [-40, -22], [-58, -38], [-68, -54], [-75, -45], [-71, -18], [-81, -5]],
-  [[-10, 36], [-9, 43], [5, 50], [10, 58], [28, 70], [80, 74], [140, 72], [180, 67], [165, 58], [142, 48], [122, 30], [110, 18], [100, 8], [90, 22], [72, 20], [58, 25], [44, 12], [35, 32], [27, 38], [12, 38], [-5, 36]],
-  [[-17, 21], [-6, 36], [32, 31], [43, 12], [51, 11], [40, -15], [33, -27], [20, -35], [12, -17], [9, 4], [-8, 5], [-17, 14]],
-  [[114, -22], [131, -12], [142, -11], [153, -27], [146, -39], [130, -32], [115, -34]],
-];
-const SEV = { low: "#ffd16a", medium: "#ff9f43", high: "#f64b49" };
-function svgEl(tag, attrs) { const e = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); return e; }
-function worldMap(items) {
-  const svg = svgEl("svg", { viewBox: `0 0 ${MW} ${MH}`, role: "img", "aria-label": "Схематичная карта мира с точками конфликтных регионов" });
-  for (let lon = -180; lon <= 180; lon += 30) { const [x] = px(lon, 0); svg.append(svgEl("line", { x1: x, y1: 0, x2: x, y2: MH, stroke: "#1e3a55", "stroke-width": 0.5 })); }
-  for (let lat = -90; lat <= 90; lat += 30) { const [, y] = px(0, lat); svg.append(svgEl("line", { x1: 0, y1: y, x2: MW, y2: y, stroke: "#1e3a55", "stroke-width": 0.5 })); }
-  for (const poly of LAND) svg.append(svgEl("polygon", { points: poly.map(([lo, la]) => px(lo, la).join(",")).join(" "), fill: "#17324a", stroke: "#3b6288", "stroke-width": 0.8 }));
-  const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
-  const radius = (c) => { const d = num(c.deaths); return d == null ? 4 : Math.min(16, Math.max(3, 3 + Math.sqrt(Math.max(0, d)) / 20)); };
-  // real dots largest first so small ones stay clickable on top; DEMO drawn last (outline only)
-  const real = items.filter((c) => !c.demo).sort((a, b) => radius(b) - radius(a)), demo = items.filter((c) => c.demo);
-  for (const c of real.concat(demo)) {
-    if (typeof c.lat !== "number" || typeof c.lon !== "number") continue;
-    const [x, y] = px(c.lon, c.lat);
-    const col = SEV[c.severity] || "#9ab";
-    const g = svgEl("g", {});
-    let dot;
-    if (c.demo) {
-      dot = svgEl("circle", { cx: x, cy: y, r: 5, fill: col, "fill-opacity": "0.25", stroke: col, "stroke-width": 1.8, "stroke-dasharray": "2.5 2" });
-    } else {
-      dot = svgEl("circle", { cx: x, cy: y, r: radius(c).toFixed(1), fill: col, "fill-opacity": "0.78", stroke: "#07111f", "stroke-width": 0.8 });
-    }
-    const t = svgEl("title");
-    t.textContent = c.demo ? `${txt(c.name)} (${txt(c.country)}) — ${txt(c.severity)} — DEMO`
-      : `${txt(c.country)}: событий ${txt(c.events)}, погибших ${txt(c.deaths)}, год ${txt(c.since)}`;
-    g.append(dot, t); svg.append(g);
+/* ---------- geo: Natural Earth 1:110m (public domain), served locally from ui/vendor ---------- */
+const GEO = { data: null, byIso3: {}, byKey: {}, iso2: {}, nameIx: {}, paths: null };
+const nkey = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\([^)]*\)/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+/* UCDP spellings that differ from Natural Earth names (parenthesised historic names are stripped by nkey). */
+const GEO_ALIAS = { "dr congo": "COD", "congo": "COG", "ivory coast": "CIV", "united states of america": "USA", "bosnia herzegovina": "BIH",
+  "russia": "RUS", "yemen": "YEM", "myanmar": "MMR", "cambodia": "KHM", "turkey": "TUR", "united kingdom": "GBR", "south sudan": "SSD",
+  "central african republic": "CAF", "kingdom of eswatini": "SWZ", "czech republic": "CZE" };
+const ISO3_RE = /^[A-Z]{3}$/;
+let geoP = null;
+function loadGeo() {
+  if (!geoP) {
+    geoP = fetch("vendor/countries-110m.geojson").then((r) => { if (!r.ok) throw new Error("геометрия карты: HTTP " + r.status); return r.json(); }).then((d) => {
+      GEO.data = d;
+      (d.features || []).forEach((f, i) => {
+        const p = f.properties || {}, iso3 = ISO3_RE.test(p.iso3 || "") ? p.iso3 : null;
+        const key = iso3 || "_" + i;
+        GEO.byKey[key] = { iso3, p };
+        if (!iso3) return;
+        GEO.byIso3[iso3] = p;
+        if (p.iso2 && /^[A-Z]{2}$/.test(p.iso2)) GEO.iso2[p.iso2] = iso3;
+        for (const k of ["name", "name_long", "admin", "formal"]) if (p[k]) GEO.nameIx[nkey(p[k])] = iso3;
+      });
+      for (const [k, v] of Object.entries(GEO_ALIAS)) if (!GEO.nameIx[k]) GEO.nameIx[k] = v;
+      return GEO;
+    });
+    geoP.catch(() => { geoP = null; });
   }
-  return svg;
+  return geoP;
 }
+function toIso3(v) {
+  if (v == null) return null;
+  const s = String(v).trim(), u = s.toUpperCase();
+  if (u.length === 3 && GEO.byIso3[u]) return u;
+  if (u.length === 2 && GEO.iso2[u]) return GEO.iso2[u];
+  return GEO.nameIx[nkey(s)] || null;
+}
+const geoName = (iso3) => (GEO.byIso3[iso3] && (GEO.byIso3[iso3].name_long || GEO.byIso3[iso3].name)) || iso3;
+
+/* Equal Earth projection (Šavrič, Patterson, Jenny 2018), implemented inline. Antarctica is left out. */
+const EE = { A1: 1.340264, A2: -0.081106, A3: 0.000893, A4: 0.003796, M: Math.sqrt(3) / 2 };
+function eqEarth(lon, lat) {
+  const l = lon * Math.PI / 180, th = Math.asin(EE.M * Math.sin(lat * Math.PI / 180)), t2 = th * th, t6 = t2 * t2 * t2;
+  return [l * Math.cos(th) / (EE.M * (EE.A1 + 3 * EE.A2 * t2 + t6 * (7 * EE.A3 + 9 * EE.A4 * t2))), th * (EE.A1 + EE.A2 * t2 + t6 * (EE.A3 + EE.A4 * t2))];
+}
+const LAT_N = 84, LAT_S = -57;
+const MAP_W = 1000, MAP_K = MAP_W / (2 * eqEarth(180, 0)[0]), MAP_TOP = eqEarth(0, LAT_N)[1];
+const MAP_H = Math.round((MAP_TOP - eqEarth(0, LAT_S)[1]) * MAP_K);
+const proj = (lon, lat) => { const [x, y] = eqEarth(lon, Math.max(LAT_S - 3, Math.min(LAT_N, lat))); return [MAP_W / 2 + x * MAP_K, (MAP_TOP - y) * MAP_K]; };
+const ptsPath = (pts, close) => pts.map(([lo, la], i) => { const [x, y] = proj(lo, la); return (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1); }).join("") + (close ? "Z" : "");
+function range(a, b, step) { const r = []; for (let v = a; step > 0 ? v <= b : v >= b; v += step) r.push(v); return r; }
+function outlinePath() {
+  return ptsPath([...range(LAT_S, LAT_N, 3).map((la) => [-180, la]), ...range(-180, 180, 3).map((lo) => [lo, LAT_N]),
+    ...range(LAT_N, LAT_S, -3).map((la) => [180, la]), ...range(180, -180, -3).map((lo) => [lo, LAT_S])], true);
+}
+function graticulePath() {
+  let d = "";
+  for (let lo = -150; lo <= 150; lo += 30) d += ptsPath(range(LAT_S, LAT_N, 3).map((la) => [lo, la]));
+  for (const la of [-30, 0, 30, 60]) d += ptsPath(range(-180, 180, 3).map((lo) => [lo, la]));
+  return d;
+}
+function geoPaths() {
+  if (GEO.paths) return GEO.paths;
+  GEO.paths = [];
+  (GEO.data.features || []).forEach((f, i) => {
+    const p = f.properties || {}, g = f.geometry;
+    if (!g || p.iso3 === "ATA") return;
+    const polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
+    let d = "";
+    for (const poly of polys) for (const ring of poly) d += ptsPath(ring, true);
+    GEO.paths.push({ key: ISO3_RE.test(p.iso3 || "") ? p.iso3 : "_" + i, d });
+  });
+  return GEO.paths;
+}
+
+/* ---------- choropleth layers (values only from GET /map/layers) ---------- */
+const LAYERS = {
+  conflict: { label: "Интенсивность конфликтов", has: (c) => !!c && c.conflict_events > 0, val: (c) => c.conflict_deaths,
+    bins: [1, 10, 100, 1000, 10000], binLabels: ["1–9", "10–99", "100–999", "1 000–9 999", "≥ 10 000"],
+    colors: ["#5a2a24", "#8c3324", "#c2421f", "#ee6a2c", "#ffc06a"], zero: "#3b3550", zeroLabel: "0 (события без погибших)", unit: "погибших за год, лог. шкала" },
+  procurement: { label: "Активность закупок", has: (c) => !!c && c.tenders > 0, val: (c) => c.open_tenders,
+    bins: [1, 2, 5, 10, 50], binLabels: ["1", "2–4", "5–9", "10–49", "≥ 50"],
+    colors: ["#17405f", "#1c5f8c", "#2382ba", "#40a8df", "#9ddcff"], zero: "#2d3a4a", zeroLabel: "0 открытых (есть закрытые)", unit: "открытых тендеров" },
+};
+const ND_FILL = "#1b2a3a";
+function layerFill(L, c) {
+  if (!L.has(c)) return ND_FILL;
+  const v = L.val(c);
+  if (!(v > 0)) return L.zero;
+  let i = 0;
+  while (i + 1 < L.bins.length && v >= L.bins[i + 1]) i++;
+  return L.colors[i];
+}
+function layerLine(id, c) {
+  if (id === "conflict") return c && c.conflict_events > 0 ? `погибших: ${fmtN(c.conflict_deaths)} · событий: ${fmtN(c.conflict_events)} (UCDP ${txt(c.conflict_year)})` : "UCDP: событий в загруженных данных нет";
+  return c && c.tenders > 0 ? `открытых тендеров: ${fmtN(c.open_tenders)} из ${fmtN(c.tenders)}` : "тендеров в базе нет";
+}
+const uniqYears = (lay) => uniq(Object.values(lay.countries || {}).map((c) => c.conflict_year)).sort();
+
+function mapWidget(lay, opts) {
+  const wrap = h("div", { class: "mapw" });
+  const tabs = h("div", { class: "maptabs", role: "tablist", "aria-label": "Слой карты" });
+  const box = h("div", { class: "mapbox" });
+  const tip = h("div", { class: "maptip", hidden: true });
+  const legend = h("div", { class: "legend" }), srcLine = h("div", { class: "legend src" });
+  const svg = svgEl("svg", { viewBox: `0 0 ${MAP_W} ${MAP_H}`, role: "img", "aria-label": "Карта мира (Natural Earth 1:110m, проекция Equal Earth); страны закрашены по данным API" });
+  const vp = svgEl("g", {});
+  vp.append(svgEl("path", { d: outlinePath(), class: "ocean" }), svgEl("path", { d: graticulePath(), class: "grat" }));
+  const els = {};
+  for (const g of geoPaths()) { const p = svgEl("path", { d: g.d, class: "ctry", "data-k": g.key }); els[g.key] = p; vp.append(p); }
+  svg.append(vp);
+  const countries = lay.countries || {};
+  const cOf = (key) => { const m = GEO.byKey[key]; return m && m.iso3 ? countries[m.iso3] : null; };
+
+  function paint() {
+    const L = LAYERS[S.mapLayer];
+    for (const [key, el] of Object.entries(els)) { const c = cOf(key); el.setAttribute("fill", layerFill(L, c)); el.classList.toggle("nd", !L.has(c)); }
+    for (const b of tabs.children) b.setAttribute("aria-selected", String(b.dataset.l === S.mapLayer));
+    clear(legend).append(h("span", { class: "mut" }, L.unit + ":"),
+      ...L.colors.map((col, i) => h("span", {}, h("i", { class: "sq", style: "background:" + col }), L.binLabels[i])),
+      h("span", {}, h("i", { class: "sq", style: "background:" + L.zero }), L.zeroLabel), h("span", {}, h("i", { class: "sq", style: "background:" + ND_FILL }), "нет данных"));
+    const n = Object.values(countries).filter(L.has).length;
+    clear(srcLine);
+    if (S.mapLayer === "conflict") {
+      srcLine.append(h("span", {}, "Источник: ", h("b", {}, lay.conflict_source ? "UCDP GED (" + lay.conflict_source + ")" : "нет данных UCDP")),
+        h("span", {}, "Год: ", h("b", {}, uniqYears(lay).join(", ") || "—")), h("span", {}, "Стран с событиями: ", h("b", {}, String(n))),
+        ...((lay.unmapped_conflicts || []).length ? [h("span", {}, "Не сопоставлено со страной: ", h("b", {}, lay.unmapped_conflicts.join(", ")))] : []));
+    } else {
+      srcLine.append(h("span", {}, "Источник: ", h("b", {}, "тендеры в базе (GET /map/layers)")), h("span", {}, "Стран с тендерами: ", h("b", {}, String(n))),
+        h("span", {}, "Тендеров без страны (регионы): ", h("b", {}, String(lay.unmapped_tenders == null ? "—" : lay.unmapped_tenders))));
+    }
+    srcLine.append(h("span", {}, "Границы: ", h("b", {}, txt(lay.geometry_source))));
+    if (!n) legend.append(h("span", { class: "warnt" }, "Для этого слоя данных нет — загрузите источник в разделе «Источники»."));
+  }
+  for (const [id, L] of Object.entries(LAYERS)) {
+    tabs.append(h("button", { type: "button", role: "tab", "data-l": id, onclick: () => { S.mapLayer = id; paint(); opts.onLayer && opts.onLayer(id); } }, L.label));
+  }
+  // disabled tabs from the mockup that have no data source: shown honestly, not clickable
+  for (const [l, need] of [["Оборонные расходы", "SIPRI"], ["Санкции по странам", "привязки санкций к странам"], ["Маршруты поставок", "данных о логистике"]]) {
+    tabs.append(h("button", { type: "button", role: "tab", disabled: true, "aria-disabled": "true", title: "нет источника: " + need, class: "off" }, l));
+  }
+
+  /* zoom / pan: transform on one group, strokes stay 1px via vector-effect */
+  let k = 1, tx = 0, ty = 0;
+  const apply = () => { vp.setAttribute("transform", `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${k.toFixed(4)})`); svg.style.touchAction = k > 1.001 ? "none" : "pan-y"; };
+  const clampPan = () => { tx = Math.min(0, Math.max(MAP_W * (1 - k), tx)); ty = Math.min(0, Math.max(MAP_H * (1 - k), ty)); };
+  const zoomAt = (f, cx, cy) => { const nk = Math.min(16, Math.max(1, k * f)), r = nk / k; tx = cx - (cx - tx) * r; ty = cy - (cy - ty) * r; k = nk; clampPan(); apply(); };
+  const toSvg = (e) => { const b = svg.getBoundingClientRect(); return [(e.clientX - b.left) / b.width * MAP_W, (e.clientY - b.top) / b.height * MAP_H]; };
+  svg.addEventListener("wheel", (e) => { e.preventDefault(); const [x, y] = toSvg(e); zoomAt(e.deltaY < 0 ? 1.3 : 1 / 1.3, x, y); }, { passive: false });
+  let drag = null;
+  svg.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, target: e.target.closest ? e.target.closest("path.ctry") : null };
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (drag && drag.id === e.pointerId) {
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+      if (!drag.moved) { drag.moved = true; if (k > 1.001) { try { svg.setPointerCapture(e.pointerId); } catch (x) { /* */ } svg.classList.add("drag"); } tip.hidden = true; }
+      if (k > 1.001) { const b = svg.getBoundingClientRect(); tx += dx / b.width * MAP_W; ty += dy / b.height * MAP_H; clampPan(); apply(); }
+      drag.x = e.clientX; drag.y = e.clientY;
+      return;
+    }
+    showTip(e);
+  });
+  const endDrag = (e) => {
+    if (drag && e.type === "pointerup" && !drag.moved && drag.target) select(drag.target.getAttribute("data-k"));
+    drag = null; svg.classList.remove("drag");
+  };
+  svg.addEventListener("pointerup", endDrag);
+  svg.addEventListener("pointercancel", endDrag);
+  svg.addEventListener("pointerleave", () => { if (!drag) tip.hidden = true; });
+  function showTip(e) {
+    const t = e.target.closest ? e.target.closest("path.ctry") : null;
+    if (!t) { tip.hidden = true; return; }
+    const key = t.getAttribute("data-k"), m = GEO.byKey[key] || { p: {} }, c = cOf(key);
+    clear(tip).append(h("b", {}, txt(m.p.name_long || m.p.name)), h("div", {}, layerLine(S.mapLayer, c)),
+      h("div", { class: "mut" }, layerLine(S.mapLayer === "conflict" ? "procurement" : "conflict", c)));
+    tip.hidden = false;
+    const b = box.getBoundingClientRect();
+    let x = e.clientX - b.left + 14, y = e.clientY - b.top + 14;
+    if (x + tip.offsetWidth > b.width - 4) x = Math.max(4, e.clientX - b.left - 14 - tip.offsetWidth);
+    if (y + tip.offsetHeight > b.height - 4) y = Math.max(4, e.clientY - b.top - 14 - tip.offsetHeight);
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  function select(key) {
+    if (!key || !els[key]) return;
+    for (const el of vp.querySelectorAll("path.sel")) el.classList.remove("sel");
+    els[key].classList.add("sel"); vp.append(els[key]);
+    S.mapSel = key; sel1.value = GEO.byKey[key] && GEO.byKey[key].iso3 && countries[GEO.byKey[key].iso3] ? key : "";
+    opts.onSelect && opts.onSelect(key);
+  }
+  const ctl = h("div", { class: "mapctl" },
+    h("button", { type: "button", "aria-label": "Приблизить", title: "Приблизить", onclick: () => zoomAt(1.6, MAP_W / 2, MAP_H / 2) }, "+"),
+    h("button", { type: "button", "aria-label": "Отдалить", title: "Отдалить", onclick: () => zoomAt(1 / 1.6, MAP_W / 2, MAP_H / 2) }, "−"),
+    h("button", { type: "button", "aria-label": "Сбросить масштаб", title: "Сбросить масштаб", onclick: () => { k = 1; tx = 0; ty = 0; apply(); } }, "⟲"));
+  // keyboard / screen-reader alternative to clicking the map
+  const opts1 = Object.keys(countries).filter((i) => GEO.byIso3[i]).sort((a, b) => geoName(a).localeCompare(geoName(b)));
+  const sel1 = h("select", { "aria-label": "Выбрать страну с данными", onchange: (e) => e.target.value && select(e.target.value) },
+    h("option", { value: "" }, "Страна с данными (" + opts1.length + ")…"), opts1.map((i) => h("option", { value: i }, geoName(i))));
+  box.append(svg, ctl, tip);
+  wrap.append(tabs, box, legend, srcLine, h("div", { class: "bar mapfoot" }, sel1, h("span", { class: "mut" }, "Колесо — масштаб, перетаскивание — сдвиг, клик — панель страны")));
+  apply(); paint();
+  if (S.mapSel && els[S.mapSel]) setTimeout(() => select(S.mapSel), 0);
+  S.mapApi = { select, paint };
+  return wrap;
+}
+
+/* ---------- country panel (mockup "Ukraine" panel, real data only) ---------- */
+const ACD_TYPE = { 1: "внесистемный", 2: "межгосударственный", 3: "внутренний", 4: "интернационализированный внутренний" };
+function mini(label, value) { return h("div", { class: "mini" }, h("div", { class: "l" }, label), h("div", { class: "v" }, value)); }
+function openTender(t, iso2) { S.sel = t.key; S.filters = { f: "all", q: "", category: "", country: iso2 || "" }; go("tenders"); }
+function acdFor(conf, iso3) {
+  const acd = conf && conf.acd;
+  return ((acd && acd.items) || []).filter((a) => String(a.location || "").split(",").some((s) => toIso3(s) === iso3));
+}
+function panelHint(panel, lay) {
+  const L = LAYERS[S.mapLayer], cs = lay.countries || {};
+  const top = Object.keys(cs).filter((i) => L.has(cs[i]) && L.val(cs[i]) > 0 && GEO.byIso3[i]).sort((a, b) => L.val(cs[b]) - L.val(cs[a])).slice(0, 8);
+  clear(panel).append(h("h2", {}, "Страна"), h("p", { class: "mut" }, "Нажмите на страну на карте (или выберите её под картой): здесь появятся данные UCDP, конфликты UCDP/PRIO и открытые тендеры."),
+    h("h3", {}, "Топ стран · " + L.label.toLowerCase()),
+    top.length ? h("ol", { class: "rank" }, top.map((i) => h("li", {}, h("button", { type: "button", class: "lnk", onclick: () => S.mapApi && S.mapApi.select(i) }, geoName(i)),
+      h("span", { class: "num" }, fmtN(L.val(cs[i])))))) : stateBox("load", "Для этого слоя данных нет."));
+}
+function countryPanel(panel, key, lay, conf) {
+  const m = GEO.byKey[key] || { p: {} }, p = m.p, iso3 = m.iso3, c = iso3 ? (lay.countries || {})[iso3] : null;
+  clear(panel).append(h("div", { class: "cp-head" }, h("h2", {}, txt(p.name_long || p.name)), iso3 ? badge(iso3, "b-grey") : null,
+    c && c.severity ? sevBadge(c.severity) : null, h("button", { type: "button", class: "x", "aria-label": "Закрыть панель страны", onclick: () => { S.mapSel = null; for (const el of document.querySelectorAll("path.ctry.sel")) el.classList.remove("sel"); panelHint(panel, lay); } }, "×")));
+  if (!iso3) { panel.append(stateBox("load", "У этой территории нет ISO3-кода в Natural Earth — данные API к ней не привязываются.")); return; }
+  panel.append(h("h3", {}, "Конфликт · UCDP GED" + (lay.conflict_source ? " (" + lay.conflict_source + ")" : "")));
+  if (c && c.conflict_events > 0) {
+    panel.append(h("div", { class: "cp-stats" }, mini("Погибших", fmtN(c.conflict_deaths)), mini("Событий", fmtN(c.conflict_events)),
+      mini("Серьёзность", sevBadge(c.severity)), mini("Год данных", txt(c.conflict_year))));
+  } else panel.append(stateBox("load", lay.conflict_source ? "В загруженных данных UCDP событий по этой стране нет." : "Данные UCDP не загружены."));
+  const acd = conf && conf.acd, items = acdFor(conf, iso3);
+  panel.append(h("h3", {}, "Вооружённые конфликты · UCDP/PRIO ACD" + (acd && acd.year ? " " + acd.year : "")));
+  if (!acd) panel.append(stateBox("load", "Данные ACD не загружены."));
+  else if (!items.length) panel.append(stateBox("load", "В ACD нет конфликтов с местом в этой стране."));
+  else panel.append(h("ul", { class: "list" }, items.map((a) => h("li", {}, h("div", {}, txt(a.side_a), h("span", { class: "mut" }, " vs "), txt(a.side_b)),
+    h("div", { class: "bar", style: "margin:4px 0 0" }, INTENSITY[a.intensity] ? badge(INTENSITY[a.intensity][0], INTENSITY[a.intensity][1]) : badge(a.intensity),
+      h("span", { class: "mut" }, ACD_TYPE[a.type] || "тип " + txt(a.type)), h("span", { class: "mut" }, "место: " + txt(a.location)))))));
+  panel.append(h("h3", {}, "Закупки"), h("div", { class: "cp-stats" }, mini("Открытых тендеров", fmtN(c ? c.open_tenders : 0)), mini("Всего в базе", fmtN(c ? c.tenders : 0))));
+  const tb = h("div");
+  panel.append(tb);
+  load(tb, async () => {
+    const d = await cached("openT");
+    const mine = (d.items || []).filter((t) => toIso3(t.country) === iso3);
+    if (!mine.length) return stateBox("load", "Открытых тендеров по этой стране нет.");
+    return h("div", {}, h("div", { class: "mut" }, `Топ-5 из ${mine.length} открытых (порядок API: fit)` + (d.total > (d.items || []).length ? " · загружены не все открытые тендеры" : "")),
+      h("ul", { class: "list" }, mine.slice(0, 5).map((t) => h("li", {}, h("div", { class: "tt" }, t.title == null ? "—" : t.title, t.demo ? [" ", badge("DEMO", "b-warn")] : null),
+        h("div", { class: "bar", style: "margin:4px 0 0" }, sb(t.assessment && t.assessment.complexity), h("span", { class: "mut" }, "дедлайн " + txt((t.deadline || "").slice(0, 10))),
+          t.estimated_value == null ? null : h("span", { class: "mut" }, fmtN(t.estimated_value) + " " + txt(t.currency)),
+          h("button", { type: "button", class: "sm", onclick: () => openTender(t, p.iso2) }, "Открыть"))))),
+      h("button", { type: "button", onclick: () => { S.sel = null; S.filters = { f: "all", q: "", category: "", country: p.iso2 || iso3 }; go("tenders"); } }, "Все тендеры страны в разделе «Закупки»"));
+  });
+  if (window.matchMedia && window.matchMedia("(max-width: 950px)").matches && panel.scrollIntoView) panel.scrollIntoView({ block: "start" });
+}
+/* map + side panel, shared by Overview and Conflicts */
+async function mapBlock(mapEl, panel) {
+  await load(mapEl, async () => {
+    const [lay, conf] = await Promise.all([cached("layers"), cached("conf").catch(() => null), loadGeo()]);
+    const w = mapWidget(lay, { onSelect: (key) => countryPanel(panel, key, lay, conf), onLayer: () => { if (!S.mapSel) panelHint(panel, lay); } });
+    if (!S.mapSel) panelHint(panel, lay);
+    return h("div", {}, w, conf && conf.safety ? h("div", { class: "safety" }, conf.safety) : null);
+  });
+  if (!mapEl.querySelector(".mapw")) clear(panel).append(h("h2", {}, "Страна"), stateBox("load", "Карта не загрузилась — панель страны недоступна."));
+}
+function svgEl(tag, attrs) { const e = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); return e; }
+const SEV = { low: "#ffd16a", medium: "#ff9f43", high: "#f64b49" };
 const sevBadge = (s) => badge(s, s === "high" ? "b-bad" : s === "medium" ? "b-warn" : "b-grey");
 const uniq = (arr) => [...new Set(arr.filter((x) => x != null && x !== ""))];
-function conflictsPanel(d, compact) {
-  const wrap = h("div", { class: "map" });
+/* source / licence / safety block for /conflicts (the map itself comes from /map/layers) */
+function conflictMeta(d) {
+  const wrap = h("div");
   const items = d.items || [], real = items.filter((c) => !c.demo);
   if (d.status === "NOT_CONNECTED") wrap.append(stateBox("load", "NOT_CONNECTED: " + txt(d.message)));
-  wrap.append(worldMap(items));
-  const lg = h("div", { class: "legend" }, ...["low", "medium", "high"].map((k) => h("span", {}, h("i", { style: "background:" + SEV[k] }), k)));
-  if (real.length) lg.append(h("span", {}, h("i", { style: "background:#9ab;width:6px;height:6px" }), h("i", { style: "background:#9ab;width:14px;height:14px" }), "радиус ∝ √погибших"));
-  if (items.some((c) => c.demo)) lg.append(h("span", {}, h("i", { style: "border:1.5px dashed #ffcf71" }), "DEMO — пунктир, синтетические данные"));
-  wrap.append(lg);
   if (real.length) {
     const PREC = "средняя точка событий страны за год; не координаты событий";
     const prec = uniq(real.map((c) => c.precision)).filter((p) => p !== PREC);
@@ -255,9 +485,8 @@ function conflictsPanel(d, compact) {
       h("span", {}, "Лицензия: ", h("b", {}, uniq(real.map((c) => c.licence)).join(", ") || "—")),
       h("span", {}, "Точность: " + PREC + (prec.length ? " (precision: " + prec.join(", ") + ")" : ""))));
   }
-  wrap.append(h("div", { class: "safety" }, txt(d.safety)));
+  if (items.some((c) => c.demo)) wrap.append(h("div", { class: "mut", style: "margin-top:6px" }, "DEMO-регионы (синтетические) на карту не наносятся — их список ниже."));
   if (!items.length) wrap.append(stateBox("load", "Нет данных о конфликтах."));
-  else if (!compact) wrap.append(conflictList(items));
   return wrap;
 }
 function realConflictTable(items, limit) {
@@ -284,6 +513,8 @@ function conflictList(items) {
 }
 
 /* ---------- tenders ---------- */
+/* The backend country filter only knows ~40 ISO3 codes (an unknown code matches region-only tenders), so the country
+   filter is applied here: tender.country (ISO3 / ISO2 / name) is normalized with the Natural Earth index. */
 async function loadTenders() {
   const f = S.filters;
   const p = new URLSearchParams();
@@ -291,9 +522,13 @@ async function loadTenders() {
   if (f.f === "BLOCKED" || f.f === "REVIEW_REQUIRED") p.set("complexity", f.f);
   if (f.q) p.set("q", f.q);
   if (f.category) p.set("category", f.category);
-  if (f.country) p.set("country", f.country);
-  p.set("limit", "200");
-  return GET("/tenders?" + p);
+  if (!f.country) { p.set("limit", "200"); return GET("/tenders?" + p); }
+  await loadGeo().catch(() => null);
+  p.set("limit", "1000");
+  const d = await GET("/tenders?" + p);
+  const want = toIso3(f.country), raw = f.country.trim().toUpperCase();
+  const items = (d.items || []).filter((t) => (want ? toIso3(t.country) === want : String(t.country || "").toUpperCase() === raw));
+  return Object.assign({}, d, { items, total: items.length, partial: d.total > (d.items || []).length, countryIso3: want });
 }
 function tenderTable(items, onRow) {
   return table(["Страна", "Название", "Категория", "Стоимость", "Дедлайн", "Статус", "Сложность", "Fit"], items.map((t) => {
@@ -309,41 +544,122 @@ function countsFrom(items) {
   for (const t of items) { const a = t.assessment || {}; if (a.tier_if_cleared && c[a.tier_if_cleared] != null) c[a.tier_if_cleared]++; if (a.complexity === "BLOCKED") c.BLOCKED++; if (a.complexity === "REVIEW_REQUIRED") c.REVIEW_REQUIRED++; }
   return c;
 }
-function statCard(label, v, cls) { return h("div", { class: "card" }, h("div", { class: "mut" }, label), h("div", { class: "stat " + (cls || "") }, String(v))); }
+
+/* ---------- KPI tiles (every value from the API; "—" + reason when a request fails) ---------- */
+const ICONS = {
+  doc: "M6 3h9l4 4v14H6zM15 3v4h4M9 12h7M9 16h7", stack: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5",
+  globe: "M12 3a9 9 0 1 0 .01 0zM3 12h18M12 3c3.2 3 3.2 15 0 18M12 3c-3.2 3-3.2 15 0 18", fire: "M12 3l9.5 17h-19zM12 10v4.5M12 17.2v.3",
+  target: "M12 3a9 9 0 1 0 .01 0zM12 8a4 4 0 1 0 .01 0zM12 1v4M12 19v4M1 12h4M19 12h4", shield: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z",
+  pulse: "M2 12h4l3-7 5 14 3-7h5", fx: "M5 8h13l-3-3M19 16H6l3 3",
+};
+function icon(name) { const s = svgEl("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }); s.append(svgEl("path", { d: ICONS[name] })); return s; }
+function kpiTile(ic, value, label, sub, tone) {
+  return h("div", { class: "kpi " + (tone || "") }, icon(ic), h("div", { class: "kb" }, h("div", { class: "v" }, value), h("div", { class: "l" }, label), h("div", { class: "s", title: sub || "" }, sub || "")));
+}
+async function loadKpis(el) {
+  clear(el).append(stateBox("load", "Загрузка показателей…"));
+  const [openT, allT, lay, conf, sanc, src, fx] = await Promise.allSettled(["openT", "allT", "layers", "conf", "sanc", "src", "fx"].map(cached));
+  if ([openT, allT, lay, conf, sanc, src, fx].some((r) => r.status === "rejected" && r.reason && r.reason.status === 401)) return;
+  const err = (r) => "нет данных: " + (r.reason && r.reason.status ? "HTTP " + r.reason.status : String(r.reason && r.reason.message || r.reason));
+  const tiles = [];
+  tiles.push(openT.status === "fulfilled" ? kpiTile("doc", fmtN(openT.value.total), "Открытых тендеров", "status=open · все источники", "ok") : kpiTile("doc", "—", "Открытых тендеров", err(openT)));
+  tiles.push(allT.status === "fulfilled" ? kpiTile("stack", fmtN(allT.value.total), "Тендеров в базе", "открытые + закрытые") : kpiTile("stack", "—", "Тендеров в базе", err(allT)));
+  if (lay.status === "fulfilled") {
+    const cs = Object.values(lay.value.countries || {}).filter((c) => c.conflict_events > 0), yrs = uniqYears(lay.value).join(", ");
+    const ev = cs.reduce((a, c) => a + c.conflict_events, 0), de = cs.reduce((a, c) => a + c.conflict_deaths, 0);
+    tiles.push(kpiTile("globe", fmtN(cs.length), "Стран с событиями UCDP", cs.length ? "UCDP GED · " + yrs : "UCDP не загружен", "r"));
+    tiles.push(kpiTile("fire", fmtN(ev), "Событий UCDP" + (yrs ? " " + yrs : ""), cs.length ? "погибших: " + fmtN(de) : "UCDP не загружен", "r"));
+  } else { tiles.push(kpiTile("globe", "—", "Стран с событиями UCDP", err(lay))); tiles.push(kpiTile("fire", "—", "Событий UCDP", err(lay))); }
+  if (conf.status === "fulfilled" && conf.value.acd && (conf.value.acd.items || []).length) {
+    const acd = conf.value.acd, ids = uniq(acd.items.map((a) => a.conflict_id)), wars = uniq(acd.items.filter((a) => a.intensity === "war").map((a) => a.conflict_id));
+    tiles.push(kpiTile("target", fmtN(ids.length), "Вооружённых конфликтов", "UCDP/PRIO ACD " + txt(acd.year) + " · войн: " + wars.length, "r"));
+  } else tiles.push(kpiTile("target", "—", "Вооружённых конфликтов", conf.status === "rejected" ? err(conf) : "нет источника: UCDP/PRIO ACD не загружен"));
+  tiles.push(sanc.status === "fulfilled" ? kpiTile("shield", sanc.value.count ? fmtN(sanc.value.count) : "0", "Записей в санкц. списках", sanc.value.count ? txt(sanc.value.source) + " · " + txt(sanc.value.as_of) : "не загружены", "w")
+    : kpiTile("shield", "—", "Записей в санкц. списках", err(sanc)));
+  if (src.status === "fulfilled") {
+    const rows = src.value.sources || [], live = rows.filter((s) => s.status === "LIVE");
+    tiles.push(kpiTile("pulse", live.length + " / " + rows.length, "Источников LIVE", live.map((s) => s.id).join(", ") || "ни одного", "ok"));
+  } else tiles.push(kpiTile("pulse", "—", "Источников LIVE", err(src)));
+  tiles.push(fx.status === "fulfilled" && fx.value && fx.value.as_of ? kpiTile("fx", fx.value.as_of, "Дата курсов валют", txt(fx.value.source) + " · пар: " + Object.keys(fx.value.rates || {}).length)
+    : kpiTile("fx", "—", "Дата курсов валют", fx.status === "rejected" ? err(fx) : "курсы не загружены"));
+  clear(el).append(...tiles);
+}
+
+/* ---------- honest placeholders for mockup blocks without a data source ---------- */
+function placeholder(title, need, srcId, srcs) {
+  const row = srcId && srcs ? (srcs.sources || []).find((s) => s.id === srcId) : null;
+  return h("section", { class: "card ph", "aria-label": title }, h("h2", {}, title), h("div", { class: "phmsg" }, "нет источника: " + need),
+    row ? h("div", { class: "bar" }, h("span", { class: "mut" }, "реестр источников: " + txt(row.name)), sb(row.status), row.reason ? h("span", { class: "mut" }, row.reason) : null) : null);
+}
+async function placeholders(el) {
+  const srcs = await cached("src").catch(() => null);
+  clear(el).append(
+    placeholder("Оборонные бюджеты", "датасет SIPRI Military Expenditure Database (годовые расходы по странам)", "sipri", srcs),
+    placeholder("Компании сектора / котировки", "поставщик рыночных котировок (биржевые данные с лицензией на показ)", null, srcs),
+    placeholder("Недавние награды контрактов", "эндпоинт чтения наград в API (USAspending / TED award notices); закрытые тендеры — не награды", "usaspending", srcs));
+}
+
+/* ---------- top conflicts (UCDP GED + ACD) ---------- */
+async function topConflicts(el) {
+  await load(el, async () => {
+    const [lay, conf] = await Promise.all([cached("layers"), cached("conf"), loadGeo().catch(() => null)]);
+    const cs = Object.entries(lay.countries || {}).filter(([, c]) => c.conflict_events > 0).sort((a, b) => b[1].conflict_deaths - a[1].conflict_deaths).slice(0, 6);
+    const out = h("div");
+    if (!cs.length) out.append(stateBox("load", "Данных UCDP нет. Загрузите их в разделе «Источники»."));
+    else {
+      const max = cs[0][1].conflict_deaths || 1;
+      out.append(h("div", { class: "mut" }, "Погибших за " + uniqYears(lay).join(", ") + " (UCDP GED), топ-6 · клик — страна на карте"),
+        h("ol", { class: "rank bars" }, cs.map(([i, c]) => h("li", {}, h("button", { type: "button", class: "lnk", onclick: () => { if (S.mapApi) { S.mapApi.select(i); } } }, geoName(i)),
+          h("span", { class: "barw", "aria-hidden": "true" }, h("span", { style: "width:" + Math.max(2, Math.round(c.conflict_deaths / max * 100)) + "%" })),
+          h("span", { class: "num" }, fmtN(c.conflict_deaths)), sevBadge(c.severity)))));
+    }
+    const acd = conf.acd, wars = ((acd && acd.items) || []).filter((a) => a.intensity === "war");
+    out.append(h("h3", {}, "Войны (≥ 1 000 погибших в боях за год) · UCDP/PRIO ACD" + (acd && acd.year ? " " + acd.year : "")));
+    out.append(!acd ? stateBox("load", "Данные ACD не загружены.") : wars.length ? h("ul", { class: "list" }, wars.map((a) => h("li", {}, h("b", {}, txt(a.location)), h("div", { class: "mut" }, txt(a.side_a) + " vs " + txt(a.side_b)))))
+      : stateBox("load", "В ACD нет конфликтов интенсивности war."));
+    return out;
+  });
+}
 
 async function viewOverview(el) {
-  const top = h("div", { class: "grid stats" }), two = h("div", { class: "grid two" });
-  const mapBox = h("div"), confBox = h("div"), tblBox = h("div");
-  two.append(card("Карта конфликтов", mapBox), card("Конфликты", confBox));
-  el.append(top, two, h("div", { style: "margin-top:12px" }, card("Тендеры", tblBox)));
+  const kpi = h("div", { class: "kpis", "aria-label": "Ключевые показатели" }), mapEl = h("div"), panel = h("aside", { class: "card cpanel", "aria-label": "Панель страны" });
+  const tBox = h("div"), cBox = h("div"), phBox = h("div", { class: "phs" });
+  el.append(kpi, h("div", { class: "mapgrid" }, h("section", { class: "card mapcard", "aria-label": "Карта мира" }, mapEl), panel),
+    h("div", { class: "lower" }, card("Открытые тендеры", tBox), card("Конфликты · UCDP", cBox), phBox));
   await Promise.all([
-    load(top, async () => {
-      const d = await GET("/tenders?limit=200"); const c = countsFrom(d.items);
-      S.tenders = d;
-      return h("div", { class: "grid stats", style: "grid-column:1/-1" }, statCard("Тендеров всего", d.total), statCard("Лёгкие (EASY)", c.EASY), statCard("Средние (MEDIUM)", c.MEDIUM),
-        statCard("Сложные (HARD)", c.HARD), statCard("Не допущены (BLOCKED)", c.BLOCKED, "b"), statCard("На проверке (REVIEW)", c.REVIEW_REQUIRED, "w"));
+    loadKpis(el.querySelector(".kpis")),
+    mapBlock(mapEl, panel),
+    topConflicts(cBox),
+    placeholders(phBox),
+    load(tBox, async () => {
+      const d = await cached("openT"), items = d.items || [];
+      if (!items.length) return stateBox("load", "Открытых тендеров нет. Загрузите данные в разделе «Источники».");
+      const c = countsFrom(items);
+      return h("div", {}, h("div", { class: "bar" }, badge("Все открытые: " + d.total, "b-info"), badge("EASY: " + c.EASY, "b-ok"), badge("MEDIUM: " + c.MEDIUM, "b-warn"),
+        badge("HARD: " + c.HARD, "b-bad"), badge("BLOCKED: " + c.BLOCKED, "b-bad"), badge("REVIEW: " + c.REVIEW_REQUIRED, "b-info")),
+      h("div", { class: "mut" }, "Первые 10 по порядку API (fit); клик — карточка тендера"),
+      table(["Страна", "Название", "Дедлайн", "Сложность", "Fit"], items.slice(0, 10).map((t) => ({ key: t.key, cells: [txt(t.country),
+        h("span", { class: "clip", title: t.title == null ? "" : t.title }, t.title == null ? "—" : t.title), txt((t.deadline || "").slice(0, 10)),
+        sb(t.assessment && t.assessment.complexity), t.assessment && t.assessment.fit_score != null ? String(t.assessment.fit_score) : "—"] })),
+        (r) => { S.sel = r.key; S.filters.country = ""; go("tenders"); }));
     }),
-    load(mapBox, async () => conflictsPanel(await GET("/conflicts"), true)),
-    load(confBox, async () => {
-      const d = await GET("/conflicts"); const items = d.items || [];
-      if (!items.length) return stateBox("load", "Нет данных.");
-      if (items.some((c) => !c.demo)) return h("div", {}, h("div", { class: "mut" }, "Топ-10 стран по числу погибших (UCDP); полный список — в разделе Conflicts"), realConflictTable(items, 10));
-      return conflictList(items);
-    }),
-    load(tblBox, async () => { const d = S.tenders || await GET("/tenders?limit=200"); if (!d.items.length) return stateBox("load", "Тендеров нет. Загрузите данные в разделе Sources."); return tenderTable(d.items.slice(0, 25), (k) => { S.sel = k; go("tenders"); }); }),
   ]);
 }
 async function viewConflicts(el) {
-  const box = h("div"), realBox = h("div"), acdBox = h("div"), demoBox = h("div");
-  el.append(card("Карта конфликтов", box), h("div", { class: "grid", style: "margin-top:12px;grid-template-columns:minmax(0,1fr)" },
-    card("UCDP: агрегаты по странам (по числу погибших)", realBox), card("UCDP/PRIO ACD: вооружённые конфликты", acdBox), demoBox));
+  const mapEl = h("div"), panel = h("aside", { class: "card cpanel", "aria-label": "Панель страны" });
+  const metaBox = h("div"), realBox = h("div"), acdBox = h("div"), demoBox = h("div");
+  S.mapLayer = "conflict";
+  el.append(h("div", { class: "mapgrid" }, h("section", { class: "card mapcard", "aria-label": "Карта конфликтов" }, mapEl), panel),
+    h("div", { class: "grid", style: "margin-top:12px;grid-template-columns:minmax(0,1fr)" },
+      card("Источник и лицензия", metaBox), card("UCDP: агрегаты по странам (по числу погибших)", realBox), card("UCDP/PRIO ACD: вооружённые конфликты", acdBox), demoBox));
+  await mapBlock(mapEl, panel);
   let d;
-  await load(box, async () => { d = await GET("/conflicts"); return conflictsPanel(d, true); });
+  await load(metaBox, async () => { d = await cached("conf"); return conflictMeta(d); });
   if (!d) { clear(realBox).append(stateBox("err", "Нет ответа /conflicts")); clear(acdBox); return; }
   const items = d.items || [], real = items.filter((c) => !c.demo), demo = items.filter((c) => c.demo);
-  clear(realBox).append(real.length ? realConflictTable(real) : stateBox("load", "Реальных данных UCDP нет. Загрузите их в разделе Sources («Конфликты UCDP»)."));
+  clear(realBox).append(real.length ? realConflictTable(real) : stateBox("load", "Реальных данных UCDP нет. Загрузите их в разделе «Источники» («Конфликты UCDP»)."));
   const acd = d.acd;
-  clear(acdBox).append(acd && (acd.items || []).length ? h("div", {}, h("div", { class: "mut" }, "Год: " + txt(acd.year) + " · конфликтов: " + acd.items.length), acdTable(acd)) : stateBox("load", "Данных ACD нет."));
+  clear(acdBox).append(acd && (acd.items || []).length ? h("div", {}, h("div", { class: "mut" }, "Год: " + txt(acd.year) + " · строк: " + acd.items.length + " · уникальных конфликтов: " + uniq(acd.items.map((a) => a.conflict_id)).length), acdTable(acd)) : stateBox("load", "Данных ACD нет."));
   if (demo.length) demoBox.append(card("DEMO-регионы (синтетические, не для решений)", conflictList(demo)));
 }
 
@@ -370,7 +686,8 @@ async function viewTenders(el) {
     await load(listBox, async () => {
       const d = await loadTenders(); S.tenders = d;
       if (!d.items.length) return stateBox("load", "Нет тендеров по этим фильтрам.");
-      return h("div", {}, h("div", { class: "mut" }, `Показано ${d.items.length} из ${d.total} · страна: ${S.filters.country || "весь мир"}`), tenderTable(d.items, (k) => { S.sel = k; renderTenders(); showDetail(det, k); }));
+      return h("div", {}, h("div", { class: "mut" }, `Показано ${d.items.length} из ${d.total} · страна: ${S.filters.country ? S.filters.country + (d.countryIso3 ? " (" + geoName(d.countryIso3) + ")" : "") : "весь мир"}` +
+        (S.filters.country ? " · фильтр страны применён в интерфейсе по коду/названию" + (d.partial ? "; загружены не все тендеры" : "") : "")), tenderTable(d.items, (k) => { S.sel = k; renderTenders(); showDetail(det, k); }));
     });
   }
   await renderTenders();
@@ -666,7 +983,8 @@ const VIEWS = { overview: viewOverview, conflicts: viewConflicts, tenders: viewT
   learning: viewLearning, sources: viewSources, approvals: viewApprovals };
 async function render() {
   const m = clear($("#main"));
-  m.append(h("h2", { style: "margin:0 0 10px;font-size:16px" }, SECTIONS.find((s) => s[0] === S.view)[1]));
+  S.cache = {}; S.mapApi = null;
+  m.append(h("h2", { class: "vt" + (S.view === "overview" ? " sr" : "") }, SECTIONS.find((s) => s[0] === S.view)[1]));
   try { await VIEWS[S.view](m); } catch (e) { if (e.status !== 401) m.append(stateBox("err", "Ошибка: " + (e.message || e))); }
 }
 function boot() {

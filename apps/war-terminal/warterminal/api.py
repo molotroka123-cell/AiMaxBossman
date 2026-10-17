@@ -444,8 +444,8 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
                 continue
             if status and t.get("status") != status or jurisdiction and t.get("jurisdiction") != jurisdiction or category and t.get("category") != category:
                 continue
-            if country and rules.country2(t.get("country")) != rules.country2(country):
-                continue
+            if country and (geo.to_iso3(t.get("country")) is None or geo.to_iso3(t.get("country")) != geo.to_iso3(country)):
+                continue                                # region-only tenders (e.g. "Western and Central Africa") never match a country
             if q and q.lower() not in f"{t.get('title', '')} {t.get('buyer', '')}".lower():
                 continue
             a = brief(assess_tender(t))

@@ -13,8 +13,8 @@ needs_runners = pytest.mark.skipif(
     reason="npx и uvx нужны для проверки allowlist по реальным бинарникам")
 
 
-def test_twelve_unique_pinned_entries():
-    assert len(CATALOG) == 12 and len(BY_ID) == 12
+def test_seventeen_unique_pinned_entries():
+    assert len(CATALOG) == 17 and len(BY_ID) == 17
     for e in CATALOG:
         assert ("==" in e.package) if e.runner == "uvx" else (e.package.rsplit("@", 1)[-1][:1].isdigit()), e.id
         assert e.risk in {"read", "network", "write"}
@@ -28,7 +28,7 @@ def test_argv_contains_path_only_for_param_servers():
 
 @needs_runners
 def test_every_entry_passes_command_allowlist():
-    for e in CATALOG:
+    for e in (e for e in CATALOG if e.runner != "node24"):
         path = "D:\\work" if e.param else ""
         assert command_policy_refusal(e.argv(path)) == "", e.id
 
@@ -75,3 +75,35 @@ async def test_git_requires_a_repository_root(env, tmp_path):
     if ok.status_code == 403:
         pytest.skip("uvx отсутствует в allowlist этой машины")
     assert ok.status_code == 200, ok.text
+
+
+def test_node24_entries_need_the_runtime_and_only_that_binary_is_added(tmp_path, monkeypatch):
+    monkeypatch.delenv("BOSSMAN_NODE24", raising=False)
+    monkeypatch.delenv("BOSSMAN_MCP_NODE24_PREFIX", raising=False)
+    assert BY_ID["osm"].available() is False
+    node = tmp_path / "node24" / "node.exe"
+    node.parent.mkdir()
+    node.write_bytes(b"")
+    node.chmod(0o755)
+    prefix = tmp_path / "mcp"
+    (prefix / "node_modules" / "osm-mcp" / "dist").mkdir(parents=True)
+    (prefix / "node_modules" / "osm-mcp" / "dist" / "index.js").write_text("// stub", encoding="utf-8")
+    monkeypatch.setenv("BOSSMAN_NODE24", str(node))
+    monkeypatch.setenv("BOSSMAN_MCP_NODE24_PREFIX", str(prefix))
+    assert BY_ID["osm"].available() is True and BY_ID["worldbank"].available() is False      # its package is not installed
+    argv = BY_ID["osm"].argv()
+    assert argv[0] == str(node) and argv[1].endswith("index.js")
+    assert command_policy_refusal(argv) == ""                                                # the explicit runtime is allowed
+    other = tmp_path / "other.exe"
+    other.write_bytes(b"")
+    other.chmod(0o755)
+    assert command_policy_refusal([str(other), "x.js"]) != ""                                 # any other binary is still refused
+    assert command_policy_refusal([str(node), "-e", "1"]) != ""                               # inline code is still refused
+    monkeypatch.setenv("BOSSMAN_NODE24", "node24-relative")
+    assert command_policy_refusal(argv) != ""                                                 # only an absolute path counts
+
+
+async def test_node24_install_refused_without_runtime(env, monkeypatch):
+    monkeypatch.delenv("BOSSMAN_NODE24", raising=False)
+    r = await env.client.post("/api/mcp/catalog/ted-eu/install")
+    assert r.status_code == 409 and "NODE24_RUNTIME_MISSING" in r.text

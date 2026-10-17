@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from dataclasses import dataclass, field
 
 import sqlalchemy as sa
@@ -44,8 +45,19 @@ class CatalogEntry:
     param_flag: str = ""           # флаг перед путём ("" = путь позиционный)
     marker: str = ""               # что обязано лежать в папке (".git" для репозитория)
     needs: tuple[str, ...] = field(default_factory=tuple)
+    script: str = ""               # runner "node24": entry file inside node_modules (packages pre-installed, versions pinned)
+
+    def available(self) -> bool:
+        if self.runner != "node24":
+            return True
+        node, prefix = os.environ.get("BOSSMAN_NODE24", ""), os.environ.get("BOSSMAN_MCP_NODE24_PREFIX", "")
+        return bool(node and prefix and Path(node).is_file() and (Path(prefix) / "node_modules" / self.script).is_file())
 
     def argv(self, path: str = "") -> list[str]:
+        if self.runner == "node24":
+            head = [os.environ.get("BOSSMAN_NODE24", ""),
+                    str(Path(os.environ.get("BOSSMAN_MCP_NODE24_PREFIX", "")) / "node_modules" / self.script)]
+            return [*head, *self.extra_args]
         head = ["npx", "-y", self.package] if self.runner == "npx" else ["uvx", self.package]
         argv = [*head, *self.extra_args]
         if self.param:
@@ -55,7 +67,7 @@ class CatalogEntry:
     def public(self, installed: bool) -> dict:
         return dict(id=self.id, title=self.title, purpose=self.purpose, risk=self.risk,
                     runner=self.runner, package=self.package, upstream=self.upstream,
-                    param=self.param, needs=list(self.needs), installed=installed)
+                    param=self.param, needs=list(self.needs), installed=installed, available=self.available())
 
 
 CATALOG: tuple[CatalogEntry, ...] = (
@@ -103,6 +115,25 @@ CATALOG: tuple[CatalogEntry, ...] = (
     CatalogEntry("wikipedia", "Wikipedia — статьи и справки", "uvx", "wikipedia-mcp==2.0.1",
                  "Поиск, краткое содержание и факты из Википедии по открытому API без ключа.", "network",
                  "https://github.com/rudra-ravi/wikipedia-mcp"),
+    # Procurement / geo / trade (War Terminal context). Need Node >= 22-24: run on the separate runtime/node24 with packages
+    # pre-installed at exact versions in BOSSMAN_MCP_NODE24_PREFIX (npx on the system Node 20 crashes for them). Verified live 17.10.2026.
+    CatalogEntry("osm", "OpenStreetMap — геокодинг и маршруты", "node24", "osm-mcp@0.3.2",
+                 "Геокодинг (Nominatim/Photon), маршруты (OSRM/Valhalla), объекты рядом (Overpass) без ключа.", "network",
+                 "https://github.com/ni-c/osm-mcp", script="osm-mcp/dist/index.js", needs=("Node 24 runtime",)),
+    CatalogEntry("worldbank", "World Bank — показатели стран и проекты", "node24", "@cyanheads/worldbank-mcp-server@0.5.3",
+                 "Показатели World Bank (ВВП, военные расходы и др.) и поиск проектов.", "network",
+                 "https://github.com/cyanheads/worldbank-mcp-server", script="@cyanheads/worldbank-mcp-server/dist/index.js",
+                 needs=("Node 24 runtime",)),
+    CatalogEntry("ted-eu", "TED — тендеры ЕС", "node24", "@pipeworx/mcp-ted-eu@0.1.3",
+                 "Поиск уведомлений TED, награды, история поставщиков, профили заказчиков (официальный API v3).", "network",
+                 "https://github.com/pipeworx-io/mcp-ted-eu", script="@pipeworx/mcp-ted-eu/bin/cli.js", needs=("Node 24 runtime",)),
+    CatalogEntry("sam-gov", "SAM.gov + OFAC + USAspending", "node24", "@cliwant/mcp-sam-gov@1.17.0",
+                 "Госзакупки США, исключения SAM, награды USAspending, проверка OFAC — без ключа (153 инструмента).", "network",
+                 "https://github.com/cliwant/mcp-sam-gov", script="@cliwant/mcp-sam-gov/dist/server.js", needs=("Node 24 runtime",)),
+    CatalogEntry("comtrade", "UN Comtrade — мировая торговля", "node24", "@cyanheads/un-comtrade-mcp-server@0.2.0",
+                 "Торговые потоки, главные партнёры и товары по HS-кодам (публичный preview без ключа).", "network",
+                 "https://github.com/cyanheads/un-comtrade-mcp-server", script="@cyanheads/un-comtrade-mcp-server/dist/index.js",
+                 needs=("Node 24 runtime",)),
 )
 BY_ID = {e.id: e for e in CATALOG}
 
@@ -145,6 +176,9 @@ async def install(entry_id: str, request: Request) -> dict:
         raise HTTPException(404, {"message": "Такого сервера нет в каталоге."})
     svc = request.app.state.svc
     body = await request.json() if (await request.body()) else {}
+    if not entry.available():
+        raise HTTPException(409, {"code": "NODE24_RUNTIME_MISSING", "message": "Нужен отдельный Node 24 и предустановленные пакеты",
+                                  "hint": "задайте BOSSMAN_NODE24 (node.exe) и BOSSMAN_MCP_NODE24_PREFIX (папка с node_modules)"})
     path = validated_path(body.get("path"), entry.marker) if entry.param else ""
     spec = MCPServerSpec(id=_name(entry), name=_name(entry), transport="stdio",
                          command=entry.argv(path))

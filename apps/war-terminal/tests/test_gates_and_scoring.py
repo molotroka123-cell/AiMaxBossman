@@ -207,3 +207,15 @@ def test_qualification_uses_share_of_cpv_not_any_single_code():
     fuel = {"cpv": ["09134200", "09134100"]}
     q = lambda t: scoring.components(t, prof, [], [], capital_limit_usd=Decimal(50000), back_to_back=False, usd_value=None, today=TODAY)["qualification"][0]
     assert q(fuel) == 1.0 and q(lab) == 0.4 and q({"cpv": ["33790000"]}) == 0.1
+
+
+def test_country_filter_uses_the_full_table_and_never_matches_regions(env):
+    env.ingest_ted()
+    env.store.upsert_tender({"jurisdiction": "WB", "official_notice_id": "R1", "title": "regional", "country": "Western and Central Africa",
+                             "status": "open", "retrieved_at": "2026-10-17T00:00:00+00:00", "cpv": [], "demo": False, "source_url": "https://x.org"})
+    env.store.upsert_tender({"jurisdiction": "WB", "official_notice_id": "P1", "title": "pak", "country": "PK",
+                             "status": "open", "retrieved_at": "2026-10-17T00:00:00+00:00", "cpv": [], "demo": False, "source_url": "https://x.org"})
+    pak = env.req("GET", "/tenders?country=PAK&include_demo=false", "viewer").json()
+    assert [i["official_notice_id"] for i in pak["items"]] == ["P1"]
+    from warterminal import rules
+    assert rules.country2("PAK") == "PK" and rules.country2("Western and Central Africa") is None and rules.country2("GIN") == "GN"

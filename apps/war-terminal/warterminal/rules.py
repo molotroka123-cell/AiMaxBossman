@@ -30,7 +30,15 @@ def country2(raw: str | None) -> str | None:
     if not raw:
         return None
     raw = raw.strip().upper()
-    return ISO3_TO_2.get(raw, raw if len(raw) == 2 else None)
+    if raw in ISO3_TO_2:
+        return ISO3_TO_2[raw]
+    if len(raw) == 2:
+        return raw
+    from . import geo                                   # full Natural Earth table for every other ISO3 / name
+    iso3 = geo.to_iso3(raw)
+    if not iso3:
+        return None
+    return next((i2 for i2, i3 in geo.index()["by_iso2"].items() if i3 == iso3), None)
 
 
 def _gate(gid: str, status: str, reason: str, evidence: str = "") -> dict:

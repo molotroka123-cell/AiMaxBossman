@@ -65,6 +65,7 @@ class MCPToolView:
 #     шелла, но `bash -c` превращает любой элемент обратно в шелл-строку.
 
 COMMAND_ALLOWLIST_ENV = "BCC_MCP_COMMAND_ALLOWLIST"
+NODE24_ENV = "BOSSMAN_NODE24"                  # абсолютный путь к node.exe отдельного Node 24 (runtime/node24)
 DEFAULT_COMMAND_BINARIES: tuple[str, ...] = ("python3", "python", "node", "npx", "uvx", "uv")
 _SHELL_NAMES = frozenset({"sh", "bash", "dash", "zsh", "ksh", "csh", "tcsh", "fish", "ash",
                           "busybox", "cmd", "cmd.exe", "powershell", "powershell.exe",
@@ -107,6 +108,11 @@ def command_allowlist() -> tuple[set[str], str]:
         origin = COMMAND_ALLOWLIST_ENV
     else:
         names = [sys.executable, *DEFAULT_COMMAND_BINARIES]
+        # Отдельный Node 24 для MCP-серверов, которым мало системного Node 20: только явный АБСОЛЮТНЫЙ путь,
+        # добавляется к встроенному списку, не заменяет его.
+        node24 = os.environ.get(NODE24_ENV, "").strip()
+        if node24 and os.path.isabs(node24):
+            names.append(node24)
         origin = "встроенный"
     resolved: set[str] = set()
     for n in names:
