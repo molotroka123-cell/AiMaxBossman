@@ -1,0 +1,43 @@
+id: war-terminal
+name: Bossman War & Procurement Terminal
+version: "0.1.0"
+kind: workload
+contract: "1.0"
+default_port: 8830
+description: >
+  Bloomberg-style terminal: public procurement (EU TED live, SAM.gov/USAspending adapters), conflict context, deterministic legal gates,
+  explainable feasibility for a future company, finance model, learning from owner decisions. Isolated app: Bossman influences it only
+  through the versioned API and the approval gate. DEMO data is always marked. No autonomous bid submission, counterparty contact or
+  purchase of controlled goods: those actions are not implemented and answer 403.
+
+control:
+  transport: http
+  base_path: /api/v1
+  auth: bearer_required
+  calls:
+    health: GET /api/v1/health
+    sources.status: GET /api/v1/sources/status
+    tenders.list: GET /api/v1/tenders
+    tenders.get: GET /api/v1/tenders/{key}
+    analyze_tender: POST /api/v1/assessments
+    check_compliance: POST /api/v1/assessments
+    summarize_conflict: GET /api/v1/conflicts/news
+    estimate_cashflow: POST /api/v1/finance/estimate
+    draft_bid_checklist: GET /api/v1/tenders/{key}/checklist
+    approvals: GET /api/v1/approvals
+
+entrypoints:
+  standalone: true
+  cli: "python -m warterminal"
+  bossman_app: war-terminal page + /api/war-terminal proxy
+  autonomous: not_implemented
+
+permissions:
+  network.read.public_sources: ask        # only when WAR_TERMINAL_LIVE=true, owner starts it
+  company.profile.write: owner_approval
+  learning.weights.apply: owner_approval
+  deal.exceed_capital: owner_approval_and_legal_review
+  bid.submit: deny
+  counterparty.contact: deny
+  controlled_goods.purchase: deny
+  secrets.in_prompt: deny

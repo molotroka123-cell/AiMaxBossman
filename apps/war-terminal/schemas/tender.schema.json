@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tender",
+  "type": "object",
+  "required": [
+    "id",
+    "official_notice_id",
+    "title",
+    "jurisdiction",
+    "status",
+    "source_url",
+    "retrieved_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "official_notice_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "jurisdiction": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "open",
+        "closed",
+        "cancelled",
+        "unknown"
+      ]
+    },
+    "deadline": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "estimated_value": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "currency": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "retrieved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "compliance_status": {
+      "enum": [
+        "PASS",
+        "BLOCKED",
+        "REVIEW_REQUIRED"
+      ]
+    },
+    "complexity": {
+      "enum": [
+        "EASY",
+        "MEDIUM",
+        "HARD",
+        "BLOCKED",
+        "REVIEW_REQUIRED"
+      ]
+    },
+    "fit_score": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "demo": {
+      "type": "boolean"
+    }
+  }
+}
