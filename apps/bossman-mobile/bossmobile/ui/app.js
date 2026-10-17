@@ -327,12 +327,52 @@
     f.appendChild(el('span', 'badge-local', 'на ПК'));
     if (m.license) f.appendChild(el('span', 'pill', m.license));
     $('ref-block').hidden = !m.accepts_image; $('ref-label').textContent = m.requires_image ? 'Выбрать фото (обязательно)' : 'Выбрать из «Фото»';
-    const st = $('photo-steps'); st.max = m.max_steps || 50; st.value = m.default_steps || 20; $('steps-val').textContent = st.value;
+    const st = $('photo-steps'); st.min = m.min_steps || 1; st.max = m.max_steps || 50; st.value = m.default_steps || 20; setSteps(st.value);
+    $('steps-range').textContent = `(от ${st.min} до ${st.max}, по умолчанию ${m.default_steps || 20})`;
     const base = Number((m.default_resolution || '512x512').split('x')[0]) || 512;
     const sides = [512, 768, 1024, 1280].filter((s) => s >= (m.min_side || 256) && s <= (m.max_side || 1536));
     S.side = sides.includes(base) ? base : sides[0];
-    seg('photo-side', sides.map((s) => [s, `${s}`]), S.side, (v) => { S.side = v; });
-    seg('photo-aspect', [['1:1', '1:1'], ['3:4', '3:4'], ['4:3', '4:3'], ['9:16', '9:16'], ['16:9', '16:9']], S.aspect, (v) => { S.aspect = v; });
+    seg('photo-side', sides.map((s) => [s, `${s}`]), S.side, (v) => { S.side = v; showTime(); });
+    seg('photo-aspect', [['1:1', '1:1'], ['3:4', '3:4'], ['4:3', '4:3'], ['9:16', '9:16'], ['16:9', '16:9']], S.aspect, (v) => { S.aspect = v; showTime(); });
+    showTime();
+  }
+  /* ---- steps + approximate generation time (model: load + steps x s/step x pixels/512^2, see bossmobile/timing.py) ---- */
+  function fmtDur(sec) {
+    const q = sec >= 120 ? 10 : 5;
+    const s = Math.max(1, Math.round(sec / q) * q);
+    const h = Math.floor(s / 3600), mi = Math.floor((s % 3600) / 60), r = s % 60;
+    if (h) return `${h} ч ${mi} мин`;
+    if (mi) return r ? `${mi} мин ${r} с` : `${mi} мин`;
+    return `${r} с`;
+  }
+  function timeParts(m, steps, res) {
+    const t = m.timing || { load_s: 40, s_per_step: 8, kind: 'estimate' }; const [w, h] = res.split('x').map(Number);
+    return { load: t.load_s, run: steps * t.s_per_step * (w * h) / (512 * 512) };
+  }
+  const tag = (t) => el('span', t.kind === 'measured' ? 'tag-m' : 'tag-e', t.kind === 'measured' ? 'по замеру' : 'оценка');
+  function setSteps(v) {
+    const st = $('photo-steps'); const n = Math.min(Number(st.max), Math.max(Number(st.min), Math.round(Number(v)) || Number(st.min)));
+    st.value = n; $('steps-val').textContent = n; showTime();
+  }
+  function showTime() {
+    const m = curModel(); const box = $('photo-time'); if (!m) { box.replaceChildren(); return; }
+    const res = resolution(m); const steps = Number($('photo-steps').value); const t = m.timing || {}; const p = timeParts(m, steps, res);
+    const b = el('b', '', `≈ ${fmtDur(p.load + p.run)}`);
+    const note = el('span', 'muted', `${res.replace('x', '×')} · ${steps} шаг. · загрузка ${fmtDur(p.load)} + шаги ${fmtDur(p.run)}`);
+    box.replaceChildren(b, tag(t), note);
+    if (t.basis) box.appendChild(el('span', 'hint', t.basis));
+    fillTable();
+  }
+  function fillTable() {
+    const box = $('models-table'); if (!box) return; box.replaceChildren();
+    S.photoModels.forEach((m) => {
+      const t = m.timing || {}; const r = el('button', `mrow${m.id === $('photo-model').value ? ' on' : ''}`); r.type = 'button'; r.disabled = !m.available;
+      r.appendChild(el('span', 'mn', m.label));
+      r.appendChild(el('span', 'ms', `шаги ${m.min_steps}–${m.max_steps}, по умолч. ${m.default_steps} · ${(m.default_resolution || '512x512').replace('x', '×')}`));
+      const dr = m.default_resolution || '512x512'; const p = timeParts(m, m.default_steps, dr); const mt = el('span', 'mt'); mt.append(el('b', '', `≈ ${fmtDur(p.load + p.run)}`), tag(t)); r.appendChild(mt);
+      r.addEventListener('click', () => { tap(); $('photo-model').value = m.id; onModel(); });
+      box.appendChild(r);
+    });
   }
   function seg(id, opts, cur, onPick) {
     const box = $(id); box.replaceChildren();
@@ -346,7 +386,9 @@
     return `${r(w)}x${r(h)}`;
   }
   $('photo-model').addEventListener('change', onModel);
-  $('photo-steps').addEventListener('input', () => { $('steps-val').textContent = $('photo-steps').value; });
+  $('photo-steps').addEventListener('input', () => setSteps($('photo-steps').value));
+  $('steps-minus').addEventListener('click', () => { tap(); setSteps(Number($('photo-steps').value) - 1); });
+  $('steps-plus').addEventListener('click', () => { tap(); setSteps(Number($('photo-steps').value) + 1); });
   $('photo-ref').addEventListener('change', async () => {
     const f = $('photo-ref').files[0]; if (!f) return;
     try { S.ref = await downscale(f, 1536); $('ref-preview').src = S.ref; $('ref-preview').hidden = false; $('ref-clear').hidden = false; }

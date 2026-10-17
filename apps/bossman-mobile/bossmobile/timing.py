@@ -1,0 +1,99 @@
+"""Photo section: sensible step ranges and an HONEST generation-time model.
+
+time = load_s + steps * s_per_step_512 * (pixels / 512^2)
+
+* sd-cli is a fresh process for every job, so "load" (weights + text encoder) is paid on EVERY run, not just the first;
+  VAE decode is inside the "generating" stage of Bossman's timeline, so there is no separate decode term.
+* s_per_step_512 is seconds per sampler step at 512x512; other resolutions scale linearly with pixels (simple and a bit
+  rough; the UI says "≈").
+* kind == "measured": taken from real completed Bossman jobs (timeline: loading -> generating -> postprocessing) of
+  that very model on the owner PC, 17.10.2026. Live history of the same model overrides the table (see from_history).
+* kind == "estimate": no own run exists; derived from the most similar measured model and named in `basis`.
+"""
+from __future__ import annotations
+
+from datetime import datetime
+from statistics import mean
+from typing import Any
+
+REF_PIXELS = 512 * 512
+
+# model id -> sensible UI range (backend accepts 1..max_steps; max_steps comes from Bossman's own catalog)
+STEP_MIN = {"z-image-turbo": 4, "flux1-schnell": 2, "flux2-klein-4b": 2, "sdxl-base": 15, "epicrealism-xl": 15,
+            "qwen-image-2.1": 10, "qwen-image-2.1-uc": 10, "qwen-image-2.1-uc-heretic": 10,
+            "qwen-image-viggle-turbo": 4, "qwen-image-2.1-uc-edit": 10, "qwen-image-edit-2509": 10}
+
+_QWEN_T2I = {"load_s": 67.0, "s_per_step": 13.2}
+# Bossman jobs 17.10.2026 (512x512 unless stated); n = completed runs; spread = min..max s/step among them
+TABLE: dict[str, dict[str, Any]] = {
+    "z-image-turbo": {"kind": "measured", "n": 2, "load_s": 16.6, "s_per_step": 2.5, "spread": [1.3, 3.7],
+                      "basis": "2 запуска на этом ПК 17.10"},
+    "flux1-schnell": {"kind": "measured", "n": 1, "load_s": 25.1, "s_per_step": 2.6,
+                      "basis": "1 запуск на этом ПК 17.10"},
+    "qwen-image-edit-2509": {"kind": "measured", "n": 1, "load_s": 83.9, "s_per_step": 21.5,
+                             "basis": "1 запуск с референсом 17.10"},
+    "qwen-image-2.1-uc-edit": {"kind": "measured", "n": 2, "load_s": 67.0, "s_per_step": 21.8, "spread": [20.0, 23.6],
+                               "basis": "2 запуска с референсом 17.10"},
+    "qwen-image-2.1": {"kind": "measured", "n": 1, **_QWEN_T2I,
+                       "basis": "замер Bossman RC19: 512x512, 20 шагов, 13,2 с/шаг; загрузка по qwen-uc-edit"},
+    "flux2-klein-4b": {"kind": "estimate", "n": 0, "load_s": 20.0, "s_per_step": 3.1,
+                       "basis": "замер Bossman 22.09: 1024x1024, 4 шага = 70 с в сумме; разбивка оценена"},
+    "qwen-image-2.1-uc": {"kind": "estimate", "n": 0, **_QWEN_T2I, "basis": "та же архитектура, что qwen-image-2.1"},
+    "qwen-image-2.1-uc-heretic": {"kind": "estimate", "n": 0, **_QWEN_T2I,
+                                  "basis": "та же архитектура, что qwen-image-2.1"},
+    "qwen-image-viggle-turbo": {"kind": "estimate", "n": 0, **_QWEN_T2I,
+                                "basis": "та же архитектура, что qwen-image-2.1; 6 шагов без CFG"},
+    "sdxl-base": {"kind": "estimate", "n": 0, "load_s": 15.0, "s_per_step": 2.2,
+                  "basis": "от z-image-turbo: UNet SDXL 2,6 млрд ×2 прохода CFG"},
+    "epicrealism-xl": {"kind": "estimate", "n": 0, "load_s": 15.0, "s_per_step": 2.2,
+                       "basis": "как sdxl-base (те же размеры весов)"},
+}
+FALLBACK = {"kind": "estimate", "n": 0, "load_s": 40.0, "s_per_step": 8.0, "basis": "нет замеров этой модели"}
+
+
+def step_range(model: dict) -> dict[str, int]:
+    hi = int(model.get("max_steps") or 50)
+    default = min(max(int(model.get("default_steps") or 20), 1), hi)
+    lo = min(STEP_MIN.get(str(model.get("id")), max(1, default // 2)), default)
+    return {"min_steps": lo, "default_steps": default, "max_steps": hi}
+
+
+def _ts(v: Any) -> float | None:
+    try:
+        return datetime.fromisoformat(str(v)).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def _stage_times(job: dict) -> dict[str, float]:
+    return {t.get("stage"): ts for t in job.get("timeline") or [] if (ts := _ts(t.get("at"))) is not None}
+
+
+def from_history(jobs: list[dict]) -> dict[str, dict[str, Any]]:
+    """Per-model timing from COMPLETED photo jobs in Bossman's own history (stage timestamps)."""
+    acc: dict[str, list[tuple[float, float]]] = {}
+    for j in jobs:
+        p = j.get("params") or {}
+        st = _stage_times(j)
+        steps, w, h = p.get("steps"), p.get("width"), p.get("height")
+        if (j.get("kind") != "photo" or j.get("status") != "completed" or not steps or not w or not h
+                or not {"loading", "generating", "postprocessing"} <= st.keys()):
+            continue
+        load, gen = st["generating"] - st["loading"], st["postprocessing"] - st["generating"]
+        if load <= 0 or gen <= 0:
+            continue
+        acc.setdefault(str(j.get("model")), []).append((load, gen / int(steps) / (int(w) * int(h) / REF_PIXELS)))
+    return {m: {"kind": "measured", "n": len(v), "load_s": round(mean(a for a, _ in v), 1),
+                "s_per_step": round(mean(b for _, b in v), 2),
+                "spread": [round(min(b for _, b in v), 1), round(max(b for _, b in v), 1)] if len(v) > 1 else None,
+                "basis": f"{len(v)} зап. из журнала Bossman"} for m, v in acc.items()}
+
+
+def timing_for(model_id: str, history: dict[str, dict] | None = None) -> dict[str, Any]:
+    t = dict((history or {}).get(model_id) or TABLE.get(model_id) or FALLBACK)
+    t.setdefault("spread", None)
+    return t
+
+
+def estimate_seconds(t: dict, steps: int, width: int, height: int) -> float:
+    return float(t["load_s"]) + steps * float(t["s_per_step"]) * (width * height) / REF_PIXELS

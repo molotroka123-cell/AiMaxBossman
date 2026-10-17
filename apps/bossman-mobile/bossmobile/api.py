@@ -30,6 +30,7 @@ from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
 from .policy import is_photo_model, local_agents, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
+from .timing import from_history, step_range, timing_for
 
 UI_DIR = Path(__file__).parent / "ui"
 # The Windows registry can map .js to text/plain, which nosniff then refuses to execute.
@@ -186,6 +187,10 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def photo_models() -> list[dict]:
         async def load():
             body = await call("GET", "/api/direct-gen/models")
+            try:
+                hist = from_history((await call("GET", "/api/direct-gen/jobs")).get("jobs") or [])
+            except Exception:  # noqa: BLE001 - history is optional; the table of earlier measurements still applies
+                hist = {}
             out = []
             for m in body.get("models") or []:
                 if not is_photo_model(m):
@@ -193,7 +198,8 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                 out.append({k: m.get(k) for k in ("id", "label", "kind", "family", "modes", "available", "reason",
                                                   "requires_image", "accepts_image", "default_steps", "max_steps",
                                                   "default_resolution", "min_side", "max_side", "side_multiple",
-                                                  "license", "notes")} | {"uncensored_label": uncensored_label(m.get("label"))})
+                                                  "license", "notes")} | {"uncensored_label": uncensored_label(m.get("label")), **step_range(m),
+                                                                   "timing": timing_for(str(m.get("id")), hist)})
             return out
         return await cached("photo_models", 20, load)
 
@@ -420,6 +426,9 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         spec = models.get(body.model)
         if spec is None:
             raise fail(404, "такой фото-модели нет в Bossman", "BM_UNKNOWN_PHOTO_MODEL")
+        top = int(spec.get("max_steps") or 0)
+        if body.steps is not None and top and not 1 <= body.steps <= top:
+            raise fail(422, f"для этой модели шагов может быть от 1 до {top}", "BM_BAD_STEPS")
         payload: dict[str, Any] = {"model": body.model, "prompt": body.prompt, "negative": body.negative, "mode": "DIRECT"}
         for k in ("resolution", "seed", "steps", "image_b64"):
             v = getattr(body, k)

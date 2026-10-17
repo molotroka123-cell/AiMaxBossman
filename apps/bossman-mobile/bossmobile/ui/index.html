@@ -103,14 +103,24 @@
         <div class="seg" id="photo-aspect" role="radiogroup"></div>
         <label class="lbl">Размер</label>
         <div class="seg" id="photo-side" role="radiogroup"></div>
+        <label class="lbl" for="photo-steps">Шаги: <b id="steps-val"></b> <span class="muted" id="steps-range"></span></label>
+        <div class="steps-row">
+          <button type="button" class="icon-btn small" id="steps-minus" aria-label="Меньше шагов">−</button>
+          <input id="photo-steps" type="range" min="1" max="20" value="8">
+          <button type="button" class="icon-btn small" id="steps-plus" aria-label="Больше шагов">+</button>
+        </div>
+        <div class="time-box" id="photo-time" aria-live="polite"></div>
         <details class="more">
           <summary>Дополнительно</summary>
-          <label class="lbl" for="photo-steps">Шаги: <b id="steps-val"></b></label>
-          <input id="photo-steps" type="range" min="1" max="20" value="8">
           <label class="lbl" for="photo-seed">Сид (пусто — случайный)</label>
           <input id="photo-seed" class="field mono" inputmode="numeric" pattern="[0-9]*" placeholder="случайный">
           <label class="lbl" for="photo-negative">Негатив</label>
           <textarea id="photo-negative" class="field area" rows="2" placeholder="чего не должно быть"></textarea>
+        </details>
+        <details class="more" id="models-table-box">
+          <summary>Все модели: шаги и время</summary>
+          <div class="models-table" id="models-table"></div>
+          <p class="hint">Время = загрузка модели (при каждом запуске) + шаги × секунд на шаг, в списке — для шагов и размера по умолчанию, над кнопкой — для выбранных. «по замеру» — реальные запуски на этом ПК; «оценка» — расчёт от похожей модели.</p>
         </details>
         <button class="btn primary big" id="photo-go" type="submit"><svg><use href="#i-photo"/></svg>Сгенерировать на ПК</button>
         <p class="hint">Считает ваш ПК локальными моделями «Прямого генератора» Bossman. Картинки остаются на ПК и приходят только в этот телефон.</p>
