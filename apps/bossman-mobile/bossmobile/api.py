@@ -30,7 +30,7 @@ from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
 from .policy import is_photo_model, local_agents, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
-from .timing import from_history, step_range, timing_for
+from .timing import from_history, queue_view, step_range, timing_for
 
 UI_DIR = Path(__file__).parent / "ui"
 # The Windows registry can map .js to text/plain, which nosniff then refuses to execute.
@@ -414,6 +414,17 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def p_jobs(_=Depends(session)):
         body = await call("GET", "/api/direct-gen/jobs")
         return {"jobs": [job_view(j) for j in body.get("jobs") or [] if j.get("kind") == "photo"]}
+
+    @app.get("/m/api/photo/queue")
+    async def p_queue(_=Depends(session)):
+        """Read-only: queue with real step progress (from Bossman) or an honest time estimate, ready for the UI."""
+        body = await call("GET", "/api/direct-gen/jobs")
+        jobs = body.get("jobs") or []
+        try:
+            hist = from_history(jobs)
+        except Exception:  # noqa: BLE001 - table of earlier measurements still applies
+            hist = {}
+        return {"jobs": [job_view(j) | {"ui": j["ui"]} for j in queue_view(jobs, hist)]}
 
     def _jid(job_id: str) -> str:
         if not JOB_ID.match(job_id):

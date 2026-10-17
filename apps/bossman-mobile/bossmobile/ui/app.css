@@ -209,6 +209,13 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 32px; 
 .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), #e8a87c); border-radius: 4px; transition: width .4s ease; }
 .bar.indet i { width: 35%; animation: indet 1.3s ease-in-out infinite; }
 .progress .stats { font-size: 13px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+.qlist { display: grid; gap: 10px; margin-bottom: 8px; }
+.qitem { padding: 12px 14px; border-radius: 14px; background: var(--card, var(--bg2)); display: grid; gap: 8px; }
+.qitem .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.qitem .stage { font-weight: 700; }
+.qitem .stats { font-size: 13px; color: var(--muted); display: flex; gap: 4px 12px; flex-wrap: wrap; align-items: baseline; }
+.qitem .stats b { color: var(--text, inherit); font-size: 15px; }
+.qthumb { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; }
 .progress img { width: 100%; border-radius: 14px; }
 .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .thumb { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--bg2); padding: 0; }

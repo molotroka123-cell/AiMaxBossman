@@ -97,3 +97,72 @@ def timing_for(model_id: str, history: dict[str, dict] | None = None) -> dict[st
 
 def estimate_seconds(t: dict, steps: int, width: int, height: int) -> float:
     return float(t["load_s"]) + steps * float(t["s_per_step"]) * (width * height) / REF_PIXELS
+
+
+# ---------------------------------------------------------------------------------------------------------- queue view
+ACTIVE = {"queued", "loading", "generating", "postprocessing", "running"}
+DONE_OK = {"completed"}
+
+
+def _job_total(job: dict, history: dict[str, dict] | None) -> float:
+    p = job.get("params") or {}
+    t = timing_for(str(job.get("model")), history)
+    return estimate_seconds(t, int(p.get("steps") or 20), int(p.get("width") or 512), int(p.get("height") or 512))
+
+
+def _running_view(job: dict, total: float, history: dict[str, dict] | None, now: float) -> dict[str, Any]:
+    """Progress of a job that holds the GPU. REAL when sd-cli reported steps, otherwise an honest time-based estimate."""
+    p = job.get("progress") or {}
+    stage = job.get("stage") or job.get("status")
+    st = _stage_times(job)
+    elapsed = float(job.get("elapsed_s") or 0.0)
+    started = _ts(job.get("started_at")) or min(st.values(), default=None)
+    if started is not None:
+        elapsed = max(elapsed, now - started)
+    value, mx = p.get("value"), p.get("max")
+    if p.get("kind") == "steps" and isinstance(value, int) and isinstance(mx, int) and mx > 0 and value > 0:
+        gen_at = st.get("generating")
+        per_step = float(timing_for(str(job.get("model")), history)["s_per_step"]) * ((job.get("params") or {}).get("width", 512)
+                   * (job.get("params") or {}).get("height", 512)) / REF_PIXELS
+        if gen_at is not None and value >= 2:
+            per_step = max((now - gen_at) / value, 0.1)   # observed pace; includes the step in flight
+        left = max(mx - value, 0) * per_step
+        decoding = value >= mx
+        return {"percent": min(value / mx * 100.0, 99.0), "real": True, "step": value, "steps": mx,
+                "phase": "декодирование" if decoding else "генерация", "remaining_s": None if decoding else left,
+                "label": "по шагам sd-cli"}
+    phase = {"loading": "загрузка модели", "postprocessing": "декодирование"}.get(stage, "генерация")
+    pct = min(elapsed / total * 100.0, 95.0) if total > 0 else 0.0
+    return {"percent": pct, "real": False, "step": None, "steps": (job.get("params") or {}).get("steps"),
+            "phase": phase, "remaining_s": max(total - elapsed, 0.0), "label": "оценка по времени"}
+
+
+def queue_view(jobs: list[dict], history: dict[str, dict] | None = None, now: float | None = None,
+               recent: int = 5) -> list[dict[str, Any]]:
+    """Active photo jobs (running first, then queue order) + a few latest finished ones, each with a ready `ui` block."""
+    import time as _t
+    now = _t.time() if now is None else now
+    photo = [j for j in jobs if j.get("kind") == "photo"]
+    active = [j for j in photo if j.get("status") in ACTIVE]
+    running = [j for j in active if j.get("status") != "queued"]
+    queued = sorted((j for j in active if j.get("status") == "queued"),
+                    key=lambda j: (j.get("queue_position") or 10**6, str(j.get("created_at"))))
+    out: list[dict[str, Any]] = []
+    ahead = 0.0
+    for j in running:
+        total = _job_total(j, history)
+        ui = _running_view(j, total, history, now)
+        ahead += ui["remaining_s"] or 0.0
+        out.append({**j, "ui": {"state": "running", **ui, "total_s": total}})
+    for n, j in enumerate(queued, 1):
+        total = _job_total(j, history)
+        pos = j.get("queue_position") or n
+        out.append({**j, "ui": {"state": "queued", "position": pos, "wait_s": ahead, "total_s": total, "real": False,
+                                "percent": 0.0, "label": "оценка по замерам"}})
+        ahead += total
+    finished = sorted((j for j in photo if j.get("status") not in ACTIVE),
+                      key=lambda j: str(j.get("created_at")), reverse=True)[:recent]
+    for j in finished:
+        out.append({**j, "ui": {"state": "done" if j.get("status") in DONE_OK else "ended", "elapsed_s": j.get("elapsed_s"),
+                                "percent": 100.0 if j.get("status") in DONE_OK else None, "real": True}})
+    return out

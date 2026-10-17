@@ -317,7 +317,7 @@
         onModel();
       }
     } catch (err) { toast(err.message); }
-    loadGallery(); photoStatus();
+    loadGallery(); photoStatus(); loadQueue();
   }
   const curModel = () => S.photoModels.find((m) => m.id === $('photo-model').value);
   function onModel() {
@@ -413,8 +413,9 @@
     $('photo-go').disabled = true;
     try {
       const job = await api('POST', '/photo/jobs', body);
+      loadQueue();
       const card = el('div', 'card progress'); $('photo-progress').replaceChildren(card); card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const final = await trackJob(job, card); photoStatus();
+      const final = await trackJob(job, card); photoStatus(); loadQueue();
       if (final.status === 'completed') { const img = el('img'); img.src = `/m/api/photo/jobs/${final.job_id}/file`; img.alt = final.raw_prompt || ''; img.addEventListener('click', () => openViewer(final)); card.appendChild(img); loadGallery(); }
     } catch (err) { toast(err.message); }
     $('photo-go').disabled = false;
@@ -446,6 +447,42 @@
     }
     return j;
   }
+  // ---- Очередь: реальные шаги sd-cli, если есть; иначе честная оценка по времени (подпись «оценка»)
+  const fmtMin = (s) => s == null ? '—' : (s < 60 ? `${Math.max(1, Math.round(s))} с` : `${Math.max(1, Math.round(s / 60))} мин`);
+  const fmtDone = (s) => s == null ? '' : (s < 60 ? `${Math.round(s)} с` : `${Math.floor(s / 60)} мин ${Math.round(s % 60)} с`);
+  function renderQueueItem(j) {
+    const u = j.ui || {}; const m = (S.photoModels || []).find((x) => x.id === j.model); const card = el('div', 'qitem ' + (u.state || ''));
+    const head = el('div', 'row'); head.append(el('span', 'stage', m ? m.label : j.model));
+    if (u.state === 'running' || u.state === 'queued') { const c = el('button', 'btn small danger', 'Стоп'); c.type = 'button'; c.addEventListener('click', async () => { try { await api('POST', `/photo/jobs/${j.job_id}/cancel`); loadQueue(); } catch (err) { toast(err.message); } }); head.append(c); }
+    card.appendChild(head);
+    const stats = el('div', 'stats');
+    if (u.state === 'running') {
+      const pct = Math.min(99, Math.max(0, u.percent || 0)); const bar = el('div', 'bar'); const i = el('i'); i.style.width = `${Math.max(2, pct)}%`; bar.appendChild(i); card.appendChild(bar);
+      stats.appendChild(el('b', '', `${Math.round(pct)} %${u.real ? '' : ' (оценка)'}`));
+      if (u.step != null) stats.appendChild(el('span', '', `шаг ${u.step}/${u.steps}`));
+      stats.appendChild(el('span', '', u.phase));
+      if (u.remaining_s != null) stats.appendChild(el('span', '', `≈ осталось ${fmtMin(u.remaining_s)}`));
+    } else if (u.state === 'queued') {
+      stats.appendChild(el('b', '', `в очереди №${u.position}`)); stats.appendChild(el('span', '', `(≈ ждать ${fmtMin(u.wait_s)}, оценка)`));
+    } else if (u.state === 'done') {
+      stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
+      if (j.result && String(j.result.mime || '').startsWith('image/')) { card.classList.add('has-thumb'); const img = el('img', 'qthumb'); img.loading = 'lazy'; img.src = `/m/api/photo/jobs/${j.job_id}/file`; img.alt = ''; img.addEventListener('click', () => openViewer(j)); card.appendChild(img); }
+    } else { stats.appendChild(el('span', '', STAGES[j.stage || j.status] || j.status)); }
+    if (j.params) stats.appendChild(el('span', 'muted', `${j.params.width}×${j.params.height} · ${j.params.steps} шагов`));
+    card.appendChild(stats); return card;
+  }
+  let queueTimer = null;
+  async function loadQueue() {
+    clearTimeout(queueTimer); let busy = false;
+    try {
+      const r = await api('GET', '/photo/queue'); const box = $('photo-queue-list'); box.replaceChildren();
+      const jobs = r.jobs || []; jobs.forEach((j) => box.appendChild(renderQueueItem(j)));
+      if (!jobs.length) box.appendChild(el('p', 'muted', 'Очередь пуста'));
+      busy = jobs.some((j) => j.ui && (j.ui.state === 'running' || j.ui.state === 'queued'));
+    } catch (err) { if (err.status === 401) return; }
+    if (busy && !document.hidden) queueTimer = setTimeout(loadQueue, 4000);   // опрос только пока есть активные задачи
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && $('photo-queue-list')) loadQueue(); });
   async function loadGallery() {
     try {
       const r = await api('GET', '/photo/jobs'); const g = $('gallery'); g.replaceChildren();
