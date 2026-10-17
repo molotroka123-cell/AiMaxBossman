@@ -30,6 +30,10 @@ Contract:
 - ``tz_offset_min`` (default: ``BOSSMAN_JEFF_TZ_MIN`` or Moscow, UTC+3) is the owner's default time zone for
   reminders and the weekly digest; a participant's own «мой часовой пояс UTC+5» still wins for that participant.
   Written only when set.
+- ``roast`` (OWNER DECISION, default OFF) — the «дерзкий» manner (``bcc.pit.roast``): ``defaults.roast: true`` turns
+  it on for every chat, ``users.<person key>.roast: true|false`` overrides it for one chat. Written only when set
+  (``defaults.roast`` only when true), so a default file stays readable by an older build. Owner-only: the panel API
+  and the owner's Telegram ``/roast`` write it, a participant can only opt out of it.
 """
 from __future__ import annotations
 
@@ -157,12 +161,16 @@ def normalize_profile(raw: Any, *, keep_absent_extra: bool = False, strict: bool
     """One style block (defaults or one participant). Unknown keys are refused."""
     if not isinstance(raw, dict):
         raise OverlayError("style block must be an object")
-    unknown = set(raw) - {"system_extra", "behavior_scales"}
+    unknown = set(raw) - {"system_extra", "behavior_scales", "roast"}
     if unknown:
         raise OverlayError("unknown style field: " + ", ".join(sorted(map(str, unknown)))[:120])
     out: dict[str, Any] = {"behavior_scales": normalize_scales(raw.get("behavior_scales"))}
     if "system_extra" in raw or not keep_absent_extra:
         out["system_extra"] = clean_extra(raw.get("system_extra"), strict=strict)
+    if raw.get("roast") is not None:
+        if not isinstance(raw["roast"], bool):
+            raise OverlayError("roast must be true or false")
+        out["roast"] = raw["roast"]
     return out
 
 
@@ -233,8 +241,11 @@ def normalize(raw: Any) -> dict[str, Any]:
         except ValueError:
             raise OverlayError("users are keyed by PIT person key only") from None
         users[person_key] = normalize_profile(block, keep_absent_extra=True)
+    defaults = normalize_profile(raw.get("defaults") or {})
+    if defaults.get("roast") is not True:
+        defaults.pop("roast", None)              # off = not written: older builds keep reading the file
     out = {"version": SCHEMA_VERSION,
-           "defaults": normalize_profile(raw.get("defaults") or {}),
+           "defaults": defaults,
            "users": users,
            "budgets": normalize_budgets(raw.get("budgets"))}
     if "style_expires_at" in raw:
@@ -323,6 +334,7 @@ def write_overlay(path: Path, overlay: dict[str, Any]) -> dict[str, Any]:
 class JeffStyle:
     scales: dict[str, int]          # only the scales the owner set (may be partial)
     system_extra: str
+    roast: bool = False             # the owner's «дерзкий» manner for this chat (bcc.pit.roast)
 
 
 STOCK_STYLE = JeffStyle(scales={}, system_extra="")
@@ -350,6 +362,8 @@ def merged_style(overlay: dict[str, Any] | None, person_key: str) -> JeffStyle:
     if not overlay:
         return STOCK_STYLE
     defaults = overlay.get("defaults") or {}
+    # The roast switch is an owner on/off decision, not the timed mood: style_expires_at does not end it.
+    roast = defaults.get("roast") is True
     if style_expired(overlay):
         defaults = {}
     scales = dict(defaults.get("behavior_scales") or {})
@@ -359,7 +373,9 @@ def merged_style(overlay: dict[str, Any] | None, person_key: str) -> JeffStyle:
         scales.update(user.get("behavior_scales") or {})
         if "system_extra" in user:
             extra = user["system_extra"]
-    return JeffStyle(scales=scales, system_extra=extra or "")
+        if isinstance(user.get("roast"), bool):
+            roast = user["roast"]
+    return JeffStyle(scales=scales, system_extra=extra or "", roast=roast)
 
 
 def expiry_after(hours: int, *, now: datetime | None = None) -> str:
@@ -408,6 +424,47 @@ def overlay_hints(data_dir: Path | str, person_key: str) -> dict[str, Any]:
     scales = dict(style.scales)
     return {"active": bool(style.system_extra or scales), "scales": scales,
             "abuse_ok": "warmth" in scales and scales["warmth"] <= 2}
+
+
+def roast_enabled(data_dir: Path | str, person_key: str) -> bool:
+    """Owner side of the «дерзкий» switch for this chat (default OFF; absent/invalid file = OFF)."""
+    return style_for(data_dir, person_key).roast
+
+
+def set_roast(data_dir: Path | str, value: bool | None, *, person_key: str | None = None) -> dict[str, Any]:
+    """OWNER-ONLY writer (callers check the owner): global default (``person_key`` None) or one chat's override.
+
+    ``value`` None removes the chat override (the global default applies again). An unreadable or invalid file is
+    never overwritten blind: OverlayError, nothing written."""
+    path = settings_path(data_dir)
+    if path.is_file():
+        try:
+            overlay = normalize(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as exc:
+            raise OverlayError(f"jeff-settings.json is unreadable, nothing changed: {str(exc)[:120]}") from None
+    else:
+        overlay = empty_overlay()
+    if person_key is None:
+        defaults = dict(overlay.get("defaults") or {})
+        if value:
+            defaults["roast"] = True
+        else:
+            defaults.pop("roast", None)
+        overlay["defaults"] = defaults
+    else:
+        key = validate_person_key(person_key)
+        users = dict(overlay.get("users") or {})
+        block = dict(users.get(key) or {"behavior_scales": {}})
+        if value is None:
+            block.pop("roast", None)
+        else:
+            block["roast"] = bool(value)
+        if set(block) <= {"behavior_scales", "roast"} and not block.get("behavior_scales") and "roast" not in block:
+            users.pop(key, None)                 # nothing left in the override
+        else:
+            users[key] = block
+        overlay["users"] = users
+    return write_overlay(path, overlay)
 
 
 def cloud_session_context(data_dir: Path | str) -> bool:

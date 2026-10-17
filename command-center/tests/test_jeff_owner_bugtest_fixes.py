@@ -240,7 +240,8 @@ def test_a_web_setup_no_cloud_saves_a_local_only_config(tmp_path, monkeypatch):
     assert settings.provider_key == ""
 
 
-def test_a_web_setup_enter_for_no_key_is_also_local_only_but_a_key_keeps_the_mixed_mode(tmp_path, monkeypatch):
+def test_a_web_setup_is_local_only_with_or_without_a_key(tmp_path, monkeypatch):
+    """Owner 2026-10-17: Jeff never uses a cloud model; a provider key no longer turns on the mixed mode."""
     from bcc.pit.config import config_path, load
     monkeypatch.delenv("BOSSMAN_PIT_PROVIDER_KEY", raising=False)
     monkeypatch.setattr(web.getpass, "getpass", lambda prompt="": "")
@@ -250,8 +251,10 @@ def test_a_web_setup_enter_for_no_key_is_also_local_only_but_a_key_keeps_the_mix
     monkeypatch.setenv("BOSSMAN_PIT_PROVIDER_KEY", "fixture-provider-key")  # ci-secret-scan: allow
     keyed = config_path(tmp_path / "keyed")
     assert web.cmd_web_setup(keyed, ["web-setup", "--local-model", "soak-fast", "--local-url", LOCAL_URL]) == 0
-    mixed = load(keyed)
-    assert mixed.local_chat_only is False and mixed.chat_models and mixed.local_models == ("soak-fast",)
+    keyed_settings = load(keyed)
+    assert keyed_settings.local_chat_only is True and keyed_settings.chat_models == ()
+    assert keyed_settings.local_models == ("soak-fast",) and keyed_settings.provider_key == ""
+    assert keyed_settings.ignored_cloud_models                     # the cloud list was configured, and ignored
 
 
 def test_a_transport_error_is_cleared_after_a_successful_poll(tmp_path):

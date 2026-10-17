@@ -61,6 +61,7 @@ from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
 from . import crisis
 from . import jeff_manual as pit_jeff_manual
 from . import jeff_settings as pit_jeff_settings
+from . import roast as pit_roast
 from . import math_assist as pit_math_assist
 from . import participant_profile, speech, speech_audit
 from .secret_filter import redact_secrets
@@ -194,6 +195,7 @@ DELETE_CONFIRM_RU = ("Точно удалить всю твою память и 
 DELETED_RU = ("Память удалена полностью: профиль, факты и производные данные. "
               "Начали с чистого листа (zero-start).")
 UNKNOWN_COMMAND_RU = "Такой команды у Jeff нет. Список — /help."
+ROAST_OPTOUT_RU = "Понял, дальше без мата и подколов. Вернуть — /roast on."
 STYLE_REFUSED_RU = ("Такой стиль я не принимаю: оскорблять или запугивать людей, обходить мои правила и "
                     "выдавать служебное не настраивается. Могу отвечать короче, строже, с юмором или подробнее: "
                     "напиши, как именно.")
@@ -264,6 +266,25 @@ def _without_self_disclosure(history: list[dict], model_id: str = "") -> list[di
             continue
         kept.append(item)
     return kept
+
+
+class CloudDisabledAdapter:
+    """The cloud adapter of a local-only Jeff: it lists nothing and refuses every call (no network at all)."""
+
+    calls = 0
+
+    async def chat(self, model, messages, **kw):
+        CloudDisabledAdapter.calls += 1
+        raise CompanionError("CLOUD_DISABLED_FOR_JEFF")
+
+    async def list_model_info(self):
+        return []
+
+    async def list_model_pricing(self):
+        return {}
+
+    async def close(self):
+        return None
 
 
 def _cloud_refusal(answer: str) -> bool:
@@ -1083,8 +1104,11 @@ class ParticipantRuntime:
         self._pending_photo_memory: dict[tuple[str, str], tuple[object, str]] = {}
         self._pending_chat_records: dict[int, tuple] = {}
         self._memory_epoch: dict[str, int] = {}
-        self.adapter = build_adapter("openai_compat", settings.provider_base_url,
-                                     api_key=settings.provider_key or None)
+        # Local-only Jeff (owner decision 2026-10-17, enforced by config.load): no cloud adapter exists at all, so
+        # no code path can reach a provider even by mistake.
+        self.adapter = (CloudDisabledAdapter() if settings.local_chat_only
+                        else build_adapter("openai_compat", settings.provider_base_url,
+                                           api_key=settings.provider_key or None))
         # Local models remain reserved for collection/learning unless the owner
         # explicitly enables a one-model, local-only participant chat test.
         self.local_adapter = (
@@ -1348,6 +1372,8 @@ class ParticipantRuntime:
         age = (int(time.monotonic() - self.prices_verified_at)
                if self.prices_verified_at else None)
         return {"schema": JEFF_MODEL_ROUTE_SCHEMA, "free_remote": remote, "local": local,
+                "local_only": bool(self.settings.local_chat_only),
+                "cloud_ignored": list(getattr(self.settings, "ignored_cloud_models", ())),
                 "rejected": dict(self.route_rejections), "refusal": refusal,
                 "policy": {model: row for model, row in getattr(self, "route_policy", {}).items()
                            if model in remote},
@@ -2412,6 +2438,10 @@ class ParticipantRuntime:
         if edit_words.kind == "edit":
             return await self._edit_latest(person, person_key, edit_words.prompt)
 
+        if not message.get("_forwarded"):
+            roast_reply = self._roast_preferences(person_key, text)
+            if roast_reply is not None:
+                return roast_reply
         if message.get("_forwarded"):
             # Someone else's words forwarded by the participant: answer, never learn from them.
             self._no_learn_messages.add(str(message.get("_message_id") or "0"))
@@ -2529,6 +2559,8 @@ class ParticipantRuntime:
                     "останется. Если локальная озвучка недоступна, будет только текст. "
                     "Или просто попросите «ответь голосом»." if selection == "on" else
                     "Голосовые ответы выключены. Голос только по просьбе.")
+        if command == "/roast":
+            return self._roast_command(person, person_key, argument)
         if command in USER_COMMANDS:
             return await self._memory_command(person, person_key, text)
         if command in {"/photoedit", "/editphoto"}:
@@ -2536,6 +2568,81 @@ class ParticipantRuntime:
         if command in {"/roleplay", "/parody"}:
             return self._roleplay_command(person_key, text)
         return UNKNOWN_COMMAND_RU
+
+    def _roast_command(self, person: Person, person_key: str, argument: str) -> str:
+        """«Дерзкий» manner (bcc.pit.roast). The owner switches it globally or per chat; anyone else can only opt out
+        of it for themselves and take that opt-out back — which never turns it on where the owner did not."""
+        words = argument.strip().lower().split()
+        data_dir = self.vault.data_dir
+        if person.role != "owner":
+            owner_on = pit_jeff_settings.roast_enabled(data_dir, person_key)
+            if words == ["off"]:
+                pit_roast.set_optout(self.vault, person_key)
+                return ROAST_OPTOUT_RU
+            if words == ["on"]:
+                if not owner_on:
+                    return "Этот режим включает только владелец."
+                if not pit_roast.clear_optout(self.vault, person_key):
+                    return "Для этого чата дерзкий режим недоступен."
+                return "Ладно, сам напросился: снова отвечаю дерзко. Выключить — /roast off или «без мата»."
+            active = owner_on and pit_roast.participant_allows(self.vault, person_key)
+            return ("Сейчас отвечаю дерзко, с матом. Выключить для себя — /roast off или «без мата»." if active
+                    else "Сейчас отвечаю в обычном стиле.")
+        usage = ("Дерзкий режим (мат + прожарка, факты верные):\n"
+                 "/roast on | /roast off — для всех чатов;\n"
+                 "/roast here on|off|default — только этот чат;\n"
+                 "/roast <ключ участника, от 6 символов> on|off|default — один чат (ключ — в панели Jeff).")
+        try:
+            if words in (["on"], ["off"]):
+                pit_jeff_settings.set_roast(data_dir, words[0] == "on")
+                return ("Дерзкий режим включён для всех чатов (кроме тех, где он выключен отдельно или участник "
+                        "отказался). Выключить — /roast off." if words[0] == "on"
+                        else "Дерзкий режим выключен по умолчанию. Отдельные включённые чаты — /roast <ключ> default.")
+            if len(words) == 2 and words[1] in {"on", "off", "default"}:
+                target = person_key if words[0] == "here" else self._roast_target(words[0])
+                if target is None:
+                    return "Участник с таким ключом не найден или ключ неоднозначен (нужно 6+ символов)."
+                value = None if words[1] == "default" else words[1] == "on"
+                pit_jeff_settings.set_roast(data_dir, value, person_key=target)
+                label = "этого чата" if target == person_key else f"чата {target[:6]}"
+                return {True: f"Дерзкий режим для {label} включён.", False: f"Дерзкий режим для {label} выключен.",
+                        None: f"Для {label} снова действует общее правило."}[value]
+        except pit_jeff_settings.OverlayError as exc:
+            return f"Не сохранил: {exc}"
+        if not words:
+            state = "включён" if pit_jeff_settings.roast_enabled(data_dir, person_key) else "выключен"
+            return f"В этом чате дерзкий режим {state}.\n\n{usage}"
+        return usage
+
+    def _roast_target(self, prefix: str) -> str | None:
+        """A PIT person key from a hex prefix (6+), among known participant folders and overlay overrides."""
+        if not re.fullmatch(r"[0-9a-f]{6,64}", prefix):
+            return None
+        known: set[str] = set()
+        with contextlib.suppress(OSError):
+            known.update(p.name for p in self.vault.root.iterdir() if p.is_dir())
+        with contextlib.suppress(Exception):
+            overlay, _ = pit_jeff_settings.read_overlay(pit_jeff_settings.settings_path(self.vault.data_dir))
+            known.update((overlay or {}).get("users") or {})
+        found = [k for k in known if re.fullmatch(r"[0-9a-f]{64}", k) and k.startswith(prefix)]
+        return found[0] if len(found) == 1 else None
+
+    def _roast_preferences(self, person_key: str, text: str) -> str | None:
+        """Participant side of the «дерзкий» manner, before the model: a minor signal switches it off for good for
+        this chat (sticky), «без мата» opts out. A message that is only the request gets a short confirmation;
+        a longer one is answered normally (already without the manner)."""
+        try:
+            if not pit_jeff_settings.roast_enabled(self.vault.data_dir, person_key):
+                return None
+            if pit_roast.minor_signal(text):
+                pit_roast.set_optout(self.vault, person_key, reason=pit_roast.REASON_AGE)
+                return None
+            if pit_roast.wants_optout(text) and pit_roast.participant_allows(self.vault, person_key):
+                pit_roast.set_optout(self.vault, person_key)
+                return ROAST_OPTOUT_RU if len(text.split()) <= 6 else None
+        except Exception:  # noqa: BLE001 - a preference file never breaks a reply
+            return None
+        return None
 
     def _start(self, person_key: str, consent: ConsentState) -> str:
         welcome = self._welcome_if_first_contact(person_key, consent)
@@ -3016,7 +3123,8 @@ class ParticipantRuntime:
                     profile_stability=snapshot.profile_stability,
                     behavior_scales=self.settings.behavior_scales,
                     surface=getattr(self, "surface", "telegram"),
-                    suspend_overlay=overlay_suspended)
+                    suspend_overlay=overlay_suspended,
+                    roast_allowed=person.user_id == person.chat_id)       # 1:1 chats only, never a group
             except PermissionError:
                 # A locked per-person memory file must not turn a harmless
                 # chat into an opaque runtime error. Retry without memory so
@@ -3028,7 +3136,8 @@ class ParticipantRuntime:
                     profile_stability=snapshot.profile_stability,
                     behavior_scales=self.settings.behavior_scales,
                     surface=getattr(self, "surface", "telegram"),
-                    suspend_overlay=overlay_suspended)
+                    suspend_overlay=overlay_suspended,
+                    roast_allowed=person.user_id == person.chat_id)
             messages = route_context.as_messages()
             if provider == "local" and messages and messages[0]["role"] == "system":
                 # This community GGUF stopped mid-word with long conversation
@@ -3083,6 +3192,10 @@ class ParticipantRuntime:
             if math_hint:
                 messages.append({"role": "system", "content": math_hint})
             messages.append({"role": "system", "content": FINANCIAL_SAFETY_BRIEF})
+            if route_context.roast:
+                # the owner's «дерзкий» manner, restated next to the question: a small local model follows the
+                # nearest note, the full manner + hard limits are in the first system message
+                messages.append({"role": "system", "content": pit_roast.ROAST_REMINDER_RU})
             messages.append({"role": "system", "content": IDENTITY_REMINDER_RU})   # last word before the question (small models)
             messages.append({"role": "user", "content": text})
             if j2_ctx is not None:

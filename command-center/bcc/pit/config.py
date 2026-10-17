@@ -29,6 +29,15 @@ DEFAULT_FREE_CHAT_MODELS: tuple[str, ...] = (
     "nex-agi/nex-n2.5-pro:free",
 )
 
+# OWNER DECISION 2026-10-17: Jeff answers ONLY through a local (loopback) model — no cloud chat model, no cloud
+# fallback, no cloud spending. ``load()`` (the one production path: bossman pit start / web / calls) enforces it:
+# configured cloud models are ignored and reported, the provider key is dropped, the cloud budget is 0.
+# The owner picks the model with config.json ``local_url`` + ``local_models`` (first entry) or
+# BOSSMAN_PIT_LOCAL_URL / BOSSMAN_PIT_LOCAL_MODELS; without one Jeff uses the local uncensored default below.
+JEFF_LOCAL_ONLY = True
+DEFAULT_LOCAL_URL = "http://127.0.0.1:11434/v1"
+DEFAULT_LOCAL_MODEL = "bossman-uncensored-chat:latest"
+
 BEHAVIOR_SCALE_NAMES = (
     "initiative", "curiosity", "depth", "brevity",
     "warmth", "humor", "directness", "creativity",
@@ -117,6 +126,8 @@ class PITSettings:
     # Model ids the owner configured but the model policy refuses (Liquid/LFM ban):
     # dropped at load time on every start/reload and shown in the route status.
     rejected_models: tuple[str, ...] = ()
+    # Cloud chat models the owner's config still names but the local-only rule ignores (shown in the route status).
+    ignored_cloud_models: tuple[str, ...] = ()
     bot_token: str = field(default="", repr=False)
     provider_key: str = field(default="", repr=False)
     core_token: str = field(default="", repr=False)
@@ -295,7 +306,32 @@ def load(path: Path) -> PITSettings:
     if data["web_only"]:
         # A web-only data dir never holds a bot token, even from the environment.
         data["bot_token"] = ""
+    if JEFF_LOCAL_ONLY:
+        enforce_local_only(data)
     return PITSettings(**data)
+
+
+def enforce_local_only(data: dict) -> dict:
+    """Rewrite loaded settings so Jeff can only reach ONE loopback model (owner decision 2026-10-17).
+
+    - the owner's first configured local model wins (config.json / BOSSMAN_PIT_LOCAL_MODELS); none = the default
+      local uncensored model on the default local Ollama URL; a non-loopback URL is refused by PITSettings;
+    - every cloud chat model is dropped (``ignored_cloud_models`` names them for the owner), the provider key is
+      cleared (no cloud adapter can authenticate), the daily cloud request budget is 0, and no cloud fallback
+      after a local refusal."""
+    locals_ = [m for m in (data.get("local_models") or ()) if isinstance(m, str) and m.strip()]
+    if not data.get("local_url") or not locals_:
+        data["local_url"] = data.get("local_url") or DEFAULT_LOCAL_URL
+        locals_ = locals_ or [DEFAULT_LOCAL_MODEL]
+    data["local_models"] = (locals_[0],)
+    data["ignored_cloud_models"] = tuple(m for m in (data.get("chat_models") or ()) if isinstance(m, str))
+    data["chat_models"] = ()
+    data["local_chat_only"] = True
+    data["local_fallback_on_cloud_refusal"] = False
+    data["local_share_percent"] = 100
+    data["cloud_daily_request_budget"] = 0
+    data["provider_key"] = ""
+    return data
 
 
 def save_setup(

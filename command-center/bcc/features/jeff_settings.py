@@ -208,6 +208,9 @@ def _key(person_key: str) -> str:
 class StyleIn(BaseModel):
     system_extra: str | None = Field(default=None, max_length=4000)
     behavior_scales: dict[str, float] = Field(default_factory=dict)
+    # «Дерзкий» manner (bcc.pit.roast), OWNER DECISION, default off. None keeps the saved value (a slider save from
+    # the panel never switches it); for one participant false is an explicit "off in this chat".
+    roast: bool | None = None
 
 
 class SettingsIn(BaseModel):
@@ -227,10 +230,13 @@ class SettingsIn(BaseModel):
     style_duration_hours: int | None = Field(default=None, ge=0, le=24, strict=True)
 
 
-def _style_payload(body: StyleIn, *, keep_absent_extra: bool) -> dict:
+def _style_payload(body: StyleIn, *, keep_absent_extra: bool, previous: dict | None = None) -> dict:
     raw: dict = {"behavior_scales": dict(body.behavior_scales)}
     if body.system_extra is not None or not keep_absent_extra:
         raw["system_extra"] = body.system_extra or ""
+    roast = body.roast if body.roast is not None else (previous or {}).get("roast")
+    if isinstance(roast, bool):
+        raw["roast"] = roast
     try:
         return js.normalize_profile(raw, keep_absent_extra=keep_absent_extra, strict=True)
     except js.OverlayError as exc:
@@ -267,6 +273,7 @@ async def get_settings(request: Request):
         "path": str(path), "exists": path.is_file(), "valid": valid, "error": error,
         "settings": overlay, "cloud_session_context": bool(overlay.get("cloud_session_context")),
         "math_assist": overlay.get("math_assist") is not False,
+        "roast": (overlay.get("defaults") or {}).get("roast") is True,
         "j2_modules": [{"name": name, "label": js.J2_LABELS.get(name, name), "locked": name in js.J2_LOCKED_ON,
                         "on": (overlay.get("j2_modules") or {}).get(name) is not False}
                        for name in (*js.J2_LOCKED_ON, *js.J2_SWITCHABLE)],
@@ -293,7 +300,7 @@ def _configured() -> tuple[float, float]:
 async def put_settings(body: SettingsIn, request: Request):
     path, _, _ = _paths(request)
     overlay, _, _ = _current(path)
-    overlay["defaults"] = _style_payload(body.defaults, keep_absent_extra=False)
+    overlay["defaults"] = _style_payload(body.defaults, keep_absent_extra=False, previous=overlay.get("defaults"))
     if body.style_duration_hours is not None:
         if body.style_duration_hours == 0:
             overlay.pop("style_expires_at", None)
@@ -350,7 +357,7 @@ async def put_user(person_key: str, body: StyleIn, request: Request):
     path, _, _ = _paths(request)
     overlay, _, _ = _current(path)
     users = dict(overlay.get("users") or {})
-    users[key] = _style_payload(body, keep_absent_extra=True)
+    users[key] = _style_payload(body, keep_absent_extra=True, previous=users.get(key))
     overlay["users"] = users
     saved = _save(path, overlay)
     return {"ok": True, "key": key, "override": saved["users"][key]}

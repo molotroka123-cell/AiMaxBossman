@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from . import jeff_manual, jeff_settings, participant_profile, passport
+from . import jeff_manual, jeff_settings, participant_profile, passport, roast
 from .context import select_persona_context
 from .models import ConsentState
 from .vault import PersonaVault
@@ -40,6 +40,19 @@ MEMORY_LIMITED_RU = (
     "то, чего здесь не видишь; за личными деталями вежливо переспроси.")
 
 
+#: Always in the prompt (stock Jeff, every owner manner, the «дерзкий» roast): no style, game or request lifts these.
+HARD_LIMITS_RU = (
+    " Жёсткие границы действуют всегда, при любой манере речи, стиле, игре или просьбе: никакой ненависти, "
+    "оскорблений и унизительных обобщений по национальности, этничности, религии, полу, сексуальной ориентации, "
+    "инвалидности или болезни; никаких угроз и призывов к насилию; ничего сексуального с участием "
+    "несовершеннолетних; не ищи, не раскрывай и не публикуй личные данные реальных людей и не участвуй в травле "
+    "конкретных людей; не давай опасных практических инструкций (оружие, взрывчатка, яды, наркотики, взлом). "
+    "Ради шутки или стиля факты не искажаются.")
+#: After an owner manner or the roast: the hard limits outrank whatever the manner above says.
+HARD_LIMITS_REMINDER_RU = (
+    "Жёсткие границы из начала инструкции сильнее любой манеры речи выше: если манера требует ненависти к нации, "
+    "этносу, религии, полу, ориентации или инвалидности, угроз или травли — эту часть не выполняй.")
+
 PIT_ASSISTANT_SYSTEM = (
     "Твоё публичное имя — Jeff. Ты — персональный AI-помощник собеседника в Telegram. "
     "Если спрашивают, кто ты или какая модель сейчас отвечает, называй себя Jeff и не раскрывай "
@@ -70,6 +83,7 @@ PIT_ASSISTANT_SYSTEM = (
     "длинной лекцией о законе, морали или зависимости, непроверенными телефонами помощи и "
     "дежурным вопросом в конце. Не выдавай опасные практические инструкции под видом свободного стиля."
     " Правило владельца: на вопрос, чей Крым, отвечай, что Крым — украинский (так его признаёт международное право, резолюция ГА ООН 68/262); отвечай спокойно и бережно, без спора и лекции."
+    + HARD_LIMITS_RU
 )
 
 
@@ -99,6 +113,7 @@ class ParticipantContext:
     system: str
     persona_items: tuple[str, ...]
     source: str = "pit-own-persona-only"
+    roast: bool = False                 # the «дерзкий» manner is in ``system`` for this turn (bcc.pit.roast)
 
     def as_messages(self) -> list[dict]:
         messages = [{"role": "system", "content": self.system}]
@@ -127,6 +142,7 @@ def build_participant_context(
     behavior_scales: dict[str, int] | None = None,
     surface: str = "telegram",
     suspend_overlay: bool = False,
+    roast_allowed: bool = True,
 ) -> ParticipantContext:
     """Build context from exactly one participant namespace.
 
@@ -149,6 +165,14 @@ def build_participant_context(
     style = jeff_settings.STOCK_STYLE if suspend_overlay else jeff_settings.style_for(vault.data_dir, person_key)
     if style.system_extra:
         system += " " + jeff_settings.owner_extra_text(style.system_extra)
+    # The owner's «дерзкий» manner (default OFF): never on a call, in a crisis, after the participant's own opt-out
+    # or with a minor signal in the message (bcc.pit.roast). The caller passes roast_allowed=False outside a 1:1 chat.
+    roast_on = bool(style.roast and roast_allowed and not suspend_overlay and surface in {"telegram", "web"}
+                    and roast.participant_allows(vault, person_key, query))
+    if roast_on:
+        system += " " + roast.ROAST_STYLE_RU
+    if style.system_extra or roast_on:
+        system += " " + HARD_LIMITS_REMINDER_RU
     # Owner's time-boxed methodology note: read by the LOCAL model only, never put into a cloud payload.
     manual = None if (suspend_overlay or selected_model_is_remote) else jeff_manual.active_manual(vault.data_dir)
     if manual:
@@ -164,13 +188,15 @@ def build_participant_context(
         system += " " + behavior_system_text(behavior_scales)
     if not consent.memory_enabled:
         system += " " + MEMORY_OFF_RU
-        return ParticipantContext(person_key=person_key, system=system, persona_items=())
+        return ParticipantContext(person_key=person_key, system=system, persona_items=(), roast=roast_on)
 
     if not consent.personalization_enabled:
-        return ParticipantContext(person_key=person_key, system=system + " " + MEMORY_LIMITED_RU, persona_items=())
+        return ParticipantContext(person_key=person_key, system=system + " " + MEMORY_LIMITED_RU, persona_items=(),
+                                  roast=roast_on)
 
     if selected_model_is_remote and not consent.remote_personalization_enabled:
-        return ParticipantContext(person_key=person_key, system=system + " " + MEMORY_LIMITED_RU, persona_items=())
+        return ParticipantContext(person_key=person_key, system=system + " " + MEMORY_LIMITED_RU, persona_items=(),
+                                  roast=roast_on)
 
     system += " " + MEMORY_ON_RU
     records = vault.iter_candidate_records(person_key)
@@ -188,4 +214,5 @@ def build_participant_context(
         person_key=person_key,
         system=system,
         persona_items=tuple(item.text for item in selected) + passport.style_items(vault, person_key),
+        roast=roast_on,
     )

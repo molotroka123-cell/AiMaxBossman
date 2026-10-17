@@ -42,11 +42,13 @@ def test_an_old_config_that_lists_lfm_loads_without_it(tmp_path, monkeypatch):
         "chat_models": ["liquid/lfm-2.5-2.6b:free", "nvidia/nemotron-3-ultra-550b-a55b:free"],
         "provider_base_url": "https://openrouter.ai/api/v1"}), encoding="utf-8")
     settings = pcfg.load(cfg)
-    assert settings.chat_models == ("nvidia/nemotron-3-ultra-550b-a55b:free",)
+    # Owner 2026-10-17: Jeff is local-only; the (LFM-free) cloud list is only reported as ignored.
+    assert settings.chat_models == () and settings.local_chat_only is True
+    assert settings.ignored_cloud_models == ("nvidia/nemotron-3-ultra-550b-a55b:free",)
+    assert "liquid/lfm-2.5-2.6b:free" in settings.rejected_models
     only_lfm = tmp_path / "only.json"
     only_lfm.write_text(cfg.read_text(encoding="utf-8").replace('"nvidia/nemotron-3-ultra-550b-a55b:free"', '"liquid/lfm-3"'),
                         encoding="utf-8")
-    # Newer owner policy (model_policy, 2026-10-01): nothing left -> the default free routes, LFM recorded as rejected.
     fallback = pcfg.load(only_lfm)
-    assert fallback.chat_models == tuple(pcfg.DEFAULT_FREE_CHAT_MODELS)
-    assert not any(pcfg.is_denied_model(m) for m in fallback.chat_models)
+    assert fallback.chat_models == () and not any(pcfg.is_denied_model(m) for m in fallback.local_models)
+    assert not any(pcfg.is_denied_model(m) for m in fallback.ignored_cloud_models)

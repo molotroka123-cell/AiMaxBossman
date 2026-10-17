@@ -187,7 +187,7 @@ def test_studio_edit_broker_matches_v16_reference_job_run_contract():
         if path == "/api/studio/models":
             return httpx.Response(200, json={"items": [{
                 "id": "qwen-image-edit:local", "available": True,
-                "free": True, "provider": "qwen-image-edit"
+                "free": True, "provider": "sdcpp"      # a real local Studio engine (Jeff is local-only)
             }]})
         if path == "/api/studio/references":
             body = json.loads(request.content)

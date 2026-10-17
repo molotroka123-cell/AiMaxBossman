@@ -12,6 +12,8 @@ import httpx
 
 from bcc.telegram_companion.adapters import image_mime, json_request
 
+#: Studio engines that run on this PC. A cloud-backed Studio model (openrouter, …) is never used for Jeff.
+LOCAL_STUDIO_PROVIDERS = frozenset({"sdcpp", "comfyui", "local"})
 
 @dataclass(frozen=True, slots=True)
 class StudioImageEditConfig:
@@ -87,7 +89,8 @@ class StudioImageEditBroker:
             and row.get("id") == self.config.model_id
             and row.get("available") is True
             and row.get("free") is True
-            and row.get("provider") != "openrouter"
+            # Jeff is local-only (owner 2026-10-17): only the PC's own engines, never a cloud Studio provider.
+            and row.get("provider") in LOCAL_STUDIO_PROVIDERS
             for row in rows
         )
 
