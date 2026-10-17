@@ -10,7 +10,7 @@
 |----------|--------------|----------------|----------|
 | 1. AI-видео для блогеров | `.agents/skills/video-face-swap-facefusion`, `tools/genjutsu/film.py`, `tools/video_gate/` (gate0/gate1/clothes/background) | не проверялись | `tools/v2_pipeline` отсутствует; формы заказа и прайса нет |
 | 2. Jeff-ассистент по подписке | `command-center/bcc/pit/` (collector, cloud_budget, doc_library, …) | 80 файлов `test_pit*`/jeff; ПРОГНАНО 16.10 в чистом окружении (`-k "pit or jeff"`): 2164 passed, 1 skipped, 570 с | биллинг и лимиты на клиента; `TELEGRAM_MONETIZATION_WORKFLOW_20261011.md` на линии нет |
-| 3. Учёт для обменников | `bossman_shared/market_cases/` (6 файлов: casebook BTC, 2 кейса) | не искал | импорт реальных сделок, отчёт за период; юридическая проверка |
+| 3. Учёт для обменников | `bossman_shared/market_cases/` (6 файлов: casebook BTC, 2 кейса) | `test_exchange_ledger.py`: 5 passed (синтетика) | MVP написан 16.10: `bossman_shared/exchange_ledger.py` (CSV-импорт, отчёт за период, сверка комиссии), 5 тестов passed на синтетических данных. Нет: импорта из Telegram, реальных данных пилота, юридической проверки |
 
 Наличие файла не означает, что он работает на машине владельца: прогнаны только тесты Jeff/PIT (пайплайн 2); видео‑пайплайн и учёт обменника не запускались.
 
