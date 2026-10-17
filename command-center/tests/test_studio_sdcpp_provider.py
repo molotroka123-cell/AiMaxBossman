@@ -324,4 +324,3 @@ async def test_z_image_turbo_accepts_one_start_frame_with_strength_and_keeps_t2i
     assert "--strength" in argv_edit
     strength_idx = argv_edit.index("--strength")
     assert argv_edit[strength_idx + 1] == "0.6"
-

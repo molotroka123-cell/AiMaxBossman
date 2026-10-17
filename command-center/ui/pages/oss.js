@@ -208,4 +208,3 @@ export default {
         file, language, button, message, output)));
   },
 };
-

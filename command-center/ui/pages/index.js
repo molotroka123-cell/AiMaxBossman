@@ -108,6 +108,8 @@ export const FEATURE_PAGES = [
     () => import('./v15_owner_run.js'), (m) => m.default),
   lazyPage({ id: 'mission_console', title: 'Операторский канал', icon: 'activity', nav: 'primary', section: 'work' },
     () => import('./mission_console.js'), (m) => m.default),
+  lazyPage({ id: 'control-lab', title: 'Control Lab', icon: 'activity', nav: 'primary', section: 'work' },
+    () => import('./control_lab.js'), (m) => m.default),
   lazyPage({ id: 'web_research', title: 'Поиск в интернете', icon: 'browser', nav: 'more', section: 'studio' },
     () => import('./web_research.js'), (m) => m.default),
   lazyPage({ id: 'control', title: 'Пульт', icon: 'home', nav: 'primary', section: 'work' },

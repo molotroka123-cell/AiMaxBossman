@@ -43,7 +43,10 @@ def make_package(folder: str | os.PathLike, *, size: str = "1280x720", fps: int 
     ff = ffmpeg or _ffmpeg()
     total = scene_seconds * 3
     graph = (f"testsrc2=size={size}:rate={fps}:duration={scene_seconds}[a];"
-             f"gradients=size={size}:rate={fps}:duration={scene_seconds}:speed=0.05:c0=0x103070:c1=0xf0a020:nb_colors=3[b];"
+             # c2 and seed are pinned: their defaults are random, and a random third colour made the gradients ->
+             # mandelbrot cut score drop to 0.289 (< SCENE_THRESHOLD 0.30) in 1 of 12 packages, so CI saw 2 scenes
+             f"gradients=size={size}:rate={fps}:duration={scene_seconds}:speed=0.05:c0=0x103070:c1=0xf0a020:"
+             f"c2=0x20c060:nb_colors=3:seed=1[b];"
              f"mandelbrot=size={size}:rate={fps}[c0];[c0]trim=duration={scene_seconds},setpts=PTS-STARTPTS[c];"
              "[a][b][c]concat=n=3:v=1:a=0[v]")
     voice = ("aevalsrc='0.35*sin(2*PI*(140+12*sin(2*PI*3*t))*t)*(0.6+0.4*sin(2*PI*2*t))':"

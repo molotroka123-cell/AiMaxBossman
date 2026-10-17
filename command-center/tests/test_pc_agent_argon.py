@@ -1647,4 +1647,3 @@ async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(fake_svc: 
     assert res_cfg["ok"] is True and res_cfg["verified"] is True
     assert res_cfg["synthetic"] is False
     assert "ДЕМО НА СИНТЕТИКЕ" not in res_cfg["summary"]
-

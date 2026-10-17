@@ -216,4 +216,3 @@ async def transcribe(request: Request, language: str = "auto") -> dict:
 
 
 FEATURE = Feature(name="oss_integrations", router=router)
-
