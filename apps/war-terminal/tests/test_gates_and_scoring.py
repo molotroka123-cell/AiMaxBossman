@@ -219,3 +219,11 @@ def test_country_filter_uses_the_full_table_and_never_matches_regions(env):
     assert [i["official_notice_id"] for i in pak["items"]] == ["P1"]
     from warterminal import rules
     assert rules.country2("PAK") == "PK" and rules.country2("Western and Central Africa") is None and rules.country2("GIN") == "GN"
+
+
+def test_czech_body_armour_and_ammunition_are_controlled_but_fire_kit_is_not():
+    from warterminal import rules
+    vest = {"title": "Rámcová dohoda - vesta balistická lehká skrytá speciální NIJ IIIA", "cpv": ["35113400"]}
+    ammo = {"title": "Rámcová dohoda - náboje 5.56x45", "cpv": ["18000000"]}
+    fire = {"title": "Pořízení 3 ks kontejnerů s hasičskou technikou", "cpv": ["35110000"]}
+    assert rules.is_controlled(vest) and rules.is_controlled(ammo) and not rules.is_controlled(fire)

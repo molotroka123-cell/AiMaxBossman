@@ -10,7 +10,7 @@ URL = "https://api.ted.europa.eu/v3/notices/search"
 NOTICE_URL = "https://ted.europa.eu/en/notice/{}"
 FIELDS = ["publication-number", "notice-title", "buyer-name", "buyer-country", "publication-date", "deadline-receipt-tender-date-lot",
           "estimated-value-lot", "estimated-value-cur-lot", "classification-cpv", "place-of-performance-country-lot", "notice-type"]
-DEFAULT_CPV = ("09", "15", "60", "63")          # fuel/energy, food, transport, logistics support (owner's first verticals)
+DEFAULT_CPV = ("09", "15", "60", "63", "35")    # fuel/energy, food, transport, logistics + security/defence (monitoring; bids gated)
 CATEGORY = (("09", "fuel_energy"), ("15", "food"), ("60", "logistics"), ("63", "logistics"), ("34", "vehicles"),
             ("30", "it_office"), ("48", "it_office"), ("72", "it_services"), ("18", "clothing"), ("33", "medical"), ("35", "security_defence"))
 

@@ -22,6 +22,11 @@ ISO3_TO_2 = {"CZE": "CZ", "DEU": "DE", "POL": "PL", "FRA": "FR", "ESP": "ES", "I
              "HRV": "HR", "GRC": "GR", "DNK": "DK", "IRL": "IE", "LUX": "LU", "MLT": "MT", "CYP": "CY", "GBR": "GB", "USA": "US", "NOR": "NO",
              "CHE": "CH", "GIN": "GN", "UKR": "UA", "RUS": "RU", "BLR": "BY", "IRN": "IR", "PRK": "KP", "SYR": "SY", "CUB": "CU"}
 CONTROLLED_CPV_PREFIXES = ("353", "354", "355", "356", "357")       # weapons, ammunition, military vessels/vehicles/systems
+# EU Common Military List-type goods by name (EN/RU/CZ/DE/PL), incl. body armour (ML13): found live 17.10 — Czech
+# "vesta balistická" passed the CPV check because police notices use CPV 35113400/18xxx, not 353.
+CONTROLLED_WORDS = ("ammunition", "weapon", "explosive", "missile", "body armour", "body armor", "ballistic", "боеприпас", "бронежилет",
+                    "оружи", "náboj", "střelivo", "munice", "zbraň", "balistick", "výbušn", "munition", "waffe", "ballistisch",
+                    "amunicj", "broń", "kamizelk")
 DUAL_USE_WORDS = ("dual-use", "dual use", "двойного назначения", "double-purpose", "encryption", "night vision", "thermal imag",
                   "drone", "uav", "unmanned", "radar", "military", "ammunition", "weapon", "explosive", "missile")
 
@@ -47,7 +52,7 @@ def _gate(gid: str, status: str, reason: str, evidence: str = "") -> dict:
 
 def is_controlled(tender: dict) -> bool:
     text = f"{tender.get('title', '')} {tender.get('description', '')}".lower()
-    return any(c.startswith(CONTROLLED_CPV_PREFIXES) for c in tender.get("cpv", [])) or any(w in text for w in ("ammunition", "weapon", "explosive", "missile", "боеприпас"))
+    return any(c.startswith(CONTROLLED_CPV_PREFIXES) for c in tender.get("cpv", [])) or any(w in text for w in CONTROLLED_WORDS)
 
 
 def _days_left(deadline: str | None, today: date) -> int | None:
