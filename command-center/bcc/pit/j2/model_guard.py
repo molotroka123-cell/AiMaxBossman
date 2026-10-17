@@ -45,7 +45,9 @@ SUSPECTS_TO_DEGRADE = 2
 GOOD_TO_HEAL = 2
 CANARY_INTERVAL_S = 300.0
 CANARY_DEGRADED_INTERVAL_S = 30.0
-CANARY_TIMEOUT_S = 20.0
+# Must exceed a cold load of the local model: the owner's 35 GB uncensored GGUF takes ~45 s to load (17.10). At 20 s every
+# canary after an unload timed out, recovery unloaded the model again, and the guard kept Jeff cold (176/176 failures).
+CANARY_TIMEOUT_S = 90.0
 ACTION_TIMEOUT_S = 15.0
 RECOVERY_MIN_INTERVAL_S = 120.0
 RECOVERY_MAX_PER_HOUR = 3

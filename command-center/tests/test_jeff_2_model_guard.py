@@ -470,3 +470,10 @@ def test_pipeline_note_appears_in_messages_when_degraded():
     messages = [{"role": "system", "content": "s"}, {"role": "user", "content": "привет"}]
     out = run(pipeline.augment(ctx(), messages))
     assert mg.HINT_NOTE in out[-2]["content"] and out[-1]["content"] == "привет"
+
+
+def test_default_canary_timeout_outlasts_a_cold_model_load():
+    # 17.10: a 20 s canary vs a ~45 s cold load of the 35 GB local model -> every canary timed out, recovery unloaded the
+    # model again and Jeff stayed cold (176/176 failures). The default must leave room for a cold load.
+    assert mg.CANARY_TIMEOUT_S >= 60.0
+    assert inspect.signature(ModelGuardModule).parameters["canary_timeout"].default == mg.CANARY_TIMEOUT_S
