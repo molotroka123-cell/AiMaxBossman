@@ -110,6 +110,13 @@ SPECS: tuple[SdSpec, ...] = (
            "sdcpp:qwen-image-2.1", 6, max_steps=12, manifest_key="", cfg=1.0,
            notes="6-шаговый вариант из benchmark-20261003: источник, ревизия и лицензия UNKNOWN; "
                  "cfg 1.0 выбран для дистиллята и не проверялся на качество."),
+    _photo("qwen-image-2.1-uc-edit", "Qwen-Image 2.1 UC: правка по референсу (вариант «uncensored»)", "qwen-image",
+           {"diffusion": "benchmark-20261003/uncensored/qwen-image-2.1-UC-Q4_K_M.gguf", **QWEN_BASE},
+           "sdcpp:qwen-image-2.1", 20, max_steps=50, manifest_key="", modes=("I2I",), requires_image=True,
+           notes="Веса UC (abenzerps/Qwen-Image-2.1-Uncensored-GGUF, Q4_K_M, без встроенного фильтра безопасности, "
+                 "лицензия research-only) в режиме правки по референсу: тот же путь, что в бенчмарке 03.10 "
+                 "(узнаваемость сохраняется, 576x1280 заняло 47 мин). Как маршрут этого окна до 17.10 не гонялся. "
+                 "Только для собственного или вымышленного персонажа; чужие люди без их согласия: нельзя."),
     _photo("qwen-image-edit-2509", "Qwen-Image Edit 2509 (правка по референсу)", "qwen-image",
            {"diffusion": "qwen-image-edit-2509/Qwen-Image-Edit-2509-Q4_K_S.gguf",
             "vae": "qwen-image-edit-2509/qwen_image_vae.safetensors",

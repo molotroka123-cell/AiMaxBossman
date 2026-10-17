@@ -394,3 +394,21 @@ async def test_s2v_becomes_available_when_its_weights_exist(env, tmp_path):
         path.write_bytes(b"x" * 8)
     by = {m["id"]: m for m in svc.models()}
     assert by["wan2.2-s2v-14b"]["available"] is True and by["wan2.2-s2v-14b"]["modes"] == ["S2V"]
+
+
+def test_uc_reference_edit_model_uses_uc_weights_with_reference_and_vision_encoder(tmp_path):
+    """Qwen-Image 2.1 UC in edit mode: the 03.10 benchmark route. Reference -> -r and --llm_vision; UC diffusion file."""
+    media, binary = make_media(tmp_path)
+    spec = sdcli.BY_ID["qwen-image-2.1-uc-edit"]
+    assert spec.modes == ("I2I",) and spec.requires_image is True
+    assert spec.files["diffusion"].endswith("qwen-image-2.1-UC-Q4_K_M.gguf")
+    ref = tmp_path / "ref.png"
+    ref.write_bytes(PNG)
+    params = {"width": 512, "height": 512, "steps": 20, "seed": 1}
+    argv = sdcli.build_argv(spec, binary, media, params, NEUTRAL, "", tmp_path / "o.png", ref)
+    assert argv[argv.index("-r") + 1] == str(ref)
+    assert "--llm_vision" in argv and argv[argv.index("--cfg-scale") + 1] == "6.0"
+    assert argv[argv.index("--diffusion-model") + 1].endswith("qwen-image-2.1-UC-Q4_K_M.gguf")
+    assert argv[argv.index("-p") + 1] == NEUTRAL                       # the prompt reaches sd-cli verbatim
+    plain = sdcli.build_argv(sdcli.BY_ID["qwen-image-2.1-uc"], binary, media, params, NEUTRAL, "", tmp_path / "o.png", None)
+    assert "-r" not in plain and "--llm_vision" not in plain          # plain UC text-to-image is unchanged
