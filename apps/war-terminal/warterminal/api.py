@@ -843,4 +843,5 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     def root():
         return RedirectResponse("/ui/index.html")
 
+    from .tgapp import mount as tg_mount; tg_mount(app, store)   # noqa: E702 - owner-only Telegram Mini App at /tg/ (see tgapp.py)
     return app

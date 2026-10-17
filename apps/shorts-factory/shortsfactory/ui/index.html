@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shorts Factory</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Shorts Factory <span class="muted" id="ver"></span></div>
+  <form id="tokform" class="tok">
+    <input id="tok" type="password" placeholder="токен роли" autocomplete="off" aria-label="токен роли">
+    <button type="submit">OK</button>
+    <span id="role" class="badge"></span>
+  </form>
+</header>
+<nav role="tablist">
+  <button data-tab="queue" class="on" role="tab">Очередь</button>
+  <button data-tab="sources" role="tab">Источники</button>
+  <button data-tab="trends" role="tab">Тренды</button>
+  <button data-tab="channel" role="tab">Канал</button>
+</nav>
+<main>
+  <section id="queue" class="tab on">
+    <div class="bar">
+      <select id="qstate" aria-label="состояние">
+        <option value="">все</option><option value="ready" selected>ready — ждут «да»</option><option value="approved_by_owner">одобрены</option>
+        <option value="scheduled">запланированы</option><option value="published">опубликованы</option><option value="draft">draft</option><option value="rejected">отклонены</option>
+      </select>
+      <button id="qreload">Обновить</button>
+    </div>
+    <p class="note">Публикация — только после вашего «да». По умолчанию приватно. Ничего не загружается само.</p>
+    <div id="qlist" class="grid"></div>
+  </section>
+  <section id="sources" class="tab">
+    <p class="note">Права подтверждает только владелец. Без подтверждения источник нельзя резать и ставить в очередь. Чужие фильмы/видео — только с записанной лицензией на этот конкретный источник.</p>
+    <div id="slist"></div>
+    <details class="card"><summary>Добавить источник</summary>
+      <form id="sform" class="form">
+        <input name="title" placeholder="название" required>
+        <select name="kind"><option value="own">own — моя запись</option><option value="generated">generated — сгенерировано на ПК</option><option value="licensed">licensed — чужое по лицензии</option></select>
+        <input name="path" placeholder="путь к файлу (C:\...)">
+        <input name="rights_note" placeholder="основание прав" required>
+        <input name="licence_url" placeholder="ссылка на лицензию (для licensed)">
+        <label><input type="checkbox" name="ai_generated"> содержит ИИ-генерацию</label>
+        <label><input type="checkbox" name="people_in_frame"> в кадре люди (нужно их согласие)</label>
+        <label><input type="checkbox" name="has_burned_captions"> в видео уже есть текст речи на экране</label>
+        <button type="submit">Зарегистрировать</button>
+      </form>
+    </details>
+  </section>
+  <section id="trends" class="tab">
+    <div class="bar"><button id="tfetch">Загрузить тренды</button></div>
+    <div id="tbox"></div>
+  </section>
+  <section id="channel" class="tab">
+    <div id="cbox"></div>
+  </section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

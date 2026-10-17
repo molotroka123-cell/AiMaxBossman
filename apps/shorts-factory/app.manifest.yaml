@@ -1,0 +1,47 @@
+id: shorts-factory
+name: Bossman Shorts Factory
+version: "0.1.0"
+kind: workload
+contract: "1.0"
+default_port: 8860
+description: >
+  Vertical YouTube Shorts from rights-cleared sources: owner's own recordings, videos generated on the PC, third-party
+  material only with a recorded licence for that exact file. Local transcript (faster-whisper), audio energy, scene
+  changes and a local Qwen (Ollama) find moments; ffmpeg renders 9:16 with burned captions and loudness
+  normalisation; local Qwen writes titles/hashtags; a news/explainer line makes ORIGINAL shorts from open GDELT
+  headlines (local script, local TTS, local images). Queue + the owner's "да": nothing is uploaded without it,
+  default privacy private, AI content is disclosed (containsSyntheticMedia).
+
+control:
+  transport: http
+  base_path: /api/v1
+  auth: bearer_required
+  calls:
+    health: GET /api/v1/health
+    sources.list: GET /api/v1/sources
+    sources.register: POST /api/v1/sources
+    process_source: POST /api/v1/jobs/process
+    make_news_short: POST /api/v1/jobs/news
+    jobs.get: GET /api/v1/jobs/{id}
+    queue.list: GET /api/v1/queue
+    trends.fetch: POST /api/v1/trends/fetch
+    channel.stats: GET /api/v1/channel
+    schedule: GET /api/v1/schedule
+
+entrypoints:
+  standalone: true
+  cli: "python -m shortsfactory --port 8860"
+  ui: /ui/
+  autonomous: not_implemented
+
+permissions:
+  sources.rights.approve: owner_only          # POST /sources/{id}/rights with confirm=ДА
+  queue.approve: owner_only
+  queue.publish: owner_only_after_approval    # youtube.upload only for approved_by_owner, default private
+  schedule.set: owner_only
+  network.read.public_sources: allow          # GDELT DOC API (1 req / 5 s, cached), YouTube Data API (owner key)
+  network.write.youtube: owner_approval
+  local.models: allow                         # Ollama 127.0.0.1:11434, Bossman direct-gen 127.0.0.1:8801
+  fake_engagement: deny                       # bought views/subs, sub4sub, auto comments/likes
+  reupload_third_party_without_licence: deny
+  secrets.in_prompt: deny

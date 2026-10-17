@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Оборонка CZ</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="banner" role="note">Только мониторинг. Подача заявок и контакты с заказчиками — только после юридической проверки и вашего решения.</div>
+  <header class="top">
+    <div class="title">Оборонка · Чехия</div>
+    <div class="sub" id="mode">загрузка…</div>
+  </header>
+  <section class="kpis" id="kpis" aria-label="Показатели">
+    <div class="kpi"><b id="k-open">—</b><span>открыто</span></div>
+    <div class="kpi"><b id="k-lic">—</b><span>нужна лицензия</span></div>
+    <div class="kpi"><b id="k-soon">—</b><span>срок ≤ 14 дн.</span></div>
+  </section>
+  <nav class="seg" role="tablist" aria-label="Фильтр">
+    <button role="tab" data-f="all" aria-selected="true">Все</button>
+    <button role="tab" data-f="mil" aria-selected="false">Военные (лицензия)</button>
+    <button role="tab" data-f="civ" aria-selected="false">Гражданская безопасность</button>
+  </nav>
+  <main id="list" aria-live="polite"></main>
+  <div class="sheet-bg" id="sheet-bg" hidden></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="d-title" hidden></section>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,364 @@
+{
+ "date": "2026-10-17",
+ "server": "http://127.0.0.1:8860 (loopback)",
+ "published": false,
+ "youtube_called": false,
+ "items": [
+  {
+   "id": "sh_49a71abd1b",
+   "kind": "news",
+   "state": "ready",
+   "blocked_consent": false,
+   "path": "C:\\Users\\asd\\.shorts-factory\\shorts\\sh_49a71abd1b\\sh_49a71abd1b.mp4",
+   "title": "Хуситы окружили город Таиз в Йемене",
+   "hashtags": [
+    "#shorts",
+    "#Йемен",
+    "#Таиз",
+    "#Хуситы",
+    "#Новости"
+   ],
+   "contains_synthetic_media": true,
+   "segment": {
+    "dur": 29.677,
+    "end": 29.677,
+    "start": 0.0
+   },
+   "captions": {
+    "burned": true,
+    "chunks": 16,
+    "language": "ru"
+   },
+   "framing_mode": "text_cards",
+   "ffprobe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+     {
+      "codec_name": "h264",
+      "width": 1080,
+      "height": 1920,
+      "r_frame_rate": "30/1"
+     },
+     {
+      "codec_name": "aac",
+      "sample_rate": "48000",
+      "r_frame_rate": "0/0"
+     }
+    ],
+    "format": {
+     "duration": "29.677000",
+     "size": "929531",
+     "bit_rate": "250572"
+    }
+   },
+   "validation_ok": true,
+   "timings": {
+    "fetch_s": 12.3,
+    "images_s": 658.6,
+    "metadata_s": 20.7,
+    "render_s": 2.7,
+    "script_s": 9.2,
+    "total_s": 714.4,
+    "tts_s": 10.8
+   },
+   "replaces": null
+  },
+  {
+   "id": "sh_96bfdc1759",
+   "kind": "clip",
+   "state": "ready",
+   "blocked_consent": true,
+   "path": "C:\\Users\\asd\\.shorts-factory\\shorts\\sh_96bfdc1759\\sh_96bfdc1759.mp4",
+   "title": "Why AI Needs Real-Time Alerts, Not Just Nightly Reviews",
+   "hashtags": [
+    "#shorts",
+    "#AIautomation",
+    "#businessintelligence",
+    "#workflowoptimization",
+    "#techstrategy"
+   ],
+   "contains_synthetic_media": true,
+   "segment": {
+    "dur": 30.6,
+    "end": 109.91999999999999,
+    "start": 79.32
+   },
+   "captions": {
+    "burned": false,
+    "chunks": 0,
+    "language": "en",
+    "reason": "источник уже содержит текст речи на экране (has_burned_captions): повтор не добавляем"
+   },
+   "framing_mode": "cover",
+   "ffprobe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+     {
+      "codec_name": "h264",
+      "width": 1080,
+      "height": 1920,
+      "r_frame_rate": "30/1"
+     },
+     {
+      "codec_name": "aac",
+      "sample_rate": "48000",
+      "r_frame_rate": "0/0"
+     }
+    ],
+    "format": {
+     "duration": "30.600000",
+     "size": "3267585",
+     "bit_rate": "854270"
+    }
+   },
+   "validation_ok": true,
+   "timings": {
+    "metadata_s": 2.4,
+    "render_s": 9.4,
+    "total_item_s": 12.0
+   },
+   "replaces": "sh_194ff663d5"
+  },
+  {
+   "id": "sh_f82cf956c9",
+   "kind": "clip",
+   "state": "ready",
+   "blocked_consent": true,
+   "path": "C:\\Users\\asd\\.shorts-factory\\shorts\\sh_f82cf956c9\\sh_f82cf956c9.mp4",
+   "title": "Can AI Run an Entire Company?",
+   "hashtags": [
+    "#shorts",
+    "#AI",
+    "#Automation",
+    "#Business",
+    "#Productivity",
+    "#Tech"
+   ],
+   "contains_synthetic_media": true,
+   "segment": {
+    "dur": 25.06,
+    "end": 31.84,
+    "start": 6.78
+   },
+   "captions": {
+    "burned": false,
+    "chunks": 0,
+    "language": "en",
+    "reason": "источник уже содержит текст речи на экране (has_burned_captions): повтор не добавляем"
+   },
+   "framing_mode": "cover",
+   "ffprobe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+     {
+      "codec_name": "h264",
+      "width": 1080,
+      "height": 1920,
+      "r_frame_rate": "30/1"
+     },
+     {
+      "codec_name": "aac",
+      "sample_rate": "48000",
+      "r_frame_rate": "0/0"
+     }
+    ],
+    "format": {
+     "duration": "25.066667",
+     "size": "2491601",
+     "bit_rate": "795191"
+    }
+   },
+   "validation_ok": true,
+   "timings": {
+    "metadata_s": 2.2,
+    "render_s": 6.5,
+    "total_item_s": 9.0
+   },
+   "replaces": "sh_a018c8484a"
+  },
+  {
+   "id": "sh_6fa161fc07",
+   "kind": "clip",
+   "state": "ready",
+   "blocked_consent": true,
+   "path": "C:\\Users\\asd\\.shorts-factory\\shorts\\sh_6fa161fc07\\sh_6fa161fc07.mp4",
+   "title": "Automating Business Decisions with AI",
+   "hashtags": [
+    "#shorts",
+    "#AI",
+    "#Automation",
+    "#BusinessEfficiency",
+    "#Productivity",
+    "#TechTrends"
+   ],
+   "contains_synthetic_media": true,
+   "segment": {
+    "dur": 28.04,
+    "end": 64.02,
+    "start": 35.98
+   },
+   "captions": {
+    "burned": false,
+    "chunks": 0,
+    "language": "en",
+    "reason": "источник уже содержит текст речи на экране (has_burned_captions): повтор не добавляем"
+   },
+   "framing_mode": "cover",
+   "ffprobe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+     {
+      "codec_name": "h264",
+      "width": 1080,
+      "height": 1920,
+      "r_frame_rate": "30/1"
+     },
+     {
+      "codec_name": "aac",
+      "sample_rate": "48000",
+      "r_frame_rate": "0/0"
+     }
+    ],
+    "format": {
+     "duration": "28.066667",
+     "size": "3039331",
+     "bit_rate": "866317"
+    }
+   },
+   "validation_ok": true,
+   "timings": {
+    "metadata_s": 24.0,
+    "render_s": 7.5,
+    "total_item_s": 31.7
+   },
+   "replaces": "sh_d69a2ecd79"
+  }
+ ],
+ "own_run": {
+  "source": "C:/Users/asd/Bossman/podcast-studio/out/live_test3/live_demo.mp4 (1080x1920, 110.8 s)",
+  "job_wall_s": 50.1,
+  "timings": {
+   "transcript_s": 11.4,
+   "signals_s": 3.1,
+   "highlights_s": 4.6,
+   "total_s": 49.7
+  },
+  "transcript": {
+   "language": "en",
+   "segments": 36,
+   "model": "small",
+   "cached": false
+  },
+  "scenes": {
+   "method": "ffmpeg-scdet",
+   "cuts": 10
+  },
+  "highlights": {
+   "candidates_total": 360,
+   "rated": 4,
+   "llm_status": "OK",
+   "llm_error": null,
+   "note": "оценка ранжирует моменты внутри источника, это не прогноз просмотров",
+   "chosen": [
+    {
+     "start": 79.32,
+     "end": 109.92,
+     "dur": 30.6,
+     "score": 0.8562,
+     "why": [
+      "сильная первая фраза (вопрос/крючок)",
+      "LLM 9/10: Strong hook using a relatable pain point (3 AM emergency) and immediately offering a technical solution."
+     ]
+    },
+    {
+     "start": 6.78,
+     "end": 31.84,
+     "dur": 25.06,
+     "score": 0.7341,
+     "why": [
+      "сильная первая фраза (вопрос/крючок)",
+      "LLM 7/10: Good provocative opening question, but the transition to the solution feels slightly disjointed from the initial hook."
+     ]
+    },
+    {
+     "start": 35.98,
+     "end": 64.02,
+     "dur": 28.04,
+     "score": 0.5546,
+     "why": [
+      "сильная первая фраза (вопрос/крючок)",
+      "смена планов 1.07/10с",
+      "LLM 4/10: Starts mid-conversation with unclear context, making it difficult for a new viewer to understand the premise."
+     ]
+    }
+   ]
+  }
+ },
+ "rerender_no_duplicate_captions": [
+  {
+   "old": "sh_d69a2ecd79",
+   "new": "sh_6fa161fc07",
+   "wall_s": 32.4
+  },
+  {
+   "old": "sh_a018c8484a",
+   "new": "sh_f82cf956c9",
+   "wall_s": 9.1
+  },
+  {
+   "old": "sh_194ff663d5",
+   "new": "sh_96bfdc1759",
+   "wall_s": 12.0
+  }
+ ],
+ "news_run": {
+  "job_wall_s": 714.4,
+  "timings": {
+   "fetch_s": 12.3,
+   "images_s": 658.6,
+   "metadata_s": 20.7,
+   "render_s": 2.7,
+   "script_s": 9.2,
+   "total_s": 714.4,
+   "tts_s": 10.8
+  },
+  "script": {
+   "headline": "Хуситы окружили Таиз",
+   "image_prompt": "abstract editorial illustration, map of Yemen with highlighted city, military encirclement concept, neutral colors, no text, no real people",
+   "lines": [
+    "Вооруженные формирования хуситов окружили город Таиз в Йемене.",
+    "Это третий по величине населенный пункт страны.",
+    "Информация об окружении опубликована в британской газете Financial Times.",
+    "Издание сообщает о текущей военной ситуации в регионе.",
+    "Подробности о численности группировки, наличии мирного населения и реакции местных властей пока не сообщаются.",
+    "Дополнительные данные о ходе боевых действий или гуманитарных последствиях в предоставленных материалах отсутствуют."
+   ],
+   "outlets": [
+    "life.ru",
+    "aif.ru",
+    "govoritmoskva.ru"
+   ]
+  },
+  "story": {
+   "lead": "FT : Хуситы окружили третий по величине город Йемена",
+   "domains": [
+    "aif.ru",
+    "govoritmoskva.ru",
+    "life.ru"
+   ],
+   "feed": "https://api.gdeltproject.org/api/v2/doc/doc"
+  },
+  "images": [
+   {
+    "job_id": "dc51b2ad32e441deaee76ccb39bc262f",
+    "reason": "cancelled",
+    "status": "ERROR"
+   }
+  ],
+  "note": "z-image-turbo ran on CPU (sd-cli ~5900 CPU-s, 4/8 steps in 11 min) -> cancelled by the agent; text cards used"
+ }
+}

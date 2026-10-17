@@ -21,7 +21,7 @@ build-backend = "setuptools.build_meta"
 packages = ["warterminal", "warterminal.connectors"]
 
 [tool.setuptools.package-data]
-warterminal = ["ui/*"]
+warterminal = ["ui/*", "ui/tg/*", "ui/vendor/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
