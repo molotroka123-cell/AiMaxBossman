@@ -31,7 +31,7 @@ def _curl(method: str, url: str, body: dict | None, headers: dict | None, timeou
 
 def post_json(url: str, body: dict, headers: dict | None = None, timeout: int = 60) -> dict:
     try:
-        r = httpx.post(url, json=body, headers={"User-Agent": UA, **(headers or {})}, timeout=timeout, verify=_VERIFY)
+        r = httpx.post(url, json=body, headers={"User-Agent": UA, **(headers or {})}, timeout=timeout, verify=_VERIFY, follow_redirects=True)
         r.raise_for_status()
         return r.json()
     except (httpx.ConnectError, ssl.SSLError):
@@ -52,7 +52,7 @@ def get_bytes(url: str, timeout: int = 240) -> bytes:
 
 def get_json(url: str, params: dict | None = None, headers: dict | None = None, timeout: int = 60) -> dict:
     try:
-        r = httpx.get(url, params=params, headers={"User-Agent": UA, **(headers or {})}, timeout=timeout, verify=_VERIFY)
+        r = httpx.get(url, params=params, headers={"User-Agent": UA, **(headers or {})}, timeout=timeout, verify=_VERIFY, follow_redirects=True)
         r.raise_for_status()
         return r.json()
     except (httpx.ConnectError, ssl.SSLError):

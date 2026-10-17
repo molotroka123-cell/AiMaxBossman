@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import time
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -16,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import API_VERSION, VERSION, ai as ai_mod, finance, geo, learning, rules, scoring, sources
-from .connectors import cnb, cz, demo as demo_conn, demo_conflicts, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
+from .connectors import cnb, cz, demo as demo_conn, indicators, demo_conflicts, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
 from .store import Store, now
 
 ROLE_RANK = {"viewer": 0, "analyst": 1, "compliance": 2, "owner": 3}
@@ -402,7 +403,8 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         unmapped_conflicts, unmapped_tenders = [], 0
 
         def row(iso3):
-            return countries.setdefault(iso3, {"open_tenders": 0, "tenders": 0, "conflict_deaths": 0, "conflict_events": 0, "severity": None, "conflict_year": None})
+            return countries.setdefault(iso3, {"open_tenders": 0, "tenders": 0, "conflict_deaths": 0, "conflict_events": 0, "severity": None, "conflict_year": None,
+                                               "military_usd": None, "military_year": None, "refugees": None})
         for t in store.latest_tenders():
             if t.get("demo") and not include_demo:
                 continue
@@ -421,6 +423,12 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             r = row(iso3)
             r.update(conflict_deaths=r["conflict_deaths"] + int(c.get("deaths") or 0), conflict_events=r["conflict_events"] + int(c.get("events") or 0),
                      severity=c.get("severity"), conflict_year=c.get("since"))
+        for iso3, m in ((store.kv_get("ind_military") or {}).get("items") or {}).items():
+            if iso3 in geo.index()["iso3"]:
+                row(iso3).update(military_usd=m["usd"], military_year=m["year"])
+        for iso3, r in ((store.kv_get("ind_refugees") or {}).get("items") or {}).items():
+            if iso3 in geo.index()["iso3"]:
+                row(iso3)["refugees"] = r["refugees"]
         return {"countries": countries, "unmapped_conflicts": sorted(set(unmapped_conflicts)), "unmapped_tenders": unmapped_tenders,
                 "geometry": "/ui/vendor/countries-110m.geojson", "geometry_source": geo.index()["source"],
                 "conflict_source": (store.kv_get("conflicts") or [{}])[0].get("source_id"), "note": "страны закрашиваются по данным; без данных — серым"}
@@ -694,6 +702,78 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         store.kv_set("last:ucdp", {"at": t0, "count": len(ged["items"])})
         audit(role, "conflicts.fetch", {"year": ged["year"], "countries": len(ged["items"]), "events": ged["events_total"], "acd": len(acd["items"])})
         return {"year": ged["year"], "countries": len(ged["items"]), "events": ged["events_total"], "acd_conflicts": len(acd["items"])}
+
+    # ------------------------------------------------------------------ country context: 5 public APIs
+    _geo_last = {"t": 0.0}
+
+    @app.post(f"{P}/indicators/fetch")
+    def indicators_fetch(role=Depends(analyst)):
+        need_live()
+        results, errors = {}, {}
+        for key, kv_key, fn in (("worldbank_ind", "ind_military", lambda: indicators.military_expenditure(get)),
+                                ("unhcr", "ind_refugees", lambda: indicators.refugees_by_origin(get, _day().year - 2)),   # UNHCR lags: last complete year
+                                ("ecb", "fx_ecb", lambda: indicators.ecb_rates(get))):
+            try:
+                results[key] = fn()                     # one failing source must not hide the others
+            except Exception as exc:                    # noqa: BLE001 - reported per source, not swallowed
+                errors[key] = f"{type(exc).__name__}: {str(exc)[:200]}"
+                continue
+            store.kv_set(kv_key, results[key])
+            n = len(results[key].get("items") or results[key].get("rates") or {})
+            store.kv_set(f"last:{key}", {"at": now(), "count": n})
+        mil, ref, ecb = results.get("worldbank_ind") or {}, results.get("unhcr") or {}, results.get("ecb") or {}
+        out = {"military_countries": len(mil.get("items", {})), "military_last_updated": mil.get("last_updated"), "refugee_countries": len(ref.get("items", {})),
+               "refugee_year": ref.get("year"), "ecb_as_of": ecb.get("as_of"), "ecb_pairs": len(ecb.get("rates", {})), "errors": errors}
+        audit(role, "indicators.fetch", out)
+        if not results:
+            raise HTTPException(502, {"code": "ALL_SOURCES_FAILED", "errors": errors})
+        return out
+
+    @app.get(P + "/indicators/country/{iso3}")
+    def indicators_country(iso3: str, _=Depends(viewer)):
+        iso3 = iso3.upper()
+        mil = (store.kv_get("ind_military") or {}).get("items", {}).get(iso3)
+        ref = (store.kv_get("ind_refugees") or {}).get("items", {}).get(iso3)
+        return {"iso3": iso3, "military_expenditure": mil, "refugees": ref,
+                "sources": ["World Bank WDI MS.MIL.XPND.CD (SIPRI)", "UNHCR Refugee Population Statistics"]}
+
+    @app.get(f"{P}/fx/crosscheck")
+    def fx_crosscheck(_=Depends(viewer)):
+        cnb_fx, ecb = store.kv_get("fx") or {}, store.kv_get("fx_ecb") or {}
+        a, b = (cnb_fx.get("rates") or {}).get("EURCZK"), (ecb.get("rates") or {}).get("CZK")
+        if not a or not b:
+            return {"status": "NOT_RUN", "message": "нужны оба источника: POST /fx/fetch и POST /indicators/fetch"}
+        diff = abs(a - b) / b * 100
+        return {"status": "OK" if diff < 0.5 else "MISMATCH", "eur_czk_cnb": a, "eur_czk_ecb": b, "diff_pct": round(diff, 3),
+                "cnb_as_of": cnb_fx.get("as_of"), "ecb_as_of": ecb.get("as_of")}
+
+    @app.get(f"{P}/geocode")
+    def geocode(q: str, role=Depends(analyst)):
+        need_live()
+        q = q.strip()[:200]
+        cached = store.kv_get(f"geo:{q.lower()}")
+        if cached is not None:
+            return {"cached": True, "result": cached}
+        wait = 1.1 - (time.time() - _geo_last["t"])                    # Nominatim policy: at most 1 request per second
+        if wait > 0:
+            time.sleep(wait)
+        _geo_last["t"] = time.time()
+        res = indicators.geocode(get, q)
+        store.kv_set(f"geo:{q.lower()}", res)
+        return {"cached": False, "result": res}
+
+    @app.get(f"{P}/trade")
+    def trade(reporter: int = 203, hs: str = "27", flow: str = "M", year: int = 2024, _=Depends(viewer)):
+        if flow not in ("M", "X") or not hs.isdigit() or len(hs) > 6:
+            raise HTTPException(422, {"message": "flow M|X, hs = 2-6 цифр"})
+        key = f"trade:{reporter}:{hs}:{flow}:{year}"
+        cached = store.kv_get(key)
+        if cached is None:
+            need_live()
+            cached = indicators.trade_flows(get, reporter, hs, flow, year)
+            store.kv_set(key, cached)
+            store.kv_set("last:comtrade", {"at": now(), "count": len(cached["partners"])})
+        return cached
 
     # ------------------------------------------------------------------ learning
     @app.post(f"{P}/learning/decisions")

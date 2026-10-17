@@ -35,8 +35,17 @@ REGISTRY = [
          api="https://scsanctions.un.org/resources/xml/en/consolidated.xml", auth="none", adapter=True, note="POST /sanctions/fetch"),
     dict(id="cnb", name="Czech National Bank FX fixing", kind="market", url="https://www.cnb.cz/", api="https://www.cnb.cz/en/financial-markets/foreign-exchange-market/central-bank-exchange-rate-fixing/central-bank-exchange-rate-fixing/daily.txt",
          auth="none", adapter=True, note="official daily rates; POST /fx/fetch"),
-    dict(id="sipri", name="SIPRI military expenditure", kind="market", url="https://www.sipri.org/", auth="none", adapter=False, note="annual context numbers"),
-    dict(id="comtrade", name="UN Comtrade (preview API)", kind="market", url="https://comtradeapi.un.org/", auth="none (preview)", adapter=False, note="trade flows by HS code"),
+    dict(id="sipri", name="SIPRI military expenditure", kind="market", url="https://www.sipri.org/", auth="none", adapter=False, note="used via World Bank indicator below"),
+    dict(id="worldbank_ind", name="World Bank Indicators: military expenditure (SIPRI)", kind="market", url="https://data.worldbank.org/indicator/MS.MIL.XPND.CD",
+         api="https://api.worldbank.org/v2/", auth="none", adapter=True, note="POST /indicators/fetch; CC BY 4.0"),
+    dict(id="unhcr", name="UNHCR refugee statistics", kind="humanitarian", url="https://www.unhcr.org/refugee-statistics/", api="https://api.unhcr.org/population/v1/",
+         auth="none", adapter=True, note="POST /indicators/fetch; annual"),
+    dict(id="ecb", name="ECB reference rates (Frankfurter)", kind="market", url="https://www.frankfurter.app/", api="https://api.frankfurter.app/latest", auth="none",
+         adapter=True, note="cross-check of CNB rates: GET /fx/crosscheck"),
+    dict(id="nominatim", name="Nominatim (OpenStreetMap geocoding)", kind="geo", url="https://nominatim.org/", api="https://nominatim.openstreetmap.org/search",
+         auth="none (1 req/s, cache)", adapter=True, note="GET /geocode; ODbL attribution"),
+    dict(id="comtrade", name="UN Comtrade (preview API)", kind="market", url="https://comtradeapi.un.org/", api="https://comtradeapi.un.org/public/v1/preview/",
+         auth="none (preview)", adapter=True, note="GET /trade: trade flows by HS code"),
 ]
 
 
