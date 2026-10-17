@@ -47,6 +47,8 @@ class SdSpec:
     manifest_key: str = ""          # MANIFEST.json engines entry (for sha256/licence)
     requires_image: bool = False
     image_flag: str = "-r"          # -r reference (edit) / -i start frame (video)
+    max_refs: int = 1               # how many reference images the engine takes (repeated -r, in order)
+    ref_label: str = ""             # the model's own name for reference n ("Picture {n}"); "" = no @-tags
     fps: int = 0
     frame_step: int = 1
     max_seconds: int = 0
@@ -66,6 +68,11 @@ def _photo(id_, label, family, files, engine, steps, *, resolution="512x512", **
 QWEN_BASE = {"vae": "qwen-image-2.1/qwen_image_2.1_vae_bf16.safetensors",
              "llm": "qwen-image-2.1/Qwen3VL-8B-Instruct-Q8_0.gguf",
              "llm_vision": "qwen-image-2.1/mmproj-Qwen3VL-8B-Instruct-F16.gguf"}
+
+# How stable-diffusion.cpp (commit 74988b2, src/conditioning/conditioner.hpp) labels each -r image for the
+# text encoder; @1/@2/@3 in the owner's prompt are rewritten to exactly this wording (bcc.direct_gen.ref_tags).
+QWEN_EDIT_PLUS_REF = "Picture {n}"     # QwenImageEditPlusPipeline: "Picture 1: <|vision_start|>..."
+QWEN21_REF = "<image{n}>"              # Qwen Image 2.1: "<image1><|vision_start|>..."
 
 SPECS: tuple[SdSpec, ...] = (
     _photo("z-image-turbo", "Z-Image Turbo", "z-image",
@@ -113,6 +120,7 @@ SPECS: tuple[SdSpec, ...] = (
     _photo("qwen-image-2.1-uc-edit", "Qwen-Image 2.1 UC: правка по референсу (вариант «uncensored»)", "qwen-image",
            {"diffusion": "benchmark-20261003/uncensored/qwen-image-2.1-UC-Q4_K_M.gguf", **QWEN_BASE},
            "sdcpp:qwen-image-2.1", 20, max_steps=50, manifest_key="", modes=("I2I",), requires_image=True,
+           max_refs=3, ref_label=QWEN21_REF,
            notes="Веса UC (abenzerps/Qwen-Image-2.1-Uncensored-GGUF, Q4_K_M, без встроенного фильтра безопасности, "
                  "лицензия research-only) в режиме правки по референсу: тот же путь, что в бенчмарке 03.10 "
                  "(узнаваемость сохраняется, 576x1280 заняло 47 мин). Как маршрут этого окна до 17.10 не гонялся. "
@@ -123,6 +131,7 @@ SPECS: tuple[SdSpec, ...] = (
             "llm": "qwen-image-edit-2509/Qwen2.5-VL-7B-Instruct.Q4_K_S.gguf",
             "llm_vision": "qwen-image-edit-2509/Qwen2.5-VL-7B-Instruct.mmproj-Q8_0.gguf"},
            "sdcpp:qwen-image-edit-2509", 20, max_steps=50, modes=("I2I",), requires_image=True,
+           max_refs=3, ref_label=QWEN_EDIT_PLUS_REF,
            notes="Нужен референс. Только для собственного или вымышленного персонажа."),
     SdSpec("wan2.2-ti2v-5b", "Wan2.2 TI2V 5B", "video", "wan", ("T2V", "I2V"),
            {"diffusion": "wan22-ti2v-5b/Wan2.2-TI2V-5B-Q8_0.gguf", "vae": "wan22-ti2v-5b/wan2.2_vae.safetensors",
@@ -196,6 +205,7 @@ def describe(spec: SdSpec, root: Path, binary: Path, overrides: dict | None = No
         "fps": spec.fps, "max_seconds": spec.max_seconds, "min_side": spec.min_side, "max_side": spec.max_side,
         "side_multiple": spec.side_multiple, "requires_image": spec.requires_image, "requires_audio": False,
         "accepts_image": spec.requires_image or "I2V" in spec.modes,
+        "max_refs": ref_capacity(spec), "ref_label": ref_label(spec),
         "default_steps": spec.default_steps, "max_steps": spec.max_steps, "default_resolution": spec.default_resolution,
         "notes": spec.notes,
         "source": str(over.get("source") or UNKNOWN), "revision": str(over.get("revision") or UNKNOWN),
@@ -206,6 +216,23 @@ def describe(spec: SdSpec, root: Path, binary: Path, overrides: dict | None = No
 
 def list_models(root: Path, binary: Path, overrides: dict | None = None) -> list[dict]:
     return [describe(s, root, binary, overrides) for s in SPECS]
+
+
+def ref_capacity(spec: SdSpec) -> int:
+    """How many pictures this model takes: repeated -r for multi-reference editors, one start frame otherwise."""
+    if spec.image_flag == "-r" and spec.requires_image:
+        return max(1, spec.max_refs)
+    return 1 if "I2V" in spec.modes else 0
+
+
+def ref_label(spec: SdSpec) -> str:
+    """The wording an @-tag becomes for this model (see ref_tags)."""
+    if spec.ref_label:
+        return spec.ref_label
+    if ref_capacity(spec):
+        from .ref_tags import START_IMAGE
+        return START_IMAGE if spec.image_flag == "-i" else "the reference image"
+    return ""
 
 
 def frames_for(spec: SdSpec, seconds: float) -> int:
@@ -219,9 +246,17 @@ def required_bytes(spec: SdSpec, root: Path) -> int:
 
 
 def build_argv(spec: SdSpec, binary: Path, root: Path, params: dict, prompt: str, negative: str,
-               out: Path, image: Path | None) -> list[str]:
-    """The Studio argv for this engine, then the user's text verbatim. No other prompt text is added."""
+               out: Path, image: Path | list[Path] | tuple[Path, ...] | None) -> list[str]:
+    """The Studio argv for this engine, then the user's text verbatim. No other prompt text is added.
+
+    ``image`` is one path or the ordered reference list: each becomes its own ``-r`` in that order, so the
+    engine's "Picture 1/2/3" (or "<image1/2/3>") is the owner's @1/@2/@3.
+    """
     from ..studio.providers.sdcpp import _argv  # proven flags per engine (single source of truth)
+    images = [] if image is None else [image] if isinstance(image, (str, Path)) else list(image)
+    if len(images) > max(1, ref_capacity(spec)):
+        raise ValueError(f"{spec.id} takes at most {max(1, ref_capacity(spec))} image(s), got {len(images)}")
+    image = images[0] if images else None
     files = resolve_files(spec, root)
     plane = SimpleNamespace(prompt=prompt, media=({"role": "reference"},) if image and spec.image_flag == "-r" else ())
     settings = {"width": params["width"], "height": params["height"], "steps": params["steps"], "seed": params["seed"],
@@ -231,7 +266,8 @@ def build_argv(spec: SdSpec, binary: Path, root: Path, params: dict, prompt: str
     if spec.cfg is not None:
         argv[argv.index("--cfg-scale") + 1] = str(spec.cfg)
     if image and spec.image_flag == "-r":
-        argv += ["-r", str(image)]
+        for ref in images:
+            argv += ["-r", str(ref)]
     if negative:
         argv += ["-n", negative]
     lora_dir = os.environ.get("BOSSMAN_DIRECT_GEN_LORA_DIR", "")

@@ -27,7 +27,7 @@ from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
 from ..single_flight import await_shared
-from . import catalog, faceswap, genjutsu, sdcli
+from . import catalog, faceswap, genjutsu, ref_tags, sdcli
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .prompt_vault import PromptVault
 from .store import JobStore, valid_participant
@@ -38,6 +38,7 @@ PLACEHOLDER = re.compile(r"^\{\{([a-z_]+)\}\}$")
 KNOWN = {"prompt", "negative", "seed", "width", "height", "frames", "fps", "duration", "image", "audio"}
 MAX_PROMPT = 8000
 MAX_INPUT_BYTES = 32 * 1024 * 1024
+MAX_REF_IMAGES = 6           # hard ceiling of the API; each model's own limit (sdcli.ref_capacity) is lower
 MAX_SWAP_VIDEO = 300 * 1024 * 1024       # a phone clip for face swap; photos keep MAX_INPUT_BYTES
 ASSIST_SYSTEM = (
     "You edit text-to-video prompts. Rewrite the user's text as one clearer, concrete shot "
@@ -381,6 +382,8 @@ class DirectGenService:
                 raise DirectGenError(422, f"{field}_required", f"the workflow of {spec.label} needs a {field} input")
             if data is not None:
                 inputs[field] = data
+        effective, refs = self._apply_ref_tags(effective, body, 1 if "image" in inputs else 0, "image" in needs,
+                                               ref_tags.START_IMAGE)
         try:
             await asyncio.wait_for(self.client.health(), 5)
         except Exception as exc:  # noqa: BLE001
@@ -399,6 +402,7 @@ class DirectGenService:
                            "source": info["source"], "revision": info["revision"], "license": info["license"],
                            "workflow_template": f"{spec.id}.json", "assist_model": assist_model},
             "inputs": {k: len(v) for k, v in inputs.items()},
+            "refs": refs,
             "timeline": [{"stage": "queued", "at": now_iso()}],
         }
         folder = self.store.job_dir(participant, job_id)
@@ -435,13 +439,20 @@ class DirectGenService:
         seed = self._seed(body)
         if self._decode(body.get("audio_b64"), "audio") is not None:
             raise DirectGenError(422, "audio_unsupported", f"{spec.label} takes no audio input")
-        image = self._decode(body.get("image_b64"), "image")
-        if image is None and spec.requires_image:
+        images = self._images(body)
+        if not images and spec.requires_image:
             raise DirectGenError(422, "image_required", f"{spec.label} needs a reference image")
-        if image is not None and not info["accepts_image"]:
+        if images and not info["accepts_image"]:
             raise DirectGenError(422, "image_unsupported", f"{spec.label} takes no image input")
-        if image is not None and sdcli.image_extension(image) is None:
+        if any(sdcli.image_extension(i) is None for i in images):
             raise DirectGenError(422, "image_invalid", "image must be PNG or JPEG")
+        cap = sdcli.ref_capacity(spec)
+        if len(images) > cap:
+            raise DirectGenError(422, "too_many_images",
+                                 f"{spec.label}: можно не больше {cap} фото-референс(а), прислано {len(images)}")
+        effective, refs = self._apply_ref_tags(effective, body, len(images), info["accepts_image"],
+                                               sdcli.ref_label(spec))
+        image = images[0] if images else None
         job_id = uuid.uuid4().hex
         job = {
             "job_id": job_id, "participant": participant, "model": spec.id, "kind": spec.kind, "mode": mode,
@@ -454,17 +465,18 @@ class DirectGenService:
             "provenance": {"model_id": spec.id, "runtime": "sdcpp", "weights": info["weights"],
                            "source": info["source"], "revision": info["revision"], "license": info["license"],
                            "assist_model": assist_model},
-            "inputs": {"image": len(image)} if image else {},
+            "inputs": ({"image": len(image)} | ({"images": len(images)} if len(images) > 1 else {})) if image else {},
+            "refs": refs,
             "timeline": [{"stage": "queued", "at": now_iso()}],
         }
         folder = self.store.job_dir(participant, job_id)
         folder.mkdir(parents=True, exist_ok=True)
-        if image:
-            (folder / "input_image.bin").write_bytes(image)
+        for n, data in enumerate(images, start=1):
+            (folder / ("input_image.bin" if n == 1 else f"input_image_{n}.bin")).write_bytes(data)
         self.prompt_vault.record(job)
         self.store.save(job)
         self._waiting.append(job_id)
-        self._tasks[job_id] = asyncio.create_task(self._run_sd(job, spec, image), name=f"direct-gen-{job_id[:8]}")
+        self._tasks[job_id] = asyncio.create_task(self._run_sd(job, spec, images), name=f"direct-gen-{job_id[:8]}")
         await self._emit(job)
         return self.view(job)
 
@@ -715,7 +727,37 @@ class DirectGenService:
                                  f"{spec.label} needs about {need / sdcli.GIB:.0f} GiB of free memory, "
                                  f"{free / sdcli.GIB:.1f} GiB is free; nothing was started")
 
-    async def _run_sd(self, job: dict, spec: sdcli.SdSpec, image: bytes | None) -> None:
+    def _images(self, body: dict) -> list[bytes]:
+        """Ordered reference pictures: ``images_b64`` (list, @1 first) or the single legacy ``image_b64``."""
+        many = body.get("images_b64")
+        if many not in (None, [], ""):
+            if body.get("image_b64"):
+                raise DirectGenError(422, "image_invalid", "send either image_b64 or images_b64, not both")
+            if not isinstance(many, list) or len(many) > MAX_REF_IMAGES:
+                raise DirectGenError(422, "image_invalid", f"images_b64 must be a list of 1..{MAX_REF_IMAGES} images")
+            out = [self._decode(v, "image") for v in many]
+            if any(v is None for v in out):
+                raise DirectGenError(422, "image_invalid", "images_b64 has an empty item")
+            return out  # type: ignore[return-value]
+        one = self._decode(body.get("image_b64"), "image")
+        return [one] if one is not None else []
+
+    @staticmethod
+    def _apply_ref_tags(effective: str, body: dict, count: int, accepts: bool, label: str) -> tuple[str, list[dict]]:
+        """@1/@name -> the model's own wording for that picture. Models without image input keep their text as is."""
+        if not accepts or not label:
+            return effective, []
+        try:
+            names = ref_tags.clean_names(body.get("ref_names"), count)
+            refs = ref_tags.RefTags(count, names)
+            rewritten = ref_tags.rewrite(effective, refs, label)
+        except ref_tags.RefTagError as exc:
+            raise DirectGenError(422, "unknown_ref_tag", str(exc)) from None
+        used = {refs.index_of(t) for t in ref_tags.tags_in(effective)}
+        return rewritten, [{"tag": f"@{i}", "name": names[i - 1], "as": label.format(n=i), "used": i in used}
+                           for i in range(1, count + 1)]
+
+    async def _run_sd(self, job: dict, spec: sdcli.SdSpec, images: list[bytes] | bytes | None) -> None:
         job_id, runner = job["job_id"], self._sd_runner()
         try:
             async with self._gate():
@@ -730,13 +772,16 @@ class DirectGenService:
                 work.mkdir(exist_ok=True)
                 result.mkdir(exist_ok=True)
                 out = result / ("video.webm" if spec.kind == "video" else "image.png")
-                init = None
-                if image:
-                    init = work / f"input{sdcli.image_extension(image)}"
-                    init.write_bytes(image)
+                if isinstance(images, (bytes, bytearray)):
+                    images = [bytes(images)]
+                init: list[Path] = []
+                for n, data in enumerate(images or [], start=1):
+                    path = work / f"input{'' if n == 1 else f'_{n}'}{sdcli.image_extension(data)}"
+                    path.write_bytes(data)
+                    init.append(path)
                 p = job["params"]
                 argv = sdcli.build_argv(spec, self.sd_bin, self.media_dir, p, job["effective_prompt"],
-                                        job["negative"], out, init)
+                                        job["negative"], out, init or None)
                 job["provenance"]["command"] = [Path(a).name if os.path.isabs(a) else a for a in argv]
                 job["provenance"]["command"][job["provenance"]["command"].index("-p") + 1] = "<prompt>"
 
@@ -826,6 +871,11 @@ class DirectGenService:
             p = folder / f"input_{field}.bin"
             if p.is_file():
                 body[f"{field}_b64"] = base64.b64encode(p.read_bytes()).decode()
+        extra = sorted(folder.glob("input_image_*.bin"), key=lambda q: int(q.stem.rsplit("_", 1)[-1]))
+        if extra and body.get("image_b64"):
+            body["images_b64"] = [body.pop("image_b64")] + [base64.b64encode(q.read_bytes()).decode() for q in extra]
+        if old.get("refs"):
+            body["ref_names"] = [r.get("name") or "" for r in old["refs"]]
         return await self.create(participant, body)
 
     # ---------- read ----------

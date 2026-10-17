@@ -94,13 +94,13 @@
         <div class="model-flags" id="photo-flags"></div>
         <label class="lbl" for="photo-prompt">Промпт</label>
         <textarea id="photo-prompt" class="field area" rows="4" placeholder="Опишите картинку — она уйдёт в модель как написано" required></textarea>
+        <div class="tag-suggest" id="photo-tags" role="listbox" aria-label="Отсылки к фото" hidden></div>
         <div id="ref-block" hidden>
-          <label class="lbl">Фото-референс</label>
-          <div class="ref-row">
-            <label class="btn ghost file-btn"><input id="photo-ref" type="file" accept="image/*" hidden><svg><use href="#i-plus"/></svg><span id="ref-label">Выбрать из «Фото»</span></label>
-            <img id="ref-preview" class="ref-preview" alt="" hidden>
-            <button type="button" class="icon-btn small" id="ref-clear" aria-label="Убрать" hidden><svg><use href="#i-close"/></svg></button>
+          <label class="lbl" id="ref-title">Фото-референс</label>
+          <div class="ref-row refs-row" id="refs-row">
+            <label class="btn ghost file-btn" id="ref-add"><input id="photo-ref" type="file" accept="image/*" multiple hidden><svg><use href="#i-plus"/></svg><span id="ref-label">Выбрать из «Фото»</span></label>
           </div>
+          <p class="hint" id="ref-hint"></p>
         </div>
         <label class="lbl">Формат</label>
         <div class="seg" id="photo-aspect" role="radiogroup"></div>
@@ -151,11 +151,12 @@
         <p class="hint" id="video-notes" hidden></p>
         <label class="lbl" for="video-prompt">Промпт</label>
         <textarea id="video-prompt" class="field area" rows="4" placeholder="Опишите сцену и движение — текст уйдёт в модель как написано" required></textarea>
+        <div class="tag-suggest" id="video-tags" role="listbox" aria-label="Отсылка к картинке" hidden></div>
         <div id="vimg-block" hidden>
           <label class="lbl" id="vimg-title">Стартовая картинка</label>
           <div class="ref-row">
             <label class="btn ghost file-btn"><input id="video-image" type="file" accept="image/*" hidden><svg><use href="#i-plus"/></svg><span id="vimg-label">Выбрать из «Фото»</span></label>
-            <img id="vimg-preview" class="ref-preview" alt="" hidden>
+            <span class="ref-thumb" id="vimg-thumb" hidden><img id="vimg-preview" class="ref-preview" alt=""><b class="ref-tag">@1</b></span>
             <button type="button" class="icon-btn small" id="vimg-clear" aria-label="Убрать картинку" hidden><svg><use href="#i-close"/></svg></button>
           </div>
         </div>

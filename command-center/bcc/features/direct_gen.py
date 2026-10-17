@@ -23,6 +23,8 @@ jobs of one participant are invisible to another.
 """
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -47,6 +49,9 @@ class JobIn(BaseModel):
     assist_id: str | None = Field(default=None, max_length=64)
     assist_choice: str | None = Field(default=None, max_length=16)
     image_b64: str | None = Field(default=None, max_length=48 * 1024 * 1024)
+    # Several reference photos in @1, @2, @3 order (multi-reference editors); names give optional @aliases.
+    images_b64: list[Annotated[str, Field(max_length=48 * 1024 * 1024)]] | None = Field(default=None, max_length=6)
+    ref_names: list[Annotated[str, Field(max_length=25)]] | None = Field(default=None, max_length=6)
     audio_b64: str | None = Field(default=None, max_length=48 * 1024 * 1024)
 
 

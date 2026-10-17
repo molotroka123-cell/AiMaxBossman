@@ -312,3 +312,16 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 32px; 
 .viewer-actions a.btn, .vcard a.btn { text-decoration: none; color: inherit; }
 .viewer-actions a.btn { color: #fff; }
 @media (min-width: 768px) { #video-form, #swap-form, .vlist, .qlist, .warn-card, .mode-seg { max-width: 760px; margin-left: auto; margin-right: auto; } }
+/* @-references to attached photos (Higgsfield-style): tag on each thumbnail + "@" suggestions under the prompt */
+.refs-row { flex-wrap: wrap; }
+.ref-thumb { position: relative; display: inline-block; }
+.ref-thumb .ref-preview { display: block; width: 64px; height: 64px; cursor: pointer; }
+.ref-tag { position: absolute; left: 3px; bottom: 3px; max-width: 58px; min-height: 22px; padding: 1px 6px; border-radius: 7px;
+  background: rgba(0, 0, 0, .74); color: #fff; font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref-x { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid;
+  place-items: center; background: var(--text); color: var(--bg); }
+.ref-x svg { width: 14px; height: 14px; }
+.tag-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin: -2px 0 2px; }
+.tag-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 3px 12px 3px 3px; border-radius: 999px;
+  border: 1px solid var(--line2); background: var(--surface2); font-size: 14px; font-weight: 600; }
+.tag-chip img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
