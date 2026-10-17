@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shorts Factory</title>
+<title>Фабрика Shorts</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header>
-  <div class="brand">Shorts Factory <span class="muted" id="ver"></span></div>
+  <div class="brand">Фабрика Shorts <span class="muted" id="ver"></span></div>
   <form id="tokform" class="tok">
-    <input id="tok" type="password" placeholder="токен роли" autocomplete="off" aria-label="токен роли">
-    <button type="submit">OK</button>
+    <input id="tok" type="password" placeholder="токен роли" autocomplete="off" aria-label="Токен роли">
+    <button type="submit">Войти</button>
     <span id="role" class="badge"></span>
   </form>
 </header>
-<nav role="tablist">
+<nav role="tablist" aria-label="Разделы">
   <button data-tab="queue" class="on" role="tab">Очередь</button>
   <button data-tab="sources" role="tab">Источники</button>
   <button data-tab="trends" role="tab">Тренды</button>
@@ -24,9 +24,9 @@
 <main>
   <section id="queue" class="tab on">
     <div class="bar">
-      <select id="qstate" aria-label="состояние">
-        <option value="">все</option><option value="ready" selected>ready — ждут «да»</option><option value="approved_by_owner">одобрены</option>
-        <option value="scheduled">запланированы</option><option value="published">опубликованы</option><option value="draft">draft</option><option value="rejected">отклонены</option>
+      <select id="qstate" aria-label="Состояние">
+        <option value="">все</option><option value="ready" selected>готовы — ждут «да»</option><option value="approved_by_owner">одобрены</option>
+        <option value="scheduled">запланированы</option><option value="published">опубликованы</option><option value="draft">черновики</option><option value="rejected">отклонены</option>
       </select>
       <button id="qreload">Обновить</button>
     </div>
@@ -39,10 +39,10 @@
     <details class="card"><summary>Добавить источник</summary>
       <form id="sform" class="form">
         <input name="title" placeholder="название" required>
-        <select name="kind"><option value="own">own — моя запись</option><option value="generated">generated — сгенерировано на ПК</option><option value="licensed">licensed — чужое по лицензии</option></select>
+        <select name="kind"><option value="own">моя запись</option><option value="generated">сгенерировано на ПК</option><option value="licensed">чужое по лицензии</option></select>
         <input name="path" placeholder="путь к файлу (C:\...)">
         <input name="rights_note" placeholder="основание прав" required>
-        <input name="licence_url" placeholder="ссылка на лицензию (для licensed)">
+        <input name="licence_url" placeholder="ссылка на лицензию (для чужого по лицензии)">
         <label><input type="checkbox" name="ai_generated"> содержит ИИ-генерацию</label>
         <label><input type="checkbox" name="people_in_frame"> в кадре люди (нужно их согласие)</label>
         <label><input type="checkbox" name="has_burned_captions"> в видео уже есть текст речи на экране</label>

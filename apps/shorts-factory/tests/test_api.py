@@ -57,7 +57,7 @@ def test_trends_module_absent_is_not_connected(env):
 
 def test_ui_served(env):
     r = env.c.get("/ui/index.html")
-    assert r.status_code == 200 and "Shorts Factory" in r.text
+    assert r.status_code == 200 and "Фабрика Shorts" in r.text
 
 
 def test_schedule_owner_only(env):

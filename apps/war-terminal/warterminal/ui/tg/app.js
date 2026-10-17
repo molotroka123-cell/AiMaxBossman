@@ -123,7 +123,7 @@
       l.appendChild(h("button", { class: "card", type: "button", onclick: function () { openDetail(it); } },
         h("div", { class: "card-top" },
           isLicence(it) ? h("span", { class: "badge lic" }, "лицензия") : h("span", { class: "badge civ" }, "гражд."),
-          it.demo ? h("span", { class: "badge demo" }, "DEMO") : null,
+          it.demo ? h("span", { class: "badge demo" }, "ДЕМО") : null,
           h("span", { class: "dl" + (n !== null && n <= 14 ? " soon" : "") }, deadlineText(it.deadline))),
         h("div", { class: "card-title" }, it.title || "(без названия)"),
         h("div", { class: "card-meta" }, it.buyer || "заказчик не указан"),
@@ -139,7 +139,7 @@
         return (x === null ? 1e9 : x) - (y === null ? 1e9 : y);
       });
       var d = j.data || {};
-      $("mode").textContent = (d.mode === "LIVE" ? "LIVE" : "DEMO / не live") + " · " + items.length + " откр. · категория security_defence";
+      $("mode").textContent = (d.mode === "LIVE" ? "живые данные" : "ДЕМО / не живые данные") + " · " + items.length + " откр. · категория «безопасность и оборона»";
       renderKpis();
       renderList();
     });
@@ -170,26 +170,26 @@
       h("div", null, h("span", { class: "k" }, "Сумма"), money(it.estimated_value, it.currency)),
       h("div", null, h("span", { class: "k" }, "Срок"), deadlineText(it.deadline)),
       h("div", null, h("span", { class: "k" }, "Номер"), it.official_notice_id || it.key),
-      it.demo ? h("div", { class: "warn" }, "DEMO / синтетика: не реальный тендер") : null,
+      it.demo ? h("div", { class: "warn" }, "ДЕМО / синтетика: не реальный тендер") : null,
       link));
     s.appendChild(section("Соответствие", h("div", { class: "fit" },
-      h("div", null, h("b", null, String(a.fit_score !== undefined ? a.fit_score : "—")), h("span", null, "fit")),
+      h("div", null, h("b", null, String(a.fit_score !== undefined ? a.fit_score : "—")), h("span", null, "балл")),
       h("div", null, h("b", null, pct(a.confidence)), h("span", null, "уверенность")),
       h("div", null, h("b", null, ru(a.complexity)), h("span", null, "класс")),
       h("div", null, h("b", null, ru(a.tier_if_cleared)), h("span", null, "если снять")))));
     var gatesBox = h("ul", { class: "gates" }, h("li", { class: "muted" }, "загрузка…"));
     var listBox = h("ol", { class: "check" }, h("li", { class: "muted" }, "загрузка…"));
     var resBox = h("div", { id: "assess-res" });
-    s.appendChild(section("Проверки (gates)", gatesBox));
+    s.appendChild(section("Проверки", gatesBox));
     s.appendChild(section("Чек-лист (черновик)", listBox));
-    if (!nativeButtons) s.appendChild(h("button", { class: "main", type: "button", id: "assess-btn", onclick: assess }, "Оценить (dry-run)"));
+    if (!nativeButtons) s.appendChild(h("button", { class: "main", type: "button", id: "assess-btn", onclick: assess }, "Оценить (пробно)"));
     s.appendChild(resBox);
     $("sheet-bg").hidden = false;
     s.hidden = false;
     s.scrollTop = 0;
     if (nativeButtons) {
       tg.BackButton.show();
-      tg.MainButton.setText("Оценить (dry-run)");
+      tg.MainButton.setText("Оценить (пробно)");
       tg.MainButton.show();
     }
     var key = encodeURIComponent(it.key);
@@ -226,10 +226,10 @@
       if (current !== it) return;
       clear(box);
       box.appendChild(h("div", { class: "res" },
-        h("div", { class: "res-title" }, "Результат dry-run (не сохранён)"),
+        h("div", { class: "res-title" }, "Результат пробной оценки (не сохранён)"),
         h("div", null, "Соответствие правилам: ", h("b", null, ru(a.compliance_status)), " · класс: ", h("b", null, ru(a.complexity))),
         h("div", null, "Уровень, если проверки сняты: ", h("b", null, ru(a.tier_if_cleared))),
-        h("div", null, "Fit: ", h("b", null, String(a.fit && a.fit.fit_score)), " · уверенность ", pct(a.fit && a.fit.confidence)),
+        h("div", null, "Балл соответствия: ", h("b", null, String(a.fit && a.fit.fit_score)), " · уверенность ", pct(a.fit && a.fit.confidence)),
         a.fit && a.fit.unknowns && a.fit.unknowns.length ? h("div", { class: "gate-ev" }, "Неизвестно: " + a.fit.unknowns.join(", ")) : null,
         h("div", { class: "gate-ev" }, "Это только расчёт. Никаких действий с заказчиком не выполнено.")));
       if (tg && tg.HapticFeedback) try { tg.HapticFeedback.notificationOccurred("success"); } catch (e) { /* optional */ }

@@ -237,7 +237,7 @@ class TgProxy:
                 raw += msg.get("body", b"")
                 more = msg.get("more_body", False)
                 if len(raw) > MAX_BODY:
-                    return await self._reply(scope, receive, send, 413, {"detail": {"code": "TOO_LARGE"}})
+                    return await self._reply(scope, receive, send, 413, {"detail": {"code": "TOO_LARGE", "message": "запрос слишком большой"}})
             try:
                 req = json.loads(raw or b"{}")
             except ValueError:
@@ -251,7 +251,7 @@ class TgProxy:
             return await self._reply(scope, receive, send, 403, {"detail": {"code": "TG_NOT_ALLOWED", "message": "действие недоступно в мини-приложении"}})
         token = self.tokens_ref().get(role)
         if not token:
-            return await self._reply(scope, receive, send, 503, {"detail": {"code": "TG_NOT_CONFIGURED"}})
+            return await self._reply(scope, receive, send, 503, {"detail": {"code": "TG_NOT_CONFIGURED", "message": "токен роли не настроен на этом ПК"}})
         new_headers = [(k, v) for k, v in headers if k not in self.STRIP] + [(b"authorization", f"Bearer {token}".encode("latin-1"))]
         raw_path = scope.get("raw_path") or path.encode("latin-1")
         new_scope = dict(scope, path="/api/v1/" + rest, raw_path=b"/api/v1/" + raw_path[len(b"/tg/api/"):])
@@ -290,7 +290,7 @@ def mount(app: FastAPI, store=None) -> None:
     @app.post("/tg/api/auth", include_in_schema=False)
     async def tg_auth(request: Request):
         if sessions.braked():
-            return JSONResponse({"detail": {"code": "TG_RATE_LIMITED"}}, status_code=429, headers={"cache-control": "no-store"})
+            return JSONResponse({"detail": {"code": "TG_RATE_LIMITED", "message": "слишком много попыток входа, подождите"}}, status_code=429, headers={"cache-control": "no-store"})
         token, owner_id = load_bot_token(), load_owner_id()
         if not token or not owner_id:
             audit("tg.auth.not_configured")

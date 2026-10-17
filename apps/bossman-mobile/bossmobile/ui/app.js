@@ -11,6 +11,8 @@
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = String(text); return n; };
   const icon = (name) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); const u = document.createElementNS('http://www.w3.org/2000/svg', 'use'); u.setAttribute('href', '#i-' + name); s.appendChild(u); return s; };
   const fmtS = (s) => s == null ? '—' : (s < 60 ? `${s.toFixed(1)} с` : `${Math.floor(s / 60)} мин ${Math.round(s % 60)} с`);
+  const TASK_ST = { queued: 'в очереди', running: 'выполняется', completed: 'готово', failed: 'ошибка', stopped: 'остановлено', blocked: 'заблокировано', cancelled: 'отменено', missing: 'не найдено', waiting_approval: 'ждёт решения', error: 'ошибка' };
+  const stRu = (s) => (s && TASK_ST[s]) || s || '';
   const tap = () => { try { navigator.vibrate && navigator.vibrate(8); } catch { /* iOS: no vibrate */ } };
 
   let toastTimer = 0;
@@ -225,7 +227,7 @@
         addUser(turn.text); const b = addBot();
         if (turn.status && !['completed', 'failed', 'stopped', 'blocked', 'missing'].includes(turn.status)) { follow(turn.task_id, b); continue; }
         if (turn.result) rich(b.ans, turn.result); else if (turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.error; }
-        b.meta.textContent = `задача #${turn.task_id} · ${turn.status}`;
+        b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
         if (turns.indexOf(turn) >= turns.length - 6) {
           api('GET', `/tasks/${turn.task_id}/history`).then((h) => (h.events || []).forEach((ev) => { if (ev.kind.startsWith('run.tool') || ev.kind.startsWith('approval') || ev.kind === 'tool.denied') applyEvent(b, ev, false); })).catch(() => {});
         }
@@ -270,13 +272,13 @@
   async function settle(taskId, b, t) {
     if (b.done) return; b.done = true; closeStream();
     try { t = t || await api('GET', `/tasks/${taskId}`); } catch { t = t || {}; }
-    finish(b, t.result, t.status === 'completed' ? null : (t.error || `задача ${t.status}`), t.status, taskId);
+    finish(b, t.result, t.status === 'completed' ? null : (t.error || `задача: ${stRu(t.status)}`), t.status, taskId);
   }
   function finish(b, result, error, status, taskId) {
     busy(false); typing(b, false); b.ans.classList.remove('caret');
     if (result) { b.text = result; rich(b.ans, result); } else if (error && !b.text) { b.ans.classList.add('error'); b.ans.textContent = error; }
     const total = b.t0 ? (performance.now() - b.t0) / 1000 : null; const first = b.first && b.t0 ? (b.first - b.t0) / 1000 : null;
-    b.meta.replaceChildren(el('span', 'badge-local', 'локально'), el('span', '', [b.model, taskId ? `#${taskId}` : '', status && status !== 'completed' ? status : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
+    b.meta.replaceChildren(el('span', 'badge-local', 'локально'), el('span', '', [b.model, taskId ? `#${taskId}` : '', status && status !== 'completed' ? stRu(status) : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
     loadThreads(); scrollDown();
   }
 
@@ -321,7 +323,7 @@
   function onModel() {
     const m = curModel(); if (!m) return; store.set('photoModel', m.id);
     const f = $('photo-flags'); f.replaceChildren();
-    if (m.uncensored_label) f.appendChild(el('span', 'badge-uc', 'uncensored (по метке Bossman)'));
+    if (m.uncensored_label) f.appendChild(el('span', 'badge-uc', 'без цензуры (по метке Bossman)'));
     f.appendChild(el('span', 'badge-local', 'на ПК'));
     if (m.license) f.appendChild(el('span', 'pill', m.license));
     $('ref-block').hidden = !m.accepts_image; $('ref-label').textContent = m.requires_image ? 'Выбрать фото (обязательно)' : 'Выбрать из «Фото»';
@@ -390,7 +392,7 @@
     stats.appendChild(el('span', '', `прошло ${fmtS(j.elapsed_s)}`));
     const gen = (j.timeline || []).find((t) => t.stage === 'generating');
     if (gen && pct && pct > 3 && !done) { const g = (Date.now() - Date.parse(gen.at)) / 1000; stats.appendChild(el('span', '', `осталось ≈ ${fmtS(g * (100 - pct) / pct)}`)); }
-    if (j.params) stats.appendChild(el('span', '', `${j.params.width}×${j.params.height} · seed ${j.params.seed}`));
+    if (j.params) stats.appendChild(el('span', '', `${j.params.width}×${j.params.height} · сид ${j.params.seed}`));
     card.appendChild(stats);
     if (j.error) card.appendChild(el('div', 'error-text', typeof j.error === 'string' ? j.error : (j.error.message || JSON.stringify(j.error))));
   }
@@ -417,7 +419,7 @@
   function openViewer(j) {
     viewing = j; $('viewer-img').src = `/m/api/photo/jobs/${j.job_id}/file`;
     const m = S.photoModels.find((x) => x.id === j.model);
-    $('viewer-meta').textContent = `${j.raw_prompt || ''}\n${m ? m.label : j.model} · ${j.params ? j.params.width + '×' + j.params.height + ' · seed ' + j.params.seed : ''} · ${fmtS(j.elapsed_s)}`;
+    $('viewer-meta').textContent = `${j.raw_prompt || ''}\n${m ? m.label : j.model} · ${j.params ? j.params.width + '×' + j.params.height + ' · сид ' + j.params.seed : ''} · ${fmtS(j.elapsed_s)}`;
     $('viewer').hidden = false;
   }
   $('viewer-close').addEventListener('click', () => { $('viewer').hidden = true; });

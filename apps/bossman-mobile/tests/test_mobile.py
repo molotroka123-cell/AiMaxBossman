@@ -96,6 +96,19 @@ def test_default_prefers_local_uncensored_never_cloud_uncensored():
     assert pick_default([items[0], items[1]]) == 1
 
 
+def test_default_prefers_local_gemma_uncensored_over_qwen_uncensored():
+    """owner 17.10 «установи Gemma в мобильный app»: the local Gemma 4 uncensored chat agent beats the local Qwen
+    uncensored operator (39) whatever the order; negative controls: a cloud Gemma uncensored agent and a local Gemma
+    without «uncensored» do not take the default from agent 39."""
+    qwen = {"id": 39, "name": "Qwen-Operator L1 (uncensored)", "tools": ["read_file"], "local": True}
+    gemma = {"id": 41, "name": "Gemma 4 uncensored", "tools": [], "local": True}
+    cloud_gemma = {"id": 7, "name": "Gemma 4 uncensored (cloud)", "tools": [], "local": False}
+    plain_gemma = {"id": 8, "name": "Gemma 4", "tools": [], "local": True}
+    assert pick_default([qwen, gemma]) == 41
+    assert pick_default([gemma, qwen]) == 41
+    assert pick_default([cloud_gemma, plain_gemma, qwen]) == 39
+
+
 def test_agents_endpoint_lists_only_local(authed):
     r = authed.c.get("/m/api/agents")
     assert r.status_code == 200

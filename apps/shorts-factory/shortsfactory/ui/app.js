@@ -13,7 +13,7 @@ async function api(path, opts = {}) {
   const r = await fetch(API + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: "Bearer " + TOKEN, ...(opts.headers || {}) } });
   const ct = r.headers.get("content-type") || "";
   const body = ct.includes("json") ? await r.json() : await r.blob();
-  if (!r.ok) { const d = body && body.detail; throw new Error((d && (d.message || JSON.stringify(d))) || r.status); }
+  if (!r.ok) { const d = body && body.detail; throw new Error((d && (d.message || JSON.stringify(d))) || ("ошибка HTTP " + r.status)); }
   return body;
 }
 
@@ -30,6 +30,9 @@ async function whoami() {
 }
 
 const STATE_RU = { draft: "черновик", ready: "ждёт «да»", approved_by_owner: "одобрено", scheduled: "запланировано", published: "опубликовано", rejected: "отклонено" };
+const PRIVACY_RU = { private: "приватно", unlisted: "по ссылке", public: "публично" };
+const KIND_RU = { own: "моя запись", generated: "сгенерировано на ПК", licensed: "по лицензии" };
+const TSTATUS_RU = { OK: "готово", NOT_RUN: "ещё не загружались", NOT_CONNECTED: "не подключено", ERROR: "ошибка", DRY_RUN: "пробный запуск" };
 const STATE_CLS = { ready: "warn", approved_by_owner: "ok", scheduled: "ok", published: "ok", rejected: "bad", draft: "" };
 
 async function blobUrl(path) { const b = await api(path); return URL.createObjectURL(b); }
@@ -47,8 +50,8 @@ function itemCard(it) {
       ${m.contains_synthetic_media ? '<span class="badge warn">ИИ-контент: раскрытие</span>' : ""}
       ${it.blocked_consent ? '<span class="badge bad">заблокировано: нет согласия людей в кадре</span>' : ""}
       ${it.captions && !it.captions.burned ? '<span class="badge">без второго слоя субтитров</span>' : ""}
-      <span class="badge">${esc(it.privacy || "private")}</span>
-      ${(it.validation || {}).ok ? '<span class="badge ok">ffprobe OK</span>' : '<span class="badge bad">проверка не пройдена</span>'}
+      <span class="badge">${esc(PRIVACY_RU[it.privacy || "private"] || it.privacy)}</span>
+      ${(it.validation || {}).ok ? '<span class="badge ok">проверка ffprobe пройдена</span>' : '<span class="badge bad">проверка не пройдена</span>'}
     </div>
     <pre>${esc(m.description)}</pre>
     <div class="muted">${esc((it.highlight && (it.highlight.why || []).join(" · ")) || (it.story && ("Сюжет: " + it.story.lead)) || "")}</div>
@@ -97,7 +100,7 @@ async function loadSources() {
     const r = await api("/sources");
     box.innerHTML = r.items.map((s) => `
       <div class="card">
-        <b>${esc(s.title)}</b> <span class="badge">${esc(s.kind)}</span>
+        <b>${esc(s.title)}</b> <span class="badge">${esc(KIND_RU[s.kind] || s.kind)}</span>
         ${s.approved_by_owner ? '<span class="badge ok">права подтверждены</span>' : '<span class="badge bad">права НЕ подтверждены</span>'}
         ${s.ai_generated ? '<span class="badge warn">ИИ</span>' : ""}
         ${s.people_in_frame ? (s.consent_recorded ? '<span class="badge ok">люди в кадре: согласие есть</span>' : '<span class="badge bad">люди в кадре: согласия НЕТ</span>') : ""}
@@ -139,11 +142,11 @@ async function loadTrends(fetchNew) {
   const box = $("#tbox");
   try {
     const r = fetchNew ? await api("/trends/fetch", { method: "POST", body: JSON.stringify({ region: "CZ" }) }) : await api("/trends");
-    if (r.status !== "OK") { box.innerHTML = `<div class="card"><b>${esc(r.status)}</b><div class="muted">${esc(r.message || (r.steps || []).join(" "))}</div></div>`; return; }
+    if (r.status !== "OK") { box.innerHTML = `<div class="card"><b>Тренды: ${esc(TSTATUS_RU[r.status] || r.status)}</b><div class="muted">${esc(r.message || r.reason || (r.steps || []).join(" "))}</div></div>`; return; }
     const a = r.analysis || {};
     box.innerHTML = `<div class="card"><b>Идеи (ИИ, не прогноз)</b><div class="muted">${esc((a.topics || []).join(" · "))}</div>
       <div class="muted">${esc((a.hooks || []).join(" · "))}</div><div class="muted">${esc(a.notes || "")}</div></div>
-      <div class="card"><table><tr><th>Видео</th><th>Канал</th><th>Просмотры</th><th>с</th></tr>
+      <div class="card"><table><tr><th>Видео</th><th>Канал</th><th>Просмотры</th><th>Длительность, с</th></tr>
       ${(r.items || []).slice(0, 30).map((i) => `<tr><td>${esc(i.title)}</td><td>${esc(i.channel)}</td><td>${esc(i.views)}</td><td>${esc(i.duration_s)}</td></tr>`).join("")}</table></div>`;
   } catch (e) { box.innerHTML = `<p class='muted'>${esc(e.message)}</p>`; }
 }

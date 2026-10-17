@@ -116,7 +116,7 @@ def fetch_trends(get, *, api_key: str | None, region: str = "CZ", max_results: i
     if not api_key:
         return {"status": "NOT_CONNECTED", **base, "reason": "нет YOUTUBE_API_KEY", "steps": NOT_CONNECTED_STEPS}
     if not re.fullmatch(r"[A-Za-z]{2}", region or ""):
-        return {"status": "ERROR", **base, "reason": f"regionCode must be ISO 3166-1 alpha-2, got {region!r}"}
+        return {"status": "ERROR", **base, "reason": f"код региона должен быть ISO 3166-1 alpha-2, получено {region!r}"}
     want = max(1, min(int(max_results), 200))
     items: list[dict] = []
     token: str | None = None
@@ -130,7 +130,7 @@ def fetch_trends(get, *, api_key: str | None, region: str = "CZ", max_results: i
             data = _call(get, API_URL, params)
             pages += 1
             if not isinstance(data, dict):
-                return {"status": "ERROR", **base, "reason": "unexpected response type"}
+                return {"status": "ERROR", **base, "reason": "неожиданный тип ответа"}
             if "error" in data:
                 err = data["error"] if isinstance(data["error"], dict) else {"message": data["error"]}
                 reasons = [e.get("reason") for e in err.get("errors", []) if isinstance(e, dict)]
