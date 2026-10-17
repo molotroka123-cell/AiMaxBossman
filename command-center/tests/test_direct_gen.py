@@ -439,3 +439,45 @@ async def test_owner_prompt_lands_in_the_hidden_vault_only_for_the_owner(env, tm
     assert got.status_code == 200 and [p["prompt"] for p in got.json()["prompts"]] == ["vault-probe-приватный"]
     other = await env.client.get("/api/direct-gen/vault/prompts", headers={"X-Participant": "f" * 64})
     assert other.status_code == 404
+
+
+async def test_assist_models_are_local_text_models_and_user_can_pick_one(env, tmp_path):
+    import types
+    svc = install(env, tmp_path, FakeComfy())
+
+    class Chat:
+        def __init__(self):
+            self.used = None
+
+        async def chat(self, model, messages, **kw):
+            from bcc.providers import ChatResult
+            self.used = model
+            return ChatResult(text="Edited by " + model, model=model)
+
+    chat = Chat()
+    rows = [{"id": 1, "provider_id": 1, "name": "qwen3:8b", "alias": "qwen3:8b", "kind": "chat", "status": "ok"},
+            {"id": 2, "provider_id": 1, "name": "bossman-uncensored-chat:latest", "alias": "unc", "kind": "chat", "status": "ok"},
+            {"id": 3, "provider_id": 1, "name": "nomic-embed-text", "alias": "nomic-embed-text", "kind": "embedding", "status": "ok"},
+            {"id": 4, "provider_id": 2, "name": "cloud-big", "alias": "cloud-big", "kind": "chat", "status": "ok"}]
+
+    class Reg:
+        async def list_providers(self):
+            return [{"id": 1, "name": "Ollama", "base_url": "http://127.0.0.1:11434"},
+                    {"id": 2, "name": "Cloud", "base_url": "https://api.example.com/v1"}]
+
+        async def list_models(self):
+            return rows
+
+        async def adapter_for(self, model_id):
+            return chat, next(r for r in rows if r["id"] == model_id)
+
+    svc.svc = types.SimpleNamespace(registry=Reg())
+    got = (await env.client.get("/api/direct-gen/assist-models")).json()["models"]
+    assert [m["id"] for m in got] == [2, 1]                      # uncensored first; no embedding, no cloud model
+    assert [m["no_filter"] for m in got] == [True, False] and got[0]["badge"] == "Uncensored" and got[1]["badge"] == ""
+    r = await env.client.post("/api/direct-gen/assist", json={"prompt": NEUTRAL, "model_id": 2})
+    assert r.status_code == 200 and r.json()["model"] == "bossman-uncensored-chat:latest" and chat.used == "bossman-uncensored-chat:latest"
+    for bad in (3, 4, 99):                                        # embedding, cloud, unknown: refused, never called
+        chat.used = None
+        r = await env.client.post("/api/direct-gen/assist", json={"prompt": NEUTRAL, "model_id": bad})
+        assert r.status_code == 422 and r.json()["error"]["code"] == "assist_model_not_local" and chat.used is None

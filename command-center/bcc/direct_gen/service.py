@@ -24,6 +24,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Callable
+from urllib.parse import urlsplit
 
 from ..single_flight import await_shared
 from . import catalog, faceswap, genjutsu, sdcli
@@ -43,6 +44,11 @@ ASSIST_SYSTEM = (
     "description (subject, setting, camera, light, motion). Keep every element the user "
     "specified; do not add, remove, soften or censor anything. Reply with the rewritten "
     "prompt only.")
+# Prompt helper picker: every model of the registry whose provider answers on THIS PC. «uncensored» is only a
+# name marker (the weights are not inspected); the fixed rules of the generator window stay the same.
+LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+UNCENSORED_MARKS = re.compile(r"uncensor|abliterat|unfilter|heretic|nsfw|dolphin|lexi", re.I)
+NOT_TEXT_KINDS = frozenset({"embedding", "embeddings", "embed", "image", "audio", "video", "rerank"})
 
 
 class DirectGenError(Exception):
@@ -251,11 +257,38 @@ class DirectGenService:
 
     # ---------- ASSISTED ----------
 
-    async def assist(self, participant: str, prompt: str) -> dict:
+    async def assist_models(self) -> list[dict]:
+        """All LOCAL text models usable as the prompt helper (provider on 127.0.0.1), uncensored ones first."""
+        registry = getattr(self.svc, "registry", None)
+        if registry is None:
+            return []
+        providers = {p["id"]: p for p in await registry.list_providers()}
+        out = []
+        for m in await registry.list_models():
+            prov = providers.get(m.get("provider_id")) or {}
+            host = (urlsplit(str(prov.get("base_url") or "")).hostname or "").lower()
+            if host not in LOCAL_HOSTS or str(m.get("kind") or "").lower() in NOT_TEXT_KINDS:
+                continue
+            alias = m.get("alias") or m["name"]
+            unfiltered = bool(UNCENSORED_MARKS.search(f"{m['name']} {alias}"))
+            out.append({"id": m["id"], "name": m["name"], "alias": alias, "provider": prov.get("name", ""),
+                        "status": m.get("status"), "ready": m.get("status") not in ("offline", "error"),
+                        "no_filter": unfiltered,
+                        "badge": "Uncensored" if unfiltered else ""})
+        out.sort(key=lambda r: (not r["no_filter"], not r["ready"], r["alias"].lower()))
+        return out
+
+    async def assist(self, participant: str, prompt: str, model_id: int | None = None) -> dict:
         participant = valid_participant(participant)
         if not prompt.strip() or len(prompt) > MAX_PROMPT:
             raise DirectGenError(422, "invalid_prompt", "prompt must be 1..8000 characters")
-        found = await self.qwen_lookup()
+        if model_id is not None:
+            if model_id not in {m["id"] for m in await self.assist_models()}:
+                raise DirectGenError(422, "assist_model_not_local", "the chosen helper is not a local text model of this PC")
+            adapter, row = await self.svc.registry.adapter_for(model_id)
+            found = (adapter, row["name"])
+        else:
+            found = await self.qwen_lookup()
         if not found:
             raise DirectGenError(409, "assist_unavailable", "ASSISTED needs a local Qwen model; none is usable in the registry")
         adapter, name = found

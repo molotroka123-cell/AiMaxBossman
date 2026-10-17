@@ -256,3 +256,65 @@ textarea.dg-input { resize: vertical; min-height: 64px; line-height: 1.5; }
 .gj-ds-item img { width: 96px; height: 96px; object-fit: cover; border-radius: var(--bx-r-sm); }
 @media (max-width: 900px) { .gj-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 480px) { .gj-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gj-ds-item { grid-template-columns: 64px minmax(0, 1fr); } .gj-ds-item img { width: 64px; height: 64px; } }
+
+/* ============================================================
+   Визуальное обновление 17.10: мягкие стеклянные панели, подсветка выбранной модели, крупная главная кнопка.
+   Только токены bx-*, без внешних шрифтов; уважает prefers-reduced-motion и светлую тему.
+   ============================================================ */
+.dg .bx-panel {
+  border-radius: 22px;
+  box-shadow: 0 1px 0 color-mix(in srgb, #fff 10%, transparent) inset, 0 22px 48px -30px color-mix(in srgb, var(--bx-azure) 55%, #000);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--bx-azure) 7%, transparent), transparent 120px);
+}
+.dg .bx-panel > h2, .dg .bx-panel > header { letter-spacing: .01em; }
+
+.dg-prompt {
+  border-radius: 18px; border-color: color-mix(in srgb, var(--bx-azure) 22%, var(--bx-hairline-2));
+  background: color-mix(in srgb, var(--bx-surface) 92%, var(--bx-azure) 8%);
+  box-shadow: 0 8px 28px -22px color-mix(in srgb, var(--bx-azure) 70%, #000) inset;
+}
+
+/* переключатели «Что создаём» / «Режим» — пилюли */
+.dg-seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--bx-surface-2); border: 1px solid var(--bx-hairline-2); }
+.dg-seg-opt { border-radius: 999px; transition: background var(--bx-t), box-shadow var(--bx-t), color var(--bx-t); }
+.dg-seg-opt:has(input:checked) {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bx-azure) 85%, #fff 0%), color-mix(in srgb, var(--bx-azure) 60%, #7c5cff));
+  color: #fff; box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--bx-azure) 80%, #000);
+}
+.dg-seg-opt:has(input:checked) .dg-seg-s { color: color-mix(in srgb, #fff 82%, transparent); }
+
+/* карточки моделей */
+.dg-card { border-radius: 16px; transition: transform var(--bx-t), box-shadow var(--bx-t), border-color var(--bx-t); }
+.dg-card:hover { transform: translateY(-1px); box-shadow: 0 14px 30px -22px color-mix(in srgb, var(--bx-azure) 70%, #000); }
+.dg-card.is-on {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bx-azure) 60%, transparent), 0 16px 36px -22px color-mix(in srgb, var(--bx-azure) 80%, #000);
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--bx-azure) 14%, transparent), color-mix(in srgb, #7c5cff 8%, transparent));
+}
+
+/* помощник промта: отдельная карточка */
+.dg-helper-row {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 16px;
+  border: 1px dashed color-mix(in srgb, var(--bx-azure) 45%, var(--bx-hairline-2));
+  background: color-mix(in srgb, var(--bx-azure) 6%, var(--bx-surface));
+}
+.dg-helper-row[hidden] { display: none; }
+.dg-helper { font-weight: 600; }
+
+/* главная кнопка */
+.dg-actions .dg-create {
+  border-radius: 16px; border: 0; color: #fff; letter-spacing: .01em;
+  background: linear-gradient(135deg, var(--bx-azure), #7c5cff);
+  box-shadow: 0 16px 34px -14px color-mix(in srgb, var(--bx-azure) 85%, #000);
+  transition: transform var(--bx-t), box-shadow var(--bx-t), filter var(--bx-t);
+}
+.dg-actions .dg-create:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+.dg-actions .dg-stop { border-radius: 16px; }
+
+.dg-hist { border-radius: 16px; transition: transform var(--bx-t), box-shadow var(--bx-t); }
+.dg-hist:hover { transform: translateY(-2px); box-shadow: 0 16px 32px -24px color-mix(in srgb, var(--bx-azure) 70%, #000); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dg-card, .dg-hist, .dg-actions .dg-create, .dg-seg-opt { transition: none; }
+  .dg-card:hover, .dg-hist:hover, .dg-actions .dg-create:hover:not(:disabled) { transform: none; }
+}
+@media (max-width: 720px) { .dg .bx-panel { border-radius: 18px; } .dg-seg { width: 100%; } .dg-seg-opt { flex: 1; text-align: center; } }

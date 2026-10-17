@@ -8,7 +8,8 @@
   POST /direct-gen/jobs/{id}/retry        same raw prompt and SAME seed
   GET  /direct-gen/jobs/{id}/file         the finished video
   GET  /direct-gen/vault/prompts?q=&limit=  owner-only: encrypted history of the owner's own prompts
-  POST /direct-gen/assist                 ASSISTED: local Qwen proposes an edit; nothing is generated or loaded
+  POST /direct-gen/assist                 ASSISTED: a LOCAL model (default Qwen, or model_id) proposes an edit; nothing is generated
+  GET  /direct-gen/assist-models          every local text model usable as the helper (uncensored ones flagged by name)
   GET  /direct-gen/faceswap               FaceFusion installed? presets
   POST /direct-gen/swap-jobs              face swap in a video (photos + consent), 16:9 + original audio;
                                           the job shares /jobs/{id}, cancel and file with every other job
@@ -52,6 +53,7 @@ class JobIn(BaseModel):
 class AssistIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     prompt: str = Field(max_length=8000)
+    model_id: int | None = Field(default=None, ge=1)
 
 
 class SwapIn(BaseModel):
@@ -167,7 +169,12 @@ async def vault_prompts(request: Request, q: str = "", limit: int = 100, x_parti
 
 @router.post("/assist")
 async def assist(body: AssistIn, request: Request, x_participant: str | None = Header(default=None)):
-    return await _guard(_svc(request).assist(_who(x_participant), body.prompt))
+    return await _guard(_svc(request).assist(_who(x_participant), body.prompt, body.model_id))
+
+
+@router.get("/assist-models")
+async def assist_models(request: Request):
+    return {"models": await _svc(request).assist_models()}
 
 
 async def _wrap(fn):

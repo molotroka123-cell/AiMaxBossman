@@ -421,7 +421,7 @@ const DirectGenPage = {
   async render() {
     const head = pageHead('Прямой генератор: фото и видео',
       'Локальная генерация выбранной моделью. DIRECT: ваш текст уходит в модель без изменений и без промежуточной модерации; отказы и ошибки показываются как есть.');
-    const state = { models: [], jobs: [], current: null, assist: null, modelId: null, kind: (DRAFT || {}).kind || 'photo', mode: 'DIRECT', tick: 0, modelSig: '', histSig: '' };
+    const state = { models: [], helpers: [], helperId: (DRAFT || {}).helperId || '', jobs: [], current: null, assist: null, modelId: null, kind: (DRAFT || {}).kind || 'photo', mode: 'DIRECT', tick: 0, modelSig: '', histSig: '' };
     const D = DRAFT || {};
 
     /* ---- форма ---- */
@@ -475,6 +475,24 @@ const DirectGenPage = {
     const modeGroup = h('div.dg-seg', { role: 'radiogroup', 'aria-label': 'Режим' },
       modeRadio('DIRECT', 'DIRECT', 'как написано'), modeRadio('ASSISTED', 'ASSISTED', 'с предложением Qwen'));
     const modeNote = h('div.dg-hint', { id: 'dg-prompt-hint' });
+    /* помощник промта: все локальные текстовые модели; те, что без фильтра, первыми и с меткой сервера */
+    const helperSel = h('select.dg-input.dg-helper', { id: 'dg-helper', name: 'dg-helper', 'aria-label': 'Помощник промта', dataset: { testid: 'dg-helper' } });
+    const helperNote = h('div.dg-note', { id: 'dg-helper-note' });
+    const helperRow = h('div.dg-helper-row', { hidden: true },
+      h('label.dg-label', { for: 'dg-helper' }, 'Помощник промта (локальная модель)'), helperSel, helperNote);
+    const helperLabel = (m) => `${m.no_filter ? '🔓 ' : ''}${m.alias}${m.badge ? ` · ${m.badge}` : ''}${m.ready ? '' : ' · не отвечает'}`;
+    const fillHelpers = (list) => {
+      state.helpers = list;
+      helperSel.replaceChildren(h('option', { value: '' }, 'Авто: первая локальная Qwen'),
+        ...list.map((m) => h('option', { value: String(m.id) }, helperLabel(m))));
+      helperSel.value = list.some((m) => String(m.id) === String(state.helperId)) ? String(state.helperId) : '';
+      state.helperId = helperSel.value;
+      const open = list.filter((m) => m.no_filter).length;
+      helperNote.textContent = list.length
+        ? `Локальных моделей: ${list.length}${open ? `, из них без фильтра: ${open}` : ''}. Метка ставится по имени модели; запускается только на этом ПК.`
+        : 'Локальные модели не найдены в реестре. Запустите Ollama и добавьте модель в реестр.';
+    };
+    helperSel.addEventListener('change', () => { state.helperId = helperSel.value; saveDraft(); });
 
     /* ---- модели ---- */
     const kindRadio = (value, title, sub) => {
@@ -515,7 +533,7 @@ const DirectGenPage = {
       resChips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.res === resolution.value.trim() ? 'true' : 'false'));
     };
     const saveDraft = () => {
-      DRAFT = { ...(DRAFT || {}), prompt: prompt.value, negative: negative.value, duration: duration.value, resolution: resolution.value, seed: seed.value, steps: steps.value, mode: state.mode, model: state.modelId, kind: state.kind };
+      DRAFT = { ...(DRAFT || {}), prompt: prompt.value, negative: negative.value, duration: duration.value, resolution: resolution.value, seed: seed.value, steps: steps.value, helperId: state.helperId, mode: state.mode, model: state.modelId, kind: state.kind };
     };
     const pickModel = (kind) => {
       const ofKind = state.models.filter((m) => m.kind === kind);
@@ -531,8 +549,9 @@ const DirectGenPage = {
       state.mode = mode;
       modeNote.textContent = mode === 'DIRECT'
         ? 'Текст уходит в модель как написан. Ctrl+Enter: создать.'
-        : 'Сначала локальный Qwen предложит версию. Вы увидите оба текста и выберете сами: ничего не применяется молча.';
-      createBtn.querySelector('span:last-child').textContent = mode === 'DIRECT' ? 'Создать' : 'Создать: сначала версия Qwen';
+        : 'Сначала выбранная локальная модель предложит версию. Вы увидите оба текста и выберете сами: ничего не применяется молча.';
+      createBtn.querySelector('span:last-child').textContent = mode === 'DIRECT' ? 'Создать' : 'Создать: сначала версия помощника';
+      helperRow.hidden = mode === 'DIRECT';
       if (mode === 'DIRECT') { state.assist = null; showAssist(); }
       saveDraft();
     };
@@ -632,7 +651,7 @@ const DirectGenPage = {
           h('section.dg-cmp-col', { 'aria-labelledby': 'dg-cmp-s' }, h('h3', { id: 'dg-cmp-s' }, `Версия ${a.model}`), h('p.dg-cmp-text', r))),
         h('div.dg-actions',
           btn('Создать с оригиналом', () => submit({ prompt: a.original, mode: 'ASSISTED', assist_id: a.assist_id, assist_choice: 'original' }), { variant: 'secondary' }),
-          btn('Создать с версией Qwen', () => submit({ prompt: a.original, mode: 'ASSISTED', assist_id: a.assist_id, assist_choice: 'suggested' }), { variant: 'primary' }),
+          btn(`Создать с версией ${a.model}`, () => submit({ prompt: a.original, mode: 'ASSISTED', assist_id: a.assist_id, assist_choice: 'suggested' }), { variant: 'primary' }),
           btn('Отклонить обе', () => { state.assist = null; showAssist(); prompt.focus(); }, { variant: 'ghost' })));
     }
 
@@ -672,7 +691,7 @@ const DirectGenPage = {
       clearCreateErr();
       if (!checkPrompt()) return;
       if (state.mode === 'ASSISTED') {
-        try { state.assist = await api.raw(`${base}/assist`, { method: 'POST', body: { prompt: prompt.value } }); showAssist(); assistBox.querySelector('button')?.focus(); }
+        try { state.assist = await api.raw(`${base}/assist`, { method: 'POST', body: { prompt: prompt.value, ...(state.helperId ? { model_id: Number(state.helperId) } : {}) } }); showAssist(); assistBox.querySelector('button')?.focus(); }
         catch (e) { state.assist = null; showAssist(); showCreateErr(e, 'assist_failed'); }
         return;
       }
@@ -783,6 +802,7 @@ const DirectGenPage = {
         h('div.dg-alert', { role: 'alert' }, h('div.dg-alert-title', 'Каталог моделей не загружен'), h('pre.dg-raw', errText(e)),
           btn('Повторить', () => { location.reload(); }, { variant: 'subtle', size: 'sm' })));
     }
+    try { fillHelpers((await api.raw(`${base}/assist-models`)).models || []); } catch { fillHelpers([]); }
     const draftModel = state.models.find((m) => m.id === D.model);
     if (draftModel) state.kind = draftModel.kind;
     kindGroup.querySelector(`#dg-kind-${state.kind}`).checked = true;
@@ -810,6 +830,7 @@ const DirectGenPage = {
     const requestPanel = panel('Запрос', h('div.dg-stack',
       h('div.dg-row', h('span.dg-label', { style: { margin: '0' }, id: 'dg-kind-l' }, 'Что создаём'), kindGroup),
       h('div.dg-row', h('span.dg-label', { style: { margin: '0' }, id: 'dg-mode-l' }, 'Режим'), modeGroup),
+      helperRow,
       h('div', lab('Prompt', 'dg-prompt'), h('div.dg-prompt-wrap', prompt, count), modeNote),
       paramsBox,
       h('div.dg-actions', createBtn, stopBtn),
