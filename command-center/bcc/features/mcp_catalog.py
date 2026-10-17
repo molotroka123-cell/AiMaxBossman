@@ -95,6 +95,14 @@ CATALOG: tuple[CatalogEntry, ...] = (
     CatalogEntry("arxiv", "arXiv — научные статьи", "uvx", "arxiv-mcp-server==0.8.2",
                  "Поиск и чтение статей arXiv; скачанные PDF лежат в локальной папке сервера.", "network",
                  "https://github.com/blazickjp/arxiv-mcp-server"),
+    # Публичные API без ключа (по списку public-apis), обёрнутые готовыми MCP-серверами.
+    CatalogEntry("open-meteo", "Open-Meteo — погода, качество воздуха, высоты", "npx",
+                 "open-meteo-mcp-server@2.5.2",
+                 "Прогноз и архив погоды, воздух, море, геокодинг по бесплатному API без ключа.", "network",
+                 "https://github.com/cmer81/open-meteo-mcp"),
+    CatalogEntry("wikipedia", "Wikipedia — статьи и справки", "uvx", "wikipedia-mcp==2.0.1",
+                 "Поиск, краткое содержание и факты из Википедии по открытому API без ключа.", "network",
+                 "https://github.com/rudra-ravi/wikipedia-mcp"),
 )
 BY_ID = {e.id: e for e in CATALOG}
 

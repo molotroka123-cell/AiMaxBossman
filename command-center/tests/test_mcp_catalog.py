@@ -13,8 +13,8 @@ needs_runners = pytest.mark.skipif(
     reason="npx и uvx нужны для проверки allowlist по реальным бинарникам")
 
 
-def test_ten_unique_pinned_entries():
-    assert len(CATALOG) == 10 and len(BY_ID) == 10
+def test_twelve_unique_pinned_entries():
+    assert len(CATALOG) == 12 and len(BY_ID) == 12
     for e in CATALOG:
         assert ("==" in e.package) if e.runner == "uvx" else (e.package.rsplit("@", 1)[-1][:1].isdigit()), e.id
         assert e.risk in {"read", "network", "write"}
