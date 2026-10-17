@@ -31,7 +31,8 @@
 | Mobile PWA unit tests на `e1f574b` | PASS |
 | Выборочные backend contract tests на `85f952b` | PASS для отдельных перечисленных наборов |
 | Исторический широкий набор на `85f952b` | FAIL: 3 timeout случая |
-| Локальные health endpoints mobile и Bossman API | PASS, только GET с этого ПК |
+| Mobile UI/health через локальную Tailscale Serve URL | PASS: HTTP 200, health отвечает, только GET с этого ПК |
+| HTTPS PWA endpoint для телефона | BLOCKED: TCP 443 connection refused; Serve настроен только на HTTP 80 и 8830 |
 | Совпадение запущенного backend с проверенным исходным SHA | BLOCKED: `SOURCE_IDENTITY_UNKNOWN` |
 | Живой телефон → домашний Bossman runtime | NOT_RUN |
 | Реальное видимое управление мышью/клавиатурой | NOT_RUN |
@@ -44,12 +45,13 @@
 
 Успешные результаты выше подтверждают только перечисленные тесты и соответствующий исходный код. Исторические тесты обозначены их исходной точкой; старый dirty-файл, конфигурация, README или тестовый сценарий не считаются доказательством текущего работающего сервиса. Нет evidence живой модели, подключения телефона, устройства, почтового ящика или работы фонового watcher.
 
-## Безопасный runtime check — 17.10.2026, 14:34 PDT
+## Безопасный runtime check — 17.10.2026, 14:34–14:36 PDT
 
 Только read-only GET-запросы с этого ПК и чтение конфигурации Tailscale Serve:
 
 - `GET http://127.0.0.1:8840/m/api/health` → `{"app":"bossman-mobile","version":"0.1.0","ok":true}`.
 - `GET http://127.0.0.1:8801/health/live` → `status=ALIVE`, `source_identity=SOURCE_IDENTITY_UNKNOWN`, `build_sha` отсутствует.
-- `tailscale serve status` показывает loopback proxy на `127.0.0.1:8840`, доступный только в tailnet; Funnel не указан.
+- `GET http://win-iqprhtsajl9.tail0f845b.ts.net/m/api/health` → тот же ответ; `GET .../m/` → HTTP 200, title `Bossman`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`.
+- `tailscale serve status --json` показывает только HTTP listener на порту 80 для мобильного proxy `127.0.0.1:8840` и порт 8830; Funnel не настроен. GET на HTTPS/443 завершился `connection refused`.
 
-Это подтверждает, что локальный мобильный HTTP-сервис и Bossman health endpoint отвечают, а мобильный UI опубликован только внутри tailnet. Это **не** подтверждает запрос с реального телефона, успешное сопряжение, выполнение задания, фактическую отмену задачи, работу Gmail или совпадение запущенного backend с исходниками `e1f574b`. Пока backend выдаёт `SOURCE_IDENTITY_UNKNOWN`, runtime/source SHA reconciliation остаётся блокером.
+Это подтверждает, что мобильный HTTP-сервис отвечает через текущую tailnet URL с этого же ПК, а публикация не использует Funnel. Это **не** подтверждает запрос с реального телефона, успешное сопряжение, выполнение задания, фактическую отмену задачи, работу Gmail или совпадение запущенного backend с исходниками `e1f574b`. HTTPS listener не активен; браузерные возможности secure-context (в частности service worker) могут быть недоступны. Пока backend выдаёт `SOURCE_IDENTITY_UNKNOWN`, runtime/source SHA reconciliation остаётся блокером.
