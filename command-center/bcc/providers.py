@@ -129,6 +129,46 @@ class Health:
     latency_ms: int | None = None
 
 
+def _content_parts(content: Any) -> list[dict]:
+    """A message content as OpenAI content parts (string -> one text part)."""
+    if content is None:
+        return []
+    if isinstance(content, list):
+        return [p if isinstance(p, dict) else {"type": "text", "text": str(p)} for p in content]
+    return [{"type": "text", "text": str(content)}]
+
+
+def merge_system_messages(messages: list[dict]) -> list[dict]:
+    """Exactly one leading system message; everything else in its original order.
+
+    17.10 (chat task 87, agent 39): the engine sends the agent's system prompt
+    and the recalled memory as two system messages. Qwen GGUF Jinja templates
+    (Ollama / llama.cpp) then answer 500 «System message must be at the
+    beginning». All system contents are joined, in order, with a blank line
+    into one first message; user/assistant/tool turns keep their order. No
+    content is dropped: list (multimodal) contents are kept as parts.
+    Returns the input list unchanged when it already has <= 1 system message
+    and that one is first.
+    """
+    systems = [m for m in messages if isinstance(m, dict) and m.get("role") == "system"]
+    if not systems or (len(systems) == 1 and messages[0] is systems[0]):
+        return messages
+    rest = [m for m in messages if not (isinstance(m, dict) and m.get("role") == "system")]
+    contents = [m.get("content") for m in systems]
+    if all(c is None or isinstance(c, str) for c in contents):
+        merged: Any = "\n\n".join(c for c in contents if c)
+    else:
+        merged = []
+        for c in contents:
+            parts = _content_parts(c)
+            if parts and merged:
+                merged.append({"type": "text", "text": "\n\n"})
+            merged.extend(parts)
+    head = {k: v for k, v in systems[0].items() if k != "content"}
+    head["content"] = merged
+    return [head, *rest]
+
+
 class ProviderAdapter(Protocol):
     async def chat(self, model: str, messages: list[dict], **kw: Any) -> ChatResult: ...
     async def health(self) -> Health: ...
@@ -279,6 +319,13 @@ class OpenAICompatAdapter(_BaseAdapter):
         return h
 
     async def chat(self, model: str, messages: list[dict], **kw: Any) -> ChatResult:
+        if is_local_url(self.base_url):
+            # Local runners render the chat with the GGUF's own Jinja template;
+            # Qwen-family templates reject a second / non-leading system
+            # message with HTTP 500. Remote APIs (OpenAI, OpenRouter, NIM...)
+            # accept several system messages, and a late one can be a
+            # deliberate positional reminder, so they get the list as sent.
+            messages = merge_system_messages(messages)
         payload: dict[str, Any] = {"model": model, "messages": messages}
         for key in ("max_tokens", "temperature", "top_p", "stop"):
             if kw.get(key) is not None:

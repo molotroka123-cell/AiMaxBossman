@@ -66,9 +66,12 @@ def local_agents(options: dict, agents: list[dict], models: list[dict], provider
 
 
 def pick_default(allowed: list[dict]) -> int | None:
-    """Prefer the local Qwen operator with tools (computer.observe), then any local agent with tools."""
+    """Owner 17.10: prefer the local uncensored agent (name says «uncensored»), then the local Qwen operator with
+    tools (computer.observe), then any local agent with tools. Only agents that passed the local-only rule qualify:
+    a cloud agent named «uncensored» is never picked."""
     ok = [a for a in allowed if a["local"]]
-    for pred in (lambda a: "computer.observe" in a["tools"] and "оператор" in (a["name"] or "").lower(),
+    for pred in (lambda a: uncensored_label(a["name"]),
+                 lambda a: "computer.observe" in a["tools"] and "оператор" in (a["name"] or "").lower(),
                  lambda a: bool(a["tools"]), lambda a: True):
         for a in ok:
             if pred(a):

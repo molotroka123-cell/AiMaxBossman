@@ -86,6 +86,16 @@ def test_policy_hides_cloud_and_cloud_fallback():
     assert pick_default(items) == 1
 
 
+def test_default_prefers_local_uncensored_never_cloud_uncensored():
+    """owner 17.10: the uncensored local agent is the default; negative control: a cloud agent named uncensored
+    (or a disabled-by-policy one) is not picked even though it sorts first."""
+    items = [{"id": 5, "name": "Cloud chat (uncensored)", "tools": [], "local": False},
+             {"id": 1, "name": "Qwen Оператор (компьютер)", "tools": ["computer.observe"], "local": True},
+             {"id": 39, "name": "Qwen-Operator L1 (uncensored)", "tools": ["read_file"], "local": True}]
+    assert pick_default(items) == 39
+    assert pick_default([items[0], items[1]]) == 1
+
+
 def test_agents_endpoint_lists_only_local(authed):
     r = authed.c.get("/m/api/agents")
     assert r.status_code == 200
