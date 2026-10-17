@@ -1,0 +1,52 @@
+id: bossman-mobile
+name: Bossman Mobile
+version: "0.1.0"
+kind: surface
+contract: "1.0"
+default_port: 8840
+description: >
+  Installable iPhone PWA for the owner: chat with the SAME Bossman (chat threads -> Bossman tasks, its agents, tools,
+  permissions and approvals), local photo generation through Bossman's own Direct Generator, the full Bossman
+  admin panel 1:1 through an authenticated reverse proxy, and a status card. Not a second core: no own agent loop,
+  model fleet, task engine or memory. Loopback only (127.0.0.1:8840); reachable from the phone only through
+  `tailscale serve` inside the owner's tailnet (never funnel).
+
+control:
+  transport: http
+  base_path: /m/api
+  auth: pairing_token -> HttpOnly SameSite=Strict session cookie + X-BM-CSRF on every POST
+  upstream:
+    bossman: "${BOSSMAN_URL:-http://127.0.0.1:8801} (session from POST /api/login with the owner token read server-side)"
+    ollama: "http://127.0.0.1:11434 (GET /api/tags, /api/ps — read only)"
+    war_terminal: "http://127.0.0.1:8830/api/v1/health (read only, optional)"
+  calls:
+    health: GET /m/api/health
+    status: GET /m/api/status
+    chat.agents: GET /m/api/agents                      # local agents only
+    chat.threads: GET|POST /m/api/threads
+    chat.thread: GET /m/api/threads/{id}
+    chat.send: POST /m/api/threads/{id}/send             # 403 unless agent_id is a local-only agent
+    chat.stop: POST /m/api/threads/{id}/stop
+    chat.events: GET /m/api/tasks/{id}/events           # SSE, filtered copy of /api/events/stream
+    approvals.list: GET /m/api/approvals
+    approvals.decide: POST /m/api/approvals/{id}        # only on the owner's tap
+    photo.models: GET /m/api/photo/models
+    photo.jobs: GET|POST /m/api/photo/jobs
+    photo.job: GET /m/api/photo/jobs/{id}
+    photo.cancel: POST /m/api/photo/jobs/{id}/cancel
+    photo.file: GET /m/api/photo/jobs/{id}/file
+  panel: "/panel/* and every non-/m path -> Bossman 1:1 (all methods, SSE, WebSocket), owner session required"
+
+entrypoints:
+  standalone: true
+  cli: "python -m bossmobile"
+  start_script: scripts/Start-BossmanMobile.ps1
+  autonomous: not_implemented
+
+permissions:
+  bind: loopback_only
+  network.tailnet: "tailscale serve only (owner runs -Tailscale); funnel: deny"
+  chat.cloud_models: deny                 # server-side 403
+  approvals.auto_decide: deny             # every decision is a tap of the owner
+  bossman.policies.write: not_implemented # the app never changes Bossman settings or gates by itself
+  secrets.to_phone: deny                  # the Bossman token/session never leave the server
