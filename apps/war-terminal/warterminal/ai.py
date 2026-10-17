@@ -24,7 +24,7 @@ def redact(text: str) -> str:
 
 def build_messages(tender: dict) -> list[dict]:
     facts = {k: tender.get(k) for k in ("title", "category", "country", "estimated_value", "currency", "deadline", "cpv", "status")}
-    facts = json.loads(redact(json.dumps(facts, ensure_ascii=False)))
+    facts["title"] = redact(str(facts["title"] or ""))          # only free text is redacted: dates and numbers must reach the model intact
     system = ("You assist a small NEW company in the EU with public-procurement triage. You are NOT the compliance authority. "
               "Classify practical difficulty for a company with limited working capital: EASY, MEDIUM, HARD, or REVIEW_REQUIRED when facts are missing. "
               "Reply with ONE JSON object: {\"tier\":..., \"rationale\":\"<=300 chars\", \"risks\":[\"...\"]}. Never claim a probability of winning.")
@@ -47,7 +47,7 @@ def make_chat(base_url: str, model: str, api_key: str | None = None, timeout: in
     def chat(messages: list[dict]) -> str:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         r = httpx.post(base_url.rstrip("/") + "/chat/completions", headers=headers, timeout=timeout,
-                       json={"model": model, "messages": messages, "temperature": 0.1, "max_tokens": 700})
+                       json={"model": model, "messages": messages, "temperature": 0.1, "max_tokens": 3000})
         r.raise_for_status()
         return r.json()["choices"][0]["message"].get("content") or ""
     return chat

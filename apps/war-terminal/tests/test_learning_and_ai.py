@@ -77,3 +77,11 @@ def test_assessment_with_ai_never_changes_gates(tmp_path):
     e.ingest_ted()
     r = e.req("POST", "/assessments", "analyst", json={"tender_key": "EU:100001-2026", "use_ai": True}).json()
     assert r["ai"]["status"] == "NOT_CONNECTED" and r["complexity"] == "REVIEW_REQUIRED"
+
+
+def test_redaction_hits_free_text_but_never_dates_or_numbers():
+    t = {"title": "Call +420 777 123 456 or a@b.cz", "category": "food", "country": "CZE", "estimated_value": 16873200, "currency": "CZK",
+         "deadline": "2026-11-24T23:59:59Z", "cpv": ["15131000"], "status": "open"}
+    sent = json.dumps(ai.build_messages(t), ensure_ascii=False)
+    assert "[phone]" in sent and "[email]" in sent and "777" not in sent
+    assert "2026-11-24T23:59:59Z" in sent and "16873200" in sent and "15131000" in sent        # regression: ISO date used to be eaten as a phone
