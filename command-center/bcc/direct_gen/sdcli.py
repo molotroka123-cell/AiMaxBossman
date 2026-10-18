@@ -144,6 +144,7 @@ SPECS: tuple[SdSpec, ...] = (
             "diffusion": "wan22-i2v-uncensored-gguf/wan22-i2v-uncensored-low-q8_0.gguf",
             "high_noise": "wan22-i2v-uncensored-gguf/wan22-i2v-uncensored-high-q8_0.gguf"},
            "wan-a14b", 4, 12, "480x272", license="Apache-2.0", manifest_key="wan2.2-i2v-a14b-uncensored", requires_image=True,
+           unsupported="запуск на этом ПК провалился 18.10: sd-cli 74988b2 не загрузил модель (High noise diffusion model tensor 'time_projection.1.bias' not in model metadata); причина разбирается, до проверенного прогона модель отключена",
            image_flag="-i", fps=16, frame_step=4, max_seconds=5, min_side=256, max_side=1280,
            notes="Uncensored по карточкам моделей: диффузия = merge rzgar/wan2.2-i2v-A14B-Uncensored-base "
                  "(rev 44bd071c, Apache-2.0, «understands short, simple, and uncensored prompts»), сконвертирован "
@@ -156,6 +157,7 @@ SPECS: tuple[SdSpec, ...] = (
             "diffusion": "wan22-vace-fun-a14b/LowNoise/Wan2.2-VACE-Fun-A14B-low-noise-Q8_0.gguf",
             "high_noise": "wan22-vace-fun-a14b/HighNoise/Wan2.2-VACE-Fun-A14B-high-noise-Q8_0.gguf"},
            "wan-a14b", 4, 12, "480x272", license="Apache-2.0", manifest_key="wan2.2-t2v-vace-a14b-uncensored",
+           unsupported="не проверен: тот же загрузчик sd-cli 74988b2 (две модели-эксперта) не смог загрузить родственную I2V-модель 18.10; прогона на этом ПК ещё не было, отключена до проверки",
            fps=16, frame_step=4, max_seconds=5, min_side=256, max_side=1280,
            notes="База: alibaba-pai/Wan2.2-VACE-Fun-A14B (Apache-2.0, GGUF QuantStack Q8_0) — сама по себе обычная "
                  "модель; «uncensored» даёт LoRA rzgar/Wan2.2_LightX2V_4Step_Uncensored (rev adc4ca92, Apache-2.0, "
