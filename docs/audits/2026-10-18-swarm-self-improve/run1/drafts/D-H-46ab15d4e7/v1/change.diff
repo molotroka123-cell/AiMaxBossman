@@ -1,0 +1,10 @@
+--- a/agents/16.config.json
++++ b/agents/16.config.json
+@@ -1,5 +1,5 @@
+ {
+   "id": 16,
+-  "max_tokens": 128,
+-  "retry_on_empty": false
++  "max_tokens": 1024,
++  "retry_on_empty": true
+ }

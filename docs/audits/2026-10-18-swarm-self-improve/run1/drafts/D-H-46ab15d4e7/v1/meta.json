@@ -1,0 +1,12 @@
+{
+  "draft_id": "D-H-46ab15d4e7",
+  "version": 1,
+  "kind": "routing",
+  "target_rel": "agents/16.config.json",
+  "base_sha256": "1c92585f1424530156203f1bf39bafbee417c0dc002a9dfeff54a81c884de5ef",
+  "proposed_sha256": "58ff6699618b4b7ea568ba965a3e975484c8af84ae08cf6a039bdf807e1ceb93",
+  "author_role": "human-claude-draft",
+  "author_model": "N/A (not a Bossman free model)",
+  "justification": "5 of 7 observed runs ended EMPTY_RESULT with tokens_out equal to the 128-token cap; successful runs used 46 and 70 tokens. Raise the cap and retry once on empty.",
+  "applied": false
+}
