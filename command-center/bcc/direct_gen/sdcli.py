@@ -144,12 +144,11 @@ SPECS: tuple[SdSpec, ...] = (
             "diffusion": "wan22-i2v-uncensored-gguf/wan22-i2v-uncensored-low-q8_0.gguf",
             "high_noise": "wan22-i2v-uncensored-gguf/wan22-i2v-uncensored-high-q8_0.gguf"},
            "wan-a14b", 4, 12, "480x272", license="Apache-2.0", manifest_key="wan2.2-i2v-a14b-uncensored", requires_image=True,
-           unsupported="запуск на этом ПК провалился 18.10: sd-cli 74988b2 не загрузил модель (High noise diffusion model tensor 'time_projection.1.bias' not in model metadata); причина разбирается, до проверенного прогона модель отключена",
            image_flag="-i", fps=16, frame_step=4, max_seconds=5, min_side=256, max_side=1280,
            notes="Uncensored по карточкам моделей: диффузия = merge rzgar/wan2.2-i2v-A14B-Uncensored-base "
                  "(rev 44bd071c, Apache-2.0, «understands short, simple, and uncensored prompts»), сконвертирован "
                  "локально fp8→Q8_0 GGUF; LoRA скорости = rzgar/Wan2.2_LightX2V_4Step_Uncensored (rev adc4ca92, "
-                 "Apache-2.0, тег uncensored) на обоих экспертах. Нужна стартовая картинка. Всё локально. Запуск на этом ПК: NOT_RUN (ещё не проверен). "
+                 "Apache-2.0, тег uncensored) на обоих экспертах. Нужна стартовая картинка. Всё локально. Проверено 18.10 (2 с, 272x480, 4 шага): 360 с, цвета на малом размере уплывают в фиолетовый. Нужен sd-cli 95b3090 (старый 74988b2 не помещает эксперта в буфер Vulkan). "
                  "Только для себя или вымышленного персонажа; чужие люди без их согласия: нельзя."),
     SdSpec("wan2.2-t2v-vace-a14b-uncensored", "Wan2.2 VACE-Fun A14B + Uncensored LoRA (текст→видео, 4 шага)", "video",
            "wan", ("T2V",),
@@ -157,11 +156,11 @@ SPECS: tuple[SdSpec, ...] = (
             "diffusion": "wan22-vace-fun-a14b/LowNoise/Wan2.2-VACE-Fun-A14B-low-noise-Q8_0.gguf",
             "high_noise": "wan22-vace-fun-a14b/HighNoise/Wan2.2-VACE-Fun-A14B-high-noise-Q8_0.gguf"},
            "wan-a14b", 4, 12, "480x272", license="Apache-2.0", manifest_key="wan2.2-t2v-vace-a14b-uncensored",
-           unsupported="не проверен: тот же загрузчик sd-cli 74988b2 (две модели-эксперта) не смог загрузить родственную I2V-модель 18.10; прогона на этом ПК ещё не было, отключена до проверки",
+           unsupported="прогон 18.10 (sd-cli 95b3090, 272x480, 4 шага) упал: Vulkan ErrorOutOfDeviceMemory при загрузке эксперта VACE-Fun Q8_0 (18,7 ГБ); нужен меньший квант (Q4_K_M) или другой путь, пока отключено",
            fps=16, frame_step=4, max_seconds=5, min_side=256, max_side=1280,
            notes="База: alibaba-pai/Wan2.2-VACE-Fun-A14B (Apache-2.0, GGUF QuantStack Q8_0) — сама по себе обычная "
                  "модель; «uncensored» даёт LoRA rzgar/Wan2.2_LightX2V_4Step_Uncensored (rev adc4ca92, Apache-2.0, "
-                 "карточка: «meant for both I2V and T2V, and they are uncensored»), она же даёт 4 шага. Всё локально. Запуск на этом ПК: NOT_RUN (ещё не проверен)."),
+                 "карточка: «meant for both I2V and T2V, and they are uncensored»), она же даёт 4 шага. Всё локально. Нужен sd-cli 95b3090 (старый 74988b2 не помещает эксперта в буфер Vulkan). Прогон 18.10 не удался (нехватка памяти Vulkan на Q8_0)."),
     SdSpec("wan21-vace-1.3b", "Wan2.1 VACE 1.3B", "video", "wan", ("T2V", "I2V"),
            {"diffusion": "wan21-vace-1.3b/wan2.1-vace-1.3b-q8_0.gguf", "vae": "wan21-vace-1.3b/wan_2.1_vae.safetensors"},
            "", 20, 40, "480x272", fps=16, frame_step=4, max_seconds=5,
@@ -182,6 +181,16 @@ def default_media_root() -> Path:
 def default_binary() -> Path:
     env = os.environ.get("BOSSMAN_SDCPP_BIN", "").strip()
     return Path(env) if env else Path.home() / "Bossman" / "media-runtime" / "sdcpp" / "vulkan" / "sd-cli.exe"
+
+
+def binary_for(spec: SdSpec, binary: Path) -> Path:
+    """Engine binary for this spec. Wan2.2 A14B needs the newer sd-cli (95b3090): 74988b2 fails with
+    «alloc compute params backend buffer failed» on the 15 GB experts. It lives NEXT TO the default folder
+    (``vulkan-20261018``) or at $BOSSMAN_SDCPP_BIN_A14B; the default ``vulkan\`` build is never replaced."""
+    if spec.engine != "wan-a14b":
+        return Path(binary)
+    env = os.environ.get("BOSSMAN_SDCPP_BIN_A14B", "").strip()
+    return Path(env) if env else Path(binary).parent.parent / "vulkan-20261018" / "sd-cli.exe"
 
 
 def _manifest(root: Path) -> dict:
@@ -217,8 +226,9 @@ def describe(spec: SdSpec, root: Path, binary: Path, overrides: dict | None = No
     reasons = []
     if spec.unsupported:
         reasons.append(spec.unsupported)
+    binary = binary_for(spec, binary)
     if not Path(binary).is_file():
-        reasons.append("нет движка sd-cli (stable-diffusion.cpp)")
+        reasons.append("нет движка sd-cli (stable-diffusion.cpp)" + (" 95b3090 для Wan2.2 A14B" if spec.engine == "wan-a14b" else ""))
     if missing:
         reasons.append("weights missing on disk: " + "; ".join(missing))
     main = next((w for w in weights if w["role"] in ("diffusion", "model") and w["found"]), None)
@@ -254,6 +264,7 @@ def build_argv(spec: SdSpec, binary: Path, root: Path, params: dict, prompt: str
                out: Path, image: Path | None) -> list[str]:
     """The Studio argv for this engine, then the user's text verbatim. No other prompt text is added."""
     files = resolve_files(spec, root)
+    binary = binary_for(spec, binary)
     if spec.engine == "wan-a14b":
         return _wan_a14b_argv(spec, binary, files, params, prompt, negative, out, image)
     from ..studio.providers.sdcpp import _argv  # proven flags per engine (single source of truth)

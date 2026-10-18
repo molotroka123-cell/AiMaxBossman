@@ -414,19 +414,29 @@ def test_uc_reference_edit_model_uses_uc_weights_with_reference_and_vision_encod
     assert "-r" not in plain and "--llm_vision" not in plain          # plain UC text-to-image is unchanged
 
 
-def test_uncensored_a14b_video_models_are_greyed_out_until_a_real_run_and_build_the_two_expert_argv(tmp_path):
-    """Wan2.2 A14B uncensored: unavailable (honest reason) while unproven; argv still uses both experts + the uncensored LoRA."""
+def test_uncensored_a14b_video_models_need_the_newer_sd_cli_and_build_the_two_expert_argv(tmp_path, monkeypatch):
+    """Wan2.2 A14B uncensored: runs only with sd-cli 95b3090 (74988b2 failed live); both experts + the uncensored LoRA."""
     media, binary = make_media(tmp_path)
+    newer = tmp_path / "newer-sd-cli.exe"
+    monkeypatch.delenv("BOSSMAN_SDCPP_BIN_A14B", raising=False)
     ref = tmp_path / "ref.png"
     ref.write_bytes(PNG)
     for sid in ("wan2.2-i2v-a14b-uncensored", "wan2.2-t2v-vace-a14b-uncensored"):
-        info = sdcli.describe(sdcli.BY_ID[sid], media, binary)
-        assert info["available"] is False and info["reason"] and "rzgar/" in info["notes"] and info["license"] == "Apache-2.0"
-        assert "uncensored" in info["label"].lower()
+        off = sdcli.describe(sdcli.BY_ID[sid], media, binary)
+        assert off["available"] is False and "95b3090" in off["reason"]          # greyed out, honest reason
+    monkeypatch.setenv("BOSSMAN_SDCPP_BIN_A14B", str(newer))
+    newer.write_bytes(b"MZ")
+    info = sdcli.describe(sdcli.BY_ID["wan2.2-i2v-a14b-uncensored"], media, binary)
+    assert info["available"] is True and "rzgar/" in info["notes"] and info["license"] == "Apache-2.0"
+    assert "uncensored" in info["label"].lower()
+    t2v_info = sdcli.describe(sdcli.BY_ID["wan2.2-t2v-vace-a14b-uncensored"], media, binary)
+    assert t2v_info["available"] is False and "OutOfDeviceMemory" in t2v_info["reason"]   # failed live run, stays greyed out
+    assert sdcli.describe(sdcli.BY_ID["wan2.2-ti2v-5b"], media, binary)["available"] is True   # other models keep the default build
     spec = sdcli.BY_ID["wan2.2-i2v-a14b-uncensored"]
     assert spec.modes == ("I2V",) and spec.requires_image is True
     params = {"width": 272, "height": 480, "steps": 4, "seed": 1, "frames": 33, "fps": 16}
     argv = sdcli.build_argv(spec, binary, media, params, NEUTRAL, "", tmp_path / "o.webm", ref)
+    assert argv[0] == str(newer)
     assert argv[argv.index("--diffusion-model") + 1].endswith("wan22-i2v-uncensored-low-q8_0.gguf")
     assert argv[argv.index("--high-noise-diffusion-model") + 1].endswith("wan22-i2v-uncensored-high-q8_0.gguf")
     assert argv[argv.index("-i") + 1] == str(ref) and argv[argv.index("--cfg-scale") + 1] == "1.0"
@@ -435,6 +445,7 @@ def test_uncensored_a14b_video_models_are_greyed_out_until_a_real_run_and_build_
     assert argv[argv.index("--lora-model-dir") + 1].endswith("wan22-i2v-uncensored")
     t2v = sdcli.build_argv(sdcli.BY_ID["wan2.2-t2v-vace-a14b-uncensored"], binary, media, params, NEUTRAL, "", tmp_path / "o.webm", None)
     assert "-i" not in t2v and "VACE-Fun-A14B-low-noise" in " ".join(t2v)
+    assert sdcli.build_argv(sdcli.BY_ID["wan2.2-ti2v-5b"], binary, media, params, NEUTRAL, "", tmp_path / "o.webm", None)[0] == str(binary)
 
 
 def test_ordinary_video_models_are_not_labelled_uncensored():
