@@ -152,3 +152,66 @@ h2.dh .dual{font-size:14px;font-weight:600;margin-bottom:4px}
 .clip2{max-width:360px}
 td .dual{min-width:230px}
 @media (max-width:600px){header.top{gap:8px;padding:8px 12px}}
+
+/* Calm, compact mobile treatment for the owner-facing country panel. */
+:root{
+  --bg:#071321;
+  --bg2:#0a1b2b;
+  --card:#0d2032;
+  --line:#263d54;
+  --line2:#3a5875;
+  --acc:#78d2ff;
+}
+html{scrollbar-gutter:stable}
+body{line-height:1.48;-webkit-font-smoothing:antialiased}
+header.top{box-shadow:0 8px 24px #02081244}
+header.top h1{letter-spacing:.035em}
+nav#nav button{transition:color .16s ease,background-color .16s ease,border-color .16s ease}
+main{max-width:1680px;margin:0 auto}
+.card{box-shadow:0 8px 24px #02081224;transition:border-color .16s ease,transform .16s ease}
+.card h2{letter-spacing:.01em}
+.kpi{box-shadow:inset 0 1px #ffffff08,0 7px 20px #02081220}
+.cpanel{scrollbar-color:#39556e transparent;scrollbar-width:thin}
+.cp-head{padding-bottom:4px}
+.cp-head h2{letter-spacing:.01em}
+.cp-stats{gap:9px}
+.mini{background:linear-gradient(145deg,#0c1b2a,#0a1724);border-color:#2b435a}
+.mini .v{font-variant-numeric:tabular-nums;line-height:1.25}
+.safety{line-height:1.5}
+button,input,select,textarea{transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease}
+button:active:not(:disabled){transform:translateY(1px)}
+@media(max-width:700px){
+  body{font-size:14px}
+  header.top{position:relative;gap:8px 10px;padding:10px 12px}
+  header.top h1{font-size:15px}
+  .logo{width:24px;height:24px}
+  .badge{padding:5px 9px}
+  main{padding:10px 12px calc(18px + env(safe-area-inset-bottom))}
+  h2.vt{font-size:17px;margin-bottom:12px}
+  .grid{gap:10px}
+  .card{border-radius:13px;padding:14px}
+  .mapcard{padding:9px}
+  .mapgrid{gap:10px}
+  .mapbox{border-radius:11px}
+  .mapfoot{padding:8px 2px 2px}
+  .cpanel{border-radius:14px;max-height:none;overflow:visible}
+  .cp-head{gap:8px}
+  .cp-head h2{font-size:19px}
+  .cp-stats{gap:8px}
+  .mini{padding:9px 10px;border-radius:10px}
+  .mini .l{font-size:11px;line-height:1.35}
+  .mini .v{font-size:19px}
+  .kpis{gap:8px}
+  .kpi{border-radius:11px;min-height:64px}
+  .kpi .v{font-variant-numeric:tabular-nums}
+  .bar{gap:8px}
+  button,input:not([type=checkbox]),select{min-height:40px}
+  button.sm{min-height:32px}
+  .mapctl button{min-height:38px;width:38px;border-radius:10px}
+  .maptip{max-width:min(260px,calc(100vw - 48px))}
+  .tw{border-radius:9px}
+  table{min-width:520px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
