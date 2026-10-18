@@ -148,6 +148,52 @@ async def refresh(body: RefreshBody):
     return await _call("POST", "/ingest", data)
 
 
+# ------------------------------------------------------------------ free-only one-shot chat for the terminal's translation
+class FreeChatBody(BaseModel):
+    model_id: int
+    messages: list[dict] = Field(min_length=1, max_length=4)
+    max_tokens: int = Field(default=2000, ge=64, le=4000)
+
+
+def free_chat_refusal(model: dict | None, provider: dict | None) -> str:
+    """Why this model may NOT serve the terminal's translation ('' = allowed): free route by Bossman's own record only, never local/paid."""
+    from ..provider_governance import is_local_url
+    if model is None or provider is None:
+        return "модель не найдена"
+    caps = model.get("caps") or {}
+    pi, po = model.get("price_in"), model.get("price_out")
+    zero = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool) and v == 0     # noqa: E731
+    if not (zero(pi) and zero(po)) or not caps.get("free_tier") or caps.get("paid"):
+        return "маршрут не бесплатный по записи Bossman (нужны price 0/0 и caps.free_tier)"
+    if is_local_url(provider.get("base_url") or "") or (model.get("kind") or provider.get("kind")) == "local":
+        return "локальные модели для перевода запрещены владельцем (GPU занят)"
+    return ""
+
+
+@router.post("/free-chat")
+async def free_chat(body: FreeChatBody, request: Request):
+    """One non-streaming completion on a FREE cloud route. The provider key stays inside Bossman; the reply carries the provider's
+    own usage (incl. cost when the provider reports it) so the caller can drop a reply that cost money."""
+    svc = request.app.state.svc
+    if any(m.get("role") not in ("system", "user") or not isinstance(m.get("content"), str) for m in body.messages) \
+            or sum(len(m["content"]) for m in body.messages) > 24000:
+        raise HTTPException(422, {"code": "WT_BAD_MESSAGES", "message": "только system/user, до 24000 символов"})
+    model = await svc.registry.get_model(body.model_id)
+    provider = next((p for p in await svc.registry.list_providers() if model and p["id"] == model.get("provider_id")), None)
+    why = free_chat_refusal(model, provider)
+    if why:
+        raise HTTPException(403, {"code": "WT_ROUTE_NOT_FREE", "message": why})
+    adapter, row = await svc.registry.adapter_for(body.model_id)
+    try:
+        res = await adapter.chat(row["name"], body.messages, max_tokens=body.max_tokens, temperature=0.1)
+    except Exception as exc:                                    # noqa: BLE001 - provider text may echo request data: classify only
+        status = getattr(exc, "status_code", None)
+        raise HTTPException(status if status in (429, 503) else 502, {"code": "WT_ROUTE_FAILED", "message": f"{type(exc).__name__}"}) from None
+    usage = dict((res.provider_meta or {}).get("usage") or {})
+    return {"text": res.text, "model": row.get("alias"), "usage": {"cost": usage.get("cost"), "tokens_in": res.tokens_in, "tokens_out": res.tokens_out},
+            "finish": res.finish}
+
+
 # ------------------------------------------------------------------ tools for Bossman's models (read-only)
 def _result(name: str, data) -> ToolResult:
     text = json.dumps(data, ensure_ascii=False, default=str)

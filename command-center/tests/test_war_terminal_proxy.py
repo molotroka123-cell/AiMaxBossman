@@ -91,3 +91,34 @@ async def test_model_tools_are_registered_read_only_and_work(env, terminal):
     assert res.error is False and "REVIEW_REQUIRED" in res.content
     bad = await REGISTRY.get("war_terminal.analyze_tender").handler({"tender_key": "EU:NOPE"}, None)
     assert bad.error is True
+
+
+# ------------------------------------------------------------------ free-only chat gateway used by the terminal's translation
+def test_free_chat_refusal_is_strict():
+    ok = {"price_in": 0.0, "price_out": 0.0, "caps": {"free_tier": "experiential_labs_free_plan"}, "kind": "cloud"}
+    cloud = {"base_url": "https://api.experientiallabs.ai/v1", "kind": "openai_compat"}
+    assert war_terminal.free_chat_refusal(ok, cloud) == ""
+    assert war_terminal.free_chat_refusal({**ok, "price_in": 0.3}, cloud)                      # priced -> refused
+    assert war_terminal.free_chat_refusal({**ok, "price_in": None}, cloud)                     # unknown price is not proof
+    assert war_terminal.free_chat_refusal({**ok, "caps": {}}, cloud)                           # 0/0 typed by hand is not a free tier
+    assert war_terminal.free_chat_refusal({**ok, "caps": {"free_tier": "x", "paid": True}}, cloud)
+    assert war_terminal.free_chat_refusal(ok, {"base_url": "http://127.0.0.1:11434/v1", "kind": "openai_compat"})   # local GPU model
+    assert war_terminal.free_chat_refusal(None, cloud)
+
+
+async def test_free_chat_gateway_serves_free_and_refuses_paid_and_local(env):
+    from .conftest import FakeAdapter
+    reg = env.svc.registry
+    cloud = await reg.create_provider("explabs-test", "openai_compat", "https://api.experientiallabs.ai/v1", "k")
+    free = await reg.create_model(provider_id=cloud["id"], name="m-free", alias="t-free", kind="cloud", caps={"free_tier": "experiential_labs_free_plan"}, price_in=0.0, price_out=0.0)
+    paid = await reg.create_model(provider_id=cloud["id"], name="m-paid", alias="t-paid", kind="cloud", caps={"free_tier": "x"}, price_in=0.3, price_out=0.9)
+    local = await reg.create_provider("local-test", "openai_compat", "http://127.0.0.1:11434/v1", None)
+    loc = await reg.create_model(provider_id=local["id"], name="m-local", alias="t-local", kind="local", caps={"free_tier": "x"}, price_in=0.0, price_out=0.0)
+    env.svc.registry.adapter_factory = lambda m, p: FakeAdapter('{"items":[]}')
+    body = {"messages": [{"role": "user", "content": "x"}]}
+    r = await env.client.post("/api/war-terminal/free-chat", json={"model_id": free["id"], **body})
+    assert r.status_code == 200 and r.json()["text"] == '{"items":[]}' and r.json()["model"] == "t-free" and "cost" in r.json()["usage"]
+    for mid in (paid["id"], loc["id"], 99999):
+        assert (await env.client.post("/api/war-terminal/free-chat", json={"model_id": mid, **body})).status_code == 403
+    bad = await env.client.post("/api/war-terminal/free-chat", json={"model_id": free["id"], "messages": [{"role": "assistant", "content": "x"}]})
+    assert bad.status_code == 422

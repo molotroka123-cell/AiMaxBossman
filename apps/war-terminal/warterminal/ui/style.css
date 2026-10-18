@@ -129,3 +129,26 @@ ol.rank.bars .num{float:none;text-align:right}
   .stat{font-size:21px}td,th{padding:6px 5px;font-size:12px}
 }
 [hidden]{display:none!important}
+/* language switch + original / translation (kept as two visually separate blocks) */
+.seg{display:inline-flex}
+.seg button{border-radius:0;padding:5px 10px;font-size:12px;font-weight:650}
+.seg button:first-child{border-radius:7px 0 0 7px}.seg button:last-child{border-radius:0 7px 7px 0}.seg button+button{margin-left:-1px}
+.dual{display:flex;flex-direction:column;gap:4px;min-width:0}
+.dual .orig,.dual .trans{display:flex;flex-direction:column;gap:2px;padding:4px 8px;border-radius:6px;border-left:3px solid var(--line2);min-width:0}
+.dual .orig{background:#0a1826}
+.dual .trans{background:#12304a;border-left-color:var(--acc)}
+.dual .trans.none{background:transparent;border-left:3px dashed var(--line2);border-radius:0 6px 6px 0}
+.ltag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.ltag.t{color:var(--acc)}
+.keepnote{margin-left:4px;text-transform:none;font-weight:600}
+.otxt,.ttxt{overflow-wrap:anywhere}
+.ttxt{color:#d6ecff}
+.dual .trans .sm{align-self:flex-start;margin-top:2px}
+body[data-trmode=orig] .dual .trans{display:none}
+body[data-trmode=tr] .dual.has-tr .orig{display:none}
+.trbar{margin:6px 0}
+h2.dh{display:block}
+h2.dh .dual{font-size:14px;font-weight:600;margin-bottom:4px}
+.clip2{max-width:360px}
+td .dual{min-width:230px}
+@media (max-width:600px){header.top{gap:8px;padding:8px 12px}}
