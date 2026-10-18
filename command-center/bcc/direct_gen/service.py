@@ -28,7 +28,7 @@ from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
 from ..single_flight import await_shared
-from . import catalog, faceswap, genjutsu, pult, ref_tags, sdcli
+from . import catalog, faceswap, genjutsu, pult, ref_tags, resident, sdcli
 from .faceswap import python_of as _ff_python
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .prompt_vault import PromptVault
@@ -150,6 +150,9 @@ class DirectGenService:
         self.media_dir = Path(media_dir) if media_dir else sdcli.default_media_root()
         self.sd_bin = Path(sd_bin) if sd_bin else sdcli.default_binary()
         self._sd_runner = sd_runner or sdcli.SdCliRunner
+        # Opt-in resident engine (BOSSMAN_DIRECT_GEN_RESIDENT=1): one sd-server kept loaded between same-model photo jobs.
+        # An injected sd_runner (tests) always wins; OFF = byte-for-byte the old per-job sd-cli path.
+        self._resident = resident.ResidentEngine(resident.server_binary_for(self.sd_bin), idle_s=resident.idle_seconds())             if sd_runner is None and resident.enabled() else None
         self._free_memory = free_memory or sdcli.free_memory_bytes
         self._foreign = foreign_engines or sdcli.foreign_engines
         self.faceswap_home = faceswap.default_root()
@@ -238,7 +241,7 @@ class DirectGenService:
             if live.get("ram_total_mb") is not None and live.get("ram_used_mb") is not None:
                 memory = {"measured": True, "total_mb": live["ram_total_mb"], "used_mb": live["ram_used_mb"],
                           "free_mb": live["ram_total_mb"] - live["ram_used_mb"]}
-        return {"runtime": runtime, "sd_cli": {"present": self.sd_bin.is_file()}, "memory": memory, "queue": {"running": self._running, "waiting": len(self._waiting)},
+        return {"runtime": runtime, "sd_cli": {"present": self.sd_bin.is_file()}, "resident": self._resident.status() if self._resident else None, "memory": memory, "queue": {"running": self._running, "waiting": len(self._waiting)},
                 "assist": await self.assist_status()}
 
     async def _default_qwen(self) -> tuple[Any, str] | None:
@@ -727,7 +730,7 @@ class DirectGenService:
     def _run_masks(argv: list[str], cwd: Path, timeout: float):
         return subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True, timeout=timeout, check=False)
 
-    def _preflight(self, spec: sdcli.SdSpec) -> None:
+    def _preflight(self, spec: sdcli.SdSpec, *, model_resident: bool = False) -> None:
         busy = self._foreign()
         deadline = time.monotonic() + max(0.0, self.gpu_grace_seconds)
         while busy and time.monotonic() < deadline:     # runs in a worker thread: a short blocking wait is fine
@@ -736,6 +739,8 @@ class DirectGenService:
         if busy:
             raise DirectGenError(0, "gpu_busy", f"another sd-cli process (PID {busy[0]}) already holds the GPU; nothing was started")
         need, free = sdcli.required_bytes(spec, self.media_dir), self._free_memory()
+        if model_resident:      # its own weights are what is occupying memory; nothing new is loaded for this job
+            return
         if free is not None and free < need:
             raise DirectGenError(0, "insufficient_memory",
                                  f"{spec.label} needs about {need / sdcli.GIB:.0f} GiB of free memory, "
@@ -772,7 +777,8 @@ class DirectGenService:
                            for i in range(1, count + 1)]
 
     async def _run_sd(self, job: dict, spec: sdcli.SdSpec, images: list[bytes] | bytes | None) -> None:
-        job_id, runner = job["job_id"], self._sd_runner()
+        job_id = job["job_id"]
+        runner = resident.ResidentRunner(self._resident, tag=spec.id) if self._resident and spec.kind == "photo" else self._sd_runner()
         try:
             async with self._gate():
                 if job_id in self._waiting:
@@ -780,7 +786,8 @@ class DirectGenService:
                 self._running = job_id
                 job["started_at"] = now_iso()
                 await self._set(job, "loading")
-                await asyncio.to_thread(self._preflight, spec)
+                warm = isinstance(runner, resident.ResidentRunner) and await self._resident.prepare(spec.id)
+                await asyncio.to_thread(self._preflight, spec, model_resident=warm)
                 folder = self.store.job_dir(job["participant"], job_id)
                 work, result = folder / "work", folder / "result"
                 work.mkdir(exist_ok=True)
@@ -813,6 +820,9 @@ class DirectGenService:
                 shutil.rmtree(work, ignore_errors=True)
                 job["provenance"].update(engine_returncode=run.returncode, engine_seconds=run.elapsed_s,
                                          peak_rss_mb=round(run.peak_rss / 1048576))
+                if isinstance(runner, resident.ResidentRunner):     # which engine really ran, and whether the model was already loaded
+                    job["provenance"].update(engine=runner.engine_name, engine_warm=runner.warm,
+                                             engine_start_seconds=runner.startup_s, engine_fallback=runner.fallback_reason)
                 if run.returncode != 0:
                     tail = " | ".join(run.log[-4:])[:600]
                     raise DirectGenError(0, classify_error(tail) if classify_error(tail) == "out_of_memory" else "engine_error",

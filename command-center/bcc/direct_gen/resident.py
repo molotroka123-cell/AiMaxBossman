@@ -1,0 +1,445 @@
+"""Resident diffusion engine for the Direct window (OPT-IN, default OFF).
+
+Every photo job normally starts a fresh ``sd-cli`` process, so the weights are read and moved to the GPU again for
+each queued job (32-1500 s of "loading" per job on this machine). With ``BOSSMAN_DIRECT_GEN_RESIDENT=1`` the
+engine keeps one ``sd-server`` (stable-diffusion.cpp) alive while consecutive jobs need the SAME weights/flags,
+restarts it only when the next job needs different ones, and kills it after an idle period so the PC is free again.
+
+The contract with the rest of the code is the existing ``build_argv`` list: it is parsed into
+  * startup flags  (model files, cfg, sampler, offload ...)  -> identity of the loaded engine,
+  * per-job values (prompt, size, steps, seed, -r references, -o output) -> one HTTP request.
+Anything the server path does not map one-to-one (video, init image/mask, LoRA, unknown flags, a missing or
+too-old server binary, a server that fails to start) falls back to the unchanged ``sd-cli`` runner, and the
+runner records which engine really ran (``engine``) and why (``fallback_reason``).
+
+Server API used (stable-diffusion.cpp ``sd-server``, verified in its docs/source at master-975-95b3090):
+  GET  /sdcpp/v1/capabilities         readiness probe
+  POST /sdcpp/v1/img_gen              async job, returns {"id": ...}; fields omitted fall back to the startup flags
+  GET  /sdcpp/v1/jobs/{id}            status queued|generating|completed|failed|cancelled, result.images[0].b64_json
+  POST /sdcpp/v1/jobs/{id}/cancel     only queued jobs (``cancel_generating`` is false) -> STOP kills the server
+There is no authentication; the server binds 127.0.0.1 on a random free port and dies with the backend (Job Object).
+"""
+from __future__ import annotations
+
+import asyncio
+import base64
+import contextlib
+import json
+import os
+import re
+import socket
+import time
+import urllib.error
+import urllib.request
+from collections import deque
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Awaitable, Callable
+
+from .sdcli import PROGRESS, RunResult, SdCliRunner
+
+ENV_FLAG = "BOSSMAN_DIRECT_GEN_RESIDENT"
+ENV_IDLE = "BOSSMAN_DIRECT_GEN_RESIDENT_IDLE_S"
+ENV_BIN = "BOSSMAN_DIRECT_GEN_SD_BIN"
+DEFAULT_IDLE_S = 120.0
+
+# Flags that carry the job itself (one HTTP request each) -> aliases normalised to the short form.
+_JOB_VALUE = {"-p": "-p", "--prompt": "-p", "-n": "-n", "--negative-prompt": "-n", "-W": "-W", "--width": "-W",
+              "-H": "-H", "--height": "-H", "--steps": "--steps", "-s": "-s", "--seed": "-s",
+              "-o": "-o", "--output": "-o", "-r": "-r", "--ref-image": "-r"}
+# Startup flags the server accepts with identical meaning (identity of the loaded engine).
+_START_VALUE = {"--diffusion-model", "-m", "--model", "--vae", "--llm", "--llm_vision", "--clip_l", "--clip_g",
+                "--t5xxl", "--cfg-scale", "--sampling-method", "--flow-shift", "--guidance", "--scheduler"}
+_START_BOOL = {"--offload-to-cpu", "--diffusion-fa", "--fa", "--vae-tiling", "--increase-ref-index"}
+
+
+def enabled(env: dict | None = None) -> bool:
+    return str((env if env is not None else os.environ).get(ENV_FLAG, "")).strip().lower() in ("1", "true", "yes", "on")
+
+
+def idle_seconds(env: dict | None = None) -> float:
+    try:
+        return max(0.0, float((env if env is not None else os.environ).get(ENV_IDLE, DEFAULT_IDLE_S)))
+    except (TypeError, ValueError):
+        return DEFAULT_IDLE_S
+
+
+def server_binary_for(cli: Path) -> Path:
+    return Path(cli).with_name("sd-server.exe" if str(cli).lower().endswith(".exe") else "sd-server")
+
+
+# ----------------------------------------------------------------------------- argv -> plan
+
+
+@dataclass(frozen=True)
+class Plan:
+    """What a ``build_argv`` list means for the resident server. ``fallback`` non-empty = use sd-cli instead."""
+    fallback: str = ""
+    startup: tuple[str, ...] = ()          # tokens handed to sd-server at start (order preserved)
+    prompt: str = ""
+    negative: str = ""
+    width: int = 512
+    height: int = 512
+    steps: int = 20
+    seed: int = 42
+    out: str = ""
+    refs: tuple[str, ...] = ()
+
+    @property
+    def key(self) -> tuple[str, ...]:
+        return self.startup
+
+
+def plan_argv(argv: list[str]) -> Plan:
+    """Split an sd-cli argv (``argv[0]`` is the binary) into startup flags and one job. Pure; no I/O."""
+    startup: list[str] = []
+    job: dict[str, Any] = {}
+    refs: list[str] = []
+    toks = list(argv[1:])
+    i = 0
+    while i < len(toks):
+        flag = toks[i]
+        if flag in _JOB_VALUE:
+            if i + 1 >= len(toks):
+                return Plan(fallback=f"flag {flag} has no value")
+            val = toks[i + 1]
+            short = _JOB_VALUE[flag]
+            if short == "-r":
+                refs.append(val)
+            else:
+                job[short] = val
+            i += 2
+        elif flag in _START_VALUE:
+            if i + 1 >= len(toks):
+                return Plan(fallback=f"flag {flag} has no value")
+            startup += [flag, toks[i + 1]]
+            i += 2
+        elif flag in _START_BOOL:
+            startup.append(flag)
+            i += 1
+        else:
+            return Plan(fallback=f"{flag} is not expressible through sd-server")
+    for need in ("-p", "-o"):
+        if need not in job:
+            return Plan(fallback=f"argv has no {need}")
+    if "<lora:" in job["-p"]:
+        return Plan(fallback="LoRA tag in the prompt (sd-server takes LoRA only via the structured field)")
+    try:
+        return Plan(startup=tuple(startup), prompt=job["-p"], negative=job.get("-n", ""),
+                    width=int(job.get("-W", 512)), height=int(job.get("-H", 512)),
+                    steps=int(job.get("--steps", 20)), seed=int(job.get("-s", 42)),
+                    out=job["-o"], refs=tuple(refs))
+    except ValueError as exc:
+        return Plan(fallback=f"non-numeric size/steps/seed: {exc}")
+
+
+def to_request(plan: Plan, read_bytes: Callable[[str], bytes] = lambda p: Path(p).read_bytes()) -> dict:
+    """The ``POST /sdcpp/v1/img_gen`` body. Everything not named here comes from the server's startup flags."""
+    body: dict[str, Any] = {"prompt": plan.prompt, "negative_prompt": plan.negative, "width": plan.width,
+                            "height": plan.height, "seed": plan.seed, "batch_count": 1,
+                            "sample_params": {"sample_steps": plan.steps}, "output_format": "png", "preview": "none"}
+    if plan.refs:
+        body["ref_images"] = [base64.b64encode(read_bytes(p)).decode() for p in plan.refs]
+    return body
+
+
+# ----------------------------------------------------------------------------- engine
+
+
+class ServerStartError(RuntimeError):
+    pass
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _http(method: str, url: str, body: dict | None = None, timeout: float = 30.0) -> tuple[int, Any]:
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read()
+            return resp.status, (json.loads(raw) if raw else None)
+    except urllib.error.HTTPError as exc:
+        try:
+            return exc.code, json.loads(exc.read() or b"null")
+        except ValueError:
+            return exc.code, None
+
+
+async def _spawn(argv: list[str], cwd: Path):
+    return await asyncio.create_subprocess_exec(*argv, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
+                                                stderr=asyncio.subprocess.STDOUT, cwd=str(cwd), limit=1 << 20)
+
+
+def _kill(proc: Any) -> None:
+    if proc is None or proc.returncode is not None:
+        return
+    try:
+        from ..studio.providers.sdcpp import _kill_tree
+        _kill_tree(proc.pid)
+    except Exception:  # noqa: BLE001 - the direct handle below still runs
+        pass
+    with contextlib.suppress(ProcessLookupError, OSError):
+        proc.kill()
+
+
+def _bind(pid: int) -> None:
+    with contextlib.suppress(Exception):
+        from ..studio.providers.sdcpp import bind_to_owner_lifetime
+        bind_to_owner_lifetime(pid)
+
+
+class ResidentEngine:
+    """One sd-server process, shared by the photo jobs of this backend. Single user at a time (the service gate)."""
+
+    def __init__(self, server_bin: Path, *, idle_s: float = DEFAULT_IDLE_S, spawn=_spawn, http=_http, kill=_kill,
+                 bind=_bind, port_picker=_free_port, ready_timeout_s: float = 3600.0, poll_s: float = 0.5,
+                 cwd: Path | None = None) -> None:
+        self.server_bin, self.idle_s = Path(server_bin), idle_s
+        self._spawn, self._http, self._kill, self._bind, self._port = spawn, http, kill, bind, port_picker
+        self.ready_timeout_s, self.poll_s = ready_timeout_s, poll_s
+        self.cwd = Path(cwd) if cwd else Path(server_bin).parent
+        self.proc: Any = None
+        self.key: tuple[str, ...] | None = None
+        self.tag: str = ""
+        self.port = 0
+        self.started_at = 0.0
+        self.startup_s = 0.0
+        self.log: deque[str] = deque(maxlen=60)
+        self.on_progress: Callable[[int, int], Awaitable[None]] | None = None
+        self.starts = 0
+        self.busy = False
+        self._reader: asyncio.Task | None = None
+        self._idle: asyncio.TimerHandle | None = None
+        self._lock = asyncio.Lock()
+
+    # -- state
+    def alive(self) -> bool:
+        return self.proc is not None and self.proc.returncode is None
+
+    def holds(self, key: tuple[str, ...]) -> bool:
+        return self.alive() and self.key == key
+
+    def status(self) -> dict:
+        return {"loaded": self.alive(), "tag": self.tag if self.alive() else "", "starts": self.starts,
+                "idle_s": self.idle_s, "busy": self.busy}
+
+    @property
+    def base(self) -> str:
+        return f"http://127.0.0.1:{self.port}"
+
+    # -- lifecycle
+    async def prepare(self, tag: str) -> bool:
+        """Before a job of model ``tag``: True = this model is already resident (memory check not needed);
+        otherwise whatever is resident is released first so its memory counts as free again."""
+        self._cancel_idle()
+        if self.alive() and self.tag == tag:
+            return True
+        await self.stop()
+        return False
+
+    async def ensure(self, plan: Plan, tag: str = "") -> bool:
+        """Make the server for ``plan.startup`` ready. Returns True when it was already warm."""
+        async with self._lock:
+            self._cancel_idle()
+            if self.holds(plan.key):
+                return True
+            await self._stop_locked()
+            await self._start(plan, tag)
+            return False
+
+    async def _start(self, plan: Plan, tag: str) -> None:
+        self.port = self._port()
+        argv = [str(self.server_bin), "--listen-ip", "127.0.0.1", "--listen-port", str(self.port), *plan.startup]
+        t0 = time.monotonic()
+        try:
+            self.proc = await self._spawn(argv, self.cwd)
+        except OSError as exc:
+            raise ServerStartError(f"cannot start sd-server: {exc}") from None
+        self.starts += 1
+        self.log.clear()
+        self._bind(self.proc.pid)
+        self._reader = asyncio.create_task(self._read_log(self.proc))
+        deadline = t0 + self.ready_timeout_s
+        while True:
+            if self.proc.returncode is not None:
+                tail = " | ".join(list(self.log)[-4:])[:500]
+                self.proc, self.key = None, None
+                raise ServerStartError(f"sd-server exited during start: {tail}")
+            try:
+                status, _ = await asyncio.to_thread(self._http, "GET", self.base + "/sdcpp/v1/capabilities", None, 5.0)
+            except (OSError, ValueError):
+                status = 0
+            if status == 200:
+                break
+            if time.monotonic() > deadline:
+                await self._stop_locked()
+                raise ServerStartError("sd-server did not become ready in time")
+            await asyncio.sleep(self.poll_s)
+        self.key, self.tag = plan.key, tag
+        self.started_at, self.startup_s = time.time(), round(time.monotonic() - t0, 2)
+
+    async def _read_log(self, proc: Any) -> None:
+        buf = b""
+        try:
+            while True:
+                chunk = await proc.stdout.read(65536)
+                if not chunk:
+                    break
+                buf += chunk
+                parts = re.split(rb"[\r\n]", buf)
+                buf = parts.pop()
+                for raw in parts:
+                    line = raw.decode("utf-8", "replace").strip()
+                    if not line:
+                        continue
+                    m = PROGRESS.search(line)
+                    cb = self.on_progress
+                    if m and cb is not None:
+                        await cb(int(m.group(1)), int(m.group(2)))
+                    elif not m:
+                        self.log.append(line[:400])
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001 - log pump must never take the job down
+            pass
+
+    def kill_now(self) -> None:
+        """STOP: hard-kill the server tree (the API cannot cancel a generating job)."""
+        self._cancel_idle()
+        self._kill(self.proc)
+        self.key = None
+
+    async def stop(self) -> None:
+        async with self._lock:
+            await self._stop_locked()
+
+    async def _stop_locked(self) -> None:
+        self._cancel_idle()
+        proc, self.proc, self.key, self.tag = self.proc, None, None, ""
+        if proc is not None:
+            self._kill(proc)
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(proc.wait(), 15)
+        if self._reader is not None:
+            self._reader.cancel()
+            self._reader = None
+
+    # -- idle unload
+    def release(self) -> None:
+        """A job finished: arm the idle timer (keeps the model for the next queued job, frees the PC otherwise)."""
+        self.busy = False
+        self._cancel_idle()
+        if self.alive():
+            self._idle = asyncio.get_running_loop().call_later(self.idle_s, lambda: asyncio.ensure_future(self._idle_stop()))
+
+    async def _idle_stop(self) -> None:
+        if not self.busy and self.alive():
+            await self.stop()
+
+    def _cancel_idle(self) -> None:
+        if self._idle is not None:
+            self._idle.cancel()
+            self._idle = None
+
+
+# ----------------------------------------------------------------------------- runner (drop-in for SdCliRunner)
+
+
+class ResidentRunner:
+    """Same interface as ``SdCliRunner`` (``run`` / ``kill`` / ``proc``); chooses server or sd-cli per job."""
+
+    def __init__(self, engine: ResidentEngine, *, tag: str = "", cli_factory: Callable[[], Any] = SdCliRunner,
+                 read_bytes: Callable[[str], bytes] = lambda p: Path(p).read_bytes(),
+                 write_bytes: Callable[[str, bytes], None] = lambda p, b: Path(p).write_bytes(b)) -> None:
+        self.engine, self.tag = engine, tag
+        self._cli_factory, self._read, self._write = cli_factory, read_bytes, write_bytes
+        self._cli: Any = None
+        self._using_server = False
+        self.engine_name = "sd-cli"
+        self.fallback_reason = ""
+        self.warm = False
+        self.startup_s = 0.0
+
+    @property
+    def proc(self):
+        return self.engine.proc if self._using_server else getattr(self._cli, "proc", None)
+
+    def kill(self) -> None:
+        if self._using_server:
+            self.engine.kill_now()
+        elif self._cli is not None:
+            self._cli.kill()
+
+    async def _cli_run(self, argv, cwd, on_progress, reason: str) -> RunResult:
+        self.engine_name, self.fallback_reason, self._using_server = "sd-cli", reason, False
+        await self.engine.stop()                       # its weights must not stay resident next to the sd-cli process
+        self._cli = self._cli_factory()
+        return await self._cli.run(argv, cwd=cwd, on_progress=on_progress)
+
+    async def run(self, argv: list[str], *, cwd: Path, on_progress=None) -> RunResult:
+        plan = plan_argv(argv)
+        if plan.fallback:
+            return await self._cli_run(argv, cwd, on_progress, plan.fallback)
+        self.engine.busy = True
+        started = time.monotonic()
+        try:
+            try:
+                self.warm = await self.engine.ensure(plan, self.tag)
+            except ServerStartError as exc:
+                return await self._cli_run(argv, cwd, on_progress, f"sd-server unavailable: {exc}")
+            self.engine_name, self.fallback_reason, self._using_server = "sd-server (resident)", "", True
+            self.startup_s = 0.0 if self.warm else self.engine.startup_s
+            self.engine.on_progress = on_progress
+            return await self._request(plan, started)
+        except asyncio.CancelledError:
+            self.engine.kill_now()
+            raise
+        finally:
+            self.engine.on_progress = None
+            if self._using_server:
+                self.engine.release()
+            else:
+                self.engine.busy = False
+
+    async def _request(self, plan: Plan, started: float) -> RunResult:
+        eng = self.engine
+        peak, ps = 0, None
+        with contextlib.suppress(Exception):
+            import psutil
+            ps = psutil.Process(eng.proc.pid)
+
+        def fail(msg: str) -> RunResult:
+            return RunResult(1, [*list(eng.log)[-8:], msg][-60:], peak, round(time.monotonic() - started, 2))
+
+        status, data = await asyncio.to_thread(eng._http, "POST", eng.base + "/sdcpp/v1/img_gen",
+                                               to_request(plan, self._read), 120.0)
+        if status not in (200, 202) or not isinstance(data, dict) or not data.get("id"):
+            eng.kill_now()                                 # unknown server state: do not keep it resident
+            return fail(f"sd-server refused the job (HTTP {status}): {str(data)[:300]}")
+        url = f"{eng.base}/sdcpp/v1/jobs/{data['id']}"
+        while True:
+            if eng.proc is None or eng.proc.returncode is not None:
+                return fail("sd-server exited during generation")
+            if ps is not None:
+                with contextlib.suppress(Exception):
+                    peak = max(peak, ps.memory_info().rss)
+            try:
+                status, job = await asyncio.to_thread(eng._http, "GET", url, None, 30.0)
+            except (OSError, ValueError):
+                status, job = 0, None
+            if status == 200 and isinstance(job, dict):
+                st = job.get("status")
+                if st == "completed":
+                    images = (job.get("result") or {}).get("images") or []
+                    if not images or not images[0].get("b64_json"):
+                        return fail("sd-server completed without an image")
+                    self._write(plan.out, base64.b64decode(images[0]["b64_json"]))
+                    return RunResult(0, list(eng.log)[-8:], peak, round(time.monotonic() - started, 2))
+                if st in ("failed", "cancelled"):
+                    err = job.get("error") or {}
+                    eng.kill_now() if st == "failed" else None
+                    return fail(f"sd-server job {st}: {err.get('message', '')}")
+            await asyncio.sleep(eng.poll_s)

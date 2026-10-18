@@ -188,6 +188,9 @@ def default_media_root() -> Path:
 
 
 def default_binary() -> Path:
+    alt = os.environ.get("BOSSMAN_DIRECT_GEN_SD_BIN", "").strip()    # a build folder (or its sd-cli.exe); also holds sd-server.exe
+    if alt:
+        return Path(alt) / "sd-cli.exe" if Path(alt).suffix.lower() != ".exe" else Path(alt)
     env = os.environ.get("BOSSMAN_SDCPP_BIN", "").strip()
     return Path(env) if env else Path.home() / "Bossman" / "media-runtime" / "sdcpp" / "vulkan" / "sd-cli.exe"
 
@@ -373,7 +376,7 @@ def foreign_engines() -> list[int]:
         import psutil
         mine = {os.getpid(), *(c.pid for c in psutil.Process().children(recursive=True))}
         return [p.pid for p in psutil.process_iter(["name"])
-                if (p.info["name"] or "").lower().startswith("sd-cli") and p.pid not in mine]
+                if (p.info["name"] or "").lower().startswith(("sd-cli", "sd-server")) and p.pid not in mine]
     except Exception:  # noqa: BLE001
         return []
 
