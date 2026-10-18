@@ -414,37 +414,38 @@ def test_uc_reference_edit_model_uses_uc_weights_with_reference_and_vision_encod
     assert "-r" not in plain and "--llm_vision" not in plain          # plain UC text-to-image is unchanged
 
 
-async def test_uncensored_a14b_video_models_use_both_experts_and_their_uncensored_lora(env, tmp_path):
-    """Wan2.2 A14B uncensored entries: low + high expert, Wan2.1 VAE, umt5, the uncensored LightX2V pair on both experts."""
-    import base64
-    install(env, tmp_path, FakeSd)
-    by = {m["id"]: m for m in (await env.client.get("/api/direct-gen/models")).json()["models"]}
-    i2v, t2v = by["wan2.2-i2v-a14b-uncensored"], by["wan2.2-t2v-vace-a14b-uncensored"]
-    assert i2v["kind"] == t2v["kind"] == "video" and i2v["available"] and t2v["available"]
-    assert i2v["modes"] == ["I2V"] and i2v["requires_image"] is True and t2v["modes"] == ["T2V"]
-    for m in (i2v, t2v):                       # the uncensored label is backed by a cited model card + licence
-        assert "uncensored" in m["label"].lower() and "rzgar/" in m["notes"] and m["license"] == "Apache-2.0"
-    assert (await create(env, model="wan2.2-i2v-a14b-uncensored", resolution="480x272", duration=2)).json()["error"]["code"] == "image_required"
-    r = await create(env, model="wan2.2-i2v-a14b-uncensored", resolution="480x272", duration=2,
-                     image_b64=base64.b64encode(PNG).decode())
-    job = await finish(env, r.json()["job_id"])
-    assert job["status"] == "completed" and job["params"]["frames"] == 33 and job["params"]["steps"] == 4
-    argv = FakeSd.instances[-1].argv
-    joined = " ".join(argv)
+def test_uncensored_a14b_video_models_need_the_newer_sd_cli_and_build_the_two_expert_argv(tmp_path, monkeypatch):
+    """Wan2.2 A14B uncensored: runs only with sd-cli 95b3090 (74988b2 failed live); both experts + the uncensored LoRA."""
+    media, binary = make_media(tmp_path)
+    newer = tmp_path / "newer-sd-cli.exe"
+    monkeypatch.delenv("BOSSMAN_SDCPP_BIN_A14B", raising=False)
+    ref = tmp_path / "ref.png"
+    ref.write_bytes(PNG)
+    for sid in ("wan2.2-i2v-a14b-uncensored", "wan2.2-t2v-vace-a14b-uncensored"):
+        off = sdcli.describe(sdcli.BY_ID[sid], media, binary)
+        assert off["available"] is False and "95b3090" in off["reason"]          # greyed out, honest reason
+    monkeypatch.setenv("BOSSMAN_SDCPP_BIN_A14B", str(newer))
+    newer.write_bytes(b"MZ")
+    info = sdcli.describe(sdcli.BY_ID["wan2.2-i2v-a14b-uncensored"], media, binary)
+    assert info["available"] is True and "rzgar/" in info["notes"] and info["license"] == "Apache-2.0"
+    assert "uncensored" in info["label"].lower()
+    t2v_info = sdcli.describe(sdcli.BY_ID["wan2.2-t2v-vace-a14b-uncensored"], media, binary)
+    assert t2v_info["available"] is False and "OutOfDeviceMemory" in t2v_info["reason"]   # failed live run, stays greyed out
+    assert sdcli.describe(sdcli.BY_ID["wan2.2-ti2v-5b"], media, binary)["available"] is True   # other models keep the default build
+    spec = sdcli.BY_ID["wan2.2-i2v-a14b-uncensored"]
+    assert spec.modes == ("I2V",) and spec.requires_image is True
+    params = {"width": 272, "height": 480, "steps": 4, "seed": 1, "frames": 33, "fps": 16}
+    argv = sdcli.build_argv(spec, binary, media, params, NEUTRAL, "", tmp_path / "o.webm", ref)
+    assert argv[0] == str(newer)
     assert argv[argv.index("--diffusion-model") + 1].endswith("wan22-i2v-uncensored-low-q8_0.gguf")
     assert argv[argv.index("--high-noise-diffusion-model") + 1].endswith("wan22-i2v-uncensored-high-q8_0.gguf")
-    assert argv[argv.index("-i") + 1].endswith(".png") and argv[argv.index("--cfg-scale") + 1] == "1.0"
+    assert argv[argv.index("-i") + 1] == str(ref) and argv[argv.index("--cfg-scale") + 1] == "1.0"
     assert argv[argv.index("-p") + 1] == (NEUTRAL + "<lora:|high_noise|Wan2.2_LightX2V_high_n54vv:1>"
-                                          "<lora:Wan2.2_LightX2V_low_n54vv:1>")    # user text first, unchanged
+                                          "<lora:Wan2.2_LightX2V_low_n54vv:1>")
     assert argv[argv.index("--lora-model-dir") + 1].endswith("wan22-i2v-uncensored")
-    assert "wan_2.1_vae.safetensors" in joined and "umt5-xxl-encoder-Q8_0.gguf" in joined
-    assert job["provenance"]["command"][job["provenance"]["command"].index("-p") + 1].startswith("<prompt><lora:")
-    job = await finish(env, (await create(env, model="wan2.2-t2v-vace-a14b-uncensored", resolution="480x272", duration=1)).json()["job_id"])
-    argv = FakeSd.instances[-1].argv
-    assert job["status"] == "completed" and "-i" not in argv and "VACE-Fun-A14B-low-noise" in " ".join(argv)
-    r = await create(env, model="wan2.2-t2v-vace-a14b-uncensored", resolution="480x272", duration=1,
-                     image_b64=base64.b64encode(PNG).decode())
-    assert r.json()["error"]["code"] == "image_unsupported"
+    t2v = sdcli.build_argv(sdcli.BY_ID["wan2.2-t2v-vace-a14b-uncensored"], binary, media, params, NEUTRAL, "", tmp_path / "o.webm", None)
+    assert "-i" not in t2v and "VACE-Fun-A14B-low-noise" in " ".join(t2v)
+    assert sdcli.build_argv(sdcli.BY_ID["wan2.2-ti2v-5b"], binary, media, params, NEUTRAL, "", tmp_path / "o.webm", None)[0] == str(binary)
 
 
 def test_ordinary_video_models_are_not_labelled_uncensored():

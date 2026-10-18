@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import shutil
 import sys
 from dataclasses import dataclass, field
@@ -31,6 +32,11 @@ from typing import Any, Awaitable, Callable
 
 from .mcp_hub import MCPServerSpec, MCPToolView
 from ..single_flight import await_shared
+from ..web_access.policy import redact, register_secret
+
+# URL-шаблон удалённого сервера: `{secret:NAME}` подставляется из vault в момент
+# соединения; в репозитории, БД и логах живёт только шаблон/маска.
+_SECRET_PLACEHOLDER = re.compile(r"\{secret:([A-Za-z0-9_.-]{1,80})\}")
 
 # --------------------------------------------------------------- SDK (лениво)
 
@@ -138,9 +144,11 @@ class _Connection:
     """Одна задача владеет контекстами stdio_client/ClientSession; наружу — очередь запросов."""
 
     def __init__(self, spec: MCPServerSpec, *,
-                 on_event: Callable[[str, dict], Awaitable[None]] | None = None) -> None:
+                 on_event: Callable[[str, dict], Awaitable[None]] | None = None,
+                 secret_resolver: Callable[[str], Awaitable[str | None]] | None = None) -> None:
         self.spec = spec
         self.on_event = on_event
+        self.secret_resolver = secret_resolver
         self.health = ServerHealth(server_id=spec.id, status="unknown")
         self._queue: asyncio.Queue = asyncio.Queue()
         self._task: asyncio.Task | None = None
@@ -213,6 +221,21 @@ class _Connection:
             exe = sys.executable
         return Params(command=exe, args=command[1:], env=env, cwd=self.spec.cwd or None)
 
+    async def _http_transport(self) -> Any:
+        """Streamable-HTTP транспорт официального SDK. Секрет в URL подставляется
+        здесь, в памяти, и нигде не сохраняется."""
+        from mcp.client.streamable_http import streamable_http_client      # type: ignore
+        url = self.spec.url
+
+        names = _SECRET_PLACEHOLDER.findall(url)
+        for name in names:
+            value = await self.secret_resolver(name) if self.secret_resolver else None
+            if not value:
+                raise MCPUnavailable(f"MCP {self.spec.id}: секрет «{name}» не задан в vault")
+            register_secret(value)
+            url = url.replace("{secret:" + name + "}", value)
+        return streamable_http_client(url)
+
     async def _run(self) -> None:
         assert self._ready is not None
         try:
@@ -223,18 +246,23 @@ class _Connection:
             self.health.detail = f"SDK: {exc}"
             return
 
-        if self.spec.transport != "stdio":
+        if self.spec.transport not in ("stdio", "http"):
             self._fail_ready(MCPUnavailable(
-                f"транспорт {self.spec.transport} пока не поддержан рантаймом (только stdio)"))
+                f"транспорт {self.spec.transport} не поддержан рантаймом (stdio, http)"))
             self.health.status = "unhealthy"
             self.health.detail = "unsupported transport"
             return
 
         crash: BaseException | None = None
         try:
-            # Реальный контракт SDK: stdio_client даёт (read, write) потоки,
+            # Реальный контракт SDK: транспорт даёт (read, write) потоки,
             # поверх них — ClientSession с явным initialize() (handshake).
-            async with stdio_client(self._params(Params)) as (read, write):
+            if self.spec.transport == "http":
+                transport_cm = await self._http_transport()
+            else:
+                transport_cm = stdio_client(self._params(Params))
+            async with transport_cm as streams:
+                read, write = streams[0], streams[1]
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     self.health.status = "healthy"
@@ -251,14 +279,14 @@ class _Connection:
             crash = exc
             self.health.status = "unhealthy"
             self.health.connected = False
-            self.health.detail = f"{type(exc).__name__}: {exc}"[:400]
-            self._fail_ready(MCPUnavailable(
-                f"MCP-сервер {self.spec.id} не поднялся: {type(exc).__name__}: {exc}"))
+            self.health.detail = redact(f"{type(exc).__name__}: {exc}")[:400]
+            self._fail_ready(MCPUnavailable(redact(
+                f"MCP-сервер {self.spec.id} не поднялся: {type(exc).__name__}: {exc}")))
         finally:
             self.health.connected = False
             self._drain(crash)
             if crash is not None:
-                await self._notify_crash(f"{type(crash).__name__}: {crash}"[:400])
+                await self._notify_crash(redact(f"{type(crash).__name__}: {crash}")[:400])
 
     async def _pump(self, client: Any) -> None:
         while True:
@@ -274,12 +302,12 @@ class _Connection:
                 raise
             except BaseException as exc:
                 if not fut.done():
-                    fut.set_exception(MCPCallError(
-                        f"MCP {self.spec.id}.{method}: {type(exc).__name__}: {exc}"))
+                    fut.set_exception(MCPCallError(redact(
+                        f"MCP {self.spec.id}.{method}: {type(exc).__name__}: {exc}")))
                 if _is_transport_dead(exc):
                     self.health.status = "unhealthy"
                     self.health.connected = False
-                    self.health.detail = f"{type(exc).__name__}: {exc}"[:400]
+                    self.health.detail = redact(f"{type(exc).__name__}: {exc}")[:400]
                     await self._notify_crash(self.health.detail)
                     return
             else:
@@ -324,7 +352,9 @@ def _is_transport_dead(exc: BaseException) -> bool:
 class MCPRuntime:
     """Пул соединений по id сервера. Все методы безопасны при отсутствии SDK."""
 
-    def __init__(self, *, on_event: Callable[[str, dict], Awaitable[None]] | None = None) -> None:
+    def __init__(self, *, on_event: Callable[[str, dict], Awaitable[None]] | None = None,
+                 secret_resolver: Callable[[str], Awaitable[str | None]] | None = None) -> None:
+        self.secret_resolver = secret_resolver
         self._conns: dict[str, _Connection] = {}
         self._specs: dict[str, MCPServerSpec] = {}
         self.on_event = on_event
@@ -349,7 +379,7 @@ class MCPRuntime:
             await self.disconnect(spec.id)
             conn = None
         if conn is None or not conn.running:
-            conn = _Connection(spec, on_event=self.on_event)
+            conn = _Connection(spec, on_event=self.on_event, secret_resolver=self.secret_resolver)
             self._conns[str(spec.id)] = conn
             await conn.start()
         return conn.health
