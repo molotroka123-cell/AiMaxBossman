@@ -738,7 +738,7 @@ class DirectGenService:
                 argv = sdcli.build_argv(spec, self.sd_bin, self.media_dir, p, job["effective_prompt"],
                                         job["negative"], out, init)
                 job["provenance"]["command"] = [Path(a).name if os.path.isabs(a) else a for a in argv]
-                job["provenance"]["command"][job["provenance"]["command"].index("-p") + 1] = "<prompt>"
+                job["provenance"]["command"][job["provenance"]["command"].index("-p") + 1] = "<prompt>" + sdcli.lora_tags(spec)
 
                 async def on_progress(value: int, maximum: int) -> None:
                     prev = job["progress"]

@@ -67,6 +67,13 @@ QWEN_BASE = {"vae": "qwen-image-2.1/qwen_image_2.1_vae_bf16.safetensors",
              "llm": "qwen-image-2.1/Qwen3VL-8B-Instruct-Q8_0.gguf",
              "llm_vision": "qwen-image-2.1/mmproj-Qwen3VL-8B-Instruct-F16.gguf"}
 
+# Shared by both uncensored A14B entries: Wan2.1 VAE (A14B uses it), umt5 Q8 text encoder, and the uncensored
+# LightX2V 4-step LoRA pair (files kept next to the merge they were downloaded with).
+WAN_A14B_COMMON = {"vae": "wan22-vace-fun-a14b/wan_2.1_vae.safetensors",
+                   "text_encoder": "wan22-ti2v-5b/umt5-xxl-encoder-Q8_0.gguf",
+                   "lora_high": "wan22-i2v-uncensored/Wan2.2_LightX2V_high_n54vv.safetensors",
+                   "lora_low": "wan22-i2v-uncensored/Wan2.2_LightX2V_low_n54vv.safetensors"}
+
 SPECS: tuple[SdSpec, ...] = (
     _photo("z-image-turbo", "Z-Image Turbo", "z-image",
            {"diffusion": "z-image-turbo/z_image_turbo-Q8_0.gguf", "vae": "z-image-turbo/ae.safetensors",
@@ -130,6 +137,29 @@ SPECS: tuple[SdSpec, ...] = (
            "sdcpp:wan2.2-ti2v-5b", 20, 40, "480x272", license="Apache-2.0", manifest_key="wan2.2-ti2v-5b",
            image_flag="-i", fps=16, frame_step=4, max_seconds=5, min_side=256, max_side=1280,
            notes="Один проход до ~5 с. Дольше на этой машине очень медленно (замер: ~14 мин на шаг при 832x480x121)."),
+    # Uncensored Wan2.2 A14B (MoE high/low experts) run by sd-cli itself (engine "wan-a14b", argv below).
+    # The label says "Uncensored" only because the model cards say so (AGENTS.md): sources + licences in notes.
+    SdSpec("wan2.2-i2v-a14b-uncensored", "Wan2.2 I2V A14B Uncensored (картинка→видео, 4 шага)", "video", "wan", ("I2V",),
+           {**WAN_A14B_COMMON,
+            "diffusion": "wan22-i2v-uncensored-gguf/wan22-i2v-uncensored-low-q8_0.gguf",
+            "high_noise": "wan22-i2v-uncensored-gguf/wan22-i2v-uncensored-high-q8_0.gguf"},
+           "wan-a14b", 4, 12, "480x272", license="Apache-2.0", manifest_key="wan2.2-i2v-a14b-uncensored", requires_image=True,
+           image_flag="-i", fps=16, frame_step=4, max_seconds=5, min_side=256, max_side=1280,
+           notes="Uncensored по карточкам моделей: диффузия = merge rzgar/wan2.2-i2v-A14B-Uncensored-base "
+                 "(rev 44bd071c, Apache-2.0, «understands short, simple, and uncensored prompts»), сконвертирован "
+                 "локально fp8→Q8_0 GGUF; LoRA скорости = rzgar/Wan2.2_LightX2V_4Step_Uncensored (rev adc4ca92, "
+                 "Apache-2.0, тег uncensored) на обоих экспертах. Нужна стартовая картинка. Всё локально. Запуск на этом ПК: NOT_RUN (ещё не проверен). "
+                 "Только для себя или вымышленного персонажа; чужие люди без их согласия: нельзя."),
+    SdSpec("wan2.2-t2v-vace-a14b-uncensored", "Wan2.2 VACE-Fun A14B + Uncensored LoRA (текст→видео, 4 шага)", "video",
+           "wan", ("T2V",),
+           {**WAN_A14B_COMMON,
+            "diffusion": "wan22-vace-fun-a14b/LowNoise/Wan2.2-VACE-Fun-A14B-low-noise-Q8_0.gguf",
+            "high_noise": "wan22-vace-fun-a14b/HighNoise/Wan2.2-VACE-Fun-A14B-high-noise-Q8_0.gguf"},
+           "wan-a14b", 4, 12, "480x272", license="Apache-2.0", manifest_key="wan2.2-t2v-vace-a14b-uncensored",
+           fps=16, frame_step=4, max_seconds=5, min_side=256, max_side=1280,
+           notes="База: alibaba-pai/Wan2.2-VACE-Fun-A14B (Apache-2.0, GGUF QuantStack Q8_0) — сама по себе обычная "
+                 "модель; «uncensored» даёт LoRA rzgar/Wan2.2_LightX2V_4Step_Uncensored (rev adc4ca92, Apache-2.0, "
+                 "карточка: «meant for both I2V and T2V, and they are uncensored»), она же даёт 4 шага. Всё локально. Запуск на этом ПК: NOT_RUN (ещё не проверен)."),
     SdSpec("wan21-vace-1.3b", "Wan2.1 VACE 1.3B", "video", "wan", ("T2V", "I2V"),
            {"diffusion": "wan21-vace-1.3b/wan2.1-vace-1.3b-q8_0.gguf", "vae": "wan21-vace-1.3b/wan_2.1_vae.safetensors"},
            "", 20, 40, "480x272", fps=16, frame_step=4, max_seconds=5,
@@ -221,8 +251,10 @@ def required_bytes(spec: SdSpec, root: Path) -> int:
 def build_argv(spec: SdSpec, binary: Path, root: Path, params: dict, prompt: str, negative: str,
                out: Path, image: Path | None) -> list[str]:
     """The Studio argv for this engine, then the user's text verbatim. No other prompt text is added."""
-    from ..studio.providers.sdcpp import _argv  # proven flags per engine (single source of truth)
     files = resolve_files(spec, root)
+    if spec.engine == "wan-a14b":
+        return _wan_a14b_argv(spec, binary, files, params, prompt, negative, out, image)
+    from ..studio.providers.sdcpp import _argv  # proven flags per engine (single source of truth)
     plane = SimpleNamespace(prompt=prompt, media=({"role": "reference"},) if image and spec.image_flag == "-r" else ())
     settings = {"width": params["width"], "height": params["height"], "steps": params["steps"], "seed": params["seed"],
                 "frames": params.get("frames", 1), "fps": params.get("fps", 0), "cfg_scale": 5.0}
@@ -237,6 +269,41 @@ def build_argv(spec: SdSpec, binary: Path, root: Path, params: dict, prompt: str
     lora_dir = os.environ.get("BOSSMAN_DIRECT_GEN_LORA_DIR", "")
     if lora_dir and "<lora:" in prompt and Path(lora_dir).is_absolute() and Path(lora_dir).is_dir():
         argv += ["--lora-model-dir", lora_dir]           # the owner's own LoRA; the prompt itself stays verbatim
+    return argv
+
+
+def lora_tags(spec: SdSpec) -> str:
+    """sd-cli's own LoRA syntax for the spec's fixed LoRAs: ``|high_noise|`` routes one to the high-noise expert."""
+    tags = ""
+    if "lora_high" in spec.files:
+        tags += f"<lora:|high_noise|{Path(spec.files['lora_high']).stem}:1>"
+    if "lora_low" in spec.files:
+        tags += f"<lora:{Path(spec.files['lora_low']).stem}:1>"
+    return tags
+
+
+def _wan_a14b_argv(spec: SdSpec, binary: Path, files: dict[str, Path], params: dict, prompt: str, negative: str,
+                   out: Path, image: Path | None) -> list[str]:
+    """Wan2.2 A14B MoE (low + high noise experts) with a 4-step distill LoRA pair: cfg 1, euler, both experts.
+
+    The user's text goes to ``-p`` unchanged; only the model's fixed LoRA tags are appended after it.
+    """
+    argv = [str(binary), "-M", "vid_gen", "--diffusion-model", str(files["diffusion"]),
+            "--high-noise-diffusion-model", str(files["high_noise"]), "--vae", str(files["vae"]),
+            "--t5xxl", str(files["text_encoder"]),
+            "--video-frames", str(params.get("frames", 1)), "--fps", str(params.get("fps", 16)),
+            "--cfg-scale", "1.0", "--high-noise-cfg-scale", "1.0",
+            "--sampling-method", "euler", "--high-noise-sampling-method", "euler",
+            "--flow-shift", "5.0", "--offload-to-cpu"]
+    tags = lora_tags(spec)
+    if tags:
+        argv += ["--lora-model-dir", str(files["lora_low" if "lora_low" in files else "lora_high"].parent)]
+    if image is not None:
+        argv += [spec.image_flag, str(image)]
+    argv += ["-p", prompt + tags, "-W", str(params["width"]), "-H", str(params["height"]),
+             "--steps", str(params["steps"]), "-s", str(params["seed"]), "-o", str(out)]
+    if negative:
+        argv += ["-n", negative]
     return argv
 
 
