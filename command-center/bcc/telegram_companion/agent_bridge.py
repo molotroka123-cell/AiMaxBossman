@@ -13,8 +13,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import hashlib
+import hmac
 import json
 import os
+import secrets
 import time
 from pathlib import Path
 
@@ -22,7 +24,16 @@ from . import claude_bridge
 from .config import CompanionError, Person
 
 AGENT_COMMANDS = {"/claude", "/claude_new", "/claude_stop", "/codex", "/codex_new", "/codex_stop",
-                  "/agents", "/audits"}
+                  "/claude_bypass_go", "/codex_bypass_go", "/agents", "/audits"}
+# A22-04 / A18 §5.2: the skip-permissions modes are never the default of a pult-started agent. The configured value
+# is only a CEILING that still needs a one-time owner approval for the single call; without it the normal
+# ask-permission mode runs (the owner keeps full control: nothing is locked, the approval is one button).
+SAFE_CLAUDE_MODE = "default"
+SAFE_CODEX_SANDBOX = "workspace-write"
+SKIP_CLAUDE_MODE = "bypassPermissions"
+SKIP_CODEX_SANDBOX = "danger-full-access"
+BYPASS_TTL_S = 120.0
+BYPASS_FLAG = "--bypass"
 AGENT_DENIED = "Нет прав. Управление Claude и Codex доступно только с Telegram ID владельца."
 REPO_ROOT = Path(__file__).resolve().parents[3]
 AUDIT_DIRS = ("owner-repair/evidence", "owner-repair/coaching-exam-20260922")
@@ -58,6 +69,42 @@ class AgentBridgeMixin:
                 fh.write(json.dumps({"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **record},
                                     ensure_ascii=False) + "\n")
 
+    # --------------------------------------------- per-call skip-permissions approval
+    def _bypass_pending(self) -> dict:
+        d = self.__dict__.get("_bypass_pending_map")
+        if d is None:
+            d = self.__dict__["_bypass_pending_map"] = {}
+        return d
+
+    @staticmethod
+    def effective_agent_modes(current, *, bypass_approved: bool) -> tuple[str, str]:
+        """(claude permission mode, codex sandbox) for ONE call. Skip-permissions needs the approved token."""
+        claude_mode = current.claude_permission_mode
+        sandbox = current.codex_sandbox
+        if not bypass_approved:
+            if claude_mode == SKIP_CLAUDE_MODE:
+                claude_mode = SAFE_CLAUDE_MODE
+            if sandbox == SKIP_CODEX_SANDBOX:
+                sandbox = SAFE_CODEX_SANDBOX
+        else:
+            claude_mode, sandbox = SKIP_CLAUDE_MODE, SKIP_CODEX_SANDBOX
+        return claude_mode, sandbox
+
+    def _bypass_request(self, name: str, person: Person, prompt: str):
+        from .service import Reply
+        pending = self._bypass_pending()
+        now = time.time()
+        for k in [k for k, v in pending.items() if now - v["at"] > BYPASS_TTL_S]:
+            pending.pop(k, None)
+        nonce = secrets.token_hex(8)
+        pending[nonce] = {"agent": name, "person": person.key, "at": now,
+                          "sha": hashlib.sha256(prompt.encode("utf-8")).hexdigest(), "prompt": prompt}
+        return Reply(f"⚠️ {name.title()} без запросов разрешений (полный доступ к ПК) для ОДНОГО задания:\n"
+                     f"«{prompt[:300]}»\nОдобрение одноразовое и действует {int(BYPASS_TTL_S)} с; "
+                     "обычный режим — просто /" + name + " задание.",
+                     [[self.button(person, "⚠️ Разрешить один раз", f"/{name}_bypass_go {nonce}"),
+                       self.button(person, "Отмена", "/agents")]])
+
     # ------------------------------------------------------------ commands
     async def agent_command(self, person: Person, command: str, arg: str, message: dict):
         from .service import Reply
@@ -70,6 +117,27 @@ class AgentBridgeMixin:
         if command == "/audits":
             return await self.send_audits(person, arg)
         name = "claude" if command.startswith("/claude") else "codex"
+        bypass_approved = False
+        if command.endswith("_bypass_go"):
+            # Button only: the callback marker is set by the companion, never taken from Telegram input.
+            if not message.get("_callback"):
+                return "Это одобрение даётся только кнопкой под запросом. Ничего не запущено."
+            entry = self._bypass_pending().pop(arg.strip(), None)       # one-time: spent on first use
+            if (entry is None or entry["agent"] != name or entry["person"] != person.key
+                    or time.time() - entry["at"] > BYPASS_TTL_S
+                    or not hmac.compare_digest(hashlib.sha256(entry["prompt"].encode("utf-8")).hexdigest(), entry["sha"])):
+                return "Одобрение не подходит, устарело или уже использовано. Повторите /" + name + f" {BYPASS_FLAG} задание."
+            command, arg, bypass_approved = f"/{name}", entry["prompt"], True
+        elif command in {"/claude", "/codex"} and arg.split(None, 1)[:1] == [BYPASS_FLAG]:
+            task = arg.split(None, 1)[1].strip() if len(arg.split(None, 1)) > 1 else ""
+            if not task:
+                return f"Напишите /{name} {BYPASS_FLAG} задание."
+            if not (current.claude_bridge if name == "claude" else current.codex_bridge):
+                return (f"{name.title()} из Telegram выключен локально "
+                        f"({name}_bridge: false в config.json на компьютере).")
+            if self.store.get("delegation_locked", False):
+                return "Новые поручения заблокированы (СТОП или пауза). Снять — /resume."
+            return self._bypass_request(name, person, task)
         enabled = current.claude_bridge if name == "claude" else current.codex_bridge
         if not enabled:
             return (f"{name.title()} из Telegram выключен локально "
@@ -92,27 +160,29 @@ class AgentBridgeMixin:
             return Reply(f"{name.title()} ещё работает над прошлым заданием.",
                          [[self.button(person, f"✋ Стоп {name.title()}", f"/{name}_stop")]])
         self._agent_log({"who": person.key, "agent": name, "result": "started",
-                         "prompt_sha256": hashlib.sha256(arg.encode("utf-8")).hexdigest()})
-        self.agent_jobs[name] = asyncio.create_task(self.agent_turn(name, person, arg, key))
+                         "prompt_sha256": hashlib.sha256(arg.encode("utf-8")).hexdigest(),
+                         "skip_permissions": bypass_approved})
+        self.agent_jobs[name] = asyncio.create_task(self.agent_turn(name, person, arg, key, bypass_approved=bypass_approved))
         return Reply(f"🤖 {name.title()} принял задание. Ответ пришлю сюда.",
                      [[self.button(person, f"✋ Стоп {name.title()}", f"/{name}_stop")]])
 
-    async def agent_turn(self, name: str, person: Person, prompt: str, key: str):
+    async def agent_turn(self, name: str, person: Person, prompt: str, key: str, *, bypass_approved: bool = False):
         current = self.agent_policy(person)
         cwd = (current.claude_cwd if current else "") or str(REPO_ROOT.parent)
         started = time.monotonic()
         try:
             if current is None:
                 raise PermissionError("OWNER_REVOKED")
+            claude_mode, sandbox = self.effective_agent_modes(current, bypass_approved=bypass_approved)
             if name == "claude":
                 text, session, cost = await claude_bridge.claude(
                     prompt, session=self.store.get(key), cwd=cwd,
-                    permission_mode=current.claude_permission_mode, timeout=current.claude_timeout)
+                    permission_mode=claude_mode, timeout=current.claude_timeout)
                 footer = "\n\n— 🤖 Claude Code" + (f" · ${cost:.2f}" if isinstance(cost, (int, float)) else "")
             else:
                 text, session = await claude_bridge.codex(
                     prompt, session=self.store.get(key), cwd=cwd,
-                    sandbox=current.codex_sandbox, timeout=current.claude_timeout)
+                    sandbox=sandbox, timeout=current.claude_timeout)
                 footer = "\n\n— 🧩 Codex"
             self.store.put(key, session)
             reply = text[:TEXT_LIMIT] + footer
@@ -147,6 +217,8 @@ class AgentBridgeMixin:
             return f"• {name.title()}: {'включён' if on else 'выключен'}{' · работает' if busy else ''}"
         return "\n".join(["Агенты на компьютере (только для владельца):",
                           state("claude", current.claude_bridge), state("codex", current.codex_bridge),
+                          "Режим по умолчанию — с запросами разрешений; без них только по одноразовому "
+                          f"одобрению: /claude {BYPASS_FLAG} задание.",
                           "/claude задание · /codex задание · /audits — последние отчёты"])
 
     async def send_audits(self, person: Person, arg: str):

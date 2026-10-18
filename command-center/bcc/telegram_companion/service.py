@@ -563,7 +563,7 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         # Identity = the person who PRESSED, in the private chat the button lives in.
         synthetic = {"from": cb.get("from"), "chat": message.get("chat")}
         person = self.authorized(synthetic)
-        if person is None:
+        if person is None or person.role != "owner":
             self.store.ingest(update["update_id"], None, None)   # acknowledge, ignore, never answer
             return
         data = cb.get("data")
@@ -595,6 +595,12 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             return
         message = update.get("message")
         person = self.authorized(message)
+        # A22-04 / A18 §5.7: only the configured owner is ever processed. A guest, a stranger, a group chat
+        # or a forward is acknowledged (offset advances) and dropped HERE, before key/secret/manual intake,
+        # the Store inbox, learning or any model. Nothing is stored and nothing is answered.
+        if person is None or person.role != "owner":
+            self.store.ingest(update["update_id"], None, None)
+            return
         text = message.get("text") if isinstance(message, dict) else None
 
         # Owner key intake (/key NAME=value): handled BEFORE the durable Store inbox, so the

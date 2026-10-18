@@ -134,7 +134,7 @@ def test_unknown_foreign_and_stale_tokens_are_rejected(tmp_path):
         owner_kb = (await app.handle(OWNER, msg(OWNER.user_id, '/menu'))).keyboard
         for n, data in enumerate(['b:0123456789abcdef', 'x' * 18, '/forget', 'b:' + 'z' * 70, None], start=40):
             await app.ingest(press(OWNER.user_id, data, n))
-        # guest presses the owner's button: bound to another person -> stale
+        # guest presses the owner's button: dropped at intake (A22-04), not even answered
         await app.ingest(press(GUEST.user_id, data_of(owner_kb, '🧹 Очистить историю'), 50))
         assert store.db.execute('SELECT count(*) FROM inbox').fetchone()[0] == 0
         # "restart": a fresh companion has no tokens, so old buttons are stale
@@ -143,7 +143,7 @@ def test_unknown_foreign_and_stale_tokens_are_rejected(tmp_path):
         assert store.db.execute('SELECT count(*) FROM inbox').fetchone()[0] == 0
     _, calls = with_app(tmp_path, body)
     stale = [p for m, p in calls if m == 'answerCallbackQuery']
-    assert len(stale) == 7 and all('устарела' in p['text'] for p in stale)
+    assert len(stale) == 6 and all('устарела' in p['text'] for p in stale)
 
 
 def test_markup_bounds_callback_data():

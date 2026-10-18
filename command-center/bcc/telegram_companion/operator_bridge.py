@@ -7,8 +7,11 @@ commit, receipts; never push / merge / deploy. The pult only carries the owner's
                            while the operator is busy the task is QUEUED (FIFO) instead of refused
   /work_status [id]      - state of the last (or given) task + the running/queued list
   /work_stop [id]        - cancel the running task, or any task / queue entry by id
-  /work_yes <id>         - approve ONE parked owner decision (button under the decision message)
-  /work_no <id>          - deny it
+  /work_yes <id> <code>  - approve ONE parked owner decision. The inline button and the typed command are the SAME
+                           approval: a one-time code issued with the decision message, bound to that decision id and
+                           to a digest of its action, valid WORK_APPROVE_TTL_S seconds, consumed on first use
+                           (A22-04: a bare «/work_yes 12», a replay, a stale or changed decision is refused)
+  /work_no <id>          - deny it (always allowed; also voids the code)
 
 Authority is the same as Claude/Codex control (``AgentBridgeMixin.agent_policy``): the owner's Telegram ID,
 fresh config, checked on the command AND again before every message is delivered. A STOP / pause / lock
@@ -21,7 +24,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
+import hmac
+import json
 import re
+import secrets
 import time
 
 from .config import CompanionError, Person
@@ -39,6 +46,11 @@ OUTAGE_LIMIT_S = 6 * 3600.0        # keep retrying for hours; then say so loudly
 SEND_RETRIES = 12
 OUTCOME_WAIT_S = 10.0              # how long the «Разрешить» answer waits for the real outcome
 DECISION_KIND = "operator_decision"
+WORK_APPROVE_TTL_S = 900.0         # a code is a decision about THIS moment, not a standing permission
+WORK_APPROVE_TRIES = 3
+WORK_NO_CODE = ("Одобрение принимается только с одноразовым кодом из сообщения о решении: "
+                "нажмите «✅ Разрешить» или напишите /work_yes <номер> <код>. Ничего не изменено.")
+WORK_BAD_CODE = "Код одобрения не подходит, устарел или уже использован. Ничего не изменено; дождитесь нового сообщения о решении."
 TERMINAL = ("completed", "completed_with_pending_decisions", "failed", "stopped")
 CTX_MIN, CTX_MAX = 4096, 262144
 
@@ -96,7 +108,16 @@ def predicted_outcome(d: dict | None) -> str:
     return "Команда выполнится в лаборатории в конце текущего шага; итог пришлю сюда."
 
 
-def decision_text(task_id: str, d: dict) -> str:
+def decision_digest(d: dict | None) -> str | None:
+    """What the owner is approving, fixed at the moment the code is issued (argument binding)."""
+    if not d:
+        return None
+    blob = json.dumps({k: d.get(k) for k in ("approval_id", "category", "action", "argv", "executable")},
+                      sort_keys=True, default=str, ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def decision_text(task_id: str, d: dict, code: str | None = None) -> str:
     return (f"⚠️ Решение владельца · задача {task_id}\n"
             f"Категория: {d.get('category')}\n"
             f"Действие: {str(d.get('action'))[:600]}\n"
@@ -105,7 +126,9 @@ def decision_text(task_id: str, d: dict) -> str:
             f"Опасения: {str(d.get('concerns'))[:500]}\n"
             + ("Кнопка «Разрешить» СЛОЕТ проверенный коммит в main. " if d.get("category") == "release_main" else "")
             + "Этот шаг приостановлен, остальные продолжаются. Ваш ответ применится в конце ТЕКУЩЕГО шага "
-            "оператора; фактический итог (выполнено / не выполнено и почему) пришлю сразу.")
+            "оператора; фактический итог (выполнено / не выполнено и почему) пришлю сразу."
+            + (f"\nОдобрение: кнопка «Разрешить» или /work_yes {d.get('approval_id')} {code} "
+               f"(код одноразовый, {int(WORK_APPROVE_TTL_S // 60)} мин)." if code else ""))
 
 
 def receipt_text(rec: dict) -> str:
@@ -198,6 +221,47 @@ class OperatorBridgeMixin:
             else:
                 self.agent_jobs.pop("operator", None)
 
+    # ------------------------------------------------- one-time approval codes (A22-04)
+    def _work_grants(self) -> dict:
+        grants = self.__dict__.get("_work_grants_map")
+        if grants is None:
+            grants = self.__dict__["_work_grants_map"] = {}
+        return grants
+
+    def issue_work_grant(self, person: Person, aid: int, decision: dict | None) -> str:
+        """Mint the single code for decision ``aid``; a fresh announcement replaces any older one."""
+        code = secrets.token_hex(4)
+        self._work_grants()[aid] = {"code": code, "person": person.key, "at": time.time(), "tries": 0,
+                                    "digest": decision_digest(decision)}
+        return code
+
+    def void_work_grant(self, aid: int) -> None:
+        self._work_grants().pop(aid, None)
+
+    def consume_work_grant(self, person: Person, aid: int, code: str, current: dict | None) -> str | None:
+        """None when the approval may proceed (and the code is spent); else the refusal text."""
+        grants = self._work_grants()
+        g = grants.get(aid)
+        if not code:
+            return WORK_NO_CODE
+        if g is None:
+            return WORK_BAD_CODE
+        if time.time() - g["at"] > WORK_APPROVE_TTL_S or g["person"] != person.key:
+            grants.pop(aid, None)
+            return WORK_BAD_CODE
+        if not hmac.compare_digest(str(g["code"]), code):
+            g["tries"] += 1
+            if g["tries"] >= WORK_APPROVE_TRIES:
+                grants.pop(aid, None)
+            return WORK_BAD_CODE
+        grants.pop(aid, None)                       # one-time: spent before anything is decided
+        if current is not None:
+            if current.get("status") not in (None, "PENDING"):
+                return "Это решение уже обработано. Повторное одобрение отклонено."
+            if g["digest"] is not None and decision_digest(current) != g["digest"]:
+                return "Решение изменилось после показа. Одобрение отклонено; дождитесь нового сообщения."
+        return None
+
     async def _decision_of(self, task_id: str, aid: int) -> dict | None:
         if not task_id:
             return None
@@ -222,14 +286,22 @@ class OperatorBridgeMixin:
             job.cancel()
             return "✋ Оператор остановлен; в лаборатории остаётся только то, что уже закоммичено."
         if command in {"/work_yes", "/work_no"}:
-            if not arg.strip().isdecimal():
-                return "Укажите номер решения: /work_yes 12"
-            aid = int(arg.strip())
+            head, _, code = arg.strip().partition(" ")
+            code = code.strip()
+            if not head.isdecimal():
+                return "Укажите номер решения и код: /work_yes 12 <код>"
+            aid = int(head)
             row = await self.core.approval(aid)
             if not row or row.get("kind") != DECISION_KIND:
                 return "Это не решение оператора. Ничего не изменено."
             last = self.store.get("operator_last_task", "")
             before = await self._decision_of(last, aid)
+            if command == "/work_yes":
+                refusal = self.consume_work_grant(person, aid, code, before)
+                if refusal:
+                    return refusal
+            else:
+                self.void_work_grant(aid)
             await self.core.decide_approval(aid, command == "/work_yes", "owner-pult")
             if command == "/work_no":
                 return "⛔ Отклонено. Оператор этот шаг пропускает и докладывает."
@@ -361,8 +433,9 @@ class OperatorBridgeMixin:
                     aid = d.get("approval_id")
                     if d.get("status") == "PENDING" and aid not in announced:
                         announced.add(aid)
-                        await self._send_reliable(person, decision_text(task_id, d), [[
-                            self.button(person, "✅ Разрешить", f"/work_yes {aid}"),
+                        code = self.issue_work_grant(person, aid, d)
+                        await self._send_reliable(person, decision_text(task_id, d, code), [[
+                            self.button(person, "✅ Разрешить", f"/work_yes {aid} {code}"),
                             self.button(person, "⛔ Отклонить", f"/work_no {aid}")]])
                     elif d.get("status") not in (None, "PENDING") and aid in announced and aid not in outcomes:
                         outcomes.add(aid)
