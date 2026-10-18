@@ -14,6 +14,7 @@ import contextlib
 import copy
 import hashlib
 import json
+import logging
 import os
 import re
 import secrets
@@ -979,6 +980,39 @@ class DirectGenService:
         if not path.is_file():
             raise DirectGenError(404, "result_missing", "result file is gone from storage")
         return path
+
+    # ---------- delete forever ----------
+
+    def delete(self, participant: str, job_id: str) -> dict:
+        """Owner's «Удалить навсегда»: removes the job folder (result, inputs, work) and the record from this PC.
+        Refused while the job is running. Does not touch anything already sent to Telegram."""
+        participant = valid_participant(participant)
+        if participant != "owner":
+            raise DirectGenError(403, "owner_only", "удалять с ПК может только владелец")
+        job = self.get(participant, job_id)  # 404 for unknown / malformed ids
+        task = self._tasks.get(job_id)
+        if job["status"] not in TERMINAL or (task is not None and not task.done()):
+            raise DirectGenError(409, "job_running", "задача ещё выполняется — сначала остановите её")
+        jobs_root = (self.store.participant_dir(participant) / "jobs").resolve()
+        folder = self.store.job_dir(participant, job_id)
+        if folder.is_symlink():
+            raise DirectGenError(400, "unsafe_path", "путь задачи небезопасен")
+        resolved = folder.resolve()
+        if resolved.parent != jobs_root or resolved.name != job_id:
+            raise DirectGenError(400, "unsafe_path", "путь задачи небезопасен")
+        # Never follow links out of the folder: unlink symlinks, rmtree real directories.
+        def _onerror(func, path, _exc):
+            try:
+                os.chmod(path, 0o700)
+                func(path)
+            except OSError:
+                pass
+        shutil.rmtree(resolved, onerror=_onerror)
+        if resolved.exists():
+            raise DirectGenError(500, "delete_failed", "не удалось удалить файлы с ПК")
+        logging.getLogger("bcc.direct_gen").info("direct_gen.delete job=%s kind=%s model=%s at=%s", job_id,
+                                                  job.get("kind", ""), job.get("model", ""), now_iso())
+        return {"ok": True, "deleted": True, "job_id": job_id}
 
     # ---------- STOP ----------
 

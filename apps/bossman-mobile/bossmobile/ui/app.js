@@ -317,6 +317,39 @@
     b.addEventListener('click', (e) => { e.stopPropagation(); toPult(kind, jobId, b); }); return b;
   }
 
+  /* Удалить навсегда с ПК: подтверждение -> POST /{kind}/jobs/{id}/delete -> элемент исчезает без перезагрузки */
+  function confirmDelete() {
+    return new Promise((resolve) => {
+      const wrap = el('div', 'sheet confirm'); wrap.setAttribute('role', 'alertdialog'); wrap.setAttribute('aria-modal', 'true');
+      const card = el('div', 'confirm-card'); card.appendChild(el('p', '', 'Удалить навсегда с ПК? Это нельзя отменить.'));
+      const row = el('div', 'row'); const no = el('button', 'btn', 'Отмена'); no.type = 'button'; no.dataset.act = 'cancel';
+      const yes = el('button', 'btn destroy', 'Удалить'); yes.type = 'button'; yes.dataset.act = 'confirm';
+      const done = (v) => { wrap.remove(); resolve(v); };
+      no.addEventListener('click', (e) => { e.stopPropagation(); done(false); }); yes.addEventListener('click', (e) => { e.stopPropagation(); done(true); });
+      wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
+      row.append(no, yes); card.appendChild(row); wrap.appendChild(card); document.body.appendChild(wrap); no.focus();
+    });
+  }
+  async function deleteForever(kind, jobId, btn) {
+    if (btn && btn.disabled) return; tap();
+    if (!(await confirmDelete())) return;
+    if (btn) btn.disabled = true;
+    try {
+      await api('POST', `/${kind}/jobs/${jobId}/delete`);
+      document.querySelectorAll(`[data-job="${jobId}"]`).forEach((n) => n.remove());
+      if (viewing && viewing.job_id === jobId) { viewing = null; $('viewer').hidden = true; }
+      if (vviewing && vviewing.job_id === jobId) { vviewing = null; const v = $('vviewer-video'); try { v.pause(); } catch { /* */ } v.removeAttribute('src'); $('vviewer').hidden = true; }
+      toast('Удалено с ПК');
+      if (kind === 'photo') { const g = $('gallery'); if (g && !g.children.length) g.appendChild(el('p', 'muted', 'Пока пусто')); loadGallery(); loadQueue(); }
+      else { loadVideos(); loadVQueue(); }
+    } catch (err) { toast(err && err.message ? err.message : 'Не удалось удалить с ПК'); }
+    finally { if (btn) btn.disabled = false; }
+  }
+  function deleteButton(kind, jobId) {
+    const b = el('button', 'btn small danger-text', 'Удалить навсегда'); b.type = 'button'; b.setAttribute('aria-label', 'Удалить навсегда с ПК');
+    b.addEventListener('click', (e) => { e.stopPropagation(); deleteForever(kind, jobId, b); }); return b;
+  }
+
   /* ================= Фото ================= */
   async function ensurePhotoModels() { if (!S.photoModels.length) S.photoModels = (await api('GET', '/photo/models')).models || []; }
   async function openPhoto() {
@@ -559,7 +592,8 @@
   function showPhotoResult(card, final) {
     const img = el('img'); img.src = `/m/api/photo/jobs/${final.job_id}/file`; img.alt = final.raw_prompt || ''; img.addEventListener('click', () => openViewer(final)); card.appendChild(img);
     const b = facelockBadge(final); if (b) card.appendChild(b);
-    card.appendChild(pultButton('photo', final.job_id));
+    card.dataset.job = final.job_id;
+    card.appendChild(pultButton('photo', final.job_id)); card.appendChild(deleteButton('photo', final.job_id));
     loadGallery();
   }
   async function watchPhotoJob(job) {          // background: never awaited by the form
@@ -665,7 +699,7 @@
     stats.appendChild(el('span', '', u.wait_s == null ? `(время ожидания неизвестно: впереди задача без оценки${total})` : `(≈ ждать ${fmtMin(u.wait_s)}${total}, оценка)`));
   }
   function renderQueueItem(j) {
-    const u = j.ui || {}; const m = (S.photoModels || []).find((x) => x.id === j.model); const card = el('div', 'qitem ' + (u.state || ''));
+    const u = j.ui || {}; const m = (S.photoModels || []).find((x) => x.id === j.model); const card = el('div', 'qitem ' + (u.state || '')); card.dataset.job = j.job_id;
     const head = el('div', 'row'); head.append(el('span', 'stage', m ? m.label : j.model));
     if (u.state === 'running' || u.state === 'queued') { const c = el('button', 'btn small danger', 'Стоп'); c.type = 'button'; c.addEventListener('click', async () => { try { await api('POST', `/photo/jobs/${j.job_id}/cancel`); loadQueue(); } catch (err) { toast(err.message); } }); head.append(c); }
     card.appendChild(head);
@@ -677,7 +711,7 @@
     } else if (u.state === 'done') {
       stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
       const flq = facelockText(j); if (flq) stats.appendChild(el('span', flq.ok ? '' : 'muted', flq.text));
-      if (j.result && String(j.result.mime || '').startsWith('image/')) head.append(pultButton('photo', j.job_id));
+      if (j.result && String(j.result.mime || '').startsWith('image/')) { head.append(pultButton('photo', j.job_id)); card.appendChild(deleteButton('photo', j.job_id)); }
       if (j.result && String(j.result.mime || '').startsWith('image/')) { card.classList.add('has-thumb'); const img = el('img', 'qthumb'); img.loading = 'lazy'; img.src = `/m/api/photo/jobs/${j.job_id}/file`; img.alt = ''; img.addEventListener('click', () => openViewer(j)); card.appendChild(img); }
     } else { stats.appendChild(el('span', '', STAGES[j.stage || j.status] || j.status)); }
     if (j.params) stats.appendChild(el('span', 'muted', `${j.params.width}×${j.params.height} · ${j.params.steps} шагов`));
@@ -699,7 +733,7 @@
     try {
       const r = await api('GET', '/photo/jobs'); const g = $('gallery'); g.replaceChildren();
       const done = (r.jobs || []).filter((j) => j.status === 'completed' && j.result && String(j.result.mime || '').startsWith('image/'));
-      done.forEach((j) => { const b = el('button', 'thumb'); const img = el('img'); img.loading = 'lazy'; img.src = `/m/api/photo/jobs/${j.job_id}/file`; img.alt = j.raw_prompt || ''; b.appendChild(img); b.addEventListener('click', () => openViewer(j)); g.appendChild(b); });
+      done.forEach((j) => { const b = el('button', 'thumb'); b.dataset.job = j.job_id; const img = el('img'); img.loading = 'lazy'; img.src = `/m/api/photo/jobs/${j.job_id}/file`; img.alt = j.raw_prompt || ''; b.appendChild(img); b.addEventListener('click', () => openViewer(j)); g.appendChild(b); });
       if (!done.length) g.appendChild(el('p', 'muted', 'Пока пусто'));
     } catch { /* */ }
   }
@@ -717,6 +751,7 @@
   }
   $('viewer-close').addEventListener('click', () => { $('viewer').hidden = true; });
   $('viewer-pult').addEventListener('click', () => { if (viewing) toPult('photo', viewing.job_id, $('viewer-pult')); });
+  $('viewer-delete').addEventListener('click', () => { if (viewing) deleteForever('photo', viewing.job_id, $('viewer-delete')); });
   $('viewer-unlocked').addEventListener('click', () => {      // flip between the locked result and the model's own picture
     if (!viewing) return; const un = $('viewer-unlocked'); const on = un.dataset.on !== '1';
     un.dataset.on = on ? '1' : ''; un.textContent = on ? 'С FaceLock' : 'До FaceLock';
@@ -1024,7 +1059,7 @@
   }
   const KIND_RU = { photo: 'фото', video: 'видео', faceswap: 'замена лица' };
   function renderVQueueItem(j) {
-    const u = j.ui || {}; const card = el('div', 'qitem ' + (u.state || ''));
+    const u = j.ui || {}; const card = el('div', 'qitem ' + (u.state || '')); card.dataset.job = j.job_id;
     const head = el('div', 'row'); const name = el('span', 'stage', jobLabel(j)); name.appendChild(el('span', 'kind-tag', KIND_RU[j.kind] || j.kind)); head.append(name);
     if ((u.state === 'running' || u.state === 'queued') && j.kind !== 'photo') { const c = el('button', 'btn small danger', 'Стоп'); c.type = 'button'; c.addEventListener('click', async () => { tap(); try { await api('POST', `/video/jobs/${j.job_id}/cancel`); loadVQueue(); } catch (err) { toast(err.message); } }); head.append(c); }
     card.appendChild(head);
@@ -1036,7 +1071,7 @@
       renderQueued(u, stats, true);
     } else if (u.state === 'done') {
       stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
-      if (j.result && /^video\//.test(String(j.result.mime || ''))) { const b = el('button', 'btn small primary'); b.type = 'button'; b.append(icon('play'), document.createTextNode('Смотреть')); b.addEventListener('click', () => openVViewer(j)); head.append(b, pultButton('video', j.job_id)); }
+      if (j.result && /^video\//.test(String(j.result.mime || ''))) { const b = el('button', 'btn small primary'); b.type = 'button'; b.append(icon('play'), document.createTextNode('Смотреть')); b.addEventListener('click', () => openVViewer(j)); head.append(b, pultButton('video', j.job_id)); card.appendChild(deleteButton('video', j.job_id)); }
     } else {
       stats.appendChild(el('span', '', STAGES[j.stage || j.status] || j.status));
       if (j.error) card.appendChild(el('div', 'err', typeof j.error === 'string' ? j.error : (j.error.message || j.error.code || '')));
@@ -1065,13 +1100,13 @@
       const r = await api('GET', '/video/jobs'); const box = $('video-list'); box.replaceChildren();
       const done = (r.jobs || []).filter((j) => j.status === 'completed' && j.result && /^video\//.test(String(j.result.mime || '')));
       done.forEach((j) => {
-        const c = el('div', 'card vcard'); const res = j.result || {};
+        const c = el('div', 'card vcard'); c.dataset.job = j.job_id; const res = j.result || {};
         c.appendChild(el('b', '', jobLabel(j)));
         if (j.raw_prompt) c.appendChild(el('div', 'vp', j.raw_prompt));
         c.appendChild(el('div', 'muted small', [res.width && `${res.width}×${res.height}`, res.duration_s && `${Number(res.duration_s).toFixed(1)} с`, res.codec, res.bytes && mb(res.bytes), (j.created_at || '').replace('T', ' ').slice(0, 16)].filter(Boolean).join(' · ')));
         const row = el('div', 'row'); const play = el('button', 'btn small primary'); play.type = 'button'; play.append(icon('play'), document.createTextNode('Смотреть')); play.addEventListener('click', () => openVViewer(j));
         const dl = el('a', 'btn small'); dl.href = `/m/api/video/jobs/${j.job_id}/file?download=1`; dl.setAttribute('download', ''); dl.append(icon('down'), document.createTextNode('Скачать'));
-        row.append(play, dl, pultButton('video', j.job_id)); c.appendChild(row); box.appendChild(c);
+        row.append(play, dl, pultButton('video', j.job_id)); c.appendChild(row); c.appendChild(deleteButton('video', j.job_id)); box.appendChild(c);
       });
       if (!done.length) box.appendChild(el('p', 'muted', 'Пока нет готовых видео'));
     } catch { /* */ }
@@ -1089,6 +1124,7 @@
   }
   $('vviewer-close').addEventListener('click', () => { const v = $('vviewer-video'); v.pause(); v.removeAttribute('src'); v.load(); $('vviewer').hidden = true; });
   $('vviewer-pult').addEventListener('click', () => { if (vviewing) toPult('video', vviewing.job_id, $('vviewer-pult')); });
+  $('vviewer-delete').addEventListener('click', () => { if (vviewing) deleteForever('video', vviewing.job_id, $('vviewer-delete')); });
   $('vviewer-save').addEventListener('click', async () => {
     if (!vviewing) return; tap(); const url = `/m/api/video/jobs/${vviewing.job_id}/file`; const res = vviewing.result || {};
     try {

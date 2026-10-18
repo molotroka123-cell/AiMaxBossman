@@ -226,7 +226,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 32px; 
 .viewer-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(14px + var(--sab));
   background: linear-gradient(transparent, rgba(0, 0, 0, .85) 30%); color: #fff; }
 .viewer-meta { margin: 0 0 10px; font-size: 13px; color: rgba(255, 255, 255, .8); max-height: 4.5em; overflow: hidden; }
-.viewer-actions { display: flex; gap: 10px; } .viewer-actions .btn:first-child { flex: 1; }
+.viewer-actions { display: flex; flex-wrap: wrap; gap: 10px; } .viewer-actions .btn:first-child { flex: 1; }
 
 /* ---------- панель ---------- */
 .panel-wrap { flex: 1; min-height: 0; position: relative; }
@@ -330,3 +330,11 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 32px; 
 .facelock-badge { font-weight: 600; }
 .fl-badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-top: 6px; color: var(--local); background: var(--local-bg); }
 .fl-badge.skipped { color: var(--accent); background: var(--accent-soft); }
+
+/* Удалить навсегда с ПК */
+.btn.danger-text { color: #ff8a80; }
+.btn.small.danger-text { color: #c62828; }
+.confirm-card { width: 100%; max-width: 420px; margin: auto; padding: 22px 20px 18px; border-radius: 18px; background: var(--bg); }
+.confirm-card p { margin: 0 0 16px; font-size: 17px; line-height: 1.35; }
+.confirm-card .row { display: flex; gap: 10px; } .confirm-card .row .btn { flex: 1; }
+.btn.destroy { background: #c62828; color: #fff; border-color: transparent; }

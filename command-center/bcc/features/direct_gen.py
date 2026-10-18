@@ -5,6 +5,7 @@
   POST /direct-gen/jobs                   create a job (mode DIRECT: prompt goes to the model as written)
   GET  /direct-gen/jobs, /jobs/{id}       this participant's history / one job
   POST /direct-gen/jobs/{id}/cancel       STOP (queued or mid-run; interrupts that ComfyUI prompt only)
+  DELETE /direct-gen/jobs/{id}            owner only: delete a finished job's files + record from the PC forever (409 while running)
   POST /direct-gen/jobs/{id}/retry        same raw prompt and SAME seed
   GET  /direct-gen/jobs/{id}/file         the finished picture/video (?variant=unlocked: the picture before FaceLock)
   POST /direct-gen/jobs/{id}/send-to-pult owner only, on request: this ONE finished file to the Пульт as a Telegram document
@@ -133,6 +134,12 @@ async def cancel(job_id: str, request: Request, x_participant: str | None = Head
 @router.post("/jobs/{job_id}/retry", status_code=202)
 async def retry(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
     return await _guard(_svc(request).retry(_who(x_participant), job_id))
+
+
+@router.delete("/jobs/{job_id}")
+async def delete_job(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
+    """Owner only, finished jobs only: removes the job's files and record from this PC for good (409 while running)."""
+    return await _guard(_wrap(lambda: _svc(request).delete(_who(x_participant), job_id)))
 
 
 @router.post("/jobs/{job_id}/send-to-pult")

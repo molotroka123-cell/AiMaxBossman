@@ -556,6 +556,19 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def v_to_pult(job_id: str, _=Depends(session)):
         return await to_pult(job_id)
 
+    async def delete_forever(job_id: str) -> dict:
+        """Owner's «Удалить навсегда»: Bossman removes the job's files and record from the PC (refused while it runs)."""
+        await call("DELETE", f"/api/direct-gen/jobs/{_jid(job_id)}", timeout=60)
+        return {"ok": True, "deleted": True}
+
+    @app.post("/m/api/photo/jobs/{job_id}/delete")
+    async def p_delete(job_id: str, _=Depends(session)):
+        return await delete_forever(job_id)
+
+    @app.post("/m/api/video/jobs/{job_id}/delete")
+    async def v_delete(job_id: str, _=Depends(session)):
+        return await delete_forever(job_id)
+
     EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm",
            "video/quicktime": "mov", "video/x-matroska": "mkv", "image/gif": "gif"}
 
