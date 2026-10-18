@@ -81,7 +81,7 @@ def test_private_or_denied_urls_refused(url):
 
 
 @pytest.mark.parametrize("q", [
-    "my key sk-abcdefghijklmnop1234", "password: hunter2hunter2", str(uuid.uuid4()),
+    "my key sk-abcdefghijklmnop1234", "password: hunter2hunter2", str(uuid.uuid4()),  # ci-secret-scan: allow (fake canary, alphabet run)
     "see C:\\Users\\asd\\secrets.txt", "mail bob@example.com", "call +7 912 345 67 89",
     "http://192.168.0.2/admin", "", "x" * 500])
 def test_sensitive_queries_refused(q):
@@ -200,8 +200,8 @@ def test_repo_files_do_not_contain_the_real_key():
             if f.is_file():
                 texts.append(f.read_text("utf-8", errors="ignore"))
     try:
-        out = subprocess.run(["git", "diff", "HEAD"], cwd=ROOT, capture_output=True, text=True, timeout=60)
-        texts.append(out.stdout)
+        out = subprocess.run(["git", "diff", "HEAD"], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="ignore", timeout=60)
+        texts.append(out.stdout or "")
     except (OSError, subprocess.SubprocessError):
         pass
     uuid_re = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
