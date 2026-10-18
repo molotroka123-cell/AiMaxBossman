@@ -3,12 +3,12 @@
 const API = "/api/v1";
 const ROLES = ["viewer", "analyst", "compliance", "owner"];
 const SECTIONS = [
-  ["overview", "Карта"], ["conflicts", "Конфликты"], ["tenders", "Закупки"], ["fit", "Компания"], ["compliance", "Комплаенс"],
-  ["finance", "Финансы"], ["deals", "Сделки"], ["learning", "Аналитика"], ["sources", "Источники"], ["approvals", "Одобрения"],
+  ["overview", T("Карта")], ["conflicts", T("Конфликты")], ["tenders", T("Закупки")], ["fit", T("Компания")], ["compliance", T("Комплаенс")],
+  ["finance", T("Финансы")], ["deals", T("Сделки")], ["learning", T("Аналитика")], ["sources", T("Источники")], ["approvals", T("Одобрения")],
 ];
 const S = { token: "", role: "viewer", view: "overview", tenders: null, sel: null, filters: { f: "all", q: "", category: "", country: "" },
   lastAssessment: {}, health: null, cache: {}, mapLayer: "conflict", mapSel: null, mapApi: null };
-try { S.token = sessionStorage.getItem("wt_token") || ""; S.role = sessionStorage.getItem("wt_role") || "viewer"; } catch (e) { /* storage may be blocked */ }
+try { S.token = sessionStorage.getItem("wt_token") || ""; S.role = sessionStorage.getItem("wt_role") || "viewer"; const v = sessionStorage.getItem("wt_view"); if (v && SECTIONS.some((x) => x[0] === v)) S.view = v; } catch (e) { /* storage may be blocked */ }
 
 /* ---------- DOM helpers ---------- */
 function h(tag, attrs, ...kids) {
@@ -31,36 +31,36 @@ const STATUS_CLS = { PASS: "b-ok", BLOCKED: "b-bad", REVIEW_REQUIRED: "b-info", 
   DISABLED: "b-grey", NOT_RUN: "b-grey", NOT_CONNECTED: "b-warn", DEMO: "b-warn", OK: "b-ok", WITHIN_LIMIT: "b-ok", MATCHED_DEAL: "b-warn", OVER_LIMIT: "b-bad",
   pending: "b-warn", approved: "b-ok", rejected: "b-bad" };
 /* Display labels only: enum values sent to / received from the API stay unchanged. */
-const STATUS_RU = { PASS: "пройдено", BLOCKED: "заблокировано", REVIEW_REQUIRED: "нужна проверка", EASY: "лёгкий", MEDIUM: "средний", HARD: "сложный",
-  LIVE: "живые данные", DISABLED: "отключён", NOT_RUN: "не запускался", NOT_CONNECTED: "не подключён", DEMO: "ДЕМО", OK: "OK", WITHIN_LIMIT: "в пределах лимита",
-  MATCHED_DEAL: "сделка состыкована", OVER_LIMIT: "сверх лимита", CLEAR: "чисто", POSSIBLE_MATCH: "возможное совпадение", MATCH: "совпадение", UNKNOWN: "неизвестно",
-  PROPOSAL: "предложение", INSUFFICIENT_DATA: "мало данных", TODO: "сделать", REQUIRED: "обязательно",
-  pending: "ожидает", approved: "одобрено", rejected: "отклонено", approval_required: "нужно одобрение", cleared: "снято",
-  open: "открыт", closed: "закрыт", cancelled: "отменён", awarded: "присуждён", active: "активен", planned: "запланирован" };
+const STATUS_RU = { PASS: T("пройдено"), BLOCKED: T("заблокировано"), REVIEW_REQUIRED: T("нужна проверка"), EASY: T("лёгкий"), MEDIUM: T("средний"), HARD: T("сложный"),
+  LIVE: T("живые данные"), DISABLED: T("отключён"), NOT_RUN: T("не запускался"), NOT_CONNECTED: T("не подключён"), DEMO: T("ДЕМО"), OK: "OK", WITHIN_LIMIT: T("в пределах лимита"),
+  MATCHED_DEAL: T("сделка состыкована"), OVER_LIMIT: T("сверх лимита"), CLEAR: T("чисто"), POSSIBLE_MATCH: T("возможное совпадение"), MATCH: T("совпадение"), UNKNOWN: T("неизвестно"),
+  PROPOSAL: T("предложение"), INSUFFICIENT_DATA: T("мало данных"), TODO: T("сделать"), REQUIRED: T("обязательно"),
+  pending: T("ожидает"), approved: T("одобрено"), rejected: T("отклонено"), approval_required: T("нужно одобрение"), cleared: T("снято"),
+  open: T("открыт"), closed: T("закрыт"), cancelled: T("отменён"), awarded: T("присуждён"), active: T("активен"), planned: T("запланирован") };
 const ru = (s) => (s != null && STATUS_RU[s] != null ? STATUS_RU[s] : s);
 const sb = (s) => badge(ru(s), STATUS_CLS[s]);
-const yn = (v) => (v === true ? "да" : v === false ? "нет" : txt(v));
-const ROLE_RU = { viewer: "наблюдатель", analyst: "аналитик", compliance: "комплаенс", owner: "владелец" };
-const WM_RU = { "DEMO / NOT LIVE": "ДЕМО / НЕ ЖИВЫЕ ДАННЫЕ" };
+const yn = (v) => (v === true ? T("да") : v === false ? T("нет") : txt(v));
+const ROLE_RU = { viewer: T("наблюдатель"), analyst: T("аналитик"), compliance: T("комплаенс"), owner: T("владелец") };
+const WM_RU = { "DEMO / NOT LIVE": T("ДЕМО / НЕ ЖИВЫЕ ДАННЫЕ") };
 /* Russian labels for form fields and result keys; the field name sent to the API stays the key. */
-const LBL = { name: "Название компании", country: "Страна", registered: "Компания зарегистрирована", vat_id: "VAT / ИНН", sam_uei: "SAM UEI",
-  cpv_capabilities: "Коды CPV компании", certificates: "Сертификаты", min_prep_days: "Мин. дней на подготовку", capital_limit_usd: "Лимит капитала, USD",
-  base_currency: "Базовая валюта", past_performance: "Опыт исполнения контрактов",
-  currency: "Валюта", purchase: "Закупочная цена", freight: "Фрахт", insurance: "Страховка", duties_pct: "Пошлины, %", certification: "Сертификация",
-  financing: "Финансирование", risk_reserve_pct: "Резерв на риски, %", overhead: "Накладные расходы", bid_price: "Цена заявки", supplier_prepay_pct: "Предоплата поставщику, %",
-  delivery_day: "День поставки", acceptance_day: "День приёмки", customer_pay_delay_days: "Отсрочка оплаты заказчиком, дней", vat_import: "Импортный НДС",
-  vat_recovery_days: "Возврат НДС, дней", logistics_cost: "Логистика", buyer_prepay_pct: "Предоплата заказчика, %", annual_rate: "Годовая ставка (доля, 0.12 = 12 %)",
-  order_confirmed: "Заказ подтверждён", supplier_contract_signed: "Контракт с поставщиком подписан", total: "Итого", landed_cost: "Себестоимость с доставкой",
-  duties: "Пошлины", risk_reserve: "Резерв на риски", logistics: "Логистика", vat: "НДС",
-  title: "Название сделки", tender_key: "Ключ тендера", buyer_country: "Страна заказчика", goods: "Товар", order_value: "Сумма заказа",
-  s_name: "Поставщик: название", s_country: "Поставщик: страна (ISO)", s_cpv: "Поставщик: префиксы CPV (через запятую)", s_url: "Поставщик: ссылка на источник",
-  s_confirmed: "Поставщик подтверждён", s_notes: "Поставщик: заметки",
-  decision: "Решение", reasons: "Причины (мин. 3 символа)", result: "Исход", actual_margin_pct: "Фактическая маржа, %", note: "Заметка" };
+const LBL = { name: T("Название компании"), country: T("Страна"), registered: T("Компания зарегистрирована"), vat_id: T("VAT / ИНН"), sam_uei: "SAM UEI",
+  cpv_capabilities: T("Коды CPV компании"), certificates: T("Сертификаты"), min_prep_days: T("Мин. дней на подготовку"), capital_limit_usd: T("Лимит капитала, USD"),
+  base_currency: T("Базовая валюта"), past_performance: T("Опыт исполнения контрактов"),
+  currency: T("Валюта"), purchase: T("Закупочная цена"), freight: T("Фрахт"), insurance: T("Страховка"), duties_pct: T("Пошлины, %"), certification: T("Сертификация"),
+  financing: T("Финансирование"), risk_reserve_pct: T("Резерв на риски, %"), overhead: T("Накладные расходы"), bid_price: T("Цена заявки"), supplier_prepay_pct: T("Предоплата поставщику, %"),
+  delivery_day: T("День поставки"), acceptance_day: T("День приёмки"), customer_pay_delay_days: T("Отсрочка оплаты заказчиком, дней"), vat_import: T("Импортный НДС"),
+  vat_recovery_days: T("Возврат НДС, дней"), logistics_cost: T("Логистика"), buyer_prepay_pct: T("Предоплата заказчика, %"), annual_rate: T("Годовая ставка (доля, 0.12 = 12 %)"),
+  order_confirmed: T("Заказ подтверждён"), supplier_contract_signed: T("Контракт с поставщиком подписан"), total: T("Итого"), landed_cost: T("Себестоимость с доставкой"),
+  duties: T("Пошлины"), risk_reserve: T("Резерв на риски"), logistics: T("Логистика"), vat: T("НДС"),
+  title: T("Название сделки"), tender_key: T("Ключ тендера"), buyer_country: T("Страна заказчика"), goods: T("Товар"), order_value: T("Сумма заказа"),
+  s_name: T("Поставщик: название"), s_country: T("Поставщик: страна (ISO)"), s_cpv: T("Поставщик: префиксы CPV (через запятую)"), s_url: T("Поставщик: ссылка на источник"),
+  s_confirmed: T("Поставщик подтверждён"), s_notes: T("Поставщик: заметки"),
+  decision: T("Решение"), reasons: T("Причины (мин. 3 символа)"), result: T("Исход"), actual_margin_pct: T("Фактическая маржа, %"), note: T("Заметка") };
 const lbl = (k) => LBL[k] || k;
-const GATE_RU = { jurisdiction: "Юрисдикция", controlled_goods: "Контролируемые товары", deadline: "Срок", currency: "Валюта",
-  eligibility: "Квалификация", documents: "Документы", counterparty_screening: "Проверка контрагента", capital: "Капитал" };
+const GATE_RU = { jurisdiction: T("Юрисдикция"), controlled_goods: T("Контролируемые товары"), deadline: T("Срок"), currency: T("Валюта"),
+  eligibility: T("Квалификация"), documents: T("Документы"), counterparty_screening: T("Проверка контрагента"), capital: T("Капитал") };
 const gname = (id) => GATE_RU[id] || id;
-const COMP_RU = { qualification: "Квалификация", suppliers: "Поставщики", capital: "Капитал", time: "Время", experience: "Опыт", risk: "Риск" };
+const COMP_RU = { qualification: T("Квалификация"), suppliers: T("Поставщики"), capital: T("Капитал"), time: T("Время"), experience: T("Опыт"), risk: T("Риск") };
 function stateBox(kind, msg) { return h("div", { class: "state" + (kind === "err" ? " err" : ""), role: kind === "err" ? "alert" : "status" }, msg); }
 function msgBox(kind, msg) { return h("div", { class: "msg " + kind, role: kind === "err" ? "alert" : "status" }, msg); }
 function kv(pairs) {
@@ -112,7 +112,7 @@ function fmtDetail(d) {
 async function raw(method, path, body) {
   const res = await fetch(API + path, { method, headers: Object.assign({ Authorization: "Bearer " + S.token }, body !== undefined ? { "Content-Type": "application/json" } : {}),
     body: body !== undefined ? JSON.stringify(body) : undefined });
-  if (res.status === 401) { showGate("Токен не принят (401). Введите токен роли."); throw new ApiError(401, { code: "TOKEN_REQUIRED", message: "нужен токен роли" }); }
+  if (res.status === 401) { showGate(T("Токен не принят (401). Введите токен роли.")); throw new ApiError(401, { code: "TOKEN_REQUIRED", message: T("нужен токен роли") }); }
   return res;
 }
 /* Requests are serialized: the backend shares one sqlite connection across threads and races on concurrent requests (observed: "bad parameter or other API misuse"). */
@@ -137,26 +137,154 @@ const POST = (p, b) => api("POST", p, b === undefined ? {} : b);
 const FETCH = { openT: () => GET("/tenders?status=open&limit=1000"), allT: () => GET("/tenders?limit=1"), layers: () => GET("/map/layers"),
   conf: () => GET("/conflicts"), src: () => GET("/sources/status"), sanc: () => GET("/sanctions/status"), fx: () => GET("/fx") };
 function cached(k) { return S.cache[k] || (S.cache[k] = FETCH[k]().catch((e) => { delete S.cache[k]; throw e; })); }
-const fmtN = (n) => (typeof n === "number" && isFinite(n) ? n.toLocaleString("ru-RU", { maximumFractionDigits: 0 }) : "—");
+const fmtN = (n) => (typeof n === "number" && isFinite(n) ? n.toLocaleString(WT_LANG === "en" ? "en-GB" : "ru-RU", { maximumFractionDigits: 0 }) : "—");
+
+/* ---------- language + original / translation (T(), Tf(), srvT(), WT_LANG come from i18n.js) ----------
+   Original text and its machine translation are ALWAYS two separate elements, each with its own language tag. A translation exists only
+   when the server returned one (status TRANSLATED); otherwise the reader sees the original and an explicit "no translation" note. */
+S.trmode = (() => { try { const v = localStorage.getItem("wt_trmode"); return v === "orig" || v === "tr" ? v : "both"; } catch (e) { return "both"; } })();
+S.tr = new Map();       // "<target>|<original text>" -> server record {status, source_lang, translation, model, reason}
+S.trInfo = null;        // last /translate/status-like block (limits, usage, cost)
+const uniqT = (a) => [...new Set(a.map((x) => (x == null ? "" : String(x).trim())).filter(Boolean))];
+const trKey = (t) => WT_LANG + "|" + t;
+const TR_DONE = ["TRANSLATED", "SAME_LANGUAGE", "EMPTY"];
+function applyTrMode() {
+  document.body.dataset.trmode = S.trmode;
+  for (const b of document.querySelectorAll("#trmode button")) { const on = b.dataset.m === S.trmode; b.className = on ? "on" : ""; b.setAttribute("aria-pressed", String(on)); }
+}
+function setTrMode(m) { S.trmode = m; try { localStorage.setItem("wt_trmode", m); } catch (e) { /* storage may be blocked */ } applyTrMode(); }
+function setLang(l) {
+  if (l === WT_LANG) return;
+  try { localStorage.setItem("wt_lang", l); sessionStorage.setItem("wt_view", S.view); } catch (e) { /* storage may be blocked */ }
+  location.reload();
+}
+async function trLookup(texts) {                      // language tags + CACHED translations only: no model call, no spend
+  const need = uniqT(texts).filter((t) => !S.tr.has(trKey(t)));
+  for (let i = 0; i < need.length; i += 60) {
+    const part = need.slice(i, i + 60);
+    try {
+      const d = await POST("/translate/lookup", { texts: part, target: WT_LANG });
+      S.trInfo = d;
+      part.forEach((t, k) => { if (d.items[k]) S.tr.set(trKey(t), d.items[k]); });
+    } catch (e) { if (e.status === 401) return; break; }
+  }
+}
+async function trRun(texts) {                         // owner click: machine translation through free Bossman routes
+  const part = uniqT(texts).slice(0, 60);
+  const d = await POST("/translate", { texts: part, target: WT_LANG });
+  part.forEach((t, k) => { if (d.items[k]) S.tr.set(trKey(t), d.items[k]); });
+  S.trInfo = d;
+  return d;
+}
+const ltag = (code, kind, cls) => h("span", { class: "ltag " + (cls || "") }, (code ? String(code).toUpperCase() : "??") + " · " + kind);
+function dual(text, opts) {
+  opts = opts || {};
+  const src = text == null ? "" : String(text).trim();
+  if (!src) return h("span", {}, "—");
+  if (opts.keep) {                                    // organisation names: never translated, shown as the original only
+    return h("span", { class: "keep" }, h("span", { class: "otxt" }, src), " ", h("span", { class: "ltag keepnote", title: T(T("Названия организаций не переводятся")) }, T(T("оригинал · не переводится"))));
+  }
+  const rec = S.tr.get(trKey(src)) || null;
+  const lang = opts.lang || (rec && rec.source_lang) || null;
+  if (lang === WT_LANG || (rec && rec.status === "SAME_LANGUAGE")) return h("span", { class: "otxt", lang: WT_LANG }, src);   // already in the UI language: nothing to translate
+  const done = rec && rec.status === "TRANSLATED";
+  const box = h("div", { class: "dual" + (done ? " has-tr" : "") });
+  box.append(h("div", { class: "orig" }, ltag(lang, T(T("оригинал"))), h("span", { class: "otxt", lang: lang || null }, src)));
+  const tr = h("div", { class: "trans" + (done ? "" : " none") });
+  const target = WT_LANG.toUpperCase();
+  if (done) {
+    tr.append(h("span", { class: "ltag t" }, T(T("Перевод")) + " → " + target + " · " + T(T("машинный перевод")) + (rec.model ? " · " + rec.model : "")),
+      h("span", { class: "ttxt", lang: WT_LANG }, rec.translation));
+  } else {
+    const note = h("span", { class: "mut" }, T(T("перевода нет")) + (rec && rec.reason && rec.status !== "NOT_TRANSLATED" ? " — " + (WT_LANG === "en" && srvT(rec.reason) != null ? srvT(rec.reason) : rec.reason) : ""));
+    const btn = h("button", { type: "button", class: "sm", onclick: async (e) => {
+      e.stopPropagation(); btn.disabled = true; note.textContent = T(T("перевод…"));
+      try { await trRun([src]); box.replaceWith(dual(text, opts)); }
+      catch (x) { btn.disabled = false; note.textContent = T(T("перевода нет")) + " — " + (x.message || x); }
+    } }, T(T("Перевести")));
+    tr.append(h("span", { class: "ltag t" }, T(T("Перевод")) + " → " + target), note, " ", btn);
+  }
+  box.append(tr);
+  return box;
+}
+function srv(v) {                                     // text produced by the server in Russian (gate reasons, fit explanations, checklist)
+  if (v == null || v === "") return "—";
+  const s = String(v);
+  if (WT_LANG === "ru") return s;
+  const e = srvT(s);
+  return e != null ? e : dual(s, { lang: "ru" });
+}
+function serverTexts(a, cl) {                         // Russian server texts that need a lookup in EN mode (those without a built-in English form)
+  if (WT_LANG === "ru") return [];
+  const all = [];
+  if (a) {
+    for (const g of a.gates || []) all.push(g.reason, g.evidence_needed);
+    for (const c of Object.values((a.fit && a.fit.components) || {})) all.push(c.why);
+    if (a.fit) all.push(a.fit.disclaimer);
+  }
+  if (cl && cl.items) { all.push(cl.note); for (const i of cl.items) all.push(i.step, i.why, i.evidence); }
+  return all.filter((x) => x && srvT(String(x)) == null);
+}
+function trBar(getTexts, redraw) {                    // list-level control: translate what is on screen (<= 60 per click)
+  const info = h("span", { class: "mut" }), out = h("div");
+  const btn = h("button", { type: "button" });
+  const pend = () => uniqT(getTexts()).filter((t) => { const r = S.tr.get(trKey(t)); return !r || !TR_DONE.includes(r.status); }).slice(0, 60);
+  const upd = () => {
+    const n = pend().length, i = S.trInfo;
+    btn.textContent = Tf(T("Перевести видимые ({0})"), n); btn.disabled = n === 0;
+    info.textContent = !i ? "" : i.configured === false ? T(T("перевод не подключён: нет шлюза Bossman"))
+      : i.halted ? T(T("перевод остановлен: маршрут сообщил оплату")) : Tf(T("бесплатные модели Bossman · сегодня {0}/{1} · стоимость {2} USD"), i.used_today, i.limit_per_day, Number(i.cost_total_usd || 0).toFixed(2));
+  };
+  btn.addEventListener("click", async () => {
+    btn.disabled = true; clear(out).append(msgBox("ok", T(T("Перевод…"))));
+    try {
+      const d = await trRun(pend());
+      const bad = d.items.filter((r) => !TR_DONE.includes(r.status));
+      clear(out).append(msgBox(bad.length ? "err" : "ok", Tf(T("Переведено: {0}"), d.fresh) + (d.models.length ? " · " + [...new Set(d.models)].join(", ") : "") +
+        (bad.length ? " · " + Tf(T("без перевода: {0}"), bad.length) + " — " + txt(bad[0].reason) : "")));
+      redraw();
+    } catch (e) { if (e.status !== 401) clear(out).append(msgBox("err", T(T("Перевод не выполнен")) + ": " + (e.status ? "HTTP " + e.status + " — " : "") + e.message)); upd(); }
+  });
+  upd();
+  return h("div", {}, h("div", { class: "bar trbar", role: "group", "aria-label": T(T("Перевод")) }, btn, info), out);
+}
+function applyStatic() {
+  document.documentElement.lang = WT_LANG;
+  document.title = T(T("Bossman · Терминал конфликтов и закупок"));
+  const set = (sel, attr, ruText) => { const el = $(sel); if (!el) return; if (attr === "text") el.textContent = T(ruText); else el.setAttribute(attr, T(ruText)); };
+  set(".brand span", "text", T("ТЕРМИНАЛ КОНФЛИКТОВ И ЗАКУПОК"));
+  set("#wm", "aria-label", T("Режим данных")); set("#audit", "aria-label", T("Цепочка аудита")); set("#audit", "text", T("аудит: …"));
+  set("#fxb", "aria-label", T("Дата курсов валют")); set("#sancb", "aria-label", T("Санкционный список")); set("#utc", "aria-label", T("Дата UTC"));
+  set("#gsearch", "placeholder", T("Поиск по тендерам")); set("#gsearch", "aria-label", T("Поиск по тендерам")); set("#logout", "text", T("Выйти"));
+  set("#nav", "aria-label", T("Разделы"));
+  set("#langsw", "aria-label", T("Язык интерфейса")); set("#trmode", "aria-label", T("Показ текста: оригинал и перевод"));
+  const names = { orig: T("Оригинал"), tr: T("Перевод"), both: T("Оба") };
+  for (const b of document.querySelectorAll("#trmode button")) { b.textContent = T(names[b.dataset.m]); b.addEventListener("click", () => setTrMode(b.dataset.m)); }
+  for (const b of document.querySelectorAll("#langsw button")) {
+    const on = b.dataset.l === WT_LANG; b.className = on ? "on" : ""; b.setAttribute("aria-pressed", String(on));
+    b.addEventListener("click", () => setLang(b.dataset.l));
+  }
+  applyTrMode();
+}
 
 /* ---------- token gate ---------- */
 function showGate(note) {
   const g = clear($("#gate"));
   g.hidden = false;
   g.style.cssText = "position:fixed;inset:0;background:rgba(3,8,15,.92);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px";
-  const tok = h("input", { type: "password", id: "tok", autocomplete: "off", "aria-label": "Токен роли", value: S.token, style: "width:100%" });
-  const role = sel("role", ROLES.map((x) => [x, ROLE_RU[x]]), S.role); role.setAttribute("aria-label", "Метка роли");
+  const tok = h("input", { type: "password", id: "tok", autocomplete: "off", "aria-label": T("Токен роли"), value: S.token, style: "width:100%" });
+  const role = sel("role", ROLES.map((x) => [x, ROLE_RU[x]]), S.role); role.setAttribute("aria-label", T("Метка роли"));
   const form = h("form", { class: "card", style: "max-width:420px;width:100%", onsubmit: (e) => {
     e.preventDefault();
     S.token = tok.value.trim(); S.role = role.value;
     try { sessionStorage.setItem("wt_token", S.token); sessionStorage.setItem("wt_role", S.role); } catch (x) { /* ignore */ }
     g.hidden = true; clear(g); boot();
   } },
-  h("h2", {}, "Вход по токену роли"),
+  h("h2", {}, T("Вход по токену роли")),
   note ? msgBox("err", note) : null,
-  h("p", { class: "mut" }, "Токен хранится только в sessionStorage этой вкладки. Метка роли ниже — подсказка интерфейсу; реальную роль определяет сервер по токену."),
-  h("div", { class: "form", style: "grid-template-columns:1fr" }, field("Токен", tok), field("Метка роли", role)),
-  h("div", { class: "bar" }, h("button", { type: "submit" }, "Войти")));
+  h("p", { class: "mut" }, T("Токен хранится только в sessionStorage этой вкладки. Метка роли ниже — подсказка интерфейсу; реальную роль определяет сервер по токену.")),
+  h("div", { class: "form", style: "grid-template-columns:1fr" }, field(T("Токен"), tok), field(T("Метка роли"), role)),
+  h("div", { class: "bar" }, h("button", { type: "submit" }, T("Войти"))));
   g.append(form);
   tok.focus();
 }
@@ -168,7 +296,7 @@ function renderNav() {
   for (const [id, label] of SECTIONS) nav.append(h("button", { type: "button", "data-v": id, "aria-current": S.view === id ? "page" : null, onclick: () => go(id) }, label));
   let s = $("#navsel");
   if (!s) {
-    s = h("select", { id: "navsel", "aria-label": "Раздел", onchange: (e) => go(e.target.value) }, SECTIONS.map(([id, l]) => h("option", { value: id }, l)));
+    s = h("select", { id: "navsel", "aria-label": T("Раздел"), onchange: (e) => go(e.target.value) }, SECTIONS.map(([id, l]) => h("option", { value: id }, l)));
     $("#main").before(s);
   }
   s.value = S.view;
@@ -181,14 +309,14 @@ async function loadHealth() {
     const hp = chain.then(() => fetch(API + "/health").then((r) => r.json())); chain = hp.catch(() => {});
     const hd = await hp; S.health = hd;
     const demo = hd.mode !== "LIVE" || hd.demo_tenders > 0;
-    if (hd.watermark === null && !demo) { wm.textContent = "ЖИВЫЕ ДАННЫЕ"; wm.className = "badge wm b-ok"; }
+    if (hd.watermark === null && !demo) { wm.textContent = T("ЖИВЫЕ ДАННЫЕ"); wm.className = "badge wm b-ok"; }
     else { wm.textContent = WM_RU[hd.watermark] || hd.watermark || WM_RU["DEMO / NOT LIVE"]; wm.className = "badge wm b-warn"; }
-    wm.title = "режим: " + ru(hd.mode) + ", ДЕМО-тендеров: " + hd.demo_tenders + ", внешние источники: " + (hd.live_enabled ? "включены" : "выключены") + ", версия " + hd.version;
-    au.textContent = hd.audit_chain_ok ? "аудит: цепочка OK" : "аудит: НАРУШЕНА";
+    wm.title = T("режим: ") + ru(hd.mode) + T(", ДЕМО-тендеров: ") + hd.demo_tenders + T(", внешние источники: ") + (hd.live_enabled ? T("включены") : T("выключены")) + T(", версия ") + hd.version;
+    au.textContent = hd.audit_chain_ok ? T("аудит: цепочка OK") : T("аудит: НАРУШЕНА");
     au.className = "badge " + (hd.audit_chain_ok ? "b-ok" : "b-bad");
   } catch (e) {
-    wm.textContent = "НЕТ СВЯЗИ С API"; wm.className = "badge wm b-bad";
-    au.textContent = "аудит: неизвестно"; au.className = "badge b-grey";
+    wm.textContent = T("НЕТ СВЯЗИ С API"); wm.className = "badge wm b-bad";
+    au.textContent = T("аудит: неизвестно"); au.className = "badge b-grey";
   }
 }
 
@@ -199,34 +327,34 @@ async function loadBadges() {
   try {
     const fx = await GET("/fx");
     if (fx && fx.as_of) {
-      fb.textContent = (isCnb(fx.source) ? "курсы ЧНБ: " : "курсы: ") + fx.as_of;
-      fb.title = "источник: " + txt(fx.source) + (fx.url ? " — " + fx.url : "") + ", пар: " + Object.keys(fx.rates || {}).length;
+      fb.textContent = (isCnb(fx.source) ? T("курсы ЧНБ: ") : T("курсы: ")) + fx.as_of;
+      fb.title = T("источник: ") + txt(fx.source) + (fx.url ? " — " + fx.url : "") + T(", пар: ") + Object.keys(fx.rates || {}).length;
       fb.hidden = false;
     } else fb.hidden = true;
   } catch (e) { fb.hidden = true; }
   try {
     const st = await GET("/sanctions/status");
     if (st && typeof st.count === "number" && st.count > 0) {
-      sbg.textContent = "санкции: " + st.count;
-      sbg.title = "дата: " + txt(st.as_of) + ", версия списка: " + txt(st.list_version) + ", источник: " + txt(st.source);
+      sbg.textContent = T("санкции: ") + st.count;
+      sbg.title = T("дата: ") + txt(st.as_of) + T(", версия списка: ") + txt(st.list_version) + T(", источник: ") + txt(st.source);
       sbg.className = "badge b-info"; sbg.hidden = false;
-    } else if (st && st.count === 0) { sbg.textContent = "санкции: не загружены"; sbg.title = ""; sbg.className = "badge b-warn"; sbg.hidden = false; }
+    } else if (st && st.count === 0) { sbg.textContent = T("санкции: не загружены"); sbg.title = ""; sbg.className = "badge b-warn"; sbg.hidden = false; }
     else sbg.hidden = true;
   } catch (e) { sbg.hidden = true; }
 }
 
 /* ---------- generic loader ---------- */
 async function load(el, fn) {
-  clear(el).append(stateBox("load", "Загрузка…"));
+  clear(el).append(stateBox("load", T("Загрузка…")));
   try { const out = await fn(); clear(el); if (out) el.append(out); }
-  catch (e) { if (e.status === 401) return; clear(el).append(stateBox("err", "Ошибка: " + (e.message || e))); }
+  catch (e) { if (e.status === 401) return; clear(el).append(stateBox("err", T("Ошибка: ") + (e.message || e))); }
 }
 function card(title, ...kids) { return h("section", { class: "card", "aria-label": title }, h("h2", {}, title), kids); }
 function submit(form, fn, out) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     clear(out);
-    try { const r = await fn(formData(form)); out.append(msgBox("ok", "Готово: " + JSON.stringify(r))); return r; }
+    try { const r = await fn(formData(form)); out.append(msgBox("ok", T("Готово: ") + JSON.stringify(r))); return r; }
     catch (x) { if (x.status !== 401) out.append(msgBox("err", x.status ? "HTTP " + x.status + " — " + x.message : String(x))); }
   });
 }
@@ -242,7 +370,7 @@ const ISO3_RE = /^[A-Z]{3}$/;
 let geoP = null;
 function loadGeo() {
   if (!geoP) {
-    geoP = fetch("vendor/countries-110m.geojson").then((r) => { if (!r.ok) throw new Error("геометрия карты: HTTP " + r.status); return r.json(); }).then((d) => {
+    geoP = fetch("vendor/countries-110m.geojson").then((r) => { if (!r.ok) throw new Error(T("геометрия карты: HTTP ") + r.status); return r.json(); }).then((d) => {
       GEO.data = d;
       (d.features || []).forEach((f, i) => {
         const p = f.properties || {}, iso3 = ISO3_RE.test(p.iso3 || "") ? p.iso3 : null;
@@ -307,12 +435,12 @@ function geoPaths() {
 
 /* ---------- choropleth layers (values only from GET /map/layers) ---------- */
 const LAYERS = {
-  conflict: { label: "Интенсивность конфликтов", has: (c) => !!c && c.conflict_events > 0, val: (c) => c.conflict_deaths,
+  conflict: { label: T("Интенсивность конфликтов"), has: (c) => !!c && c.conflict_events > 0, val: (c) => c.conflict_deaths,
     bins: [1, 10, 100, 1000, 10000], binLabels: ["1–9", "10–99", "100–999", "1 000–9 999", "≥ 10 000"],
-    colors: ["#5a2a24", "#8c3324", "#c2421f", "#ee6a2c", "#ffc06a"], zero: "#3b3550", zeroLabel: "0 (события без погибших)", unit: "погибших за год, лог. шкала" },
-  procurement: { label: "Активность закупок", has: (c) => !!c && c.tenders > 0, val: (c) => c.open_tenders,
+    colors: ["#5a2a24", "#8c3324", "#c2421f", "#ee6a2c", "#ffc06a"], zero: "#3b3550", zeroLabel: T("0 (события без погибших)"), unit: T("погибших за год, лог. шкала") },
+  procurement: { label: T("Активность закупок"), has: (c) => !!c && c.tenders > 0, val: (c) => c.open_tenders,
     bins: [1, 2, 5, 10, 50], binLabels: ["1", "2–4", "5–9", "10–49", "≥ 50"],
-    colors: ["#17405f", "#1c5f8c", "#2382ba", "#40a8df", "#9ddcff"], zero: "#2d3a4a", zeroLabel: "0 открытых (есть закрытые)", unit: "открытых тендеров" },
+    colors: ["#17405f", "#1c5f8c", "#2382ba", "#40a8df", "#9ddcff"], zero: "#2d3a4a", zeroLabel: T("0 открытых (есть закрытые)"), unit: T("открытых тендеров") },
 };
 const ND_FILL = "#1b2a3a";
 function layerFill(L, c) {
@@ -324,18 +452,18 @@ function layerFill(L, c) {
   return L.colors[i];
 }
 function layerLine(id, c) {
-  if (id === "conflict") return c && c.conflict_events > 0 ? `погибших: ${fmtN(c.conflict_deaths)} · событий: ${fmtN(c.conflict_events)} (UCDP ${txt(c.conflict_year)})` : "UCDP: событий в загруженных данных нет";
-  return c && c.tenders > 0 ? `открытых тендеров: ${fmtN(c.open_tenders)} из ${fmtN(c.tenders)}` : "тендеров в базе нет";
+  if (id === "conflict") return c && c.conflict_events > 0 ? Tf(T("погибших: {0} · событий: {1} (UCDP {2})"), fmtN(c.conflict_deaths), fmtN(c.conflict_events), txt(c.conflict_year)) : T("UCDP: событий в загруженных данных нет");
+  return c && c.tenders > 0 ? Tf(T("открытых тендеров: {0} из {1}"), fmtN(c.open_tenders), fmtN(c.tenders)) : T("тендеров в базе нет");
 }
 const uniqYears = (lay) => uniq(Object.values(lay.countries || {}).map((c) => c.conflict_year)).sort();
 
 function mapWidget(lay, opts) {
   const wrap = h("div", { class: "mapw" });
-  const tabs = h("div", { class: "maptabs", role: "tablist", "aria-label": "Слой карты" });
+  const tabs = h("div", { class: "maptabs", role: "tablist", "aria-label": T("Слой карты") });
   const box = h("div", { class: "mapbox" });
   const tip = h("div", { class: "maptip", hidden: true });
   const legend = h("div", { class: "legend" }), srcLine = h("div", { class: "legend src" });
-  const svg = svgEl("svg", { viewBox: `0 0 ${MAP_W} ${MAP_H}`, role: "img", "aria-label": "Карта мира (Natural Earth 1:110m, проекция Equal Earth); страны закрашены по данным API" });
+  const svg = svgEl("svg", { viewBox: `0 0 ${MAP_W} ${MAP_H}`, role: "img", "aria-label": T("Карта мира (Natural Earth 1:110m, проекция Equal Earth); страны закрашены по данным API") });
   const vp = svgEl("g", {});
   vp.append(svgEl("path", { d: outlinePath(), class: "ocean" }), svgEl("path", { d: graticulePath(), class: "grat" }));
   const els = {};
@@ -350,26 +478,26 @@ function mapWidget(lay, opts) {
     for (const b of tabs.children) b.setAttribute("aria-selected", String(b.dataset.l === S.mapLayer));
     clear(legend).append(h("span", { class: "mut" }, L.unit + ":"),
       ...L.colors.map((col, i) => h("span", {}, h("i", { class: "sq", style: "background:" + col }), L.binLabels[i])),
-      h("span", {}, h("i", { class: "sq", style: "background:" + L.zero }), L.zeroLabel), h("span", {}, h("i", { class: "sq", style: "background:" + ND_FILL }), "нет данных"));
+      h("span", {}, h("i", { class: "sq", style: "background:" + L.zero }), L.zeroLabel), h("span", {}, h("i", { class: "sq", style: "background:" + ND_FILL }), T("нет данных")));
     const n = Object.values(countries).filter(L.has).length;
     clear(srcLine);
     if (S.mapLayer === "conflict") {
-      srcLine.append(h("span", {}, "Источник: ", h("b", {}, lay.conflict_source ? "UCDP GED (" + lay.conflict_source + ")" : "нет данных UCDP")),
-        h("span", {}, "Год: ", h("b", {}, uniqYears(lay).join(", ") || "—")), h("span", {}, "Стран с событиями: ", h("b", {}, String(n))),
-        ...((lay.unmapped_conflicts || []).length ? [h("span", {}, "Не сопоставлено со страной: ", h("b", {}, lay.unmapped_conflicts.join(", ")))] : []));
+      srcLine.append(h("span", {}, T("Источник: "), h("b", {}, lay.conflict_source ? "UCDP GED (" + lay.conflict_source + ")" : T("нет данных UCDP"))),
+        h("span", {}, T("Год: "), h("b", {}, uniqYears(lay).join(", ") || "—")), h("span", {}, T("Стран с событиями: "), h("b", {}, String(n))),
+        ...((lay.unmapped_conflicts || []).length ? [h("span", {}, T("Не сопоставлено со страной: "), h("b", {}, lay.unmapped_conflicts.join(", ")))] : []));
     } else {
-      srcLine.append(h("span", {}, "Источник: ", h("b", {}, "тендеры в базе (GET /map/layers)")), h("span", {}, "Стран с тендерами: ", h("b", {}, String(n))),
-        h("span", {}, "Тендеров без страны (регионы): ", h("b", {}, String(lay.unmapped_tenders == null ? "—" : lay.unmapped_tenders))));
+      srcLine.append(h("span", {}, T("Источник: "), h("b", {}, T("тендеры в базе (GET /map/layers)"))), h("span", {}, T("Стран с тендерами: "), h("b", {}, String(n))),
+        h("span", {}, T("Тендеров без страны (регионы): "), h("b", {}, String(lay.unmapped_tenders == null ? "—" : lay.unmapped_tenders))));
     }
-    srcLine.append(h("span", {}, "Границы: ", h("b", {}, txt(lay.geometry_source))));
-    if (!n) legend.append(h("span", { class: "warnt" }, "Для этого слоя данных нет — загрузите источник в разделе «Источники»."));
+    srcLine.append(h("span", {}, T("Границы: "), h("b", {}, txt(lay.geometry_source))));
+    if (!n) legend.append(h("span", { class: "warnt" }, T("Для этого слоя данных нет — загрузите источник в разделе «Источники».")));
   }
   for (const [id, L] of Object.entries(LAYERS)) {
     tabs.append(h("button", { type: "button", role: "tab", "data-l": id, onclick: () => { S.mapLayer = id; paint(); opts.onLayer && opts.onLayer(id); } }, L.label));
   }
   // disabled tabs from the mockup that have no data source: shown honestly, not clickable
-  for (const [l, need] of [["Оборонные расходы", "SIPRI"], ["Санкции по странам", "привязки санкций к странам"], ["Маршруты поставок", "данных о логистике"]]) {
-    tabs.append(h("button", { type: "button", role: "tab", disabled: true, "aria-disabled": "true", title: "нет источника: " + need, class: "off" }, l));
+  for (const [l, need] of [[T("Оборонные расходы"), "SIPRI"], [T("Санкции по странам"), T("привязки санкций к странам")], [T("Маршруты поставок"), T("данных о логистике")]]) {
+    tabs.append(h("button", { type: "button", role: "tab", disabled: true, "aria-disabled": "true", title: T("нет источника: ") + need, class: "off" }, l));
   }
 
   /* zoom / pan: transform on one group, strokes stay 1px via vector-effect */
@@ -423,15 +551,15 @@ function mapWidget(lay, opts) {
     opts.onSelect && opts.onSelect(key);
   }
   const ctl = h("div", { class: "mapctl" },
-    h("button", { type: "button", "aria-label": "Приблизить", title: "Приблизить", onclick: () => zoomAt(1.6, MAP_W / 2, MAP_H / 2) }, "+"),
-    h("button", { type: "button", "aria-label": "Отдалить", title: "Отдалить", onclick: () => zoomAt(1 / 1.6, MAP_W / 2, MAP_H / 2) }, "−"),
-    h("button", { type: "button", "aria-label": "Сбросить масштаб", title: "Сбросить масштаб", onclick: () => { k = 1; tx = 0; ty = 0; apply(); } }, "⟲"));
+    h("button", { type: "button", "aria-label": T("Приблизить"), title: T("Приблизить"), onclick: () => zoomAt(1.6, MAP_W / 2, MAP_H / 2) }, "+"),
+    h("button", { type: "button", "aria-label": T("Отдалить"), title: T("Отдалить"), onclick: () => zoomAt(1 / 1.6, MAP_W / 2, MAP_H / 2) }, "−"),
+    h("button", { type: "button", "aria-label": T("Сбросить масштаб"), title: T("Сбросить масштаб"), onclick: () => { k = 1; tx = 0; ty = 0; apply(); } }, "⟲"));
   // keyboard / screen-reader alternative to clicking the map
   const opts1 = Object.keys(countries).filter((i) => GEO.byIso3[i]).sort((a, b) => geoName(a).localeCompare(geoName(b)));
-  const sel1 = h("select", { "aria-label": "Выбрать страну с данными", onchange: (e) => e.target.value && select(e.target.value) },
-    h("option", { value: "" }, "Страна с данными (" + opts1.length + ")…"), opts1.map((i) => h("option", { value: i }, geoName(i))));
+  const sel1 = h("select", { "aria-label": T("Выбрать страну с данными"), onchange: (e) => e.target.value && select(e.target.value) },
+    h("option", { value: "" }, T("Страна с данными (") + opts1.length + ")…"), opts1.map((i) => h("option", { value: i }, geoName(i))));
   box.append(svg, ctl, tip);
-  wrap.append(tabs, box, legend, srcLine, h("div", { class: "bar mapfoot" }, sel1, h("span", { class: "mut" }, "Колесо — масштаб, перетаскивание — сдвиг, клик — панель страны")));
+  wrap.append(tabs, box, legend, srcLine, h("div", { class: "bar mapfoot" }, sel1, h("span", { class: "mut" }, T("Колесо — масштаб, перетаскивание — сдвиг, клик — панель страны"))));
   apply(); paint();
   if (S.mapSel && els[S.mapSel]) setTimeout(() => select(S.mapSel), 0);
   S.mapApi = { select, paint };
@@ -439,7 +567,7 @@ function mapWidget(lay, opts) {
 }
 
 /* ---------- country panel (mockup "Ukraine" panel, real data only) ---------- */
-const ACD_TYPE = { 1: "внесистемный", 2: "межгосударственный", 3: "внутренний", 4: "интернационализированный внутренний" };
+const ACD_TYPE = { 1: T("внесистемный"), 2: T("межгосударственный"), 3: T("внутренний"), 4: T("интернационализированный внутренний") };
 function mini(label, value) { return h("div", { class: "mini" }, h("div", { class: "l" }, label), h("div", { class: "v" }, value)); }
 function openTender(t, iso2) { S.sel = t.key; S.filters = { f: "all", q: "", category: "", country: iso2 || "" }; go("tenders"); }
 function acdFor(conf, iso3) {
@@ -449,41 +577,42 @@ function acdFor(conf, iso3) {
 function panelHint(panel, lay) {
   const L = LAYERS[S.mapLayer], cs = lay.countries || {};
   const top = Object.keys(cs).filter((i) => L.has(cs[i]) && L.val(cs[i]) > 0 && GEO.byIso3[i]).sort((a, b) => L.val(cs[b]) - L.val(cs[a])).slice(0, 8);
-  clear(panel).append(h("h2", {}, "Страна"), h("p", { class: "mut" }, "Нажмите на страну на карте (или выберите её под картой): здесь появятся данные UCDP, конфликты UCDP/PRIO и открытые тендеры."),
-    h("h3", {}, "Топ стран · " + L.label.toLowerCase()),
+  clear(panel).append(h("h2", {}, T("Страна")), h("p", { class: "mut" }, T("Нажмите на страну на карте (или выберите её под картой): здесь появятся данные UCDP, конфликты UCDP/PRIO и открытые тендеры.")),
+    h("h3", {}, T("Топ стран · ") + L.label.toLowerCase()),
     top.length ? h("ol", { class: "rank" }, top.map((i) => h("li", {}, h("button", { type: "button", class: "lnk", onclick: () => S.mapApi && S.mapApi.select(i) }, geoName(i)),
-      h("span", { class: "num" }, fmtN(L.val(cs[i])))))) : stateBox("load", "Для этого слоя данных нет."));
+      h("span", { class: "num" }, fmtN(L.val(cs[i])))))) : stateBox("load", T("Для этого слоя данных нет.")));
 }
 function countryPanel(panel, key, lay, conf) {
   const m = GEO.byKey[key] || { p: {} }, p = m.p, iso3 = m.iso3, c = iso3 ? (lay.countries || {})[iso3] : null;
   clear(panel).append(h("div", { class: "cp-head" }, h("h2", {}, txt(p.name_long || p.name)), iso3 ? badge(iso3, "b-grey") : null,
-    c && c.severity ? sevBadge(c.severity) : null, h("button", { type: "button", class: "x", "aria-label": "Закрыть панель страны", onclick: () => { S.mapSel = null; for (const el of document.querySelectorAll("path.ctry.sel")) el.classList.remove("sel"); panelHint(panel, lay); } }, "×")));
-  if (!iso3) { panel.append(stateBox("load", "У этой территории нет ISO3-кода в Natural Earth — данные API к ней не привязываются.")); return; }
-  panel.append(h("h3", {}, "Конфликт · UCDP GED" + (lay.conflict_source ? " (" + lay.conflict_source + ")" : "")));
+    c && c.severity ? sevBadge(c.severity) : null, h("button", { type: "button", class: "x", "aria-label": T("Закрыть панель страны"), onclick: () => { S.mapSel = null; for (const el of document.querySelectorAll("path.ctry.sel")) el.classList.remove("sel"); panelHint(panel, lay); } }, "×")));
+  if (!iso3) { panel.append(stateBox("load", T("У этой территории нет ISO3-кода в Natural Earth — данные API к ней не привязываются."))); return; }
+  panel.append(h("h3", {}, T("Конфликт · UCDP GED") + (lay.conflict_source ? " (" + lay.conflict_source + ")" : "")));
   if (c && c.conflict_events > 0) {
-    panel.append(h("div", { class: "cp-stats" }, mini("Погибших", fmtN(c.conflict_deaths)), mini("Событий", fmtN(c.conflict_events)),
-      mini("Серьёзность", sevBadge(c.severity)), mini("Год данных", txt(c.conflict_year))));
-  } else panel.append(stateBox("load", lay.conflict_source ? "В загруженных данных UCDP событий по этой стране нет." : "Данные UCDP не загружены."));
+    panel.append(h("div", { class: "cp-stats" }, mini(T("Погибших"), fmtN(c.conflict_deaths)), mini(T("Событий"), fmtN(c.conflict_events)),
+      mini(T("Серьёзность"), sevBadge(c.severity)), mini(T("Год данных"), txt(c.conflict_year))));
+  } else panel.append(stateBox("load", lay.conflict_source ? T("В загруженных данных UCDP событий по этой стране нет.") : T("Данные UCDP не загружены.")));
   const acd = conf && conf.acd, items = acdFor(conf, iso3);
-  panel.append(h("h3", {}, "Вооружённые конфликты · UCDP/PRIO ACD" + (acd && acd.year ? " " + acd.year : "")));
-  if (!acd) panel.append(stateBox("load", "Данные ACD не загружены."));
-  else if (!items.length) panel.append(stateBox("load", "В ACD нет конфликтов с местом в этой стране."));
-  else panel.append(h("ul", { class: "list" }, items.map((a) => h("li", {}, h("div", {}, txt(a.side_a), h("span", { class: "mut" }, " против "), txt(a.side_b)),
+  panel.append(h("h3", {}, T("Вооружённые конфликты · UCDP/PRIO ACD") + (acd && acd.year ? " " + acd.year : "")));
+  if (!acd) panel.append(stateBox("load", T("Данные ACD не загружены.")));
+  else if (!items.length) panel.append(stateBox("load", T("В ACD нет конфликтов с местом в этой стране.")));
+  else panel.append(h("ul", { class: "list" }, items.map((a) => h("li", {}, h("div", {}, txt(a.side_a), h("span", { class: "mut" }, T(" против ")), txt(a.side_b)),
     h("div", { class: "bar", style: "margin:4px 0 0" }, INTENSITY[a.intensity] ? badge(INTENSITY[a.intensity][0], INTENSITY[a.intensity][1]) : badge(a.intensity),
-      h("span", { class: "mut" }, ACD_TYPE[a.type] || "тип " + txt(a.type)), h("span", { class: "mut" }, "место: " + txt(a.location)))))));
-  panel.append(h("h3", {}, "Закупки"), h("div", { class: "cp-stats" }, mini("Открытых тендеров", fmtN(c ? c.open_tenders : 0)), mini("Всего в базе", fmtN(c ? c.tenders : 0))));
+      h("span", { class: "mut" }, ACD_TYPE[a.type] || T("тип ") + txt(a.type)), h("span", { class: "mut" }, T("место: ") + txt(a.location)))))));
+  panel.append(h("h3", {}, T("Закупки")), h("div", { class: "cp-stats" }, mini(T("Открытых тендеров"), fmtN(c ? c.open_tenders : 0)), mini(T("Всего в базе"), fmtN(c ? c.tenders : 0))));
   const tb = h("div");
   panel.append(tb);
   load(tb, async () => {
     const d = await cached("openT");
     const mine = (d.items || []).filter((t) => toIso3(t.country) === iso3);
-    if (!mine.length) return stateBox("load", "Открытых тендеров по этой стране нет.");
-    return h("div", {}, h("div", { class: "mut" }, `Топ-5 из ${mine.length} открытых (порядок API: по соответствию)` + (d.total > (d.items || []).length ? " · загружены не все открытые тендеры" : "")),
-      h("ul", { class: "list" }, mine.slice(0, 5).map((t) => h("li", {}, h("div", { class: "tt" }, t.title == null ? "—" : t.title, t.demo ? [" ", badge("ДЕМО", "b-warn")] : null),
-        h("div", { class: "bar", style: "margin:4px 0 0" }, sb(t.assessment && t.assessment.complexity), h("span", { class: "mut" }, "дедлайн " + txt((t.deadline || "").slice(0, 10))),
+    await trLookup(mine.slice(0, 5).map((t) => t.title));
+    if (!mine.length) return stateBox("load", T("Открытых тендеров по этой стране нет."));
+    return h("div", {}, h("div", { class: "mut" }, Tf(T("Топ-5 из {0} открытых (порядок API: по соответствию)"), mine.length) + (d.total > (d.items || []).length ? T(" · загружены не все открытые тендеры") : "")),
+      h("ul", { class: "list" }, mine.slice(0, 5).map((t) => h("li", {}, h("div", { class: "tt" }, dual(t.title), t.demo ? [" ", badge(T("ДЕМО"), "b-warn")] : null),
+        h("div", { class: "bar", style: "margin:4px 0 0" }, sb(t.assessment && t.assessment.complexity), h("span", { class: "mut" }, T("дедлайн ") + txt((t.deadline || "").slice(0, 10))),
           t.estimated_value == null ? null : h("span", { class: "mut" }, fmtN(t.estimated_value) + " " + txt(t.currency)),
-          h("button", { type: "button", class: "sm", onclick: () => openTender(t, p.iso2) }, "Открыть"))))),
-      h("button", { type: "button", onclick: () => { S.sel = null; S.filters = { f: "all", q: "", category: "", country: p.iso2 || iso3 }; go("tenders"); } }, "Все тендеры страны в разделе «Закупки»"));
+          h("button", { type: "button", class: "sm", onclick: () => openTender(t, p.iso2) }, T("Открыть")))))),
+      h("button", { type: "button", onclick: () => { S.sel = null; S.filters = { f: "all", q: "", category: "", country: p.iso2 || iso3 }; go("tenders"); } }, T("Все тендеры страны в разделе «Закупки»")));
   });
   if (window.matchMedia && window.matchMedia("(max-width: 950px)").matches && panel.scrollIntoView) panel.scrollIntoView({ block: "start" });
 }
@@ -495,52 +624,52 @@ async function mapBlock(mapEl, panel) {
     if (!S.mapSel) panelHint(panel, lay);
     return h("div", {}, w, conf && conf.safety ? h("div", { class: "safety" }, conf.safety) : null);
   });
-  if (!mapEl.querySelector(".mapw")) clear(panel).append(h("h2", {}, "Страна"), stateBox("load", "Карта не загрузилась — панель страны недоступна."));
+  if (!mapEl.querySelector(".mapw")) clear(panel).append(h("h2", {}, T("Страна")), stateBox("load", T("Карта не загрузилась — панель страны недоступна.")));
 }
 function svgEl(tag, attrs) { const e = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); return e; }
 const SEV = { low: "#ffd16a", medium: "#ff9f43", high: "#f64b49" };
-const SEV_RU = { low: "низкая", medium: "средняя", high: "высокая" };
+const SEV_RU = { low: T("низкая"), medium: T("средняя"), high: T("высокая") };
 const sevBadge = (s) => badge(SEV_RU[s] || s, s === "high" ? "b-bad" : s === "medium" ? "b-warn" : "b-grey");
 const uniq = (arr) => [...new Set(arr.filter((x) => x != null && x !== ""))];
 /* source / licence / safety block for /conflicts (the map itself comes from /map/layers) */
 function conflictMeta(d) {
   const wrap = h("div");
   const items = d.items || [], real = items.filter((c) => !c.demo);
-  if (d.status === "NOT_CONNECTED") wrap.append(stateBox("load", "Не подключено: " + txt(d.message)));
+  if (d.status === "NOT_CONNECTED") wrap.append(stateBox("load", T("Не подключено: ") + txt(d.message)));
   if (real.length) {
-    const PREC = "средняя точка событий страны за год; не координаты событий";
+    const PREC = T("средняя точка событий страны за год; не координаты событий");
     const prec = uniq(real.map((c) => c.precision)).filter((p) => p !== PREC);
     wrap.append(h("div", { class: "legend src" },
-      h("span", {}, "Источник: ", h("b", {}, uniq(real.map((c) => c.source_id)).join(", ") || "—")),
-      h("span", {}, "Год: ", h("b", {}, uniq(real.map((c) => c.since)).join(", ") || "—")),
-      h("span", {}, "Лицензия: ", h("b", {}, uniq(real.map((c) => c.licence)).join(", ") || "—")),
-      h("span", {}, "Точность: " + PREC + (prec.length ? " (точность источника: " + prec.join(", ") + ")" : ""))));
+      h("span", {}, T("Источник: "), h("b", {}, uniq(real.map((c) => c.source_id)).join(", ") || "—")),
+      h("span", {}, T("Год: "), h("b", {}, uniq(real.map((c) => c.since)).join(", ") || "—")),
+      h("span", {}, T("Лицензия: "), h("b", {}, uniq(real.map((c) => c.licence)).join(", ") || "—")),
+      h("span", {}, T("Точность: ") + PREC + (prec.length ? T(" (точность источника: ") + prec.join(", ") + ")" : ""))));
   }
-  if (items.some((c) => c.demo)) wrap.append(h("div", { class: "mut", style: "margin-top:6px" }, "ДЕМО-регионы (синтетические) на карту не наносятся — их список ниже."));
-  if (!items.length) wrap.append(stateBox("load", "Нет данных о конфликтах."));
+  if (items.some((c) => c.demo)) wrap.append(h("div", { class: "mut", style: "margin-top:6px" }, T("ДЕМО-регионы (синтетические) на карту не наносятся — их список ниже.")));
+  if (!items.length) wrap.append(stateBox("load", T("Нет данных о конфликтах.")));
   return wrap;
 }
 function realConflictTable(items, limit) {
   const num = (v) => (typeof v === "number" && isFinite(v) ? v : -1);
   const rows = items.filter((c) => !c.demo).slice().sort((a, b) => num(b.deaths) - num(a.deaths)).slice(0, limit || undefined);
-  return table(["Страна", "Событий", "Погибших", "Серьёзность", "Год", "Источник", "Лицензия"], rows.map((c) => ({ cells: [
+  return table([T("Страна"), T("Событий"), T("Погибших"), T("Серьёзность"), T("Год"), T("Источник"), T("Лицензия")], rows.map((c) => ({ cells: [
     h("span", {}, txt(c.country), c.region ? h("div", { class: "mut" }, c.region) : null),
     txt(c.events), txt(c.deaths), sevBadge(c.severity), txt(c.since),
     c.source_url && /^https?:\/\//.test(c.source_url) ? h("a", { href: c.source_url, target: "_blank", rel: "noopener noreferrer" }, txt(c.source_id)) : txt(c.source_id),
     h("span", { class: "lic" }, txt(c.licence))] })));
 }
-const INTENSITY = { war: ["война", "b-bad"], minor: ["малый", "b-warn"] };
+const INTENSITY = { war: [T("война"), "b-bad"], minor: [T("малый"), "b-warn"] };
 function acdTable(acd) {
   const items = (acd && acd.items) || [];
-  return table(["Место", "Стороны", "Интенсивность", "Тип", "Год"], items.map((c) => ({ cells: [
-    txt(c.location), h("span", {}, txt(c.side_a), h("span", { class: "mut" }, " против "), txt(c.side_b)),
+  return table([T("Место"), T("Стороны"), T("Интенсивность"), T("Тип"), T("Год")], items.map((c) => ({ cells: [
+    txt(c.location), h("span", {}, txt(c.side_a), h("span", { class: "mut" }, T(" против ")), txt(c.side_b)),
     INTENSITY[c.intensity] ? badge(INTENSITY[c.intensity][0], INTENSITY[c.intensity][1]) : badge(c.intensity), ACD_TYPE[c.type] || txt(c.type), txt(c.year)] })));
 }
 function conflictList(items) {
-  return table(["Название", "Страна", "Серьёзность", "С даты", "Источник", "Лицензия"], items.map((c) => ({ cells: [
+  return table([T("Название"), T("Страна"), T("Серьёзность"), T("С даты"), T("Источник"), T("Лицензия")], items.map((c) => ({ cells: [
     txt(c.name), txt(c.country), sevBadge(c.severity), txt(c.since),
     c.source_url ? h("a", { href: /^https?:\/\//.test(c.source_url) ? c.source_url : "#", target: "_blank", rel: "noopener noreferrer" }, txt(c.source_id)) : txt(c.source_id),
-    txt(c.licence)].map((x, i) => (i === 0 && c.demo ? h("span", {}, x, " ", badge("ДЕМО", "b-warn")) : x)) })));
+    txt(c.licence)].map((x, i) => (i === 0 && c.demo ? h("span", {}, x, " ", badge(T("ДЕМО"), "b-warn")) : x)) })));
 }
 
 /* ---------- tenders ---------- */
@@ -562,10 +691,10 @@ async function loadTenders() {
   return Object.assign({}, d, { items, total: items.length, partial: d.total > (d.items || []).length, countryIso3: want });
 }
 function tenderTable(items, onRow) {
-  return table(["Страна", "Название", "Категория", "Стоимость", "Дедлайн", "Статус", "Сложность", "Соответствие"], items.map((t) => {
+  return table([T("Страна"), T("Название"), T("Категория"), T("Стоимость"), T("Дедлайн"), T("Статус"), T("Сложность"), T("Соответствие")], items.map((t) => {
     const a = t.assessment || {};
     return { key: t.key, cls: S.sel === t.key ? "sel" : "", cells: [
-      txt(t.country), h("span", {}, t.title == null ? "—" : t.title, t.demo ? [" ", badge("ДЕМО", "b-warn")] : null), txt(t.category),
+      txt(t.country), h("div", {}, dual(t.title), t.demo ? [" ", badge(T("ДЕМО"), "b-warn")] : null), txt(t.category),
       t.estimated_value == null ? "—" : `${t.estimated_value} ${t.currency || ""}`, txt(t.deadline), txt(ru(t.status)),
       sb(a.complexity), a.fit_score == null ? "—" : String(a.fit_score)] };
   }), (r) => onRow(r.key));
@@ -588,46 +717,46 @@ function kpiTile(ic, value, label, sub, tone) {
   return h("div", { class: "kpi " + (tone || "") }, icon(ic), h("div", { class: "kb" }, h("div", { class: "v" }, value), h("div", { class: "l" }, label), h("div", { class: "s", title: sub || "" }, sub || "")));
 }
 async function loadKpis(el) {
-  clear(el).append(stateBox("load", "Загрузка показателей…"));
+  clear(el).append(stateBox("load", T("Загрузка показателей…")));
   const [openT, allT, lay, conf, sanc, src, fx] = await Promise.allSettled(["openT", "allT", "layers", "conf", "sanc", "src", "fx"].map(cached));
   if ([openT, allT, lay, conf, sanc, src, fx].some((r) => r.status === "rejected" && r.reason && r.reason.status === 401)) return;
-  const err = (r) => "нет данных: " + (r.reason && r.reason.status ? "HTTP " + r.reason.status : String(r.reason && r.reason.message || r.reason));
+  const err = (r) => T("нет данных: ") + (r.reason && r.reason.status ? "HTTP " + r.reason.status : String(r.reason && r.reason.message || r.reason));
   const tiles = [];
-  tiles.push(openT.status === "fulfilled" ? kpiTile("doc", fmtN(openT.value.total), "Открытых тендеров", "статус «открыт» · все источники", "ok") : kpiTile("doc", "—", "Открытых тендеров", err(openT)));
-  tiles.push(allT.status === "fulfilled" ? kpiTile("stack", fmtN(allT.value.total), "Тендеров в базе", "открытые + закрытые") : kpiTile("stack", "—", "Тендеров в базе", err(allT)));
+  tiles.push(openT.status === "fulfilled" ? kpiTile("doc", fmtN(openT.value.total), T("Открытых тендеров"), T("статус «открыт» · все источники"), "ok") : kpiTile("doc", "—", T("Открытых тендеров"), err(openT)));
+  tiles.push(allT.status === "fulfilled" ? kpiTile("stack", fmtN(allT.value.total), T("Тендеров в базе"), T("открытые + закрытые")) : kpiTile("stack", "—", T("Тендеров в базе"), err(allT)));
   if (lay.status === "fulfilled") {
     const cs = Object.values(lay.value.countries || {}).filter((c) => c.conflict_events > 0), yrs = uniqYears(lay.value).join(", ");
     const ev = cs.reduce((a, c) => a + c.conflict_events, 0), de = cs.reduce((a, c) => a + c.conflict_deaths, 0);
-    tiles.push(kpiTile("globe", fmtN(cs.length), "Стран с событиями UCDP", cs.length ? "UCDP GED · " + yrs : "UCDP не загружен", "r"));
-    tiles.push(kpiTile("fire", fmtN(ev), "Событий UCDP" + (yrs ? " " + yrs : ""), cs.length ? "погибших: " + fmtN(de) : "UCDP не загружен", "r"));
-  } else { tiles.push(kpiTile("globe", "—", "Стран с событиями UCDP", err(lay))); tiles.push(kpiTile("fire", "—", "Событий UCDP", err(lay))); }
+    tiles.push(kpiTile("globe", fmtN(cs.length), T("Стран с событиями UCDP"), cs.length ? "UCDP GED · " + yrs : T("UCDP не загружен"), "r"));
+    tiles.push(kpiTile("fire", fmtN(ev), T("Событий UCDP") + (yrs ? " " + yrs : ""), cs.length ? T("погибших: ") + fmtN(de) : T("UCDP не загружен"), "r"));
+  } else { tiles.push(kpiTile("globe", "—", T("Стран с событиями UCDP"), err(lay))); tiles.push(kpiTile("fire", "—", T("Событий UCDP"), err(lay))); }
   if (conf.status === "fulfilled" && conf.value.acd && (conf.value.acd.items || []).length) {
     const acd = conf.value.acd, ids = uniq(acd.items.map((a) => a.conflict_id)), wars = uniq(acd.items.filter((a) => a.intensity === "war").map((a) => a.conflict_id));
-    tiles.push(kpiTile("target", fmtN(ids.length), "Вооружённых конфликтов", "UCDP/PRIO ACD " + txt(acd.year) + " · войн: " + wars.length, "r"));
-  } else tiles.push(kpiTile("target", "—", "Вооружённых конфликтов", conf.status === "rejected" ? err(conf) : "нет источника: UCDP/PRIO ACD не загружен"));
-  tiles.push(sanc.status === "fulfilled" ? kpiTile("shield", sanc.value.count ? fmtN(sanc.value.count) : "0", "Записей в санкц. списках", sanc.value.count ? txt(sanc.value.source) + " · " + txt(sanc.value.as_of) : "не загружены", "w")
-    : kpiTile("shield", "—", "Записей в санкц. списках", err(sanc)));
+    tiles.push(kpiTile("target", fmtN(ids.length), T("Вооружённых конфликтов"), "UCDP/PRIO ACD " + txt(acd.year) + T(" · войн: ") + wars.length, "r"));
+  } else tiles.push(kpiTile("target", "—", T("Вооружённых конфликтов"), conf.status === "rejected" ? err(conf) : T("нет источника: UCDP/PRIO ACD не загружен")));
+  tiles.push(sanc.status === "fulfilled" ? kpiTile("shield", sanc.value.count ? fmtN(sanc.value.count) : "0", T("Записей в санкц. списках"), sanc.value.count ? txt(sanc.value.source) + " · " + txt(sanc.value.as_of) : T("не загружены"), "w")
+    : kpiTile("shield", "—", T("Записей в санкц. списках"), err(sanc)));
   if (src.status === "fulfilled") {
     const rows = src.value.sources || [], live = rows.filter((s) => s.status === "LIVE");
-    tiles.push(kpiTile("pulse", live.length + " / " + rows.length, "Живых источников", live.map((s) => s.id).join(", ") || "ни одного", "ok"));
-  } else tiles.push(kpiTile("pulse", "—", "Живых источников", err(src)));
-  tiles.push(fx.status === "fulfilled" && fx.value && fx.value.as_of ? kpiTile("fx", fx.value.as_of, "Дата курсов валют", txt(fx.value.source) + " · пар: " + Object.keys(fx.value.rates || {}).length)
-    : kpiTile("fx", "—", "Дата курсов валют", fx.status === "rejected" ? err(fx) : "курсы не загружены"));
+    tiles.push(kpiTile("pulse", live.length + " / " + rows.length, T("Живых источников"), live.map((s) => s.id).join(", ") || T("ни одного"), "ok"));
+  } else tiles.push(kpiTile("pulse", "—", T("Живых источников"), err(src)));
+  tiles.push(fx.status === "fulfilled" && fx.value && fx.value.as_of ? kpiTile("fx", fx.value.as_of, T("Дата курсов валют"), txt(fx.value.source) + T(" · пар: ") + Object.keys(fx.value.rates || {}).length)
+    : kpiTile("fx", "—", T("Дата курсов валют"), fx.status === "rejected" ? err(fx) : T("курсы не загружены")));
   clear(el).append(...tiles);
 }
 
 /* ---------- honest placeholders for mockup blocks without a data source ---------- */
 function placeholder(title, need, srcId, srcs) {
   const row = srcId && srcs ? (srcs.sources || []).find((s) => s.id === srcId) : null;
-  return h("section", { class: "card ph", "aria-label": title }, h("h2", {}, title), h("div", { class: "phmsg" }, "нет источника: " + need),
-    row ? h("div", { class: "bar" }, h("span", { class: "mut" }, "реестр источников: " + txt(row.name)), sb(row.status), row.reason ? h("span", { class: "mut" }, row.reason) : null) : null);
+  return h("section", { class: "card ph", "aria-label": title }, h("h2", {}, title), h("div", { class: "phmsg" }, T("нет источника: ") + need),
+    row ? h("div", { class: "bar" }, h("span", { class: "mut" }, T("реестр источников: ") + txt(row.name)), sb(row.status), row.reason ? h("span", { class: "mut" }, srv(row.reason)) : null) : null);
 }
 async function placeholders(el) {
   const srcs = await cached("src").catch(() => null);
   clear(el).append(
-    placeholder("Оборонные бюджеты", "датасет SIPRI Military Expenditure Database (годовые расходы по странам)", "sipri", srcs),
-    placeholder("Компании сектора / котировки", "поставщик рыночных котировок (биржевые данные с лицензией на показ)", null, srcs),
-    placeholder("Недавние награды контрактов", "эндпоинт чтения наград в API (USAspending / TED award notices); закрытые тендеры — не награды", "usaspending", srcs));
+    placeholder(T("Оборонные бюджеты"), T("датасет SIPRI Military Expenditure Database (годовые расходы по странам)"), "sipri", srcs),
+    placeholder(T("Компании сектора / котировки"), T("поставщик рыночных котировок (биржевые данные с лицензией на показ)"), null, srcs),
+    placeholder(T("Недавние награды контрактов"), T("эндпоинт чтения наград в API (USAspending / TED award notices); закрытые тендеры — не награды"), "usaspending", srcs));
 }
 
 /* ---------- top conflicts (UCDP GED + ACD) ---------- */
@@ -636,27 +765,27 @@ async function topConflicts(el) {
     const [lay, conf] = await Promise.all([cached("layers"), cached("conf"), loadGeo().catch(() => null)]);
     const cs = Object.entries(lay.countries || {}).filter(([, c]) => c.conflict_events > 0).sort((a, b) => b[1].conflict_deaths - a[1].conflict_deaths).slice(0, 6);
     const out = h("div");
-    if (!cs.length) out.append(stateBox("load", "Данных UCDP нет. Загрузите их в разделе «Источники»."));
+    if (!cs.length) out.append(stateBox("load", T("Данных UCDP нет. Загрузите их в разделе «Источники».")));
     else {
       const max = cs[0][1].conflict_deaths || 1;
-      out.append(h("div", { class: "mut" }, "Погибших за " + uniqYears(lay).join(", ") + " (UCDP GED), топ-6 · клик — страна на карте"),
+      out.append(h("div", { class: "mut" }, T("Погибших за ") + uniqYears(lay).join(", ") + T(" (UCDP GED), топ-6 · клик — страна на карте")),
         h("ol", { class: "rank bars" }, cs.map(([i, c]) => h("li", {}, h("button", { type: "button", class: "lnk", onclick: () => { if (S.mapApi) { S.mapApi.select(i); } } }, geoName(i)),
           h("span", { class: "barw", "aria-hidden": "true" }, h("span", { style: "width:" + Math.max(2, Math.round(c.conflict_deaths / max * 100)) + "%" })),
           h("span", { class: "num" }, fmtN(c.conflict_deaths)), sevBadge(c.severity)))));
     }
     const acd = conf.acd, wars = ((acd && acd.items) || []).filter((a) => a.intensity === "war");
-    out.append(h("h3", {}, "Войны (≥ 1 000 погибших в боях за год) · UCDP/PRIO ACD" + (acd && acd.year ? " " + acd.year : "")));
-    out.append(!acd ? stateBox("load", "Данные ACD не загружены.") : wars.length ? h("ul", { class: "list" }, wars.map((a) => h("li", {}, h("b", {}, txt(a.location)), h("div", { class: "mut" }, txt(a.side_a) + " против " + txt(a.side_b)))))
-      : stateBox("load", "В ACD нет конфликтов интенсивности «война»."));
+    out.append(h("h3", {}, T("Войны (≥ 1 000 погибших в боях за год) · UCDP/PRIO ACD") + (acd && acd.year ? " " + acd.year : "")));
+    out.append(!acd ? stateBox("load", T("Данные ACD не загружены.")) : wars.length ? h("ul", { class: "list" }, wars.map((a) => h("li", {}, h("b", {}, txt(a.location)), h("div", { class: "mut" }, txt(a.side_a) + T(" против ") + txt(a.side_b)))))
+      : stateBox("load", T("В ACD нет конфликтов интенсивности «война».")));
     return out;
   });
 }
 
 async function viewOverview(el) {
-  const kpi = h("div", { class: "kpis", "aria-label": "Ключевые показатели" }), mapEl = h("div"), panel = h("aside", { class: "card cpanel", "aria-label": "Панель страны" });
+  const kpi = h("div", { class: "kpis", "aria-label": T("Ключевые показатели") }), mapEl = h("div"), panel = h("aside", { class: "card cpanel", "aria-label": T("Панель страны") });
   const tBox = h("div"), cBox = h("div"), phBox = h("div", { class: "phs" });
-  el.append(kpi, h("div", { class: "mapgrid" }, h("section", { class: "card mapcard", "aria-label": "Карта мира" }, mapEl), panel),
-    h("div", { class: "lower" }, card("Открытые тендеры", tBox), card("Конфликты · UCDP", cBox), phBox));
+  el.append(kpi, h("div", { class: "mapgrid" }, h("section", { class: "card mapcard", "aria-label": T("Карта мира") }, mapEl), panel),
+    h("div", { class: "lower" }, card(T("Открытые тендеры"), tBox), card(T("Конфликты · UCDP"), cBox), phBox));
   await Promise.all([
     loadKpis(el.querySelector(".kpis")),
     mapBlock(mapEl, panel),
@@ -664,61 +793,68 @@ async function viewOverview(el) {
     placeholders(phBox),
     load(tBox, async () => {
       const d = await cached("openT"), items = d.items || [];
-      if (!items.length) return stateBox("load", "Открытых тендеров нет. Загрузите данные в разделе «Источники».");
+      if (!items.length) return stateBox("load", T("Открытых тендеров нет. Загрузите данные в разделе «Источники»."));
+      await trLookup(items.slice(0, 10).map((t) => t.title));
       const c = countsFrom(items);
-      return h("div", {}, h("div", { class: "bar" }, badge("Все открытые: " + d.total, "b-info"), badge("Лёгкие: " + c.EASY, "b-ok"), badge("Средние: " + c.MEDIUM, "b-warn"),
-        badge("Сложные: " + c.HARD, "b-bad"), badge("Не допущены: " + c.BLOCKED, "b-bad"), badge("На проверке: " + c.REVIEW_REQUIRED, "b-info")),
-      h("div", { class: "mut" }, "Первые 10 по порядку API (по соответствию); клик — карточка тендера"),
-      table(["Страна", "Название", "Дедлайн", "Сложность", "Соответствие"], items.slice(0, 10).map((t) => ({ key: t.key, cells: [txt(t.country),
-        h("span", { class: "clip", title: t.title == null ? "" : t.title }, t.title == null ? "—" : t.title), txt((t.deadline || "").slice(0, 10)),
+      return h("div", {}, h("div", { class: "bar" }, badge(T("Все открытые: ") + d.total, "b-info"), badge(T("Лёгкие: ") + c.EASY, "b-ok"), badge(T("Средние: ") + c.MEDIUM, "b-warn"),
+        badge(T("Сложные: ") + c.HARD, "b-bad"), badge(T("Не допущены: ") + c.BLOCKED, "b-bad"), badge(T("На проверке: ") + c.REVIEW_REQUIRED, "b-info")),
+      h("div", { class: "mut" }, T("Первые 10 по порядку API (по соответствию); клик — карточка тендера")),
+      table([T("Страна"), T("Название"), T("Дедлайн"), T("Сложность"), T("Соответствие")], items.slice(0, 10).map((t) => ({ key: t.key, cells: [txt(t.country),
+        h("div", { class: "clip2" }, dual(t.title)), txt((t.deadline || "").slice(0, 10)),
         sb(t.assessment && t.assessment.complexity), t.assessment && t.assessment.fit_score != null ? String(t.assessment.fit_score) : "—"] })),
         (r) => { S.sel = r.key; S.filters.country = ""; go("tenders"); }));
     }),
   ]);
 }
 async function viewConflicts(el) {
-  const mapEl = h("div"), panel = h("aside", { class: "card cpanel", "aria-label": "Панель страны" });
+  const mapEl = h("div"), panel = h("aside", { class: "card cpanel", "aria-label": T("Панель страны") });
   const metaBox = h("div"), realBox = h("div"), acdBox = h("div"), demoBox = h("div");
   S.mapLayer = "conflict";
-  el.append(h("div", { class: "mapgrid" }, h("section", { class: "card mapcard", "aria-label": "Карта конфликтов" }, mapEl), panel),
+  el.append(h("div", { class: "mapgrid" }, h("section", { class: "card mapcard", "aria-label": T("Карта конфликтов") }, mapEl), panel),
     h("div", { class: "grid", style: "margin-top:12px;grid-template-columns:minmax(0,1fr)" },
-      card("Источник и лицензия", metaBox), card("UCDP: агрегаты по странам (по числу погибших)", realBox), card("UCDP/PRIO ACD: вооружённые конфликты", acdBox), demoBox));
+      card(T("Источник и лицензия"), metaBox), card(T("UCDP: агрегаты по странам (по числу погибших)"), realBox), card(T("UCDP/PRIO ACD: вооружённые конфликты"), acdBox), demoBox));
   await mapBlock(mapEl, panel);
   let d;
   await load(metaBox, async () => { d = await cached("conf"); return conflictMeta(d); });
-  if (!d) { clear(realBox).append(stateBox("err", "Нет ответа /conflicts")); clear(acdBox); return; }
+  if (!d) { clear(realBox).append(stateBox("err", T("Нет ответа /conflicts"))); clear(acdBox); return; }
   const items = d.items || [], real = items.filter((c) => !c.demo), demo = items.filter((c) => c.demo);
-  clear(realBox).append(real.length ? realConflictTable(real) : stateBox("load", "Реальных данных UCDP нет. Загрузите их в разделе «Источники» («Конфликты UCDP»)."));
+  clear(realBox).append(real.length ? realConflictTable(real) : stateBox("load", T("Реальных данных UCDP нет. Загрузите их в разделе «Источники» («Конфликты UCDP»).")));
   const acd = d.acd;
-  clear(acdBox).append(acd && (acd.items || []).length ? h("div", {}, h("div", { class: "mut" }, "Год: " + txt(acd.year) + " · строк: " + acd.items.length + " · уникальных конфликтов: " + uniq(acd.items.map((a) => a.conflict_id)).length), acdTable(acd)) : stateBox("load", "Данных ACD нет."));
-  if (demo.length) demoBox.append(card("ДЕМО-регионы (синтетические, не для решений)", conflictList(demo)));
+  clear(acdBox).append(acd && (acd.items || []).length ? h("div", {}, h("div", { class: "mut" }, T("Год: ") + txt(acd.year) + T(" · строк: ") + acd.items.length + T(" · уникальных конфликтов: ") + uniq(acd.items.map((a) => a.conflict_id)).length), acdTable(acd)) : stateBox("load", T("Данных ACD нет.")));
+  if (demo.length) demoBox.append(card(T("ДЕМО-регионы (синтетические, не для решений)"), conflictList(demo)));
 }
 
-const FILTERS = [["all", "Все"], ["EASY", "Лёгкие"], ["MEDIUM", "Средние"], ["HARD", "Сложные"], ["BLOCKED", "Не допущены"], ["REVIEW_REQUIRED", "На проверке"]];
+const FILTERS = [["all", T("Все")], ["EASY", T("Лёгкие")], ["MEDIUM", T("Средние")], ["HARD", T("Сложные")], ["BLOCKED", T("Не допущены")], ["REVIEW_REQUIRED", T("На проверке")]];
 async function viewTenders(el) {
   const listBox = h("div"), det = h("div", { class: "detail", id: "detail" });
-  const bar = h("div", { class: "bar", role: "toolbar", "aria-label": "Фильтры тендеров" });
-  const q = h("input", { type: "search", value: S.filters.q, placeholder: "Поиск", "aria-label": "Текстовый поиск" });
-  const cat = h("input", { value: S.filters.category, placeholder: "Категория", "aria-label": "Категория", size: 10 });
-  const ctry = h("input", { value: S.filters.country || "все", placeholder: "Страна (ISO) или «все»", "aria-label": "Страна (ISO-код или «все» для всего мира)", title: "ISO-код страны, например CZE; «все» или пусто — весь мир", size: 12 });
-  const ALL = ["", "все", "всё", "all", "*", "весь мир"];
+  const bar = h("div", { class: "bar", role: "toolbar", "aria-label": T("Фильтры тендеров") });
+  const q = h("input", { type: "search", value: S.filters.q, placeholder: T("Поиск"), "aria-label": T("Текстовый поиск") });
+  const cat = h("input", { value: S.filters.category, placeholder: T("Категория"), "aria-label": T("Категория"), size: 10 });
+  const ctry = h("input", { value: S.filters.country || T("все"), placeholder: T("Страна (ISO) или «все»"), "aria-label": T("Страна (ISO-код или «все» для всего мира)"), title: T("ISO-код страны, например CZE; «все» или пусто — весь мир"), size: 12 });
+  const ALL = ["", T("все"), T("всё"), "all", "*", T("весь мир"), "world"];   // "все", "всё", "весь мир" accepted in either UI language
   const refresh = () => {
     S.filters.q = q.value.trim(); S.filters.category = cat.value.trim();
     const c = ctry.value.trim(); S.filters.country = ALL.includes(c.toLowerCase()) ? "" : c;
-    if (!S.filters.country) ctry.value = "все";
+    if (!S.filters.country) ctry.value = T("все");
     renderTenders();
   };
   for (const [id, l] of FILTERS) bar.append(h("button", { type: "button", class: S.filters.f === id ? "on" : "", "aria-pressed": String(S.filters.f === id), onclick: () => { S.filters.f = id; refresh(); viewRefreshBar(); } }, l));
   function viewRefreshBar() { for (const b of bar.querySelectorAll("button")) { const on = b.textContent === FILTERS.find((x) => x[0] === S.filters.f)[1]; b.className = on ? "on" : ""; b.setAttribute("aria-pressed", String(on)); } }
   for (const i of [q, cat, ctry]) i.addEventListener("keydown", (e) => { if (e.key === "Enter") refresh(); });
-  bar.append(q, cat, ctry, h("button", { type: "button", onclick: refresh }, "Применить"));
-  el.append(card("Тендеры", bar, listBox), det);
+  bar.append(q, cat, ctry, h("button", { type: "button", onclick: refresh }, T("Применить")));
+  el.append(card(T("Тендеры"), bar, listBox), det);
+  const listNode = (d) => {
+    if (!d.items.length) return stateBox("load", T("Нет тендеров по этим фильтрам."));
+    return h("div", {}, h("div", { class: "mut" }, Tf(T("Показано {0} из {1} · страна: {2}"), d.items.length, d.total, S.filters.country ? S.filters.country + (d.countryIso3 ? " (" + geoName(d.countryIso3) + ")" : "") : T("весь мир")) +
+      (S.filters.country ? T(" · фильтр страны применён в интерфейсе по коду/названию") + (d.partial ? T("; загружены не все тендеры") : "") : "")),
+    trBar(() => d.items.map((t) => t.title), () => clear(listBox).append(listNode(d))),
+    tenderTable(d.items, (k) => { S.sel = k; renderTenders(); showDetail(det, k); }));
+  };
   async function renderTenders() {
     await load(listBox, async () => {
       const d = await loadTenders(); S.tenders = d;
-      if (!d.items.length) return stateBox("load", "Нет тендеров по этим фильтрам.");
-      return h("div", {}, h("div", { class: "mut" }, `Показано ${d.items.length} из ${d.total} · страна: ${S.filters.country ? S.filters.country + (d.countryIso3 ? " (" + geoName(d.countryIso3) + ")" : "") : "весь мир"}` +
-        (S.filters.country ? " · фильтр страны применён в интерфейсе по коду/названию" + (d.partial ? "; загружены не все тендеры" : "") : "")), tenderTable(d.items, (k) => { S.sel = k; renderTenders(); showDetail(det, k); }));
+      await trLookup(d.items.map((t) => t.title));
+      return listNode(d);
     });
   }
   await renderTenders();
@@ -728,24 +864,25 @@ async function viewTenders(el) {
 async function showDetail(el, key) {
   await load(el, async () => {
     const [d, cl] = await Promise.all([GET("/tenders/" + encodeURI(key)), GET("/tenders/" + encodeURI(key) + "/checklist").catch((e) => ({ error: e.message }))]);
+    await trLookup([d.tender.title, ...serverTexts(d.assessment, cl)]);
     return detailView(d, cl, el);
   });
   el.scrollIntoView && el.scrollIntoView({ block: "nearest" });
 }
 function assessmentView(a) {
   const box = h("div");
-  box.append(h("div", { class: "bar" }, h("div", { class: "score" }, a.fit.fit_score == null ? "—" : String(a.fit.fit_score)), sb(a.complexity), a.tier_if_cleared ? badge("уровень после снятия проверок: " + ru(a.tier_if_cleared), STATUS_CLS[a.tier_if_cleared]) : null,
-    sb(a.compliance_status), a.demo ? badge("ДЕМО", "b-warn") : null, a.dry_run === false ? badge("сохранено #" + a.id, "b-ok") : (a.dry_run ? badge("пробная оценка", "b-grey") : null)));
-  box.append(h("p", { class: "msg", style: "background:#26365a" }, txt(a.fit.disclaimer)));
-  box.append(kv([["Уверенность", a.fit.confidence], ["Неизвестные компоненты", (a.fit.unknowns || []).join(", ") || "нет"], ["Оценка в USD", a.usd_value], ["Встречный контракт (back-to-back)", yn(a.back_to_back)], ["Оценено", a.assessed_at]]));
-  box.append(h("h3", {}, "Проверки"));
-  box.append(table(["Проверка", "Статус", "Причина", "Нужно подтвердить"], a.gates.map((g) => ({ cells: [gname(g.id), sb(g.status), txt(g.reason), txt(g.evidence_needed)] }))));
-  box.append(h("h3", {}, "Компоненты соответствия"));
-  box.append(table(["Компонент", "Вес", "Значение", "Почему"], Object.entries(a.fit.components).map(([k, c]) => ({ cells: [COMP_RU[k] || k, txt(c.weight), c.value == null ? "— (неизвестно)" : String(c.value), txt(c.why)] }))));
+  box.append(h("div", { class: "bar" }, h("div", { class: "score" }, a.fit.fit_score == null ? "—" : String(a.fit.fit_score)), sb(a.complexity), a.tier_if_cleared ? badge(T("уровень после снятия проверок: ") + ru(a.tier_if_cleared), STATUS_CLS[a.tier_if_cleared]) : null,
+    sb(a.compliance_status), a.demo ? badge(T("ДЕМО"), "b-warn") : null, a.dry_run === false ? badge(T("сохранено #") + a.id, "b-ok") : (a.dry_run ? badge(T("пробная оценка"), "b-grey") : null)));
+  box.append(h("p", { class: "msg", style: "background:#26365a" }, srv(a.fit.disclaimer)));
+  box.append(kv([[T("Уверенность"), a.fit.confidence], [T("Неизвестные компоненты"), (a.fit.unknowns || []).join(", ") || T("нет")], [T("Оценка в USD"), a.usd_value], [T("Встречный контракт (back-to-back)"), yn(a.back_to_back)], [T("Оценено"), a.assessed_at]]));
+  box.append(h("h3", {}, T("Проверки")));
+  box.append(table([T("Проверка"), T("Статус"), T("Причина"), T("Нужно подтвердить")], a.gates.map((g) => ({ cells: [gname(g.id), sb(g.status), srv(g.reason), srv(g.evidence_needed)] }))));
+  box.append(h("h3", {}, T("Компоненты соответствия")));
+  box.append(table([T("Компонент"), T("Вес"), T("Значение"), T("Почему")], Object.entries(a.fit.components).map(([k, c]) => ({ cells: [COMP_RU[k] || k, txt(c.weight), c.value == null ? T("— (неизвестно)") : String(c.value), srv(c.why)] }))));
   if (a.ai) {
-    box.append(h("h3", {}, "Подсказка ИИ"));
-    box.append(h("div", { class: "bar" }, sb(a.ai.status), a.ai.tier ? badge("уровень по ИИ: " + ru(a.ai.tier), STATUS_CLS[a.ai.tier]) : null,
-      a.ai_disagreement ? badge("ИИ не согласен с правилами", "b-warn") : null));
+    box.append(h("h3", {}, T("Подсказка ИИ")));
+    box.append(h("div", { class: "bar" }, sb(a.ai.status), a.ai.tier ? badge(T("уровень по ИИ: ") + ru(a.ai.tier), STATUS_CLS[a.ai.tier]) : null,
+      a.ai_disagreement ? badge(T("ИИ не согласен с правилами"), "b-warn") : null));
     box.append(h("pre", { class: "msg", style: "background:#0a1826;overflow:auto" }, JSON.stringify(a.ai, null, 2)));
   }
   return box;
@@ -753,12 +890,12 @@ function assessmentView(a) {
 function detailView(d, cl, host) {
   const t = d.tender, a = d.assessment;
   const out = h("div", { class: "card" });
-  out.append(h("h2", {}, t.title == null ? t.key : t.title, t.demo ? [" ", badge("ДЕМО", "b-warn")] : null));
+  out.append(h("h2", { class: "dh" }, t.title == null ? t.key : dual(t.title), t.demo ? [" ", badge(T("ДЕМО"), "b-warn")] : null));
   const link = t.source_url && /^https?:\/\//.test(t.source_url) ? h("a", { href: t.source_url, target: "_blank", rel: "noopener noreferrer" }, t.source_url) : txt(t.source_url);
-  out.append(kv([["Ключ", t.key], ["Покупатель", t.buyer], ["Страна", t.country], ["Категория", t.category], ["CPV", (t.cpv || []).join(", ")],
-    ["Стоимость", t.estimated_value == null ? null : `${t.estimated_value} ${t.currency || ""}`], ["Дедлайн", t.deadline], ["Статус", ru(t.status)],
-    ["Источник", link], ["Получено", t.retrieved_at], ["Качество данных", typeof t.data_quality === "object" && t.data_quality ? JSON.stringify(t.data_quality) : t.data_quality],
-    ["Версии", (d.versions || []).join(", ")]]));
+  out.append(kv([[T("Ключ"), t.key], [T("Покупатель"), t.buyer ? dual(t.buyer, { keep: true }) : null], [T("Страна"), t.country], [T("Категория"), t.category], ["CPV", (t.cpv || []).join(", ")],
+    [T("Стоимость"), t.estimated_value == null ? null : `${t.estimated_value} ${t.currency || ""}`], [T("Дедлайн"), t.deadline], [T("Статус"), ru(t.status)],
+    [T("Источник"), link], [T("Получено"), t.retrieved_at], [T("Качество данных"), typeof t.data_quality === "object" && t.data_quality ? JSON.stringify(t.data_quality) : t.data_quality],
+    [T("Версии"), (d.versions || []).join(", ")]]));
   const asBox = h("div", { style: "margin-top:10px" }, assessmentView(a));
   const ai = h("input", { type: "checkbox", id: "useai" });
   const b2b = h("input", { type: "checkbox", id: "b2b" });
@@ -768,19 +905,20 @@ function detailView(d, cl, host) {
     try {
       const r = await POST("/assessments", { tender_key: t.key, dry_run: dry, use_ai: ai.checked, back_to_back: b2b.checked });
       if (!dry && r.id != null) { S.lastAssessment[t.key] = r.id; try { sessionStorage.setItem("wt_last_" + t.key, String(r.id)); } catch (e) { /* */ } }
+      await trLookup(serverTexts(r, null));
       clear(asBox).append(assessmentView(r));
-      res.append(msgBox("ok", dry ? "Пробная оценка: ничего не сохранено." : "Оценка сохранена, № " + r.id));
+      res.append(msgBox("ok", dry ? T("Пробная оценка: ничего не сохранено.") : T("Оценка сохранена, № ") + r.id));
     } catch (e) { if (e.status !== 401) res.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); }
   };
-  out.append(h("div", { class: "bar" }, h("button", { type: "button", onclick: () => run(true) }, "Оценить (пробно)"), h("button", { type: "button", onclick: () => run(false) }, "Сохранить оценку"),
-    h("label", { class: "chk", for: "useai" }, ai, " подсказка ИИ"), h("label", { class: "chk", for: "b2b" }, b2b, " встречный контракт (back-to-back)")), res, asBox);
-  out.append(h("h3", {}, "Чек-лист (черновик)"));
+  out.append(h("div", { class: "bar" }, h("button", { type: "button", onclick: () => run(true) }, T("Оценить (пробно)")), h("button", { type: "button", onclick: () => run(false) }, T("Сохранить оценку")),
+    h("label", { class: "chk", for: "useai" }, ai, T(" подсказка ИИ")), h("label", { class: "chk", for: "b2b" }, b2b, T(" встречный контракт (back-to-back)"))), res, asBox);
+  out.append(h("h3", {}, T("Чек-лист (черновик)")));
   if (cl.error) out.append(stateBox("err", cl.error));
   else {
-    out.append(h("div", { class: "mut" }, txt(cl.note)));
-    out.append(cl.items.length ? table(["Шаг", "Статус", "Почему / что нужно"], cl.items.map((i) => ({ cells: [i.step, sb(i.status), [i.why, i.evidence].filter(Boolean).join(" — ") || "—"] }))) : stateBox("load", "Пусто"));
+    out.append(h("div", { class: "mut" }, srv(cl.note)));
+    out.append(cl.items.length ? table([T("Шаг"), T("Статус"), T("Почему / что нужно")], cl.items.map((i) => ({ cells: [srv(i.step), sb(i.status), [i.why, i.evidence].filter(Boolean).length ? [i.why, i.evidence].filter(Boolean).map((x, k) => [k ? " — " : null, srv(x)]) : "—"] }))) : stateBox("load", T("Пусто")));
   }
-  if ((d.reviews || []).length) { out.append(h("h3", {}, "Подписанные проверки")); out.append(table(["Проверка", "Решение", "Кто", "Заметка"], d.reviews.map((r) => ({ cells: [txt(gname(r.gate_id)), txt(ru(r.decision)), txt(r.reviewer || r.by), txt(r.note)] })))); }
+  if ((d.reviews || []).length) { out.append(h("h3", {}, T("Подписанные проверки"))); out.append(table([T("Проверка"), T("Решение"), T("Кто"), T("Заметка")], d.reviews.map((r) => ({ cells: [txt(gname(r.gate_id)), txt(ru(r.decision)), txt(r.reviewer || r.by), txt(r.note)] })))); }
   return out;
 }
 
@@ -790,24 +928,25 @@ async function viewCompliance(el) {
   const sk = S.sel || "";
   let aid = S.lastAssessment[sk];
   try { aid = aid || sessionStorage.getItem("wt_last_" + sk); } catch (e) { /* */ }
-  const aInp = inp("aid", "number", aid || "", { min: 1, "aria-label": "№ сохранённой оценки" });
-  el.append(card("Подпись проверок (комплаенс / владелец)", h("p", { class: "mut" }, "Выбранный тендер: " + (sk || "— (выберите в разделе «Закупки»)") + ". Подписываются только сохранённые оценки."),
-    h("div", { class: "bar" }, field("№ сохранённой оценки", aInp), h("button", { type: "button", onclick: loadA }, "Загрузить оценку")), out, res),
-  card("Подача заявки", h("p", { class: "msg", style: "background:#4d252a" }, "Подача заявок, контакт с контрагентами и закупка контролируемых товаров недоступны без отдельного решения владельца и юридической проверки."),
-    h("div", { class: "bar" }, h("button", { type: "button", disabled: true, "aria-disabled": "true", title: "Недоступно без юридической проверки и одобрения владельца" }, "Подать заявку"),
-      h("button", { type: "button", onclick: async () => { clear(fb); try { await POST("/actions/submit-bid"); fb.append(msgBox("err", "неожиданно: сервер не отказал")); } catch (e) { if (e.status !== 401) fb.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); } } }, "Проверить отказ сервера")), fb));
+  const aInp = inp("aid", "number", aid || "", { min: 1, "aria-label": T("№ сохранённой оценки") });
+  el.append(card(T("Подпись проверок (комплаенс / владелец)"), h("p", { class: "mut" }, T("Выбранный тендер: ") + (sk || T("— (выберите в разделе «Закупки»)")) + T(". Подписываются только сохранённые оценки.")),
+    h("div", { class: "bar" }, field(T("№ сохранённой оценки"), aInp), h("button", { type: "button", onclick: loadA }, T("Загрузить оценку"))), out, res),
+  card(T("Подача заявки"), h("p", { class: "msg", style: "background:#4d252a" }, T("Подача заявок, контакт с контрагентами и закупка контролируемых товаров недоступны без отдельного решения владельца и юридической проверки.")),
+    h("div", { class: "bar" }, h("button", { type: "button", disabled: true, "aria-disabled": "true", title: T("Недоступно без юридической проверки и одобрения владельца") }, T("Подать заявку")),
+      h("button", { type: "button", onclick: async () => { clear(fb); try { await POST("/actions/submit-bid"); fb.append(msgBox("err", T("неожиданно: сервер не отказал"))); } catch (e) { if (e.status !== 401) fb.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); } } }, T("Проверить отказ сервера"))), fb));
   if (aid) loadA();
   async function loadA() {
     clear(res);
     await load(out, async () => {
       const a = await GET("/assessments/" + encodeURIComponent(aInp.value));
+      await trLookup(serverTexts(a, null));
       const form = h("form", { class: "form" },
-        field("Проверка", sel("gate_id", a.gates.map((g) => [g.id, `${gname(g.id)} (${ru(g.status)})`]))), field("Решение", sel("decision", [["cleared", "снять проверку"], ["rejected", "отклонить"]])),
-        field("Заметка (мин. 5 символов)", inp("note", "text", "", { minlength: 5, required: true })), field("Ссылка на юридическое заключение (для военных товаров)", inp("legal_reference")),
-        h("button", { type: "submit" }, "Подписать"));
+        field(T("Проверка"), sel("gate_id", a.gates.map((g) => [g.id, `${gname(g.id)} (${ru(g.status)})`]))), field(T("Решение"), sel("decision", [["cleared", T("снять проверку")], ["rejected", T("отклонить")]])),
+        field(T("Заметка (мин. 5 символов)"), inp("note", "text", "", { minlength: 5, required: true })), field(T("Ссылка на юридическое заключение (для военных товаров)"), inp("legal_reference")),
+        h("button", { type: "submit" }, T("Подписать")));
       submit(form, (v) => POST(`/assessments/${a.id}/review`, { gate_id: v.gate_id, decision: v.decision, note: v.note, legal_reference: v.legal_reference || null }), res);
-      return h("div", {}, h("div", { class: "bar" }, badge("оценка #" + a.id), badge(a.tender_key), sb(a.compliance_status)),
-        table(["Проверка", "Статус", "Причина", "Нужно"], a.gates.map((g) => ({ cells: [gname(g.id), sb(g.status), txt(g.reason), txt(g.evidence_needed)] }))), form);
+      return h("div", {}, h("div", { class: "bar" }, badge(T("оценка #") + a.id), badge(a.tender_key), sb(a.compliance_status)),
+        table([T("Проверка"), T("Статус"), T("Причина"), T("Нужно")], a.gates.map((g) => ({ cells: [gname(g.id), sb(g.status), srv(g.reason), srv(g.evidence_needed)] }))), form);
     });
   }
 }
@@ -817,19 +956,19 @@ const PROFILE_FIELDS = [["name", "text"], ["country", "text"], ["registered", "c
   ["min_prep_days", "number"], ["capital_limit_usd", "number"], ["base_currency", "text"], ["past_performance", "list"]];
 async function viewFit(el) {
   const prof = h("div"), ap = h("div"), res = h("div");
-  el.append(card("Профиль компании", prof, res), card("Ожидающие запросы изменения профиля", ap));
+  el.append(card(T("Профиль компании"), prof, res), card(T("Ожидающие запросы изменения профиля"), ap));
   await load(prof, async () => {
     const d = await GET("/company/profile"), p = d.profile || {};
-    clear(ap).append(d.pending.length ? approvalsTable(d.pending, false) : stateBox("load", "Нет ожидающих запросов."));
-    if (!Object.keys(p).length) prof.append(stateBox("load", "Профиль пуст."));
+    clear(ap).append(d.pending.length ? approvalsTable(d.pending, false) : stateBox("load", T("Нет ожидающих запросов.")));
+    if (!Object.keys(p).length) prof.append(stateBox("load", T("Профиль пуст.")));
     const form = h("form", { class: "form" });
     for (const [k, ty] of PROFILE_FIELDS) {
       const v = p[k];
       if (ty === "checkbox") { const c = h("input", { type: "checkbox", name: k }); c.checked = !!v; form.append(h("label", { class: "chk" }, c, lbl(k))); }
-      else if (ty === "list") form.append(field(lbl(k) + " (через запятую)", inp(k, "text", Array.isArray(v) ? v.join(", ") : (v == null ? "" : v))));
+      else if (ty === "list") form.append(field(lbl(k) + T(" (через запятую)"), inp(k, "text", Array.isArray(v) ? v.join(", ") : (v == null ? "" : v))));
       else form.append(field(lbl(k), inp(k, ty, v == null ? "" : v)));
     }
-    form.append(h("button", { type: "submit" }, "Запросить изменение (нужно одобрение владельца)"));
+    form.append(h("button", { type: "submit" }, T("Запросить изменение (нужно одобрение владельца)")));
     form.addEventListener("submit", async (e) => {
       e.preventDefault(); clear(res);
       const changes = {};
@@ -841,8 +980,8 @@ async function viewFit(el) {
         else if (ty === "list") v = v.split(",").map((s) => s.trim()).filter(Boolean);
         if (JSON.stringify(v) !== JSON.stringify(p[k] == null ? (ty === "list" ? [] : "") : p[k]) && !(v === "" && p[k] == null)) changes[k] = v;
       }
-      if (!Object.keys(changes).length) { res.append(msgBox("err", "Нет изменений.")); return; }
-      try { const r = await api("PATCH", "/company/profile", { changes }); res.append(msgBox("ok", "Создан запрос на одобрение #" + r.approval_id + ": " + JSON.stringify(changes))); viewRefresh(); }
+      if (!Object.keys(changes).length) { res.append(msgBox("err", T("Нет изменений."))); return; }
+      try { const r = await api("PATCH", "/company/profile", { changes }); res.append(msgBox("ok", T("Создан запрос на одобрение #") + r.approval_id + ": " + JSON.stringify(changes))); viewRefresh(); }
       catch (x) { if (x.status !== 401) res.append(msgBox("err", "HTTP " + x.status + " — " + x.message)); }
     });
     return form;
@@ -859,26 +998,26 @@ async function viewFinance(el) {
   const res = h("div"), outBox = h("div");
   const form = h("form", { class: "form" });
   for (const [k, ty, def] of FIN_FIELDS) form.append(field(lbl(k), inp(k, ty, def, ty === "number" ? { step: "any", required: k === "purchase" || k === "bid_price" } : {})));
-  form.append(field("Курсы к USD (JSON, напр. {\"EUR\": 1.1})", inp("fx", "text", "{}")), chk("order_confirmed", lbl("order_confirmed")), chk("supplier_contract_signed", lbl("supplier_contract_signed")), h("button", { type: "submit" }, "Рассчитать"));
+  form.append(field(T("Курсы к USD (JSON, напр. {\"EUR\": 1.1})"), inp("fx", "text", "{}")), chk("order_confirmed", lbl("order_confirmed")), chk("supplier_contract_signed", lbl("supplier_contract_signed")), h("button", { type: "submit" }, T("Рассчитать")));
   form.addEventListener("submit", async (e) => {
     e.preventDefault(); clear(res); clear(outBox);
     const v = formData(form), body = {};
     for (const [k, ty] of FIN_FIELDS) body[k] = ty === "number" ? Number(v[k]) : v[k];
-    try { body.fx = JSON.parse(v.fx || "{}"); } catch (x) { res.append(msgBox("err", "Курсы: некорректный JSON")); return; }
+    try { body.fx = JSON.parse(v.fx || "{}"); } catch (x) { res.append(msgBox("err", T("Курсы: некорректный JSON"))); return; }
     body.order_confirmed = v.order_confirmed; body.supplier_contract_signed = v.supplier_contract_signed;
     try { outBox.append(financeResult(await POST("/finance/estimate", body))); }
     catch (x) { if (x.status !== 401) res.append(msgBox("err", "HTTP " + x.status + " — " + x.message)); }
   });
-  el.append(card("Оценка себестоимости и денежного потока", h("p", { class: "mut" }, "Все числа вводит человек; приложение не подставляет рыночных допущений. Суммы показаны как строки от API."), form, res), outBox);
+  el.append(card(T("Оценка себестоимости и денежного потока"), h("p", { class: "mut" }, T("Все числа вводит человек; приложение не подставляет рыночных допущений. Суммы показаны как строки от API.")), form, res), outBox);
 }
 function financeResult(r) {
   const box = h("div", { class: "grid", style: "margin-top:12px" });
-  box.append(card("Себестоимость с доставкой (" + r.currency + ")", kv(Object.entries(r.landed).map(([k, v]) => [lbl(k), v]))));
-  box.append(card("Маржа и наценка", kv([["Цена заявки", r.metrics.bid], ["Себестоимость с доставкой", r.metrics.landed_cost], ["Прибыль", r.metrics.profit], ["Маржа, % (от цены)", r.metrics.margin_pct], ["Наценка, % (от себестоимости)", r.metrics.markup_pct]])));
-  box.append(card("Денежный поток", kv([["Пик потребности", r.cashflow.peak_funding_need], ["День пика", r.cashflow.peak_day], ["Итоговый баланс", r.cashflow.final_balance], ["Пик в USD", r.peak_funding_need_usd]]),
-    table(["День", "Событие", "Сумма", "Накопленно"], r.cashflow.timeline.map((e) => ({ cells: [e.day, e.label, e.amount, e.cumulative] })))));
-  box.append(card("Стресс: задержка оплаты", table(["Доп. дней", "Пик", "Доп. стоимость", "Прибыль", "Маржа %", "Итоговый баланс"], r.stress.map((s) => ({ cells: [s.extra_delay_days, s.peak_funding_need, s.extra_carry_cost, s.profit, txt(s.margin_pct), s.final_balance] })))));
-  box.append(card("Проверка лимита капитала", h("div", { class: "bar" }, sb(r.capital.status), badge("разрешено: " + yn(r.capital.allowed)), badge("нужно одобрение владельца: " + yn(r.capital.needs_owner_approval))), h("p", {}, txt(r.capital.reason)), h("p", { class: "mut" }, txt(r.disclaimer))));
+  box.append(card(T("Себестоимость с доставкой (") + r.currency + ")", kv(Object.entries(r.landed).map(([k, v]) => [lbl(k), v]))));
+  box.append(card(T("Маржа и наценка"), kv([[T("Цена заявки"), r.metrics.bid], [T("Себестоимость с доставкой"), r.metrics.landed_cost], [T("Прибыль"), r.metrics.profit], [T("Маржа, % (от цены)"), r.metrics.margin_pct], [T("Наценка, % (от себестоимости)"), r.metrics.markup_pct]])));
+  box.append(card(T("Денежный поток"), kv([[T("Пик потребности"), r.cashflow.peak_funding_need], [T("День пика"), r.cashflow.peak_day], [T("Итоговый баланс"), r.cashflow.final_balance], [T("Пик в USD"), r.peak_funding_need_usd]]),
+    table([T("День"), T("Событие"), T("Сумма"), T("Накопленно")], r.cashflow.timeline.map((e) => ({ cells: [e.day, srv(e.label), e.amount, e.cumulative] })))));
+  box.append(card(T("Стресс: задержка оплаты"), table([T("Доп. дней"), T("Пик"), T("Доп. стоимость"), T("Прибыль"), T("Маржа %"), T("Итоговый баланс")], r.stress.map((s) => ({ cells: [s.extra_delay_days, s.peak_funding_need, s.extra_carry_cost, s.profit, txt(s.margin_pct), s.final_balance] })))));
+  box.append(card(T("Проверка лимита капитала"), h("div", { class: "bar" }, sb(r.capital.status), badge(T("разрешено: ") + yn(r.capital.allowed)), badge(T("нужно одобрение владельца: ") + yn(r.capital.needs_owner_approval))), h("p", {}, txt(r.capital.reason)), h("p", { class: "mut" }, txt(r.disclaimer))));
   return box;
 }
 
@@ -887,29 +1026,29 @@ async function viewDeals(el) {
   const res = h("div"), list = h("div");
   const form = h("form", { class: "form" },
     field(lbl("title"), inp("title", "text", "", { required: true })), field(lbl("tender_key"), inp("tender_key", "text", S.sel || "")), field(lbl("buyer_country"), inp("buyer_country", "text", "", { required: true })),
-    field(lbl("goods"), inp("goods", "text", "", { required: true })), field("Коды CPV (через запятую)", inp("cpv")), field(lbl("order_value"), inp("order_value", "number", "", { step: "any" })), field(lbl("currency"), inp("currency")),
+    field(lbl("goods"), inp("goods", "text", "", { required: true })), field(T("Коды CPV (через запятую)"), inp("cpv")), field(lbl("order_value"), inp("order_value", "number", "", { step: "any" })), field(lbl("currency"), inp("currency")),
     chk("order_confirmed", lbl("order_confirmed")), chk("supplier_contract_signed", lbl("supplier_contract_signed")),
     field(lbl("s_name"), inp("s_name", "text", "", { required: true, minlength: 2 })), field(lbl("s_country"), inp("s_country", "text", "", { required: true, minlength: 2, maxlength: 3 })),
     field(lbl("s_cpv"), inp("s_cpv")), field(lbl("s_url"), inp("s_url")), chk("s_confirmed", lbl("s_confirmed")), field(lbl("s_notes"), inp("s_notes")),
-    h("button", { type: "submit" }, "Создать сделку / состыковать"));
+    h("button", { type: "submit" }, T("Создать сделку / состыковать")));
   form.addEventListener("submit", async (e) => {
     e.preventDefault(); clear(res);
     const v = formData(form), csv = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
     const body = { title: v.title, tender_key: v.tender_key || null, buyer_country: v.buyer_country, goods: v.goods, cpv: csv(v.cpv), order_value: v.order_value === "" ? null : Number(v.order_value),
       currency: v.currency || null, order_confirmed: v.order_confirmed, supplier_contract_signed: v.supplier_contract_signed,
       supplier: { name: v.s_name, country: v.s_country, cpv_prefixes: csv(v.s_cpv), confirmed: v.s_confirmed, source_url: v.s_url || null, notes: v.s_notes } };
-    try { const r = await POST("/deals", body); res.append(msgBox("ok", `Сделка #${r.id}: состыкована — ${yn(r.matched)}, санкционная проверка — ${ru(r.screening.screening)}. ${r.next}`)); loadList(); }
+    try { const r = await POST("/deals", body); res.append(msgBox("ok", Tf(T("Сделка #{0}: состыкована — {1}, санкционная проверка — {2}. {3}"), r.id, yn(r.matched), ru(r.screening.screening), r.next))); loadList(); }
     catch (x) { if (x.status !== 401) res.append(msgBox("err", "HTTP " + x.status + " — " + x.message)); }
   });
-  el.append(card("Заказ и поставщик", form, res), card("Сделки", list));
+  el.append(card(T("Заказ и поставщик"), form, res), card(T("Сделки"), list));
   loadList();
   function loadList() {
     load(list, async () => {
       const d = await GET("/deals");
-      if (!d.items.length) return stateBox("load", "Сделок пока нет.");
-      return table(["#", "Название", "Тендер", "Страна", "Поставщик", "Состыкована", "Санкции", "Одобрено владельцем", ""], d.items.map((x) => ({ cells: [x.id, x.title, txt(x.tender_key), x.buyer_country, x.supplier && x.supplier.name,
+      if (!d.items.length) return stateBox("load", T("Сделок пока нет."));
+      return table(["#", T("Название"), T("Тендер"), T("Страна"), T("Поставщик"), T("Состыкована"), T("Санкции"), T("Одобрено владельцем"), ""], d.items.map((x) => ({ cells: [x.id, x.title, txt(x.tender_key), x.buyer_country, x.supplier && x.supplier.name,
         badge(yn(x.matched), x.matched ? "b-ok" : "b-grey"), x.screening && sb(x.screening.screening), badge(yn(x.owner_approved), x.owner_approved ? "b-ok" : "b-grey"),
-        h("button", { type: "button", onclick: async (ev) => { clear(res); try { const r = await POST(`/deals/${x.id}/request-approval`); res.append(msgBox("ok", "Запрос одобрения #" + r.approval_id)); } catch (e) { if (e.status !== 401) res.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); } } }, "Запросить одобрение владельца")] })));
+        h("button", { type: "button", onclick: async (ev) => { clear(res); try { const r = await POST(`/deals/${x.id}/request-approval`); res.append(msgBox("ok", T("Запрос одобрения #") + r.approval_id)); } catch (e) { if (e.status !== 401) res.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); } } }, T("Запросить одобрение владельца"))] })));
     });
   }
 }
@@ -917,10 +1056,10 @@ async function viewDeals(el) {
 /* ---------- learning ---------- */
 async function viewLearning(el) {
   const cal = h("div"), prop = h("div"), res = h("div");
-  const fd = h("form", { class: "form" }, field(lbl("tender_key"), inp("tender_key", "text", S.sel || "", { required: true })), field(lbl("decision"), sel("decision", [["go", "участвовать"], ["no_go", "не участвовать"], ["watch", "наблюдать"]])),
-    field(lbl("reasons"), inp("reasons", "text", "", { required: true, minlength: 3 })), h("button", { type: "submit" }, "Записать решение (владелец)"));
-  const fo = h("form", { class: "form" }, field(lbl("tender_key"), inp("tender_key", "text", S.sel || "", { required: true })), field(lbl("result"), sel("result", [["won", "выигран"], ["lost", "проигран"], ["withdrawn", "отозван"], ["not_submitted", "не подавали"]])),
-    field(lbl("actual_margin_pct"), inp("actual_margin_pct", "number", "", { step: "any" })), field(lbl("note"), inp("note")), h("button", { type: "submit" }, "Записать исход (владелец)"));
+  const fd = h("form", { class: "form" }, field(lbl("tender_key"), inp("tender_key", "text", S.sel || "", { required: true })), field(lbl("decision"), sel("decision", [["go", T("участвовать")], ["no_go", T("не участвовать")], ["watch", T("наблюдать")]])),
+    field(lbl("reasons"), inp("reasons", "text", "", { required: true, minlength: 3 })), h("button", { type: "submit" }, T("Записать решение (владелец)")));
+  const fo = h("form", { class: "form" }, field(lbl("tender_key"), inp("tender_key", "text", S.sel || "", { required: true })), field(lbl("result"), sel("result", [["won", T("выигран")], ["lost", T("проигран")], ["withdrawn", T("отозван")], ["not_submitted", T("не подавали")]])),
+    field(lbl("actual_margin_pct"), inp("actual_margin_pct", "number", "", { step: "any" })), field(lbl("note"), inp("note")), h("button", { type: "submit" }, T("Записать исход (владелец)")));
   submit(fd, (v) => POST("/learning/decisions", v), res);
   submit(fo, (v) => POST("/learning/outcomes", { tender_key: v.tender_key, result: v.result, actual_margin_pct: v.actual_margin_pct === "" ? null : Number(v.actual_margin_pct), note: v.note }), res);
   const dl = h("button", { type: "button", onclick: async () => {
@@ -930,20 +1069,20 @@ async function viewLearning(el) {
       if (!r.ok) { const t = await r.text(); let d; try { d = JSON.parse(t).detail; } catch (e) { d = t; } throw new ApiError(r.status, d); }
       const blob = await r.blob(), url = URL.createObjectURL(blob);
       const a = h("a", { href: url, download: "learning_dataset.txt" }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
-      res.append(msgBox("ok", "Датасет скачан (" + blob.size + " байт)."));
+      res.append(msgBox("ok", T("Датасет скачан (") + blob.size + T(" байт).")));
     } catch (e) { if (e.status !== 401) res.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); }
-  } }, "Скачать датасет (владелец)");
-  const apply = h("button", { type: "button", onclick: async () => { clear(res); try { const r = await POST("/learning/proposal/apply"); res.append(msgBox("ok", "Запрос одобрения #" + r.approval_id)); } catch (e) { if (e.status !== 401) res.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); } } }, "Предложить применить веса (владелец)");
-  el.append(card("Калибровка", cal), card("Предложение весов", prop, h("div", { class: "bar" }, apply)),
-    card("Решения и исходы", h("h3", {}, "Решение владельца"), fd, h("h3", {}, "Исход тендера"), fo, h("div", { class: "bar" }, dl), res));
+  } }, T("Скачать датасет (владелец)"));
+  const apply = h("button", { type: "button", onclick: async () => { clear(res); try { const r = await POST("/learning/proposal/apply"); res.append(msgBox("ok", T("Запрос одобрения #") + r.approval_id)); } catch (e) { if (e.status !== 401) res.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); } } }, T("Предложить применить веса (владелец)"));
+  el.append(card(T("Калибровка"), cal), card(T("Предложение весов"), prop, h("div", { class: "bar" }, apply)),
+    card(T("Решения и исходы"), h("h3", {}, T("Решение владельца")), fd, h("h3", {}, T("Исход тендера")), fo, h("div", { class: "bar" }, dl), res));
   load(cal, async () => {
     const d = await GET("/learning/calibration");
-    return h("div", {}, h("p", {}, txt(d.note)), kv([["Закрытых исходов", d.total_closed_outcomes], ["Владелец против модели", JSON.stringify(d.owner_vs_model)]]),
-      Object.keys(d.by_predicted_tier).length ? table(["Уровень", "Всего", "Выиграно", "Сглаженная доля побед", "Достаточно данных"], Object.entries(d.by_predicted_tier).map(([k, r]) => ({ cells: [ru(k), r.n, r.won, r.win_rate_smoothed, yn(r.enough_data)] }))) : stateBox("load", "Данных калибровки нет."));
+    return h("div", {}, h("p", {}, txt(d.note)), kv([[T("Закрытых исходов"), d.total_closed_outcomes], [T("Владелец против модели"), JSON.stringify(d.owner_vs_model)]]),
+      Object.keys(d.by_predicted_tier).length ? table([T("Уровень"), T("Всего"), T("Выиграно"), T("Сглаженная доля побед"), T("Достаточно данных")], Object.entries(d.by_predicted_tier).map(([k, r]) => ({ cells: [ru(k), r.n, r.won, r.win_rate_smoothed, yn(r.enough_data)] }))) : stateBox("load", T("Данных калибровки нет.")));
   });
   load(prop, async () => {
     const d = await GET("/learning/proposal");
-    if (d.status !== "PROPOSAL") return h("div", {}, h("div", { class: "bar" }, badge(ru(d.status), "b-grey")), h("p", {}, `Данных недостаточно: есть ${d.n}, нужно ${d.needed}.`), kv(Object.entries(d.current_weights || {})));
+    if (d.status !== "PROPOSAL") return h("div", {}, h("div", { class: "bar" }, badge(ru(d.status), "b-grey")), h("p", {}, Tf(T("Данных недостаточно: есть {0}, нужно {1}."), d.n, d.needed)), kv(Object.entries(d.current_weights || {})));
     return h("div", {}, kv(Object.entries(d.weights)), h("pre", { class: "msg", style: "overflow:auto" }, JSON.stringify(d.evidence, null, 2)));
   });
 }
@@ -952,40 +1091,40 @@ async function viewLearning(el) {
 async function viewSources(el) {
   const res = h("div"), box = h("div"), ref = h("div");
   /* each button posts once, shows the server result or its error verbatim, then refreshes status */
-  const act = (label, path, body, role) => h("button", { type: "button", title: "POST /api/v1" + path + " " + JSON.stringify(body) + " — роль «" + ROLE_RU[role] + "»", onclick: async (ev) => {
+  const act = (label, path, body, role) => h("button", { type: "button", title: "POST /api/v1" + path + " " + JSON.stringify(body) + T(" — роль «") + ROLE_RU[role] + "»", onclick: async (ev) => {
     const b = ev.currentTarget; clear(res); b.disabled = true;
-    res.append(stateBox("load", label + ": выполняется…"));
-    try { const r = await POST(path, body); clear(res).append(msgBox("ok", label + " — готово: " + JSON.stringify(r))); S.tenders = null; }
+    res.append(stateBox("load", label + T(": выполняется…")));
+    try { const r = await POST(path, body); clear(res).append(msgBox("ok", label + T(" — готово: ") + JSON.stringify(r))); S.tenders = null; }
     catch (e) { clear(res); if (e.status !== 401) res.append(msgBox("err", label + " — HTTP " + e.status + " — " + e.message)); }
     finally { b.disabled = false; loadHealth(); loadBadges(); refresh(); refRefresh(); }
   } }, label);
-  el.append(card("Источники данных",
-    h("h3", {}, "Тендеры (роль «аналитик»)"),
-    h("div", { class: "bar" }, act("Загрузить ДЕМО", "/ingest", { source: "demo" }, "analyst"), act("TED: Чехия", "/ingest", { source: "ted", country: "CZE" }, "analyst"),
-      act("TED: весь мир", "/ingest", { source: "ted", country: null }, "analyst"), act("Всемирный банк (весь мир)", "/ingest", { source: "worldbank" }, "analyst")),
-    h("h3", {}, "Справочники"),
-    h("div", { class: "bar" }, act("Загрузить санкции (OFAC+ООН)", "/sanctions/fetch", { sources: ["ofac", "un"] }, "compliance"), act("Курсы ЧНБ", "/fx/fetch", {}, "analyst"),
-      act("Конфликты UCDP", "/conflicts/fetch", {}, "compliance")),
-    h("p", { class: "mut" }, "Внешние источники работают только при WAR_TERMINAL_LIVE=true; иначе сервер отвечает отказом LIVE_DISABLED. Санкции и конфликты требуют роль «комплаенс»."),
-    res, h("h3", {}, "Справочные данные"), ref, h("h3", {}, "Статус источников"), box));
+  el.append(card(T("Источники данных"),
+    h("h3", {}, T("Тендеры (роль «аналитик»)")),
+    h("div", { class: "bar" }, act(T("Загрузить ДЕМО"), "/ingest", { source: "demo" }, "analyst"), act(T("TED: Чехия"), "/ingest", { source: "ted", country: "CZE" }, "analyst"),
+      act(T("TED: весь мир"), "/ingest", { source: "ted", country: null }, "analyst"), act(T("Всемирный банк (весь мир)"), "/ingest", { source: "worldbank" }, "analyst")),
+    h("h3", {}, T("Справочники")),
+    h("div", { class: "bar" }, act(T("Загрузить санкции (OFAC+ООН)"), "/sanctions/fetch", { sources: ["ofac", "un"] }, "compliance"), act(T("Курсы ЧНБ"), "/fx/fetch", {}, "analyst"),
+      act(T("Конфликты UCDP"), "/conflicts/fetch", {}, "compliance")),
+    h("p", { class: "mut" }, T("Внешние источники работают только при WAR_TERMINAL_LIVE=true; иначе сервер отвечает отказом LIVE_DISABLED. Санкции и конфликты требуют роль «комплаенс».")),
+    res, h("h3", {}, T("Справочные данные")), ref, h("h3", {}, T("Статус источников")), box));
   function refRefresh() {
     load(ref, async () => {
       const [sx, fx] = [await GET("/sanctions/status").catch((e) => ({ error: e })), await GET("/fx").catch((e) => ({ error: e }))];
       const errTxt = (e) => "HTTP " + e.status + " — " + e.message;
       return kv([
-        ["Санкции: записей", sx.error ? errTxt(sx.error) : (sx.count ? String(sx.count) : "0 — не загружены")],
-        ["Санкции: дата", sx.error ? null : sx.as_of], ["Санкции: версия списка", sx.error ? null : sx.list_version], ["Санкции: источник", sx.error ? null : sx.source],
-        ["Курсы: дата", fx.error ? errTxt(fx.error) : (fx.as_of || "не загружены")], ["Курсы: источник", fx.error ? null : fx.source],
-        ["Курсы: пар", fx.error ? null : String(Object.keys(fx.rates || {}).length)],
-        ["Курсы: ссылка", !fx.error && fx.url && /^https?:\/\//.test(fx.url) ? h("a", { href: fx.url, target: "_blank", rel: "noopener noreferrer" }, fx.url) : null]]);
+        [T("Санкции: записей"), sx.error ? errTxt(sx.error) : (sx.count ? String(sx.count) : T("0 — не загружены"))],
+        [T("Санкции: дата"), sx.error ? null : sx.as_of], [T("Санкции: версия списка"), sx.error ? null : sx.list_version], [T("Санкции: источник"), sx.error ? null : sx.source],
+        [T("Курсы: дата"), fx.error ? errTxt(fx.error) : (fx.as_of || T("не загружены"))], [T("Курсы: источник"), fx.error ? null : fx.source],
+        [T("Курсы: пар"), fx.error ? null : String(Object.keys(fx.rates || {}).length)],
+        [T("Курсы: ссылка"), !fx.error && fx.url && /^https?:\/\//.test(fx.url) ? h("a", { href: fx.url, target: "_blank", rel: "noopener noreferrer" }, fx.url) : null]]);
     });
   }
   refRefresh();
   function refresh() {
     load(box, async () => {
       const d = await GET("/sources/status");
-      return h("div", {}, kv([["Режим", ru(d.data.mode)], ["Внешние источники включены", yn(d.data.live_enabled)], ["ДЕМО-тендеров", d.data.demo_tenders], ["Водяной знак", d.data.watermark == null ? "нет" : (WM_RU[d.data.watermark] || d.data.watermark)]]),
-        table(["Источник", "Тип", "Статус", "Причина", "Последний успех", "Устарел", "Кол-во"], d.sources.map((s) => ({ cells: [txt(s.name || s.id), txt(s.kind), sb(s.status), txt(s.reason || s.note), txt(s.last_success), s.stale == null ? "—" : yn(s.stale), txt(s.count != null ? s.count : s.last_count)] }))));
+      return h("div", {}, kv([[T("Режим"), ru(d.data.mode)], [T("Внешние источники включены"), yn(d.data.live_enabled)], [T("ДЕМО-тендеров"), d.data.demo_tenders], [T("Водяной знак"), d.data.watermark == null ? T("нет") : (WM_RU[d.data.watermark] || d.data.watermark)]]),
+        table([T("Источник"), T("Тип"), T("Статус"), T("Причина"), T("Последний успех"), T("Устарел"), T("Кол-во")], d.sources.map((s) => ({ cells: [txt(s.name || s.id), txt(s.kind), sb(s.status), txt(s.reason || s.note), txt(s.last_success), s.stale == null ? "—" : yn(s.stale), txt(s.count != null ? s.count : s.last_count)] }))));
     });
   }
   refresh();
@@ -993,19 +1132,19 @@ async function viewSources(el) {
 
 /* ---------- approvals ---------- */
 function approvalsTable(items, canDecide, onDone) {
-  return table(["#", "Действие", "Данные", "Статус", "Кто просил", "Решил", "Заметка", canDecide ? "Решение" : ""], items.map((a) => {
-    const note = h("input", { placeholder: "заметка", "aria-label": "Заметка к решению #" + a.id, size: 12 });
+  return table(["#", T("Действие"), T("Данные"), T("Статус"), T("Кто просил"), T("Решил"), T("Заметка"), canDecide ? T("Решение") : ""], items.map((a) => {
+    const note = h("input", { placeholder: T("заметка"), "aria-label": T("Заметка к решению #") + a.id, size: 12 });
     const btn = (ok, label) => h("button", { type: "button", onclick: async (ev) => {
       try { await POST(`/approvals/${a.id}/decide`, { approve: ok, note: note.value }); onDone && onDone(); }
       catch (e) { if (e.status !== 401) ev.target.closest("td").append(msgBox("err", "HTTP " + e.status + " — " + e.message)); }
     } }, label);
     return { cells: [a.id, a.action, h("code", {}, JSON.stringify(a.payload)), sb(a.status), txt(a.requested_by), txt(a.decided_by), txt(a.note),
-      canDecide && a.status === "pending" ? h("div", { class: "bar" }, note, btn(true, "Одобрить"), btn(false, "Отклонить")) : ""] };
+      canDecide && a.status === "pending" ? h("div", { class: "bar" }, note, btn(true, T("Одобрить")), btn(false, T("Отклонить"))) : ""] };
   }));
 }
 async function viewApprovals(el) {
-  const box = h("div"); el.append(card("Запросы на одобрение", h("p", { class: "mut" }, "Решение принимает только токен роли «владелец»; иначе сервер ответит 403."), box));
-  const reload = () => load(box, async () => { const d = await GET("/approvals"); return d.items.length ? approvalsTable(d.items, true, reload) : stateBox("load", "Запросов нет."); });
+  const box = h("div"); el.append(card(T("Запросы на одобрение"), h("p", { class: "mut" }, T("Решение принимает только токен роли «владелец»; иначе сервер ответит 403.")), box));
+  const reload = () => load(box, async () => { const d = await GET("/approvals"); return d.items.length ? approvalsTable(d.items, true, reload) : stateBox("load", T("Запросов нет.")); });
   reload();
 }
 
@@ -1016,15 +1155,15 @@ async function render() {
   const m = clear($("#main"));
   S.cache = {}; S.mapApi = null;
   m.append(h("h2", { class: "vt" + (S.view === "overview" ? " sr" : "") }, SECTIONS.find((s) => s[0] === S.view)[1]));
-  try { await VIEWS[S.view](m); } catch (e) { if (e.status !== 401) m.append(stateBox("err", "Ошибка: " + (e.message || e))); }
+  try { await VIEWS[S.view](m); } catch (e) { if (e.status !== 401) m.append(stateBox("err", T("Ошибка: ") + (e.message || e))); }
 }
 function boot() {
-  $("#whoami").textContent = "роль: " + (ROLE_RU[S.role] || S.role);
+  $("#whoami").textContent = T("роль: ") + (ROLE_RU[S.role] || S.role);
   $("#logout").hidden = false;
   loadHealth(); renderNav(); render(); loadBadges();
 }
 document.addEventListener("DOMContentLoaded", () => {
-  tick(); setInterval(tick, 30000);
+  applyStatic(); tick(); setInterval(tick, 30000);
   $("#logout").addEventListener("click", () => { try { sessionStorage.removeItem("wt_token"); } catch (e) { /* */ } S.token = ""; clear($("#main")); showGate(); });
   $("#gsearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { S.filters.q = e.target.value.trim(); S.filters.f = "all"; go("tenders"); } });
   loadHealth();

@@ -11,6 +11,12 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from fixtures import fake_get, fake_post  # noqa: E402
 from warterminal.api import create_app  # noqa: E402
 
+@pytest.fixture(autouse=True)
+def _no_real_bossman(monkeypatch):
+    """Tests must never reach the owner's running Bossman (:8801) through the translation gateway."""
+    monkeypatch.setenv("WAR_TERMINAL_BOSSMAN_URL", "off")
+
+
 TOK = {"viewer": "tv", "analyst": "ta", "compliance": "tc", "owner": "to"}
 TODAY = date(2026, 10, 17)
 

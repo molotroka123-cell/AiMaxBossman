@@ -16,7 +16,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import API_VERSION, VERSION, ai as ai_mod, finance, geo, learning, rules, scoring, sources
+from . import API_VERSION, VERSION, ai as ai_mod, finance, geo, learning, rules, scoring, sources, translate as tr_mod
 from .connectors import cnb, cz, demo as demo_conn, indicators, demo_conflicts, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
 from .store import Store, now
 
@@ -60,6 +60,11 @@ class BrowserIngestIn(BaseModel):
     """Records read from public portal pages by the headless-browser tool (tools/browser_contracts.py)."""
     portal: str = Field(min_length=3, max_length=60)
     tenders: list[dict] = Field(max_length=500)
+
+
+class TranslateIn(BaseModel):
+    texts: list[str] = Field(min_length=1, max_length=tr_mod.MAX_PER_CALL)
+    target: str = Field(pattern=r"^(ru|en)$")
 
 
 class AssessIn(BaseModel):
@@ -180,7 +185,7 @@ class OutcomeIn(BaseModel):
 
 
 def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, tokens: dict | None = None, post=None, get=None,
-               chat=None, today: date | None = None, download=None) -> FastAPI:
+               chat=None, today: date | None = None, download=None, bossman=None) -> FastAPI:
     data_dir = Path(data_dir or os.environ.get("WAR_TERMINAL_DATA") or Path.home() / ".war-terminal")
     data_dir.mkdir(parents=True, exist_ok=True)
     store = Store(data_dir / "war.db")
@@ -206,6 +211,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     if chat is None and os.environ.get("WAR_TERMINAL_AI_URL") and os.environ.get("WAR_TERMINAL_AI_MODEL"):
         chat = ai_mod.make_chat(os.environ["WAR_TERMINAL_AI_URL"], os.environ["WAR_TERMINAL_AI_MODEL"], os.environ.get("WAR_TERMINAL_AI_KEY"))
     sam_key = os.environ.get("SAM_API_KEY", "")
+    translator = tr_mod.Translator(store, None if bossman is False else (bossman or tr_mod.gateway_from_env(dict(os.environ))))   # False = off (tests)
 
     app = FastAPI(title="Bossman War & Procurement Terminal", version=VERSION, description="API v1. DEMO data is always marked demo=true.")
     app.state.store, app.state.live, app.state.tokens = store, live, tokens
@@ -861,6 +867,24 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         audit(role, "action.refused", {"name": name})
         raise HTTPException(403, {"code": "NOT_IMPLEMENTED_REQUIRES_LEGAL_REVIEW",
                                   "message": "подача заявок, контакт с контрагентами и закупка контролируемых товаров в этой версии не реализованы и недоступны без отдельного решения владельца и юридической проверки"})
+
+    # ------------------------------------------------------------------ translation (original and translation are separate records)
+    @app.get(f"{P}/translate/status")
+    def translate_status(_=Depends(viewer)):
+        return translator.status()
+
+    @app.post(f"{P}/translate/lookup")
+    def translate_lookup(body: TranslateIn, _=Depends(viewer)):
+        """Language tags and already-cached translations. No model call, no spend."""
+        return {"items": translator.lookup(body.texts, body.target), **translator.status()}
+
+    @app.post(f"{P}/translate")
+    def translate_run(body: TranslateIn, role=Depends(analyst)):
+        """Owner click: machine-translate the texts that have no cached translation, through free Bossman routes only."""
+        out = translator.translate(body.texts, body.target)
+        audit(role, "translate.run", {"target": body.target, "texts": len(body.texts), "fresh": out["fresh"], "models": sorted(set(out["models"])),
+                                      "statuses": sorted({r["status"] for r in out["items"]})})
+        return out
 
     # ------------------------------------------------------------------ UI
     if UI_DIR.exists():
