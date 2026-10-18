@@ -87,7 +87,7 @@ const SECTION_ORDER = {
   work: ['capability-tree', 'control-lab', 'mission_console', 'missions', 'builder', 'objectives', 'control'],
   studio: ['video-studio', 'web_designer', 'browser', 'coding', 'terminal',
            'images', 'web_research', 'trading_lab', 'bossman-chat'],
-  brains: ['agentmap', 'orchestras', 'skills', 'router', 'openrouter', 'benchmarks'],
+  brains: ['agentmap', 'orchestras', 'skills', 'router', 'openrouter', 'benchmarks', 'self-improve'],
   system: ['resources', 'governor', 'healing', 'forks', 'overview'],
 };
 // Нижняя панель телефона: пять настоящих страниц, до которых чаще всего

@@ -1,0 +1,1772 @@
+{
+  "schema_version": 1,
+  "source_sha": "67a2a0b54239ff78c89c724d254e9f575d33dfb3",
+  "runtime_build": "c25413930eb2",
+  "tasks_seen": 96,
+  "agents": [
+    {
+      "id": "agent:1",
+      "name": "Пилот",
+      "kind": "db-agent",
+      "purpose": "Основной исполнитель владельца",
+      "tools": [
+        "computer.act",
+        "computer.observe",
+        "jeff.broadcast"
+      ],
+      "data_reach": [
+        "channel.send",
+        "computer.act",
+        "computer.observe"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 8,
+        "max_tokens": 2048,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "eb27928ea545751611f3f84cbd0ea266433eaaa2ca966654eaeb318d7976adc9",
+        "chars": 478
+      },
+      "model": {
+        "id": 9,
+        "alias": "local-qwen36-35b-a3b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 19,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 68,
+        "status": "failed",
+        "at": "2026-10-02T14:24:19.315887"
+      },
+      "task_status_counts": {
+        "completed": 13,
+        "failed": 6
+      }
+    },
+    {
+      "id": "agent:2",
+      "name": "Решатель",
+      "kind": "db-agent",
+      "purpose": "Решает сложные задачи программирования",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 2,
+        "max_tokens": 8192,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "c7b05cf055508b2863f9211af613ba3f030c87017e68038b1838f0b04f8350f1",
+        "chars": 131
+      },
+      "model": {
+        "id": 8,
+        "alias": "local-qwen38-27b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 2,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 13,
+        "status": "completed",
+        "at": "2026-09-22T21:28:52.453276"
+      },
+      "task_status_counts": {
+        "completed": 2
+      }
+    },
+    {
+      "id": "agent:3",
+      "name": "Nemotron worker (free, test 2026-09-24)",
+      "kind": "db-agent",
+      "purpose": "worker",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 2,
+        "max_tokens": 8000,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "188fda992b0247210a20da22d7fd6a78df78c56c724acecbba0d47f42fb879b7",
+        "chars": 43
+      },
+      "model": {
+        "id": 4,
+        "alias": "nemotron-ultra-free",
+        "kind": "cloud",
+        "status": "error"
+      },
+      "state": "idle",
+      "tasks_seen": 9,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 71,
+        "status": "failed",
+        "at": "2026-09-30T16:40:17.747852"
+      },
+      "task_status_counts": {
+        "failed": 2,
+        "completed": 7
+      }
+    },
+    {
+      "id": "agent:4",
+      "name": "OWNER-BENCH-NEX-20260925",
+      "kind": "db-agent",
+      "purpose": "read-only browser/vision routing benchmark",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 250,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "554aeae4c7182961291faab50a4a84e1330703fe59747b52addbaca451f2755f",
+        "chars": 140
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 8,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 62,
+        "status": "failed",
+        "at": "2026-09-28T11:07:09.964455"
+      },
+      "task_status_counts": {
+        "failed": 5,
+        "completed": 3
+      }
+    },
+    {
+      "id": "agent:5",
+      "name": "YOUTUBE-VERIFY-NEMOTRON-20260925",
+      "kind": "db-agent",
+      "purpose": "independent read-only patch verifier",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 600,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "cbf8f77269e0c45f9f022ff1f26a2ffb6911b6d736e089cb1407c6cf85ad68c6",
+        "chars": 135
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 2,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 58,
+        "status": "completed",
+        "at": "2026-09-27T19:45:55.785231"
+      },
+      "task_status_counts": {
+        "completed": 2
+      }
+    },
+    {
+      "id": "agent:6",
+      "name": "YT-Nemotron-1-20260925",
+      "kind": "db-agent",
+      "purpose": "EXTRACTOR",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 1200,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "ec122e3c1bdb50591dd33267ced9105f7f6032db6628ede799ea7daf03a89d89",
+        "chars": 172
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 28,
+        "status": "completed",
+        "at": "2026-09-25T08:30:46.039135"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:7",
+      "name": "YT-Nemotron-2-20260925",
+      "kind": "db-agent",
+      "purpose": "SKEPTIC",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 1200,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "ec122e3c1bdb50591dd33267ced9105f7f6032db6628ede799ea7daf03a89d89",
+        "chars": 172
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 29,
+        "status": "completed",
+        "at": "2026-09-25T08:31:06.089880"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:8",
+      "name": "YT-Nemotron-3-20260925",
+      "kind": "db-agent",
+      "purpose": "CURRICULUM",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 1200,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "ec122e3c1bdb50591dd33267ced9105f7f6032db6628ede799ea7daf03a89d89",
+        "chars": 172
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 30,
+        "status": "completed",
+        "at": "2026-09-25T08:31:20.176215"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:9",
+      "name": "YT-FIX-LING-PATCH-ONLY",
+      "kind": "db-agent",
+      "purpose": "public repo patch proposal",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 1200,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "8db2e9655bb047d56fb00684a7e7e84b1f3d3ed56539037275a7fdde1e510501",
+        "chars": 142
+      },
+      "model": {
+        "id": 7,
+        "alias": "ling-30-fin-free",
+        "kind": "cloud",
+        "status": "unavailable"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 31,
+        "status": "failed",
+        "at": "2026-09-25T08:34:07.130311"
+      },
+      "task_status_counts": {
+        "failed": 1
+      }
+    },
+    {
+      "id": "agent:10",
+      "name": "YT-FIX-NEMOTRON-PATCH-ONLY",
+      "kind": "db-agent",
+      "purpose": "public repo patch proposal",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 1200,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "c649d5747b6f3a7472c707714a2eda5f5088651a73ef3b11f7cab0b10e3ed7c7",
+        "chars": 137
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 32,
+        "status": "completed",
+        "at": "2026-09-25T08:34:47.826377"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:11",
+      "name": "YT-FIX-INDEPENDENT-VERIFY-2",
+      "kind": "db-agent",
+      "purpose": "read-only verifier, no code writes",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 850,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "ca36e79acb9f7f017ea712cad4017d4e6b8f69fae658dde79ba1c7dc2fa8b57f",
+        "chars": 134
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 33,
+        "status": "completed",
+        "at": "2026-09-25T08:36:30.619208"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:12",
+      "name": "YT-FIX-NEX-VERIFIER",
+      "kind": "db-agent",
+      "purpose": "read-only independent patch verifier",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 500,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "efd1a327d8e6c4b1e7eb954d0ee89c07baa4ac09a47e3ae96fde25cde16fc954",
+        "chars": 118
+      },
+      "model": {
+        "id": 5,
+        "alias": "nex-n25-pro-free",
+        "kind": "cloud",
+        "status": "unavailable"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 34,
+        "status": "completed",
+        "at": "2026-09-25T08:38:56.036427"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:13",
+      "name": "YT-Nemotron-Extractor-Compact",
+      "kind": "db-agent",
+      "purpose": "public transcript extractor",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 2600,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "9467ddf635177f9867528bab198a68d7fa7b84de74025020a6acbfba81810c21",
+        "chars": 118
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 35,
+        "status": "completed",
+        "at": "2026-09-25T08:39:11.313796"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:14",
+      "name": "YT-Nemotron-SKEPTIC-Compact",
+      "kind": "db-agent",
+      "purpose": "SKEPTIC",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 2600,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "7784980104e8b7a7f66121e8f0714d57197f33d72f4f08b0a8291071a85e2880",
+        "chars": 138
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 36,
+        "status": "completed",
+        "at": "2026-09-25T08:39:44.744160"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:15",
+      "name": "YT-Nemotron-CURRICULUM-Compact",
+      "kind": "db-agent",
+      "purpose": "CURRICULUM",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 2600,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "7784980104e8b7a7f66121e8f0714d57197f33d72f4f08b0a8291071a85e2880",
+        "chars": 138
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 37,
+        "status": "completed",
+        "at": "2026-09-25T08:39:58.898159"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:16",
+      "name": "OWNER-LOCAL-QWEN38-PROBE",
+      "kind": "db-agent",
+      "purpose": "read-only owner CMD acceptance",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 128,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "7087a54864f38e3b1da72cf868f77d483acce4fd8bab47db113f57295c8beeee",
+        "chars": 82
+      },
+      "model": {
+        "id": 8,
+        "alias": "local-qwen38-27b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 7,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 50,
+        "status": "failed",
+        "at": "2026-09-25T22:28:56.116295"
+      },
+      "task_status_counts": {
+        "failed": 5,
+        "completed": 2
+      }
+    },
+    {
+      "id": "agent:17",
+      "name": "FRESH-VIBES-LOCAL-DRAFT",
+      "kind": "db-agent",
+      "purpose": "business content dry-run worker",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 1100,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "bb598b8dc78a4ef5c55c0197580c095e68fb6c468d70f1ba969645148eff5858",
+        "chars": 131
+      },
+      "model": {
+        "id": 8,
+        "alias": "local-qwen38-27b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 39,
+        "status": "stopped",
+        "at": "2026-09-25T09:09:19.652312"
+      },
+      "task_status_counts": {
+        "stopped": 1
+      }
+    },
+    {
+      "id": "agent:18",
+      "name": "FRESH-VIBES-FAST-LOCAL-DRAFT",
+      "kind": "db-agent",
+      "purpose": "business dry-run worker",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 550,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "1e8157be9d1b0d81b76db38287fb80a41119084fd59ec69ce66b6dee9aa421d1",
+        "chars": 109
+      },
+      "model": {
+        "id": 9,
+        "alias": "local-qwen36-35b-a3b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 2,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 52,
+        "status": "completed",
+        "at": "2026-09-25T22:31:34.172498"
+      },
+      "task_status_counts": {
+        "completed": 1,
+        "failed": 1
+      }
+    },
+    {
+      "id": "agent:19",
+      "name": "VAULT-ACL-NEMOTRON-REVIEW",
+      "kind": "db-agent",
+      "purpose": "independent security reviewer",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 2600,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "8087596a5f81ce745adc8106dbd2722e73f8ec04e3eeea94e9deca1df6e56526",
+        "chars": 144
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 41,
+        "status": "failed",
+        "at": "2026-09-25T09:15:41.468254"
+      },
+      "task_status_counts": {
+        "failed": 1
+      }
+    },
+    {
+      "id": "agent:20",
+      "name": "VAULT-ACL-LOCAL-INDEPENDENT",
+      "kind": "db-agent",
+      "purpose": "independent security reviewer",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 2000,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "56e96771ba0d19e71ed237177cc31222eafec9f6f50c3c95a4ae5d39b249497f",
+        "chars": 104
+      },
+      "model": {
+        "id": 9,
+        "alias": "local-qwen36-35b-a3b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 3,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 57,
+        "status": "completed",
+        "at": "2026-09-27T18:54:06.658741"
+      },
+      "task_status_counts": {
+        "completed": 1,
+        "failed": 2
+      }
+    },
+    {
+      "id": "agent:21",
+      "name": "BOSSBLOCKS-LOCAL-OWNER-20260925",
+      "kind": "db-agent",
+      "purpose": "Local game coding worker for owner benchmark",
+      "tools": [
+        "list_dir",
+        "read_file",
+        "search",
+        "edit_file",
+        "write_file",
+        "run_tests",
+        "finish"
+      ],
+      "data_reach": [
+        "require_tests_before_finish"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 40,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "509de727db276a9ca00b2c7c78d73984d6e345276dbb6efab9e9d7512aeeb9b4",
+        "chars": 280
+      },
+      "model": {
+        "id": 9,
+        "alias": "local-qwen36-35b-a3b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 59,
+        "status": "stopped",
+        "at": "2026-09-27T19:52:53.027689"
+      },
+      "task_status_counts": {
+        "stopped": 1
+      }
+    },
+    {
+      "id": "agent:22",
+      "name": "BOSSBLOCKS-NEMOTRON-REVIEW-20260926",
+      "kind": "db-agent",
+      "purpose": "Independent game design reviewer for BOSSBLOCKS-001; no product code writes",
+      "tools": [],
+      "data_reach": [
+        "read_only"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 900,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "03a5a5afbac56066c202f50346ed2b097872ce1fd6ffb9ba4bae60296bd94292",
+        "chars": 187
+      },
+      "model": {
+        "id": 6,
+        "alias": "nemotron-ultra-free-canonical",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 53,
+        "status": "failed",
+        "at": "2026-09-26T10:46:47.674498"
+      },
+      "task_status_counts": {
+        "failed": 1
+      }
+    },
+    {
+      "id": "agent:23",
+      "name": "BOSSBLOCKS-LOCAL-SMALL-20260926",
+      "kind": "db-agent",
+      "purpose": "Bounded local Godot game implementation worker",
+      "tools": [
+        "list_dir",
+        "read_file",
+        "search",
+        "edit_file",
+        "write_file",
+        "run_tests",
+        "finish"
+      ],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 12,
+        "max_tokens": 3000,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "7d46cbe7dc6410ea84efc7a53839b0b09f9906918340acec23be3afb34db7fff",
+        "chars": 92
+      },
+      "model": {
+        "id": 9,
+        "alias": "local-qwen36-35b-a3b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 56,
+        "status": "completed",
+        "at": "2026-09-27T15:20:14.931687"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:24",
+      "name": "OWNER-LOCAL-UNCENSORED-PASSPORT-PROBE",
+      "kind": "db-agent",
+      "purpose": "Owner-only readout of supplied consent-backed facts",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 1,
+        "max_tokens": 1024,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "aea17f47fd83e761fa2176ee2457f07576ec2c92ce7aa8335a4c99c4cb26883b",
+        "chars": 150
+      },
+      "model": {
+        "id": 87,
+        "alias": "owner-local-community-uncensored",
+        "kind": "local",
+        "status": "offline"
+      },
+      "state": "disabled",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 60,
+        "status": "failed",
+        "at": "2026-09-27T20:44:39.757700"
+      },
+      "task_status_counts": {
+        "failed": 1
+      }
+    },
+    {
+      "id": "agent:25",
+      "name": "Nemotron-Ultra NIM worker (free, 2026-09-30)",
+      "kind": "db-agent",
+      "purpose": "worker",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 3,
+        "max_tokens": 4000,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "ae8a71da38243cacae18f9106edc2aea4428213a28248de98b0aa19626663dd1",
+        "chars": 55
+      },
+      "model": {
+        "id": 55,
+        "alias": "nvidia/nemotron-3-ultra-550b-a55b",
+        "kind": "cloud",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 3,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 74,
+        "status": "completed",
+        "at": "2026-09-30T17:24:06.741224"
+      },
+      "task_status_counts": {
+        "completed": 3
+      }
+    },
+    {
+      "id": "agent:26",
+      "name": "Qwen Оператор (компьютер)",
+      "kind": "db-agent",
+      "purpose": "Локальная Qwen управляет ПК владельца: наблюдает экран и выполняет простые действия",
+      "tools": [
+        "computer.observe",
+        "computer.act"
+      ],
+      "data_reach": [
+        "computer.control",
+        "computer.observe"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 12,
+        "max_tokens": 2048,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "51a7f21644ed73525905dd8299f80ef2c03a0111c6cc92cb0cbc43874a1fffb8",
+        "chars": 3403
+      },
+      "model": {
+        "id": 9,
+        "alias": "local-qwen36-35b-a3b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 3,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 86,
+        "status": "completed",
+        "at": "2026-10-17T11:58:51.694050"
+      },
+      "task_status_counts": {
+        "completed": 2,
+        "failed": 1
+      }
+    },
+    {
+      "id": "agent:27",
+      "name": "Qwen Браузер (вход как владелец)",
+      "kind": "db-agent",
+      "purpose": "Локальная Qwen работает на сайтах под учётками владельца из сейфа",
+      "tools": [
+        "browser.open",
+        "browser.read_dom",
+        "browser.click",
+        "browser.type",
+        "browser.submit",
+        "browser.login",
+        "browser.screenshot"
+      ],
+      "data_reach": [
+        "browser.control",
+        "browser.read"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 15,
+        "max_tokens": 2048,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "a2a1b29500e843072aa6de6390c58a44545d47d91e3e8cb3013678e5ef3cf70f",
+        "chars": 576
+      },
+      "model": {
+        "id": 9,
+        "alias": "local-qwen36-35b-a3b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 79,
+        "status": "completed",
+        "at": "2026-10-01T18:32:45.681481"
+      },
+      "task_status_counts": {
+        "completed": 1
+      }
+    },
+    {
+      "id": "agent:28",
+      "name": "Swapme local report 2026-10-02",
+      "kind": "db-agent",
+      "purpose": "Local report execution under owner approval",
+      "tools": [
+        "terminal.run",
+        "terminal.status"
+      ],
+      "data_reach": [
+        "terminal.read"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 4,
+        "max_tokens": 2048,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "ed8d54fb43de91e295d40e2a198d6cafa8d7f4a39e77e3aa1f462cdb8b21ede6",
+        "chars": 348
+      },
+      "model": {
+        "id": 10,
+        "alias": "local-qwen36-vision-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 81,
+        "status": "stopped",
+        "at": "2026-10-14T02:44:03.248117"
+      },
+      "task_status_counts": {
+        "stopped": 1
+      }
+    },
+    {
+      "id": "agent:29",
+      "name": "LAB · RAW",
+      "kind": "db-agent",
+      "purpose": "lab:self-improve",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir",
+        "edit_file",
+        "write_file",
+        "run_tests"
+      ],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 40,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "0e738040e9158bbe9501003c87e5012fa6271de94695d5a47542f8c0e863fb2d",
+        "chars": 313
+      },
+      "model": {
+        "id": null,
+        "alias": "N/A",
+        "kind": "N/A",
+        "status": "N/A"
+      },
+      "state": "never_run",
+      "tasks_seen": 0,
+      "active_tasks": 0,
+      "last_task": "N/A",
+      "task_status_counts": {}
+    },
+    {
+      "id": "agent:30",
+      "name": "LAB · TOOL_FIRST",
+      "kind": "db-agent",
+      "purpose": "lab:self-improve",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir",
+        "edit_file",
+        "write_file",
+        "run_tests"
+      ],
+      "data_reach": [
+        "require_tests_before_finish"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 40,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "f49f4be2ad6a87f50b12653b85bffe882dcd8e8c5d6aa573ff720059b5765d19",
+        "chars": 435
+      },
+      "model": {
+        "id": null,
+        "alias": "N/A",
+        "kind": "N/A",
+        "status": "N/A"
+      },
+      "state": "never_run",
+      "tasks_seen": 0,
+      "active_tasks": 0,
+      "last_task": "N/A",
+      "task_status_counts": {}
+    },
+    {
+      "id": "agent:31",
+      "name": "LAB · MEMORY",
+      "kind": "db-agent",
+      "purpose": "lab:self-improve",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir",
+        "edit_file",
+        "write_file",
+        "run_tests"
+      ],
+      "data_reach": [
+        "require_tests_before_finish",
+        "use_memory"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 40,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "e7678ce4cc439457e15863c4d03ec3f1ba55ed04bc9463cbebc3397d56aba178",
+        "chars": 424
+      },
+      "model": {
+        "id": null,
+        "alias": "N/A",
+        "kind": "N/A",
+        "status": "N/A"
+      },
+      "state": "never_run",
+      "tasks_seen": 0,
+      "active_tasks": 0,
+      "last_task": "N/A",
+      "task_status_counts": {}
+    },
+    {
+      "id": "agent:32",
+      "name": "LAB · PLAN_EXECUTE_VERIFY",
+      "kind": "db-agent",
+      "purpose": "lab:self-improve",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir",
+        "edit_file",
+        "write_file",
+        "run_tests"
+      ],
+      "data_reach": [
+        "require_tests_before_finish"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 40,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "3134d036572ca2053e2151482be4caccc2b5623bf26bdeda0b1b1c022ecafe9b",
+        "chars": 416
+      },
+      "model": {
+        "id": null,
+        "alias": "N/A",
+        "kind": "N/A",
+        "status": "N/A"
+      },
+      "state": "never_run",
+      "tasks_seen": 0,
+      "active_tasks": 0,
+      "last_task": "N/A",
+      "task_status_counts": {}
+    },
+    {
+      "id": "agent:33",
+      "name": "LAB · RED_TEAM",
+      "kind": "db-agent",
+      "purpose": "lab:self-improve",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir",
+        "edit_file",
+        "write_file",
+        "run_tests"
+      ],
+      "data_reach": [
+        "require_tests_before_finish"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 40,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "c22d64a990ff435e186721fd4f33eee7ecb06a89b5d032f7346474e610a344d5",
+        "chars": 436
+      },
+      "model": {
+        "id": null,
+        "alias": "N/A",
+        "kind": "N/A",
+        "status": "N/A"
+      },
+      "state": "never_run",
+      "tasks_seen": 0,
+      "active_tasks": 0,
+      "last_task": "N/A",
+      "task_status_counts": {}
+    },
+    {
+      "id": "agent:34",
+      "name": "LAB · USER_UX",
+      "kind": "db-agent",
+      "purpose": "lab:self-improve",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir",
+        "edit_file",
+        "write_file",
+        "run_tests"
+      ],
+      "data_reach": [
+        "require_tests_before_finish"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 40,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "6c89fdae5a5ca7ab4e852f1ae3cf338163df57800e0cb90e4706e3054102e73c",
+        "chars": 483
+      },
+      "model": {
+        "id": null,
+        "alias": "N/A",
+        "kind": "N/A",
+        "status": "N/A"
+      },
+      "state": "never_run",
+      "tasks_seen": 0,
+      "active_tasks": 0,
+      "last_task": "N/A",
+      "task_status_counts": {}
+    },
+    {
+      "id": "agent:35",
+      "name": "LAB · CLAUDE_AUDITOR",
+      "kind": "db-agent",
+      "purpose": "lab:observer",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir"
+      ],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 20,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "31d9c9433d132193b1a78d06e94e30f755f5bdb385e38c16c3e1cf4574132628",
+        "chars": 870
+      },
+      "model": {
+        "id": null,
+        "alias": "N/A",
+        "kind": "N/A",
+        "status": "N/A"
+      },
+      "state": "never_run",
+      "tasks_seen": 0,
+      "active_tasks": 0,
+      "last_task": "N/A",
+      "task_status_counts": {}
+    },
+    {
+      "id": "agent:36",
+      "name": "LAB · RESULT_VERIFIER",
+      "kind": "db-agent",
+      "purpose": "lab:observer",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir"
+      ],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 20,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "4bdf900a5df4c140c82750725735b33cabade6045ca83441f6145e047a1ad24d",
+        "chars": 650
+      },
+      "model": {
+        "id": null,
+        "alias": "N/A",
+        "kind": "N/A",
+        "status": "N/A"
+      },
+      "state": "never_run",
+      "tasks_seen": 0,
+      "active_tasks": 0,
+      "last_task": "N/A",
+      "task_status_counts": {}
+    },
+    {
+      "id": "agent:37",
+      "name": "LAB · UX_OBSERVER",
+      "kind": "db-agent",
+      "purpose": "lab:observer",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir"
+      ],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 20,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "76daa5b56db725b1783b9cba77eea0c76a0e4e495bf5f049df12b8160541e27f",
+        "chars": 648
+      },
+      "model": {
+        "id": null,
+        "alias": "N/A",
+        "kind": "N/A",
+        "status": "N/A"
+      },
+      "state": "never_run",
+      "tasks_seen": 0,
+      "active_tasks": 0,
+      "last_task": "N/A",
+      "task_status_counts": {}
+    },
+    {
+      "id": "agent:38",
+      "name": "Bossman Desktop Operator — Local Qwen Master Prompt Demo",
+      "kind": "db-agent",
+      "purpose": "Локальный оператор рабочего стола; инструменты GUI с проверкой",
+      "tools": [
+        "computer.observe",
+        "computer.act"
+      ],
+      "data_reach": [
+        "computer.control",
+        "computer.observe"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 12,
+        "max_tokens": 2048,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "51a7f21644ed73525905dd8299f80ef2c03a0111c6cc92cb0cbc43874a1fffb8",
+        "chars": 3403
+      },
+      "model": {
+        "id": 9,
+        "alias": "local-qwen36-35b-a3b-q5-exact",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 1,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 83,
+        "status": "stopped",
+        "at": "2026-10-10T12:12:35.554765"
+      },
+      "task_status_counts": {
+        "stopped": 1
+      }
+    },
+    {
+      "id": "agent:39",
+      "name": "Qwen-Operator L1 (uncensored)",
+      "kind": "db-agent",
+      "purpose": "operator:l1-lab",
+      "tools": [
+        "read_file",
+        "search",
+        "list_dir",
+        "edit_file",
+        "write_file",
+        "run_tests"
+      ],
+      "data_reach": [
+        "filesystem.read",
+        "require_tests_before_finish"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 40,
+        "max_tokens": 4096,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "f45857ed47bffa38e78476a542d8adbb62354c1ec9b72c4632649ad0aa3dcae5",
+        "chars": 539
+      },
+      "model": {
+        "id": 87,
+        "alias": "owner-local-community-uncensored",
+        "kind": "local",
+        "status": "offline"
+      },
+      "state": "idle",
+      "tasks_seen": 5,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 92,
+        "status": "completed",
+        "at": "2026-10-17T14:27:48.689083"
+      },
+      "task_status_counts": {
+        "completed": 5
+      }
+    },
+    {
+      "id": "agent:40",
+      "name": "Argon PC-Agent",
+      "kind": "db-agent",
+      "purpose": "pc-agent:argon",
+      "tools": [
+        "computer.observe",
+        "computer.act",
+        "terminal.run",
+        "browser.open",
+        "browser.read_dom",
+        "browser.screenshot"
+      ],
+      "data_reach": [
+        "browser.read",
+        "computer.observe",
+        "filesystem.read",
+        "terminal.read"
+      ],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 4,
+        "max_tokens": 2048,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "174edc3eba75559358c2d3906c28849fbdf33698c0291b94e460bfaf64f00e59",
+        "chars": 658
+      },
+      "model": {
+        "id": 87,
+        "alias": "owner-local-community-uncensored",
+        "kind": "local",
+        "status": "offline"
+      },
+      "state": "idle",
+      "tasks_seen": 3,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 88,
+        "status": "completed",
+        "at": "2026-10-17T13:09:28.656468"
+      },
+      "task_status_counts": {
+        "completed": 3
+      }
+    },
+    {
+      "id": "agent:41",
+      "name": "Gemma 4 uncensored",
+      "kind": "db-agent",
+      "purpose": "chat:local-uncensored",
+      "tools": [],
+      "data_reach": [],
+      "workspace": "N/A",
+      "limits": {
+        "max_steps": 4,
+        "max_tokens": 2048,
+        "budget_usd": 0.0,
+        "time_limit": "N/A",
+        "depth": "N/A"
+      },
+      "owner": "N/A",
+      "instruction": {
+        "sha256": "845c4a8e8bfb589bc9272964d9e7abcccdfe7d7a00a8ecc14975319cebaf26e7",
+        "chars": 538
+      },
+      "model": {
+        "id": 98,
+        "alias": "owner-local-gemma4-uncensored",
+        "kind": "local",
+        "status": "online"
+      },
+      "state": "idle",
+      "tasks_seen": 4,
+      "active_tasks": 0,
+      "last_task": {
+        "id": 96,
+        "status": "stopped",
+        "at": "2026-10-18T08:19:05.879966"
+      },
+      "task_status_counts": {
+        "stopped": 1,
+        "completed": 3
+      }
+    }
+  ],
+  "components": [
+    {
+      "id": "component:autonomy-loop",
+      "name": "Autonomy loop (Line A)",
+      "kind": "component",
+      "purpose": "одна пишущая сессия (Claude/Codex CLI по подписке, либо бесплатный Nemotron-diff) и только читающие ревьюеры; цели, журнал, бюджет, STOP",
+      "tools_data": "изолированный клон + ветка, брокер рук (HandBroker), журнал с хеш-цепочкой",
+      "limits": "аренда Line A (одна пишущая), таймаут задачи, STOP-файлы, бюджет autonomy/budget.py, конституция v2 с пином",
+      "owner": "владелец (решения, release_main - только его кнопка)",
+      "source": "command-center/bcc/autonomy/",
+      "state": "idle",
+      "evidence": "/api/autonomy/status loop=READY goals_total=0"
+    },
+    {
+      "id": "component:qwen-operator",
+      "name": "Qwen Operator L1 Lab",
+      "kind": "component",
+      "purpose": "локальный Qwen как оператор лаборатории: план, правка в изолированном worktree, тесты, коммит в lab/*",
+      "tools_data": "реестр моделей/провайдеров, coding-task sidecar, политика autonomy (пути/argv), очередь approvals",
+      "limits": "MAX_ATTEMPTS=3 на ошибку, обязательная проверка, откат при ухудшении, STOP; push/merge/deploy отклоняются (promote refused)",
+      "owner": "владелец (кнопки Approve/Deny)",
+      "source": "command-center/bcc/features/qwen_operator.py",
+      "state": "idle",
+      "evidence": "/api/qwen-operator/status busy=False"
+    },
+    {
+      "id": "component:pc-agent-argon",
+      "name": "Argon PC-Agent",
+      "kind": "component",
+      "purpose": "управление Windows-компьютером владельца через единое ядро (задачи, tool_calls, approvals)",
+      "tools_data": "экран/окна/процессы/файлы (T0), обратимые локальные действия (T1); T2 только после кнопки; T3 запрещено (секреты, конституция, платежи)",
+      "limits": "уровни доступа T0-T3, окно доверия /trust, append-only журнал, /stop",
+      "owner": "владелец",
+      "source": "command-center/bcc/features/pc_agent.py",
+      "state": "idle",
+      "evidence": "/api/pc-agent/status stopped=False active_tasks=0"
+    },
+    {
+      "id": "component:evolution-loop",
+      "name": "Evolution loop (bossman_v3.self_improvement)",
+      "kind": "component",
+      "purpose": "ограниченный цикл самоисправления: лагерь в каталоге данных, кандидат не повышается в stable",
+      "tools_data": "исходный checkout только в разрешённых code-roots, бесплатная модель",
+      "limits": "число циклов 1..200, пауза после 3 подряд неудачных циклов, STOP владельца",
+      "owner": "владелец",
+      "source": "command-center/bcc/features/evolution.py",
+      "state": "paused",
+      "evidence": "/api/evolution/status status=AUTO_PAUSED loop_running=False halt_reason=MAX_CONSECUTIVE_FAILURES pause=3 consecutive failed cycles"
+    },
+    {
+      "id": "component:limits-out-orchestra",
+      "name": "Limits-out orchestra",
+      "kind": "component",
+      "purpose": "последовательность циклов tree_self_repair_cycle своими воркерами, когда лимиты ассистента кончились",
+      "tools_data": "free worker, скрытый holdout, независимая проверка, отчёт в пульт",
+      "limits": "--max-cycles/--max-hours, режим --paid none по умолчанию (cost_usd должен быть 0.0), STOP_ORCHESTRA, пауза при direct-gen, BELOW_NORMAL, never merges",
+      "owner": "владелец",
+      "source": "tools/limits_out_orchestra.py",
+      "state": "N/A",
+      "evidence": "не проверялось (нет статусного endpoint или снимок не передан)"
+    },
+    {
+      "id": "component:tree-self-repair-cycle",
+      "name": "Tree self-repair cycle",
+      "kind": "component",
+      "purpose": "один цикл самоисправления через запущенный Bossman со стадиями DEFECT_REPRODUCED ... TRANSFER_PASS",
+      "tools_data": "изолированная копия, скрытый holdout",
+      "limits": "стадии не повышаются последующими; APPLIED_RUNTIME_PASS не решается скриптом",
+      "owner": "владелец",
+      "source": "tools/tree_self_repair_cycle.py",
+      "state": "N/A",
+      "evidence": "не проверялось (нет статусного endpoint или снимок не передан)"
+    },
+    {
+      "id": "component:jeff-pit",
+      "name": "Jeff (PIT, Telegram-бот для друзей владельца)",
+      "kind": "component",
+      "purpose": "Telegram-бот-помощник; отделён от бота-пульта владельца (отдельный токен, замок на токен)",
+      "tools_data": "N/A (не проверялось; одобрения, STOP, Computer Use и coding живут только на боте-пульте)",
+      "limits": "refuses to start with the companion token; per-token kernel lock",
+      "owner": "владелец",
+      "source": "command-center/bcc/pit/",
+      "state": "N/A",
+      "evidence": "не проверялось (нет статусного endpoint или снимок не передан)"
+    },
+    {
+      "id": "component:telegram-companion",
+      "name": "Telegram companion (пульт)",
+      "kind": "component",
+      "purpose": "отдельно запускаемый мост управления и отчётов владельца",
+      "tools_data": "N/A",
+      "limits": "import не запускает воркер/сеть/модель; пульт получает одобрения и STOP",
+      "owner": "владелец",
+      "source": "command-center/bcc/telegram_companion/",
+      "state": "N/A",
+      "evidence": "не проверялось (нет статусного endpoint или снимок не передан)"
+    }
+  ],
+  "map_version": "f189904fce9e",
+  "content_sha256": "f189904fce9e35365150f4559d7129d82ea48b5dfcd591f3ed8f2516910a8a49",
+  "summary": {
+    "db_agents": 41,
+    "components": 8,
+    "running": 0,
+    "idle": 31,
+    "disabled": 1,
+    "never_run": 9
+  },
+  "generated_at": "2026-10-18T17:14:35Z"
+}
