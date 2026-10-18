@@ -1809,6 +1809,7 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
 
     async def poll(self):
         delay = 1.0
+        conflicts = 0
         while True:
             try:
                 updates = await self.telegram.call("getUpdates", {"offset": self.store.get("offset", 0),
@@ -1818,10 +1819,17 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 for update in updates:
                     await self.ingest(update)
                 delay = 1.0
+                conflicts = 0
+                if self.store.get("transport_error") == "CONFLICT":
+                    self.store.put("transport_error", None)
             except CompanionError as exc:
                 self.store.put("transport_error", str(exc))
-                if str(exc) in {"AUTH_DENIED", "CONFLICT"}:
+                if str(exc) == "AUTH_DENIED":
                     raise
+                if str(exc) == "CONFLICT":
+                    conflicts += 1
+                    if conflicts >= 5:
+                        raise
                 await asyncio.sleep(max(delay, exc.retry_after if isinstance(exc, RateLimited) else 0))
                 delay = min(delay * 2, 30)
 

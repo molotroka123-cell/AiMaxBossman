@@ -408,6 +408,8 @@ class SdCliRunner:
         with contextlib.suppress(Exception):
             import psutil
             ps = psutil.Process(proc.pid)
+            if hasattr(psutil, "HIGH_PRIORITY_CLASS"):
+                ps.nice(psutil.HIGH_PRIORITY_CLASS)
 
         async def sample() -> None:
             nonlocal peak

@@ -661,6 +661,7 @@ class DirectGenService:
             if self._running == job_id:
                 self._running = None
             self._stopping.discard(job_id)
+            self._tasks.pop(job_id, None)
 
     # ---------- Genjutsu live constructor: masks once, recolour live in the browser ----------
 
@@ -842,6 +843,7 @@ class DirectGenService:
             if self._running == job_id:
                 self._running = None
             self._stopping.discard(job_id)
+            self._tasks.pop(job_id, None)
 
     async def _facelock(self, job: dict, folder: Path, reference: bytes, out: Path) -> None:
         """Post-process: the face of @1 goes back into the result. Never fails the job: on any doubt the unlocked
@@ -990,9 +992,9 @@ class DirectGenService:
         if participant != "owner":
             raise DirectGenError(403, "owner_only", "удалять с ПК может только владелец")
         job = self.get(participant, job_id)  # 404 for unknown / malformed ids
-        task = self._tasks.get(job_id)
-        if job["status"] not in TERMINAL or (task is not None and not task.done()):
+        if job["status"] not in TERMINAL:
             raise DirectGenError(409, "job_running", "задача ещё выполняется — сначала остановите её")
+        self._tasks.pop(job_id, None)
         jobs_root = (self.store.participant_dir(participant) / "jobs").resolve()
         folder = self.store.job_dir(participant, job_id)
         if folder.is_symlink():
@@ -1077,6 +1079,7 @@ class DirectGenService:
             if self._running == job_id:
                 self._running = None
             self._stopping.discard(job_id)
+            self._tasks.pop(job_id, None)
 
     async def _stop_cleanup(self, job: dict, prompt_id: str | None) -> None:
         note = ""

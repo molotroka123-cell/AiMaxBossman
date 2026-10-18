@@ -649,3 +649,25 @@ def test_sdcli_is_boosted_while_active_and_never_in_dry_run():
     io2.jobs = [job(status="generating")]
     g.Governor(io2, cfg(dry_run=True, warm={"enabled": False})).tick()
     assert names(io2, "boost") == []
+
+
+def test_warm_rewarm_after_expiry_does_not_leak_budget_or_spin_when_capped():
+    io = FakeIO()
+    io.jobs = [job(ended_ago=300)]
+    gov = g.Governor(io, cfg(warm={"max_bytes": 6_000_000_000, "rewarm_after_s": 1800}))
+    run_warm_sync(gov)
+    assert len(names(io, "warm")) == 2
+    assert gov._active_warmed_bytes(io.t) == 10_000_000_000
+    # Add a second model whose files would exceed max_bytes while first model is still active in cache window:
+    io.jobs = [job("wan2.2-ti2v-5b", ended_ago=300), job("m2", ended_ago=300, age_s=1000)]
+    io.index["m2.gguf"] = [("C:/m/m2.gguf", 5_000_000_000)]
+    n_before = len(names(io, "warm"))
+    run_warm_sync(gov)
+    assert len(names(io, "warm")) == n_before                     # capped: does not spawn a worker or spin
+    # After rewarm_after_s expires, the old warmed_bytes expire so re-warming succeeds cleanly:
+    io.t += 2000
+    io.jobs = [job("wan2.2-ti2v-5b", ended_ago=300)]
+    assert gov._active_warmed_bytes(io.t) == 0
+    run_warm_sync(gov)
+    assert len(names(io, "warm")) > n_before
+

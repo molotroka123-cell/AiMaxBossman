@@ -444,11 +444,20 @@ class SystemIO:
         """Generation engine (sd-cli) to HIGH priority; returns pids changed. It dies with the job: nothing to restore."""
         import psutil
         done = []
+        warned = getattr(self, "_boost_warned", None)
+        if warned is None:
+            warned = set()
+            self._boost_warned = warned
         for p in psutil.process_iter(["pid", "name", "nice"]):
             try:
                 if (p.info["name"] or "").lower() == "sd-cli.exe" and p.info["nice"] != psutil.HIGH_PRIORITY_CLASS:
                     p.nice(psutil.HIGH_PRIORITY_CLASS)
                     done.append(p.info["pid"])
+            except (psutil.AccessDenied, PermissionError) as exc:
+                pid = p.info.get("pid")
+                if pid and pid not in warned:
+                    warned.add(pid)
+                    log.warning("sd-cli pid %s priority boost denied (%s)", pid, type(exc).__name__)
             except (psutil.Error, OSError):
                 continue
         return done
@@ -828,6 +837,7 @@ class Governor:
         self.warm_stop = threading.Event()
         self.warm_log: list[dict] = []
         self.warmed: dict[str, float] = {}                 # path -> time last warmed
+        self.warmed_sizes: dict[str, int] = {}             # path -> bytes currently counted against max_bytes
         self.warmed_bytes = 0
         self.hot_probed: dict[str, float] = {}
         self.hot_state: dict[str, float] = {}      # file -> last measured MB/s
@@ -967,6 +977,14 @@ class Governor:
             self.warm_stop.set()
             log.info("warm-up STOP requested: %s", why)
 
+    def _active_warmed_bytes(self, now: float, exclude_paths: set[str] | None = None) -> int:
+        w = self.cfg["warm"]
+        ex = exclude_paths or set()
+        total = sum(size for p, size in self.warmed_sizes.items()
+                    if p not in ex and now - self.warmed.get(p, 0.0) < w["rewarm_after_s"])
+        self.warmed_bytes = total
+        return total
+
     def _maybe_warm(self, jobs: list[dict], now: float) -> None:
         w = self.cfg["warm"]
         if not w["enabled"] or (self.warm_thread and self.warm_thread.is_alive()):
@@ -984,6 +1002,13 @@ class Governor:
         hot_paths = {f["path"] for _m, f in hot_todo}
         todo = hot_todo + [(m, f) for m, f in todo if f["path"] not in hot_paths]
         if not todo:
+            return
+        min_free = int(w["min_free_gb"] * 1e9)
+        avail = self.io.mem()["available"]
+        active_bytes = self._active_warmed_bytes(now, {f["path"] for _m, f in todo})
+        if not any(budget_ok(avail, f["size"], min_free, active_bytes, w["max_bytes"])[0] for _m, f in todo):
+            _, b_why = budget_ok(avail, todo[0][1]["size"], min_free, active_bytes, w["max_bytes"])
+            self.last_decision = "no warm: " + b_why
             return
         if self.dry:
             if now - self.warmed.get("__dry__", 0.0) >= w["rewarm_after_s"]:
@@ -1027,8 +1052,10 @@ class Governor:
             if not self._jobs_allow():
                 log.info("warm-up aborted before %s (job activity)", Path(f["path"]).name)
                 break
+            now = self.io.now()
             avail = self.io.mem()["available"]
-            ok, why = budget_ok(avail, f["size"], min_free, self.warmed_bytes + run_bytes, w["max_bytes"])
+            active_bytes = self._active_warmed_bytes(now, {f["path"]})
+            ok, why = budget_ok(avail, f["size"], min_free, active_bytes, w["max_bytes"])
             if not ok:
                 log.info("warm-up stopped, budget: %s", why)
                 break
@@ -1040,6 +1067,7 @@ class Governor:
             run_bytes += r["bytes"]
             if not r["aborted"]:
                 self.warmed[f["path"]] = self.io.now()
+                self.warmed_sizes[f["path"]] = r["bytes"]
                 self.hot_probed.pop(f["path"], None)       # verify warmth again on the next idle tick
             entry = {"model": model, "file": Path(f["path"]).name, "gb": round(r["bytes"] / 1e9, 2),
                      "mb_s": round(r["mb_s"]), "aborted": r["aborted"]}
@@ -1047,7 +1075,7 @@ class Governor:
             log.info("warmed %s", entry)
             if r["aborted"]:
                 break
-        self.warmed_bytes += run_bytes
+        self._active_warmed_bytes(self.io.now())
         after = self.io.mem()
         log.info("warm-up run done: read %.1f GB; available %.1f -> %.1f GB; cache %s -> %s GB", run_bytes / 1e9,
                  before["available"] / 1e9, after["available"] / 1e9,

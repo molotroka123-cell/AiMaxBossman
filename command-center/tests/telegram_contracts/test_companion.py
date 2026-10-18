@@ -690,3 +690,35 @@ def test_bare_confirm_uses_the_single_live_proposal_but_not_an_ambiguous_one(tmp
         finally:
             store.close()
     asyncio.run(run())
+
+
+def test_poll_tolerates_transient_conflict_and_raises_on_persistent_conflict(tmp_path, monkeypatch):
+    import types
+    async def no_wait(*args):
+        pass
+    monkeypatch.setattr(asyncio, "sleep", no_wait)
+    async def run():
+        app, store, _ = app_for(tmp_path)
+        seq = [
+            CompanionError("CONFLICT"),
+            [],
+            CompanionError("CONFLICT"),
+            CompanionError("CONFLICT"),
+            CompanionError("CONFLICT"),
+            CompanionError("CONFLICT"),
+            CompanionError("CONFLICT"),
+        ]
+        async def fake_call(method, payload=None):
+            item = seq.pop(0)
+            if isinstance(item, Exception):
+                raise item
+            return item
+        app.telegram = types.SimpleNamespace(call=fake_call)
+        try:
+            with pytest.raises(CompanionError, match="CONFLICT"):
+                await app.poll()
+            assert seq == []
+        finally:
+            store.close()
+    asyncio.run(run())
+
