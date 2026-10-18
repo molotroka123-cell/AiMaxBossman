@@ -1,0 +1,32 @@
+2026-10-18 06:52:03 dry {"worker_free": "ok", "paid_finalizer": "off", "stop": "none", "cycle_py": "ok", "source_repo": "ok", "backend": "up", "direct_gen": "idle", "free_key_openrouter": "ok", "priority": "BELOW_NORMAL (this process and the cycle)", "pause_rule": "direct-gen not finished -> kill cycle + cancel task; resume after 2 idle polls of 30s", "concurrency": "1 worker (sequential cycles)", "merges": "never (isolated copies; recipe only after independent verification)", "ready": "yes"}
+2026-10-18 06:52:13 start max_cycles=1 max_hours=1.0 paid=none
+2026-10-18 06:52:46 cycle 1 discovery start
+2026-10-18 06:53:16 cycle 1 discovery rc=-2 0.5 min stages=None interrupted=STOP spend={'cost_usd': 0.0, 'models': [], 'paid': False}
+2026-10-18 06:53:16 report C:\Users\asd\Bossman\wt-freellm-0918\docs\evidence\limits-out-orchestra\report-20261018-0653.md
+2026-10-18 06:53:53 dry {"worker_free": "ok", "paid_finalizer": "off", "stop": "none", "cycle_py": "ok", "source_repo": "ok", "backend": "up", "direct_gen": "idle", "free_key_openrouter": "ok", "build_match": "MISMATCH server ceee487e826b client cc8979bdffde (use --client-src)", "priority": "BELOW_NORMAL (this process and the cycle)", "pause_rule": "direct-gen not finished -> kill cycle + cancel task; resume after 2 idle polls of 30s", "concurrency": "1 worker (sequential cycles)", "merges": "never (isolated copies; recipe only after independent verification)", "ready": "NO"}
+2026-10-18 06:53:53 dry {"worker_free": "ok", "paid_finalizer": "off", "stop": "none", "cycle_py": "ok", "source_repo": "ok", "backend": "up", "direct_gen": "idle", "free_key_openrouter": "ok", "build_match": "ok", "priority": "BELOW_NORMAL (this process and the cycle)", "pause_rule": "direct-gen not finished -> kill cycle + cancel task; resume after 2 idle polls of 30s", "concurrency": "1 worker (sequential cycles)", "merges": "never (isolated copies; recipe only after independent verification)", "ready": "yes"}
+2026-10-18 06:53:59 dry {"worker_free": "ok", "paid_finalizer": "off", "stop": "none", "cycle_py": "ok", "source_repo": "ok", "backend": "up", "direct_gen": "idle", "free_key_openrouter": "ok", "build_match": "ok", "priority": "BELOW_NORMAL (this process and the cycle)", "pause_rule": "direct-gen not finished -> kill cycle + cancel task; resume after 2 idle polls of 30s", "concurrency": "1 worker (sequential cycles)", "merges": "never (isolated copies; recipe only after independent verification)", "ready": "yes"}
+2026-10-18 06:53:59 start max_cycles=1 max_hours=1.0 paid=none
+2026-10-18 06:54:29 cycle 1 discovery start
+2026-10-18 06:55:59 cycle 1 discovery rc=-2 1.5 min stages=None interrupted=STOP spend={'cost_usd': 0.0, 'models': [], 'paid': False}
+2026-10-18 06:55:59 report C:\Users\asd\Bossman\wt-freellm-0918\docs\evidence\limits-out-orchestra\report-20261018-0655.md
+2026-10-18 06:57:13 start max_cycles=1 max_hours=1.0 paid=none
+2026-10-18 06:57:43 cycle 1 discovery start
+2026-10-18 06:58:53 cycle 1 discovery rc=-2 1.0 min stages=None interrupted=STOP cancelled=f4ec8d11a527:failed spend={'cost_usd': 0.0, 'models': [], 'paid': False}
+2026-10-18 06:58:53 report C:\Users\asd\Bossman\wt-freellm-0918\docs\evidence\limits-out-orchestra\report-20261018-0658.md
+2026-10-18 07:00:00 start max_cycles=1 max_hours=1.0 paid=none
+2026-10-18 07:00:30 cycle 1 discovery start
+2026-10-18 07:01:00 cycle 1 discovery rc=3 0.5 min stages=None interrupted=None cancelled=None spend={'cost_usd': 0.0, 'models': [], 'paid': False}
+2026-10-18 07:01:01 lessons reimport ok
+2026-10-18 07:01:01 report C:\Users\asd\Bossman\wt-freellm-0918\docs\evidence\limits-out-orchestra\report-20261018-0701.md
+2026-10-18 07:01:01 daily pult: rc=0
+2026-10-18 07:01:29 dry {"worker_free": "ok", "paid_finalizer": "off", "stop": "none", "cycle_py": "ok", "source_repo": "ok", "backend": "up", "direct_gen": "idle", "free_key_openrouter": "ok", "build_match": "MISMATCH server 7f81ac791868 client ceee487e826b (use --client-src)", "priority": "BELOW_NORMAL (this process and the cycle)", "pause_rule": "direct-gen not finished -> kill cycle + cancel task; resume after 2 idle polls of 30s", "concurrency": "1 worker (sequential cycles)", "merges": "never (isolated copies; recipe only after independent verification)", "ready": "NO"}
+2026-10-18 07:01:35 dry {"worker_free": "ok", "paid_finalizer": "off", "stop": "none", "cycle_py": "ok", "source_repo": "ok", "backend": "up", "direct_gen": "idle", "free_key_openrouter": "ok", "build_match": "ok", "priority": "BELOW_NORMAL (this process and the cycle)", "pause_rule": "direct-gen not finished -> kill cycle + cancel task; resume after 2 idle polls of 30s", "concurrency": "1 worker (sequential cycles)", "merges": "never (isolated copies; recipe only after independent verification)", "ready": "yes"}
+2026-10-18 07:01:36 start max_cycles=1 max_hours=1.0 paid=none
+2026-10-18 07:02:06 cycle 1 discovery start
+2026-10-18 07:13:37 cycle 1 discovery rc=1 11.5 min stages={'DEFECT_REPRODUCED': True, 'MODEL_PATCH_CREATED': False, 'BOSSMAN_ZONE_CHECK_PASS': False, 'HOLDOUT_PASS_ON_PATCH': True, 'SCOPE_RESPECTED': True, 'INDEPENDENT_VERIFICATION_PASS': False, 'EXPERIENCE_AUTO_SAVED': False} interrupted=None cancelled=None spend={'cost_usd': 0.0, 'models': ['nvidia/nemotron-3-super-120b-a12b:free'], 'paid': False}
+2026-10-18 07:13:37 lessons reimport ok
+2026-10-18 07:13:37 report C:\Users\asd\Bossman\wt-freellm-0918\docs\evidence\limits-out-orchestra\report-20261018-0713.md
+2026-10-18 07:13:37 daily pult: already sent today
+2026-10-18 07:14:06 start max_cycles=6 max_hours=4.0 paid=none
+2026-10-18 07:14:36 cycle 1 discovery start
