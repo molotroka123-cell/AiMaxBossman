@@ -25,6 +25,7 @@ control:
     estimate_cashflow: POST /api/v1/finance/estimate
     draft_bid_checklist: GET /api/v1/tenders/{key}/checklist
     approvals: GET /api/v1/approvals
+    fx_report: GET /api/v1/fx/track/report
 
 entrypoints:
   standalone: true

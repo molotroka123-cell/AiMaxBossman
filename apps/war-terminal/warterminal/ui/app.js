@@ -4,7 +4,7 @@ const API = "/api/v1";
 const ROLES = ["viewer", "analyst", "compliance", "owner"];
 const SECTIONS = [
   ["overview", T("Карта")], ["conflicts", T("Конфликты")], ["tenders", T("Закупки")], ["fit", T("Компания")], ["compliance", T("Комплаенс")],
-  ["finance", T("Финансы")], ["deals", T("Сделки")], ["learning", T("Аналитика")], ["sources", T("Источники")], ["approvals", T("Одобрения")],
+  ["finance", T("Финансы")], ["fx", T("Курсы / FX")], ["deals", T("Сделки")], ["learning", T("Аналитика")], ["sources", T("Источники")], ["approvals", T("Одобрения")],
 ];
 const S = { token: "", role: "viewer", view: "overview", tenders: null, sel: null, filters: { f: "all", q: "", category: "", country: "" },
   lastAssessment: {}, health: null, cache: {}, mapLayer: "conflict", mapSel: null, mapApi: null };
@@ -1021,6 +1021,53 @@ function financeResult(r) {
   return box;
 }
 
+/* ---------- fx tracker (CNB + ECB log, cross-rates, USDT/USD calculator) ---------- */
+const fxn = (s, nd) => (s == null || s === "" || !isFinite(Number(s)) ? "—" : Number(s).toFixed(nd));
+async function viewFx(el) {
+  const box = h("div"), res = h("div");
+  const amount = inp("amount", "number", 1000, { step: "any", min: "0", required: true }), base = inp("baseline", "date", "");
+  const form = h("form", { class: "form" }, field(T("Сумма USDT / USD"), amount), field(T("Дата базы (пусто = первая запись)"), base), h("button", { type: "submit" }, T("Пересчитать")));
+  form.addEventListener("submit", (e) => { e.preventDefault(); paint(); });
+  el.append(card(T("Курсы / FX: ежедневный учёт"),
+    h("p", { class: "mut" }, T("Источники: фиксинг Чешского национального банка и референсные курсы ЕЦБ; XE.com не используется (его условия запрещают автоматический сбор).")),
+    h("p", { class: "mut" }, T("Только курсы «середина рынка»: комиссии и спреды бирж и обменников не учтены. USDT принят равным USD — допущение, не измерено.")),
+    h("p", { class: "mut" }, T("Это учёт и статистика прошлых значений: прогнозов цен, торговых советов и утверждений о росте здесь нет.")), form, res), box);
+  paint();
+  function paint() {
+    load(box, async () => {
+      const q = "?amount=" + encodeURIComponent(amount.value || "1000") + (base.value ? "&baseline=" + encodeURIComponent(base.value) : "");
+      const r = await GET("/fx/track/report" + q), out = h("div");
+      if (!r.n_rows) return stateBox("load", T("Записей ещё нет: сбор курсов выполняет задача BossmanFX-AM / BossmanFX-PM в Планировщике."));
+      out.append(card(T("Последние курсы"), table([T("Источник:пара"), T("Курс"), T("Дата курса"), T("Снято (UTC)")],
+        Object.entries(r.latest).sort().map(([k, v]) => ({ cells: [k, v.rate, txt(v.rate_date), v.observed_at] }))),
+        h("p", { class: "mut" }, Tf(T("Записей: {0}, в отчёте: {1}, помечено или отброшено: {2}"), r.n_rows, r.n_usable, r.n_flagged))));
+      if (r.cross) {
+        const c = r.cross, t = r.triangle;
+        out.append(card(T("Кросс-курсы"), kv([["1 USD → EUR", fxn(c.USDEUR, 6)], ["1 USD → CZK", fxn(c.USDCZK, 4)], ["1 EUR → CZK", fxn(c.EURCZK, 4)], ["1 EUR → USD", fxn(c.EURUSD, 6)],
+          ["1 CZK → EUR", fxn(c.CZKEUR, 6)], ["1 CZK → USD", fxn(c.CZKUSD, 6)], [T("USDT → USD"), T("1 (допущение, не измерено)")]]),
+          h("h3", {}, T("Проверка треугольника USD → EUR → CZK")),
+          kv([[T("Напрямую USD → CZK (ЧНБ)"), fxn(t.direct_usd_czk, 4)], [T("Через EUR (ЕЦБ × ЧНБ)"), fxn(t.via_eur_usd_czk, 4)], [T("Разрыв, %"), fxn(t.spread_pct, 3)]]),
+          h("p", { class: "mut" }, T("Фиксинги публикуются в разное время суток, поэтому небольшой разрыв нормален."))));
+      }
+      const k = r.calc;
+      if (k && k.status === "OK") {
+        const row = (cur) => ({ cells: [cur, k.baseline[cur], k.today[cur], k.diff[cur].abs, k.diff[cur].pct + " %"] });
+        out.append(card(Tf(T("Калькулятор: {0} USDT, база {1} → сегодня {2}"), k.amount_usdt, k.baseline_day, k.today_day),
+          table([T("Валюта"), T("На дату базы"), T("Сегодня"), T("Разница"), T("Разница, %")], [row("EUR"), row("CZK")]),
+          h("p", { class: "mut" }, T("Маршрут: крипта → USD → USDT → EUR (ЕЦБ) или CZK (ЧНБ). Комиссии и спреды не учтены."))));
+      } else out.append(card(T("Калькулятор"), stateBox("load", T("Нет данных для расчёта: нужны ЧНБ (USD, EUR) и ЕЦБ (EUR/USD) за дату базы и сегодня."))));
+      out.append(card(T("Статистика по датам курса"), table([T("Серия"), "n", "min", "max", T("среднее"), T("ст. откл."), T("изменение за период, %"), T("посл. дневное, %"), T("волатильность, %")],
+        Object.entries(r.stats).sort().map(([key, s]) => ({ cells: [key, s.n, fxn(s.min, 4), fxn(s.max, 4), fxn(s.mean, 4), fxn(s.stdev, 4), fxn(s.change_pct_total, 3), fxn(s.last_daily_change_pct, 3), fxn(s.volatility_daily_pct, 3)] }))),
+        h("p", { class: "mut" }, T("Волатильность — стандартное отклонение дневных изменений; нужны минимум 3 даты. Статистика ничего не предсказывает."))));
+      const pts = [];
+      for (const [key, arr] of Object.entries(r.series)) for (const p of arr) pts.push([p.rate_date, key, p.rate]);
+      pts.sort().reverse();
+      out.append(card(T("Серия (последние 60)"), table([T("Дата курса"), T("Серия"), T("Курс")], pts.slice(0, 60).map((p) => ({ cells: p })))));
+      out.append(card(T("Последние сборы"), table([T("Время (UTC)"), T("Итог"), T("Детали")], (r.runs || []).map((x) => ({ cells: [x.started_at, x.outcome, txt(x.detail)] })))));
+      return out;
+    });
+  }
+}
 /* ---------- deals ---------- */
 async function viewDeals(el) {
   const res = h("div"), list = h("div");
@@ -1149,7 +1196,7 @@ async function viewApprovals(el) {
 }
 
 /* ---------- router ---------- */
-const VIEWS = { overview: viewOverview, conflicts: viewConflicts, tenders: viewTenders, fit: viewFit, compliance: viewCompliance, finance: viewFinance, deals: viewDeals,
+const VIEWS = { overview: viewOverview, conflicts: viewConflicts, tenders: viewTenders, fit: viewFit, compliance: viewCompliance, finance: viewFinance, fx: viewFx, deals: viewDeals,
   learning: viewLearning, sources: viewSources, approvals: viewApprovals };
 async function render() {
   const m = clear($("#main"));

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 import time
 from datetime import date, datetime, timezone
@@ -16,7 +17,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import API_VERSION, VERSION, ai as ai_mod, finance, geo, learning, rules, scoring, sources, translate as tr_mod
+from . import API_VERSION, VERSION, ai as ai_mod, finance, fx_tracker as fxt, geo, learning, rules, scoring, sources, translate as tr_mod
 from .connectors import cnb, cz, demo as demo_conn, indicators, demo_conflicts, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
 from .store import Store, now
 
@@ -626,6 +627,21 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     def get_fx(_=Depends(viewer)):
         return store.kv_get("fx") or {"rates": {}, "as_of": None, "source": None}
 
+    # ---- daily FX tracker (CNB + ECB, append-only log in the fx dir; collection runs from Task Scheduler, not from here)
+    @app.get(f"{P}/fx/track/report")
+    def fx_track_report(amount: str = "1000", baseline: str | None = None, _=Depends(viewer)):
+        if baseline is not None and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", baseline):
+            raise HTTPException(422, {"code": "BAD_DATE", "message": "baseline: YYYY-MM-DD"})
+        if fxt._dec(amount) is None or len(amount) > 24:
+            raise HTTPException(422, {"code": "BAD_AMOUNT", "message": "amount: положительное число"})
+        st = fxt.open_store()
+        try:
+            rep = fxt.build_report(st.rows(), amount=amount, baseline=baseline)
+            rep["runs"] = st.runs(6)
+        finally:
+            st.close()
+        rep["xe"] = {"used": False, "reason": "terms of use forbid scraping"}
+        return rep
     @app.get(f"{P}/suppliers")
     def list_suppliers(_=Depends(viewer)):
         return {"items": store.kv_get("suppliers", [])}

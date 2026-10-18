@@ -6,7 +6,13 @@ import os
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="warterminal", description="Bossman War & Procurement Terminal (loopback only)")
+    if argv is None:
+        import sys
+        argv = sys.argv[1:]
+    if argv and argv[0] == "fx":                       # `warterminal fx collect|report`: daily FX tracker, no server needed
+        from .fx_tracker import main as fx_main
+        return fx_main(argv[1:])
+    ap = argparse.ArgumentParser(prog="warterminal",description="Bossman War & Procurement Terminal (loopback only)")
     ap.add_argument("--port", type=int, default=8830)
     ap.add_argument("--data", default=None, help="data dir (default ~/.war-terminal or WAR_TERMINAL_DATA)")
     ap.add_argument("--live", action="store_true", help="enable external sources (default: off)")
