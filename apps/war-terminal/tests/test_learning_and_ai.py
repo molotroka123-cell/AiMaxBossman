@@ -7,13 +7,15 @@ from conftest import Env
 
 def _prepare(env):
     env.ingest_ted()
-    env.req("POST", "/ingest", "analyst", json={"source": "demo"})
 
 
-def test_demo_outcomes_are_refused_for_learning(env):
+def test_outcomes_for_records_without_provenance_are_refused(env):
     _prepare(env)
-    r = env.req("POST", "/learning/outcomes", "owner", json={"tender_key": "EU:DEMO-001", "result": "won"})
-    assert r.status_code == 422 and r.json()["detail"]["code"] == "DEMO_NOT_LEARNABLE"
+    bad = '{"official_notice_id": "NOPROV", "jurisdiction": "EU", "key": "EU:NOPROV", "version": 1, "demo": true}'
+    env.store.db.execute("INSERT INTO tenders(key,version,doc,retrieved_at) VALUES('EU:NOPROV',1,?,'x')", (bad,))
+    env.store.db.commit()
+    r = env.req("POST", "/learning/outcomes", "owner", json={"tender_key": "EU:NOPROV", "result": "won"})
+    assert r.status_code == 404                              # a record without provenance does not exist for the app
 
 
 def test_decisions_outcomes_and_calibration_say_when_data_is_insufficient(env):

@@ -6,12 +6,19 @@ def gate(a, gid):
     return next(g for g in a["gates"] if g["id"] == gid)
 
 
-def test_demo_data_is_always_marked_and_watermarked(env):
-    assert env.req("POST", "/ingest", "analyst", json={"source": "demo"}).json()["demo"] is True
-    items = env.req("GET", "/tenders", "viewer").json()["items"]
-    assert items and all(i["demo"] is True and i["official_notice_id"].startswith("DEMO") for i in items)
+def test_there_is_no_demo_mode_and_a_record_without_provenance_never_appears(env):
+    assert env.req("POST", "/ingest", "analyst", json={"source": "demo"}).status_code == 422          # the demo source no longer exists
     h = env.c.get("/api/v1/health").json()
-    assert h["mode"] == "DEMO" and h["watermark"] == "DEMO / NOT LIVE" and h["demo_tenders"] == len(items)
+    assert h["mode"] == "LIVE" and h["watermark"] is None and "demo_tenders" not in h
+    # negative control: a row without source URL / fetch time, smuggled past the write guard straight into SQLite, is invisible everywhere
+    bad = {"id": "x:1", "official_notice_id": "NOPROV-1", "title": "No provenance", "jurisdiction": "EU", "country": "CZ", "category": "food", "status": "open",
+           "deadline": "2026-12-01T00:00:00Z", "cpv": ["15000000"], "key": "EU:NOPROV-1", "version": 1}
+    env.store.db.execute("INSERT INTO tenders(key,version,doc,retrieved_at) VALUES(?,?,?,?)", ("EU:NOPROV-1", 1, __import__("json").dumps(bad), "2026-10-17"))
+    env.store.db.commit()
+    assert env.req("GET", "/tenders", "viewer").json()["total"] == 0
+    assert env.req("GET", "/tenders/EU:NOPROV-1", "viewer").status_code == 404
+    with __import__("pytest").raises(ValueError, match="UNVERIFIED_RECORD"):
+        env.store.upsert_tender(bad)
 
 
 def test_live_disabled_blocks_external_ingest(tmp_path):
@@ -27,7 +34,7 @@ def test_ted_ingest_normalizes_and_a_duplicate_notice_changes_nothing(env):
     assert again["new"] == 0 and again["updated"] == 0 and again["duplicates"] == 6 and again["snapshot_new"] is False
     t = env.tender("100001-2026")["tender"]
     assert t["status"] == "open" and t["currency"] == "CZK" and t["estimated_value"] == 250000.0 and t["category"] == "fuel_energy"
-    assert t["title"] == "Diesel supply for municipal fleet" and t["source_url"].endswith("/100001-2026") and t["demo"] is False
+    assert t["title"] == "Diesel supply for municipal fleet" and t["source_url"].endswith("/100001-2026") and "demo" not in t or t["demo"] is False
     assert env.tender("100003-2026")["tender"]["status"] == "closed"          # contract award notice
 
 
@@ -78,27 +85,28 @@ def test_controlled_goods_never_pass_and_need_a_legal_reference(env):
 
 def test_unknown_facts_are_review_required_never_pass(env):
     env.ingest_ted()
-    a = env.req("POST", "/assessments", "analyst", json={"tender_key": env.key("100001-2026")}).json()
-    assert gate(a, "eligibility")["status"] == "REVIEW_REQUIRED"          # no company profile yet
+    a = env.req("POST", "/assessments", "analyst", firm=None, json={"tender_key": env.key("100001-2026")}).json()
+    assert gate(a, "eligibility")["status"] == "REVIEW_REQUIRED"          # no firm entered (view-only)
+    assert a["fit"]["fit_score"] is None and a["fit"]["status"] == "NO_FIRM" and a["tier_if_cleared"] is None
     assert gate(a, "documents")["status"] == "REVIEW_REQUIRED"            # attachments are not analysed
     assert gate(a, "counterparty_screening")["status"] == "REVIEW_REQUIRED"   # sanctions list NOT_CONNECTED
     assert a["compliance_status"] == "REVIEW_REQUIRED" and a["complexity"] == "REVIEW_REQUIRED"
-    assert "не вероятность" in a["fit"]["disclaimer"] or "НЕ вероятность" in a["fit"]["disclaimer"]
+    assert "данные фирмы не введены" in a["fit"]["disclaimer"]                             # view-only: fit is explained as disabled, not guessed
+    withfirm = env.req("POST", "/assessments", "analyst", json={"tender_key": env.key("100001-2026")}).json()
+    assert "НЕ вероятность" in withfirm["fit"]["disclaimer"] and isinstance(withfirm["fit"]["fit_score"], int)
 
 
-def test_company_without_registration_or_sam_uei_lacks_eligibility(env):
+def test_non_eu_firm_lacks_eu_eligibility_and_an_eu_firm_passes(env):
     env.ingest_ted()
-    ap = env.req("PATCH", "/company/profile", "analyst", json={"changes": {"country": "CZ", "registered": False}}).json()["approval_id"]
-    env.req("POST", f"/approvals/{ap}/decide", "owner", json={"approve": True})
-    a = env.req("POST", "/assessments", "analyst", json={"tender_key": env.key("100001-2026")}).json()
-    assert gate(a, "eligibility")["status"] == "REVIEW_REQUIRED" and "не зарегистрирована" in gate(a, "eligibility")["reason"]
+    us = dict(__import__("conftest").TEST_FIRM, country="US", reg_no="12-3456789", vat_no="")
+    a = env.req("POST", "/assessments", "analyst", firm=us, json={"tender_key": env.key("100001-2026")}).json()
+    assert gate(a, "eligibility")["status"] == "REVIEW_REQUIRED" and "вне ЕС" in gate(a, "eligibility")["reason"]
+    b = env.req("POST", "/assessments", "analyst", json={"tender_key": env.key("100001-2026")}).json()
+    assert gate(b, "eligibility")["status"] == "PASS"
 
 
 def test_signed_reviews_clear_open_gates_and_unlock_a_tier(env):
     env.ingest_ted()
-    for changes in ({"country": "CZ", "registered": True, "cpv_capabilities": ["09", "15", "60"], "capital_limit_usd": 50000},):
-        ap = env.req("PATCH", "/company/profile", "analyst", json={"changes": changes}).json()["approval_id"]
-        env.req("POST", f"/approvals/{ap}/decide", "owner", json={"approve": True})
     env.req("PUT", "/fx", "analyst", json={"rates": {"CZKUSD": 0.043}, "as_of": "2026-10-16", "source": "manual entry from bank rate"})
     env.req("POST", "/sanctions/import", "compliance", json={"entries": ["Totally Other Person"], "source": "EU consolidated (test fixture)", "list_version": "t1", "as_of": "2026-10-16"})
     env.req("POST", "/suppliers", "analyst", json={"name": "Fuel Supplier sro", "country": "CZ", "cpv_prefixes": ["09"], "confirmed": True})
@@ -134,7 +142,7 @@ def test_capital_limit_and_matched_deal(env):
     env.ingest_ted()
     env.req("PUT", "/fx", "analyst", json={"rates": {"CZKUSD": 0.04}, "as_of": "2026-10-16", "source": "manual"})
     env.store.upsert_tender({"jurisdiction": "EU", "official_notice_id": "BIG-1", "title": "Big fuel contract", "country": "CZE", "category": "fuel_energy",
-                             "status": "open", "deadline": "2026-12-01T23:59:59Z", "estimated_value": 1000000, "currency": "USD", "source_url": "https://example.org/x",
+                             "status": "open", "deadline": "2026-12-01T23:59:59Z", "estimated_value": 1000000, "currency": "USD", "source_url": "https://ted.europa.eu/x", "source_id": "ted",
                              "retrieved_at": "2026-10-17T00:00:00+00:00", "cpv": ["09134200"], "demo": False, "buyer": "Mesto"})
     base = env.req("POST", "/assessments", "analyst", json={"tender_key": "EU:BIG-1"}).json()
     assert base["fit"]["components"]["capital"]["value"] == 0.0
@@ -159,15 +167,13 @@ def test_restricted_supplier_country_is_rejected(env):
     assert r.status_code == 422 and r.json()["detail"]["code"] == "SUPPLIER_JURISDICTION_BLOCKED"
 
 
-def test_tenders_filters_and_demo_exclusion(env):
+def test_tenders_filters(env):
     env.ingest_ted()
-    env.req("POST", "/ingest", "analyst", json={"source": "demo"})
     allr = env.req("GET", "/tenders", "viewer").json()
-    real = env.req("GET", "/tenders?include_demo=false", "viewer").json()
-    assert real["total"] == 6 and allr["total"] > 6 and all(not i["demo"] for i in real["items"])
-    blocked = env.req("GET", "/tenders?complexity=BLOCKED&include_demo=false", "viewer").json()
+    assert allr["total"] == 6 and all("demo" not in i for i in allr["items"])
+    blocked = env.req("GET", "/tenders?complexity=BLOCKED", "viewer").json()
     assert {i["official_notice_id"] for i in blocked["items"]} >= {"100003-2026", "100004-2026"}
-    assert env.req("GET", "/tenders?country=CZ&category=fuel_energy&include_demo=false", "viewer").json()["total"] >= 1
+    assert env.req("GET", "/tenders?country=CZ&category=fuel_energy", "viewer").json()["total"] >= 1
 
 
 def test_tender_docs_validate_against_the_spec_schema(env):
@@ -177,7 +183,7 @@ def test_tender_docs_validate_against_the_spec_schema(env):
     import jsonschema
     schema = json.loads((pathlib.Path(__file__).resolve().parents[1] / "schemas" / "tender.schema.json").read_text(encoding="utf-8"))
     env.ingest_ted()
-    env.req("POST", "/ingest", "analyst", json={"source": "demo"})
+    env.seed()
     for t in env.store.latest_tenders():
         jsonschema.validate(t, schema, format_checker=jsonschema.FormatChecker())
 
@@ -212,9 +218,9 @@ def test_qualification_uses_share_of_cpv_not_any_single_code():
 def test_country_filter_uses_the_full_table_and_never_matches_regions(env):
     env.ingest_ted()
     env.store.upsert_tender({"jurisdiction": "WB", "official_notice_id": "R1", "title": "regional", "country": "Western and Central Africa",
-                             "status": "open", "retrieved_at": "2026-10-17T00:00:00+00:00", "cpv": [], "demo": False, "source_url": "https://x.org"})
+                             "status": "open", "retrieved_at": "2026-10-17T00:00:00+00:00", "cpv": [], "source_id": "worldbank", "source_url": "https://worldbank.org/x"})
     env.store.upsert_tender({"jurisdiction": "WB", "official_notice_id": "P1", "title": "pak", "country": "PK",
-                             "status": "open", "retrieved_at": "2026-10-17T00:00:00+00:00", "cpv": [], "demo": False, "source_url": "https://x.org"})
+                             "status": "open", "retrieved_at": "2026-10-17T00:00:00+00:00", "cpv": [], "source_id": "worldbank", "source_url": "https://worldbank.org/x"})
     pak = env.req("GET", "/tenders?country=PAK&include_demo=false", "viewer").json()
     assert [i["official_notice_id"] for i in pak["items"]] == ["P1"]
     from warterminal import rules

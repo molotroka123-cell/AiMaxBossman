@@ -18,15 +18,20 @@
   <span id="trmode" class="seg" role="group" aria-label="Показ текста: оригинал и перевод"><button type="button" data-m="orig">Оригинал</button><button type="button" data-m="tr">Перевод</button><button type="button" data-m="both">Оба</button></span>
   <span id="utc" class="mut" aria-label="Дата UTC"></span>
   <input id="gsearch" type="search" placeholder="Поиск по тендерам" aria-label="Поиск по тендерам">
+  <button id="firmb" type="button" class="badge firmchip b-grey" hidden aria-haspopup="dialog"></button>
   <span id="whoami" class="mut"></span>
   <button id="logout" type="button" hidden>Выйти</button>
 </header>
 <nav id="nav" aria-label="Разделы"></nav>
+<div id="strip" class="strip" role="region" aria-label="Статус источников" hidden></div>
+<div id="strip-out" class="strip-out" role="status"></div>
 <div class="layout">
   <main id="main" tabindex="-1" aria-live="polite"></main>
 </div>
 <div id="gate" hidden></div>
 <script src="i18n.js"></script>
 <script src="app.js"></script>
+<script src="firm.js"></script>
+<script src="live.js"></script>
 </body>
 </html>

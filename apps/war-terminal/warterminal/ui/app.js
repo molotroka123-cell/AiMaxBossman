@@ -28,11 +28,11 @@ const txt = (v) => (v == null || v === "" ? "—" : String(v));
 function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
 function badge(text, cls) { return h("span", { class: "badge " + (cls || "b-grey") }, txt(text)); }
 const STATUS_CLS = { PASS: "b-ok", BLOCKED: "b-bad", REVIEW_REQUIRED: "b-info", EASY: "b-ok", MEDIUM: "b-warn", HARD: "b-bad", LIVE: "b-ok",
-  DISABLED: "b-grey", NOT_RUN: "b-grey", NOT_CONNECTED: "b-warn", DEMO: "b-warn", OK: "b-ok", WITHIN_LIMIT: "b-ok", MATCHED_DEAL: "b-warn", OVER_LIMIT: "b-bad",
+  DISABLED: "b-grey", NOT_RUN: "b-grey", NOT_CONNECTED: "b-warn", ERROR: "b-bad", NO_DATA: "b-grey", MISSING: "b-bad", DECLARED: "b-ok", INFO: "b-info", OK: "b-ok", WITHIN_LIMIT: "b-ok", MATCHED_DEAL: "b-warn", OVER_LIMIT: "b-bad",
   pending: "b-warn", approved: "b-ok", rejected: "b-bad" };
 /* Display labels only: enum values sent to / received from the API stay unchanged. */
 const STATUS_RU = { PASS: T("пройдено"), BLOCKED: T("заблокировано"), REVIEW_REQUIRED: T("нужна проверка"), EASY: T("лёгкий"), MEDIUM: T("средний"), HARD: T("сложный"),
-  LIVE: T("живые данные"), DISABLED: T("отключён"), NOT_RUN: T("не запускался"), NOT_CONNECTED: T("не подключён"), DEMO: T("ДЕМО"), OK: "OK", WITHIN_LIMIT: T("в пределах лимита"),
+  LIVE: T("живые данные"), DISABLED: T("отключён"), NOT_RUN: T("не запускался"), NOT_CONNECTED: T("не подключён"), ERROR: T("недоступен"), NO_DATA: T("нет данных"), MISSING: T("не заявлено"), DECLARED: T("заявлено"), INFO: T("справочно"), OFFLINE: T("источники выключены"), OK: "OK", WITHIN_LIMIT: T("в пределах лимита"),
   MATCHED_DEAL: T("сделка состыкована"), OVER_LIMIT: T("сверх лимита"), CLEAR: T("чисто"), POSSIBLE_MATCH: T("возможное совпадение"), MATCH: T("совпадение"), UNKNOWN: T("неизвестно"),
   PROPOSAL: T("предложение"), INSUFFICIENT_DATA: T("мало данных"), TODO: T("сделать"), REQUIRED: T("обязательно"),
   pending: T("ожидает"), approved: T("одобрено"), rejected: T("отклонено"), approval_required: T("нужно одобрение"), cleared: T("снято"),
@@ -41,7 +41,7 @@ const ru = (s) => (s != null && STATUS_RU[s] != null ? STATUS_RU[s] : s);
 const sb = (s) => badge(ru(s), STATUS_CLS[s]);
 const yn = (v) => (v === true ? T("да") : v === false ? T("нет") : txt(v));
 const ROLE_RU = { viewer: T("наблюдатель"), analyst: T("аналитик"), compliance: T("комплаенс"), owner: T("владелец") };
-const WM_RU = { "DEMO / NOT LIVE": T("ДЕМО / НЕ ЖИВЫЕ ДАННЫЕ") };
+const WM_RU = { "OFFLINE / SOURCES OFF": T("ИСТОЧНИКИ ВЫКЛЮЧЕНЫ") };
 /* Russian labels for form fields and result keys; the field name sent to the API stays the key. */
 const LBL = { name: T("Название компании"), country: T("Страна"), registered: T("Компания зарегистрирована"), vat_id: T("VAT / ИНН"), sam_uei: "SAM UEI",
   cpv_capabilities: T("Коды CPV компании"), certificates: T("Сертификаты"), min_prep_days: T("Мин. дней на подготовку"), capital_limit_usd: T("Лимит капитала, USD"),
@@ -110,7 +110,7 @@ function fmtDetail(d) {
   return JSON.stringify(d);
 }
 async function raw(method, path, body) {
-  const res = await fetch(API + path, { method, headers: Object.assign({ Authorization: "Bearer " + S.token }, body !== undefined ? { "Content-Type": "application/json" } : {}),
+  const res = await fetch(API + path, { method, headers: Object.assign({ Authorization: "Bearer " + S.token }, firmHeaders(path), body !== undefined ? { "Content-Type": "application/json" } : {}),
     body: body !== undefined ? JSON.stringify(body) : undefined });
   if (res.status === 401) { showGate(T("Токен не принят (401). Введите токен роли.")); throw new ApiError(401, { code: "TOKEN_REQUIRED", message: T("нужен токен роли") }); }
   return res;
@@ -257,6 +257,7 @@ function applyStatic() {
   set("#fxb", "aria-label", T("Дата курсов валют")); set("#sancb", "aria-label", T("Санкционный список")); set("#utc", "aria-label", T("Дата UTC"));
   set("#gsearch", "placeholder", T("Поиск по тендерам")); set("#gsearch", "aria-label", T("Поиск по тендерам")); set("#logout", "text", T("Выйти"));
   set("#nav", "aria-label", T("Разделы"));
+  set("#strip", "aria-label", T("Статус источников"));
   set("#langsw", "aria-label", T("Язык интерфейса")); set("#trmode", "aria-label", T("Показ текста: оригинал и перевод"));
   const names = { orig: T("Оригинал"), tr: T("Перевод"), both: T("Оба") };
   for (const b of document.querySelectorAll("#trmode button")) { b.textContent = T(names[b.dataset.m]); b.addEventListener("click", () => setTrMode(b.dataset.m)); }
@@ -308,10 +309,9 @@ async function loadHealth() {
   try {
     const hp = chain.then(() => fetch(API + "/health").then((r) => r.json())); chain = hp.catch(() => {});
     const hd = await hp; S.health = hd;
-    const demo = hd.mode !== "LIVE" || hd.demo_tenders > 0;
-    if (hd.watermark === null && !demo) { wm.textContent = T("ЖИВЫЕ ДАННЫЕ"); wm.className = "badge wm b-ok"; }
-    else { wm.textContent = WM_RU[hd.watermark] || hd.watermark || WM_RU["DEMO / NOT LIVE"]; wm.className = "badge wm b-warn"; }
-    wm.title = T("режим: ") + ru(hd.mode) + T(", ДЕМО-тендеров: ") + hd.demo_tenders + T(", внешние источники: ") + (hd.live_enabled ? T("включены") : T("выключены")) + T(", версия ") + hd.version;
+    if (hd.mode === "LIVE") { wm.textContent = T("ЖИВЫЕ ДАННЫЕ"); wm.className = "badge wm b-ok"; }
+    else { wm.textContent = WM_RU[hd.watermark] || hd.watermark || WM_RU["OFFLINE / SOURCES OFF"]; wm.className = "badge wm b-warn"; }
+    wm.title = T("режим: ") + ru(hd.mode) + T(", внешние источники: ") + (hd.live_enabled ? T("включены") : T("выключены")) + T(", скрыто без источника: ") + (hd.excluded_unverified || 0) + T(", версия ") + hd.version;
     au.textContent = hd.audit_chain_ok ? T("аудит: цепочка OK") : T("аудит: НАРУШЕНА");
     au.className = "badge " + (hd.audit_chain_ok ? "b-ok" : "b-bad");
   } catch (e) {
@@ -608,10 +608,10 @@ function countryPanel(panel, key, lay, conf) {
     await trLookup(mine.slice(0, 5).map((t) => t.title));
     if (!mine.length) return stateBox("load", T("Открытых тендеров по этой стране нет."));
     return h("div", {}, h("div", { class: "mut" }, Tf(T("Топ-5 из {0} открытых (порядок API: по соответствию)"), mine.length) + (d.total > (d.items || []).length ? T(" · загружены не все открытые тендеры") : "")),
-      h("ul", { class: "list" }, mine.slice(0, 5).map((t) => h("li", {}, h("div", { class: "tt" }, dual(t.title), t.demo ? [" ", badge(T("ДЕМО"), "b-warn")] : null),
+      h("ul", { class: "list" }, mine.slice(0, 5).map((t) => h("li", {}, h("div", { class: "tt" }, dual(t.title)),
         h("div", { class: "bar", style: "margin:4px 0 0" }, sb(t.assessment && t.assessment.complexity), h("span", { class: "mut" }, T("дедлайн ") + txt((t.deadline || "").slice(0, 10))),
           t.estimated_value == null ? null : h("span", { class: "mut" }, fmtN(t.estimated_value) + " " + txt(t.currency)),
-          h("button", { type: "button", class: "sm", onclick: () => openTender(t, p.iso2) }, T("Открыть")))))),
+          h("button", { type: "button", class: "sm", onclick: () => openTender(t, p.iso2) }, T("Открыть"))), h("div", { class: "src-l" }, provLine(t))))),
       h("button", { type: "button", onclick: () => { S.sel = null; S.filters = { f: "all", q: "", category: "", country: p.iso2 || iso3 }; go("tenders"); } }, T("Все тендеры страны в разделе «Закупки»")));
   });
   if (window.matchMedia && window.matchMedia("(max-width: 950px)").matches && panel.scrollIntoView) panel.scrollIntoView({ block: "start" });
@@ -622,7 +622,8 @@ async function mapBlock(mapEl, panel) {
     const [lay, conf] = await Promise.all([cached("layers"), cached("conf").catch(() => null), loadGeo()]);
     const w = mapWidget(lay, { onSelect: (key) => countryPanel(panel, key, lay, conf), onLayer: () => { if (!S.mapSel) panelHint(panel, lay); } });
     if (!S.mapSel) panelHint(panel, lay);
-    return h("div", {}, w, conf && conf.safety ? h("div", { class: "safety" }, conf.safety) : null);
+    return h("div", {}, w, lay.conflict_source ? h("div", { class: "src-l" }, T("Конфликты: "), provLine({ source_id: lay.conflict_source, source_url: lay.conflict_source_url, retrieved_at: lay.conflict_fetched_at })) : null,
+      conf && conf.safety ? h("div", { class: "safety" }, conf.safety) : null);
   });
   if (!mapEl.querySelector(".mapw")) clear(panel).append(h("h2", {}, T("Страна")), stateBox("load", T("Карта не загрузилась — панель страны недоступна.")));
 }
@@ -634,8 +635,8 @@ const uniq = (arr) => [...new Set(arr.filter((x) => x != null && x !== ""))];
 /* source / licence / safety block for /conflicts (the map itself comes from /map/layers) */
 function conflictMeta(d) {
   const wrap = h("div");
-  const items = d.items || [], real = items.filter((c) => !c.demo);
-  if (d.status === "NOT_CONNECTED") wrap.append(stateBox("load", T("Не подключено: ") + txt(d.message)));
+  const items = d.items || [], real = items;
+  if (d.status === "NOT_CONNECTED") wrap.append(stateBox("load", T("Нет данных: ") + txt(d.message)));
   if (real.length) {
     const PREC = T("средняя точка событий страны за год; не координаты событий");
     const prec = uniq(real.map((c) => c.precision)).filter((p) => p !== PREC);
@@ -644,19 +645,19 @@ function conflictMeta(d) {
       h("span", {}, T("Год: "), h("b", {}, uniq(real.map((c) => c.since)).join(", ") || "—")),
       h("span", {}, T("Лицензия: "), h("b", {}, uniq(real.map((c) => c.licence)).join(", ") || "—")),
       h("span", {}, T("Точность: ") + PREC + (prec.length ? T(" (точность источника: ") + prec.join(", ") + ")" : ""))));
+    wrap.append(h("div", { class: "src-l" }, provLine(real[0])));
   }
-  if (items.some((c) => c.demo)) wrap.append(h("div", { class: "mut", style: "margin-top:6px" }, T("ДЕМО-регионы (синтетические) на карту не наносятся — их список ниже.")));
   if (!items.length) wrap.append(stateBox("load", T("Нет данных о конфликтах.")));
   return wrap;
 }
 function realConflictTable(items, limit) {
   const num = (v) => (typeof v === "number" && isFinite(v) ? v : -1);
-  const rows = items.filter((c) => !c.demo).slice().sort((a, b) => num(b.deaths) - num(a.deaths)).slice(0, limit || undefined);
-  return table([T("Страна"), T("Событий"), T("Погибших"), T("Серьёзность"), T("Год"), T("Источник"), T("Лицензия")], rows.map((c) => ({ cells: [
+  const rows = items.slice().sort((a, b) => num(b.deaths) - num(a.deaths)).slice(0, limit || undefined);
+  return table([T("Страна"), T("Событий"), T("Погибших"), T("Серьёзность"), T("Год"), T("Источник"), T("Получено"), T("Лицензия")], rows.map((c) => ({ cells: [
     h("span", {}, txt(c.country), c.region ? h("div", { class: "mut" }, c.region) : null),
     txt(c.events), txt(c.deaths), sevBadge(c.severity), txt(c.since),
     c.source_url && /^https?:\/\//.test(c.source_url) ? h("a", { href: c.source_url, target: "_blank", rel: "noopener noreferrer" }, txt(c.source_id)) : txt(c.source_id),
-    h("span", { class: "lic" }, txt(c.licence))] })));
+    fetchedAt(c.retrieved_at), h("span", { class: "lic" }, txt(c.licence))] })));
 }
 const INTENSITY = { war: [T("война"), "b-bad"], minor: [T("малый"), "b-warn"] };
 function acdTable(acd) {
@@ -665,13 +666,6 @@ function acdTable(acd) {
     txt(c.location), h("span", {}, txt(c.side_a), h("span", { class: "mut" }, T(" против ")), txt(c.side_b)),
     INTENSITY[c.intensity] ? badge(INTENSITY[c.intensity][0], INTENSITY[c.intensity][1]) : badge(c.intensity), ACD_TYPE[c.type] || txt(c.type), txt(c.year)] })));
 }
-function conflictList(items) {
-  return table([T("Название"), T("Страна"), T("Серьёзность"), T("С даты"), T("Источник"), T("Лицензия")], items.map((c) => ({ cells: [
-    txt(c.name), txt(c.country), sevBadge(c.severity), txt(c.since),
-    c.source_url ? h("a", { href: /^https?:\/\//.test(c.source_url) ? c.source_url : "#", target: "_blank", rel: "noopener noreferrer" }, txt(c.source_id)) : txt(c.source_id),
-    txt(c.licence)].map((x, i) => (i === 0 && c.demo ? h("span", {}, x, " ", badge(T("ДЕМО"), "b-warn")) : x)) })));
-}
-
 /* ---------- tenders ---------- */
 /* The backend country filter only knows ~40 ISO3 codes (an unknown code matches region-only tenders), so the country
    filter is applied here: tender.country (ISO3 / ISO2 / name) is normalized with the Natural Earth index. */
@@ -691,12 +685,12 @@ async function loadTenders() {
   return Object.assign({}, d, { items, total: items.length, partial: d.total > (d.items || []).length, countryIso3: want });
 }
 function tenderTable(items, onRow) {
-  return table([T("Страна"), T("Название"), T("Категория"), T("Стоимость"), T("Дедлайн"), T("Статус"), T("Сложность"), T("Соответствие")], items.map((t) => {
+  return table([T("Страна"), T("Название"), T("Категория"), T("Стоимость"), T("Дедлайн"), T("Статус"), T("Сложность"), T("Соответствие"), T("Источник")], items.map((t) => {
     const a = t.assessment || {};
     return { key: t.key, cls: S.sel === t.key ? "sel" : "", cells: [
-      txt(t.country), h("div", {}, dual(t.title), t.demo ? [" ", badge(T("ДЕМО"), "b-warn")] : null), txt(t.category),
+      txt(t.country), h("div", {}, dual(t.title)), txt(t.category),
       t.estimated_value == null ? "—" : `${t.estimated_value} ${t.currency || ""}`, txt(t.deadline), txt(ru(t.status)),
-      sb(a.complexity), a.fit_score == null ? "—" : String(a.fit_score)] };
+      sb(a.complexity), a.fit_score == null ? h("span", { class: "mut", title: FIRM.data ? T("нет данных") : T("Оценка отключена: данные фирмы не введены") }, "—") : String(a.fit_score), provShort(t)] };
   }), (r) => onRow(r.key));
 }
 function countsFrom(items) {
@@ -799,29 +793,28 @@ async function viewOverview(el) {
       return h("div", {}, h("div", { class: "bar" }, badge(T("Все открытые: ") + d.total, "b-info"), badge(T("Лёгкие: ") + c.EASY, "b-ok"), badge(T("Средние: ") + c.MEDIUM, "b-warn"),
         badge(T("Сложные: ") + c.HARD, "b-bad"), badge(T("Не допущены: ") + c.BLOCKED, "b-bad"), badge(T("На проверке: ") + c.REVIEW_REQUIRED, "b-info")),
       h("div", { class: "mut" }, T("Первые 10 по порядку API (по соответствию); клик — карточка тендера")),
-      table([T("Страна"), T("Название"), T("Дедлайн"), T("Сложность"), T("Соответствие")], items.slice(0, 10).map((t) => ({ key: t.key, cells: [txt(t.country),
+      table([T("Страна"), T("Название"), T("Дедлайн"), T("Сложность"), T("Соответствие"), T("Источник")], items.slice(0, 10).map((t) => ({ key: t.key, cells: [txt(t.country),
         h("div", { class: "clip2" }, dual(t.title)), txt((t.deadline || "").slice(0, 10)),
-        sb(t.assessment && t.assessment.complexity), t.assessment && t.assessment.fit_score != null ? String(t.assessment.fit_score) : "—"] })),
+        sb(t.assessment && t.assessment.complexity), t.assessment && t.assessment.fit_score != null ? String(t.assessment.fit_score) : "—", provShort(t)] })),
         (r) => { S.sel = r.key; S.filters.country = ""; go("tenders"); }));
     }),
   ]);
 }
 async function viewConflicts(el) {
   const mapEl = h("div"), panel = h("aside", { class: "card cpanel", "aria-label": T("Панель страны") });
-  const metaBox = h("div"), realBox = h("div"), acdBox = h("div"), demoBox = h("div");
+  const metaBox = h("div"), realBox = h("div"), acdBox = h("div");
   S.mapLayer = "conflict";
   el.append(h("div", { class: "mapgrid" }, h("section", { class: "card mapcard", "aria-label": T("Карта конфликтов") }, mapEl), panel),
     h("div", { class: "grid", style: "margin-top:12px;grid-template-columns:minmax(0,1fr)" },
-      card(T("Источник и лицензия"), metaBox), card(T("UCDP: агрегаты по странам (по числу погибших)"), realBox), card(T("UCDP/PRIO ACD: вооружённые конфликты"), acdBox), demoBox));
+      card(T("Источник и лицензия"), metaBox), card(T("UCDP: агрегаты по странам (по числу погибших)"), realBox), card(T("UCDP/PRIO ACD: вооружённые конфликты"), acdBox)));
   await mapBlock(mapEl, panel);
   let d;
   await load(metaBox, async () => { d = await cached("conf"); return conflictMeta(d); });
   if (!d) { clear(realBox).append(stateBox("err", T("Нет ответа /conflicts"))); clear(acdBox); return; }
-  const items = d.items || [], real = items.filter((c) => !c.demo), demo = items.filter((c) => c.demo);
+  const items = d.items || [], real = items;
   clear(realBox).append(real.length ? realConflictTable(real) : stateBox("load", T("Реальных данных UCDP нет. Загрузите их в разделе «Источники» («Конфликты UCDP»).")));
   const acd = d.acd;
   clear(acdBox).append(acd && (acd.items || []).length ? h("div", {}, h("div", { class: "mut" }, T("Год: ") + txt(acd.year) + T(" · строк: ") + acd.items.length + T(" · уникальных конфликтов: ") + uniq(acd.items.map((a) => a.conflict_id)).length), acdTable(acd)) : stateBox("load", T("Данных ACD нет.")));
-  if (demo.length) demoBox.append(card(T("ДЕМО-регионы (синтетические, не для решений)"), conflictList(demo)));
 }
 
 const FILTERS = [["all", T("Все")], ["EASY", T("Лёгкие")], ["MEDIUM", T("Средние")], ["HARD", T("Сложные")], ["BLOCKED", T("Не допущены")], ["REVIEW_REQUIRED", T("На проверке")]];
@@ -842,7 +835,7 @@ async function viewTenders(el) {
   function viewRefreshBar() { for (const b of bar.querySelectorAll("button")) { const on = b.textContent === FILTERS.find((x) => x[0] === S.filters.f)[1]; b.className = on ? "on" : ""; b.setAttribute("aria-pressed", String(on)); } }
   for (const i of [q, cat, ctry]) i.addEventListener("keydown", (e) => { if (e.key === "Enter") refresh(); });
   bar.append(q, cat, ctry, h("button", { type: "button", onclick: refresh }, T("Применить")));
-  el.append(card(T("Тендеры"), bar, listBox), det);
+  el.append(card(T("Тендеры"), FIRM.data ? null : FIRM.banner(), bar, listBox), det);
   const listNode = (d) => {
     if (!d.items.length) return stateBox("load", T("Нет тендеров по этим фильтрам."));
     return h("div", {}, h("div", { class: "mut" }, Tf(T("Показано {0} из {1} · страна: {2}"), d.items.length, d.total, S.filters.country ? S.filters.country + (d.countryIso3 ? " (" + geoName(d.countryIso3) + ")" : "") : T("весь мир")) +
@@ -869,10 +862,16 @@ async function showDetail(el, key) {
   });
   el.scrollIntoView && el.scrollIntoView({ block: "nearest" });
 }
+const FCHK = { turnover: T("Стоимость тендера и оборот фирмы"), guarantee: T("Лимит гарантии и стоимость тендера"), licences: T("Лицензия на экспорт"), security_certs: T("AQAP / допуск к секретным работам") };
+function firmChecksView(list) {
+  if (!list) return null;
+  return h("div", {}, h("h3", {}, T("Сверка с данными вашей фирмы")), table([T("Проверка"), T("Статус"), T("Значение")], list.map((c) => ({ cells: [FCHK[c.id] || c.id, sb(c.status),
+    c.ratio_pct != null ? c.ratio_pct + " %" : c.status === "NO_DATA" ? T("нет данных") : "—"] }))), h("p", { class: "mut" }, T("Справочные соотношения, не решение: пороги задаёт документация тендера.")));
+}
 function assessmentView(a) {
   const box = h("div");
   box.append(h("div", { class: "bar" }, h("div", { class: "score" }, a.fit.fit_score == null ? "—" : String(a.fit.fit_score)), sb(a.complexity), a.tier_if_cleared ? badge(T("уровень после снятия проверок: ") + ru(a.tier_if_cleared), STATUS_CLS[a.tier_if_cleared]) : null,
-    sb(a.compliance_status), a.demo ? badge(T("ДЕМО"), "b-warn") : null, a.dry_run === false ? badge(T("сохранено #") + a.id, "b-ok") : (a.dry_run ? badge(T("пробная оценка"), "b-grey") : null)));
+    sb(a.compliance_status), a.dry_run === false ? badge(T("сохранено #") + a.id, "b-ok") : (a.dry_run ? badge(T("пробная оценка"), "b-grey") : null)));
   box.append(h("p", { class: "msg", style: "background:#26365a" }, srv(a.fit.disclaimer)));
   box.append(kv([[T("Уверенность"), a.fit.confidence], [T("Неизвестные компоненты"), (a.fit.unknowns || []).join(", ") || T("нет")], [T("Оценка в USD"), a.usd_value], [T("Встречный контракт (back-to-back)"), yn(a.back_to_back)], [T("Оценено"), a.assessed_at]]));
   box.append(h("h3", {}, T("Проверки")));
@@ -890,13 +889,13 @@ function assessmentView(a) {
 function detailView(d, cl, host) {
   const t = d.tender, a = d.assessment;
   const out = h("div", { class: "card" });
-  out.append(h("h2", { class: "dh" }, t.title == null ? t.key : dual(t.title), t.demo ? [" ", badge(T("ДЕМО"), "b-warn")] : null));
+  out.append(h("h2", { class: "dh" }, t.title == null ? t.key : dual(t.title)));
   const link = t.source_url && /^https?:\/\//.test(t.source_url) ? h("a", { href: t.source_url, target: "_blank", rel: "noopener noreferrer" }, t.source_url) : txt(t.source_url);
   out.append(kv([[T("Ключ"), t.key], [T("Покупатель"), t.buyer ? dual(t.buyer, { keep: true }) : null], [T("Страна"), t.country], [T("Категория"), t.category], ["CPV", (t.cpv || []).join(", ")],
     [T("Стоимость"), t.estimated_value == null ? null : `${t.estimated_value} ${t.currency || ""}`], [T("Дедлайн"), t.deadline], [T("Статус"), ru(t.status)],
-    [T("Источник"), link], [T("Получено"), t.retrieved_at], [T("Качество данных"), typeof t.data_quality === "object" && t.data_quality ? JSON.stringify(t.data_quality) : t.data_quality],
+    [T("Источник"), link], [T("Живые данные"), provLine(t)], [T("Получено"), t.retrieved_at], [T("Качество данных"), typeof t.data_quality === "object" && t.data_quality ? JSON.stringify(t.data_quality) : t.data_quality],
     [T("Версии"), (d.versions || []).join(", ")]]));
-  const asBox = h("div", { style: "margin-top:10px" }, assessmentView(a));
+  const asBox = h("div", { style: "margin-top:10px" }, FIRM.data ? null : FIRM.banner(), assessmentView(a), firmChecksView(d.firm_checks));
   const ai = h("input", { type: "checkbox", id: "useai" });
   const b2b = h("input", { type: "checkbox", id: "b2b" });
   const res = h("div");
@@ -906,7 +905,7 @@ function detailView(d, cl, host) {
       const r = await POST("/assessments", { tender_key: t.key, dry_run: dry, use_ai: ai.checked, back_to_back: b2b.checked });
       if (!dry && r.id != null) { S.lastAssessment[t.key] = r.id; try { sessionStorage.setItem("wt_last_" + t.key, String(r.id)); } catch (e) { /* */ } }
       await trLookup(serverTexts(r, null));
-      clear(asBox).append(assessmentView(r));
+      clear(asBox).append(FIRM.data ? null : FIRM.banner(), assessmentView(r), firmChecksView(r.firm_checks));
       res.append(msgBox("ok", dry ? T("Пробная оценка: ничего не сохранено.") : T("Оценка сохранена, № ") + r.id));
     } catch (e) { if (e.status !== 401) res.append(msgBox("err", "HTTP " + e.status + " — " + e.message)); }
   };
@@ -951,41 +950,16 @@ async function viewCompliance(el) {
   }
 }
 
-/* ---------- company fit ---------- */
-const PROFILE_FIELDS = [["name", "text"], ["country", "text"], ["registered", "checkbox"], ["vat_id", "text"], ["sam_uei", "text"], ["cpv_capabilities", "list"], ["certificates", "list"],
-  ["min_prep_days", "number"], ["capital_limit_usd", "number"], ["base_currency", "text"], ["past_performance", "list"]];
+/* ---------- company: the firm entered in the popup (kept in this tab only, never stored on the server) ---------- */
 async function viewFit(el) {
-  const prof = h("div"), ap = h("div"), res = h("div");
-  el.append(card(T("Профиль компании"), prof, res), card(T("Ожидающие запросы изменения профиля"), ap));
-  await load(prof, async () => {
-    const d = await GET("/company/profile"), p = d.profile || {};
-    clear(ap).append(d.pending.length ? approvalsTable(d.pending, false) : stateBox("load", T("Нет ожидающих запросов.")));
-    if (!Object.keys(p).length) prof.append(stateBox("load", T("Профиль пуст.")));
-    const form = h("form", { class: "form" });
-    for (const [k, ty] of PROFILE_FIELDS) {
-      const v = p[k];
-      if (ty === "checkbox") { const c = h("input", { type: "checkbox", name: k }); c.checked = !!v; form.append(h("label", { class: "chk" }, c, lbl(k))); }
-      else if (ty === "list") form.append(field(lbl(k) + T(" (через запятую)"), inp(k, "text", Array.isArray(v) ? v.join(", ") : (v == null ? "" : v))));
-      else form.append(field(lbl(k), inp(k, ty, v == null ? "" : v)));
-    }
-    form.append(h("button", { type: "submit" }, T("Запросить изменение (нужно одобрение владельца)")));
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault(); clear(res);
-      const changes = {};
-      for (const [k, ty] of PROFILE_FIELDS) {
-        const el2 = form.elements[k];
-        if (ty === "checkbox") { if (el2.checked !== !!p[k]) changes[k] = el2.checked; continue; }
-        let v = el2.value;
-        if (ty === "number") v = v === "" ? null : Number(v);
-        else if (ty === "list") v = v.split(",").map((s) => s.trim()).filter(Boolean);
-        if (JSON.stringify(v) !== JSON.stringify(p[k] == null ? (ty === "list" ? [] : "") : p[k]) && !(v === "" && p[k] == null)) changes[k] = v;
-      }
-      if (!Object.keys(changes).length) { res.append(msgBox("err", T("Нет изменений."))); return; }
-      try { const r = await api("PATCH", "/company/profile", { changes }); res.append(msgBox("ok", T("Создан запрос на одобрение #") + r.approval_id + ": " + JSON.stringify(changes))); viewRefresh(); }
-      catch (x) { if (x.status !== 401) res.append(msgBox("err", "HTTP " + x.status + " — " + x.message)); }
-    });
-    return form;
-  });
+  const body = h("div");
+  el.append(card(T("Данные вашей фирмы"), body));
+  if (!FIRM.data) {
+    body.append(FIRM.banner(), h("p", { class: "mut" }, T("Терминал ничего не подставляет за вас: без ваших данных оценка соответствия не считается.")));
+    return;
+  }
+  body.append(kv(FIRM.rows()), h("p", { class: "mut" }, T("Данные хранятся только в этой вкладке браузера (и на этом устройстве, если вы отметили «Запомнить»). На сервере, в переводчике, журналах и экспорте их нет.")),
+    h("div", { class: "bar" }, h("button", { type: "button", onclick: () => FIRM.reopen() }, T("Изменить данные фирмы"))));
 }
 function viewRefresh() { render(); }
 
@@ -995,6 +969,10 @@ const FIN_FIELDS = [["currency", "text", "USD"], ["purchase", "number", ""], ["f
   ["acceptance_day", "number", 40], ["customer_pay_delay_days", "number", 30], ["vat_import", "number", 0], ["vat_recovery_days", "number", 60], ["logistics_cost", "number", 0],
   ["buyer_prepay_pct", "number", 0], ["annual_rate", "number", 0.12], ["capital_limit_usd", "number", 50000]];
 async function viewFinance(el) {
+  if (!FIRM.data) {
+    el.append(card(T("Оценка себестоимости и денежного потока"), FIRM.banner(), h("p", { class: "mut" }, T("Калькулятор отключён: он использует данные фирмы (оборот, гарантия). Без них приложение ничего не предполагает."))));
+    return;
+  }
   const res = h("div"), outBox = h("div");
   const form = h("form", { class: "form" });
   for (const [k, ty, def] of FIN_FIELDS) form.append(field(lbl(k), inp(k, ty, def, ty === "number" ? { step: "any", required: k === "purchase" || k === "bid_price" } : {})));
@@ -1017,6 +995,8 @@ function financeResult(r) {
   box.append(card(T("Денежный поток"), kv([[T("Пик потребности"), r.cashflow.peak_funding_need], [T("День пика"), r.cashflow.peak_day], [T("Итоговый баланс"), r.cashflow.final_balance], [T("Пик в USD"), r.peak_funding_need_usd]]),
     table([T("День"), T("Событие"), T("Сумма"), T("Накопленно")], r.cashflow.timeline.map((e) => ({ cells: [e.day, srv(e.label), e.amount, e.cumulative] })))));
   box.append(card(T("Стресс: задержка оплаты"), table([T("Доп. дней"), T("Пик"), T("Доп. стоимость"), T("Прибыль"), T("Маржа %"), T("Итоговый баланс")], r.stress.map((s) => ({ cells: [s.extra_delay_days, s.peak_funding_need, s.extra_carry_cost, s.profit, txt(s.margin_pct), s.final_balance] })))));
+  if (r.firm_context) box.append(card(T("Заявка и данные фирмы"), kv([[T("Цена заявки к годовому обороту, %"), r.firm_context.bid_vs_turnover_pct == null ? T("нет данных") : r.firm_context.bid_vs_turnover_pct],
+    [T("Цена заявки к лимиту гарантии, %"), r.firm_context.bid_vs_guarantee_pct == null ? T("нет данных") : r.firm_context.bid_vs_guarantee_pct]])));
   box.append(card(T("Проверка лимита капитала"), h("div", { class: "bar" }, sb(r.capital.status), badge(T("разрешено: ") + yn(r.capital.allowed)), badge(T("нужно одобрение владельца: ") + yn(r.capital.needs_owner_approval))), h("p", {}, txt(r.capital.reason)), h("p", { class: "mut" }, txt(r.disclaimer))));
   return box;
 }
@@ -1143,16 +1123,17 @@ async function viewSources(el) {
     res.append(stateBox("load", label + T(": выполняется…")));
     try { const r = await POST(path, body); clear(res).append(msgBox("ok", label + T(" — готово: ") + JSON.stringify(r))); S.tenders = null; }
     catch (e) { clear(res); if (e.status !== 401) res.append(msgBox("err", label + " — HTTP " + e.status + " — " + e.message)); }
-    finally { b.disabled = false; loadHealth(); loadBadges(); refresh(); refRefresh(); }
+    finally { b.disabled = false; loadHealth(); loadBadges(); LIVE.strip(); refresh(); refRefresh(); }
   } }, label);
   el.append(card(T("Источники данных"),
     h("h3", {}, T("Тендеры (роль «аналитик»)")),
-    h("div", { class: "bar" }, act(T("Загрузить ДЕМО"), "/ingest", { source: "demo" }, "analyst"), act(T("TED: Чехия"), "/ingest", { source: "ted", country: "CZE" }, "analyst"),
-      act(T("TED: весь мир"), "/ingest", { source: "ted", country: null }, "analyst"), act(T("Всемирный банк (весь мир)"), "/ingest", { source: "worldbank" }, "analyst")),
+    h("div", { class: "bar" }, act(T("TED: Чехия"), "/ingest", { source: "ted", country: "CZE" }, "analyst"),
+      act(T("TED: весь мир"), "/ingest", { source: "ted", country: null }, "analyst"), act(T("ISVZ/NEN (Чехия)"), "/ingest", { source: "cz" }, "analyst"),
+      act(T("Всемирный банк (весь мир)"), "/ingest", { source: "worldbank" }, "analyst")),
     h("h3", {}, T("Справочники")),
     h("div", { class: "bar" }, act(T("Загрузить санкции (OFAC+ООН)"), "/sanctions/fetch", { sources: ["ofac", "un"] }, "compliance"), act(T("Курсы ЧНБ"), "/fx/fetch", {}, "analyst"),
       act(T("Конфликты UCDP"), "/conflicts/fetch", {}, "compliance")),
-    h("p", { class: "mut" }, T("Внешние источники работают только при WAR_TERMINAL_LIVE=true; иначе сервер отвечает отказом LIVE_DISABLED. Санкции и конфликты требуют роль «комплаенс».")),
+    h("p", { class: "mut" }, T("Все источники публичные и читаются только на чтение, без логинов и платных сервисов. Недоступный источник помечается ошибкой, старые или примерные данные вместо него не показываются. Санкции и конфликты требуют роль «комплаенс».")),
     res, h("h3", {}, T("Справочные данные")), ref, h("h3", {}, T("Статус источников")), box));
   function refRefresh() {
     load(ref, async () => {
@@ -1170,7 +1151,7 @@ async function viewSources(el) {
   function refresh() {
     load(box, async () => {
       const d = await GET("/sources/status");
-      return h("div", {}, kv([[T("Режим"), ru(d.data.mode)], [T("Внешние источники включены"), yn(d.data.live_enabled)], [T("ДЕМО-тендеров"), d.data.demo_tenders], [T("Водяной знак"), d.data.watermark == null ? T("нет") : (WM_RU[d.data.watermark] || d.data.watermark)]]),
+      return h("div", {}, kv([[T("Режим"), ru(d.data.mode)], [T("Внешние источники включены"), yn(d.data.live_enabled)], [T("Скрыто без источника"), d.data.excluded_unverified]]),
         table([T("Источник"), T("Тип"), T("Статус"), T("Причина"), T("Последний успех"), T("Устарел"), T("Кол-во")], d.sources.map((s) => ({ cells: [txt(s.name || s.id), txt(s.kind), sb(s.status), txt(s.reason || s.note), txt(s.last_success), s.stale == null ? "—" : yn(s.stale), txt(s.count != null ? s.count : s.last_count)] }))));
     });
   }
@@ -1204,15 +1185,19 @@ async function render() {
   m.append(h("h2", { class: "vt" + (S.view === "overview" ? " sr" : "") }, SECTIONS.find((s) => s[0] === S.view)[1]));
   try { await VIEWS[S.view](m); } catch (e) { if (e.status !== 401) m.append(stateBox("err", T("Ошибка: ") + (e.message || e))); }
 }
-function boot() {
+async function boot() {
   $("#whoami").textContent = T("роль: ") + (ROLE_RU[S.role] || S.role);
   $("#logout").hidden = false;
-  loadHealth(); renderNav(); render(); loadBadges();
+  loadHealth();
+  await FIRM.ask();                                   // popup with the firm's data on EVERY opening; "view only" is always one click away
+  renderNav(); render(); loadBadges(); LIVE.strip();
 }
 document.addEventListener("DOMContentLoaded", () => {
   applyStatic(); tick(); setInterval(tick, 30000);
   $("#logout").addEventListener("click", () => { try { sessionStorage.removeItem("wt_token"); } catch (e) { /* */ } S.token = ""; clear($("#main")); showGate(); });
   $("#gsearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { S.filters.q = e.target.value.trim(); S.filters.f = "all"; go("tenders"); } });
   loadHealth();
+  const fb = $("#firmb");
+  if (fb) fb.addEventListener("click", () => FIRM.reopen());
   if (S.token) boot(); else showGate();
 });

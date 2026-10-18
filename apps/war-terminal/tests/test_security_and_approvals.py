@@ -13,18 +13,12 @@ def test_roles_are_enforced(env):
     assert env.req("GET", "/learning/dataset", "compliance").status_code == 403
 
 
-def test_profile_change_waits_for_owner_approval_and_unknown_fields_are_refused(env):
-    pending = env.req("PATCH", "/company/profile", "analyst", json={"changes": {"name": "Future Co s.r.o.", "country": "CZ"}}).json()
-    assert pending["status"] == "approval_required"
-    assert env.req("GET", "/company/profile", "viewer").json()["profile"] == {}
-    assert env.req("POST", f"/approvals/{pending['approval_id']}/decide", "compliance", json={"approve": True}).status_code == 403
-    env.req("POST", f"/approvals/{pending['approval_id']}/decide", "owner", json={"approve": True})
-    assert env.req("GET", "/company/profile", "viewer").json()["profile"]["country"] == "CZ"
-    rej = env.req("PATCH", "/company/profile", "analyst", json={"changes": {"name": "Evil"}}).json()["approval_id"]
-    env.req("POST", f"/approvals/{rej}/decide", "owner", json={"approve": False, "note": "no"})
-    assert env.req("GET", "/company/profile", "viewer").json()["profile"]["name"] == "Future Co s.r.o."
-    assert env.req("PATCH", "/company/profile", "analyst", json={"changes": {"api_key": "x"}}).status_code == 422
-    assert env.req("POST", f"/approvals/{rej}/decide", "owner", json={"approve": True}).status_code == 404       # already decided
+def test_firm_profile_is_no_longer_stored_on_the_server(env):
+    r = env.req("PATCH", "/company/profile", "analyst", json={"changes": {"name": "Future Co s.r.o.", "country": "CZ"}})
+    assert r.status_code == 410 and r.json()["detail"]["code"] == "FIRM_NOT_STORED"
+    got = env.req("GET", "/company/profile", "viewer").json()
+    assert got["profile"] == {} and got["stored"] is False
+    assert env.req("GET", "/approvals", "owner").json()["items"] == []
 
 
 def test_bid_contact_and_purchase_actions_are_never_available(env):
@@ -60,17 +54,19 @@ def test_sources_are_honest_about_status(tmp_path):
 
 
 def test_conflicts_never_pretend_to_be_real(env):
-    empty = env.req("GET", "/conflicts?include_demo=false", "viewer").json()
+    empty = env.req("GET", "/conflicts", "viewer").json()
     assert empty["status"] == "NOT_CONNECTED" and empty["items"] == [] and "тактическ" in empty["safety"]
-    env.req("POST", "/ingest", "analyst", json={"source": "demo"})
-    demo = env.req("GET", "/conflicts", "viewer").json()
-    assert demo["real_count"] == 0 and demo["items"] and all(c["demo"] for c in demo["items"])
+    # negative control: an old-style demo marker stored under any key never reaches the API
+    env.store.kv_set("conflicts_demo", [{"name": "DEMO-ZONE-A", "country": "XX", "demo": True, "source_id": "demo", "source_url": "https://example.invalid/demo"}])
+    env.store.kv_set("conflicts", [{"name": "DEMO-ZONE-B", "country": "XX", "demo": True, "source_id": "demo", "source_url": "https://example.invalid/demo"}])
+    still = env.req("GET", "/conflicts", "viewer").json()
+    assert still["items"] == [] and still["real_count"] == 0 and still["status"] == "NOT_CONNECTED"
     bad = env.req("POST", "/conflicts/import", "compliance", json={"items": [{"name": "x", "country": "XX", "lat": 1, "lon": 1, "severity": "high",
                                                                               "source_id": "ucdp", "source_url": "not-a-url", "licence": "CC"}]})
     assert bad.status_code == 422                                  # provenance is mandatory
     ok = env.req("POST", "/conflicts/import", "compliance", json={"items": [{"name": "Region R", "country": "XX", "lat": 1, "lon": 1, "severity": "high",
                                                                              "source_id": "ucdp", "source_url": "https://ucdp.uu.se/", "licence": "CC BY 4.0"}]})
-    assert ok.status_code == 200 and env.req("GET", "/conflicts?include_demo=false", "viewer").json()["status"] == "OK"
+    assert ok.status_code == 200 and env.req("GET", "/conflicts", "viewer").json()["status"] == "OK"
 
 
 def test_usaspending_and_gdelt_are_stored_with_snapshots(env):
@@ -98,7 +94,7 @@ def test_concurrent_reads_and_writes_do_not_corrupt_or_500(env):
 
     def reader(_):
         for _i in range(15):
-            r = env.req("GET", "/tenders?include_demo=false", "viewer")
+            r = env.req("GET", "/tenders", "viewer")
             d = env.req("GET", "/tenders/EU:100001-2026", "viewer")
             if r.status_code != 200 or r.json()["total"] != 6 or d.status_code != 200:
                 errors.append((r.status_code, d.status_code))

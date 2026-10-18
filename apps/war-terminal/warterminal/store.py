@@ -8,6 +8,8 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .provenance import is_real, unverified_reason
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshots(id INTEGER PRIMARY KEY, source_id TEXT NOT NULL, fetched_at TEXT NOT NULL,
   url TEXT NOT NULL, sha256 TEXT NOT NULL, payload TEXT NOT NULL, UNIQUE(source_id, sha256));
@@ -78,6 +80,9 @@ class Store:
     # ---- tenders: key = jurisdiction + official_notice_id; a changed notice gets a new version ----
     @_locked
     def upsert_tender(self, doc: dict) -> tuple[str, int, bool]:
+        why = unverified_reason(doc)
+        if why:                                                 # write-path guard: no record without provenance enters the store
+            raise ValueError(f"UNVERIFIED_RECORD:{why}")
         key = f"{doc['jurisdiction']}:{doc['official_notice_id']}"
         volatile = ("retrieved_at", "version", "key", "snapshot_sha256")
         body = _dump({k: v for k, v in doc.items() if k not in volatile})
@@ -99,16 +104,18 @@ class Store:
     @_locked
     def latest_tenders(self) -> list[dict]:
         rows = self.db.execute("SELECT doc FROM tenders t WHERE version=(SELECT MAX(version) FROM tenders WHERE key=t.key)").fetchall()
-        return [json.loads(r["doc"]) for r in rows]
+        return [d for d in (json.loads(r["doc"]) for r in rows) if is_real(d)]
 
     @_locked
     def get_tender(self, key: str) -> dict | None:
         row = self.db.execute("SELECT doc FROM tenders WHERE key=? ORDER BY version DESC LIMIT 1", (key,)).fetchone()
-        return json.loads(row["doc"]) if row else None
+        doc = json.loads(row["doc"]) if row else None
+        return doc if doc is not None and is_real(doc) else None
 
     @_locked
     def tender_versions(self, key: str) -> list[dict]:
-        return [json.loads(r["doc"]) for r in self.db.execute("SELECT doc FROM tenders WHERE key=? ORDER BY version", (key,))]
+        docs = (json.loads(r["doc"]) for r in self.db.execute("SELECT doc FROM tenders WHERE key=? ORDER BY version", (key,)))
+        return [d for d in docs if is_real(d)]
 
     # ---- generic JSON docs ----
     @_locked
@@ -218,3 +225,66 @@ class Store:
                             ("approved" if approve else "rejected", decided_by, now(), note, approval_id))
             self.db.commit()
         return self.get_approval(approval_id)
+
+    # ---- real-data gate: archive (never destroy) everything without provenance ----
+    @_locked
+    def count_tenders(self) -> dict:
+        """Counts straight from the table (not through the provenance filter): rows = all versions, keys = distinct notices."""
+        r = self.db.execute("SELECT COUNT(*) n, COUNT(DISTINCT key) k FROM tenders").fetchone()
+        return {"rows": r["n"], "keys": r["k"], "visible_keys": len(self.latest_tenders())}
+
+    @_locked
+    def archive_unverified(self, archive_dir: str | Path, stamp: str) -> dict:
+        """Move tender versions, stored conflict markers and dependent learning docs that lack provenance (demo / synthetic / no source URL
+        or fetched_at) into archive_dir/demo-removed-<stamp>.jsonl, then delete them from the live tables. Returns exact counts."""
+        before = self.count_tenders()
+        lines, report = [], {"tenders_rows": 0, "tender_keys": 0, "conflicts": 0, "conflicts_demo_key": 0, "dependent_docs": 0, "reasons": {}}
+        bad_keys: set[str] = set()
+        with self._lock:
+            for r in self.db.execute("SELECT id,key,version,doc FROM tenders").fetchall():
+                doc = json.loads(r["doc"])
+                why = unverified_reason(doc)
+                if why:
+                    lines.append({"table": "tenders", "key": r["key"], "version": r["version"], "reason": why, "doc": doc})
+                    bad_keys.add(r["key"])
+                    report["tenders_rows"] += 1
+                    report["reasons"][why] = report["reasons"].get(why, 0) + 1
+                    self.db.execute("DELETE FROM tenders WHERE id=?", (r["id"],))
+            report["tender_keys"] = len(bad_keys)
+            for table in ("assessments", "decisions", "outcomes"):
+                for r in self.db.execute(f"SELECT id,tender_key,doc FROM {table}").fetchall():
+                    if r["tender_key"] in bad_keys or json.loads(r["doc"]).get("demo"):
+                        lines.append({"table": table, "id": r["id"], "tender_key": r["tender_key"], "reason": "depends_on_unverified_tender", "doc": json.loads(r["doc"])})
+                        self.db.execute(f"DELETE FROM {table} WHERE id=?", (r["id"],))
+                        report["dependent_docs"] += 1
+            demo_kv = self.kv_get("conflicts_demo")
+            if demo_kv is not None:                              # old DEMO conflict markers lived under their own key
+                lines.append({"table": "kv", "key": "conflicts_demo", "reason": "demo_flag", "doc": demo_kv})
+                report["conflicts_demo_key"] = len(demo_kv) if isinstance(demo_kv, list) else 1
+                self.db.execute("DELETE FROM kv WHERE k='conflicts_demo'")
+            conf = self.kv_get("conflicts")
+            keep = None
+            if isinstance(conf, list):
+                keep = [c for c in conf if is_real(c)]
+                for c in conf:
+                    if not is_real(c):
+                        lines.append({"table": "kv", "key": "conflicts", "reason": unverified_reason(c), "doc": c})
+                report["conflicts"] = len(conf) - len(keep)
+            if lines:                                            # the archive is written BEFORE anything is committed away
+                try:
+                    d = Path(archive_dir)
+                    d.mkdir(parents=True, exist_ok=True)
+                    path = d / f"demo-removed-{stamp}.jsonl"
+                    with path.open("a", encoding="utf-8") as fh:
+                        for ln in lines:
+                            fh.write(json.dumps(ln, ensure_ascii=False, default=str) + "\n")
+                except OSError:
+                    self.db.rollback()
+                    raise
+                report["archive_file"] = str(path)
+            self.db.commit()
+            if keep is not None and report["conflicts"]:
+                self.kv_set("conflicts", keep)
+        report["before"], report["after"] = before, self.count_tenders()
+        report["archived_total"] = len(lines)
+        return report

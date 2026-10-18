@@ -17,8 +17,9 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import API_VERSION, VERSION, ai as ai_mod, finance, fx_tracker as fxt, geo, learning, rules, scoring, sources, translate as tr_mod
-from .connectors import cnb, cz, demo as demo_conn, indicators, demo_conflicts, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
+from . import API_VERSION, VERSION, ai as ai_mod, finance, firm as firm_mod, fx_tracker as fxt, geo, learning, rules, scoring, sources, translate as tr_mod
+from .connectors import cnb, cz, indicators, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
+from .provenance import is_real
 from .store import Store, now
 
 ROLE_RANK = {"viewer": 0, "analyst": 1, "compliance": 2, "owner": 3}
@@ -49,7 +50,7 @@ def _load_tokens(data_dir: Path) -> dict[str, str]:
 
 
 class IngestIn(BaseModel):
-    source: str = Field(pattern=r"^(ted|sam|usaspending|gdelt|worldbank|cz|demo)$")
+    source: str = Field(pattern=r"^(ted|sam|usaspending|gdelt|worldbank|cz)$")
     days: int = Field(default=30, ge=1, le=365)
     cpv_prefixes: list[str] | None = None
     country: str | None = None              # None = all countries (owner: Czech company, whole world)
@@ -185,12 +186,19 @@ class OutcomeIn(BaseModel):
     note: str = ""
 
 
+def _now_stamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%d")
+
+
 def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, tokens: dict | None = None, post=None, get=None,
                chat=None, today: date | None = None, download=None, bossman=None) -> FastAPI:
     data_dir = Path(data_dir or os.environ.get("WAR_TERMINAL_DATA") or Path.home() / ".war-terminal")
     data_dir.mkdir(parents=True, exist_ok=True)
     store = Store(data_dir / "war.db")
-    live = live if live is not None else os.environ.get("WAR_TERMINAL_LIVE", "").lower() in ("1", "true", "yes")
+    live = live if live is not None else os.environ.get("WAR_TERMINAL_LIVE", "true").lower() not in ("0", "false", "no", "off")   # live by default; no demo mode exists
+    purge = store.archive_unverified(data_dir / "archive", _now_stamp())          # records without provenance leave every view; archived, not destroyed
+    if purge["archived_total"]:
+        store.audit("system", "provenance.archive", {k: v for k, v in purge.items() if k != "reasons"} | {"reasons": purge["reasons"]})
     tokens = tokens or _load_tokens(data_dir)
     post, get = post or http_mod.post_json, get or http_mod.get_json
     download = download or http_mod.get_bytes
@@ -214,8 +222,8 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     sam_key = os.environ.get("SAM_API_KEY", "")
     translator = tr_mod.Translator(store, None if bossman is False else (bossman or tr_mod.gateway_from_env(dict(os.environ))))   # False = off (tests)
 
-    app = FastAPI(title="Bossman War & Procurement Terminal", version=VERSION, description="API v1. DEMO data is always marked demo=true.")
-    app.state.store, app.state.live, app.state.tokens = store, live, tokens
+    app = FastAPI(title="Bossman War & Procurement Terminal", version=VERSION, description="API v1. Real data only: every record carries source, link and fetch time; records without provenance are archived and never shown.")
+    app.state.store, app.state.live, app.state.tokens, app.state.purge_report = store, live, tokens, purge
 
     def _day() -> date:
         return today or datetime.now(timezone.utc).date()
@@ -238,9 +246,33 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
 
     viewer, analyst, compliance, owner = need("viewer"), need("analyst"), need("compliance"), need("owner")
 
+    def firm_of(request: Request) -> dict | None:
+        """Firm data from the popup, per request, in memory only (never stored, logged, translated or exported). None = view-only."""
+        try:
+            return firm_mod.decode_header(request.headers.get(firm_mod.HEADER))
+        except firm_mod.FirmError as exc:
+            raise HTTPException(422, {"code": "FIRM_INVALID", "fields": exc.fields, "message": "данные фирмы заполнены неверно: " + ", ".join(exc.fields)}) from exc
+
+    from contextlib import contextmanager
+
+    @contextmanager
+    def guard(source_id: str):
+        """A source that cannot be reached is reported per source (status strip) instead of silently showing old data."""
+        try:
+            yield
+        except HTTPException:
+            raise
+        except Exception as exc:                                    # noqa: BLE001 - recorded and surfaced as 502, not swallowed
+            msg = f"{type(exc).__name__}: {str(exc)[:200]}"
+            store.kv_set(f"error:{source_id}", {"at": now(), "message": msg})
+            raise HTTPException(502, {"code": "SOURCE_UNREACHABLE", "source": source_id, "message": f"источник {source_id} недоступен: {msg}"}) from exc
+        else:
+            if store.kv_get(f"error:{source_id}"):
+                store.kv_set(f"error:{source_id}", None)
+
     # ------------------------------------------------------------------ assessment core
-    def assess_tender(t: dict, back_to_back: bool = False) -> dict:
-        profile = store.kv_get("profile", {})
+    def assess_tender(t: dict, back_to_back: bool = False, firm: dict | None = None) -> dict:
+        profile = firm_mod.to_profile(firm) if firm else {}              # view-only (no firm entered): gates only, fit is not computed
         gates = rules.evaluate_gates(t, profile, store.reviews(t["key"]), sanctions_index(), _day())
         gate_overall = rules.overall(gates)
         fx = (store.kv_get("fx") or {}).get("rates", {})
@@ -252,12 +284,25 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
                 usd = None
         deals = store.docs("deals")
         b2b = back_to_back or any(d.get("matched") and d.get("tender_key") == t["key"] for d in deals)
-        fit = scoring.fit(t, profile, store.kv_get("suppliers", []), store.docs("outcomes"),
-                          capital_limit_usd=Decimal(str(profile.get("capital_limit_usd", 50000))), back_to_back=b2b, usd_value=usd,
-                          today=_day(), weights=store.kv_get("weights"))
-        return {"tender_key": t["key"], "tender_version": t["version"], "demo": bool(t.get("demo")), "compliance_status": gate_overall,
+        fit = (scoring.fit(t, profile, store.kv_get("suppliers", []), store.docs("outcomes"),
+                           capital_limit_usd=Decimal("50000"), back_to_back=b2b, usd_value=usd,        # 50 000 USD: the owner's standing capital rule
+                           today=_day(), weights=store.kv_get("weights")) if firm else scoring.no_firm())
+        return {"tender_key": t["key"], "tender_version": t["version"], "compliance_status": gate_overall,
                 "gates": gates, "fit": fit, **scoring.classify(gate_overall, fit), "usd_value": str(usd.quantize(Decimal("0.01"))) if usd is not None else None,
                 "back_to_back": b2b, "assessed_at": now()}
+
+    def firm_checks(t: dict, firm: dict | None) -> list[dict] | None:
+        """Tender-vs-firm facts for the response only (attached AFTER anything is saved, no identifiers inside)."""
+        if not firm:
+            return None
+        fx = (store.kv_get("fx") or {}).get("rates", {})
+        eur = None
+        if t.get("estimated_value") is not None and t.get("currency"):
+            try:
+                eur = finance.to_base(t["estimated_value"], t["currency"], "EUR", fx)
+            except ValueError:
+                eur = None
+        return firm_mod.checks(t, firm, eur, rules.is_controlled(t))
 
     def brief(a: dict) -> dict:
         return {"compliance_status": a["compliance_status"], "complexity": a["complexity"], "tier_if_cleared": a["tier_if_cleared"],
@@ -267,17 +312,13 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     def source_rows() -> list[dict]:
         rows = []
         for e in sources.REGISTRY:
-            rows.append(sources.status_for(e, live_enabled=live, last=store.kv_get(f"last:{e['id']}"), has_key=bool(sam_key)))
-        demo_n = sum(1 for t in store.latest_tenders() if t.get("demo"))
-        rows.append(sources.status_for(dict(id="demo", name="DEMO fixtures", kind="demo", url="", auth="none", adapter=True, note="synthetic"),
-                                       live_enabled=live, last=None) | {"count": demo_n})
+            rows.append(sources.status_for(e, live_enabled=live, last=store.kv_get(f"last:{e['id']}"), has_key=bool(sam_key), error=store.kv_get(f"error:{e['id']}")))
         return rows
 
     def data_mode() -> dict:
-        ted_ok = bool(store.kv_get("last:ted")) and live
-        demo_n = sum(1 for t in store.latest_tenders() if t.get("demo"))
-        return {"mode": "LIVE" if ted_ok else "DEMO", "live_enabled": live, "demo_tenders": demo_n,
-                "watermark": None if ted_ok and not demo_n else "DEMO / NOT LIVE"}
+        """Real data only. `excluded_unverified` = records archived at startup because they had no provenance (0 in a clean store)."""
+        return {"mode": "LIVE" if live else "OFFLINE", "live_enabled": live, "excluded_unverified": purge["archived_total"],
+                "watermark": None if live else "OFFLINE / SOURCES OFF"}
 
     def audit(role: str, event: str, payload: dict | None = None):
         store.audit(role, event, payload)
@@ -301,13 +342,11 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     # ------------------------------------------------------------------ ingest
     @app.post(f"{P}/ingest")
     def ingest(body: IngestIn, role=Depends(analyst)):
+        with guard({"cz": "cz_nen"}.get(body.source, body.source)):
+            return _ingest(body, role)
+
+    def _ingest(body: IngestIn, role: str):
         t0 = now()
-        if body.source == "demo":
-            docs = demo_conn.tenders(t0, _day())
-            new = sum(store.upsert_tender(d)[2] for d in docs)
-            store.kv_set("conflicts_demo", demo_conflicts.conflicts(t0))
-            audit(role, "ingest.demo", {"tenders": len(docs)})
-            return {"source": "demo", "fetched": len(docs), "new": new, "demo": True}
         if not live:
             raise HTTPException(403, {"code": "LIVE_DISABLED", "message": "WAR_TERMINAL_LIVE=false: внешние источники отключены"})
         if body.source == "ted":
@@ -403,9 +442,9 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         return {"source": "browser", "portal": body.portal, "received": len(body.tenders), "new": new, "duplicates": dup, "rejected": bad}
 
     @app.get(f"{P}/conflicts")
-    def conflicts(region: str | None = None, severity: str | None = None, since: str | None = None, include_demo: bool = True, _=Depends(viewer)):
-        real = store.kv_get("conflicts", [])
-        items = list(real) + (store.kv_get("conflicts_demo", []) if include_demo else [])
+    def conflicts(region: str | None = None, severity: str | None = None, since: str | None = None, _=Depends(viewer)):
+        real = [c for c in store.kv_get("conflicts", []) if is_real(c)]
+        items = list(real)
         if severity:
             items = [c for c in items if c.get("severity") == severity]
         if region:
@@ -419,6 +458,8 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     @app.post(f"{P}/conflicts/import")
     def conflicts_import(body: ConflictImport, role=Depends(compliance)):
         items = [dict(c.model_dump(), id=f"{c.source_id}:{c.name}", retrieved_at=now(), demo=False) for c in body.items]
+        if any(not is_real(c) for c in items):
+            raise HTTPException(422, {"code": "UNVERIFIED_RECORD", "message": "у каждой записи нужны source_id и source_url (https); без источника данные не принимаются"})
         store.kv_set("conflicts", items)
         audit(role, "conflicts.import", {"count": len(items), "sources": sorted({c["source_id"] for c in items})})
         return {"imported": len(items)}
@@ -432,7 +473,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
 
     # ------------------------------------------------------------------ map layers (country choropleth)
     @app.get(f"{P}/map/layers")
-    def map_layers(include_demo: bool = False, _=Depends(viewer)):
+    def map_layers(_=Depends(viewer)):
         countries: dict[str, dict] = {}
         unmapped_conflicts, unmapped_tenders = [], 0
 
@@ -440,8 +481,6 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             return countries.setdefault(iso3, {"open_tenders": 0, "tenders": 0, "conflict_deaths": 0, "conflict_events": 0, "severity": None, "conflict_year": None,
                                                "military_usd": None, "military_year": None, "refugees": None})
         for t in store.latest_tenders():
-            if t.get("demo") and not include_demo:
-                continue
             iso3 = geo.to_iso3(t.get("country"))
             if not iso3:
                 unmapped_tenders += 1
@@ -449,7 +488,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             r = row(iso3)
             r["tenders"] += 1
             r["open_tenders"] += t.get("status") == "open"
-        for c in store.kv_get("conflicts", []):
+        for c in (c for c in store.kv_get("conflicts", []) if is_real(c)):
             iso3 = geo.to_iso3(c.get("country"))
             if not iso3:
                 unmapped_conflicts.append(c.get("country"))
@@ -465,38 +504,38 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
                 row(iso3)["refugees"] = r["refugees"]
         return {"countries": countries, "unmapped_conflicts": sorted(set(unmapped_conflicts)), "unmapped_tenders": unmapped_tenders,
                 "geometry": "/ui/vendor/countries-110m.geojson", "geometry_source": geo.index()["source"],
-                "conflict_source": (store.kv_get("conflicts") or [{}])[0].get("source_id"), "note": "страны закрашиваются по данным; без данных — серым"}
+                "conflict_source": (store.kv_get("conflicts") or [{}])[0].get("source_id"),
+                "conflict_source_url": (store.kv_get("conflicts") or [{}])[0].get("source_url"),
+                "conflict_fetched_at": (store.kv_get("conflicts") or [{}])[0].get("retrieved_at"), "note": "страны закрашиваются по данным; без данных — серым"}
 
     # ------------------------------------------------------------------ tenders
     @app.get(f"{P}/tenders")
     def tenders(status: str | None = None, complexity: str | None = None, tier: str | None = None, jurisdiction: str | None = None,
-                category: str | None = None, country: str | None = None, q: str | None = None, include_demo: bool = True,
-                limit: int = 200, offset: int = 0, _=Depends(viewer)):
+                category: str | None = None, country: str | None = None, q: str | None = None,
+                limit: int = 200, offset: int = 0, firm=Depends(firm_of), _=Depends(viewer)):
         out = []
         for t in store.latest_tenders():
-            if t.get("demo") and not include_demo:
-                continue
             if status and t.get("status") != status or jurisdiction and t.get("jurisdiction") != jurisdiction or category and t.get("category") != category:
                 continue
             if country and (geo.to_iso3(t.get("country")) is None or geo.to_iso3(t.get("country")) != geo.to_iso3(country)):
                 continue                                # region-only tenders (e.g. "Western and Central Africa") never match a country
             if q and q.lower() not in f"{t.get('title', '')} {t.get('buyer', '')}".lower():
                 continue
-            a = brief(assess_tender(t))
+            a = brief(assess_tender(t, firm=firm))
             if complexity and a["complexity"] != complexity or tier and a["tier_if_cleared"] != tier:
                 continue
             out.append({**{k: t.get(k) for k in ("key", "version", "id", "official_notice_id", "title", "jurisdiction", "country", "category", "status",
                                                   "deadline", "estimated_value", "currency", "source_url", "source_id", "retrieved_at", "published_at",
-                                                  "data_quality", "buyer", "cpv", "demo")}, "assessment": a})
-        out.sort(key=lambda r: (r["demo"], r["status"] != "open", -r["assessment"]["fit_score"]))   # open first
-        return {"items": out[offset:offset + limit], "total": len(out), "data": data_mode()}
+                                                  "data_quality", "buyer", "cpv")}, "assessment": a})
+        out.sort(key=lambda r: (r["status"] != "open", -(r["assessment"]["fit_score"] if r["assessment"]["fit_score"] is not None else -1)))   # open first
+        return {"items": out[offset:offset + limit], "total": len(out), "data": data_mode(), "firm_entered": firm is not None}
 
     @app.get(P + "/tenders/{key:path}/checklist")
-    def checklist(key: str, _=Depends(viewer)):
+    def checklist(key: str, firm=Depends(firm_of), _=Depends(viewer)):
         t = store.get_tender(key)
         if not t:
             raise HTTPException(404, {"message": "тендер не найден"})
-        a = assess_tender(t)
+        a = assess_tender(t, firm=firm)
         items = [{"step": f"Снять проверку: {g['id']}", "why": g["reason"], "evidence": g["evidence_needed"], "status": g["status"]} for g in a["gates"] if g["status"] != "PASS"]
         items += [{"step": "Прочитать документацию тендера целиком и выписать требования", "status": "TODO"},
                   {"step": "Получить котировки поставщиков и подтвердить срок/цену письменно", "status": "TODO"},
@@ -505,20 +544,20 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         return {"tender_key": key, "draft": True, "note": "черновик чек-листа; подача заявки этим приложением невозможна", "items": items}
 
     @app.get(P + "/tenders/{key:path}")
-    def tender_detail(key: str, _=Depends(viewer)):
+    def tender_detail(key: str, firm=Depends(firm_of), _=Depends(viewer)):
         t = store.get_tender(key)
         if not t:
             raise HTTPException(404, {"message": "тендер не найден"})
-        return {"tender": t, "versions": [v["version"] for v in store.tender_versions(key)], "assessment": assess_tender(t),
-                "reviews": list(store.reviews(key).values())}
+        return {"tender": t, "versions": [v["version"] for v in store.tender_versions(key)], "assessment": assess_tender(t, firm=firm),
+                "firm_checks": firm_checks(t, firm), "firm_entered": firm is not None, "reviews": list(store.reviews(key).values())}
 
     # ------------------------------------------------------------------ assessments + review
     @app.post(f"{P}/assessments")
-    def create_assessment(body: AssessIn, role=Depends(analyst)):
+    def create_assessment(body: AssessIn, firm=Depends(firm_of), role=Depends(analyst)):
         t = store.get_tender(body.tender_key)
         if not t:
             raise HTTPException(404, {"message": "тендер не найден"})
-        a = assess_tender(t, body.back_to_back)
+        a = assess_tender(t, body.back_to_back, firm)
         if body.use_ai:
             ai_res = ai_mod.classify(t, chat, store)
             a["ai"] = ai_res
@@ -527,7 +566,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         if not body.dry_run:
             a["id"] = store.add_doc("assessments", t["key"], a, dry_run=False)
             audit(role, "assessment.created", {"id": a["id"], "tender": t["key"], "complexity": a["complexity"], "fit": a["fit"]["fit_score"]})
-        return jd(a)
+        return jd(a | {"firm_checks": firm_checks(t, firm), "firm_entered": firm is not None})          # firm facts are attached after saving: never persisted
 
     @app.get(P + "/assessments/{aid}")
     def get_assessment(aid: int, _=Depends(viewer)):
@@ -554,23 +593,24 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     # ------------------------------------------------------------------ company / approvals
     @app.get(f"{P}/company/profile")
     def get_profile(_=Depends(viewer)):
-        return {"profile": store.kv_get("profile", {}), "pending": [a for a in store.list_approvals("pending") if a["action"] == "company.profile.update"]}
+        return {"profile": {}, "pending": [], "stored": False,
+                "note": "данные фирмы вводятся в окне при каждом открытии терминала и на сервере не хранятся"}
 
     @app.patch(f"{P}/company/profile")
     def patch_profile(body: ProfilePatch, role=Depends(analyst)):
-        bad = set(body.changes) - PROFILE_KEYS
-        if bad:
-            raise HTTPException(422, {"message": f"недопустимые поля профиля: {sorted(bad)}"})
-        aid = store.request_approval("company.profile.update", body.changes, role)
-        audit(role, "approval.requested", {"id": aid, "action": "company.profile.update"})
-        return {"status": "approval_required", "approval_id": aid}
+        raise HTTPException(410, {"code": "FIRM_NOT_STORED", "message": "профиль фирмы на сервере не хранится: данные вводит владелец в окне при открытии терминала"})
+
+    @app.post(f"{P}/firm/validate")
+    def firm_validate(body: dict, _=Depends(viewer)):
+        """Server-side check of the popup fields (same IČO mod-11 rule as the browser). Nothing is stored; only field names come back."""
+        try:
+            firm_mod.clean(body)
+        except firm_mod.FirmError as exc:
+            return {"valid": False, "fields": exc.fields}
+        return {"valid": True, "fields": []}
 
     def apply_approved(ap: dict) -> dict:
-        if ap["action"] == "company.profile.update":
-            prof = store.kv_get("profile", {})
-            prof.update(ap["payload"])
-            store.kv_set("profile", prof)
-        elif ap["action"] == "learning.weights.apply":
+        if ap["action"] == "learning.weights.apply":
             store.kv_set("weights", ap["payload"]["weights"])
         elif ap["action"] == "deal.exceed_capital":
             lst = store.kv_get("deal_approvals", [])
@@ -593,7 +633,9 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
 
     # ------------------------------------------------------------------ finance / deals / suppliers / fx / sanctions
     @app.post(f"{P}/finance/estimate")
-    def finance_estimate(b: FinanceIn, _=Depends(analyst)):
+    def finance_estimate(b: FinanceIn, firm=Depends(firm_of), _=Depends(analyst)):
+        if firm is None:
+            raise HTTPException(409, {"code": "FIRM_REQUIRED", "message": "калькулятор финансов отключён: данные фирмы не введены (режим «только просмотр»)"})
         D = Decimal
         try:
             lc = finance.landed_cost(purchase=D(str(b.purchase)), freight=D(str(b.freight)), insurance=D(str(b.insurance)), duties_pct=D(str(b.duties_pct)),
@@ -612,7 +654,17 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         except ValueError as exc:
             raise HTTPException(422, {"code": "FX_OR_INPUT", "message": str(exc)}) from exc
         cap = finance.capital_check(peak_usd, limit_usd=D(str(b.capital_limit_usd)), order_confirmed=b.order_confirmed, supplier_contract_signed=b.supplier_contract_signed)
+        ctx = {"bid_vs_turnover_pct": None, "bid_vs_guarantee_pct": None}
+        try:
+            bid_eur = finance.to_base(D(str(b.bid_price)), b.currency, "EUR", {k: v for k, v in b.fx.items()})
+            if firm.get("turnover_eur"):
+                ctx["bid_vs_turnover_pct"] = (bid_eur / D(str(firm["turnover_eur"])) * 100).quantize(D("0.1"))
+            if firm.get("guarantee_eur"):
+                ctx["bid_vs_guarantee_pct"] = (bid_eur / D(str(firm["guarantee_eur"])) * 100).quantize(D("0.1"))
+        except ValueError:
+            pass                                                     # no EUR rate: the figures stay "нет данных", nothing is assumed
         return jd({"currency": b.currency, "landed": lc, "metrics": metrics, "cashflow": cf, "stress": st, "peak_funding_need_usd": peak_usd.quantize(Decimal("0.01")),
+                   "firm_context": ctx,
                    "capital": cap, "disclaimer": "все входные числа задал человек; рыночных допущений приложение не вводит"})
 
     @app.put(f"{P}/fx")
@@ -709,8 +761,9 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
                 url, parse = sanc_conn.UN_URL, sanc_conn.parse_un
             else:
                 raise HTTPException(422, {"message": f"неизвестный список {s}"})
-            data = download(url)
-            recs = parse(data)
+            with guard("ofac" if s == "ofac" else "un_sanctions"):
+                data = download(url)
+                recs = parse(data)
             if not recs:
                 raise HTTPException(502, {"code": "EMPTY_LIST", "message": f"{s}: список пуст или формат изменился"})
             shas[s], by[s] = sanc_conn.digest(data), len(recs)
@@ -730,8 +783,9 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     @app.post(f"{P}/fx/fetch")
     def fx_fetch(role=Depends(analyst)):
         need_live()
-        data = download(cnb.URL)
-        fx = cnb.parse(data.decode("utf-8", "replace"))
+        with guard("cnb"):
+            data = download(cnb.URL)
+            fx = cnb.parse(data.decode("utf-8", "replace"))
         store.save_snapshot("cnb", cnb.URL, {"sha256": sanc_conn.digest(data), "as_of": fx["as_of"]})
         store.kv_set("fx", fx)
         store.kv_set("last:cnb", {"at": now(), "count": len(fx["rates"])})
@@ -742,8 +796,9 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     def conflicts_fetch(role=Depends(compliance)):
         need_live()
         t0 = now()
-        ged_raw, acd_raw = download(ucdp.GED_URL), download(ucdp.ACD_URL)
-        ged, acd = ucdp.parse_ged(ged_raw, t0), ucdp.parse_acd(acd_raw)
+        with guard("ucdp"):
+            ged_raw, acd_raw = download(ucdp.GED_URL), download(ucdp.ACD_URL)
+            ged, acd = ucdp.parse_ged(ged_raw, t0), ucdp.parse_acd(acd_raw)
         store.save_snapshot("ucdp_ged", ucdp.GED_URL, {"sha256": sanc_conn.digest(ged_raw), "year": ged["year"], "countries": len(ged["items"])})
         store.save_snapshot("ucdp_acd", ucdp.ACD_URL, {"sha256": sanc_conn.digest(acd_raw), "year": acd["year"], "conflicts": len(acd["items"])})
         store.kv_set("conflicts", ged["items"])
@@ -766,7 +821,9 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
                 results[key] = fn()                     # one failing source must not hide the others
             except Exception as exc:                    # noqa: BLE001 - reported per source, not swallowed
                 errors[key] = f"{type(exc).__name__}: {str(exc)[:200]}"
+                store.kv_set(f"error:{key}", {"at": now(), "message": errors[key]})
                 continue
+            store.kv_set(f"error:{key}", None)
             store.kv_set(kv_key, results[key])
             n = len(results[key].get("items") or results[key].get("rates") or {})
             store.kv_set(f"last:{key}", {"at": now(), "count": n})
@@ -807,7 +864,8 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         if wait > 0:
             time.sleep(wait)
         _geo_last["t"] = time.time()
-        res = indicators.geocode(get, q)
+        with guard("nominatim"):
+            res = indicators.geocode(get, q)
         store.kv_set(f"geo:{q.lower()}", res)
         return {"cached": False, "result": res}
 
@@ -819,18 +877,19 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         cached = store.kv_get(key)
         if cached is None:
             need_live()
-            cached = indicators.trade_flows(get, reporter, hs, flow, year)
+            with guard("comtrade"):
+                cached = indicators.trade_flows(get, reporter, hs, flow, year)
             store.kv_set(key, cached)
             store.kv_set("last:comtrade", {"at": now(), "count": len(cached["partners"])})
         return cached
 
     # ------------------------------------------------------------------ learning
     @app.post(f"{P}/learning/decisions")
-    def learn_decision(body: DecisionIn, role=Depends(owner)):
+    def learn_decision(body: DecisionIn, firm=Depends(firm_of), role=Depends(owner)):
         t = store.get_tender(body.tender_key)
         if not t:
             raise HTTPException(404, {"message": "тендер не найден"})
-        a = assess_tender(t)
+        a = assess_tender(t, firm=firm)
         snap = {"tier_if_cleared": a["tier_if_cleared"], "fit_score": a["fit"]["fit_score"], "components": a["fit"]["components"],
                 "gates": {g["id"]: g["status"] for g in a["gates"]}}
         did = learning.record_decision(store, body.tender_key, body.decision, body.reasons, snap)
@@ -842,8 +901,6 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         t = store.get_tender(body.tender_key)
         if not t:
             raise HTTPException(404, {"message": "тендер не найден"})
-        if t.get("demo"):
-            raise HTTPException(422, {"code": "DEMO_NOT_LEARNABLE", "message": "результаты по DEMO-данным в обучение не принимаются"})
         oid = learning.record_outcome(store, body.tender_key, body.result, body.actual_margin_pct, t.get("cpv", []), body.note)
         audit(role, "learning.outcome", {"id": oid, "tender": body.tender_key, "result": body.result})
         return {"id": oid}
