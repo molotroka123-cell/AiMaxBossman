@@ -56,6 +56,12 @@ class IngestIn(BaseModel):
     keyword: str | None = None
 
 
+class BrowserIngestIn(BaseModel):
+    """Records read from public portal pages by the headless-browser tool (tools/browser_contracts.py)."""
+    portal: str = Field(min_length=3, max_length=60)
+    tenders: list[dict] = Field(max_length=500)
+
+
 class AssessIn(BaseModel):
     tender_key: str
     dry_run: bool = True
@@ -368,6 +374,27 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         return {"source": "gdelt", "fetched": len(items), "snapshot_sha256": digest}
 
     # ------------------------------------------------------------------ conflicts
+    @app.post(f"{P}/ingest/browser")
+    def ingest_browser(body: BrowserIngestIn, role=Depends(analyst)):
+        """Store tenders read by a browser (no outbound network here). Needs provenance; never overwrites a notice already known."""
+        known = {t["key"] for t in store.latest_tenders()}
+        new = dup = bad = 0
+        for d in body.tenders:
+            if (d.get("source") != "browser" or d.get("demo") or not str(d.get("source_url", "")).startswith("https://")
+                    or not d.get("fetched_at") or not d.get("official_notice_id") or not d.get("title") or d.get("status") not in ("open", "closed", "cancelled", "unknown")):
+                bad += 1
+                continue
+            key = f"{d.get('jurisdiction')}:{d['official_notice_id']}"
+            if key in known:
+                dup += 1
+                continue
+            store.upsert_tender(d)
+            known.add(key)
+            new += 1
+        store.kv_set(f"last:{body.portal}", {"at": now(), "count": new + dup})
+        audit(role, "ingest.browser", {"portal": body.portal, "received": len(body.tenders), "new": new, "duplicates": dup, "rejected": bad})
+        return {"source": "browser", "portal": body.portal, "received": len(body.tenders), "new": new, "duplicates": dup, "rejected": bad}
+
     @app.get(f"{P}/conflicts")
     def conflicts(region: str | None = None, severity: str | None = None, since: str | None = None, include_demo: bool = True, _=Depends(viewer)):
         real = store.kv_get("conflicts", [])
