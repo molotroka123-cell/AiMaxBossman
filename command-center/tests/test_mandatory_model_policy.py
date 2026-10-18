@@ -102,7 +102,15 @@ def secrets_env(monkeypatch):
     monkeypatch.setattr(pit_config, "_read_credentials", lambda home: {"identity_salt": "cd" * 32})
 
 
-def test_banned_models_stay_rejected_across_reload_and_restart(tmp_path, monkeypatch, secrets_env):
+@pytest.fixture
+def cloud_mode(monkeypatch):
+    """Jeff is local-only by owner decision 2026-10-17 (``enforce_local_only`` empties chat_models on purpose).
+    The load-time ban filter these tests cover is the layer BELOW that rewrite, so exercise it with the
+    local-only rewrite off; the local-only behaviour itself is pinned in test_jeff_local_only.py."""
+    monkeypatch.setattr(pit_config, "JEFF_LOCAL_ONLY", False)
+
+
+def test_banned_models_stay_rejected_across_reload_and_restart(tmp_path, monkeypatch, secrets_env, cloud_mode):
     path = _write_config(tmp_path / "pit-v1.7", ["liquid/lfm-2.5-2.6b:free", "good/big-70b:free"],
                          local_models=["lfm2:1.2b", "qwen3:14b"])
     monkeypatch.setenv("BOSSMAN_PIT_LOCAL_MODELS", "lfm2:1.2b,qwen3:14b")
@@ -113,7 +121,18 @@ def test_banned_models_stay_rejected_across_reload_and_restart(tmp_path, monkeyp
         assert set(settings.rejected_models) == {"liquid/lfm-2.5-2.6b:free", "lfm2:1.2b"}
 
 
-def test_only_banned_chat_models_fall_back_to_the_safe_defaults(tmp_path, secrets_env):
+def test_local_only_mode_still_rejects_banned_local_models(tmp_path, monkeypatch, secrets_env):
+    """With the real (local-only) default a banned local model is never picked and no cloud chat model survives."""
+    path = _write_config(tmp_path / "pit-v1.7", ["liquid/lfm-2.5-2.6b:free", "good/big-70b:free"],
+                         local_models=["lfm2:1.2b", "qwen3:14b"])
+    monkeypatch.setenv("BOSSMAN_PIT_LOCAL_MODELS", "lfm2:1.2b,qwen3:14b")
+    settings = pit_config.load(path)
+    assert settings.local_models == ("qwen3:14b",)
+    assert settings.chat_models == ()
+    assert "lfm2:1.2b" in settings.rejected_models
+
+
+def test_only_banned_chat_models_fall_back_to_the_safe_defaults(tmp_path, secrets_env, cloud_mode):
     path = _write_config(tmp_path / "pit-v1.7", ["liquid/lfm-2.5-2.6b:free"])
     settings = pit_config.load(path)
     assert settings.chat_models == pit_config.DEFAULT_FREE_CHAT_MODELS

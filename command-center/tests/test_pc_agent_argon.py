@@ -1647,3 +1647,30 @@ async def test_reports_runner_no_silent_synthetic_and_two_runs_sha256(fake_svc: 
     assert res_cfg["ok"] is True and res_cfg["verified"] is True
     assert res_cfg["synthetic"] is False
     assert "ДЕМО НА СИНТЕТИКЕ" not in res_cfg["summary"]
+
+
+@pytest.mark.asyncio
+async def test_reports_runner_demo_fixture_survives_secret_dir_checkout_but_caller_paths_stay_gated(tmp_path: Path):
+    """Regression: a checkout under .claude/worktrees/... made the built-in demo fixture trip the .claude T3 secret
+    pattern. The fixture is exempt (chosen by the module, not the caller); a caller-supplied path in a .claude
+    directory must still be refused."""
+    from bcc.features import reports_runner
+
+    repo_root = Path(__file__).resolve().parents[2]
+    secret_dir = tmp_path / ".claude" / "exports"
+    secret_dir.mkdir(parents=True)
+    leaked = secret_dir / "messages.html"
+    leaked.write_text("<html></html>", encoding="utf-8")
+    refused = await reports_runner.run_exchange_report(
+        args={"action": "reports", "export": str(leaked)},
+        repo_root=repo_root, data_dir=tmp_path / "data", earn_dir=tmp_path / "earn")
+    assert refused["ok"] is False and "T3" in refused["error"]
+
+    fake_root = tmp_path / ".claude" / "worktrees" / "wt"
+    fixture = fake_root / "tests" / "exchange_volume" / "fixtures"
+    fixture.mkdir(parents=True)
+    (fixture / "SYNTHETIC_export.html").write_text("<html></html>", encoding="utf-8")
+    demo = await reports_runner.run_exchange_report(
+        args={"action": "reports", "brief": "демо на синтетике"},
+        repo_root=fake_root, data_dir=tmp_path / "data", earn_dir=tmp_path / "earn2")
+    assert "T3" not in str(demo.get("error") or "")

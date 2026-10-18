@@ -244,6 +244,7 @@ async def run_exchange_report(
     exp_arg, wb_arg, is_synthetic = _extract_paths_from_args(args, data_dir)
     synth_exp = repo_root / "tests" / "exchange_volume" / "fixtures" / "SYNTHETIC_export.html"
 
+    repo_fixture = False
     if is_synthetic:
         norm_exp = exp_arg.replace("\\", "/").strip().lower()
         if exp_arg and norm_exp not in {
@@ -253,6 +254,7 @@ async def run_exchange_report(
             export_path = Path(exp_arg)
         else:
             export_path = synth_exp
+            repo_fixture = True
     else:
         if not exp_arg:
             msg = (
@@ -272,9 +274,15 @@ async def run_exchange_report(
             }
         export_path = Path(exp_arg)
 
-    t3_exp, t3_exp_reason = is_t3_secret_or_protected_path(
-        str(export_path), for_write=False, data_dir=data_dir
-    )
+    # The built-in demo fixture is a public repo file chosen by this module, not a caller-supplied path. Its
+    # ancestors are the checkout location (e.g. a ``.claude/worktrees/...`` checkout trips the ``.claude`` secret
+    # pattern), so the T3 path gate is skipped for it only; every caller-supplied path is still gated.
+    if repo_fixture:
+        t3_exp, t3_exp_reason = False, ""
+    else:
+        t3_exp, t3_exp_reason = is_t3_secret_or_protected_path(
+            str(export_path), for_write=False, data_dir=data_dir
+        )
     if t3_exp or not export_path.is_file():
         err_msg = (
             t3_exp_reason
