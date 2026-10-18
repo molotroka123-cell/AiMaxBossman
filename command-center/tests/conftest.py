@@ -163,6 +163,18 @@ def _telegram_store_off_the_real_machine(tmp_path, monkeypatch):
     monkeypatch.setenv("BCC_DATA_DIR", str(guard / "data"))
 
 
+@pytest.fixture(autouse=True)
+def _autonomy_pin_off_the_real_machine(tmp_path, monkeypatch):
+    """Isolate unit tests from the host machine's %LOCALAPPDATA%\\Bossman\\autonomy\\constitution.sha256 pin."""
+    from bcc.autonomy import constitution
+    real_fn = constitution.default_pin_path
+    monkeypatch.setattr(
+        constitution,
+        "default_pin_path",
+        lambda env=None: real_fn(env) if env is not None else tmp_path / "autonomy-pin" / "constitution.sha256",
+    )
+
+
 @pytest.fixture
 async def env(tmp_path, request):
     """Приложение без фоновых worker-циклов; тесты сами дёргают engine/scheduler.
