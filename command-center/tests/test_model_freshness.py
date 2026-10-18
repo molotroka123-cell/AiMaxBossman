@@ -180,3 +180,25 @@ async def test_the_switch_the_first_delay_and_the_status_endpoint(env, monkeypat
     body = (await env.client.get("/api/model-freshness")).json()
     assert body["enabled"] is True and body["limits"]["paid_models"] == "never probed here"
     assert body["models"]["total"] >= 1
+
+
+async def test_local_model_is_not_probed_while_a_direct_gen_job_holds_the_gpu(env):
+    """18.10: a local probe loads a cold model onto the GPU, times out at 40 s and Ollama logs 499 every ~11 min."""
+    stack = await make_stack(env.client)
+    mid = stack["model"]["id"]
+    await _set_health(env, mid, mh.HEALTHY, minutes_ago=40)
+    adapter = FakeAdapter("готово")
+    env.svc.registry.adapter_factory = lambda m, p: adapter
+
+    class _Busy:
+        _running = "job-1"
+        _waiting: list = []
+
+    env.svc.direct_gen = _Busy()
+    busy = await mf.run_cycle(env.svc)
+    assert busy["probed"] == [] and adapter.calls == 0
+    assert busy["skipped"]["gpu_job_active_local_not_probed"] == 1
+
+    env.svc.direct_gen = None                      # negative control: with no GPU job the same model IS probed
+    idle = await mf.run_cycle(env.svc)
+    assert len(idle["probed"]) == 1 and adapter.calls == 1

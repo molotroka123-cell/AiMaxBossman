@@ -71,6 +71,20 @@ def _stages(job: dict) -> dict[str, float]:
     return {t.get("stage"): ts for t in job.get("timeline") or [] if (ts := _ts(t.get("at"))) is not None}
 
 
+def loading_view(elapsed: float, total: float, measured: bool, phase: str = "загрузка модели") -> dict[str, Any]:
+    """The engine is loading the model: the real progress is UNKNOWN (the job may take 10+ minutes), so no percent and
+    no «remaining» - only the elapsed time and, if the timing is measured, what such a job usually takes."""
+    return {"percent": None, "real": False, "indeterminate": True, "step": None, "steps": None, "unit": None,
+            "phase": phase, "remaining_s": None, "elapsed_s": elapsed,
+            "typical_s": total if measured and total > 0 else None, "label": "прогресс неизвестен"}
+
+
+def estimate_left(total: float, elapsed: float) -> float | None:
+    """Time left by the TABLE estimate; None once the estimate is used up (the job is slower than usual: unknown)."""
+    left = total - elapsed
+    return left if left > 1.0 else None
+
+
 def frames_for(fps: int, step: int, seconds: float) -> int:
     raw = max(1, round(seconds * fps))
     return max(1, round((raw - 1) / step)) * step + 1
@@ -173,26 +187,32 @@ def running_view(job: dict, history: dict[str, dict] | None, now: float) -> dict
             left = max(tot["post_s"] - (now - post_at), 0.0)
             pct = min(elapsed / max(elapsed + left, 1.0) * 100.0, 99.0)
             return {"percent": pct, "real": False, "step": None, "steps": None, "unit": "кадр",
-                    "phase": "проверка позы и сборка", "remaining_s": left, "label": "оценка по замеру", "total_s": total}
+                    "phase": "проверка позы и сборка", "remaining_s": left if left > 1.0 else None, "elapsed_s": elapsed,
+                    "label": "оценка по замеру", "total_s": total}
         if has and stage == "generating":
             gen_at = st.get("generating")
-            pace = (now - gen_at) / value if gen_at is not None and value >= 2 else tot["gen_s"] / mx
+            measured_pace = gen_at is not None and value >= 2
+            pace = (now - gen_at) / value if measured_pace else tot["gen_s"] / mx
             left = max(mx - value, 0) * max(pace, 0.01) + tot["post_s"]
             pct = min(elapsed / max(elapsed + left, 1.0) * 100.0, 99.0)
             return {"percent": pct, "real": True, "step": value, "steps": mx, "unit": "кадр", "phase": "замена лица",
-                    "remaining_s": left, "label": "кадры — по счётчику FaceFusion, сборка — оценка", "total_s": total}
+                    "remaining_s": left if measured_pace else None, "elapsed_s": elapsed,
+                    "label": "кадры — по счётчику FaceFusion, сборка — оценка", "total_s": total}
     elif has and p.get("kind") == "steps":
         gen_at = st.get("generating")
-        per_step = tot["run_s"] / mx
-        if gen_at is not None and value >= 2:
-            per_step = max((now - gen_at) / value, 0.1)
         decoding = value >= mx
-        left = 0.0 if decoding else max(mx - value, 0) * per_step
-        left += tot.get("decode_s", 0.0)
+        if gen_at is not None and value >= 2:        # the ETA comes from the pace MEASURED on this job, never the table
+            per_step = max((now - gen_at) / value, 0.1)
+            left = (0.0 if decoding else max(mx - value, 0) * per_step) + tot.get("decode_s", 0.0)
+        else:
+            left = None
         return {"percent": min(value / mx * 100.0, 99.0), "real": True, "step": value, "steps": mx, "unit": "шаг",
                 "phase": "декодирование и сборка" if decoding else "генерация", "remaining_s": left,
-                "label": "по шагам генератора", "total_s": total}
-    phase = {"loading": "загрузка модели", "postprocessing": "сборка файла", "queued": "ожидание"}.get(stage, "генерация")
+                "elapsed_s": elapsed, "label": "по шагам генератора", "total_s": total}
+    measured = timing_for(FACESWAP_ID if job.get("kind") == "faceswap" else str(job.get("model")), history).get("kind") == "measured"
+    if stage == "loading":
+        return {**loading_view(elapsed, total, measured), "total_s": total}
+    phase = {"postprocessing": "сборка файла", "queued": "ожидание"}.get(stage, "генерация")
     return {"percent": min(elapsed / total * 100.0, 95.0) if total > 0 else 0.0, "real": False, "step": None,
-            "steps": None, "unit": None, "phase": phase, "remaining_s": max(total - elapsed, 0.0),
-            "label": "оценка по времени", "total_s": total}
+            "steps": None, "unit": None, "phase": phase, "remaining_s": estimate_left(total, elapsed),
+            "elapsed_s": elapsed, "label": "оценка по времени", "total_s": total}

@@ -58,6 +58,21 @@ def _free_or_local(row: dict) -> bool:
     return bool(row.get("pricing_known")) and not (row.get("price_in") or 0) and not (row.get("price_out") or 0)
 
 
+def _gpu_job_active(svc) -> bool:
+    """True while a direct-gen (image/video) job runs or waits: the GPU is the owner's, a local probe must not touch it.
+
+    A local probe of a model that is not resident makes Ollama LOAD it (tens of GB onto the GPU, ~40 s), the probe
+    times out, the client closes and Ollama logs HTTP 499 - every ~11 min (TICK 600 s + the probes), 18.10 audit.
+    """
+    dg = getattr(svc, "direct_gen", None)
+    if dg is None:
+        return False
+    try:
+        return getattr(dg, "_running", None) is not None or bool(getattr(dg, "_waiting", None))
+    except Exception:  # noqa: BLE001 - an unreadable signal must not stop the freshness tick
+        return False
+
+
 def _aware(value: datetime | None) -> datetime | None:
     if value is None:
         return None
@@ -113,6 +128,11 @@ async def run_cycle(svc, *, now: datetime | None = None) -> dict[str, Any]:
     picked, skipped = await _candidates(svc, now)
     started = time.monotonic()
     probed: list[dict[str, Any]] = []
+    if _gpu_job_active(svc):
+        kept = [(r, rec) for r, rec in picked if (r.get("kind") or "local") != "local"]
+        if len(kept) != len(picked):
+            skipped["gpu_job_active_local_not_probed"] = len(picked) - len(kept)
+        picked = kept
     for row, _record in picked[:MAX_PER_CYCLE]:
         remaining = CYCLE_BUDGET_S - (time.monotonic() - started)
         if remaining <= 1.0:

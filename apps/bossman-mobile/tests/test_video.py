@@ -231,11 +231,20 @@ def test_faceswap_frames_are_real_but_assembly_keeps_it_below_frame_share():
     assert not u["real"] and u["percent"] <= 99 and u["phase"] == "проверка позы и сборка"
 
 
-def test_time_based_estimate_without_progress_caps_at_95():
+def test_video_loading_is_unknown_progress_and_estimate_caps_at_95_afterwards():
     j = vjob("l", "loading", kind="video", model="wan2.2-s2v-14b", tl=[("loading", 0)],
              params={"width": 480, "height": 320, "frames": 65})
     u = queue_view([j], {}, now=T + 10**6, kinds={"video"})[0]["ui"]
-    assert not u["real"] and u["percent"] <= 95 and "оценка" in u["label"]
+    assert u["indeterminate"] and u["percent"] is None and u["remaining_s"] is None and u["typical_s"] is None
+    j["status"] = j["stage"] = "generating"
+    u = queue_view([j], {}, now=T + 10**6, kinds={"video"})[0]["ui"]
+    assert not u["real"] and u["percent"] <= 95 and u["remaining_s"] is None and "оценка" in u["label"]
+
+
+def test_video_steps_eta_needs_a_measured_pace():
+    j = vjob("r", "generating", progress={"kind": "steps", "value": 1, "max": 20, "percent": 5.0},
+             tl=[("loading", 0), ("generating", 60)])
+    assert queue_view([j], {}, now=T + 100, kinds={"video"})[0]["ui"]["remaining_s"] is None
 
 
 def test_video_queue_counts_photo_jobs_ahead_and_lists_only_video_results(authed, cat, monkeypatch):

@@ -33,10 +33,40 @@ def test_running_job_uses_real_steps_and_observed_pace():
     assert u["phase"] == "генерация" and abs(u["remaining_s"] - 15 * 20) < 1   # 100 s / 5 steps = 20 s/step
 
 
-def test_loading_phase_is_labelled_estimate_and_never_100():
+def test_loading_phase_is_unknown_progress_no_percent_no_remaining():
     j = job("l", "loading", tl=[("queued", 0), ("loading", 0)], elapsed=1e6)
     u = by(queue_view([j], now=T0 + 1e6))["l"]
-    assert u["real"] is False and u["phase"] == "загрузка модели" and u["percent"] <= 95 and "оценка" in u["label"]
+    assert u["indeterminate"] is True and u["phase"] == "загрузка модели" and u["real"] is False
+    assert u["percent"] is None and u["remaining_s"] is None and u["elapsed_s"] >= 1e6
+
+
+def test_loading_shows_typical_time_only_for_a_measured_model():
+    m = by(queue_view([job("m", "loading", model="z-image-turbo", tl=[("loading", 0)])], now=T0 + 5))["m"]
+    e = by(queue_view([job("e", "loading", model="sdxl-base", tl=[("loading", 0)])], now=T0 + 5))["e"]
+    assert m["typical_s"] and m["typical_s"] > 0 and e["typical_s"] is None
+
+
+def test_steps_eta_comes_from_measured_pace_not_from_the_table():
+    one = job("a", "generating", progress={"kind": "steps", "value": 1, "max": 20, "percent": 5.0},
+              tl=[("loading", 0), ("generating", 100)])
+    assert by(queue_view([one], now=T0 + 130))["a"]["remaining_s"] is None          # one step: no measured pace yet
+    two = job("b", "generating", progress={"kind": "steps", "value": 4, "max": 20, "percent": 20.0},
+              tl=[("loading", 0), ("generating", 100)])
+    u = by(queue_view([two], now=T0 + 140))["b"]                                   # 40 s / 4 steps = 10 s/step
+    assert abs(u["remaining_s"] - 160) < 1 and u["percent"] == 20.0
+
+
+def test_estimate_used_up_is_unknown_not_one_second():
+    j = job("g", "generating", tl=[("generating", 0)], elapsed=1e6)
+    u = by(queue_view([j], now=T0 + 1e6))["g"]
+    assert u["remaining_s"] is None and u["percent"] <= 95
+
+
+def test_queue_wait_is_unknown_when_the_job_ahead_is_still_loading():
+    r = job("r", "loading", tl=[("loading", 0)])
+    q = job("q", "queued", pos=1, created=5)
+    u = by(queue_view([r, q], now=T0 + 30))
+    assert u["q"]["wait_s"] is None and u["q"]["total_s"] > 0
 
 
 def test_last_step_is_decoding_and_capped_below_100():
@@ -80,6 +110,6 @@ def test_queue_endpoint_and_ui(authed, monkeypatch):
     jobs = r.json()["jobs"]
     assert jobs and jobs[0]["ui"]["state"] == "done" and "provenance" not in jobs[0]
     js = (UI / "app.js").read_text(encoding="utf-8")
-    for s in ("/photo/queue", "шаг ${u.step}/${u.steps}", "≈ осталось", "в очереди №", "готово за", "visibilitychange"):
+    for s in ("/photo/queue", "${u.unit || unitDefault} ${u.step}/${u.steps}", "≈ осталось", "в очереди №", "готово за", "visibilitychange"):
         assert s in js
     assert 'id="photo-queue-list"' in (UI / "index.html").read_text(encoding="utf-8")

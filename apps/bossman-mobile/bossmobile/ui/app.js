@@ -636,6 +636,34 @@
   // ---- Очередь: реальные шаги sd-cli, если есть; иначе честная оценка по времени (подпись «оценка»)
   const fmtMin = (s) => s == null ? '—' : (s < 60 ? `${Math.max(1, Math.round(s))} с` : `${Math.max(1, Math.round(s / 60))} мин`);
   const fmtDone = (s) => s == null ? '' : (s < 60 ? `${Math.round(s)} с` : `${Math.floor(s / 60)} мин ${Math.round(s % 60)} с`);
+  // Честный прогресс. Пока движок грузит модель (progress.kind == 'none'), реальный прогресс неизвестен и задача может идти 10+ минут:
+  // никакого процента и никакого «осталось» — только «идёт N мин» (растёт) и, если замер настоящий, «обычно ≈ X».
+  // С шагами (steps): реальный процент (не выше 99) и «осталось» только из темпа, измеренного на ЭТОЙ задаче.
+  const fmtElapsed = (s) => { s = Math.max(0, Math.floor(s || 0)); return s < 60 ? `${s} с` : `${Math.floor(s / 60)} мин`; };
+  function liveElapsed(sec) { const e = el('span', 'live-elapsed', fmtElapsed(sec)); e.dataset.base = String(sec || 0); e.dataset.at = String(Date.now()); return e; }
+  setInterval(() => { document.querySelectorAll('.live-elapsed').forEach((e) => { e.textContent = fmtElapsed(Number(e.dataset.base) + (Date.now() - Number(e.dataset.at)) / 1000); }); }, 1000);
+  function renderRunning(j, u, card, stats, unitDefault) {
+    const loading = u.indeterminate || (!u.real && (j.stage || j.status) === 'loading');
+    const bar = el('div', loading ? 'bar indet' : 'bar'); const i = el('i'); bar.appendChild(i); card.appendChild(bar);
+    if (loading) {
+      stats.appendChild(el('b', '', u.phase || 'загрузка модели'));
+      const started = u.elapsed_s != null ? u.elapsed_s : (j.elapsed_s || 0);
+      const t = el('span', ''); t.append('идёт ', liveElapsed(started)); stats.appendChild(t);
+      if (u.typical_s != null) stats.appendChild(el('span', 'muted', `обычно ≈ ${fmtMin(u.typical_s)} (оценка по замерам)`));
+      return;
+    }
+    const pct = Math.min(99, Math.max(0, u.percent || 0)); i.style.width = `${Math.max(2, pct)}%`;
+    stats.appendChild(el('b', '', `${Math.round(pct)} %${u.real ? '' : ' (оценка)'}`));
+    if (u.step != null) stats.appendChild(el('span', '', `${u.unit || unitDefault} ${u.step}/${u.steps}`));
+    stats.appendChild(el('span', '', u.phase));
+    if (u.remaining_s != null) stats.appendChild(el('span', '', `≈ осталось ${fmtMin(u.remaining_s)}`));
+    else if (!u.real) stats.appendChild(el('span', 'muted', 'дольше обычного'));
+  }
+  function renderQueued(u, stats, withTotal) {
+    stats.appendChild(el('b', '', `в очереди №${u.position}`));
+    const total = withTotal && u.total_s != null ? `, займёт ≈ ${fmtMin(u.total_s)}` : '';
+    stats.appendChild(el('span', '', u.wait_s == null ? `(время ожидания неизвестно: впереди задача без оценки${total})` : `(≈ ждать ${fmtMin(u.wait_s)}${total}, оценка)`));
+  }
   function renderQueueItem(j) {
     const u = j.ui || {}; const m = (S.photoModels || []).find((x) => x.id === j.model); const card = el('div', 'qitem ' + (u.state || ''));
     const head = el('div', 'row'); head.append(el('span', 'stage', m ? m.label : j.model));
@@ -643,13 +671,9 @@
     card.appendChild(head);
     const stats = el('div', 'stats');
     if (u.state === 'running') {
-      const pct = Math.min(99, Math.max(0, u.percent || 0)); const bar = el('div', 'bar'); const i = el('i'); i.style.width = `${Math.max(2, pct)}%`; bar.appendChild(i); card.appendChild(bar);
-      stats.appendChild(el('b', '', `${Math.round(pct)} %${u.real ? '' : ' (оценка)'}`));
-      if (u.step != null) stats.appendChild(el('span', '', `шаг ${u.step}/${u.steps}`));
-      stats.appendChild(el('span', '', u.phase));
-      if (u.remaining_s != null) stats.appendChild(el('span', '', `≈ осталось ${fmtMin(u.remaining_s)}`));
+      renderRunning(j, u, card, stats, 'шаг');
     } else if (u.state === 'queued') {
-      stats.appendChild(el('b', '', `в очереди №${u.position}`)); stats.appendChild(el('span', '', `(≈ ждать ${fmtMin(u.wait_s)}, оценка)`));
+      renderQueued(u, stats, false);
     } else if (u.state === 'done') {
       stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
       const flq = facelockText(j); if (flq) stats.appendChild(el('span', flq.ok ? '' : 'muted', flq.text));
@@ -1006,14 +1030,10 @@
     card.appendChild(head);
     const stats = el('div', 'stats');
     if (u.state === 'running') {
-      const pct = Math.min(99, Math.max(0, u.percent || 0)); const bar = el('div', 'bar'); const i = el('i'); i.style.width = `${Math.max(2, pct)}%`; bar.appendChild(i); card.appendChild(bar);
-      stats.appendChild(el('b', '', `${Math.round(pct)} %${u.real ? '' : ' (оценка)'}`));
-      if (u.step != null) stats.appendChild(el('span', '', `${u.unit || 'шаг'} ${u.step}/${u.steps}`));
-      stats.appendChild(el('span', '', u.phase));
-      if (u.remaining_s != null) stats.appendChild(el('span', '', `≈ осталось ${fmtMin(u.remaining_s)}`));
-      if (u.label) stats.appendChild(el('span', 'muted', u.label));
+      renderRunning(j, u, card, stats, 'шаг');
+      if (u.label && !u.indeterminate) stats.appendChild(el('span', 'muted', u.label));
     } else if (u.state === 'queued') {
-      stats.appendChild(el('b', '', `в очереди №${u.position}`)); stats.appendChild(el('span', '', `(≈ ждать ${fmtMin(u.wait_s)}, займёт ≈ ${fmtMin(u.total_s)}, оценка)`));
+      renderQueued(u, stats, true);
     } else if (u.state === 'done') {
       stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
       if (j.result && /^video\//.test(String(j.result.mime || ''))) { const b = el('button', 'btn small primary'); b.type = 'button'; b.append(icon('play'), document.createTextNode('Смотреть')); b.addEventListener('click', () => openVViewer(j)); head.append(b, pultButton('video', j.job_id)); }

@@ -124,19 +124,21 @@ def _running_view(job: dict, total: float, history: dict[str, dict] | None, now:
     value, mx = p.get("value"), p.get("max")
     if p.get("kind") == "steps" and isinstance(value, int) and isinstance(mx, int) and mx > 0 and value > 0:
         gen_at = st.get("generating")
-        per_step = float(timing_for(str(job.get("model")), history)["s_per_step"]) * ((job.get("params") or {}).get("width", 512)
-                   * (job.get("params") or {}).get("height", 512)) / REF_PIXELS
-        if gen_at is not None and value >= 2:
-            per_step = max((now - gen_at) / value, 0.1)   # observed pace; includes the step in flight
-        left = max(mx - value, 0) * per_step
         decoding = value >= mx
+        left = None                                  # the ETA comes ONLY from the pace measured on this job, never the table
+        if gen_at is not None and value >= 2 and not decoding:
+            left = max(mx - value, 0) * max((now - gen_at) / value, 0.1)   # observed pace; includes the step in flight
         return {"percent": min(value / mx * 100.0, 99.0), "real": True, "step": value, "steps": mx,
-                "phase": "декодирование" if decoding else "генерация", "remaining_s": None if decoding else left,
+                "phase": "декодирование" if decoding else "генерация", "remaining_s": left, "elapsed_s": elapsed,
                 "label": "по шагам sd-cli"}
-    phase = {"loading": "загрузка модели", "postprocessing": "декодирование"}.get(stage, "генерация")
+    measured = timing_for(str(job.get("model")), history).get("kind") == "measured"
+    if stage == "loading":
+        return {**video_timing.loading_view(elapsed, total, measured), "steps": (job.get("params") or {}).get("steps")}
+    phase = {"postprocessing": "декодирование"}.get(stage, "генерация")
     pct = min(elapsed / total * 100.0, 95.0) if total > 0 else 0.0
     return {"percent": pct, "real": False, "step": None, "steps": (job.get("params") or {}).get("steps"),
-            "phase": phase, "remaining_s": max(total - elapsed, 0.0), "label": "оценка по времени"}
+            "phase": phase, "remaining_s": video_timing.estimate_left(total, elapsed), "elapsed_s": elapsed,
+            "label": "оценка по времени"}
 
 
 def _total_any(job: dict, history: dict[str, dict] | None) -> float:
@@ -159,7 +161,7 @@ def queue_view(jobs: list[dict], history: dict[str, dict] | None = None, now: fl
     queued = sorted((j for j in active if j.get("status") == "queued"),
                     key=lambda j: (j.get("queue_position") or 10**6, str(j.get("created_at"))))
     out: list[dict[str, Any]] = []
-    ahead = 0.0
+    ahead: float | None = 0.0                      # None = a job ahead has an UNKNOWN remainder: no «wait N» is claimed
     for j in running:
         if j.get("kind") in video_timing.VIDEO_KINDS:
             ui = video_timing.running_view(j, history, now)
@@ -167,14 +169,18 @@ def queue_view(jobs: list[dict], history: dict[str, dict] | None = None, now: fl
         else:
             total = _job_total(j, history)
             ui = _running_view(j, total, history, now)
-        ahead += ui["remaining_s"] or 0.0
+        if ui["remaining_s"] is None:
+            ahead = None
+        elif ahead is not None:
+            ahead += ui["remaining_s"]
         out.append({**j, "ui": {"state": "running", **ui, "total_s": total}})
     for n, j in enumerate(queued, 1):
         total = _total_any(j, history)
         pos = j.get("queue_position") or n
         out.append({**j, "ui": {"state": "queued", "position": pos, "wait_s": ahead, "total_s": total, "real": False,
                                 "percent": 0.0, "label": "оценка по замерам"}})
-        ahead += total
+        if ahead is not None:
+            ahead += total
     finished = sorted((j for j in jobs if j.get("kind") in done_kinds and j.get("status") not in ACTIVE),
                       key=lambda j: str(j.get("created_at")), reverse=True)[:recent]
     for j in finished:
