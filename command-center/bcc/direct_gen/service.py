@@ -27,7 +27,7 @@ from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
 from ..single_flight import await_shared
-from . import catalog, faceswap, genjutsu, ref_tags, sdcli
+from . import catalog, faceswap, genjutsu, pult, ref_tags, sdcli
 from .faceswap import python_of as _ff_python
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .prompt_vault import PromptVault
@@ -156,6 +156,8 @@ class DirectGenService:
         self.genjutsu_model = genjutsu.default_segformer_model()
         self.masks_runner: Callable[[list[str], Path, float], Any] = self._run_masks
         self.facelock_runner: Callable[[list[str], Path, float], Any] = self._run_masks   # subprocess.run shape
+        self.pult_config: Path | None = None                       # None = the installed companion config
+        self.pult_transport: Any = None                            # tests: an httpx transport instead of api.telegram.org
         self._masks_lock: asyncio.Lock | None = None
         self.gpu_grace_seconds = gpu_grace_seconds       # a just-finished engine may still be listed for a moment (seen on Windows)
         self._tasks: dict[str, asyncio.Task] = {}
@@ -943,6 +945,24 @@ class DirectGenService:
 
     def list(self, participant: str) -> list[dict]:
         return [self.view(j) for j in self.store.list(valid_participant(participant))]
+
+    async def send_to_pult(self, participant: str, job_id: str) -> dict:
+        """The owner asked (mobile app button) to get ONE finished file in the Пульт as a Telegram document."""
+        participant = valid_participant(participant)
+        if participant != "owner":
+            raise DirectGenError(403, "owner_only", "в Пульт можно отправлять только задачи владельца")
+        job = self.get(participant, job_id)
+        if job["status"] != "completed" or not job.get("result"):
+            raise DirectGenError(409, "no_result", "задача ещё не завершена — отправлять в Пульт пока нечего")
+        path = self.result_path(participant, job_id)
+        try:
+            token, chat_id, proxy = pult.load_target(self.pult_config)
+            message_id = await pult.send_document(token, chat_id, path, pult.file_name(job, path), pult.caption_for(job),
+                                                  job["result"].get("mime", ""), proxy=proxy, transport=self.pult_transport)
+        except pult.PultError as exc:
+            raise DirectGenError(exc.status, exc.code, exc.message) from None
+        return {"ok": True, "sent": True, "message_id": message_id, "bytes": path.stat().st_size,
+                "caption": pult.caption_for(job)}
 
     def result_path(self, participant: str, job_id: str, variant: str = "") -> Path:
         job = self.get(participant, job_id)

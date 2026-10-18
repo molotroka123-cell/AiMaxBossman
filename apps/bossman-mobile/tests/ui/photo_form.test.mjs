@@ -161,3 +161,28 @@ test('FaceLock badge says applied / skipped with a human reason', { skip }, asyn
     await until(() => app.$('photo-progress').textContent.includes(want), `badge ${want}`);
     }
 });
+
+test('«Отправить в пульт»: one POST per tap from the result card and the viewer, server text shown on error', { skip }, async () => {
+  let mode = 'ok';
+  const job = { job_id: 'p1', status: 'completed', stage: 'completed', raw_prompt: 'p', params: { width: 512, height: 512, seed: 1 }, result: { mime: 'image/png' }, model: EDIT.id };
+  const app = await boot((method, path) => {
+    if (method === 'POST' && path === '/photo/jobs') return { job_id: 'p1', status: 'queued', stage: 'queued' };
+    if (method === 'GET' && path === '/photo/jobs/p1') return job;
+    if (method === 'POST' && path === '/photo/jobs/p1/to-pult') return mode === 'ok' ? { ok: true, sent: true } : { __status: 409, detail: 'Пульт не настроен' };
+  });
+  const { $, submit, calls } = app;
+  $('photo-prompt').value = 'x'; submit();
+  await until(() => $('photo-progress').querySelector('img'), 'result card shown');
+  const btn = [...$('photo-progress').querySelectorAll('button')].find((b) => b.textContent === 'В пульт');
+  assert.ok(btn, 'pult button on the finished result card');
+  btn.click();
+  await until(() => calls.filter((c) => c.path === '/photo/jobs/p1/to-pult').length === 1, 'POST to-pult');
+  await until(() => $('toast').textContent === 'Отправлено в пульт', 'toast');
+  await until(() => !btn.disabled, 'button usable again (no dedupe: he may resend)');
+  mode = 'fail';
+  $('photo-progress').querySelector('img').click();            // opens the viewer
+  assert.equal($('viewer').hidden, false);
+  $('viewer-pult').click();
+  await until(() => calls.filter((c) => c.path === '/photo/jobs/p1/to-pult').length === 2, 'second POST from the viewer');
+  await until(() => $('toast').textContent.includes('Пульт не настроен'), 'server error text shown');
+});

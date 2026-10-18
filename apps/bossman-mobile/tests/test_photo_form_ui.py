@@ -22,4 +22,4 @@ def _jsdom_available() -> bool:
 def test_photo_form_node_suite():
     run = subprocess.run(["node", "--test", str(UI_TESTS)], capture_output=True, text=True, timeout=180, check=False)
     assert run.returncode == 0, (run.stdout + run.stderr)[-3000:]
-    assert "# fail 0" in run.stdout and "# pass 4" in run.stdout, run.stdout[-1500:]
+    assert "# fail 0" in run.stdout and "# pass 5" in run.stdout, run.stdout[-1500:]

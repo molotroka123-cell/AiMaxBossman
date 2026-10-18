@@ -60,3 +60,19 @@ def test_job_view_carries_facelock_status_and_unlocked_flag(authed, edit, monkey
     assert got["facelock"]["status"] == "applied" and got["result_unlocked"]["file"] == "image_unlocked.png"
     assert "provenance" not in got
     assert authed.c.get(f"/m/api/photo/jobs/{'a' * 32}/file?variant=bogus").status_code == 422
+
+
+def test_to_pult_routes_forward_one_job_and_need_csrf(authed):
+    for kind in ("photo", "video"):
+        r = authed.post(f"/m/api/{kind}/jobs/{'a' * 32}/to-pult")
+        assert r.status_code == 200 and r.json() == {"ok": True, "sent": True}
+    calls = [c for c in authed.fake.calls if c["path"].endswith("/send-to-pult")]
+    assert len(calls) == 2 and all(c["method"] == "POST" for c in calls)
+    assert authed.c.post(f"/m/api/photo/jobs/{'a' * 32}/to-pult", headers={"X-BM-CSRF": "wrong"}).status_code == 403
+    assert authed.c.get(f"/m/api/photo/jobs/{'a' * 32}/to-pult").status_code in (404, 405)
+
+
+def test_to_pult_error_text_reaches_the_phone_and_bad_ids_are_refused(authed):
+    r = authed.post(f"/m/api/photo/jobs/{'e' * 32}/to-pult")
+    assert r.status_code == 409 and "не завершена" in json.dumps(r.json(), ensure_ascii=False)
+    assert authed.post("/m/api/photo/jobs/..%2Fx/to-pult").status_code == 404

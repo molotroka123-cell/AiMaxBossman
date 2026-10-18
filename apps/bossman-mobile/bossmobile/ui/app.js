@@ -305,6 +305,18 @@
     try { const r = await api('GET', '/approvals'); const n = (r.items || []).length; const bd = $('badge-approvals'); bd.hidden = !n; bd.textContent = n; } catch { /* */ }
   }
 
+  /* ================= В пульт: по кнопке, один файл (владелец 18.10: автодоставки нет) ================= */
+  async function toPult(kind, jobId, btn) {
+    if (btn && btn.disabled) return; tap(); if (btn) btn.disabled = true;
+    try { await api('POST', `/${kind}/jobs/${jobId}/to-pult`); toast('Отправлено в пульт'); }
+    catch (err) { toast(err && err.message ? err.message : 'Не удалось отправить в пульт'); }
+    finally { if (btn) btn.disabled = false; }
+  }
+  function pultButton(kind, jobId) {
+    const b = el('button', 'btn small', 'В пульт'); b.type = 'button'; b.setAttribute('aria-label', 'Отправить в пульт');
+    b.addEventListener('click', (e) => { e.stopPropagation(); toPult(kind, jobId, b); }); return b;
+  }
+
   /* ================= Фото ================= */
   async function ensurePhotoModels() { if (!S.photoModels.length) S.photoModels = (await api('GET', '/photo/models')).models || []; }
   async function openPhoto() {
@@ -547,6 +559,7 @@
   function showPhotoResult(card, final) {
     const img = el('img'); img.src = `/m/api/photo/jobs/${final.job_id}/file`; img.alt = final.raw_prompt || ''; img.addEventListener('click', () => openViewer(final)); card.appendChild(img);
     const b = facelockBadge(final); if (b) card.appendChild(b);
+    card.appendChild(pultButton('photo', final.job_id));
     loadGallery();
   }
   async function watchPhotoJob(job) {          // background: never awaited by the form
@@ -640,6 +653,7 @@
     } else if (u.state === 'done') {
       stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
       const flq = facelockText(j); if (flq) stats.appendChild(el('span', flq.ok ? '' : 'muted', flq.text));
+      if (j.result && String(j.result.mime || '').startsWith('image/')) head.append(pultButton('photo', j.job_id));
       if (j.result && String(j.result.mime || '').startsWith('image/')) { card.classList.add('has-thumb'); const img = el('img', 'qthumb'); img.loading = 'lazy'; img.src = `/m/api/photo/jobs/${j.job_id}/file`; img.alt = ''; img.addEventListener('click', () => openViewer(j)); card.appendChild(img); }
     } else { stats.appendChild(el('span', '', STAGES[j.stage || j.status] || j.status)); }
     if (j.params) stats.appendChild(el('span', 'muted', `${j.params.width}×${j.params.height} · ${j.params.steps} шагов`));
@@ -678,6 +692,7 @@
     $('viewer').hidden = false;
   }
   $('viewer-close').addEventListener('click', () => { $('viewer').hidden = true; });
+  $('viewer-pult').addEventListener('click', () => { if (viewing) toPult('photo', viewing.job_id, $('viewer-pult')); });
   $('viewer-unlocked').addEventListener('click', () => {      // flip between the locked result and the model's own picture
     if (!viewing) return; const un = $('viewer-unlocked'); const on = un.dataset.on !== '1';
     un.dataset.on = on ? '1' : ''; un.textContent = on ? 'С FaceLock' : 'До FaceLock';
@@ -1001,7 +1016,7 @@
       stats.appendChild(el('b', '', `в очереди №${u.position}`)); stats.appendChild(el('span', '', `(≈ ждать ${fmtMin(u.wait_s)}, займёт ≈ ${fmtMin(u.total_s)}, оценка)`));
     } else if (u.state === 'done') {
       stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
-      if (j.result && /^video\//.test(String(j.result.mime || ''))) { const b = el('button', 'btn small primary'); b.type = 'button'; b.append(icon('play'), document.createTextNode('Смотреть')); b.addEventListener('click', () => openVViewer(j)); head.append(b); }
+      if (j.result && /^video\//.test(String(j.result.mime || ''))) { const b = el('button', 'btn small primary'); b.type = 'button'; b.append(icon('play'), document.createTextNode('Смотреть')); b.addEventListener('click', () => openVViewer(j)); head.append(b, pultButton('video', j.job_id)); }
     } else {
       stats.appendChild(el('span', '', STAGES[j.stage || j.status] || j.status));
       if (j.error) card.appendChild(el('div', 'err', typeof j.error === 'string' ? j.error : (j.error.message || j.error.code || '')));
@@ -1036,7 +1051,7 @@
         c.appendChild(el('div', 'muted small', [res.width && `${res.width}×${res.height}`, res.duration_s && `${Number(res.duration_s).toFixed(1)} с`, res.codec, res.bytes && mb(res.bytes), (j.created_at || '').replace('T', ' ').slice(0, 16)].filter(Boolean).join(' · ')));
         const row = el('div', 'row'); const play = el('button', 'btn small primary'); play.type = 'button'; play.append(icon('play'), document.createTextNode('Смотреть')); play.addEventListener('click', () => openVViewer(j));
         const dl = el('a', 'btn small'); dl.href = `/m/api/video/jobs/${j.job_id}/file?download=1`; dl.setAttribute('download', ''); dl.append(icon('down'), document.createTextNode('Скачать'));
-        row.append(play, dl); c.appendChild(row); box.appendChild(c);
+        row.append(play, dl, pultButton('video', j.job_id)); c.appendChild(row); box.appendChild(c);
       });
       if (!done.length) box.appendChild(el('p', 'muted', 'Пока нет готовых видео'));
     } catch { /* */ }
@@ -1053,6 +1068,7 @@
     $('vviewer').hidden = false;
   }
   $('vviewer-close').addEventListener('click', () => { const v = $('vviewer-video'); v.pause(); v.removeAttribute('src'); v.load(); $('vviewer').hidden = true; });
+  $('vviewer-pult').addEventListener('click', () => { if (vviewing) toPult('video', vviewing.job_id, $('vviewer-pult')); });
   $('vviewer-save').addEventListener('click', async () => {
     if (!vviewing) return; tap(); const url = `/m/api/video/jobs/${vviewing.job_id}/file`; const res = vviewing.result || {};
     try {

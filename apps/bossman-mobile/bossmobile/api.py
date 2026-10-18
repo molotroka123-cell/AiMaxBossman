@@ -543,6 +543,19 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def p_cancel(job_id: str, _=Depends(session)):
         return await call("POST", f"/api/direct-gen/jobs/{_jid(job_id)}/cancel")
 
+    async def to_pult(job_id: str) -> dict:
+        """Owner asked for this ONE result in the Пульт: Bossman sends it (the bot token never reaches the phone app)."""
+        r = await call("POST", f"/api/direct-gen/jobs/{_jid(job_id)}/send-to-pult", timeout=300)
+        return {"ok": True, "sent": bool(isinstance(r, dict) and r.get("sent"))}
+
+    @app.post("/m/api/photo/jobs/{job_id}/to-pult")
+    async def p_to_pult(job_id: str, _=Depends(session)):
+        return await to_pult(job_id)
+
+    @app.post("/m/api/video/jobs/{job_id}/to-pult")
+    async def v_to_pult(job_id: str, _=Depends(session)):
+        return await to_pult(job_id)
+
     EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm",
            "video/quicktime": "mov", "video/x-matroska": "mkv", "image/gif": "gif"}
 

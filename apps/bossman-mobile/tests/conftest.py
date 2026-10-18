@@ -147,6 +147,10 @@ class FakeBossman:
             return httpx.Response(202, json={**JOB, "status": "queued", "stage": "queued"})
         if path == "/api/direct-gen/jobs" and method == "GET":
             return httpx.Response(200, json={"jobs": [JOB, {**JOB, "job_id": "b" * 32, "kind": "video"}]})
+        if path == f"/api/direct-gen/jobs/{'a' * 32}/send-to-pult" and method == "POST":
+            return httpx.Response(200, json={"ok": True, "sent": True, "message_id": 5, "bytes": 3, "caption": "x"})
+        if path == f"/api/direct-gen/jobs/{'e' * 32}/send-to-pult" and method == "POST":
+            return httpx.Response(409, json={"error": {"code": "no_result", "message": "задача ещё не завершена"}})
         if path == f"/api/direct-gen/jobs/{'a' * 32}":
             return httpx.Response(200, json=JOB)
         if path == f"/api/direct-gen/jobs/{'a' * 32}/file":

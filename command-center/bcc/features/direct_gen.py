@@ -6,7 +6,8 @@
   GET  /direct-gen/jobs, /jobs/{id}       this participant's history / one job
   POST /direct-gen/jobs/{id}/cancel       STOP (queued or mid-run; interrupts that ComfyUI prompt only)
   POST /direct-gen/jobs/{id}/retry        same raw prompt and SAME seed
-  GET  /direct-gen/jobs/{id}/file         the finished video
+  GET  /direct-gen/jobs/{id}/file         the finished picture/video (?variant=unlocked: the picture before FaceLock)
+  POST /direct-gen/jobs/{id}/send-to-pult owner only, on request: this ONE finished file to the Пульт as a Telegram document
   GET  /direct-gen/vault/prompts?q=&limit=  owner-only: encrypted history of the owner's own prompts
   POST /direct-gen/assist                 ASSISTED: a LOCAL model (default Qwen, or model_id) proposes an edit; nothing is generated
   GET  /direct-gen/assist-models          every local text model usable as the helper (uncensored ones flagged by name)
@@ -132,6 +133,12 @@ async def cancel(job_id: str, request: Request, x_participant: str | None = Head
 @router.post("/jobs/{job_id}/retry", status_code=202)
 async def retry(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
     return await _guard(_svc(request).retry(_who(x_participant), job_id))
+
+
+@router.post("/jobs/{job_id}/send-to-pult")
+async def send_to_pult(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
+    """On request only: ONE finished file to the owner's Пульт as a Telegram document (no auto-delivery, no dedupe)."""
+    return await _guard(_svc(request).send_to_pult(_who(x_participant), job_id))
 
 
 @router.get("/jobs/{job_id}/file")
