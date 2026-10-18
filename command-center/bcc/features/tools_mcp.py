@@ -586,6 +586,12 @@ async def call(ref: str, request: Request):
         if not math.isfinite(timeout) or timeout <= 0:
             raise HTTPException(422, {"message": "timeout должен быть положительным числом секунд"})
     row = await _server_row(svc, ref)
+    if row["name"] == "string":
+        # Веб-доступ идёт только через политику (публичные URL, лимиты, аудит, маска ключа).
+        from .web_access import web_of
+        res = await web_of(svc).guarded_call(tool, arguments)
+        return {"server": "string", "tool": tool, "is_error": not res.ok,
+                "text": res.text or res.detail, "structured": None, "status": res.status}
     rt = runtime_of(svc)
     spec = _spec_from_row(row)
     refusal = launch_refusal(spec)
