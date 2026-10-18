@@ -1,6 +1,6 @@
 # Daily FX collection (CNB + ECB public files, one free-model cross-check). Run by the tasks BossmanFX-AM (09:00) and BossmanFX-PM (21:00).
 # The owner's phone generations have ABSOLUTE priority: the Python side first looks at GET http://127.0.0.1:8801/api/direct-gen/jobs and,
-# while a job is loading/generating, waits 20 minutes and looks again (at most 3 retries), then skips this slot.
+# while a job is loading (or free RAM < 20 GB; a job already generating does not block), waits 20 minutes and looks again (at most 3 retries), then skips this slot.
 # No browser, no Ollama, no GPU: two small HTTP GETs and (optionally) one free cloud-model call through Bossman. Runs at BelowNormal priority.
 param([ValidateSet('AM', 'PM')][string]$Slot = 'AM')
 

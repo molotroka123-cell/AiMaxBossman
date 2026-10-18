@@ -26,8 +26,10 @@ DISAGREE_PCT = Decimal("0.5")
 MAX_VISITS_PER_DAY = 2
 BOUNDS = {"USDCZK": (Decimal(5), Decimal(100)), "EURCZK": (Decimal(5), Decimal(100)), "EURUSD": (Decimal("0.3"), Decimal(3))}
 TERMINAL_JOB = {"completed", "done", "failed", "error", "cancelled", "canceled", "rejected", "expired"}
-ACTIVE_JOB = {"loading", "generating", "running", "starting", "preparing", "downloading", "processing"}
-QUEUE_FRESH_H = 3                  # a queued job older than this is treated as stale, not as a running generation
+# Owner rule 18.10 (coordinator): a job that is already `generating` (sd-cli ~4 of 32 threads, GPU mostly idle, measured) does NOT block this
+# light collection; a job that is loading weights (RAM/disk heavy) does, and so does low free RAM.
+ACTIVE_JOB = {"loading", "starting", "preparing", "downloading"}
+MIN_FREE_RAM_GB = 20.0
 
 NOTES_RU = [
     "Только курсы центральных банков (ЧНБ, ЕЦБ), «середина рынка»: комиссии и спреды бирж и обменников НЕ учтены.",
@@ -172,24 +174,32 @@ def open_store(directory: str | Path | None = None) -> FxStore:
 
 
 # ------------------------------------------------------------------ idle gate: the owner's phone generations have absolute priority
-def jobs_busy(jobs: list[dict], now: datetime | None = None) -> list[str]:
-    """Statuses of jobs that make the PC busy (loading/generating/..., or a FRESH queued job)."""
-    now = now or datetime.now(timezone.utc)
+def free_ram_gb() -> float | None:
+    """Available physical RAM in GB (Windows GlobalMemoryStatusEx); None when unknown."""
+    try:
+        import ctypes
+
+        class MS(ctypes.Structure):
+            _fields_ = [("l", ctypes.c_ulong), ("load", ctypes.c_ulong), ("tp", ctypes.c_ulonglong), ("ap", ctypes.c_ulonglong), ("tpf", ctypes.c_ulonglong),
+                        ("apf", ctypes.c_ulonglong), ("tv", ctypes.c_ulonglong), ("av", ctypes.c_ulonglong), ("ae", ctypes.c_ulonglong)]
+        m = MS()
+        m.l = ctypes.sizeof(MS)
+        ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
+        return m.ap / 2**30
+    except Exception:                                 # noqa: BLE001
+        return None
+
+
+def jobs_busy(jobs: list[dict], now: datetime | None = None, free_gb: float | None = None) -> list[str]:
+    """What makes the PC busy: a job that is loading (not generating/queued), or available RAM below MIN_FREE_RAM_GB."""
     busy = []
+    if free_gb is not None and free_gb < MIN_FREE_RAM_GB:
+        busy.append(f"low_ram_{free_gb:.0f}GB")
     for j in jobs or []:
         st = str(j.get("status") or "").lower()
         if st in ACTIVE_JOB:
             busy.append(st)
-        elif st == "queued":
-            try:
-                created = datetime.fromisoformat(str(j.get("created_at")).replace("Z", "+00:00"))
-                if created.tzinfo is None:
-                    created = created.replace(tzinfo=timezone.utc)
-                if now - created < timedelta(hours=QUEUE_FRESH_H):
-                    busy.append(st)
-            except (ValueError, TypeError):
-                busy.append(st)                       # cannot tell the age: be careful
-        elif st and st not in TERMINAL_JOB:
+        elif st and st not in TERMINAL_JOB and st not in ("generating", "running", "queued"):
             busy.append(st)                           # unknown live state: be careful
     return busy
 
@@ -213,11 +223,11 @@ def fetch_jobs(base: str = "http://127.0.0.1:8801", token_file: str | None = Non
         raise ConnectionError(type(exc).__name__) from None
 
 
-def wait_idle(get_jobs, *, sleep=time.sleep, retry_s: int = 1200, max_retries: int = 3, log=print) -> dict:
+def wait_idle(get_jobs, *, ram=None, sleep=time.sleep, retry_s: int = 1200, max_retries: int = 3, log=print) -> dict:
     """Idle -> go. Busy -> wait retry_s and look again, at most max_retries times, then skip this slot. Bossman down -> go."""
     for attempt in range(max_retries + 1):
         try:
-            busy = jobs_busy(get_jobs())
+            busy = jobs_busy(get_jobs(), free_gb=(ram or free_ram_gb)())
         except ConnectionError:
             return {"status": "IDLE", "attempts": attempt + 1, "note": "Bossman :8801 не отвечает - генераций нет"}
         except Exception as exc:                      # noqa: BLE001 - unreadable queue = treat as busy, never as idle
