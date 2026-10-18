@@ -225,33 +225,31 @@ def test_year_end_files(store, tmp_path):
 
 
 # ---------------------------------------------------------------- idle gate
-def test_phone_generations_have_priority():
-    now = datetime(2026, 10, 18, 12, 0, tzinfo=timezone.utc)
-    fresh = (now.replace(hour=11)).isoformat()
-    stale = (now.replace(hour=2)).isoformat()
-    assert fx.jobs_busy([{"status": "generating"}], now) == ["generating"] and fx.jobs_busy([{"status": "loading"}], now) == ["loading"]
-    assert fx.jobs_busy([{"status": "completed"}, {"status": "failed"}, {"status": "cancelled"}], now) == []
-    assert fx.jobs_busy([{"status": "queued", "created_at": fresh}], now) == ["queued"] and fx.jobs_busy([{"status": "queued", "created_at": stale}], now) == []
+def test_loading_or_low_ram_blocks_but_a_generating_job_does_not():
+    assert fx.jobs_busy([{"status": "loading"}]) == ["loading"]
+    assert fx.jobs_busy([{"status": "generating"}, {"status": "queued"}], free_gb=64) == []          # owner rule 18.10: generating does not block
+    assert fx.jobs_busy([{"status": "completed"}, {"status": "failed"}, {"status": "cancelled"}]) == []
+    assert fx.jobs_busy([], free_gb=12.0) == ["low_ram_12GB"] and fx.jobs_busy([], free_gb=25.0) == []
 
 
 def test_busy_pc_retries_three_times_then_skips():
     sleeps = []
-    out = fx.wait_idle(lambda: [{"status": "generating"}], sleep=sleeps.append, log=lambda *a: None)
+    out = fx.wait_idle(lambda: [{"status": "loading"}], sleep=sleeps.append, log=lambda *a: None, ram=lambda: 64.0)
     assert out["status"] == "SKIPPED_BUSY" and sleeps == [1200, 1200, 1200] and out["attempts"] == 4
 
 
 def test_idle_after_one_retry_and_bossman_down_and_unreadable_queue():
-    seq = iter([[{"status": "generating"}], []])
+    seq = iter([[{"status": "loading"}], []])
     sleeps = []
-    assert fx.wait_idle(lambda: next(seq), sleep=sleeps.append, log=lambda *a: None)["status"] == "IDLE" and sleeps == [1200]
+    assert fx.wait_idle(lambda: next(seq), ram=lambda: 64.0, sleep=sleeps.append, log=lambda *a: None)["status"] == "IDLE" and sleeps == [1200]
 
     def down():
         raise ConnectionError("refused")
-    assert fx.wait_idle(down, sleep=lambda s: None)["status"] == "IDLE"
+    assert fx.wait_idle(down, sleep=lambda s: None, ram=lambda: 64.0)["status"] == "IDLE"
 
     def broken():
         raise RuntimeError("HTTP 500")
-    assert fx.wait_idle(broken, sleep=lambda s: None, log=lambda *a: None)["status"] == "SKIPPED_BUSY"      # unreadable queue is never read as idle
+    assert fx.wait_idle(broken, ram=lambda: 64.0, sleep=lambda s: None, log=lambda *a: None)["status"] == "SKIPPED_BUSY"      # unreadable queue is never read as idle
 
 
 # ---------------------------------------------------------------- API + UI wiring

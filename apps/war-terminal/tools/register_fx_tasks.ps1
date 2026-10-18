@@ -27,6 +27,6 @@ foreach ($slot in 'AM', 'PM') {
     $at = if ($slot -eq 'AM') { '09:00' } else { '21:00' }
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$script`" -Slot $slot"
     Register-ScheduledTask -TaskName $names[$slot] -Action $action -Trigger (New-ScheduledTaskTrigger -Daily -At $at) -Settings $settings -Principal $principal `
-        -Description "Bossman FX tracker ($slot): CNB + ECB daily rates; skips while phone generations run" -Force | Out-Null
+        -Description "Bossman FX tracker ($slot): CNB + ECB daily rates; skips while a job is loading or RAM < 20 GB" -Force | Out-Null
 }
 Get-ScheduledTask -TaskName $names.Values | Select-Object TaskName, State | Format-Table -AutoSize
