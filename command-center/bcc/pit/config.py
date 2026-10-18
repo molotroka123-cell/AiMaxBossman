@@ -11,6 +11,7 @@ import ipaddress
 import json
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -37,6 +38,19 @@ DEFAULT_FREE_CHAT_MODELS: tuple[str, ...] = (
 JEFF_LOCAL_ONLY = True
 DEFAULT_LOCAL_URL = "http://127.0.0.1:11434/v1"
 DEFAULT_LOCAL_MODEL = "bossman-uncensored-chat:latest"
+
+# OWNER DECISION 2026-10-18 (resource governor): while a photo/video generation runs the local model must stay unloaded, so
+# Jeff may answer through FREE cloud models for that time only. The only way in is a file written by the resource governor
+# (tools/resource_governor): ``<pit home>/generation-cloud.json`` with a fresh heartbeat. A missing, stale, malformed or
+# non-free file means nothing changes and ``JEFF_LOCAL_ONLY`` stays in force. The runtime re-checks the heartbeat on
+# every turn (``generation_cloud_fresh``), so a dead governor ends cloud answers within the TTL; it never falls back to
+# the local model (that is what the governor keeps unloaded).
+GENERATION_CLOUD_FILE = "generation-cloud.json"
+GENERATION_CLOUD_VIOLATION_FILE = "generation-cloud-violation.json"
+GENERATION_CLOUD_SCHEMA = "bossman.pit.generation-cloud/1"
+GENERATION_CLOUD_TTL_S = 300.0
+GENERATION_CLOUD_MAX_MODELS = 5
+GENERATION_CLOUD_MARKER_RU = "(облако, бесплатно)"
 
 BEHAVIOR_SCALE_NAMES = (
     "initiative", "curiosity", "depth", "brevity",
@@ -128,6 +142,11 @@ class PITSettings:
     rejected_models: tuple[str, ...] = ()
     # Cloud chat models the owner's config still names but the local-only rule ignores (shown in the route status).
     ignored_cloud_models: tuple[str, ...] = ()
+    # True only while the resource governor's generation-cloud file is fresh (see GENERATION_CLOUD_FILE).
+    generation_cloud: bool = False
+    # Model ids a Bossman provider offers free on the owner's plan (no ':free' id, no live catalog price): the runtime
+    # accepts them as zero-cost routes only together with the usage.cost > 0 guard.
+    trusted_free_models: tuple[str, ...] = ()
     bot_token: str = field(default="", repr=False)
     provider_key: str = field(default="", repr=False)
     core_token: str = field(default="", repr=False)
@@ -306,9 +325,121 @@ def load(path: Path) -> PITSettings:
     if data["web_only"]:
         # A web-only data dir never holds a bot token, even from the environment.
         data["bot_token"] = ""
-    if JEFF_LOCAL_ONLY:
+    override = generation_cloud_override(path.parent)
+    if override is not None:
+        apply_generation_cloud(data, override)
+    elif JEFF_LOCAL_ONLY:
         enforce_local_only(data)
     return PITSettings(**data)
+
+
+def generation_cloud_override(home: Path, now: float | None = None) -> dict | None:
+    """The governor's generation-cloud file when it is valid and fresh, else None (fail closed to local-only).
+
+    Two shapes: OpenRouter ``:free`` ids on Jeff's own provider, or ``provider.bcc_provider_id`` = a Bossman provider row
+    (bcc.db) whose listed models the governor verified as free for the owner's plan (``load`` re-checks that in bcc.db)."""
+    home = Path(home)
+    if (home / GENERATION_CLOUD_VIOLATION_FILE).exists():
+        return None                       # a reply reported usage.cost > 0: the cloud route is closed until the governor clears it
+    try:
+        raw = (home / GENERATION_CLOUD_FILE).read_bytes()
+        if len(raw) > 8192:
+            return None
+        data = json.loads(raw.decode("utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or data.get("schema") != GENERATION_CLOUD_SCHEMA:
+        return None
+    beat = data.get("heartbeat_at")
+    if isinstance(beat, bool) or not isinstance(beat, (int, float)):
+        return None
+    t = time.time() if now is None else now
+    if not -5.0 <= t - float(beat) <= GENERATION_CLOUD_TTL_S:
+        return None
+    models = data.get("models")
+    if not isinstance(models, list) or not 1 <= len(models) <= GENERATION_CLOUD_MAX_MODELS:
+        return None
+    provider = data.get("provider")
+    provider_id = None
+    if provider is not None:
+        pid = provider.get("bcc_provider_id") if isinstance(provider, dict) else None
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+            return None
+        provider_id = pid
+    from .model_policy import is_banned_model
+    clean = []
+    for m in models:
+        if (not isinstance(m, str) or not 0 < len(m.strip()) <= 120 or m != m.strip()
+                or is_banned_model(m) or m in clean):
+            return None
+        if provider_id is None and not m.endswith(":free"):
+            return None
+        if provider_id is not None and not re.fullmatch(r"[A-Za-z0-9._:/-]{1,120}", m):
+            return None
+        clean.append(m)
+    return {"models": tuple(clean), "heartbeat_at": float(beat), "provider_id": provider_id}
+
+
+def generation_cloud_fresh(home: Path, now: float | None = None) -> bool:
+    return generation_cloud_override(home, now) is not None
+
+
+def note_generation_cloud_violation(home: Path, model: str, cost: float) -> None:
+    """A cloud reply reported usage.cost > 0. Closes the route for every later load/turn and tells the governor."""
+    try:
+        target = Path(home) / GENERATION_CLOUD_VIOLATION_FILE
+        tmp = target.with_name(target.name + ".tmp")
+        tmp.write_text(json.dumps({"at": time.time(), "model": str(model)[:120], "cost": float(cost)}), encoding="utf-8")
+        os.replace(tmp, target)
+    except OSError:
+        pass
+
+
+def resolve_bcc_free_route(data_dir: Path, provider_id: int, models: tuple[str, ...]) -> tuple[str, str, tuple[str, ...]]:
+    """(base_url, api_key, models) of a Bossman provider for the generation cloud. The key is decrypted in memory with
+    the backend's own vault and never logged or returned anywhere else. Only models whose bcc.db row is priced 0/0
+    and online are kept; nothing usable raises (so Jeff does not start, instead of starting on the local model)."""
+    import sqlite3
+    from bcc.secrets import Vault
+    db = Path(data_dir) / "bcc.db"
+    con = sqlite3.connect(db.as_uri() + "?mode=ro", uri=True)
+    try:
+        row = con.execute("select base_url, api_key_enc from providers where id=?", (provider_id,)).fetchone()
+        ok = {r[0] for r in con.execute(
+            "select name from models where provider_id=? and price_in=0 and price_out=0 and pricing_known=1 "
+            "and status='online'", (provider_id,))}
+    finally:
+        con.close()
+    if not row or not row[1]:
+        raise ValueError("generation cloud: provider row or key missing")
+    base = str(row[0] or "").strip().rstrip("/")
+    if urlsplit(base).scheme != "https":
+        raise ValueError("generation cloud: provider must be https")
+    key = Vault(Path(data_dir)).decrypt(row[1])
+    kept = tuple(m for m in models if m in ok)
+    if not key or not kept:
+        raise ValueError("generation cloud: no usable free model or key")
+    return base, key, kept
+
+
+def apply_generation_cloud(data: dict, override: dict) -> dict:
+    """Free cloud chat only: no local model, no local URL (nothing can load Ollama), no cloud-to-local fallback."""
+    data["ignored_cloud_models"] = ()
+    data["chat_models"] = tuple(override["models"])
+    data["local_models"] = ()
+    data["local_url"] = ""
+    data["local_chat_only"] = False
+    data["local_fallback_on_cloud_refusal"] = False
+    data["local_share_percent"] = 0
+    data["generation_cloud"] = True
+    if override.get("provider_id") is not None:
+        base, key, kept = resolve_bcc_free_route(Path(data["data_dir"]), override["provider_id"], override["models"])
+        data["provider_base_url"], data["provider_key"] = base, key
+        data["chat_models"] = kept
+        # not ':free' ids and no catalog prices: free for the owner's plan, enforced by the usage.cost guard in the runtime
+        data["trusted_free_models"] = kept
+        data["max_tokens"] = max(int(data.get("max_tokens") or 0), 2048)       # thinking models spend the budget on reasoning
+    return data
 
 
 def enforce_local_only(data: dict) -> dict:

@@ -238,6 +238,7 @@ _DANGLING_ENDINGS = frozenset({
     "по", "за", "из", "у", "для", "без", "при", "про", "над", "под", "между", "через", "также", "ли",
     "and", "or", "but", "because", "that", "which", "if", "when", "the", "a", "an", "of", "to", "in", "on",
     "with", "for", "by", "from", "as", "is", "are", "was", "were", "so", "than", "then"})
+GENERATION_CLOUD_ENDED_RU = ("Облачный режим на время генерации закончился. Сейчас я на паузе: напиши чуть позже.")
 NO_REMOTE_RU = ("Удалённые модели отключены в твоих настройках приватности. "
                 "Чат-ответы приостановлены; команды работают. Включить: /privacy remote on.")
 
@@ -1104,6 +1105,7 @@ class ParticipantRuntime:
         self._pending_photo_memory: dict[tuple[str, str], tuple[object, str]] = {}
         self._pending_chat_records: dict[int, tuple] = {}
         self._memory_epoch: dict[str, int] = {}
+        self._cloud_marked: set[str] = set()
         # Local-only Jeff (owner decision 2026-10-17, enforced by config.load): no cloud adapter exists at all, so
         # no code path can reach a provider even by mistake.
         self.adapter = (CloudDisabledAdapter() if settings.local_chat_only
@@ -1224,6 +1226,17 @@ class ParticipantRuntime:
         rows_by_id = {row.get("id"): row for row in rows if isinstance(row, dict)}
         policy: dict[str, dict] = {}
         for model in self.settings.chat_models:
+            if model in self.settings.trusted_free_models:
+                # Generation cloud on a Bossman provider (free on the owner's plan): the catalog shows list prices and
+                # no ':free' id, so the gate is the bcc.db 0/0 check at load plus the usage.cost > 0 guard on every reply.
+                if self._payment_blocked(model):
+                    rejected[model] = PAYMENT_REQUIRED
+                    continue
+                endpoints[model] = ModelEndpoint(
+                    id=model, provider=self.settings.provider_base_url,
+                    capabilities=frozenset({"chat"}), local=False, available=True,
+                    zero_cost=True, paid=False)
+                continue
             listed = any(row.get("id") == model for row in rows)
             # Owner rule: remote Jeff answers only via a model whose LIVE catalog price is
             # 0/0; the ':free' id is required on top, so a renamed paid model never gets in.
@@ -1350,6 +1363,20 @@ class ParticipantRuntime:
             self._payment_blocked_until.pop(model, None)
             return False
         return bool(until)
+
+    def _guard_zero_cost(self, model: str, result: object) -> None:
+        """Generation cloud on a trusted-free provider: a reply that reports usage.cost > 0 was NOT free. Discard it, close
+        the route (violation file read by config + the resource governor) and let the 402 path block the model."""
+        if model not in self.settings.trusted_free_models:
+            return
+        usage = (getattr(result, "provider_meta", None) or {}).get("usage") or {}
+        cost = usage.get("cost") if isinstance(usage, dict) else None
+        if isinstance(cost, (int, float)) and not isinstance(cost, bool) and cost > 0:
+            from .config import note_generation_cloud_violation, pit_home
+            note_generation_cloud_violation(pit_home(self.settings.data_dir), model, cost)
+            err = CompanionError("провайдер требует оплату (402): платный ответ в бесплатном облачном режиме")
+            err.status_code = 402
+            raise err
 
     def _block_for_payment(self, model: str) -> None:
         self._payment_blocked_until[model] = time.monotonic() + PAYMENT_BLOCK_SECONDS
@@ -2932,6 +2959,12 @@ class ParticipantRuntime:
                           attachment: dict | None = None,
                           attachment_fallback: str = "") -> str:
         from .j2 import TurnContext
+        if self.settings.generation_cloud:
+            # Resource-governor generation mode: free cloud answers only while the governor's heartbeat is fresh. A dead
+            # governor must not leave participant chats on a cloud provider, and the local model must stay unloaded.
+            from .config import generation_cloud_fresh, pit_home
+            if not generation_cloud_fresh(pit_home(self.settings.data_dir)):
+                return GENERATION_CLOUD_ENDED_RU
         if scan_crisis:
             # handle() already checked plain text and voice transcripts; this covers the other callers (live
             # calls) and costs one regex pass. A file's content is never scanned (scan_crisis=False).
@@ -2964,7 +2997,13 @@ class ParticipantRuntime:
         reply = await self._chat_route_core(person, person_key, text, consent, message_id=message_id,
                                             reply_to=reply_to, update_id=update_id, j2_ctx=ctx,
                                             session_history=session_history)
-        return self.guard_outgoing(await self.j2.post_reply(ctx, reply))
+        final = self.guard_outgoing(await self.j2.post_reply(ctx, reply))
+        if self.settings.generation_cloud and person_key not in self._cloud_marked:
+            # Owner-visible honesty: the first answer of this cloud session says the chat left the PC.
+            from .config import GENERATION_CLOUD_MARKER_RU
+            self._cloud_marked.add(person_key)
+            final = GENERATION_CLOUD_MARKER_RU + chr(10) + final
+        return final
 
     async def _chat_route_core(self, person: Person, person_key: str, text: str,
                                consent: ConsentState, message_id: str = "0",
@@ -3254,6 +3293,7 @@ class ParticipantRuntime:
                         result = await asyncio.wait_for(adapter.chat(
                             route_model, messages, max_tokens=limit,
                             timeout=call_timeout, **stream_kw), timeout=call_timeout)
+                        self._guard_zero_cost(route_model, result)
                     finish = str(getattr(result, "finish", "stop") or "stop").lower()
                     visible = result.text.strip()
                     incomplete = (finish in {"length", "max_tokens", "max_output_tokens"}
