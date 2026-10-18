@@ -3,7 +3,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const S = { csrf: '', agents: [], agentId: null, threadId: null, sending: false, task: null, es: null,
-    photoModels: [], photoJob: null, ref: null, panelLoaded: false, aspect: '1:1', side: 512 };
+    photoModels: [], photoJob: null, refs: [], panelLoaded: false, aspect: '1:1', side: 512 };
   const store = {
     get(k) { try { return localStorage.getItem('bm.' + k); } catch { return null; } },
     set(k, v) { try { if (v == null) localStorage.removeItem('bm.' + k); else localStorage.setItem('bm.' + k, String(v)); } catch { /* private mode */ } },
@@ -327,15 +327,36 @@
     if (m.uncensored_label) f.appendChild(el('span', 'badge-uc', 'без цензуры (по метке Bossman)'));
     f.appendChild(el('span', 'badge-local', 'на ПК'));
     if (m.license) f.appendChild(el('span', 'pill', m.license));
-    $('ref-block').hidden = !m.accepts_image; $('ref-label').textContent = m.requires_image ? 'Выбрать фото (обязательно)' : 'Выбрать из «Фото»';
+    $('ref-block').hidden = !m.accepts_image;
+    const cap = maxRefs(m);
+    if (cap && S.refs.length > cap) { S.refs.length = cap; S.refFirst = S.refs[0] && S.refs[0].data; toast(cap > 1 ? `Эта модель берёт до ${cap} фото — лишние убраны` : 'Эта модель берёт одно фото — оставлено @1'); }
+    S.refWH = S.refs.length ? S.refs[0].wh : null; renderRefs();
     const st = $('photo-steps'); st.min = m.min_steps || 1; st.max = m.max_steps || 50; st.value = m.default_steps || 20; setSteps(st.value);
     $('steps-range').textContent = `(от ${st.min} до ${st.max}, по умолчанию ${m.default_steps || 20})`;
     const base = Number((m.default_resolution || '512x512').split('x')[0]) || 512;
     const sides = [512, 768, 1024, 1280].filter((s) => s >= (m.min_side || 256) && s <= (m.max_side || 1536));
-    S.side = sides.includes(base) ? base : sides[0];
-    seg('photo-side', sides.map((s) => [s, `${s}`]), S.side, (v) => { S.side = v; showTime(); });
-    seg('photo-aspect', [['1:1', '1:1'], ['3:4', '3:4'], ['4:3', '4:3'], ['9:16', '9:16'], ['16:9', '16:9']], S.aspect, (v) => { S.aspect = v; showTime(); });
+    S.side = sides.includes(base) ? base : sides[0]; S.sides = sides;
+    if (S.aspect === 'ref' && !(S.refWH && m.accepts_image)) S.aspect = '1:1';
+    if (S.refWH && m.accepts_image) { S.aspect = 'ref'; S.side = sideFor(sides, S.refWH); }
+    photoSegs();
+  }
+  /* owner 17.10: a reference picks format + size by itself — the exact aspect of the photo and the
+     largest allowed long side that does not upscale it (the user can still tap another one). */
+  const PHOTO_ASPECTS = [['1:1', '1:1'], ['3:4', '3:4'], ['4:3', '4:3'], ['9:16', '9:16'], ['16:9', '16:9']];
+  function sideFor(sides, wh) { const long = Math.max(wh.w, wh.h); const ok = sides.filter((s) => s <= long); return ok.length ? ok[ok.length - 1] : sides[0]; }
+  const refLabel = (wh) => `как у фото ${wh.w}×${wh.h}`;
+  function aspectOf(cur, wh) { return cur === 'ref' && wh ? [wh.w, wh.h] : (cur === 'ref' ? [1, 1] : cur.split(':').map(Number)); }
+  function photoSegs() {
+    seg('photo-side', S.sides.map((s) => [s, `${s}`]), S.side, (v) => { S.side = v; showTime(); });
+    seg('photo-aspect', (S.refWH ? [['ref', refLabel(S.refWH)]] : []).concat(PHOTO_ASPECTS), S.aspect, (v) => { S.aspect = v; showTime(); });
     showTime();
+  }
+  function imageSize(file) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file); const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve({ w: img.naturalWidth, h: img.naturalHeight }); };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); }; img.src = url;
+    });
   }
   /* ---- steps + approximate generation time (model: load + steps x s/step x pixels/512^2, see bossmobile/timing.py) ---- */
   function fmtDur(sec) {
@@ -380,7 +401,7 @@
     opts.forEach(([v, label]) => { const b = el('button', v === cur ? 'on' : '', label); b.type = 'button'; b.setAttribute('role', 'radio'); b.addEventListener('click', () => { tap(); box.querySelectorAll('button').forEach((x) => x.classList.remove('on')); b.classList.add('on'); onPick(v); }); box.appendChild(b); });
   }
   function resolution(m) {
-    const [a, c] = S.aspect.split(':').map(Number); const k = m.side_multiple || 16; const max = m.max_side || 1536; const min = m.min_side || 256;
+    const [a, c] = aspectOf(S.aspect, S.refWH); const k = m.side_multiple || 16; const max = m.max_side || 1536; const min = m.min_side || 256;
     let w = S.side; let h = S.side;
     if (a > c) h = S.side * c / a; else if (c > a) w = S.side * a / c;
     const r = (v) => Math.min(max, Math.max(min, Math.round(v / k) * k));
@@ -390,12 +411,112 @@
   $('photo-steps').addEventListener('input', () => setSteps($('photo-steps').value));
   $('steps-minus').addEventListener('click', () => { tap(); setSteps(Number($('photo-steps').value) - 1); });
   $('steps-plus').addEventListener('click', () => { tap(); setSteps(Number($('photo-steps').value) + 1); });
+  /* ---- @-references, Higgsfield-style (owner 17.10): every attached photo is @1, @2, @3 (+ an optional
+     name like @лицо); «лицо с @1, одежда с @2». Bossman rewrites the tags into the model's own words
+     (Qwen Edit 2509: «Picture 1», Qwen 2.1: «<image1>»), photo order = number order. Unknown tag: refused here.
+     Same grammar as bcc/direct_gen/ref_tags.py (no lookbehind: older iOS Safari cannot parse it). ---- */
+  const TAG_RE = /@@|(^|[^0-9A-Za-zА-Яа-яЁё_.@])@(\d{1,2}(?![0-9A-Za-zА-Яа-яЁё_])|[0-9A-Za-zА-Яа-яЁё_-]{1,24})/g;
+  const NAME_RE = /^[0-9A-Za-zА-Яа-яЁё_-]{1,24}$/;
+  const PARTIAL_RE = /(^|[^0-9A-Za-zА-Яа-яЁё_.@])@([0-9A-Za-zА-Яа-яЁё_-]{0,24})$/;
+  const maxRefs = (m) => (m ? (m.max_refs || (m.accepts_image ? 1 : 0)) : 0);
+  function tagIndex(tag, refs) {
+    if (/^\d+$/.test(tag)) { const n = Number(tag); return n >= 1 && n <= refs.length ? n : 0; }
+    const low = tag.toLowerCase(); return refs.findIndex((r) => r.name && r.name.toLowerCase() === low) + 1;
+  }
+  function checkTags(text, refs) {
+    const bad = [];
+    for (const m of text.matchAll(TAG_RE)) if (m[2] && !tagIndex(m[2], refs) && !bad.includes('@' + m[2])) bad.push('@' + m[2]);
+    if (!bad.length) return '';
+    const can = refs.map((r, i) => `@${i + 1}` + (r.name ? ` (@${r.name})` : '')).join(', ') || 'нет прикреплённых фото';
+    return `Нет такой отсылки: ${bad.join(', ')}. Можно: ${can}. Знак @ как текст: @@`;
+  }
+  const retag = (text, fn) => text.replace(TAG_RE, (all, pre, tag) => { if (tag == null) return all; const n = fn(tag); return n == null ? all : `${pre}@${n}`; });
+  function insertAt(area, start, end, text) { area.value = area.value.slice(0, start) + text + area.value.slice(end); const c = start + text.length; area.focus(); area.setSelectionRange(c, c); }
+  function tagSuggest(area, box, getRefs) {
+    const show = () => {
+      const refs = getRefs(); const pos = area.selectionStart == null ? area.value.length : area.selectionStart;
+      const m = PARTIAL_RE.exec(area.value.slice(0, pos)); box.replaceChildren();
+      if (!m || !refs.length) { box.hidden = true; return; }
+      const q = m[2].toLowerCase();
+      refs.forEach((r, i) => {
+        const byName = !!(q && r.name && r.name.toLowerCase().startsWith(q) && !/^\d/.test(q));
+        if (q && !byName && !String(i + 1).startsWith(q)) return;
+        const b = el('button', 'tag-chip'); b.type = 'button'; b.setAttribute('role', 'option');
+        if (r.thumb) { const im = el('img'); im.src = r.thumb; im.alt = ''; b.appendChild(im); }
+        b.appendChild(el('span', '', `@${i + 1}` + (r.name ? ` · @${r.name}` : '')));
+        b.addEventListener('pointerdown', (e) => e.preventDefault());      // keep the keyboard open
+        b.addEventListener('click', () => { tap(); insertAt(area, pos - m[2].length - 1, pos, `@${byName ? r.name : i + 1} `); box.hidden = true; });
+        box.appendChild(b);
+      });
+      box.hidden = !box.children.length;
+    };
+    area.addEventListener('input', show); area.addEventListener('click', show);
+    area.addEventListener('keyup', (e) => { if (String(e.key).startsWith('Arrow')) show(); });
+    area.addEventListener('blur', () => setTimeout(() => { box.hidden = true; }, 200));
+    return show;
+  }
+  tagSuggest($('photo-prompt'), $('photo-tags'), () => S.refs.map((r) => ({ thumb: r.data, name: r.name })));
+  function renderRefs() {
+    const row = $('refs-row'); row.querySelectorAll('.ref-thumb').forEach((n) => n.remove());
+    const m = curModel(); const cap = maxRefs(m);
+    S.refs.forEach((r, i) => {
+      const t = el('span', 'ref-thumb'); const im = el('img', 'ref-preview'); im.src = r.data; im.alt = `фото @${i + 1}`;
+      im.addEventListener('click', () => {
+        tap(); const a = $('photo-prompt'); const p = a.selectionStart == null ? a.value.length : a.selectionStart;
+        insertAt(a, p, p, `${p && !/\s$/.test(a.value.slice(0, p)) ? ' ' : ''}@${r.name || i + 1} `);
+      });
+      const tag = el('button', 'ref-tag', r.name ? `@${i + 1}·${r.name}` : `@${i + 1}`); tag.type = 'button';
+      tag.setAttribute('aria-label', `Имя для @${i + 1}`); tag.addEventListener('click', () => renameRef(i));
+      const x = el('button', 'ref-x'); x.type = 'button'; x.setAttribute('aria-label', `Убрать @${i + 1}`); x.appendChild(icon('close'));
+      x.addEventListener('click', () => { tap(); removeRef(i); });
+      t.append(im, tag, x); row.appendChild(t);
+    });
+    $('ref-add').hidden = cap > 1 && S.refs.length >= cap;
+    $('ref-label').textContent = S.refs.length ? (cap > 1 ? 'Ещё фото' : 'Заменить') : (m && m.requires_image ? 'Выбрать фото (обязательно)' : 'Выбрать из «Фото»');
+    $('ref-title').textContent = cap > 1 ? `Фото-референсы: до ${cap} (${S.refs.length}/${cap})` : 'Фото-референс';
+    $('ref-hint').textContent = cap > 1
+      ? 'В промпте ссылайтесь на фото: «лицо с @1, одежда с @2, фон с @3». Нажмите на фото — тег вставится; на тег — дать имя (@лицо). Формат и размер берутся с @1.'
+      : 'Эта модель берёт одно фото; в промпте оно — @1.';
+  }
+  function refsChanged() {
+    const first = S.refs.length ? S.refs[0] : null; const m = curModel();
+    S.refWH = first ? first.wh : null;
+    if ((first && first.data) !== S.refFirst) {        // the auto format/size follows @1 only
+      S.refFirst = first && first.data;
+      if (S.refWH && m && m.accepts_image) { S.aspect = 'ref'; S.side = sideFor(S.sides, S.refWH); } else if (S.aspect === 'ref') S.aspect = '1:1';
+      photoSegs();
+    }
+    renderRefs();
+  }
+  function removeRef(i) {
+    const gone = S.refs[i]; S.refs.splice(i, 1); const a = $('photo-prompt'); const n0 = i + 1;
+    a.value = retag(a.value, (t) => {
+      if (/^\d+$/.test(t)) { const n = Number(t); return n === n0 ? 'убрано' : (n > n0 ? String(n - 1) : null); }
+      return gone.name && t.toLowerCase() === gone.name.toLowerCase() ? 'убрано' : null;
+    });
+    if (/(^|[^0-9A-Za-zА-Яа-яЁё_.@])@убрано/.test(a.value)) toast('Фото убрано: отсылки к нему в промпте стали @убрано — поправьте; номера дальше сдвинуты');
+    refsChanged();
+  }
+  function renameRef(i) {
+    tap(); const r = S.refs[i];
+    const v = window.prompt(`Имя для @${i + 1}, например «лицо» (буквы, цифры, _ и -). Пусто — без имени.`, r.name || ''); if (v == null) return;
+    const name = v.trim().replace(/^@/, '');
+    if (name && (!NAME_RE.test(name) || /^\d+$/.test(name))) { toast('Имя: буквы, цифры, _ и -, до 24 знаков, не одни цифры'); return; }
+    if (name && S.refs.some((x, j) => j !== i && x.name && x.name.toLowerCase() === name.toLowerCase())) { toast(`Имя @${name} уже занято`); return; }
+    const old = r.name; r.name = name;
+    if (old && old !== name) { const a = $('photo-prompt'); a.value = retag(a.value, (t) => (t.toLowerCase() === old.toLowerCase() ? (name || String(i + 1)) : null)); }
+    renderRefs();
+  }
   $('photo-ref').addEventListener('change', async () => {
-    const f = $('photo-ref').files[0]; if (!f) return;
-    try { S.ref = await downscale(f, 1536); $('ref-preview').src = S.ref; $('ref-preview').hidden = false; $('ref-clear').hidden = false; }
-    catch { toast('не удалось прочитать фото'); }
+    const files = Array.from($('photo-ref').files || []); $('photo-ref').value = ''; if (!files.length) return;
+    const cap = Math.max(1, maxRefs(curModel()));
+    if (cap === 1) S.refs = [];
+    for (const f of files) {
+      if (S.refs.length >= cap) { toast(cap > 1 ? `Эта модель берёт не больше ${cap} фото` : 'Эта модель берёт одно фото'); break; }
+      try { S.refs.push({ data: await downscale(f, 1536), wh: await imageSize(f), name: '' }); } catch { toast('не удалось прочитать фото'); }
+    }
+    refsChanged();
   });
-  $('ref-clear').addEventListener('click', () => { S.ref = null; $('photo-ref').value = ''; $('ref-preview').hidden = true; $('ref-clear').hidden = true; });
   function downscale(file, max) {
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file); const img = new Image();
@@ -405,12 +526,15 @@
   }
   $('photo-form').addEventListener('submit', async (e) => {
     e.preventDefault(); tap(); const m = curModel(); if (!m) return;
-    if (m.requires_image && !S.ref) { toast('Этой модели нужно фото-референс'); return; }
+    if (m.requires_image && !S.refs.length) { toast('Этой модели нужно фото-референс'); return; }
     const seed = $('photo-seed').value.trim();
     const body = { model: m.id, prompt: $('photo-prompt').value.trim(), negative: $('photo-negative').value.trim(), resolution: resolution(m), steps: Number($('photo-steps').value) };
     if (seed) body.seed = Number(seed);
-    if (S.ref && m.accepts_image) body.image_b64 = S.ref;
     if (!body.prompt) return;
+    const refs = m.accepts_image ? S.refs.slice(0, maxRefs(m)) : [];
+    const why = m.accepts_image ? checkTags(body.prompt, refs) : ''; if (why) { toast(why); return; }
+    if (refs.length === 1) body.image_b64 = refs[0].data; else if (refs.length) body.images_b64 = refs.map((r) => r.data);
+    if (refs.some((r) => r.name)) body.ref_names = refs.map((r) => r.name || '');
     $('photo-go').disabled = true;
     try {
       const job = await api('POST', '/photo/jobs', body);
@@ -597,7 +721,7 @@
     $('video-reason').hidden = m.ready; $('video-reason').textContent = m.ready ? '' : m.reason;
     $('video-notes').hidden = !m.notes; $('video-notes').textContent = m.notes || '';
     $('vimg-block').hidden = !m.accepts_image;
-    $('vimg-title').textContent = m.requires_image ? 'Стартовая картинка (обязательно)' : 'Стартовая картинка (необязательно — без неё видео строится по тексту)';
+    $('vimg-title').textContent = (m.requires_image ? 'Стартовая картинка (обязательно)' : 'Стартовая картинка (необязательно — без неё видео строится по тексту)') + ' · одна, в промпте это @1';
     $('vaud-block').hidden = !m.accepts_audio;
     if (!m.accepts_image) clearVImage(); if (!m.accepts_audio) clearVAudio();
     const d = $('video-dur'); d.min = 1; d.max = Math.max(1, Math.floor(m.max_seconds));
@@ -606,9 +730,9 @@
     const [dw, dh] = String(m.default_resolution).split('x').map(Number); const dl = Math.max(dw, dh);
     V.aspect = m.default_aspect || '16:9';
     const sides = LONG_SIDES.filter((s) => s <= m.max_side && s >= m.min_side);
-    V.side = sides.includes(dl) ? dl : (sides.find((s) => s >= dl) || sides[sides.length - 1]);
-    seg('video-aspect', ASPECTS, V.aspect, (v) => { V.aspect = v; vTime(); });
-    seg('video-side', sides.map((s) => [s, `${s}`]), V.side, (v) => { V.side = v; vTime(); });
+    V.side = sides.includes(dl) ? dl : (sides.find((s) => s >= dl) || sides[sides.length - 1]); V.sides = sides;
+    if (V.image && V.refWH) { V.aspect = 'ref'; V.side = sideFor(sides, V.refWH); }
+    videoSegs();
     const st = $('video-steps');
     if (m.steps) {
       $('vsteps-block').hidden = false; $('vsteps-fixed').hidden = true;
@@ -621,7 +745,7 @@
     setVDur(d.value);
   }
   function vResolution(m) {
-    const [a, c] = V.aspect.split(':').map(Number); const k = m.side_multiple || 16;
+    const [a, c] = aspectOf(V.aspect, V.refWH); const k = m.side_multiple || 16;
     let w = V.side; let h = V.side; if (a > c) h = V.side * c / a; else if (c > a) w = V.side * a / c;
     const r = (v) => Math.min(m.max_side, Math.max(m.min_side, Math.round(v / k) * k));
     return [r(w), r(h)];
@@ -673,7 +797,13 @@
     const m = curV(); const b = $('video-go'); if (!m) { b.disabled = true; return; }
     b.disabled = V.busy || !m.ready || (m.requires_image && !V.image) || (m.requires_audio && !V.audio);
   }
-  function clearVImage() { V.image = null; $('video-image').value = ''; $('vimg-preview').hidden = true; $('vimg-clear').hidden = true; $('vimg-label').textContent = 'Выбрать из «Фото»'; }
+  function videoSegs() {
+    seg('video-aspect', (V.refWH ? [['ref', refLabel(V.refWH)]] : []).concat(ASPECTS), V.aspect, (v) => { V.aspect = v; vTime(); });
+    seg('video-side', V.sides.map((s) => [s, `${s}`]), V.side, (v) => { V.side = v; vTime(); });
+  }
+  function clearVImage() {
+    V.refWH = null; if (V.aspect === 'ref') { const m = curV(); V.aspect = (m && m.default_aspect) || '16:9'; if (V.sides) videoSegs(); }
+    V.image = null; V.imageURL = null; $('video-image').value = ''; $('vimg-thumb').hidden = true; $('vimg-clear').hidden = true; $('vimg-label').textContent = 'Выбрать из «Фото»'; }
   function clearVAudio() { V.audio = null; V.audioDur = null; $('video-audio').value = ''; $('vaud-clear').hidden = true; $('vaud-label').textContent = 'Выбрать аудио'; }
   $('video-model').addEventListener('change', onVModel);
   $('video-dur').addEventListener('input', () => setVDur($('video-dur').value));
@@ -684,11 +814,14 @@
   $('vsteps-plus').addEventListener('click', () => { tap(); setVSteps(Number($('video-steps').value) + 1); });
   $('video-image').addEventListener('change', async () => {
     const f = $('video-image').files[0]; if (!f) return; const m = curV();
-    try { V.image = await toBlob(f, Math.min(1536, (m && m.max_side) || 1280)); $('vimg-preview').src = URL.createObjectURL(V.image); $('vimg-preview').hidden = false; $('vimg-clear').hidden = false; $('vimg-label').textContent = 'Заменить'; }
-    catch { toast('не удалось прочитать картинку'); }
+    try { V.image = await toBlob(f, Math.min(1536, (m && m.max_side) || 1280)); V.imageURL = URL.createObjectURL(V.image); $('vimg-preview').src = V.imageURL; $('vimg-thumb').hidden = false; $('vimg-clear').hidden = false; $('vimg-label').textContent = 'Заменить'; }
+    catch { toast('не удалось прочитать картинку'); vGo(); return; }
+    V.refWH = await imageSize(f);
+    if (V.refWH && V.sides) { V.aspect = 'ref'; V.side = sideFor(V.sides, V.refWH); videoSegs(); vTime(); }
     vGo();
   });
   $('vimg-clear').addEventListener('click', () => { clearVImage(); vGo(); });
+  tagSuggest($('video-prompt'), $('video-tags'), () => (V.image && (curV() || {}).accepts_image ? [{ thumb: V.imageURL, name: '' }] : []));
   $('video-audio').addEventListener('change', async () => {
     const f = $('video-audio').files[0]; if (!f) return;
     if (f.size > 32 * 1048576) { toast('Звук больше 32 МБ — Bossman его не примет'); clearVAudio(); return; }
@@ -707,6 +840,7 @@
     e.preventDefault(); tap(); const m = curV(); if (!m || V.busy) return;
     const prompt = $('video-prompt').value.trim(); if (!prompt) { toast('Напишите промпт'); return; }
     if (!m.ready) { toast(m.reason); return; }
+    if (m.accepts_image) { const why = checkTags(prompt, V.image ? [{ name: '' }] : []); if (why) { toast(why); return; } }
     const s = vSettings(m); const fd = new FormData();
     fd.append('model', m.id); fd.append('prompt', prompt); fd.append('negative', $('video-negative').value.trim());
     fd.append('duration', String(s.sec)); fd.append('resolution', `${s.w}x${s.h}`);

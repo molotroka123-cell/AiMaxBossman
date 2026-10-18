@@ -4,6 +4,7 @@ No real generation is started anywhere here: Bossman is a MockTransport and the 
 import base64
 import json
 import pathlib
+import re
 from datetime import datetime, timezone
 
 import pytest
@@ -395,7 +396,7 @@ def test_ui_has_video_tab_form_queue_and_honest_labels():
     for s in ("/video/models", "/video/queue", "/video/jobs", "/video/swap", "openVideo()", "(оценка)", "≈ осталось",
               "Math.min(99", "o.disabled = !m.available", "framesFor", "X-BM-CSRF"):
         assert s in js, s
-    assert "bossman-shell-v4" in (UI / "sw.js").read_text(encoding="utf-8")
+    assert int(re.search(r"bossman-shell-v(\d+)", (UI / "sw.js").read_text(encoding="utf-8")).group(1)) >= 6
     css = (UI / "app.css").read_text(encoding="utf-8")
     assert "repeat(5, 1fr)" in css
 

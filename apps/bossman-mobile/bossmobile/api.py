@@ -31,7 +31,7 @@ from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
 from .policy import is_photo_model, local_agents, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
-from . import video, video_timing
+from . import reftags, video, video_timing
 from .timing import from_history, queue_view, step_range, timing_for
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -71,6 +71,9 @@ class DecideIn(BaseModel):
     approve: bool
 
 
+MAX_REFS = 6  # API ceiling; each model states its own (max_refs), the editors take 3
+
+
 class PhotoIn(BaseModel):
     model: str = Field(min_length=1, max_length=80)
     prompt: str = Field(min_length=1, max_length=8000)
@@ -79,6 +82,9 @@ class PhotoIn(BaseModel):
     seed: int | None = Field(default=None, ge=0, lt=2**63)
     steps: int | None = Field(default=None, ge=1, le=200)
     image_b64: str | None = Field(default=None, max_length=48 * 1024 * 1024)
+    # several reference photos, @1 first; ref_names = optional @names per position ("" = none)
+    images_b64: list[str] | None = Field(default=None, max_length=MAX_REFS)
+    ref_names: list[str] | None = Field(default=None, max_length=MAX_REFS)
 
 
 def _client_key(request: Request) -> str:
@@ -200,7 +206,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                 if not is_photo_model(m):
                     continue
                 out.append({k: m.get(k) for k in ("id", "label", "kind", "family", "modes", "available", "reason",
-                                                  "requires_image", "accepts_image", "default_steps", "max_steps",
+                                                  "requires_image", "accepts_image", "max_refs", "ref_label", "default_steps", "max_steps",
                                                   "default_resolution", "min_side", "max_side", "side_multiple",
                                                   "license", "notes")} | {"uncensored_label": uncensored_label(m.get("label")), **step_range(m),
                                                                    "timing": timing_for(str(m.get("id")), hist)})
@@ -475,6 +481,17 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             hist = {}
         return {"jobs": [job_view(j) | {"ui": j["ui"]} for j in queue_view(jobs, hist)]}
 
+    def check_tags(prompt: str, count: int, names: list[str] | None, accepts: bool) -> tuple[str, ...]:
+        """@1/@name must point at an attached photo; refused here, in Russian, before anything leaves the phone."""
+        if not accepts:
+            return ()
+        try:
+            clean = reftags.clean_names(names, count)
+            reftags.rewrite(prompt, reftags.RefTags(count, clean), "{n}")
+        except reftags.RefTagError as exc:
+            raise fail(422, str(exc), "BM_UNKNOWN_REF") from None
+        return clean
+
     def _jid(job_id: str) -> str:
         if not JOB_ID.match(job_id):
             raise fail(404, "задача генерации не найдена")
@@ -489,11 +506,27 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         top = int(spec.get("max_steps") or 0)
         if body.steps is not None and top and not 1 <= body.steps <= top:
             raise fail(422, f"для этой модели шагов может быть от 1 до {top}", "BM_BAD_STEPS")
+        images = list(body.images_b64 or []) or ([body.image_b64] if body.image_b64 else [])
+        if body.images_b64 and body.image_b64:
+            raise fail(422, "фото: либо одно image_b64, либо список images_b64", "BM_BAD_IMAGE")
+        if any(not isinstance(i, str) or not i or len(i) > 48 * 1024 * 1024 for i in images):
+            raise fail(422, "фото-референс пустой или больше 36 МБ", "BM_BAD_IMAGE")
+        cap = int(spec.get("max_refs") or (1 if spec.get("accepts_image") else 0))
+        if len(images) > cap:
+            raise fail(422, f"«{spec.get('label')}» берёт не больше {cap} фото-референс(а), выбрано {len(images)}"
+                       if cap else f"«{spec.get('label')}» не принимает фото", "BM_TOO_MANY_REFS")
+        names = check_tags(body.prompt, len(images), body.ref_names, bool(spec.get("accepts_image")))
         payload: dict[str, Any] = {"model": body.model, "prompt": body.prompt, "negative": body.negative, "mode": "DIRECT"}
-        for k in ("resolution", "seed", "steps", "image_b64"):
+        for k in ("resolution", "seed", "steps"):
             v = getattr(body, k)
             if v is not None:
                 payload[k] = v
+        if len(images) == 1:
+            payload["image_b64"] = images[0]           # one photo: the long-standing field
+        elif images:
+            payload["images_b64"] = images
+        if any(names):
+            payload["ref_names"] = list(names)
         return job_view(await call("POST", "/api/direct-gen/jobs", json=payload, timeout=120))
 
     @app.get("/m/api/photo/jobs/{job_id}")
@@ -612,6 +645,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         audio = await read_upload(form.get("audio"), video.MAX_INPUT, "звук")
         if image is not None and video.image_kind(image) is None:
             raise fail(422, "картинка должна быть PNG или JPEG", "BM_BAD_IMAGE")
+        check_tags(prompt, 1 if image is not None else 0, None, bool(spec.get("accepts_image")))
         why = video.check_job(spec, resolution=resolution, duration=duration if duration is not None else 1.0,
                               steps=steps, has_image=image is not None, has_audio=audio is not None)
         if why:
