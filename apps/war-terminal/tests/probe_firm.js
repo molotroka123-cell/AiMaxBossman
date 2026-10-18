@@ -1,0 +1,33 @@
+"use strict";
+/* Runs the real i18n.js + firm.js in a bare VM (no DOM) and prints JSON for tests/test_firm.py. Input (stdin JSON): {numbers:[...], firm:{...}} */
+const fs = require("fs"), vm = require("vm"), path = require("path");
+const ui = path.join(__dirname, "..", "warterminal", "ui");
+const input = JSON.parse(fs.readFileSync(0, "utf8") || "{}");
+const ctx = vm.createContext({ TextEncoder, btoa, console, fmtN: (n) => String(n) });
+const probe = `
+const out = {};
+out.ico = ${JSON.stringify(input.numbers || [])}.map((n) => firmIcoOk(n));
+out.regBadCz = firmCheckField("reg_no", "45274640", { country: "CZ" });
+out.regOkCz = firmCheckField("reg_no", "45274649", { country: "CZ" });
+out.regShortCz = firmCheckField("reg_no", "1234", { country: "CZ" });
+out.regDe = firmCheckField("reg_no", "HRB 12345", { country: "DE" });
+out.dicBad = firmCheckField("vat_no", "CZ45274640", { country: "CZ" });
+out.dicOk = firmCheckField("vat_no", "CZ45274649", { country: "CZ" });
+out.nameShort = firmCheckField("legal_name", "A", {});
+out.cpvBad = firmCheckField("cpv_extra", "12, abc", {});
+out.numNeg = firmCheckField("turnover_eur", "-1", {});
+out.staffFrac = firmCheckField("staff", "1.5", {});
+FIRM.data = null;
+out.headerNoFirm = firmHeaders("/tenders?limit=1");
+FIRM.data = ${JSON.stringify(input.firm || null)};
+out.headerTenders = firmHeaders("/tenders?limit=1");
+out.headerAssess = firmHeaders("/assessments");
+out.headerFinance = firmHeaders("/finance/estimate");
+out.headerTranslate = firmHeaders("/translate");
+out.headerLookup = firmHeaders("/translate/lookup");
+out.headerAi = firmHeaders("/ai/classify");
+out.headerSources = firmHeaders("/sources/status");
+out.headerSanctions = firmHeaders("/sanctions/fetch");
+console.log(JSON.stringify(out));
+`;
+vm.runInContext([fs.readFileSync(path.join(ui, "i18n.js"), "utf8"), fs.readFileSync(path.join(ui, "firm.js"), "utf8"), probe].join("\n"), ctx);

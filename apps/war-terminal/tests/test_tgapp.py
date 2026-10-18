@@ -22,7 +22,7 @@ ROLE_TOK = {r: f"role-token-{r}-{'q' * 24}" for r in TOK}    # long, unique: a l
 
 
 def defence_fixtures(retrieved_at: str, today: date) -> list[dict]:
-    """Synthetic Czech defence/security tenders (demo=True, clearly marked TEST)."""
+    """Test-only Czech defence/security tenders with provenance fields, written into a temp DB (titles are marked TEST)."""
     rows = [
         ("TGT-001", "Dodávka balistických vest pro Policii ČR (TEST)", ["35113400"], 4800000, "CZK", 9, "Policejní prezidium ČR"),
         ("TGT-002", "Munice 9 mm Luger pro výcvik (TEST)", ["35330000"], 12500000, "CZK", 26, "Ministerstvo obrany ČR"),
@@ -36,8 +36,8 @@ def defence_fixtures(retrieved_at: str, today: date) -> list[dict]:
         out.append({"id": f"test:{nid}", "official_notice_id": nid, "title": title, "jurisdiction": "CZ", "country": "CZ", "category": "security_defence",
                     "status": "open" if days >= 0 else "closed", "deadline": f"{(today + timedelta(days=days)).isoformat()}T10:00:00Z",
                     "estimated_value": val, "currency": cur, "source_url": f"https://nen.nipez.cz/verejne-zakazky/detail-zakazky/{nid}",
-                    "source_id": "test", "retrieved_at": retrieved_at, "published_at": today.isoformat(), "source_version": "test", "checksum": nid,
-                    "data_quality": "synthetic", "buyer": buyer, "cpv": cpv, "demo": True})
+                    "source_id": "cz_nen", "retrieved_at": retrieved_at, "published_at": today.isoformat(), "source_version": "test", "checksum": nid,
+                    "data_quality": "ok", "buyer": buyer, "cpv": cpv})
     return out
 
 
@@ -207,7 +207,7 @@ def test_session_expires(tg, monkeypatch):
                                          ("DELETE", "tenders/CZ:TGT-001"), ("POST", "tenders"), ("GET", "../v1/approvals")])
 def test_everything_outside_whitelist_is_403(tg, method, path):
     tg.auth()
-    r = tg._log(tg.c.request(method, "/tg/api/" + path, headers={"X-TG-CSRF": tg.csrf}, json={"source": "demo"}))
+    r = tg._log(tg.c.request(method, "/tg/api/" + path, headers={"X-TG-CSRF": tg.csrf}, json={"source": "ted"}))
     assert r.status_code in (403, 404), (path, r.status_code)
     assert r.status_code == 403 or path.startswith("..")
     assert tg.store.list_approvals() == []

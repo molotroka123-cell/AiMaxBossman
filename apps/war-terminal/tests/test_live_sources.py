@@ -91,7 +91,7 @@ def test_conflicts_fetch_gives_a_real_sourced_layer(tmp_path):
     e = env_live(tmp_path)
     r = e.req("POST", "/conflicts/fetch", "compliance", json={}).json()
     assert r == {"year": 2024, "countries": 2, "events": 3, "acd_conflicts": 2}
-    c = e.req("GET", "/conflicts?include_demo=false", "viewer").json()
+    c = e.req("GET", "/conflicts", "viewer").json()
     assert c["status"] == "OK" and c["real_count"] == 2 and all(not i["demo"] and i["source_url"].startswith("https://ucdp") for i in c["items"])
     assert c["acd"]["year"] == 2024 and len(c["acd"]["items"]) == 2
     rows = {s["id"]: s for s in e.req("GET", "/sources/status", "viewer").json()["sources"]}

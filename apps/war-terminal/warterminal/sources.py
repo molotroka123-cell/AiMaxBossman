@@ -49,12 +49,17 @@ REGISTRY = [
 ]
 
 
-def status_for(entry: dict, *, live_enabled: bool, last: dict | None, has_key: bool = False, demo_present: bool = False, now: datetime | None = None) -> dict:
+def status_for(entry: dict, *, live_enabled: bool, last: dict | None, has_key: bool = False, error: dict | None = None, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     out = dict(entry)
-    if entry["id"] == "demo":
-        out["status"] = "DEMO"
-    elif not entry["adapter"]:
+    if error and (not last or error["at"] > last["at"]):
+        out["status"] = "ERROR"                                   # the newest attempt failed: say so instead of showing old data as current
+        out["reason"] = error["message"]
+        out["error_at"] = error["at"]
+        if last:
+            out["last_success"], out["last_count"] = last["at"], last.get("count")
+        return out
+    if not entry["adapter"]:
         out["status"] = "NOT_CONNECTED"
         out["reason"] = "адаптер не реализован: " + entry.get("note", "")
     elif entry["id"] == "sam" and not has_key:
@@ -62,7 +67,7 @@ def status_for(entry: dict, *, live_enabled: bool, last: dict | None, has_key: b
         out["reason"] = "нужен бесплатный API-ключ SAM.gov"
     elif not live_enabled:
         out["status"] = "DISABLED"
-        out["reason"] = "WAR_TERMINAL_LIVE=false (по умолчанию)"
+        out["reason"] = "внешние источники выключены переменной WAR_TERMINAL_LIVE=0 (аварийный выключатель сети)"
     elif not last:
         out["status"] = "NOT_RUN"
         out["reason"] = "ещё ни одного успешного запроса"

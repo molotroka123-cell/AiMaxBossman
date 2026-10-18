@@ -7,7 +7,7 @@ default_port: 8830
 description: >
   Bloomberg-style terminal: public procurement (EU TED live, SAM.gov/USAspending adapters), conflict context, deterministic legal gates,
   explainable feasibility for a future company, finance model, learning from owner decisions. Isolated app: Bossman influences it only
-  through the versioned API and the approval gate. DEMO data is always marked. No autonomous bid submission, counterparty contact or
+  through the versioned API and the approval gate. Real data only: no demo mode; records without source link and fetch time are archived and never shown. No autonomous bid submission, counterparty contact or
   purchase of controlled goods: those actions are not implemented and answer 403.
 
 control:
@@ -25,6 +25,7 @@ control:
     estimate_cashflow: POST /api/v1/finance/estimate
     draft_bid_checklist: GET /api/v1/tenders/{key}/checklist
     approvals: GET /api/v1/approvals
+    fx_report: GET /api/v1/fx/track/report
 
 entrypoints:
   standalone: true
@@ -33,7 +34,7 @@ entrypoints:
   autonomous: not_implemented
 
 permissions:
-  network.read.public_sources: ask        # only when WAR_TERMINAL_LIVE=true, owner starts it
+  network.read.public_sources: allow      # owner 18.10: live read-only reading of the supported public sources is the only mode
   company.profile.write: owner_approval
   learning.weights.apply: owner_approval
   deal.exceed_capital: owner_approval_and_legal_review

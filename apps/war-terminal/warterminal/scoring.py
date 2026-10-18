@@ -61,7 +61,13 @@ def components(tender: dict, profile: dict, suppliers: list[dict], outcomes: lis
     out["time"] = (None, "срок неизвестен") if left is None else ((1.0 if left >= 30 else 0.7 if left >= 14 else 0.4 if left >= 7 else 0.1), f"до срока {left} дн.")
 
     wins = [o for o in outcomes if o.get("result") == "won" and _prefix_match(o.get("cpv", []), [c[:4] for c in cpvs])]
-    out["experience"] = ((1.0 if len(wins) >= 3 else 0.6 if wins else 0.1), f"выигранных контрактов в этой категории: {len(wins)}")
+    refs = profile.get("references")                                    # entered by the owner in the firm popup; None = not entered
+    if refs is None and not wins:
+        out["experience"] = (None, "число сопоставимых референсов не введено")
+    else:
+        n = max(len(wins), refs or 0)
+        out["experience"] = ((1.0 if n >= 3 else 0.6 if n else 0.1),
+                             f"выигранных контрактов в этой категории: {len(wins)}" if refs is None else f"сопоставимых референсов: {refs}; выигранных в терминале: {len(wins)}")
 
     ctry = country2(tender.get("country")) or country2(tender.get("jurisdiction"))
     if not ctry:
@@ -92,6 +98,12 @@ def fit(tender: dict, profile: dict | None, suppliers: list[dict] | None = None,
     }
 
 
+def no_firm() -> dict:
+    """View-only mode: no firm data was entered, so fit is NOT computed (no assumed defaults)."""
+    return {"fit_score": None, "confidence": 0.0, "components": {}, "unknowns": list(WEIGHTS), "status": "NO_FIRM",
+            "disclaimer": "оценка реализуемости отключена: данные фирмы не введены (режим «только просмотр»)"}
+
+
 def tier(score: int) -> str:
     return "EASY" if score >= 75 else "MEDIUM" if score >= 50 else "HARD"
 
@@ -99,6 +111,8 @@ def tier(score: int) -> str:
 def classify(gate_overall: str, fit_result: dict) -> dict:
     """complexity: final class per spec. tier_if_cleared: provisional planning tier from the score, ALWAYS shown (never hidden),
     with low_confidence=True when too many inputs are unknown; low confidence also keeps the final class at REVIEW_REQUIRED."""
+    if fit_result["fit_score"] is None:                                  # view-only: gates still apply, no tier is guessed
+        return {"complexity": "BLOCKED" if gate_overall == "BLOCKED" else "REVIEW_REQUIRED", "tier_if_cleared": None, "low_confidence": True}
     t = tier(fit_result["fit_score"])
     low = fit_result["confidence"] < 0.4
     if gate_overall == "BLOCKED":

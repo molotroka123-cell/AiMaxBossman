@@ -3,7 +3,7 @@ import json
 import pathlib
 import re
 
-from conftest import Env, TODAY
+from conftest import Env, TEST_FIRM, TODAY
 from fixtures import ted_payload
 
 UI = pathlib.Path(__file__).resolve().parents[1] / "warterminal" / "ui"
@@ -47,7 +47,7 @@ def load_srv():
 
 
 def test_every_ui_string_goes_through_T_and_has_an_english_entry():
-    lits = js_literals((UI / "app.js").read_text(encoding="utf-8"))
+    lits = [x for f in ("app.js", "firm.js", "live.js") for x in js_literals((UI / f).read_text(encoding="utf-8"))]
     en = load_en()
     assert len(lits) > 300
     loose = [t for t, wrapped in lits if not wrapped]
@@ -100,7 +100,7 @@ def test_server_explanations_have_an_english_form(tmp_path):
     srv = [re.compile(a) for a, _ in load_srv()]
     e = Env(tmp_path)
     e.ingest_ted()
-    e.req("POST", "/ingest", "analyst", json={"source": "demo"})
+    e.seed()
     texts = set()
 
     def collect(a):
@@ -110,26 +110,19 @@ def test_server_explanations_have_an_english_form(tmp_path):
             texts.add(c["why"])
         texts.add(a["fit"]["disclaimer"])
 
-    def set_profile(changes):
-        r = e.req("PATCH", "/company/profile", "analyst", json={"changes": changes})
-        assert r.status_code == 200, r.text
-        assert e.req("POST", f"/approvals/{r.json()['approval_id']}/decide", "owner", json={"approve": True}).status_code == 200
-
-    def sweep():
-        for t in e.req("GET", "/tenders?limit=200", "viewer").json()["items"]:
-            d = e.req("GET", f"/tenders/{t['key']}", "viewer").json()
+    def sweep(firm=TEST_FIRM):
+        for t in e.req("GET", "/tenders?limit=200", "viewer", firm=firm).json()["items"]:
+            d = e.req("GET", f"/tenders/{t['key']}", "viewer", firm=firm).json()
             collect(d["assessment"])
-            cl = e.req("GET", f"/tenders/{t['key']}/checklist", "viewer").json()
+            cl = e.req("GET", f"/tenders/{t['key']}/checklist", "viewer", firm=firm).json()
             texts.update([cl["note"]] + [x for i in cl["items"] for x in (i["step"], i.get("why"), i.get("evidence")) if x])
 
-    sweep()                                                                                       # empty profile, no lists
-    set_profile({"country": "CZ", "registered": False})
-    sweep()                                                                                       # planned company
-    set_profile({"country": "US", "registered": True, "cpv_capabilities": ["09", "15"], "capital_limit_usd": 50000})
+    sweep(None)                                                                                   # view-only: no firm entered
+    sweep(dict(TEST_FIRM, cpv=[], references=None, turnover_eur=None, guarantee_eur=None))        # firm without capabilities / references: "no data" explanations
+    us_firm = dict(TEST_FIRM, country="US", reg_no="12-3456789", vat_no="", cpv=["09", "15"])
     assert e.req("PUT", "/fx", "analyst", json={"rates": {"CZKUSD": 0.043, "EURUSD": 1.1}, "as_of": "2026-10-16", "source": "manual entry"}).status_code == 200
     assert e.req("POST", "/sanctions/import", "compliance", json={"entries": ["Mesto Brno", "Mesto Brn"], "source": "fixture", "list_version": "t", "as_of": "2026-10-16"}).status_code == 200
-    sweep()                                                                                       # non-EU company, sanctions hit
-    set_profile({"country": "CZ", "registered": True, "cpv_capabilities": ["09", "15", "60"]})
+    sweep(us_firm)                                                                                # non-EU company, sanctions hit
     assert e.req("POST", "/suppliers", "analyst", json={"name": "Fuel Supplier sro", "country": "CZ", "cpv_prefixes": ["09"], "confirmed": True}).status_code == 200
     a = e.req("POST", "/assessments", "analyst", json={"tender_key": e.key("100001-2026"), "dry_run": False}).json()
     assert e.req("POST", f"/assessments/{a['id']}/review", "compliance", json={"gate_id": "documents", "decision": "cleared", "note": "documentation read"}).status_code == 200
