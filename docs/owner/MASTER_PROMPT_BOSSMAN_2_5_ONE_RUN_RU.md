@@ -21,6 +21,7 @@ SHA. Повторно не строй закрытые части. Исправ�
 
 1. Прочитай корневой и применимые вложенные `AGENTS.md`, затем:
    - `docs/owner/BOSSMAN_2_5_DESIGN_AND_OSS_RU.md`;
+   - `docs/owner/BOSSMAN_2_5_FIFTEEN_BRANCH_ARCHITECTURE_RU.md` (статус 15 направлений на `fb58317f`; не приёмка);
    - `docs/owner/CONTINUATION_20261018_RU.md`;
    - `docs/audits/2026-10-18-run-audit/README.md`;
    - `docs/v2.2-20261013/AGENT_ARCHITECTURE_RU.md`;
