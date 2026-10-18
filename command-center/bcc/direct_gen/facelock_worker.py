@@ -2,8 +2,8 @@
 
 Photo-edit models (Qwen-Image-Edit and friends) redraw the face and smear it. FaceLock takes the face from the
 REFERENCE, aligns it to the face the model drew with a similarity transform fitted on the 68 landmarks, pastes it
-through a convex-hull mask that is eroded a little and feathered, and matches colour (LAB mean/std) on the seam band
-only. Everything outside the hull stays what the model drew.
+through a convex-hull mask that is eroded a little and feathered, and relights it like the scene (one linear-light gain
+per channel from the median of the face core). Everything outside the hull stays what the model drew.
 
 Never guesses. It refuses (and says why) when: a face is missing in either picture, the face counts differ, there is
 more than one face, a detector/landmark score is low, the landmark shapes do not fit each other (another head pose),
@@ -29,11 +29,14 @@ MIN_LANDMARK_SCORE = 0.50
 MAX_RESIDUAL = 0.22             # landmark misfit after the similarity fit, in units of the inter-ocular distance
 SCALE_RANGE = (0.2, 5.0)        # reference face size / result face size
 MAX_ROTATION_DEG = 50.0
-FOREHEAD_LIFT = 0.18            # brows are lifted by this x (brow-to-chin) so the hull covers the brow ridge
+FOREHEAD_LIFT = 0.08            # brows are lifted by this x (brow-to-chin) so the hull covers the brow ridge
 ERODE = 0.055                   # hull erosion, x face width
 FEATHER = 0.030                 # gaussian sigma of the edge, x face width
-SEAM_BAND = 0.07                # colour statistics are read from this inner band, x face width
-GAIN_RANGE = (0.92, 1.08)       # contrast correction is clamped: the reference face must stay the reference face
+CORE_ERODE = 0.10               # colour statistics come from the face core: the hull eroded by this x face width
+GAMMA = 2.2                     # sRGB-ish: gains are applied in linear light
+CAST_RANGE = (0.6, 1.7)         # per-channel deviation from the common exposure gain: the scene's colour cast, bounded
+TOP_FADE = 0.12                 # the upper edge (forehead/hairline has no landmarks) fades in over this x face width
+EXPOSURE_RANGE = (0.03, 6.0)
 
 
 @dataclass
@@ -89,22 +92,26 @@ def hull_mask(shape: tuple[int, int], pts: np.ndarray) -> np.ndarray:
     return mask
 
 
-def _lab(img_bgr: np.ndarray) -> np.ndarray:
-    return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB).astype(np.float32)
+def _linear(img_bgr: np.ndarray) -> np.ndarray:
+    return (img_bgr.astype(np.float32) / 255.0) ** GAMMA
 
 
-def match_colour(warped: np.ndarray, result: np.ndarray, band: np.ndarray) -> tuple[np.ndarray, dict]:
-    """Shift/scale the warped reference face in LAB so its seam band has the result's mean and (clamped) std."""
-    sel = band > 0
+def match_colour(warped: np.ndarray, result: np.ndarray, core: np.ndarray) -> tuple[np.ndarray, dict]:
+    """Relight the warped reference face like the scene: ONE gain per channel in linear light = median of the face core
+    in the model's picture / the same median in the reference. A multiplicative gain dims a studio-lit face to a sunset
+    or a dark room without touching its structure or over-saturating lips and skin (a LAB lightness shift did), and the
+    model's own face is the best witness of how this scene lights this person (hair or background at the rim are not)."""
+    sel = core > 0
     if int(sel.sum()) < 50:
-        return warped, {"colour": "skipped(band too small)"}
-    w_lab, r_lab = _lab(warped), _lab(result)
-    mu_w, sd_w = w_lab[sel].mean(0), w_lab[sel].std(0) + 1e-3
-    mu_r, sd_r = r_lab[sel].mean(0), r_lab[sel].std(0) + 1e-3
-    gain = np.clip(sd_r / sd_w, *GAIN_RANGE)
-    out = (w_lab - mu_w) * gain + mu_r
-    shifted = cv2.cvtColor(np.clip(out, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR)
-    return shifted, {"lab_shift": [round(float(v), 2) for v in (mu_r - mu_w)], "lab_gain": [round(float(v), 3) for v in gain]}
+        return warped, {"colour": "skipped(core too small)"}
+    w, r = _linear(warped), _linear(result)
+    gain = (np.median(r[sel], axis=0) + 1e-4) / (np.median(w[sel], axis=0) + 1e-4)
+    exposure = float(np.exp(np.log(gain).mean()))
+    cast = np.clip(gain / exposure, *CAST_RANGE)                # a limited part of the scene's colour cast is followed
+    gain = np.clip(exposure * cast, *EXPOSURE_RANGE)
+    out = np.clip(w * gain, 0.0, 1.0) ** (1.0 / GAMMA)
+    return np.clip(np.round(out * 255.0), 0, 255).astype(np.uint8), {
+        "exposure_gain": round(exposure, 3), "cast_bgr": [round(float(v), 3) for v in cast]}
 
 
 def facelock(reference: np.ndarray, result: np.ndarray, detect: Detector, *, min_score: float = MIN_DETECTOR_SCORE,
@@ -155,13 +162,15 @@ def facelock(reference: np.ndarray, result: np.ndarray, detect: Detector, *, min
     fw = float(np.ptp(apply(m, ra)[:, 0]))             # face width in result pixels
     k_er = max(1, int(round(ERODE * fw)))
     inner = cv2.erode(mask0, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * k_er + 1, 2 * k_er + 1)))
-    k_band = max(2, int(round(SEAM_BAND * fw)))
-    deep = cv2.erode(inner, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * k_band + 1, 2 * k_band + 1)))
-    band = cv2.subtract(inner, deep)
-    adjusted, colour = match_colour(warped, result, band)
+    k_core = max(2, int(round(CORE_ERODE * fw)))
+    face_only = hull_mask((h, w), apply(m, ra))        # jaw to brows, without the lifted brow ridge
+    core = cv2.erode(face_only, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * k_core + 1, 2 * k_core + 1)))
+    adjusted, colour = match_colour(warped, result, core if int((core > 0).sum()) >= 200 else inner)
     sigma = max(0.8, FEATHER * fw)
     alpha = cv2.GaussianBlur(inner.astype(np.float32) / 255.0, (0, 0), sigma)
     alpha[(alpha < 0.004) | (mask0 == 0)] = 0.0         # the gaussian tail never leaves the hull (<2% step at its rim)
+    top = float(pts[:, 1].min())                       # no landmark marks the hairline: the upper rim fades in softly
+    alpha *= np.clip((np.arange(h, dtype=np.float32)[:, None] - top) / max(1.0, TOP_FADE * fw), 0.0, 1.0)
     alpha = alpha[..., None]
     out = (adjusted.astype(np.float32) * alpha + result.astype(np.float32) * (1.0 - alpha))
     locked = np.clip(np.round(out), 0, 255).astype(np.uint8)
