@@ -28,6 +28,7 @@ from urllib.parse import urlsplit
 
 from ..single_flight import await_shared
 from . import catalog, faceswap, genjutsu, ref_tags, sdcli
+from .faceswap import python_of as _ff_python
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .prompt_vault import PromptVault
 from .store import JobStore, valid_participant
@@ -154,6 +155,7 @@ class DirectGenService:
         self.faceswap_workers = faceswap.DEFAULT_WORKERS
         self.genjutsu_model = genjutsu.default_segformer_model()
         self.masks_runner: Callable[[list[str], Path, float], Any] = self._run_masks
+        self.facelock_runner: Callable[[list[str], Path, float], Any] = self._run_masks   # subprocess.run shape
         self._masks_lock: asyncio.Lock | None = None
         self.gpu_grace_seconds = gpu_grace_seconds       # a just-finished engine may still be listed for a moment (seen on Windows)
         self._tasks: dict[str, asyncio.Task] = {}
@@ -452,6 +454,12 @@ class DirectGenService:
                                  f"{spec.label}: можно не больше {cap} фото-референс(а), прислано {len(images)}")
         effective, refs = self._apply_ref_tags(effective, body, len(images), info["accepts_image"],
                                                sdcli.ref_label(spec))
+        facelock = body.get("facelock", False)
+        if not isinstance(facelock, bool):
+            raise DirectGenError(422, "facelock_invalid", "facelock must be true or false")
+        if facelock and (not images or spec.kind != "photo"):
+            raise DirectGenError(422, "facelock_needs_reference",
+                                 "FaceLock needs a photo model with a reference photo (the face is taken from @1)")
         image = images[0] if images else None
         job_id = uuid.uuid4().hex
         job = {
@@ -469,6 +477,8 @@ class DirectGenService:
             "refs": refs,
             "timeline": [{"stage": "queued", "at": now_iso()}],
         }
+        if facelock:
+            job["facelock"] = {"requested": True, "status": "pending", "reason": ""}
         folder = self.store.job_dir(participant, job_id)
         folder.mkdir(parents=True, exist_ok=True)
         for n, data in enumerate(images, start=1):
@@ -805,6 +815,8 @@ class DirectGenService:
                                          f"sd-cli exited with code {run.returncode}: {tail}")
                 await self._set(job, "postprocessing")
                 await self._collect_sd(job, spec, out)
+                if (job.get("facelock") or {}).get("requested") and images:
+                    await self._facelock(job, folder, bytes(images[0]), out)
                 job["finished_at"] = now_iso()
                 await self._set(job, "completed")
         except asyncio.CancelledError:
@@ -827,6 +839,47 @@ class DirectGenService:
             if self._running == job_id:
                 self._running = None
             self._stopping.discard(job_id)
+
+    async def _facelock(self, job: dict, folder: Path, reference: bytes, out: Path) -> None:
+        """Post-process: the face of @1 goes back into the result. Never fails the job: on any doubt the unlocked
+        result stays and the reason is recorded (job["facelock"], provenance["facelock"])."""
+        report: dict[str, Any] = {"status": "skipped", "reason": "not_run"}
+        work = folder / "facelock-tmp"
+        try:
+            if not (self.faceswap_home / "facefusion.py").is_file() or not _ff_python(self.faceswap_home).is_file():
+                report = {"status": "skipped", "reason": "detector_unavailable (FaceFusion is not installed)"}
+            else:
+                work.mkdir(parents=True, exist_ok=True)
+                ref_p = work / f"reference{sdcli.image_extension(reference) or '.png'}"
+                ref_p.write_bytes(reference)
+                locked, rep = work / "locked.png", work / "report.json"
+                argv = [str(_ff_python(self.faceswap_home)), str(Path(__file__).with_name("facelock_worker.py")),
+                        str(ref_p), str(out), str(locked), str(rep)]
+                run = await asyncio.to_thread(self.facelock_runner, argv, self.faceswap_home, 240)
+                if run.returncode != 0 or not rep.is_file():
+                    tail = ((getattr(run, "stderr", "") or "") + (getattr(run, "stdout", "") or ""))[-200:].strip()
+                    report = {"status": "skipped", "reason": f"worker_error code={run.returncode} {tail}".strip()}
+                else:
+                    report = json.loads(rep.read_text(encoding="utf-8"))
+                    if report.get("status") == "applied":
+                        if not locked.is_file() or sdcli.png_size(locked) is None or sdcli.png_size(locked) != sdcli.png_size(out):
+                            report = {"status": "skipped", "reason": "locked_image_missing_or_wrong_size"}
+                        else:
+                            unlocked = out.with_name("image_unlocked.png")
+                            shutil.copyfile(out, unlocked)               # keep the model's own picture
+                            os.replace(locked, out)
+                            job["result_unlocked"] = {"file": unlocked.name, "bytes": unlocked.stat().st_size,
+                                                      "sha256": _sha256_file(unlocked), "mime": "image/png"}
+                            job["result"].update(bytes=out.stat().st_size, sha256=_sha256_file(out))
+        except subprocess.TimeoutExpired:
+            report = {"status": "skipped", "reason": "worker_timeout"}
+        except Exception as exc:  # noqa: BLE001 - a failed post-process must not lose the generated picture
+            report = {"status": "skipped", "reason": f"worker_error {type(exc).__name__}: {str(exc)[:160]}"}
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+        job["facelock"] = {"requested": True, **report}
+        job["provenance"]["facelock"] = ("applied" if report.get("status") == "applied"
+                                         else f"skipped({report.get('reason', '')})")
 
     async def _collect_sd(self, job: dict, spec: sdcli.SdSpec, out: Path) -> None:
         if not out.is_file() or out.stat().st_size <= 0:
@@ -874,6 +927,8 @@ class DirectGenService:
         extra = sorted(folder.glob("input_image_*.bin"), key=lambda q: int(q.stem.rsplit("_", 1)[-1]))
         if extra and body.get("image_b64"):
             body["images_b64"] = [body.pop("image_b64")] + [base64.b64encode(q.read_bytes()).decode() for q in extra]
+        if (old.get("facelock") or {}).get("requested"):
+            body["facelock"] = True
         if old.get("refs"):
             body["ref_names"] = [r.get("name") or "" for r in old["refs"]]
         return await self.create(participant, body)
@@ -889,11 +944,18 @@ class DirectGenService:
     def list(self, participant: str) -> list[dict]:
         return [self.view(j) for j in self.store.list(valid_participant(participant))]
 
-    def result_path(self, participant: str, job_id: str) -> Path:
+    def result_path(self, participant: str, job_id: str, variant: str = "") -> Path:
         job = self.get(participant, job_id)
         if job["status"] != "completed" or not job.get("result"):
             raise DirectGenError(409, "no_result", "job has no finished result")
-        path = self.store.job_dir(job["participant"], job_id) / "result" / job["result"]["file"]
+        entry = job["result"]
+        if variant == "unlocked":
+            entry = job.get("result_unlocked")
+            if not entry:
+                raise DirectGenError(404, "no_unlocked_result", "this job has no unlocked (pre-FaceLock) picture")
+        elif variant:
+            raise DirectGenError(422, "invalid_variant", "variant must be empty or 'unlocked'")
+        path = self.store.job_dir(job["participant"], job_id) / "result" / entry["file"]
         if not path.is_file():
             raise DirectGenError(404, "result_missing", "result file is gone from storage")
         return path

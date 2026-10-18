@@ -53,6 +53,8 @@ class JobIn(BaseModel):
     images_b64: list[Annotated[str, Field(max_length=48 * 1024 * 1024)]] | None = Field(default=None, max_length=6)
     ref_names: list[Annotated[str, Field(max_length=25)]] | None = Field(default=None, max_length=6)
     audio_b64: str | None = Field(default=None, max_length=48 * 1024 * 1024)
+    # FaceLock (photo edit with a reference): afterwards the face of @1 is pasted back exactly as in the photo.
+    facelock: bool = False
 
 
 class AssistIn(BaseModel):
@@ -133,12 +135,13 @@ async def retry(job_id: str, request: Request, x_participant: str | None = Heade
 
 
 @router.get("/jobs/{job_id}/file")
-async def file(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
+async def file(job_id: str, request: Request, variant: str = "", x_participant: str | None = Header(default=None)):
     svc = _svc(request)
     who = _who(x_participant)
     try:
-        path = svc.result_path(who, job_id)
-        mime = svc.get(who, job_id)["result"]["mime"]
+        path = svc.result_path(who, job_id, variant)
+        job = svc.get(who, job_id)
+        mime = (job.get("result_unlocked") if variant == "unlocked" else job["result"])["mime"]
     except DirectGenError as exc:
         raise HTTPException(exc.status or 500, exc.detail) from None
     return FileResponse(path, media_type=mime, filename="bossman-direct" + path.suffix)

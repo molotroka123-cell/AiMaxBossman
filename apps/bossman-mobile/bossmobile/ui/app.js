@@ -3,7 +3,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const S = { csrf: '', agents: [], agentId: null, threadId: null, sending: false, task: null, es: null,
-    photoModels: [], photoJob: null, refs: [], panelLoaded: false, aspect: '1:1', side: 512 };
+    photoModels: [], photoJob: null, refs: [], refsUsed: false, refsLoading: false, photoSending: false, panelLoaded: false, aspect: '1:1', side: 512 };
   const store = {
     get(k) { try { return localStorage.getItem('bm.' + k); } catch { return null; } },
     set(k, v) { try { if (v == null) localStorage.removeItem('bm.' + k); else localStorage.setItem('bm.' + k, String(v)); } catch { /* private mode */ } },
@@ -472,7 +472,9 @@
       t.append(im, tag, x); row.appendChild(t);
     });
     $('ref-add').hidden = cap > 1 && S.refs.length >= cap;
-    $('ref-label').textContent = S.refs.length ? (cap > 1 ? 'Ещё фото' : 'Заменить') : (m && m.requires_image ? 'Выбрать фото (обязательно)' : 'Выбрать из «Фото»');
+    $('ref-label').textContent = S.refs.length ? (S.refsUsed ? 'Новое фото' : (cap > 1 ? 'Ещё фото' : 'Заменить')) : (m && m.requires_image ? 'Выбрать фото (обязательно)' : 'Выбрать из «Фото»');
+    const fl = !!(S.refs.length && m && m.accepts_image);   // FaceLock only makes sense with a reference attached
+    $('facelock-row').hidden = !fl; $('facelock-hint').hidden = !fl;
     $('ref-title').textContent = cap > 1 ? `Фото-референсы: до ${cap} (${S.refs.length}/${cap})` : 'Фото-референс';
     $('ref-hint').textContent = cap > 1
       ? 'В промпте ссылайтесь на фото: «лицо с @1, одежда с @2, фон с @3». Нажмите на фото — тег вставится; на тег — дать имя (@лицо). Формат и размер берутся с @1.'
@@ -510,12 +512,14 @@
   $('photo-ref').addEventListener('change', async () => {
     const files = Array.from($('photo-ref').files || []); $('photo-ref').value = ''; if (!files.length) return;
     const cap = Math.max(1, maxRefs(curModel()));
+    if (S.refsUsed) { S.refs = []; S.refsUsed = false; S.refFirst = null; renderRefs(); }   // the previous job consumed them: a new pick starts a new set
     if (cap === 1) S.refs = [];
+    S.refsLoading = true;
     for (const f of files) {
       if (S.refs.length >= cap) { toast(cap > 1 ? `Эта модель берёт не больше ${cap} фото` : 'Эта модель берёт одно фото'); break; }
       try { S.refs.push({ data: await downscale(f, 1536), wh: await imageSize(f), name: '' }); } catch { toast('не удалось прочитать фото'); }
     }
-    refsChanged();
+    S.refsLoading = false; refsChanged();
   });
   function downscale(file, max) {
     return new Promise((resolve, reject) => {
@@ -524,8 +528,39 @@
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img')); }; img.src = url;
     });
   }
+  /* Submit = hand the job to the PC and be ready again at once. The queue on the PC runs the jobs one after
+     another; tracking one job (minutes) must never keep the form locked — that was the "reload the page" bug. */
+  const POLL_MS = (window.__bmPollMs | 0) || 1500;
+  const FL_REASONS = [['no_face_in_reference', 'на фото-референсе лицо не найдено'], ['no_face_in_result', 'на результате лицо не найдено'],
+    ['face_count_mismatch', 'число лиц на фото и в результате разное'], ['multiple_faces_unsupported', 'на фото несколько лиц'],
+    ['low_detector_confidence', 'лицо найдено неуверенно'], ['low_landmark_confidence', 'точки лица найдены неуверенно'],
+    ['faces_do_not_match_pose', 'ракурс лица сильно отличается от фото'], ['implausible', 'лицо сильно отличается по размеру или наклону'],
+    ['detector_unavailable', 'FaceFusion не установлен'], ['face_too_small', 'лицо слишком мелкое'], ['worker_', 'ошибка обработки']];
+  function facelockText(j) {
+    const f = j && j.facelock; if (!f || !f.requested) return null;
+    if (f.status === 'applied') return { ok: true, text: 'FaceLock: лицо с @1 вставлено' };
+    if (f.status === 'pending') return { ok: false, text: 'FaceLock: будет применён после генерации' };
+    const r = String(f.reason || ''); const hit = FL_REASONS.find(([k]) => r.startsWith(k));
+    return { ok: false, text: `FaceLock пропущен: ${hit ? hit[1] : (r || 'причина не указана')}` };
+  }
+  function facelockBadge(j) { const t = facelockText(j); if (!t) return null; return el('div', 'fl-badge' + (t.ok ? '' : ' skipped'), t.text); }
+  function showPhotoResult(card, final) {
+    const img = el('img'); img.src = `/m/api/photo/jobs/${final.job_id}/file`; img.alt = final.raw_prompt || ''; img.addEventListener('click', () => openViewer(final)); card.appendChild(img);
+    const b = facelockBadge(final); if (b) card.appendChild(b);
+    loadGallery();
+  }
+  async function watchPhotoJob(job) {          // background: never awaited by the form
+    const card = el('div', 'card progress'); const box = $('photo-progress');
+    box.insertBefore(card, box.firstChild); while (box.children.length > 4) box.removeChild(box.lastChild);
+    try { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch { /* old webview */ }
+    try {
+      const final = await trackJob(job, card); photoStatus(); loadQueue();
+      if (final.status === 'completed') showPhotoResult(card, final);
+    } catch (err) { if (err && err.status !== 401) toast(err.message); }
+  }
   $('photo-form').addEventListener('submit', async (e) => {
-    e.preventDefault(); tap(); const m = curModel(); if (!m) return;
+    e.preventDefault(); tap(); const m = curModel(); if (!m || S.photoSending) return;
+    if (S.refsLoading) { toast('Фото ещё читается — секунду'); return; }
     if (m.requires_image && !S.refs.length) { toast('Этой модели нужно фото-референс'); return; }
     const seed = $('photo-seed').value.trim();
     const body = { model: m.id, prompt: $('photo-prompt').value.trim(), negative: $('photo-negative').value.trim(), resolution: resolution(m), steps: Number($('photo-steps').value) };
@@ -535,22 +570,27 @@
     const why = m.accepts_image ? checkTags(body.prompt, refs) : ''; if (why) { toast(why); return; }
     if (refs.length === 1) body.image_b64 = refs[0].data; else if (refs.length) body.images_b64 = refs.map((r) => r.data);
     if (refs.some((r) => r.name)) body.ref_names = refs.map((r) => r.name || '');
-    $('photo-go').disabled = true;
-    try {
-      const job = await api('POST', '/photo/jobs', body);
-      loadQueue();
-      const card = el('div', 'card progress'); $('photo-progress').replaceChildren(card); card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const final = await trackJob(job, card); photoStatus(); loadQueue();
-      if (final.status === 'completed') { const img = el('img'); img.src = `/m/api/photo/jobs/${final.job_id}/file`; img.alt = final.raw_prompt || ''; img.addEventListener('click', () => openViewer(final)); card.appendChild(img); loadGallery(); }
-    } catch (err) { toast(err.message); }
-    $('photo-go').disabled = false;
+    if (refs.length && $('photo-facelock').checked) body.facelock = true;
+    S.photoSending = true; $('photo-go').disabled = true;
+    let job = null;
+    try { job = await api('POST', '/photo/jobs', body); }
+    catch (err) { toast(err.message); }
+    finally {
+      // ready for the next job at once: button on, file input emptied (choosing the SAME file fires `change` again)
+      S.photoSending = false; $('photo-go').disabled = false; $('photo-ref').value = '';
+    }
+    if (!job) return;
+    S.refsUsed = refs.length > 0; renderRefs();    // the next pick of a photo starts a new set; the prompt box stays editable
+    loadQueue(); watchPhotoJob(job);
   });
-  const STAGES = { queued: 'В очереди', loading: 'Загрузка модели', generating: 'Генерация', encoding: 'Сохранение', completed: 'Готово', failed: 'Ошибка', cancelled: 'Отменено' };
+  $('photo-facelock').checked = store.get('facelock') === '1';
+  $('photo-facelock').addEventListener('change', () => store.set('facelock', $('photo-facelock').checked ? '1' : '0'));
+  const STAGES = { lost: 'Связь потеряна', queued: 'В очереди', loading: 'Загрузка модели', generating: 'Генерация', encoding: 'Сохранение', completed: 'Готово', failed: 'Ошибка', cancelled: 'Отменено' };
   function renderJob(card, j) {
     card.replaceChildren();
     const p = j.progress || {}; const pct = typeof p.percent === 'number' ? p.percent : null;
     const row = el('div', 'row'); row.append(el('span', 'stage', STAGES[j.stage || j.status] || j.stage || j.status));
-    const done = ['completed', 'failed', 'cancelled'].includes(j.status);
+    const done = ['completed', 'failed', 'cancelled', 'lost'].includes(j.status);
     if (!done) { const c = el('button', 'btn small danger', 'Стоп'); c.type = 'button'; c.addEventListener('click', async () => { try { await api('POST', `/photo/jobs/${j.job_id}/cancel`); } catch (err) { toast(err.message); } }); row.append(c); }
     card.appendChild(row);
     if (!done) { const bar = el('div', 'bar' + (pct == null ? ' indet' : '')); const i = el('i'); if (pct != null) i.style.width = `${Math.max(2, pct)}%`; bar.appendChild(i); card.appendChild(bar); }
@@ -565,10 +605,18 @@
     if (j.error) card.appendChild(el('div', 'error-text', typeof j.error === 'string' ? j.error : (j.error.message || JSON.stringify(j.error))));
   }
   async function trackJob(job, card) {
-    let j = job; renderJob(card, j);
+    let j = job, bad = 0; renderJob(card, j);
     while (!['completed', 'failed', 'cancelled'].includes(j.status)) {
-      await new Promise((r) => setTimeout(r, 1500));
-      try { j = await api('GET', `/photo/jobs/${job.job_id}`); renderJob(card, j); } catch (err) { if (err.status === 401) throw err; }
+      await new Promise((r) => setTimeout(r, POLL_MS));
+      try { j = await api('GET', `/photo/jobs/${job.job_id}`); bad = 0; renderJob(card, j); }
+      catch (err) {
+        if (err.status === 401) throw err;
+        // a job that is gone (404) or an unreachable PC must not spin forever: stop, say so, the queue list stays live
+        if (err.status === 404 || ++bad >= 20) {
+          j = Object.assign({}, j, { status: 'lost', stage: 'lost', error: err.status === 404 ? 'задача не найдена на ПК (Bossman перезапускали?)' : 'нет связи с ПК — смотрите «Очередь» ниже' });
+          renderJob(card, j); return j;
+        }
+      }
     }
     return j;
   }
@@ -591,6 +639,7 @@
       stats.appendChild(el('b', '', `в очереди №${u.position}`)); stats.appendChild(el('span', '', `(≈ ждать ${fmtMin(u.wait_s)}, оценка)`));
     } else if (u.state === 'done') {
       stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
+      const flq = facelockText(j); if (flq) stats.appendChild(el('span', flq.ok ? '' : 'muted', flq.text));
       if (j.result && String(j.result.mime || '').startsWith('image/')) { card.classList.add('has-thumb'); const img = el('img', 'qthumb'); img.loading = 'lazy'; img.src = `/m/api/photo/jobs/${j.job_id}/file`; img.alt = ''; img.addEventListener('click', () => openViewer(j)); card.appendChild(img); }
     } else { stats.appendChild(el('span', '', STAGES[j.stage || j.status] || j.status)); }
     if (j.params) stats.appendChild(el('span', 'muted', `${j.params.width}×${j.params.height} · ${j.params.steps} шагов`));
@@ -622,11 +671,18 @@
   let viewing = null;
   function openViewer(j) {
     viewing = j; $('viewer-img').src = `/m/api/photo/jobs/${j.job_id}/file`;
+    const flv = facelockText(j); $('viewer-fl').hidden = !flv; $('viewer-fl').textContent = flv ? flv.text : '';
+    const un = $('viewer-unlocked'); un.hidden = !(j.result_unlocked); un.textContent = 'До FaceLock'; un.dataset.on = '';
     const m = S.photoModels.find((x) => x.id === j.model);
     $('viewer-meta').textContent = `${j.raw_prompt || ''}\n${m ? m.label : j.model} · ${j.params ? j.params.width + '×' + j.params.height + ' · сид ' + j.params.seed : ''} · ${fmtS(j.elapsed_s)}`;
     $('viewer').hidden = false;
   }
   $('viewer-close').addEventListener('click', () => { $('viewer').hidden = true; });
+  $('viewer-unlocked').addEventListener('click', () => {      // flip between the locked result and the model's own picture
+    if (!viewing) return; const un = $('viewer-unlocked'); const on = un.dataset.on !== '1';
+    un.dataset.on = on ? '1' : ''; un.textContent = on ? 'С FaceLock' : 'До FaceLock';
+    $('viewer-img').src = `/m/api/photo/jobs/${viewing.job_id}/file${on ? '?variant=unlocked' : ''}`;
+  });
   $('viewer-save').addEventListener('click', async () => {
     if (!viewing) return; tap(); const url = `/m/api/photo/jobs/${viewing.job_id}/file`;
     try {

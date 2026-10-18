@@ -325,3 +325,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 32px; 
 .tag-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 3px 12px 3px 3px; border-radius: 999px;
   border: 1px solid var(--line2); background: var(--surface2); font-size: 14px; font-weight: 600; }
 .tag-chip img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+
+/* FaceLock */
+.facelock-badge { font-weight: 600; }
+.fl-badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-top: 6px; color: var(--local); background: var(--local-bg); }
+.fl-badge.skipped { color: var(--accent); background: var(--accent-soft); }

@@ -85,6 +85,7 @@ class PhotoIn(BaseModel):
     # several reference photos, @1 first; ref_names = optional @names per position ("" = none)
     images_b64: list[str] | None = Field(default=None, max_length=MAX_REFS)
     ref_names: list[str] | None = Field(default=None, max_length=MAX_REFS)
+    facelock: bool = False          # put the face of @1 back exactly as in the photo (post-process on the PC)
 
 
 def _client_key(request: Request) -> str:
@@ -260,7 +261,8 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     def job_view(j: dict) -> dict:
         keep = ("job_id", "model", "kind", "status", "stage", "created_at", "started_at", "finished_at", "raw_prompt",
-                "negative", "params", "progress", "result", "error", "elapsed_s", "queue_position", "timeline", "inputs")
+                "negative", "params", "progress", "result", "error", "elapsed_s", "queue_position", "timeline", "inputs",
+                "facelock", "result_unlocked")
         return {k: j.get(k) for k in keep}
 
     def stream_event(msg: dict) -> dict | None:
@@ -527,6 +529,10 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             payload["images_b64"] = images
         if any(names):
             payload["ref_names"] = list(names)
+        if body.facelock:
+            if not images or not spec.get("accepts_image"):
+                raise fail(422, "FaceLock: нужна модель с фото-референсом и приложенное фото (лицо берётся с @1)", "BM_FACELOCK_NEEDS_REF")
+            payload["facelock"] = True
         return job_view(await call("POST", "/api/direct-gen/jobs", json=payload, timeout=120))
 
     @app.get("/m/api/photo/jobs/{job_id}")
@@ -540,14 +546,16 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm",
            "video/quicktime": "mov", "video/x-matroska": "mkv", "image/gif": "gif"}
 
-    async def result_file(job_id: str, download: bool, request: Request) -> StreamingResponse:
+    async def result_file(job_id: str, download: bool, request: Request, variant: str = "") -> StreamingResponse:
         """The finished file of a Bossman job, streamed. Range is passed through: iPhone Safari plays video only with
         206 partial answers (Bossman's FileResponse supports them)."""
         jid = _jid(job_id)
         rng = request.headers.get("range", "")
         hdrs = {"range": rng} if re.fullmatch(r"bytes=\d*-\d*", rng) else None
         try:
-            r = await bm.send("GET", f"/api/direct-gen/jobs/{jid}/file", headers=hdrs, stream=True, timeout=120)
+            r = await bm.send("GET", f"/api/direct-gen/jobs/{jid}/file",
+                              params={"variant": "unlocked"} if variant == "unlocked" else None,
+                              headers=hdrs, stream=True, timeout=120)
         except BossmanUnavailable as exc:
             raise fail(502, str(exc), "BOSSMAN_UNAVAILABLE") from None
         if r.status_code not in (200, 206):
@@ -573,8 +581,10 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         return StreamingResponse(gen(), status_code=r.status_code, media_type=mime, headers=out)
 
     @app.get("/m/api/photo/jobs/{job_id}/file")
-    async def p_file(job_id: str, request: Request, download: bool = False, _=Depends(session)):
-        return await result_file(job_id, download, request)
+    async def p_file(job_id: str, request: Request, download: bool = False, variant: str = "", _=Depends(session)):
+        if variant not in ("", "unlocked"):
+            raise fail(422, "variant: пусто или unlocked", "BM_BAD_VARIANT")
+        return await result_file(job_id, download, request, variant)
 
     # ------------------------------------------------------------------ video (Bossman Direct Generator + FaceFusion)
     @app.get("/m/api/video/models")

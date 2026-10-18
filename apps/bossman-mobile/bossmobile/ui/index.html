@@ -101,6 +101,8 @@
             <label class="btn ghost file-btn" id="ref-add"><input id="photo-ref" type="file" accept="image/*" multiple hidden><svg><use href="#i-plus"/></svg><span id="ref-label">Выбрать из «Фото»</span></label>
           </div>
           <p class="hint" id="ref-hint"></p>
+          <label class="consent" id="facelock-row" hidden><input type="checkbox" id="photo-facelock"><span>FaceLock (оставить лицо как на фото)</span></label>
+          <p class="hint" id="facelock-hint" hidden>После генерации лицо с @1 вставляется в картинку один в один (по точкам лица, с мягким краем и подгонкой цвета). Если лицо не нашлось, лиц разное число или ракурс сильно другой — вставки не будет, и в карточке будет написано почему. Картинка модели сохраняется отдельно.</p>
         </div>
         <label class="lbl">Формат</label>
         <div class="seg" id="photo-aspect" role="radiogroup"></div>
@@ -287,9 +289,11 @@
   <img id="viewer-img" alt="">
   <div class="viewer-bar">
     <p id="viewer-meta" class="viewer-meta"></p>
+    <p id="viewer-fl" class="viewer-meta facelock-badge" hidden></p>
     <div class="viewer-actions">
       <button class="btn light" id="viewer-save"><svg><use href="#i-share"/></svg>Сохранить в Фото</button>
       <button class="btn ghost-light" id="viewer-reuse">Промпт</button>
+      <button class="btn ghost-light" id="viewer-unlocked" type="button" hidden>До FaceLock</button>
     </div>
   </div>
 </div>
