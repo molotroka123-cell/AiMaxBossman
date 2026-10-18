@@ -60,3 +60,16 @@
 - **Диск:** свободно 338 ГБ (удалены неиспользуемые DeepSeek V4 abliterated, Llama 3.3 70B, nex-n25-mini и исходники с отдельной копией в Ollama: gemma3-27b, r1-70b, qwen38-27b-uncensored).
 - **Новое на ПК:** Wan2GP в `apps-local\wan2gp` (работает на gfx1151; Wan2.1 1.3B 3 с 832×480 за 17,8 мин — не быстрее нашего движка; лицензия WanGP Community 2.0, не MIT), плагины Claude Code `context7` и `amd-skills`, инвесторский ролик 45 с отправлен в пульт.
 - **Планы (не сделано):** LFM2.5-24B-A2B как быстрый исполнитель (сравнение с Qwen3.6); Halogen 0.18.10 — только Linux, отложено; turbovec — при >100 тыс. фрагментов памяти; uncensored текст→видео Wan на Q4; Wan2GP для Animate/VACE; остаток аудита безопасности (сессия приложения 30 дней, статический токен, шаги PC-агента, автоперезапуск бэкенда); 0 из 39 пунктов приёмки в PASS.
+
+## Ночной прогон Argon 4 (18→19.10.2026) — полный отчёт: `docs/audits/2026-10-19-morning-report/README.md`
+
+- **Устранены 5 багов (коммиты `d91abed9`, `80ec28d3`):**
+  1. `Resource Governor`: устранён бесконечный цикл `warm-up` (`cap 40 GB reached` каждые 10 с) — добавлен учёт активного окна `_active_warmed_bytes()`.
+  2. Приоритет `sd-cli.exe`: `SdCliRunner.run` теперь сам выставляет `psutil.HIGH_PRIORITY_CLASS` (`128`) при старте дочернего процесса (устранён `AccessDenied` между elevated Backend и non-elevated Governor). Подтверждено на живых задачах фото и видео (`PriorityClass = 128`).
+  3. `Telegram Companion` (Пульт): устранено падение каждые 15 минут (`:14:02`, `:29:02`, `:44:02`, `:59:02`) с `TELEGRAM_COMPANION=CONFLICT`, вызывавшееся запланированной задачей `\GrechkaTrap` (`grechka-trap\watcher.py`). Теперь `poll()` под защитой `token_poller_lock` переносит одиночные транзиентные конфликты `getUpdates`.
+  4. `Direct-Gen` («Удалить навсегда»): устранена гонка `409 job_running` при вызове `DELETE /api/direct-gen/jobs/{id}` сразу после перехода задачи в `completed`/`cancelled`/`failed`.
+  5. Тестовый контур `command-center/tests/conftest.py`: изолирован `default_pin_path` от боевого пина конституции `%LOCALAPPDATA%\Bossman\autonomy\constitution.sha256` (`460 passed, 0 failed` по всем `test_autonomy_*.py`).
+- **Живые проверки и тесты:**
+  - `test_autonomy_*.py`: `460 passed`; `test_direct_gen_*.py`: `124 passed`; `apps/war-terminal/tests`: `184 passed`; функциональные тесты ветвей: `320 passed`; `test_governor.py` + `test_companion*.py`: `67 passed`.
+  - Живые генерации фото (`z-image-turbo`) и видео (`wan2.2-ti2v-5b`, старт `wan2.2-i2v-a14b-uncensored` на `sd-cli 95b3090`) + очередь/отмена/удаление проверены и очищены; платные расходы `$0.00`.
+
