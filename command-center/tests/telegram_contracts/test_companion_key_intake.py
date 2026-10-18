@@ -98,8 +98,9 @@ def test_a_participant_key_is_refused_and_nothing_is_written(keyfile):
     c = companion(GUEST)
     asyncio.run(c.ingest(update(f"/key OPENROUTER_API_KEY={VALUE}")))
     assert not keyfile.exists()
-    assert c.store.ingested == [] and c.telegram.deleted == [70]
-    assert "только владелец" in c.telegram.sent[-1][1] and VALUE not in _all_text(c)
+    # A22-04: a non-owner is dropped at intake (acknowledged, nothing stored, nothing answered or touched).
+    assert c.store.ingested == [(7, None, None)] and c.telegram.deleted == [] and c.telegram.sent == []
+    assert VALUE not in _all_text(c)
 
 
 @pytest.mark.parametrize("text", [

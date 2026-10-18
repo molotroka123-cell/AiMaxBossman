@@ -164,7 +164,8 @@ def test_yes_answer_shows_the_real_outcome_not_a_promise(tmp_path, monkeypatch):
     core = Core(kinds={7: ob.DECISION_KIND})
     c, _tg = build(tmp_path, core)
     c.store.put("operator_last_task", "abc123abc123")
-    out = text_of(asyncio.run(c.handle(OWNER, msg(OWNER, "/work_yes 7"))))
+    code = c.issue_work_grant(OWNER, 7, dict(d))
+    out = text_of(asyncio.run(c.handle(OWNER, msg(OWNER, f"/work_yes 7 {code}"))))
     assert "НЕ выполнено" in out and "продолжит" not in out
 
     class Slow(Core):
@@ -174,6 +175,7 @@ def test_yes_answer_shows_the_real_outcome_not_a_promise(tmp_path, monkeypatch):
     (tmp_path / "b").mkdir()
     c2, _ = build(tmp_path / "b", Slow(kinds={7: ob.DECISION_KIND}))
     c2.store.put("operator_last_task", "abc123abc123")
-    out2 = text_of(asyncio.run(c2.handle(OWNER, msg(OWNER, "/work_yes 7"))))
+    code2 = c2.issue_work_grant(OWNER, 7, None)
+    out2 = text_of(asyncio.run(c2.handle(OWNER, msg(OWNER, f"/work_yes 7 {code2}"))))
     assert "НЕ выполняет" in out2 and "конце текущего шага" in out2 and "продолжит" not in out2
     assert "в конце ТЕКУЩЕГО шага" in ob.decision_text("t", {})

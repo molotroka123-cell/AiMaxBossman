@@ -57,6 +57,10 @@ EVOLUTION_COMMANDS = {"/evolution_status", "/evolution_start", "/evolution_pause
 CONSOLE_COMMANDS.update(EVOLUTION_COMMANDS)
 OWNER_CONSOLE.update(EVOLUTION_COMMANDS)
 
+# A22-04 / A18 §5.8: the brake must work when the rest of the console is switched off. STOP / pause need the
+# owner (never a guest) but NOT the pc_control flag: a pult that cannot be stopped is worse than one that is on.
+HALT_COMMANDS = frozenset({"/stop", "/pause"})
+
 CONSOLE_OFF = ("Пульт управления компьютером из Telegram выключен или доступен только владельцу. "
                "Владелец включает его локально: pc_control в config.json компаньона. "
                "Прямого доступа к PowerShell и мыши из Telegram нет ни у кого.")
@@ -94,6 +98,10 @@ class ConsoleMixin:
     # --------------------------------------------------------------- разбор
     async def console(self, person: Person, command: str, arg: str, message: dict):
         """Единственная точка входа пульта. Всё, что не разрешено, — отказ без эффекта."""
+        if command in HALT_COMMANDS:
+            if person.role != "owner":
+                return CONSOLE_OFF
+            return await self.console_halt(person, full=command == "/stop")
         if command in OWNER_CONSOLE and not self.console_allowed(person):
             return CONSOLE_OFF
         if command == "/queue":
@@ -438,6 +446,9 @@ class ConsoleMixin:
         замок и POST /api/computer/stop. Ни одна строка здесь не ждёт LLM."""
         from .service import Reply
         self.store.put("delegation_locked", True)
+        # Pending one-time approvals (operator decisions, skip-permissions) die with the brake.
+        self.__dict__.pop("_work_grants_map", None)
+        self.__dict__.pop("_bypass_pending_map", None)
         lines = ["⛔ СТОП" if full else "⏸ Пауза",
                  "• Новые поручения из Telegram заблокированы."]
         cancelled = False
@@ -456,6 +467,8 @@ class ConsoleMixin:
                     await self.core.pc_agent_stop(actor="owner", reason="stop" if full else "pause")
             lines.append("• Временное окно доверия T2 сброшено, процессы Argon PC-Agent остановлены.")
         try:
+            if self.core is None:
+                raise CompanionError("CORE_UNAVAILABLE")
             await self.core.computer_stop()
             lines.append("• Управление компьютером остановлено: набор текста прерван, новые действия "
                          "запрещены до «Продолжить» (переживает перезапуск Bossman).")
