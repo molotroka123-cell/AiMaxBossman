@@ -170,14 +170,47 @@
 
   /* ================= сообщения ================= */
   const msgs = $('messages');
-  function clearMessages() { msgs.replaceChildren($('chat-empty')); $('chat-empty').hidden = false; }
-  function scrollDown() { requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; }); }
-  function addUser(text) { $('chat-empty').hidden = true; const m = el('div', 'msg user'); m.appendChild(el('div', 'bubble', text)); msgs.appendChild(m); scrollDown(); return m; }
-  function addBot() {
+  const scrollDownBtn = $('btn-scroll-down');
+  let nearBottom = true;
+  function isNearBottom() { return msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight <= 64; }
+  function syncScrollBtn() { if (scrollDownBtn) scrollDownBtn.hidden = nearBottom; }
+  msgs.addEventListener('scroll', () => { nearBottom = isNearBottom(); syncScrollBtn(); }, { passive: true });
+  if (scrollDownBtn) scrollDownBtn.addEventListener('click', () => { tap(); scrollDown(true); });
+  function clearMessages() { msgs.replaceChildren($('chat-empty')); $('chat-empty').hidden = false; nearBottom = true; syncScrollBtn(); }
+  function scrollDown(force = false) {
+    if (force) { nearBottom = true; msgs.scrollTop = msgs.scrollHeight; syncScrollBtn(); return; }
+    if (nearBottom) { msgs.scrollTop = msgs.scrollHeight; }
+    syncScrollBtn();
+  }
+  function addUser(text) { $('chat-empty').hidden = true; const m = el('div', 'msg user'); m.appendChild(el('div', 'bubble', text)); msgs.appendChild(m); scrollDown(true); return m; }
+  function addBot(promptText = '') {
     $('chat-empty').hidden = true;
     const m = el('div', 'msg bot'); const tools = el('div', 'tools'); const ans = el('div', 'answer'); const meta = el('div', 'meta');
-    m.append(tools, ans, meta); msgs.appendChild(m); scrollDown();
-    return { m, tools, ans, meta, cards: {}, text: '' };
+    const actions = el('div', 'msg-actions');
+    const copyBtn = el('button', 'msg-act msg-copy', 'Копировать'); copyBtn.type = 'button';
+    const retryBtn = el('button', 'msg-act msg-retry', 'Повторить'); retryBtn.type = 'button';
+    const stopInlineBtn = el('button', 'msg-act msg-stop stop', 'Остановить'); stopInlineBtn.type = 'button'; stopInlineBtn.hidden = true;
+    actions.append(copyBtn, retryBtn, stopInlineBtn);
+    m.append(tools, ans, meta, actions); msgs.appendChild(m); scrollDown(false);
+    const b = { m, tools, ans, meta, actions, copyBtn, retryBtn, stopBtn: stopInlineBtn, cards: {}, text: '', promptText: promptText || '', rafId: 0 };
+    copyBtn.addEventListener('click', async () => {
+      tap();
+      const txt = b.text || b.ans.textContent || '';
+      if (!txt) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(txt);
+        copyBtn.textContent = 'Скопировано';
+        toast('Скопировано');
+        setTimeout(() => { copyBtn.textContent = 'Копировать'; }, 1500);
+      } catch { toast('Не удалось скопировать'); }
+    });
+    retryBtn.addEventListener('click', () => {
+      if (S.sending || !b.promptText) return;
+      tap();
+      send(b.promptText);
+    });
+    stopInlineBtn.addEventListener('click', () => { $('btn-stop').click(); });
+    return b;
   }
   function typing(b, on) {
     const old = b.ans.querySelector('.typing'); if (old) old.remove();
@@ -208,6 +241,18 @@
       });
     });
   }
+  function scheduleRich(b, live) {
+    b.pendingLive = live;
+    if (b.rafId) return;
+    const raf = window.requestAnimationFrame || ((fn) => setTimeout(fn, 16));
+    b.rafId = raf(() => {
+      b.rafId = 0;
+      if (!b.done) {
+        rich(b.ans, b.text, b.pendingLive);
+        scrollDown(false);
+      }
+    });
+  }
 
   function argsLine(args) {
     if (!args || typeof args !== 'object') return '';
@@ -221,7 +266,7 @@
       const body = el('div', 'tbody'); d.append(s, body); b.tools.appendChild(d);
       c = b.cards[ev.call_id] = { d, s, st, body };
       if (ev.args && Object.keys(ev.args).length) { body.appendChild(el('div', 'muted', 'Аргументы')); body.appendChild(el('pre', '', JSON.stringify(ev.args, null, 2))); }
-      scrollDown();
+      scrollDown(false);
     }
     return c;
   }
@@ -237,7 +282,7 @@
     const box = el('div', 'approval'); box.appendChild(el('h4', '', 'Нужно ваше решение'));
     box.appendChild(el('pre', '', ev.preview || ev.approval_kind || 'действие'));
     const row = el('div', 'row'); const no = el('button', 'btn', 'Отклонить'); const yes = el('button', 'btn primary', 'Разрешить');
-    row.append(no, yes); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; scrollDown();
+    row.append(no, yes); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; scrollDown(false);
     const decide = async (approve) => {
       tap(); yes.disabled = no.disabled = true;
       try { await api('POST', `/approvals/${ev.id}`, { approve }); row.replaceWith(el('div', 'done', approve ? '✓ Разрешено вами' : '✕ Отклонено вами')); refreshApprovals(); }
@@ -252,8 +297,8 @@
 
   function applyEvent(b, ev, live) {
     switch (ev.kind) {
-      case 'run.answer_delta': b.text += ev.text || ''; rich(b.ans, b.text, live); if (live && !b.first) b.first = performance.now(); scrollDown(); break;
-      case 'run.answer_reset': b.text = ''; rich(b.ans, '', live); break;
+      case 'run.answer_delta': b.text += ev.text || ''; if (live && !b.first) b.first = performance.now(); if (live) scheduleRich(b, true); else { rich(b.ans, b.text, false); scrollDown(false); } break;
+      case 'run.answer_reset': if (b.rafId && window.cancelAnimationFrame) cancelAnimationFrame(b.rafId); b.rafId = 0; b.text = ''; rich(b.ans, '', live); break;
       case 'run.assistant_message': if (ev.text) { b.text = ev.text; rich(b.ans, b.text, false); } if (ev.model) b.model = ev.model; break;
       case 'run.tool_use': toolCard(b, ev); break;
       case 'run.tool_result': toolResult(b, ev); break;
@@ -271,15 +316,15 @@
       S.threadId = t.id; store.set('thread', t.id); clearMessages();
       const turns = t.turns || [];
       for (const turn of turns) {
-        addUser(turn.text); const b = addBot();
+        addUser(turn.text); const b = addBot(turn.text);
         if (turn.status && !['completed', 'failed', 'stopped', 'blocked', 'missing'].includes(turn.status)) { follow(turn.task_id, b); continue; }
-        if (turn.result) rich(b.ans, turn.result); else if (turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.error; }
+        if (turn.result) { b.text = turn.result; rich(b.ans, turn.result); } else if (turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.error; }
         b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
         if (turns.indexOf(turn) >= turns.length - 6) {
           api('GET', `/tasks/${turn.task_id}/history`).then((h) => (h.events || []).forEach((ev) => { if (ev.kind.startsWith('run.tool') || ev.kind.startsWith('approval') || ev.kind === 'tool.denied') applyEvent(b, ev, false); })).catch(() => {});
         }
       }
-      scrollDown();
+      scrollDown(true);
     } catch (err) { if (err.status === 404) { store.set('thread', null); S.threadId = null; } }
   }
 
@@ -296,7 +341,7 @@
   async function send(text) {
     if (PHOTO_RE.test(text)) return chatPhoto(text, text.replace(PHOTO_RE, '') || text);
     if (S.agentId == null) { toast('Выберите локальную модель'); return; }
-    busy(true); addUser(text); const b = addBot(); typing(b, true); b.t0 = performance.now();
+    busy(true); addUser(text); const b = addBot(text); typing(b, true); b.t0 = performance.now();
     try {
       if (!S.threadId) { const t = await api('POST', '/threads', { title: text.slice(0, 60) }); S.threadId = t.id; store.set('thread', t.id); }
       const r = await api('POST', `/threads/${encodeURIComponent(S.threadId)}/send`, { text, agent_id: S.agentId, client_request_id: 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) });
@@ -307,7 +352,7 @@
   }
   function closeStream() { if (S.es) { S.es.close(); S.es = null; } if (S.poll) { clearInterval(S.poll); S.poll = null; } }
   function follow(taskId, b) {
-    closeStream(); busy(true); typing(b, true); b.t0 = b.t0 || performance.now(); S.task = taskId;
+    closeStream(); busy(true); if (b.stopBtn) b.stopBtn.hidden = false; typing(b, true); b.t0 = b.t0 || performance.now(); S.task = taskId;
     const es = new EventSource(`/m/api/tasks/${taskId}/events?after=0`); S.es = es;
     es.onmessage = (m) => {
       let ev; try { ev = JSON.parse(m.data); } catch { return; }
@@ -322,16 +367,18 @@
     finish(b, t.result, t.status === 'completed' ? null : (t.error || `задача: ${stRu(t.status)}`), t.status, taskId);
   }
   function finish(b, result, error, status, taskId) {
+    if (b.rafId && window.cancelAnimationFrame) cancelAnimationFrame(b.rafId); b.rafId = 0;
+    if (b.stopBtn) b.stopBtn.hidden = true;
     busy(false); typing(b, false); b.ans.classList.remove('caret');
-    if (result) { b.text = result; rich(b.ans, result); } else if (error && !b.text) { b.ans.classList.add('error'); b.ans.textContent = error; }
+    if (result) { b.text = result; rich(b.ans, result); } else if (b.text) { rich(b.ans, b.text, false); } else if (error) { b.ans.classList.add('error'); b.ans.textContent = error; }
     const total = b.t0 ? (performance.now() - b.t0) / 1000 : null; const first = b.first && b.t0 ? (b.first - b.t0) / 1000 : null;
     b.meta.replaceChildren(el('span', 'badge-local', 'локально'), el('span', '', [b.model, taskId ? `#${taskId}` : '', status && status !== 'completed' ? stRu(status) : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
-    loadThreads(); scrollDown();
+    loadThreads(); scrollDown(false);
   }
 
   /* ---------- «сгенерируй фото …» прямо из чата: тот же Прямой генератор Bossman ---------- */
   async function chatPhoto(text, prompt) {
-    busy(true); addUser(text); const b = addBot(); typing(b, true);
+    busy(true); addUser(text); const b = addBot(text); typing(b, true);
     try {
       await ensurePhotoModels();
       const m = S.photoModels.find((x) => x.id === 'z-image-turbo' && x.available) || S.photoModels.find((x) => x.available && !x.requires_image);
@@ -343,7 +390,7 @@
       if (final.status === 'completed') { const wrap = el('div', 'inline-photo'); const img = el('img'); img.src = `/m/api/photo/jobs/${final.job_id}/file`; img.alt = prompt; img.addEventListener('click', () => openViewer(final)); wrap.appendChild(img); card.replaceWith(wrap); }
       b.meta.replaceChildren(el('span', 'badge-local', 'на ПК'), el('span', '', `${m.label} · ${fmtS(final.elapsed_s)} · Прямой генератор`));
     } catch (err) { b.ans.classList.add('error'); b.ans.textContent = err.message; }
-    busy(false); scrollDown();
+    busy(false); scrollDown(false);
   }
 
   /* ================= одобрения (значок на вкладке «Панель») ================= */
