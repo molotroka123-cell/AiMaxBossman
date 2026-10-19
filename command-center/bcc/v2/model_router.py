@@ -229,8 +229,8 @@ def _dominates(b: ParetoPoint, a: ParetoPoint) -> bool:
         return False
     strict = (b.success_rate > a.success_rate
               or b.mean_duration_s < a.mean_duration_s)
-    if a.memory_mb is not None and b.memory_mb is not None:
-        if b.memory_mb > a.memory_mb:
+    if a.memory_mb is not None:
+        if b.memory_mb is None or b.memory_mb > a.memory_mb:
             return False
         strict = strict or b.memory_mb < a.memory_mb
     return strict
@@ -279,14 +279,15 @@ def route(req: RouteRequest, models: list[ModelCandidate]) -> RouteDecision:
     candidates, rejected = shortlist(req, models)
     scored: list[tuple[float, ModelCandidate, list[str]]] = []
 
-    # Pareto bonus: only among candidates with measured success AND duration.
+    # Pareto bonus: only among candidates with measured success >= 0.8 AND duration.
     measured = [{"task_type": req.task_type, "alias": c.alias, "runs": 1,
                  "success_rate": c.success_rate,
                  "mean_duration_s": c.mean_duration_s, "memory_mb": c.memory_mb}
                 for c in candidates
                 if c.success_rate is not None and c.mean_duration_s
                 and c.mean_duration_s > 0]
-    pareto_aliases = {p.alias for p in pareto_frontier(measured) if p.pareto_optimal}
+    pareto_aliases = {p.alias for p in pareto_frontier(measured, min_success_rate=0.8)
+                      if p.pareto_optimal}
 
     for m in candidates:
         score = 50.0

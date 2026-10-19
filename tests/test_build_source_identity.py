@@ -143,3 +143,68 @@ def test_dirty_diagnostic_bundle_cannot_publish_verified_acceptance(tmp_path, mo
     manifest = json.loads((output / "MANIFEST.json").read_text())
     assert manifest["source_dirty"] is True
     assert manifest["checks"]["status"] == "DIRTY_SOURCE_NOT_VERIFIED"
+
+
+def test_reconcile_four_identities_matches_clean_tree_and_rejects_mismatches(repository, tmp_path_factory):
+    ext_dir = tmp_path_factory.mktemp("ext")
+    sha = git(repository, "rev-parse", "HEAD")
+    seed_path = ext_dir / "seed.json"
+    reg_path = ext_dir / "reg.json"
+    bundle_path = ext_dir / "manifest.json"
+    seed_path.write_text(json.dumps({"source_sha": sha}), encoding="utf-8")
+    reg_path.write_text(json.dumps({"head": sha}), encoding="utf-8")
+    bundle_path.write_text(json.dumps({"source_sha": sha, "source_dirty": False}), encoding="utf-8")
+
+    res = identity.reconcile_four_identities(
+        repository,
+        seed_path=seed_path,
+        registry_path=reg_path,
+        bundle_manifest_path=bundle_path,
+    )
+    assert res["all_four_match"] is True
+    assert res["matched_count"] == 4
+    assert res["mismatches"] == {}
+
+    # Negative control 1: stale registry_head
+    reg_path.write_text(json.dumps({"head": "b" * 40}), encoding="utf-8")
+    res_stale = identity.reconcile_four_identities(
+        repository,
+        seed_path=seed_path,
+        registry_path=reg_path,
+        bundle_manifest_path=bundle_path,
+    )
+    assert res_stale["all_four_match"] is False
+    assert res_stale["matched_count"] == 3
+    assert "registry_head" in res_stale["mismatches"]
+
+    # Negative control 2: dirty bundle even when SHA matches
+    reg_path.write_text(json.dumps({"head": sha}), encoding="utf-8")
+    bundle_path.write_text(json.dumps({"source_sha": sha, "source_dirty": True}), encoding="utf-8")
+    res_dirty_bundle = identity.reconcile_four_identities(
+        repository,
+        seed_path=seed_path,
+        registry_path=reg_path,
+        bundle_manifest_path=bundle_path,
+    )
+    assert res_dirty_bundle["all_four_match"] is False
+    assert res_dirty_bundle["matched_count"] == 3
+
+
+def test_run_fast_ops_receipt_emits_hashed_receipt(repository, tmp_path_factory):
+    test_file = repository / "test_mini.py"
+    test_file.write_text("def test_ok():\n    assert 1 + 1 == 2\n", encoding="utf-8")
+    git(repository, "add", "test_mini.py")
+    git(repository, "-c", "user.name=Build regression", "-c", "user.email=build@example.invalid",
+        "commit", "-m", "add mini test")
+    out_path = tmp_path_factory.mktemp("receipt") / "ops_receipt.json"
+    receipt = identity.run_fast_ops_receipt(
+        repository,
+        workers=1,
+        out_path=out_path,
+        test_files=["test_mini.py"],
+    )
+    assert receipt["schema"] == "bossman-ops-receipt-1"
+    assert receipt["pytest"]["passed"] is True
+    assert len(receipt["receipt_sha256"]) == 64
+    assert out_path.exists()
+
