@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 476. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 482. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -69,6 +69,8 @@
 | `command-center/tests/test_download_false_success.py:156` | skipif | `not chromium_available()` | reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_fable_hard_cap.py:24` | skipif | `not fable_cap.LEDGER_AVAILABLE` | f"общий журнал потолка недоступен: {fable_cap.LEDGER_PROBLEM}" | Command Center | необязательный пакет / соседний компонент | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_fable_video_chaos.py:38` | skipif | `not shutil.which("ffmpeg")` | local FFmpeg unavailable | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_facelock.py:15` | importorskip | `—` | нет пакета numpy | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_facelock.py:16` | importorskip | `—` | нет пакета cv2 | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_feat_browser.py:44` | skipif | `not _has_chromium()` | Chromium не предустановлен | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_feat_browser.py:61` | skip | `—` | Playwright недоступен в этом окружении | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_feat_openrouter_smoke.py:13` | skipif | `not os.environ.get("OPENROUTER_API_KEY")` | OPENROUTER_API_KEY не задан — реальный smoke не выполняется | Command Center | живой внешний сервис / owner-authorized live | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -110,6 +112,9 @@
 | `command-center/tests/test_leaf_plugins_real_handlers.py:219` | skip | `—` | f"free model throttled: {r.content[:80]}" | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_leaf_slash_commands.py:13` | importorskip | `—` | rich is a runtime dependency of the terminal client | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_live_openrouter_dry_run.py:40` | skipif | `not chromium_available() and not required()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_mcp_catalog.py:11` | skipif | `not (shutil.which("npx") and shutil.which("uvx"))` | npx и uvx нужны для проверки allowlist по реальным бинарникам | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_mcp_catalog.py:43` | skip | `—` | uvx отсутствует в allowlist этой машины | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_mcp_catalog.py:76` | skip | `—` | uvx отсутствует в allowlist этой машины | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_memory_lifecycle_wiring.py:99` | skipif | `available()` | the installed bossman-shared already has the lifecycle | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_memory_lifecycle_wiring.py:106` | skipif | `not available()` | installed bossman-shared predates learning.lifecycle (reinstall it from this checkout to run this) | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_memory_recall_engine.py:17` | skipif | `not available()` | bossman-shared without learning.lifecycle | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -186,6 +191,7 @@
 | `command-center/tests/test_run_provenance_postgres.py:23` | skip | `—` | POSTGRES_LIVE_REQUIRED: set BCC_TEST_POSTGRES_URL or use postgres-contracts CI | Command Center | живой внешний сервис / owner-authorized live | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_secrem_f009_terminal.py:190` | skip | `—` | NOT_TESTED_ON_THIS_HOST: docker daemon unavailable — F-009 container mount proof deferred to RunPod/owner host | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_secrem_f009_terminal.py:288` | skip | `—` | NOT_TESTED_ON_THIS_HOST: docker daemon unavailable — the absolute-path containment proof belongs to the container mount and is deferred to the owner host | Command Center | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_self_improve.py:232` | skip | `—` | symlinks not permitted here | Command Center | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_skill_catalog.py:135` | importorskip | `—` | нет пакета bossman.apprentice.local_sidecar | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:43` | skipif | `_app_missing()` | f"приложения {APP} нет среди манифестов" | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_smoke_live_owner.py:44` | skipif | `_port_taken()` | порт приложения занят посторонним процессом | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
