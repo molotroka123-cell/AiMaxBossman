@@ -23017,7 +23017,7 @@
       "sources": [
         {
           "path": "command-center/bcc/web_access/policy.py",
-          "sha": "39235b9f6b91b6bcd50be90d1577bdb4beff1971"
+          "sha": "4608cfe0daecc125ac7f2d5893d464ff25335603"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",

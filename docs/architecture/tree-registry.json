@@ -1,6 +1,6 @@
 {
  "schema": "bossman-tree-registry-1",
- "head": "32690088e9052a8ac65e543da0a89289a47694a9",
+ "head": "4608cfe0daecc125ac7f2d5893d464ff25335603",
  "leaves": [
   {
    "id": "jeff",
@@ -35780,7 +35780,7 @@
    "label": "Кэш ответов String MCP (WebResultCache) для экономии квоты",
    "zone_parent": "plugins",
    "source": "command-center/bcc/web_access/policy.py",
-   "sha": "39235b9f6b91b6bcd50be90d1577bdb4beff1971",
+   "sha": "4608cfe0daecc125ac7f2d5893d464ff25335603",
    "integration_status": "code",
    "levels": {
     "code": {
