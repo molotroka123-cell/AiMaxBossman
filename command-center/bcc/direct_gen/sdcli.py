@@ -196,7 +196,7 @@ def default_binary() -> Path:
 
 
 def binary_for(spec: SdSpec, binary: Path) -> Path:
-    """Engine binary for this spec. Wan2.2 A14B needs the newer sd-cli (95b3090): 74988b2 fails with
+    r"""Engine binary for this spec. Wan2.2 A14B needs the newer sd-cli (95b3090): 74988b2 fails with
     «alloc compute params backend buffer failed» on the 15 GB experts. It lives NEXT TO the default folder
     (``vulkan-20261018``) or at $BOSSMAN_SDCPP_BIN_A14B; the default ``vulkan\`` build is never replaced."""
     if spec.engine != "wan-a14b":

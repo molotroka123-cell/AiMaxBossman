@@ -65,7 +65,7 @@ FALLBACK_WHY = {"REFINE_UNAVAILABLE": "не ответила (Ollama 127.0.0.1:1
                 "REFINE_TIMEOUT": "не уложилась во время", "REFINE_EMPTY": "вернула пустой ответ",
                 "REFINE_BUSY": "занята другим промптом"}
 
-GEN_COMMANDS = {"/vid", "/pic", "/vidphoto", "/style", "/speed", "/edit_engine", "/gen_go", "/gen_redo", "/gen_cancel"}
+GEN_COMMANDS = {"/vid", "/pic", "/vidphoto", "/style", "/speed", "/edit_engine", "/genmodel", "/gen_go", "/gen_redo", "/gen_cancel"}
 
 # Owner presets (owner 14.10): persistent switches applied to every /pic, /vid and photo edit, like /style.
 # Fixed English rules for the prompt writer (never owner text, so they cannot carry instructions) + a short
@@ -332,21 +332,35 @@ class GenRefineMixin:
         return httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=False,
                                  transport=self.refine_transport)
 
-    async def _refine_model(self, client: httpx.AsyncClient, base: str) -> str:
-        if self._refine_model_cached:
+    def prompt_model_for(self, person: Person | None) -> str | None:
+        if person is None:
+            return None
+        chosen = self.store.get("genmodel:prompt:" + person.key)
+        return chosen if chosen in REFINE_MODELS else None
+
+    def video_model_for(self, person: Person) -> str:
+        from .service import VIDEO_MODEL
+        chosen = self.store.get("genmodel:video:" + person.key)
+        return chosen if isinstance(chosen, str) and chosen else VIDEO_MODEL
+
+    async def _refine_model(self, client: httpx.AsyncClient, base: str, preferred: str | None = None) -> str:
+        if not preferred and self._refine_model_cached:
             return self._refine_model_cached
         try:
             resp = await client.get(base + "/api/tags", timeout=10)
             names = {m.get("name") for m in resp.json().get("models", []) if isinstance(m, dict)}
         except (httpx.HTTPError, ValueError, AttributeError):
             raise CompanionError("REFINE_UNAVAILABLE") from None
+        if preferred and preferred in names:
+            self._refine_model_cached = preferred
+            return preferred
         for name in REFINE_MODELS:
             if name in names:
                 self._refine_model_cached = name
                 return name
         raise CompanionError("REFINE_MODEL_MISSING")
 
-    async def _refine_call(self, system: str, user: str) -> tuple[str, str, float]:
+    async def _refine_call(self, system: str, user: str, *, preferred_model: str | None = None) -> tuple[str, str, float]:
         """(raw answer, model, seconds). One request at a time, loopback only, think off."""
         base = self._refine_base()
         if self._refine_lock is None:
@@ -355,7 +369,7 @@ class GenRefineMixin:
             raise CompanionError("REFINE_BUSY")
         async with self._refine_lock:
             async with self._refine_client(self.refine_timeout_s) as client:
-                model = await self._refine_model(client, base)
+                model = await self._refine_model(client, base, preferred=preferred_model)
                 started = time.monotonic()
                 try:
                     resp = await client.post(base + "/api/chat", json={
@@ -427,6 +441,147 @@ class GenRefineMixin:
                 f"• Альтернативный профиль: `uncensored` → `z_image_nsfw_v2` (`{Z_IMAGE_NSFW_V2_PROFILE['repo']}`, rev `{Z_IMAGE_NSFW_V2_PROFILE['revision']}`, 1 кадр `role=start`).\n"
                 "Переключить: `/edit_engine qwen` или `/edit_engine uncensored`."
             )
+        return Reply(text, kb)
+
+    async def _genmodel_command(self, person: Person, arg: str):
+        """MC22-16: unified owner-only selector across the 4 generation roles (Промпт, Фото, Редактирование, Видео)."""
+        from .service import IMAGE_MODELS, VIDEO_MODEL, Reply
+        parts = (arg or "").strip().split(None, 1)
+        role = parts[0].lower() if parts else ""
+        choice = parts[1].strip() if len(parts) > 1 else ""
+        b = lambda label, cmd: self.button(person, label, cmd)  # noqa: E731
+
+        # Query Studio catalog & local Ollama tags (best-effort, never fake PASS)
+        catalog: dict[str, dict] = {}
+        if self.core is not None and hasattr(self.core, "studio_models"):
+            with contextlib.suppress(CompanionError, Exception):
+                for row in await self.core.studio_models():
+                    catalog[row["id"]] = row
+        ollama_tags: set[str] = set()
+        with contextlib.suppress(CompanionError, Exception):
+            base = self._refine_base()
+            async with self._refine_client(5.0) as client:
+                resp = await client.get(base + "/api/tags", timeout=5.0)
+                ollama_tags = {m.get("name") for m in resp.json().get("models", []) if isinstance(m, dict)}
+
+        def studio_status(mid: str) -> str:
+            info = catalog.get(mid)
+            if not info:
+                return "нет данных каталога (не проверена)"
+            avail = "available=True" if info.get("available") is True else "available=False"
+            prov = info.get("provider") or "sdcpp"
+            ver = info.get("verification") or "наличие файлов ≠ inference PASS"
+            return f"{avail} · provider={prov} · {ver}"
+
+        # Apply explicit selection if valid
+        notice = ""
+        if role == "prompt" and choice:
+            if choice in REFINE_MODELS:
+                self.store.put("genmodel:prompt:" + person.key, choice)
+                self._refine_model_cached = choice if (not ollama_tags or choice in ollama_tags) else None
+                notice = f"✅ Роль «Промпт»: выбрана локальная модель `{choice}`.\n\n"
+            else:
+                notice = f"⚠️ Неизвестная текстовая модель `{choice}`. Доступны: {', '.join(REFINE_MODELS)}.\n\n"
+        elif role == "image" and choice:
+            if choice in IMAGE_MODELS and choice != VIDEO_MODEL:
+                self.store.put("img_model:" + person.key, choice)
+                notice = f"✅ Роль «Фото»: выбрана модель `{choice}` ({IMAGE_MODELS[choice]}).\n\n"
+            else:
+                notice = f"⚠️ Модель `{choice}` недоступна для роли «Фото».\n\n"
+        elif role == "edit" and choice:
+            norm = "uncensored" if choice in {"uncensored", "z_image_nsfw_v2"} else ("qwen" if choice in {"qwen", "sdcpp:qwen-image-edit-2509"} else "")
+            if norm:
+                self.store.put("edit_engine:" + person.key, norm)
+                notice = f"✅ Роль «Редактирование»: выбран профиль `{EDIT_ENGINES[norm]['label']}`.\n\n"
+            else:
+                notice = f"⚠️ Профиль `{choice}` не поддерживается для редактирования (`qwen` или `uncensored`).\n\n"
+        elif role == "video" and choice:
+            if choice == VIDEO_MODEL:
+                self.store.put("genmodel:video:" + person.key, choice)
+                notice = f"✅ Роль «Видео»: выбрана базовая модель `{VIDEO_MODEL}` (обычный профиль, не uncensored).\n\n"
+            else:
+                notice = (
+                    f"⚠️ Профиль `{choice}`: Uncensored для этой роли не готов в Studio API "
+                    f"(скачанный Wan A14B в direct-gen не равен отдельному проверенному Studio model ID). "
+                    f"Доступная альтернатива в Studio: `{VIDEO_MODEL}` ({IMAGE_MODELS[VIDEO_MODEL]}).\n\n"
+                )
+
+        cur_prompt = self.prompt_model_for(person) or self._refine_model_cached or REFINE_MODELS[0]
+        prompt_ready = "доступна в локальной Ollama (uncensored)" if (not ollama_tags or cur_prompt in ollama_tags) else "не найдена в Ollama"
+        cur_image = self.image_model_for(person)
+        cur_edit = self.edit_engine_for(person)
+        cur_video = self.video_model_for(person)
+
+        if role == "prompt":
+            text = (
+                f"{notice}🧠 **Роль «Промпт»** (`/genmodel prompt`)\n"
+                f"• Текущая модель: `{cur_prompt}` (главный профиль: **uncensored**)\n"
+                f"• Готовность: {prompt_ready} · только локально (127.0.0.1)\n"
+                "• Текстовый профиль не переносится на свойства весов фото/видео."
+            )
+            kb = [[b(("✅ " if m == cur_prompt else "") + m, f"/genmodel prompt {m}")] for m in REFINE_MODELS]
+            kb.append([b("⬅️ Все 4 роли (/genmodel)", "/genmodel")])
+            return Reply(text, kb)
+
+        if role == "image":
+            img_tag = "uncensored fine-tune z_image_nsfw_v2 (rev 7567e753c4)" if cur_image == "sdcpp:z-image-turbo" else "обычный профиль (не uncensored)"
+            text = (
+                f"{notice}🎨 **Роль «Фото»** (`/genmodel image` · совместимо с `/imgmodel`)\n"
+                f"• Текущая модель: `{cur_image}` ({IMAGE_MODELS.get(cur_image, cur_image)})\n"
+                f"• Профиль: {img_tag}\n"
+                f"• Готовность: {studio_status(cur_image)}"
+            )
+            kb = [[b(("✅ " if mid == cur_image else "") + f"{label} ({mid})", f"/genmodel image {mid}")]
+                  for mid, label in IMAGE_MODELS.items() if mid != VIDEO_MODEL]
+            kb.append([b("⬅️ Все 4 роли (/genmodel)", "/genmodel")])
+            return Reply(text, kb)
+
+        if role == "edit":
+            prof = EDIT_ENGINES[cur_edit]
+            mode_note = ("uncensored (`role=start`, ровно 1 входной кадр; несовместим с `/ref 1` + `/ref 2`)"
+                         if cur_edit == "uncensored"
+                         else "обычный редактор (не uncensored; до 3 референсов `role=reference`, `/ref 1` + `/ref 2`)")
+            text = (
+                f"{notice}🖌 **Роль «Редактирование»** (`/genmodel edit` · совместимо с `/edit_engine`)\n"
+                f"• Текущая модель: `{prof['model_id']}` · профиль `{prof['id']}` (rev `{prof['revision'][:12]}`)\n"
+                f"• Режим и входы: {mode_note}\n"
+                f"• Готовность: {studio_status(prof['model_id'])}"
+            )
+            kb = [[b(("✅ " if cur_edit == "uncensored" else "") + "🔥 Z-Image NSFW v2 (uncensored)", "/genmodel edit uncensored"),
+                   b(("✅ " if cur_edit == "qwen" else "") + "🎨 Qwen-Image-Edit (обычный)", "/genmodel edit qwen")],
+                  [b("⬅️ Все 4 роли (/genmodel)", "/genmodel")]]
+            return Reply(text, kb)
+
+        if role == "video":
+            text = (
+                f"{notice}🎬 **Роль «Видео»** (`/genmodel video`)\n"
+                f"• Текущая модель: `{cur_video}` ({IMAGE_MODELS.get(cur_video, cur_video)}) — обычный профиль (не uncensored)\n"
+                f"• Входы: `text` / `role=start` (1 стартовый кадр) · Готовность: {studio_status(cur_video)}\n"
+                "• Главный профиль uncensored: **Uncensored для этой роли не готов в Studio API** "
+                "(локальные веса Wan2.2 A14B подключены в direct-gen `:8801`, но в Studio API `/vid` работает проверенный "
+                f"базовый профиль `{VIDEO_MODEL}`)."
+            )
+            kb = [[b(("✅ " if cur_video == VIDEO_MODEL else "") + f"🎬 {IMAGE_MODELS[VIDEO_MODEL]} ({VIDEO_MODEL})",
+                     f"/genmodel video {VIDEO_MODEL}")],
+                  [b("⬅️ Все 4 роли (/genmodel)", "/genmodel")]]
+            return Reply(text, kb)
+
+        edit_prof = EDIT_ENGINES[cur_edit]
+        edit_tag = "uncensored · 1 кадр role=start" if cur_edit == "uncensored" else "обычный · до 3 кадров role=reference"
+        img_tag = "uncensored fine-tune" if cur_image == "sdcpp:z-image-turbo" else "обычный"
+        text = (
+            f"{notice}🎛 **Модели генерации по 4 ролям (`/genmodel`)**\n"
+            "Главный предпочтительный профиль — **uncensored** (где подключён и проверен; обычные модели помечены явно).\n\n"
+            f"1️⃣ **Промпт**: `{cur_prompt}` · uncensored · {prompt_ready}\n"
+            f"2️⃣ **Фото**: `{cur_image}` ({IMAGE_MODELS.get(cur_image, cur_image)}) · {img_tag} · {studio_status(cur_image)}\n"
+            f"3️⃣ **Редактирование**: `{edit_prof['id']}` (`{edit_prof['model_id']}`) · {edit_tag} · {studio_status(edit_prof['model_id'])}\n"
+            f"4️⃣ **Видео**: `{cur_video}` ({IMAGE_MODELS.get(cur_video, cur_video)}) · обычный (Uncensored для этой роли в Studio не готов) · {studio_status(cur_video)}\n\n"
+            "Смена настройки сохраняется в зашифрованном Store и влияет только на новые задачи (уже стоящие в очереди сохраняют свой snapshot)."
+        )
+        kb = [
+            [b("🧠 Промпт", "/genmodel prompt"), b("🎨 Фото", "/genmodel image")],
+            [b("🖌 Редактирование", "/genmodel edit"), b("🎬 Видео", "/genmodel video")],
+        ]
         return Reply(text, kb)
 
     def _refine_system(self, person: Person, kind: str, length: str | None) -> str:
@@ -556,7 +711,9 @@ class GenRefineMixin:
         user = self._refine_user(draft["idea"], draft.get("prompt") if (correction or variant) else None,
                                  correction, variant)
         try:
-            raw, model, seconds = await self._refine_call(system, user)
+            raw, model, seconds = await self._refine_call(
+                system, user, preferred_model=self.prompt_model_for(person)
+            )
             kind, text = parse_refine(raw)
         except CompanionError as exc:
             if str(exc) not in REFINE_FALLBACK:
@@ -615,7 +772,7 @@ class GenRefineMixin:
             else:
                 target = "Qwen-Image-Edit" + (" · референсы /ref" if draft.get("refs") else "")
         else:
-            target = IMAGE_MODELS.get(self.image_model_for(person), "картинка")
+            target = IMAGE_MODELS.get(draft.get("target_model") or self.image_model_for(person), "картинка")
         now = "запускаю сразу" if position == 1 else f"впереди {position - 1}"
         if draft.get("model"):
             style = " · стиль /style учтён" if self.gen_style(person) else ""
@@ -636,6 +793,8 @@ class GenRefineMixin:
     async def gen_command(self, person: Person, command: str, arg: str, message: dict):
         if person.role != "owner":
             return OWNER_ONLY
+        if command == "/genmodel":
+            return await self._genmodel_command(person, arg)
         if command == "/edit_engine":
             return self._edit_engine_command(person, arg)
         if command == "/style":
@@ -796,7 +955,9 @@ class GenRefineMixin:
             return blocked
         last = self.gen_draft(person)
         try:
-            raw, model, _ = await self._refine_call(CHAT_SYSTEM, self._chat_user(text, last))
+            raw, model, _ = await self._refine_call(
+                CHAT_SYSTEM, self._chat_user(text, last), preferred_model=self.prompt_model_for(person)
+            )
         except CompanionError as exc:
             if str(exc) == "REFINE_HOST_NOT_LOCAL":
                 raise
@@ -901,7 +1062,8 @@ class GenRefineMixin:
             lengths = self._lengths(draft)
             if lengths and draft.get("n") not in lengths:
                 draft["n"] = "5"
-            model = VIDEO_MODEL if lengths else self.image_model_for(person)
+            model = self.video_model_for(person) if lengths else (draft.get("target_model") or self.image_model_for(person))
+            draft["target_model"] = model
             draft["engine"] = model
             draft["revision"] = "57437632" if lengths else ("c61c0e42" if model == "sdcpp:z-image-turbo" else model)
             draft["inputs"] = [{"role": "start", "source": draft.get("source")}] if kind == "photo" else []
@@ -1036,9 +1198,11 @@ class GenRefineMixin:
                 elif kind == "edit":
                     await self._gen_edit(person, item, timings)
                 elif kind == "video":
-                    await self.generate(person, draft["prompt"], "video", length=item["preset"], timings=timings)
+                    await self.generate(person, draft["prompt"], "video", length=item["preset"],
+                                        model_override=item["model"], timings=timings)
                 else:
-                    await self.generate(person, draft["prompt"], "image", timings=timings)
+                    await self.generate(person, draft["prompt"], "image",
+                                        model_override=item["model"], timings=timings)
             except CompanionError as exc:
                 code = str(exc)
                 if code in QUEUE_RETRY and time.monotonic() - pressed < QUEUE_WAIT_MAX_S and not item.get("cancel"):

@@ -121,7 +121,7 @@ class Store:
         # local model or a running generation.
         if command in {"/status", "/help", "/rate", "/lock", "/watch", "/cloud", "/model", "/cancel", "/menu", "/start", "/photo",
                        "/privacy", "/forget", "/forget_confirm", "/pause_learning", "/resume_learning",
-                       "/imgmodel", "/edit_engine", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
+                       "/imgmodel", "/edit_engine", "/genmodel", "/stop", "/pause", "/resume", "/queue", "/approvals", "/approve", "/reject",
                        "/screen", "/diag", "/lessons", "/bossman", "/style", "/speed", "/gen_cancel",
                        "/presets", "/identitylock", "/poseonly", "/studioquality", "/cleanup", "/outfitonly",
                        "/poker_app", "/terminal",

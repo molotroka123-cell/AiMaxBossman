@@ -693,11 +693,14 @@ class Core:
         return [r for r in rows or [] if isinstance(r, dict) and isinstance(r.get("seq"), int)]
 
     # ---- Bossman Studio (local generation; provenance and gallery stay in Bossman)
-    async def studio_model(self, model_id: str) -> dict | None:
+    async def studio_models(self) -> list[dict]:
         # The first listing after a Bossman start re-hashes every model file against MANIFEST.json.
         body = await self._request("GET", "/api/studio/models", timeout=180)
         rows = body.get("items") if isinstance(body, dict) else None
-        return next((r for r in rows or [] if isinstance(r, dict) and r.get("id") == model_id), None)
+        return [r for r in rows or [] if isinstance(r, dict) and isinstance(r.get("id"), str)]
+
+    async def studio_model(self, model_id: str) -> dict | None:
+        return next((r for r in await self.studio_models() if r.get("id") == model_id), None)
 
     async def studio_create(self, model_id: str, prompt: str, settings: dict, media: list | None = None) -> int:
         payload = {"model": model_id, "prompt": prompt, "settings": settings, "count": 1}
