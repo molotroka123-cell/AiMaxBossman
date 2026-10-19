@@ -28,3 +28,14 @@ each local adaptation. These are integrity/provenance references, NOT digital
 signatures or supply-chain trust attestations. A trusted reviewer must approve
 any manifest update; replacing text and its hash together is not prevented by
 a checksum. No updater or background fetch is shipped.
+
+## Other vendored skills (outside the VoltAgent pack)
+
+| Upstream | Pinned commit | Local path | License |
+|---|---|---|---|
+| nextlevelbuilder/ui-ux-pro-max-skill — Next Level Builder | 56ea9cf174ed86786187daa9de0e6247cb0747e4 | `.agents/skills/ui-ux-pro-max/` | MIT; copyright (c) 2024 Next Level Builder; text in the skill's `LICENSE` |
+
+Unlike the pack above, this skill ships its upstream offline search helper
+(`scripts/*.py`, Python standard library only, reads local CSV data, no network)
+and data files byte-identical to the pinned commit. `SKILL.md` is a Bossman
+adaptation; see the skill's `README.md` for what was excluded and the risk review.

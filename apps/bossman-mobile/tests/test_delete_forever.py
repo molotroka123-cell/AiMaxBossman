@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 UI = Path(__file__).resolve().parents[1] / "bossmobile" / "ui"
@@ -37,4 +38,5 @@ def test_ui_has_delete_buttons_and_sw_cache_bumped():
     assert html.index('id="viewer-pult"') < html.index('id="viewer-delete"')
     assert html.index('id="vviewer-pult"') < html.index('id="vviewer-delete"')
     sw = (UI / "sw.js").read_text(encoding="utf-8")
-    assert "bossman-shell-v9" in sw
+    # v9 shipped the delete buttons; later shell changes bump it further (v10: UI polish).
+    assert int(re.search(r"bossman-shell-v(\d+)", sw).group(1)) >= 9
