@@ -1,5 +1,13 @@
 # Инвентаризация готовности 39 требований v2.2 (обновлено 19.10.2026, ночной прогон)
 
+> **Поздняя сверка 18.10.2026, 19:33 PDT:** текущий проверенный `main` =
+> `1599f2ef`; эта инвентаризация собрана на перечисленных ниже SHA и не
+> сертификат установленной сборки `1599f2ef`. На снимке CI `main` имеет
+> 12 failed/33 success/1 skipped. Следующие 45 кандидатов по всем 15
+> направлениям и 48-часовая дельта описаны в
+> [`BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md`](../../owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md).
+> Они не меняют таблицу PASS/FAIL/BLOCKED/NOT_RUN без свежих receipts.
+
 Честная инвентаризация по реестру `docs/v2.2-20261013/requirements.json` (39 ID: A22-01..12, MC22-01..16, P22-POKER-01..04, P22-TRADING-05, P22-PUMP-06, P22-TIMESFM-07, P22-EXCHANGE-08, P22-REPORTS-09, P22-OPS-10, P22-PROVENANCE-11). Тексты требований: `AUTONOMY_SPEC_RU.md`, `MEDIA_COMMERCIAL_SPEC_RU.md`, `POKER_TRADING_REPORTS_SPEC_RU.md`, `GENERATION_MODEL_SELECTION_RU.md`. Это инвентаризация, а не сертификат.
 
 Базовый SHA проверки: `37ae1b3ff8066536cf5312a1c9ea861136130aa1` + ветки ночного прогона `codex/night-features-20261019` (`db2b6ac6`, `55033960`) и `claude/night-audit-20261019`. Дата: 2026-10-19.
