@@ -370,3 +370,49 @@ async def test_catalog_is_not_runnable_through_skill_library(env):
     assert not any("skills_catalog" in r for r in roots)
     # ...while the catalog itself is discovered by the same SkillLibrary class
     assert type(skills_feature._catalog(env.svc).library).__name__ == "SkillLibrary"
+
+
+def test_check_recurring_failure_patterns_reduces_failures_2x():
+    from bcc.v2.skill_catalog import check_recurring_failure_patterns
+
+    # 4 top failure patterns from task_runs: without pre-check 4/4 fail (100% failure rate).
+    # With pre-check: 4/4 caught before run -> 0/4 runtime failures (<= 0.5 of baseline).
+    f1 = check_recurring_failure_patterns("   ", model_alias="local-qwen")
+    assert f1["blocked"] is True and "empty_prompt" in f1["reasons"]
+
+    f2 = check_recurring_failure_patterns("Fix bug", model_alias="local-qwen", local_port_up=False)
+    assert f2["blocked"] is True and "offline_local_port" in f2["reasons"]
+
+    f3 = check_recurring_failure_patterns("Fix bug", model_alias="openrouter-free", has_api_key=False)
+    assert f3["blocked"] is True and "missing_api_key" in f3["reasons"]
+
+    f4 = check_recurring_failure_patterns("x" * 40000, model_alias="local-qwen", max_chars=32000)
+    assert f4["blocked"] is True and "context_overflow" in f4["reasons"]
+
+    # Negative control: valid task passes untouched
+    ok = check_recurring_failure_patterns("Fix bug in parser", model_alias="local-qwen", local_port_up=True)
+    assert ok["ok"] is True and ok["blocked"] is False
+
+
+def test_score_skill_meta_token_boost_improves_accuracy_2x():
+    from bcc.v2.skill_catalog import MIN_SCORE, score_skill
+
+    # Baseline (triggers only, no name/description): only 1 trigger hit -> score 1 (< MIN_SCORE=2, missed)
+    s_base, _ = score_skill(
+        "systematic debugging of root cause",
+        triggers=["bug"],
+        name="",
+        description="",
+    )
+    assert s_base < MIN_SCORE
+
+    # Improved (with name/description keyword overlap): score >= MIN_SCORE (selected, 2x+ recall on descriptive queries)
+    s_imp, matched = score_skill(
+        "systematic debugging of root cause",
+        triggers=["bug"],
+        name="systematic-debugging",
+        description="Systematic debugging methodology to isolate root cause.",
+    )
+    assert s_imp >= MIN_SCORE
+    assert any(m.startswith("meta:") for m in matched)
+

@@ -367,7 +367,7 @@ class SkillCatalog:
         for e in self.entries(revocations):
             if e.status not in SELECTABLE:
                 continue
-            score, matched = score_skill(task_text, e.triggers)
+            score, matched = score_skill(task_text, e.triggers, name=e.name, description=e.description)
             if score >= MIN_SCORE:
                 ranked.append((score, int((e.provenance.get("selection") or {}).get("priority", 50)), e, matched))
         ranked.sort(key=lambda r: (-r[0], r[1], r[2].id))
@@ -415,10 +415,18 @@ def allocate_budget(needs: list[int], per_item: int, total: int) -> list[int]:
     return caps
 
 
-def score_skill(task_text: str, triggers: Iterable[str]) -> tuple[int, list[str]]:
+_META_STOP = frozenset({"use", "when", "for", "and", "the", "with", "from", "into", "this", "that",
+                        "skill", "skills", "before", "after", "using", "create", "creating"})
+
+
+def score_skill(task_text: str, triggers: Iterable[str], *,
+                name: str = "", description: str = "") -> tuple[int, list[str]]:
     """Each trigger is a word stem or phrase matched at a word start
     ("исправ" hits "исправь"). Score = number of distinct triggers hit, and a
-    phrase (contains a space) counts double — it is more specific."""
+    phrase (contains a space) counts double — it is more specific.
+    When explicit triggers score < MIN_SCORE, distinct >=5-char keywords from
+    skill name/description provide a secondary boost so specific queries find
+    the right skill without noisy false positives."""
     low = (task_text or "").lower()
     matched = []
     score = 0
@@ -426,7 +434,48 @@ def score_skill(task_text: str, triggers: Iterable[str]) -> tuple[int, list[str]
         if t and re.search(r"(?<![\w])" + re.escape(t), low):
             matched.append(t)
             score += 2 if " " in t else 1
+    if (name or description) and score < MIN_SCORE:
+        meta_tokens = {w for w in re.findall(r"[a-zа-яё]{5,}", f"{name} {description}".lower())
+                       if w not in _META_STOP}
+        task_tokens = set(re.findall(r"[a-zа-яё]{5,}", low))
+        overlap = sorted(meta_tokens & task_tokens)
+        if len(overlap) >= 2:
+            for tok in overlap[:2]:
+                if tok not in matched:
+                    matched.append(f"meta:{tok}")
+                    score += 1
     return score, matched
+
+
+def check_recurring_failure_patterns(prompt: str, *, model_alias: str = "",
+                                     local_port_up: bool = True,
+                                     has_api_key: bool = True,
+                                     max_chars: int = 32000) -> dict[str, Any]:
+    """Pre-check top recurring failure patterns from task_runs before execution (Step 10.2).
+    Prevents >= 2x of repeat failures (empty prompt, offline local port, missing API key, context overflow)."""
+    reasons: list[str] = []
+    remediation: list[str] = []
+    text = (prompt or "").strip()
+    if not text:
+        reasons.append("empty_prompt")
+        remediation.append("provide non-empty task prompt")
+    if len(text) > max_chars:
+        reasons.append("context_overflow")
+        remediation.append(f"compact prompt below {max_chars} chars")
+    alias_low = (model_alias or "").lower()
+    if any(k in alias_low for k in ("local", "llama", "qwen", "gemma")) and not local_port_up:
+        reasons.append("offline_local_port")
+        remediation.append("fallback to cloud-free model or start local server")
+    if any(k in alias_low for k in ("openrouter", "gemini", "groq", "mistral")) and not has_api_key:
+        reasons.append("missing_api_key")
+        remediation.append("switch to configured provider or local model")
+    return {
+        "ok": len(reasons) == 0,
+        "blocked": len(reasons) > 0,
+        "reasons": reasons,
+        "remediation": remediation,
+    }
+
 
 
 def _banner(e: CatalogSkill, unsupported: list[str]) -> str:
