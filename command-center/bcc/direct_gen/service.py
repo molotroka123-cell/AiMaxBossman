@@ -321,15 +321,51 @@ class DirectGenService:
         if self._resident is not None and self._resident.alive():
             await self._resident.stop()
 
+    async def _unload_ollama(self, model_name: str | None = None) -> list[str]:
+        """Immediately unload local Ollama LLM weights (keep_alive=0) so VRAM is free before photo/video generation."""
+        hook = getattr(self, "ollama_unload", None)
+        if callable(hook):
+            res = hook(model_name)
+            if asyncio.iscoroutine(res):
+                res = await res
+            return list(res) if isinstance(res, (list, tuple, set)) else ([model_name] if model_name else [])
+        import httpx
+        base = os.environ.get("BOSSMAN_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+        targets: list[str] = [model_name] if model_name else []
+        try:
+            async with httpx.AsyncClient(base_url=base, timeout=httpx.Timeout(2.0, connect=0.25), trust_env=False) as client:
+                with contextlib.suppress(Exception):
+                    ps = (await client.get("/api/ps")).json().get("models") or []
+                    for m in ps:
+                        n = str(m.get("name") or "").strip()
+                        if n and n not in targets:
+                            targets.append(n)
+                unloaded: list[str] = []
+                for name in targets:
+                    with contextlib.suppress(Exception):
+                        r = await client.post("/api/generate", json={"model": name, "prompt": "", "keep_alive": 0})
+                        if r.status_code < 400:
+                            unloaded.append(name)
+                return unloaded
+        except Exception:  # noqa: BLE001
+            return []
+
     async def _default_qwen(self) -> tuple[Any, str] | None:
         registry = getattr(self.svc, "registry", None)
         if registry is None:
             return None
-        for model in await registry.list_models():
-            name = f"{model.get('name', '')} {model.get('alias', '')}".lower()
-            if "qwen" in name and model.get("status") not in ("offline", "error"):
-                adapter, row = await registry.adapter_for(model["id"])
-                return adapter, row["name"]
+        models = [m for m in await registry.list_models() if m.get("status") not in ("offline", "error")]
+        for pred in (
+            lambda lbl: "gemma" in lbl and bool(UNCENSORED_MARKS.search(lbl)),
+            lambda lbl: "gemma" in lbl,
+            lambda lbl: "qwen" in lbl and bool(UNCENSORED_MARKS.search(lbl)),
+            lambda lbl: "qwen" in lbl,
+        ):
+            for model in models:
+                label = f"{model.get('name', '')} {model.get('alias', '')}".lower()
+                if pred(label):
+                    adapter, row = await registry.adapter_for(model["id"])
+                    return adapter, row["name"]
         return None
 
     async def assist_status(self) -> dict:
@@ -382,15 +418,17 @@ class DirectGenService:
             result = await asyncio.wait_for(adapter.chat(name, [
                 {"role": "system", "content": ASSIST_SYSTEM}, {"role": "user", "content": prompt}]), 180)
         except Exception as exc:  # noqa: BLE001
+            await self._unload_ollama(name)
             raise DirectGenError(502, "assist_failed", f"Qwen did not answer: {type(exc).__name__}: {str(exc)[:200]}") from None
         suggested = (result.text or "").strip()
+        unloaded = await self._unload_ollama(name)
         if not suggested:
             raise DirectGenError(502, "assist_failed", "Qwen returned an empty edit")
         record = {"assist_id": uuid.uuid4().hex, "participant": participant, "model": name,
                   "original": prompt, "suggested": suggested, "created_at": now_iso()}
         self.store.save_assist(participant, record)
         return {"assist_id": record["assist_id"], "original": prompt, "suggested": suggested,
-                "model": name, "applied": False}
+                "model": name, "applied": False, "unloaded": bool(unloaded)}
 
     # ---------- create / retry ----------
 
@@ -882,6 +920,7 @@ class DirectGenService:
                     warm = await self._resident.prepare_key(key if runner.use_server else None)
                 else:
                     await self._release_resident()
+                await self._unload_ollama()
                 await asyncio.to_thread(self._preflight, spec, model_resident=warm)
                 folder = self.store.job_dir(job["participant"], job_id)
                 work, result = folder / "work", folder / "result"

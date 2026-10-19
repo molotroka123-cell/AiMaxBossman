@@ -713,6 +713,7 @@
     if (refs.length === 1) body.image_b64 = refs[0].data; else if (refs.length) body.images_b64 = refs.map((r) => r.data);
     if (refs.some((r) => r.name)) body.ref_names = refs.map((r) => r.name || '');
     if (refs.length && $('photo-facelock').checked) body.facelock = true;
+    if ($('photo-assist') && $('photo-assist').checked) body.assist = true;
     S.photoSending = true; $('photo-go').disabled = true;
     let job = null;
     try { job = await api('POST', '/photo/jobs', body); }

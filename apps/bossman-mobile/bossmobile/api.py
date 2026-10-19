@@ -89,6 +89,10 @@ class WorkerHeartbeatIn(BaseModel):
 MAX_REFS = 6  # API ceiling; each model states its own (max_refs), the editors take 3
 
 
+class PhotoAssistIn(BaseModel):
+    prompt: str = Field(min_length=1, max_length=8000)
+
+
 class PhotoIn(BaseModel):
     model: str = Field(min_length=1, max_length=80)
     prompt: str = Field(min_length=1, max_length=8000)
@@ -101,6 +105,7 @@ class PhotoIn(BaseModel):
     images_b64: list[str] | None = Field(default=None, max_length=MAX_REFS)
     ref_names: list[str] | None = Field(default=None, max_length=MAX_REFS)
     facelock: bool = False          # put the face of @1 back exactly as in the photo (post-process on the PC)
+    assist: bool = False            # on-demand Gemma prompt refinement -> photo job -> immediate LLM unload
 
 
 def _client_key(request: Request) -> str:
@@ -556,6 +561,34 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             raise fail(404, "задача генерации не найдена")
         return job_id
 
+    async def unload_ollama(extra_model: str | None = None) -> list[str]:
+        """Unload any loaded Ollama models (keep_alive=0) so VRAM is free before photo/video generation."""
+        targets: list[str] = [extra_model] if extra_model else []
+        try:
+            r = await ollama.get("/api/ps")
+            if r.status_code == 200:
+                for m in (r.json().get("models") or []):
+                    n = str(m.get("name") or m.get("model") or "").strip()
+                    if n and n not in targets:
+                        targets.append(n)
+        except Exception:  # noqa: BLE001
+            pass
+        unloaded: list[str] = []
+        for n in targets:
+            try:
+                r = await ollama.post("/api/generate", json={"model": n, "prompt": "", "keep_alive": 0})
+                if r.status_code < 400:
+                    unloaded.append(n)
+            except Exception:  # noqa: BLE001
+                pass
+        return unloaded
+
+    @app.post("/m/api/photo/assist")
+    async def p_assist(body: PhotoAssistIn, _=Depends(session)):
+        res = await call("POST", "/api/direct-gen/assist", json={"prompt": body.prompt}, timeout=180)
+        unloaded = await unload_ollama(res.get("model") if isinstance(res, dict) else None)
+        return {**(res if isinstance(res, dict) else {}), "ollama_unloaded": unloaded}
+
     @app.post("/m/api/photo/jobs", status_code=202)
     async def p_create(body: PhotoIn, _=Depends(session)):
         models = {m["id"]: m for m in await photo_models()}
@@ -575,7 +608,15 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             raise fail(422, f"«{spec.get('label')}» берёт не больше {cap} фото-референс(а), выбрано {len(images)}"
                        if cap else f"«{spec.get('label')}» не принимает фото", "BM_TOO_MANY_REFS")
         names = check_tags(body.prompt, len(images), body.ref_names, bool(spec.get("accepts_image")))
-        payload: dict[str, Any] = {"model": body.model, "prompt": body.prompt, "negative": body.negative, "mode": "DIRECT"}
+        prompt_text = body.prompt
+        assist_model = None
+        if body.assist:
+            assisted = await call("POST", "/api/direct-gen/assist", json={"prompt": body.prompt}, timeout=180)
+            if isinstance(assisted, dict) and assisted.get("suggested"):
+                prompt_text = str(assisted["suggested"])
+                assist_model = assisted.get("model")
+        unloaded = await unload_ollama(assist_model)
+        payload: dict[str, Any] = {"model": body.model, "prompt": prompt_text, "negative": body.negative, "mode": "DIRECT"}
         for k in ("resolution", "seed", "steps"):
             v = getattr(body, k)
             if v is not None:
@@ -590,7 +631,12 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             if not images or not spec.get("accepts_image"):
                 raise fail(422, "FaceLock: нужна модель с фото-референсом и приложенное фото (лицо берётся с @1)", "BM_FACELOCK_NEEDS_REF")
             payload["facelock"] = True
-        return job_view(await call("POST", "/api/direct-gen/jobs", json=payload, timeout=120))
+        view = job_view(await call("POST", "/api/direct-gen/jobs", json=payload, timeout=120))
+        if assist_model:
+            view["assist_model"] = assist_model
+        if unloaded:
+            view["ollama_unloaded"] = unloaded
+        return view
 
     @app.get("/m/api/photo/jobs/{job_id}")
     async def p_job(job_id: str, _=Depends(session)):
