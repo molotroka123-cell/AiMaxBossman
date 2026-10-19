@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from dataclasses import asdict
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
@@ -26,7 +27,8 @@ from ..db import (models as models_t, providers as providers_t, settings_kv,
 from ..model_health import HealthRecord
 from ..v2.model_intelligence import TaskComplexityFeatures, classify_reasoning
 from ..v2.model_router import (MAX_CANDIDATES, ModelCandidate, RouteRequest,
-                               candidate_digest, derive_local, disqualify, route,
+                               candidate_digest, derive_local, disqualify,
+                               pareto_frontier, pick_pareto_model, route,
                                shortlist)
 from ..v2.tables import model_capability_checks as caps_t
 from . import Feature
@@ -630,6 +632,55 @@ async def candidates(request: Request):
     return {"limit": req.max_candidates, "total": len(all_models),
             "candidates": [candidate_digest(m) for m in picked],
             "rejected": rejected}
+
+
+@router.get("/router/pareto")
+async def pareto(request: Request, task_type: str | None = None,
+                 min_runs: int = 1, min_success: float = 0.8):
+    """Pareto task_type → model table from historical task_runs."""
+    svc = request.app.state.svc
+    async with svc.db.session() as s:
+        q = (sa.select(tasks_t.c.kind, runs_t.c.model_alias, runs_t.c.status,
+                       runs_t.c.started_at, runs_t.c.finished_at)
+             .select_from(runs_t.join(tasks_t, runs_t.c.task_id == tasks_t.c.id))
+             .where(sa.and_(runs_t.c.model_alias.isnot(None),
+                            runs_t.c.started_at.isnot(None),
+                            runs_t.c.finished_at.isnot(None))))
+        if task_type:
+            q = q.where(tasks_t.c.kind == task_type)
+        rows = (await s.execute(q)).fetchall()
+        bench_rows = (await s.execute(
+            sa.select(models_t.c.alias, models_t.c.bench))).fetchall()
+    memory: dict[str, float] = {}
+    for r in bench_rows:
+        bench = r._mapping["bench"]
+        if isinstance(bench, dict) and bench.get("ram_mb"):
+            memory[r._mapping["alias"]] = float(bench["ram_mb"])
+    agg: dict[tuple[str, str], dict] = {}
+    for r in rows:
+        m = r._mapping
+        dur = (m["finished_at"] - m["started_at"]).total_seconds()
+        if dur <= 0:
+            continue
+        a = agg.setdefault((m["kind"] or "generic", m["model_alias"]),
+                           {"runs": 0, "ok_runs": 0, "total": 0.0})
+        a["runs"] += 1
+        a["ok_runs"] += 1 if m["status"] == "completed" else 0
+        a["total"] += dur
+    points = [{"task_type": k, "alias": al, "runs": a["runs"],
+               "ok_runs": a["ok_runs"], "success_rate": a["ok_runs"] / a["runs"],
+               "mean_duration_s": a["total"] / a["runs"],
+               "memory_mb": memory.get(al)}
+              for (k, al), a in agg.items()]
+    frontier = pareto_frontier(points, min_runs=min_runs, min_success_rate=min_success)
+    rec = pick_pareto_model(points, task_type, min_runs=min_runs,
+                            min_success_rate=min_success) if task_type else None
+    slowest = max((p.mean_duration_s for p in frontier
+                   if rec and p.task_type == rec.task_type), default=None)
+    return {"points": [asdict(p) for p in frontier],
+            "recommended": asdict(rec) if rec else None,
+            "speedup_vs_slowest_x": (round(slowest / rec.mean_duration_s, 2)
+                                     if rec and slowest else None)}
 
 
 FEATURE = Feature(name="router", router=router, setup=_setup)

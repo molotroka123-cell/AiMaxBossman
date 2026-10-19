@@ -93,6 +93,7 @@ class ModelCandidate:
     queue_depth: int = 0
     success_rate: float | None = None
     role_scores: dict[str, float] = field(default_factory=dict)
+    mean_duration_s: float | None = None   # measured per-task wall time (Pareto)
 
     def cap_state(self, cap: str) -> str:
         """verified | falsified | advertised | unknown — что мы знаем о способности."""
@@ -208,10 +209,84 @@ def shortlist(req: RouteRequest, models: list[ModelCandidate],
     return ok[:cap], rejected
 
 
+@dataclass(slots=True)
+class ParetoPoint:
+    task_type: str
+    alias: str
+    runs: int
+    ok_runs: int
+    success_rate: float
+    mean_duration_s: float
+    memory_mb: float | None
+    pareto_optimal: bool
+    dominated_by: list[str] = field(default_factory=list)
+
+
+def _dominates(b: ParetoPoint, a: ParetoPoint) -> bool:
+    if b.alias == a.alias:
+        return False
+    if b.success_rate < a.success_rate or b.mean_duration_s > a.mean_duration_s:
+        return False
+    strict = (b.success_rate > a.success_rate
+              or b.mean_duration_s < a.mean_duration_s)
+    if a.memory_mb is not None and b.memory_mb is not None:
+        if b.memory_mb > a.memory_mb:
+            return False
+        strict = strict or b.memory_mb < a.memory_mb
+    return strict
+
+
+def pareto_frontier(points: list[dict], *, min_runs: int = 1,
+                    min_success_rate: float = 0.0) -> list[ParetoPoint]:
+    """Per-task_type Pareto frontier over (success_rate↑, duration↓, memory↓)."""
+    kept: list[ParetoPoint] = []
+    for p in points:
+        dur = p.get("mean_duration_s")
+        if dur is None or dur <= 0:
+            continue
+        runs = int(p.get("runs") or 0)
+        rate = float(p.get("success_rate") or 0.0)
+        if runs < min_runs or rate < min_success_rate:
+            continue
+        mem = p.get("memory_mb")
+        kept.append(ParetoPoint(
+            task_type=str(p["task_type"]), alias=str(p["alias"]), runs=runs,
+            ok_runs=int(p.get("ok_runs") or 0), success_rate=rate,
+            mean_duration_s=float(dur),
+            memory_mb=float(mem) if mem is not None else None,
+            pareto_optimal=True))
+    for a in kept:
+        a.dominated_by = sorted(b.alias for b in kept
+                                if b.task_type == a.task_type and _dominates(b, a))
+        a.pareto_optimal = not a.dominated_by
+    kept.sort(key=lambda p: (p.task_type, not p.pareto_optimal,
+                             -p.success_rate, p.mean_duration_s))
+    return kept
+
+
+def pick_pareto_model(points: list[dict], task_type: str, *, min_runs: int = 1,
+                      min_success_rate: float = 0.8) -> ParetoPoint | None:
+    """Fastest Pareto-optimal model for a task_type, or None."""
+    own = [p for p in points if p.get("task_type") == task_type]
+    front = [p for p in pareto_frontier(own, min_runs=min_runs,
+                                        min_success_rate=min_success_rate)
+             if p.pareto_optimal]
+    return min(front, key=lambda p: p.mean_duration_s) if front else None
+
+
 def route(req: RouteRequest, models: list[ModelCandidate]) -> RouteDecision:
     total = len(models)
     candidates, rejected = shortlist(req, models)
     scored: list[tuple[float, ModelCandidate, list[str]]] = []
+
+    # Pareto bonus: only among candidates with measured success AND duration.
+    measured = [{"task_type": req.task_type, "alias": c.alias, "runs": 1,
+                 "success_rate": c.success_rate,
+                 "mean_duration_s": c.mean_duration_s, "memory_mb": c.memory_mb}
+                for c in candidates
+                if c.success_rate is not None and c.mean_duration_s
+                and c.mean_duration_s > 0]
+    pareto_aliases = {p.alias for p in pareto_frontier(measured) if p.pareto_optimal}
 
     for m in candidates:
         score = 50.0
@@ -237,6 +312,11 @@ def route(req: RouteRequest, models: list[ModelCandidate]) -> RouteDecision:
         if m.latency_ms:
             score -= min(m.latency_ms / 1000.0, 8.0)
         score -= min(m.queue_depth * 2.0, 12.0)
+        if m.mean_duration_s is not None and m.mean_duration_s > 0:
+            score -= min(m.mean_duration_s / 10.0, 10.0)
+            if m.alias in pareto_aliases:
+                score += 6.0
+                why.append(f"+ pareto-optimal ({m.mean_duration_s:.1f}s mean)")
         if not m.local:
             # Small cost penalty; role/quality can still win.
             score -= min((m.price_in + m.price_out) / 2.0, 20.0)
