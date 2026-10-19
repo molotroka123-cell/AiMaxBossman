@@ -670,4 +670,3 @@ def test_warm_rewarm_after_expiry_does_not_leak_budget_or_spin_when_capped():
     assert gov._active_warmed_bytes(io.t) == 0
     run_warm_sync(gov)
     assert len(names(io, "warm")) > n_before
-

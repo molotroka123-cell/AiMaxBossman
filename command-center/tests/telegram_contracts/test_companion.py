@@ -721,4 +721,3 @@ def test_poll_tolerates_transient_conflict_and_raises_on_persistent_conflict(tmp
         finally:
             store.close()
     asyncio.run(run())
-
