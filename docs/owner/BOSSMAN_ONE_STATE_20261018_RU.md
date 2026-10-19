@@ -40,36 +40,42 @@
 
 ## Что осталось (по порядку)
 
-1. **Срочно:** убрать `bypassPermissions` у Claude/Codex из пульта (ассистент с телефона, этап 2; ждёт «да» владельца).
+1. **Закрыто в коде и живом конфиге (`af8caf35` + `80ec28d3`):** `bypassPermissions` у Claude/Codex убран из конфига пульта и задач Планировщика; ждёт живой проверки владельцем с телефона.
 2. Владелец: ключи в `http://127.0.0.1:3001` (NVIDIA NIM, Groq, Google AI Studio, OpenRouter) → зарегистрировать модели FreeLLMAPI.
 3. Автозапуск оркестра и самостоятельный режим (бесплатные модели, затем платные в рамках лимитов; запись в память `feedback-self-directed-improvement-18-10`).
-4. Движок `sd-server` (модель не выгружается между задачами): работа агента остановлена, неотправленный коммит в его копии.
+4. **Интегрировано (`db2b6ac6`):** движок `sd-server` (`command-center/bcc/direct_gen/resident.py`, включается через `BOSSMAN_DIRECT_GEN_RESIDENT=1`, по умолчанию выключен `0` до завершения живого бенчмарка памяти на 2 подряд задачах; `36 passed` в `test_direct_gen_resident.py`) + единый селектор `/genmodel` (`MC22-16`, `55033960`, `3 passed` в `test_companion_genmodel.py`).
 5. Видео-текст Wan A14B на меньшем размере модели (Q4).
 6. Решить по трекам (описания для Gemini или локальный замер YuE).
 7. Контрольный замер скорости загрузки модели при тёплом кэше и после исключения Defender.
 
 ## Как остановить всё
 
-`owner_one_bossman.py stop --kinds jeff,companion,backend --hold`; оркестр — `POST /api/autonomy/stop` или файл `STOP_ORCHESTRA`; распределитель и FreeLLMAPI — отключить их задачи в планировщике.
+`owner_one_bossman.py stop --data-dir "%LOCALAPPDATA%\Bossman\CommandCenter" --kinds jeff,companion,backend --hold`; оркестр — `POST /api/autonomy/stop` или файл `STOP_ORCHESTRA`; распределитель и FreeLLMAPI — отключить их задачи в планировщике.
 
 ## Сборка завершена (18.10, вечер) — `main` = 8cd86e94
 
 - **Влито в `main`:** документы 2.5 (15 направлений как один продукт), контур самоулучшения роя (`bcc/self_improve`, панель только для чтения; прогоны: run1 NOT_RUN, run2 не запускался — агент отказался действовать по пересказанному согласию), починка трёх красных тестов, честный ETA загрузки, отключение «будильника» Ollama (`model_freshness`, плюс `BOSSMAN_MODEL_FRESHNESS=0`), исправленный публикатор сайта (только точный `main`, без зелёного без receipt), A22-04.
 - **A22-04 включён вживую:** пульт отвечает только владельцу; `/work_yes` одноразовым кодом; Claude/Codex из пульта без обхода разрешений (обход — `/claude --bypass` + кнопка на 2 мин); `/stop` останавливает всё. В конфиге пульта `bypassPermissions` → `default` (копия `config.json.bak-20261018-a22-04`); задачи `BossmanClaudeRemote` и `BossmanNightAutonomy` выключены; `BossmanTreeAutoPublish` выключена. Живые команды из Telegram не проверены (нужен владелец).
-- **Скорость генераций:** после отключения будильника Ollama фото на 30 шагов — 246 с целиком (утром одна загрузка шла 8–25 мин). Дефект: распределитель не поднимает приоритет нового `sd-cli` после перезапуска бэкенда.
+- **Скорость генераций:** после отключения будильника Ollama фото на 30 шагов — 246 с целиком (утром одна загрузка шла 8–25 мин). Дефект: распределитель не поднимает приоритет нового `sd-cli` после перезапуска бэкенда (исправлено в `d91abed9`).
 - **Диск:** свободно 338 ГБ (удалены неиспользуемые DeepSeek V4 abliterated, Llama 3.3 70B, nex-n25-mini и исходники с отдельной копией в Ollama: gemma3-27b, r1-70b, qwen38-27b-uncensored).
 - **Новое на ПК:** Wan2GP в `apps-local\wan2gp` (работает на gfx1151; Wan2.1 1.3B 3 с 832×480 за 17,8 мин — не быстрее нашего движка; лицензия WanGP Community 2.0, не MIT), плагины Claude Code `context7` и `amd-skills`, инвесторский ролик 45 с отправлен в пульт.
-- **Планы (не сделано):** LFM2.5-24B-A2B как быстрый исполнитель (сравнение с Qwen3.6); Halogen 0.18.10 — только Linux, отложено; turbovec — при >100 тыс. фрагментов памяти; uncensored текст→видео Wan на Q4; Wan2GP для Animate/VACE; остаток аудита безопасности (сессия приложения 30 дней, статический токен, шаги PC-агента, автоперезапуск бэкенда); 0 из 39 пунктов приёмки в PASS.
+- **Планы (не сделано):** LFM2.5-24B-A2B как быстрый исполнитель (сравнение с Qwen3.6); Halogen 0.18.10 — только Linux, отложено; turbovec — при >100 тыс. фрагментов памяти; uncensored текст→видео Wan на Q4; Wan2GP для Animate/VACE; остаток аудита безопасности (сессия приложения 30 дней, статический токен, шаги PC-агента, автоперезапуск бэкенда); 0 из 39 пунктов приёмки в живом сертификате PASS.
 
-## Ночной прогон Argon 4 (18→19.10.2026) — полный отчёт: `docs/audits/2026-10-19-morning-report/README.md`
+## Ночной прогон втроём: Argon 4 + Claude + Codex (18→19.10.2026) — полный отчёт: `docs/audits/2026-10-19-morning-report/README.md`
 
-- **Устранены 5 багов (коммиты `d91abed9`, `80ec28d3`):**
-  1. `Resource Governor`: устранён бесконечный цикл `warm-up` (`cap 40 GB reached` каждые 10 с) — добавлен учёт активного окна `_active_warmed_bytes()`.
-  2. Приоритет `sd-cli.exe`: `SdCliRunner.run` теперь сам выставляет `psutil.HIGH_PRIORITY_CLASS` (`128`) при старте дочернего процесса (устранён `AccessDenied` между elevated Backend и non-elevated Governor). Подтверждено на живых задачах фото и видео (`PriorityClass = 128`).
-  3. `Telegram Companion` (Пульт): устранено падение каждые 15 минут (`:14:02`, `:29:02`, `:44:02`, `:59:02`) с `TELEGRAM_COMPANION=CONFLICT`, вызывавшееся запланированной задачей `\GrechkaTrap` (`grechka-trap\watcher.py`). Теперь `poll()` под защитой `token_poller_lock` переносит одиночные транзиентные конфликты `getUpdates`.
-  4. `Direct-Gen` («Удалить навсегда»): устранена гонка `409 job_running` при вызове `DELETE /api/direct-gen/jobs/{id}` сразу после перехода задачи в `completed`/`cancelled`/`failed`.
-  5. Тестовый контур `command-center/tests/conftest.py`: изолирован `default_pin_path` от боевого пина конституции `%LOCALAPPDATA%\Bossman\autonomy\constitution.sha256` (`460 passed, 0 failed` по всем `test_autonomy_*.py`).
-- **Живые проверки и тесты:**
-  - `test_autonomy_*.py`: `460 passed`; `test_direct_gen_*.py`: `124 passed`; `apps/war-terminal/tests`: `184 passed`; функциональные тесты ветвей: `320 passed`; `test_governor.py` + `test_companion*.py`: `67 passed`.
-  - Живые генерации фото (`z-image-turbo`) и видео (`wan2.2-ti2v-5b`, старт `wan2.2-i2v-a14b-uncensored` на `sd-cli 95b3090`) + очередь/отмена/удаление проверены и очищены; платные расходы `$0.00`.
+- **Окна командной строки (открыты в обычном режиме, без `bypass`/`--dangerously-skip-permissions`):**
+  - `cmd.exe` (`PID 18844`, `Claude-Code-Normal` → `claude.exe` `PID 18296`) в `C:\Users\asd\Bossman\wt-checkpoint-20261015`.
+  - `cmd.exe` (`PID 20220`, `Codex-CLI-Normal` → `codex.exe` `PID 3428`) в `C:\Users\asd\Bossman\wt-checkpoint-20261015`.
+- **Устранены баги и закрыты пункты плана (все влиты через fast-forward без пересечения файлов):**
+  1. `d91abed9`:
+     - `Resource Governor`: устранён бесконечный цикл `warm-up` (`cap 40 GB reached` каждые 10 с) через `_active_warmed_bytes()`.
+     - Приоритет `sd-cli.exe`: `SdCliRunner.run` сам выставляет `psutil.HIGH_PRIORITY_CLASS` (`128`) при спавне дочернего процесса.
+     - `Telegram Companion` (Пульт): устранено падение каждые 15 минут (`:14:02`, `:29:02`, `:44:02`, `:59:02`) с `TELEGRAM_COMPANION=CONFLICT` от задачи `\GrechkaTrap`.
+     - `Direct-Gen` («Удалить навсегда»): устранена гонка `409 job_running` при вызове `DELETE /api/direct-gen/jobs/{id}` сразу после завершения задачи.
+  2. `80ec28d3`: изолирован `default_pin_path` в `command-center/tests/conftest.py` от боевого пина конституции (`460 passed, 0 failed` по всем `test_autonomy_*.py`).
+  3. `db2b6ac6` (ветка `codex/night-features-20261019`, функция №1): интегрирован резидентный движок `sd-server` (`command-center/bcc/direct_gen/resident.py`, `BOSSMAN_DIRECT_GEN_RESIDENT=1`, по умолчанию выключен `0`; совместим с `@`-отсылками и `FaceLock`; `66 passed`).
+  4. `55033960` (ветка `codex/night-features-20261019`, функция №2): реализован единый селектор `/genmodel` (`MC22-16`) по 4 ролям («Промпт», «Фото», «Редактирование», «Видео») с хранением в зашифрованном `Store`, совместимостью с `/imgmodel` и `/edit_engine` и snapshot-изоляцией задач в очереди (`3 passed` в `test_companion_genmodel.py`, `88 passed` в `test_companion_gen_refine.py` + `test_companion_a22_04_pult_hardening.py`).
+  5. `1788f17d` (ветка `claude/night-audit-20261019`, проверка и аудит): устранены 3 падения `test_agpl_licensing.py` (добавлены копии `LICENSE` в `apps/bossman-mobile`, `apps/shorts-factory`, `apps/war-terminal`), досчитаны все 26 пакетов unit-тестов (`U1..U26` — **1 898 passed, 0 failed**), обновлена честная матрица `docs/audits/2026-10-18-production-readiness/README.md`.
+- **Расходы облачных провайдеров:** `$0.00`.
+
 

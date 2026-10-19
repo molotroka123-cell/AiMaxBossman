@@ -1,16 +1,26 @@
-# Утренний отчёт Argon 4 — ночной прогон Bossman 2.5 (18→19.10.2026)
+# Утренний отчёт Argon 4 — ночной прогон втроём: Argon + Claude + Codex (18→19.10.2026)
 
-- **Дата и время отчёта:** `2026-10-18T16:44:00-07:00` (`2026-10-18T23:44:00Z`)
-- **Рабочее дерево (активное):** `C:\Users\asd\Bossman\wt-checkpoint-20261015` (ветка `feat/war-procurement-terminal-v1`)
-- **Свежий `origin/main`:** `62abfcb5bb3f74d5d4aa62b8d3bee1ad5c41b2d1` (`docs: clarify incremental Bossman completion and evidence`, 2026-10-18 15:32 -0700)
-- **Кодовые коммиты прогона:**
-  - `d91abed92f2b9da21b0ab4e4b034b079ba86c683` — `fix(governor,direct-gen,companion): fix warm-up cap loop, sd-cli priority boost, delete race, and transient getUpdates conflict`
-  - `80ec28d383dc65bc80494706c540887a1700002c` — `test(autonomy): isolate default_pin_path from host machine constitution pin in conftest`
+- **Дата и время отчёта:** `2026-10-18T17:05:00-07:00` (`2026-10-19T00:05:00Z`)
+- **Рабочее дерево (активное):** `C:\Users\asd\Bossman\wt-checkpoint-20261015` (ветка `feat/war-procurement-terminal-v1`, синхронизирована fast-forward с ветками `codex/night-features-20261019` и `claude/night-audit-20261019`)
+- **Свежий `origin/main`:** `67a2a0b54239ff78c89c724d254e9f575d33dfb3` (`docs: add honest v2.2 39-requirement readiness inventory (0 PASS)`)
+- **Окна командной строки для совместной работы (открыты в обычном режиме с запросом разрешений, БЕЗ `bypass` / `--dangerously-skip-permissions`):**
+  - Окно 1 (`cmd.exe`, `PID 18844`, заголовок `Claude-Code-Normal`): запущен `claude` (`PID 18296`) в `C:\Users\asd\Bossman\wt-checkpoint-20261015`.
+  - Окно 2 (`cmd.exe`, `PID 20220`, заголовок `Codex-CLI-Normal`): запущен `codex` (`PID 3428`) в `C:\Users\asd\Bossman\wt-checkpoint-20261015`.
+- **Кодовые и проверочные коммиты ночного прогона (влиты в основную линию строго через `--ff-only` после прохождения тестов, без пересечения файлов):**
+  1. **Argon (координация и починка живых служб):**
+     - `d91abed92f2b9da21b0ab4e4b034b079ba86c683` — `fix(governor,direct-gen,companion): fix warm-up cap loop, sd-cli priority boost, delete race, and transient getUpdates conflict`
+     - `80ec28d383dc65bc80494706c540887a1700002c` — `test(autonomy): isolate default_pin_path from host machine constitution pin in conftest`
+     - `37ae1b3ff8066536cf5312a1c9ea861136130aa1` — `docs(audit): add 2026-10-19 morning report and update owner state`
+  2. **Codex (`codex/night-features-20261019` — новые функции по одной с собственными тестами):**
+     - `db2b6ac65bd3646fc0d88b5b93fd6402a5ef9da1` — `direct-gen: opt-in resident sd-server engine (BOSSMAN_DIRECT_GEN_RESIDENT=1, default OFF)` (интеграция п. 4 из «Что осталось» с поддержкой `@`-отсылок и `FaceLock`; `66 passed`).
+     - `550339603a6566fe4cd135c45e61f425e2dfb9c8` — `telegram-companion: implement /genmodel unified 4-role selector with snapshot isolation (MC22-16)` (реализация `MC22-16` по спеке `GENERATION_MODEL_SELECTION_RU.md`; `3 passed` в `test_companion_genmodel.py`, `88 passed` в контрактном наборе пульта).
+  3. **Claude (`claude/night-audit-20261019` — проверка, досчёт всех непроверенных тестов и честные статусы):**
+     - `1788f17d0f05167501ee9a9f4845c932dd06b570` — `audit(v2.2): add missing AGPL LICENSE copies and update 39-requirement readiness matrix (U1-U26, 1898 passed)` (исправлены 3 падения `test_agpl_licensing.py`, досчитаны все 26 групп unit-тестов `U1..U26` без обрезанных хвостов: **1 898 passed, 0 failed**, обновлена таблица `docs/audits/2026-10-18-production-readiness/README.md`).
 - **Чужие / пользовательские незакоммиченные файлы (сохранены без изменений):**
   - В `C:\Users\asd\Bossman\wt-checkpoint-20261015`: `?? command-center/tgapp.py` (не тронут).
-  - В `C:\Users\asd\Bossman\wt-pc-agent-argon-20261013` (ветка `release/bossman-one-20261014`, `8a956d07`): модифицированные файлы `apps/poker-coach/...` и `docs/poker_live_audit_2026_10_18.md` (не тронуты).
+  - В `C:\Users\asd\Bossman\wt-pc-agent-argon-20261013` (ветка `release/bossman-one-20261014`, `8a956d07`): модифицированные файлы Poker (не тронуты).
 - **Платные облачные расходы за прогон:** **`$0.00`** (`GET /api/spend` → `{"total_usd": 0.0, "total_calls": 0}`).
-- **Второй экземпляр не создавался:** все правки внесены строго в существующие модули (`tools/resource_governor/governor.py`, `command-center/bcc/direct_gen/sdcli.py`, `command-center/bcc/direct_gen/service.py`, `command-center/bcc/telegram_companion/service.py`, `command-center/tests/conftest.py`), управление процессами — только через штатный `tools/owner_one_bossman.py` и задачи планировщика `BossmanOne-*`.
+- **Второй экземпляр не создавался:** все правки внесены в существующие модули, управление процессами — только через штатный `tools/owner_one_bossman.py` и задачи планировщика `BossmanOne-*`.
 
 ---
 
