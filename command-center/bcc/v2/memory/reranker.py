@@ -98,3 +98,44 @@ class LexicalReranker:
             hit.score = round(float(score), 4)
             out.append(hit)
         return out
+
+    def rerank_dedup_decay(
+        self,
+        query: str,
+        hits,
+        *,
+        top_k: int = 5,
+        half_life_days: float = 30.0,
+        jaccard_threshold: float = 0.80,
+    ):
+        """Rerank with temporal decay (`metadata.age_days`) and near-duplicate suppression."""
+        import math
+        base = self.rerank(query, hits, top_k=max(len(hits), top_k))
+        decayed = []
+        for h in base:
+            meta = getattr(h, "metadata", None) or {}
+            try:
+                age_days = max(0.0, float(meta.get("age_days") or 0.0))
+            except (TypeError, ValueError):
+                age_days = 0.0
+            decay = math.exp(-math.log(2.0) * age_days / max(0.1, half_life_days)) if age_days > 0 else 1.0
+            adj_score = round(float(h.score) * decay, 4)
+            decayed.append((adj_score, set(tokenize(h.content)), h))
+        decayed.sort(key=lambda x: x[0], reverse=True)
+
+        selected = []
+        seen_sets: list[set[str]] = []
+        for score, tok_set, hit in decayed:
+            if tok_set and any(
+                (len(tok_set & prev) / max(1, len(tok_set | prev))) >= jaccard_threshold
+                for prev in seen_sets
+            ):
+                continue
+            hit.score = score
+            selected.append(hit)
+            if tok_set:
+                seen_sets.append(tok_set)
+            if len(selected) >= top_k:
+                break
+        return selected
+

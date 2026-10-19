@@ -258,15 +258,30 @@ class SQLiteMemoryBackend:
                 "terms": stats["terms"], "added": added, "updated": updated,
                 "skipped": skipped, "removed": removed}
 
+    @contextmanager
+    def _connect_read(self) -> Iterator[sqlite3.Connection]:
+        """Lightweight read-only connection when index already exists."""
+        if not self.index_path.exists():
+            with self._connect() as conn:
+                yield conn
+            return
+        conn = sqlite3.connect(str(self.index_path), timeout=30.0)
+        try:
+            conn.row_factory = sqlite3.Row
+            yield conn
+        finally:
+            conn.close()
+
     def search_sync(self, query: str, *, top_k: int = 16) -> list[MemoryHit]:
         terms = list(dict.fromkeys(tokenize(query)))
         if not terms:
             return []
-        with self._connect() as conn:
-            n_docs = int(conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0])
+        with self._connect_read() as conn:
+            stats_row = conn.execute("SELECT COUNT(*), COALESCE(AVG(term_count),1) FROM chunks").fetchone()
+            n_docs = int(stats_row[0])
             if not n_docs:
                 return []
-            avgdl = float(conn.execute("SELECT COALESCE(AVG(term_count),1) FROM chunks").fetchone()[0] or 1)
+            avgdl = float(stats_row[1] or 1)
             placeholders = ",".join("?" for _ in terms)
             rows = conn.execute(
                 f"SELECT p.term,p.chunk_hash,p.tf,c.term_count FROM postings p "
@@ -274,8 +289,13 @@ class SQLiteMemoryBackend:
                 terms).fetchall()
             if not rows:
                 return []
-            dfs = {term: int(conn.execute("SELECT COUNT(*) FROM postings WHERE term=?",
-                                         (term,)).fetchone()[0]) for term in terms}
+            dfs = {
+                r["term"]: int(r["cnt"])
+                for r in conn.execute(
+                    f"SELECT term, COUNT(*) AS cnt FROM postings WHERE term IN ({placeholders}) GROUP BY term",
+                    terms,
+                )
+            }
             scores: dict[str, float] = defaultdict(float)
             for row in rows:
                 term, tf, dl = row["term"], int(row["tf"]), max(1, int(row["term_count"]))
@@ -285,9 +305,18 @@ class SQLiteMemoryBackend:
                 scores[row["chunk_hash"]] += idf * (tf * (self.k1 + 1)) / denom
 
             ranked = sorted(scores.items(), key=lambda item: (-item[1], item[0]))[:max(1, int(top_k))]
+            top_hashes = [ch for ch, _ in ranked]
+            ch_placeholders = ",".join("?" for _ in top_hashes)
+            chunk_rows = {
+                r["chunk_hash"]: r
+                for r in conn.execute(
+                    f"SELECT * FROM chunks WHERE chunk_hash IN ({ch_placeholders})",
+                    top_hashes,
+                )
+            }
             hits: list[MemoryHit] = []
             for chunk_hash, score in ranked:
-                row = conn.execute("SELECT * FROM chunks WHERE chunk_hash=?", (chunk_hash,)).fetchone()
+                row = chunk_rows.get(chunk_hash)
                 if row:
                     hits.append(MemoryHit(content=row["content"], source=row["source"],
                                           heading=row["heading"], score=round(float(score), 4),
