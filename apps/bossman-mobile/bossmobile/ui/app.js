@@ -19,7 +19,7 @@
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3200); }
 
   class ApiError extends Error { constructor(status, body) { const d = (body && (body.detail || body.error)) || {}; super(typeof d === 'string' ? d : (d.message || `HTTP ${status}`)); this.status = status; this.code = d.code || ''; } }
-  async function api(method, path, body) {
+  async function api(method, path, body, retried) {
     const headers = { Accept: 'application/json' };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (method !== 'GET') headers['X-BM-CSRF'] = S.csrf;
@@ -28,6 +28,12 @@
     catch { throw new ApiError(0, { detail: { message: 'нет связи с ПК' } }); }
     let data = null; try { data = await res.json(); } catch { /* empty */ }
     if (res.status === 401) { showLogin(); throw new ApiError(401, data); }
+    // A newer login (e.g. the pinned «вход в одно касание» link in another tab) replaced the session cookie, so this
+    // page's CSRF token is stale: fetch the current one and repeat the request ONCE (owner 19.10, «не пройдена CSRF»).
+    if (res.status === 403 && !retried && method !== 'GET' && ((data && data.detail) || {}).code === 'csrf') {
+      try { const s = await api('GET', '/session'); if (s && s.csrf) { S.csrf = s.csrf; return api(method, path, body, true); } }
+      catch { /* fall through to the original error */ }
+    }
     if (!res.ok) throw new ApiError(res.status, data);
     return data;
   }
