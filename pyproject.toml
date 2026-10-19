@@ -20,7 +20,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["bossman_shared", "bossman_shared.market_cases", "learning", "bossman_schemas"]
+packages = ["bossman_shared", "bossman_shared.market_cases", "learning", "bossman_schemas", "nautilus", "nautilus.fixtures"]
 include-package-data = true
 
 [tool.setuptools.package-dir]
@@ -29,6 +29,7 @@ bossman_schemas = "schemas"
 [tool.setuptools.package-data]
 bossman_schemas = ["*.json"]
 "bossman_shared.market_cases" = ["*.json", "*.jsonl"]
+"nautilus.fixtures" = ["*.json"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
