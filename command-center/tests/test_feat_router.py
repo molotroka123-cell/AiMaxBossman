@@ -125,4 +125,3 @@ async def test_router_pareto_endpoint(env):
     res = (await env.client.get("/api/router/pareto?task_type=generic&min_runs=1")).json()
     assert res["recommended"]["alias"] == "fast-model"
     assert res["speedup_vs_slowest_x"] == 8.0
-

@@ -207,4 +207,3 @@ def test_run_fast_ops_receipt_emits_hashed_receipt(repository, tmp_path_factory)
     assert receipt["pytest"]["passed"] is True
     assert len(receipt["receipt_sha256"]) == 64
     assert out_path.exists()
-

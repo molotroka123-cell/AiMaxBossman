@@ -325,4 +325,3 @@ def test_health_score_p50_p95_error_rate_reduces_failover_errors():
     # Автопереключение выбирает stable первым (0% ошибок против 40% у flaky)
     ordered = mh.rank([("flaky-free", flaky), ("stable-free", stable)], NOW)
     assert ordered == ["stable-free", "flaky-free"]
-

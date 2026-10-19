@@ -154,4 +154,3 @@ async def test_apps_health_matrix_has_zero_unidentified(env):
     assert body["total"] >= 1
     assert body["unidentified"] == 0
     assert all("app_id" in row and "port" in row and "status" in row for row in body["matrix"])
-

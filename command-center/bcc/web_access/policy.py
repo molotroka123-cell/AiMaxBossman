@@ -431,4 +431,3 @@ class WebResultCache:
                 "hit_rate": hit_rate,
                 "quota_ratio": round(1.0 - hit_rate, 4) if total else 1.0,
             }
-

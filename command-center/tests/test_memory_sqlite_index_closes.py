@@ -95,4 +95,3 @@ def test_rerank_dedup_decay_improves_precision_at_5():
     assert raw_unique_p5 == 0.20
     assert dedup_unique_p5 == 1.00
     assert dedup_unique_p5 / raw_unique_p5 >= 1.3
-

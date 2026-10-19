@@ -259,4 +259,3 @@ def test_forecast_daily_spend_accuracy_and_negative_control():
     assert f_spike["will_exceed_limit"] is True
     assert f_spike["forecast_eod_usd"] > 10.0
     assert f_spike["hours_to_exhaustion"] is not None and f_spike["hours_to_exhaustion"] < 18.0
-

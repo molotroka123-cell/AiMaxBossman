@@ -435,4 +435,3 @@ async def get_app(app_id: str, request: Request) -> dict:
 
 
 FEATURE = Feature(name="apps", router=router)
-

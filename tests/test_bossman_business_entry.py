@@ -81,4 +81,3 @@ def test_two_runs_produce_identical_sha256_and_positive_unit_economics(tmp_path)
     assert empty_f["paid_clients"] == 0 and empty_f["status"] == "NOT_RUN"
     demo_f = bb.funnel_summary([{"stage": "paid", "is_demo": True, "payment_proof_ref": "demo-1", "amount_usd": 49.0}])
     assert demo_f["paid_clients"] == 0 and demo_f["confirmed_revenue_usd"] == 0.0 and demo_f["status"] == "NOT_RUN"
-

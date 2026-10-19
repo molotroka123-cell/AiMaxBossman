@@ -138,4 +138,3 @@ class LexicalReranker:
             if len(selected) >= top_k:
                 break
         return selected
-

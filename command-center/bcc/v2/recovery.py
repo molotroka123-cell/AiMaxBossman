@@ -66,4 +66,3 @@ def classify_and_recover(error_text: str, *, retries: int = 0, fallback_availabl
         delay = 1.0 if action == "fallback" else min(5.0, base_backoff_s * 0.2)
         return {"category": "transient_network", "action": action, "delay_s": delay, "naive_delay_s": base_backoff_s}
     return {"category": "permanent_or_unknown", "action": "escalate", "delay_s": 0.0, "naive_delay_s": base_backoff_s}
-

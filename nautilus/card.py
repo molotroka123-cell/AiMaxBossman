@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
-from PIL import Image, ImageDraw, ImageFont
+if TYPE_CHECKING:
+    from PIL import Image, ImageDraw, ImageFont
 
 from .metrics import PerformanceMetrics
 
@@ -32,6 +33,8 @@ BADGE_BORDER_COLOR = (120, 62, 22)
 
 def _load_font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     """Load clean sans-serif system font on Windows/Linux with graceful fallback."""
+    from PIL import ImageFont
+
     candidates: Sequence[str] = (
         ("segoeuib.ttf", "arialbd.ttf", "calibrib.ttf", "DejaVuSans-Bold.ttf")
         if bold
@@ -120,6 +123,8 @@ def render_nautilus_card(
     """Render the 6-tile dark dashboard card as PNG bytes."""
     if width < 360 or height < 240:
         raise ValueError("Card dimensions must be at least 360x240")
+
+    from PIL import Image, ImageDraw
 
     img = Image.new("RGB", (width, height), color=BG_COLOR)
     draw = ImageDraw.Draw(img)

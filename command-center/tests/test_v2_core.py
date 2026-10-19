@@ -165,5 +165,3 @@ def test_classify_and_recover_improves_recovery_time_2x():
     r_fatal = classify_and_recover("401 Invalid API key unauthorized", retries=0)
     assert r_fatal["category"] == "auth_or_budget"
     assert r_fatal["action"] == "escalate"
-
-
