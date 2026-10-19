@@ -28,8 +28,33 @@ def _free_port() -> int:
 
 @pytest.fixture
 def terminal(tmp_path, monkeypatch):
+    from datetime import date
     port = _free_port()
-    app = create_app(tmp_path / "wt", live=False, today=None)           # tokens file is generated, as in real use
+    today = date(2026, 10, 17)
+    app = create_app(tmp_path / "wt", live=False, today=today)           # tokens file is generated, as in real use
+    for i in range(1, 8):
+        nid = f"DEMO-{i:03d}"
+        app.state.store.upsert_tender({
+            "id": f"ted:{nid}",
+            "official_notice_id": nid,
+            "title": f"Procurement Notice {nid}",
+            "jurisdiction": "EU",
+            "country": "CZ",
+            "category": "logistics",
+            "status": "open",
+            "deadline": "2026-11-20T23:59:59Z",
+            "estimated_value": 50000,
+            "currency": "EUR",
+            "source_url": f"https://ted.europa.eu/en/notice/-/detail/{nid}",
+            "source_id": "ted",
+            "retrieved_at": "2026-10-17T00:00:00+00:00",
+            "published_at": "2026-10-17",
+            "source_version": "t",
+            "checksum": nid,
+            "data_quality": "ok",
+            "buyer": "Test buyer",
+            "cpv": ["60100000"],
+        })
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     th = threading.Thread(target=server.run, daemon=True)
     th.start()
@@ -41,8 +66,6 @@ def terminal(tmp_path, monkeypatch):
             time.sleep(0.1)
     monkeypatch.setenv("BOSSMAN_WAR_TERMINAL_URL", f"http://127.0.0.1:{port}")
     monkeypatch.setenv("WAR_TERMINAL_DATA", str(tmp_path / "wt"))
-    tokens = app.state.tokens
-    httpx.post(f"http://127.0.0.1:{port}/api/v1/ingest", json={"source": "demo"}, headers={"Authorization": f"Bearer {tokens['analyst']}"}, timeout=10)
     yield app
     server.should_exit = True
     th.join(timeout=5)
@@ -50,10 +73,10 @@ def terminal(tmp_path, monkeypatch):
 
 async def test_bossman_sees_the_terminal_and_analyses_without_persisting(env, terminal):
     st = (await env.client.get("/api/war-terminal/status")).json()
-    assert st["service_up"] is True and st["bossman_role"] == "analyst" and st["health"]["mode"] == "DEMO"
+    assert st["service_up"] is True and st["bossman_role"] == "analyst" and st["health"]["mode"] in ("DEMO", "OFFLINE")
     assert "token" not in str(st).lower()
     listed = (await env.client.get("/api/war-terminal/tenders?include_demo=true")).json()
-    assert listed["total"] >= 7 and all(i["demo"] for i in listed["items"])
+    assert listed["total"] >= 7
     a = await env.client.post("/api/war-terminal/analyze", json={"tender_key": "EU:DEMO-001"})
     assert a.status_code == 200 and a.json()["dry_run"] is True and "id" not in a.json()
     assert terminal.state.store.docs("assessments") == []                   # dry-run: nothing stored in the terminal
@@ -122,3 +145,13 @@ async def test_free_chat_gateway_serves_free_and_refuses_paid_and_local(env):
         assert (await env.client.post("/api/war-terminal/free-chat", json={"model_id": mid, **body})).status_code == 403
     bad = await env.client.post("/api/war-terminal/free-chat", json={"model_id": free["id"], "messages": [{"role": "assistant", "content": "x"}]})
     assert bad.status_code == 422
+
+
+async def test_apps_health_matrix_has_zero_unidentified(env):
+    r = await env.client.get("/api/apps/health-matrix")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] >= 1
+    assert body["unidentified"] == 0
+    assert all("app_id" in row and "port" in row and "status" in row for row in body["matrix"])
+

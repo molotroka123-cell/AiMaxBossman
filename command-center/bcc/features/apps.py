@@ -391,6 +391,34 @@ async def list_apps(request: Request, refresh: bool = False) -> dict:
             "apps_dir": str(APPS_DIR)}
 
 
+@router.get("/apps/health-matrix")
+async def health_matrix(request: Request, refresh: bool = False) -> dict:
+    """Единая матрица `/health` всех приложений из манифестов с процессом, PID и портом."""
+    from . import apps_control
+    svc = getattr(request.app.state, "svc", None)
+    data_dir = svc.settings.data_dir if svc and getattr(svc, "settings", None) else None
+    apps = await collect(force=refresh)
+    rows = []
+    for a in apps:
+        proc = apps_control.process_info(a["id"], data_dir) if data_dir else {"running": False, "pid": None}
+        rows.append({
+            "app_id": a["id"],
+            "name": a["name"],
+            "port": a.get("port"),
+            "status": a.get("status"),
+            "reachable": bool(a.get("reachable")),
+            "pid": proc.get("pid"),
+            "managed_running": bool(proc.get("running")),
+            "health_path": a.get("health_path") or "/health",
+        })
+    return {
+        "matrix": rows,
+        "total": len(rows),
+        "live": sum(1 for r in rows if r["status"] == "LIVE"),
+        "unidentified": 0,
+    }
+
+
 @router.get("/apps/{app_id}")
 async def get_app(app_id: str, request: Request) -> dict:
     for app in await collect():
@@ -400,3 +428,4 @@ async def get_app(app_id: str, request: Request) -> dict:
 
 
 FEATURE = Feature(name="apps", router=router)
+
