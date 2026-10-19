@@ -721,6 +721,11 @@ class Core:
             raise CompanionError("STUDIO_RUN_UNKNOWN")
         return rid
 
+    async def direct_gen_timings(self) -> dict:
+        """Measured per-model medians of the Direct Generator (owner-only endpoint; read-only)."""
+        body = await self._request("GET", "/api/direct-gen/timings?limit=1000", timeout=5)
+        return body if isinstance(body, dict) else {}
+
     async def studio_job(self, job_id: int) -> dict:
         body = await self._request("GET", f"/api/studio/jobs/{int(job_id)}")
         if not isinstance(body, dict) or body.get("id") != job_id:

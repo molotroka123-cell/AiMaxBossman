@@ -195,8 +195,12 @@ def test_env_switches_default_off(monkeypatch):
         assert resident.enabled({resident.ENV_FLAG: v}) is False
     for v in ("1", "true", "ON", " yes "):
         assert resident.enabled({resident.ENV_FLAG: v}) is True
-    assert resident.idle_seconds({}) == 120.0 and resident.idle_seconds({resident.ENV_IDLE: "30"}) == 30.0
-    assert resident.idle_seconds({resident.ENV_IDLE: "junk"}) == 120.0
+    # 19.10: unset = auto only for models with a live proof; idle unload 60 s there, 120 s for the old always-on mode
+    assert resident.mode({}) == resident.MODE_PROVEN and resident.mode({resident.ENV_FLAG: "auto"}) == resident.MODE_AUTO
+    assert resident.mode({resident.ENV_FLAG: "0"}) == resident.mode({resident.ENV_FLAG: "maybe"}) == resident.MODE_OFF
+    assert resident.idle_seconds({}) == 60.0 and resident.idle_seconds({resident.ENV_FLAG: "1"}) == 120.0
+    assert resident.idle_seconds({resident.ENV_IDLE: "30"}) == 30.0
+    assert resident.idle_seconds({resident.ENV_IDLE: "junk"}) == 60.0
 
 
 def test_sd_bin_env_accepts_folder_or_exe_and_default_is_unchanged(monkeypatch, tmp_path):
@@ -346,39 +350,67 @@ async def test_server_start_failure_falls_back_to_sd_cli(tmp_path):
         assert not engine.alive()
 
 
-async def test_failed_job_is_an_error_not_a_picture_and_server_is_dropped(tmp_path):
+async def test_failed_server_job_is_never_a_picture_server_dropped_and_rerun_on_sd_cli(tmp_path):
+    """19.10: any resident error falls back to the proven per-job sd-cli path (the server's failure is recorded)."""
     make_media(tmp_path)
     world = FakeWorld(gen_status="failed")
     engine = make_engine(world, tmp_path)
-    r = make_runner(engine, "z-image-turbo", tmp_path)
-    res = await r.run(argv_for("z-image-turbo", tmp_path), cwd=tmp_path)
-    assert res.returncode == 1 and "boom" in " ".join(res.log) and not r.written
-    assert not engine.alive()
+    cli = FakeSd()
+    r = make_runner(engine, "z-image-turbo", tmp_path, cli=lambda: cli)
+    res = await r.run(argv_for("z-image-turbo", tmp_path, out=tmp_path / "f.png"), cwd=tmp_path, on_progress=_noop)
+    assert not r.written                                                        # nothing from the failed server job
+    assert res.returncode == 0 and cli.argv and r.engine_name == "sd-cli" and r.warm is False
+    assert "boom" in r.fallback_reason and r.fallback_reason.startswith("sd-server error")
+    assert not engine.alive() and world.killed_pids == [5000]
 
 
-async def test_server_crash_mid_job_is_reported(tmp_path):
+async def test_server_crash_mid_job_is_reported_and_rerun_on_sd_cli(tmp_path):
     make_media(tmp_path)
     world = FakeWorld(gen_status="hang")
     engine = make_engine(world, tmp_path)
-    runner = make_runner(engine, "z-image-turbo", tmp_path)
-    task = asyncio.create_task(runner.run(argv_for("z-image-turbo", tmp_path), cwd=tmp_path))
+    cli = FakeSd()
+    runner = make_runner(engine, "z-image-turbo", tmp_path, cli=lambda: cli)
+    task = asyncio.create_task(runner.run(argv_for("z-image-turbo", tmp_path, out=tmp_path / "c.png"), cwd=tmp_path,
+                                          on_progress=_noop))
     await wait_for(lambda: asyncio.sleep(0, result=bool(world.requests) or None), timeout=2)
     world.procs[0].returncode = 3
     res = await asyncio.wait_for(task, 2)
-    assert res.returncode == 1 and "exited" in " ".join(res.log)
+    assert res.returncode == 0 and cli.argv and "exited" in runner.fallback_reason
+
+
+async def test_stop_is_not_mistaken_for_a_server_error(tmp_path):
+    """kill() (STOP) makes the server die; that must never start an sd-cli rerun behind the owner's back."""
+    make_media(tmp_path)
+    world = FakeWorld(gen_status="hang")
+    engine = make_engine(world, tmp_path)
+    cli = FakeSd()
+    runner = make_runner(engine, "z-image-turbo", tmp_path, cli=lambda: cli)
+    task = asyncio.create_task(runner.run(argv_for("z-image-turbo", tmp_path), cwd=tmp_path, on_progress=_noop))
+    await wait_for(lambda: asyncio.sleep(0, result=bool(world.requests) or None), timeout=2)
+    runner.kill()
+    res = await asyncio.wait_for(task, 2)
+    assert res.returncode == 1 and not cli.argv and runner.engine_name == "sd-server (resident)"
 
 
 # ----------------------------------------------------------------------------- through the service
 
 
-async def test_flag_off_is_the_old_path_byte_for_byte(env, tmp_path, monkeypatch):
-    monkeypatch.delenv(resident.ENV_FLAG, raising=False)
+@pytest.mark.parametrize("flag", ["0", None])
+async def test_flag_off_is_the_old_path_byte_for_byte(env, tmp_path, monkeypatch, flag):
+    """Explicit OFF, and the default without a live proof file: every job is the old per-job sd-cli path."""
+    if flag is None:
+        monkeypatch.delenv(resident.ENV_FLAG, raising=False)
+    else:
+        monkeypatch.setenv(resident.ENV_FLAG, flag)
     svc = install(env, tmp_path, None)                                         # no injected runner -> real default wiring
-    assert svc._resident is None and svc._sd_runner is sdcli.SdCliRunner
+    assert svc._sd_runner is sdcli.SdCliRunner
+    assert (svc._resident is None) if flag == "0" else (svc._mode_for("z-image-turbo") == resident.MODE_OFF)
     svc._sd_runner = FakeSd
-    job = await finish(env, (await create(env)).json()["job_id"])
-    assert job["status"] == "completed" and "engine" not in job["provenance"]
-    assert FakeSd.instances and FakeSd.instances[0].argv[0].endswith("sd-cli.exe")
+    jobs = [await create(env, seed=s) for s in (1, 2)]                         # even a same-model queue stays on sd-cli
+    for r in jobs:
+        job = await finish(env, r.json()["job_id"])
+        assert job["status"] == "completed" and "engine" not in job["provenance"]
+    assert len(FakeSd.instances) == 2 and FakeSd.instances[0].argv[0].endswith("sd-cli.exe")
 
 
 async def test_injected_runner_wins_over_the_flag(env, tmp_path, monkeypatch):

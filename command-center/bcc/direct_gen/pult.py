@@ -82,8 +82,27 @@ def _stamp(job: dict) -> str:
     return when.strftime("%H:%M UTC")
 
 
+def _secs(v: Any) -> str:
+    v = float(v)
+    return f"{v:.0f} с" if v < 90 else f"{int(v // 60)} мин {int(v % 60)} с"
+
+
+def timing_text(job: dict) -> str:
+    """The MEASURED time of this job (bcc.direct_gen.timings): «за 4 мин 6 с (загрузка 40 с, холодная)»; "" if unknown."""
+    t = job.get("timing") or {}
+    total = t.get("total_s")
+    if not isinstance(total, (int, float)):
+        return ""
+    out = f"за {_secs(total)}"
+    load = t.get("load_s")
+    if isinstance(load, (int, float)):
+        state = "модель уже была загружена" if t.get("load") == "warm" else "холодная"
+        out += f" (загрузка {_secs(load)}, {state})"
+    return out
+
+
 def caption_for(job: dict) -> str:
-    """«HH:MM UTC · model · WxH · steps · #id» — no prompt, no paths."""
+    """«HH:MM UTC · model · WxH · steps · #id · за N с (загрузка M с, холодная)» — no prompt, no paths."""
     p = job.get("params") or {}
     parts = [_stamp(job), str(job.get("model") or "?")]
     if p.get("width") and p.get("height"):
@@ -91,6 +110,9 @@ def caption_for(job: dict) -> str:
     if p.get("steps"):
         parts.append(f"{p['steps']} шагов")
     parts.append(f"#{str(job.get('job_id') or '')[:8]}")
+    measured = timing_text(job)
+    if measured:
+        parts.append(measured)
     return " · ".join(parts)[:900]
 
 

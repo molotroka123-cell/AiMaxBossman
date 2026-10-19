@@ -462,7 +462,8 @@
     const t = m.timing || { load_s: 40, s_per_step: 8, kind: 'estimate' }; const [w, h] = res.split('x').map(Number);
     return { load: t.load_s, run: steps * t.s_per_step * (w * h) / (512 * 512) };
   }
-  const tag = (t) => el('span', t.kind === 'measured' ? 'tag-m' : 'tag-e', t.kind === 'measured' ? 'по замеру' : 'оценка');
+  // «по замеру N генераций» only when Bossman measured >= 3 runs of this model (timing.py label_for), else «примерно»
+  const tag = (t) => { const m = t.kind === 'measured' && /^по замеру/.test(t.label || ''); return el('span', m ? 'tag-m' : 'tag-e', t.label || (t.kind === 'measured' ? 'по замеру' : 'оценка')); };
   function setSteps(v) {
     const st = $('photo-steps'); const n = Math.min(Number(st.max), Math.max(Number(st.min), Math.round(Number(v)) || Number(st.min)));
     st.value = n; $('steps-val').textContent = n; showTime();
@@ -471,7 +472,8 @@
     const m = curModel(); const box = $('photo-time'); if (!m) { box.replaceChildren(); return; }
     const res = resolution(m); const steps = Number($('photo-steps').value); const t = m.timing || {}; const p = timeParts(m, steps, res);
     const b = el('b', '', `≈ ${fmtDur(p.load + p.run)}`);
-    const note = el('span', 'muted', `${res.replace('x', '×')} · ${steps} шаг. · загрузка ${fmtDur(p.load)} + шаги ${fmtDur(p.run)}`);
+    const warm = t.load_s_warm != null ? ` · следующая такая же в очереди: загрузка ≈ ${fmtDur(t.load_s_warm)}` : '';
+    const note = el('span', 'muted', `${res.replace('x', '×')} · ${steps} шаг. · загрузка ${fmtDur(p.load)} + шаги ${fmtDur(p.run)}${warm}`);
     box.replaceChildren(b, tag(t), note);
     if (t.basis) box.appendChild(el('span', 'hint', t.basis));
     fillTable();
@@ -742,7 +744,7 @@
   function renderQueued(u, stats, withTotal) {
     stats.appendChild(el('b', '', `в очереди №${u.position}`));
     const total = withTotal && u.total_s != null ? `, займёт ≈ ${fmtMin(u.total_s)}` : '';
-    stats.appendChild(el('span', '', u.wait_s == null ? `(время ожидания неизвестно: впереди задача без оценки${total})` : `(≈ ждать ${fmtMin(u.wait_s)}${total}, оценка)`));
+    stats.appendChild(el('span', '', u.wait_s == null ? `(время ожидания неизвестно: впереди задача без оценки${total})` : `(≈ ждать ${fmtMin(u.wait_s)}${total}, ${u.label || 'оценка'})`));
   }
   function renderQueueItem(j) {
     const u = j.ui || {}; const m = (S.photoModels || []).find((x) => x.id === j.model); const card = el('div', 'qitem ' + (u.state || '')); card.dataset.job = j.job_id;

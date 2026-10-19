@@ -32,7 +32,7 @@ from .config import Settings
 from .policy import is_photo_model, local_agents, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
 from . import reftags, video, video_timing
-from .timing import calibrate_task_eta, from_history, queue_view, step_range, timing_for
+from .timing import calibrate_task_eta, from_history, queue_view, step_range, timing_for, warm_models
 
 UI_DIR = Path(__file__).parent / "ui"
 # The Windows registry can map .js to text/plain, which nosniff then refuses to execute.
@@ -212,11 +212,26 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             return local_agents(opts, agents, models, providers)
         return await cached("agents", 10, load)
 
+    async def timing_rows() -> list[dict]:
+        """Bossman's measured timing log (owner-only endpoint; an older Bossman has none -> [])."""
+        async def load():
+            body = await guarded_call("GET", "/api/direct-gen/timings?limit=2000")
+            rows = body.get("records") if isinstance(body, dict) else None
+            return [r for r in rows or [] if isinstance(r, dict)]
+        try:
+            return await cached("timing_rows", 20, load)
+        except Exception:  # noqa: BLE001 - the history and the table still apply
+            return []
+
+    async def warm_set():
+        st = await cached("dg_status", 15, lambda: guarded_call("GET", "/api/direct-gen/status"))
+        return warm_models(st)
+
     async def photo_models() -> list[dict]:
         async def load():
             body = await call("GET", "/api/direct-gen/models")
             try:
-                hist = from_history((await call("GET", "/api/direct-gen/jobs")).get("jobs") or [])
+                hist = from_history((await call("GET", "/api/direct-gen/jobs")).get("jobs") or [], await timing_rows())
             except Exception:  # noqa: BLE001 - history is optional; the table of earlier measurements still applies
                 hist = {}
             out = []
@@ -234,7 +249,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def history_all() -> dict[str, dict]:
         try:
             jobs = (await call("GET", "/api/direct-gen/jobs")).get("jobs") or []
-            return from_history(jobs) | video_timing.from_history(jobs)
+            return from_history(jobs, await timing_rows()) | video_timing.from_history(jobs)
         except Exception:  # noqa: BLE001 - history is optional; the tables of earlier measurements still apply
             return {}
 
@@ -520,10 +535,10 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         body = await call("GET", "/api/direct-gen/jobs")
         jobs = body.get("jobs") or []
         try:
-            hist = from_history(jobs)
+            hist = from_history(jobs, await timing_rows())
         except Exception:  # noqa: BLE001 - table of earlier measurements still applies
             hist = {}
-        return {"jobs": [job_view(j) | {"ui": j["ui"]} for j in queue_view(jobs, hist)]}
+        return {"jobs": [job_view(j) | {"ui": j["ui"]} for j in queue_view(jobs, hist, warm=await warm_set())]}
 
     def check_tags(prompt: str, count: int, names: list[str] | None, accepts: bool) -> tuple[str, ...]:
         """@1/@name must point at an attached photo; refused here, in Russian, before anything leaves the phone."""
@@ -696,10 +711,11 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         body = await call("GET", "/api/direct-gen/jobs")
         jobs = body.get("jobs") or []
         try:
-            hist = from_history(jobs) | video_timing.from_history(jobs)
+            hist = from_history(jobs, await timing_rows()) | video_timing.from_history(jobs)
         except Exception:  # noqa: BLE001
             hist = {}
-        view = queue_view(jobs, hist, kinds={"photo", "video", "faceswap"}, done_kinds=video_timing.VIDEO_KINDS)
+        view = queue_view(jobs, hist, kinds={"photo", "video", "faceswap"}, done_kinds=video_timing.VIDEO_KINDS,
+                          warm=await warm_set())
         return {"jobs": [job_view(j) | {"ui": j["ui"]} for j in view]}
 
     @app.get("/m/api/video/jobs")
