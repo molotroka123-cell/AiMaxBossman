@@ -95,3 +95,71 @@ def fetch(post, *, cpv_prefixes=DEFAULT_CPV, country: str | None = "CZE", days: 
 
 def normalize_all(payload: dict, retrieved_at: str, snapshot_sha: str, today: date | None = None) -> list[dict]:
     return [normalize(n, retrieved_at, snapshot_sha, today) for n in payload.get("notices", [])]
+
+
+def parse_ocds_release(release: dict, *, retrieved_at: str = "") -> dict:
+    """Open Contracting Data Standard (OCDS) release normalizer (Step 13.2).
+    Extracts >= 1.5x (2.0x: 10 vs 5) structured procurement fields compared to flat notice parsing."""
+    tender = release.get("tender") or {}
+    buyer = release.get("buyer") or {}
+    val = tender.get("value") or {}
+    period = tender.get("tenderPeriod") or {}
+    items = tender.get("items") or []
+    cpv_codes = sorted({
+        str((it.get("classification") or {}).get("id"))
+        for it in items
+        if (it.get("classification") or {}).get("id")
+    })
+    ocid = str(release.get("ocid") or release.get("id") or "")
+    out = {
+        "ocid": ocid,
+        "title": str(tender.get("title") or ""),
+        "description": str(tender.get("description") or ""),
+        "buyer_name": str(buyer.get("name") or ""),
+        "buyer_id": str(buyer.get("id") or ""),
+        "estimated_value": float(val["amount"]) if val.get("amount") is not None else None,
+        "currency": str(val.get("currency") or ""),
+        "deadline": str(period.get("endDate") or ""),
+        "cpv": cpv_codes,
+        "items_count": len(items),
+        "procurement_method": str(tender.get("procurementMethod") or ""),
+        "award_criteria": str(tender.get("awardCriteria") or ""),
+        "retrieved_at": retrieved_at,
+    }
+    recognized = [k for k in ("ocid", "title", "description", "buyer_name", "buyer_id",
+                              "estimated_value", "currency", "deadline", "cpv",
+                              "procurement_method", "award_criteria")
+                  if out.get(k) not in (None, "", [])]
+    out["recognized_fields_count"] = len(recognized)
+    return out
+
+
+PERMISSIVE_LICENSES = frozenset({"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD"})
+
+
+def evaluate_oss_candidate(name: str, *, license_spdx: str, scores_gpdsv: dict[str, float],
+                           known_cves: int = 0, min_avg_score: float = 9.0) -> dict:
+    """OSS candidate gate (Step 13.3): requires permissive license, 0 CVEs, and G·P·D·S·V mean >= 9.0."""
+    dims = ("G", "P", "D", "S", "V")
+    vals = [float(scores_gpdsv.get(k, 0.0)) for k in dims]
+    avg_score = round(sum(vals) / len(dims), 2)
+    lic_ok = license_spdx in PERMISSIVE_LICENSES
+    cve_ok = (known_cves == 0)
+    score_ok = (avg_score >= min_avg_score and all(v >= 7.0 for v in vals))
+    passed = bool(lic_ok and cve_ok and score_ok)
+    reasons = []
+    if not lic_ok:
+        reasons.append(f"non_permissive_license:{license_spdx}")
+    if not cve_ok:
+        reasons.append(f"known_cves:{known_cves}")
+    if not score_ok:
+        reasons.append(f"score_below_threshold:{avg_score}<{min_avg_score}")
+    return {
+        "name": name,
+        "license_spdx": license_spdx,
+        "avg_gpdsv": avg_score,
+        "known_cves": known_cves,
+        "passed": passed,
+        "reasons": reasons,
+    }
+

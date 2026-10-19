@@ -144,3 +144,56 @@ def test_unreachable_source_is_reported_per_source_not_hidden(tmp_path):
     assert {s["id"]: s for s in ok.req("GET", "/sources/status", "viewer").json()["sources"]}["ted"]["status"] == "ERROR"
     ok.ingest_ted()
     assert {s["id"]: s for s in ok.req("GET", "/sources/status", "viewer").json()["sources"]}["ted"]["status"] == "LIVE"
+
+
+def test_parse_ocds_release_and_evaluate_oss_candidate():
+    from warterminal.connectors.ted import evaluate_oss_candidate, parse_ocds_release
+
+    sample_ocds = {
+        "ocid": "ocds-b5fd17-12345",
+        "buyer": {"id": "CZ-00001", "name": "Ministerstvo obrany"},
+        "tender": {
+            "title": "Dodavka polnich kuchyni",
+            "description": "Nakup mobilnich kuchyni s prislusenstvim",
+            "value": {"amount": 1250000.0, "currency": "EUR"},
+            "tenderPeriod": {"endDate": "2026-12-15T12:00:00Z"},
+            "procurementMethod": "open",
+            "awardCriteria": "priceOnly",
+            "items": [
+                {"id": "1", "classification": {"scheme": "CPV", "id": "15894000"}},
+                {"id": "2", "classification": {"scheme": "CPV", "id": "35000000"}},
+            ],
+        },
+    }
+    parsed = parse_ocds_release(sample_ocds, retrieved_at="2026-10-19T00:00:00Z")
+    # Baseline flat notice without OCDS nesting recognizes only 5 fields; OCDS parser extracts 11 (2.20x >= 1.5x)
+    assert parsed["recognized_fields_count"] == 11
+    assert parsed["recognized_fields_count"] >= int(5 * 1.5)
+    assert parsed["cpv"] == ["15894000", "35000000"]
+
+    # Step 13.3: OSS candidate gate (G·P·D·S·V >= 9.0, permissive license, 0 CVEs)
+    good = evaluate_oss_candidate(
+        "ocds-kit",
+        license_spdx="Apache-2.0",
+        scores_gpdsv={"G": 9.5, "P": 9.2, "D": 9.0, "S": 9.4, "V": 9.1},
+        known_cves=0,
+    )
+    assert good["passed"] is True and good["avg_gpdsv"] >= 9.0
+
+    # Negative controls: AGPL license or CVE or low score rejected
+    bad_lic = evaluate_oss_candidate(
+        "copyleft-pkg",
+        license_spdx="AGPL-3.0",
+        scores_gpdsv={"G": 9.5, "P": 9.5, "D": 9.5, "S": 9.5, "V": 9.5},
+        known_cves=0,
+    )
+    assert bad_lic["passed"] is False and any("non_permissive_license" in r for r in bad_lic["reasons"])
+
+    bad_cve = evaluate_oss_candidate(
+        "vuln-pkg",
+        license_spdx="MIT",
+        scores_gpdsv={"G": 9.5, "P": 9.5, "D": 9.5, "S": 9.5, "V": 9.5},
+        known_cves=1,
+    )
+    assert bad_cve["passed"] is False and any("known_cves" in r for r in bad_cve["reasons"])
+
