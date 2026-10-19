@@ -32,6 +32,53 @@ def utf8_console() -> None:
             pass
 
 
+def compute_unit_economics(
+    *,
+    runtime_seconds: float,
+    pc_power_watts: float = 350.0,
+    kwh_price_usd: float = 0.15,
+    cloud_cost_usd: float = 0.0,
+    report_price_usd: float = 49.0,
+) -> dict:
+    """Deterministic unit-economics calculation from measured run metrics."""
+    if runtime_seconds < 0 or pc_power_watts < 0 or kwh_price_usd < 0 or cloud_cost_usd < 0:
+        raise ValueError("costs and runtime cannot be negative")
+    energy_kwh = (runtime_seconds / 3600.0) * (pc_power_watts / 1000.0)
+    energy_cost_usd = round(energy_kwh * kwh_price_usd, 8)
+    total_cost_usd = round(energy_cost_usd + cloud_cost_usd, 8)
+    net_margin_usd = round(report_price_usd - total_cost_usd, 6)
+    margin_ratio = round(net_margin_usd / report_price_usd, 6) if report_price_usd > 0 else 0.0
+    return {
+        "runtime_seconds": round(runtime_seconds, 4),
+        "energy_cost_usd": energy_cost_usd,
+        "cloud_cost_usd": round(cloud_cost_usd, 6),
+        "total_cost_usd": total_cost_usd,
+        "report_price_usd": round(report_price_usd, 2),
+        "net_margin_usd": net_margin_usd,
+        "margin_ratio": margin_ratio,
+        "positive_margin": bool(net_margin_usd > 0),
+    }
+
+
+def funnel_summary(rows: list[dict] | None = None) -> dict:
+    """Honest commercial funnel ledger: never fabricates demo clients or paid orders."""
+    items = list(rows or [])
+    paid = [
+        r for r in items
+        if r.get("stage") == "paid"
+        and not r.get("is_demo", False)
+        and bool(str(r.get("payment_proof_ref") or "").strip())
+        and float(r.get("amount_usd") or 0.0) > 0
+    ]
+    return {
+        "leads": sum(1 for r in items if not r.get("is_demo", False)),
+        "orders": sum(1 for r in items if r.get("stage") in ("order", "paid") and not r.get("is_demo", False)),
+        "paid_clients": len(paid),
+        "confirmed_revenue_usd": round(sum(float(r["amount_usd"]) for r in paid), 2),
+        "status": "PASS" if paid else "NOT_RUN",
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     utf8_console()
     argv = sys.argv[1:] if argv is None else argv
