@@ -332,7 +332,7 @@ def max_chars() -> int:
         return DEFAULT_MAX_CHARS
 
 
-_CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f​-‏ -‮⁠-⁤⁦-⁯﻿]")
+_CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u206f\ufeff]")
 
 
 def fence_untrusted(text: str, domain: str, limit: int | None = None) -> tuple[str, bool, bool]:
