@@ -253,3 +253,55 @@ def normalize_cfr(src: Path, dst: Path) -> bool:
     if r.returncode != 0 or not dst.is_file():
         raise RuntimeError("ffmpeg cfr failed: " + (r.stderr or "")[-300:])
     return True
+
+
+def evaluate_qa_gate(summary: dict) -> dict:
+    """Evaluate 100%-frame pre-send QA gate on a pose_gate or artifact_audit summary."""
+    rows = summary.get("rows")
+    enriched = dict(summary)
+    if isinstance(rows, list) and rows and "checked_frames" not in enriched:
+        enriched["checked_frames"] = len(rows)
+    if isinstance(rows, list) and rows and "alpha_reversals" not in enriched:
+        alphas = [r.get("alpha") for r in rows if isinstance(r, dict) and "alpha" in r]
+        if alphas:
+            last, direction, n = None, 0, 0
+            for a in alphas:
+                if a is None:
+                    continue
+                if last is not None and abs(float(a) - float(last)) > 0.02:
+                    d = 1 if float(a) > float(last) else -1
+                    if direction and d != direction:
+                        n += 1
+                    direction = d
+                last = float(a)
+            enriched["alpha_reversals"] = n
+    audit_path = Path(__file__).resolve().parents[3] / "tools" / "video_gate" / "artifact_audit.py"
+    if audit_path.is_file():
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("artifact_audit", audit_path)
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod.pre_send_qa_gate(enriched)
+    frames = int(enriched.get("frames") or 0)
+    checked = int(enriched.get("checked_frames", frames) or 0)
+    coverage = round(checked / frames, 4) if frames > 0 else 0.0
+    reasons: list[str] = []
+    if frames <= 0 or coverage < 1.0:
+        reasons.append(f"неполное покрытие кадров ({checked}/{frames})")
+    score_p95 = enriched.get("score_p95")
+    if score_p95 is not None and float(score_p95) > 4.0:
+        reasons.append(f"score_p95={score_p95} > 4.0")
+    unswapped = int(enriched.get("unswapped_frames") or 0)
+    if frames > 0 and (unswapped / frames) > 0.05:
+        reasons.append(f"unswapped_frames={unswapped}/{frames}")
+    reversals = int(enriched.get("alpha_reversals") or 0)
+    if reversals > 2:
+        reasons.append(f"alpha_reversals={reversals} > 2")
+    passed = len(reasons) == 0
+    return {
+        "verdict": "PASS" if passed else "FAIL",
+        "allow_send": passed,
+        "frames_coverage": coverage,
+        "reasons": reasons,
+    }

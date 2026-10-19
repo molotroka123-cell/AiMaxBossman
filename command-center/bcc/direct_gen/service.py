@@ -629,6 +629,7 @@ class DirectGenService:
                     raise DirectGenError(0, "pose_gate_failed", (gate.stdout + gate.stderr)[-600:])
                 summary = json.loads(report.read_text(encoding="utf-8"))
                 job["provenance"]["pose_gate"] = {k: summary[k] for k in ("frames", "gated_frames", "gated_range")}
+                job["provenance"]["qa_gate"] = faceswap.evaluate_qa_gate(summary)
                 swapped = gated
                 framed = swapped
                 if job["params"]["frame"] == "16:9":
@@ -964,9 +965,24 @@ class DirectGenService:
         participant = valid_participant(participant)
         if participant != "owner":
             raise DirectGenError(403, "owner_only", "в Пульт можно отправлять только задачи владельца")
+        raw_job = self.store.load(participant, job_id) if hasattr(self.store, "load") else None
         job = self.get(participant, job_id)
         if job["status"] != "completed" or not job.get("result"):
             raise DirectGenError(409, "no_result", "задача ещё не завершена — отправлять в Пульт пока нечего")
+        prov = (raw_job or job).get("provenance") or {}
+        qa_summary = (
+            (raw_job or job).get("qa_summary")
+            or prov.get("artifact_audit")
+            or prov.get("pose_gate")
+        )
+        if isinstance(qa_summary, dict):
+            gate = faceswap.evaluate_qa_gate(qa_summary)
+            if not gate.get("allow_send", True):
+                reasons = "; ".join(gate.get("reasons") or ["QA gate failed"])
+                raise DirectGenError(409, "qa_gate_blocked", f"отправка заблокирована QA-гейтом: {reasons}")
+        elif isinstance(prov.get("qa_gate"), dict) and not prov["qa_gate"].get("allow_send", True):
+            reasons = "; ".join(prov["qa_gate"].get("reasons") or ["QA gate failed"])
+            raise DirectGenError(409, "qa_gate_blocked", f"отправка заблокирована QA-гейтом: {reasons}")
         path = self.result_path(participant, job_id)
         try:
             token, chat_id, proxy = pult.load_target(self.pult_config)

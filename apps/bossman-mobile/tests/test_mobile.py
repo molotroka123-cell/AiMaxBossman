@@ -375,3 +375,30 @@ def test_worker_device_registry_and_30d_phone_session(tmp_path):
     assert tok1 == tok2
     assert sess2.get(sid) is not None
 
+
+def test_worker_device_endpoints_and_task_eta_runtime_wiring(authed):
+    # 1. Register two worker devices via real /m/api/workers/register endpoint
+    r1 = authed.post("/m/api/workers/register", json={"device_id": "pc-main", "role": "gpu-worker", "capabilities": ["llm"]})
+    r2 = authed.post("/m/api/workers/register", json={"device_id": "laptop-2", "role": "cpu-worker", "capabilities": ["ocr"]})
+    assert r1.status_code == 200 and r2.status_code == 200
+
+    # 2. Heartbeat with active tasks
+    hb = authed.post("/m/api/workers/heartbeat", json={"device_id": "pc-main", "active_task_id": 7})
+    assert hb.status_code == 200 and hb.json()["active_task_id"] == 7
+
+    # 3. Check /m/api/workers and /m/api/status expose registered workers
+    ws = authed.c.get("/m/api/workers").json()
+    assert ws["count"] == 2 and ws["online"] == 2 and ws["global_stop"] is False
+    st = authed.c.get("/m/api/status").json()
+    assert st["workers"]["count"] == 2
+
+    # 4. Trigger STOP via /m/api/threads/T1/stop -> propagates to worker registry
+    stop_resp = authed.post("/m/api/threads/T1/stop")
+    assert stop_resp.status_code == 200
+    ws_after = authed.c.get("/m/api/workers").json()
+    assert ws_after["global_stop"] is True
+    assert all(d["active_task_id"] is None and d["stopped"] is True for d in ws_after["devices"])
+
+    # 5. /m/api/tasks/7 returns calibrated ETA from calibrate_task_eta
+    task_resp = authed.c.get("/m/api/tasks/7").json()
+    assert "eta" in task_resp and isinstance(task_resp["eta"].get("eta_s"), (int, float))

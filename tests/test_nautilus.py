@@ -336,16 +336,27 @@ def test_edge_cases_reverse_ticket_cash_leverage_and_html_escaping():
     assert "Max DD &lt; 8%" in html_msg
 
 
-@pytest.mark.asyncio
-async def test_format_and_send_nautilus_report_to_pult_mock_transport(tmp_path: Path, monkeypatch):
+def test_format_and_send_nautilus_report_to_pult_mock_transport(tmp_path: Path, monkeypatch):
+    import asyncio
+    import copy
+    from nautilus import is_demo_payload
+
     data = load_sample_fixture()
+    assert is_demo_payload(data) is True
+    assert data["metadata"]["is_demo"] is True
+    assert data["metadata"]["data_origin_label"] == "ДЕМО"
+    assert data["metadata"]["pult_live_delivery_allowed"] is False
+
     report = compute_multi_window_report(data)
+    assert report.is_demo is True
+    assert report.demo_label == "ДЕМО"
     ops = build_operational_state(data)
     msg = format_nautilus_telegram_message(report, ops)
 
-    # Check all required sections and metrics appear in the formatted Telegram HTML report
+    # Check all required sections and metrics (including ДЕМО badge) appear in the formatted Telegram HTML report
     for expected in (
-        "NAUTILUS / NAUTILUS_BTC",
+        "[ДЕМО] NAUTILUS / NAUTILUS_BTC",
+        "ДЕМО: синтетический эталонный снимок доходности",
         "42.19%",
         "11.49%",
         "$13.34",
@@ -391,15 +402,35 @@ async def test_format_and_send_nautilus_report_to_pult_mock_transport(tmp_path: 
             return httpx.Response(200, json={"ok": True, "result": {"message_id": 702}})
         return httpx.Response(404, json={"ok": False})
 
+    # 1. Demo payload MUST be blocked from sending to the owner's Pult as a real result
     card_path = tmp_path / "pult_card.png"
-    res = await send_nautilus_report_to_pult(
-        data,
-        card_output_path=card_path,
-        transport=httpx.MockTransport(handler),
+    with pytest.raises(PermissionError, match="ДЕМО"):
+        asyncio.run(
+            send_nautilus_report_to_pult(
+                data,
+                card_output_path=card_path,
+                transport=httpx.MockTransport(handler),
+            )
+        )
+    assert len(calls) == 0
+
+    # 2. Certified non-demo payload is allowed to be delivered via mock transport
+    live_data = copy.deepcopy(data)
+    live_data["metadata"]["is_demo"] = False
+    live_data["metadata"]["data_origin_label"] = "LIVE"
+    live_data["metadata"]["pult_live_delivery_allowed"] = True
+    assert is_demo_payload(live_data) is False
+
+    res = asyncio.run(
+        send_nautilus_report_to_pult(
+            live_data,
+            card_output_path=card_path,
+            transport=httpx.MockTransport(handler),
+        )
     )
     assert res["ok"] is True
+    assert res["is_demo"] is False
     assert res["photo_message_id"] == 701
     assert res["text_message_id"] == 702
     assert card_path.is_file()
     assert len(calls) == 2
-

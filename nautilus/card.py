@@ -112,7 +112,8 @@ def render_nautilus_card(
     *,
     strategy_label: str = "NAUTILUS",
     benchmark_label: str = "SPY",
-    subtitle: str = "READ-ONLY SHADOW ANALYTICS · BOSSMAN PULT",
+    subtitle: str = "ДЕМО · READ-ONLY SHADOW ANALYTICS · BOSSMAN PULT",
+    is_demo: bool = True,
     width: int = 1200,
     height: int = 680,
 ) -> bytes:
@@ -130,19 +131,25 @@ def render_nautilus_card(
     gap_y = int(height * 0.04)
 
     header_avail_w = width - 2 * pad_x
-    title_str = f"{strategy_label.upper()} vs {benchmark_label.upper()}"
+    base_title = f"{strategy_label.upper()} vs {benchmark_label.upper()}"
+    title_str = f"[ДЕМО] {base_title}" if is_demo and "ДЕМО" not in base_title else base_title
+    eff_subtitle = (
+        f"ДЕМО · {subtitle}"
+        if is_demo and "ДЕМО" not in subtitle.upper() and "DEMO" not in subtitle.upper()
+        else subtitle
+    )
 
     # Fit subtitle badge to at most 52% of header width so it never collides with the title
     max_sub_text_w = max(80, int(header_avail_w * 0.52) - 28)
     font_header_sub = _fit_font(
         draw,
-        subtitle,
+        eff_subtitle,
         max_sub_text_w,
         max(10, int(height * 0.021)),
         min_size=8,
         bold=False,
     )
-    sub_bbox = draw.textbbox((0, 0), subtitle, font=font_header_sub)
+    sub_bbox = draw.textbbox((0, 0), eff_subtitle, font=font_header_sub)
     sub_w = sub_bbox[2] - sub_bbox[0]
     sub_h = sub_bbox[3] - sub_bbox[1]
     badge_pad_x = max(8, int(width * 0.012))
@@ -173,7 +180,7 @@ def render_nautilus_card(
     )
     draw.text(
         (badge_x1 + badge_pad_x, badge_y1 + badge_pad_y - sub_bbox[1]),
-        subtitle,
+        eff_subtitle,
         fill=ORANGE_ACCENT_COLOR,
         font=font_header_sub,
     )
@@ -245,7 +252,8 @@ def save_nautilus_card(
     *,
     strategy_label: str = "NAUTILUS",
     benchmark_label: str = "SPY",
-    subtitle: str = "READ-ONLY SHADOW ANALYTICS · BOSSMAN PULT",
+    subtitle: str = "ДЕМО · READ-ONLY SHADOW ANALYTICS · BOSSMAN PULT",
+    is_demo: bool = True,
     width: int = 1200,
     height: int = 680,
 ) -> Path:
@@ -258,6 +266,7 @@ def save_nautilus_card(
         strategy_label=strategy_label,
         benchmark_label=benchmark_label,
         subtitle=subtitle,
+        is_demo=is_demo,
         width=width,
         height=height,
     )

@@ -4,7 +4,11 @@
     "version": "2026.10",
     "as_of": "2026-10-19",
     "mode": "READ_ONLY_SHADOW_ANALYTICS",
-    "eternal_prohibition_1_verified": true
+    "eternal_prohibition_1_verified": true,
+    "is_demo": true,
+    "data_origin_label": "ДЕМО",
+    "pult_live_delivery_allowed": false,
+    "demo_warning_ru": "ДЕМО: синтетический эталонный снимок доходности (nautilus_2026_sample.json). Запрещено отправлять в Пульт владельца как реальный результат."
   },
   "dashboard_card": {
     "strategy_label": "NAUTILUS",

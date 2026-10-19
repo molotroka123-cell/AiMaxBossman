@@ -68,6 +68,19 @@ class MultiWindowReport:
     winning_weeks_label: str
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def is_demo(self) -> bool:
+        """True unless metadata explicitly certifies a live verified feed (is_demo=False)."""
+        if "is_demo" in self.metadata:
+            return bool(self.metadata["is_demo"])
+        return True
+
+    @property
+    def demo_label(self) -> str:
+        if self.is_demo:
+            return str(self.metadata.get("data_origin_label") or "ДЕМО")
+        return str(self.metadata.get("data_origin_label") or "LIVE")
+
 
 def _validate_finite_series(returns: Sequence[float], label: str = "Return series") -> None:
     """Raise ValueError if any element in the series is NaN or infinite."""

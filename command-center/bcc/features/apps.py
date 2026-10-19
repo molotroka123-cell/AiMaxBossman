@@ -117,7 +117,9 @@ def _promoted_manifest_files() -> list[Path]:
     only; deliberately NOT part of `_manifest_files()`, which task exchange and
     app control treat as real workloads with ports and data directories."""
     out: list[Path] = []
-    for root in PROMOTED_DIRS:
+    for root in list(PROMOTED_DIRS):
+        if not root.is_dir():
+            continue
         try:
             out.extend(sorted(root.glob("*/app.manifest.yaml")))
         except OSError:
@@ -400,7 +402,12 @@ async def health_matrix(request: Request, refresh: bool = False) -> dict:
     apps = await collect(force=refresh)
     rows = []
     for a in apps:
-        proc = apps_control.process_info(a["id"], data_dir) if data_dir else {"running": False, "pid": None}
+        proc = {"running": False, "pid": None}
+        if data_dir and not a.get("static_url"):
+            try:
+                proc = apps_control.process_info(a["id"], data_dir)
+            except HTTPException:
+                proc = {"running": False, "pid": None}
         rows.append({
             "app_id": a["id"],
             "name": a["name"],

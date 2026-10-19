@@ -575,3 +575,28 @@ def test_pre_send_qa_gate_checks_100pct_frames_and_blocks_bad_clip():
     bad = audit.pre_send_qa_gate({"frames": 250, "checked_frames": 250, "score_p95": 6.5, "unswapped_frames": 0, "alpha_reversals": 4})
     assert bad["verdict"] == "FAIL" and bad["allow_send"] is False and len(bad["reasons"]) >= 2
 
+
+async def test_send_to_pult_runtime_enforces_pre_send_qa_gate(env, tmp_path, monkeypatch):
+    svc = install_swap(env, tmp_path, FakeFaceFusion)
+    monkeypatch.setattr(faceswap, "finish", lambda video, original, dst, **k: shutil.copyfile(video, dst))
+
+    created = await svc.create_swap("owner", swap_body(frame="original"))
+    job = await finish(svc, created["job_id"])
+    assert job["status"] == "completed"
+    assert job["provenance"]["qa_gate"]["verdict"] == "PASS"
+
+    # Inject a failing QA audit summary into the stored job and verify send_to_pult blocks with 409 qa_gate_blocked
+    stored = svc.store.load("owner", job["job_id"])
+    stored["provenance"]["artifact_audit"] = {
+        "frames": 100,
+        "checked_frames": 80,
+        "score_p95": 7.5,
+        "unswapped_frames": 10,
+        "alpha_reversals": 5,
+    }
+    svc.store.save(stored)
+
+    with pytest.raises(DirectGenError) as exc:
+        await svc.send_to_pult("owner", job["job_id"])
+    assert exc.value.status == 409
+    assert exc.value.code == "qa_gate_blocked"

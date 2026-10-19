@@ -40,6 +40,23 @@ def _esc(val: Any) -> str:
     return html.escape(str(val), quote=False)
 
 
+def is_demo_payload(payload: dict[str, Any] | None) -> bool:
+    """Return True if the NAUTILUS payload is a demo/sample fixture (default fail-closed True unless certified live)."""
+    if not isinstance(payload, dict):
+        return True
+    meta = payload.get("metadata") or {}
+    if isinstance(meta, dict):
+        if meta.get("pult_live_delivery_allowed") is False:
+            return True
+        if "is_demo" in meta:
+            return bool(meta["is_demo"])
+        if str(meta.get("data_origin_label", "")).strip().upper() in ("ДЕМО", "DEMO"):
+            return True
+    if "is_demo" in payload:
+        return bool(payload["is_demo"])
+    return True
+
+
 def format_nautilus_telegram_message(
     report: MultiWindowReport,
     ops: NautilusOperationalState,
@@ -65,29 +82,40 @@ def format_nautilus_telegram_message(
     inc_bench = _esc(inc.benchmark_name)
     l26_bench = _esc(l26.benchmark_name)
 
+    demo_tag = f"[{_esc(report.demo_label)}] " if report.is_demo else ""
     lines: list[str] = [
-        "🧭 <b>NAUTILUS / NAUTILUS_BTC — Аналитический отчёт (Shadow Read-Only)</b>",
+        f"🧭 <b>{demo_tag}NAUTILUS / NAUTILUS_BTC — Аналитический отчёт (Shadow Read-Only)</b>",
         "<i>Режим: только аналитика и модельный портфель (Вечный запрет №1: 0 реальных ордеров, 0 ключей)</i>",
-        "",
-        f"📊 <b>1. Сводка 6 плиток ({strat_lbl} vs {bench_lbl}):</b>",
-        f"• <b>CAGR:</b> {cs.cagr_pct:.2f}% (vs {bench_lbl}: {cb.cagr_pct:.2f}%)",
-        f"• <b>SHARPE:</b> {cs.sharpe:.2f} (vs {bench_lbl}: {cb.sharpe:.2f})",
-        f"• <b>SORTINO:</b> {cs.sortino:.2f} (vs {bench_lbl}: {cb.sortino:.2f})",
-        f"• <b>MAX DRAWDOWN:</b> {cs.max_drawdown_pct:.2f}% (vs {bench_lbl}: {cb.max_drawdown_pct:.2f}%)",
-        f"• <b>CALMAR:</b> {cs.calmar:.2f} (vs {bench_lbl}: {cb.calmar:.2f})",
-        f"• <b>$1 BECOMES:</b> ${cs.dollar_becomes:.2f} (vs {bench_lbl}: ${cb.dollar_becomes:.2f})",
-        "",
-        "⏱ <b>2. Мульти-оконная динамика:</b>",
-        f"• <b>YTD ({ytd_strat} vs {ytd_bench}):</b> {_fmt_signed_pct(ytd.strategy_return_pct)} vs {_fmt_signed_pct(ytd.benchmark_return_pct)} {ytd_bench} | Sharpe {ytd.strategy_sharpe:.2f} vs {ytd.benchmark_sharpe:.2f} | Max DD {ytd.strategy_max_dd_pct:.2f}% vs {ytd.benchmark_max_dd_pct:.2f}% | Аллокация: <code>{_esc(ytd.exposure_delta_note or mr.btc_exposure_transition)}</code>",
-        f"• <b>Since Inception:</b> {inc_strat} {_fmt_signed_pct(inc.strategy_return_pct)} vs {inc_bench} {_fmt_signed_pct(inc.benchmark_return_pct)} (Excess {_fmt_signed_pct(inc.excess_return_pct)}) | Sharpe {inc.strategy_sharpe:.2f} | Vol {inc.strategy_volatility_pct:.2f}% | Max DD {inc.strategy_max_dd_pct:.2f}% | Beta {inc.beta:.3f}",
-        f"• <b>Last 26 Trading Sessions:</b> Sharpe {l26.strategy_sharpe:.2f} vs {l26.benchmark_sharpe:.2f} {l26_bench} | Vol {l26.strategy_volatility_pct:.2f}% vs {l26.benchmark_volatility_pct:.2f}% {l26_bench} | Max DD {l26.strategy_max_dd_pct:.2f}% vs {l26.benchmark_max_dd_pct:.1f}% {l26_bench} | Beta {l26.beta:.3f}",
-        f"• <b>Серия прибыльных недель:</b> 🔥 {_esc(report.winning_weeks_label)} (расчёт по ряду: {report.winning_weeks_streak})",
-        "",
-        "⚙️ <b>3. Пять операционных блоков NAUTILUS:</b>",
-        f"<b>[Блок 1 · Режим рынка (market_regime)]</b> {_esc(mr.regime_code)} — {_esc(mr.regime_label_ru)}. Тренд: <code>{_esc(mr.trend_state)}</code>, волатильность: <code>{_esc(mr.volatility_state)}</code>. Переход BTC: <code>{_esc(mr.btc_exposure_transition)}</code>.",
-        f"<b>[Блок 2 · Плечо и экспозиция]</b> Gross Leverage: <code>{lev.gross_leverage:.2f}x</code> | Net Exposure: <code>{lev.net_exposure:.2f}x</code> | Long: <code>{lev.long_pct:.1f}%</code> | Short (APEX hedge): <code>{lev.short_pct:.1f}%</code>",
-        "<b>[Блок 3 · Периодический Trade Ticket (ребалансировка, Read-Only)]</b>",
     ]
+    if report.is_demo:
+        demo_warn = _esc(
+            report.metadata.get("demo_warning_ru")
+            or "ДЕМО: синтетический эталонный снимок доходности (nautilus_2026_sample.json). Запрещено отправлять в Пульт владельца как реальный результат."
+        )
+        lines.append(f"⚠️ <b>{demo_warn}</b>")
+    lines.extend(
+        [
+            "",
+            f"📊 <b>1. Сводка 6 плиток ({strat_lbl} vs {bench_lbl}):</b>",
+            f"• <b>CAGR:</b> {cs.cagr_pct:.2f}% (vs {bench_lbl}: {cb.cagr_pct:.2f}%)",
+            f"• <b>SHARPE:</b> {cs.sharpe:.2f} (vs {bench_lbl}: {cb.sharpe:.2f})",
+            f"• <b>SORTINO:</b> {cs.sortino:.2f} (vs {bench_lbl}: {cb.sortino:.2f})",
+            f"• <b>MAX DRAWDOWN:</b> {cs.max_drawdown_pct:.2f}% (vs {bench_lbl}: {cb.max_drawdown_pct:.2f}%)",
+            f"• <b>CALMAR:</b> {cs.calmar:.2f} (vs {bench_lbl}: {cb.calmar:.2f})",
+            f"• <b>$1 BECOMES:</b> ${cs.dollar_becomes:.2f} (vs {bench_lbl}: ${cb.dollar_becomes:.2f})",
+            "",
+            "⏱ <b>2. Мульти-оконная динамика:</b>",
+            f"• <b>YTD ({ytd_strat} vs {ytd_bench}):</b> {_fmt_signed_pct(ytd.strategy_return_pct)} vs {_fmt_signed_pct(ytd.benchmark_return_pct)} {ytd_bench} | Sharpe {ytd.strategy_sharpe:.2f} vs {ytd.benchmark_sharpe:.2f} | Max DD {ytd.strategy_max_dd_pct:.2f}% vs {ytd.benchmark_max_dd_pct:.2f}% | Аллокация: <code>{_esc(ytd.exposure_delta_note or mr.btc_exposure_transition)}</code>",
+            f"• <b>Since Inception:</b> {inc_strat} {_fmt_signed_pct(inc.strategy_return_pct)} vs {inc_bench} {_fmt_signed_pct(inc.benchmark_return_pct)} (Excess {_fmt_signed_pct(inc.excess_return_pct)}) | Sharpe {inc.strategy_sharpe:.2f} | Vol {inc.strategy_volatility_pct:.2f}% | Max DD {inc.strategy_max_dd_pct:.2f}% | Beta {inc.beta:.3f}",
+            f"• <b>Last 26 Trading Sessions:</b> Sharpe {l26.strategy_sharpe:.2f} vs {l26.benchmark_sharpe:.2f} {l26_bench} | Vol {l26.strategy_volatility_pct:.2f}% vs {l26.benchmark_volatility_pct:.2f}% {l26_bench} | Max DD {l26.strategy_max_dd_pct:.2f}% vs {l26.benchmark_max_dd_pct:.1f}% {l26_bench} | Beta {l26.beta:.3f}",
+            f"• <b>Серия прибыльных недель:</b> 🔥 {_esc(report.winning_weeks_label)} (расчёт по ряду: {report.winning_weeks_streak})",
+            "",
+            "⚙️ <b>3. Пять операционных блоков NAUTILUS:</b>",
+            f"<b>[Блок 1 · Режим рынка (market_regime)]</b> {_esc(mr.regime_code)} — {_esc(mr.regime_label_ru)}. Тренд: <code>{_esc(mr.trend_state)}</code>, волатильность: <code>{_esc(mr.volatility_state)}</code>. Переход BTC: <code>{_esc(mr.btc_exposure_transition)}</code>.",
+            f"<b>[Блок 2 · Плечо и экспозиция]</b> Gross Leverage: <code>{lev.gross_leverage:.2f}x</code> | Net Exposure: <code>{lev.net_exposure:.2f}x</code> | Long: <code>{lev.long_pct:.1f}%</code> | Short (APEX hedge): <code>{lev.short_pct:.1f}%</code>",
+            "<b>[Блок 3 · Периодический Trade Ticket (ребалансировка, Read-Only)]</b>",
+        ]
+    )
 
     for item in ops.trade_ticket:
         delta_str = _fmt_signed_pct(item.delta_weight_pct)
@@ -140,9 +168,20 @@ async def send_nautilus_report_to_pult(
     card_output_path: str | Path | None = None,
     config_path: Path | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
+    allow_demo: bool = False,
 ) -> dict[str, Any]:
-    """Render the NAUTILUS 6-tile PNG card + Telegram report and send both to the owner-only Telegram Pult."""
+    """Render the NAUTILUS 6-tile PNG card + Telegram report and send both to the owner-only Telegram Pult.
+
+    Demo payloads (`nautilus_2026_sample.json` or any payload where `is_demo_payload(data)` is True)
+    are strictly forbidden from being sent to the owner's Pult as a real result.
+    """
     data = payload if payload is not None else load_sample_fixture()
+    is_demo = is_demo_payload(data)
+    if is_demo and not allow_demo:
+        raise PermissionError(
+            "ДЕМО: отправка демонстрационной доходности (nautilus_2026_sample.json) в Пульт владельца как реального результата запрещена."
+        )
+
     report = compute_multi_window_report(data)
     ops = build_operational_state(data)
     message_html = format_nautilus_telegram_message(report, ops)
@@ -152,6 +191,7 @@ async def send_nautilus_report_to_pult(
         report.card_benchmark,
         strategy_label=report.card_strategy_label,
         benchmark_label=report.card_benchmark_label,
+        is_demo=is_demo,
     )
     if card_output_path:
         out_file = Path(card_output_path)
@@ -161,8 +201,9 @@ async def send_nautilus_report_to_pult(
     token, chat_id, proxy = _load_pult_target(config_path)
     api_base = f"https://api.telegram.org/bot{token}"
 
+    demo_prefix = "[ДЕМО] " if is_demo else ""
     caption = (
-        f"NAUTILUS vs {report.card_benchmark_label} · CAGR {report.card_strategy.cagr_pct:.2f}% · "
+        f"{demo_prefix}NAUTILUS vs {report.card_benchmark_label} · CAGR {report.card_strategy.cagr_pct:.2f}% · "
         f"Sharpe {report.card_strategy.sharpe:.2f} · Sortino {report.card_strategy.sortino:.2f} · "
         f"MaxDD {report.card_strategy.max_drawdown_pct:.2f}% · $1 -> ${report.card_strategy.dollar_becomes:.2f}"
     )
@@ -200,6 +241,7 @@ async def send_nautilus_report_to_pult(
 
     return {
         "ok": True,
+        "is_demo": is_demo,
         "photo_message_id": (photo_body.get("result") or {}).get("message_id"),
         "text_message_id": (msg_body.get("result") or {}).get("message_id"),
         "card_bytes": len(png_bytes),
@@ -241,6 +283,7 @@ def main(argv: list[str] | None = None) -> int:
             report.card_benchmark,
             strategy_label=report.card_strategy_label,
             benchmark_label=report.card_benchmark_label,
+            is_demo=report.is_demo,
         )
 
     if hasattr(sys.stdout, "reconfigure"):

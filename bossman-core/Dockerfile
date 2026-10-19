@@ -15,6 +15,7 @@ WORKDIR /app
 COPY pyproject.toml /src/shared/pyproject.toml
 COPY bossman_shared /src/shared/bossman_shared
 COPY learning /src/shared/learning
+COPY nautilus /src/shared/nautilus
 COPY schemas /src/shared/schemas
 RUN pip install --no-cache-dir /src/shared && rm -rf /src/shared
 
@@ -26,7 +27,7 @@ COPY bossman-core/tools ./tools
 COPY bossman-core/ui ./ui
 RUN pip install --no-cache-dir .
 # the installed app must resolve the shared contracts without the checkout
-RUN cd / && python -c "import bossman_shared.cache_observation, learning.trace, bossman_schemas; import bossman._shared as s; assert s.AVAILABLE"
+RUN cd / && python -c "import bossman_shared.cache_observation, learning.trace, nautilus, bossman_schemas; import bossman._shared as s; assert s.AVAILABLE"
 
 ENV BOSSMAN_ROOT=/app
 EXPOSE 8700

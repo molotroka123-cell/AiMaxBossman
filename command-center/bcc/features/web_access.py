@@ -154,8 +154,28 @@ async def status(request: Request):
     return {"server": string_mcp.SERVER_ID, "endpoint_template": string_mcp.ENDPOINT_TEMPLATE,
             "secret_name": string_mcp.SECRET_NAME, "has_key": bool(key),
             "key": policy.mask_secret(key) if key else None, "health": health,
-            "limits": web.limiter.snapshot(), "tools": list(string_mcp.ALLOWED_TOOLS),
+            "limits": web.limiter.snapshot(), "cache": web.cache.stats(),
+            "tools": list(string_mcp.ALLOWED_TOOLS),
             "deny_domains": len(policy.deny_domains()), "max_chars": policy.max_chars()}
+
+
+def _sync_tools(has_key: bool) -> None:
+    """Register String MCP tools only when the owner configured a String key.
+
+    When BOSSMAN_WEB_RESEARCH_ENABLED + BOSSMAN_OSIRIS_ENABLED are active,
+    web_research owns `web.search` (source='web', permission=''); String MCP
+    still provides `web.fetch` and the `/api/web-access/*` HTTP endpoints without
+    overwriting `web.search` or polluting REGISTRY when unconfigured.
+    """
+    for spec in SPECS:
+        existing = REGISTRY.get(spec.name)
+        if has_key:
+            if existing is not None and existing.source == "web":
+                continue
+            REGISTRY.register(spec)
+        else:
+            if existing is not None and existing.source == "builtin":
+                REGISTRY.unregister(spec.name)
 
 
 @router.put("/key")
@@ -169,6 +189,7 @@ async def put_key(request: Request):
     policy.register_secret(key)
     policy.install_log_redaction()
     await _ensure_server_row(svc)
+    _sync_tools(True)
     await svc.bus.emit("web_access.key_updated", server=string_mcp.SERVER_ID)
     return {"ok": True, "key": policy.mask_secret(key)}
 
@@ -177,6 +198,7 @@ async def put_key(request: Request):
 async def delete_key(request: Request):
     svc = request.app.state.svc
     await _delete_key(svc)
+    _sync_tools(False)
     await web_of(svc).runtime.disconnect(string_mcp.SERVER_ID)
     return {"ok": True}
 
@@ -222,8 +244,7 @@ async def setup(svc) -> None:
     key = await _read_key(svc)
     policy.register_secret(key)
     web_of(svc)
-    for spec in SPECS:
-        REGISTRY.register(spec)
+    _sync_tools(bool(key))
 
 
 FEATURE = Feature(name="web_access", router=router, setup=setup)

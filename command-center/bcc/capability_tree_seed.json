@@ -22213,7 +22213,7 @@
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
+          "sha": "49c87574b0ecffd74a422948aeb766eb1996e7a6"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22230,7 +22230,7 @@
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
+          "sha": "49c87574b0ecffd74a422948aeb766eb1996e7a6"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22247,7 +22247,7 @@
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
+          "sha": "49c87574b0ecffd74a422948aeb766eb1996e7a6"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22281,7 +22281,7 @@
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
+          "sha": "49c87574b0ecffd74a422948aeb766eb1996e7a6"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22298,7 +22298,7 @@
       "sources": [
         {
           "path": "docs/owner/VIDEO_PIPELINE_STAGES_20261010.md",
-          "sha": "566960ecbf4dd14cc671ef173c1ec8169aa02772"
+          "sha": "49c87574b0ecffd74a422948aeb766eb1996e7a6"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22598,7 +22598,7 @@
       "sources": [
         {
           "path": "tools/studio_v2_e2e.py",
-          "sha": "6aa2b0cbb1400a8d243b257861e98faa0e8a8d4a"
+          "sha": "81b840486b6609584fc3238b9a31d156b8582054"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22970,6 +22970,96 @@
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
       "reference_paths": [
         "command-center/bcc/oss/vibe_trading.py"
+      ]
+    },
+    {
+      "id": "reg-nautilus_shadow_analytics",
+      "label": "NAUTILUS: мульти-оконная аналитика, 6 плиток и ДЕМО-защита пульта",
+      "parent": "commerce",
+      "status": "code",
+      "detail": "Telegram Pult report formatter, CLI entry point, and owner-only delivery for NAUTILUS. Respects Bossman Eternal Prohibition #1 and Pult owner-only delivery rules (`command-center/bcc/direct_gen/pult.py`): - Never executes trades or moves funds. - Sends only to Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "nautilus/telegram_report.py",
+          "sha": "4fdc825c1de77a2853a7560ee995ea7ba4000982"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "nautilus/telegram_report.py",
+        "tests/test_nautilus.py"
+      ]
+    },
+    {
+      "id": "reg-video_pre_send_qa_gate",
+      "label": "QA-гейт 100% кадров перед отправкой видео в Пульт владельца",
+      "parent": "media",
+      "status": "code",
+      "detail": "Frame-by-frame artifact audit of a face-swapped video against its source (owner 10.10: «покадрово все разбери»). Per frame, on the SWAPPED face (the source face whose area changed most in the result): identity arcface cosine of the result face to the mean of t Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "tools/video_gate/artifact_audit.py",
+          "sha": "d7329c13aae9c4ce38e6245ec08771db5e59a158"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "tools/video_gate/artifact_audit.py",
+        "command-center/tests/test_direct_gen_faceswap.py"
+      ]
+    },
+    {
+      "id": "reg-web_result_cache",
+      "label": "Кэш ответов String MCP (WebResultCache) для экономии квоты",
+      "parent": "plugins",
+      "status": "code",
+      "detail": "Safety policy for public-web access (String MCP). Pure functions plus two small stateful objects (rate limiter, audit writer). No network, no secrets stored here: only the NAME of the secret and the endpoint template live in the repository. Rules * public http Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "command-center/bcc/web_access/policy.py",
+          "sha": "39235b9f6b91b6bcd50be90d1577bdb4beff1971"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "command-center/bcc/web_access/policy.py",
+        "command-center/tests/test_web_access.py"
+      ]
+    },
+    {
+      "id": "reg-mobile_worker_device_registry",
+      "label": "Реестр воркер-устройств на одном ядре с общим STOP (<= 2 с)",
+      "parent": "devices",
+      "status": "code",
+      "detail": "Phone authentication: one pairing token -> server-side session (HttpOnly cookie) + CSRF token. The pairing token lives in %USERPROFILE%/.bossman-mobile/tokens.json (created on first start). Sessions are kept as SHA-256 of their id in sessions.json, so a copy o Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "apps/bossman-mobile/bossmobile/auth.py",
+          "sha": "b0f4c6bf944c27ee7c646a74cb11a7c7a619f2d6"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "apps/bossman-mobile/bossmobile/auth.py",
+        "apps/bossman-mobile/tests/test_mobile.py"
+      ]
+    },
+    {
+      "id": "reg-mobile_calibrate_task_eta",
+      "label": "Калибровка ETA задач в мобильном UI по истории task_runs",
+      "parent": "ux",
+      "status": "code",
+      "detail": "Photo section: sensible step ranges and an HONEST generation-time model. time = load_s + steps * s_per_step_512 * (pixels / 512^2) * sd-cli is a fresh process for every job, so \"load\" (weights + text encoder) is paid on EVERY run, not just the first; VAE decod Код есть; польза и живая работа не доказаны.",
+      "sources": [
+        {
+          "path": "apps/bossman-mobile/bossmobile/timing.py",
+          "sha": "324cb36370e51581d736426ec6f8a434efcb1959"
+        }
+      ],
+      "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
+      "reference_paths": [
+        "apps/bossman-mobile/bossmobile/timing.py",
+        "apps/bossman-mobile/tests/test_photo_queue.py"
       ]
     }
   ],

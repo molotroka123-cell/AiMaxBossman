@@ -1,16 +1,10 @@
-# Инвентаризация готовности 39 требований v2.2 (обновлено 19.10.2026, ночной прогон)
+# Инвентаризация готовности 39 требований v2.2 (обновлено 19.10.2026, финальная сборка `main`)
 
-> **Поздняя сверка 18.10.2026, 19:33 PDT:** текущий проверенный `main` =
-> `1599f2ef`; эта инвентаризация собрана на перечисленных ниже SHA и не
-> сертификат установленной сборки `1599f2ef`. На снимке CI `main` имеет
-> 12 failed/33 success/1 skipped. Следующие 45 кандидатов по всем 15
-> направлениям и 48-часовая дельта описаны в
-> [`BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md`](../../owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md).
-> Они не меняют таблицу PASS/FAIL/BLOCKED/NOT_RUN без свежих receipts.
+> **Сверка 19.10.2026 (закрытие критического пути):** проверенная база `main` = `4fdc825c` + коммит закрытия критического пути (все 4 падения CI устранены, функции вшиты в runtime, фикстура `nautilus_2026_sample.json` и её отчёты помечены как `ДЕМО` с запретом отправки в Пульт владельца как реального результата). 24/48-часовой soak-прогон (`A22-10`), 3 живых цикла самоисправления (`A22-06`) и коммерческая выручка остаются открытыми и не помечаются как `PASS`.
 
 Честная инвентаризация по реестру `docs/v2.2-20261013/requirements.json` (39 ID: A22-01..12, MC22-01..16, P22-POKER-01..04, P22-TRADING-05, P22-PUMP-06, P22-TIMESFM-07, P22-EXCHANGE-08, P22-REPORTS-09, P22-OPS-10, P22-PROVENANCE-11). Тексты требований: `AUTONOMY_SPEC_RU.md`, `MEDIA_COMMERCIAL_SPEC_RU.md`, `POKER_TRADING_REPORTS_SPEC_RU.md`, `GENERATION_MODEL_SELECTION_RU.md`. Это инвентаризация, а не сертификат.
 
-Базовый SHA проверки: `37ae1b3ff8066536cf5312a1c9ea861136130aa1` + ветки ночного прогона `codex/night-features-20261019` (`db2b6ac6`, `55033960`) и `claude/night-audit-20261019`. Дата: 2026-10-19.
+Базовый SHA проверки: `4fdc825c1de77a2853a7560ee995ea7ba4000982` + финальный RC-коммит на `main` (19.10.2026).
 
 ## Правила оценки
 
@@ -20,9 +14,9 @@
 - Файл `requirements.json` по-прежнему содержит `acceptance_state: NOT_RUN_FOR_2_2` и `evidence: null` для всех 39, то есть реестр сам ни одного формального сертификата PASS не фиксирует.
 - FAIL ставлен только там, где в аудитах есть записанный провал или открытый дефект приёмки. BLOCKED — только там, где блокер записан как решение владельца или ограничение железа.
 
-## Свежие unit-квитанции (U1–U26, 18–19.10.2026)
+## Свежие unit-квитанции (U1–U29, 18–19.10.2026)
 
-Все ранее «не запускавшиеся» и «обрезанные» наборы тестов досчитаны до конца с итоговой строкой (0 упавших после исправления изоляции `default_pin_path` в `command-center/tests/conftest.py` и копирования `LICENSE` в `apps/bossman-mobile`, `apps/shorts-factory`, `apps/war-terminal`):
+Все ранее «не запускавшиеся» и «обрезанные» наборы тестов досчитаны до конца с итоговой строкой (0 упавших после исправления изоляции `default_pin_path` в `command-center/tests/conftest.py`, копирования `LICENSE` в `apps/bossman-mobile`, `apps/shorts-factory`, `apps/war-terminal` и закрытия 4 падений CI на `4fdc825c`):
 
 | Код | Файлы | Итог |
 |---|---|---|
@@ -36,7 +30,7 @@
 | U8 | `command-center/tests/test_motion_workflow_core.py`, `test_motion_workflow_api.py`, `test_motion_workflow_render.py`, `test_motion_workflow_ui.py` | 150 passed |
 | U9 | `command-center/tests/test_music_studio.py` | 3 passed |
 | U10 | `command-center/tests/test_jeff_stars_review_fixes.py` | 15 passed |
-| U11 | `command-center/tests/test_direct_gen_genjutsu.py`, `test_direct_gen_photo.py`, `test_direct_gen_delete.py`, `test_direct_gen_resident.py` | 109 passed |
+| U11 | `command-center/tests/test_direct_gen_genjutsu.py`, `test_direct_gen_photo.py`, `test_direct_gen_delete.py`, `test_direct_gen_resident.py`, `test_direct_gen_faceswap.py` | 145 passed |
 | U12 | `tests/exchange_volume` | 36 passed, 1 skipped |
 | U13 | `tests/ops_intake` | 139 passed |
 | U14 | `command-center/tests/test_forecast_timesfm.py` | 26 passed, 1 skipped |
@@ -49,14 +43,17 @@
 | U21 | `apps/poker-botlab/tests/test_gto_tournament.py` | 6 passed |
 | U22 | `command-center/tests/test_feat_nl_orchestra.py` | 10 passed |
 | U23 | `bossman-core/tests/test_v3_self_improvement.py`, `test_v5_promotion_durable_ledger.py`, `test_v26_voice_capability.py`, `test_fleet_remote_auth.py` | 41 passed |
-| U24 | `tests/test_acceptance_registry.py` | 19 passed |
+| U24 | `tests/test_acceptance_registry.py`, `tests/test_tree_registry_in_sync.py`, `tests/test_tree_registry_sync.py` | 31 passed |
 | U25 | `apps/social-farm/tests/unit` | 482 passed, 26 skipped |
 | U26 | `command-center/tests/telegram_contracts/test_companion_genmodel.py` (`MC22-16` `/genmodel`) | 3 passed |
+| U27 | `tests/test_nautilus.py` (`-p no:asyncio`, ДЕМО-пометка `nautilus_2026_sample.json` + блокировка отправки демо в Пульт) | 8 passed |
+| U28 | `command-center/tests/test_self_improve.py`, `test_vibe_studio.py`, `test_war_terminal_proxy.py`, `test_web_access.py`, `test_web_research_flag.py` | 190 passed, 1 skipped |
+| U29 | `apps/bossman-mobile/tests/*` (`WorkerDeviceRegistry` и `calibrate_task_eta` вшиты в runtime API `:8840`) | 145 passed |
 
 Квитанции живой среды, которые встречаются ниже:
-- **L19 (18–19.10.2026, текущий ночной прогон):**
-  - `:8801/health/live` подтверждает `source_identity: PASS`, `dirty_files: 0`, совпадение `build_sha` и `git_head`.
-  - Устранён 15-минутный конфликт `getUpdates` (`TELEGRAM_COMPANION=CONFLICT`) от плановой задачи `\GrechkaTrap` (`d91abed9`); Companion работает стабильно в одном экземпляре (`PID 20840`).
+- **L19 (18–19.10.2026, прогон на рабочем runtime):**
+  - `:8801/health/live` и `:8801/health` подтверждают `source_identity: PASS`, `dirty_files: 0`, совпадение `build_sha` и `checkout_sha` после синхронизации на единый коммит `main`, и 0 активных задач перед перезапуском `:8801`.
+  - Устранён 15-минутный конфликт `getUpdates` (`TELEGRAM_COMPANION=CONFLICT`) от плановой задачи `\GrechkaTrap` (`d91abed9`); Companion работает стабильно в одном экземпляре.
   - Устранён вечный цикл прогрева `Resource Governor` (`cap 40 GB reached` каждые 10 с) через учёт `_active_warmed_bytes()` (`d91abed9`), оба слота прогреты один раз (`22.6 ГБ`).
   - Устранён баг приоритета `sd-cli.exe` (`SdCliRunner.run` выставляет `HIGH_PRIORITY_CLASS = 128` при спавне) и гонка `409 job_running` в `DirectGenService.delete` (`d91abed9`).
 - **R14 (`docs/owner/READY_FOR_PULT_20261014_RU.md`):** живая задача Блокнот (task 84, 14.10), pytest 112 passed/2 skipped (14.10).
@@ -113,15 +110,15 @@
 
 | Статус | Количество | ID |
 |---|---|---|
-| PASS (живой сертификат 2.2) | 0 | — (все 26 групп unit-тестов U1–U26 зелёные: **1 898 passed**, 0 failed) |
+| PASS (живой сертификат 2.2) | 0 | — (все 29 групп unit-тестов U1–U29 зелёные: **2 289 passed**, 0 failed) |
 | FAIL | 3 | A22-05, A22-06, A22-12 |
 | BLOCKED | 3 | A22-09, MC22-11, MC22-12 |
-| NOT_RUN (код и unit-тесты готовы, ждёт живой приёмки / данных владельца) | 33 | остальные (включая A22-04 и MC22-16, где код и unit-тесты полностью закрыты) |
+| NOT_RUN (код и unit-тесты готовы, ждёт живой приёмки / данных владельца) | 33 | остальные (включая A22-04 и MC22-16, где код и unit-тесты полностью закрыты; 24/48ч soak `A22-10`, 3 живых цикла самоисправления `A22-06` и коммерческая выручка честно оставлены открытыми) |
 | Всего | 39 | |
 
 ### Что изменилось по сравнению с инвентаризацией 18.10:
-1. **A22-04 переведён из `FAIL` в `NOT_RUN` (код и живой конфиг исправлены, 505 unit-тестов зелёные):** все дефекты из аудита A18 §5 закрыты (`af8caf35` + `80ec28d3`), не-владельцы отсекаются в `ingest()`, `/work_yes` требует нажатия одноразовой callback-кнопки, `bypassPermissions`/`danger-full-access` убраны из живого `config.json` и задач Планировщика, `/stop` и `/pause` работают независимо от `pc_control`.
-2. **MC22-16 (`/genmodel`) реализован и протестирован (`55033960`):** добавлен единый селектор `/genmodel` (`prompt|image|edit|video`) по 4 ролям с сохранением в зашифрованном `Store`, совместимостью с `/imgmodel` и `/edit_engine`, и snapshot-изоляцией для задач в очереди (`test_companion_genmodel.py` — `3 passed`).
-3. **MC22-04 (`sd-server` + приоритет `sd-cli` + удаление задач):** интегрирован опциональный резидентный движок `sd-server` (`BOSSMAN_DIRECT_GEN_RESIDENT=1`, по умолчанию выключен, `db2b6ac6`), исправлены `HIGH_PRIORITY_CLASS` для `sd-cli.exe` и гонка `409 job_running` при удалении (`d91abed9`, `66 passed`).
-4. **P22-PROVENANCE-11 (`test_agpl_licensing.py`):** устранены 3 падения `FileNotFoundError` по `LICENSE` в `apps/bossman-mobile`, `apps/shorts-factory`, `apps/war-terminal` (`23 passed`).
-5. **Все ранее не запускавшиеся unit-наборы (U20–U26) досчитаны до конца:** суммарно **1 898 passed, 0 failed**.
+1. **Закрыты все 4 причины красного CI на `4fdc825c` без ослабления проверок:** (a) пакет `nautilus` добавлен в `bossman-core/Dockerfile`; (b) `tests/test_nautilus.py::test_format_and_send_nautilus_report_to_pult_mock_transport` переведён на `asyncio.run(...)` и проходит с `-p no:asyncio`; (c) `Sandbox.resolve` (`command-center/bcc/self_improve/sandbox.py`) блокирует Windows drive-letter пути на Linux, а `bcc/features/web_access.py` регистрирует `web.search`/`web.fetch` только при наличии ключа String и не перезаписывает `web_research`; (d) `GET /api/apps/health-matrix` (`command-center/bcc/features/apps.py`) корректно обрабатывает промотированные статические приложения Vibe Studio (`vibe-*`) без выброса `HTTPException(404)`.
+2. **Вшиты в живой runtime функции сегодняшнего прогона (с runtime-тестами):** `pre_send_qa_gate` вшит в `DirectGenService._run_swap` и `DirectGenService.send_to_pult` (`409 qa_gate_blocked`); `WebResultCache` вшит в `WebAccess._call` (`search`/`fetch`) и `/api/web-access/status`; `WorkerDeviceRegistry` (`/m/api/workers/*` + общий `/stop`) и `calibrate_task_eta` (`/m/api/tasks/{id}`) вшиты в `apps/bossman-mobile/bossmobile/api.py`.
+3. **Защита от демо-доходности NAUTILUS:** `nautilus/fixtures/nautilus_2026_sample.json` и все создаваемые из неё карточки/отчёты помечены как `ДЕМО`, а `send_nautilus_report_to_pult` блокирует (`PermissionError`) отправку демо-доходности в Пульт владельца как реального результата.
+4. **A22-04 переведён из `FAIL` в `NOT_RUN` (код и живой конфиг исправлены, 505 unit-тестов зелёные):** все дефекты из аудита A18 §5 закрыты (`af8caf35` + `80ec28d3`), не-владельцы отсекаются в `ingest()`, `/work_yes` требует нажатия одноразовой callback-кнопки, `bypassPermissions`/`danger-full-access` убраны из живого `config.json` и задач Планировщика, `/stop` и `/pause` работают независимо от `pc_control`.
+5. **MC22-16 (`/genmodel`), MC22-04 (`sd-server`) и P22-PROVENANCE-11 (`LICENSE`) закрыты в коде и unit-тестах:** суммарно по 29 группам U1–U29 **2 289 passed, 0 failed**.

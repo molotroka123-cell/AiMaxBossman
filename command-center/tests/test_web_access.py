@@ -422,3 +422,20 @@ def test_web_result_cache_reduces_quota_consumption():
     t[0] += 601.0
     assert cache.get("search", "pytest asyncio documentation") is None
 
+
+@pytest.mark.asyncio
+async def test_web_access_runtime_uses_cache_and_exposes_stats(tmp_path):
+    rt = FakeRuntime(text="# Cached doc\ncontent")
+    web = make_web(rt, tmp_path, limiter=RateLimiter(per_min=1, per_day=5))
+
+    # First call hits FakeRuntime and consumes 1 rate-limit token
+    r1 = await web.fetch("https://example.org/docs")
+    assert r1.ok and len(rt.calls) == 1
+    assert web.limiter.snapshot()["today"] == 1
+
+    # Second identical call is served from WebResultCache without calling MCP or consuming rate-limit quota
+    r2 = await web.fetch("https://example.org/docs")
+    assert r2.ok and r2.latency_ms == 0
+    assert len(rt.calls) == 1
+    assert web.limiter.snapshot()["today"] == 1
+    assert web.cache.stats()["hits"] == 1 and web.cache.stats()["misses"] == 1

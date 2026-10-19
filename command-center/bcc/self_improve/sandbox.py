@@ -43,7 +43,8 @@ class Sandbox:
 
     # ---------------------------------------------------------- paths
     def resolve(self, rel: str) -> Path:
-        if not rel or os.path.isabs(rel) or Path(rel).drive or rel.startswith(("/", "\\")):
+        if (not rel or os.path.isabs(rel) or Path(rel).drive
+                or rel.startswith(("/", "\\")) or ":" in rel):
             raise LimitViolation(f"absolute or empty path refused: {rel!r}")
         target = (self.dir / rel).resolve()
         if target != self.dir and self.dir not in target.parents:

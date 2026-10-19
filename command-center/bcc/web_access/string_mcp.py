@@ -54,11 +54,13 @@ class WebAccess:
 
     def __init__(self, *, runtime: Any, key_getter: Callable[[], Awaitable[str | None]],
                  audit_path: Path | None = None, limiter: policy.RateLimiter | None = None,
+                 cache: policy.WebResultCache | None = None,
                  timeout: float = CALL_TIMEOUT_S):
         from ..v2.mcp_hub import MCPServerSpec
         self.runtime = runtime
         self._key_getter = key_getter
         self.limiter = limiter or policy.RateLimiter()
+        self.cache = cache if cache is not None else policy.WebResultCache()
         self.audit = policy.AuditWriter(audit_path)
         self.timeout = timeout
         self.spec = MCPServerSpec(id=SERVER_ID, name=SERVER_ID, transport="http",
@@ -68,7 +70,7 @@ class WebAccess:
         return bool(await self._key_getter())
 
     async def _call(self, tool: str, args: dict, domain: str) -> WebResult:
-        """Everything after argument validation: key -> limiter -> MCP -> fence -> audit."""
+        """Everything after argument validation: key -> cache -> limiter -> MCP -> fence -> audit."""
         if tool not in ALLOWED_TOOLS:
             raise PolicyRefusal(f"tool {tool} is not allowed")
         key = await self._key_getter()
@@ -76,6 +78,22 @@ class WebAccess:
             self.audit.line(tool, domain, "no_key")
             return WebResult(False, "no_key", tool, domain, detail="String key is not stored in the vault")
         policy.register_secret(key)
+
+        cache_target = ""
+        if tool == TOOL_SEARCH:
+            cache_target = str(args.get("query") or "")
+        elif tool == TOOL_FETCH:
+            cache_target = str(args.get("url") or "")
+        if cache_target:
+            cached = self.cache.get(tool, cache_target)
+            if isinstance(cached, WebResult):
+                self.audit.line(tool, domain, "ok", ms=0, chars=len(cached.raw), injection=cached.injection_suspected, cached=True)
+                return WebResult(
+                    cached.ok, cached.status, cached.tool, cached.domain,
+                    cached.text, cached.truncated, cached.injection_suspected,
+                    0, cached.detail, raw=cached.raw,
+                )
+
         self.limiter.acquire()                                    # PolicyRefusal when over the limit
         started = time.perf_counter()
         try:
@@ -96,8 +114,11 @@ class WebAccess:
             return WebResult(False, status, tool, domain, latency_ms=ms, detail=detail)
         fenced, truncated, suspected = policy.fence_untrusted(policy.redact(raw), domain)
         self.audit.line(tool, domain, "ok", ms=ms, chars=len(raw), injection=suspected)
-        return WebResult(True, "ok", tool, domain, fenced, truncated, suspected, ms,
-                         raw=policy.redact(raw)[:200_000])
+        out = WebResult(True, "ok", tool, domain, fenced, truncated, suspected, ms,
+                        raw=policy.redact(raw)[:200_000])
+        if cache_target:
+            self.cache.put(tool, cache_target, out)
+        return out
 
     def _refused(self, tool: str, domain: str, exc: PolicyRefusal) -> WebResult:
         self.audit.line(tool, domain, "refused")

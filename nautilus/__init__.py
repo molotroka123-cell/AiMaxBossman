@@ -39,6 +39,7 @@ from .portfolio import (
 )
 from .telegram_report import (
     format_nautilus_telegram_message,
+    is_demo_payload,
     load_sample_fixture,
     send_nautilus_report_to_pult,
 )
@@ -67,6 +68,7 @@ __all__ = [
     "compute_winning_weeks_streak",
     "format_nautilus_telegram_message",
     "generate_trade_ticket",
+    "is_demo_payload",
     "load_sample_fixture",
     "render_nautilus_card",
     "run_stress_audit",

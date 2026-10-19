@@ -482,5 +482,50 @@
   "label": "Motion Studio V2: приёмочный прогон на реальном бэкенде и браузере",
   "parent": "media",
   "source": "tools/studio_v2_e2e.py"
+ },
+ {
+  "slug": "nautilus_shadow_analytics",
+  "label": "NAUTILUS: мульти-оконная аналитика, 6 плиток и ДЕМО-защита пульта",
+  "parent": "commerce",
+  "source": "nautilus/telegram_report.py",
+  "tests": [
+   "tests/test_nautilus.py"
+  ]
+ },
+ {
+  "slug": "video_pre_send_qa_gate",
+  "label": "QA-гейт 100% кадров перед отправкой видео в Пульт владельца",
+  "parent": "media",
+  "source": "tools/video_gate/artifact_audit.py",
+  "tests": [
+   "command-center/tests/test_direct_gen_faceswap.py"
+  ]
+ },
+ {
+  "slug": "web_result_cache",
+  "label": "Кэш ответов String MCP (WebResultCache) для экономии квоты",
+  "parent": "plugins",
+  "source": "command-center/bcc/web_access/policy.py",
+  "tests": [
+   "command-center/tests/test_web_access.py"
+  ]
+ },
+ {
+  "slug": "mobile_worker_device_registry",
+  "label": "Реестр воркер-устройств на одном ядре с общим STOP (<= 2 с)",
+  "parent": "devices",
+  "source": "apps/bossman-mobile/bossmobile/auth.py",
+  "tests": [
+   "apps/bossman-mobile/tests/test_mobile.py"
+  ]
+ },
+ {
+  "slug": "mobile_calibrate_task_eta",
+  "label": "Калибровка ETA задач в мобильном UI по истории task_runs",
+  "parent": "ux",
+  "source": "apps/bossman-mobile/bossmobile/timing.py",
+  "tests": [
+   "apps/bossman-mobile/tests/test_photo_queue.py"
+  ]
  }
 ]

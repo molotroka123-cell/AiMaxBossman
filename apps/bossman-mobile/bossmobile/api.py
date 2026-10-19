@@ -26,13 +26,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import VERSION
-from .auth import COOKIE, CSRF_HEADER, RateLimiter, Sessions, check_token, load_or_create_pairing
+from .auth import COOKIE, CSRF_HEADER, RateLimiter, Sessions, WorkerDeviceRegistry, check_token, load_or_create_pairing
 from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
 from .policy import is_photo_model, local_agents, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
 from . import reftags, video, video_timing
-from .timing import from_history, queue_view, step_range, timing_for
+from .timing import calibrate_task_eta, from_history, queue_view, step_range, timing_for
 
 UI_DIR = Path(__file__).parent / "ui"
 # The Windows registry can map .js to text/plain, which nosniff then refuses to execute.
@@ -71,6 +71,17 @@ class DecideIn(BaseModel):
     approve: bool
 
 
+class WorkerRegisterIn(BaseModel):
+    device_id: str = Field(min_length=1, max_length=80, pattern=REQ_ID)
+    role: str = Field(default="worker", min_length=1, max_length=60)
+    capabilities: list[str] = Field(default_factory=list, max_length=20)
+
+
+class WorkerHeartbeatIn(BaseModel):
+    device_id: str = Field(min_length=1, max_length=80, pattern=REQ_ID)
+    active_task_id: str | int | None = None
+
+
 MAX_REFS = 6  # API ceiling; each model states its own (max_refs), the editors take 3
 
 
@@ -106,6 +117,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     pairing = pairing_token or load_or_create_pairing(st.data_dir)
     sessions = Sessions(st.data_dir, st.session_ttl_s)
     limiter = RateLimiter(st.login_failures_per_min, st.login_failures_global_per_min)
+    workers = WorkerDeviceRegistry()
     bm = BossmanClient(st.bossman_url, st.token_file, transport=bossman_transport)
     ollama = httpx.AsyncClient(base_url=st.ollama_url, transport=ollama_transport, timeout=8, trust_env=False)
     war = httpx.AsyncClient(base_url=st.war_url, transport=war_transport, timeout=4, trust_env=False)
@@ -121,6 +133,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     app = FastAPI(title="Bossman Mobile", version=VERSION, docs_url=None, redoc_url=None, openapi_url=None,
                   lifespan=lifespan)
     app.state.settings, app.state.sessions, app.state.bossman, app.state.limiter = st, sessions, bm, limiter
+    app.state.workers = workers
 
     @app.middleware("http")
     async def _headers(request: Request, call_next):
@@ -342,7 +355,28 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         return safe({"bossman": live, "ollama": oll, "war_terminal": wt, "direct_gen": dg,
                      "approvals_pending": len(ap) if isinstance(ap, list) else None,
                      "local_agents": len([a for a in ags if a.get("local")]) if isinstance(ags, list) else None,
+                     "workers": workers.snapshot(),
                      "mobile": {"version": VERSION, "sessions": sessions.count()}})
+
+    # ------------------------------------------------------------------ workers (single-core worker device registry)
+    @app.get("/m/api/workers")
+    async def list_workers(_=Depends(session)):
+        return workers.snapshot()
+
+    @app.post("/m/api/workers/register")
+    async def register_worker(body: WorkerRegisterIn, _=Depends(session)):
+        return workers.register(body.device_id, role=body.role, capabilities=body.capabilities)
+
+    @app.post("/m/api/workers/heartbeat")
+    async def heartbeat_worker(body: WorkerHeartbeatIn, _=Depends(session)):
+        try:
+            return workers.heartbeat(body.device_id, active_task_id=body.active_task_id)
+        except KeyError:
+            raise fail(404, "устройство-воркер не зарегистрировано", "BM_WORKER_NOT_FOUND") from None
+
+    @app.post("/m/api/workers/stop")
+    async def stop_workers(_=Depends(session)):
+        return workers.trigger_global_stop()
 
     # ------------------------------------------------------------------ chat (Bossman chat threads = Bossman tasks)
     @app.get("/m/api/agents")
@@ -389,14 +423,18 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.post("/m/api/threads/{thread_id}/stop")
     async def stop(thread_id: str, _=Depends(session)):
+        workers.trigger_global_stop()
         return await call("POST", f"/api/chat/threads/{_tid(thread_id)}/stop")
 
     @app.get("/m/api/tasks/{task_id}")
     async def task(task_id: int, _=Depends(session)):
         body = await call("GET", f"/api/tasks/{task_id}")
         t = body.get("task") or {}
+        runs = body.get("runs") if isinstance(body.get("runs"), list) else []
+        model_alias = str(t.get("model_alias") or (runs[-1].get("model_alias") if runs and isinstance(runs[-1], dict) else "") or "main")
+        eta = calibrate_task_eta(runs, model_alias=model_alias)
         return {"id": t.get("id"), "status": t.get("status"), "result": body.get("result"), "error": body.get("error"),
-                "agent_id": t.get("agent_id")}
+                "agent_id": t.get("agent_id"), "eta": eta}
 
     @app.get("/m/api/tasks/{task_id}/history")
     async def task_history(task_id: int, _=Depends(session)):

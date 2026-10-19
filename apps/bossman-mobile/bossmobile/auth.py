@@ -188,3 +188,19 @@ class WorkerDeviceRegistry:
                 "elapsed_s": round(elapsed, 6),
             }
 
+    def snapshot(self) -> dict:
+        now = self.clock()
+        with self._lock:
+            devices = [
+                {
+                    **rec,
+                    "online": (now - float(rec.get("last_heartbeat", 0.0))) <= self.heartbeat_timeout_s,
+                }
+                for rec in self._devices.values()
+            ]
+            return {
+                "global_stop": self.global_stop,
+                "count": len(devices),
+                "online": sum(1 for d in devices if d["online"]),
+                "devices": devices,
+            }
