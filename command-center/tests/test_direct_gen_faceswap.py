@@ -560,3 +560,18 @@ def test_artifact_audit_jitter_ignores_gaps_and_scores_landmark_outliers():
     assert out[0] is None and out[5] is None and out[4] is None      # ends and gaps are not scored
     assert out[2] and out[2] > 0 and out[3] > 0
     assert audit.frame_score({"flicker": 0.0, "lm_outlier": True}, None) >= 1.0   # a detector failure counts as one unit
+
+
+def test_pre_send_qa_gate_checks_100pct_frames_and_blocks_bad_clip():
+    audit = _audit_module()
+    ok = audit.pre_send_qa_gate({"frames": 250, "checked_frames": 250, "score_p95": 1.8, "unswapped_frames": 2, "alpha_reversals": 1})
+    assert ok["verdict"] == "PASS" and ok["allow_send"] is True and ok["frames_coverage"] == 1.0
+
+    # Отрицательный контроль 1: проверено не 100% кадров -> отправка заблокирована
+    partial = audit.pre_send_qa_gate({"frames": 250, "checked_frames": 120, "score_p95": 1.8, "unswapped_frames": 0, "alpha_reversals": 0})
+    assert partial["verdict"] == "FAIL" and partial["allow_send"] is False
+
+    # Отрицательный контроль 2: брак по мерцанию/артефактам -> отправка заблокирована
+    bad = audit.pre_send_qa_gate({"frames": 250, "checked_frames": 250, "score_p95": 6.5, "unswapped_frames": 0, "alpha_reversals": 4})
+    assert bad["verdict"] == "FAIL" and bad["allow_send"] is False and len(bad["reasons"]) >= 2
+

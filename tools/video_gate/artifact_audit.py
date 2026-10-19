@@ -128,6 +128,43 @@ def worst_windows(scores: list[float], width: int, count: int) -> list[tuple[int
     return sorted(taken)
 
 
+def pre_send_qa_gate(
+    summary: dict,
+    *,
+    max_score_p95: float = 4.0,
+    max_unswapped_ratio: float = 0.05,
+    max_alpha_reversals: int = 2,
+) -> dict:
+    """Automatic 100%-frame QA gate before sending media to the owner.
+
+    Blocks delivery (`allow_send=False`, `verdict='FAIL'`) when 100% of frames were not
+    checked or when artifact thresholds are exceeded.
+    """
+    frames = int(summary.get("frames") or 0)
+    checked = int(summary.get("checked_frames", frames) or 0)
+    coverage = round(checked / frames, 4) if frames > 0 else 0.0
+    reasons: list[str] = []
+    if frames <= 0 or coverage < 1.0:
+        reasons.append(f"неполное покрытие кадров ({checked}/{frames})")
+    score_p95 = summary.get("score_p95")
+    if score_p95 is not None and float(score_p95) > max_score_p95:
+        reasons.append(f"score_p95={score_p95} > {max_score_p95}")
+    unswapped = int(summary.get("unswapped_frames") or 0)
+    if frames > 0 and (unswapped / frames) > max_unswapped_ratio:
+        reasons.append(f"unswapped_frames={unswapped}/{frames}")
+    reversals = int(summary.get("alpha_reversals") or 0)
+    if reversals > max_alpha_reversals:
+        reasons.append(f"alpha_reversals={reversals} > {max_alpha_reversals}")
+    passed = len(reasons) == 0
+    return {
+        "verdict": "PASS" if passed else "FAIL",
+        "allow_send": passed,
+        "frames_coverage": coverage,
+        "reasons": reasons,
+    }
+
+
+
 # ---------------------------------------------------------------- video io
 def probe(path: str) -> tuple[int, int, float, int]:
     r = subprocess.run([shutil.which("ffprobe") or "ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets",
