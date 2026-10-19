@@ -314,3 +314,64 @@ def test_stop_with_hold_marks_the_kinds_so_ensure_leaves_them_down(tmp_path, mon
     assert (tmp_path / "one-bossman" / "hold-jeff").exists() and (tmp_path / "one-bossman" / "hold-companion").exists()
     assert ob.main(["stop", "--data-dir", str(tmp_path / "x"), "--kinds", "jeff"]) == 0
     assert not (tmp_path / "x" / "one-bossman" / "hold-jeff").exists()
+
+
+def test_launch_companion_exits_immediately_when_poller_lock_is_acquired(tmp_path, monkeypatch):
+    """BossmanOne-3-Companion must not block for the full 15s wait window once poller.lock is held."""
+    cfg_dir = tmp_path / "telegram-companion"
+    cfg_dir.mkdir()
+    (cfg_dir / "config.json").write_text("{}", encoding="utf-8")
+    (cfg_dir / "companion.env").write_text("TG_COMPANION_BOT_TOKEN=123:abc\n", encoding="utf-8")
+    monkeypatch.setenv("BOSSMAN_TELEGRAM_POLLER_LOCK_DIR", str(tmp_path / "pollers"))
+
+    held = []
+
+    def fake_spawn(argv, cwd, env, log):
+        held.append(_hold_lock(cfg_dir / "poller.lock"))
+        return 4321
+
+    sleeps = []
+    monkeypatch.setattr(ob, "_spawn_hidden", fake_spawn)
+    monkeypatch.setattr(ob, "_pid_alive", lambda pid: True)
+    monkeypatch.setattr(ob.time, "sleep", lambda s: sleeps.append(s))
+    out = io.StringIO()
+    try:
+        rc = ob.launch("companion", tmp_path / "home", tmp_path / "data", 8801, cfg_dir / "config.json",
+                       wait=15.0, out=out)
+    finally:
+        for h in held:
+            h.close()
+    assert rc == 0
+    assert len(sleeps) <= 1, f"Expected immediate exit once poller.lock is held, but slept {len(sleeps)} times"
+    assert "poller lock" in out.getvalue().lower() or "ready" in out.getvalue().lower()
+
+
+def test_main_launch_companion_accepts_src_and_python_arguments(tmp_path, monkeypatch):
+    """Scheduled task BossmanOne-3-Companion passes --src and --python; CLI must accept them."""
+    cfg_dir = tmp_path / "telegram-companion"
+    cfg_dir.mkdir()
+    (cfg_dir / "config.json").write_text("{}", encoding="utf-8")
+    (cfg_dir / "companion.env").write_text("TG_COMPANION_BOT_TOKEN=123:abc\n", encoding="utf-8")
+    monkeypatch.setenv("BOSSMAN_TELEGRAM_POLLER_LOCK_DIR", str(tmp_path / "pollers"))
+    held = _hold_lock(cfg_dir / "poller.lock")
+    try:
+        rc = ob.main([
+            "launch", "companion",
+            "--home", str(tmp_path / "home"),
+            "--data-dir", str(tmp_path / "data"),
+            "--port", "8801",
+            "--companion-config", str(cfg_dir / "config.json"),
+            "--ensure",
+            "--src", str(tmp_path / "src"),
+            "--python", sys.executable,
+        ])
+    finally:
+        held.close()
+    assert rc == 0
+
+
+def test_ps1_task_registration_uses_utf8_and_bounded_execution_timeout():
+    ps1 = (ROOT / "tools" / "owner_one_bossman.ps1").read_text(encoding="utf-8")
+    assert "-ExecutionTimeLimit ([TimeSpan]::Zero)" not in ps1, "Infinite ExecutionTimeLimit wedges IgnoreNew tasks on hang"
+    assert "-X utf8" in ps1, "Scheduled task pythonw launcher must run with -X utf8"
+

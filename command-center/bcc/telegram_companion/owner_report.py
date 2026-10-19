@@ -78,11 +78,42 @@ def _load_owner(config_path: Path | None) -> tuple[Any, Any] | None:
     return settings, owner
 
 
+#: Classic UTF-8 Cyrillic bytes decoded as Windows-1251 produce runs of Р/С + Cyrillic/punctuation pairs.
+_MOJIBAKE_PAIR = re.compile(r"(?:Р[\u0400-\u04ff\u2000-\u20ff\x80-\xff]|С[\u0400-\u04ff\u2000-\u20ff\x80-\xff]){2,}")
+
+
+def _repair_chunk(m: re.Match[str]) -> str:
+    s = m.group(0)
+    try:
+        fixed = s.encode("cp1251").decode("utf-8")
+        if any("\u0410" <= ch <= "\u044f" or ch in "Ёё" for ch in fixed):
+            return fixed
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        pass
+    return s
+
+
+def normalize_utf8_text(text: str) -> str:
+    """Strip UTF-8 BOM and recover UTF-8 Russian text that was accidentally decoded as Windows-1251."""
+    if not text:
+        return ""
+    text = text.lstrip("\ufeff")
+    if _MOJIBAKE_PAIR.search(text):
+        try:
+            whole = text.encode("cp1251").decode("utf-8")
+            if any("\u0410" <= ch <= "\u044f" or ch in "Ёё" for ch in whole):
+                return whole.lstrip("\ufeff")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass
+        text = _MOJIBAKE_PAIR.sub(_repair_chunk, text)
+    return text
+
+
 async def send_report(text: str, *, send: bool = False, config_path: Path | None = None,
                       transport_factory: Callable[[Any], Any] | None = None,
                       html: bool = False, pin: bool = False) -> dict:
     """Plan (and with ``send=True`` deliver) one owner report. Never raises for the expected refusals."""
-    text = (text or "").strip()
+    text = normalize_utf8_text(text or "").strip()
     if not text:
         return {"ok": False, "exit": EXIT_USAGE, "reason": "empty report"}
     if looks_secret(text):
@@ -120,16 +151,29 @@ async def send_report(text: str, *, send: bool = False, config_path: Path | None
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:  # noqa: BLE001
+                pass
     parser = argparse.ArgumentParser(prog="python -m bcc.telegram_companion.owner_report",
                                      description="Send a stage report to the owner's Пульт (sendMessage only).")
-    parser.add_argument("--file", required=True, help="report text file ('-' = stdin)")
+    src = parser.add_mutually_exclusive_group(required=True)
+    src.add_argument("--file", help="report text file ('-' = stdin)")
+    src.add_argument("--text", help="report text directly as UTF-8 argument")
     parser.add_argument("--send", action="store_true", help="really send (default: dry run)")
     parser.add_argument("--config", type=Path, default=None, help="companion config.json (default: the installed one)")
     parser.add_argument("--html", action="store_true", help="Telegram HTML formatting (bold, code, headings; plain fallback)")
     parser.add_argument("--pin", action="store_true", help="pin the first message of this report (checkpoint)")
     args = parser.parse_args(argv)
     try:
-        text = sys.stdin.read() if args.file == "-" else Path(args.file).read_text(encoding="utf-8")
+        if args.text is not None:
+            text = args.text
+        elif args.file == "-":
+            text = sys.stdin.read()
+        else:
+            text = Path(args.file).read_text(encoding="utf-8-sig")
     except OSError as exc:
         print(f"не удалось прочитать отчёт: {type(exc).__name__}", file=sys.stderr)
         return EXIT_USAGE

@@ -330,7 +330,13 @@ def child_env(home: Path, data_dir: Path, base: dict[str, str] | None = None) ->
     return env
 
 
-def command_for(kind: str, home: Path, data_dir: Path, port: int, companion_config: Path | None) -> list[str]:
+def command_for(kind: str, home: Path, data_dir: Path, port: int, companion_config: Path | None,
+                src: Path | None = None, python: str | None = None) -> list[str]:
+    if src is not None:
+        # owner 17.10: run the checked-out source (PYTHONPATH=src) with a full Python, not the
+        # frozen bundle; -I would ignore PYTHONPATH, so it is dropped here only.
+        argv = command_for(kind, home, data_dir, port, companion_config)
+        return [python or sys.executable] + [a for a in argv[1:] if a != "-I"]
     py = str(Path(home) / "runtime" / "python.exe")
     if kind == "backend":
         return [py, "-I", "-X", "utf8", "-m", "bcc", "--host", "127.0.0.1", "--port", str(port)]
@@ -348,7 +354,7 @@ def command_for(kind: str, home: Path, data_dir: Path, port: int, companion_conf
 
 def _spawn_hidden(argv: list[str], cwd: Path, env: dict[str, str], log: Path) -> int:
     log.parent.mkdir(parents=True, exist_ok=True)
-    kwargs: dict[str, Any] = {}
+    kwargs: dict[str, Any] = {"close_fds": True}
     if os.name == "nt":
         import ctypes
         # Children inherit "ignore Ctrl+C" from whoever started us (git-bash does that);
@@ -357,12 +363,18 @@ def _spawn_hidden(argv: list[str], cwd: Path, env: dict[str, str], log: Path) ->
         si = subprocess.STARTUPINFO()
         si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         si.wShowWindow = 0
-        # Own hidden console: a real Ctrl+C can reach it (graceful stop), and
-        # closing whoever launched it does not kill it.
-        kwargs = {"creationflags": subprocess.CREATE_NEW_CONSOLE, "startupinfo": si}
+        # Own hidden console + process group; break away from Scheduled Task job object when permitted
+        base_flags = subprocess.CREATE_NEW_CONSOLE | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        kwargs.update({"creationflags": base_flags | 0x01000000, "startupinfo": si})
     with open(log, "ab") as out:
-        p = subprocess.Popen(argv, cwd=str(cwd), env=env, stdin=subprocess.DEVNULL,
-                             stdout=out, stderr=subprocess.STDOUT, **kwargs)
+        try:
+            p = subprocess.Popen(argv, cwd=str(cwd), env=env, stdin=subprocess.DEVNULL,
+                                 stdout=out, stderr=subprocess.STDOUT, **kwargs)
+        except OSError:
+            if os.name == "nt":
+                kwargs["creationflags"] = base_flags
+            p = subprocess.Popen(argv, cwd=str(cwd), env=env, stdin=subprocess.DEVNULL,
+                                 stdout=out, stderr=subprocess.STDOUT, **kwargs)
     return p.pid
 
 
@@ -416,9 +428,15 @@ def keys_ensure(say) -> None:
         say(f"keys: not checked ({type(exc).__name__})")
 
 
+def _companion_locked(cfg: Path, fp: str | None) -> bool:
+    return lock_held(cfg.parent / "poller.lock") or bool(fp and lock_held(poller_lock_dir() / f"{fp}.lock"))
+
+
 def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: Path | None,
-           wait: float = 120.0, out=sys.stdout, ensure: bool = False) -> int:
+           wait: float = 120.0, out=sys.stdout, ensure: bool = False,
+           src: Path | None = None, python: str | None = None) -> int:
     home, data_dir = Path(home), Path(data_dir)
+    src = Path(src) if src else None
     state = data_dir / STATE_DIR
     stamp = time.strftime("%Y%m%d-%H%M%S")
     say = lambda m: print(f"[one-bossman] {kind}: {m}", file=out, flush=True)  # noqa: E731
@@ -438,6 +456,8 @@ def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: P
         (state / "supervisor.pid").write_text(str(pid), encoding="ascii")
         say(f"started pid {pid}")
         return 0
+    cfg: Path | None = None
+    fp: str | None = None
     if kind == "backend":
         holder = backend_holder(data_dir)
         if holder:
@@ -455,8 +475,7 @@ def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: P
     elif kind == "companion":
         cfg = Path(companion_config)
         fp = companion_fingerprint(cfg)
-        if lock_held(cfg.parent / "poller.lock") or (
-                fp and lock_held(poller_lock_dir() / f"{fp}.lock")):
+        if _companion_locked(cfg, fp):
             say("ALREADY POLLED: the «Пульт» bot token lock is held by another process - not starting")
             return 0
     env = child_env(home, data_dir)
@@ -464,18 +483,22 @@ def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: P
         env.update(jeff_voice_env(data_dir))
     if kind == "companion":
         env.update(companion_env(Path(companion_config)))
-    argv = command_for(kind, home, data_dir, port, companion_config)
+    argv = command_for(kind, home, data_dir, port, companion_config, src, python)
+    if src is not None:
+        env["PYTHONPATH"] = str(src)
+        if kind == "backend":
+            env["BOSSMAN_ALLOW_PAID_CLOUD"] = "1"   # paid calls still need long_run.json caps
     if kind == "jeff-window":
         # The participant window: its own small server + browser window (bcc.jeff_desktop
         # never starts or stops the Command Center backend). No console, nothing to wait for.
         state.mkdir(parents=True, exist_ok=True)
         with open(state / f"jeff-window-{stamp}.log", "ab") as log:
             p = subprocess.Popen(argv, cwd=str(home), env=env, stdin=subprocess.DEVNULL,
-                                 stdout=log, stderr=subprocess.STDOUT)
+                                 stdout=log, stderr=subprocess.STDOUT, close_fds=True)
         say(f"started pid {p.pid}")
         return 0
     state.mkdir(parents=True, exist_ok=True)
-    pid = _spawn_hidden(argv, home, env, state / f"{kind}-{stamp}.log")
+    pid = _spawn_hidden(argv, src or home, env, state / f"{kind}-{stamp}.log")
     (state / f"{kind}.pid").write_text(str(pid), encoding="ascii")
     say(f"started pid {pid}: {' '.join(argv[1:])}")
     deadline = time.monotonic() + (wait if kind == "backend" else min(wait, 15.0))
@@ -486,6 +509,12 @@ def launch(kind: str, home: Path, data_dir: Path, port: int, companion_config: P
             return 4
         if kind == "backend" and _health(port):
             say(f"healthy on 127.0.0.1:{port}")
+            return 0
+        if kind == "companion" and cfg is not None and _companion_locked(cfg, fp):
+            say("poller lock acquired; ready")
+            return 0
+        if kind == "jeff" and lock_held(data_dir / PIT_HOME / "poller.lock"):
+            say("poller lock acquired; ready")
             return 0
         time.sleep(0.5)
     if kind == "backend":
@@ -714,7 +743,10 @@ def main(argv: list[str] | None = None) -> int:
     if sys.stdout is None:          # pythonw (scheduled task): keep a log instead of nothing
         log_dir = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "Bossman" / "one-bossman-logs"
         log_dir.mkdir(parents=True, exist_ok=True)
-        sys.stdout = sys.stderr = open(log_dir / "launcher.log", "a", encoding="utf-8")
+        fh = open(log_dir / "launcher.log", "a", encoding="utf-8")
+        with contextlib.suppress(OSError, ValueError):
+            os.set_inheritable(fh.fileno(), False)
+        sys.stdout = sys.stderr = fh
         print(time.strftime("--- %Y-%m-%d %H:%M:%S"), " ".join(sys.argv[1:]), flush=True)
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -729,6 +761,8 @@ def main(argv: list[str] | None = None) -> int:
     la.add_argument("--home", required=True); la.add_argument("--data-dir", required=True)
     la.add_argument("--port", type=int, default=8801); la.add_argument("--companion-config", default=None)
     la.add_argument("--wait", type=float, default=120.0)
+    la.add_argument("--src", default=None, help="run this source checkout (PYTHONPATH) instead of the bundle")
+    la.add_argument("--python", default=None, help="interpreter for --src (default: the one running this)")
     la.add_argument("--ensure", action="store_true",
                     help="periodic self-heal: start only if not running and not held by `stop --hold`")
     rp = sub.add_parser("repoint"); rp.add_argument("--config", action="append", required=True)
@@ -758,7 +792,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if res["ok"] else 1
     if a.cmd == "launch":
         return launch(a.kind, Path(a.home), Path(a.data_dir), a.port,
-                      Path(a.companion_config) if a.companion_config else None, a.wait, ensure=a.ensure)
+                      Path(a.companion_config) if a.companion_config else None, a.wait, ensure=a.ensure,
+                      src=Path(a.src) if a.src else None, python=a.python)
     if a.cmd == "repoint":
         stamp = time.strftime("%Y%m%d-%H%M%S")
         res = [repoint(Path(c), a.port, stamp) for c in a.config]

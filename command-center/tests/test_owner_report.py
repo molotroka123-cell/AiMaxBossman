@@ -131,3 +131,24 @@ def test_html_and_pin_format_the_checkpoint_and_pin_its_first_message(monkeypatc
     assert plain["pinned"] is False and FakeTransport.instances[-1].kw[0]["parse_mode"] is None
     refused = run("отчёт", send=True, pin=True, transport_factory=lambda s: PinTransport(s, refuse_pin=True))
     assert refused["exit"] == 0 and refused["sent"] is True and refused["pinned"] is False
+
+
+def test_owner_report_repairs_cp1251_mojibake_and_strips_utf8_bom(tmp_path, monkeypatch):
+    """Incident 19.10: messages sent from Windows PowerShell 5 without UTF-8 BOM arrived as mojibake."""
+    _configured(monkeypatch)
+    clean_ru = "✅ (4) Лаунчер пульта и UTF-8 сообщений: проверка кириллицы без кракозябр"
+    mojibake = clean_ru.encode("utf-8").decode("cp1251", errors="ignore")
+    result = run(mojibake, send=True, transport_factory=FakeTransport)
+    assert result["exit"] == 0
+    sent_text = FakeTransport.instances[-1].sent[-1][1]
+    assert "Лаунчер пульта" in sent_text and "Р›Р°Сѓ" not in sent_text
+
+    bom_file = tmp_path / "bom_report.md"
+    bom_file.write_bytes(b"\xef\xbb\xbf" + clean_ru.encode("utf-8"))
+    import bcc.telegram_companion.adapters as adapters
+    monkeypatch.setattr(adapters, "Telegram", FakeTransport)
+    assert orp.main(["--file", str(bom_file), "--send"]) == 0
+    assert not FakeTransport.instances[-1].sent[-1][1].startswith("\ufeff")
+    assert orp.main(["--text", clean_ru, "--send"]) == 0
+    assert FakeTransport.instances[-1].sent[-1][1] == clean_ru
+
