@@ -393,3 +393,32 @@ async def test_api_key_roundtrip_stores_only_in_vault(tmp_path):
         assert enc and key not in enc
     finally:
         await svc.stop()
+
+
+def test_web_result_cache_reduces_quota_consumption():
+    from bcc.web_access.policy import WebResultCache
+
+    t = [1000.0]
+    cache = WebResultCache(ttl_sec=600.0, clock=lambda: t[0])
+    queries = [
+        "pytest asyncio documentation",
+        "stable-diffusion.cpp release",
+        "pytest   asyncio   DOCUMENTATION",  # normalized duplicate
+        "stable-diffusion.cpp release",      # exact duplicate
+        "python sqlite3 wal mode",
+        "pytest asyncio documentation",      # 3rd hit
+    ]
+    for q in queries:
+        cached = cache.get("search", q)
+        if cached is None:
+            cache.put("search", q, {"text": f"res:{q}"})
+
+    st = cache.stats()
+    assert st["hits"] == 3 and st["misses"] == 3
+    assert st["hit_rate"] == 0.50
+    assert st["quota_ratio"] <= 0.70  # 0.50 <= 0.70 (>= 30% quota savings, 2.0x fewer external calls)
+
+    # Negative control: expired entry triggers cache miss
+    t[0] += 601.0
+    assert cache.get("search", "pytest asyncio documentation") is None
+

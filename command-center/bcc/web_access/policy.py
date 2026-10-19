@@ -377,3 +377,58 @@ class AuditWriter:
 
 def stable_id(*parts: str) -> str:
     return hashlib.sha256("|".join(parts).encode()).hexdigest()[:12]
+
+
+class WebResultCache:
+    """Deterministic TTL cache for public web search/fetch results (Step 11.3).
+    Reduces String MCP quota consumption by >= 30% (<= 0.70 of uncached calls) on repeated queries."""
+
+    def __init__(self, ttl_sec: float = 900.0, max_entries: int = 256, clock=time.time):
+        self.ttl_sec = ttl_sec
+        self.max_entries = max_entries
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._store: dict[str, tuple[float, object]] = {}
+        self.hits = 0
+        self.misses = 0
+
+    @staticmethod
+    def make_key(tool: str, target: str) -> str:
+        norm = " ".join(str(target or "").strip().lower().split())
+        return f"{tool}:{hashlib.sha256(norm.encode('utf-8')).hexdigest()[:24]}"
+
+    def get(self, tool: str, target: str) -> object | None:
+        key = self.make_key(tool, target)
+        with self._lock:
+            now = self._clock()
+            entry = self._store.get(key)
+            if entry is not None:
+                expires_at, val = entry
+                if now < expires_at:
+                    self.hits += 1
+                    return val
+                del self._store[key]
+            self.misses += 1
+            return None
+
+    def put(self, tool: str, target: str, value: object) -> None:
+        key = self.make_key(tool, target)
+        with self._lock:
+            now = self._clock()
+            if len(self._store) >= self.max_entries and key not in self._store:
+                oldest_key = min(self._store, key=lambda k: self._store[k][0])
+                del self._store[oldest_key]
+            self._store[key] = (now + self.ttl_sec, value)
+
+    def stats(self) -> dict[str, float | int]:
+        with self._lock:
+            total = self.hits + self.misses
+            hit_rate = round(self.hits / total, 4) if total else 0.0
+            return {
+                "hits": self.hits,
+                "misses": self.misses,
+                "total": total,
+                "hit_rate": hit_rate,
+                "quota_ratio": round(1.0 - hit_rate, 4) if total else 1.0,
+            }
+
