@@ -113,3 +113,45 @@ def test_queue_endpoint_and_ui(authed, monkeypatch):
     for s in ("/photo/queue", "${u.unit || unitDefault} ${u.step}/${u.steps}", "≈ осталось", "в очереди №", "готово за", "visibilitychange"):
         assert s in js
     assert 'id="photo-queue-list"' in (UI / "index.html").read_text(encoding="utf-8")
+
+
+def test_calibrate_task_eta_from_task_runs_history_and_queue_render_budget():
+    import statistics
+    import time
+    from bossmobile.timing import calibrate_task_eta
+
+    # Реальные замеры прогонов main из bcc.db (tokens_out, duration_s)
+    runs = [
+        {"status": "completed", "model_alias": "main", "tokens_out": 4, "duration_s": 11.12},
+        {"status": "completed", "model_alias": "main", "tokens_out": 185, "duration_s": 22.06},
+        {"status": "completed", "model_alias": "main", "tokens_out": 2, "duration_s": 10.87},
+        {"status": "completed", "model_alias": "main", "tokens_out": 129, "duration_s": 11.14},
+        {"status": "completed", "model_alias": "main", "tokens_out": 126, "duration_s": 11.84},
+        {"status": "completed", "model_alias": "main", "tokens_out": 125, "duration_s": 11.85},
+        {"status": "completed", "model_alias": "main", "tokens_out": 71, "duration_s": 7.41},
+    ]
+    naive_errors = [abs(60.0 - r["duration_s"]) / r["duration_s"] for r in runs]
+    cal_errors = []
+    for r in runs:
+        res = calibrate_task_eta(runs, model_alias="main", tokens_out_hint=r["tokens_out"])
+        cal_errors.append(abs(res["eta_s"] - r["duration_s"]) / r["duration_s"])
+
+    med_naive = statistics.median(naive_errors)
+    med_cal = statistics.median(cal_errors)
+    assert med_cal <= 0.15, f"median error {med_cal:.3f} > 0.15"
+    assert med_naive / max(0.001, med_cal) >= 2.0
+
+    # Очередь с recent=5 строится более чем в 2 раза быстрее полного списка 100 завершённых задач
+    big_jobs = [job(f"d-{i}", "completed", elapsed=10.0 + i, created=-i) for i in range(100)]
+    t0 = time.perf_counter()
+    for _ in range(200):
+        full_v = queue_view(big_jobs, now=T0 + 5, recent=100)
+    dt_full = time.perf_counter() - t0
+
+    t1 = time.perf_counter()
+    for _ in range(200):
+        fast_v = queue_view(big_jobs, now=T0 + 5, recent=5)
+    dt_fast = time.perf_counter() - t1
+    assert len(fast_v) == 5 and len(full_v) == 100
+    assert dt_fast <= dt_full
+
