@@ -24,6 +24,7 @@ from .parse_bridge import PARSE_COMMANDS, ParseBridgeMixin
 from .pc_agent_bridge import PC_AGENT_COMMANDS, PCAgentBridgeMixin, pc_phrase
 from .poker_app_bridge import POKER_APP_COMMANDS, poker_app_text
 from .war_terminal_button import TERMINAL_COMMANDS, terminal_text
+from .exchange_bridge import EXCHANGE_COMMANDS, ExchangeBridgeMixin, exchange_phrase
 from .gen_refine import GEN_COMMANDS, GenRefineMixin, gen_intent, gen_phrase, photo_kind, safety_violation
 from .gen_progress import GenProgressPlate
 from .store import Store
@@ -285,7 +286,7 @@ def model_name(model_id: str) -> str:
 
 
 class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
-                ParseBridgeMixin, OperatorBridgeMixin, PCAgentBridgeMixin, GenRefineMixin):
+                ParseBridgeMixin, OperatorBridgeMixin, PCAgentBridgeMixin, GenRefineMixin, ExchangeBridgeMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
@@ -1180,6 +1181,9 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         # Owner phrases «включи удалённый Claude», «открой ChatGPT», «перезагрузи компьютер» → commands.
         spoken = self.phrase_command(text) if not text.startswith("/") else None
         if not spoken and not text.startswith("/") and person.role == "owner":
+            # «курс», «500 usdt в czk», «обмен выполнен Q-…», «итоги» → /swap (strict full-match patterns only).
+            spoken = exchange_phrase(text)
+        if not spoken and not text.startswith("/") and person.role == "owner":
             # «сделай видео …» / «нарисуй …» → /vid, /pic: refined by the local Qwen and queued at once.
             spoken = gen_phrase(text)
         if not spoken and not text.startswith("/") and person.role == "owner" and self.console_allowed(person) and self.core is not None:
@@ -1193,6 +1197,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             return poker_app_text(person, arg)
         if command in TERMINAL_COMMANDS:
             return terminal_text(person)
+        if command in EXCHANGE_COMMANDS:
+            return self.exchange_command(person, arg)
         if command == "/jev":
             return await self.jev_command(person, arg, message)
         if command in GEN_COMMANDS:

@@ -38,6 +38,25 @@ HELP = ("Команды помощника обменника:\n"
         "• итоги [сегодня|неделя|месяц] — оборот, позиции, сделки")
 
 
+WRITE_PATTERNS = (RE_MANUAL, RE_CONFIRM, RE_REVERSE)
+ALL_PATTERNS = (RE_RATES, RE_MANUAL, RE_GIVE, RE_GET, RE_CONFIRM, RE_REVERSE, RE_DASH)
+
+
+def normalize(text: str) -> str:
+    return " ".join((text or "").strip().lower().replace("ё", "е").split())
+
+
+def is_command(text: str) -> bool:
+    """True when free text is one of the assistant's commands (used by the pult to route plain phrases)."""
+    t = normalize(text)
+    return any(p.match(t) for p in ALL_PATTERNS)
+
+
+def is_write(text: str) -> bool:
+    t = normalize(text)
+    return any(p.match(t) for p in WRITE_PATTERNS)
+
+
 def ccy(word: str) -> str:
     w = word.lower()
     if w in ALIASES:
@@ -66,13 +85,28 @@ def business_month(now: datetime) -> tuple[datetime, datetime]:
     return start, datetime(ny, nm, 21, tzinfo=tz)
 
 
+def default_stop_file(env: dict | None = None) -> Path:
+    """The owner's global STOP: Bossman writes <data_dir>/computer/STOP on /stop and removes it on «Продолжить»."""
+    import os
+    env = os.environ if env is None else env
+    data = env.get("BCC_DATA_DIR") or str(Path(env.get("LOCALAPPDATA", str(Path.home()))) / "Bossman" / "CommandCenter")
+    return Path(data) / "computer" / "STOP"
+
+
 class Assistant:
     def __init__(self, store: Store, *, fx_db: str | Path | None = None, owner_ids=frozenset({"owner"}),
-                 clock: Callable[[], datetime] | None = None):
+                 clock: Callable[[], datetime] | None = None, stop_file: str | Path | None = None):
         self.store = store
         self.fx_db = Path(fx_db) if fx_db else default_fx_db()
         self.owner_ids = set(owner_ids)
         self.clock = clock or (lambda: datetime.now(timezone.utc).replace(microsecond=0))
+        self.stop_file = Path(stop_file) if stop_file else default_stop_file()
+
+    def global_stop(self) -> bool:
+        try:
+            return self.stop_file.is_file()
+        except OSError:
+            return True                 # cannot tell -> fail closed for writes
 
     def book(self) -> RateBook:
         b = RateBook(load_official(self.fx_db))
@@ -80,10 +114,13 @@ class Assistant:
             b.put(r)
         return b
 
-    def handle(self, text: str, actor: str) -> str:
+    def handle(self, text: str, actor: str, *, stopped: bool = False) -> str:
+        """`stopped`: the owner's STOP/pause is active -> reads still answer, every write is refused."""
         if actor not in self.owner_ids:
             return "Помощник обменника доступен только владельцу."
-        t = " ".join((text or "").strip().lower().replace("ё", "е").split())
+        t = normalize(text)
+        if (stopped or self.global_stop()) and is_write(t):
+            return "⛔ Действует СТОП/пауза: записи (курс, сделка, отмена) заблокированы до «Продолжить». Чтение работает."
         now = self.clock()
         try:
             return self._dispatch(t, actor, now)

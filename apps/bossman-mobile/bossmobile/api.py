@@ -71,6 +71,10 @@ class DecideIn(BaseModel):
     approve: bool
 
 
+class ExchangeIn(BaseModel):
+    text: str = Field(min_length=1, max_length=300)
+
+
 class WorkerRegisterIn(BaseModel):
     device_id: str = Field(min_length=1, max_length=80, pattern=REQ_ID)
     role: str = Field(default="worker", min_length=1, max_length=60)
@@ -585,6 +589,37 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         """Owner asked for this ONE result in the Пульт: Bossman sends it (the bot token never reaches the phone app)."""
         r = await call("POST", f"/api/direct-gen/jobs/{_jid(job_id)}/send-to-pult", timeout=300)
         return {"ok": True, "sent": bool(isinstance(r, dict) and r.get("sent"))}
+
+    # ------------------------------------------------------------------ exchange desk (owner 19.10)
+    def exchange():
+        """The SAME assistant and local book as the pult and the CLI: one Q-…/D-… record everywhere."""
+        a = getattr(app.state, "exchange", None)
+        if a is None:
+            from bossman_shared.exchange_assistant import Assistant
+            from bossman_shared.exchange_assistant.store import Store as ExchangeBook, default_db
+            a = app.state.exchange = Assistant(ExchangeBook(default_db()))
+        return a
+
+    @app.post("/m/api/exchange")
+    async def exchange_command(body: ExchangeIn, _=Depends(session)):
+        try:
+            a = exchange()
+        except Exception as exc:  # noqa: BLE001 - the rest of the app keeps working
+            raise fail(503, "помощник обменника недоступен", "BM_EXCHANGE_UNAVAILABLE", type(exc).__name__) from None
+        reply = a.handle(body.text, "owner")
+        qid = re.search(r"\bQ-[0-9A-F]{8}\b", reply) if reply.startswith("Котировка") else None
+        return {"ok": not reply.startswith(("Не выполнено", "⛔")), "reply": reply,
+                "quote_id": qid.group(0) if qid else None, "stopped": a.global_stop()}
+
+    @app.get("/m/api/exchange/deals")
+    async def exchange_deals(_=Depends(session)):
+        try:
+            a = exchange()
+        except Exception as exc:  # noqa: BLE001
+            raise fail(503, "помощник обменника недоступен", "BM_EXCHANGE_UNAVAILABLE", type(exc).__name__) from None
+        keep = ("id", "quote_id", "status", "confirmed_at", "give_ccy", "give_amount", "get_ccy", "get_amount",
+                "client_rate", "reversed_at", "reverse_reason")
+        return {"deals": [{k: d.get(k) for k in keep} for d in reversed(a.store.deals()[-50:])]}
 
     @app.post("/m/api/photo/jobs/{job_id}/to-pult")
     async def p_to_pult(job_id: str, _=Depends(session)):

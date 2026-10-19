@@ -50,7 +50,7 @@ def assistant(tmp_path):
                (t, "EURUSD", "1.1250", "ecb", "regex", "")])
     store = Store(tmp_path / "assistant.db")
     clock = {"now": NOW}
-    a = Assistant(store, fx_db=fx, owner_ids={"owner"}, clock=lambda: clock["now"])
+    a = Assistant(store, fx_db=fx, owner_ids={"owner"}, clock=lambda: clock["now"], stop_file=tmp_path / "STOP")
     a.clock_ref = clock
     yield a
     store.close()
@@ -213,6 +213,31 @@ def test_backup_and_restore_roundtrip(assistant, tmp_path):
     with pytest.raises(StoreError):
         assistant.store.restore(bad)
     assert len(assistant.store.deals()) == 1
+
+
+def test_global_stop_file_blocks_writes_everywhere(assistant):
+    assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+    qid = _qid(assistant.handle("100 usdt в czk", "owner"))
+    assistant.stop_file.write_text("stop")
+    assert "СТОП" in assistant.handle(f"обмен выполнен {qid}", "owner")
+    assert "СТОП" in assistant.handle("отмена D-1 x", "owner")
+    assert "Курсы" in assistant.handle("курс", "owner")             # reading still works
+    assert assistant.store.deals() == []
+    assistant.stop_file.unlink()
+    assert "Сделка записана" in assistant.handle(f"обмен выполнен {qid}", "owner")
+
+
+def test_two_surfaces_share_one_book(assistant, tmp_path):
+    """Pult and phone app open their own Assistant on the same file: a quote made in one is confirmed in the other."""
+    other = Assistant(Store(assistant.store.path), fx_db=assistant.fx_db, clock=assistant.clock, stop_file=assistant.stop_file)
+    try:
+        assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+        qid = _qid(other.handle("100 usdt в czk", "owner"))
+        assert "Сделка записана: D-1" in assistant.handle(f"обмен выполнен {qid}", "owner")
+        assert "повтор не создан" in other.handle(f"обмен выполнен {qid}", "owner")
+        assert len(other.store.deals()) == 1
+    finally:
+        other.store.close()
 
 
 def test_business_month_21_to_20():

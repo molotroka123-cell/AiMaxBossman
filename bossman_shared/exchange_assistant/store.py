@@ -6,9 +6,11 @@ Turnover counts the USDT leg only; profit is N/A without a cost basis.
 """
 from __future__ import annotations
 
+import functools
 import json
 import os
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -58,15 +60,27 @@ def _quote_body(q: Quote) -> str:
                        "rates": list(q.rates), "formula": q.formula, "fixed_side": q.fixed_side}, ensure_ascii=False)
 
 
+def _locked(fn):
+    """One connection shared by the web server's worker threads: every public call runs under the store's lock."""
+    @functools.wraps(fn)
+    def wrapper(self, *a, **kw):
+        with self.lock:
+            return fn(self, *a, **kw)
+    return wrapper
+
+
 class Store:
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.db = sqlite3.connect(str(self.path))
+        self.lock = threading.RLock()
+        self.db = sqlite3.connect(str(self.path), check_same_thread=False, timeout=10)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=WAL")
+        self.db.execute("PRAGMA busy_timeout=10000")
         self.db.executescript(SCHEMA)
 
+    @_locked
     def close(self) -> None:
         self.db.close()
 
@@ -75,6 +89,7 @@ class Store:
                         (_iso(now), kind, ref, json.dumps(detail, ensure_ascii=False)))
 
     # ---------------------------------------------------------------- manual rates
+    @_locked
     def set_manual_rate(self, pair: str, value: Decimal, source: str, now: datetime, set_by: str,
                         ttl=MANUAL_DEFAULT_TTL) -> Rate:
         pair = pair.upper()
@@ -88,6 +103,7 @@ class Store:
             self._event(now, "manual_rate", pair, {"value": str(value), "source": r.source, "by": set_by})
         return r
 
+    @_locked
     def manual_rates(self) -> list[Rate]:
         out: dict[str, Rate] = {}
         for row in self.db.execute("SELECT * FROM manual_rates ORDER BY id"):
@@ -96,16 +112,19 @@ class Store:
         return list(out.values())
 
     # ---------------------------------------------------------------- quotes and deals
+    @_locked
     def save_quote(self, q: Quote) -> None:
         with self.db:
             self.db.execute("INSERT OR IGNORE INTO quotes(id, body, created_at, valid_until) VALUES (?,?,?,?)",
                             (q.id, _quote_body(q), _iso(q.created_at), _iso(q.valid_until)))
             self._event(q.created_at, "quote", q.id, {"give": f"{q.give_amount} {q.give_ccy}", "get": f"{q.get_amount} {q.get_ccy}"})
 
+    @_locked
     def quote(self, qid: str) -> dict | None:
         row = self.db.execute("SELECT body FROM quotes WHERE id=?", (qid.upper(),)).fetchone()
         return json.loads(row["body"]) if row else None
 
+    @_locked
     def confirm(self, qid: str, now: datetime, by: str) -> tuple[dict, bool]:
         """Record 'exchange done' for a quote. Returns (deal, created). A second confirmation returns the same deal."""
         q = self.quote(qid)
@@ -116,15 +135,23 @@ class Store:
             return dict(existing), False
         if now > _dt(q["valid_until"]):
             raise StoreError(f"котировка {q['id']} просрочена ({q['valid_until']}); сделайте новую котировку")
-        with self.db:
-            cur = self.db.execute(
-                "INSERT INTO deals(quote_id, status, confirmed_at, confirmed_by, give_ccy, give_amount, get_ccy, get_amount, client_rate, mid) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (q["id"], "done", _iso(now), by, q["give_ccy"], q["give_amount"], q["get_ccy"], q["get_amount"],
-                 q["client_rate"], q["mid"]))
-            self._event(now, "deal_done", f"D-{cur.lastrowid}", {"quote": q["id"], "by": by})
+        try:
+            with self.db:
+                cur = self.db.execute(
+                    "INSERT INTO deals(quote_id, status, confirmed_at, confirmed_by, give_ccy, give_amount, get_ccy, get_amount, client_rate, mid) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (q["id"], "done", _iso(now), by, q["give_ccy"], q["give_amount"], q["get_ccy"], q["get_amount"],
+                     q["client_rate"], q["mid"]))
+                self._event(now, "deal_done", f"D-{cur.lastrowid}", {"quote": q["id"], "by": by})
+        except sqlite3.IntegrityError:
+            # the pult and the phone app are separate processes on one file: the other one confirmed first
+            row = self.db.execute("SELECT * FROM deals WHERE quote_id=?", (q["id"],)).fetchone()
+            if row is None:
+                raise
+            return dict(row), False
         return dict(self.db.execute("SELECT * FROM deals WHERE id=?", (cur.lastrowid,)).fetchone()), True
 
+    @_locked
     def reverse(self, deal_id: int, reason: str, now: datetime, by: str) -> dict:
         row = self.db.execute("SELECT * FROM deals WHERE id=?", (deal_id,)).fetchone()
         if row is None:
@@ -139,9 +166,11 @@ class Store:
             self._event(now, "deal_reversed", f"D-{deal_id}", {"reason": reason.strip()[:200], "by": by})
         return dict(self.db.execute("SELECT * FROM deals WHERE id=?", (deal_id,)).fetchone())
 
+    @_locked
     def deals(self) -> list[dict]:
         return [dict(r) for r in self.db.execute("SELECT * FROM deals ORDER BY id")]
 
+    @_locked
     def legs(self) -> list[dict]:
         """Ledger view: each deal = two legs from the desk's side; a reversal adds two opposite legs."""
         out = []
@@ -154,6 +183,7 @@ class Store:
                         dict(ref=ref, ts=d["reversed_at"], ccy=d["get_ccy"], amount=Decimal(d["get_amount"]), kind="reversal")]
         return out
 
+    @_locked
     def dashboard(self, start: datetime, end: datetime) -> dict:
         if end <= start:
             raise StoreError("период: конец должен быть позже начала")
@@ -176,6 +206,7 @@ class Store:
                 "profit": "N/A — нет данных о себестоимости (по какому курсу куплена валюта)"}
 
     # ---------------------------------------------------------------- backup / restore
+    @_locked
     def backup(self, target: str | Path) -> Path:
         target = Path(target)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -203,6 +234,7 @@ class Store:
         if not TABLES <= names:
             raise StoreError(f"в копии нет таблиц: {', '.join(sorted(TABLES - names))}")
 
+    @_locked
     def restore(self, source: str | Path) -> None:
         """Replace the live book with a verified copy; the current book is saved next to it first."""
         Store.verify(source)

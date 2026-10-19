@@ -68,8 +68,48 @@
     if (name === 'video') openVideo();
     if (name === 'panel') openPanel();
     if (name === 'status') loadStatus();
+    if (name === 'swap') loadSwapDeals();
     store.set('tab', name);
   }
+
+  /* ================= обменник: тот же помощник, что в пульте ================= */
+  let swapQuote = null;
+  async function swapSend(text) {
+    if (!text) return;
+    $('swap-reply').textContent = '…';
+    $('swap-confirm').hidden = true;
+    try {
+      const r = await api('POST', '/exchange', { text });
+      $('swap-reply').textContent = r.reply;
+      swapQuote = r.quote_id;
+      $('swap-confirm').hidden = !swapQuote;
+      if (r.stopped) toast('Действует СТОП: записи заблокированы');
+      if (/^Сделка|отменена/.test(r.reply)) loadSwapDeals();
+    } catch (err) { $('swap-reply').textContent = 'Ошибка: ' + err.message; }
+  }
+  async function loadSwapDeals() {
+    const box = $('swap-deals');
+    try {
+      const { deals } = await api('GET', '/exchange/deals');
+      box.textContent = '';
+      if (!deals.length) { box.appendChild(el('p', 'muted', 'Сделок пока нет.')); return; }
+      deals.forEach((d) => {
+        const row = el('div', 'swap-deal' + (d.status === 'reversed' ? ' reversed' : ''));
+        row.appendChild(el('b', '', `D-${d.id}`));
+        row.appendChild(el('span', '', ` ${d.give_amount} ${d.give_ccy} → ${d.get_amount} ${d.get_ccy}`));
+        row.appendChild(el('small', 'muted', ` ${String(d.confirmed_at || '').slice(0, 16).replace('T', ' ')} UTC${d.status === 'reversed' ? ' · отменена' : ''}`));
+        box.appendChild(row);
+      });
+    } catch (err) { box.textContent = 'Ошибка: ' + err.message; }
+  }
+  $('swap-form').addEventListener('submit', (e) => { e.preventDefault(); const v = $('swap-input').value.trim(); tap(); swapSend(v); });
+  $('swap-quick').addEventListener('click', (e) => { const b = e.target.closest('[data-cmd]'); if (b) { tap(); swapSend(b.dataset.cmd); } });
+  $('swap-confirm').addEventListener('click', () => {
+    if (!swapQuote) return;
+    if (!confirm(`Обмен по ${swapQuote} действительно выполнен? Сделка будет записана.`)) return;
+    tap(); swapSend(`обмен выполнен ${swapQuote}`);
+  });
+  $('swap-deals-btn').addEventListener('click', () => { tap(); loadSwapDeals(); });
   document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => { tap(); showTab(t.dataset.tab); }));
 
   /* ================= модели (локальные агенты Bossman) ================= */

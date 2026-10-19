@@ -31,6 +31,7 @@
   <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" stroke="currentColor" stroke-width="1.8" fill="none"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-status" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></symbol>
@@ -249,6 +250,28 @@
     <div class="panel-wrap" id="panel-wrap"><p class="muted center pad">Полная панель Bossman 1:1 загрузится здесь.</p></div>
   </section>
 
+  <!-- Обменник (тот же помощник и та же книга сделок, что в пульте) -->
+  <section class="view" id="view-swap" data-view="swap" hidden>
+    <header class="topbar plain"><h1 class="serif title">Обменник</h1>
+      <button class="icon-btn" id="swap-deals-btn" aria-label="Сделки"><svg><use href="#i-refresh"/></svg></button></header>
+    <div class="scroll" id="swap-body">
+      <div class="swap-quick" id="swap-quick">
+        <button class="chip" data-cmd="курс">Курсы</button>
+        <button class="chip" data-cmd="итоги сегодня">Сегодня</button>
+        <button class="chip" data-cmd="итоги">Итоги месяца</button>
+        <button class="chip" data-cmd="помощь">Команды</button>
+      </div>
+      <form class="swap-form" id="swap-form" autocomplete="off">
+        <input id="swap-input" maxlength="300" placeholder="500 usdt в czk · получить 10000 czk за usdt" aria-label="Команда обменника">
+        <button class="btn" type="submit">Ок</button>
+      </form>
+      <pre class="swap-reply" id="swap-reply">Курсы ЧНБ/ЕЦБ, котировка с наценкой 3%, сделка только после «Обмен выполнен».</pre>
+      <button class="btn primary" id="swap-confirm" hidden>✅ Обмен выполнен</button>
+      <h2 class="sub">Последние сделки</h2>
+      <div id="swap-deals" class="swap-deals"></div>
+    </div>
+  </section>
+
   <!-- Статус -->
   <section class="view" id="view-status" data-view="status" hidden>
     <header class="topbar plain"><h1 class="serif title">Статус</h1>
@@ -261,6 +284,7 @@
     <button class="tab" data-tab="photo"><svg><use href="#i-photo"/></svg><span>Фото</span></button>
     <button class="tab" data-tab="video"><svg><use href="#i-video"/></svg><span>Видео</span></button>
     <button class="tab" data-tab="panel"><svg><use href="#i-panel"/></svg><span>Панель</span><i class="tab-badge" id="badge-approvals" hidden></i></button>
+    <button class="tab" data-tab="swap"><svg><use href="#i-swap"/></svg><span>Обмен</span></button>
     <button class="tab" data-tab="status"><svg><use href="#i-status"/></svg><span>Статус</span></button>
   </nav>
 </main>
