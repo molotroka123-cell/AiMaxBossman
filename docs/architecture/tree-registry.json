@@ -1,6 +1,6 @@
 {
  "schema": "bossman-tree-registry-1",
- "head": "4fdc825c1de77a2853a7560ee995ea7ba4000982",
+ "head": "32690088e9052a8ac65e543da0a89289a47694a9",
  "leaves": [
   {
    "id": "jeff",
@@ -35708,7 +35708,7 @@
    "label": "NAUTILUS: мульти-оконная аналитика, 6 плиток и ДЕМО-защита пульта",
    "zone_parent": "commerce",
    "source": "nautilus/telegram_report.py",
-   "sha": "4fdc825c1de77a2853a7560ee995ea7ba4000982",
+   "sha": "32690088e9052a8ac65e543da0a89289a47694a9",
    "integration_status": "code",
    "levels": {
     "code": {
@@ -35816,7 +35816,7 @@
    "label": "Реестр воркер-устройств на одном ядре с общим STOP (<= 2 с)",
    "zone_parent": "devices",
    "source": "apps/bossman-mobile/bossmobile/auth.py",
-   "sha": "b0f4c6bf944c27ee7c646a74cb11a7c7a619f2d6",
+   "sha": "32690088e9052a8ac65e543da0a89289a47694a9",
    "integration_status": "code",
    "levels": {
     "code": {
