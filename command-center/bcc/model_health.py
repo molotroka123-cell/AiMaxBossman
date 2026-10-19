@@ -40,6 +40,7 @@ saying `low` is the honest summary and cannot be mistaken for a measurement.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
@@ -77,6 +78,9 @@ STALE_AFTER_SECONDS = 1800
 DEFAULT_FIRST_BYTE_TIMEOUT = 20.0
 DEFAULT_TOTAL_TIMEOUT = 60.0
 
+#: How many latency observations are kept for percentiles.
+LATENCY_WINDOW = 20
+
 CONFIDENCE_UNKNOWN, CONFIDENCE_LOW = "unknown", "low"
 CONFIDENCE_MEDIUM, CONFIDENCE_HIGH = "medium", "high"
 
@@ -103,8 +107,27 @@ class HealthRecord:
     samples: int = 0
     cooldown_until: datetime | None = None
     latency_ms: int | None = None
+    latencies_ms: tuple[int, ...] = ()          # последние LATENCY_WINDOW наблюдений
 
     # ---------------------------------------------------------------- derived
+
+    def _percentile(self, q: float) -> int | None:
+        if not self.latencies_ms:
+            return None
+        ordered = sorted(self.latencies_ms)
+        return ordered[min(len(ordered) - 1, max(0, math.ceil(q * len(ordered)) - 1))]
+
+    @property
+    def p50_latency_ms(self) -> int | None:
+        return self._percentile(0.5)
+
+    @property
+    def p95_latency_ms(self) -> int | None:
+        return self._percentile(0.95)
+
+    @property
+    def error_rate(self) -> float:
+        return round((self.samples - self.successes) / self.samples, 4) if self.samples > 0 else 0.0
 
     @property
     def confidence(self) -> str:
@@ -146,7 +169,7 @@ class HealthRecord:
         return (self.status == HEALTHY and not self.in_cooldown(now)
                 and not self.stale_at(now))
 
-    def rank_key(self, now: datetime | None = None) -> tuple[int, float]:
+    def rank_key(self, now: datetime | None = None) -> tuple[int, float, float, float]:
         """Lower sorts first: measured-healthy, then unmeasured, then broken.
 
         Unmeasured sitting between the two is the whole point of B5. Ranking it
@@ -162,7 +185,8 @@ class HealthRecord:
             tier = 3
         else:
             tier = 2
-        return tier, float(self.consecutive_failures)
+        return (tier, float(self.consecutive_failures), self.error_rate,
+                float(self.p95_latency_ms if self.p95_latency_ms is not None else 999999))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -177,6 +201,10 @@ class HealthRecord:
             "cooldown_until": (self.cooldown_until.isoformat()
                                if self.cooldown_until else None),
             "latency_ms": self.latency_ms,
+            "latencies_ms": list(self.latencies_ms),
+            "p50_latency_ms": self.p50_latency_ms,
+            "p95_latency_ms": self.p95_latency_ms,
+            "error_rate": self.error_rate,
             "confidence": self.confidence,
             "usable": self.usable(),
             "stale": self.stale,
@@ -208,7 +236,12 @@ class HealthRecord:
         if status not in ALL_STATUSES:
             status = UNMEASURED
         latency = data.get("latency_ms")
-        return cls(status=status, detail=str(data.get("detail") or ""),
+        raw_lat = data.get("latencies_ms")
+        latencies = tuple(int(v) for v in raw_lat
+                          if isinstance(v, (int, float)) and not isinstance(v, bool)
+                          )[-LATENCY_WINDOW:] if isinstance(raw_lat, list) else ()
+        return cls(latencies_ms=latencies,
+status=status, detail=str(data.get("detail") or ""),
                    checked_at=_dt("checked_at"), last_success_at=_dt("last_success_at"),
                    consecutive_failures=_int("consecutive_failures"),
                    successes=_int("successes"), samples=_int("samples"),
@@ -293,6 +326,8 @@ def record_observation(prior: HealthRecord | None, status: str, detail: str = ""
         successes=rec.successes + (1 if status == HEALTHY else 0),
         samples=rec.samples + 1,
         latency_ms=latency_ms,
+        latencies_ms=((*rec.latencies_ms, int(latency_ms))[-LATENCY_WINDOW:]
+                      if latency_ms is not None else rec.latencies_ms),
     )
     cooldown = cooldown_for(status, out.consecutive_failures)
     out.cooldown_until = None if not cooldown else at + cooldown

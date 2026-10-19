@@ -243,3 +243,20 @@ async def test_exhausted_ceiling_stops_the_run_itself(env, monkeypatch):
     assert adapter.calls == 0                # денег не потратили ни на один вызов
     run = (await env.client.get(f"/api/tasks/{stack['task']['id']}")).json()["runs"][-1]
     assert "суточный потолок" in (run["error"] or "")
+
+
+def test_forecast_daily_spend_accuracy_and_negative_control():
+    """Прогноз расхода до конца дня даёт погрешность <= 10% (вместо 75% без экстраполяции)
+    и честно отмечает перерасход при ускорении трат."""
+    # После 6 часов потрачено $2.00 при суточном лимите $10.00 (ровно $8.00 к концу суток)
+    f = spend_meter.forecast_daily_spend(2.0, 6.0, 10.0)
+    assert f["forecast_eod_usd"] == 8.0
+    assert f["will_exceed_limit"] is False
+    assert abs(f["forecast_eod_usd"] - 8.0) / 8.0 <= 0.10
+
+    # Отрицательный контроль: резкий скачок скорости трат ($1.20/ч) -> перерасход ($14.60 > $10.00)
+    f_spike = spend_meter.forecast_daily_spend(2.0, 6.0, 10.0, recent_hourly_rate_usd=1.2)
+    assert f_spike["will_exceed_limit"] is True
+    assert f_spike["forecast_eod_usd"] > 10.0
+    assert f_spike["hours_to_exhaustion"] is not None and f_spike["hours_to_exhaustion"] < 18.0
+

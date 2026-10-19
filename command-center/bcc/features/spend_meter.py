@@ -155,10 +155,12 @@ class Ledger:
     by_mission: dict[int | None, dict] = field(default_factory=dict)
     by_model: dict[str, dict] = field(default_factory=dict)
     by_day: dict[str, dict] = field(default_factory=dict)
+    # матрица модель × сутки; провайдера в task_runs нет, модель — наименьшая известная ось
+    by_model_day: dict[tuple[str, str], dict] = field(default_factory=dict)
 
     def add(self, mission_id: int | None, model: str, day: str, usd: float) -> None:
         for bucket, key in ((self.by_mission, mission_id), (self.by_model, model),
-                            (self.by_day, day)):
+                            (self.by_day, day), (self.by_model_day, (model, day))):
             cell = bucket.setdefault(key, {"usd": 0.0, "entries": 0})
             cell["usd"] = round(cell["usd"] + usd, 6)
             cell["entries"] += 1
@@ -170,6 +172,35 @@ class Ledger:
 
     def day_usd(self, day: str) -> float:
         return _usd((self.by_day.get(day) or {}).get("usd"))
+
+
+def matrix_entries(ledger: Ledger) -> list[dict]:
+    """Матрица модель × сутки из того же учёта, что и остальные разрезы."""
+    return [{"model": model, "day": day, "spent_usd": _usd(cell["usd"]),
+             "entries": cell["entries"]}
+            for (model, day), cell in sorted(ledger.by_model_day.items(),
+                                             key=lambda kv: (kv[0][1], kv[0][0]), reverse=True)]
+
+
+def forecast_daily_spend(spent_so_far_usd: float, elapsed_hours: float, daily_limit_usd: float,
+                         *, recent_hourly_rate_usd: float | None = None) -> dict:
+    """Прогноз расхода на конец суток по средней (и, если есть, недавней) скорости."""
+    elapsed = max(0.1, float(elapsed_hours))
+    avg_rate = spent_so_far_usd / elapsed
+    rate = (0.5 * avg_rate + 0.5 * recent_hourly_rate_usd
+            if recent_hourly_rate_usd is not None else avg_rate)
+    remaining_hours = max(0.0, 24.0 - elapsed)
+    forecast_eod = round(spent_so_far_usd + rate * remaining_hours, 6)
+    return {
+        "elapsed_hours": elapsed,
+        "avg_hourly_rate_usd": avg_rate,
+        "effective_hourly_rate_usd": rate,
+        "remaining_hours": remaining_hours,
+        "forecast_eod_usd": forecast_eod,
+        "will_exceed_limit": bool(forecast_eod > daily_limit_usd + EPS),
+        "hours_to_exhaustion": (round(max(0.0, daily_limit_usd - spent_so_far_usd) / rate, 3)
+                                if rate > EPS else None),
+    }
 
 
 def today() -> str:
@@ -347,9 +378,13 @@ async def spend(request: Request, mission_id: int | None = None):
                                                 cloud_budget_usd=budgets.get(mission_id),
                                                 day=day)]
     closest = nearest(all_views)
+    now = utcnow()
+    forecast = forecast_daily_spend(ledger.day_usd(day), now.hour + now.minute / 60.0
+                                    + now.second / 3600.0, limits.daily_usd)
     return {
         "enabled": True,
         "day": day,
+        "forecast": forecast,
         "source": "task_runs.cost_usd (учёт движка) + studio_jobs.cost_usd (облачная генерация Студии, мимо движка)",
         "limits": limits.payload(),
         "spent": {
@@ -361,6 +396,7 @@ async def spend(request: Request, mission_id: int | None = None):
                          for k, v in sorted(ledger.by_model.items())],
             "by_day": [{"day": k, "spent_usd": _usd(v["usd"]), "entries": v["entries"]}
                        for k, v in sorted(ledger.by_day.items(), reverse=True)],
+            "by_model_day": matrix_entries(ledger),
         },
         "limits_state": [v.payload() for v in all_views],
         "nearest_limit": closest.payload() if closest else None,

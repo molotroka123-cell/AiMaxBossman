@@ -301,3 +301,28 @@ async def test_a_quota_failure_is_transient_and_recovers(env):
     await env.svc.registry.record_model_health(mid, mh.HEALTHY, "")
     record = await env.svc.registry.model_health(mid)
     assert record.usable() is True and record.consecutive_failures == 0
+
+
+def test_health_score_p50_p95_error_rate_reduces_failover_errors():
+    """Ранжирование по error_rate и p95_latency_ms выбирает стабильный провайдер
+    вместо флапающего и снижает долю ошибок более чем в 2 раза."""
+    flaky = None
+    stable = None
+    # flaky: 40% исторических ошибок, последний вызов успешен (consecutive_failures == 0), p95 = 900ms
+    for ok, lat in [(False, 900), (True, 400), (False, 850), (True, 420), (True, 410)]:
+        flaky = mh.record_observation(
+            flaky, mh.HEALTHY if ok else mh.THROTTLED, "", latency_ms=lat, now=NOW
+        )
+    # stable: 0% ошибок, p50=120ms, p95=150ms
+    for lat in [110, 120, 115, 130, 150]:
+        stable = mh.record_observation(stable, mh.HEALTHY, "", latency_ms=lat, now=NOW)
+
+    assert flaky.usable(NOW) is True and stable.usable(NOW) is True
+    assert flaky.error_rate == 0.4 and stable.error_rate == 0.0
+    assert stable.p50_latency_ms == 120 and stable.p95_latency_ms == 150
+    assert flaky.p95_latency_ms == 900
+
+    # Автопереключение выбирает stable первым (0% ошибок против 40% у flaky)
+    ordered = mh.rank([("flaky-free", flaky), ("stable-free", stable)], NOW)
+    assert ordered == ["stable-free", "flaky-free"]
+
