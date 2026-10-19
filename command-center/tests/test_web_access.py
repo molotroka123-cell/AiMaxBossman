@@ -81,7 +81,8 @@ def test_private_or_denied_urls_refused(url):
 
 
 @pytest.mark.parametrize("q", [
-    "my key sk-abcdefghijklmnop1234", "password: hunter2hunter2", str(uuid.uuid4()),  # ci-secret-scan: allow (fake canary, alphabet run)
+    "my key sk-abcdefghijklmnop1234", "password: hunter2hunter2",
+    pytest.param(str(uuid.uuid4()), id="uuid-like-secret"),  # ci-secret-scan: allow (fake canary, alphabet run)
     "see C:\\Users\\asd\\secrets.txt", "mail bob@example.com", "call +7 912 345 67 89",
     "http://192.168.0.2/admin", "", "x" * 500])
 def test_sensitive_queries_refused(q):
@@ -298,7 +299,7 @@ def test_topics_allowed(topic):
     ("best pizza recipe tonight", "owner_goal"),
     ("stable-diffusion.cpp release notes", "random_origin"),
     ("short", "owner_goal"),
-    (f"python api key {uuid.uuid4()}", "owner_goal")])
+    pytest.param(f"python api key {uuid.uuid4()}", "owner_goal", id="uuid-like-topic")])
 def test_topics_refused(topic, origin):
     assert not web_learn.classify_topic(topic, origin)[0]
 
