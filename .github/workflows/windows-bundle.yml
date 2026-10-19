@@ -343,7 +343,7 @@ jobs:
               stream.write(str(home / 'media') + '\n')
       # Test controller dependencies never modify the shipped Python runtime.
       - name: Install browser test controller
-        run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]'
+        run: python -m pip install -e . -e './bossman-core[dev]' -e './command-center[dev,browser]' 'playwright==1.63.0'
       - name: Installed browser, real media, files and process restart
         run: |
           python -m pytest tests/test_installed_ui_sweep.py -q

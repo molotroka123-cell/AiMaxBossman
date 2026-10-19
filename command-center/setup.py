@@ -82,8 +82,8 @@ class BuildWithUI(build_py):
         for path in source.rglob("*"):
             relative = path.relative_to(source)
             if (not path.is_file() or "tests" in relative.parts
-                    or (path.suffix not in {".html", ".js", ".css", ".svg", ".png", ".ico", ".json", ".webm"}
-                        and not ("vendor" in relative.parts and path.suffix == ".md"))):
+                    or (path.suffix not in {".html", ".js", ".css", ".svg", ".png", ".ico", ".json", ".webm", ".woff2", ".ttf"}
+                        and not ("vendor" in relative.parts and path.suffix in {".md", ".txt"}))):
                 continue
             destination = target / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
