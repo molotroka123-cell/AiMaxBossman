@@ -124,3 +124,46 @@ def test_permissions_model():
     assert agent_allowed(agent, "email.send")
     assert needs_approval({"permissions": {}}, "terminal.run")
     assert not needs_approval(agent, "email.send")
+
+
+def test_schedule_lanes_pauses_background_during_owner_generation():
+    from bcc.v2.recovery import LaneTask, schedule_lanes
+
+    tasks = [
+        LaneTask(task_id=1, lane="background", priority=10),
+        LaneTask(task_id=2, lane="owner_generation", priority=5),
+        LaneTask(task_id=3, lane="background", priority=99),
+        LaneTask(task_id=4, lane="owner_generation", priority=20),
+    ]
+    # Baseline without lane separation: background tasks run during owner generation
+    # With schedule_lanes when active_owner_generations > 0: 100% background tasks paused
+    active = schedule_lanes(tasks, active_owner_generations=1)
+    assert active["runnable"] == [4, 2]
+    assert active["deferred_background"] == [3, 1]
+    assert active["owner_preempts_background"] is True
+
+    # When no owner generation is active, owner still goes first, then background
+    idle = schedule_lanes(tasks, active_owner_generations=0)
+    assert idle["runnable"] == [4, 2, 3, 1]
+    assert idle["deferred_background"] == []
+
+
+def test_classify_and_recover_improves_recovery_time_2x():
+    from bcc.v2.recovery import classify_and_recover
+
+    # Baseline naive recovery waits 30.0s on every error and fails to stop non-retryable auth errors
+    r_transient = classify_and_recover("Connection reset by peer (502)", retries=0)
+    assert r_transient["category"] == "transient_network"
+    assert r_transient["delay_s"] <= r_transient["naive_delay_s"] * 0.5  # 5.0s <= 15.0s (6x faster)
+
+    r_rate = classify_and_recover("HTTP 429 rate limit exceeded", retries=0)
+    assert r_rate["category"] == "rate_limit"
+    assert r_rate["action"] == "fallback"
+    assert r_rate["delay_s"] <= r_rate["naive_delay_s"] * 0.5  # 0.5s <= 15.0s (60x faster)
+
+    # Negative control: non-retryable 401 unauthorized escalates immediately (0.0s) instead of looping
+    r_fatal = classify_and_recover("401 Invalid API key unauthorized", retries=0)
+    assert r_fatal["category"] == "auth_or_budget"
+    assert r_fatal["action"] == "escalate"
+
+
