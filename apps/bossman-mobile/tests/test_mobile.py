@@ -340,3 +340,38 @@ def test_redactor_handles_split_secret():
     r = Redactor(["SECRET-VALUE-123"])
     out = r.feed(b"aaa SECRET-") + r.feed(b"VALUE-123 bbb") + r.flush()
     assert out == b"aaa [hidden] bbb"
+
+
+def test_worker_device_registry_and_30d_phone_session(tmp_path):
+    from bossmobile.auth import Sessions, WorkerDeviceRegistry, load_or_create_pairing
+    from bossmobile.config import Settings
+
+    # Step 15.1 & 15.2: two worker devices on single core + global STOP <= 2s with 0 hanging tasks
+    reg = WorkerDeviceRegistry()
+    w1 = reg.register("pc-main", role="gpu-worker", capabilities=["direct_gen", "llm"])
+    w2 = reg.register("laptop-secondary", role="cpu-worker", capabilities=["ocr", "scrape"])
+    assert w1["stopped"] is False and w2["stopped"] is False
+
+    reg.heartbeat("pc-main", active_task_id=101)
+    reg.heartbeat("laptop-secondary", active_task_id=102)
+    stop_res = reg.trigger_global_stop()
+    assert stop_res["global_stop"] is True
+    assert stop_res["devices_stopped"] == 2
+    assert stop_res["tasks_aborted"] == 2
+    assert stop_res["hanging_tasks"] == 0
+    assert stop_res["elapsed_s"] <= 2.0
+
+    # Step 15.3: 30-day session TTL + persistent pairing token across restarts
+    st = Settings(data_dir=tmp_path)
+    assert st.session_ttl_s == 30 * 24 * 3600
+    tok1 = load_or_create_pairing(tmp_path)
+    sess1 = Sessions(tmp_path, st.session_ttl_s)
+    sid, row = sess1.create(label="owner-iphone")
+    assert row["expires"] - row["created"] >= 30 * 24 * 3600 - 5
+
+    # Simulated service restart: pairing token is unchanged and 30-day session remains valid
+    tok2 = load_or_create_pairing(tmp_path)
+    sess2 = Sessions(tmp_path, st.session_ttl_s)
+    assert tok1 == tok2
+    assert sess2.get(sid) is not None
+

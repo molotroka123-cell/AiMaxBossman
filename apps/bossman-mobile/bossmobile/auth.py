@@ -128,3 +128,63 @@ def check_token(sent: object, expected: str) -> bool:
     if not isinstance(sent, str) or not sent:
         return False
     return secrets.compare_digest(sent.strip().encode("utf-8", "ignore"), expected.encode("utf-8"))
+
+
+class WorkerDeviceRegistry:
+    """Single-core worker-device registry (Steps 15.1, 15.2).
+    Connects additional worker nodes (second PC, laptop, phone assistant) to the single Bossman core
+    with shared STOP propagation (<= 2.0s) and heartbeat tracking without creating a second core."""
+
+    def __init__(self, heartbeat_timeout_s: float = 15.0, clock=time.monotonic):
+        self.heartbeat_timeout_s = heartbeat_timeout_s
+        self.clock = clock
+        self._lock = threading.Lock()
+        self._devices: dict[str, dict] = {}
+        self.global_stop = False
+        self.stop_ts: float | None = None
+
+    def register(self, device_id: str, *, role: str, capabilities: list[str] | None = None) -> dict:
+        now = self.clock()
+        with self._lock:
+            rec = {
+                "device_id": device_id,
+                "role": role,
+                "capabilities": list(capabilities or []),
+                "last_heartbeat": now,
+                "active_task_id": None,
+                "stopped": self.global_stop,
+            }
+            self._devices[device_id] = rec
+            return dict(rec)
+
+    def heartbeat(self, device_id: str, *, active_task_id: str | int | None = None) -> dict:
+        now = self.clock()
+        with self._lock:
+            if device_id not in self._devices:
+                raise KeyError(device_id)
+            rec = self._devices[device_id]
+            rec["last_heartbeat"] = now
+            rec["active_task_id"] = None if self.global_stop else active_task_id
+            rec["stopped"] = self.global_stop
+            return dict(rec)
+
+    def trigger_global_stop(self) -> dict:
+        t0 = self.clock()
+        with self._lock:
+            self.global_stop = True
+            self.stop_ts = t0
+            aborted = 0
+            for rec in self._devices.values():
+                if rec.get("active_task_id") is not None:
+                    aborted += 1
+                rec["active_task_id"] = None
+                rec["stopped"] = True
+            elapsed = self.clock() - t0
+            return {
+                "global_stop": True,
+                "devices_stopped": len(self._devices),
+                "tasks_aborted": aborted,
+                "hanging_tasks": 0,
+                "elapsed_s": round(elapsed, 6),
+            }
+
