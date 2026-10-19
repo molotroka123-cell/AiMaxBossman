@@ -93,13 +93,30 @@ class NautilusOperationalState:
     )
 
 
+_CASH_SYMBOLS = frozenset({"CASH", "CASH-USD", "USD", "USDT", "USDC", "CASH_USD"})
+
+
+def _is_cash_symbol(symbol: str) -> bool:
+    upper = symbol.strip().upper()
+    return upper in _CASH_SYMBOLS or upper.startswith("CASH-") or upper.startswith("CASH_")
+
+
 def compute_leverage_from_weights(weights: Mapping[str, float]) -> LeverageExposureBlock:
     """Compute gross leverage, net exposure, long_pct, short_pct from signed portfolio weights (in %)."""
-    long_pct = sum(float(w) for w in weights.values() if float(w) > 0.0)
+    long_pct = sum(
+        float(w)
+        for sym, w in weights.items()
+        if float(w) > 0.0 and not _is_cash_symbol(str(sym))
+    )
+    explicit_cash = sum(
+        float(w)
+        for sym, w in weights.items()
+        if float(w) > 0.0 and _is_cash_symbol(str(sym))
+    )
     short_pct = sum(abs(float(w)) for w in weights.values() if float(w) < 0.0)
     gross = (long_pct + short_pct) / 100.0
     net = (long_pct - short_pct) / 100.0
-    cash_pct = max(0.0, 100.0 - long_pct)
+    cash_pct = explicit_cash if explicit_cash > 0.0 else max(0.0, 100.0 - long_pct)
     return LeverageExposureBlock(
         gross_leverage=round(gross, 3),
         net_exposure=round(net, 3),
@@ -141,7 +158,9 @@ def generate_trade_ticket(
             action = "OPEN"
         elif abs(old_w) > tolerance_pct and abs(new_w) <= tolerance_pct:
             action = "CLOSE"
-        elif abs(new_w) > abs(old_w) and (old_w * new_w >= 0):
+        elif old_w * new_w < 0:
+            action = "REVERSE"
+        elif abs(new_w) > abs(old_w):
             action = "INCREASE"
         else:
             action = "DECREASE"

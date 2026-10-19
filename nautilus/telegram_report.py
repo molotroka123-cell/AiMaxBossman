@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import html
 import json
 import sys
 from pathlib import Path
@@ -34,6 +35,11 @@ def _fmt_signed_pct(val: float) -> str:
     return f"{sign}{val:.2f}%"
 
 
+def _esc(val: Any) -> str:
+    """Escape text for Telegram HTML parse_mode."""
+    return html.escape(str(val), quote=False)
+
+
 def format_nautilus_telegram_message(
     report: MultiWindowReport,
     ops: NautilusOperationalState,
@@ -51,47 +57,57 @@ def format_nautilus_telegram_message(
     sa = ops.stress_audit
     sk = pc.silent_killer_comparison
 
+    strat_lbl = _esc(report.card_strategy_label)
+    bench_lbl = _esc(report.card_benchmark_label)
+    ytd_strat = _esc(ytd.strategy_name)
+    ytd_bench = _esc(ytd.benchmark_name)
+    inc_strat = _esc(inc.strategy_name)
+    inc_bench = _esc(inc.benchmark_name)
+    l26_bench = _esc(l26.benchmark_name)
+
     lines: list[str] = [
         "🧭 <b>NAUTILUS / NAUTILUS_BTC — Аналитический отчёт (Shadow Read-Only)</b>",
         "<i>Режим: только аналитика и модельный портфель (Вечный запрет №1: 0 реальных ордеров, 0 ключей)</i>",
         "",
-        f"📊 <b>1. Сводка 6 плиток ({report.card_strategy_label} vs {report.card_benchmark_label}):</b>",
-        f"• <b>CAGR:</b> {cs.cagr_pct:.2f}% (vs {report.card_benchmark_label}: {cb.cagr_pct:.2f}%)",
-        f"• <b>SHARPE:</b> {cs.sharpe:.2f} (vs {report.card_benchmark_label}: {cb.sharpe:.2f})",
-        f"• <b>SORTINO:</b> {cs.sortino:.2f} (vs {report.card_benchmark_label}: {cb.sortino:.2f})",
-        f"• <b>MAX DRAWDOWN:</b> {cs.max_drawdown_pct:.2f}% (vs {report.card_benchmark_label}: {cb.max_drawdown_pct:.2f}%)",
-        f"• <b>CALMAR:</b> {cs.calmar:.2f} (vs {report.card_benchmark_label}: {cb.calmar:.2f})",
-        f"• <b>$1 BECOMES:</b> ${cs.dollar_becomes:.2f} (vs {report.card_benchmark_label}: ${cb.dollar_becomes:.2f})",
+        f"📊 <b>1. Сводка 6 плиток ({strat_lbl} vs {bench_lbl}):</b>",
+        f"• <b>CAGR:</b> {cs.cagr_pct:.2f}% (vs {bench_lbl}: {cb.cagr_pct:.2f}%)",
+        f"• <b>SHARPE:</b> {cs.sharpe:.2f} (vs {bench_lbl}: {cb.sharpe:.2f})",
+        f"• <b>SORTINO:</b> {cs.sortino:.2f} (vs {bench_lbl}: {cb.sortino:.2f})",
+        f"• <b>MAX DRAWDOWN:</b> {cs.max_drawdown_pct:.2f}% (vs {bench_lbl}: {cb.max_drawdown_pct:.2f}%)",
+        f"• <b>CALMAR:</b> {cs.calmar:.2f} (vs {bench_lbl}: {cb.calmar:.2f})",
+        f"• <b>$1 BECOMES:</b> ${cs.dollar_becomes:.2f} (vs {bench_lbl}: ${cb.dollar_becomes:.2f})",
         "",
         "⏱ <b>2. Мульти-оконная динамика:</b>",
-        f"• <b>YTD ({ytd.strategy_name} vs {ytd.benchmark_name}):</b> {_fmt_signed_pct(ytd.strategy_return_pct)} vs {_fmt_signed_pct(ytd.benchmark_return_pct)} {ytd.benchmark_name} | Sharpe {ytd.strategy_sharpe:.2f} vs {ytd.benchmark_sharpe:.2f} | Max DD {ytd.strategy_max_dd_pct:.2f}% vs {ytd.benchmark_max_dd_pct:.2f}% | Аллокация: <code>{ytd.exposure_delta_note or mr.btc_exposure_transition}</code>",
-        f"• <b>Since Inception:</b> {inc.strategy_name} {_fmt_signed_pct(inc.strategy_return_pct)} vs {inc.benchmark_name} {_fmt_signed_pct(inc.benchmark_return_pct)} (Excess {_fmt_signed_pct(inc.excess_return_pct)}) | Sharpe {inc.strategy_sharpe:.2f} | Vol {inc.strategy_volatility_pct:.2f}% | Max DD {inc.strategy_max_dd_pct:.2f}% | Beta {inc.beta:.3f}",
-        f"• <b>Last 26 Trading Sessions:</b> Sharpe {l26.strategy_sharpe:.2f} vs {l26.benchmark_sharpe:.2f} {l26.benchmark_name} | Vol {l26.strategy_volatility_pct:.2f}% vs {l26.benchmark_volatility_pct:.2f}% {l26.benchmark_name} | Max DD {l26.strategy_max_dd_pct:.2f}% vs {l26.benchmark_max_dd_pct:.1f}% {l26.benchmark_name} | Beta {l26.beta:.3f}",
-        f"• <b>Серия прибыльных недель:</b> 🔥 {report.winning_weeks_label} (расчёт по ряду: {report.winning_weeks_streak})",
+        f"• <b>YTD ({ytd_strat} vs {ytd_bench}):</b> {_fmt_signed_pct(ytd.strategy_return_pct)} vs {_fmt_signed_pct(ytd.benchmark_return_pct)} {ytd_bench} | Sharpe {ytd.strategy_sharpe:.2f} vs {ytd.benchmark_sharpe:.2f} | Max DD {ytd.strategy_max_dd_pct:.2f}% vs {ytd.benchmark_max_dd_pct:.2f}% | Аллокация: <code>{_esc(ytd.exposure_delta_note or mr.btc_exposure_transition)}</code>",
+        f"• <b>Since Inception:</b> {inc_strat} {_fmt_signed_pct(inc.strategy_return_pct)} vs {inc_bench} {_fmt_signed_pct(inc.benchmark_return_pct)} (Excess {_fmt_signed_pct(inc.excess_return_pct)}) | Sharpe {inc.strategy_sharpe:.2f} | Vol {inc.strategy_volatility_pct:.2f}% | Max DD {inc.strategy_max_dd_pct:.2f}% | Beta {inc.beta:.3f}",
+        f"• <b>Last 26 Trading Sessions:</b> Sharpe {l26.strategy_sharpe:.2f} vs {l26.benchmark_sharpe:.2f} {l26_bench} | Vol {l26.strategy_volatility_pct:.2f}% vs {l26.benchmark_volatility_pct:.2f}% {l26_bench} | Max DD {l26.strategy_max_dd_pct:.2f}% vs {l26.benchmark_max_dd_pct:.1f}% {l26_bench} | Beta {l26.beta:.3f}",
+        f"• <b>Серия прибыльных недель:</b> 🔥 {_esc(report.winning_weeks_label)} (расчёт по ряду: {report.winning_weeks_streak})",
         "",
         "⚙️ <b>3. Пять операционных блоков NAUTILUS:</b>",
-        f"<b>[Блок 1 · Режим рынка (market_regime)]</b> {mr.regime_code} — {mr.regime_label_ru}. Тренд: <code>{mr.trend_state}</code>, волатильность: <code>{mr.volatility_state}</code>. Переход BTC: <code>{mr.btc_exposure_transition}</code>.",
+        f"<b>[Блок 1 · Режим рынка (market_regime)]</b> {_esc(mr.regime_code)} — {_esc(mr.regime_label_ru)}. Тренд: <code>{_esc(mr.trend_state)}</code>, волатильность: <code>{_esc(mr.volatility_state)}</code>. Переход BTC: <code>{_esc(mr.btc_exposure_transition)}</code>.",
         f"<b>[Блок 2 · Плечо и экспозиция]</b> Gross Leverage: <code>{lev.gross_leverage:.2f}x</code> | Net Exposure: <code>{lev.net_exposure:.2f}x</code> | Long: <code>{lev.long_pct:.1f}%</code> | Short (APEX hedge): <code>{lev.short_pct:.1f}%</code>",
         "<b>[Блок 3 · Периодический Trade Ticket (ребалансировка, Read-Only)]</b>",
     ]
 
     for item in ops.trade_ticket:
         delta_str = _fmt_signed_pct(item.delta_weight_pct)
+        sym_padded = _esc(f"{item.symbol:<8}")
+        side_padded = _esc(f"{item.side:<5}")
         lines.append(
-            f"  ▫️ <code>{item.symbol:<8}</code> [{item.side:<5}] {item.old_weight_pct:>6.1f}% → {item.new_weight_pct:>6.1f}% ({delta_str}, {item.action})"
+            f"  ▫️ <code>{sym_padded}</code> [{side_padded}] {item.old_weight_pct:>6.1f}% → {item.new_weight_pct:>6.1f}% ({delta_str}, {_esc(item.action)})"
         )
 
     lines.extend(
         [
             "<b>[Блок 4 · Модельный портфель vs Текущий &amp; Silent-Killer]</b>",
-            f"  • Long-рукав: {pc.long_sleeve_description_ru}",
-            f"  • Short-хедж: {pc.short_hedge_description_ru}",
-            f"  • Сравнение с <b>{sk.get('profile_name', 'Silent-Killer')}</b>: {sk.get('nautilus_advantage_ru', '')}",
+            f"  • Long-рукав: {_esc(pc.long_sleeve_description_ru)}",
+            f"  • Short-хедж: {_esc(pc.short_hedge_description_ru)}",
+            f"  • Сравнение с <b>{_esc(sk.get('profile_name', 'Silent-Killer'))}</b>: {_esc(sk.get('nautilus_advantage_ru', ''))}",
             "<b>[Блок 5 · Стресс-аудит и устойчивость (stress_audit)]</b>",
             f"  • Комиссии/проскальзывание ({sa.fee_slippage_bps_per_turn:.0f} bps × {sa.annual_turnover_turns:.0f}/год): Net CAGR <code>{sa.net_cagr_after_cost_pct:.2f}%</code> (базовый {sa.base_cagr_pct:.2f}%)",
             f"  • Без {sa.removed_best_n_days} лучших дней: CAGR <code>{sa.cagr_without_best_n_days_pct:.2f}%</code>, Sharpe <code>{sa.sharpe_without_best_n_days:.2f}</code>, Stressed Max DD <code>{sa.max_dd_stressed_pct:.2f}%</code>",
-            f"  • ⚠️ {sa.sample_warning_ru}",
-            f"  • Вывод: {sa.verdict_ru}",
+            f"  • ⚠️ {_esc(sa.sample_warning_ru)}",
+            f"  • Вывод: {_esc(sa.verdict_ru)}",
         ]
     )
     return "\n".join(lines)

@@ -58,9 +58,29 @@ def test_core_metrics_formulas_and_edge_cases():
     assert compute_dollar_becomes([0.10, -1.0, 0.20]) == 0.0
     assert compute_cagr([0.10, -1.0, 0.20]) == -100.0
 
-    # Non-finite input raises ValueError
-    with pytest.raises(ValueError, match="non-finite"):
-        compute_dollar_becomes([0.01, float("nan")])
+    # Non-finite input raises ValueError across all metric functions
+    for bad in ([0.01, float("nan")], [0.01, float("inf")], [0.01, float("-inf")]):
+        with pytest.raises(ValueError, match="non-finite"):
+            compute_dollar_becomes(bad)
+        with pytest.raises(ValueError, match="non-finite"):
+            compute_cagr(bad)
+        with pytest.raises(ValueError, match="non-finite"):
+            compute_volatility(bad)
+        with pytest.raises(ValueError, match="non-finite"):
+            compute_sharpe(bad)
+        with pytest.raises(ValueError, match="non-finite"):
+            compute_sortino(bad)
+        with pytest.raises(ValueError, match="non-finite"):
+            compute_max_drawdown(bad)
+        with pytest.raises(ValueError, match="non-finite"):
+            compute_beta(bad, [0.01, 0.02])
+        with pytest.raises(ValueError, match="non-finite"):
+            compute_beta([0.01, 0.02], bad)
+        with pytest.raises(ValueError, match="non-finite"):
+            compute_winning_weeks_streak(bad)
+
+    with pytest.raises(ValueError, match="finite"):
+        compute_calmar(float("nan"), -10.0)
 
     # Known series test
     returns = [0.01, 0.02, -0.01, 0.015, 0.005, -0.005, 0.02]
@@ -234,8 +254,86 @@ def test_render_and_save_nautilus_card_png(tmp_path: Path):
         assert orange_Hits > 500
         assert tile_Hits > 100_000
 
+    # Extreme 6-digit values at minimum resolution 360x240 must fit inside tiles without overflowing borders
+    extreme_strat = PerformanceMetrics(999999.99, 999999.99, 999.99, 999.99, -99.99, 999.99, 999999.99)
+    min_png = render_nautilus_card(
+        extreme_strat,
+        report.card_benchmark,
+        strategy_label="NAUTILUS_EXTREME_LONG_STRATEGY_LABEL",
+        width=360,
+        height=240,
+    )
+    with Image.open(io.BytesIO(min_png)) as min_img:
+        assert min_img.size == (360, 240)
+        # Left margin outside tiles (x=2) must remain untouched BG_COLOR across the entire height
+        for y in range(240):
+            assert min_img.getpixel((2, y)) == BG_COLOR
+
     with pytest.raises(ValueError, match="at least 360x240"):
         render_nautilus_card(report.card_strategy, report.card_benchmark, width=200, height=100)
+
+
+def test_edge_cases_reverse_ticket_cash_leverage_and_html_escaping():
+    # 1. Sign-flip trade tickets must be classified as REVERSE (not DECREASE)
+    tickets = {
+        t.symbol: t
+        for t in generate_trade_ticket(
+            {"FLIP_TO_SHORT": 20.0, "FLIP_TO_LONG": -20.0, "DEEPEN_SHORT": -10.0},
+            {"FLIP_TO_SHORT": -30.0, "FLIP_TO_LONG": 15.0, "DEEPEN_SHORT": -25.0},
+        )
+    }
+    assert tickets["FLIP_TO_SHORT"].side == "SHORT"
+    assert tickets["FLIP_TO_SHORT"].action == "REVERSE"
+    assert tickets["FLIP_TO_LONG"].side == "LONG"
+    assert tickets["FLIP_TO_LONG"].action == "REVERSE"
+    assert tickets["DEEPEN_SHORT"].side == "SHORT"
+    assert tickets["DEEPEN_SHORT"].action == "INCREASE"
+
+    # 2. Cash keys must not inflate risky long_pct or gross_leverage when leverage_exposure is computed from weights
+    ops_with_cash = build_operational_state(
+        {
+            "portfolio": {
+                "current_portfolio": {
+                    "BTC-SPOT": 30.0,
+                    "NVDA": 25.0,
+                    "MSTR": 15.0,
+                    "PLTR": 15.0,
+                    "CASH-USD": 15.0,
+                    "APEX-SHORT-BASKET": -20.0,
+                }
+            }
+        }
+    )
+    assert ops_with_cash.leverage_exposure.long_pct == pytest.approx(85.0)
+    assert ops_with_cash.leverage_exposure.short_pct == pytest.approx(20.0)
+    assert ops_with_cash.leverage_exposure.cash_buffer_pct == pytest.approx(15.0)
+    assert ops_with_cash.leverage_exposure.gross_leverage == pytest.approx(1.05)
+    assert ops_with_cash.leverage_exposure.net_exposure == pytest.approx(0.65)
+
+    # 3. Raw return series in multi-window payload + HTML escaping of '<', '>', '&'
+    raw_payload = {
+        "dashboard_card": {
+            "strategy_cagr_pct": 42.19,
+            "strategy_max_drawdown_pct": -23.62,
+            "strategy_dollar_becomes": 13.34,
+            "benchmark_cagr_pct": 11.49,
+            "benchmark_max_drawdown_pct": -33.72,
+            "benchmark_dollar_becomes": 2.21,
+        },
+        "ytd_btc": {
+            "strategy_returns": [0.02, 0.03, -0.01, 0.04],
+            "benchmark_returns": [0.01, -0.02, 0.005, -0.01],
+            "exposure_delta_note": "30% -> 100% & <fast>",
+        },
+    }
+    rep = compute_multi_window_report(raw_payload)
+    ops_default = build_operational_state(raw_payload)
+    assert rep.card_strategy.total_return_pct == pytest.approx(1234.0)
+    assert rep.card_strategy.calmar == pytest.approx(42.19 / 23.62, abs=0.01)
+
+    html_msg = format_nautilus_telegram_message(rep, ops_default)
+    assert "30% -&gt; 100% &amp; &lt;fast&gt;" in html_msg
+    assert "Max DD &lt; 8%" in html_msg
 
 
 @pytest.mark.asyncio
@@ -254,7 +352,7 @@ async def test_format_and_send_nautilus_report_to_pult_mock_transport(tmp_path: 
         "$2.21",
         "+49.27%",
         "-6.89%",
-        "30% -> 100% long BTC",
+        "30% -&gt; 100% long BTC",
         "+22.41%",
         "+14.43%",
         "+7.98%",
@@ -304,3 +402,4 @@ async def test_format_and_send_nautilus_report_to_pult_mock_transport(tmp_path: 
     assert res["text_message_id"] == 702
     assert card_path.is_file()
     assert len(calls) == 2
+

@@ -86,6 +86,26 @@ def _format_tiles(
     ]
 
 
+def _fit_font(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: int,
+    initial_size: int,
+    *,
+    min_size: int = 8,
+    bold: bool = False,
+) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Load a font at initial_size and step down if rendered text exceeds max_width."""
+    size = max(min_size, initial_size)
+    while size > min_size:
+        font = _load_font(size, bold=bold)
+        bbox = draw.textbbox((0, 0), text, font=font)
+        if (bbox[2] - bbox[0]) <= max_width:
+            return font
+        size = max(min_size, int(size * 0.88) if int(size * 0.88) < size else size - 1)
+    return _load_font(min_size, bold=bold)
+
+
 def render_nautilus_card(
     strategy: PerformanceMetrics,
     benchmark: PerformanceMetrics,
@@ -109,32 +129,54 @@ def render_nautilus_card(
     gap_x = int(width * 0.022)
     gap_y = int(height * 0.04)
 
-    font_header_title = _load_font(max(18, int(height * 0.038)), bold=True)
-    font_header_sub = _load_font(max(12, int(height * 0.021)), bold=False)
-    font_tile_label = _load_font(max(14, int(height * 0.026)), bold=True)
-    font_tile_value = _load_font(max(32, int(height * 0.088)), bold=True)
-    font_tile_bench = _load_font(max(15, int(height * 0.030)), bold=False)
-
-    # Top title bar
+    header_avail_w = width - 2 * pad_x
     title_str = f"{strategy_label.upper()} vs {benchmark_label.upper()}"
-    draw.text((pad_x, int(height * 0.042)), title_str, fill=TITLE_TEXT_COLOR, font=font_header_title)
 
-    # Right-aligned subtitle badge
+    # Fit subtitle badge to at most 52% of header width so it never collides with the title
+    max_sub_text_w = max(80, int(header_avail_w * 0.52) - 28)
+    font_header_sub = _fit_font(
+        draw,
+        subtitle,
+        max_sub_text_w,
+        max(10, int(height * 0.021)),
+        min_size=8,
+        bold=False,
+    )
     sub_bbox = draw.textbbox((0, 0), subtitle, font=font_header_sub)
     sub_w = sub_bbox[2] - sub_bbox[0]
     sub_h = sub_bbox[3] - sub_bbox[1]
-    badge_x1 = width - pad_x - sub_w - 28
+    badge_pad_x = max(8, int(width * 0.012))
+    badge_pad_y = max(4, int(height * 0.010))
+    badge_x1 = width - pad_x - sub_w - 2 * badge_pad_x
     badge_y1 = int(height * 0.040)
     badge_x2 = width - pad_x
-    badge_y2 = badge_y1 + sub_h + 18
+    badge_y2 = badge_y1 + sub_h + 2 * badge_pad_y
+
+    # Fit title to remaining left header width
+    max_title_w = max(60, badge_x1 - pad_x - 12)
+    font_header_title = _fit_font(
+        draw,
+        title_str,
+        max_title_w,
+        max(14, int(height * 0.038)),
+        min_size=10,
+        bold=True,
+    )
+    draw.text((pad_x, int(height * 0.042)), title_str, fill=TITLE_TEXT_COLOR, font=font_header_title)
+
     draw.rounded_rectangle(
         (badge_x1, badge_y1, badge_x2, badge_y2),
-        radius=10,
+        radius=max(6, int(height * 0.015)),
         fill=BADGE_BG_COLOR,
         outline=BADGE_BORDER_COLOR,
         width=1,
     )
-    draw.text((badge_x1 + 14, badge_y1 + 7), subtitle, fill=ORANGE_ACCENT_COLOR, font=font_header_sub)
+    draw.text(
+        (badge_x1 + badge_pad_x, badge_y1 + badge_pad_y - sub_bbox[1]),
+        subtitle,
+        fill=ORANGE_ACCENT_COLOR,
+        font=font_header_sub,
+    )
 
     # 3 columns x 2 rows grid
     cols = 3
@@ -143,6 +185,11 @@ def render_nautilus_card(
     avail_h = height - pad_top - pad_bottom - (rows - 1) * gap_y
     tile_w = avail_w // cols
     tile_h = avail_h // rows
+    inner_tile_w = max(40, tile_w - max(16, int(tile_w * 0.10)))
+
+    base_label_size = max(10, int(height * 0.026))
+    base_value_size = max(18, int(height * 0.088))
+    base_bench_size = max(10, int(height * 0.030))
 
     tiles = _format_tiles(strategy, benchmark, benchmark_label)
 
@@ -156,7 +203,7 @@ def render_nautilus_card(
 
         draw.rounded_rectangle(
             (x1, y1, x2, y2),
-            radius=16,
+            radius=max(8, int(min(tile_w, tile_h) * 0.06)),
             fill=TILE_BG_COLOR,
             outline=TILE_BORDER_COLOR,
             width=2,
@@ -165,19 +212,22 @@ def render_nautilus_card(
         cx = (x1 + x2) // 2
 
         # 1. Tile label (top center)
+        font_tile_label = _fit_font(draw, label, inner_tile_w, base_label_size, min_size=8, bold=True)
         lbl_bbox = draw.textbbox((0, 0), label, font=font_tile_label)
         lbl_w = lbl_bbox[2] - lbl_bbox[0]
         lbl_y = y1 + int(tile_h * 0.16)
         draw.text((cx - lbl_w // 2, lbl_y), label, fill=HEADER_TEXT_COLOR, font=font_tile_label)
 
         # 2. Primary orange metric value (middle center)
+        font_tile_value = _fit_font(draw, main_val, inner_tile_w, base_value_size, min_size=10, bold=True)
         val_bbox = draw.textbbox((0, 0), main_val, font=font_tile_value)
         val_w = val_bbox[2] - val_bbox[0]
         val_h = val_bbox[3] - val_bbox[1]
-        val_y = y1 + int(tile_h * 0.48) - val_h // 2
+        val_y = y1 + int(tile_h * 0.48) - val_h // 2 - val_bbox[1]
         draw.text((cx - val_w // 2, val_y), main_val, fill=ORANGE_ACCENT_COLOR, font=font_tile_value)
 
         # 3. Benchmark comparison line (bottom center)
+        font_tile_bench = _fit_font(draw, bench_val, inner_tile_w, base_bench_size, min_size=8, bold=False)
         b_bbox = draw.textbbox((0, 0), bench_val, font=font_tile_bench)
         b_w = b_bbox[2] - b_bbox[0]
         b_y = y1 + int(tile_h * 0.76)

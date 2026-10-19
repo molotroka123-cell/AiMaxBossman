@@ -69,14 +69,20 @@ class MultiWindowReport:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+def _validate_finite_series(returns: Sequence[float], label: str = "Return series") -> None:
+    """Raise ValueError if any element in the series is NaN or infinite."""
+    for r in returns:
+        if not math.isfinite(float(r)):
+            raise ValueError(f"{label} contains non-finite number")
+
+
 def compute_dollar_becomes(returns: Sequence[float]) -> float:
     """Compound sequence of period fractional returns (e.g. 0.01 for +1%) starting from $1.00."""
     if not returns:
         return 1.0
+    _validate_finite_series(returns)
     equity = 1.0
     for r in returns:
-        if not math.isfinite(r):
-            raise ValueError("Return series contains non-finite number")
         if r <= -1.0:
             return 0.0
         equity *= 1.0 + float(r)
@@ -85,7 +91,10 @@ def compute_dollar_becomes(returns: Sequence[float]) -> float:
 
 def compute_cagr(returns: Sequence[float], periods_per_year: float = 252.0) -> float:
     """Compute annualized CAGR (in percent, e.g. 42.19 for 42.19%) from fractional period returns."""
-    if not returns or periods_per_year <= 0:
+    if not returns:
+        return 0.0
+    _validate_finite_series(returns)
+    if periods_per_year <= 0 or not math.isfinite(periods_per_year):
         return 0.0
     final_eq = compute_dollar_becomes(returns)
     if final_eq <= 0.0:
@@ -98,11 +107,12 @@ def compute_cagr(returns: Sequence[float], periods_per_year: float = 252.0) -> f
 
 def compute_volatility(returns: Sequence[float], periods_per_year: float = 252.0) -> float:
     """Compute annualized sample volatility in percent."""
+    _validate_finite_series(returns)
     n = len(returns)
-    if n < 2 or periods_per_year <= 0:
+    if n < 2 or periods_per_year <= 0 or not math.isfinite(periods_per_year):
         return 0.0
-    mean_r = sum(returns) / n
-    var = sum((r - mean_r) ** 2 for r in returns) / (n - 1)
+    mean_r = sum(float(r) for r in returns) / n
+    var = sum((float(r) - mean_r) ** 2 for r in returns) / (n - 1)
     return math.sqrt(max(0.0, var) * periods_per_year) * 100.0
 
 
@@ -112,8 +122,9 @@ def compute_sharpe(
     periods_per_year: float = 252.0,
 ) -> float:
     """Compute annualized Sharpe ratio from fractional period returns."""
+    _validate_finite_series(returns)
     n = len(returns)
-    if n < 2 or periods_per_year <= 0:
+    if n < 2 or periods_per_year <= 0 or not math.isfinite(periods_per_year):
         return 0.0
     rf_period = risk_free_annual / float(periods_per_year)
     excess = [float(r) - rf_period for r in returns]
@@ -131,8 +142,9 @@ def compute_sortino(
     periods_per_year: float = 252.0,
 ) -> float:
     """Compute annualized Sortino ratio using downside deviation below MAR."""
+    _validate_finite_series(returns)
     n = len(returns)
-    if n < 2 or periods_per_year <= 0:
+    if n < 2 or periods_per_year <= 0 or not math.isfinite(periods_per_year):
         return 0.0
     mar_period = mar_annual / float(periods_per_year)
     excess = [float(r) - mar_period for r in returns]
@@ -149,6 +161,7 @@ def compute_max_drawdown(returns: Sequence[float]) -> float:
     """Compute maximum drawdown in percent (negative or zero, e.g. -23.62 for -23.62%)."""
     if not returns:
         return 0.0
+    _validate_finite_series(returns)
     equity = 1.0
     peak = 1.0
     max_dd = 0.0
@@ -165,6 +178,8 @@ def compute_max_drawdown(returns: Sequence[float]) -> float:
 
 def compute_calmar(cagr_pct: float, max_drawdown_pct: float) -> float:
     """Compute Calmar ratio = CAGR / |Max Drawdown|."""
+    if not math.isfinite(float(cagr_pct)) or not math.isfinite(float(max_drawdown_pct)):
+        raise ValueError("Calmar inputs must be finite")
     denom = abs(float(max_drawdown_pct))
     if denom <= 1e-9:
         return 0.0
@@ -173,6 +188,8 @@ def compute_calmar(cagr_pct: float, max_drawdown_pct: float) -> float:
 
 def compute_beta(strategy_returns: Sequence[float], benchmark_returns: Sequence[float]) -> float:
     """Compute portfolio Beta relative to benchmark returns."""
+    _validate_finite_series(strategy_returns, "Strategy return series")
+    _validate_finite_series(benchmark_returns, "Benchmark return series")
     n = min(len(strategy_returns), len(benchmark_returns))
     if n < 2:
         return 0.0
@@ -188,9 +205,10 @@ def compute_beta(strategy_returns: Sequence[float], benchmark_returns: Sequence[
 
 
 def compute_winning_weeks_streak(weekly_returns: Sequence[float]) -> int:
-    """Count consecutive non-negative (> 0) winning weeks at the tail of the weekly return series."""
+    """Count consecutive strictly positive (> 0) winning weeks at the tail of the weekly return series."""
     if not weekly_returns:
         return 0
+    _validate_finite_series(weekly_returns, "Weekly return series")
     streak = 0
     for r in reversed(weekly_returns):
         if float(r) > 0.0:
@@ -235,13 +253,17 @@ def _metrics_from_dict_or_series(
     periods_per_year: float = 252.0,
 ) -> PerformanceMetrics:
     """Build PerformanceMetrics either from explicit snapshot values or from raw returns series."""
-    returns = block.get(f"{prefix}_returns")
-    bench_returns = block.get("benchmark_returns")
+    returns = block.get(f"{prefix}_returns") if prefix else block.get("returns")
+    bench_returns = block.get("benchmark_returns") if prefix != "benchmark" else None
     computed = (
         compute_performance_metrics(returns, bench_returns, periods_per_year=periods_per_year)
         if returns
         else None
     )
+
+    def has_explicit(key: str) -> bool:
+        full_key = f"{prefix}_{key}" if prefix else key
+        return full_key in block and block[full_key] is not None
 
     def pick(key: str, default: float = 0.0) -> float:
         full_key = f"{prefix}_{key}" if prefix else key
@@ -251,15 +273,38 @@ def _metrics_from_dict_or_series(
             return float(getattr(computed, key))
         return default
 
-    total_ret = pick("total_return_pct", 0.0)
+    dollar_explicit = has_explicit("dollar_becomes")
+    total_explicit = has_explicit("total_return_pct")
+    cagr_explicit = has_explicit("cagr_pct")
+
+    if total_explicit:
+        total_ret = pick("total_return_pct", 0.0)
+    elif dollar_explicit:
+        total_ret = (pick("dollar_becomes", 1.0) - 1.0) * 100.0
+    elif cagr_explicit and computed is None:
+        total_ret = pick("cagr_pct", 0.0)
+    else:
+        total_ret = pick("total_return_pct", 0.0)
+
     cagr = pick("cagr_pct", total_ret)
     max_dd = pick("max_drawdown_pct", 0.0)
-    calmar_val = block.get(f"{prefix}_calmar" if prefix else "calmar")
-    if calmar_val is None:
+
+    if has_explicit("calmar"):
+        calmar_val = pick("calmar", 0.0)
+    else:
         calmar_val = compute_calmar(cagr, max_dd)
-    dollar_val = block.get(f"{prefix}_dollar_becomes" if prefix else "dollar_becomes")
-    if dollar_val is None:
+
+    if dollar_explicit:
+        dollar_val = pick("dollar_becomes", 1.0)
+    elif computed is not None and not total_explicit:
+        dollar_val = computed.dollar_becomes
+    else:
         dollar_val = round(1.0 + total_ret / 100.0, 2)
+
+    if prefix == "benchmark":
+        beta_val = float(block.get("benchmark_beta", 1.0 if returns else 0.0))
+    else:
+        beta_val = float(block.get("beta", computed.beta if computed else 0.0))
 
     return PerformanceMetrics(
         total_return_pct=round(total_ret, 2),
@@ -270,7 +315,7 @@ def _metrics_from_dict_or_series(
         calmar=round(float(calmar_val), 2),
         dollar_becomes=round(float(dollar_val), 2),
         volatility_pct=round(pick("volatility_pct", 0.0), 2),
-        beta=round(float(block.get("beta", computed.beta if computed else 0.0)), 3),
+        beta=round(beta_val, 3),
     )
 
 
