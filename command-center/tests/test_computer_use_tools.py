@@ -584,6 +584,12 @@ async def test_oav_step_log_and_owner_takeover_flow(env, desk):
     log_body = (await env.client.get("/api/computer/step-log")).json()
     phases = [entry["phase"] for entry in log_body["step_log"]]
     assert "observe" in phases and "act" in phases and "verify" in phases
+    act_entry = next(e for e in log_body["step_log"] if e["phase"] == "act")
+    verify_entry = next(e for e in log_body["step_log"] if e["phase"] == "verify")
+    assert act_entry.get("pre_state_sha256") == obs["fingerprint"]
+    assert verify_entry.get("pre_state_sha256") == obs["fingerprint"]
+    assert verify_entry.get("post_state_sha256") == res["observation"]["fingerprint"]
+    assert len(verify_entry.get("post_state_sha256") or "") == 24
 
     # Owner initiates manual takeover (e.g., to complete a 2FA/confirmation step)
     paused = (await env.client.post("/api/computer/takeover/pause",

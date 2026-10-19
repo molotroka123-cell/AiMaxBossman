@@ -87,9 +87,19 @@ def _svc(request: Request) -> DirectGenService:
     return request.app.state.svc.direct_gen
 
 
-def _who(x_participant: str | None) -> str:
+def _who(x_participant: str | None, request: Request | None = None) -> str:
+    alias = request.headers.get("x-bcc-participant") if request is not None else None
+    if x_participant is not None and alias is not None and x_participant != alias:
+        raise HTTPException(
+            400,
+            {
+                "code": "conflicting_participant_headers",
+                "message": "Conflicting X-Participant and X-BCC-Participant headers",
+            },
+        )
+    raw = x_participant if x_participant is not None else alias
     try:
-        return valid_participant(x_participant)
+        return valid_participant(raw)
     except ValueError as exc:
         raise HTTPException(422, {"code": "invalid_participant", "message": str(exc)}) from None
 
@@ -113,45 +123,45 @@ async def status(request: Request):
 
 @router.post("/jobs", status_code=202)
 async def create(body: JobIn, request: Request, x_participant: str | None = Header(default=None)):
-    return await _guard(_svc(request).create(_who(x_participant), body.model_dump()))
+    return await _guard(_svc(request).create(_who(x_participant, request), body.model_dump()))
 
 
 @router.get("/jobs")
 async def jobs(request: Request, x_participant: str | None = Header(default=None)):
-    return {"jobs": _svc(request).list(_who(x_participant))}
+    return {"jobs": _svc(request).list(_who(x_participant, request))}
 
 
 @router.get("/jobs/{job_id}")
 async def job(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
-    return await _guard(_wrap(lambda: _svc(request).get(_who(x_participant), job_id)))
+    return await _guard(_wrap(lambda: _svc(request).get(_who(x_participant, request), job_id)))
 
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
-    return await _guard(_svc(request).cancel(_who(x_participant), job_id))
+    return await _guard(_svc(request).cancel(_who(x_participant, request), job_id))
 
 
 @router.post("/jobs/{job_id}/retry", status_code=202)
 async def retry(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
-    return await _guard(_svc(request).retry(_who(x_participant), job_id))
+    return await _guard(_svc(request).retry(_who(x_participant, request), job_id))
 
 
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
     """Owner only, finished jobs only: removes the job's files and record from this PC for good (409 while running)."""
-    return await _guard(_wrap(lambda: _svc(request).delete(_who(x_participant), job_id)))
+    return await _guard(_wrap(lambda: _svc(request).delete(_who(x_participant, request), job_id)))
 
 
 @router.post("/jobs/{job_id}/send-to-pult")
 async def send_to_pult(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
     """On request only: ONE finished file to the owner's Пульт as a Telegram document (no auto-delivery, no dedupe)."""
-    return await _guard(_svc(request).send_to_pult(_who(x_participant), job_id))
+    return await _guard(_svc(request).send_to_pult(_who(x_participant, request), job_id))
 
 
 @router.get("/jobs/{job_id}/file")
 async def file(job_id: str, request: Request, variant: str = "", x_participant: str | None = Header(default=None)):
     svc = _svc(request)
-    who = _who(x_participant)
+    who = _who(x_participant, request)
     try:
         path = svc.result_path(who, job_id, variant)
         job = svc.get(who, job_id)
@@ -169,7 +179,7 @@ async def faceswap_info(request: Request):
 
 @router.post("/swap-jobs", status_code=202)
 async def create_swap(body: SwapIn, request: Request, x_participant: str | None = Header(default=None)):
-    return await _guard(_svc(request).create_swap(_who(x_participant), body.model_dump()))
+    return await _guard(_svc(request).create_swap(_who(x_participant, request), body.model_dump()))
 
 
 @router.get("/genjutsu")
@@ -179,19 +189,19 @@ async def genjutsu_info(request: Request):
 
 @router.post("/genjutsu/masks")
 async def genjutsu_masks(body: MasksIn, request: Request, x_participant: str | None = Header(default=None)):
-    return await _guard(_svc(request).create_masks(_who(x_participant), body.model_dump()))
+    return await _guard(_svc(request).create_masks(_who(x_participant, request), body.model_dump()))
 
 
 @router.get("/vault/prompts")
 async def vault_prompts(request: Request, q: str = "", limit: int = 100, x_participant: str | None = Header(default=None)):
-    if _who(x_participant) != "owner":
+    if _who(x_participant, request) != "owner":
         raise HTTPException(404, {"code": "not_found", "message": "not found"})
     return {"prompts": _svc(request).prompt_vault.search(q, limit)}
 
 
 @router.post("/assist")
 async def assist(body: AssistIn, request: Request, x_participant: str | None = Header(default=None)):
-    return await _guard(_svc(request).assist(_who(x_participant), body.prompt, body.model_id))
+    return await _guard(_svc(request).assist(_who(x_participant, request), body.prompt, body.model_id))
 
 
 @router.get("/assist-models")

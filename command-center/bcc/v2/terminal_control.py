@@ -121,6 +121,18 @@ def host_shell() -> list[str] | None:
     if os.name != "nt":
         return None
     sh = shutil.which("sh")
+    if not sh:
+        git_exe = shutil.which("git")
+        if git_exe:
+            try:
+                git_root = Path(git_exe).resolve().parents[1]
+                for sub in ("bin", "usr/bin"):
+                    cand = git_root / sub / "sh.exe"
+                    if cand.is_file():
+                        sh = str(cand)
+                        break
+            except OSError:
+                pass
     if sh:
         return [sh, "-lc"]
     return [os.environ.get("COMSPEC") or "cmd.exe", "/c"]

@@ -510,7 +510,9 @@ def mission_receipt(rec: dict) -> dict[str, Any]:
         "INTERRUPTED" if outcome == "UNKNOWN_INTERRUPTED" else status.upper()
     )
     verified = bool(ver.get("passed")) if rec.get("verify_tests") else (
-        status == "completed" and evidence.get("head_before") == evidence.get("head_after")
+        status == "completed"
+        and bool(evidence.get("head_before"))
+        and evidence.get("head_before") == evidence.get("head_after")
     )
     payload = {
         "schema": "bossman.mission_receipt.v1",
@@ -521,6 +523,8 @@ def mission_receipt(rec: dict) -> dict[str, Any]:
         "changed_files": list(rec.get("changed_files") or []),
         "git_diff": diff,
         "diff_digest": rec.get("evidence_digest") or (_diff_digest(diff) if diff else None),
+        "verify_cmd": list(rec.get("verify_tests") or []),
+        "verify_exit_code": ver.get("exit_code") if ver else None,
         "stop_status": stop_status,
         "postcondition_verified": verified,
         "sandbox_removed": bool((rec.get("sandbox_cleanup") or {}).get("removed")),

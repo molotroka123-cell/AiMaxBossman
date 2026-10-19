@@ -291,8 +291,15 @@ async def test_mission_receipt_endpoint_returns_signed_workspace_receipt(env, re
     assert rc["changed_files"] == ["app/main.py"]
     assert "+print('v3')" in rc["git_diff"]
     assert rc["postcondition_verified"] is True
+    assert rc["verify_cmd"] == []
+    assert rc["verify_exit_code"] is None
     assert rc["sandbox_removed"] is True
     assert rc["stop_status"] == "COMPLETED"
     assert len(rc["receipt_sha256"]) == 64
     assert rc["receipt_id"].startswith("rcpt-")
+
+    # Fail-closed check: if head_before is missing/None and verify_tests is empty, postcondition_verified is False
+    unverified_rc = ct.mission_receipt({"id": "deadbeef1234", "status": "completed", "evidence": {}})
+    assert unverified_rc["postcondition_verified"] is False
+
 

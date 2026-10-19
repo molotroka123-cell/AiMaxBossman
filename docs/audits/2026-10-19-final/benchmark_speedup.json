@@ -1,6 +1,6 @@
 {
   "schema": "bossman.speedup_benchmark.v1",
-  "measured_at_utc": "2026-10-19T22:26:35.851450+00:00",
+  "measured_at_utc": "2026-10-19T22:55:13.206108+00:00",
   "iterations": 60,
   "repository": "C:\\Users\\asd\\Bossman\\wt-argon-tier5-20261019",
   "benchmarks": [
@@ -9,84 +9,84 @@
       "description": "Read latest CNB/ECB official rates from fx_obs SQLite log (1,800 rows) with (mtime_ns, size) stat cache",
       "iterations": 60,
       "before": {
-        "min_ms": 4.0662,
-        "p50_ms": 6.4618,
-        "p95_ms": 9.8442,
-        "max_ms": 12.0776,
-        "mean_ms": 6.5992
+        "min_ms": 3.5156,
+        "p50_ms": 3.6441,
+        "p95_ms": 3.8598,
+        "max_ms": 4.072,
+        "mean_ms": 3.6668
       },
       "after": {
-        "min_ms": 0.0041,
-        "p50_ms": 0.0044,
-        "p95_ms": 0.0064,
-        "max_ms": 0.0397,
-        "mean_ms": 0.0052
+        "min_ms": 0.0079,
+        "p50_ms": 0.0084,
+        "p95_ms": 0.0161,
+        "max_ms": 0.0587,
+        "mean_ms": 0.0103
       },
-      "speedup_p50_x": 1468.59,
-      "speedup_mean_x": 1269.08
+      "speedup_p50_x": 433.82,
+      "speedup_mean_x": 356.0
     },
     {
       "name": "exchange_assistant.Store.manual_rates",
       "description": "Lookup latest manual rate per currency pair using indexed SQL MAX(id) GROUP BY pair vs full table scan",
       "iterations": 60,
       "before": {
-        "min_ms": 2.4451,
-        "p50_ms": 2.4849,
-        "p95_ms": 2.8123,
-        "max_ms": 3.6155,
-        "mean_ms": 2.546
+        "min_ms": 0.7924,
+        "p50_ms": 0.8093,
+        "p95_ms": 0.8248,
+        "max_ms": 0.8383,
+        "mean_ms": 0.8096
       },
       "after": {
-        "min_ms": 0.0007,
-        "p50_ms": 0.0008,
-        "p95_ms": 0.001,
-        "max_ms": 0.0146,
-        "mean_ms": 0.0011
+        "min_ms": 0.0002,
+        "p50_ms": 0.0003,
+        "p95_ms": 0.0005,
+        "max_ms": 0.0037,
+        "mean_ms": 0.0004
       },
-      "speedup_p50_x": 3106.12,
-      "speedup_mean_x": 2314.55
+      "speedup_p50_x": 2697.67,
+      "speedup_mean_x": 2024.0
     },
     {
       "name": "web_access.policy.check_public_url_batch10",
       "description": "Validate 10 public URLs against domain deny-list (O(1) label lookup + cached env) and combined regex patterns",
       "iterations": 60,
       "before": {
-        "min_ms": 0.6602,
-        "p50_ms": 0.7195,
-        "p95_ms": 1.0117,
-        "max_ms": 1.1007,
-        "mean_ms": 0.7808
+        "min_ms": 0.2205,
+        "p50_ms": 0.2221,
+        "p95_ms": 0.2281,
+        "max_ms": 0.2352,
+        "mean_ms": 0.2229
       },
       "after": {
-        "min_ms": 0.5571,
-        "p50_ms": 0.5999,
-        "p95_ms": 0.8667,
-        "max_ms": 0.9076,
-        "mean_ms": 0.6608
+        "min_ms": 0.1945,
+        "p50_ms": 0.1952,
+        "p95_ms": 0.1992,
+        "max_ms": 0.2115,
+        "mean_ms": 0.1959
       },
-      "speedup_p50_x": 1.2,
-      "speedup_mean_x": 1.18
+      "speedup_p50_x": 1.14,
+      "speedup_mean_x": 1.14
     },
     {
-      "name": "build_source_identity.blob_verify (7497 files)",
+      "name": "build_source_identity.blob_verify (7505 files)",
       "description": "Verify SHA-1 of all tracked repository blobs using (mtime_ns, size, ino) stat memoization vs reading all bytes",
       "iterations": 60,
       "before": {
-        "min_ms": 960.7984,
-        "p50_ms": 1506.7523,
-        "p95_ms": 1759.6873,
-        "max_ms": 1872.8919,
-        "mean_ms": 1453.5966
+        "min_ms": 475.1411,
+        "p50_ms": 636.2545,
+        "p95_ms": 1118.9212,
+        "max_ms": 1389.0775,
+        "mean_ms": 652.7774
       },
       "after": {
-        "min_ms": 77.3777,
-        "p50_ms": 97.5525,
-        "p95_ms": 154.3507,
-        "max_ms": 158.6251,
-        "mean_ms": 114.7999
+        "min_ms": 47.5187,
+        "p50_ms": 64.3287,
+        "p95_ms": 66.4966,
+        "max_ms": 66.9257,
+        "mean_ms": 58.7547
       },
-      "speedup_p50_x": 15.45,
-      "speedup_mean_x": 12.66
+      "speedup_p50_x": 9.89,
+      "speedup_mean_x": 11.11
     }
   ]
 }

@@ -345,3 +345,83 @@ def test_xe_provenance_and_fallback_without_credentials():
     assert prov["timestamp_utc"].endswith("+00:00")
     assert prov["raw_receipt"].startswith("ЧНБ:USDCZK:")
 
+
+def test_load_official_invalidates_cache_on_wal_writes(tmp_path):
+    """When fx.db is opened in WAL mode and updated without checkpointing to the main file,
+    load_official must see the new WAL state instead of returning a stale cached rate."""
+    fx = tmp_path / "fx_wal.db"
+    t1 = (NOW - timedelta(hours=2)).isoformat()
+    t2 = (NOW - timedelta(hours=1)).isoformat()
+    con = sqlite3.connect(fx)
+    try:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute(
+            "CREATE TABLE fx_obs(id INTEGER PRIMARY KEY, observed_at TEXT, minute TEXT, pair TEXT, "
+            "rate TEXT, source TEXT, source_url TEXT, rate_date TEXT, raw_text_excerpt TEXT, "
+            "parser TEXT, flags TEXT, model TEXT)"
+        )
+        con.execute(
+            "INSERT INTO fx_obs(observed_at, minute, pair, rate, source, source_url, raw_text_excerpt, parser, flags) "
+            "VALUES (?,?,?,?,?,'u','x',?,?)",
+            (t1, t1[:16], "USDCZK", "21.600", "cnb", "regex", ""),
+        )
+        con.commit()
+        r1 = load_official(fx)
+        assert len(r1) == 1 and r1[0].value == Decimal("21.600")
+
+        # Write a newer row in WAL without closing/checkpointing
+        con.execute(
+            "INSERT INTO fx_obs(observed_at, minute, pair, rate, source, source_url, raw_text_excerpt, parser, flags) "
+            "VALUES (?,?,?,?,?,'u','x',?,?)",
+            (t2, t2[:16], "USDCZK", "22.100", "cnb", "regex", ""),
+        )
+        con.commit()
+        r2 = load_official(fx)
+        assert len(r2) == 1 and r2[0].value == Decimal("22.100")
+    finally:
+        con.close()
+
+
+def test_dashboard_uses_actual_legs_and_cancel_quote(assistant):
+    """Store.dashboard() must use leg_in_actual/leg_out_actual when present, and
+    Store.cancel_quote() transitions unconfirmed quotes to crm_status='cancelled'."""
+    assistant.handle("курс usdt/usd 1.0000 источник синтетика", "owner")
+    assistant.handle("курс usd/czk 25.000 источник синтетика", "owner")
+    q1 = build_quote(
+        assistant.book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("1000"),
+        margin=Decimal("0.03"), require_explicit_margin=True, now=NOW,
+    )
+    assert q1.direction == "SELL"
+    assert q1.manager_margin_decision == "explicit"
+    assistant.store.save_quote(q1, crm_status="quoted")
+    saved_q1 = assistant.store.quote(q1.id)
+    assert saved_q1["direction"] == "SELL"
+    assert saved_q1["manager_margin_decision"] == "explicit"
+
+    # Client actually handed over 950 USDT and received 23037.50 CZK via Assistant command
+    reply = assistant.handle(f"обмен выполнен {q1.id} приняли 950 выдали 23037,50", "owner")
+    assert "Приняли 950.00 USDT, выдали 23037.50 CZK" in reply
+    deals = assistant.store.deals()
+    assert len(deals) == 1
+    assert deals[0]["slippage_in"] == "-50.00"
+    assert deals[0]["slippage_out"] == "-1212.50"
+    assert deals[0]["idempotency_key"] == q1.id
+
+    dash = assistant.store.dashboard(*business_month(NOW))
+    assert dash["turnover_usdt"] == Decimal("950.00")
+    assert dash["position_change"]["USDT"] == Decimal("950.00")
+    assert dash["position_change"]["CZK"] == Decimal("-23037.50")
+
+    # Cancel an unconfirmed quote
+    q2 = build_quote(
+        assistant.book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("500"),
+        margin=Decimal("0.03"), require_explicit_margin=True, now=NOW + timedelta(seconds=1),
+    )
+    assistant.store.save_quote(q2, crm_status="draft")
+    cancelled = assistant.store.cancel_quote(q2.id, "клиент передумал", NOW + timedelta(seconds=2), "owner")
+    assert cancelled["crm_status"] == "cancelled"
+    with pytest.raises(StoreError, match="уже есть сделка"):
+        assistant.store.cancel_quote(q1.id, "поздно", NOW + timedelta(seconds=3), "owner")
+
+
+

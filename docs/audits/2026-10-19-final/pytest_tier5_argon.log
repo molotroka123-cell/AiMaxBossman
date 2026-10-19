@@ -1,0 +1,14 @@
+........................................................................ [ 35%]
+..........................................s............................. [ 70%]
+............................................................             [100%]
+============================== warnings summary ===============================
+command-center/tests/test_self_improve.py::test_api_state_is_read_only_and_literal
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\openapi\utils.py:303: UserWarning: Duplicate Operation ID file_commander_view_api_apps_file_commander_mini_view__app_path__get for function file_commander_view at C:\Users\asd\Bossman\wt-argon-tier5-20261019\command-center\bcc\features\apps_control.py
+    warnings.warn(message, stacklevel=1)
+
+command-center/tests/test_self_improve.py::test_api_state_is_read_only_and_literal
+  C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\fastapi\openapi\utils.py:303: UserWarning: Duplicate Operation ID accountant_view_api_apps_bossman_accountant_view__app_path__get for function accountant_view at C:\Users\asd\Bossman\wt-argon-tier5-20261019\command-center\bcc\features\apps_control.py
+    warnings.warn(message, stacklevel=1)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+203 passed, 1 skipped, 2 warnings in 170.22s (0:02:50)

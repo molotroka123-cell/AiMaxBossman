@@ -120,14 +120,77 @@ def run_g1_owner_e2e(tmp_dir: Path) -> dict:
     }
     oh_receipt = ct.mission_receipt(sample_rec)
 
+    # 4. Unified Cross-Task Memory Persistence & Recall across Instance Restart
+    import sqlite3
+    from bcc.v2.memory import ObsidianVault
+    from bcc.v2.memory.lifecycle_wiring import VaultNotes
+    from bcc.v2.memory.sqlite_index import SQLiteMemoryBackend
+
+    mem_data_dir = tmp_dir / "unified_memory"
+    vault_root = mem_data_dir / "vault"
+    (vault_root / "BOSSMAN Memory").mkdir(parents=True)
+    mem_index_path = mem_data_dir / "memory_index.sqlite"
+
+    task_a_rec = tstore.create(
+        "owner", "Task A: Store SwapMe VIP client preference",
+        steps=[{"id": "write_mem", "title": "Write VIP rule", "kind": "memory_write"}],
+    )
+    task_id_1 = task_a_rec["id"]
+    mem_payload = (
+        f"source_task_id={task_id_1} | SwapMe VIP client tier rule: "
+        "require_explicit_margin=True, default VIP fee_rate=0.03 (3%), settlement currency CZK."
+    )
+    mem_sha256 = hashlib.sha256(mem_payload.encode("utf-8")).hexdigest()
+    notes_instance_1 = VaultNotes(
+        ObsidianVault(root=vault_root),
+        SQLiteMemoryBackend(index_path=mem_index_path, vault_root=vault_root),
+    )
+    note_ref = notes_instance_1.write_note(
+        title=f"SwapMe VIP Rule {task_id_1}",
+        kind="decision",
+        project="bossman-swapme",
+        content=f"{mem_payload}\nsha256={mem_sha256}\n",
+        tags=["swapme", "vip", task_id_1],
+    )
+    del notes_instance_1
+
+    # New instance across process/task boundary
+    tstore_restarted = TaskStore(tmp_dir / "pit")
+    task_b_rec = tstore_restarted.create(
+        "owner", "Task B: Recall SwapMe VIP client preference",
+        steps=[{"id": "recall_mem", "title": "Recall VIP rule", "kind": "memory_recall"}],
+    )
+    task_id_2 = task_b_rec["id"]
+    notes_instance_2 = VaultNotes(
+        ObsidianVault(root=vault_root),
+        SQLiteMemoryBackend(index_path=mem_index_path, vault_root=vault_root),
+    )
+    mem_hits = notes_instance_2.search(f"SwapMe VIP client tier rule {task_id_1}", top_k=5)
+    assert mem_hits and f"source_task_id={task_id_1}" in mem_hits[0]["text"]
+    con = sqlite3.connect(str(mem_index_path))
+    try:
+        mem_row = con.execute(
+            "SELECT chunk_hash, source FROM chunks WHERE content LIKE ?",
+            (f"%source_task_id={task_id_1}%",),
+        ).fetchone()
+    finally:
+        con.close()
+    assert mem_row is not None
+
     return {
         "status": "PASS",
         "exchange_assistant": {
             "buy_1000_usdt_czk": str(q_buy.give_amount),
+            "buy_direction": q_buy.direction,
             "sell_1000_usdt_czk": str(q_sell.get_amount),
+            "sell_direction": q_sell.direction,
+            "manager_margin_decision": q_sell.manager_margin_decision,
             "deal_crm_status": deal["crm_status"],
             "leg_in_actual": deal["leg_in_actual"],
             "leg_out_actual": deal["leg_out_actual"],
+            "slippage_in": deal["slippage_in"],
+            "slippage_out": deal["slippage_out"],
+            "idempotency_key": deal["idempotency_key"],
             "branded_html_bytes": len(html_doc),
             "xe_feed_status": xe_status["status"],
             "xe_fallback_mode": xe_status["fallback_mode"],
@@ -147,6 +210,14 @@ def run_g1_owner_e2e(tmp_dir: Path) -> dict:
             "receipt_sha256": oh_receipt["receipt_sha256"],
             "postcondition_verified": oh_receipt["postcondition_verified"],
             "sandbox_removed": oh_receipt["sandbox_removed"],
+        },
+        "unified_cross_task_memory": {
+            "writer_task_id": task_id_1,
+            "reader_task_id": task_id_2,
+            "hit": True,
+            "source_ref": note_ref,
+            "sqlite_chunk_hash": mem_row[0],
+            "payload_sha256": mem_sha256,
         },
     }
 

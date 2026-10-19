@@ -694,6 +694,7 @@ async def observe(svc, *, screenshot: bool = True, window: Any = None,
     st.record_step("observe", window=str(win.get("title") or "")[:200],
                    hwnd=win.get("handle"), pid=win.get("pid"),
                    elements=len(elements), fingerprint=obs["fingerprint"],
+                   post_state_sha256=obs["fingerprint"],
                    stopped=obs["stopped"])
     await svc.bus.emit("computer.observe", generation=st.generation,
                        window=str(win.get("title") or "")[:200], elements=len(elements),
@@ -1773,16 +1774,24 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 if fgh != bh and await _root_of(st, fgh) != bh:
                     after_window = bh
         await asyncio.sleep(SETTLE_S)
+        pre_sha = (before or {}).get("fingerprint")
         st.record_step("act", action=kind, target=target[:200],
                        before_generation=(before or {}).get("generation"),
+                       pre_state_sha256=pre_sha,
                        approval_ref=approval_ref, approved_kind=approved_kind if required else None)
         after = await _bounded(st, observe(svc, window=after_window, scope=scope), "наблюдение")
+        post_sha = after.get("fingerprint")
         verified, notes = verify(after, args.get("expect"), started_at=started_at)
         st.record_step("verify", action=kind, target=target[:200],
-                       after_generation=after["generation"], verified=verified, checks=list(notes))
+                       before_generation=(before or {}).get("generation"),
+                       after_generation=after["generation"],
+                       pre_state_sha256=pre_sha, post_state_sha256=post_sha,
+                       verified=verified, checks=list(notes))
         result = {"action": kind, "target": target, "coordinates": [x, y] if coords else None,
                   "before_generation": (before or {}).get("generation"),
-                  "after_generation": after["generation"], "verified": verified, "checks": notes,
+                  "after_generation": after["generation"],
+                  "pre_state_sha256": pre_sha, "post_state_sha256": post_sha,
+                  "verified": verified, "checks": notes,
                   "approved_kind": approved_kind if required else None, "approval_ref": approval_ref,
                   "window": acted_window or {k: (after.get("window") or {}).get(k)
                                              for k in ("handle", "pid", "title", "foreground")},

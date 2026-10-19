@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Callable
 
@@ -25,7 +26,7 @@ RE_RATES = re.compile(r"^(курс|курсы)$")
 RE_MANUAL = re.compile(rf"^курс\s+{_CCY}\s*/\s*{_CCY}\s+{_NUM}\s+(?:источник|из)\s+(.+)$")
 RE_GIVE = re.compile(rf"^(?:котировка|посчитай|сколько)?\s*{_NUM}\s*{_CCY}\s*(?:в|на|->|→|за)?\s*{_CCY}{_MARGIN_OPT}$")
 RE_GET = re.compile(rf"^(?:(купить|клиент покупает)|получить|клиент хочет получить|хочет получить)\s+{_NUM}\s*{_CCY}\s+за\s+{_CCY}{_MARGIN_OPT}$")
-RE_CONFIRM = re.compile(r"^(?:обмен выполнен|подтверждаю|подтвердить)\s+(q-[0-9a-f]{8})$")
+RE_CONFIRM = re.compile(rf"^(?:обмен выполнен|подтверждаю|подтвердить)\s+(q-[0-9a-f]{{8}})(?:\s+(?:приняли|факт)\s+{_NUM}\s+(?:выдали)\s+{_NUM})?$")
 RE_REVERSE = re.compile(r"^(?:отмена|отменить)\s+d-?(\d+)\s+(.+)$")
 RE_DASH = re.compile(r"^(?:дашборд|итоги|итог)(?:\s+(сегодня|неделя|месяц))?$")
 
@@ -35,7 +36,7 @@ HELP = ("Команды помощника обменника:\n"
         "• 500 usdt в czk [при 3%] — котировка: клиент отдаёт 500 USDT\n"
         "• получить 10000 czk за usdt [при 3%] — котировка: клиент хочет получить 10000 CZK\n"
         "• купить 1000 usdt за czk при 3% — покупка валюты по согласованной ставке (1 + ставка)\n"
-        "• обмен выполнен Q-XXXXXXXX — записать сделку по котировке\n"
+        "• обмен выполнен Q-XXXXXXXX [приняли <сумма> выдали <сумма>] — записать сделку по котировке\n"
         "• отмена D-12 <причина> — отменить сделку (реверс, без удаления)\n"
         "• итоги [сегодня|неделя|месяц] — оборот, позиции, сделки")
 
@@ -152,10 +153,14 @@ class Assistant:
             self.store.save_quote(q)
             return q.text()
         if m := RE_CONFIRM.match(t):
-            d, created = self.store.confirm(m[1], now, actor)
+            in_actual = parse_decimal(m[2], "приняли").quantize(Decimal("0.01")) if m[2] else None
+            out_actual = parse_decimal(m[3], "выдали").quantize(Decimal("0.01")) if m[3] else None
+            d, created = self.store.confirm(m[1], now, actor, leg_in_actual=in_actual, leg_out_actual=out_actual)
             head = "Сделка записана" if created else "Эта котировка уже подтверждена, повтор не создан"
+            in_shown = d.get("leg_in_actual") or d["give_amount"]
+            out_shown = d.get("leg_out_actual") or d["get_amount"]
             return (f"{head}: D-{d['id']} по {d['quote_id']}\n"
-                    f"Приняли {d['give_amount']} {d['give_ccy']}, выдали {d['get_amount']} {d['get_ccy']}")
+                    f"Приняли {in_shown} {d['give_ccy']}, выдали {out_shown} {d['get_ccy']}")
         if m := RE_REVERSE.match(t):
             d = self.store.reverse(int(m[1]), m[2], now, actor)
             return f"Сделка D-{d['id']} отменена (реверс записан, ничего не удалено). Причина: {d['reverse_reason']}"

@@ -1,15 +1,21 @@
 {
   "schema": "bossman.argon_tier5_verification.v1",
-  "verified_at_utc": "2026-10-19T22:30:39.121364+00:00",
+  "verified_at_utc": "2026-10-19T23:23:21.618851+00:00",
   "G1_owner_e2e": {
     "status": "PASS",
     "exchange_assistant": {
       "buy_1000_usdt_czk": "25750.00",
+      "buy_direction": "BUY",
       "sell_1000_usdt_czk": "24250.00",
+      "sell_direction": "SELL",
+      "manager_margin_decision": "explicit",
       "deal_crm_status": "settled",
       "leg_in_actual": "1000.00",
       "leg_out_actual": "24250.00",
-      "branded_html_bytes": 2420,
+      "slippage_in": "0.00",
+      "slippage_out": "0.00",
+      "idempotency_key": "Q-D73DD816",
+      "branded_html_bytes": 2624,
       "xe_feed_status": "N/A",
       "xe_fallback_mode": "MANUAL_ENTRY",
       "rate_provenance": {
@@ -24,13 +30,13 @@
       }
     },
     "langgraph_checkpoint": {
-      "checkpoint_id": "chk-39af23e5595bfb56-b6375b9813e1",
-      "checkpoint_sha256": "b6375b9813e1a242914a67046d482be7640788c65718b7de681565655b247320",
+      "checkpoint_id": "chk-3f51aa83eb55dca9-0b6841ccbe82",
+      "checkpoint_sha256": "0b6841ccbe82f45c43da6b2ec42ddee358b2c05448da835cd05a944ab1476f1c",
       "done_steps_at_checkpoint": [
         "quote"
       ],
       "completed_action_keys": [
-        "aaaf5a08bc17f4df60ea4a6542c08c33"
+        "96950482514fc85076a04717307e7fd9"
       ],
       "noop_update_triggered": false,
       "changed_update_triggered": true,
@@ -40,10 +46,18 @@
       ]
     },
     "openhands_mission_receipt": {
-      "receipt_id": "rcpt-e2e-coding-01-e012fae7297f",
-      "receipt_sha256": "e012fae7297f0a7577f6a82ee1ced767ff07c1acf5ef6145069f468f0a1605fa",
+      "receipt_id": "rcpt-e2e-coding-01-8d39d54f5b8d",
+      "receipt_sha256": "8d39d54f5b8dbfedde077f190f050bff08e6d339adcaaec14073ba09b5cd98c3",
       "postcondition_verified": true,
       "sandbox_removed": true
+    },
+    "unified_cross_task_memory": {
+      "writer_task_id": "71ac78a78e8a1d40",
+      "reader_task_id": "401ff57ebfbacea8",
+      "hit": true,
+      "source_ref": "BOSSMAN Memory/2026-10-19-2323-SwapMe-VIP-Rule-71ac78a78e8a1d40.md",
+      "sqlite_chunk_hash": "1f8e6ca99118a504",
+      "payload_sha256": "972bdc7877a7a38f3671213ec2b57e9b2bce7d28c22c0bdd88494a584edccd15"
     }
   },
   "G2_sealed_holdout": {
@@ -74,7 +88,7 @@
   },
   "G3_stop_switch": {
     "status": "PASS",
-    "stop_latency_ms": 2.0221,
+    "stop_latency_ms": 0.8435,
     "stop_latency_limit_ms": 2000.0,
     "actions_after_stop": 0,
     "post_stop_action_refused": true,
@@ -82,5 +96,5 @@
     "takeover_resume_verified": true,
     "step_log_entries": 4
   },
-  "receipt_sha256": "eceefee8ea642ce77237b980d5f85d15b100a664b14f65fe1b507b1cd6cf0b65"
+  "receipt_sha256": "0134d886cb25633e0c2ca03309ce0d2f8b2339de8269e49d159ec6bad083249d"
 }

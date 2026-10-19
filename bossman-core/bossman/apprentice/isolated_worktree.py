@@ -61,6 +61,7 @@ class IsolatedWorktree:
         self.cleanup_error: Optional[str] = None
         self.cleanup_removed: Optional[bool] = None
         self._tempdir: Optional[Path] = None
+        self._sandbox_parent_at_create: Optional[Path] = None
 
     def _get_default_branch(self) -> str:
         try:
@@ -126,6 +127,10 @@ class IsolatedWorktree:
 
         temp_dir = tempfile.mkdtemp(prefix='openhands_worktree_')
         self._tempdir = Path(temp_dir)
+        try:
+            self._sandbox_parent_at_create = self._tempdir.resolve().parent
+        except OSError:
+            self._sandbox_parent_at_create = self._sandbox_parent()
         worktree_path = Path(temp_dir) / 'worktree'
 
         try:
@@ -338,7 +343,10 @@ class IsolatedWorktree:
             self.cleanup_removed = False
             return False
         parent = self._sandbox_parent()
-        inside = resolved != parent and parent in resolved.parents
+        allowed_parents = {parent}
+        if self._sandbox_parent_at_create is not None:
+            allowed_parents.add(self._sandbox_parent_at_create)
+        inside = any(resolved != p and p in resolved.parents for p in allowed_parents)
         if not inside or self.source_repo == resolved or self.source_repo in resolved.parents:
             self.cleanup_error = f"refusing to delete outside the sandbox root: {resolved}"
             self.cleanup_removed = False

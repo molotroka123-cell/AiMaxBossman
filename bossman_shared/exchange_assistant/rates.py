@@ -139,7 +139,7 @@ def _parse_ts(s: str) -> datetime:
     return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
 
 
-_OFFICIAL_RATES_CACHE: dict[tuple[str, int, int], list[Rate]] = {}
+_OFFICIAL_RATES_CACHE: dict[tuple[str, int, int, int, int], list[Rate]] = {}
 
 
 def load_official(fx_db: str | Path) -> list[Rate]:
@@ -149,7 +149,12 @@ def load_official(fx_db: str | Path) -> list[Rate]:
         st = os.stat(key_path)
     except OSError:
         return []
-    cache_key = (key_path, st.st_mtime_ns, st.st_size)
+    try:
+        wal_st = os.stat(key_path + "-wal")
+        wal_mtime_ns, wal_size = wal_st.st_mtime_ns, wal_st.st_size
+    except OSError:
+        wal_mtime_ns, wal_size = 0, 0
+    cache_key = (key_path, st.st_mtime_ns, st.st_size, wal_mtime_ns, wal_size)
     cached = _OFFICIAL_RATES_CACHE.get(cache_key)
     if cached is not None:
         return list(cached)

@@ -32,18 +32,21 @@ class Quote:
     get_ccy: str
     get_amount: Decimal
     mid: Decimal                 # get_ccy per 1 give_ccy, mid-market
-    client_rate: Decimal         # mid x (1 - margin)
+    client_rate: Decimal         # mid x (1 - margin) or 1 / (unit_mid x (1 + margin))
     margin: Decimal
     created_at: datetime
     valid_until: datetime
     rates: tuple[str, ...] = field(default=())
     formula: str = ""
     fixed_side: str = "give"     # which amount the client named
+    direction: str = "SELL"      # "BUY" (client buys get_ccy) or "SELL" (client sells give_ccy)
+    manager_margin_decision: str = "default"  # "explicit" when manager specified margin, else "default"
 
     def text(self) -> str:
         pct = (self.margin * 100).normalize()
+        dir_label = "Покупка клиентом" if self.direction == "BUY" else "Продажа клиентом"
         return "\n".join([
-            f"Котировка {self.id}",
+            f"Котировка {self.id} ({dir_label})",
             f"Клиент отдаёт: {self.give_amount} {self.give_ccy}",
             f"Клиент получает: {self.get_amount} {self.get_ccy}",
             f"Курс клиента: 1 {self.give_ccy} = {self.client_rate.quantize(Decimal('0.000001'))} {self.get_ccy} "
@@ -109,6 +112,9 @@ def build_quote(book: RateBook, *, give_ccy: str, get_ccy: str, now: datetime, g
         if require_explicit_margin:
             raise QuoteError("процент комиссии (margin) не указан менеджером: укажите явную ставку по сделке")
         margin = DEFAULT_MARGIN
+        margin_decision = "default"
+    else:
+        margin_decision = "explicit" if require_explicit_margin or margin != DEFAULT_MARGIN else "explicit"
     if not (Decimal(0) <= margin < Decimal("0.5")):
         raise QuoteError("наценка вне 0–50%")
     amount = give_amount if give_amount is not None else get_amount
@@ -124,6 +130,7 @@ def build_quote(book: RateBook, *, give_ccy: str, get_ccy: str, now: datetime, g
         get = (give * client_rate).quantize(CENT, rounding=ROUND_DOWN)
         formula = f"{give} × [{fmid}] × (1 − {margin}) = {get} {get_ccy} (вниз до 0.01)"
         side = "give"
+        direction = "SELL"
     elif client_buys_get:
         # Agreed buy markup formula: client buys `get` units of `get_ccy` and pays `give_ccy`:
         # unit_mid = give_ccy per 1 get_ccy = 1 / mid
@@ -135,17 +142,19 @@ def build_quote(book: RateBook, *, give_ccy: str, get_ccy: str, now: datetime, g
         client_rate = Decimal(1) / unit_client
         formula = f"{get} × [{fmid_inv}] × (1 + {margin}) = {give} {give_ccy} (покупка {get_ccy}, вверх до 0.01)"
         side = "get"
+        direction = "BUY"
     else:
         client_rate = mid * (Decimal(1) - margin)
         get = get_amount.quantize(CENT)
         give = (get / client_rate).quantize(CENT, rounding=ROUND_UP)
         formula = f"{get} ÷ ([{fmid}] × (1 − {margin})) = {give} {give_ccy} (вверх до 0.01)"
         side = "get"
+        direction = "BUY"
     if get <= 0 or give <= 0:
         raise QuoteError("после округления сумма равна нулю — слишком маленькая сделка")
     qid = _quote_id(give_ccy, give, get_ccy, get, margin, now.isoformat(), *(r.label() for r in used))
     return Quote(qid, give_ccy, give, get_ccy, get, mid, client_rate, margin, now, now + ttl,
-                 tuple(r.label() for r in used), formula, side)
+                 tuple(r.label() for r in used), formula, side, direction, margin_decision)
 
 
 def _fmt_spaced(val: Decimal) -> str:
