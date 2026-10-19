@@ -1,0 +1,150 @@
+"""Owner-only assistant: Russian commands in, plain answers out. Pure entry point `Assistant.handle(text, actor)`.
+
+The same function serves the pult, the Mini App and the CLI, so one request is one behaviour everywhere.
+Parsing is rule-based on purpose: numbers never pass through a language model.
+"""
+from __future__ import annotations
+
+import re
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Callable
+
+from .quote import CURRENCIES, QuoteError, build_quote
+from .rates import RateBook, RateError, default_fx_db, load_official, pair_name, parse_decimal
+from .store import Store, StoreError
+
+ALIASES = {"usdt": "USDT", "юсдт": "USDT", "тезер": "USDT", "tether": "USDT", "usd": "USD", "доллар": "USD", "долларов": "USD",
+           "доллары": "USD", "$": "USD", "eur": "EUR", "евро": "EUR", "€": "EUR", "czk": "CZK", "крон": "CZK", "кроны": "CZK",
+           "крона": "CZK", "кч": "CZK"}
+_CCY = r"(usdt|юсдт|тезер|tether|usd|доллар\w*|\$|eur|евро|€|czk|крон\w*|кч)"
+_NUM = r"(\d[\d\s]*(?:[.,]\d+)?)"
+
+RE_RATES = re.compile(r"^(курс|курсы)$")
+RE_MANUAL = re.compile(rf"^курс\s+{_CCY}\s*/\s*{_CCY}\s+{_NUM}\s+(?:источник|из)\s+(.+)$")
+RE_GIVE = re.compile(rf"^(?:котировка|посчитай|сколько)?\s*{_NUM}\s*{_CCY}\s*(?:в|на|->|→|за)?\s*{_CCY}$")
+RE_GET = re.compile(rf"^(?:получить|клиент хочет получить|хочет получить)\s+{_NUM}\s*{_CCY}\s+за\s+{_CCY}$")
+RE_CONFIRM = re.compile(r"^(?:обмен выполнен|подтверждаю|подтвердить)\s+(q-[0-9a-f]{8})$")
+RE_REVERSE = re.compile(r"^(?:отмена|отменить)\s+d-?(\d+)\s+(.+)$")
+RE_DASH = re.compile(r"^(?:дашборд|итоги|итог)(?:\s+(сегодня|неделя|месяц))?$")
+
+HELP = ("Команды помощника обменника:\n"
+        "• курс — текущие курсы с источником и временем\n"
+        "• курс usdt/usd 0.999 источник <откуда> — ручной курс (на 12 ч)\n"
+        "• 500 usdt в czk — котировка: клиент отдаёт 500 USDT\n"
+        "• получить 10000 czk за usdt — котировка: клиент хочет получить 10000 CZK\n"
+        "• обмен выполнен Q-XXXXXXXX — записать сделку по котировке\n"
+        "• отмена D-12 <причина> — отменить сделку (реверс, без удаления)\n"
+        "• итоги [сегодня|неделя|месяц] — оборот, позиции, сделки")
+
+
+def ccy(word: str) -> str:
+    w = word.lower()
+    if w in ALIASES:
+        return ALIASES[w]
+    for k, v in ALIASES.items():
+        if len(k) >= 4 and w.startswith(k[:4]):
+            return v
+    raise QuoteError(f"не знаю валюту «{word}» (есть: {', '.join(CURRENCIES)})")
+
+
+def business_month(now: datetime) -> tuple[datetime, datetime]:
+    """Owner's business month: 21st of one month to 20th of the next, inclusive (Europe/Prague)."""
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("Europe/Prague")
+    except Exception:  # noqa: BLE001 - no tz database: fall back to UTC
+        tz = timezone.utc
+    local = now.astimezone(tz)
+    y, m = local.year, local.month
+    if local.day < 21:
+        m -= 1
+        if m == 0:
+            y, m = y - 1, 12
+    start = datetime(y, m, 21, tzinfo=tz)
+    ny, nm = (y + 1, 1) if m == 12 else (y, m + 1)
+    return start, datetime(ny, nm, 21, tzinfo=tz)
+
+
+class Assistant:
+    def __init__(self, store: Store, *, fx_db: str | Path | None = None, owner_ids=frozenset({"owner"}),
+                 clock: Callable[[], datetime] | None = None):
+        self.store = store
+        self.fx_db = Path(fx_db) if fx_db else default_fx_db()
+        self.owner_ids = set(owner_ids)
+        self.clock = clock or (lambda: datetime.now(timezone.utc).replace(microsecond=0))
+
+    def book(self) -> RateBook:
+        b = RateBook(load_official(self.fx_db))
+        for r in self.store.manual_rates():
+            b.put(r)
+        return b
+
+    def handle(self, text: str, actor: str) -> str:
+        if actor not in self.owner_ids:
+            return "Помощник обменника доступен только владельцу."
+        t = " ".join((text or "").strip().lower().replace("ё", "е").split())
+        now = self.clock()
+        try:
+            return self._dispatch(t, actor, now)
+        except (QuoteError, RateError, StoreError) as e:
+            return f"Не выполнено: {e}"
+
+    def _dispatch(self, t: str, actor: str, now: datetime) -> str:
+        if t in ("", "помощь", "help", "/help", "команды"):
+            return HELP
+        if RE_RATES.match(t):
+            return self._rates(now)
+        if m := RE_MANUAL.match(t):
+            r = self.store.set_manual_rate(ccy(m[1]) + ccy(m[2]), parse_decimal(m[3], "курс"), m[4], now, actor)
+            return f"Записан ручной курс: {r.label()}"
+        if m := RE_GET.match(t):
+            q = build_quote(self.book(), give_ccy=ccy(m[3]), get_ccy=ccy(m[2]), now=now,
+                            get_amount=parse_decimal(m[1], "сумма"))
+            self.store.save_quote(q)
+            return q.text()
+        if m := RE_GIVE.match(t):
+            q = build_quote(self.book(), give_ccy=ccy(m[2]), get_ccy=ccy(m[3]), now=now,
+                            give_amount=parse_decimal(m[1], "сумма"))
+            self.store.save_quote(q)
+            return q.text()
+        if m := RE_CONFIRM.match(t):
+            d, created = self.store.confirm(m[1], now, actor)
+            head = "Сделка записана" if created else "Эта котировка уже подтверждена, повтор не создан"
+            return (f"{head}: D-{d['id']} по {d['quote_id']}\n"
+                    f"Приняли {d['give_amount']} {d['give_ccy']}, выдали {d['get_amount']} {d['get_ccy']}")
+        if m := RE_REVERSE.match(t):
+            d = self.store.reverse(int(m[1]), m[2], now, actor)
+            return f"Сделка D-{d['id']} отменена (реверс записан, ничего не удалено). Причина: {d['reverse_reason']}"
+        if m := RE_DASH.match(t):
+            return self._dashboard(m[1] or "месяц", now)
+        return "Не понял команду.\n\n" + HELP
+
+    def _rates(self, now: datetime) -> str:
+        b = self.book()
+        lines = ["Курсы (середина рынка):"]
+        for pair in ("USDCZK", "EURCZK", "EURUSD", "USDTUSD"):
+            try:
+                lines.append("• " + b.get(pair, now).label())
+            except RateError as e:
+                lines.append(f"• {pair_name(pair)}: {e}")
+        lines.append("XE не используется: его условия запрещают автоматический сбор; ЧНБ/ЕЦБ — официальные дневные курсы.")
+        return "\n".join(lines)
+
+    def _dashboard(self, period: str, now: datetime) -> str:
+        if period == "сегодня":
+            start, end = now.replace(hour=0, minute=0, second=0), now + timedelta(seconds=1)
+        elif period == "неделя":
+            start, end = now - timedelta(days=7), now + timedelta(seconds=1)
+        else:
+            start, end = business_month(now)
+        d = self.store.dashboard(start, end)
+        pos = ", ".join(f"{k} {'+' if v >= 0 else ''}{v}" for k, v in d["position_change"].items()) or "—"
+        return "\n".join([
+            f"Итоги: {start.strftime('%d.%m.%Y')} — {(end - timedelta(seconds=1)).strftime('%d.%m.%Y')}",
+            f"Сделок: {d['deals']} (отменено: {d['reversed']})",
+            f"Оборот по USDT-ноге: {d['turnover_usdt']} USDT"
+            + (f" (ещё {d['deals_without_usdt_leg']} сделок без USDT в оборот не вошли)" if d["deals_without_usdt_leg"] else ""),
+            f"Изменение кассы: {pos}",
+            f"Прибыль: {d['profit']}",
+        ])
