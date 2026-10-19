@@ -6,6 +6,7 @@ and an expiry. Nothing is ever substituted silently: a missing or stale rate is 
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -34,15 +35,53 @@ class RateError(Exception):
 class Rate:
     pair: str
     value: Decimal
-    source: str              # "ЧНБ", "ЕЦБ", or the owner's note for a manual rate
+    source: str              # "ЧНБ", "ЕЦБ", "licensed_xe_api", or the owner's note for a manual rate
     as_of: datetime          # UTC
-    kind: str                # "official" | "manual"
+    kind: str                # "official" | "manual" | "licensed_api"
     expires_at: datetime | None = None
+    raw_receipt: str = ""    # immutable provenance digest or feed receipt ID
 
     def label(self) -> str:
         t = self.as_of.astimezone(timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
-        tail = "" if self.kind == "official" else f", ручной, до {self.expires_at.strftime('%d.%m %H:%M UTC')}"
+        tail = "" if self.kind == "official" else (
+            f", лиценз. API, до {self.expires_at.strftime('%d.%m %H:%M UTC')}"
+            if self.kind == "licensed_api" and self.expires_at else
+            f", ручной, до {self.expires_at.strftime('%d.%m %H:%M UTC')}" if self.expires_at else ""
+        )
         return f"{pair_name(self.pair)} = {self.value} ({self.source}, {t}{tail})"
+
+    def provenance(self) -> dict[str, str | None]:
+        return {
+            "pair": self.pair,
+            "pair_display": pair_name(self.pair),
+            "value": str(self.value),
+            "source": self.source,
+            "kind": self.kind,
+            "timestamp_utc": self.as_of.astimezone(timezone.utc).isoformat(),
+            "expires_at_utc": self.expires_at.astimezone(timezone.utc).isoformat() if self.expires_at else None,
+            "raw_receipt": self.raw_receipt or f"{self.source}:{self.pair}:{self.as_of.astimezone(timezone.utc).isoformat()}",
+        }
+
+
+def licensed_xe_feed_status(env: dict | None = None) -> dict[str, str | bool]:
+    """Xe rate provenance policy: never scrape or screenshot xe.com.
+    Without licensed API credentials (XE_API_ID + XE_API_KEY), return N/A / MANUAL_ENTRY."""
+    import os
+    env = os.environ if env is None else env
+    has_creds = bool(str(env.get("XE_API_ID") or "").strip() and str(env.get("XE_API_KEY") or "").strip())
+    if not has_creds:
+        return {
+            "licensed_feed_configured": False,
+            "status": "N/A",
+            "fallback_mode": "MANUAL_ENTRY",
+            "policy": "XE scraping/screenshots prohibited; use CNB/ECB official rates or explicit MANUAL_ENTRY with source and TTL.",
+        }
+    return {
+        "licensed_feed_configured": True,
+        "status": "LICENSED_API_READY",
+        "fallback_mode": "LICENSED_API",
+        "policy": "Licensed Xe API credentials present; every rate requires UTC timestamp, TTL, and raw_receipt.",
+    }
 
 
 def parse_decimal(raw: str, name: str = "число") -> Decimal:
@@ -100,15 +139,29 @@ def _parse_ts(s: str) -> datetime:
     return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
 
 
+_OFFICIAL_RATES_CACHE: dict[tuple[str, int, int], list[Rate]] = {}
+
+
 def load_official(fx_db: str | Path) -> list[Rate]:
     """Latest regex-parsed, non-disputed CNB/ECB values from the War Terminal FX log (read-only)."""
-    p = Path(fx_db)
-    if not p.exists():
+    key_path = os.fspath(fx_db)
+    try:
+        st = os.stat(key_path)
+    except OSError:
         return []
+    cache_key = (key_path, st.st_mtime_ns, st.st_size)
+    cached = _OFFICIAL_RATES_CACHE.get(cache_key)
+    if cached is not None:
+        return list(cached)
+    p = Path(key_path)
     con = sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True)
     try:
-        rows = con.execute("SELECT observed_at, pair, rate, source, flags FROM fx_obs WHERE parser='regex' "
-                           "ORDER BY observed_at, id").fetchall()
+        rows = con.execute(
+            "SELECT observed_at, pair, rate, source, flags FROM fx_obs "
+            "WHERE parser='regex' AND source IN ('cnb', 'ecb') "
+            "AND pair IN ('USDCZK', 'EURCZK', 'EURUSD') "
+            "ORDER BY observed_at, id"
+        ).fetchall()
     finally:
         con.close()
     latest: dict[tuple[str, str], Rate] = {}
@@ -117,7 +170,11 @@ def load_official(fx_db: str | Path) -> list[Rate]:
             continue
         latest[(source, pair)] = Rate(pair, Decimal(rate), "ЧНБ" if source == "cnb" else "ЕЦБ",
                                       _parse_ts(observed_at), "official")
-    return list(latest.values())
+    result = list(latest.values())
+    if len(_OFFICIAL_RATES_CACHE) >= 64:
+        _OFFICIAL_RATES_CACHE.clear()
+    _OFFICIAL_RATES_CACHE[cache_key] = result
+    return list(result)
 
 
 def default_fx_db(env: dict | None = None) -> Path:
@@ -126,3 +183,4 @@ def default_fx_db(env: dict | None = None) -> Path:
     if env.get("BOSSMAN_FX_DIR"):
         return Path(env["BOSSMAN_FX_DIR"]) / "fx.db"
     return Path(env.get("LOCALAPPDATA", str(Path.home()))) / "Bossman" / "CommandCenter" / "fx" / "fx.db"
+

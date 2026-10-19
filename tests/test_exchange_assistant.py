@@ -245,3 +245,103 @@ def test_business_month_21_to_20():
     assert (s.month, s.day, e.month, e.day) == (9, 21, 10, 21)
     s, e = business_month(datetime(2026, 12, 25, 12, tzinfo=timezone.utc))
     assert (s.year, s.month, e.year, e.month) == (2026, 12, 2027, 1)
+
+
+# ------------------------------------------------------------------ Tier 5 Argon: Agentforce + Xe extensions
+def test_synthetic_1000_usdt_at_25_czk_with_3pct_buy_and_sell():
+    """Owner canonical check: 1 000 USDT at mid 25 CZK/USD and 3% fee ->
+    client buys 1 000 USDT = 25 750.00 CZK; client sells 1 000 USDT = 24 250.00 CZK."""
+    b = book(USDCZK=official("USDCZK", "25.000"), USDTUSD=manual("USDTUSD", "1.0000"))
+    # Client sells 1 000 USDT -> receives 24 250.00 CZK
+    q_sell = build_quote(
+        b, give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("1000"),
+        margin=Decimal("0.03"), require_explicit_margin=True, now=NOW,
+    )
+    assert q_sell.get_amount == Decimal("24250.00")
+    assert q_sell.client_rate == Decimal("24.250000")
+
+    # Client buys 1 000 USDT for CZK -> pays 25 750.00 CZK
+    q_buy = build_quote(
+        b, give_ccy="CZK", get_ccy="USDT", get_amount=Decimal("1000"),
+        margin=Decimal("0.03"), require_explicit_margin=True, client_buys_get=True, now=NOW,
+    )
+    assert q_buy.give_amount == Decimal("25750.00")
+    assert q_buy.get_amount == Decimal("1000.00")
+    assert "(1 + 0.03)" in q_buy.formula
+
+
+def test_require_explicit_margin_refuses_implicit_fee():
+    with pytest.raises(QuoteError, match="явную ставку"):
+        build_quote(
+            book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("500"),
+            margin=None, require_explicit_margin=True, now=NOW,
+        )
+
+
+def test_assistant_explicit_fee_and_buy_command(assistant):
+    assistant.handle("курс usdt/usd 1.0000 источник синтетика", "owner")
+    assistant.handle("курс usd/czk 25.000 источник синтетика", "owner")
+    reply_buy = assistant.handle("купить 1000 usdt за czk при 3%", "owner")
+    assert "Клиент отдаёт: 25750.00 CZK" in reply_buy
+    assert "Клиент получает: 1000.00 USDT" in reply_buy
+    assert "наценка 3%" in reply_buy
+
+    reply_sell = assistant.handle("1000 usdt в czk при 3%", "owner")
+    assert "Клиент отдаёт: 1000.00 USDT" in reply_sell
+    assert "Клиент получает: 24250.00 CZK" in reply_sell
+
+
+def test_crm_statuses_actual_legs_and_branded_document(assistant):
+    from bossman_shared.exchange_assistant import render_branded_document
+
+    assistant.handle("курс usdt/usd 1.0000 источник синтетика", "owner")
+    assistant.handle("курс usd/czk 25.000 источник синтетика", "owner")
+    q = build_quote(
+        assistant.book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("1000"),
+        margin=Decimal("0.03"), require_explicit_margin=True, now=NOW,
+    )
+    assistant.store.save_quote(q, crm_status="draft")
+    saved_q = assistant.store.quote(q.id)
+    assert saved_q["crm_status"] == "draft"
+
+    deal, created = assistant.store.confirm(
+        q.id, NOW, "owner", crm_status="accepted",
+        leg_in_actual=Decimal("1000.00"), leg_out_actual=Decimal("24250.00"),
+    )
+    assert created is True
+    assert deal["crm_status"] == "accepted"
+    assert deal["leg_in_actual"] == "1000.00"
+    assert deal["leg_out_actual"] == "24250.00"
+    assert deal["fee_rate"] == "0.03"
+
+    html_doc = render_branded_document(q, deal=deal)
+    assert "<!DOCTYPE html>" in html_doc
+    assert "<svg" in html_doc
+    assert q.id in html_doc
+    assert "24 250,00 CZK" in html_doc
+    assert "3%" in html_doc
+
+    rev = assistant.store.reverse(deal["id"], "клиент отменил", NOW, "owner")
+    assert rev["status"] == "reversed"
+    assert rev["crm_status"] == "cancelled"
+
+
+def test_xe_provenance_and_fallback_without_credentials():
+    from bossman_shared.exchange_assistant import licensed_xe_feed_status
+
+    st_missing = licensed_xe_feed_status({})
+    assert st_missing["licensed_feed_configured"] is False
+    assert st_missing["status"] == "N/A"
+    assert st_missing["fallback_mode"] == "MANUAL_ENTRY"
+
+    st_present = licensed_xe_feed_status({"XE_API_ID": "id1", "XE_API_KEY": "key1"})
+    assert st_present["licensed_feed_configured"] is True
+    assert st_present["status"] == "LICENSED_API_READY"
+
+    r = official("USDCZK", "25.000")
+    prov = r.provenance()
+    assert prov["pair"] == "USDCZK"
+    assert prov["source"] == "ЧНБ"
+    assert prov["timestamp_utc"].endswith("+00:00")
+    assert prov["raw_receipt"].startswith("ЧНБ:USDCZK:")
+

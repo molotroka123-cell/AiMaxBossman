@@ -54,10 +54,16 @@ def _canonical_uri(supplied: str, ws: Path) -> str:
     return resolved.as_uri()
 
 
+_LSP_SERVERS_CACHE: tuple[str, dict[str, list[str]]] | None = None
+
+
 def _servers() -> dict[str, list[str]]:
+    global _LSP_SERVERS_CACHE
     raw = os.environ.get("LSP_SERVERS", "").strip()
     if not raw:
         return {}
+    if _LSP_SERVERS_CACHE is not None and _LSP_SERVERS_CACHE[0] == raw:
+        return _LSP_SERVERS_CACHE[1]
     try:
         data = json.loads(raw)
     except ValueError:
@@ -67,6 +73,7 @@ def _servers() -> dict[str, list[str]]:
         for lang, argv in data.items():
             if isinstance(argv, list) and argv and all(isinstance(x, str) for x in argv):
                 out[str(lang)] = argv
+    _LSP_SERVERS_CACHE = (raw, out)
     return out
 
 

@@ -268,3 +268,31 @@ async def test_a_task_running_in_a_previous_server_process_is_not_shown_as_runni
     # a record from THIS process stays running (negative control)
     ct._write(env.svc, {**rec, "id": "abcdef654321", "boot_id": ct.BOOT_ID})
     assert (await env.client.get("/api/coding-tasks/abcdef654321")).json()["status"] == "running"
+
+
+async def test_mission_receipt_endpoint_returns_signed_workspace_receipt(env, repo, monkeypatch, tmp_path):
+    """Tier 5 OpenHands extension: unified mission workspace receipt with base_commit,
+    changed_files, git_diff, diff_digest, stop_status, postcondition_verified, and receipt_sha256."""
+    monkeypatch.setenv(ct.COMMAND_ENV, sidecar("pathlib.Path('app/main.py').write_text(\"print('v3')\\n\")"))
+    monkeypatch.setenv("TMPDIR", str(tmp_path))
+    import tempfile; monkeypatch.setattr(tempfile, "tempdir", None)
+    await _allow(env, repo.parent)
+    res = await env.client.post("/api/coding-tasks", json={
+        "instruction": "update main.py to v3", "source_repo": str(repo),
+        "allowed_paths": ["app"], "protected_paths": ["SECRETS.md"]})
+    assert res.status_code == 200
+    tid = res.json()["id"]
+    rec = await _wait_terminal(env, tid)
+    assert rec["status"] == "completed"
+    assert "receipt" in rec
+    rc = (await env.client.get(f"/api/coding-tasks/{tid}/receipt")).json()
+    assert rc["schema"] == "bossman.mission_receipt.v1"
+    assert rc["task_id"] == tid
+    assert rc["changed_files"] == ["app/main.py"]
+    assert "+print('v3')" in rc["git_diff"]
+    assert rc["postcondition_verified"] is True
+    assert rc["sandbox_removed"] is True
+    assert rc["stop_status"] == "COMPLETED"
+    assert len(rc["receipt_sha256"]) == 64
+    assert rc["receipt_id"].startswith("rcpt-")
+

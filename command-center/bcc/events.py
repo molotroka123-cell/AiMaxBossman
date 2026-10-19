@@ -256,3 +256,21 @@ class EventBus:
             out.append({**data, "kind": row.get("kind"), "seq": int(row["id"]),
                         "ts": ts.isoformat() if hasattr(ts, "isoformat") else ts})
         return out
+
+
+def format_oav_step(phase: str, *, task_id: int | str | None = None,
+                    action: str = "", target: str = "",
+                    verified: bool | None = None, checks: list[str] | None = None,
+                    generation: int | None = None) -> dict[str, Any]:
+    """Канонический формат шага observe -> act -> verify для Flight Recorder / SSE."""
+    if phase not in ("observe", "act", "verify", "takeover_pause", "takeover_resume"):
+        raise ValueError(f"unknown OAV phase: {phase!r}")
+    return {
+        "oav_phase": phase,
+        "task_id": task_id,
+        "action": action,
+        "target": target,
+        "verified": verified,
+        "checks": list(checks or ()),
+        "generation": generation,
+    }

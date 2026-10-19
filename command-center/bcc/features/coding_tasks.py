@@ -490,9 +490,49 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
     # The sandbox is a clone of the canonical branch tip: its HEAD before the
     # run is the base the candidate diff applies to (STALE_BASE otherwise).
     base = evidence.get("head_before") if isinstance(evidence, dict) else None
-    return {**record, **result_fields, "evidence": evidence, "sandbox_cleanup": cleanup,
-            **({"base_commit": base} if base else {}),
-            "duration_seconds": round(time.time() - started, 2), "finished_at": time.time()}
+    out = {**record, **result_fields, "evidence": evidence, "sandbox_cleanup": cleanup,
+           **({"base_commit": base} if base else {}),
+           "duration_seconds": round(time.time() - started, 2), "finished_at": time.time()}
+    out["receipt"] = mission_receipt(out)
+    return out
+
+
+def mission_receipt(rec: dict) -> dict[str, Any]:
+    """Unified mission workspace receipt (OpenHands contract): task_id, model,
+    workspace_path, git_diff, stop_status, postcondition_verified, and receipt_sha256."""
+    evidence = rec.get("evidence") if isinstance(rec.get("evidence"), dict) else {}
+    sidecar = rec.get("sidecar") if isinstance(rec.get("sidecar"), dict) else {}
+    ver = rec.get("verification") if isinstance(rec.get("verification"), dict) else {}
+    diff = str(rec.get("diff") or "")
+    status = str(rec.get("status") or "unknown")
+    outcome = str(rec.get("outcome") or "")
+    stop_status = "CANCELLED" if outcome == "CANCELLED" else (
+        "INTERRUPTED" if outcome == "UNKNOWN_INTERRUPTED" else status.upper()
+    )
+    verified = bool(ver.get("passed")) if rec.get("verify_tests") else (
+        status == "completed" and evidence.get("head_before") == evidence.get("head_after")
+    )
+    payload = {
+        "schema": "bossman.mission_receipt.v1",
+        "task_id": str(rec.get("id") or ""),
+        "model": str(rec.get("model") or sidecar.get("model") or "local_sidecar"),
+        "workspace_path": str(rec.get("source_repo") or ""),
+        "base_commit": rec.get("base_commit") or evidence.get("head_before"),
+        "changed_files": list(rec.get("changed_files") or []),
+        "git_diff": diff,
+        "diff_digest": rec.get("evidence_digest") or (_diff_digest(diff) if diff else None),
+        "stop_status": stop_status,
+        "postcondition_verified": verified,
+        "sandbox_removed": bool((rec.get("sandbox_cleanup") or {}).get("removed")),
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    digest = _sha(canonical)
+    return {
+        **payload,
+        "receipt_id": f"rcpt-{payload['task_id']}-{digest[:12]}",
+        "receipt_sha256": digest,
+        "sha256": digest,
+    }
 
 
 async def _agent_profile(svc, agent_id: int | None) -> dict | None:
@@ -907,7 +947,16 @@ async def list_tasks(request: Request):
 
 @router.get("/coding-tasks/{task_id}")
 async def get_task(task_id: str, request: Request):
-    return _read(request.app.state.svc, task_id)
+    rec = _read(request.app.state.svc, task_id)
+    if rec.get("status") in TERMINAL and "receipt" not in rec:
+        rec["receipt"] = mission_receipt(rec)
+    return rec
+
+
+@router.get("/coding-tasks/{task_id}/receipt")
+async def get_task_receipt(task_id: str, request: Request):
+    rec = _read(request.app.state.svc, task_id)
+    return rec.get("receipt") or mission_receipt(rec)
 
 
 @router.post("/coding-tasks/{task_id}/cancel")
