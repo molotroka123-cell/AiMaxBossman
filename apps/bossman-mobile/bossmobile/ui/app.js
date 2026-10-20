@@ -106,15 +106,21 @@
   /* ================= вход ================= */
   function showLogin(msg) { $('app').hidden = true; $('login').hidden = false; $('login-error').textContent = msg || ''; }
   async function login(token) {
-    const res = await fetch('/m/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ token }) });
+    let res;   // a dead connection used to surface the browser's English «Failed to fetch» / «Load failed»
+    try { res = await fetch('/m/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ token }) }); }
+    catch { throw new Error('Нет связи с ПК — проверьте, что Bossman на ПК запущен и телефон в той же сети.'); }
     let data = null; try { data = await res.json(); } catch { /* */ }
     if (!res.ok) { const d = (data && data.detail) || {}; throw new Error(res.status === 429 ? `Слишком много попыток. Подождите ${d.retry_after_s || 60} с.` : (d.message || 'Неверный код')); }
     S.csrf = data.csrf;
   }
   $('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const form = $('login-form'); const btn = form.querySelector('button[type="submit"]');
+    if (btn.disabled) return;                       // one attempt at a time: a double tap must not burn the rate limit
+    btn.disabled = true; form.setAttribute('aria-busy', 'true'); $('login-error').textContent = '';
     try { await login($('login-token').value.trim()); $('login-token').value = ''; start(); }
     catch (err) { $('login-error').textContent = err.message; }
+    finally { btn.disabled = false; form.setAttribute('aria-busy', 'false'); }
   });
 
   async function boot() {
