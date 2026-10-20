@@ -396,7 +396,10 @@ class SdCliRunner:
         self.proc: asyncio.subprocess.Process | None = None
         self.progress = progress                    # the engine's own "value/max" progress line (sd-cli by default)
 
-    async def run(self, argv: list[str], *, cwd: Path, on_progress: Callable[[int, int], Awaitable[None]] | None = None) -> RunResult:
+    async def run(self, argv: list[str], *, cwd: Path, on_progress: Callable[[int, int], Awaitable[None]] | None = None,
+                  on_output: Callable[[bytes], Awaitable[None]] | None = None) -> RunResult:
+        """``on_output`` gets every raw output chunk (stdout+stderr) as read, for a stage/ETA parser
+        (bcc.direct_gen.video_progress); its failure never stops the run."""
         from ..studio.providers.sdcpp import bind_to_owner_lifetime
         started = time.monotonic()
         self.proc = await asyncio.create_subprocess_exec(
@@ -428,6 +431,11 @@ class SdCliRunner:
                 chunk = await proc.stdout.read(65536)
                 if not chunk:
                     break
+                if on_output is not None:
+                    try:
+                        await on_output(chunk)
+                    except Exception:  # noqa: BLE001 - progress display only; the engine keeps running
+                        on_output = None
                 buf += chunk
                 parts = re.split(rb"[\r\n]", buf)
                 buf = parts.pop()

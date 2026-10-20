@@ -352,7 +352,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     def job_view(j: dict) -> dict:
         keep = ("job_id", "model", "kind", "status", "stage", "created_at", "started_at", "finished_at", "raw_prompt",
-                "negative", "params", "progress", "result", "error", "elapsed_s", "queue_position", "timeline", "inputs",
+                "negative", "params", "progress", "progress_detail", "result", "error", "elapsed_s", "queue_position", "timeline", "inputs",
                 "facelock", "result_unlocked")
         return {k: j.get(k) for k in keep}
 

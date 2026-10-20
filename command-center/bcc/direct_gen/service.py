@@ -28,7 +28,7 @@ from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
 from ..single_flight import await_shared
-from . import catalog, faceswap, genjutsu, pult, ref_tags, resident, sdcli, timings
+from . import catalog, faceswap, genjutsu, pult, ref_tags, resident, sdcli, timings, video_progress
 from .faceswap import python_of as _ff_python
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .prompt_vault import PromptVault
@@ -36,6 +36,7 @@ from .store import JobStore, valid_participant
 
 TERMINAL = ("completed", "failed", "cancelled")
 LIVE = ("queued", "loading", "generating", "postprocessing")
+DETAIL_SAVE_EVERY_S = 2.0      # progress_detail of a video job: job.json rewritten at most this often (stage changes at once)
 PLACEHOLDER = re.compile(r"^\{\{([a-z_]+)\}\}$")
 KNOWN = {"prompt", "negative", "seed", "width", "height", "frames", "fps", "duration", "image", "audio"}
 MAX_PROMPT = 8000
@@ -62,6 +63,14 @@ class DirectGenError(Exception):
     @property
     def detail(self) -> dict:
         return {"code": self.code, "message": self.message}
+
+
+def _params_of(fn: Any) -> set[str]:
+    import inspect
+    try:
+        return set(inspect.signature(fn).parameters)
+    except (TypeError, ValueError):
+        return set()
 
 
 def now_iso() -> str:
@@ -280,6 +289,7 @@ class DirectGenService:
             await self.svc.bus.emit(
                 "direct_gen.job", job_id=job["job_id"], participant=job["participant"][:12],
                 status=job["status"], stage=job["stage"], progress=job["progress"],
+                **({"detail": job["progress_detail"]} if job.get("progress_detail") else {}),
                 elapsed_s=self._elapsed(job), model=job["model"],
                 error_code=(job.get("error") or {}).get("code"))
 
@@ -298,6 +308,42 @@ class DirectGenService:
             self._record_timing(job)
         self.store.save(job)
         await self._emit(job)
+
+    def _video_tracker(self, job: dict, spec: Any) -> video_progress.VideoProgress | None:
+        """Stage/step/ETA parser of one video job; ETA fallback = timing medians of the same model/size/frames."""
+        try:
+            p = job.get("params") or {}
+            steps = p.get("steps") or (getattr(spec, "default_steps", None) if spec is not None else None)
+            basis = video_progress.timing_basis(self.timing_log.read(1000), str(job.get("model")), p.get("width"),
+                                                p.get("height"), p.get("frames"), steps)
+            return video_progress.VideoProgress(steps=steps, basis=basis)
+        except Exception as exc:  # noqa: BLE001 - no live detail is better than a failed job
+            logging.getLogger("bcc.direct_gen").warning("video progress unavailable: %s", type(exc).__name__)
+            return None
+
+    def _detail_writer(self, job: dict, tracker: video_progress.VideoProgress) -> Callable[[bytes], Awaitable[None]]:
+        """Engine output -> job["progress_detail"]. Sampling begun -> stage ``generating`` (not one step later);
+        job.json + event at most every DETAIL_SAVE_EVERY_S, a stage change at once."""
+        state = {"at": 0.0, "stage": None}
+
+        async def on_output(chunk: bytes) -> None:
+            if not tracker.feed(chunk) and time.monotonic() - state["at"] < DETAIL_SAVE_EVERY_S:
+                return
+            detail = tracker.snapshot()
+            job["progress_detail"] = detail
+            if not detail["known"]:
+                return
+            if job["stage"] == "loading" and detail["stage"] in ("sample", "decode", "save"):
+                state["at"], state["stage"] = time.monotonic(), detail["stage"]
+                await self._set(job, "generating")
+                return
+            now = time.monotonic()
+            if detail["stage"] != state["stage"] or now - state["at"] >= DETAIL_SAVE_EVERY_S:
+                state["at"], state["stage"] = now, detail["stage"]
+                self.store.save(job)
+                await self._emit(job)
+
+        return on_output
 
     def _record_timing(self, job: dict) -> None:
         """Measured stage times of this finished job: into the job record and the append-only timing log. Never fails
@@ -1029,7 +1075,11 @@ class DirectGenService:
                         self.store.save(job)
                         await self._emit(job)
 
-                run = await runner.run(argv, cwd=work, on_progress=on_progress)
+                extra = {}
+                tracker = self._video_tracker(job, spec) if spec.kind == "video" else None
+                if tracker is not None and "on_output" in _params_of(runner.run):
+                    extra["on_output"] = self._detail_writer(job, tracker)
+                run = await runner.run(argv, cwd=work, on_progress=on_progress, **extra)
                 shutil.rmtree(work, ignore_errors=True)
                 job["provenance"].update(engine_returncode=run.returncode, engine_seconds=run.elapsed_s,
                                          peak_rss_mb=round(run.peak_rss / 1048576))
@@ -1046,6 +1096,9 @@ class DirectGenService:
                     tail = " | ".join(run.log[-4:])[:600]
                     raise DirectGenError(0, classify_error(tail) if classify_error(tail) == "out_of_memory" else "engine_error",
                                          f"sd-cli exited with code {run.returncode}: {tail}")
+                if tracker is not None and tracker.known:
+                    tracker.mark_finished()
+                    job["progress_detail"] = tracker.snapshot()
                 await self._set(job, "postprocessing")
                 await self._collect_sd(job, spec, out)
                 if (job.get("facelock") or {}).get("requested") and images:
@@ -1365,12 +1418,16 @@ class DirectGenService:
     async def _watch(self, job: dict, prompt_id: str) -> list[dict]:
         deadline = time.monotonic() + self.timeout_seconds
         last: tuple = ()
+        tracker = self._video_tracker(job, None) if job.get("kind") == "video" else None
         while True:
             state = await self.client.poll(prompt_id)
             step = await self.client.progress(prompt_id)
             if step and step.get("max"):
                 job["progress"] = {"kind": "steps", "value": step["value"], "max": step["max"],
                                    "percent": round(100.0 * step["value"] / step["max"], 1)}
+                if tracker is not None:
+                    tracker.observe_step(step["value"], step["max"])
+                    job["progress_detail"] = tracker.snapshot()
             if state["state"] == "failed":
                 text = state.get("error") or "ComfyUI reported a failure"
                 raise DirectGenError(0, classify_error(text), text)

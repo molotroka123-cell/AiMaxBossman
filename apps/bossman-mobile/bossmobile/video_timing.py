@@ -157,6 +157,38 @@ def timing_for(model_id: str, history: dict[str, dict] | None = None) -> dict[st
     return dict((history or {}).get(model_id) or TABLE.get(model_id) or FALLBACK)
 
 
+# ------------------------------------------------- live stage/ETA parsed from the engine output (Bossman 20.10)
+STAGE_RU = {"load": "загрузка модели", "encode": "разбор промпта", "sample": "генерация",
+            "decode": "сборка кадров (VAE)", "save": "сохранение", "verify": "проверка файла"}
+ETA_LABEL = {"tqdm": "осталось — по счётчику движка", "engine_estimate": "осталось — оценка движка",
+             "s_per_it": "осталось — по темпу шагов", "timings_median": "осталось — по замерам прошлых запусков",
+             "decode_tiles": "осталось — по тайлам VAE", "done": "движок закончил"}
+
+
+def detail_view(d: dict, elapsed: float, total: float, measured: bool) -> dict[str, Any]:
+    """The phone's running card from Bossman's ``progress_detail`` (bcc.direct_gen.video_progress): the real stage,
+    real steps, and an ETA whose source is named. While the model loads with no measured basis: no percent, no ETA."""
+    stage = str(d.get("stage") or "load")
+    phase = STAGE_RU.get(stage, "генерация")
+    eta, source, scope = d.get("eta_s"), d.get("eta_source"), d.get("eta_scope")
+    if not isinstance(eta, (int, float)) or isinstance(eta, bool) or eta < 0:
+        eta, source = None, None
+    if stage == "load":
+        typical = elapsed + eta if eta is not None and source == "timings_median" else total
+        return {**loading_view(elapsed, typical, measured or source == "timings_median", phase),
+                "eta_source": source, "eta_scope": scope}
+    label = ETA_LABEL.get(source or "", "осталось неизвестно")
+    if scope == "sampling":
+        label += ", без сборки кадров"
+    pct = d.get("pct")
+    pct = min(float(pct), 99.0) if isinstance(pct, (int, float)) and not isinstance(pct, bool) else 0.0
+    step, steps = d.get("step"), d.get("steps") or d.get("total")
+    with_steps = stage == "sample" and isinstance(step, int) and isinstance(steps, int) and steps > 0
+    return {"percent": pct, "real": True, "step": step if with_steps else None, "steps": steps if with_steps else None,
+            "unit": "шаг", "phase": phase, "remaining_s": eta, "elapsed_s": elapsed, "label": label,
+            "eta_source": source, "eta_scope": scope}
+
+
 # ------------------------------------------------------------------------------------------------- queue (video jobs)
 def job_total(job: dict, history: dict[str, dict] | None = None) -> dict[str, float]:
     p = job.get("params") or {}
@@ -178,6 +210,10 @@ def running_view(job: dict, history: dict[str, dict] | None, now: float) -> dict
     stage = job.get("stage") or job.get("status")
     started = _ts(job.get("started_at")) or min(st.values(), default=None)
     elapsed = max(float(job.get("elapsed_s") or 0.0), now - started if started is not None else 0.0)
+    detail = job.get("progress_detail")
+    if job.get("kind") != "faceswap" and isinstance(detail, dict) and detail.get("known"):
+        measured = timing_for(str(job.get("model")), history).get("kind") == "measured"
+        return {**detail_view(detail, elapsed, total, measured), "total_s": total}
     p = job.get("progress") or {}
     value, mx = p.get("value"), p.get("max")
     has = isinstance(value, int) and isinstance(mx, int) and mx > 0 and value > 0

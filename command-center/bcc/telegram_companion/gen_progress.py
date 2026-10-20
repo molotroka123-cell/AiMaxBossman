@@ -7,6 +7,10 @@ While a Studio job runs, the status message sent by ``Companion.generate`` is ed
 ``bcc.studio.progress``). Without a ``progress_detail`` the plate says «прогресс неизвестен»: the
 0.05 the queue writes at claim time is not a measurement and is never shown as a percentage.
 
+Direct-generator jobs (``GET /api/direct-gen/jobs/{id}``, the phone's queue) carry the same detail as
+``progress_detail`` (``bcc.direct_gen.video_progress``: Wan/sd-cli/tqdm output -> stage, step, ETA and its source);
+``plate_job`` turns such a job into the shape above, so one plate serves both.
+
 Telegram limits: one edit per ``interval`` (25 s), no edit when the text did not change, and after
 a refused/rate-limited edit the interval doubles (up to 2 min). An edit failure never touches the
 generation itself.
@@ -94,10 +98,29 @@ def progress_line(job: dict | None) -> str:
     segments = detail.get("segments")
     if isinstance(segments, int) and segments > 1:
         parts.append(f"часть {detail.get('segment')}/{segments}")
-    eta = eta_text(detail.get("eta_s"))
+    eta = eta_text(detail.get("eta_s")) if detail.get("eta_source") != "done" else None
     if eta:
+        if detail.get("eta_scope") == "sampling":         # tqdm / s/it cover the steps; the VAE decode comes after
+            eta += " на шаги, потом сборка кадров"
+        elif detail.get("eta_source") == "timings_median":
+            eta += " (по замерам)"
         parts.append(eta)
     return " · ".join(parts)
+
+
+def plate_job(job: dict | None) -> dict:
+    """A direct-gen job (``progress`` is a dict, the detail in ``progress_detail``) in the Studio shape that
+    ``progress_line`` reads; a Studio job is returned unchanged."""
+    job = job or {}
+    if not isinstance(job.get("progress"), dict):
+        return job
+    detail = job.get("progress_detail") if isinstance(job.get("progress_detail"), dict) else None
+    pct = (detail or {}).get("pct")
+    value = float(pct) / 100.0 if isinstance(pct, (int, float)) and not isinstance(pct, bool) else None
+    status = job.get("status")
+    if status in ("loading", "generating", "postprocessing"):
+        status = "running"
+    return {"status": status, "progress": value, "progress_detail": detail}
 
 
 class GenProgressPlate:
@@ -137,7 +160,7 @@ class GenProgressPlate:
         now = self.clock()
         if now - self.last_at < self.every_s:
             return False
-        text = f"{self.header}\n{progress_line(job)}"
+        text = f"{self.header}\n{progress_line(plate_job(job))}"
         self.last_at = now
         if text == self.last_text:
             return False
