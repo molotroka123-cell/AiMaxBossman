@@ -677,3 +677,27 @@ def test_claude_audit_p1_items_5_to_11(assistant, tmp_path):
         assert d_legacy["crm_status"] == "cancelled"
     finally:
         migrated_store.close()
+
+
+@pytest.mark.parametrize("pct", ["10", "3.5"])
+def test_round_margin_is_shown_as_plain_percent_not_scientific(assistant, pct):
+    """Decimal('10.0').normalize() is Decimal('1E+1'): the owner must read «наценка 10%», never «1E+1%»."""
+    from bossman_shared.exchange_assistant import render_branded_document
+    from bossman_shared.exchange_assistant.quote import render_pdf_document
+    assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+    out = assistant.handle(f"500 usdt в czk при {pct}%", "owner")
+    assert f"наценка {pct}%" in out
+    assert "E+" not in out
+    q = assistant.store.quote_object(_qid(out))
+    assert f"{pct}%" in render_branded_document(q) and "E+" not in render_branded_document(q)
+    assert f"{pct}%".encode() in render_pdf_document(q) and b"E+" not in render_pdf_document(q)
+
+
+@pytest.mark.parametrize("pct", ["20", "40"])
+def test_soft_limit_refusal_names_round_margin_plainly(assistant, pct):
+    """The >10% soft-limit question must say «ставка 20%», not «ставка 2E+1%»; confirmed it quotes «наценка 20%»."""
+    assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+    refused = assistant.handle(f"500 usdt в czk при {pct}%", "owner")
+    assert f"ставка {pct}% превышает мягкий лимит" in refused and "E+" not in refused
+    ok = assistant.handle(f"500 usdt в czk при {pct}% подтверждаю ставку", "owner")
+    assert f"наценка {pct}%" in ok and "E+" not in ok
