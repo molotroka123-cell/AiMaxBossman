@@ -852,7 +852,11 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('app').hidden) refreshApprovals(); });
   async function refreshApprovals() {
     if (document.hidden || $('app').hidden) return;             // no polling from a phone in the pocket / on the login screen
-    try { const r = await api('GET', '/approvals'); const n = (r.items || []).length; const bd = $('badge-approvals'); bd.hidden = !n; bd.textContent = n; } catch { /* */ }
+    try {
+      const r = await api('GET', '/approvals'); const n = (r.items || []).length; const bd = $('badge-approvals'); bd.hidden = !n; bd.textContent = n ? String(n) : '';
+      // the red number alone was read as «Панель 3»: name the tab with what the number means
+      const tab = bd.closest('.tab'); if (n) tab.setAttribute('aria-label', `Панель, ждут вашего решения: ${n}`); else tab.removeAttribute('aria-label');
+    } catch { /* */ }
   }
 
   /* ================= В пульт: по кнопке, один файл (владелец 18.10: автодоставки нет) ================= */
