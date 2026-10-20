@@ -2634,6 +2634,59 @@ def _to_telegram_deeplink(url: str) -> tuple[str | None, str, str]:
     return None, "", ""
 
 
+WDA_NONE = 0
+
+
+def _display_affinity(hwnd: int) -> int | None:
+    """SetWindowDisplayAffinity окна: != 0 — приложение просит ОС не отдавать его в захват
+    (защищённый контент). None — узнать не удалось."""
+    import ctypes
+    from ctypes import wintypes
+    aff = wintypes.DWORD(0)
+    ok = ctypes.windll.user32.GetWindowDisplayAffinity(wintypes.HWND(int(hwnd)), ctypes.byref(aff))
+    return int(aff.value) if ok else None
+
+
+def _capture_protected_windows() -> list[str]:
+    """Видимые окна, защищённые от захвата экрана. Запись экрана их не снимает.
+
+    Сомнение — это защита: если окна не перечислить или аффинитет не прочитать,
+    запись не начинается (возвращается причина вместо пустого списка).
+    """
+    if os.name != "nt":
+        return []
+    try:
+        wins = tc._top_windows()
+    except Exception as exc:  # noqa: BLE001
+        return [f"(окна не перечислены: {type(exc).__name__})"]
+    out: list[str] = []
+    for h_w, t_w, _p_w in wins:
+        try:
+            aff = _display_affinity(int(h_w))
+        except Exception:  # noqa: BLE001
+            aff = None
+        if aff is None and not tc._is_window(h_w):
+            continue                      # окно закрылось между перечислением и запросом
+        if aff is None or aff != WDA_NONE:
+            out.append(str(t_w or f"hwnd={h_w}")[:80])
+    return out
+
+
+def _foreground_capture_protected() -> bool:
+    """Окно переднего плана защищено от захвата (или это не узнать) — кадр не пишется."""
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes
+        hwnd = int(ctypes.windll.user32.GetForegroundWindow() or 0)
+        if not hwnd:
+            return False
+        aff = _display_affinity(hwnd)
+    except Exception:  # noqa: BLE001
+        return True
+    return aff is None or aff != WDA_NONE
+
+
 async def _execute_record_screen(
     svc: Any,
     rt: PCAgentRuntime,
@@ -2655,6 +2708,22 @@ async def _execute_record_screen(
             "stopped": True,
             "error": "Остановлено владельцем (STOP)",
             "summary": "Остановлено владельцем (STOP)",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    # Защищённый от захвата контент (окно попросило ОС исключить его из
+    # захвата — так делают приложения и чаты с запретом сохранения) не
+    # записывается вовсе: ни до начала записи, ни кадром посреди неё.
+    protected = await asyncio.to_thread(_capture_protected_windows)
+    if protected:
+        reason = ("Запись экрана не начата: на экране окна, защищённые от захвата "
+                  f"({'; '.join(protected[:4])}) — их содержимое не записывается")
+        return {
+            "ok": False,
+            "verified": False,
+            "protected": True,
+            "error": reason,
+            "summary": reason,
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
@@ -2819,6 +2888,7 @@ async def _execute_record_screen(
         last_img = first_img
         nav_dispatched = False
         stopped_mid = False
+        protected_mid = False
 
         def _dispatch_uri(uri_to_open: str) -> None:
             for pid_i, exe_i, wdir_i in tg_instances:
@@ -2835,6 +2905,9 @@ async def _execute_record_screen(
             for idx_f in range(total_frames):
                 if rt.is_stopped(svc):
                     stopped_mid = True
+                    break
+                if _foreground_capture_protected():
+                    stopped_mid = protected_mid = True
                     break
                 t_frame = time.perf_counter()
                 if tg_uri and idx_f == nav_frame and not nav_dispatched:
@@ -2874,7 +2947,7 @@ async def _execute_record_screen(
         if stopped_mid:
             with contextlib.suppress(Exception):
                 mp4_path.unlink(missing_ok=True)
-            return {"stopped": True, "frames_written": frames_written}
+            return {"stopped": True, "protected": protected_mid, "frames_written": frames_written}
 
         with contextlib.suppress(Exception):
             last_img.save(png_path)
@@ -2914,6 +2987,18 @@ async def _execute_record_screen(
         }
 
     cap_info = await asyncio.to_thread(_run_capture_sync)
+    if cap_info.get("protected"):
+        reason = ("Запись экрана остановлена и удалена: впереди оказалось окно, защищённое "
+                  "от захвата — его содержимое не записывается")
+        return {
+            "ok": False,
+            "verified": False,
+            "stopped": True,
+            "protected": True,
+            "error": reason,
+            "summary": reason,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
     if cap_info.get("stopped") or rt.is_stopped(svc):
         return {
             "ok": False,

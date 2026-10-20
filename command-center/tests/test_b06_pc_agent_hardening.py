@@ -83,3 +83,112 @@ async def test_timed_out_run_command_kills_and_reaps_the_child(fake_svc, hanging
     assert res["ok"] is False and "таймаут" in res["error"]
     assert proc.killed is True and tree_kills == [proc.pid]
     assert proc.pid not in rt.active_procs
+
+
+# ------------------------------------------------------------------ pc.record_screen guards (fakes only)
+
+class FakeStdin:
+    def __init__(self):
+        self.frames = 0
+
+    def write(self, data):
+        self.frames += 1
+
+    def close(self):
+        pass
+
+
+class FakeFfmpeg:
+    hang = False
+    made: list["FakeFfmpeg"] = []
+
+    def __init__(self, cmd, **kw):
+        self.cmd = cmd
+        self.pid = 515151
+        self.stdin = FakeStdin()
+        self.killed = False
+        FakeFfmpeg.made.append(self)
+
+    def wait(self, timeout=None):
+        import subprocess
+        if FakeFfmpeg.hang and not self.killed:
+            raise subprocess.TimeoutExpired(self.cmd, timeout)
+        return 0
+
+    def kill(self):
+        self.killed = True
+
+
+@pytest.fixture
+def capture(monkeypatch):
+    """Screen grab, ffmpeg and window enumeration are fakes: nothing real is captured."""
+    from PIL import Image, ImageGrab
+
+    grabs = {"n": 0}
+
+    def fake_grab(*a, **k):
+        grabs["n"] += 1
+        return Image.new("RGB", (64, 48), (10, 20, 30))
+
+    FakeFfmpeg.made = []
+    FakeFfmpeg.hang = False
+    monkeypatch.setattr(ImageGrab, "grab", fake_grab)
+    monkeypatch.setattr(pca.subprocess, "Popen", FakeFfmpeg)
+    monkeypatch.setattr(pca.subprocess, "run", lambda *a, **k: None)
+    monkeypatch.setattr(pca.tc, "_top_windows", lambda: [])
+    monkeypatch.setattr(pca.tc, "_bind_default_desktop", lambda: None)
+    monkeypatch.setattr(pca, "_capture_protected_windows", lambda: [], raising=False)
+    monkeypatch.setattr(pca, "_foreground_capture_protected", lambda: False, raising=False)
+    return grabs
+
+
+async def _record(fake_svc, **args):  # noqa: F811
+    import time
+    rt = pca.get_runtime(fake_svc)
+    return rt, await pca._execute_record_screen(fake_svc, rt, task_id=950, t0=time.perf_counter(),
+                                                args={"duration_s": 1.5, "fps": 5, **args})
+
+
+async def test_record_screen_refuses_when_a_capture_protected_window_is_visible(
+        fake_svc, capture, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(pca, "_capture_protected_windows", lambda: ["Secret chat"])
+    _rt, res = await _record(fake_svc)
+    assert res["ok"] is False and res.get("protected") is True
+    assert "защищённые от захвата" in res["error"]
+    assert capture["n"] == 0, "the screen was grabbed despite a protected window"
+    assert FakeFfmpeg.made == [], "an encoder was started despite a protected window"
+
+
+async def test_record_screen_stops_and_discards_when_a_protected_window_comes_forward(
+        fake_svc, capture, monkeypatch):  # noqa: F811
+    calls = {"n": 0}
+
+    def protected_after_two_frames():
+        calls["n"] += 1
+        return calls["n"] > 2
+
+    monkeypatch.setattr(pca, "_foreground_capture_protected", protected_after_two_frames)
+    rt, res = await _record(fake_svc)
+    assert res["ok"] is False and res.get("protected") is True
+    assert FakeFfmpeg.made and FakeFfmpeg.made[0].stdin.frames == 2
+    assert not list((rt.data_dir / "pc-agent" / "recordings").glob("*.mp4"))
+    assert not list((rt.data_dir / "pc-agent" / "recordings").glob("*.png"))
+
+
+def test_protection_probe_is_fail_closed(monkeypatch):
+    """A window whose affinity cannot be read counts as protected; a closed one is skipped."""
+    monkeypatch.setattr(pca.os, "name", "nt")
+    monkeypatch.setattr(pca.tc, "_top_windows", lambda: [(1, "Notepad", 10), (2, "Chat", 11),
+                                                          (3, "Gone", 12)])
+    monkeypatch.setattr(pca, "_display_affinity", lambda h: {1: 0, 2: None, 3: None}[h])
+    monkeypatch.setattr(pca.tc, "_is_window", lambda h: h != 3)
+    assert pca._capture_protected_windows() == ["Chat"]
+    monkeypatch.setattr(pca, "_display_affinity", lambda h: {1: 0, 2: 0x11, 3: 0}[h])
+    assert pca._capture_protected_windows() == ["Chat"]          # WDA_EXCLUDEFROMCAPTURE
+    monkeypatch.setattr(pca, "_display_affinity", lambda h: 0)
+    assert pca._capture_protected_windows() == []
+
+    def boom():
+        raise RuntimeError("no uia")
+    monkeypatch.setattr(pca.tc, "_top_windows", boom)
+    assert pca._capture_protected_windows(), "enumeration failure must not mean 'nothing protected'"
