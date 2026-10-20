@@ -135,6 +135,27 @@ class FakeIO:
         ok = allow()
         return {"bytes": 0 if not ok else 5_000_000_000, "secs": 1.0, "mb_s": 5000.0, "aborted": not ok}
 
+    # load guard / queued pre-read / load read speed (19.10)
+    all_procs: list = []
+    engines: list = []
+    preread_hook = None
+
+    def list_processes(self): return copy.deepcopy(self.all_procs)
+    def get_load_priority(self, pid): return (32, 2)
+
+    def set_load_priority(self, pid, ct, nice, io):
+        self.calls.append(("load_prio", pid, nice, io))
+        return True
+
+    def engine_io(self): return copy.deepcopy(self.engines)
+
+    def preread_file(self, path, allow, chunk_mb):
+        self.calls.append(("preread", Path(path).name))
+        if self.preread_hook:
+            self.preread_hook()
+        ok = allow()
+        return {"bytes": 0 if not ok else 5_000_000_000, "secs": 1.0, "mb_s": 900.0, "aborted": not ok}
+
 
 def cfg(**over):
     c = g._merge(g.DEFAULT_CONFIG, {"jeff_during_generation": "pause", "dry_run": False, "resume_delay_s": 0, "restore_owner_hold": True, "warm": {"hot_models": []}})
@@ -670,3 +691,203 @@ def test_warm_rewarm_after_expiry_does_not_leak_budget_or_spin_when_capped():
     assert gov._active_warmed_bytes(io.t) == 0
     run_warm_sync(gov)
     assert len(names(io, "warm")) > n_before
+
+
+# ------------------------------------------------------------------------------- 19.10: load guard (slow model load)
+WT = "C:\\Users\\asd\\Bossman\\integration-20261006\\.claude\\worktrees\\agent-x"
+
+
+def proc(pid, name, cmd, ppid=1, ct=100.0, normal=True):
+    return {"pid": pid, "ppid": ppid, "name": name, "cmd": cmd, "ct": ct, "nice": 32 if normal else 16384,
+            "normal": normal}
+
+
+PROCS = [
+    proc(1, "explorer.exe", "C:\\Windows\\explorer.exe", ppid=0, ct=1.0),
+    proc(10, "python.exe", "python.exe -X utf8 -m bcc --host 127.0.0.1 --port 8801"),                  # backend
+    proc(11, "python.exe", "python.exe C:\\Users\\asd\\Bossman\\x\\bcc\\direct_gen\\facelock_worker.py a b", ppid=10, ct=200),
+    proc(12, "python.exe", "C:\\ff\\python.exe C:\\ff\\facefusion.py headless-run", ppid=10, ct=200),   # backend child
+    proc(13, "sd-cli.exe", "sd-cli.exe -M img_gen", ppid=10, ct=200),
+    proc(14, "python.exe", "python.exe -m bcc.telegram_companion --config c"),                         # pult
+    proc(15, "python.exe", "python.exe -m bcc.pit.cli watch"),                                         # Jeff
+    proc(16, "python.exe", "python.exe -X utf8 -m bossmobile serve --port 8840"),                      # phone app
+    proc(17, "python.exe", "python.exe -m warterminal --port 8830"),                                   # War Terminal
+    proc(18, "pythonw.exe", "pythonw.exe -X utf8 C:\\wt\\tools\\resource_governor\\governor.py run"),  # governor
+    proc(20, "node.exe", "node.exe C:\\npm\\node_modules\\@anthropic-ai\\claude-code\\cli.js"),         # agent CLI itself
+    proc(21, "bash.exe", "bash.exe -c pytest", ppid=20, ct=150),                                       # agent hook/tool
+    proc(22, "python.exe", f"python.exe -m pytest {WT}\\command-center\\tests\\test_direct_gen_photo.py", ppid=21, ct=160),
+    proc(23, "pip.exe", "pip.exe install torch", ppid=21, ct=160),
+    proc(24, "git.exe", "git.exe status", ppid=21, ct=160),
+    proc(25, "python.exe", f"python.exe -m pytest {WT}\\tools\\resource_governor\\test_governor.py", ppid=21, ct=160),
+    proc(26, "python.exe", "python.exe busy.py", ppid=21, ct=160, normal=False),                       # already lowered
+    proc(27, "MsMpEng.exe", "MsMpEng.exe"),                                                            # not ours to touch
+    proc(28, "python.exe", "python.exe orphan.py", ppid=10, ct=50),                                    # pid 10 reused later
+]
+
+
+def test_load_guard_selection_allowlist_denylist():
+    picked = {p["pid"] for p in g.load_guard_targets(PROCS, me=999)}
+    assert picked == {21, 22, 23, 24, 25, 28}
+    # services and what they started, the agent CLI itself, the governor, other programs, already-lowered: untouched
+    assert not picked & {1, 10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 26, 27}
+    assert {p["pid"] for p in g.load_guard_targets(PROCS, me=21)} == {28}           # the governor's own children
+    assert 22 not in {p["pid"] for p in g.load_guard_targets(PROCS, me=999, skip={(22, 160)})}
+
+
+def loading_job(status="loading", model="qwen-image-2.1-uc-edit", age_s=30.0):
+    j = job(model=model, status=status, age_s=age_s)
+    j["timeline"] = [{"stage": "loading", "at": iso(NOW - age_s + 5)}]
+    return j
+
+
+def test_load_guard_lowers_while_loading_and_restores_after():
+    io = FakeIO()
+    io.all_procs = PROCS
+    io.jobs = [loading_job()]
+    gov = g.Governor(io, cfg(warm={"enabled": False}))
+    gov.tick()
+    lowered = {c[1] for c in names(io, "load_prio")}
+    assert lowered == {21, 22, 23, 24, 25, 28}
+    assert all(c[2] == 16384 and c[3] == 1 for c in names(io, "load_prio"))        # BELOW_NORMAL + LOW I/O
+    gov.tick()
+    assert len(names(io, "load_prio")) == 6                                          # once per process, not every tick
+    io.jobs = [loading_job(status="postprocessing")]                                 # GPU work done, file checks only
+    gov.tick()
+    restored = names(io, "load_prio")[6:]
+    assert {c[1] for c in restored} == lowered and all((c[2], c[3]) == (32, 2) for c in restored)
+    assert gov.guarded == {}
+
+
+def test_load_guard_new_process_exited_process_and_end_of_jobs():
+    io = FakeIO()
+    io.all_procs = [p for p in PROCS if p["pid"] in (1, 20, 21)]
+    io.jobs = [loading_job(status="generating")]
+    gov = g.Governor(io, cfg(warm={"enabled": False}))
+    gov.tick()
+    assert {c[1] for c in names(io, "load_prio")} == {21}
+    io.all_procs = [p for p in PROCS if p["pid"] in (1, 20, 22)]                     # 21 exited, a new pytest appeared
+    gov.tick()
+    assert {c[1] for c in names(io, "load_prio")} == {21, 22} and set(gov.guarded) == {(22, 160)}
+    io.jobs = [job(ended_ago=1)]
+    gov.tick()
+    assert gov.guarded == {} and names(io, "load_prio")[-1] == ("load_prio", 22, 32, 2)
+
+
+def test_load_guard_dry_run_and_disabled_change_nothing():
+    for c in (cfg(dry_run=True, warm={"enabled": False}), cfg(load_guard={"enabled": False}, warm={"enabled": False})):
+        io = FakeIO()
+        io.all_procs = PROCS
+        io.jobs = [loading_job()]
+        gov = g.Governor(io, c)
+        gov.tick()
+        gov.tick()
+        assert names(io, "load_prio") == []
+
+
+def test_io_priority_reads_this_process_without_changing_it():
+    v = g.io_priority(__import__("os").getpid())
+    assert v is None or v in (0, 1, 2, 3)
+
+
+# ------------------------------------------------------------------------- 19.10: measured read speed of a model load
+def test_load_read_speed_is_measured_and_a_slow_load_is_logged(caplog):
+    io = FakeIO()
+    io.jobs = [loading_job(age_s=200)]
+    io.engines = [{"pid": 13, "ct": 200.0, "name": "sd-cli.exe", "read_bytes": 1_000_000_000}]
+    gov = g.Governor(io, cfg(warm={"enabled": False}))
+    gov.tick()
+    assert gov.load_read["mb_s"] is None and gov.load_read["read_gb"] == 1.0          # one sample: no speed yet
+    io.t += 10
+    io.engines[0]["read_bytes"] += 30_000_000                                        # 3 MB/s (the 19.10 incident)
+    with caplog.at_level("WARNING", logger="governor"):
+        gov.tick()
+    assert gov.load_read["mb_s"] == 3.0 and gov.load_read["model"] == "qwen-image-2.1-uc-edit"
+    assert gov.load_read["loading_s"] >= 200 and "SLOW LOAD" in caplog.text
+    io.jobs = [loading_job(status="generating")]
+    gov.tick()
+    assert gov.load_read is None
+    assert g.read_rate({"pid": 1, "ct": 1.0, "read_bytes": 0}, {"pid": 2, "ct": 1.0, "read_bytes": 9}, 1.0) is None
+
+
+def test_status_file_shows_load_read(tmp_path):
+    io = FakeIO()
+    io.jobs = [loading_job()]
+    io.engines = [{"pid": 13, "ct": 200.0, "name": "sd-cli.exe", "read_bytes": 5}]
+    status = tmp_path / "status.json"
+    g.Governor(io, cfg(warm={"enabled": False}), None, status).tick()
+    body = json.loads(status.read_text(encoding="utf-8"))
+    assert body["load_read"]["engine_pid"] == 13 and "load_guard_processes" in body
+
+
+# ------------------------------------------------------------------- 19.10: pre-read of a hot model with a QUEUED job
+HOT = "wan2.2-ti2v-5b"
+
+
+def test_preread_wanted_and_allowed_rules():
+    q, ld, gen = job(HOT, status="queued"), job(HOT, status="loading"), job(HOT, status="generating")
+    other = job("flux1-schnell", status="loading")
+    assert g.preread_wanted([q], [HOT]) == [HOT]
+    assert g.preread_wanted([q, ld], [HOT]) == [] and g.preread_wanted([gen], [HOT]) == []
+    assert g.preread_wanted([q], []) == []
+    assert g.preread_allowed([q], HOT)[0] and g.preread_allowed([ld], HOT)[0]
+    assert not g.preread_allowed([gen], HOT)[0] and not g.preread_allowed([q, other], HOT)[0]
+    assert not g.preread_allowed(None, HOT)[0]
+
+
+def run_preread_sync(gov):
+    gov.tick()
+    if gov.preread_thread:
+        gov.preread_thread.join(5)
+
+
+def test_cold_hot_model_with_a_queued_job_is_pre_read_at_once():
+    io = FakeIO()
+    io.probe_speed = 40.0                                                            # evicted by a big download
+    io.jobs = [job("flux1-schnell", status="generating"), job(HOT, status="queued")]
+    gov = g.Governor(io, cfg(warm={"hot_models": [HOT], "enabled": False}))
+    run_preread_sync(gov)
+    assert [c[1] for c in names(io, "preread")] == ["wan.gguf", "vae.safetensors"]
+    assert [e["queued_preread"] for e in gov.preread_log] == [True, True]
+    n = len(names(io, "preread"))
+    run_preread_sync(gov)
+    assert len(names(io, "preread")) == n                                            # probe interval: no re-read spin
+
+
+def test_no_preread_when_warm_or_not_queued_or_ram_floor():
+    io = FakeIO()                                                                    # probe fast = still in cache
+    io.jobs = [job(HOT, status="queued")]
+    run_preread_sync(g.Governor(io, cfg(warm={"hot_models": [HOT]})))
+    assert names(io, "preread") == [] and len(names(io, "probe")) == 2
+    io2 = FakeIO()
+    io2.probe_speed = 40.0
+    io2.jobs = [job(HOT, status="generating")]                                       # too late: already loaded
+    run_preread_sync(g.Governor(io2, cfg(warm={"hot_models": [HOT]})))
+    assert names(io2, "preread") == [] and names(io2, "probe") == []
+    io3 = FakeIO()
+    io3.probe_speed = 40.0
+    io3.avail = 31_000_000_000                                                       # 5 GB file would cross the 30 GB floor
+    io3.jobs = [job(HOT, status="queued")]
+    run_preread_sync(g.Governor(io3, cfg(warm={"hot_models": [HOT]})))
+    assert names(io3, "preread") == []
+
+
+def test_preread_stops_when_another_model_starts_loading():
+    io = FakeIO()
+    io.probe_speed = 40.0
+    io.jobs = [job(HOT, status="queued")]
+
+    def other_loads():
+        io.jobs = [job("flux1-schnell", status="loading"), job(HOT, status="queued")]
+        io.t += 2                                                                    # the cached job answer is 1.5 s max
+    io.preread_hook = other_loads
+    gov = g.Governor(io, cfg(warm={"hot_models": [HOT], "enabled": False}))
+    run_preread_sync(gov)
+    assert len(names(io, "preread")) == 1 and gov.preread_log[0]["aborted"] is True
+
+
+def test_preread_dry_run_reads_nothing():
+    io = FakeIO()
+    io.probe_speed = 40.0
+    io.jobs = [job(HOT, status="queued")]
+    run_preread_sync(g.Governor(io, cfg(dry_run=True, warm={"hot_models": [HOT]})))
+    assert names(io, "preread") == []

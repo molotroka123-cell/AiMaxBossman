@@ -26,7 +26,7 @@ from .poker_app_bridge import POKER_APP_COMMANDS, poker_app_text
 from .war_terminal_button import TERMINAL_COMMANDS, terminal_text
 from .exchange_bridge import EXCHANGE_COMMANDS, ExchangeBridgeMixin, exchange_phrase
 from .gen_refine import GEN_COMMANDS, GenRefineMixin, gen_intent, gen_phrase, photo_kind, safety_violation
-from .gen_progress import GenProgressPlate
+from .gen_progress import GenProgressPlate, measured_eta
 from .store import Store
 from . import key_intake
 
@@ -823,6 +823,11 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 if model_id == s.image_model:
                     params["steps"] = s.image_steps
                 what, size, eta = "Рисую", f"{s.image_size}×{s.image_size}", "1–5 минут"
+                try:                     # measured medians of this model (direct-gen timing log), else the rough range
+                    summary = (await self.core.direct_gen_timings()).get("summary")
+                    eta = measured_eta(summary, model_id, params.get("steps"), params["width"], params["height"]) or eta
+                except Exception:  # noqa: BLE001 - an older Bossman or no log: keep the rough range
+                    pass
             params["seed"] = seed
             engine_prompt = await self.english_prompt(prompt) if model_id in ENGLISH_ONLY_MODELS else prompt
             media = ([{"run_id": rid, "role": "reference"} for rid in reference_runs] if reference_runs else

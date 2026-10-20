@@ -49,6 +49,7 @@ FACESWAP = None          # GET /api/direct-gen/faceswap (None: 404, as an older 
 SWAP_JOB = {"job_id": "d" * 32, "model": "faceswap-facefusion", "kind": "faceswap", "status": "queued", "stage": "queued",
             "params": {"preset": "fast", "frame": "original", "faces": 1}, "progress": {"kind": "none"}}
 FAIL_NEXT: list = []     # [(status, body)] answered once by POST /api/direct-gen/jobs
+TIMINGS = None           # GET /api/direct-gen/timings (None: 404, as an older Bossman)
 
 
 class FakeBossman:
@@ -129,6 +130,8 @@ class FakeBossman:
             return httpx.Response(200, json=DG_MODELS)
         if path == "/api/direct-gen/status":
             return httpx.Response(200, json=DG_STATUS)
+        if path == "/api/direct-gen/timings":
+            return httpx.Response(200, json=TIMINGS) if TIMINGS else httpx.Response(404, json={"detail": "Not Found"})
         if path == "/api/direct-gen/faceswap":
             return httpx.Response(200, json=FACESWAP) if FACESWAP else httpx.Response(404, json={"detail": "Not Found"})
         if path == "/api/direct-gen/swap-jobs" and method == "POST":

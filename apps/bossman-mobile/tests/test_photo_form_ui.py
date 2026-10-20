@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -20,6 +21,11 @@ def _jsdom_available() -> bool:
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
 @pytest.mark.skipif(not _jsdom_available(), reason="jsdom is not installed (npm i jsdom; BM_JSDOM_DIR=<node_modules>)")
 def test_photo_form_node_suite():
-    run = subprocess.run(["node", "--test", str(UI_TESTS)], capture_output=True, text=True, timeout=180, check=False)
+    # node writes UTF-8; without an explicit encoding Windows decodes with the ANSI code page (cp1251 here), which has
+    # no character for byte 0x98 (part of «И» in UTF-8) and the whole stdout became None
+    run = subprocess.run(["node", "--test", str(UI_TESTS)], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                         timeout=180, check=False)
     assert run.returncode == 0, (run.stdout + run.stderr)[-3000:]
-    assert "# fail 0" in run.stdout and "# pass 16" in run.stdout, run.stdout[-1500:]
+    passed = re.search(r"^# pass (\d+)$", run.stdout, re.M)
+    # at least the 16 suites that existed on 18.10; new UI test files (e.g. csrf_refresh 19.10) add to the count
+    assert "# fail 0" in run.stdout and passed and int(passed.group(1)) >= 16, run.stdout[-1500:]

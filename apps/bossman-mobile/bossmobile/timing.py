@@ -9,11 +9,16 @@ time = load_s + steps * s_per_step_512 * (pixels / 512^2)
 * kind == "measured": taken from real completed Bossman jobs (timeline: loading -> generating -> postprocessing) of
   that very model on the owner PC, 17.10.2026. Live history of the same model overrides the table (see from_history).
 * kind == "estimate": no own run exists; derived from the most similar measured model and named in `basis`.
+
+19.10.2026 (owner: «замеры каждой генерации должны давать примерное время»): Bossman logs every finished job
+(``GET /api/direct-gen/timings``, also ``job["timing"]``) with load / generate / post seconds and whether the model was
+loaded cold (fresh sd-cli) or warm (kept loaded inside a queue run). The ETA uses the MEDIANS of those rows per model,
+cold and warm load apart; ``label`` is «по замеру N генераций» only with >= MIN_SAMPLES runs, otherwise «примерно».
 """
 from __future__ import annotations
 
 from datetime import datetime
-from statistics import mean
+from statistics import median
 from typing import Any
 
 from . import video_timing
@@ -71,34 +76,119 @@ def _stage_times(job: dict) -> dict[str, float]:
     return {t.get("stage"): ts for t in job.get("timeline") or [] if (ts := _ts(t.get("at"))) is not None}
 
 
-def from_history(jobs: list[dict]) -> dict[str, dict[str, Any]]:
-    """Per-model timing from COMPLETED photo jobs in Bossman's own history (stage timestamps)."""
-    acc: dict[str, list[tuple[float, float]]] = {}
-    for j in jobs:
-        p = j.get("params") or {}
-        st = _stage_times(j)
-        steps, w, h = p.get("steps"), p.get("width"), p.get("height")
-        if (j.get("kind") != "photo" or j.get("status") != "completed" or not steps or not w or not h
-                or not {"loading", "generating", "postprocessing"} <= st.keys()):
+MIN_SAMPLES = 3                 # same rule as Bossman (bcc.direct_gen.timings.MIN_SAMPLES)
+WARM_LOAD_SHARE = 0.1           # no warm run measured yet: a loaded model still encodes the prompt (≈10 % of a cold load)
+
+
+def plural_gen(n: int) -> str:
+    return "генерации" if n % 10 == 1 and n % 100 != 11 else "генераций"
+
+
+def label_for(kind: str, n: int) -> str:
+    """The text the UI shows next to every time: measured only with enough runs, otherwise honest «примерно»."""
+    return f"по замеру {n} {plural_gen(n)}" if kind == "measured" and n >= MIN_SAMPLES else "примерно"
+
+
+def row_from_job(j: dict) -> dict | None:
+    """A timing row for one job of the history: Bossman's own ``timing`` block, or (older jobs) the stage timestamps."""
+    if isinstance(j.get("timing"), dict):
+        return {**j["timing"], "job_id": j.get("job_id"), "model": j.get("model"), "kind": j.get("kind"),
+                "status": j.get("status")}
+    p = j.get("params") or {}
+    st = _stage_times(j)
+    if not {"loading", "generating", "postprocessing"} <= st.keys():
+        return None
+    return {"job_id": j.get("job_id"), "model": j.get("model"), "kind": j.get("kind"), "status": j.get("status"),
+            "steps": p.get("steps"), "width": p.get("width"), "height": p.get("height"), "load": "cold",
+            "engine": "sd-cli", "load_s": st["generating"] - st["loading"],
+            "generate_s": st["postprocessing"] - st["generating"]}
+
+
+def merge_rows(log_rows: list[dict] | None, jobs: list[dict] | None) -> list[dict]:
+    """The timing log first (it survives «удалить навсегда»), then history jobs the log does not have yet."""
+    out = [r for r in log_rows or [] if isinstance(r, dict)]
+    seen = {r.get("job_id") for r in out if r.get("job_id")}
+    for j in jobs or []:
+        if isinstance(j, dict) and j.get("job_id") not in seen:
+            row = row_from_job(j)
+            if row is not None:
+                out.append(row)
+    return out
+
+
+def from_measurements(rows: list[dict]) -> dict[str, dict[str, Any]]:
+    """Per-model photo timing = MEDIANS of completed runs: cold load, warm load, seconds per step at 512x512."""
+    acc: dict[str, list[dict]] = {}
+    for r in rows:
+        try:
+            steps, w, h = int(r.get("steps") or 0), int(r.get("width") or 0), int(r.get("height") or 0)
+            load, gen = float(r.get("load_s")), float(r.get("generate_s"))
+        except (TypeError, ValueError):
             continue
-        load, gen = st["generating"] - st["loading"], st["postprocessing"] - st["generating"]
-        if load <= 0 or gen <= 0:
+        if r.get("kind") != "photo" or r.get("status") != "completed" or steps <= 0 or w <= 0 or h <= 0 or gen <= 0 or load < 0:
             continue
-        acc.setdefault(str(j.get("model")), []).append((load, gen / int(steps) / (int(w) * int(h) / REF_PIXELS)))
-    return {m: {"kind": "measured", "n": len(v), "load_s": round(mean(a for a, _ in v), 1),
-                "s_per_step": round(mean(b for _, b in v), 2),
-                "spread": [round(min(b for _, b in v), 1), round(max(b for _, b in v), 1)] if len(v) > 1 else None,
-                "basis": f"{len(v)} зап. из журнала Bossman"} for m, v in acc.items()}
+        acc.setdefault(str(r.get("model")), []).append(
+            {"warm": r.get("load") == "warm", "load": load, "sps": gen / steps / (w * h / REF_PIXELS)})
+    out: dict[str, dict[str, Any]] = {}
+    for m, v in acc.items():
+        cold = [x["load"] for x in v if not x["warm"] and x["load"] > 0]
+        warm = [x["load"] for x in v if x["warm"]]
+        sps = [x["sps"] for x in v]
+        base = TABLE.get(m) or FALLBACK
+        n = len(v)
+        out[m] = {"kind": "measured", "n": n, "n_cold": len(cold), "n_warm": len(warm),
+                  "load_s": round(median(cold), 1) if cold else float(base["load_s"]),
+                  "load_s_warm": round(median(warm), 1) if warm else None,
+                  "s_per_step": round(median(sps), 2),
+                  "spread": [round(min(sps), 1), round(max(sps), 1)] if n > 1 else None,
+                  "basis": f"медиана {n} зап. журнала Bossman" + (f" (тёплых {len(warm)})" if warm else ""),
+                  "label": label_for("measured", n)}
+    return out
+
+
+def from_history(jobs: list[dict], log_rows: list[dict] | None = None) -> dict[str, dict[str, Any]]:
+    """Per-model timing from COMPLETED photo jobs: Bossman's timing log + history (stage timestamps of older jobs)."""
+    return from_measurements(merge_rows(log_rows, jobs))
 
 
 def timing_for(model_id: str, history: dict[str, dict] | None = None) -> dict[str, Any]:
     t = dict((history or {}).get(model_id) or TABLE.get(model_id) or FALLBACK)
     t.setdefault("spread", None)
+    t.setdefault("load_s_warm", None)
+    t["label"] = label_for(str(t.get("kind")), int(t.get("n") or 0))
     return t
 
 
-def estimate_seconds(t: dict, steps: int, width: int, height: int) -> float:
-    return float(t["load_s"]) + steps * float(t["s_per_step"]) * (width * height) / REF_PIXELS
+def warm_load_s(t: dict) -> float:
+    """Load of a job whose model is still loaded from the previous job of the queue run."""
+    w = t.get("load_s_warm")
+    return float(w) if isinstance(w, (int, float)) else max(2.0, WARM_LOAD_SHARE * float(t["load_s"]))
+
+
+def estimate_seconds(t: dict, steps: int, width: int, height: int, warm: bool = False) -> float:
+    load = warm_load_s(t) if warm else float(t["load_s"])
+    return load + steps * float(t["s_per_step"]) * (width * height) / REF_PIXELS
+
+
+def warm_models(status: dict | None) -> frozenset[str] | None:
+    """Which photo models Bossman keeps loaded inside a queue run (``/api/direct-gen/status`` → ``resident``).
+    None = all photo models (mode on/auto), empty = none (no resident engine or no live proof)."""
+    res = (status or {}).get("resident") if isinstance(status, dict) else None
+    if not isinstance(res, dict):
+        return frozenset()
+    if res.get("mode") in ("on", "auto"):
+        return None
+    if res.get("mode") == "auto-if-proven":
+        return frozenset(str(m) for m in res.get("proven_models") or [])
+    return frozenset()
+
+
+def _warm_capable(model: str, warm: frozenset[str] | None) -> bool:
+    return warm is None or model in warm
+
+
+def _engine_key(job: dict) -> tuple:
+    return (job.get("kind"), job.get("model"), bool((job.get("inputs") or {}).get("image")))
 
 
 # ---------------------------------------------------------------------------------------------------------- queue view
@@ -106,10 +196,10 @@ ACTIVE = {"queued", "loading", "generating", "postprocessing", "running"}
 DONE_OK = {"completed"}
 
 
-def _job_total(job: dict, history: dict[str, dict] | None) -> float:
+def _job_total(job: dict, history: dict[str, dict] | None, warm: bool = False) -> float:
     p = job.get("params") or {}
     t = timing_for(str(job.get("model")), history)
-    return estimate_seconds(t, int(p.get("steps") or 20), int(p.get("width") or 512), int(p.get("height") or 512))
+    return estimate_seconds(t, int(p.get("steps") or 20), int(p.get("width") or 512), int(p.get("height") or 512), warm)
 
 
 def _running_view(job: dict, total: float, history: dict[str, dict] | None, now: float) -> dict[str, Any]:
@@ -141,18 +231,22 @@ def _running_view(job: dict, total: float, history: dict[str, dict] | None, now:
             "label": "оценка по времени"}
 
 
-def _total_any(job: dict, history: dict[str, dict] | None) -> float:
+def _total_any(job: dict, history: dict[str, dict] | None, warm: bool = False) -> float:
     if job.get("kind") in video_timing.VIDEO_KINDS:
         return video_timing.job_total(job, history)["total_s"]
-    return _job_total(job, history)
+    return _job_total(job, history, warm)
 
 
 def queue_view(jobs: list[dict], history: dict[str, dict] | None = None, now: float | None = None,
                recent: int = 5, kinds: frozenset[str] | set[str] = frozenset({"photo"}),
-               done_kinds: frozenset[str] | set[str] | None = None) -> list[dict[str, Any]]:
+               done_kinds: frozenset[str] | set[str] | None = None,
+               warm: frozenset[str] | None = frozenset()) -> list[dict[str, Any]]:
     """Active jobs of `kinds` (running first, then queue order) + a few latest finished ones of `done_kinds`
     (default: the same kinds), each with a ready `ui` block. The video tab passes every kind as active, because
-    photo and video share Bossman's one GPU queue, and only video kinds as finished."""
+    photo and video share Bossman's one GPU queue, and only video kinds as finished.
+
+    ``warm`` (see ``warm_models``): photo models Bossman keeps loaded inside a queue run. A queued photo job right after
+    a job of the same model then gets the WARM load time instead of a full cold load (default: nobody is warm)."""
     import time as _t
     now = _t.time() if now is None else now
     done_kinds = kinds if done_kinds is None else done_kinds
@@ -174,13 +268,21 @@ def queue_view(jobs: list[dict], history: dict[str, dict] | None = None, now: fl
         elif ahead is not None:
             ahead += ui["remaining_s"]
         out.append({**j, "ui": {"state": "running", **ui, "total_s": total}})
+    # GPU order: what ran just before decides whether the next job's model is still loaded (warm queue run)
+    prev = _engine_key(running[-1]) if running else None
     for n, j in enumerate(queued, 1):
-        total = _total_any(j, history)
+        key = _engine_key(j)
+        is_warm = (j.get("kind") == "photo" and key == prev and _warm_capable(str(j.get("model")), warm))
+        total = _total_any(j, history, is_warm)
         pos = j.get("queue_position") or n
+        t = timing_for(str(j.get("model")), history) if j.get("kind") == "photo" else {}
+        label = t.get("label") or "примерно"
         out.append({**j, "ui": {"state": "queued", "position": pos, "wait_s": ahead, "total_s": total, "real": False,
-                                "percent": 0.0, "label": "оценка по замерам"}})
+                                "percent": 0.0, "warm": is_warm,
+                                "label": label + (", модель уже загружена" if is_warm else "")}})
         if ahead is not None:
             ahead += total
+        prev = key
     finished = sorted((j for j in jobs if j.get("kind") in done_kinds and j.get("status") not in ACTIVE),
                       key=lambda j: str(j.get("created_at")), reverse=True)[:recent]
     for j in finished:

@@ -28,7 +28,7 @@ from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
 from ..single_flight import await_shared
-from . import catalog, faceswap, genjutsu, pult, ref_tags, resident, sdcli
+from . import catalog, faceswap, genjutsu, pult, ref_tags, resident, sdcli, timings
 from .faceswap import python_of as _ff_python
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .prompt_vault import PromptVault
@@ -150,9 +150,14 @@ class DirectGenService:
         self.media_dir = Path(media_dir) if media_dir else sdcli.default_media_root()
         self.sd_bin = Path(sd_bin) if sd_bin else sdcli.default_binary()
         self._sd_runner = sd_runner or sdcli.SdCliRunner
-        # Opt-in resident engine (BOSSMAN_DIRECT_GEN_RESIDENT=1): one sd-server kept loaded between same-model photo jobs.
-        # An injected sd_runner (tests) always wins; OFF = byte-for-byte the old per-job sd-cli path.
-        self._resident = resident.ResidentEngine(resident.server_binary_for(self.sd_bin), idle_s=resident.idle_seconds())             if sd_runner is None and resident.enabled() else None
+        # Resident engine (resident.py, BOSSMAN_DIRECT_GEN_RESIDENT): one sd-server kept loaded between same-model photo
+        # jobs of a queue run. Default = only for models with a live parity proof; without one (or OFF) every job is
+        # byte-for-byte the old per-job sd-cli path. An injected sd_runner (tests) always wins.
+        self._resident_mode = resident.mode()
+        self._resident = resident.ResidentEngine(resident.server_binary_for(self.sd_bin), idle_s=resident.idle_seconds()) \
+            if sd_runner is None and self._resident_mode != resident.MODE_OFF else None
+        self._warm_keys: dict[str, tuple[str, ...] | None] = {}    # job id -> startup flags its engine needs (queued sd jobs)
+        self.timing_log = timings.TimingLog(Path(svc.settings.data_dir))
         self._free_memory = free_memory or sdcli.free_memory_bytes
         self._foreign = foreign_engines or sdcli.foreign_engines
         self.faceswap_home = faceswap.default_root()
@@ -210,8 +215,25 @@ class DirectGenService:
         job["stage"] = stage
         job["status"] = status or stage
         job["timeline"].append({"stage": stage, "at": now_iso(), **({"note": note} if note else {})})
+        if stage in TERMINAL:
+            self._record_timing(job)
         self.store.save(job)
         await self._emit(job)
+
+    def _record_timing(self, job: dict) -> None:
+        """Measured stage times of this finished job: into the job record and the append-only timing log. Never fails
+        the job (a full disk only loses the measurement)."""
+        try:
+            row = timings.measure(job)
+            job["timing"] = {k: v for k, v in row.items() if k not in ("v", "job_id")}
+            self.timing_log.append(row)
+        except Exception as exc:  # noqa: BLE001
+            logging.getLogger("bcc.direct_gen").warning("direct_gen.timing not recorded: %s", type(exc).__name__)
+
+    def timings(self, limit: int = 500) -> dict:
+        rows = self.timing_log.read(max(1, min(int(limit), 5000)))
+        return {"records": rows, "summary": timings.summary(rows), "min_samples": timings.MIN_SAMPLES,
+                "resident": self._resident_info()}
 
     def view(self, job: dict) -> dict:
         out = dict(job)
@@ -241,8 +263,63 @@ class DirectGenService:
             if live.get("ram_total_mb") is not None and live.get("ram_used_mb") is not None:
                 memory = {"measured": True, "total_mb": live["ram_total_mb"], "used_mb": live["ram_used_mb"],
                           "free_mb": live["ram_total_mb"] - live["ram_used_mb"]}
-        return {"runtime": runtime, "sd_cli": {"present": self.sd_bin.is_file()}, "resident": self._resident.status() if self._resident else None, "memory": memory, "queue": {"running": self._running, "waiting": len(self._waiting)},
+        return {"runtime": runtime, "sd_cli": {"present": self.sd_bin.is_file()}, "resident": self._resident_info(), "memory": memory, "queue": {"running": self._running, "waiting": len(self._waiting)},
                 "assist": await self.assist_status()}
+
+    # ---------- warm queue (resident engine) ----------
+
+    def _proven(self) -> set[str]:
+        return resident.proven_models(self.data_dir, self._resident.server_bin) if self._resident else set()
+
+    def _mode_for(self, model_id: str) -> str:
+        """Effective resident mode for one model: on | auto | off."""
+        if self._resident is None:
+            return resident.MODE_OFF
+        if self._resident_mode == resident.MODE_PROVEN:
+            return resident.MODE_AUTO if model_id in self._proven() else resident.MODE_OFF
+        return self._resident_mode
+
+    def _resident_info(self) -> dict | None:
+        if self._resident is None:
+            return None
+        return {**self._resident.status(), "mode": self._resident_mode, "proven_models": sorted(self._proven())}
+
+    def _load_key(self, spec: sdcli.SdSpec, job: dict, n_images: int) -> tuple[str, ...] | None:
+        """The startup flags the resident server would need for this job (None = it cannot run there). Pure: built from
+        the job's frozen params with placeholder file names; only the weights/flags part is kept."""
+        if spec.kind != "photo":
+            return None
+        try:
+            refs = [Path(f"ref{n}.png") for n in range(1, n_images + 1)] or None
+            plan = resident.plan_argv(sdcli.build_argv(spec, self.sd_bin, self.media_dir, job["params"],
+                                                       job["effective_prompt"], job["negative"], Path("out.png"), refs))
+        except Exception:  # noqa: BLE001 - unknown -> the proven sd-cli path
+            return None
+        return None if plan.fallback else plan.key
+
+    def _resident_wanted(self, exclude: str | None = None) -> bool:
+        """Is the loaded server still needed: the job on the GPU or the NEXT queued job uses exactly its weights/flags."""
+        eng = self._resident
+        if eng is None or eng.key is None:
+            return False
+        running = self._running if self._running != exclude else None
+        if running is not None and self._warm_keys.get(running) == eng.key:
+            return True
+        nxt = next((j for j in self._waiting if j != exclude), None)
+        return nxt is not None and self._warm_keys.get(nxt) == eng.key
+
+    async def _auto_release(self, exclude: str | None = None) -> None:
+        """auto/proven mode: the queue run for the loaded model is over -> release its memory now, not after idle."""
+        eng = self._resident
+        if eng is None or self._resident_mode == resident.MODE_ON or not eng.alive() or eng.busy:
+            return
+        if not self._resident_wanted(exclude):
+            await eng.stop()
+
+    async def _release_resident(self) -> None:
+        """Before a job that does not use the resident server: its weights must not sit next to another engine."""
+        if self._resident is not None and self._resident.alive():
+            await self._resident.stop()
 
     async def _default_qwen(self) -> tuple[Any, str] | None:
         registry = getattr(self.svc, "registry", None)
@@ -491,6 +568,8 @@ class DirectGenService:
             (folder / ("input_image.bin" if n == 1 else f"input_image_{n}.bin")).write_bytes(data)
         self.prompt_vault.record(job)
         self.store.save(job)
+        if self._resident is not None:
+            self._warm_keys[job_id] = self._load_key(spec, job, len(images))
         self._waiting.append(job_id)
         self._tasks[job_id] = asyncio.create_task(self._run_sd(job, spec, images), name=f"direct-gen-{job_id[:8]}")
         await self._emit(job)
@@ -558,6 +637,7 @@ class DirectGenService:
                 self._running = job_id
                 job["started_at"] = now_iso()
                 await self._set(job, "loading")
+                await self._release_resident()
                 work.mkdir(exist_ok=True)
                 result.mkdir(exist_ok=True)
                 source = work / "source.mp4"
@@ -779,7 +859,10 @@ class DirectGenService:
 
     async def _run_sd(self, job: dict, spec: sdcli.SdSpec, images: list[bytes] | bytes | None) -> None:
         job_id = job["job_id"]
-        runner = resident.ResidentRunner(self._resident, tag=spec.id) if self._resident and spec.kind == "photo" else self._sd_runner()
+        use_resident = (self._resident is not None and spec.kind == "photo"
+                        and self._mode_for(spec.id) != resident.MODE_OFF)
+        runner = resident.ResidentRunner(self._resident, tag=spec.id, cli_factory=self._sd_runner) \
+            if use_resident else self._sd_runner()
         try:
             async with self._gate():
                 if job_id in self._waiting:
@@ -787,7 +870,18 @@ class DirectGenService:
                 self._running = job_id
                 job["started_at"] = now_iso()
                 await self._set(job, "loading")
-                warm = isinstance(runner, resident.ResidentRunner) and await self._resident.prepare(spec.id)
+                warm = False
+                if isinstance(runner, resident.ResidentRunner):
+                    key = self._warm_keys.get(job_id)
+                    if self._mode_for(spec.id) == resident.MODE_AUTO:
+                        # queue run: the server only when its weights are loaded already or the NEXT job needs the same
+                        nxt = self._waiting[0] if self._waiting else None
+                        runner.use_server = key is not None and (
+                            self._resident.holds(key) or (nxt is not None and self._warm_keys.get(nxt) == key))
+                        runner.decision = "" if runner.use_server else "single job: no queued job of the same model"
+                    warm = await self._resident.prepare_key(key if runner.use_server else None)
+                else:
+                    await self._release_resident()
                 await asyncio.to_thread(self._preflight, spec, model_resident=warm)
                 folder = self.store.job_dir(job["participant"], job_id)
                 work, result = folder / "work", folder / "result"
@@ -823,7 +917,13 @@ class DirectGenService:
                                          peak_rss_mb=round(run.peak_rss / 1048576))
                 if isinstance(runner, resident.ResidentRunner):     # which engine really ran, and whether the model was already loaded
                     job["provenance"].update(engine=runner.engine_name, engine_warm=runner.warm,
-                                             engine_start_seconds=runner.startup_s, engine_fallback=runner.fallback_reason)
+                                             engine_start_seconds=runner.startup_s, engine_fallback=runner.fallback_reason,
+                                             engine_mode=self._mode_for(spec.id))
+                    if runner.decision:
+                        job["provenance"]["engine_decision"] = runner.decision
+                    if runner.ready_s is not None:
+                        job["provenance"]["engine_ready_s"] = runner.ready_s
+                    await self._auto_release(exclude=job_id)       # queue run over -> weights freed before post-processing
                 if run.returncode != 0:
                     tail = " | ".join(run.log[-4:])[:600]
                     raise DirectGenError(0, classify_error(tail) if classify_error(tail) == "out_of_memory" else "engine_error",
@@ -855,6 +955,9 @@ class DirectGenService:
                 self._running = None
             self._stopping.discard(job_id)
             self._tasks.pop(job_id, None)
+            self._warm_keys.pop(job_id, None)
+            with contextlib.suppress(Exception):
+                await self._auto_release()
 
     async def _facelock(self, job: dict, folder: Path, reference: bytes, out: Path) -> None:
         """Post-process: the face of @1 goes back into the result. Never fails the job: on any doubt the unlocked
@@ -965,8 +1068,8 @@ class DirectGenService:
         participant = valid_participant(participant)
         if participant != "owner":
             raise DirectGenError(403, "owner_only", "в Пульт можно отправлять только задачи владельца")
+        job = self.get(participant, job_id)          # 404 for an unknown id BEFORE the raw read (it raised KeyError -> 500)
         raw_job = self.store.load(participant, job_id) if hasattr(self.store, "load") else None
-        job = self.get(participant, job_id)
         if job["status"] != "completed" or not job.get("result"):
             raise DirectGenError(409, "no_result", "задача ещё не завершена — отправлять в Пульт пока нечего")
         prov = (raw_job or job).get("provenance") or {}
@@ -1071,6 +1174,7 @@ class DirectGenService:
                 self._running = job_id
                 job["started_at"] = now_iso()
                 await self._set(job, "loading")
+                await self._release_resident()
                 # The submission outlives a STOP that lands mid-request: the job must still learn the
                 # prompt id, or ComfyUI would keep running with nobody left to interrupt it.
                 # await_shared, not asyncio.shield: see bcc/single_flight.py (Python 3.14 shield callback).

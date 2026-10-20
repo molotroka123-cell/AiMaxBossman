@@ -18,6 +18,17 @@ Server API used (stable-diffusion.cpp ``sd-server``, verified in its docs/source
   GET  /sdcpp/v1/jobs/{id}            status queued|generating|completed|failed|cancelled, result.images[0].b64_json
   POST /sdcpp/v1/jobs/{id}/cancel     only queued jobs (``cancel_generating`` is false) -> STOP kills the server
 There is no authentication; the server binds 127.0.0.1 on a random free port and dies with the backend (Job Object).
+
+Modes (``BOSSMAN_DIRECT_GEN_RESIDENT``; owner 19.10: keep the model loaded between same-model jobs of a queue):
+  ``1``/``on``     the server is used for every photo job (the old opt-in behaviour, idle unload 120 s);
+  ``auto``         queue-run only: the server is started when the NEXT queued job needs the same weights/flags, kept
+                   while that holds, and released as soon as the next job differs (or after 60 s idle). A single job
+                   keeps the proven per-job sd-cli path;
+  unset (default)  ``auto`` only for models that passed the live parity benchmark (``resident-proof.json`` in the
+                   direct-gen data folder, written by ``tools/direct_gen_bench/warm_queue_bench.py`` for this exact
+                   sd-server binary); every other model stays on sd-cli. No proof file = the old path, unchanged;
+  ``0``/``off``    never (an unknown value counts as off).
+Any server error falls back to sd-cli for that job; STOP kills the server.
 """
 from __future__ import annotations
 
@@ -42,6 +53,10 @@ ENV_FLAG = "BOSSMAN_DIRECT_GEN_RESIDENT"
 ENV_IDLE = "BOSSMAN_DIRECT_GEN_RESIDENT_IDLE_S"
 ENV_BIN = "BOSSMAN_DIRECT_GEN_SD_BIN"
 DEFAULT_IDLE_S = 120.0
+AUTO_IDLE_S = 60.0
+PROOF_FILE = "resident-proof.json"
+PROOF_SCHEMA = "bossman.direct-gen.resident-proof/1"
+MODE_ON, MODE_AUTO, MODE_PROVEN, MODE_OFF = "on", "auto", "auto-if-proven", "off"
 
 # Flags that carry the job itself (one HTTP request each) -> aliases normalised to the short form.
 _JOB_VALUE = {"-p": "-p", "--prompt": "-p", "-n": "-n", "--negative-prompt": "-n", "-W": "-W", "--width": "-W",
@@ -53,15 +68,51 @@ _START_VALUE = {"--diffusion-model", "-m", "--model", "--vae", "--llm", "--llm_v
 _START_BOOL = {"--offload-to-cpu", "--diffusion-fa", "--fa", "--vae-tiling", "--increase-ref-index"}
 
 
+def mode(env: dict | None = None) -> str:
+    """on | auto | auto-if-proven (unset, the default) | off (explicit off or an unknown value: the safe side)."""
+    raw = str((env if env is not None else os.environ).get(ENV_FLAG, "")).strip().lower()
+    if raw in ("1", "true", "yes", "on", "always"):
+        return MODE_ON
+    if raw in ("auto", "queue"):
+        return MODE_AUTO
+    if raw == "":
+        return MODE_PROVEN
+    return MODE_OFF
+
+
 def enabled(env: dict | None = None) -> bool:
-    return str((env if env is not None else os.environ).get(ENV_FLAG, "")).strip().lower() in ("1", "true", "yes", "on")
+    """The old always-on switch (``mode == on``)."""
+    return mode(env) == MODE_ON
 
 
 def idle_seconds(env: dict | None = None) -> float:
+    env = env if env is not None else os.environ
+    default = DEFAULT_IDLE_S if mode(env) == MODE_ON else AUTO_IDLE_S
     try:
-        return max(0.0, float((env if env is not None else os.environ).get(ENV_IDLE, DEFAULT_IDLE_S)))
+        return max(0.0, float(env.get(ENV_IDLE, default)))
     except (TypeError, ValueError):
-        return DEFAULT_IDLE_S
+        return default
+
+
+def proven_models(direct_gen_dir: Path, server_bin: Path) -> set[str]:
+    """Model ids whose resident path passed the live parity benchmark with THIS sd-server binary (size + mtime).
+    Unreadable / another binary / no PASS -> empty set (the per-job sd-cli path stays)."""
+    try:
+        data = json.loads((Path(direct_gen_dir) / PROOF_FILE).read_text(encoding="utf-8"))
+        st = Path(server_bin).stat()
+    except (OSError, ValueError):
+        return set()
+    if not isinstance(data, dict) or data.get("schema") != PROOF_SCHEMA:
+        return set()
+    try:
+        if int(data.get("server_size")) != st.st_size or int(data.get("server_mtime")) != int(st.st_mtime):
+            return set()
+    except (TypeError, ValueError):
+        return set()
+    models = data.get("models") or {}
+    if not isinstance(models, dict):
+        return set()
+    return {m for m, r in models.items() if isinstance(r, dict) and r.get("verdict") == "PASS"}
 
 
 def server_binary_for(cli: Path) -> Path:
@@ -193,14 +244,23 @@ def _bind(pid: int) -> None:
         bind_to_owner_lifetime(pid)
 
 
+def _high_priority(pid: int) -> None:
+    """Same as SdCliRunner: the generation engine runs at HIGH priority (Windows); best effort."""
+    with contextlib.suppress(Exception):
+        import psutil
+        if hasattr(psutil, "HIGH_PRIORITY_CLASS"):
+            psutil.Process(pid).nice(psutil.HIGH_PRIORITY_CLASS)
+
+
 class ResidentEngine:
     """One sd-server process, shared by the photo jobs of this backend. Single user at a time (the service gate)."""
 
     def __init__(self, server_bin: Path, *, idle_s: float = DEFAULT_IDLE_S, spawn=_spawn, http=_http, kill=_kill,
                  bind=_bind, port_picker=_free_port, ready_timeout_s: float = 3600.0, poll_s: float = 0.5,
-                 cwd: Path | None = None) -> None:
+                 cwd: Path | None = None, prioritize=_high_priority) -> None:
         self.server_bin, self.idle_s = Path(server_bin), idle_s
         self._spawn, self._http, self._kill, self._bind, self._port = spawn, http, kill, bind, port_picker
+        self._prioritize = prioritize
         self.ready_timeout_s, self.poll_s = ready_timeout_s, poll_s
         self.cwd = Path(cwd) if cwd else Path(server_bin).parent
         self.proc: Any = None
@@ -226,7 +286,8 @@ class ResidentEngine:
 
     def status(self) -> dict:
         return {"loaded": self.alive(), "tag": self.tag if self.alive() else "", "starts": self.starts,
-                "idle_s": self.idle_s, "busy": self.busy}
+                "idle_s": self.idle_s, "busy": self.busy, "binary": self.server_bin.name,
+                "binary_present": self.server_bin.is_file()}
 
     @property
     def base(self) -> str:
@@ -238,6 +299,15 @@ class ResidentEngine:
         otherwise whatever is resident is released first so its memory counts as free again."""
         self._cancel_idle()
         if self.alive() and self.tag == tag:
+            return True
+        await self.stop()
+        return False
+
+    async def prepare_key(self, key: tuple[str, ...] | None) -> bool:
+        """Like ``prepare`` but by the exact startup flags: True = these weights/flags are loaded right now (the memory
+        check may be skipped); otherwise the server is released first (``None`` = this job will not use it)."""
+        self._cancel_idle()
+        if key is not None and self.holds(key):
             return True
         await self.stop()
         return False
@@ -263,6 +333,7 @@ class ResidentEngine:
         self.starts += 1
         self.log.clear()
         self._bind(self.proc.pid)
+        self._prioritize(self.proc.pid)
         self._reader = asyncio.create_task(self._read_log(self.proc))
         deadline = t0 + self.ready_timeout_s
         while True:
@@ -362,12 +433,17 @@ class ResidentRunner:
         self.fallback_reason = ""
         self.warm = False
         self.startup_s = 0.0
+        self.use_server = True              # set by the service per job (auto: only inside a same-model queue run)
+        self.decision = ""                  # why the per-job sd-cli path was chosen although the server was possible
+        self.ready_s: float | None = None   # seconds from run() until the server held the weights (None: sd-cli)
+        self._killed = False
 
     @property
     def proc(self):
         return self.engine.proc if self._using_server else getattr(self._cli, "proc", None)
 
     def kill(self) -> None:
+        self._killed = True                            # STOP: a dead server is NOT a reason to rerun on sd-cli
         if self._using_server:
             self.engine.kill_now()
         elif self._cli is not None:
@@ -375,6 +451,7 @@ class ResidentRunner:
 
     async def _cli_run(self, argv, cwd, on_progress, reason: str) -> RunResult:
         self.engine_name, self.fallback_reason, self._using_server = "sd-cli", reason, False
+        self.warm, self.ready_s = False, None          # the result comes from a fresh, cold sd-cli process
         await self.engine.stop()                       # its weights must not stay resident next to the sd-cli process
         self._cli = self._cli_factory()
         return await self._cli.run(argv, cwd=cwd, on_progress=on_progress)
@@ -383,6 +460,8 @@ class ResidentRunner:
         plan = plan_argv(argv)
         if plan.fallback:
             return await self._cli_run(argv, cwd, on_progress, plan.fallback)
+        if not self.use_server:
+            return await self._cli_run(argv, cwd, on_progress, "")
         self.engine.busy = True
         started = time.monotonic()
         try:
@@ -392,8 +471,16 @@ class ResidentRunner:
                 return await self._cli_run(argv, cwd, on_progress, f"sd-server unavailable: {exc}")
             self.engine_name, self.fallback_reason, self._using_server = "sd-server (resident)", "", True
             self.startup_s = 0.0 if self.warm else self.engine.startup_s
+            self.ready_s = round(time.monotonic() - started, 2)
             self.engine.on_progress = on_progress
-            return await self._request(plan, started)
+            result = await self._request(plan, started)
+            if result.returncode != 0 and not self._killed:
+                # any server-side error (refused, failed, crashed, no image): drop the server, rerun on proven sd-cli
+                tail = " | ".join(result.log[-2:])[:300]
+                self.engine.kill_now()
+                self.engine.on_progress = None
+                return await self._cli_run(argv, cwd, on_progress, f"sd-server error, rerun on sd-cli: {tail}")
+            return result
         except asyncio.CancelledError:
             self.engine.kill_now()
             raise

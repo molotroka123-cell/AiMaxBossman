@@ -9,6 +9,14 @@ generations (photo/video, direct-gen) run. It never restarts or touches the runn
   unloaded, handles Jeff according to ``jeff_during_generation`` in governor.json, lowers the priority of identifiable
   non-essential Bossman python processes, and restores everything when the last job ends.
 
+* LOAD GUARD (19.10, a qwen-image-2.1-uc-edit load sat 697 s at 2-4 MB/s on a 100 %-busy disk): while any job is
+  ``loading`` or ``generating``, background python/node/pip/pytest/git/bash processes that are not Bossman services
+  (agents' test runs, installs, hooks) get Windows LOW I/O priority + BELOW_NORMAL CPU; restored afterwards. Never the
+  backend, pult, Jeff, phone app, War Terminal, governor, engines or anything they started.
+* QUEUED HOT PRE-READ: when a hot model's files measure cold and a job for that model is QUEUED, they are read into the
+  file cache at normal priority right away (not only when idle), within the free-RAM floor.
+* The status shows the measured read MB/s of the engine during ``loading`` (``load_read``) so a slow load is visible.
+
 Polls ``GET /api/direct-gen/jobs`` (cheap) every ``poll_s``; never ``/health/live``. Stdlib + psutil + httpx, Windows.
 Decision logic is pure and injected with an ``IO`` object so it is unit-tested with fakes (test_governor.py).
 """
@@ -71,6 +79,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "catalog_url": "https://openrouter.ai/api/v1/models",
     "ollama_unload": True,
     "deprioritize": True,
+    # while a job is loading/generating: agents' background processes -> LOW I/O (1) + BELOW_NORMAL CPU, restored after
+    "load_guard": {"enabled": True, "io_priority": 1, "slow_mb_s": 50, "slow_after_s": 60},
+    # a hot model measured cold while its job is QUEUED: read its files now at normal priority (free-RAM floor applies)
+    "preread": {"enabled": True, "probe_s": 30, "chunk_mb": 16},
     "warm": {
         "enabled": True, "idle_s": 60, "max_models": 2, "max_bytes": 40_000_000_000, "min_free_gb": 30,
         "rewarm_after_s": 1800, "chunk_mb": 8, "lookback_days": 14, "io_priority_hint": 0, "index_refresh_s": 1800,
@@ -96,6 +108,25 @@ PROTECTED_CMD = ("-m bcc --host", "-m bcc ", "bcc.pit", "bcc.telegram_companion"
                  "owner_one_bossman", "resource_governor", "search_proxy", "keep_awake", "sd-cli", "ollama",
                  "llama-server", "codex", "chatgpt", "claude", "ffmpeg")
 CANDIDATE_NAMES = ("python.exe", "pythonw.exe")
+
+# load guard: which background processes may be lowered while a model loads / generates
+LOAD_STAGES = ("loading", "generating")
+GUARD_NAMES = ("python.exe", "pythonw.exe", "python3.exe", "node.exe", "pip.exe", "pip3.exe", "pytest.exe", "py.exe",
+               "uv.exe", "git.exe", "bash.exe", "sh.exe")
+# Bossman services, engines and the agent CLIs themselves, matched on the command line (slashes normalised to "\").
+# Deliberately precise, NOT the broad substrings of PROTECTED_CMD: an agent's pytest of tests\test_direct_gen_*.py
+# running from a ".claude\worktrees\..." folder is exactly what must yield to the owner's generation.
+SERVICE_CMD = tuple(re.compile(p, re.I) for p in (
+    r"-m\s+bcc(\s|\.|$)",                       # backend :8801, bcc.pit (Jeff), bcc.telegram_companion (pult)
+    r"-m\s+bossmobile\b", r"-m\s+warterminal\b", r"owner_one_bossman", r"governor\.py\"?\s+(run|status)",
+    r"search_proxy", r"keep_awake", r"\\direct_gen\\[a-z_]+_worker\.py", r"facefusion\.py", r"comfyui\\main\.py",
+    r"\bmain\.py\b.*--listen"))
+SERVICE_NAMES = ("sd-cli.exe", "sd-server.exe", "ollama.exe", "ollama app.exe", "llama-server.exe", "ffmpeg.exe")
+# The agent CLIs themselves are left alone, but what THEY spawn (pytest, pip, git, bash hooks) is not shielded by them.
+SELF_ONLY_CMD = tuple(re.compile(p, re.I) for p in (r"@anthropic-ai\\claude-code", r"claude-code\\cli\.js",
+                                                     r"@openai\\codex"))
+SELF_ONLY_NAMES = ("claude.exe", "codex.exe")
+ENGINE_NAMES = ("sd-cli.exe", "sd-server.exe")
 
 log = logging.getLogger("governor")
 
@@ -236,6 +267,79 @@ def is_depri_candidate(name: str, cmdline: str, cwd: str, nice_is_normal: bool) 
         return False
     probe = (low + " " + (cwd or "").lower()).replace("/", "\\")
     return "\\bossman\\" in probe
+
+
+def load_jobs(jobs: list[dict] | None) -> list[dict]:
+    """Jobs whose engine is reading weights / sampling right now (the disk + CPU must be theirs)."""
+    return [j for j in jobs or [] if isinstance(j, dict) and j.get("status") in LOAD_STAGES]
+
+
+def is_service(name: str, cmdline: str) -> bool:
+    """A Bossman service / engine: it AND everything it started are never lowered by the load guard."""
+    if (name or "").lower() in SERVICE_NAMES:
+        return True
+    cmd = (cmdline or "").replace("/", "\\")
+    return any(p.search(cmd) for p in SERVICE_CMD)
+
+
+def is_agent_cli(name: str, cmdline: str) -> bool:
+    if (name or "").lower() in SELF_ONLY_NAMES:
+        return True
+    cmd = (cmdline or "").replace("/", "\\")
+    return any(p.search(cmd) for p in SELF_ONLY_CMD)
+
+
+def load_guard_targets(procs: list[dict], me: int, skip: set | frozenset = frozenset()) -> list[dict]:
+    """Background processes to lower while a model loads: allow-listed names (python/node/pip/pytest/git/bash...) at
+    NORMAL priority that are neither a Bossman service/engine nor started by one (parent chain, pid reuse guarded by
+    create time), nor an agent CLI itself, nor the governor, nor already handled (``skip`` = {(pid, create_time)})."""
+    by_pid = {p["pid"]: p for p in procs}
+    roots = {p["pid"] for p in procs if is_service(p.get("name", ""), p.get("cmd", ""))} | {me}
+
+    def protected(p: dict) -> bool:
+        cur, hops = p, 0
+        while cur is not None and hops < 64:
+            if cur["pid"] in roots:
+                return True
+            parent = by_pid.get(cur.get("ppid"))
+            if parent is None or parent["pid"] == cur["pid"] or (parent.get("ct") or 0) > (cur.get("ct") or 0) + 1.0:
+                return False                        # no parent, or the parent pid was reused by a newer process
+            cur, hops = parent, hops + 1
+        return False
+
+    return [p for p in procs if (p.get("name") or "").lower() in GUARD_NAMES and p.get("normal")
+            and p["pid"] != me and (p["pid"], p.get("ct")) not in skip
+            and not is_agent_cli(p.get("name", ""), p.get("cmd", "")) and not protected(p)]
+
+
+def read_rate(prev: dict | None, cur: dict | None, dt: float) -> float | None:
+    """MB/s the engine read between two samples of the same process (None when not comparable)."""
+    if not prev or not cur or dt <= 0 or (prev["pid"], prev.get("ct")) != (cur["pid"], cur.get("ct")):
+        return None
+    return max(0.0, (cur["read_bytes"] - prev["read_bytes"]) / dt / 1e6)
+
+
+def preread_wanted(jobs: list[dict] | None, hot: list[str]) -> list[str]:
+    """Hot models with a QUEUED job and no job of that model loading yet (the cache can still be filled in time)."""
+    live = [j for j in jobs or [] if isinstance(j, dict) and j.get("status") in LIVE]
+    out = []
+    for m in hot:
+        mine = [j for j in live if j.get("model") == m]
+        if any(j.get("status") == "queued" for j in mine) and not any(j.get("status") in LOAD_STAGES for j in mine):
+            out.append(m)
+    return out
+
+
+def preread_allowed(jobs: list[dict] | None, model: str) -> tuple[bool, str]:
+    """Keep pre-reading while that model's job is queued or loading and no OTHER model is loading (its disk)."""
+    if jobs is None:
+        return False, "jobs unknown"
+    live = [j for j in jobs if isinstance(j, dict) and j.get("status") in LIVE]
+    if not any(j.get("model") == model and j.get("status") in ("queued", "loading") for j in live):
+        return False, "no queued/loading job of the model"
+    if any(j.get("status") == "loading" and j.get("model") != model for j in live):
+        return False, "another model is loading"
+    return True, "ok"
 
 
 def cloud_free_pick(configured: list[str], catalog: dict[str, tuple[Any, Any]] | None, limit: int = 5) -> list[str]:
@@ -450,7 +554,7 @@ class SystemIO:
             self._boost_warned = warned
         for p in psutil.process_iter(["pid", "name", "nice"]):
             try:
-                if (p.info["name"] or "").lower() == "sd-cli.exe" and p.info["nice"] != psutil.HIGH_PRIORITY_CLASS:
+                if (p.info["name"] or "").lower() in ENGINE_NAMES and p.info["nice"] != psutil.HIGH_PRIORITY_CLASS:
                     p.nice(psutil.HIGH_PRIORITY_CLASS)
                     done.append(p.info["pid"])
             except (psutil.AccessDenied, PermissionError) as exc:
@@ -482,6 +586,64 @@ class SystemIO:
             return int(psutil.Process(pid).ionice())
         except (psutil.Error, OSError, ValueError):
             return None
+
+    # -- load guard ------------------------------------------------------------------------------------------
+    def list_processes(self) -> list[dict]:
+        """Every process with parent, name, command line, create time and whether its CPU priority is NORMAL."""
+        import psutil
+        out = []
+        for p in psutil.process_iter(["pid", "ppid", "name", "cmdline", "create_time", "nice"]):
+            try:
+                info = p.info
+                out.append({"pid": info["pid"], "ppid": info.get("ppid"), "name": info.get("name") or "",
+                            "cmd": " ".join(info.get("cmdline") or [])[:600], "ct": info.get("create_time") or 0.0,
+                            "nice": info.get("nice"), "normal": info.get("nice") == getattr(psutil, "NORMAL_PRIORITY_CLASS", 0)})
+            except (psutil.Error, OSError):
+                continue
+        return out
+
+    def get_load_priority(self, pid: int) -> tuple[int | None, int | None]:
+        import psutil
+        try:
+            nice = int(psutil.Process(pid).nice())
+        except (psutil.Error, OSError, ValueError):
+            nice = None
+        return nice, io_priority(pid)
+
+    def set_load_priority(self, pid: int, ct: float, nice: int | None, io_level: int | None) -> bool:
+        """CPU priority class via psutil, I/O priority via NtSetInformationProcess (psutil.ionice as the fallback)."""
+        import psutil
+        try:
+            p = psutil.Process(pid)
+            if abs(p.create_time() - ct) > 1.0:
+                return False                                      # pid was reused
+            if nice is not None:
+                p.nice(nice)
+        except (psutil.Error, OSError, ValueError):
+            return False
+        if io_level is not None and io_priority(pid, io_level) is None:
+            try:
+                psutil.Process(pid).ionice(io_level)
+            except (psutil.Error, OSError, ValueError, AttributeError):
+                return False
+        return True
+
+    def engine_io(self) -> list[dict]:
+        """Read counters of the generation engines (bytes the process asked the OS for, file cache hits included)."""
+        import psutil
+        out = []
+        for p in psutil.process_iter(["pid", "name", "create_time"]):
+            try:
+                if (p.info["name"] or "").lower() in ENGINE_NAMES:
+                    out.append({"pid": p.info["pid"], "ct": p.info["create_time"], "name": p.info["name"],
+                                "read_bytes": int(p.io_counters().read_bytes)})
+            except (psutil.Error, OSError, AttributeError):
+                continue
+        return out
+
+    def preread_file(self, path: str, allow: Callable[[], bool], chunk_mb: int) -> dict:
+        """Fast pre-read for a QUEUED hot model: normal thread priority and normal I/O hint (not the idle reader)."""
+        return read_file_low_priority(path, allow, chunk_mb, 2, low=False)
 
     # -- warm-up ---------------------------------------------------------------------------------------------
     def build_index(self) -> dict[str, list[tuple[str, int]]]:
@@ -565,18 +727,57 @@ def _system_cache_bytes() -> int | None:
         return None
 
 
-def read_file_low_priority(path: str, allow: Callable[[], bool], chunk_mb: int = 8, hint: int = 0) -> dict:
+_PROCESS_SET_INFORMATION = 0x0200
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_PROCESS_IO_PRIORITY = 33                     # PROCESSINFOCLASS ProcessIoPriority
+
+
+def io_priority(pid: int, level: int | None = None) -> int | None:
+    """Read (``level`` None) or set the Windows I/O priority of a process through ntdll NtQuery/SetInformationProcess
+    (0 very low, 1 low, 2 normal). Returns the value read / set, or None when the call is unavailable or refused; the
+    caller then falls back to psutil.ionice. Never raises."""
+    if os.name != "nt":
+        return None
+    try:
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        nt = ctypes.WinDLL("ntdll")
+        k32.OpenProcess.restype = ctypes.c_void_p
+        k32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+        k32.CloseHandle.argtypes = [ctypes.c_void_p]
+        nt.NtSetInformationProcess.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_ulong]
+        nt.NtQueryInformationProcess.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_ulong,
+                                                 ctypes.c_void_p]
+        access = _PROCESS_QUERY_LIMITED_INFORMATION | (_PROCESS_SET_INFORMATION if level is not None else 0)
+        h = k32.OpenProcess(access, False, int(pid))
+        if not h:
+            return None
+        try:
+            val = ctypes.c_ulong(int(level) if level is not None else 0)
+            if level is not None:
+                status = nt.NtSetInformationProcess(h, _PROCESS_IO_PRIORITY, ctypes.byref(val), ctypes.sizeof(val))
+            else:
+                status = nt.NtQueryInformationProcess(h, _PROCESS_IO_PRIORITY, ctypes.byref(val), ctypes.sizeof(val), None)
+            return int(val.value) if status == 0 else None
+        finally:
+            k32.CloseHandle(h)
+    except Exception:  # noqa: BLE001 - optional OS feature
+        return None
+
+
+def read_file_low_priority(path: str, allow: Callable[[], bool], chunk_mb: int = 8, hint: int = 0,
+                           low: bool = True) -> dict:
     """Sequentially read ``path`` to populate the OS file cache. Thread priority lowest, file I/O priority hint
     (0 VeryLow / 1 Low), FILE_FLAG_SEQUENTIAL_SCAN. Memory priority is left at the default on purpose: the Windows
     'background mode' would also drop it to 1 and those cache pages would be the first to be repurposed.
-    ``allow()`` is asked between chunks; False aborts at once. Nothing is parsed or sent anywhere."""
+    ``allow()`` is asked between chunks; False aborts at once. Nothing is parsed or sent anywhere.
+    ``low=False`` (queued hot pre-read): the thread priority and the I/O hint are left at normal."""
     t0 = time.perf_counter()
     done = 0
     fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_SEQUENTIAL", 0))
     aborted = False
     old_prio = None
     try:
-        if os.name == "nt":
+        if os.name == "nt" and low:
             import msvcrt
             k32 = ctypes.WinDLL("kernel32", use_last_error=True)
             k32.GetCurrentThread.restype = ctypes.c_void_p
@@ -847,6 +1048,18 @@ class Governor:
         self._fresh_jobs_at = 0.0
         self._fresh_live = False
         self._lock = threading.Lock()
+        self.guarded: dict[tuple[int, float], dict] = {}     # load guard: (pid, ct) -> original priorities
+        self._dry_guarded: set[tuple[int, float]] = set()
+        self.load_read: dict | None = None                   # measured engine read speed of the loading job
+        self._io_prev: dict | None = None
+        self._io_prev_at = 0.0
+        self._slow_warned: set[str] = set()
+        self.preread_thread: threading.Thread | None = None
+        self.preread_stop = threading.Event()
+        self.preread_probed: dict[str, float] = {}
+        self.preread_log: list[dict] = []
+        self._preread_at = 0.0
+        self._preread_jobs: list[dict] | None = None
 
     # -- one polling step ------------------------------------------------------------------------------------
     def tick(self) -> None:
@@ -864,11 +1077,16 @@ class Governor:
                 self._enter_active(live)
             else:
                 self._guard(live)
+            self._load_guard(jobs)
+            self._measure_load(jobs, now)
+            self._maybe_preread(jobs, now)
         else:
             if self.phase == "ACTIVE":
                 self._leave_active("last job finished")
             elif self.jeff.active:                         # crash recovery: state file says Jeff was switched
                 self.jeff.leave("recovery at start: no live job")
+            self._restore_guard("no live job")
+            self.load_read, self._io_prev = None, None
             self.jeff.tick_pending(now)
             self._maybe_warm(jobs, now)
         self._write_status(jobs)
@@ -912,6 +1130,8 @@ class Governor:
         log.info("LEAVE ACTIVE: %s", reason)
         self.jeff.leave(reason)
         self._restore_depri()
+        self._restore_guard(reason)
+        self.preread_stop.set()
         self.phase = "IDLE"
         self.last_decision = "IDLE " + reason
         self.hot_probed.clear()                 # re-measure the hot weights right after a generation
@@ -953,6 +1173,148 @@ class Governor:
         if self.depri:
             log.info("priorities restored for %d process(es)", len(self.depri))
         self.depri.clear()
+
+    # -- load guard (19.10) ----------------------------------------------------------------------------------
+    def _load_guard(self, jobs: list[dict]) -> None:
+        """While a job loads/generates: agents' background processes -> BELOW_NORMAL CPU + LOW I/O; else restore."""
+        lg = self.cfg["load_guard"]
+        if not lg["enabled"]:
+            return
+        if not load_jobs(jobs):
+            self._restore_guard("no job loading/generating")
+            return
+        import psutil
+        below = getattr(psutil, "BELOW_NORMAL_PRIORITY_CLASS", 10)
+        procs = self.io.list_processes()
+        alive = {(p["pid"], p.get("ct")) for p in procs}
+        for key in [k for k in self.guarded if k not in alive]:      # exited meanwhile: nothing to restore
+            self.guarded.pop(key, None)
+        skip = set(self.guarded) | set(self.depri) | self._dry_guarded
+        for p in load_guard_targets(procs, os.getpid(), skip):
+            key = (p["pid"], p.get("ct"))
+            if self.dry:
+                self._dry_guarded.add(key)
+                log.info("DRYRUN would lower (load guard) pid %s %s %s", p["pid"], p.get("name"), p.get("cmd", "")[:80])
+                continue
+            nice0, io0 = self.io.get_load_priority(p["pid"])
+            if self.io.set_load_priority(p["pid"], p.get("ct"), below, int(lg["io_priority"])):
+                self.guarded[key] = {"nice": nice0 if nice0 is not None else p.get("nice"),
+                                     "io": io0 if io0 is not None else 2, "name": p.get("name"),
+                                     "cmd": p.get("cmd", "")[:80]}
+                log.info("load guard: pid %s %s -> BELOW_NORMAL CPU, I/O %s (was nice %s, I/O %s): %s", p["pid"],
+                         p.get("name"), lg["io_priority"], nice0, io0, p.get("cmd", "")[:80])
+
+    def _restore_guard(self, reason: str) -> None:
+        if not self.guarded:
+            self._dry_guarded.clear()
+            return
+        for (pid, ct), orig in list(self.guarded.items()):
+            if not self.dry:
+                self.io.set_load_priority(pid, ct, orig["nice"], orig["io"])
+        log.info("load guard: restored %d process(es) (%s)", len(self.guarded), reason)
+        self.guarded.clear()
+        self._dry_guarded.clear()
+
+    def _measure_load(self, jobs: list[dict], now: float) -> None:
+        """Measured read MB/s of the engine while a job is loading (status ``load_read``; a slow load is logged)."""
+        loading = [j for j in jobs if isinstance(j, dict) and j.get("status") == "loading"]
+        if not loading:
+            self.load_read, self._io_prev = None, None
+            return
+        engines = self.io.engine_io()
+        cur = max(engines, key=lambda e: e.get("ct") or 0.0) if engines else None   # the newest engine is the loader
+        rate = read_rate(self._io_prev, cur, now - self._io_prev_at)
+        j = loading[0]
+        since = max((parse_ts(t.get("at")) or 0.0 for t in j.get("timeline") or [] if t.get("stage") == "loading"),
+                    default=0.0) or parse_ts(j.get("started_at")) or now
+        loading_s = max(0.0, now - since)
+        self.load_read = {"job_id": str(j.get("job_id") or "")[:12], "model": j.get("model"),
+                          "loading_s": round(loading_s), "engine_pid": cur["pid"] if cur else None,
+                          "read_gb": round(cur["read_bytes"] / 1e9, 2) if cur else None,
+                          "mb_s": round(rate, 1) if rate is not None else None}
+        lg = self.cfg["load_guard"]
+        jid = str(j.get("job_id") or "")
+        if rate is not None and rate < lg["slow_mb_s"] and loading_s >= lg["slow_after_s"] and jid not in self._slow_warned:
+            self._slow_warned.add(jid)
+            log.warning("SLOW LOAD: %s loading %.0f s, engine reads %.1f MB/s (%.2f GB so far)", j.get("model"),
+                        loading_s, rate, cur["read_bytes"] / 1e9)
+        self._io_prev, self._io_prev_at = cur, now
+
+    # -- pre-read of a QUEUED hot model (19.10) ---------------------------------------------------------------
+    def _preread_allow(self, model: str) -> bool:
+        if self.preread_stop.is_set():
+            return False
+        now = self.io.now()
+        with self._lock:
+            fresh = now - self._preread_at < 1.5
+            jobs = self._preread_jobs
+        if not fresh:
+            jobs = self.io.fetch_jobs()
+            with self._lock:
+                self._preread_at, self._preread_jobs = now, jobs
+        return preread_allowed(jobs, model)[0]
+
+    def _maybe_preread(self, jobs: list[dict], now: float) -> None:
+        pr, w = self.cfg["preread"], self.cfg["warm"]
+        if not pr["enabled"] or (self.preread_thread and self.preread_thread.is_alive()):
+            return
+        models = preread_wanted(jobs, list(w.get("hot_models") or []))
+        if not models:
+            return
+        if not self.index or now - self.index_at > w["index_refresh_s"]:
+            self.index, self.index_at = self.io.build_index(), now
+        todo = []
+        for p in plan_files(jobs, [(m, 1.0) for m in models], self.index, len(models)):
+            for f in p["files"]:
+                if now - self.preread_probed.get(f["path"], -1e18) < pr["probe_s"]:
+                    continue
+                self.preread_probed[f["path"]] = now
+                try:
+                    speed = self.io.probe_file(f["path"], w["hot_probe_mb"])
+                except OSError:
+                    continue
+                self.hot_state[f["path"]] = speed
+                if speed < w["hot_min_mb_s"]:
+                    todo.append((p["model"], f))
+        if not todo:
+            return
+        log.info("QUEUED hot model cold: pre-read %s now (normal priority)", [(m, Path(f["path"]).name) for m, f in todo])
+        if self.dry:
+            return
+        self.preread_stop.clear()
+        with self._lock:
+            self._preread_at = 0.0
+        self.preread_thread = threading.Thread(target=self._preread_worker, args=(todo,), name="preread", daemon=True)
+        self.preread_thread.start()
+
+    def _preread_worker(self, todo: list[tuple[str, dict]]) -> None:
+        w, pr = self.cfg["warm"], self.cfg["preread"]
+        min_free = int(w["min_free_gb"] * 1e9)
+        for model, f in todo:
+            allow = (lambda m=model: self._preread_allow(m))
+            if not allow():
+                log.info("pre-read stopped before %s (its job started generating, ended, or another model loads)",
+                         Path(f["path"]).name)
+                break
+            ok, why = budget_ok(self.io.mem()["available"], f["size"], min_free, 0, w["max_bytes"])
+            if not ok:
+                log.info("pre-read stopped, RAM floor: %s", why)
+                break
+            try:
+                r = self.io.preread_file(f["path"], allow, pr["chunk_mb"])
+            except OSError as exc:
+                log.warning("pre-read failed %s: %s", Path(f["path"]).name, type(exc).__name__)
+                continue
+            if not r["aborted"]:
+                self.warmed[f["path"]] = self.io.now()
+                self.warmed_sizes[f["path"]] = r["bytes"]
+            entry = {"model": model, "file": Path(f["path"]).name, "gb": round(r["bytes"] / 1e9, 2),
+                     "mb_s": round(r["mb_s"]), "aborted": r["aborted"], "queued_preread": True}
+            self.preread_log.append(entry)
+            self.warm_log.append(entry)
+            log.info("pre-read %s", entry)
+            if r["aborted"]:
+                break
 
     # -- warm-up ---------------------------------------------------------------------------------------------
     def _jobs_allow(self) -> bool:
@@ -1091,12 +1453,19 @@ class Governor:
             "decision": self.last_decision, "jeff_mode": self.jeff.mode, "jeff_setting": self.cfg["jeff_during_generation"],
             "ollama_unloads": self.unloads, "depri_processes": len(self.depri), "warm_log": self.warm_log[-6:],
             "hot_mb_s": {Path(k).name: round(v) for k, v in self.hot_state.items()},
+            "load_read": self.load_read, "load_guard_processes": len(self.guarded),
+            "load_guard": [{"pid": pid, "name": v.get("name")} for (pid, _ct), v in list(self.guarded.items())[:12]],
+            "preread_log": self.preread_log[-6:],
             "ram_available_gb": round(m["available"] / 1e9, 1), "cache_gb": _gb(m.get("cache"))})
 
     def shutdown(self) -> None:
         self.warm_stop.set()
+        self.preread_stop.set()
         if self.warm_thread:
             self.warm_thread.join(timeout=5)
+        if self.preread_thread:
+            self.preread_thread.join(timeout=5)
+        self._restore_guard("governor exit")
         if self.phase == "ACTIVE" or self.jeff.active:
             self._leave_active("governor exit")
 

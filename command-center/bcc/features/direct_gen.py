@@ -10,6 +10,7 @@
   GET  /direct-gen/jobs/{id}/file         the finished picture/video (?variant=unlocked: the picture before FaceLock)
   POST /direct-gen/jobs/{id}/send-to-pult owner only, on request: this ONE finished file to the Пульт as a Telegram document
   GET  /direct-gen/vault/prompts?q=&limit=  owner-only: encrypted history of the owner's own prompts
+  GET  /direct-gen/timings?limit=         owner-only: measured load/generate/post times of finished jobs + medians
   POST /direct-gen/assist                 ASSISTED: a LOCAL model (default Qwen, or model_id) proposes an edit; nothing is generated
   GET  /direct-gen/assist-models          every local text model usable as the helper (uncensored ones flagged by name)
   GET  /direct-gen/faceswap               FaceFusion installed? presets
@@ -197,6 +198,14 @@ async def vault_prompts(request: Request, q: str = "", limit: int = 100, x_parti
     if _who(x_participant, request) != "owner":
         raise HTTPException(404, {"code": "not_found", "message": "not found"})
     return {"prompts": _svc(request).prompt_vault.search(q, limit)}
+
+
+@router.get("/timings")
+async def timings(request: Request, limit: int = 500, x_participant: str | None = Header(default=None)):
+    """Owner only: measured stage times of finished jobs (append-only log) + per-model medians, cold/warm load apart."""
+    if _who(x_participant) != "owner":
+        raise HTTPException(404, {"code": "not_found", "message": "not found"})
+    return _svc(request).timings(limit)
 
 
 @router.post("/assist")

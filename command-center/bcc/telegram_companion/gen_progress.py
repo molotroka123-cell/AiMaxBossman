@@ -43,6 +43,33 @@ def eta_text(seconds) -> str | None:
     return f"осталось ~{int(math.ceil(seconds / 60.0))} мин"
 
 
+def _plural_gen(n: int) -> str:
+    return "генерации" if n % 10 == 1 and n % 100 != 11 else "генераций"
+
+
+def measured_eta(summary: dict | None, model_id: str, steps=None, width=None, height=None) -> str | None:
+    """«≈ 4 мин (по замеру 5 генераций)» from the direct-gen timing log medians (GET /api/direct-gen/timings), or None
+    when this model has fewer than the minimum number of measured runs (the caller keeps its rough text)."""
+    row = (summary or {}).get(str(model_id).split(":", 1)[-1]) if isinstance(summary, dict) else None
+    if not isinstance(row, dict) or not row.get("measured") or not isinstance(row.get("n"), int):
+        return None
+    load = (row.get("cold") or {}).get("load_s")
+    sps, post, gen = row.get("s_per_step_512"), row.get("post_s") or 0.0, row.get("generate_s")
+    try:
+        if isinstance(steps, int) and steps > 0 and width and height and sps is not None and load is not None:
+            secs = float(load) + steps * float(sps) * (int(width) * int(height)) / (512 * 512) + float(post)
+        elif load is not None and gen is not None:
+            secs = float(load) + float(gen) + float(post)
+        elif row.get("total_s") is not None:
+            secs = float(row["total_s"])
+        else:
+            return None
+    except (TypeError, ValueError):
+        return None
+    when = f"{max(5, int(round(secs / 5.0)) * 5)} с" if secs < 90 else f"{int(math.ceil(secs / 60.0))} мин"
+    return f"≈ {when} (по замеру {row['n']} {_plural_gen(row['n'])})"
+
+
 def progress_line(job: dict | None) -> str:
     """One Russian line for the plate. Unknown progress is said out loud, never invented."""
     job = job or {}

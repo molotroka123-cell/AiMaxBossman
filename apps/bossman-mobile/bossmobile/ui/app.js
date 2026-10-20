@@ -19,7 +19,7 @@
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3200); }
 
   class ApiError extends Error { constructor(status, body) { const d = (body && (body.detail || body.error)) || {}; super(typeof d === 'string' ? d : (d.message || `HTTP ${status}`)); this.status = status; this.code = d.code || ''; } }
-  async function api(method, path, body) {
+  async function api(method, path, body, retried) {
     const headers = { Accept: 'application/json' };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (method !== 'GET') headers['X-BM-CSRF'] = S.csrf;
@@ -28,6 +28,12 @@
     catch { throw new ApiError(0, { detail: { message: 'нет связи с ПК' } }); }
     let data = null; try { data = await res.json(); } catch { /* empty */ }
     if (res.status === 401) { showLogin(); throw new ApiError(401, data); }
+    // A newer login (e.g. the pinned «вход в одно касание» link in another tab) replaced the session cookie, so this
+    // page's CSRF token is stale: fetch the current one and repeat the request ONCE (owner 19.10, «не пройдена CSRF»).
+    if (res.status === 403 && !retried && method !== 'GET' && ((data && data.detail) || {}).code === 'csrf') {
+      try { const s = await api('GET', '/session'); if (s && s.csrf) { S.csrf = s.csrf; return api(method, path, body, true); } }
+      catch { /* fall through to the original error */ }
+    }
     if (!res.ok) throw new ApiError(res.status, data);
     return data;
   }
@@ -164,18 +170,93 @@
 
   /* ================= сообщения ================= */
   const msgs = $('messages');
-  function clearMessages() { msgs.replaceChildren($('chat-empty')); $('chat-empty').hidden = false; }
-  function scrollDown() { requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; }); }
-  function addUser(text) { $('chat-empty').hidden = true; const m = el('div', 'msg user'); m.appendChild(el('div', 'bubble', text)); msgs.appendChild(m); scrollDown(); return m; }
-  function addBot() {
+  /* Плавность (владелец 19.10: «плохо листается при работе ответа и подлагивает»). Было: каждый кусочек ответа
+     перерисовывал весь ответ и дёргал список вниз (scroll-behavior: smooth перезапускался на каждом). Теперь:
+     куски копятся и выводятся один раз за кадр (requestAnimationFrame), готовые абзацы добавляются, хвост дописывается
+     в один текстовый узел; вниз прокручиваем только если владелец и так внизу; иначе — кнопка «вниз». */
+  const RM = (() => { try { return window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null; } catch { return null; } })();
+  const reducedMotion = () => !!(RM && RM.matches);
+  const syncMotion = () => document.documentElement.classList.toggle('reduce-motion', reducedMotion());
+  syncMotion(); try { if (RM && RM.addEventListener) RM.addEventListener('change', syncMotion); } catch { /* old Safari */ }
+  const NEAR_PX = 72;
+  const SC = { stick: true, touching: false, glide: 0, raf: 0 };
+  const nearBottom = () => msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight <= NEAR_PX;
+  function showDown(on) { const d = $('btn-down'); if (d && d.hidden === on) d.hidden = !on; }
+  function stickNow() {                   // inside a frame, after that frame's DOM writes: one read, at most one write
+    if (!SC.stick || SC.touching) return;
+    const bottom = msgs.scrollHeight - msgs.clientHeight;
+    if (msgs.scrollTop < bottom - 1) msgs.scrollTop = bottom;
+  }
+  function autoScroll(force) {            // new message, tool card, finished answer: follow only if already following
+    if (force) { SC.stick = true; showDown(false); }
+    if (SC.raf) return;
+    SC.raf = requestAnimationFrame(() => { SC.raf = 0; stickNow(); });
+  }
+  msgs.addEventListener('scroll', () => {
+    if (SC.glide) { if (nearBottom()) { clearTimeout(SC.glide); SC.glide = 0; SC.stick = true; showDown(false); } return; }
+    SC.stick = nearBottom(); showDown(!SC.stick);
+  }, { passive: true });
+  msgs.addEventListener('touchstart', () => { SC.touching = true; if (SC.glide) { clearTimeout(SC.glide); SC.glide = 0; } }, { passive: true });
+  const touchEnd = () => { SC.touching = false; SC.stick = nearBottom(); showDown(!SC.stick); };
+  msgs.addEventListener('touchend', touchEnd, { passive: true }); msgs.addEventListener('touchcancel', touchEnd, { passive: true });
+  msgs.addEventListener('wheel', (e) => { if (e.deltaY < 0) { SC.stick = false; showDown(true); } }, { passive: true });
+  $('btn-down').addEventListener('click', () => {
+    tap(); SC.stick = true; showDown(false);
+    const smooth = !reducedMotion();
+    if (smooth) { clearTimeout(SC.glide); SC.glide = setTimeout(() => { SC.glide = 0; }, 900); }
+    const top = msgs.scrollHeight;
+    if (typeof msgs.scrollTo === 'function') msgs.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' }); else msgs.scrollTop = top;
+  });
+
+  function clearMessages() { msgs.replaceChildren($('chat-empty')); $('chat-empty').hidden = false; SC.stick = true; showDown(false); }
+  function addUser(text) { $('chat-empty').hidden = true; const m = el('div', 'msg user'); m.appendChild(el('div', 'bubble', text)); msgs.appendChild(m); autoScroll(true); return m; }
+  function addBot(prompt) {
     $('chat-empty').hidden = true;
     const m = el('div', 'msg bot'); const tools = el('div', 'tools'); const ans = el('div', 'answer'); const meta = el('div', 'meta');
-    m.append(tools, ans, meta); msgs.appendChild(m); scrollDown();
-    return { m, tools, ans, meta, cards: {}, text: '' };
+    m.append(tools, ans, meta); msgs.appendChild(m); autoScroll();
+    return { m, tools, ans, meta, cards: {}, text: '', prompt: prompt || '', committed: 0, live: null, raf: 0 };
   }
-  function typing(b, on) {
-    const old = b.ans.querySelector('.typing'); if (old) old.remove();
-    if (on && !b.text) { const t = el('span', 'typing'); t.append(el('i'), el('i'), el('i')); b.ans.appendChild(t); }
+  function typing(b, on, label) {
+    const old = b.ans.querySelector('.typing');
+    if (on && !b.text) {
+      if (old) return;
+      const t = el('div', 'typing'); t.setAttribute('role', 'status'); t.setAttribute('aria-label', label || 'Bossman думает…');
+      t.append(el('i'), el('i'), el('i')); if (label) t.appendChild(el('span', 'typing-label', label)); b.ans.appendChild(t);
+    } else if (old) old.remove();
+  }
+  /* ---- поток ответа: накопить -> один вывод за кадр ---- */
+  function schedulePaint(b) { if (!b.raf) b.raf = requestAnimationFrame(() => paint(b)); }
+  function stopPaint(b) { if (b.raf) { cancelAnimationFrame(b.raf); b.raf = 0; } }
+  // where the streamed text may be cut into finished blocks: after a blank-line run outside ``` code, once the next
+  // character has arrived (so the run is complete). renderBlocks(head) + renderBlocks(rest) == renderBlocks(all) there.
+  function commitPoint(text, from) {
+    const re = /```|\n{2,}(?=[^\n])/g; re.lastIndex = from; let open = false; let cut = from; let m;
+    while ((m = re.exec(text))) { if (m[0] === '```') open = !open; else if (!open) cut = m.index + m[0].length; }
+    return cut;
+  }
+  function paint(b) {
+    b.raf = 0; if (b.ended) return;
+    if (b.full) { rich(b.ans, b.text); stickNow(); return; }      // rare: server replaced the text mid-stream
+    if (!b.live) {
+      const t = b.ans.querySelector('.typing'); const live = el('p', 'live caret'); b.liveText = document.createTextNode('');
+      live.appendChild(b.liveText); b.live = live; b.committed = 0;
+      if (t) t.replaceWith(live); else b.ans.appendChild(live);
+    }
+    const text = b.text; const cut = commitPoint(text, b.committed); const tail = text.slice(cut);
+    if (cut > b.committed) {
+      const f = document.createDocumentFragment(); renderBlocks(f, text.slice(b.committed, cut)); b.committed = cut;
+      b.liveText.data = tail; b.ans.insertBefore(f, b.live);
+    } else if (tail !== b.liveText.data) {
+      if (tail.startsWith(b.liveText.data)) b.liveText.appendData(tail.slice(b.liveText.data.length)); else b.liveText.data = tail;
+    }
+    stickNow();
+  }
+  function endStream(b, finalText) {     // the stream ended: format the tail once (no full re-render when it matches)
+    stopPaint(b);
+    if (b.live && !b.full && finalText === b.text) {
+      const f = document.createDocumentFragment(); renderBlocks(f, b.text.slice(b.committed)); b.live.replaceWith(f);
+    } else rich(b.ans, finalText);
+    b.live = null; b.full = false; b.ended = true;
   }
 
   /* небольшой безопасный markdown: абзацы, списки, `код`, **жирный**, ```блоки``` */
@@ -188,14 +269,14 @@
     }
     if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
   }
-  function rich(target, text, streaming) {
-    target.replaceChildren(); target.classList.toggle('caret', !!streaming);
+  function rich(target, text) { target.replaceChildren(); renderBlocks(target, text); }
+  function renderBlocks(target, text) {
     const parts = String(text || '').split(/```[^\n]*\n?/);
     parts.forEach((part, i) => {
       if (i % 2 === 1) { const pre = el('pre'); pre.appendChild(el('code', '', part.replace(/\n$/, ''))); target.appendChild(pre); return; }
       part.split(/\n{2,}/).forEach((para) => {
         if (!para.trim()) return;
-        const lines = para.split('\n');
+        const lines = para.replace(/^\n+|\n+$/g, '').split('\n');
         if (lines.every((l) => /^\s*([-*•]|\d+\.)\s+/.test(l))) {
           const ul = el('ul'); lines.forEach((l) => { const li = el('li'); inline(li, l.replace(/^\s*([-*•]|\d+\.)\s+/, '')); ul.appendChild(li); }); target.appendChild(ul);
         } else { const p = el('p'); lines.forEach((l, j) => { if (j) p.appendChild(el('br')); inline(p, l); }); target.appendChild(p); }
@@ -215,7 +296,7 @@
       const body = el('div', 'tbody'); d.append(s, body); b.tools.appendChild(d);
       c = b.cards[ev.call_id] = { d, s, st, body };
       if (ev.args && Object.keys(ev.args).length) { body.appendChild(el('div', 'muted', 'Аргументы')); body.appendChild(el('pre', '', JSON.stringify(ev.args, null, 2))); }
-      scrollDown();
+      autoScroll();
     }
     return c;
   }
@@ -231,7 +312,7 @@
     const box = el('div', 'approval'); box.appendChild(el('h4', '', 'Нужно ваше решение'));
     box.appendChild(el('pre', '', ev.preview || ev.approval_kind || 'действие'));
     const row = el('div', 'row'); const no = el('button', 'btn', 'Отклонить'); const yes = el('button', 'btn primary', 'Разрешить');
-    row.append(no, yes); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; scrollDown();
+    row.append(no, yes); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; autoScroll();
     const decide = async (approve) => {
       tap(); yes.disabled = no.disabled = true;
       try { await api('POST', `/approvals/${ev.id}`, { approve }); row.replaceWith(el('div', 'done', approve ? '✓ Разрешено вами' : '✕ Отклонено вами')); refreshApprovals(); }
@@ -246,9 +327,22 @@
 
   function applyEvent(b, ev, live) {
     switch (ev.kind) {
-      case 'run.answer_delta': b.text += ev.text || ''; rich(b.ans, b.text, live); if (live && !b.first) b.first = performance.now(); scrollDown(); break;
-      case 'run.answer_reset': b.text = ''; rich(b.ans, '', live); break;
-      case 'run.assistant_message': if (ev.text) { b.text = ev.text; rich(b.ans, b.text, false); } if (ev.model) b.model = ev.model; break;
+      case 'run.answer_delta':
+        if (!ev.text) break;
+        b.text += ev.text;
+        if (!live) { rich(b.ans, b.text); break; }
+        if (!b.first) b.first = performance.now();
+        schedulePaint(b); break;                                   // no DOM work here: one paint per frame
+      case 'run.answer_reset':
+        stopPaint(b); b.text = ''; b.live = null; b.full = false; b.committed = 0; b.ans.replaceChildren();
+        if (live) typing(b, true); break;
+      case 'run.assistant_message':
+        if (ev.model) b.model = ev.model;
+        if (ev.text && ev.text !== b.text) {
+          b.text = ev.text;
+          if (live) { b.full = true; schedulePaint(b); } else rich(b.ans, b.text);
+        }
+        break;
       case 'run.tool_use': toolCard(b, ev); break;
       case 'run.tool_result': toolResult(b, ev); break;
       case 'tool.denied': { const c = toolCard(b, { call_id: 'd' + (ev.seq || Math.random()), tool: ev.tool, args: {} }); const st = el('span', 'tstate err', 'запрещено'); c.st.replaceWith(st); c.st = st; if (ev.reason) c.body.appendChild(el('div', '', ev.reason)); break; }
@@ -265,15 +359,20 @@
       S.threadId = t.id; store.set('thread', t.id); clearMessages();
       const turns = t.turns || [];
       for (const turn of turns) {
-        addUser(turn.text); const b = addBot();
+        const desc = photoDesc(turn.text);
+        addUser(desc != null ? `${PHOTO_MARK} ${desc}` : turn.text); const b = addBot(turn.text);
+        b.taskId = turn.task_id; if (desc != null) b.photo = { desc };
         if (turn.status && !['completed', 'failed', 'stopped', 'blocked', 'missing'].includes(turn.status)) { follow(turn.task_id, b); continue; }
-        if (turn.result) rich(b.ans, turn.result); else if (turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.error; }
+        b.ended = true;
+        if (b.photo) { b.text = turn.result || ''; restorePhotoTurn(b, turn); continue; }
+        if (turn.result) { b.text = turn.result; rich(b.ans, turn.result); } else if (turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.error; }
         b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
+        if (turn.result) msgActions(b);
         if (turns.indexOf(turn) >= turns.length - 6) {
           api('GET', `/tasks/${turn.task_id}/history`).then((h) => (h.events || []).forEach((ev) => { if (ev.kind.startsWith('run.tool') || ev.kind.startsWith('approval') || ev.kind === 'tool.denied') applyEvent(b, ev, false); })).catch(() => {});
         }
       }
-      scrollDown();
+      autoScroll(true);
     } catch (err) { if (err.status === 404) { store.set('thread', null); S.threadId = null; } }
   }
 
@@ -282,30 +381,65 @@
   input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 160) + 'px'; });
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); $('composer').requestSubmit(); } });
   document.querySelectorAll('[data-suggest]').forEach((c) => c.addEventListener('click', () => { input.value = c.dataset.suggest; input.dispatchEvent(new Event('input')); input.focus(); }));
-  $('composer').addEventListener('submit', async (e) => { e.preventDefault(); const text = input.value.trim(); if (!text || S.sending) return; tap(); input.value = ''; input.style.height = 'auto'; await send(text); });
+  $('composer').addEventListener('submit', async (e) => {
+    e.preventDefault(); const text = input.value.trim(); if (!text || S.sending) return;
+    tap(); input.value = ''; input.style.height = 'auto'; const photo = S.photoMode; setPhotoMode(false); await send(text, { photo });
+  });
   $('btn-stop').addEventListener('click', async () => { tap(); if (!S.threadId) return; try { await api('POST', `/threads/${encodeURIComponent(S.threadId)}/stop`); toast('Остановлено'); } catch (err) { toast(err.message); } });
   function busy(on) { S.sending = on; $('btn-send').hidden = on; $('btn-stop').hidden = !on; }
 
-  const PHOTO_RE = /^\s*(сгенерируй|нарисуй|создай|сделай)\s+(мне\s+)?(фото|фотку|картинку|изображение|рисунок)\s*[:,-]?\s*/i;
-  async function send(text) {
-    if (PHOTO_RE.test(text)) return chatPhoto(text, text.replace(PHOTO_RE, '') || text);
+  /* ---- «Фото по описанию» (владелец 19.10): модель чата (по умолчанию Gemma) пишет промпт, владелец видит его и жмёт
+     «Запустить» или «Изменить»; перед постановкой в очередь модель чата выгружается из памяти ПК (keep_alive 0), чтобы
+     видеокарта/ОЗУ ушли генератору. Фото ставится тем же Прямым генератором, что и вкладка «Фото» (/photo/jobs). ---- */
+  function setPhotoMode(on) {
+    S.photoMode = !!on; const b = $('btn-photo-mode');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.classList.toggle('on', !!on);
+    input.placeholder = on ? 'Опишите картинку — модель чата напишет промпт' : 'Напишите Bossman…';
+  }
+  $('btn-photo-mode').addEventListener('click', () => { tap(); setPhotoMode(!S.photoMode); if (S.photoMode) toast('Фото по описанию: опишите картинку и отправьте'); input.focus(); });
+  const PHOTO_RE = /^\s*(?:(?:сгенерируй|создай|сделай|нарисуй)\s+(?:мне\s+)?(?:фотографию|фото|фотку|картинку|изображение|рисунок)|нарисуй)(?=[\s:,.!-]|$)[\s:,.!-]*/i;
+  const PHOTO_MARK = 'Фото по описанию:';
+  const PHOTO_TASK = '[задание для модели]';
+  const PHOTO_RULES = `${PHOTO_TASK} Напиши ОДИН промпт для локального генератора картинок по этому описанию: на английском, 30–120 слов — главный объект, детали, окружение, свет, ракурс, стиль. Смысл описания не меняй и ничего по сути не добавляй. Ответь одной строкой: PROMPT: <промпт>`;
+  const photoAsk = (desc) => `${PHOTO_MARK} ${desc}\n\n${PHOTO_RULES}`;
+  function photoDesc(text) {
+    const s = String(text || ''); if (!s.startsWith(PHOTO_MARK)) return null;
+    const i = s.indexOf('\n\n' + PHOTO_TASK); return s.slice(PHOTO_MARK.length, i < 0 ? undefined : i).trim();
+  }
+  function parsePrompt(text) {
+    const s = String(text || '').replace(/```[^\n]*\n?/g, '\n');
+    const m = /PROMPT\s*[:：]\s*([\s\S]*)/i.exec(s);
+    const p = (m ? m[1] : s).trim().split(/\n\s*\n/)[0] || '';
+    return p.replace(/\s+/g, ' ').trim().replace(/^["'«“`*]+|["'»”`*]+$/g, '').trim().slice(0, 2000);
+  }
+  const chatPhotoKey = (taskId) => 'chatPhoto.' + taskId;
+  const chatPhotoModel = () => S.photoModels.find((x) => x.id === 'z-image-turbo' && x.available) || S.photoModels.find((x) => x.available && !x.requires_image);
+
+  async function send(text, opts = {}) {
+    let pm = PHOTO_RE.exec(text);
+    if (pm && /^(экран|скрин|рабоч|окн)/i.test(text.slice(pm[0].length))) pm = null;   // «сделай фото экрана» = the PC operator
+    if (opts.photo || pm) return photoFromChat((pm ? text.slice(pm[0].length) : text).replace(/^мне\s+/i, '').trim());
     if (S.agentId == null) { toast('Выберите локальную модель'); return; }
-    busy(true); addUser(text); const b = addBot(); typing(b, true); b.t0 = performance.now();
+    busy(true); addUser(text); const b = addBot(text); typing(b, true); b.t0 = performance.now();
+    await ask(b, text);
+  }
+  async function ask(b, text) {
     try {
       if (!S.threadId) { const t = await api('POST', '/threads', { title: text.slice(0, 60) }); S.threadId = t.id; store.set('thread', t.id); }
       const r = await api('POST', `/threads/${encodeURIComponent(S.threadId)}/send`, { text, agent_id: S.agentId, client_request_id: 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) });
       if (r.admission && r.admission.ok === false) { finish(b, null, r.admission.reason || 'Bossman не принял задачу', 'blocked'); return; }
-      b.model = r.model && (r.model.alias || r.model.id);
+      b.model = r.model && (r.model.alias || r.model.id); b.agentId = S.agentId;
       follow(r.task.id, b);
     } catch (err) { finish(b, null, err.message, 'error'); }
   }
   function closeStream() { if (S.es) { S.es.close(); S.es = null; } if (S.poll) { clearInterval(S.poll); S.poll = null; } }
   function follow(taskId, b) {
-    closeStream(); busy(true); typing(b, true); b.t0 = b.t0 || performance.now(); S.task = taskId;
+    closeStream(); busy(true); b.taskId = taskId; b.m.setAttribute('aria-busy', 'true');
+    typing(b, true, b.photo ? 'Модель чата пишет промпт…' : ''); b.t0 = b.t0 || performance.now(); S.task = taskId;
     const es = new EventSource(`/m/api/tasks/${taskId}/events?after=0`); S.es = es;
     es.onmessage = (m) => {
       let ev; try { ev = JSON.parse(m.data); } catch { return; }
-      typing(b, false); applyEvent(b, ev, true); if (!b.text) typing(b, true);
+      applyEvent(b, ev, true);
       if (['task.completed', 'task.failed', 'task.stopped', 'task.blocked'].includes(ev.kind)) settle(taskId, b);
     };
     S.poll = setInterval(async () => { try { const t = await api('GET', `/tasks/${taskId}`); if (['completed', 'failed', 'stopped', 'blocked', 'cancelled'].includes(t.status)) settle(taskId, b, t); } catch { /* keep trying */ } }, 5000);
@@ -316,28 +450,126 @@
     finish(b, t.result, t.status === 'completed' ? null : (t.error || `задача: ${stRu(t.status)}`), t.status, taskId);
   }
   function finish(b, result, error, status, taskId) {
-    busy(false); typing(b, false); b.ans.classList.remove('caret');
-    if (result) { b.text = result; rich(b.ans, result); } else if (error && !b.text) { b.ans.classList.add('error'); b.ans.textContent = error; }
+    busy(false); typing(b, false); b.m.setAttribute('aria-busy', 'false');
+    if (result) { endStream(b, result); b.text = result; }
+    else {
+      if (b.text) endStream(b, b.text); else { stopPaint(b); b.ended = true; }
+      if (error && !b.text) { b.ans.classList.add('error'); b.ans.textContent = error; }
+    }
     const total = b.t0 ? (performance.now() - b.t0) / 1000 : null; const first = b.first && b.t0 ? (b.first - b.t0) / 1000 : null;
     b.meta.replaceChildren(el('span', 'badge-local', 'локально'), el('span', '', [b.model, taskId ? `#${taskId}` : '', status && status !== 'completed' ? stRu(status) : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
-    loadThreads(); scrollDown();
+    if (b.photo) photoAfterPrompt(b, status, error); else if (b.text) msgActions(b);
+    loadThreads(); autoScroll();
   }
 
-  /* ---------- «сгенерируй фото …» прямо из чата: тот же Прямой генератор Bossman ---------- */
-  async function chatPhoto(text, prompt) {
-    busy(true); addUser(text); const b = addBot(); typing(b, true);
+  /* ---- под ответом: «Копировать» и «Повторить» ---- */
+  async function copyText(text) {
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); toast('Скопировано'); return; } } catch { /* fallback below */ }
     try {
-      await ensurePhotoModels();
-      const m = S.photoModels.find((x) => x.id === 'z-image-turbo' && x.available) || S.photoModels.find((x) => x.available && !x.requires_image);
-      if (!m) throw new Error('нет доступной фото-модели');
+      const t = el('textarea'); t.value = text; t.setAttribute('readonly', ''); t.className = 'offscreen'; document.body.appendChild(t); t.select();
+      const ok = typeof document.execCommand === 'function' && document.execCommand('copy'); t.remove(); toast(ok ? 'Скопировано' : 'Не удалось скопировать');
+    } catch { toast('Не удалось скопировать'); }
+  }
+  function actButton(name, label, aria, onClick) {
+    const btn = el('button', 'act'); btn.type = 'button'; btn.setAttribute('aria-label', aria);
+    const ic = icon(name); ic.setAttribute('aria-hidden', 'true'); btn.append(ic, el('span', '', label));
+    btn.addEventListener('click', onClick); return btn;
+  }
+  function msgActions(b) {
+    if (b.actions) return;
+    const row = el('div', 'msg-actions');
+    row.appendChild(actButton('copy', 'Копировать', 'Копировать ответ', () => { tap(); copyText(b.text); }));
+    if (b.prompt) row.appendChild(actButton('refresh', 'Повторить', 'Повторить запрос', () => { if (S.sending) { toast('Дождитесь ответа'); return; } tap(); send(b.prompt); }));
+    b.m.appendChild(row); b.actions = row;
+  }
+
+  /* ---- фото по описанию ---- */
+  async function photoFromChat(desc) {
+    if (!desc) { toast('Опишите, что нарисовать'); return; }
+    busy(true); addUser(`${PHOTO_MARK} ${desc}`); const b = addBot(); b.photo = { desc }; b.t0 = performance.now();
+    if (S.agentId == null) { busy(false); b.ended = true; photoCard(b, desc, 'Модель чата не выбрана — в промпт пойдёт ваше описание как есть.'); return; }
+    typing(b, true, 'Модель чата пишет промпт…'); b.m.setAttribute('aria-busy', 'true');
+    await ask(b, photoAsk(desc));
+  }
+  function photoAfterPrompt(b, status, error) {
+    const prompt = !error ? parsePrompt(b.text) : '';
+    b.ans.classList.remove('error');
+    if (prompt) { photoCard(b, prompt, ''); return; }
+    photoCard(b, b.photo.desc, error ? `Модель чата не написала промпт: ${error}. Можно запустить с вашим описанием или изменить его.`
+      : 'Модель чата не написала промпт — можно запустить с вашим описанием или изменить его.');
+  }
+  function photoCard(b, prompt, note) {
+    const card = el('div', 'pcard'); card.setAttribute('role', 'group'); card.setAttribute('aria-label', 'Промпт для фото');
+    const head = el('div', 'pcard-head'); const ic = icon('photo'); ic.setAttribute('aria-hidden', 'true');
+    head.append(ic, el('b', '', 'Промпт для фото'), el('span', 'badge-local', 'на ПК'));
+    const text = el('p', 'pcard-text', prompt);
+    const area = el('textarea', 'field area pcard-edit'); area.rows = 5; area.hidden = true; area.setAttribute('aria-label', 'Промпт для фото');
+    card.append(head, text, area);
+    if (note) card.appendChild(el('p', 'pcard-note', note));
+    const hint = el('p', 'hint', 'Перед запуском модель чата выгрузится из памяти ПК — видеокарта и ОЗУ уйдут генератору картинок.');
+    const row = el('div', 'row'); const edit = el('button', 'btn', 'Изменить'); edit.type = 'button';
+    const go = el('button', 'btn primary', 'Запустить'); go.type = 'button'; row.append(edit, go);
+    const status = el('div', 'pcard-status'); status.setAttribute('role', 'status');
+    card.append(hint, row, status);
+    const ui = { card, text, area, edit, go, status, row, hint };
+    edit.addEventListener('click', () => {
+      tap();
+      if (area.hidden) { area.value = text.textContent; area.hidden = false; text.hidden = true; edit.textContent = 'Готово'; area.focus(); }
+      else { text.textContent = area.value.trim() || text.textContent; area.hidden = true; text.hidden = false; edit.textContent = 'Изменить'; }
+    });
+    go.addEventListener('click', () => {
+      const p = (area.hidden ? text.textContent : area.value).trim();
+      if (!p) { toast('Промпт пустой — напишите, что нарисовать'); return; }
+      tap(); launchChatPhoto(b, p, ui);
+    });
+    b.ans.classList.remove('error'); b.ans.replaceChildren(card); b.card = ui; autoScroll();
+    return ui;
+  }
+  async function launchChatPhoto(b, prompt, ui) {
+    if (ui.card.dataset.state === 'starting') return;
+    ui.card.dataset.state = 'starting'; ui.go.disabled = ui.edit.disabled = ui.area.disabled = true;
+    ui.status.classList.remove('err'); ui.status.textContent = 'Выгружаю модель чата из памяти…';
+    let note = ''; const agent = b.agentId != null ? b.agentId : S.agentId;
+    if (agent != null) {          // before the job: free the chat model's RAM/VRAM; a failure is said, the photo still goes
+      try { const u = await api('POST', '/chat/unload', { agent_id: agent }); note = (u.unloaded || []).length ? 'модель чата выгружена из памяти' : 'модель чата уже не в памяти'; }
+      catch (err) { note = `модель чата не выгружена: ${err.message}`; }
+    }
+    ui.status.textContent = 'Ставлю фото в очередь…';
+    let job = null; let m = null;
+    try {
+      await ensurePhotoModels(); m = chatPhotoModel(); if (!m) throw new Error('нет доступной фото-модели');
       const [w, h] = (m.default_resolution || '512x512').split('x');
-      const job = await api('POST', '/photo/jobs', { model: m.id, prompt, resolution: `${w}x${h}` });
-      const card = el('div', 'card progress'); b.tools.appendChild(card); typing(b, false);
-      const final = await trackJob(job, card);
-      if (final.status === 'completed') { const wrap = el('div', 'inline-photo'); const img = el('img'); img.src = `/m/api/photo/jobs/${final.job_id}/file`; img.alt = prompt; img.addEventListener('click', () => openViewer(final)); wrap.appendChild(img); card.replaceWith(wrap); }
-      b.meta.replaceChildren(el('span', 'badge-local', 'на ПК'), el('span', '', `${m.label} · ${fmtS(final.elapsed_s)} · Прямой генератор`));
-    } catch (err) { b.ans.classList.add('error'); b.ans.textContent = err.message; }
-    busy(false); scrollDown();
+      job = await api('POST', '/photo/jobs', { model: m.id, prompt, resolution: `${w}x${h}` });
+    } catch (err) {
+      ui.card.dataset.state = ''; ui.go.disabled = ui.edit.disabled = ui.area.disabled = false;
+      ui.status.classList.add('err'); ui.status.textContent = `Не удалось запустить: ${err.message}${note ? ' · ' + note : ''}`; return;
+    }
+    ui.text.textContent = prompt; ui.area.hidden = true; ui.text.hidden = false; ui.row.remove(); ui.hint.remove();
+    ui.card.dataset.state = 'queued'; ui.status.textContent = [m.label, note].filter(Boolean).join(' · ');
+    if (b.taskId != null) store.set(chatPhotoKey(b.taskId), JSON.stringify({ job_id: job.job_id, prompt }));
+    watchChatPhoto(b, ui, job, m.label);
+  }
+  async function watchChatPhoto(b, ui, job, label) {
+    const prog = el('div', 'card progress'); ui.card.appendChild(prog); autoScroll();
+    try {
+      const final = await trackJob(job, prog);
+      if (final.status !== 'completed') return;
+      const wrap = el('div', 'inline-photo'); wrap.dataset.job = final.job_id; const img = el('img');
+      img.alt = final.raw_prompt || 'фото по описанию'; img.addEventListener('load', () => autoScroll()); img.addEventListener('click', () => openViewer(final));
+      img.src = `/m/api/photo/jobs/${final.job_id}/file`; wrap.appendChild(img); prog.replaceWith(wrap);
+      b.meta.replaceChildren(el('span', 'badge-local', 'на ПК'), el('span', '', [label || final.model, fmtS(final.elapsed_s), 'Прямой генератор'].filter(Boolean).join(' · ')));
+      autoScroll();
+    } catch (err) { if (err && err.status !== 401) ui.card.appendChild(el('div', 'pcard-status err', `Фото: ${err.message}`)); }
+  }
+  function restorePhotoTurn(b, turn) {      // thread reopened: the card again; the photo if it was launched on this phone
+    let saved = null; try { saved = JSON.parse(store.get(chatPhotoKey(turn.task_id)) || 'null'); } catch { saved = null; }
+    const prompt = (saved && saved.prompt) || parsePrompt(turn.result) || b.photo.desc;
+    const ui = photoCard(b, prompt, turn.result || saved ? '' : `Модель чата не написала промпт${turn.error ? ': ' + turn.error : ''}.`);
+    b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
+    if (!saved || !saved.job_id) return;
+    ui.row.remove(); ui.hint.remove();
+    api('GET', `/photo/jobs/${encodeURIComponent(saved.job_id)}`).then((j) => watchChatPhoto(b, ui, j))
+      .catch((err) => { ui.card.appendChild(el('div', 'pcard-status err', err.status === 404 ? 'Фото удалено с ПК' : `Фото: ${err.message}`)); });
   }
 
   /* ================= одобрения (значок на вкладке «Панель») ================= */
@@ -456,7 +688,8 @@
     const t = m.timing || { load_s: 40, s_per_step: 8, kind: 'estimate' }; const [w, h] = res.split('x').map(Number);
     return { load: t.load_s, run: steps * t.s_per_step * (w * h) / (512 * 512) };
   }
-  const tag = (t) => el('span', t.kind === 'measured' ? 'tag-m' : 'tag-e', t.kind === 'measured' ? 'по замеру' : 'оценка');
+  // «по замеру N генераций» only when Bossman measured >= 3 runs of this model (timing.py label_for), else «примерно»
+  const tag = (t) => { const m = t.kind === 'measured' && /^по замеру/.test(t.label || ''); return el('span', m ? 'tag-m' : 'tag-e', t.label || (t.kind === 'measured' ? 'по замеру' : 'оценка')); };
   function setSteps(v) {
     const st = $('photo-steps'); const n = Math.min(Number(st.max), Math.max(Number(st.min), Math.round(Number(v)) || Number(st.min)));
     st.value = n; $('steps-val').textContent = n; showTime();
@@ -465,7 +698,8 @@
     const m = curModel(); const box = $('photo-time'); if (!m) { box.replaceChildren(); return; }
     const res = resolution(m); const steps = Number($('photo-steps').value); const t = m.timing || {}; const p = timeParts(m, steps, res);
     const b = el('b', '', `≈ ${fmtDur(p.load + p.run)}`);
-    const note = el('span', 'muted', `${res.replace('x', '×')} · ${steps} шаг. · загрузка ${fmtDur(p.load)} + шаги ${fmtDur(p.run)}`);
+    const warm = t.load_s_warm != null ? ` · следующая такая же в очереди: загрузка ≈ ${fmtDur(t.load_s_warm)}` : '';
+    const note = el('span', 'muted', `${res.replace('x', '×')} · ${steps} шаг. · загрузка ${fmtDur(p.load)} + шаги ${fmtDur(p.run)}${warm}`);
     box.replaceChildren(b, tag(t), note);
     if (t.basis) box.appendChild(el('span', 'hint', t.basis));
     fillTable();
@@ -736,7 +970,7 @@
   function renderQueued(u, stats, withTotal) {
     stats.appendChild(el('b', '', `в очереди №${u.position}`));
     const total = withTotal && u.total_s != null ? `, займёт ≈ ${fmtMin(u.total_s)}` : '';
-    stats.appendChild(el('span', '', u.wait_s == null ? `(время ожидания неизвестно: впереди задача без оценки${total})` : `(≈ ждать ${fmtMin(u.wait_s)}${total}, оценка)`));
+    stats.appendChild(el('span', '', u.wait_s == null ? `(время ожидания неизвестно: впереди задача без оценки${total})` : `(≈ ждать ${fmtMin(u.wait_s)}${total}, ${u.label || 'оценка'})`));
   }
   function renderQueueItem(j) {
     const u = j.ui || {}; const m = (S.photoModels || []).find((x) => x.id === j.model); const card = el('div', 'qitem ' + (u.state || '')); card.dataset.job = j.job_id;
