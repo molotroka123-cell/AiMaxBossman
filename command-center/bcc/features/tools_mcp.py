@@ -663,15 +663,18 @@ async def tick(svc) -> None:
     if rt is None:
         return
     for status in rt.statuses():
-        if not status.get("connected"):
+        # Живое соединение пробуется, даже если прошлая проба сбросила connected:
+        # иначе один сбой навсегда оставлял сервер unhealthy без перепроверки.
+        if not (status.get("connected") or status.get("running")):
             continue
         health = await rt.probe(status["server"])
-        if health.status != "healthy":
-            try:
-                row = await _server_row(svc, health.server_id, by_name=True)
-                await _mark(svc, int(row["id"]), health.status, health.detail)
-            except HTTPException:
-                pass
+        try:
+            row = await _server_row(svc, health.server_id, by_name=True)
+        except HTTPException:
+            continue
+        # Не-healthy пишется всегда; healthy — только при восстановлении строки.
+        if health.status != "healthy" or str(row.get("status")) != "healthy":
+            await _mark(svc, int(row["id"]), health.status, health.detail)
 
 
 FEATURE = Feature(name="tools_mcp", router=router, setup=setup, tick=tick,

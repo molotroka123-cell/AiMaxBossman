@@ -438,7 +438,9 @@ class MCPRuntime:
         return conn.health
 
     def statuses(self) -> list[dict]:
-        return [c.health.as_dict() for c in self._conns.values()]
+        # running — жива ли задача-водитель: после неудачной пробы connected=False,
+        # но соединение может работать, и health-check обязан проверить его снова.
+        return [{**c.health.as_dict(), "running": c.running} for c in self._conns.values()]
 
     async def probe(self, server_id: str) -> ServerHealth:
         """Живая проверка: реальный `tools/list` (ClientSession не кэширует)."""
@@ -457,6 +459,7 @@ class MCPRuntime:
         conn.health.connected = True
         conn.health.tools = len(getattr(result, "tools", []) or [])
         conn.health.detail = ""
+        conn._crashed_notified = False         # следующий сбой снова попадёт в ленту
         return conn.health
 
     # ---- протокол
