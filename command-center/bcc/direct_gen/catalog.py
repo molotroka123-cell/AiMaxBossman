@@ -88,6 +88,32 @@ def _sidecar_hash(path: Path) -> str:
     return token if re.fullmatch(r"[0-9a-f]{64}", token) else UNKNOWN
 
 
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+def override_for(overrides: dict | None, model_id: str) -> dict:
+    """The owner's ``models.json`` entry for one model, or {}. A hand-edited file can hold anything; one entry
+    that is not an object must not take the whole catalogue (and the Direct window) down with AttributeError."""
+    entry = overrides.get(model_id) if isinstance(overrides, dict) else None
+    return entry if isinstance(entry, dict) else {}
+
+
+def override_text(over: dict, key: str, default: str = UNKNOWN) -> str:
+    """A provenance field (source/revision/license) only when it is a non-empty string."""
+    value = over.get(key)
+    return value.strip() if isinstance(value, str) and value.strip() else default
+
+
+def override_sha256(over: dict) -> str | None:
+    """A declared sha256 only when it IS one (64 hex). Anything else is not provenance and is ignored, so the
+    hash measured on disk (sidecar) or UNKNOWN stays visible instead of an arbitrary string."""
+    value = over.get("sha256")
+    if not isinstance(value, str):
+        return None
+    value = value.strip().lower()
+    return value if _SHA256.fullmatch(value) else None
+
+
 def overrides(data_dir: Path | None) -> dict:
     if data_dir is None:
         return {}
@@ -113,7 +139,7 @@ def template_path(workflows: Path, model_id: str) -> Path:
 
 
 def describe(spec: ModelSpec, models: Path, workflows: Path, overrides: dict | None = None) -> dict:
-    over = (overrides or {}).get(spec.id, {}) if isinstance(overrides, dict) else {}
+    over = override_for(overrides, spec.id)
     weights, missing = [], []
     for need in spec.needs:
         found = _find(Path(models), need)
@@ -139,9 +165,9 @@ def describe(spec: ModelSpec, models: Path, workflows: Path, overrides: dict | N
         "requires_image": spec.requires_image, "requires_audio": spec.requires_audio,
         "accepts_image": spec.requires_image or "I2V" in spec.modes, "default_steps": None, "max_steps": None,
         "default_resolution": "480x320", "notes": spec.notes,
-        "source": str(over.get("source") or UNKNOWN), "revision": str(over.get("revision") or UNKNOWN),
-        "license": str(over.get("license") or UNKNOWN),
-        "sha256": str(over.get("sha256") or (main["sha256"] if main else UNKNOWN)),
+        "source": override_text(over, "source"), "revision": override_text(over, "revision"),
+        "license": override_text(over, "license"),
+        "sha256": override_sha256(over) or (main["sha256"] if main else UNKNOWN),
     }
 
 

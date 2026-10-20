@@ -129,6 +129,37 @@ async def test_models_list_reports_real_availability_and_unknowns(env, tmp_path)
     assert by["wan2.2-animate-14b"]["available"] is False
 
 
+def test_malformed_owner_overrides_do_not_break_or_forge_the_catalogue(tmp_path):
+    """models.json / MANIFEST.json are hand-edited. One non-object entry used to raise AttributeError for the whole
+    listing, and any string was shown as the weights' sha256. Bad entries are ignored; real ones still apply."""
+    from bcc.direct_gen import catalog, sdcli
+
+    models, flows = make_models(tmp_path)
+    good_sha = "ab" * 32
+    over = {"wan2.1-t2v-1.3b": "oops", "ltx-video": {"sha256": "not-a-hash", "license": "MIT"},
+            "wan2.2-s2v-14b": {"sha256": good_sha.upper(), "source": ["x"], "license": "  "},
+            sdcli.SPECS[0].id: 42}
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "models.json").write_text(json.dumps(over), encoding="utf-8")
+    by = {m["id"]: m for m in catalog.list_models(models, flows, data)}
+    assert by["wan2.1-t2v-1.3b"]["available"] is True and by["wan2.1-t2v-1.3b"]["license"] == "UNKNOWN"
+    assert by["ltx-video"]["sha256"] == "UNKNOWN" and by["ltx-video"]["license"] == "MIT"
+    s2v = by["wan2.2-s2v-14b"]
+    assert s2v["sha256"] == good_sha and s2v["source"] == "UNKNOWN" and s2v["license"] == "UNKNOWN"
+
+    media = tmp_path / "media"
+    media.mkdir()
+    (media / "MANIFEST.json").write_text(json.dumps({"engines": ["not", "a", "map"]}), encoding="utf-8")
+    rows = sdcli.list_models(media, tmp_path / "sd-cli.exe", catalog.overrides(data))
+    assert len(rows) == len(sdcli.SPECS)
+    first = rows[0]
+    assert first["license"] == sdcli.SPECS[0].license and first["sha256"] == "UNKNOWN"
+    (media / "MANIFEST.json").write_text(json.dumps({"engines": {s.manifest_key: "x" for s in sdcli.SPECS
+                                                                 if s.manifest_key}}), encoding="utf-8")
+    assert len(sdcli.list_models(media, tmp_path / "sd-cli.exe", None)) == len(sdcli.SPECS)
+
+
 async def test_missing_template_makes_model_unavailable_with_reason(env, tmp_path):
     install(env, tmp_path, FakeComfy(), template=False)
     wan = {m["id"]: m for m in (await env.client.get("/api/direct-gen/models")).json()["models"]}["wan2.1-t2v-1.3b"]
