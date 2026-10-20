@@ -397,7 +397,10 @@ class LocalMemoryBackend:
                 scores[h] += idf * (tf * (self.k1 + 1)) / denom
         if not scores:
             return []
-        ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:top_k]
+        # Равные баллы (одинаковые заметки, шаблоны) раньше шли в порядке вставки
+        # в dict — он зависит от порядка загрузки и хэш-рандомизации `set(terms)`,
+        # т.е. менялся между рестартами. Тот же ключ, что у SQLite-бэкенда.
+        ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))[:max(1, int(top_k))]
         hits: list[MemoryHit] = []
         for h, score in ranked:
             c = self.chunks[h]

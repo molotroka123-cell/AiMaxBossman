@@ -39,6 +39,23 @@ def test_sqlite_search_finds_nfd_note_by_plain_query(tmp_path: Path):
     assert [h.source for h in backend.search_sync("елка")] == ["other.md"]
 
 
+def test_tied_scores_rank_identically_in_json_and_sqlite_backends(tmp_path: Path):
+    same = "# Шаблон\n\nОтчёт о смене: всё штатно"
+    vault = _vault(tmp_path, {f"shift-{i}.md": same for i in range(6)})
+    local = LocalMemoryBackend(index_path=tmp_path / "m.json", vault_root=vault)
+    sql = SQLiteMemoryBackend(index_path=tmp_path / "m.sqlite3", vault_root=vault)
+    local.index_sync([vault])
+    sql.index_sync([vault])
+    a = local.search_sync("отчет смена", top_k=6)
+    b = sql.search_sync("отчет смена", top_k=6)
+    assert len({h.score for h in a}) == 1                 # a real tie
+    assert [h.chunk_hash for h in a] == sorted(h.chunk_hash for h in a)
+    assert [h.chunk_hash for h in a] == [h.chunk_hash for h in b]
+    # restart: a fresh backend on the same JSON file returns the same order
+    again = LocalMemoryBackend(index_path=tmp_path / "m.json", vault_root=vault)
+    assert [h.chunk_hash for h in again.search_sync("отчет смена", top_k=6)] == [h.chunk_hash for h in a]
+
+
 def test_sqlite_index_built_by_older_tokenizer_is_rebuilt(tmp_path: Path):
     import sqlite3
 
