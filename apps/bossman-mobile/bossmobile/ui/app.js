@@ -311,7 +311,8 @@
       });
     } catch (err) { box.textContent = 'Ошибка: ' + err.message; }
   }
-  $('swap-form').addEventListener('submit', (e) => { e.preventDefault(); const v = $('swap-input').value.trim(); tap(); swapSend(v); });
+  // own id: «swap-form» is the face-swap form in «Видео» (a duplicate id left «Ок» without a handler -> page reload)
+  $('exchange-form').addEventListener('submit', (e) => { e.preventDefault(); const v = $('swap-input').value.trim(); tap(); swapSend(v); });
   $('swap-quick').addEventListener('click', (e) => { const b = e.target.closest('[data-cmd]'); if (b) { tap(); swapSend(b.dataset.cmd); } });
   $('swap-confirm').addEventListener('click', () => {
     if (!swapQuote) return;
