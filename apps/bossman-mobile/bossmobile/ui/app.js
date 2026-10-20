@@ -648,12 +648,17 @@
 
   /* ================= отправка ================= */
   const input = $('input');
-  input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 160) + 'px'; });
+  const grow = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 160) + 'px'; };
+  /* unsent text survives iOS killing the PWA in the background / a reload (this phone's storage only) */
+  const DRAFT_MAX = 8000;
+  const saveDraft = () => store.set('draft', input.value ? input.value.slice(0, DRAFT_MAX) : null);
+  input.addEventListener('input', () => { grow(); saveDraft(); });
+  { const d0 = store.get('draft'); if (d0 && !input.value) { input.value = d0; grow(); } }
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); $('composer').requestSubmit(); } });
   document.querySelectorAll('[data-suggest]').forEach((c) => c.addEventListener('click', () => { input.value = c.dataset.suggest; input.dispatchEvent(new Event('input')); input.focus(); }));
   $('composer').addEventListener('submit', async (e) => {
     e.preventDefault(); const text = input.value.trim(); if (!text || S.sending) return;
-    tap(); input.value = ''; input.style.height = 'auto'; const photo = S.photoMode; setPhotoMode(false); await send(text, { photo });
+    tap(); input.value = ''; saveDraft(); input.style.height = 'auto'; const photo = S.photoMode; setPhotoMode(false); await send(text, { photo });
   });
   $('btn-stop').addEventListener('click', async () => { tap(); if (!S.threadId) return; try { await api('POST', `/threads/${encodeURIComponent(S.threadId)}/stop`); toast('Остановлено'); } catch (err) { toast(err.message); } });
   function busy(on) { S.sending = on; $('btn-send').hidden = on; $('btn-stop').hidden = !on; }
@@ -1733,7 +1738,7 @@
       const dg = s.direct_gen || {}; const q = dg.queue || {}; const mem = dg.memory || {};
       body.appendChild(stat('Прямой генератор', dg.sd_cli ? dg.sd_cli.present : null, [kv('сейчас', q.running ? 'идёт генерация' : 'свободен'), kv('в очереди', q.waiting), kv('ОЗУ свободно', mem.measured ? `${(mem.free_mb / 1024).toFixed(1)} из ${(mem.total_mb / 1024).toFixed(0)} ГБ` : '—')]));
       const w = s.war_terminal || {}; body.appendChild(stat('War Terminal', w.up, [kv('состояние', w.up ? `работает · ${w.version || ''} ${w.mode || ''}` : 'не запущен')]));
-      const mob = s.mobile || {}; const out = el('button', 'btn danger', 'Выйти на этом телефоне'); out.addEventListener('click', async () => { try { await api('POST', '/logout'); } catch { /* */ } showLogin(); });
+      const mob = s.mobile || {}; const out = el('button', 'btn danger', 'Выйти на этом телефоне'); out.addEventListener('click', async () => { try { await api('POST', '/logout'); } catch { /* */ } store.set('draft', null); input.value = ''; showLogin(); });
       body.appendChild(stat('Bossman Mobile', true, [kv('версия', mob.version), kv('активных сессий', mob.sessions), kv('модели чата', 'только локальные (сервер отклоняет облачные)'), out]));
     } catch (err) { body.replaceChildren(el('p', 'error-text pad', err.message)); }
   }
