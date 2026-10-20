@@ -154,11 +154,11 @@ def test_wrapper_and_child_with_same_flag_reported_once_and_nested_judged_by_par
 def test_redaction_of_tokens_keys_and_private_paths():
     raw = (r'codex exec --api-key sk-proj-ABCDEFGH12345678 OPENAI_API_KEY=sk-live-zzz --token=ghp_abcdefghijklmnop1234 '
            r'-i C:\Users\owner\.ssh\id_ed25519 --cfg C:\Users\owner\Bossman\vault\keys.enc '
-           r'Authorization: Bearer abcdefghijklmnopqrstuvwx 123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawQ '
+           r'Authorization: Bearer abcdefghijklmnopqrstuvwx 123456789:SYNTHETIC_token_for_watchdog_tests0 '
            r'C:\Users\owner\project\main.py')
     out = aw.redact(raw, limit=1000, home=HOME)
     for secret in ("sk-proj-ABCDEFGH12345678", "sk-live-zzz", "ghp_abcdefghijklmnop1234", "id_ed25519", "keys.enc",
-                   "abcdefghijklmnopqrstuvwx", "AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsawQ", r"C:\Users\owner"):
+                   "abcdefghijklmnopqrstuvwx", "SYNTHETIC_token_for_watchdog_tests0", r"C:\Users\owner"):
         assert secret not in out, secret
     assert r"~\project\main.py" in out
     assert "<redacted>" in out and "<path-redacted>" in out
