@@ -6,7 +6,7 @@ from pydantic import BaseModel,Field
 from .models import JobCreate,JOB_TYPES
 from .service import JobService
 from .domain import TravelEngine
-from .bossman_bridge import emit_task
+from .bossman_bridge import emit_task,resolve_exchange_root
 from pathlib import Path
 from .ui import app_shell
 APP_ID="travel-architect"
@@ -65,9 +65,13 @@ def build_app():
     def dc(r:Flex):return {"candidates":eng.date_candidates(r.start,r.end,r.flex_days,r.durations)}
     @api.post("/api/trips/{tid}/search")
     def search(tid:str,r:Search):
-        task=eng.search_task(tid)
+        root=None
         if r.exchange_root:
-            p=emit_task(Path(r.exchange_root),task["task_type"],task,["browser.read","llm.reasoning"])
+            try:root=resolve_exchange_root(r.exchange_root)
+            except ValueError as e:raise HTTPException(400,str(e))
+        task=eng.search_task(tid)
+        if root is not None:
+            p=emit_task(root,task["task_type"],task,["browser.read","llm.reasoning"])
             task["task_file"]=str(p)
         return task
     @api.post("/api/trips/{tid}/watches")

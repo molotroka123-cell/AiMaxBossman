@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from .models import JobCreate,JOB_TYPES
 from .service import JobService
 from .domain import ExamEngine
-from .bossman_bridge import emit_task
+from .bossman_bridge import emit_task,resolve_exchange_root
 from .ui import app_shell
 APP_ID="exam-trainer-ai"
 class ExamCreate(BaseModel): name:str; language:str="en"; topics:list[dict]
@@ -60,9 +60,13 @@ def build_app():
     def ready(eid:str,r:Mastery):return eng.readiness(eid,r.mastery)
     @api.post("/api/exams/{eid}/collect-sources")
     def collect(eid:str,r:Collect):
-        task=eng.browser_collection_task(eid,r.query)
+        root=None
         if r.exchange_root:
-            p=emit_task(__import__("pathlib").Path(r.exchange_root),task["task_type"],task,["browser.read","llm.reasoning"])
+            try:root=resolve_exchange_root(r.exchange_root)
+            except ValueError as e:raise HTTPException(400,str(e))
+        task=eng.browser_collection_task(eid,r.query)
+        if root is not None:
+            p=emit_task(root,task["task_type"],task,["browser.read","llm.reasoning"])
             task["task_file"]=str(p)
         return task
 

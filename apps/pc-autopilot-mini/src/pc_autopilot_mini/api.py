@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from .models import JobCreate,JOB_TYPES
 from .service import JobService
 from .domain import Autopilot
-from .bossman_bridge import emit_task
+from .bossman_bridge import emit_task,resolve_exchange_root
 from pathlib import Path
 from .ui import app_shell
 APP_ID="pc-autopilot-mini"
@@ -62,9 +62,13 @@ def build_app():
     def run(mid:str,r:Run):return eng.run_local(mid,r.variables,r.approve)
     @api.post("/api/macros/{mid}/repair")
     def repair(mid:str,r:Repair):
-        prop=eng.repair_proposal(mid,r.failed_step,r.proposal)
+        root=None
         if r.exchange_root:
-            p=emit_task(Path(r.exchange_root),"repair_macro",prop,["computer.observe","llm.reasoning"])
+            try:root=resolve_exchange_root(r.exchange_root)
+            except ValueError as e:raise HTTPException(400,str(e))
+        prop=eng.repair_proposal(mid,r.failed_step,r.proposal)
+        if root is not None:
+            p=emit_task(root,"repair_macro",prop,["computer.observe","llm.reasoning"])
             prop["task_file"]=str(p)
         return prop
 

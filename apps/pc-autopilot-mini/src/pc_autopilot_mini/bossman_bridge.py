@@ -9,6 +9,24 @@ from datetime import datetime, timezone
 
 APP_ID = "pc-autopilot-mini"
 
+
+def exchange_base() -> Path:
+    """The only folder task files may be written under: $BOSSMAN_APP_EXCHANGE_ROOT, else this app's own
+    data folder (apps/<app_id>/data — Bossman's worker reads apps/<app_id>/data/bossman/inbox)."""
+    env = os.getenv("BOSSMAN_APP_EXCHANGE_ROOT")
+    return Path(env) if env else Path(__file__).resolve().parents[2] / "data"
+
+
+def resolve_exchange_root(requested: str) -> Path:
+    """A caller-supplied exchange root, confined to exchange_base(); relative roots are relative to it.
+    Raises ValueError for anything that resolves outside (absolute elsewhere, «..», symlink escape)."""
+    base = exchange_base().resolve()
+    root = Path(requested)
+    root = (root if root.is_absolute() else base / root).resolve()
+    if root != base and base not in root.parents:
+        raise ValueError("exchange_root must be inside the app's task exchange folder")
+    return root
+
 def emit_task(root: Path, task_type: str, payload: dict, capabilities: list[str]) -> Path:
     inbox = root / "bossman" / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
