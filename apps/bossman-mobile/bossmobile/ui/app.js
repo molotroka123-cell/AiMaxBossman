@@ -15,6 +15,18 @@
   const stRu = (s) => (s && TASK_ST[s]) || s || '';
   const tap = () => { try { navigator.vibrate && navigator.vibrate(8); } catch { /* iOS: no vibrate */ } };
 
+  /* a list that failed to load says so and offers «Повторить» (it used to stay silently empty or stale); what was
+     already shown stays under the message; the next successful load replaces both */
+  function loadFailed(box, err, retry) {
+    if (!box || (err && err.status === 401)) return;            // 401 already shows the login
+    box.querySelectorAll(':scope > .load-error').forEach((n) => n.remove());
+    const row = el('div', 'load-error'); row.setAttribute('role', 'status');
+    row.appendChild(el('span', '', `Не загрузилось: ${(err && err.message) || 'нет связи с ПК'}`));
+    const b = el('button', 'btn small', 'Повторить'); b.type = 'button';
+    b.addEventListener('click', () => { tap(); b.disabled = true; retry(); });
+    row.appendChild(b); box.prepend(row);
+  }
+
   let toastTimer = 0;
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3200); }
 
@@ -408,7 +420,7 @@
         list.appendChild(b);
       });
       if (!list.children.length) list.appendChild(el('p', 'muted pad', 'Чатов пока нет'));
-    } catch { /* offline */ }
+    } catch (err) { loadFailed($('thread-list'), err, loadThreads); }
   }
   function newChat() { closeStream(); S.threadId = null; store.set('thread', null); clearMessages(); drawer(false); $('input').focus(); }
   $('btn-new').addEventListener('click', () => { tap(); newChat(); });
@@ -1270,7 +1282,7 @@
       const jobs = r.jobs || []; jobs.forEach((j) => box.appendChild(renderQueueItem(j)));
       if (!jobs.length) box.appendChild(el('p', 'muted', 'Очередь пуста'));
       busy = jobs.some((j) => j.ui && (j.ui.state === 'running' || j.ui.state === 'queued'));
-    } catch (err) { if (err.status === 401) return; }
+    } catch (err) { if (err.status === 401) return; loadFailed($('photo-queue-list'), err, loadQueue); }
     if (busy && !document.hidden) queueTimer = setTimeout(loadQueue, 4000);   // опрос только пока есть активные задачи
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && $('photo-queue-list')) loadQueue(); });
@@ -1280,7 +1292,7 @@
       const done = (r.jobs || []).filter((j) => j.status === 'completed' && j.result && String(j.result.mime || '').startsWith('image/'));
       done.forEach((j) => { const b = el('button', 'thumb'); b.dataset.job = j.job_id; const img = el('img'); img.loading = 'lazy'; img.src = `/m/api/photo/jobs/${j.job_id}/file`; img.alt = j.raw_prompt || ''; b.appendChild(img); b.addEventListener('click', () => openViewer(j)); g.appendChild(b); });
       if (!done.length) g.appendChild(el('p', 'muted', 'Пока пусто'));
-    } catch { /* */ }
+    } catch (err) { loadFailed($('gallery'), err, loadGallery); }
   }
   async function photoStatus() {
     try { const s = await api('GET', '/photo/status'); const q = s.queue || {}; $('photo-queue').textContent = q.running ? `идёт генерация · ждут ${q.waiting || 0}` : (q.waiting ? `ждут ${q.waiting}` : 'ПК свободен'); } catch { /* */ }
@@ -1637,7 +1649,7 @@
       active = jobs.some((j) => j.ui && (j.ui.state === 'running' || j.ui.state === 'queued'));
       if (!active && box.dataset.active === '1') loadVideos();
       box.dataset.active = active ? '1' : '';
-    } catch (err) { if (err.status === 401) return; }
+    } catch (err) { if (err.status === 401) return; loadFailed($('video-queue-list'), err, loadVQueue); }
     if (active && !document.hidden && !$('view-video').hidden) vqTimer = setTimeout(loadVQueue, 5000);
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('view-video').hidden) loadVQueue(); });
@@ -1655,7 +1667,7 @@
         row.append(play, dl, pultButton('video', j.job_id)); c.appendChild(row); c.appendChild(deleteButton('video', j.job_id)); box.appendChild(c);
       });
       if (!done.length) box.appendChild(el('p', 'muted', 'Пока нет готовых видео'));
-    } catch { /* */ }
+    } catch (err) { loadFailed($('video-list'), err, loadVideos); }
   }
   let vviewing = null;
   function openVViewer(j) {
