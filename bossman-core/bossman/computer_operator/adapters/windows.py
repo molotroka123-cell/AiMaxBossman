@@ -229,6 +229,9 @@ class WindowsDesktop:
                 cands=w.descendants(title=a.target)
                 if not cands: return False,"element not found"
                 c=cands[0]
+                # Поиск элемента по дереву — долгий COM-обход; «Стоп» за это
+                # время отменяет эффект, а не догоняет его.
+                if self._interrupted(): return False,"owner interrupted before the UIA effect"
                 if a.kind is ActionKind.FOCUS: c.set_focus()
                 else:
                     try: c.invoke()
@@ -290,6 +293,14 @@ class WindowsDesktop:
         abort=getattr(getattr(self,"_tls",None),"abort",None)
         if abort is not None and abort.is_set():
             raise RuntimeError(f"typing aborted after {typed} of {total} characters (caller gave up)")
+
+    def _stop_before_effect(self,kind):
+        """«Стоп»/отказ вызывающего перед одиночным эффектом: ничего не отправлено."""
+        if self._interrupted():
+            raise RuntimeError(f"owner interrupted: {kind.value} not sent")
+        abort=getattr(getattr(self,"_tls",None),"abort",None)
+        if abort is not None and abort.is_set():
+            raise RuntimeError(f"{kind.value} aborted before start (caller gave up)")
 
     @staticmethod
     def _foreground_hwnd():
@@ -401,6 +412,12 @@ class WindowsDesktop:
             except ImportError as e: raise RuntimeError("pyautogui missing") from e
             pyautogui.FAILSAFE=True
             failsafe=getattr(pyautogui,"FailSafeException",None) or ()
+            if a.kind is not ActionKind.TYPE:
+                # Одиночный эффект (клик, хоткей, прокрутка, перетаскивание) не
+                # имеет порций, между которыми можно остановиться: «Стоп»,
+                # пришедший после последней проверки вызывающего, но до старта
+                # потока, иначе исполнялся бы. Проверяем здесь, вплотную к вводу.
+                self._stop_before_effect(a.kind)
             if a.kind is ActionKind.CLICK: pyautogui.click(*self._xy(a))
             elif a.kind is ActionKind.DOUBLE_CLICK: pyautogui.doubleClick(*self._xy(a))
             elif a.kind is ActionKind.TYPE:
