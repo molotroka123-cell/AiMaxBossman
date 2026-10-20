@@ -120,3 +120,44 @@ async def test_every_desktop_input_carries_the_observed_window_handle(env, desk,
     assert desk.desktop.executed, "nothing was dispatched"
     for kind, target, _text, a_args in desk.desktop.executed:
         assert a_args.get("foreground_handle") == 1, (kind, target, a_args)
+
+
+# ------------------------------------------------------------------ 6. postcondition on an unread screen
+
+@pytest.mark.parametrize("obs", [
+    {"window": {"title": "", "error": "COMError"}, "elements": []},
+    {"window": {"title": "(окно вне разрешения задачи — содержимое скрыто)"}, "elements": [],
+     "hidden": True},
+])
+def test_screen_postcondition_on_unread_or_hidden_window_is_not_verified(obs):
+    ok, notes = tc.verify(obs, {"absent_text": "Ошибка сохранения"})
+    assert ok is False, notes
+    assert any("НЕ подтверждены" in n for n in notes)
+    assert tc.verify(obs, {"window_title_contains": "окно"})[0] is False
+
+
+def test_screen_postcondition_positive_control_on_a_read_window():
+    obs = {"window": {"title": "a.txt — Блокнот", "handle": 1},
+           "elements": [{"name": "Текстовый редактор", "value": "всё сохранено"}]}
+    assert tc.verify(obs, {"absent_text": "Ошибка сохранения"})[0] is True
+    assert tc.verify(obs, {"contains_text": "сохранено"})[0] is True
+
+
+async def test_act_on_an_unreadable_after_screen_is_not_reported_verified(env, desk):
+    g = (await tc.observe(env.svc))["generation"]
+
+    async def broken_snapshot():
+        return {"title": "", "app": "", "error": "COMError"}, None
+
+    async def act_then_break():
+        orig = desk.desktop.execute
+
+        async def execute(a, o):
+            await orig(a, o)
+            desk.desktop.snapshot = broken_snapshot   # the post-action re-read fails
+        desk.desktop.execute = execute
+        return await tc.act(env.svc, {"action": "hotkey", "keys": ["ctrl", "s"], "generation": g,
+                                      "expect": {"absent_text": "Ошибка сохранения"}})
+
+    res = await act_then_break()
+    assert res["verified"] is False

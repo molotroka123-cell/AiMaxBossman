@@ -791,6 +791,17 @@ def verify(obs: dict, expect: Any, *, started_at: float | None = None) -> tuple[
     notes: list[str] = []
     ok = True
     checks = 0
+    # Экран, который не прочитан (UIA не ответил) или скрыт (окно вне
+    # разрешения задачи), не свидетельствует ни о чём. Иначе `absent_text`
+    # подтверждался бы пустотой: «ошибки нет» — потому что нет НИЧЕГО.
+    window_error = (obs.get("window") or {}).get("error")
+    screen_keys = [k for k in ("window_title_contains", "contains_text", "absent_text") if k in cleaned]
+    if screen_keys and (window_error or obs.get("hidden")):
+        why = f"окно не прочитано ({window_error})" if window_error else "окно скрыто (вне разрешения задачи)"
+        ok = False
+        checks += 1
+        notes.append(f"{why} — экранные проверки ({', '.join(screen_keys)}) НЕ подтверждены")
+        cleaned = {k: v for k, v in cleaned.items() if k not in screen_keys}
     if "window_title_contains" in cleaned:
         hit = cleaned["window_title_contains"].lower() in title
         ok &= hit
