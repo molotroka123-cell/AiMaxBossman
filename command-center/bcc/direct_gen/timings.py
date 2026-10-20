@@ -63,6 +63,15 @@ def engine_of(job: dict) -> tuple[str, str]:
     return "sd-cli", "cold"          # every sd-cli run reads the weights again
 
 
+def is_resumed(job: dict) -> bool:
+    if int(job.get("resumed_count") or 0) > 0:
+        return True
+    for t in job.get("timeline") or []:
+        if isinstance(t, dict) and t.get("note") in ("resumed_after_restart", "recovered_after_restart"):
+            return True
+    return False
+
+
 def measure(job: dict) -> dict[str, Any]:
     """The timing row of one finished job (pure)."""
     st = _first_stages(job)
@@ -91,10 +100,13 @@ def measure(job: dict) -> dict[str, Any]:
         post_s = finished - post
     engine, load = engine_of(job)
     inputs = job.get("inputs") or {}
-    refs = inputs.get("images") or (1 if inputs.get("image") else 0)
+    refs = inputs.get("ref_images_count") if isinstance(inputs.get("ref_images_count"), int) else (
+        inputs.get("images") or (1 if inputs.get("image") else 0)
+    )
     frames = p.get("frames")
     if job.get("kind") == "faceswap":
         frames = (job.get("progress") or {}).get("max")
+    resumed = is_resumed(job)
     return {
         "v": SCHEMA, "ts": job.get("finished_at"), "job_id": job.get("job_id"), "model": job.get("model"),
         "kind": job.get("kind"), "status": job.get("status"),
@@ -102,6 +114,7 @@ def measure(job: dict) -> dict[str, Any]:
         "frames": frames if isinstance(frames, int) else None, "preset": p.get("preset"),
         "refs": refs if isinstance(refs, int) else 0,
         "facelock": bool((job.get("facelock") or {}).get("requested")),
+        "resumed": resumed,
         "engine": engine, "load": load, "split": split,
         "load_s": _r(load_s), "generate_s": _r(generate_s), "post_s": _r(post_s),
         "total_s": _r(finished - started) if started is not None and finished is not None else None,
@@ -117,6 +130,8 @@ class TimingLog:
         self.path = Path(data_root) / "direct-gen" / FILE
 
     def append(self, row: dict) -> None:
+        if row.get("resumed"):
+            return
         line = json.dumps(row, ensure_ascii=False, separators=(",", ":"))
         with _lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -151,10 +166,10 @@ def s_per_step_512(row: dict) -> float | None:
 
 
 def summary(rows: list[dict]) -> dict[str, dict[str, Any]]:
-    """Per-model medians of COMPLETED rows, cold and warm load apart. ``measured`` only with >= MIN_SAMPLES runs."""
+    """Per-model medians of COMPLETED non-resumed rows, cold and warm load apart. ``measured`` only with >= MIN_SAMPLES runs."""
     by: dict[str, list[dict]] = {}
     for r in rows:
-        if r.get("status") == "completed" and r.get("model"):
+        if r.get("status") == "completed" and r.get("model") and not r.get("resumed"):
             by.setdefault(str(r["model"]), []).append(r)
     out: dict[str, dict[str, Any]] = {}
     for model, rs in by.items():

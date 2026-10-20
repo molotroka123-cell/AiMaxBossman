@@ -216,6 +216,9 @@ def test_budget_ok():
     ("python.exe", "python.exe tools/x.py", "C:\\Users\\asd\\Bossman\\wt", False, False),    # already not Normal
     ("sd-cli.exe", "sd-cli.exe -M vid_gen", "C:\\Users\\asd\\Bossman", True, False),
     ("python.exe", "C:\\Users\\asd\\AppData\\Local\\OpenAI\\Codex\\x\\python.exe Bossman\\a.py", "", True, False),
+    ("python.exe", "python.exe C:\\Users\\asd\\Bossman\\command-center\\bcc\\direct_gen\\facelock_worker.py", "C:\\Users\\asd\\Bossman", True, False),
+    ("python.exe", "python.exe C:\\Users\\asd\\Bossman\\facefusion\\facefusion.py run", "C:\\Users\\asd\\Bossman", True, False),
+    ("python.exe", "python.exe C:\\Users\\asd\\Bossman\\ComfyUI\\main.py --listen", "C:\\Users\\asd\\Bossman", True, False),
 ])
 def test_depri_candidates(name, cmd, cwd, normal, expected):
     assert g.is_depri_candidate(name, cmd, cwd, normal) is expected
@@ -259,9 +262,9 @@ def test_every_live_status_activates_the_guard_and_unloads_all_models(status):
     gov = g.Governor(io, cfg())
     gov.tick()
     assert gov.phase == "ACTIVE" and io.ollama == [] and {c[1] for c in names(io, "unload")} == {"a:latest", "b:latest"}
-    io.ollama = ["a:latest"]                                      # something reloads it: unloaded again next tick
+    io.ollama = ["a:latest"]                                      # something reloads it: NOT unloaded on subsequent guard ticks by default
     gov.tick()
-    assert io.ollama == []
+    assert io.ollama == ["a:latest"]
 
 
 def test_guard_ends_when_last_job_ends_and_restores_priorities():

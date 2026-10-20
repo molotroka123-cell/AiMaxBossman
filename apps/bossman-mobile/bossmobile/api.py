@@ -768,8 +768,10 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         a = getattr(app.state, "exchange", None)
         if a is None:
             from bossman_shared.exchange_assistant import Assistant
+            from bossman_shared.exchange_assistant.agent import default_stop_file
             from bossman_shared.exchange_assistant.store import Store as ExchangeBook, default_db
-            a = app.state.exchange = Assistant(ExchangeBook(default_db()))
+            stop_path = (st.token_file.parent / "computer" / "STOP") if st.token_file else default_stop_file()
+            a = app.state.exchange = Assistant(ExchangeBook(default_db(), stop_file=stop_path), stop_file=stop_path)
         return a
 
     @app.post("/m/api/exchange")

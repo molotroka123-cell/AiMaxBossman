@@ -296,8 +296,21 @@ class Telegram:
             raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
         return message_id
 
-    async def send_video(self, person: Person, data: bytes, caption: str, keyboard=None):
-        """Upload a verified MP4; same identity check and caption egress guard as photos."""
+    async def send_video(
+        self,
+        person: Person,
+        data: bytes,
+        caption: str,
+        keyboard=None,
+        *,
+        duration: int | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        thumbnail: bytes | None = None,
+    ):
+        """Upload a verified MP4; same identity check and caption egress guard as photos.
+        Includes duration/width/height/thumbnail when available so mobile Telegram clients
+        render the inline preview and real duration instead of a 0:00 grey box."""
         from bossman.notifications.telegram_transport import _egress_guard_text
         if not self.settings.bot_token:
             raise CompanionError("TELEGRAM_NOT_CONFIGURED")
@@ -306,19 +319,38 @@ class Telegram:
         if not (len(data) > 12 and data[4:8] == b"ftyp") or len(data) > 49 * 1024 * 1024:
             raise CompanionError("IMAGE_BYTES_UNVERIFIED")
         clean = _egress_guard_text(scrub(caption, (self.settings.bot_token, self.settings.core_token)))[:1000]
+        form_data: dict[str, str] = {
+            "chat_id": str(person.chat_id),
+            "caption": clean,
+            "supports_streaming": "true",
+        }
+        if duration is not None and int(duration) > 0:
+            form_data["duration"] = str(int(duration))
+        if width is not None and int(width) > 0:
+            form_data["width"] = str(int(width))
+        if height is not None and int(height) > 0:
+            form_data["height"] = str(int(height))
+        if keyboard:
+            form_data["reply_markup"] = json.dumps(markup(keyboard))
+        files_payload: dict[str, tuple[str, bytes, str]] = {
+            "video": ("bossman.mp4", data, "video/mp4"),
+        }
+        if thumbnail and len(thumbnail) <= 200 * 1024:
+            files_payload["thumbnail"] = ("thumb.jpg", thumbnail, "image/jpeg")
         try:
             async with asyncio.timeout(300):
-                response = await self.client.post(bot_api_url(self.settings.bot_token, "sendVideo"),
-                                                  data={"chat_id": str(person.chat_id), "caption": clean,
-                                                        "supports_streaming": "true",
-                                                        **({"reply_markup": json.dumps(markup(keyboard))} if keyboard else {})},
-                                                  files={"video": ("bossman.mp4", data, "video/mp4")})
+                response = await self.client.post(
+                    bot_api_url(self.settings.bot_token, "sendVideo"),
+                    data=form_data,
+                    files=files_payload,
+                )
             body = response.json()
         except (httpx.HTTPError, OSError, TimeoutError, ValueError):
             raise CompanionError("NETWORK_UNAVAILABLE") from None
         if not isinstance(body, dict) or body.get("ok") is not True:
             raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
         return (body.get("result") or {}).get("message_id")
+
 
     async def send_document(self, person: Person, name: str, data: bytes, caption: str = ""):
         """Upload a text report (UTF-8 Markdown/JSON); the bytes pass the same egress guard

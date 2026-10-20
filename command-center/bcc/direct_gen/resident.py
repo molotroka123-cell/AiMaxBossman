@@ -257,11 +257,13 @@ class ResidentEngine:
 
     def __init__(self, server_bin: Path, *, idle_s: float = DEFAULT_IDLE_S, spawn=_spawn, http=_http, kill=_kill,
                  bind=_bind, port_picker=_free_port, ready_timeout_s: float = 3600.0, poll_s: float = 0.5,
-                 cwd: Path | None = None, prioritize=_high_priority) -> None:
+                 max_no_progress_s: float = 600.0, cwd: Path | None = None, prioritize=_high_priority) -> None:
         self.server_bin, self.idle_s = Path(server_bin), idle_s
         self._spawn, self._http, self._kill, self._bind, self._port = spawn, http, kill, bind, port_picker
         self._prioritize = prioritize
         self.ready_timeout_s, self.poll_s = ready_timeout_s, poll_s
+        self.max_no_progress_s = max_no_progress_s
+        self.last_progress_at = 0.0
         self.cwd = Path(cwd) if cwd else Path(server_bin).parent
         self.proc: Any = None
         self.key: tuple[str, ...] | None = None
@@ -370,6 +372,8 @@ class ResidentEngine:
                         continue
                     m = PROGRESS.search(line)
                     cb = self.on_progress
+                    if m:
+                        self.last_progress_at = time.monotonic()
                     if m and cb is not None:
                         await cb(int(m.group(1)), int(m.group(2)))
                     elif not m:
@@ -419,12 +423,20 @@ class ResidentEngine:
 # ----------------------------------------------------------------------------- runner (drop-in for SdCliRunner)
 
 
+def _atomic_write_bytes(path_str: str | Path, data: bytes) -> None:
+    dst = Path(path_str)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    part = dst.with_name(f"{dst.name}.part")
+    part.write_bytes(data)
+    os.replace(part, dst)
+
+
 class ResidentRunner:
     """Same interface as ``SdCliRunner`` (``run`` / ``kill`` / ``proc``); chooses server or sd-cli per job."""
 
     def __init__(self, engine: ResidentEngine, *, tag: str = "", cli_factory: Callable[[], Any] = SdCliRunner,
                  read_bytes: Callable[[str], bytes] = lambda p: Path(p).read_bytes(),
-                 write_bytes: Callable[[str, bytes], None] = lambda p, b: Path(p).write_bytes(b)) -> None:
+                 write_bytes: Callable[[str, bytes], None] = _atomic_write_bytes) -> None:
         self.engine, self.tag = engine, tag
         self._cli_factory, self._read, self._write = cli_factory, read_bytes, write_bytes
         self._cli: Any = None
@@ -507,6 +519,8 @@ class ResidentRunner:
             eng.kill_now()                                 # unknown server state: do not keep it resident
             return fail(f"sd-server refused the job (HTTP {status}): {str(data)[:300]}")
         url = f"{eng.base}/sdcpp/v1/jobs/{data['id']}"
+        eng.last_progress_at = time.monotonic()
+        last_seen_progress: Any = None
         while True:
             if eng.proc is None or eng.proc.returncode is not None:
                 return fail("sd-server exited during generation")
@@ -518,6 +532,10 @@ class ResidentRunner:
             except (OSError, ValueError):
                 status, job = 0, None
             if status == 200 and isinstance(job, dict):
+                prog = job.get("progress") if "progress" in job else job.get("step")
+                if prog is not None and prog != last_seen_progress:
+                    last_seen_progress = prog
+                    eng.last_progress_at = time.monotonic()
                 st = job.get("status")
                 if st == "completed":
                     images = (job.get("result") or {}).get("images") or []
@@ -529,4 +547,7 @@ class ResidentRunner:
                     err = job.get("error") or {}
                     eng.kill_now() if st == "failed" else None
                     return fail(f"sd-server job {st}: {err.get('message', '')}")
+            if eng.max_no_progress_s > 0 and (time.monotonic() - eng.last_progress_at) > eng.max_no_progress_s:
+                eng.kill_now()
+                return fail(f"sd-server stalled without progress for >{eng.max_no_progress_s}s")
             await asyncio.sleep(eng.poll_s)

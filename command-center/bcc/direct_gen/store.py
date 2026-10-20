@@ -17,7 +17,9 @@ JOB_ID = re.compile(r"^[0-9a-f]{32}$")
 
 
 def valid_participant(value: str | None) -> str:
-    key = (value or "owner").strip().lower()
+    if value is None:
+        return "owner"
+    key = value.strip().lower()
     if not PARTICIPANT.fullmatch(key):
         raise ValueError("participant must be 'owner' or a 64-hex participant key")
     return key

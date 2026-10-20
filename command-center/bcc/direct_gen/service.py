@@ -197,15 +197,20 @@ class DirectGenService:
     def active_tasks(self) -> int:
         return sum(1 for t in self._tasks.values() if not t.done())
 
+    STALE_RESUME_SECONDS = 1800
+
     def _recover_completed_output(self, job: dict, folder: Path) -> bool:
         """If the engine already finished writing a valid output file before :8801 restarted, recover it."""
+        facelock_cfg = job.get("facelock") or {}
+        if facelock_cfg.get("requested") and facelock_cfg.get("status") == "pending":
+            return False
         result_dir = folder / "result"
         if not result_dir.is_dir():
             return False
         kind = job.get("kind")
         if kind == "photo":
             out = result_dir / "image.png"
-            size = sdcli.png_size(out) if out.is_file() and out.stat().st_size > 0 else None
+            size = sdcli.png_valid(out) if out.is_file() and out.stat().st_size > 0 else None
             if size is None:
                 return False
             job["result"] = {"file": out.name, "bytes": out.stat().st_size, "sha256": _sha256_file(out),
@@ -245,36 +250,92 @@ class DirectGenService:
                 images.append(q.read_bytes())
         return images
 
+    @staticmethod
+    def _expected_ref_images_count(job: dict, spec: Any) -> int:
+        params = job.get("params") or {}
+        inputs = job.get("inputs") or {}
+        for src in (params, inputs):
+            val = src.get("ref_images_count")
+            if isinstance(val, int) and val >= 0:
+                return val
+        if isinstance(inputs.get("images"), int) and inputs["images"] > 0:
+            return int(inputs["images"])
+        if inputs.get("image"):
+            return 1
+        return 1 if getattr(spec, "requires_image", False) else 0
+
+    @classmethod
+    def _is_stale_for_auto_resume(cls, job: dict) -> bool:
+        raw_ts = job.get("created_at") or job.get("started_at")
+        if not raw_ts:
+            return False
+        try:
+            dt = datetime.fromisoformat(str(raw_ts).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            age_s = (datetime.now(timezone.utc) - dt).total_seconds()
+            return age_s > cls.STALE_RESUME_SECONDS
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _stop_active(self) -> bool:
+        try:
+            data_dir = Path(self.svc.settings.data_dir)
+        except Exception:  # noqa: BLE001
+            return False
+        return (data_dir / "computer" / "STOP").exists() or (data_dir / "autonomy" / "STOP").exists()
+
     def _recover(self) -> None:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
+        stop_on = self._stop_active()
         unfinished = sorted(self.store.all_unfinished(), key=lambda j: str(j.get("created_at") or ""))
         for job in unfinished:
             job_id = job["job_id"]
             folder = self.store.job_dir(job["participant"], job_id)
             if self._recover_completed_output(job, folder):
                 continue
+            if stop_on or self._stop_active():
+                job["status"], job["stage"] = "stopped", "stopped"
+                job["error"] = {"code": "stopped",
+                                "reason": "owner_stop_active",
+                                "message": "Остановлено владельцем (STOP): возобновление при перезапуске заблокировано."}
+                job["finished_at"] = now_iso()
+                job["timeline"].append({"stage": "stopped", "at": job["finished_at"], "note": "owner_stop_active"})
+                self.store.save(job)
+                continue
+            if self._is_stale_for_auto_resume(job):
+                job["status"], job["stage"] = "stopped", "stopped"
+                job["needs_resume_confirmation"] = True
+                job["error"] = {"code": "stale_task_requires_confirmation",
+                                "reason": "stale_task_requires_confirmation",
+                                "message": "Задача старше 30 минут: автоматическое возобновление отключено, требуется подтверждение в пульте."}
+                job["finished_at"] = now_iso()
+                job["timeline"].append({"stage": "stopped", "at": job["finished_at"], "note": "stale_task_requires_confirmation"})
+                self.store.save(job)
+                continue
             runtime = (job.get("provenance") or {}).get("runtime")
             spec = sdcli.BY_ID.get(job.get("model", "")) if runtime == "sdcpp" else None
             resumed_count = int(job.get("resumed_count") or 0)
-            if loop is not None and spec is not None and resumed_count < 2:
-                images = self._recover_load_images(folder)
-                if not spec.requires_image or images:
-                    job["resumed_count"] = resumed_count + 1
-                    job["status"], job["stage"] = "queued", "queued"
-                    job["error"] = None
-                    job["timeline"].append({"stage": "queued", "at": now_iso(), "note": "resumed_after_restart"})
-                    self.store.save(job)
-                    if self._resident is not None:
-                        self._warm_keys[job_id] = self._load_key(spec, job, len(images))
-                    self._waiting.append(job_id)
-                    self._tasks[job_id] = loop.create_task(self._run_sd(job, spec, images),
-                                                           name=f"direct-gen-{job_id[:8]}")
-                    continue
+            expected_refs = self._expected_ref_images_count(job, spec) if spec is not None else 0
+            images = self._recover_load_images(folder) if (loop is not None and spec is not None) else []
+            refs_ok = len(images) >= expected_refs and (not getattr(spec, "requires_image", False) or len(images) > 0)
+            if loop is not None and spec is not None and resumed_count < 2 and refs_ok:
+                job["resumed_count"] = resumed_count + 1
+                job["status"], job["stage"] = "queued", "queued"
+                job["error"] = None
+                job["timeline"].append({"stage": "queued", "at": now_iso(), "note": "resumed_after_restart"})
+                self.store.save(job)
+                if self._resident is not None:
+                    self._warm_keys[job_id] = self._load_key(spec, job, len(images))
+                self._waiting.append(job_id)
+                self._tasks[job_id] = loop.create_task(self._run_sd(job, spec, images),
+                                                       name=f"direct-gen-{job_id[:8]}")
+                continue
             reason = ("exceeded_restart_resume_limit" if runtime == "sdcpp" and resumed_count >= 2
-                      else "missing_reference_image" if runtime == "sdcpp" and spec is not None and spec.requires_image
+                      else "missing_reference_image" if runtime == "sdcpp" and spec is not None and not refs_ok
                       else "external_runtime_not_resumable")
             job["status"], job["stage"] = "failed", "failed"
             job["error"] = {"code": "interrupted",
@@ -447,26 +508,35 @@ class DirectGenService:
             await self._resident.stop()
 
     async def _unload_ollama(self, model_name: str | None = None) -> list[str]:
-        """Immediately unload local Ollama LLM weights (keep_alive=0) so VRAM is free before photo/video generation."""
+        """Immediately unload the local Ollama helper model (keep_alive=0) so VRAM is free before photo/video generation.
+        Never unloads all models from /api/ps blindly."""
+        target = (model_name or getattr(self, "_last_assist_model", None) or "").strip() or None
+        if target is None:
+            with contextlib.suppress(Exception):
+                found = await self.qwen_lookup()
+                if found and len(found) >= 2 and found[1]:
+                    target = str(found[1]).strip()
         hook = getattr(self, "ollama_unload", None)
         if callable(hook):
-            res = hook(model_name)
+            res = hook(target)
             if asyncio.iscoroutine(res):
                 res = await res
-            return list(res) if isinstance(res, (list, tuple, set)) else ([model_name] if model_name else [])
+            return list(res) if isinstance(res, (list, tuple, set)) else ([target] if target else [])
+        if not target:
+            return []
         import httpx
         base = os.environ.get("BOSSMAN_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
-        targets: list[str] = [model_name] if model_name else []
+        targets: list[str] = [target]
         try:
             async with httpx.AsyncClient(base_url=base, timeout=httpx.Timeout(2.0, connect=0.25), trust_env=False) as client:
+                loaded_names: set[str] | None = None
                 with contextlib.suppress(Exception):
                     ps = (await client.get("/api/ps")).json().get("models") or []
-                    for m in ps:
-                        n = str(m.get("name") or "").strip()
-                        if n and n not in targets:
-                            targets.append(n)
+                    loaded_names = {str(m.get("name") or "").strip() for m in ps if m.get("name")}
                 unloaded: list[str] = []
                 for name in targets:
+                    if loaded_names is not None and loaded_names and name not in loaded_names:
+                        continue
                     with contextlib.suppress(Exception):
                         r = await client.post("/api/generate", json={"model": name, "prompt": "", "keep_alive": 0})
                         if r.status_code < 400:
@@ -539,6 +609,7 @@ class DirectGenService:
         if not found:
             raise DirectGenError(409, "assist_unavailable", "ASSISTED needs a local Qwen model; none is usable in the registry")
         adapter, name = found
+        self._last_assist_model = name
         try:
             result = await asyncio.wait_for(adapter.chat(name, [
                 {"role": "system", "content": ASSIST_SYSTEM}, {"role": "user", "content": prompt}]), 180)
@@ -630,7 +701,8 @@ class DirectGenService:
                 raise DirectGenError(422, f"{field}_required", f"the workflow of {spec.label} needs a {field} input")
             if data is not None:
                 inputs[field] = data
-        effective, refs = self._apply_ref_tags(effective, body, 1 if "image" in inputs else 0, "image" in needs,
+        ref_count = 1 if "image" in inputs else 0
+        effective, refs = self._apply_ref_tags(effective, body, ref_count, "image" in needs,
                                                ref_tags.START_IMAGE)
         try:
             await asyncio.wait_for(self.client.health(), 5)
@@ -643,20 +715,20 @@ class DirectGenService:
             "status": "queued", "stage": "queued", "created_at": now_iso(), "started_at": None, "finished_at": None,
             "raw_prompt": raw, "effective_prompt": effective, "negative": negative,
             "params": {"duration": duration, "width": width, "height": height, "seed": seed, "fps": spec.fps,
-                       "frames": catalog.frames_for(spec, duration)},
+                       "frames": catalog.frames_for(spec, duration), "ref_images_count": ref_count},
             "assist": {"assist_id": body.get("assist_id"), "choice": body.get("assist_choice")} if mode == "ASSISTED" else None,
             "progress": {"kind": "none"}, "result": None, "error": None, "retry_of": body.get("retry_of"),
             "provenance": {"model_id": spec.id, "runtime": "comfyui", "weights": info["weights"],
                            "source": info["source"], "revision": info["revision"], "license": info["license"],
                            "workflow_template": f"{spec.id}.json", "assist_model": assist_model},
-            "inputs": {k: len(v) for k, v in inputs.items()},
+            "inputs": {k: len(v) for k, v in inputs.items()} | ({"ref_images_count": ref_count} if ref_count else {}),
             "refs": refs,
             "timeline": [{"stage": "queued", "at": now_iso()}],
         }
         folder = self.store.job_dir(participant, job_id)
         folder.mkdir(parents=True, exist_ok=True)
         for k, data in inputs.items():
-            (folder / f"input_{k}.bin").write_bytes(data)
+            resident._atomic_write_bytes(str(folder / f"input_{k}.bin"), data)
         self.prompt_vault.record(job)
         self.store.save(job)
         self._waiting.append(job_id)
@@ -713,13 +785,14 @@ class DirectGenService:
             "status": "queued", "stage": "queued", "created_at": now_iso(), "started_at": None, "finished_at": None,
             "raw_prompt": raw, "effective_prompt": effective, "negative": negative,
             "params": {"duration": duration, "width": width, "height": height, "seed": seed, "steps": steps,
-                       "fps": spec.fps, "frames": frames},
+                       "fps": spec.fps, "frames": frames, "ref_images_count": len(images)},
             "assist": {"assist_id": body.get("assist_id"), "choice": body.get("assist_choice")} if mode == "ASSISTED" else None,
             "progress": {"kind": "none"}, "result": None, "error": None, "retry_of": body.get("retry_of"),
             "provenance": {"model_id": spec.id, "runtime": "sdcpp", "weights": info["weights"],
                            "source": info["source"], "revision": info["revision"], "license": info["license"],
                            "assist_model": assist_model},
-            "inputs": ({"image": len(image)} | ({"images": len(images)} if len(images) > 1 else {})) if image else {},
+            "inputs": (({"image": len(image), "ref_images_count": len(images)} | ({"images": len(images)} if len(images) > 1 else {}))
+                       if image else {}),
             "refs": refs,
             "timeline": [{"stage": "queued", "at": now_iso()}],
         }
@@ -728,7 +801,7 @@ class DirectGenService:
         folder = self.store.job_dir(participant, job_id)
         folder.mkdir(parents=True, exist_ok=True)
         for n, data in enumerate(images, start=1):
-            (folder / ("input_image.bin" if n == 1 else f"input_image_{n}.bin")).write_bytes(data)
+            resident._atomic_write_bytes(str(folder / ("input_image.bin" if n == 1 else f"input_image_{n}.bin")), data)
         self.prompt_vault.record(job)
         self.store.save(job)
         if self._resident is not None:
@@ -1045,7 +1118,7 @@ class DirectGenService:
                     warm = await self._resident.prepare_key(key if runner.use_server else None)
                 else:
                     await self._release_resident()
-                await self._unload_ollama()
+                await self._unload_ollama((job.get("provenance") or {}).get("assist_model"))
                 await asyncio.to_thread(self._preflight, spec, model_resident=warm)
                 folder = self.store.job_dir(job["participant"], job_id)
                 work, result = folder / "work", folder / "result"
@@ -1057,7 +1130,7 @@ class DirectGenService:
                 init: list[Path] = []
                 for n, data in enumerate(images or [], start=1):
                     path = work / f"input{'' if n == 1 else f'_{n}'}{sdcli.image_extension(data)}"
-                    path.write_bytes(data)
+                    resident._atomic_write_bytes(str(path), data)
                     init.append(path)
                 p = job["params"]
                 argv = sdcli.build_argv(spec, self.sd_bin, self.media_dir, p, job["effective_prompt"],

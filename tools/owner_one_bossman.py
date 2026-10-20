@@ -614,6 +614,22 @@ def status(data_dir: Path, companion_config: Path | None, mobile_port: int = 884
     return out
 
 
+def _soak_scheduler_ok(task_name: str = "BossmanSoak24h") -> bool:
+    if os.name != "nt":
+        return True
+    try:
+        r = subprocess.run(
+            ["schtasks", "/Query", "/TN", task_name],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        return r.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def soak_sample(
     data_dir: Path,
     companion_config: Path | None = None,
@@ -622,6 +638,7 @@ def soak_sample(
     interval_s: int = 300,
     window_hours: float = 24.0,
     now_ts: float | None = None,
+    scheduler_running: bool | None = None,
 ) -> dict[str, Any]:
     """Record a 5-minute /health sample for backend, pult, and mobile app, and evaluate the 24h soak window."""
     data_dir = Path(data_dir)
@@ -666,10 +683,25 @@ def soak_sample(
     manual_restarts = sum(1 for i in range(1, len(pids)) if pids[i] != pids[i - 1])
     all_healthy = bool(samples) and all(bool(r.get("all_ok")) for r in samples)
     elapsed_hours = round((float(samples[-1]["ts"]) - float(samples[0]["ts"])) / 3600.0, 4) if len(samples) >= 2 else 0.0
+    target_samples = max(1, int(window_hours * 3600 // max(1, interval_s)))
+    min_required_samples = max(2, int(0.9 * target_samples))
+    max_gap_s = round(
+        max(
+            (float(samples[i]["ts"]) - float(samples[i - 1]["ts"]) for i in range(1, len(samples))),
+            default=0.0,
+        ),
+        3,
+    )
+    max_allowed_gap_s = float(2 * max(1, interval_s))
+    sched_ok = bool(scheduler_running) if scheduler_running is not None else _soak_scheduler_ok()
+    density_ok = len(samples) >= min_required_samples and max_gap_s <= max_allowed_gap_s
+
     if not all_healthy or manual_restarts > 0:
         verdict = "FAIL"
-    elif elapsed_hours >= window_hours:
+    elif elapsed_hours >= window_hours and density_ok and sched_ok:
         verdict = "PASS"
+    elif elapsed_hours >= window_hours and (not density_ok or not sched_ok):
+        verdict = "FAIL"
     else:
         verdict = "IN_PROGRESS"
 
@@ -678,8 +710,13 @@ def soak_sample(
         "verdict": verdict,
         "window_hours": window_hours,
         "interval_s": interval_s,
-        "target_samples_24h": int(window_hours * 3600 // interval_s),
+        "target_samples_24h": target_samples,
+        "min_required_samples": min_required_samples,
         "samples_in_window": len(samples),
+        "max_gap_s": max_gap_s,
+        "max_allowed_gap_s": max_allowed_gap_s,
+        "density_ok": density_ok,
+        "scheduler_ok": sched_ok,
         "elapsed_hours": elapsed_hours,
         "manual_restarts": manual_restarts,
         "all_healthy": all_healthy,

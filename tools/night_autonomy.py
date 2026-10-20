@@ -428,7 +428,9 @@ class Night:
         else:
             env = {k: v for k, v in os.environ.items()
                    if k not in ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SSE_PORT") and not SECRET_ENV_RE.search(k)}
-            code, out = self.runner([binary, "-p", "--output-format", "json", "--permission-mode", self.a.permission_mode],
+            raw_mode = getattr(self.a, "permission_mode", "default") or "default"
+            safe_mode = "default" if raw_mode in ("bypassPermissions", "--dangerously-skip-permissions") else raw_mode
+            code, out = self.runner([binary, "-p", "--output-format", "json", "--permission-mode", safe_mode],
                                     cwd=REPO, timeout=self.budget(CLAUDE_TIMEOUT_S), env=env,
                                     stdin=question["text"].encode("utf-8"))
             res = self.classify_claude(code, out)
@@ -642,15 +644,19 @@ class Night:
                   + f"Отчёт: docs/evidence/{self.ev.name}/report.md", pin=True)
 
 
-def main(argv=None) -> int:
+def parse_args(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--archive", required=True)
     ap.add_argument("--until", default="08:00")
     ap.add_argument("--every", type=int, default=45)
-    ap.add_argument("--permission-mode", default="bypassPermissions")
+    ap.add_argument("--permission-mode", default="default")
     ap.add_argument("--build-python", default="")
     ap.add_argument("--once", action="store_true")
-    return Night(ap.parse_args(argv)).loop()
+    return ap.parse_args(argv)
+
+
+def main(argv=None) -> int:
+    return Night(parse_args(argv)).loop()
 
 
 if __name__ == "__main__":

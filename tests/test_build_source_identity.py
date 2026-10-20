@@ -189,6 +189,30 @@ def test_reconcile_four_identities_matches_clean_tree_and_rejects_mismatches(rep
     assert res_dirty_bundle["all_four_match"] is False
     assert res_dirty_bundle["matched_count"] == 3
 
+    # Negative control 3: old ancestor SHA in seed/registry must FAIL (exact HEAD match required)
+    ancestor_sha = sha
+    (repository / "bossman_shared/runtime.py").write_bytes(b"VALUE = 2\n")
+    git(repository, "add", "bossman_shared/runtime.py")
+    git(repository, "-c", "user.name=Build regression", "-c", "user.email=build@example.invalid",
+        "commit", "-m", "advance head")
+    new_head = git(repository, "rev-parse", "HEAD")
+    assert new_head != ancestor_sha
+    seed_path.write_text(json.dumps({"source_sha": ancestor_sha}), encoding="utf-8")
+    reg_path.write_text(json.dumps({"head": ancestor_sha}), encoding="utf-8")
+    bundle_path.write_text(json.dumps({"source_sha": new_head, "source_dirty": False}), encoding="utf-8")
+    res_ancestor = identity.reconcile_four_identities(
+        repository,
+        seed_path=seed_path,
+        registry_path=reg_path,
+        bundle_manifest_path=bundle_path,
+    )
+    assert res_ancestor["all_four_match"] is False
+    assert res_ancestor["matches"]["seed_sha"] is False
+    assert res_ancestor["matches"]["registry_head"] is False
+    assert res_ancestor["mismatches"]["seed_sha"] == ancestor_sha
+    assert res_ancestor["mismatches"]["registry_head"] == ancestor_sha
+
+
 
 def test_run_fast_ops_receipt_emits_hashed_receipt(repository, tmp_path_factory):
     test_file = repository / "test_mini.py"

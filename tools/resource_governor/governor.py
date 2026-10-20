@@ -262,6 +262,8 @@ def is_depri_candidate(name: str, cmdline: str, cwd: str, nice_is_normal: bool) 
     """Python processes of this owner's Bossman checkouts that are not on the protected list."""
     if not nice_is_normal or name.lower() not in CANDIDATE_NAMES:
         return False
+    if is_service(name, cmdline):
+        return False
     low = cmdline.lower()
     if any(p in low for p in PROTECTED_CMD):
         return False
@@ -1119,7 +1121,8 @@ class Governor:
             log.info("sd-cli pid %s -> HIGH priority", pid)
 
     def _guard(self, live: list[dict]) -> None:
-        self._unload_ollama()
+        if self.cfg.get("ollama_unload_every_tick", False):
+            self._unload_ollama()
         self._boost()
         self.jeff.heartbeat()
         self.depri_tick += 1
@@ -1137,10 +1140,14 @@ class Governor:
         self.hot_probed.clear()                 # re-measure the hot weights right after a generation
 
     # -- ollama ----------------------------------------------------------------------------------------------
-    def _unload_ollama(self) -> None:
+    def _unload_ollama(self, target_models: list[str] | set[str] | None = None) -> None:
         if not self.cfg["ollama_unload"]:
             return
-        for name in self.io.ollama_ps():
+        allowed = target_models if target_models is not None else self.cfg.get("ollama_helper_models")
+        allowed_set = {str(m).strip().lower() for m in allowed if str(m).strip()} if allowed else None
+        for name in list(self.io.ollama_ps()):
+            if allowed_set is not None and str(name).strip().lower() not in allowed_set:
+                continue
             if self.dry:
                 log.info("DRYRUN would unload ollama model %s (keep_alive=0)", name)
                 continue

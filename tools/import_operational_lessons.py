@@ -347,25 +347,56 @@ def _read_if_exists(path: Path) -> str:
         return ""
 
 
+def _parse_ast(path: Path):
+    import ast
+    txt = _read_if_exists(path)
+    if not txt:
+        return None
+    try:
+        return ast.parse(txt, filename=str(path))
+    except SyntaxError:
+        return None
+
+
+def _func_names(tree) -> set[str]:
+    import ast
+    if tree is None:
+        return set()
+    return {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+
 def _check_wmic_missing(repo_root: Path) -> tuple[bool, str]:
     hits = []
+    checked_files = 0
     for sub in ("command-center/bcc", "bossman-core/bossman"):
         base = repo_root / sub
         if not base.is_dir():
-            continue
+            return False, f"missing required directory: {sub}"
         for p in base.rglob("*.py"):
+            checked_files += 1
             txt = _read_if_exists(p)
             if re.search(r'\bsubprocess\.(?:run|Popen|check_output)\(\s*\[\s*["\']wmic(?:\.exe)?["\']', txt, re.I):
                 hits.append(str(p.relative_to(repo_root)))
+    if checked_files == 0:
+        return False, "no python files found under command-center/bcc or bossman-core/bossman"
     return (not hits, "0 wmic subprocess calls" if not hits else f"wmic found in {hits}")
 
 
 def _check_pythonpath_posix(repo_root: Path) -> tuple[bool, str]:
+    tools_dir = repo_root / "tools"
+    if not tools_dir.is_dir():
+        return False, "missing required directory: tools"
+    py_files = list(tools_dir.glob("*.py"))
+    if not py_files:
+        return False, "no python files in tools/"
     hits = []
-    for p in (repo_root / "tools").glob("*.py") if (repo_root / "tools").is_dir() else []:
+    for p in py_files:
         txt = _read_if_exists(p)
         if re.search(r'env\[\s*["\']PYTHONPATH["\']\s*\]\s*=\s*f?["\'][^"\']*:[\\/]', txt):
-            # Windows drive letter C:\ is fine; POSIX colon separator between two paths without ; is not
             for m in re.finditer(r'env\[\s*["\']PYTHONPATH["\']\s*\]\s*=\s*([^\n]+)', txt):
                 rhs = m.group(1)
                 if "os.pathsep" not in rhs and ";" not in rhs and rhs.count(":") >= 2 and "http" not in rhs:
@@ -376,67 +407,105 @@ def _check_pythonpath_posix(repo_root: Path) -> tuple[bool, str]:
 def _check_pult_owner_only(repo_root: Path) -> tuple[bool, str]:
     p = repo_root / "command-center/bcc/telegram_companion/service.py"
     if not p.is_file():
-        return True, "service.py not in partial tree"
+        return False, "missing file: command-center/bcc/telegram_companion/service.py"
+    tree = _parse_ast(p)
+    fns = _func_names(tree)
     txt = _read_if_exists(p)
-    ok = ("delivery_allowed" in txt or "authorize_delivery" in txt or '"owner"' in txt)
+    ok = (
+        tree is not None
+        and bool({"delivery_allowed", "authorize_delivery", "_owner_only"} & fns or "authorize" in fns)
+        and ('"owner"' in txt or "'owner'" in txt)
+    )
     return (ok, "owner-only delivery guard present" if ok else "missing owner-only guard in service.py")
 
 
 def _check_pult_utf8(repo_root: Path) -> tuple[bool, str]:
+    import ast
     p = repo_root / "tools/pult_note.py"
     if not p.is_file():
-        return True, "pult_note.py not in partial tree"
-    txt = _read_if_exists(p)
-    ok = 'encoding="utf-8"' in txt and "ensure_ascii=False" in txt
+        return False, "missing file: tools/pult_note.py"
+    tree = _parse_ast(p)
+    if tree is None:
+        return False, "syntax error or empty tools/pult_note.py"
+    has_utf8_kw = False
+    has_ensure_ascii_false = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.keyword):
+            if node.arg == "encoding" and isinstance(node.value, ast.Constant) and str(node.value.value).lower() == "utf-8":
+                has_utf8_kw = True
+            if node.arg == "ensure_ascii" and isinstance(node.value, ast.Constant) and node.value.value is False:
+                has_ensure_ascii_false = True
+    ok = has_utf8_kw and has_ensure_ascii_false
     return (ok, "UTF-8 enforced in pult_note.py" if ok else "UTF-8 missing in pult_note.py")
 
 
 def _check_companion_launcher_ready(repo_root: Path) -> tuple[bool, str]:
     p = repo_root / "tools/owner_one_bossman.py"
     if not p.is_file():
-        return True, "owner_one_bossman.py not in partial tree"
+        return False, "missing file: tools/owner_one_bossman.py"
+    tree = _parse_ast(p)
+    fns = _func_names(tree)
     txt = _read_if_exists(p)
-    ok = ("_companion_locked" in txt and '"-I", "-X", "utf8"' in txt)
+    ok = tree is not None and "_companion_locked" in fns and '"-I", "-X", "utf8"' in txt
     return (ok, "isolated UTF-8 launcher + poller lock handshake" if ok else "missing launcher isolation/lock check")
 
 
 def _check_a22_05_restart_recovery(repo_root: Path) -> tuple[bool, str]:
     p1 = repo_root / "command-center/bcc/direct_gen/service.py"
     p2 = repo_root / "command-center/bcc/features/qwen_operator.py"
-    if not p1.is_file() and not p2.is_file():
-        return True, "direct_gen/qwen_operator modules not in partial tree"
+    if not p1.is_file():
+        return False, "missing file: command-center/bcc/direct_gen/service.py"
+    if not p2.is_file():
+        return False, "missing file: command-center/bcc/features/qwen_operator.py"
+    tree1, tree2 = _parse_ast(p1), _parse_ast(p2)
+    fns1, fns2 = _func_names(tree1), _func_names(tree2)
     t1, t2 = _read_if_exists(p1), _read_if_exists(p2)
-    ok = ("restart" in t1.lower() or "resume" in t1.lower()) and ("restart" in t2.lower() or "resume" in t2.lower())
+    ok = (
+        "_recover" in fns1
+        and "recover_interrupted_tasks" in fns2
+        and "needs_resume_confirmation" in t1
+        and "cancel_requested" in t2
+    )
     return (ok, "A22-05 startup auto-resume in direct_gen + qwen_operator" if ok else "missing A22-05 recovery")
 
 
 def _check_gemma_on_demand_unload(repo_root: Path) -> tuple[bool, str]:
     p = repo_root / "apps/bossman-mobile/bossmobile/api.py"
     if not p.is_file():
-        return True, "mobile api.py not in partial tree"
+        return False, "missing file: apps/bossman-mobile/bossmobile/api.py"
+    tree = _parse_ast(p)
+    fns = _func_names(tree)
     txt = _read_if_exists(p)
-    ok = "chat_unload" in txt and "keep_alive" in txt
+    ok = tree is not None and ("chat_unload" in fns or "chat_unload" in txt) and "keep_alive" in txt
     return (ok, "Gemma on-demand unload (keep_alive=0) enforced before photo gen" if ok else "missing Gemma unload")
 
 
 def _check_no_os_name_monkeypatch(repo_root: Path) -> tuple[bool, str]:
     hits = []
+    checked = 0
     for sub in ("tests", "command-center/tests"):
         base = repo_root / sub
         if not base.is_dir():
-            continue
+            return False, f"missing required test directory: {sub}"
         for p in base.rglob("test_*.py"):
+            checked += 1
             txt = _read_if_exists(p)
             if re.search(r'monkeypatch\.setattr\(\s*os\s*,\s*["\']name["\']', txt):
                 hits.append(p.name)
+    if checked == 0:
+        return False, "no test files found"
     return (not hits, "0 os.name monkeypatches in tests" if not hits else f"os.name patched in {hits}")
 
 
 def _check_never_kill_all_python(repo_root: Path) -> tuple[bool, str]:
+    tools_dir = repo_root / "tools"
+    if not tools_dir.is_dir():
+        return False, "missing required directory: tools"
+    py_files = [p for p in tools_dir.glob("*.py") if p.name != "import_operational_lessons.py"]
+    if not py_files:
+        return False, "no tool scripts found"
     hits = []
-    for p in (repo_root / "tools").glob("*.py") if (repo_root / "tools").is_dir() else []:
-        if p.name == "import_operational_lessons.py":
-            continue
+    for p in py_files:
         txt = _read_if_exists(p)
         if re.search(r'taskkill[^\n]*/IM\s+python(?:w)?\.exe', txt, re.I):
             hits.append(p.name)
@@ -446,10 +515,18 @@ def _check_never_kill_all_python(repo_root: Path) -> tuple[bool, str]:
 def _check_swapme_stop_and_pdf(repo_root: Path) -> tuple[bool, str]:
     q = repo_root / "bossman_shared/exchange_assistant/quote.py"
     a = repo_root / "bossman_shared/exchange_assistant/agent.py"
-    if not q.is_file() and not a.is_file():
-        return True, "exchange_assistant not in partial tree"
-    tq, ta = _read_if_exists(q), _read_if_exists(a)
-    ok = "render_pdf_document" in tq and "%PDF-1.4" in tq and "default_stop_file" in ta
+    if not q.is_file():
+        return False, "missing file: bossman_shared/exchange_assistant/quote.py"
+    if not a.is_file():
+        return False, "missing file: bossman_shared/exchange_assistant/agent.py"
+    tq_tree, ta_tree = _parse_ast(q), _parse_ast(a)
+    q_fns, a_fns = _func_names(tq_tree), _func_names(ta_tree)
+    tq = _read_if_exists(q)
+    ok = (
+        "render_pdf_document" in q_fns
+        and "%PDF-1.4" in tq
+        and "default_stop_file" in a_fns
+    )
     return (ok, "SwapMe STOP gate + deterministic %PDF-1.4 receipt active" if ok else "missing SwapMe STOP or PDF")
 
 

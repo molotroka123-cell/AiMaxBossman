@@ -32,5 +32,6 @@ command-center/bcc/skills_catalog/** -whitespace -text
 *.diff whitespace=-trailing-space
 *.patch whitespace=-trailing-space
 
-# Raw sd-cli output (carriage-return progress bars, ANSI escapes): parser tests read the exact bytes.
+# Raw sd-cli and video engine output (carriage-return progress bars, ANSI escapes): parser tests read the exact bytes.
 command-center/tests/fixtures/sdcpp/** binary
+command-center/tests/fixtures/video_progress/** binary

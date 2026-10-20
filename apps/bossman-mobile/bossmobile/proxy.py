@@ -27,7 +27,7 @@ from .bossman import BCC_CSRF, BossmanClient, BossmanUnavailable, Redactor
 HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding",
        "upgrade", "host", "content-length", "accept-encoding"}
 DROP_REQ = HOP | {"cookie", "x-bcc-token", "authorization", BCC_CSRF.lower(), "x-forwarded-for", "x-forwarded-proto",
-                  "x-forwarded-host", "forwarded", "origin", "referer"}
+                  "x-forwarded-host", "forwarded", "origin", "referer", "x-participant", "x-bcc-participant"}
 DROP_RESP = {"connection", "keep-alive", "transfer-encoding", "content-length", "content-encoding", "set-cookie",
              "upgrade", "trailers"}
 SAFE = {"GET", "HEAD", "OPTIONS"}

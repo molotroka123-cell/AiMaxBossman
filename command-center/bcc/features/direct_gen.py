@@ -90,6 +90,16 @@ def _svc(request: Request) -> DirectGenService:
 
 def _who(x_participant: str | None, request: Request | None = None) -> str:
     alias = request.headers.get("x-bcc-participant") if request is not None else None
+    if x_participant is not None and not x_participant.strip():
+        raise HTTPException(
+            422,
+            {"code": "invalid_participant", "message": "X-Participant header must not be empty"},
+        )
+    if alias is not None and not alias.strip():
+        raise HTTPException(
+            422,
+            {"code": "invalid_participant", "message": "X-BCC-Participant header must not be empty"},
+        )
     if x_participant is not None and alias is not None and x_participant != alias:
         raise HTTPException(
             400,
@@ -203,7 +213,7 @@ async def vault_prompts(request: Request, q: str = "", limit: int = 100, x_parti
 @router.get("/timings")
 async def timings(request: Request, limit: int = 500, x_participant: str | None = Header(default=None)):
     """Owner only: measured stage times of finished jobs (append-only log) + per-model medians, cold/warm load apart."""
-    if _who(x_participant) != "owner":
+    if _who(x_participant, request) != "owner":
         raise HTTPException(404, {"code": "not_found", "message": "not found"})
     return _svc(request).timings(limit)
 

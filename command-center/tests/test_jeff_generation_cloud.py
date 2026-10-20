@@ -59,8 +59,8 @@ def test_fresh_flag_gives_free_cloud_and_no_local_model_at_all(tmp_path):
 
 
 @pytest.mark.parametrize("flag", [
-    dict(beat=time.time() - 301),                                 # stale: governor died
-    dict(beat=time.time() + 600),                                 # from the future
+    dict(beat_offset=-301),                                       # stale: governor died
+    dict(beat_offset=600),                                        # from the future
     dict(models=("some/paid-model",)),                            # not a :free id
     dict(models=("liquid/lfm-2.5-2.6b:free",)),                   # banned family
     dict(models=()),                                              # empty
@@ -69,7 +69,10 @@ def test_fresh_flag_gives_free_cloud_and_no_local_model_at_all(tmp_path):
 ])
 def test_bad_flag_keeps_local_only(tmp_path, flag):
     path = setup(tmp_path)
-    write_flag(pit_home(tmp_path), **flag)
+    kw = dict(flag)
+    if "beat_offset" in kw:
+        kw["beat"] = time.time() + kw.pop("beat_offset")
+    write_flag(pit_home(tmp_path), **kw)
     s = load(path)
     assert s.generation_cloud is False and s.local_chat_only is True
     assert s.local_models == ("gemma4-31b-uncensored:latest",) and s.provider_key == ""

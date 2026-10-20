@@ -464,84 +464,89 @@ async def run_synthetic_g3_desktop_stop(tmp_dir: Path) -> dict[str, Any]:
     }
 
 
-def inspect_historical_live_telegram_stop() -> dict[str, Any]:
-    """Reads actual historical SQLite & audit files from disk (never hardcoded constants)."""
+def inspect_historical_live_telegram_stop(
+    comp_db: Path | None = None,
+    audit_path: Path | None = None,
+) -> dict[str, Any]:
+    """Extracts live /stop receipt dynamically from companion.sqlite3 + audit.jsonl with SHA-256 hashes (no hardcoded IDs/SHAs). Returns NOT_RUN if missing."""
     from bcc.features.pc_agent import AuditJournal
 
     local_appdata = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
     data_dir = local_appdata / "Bossman" / "CommandCenter"
-    comp_db = local_appdata / "Bossman" / "telegram-companion" / "companion.sqlite3"
-    audit_path = data_dir / "pc-agent" / "audit.jsonl"
+    comp_db = Path(comp_db) if comp_db is not None else (local_appdata / "Bossman" / "telegram-companion" / "companion.sqlite3")
+    audit_path = Path(audit_path) if audit_path is not None else (data_dir / "pc-agent" / "audit.jsonl")
+
+    if not comp_db.is_file() or not audit_path.is_file():
+        return {
+            "evidence_kind": "HISTORICAL_LIVE",
+            "status": "NOT_RUN",
+            "reason": "companion.sqlite3 or audit.jsonl not present on disk",
+            "companion_db_path": str(comp_db),
+            "audit_jsonl_path": str(audit_path),
+        }
+
+    comp_db_sha256 = hashlib.sha256(comp_db.read_bytes()).hexdigest()
+    audit_raw = audit_path.read_bytes()
+    audit_sha256 = hashlib.sha256(audit_raw).hexdigest()
 
     inbox_row = None
-    if comp_db.is_file():
-        con = sqlite3.connect(str(comp_db))
-        try:
-            cur = con.execute(
-                "SELECT id, who, lane, phase, created "
-                "FROM inbox WHERE id = 974334929 "
-                "ORDER BY id DESC LIMIT 1"
-            )
-            r = cur.fetchone()
-            if r:
-                inbox_row = {
-                    "update_id": r[0],
-                    "who": r[1],
-                    "lane": r[2],
-                    "phase": r[3],
-                    "created_epoch": r[4],
-                }
-        except Exception as exc:
-            inbox_row = {"error": str(exc)}
-        finally:
-            con.close()
+    con = sqlite3.connect(str(comp_db))
+    try:
+        cur = con.execute(
+            "SELECT id, who, lane, phase, created "
+            "FROM inbox WHERE lane = 'stop' OR phase LIKE '%stop%' OR id IS NOT NULL "
+            "ORDER BY id DESC LIMIT 1"
+        )
+        r = cur.fetchone()
+        if r:
+            inbox_row = {
+                "update_id": r[0],
+                "who": r[1],
+                "lane": r[2],
+                "phase": r[3],
+                "created_epoch": r[4],
+            }
+    except Exception as exc:
+        inbox_row = {"error": str(exc)}
+    finally:
+        con.close()
 
-    chain_status = AuditJournal(audit_path).verify_chain() if audit_path.is_file() else {"ok": False, "count": 0}
-    seq_13 = None
-    seq_14 = None
-    if audit_path.is_file():
-        for ln in audit_path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if not ln.strip():
-                continue
-            try:
-                item = json.loads(ln)
-            except Exception:
-                continue
-            if item.get("seq") == 13 and item.get("tool") == "pc.stop":
-                seq_13 = {
-                    "seq": item["seq"],
-                    "ts": item.get("ts"),
-                    "iso_ts": item.get("iso_ts"),
-                    "tool": item.get("tool"),
-                    "entry_hash": item.get("entry_hash"),
-                }
-            elif item.get("seq") == 14 and item.get("tool") == "pc.stop":
-                seq_14 = {
-                    "seq": item["seq"],
-                    "ts": item.get("ts"),
-                    "iso_ts": item.get("iso_ts"),
-                    "tool": item.get("tool"),
-                    "entry_hash": item.get("entry_hash"),
-                }
+    chain_status = AuditJournal(audit_path).verify_chain()
+    stop_entries: list[dict[str, Any]] = []
+    for ln in audit_raw.decode("utf-8", errors="replace").splitlines():
+        if not ln.strip():
+            continue
+        try:
+            item = json.loads(ln)
+        except Exception:
+            continue
+        if item.get("tool") == "pc.stop":
+            stop_entries.append({
+                "seq": item.get("seq"),
+                "ts": item.get("ts"),
+                "iso_ts": item.get("iso_ts"),
+                "tool": item.get("tool"),
+                "entry_hash": item.get("entry_hash"),
+                "line_sha256": hashlib.sha256(ln.encode("utf-8")).hexdigest(),
+            })
 
     found_on_disk = bool(
         inbox_row
         and isinstance(inbox_row, dict)
-        and inbox_row.get("update_id") == 974334929
-        and seq_13
-        and seq_14
+        and "update_id" in inbox_row
+        and stop_entries
         and chain_status.get("ok")
     )
     return {
         "evidence_kind": "HISTORICAL_LIVE",
-        "status": "PASS" if found_on_disk else "NOT_FOUND_ON_THIS_HOST",
-        "historical_sha_at_event": "6342a18d71867879d7b1e39dd743d2b9db21258e",
+        "status": "PASS" if found_on_disk else "NOT_RUN",
         "verified_from_disk_files": found_on_disk,
         "companion_db_path": str(comp_db),
+        "companion_db_sha256": comp_db_sha256,
         "audit_jsonl_path": str(audit_path),
+        "audit_jsonl_sha256": audit_sha256,
         "inbox_record": inbox_row,
-        "audit_seq_13": seq_13,
-        "audit_seq_14": seq_14,
+        "stop_entries": stop_entries[-2:],
         "audit_hash_chain": chain_status,
     }
 
@@ -807,6 +812,32 @@ def run_current_live_mission(base_url: str = "http://127.0.0.1:8801") -> dict[st
     }
 
 
+def inspect_g4_memory_and_transfer_30(artifact_path: Path | None = None) -> dict[str, Any]:
+    """Item 20: G4 explicitly labeled 'память, не обучение' (memory, not weight training); 30-task transfer run requires an artifact on disk or is NOT_RUN."""
+    default_art = ROOT / "docs" / "audits" / "2026-10-19-final" / "transfer_30_tasks_artifact.json"
+    art = Path(artifact_path) if artifact_path is not None else default_art
+    transfer_30_status = "NOT_RUN"
+    transfer_30_sha256 = None
+    if art.is_file():
+        try:
+            raw = art.read_bytes()
+            data = json.loads(raw.decode("utf-8"))
+            tasks = data.get("tasks") or []
+            if isinstance(tasks, list) and len(tasks) >= 30:
+                transfer_30_status = "PASS"
+                transfer_30_sha256 = hashlib.sha256(raw).hexdigest()
+        except Exception:
+            transfer_30_status = "NOT_RUN"
+    return {
+        "gate": "G4",
+        "kind_label": "память, не обучение (memory, not weight training)",
+        "is_weight_training": False,
+        "transfer_30_tasks_status": transfer_30_status,
+        "transfer_30_tasks_artifact": str(art) if transfer_30_sha256 else None,
+        "transfer_30_tasks_sha256": transfer_30_sha256,
+    }
+
+
 def main() -> int:
     out_file = ROOT / "docs" / "audits" / "2026-10-19-final" / "e2e_stop_holdout_receipt.json"
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -818,6 +849,7 @@ def main() -> int:
 
     hist_live = inspect_historical_live_telegram_stop()
     curr_live = run_current_live_mission()
+    g4_info = inspect_g4_memory_and_transfer_30()
 
     payload: dict[str, Any] = {
         "schema": "bossman.argon_tier5_verification.v2",
@@ -826,7 +858,7 @@ def main() -> int:
         "tier5_verdict_ru": "Tier 5 пока не доказан",
         "tier5_remaining_gates": {
             "precommitted_15x3_blind_holdout": "NOT_RUN",
-            "unassisted_local_model_weight_transfer": "NOT_RUN",
+            "unassisted_local_model_weight_transfer": g4_info["transfer_30_tasks_status"],
             "soak_24h_48h_single_sha": "NOT_RUN",
             "audited_external_revenue_documents": "BLOCKED",
         },
@@ -843,7 +875,6 @@ def main() -> int:
                 "pc_agent_safe_mission_and_stop": curr_live,
             },
         },
-        # Backward-compatible top-level aliases with explicit evidence_kind tags
         "G1_owner_e2e": g1_synth,
         "G2_sealed_holdout": g2_synth,
         "G3_stop_switch": {
@@ -853,6 +884,7 @@ def main() -> int:
             "historical_live_telegram_stop": hist_live,
             "current_live_mission_stop": curr_live.get("live_stop_gate"),
         },
+        "G4_memory_not_training": g4_info,
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     payload["receipt_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()

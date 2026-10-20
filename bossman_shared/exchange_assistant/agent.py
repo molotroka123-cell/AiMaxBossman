@@ -21,12 +21,12 @@ ALIASES = {"usdt": "USDT", "юсдт": "USDT", "тезер": "USDT", "tether": "
 _CCY = r"(usdt|юсдт|тезер|tether|usd|доллар\w*|\$|eur|евро|€|czk|крон\w*|кч)"
 _NUM = r"(\d[\d\s]*(?:[.,]\d+)?)"
 
-_MARGIN_OPT = r"(?:\s+(?:при|ставка|комиссия|наценка|под)\s+(\d+(?:[.,]\d+)?)\s*%)?"
+_MARGIN_OPT = r"(?:\s+(?:при|ставка|комиссия|наценка|под)\s+(\d+(?:[.,]\d+)?)\s*%)?(?:\s+(подтверждаю\s+ставку))?"
 RE_RATES = re.compile(r"^(курс|курсы)$")
 RE_MANUAL = re.compile(rf"^курс\s+{_CCY}\s*/\s*{_CCY}\s+{_NUM}\s+(?:источник|из)\s+(.+)$")
 RE_GIVE = re.compile(rf"^(?:котировка|посчитай|сколько)?\s*{_NUM}\s*{_CCY}\s*(?:в|на|->|→|за)?\s*{_CCY}{_MARGIN_OPT}$")
 RE_GET = re.compile(rf"^(?:(купить|клиент покупает)|получить|клиент хочет получить|хочет получить)\s+{_NUM}\s*{_CCY}\s+за\s+{_CCY}{_MARGIN_OPT}$")
-RE_CONFIRM = re.compile(rf"^(?:обмен выполнен|подтверждаю|подтвердить)\s+(q-[0-9a-f]{{8}})(?:\s+(?:приняли|факт)\s+{_NUM}\s+(?:выдали)\s+{_NUM})?$")
+RE_CONFIRM = re.compile(rf"^(?:обмен выполнен|подтверждаю|подтвердить)\s+(q-[0-9a-f]{{8}})(?:\s+(?:приняли|факт)\s+{_NUM}\s+(?:выдали)\s+{_NUM})?(?:\s+(подтверждаю\s+расхождение))?$")
 RE_REVERSE = re.compile(r"^(?:отмена|отменить)\s+d-?(\d+)\s+(.+)$")
 RE_RECEIPT = re.compile(r"^(?:чек|pdf|пдф|квитанция)\s+d-?(\d+)$")
 RE_DAILY = re.compile(r"^(?:суточный\s+отчет|суточный\s+отчёт|итоги\s+сутки|отчет\s+за\s+сутки|отчёт\s+за\s+сутки)$")
@@ -125,6 +125,7 @@ class Assistant:
 
     def handle(self, text: str, actor: str, *, stopped: bool = False) -> str:
         """`stopped`: the owner's STOP/pause is active -> reads still answer, every write is refused."""
+        from decimal import InvalidOperation
         if actor not in self.owner_ids:
             return "Помощник обменника доступен только владельцу."
         t = normalize(text)
@@ -133,11 +134,11 @@ class Assistant:
         now = self.clock()
         try:
             return self._dispatch(t, actor, now, stopped=stopped)
-        except (QuoteError, RateError, StoreError) as e:
+        except (QuoteError, RateError, StoreError, InvalidOperation) as e:
             return f"Не выполнено: {e}"
 
     def deal_pdf(self, deal_id: int) -> tuple[str, bytes]:
-        """Return (filename, pdf_bytes) for a confirmed deal."""
+        """Return (filename, pdf_bytes) for a confirmed or reversed deal."""
         from .quote import render_pdf_document
         deal = next((d for d in self.store.deals() if int(d["id"]) == int(deal_id)), None)
         if deal is None:
@@ -147,8 +148,11 @@ class Assistant:
             raise StoreError(f"котировка {deal['quote_id']} не найдена")
         pdf_bytes = render_pdf_document(q_obj, deal=deal)
         path = self.store.receipt_pdf_path(int(deal["id"]), str(deal["quote_id"]))
-        if not path.is_file():
-            path.write_bytes(pdf_bytes)
+        if not self.global_stop():
+            tmp = path.with_suffix(".pdf.tmp")
+            tmp.write_bytes(pdf_bytes)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.replace(path)
         return path.name, pdf_bytes
 
     def daily_summary(self, now: datetime | None = None) -> str:
@@ -195,10 +199,12 @@ class Assistant:
             self._ensure_not_stopped(stopped)
             buy_verb = bool(m[1])
             margin_val = parse_decimal(m[5], "наценка") / 100 if m[5] else None
+            confirm_high = bool(m[6])
             q = build_quote(self.book(), give_ccy=ccy(m[4]), get_ccy=ccy(m[3]), now=now,
                             get_amount=parse_decimal(m[2], "сумма"),
                             margin=margin_val,
                             require_explicit_margin=True,
+                            confirm_high_margin=confirm_high,
                             client_buys_get=buy_verb)
             self._ensure_not_stopped(stopped)
             self.store.save_quote(q)
@@ -206,10 +212,12 @@ class Assistant:
         if m := RE_GIVE.match(t):
             self._ensure_not_stopped(stopped)
             margin_val = parse_decimal(m[4], "наценка") / 100 if m[4] else None
+            confirm_high = bool(m[5])
             q = build_quote(self.book(), give_ccy=ccy(m[2]), get_ccy=ccy(m[3]), now=now,
                             give_amount=parse_decimal(m[1], "сумма"),
                             margin=margin_val,
-                            require_explicit_margin=True)
+                            require_explicit_margin=True,
+                            confirm_high_margin=confirm_high)
             self._ensure_not_stopped(stopped)
             self.store.save_quote(q)
             return q.text()
@@ -217,6 +225,7 @@ class Assistant:
             self._ensure_not_stopped(stopped)
             in_actual = parse_decimal(m[2], "приняли").quantize(Decimal("0.01")) if m[2] else None
             out_actual = parse_decimal(m[3], "выдали").quantize(Decimal("0.01")) if m[3] else None
+            confirm_dev = bool(m[4])
             if in_actual is None or out_actual is None:
                 q_row = self.store.quote(m[1])
                 if q_row is None:
@@ -230,7 +239,8 @@ class Assistant:
                     f"обмен выполнен {q_row['id']} приняли <сумма> выдали <сумма>"
                 )
             d, created = self.store.confirm(m[1], now, actor, crm_status="settled",
-                                            leg_in_actual=in_actual, leg_out_actual=out_actual)
+                                            leg_in_actual=in_actual, leg_out_actual=out_actual,
+                                            confirm_deviation=confirm_dev)
             head = "Сделка записана" if created else "Эта котировка уже подтверждена, повтор не создан"
             in_shown = d.get("leg_in_actual") or d["give_amount"]
             out_shown = d.get("leg_out_actual") or d["get_amount"]

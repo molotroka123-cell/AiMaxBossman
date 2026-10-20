@@ -30,8 +30,10 @@ router = APIRouter()
 
 def _mgr(svc) -> TerminalManager:
     if getattr(svc, "terminal", None) is None:
-        svc.terminal = TerminalManager()
+        svc.terminal = TerminalManager(data_dir=Path(svc.settings.data_dir))
     mgr = svc.terminal
+    if getattr(mgr, "data_dir", None) is None:
+        mgr.data_dir = Path(svc.settings.data_dir)
     # Журнал вывода и запись итога в БД настраиваются здесь, а не в api.py: менеджер
     # создаётся там без аргументов, а нужный ему каталог данных знает только фича.
     if getattr(mgr, "log_dir", None) is None:

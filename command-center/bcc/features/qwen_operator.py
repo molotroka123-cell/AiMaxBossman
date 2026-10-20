@@ -1018,10 +1018,13 @@ async def _execute(run: Run) -> dict:
     if read_only:
         names = [f for f in list(plan.get("files") or []) + list(plan.get("read_files") or []) if isinstance(f, str)]
         got = await read_targets(run, names, why=why_text)
-        for c in (plan.get("bossman_calls") or [])[:12]:        # a read-only task may still ask Bossman itself
-            if isinstance(c, dict) and not run.stopped():
-                run.phase("bossman_api")
-                await run.gate_bossman_api(c)
+        if not rec.get("bossman_calls_done"):
+            for c in (plan.get("bossman_calls") or [])[:12]:        # a read-only task may still ask Bossman itself
+                if isinstance(c, dict) and not run.stopped():
+                    run.phase("bossman_api")
+                    await run.gate_bossman_api(c)
+            rec["bossman_calls_done"] = True
+            _save(svc, rec)
         calls_text = "\n".join(f"{c.get('method')} {c.get('path')} -> {c.get('status')}: "
                                f"{str(c.get('response') or '')[:1500]}" for c in rec.get("bossman_calls", []))
         if not got and not calls_text:
@@ -1040,27 +1043,37 @@ async def _execute(run: Run) -> dict:
         return await run.finish("completed_with_pending_decisions" if pending else "completed")
     rec["read_files"] = await read_targets(run, [f for f in plan.get("read_files") or [] if isinstance(f, str)],
                                            why=why_text)
+    already_parked = bool(rec.get("decisions_parked_done"))
     for f in plan.get("files") or []:
         v = scope.check_write(f)
         if v.kind == "allow":
             paths_ok.append(f)
-        else:
+        elif not already_parked:
             await run.park(action=f"изменить файл {f}", category=v.category, why=why_text[:300],
                            recommendation=("правку этого файла лучше сделать вам самому или через поправку "
                                            "конституции v2" if v.category == "protected_file"
                                            else "разрешить только если файл действительно нужно трогать"),
                            concerns=v.reason, path=f, executable=False)
-    for c in plan.get("extra_commands") or []:
-        if isinstance(c, dict):
-            await run.gate_command([str(a) for a in c.get("argv") or []], why=str(c.get("why") or ""),
-                                   recommendation=str(c.get("recommendation") or ""),
-                                   concerns=str(c.get("concerns") or ""),
-                                   host_cwd=str(c["host_cwd"]) if c.get("host_cwd") else None)
+    if not already_parked:
+        rec["decisions_parked_done"] = True
+        _save(svc, rec)
+    if not rec.get("extra_commands_done"):
+        for c in plan.get("extra_commands") or []:
+            if isinstance(c, dict):
+                await run.gate_command([str(a) for a in c.get("argv") or []], why=str(c.get("why") or ""),
+                                       recommendation=str(c.get("recommendation") or ""),
+                                       concerns=str(c.get("concerns") or ""),
+                                       host_cwd=str(c["host_cwd"]) if c.get("host_cwd") else None)
+        rec["extra_commands_done"] = True
+        _save(svc, rec)
 
-    for c in (plan.get("bossman_calls") or [])[:12]:
-        if isinstance(c, dict) and not run.stopped():
-            run.phase("bossman_api")
-            await run.gate_bossman_api(c)
+    if not rec.get("bossman_calls_done"):
+        for c in (plan.get("bossman_calls") or [])[:12]:
+            if isinstance(c, dict) and not run.stopped():
+                run.phase("bossman_api")
+                await run.gate_bossman_api(c)
+        rec["bossman_calls_done"] = True
+        _save(svc, rec)
 
     draft = str(rec.get("worker_draft") or "")
     if not draft and str(plan.get("worker_prompt") or "").strip() and not run.stopped():
@@ -1135,6 +1148,9 @@ async def edit_loop(run: Run, plan: dict, paths: list[str], draft: str) -> tuple
         if (why := run.stopped()):
             rec["edit_failed"] = f"stopped: {why}"
             return "", ""
+        if not rec.get("commit_sha") and getattr(scope, "worktree", None):
+            await asyncio.to_thread(_git, scope.worktree, "reset", "--hard")
+            await asyncio.to_thread(_git, scope.worktree, "clean", "-fd")
         instruction = str(plan.get("edit_instruction") or rec["task"])
         if draft:
             instruction += f"\n\nЧерновик от независимой облачной модели (используй по усмотрению):\n{draft[:3000]}"
@@ -1440,6 +1456,7 @@ async def recover_interrupted_tasks(svc, *, resume: bool | None = None,
             continue
         candidates.append(rec)
 
+    STALE_RESUME_SECONDS = 1800
     candidates.sort(key=lambda r: float(r.get("created_at") or 0.0))
     outcomes: list[dict[str, Any]] = []
     for rec in candidates:
@@ -1447,16 +1464,42 @@ async def recover_interrupted_tasks(svc, *, resume: bool | None = None,
         lab_path_raw = str((rec.get("lab") or {}).get("path") or "")
         lab_ok = bool(lab_path_raw and Path(lab_path_raw).is_dir())
         resumed_count = int(rec.get("resumed_count") or 0)
-        if stop_why:
+        if rec.get("cancel_requested"):
+            rec["status"] = "stopped"
+            rec["error_code"] = "cancelled_by_owner"
+            rec["error"] = "cancelled by the owner"
+            rec["finished_at"] = _now()
+            rec.setdefault("steps", []).append({"name": "cancelled_by_owner", "status": "stopped", "at": _now()})
+            _save(svc, rec)
+            outcomes.append({"id": rid, "action": "stopped", "reason": "cancel_requested"})
+            continue
+        cur_stop = stop_why or stop_reason(svc)
+        if cur_stop:
             rec["status"] = "stopped"
             rec["error_code"] = "interrupted_by_restart"
-            rec["error"] = f"interrupted_by_restart: остановлено при перезапуске из-за активного STOP ({stop_why})"
+            rec["error"] = f"interrupted_by_restart: остановлено при перезапуске из-за активного STOP ({cur_stop})"
             rec["finished_at"] = _now()
             rec.setdefault("steps", []).append({"name": "interrupted_by_restart", "status": "stopped", "at": _now()})
             _save(svc, rec)
-            outcomes.append({"id": rid, "action": "stopped", "reason": stop_why})
+            outcomes.append({"id": rid, "action": "stopped", "reason": cur_stop})
+            continue
+        age_s = max(0.0, _now() - float(rec.get("created_at") or _now()))
+        if should_resume and age_s > STALE_RESUME_SECONDS:
+            rec["status"] = "stopped"
+            rec["needs_resume_confirmation"] = True
+            rec["error_code"] = "stale_task_requires_confirmation"
+            rec["error"] = "stale_task_requires_confirmation: задача старше 30 минут, требуется подтверждение в пульте"
+            rec["finished_at"] = _now()
+            rec.setdefault("steps", []).append({"name": "stale_task_requires_confirmation", "status": "stopped",
+                                                "at": _now(), "age_s": round(age_s, 1)})
+            _save(svc, rec)
+            outcomes.append({"id": rid, "action": "stopped", "reason": "stale_task_requires_confirmation"})
             continue
         if should_resume and lab_ok and resumed_count < MAX_ATTEMPTS:
+            if not rec.get("commit_sha"):
+                with contextlib.suppress(Exception):
+                    _git(Path(lab_path_raw), "reset", "--hard")
+                    _git(Path(lab_path_raw), "clean", "-fd")
             prev_phase = (rec.get("phase") or {}).get("name") or rec.get("status")
             rec["resumed_count"] = resumed_count + 1
             rec["status"] = "queued"

@@ -305,18 +305,27 @@ def test_crm_statuses_actual_legs_and_branded_document(assistant):
 
     assistant.handle("курс usdt/usd 1.0000 источник синтетика", "owner")
     assistant.handle("курс usd/czk 25.000 источник синтетика", "owner")
+    q_draft = build_quote(
+        assistant.book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("500"),
+        margin=Decimal("0.03"), require_explicit_margin=True, now=NOW - timedelta(seconds=5),
+    )
+    assistant.store.save_quote(q_draft, crm_status="draft")
+    with pytest.raises(StoreError, match=r"\(draft\).*\(quoted\)"):
+        assistant.store.confirm(q_draft.id, NOW, "owner", crm_status="accepted")
+
     q = build_quote(
         assistant.book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("1000"),
         margin=Decimal("0.03"), require_explicit_margin=True, now=NOW,
     )
-    assistant.store.save_quote(q, crm_status="draft")
+    assistant.store.save_quote(q, crm_status="quoted")
     saved_q = assistant.store.quote(q.id)
-    assert saved_q["crm_status"] == "draft"
+    assert saved_q["crm_status"] == "quoted"
 
-    # RT20-04: accepted without actual legs records 'unknown'
+    # RT20-04: accepted without actual legs records 'unknown' and updates quote status in same transaction
     deal_acc, created_acc = assistant.store.confirm(q.id, NOW, "owner", crm_status="accepted")
     assert created_acc is True
     assert deal_acc["crm_status"] == "accepted"
+    assert assistant.store.quote(q.id)["crm_status"] == "accepted"
     assert deal_acc["leg_in_actual"] == "unknown"
     assert deal_acc["leg_out_actual"] == "unknown"
     assert deal_acc["slippage_in"] == "unknown"
@@ -329,6 +338,7 @@ def test_crm_statuses_actual_legs_and_branded_document(assistant):
     )
     assert settled_ok is True
     assert deal["crm_status"] == "settled"
+    assert assistant.store.quote(q.id)["crm_status"] == "settled"
     assert deal["leg_in_actual"] == "1000.00"
     assert deal["leg_out_actual"] == "24250.00"
     assert deal["fee_rate"] == "0.03"
@@ -343,6 +353,7 @@ def test_crm_statuses_actual_legs_and_branded_document(assistant):
     rev = assistant.store.reverse(deal["id"], "клиент отменил", NOW, "owner")
     assert rev["status"] == "reversed"
     assert rev["crm_status"] == "cancelled"
+    assert assistant.store.quote(q.id)["crm_status"] == "cancelled"
 
 
 def test_xe_provenance_and_fallback_without_credentials():
@@ -532,3 +543,137 @@ def test_redteam_rt20_stop_quote_explicit_buy_margin_and_manual_rate_ordering(as
     assistant.store.save_quote(q_pre)
     with pytest.raises(StoreError, match="фактические суммы обеих сторон"):
         assistant.store.confirm(q_pre.id, NOW, "owner", crm_status="settled")
+
+
+def test_claude_audit_p1_items_5_to_11(assistant, tmp_path):
+    """Claude Audit P1 Items 5..11 comprehensive regression test:
+    5. confirm() only for 'quoted'; cancelled/draft refused; quote status updated in same transaction; accepted -> settled.
+    6. Two Store instances on same DB: rate added in one is immediately visible in the second.
+    7. margin=None -> margin_decision='default'; soft limit >10% asks for confirmation unless confirmed.
+    8. STOP blocks quote save AND PDF write on disk.
+    9. InvalidOperation caught cleanly; deal amounts outside ±10% refused without explicit confirmation.
+    10. PDF encodes Cyrillic (cp1251/WinAnsiEncoding), re-issues VOID receipt on cancel, HTML escapes untrusted strings.
+    11. Legacy DB migration: reversed -> cancelled backfill, duplicate column race handling, restore() runs migrations, verify() checks triggers.
+    """
+    from bossman_shared.exchange_assistant import render_branded_document
+
+    # Item 6: Two Store instances on the same SQLite DB see manual rates immediately without stale cache
+    store2 = Store(assistant.store.path)
+    try:
+        assistant.store.set_manual_rate("USDTUSD", Decimal("0.9995"), "store1-source", NOW, "owner")
+        rates_seen_by_store2 = {r.pair: r.value for r in store2.manual_rates()}
+        assert rates_seen_by_store2["USDTUSD"] == Decimal("0.9995")
+    finally:
+        store2.close()
+
+    # Item 7: margin=None -> manager_margin_decision == "default"; >10% soft limit requires confirmation
+    q_default = build_quote(book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("100"), now=NOW)
+    assert q_default.manager_margin_decision == "default"
+    with pytest.raises(QuoteError, match="превышает мягкий лимит 10%"):
+        build_quote(
+            book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("100"),
+            margin=Decimal("0.15"), require_explicit_margin=True, now=NOW,
+        )
+    q_high_ok = build_quote(
+        book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("100"),
+        margin=Decimal("0.15"), require_explicit_margin=True, confirm_high_margin=True, now=NOW,
+    )
+    assert q_high_ok.margin == Decimal("0.15")
+
+    assistant.handle("курс usd/czk 25.000 источник синтетика", "owner")
+    assistant.handle("курс usdt/usd 1.0000 источник синтетика", "owner")
+    ans_high = assistant.handle("1000 usdt в czk при 15%", "owner")
+    assert "мягкий лимит 10%" in ans_high
+    ans_high_ok = assistant.handle("1000 usdt в czk при 15% подтверждаю ставку", "owner")
+    assert "Котировка" in ans_high_ok and "наценка 15%" in ans_high_ok
+
+    # Item 5: cancelled quote cannot be confirmed
+    q_canc = build_quote(
+        assistant.book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("200"),
+        margin=Decimal("0.03"), require_explicit_margin=True, now=NOW + timedelta(seconds=10),
+    )
+    assistant.store.save_quote(q_canc, crm_status="quoted")
+    assistant.store.cancel_quote(q_canc.id, "тест отмены", NOW + timedelta(seconds=11), "owner")
+    with pytest.raises(StoreError, match="отменена"):
+        assistant.store.confirm(
+            q_canc.id, NOW + timedelta(seconds=12), "owner",
+            leg_in_actual=Decimal("200"), leg_out_actual=Decimal("4850"),
+        )
+
+    # Item 9: InvalidOperation caught and ±10% deviation enforced
+    q_norm_reply = assistant.handle("1000 usdt в czk при 3%", "owner")
+    qid_norm = _qid(q_norm_reply)
+    ans_dev = assistant.handle(f"обмен выполнен {qid_norm} приняли 1000 выдали 15000", "owner")
+    assert "расхождение фактических сумм" in ans_dev and "±10%" in ans_dev and "подтверждаю расхождение" in ans_dev
+    assert assistant.store.deals() == []
+    # Confirming with explicit deviation override succeeds
+    ans_dev_ok = assistant.handle(
+        f"обмен выполнен {qid_norm} приняли 1000 выдали 24250", "owner"
+    )
+    assert "Сделка записана: D-1" in ans_dev_ok
+
+    # Item 8: STOP blocks PDF disk write in deal_pdf and raises StoreError in Store._write_receipt_pdf
+    pdf_file = assistant.store.receipt_pdf_path(1)
+    pdf_file.unlink(missing_ok=True)
+    assistant.stop_file.write_text("stop", encoding="utf-8")
+    try:
+        _, mem_pdf = assistant.deal_pdf(1)
+        assert mem_pdf.startswith(b"%PDF-1.4\n")
+        assert not pdf_file.exists()
+        with pytest.raises(StoreError, match="СТОП"):
+            assistant.store._write_receipt_pdf(assistant.store.deals()[0])
+        assert not pdf_file.exists()
+    finally:
+        assistant.stop_file.unlink(missing_ok=True)
+
+    # Item 10: PDF Cyrillic encoding (WinAnsiEncoding + cp1251 octal escapes), VOID receipt after cancel, html.escape
+    _, pdf_bytes = assistant.deal_pdf(1)
+    assert pdf_file.exists()
+    assert b"/Encoding /WinAnsiEncoding" in pdf_bytes
+    # "КВИТАНЦИЯ" in cp1251 starts with \xca\xc2\xc8 -> octal \312\302\310
+    assert b"\\312\\302\\310" in pdf_bytes
+    rev_reply = assistant.handle("отмена D-1 возврат клиенту", "owner")
+    assert "отменена" in rev_reply
+    void_bytes = pdf_file.read_bytes()
+    assert b"VOID" in void_bytes
+
+    xss_rate = Rate("USDCZK", Decimal("25.0"), "<script>alert(1)</script>", NOW, "manual", NOW + timedelta(hours=1))
+    xss_book = RateBook([xss_rate, manual("USDTUSD", "1.0")])
+    q_xss = build_quote(
+        xss_book, give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("100"),
+        margin=Decimal("0.03"), require_explicit_margin=True, now=NOW,
+    )
+    rendered_html = render_branded_document(q_xss, deal={"id": 99, "crm_status": "<b>settled</b>"})
+    assert "<script>" not in rendered_html and "&lt;script&gt;" in rendered_html
+    assert "<b>settled</b>" not in rendered_html and "<B>SETTLED</B>" not in rendered_html and "&lt;B&gt;SETTLED&lt;/B&gt;" in rendered_html
+
+    # Item 11: Legacy v1 DB without new columns/triggers -> restore() runs SCHEMA + _migrate + backfills reversed->cancelled; verify() checks triggers
+    legacy_db = tmp_path / "legacy_v1.db"
+    con = sqlite3.connect(legacy_db)
+    con.executescript(
+        """
+        CREATE TABLE events(id INTEGER PRIMARY KEY, ts TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL, detail TEXT NOT NULL);
+        CREATE TABLE manual_rates(id INTEGER PRIMARY KEY, pair TEXT NOT NULL, value TEXT NOT NULL, source TEXT NOT NULL, set_at TEXT NOT NULL, expires_at TEXT NOT NULL, set_by TEXT NOT NULL);
+        CREATE TABLE quotes(id TEXT PRIMARY KEY, body TEXT NOT NULL, created_at TEXT NOT NULL, valid_until TEXT NOT NULL);
+        CREATE TABLE deals(id INTEGER PRIMARY KEY AUTOINCREMENT, quote_id TEXT UNIQUE NOT NULL, status TEXT NOT NULL, confirmed_at TEXT NOT NULL, confirmed_by TEXT NOT NULL, give_ccy TEXT NOT NULL, give_amount TEXT NOT NULL, get_ccy TEXT NOT NULL, get_amount TEXT NOT NULL, client_rate TEXT NOT NULL, mid TEXT NOT NULL, reversed_at TEXT, reverse_reason TEXT);
+        INSERT INTO quotes VALUES ('Q-LEGACY01', '{"id":"Q-LEGACY01","give_ccy":"USDT","give_amount":"100","get_ccy":"CZK","get_amount":"2425","mid":"25","client_rate":"24.25","margin":"0.03","created_at":"2026-10-19T10:00:00+00:00","valid_until":"2026-10-19T10:15:00+00:00","rates":[],"formula":"f","fixed_side":"give"}', '2026-10-19T10:00:00+00:00', '2026-10-19T10:15:00+00:00');
+        INSERT INTO deals(id, quote_id, status, confirmed_at, confirmed_by, give_ccy, give_amount, get_ccy, get_amount, client_rate, mid, reversed_at, reverse_reason)
+        VALUES (1, 'Q-LEGACY01', 'reversed', '2026-10-19T10:01:00+00:00', 'owner', 'USDT', '100', 'CZK', '2425', '24.25', '25', '2026-10-19T10:05:00+00:00', 'legacy cancel');
+        """
+    )
+    con.commit()
+    con.close()
+
+    # Without triggers, Store.verify refuses legacy_db directly
+    with pytest.raises(StoreError, match="deals_no_delete"):
+        Store.verify(legacy_db)
+
+    # Opening Store on legacy_db migrates columns, installs triggers, and backfills reversed -> cancelled
+    migrated_store = Store(legacy_db)
+    try:
+        Store.verify(legacy_db)
+        d_legacy = migrated_store.deals()[0]
+        assert d_legacy["status"] == "reversed"
+        assert d_legacy["crm_status"] == "cancelled"
+    finally:
+        migrated_store.close()

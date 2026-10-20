@@ -109,33 +109,13 @@ def _read_json(path: Path | None) -> dict:
     return doc if isinstance(doc, dict) else {}
 
 
-def _is_ancestor_or_equal(repository: Path, candidate_sha: str | None, head_sha: str | None) -> bool:
-    if not candidate_sha or not head_sha:
-        return False
-    if candidate_sha == head_sha:
-        return True
-    if re.fullmatch(r"[0-9a-f]{40}", str(candidate_sha)) is None:
-        return False
-    try:
-        res = subprocess.run(
-            ["git", "-C", str(repository), "merge-base", "--is-ancestor", str(candidate_sha), str(head_sha)],
-            capture_output=True, timeout=10, check=False,
-        )
-        return res.returncode == 0
-    except (OSError, subprocess.SubprocessError):
-        return False
-
-
 def reconcile_four_identities(repository: Path, *, seed_path: Path | None = None,
                               registry_path: Path | None = None,
                               bundle_manifest_path: Path | None = None) -> dict:
     """Compare source, capability-tree seed, registry head and bundle SHAs.
 
     An unmeasured source SHA matches nothing; a dirty source or bundle never
-    counts as matching even when its SHA is equal. Because committing updated
-    seed/registry JSON files creates a new commit whose parent is the stamped
-    SHA, `seed_sha` and `registry_head` match when they equal `source_sha` or
-    are a verified git ancestor of `source_sha` in `repository`.
+    counts as matching even when its SHA is equal.
     """
     repository = repository.resolve()
     source = source_identity(repository)
@@ -147,22 +127,16 @@ def reconcile_four_identities(repository: Path, *, seed_path: Path | None = None
     bundle_sha, bundle_dirty = bundle.get("source_sha"), bundle.get("source_dirty")
 
     measured = source_sha is not None
-    seed_ok = measured and _is_ancestor_or_equal(repository, seed_sha, source_sha)
-    reg_ok = measured and _is_ancestor_or_equal(repository, registry_head, source_sha)
-    bundle_ok = measured and bundle_sha == source_sha and bundle_dirty is False
     matches = {
         "source_sha": measured and source_dirty is False,
-        "seed_sha": seed_ok,
-        "registry_head": reg_ok,
-        "bundle_sha": bundle_ok,
+        "seed_sha": measured and seed_sha == source_sha,
+        "registry_head": measured and registry_head == source_sha,
+        "bundle_sha": measured and bundle_sha == source_sha and bundle_dirty is False,
     }
-    mismatches = {}
-    if not seed_ok:
-        mismatches["seed_sha"] = seed_sha
-    if not reg_ok:
-        mismatches["registry_head"] = registry_head
-    if bundle_sha != source_sha:
-        mismatches["bundle_sha"] = bundle_sha
+    mismatches = {name: value for name, value in
+                  (("seed_sha", seed_sha), ("registry_head", registry_head),
+                   ("bundle_sha", bundle_sha))
+                  if value != source_sha}
     matched_count = sum(matches.values())
     return {
         "source_sha": source_sha,
@@ -173,6 +147,7 @@ def reconcile_four_identities(repository: Path, *, seed_path: Path | None = None
         "bundle_dirty": bundle_dirty,
         "matched_count": matched_count,
         "all_four_match": matched_count == 4 and source_dirty is False,
+        "matches": matches,
         "mismatches": mismatches,
     }
 

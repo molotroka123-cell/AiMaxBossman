@@ -283,6 +283,11 @@ class OperatorBridgeMixin:
                 return "✋ Остановка запрошена; в лаборатории остаётся только то, что уже закоммичено."
             if job is None or job.done():
                 return "Оператор сейчас ничего не делает."
+            last_tid = str(self.store.get("operator_last_task", "") or "").strip()
+            stop_set = self.__dict__.setdefault("_operator_stop_requested", set())
+            if last_tid:
+                stop_set.add(last_tid)
+            stop_set.add("__current__")
             job.cancel()
             return "✋ Оператор остановлен; в лаборатории остаётся только то, что уже закоммичено."
         if command in {"/work_yes", "/work_no"}:
@@ -436,9 +441,23 @@ class OperatorBridgeMixin:
                 delay = min(delay * 2, BACKOFF_MAX)
         return False
 
+    def _operator_store_set_get(self, key: str) -> set[int]:
+        with contextlib.suppress(Exception):
+            raw = self.store.get(key, []) or []
+            return {int(x) for x in raw if str(x).lstrip("-").isdigit()}
+        return set()
+
+    def _operator_store_set_add(self, key: str, value: int) -> None:
+        with contextlib.suppress(Exception):
+            cur = self._operator_store_set_get(key)
+            cur.add(int(value))
+            self.store.put(key, sorted(cur))
+
     async def work_turn(self, person: Person, task_id: str) -> None:
-        announced: set[int] = set()
-        outcomes: set[int] = set()
+        ann_key = f"operator_announced_decisions:{task_id}"
+        out_key = f"operator_announced_outcomes:{task_id}"
+        announced: set[int] = self._operator_store_set_get(ann_key)
+        outcomes: set[int] = self._operator_store_set_get(out_key)
         t_start = time.monotonic()
         last_beat = t_start
         down_since: float | None = None
@@ -483,19 +502,26 @@ class OperatorBridgeMixin:
                     return
                 for d in rec.get("decisions", []):
                     aid = d.get("approval_id")
+                    if aid is None:
+                        continue
                     if d.get("status") == "PENDING" and aid not in announced:
-                        announced.add(aid)
                         code = self.issue_work_grant(person, aid, d)
-                        await self._send_reliable(person, decision_text(task_id, d, code), [[
+                        sent = await self._send_reliable(person, decision_text(task_id, d, code), [[
                             self.button(person, "✅ Разрешить", f"/work_yes {aid} {code}"),
                             self.button(person, "⛔ Отклонить", f"/work_no {aid}")]])
+                        if sent:
+                            announced.add(aid)
+                            self._operator_store_set_add(ann_key, aid)
                     elif d.get("status") not in (None, "PENDING") and aid in announced and aid not in outcomes:
-                        outcomes.add(aid)
-                        await self._send_reliable(person, f"Решение {aid} · задача {task_id}: {outcome_text(d)}")
+                        sent = await self._send_reliable(person, f"Решение {aid} · задача {task_id}: {outcome_text(d)}")
+                        if sent:
+                            outcomes.add(aid)
+                            self._operator_store_set_add(out_key, aid)
                 status = rec.get("status")
                 if status in TERMINAL:
-                    self._operator_track_remove(task_id)
-                    if not await self._send_reliable(person, receipt_text(rec)):
+                    if await self._send_reliable(person, receipt_text(rec)):
+                        self._operator_track_remove(task_id)
+                    else:
                         with contextlib.suppress(Exception):
                             self.store.put("operator_unsent_receipt", task_id)
                     return
@@ -512,12 +538,17 @@ class OperatorBridgeMixin:
                         await self.telegram.send(person, f"{beat} · задача {task_id}")
                 await asyncio.sleep(getattr(self, "POLL_SECONDS", POLL_SECONDS))
         except asyncio.CancelledError:
-            self._operator_track_remove(task_id)
-            with contextlib.suppress(Exception):
-                await self.core.operator_cancel(task_id)
-            if self.agent_policy(person) is not None:
-                with contextlib.suppress(CompanionError, Exception):
-                    await self.telegram.send(person, f"✋ Оператор Qwen остановлен (задача {task_id}).")
+            stop_set = self.__dict__.get("_operator_stop_requested") or set()
+            explicit_stop = (task_id in stop_set) or ("__current__" in stop_set)
+            stop_set.discard(task_id)
+            stop_set.discard("__current__")
+            if explicit_stop:
+                self._operator_track_remove(task_id)
+                with contextlib.suppress(Exception):
+                    await self.core.operator_cancel(task_id)
+                if self.agent_policy(person) is not None:
+                    with contextlib.suppress(CompanionError, Exception):
+                        await self.telegram.send(person, f"✋ Оператор Qwen остановлен (задача {task_id}).")
             raise
         finally:
             self._operator_promote(task_id, me)

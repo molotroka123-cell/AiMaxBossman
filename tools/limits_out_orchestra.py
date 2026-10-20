@@ -220,16 +220,25 @@ def run_cycle(case: str, paid: str | None, evidence: Path, timeout: int, cycle_p
     return out
 
 
-_FAMILIES = ("qwen", "gemma", "gemini", "llama", "nemotron", "mistral", "deepseek", "glm", "claude", "gpt")
+_FAMILY_GROUPS = (
+    ("google", ("gemma", "gemini", "google")),
+    ("meta_llama", ("llama", "nemotron", "meta")),
+    ("qwen", ("qwen",)),
+    ("mistral", ("mistral", "mixtral")),
+    ("deepseek", ("deepseek",)),
+    ("glm", ("glm", "chatglm")),
+    ("claude", ("claude", "anthropic")),
+    ("gpt", ("gpt", "openai", "o1", "o3")),
+)
 
 
 def model_family(identifier: str) -> str:
     low = str(identifier or "").lower()
     if low.startswith("tree-holdout:") or low == "external_tool":
         return "external_tool"
-    for fam in _FAMILIES:
-        if fam in low:
-            return fam
+    for canonical, tokens in _FAMILY_GROUPS:
+        if any(tok in low for tok in tokens):
+            return canonical
     return low.split("/", 1)[0].split(":", 1)[0] or "unknown"
 
 
@@ -253,11 +262,16 @@ def cross_family_check(evidence: Path) -> dict:
             verifier_info = d["verifier"]
             break
     w_fam = model_family(worker_models[0]) if worker_models else "unknown"
+    if not verifier_info:
+        return {
+            "ok": False,
+            "worker_family": w_fam,
+            "verifier_family": "unknown",
+            "reason": "missing verifier block",
+        }
     ind_cls = str(verifier_info.get("independence_class") or "")
     v_id = str(verifier_info.get("model_id") or verifier_info.get("principal_id") or "")
     v_fam = "external_tool" if ind_cls == "external_tool" or v_id.startswith("tree-holdout:") else model_family(v_id)
-    if not verifier_info:
-        return {"ok": True, "worker_family": w_fam, "verifier_family": "external_tool", "reason": "holdout default"}
     ok = v_fam == "external_tool" or (w_fam != "unknown" and v_fam != "unknown" and w_fam != v_fam)
     return {
         "ok": ok,

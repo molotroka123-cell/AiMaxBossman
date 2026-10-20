@@ -70,3 +70,16 @@ def test_input_limits(authed, tmp_path):
     assert authed.post("/m/api/exchange", json={"text": "x" * 301}).status_code == 422
     r = authed.post("/m/api/exchange", json={"text": "сделай что-нибудь"}).json()
     assert "Не понял" in r["reply"]
+
+
+def test_default_mobile_exchange_uses_explicit_stop_path(authed):
+    """Item 8: when app.state.exchange is created lazily by api.exchange(), both Assistant and Store
+    receive explicit stop_file = <token_file.parent>/computer/STOP."""
+    if hasattr(authed.app.state, "exchange"):
+        delattr(authed.app.state, "exchange")
+    r = authed.post("/m/api/exchange", json={"text": "курс"}).json()
+    assert "reply" in r
+    ex = authed.app.state.exchange
+    expected_stop = authed.app.state.settings.token_file.parent / "computer" / "STOP"
+    assert ex.stop_file == expected_stop
+    assert ex.store.stop_file == expected_stop

@@ -495,9 +495,35 @@ class _Cancelled(Exception):
     """The owner cancelled the task (STOP)."""
 
 
+def _stop_active(data_dir: str | os.PathLike | None = None, repo: Path | None = None) -> bool:
+    candidates: list[Path] = []
+    if data_dir:
+        candidates.append(Path(data_dir))
+    env_dir = os.environ.get("BCC_DATA_DIR", "").strip()
+    if env_dir:
+        candidates.append(Path(env_dir))
+    if repo is not None:
+        candidates.append(Path(repo))
+        if Path(repo).parent.name == "qwen-operator":
+            candidates.append(Path(repo).parent.parent)
+    for base in candidates:
+        try:
+            if (base / "computer" / "STOP").exists():
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None,
-             env: dict[str, str] | None = None, command: list[str] | None = None) -> dict:
+             env: dict[str, str] | None = None, command: list[str] | None = None,
+             data_dir: str | os.PathLike | None = None) -> dict:
     """Blocking: runs in a worker thread. Returns the terminal record."""
+    if _stop_active(data_dir or record.get("data_dir"), repo):
+        out = {**record, "status": "failed", "outcome": "CANCELLED", "changed_files": [], "diff": "",
+               "error": "Остановлено владельцем (STOP)", "duration_seconds": 0.0, "finished_at": time.time()}
+        out["receipt"] = mission_receipt(out)
+        return out
     oc, wt, reason = _runtime()
     if oc is None:
         return {**record, "status": "blocked", "error": reason}
@@ -511,7 +537,7 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
     result_fields: dict[str, Any] = {}
     task_id = record["id"]
     try:
-        if task_id in _CANCELLED:
+        if task_id in _CANCELLED or _stop_active(data_dir or record.get("data_dir"), repo):
             raise _Cancelled()
         client = oc.OpenHandsClient(command=command or None,
                                     on_process=lambda tree: _ACTIVE.__setitem__(task_id, tree),
@@ -525,7 +551,7 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
             result = client.run(request)
         finally:
             _ACTIVE.pop(task_id, None)
-        if task_id in _CANCELLED:
+        if task_id in _CANCELLED or _stop_active(data_dir or record.get("data_dir"), repo):
             raise _Cancelled()
         sidecar = {k: v for k, v in dict(result.sidecar).items() if k in SIDECAR_FIELDS}
         ok = result.status == "completed"
@@ -726,7 +752,7 @@ async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None
             env, command = {_WORKER_KEY_ENV: key, **_verify_python_env()}, _worker_command(body.worker)
         else:
             env = await _sidecar_env(svc)
-        final = await asyncio.to_thread(_execute, record, repo, body, context, env, command)
+        final = await asyncio.to_thread(_execute, record, repo, body, context, env, command, svc.settings.data_dir)
     except Exception as exc:  # noqa: BLE001
         final = {**record, "status": "failed", "error": f"{type(exc).__name__}: {exc}"[:800],
                  "finished_at": time.time()}
@@ -1200,6 +1226,8 @@ async def cancel_task(task_id: str, request: Request):
 @router.post("/coding-tasks")
 async def create_task(body: TaskIn, request: Request):
     svc = request.app.state.svc
+    if _stop_active(svc.settings.data_dir):
+        raise HTTPException(423, {"code": "OWNER_STOP", "message": "Остановлено владельцем (STOP)"})
     if body.worker is not None and body.worker not in WORKERS:
         raise HTTPException(422, {"code": "UNKNOWN_WORKER", "workers": sorted(WORKERS)})
     ready = await readiness(svc, body.worker)

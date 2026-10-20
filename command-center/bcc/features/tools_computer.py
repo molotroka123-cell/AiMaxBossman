@@ -348,6 +348,9 @@ class ComputerState:
         return True
 
     def stopped(self) -> bool:
+        if self.stop_path is not None and self.stop_path.exists():
+            self.stop.set()
+            return True
         return self.stop.is_set()
 
     def mark_outcome_unknown(self, text: str) -> None:
@@ -2120,14 +2123,18 @@ async def pause_for_takeover(svc, reason: str = "owner_takeover") -> dict[str, A
 
 
 async def resume_after_takeover(svc, expect: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Возврат управления агенту после ручного шага владельца: снимает стоп,
-    обесценивает старые наблюдения, перечитывает экран (observe) и при заданном
-    expect проверяет постусловие (verify)."""
+    """Возврат управления агенту после ручного шага владельца: перечитывает экран
+    (observe), и ТОЛЬКО после успешного наблюдения снимает стоп, обесценивает
+    старые наблюдения и при заданном expect проверяет постусловие (verify)."""
     st = _owner_state(svc)
+    obs = await observe(svc, screenshot=False)
     st.clear_stop()
     st.takeover_active = False
     st.takeover_reason = ""
-    obs = await observe(svc, screenshot=False)
+    obs["stopped"] = False
+    obs["generation"] = st.generation
+    st.last = obs
+    st.remember(obs)
     verified, checks = verify(obs, expect)
     step = st.record_step("takeover_resume", by="owner", after_generation=obs["generation"],
                           verified=verified, checks=list(checks))

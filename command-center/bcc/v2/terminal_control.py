@@ -310,18 +310,45 @@ _SID_RE = re.compile(r"[0-9a-f]{12}")
 
 
 class TerminalManager:
-    def __init__(self, sandbox_image: str = "python:3.12-slim", log_dir: Path | None = None):
+    def __init__(self, sandbox_image: str = "python:3.12-slim", log_dir: Path | None = None,
+                 data_dir: Path | None = None):
         self.sandbox_image = sandbox_image
         self.sessions: dict[str, TerminalSession] = {}
         self.log_dir: Path | None = Path(log_dir) if log_dir else None
+        self.data_dir: Path | None = Path(data_dir) if data_dir else None
         #: Вызывается (await) по завершении процесса сессии: фича пишет итог в БД.
         self.on_finish: Callable[[TerminalSession], Awaitable[None]] | None = None
+
+    def _stop_active(self, cwd: Path, policy: TerminalPolicy) -> bool:
+        candidates: list[Path] = []
+        if self.data_dir is not None:
+            candidates.append(Path(self.data_dir))
+        if self.log_dir is not None and self.log_dir.name == "logs" and self.log_dir.parent.name == "terminal":
+            candidates.append(self.log_dir.parent.parent)
+        env_data = os.environ.get("BCC_DATA_DIR", "").strip()
+        if env_data:
+            candidates.append(Path(env_data))
+        for root in policy.allowed_roots or []:
+            rp = Path(root)
+            candidates.append(rp)
+            if rp.name == "scratch":
+                candidates.append(rp.parent)
+        candidates.append(cwd)
+        for base in candidates:
+            try:
+                if (base / "computer" / "STOP").exists():
+                    return True
+            except OSError:
+                continue
+        return False
 
     async def start(self, cmd: str, cwd: Path, policy: TerminalPolicy,
                     *, approved: bool = False, network: bool = False,
                     owner: str | None = None, stdin_data: bytes | None = None) -> TerminalSession:
         """`stdin_data`: bytes fed to the command's stdin, then EOF (a verified script handed to `sh -s`)."""
         cwd = cwd.resolve()
+        if self._stop_active(cwd, policy):
+            raise PermissionError("Остановлено владельцем (STOP)")
         # F-009: единая точка confinement и для host-режимов, и для sandbox —
         # каталог, который уйдёт в `-v cwd:/work`, обязан лежать в разрешённых
         # корнях. Контейнер — защита в глубину, а не замена авторизации пути.

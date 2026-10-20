@@ -282,116 +282,145 @@ def bench_web_policy_check(iterations: int) -> dict:
 # ---------------------------------------------------------------------------
 # Benchmark 4: Source Identity Tracked-Blob Verification
 # ---------------------------------------------------------------------------
-def bench_source_identity_blobs(iterations: int) -> dict:
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("build_source_identity", ROOT / "tools" / "build_source_identity.py")
-    bsi = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(bsi)
+SSRF_EQUIVALENCE_CORPUS = (
+    # Valid public URLs
+    "https://docs.python.org/3/library/sqlite3.html",
+    "https://www.cnb.cz/en/financial-markets/foreign-exchange-market/central-bank-exchange-rate-fixing/",
+    "https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html",
+    "https://fastapi.tiangolo.com/tutorial/first-steps/",
+    # SSRF / private / loopback / metadata / bad scheme / credentials / secrets / denied domains
+    "",
+    "ftp://example.com/file.txt",
+    "file:///etc/passwd",
+    "http://127.0.0.1:8801/api/tasks",
+    "http://localhost/admin",
+    "http://169.254.169.254/latest/meta-data/",
+    "http://[::1]:8080/v1",
+    "https://user:pass@example.com/path",
+    "https://example.com:8443/secret",
+    "https://printer.local/status",
+    "https://intranet.internal/login",
+    "https://usestring.ai/api",
+    "https://sub.usestring.ai/v1",
+    "https://facebook.com/profile",
+    "https://sub.tiktok.com/video",
+    "https://example.com/callback?api_key=12345",
+    "https://example.com/reset?access_token=abc",
+    "https://example.com/leak?k=" + "sk-" + "proj-1234567890abcdefghijklmno",
+)
 
-    sha = bsi._git(ROOT, "rev-parse", "HEAD").decode().strip()
-    entries = []
-    for entry in bsi._git(ROOT, "ls-tree", "-r", "-z", sha).split(b"\0"):
-        if not entry:
-            continue
-        header, encoded_path = entry.split(b"\t", 1)
-        mode, kind, expected = header.split()
-        if kind == b"blob" and mode != b"120000":
-            rel = os.fsdecode(encoded_path)
-            p = ROOT / rel
-            if p.exists():
-                entries.append((rel, p, expected.decode()))
 
-    repo_str = str(ROOT.resolve())
+def verify_policy_ssrf_equivalence() -> dict:
+    """Item 21: Verify 100% behavioral equivalence between legacy_check_url and policy.check_public_url across the SSRF & secret corpus."""
+    from bcc.web_access import policy
+    import ipaddress
 
-    def uncached_verify() -> int:
-        mismatches = 0
-        for _, p, exp in entries:
-            data = p.read_bytes()
-            actual = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data, usedforsecurity=False).hexdigest()
-            if actual != exp:
-                mismatches += 1
-        return mismatches
+    def legacy_check_url(u: str) -> str:
+        raw = str(u or "").strip()
+        if not raw or len(raw) > policy.MAX_URL_LEN or any(c in raw for c in "\r\n\t \x00"):
+            raise policy.PolicyRefusal("empty")
+        parts = urlsplit(raw)
+        port = parts.port
+        if parts.scheme not in ("http", "https"):
+            raise policy.PolicyRefusal("scheme")
+        if parts.username or parts.password or "@" in parts.netloc:
+            raise policy.PolicyRefusal("creds")
+        host = (parts.hostname or "").lower().rstrip(".")
+        if not host or port not in (None, 80, 443):
+            raise policy.PolicyRefusal("host/port")
+        try:
+            ipaddress.ip_address(host)
+            raise policy.PolicyRefusal("ip")
+        except ValueError:
+            pass
+        if "." not in host or host == "localhost" or host.endswith(policy._PRIVATE_SUFFIXES):
+            raise policy.PolicyRefusal("private")
+        if not re.fullmatch(r"[a-z0-9.-]+", host):
+            raise policy.PolicyRefusal("ascii")
+        if host == policy.STRING_HOST or host.endswith(".usestring.ai"):
+            raise policy.PolicyRefusal("string")
+        extra = {d.strip().lower().lstrip(".") for d in os.environ.get(policy.EXTRA_DENY_ENV, "").split(",") if d.strip()}
+        denied = policy.DEFAULT_DENY_DOMAINS | extra
+        if any(host == d or host.endswith("." + d) for d in denied):
+            raise policy.PolicyRefusal("denied")
+        for key, _ in parse_qsl(parts.query, keep_blank_values=True):
+            if policy._SENSITIVE_QUERY_KEYS.search(key):
+                raise policy.PolicyRefusal("query")
+        for pat in policy._SECRET_PATTERNS:
+            if pat.search(raw):
+                raise policy.PolicyRefusal("secret")
+        for pat in policy._PERSONAL_PATTERNS:
+            if pat.search(raw):
+                raise policy.PolicyRefusal("personal")
+        return raw
 
-    def cached_verify() -> int:
-        mismatches = 0
-        for rel, p, exp in entries:
-            st = p.lstat()
-            ck = (f"{repo_str}/{rel}", st.st_mtime_ns, st.st_size, st.st_ino)
-            actual = bsi._BLOB_HASH_CACHE.get(ck)
-            if actual is None:
-                data = p.read_bytes()
-                actual = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data, usedforsecurity=False).hexdigest()
-                bsi._BLOB_HASH_CACHE[ck] = actual
-            if actual != exp:
-                mismatches += 1
-        return mismatches
+    mismatches = []
+    for u in SSRF_EQUIVALENCE_CORPUS:
+        try:
+            legacy_check_url(u)
+            leg_ok = True
+        except Exception:
+            leg_ok = False
+        try:
+            policy.check_public_url(u)
+            cur_ok = True
+        except Exception:
+            cur_ok = False
+        if leg_ok != cur_ok:
+            mismatches.append({"url": u, "legacy_ok": leg_ok, "current_ok": cur_ok})
+    return {
+        "corpus_size": len(SSRF_EQUIVALENCE_CORPUS),
+        "equivalent": len(mismatches) == 0,
+        "mismatches": mismatches,
+    }
 
-    # Warm-up cache
-    bsi._BLOB_HASH_CACHE.clear()
-    c0 = uncached_verify()
-    c1 = cached_verify()
-    assert c0 == c1
 
-    before_ms = []
-    for _ in range(iterations):
-        t0 = time.perf_counter()
-        uncached_verify()
-        before_ms.append((time.perf_counter() - t0) * 1000.0)
+def bench_real_session_quote_response(iterations: int) -> dict:
+    """Item 21: Measure end-to-end Assistant.handle chat/quote response time in a real SQLite session (no in-memory loop vs disk comparison)."""
+    from bossman_shared.exchange_assistant import Assistant
+    from bossman_shared.exchange_assistant.store import Store
 
-    after_ms = []
-    for _ in range(iterations):
-        t0 = time.perf_counter()
-        cached_verify()
-        after_ms.append((time.perf_counter() - t0) * 1000.0)
-
-    return _compare(
-        f"build_source_identity.blob_verify ({len(entries)} files)",
-        "Verify SHA-1 of all tracked repository blobs using (mtime_ns, size, ino) stat memoization vs reading all bytes",
-        before_ms,
-        after_ms,
-    )
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_p = Path(tmp)
+        store = Store(tmp_p / "session.db", stop_file=tmp_p / "STOP")
+        now = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)
+        store.set_manual_rate("USDCZK", Decimal("25.000"), "desk", now, "owner")
+        store.set_manual_rate("USDTUSD", Decimal("1.0000"), "desk", now, "owner")
+        assistant = Assistant(store, fx_db=tmp_p / "no_fx.db", clock=lambda: now, stop_file=tmp_p / "STOP")
+        try:
+            latencies_ms = []
+            for i in range(iterations):
+                t0 = time.perf_counter()
+                reply = assistant.handle(f"{1000 + i} usdt в czk при 3%", actor="owner")
+                latencies_ms.append((time.perf_counter() - t0) * 1000.0)
+                assert "Q-" in reply
+        finally:
+            store.close()
+    return {
+        "name": "exchange_assistant.real_session_quote_response",
+        "description": "End-to-end Assistant.handle quote calculation + SQLite persistence in a real session (ms)",
+        "iterations": iterations,
+        "latency_ms": _stats(latencies_ms),
+    }
 
 
 def render_markdown(report: dict) -> str:
     lines = [
-        "# Доказанный замерами разгон Bossman (Benchmark Speedup Report)",
+        "# Замеры времени ответа в реальной сессии и эквивалентности политики (Benchmark Report)",
         "",
         f"- **Дата замера (UTC)**: `{report['measured_at_utc']}`",
-        f"- **Число итераций на каждый контур (`N`)**: `{report['iterations']}` (требование владельца: `N >= 50`)",
-        f"- **Рабочее дерево**: `{report['repository']}`",
+        f"- **Число итераций (`N`)**: `{report['iterations']}`",
+        f"- **Эквивалентность SSRF/Policy (`verify_policy_ssrf_equivalence`)**: `{report['ssrf_equivalence']['equivalent']}` (`{report['ssrf_equivalence']['corpus_size']}` URL)",
         "",
-        "## Сводная таблица `ДО / ПОСЛЕ` (мс)",
+        "## Время ответа чата/котировки в реальной сессии (мс)",
         "",
-        "| Горячий контур | Итераций (`N`) | ДО `min / p50 / p95 / max / mean` (мс) | ПОСЛЕ `min / p50 / p95 / max / mean` (мс) | Ускорение (`p50 ×` / `mean ×`) |",
-        "|---|---:|---:|---:|---:|",
+        "| Контур | Итераций (`N`) | `min / p50 / p95 / max / mean` (мс) |",
+        "|---|---:|---:|",
     ]
-    for b in report["benchmarks"]:
-        bf = b["before"]
-        af = b["after"]
-        b_str = f"`{bf['min_ms']:.3f} / {bf['p50_ms']:.3f} / {bf['p95_ms']:.3f} / {bf['max_ms']:.3f} / {bf['mean_ms']:.3f}`"
-        a_str = f"`{af['min_ms']:.3f} / {af['p50_ms']:.3f} / {af['p95_ms']:.3f} / {af['max_ms']:.3f} / {af['mean_ms']:.3f}`"
-        sp_str = f"**{b['speedup_p50_x']}×** (`mean`: **{b['speedup_mean_x']}×**)"
-        lines.append(f"| `{b['name']}` | {b['iterations']} | {b_str} | {a_str} | {sp_str} |")
-
-    lines.extend([
-        "",
-        "## Детали оптимизаций (без потери строгости и проверок безопасности)",
-        "",
-        "1. **`bossman_shared/exchange_assistant/rates.py::load_official`**:",
-        "   - **Узкое место**: При каждом запросе курса или котировки открывалось новое соединение SQLite к `fx.db` и вычитывались все исторические строки `fx_obs`.",
-        "   - **Решение**: Добавлена фильтрация на стороне SQL (`source IN ('cnb','ecb') AND pair IN (...)`) и мемоизация по ключу `(resolved_path, st_mtime_ns, st_size)` файла БД. При любом обновлении `fx.db` кеш инвалидируется мгновенно по `mtime_ns`/`size`.",
-        "2. **`bossman_shared/exchange_assistant/store.py::Store.manual_rates` и `Store.dashboard`**:",
-        "   - **Узкое место**: `manual_rates()` сканировал всю таблицу `manual_rates` в Python, перезаписывая словарь по `pair`; `dashboard()` дважды вызывал `SELECT * FROM deals`.",
-        "   - **Решение**: Добавлен составной индекс `idx_manual_rates_pair_id ON manual_rates(pair, id)` и запрос `WHERE id IN (SELECT MAX(id) FROM manual_rates GROUP BY pair)`, а в `dashboard()` таблица сделок читается за один проход.",
-        "3. **`command-center/bcc/web_access/policy.py::check_public_url` (`domain_denied` + `sensitive_reason`)**:",
-        "   - **Узкое место**: На каждый вызов `check_public_url` / `check_query` заново разбирался `os.environ['BCC_WEB_DENY_DOMAINS']`, выполнялся линейный обход `any(host.endswith('.' + d) for d in deny_domains())` по всем запрещённым доменам и последовательно запускались 17 отдельных регулярных выражений.",
-        "   - **Решение**: Кеширование `deny_domains()` по значению env-переменной, проверка суффиксов домена по точкам за `O(число_уровней_домена)` через `frozenset` и предварительный фильтр объединённым скомпилированным автоматом `_COMBINED_SECRET_RE` / `_COMBINED_PERSONAL_RE`.",
-        "4. **`tools/build_source_identity.py::source_identity`**:",
-        "   - **Узкое место**: При повторных проверках идентичности дерева в одном процессе каждый отслеживаемый файл вычитывался целиком с диска и хешировался SHA-1.",
-        "   - **Решение**: Мемоизация SHA-1 блобов по `(path, st_mtime_ns, st_size, st_ino)` при отсутствии скрытых индексных флагов (`git ls-files -v` без `h`/`S`). При наличии `--assume-unchanged` или `--skip-worktree` принудительно читаются сырые байты (все регрессионные тесты `tests/test_build_source_identity.py` зелёные).",
-        "",
-    ])
-    return "\n".join(lines)
+    q = report["real_session_quote"]["latency_ms"]
+    q_str = f"`{q['min_ms']:.3f} / {q['p50_ms']:.3f} / {q['p95_ms']:.3f} / {q['max_ms']:.3f} / {q['mean_ms']:.3f}`"
+    lines.append(f"| `{report['real_session_quote']['name']}` | {report['real_session_quote']['iterations']} | {q_str} |")
+    return "\n".join(lines) + "\n"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -403,17 +432,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.iterations < 50:
         raise ValueError("Owner requirement: iterations N must be >= 50")
 
+    ssrf_eq = verify_policy_ssrf_equivalence()
+    if not ssrf_eq["equivalent"]:
+        raise RuntimeError(f"SSRF equivalence failed: {ssrf_eq['mismatches']}")
+
+    real_session = bench_real_session_quote_response(args.iterations)
     benchmarks = [
-        bench_load_official(args.iterations),
         bench_store_manual_rates(args.iterations),
         bench_web_policy_check(args.iterations),
-        bench_source_identity_blobs(args.iterations),
     ]
     report = {
-        "schema": "bossman.speedup_benchmark.v1",
+        "schema": "bossman.speedup_benchmark.v2",
         "measured_at_utc": datetime.now(timezone.utc).isoformat(),
         "iterations": args.iterations,
         "repository": str(ROOT),
+        "ssrf_equivalence": ssrf_eq,
+        "real_session_quote": real_session,
         "benchmarks": benchmarks,
     }
     if args.json_out is not None:

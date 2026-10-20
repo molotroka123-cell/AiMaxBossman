@@ -2760,10 +2760,19 @@ async def _execute_record_screen(
             "-s", f"{width}x{height}",
             "-r", str(fps),
             "-i", "-",
+            "-f", "lavfi",
+            "-t", f"{duration_s:.2f}",
+            "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
             "-c:v", "libx264",
+            "-profile:v", "main",
+            "-level", "4.0",
             "-preset", "fast",
-            "-crf", "15",
+            "-crf", "18",
             "-pix_fmt", "yuv420p",
+            "-g", str(max(10, fps * 2)),
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-shortest",
             "-movflags", "+faststart",
             str(mp4_path),
         ]
@@ -2771,7 +2780,7 @@ async def _execute_record_screen(
             ffmpeg_cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             env=_scrubbed_env(),
         )
         if proc.pid:
@@ -2926,7 +2935,33 @@ async def _execute_record_screen(
                         + f"\n• Видео MP4: {mp4_path.name} ({round(len(mp4_bytes) / 1024, 1)} КБ, {cap_info.get('frames_written')} кадров, {cap_info.get('resolution')})"
                         + f"\n• SHA-256 MP4: {(mp4_sha256 or '')[:16]}…"
                     )
-                    vid_msg_id = await transport.send_video(owner_tg, mp4_bytes, vid_caption)
+                    vid_w, vid_h = 1920, 1080
+                    res_str = str(cap_info.get("resolution") or "1920x1080")
+                    if "x" in res_str:
+                        with contextlib.suppress(Exception):
+                            pw_s, ph_s = res_str.split("x", 1)
+                            vid_w, vid_h = int(pw_s), int(ph_s)
+                    vid_dur = max(1, int(round(cap_info.get("frames_written", 0) / max(1, fps))))
+                    thumb_bytes: bytes | None = None
+                    if png_ok:
+                        with contextlib.suppress(Exception):
+                            import io as _io
+                            from PIL import Image as _PILImage
+                            with _PILImage.open(_io.BytesIO(png_bytes)) as _im:
+                                _im_rgb = _im.convert("RGB")
+                                _im_rgb.thumbnail((320, 320))
+                                _buf = _io.BytesIO()
+                                _im_rgb.save(_buf, format="JPEG", quality=82, optimize=True)
+                                thumb_bytes = _buf.getvalue()
+                    vid_msg_id = await transport.send_video(
+                        owner_tg,
+                        mp4_bytes,
+                        vid_caption,
+                        duration=vid_dur,
+                        width=vid_w,
+                        height=vid_h,
+                        thumbnail=thumb_bytes,
+                    )
                     photo_msg_id = None
                     if png_ok:
                         photo_caption = (

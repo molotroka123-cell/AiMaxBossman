@@ -402,8 +402,17 @@ class SdCliRunner:
         (bcc.direct_gen.video_progress); its failure never stops the run."""
         from ..studio.providers.sdcpp import bind_to_owner_lifetime
         started = time.monotonic()
+        exec_argv = list(argv)
+        part_pair: tuple[Path, Path] | None = None
+        if "-o" in exec_argv:
+            idx_o = exec_argv.index("-o")
+            if idx_o + 1 < len(exec_argv) and str(exec_argv[idx_o + 1]).lower().endswith(".png"):
+                final_out = Path(exec_argv[idx_o + 1])
+                part_out = final_out.with_name(f"{final_out.name}.part")
+                exec_argv[idx_o + 1] = str(part_out)
+                part_pair = (part_out, final_out)
         self.proc = await asyncio.create_subprocess_exec(
-            *argv, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
+            *exec_argv, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT, cwd=str(cwd), limit=1 << 20)
         proc = self.proc
         with contextlib.suppress(Exception):
@@ -449,6 +458,13 @@ class SdCliRunner:
                     elif not m:
                         log = (log + [line[:400]])[-60:]
             await proc.wait()
+            if part_pair is not None:
+                part_out, final_out = part_pair
+                if proc.returncode == 0 and part_out.is_file():
+                    os.replace(part_out, final_out)
+                else:
+                    with contextlib.suppress(OSError):
+                        part_out.unlink(missing_ok=True)
         finally:
             sampler.cancel()
             with contextlib.suppress(BaseException):
@@ -482,3 +498,37 @@ def png_size(path: Path) -> tuple[int, int] | None:
     if len(head) < 24 or not head.startswith(b"\x89PNG\r\n\x1a\n"):
         return None
     return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+
+
+PNG_IEND = b"\x00\x00\x00\x00IEND\xaeB`\x82"
+
+
+def png_valid(path: Path) -> tuple[int, int] | None:
+    """Verify that ``path`` is a complete, non-truncated PNG (has IHDR dimensions, IEND trailer, and decodes cleanly)."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    if len(data) < 36 or not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return None
+    if not data.endswith(PNG_IEND) and b"IEND\xaeB`\x82" not in data[-32:]:
+        return None
+    w = int.from_bytes(data[16:20], "big")
+    h = int.from_bytes(data[20:24], "big")
+    if w <= 0 or h <= 0:
+        return None
+    if b"IDAT" in data:
+        try:
+            import io
+            from PIL import Image
+            with Image.open(io.BytesIO(data)) as im:
+                im.load()
+                if im.size != (w, h):
+                    return None
+        except ImportError:
+            pass
+        except Exception:
+            return None
+    elif len(data) > 57:
+        return None
+    return w, h
