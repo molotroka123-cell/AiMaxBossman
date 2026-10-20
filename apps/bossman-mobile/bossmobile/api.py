@@ -29,7 +29,7 @@ from . import VERSION
 from .auth import COOKIE, CSRF_HEADER, RateLimiter, Sessions, WorkerDeviceRegistry, check_token, load_or_create_pairing
 from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
-from .policy import is_photo_model, local_agents, pick_default, uncensored_label
+from .policy import is_photo_model, local_agents, loopback_url, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
 from . import reftags, video, video_timing
 from .timing import calibrate_task_eta, from_history, queue_view, step_range, timing_for, warm_models
@@ -69,6 +69,10 @@ class SendIn(BaseModel):
 
 class DecideIn(BaseModel):
     approve: bool
+
+
+class UnloadIn(BaseModel):
+    agent_id: int
 
 
 class ExchangeIn(BaseModel):
@@ -439,6 +443,37 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         if body.client_request_id:
             payload["client_request_id"] = body.client_request_id
         return await call("POST", f"/api/chat/threads/{tid}/send", json=payload, timeout=120)
+
+    @app.post("/m/api/chat/unload")
+    async def chat_unload(body: UnloadIn, _=Depends(session)):
+        """Owner tapped «Запустить» under a photo prompt the chat model wrote: free that model's RAM/VRAM for the image
+        model first. The same Ollama call the resource governor and the pult prompt refiner use (keep_alive=0), sent by
+        the gateway's one Ollama client, only to a loopback Ollama, only for the agent's OWN local model and only when it
+        is loaded right now (nothing else is touched; the next chat message loads it again)."""
+        if not loopback_url(st.ollama_url):
+            raise fail(503, "Ollama не на этом ПК — выгрузка модели отключена", "BM_OLLAMA_NOT_LOCAL")
+        cache.pop("agents", None)
+        agent = next((a for a in await agents_view() if a["id"] == body.agent_id), None)
+        if agent is None or not agent["local"]:
+            raise fail(403, "выгрузить можно только локальную модель чата этого ПК", "BM_LOCAL_ONLY")
+        norm = lambda n: n[:-7] if n.endswith(":latest") else n  # noqa: E731 - «gemma3» == «gemma3:latest» in Ollama
+        model = agent.get("model") or {}
+        want = {norm(str(n)) for n in (model.get("name"), model.get("alias")) if n}
+        try:
+            ps = (await ollama.get("/api/ps")).json().get("models", [])
+        except (httpx.HTTPError, ValueError, AttributeError):
+            raise fail(502, "Ollama не отвечает — модель чата не выгружена", "BM_OLLAMA_UNAVAILABLE") from None
+        loaded = [str(m.get("name")) for m in ps if isinstance(m, dict) and m.get("name")]
+        unloaded = []
+        for name in (n for n in loaded if norm(n) in want):
+            try:
+                r = await ollama.post("/api/generate", json={"model": name, "keep_alive": 0}, timeout=30)
+            except httpx.HTTPError:
+                raise fail(502, f"Ollama не ответил на выгрузку {name}", "BM_OLLAMA_UNAVAILABLE") from None
+            if r.status_code != 200:
+                raise fail(502, f"Ollama не выгрузил {name} (HTTP {r.status_code})", "BM_OLLAMA_UNLOAD_FAILED")
+            unloaded.append(name)
+        return {"ok": True, "unloaded": unloaded, "was_loaded": bool(unloaded)}
 
     @app.post("/m/api/threads/{thread_id}/stop")
     async def stop(thread_id: str, _=Depends(session)):
