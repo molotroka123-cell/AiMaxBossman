@@ -70,6 +70,11 @@ def parse_skill(path: Path, source_root: Path, *, max_bytes: int = MAX_SKILL_BYT
     # молча терялись, а весь YAML уходил в тело процесса. Переводы строк
     # нормализуются так же, как это делал read_text (universal newlines).
     text = raw.decode("utf-8-sig", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
+    return parse_skill_text(text, path, source_root)
+
+
+def parse_skill_text(text: str, path: Path, source_root: Path) -> Skill:
+    """Разбор уже прочитанного текста (create/import проверяют его ДО записи)."""
     fm: dict[str, Any] = {}
     body = text
     if text.startswith("---\n"):
@@ -190,6 +195,14 @@ class SkillLibrary:
         if size > MAX_SKILL_BYTES:
             raise SkillLoadError(_too_big(skill_id, size))
         dest = self.canonical_root / skill_id / SKILL_FILE
+        # Манифест проверяется ДО записи: навык с битой input_schema падал бы
+        # на каждом запуске, а с чужим upstream без лицензии — не должен попасть
+        # в поставку вовсе. Предупреждения (нет name и т.п.) запись не блокируют.
+        draft = parse_skill_text(content.lstrip(chr(0xFEFF)).replace("\r\n", "\n").replace("\r", "\n"),
+                                 dest, self.canonical_root)
+        problems = validate_manifest(draft)["errors"]
+        if problems:
+            raise SkillManifestError(f"Навык «{skill_id}» не сохранён: " + "; ".join(problems))
         if dest.exists() and not overwrite:
             raise FileExistsError(dest)
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -241,6 +254,118 @@ def skill_version(fm: dict[str, Any]) -> str:
     if isinstance(meta, dict) and meta.get("version") is not None:
         return str(meta["version"])
     return str(fm.get("version") or "1.0")
+
+
+# ---------------------------------------------------------------- манифест скилла
+
+class SkillManifestError(ValueError):
+    """Манифест SKILL.md сломан так, что навык нельзя сохранять/запускать."""
+
+
+_STR_LIST = {"anyOf": [{"type": "array", "items": {"type": "string", "minLength": 1}},
+                       {"type": "string"}]}
+
+#: JSON Schema фронтматтера SKILL.md (поля, которые читает рантайм Bossman).
+#: Неизвестные поля разрешены: у OpenCode/Claude/upstream свои расширения.
+MANIFEST_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "pattern": r"^[a-z0-9][a-z0-9-]{1,62}$"},
+        "description": {"type": "string", "minLength": 1, "maxLength": 1024},
+        "version": {"type": ["string", "number"]},
+        "license": {"type": "string", "minLength": 1},
+        "compatibility": {"type": "string"},
+        "metadata": {"type": "object", "properties": {
+            "version": {"type": ["string", "number"]},
+            "license": {"type": "string", "minLength": 1},
+            "upstream": {"type": "string", "minLength": 1}}},
+        "required_tools": _STR_LIST,
+        "permissions": _STR_LIST,
+        "input_schema": {"type": "object"},
+        "output_schema": {"type": "object"},
+    },
+}
+
+
+def ru_schema_error(err) -> str:
+    """Одна ошибка jsonschema → понятная владельцу фраза по-русски."""
+    where = ".".join(str(p) for p in err.absolute_path) or "вход"
+    kind, val = err.validator, err.validator_value
+    if kind == "required":
+        missing = err.message.split("'")[1] if err.message.count("'") >= 2 else err.message
+        return f"нет обязательного поля {missing}" if where == "вход" else \
+            f"{where}: нет обязательного поля {missing}"
+    if kind == "type":
+        return f"{where} должно быть типа {val}"
+    if kind == "additionalProperties":
+        known = set((err.schema.get("properties") or {}))
+        extra = sorted(k for k in (err.instance or {}) if k not in known)
+        return f"{where}: лишние поля {', '.join(extra)} — навык их не принимает"
+    if kind == "enum":
+        return f"{where}: допустимо только {', '.join(map(str, val))}"
+    if kind in ("maxLength", "maxItems", "maxProperties"):
+        return f"{where}: слишком длинно, не больше {val}"
+    if kind in ("minLength", "minItems", "minProperties"):
+        return f"{where}: слишком коротко, не меньше {val}"
+    if kind in ("maximum", "exclusiveMaximum"):
+        return f"{where}: значение больше допустимого {val}"
+    if kind in ("minimum", "exclusiveMinimum"):
+        return f"{where}: значение меньше допустимого {val}"
+    if kind == "pattern":
+        return f"{where}: не подходит под шаблон {val}"
+    if kind == "oneOf":
+        return f"{where}: нужно заполнить ровно один из вариантов входа"
+    if kind == "anyOf":
+        return f"{where}: неверный формат"
+    if kind == "const":
+        return f"{where}: должно быть {val!r}"
+    return f"{where}: {err.message}"
+
+
+_MANIFEST_HINTS = {
+    "name": "name — латиница в нижнем регистре, цифры и дефис (2–63 символа)",
+    "description": "description — непустой текст до 1024 символов: по нему навык находят",
+    "required_tools": "required_tools — список имён инструментов (строки)",
+    "permissions": "permissions — список прав (строки)",
+    "input_schema": "input_schema — объект JSON Schema",
+    "output_schema": "output_schema — объект JSON Schema",
+}
+
+
+def validate_manifest(skill: Skill) -> dict[str, list[str]]:
+    """Проверить фронтматтер навыка. ``errors`` блокируют сохранение и запуск,
+    ``warnings`` — только показываются. Сообщения — по-русски."""
+    from jsonschema import Draft202012Validator, exceptions, validators
+
+    fm = skill.frontmatter or {}
+    errors: list[str] = []
+    warnings: list[str] = []
+    for err in sorted(Draft202012Validator(MANIFEST_SCHEMA).iter_errors(fm),
+                      key=lambda e: [str(p) for p in e.absolute_path]):
+        top = str(err.absolute_path[0]) if err.absolute_path else ""
+        hint = _MANIFEST_HINTS.get(top)
+        msg = ru_schema_error(err).replace("вход", "фронтматтер", 1) if not top else ru_schema_error(err)
+        errors.append(f"{msg} ({hint})" if hint else msg)
+    for key in ("input_schema", "output_schema"):
+        sch = fm.get(key)
+        if isinstance(sch, dict) and sch:
+            cls = validators.validator_for(sch, default=Draft202012Validator)
+            try:
+                cls.check_schema(sch)
+            except exceptions.SchemaError as exc:
+                errors.append(f"{key} — некорректная JSON Schema: {exc.message}")
+    meta = fm.get("metadata") if isinstance(fm.get("metadata"), dict) else {}
+    if meta.get("upstream") and not (fm.get("license") or meta.get("license")):
+        errors.append(f"навык взят из {meta['upstream']}, но лицензия не указана — добавьте "
+                      "license (SPDX, например MIT) во фронтматтер или metadata")
+    if not fm.get("name"):
+        warnings.append(f"нет name — используется имя папки «{skill.id}»")
+    elif isinstance(fm.get("name"), str) and fm["name"] != skill.id:
+        warnings.append(f"name «{fm['name']}» не совпадает с папкой «{skill.id}»; "
+                        f"навык вызывается по имени папки")
+    if not fm.get("description"):
+        warnings.append("нет description — навык не найдут поиском и по задаче")
+    return {"errors": errors, "warnings": warnings}
 
 
 def skill_contract(skill: Skill) -> SkillContract:

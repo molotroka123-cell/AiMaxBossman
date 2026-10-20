@@ -49,8 +49,9 @@ from ..v2 import skill_catalog as catalog_mod
 from ..v2 import skill_evaluation as evaluation
 from ..v2.skill_catalog import SkillCatalog
 from ..v2.mcp_hub import MCPServerSpec, command_policy_refusal, namespaced_tool
-from ..v2.skill_library import (SkillLibrary, build_skill_prompt, default_skill_roots,
-                                skill_contract)
+from ..v2.skill_library import (SkillLibrary, SkillManifestError, build_skill_prompt,
+                                default_skill_roots, ru_schema_error, skill_contract,
+                                validate_manifest)
 from ..v2.tables import mcp_servers as mcp_servers_t, mcp_tools as mcp_tools_t
 from . import Feature
 
@@ -93,7 +94,8 @@ def _skill_dict(sk) -> dict:
             "source_root": str(sk.source_root), "fingerprint": sk.fingerprint[:16],
             "version": con.version,
             "permissions": con.permissions,
-            "required_tools": con.required_tools}
+            "required_tools": con.required_tools,
+            "manifest": validate_manifest(sk)}
 
 
 # ---------- Skills API ----------
@@ -154,6 +156,8 @@ async def create_skill(request: Request):
         sk = _lib(svc).create(sid, content, overwrite=bool(body.get("overwrite")))
     except FileExistsError:
         raise _already_exists(sid) from None
+    except SkillManifestError as exc:
+        raise HTTPException(422, {"message": str(exc)}) from None
     except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     await svc.bus.emit("skill.created", slug=sk.id)
@@ -174,6 +178,8 @@ async def clone_skill(skill_id: str, request: Request):
         clone = await asyncio.to_thread(lib.create, new_id, content)
     except FileExistsError:
         raise _already_exists(new_id) from None
+    except SkillManifestError as exc:
+        raise HTTPException(422, {"message": str(exc)}) from None
     except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     return _skill_dict(clone)
@@ -199,6 +205,8 @@ async def import_skill(request: Request):
         sk = _lib(svc).create(body["id"], body["content"], overwrite=bool(body.get("overwrite")))
     except FileExistsError:
         raise _already_exists(body["id"]) from None
+    except SkillManifestError as exc:
+        raise HTTPException(422, {"message": str(exc)}) from None
     except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     return _skill_dict(sk)
@@ -367,41 +375,6 @@ async def _persist_skill_version(svc, con, description: str = "") -> int:
 _MAX_INPUT_ERRORS = 20
 
 
-def _ru_schema_error(err) -> str:
-    """Одна ошибка jsonschema → понятная владельцу фраза по-русски."""
-    where = ".".join(str(p) for p in err.absolute_path) or "вход"
-    kind, val = err.validator, err.validator_value
-    if kind == "required":
-        missing = err.message.split("'")[1] if err.message.count("'") >= 2 else err.message
-        return f"нет обязательного поля {missing}" if where == "вход" else \
-            f"{where}: нет обязательного поля {missing}"
-    if kind == "type":
-        return f"{where} должно быть типа {val}"
-    if kind == "additionalProperties":
-        known = set((err.schema.get("properties") or {}))
-        extra = sorted(k for k in (err.instance or {}) if k not in known)
-        return f"{where}: лишние поля {', '.join(extra)} — навык их не принимает"
-    if kind == "enum":
-        return f"{where}: допустимо только {', '.join(map(str, val))}"
-    if kind in ("maxLength", "maxItems", "maxProperties"):
-        return f"{where}: слишком длинно, не больше {val}"
-    if kind in ("minLength", "minItems", "minProperties"):
-        return f"{where}: слишком коротко, не меньше {val}"
-    if kind in ("maximum", "exclusiveMaximum"):
-        return f"{where}: значение больше допустимого {val}"
-    if kind in ("minimum", "exclusiveMinimum"):
-        return f"{where}: значение меньше допустимого {val}"
-    if kind == "pattern":
-        return f"{where}: не подходит под шаблон {val}"
-    if kind == "oneOf":
-        return f"{where}: нужно заполнить ровно один из вариантов входа"
-    if kind == "anyOf":
-        return f"{where}: не подходит ни под один вариант входа"
-    if kind == "const":
-        return f"{where}: должно быть {val!r}"
-    return f"{where}: {err.message}"
-
-
 def _validate_input(schema: dict, data: dict) -> list[str]:
     """Проверка входа по ПОЛНОЙ JSON Schema навыка (jsonschema, MIT).
 
@@ -417,7 +390,7 @@ def _validate_input(schema: dict, data: dict) -> list[str]:
     except exceptions.SchemaError as exc:
         return [f"схема входа навыка некорректна: {exc.message} — исправьте input_schema в SKILL.md"]
     errs = sorted(cls(schema).iter_errors(data), key=lambda e: [str(p) for p in e.absolute_path])
-    return [_ru_schema_error(e) for e in errs[:_MAX_INPUT_ERRORS]]
+    return [ru_schema_error(e) for e in errs[:_MAX_INPUT_ERRORS]]
 
 
 class AssignmentsUnreadable(RuntimeError):
@@ -632,6 +605,8 @@ async def decide_evaluation(evaluation_id: int, request: Request):
             by=str(body.get("by") or "owner"))}
     except KeyError:
         raise HTTPException(404, {"message": "сравнение не найдено"})
+    except SkillManifestError as exc:
+        raise HTTPException(422, {"message": str(exc)}) from None
     except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
 
@@ -745,6 +720,8 @@ async def forge_apply(request: Request):
                                       "hint": f"статус подтверждения: {status}"})
         try:
             sk = _lib(svc).create(pending["id"], pending["content"], overwrite=True)
+        except SkillManifestError as exc:
+            raise HTTPException(422, {"message": str(exc)}) from None
         except (ValueError, OSError) as exc:
             raise HTTPException(409, {"message": str(exc)})
         state["pending"].pop(str(approval_id), None)
@@ -769,6 +746,8 @@ async def forge_apply(request: Request):
     if not (added_tools or added_perms):
         try:
             sk = lib.create(sid, content, overwrite=True)
+        except SkillManifestError as exc:
+            raise HTTPException(422, {"message": str(exc)}) from None
         except (ValueError, OSError) as exc:
             raise HTTPException(409, {"message": str(exc)})
         await svc.bus.emit("skill.updated", slug=sk.id)
@@ -801,7 +780,13 @@ def _parse_draft(content: str) -> dict:
         d.mkdir()
         p = d / "SKILL.md"
         p.write_text(content, encoding="utf-8")
-        con = skill_contract(parse_skill(p, Path(tmp)))
+        sk = parse_skill(p, Path(tmp))
+        # битый манифест отклоняется ДО заявки на расширение прав: владелец не
+        # должен одобрять то, что всё равно не сохранится
+        problems = validate_manifest(sk)["errors"]
+        if problems:
+            raise SkillManifestError("Черновик навыка отклонён: " + "; ".join(problems))
+        con = skill_contract(sk)
     return {"required_tools": con.required_tools, "permissions": con.permissions}
 
 
