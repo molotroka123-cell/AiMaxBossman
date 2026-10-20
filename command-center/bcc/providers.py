@@ -284,6 +284,20 @@ class _BaseAdapter:
     def _client(self, timeout: float) -> httpx.AsyncClient:
         return http_client(self.base_url, timeout=timeout, transport=self.transport)
 
+    def _scrub(self, text: str) -> str:
+        """Provider-written error text without credentials.
+
+        The error body is the provider's text, shown in the UI, events and logs. Gateways and
+        proxies do echo the key they rejected ("invalid api key sk-…", a reflected
+        Authorization header), so the adapter's own key is cut out exactly and known token
+        shapes are masked by the shared free-text redactor."""
+        from .plugin_security import redact_text
+        out = str(text or "")
+        key = self.api_key or ""
+        if len(key) >= 8:
+            out = out.replace(key, "***REDACTED***")
+        return redact_text(out)
+
     async def _request(self, method: str, url: str, *, timeout: float,
                        headers: dict | None = None, json: dict | None = None) -> httpx.Response:
         from bossman_shared.privacy import assert_provider_egress
@@ -298,7 +312,7 @@ class _BaseAdapter:
             raise ProviderError(f"нет связи с {_host(url)}: {net_reason(exc)}", kind="network",
                                 hint="проверьте base_url и что endpoint поднят") from None
         if resp.status_code >= 400:
-            raise ProviderError(_explain(resp), kind="http", status_code=resp.status_code)
+            raise ProviderError(self._scrub(_explain(resp)), kind="http", status_code=resp.status_code)
         return resp
 
     async def _health_via(self, url: str, headers: dict | None = None) -> Health:
@@ -365,6 +379,7 @@ class OpenAICompatAdapter(_BaseAdapter):
             if upstream is None:
                 break
             code, message = upstream
+            message = self._scrub(message)
             if code not in _TRANSIENT_CODES:
                 raise ProviderError(f"провайдер отказал ({code}): {message}", kind="http",
                                     status_code=code or None)
@@ -437,7 +452,8 @@ class OpenAICompatAdapter(_BaseAdapter):
                         await resp.aread()
                         if resp.status_code in _STREAM_REJECTED:
                             return None
-                        raise ProviderError(_explain(resp), kind="http", status_code=resp.status_code)
+                        raise ProviderError(self._scrub(_explain(resp)), kind="http",
+                                            status_code=resp.status_code)
                     if "text/event-stream" not in resp.headers.get("content-type", "").lower():
                         await resp.aread()
                         data = _response_object(resp, what="chat/completions")
