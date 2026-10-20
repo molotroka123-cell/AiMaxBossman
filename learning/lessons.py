@@ -48,6 +48,7 @@ SCOPES = ("project", "global")
 LESSON_TASK_PREFIX = "coach-lesson:"
 MIN_BODY_CHARS = 8
 MAX_BODY_CHARS = 2000
+MAX_TRACKED_IDS = 100            # attempt/task ids kept per lesson (occurrences counts all)
 
 _STATUS_TO_LEARNING = _fmt.STATUS_TO_LEARNING
 
@@ -379,6 +380,12 @@ class LessonBook:
                 l["occurrences"] = int(l.get("occurrences") or 1) + 1
             if ep.task_id not in l.setdefault("source_task_ids", []):
                 l["source_task_ids"].append(ep.task_id)
+            # Bounded growth: every dedup bump stores a NEW version of the whole
+            # record, so an uncapped id list made a lesson seen every cycle grow
+            # without limit (and the store quadratically). `occurrences` keeps the
+            # true count; the lists keep the most recent ids as provenance.
+            l["attempt_ids"] = l["attempt_ids"][-MAX_TRACKED_IDS:]
+            l["source_task_ids"] = l["source_task_ids"][-MAX_TRACKED_IDS:]
             l.setdefault("provenance", []).append(rec["lesson"]["provenance"][0])
             l["provenance"] = l["provenance"][-20:]
             # a teacher patch never upgrades to student success by being seen again

@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
@@ -170,7 +171,7 @@ def validate_statement(statement: str, *, subject: str = "", object: str = "",
          присутствуют в тексте дословно;
       6. если факт кого-то перекрывает — переход назван явно.
     """
-    text = " ".join(str(statement or "").split())
+    text = _canon(statement)
     if not text:
         raise FactFormError("пустой факт: нужно самодостаточное утверждение")
 
@@ -216,9 +217,20 @@ def validate_statement(statement: str, *, subject: str = "", object: str = "",
 
 # ------------------------------------------------------------------ И-2: дедуп
 
+def _canon(text: Any) -> str:
+    """Каноническая запись поля факта: NFC и одиночные пробелы.
+
+    NFC не меняет смысла (канонически эквивалентная форма), но без него «й»,
+    набранная как «и» + U+0306, давала другую строку: SQL-фильтр по subject
+    не находил факт, а дедуп писал второй экземпляр того же утверждения."""
+    return " ".join(unicodedata.normalize("NFC", str(text or "")).split())
+
+
 def fact_hash(subject: str, predicate: str, object: str, statement: str) -> str:
-    """sha256 нормализованного факта — ключ дедупа (у mem0 md5, берём sha256)."""
-    blob = "\x1f".join(" ".join(str(p or "").lower().split())
+    """sha256 нормализованного факта — ключ дедупа (у mem0 md5, берём sha256).
+
+    Регистр (casefold) и Unicode-форма (NFKC) не делают факт новым."""
+    blob = "\x1f".join(" ".join(unicodedata.normalize("NFKC", str(p or "")).casefold().split())
                        for p in (subject, predicate, object, statement))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -306,9 +318,9 @@ async def write_fact(session, *, subject: str, predicate: str, statement: str,
 
     Возвращает `{"fact": row, "deduped": bool, "superseded": row|None}`.
     """
-    subject = " ".join(str(subject or "").split())
-    predicate = " ".join(str(predicate or "").split())
-    object = " ".join(str(object or "").split())
+    subject = _canon(subject)
+    predicate = _canon(predicate)
+    object = _canon(object)
     if not subject or not predicate:
         raise FactFormError("нужны subject и predicate: факт — это утверждение "
                             "о конкретной сущности")
@@ -396,9 +408,9 @@ async def query_facts(session, *, subject: str | None = None,
     """
     query = sa.select(facts_t)
     if subject:
-        query = query.where(facts_t.c.subject == " ".join(str(subject).split()))
+        query = query.where(facts_t.c.subject == _canon(subject))
     if predicate:
-        query = query.where(facts_t.c.predicate == " ".join(str(predicate).split()))
+        query = query.where(facts_t.c.predicate == _canon(predicate))
     if source_run_id is not None:
         query = query.where(facts_t.c.source_run_id == int(source_run_id))
 
@@ -520,7 +532,7 @@ async def decision_timeline(session, target_kind: str, target_id: int, *,
             sa.select(facts_t).where(facts_t.c.source_run_id.in_(sorted(wanted)))))
     if subject:
         fact_rows += _rows(await session.execute(
-            sa.select(facts_t).where(facts_t.c.subject == " ".join(subject.split()))))
+            sa.select(facts_t).where(facts_t.c.subject == _canon(subject))))
     seen: set[int] = set()
     for row in fact_rows:
         fid = int(row["id"])
@@ -683,18 +695,34 @@ def parse_time(value: Any, *, default: datetime | None = None) -> datetime:
     return to_naive_utc(value)
 
 
-def _filter_query(rows: list[dict], query: str | None) -> list[dict]:
-    """Подстрочный фильтр поиска (case-insensitive) по текстовым полям факта."""
-    needle = " ".join(str(query or "").split()).lower()
+#: Потолок выборки, из которой подстрочный фильтр выбирает совпадения
+#: (тот же, что у `query_facts`).
+_FILTER_POOL = 200
+
+
+def _fold(text: str) -> str:
+    return " ".join(unicodedata.normalize("NFKC", text or "").casefold().replace("ё", "е").split())
+
+
+def _filter_query(rows: list[dict], query: str | None, limit: int | None = None) -> list[dict]:
+    """Подстрочный фильтр поиска (регистр, «ё/е» и Unicode-форма не важны)."""
+    needle = _fold(str(query or ""))
     if not needle:
-        return rows
+        return rows if limit is None else rows[:max(1, int(limit))]
     out = []
     for row in rows:
-        haystack = " ".join(str(row.get(k) or "") for k in
-                            ("subject", "predicate", "object", "statement")).lower()
+        haystack = _fold(" ".join(str(row.get(k) or "") for k in
+                                  ("subject", "predicate", "object", "statement")))
         if needle in haystack:
             out.append(row)
-    return out
+    return out if limit is None else out[:max(1, int(limit))]
+
+
+def _pool_limit(limit: int, query: str | None) -> int:
+    """LIMIT для SQL. С текстовым фильтром LIMIT раньше резал выборку ДО
+    фильтра: `search(query=X, limit=5)` смотрел на 5 старейших фактов и
+    отвечал «ничего», хотя X лежал шестым. Фильтр получает весь пул."""
+    return _FILTER_POOL if _fold(str(query or "")) else limit
 
 
 def public_fact(row: dict) -> dict:
@@ -764,8 +792,9 @@ class FactStore:
             include_superseded = not current_only
         async with self.svc.db.session() as session:
             rows = await query_facts(session, subject=subject, predicate=predicate,
-                                     include_superseded=include_superseded, limit=limit)
-        return [public_fact(r) for r in _filter_query(rows, query)]
+                                     include_superseded=include_superseded,
+                                     limit=_pool_limit(limit, query))
+        return [public_fact(r) for r in _filter_query(rows, query, limit)]
 
     async def as_of(self, *, world_at: Any = None, when: Any = None,
                     subject: str | None = None, predicate: str | None = None,
@@ -782,8 +811,8 @@ class FactStore:
             rows = await query_facts(session, subject=subject, predicate=predicate,
                                      as_of=parse_time(moment),
                                      known_as_of=parse_time(known) if known else None,
-                                     limit=limit)
-        return [public_fact(r) for r in _filter_query(rows, query)]
+                                     limit=_pool_limit(limit, query))
+        return [public_fact(r) for r in _filter_query(rows, query, limit)]
 
     async def history(self, *, subject: str, predicate: str | None = None,
                       limit: int = 100) -> list[dict]:

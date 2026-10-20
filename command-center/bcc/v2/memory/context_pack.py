@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import math
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Iterable
 
@@ -27,8 +29,17 @@ def estimate_tokens(text: str) -> int:
     return math.ceil(len(text) / 3.5)
 
 def _fingerprint(text: str) -> str:
-    text = re.sub(r"\s+", " ", text).strip().lower()
-    return text[:500]
+    """Identity of a hit's content for dedup.
+
+    The whole normalized text is hashed. A 500-char prefix used to stand in for
+    it, so two different notes built from one template (same header, different
+    decision below) collapsed into one and the second was silently dropped.
+    Whitespace, case and Unicode form (NFKC) still do not make a duplicate new.
+    """
+    text = re.sub(r"\s+", " ", unicodedata.normalize("NFKC", text or "")).strip().casefold()
+    if not text:
+        return ""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 def build_context_pack(
     query: str,

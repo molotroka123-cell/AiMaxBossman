@@ -16,7 +16,8 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator
 
 from .chunking_v22 import split_long_markdown
-from .local_index import DEFAULT_EXCLUDED_DIRS, MAX_SECTION_CHARS, Chunk, split_sections, tokenize
+from .local_index import (DEFAULT_EXCLUDED_DIRS, MAX_SECTION_CHARS, TOKENIZER_VERSION, Chunk,
+                          split_sections, tokenize)
 from .memsearch_bridge import MemoryHit
 
 SCHEMA_VERSION = 1
@@ -128,6 +129,16 @@ class SQLiteMemoryBackend:
                          (str(SCHEMA_VERSION),))
         elif int(current[0]) != SCHEMA_VERSION:
             raise RuntimeError(f"unsupported memory sqlite schema: {current[0]}")
+        # Postings are terms produced by `tokenize`. When its rules change the
+        # stored terms no longer meet query terms, yet the per-file sha256 skip
+        # would keep the stale postings forever. Forget the digests (rows stay
+        # searchable meanwhile) so the next index pass rebuilds every file.
+        tok = conn.execute("SELECT value FROM meta WHERE key='tokenizer_version'").fetchone()
+        if tok is None or str(tok[0]) != str(TOKENIZER_VERSION):
+            conn.execute("UPDATE files SET digest=''")
+            conn.execute("INSERT INTO meta(key,value) VALUES('tokenizer_version',?) "
+                         "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                         (str(TOKENIZER_VERSION),))
         conn.commit()
 
     def _rel(self, path: Path) -> str:
