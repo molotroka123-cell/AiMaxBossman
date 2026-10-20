@@ -49,8 +49,9 @@ from ..v2 import skill_catalog as catalog_mod
 from ..v2 import skill_evaluation as evaluation
 from ..v2.skill_catalog import SkillCatalog
 from ..v2.mcp_hub import MCPServerSpec, command_policy_refusal, namespaced_tool
-from ..v2.skill_library import (SkillLibrary, build_skill_prompt, default_skill_roots,
-                                skill_contract)
+from ..v2.skill_library import (SkillLibrary, SkillManifestError, build_skill_prompt,
+                                default_skill_roots, ru_schema_error, skill_contract,
+                                validate_manifest)
 from ..v2.tables import mcp_servers as mcp_servers_t, mcp_tools as mcp_tools_t
 from . import Feature
 
@@ -93,7 +94,8 @@ def _skill_dict(sk) -> dict:
             "source_root": str(sk.source_root), "fingerprint": sk.fingerprint[:16],
             "version": con.version,
             "permissions": con.permissions,
-            "required_tools": con.required_tools}
+            "required_tools": con.required_tools,
+            "manifest": validate_manifest(sk)}
 
 
 # ---------- Skills API ----------
@@ -106,11 +108,26 @@ async def list_skills(request: Request):
     out = []
     # discover() глобит/stat'ит шесть корней (в т.ч. ~/.agents, ~/.claude,
     # ~/.config/opencode) и пере-парсит YAML после смены mtime — не в цикле событий.
-    for sk in await asyncio.to_thread(lib.discover):
+    # Одна карточка на id — ровно та копия, которую запустят run/get (by_id:
+    # ранний корень главнее); остальные копии перечислены в "shadowed".
+    skills, shadowed = await asyncio.to_thread(lambda: (lib.by_id(), lib.shadowed()))
+    for sk in skills.values():
         d = _skill_dict(sk)
         d["agents"] = assigns.get(sk.id, [])
+        d["shadowed"] = shadowed.get(sk.id, [])
         out.append(d)
     return out
+
+
+@router.get("/skill-load-errors")
+async def skill_load_errors(request: Request):
+    """Навыки, которые НЕ попали в список, и почему (по-русски, без путей).
+
+    Без этого огромный или нечитаемый SKILL.md просто пропадал из /skills, и
+    владелец не мог понять, куда делся его навык."""
+    lib = _lib(request.app.state.svc)
+    await asyncio.to_thread(lib.discover)
+    return {"errors": list(getattr(lib, "errors", []) or [])}
 
 
 @router.get("/skills/{skill_id}")
@@ -143,6 +160,8 @@ async def create_skill(request: Request):
         sk = _lib(svc).create(sid, content, overwrite=bool(body.get("overwrite")))
     except FileExistsError:
         raise _already_exists(sid) from None
+    except SkillManifestError as exc:
+        raise HTTPException(422, {"message": str(exc)}) from None
     except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     await svc.bus.emit("skill.created", slug=sk.id)
@@ -163,6 +182,8 @@ async def clone_skill(skill_id: str, request: Request):
         clone = await asyncio.to_thread(lib.create, new_id, content)
     except FileExistsError:
         raise _already_exists(new_id) from None
+    except SkillManifestError as exc:
+        raise HTTPException(422, {"message": str(exc)}) from None
     except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     return _skill_dict(clone)
@@ -188,6 +209,8 @@ async def import_skill(request: Request):
         sk = _lib(svc).create(body["id"], body["content"], overwrite=bool(body.get("overwrite")))
     except FileExistsError:
         raise _already_exists(body["id"]) from None
+    except SkillManifestError as exc:
+        raise HTTPException(422, {"message": str(exc)}) from None
     except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
     return _skill_dict(sk)
@@ -353,28 +376,25 @@ async def _persist_skill_version(svc, con, description: str = "") -> int:
     return vid
 
 
-_TYPES = {"string": str, "number": (int, float), "integer": int, "boolean": bool,
-          "array": list, "object": dict}
+_MAX_INPUT_ERRORS = 20
 
 
 def _validate_input(schema: dict, data: dict) -> list[str]:
-    """Минимальный валидатор required/type (jsonschema не тянем)."""
-    errors: list[str] = []
-    for field in schema.get("required", []):
-        if field not in data:
-            errors.append(f"нет обязательного поля {field}")
-    for name, spec in (schema.get("properties") or {}).items():
-        if name not in data or not isinstance(spec, dict):
-            continue
-        expected = _TYPES.get(str(spec.get("type") or ""))
-        if expected is None:
-            continue
-        value = data[name]
-        if expected is not bool and isinstance(value, bool):
-            errors.append(f"{name} должно быть типа {spec.get('type')}")
-        elif not isinstance(value, expected):
-            errors.append(f"{name} должно быть типа {spec.get('type')}")
-    return errors
+    """Проверка входа по ПОЛНОЙ JSON Schema навыка (jsonschema, MIT).
+
+    Самописный валидатор смотрел только required/type: oneOf,
+    additionalProperties, enum, maxLength у mimik/open-news не проверялись,
+    и в задачу уходил вход, который навык явно запрещает."""
+    if not schema:
+        return []
+    from jsonschema import Draft202012Validator, exceptions, validators
+    cls = validators.validator_for(schema, default=Draft202012Validator)
+    try:
+        cls.check_schema(schema)
+    except exceptions.SchemaError as exc:
+        return [f"схема входа навыка некорректна: {exc.message} — исправьте input_schema в SKILL.md"]
+    errs = sorted(cls(schema).iter_errors(data), key=lambda e: [str(p) for p in e.absolute_path])
+    return [ru_schema_error(e) for e in errs[:_MAX_INPUT_ERRORS]]
 
 
 class AssignmentsUnreadable(RuntimeError):
@@ -589,6 +609,8 @@ async def decide_evaluation(evaluation_id: int, request: Request):
             by=str(body.get("by") or "owner"))}
     except KeyError:
         raise HTTPException(404, {"message": "сравнение не найдено"})
+    except SkillManifestError as exc:
+        raise HTTPException(422, {"message": str(exc)}) from None
     except ValueError as exc:
         raise HTTPException(409, {"message": str(exc)})
 
@@ -702,6 +724,8 @@ async def forge_apply(request: Request):
                                       "hint": f"статус подтверждения: {status}"})
         try:
             sk = _lib(svc).create(pending["id"], pending["content"], overwrite=True)
+        except SkillManifestError as exc:
+            raise HTTPException(422, {"message": str(exc)}) from None
         except (ValueError, OSError) as exc:
             raise HTTPException(409, {"message": str(exc)})
         state["pending"].pop(str(approval_id), None)
@@ -716,13 +740,18 @@ async def forge_apply(request: Request):
     current = lib.by_id().get(sid)
     old_tools = set(skill_contract(current).required_tools) if current else set()
     old_perms = set(skill_contract(current).permissions) if current else set()
-    new = _parse_draft(content)
+    try:
+        new = _parse_draft(content)
+    except ValueError as exc:                      # SkillLoadError: слишком большой черновик
+        raise HTTPException(422, {"message": str(exc)}) from None
     added_tools = sorted(set(new["required_tools"]) - old_tools)
     added_perms = sorted(set(new["permissions"]) - old_perms)
 
     if not (added_tools or added_perms):
         try:
             sk = lib.create(sid, content, overwrite=True)
+        except SkillManifestError as exc:
+            raise HTTPException(422, {"message": str(exc)}) from None
         except (ValueError, OSError) as exc:
             raise HTTPException(409, {"message": str(exc)})
         await svc.bus.emit("skill.updated", slug=sk.id)
@@ -755,7 +784,13 @@ def _parse_draft(content: str) -> dict:
         d.mkdir()
         p = d / "SKILL.md"
         p.write_text(content, encoding="utf-8")
-        con = skill_contract(parse_skill(p, Path(tmp)))
+        sk = parse_skill(p, Path(tmp))
+        # битый манифест отклоняется ДО заявки на расширение прав: владелец не
+        # должен одобрять то, что всё равно не сохранится
+        problems = validate_manifest(sk)["errors"]
+        if problems:
+            raise SkillManifestError("Черновик навыка отклонён: " + "; ".join(problems))
+        con = skill_contract(sk)
     return {"required_tools": con.required_tools, "permissions": con.permissions}
 
 
