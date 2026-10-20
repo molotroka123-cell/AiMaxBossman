@@ -250,12 +250,25 @@ async def _ollama_inventory(base_url: str | None) -> dict[str, dict[str, float]]
     return inventory
 
 
+def _ollama_tag(inventory: dict[str, dict[str, float]], name: str) -> dict[str, float] | None:
+    """Inventory row for a registered model name. Ollama lists every tag with
+    an explicit `:latest`, while the registry may hold the bare name (`qwen3`)
+    — the same tag (see registry._same_model). An exact match wins."""
+    if not name:
+        return None
+    if name in inventory:
+        return inventory[name]
+    key = name.removesuffix(":latest")
+    return next((row for tag, row in inventory.items()
+                 if tag.removesuffix(":latest") == key), None)
+
+
 async def _local_model_memory_mb(m, bench: dict) -> float | None:
     """Extra memory a local model needs now: 0 when resident, else bench/tag size."""
     # Only called for derive_local() models, so the URL is a loopback/LAN
     # endpoint; a non-Ollama server simply answers 404 → unknown size.
     inventory = await _ollama_inventory(m.get("provider_base_url"))
-    tag = inventory.get(str(m.get("name") or ""))
+    tag = _ollama_tag(inventory, str(m.get("name") or ""))
     if tag and tag.get("resident"):
         return 0.0
     if bench.get("ram_mb"):

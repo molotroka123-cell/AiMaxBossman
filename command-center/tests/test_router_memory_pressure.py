@@ -118,3 +118,20 @@ async def test_routed_task_feeds_measured_memory_into_disqualify(env, monkeypatc
     decision = route(RouteRequest(task_type="coding", available_memory_mb=available), [big, free])
     assert decision.model.alias == "free-cloud"
     assert "memory" in decision.rejected["big-local"][0]
+
+
+async def test_ollama_latest_tag_matches_bare_registered_name(monkeypatch):
+    """Ollama lists `qwen3:latest`; the registry may hold `qwen3` (one tag,
+    registry._same_model). The memory budget must still see the resident
+    model / its size instead of treating the model as unmeasured."""
+    router_feature._ollama_cache.clear()
+    inventory = {"qwen3:latest": {"size_mb": 0.0, "resident": 1.0},
+                 "gemma3:latest": {"size_mb": 5000.0, "resident": 0.0},
+                 "gemma3:27b": {"size_mb": 17000.0, "resident": 0.0}}
+    monkeypatch.setattr(router_feature, "_ollama_inventory_sync", lambda root: inventory)
+    base = {"provider_base_url": "http://127.0.0.1:11434/v1"}
+    assert await router_feature._local_model_memory_mb({**base, "name": "qwen3"}, {}) == 0.0
+    assert await router_feature._local_model_memory_mb({**base, "name": "gemma3"}, {}) == 5000.0
+    # an explicit tag never borrows another tag's size
+    assert await router_feature._local_model_memory_mb({**base, "name": "gemma3:27b"}, {}) == 17000.0
+    assert await router_feature._local_model_memory_mb({**base, "name": "gemma3:4b"}, {}) is None
