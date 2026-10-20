@@ -2728,7 +2728,7 @@ async def _execute_record_screen(
         }
 
     url = str(args.get("url") or "").strip()
-    duration_s = max(1.5, min(30.0, float(args.get("duration_s") or 6.0)))
+    duration_s = max(1.5, min(3600.0, float(args.get("duration_s") or 6.0)))
     fps = max(5, min(20, int(args.get("fps") or 10)))
     send_to_pult = bool(args.get("send_to_pult", False))
     caption_label = str(args.get("caption") or "Проверка поиска и записи контента на будущее").strip()
@@ -2881,12 +2881,26 @@ async def _execute_record_screen(
             rt.active_procs[proc.pid] = proc  # type: ignore[assignment]
 
         total_frames = max(6, int(round(duration_s * fps)))
-        nav_frame = max(2, min(15, total_frames // 5))
-        scroll_frame = max(nav_frame + 4, (total_frames * 3) // 5)
-        refocus_frame = max(scroll_frame + 4, (total_frames * 4) // 5)
+        # Screen-record scenario (fix 2026-10-20): open the post IMMEDIATELY,
+        # click the video so the Telegram media viewer starts playback, probe
+        # the viewer for the real duration, restart playback from 0, go
+        # fullscreen, then record until the viewer clock reaches the total.
+        # The old schedule (open at 20%, jump to post+1 at 60%, refocus at 80%)
+        # was built for channel-browsing verification and ruined recordings.
+        nav_frame = 2
+        play_frame = nav_frame + max(2, int(fps * 1.2))
+        probe_frame = play_frame + max(2, int(fps * 1.0))
+        reopen_frame = probe_frame + max(2, int(fps * 0.6))
+        fs_frame = reopen_frame + max(2, int(fps * 0.8))
         frames_written = 0
         last_img = first_img
         nav_dispatched = False
+        play_clicked = False
+        probed = False
+        reopened = False
+        fs_tried = False
+        detected_total_s: float | None = None
+        last_time_probe_f = -10 ** 9
         stopped_mid = False
         protected_mid = False
 
@@ -2901,6 +2915,114 @@ async def _execute_record_screen(
                     ctypes.windll.user32.ShowWindow(target_hwnd, 3)
                     ctypes.windll.user32.SetForegroundWindow(target_hwnd)
 
+        def _click_at(x: int, y: int, *, double: bool = False) -> None:
+            if os.name != "nt":
+                return
+            import ctypes
+            u32 = ctypes.windll.user32
+            u32.SetCursorPos(int(x), int(y))
+            time.sleep(0.05)
+            for i_click in range(2 if double else 1):
+                u32.mouse_event(0x0002, 0, 0, 0, 0)
+                u32.mouse_event(0x0004, 0, 0, 0, 0)
+                if double and i_click == 0:
+                    time.sleep(0.12)
+
+        def _press_key(vk_code: int) -> None:
+            if os.name != "nt":
+                return
+            import ctypes
+            u32 = ctypes.windll.user32
+            u32.keybd_event(vk_code, 0, 0, 0, 0)
+            u32.keybd_event(vk_code, 0, 0x0002, 0)
+
+        def _video_click_point() -> tuple[int, int] | None:
+            """Center of the chat area of the Telegram window: where the opened
+            post's video bubble sits after deeplink navigation."""
+            if os.name != "nt" or not target_hwnd:
+                return None
+            import ctypes
+
+            class _RECT(ctypes.Structure):
+                _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                            ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+
+            rect = _RECT()
+            if not ctypes.windll.user32.GetWindowRect(target_hwnd, ctypes.byref(rect)):
+                return None
+            w_px = max(0, rect.right - rect.left)
+            h_px = max(0, rect.bottom - rect.top)
+            if w_px < 200 or h_px < 200:
+                return None
+            return (rect.left + int(w_px * 0.65), rect.top + int(h_px * 0.5))
+
+        _TIME_PAIR_RE = re.compile(r"(\d{1,3}):(\d{2})\s*/\s*(\d{1,3}):(\d{2})")
+        _TIME_ONE_RE = re.compile(r"^(\d{1,3}):(\d{2})$")
+
+        def _probe_player_time() -> tuple[float | None, float | None]:
+            """(current_s, total_s) of the Telegram media viewer, best effort.
+
+            Only the media-viewer window (a Telegram top-level window other than
+            the main chat window) is trusted, plus an explicit "cur / total"
+            label anywhere in Telegram: chat timestamps in the main window
+            would otherwise poison the detection."""
+            if os.name != "nt":
+                return None, None
+            try:
+                from pywinauto import Desktop
+                desk = Desktop(backend="uia")
+                for w_top in desk.windows():
+                    with contextlib.suppress(Exception):
+                        if tg_pids and w_top.process_id() not in tg_pids:
+                            continue
+                        names: list[str] = []
+                        for el in w_top.descendants()[:500]:
+                            nm_el = str(getattr(el.element_info, "name", "") or "")
+                            if nm_el:
+                                names.append(nm_el)
+                        for nm_el in names:
+                            m_pair = _TIME_PAIR_RE.search(nm_el)
+                            if m_pair:
+                                cur_s = int(m_pair.group(1)) * 60 + int(m_pair.group(2))
+                                tot_s = int(m_pair.group(3)) * 60 + int(m_pair.group(4))
+                                if tot_s > 0:
+                                    return float(cur_s), float(tot_s)
+                        if target_hwnd and int(w_top.handle) == int(target_hwnd):
+                            continue  # main chat window: only the pair label counts
+                        singles: list[float] = []
+                        for nm_el in names:
+                            m_one = _TIME_ONE_RE.match(nm_el.strip())
+                            if m_one:
+                                singles.append(float(int(m_one.group(1)) * 60 + int(m_one.group(2))))
+                        if len(singles) >= 2:
+                            return min(singles), max(singles)
+            except Exception:
+                pass
+            return None, None
+
+        def _try_fullscreen() -> None:
+            """Fullscreen in the media viewer: UIA button if present, else a
+            double-click on the video (Telegram toggles fullscreen on it)."""
+            if os.name == "nt":
+                with contextlib.suppress(Exception):
+                    from pywinauto import Desktop
+                    desk = Desktop(backend="uia")
+                    for w_top in desk.windows():
+                        if tg_pids and w_top.process_id() not in tg_pids:
+                            continue
+                        if target_hwnd and int(w_top.handle) == int(target_hwnd):
+                            continue
+                        for el in w_top.descendants()[:500]:
+                            nm_el = str(getattr(el.element_info, "name", "") or "").lower()
+                            if "full" in nm_el or "полноэкран" in nm_el or "во весь экран" in nm_el:
+                                r_el = el.rectangle()
+                                _click_at((r_el.left + r_el.right) // 2,
+                                          (r_el.top + r_el.bottom) // 2)
+                                return
+            pt_click = _video_click_point()
+            if pt_click:
+                _click_at(pt_click[0], pt_click[1], double=True)
+
         try:
             for idx_f in range(total_frames):
                 if rt.is_stopped(svc):
@@ -2913,11 +3035,32 @@ async def _execute_record_screen(
                 if tg_uri and idx_f == nav_frame and not nav_dispatched:
                     nav_dispatched = True
                     _dispatch_uri(tg_uri)
-                elif tg_uri and channel_id and post_id and post_id.isdecimal() and idx_f == scroll_frame:
-                    next_post = int(post_id) + 1
-                    _dispatch_uri(f"tg://privatepost?channel={channel_id}&post={next_post}")
-                elif tg_uri and channel_id and post_id and idx_f == refocus_frame:
-                    _dispatch_uri(tg_uri)
+                elif tg_uri and idx_f == play_frame and not play_clicked:
+                    play_clicked = True
+                    pt_click = _video_click_point()
+                    if pt_click:
+                        _click_at(pt_click[0], pt_click[1])
+                elif tg_uri and idx_f == probe_frame and not probed:
+                    probed = True
+                    _cur_probe, detected_total_s = _probe_player_time()
+                elif tg_uri and idx_f == reopen_frame and not reopened:
+                    reopened = True
+                    # Restart playback from the beginning: close the viewer and
+                    # click the video again (Telegram restarts viewer playback).
+                    _press_key(0x1B)  # VK_ESCAPE
+                    time.sleep(0.4)
+                    pt_click = _video_click_point()
+                    if pt_click:
+                        _click_at(pt_click[0], pt_click[1])
+                elif tg_uri and idx_f == fs_frame and not fs_tried:
+                    fs_tried = True
+                    _try_fullscreen()
+                elif (tg_uri and fs_tried and detected_total_s
+                      and idx_f - last_time_probe_f >= max(10, fps * 2)):
+                    last_time_probe_f = idx_f
+                    cur_now_s, _tot_now_s = _probe_player_time()
+                    if cur_now_s is not None and cur_now_s >= detected_total_s - 1.0:
+                        break
 
                 if idx_f == 0:
                     img = first_img
@@ -2991,6 +3134,9 @@ async def _execute_record_screen(
             "target_pid": target_pid,
             "window_title_found": bool(target_title),
             "nav_dispatched": nav_dispatched,
+            "play_clicked": play_clicked,
+            "fullscreen_tried": fs_tried,
+            "detected_total_s": detected_total_s,
             "visible_items_count": visible_items_count,
             "channel_matched": channel_matched,
             "paid_stars_locked": paid_stars_locked,
@@ -3617,7 +3763,7 @@ def compile_plan_for_prompt(prompt: str, *, workspace_dir: Path) -> list[dict[st
                 "tool": "pc.record_screen",
                 "args": {
                     "url": rec_url,
-                    "duration_s": max(1.5, min(30.0, dur_val)),
+                    "duration_s": max(1.5, min(3600.0, dur_val)),
                     "send_to_pult": send_pult,
                     "caption": "Проверка поиска и записи контента на будущее",
                 },
