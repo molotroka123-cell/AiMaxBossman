@@ -164,6 +164,35 @@ def test_an_unknown_worst_case_is_refused_not_booked_as_free(lr_root, worst):
     assert [r for r in rows if r.get("kind") == "refusal"]
 
 
+class _Recorder:
+    def __init__(self, cost=0.0001, tokens=(10, 5)):
+        self.kwargs = []
+        self.cost, self.tokens = cost, tokens
+
+    async def chat(self, *args, **kw):
+        from bcc.providers import ChatResult
+        self.kwargs.append(dict(kw))
+        meta = {"usage": {"cost": self.cost}} if self.cost is not None else {}
+        return ChatResult(text="ok", tokens_in=self.tokens[0], tokens_out=self.tokens[1], provider_meta=meta)
+
+
+def _paid(name="z-ai/glm-5.3-flash", pin=0.5, pout=2.0):
+    return {"kind": "cloud", "name": name, "alias": name, "pricing_known": True,
+            "price_in": pin, "price_out": pout}
+
+
+async def test_a_long_run_call_binds_the_provider_to_the_reserved_output_budget(lr_root):
+    """The reservation assumed 2048 output tokens, but the request went out without
+    max_tokens: the provider was free to answer past the booked worst case."""
+    from bcc.provider_governance import GovernedAdapter
+    inner = _Recorder()
+    gov = GovernedAdapter(inner, {"kind": "openai_compat", "base_url": OR, "name": "or"}, _paid())
+    await gov.chat("z-ai/glm-5.3-flash", [{"role": "user", "content": "hi"}])
+    assert inner.kwargs[-1]["max_tokens"] == 2048
+    await gov.chat("z-ai/glm-5.3-flash", [{"role": "user", "content": "hi"}], max_tokens=77)
+    assert inner.kwargs[-1]["max_tokens"] == 77                    # an explicit budget is kept
+
+
 def test_a_finite_worst_case_still_reserves(lr_root):
     from bcc import long_run
     ledger = long_run.LongRunLedger(lr_root)

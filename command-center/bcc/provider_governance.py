@@ -201,6 +201,10 @@ class GovernedAdapter:
         m = self.model
         messages = kwargs.get("messages") if "messages" in kwargs else (args[1] if len(args) >= 2 else [])
         max_out = int(kwargs.get("max_tokens") or 2048)
+        # The reservation assumes at most `max_out` output tokens; the provider must be held to
+        # the same number. Without it the OpenAI-compatible adapter sent no max_tokens at all,
+        # the model could answer far past the booked worst case and one call overshot the cap.
+        kwargs = {**kwargs, "max_tokens": max_out}
         ledger = long_run.LongRunLedger()
         worst = long_run.estimate_worst_case_eur(m, messages or [], max_out, kwargs.get("tools"))
         try:
