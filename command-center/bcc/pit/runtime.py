@@ -63,6 +63,7 @@ from . import jeff_manual as pit_jeff_manual
 from . import jeff_settings as pit_jeff_settings
 from . import roast as pit_roast
 from . import math_assist as pit_math_assist
+from . import outbound_guard
 from . import participant_profile, speech, speech_audit
 from .secret_filter import redact_secrets
 from .heartbeat import Heartbeat, INTERVAL_SECONDS as HEARTBEAT_SECONDS
@@ -1177,6 +1178,12 @@ class ParticipantRuntime:
                 return True
             return bool(_base(person))
         adapter.authorize_delivery = authorize
+        # Incident 2026-10-19 (unsolicited cloud-written messages to past contacts): every Telegram adapter Jeff is
+        # given carries the outbound guard on its httpx client, below every sender (bcc.pit.outbound_guard).
+        guard = outbound_guard.ensure(adapter, self.__dict__.get("settings"),
+                                      existing=self.__dict__.get("outbound_guard"))
+        if guard is not None:
+            self.outbound_guard = guard
         self._telegram = adapter
 
     def _blocked(self, user_id, chat_id=None) -> bool:
@@ -1674,6 +1681,8 @@ class ParticipantRuntime:
                    tokens_out: int = 0, error: str = "", finish: str = "",
                    route_reason: str = "") -> None:
         """Owner-visible internal route telemetry: no message content, no secrets."""
+        if ok:
+            outbound_guard.note_model(model, provider)      # audit label for the next outgoing message
         try:
             _append_jsonl(self.home / "logs" / "route_log.jsonl", {
                 "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -2101,6 +2110,13 @@ class ParticipantRuntime:
         user_id, chat_id = body.get("_user_id"), body.get("_chat_id")
         if type(user_id) is not int or type(chat_id) is not int:
             return
+        guard = self.__dict__.get("outbound_guard")
+        if guard is not None:
+            # Second inbound source for the outbound guard (the first is the getUpdates hook on the same client):
+            # only a chat that really wrote within the reply window can be answered.
+            date = message.get("date")
+            with contextlib.suppress(Exception):
+                guard.note_inbound(chat_id, date if type(date) in (int, float) else None)
         if self._blocked(user_id, chat_id):
             # Acknowledge the offset, keep no body, never answer. No log line
             # names the account: the rule itself is private.
@@ -2127,6 +2143,7 @@ class ParticipantRuntime:
                 await asyncio.sleep(0.2)
                 continue
             update_id, message = item
+            outbound_guard.set_context(origin=f"worker:{lane}")
             fresh = self.settings.participant(message.get("_user_id"), message.get("_chat_id"))
             if fresh is None and self.settings.allowlist_open:
                 friend_user = message.get("_user_id")
@@ -4044,6 +4061,7 @@ class ParticipantRuntime:
                 continue
             try:
                 text = self.guard_outgoing(self.INTERRUPTION_NOTICE_TEXT[kind])
+                outbound_guard.set_context(origin="interruption_notice")
                 sent_id = await self.telegram.send(person, render_jeff_reply(text), parse_mode="HTML")
             except asyncio.CancelledError:
                 raise                       # stays 'sending': a crash mid-send is never repeated blindly

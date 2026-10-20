@@ -370,6 +370,7 @@ def sp(payload, charge, amount=DOCS30.stars):
 def test_buy_invoice_shape_and_order_are_recorded(tmp_path):
     api = StarsBotAPI([])
     runtime = stars_runtime(tmp_path, api)
+    runtime.outbound_guard.note_inbound(GUEST)      # the /buy just arrived (in production: via getUpdates)
     out = asyncio.run(runtime._paid_docs_command(person_of(runtime, GUEST),
                                                   runtime.vault.key_for_telegram(GUEST), "/buy", ""))
     assert out == "" and len(api.invoices) == 1

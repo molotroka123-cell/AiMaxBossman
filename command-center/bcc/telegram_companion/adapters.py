@@ -17,8 +17,8 @@ from .config import CompanionError, Person, Settings
 
 # Who is waiting for the single local model: 0 = owner first (if enabled), 1 = everyone else.
 CURRENT_PRIORITY = contextvars.ContextVar("companion_priority", default=1)
-#: Ids of Jeff's weekly-digest outbox rows (bcc.pit.j2.insights.OUTBOX_ID).
-JEFF_DIGEST_ID = re.compile(r"jd-\d{4}-W\d{2}(?:-f\d{1,12})?")
+#: Ids of Jeff's Pult outbox rows (bcc.pit.j2.insights.OUTBOX_ID): weekly digests and outbound-guard notices.
+JEFF_DIGEST_ID = re.compile(r"jd-\d{4}-W\d{2}(?:-f\d{1,12})?|jg-\d{9,12}-[0-9a-f]{8}")
 # Photo understanding fallback (pult 13.10): the owner's loopback Ollama vision model. Constants on
 # purpose: an installed companion of an older build rejects unknown config keys.
 OLLAMA_VISION_URL = "http://127.0.0.1:11434"
