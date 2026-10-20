@@ -1,6 +1,6 @@
 {
   "schema": "bossman.argon_tier5_verification.v1",
-  "verified_at_utc": "2026-10-19T23:23:21.618851+00:00",
+  "verified_at_utc": "2026-10-20T04:52:26.845417+00:00",
   "G1_owner_e2e": {
     "status": "PASS",
     "exchange_assistant": {
@@ -30,13 +30,13 @@
       }
     },
     "langgraph_checkpoint": {
-      "checkpoint_id": "chk-3f51aa83eb55dca9-0b6841ccbe82",
-      "checkpoint_sha256": "0b6841ccbe82f45c43da6b2ec42ddee358b2c05448da835cd05a944ab1476f1c",
+      "checkpoint_id": "chk-7374abdbe9a093d5-848d6e91c853",
+      "checkpoint_sha256": "848d6e91c853f6c02f2b468b73f85734b26ec0ed4ab3281dbeda46f16cbd3c65",
       "done_steps_at_checkpoint": [
         "quote"
       ],
       "completed_action_keys": [
-        "96950482514fc85076a04717307e7fd9"
+        "027aeaae284169360ec75d27269f4e6b"
       ],
       "noop_update_triggered": false,
       "changed_update_triggered": true,
@@ -52,12 +52,12 @@
       "sandbox_removed": true
     },
     "unified_cross_task_memory": {
-      "writer_task_id": "71ac78a78e8a1d40",
-      "reader_task_id": "401ff57ebfbacea8",
+      "writer_task_id": "b5b606c0cf84bfd4",
+      "reader_task_id": "5718df5c5f04a7da",
       "hit": true,
-      "source_ref": "BOSSMAN Memory/2026-10-19-2323-SwapMe-VIP-Rule-71ac78a78e8a1d40.md",
-      "sqlite_chunk_hash": "1f8e6ca99118a504",
-      "payload_sha256": "972bdc7877a7a38f3671213ec2b57e9b2bce7d28c22c0bdd88494a584edccd15"
+      "source_ref": "BOSSMAN Memory/2026-10-20-0452-SwapMe-VIP-Rule-b5b606c0cf84bfd4.md",
+      "sqlite_chunk_hash": "a4f10c315beaa5f6",
+      "payload_sha256": "e63b3561afbc4b6d8b3a0e5debb05a1f0679f2343dd059bf9afb811eb0f100a6"
     }
   },
   "G2_sealed_holdout": {
@@ -88,13 +88,34 @@
   },
   "G3_stop_switch": {
     "status": "PASS",
-    "stop_latency_ms": 0.8435,
+    "stop_latency_ms": 0.5817,
     "stop_latency_limit_ms": 2000.0,
     "actions_after_stop": 0,
     "post_stop_action_refused": true,
     "takeover_pause_verified": true,
     "takeover_resume_verified": true,
-    "step_log_entries": 4
+    "step_log_entries": 4,
+    "live_telegram_stop": {
+      "status": "PASS",
+      "update_id": 974334929,
+      "message_id": 2310,
+      "owner_chat_id": 386321847,
+      "text": "/stop",
+      "lane": "control",
+      "phase": "done",
+      "ingested_at_epoch": 1792471328.6959,
+      "pc_agent_stop_at_epoch": 1792471328.821,
+      "computer_stop_at_epoch": 1792471328.8386,
+      "telegram_calls_stop_at_epoch": 1792471328.8457,
+      "roundtrip_reply_at_epoch": 1792471328.9961,
+      "stop_propagation_latency_ms": 149.8,
+      "full_roundtrip_latency_ms": 300.2,
+      "pc_stop_exec_latency_ms": 7.15,
+      "computer_stop_exec_latency_ms": 0.99,
+      "actions_after_stop": 0,
+      "audit_seq_13_sha256": "935e7897270dc00246b7a96c4c67aac21f813e7dea3a7e6e5e582585bf4c4a5c",
+      "audit_seq_14_sha256": "f4ee800aa01dea39867acc7f9f4b6c28bc368d9fca049500179aeaeb68a16f09"
+    }
   },
-  "receipt_sha256": "0134d886cb25633e0c2ca03309ce0d2f8b2339de8269e49d159ec6bad083249d"
+  "receipt_sha256": "9043b64fa14059066b6a63e682cef60e41d2f56c99ff0ca6aece4b7e5ef102d9"
 }

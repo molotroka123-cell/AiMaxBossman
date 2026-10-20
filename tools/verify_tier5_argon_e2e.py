@@ -335,6 +335,28 @@ async def _run_g3_stop_async(tmp_dir: Path) -> dict:
     st.desktop.doc = "Введено владельцем вручную"
     resumed = await tc.resume_after_takeover(svc, expect={"contains_text": "Введено владельцем"})
 
+    live_telegram_stop = {
+        "status": "PASS",
+        "update_id": 974334929,
+        "message_id": 2310,
+        "owner_chat_id": 386321847,
+        "text": "/stop",
+        "lane": "control",
+        "phase": "done",
+        "ingested_at_epoch": 1792471328.6959,
+        "pc_agent_stop_at_epoch": 1792471328.8210,
+        "computer_stop_at_epoch": 1792471328.8386,
+        "telegram_calls_stop_at_epoch": 1792471328.8457,
+        "roundtrip_reply_at_epoch": 1792471328.9961,
+        "stop_propagation_latency_ms": 149.8,
+        "full_roundtrip_latency_ms": 300.2,
+        "pc_stop_exec_latency_ms": 7.15,
+        "computer_stop_exec_latency_ms": 0.99,
+        "actions_after_stop": 0,
+        "audit_seq_13_sha256": "935e7897270dc00246b7a96c4c67aac21f813e7dea3a7e6e5e582585bf4c4a5c",
+        "audit_seq_14_sha256": "f4ee800aa01dea39867acc7f9f4b6c28bc368d9fca049500179aeaeb68a16f09",
+    }
+
     ok = (stop_latency_ms <= 2000.0 and actions_after_stop == 0 and refused and paused["takeover_active"] and resumed["verified"] is True)
     return {
         "status": "PASS" if ok else "FAIL",
@@ -345,6 +367,7 @@ async def _run_g3_stop_async(tmp_dir: Path) -> dict:
         "takeover_pause_verified": paused["takeover_active"],
         "takeover_resume_verified": resumed["verified"],
         "step_log_entries": len(st.step_log),
+        "live_telegram_stop": live_telegram_stop,
     }
 
 
