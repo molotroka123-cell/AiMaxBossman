@@ -135,3 +135,15 @@ async def test_ollama_latest_tag_matches_bare_registered_name(monkeypatch):
     # an explicit tag never borrows another tag's size
     assert await router_feature._local_model_memory_mb({**base, "name": "gemma3:27b"}, {}) == 17000.0
     assert await router_feature._local_model_memory_mb({**base, "name": "gemma3:4b"}, {}) is None
+
+
+async def test_headroom_zero_is_respected_and_garbage_does_not_crash(monkeypatch):
+    monkeypatch.setattr(router_feature, "_measure_pool_sync", lambda: (20000, "amd-unified"))
+    available, info = await router_feature.live_available_memory_mb({"memory_headroom_mb": 0})
+    assert available == 20000 and info["headroom_mb"] == 0
+    for bad in ("lots", -5, float("nan"), True, [1]):
+        available, info = await router_feature.live_available_memory_mb({"memory_headroom_mb": bad})
+        assert info["headroom_mb"] == router_feature.DEFAULT_MEMORY_HEADROOM_MB
+        assert available == 20000 - router_feature.DEFAULT_MEMORY_HEADROOM_MB
+    available, _ = await router_feature.live_available_memory_mb({"memory_headroom_mb": "4000"})
+    assert available == 16000

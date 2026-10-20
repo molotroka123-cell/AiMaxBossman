@@ -283,9 +283,26 @@ def _measure_pool_sync() -> tuple[int | None, str]:
     return _measure_local_capacity()
 
 
+def _memory_headroom_mb(rules: dict) -> int:
+    """Owner headroom from router rules. An explicit 0 is a real setting (the
+    owner gives local models the whole pool), not "unset"; a value that is not
+    a finite non-negative number falls back to the default instead of raising
+    inside pick_model (rules arrive through PATCH /router/rules unvalidated)."""
+    raw = rules.get("memory_headroom_mb")
+    if raw is None or isinstance(raw, bool):
+        return DEFAULT_MEMORY_HEADROOM_MB
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_MEMORY_HEADROOM_MB
+    if value != value or value < 0 or value == float("inf"):
+        return DEFAULT_MEMORY_HEADROOM_MB
+    return int(value)
+
+
 async def live_available_memory_mb(rules: dict) -> tuple[float | None, dict]:
     """Measured free memory minus owner headroom; (None, info) when unmeasured."""
-    headroom = int(rules.get("memory_headroom_mb") or DEFAULT_MEMORY_HEADROOM_MB)
+    headroom = _memory_headroom_mb(rules)
     try:
         free_mb, probe = await asyncio.to_thread(_measure_pool_sync)
     except Exception:  # noqa: BLE001 — telemetry never blocks routing
