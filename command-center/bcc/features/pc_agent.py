@@ -2892,6 +2892,17 @@ async def _execute_record_screen(
                 except Exception:
                     return -1
 
+            # A window left minimized (e.g. by a capture that was cancelled
+            # before its restore step) has a skeleton UIA tree and does not
+            # navigate on deeplinks — restore all Telegram windows first.
+            with contextlib.suppress(Exception):
+                import ctypes as _ct_r
+                _u_r = _ct_r.windll.user32
+                for _p_r, (_h_r, _t_r) in _main_windows().items():
+                    if _u_r.IsIconic(_h_r):
+                        _u_r.ShowWindow(_h_r, 9)  # SW_RESTORE
+            time.sleep(0.4)
+
             # Phase 1: park every instance on a neutral public channel, then
             # snapshot the UIA tree sizes. Phase 2: dispatch the real link —
             # only the member instance navigates, so only its tree changes
