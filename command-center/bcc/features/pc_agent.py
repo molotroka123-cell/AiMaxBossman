@@ -2699,7 +2699,10 @@ async def _execute_record_screen(
                                 fallback_win is None or not str(t_w).strip().lower().startswith("telegram")):
                             fallback_win = (int(h_w), int(p_w), str(t_w))
                         w_obj = d_uia.window(handle=h_w)
-                        if channel_id:
+                        # Channel-id match counts ONLY on the primary instance:
+                        # the digits also appear in unrelated places (a second
+                        # account's search results once hijacked the target).
+                        if channel_id and (primary_pid is None or int(p_w) == int(primary_pid)):
                             for el in w_obj.descendants()[:120]:
                                 nm_el = str(getattr(el.element_info, "name", "") or "")
                                 if channel_id in nm_el:
