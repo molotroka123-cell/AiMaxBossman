@@ -2753,6 +2753,7 @@ async def _execute_record_screen(
         # (The old pre-open of post=3 for a "live transition" is removed: a
         # recording must start at the requested post.)
         nav_hint: tuple[int, int, float] | None = None
+        dbg_nav: dict[str, Any] = {}
         if os.name == "nt" and tg_uri and tg_instances:
             def _label_in_window(h_scan: int) -> tuple[float, int, int] | None:
                 try:
@@ -2816,11 +2817,17 @@ async def _execute_record_screen(
                                    timeout=6, check=False)
             time.sleep(2.0)
             _mw_after = _main_windows()
+            _cnt2 = {p_i: _win_count(h_i)
+                     for p_i, (h_i, _t_i) in _mw_after.items()}
             _best_pid, _best_delta = None, 300
             for p_i, (h_i, t_i) in _mw_after.items():
-                _delta = abs(_win_count(h_i) - _cnt1.get(p_i, 0))
+                _delta = abs(_cnt2.get(p_i, -1) - _cnt1.get(p_i, 0))
                 if _delta > _best_delta:
                     _best_pid, _best_delta = p_i, _delta
+            dbg_nav.update({"cnt1": _cnt1, "cnt2": _cnt2,
+                            "best_pid": _best_pid, "best_delta": _best_delta,
+                            "mw_after": list(_mw_after.keys()),
+                            "instances": [p_i for p_i, _e_i, _w_i in tg_instances]})
             if _best_pid is not None:
                 target_hwnd, target_pid, target_title = (
                     _mw_after[_best_pid][0], _best_pid, _mw_after[_best_pid][1])
@@ -3302,6 +3309,8 @@ async def _execute_record_screen(
             "channel_matched": channel_matched,
             "paid_stars_locked": paid_stars_locked,
             "redacted_regions": len(redact_rects),
+            "debug_nav": dbg_nav,
+            "nav_hint_set": nav_hint is not None,
         }
 
     cap_info = await asyncio.to_thread(_run_capture_sync)
@@ -3420,6 +3429,10 @@ async def _execute_record_screen(
         "target_pid": cap_info.get("target_pid"),
         "visible_items_count": cap_info.get("visible_items_count", 0),
         "channel_matched": cap_info.get("channel_matched", False),
+        "debug_nav": cap_info.get("debug_nav"),
+        "nav_hint_set": cap_info.get("nav_hint_set"),
+        "play_clicked": cap_info.get("play_clicked"),
+        "detected_total_s": cap_info.get("detected_total_s"),
         "pult_delivery": pult_delivery,
         "tainted": False,
         "summary": summary,
