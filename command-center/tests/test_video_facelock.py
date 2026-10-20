@@ -437,3 +437,14 @@ def test_worker_frames_cli_writes_every_frame_and_progress(tmp_path, monkeypatch
     assert rep["marks"] == "aaa" and sorted(p.name for p in (tmp_path / "out").iterdir()) == [
         "f000001.png", "f000002.png", "f000003.png"]
     assert capsys.readouterr().out.splitlines()[-1] == "FACELOCK 3/3"
+
+
+def test_send_to_pult_caption_names_the_facelock_outcome():
+    from bcc.direct_gen import pult
+    base = {"job_id": "abcdef0123", "model": "wan2.2-ti2v-5b", "params": {"width": 480, "height": 272}}
+    assert "FaceLock" not in pult.caption_for(base)
+    skipped = {**base, "facelock": {"requested": True, "status": "skipped", "reason": "stop_active",
+                                    "label": vf.label("stop_active")}}
+    assert pult.caption_for(skipped).endswith("FaceLock не применён: активен STOP владельца")
+    old_photo = {**base, "facelock": {"requested": True, "status": "skipped", "reason": "no_face_in_result"}}
+    assert pult.caption_for(old_photo).endswith("FaceLock не применён: no_face_in_result")

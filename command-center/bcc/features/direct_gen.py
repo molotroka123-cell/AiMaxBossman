@@ -56,7 +56,8 @@ class JobIn(BaseModel):
     images_b64: list[Annotated[str, Field(max_length=48 * 1024 * 1024)]] | None = Field(default=None, max_length=6)
     ref_names: list[Annotated[str, Field(max_length=25)]] | None = Field(default=None, max_length=6)
     audio_b64: str | None = Field(default=None, max_length=48 * 1024 * 1024)
-    # FaceLock (photo edit with a reference): afterwards the face of @1 is pasted back exactly as in the photo.
+    # FaceLock (photo edit with a reference, or a video with a start picture): afterwards the face of @1 is pasted
+    # back exactly as in the photo (video: into every frame, gated on >= 8 frames; refusal -> labelled, unlocked result).
     facelock: bool = False
 
 

@@ -113,6 +113,10 @@ def caption_for(job: dict) -> str:
     measured = timing_text(job)
     if measured:
         parts.append(measured)
+    lock = job.get("facelock") or {}
+    if lock.get("requested"):                      # a FaceLock refusal is never sent silently
+        parts.append(str(lock.get("label") or ("FaceLock применён" if lock.get("status") == "applied" else
+                                               f"FaceLock не применён: {lock.get('reason') or 'причина не указана'}")))
     return " · ".join(parts)[:900]
 
 
