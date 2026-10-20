@@ -35,11 +35,14 @@ class ProviderError(RuntimeError):
     """
 
     def __init__(self, message: str, *, kind: str = "http", hint: str | None = None,
-                 status_code: int | None = None):
+                 status_code: int | None = None, timed_out: bool = False):
         super().__init__(message)
         self.kind = kind
         self.hint = hint
         self.status_code = status_code
+        # True when the endpoint did not answer inside the timeout (kind stays "network"):
+        # health classification needs "slow" apart from "down" without parsing the text.
+        self.timed_out = timed_out
 
 
 @dataclass
@@ -290,7 +293,7 @@ class _BaseAdapter:
                 resp = await client.request(method, url, headers=headers, json=json)
         except httpx.TimeoutException:
             raise ProviderError(f"{_host(url)} не ответил за {int(timeout)} с", kind="network",
-                                hint="проверьте, что сервер модели запущен") from None
+                                hint="проверьте, что сервер модели запущен", timed_out=True) from None
         except httpx.HTTPError as exc:
             raise ProviderError(f"нет связи с {_host(url)}: {net_reason(exc)}", kind="network",
                                 hint="проверьте base_url и что endpoint поднят") from None
@@ -421,10 +424,10 @@ class OpenAICompatAdapter(_BaseAdapter):
             shown = True
             await on_delta(text)
 
-        async def discard(reason: str) -> ProviderError:
+        async def discard(reason: str, *, timed_out: bool = False) -> ProviderError:
             if shown:
                 await on_delta(None)
-            return ProviderError(reason, kind="network",
+            return ProviderError(reason, kind="network", timed_out=timed_out,
                                  hint="ответ оборван на середине: шаг будет повторён")
 
         try:
@@ -441,7 +444,7 @@ class OpenAICompatAdapter(_BaseAdapter):
                         return None if _in_body_error(data) else self._result_from(data, model)
                     cs = await read_chat_stream(resp.aiter_lines(), push)
         except httpx.TimeoutException:
-            raise await discard(f"{_host(url)} не ответил за {int(timeout)} с") from None
+            raise await discard(f"{_host(url)} не ответил за {int(timeout)} с", timed_out=True) from None
         except httpx.HTTPError as exc:
             raise await discard(f"нет связи с {_host(url)}: {net_reason(exc)}") from None
         if cs.error or not (cs.terminated or cs.finish_reason):

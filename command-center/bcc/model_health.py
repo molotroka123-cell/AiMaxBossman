@@ -287,7 +287,9 @@ def classify_status_code(status_code: int) -> tuple[str, str]:
 def classify_exception(exc: BaseException) -> tuple[str, str]:
     name = type(exc).__name__
     text = str(exc)
-    if "Timeout" in name or "timed out" in text.lower():
+    # ProviderError.timed_out: the adapters word a timeout in Russian ("не ответил за N с"),
+    # so the English text test alone filed every provider timeout as provider_down.
+    if "Timeout" in name or "timed out" in text.lower() or getattr(exc, "timed_out", False) is True:
         return TIMEOUT, f"{name}: {text}"[:300]
     kind = getattr(exc, "kind", None)
     if kind == "auth":
