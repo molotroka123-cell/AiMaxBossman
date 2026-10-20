@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import asyncio
+import re as _re_m
 import os
 from dataclasses import dataclass, field
 
@@ -165,6 +166,54 @@ MANIFEST: list[Capability] = [
                ("*allowlisted*",), "Отправка формы (ASK, существующий браузер).",
                {"session": {"type": "string"}}, ("session",)),
 ]
+
+
+# ------------------------------------------------------------- проверка манифеста
+# Запись манифеста — контракт безопасности: по ней движок решает AUTO/ASK.
+# Невалидная запись НЕ регистрируется (fail-closed), причина — по-русски.
+
+_PLUGIN_ID_RE = _re_m.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
+_CAPABILITY_RE = _re_m.compile(r"^[a-z0-9][a-z0-9_.-]{0,59}$")
+_CRED_REF_RE = _re_m.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
+_RISKS = ("allow", "ask")             # deny = не регистрируется вовсе, в манифест не пишется
+
+
+def capability_errors(cap: Capability) -> list[str]:
+    """Причины, по которым запись манифеста нельзя регистрировать; [] — запись годна."""
+    errs: list[str] = []
+    if not _PLUGIN_ID_RE.match(str(cap.plugin_id)):
+        errs.append(f"имя плагина {cap.plugin_id!r}: нужны строчные латинские буквы/цифры/_/-")
+    if not _CAPABILITY_RE.match(str(cap.capability)):
+        errs.append(f"имя капабилити {cap.capability!r}: нужны строчные латинские буквы/цифры/_/./-")
+    if cap.risk not in _RISKS:
+        errs.append(f"risk {cap.risk!r} недопустим: только allow или ask "
+                    f"(запрещённую капабилити в манифест не включают)")
+    elif cap.destructive and cap.risk != "ask":
+        errs.append("destructive-капабилити обязана быть risk=ask (подтверждение владельца)")
+    schema = cap.input_schema
+    if not isinstance(schema, dict):
+        errs.append("input_schema должна быть объектом {параметр: схема}")
+        schema = {}
+    bad_props = [k for k, v in schema.items()
+                 if not isinstance(v, dict) or not isinstance(v.get("type"), str)]
+    if bad_props:
+        errs.append("у параметров нет корректной схемы с полем type: " + ", ".join(map(str, bad_props[:5])))
+    missing = [r for r in cap.required if r not in schema]
+    if missing:
+        errs.append("required ссылается на параметры, которых нет в input_schema: " + ", ".join(missing))
+    if cap.credential_ref and not _CRED_REF_RE.match(cap.credential_ref):
+        errs.append(f"имя креда {cap.credential_ref!r}: нужна переменная вида ИМЯ_КРЕДА")
+    if not cap.network_targets:
+        errs.append("network_targets пуст: капабилити обязана объявить, куда ходит")
+    return errs
+
+
+def validate_manifest(caps) -> list[str]:
+    """Ошибки всего манифеста (с именем инструмента в начале каждой строки)."""
+    out: list[str] = []
+    for cap in caps:
+        out.extend(f"{cap.tool_name}: {e}" for e in capability_errors(cap))
+    return out
 
 
 # Один кред — одно имя, но старые имена продолжают читаться: у владельца уже
@@ -850,15 +899,30 @@ def _spec_for(cap: Capability, handler) -> ToolSpec:
 
 
 REGISTERED: list[str] = []
+REJECTED: list[dict] = []              # невалидные записи манифеста: {tool, errors}
 
 
 async def setup(svc) -> None:
     REGISTERED.clear()
+    REJECTED.clear()
     seen: set[str] = set()
     for cap in MANIFEST:
         if cap.tool_name in seen:          # дубли отклоняем, а не молча перетираем
             continue
         seen.add(cap.tool_name)
+        errs = capability_errors(cap)
+        if errs:                           # fail-closed: невалидная запись не вызывается вовсе
+            REJECTED.append({"tool": cap.tool_name, "errors": errs})
+            if REGISTRY.get(cap.tool_name) is not None and REGISTRY.get(cap.tool_name).source == "plugin":
+                REGISTRY.unregister(cap.tool_name)
+            bus = getattr(svc, "bus", None)
+            if bus is not None:
+                try:
+                    await bus.emit("plugin.capability_rejected", tool=cap.tool_name,
+                                   detail="; ".join(errs)[:400])
+                except Exception:          # noqa: BLE001 — аудит не должен ронять старт
+                    pass
+            continue
         handler = _handler_for(cap)
         if handler is None:
             import functools
