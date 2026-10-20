@@ -479,9 +479,32 @@ class CallsManager:
     async def contacts(self, query: str = "", limit: int = 50) -> dict:
         return await self.request("contacts", {"query": query, "limit": limit}, timeout=60.0)
 
+    async def channels(self, query: str = "", limit: int = 100) -> dict:
+        return await self.request("channels", {"query": query, "limit": limit}, timeout=60.0)
+
+    async def parse_channels(
+        self,
+        *,
+        channel_ids: list[Any] | None = None,
+        query: str = "",
+        limit_per_channel: int = 20,
+        max_channels: int = 25,
+    ) -> dict:
+        return await self.request(
+            "channels.parse",
+            {
+                "channel_ids": channel_ids or [],
+                "query": query,
+                "limit_per_channel": limit_per_channel,
+                "max_channels": max_channels,
+            },
+            timeout=90.0,
+        )
+
     async def peer_lookup(self, *, user_id: int | None = None, username: str | None = None) -> dict:
         args = {"username": username} if username else {"user_id": int(user_id or 0)}
         return await self.request("peer.lookup", args, timeout=45.0)
+
 
     # ------------------------------------------------------------------ owner actions: call
     def _dial_context(self, *, global_stop: bool) -> DialContext:

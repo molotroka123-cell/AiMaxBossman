@@ -41,14 +41,27 @@ class LocalScreenshotProvider:
             except OSError: pass
     async def capture(self):
         def f():
+            try:
+                import ctypes
+                u32=ctypes.windll.user32
+                hdesk=u32.OpenDesktopW("Default",0,False,0x10000000)
+                if hdesk: u32.SetThreadDesktop(hdesk)
+            except Exception:
+                pass
             try: import pyautogui
             except ImportError: return None,False
             p=self.root/f"screen-{time.time_ns()}.png"
             # Полный диск или антивирус ломали ВСЁ наблюдение: исключение отсюда
             # уходило наружу и валило шаг целиком, хотя без кадра наблюдение
             # деградирует, а не умирает.
-            try: pyautogui.screenshot().save(p)
-            except OSError: return None,False
+            try:
+                pyautogui.screenshot().save(p)
+            except OSError:
+                try:
+                    from PIL import ImageGrab
+                    ImageGrab.grab().save(p)
+                except Exception:
+                    return None,False
             return str(p),False
         ref,sensitive=await asyncio.to_thread(f)
         if ref:

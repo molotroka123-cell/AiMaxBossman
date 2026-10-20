@@ -96,7 +96,7 @@ class CredentialsIn(_Strict):
 
 
 class LoginStartIn(_Strict):
-    phone: str = Field(min_length=5, max_length=32)
+    phone: str = Field(default="", max_length=32)
 
 
 class LoginCodeIn(_Strict):
@@ -111,6 +111,15 @@ class PeerIn(_Strict):
     user_id: int | None = Field(default=None, gt=0, lt=2 ** 52)
     username: str | None = Field(default=None, min_length=1, max_length=40)
     confirm: bool = False
+
+
+class ChannelsParseIn(_Strict):
+    channel_ids: list[int | str] | None = Field(default=None, max_length=100)
+    query: str = Field(default="", max_length=120)
+    limit_per_channel: int = Field(default=20, ge=1, le=100)
+    max_channels: int = Field(default=25, ge=1, le=100)
+    include_desktop: bool = True
+
 
 
 class DialIn(_Strict):
@@ -414,6 +423,146 @@ async def contacts(request: Request, q: str = ""):
         raise _http(exc) from None
     return {"contacts": [{"id": c.get("id"), "label": c.get("label"), "username": c.get("username")}
                          for c in result.get("contacts", [])]}
+
+
+def _desktop_channels_snapshot(query: str = "", limit: int = 100) -> dict:
+    """Parse channels and open channel feeds from running Telegram Desktop windows on WinSta0\\Default."""
+    import os
+    from . import tools_computer as tc
+    if os.name != "nt":
+        return {"channels": [], "open_feeds": []}
+    if hasattr(tc, "_bind_default_desktop"):
+        tc._bind_default_desktop()
+    q = (query or "").strip().lower().lstrip("@")
+    channels_out: list[dict] = []
+    open_feeds: list[dict] = []
+    seen_titles: set[str] = set()
+    try:
+        import psutil
+        from pywinauto import Desktop
+        tg_pids = {
+            int(p.info["pid"])
+            for p in psutil.process_iter(["pid", "name"])
+            if str(p.info.get("name") or "").lower() == "telegram.exe"
+        }
+        d_uia = Desktop(backend="uia")
+        for w in d_uia.windows():
+            with contextlib.suppress(Exception):
+                pid_w = int(w.process_id() or 0)
+                title_w = str(w.window_text() or "").strip()
+                if pid_w not in tg_pids or not title_w or title_w == "TelegramDesktop":
+                    continue
+                hwnd_w = int(w.handle)
+                for lst in w.descendants(control_type="List"):
+                    lst_name = str(getattr(lst.element_info, "name", "") or "")
+                    if lst_name == "Chats":
+                        for item in lst.children():
+                            raw = str(getattr(item.element_info, "name", "") or "").strip()
+                            if not raw or "service notifications" in raw.lower() or "login code" in raw.lower():
+                                continue
+                            if raw.startswith(("Channel,", "Group,")):
+                                parts = [p.strip() for p in raw.split(",")]
+                                kind = parts[0].lower()
+                                ch_title = parts[1] if len(parts) > 1 else raw[:80]
+                                preview = ", ".join(parts[2:])[:500] if len(parts) > 2 else ""
+                                if q and q not in ch_title.lower() and q not in preview.lower():
+                                    continue
+                                key = f"{kind}:{ch_title.lower()}"
+                                if key not in seen_titles:
+                                    seen_titles.add(key)
+                                    channels_out.append({
+                                        "source": "telegram_desktop",
+                                        "hwnd": hwnd_w,
+                                        "pid": pid_w,
+                                        "kind": kind,
+                                        "title": ch_title,
+                                        "latest_preview": preview,
+                                    })
+                                    if len(channels_out) >= max(1, min(limit, 200)):
+                                        break
+                    elif lst_name == "Messages":
+                        feed_posts: list[dict] = []
+                        for idx_m, item in enumerate(lst.children()):
+                            raw_m = str(getattr(item.element_info, "name", "") or "").strip()
+                            if not raw_m or "login code" in raw_m.lower():
+                                continue
+                            if q and q not in raw_m.lower() and q not in title_w.lower():
+                                continue
+                            has_invoice = any(
+                                str(getattr(c.element_info, "name", "") or "") == "Invoice amount"
+                                for c in item.children()
+                            )
+                            feed_posts.append({
+                                "seq": idx_m + 1,
+                                "text": raw_m[:1500],
+                                "paid_stars_locked": has_invoice,
+                            })
+                        if feed_posts:
+                            open_feeds.append({
+                                "hwnd": hwnd_w,
+                                "pid": pid_w,
+                                "window_title": title_w,
+                                "posts_count": len(feed_posts),
+                                "posts": feed_posts,
+                            })
+    except Exception:  # noqa: BLE001
+        pass
+    return {"channels": channels_out, "open_feeds": open_feeds}
+
+
+@router.get("/calls/channels")
+async def list_channels(request: Request, q: str = "", limit: int = 100, include_desktop: bool = True):
+    mgr = _rt(request).manager
+    mtproto_channels: list[dict] = []
+    mtproto_error: str | None = None
+    try:
+        res = await mgr.channels(q[:80], max(1, min(int(limit), 200)))
+        mtproto_channels = list(res.get("channels") or [])
+    except CallError as exc:
+        mtproto_error = exc.code
+    desktop_data = await asyncio.to_thread(_desktop_channels_snapshot, q[:80], limit) if include_desktop else {"channels": [], "open_feeds": []}
+    return {
+        "ok": True,
+        "mtproto_connected": mtproto_error is None,
+        "mtproto_status": "ready" if mtproto_error is None else mtproto_error,
+        "mtproto_channels": mtproto_channels,
+        "desktop_channels": desktop_data["channels"],
+        "desktop_open_feeds": desktop_data["open_feeds"],
+        "total_channels": len(mtproto_channels) + len(desktop_data["channels"]),
+    }
+
+
+@router.post("/calls/channels/parse")
+async def parse_channels_endpoint(body: ChannelsParseIn, request: Request):
+    mgr = _rt(request).manager
+    mtproto_result: dict | None = None
+    mtproto_error: str | None = None
+    try:
+        mtproto_result = await mgr.parse_channels(
+            channel_ids=body.channel_ids,
+            query=body.query,
+            limit_per_channel=body.limit_per_channel,
+            max_channels=body.max_channels,
+        )
+    except CallError as exc:
+        mtproto_error = exc.code
+    desktop_data = (
+        await asyncio.to_thread(_desktop_channels_snapshot, body.query, body.max_channels)
+        if body.include_desktop
+        else {"channels": [], "open_feeds": []}
+    )
+    mt_channels = list((mtproto_result or {}).get("channels") or [])
+    return {
+        "ok": True,
+        "mtproto_connected": mtproto_error is None,
+        "mtproto_status": "ready" if mtproto_error is None else mtproto_error,
+        "mtproto_channels": mt_channels,
+        "mtproto_total_posts": int((mtproto_result or {}).get("total_posts") or 0),
+        "desktop_channels_count": len(desktop_data["channels"]),
+        "desktop_channels": desktop_data["channels"],
+        "desktop_open_feeds": desktop_data["open_feeds"],
+    }
+
 
 
 @router.put("/calls/peer")

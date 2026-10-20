@@ -152,7 +152,11 @@ class TelegramAccount:
 
     # ------------------------------------------------------------ login flow
     async def start_login(self, phone: str) -> None:
-        phone = normalize_phone(phone)
+        raw_phone = (phone or "").strip()
+        if not raw_phone or raw_phone.lower() == "saved":
+            raw_phone = self.store.saved_phone()
+        phone = normalize_phone(raw_phone)
+        self.store.save_phone(phone)
         client = await self._connect()
         try:
             sent = await client.send_code_request(phone)
@@ -264,6 +268,123 @@ class TelegramAccount:
                and (not q or q in d["label"].lower() or q in (d["username"] or "").lower())]
         out.sort(key=lambda d: d["label"].lower())
         return out[:max(1, min(limit, 200))]
+
+    async def channels(self, query: str = "", limit: int = 100) -> list[dict]:
+        """Channels and supergroups from the connected MTProto account."""
+        client = await self.ensure_client()
+        q = (query or "").strip().lower().lstrip("@")
+        out: list[dict] = []
+        try:
+            async for dialog in client.iter_dialogs(limit=300):
+                ent = getattr(dialog, "entity", None)
+                if ent is None:
+                    continue
+                cls_name = type(ent).__name__
+                is_channel = cls_name in ("Channel", "Chat") or bool(getattr(dialog, "is_channel", False) or getattr(dialog, "is_group", False))
+                if not is_channel:
+                    continue
+                cid = int(getattr(ent, "id", 0) or 0)
+                title = str(getattr(ent, "title", "") or getattr(dialog, "name", "") or f"id {cid}")[:160]
+                username = getattr(ent, "username", None)
+                if q and q not in title.lower() and q not in str(username or "").lower() and q not in str(cid):
+                    continue
+                out.append({
+                    "id": cid,
+                    "title": title,
+                    "username": username,
+                    "is_broadcast": bool(getattr(ent, "broadcast", False)),
+                    "is_megagroup": bool(getattr(ent, "megagroup", False)),
+                    "unread_count": int(getattr(dialog, "unread_count", 0) or 0),
+                    "participants_count": getattr(ent, "participants_count", None),
+                })
+                if len(out) >= max(1, min(limit, 300)):
+                    break
+        except Exception as exc:  # noqa: BLE001
+            raise map_error(exc) from None
+        return out
+
+    async def parse_channels(
+        self,
+        *,
+        channel_ids: list[Any] | None = None,
+        query: str = "",
+        limit_per_channel: int = 20,
+        max_channels: int = 25,
+    ) -> dict:
+        """Parse recent posts from subscribed Telegram channels via MTProto."""
+        client = await self.ensure_client()
+        lim_msg = max(1, min(int(limit_per_channel or 20), 100))
+        lim_ch = max(1, min(int(max_channels or 25), 100))
+        q = (query or "").strip().lower()
+        targets: list[tuple[Any, int, str, str | None]] = []
+        try:
+            if channel_ids:
+                for raw_id in channel_ids[:lim_ch]:
+                    try:
+                        ent = await client.get_entity(raw_id)
+                        cid = int(getattr(ent, "id", 0) or 0)
+                        title = str(getattr(ent, "title", "") or getattr(ent, "first_name", "") or raw_id)[:160]
+                        uname = getattr(ent, "username", None)
+                        targets.append((ent, cid, title, uname))
+                    except Exception:  # noqa: BLE001
+                        continue
+            else:
+                async for dialog in client.iter_dialogs(limit=300):
+                    ent = getattr(dialog, "entity", None)
+                    if ent is None:
+                        continue
+                    cls_name = type(ent).__name__
+                    if cls_name not in ("Channel", "Chat") and not getattr(dialog, "is_channel", False):
+                        continue
+                    cid = int(getattr(ent, "id", 0) or 0)
+                    title = str(getattr(ent, "title", "") or getattr(dialog, "name", "") or f"id {cid}")[:160]
+                    uname = getattr(ent, "username", None)
+                    targets.append((ent, cid, title, uname))
+                    if len(targets) >= lim_ch:
+                        break
+
+            parsed_channels: list[dict] = []
+            total_posts = 0
+            for ent, cid, title, uname in targets:
+                posts: list[dict] = []
+                try:
+                    async for msg in client.iter_messages(ent, limit=lim_msg):
+                        mid = int(getattr(msg, "id", 0) or 0)
+                        txt = str(getattr(msg, "message", "") or getattr(msg, "text", "") or "").strip()
+                        if q and q not in txt.lower() and q not in title.lower():
+                            continue
+                        media = getattr(msg, "media", None)
+                        media_type = type(media).__name__ if media is not None else None
+                        dt = getattr(msg, "date", None)
+                        link = f"https://t.me/{uname}/{mid}" if uname else f"https://t.me/c/{cid}/{mid}"
+                        posts.append({
+                            "post_id": mid,
+                            "date": dt.isoformat() if hasattr(dt, "isoformat") else None,
+                            "text": txt[:2000],
+                            "views": getattr(msg, "views", None),
+                            "forwards": getattr(msg, "forwards", None),
+                            "has_media": media is not None,
+                            "media_type": media_type,
+                            "link": link,
+                        })
+                except Exception:  # noqa: BLE001
+                    continue
+                total_posts += len(posts)
+                parsed_channels.append({
+                    "channel_id": cid,
+                    "title": title,
+                    "username": uname,
+                    "posts_count": len(posts),
+                    "posts": posts,
+                })
+        except Exception as exc:  # noqa: BLE001
+            raise map_error(exc) from None
+        return {
+            "source": "mtproto",
+            "channels_count": len(parsed_channels),
+            "total_posts": total_posts,
+            "channels": parsed_channels,
+        }
 
     async def resolve_username(self, username: str) -> dict:
         client = await self.ensure_client()

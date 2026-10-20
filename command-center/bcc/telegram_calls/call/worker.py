@@ -173,6 +173,17 @@ class Worker:
     async def op_contacts(self, args: dict) -> dict:
         return {"contacts": await self.account.contacts(str(args.get("query") or ""), int(args.get("limit") or 50))}
 
+    async def op_channels(self, args: dict) -> dict:
+        return {"channels": await self.account.channels(str(args.get("query") or ""), int(args.get("limit") or 100))}
+
+    async def op_channels_parse(self, args: dict) -> dict:
+        return await self.account.parse_channels(
+            channel_ids=args.get("channel_ids") if isinstance(args.get("channel_ids"), list) else None,
+            query=str(args.get("query") or ""),
+            limit_per_channel=int(args.get("limit_per_channel") or 20),
+            max_channels=int(args.get("max_channels") or 25),
+        )
+
     async def op_peer_lookup(self, args: dict) -> dict:
         if args.get("username"):
             user = await self.account.resolve_username(str(args["username"]))
@@ -180,6 +191,7 @@ class Worker:
             user = await self.account.confirm_user(int(args.get("user_id") or 0))
         peer = check_peer_candidate(user, self.account.me_id())
         return {"peer": {"user_id": peer.user_id, "label": peer.label}}
+
 
     # ------------------------------------------------------------ ops: call
     def _dial_guard(self, args: dict) -> tuple[CallSettings, Any, DialContext]:

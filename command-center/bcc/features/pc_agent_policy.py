@@ -257,4 +257,9 @@ def classify_pc_action(
         )
     if tool == "pc.earn":
         return _classify_earn(args)
+    if tool == "pc.record_screen":
+        url_arg = str(args.get("url") or "").strip().lower()
+        if url_arg and not url_arg.startswith(("https://", "http://", "tg://")):
+            return PolicyVerdict("T3", "deny", "record_invalid_url", "Схема URL запрещена (T3).", True)
+        return PolicyVerdict("T1", "auto", "screen_record", "Запись экрана (T1).")
     return PolicyVerdict("T2", "ask", "unknown_tool", f"Неизвестный инструмент {tool} (T2).", True)

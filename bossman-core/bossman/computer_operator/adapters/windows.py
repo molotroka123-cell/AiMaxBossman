@@ -112,11 +112,25 @@ class WindowsDesktop:
                     f"install with `pip install bossman-core[windows]` (DO-001)")
         return None
     @staticmethod
+    def _bind_default_desktop():
+        if platform.system().lower() != "windows":
+            return
+        try:
+            import ctypes
+            u32 = ctypes.windll.user32
+            hdesk = u32.OpenDesktopW("Default", 0, False, 0x10000000)
+            if hdesk:
+                u32.SetThreadDesktop(hdesk)
+        except Exception:
+            pass
+
+    @staticmethod
     def _active_window():
         # pywinauto 0.6.x lacks an "active window" helper; resolve the OS
         # foreground window handle via user32 and wrap it with the uia backend.
         import ctypes
         from pywinauto import Desktop
+        WindowsDesktop._bind_default_desktop()
         hwnd=ctypes.windll.user32.GetForegroundWindow()
         d=Desktop(backend="uia")
         if hwnd:

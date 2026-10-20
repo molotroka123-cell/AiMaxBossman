@@ -1674,3 +1674,25 @@ async def test_reports_runner_demo_fixture_survives_secret_dir_checkout_but_call
         args={"action": "reports", "brief": "демо на синтетике"},
         repo_root=fake_root, data_dir=tmp_path / "data", earn_dir=tmp_path / "earn2")
     assert "T3" not in str(demo.get("error") or "")
+
+
+def test_pc_record_screen_deeplink_and_policy(tmp_path: Path):
+    import bcc.features.pc_agent as pca
+
+    tg_uri, ch, post = pca._to_telegram_deeplink("https://t.me/c/4400407979/15")
+    assert tg_uri == "tg://privatepost?channel=4400407979&post=15"
+    assert ch == "4400407979" and post == "15"
+
+    plan = pca.compile_plan_for_prompt(
+        "На компе открыт телеграм десктоп открой ссылку https://t.me/c/4400407979/15 Включи запись экрана на компе именно через боссмана , и отправь в пульт результат",
+        workspace_dir=tmp_path,
+    )
+    assert len(plan) == 1
+    assert plan[0]["tool"] == "pc.record_screen"
+    assert plan[0]["args"]["url"] == "https://t.me/c/4400407979/15"
+    assert plan[0]["args"]["send_to_pult"] is True
+
+    v_ok = pca.classify_pc_action("pc.record_screen", {"url": "https://t.me/c/4400407979/15", "duration_s": 5})
+    assert v_ok.tier == "T1" and v_ok.decision == "auto"
+    v_bad = pca.classify_pc_action("pc.record_screen", {"url": "file:///C:/Windows/System32/cmd.exe"})
+    assert v_bad.tier == "T3" and v_bad.decision == "deny"

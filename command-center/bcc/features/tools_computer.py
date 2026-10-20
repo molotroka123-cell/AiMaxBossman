@@ -870,8 +870,22 @@ class ActRefused(RuntimeError):
     pass
 
 
+def _bind_default_desktop() -> None:
+    if platform.system().lower() != "windows":
+        return
+    try:
+        import ctypes
+        u32 = ctypes.windll.user32
+        hdesk = u32.OpenDesktopW("Default", 0, False, 0x10000000)
+        if hdesk:
+            u32.SetThreadDesktop(hdesk)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _top_windows() -> list[tuple[int, str, int]]:
     """(handle, title, pid) видимых окон верхнего уровня."""
+    _bind_default_desktop()
     from pywinauto import Desktop
     out = []
     for w in Desktop(backend="uia").windows():

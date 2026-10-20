@@ -840,6 +840,15 @@ async def execute_pc_step(
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
+    if tool == "pc.record_screen":
+        return await _execute_record_screen(
+            svc,
+            rt,
+            task_id=task_id,
+            args=args,
+            t0=t0,
+        )
+
     if tool == "pc.list_windows":
         query = str(args.get("query") or args.get("filter") or "").strip().lower()
         wins: list[tuple[int, str, int]] = []
@@ -2579,6 +2588,394 @@ async def _execute_earn_step(
     }
 
 
+def _to_telegram_deeplink(url: str) -> tuple[str | None, str, str]:
+    """Преобразует ссылку `https://t.me/c/<channel>/<post>` или `https://t.me/<domain>/<post>`
+    в нативный URI `tg://` для Telegram Desktop."""
+    u = str(url or "").strip()
+    if not u:
+        return None, "", ""
+    m_priv = re.match(r"^https?://(?:t\.me|telegram\.me)/c/(\d+)/(\d+)(?:\?.*)?$", u, re.I)
+    if m_priv:
+        ch, post = m_priv.group(1), m_priv.group(2)
+        return f"tg://privatepost?channel={ch}&post={post}", ch, post
+    m_pub = re.match(r"^https?://(?:t\.me|telegram\.me)/([A-Za-z0-9_]{3,64})/(\d+)(?:\?.*)?$", u, re.I)
+    if m_pub and m_pub.group(1).lower() != "c":
+        dom, post = m_pub.group(1), m_pub.group(2)
+        return f"tg://resolve?domain={dom}&post={post}", dom, post
+    if u.lower().startswith("tg://"):
+        m_ch = re.search(r"channel=(\d+)", u, re.I)
+        m_po = re.search(r"post=(\d+)", u, re.I)
+        return u, (m_ch.group(1) if m_ch else ""), (m_po.group(1) if m_po else "")
+    return None, "", ""
+
+
+async def _execute_record_screen(
+    svc: Any,
+    rt: PCAgentRuntime,
+    *,
+    task_id: int,
+    args: dict[str, Any],
+    t0: float,
+) -> dict[str, Any]:
+    """Записывает видео экрана рабочего стола (`WinSta0\\Default`) в MP4 (`H.264 +faststart`) через Bossman,
+    при наличии ссылки `t.me`/`tg://` открывает пост в запущенном Telegram Desktop во время записи,
+    снимает контрольный PNG-скриншот, проверяет видимость контента и при `send_to_pult=True`
+    доставляет видео и отчёт в Telegram-пульт владельца."""
+    import psutil
+
+    if rt.is_stopped(svc):
+        return {
+            "ok": False,
+            "verified": False,
+            "stopped": True,
+            "error": "Остановлено владельцем (STOP)",
+            "summary": "Остановлено владельцем (STOP)",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    url = str(args.get("url") or "").strip()
+    duration_s = max(1.5, min(30.0, float(args.get("duration_s") or 6.0)))
+    fps = max(5, min(20, int(args.get("fps") or 10)))
+    send_to_pult = bool(args.get("send_to_pult", False))
+    caption_label = str(args.get("caption") or "Проверка поиска и записи контента на будущее").strip()
+
+    tg_uri, channel_id, post_id = _to_telegram_deeplink(url)
+    rec_dir = rt.data_dir / "pc-agent" / "recordings"
+    rec_dir.mkdir(parents=True, exist_ok=True)
+    stamp = f"{task_id}-{int(time.time() * 1000)}"
+    mp4_path = rec_dir / f"bossman-screen-{stamp}.mp4"
+    png_path = rec_dir / f"bossman-screen-{stamp}.png"
+
+    def _run_capture_sync() -> dict[str, Any]:
+        if hasattr(tc, "_bind_default_desktop"):
+            tc._bind_default_desktop()
+
+        # 1. Находим запущенные экземпляры Telegram Desktop и их рабочие каталоги (-workdir)
+        tg_instances: list[tuple[int, str, list[str]]] = []
+        if tg_uri:
+            for p in psutil.process_iter(["pid", "name", "exe", "cmdline"]):
+                with contextlib.suppress(Exception):
+                    pname = str(p.info.get("name") or "").lower()
+                    if pname == "telegram.exe":
+                        exe_p = str(p.info.get("exe") or "")
+                        cmd_p = list(p.info.get("cmdline") or [])
+                        wdir_args: list[str] = []
+                        for idx_c, tok_c in enumerate(cmd_p):
+                            if tok_c.lower() == "-workdir" and idx_c + 1 < len(cmd_p):
+                                wdir_args = ["-workdir", cmd_p[idx_c + 1]]
+                                break
+                        if exe_p:
+                            tg_instances.append((int(p.info["pid"]), exe_p, wdir_args))
+
+        # 2. Ищем целевое окно Telegram Desktop на интерактивном рабочем столе
+        target_hwnd: int | None = None
+        target_pid: int | None = None
+        target_title: str = ""
+        fallback_win: tuple[int, int, str] | None = None
+        redact_rects: list[tuple[int, int, int, int]] = []
+        paid_stars_locked = False
+        wins = tc._top_windows() if hasattr(tc, "_top_windows") else []
+        tg_pids = {pid_i for pid_i, _, _ in tg_instances}
+
+        if os.name == "nt" and wins:
+            with contextlib.suppress(Exception):
+                from pywinauto import Desktop
+                d_uia = Desktop(backend="uia")
+                for h_w, t_w, p_w in wins:
+                    if (p_w in tg_pids or "telegram" in (t_w or "").lower()) and t_w and t_w != "TelegramDesktop":
+                        if fallback_win is None or not str(t_w).strip().lower().startswith("telegram"):
+                            fallback_win = (int(h_w), int(p_w), str(t_w))
+                        w_obj = d_uia.window(handle=h_w)
+                        if channel_id:
+                            for el in w_obj.descendants()[:120]:
+                                nm_el = str(getattr(el.element_info, "name", "") or "")
+                                if channel_id in nm_el:
+                                    target_hwnd, target_pid, target_title = int(h_w), int(p_w), str(t_w)
+                                    break
+                        if target_hwnd is not None:
+                            break
+                if target_hwnd is None and fallback_win is not None:
+                    target_hwnd, target_pid, target_title = fallback_win
+
+        if os.name == "nt" and target_hwnd:
+            with contextlib.suppress(Exception):
+                import ctypes
+                u32 = ctypes.windll.user32
+                u32.ShowWindow(target_hwnd, 3)
+                u32.SetForegroundWindow(target_hwnd)
+            with contextlib.suppress(Exception):
+                from pywinauto import Desktop
+                w_scan = Desktop(backend="uia").window(handle=target_hwnd)
+                for el in w_scan.descendants()[:240]:
+                    nm_el = str(getattr(el.element_info, "name", "") or "")
+                    if "login code" in nm_el.lower() or "service notifications" in nm_el.lower():
+                        r_el = el.rectangle()
+                        if r_el.right > r_el.left and r_el.bottom > r_el.top:
+                            redact_rects.append((max(0, r_el.left), max(0, r_el.top - 4), r_el.right, r_el.bottom + 4))
+                    if nm_el == "Invoice amount" or "xtr " in nm_el.lower():
+                        paid_stars_locked = True
+
+        # Если нужно показать живой переход к целевому посту (например post=15) на записи,
+        # перед стартом записи выставляем начало ленты (post=3), а в ходе записи переходим к post_id.
+        if tg_uri and channel_id and post_id and post_id.isdecimal() and int(post_id) > 3:
+            pre_uri = f"tg://privatepost?channel={channel_id}&post=3"
+            for pid_i, exe_i, wdir_i in tg_instances:
+                if target_pid is None or pid_i == target_pid:
+                    with contextlib.suppress(Exception):
+                        subprocess.run([exe_i, *wdir_i, "--", pre_uri], timeout=5, check=False)
+            if os.name == "nt" and target_hwnd:
+                with contextlib.suppress(Exception):
+                    import ctypes
+                    ctypes.windll.user32.ShowWindow(target_hwnd, 3)
+                    ctypes.windll.user32.SetForegroundWindow(target_hwnd)
+            time.sleep(0.5)
+
+        # 3. Захват первого кадра и запуск FFmpeg для кодирования H.264 MP4 в высоком качестве
+        from PIL import Image, ImageDraw, ImageGrab
+
+        def _mask_sensitive(frame_img: Image.Image) -> Image.Image:
+            if not redact_rects:
+                return frame_img
+            draw = ImageDraw.Draw(frame_img)
+            for lx, ty, rx, by in redact_rects:
+                draw.rectangle((lx, ty, rx, by), fill=(23, 33, 43))
+            return frame_img
+
+        try:
+            first_img = _mask_sensitive(ImageGrab.grab().convert("RGB"))
+        except Exception:
+            first_img = Image.new("RGB", (1920, 1080), (24, 28, 36))
+        width, height = first_img.size
+        width -= width % 2
+        height -= height % 2
+        if (width, height) != first_img.size:
+            first_img = first_img.crop((0, 0, width, height))
+
+        ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
+        ffmpeg_cmd = [
+            ffmpeg_bin,
+            "-y",
+            "-f", "rawvideo",
+            "-pix_fmt", "rgb24",
+            "-s", f"{width}x{height}",
+            "-r", str(fps),
+            "-i", "-",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-crf", "15",
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            str(mp4_path),
+        ]
+        proc = subprocess.Popen(
+            ffmpeg_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            env=_scrubbed_env(),
+        )
+        if proc.pid:
+            rt.active_procs[proc.pid] = proc  # type: ignore[assignment]
+
+        total_frames = max(6, int(round(duration_s * fps)))
+        nav_frame = max(2, min(15, total_frames // 5))
+        scroll_frame = max(nav_frame + 4, (total_frames * 3) // 5)
+        refocus_frame = max(scroll_frame + 4, (total_frames * 4) // 5)
+        frames_written = 0
+        last_img = first_img
+        nav_dispatched = False
+        stopped_mid = False
+
+        def _dispatch_uri(uri_to_open: str) -> None:
+            for pid_i, exe_i, wdir_i in tg_instances:
+                if target_pid is None or pid_i == target_pid:
+                    with contextlib.suppress(Exception):
+                        subprocess.run([exe_i, *wdir_i, "--", uri_to_open], timeout=6, check=False)
+            if os.name == "nt" and target_hwnd:
+                with contextlib.suppress(Exception):
+                    import ctypes
+                    ctypes.windll.user32.ShowWindow(target_hwnd, 3)
+                    ctypes.windll.user32.SetForegroundWindow(target_hwnd)
+
+        try:
+            for idx_f in range(total_frames):
+                if rt.is_stopped(svc):
+                    stopped_mid = True
+                    break
+                t_frame = time.perf_counter()
+                if tg_uri and idx_f == nav_frame and not nav_dispatched:
+                    nav_dispatched = True
+                    _dispatch_uri(tg_uri)
+                elif tg_uri and channel_id and post_id and post_id.isdecimal() and idx_f == scroll_frame:
+                    next_post = int(post_id) + 1
+                    _dispatch_uri(f"tg://privatepost?channel={channel_id}&post={next_post}")
+                elif tg_uri and channel_id and post_id and idx_f == refocus_frame:
+                    _dispatch_uri(tg_uri)
+
+                if idx_f == 0:
+                    img = first_img
+                else:
+                    try:
+                        img = _mask_sensitive(ImageGrab.grab().convert("RGB"))
+                        if img.size != (width, height):
+                            img = img.crop((0, 0, width, height))
+                    except Exception:
+                        img = last_img
+                last_img = img
+                if proc.stdin is not None:
+                    proc.stdin.write(img.tobytes())
+                    frames_written += 1
+                elapsed_f = time.perf_counter() - t_frame
+                sleep_s = max(0.01, (1.0 / fps) - elapsed_f)
+                time.sleep(sleep_s)
+        finally:
+            if proc.stdin is not None:
+                with contextlib.suppress(Exception):
+                    proc.stdin.close()
+            with contextlib.suppress(Exception):
+                proc.wait(timeout=20)
+            if proc.pid:
+                rt.active_procs.pop(proc.pid, None)
+
+        if stopped_mid:
+            with contextlib.suppress(Exception):
+                mp4_path.unlink(missing_ok=True)
+            return {"stopped": True, "frames_written": frames_written}
+
+        with contextlib.suppress(Exception):
+            last_img.save(png_path)
+
+        # 4. Проверяем состояние окна Telegram Desktop после навигации
+        visible_items_count = 0
+        channel_matched = False
+        if os.name == "nt" and target_hwnd:
+            with contextlib.suppress(Exception):
+                from pywinauto import Desktop
+                w_after = Desktop(backend="uia").window(handle=target_hwnd)
+                target_title = str(w_after.window_text() or target_title)
+                for el in w_after.descendants()[:140]:
+                    ct_el = str(getattr(el.element_info, "control_type", "") or "")
+                    nm_el = str(getattr(el.element_info, "name", "") or "")
+                    if channel_id and channel_id in nm_el:
+                        channel_matched = True
+                    if nm_el == "Invoice amount" or "xtr " in nm_el.lower():
+                        paid_stars_locked = True
+                    if ct_el == "ListItem" and nm_el:
+                        r_el = el.rectangle()
+                        if 0 <= r_el.top <= height or 0 <= r_el.bottom <= height:
+                            visible_items_count += 1
+
+        return {
+            "stopped": False,
+            "frames_written": frames_written,
+            "resolution": f"{width}x{height}",
+            "target_hwnd": target_hwnd,
+            "target_pid": target_pid,
+            "window_title_found": bool(target_title),
+            "nav_dispatched": nav_dispatched,
+            "visible_items_count": visible_items_count,
+            "channel_matched": channel_matched,
+            "paid_stars_locked": paid_stars_locked,
+            "redacted_regions": len(redact_rects),
+        }
+
+    cap_info = await asyncio.to_thread(_run_capture_sync)
+    if cap_info.get("stopped") or rt.is_stopped(svc):
+        return {
+            "ok": False,
+            "verified": False,
+            "stopped": True,
+            "error": "Остановлено владельцем (STOP)",
+            "summary": "Остановлено владельцем (STOP)",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    mp4_ok = mp4_path.is_file() and mp4_path.stat().st_size > 1024
+    mp4_bytes = mp4_path.read_bytes() if mp4_ok else b""
+    mp4_valid_ftyp = len(mp4_bytes) > 12 and mp4_bytes[4:8] == b"ftyp"
+    mp4_sha256 = hashlib.sha256(mp4_bytes).hexdigest() if mp4_valid_ftyp else None
+
+    png_ok = png_path.is_file() and png_path.stat().st_size > 256
+    png_bytes = png_path.read_bytes() if png_ok else b""
+    png_sha256 = hashlib.sha256(png_bytes).hexdigest() if png_ok else None
+
+    verified = bool(mp4_valid_ftyp and png_ok and cap_info.get("frames_written", 0) >= 5)
+    if tg_uri and os.name == "nt" and cap_info.get("target_hwnd"):
+        verified = verified and bool(cap_info.get("nav_dispatched"))
+
+    pult_delivery: dict[str, Any] = {"sent": False}
+    if send_to_pult and verified:
+        try:
+            from ..telegram_companion.adapters import Telegram
+            from ..telegram_companion.owner_report import _load_owner, _mask
+            from ..telegram_companion.paths import companion_config_path
+
+            cfg_p = companion_config_path(rt.data_dir, read_fallback=True)
+            loaded = _load_owner(cfg_p)
+            if loaded is not None:
+                settings_tg, owner_tg = loaded
+                transport = Telegram(settings_tg)
+                try:
+                    vid_caption = (
+                        f"🎬 {caption_label}\n"
+                        f"• Задача Bossman PC-Agent: #{task_id}\n"
+                        f"• Ссылка: {url or 'рабочий стол ПК'}"
+                        + (f" -> {tg_uri}" if tg_uri else "")
+                        + f"\n• Окно Telegram Desktop: HWND {cap_info.get('target_hwnd') or 'н/д'} (PID {cap_info.get('target_pid') or 'н/д'})"
+                        + f"\n• Видимых элементов поста/ленты: {cap_info.get('visible_items_count', 0)}"
+                        + f"\n• Видео MP4: {mp4_path.name} ({round(len(mp4_bytes) / 1024, 1)} КБ, {cap_info.get('frames_written')} кадров, {cap_info.get('resolution')})"
+                        + f"\n• SHA-256 MP4: {(mp4_sha256 or '')[:16]}…"
+                    )
+                    vid_msg_id = await transport.send_video(owner_tg, mp4_bytes, vid_caption)
+                    photo_msg_id = None
+                    if png_ok:
+                        photo_caption = (
+                            f"📸 Контрольный кадр: {caption_label} (задача #{task_id}, "
+                            f"SHA-256: {(png_sha256 or '')[:16]}…)"
+                        )
+                        photo_msg_id = await transport.send_photo(owner_tg, png_bytes, photo_caption)
+                    pult_delivery = {
+                        "sent": True,
+                        "video_message_id": vid_msg_id,
+                        "photo_message_id": photo_msg_id,
+                        "target": _mask(owner_tg.chat_id),
+                    }
+                finally:
+                    await transport.close()
+            else:
+                pult_delivery = {"sent": False, "reason": "companion_not_configured"}
+        except Exception as exc:
+            pult_delivery = {"sent": False, "reason": type(exc).__name__}
+
+    summary = (
+        f"Запись экрана Bossman ({cap_info.get('resolution')}, {cap_info.get('frames_written')} кадров, "
+        f"ПРОВЕРЕНО={verified}): видео `{mp4_path.name}` ({round(len(mp4_bytes) / 1024, 1)} КБ)"
+        + (f", открыта ссылка `{url}` (`{tg_uri}`, окно HWND {cap_info.get('target_hwnd')}, видимых элементов: {cap_info.get('visible_items_count')})" if tg_uri else "")
+        + (f", отправлено в пульт (video_msg_id={pult_delivery.get('video_message_id')}, photo_msg_id={pult_delivery.get('photo_message_id')})" if pult_delivery.get("sent") else "")
+    )
+    return {
+        "ok": verified,
+        "verified": verified,
+        "url": url,
+        "tg_deeplink": tg_uri,
+        "video_path": str(mp4_path) if mp4_valid_ftyp else None,
+        "video_sha256": mp4_sha256,
+        "video_bytes": len(mp4_bytes),
+        "screenshot": str(png_path) if png_ok else None,
+        "screenshot_sha256": png_sha256,
+        "frames_written": cap_info.get("frames_written", 0),
+        "resolution": cap_info.get("resolution"),
+        "target_hwnd": cap_info.get("target_hwnd"),
+        "target_pid": cap_info.get("target_pid"),
+        "visible_items_count": cap_info.get("visible_items_count", 0),
+        "channel_matched": cap_info.get("channel_matched", False),
+        "pult_delivery": pult_delivery,
+        "tainted": False,
+        "summary": summary,
+        "duration_ms": round((time.perf_counter() - t0) * 1000),
+    }
+
+
 async def _execute_notepad_roundtrip(
     svc: Any,
     rt: PCAgentRuntime,
@@ -3044,6 +3441,31 @@ def compile_plan_for_prompt(prompt: str, *, workspace_dir: Path) -> list[dict[st
         return [
             {"tool": "pc.observe_screen", "args": {}},
             {"tool": "pc.desktop_act", "args": {"action": "notepad_roundtrip", "text": text_to_write, "path": file_path}},
+        ]
+
+    # 1b. Сценарий записи экрана ПК и/или открытия ссылки в Telegram Desktop (pc.record_screen)
+    rec_url_match = re.search(r"((?:https?://|tg://)[^\s'\"<>]+)", raw)
+    has_rec_kw = any(w in low for w in ("запись экрана", "запиши экран", "видео экрана", "record screen", "screen record"))
+    is_tg_desktop_link = bool(
+        rec_url_match
+        and ("t.me/" in rec_url_match.group(1).lower() or rec_url_match.group(1).lower().startswith("tg://"))
+        and (has_rec_kw or "телеграм" in low or "telegram" in low)
+    )
+    if has_rec_kw or is_tg_desktop_link:
+        rec_url = rec_url_match.group(1).rstrip(".,;)") if rec_url_match else ""
+        send_pult = any(w in low for w in ("в пульт", "отправь", "пришли"))
+        dur_match = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:сек|с\b|sec)", low)
+        dur_val = float(dur_match.group(1).replace(",", ".")) if dur_match else 6.0
+        return [
+            {
+                "tool": "pc.record_screen",
+                "args": {
+                    "url": rec_url,
+                    "duration_s": max(1.5, min(30.0, dur_val)),
+                    "send_to_pult": send_pult,
+                    "caption": "Проверка поиска и записи контента на будущее",
+                },
+            }
         ]
 
     # 2. Сценарий Браузера (открыть URL / сайт, прочитать заголовок/DOM, сделать скриншот)
@@ -3835,6 +4257,34 @@ async def api_pc_agent_start_task(request: Request, body: dict[str, Any]):
     plan_override = body.get("plan") if isinstance(body.get("plan"), list) else None
     use_llm = bool(body.get("use_local_llm_summary", True))
     return await start_pc_task(svc, prompt, actor=actor, plan_override=plan_override, wait=wait, use_local_llm_summary=use_llm)
+
+
+@router.post("/record-screen")
+async def api_pc_agent_record_screen(request: Request, body: dict[str, Any] | None = None):
+    svc = _svc_of(request)
+    payload = dict(body or {})
+    url = str(payload.get("url") or "").strip()
+    duration_s = float(payload.get("duration_s") or 6.0)
+    fps = int(payload.get("fps") or 10)
+    send_to_pult = bool(payload.get("send_to_pult", False))
+    caption = str(payload.get("caption") or "Проверка поиска и записи контента на будущее").strip()
+    actor = str(payload.get("actor") or "owner").strip()
+    wait = bool(payload.get("wait", True))
+    use_llm = bool(payload.get("use_local_llm_summary", False))
+    prompt = str(payload.get("prompt") or f"Запись экрана Bossman ({duration_s:.1f}с) {url}".strip())
+    plan = [
+        {
+            "tool": "pc.record_screen",
+            "args": {
+                "url": url,
+                "duration_s": duration_s,
+                "fps": fps,
+                "send_to_pult": send_to_pult,
+                "caption": caption,
+            },
+        }
+    ]
+    return await start_pc_task(svc, prompt, actor=actor, plan_override=plan, wait=wait, use_local_llm_summary=use_llm)
 
 
 @router.get("/tasks")

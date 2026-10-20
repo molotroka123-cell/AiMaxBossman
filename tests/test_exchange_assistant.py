@@ -532,4 +532,3 @@ def test_redteam_rt20_stop_quote_explicit_buy_margin_and_manual_rate_ordering(as
     assistant.store.save_quote(q_pre)
     with pytest.raises(StoreError, match="фактические суммы обеих сторон"):
         assistant.store.confirm(q_pre.id, NOW, "owner", crm_status="settled")
-

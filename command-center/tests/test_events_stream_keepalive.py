@@ -17,6 +17,7 @@ TASK = 77
 
 async def raw_stream(app, query, token, stop_after_s):
     chunks: list[str] = []
+    started = asyncio.Event()
     disconnect = asyncio.Event()
 
     async def receive():
@@ -24,7 +25,9 @@ async def raw_stream(app, query, token, stop_after_s):
         return {"type": "http.disconnect"}
 
     async def send(msg):
-        if msg["type"] == "http.response.body" and msg.get("body"):
+        if msg["type"] == "http.response.start":
+            started.set()
+        elif msg["type"] == "http.response.body" and msg.get("body"):
             chunks.append(msg["body"].decode())
 
     path = "/api/events/stream"
@@ -33,6 +36,7 @@ async def raw_stream(app, query, token, stop_after_s):
              "headers": [(b"host", b"test"), (HEADER.lower().encode(), token.encode())],
              "client": ("127.0.0.1", 1), "server": ("test", 80)}
     runner = asyncio.create_task(app(scope, receive, send))
+    await asyncio.wait_for(started.wait(), 5)
     await asyncio.sleep(stop_after_s)
     disconnect.set()
     await asyncio.wait_for(runner, 10)
