@@ -2838,7 +2838,42 @@ async def _execute_record_screen(
                             if int(w_d.process_id()) == int(target_pid) \
                                     and int(w_d.handle) != int(target_hwnd):
                                 _u.SetWindowPos(int(w_d.handle), -2, 0, 0, 0, 0, _swp)
+            # Restore the windows minimized for this recording.
+            for h_m in minimized_others:
+                with contextlib.suppress(Exception):
+                    _u.ShowWindow(h_m, 9)  # SW_RESTORE
+            minimized_others.clear()
 
+        minimized_others: list[int] = []
+
+        def _minimize_others() -> None:
+            """Minimize every other visible top-level window for the length
+            of the recording (restored by _release_topmost). Z-order tricks
+            lose against always-on-top apps; a minimized window cannot cover
+            the capture. The apps keep running; this is fully reversible."""
+            if os.name != "nt" or not target_hwnd or target_pid is None:
+                return
+            import ctypes
+            _u = ctypes.windll.user32
+            with contextlib.suppress(Exception):
+                from pywinauto import Desktop as _Desk5
+                for w_m in _Desk5(backend="uia").windows():
+                    with contextlib.suppress(Exception):
+                        h_m = int(w_m.handle)
+                        if h_m == int(target_hwnd) or int(w_m.process_id()) == int(target_pid):
+                            continue
+                        cls_m = str(w_m.element_info.class_name or "")
+                        if cls_m in ("Progman", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"):
+                            continue
+                        if _u.IsIconic(h_m) or not _u.IsWindowVisible(h_m):
+                            continue
+                        r_m = w_m.rectangle()
+                        if (r_m.right - r_m.left) * (r_m.bottom - r_m.top) < 40000:
+                            continue
+                        _u.ShowWindow(h_m, 6)  # SW_MINIMIZE
+                        minimized_others.append(h_m)
+
+        _minimize_others()
         _assert_foreground()
 
         try:
@@ -3067,6 +3102,13 @@ async def _execute_record_screen(
                 if tg_uri and idx_f == nav_frame and not nav_dispatched:
                     nav_dispatched = True
                     _dispatch_uri(tg_uri)
+                elif tg_uri and idx_f == play_frame and not play_clicked and not can_click:
+                    # Activate the target window with a harmless click on its
+                    # title strip, so the real clicks can land in it.
+                    with contextlib.suppress(Exception):
+                        from pywinauto import Desktop as _DeskA
+                        _r_a = _DeskA(backend="uia").window(handle=target_hwnd).rectangle()
+                        _click_at((_r_a.left + _r_a.right) // 2, _r_a.top + 12)
                 elif tg_uri and idx_f == play_frame and not play_clicked and can_click:
                     found_v = _find_video_point()
                     if found_v is not None:
@@ -3092,6 +3134,11 @@ async def _execute_record_screen(
                                 _click_at(found_v[0], found_v[1])
                                 play_clicked = True
                                 play_done_frame = idx_f
+                        else:
+                            with contextlib.suppress(Exception):
+                                from pywinauto import Desktop as _DeskA
+                                _r_a = _DeskA(backend="uia").window(handle=target_hwnd).rectangle()
+                                _click_at((_r_a.left + _r_a.right) // 2, _r_a.top + 12)
                         fs_frame = idx_f + max(2, int(fps))
                     else:
                         fs_tried = True
