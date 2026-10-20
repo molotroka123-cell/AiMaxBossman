@@ -16,6 +16,7 @@ import json
 import mimetypes
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -454,6 +455,32 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     @app.post("/m/api/workers/stop")
     async def stop_workers(_=Depends(session)):
         return workers.trigger_global_stop()
+
+    # ------------------------------------------------------------------ global STOP visibility (owner 20.10)
+    def stop_view() -> dict:
+        """<bcc data>/computer/STOP: while it exists computer actions and exchange writes are refused. Read-only here."""
+        try:
+            mtime = st.stop_file.stat().st_mtime
+        except FileNotFoundError:
+            return {"active": False, "since": None, "age_min": None}
+        except OSError:                       # cannot tell -> say it is on (same fail-closed rule as the exchange)
+            return {"active": True, "since": None, "age_min": None, "unknown": True}
+        since = datetime.fromtimestamp(mtime, timezone.utc).isoformat(timespec="seconds")
+        return {"active": True, "since": since, "age_min": max(0, int((time.time() - mtime) // 60))}
+
+    @app.get("/m/api/stop")
+    async def stop_state(_=Depends(session)):
+        return stop_view()
+
+    @app.post("/m/api/stop/resume")
+    async def stop_resume(_=Depends(session)):
+        """«Продолжить» = the owner's existing resume in Bossman (POST /api/computer/resume); never a file delete here."""
+        body = await call("POST", "/api/computer/resume", json={})
+        view = stop_view()
+        if view["active"]:
+            raise fail(409, "Bossman ответил, но STOP всё ещё включён", "BM_STOP_STILL_ACTIVE",
+                       "проверьте Bossman на ПК (/resume в пульте)")
+        return {"ok": True, **view, "generation": body.get("generation") if isinstance(body, dict) else None}
 
     # ------------------------------------------------------------------ chat (Bossman chat threads = Bossman tasks)
     @app.get("/m/api/agents")

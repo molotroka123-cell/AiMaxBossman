@@ -83,8 +83,40 @@
     loadAgents(); loadThreads(); refreshApprovals();
     const tid = store.get('thread'); if (tid) openThread(tid);
     setInterval(refreshApprovals, 20000);
+    refreshStop(); if (!stopTimer) stopTimer = setInterval(refreshStop, 30000);
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' }).catch(() => {});
   }
+
+  /* ================= общий STOP (owner 20.10: STOP часами висел после теста, и никто не знал) ================= */
+  const pad2 = (n) => String(n).padStart(2, '0');
+  function stopSinceText(iso) {
+    const d = iso ? new Date(iso) : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+    const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    return d.toDateString() === new Date().toDateString() ? hm : `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)} ${hm}`;
+  }
+  function renderStop(s) {
+    const on = !!(s && s.active);
+    $('stop-banner').hidden = !on; $('app').classList.toggle('stop-on', on);
+    if (!on) return;
+    const t = stopSinceText(s.since);
+    const text = `⛔ STOP включён${t ? ' с ' + t : ''} — действия ПК и записи обменника заблокированы`;
+    if ($('stop-text').textContent !== text) $('stop-text').textContent = text;   // role=alert: no re-announce every 30 s
+  }
+  let stopTimer = 0; let stopBusy = false;
+  async function refreshStop() {
+    if ($('app').hidden) return;
+    try { renderStop(await api('GET', '/stop')); } catch { /* keep the last known state; 401 already shows the login */ }
+  }
+  $('stop-resume').addEventListener('click', async () => {
+    if (stopBusy) return;
+    if (!confirm('Снять общий STOP? Bossman снова сможет управлять ПК, а обменник — записывать сделки.')) return;
+    stopBusy = true; $('stop-resume').disabled = true;
+    try { renderStop(await api('POST', '/stop/resume')); toast('STOP снят'); }
+    catch (err) { toast('STOP не снят: ' + err.message); refreshStop(); }
+    finally { stopBusy = false; $('stop-resume').disabled = false; }
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshStop(); });
 
   /* ================= вкладки ================= */
   function showTab(name) {
