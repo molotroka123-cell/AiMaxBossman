@@ -1,6 +1,7 @@
 """Regression tests for Claude Audit P2 items (Items 19..25)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from datetime import datetime
@@ -9,7 +10,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from bcc.features.pc_agent import AuditJournal
 from tools import (
     benchmark_bossman_speedup,
     import_operational_lessons,
@@ -40,18 +40,25 @@ def test_item19_telegram_stop_no_hardcoded_literals_and_not_run_on_empty(tmp_pat
     conn.close()
 
     audit_path = tmp_path / "audit.jsonl"
-    aj = AuditJournal(audit_path)
-    aj.append(
-        task_id="t-stop-1",
-        run_id="r-1",
-        actor="owner",
-        tool="pc.stop",
-        args={"reason": "owner_stop"},
-        tier="T0",
-        decision="allow",
-        result={"stopped": True},
-        verified=True,
-    )
+    record = {
+        "seq": 1,
+        "ts": "2026-10-19T12:00:00Z",
+        "task_id": "t-stop-1",
+        "run_id": "r-1",
+        "actor": "owner",
+        "tool": "pc.stop",
+        "tier": "T0",
+        "decision": "allow",
+        "approval_id": None,
+        "verified": True,
+        "args": {"reason": "owner_stop"},
+        "result": {"stopped": True},
+        "prev_hash": "0" * 64,
+    }
+    record["entry_hash"] = hashlib.sha256(
+        json.dumps(record, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    audit_path.write_text(json.dumps(record, ensure_ascii=False) + "\n", encoding="utf-8")
 
     res_live = verify_tier5_argon_e2e.inspect_historical_live_telegram_stop(
         comp_db=db_path,

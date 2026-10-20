@@ -464,13 +464,28 @@ async def run_synthetic_g3_desktop_stop(tmp_dir: Path) -> dict[str, Any]:
     }
 
 
+def _verify_audit_chain(audit_path: Path) -> dict[str, Any]:
+    if not audit_path.is_file():
+        return {"ok": True, "count": 0}
+    lines = [ln for ln in audit_path.read_text(encoding="utf-8", errors="replace").splitlines() if ln.strip()]
+    prev_hash = "0" * 64
+    for idx, ln in enumerate(lines, 1):
+        row = json.loads(ln)
+        entry_hash = row.pop("entry_hash", "")
+        if row.get("prev_hash") != prev_hash:
+            return {"ok": False, "count": idx, "broken_seq": row.get("seq"), "reason": "prev_hash_mismatch"}
+        expected = hashlib.sha256(json.dumps(row, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+        if entry_hash != expected:
+            return {"ok": False, "count": idx, "broken_seq": row.get("seq"), "reason": "entry_hash_mismatch"}
+        prev_hash = entry_hash
+    return {"ok": True, "count": len(lines)}
+
+
 def inspect_historical_live_telegram_stop(
     comp_db: Path | None = None,
     audit_path: Path | None = None,
 ) -> dict[str, Any]:
     """Extracts live /stop receipt dynamically from companion.sqlite3 + audit.jsonl with SHA-256 hashes (no hardcoded IDs/SHAs). Returns NOT_RUN if missing."""
-    from bcc.features.pc_agent import AuditJournal
-
     local_appdata = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
     data_dir = local_appdata / "Bossman" / "CommandCenter"
     comp_db = Path(comp_db) if comp_db is not None else (local_appdata / "Bossman" / "telegram-companion" / "companion.sqlite3")
@@ -511,7 +526,7 @@ def inspect_historical_live_telegram_stop(
     finally:
         con.close()
 
-    chain_status = AuditJournal(audit_path).verify_chain()
+    chain_status = _verify_audit_chain(audit_path)
     stop_entries: list[dict[str, Any]] = []
     for ln in audit_raw.decode("utf-8", errors="replace").splitlines():
         if not ln.strip():

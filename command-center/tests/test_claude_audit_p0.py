@@ -11,7 +11,7 @@ from starlette.requests import Request
 
 
 def _load_grechka_watcher():
-    watcher_path = Path(__file__).resolve().parents[1] / "grechka-trap" / "watcher.py"
+    watcher_path = Path(__file__).resolve().parents[2] / "grechka-trap" / "watcher.py"
     spec = importlib.util.spec_from_file_location("grechka_trap_watcher", watcher_path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
