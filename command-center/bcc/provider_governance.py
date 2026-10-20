@@ -2,6 +2,7 @@
 import math
 import os
 import re
+import time
 from contextvars import ContextVar
 from urllib.parse import urlsplit
 
@@ -74,6 +75,47 @@ def is_cloud_offload(provider: dict, model: dict) -> bool:
     return any(n and _OLLAMA_CLOUD_TAG.search(str(n)) for n in (model.get("name"), model.get("alias")))
 
 
+#: Owner-granted, time-limited FREE Ollama-cloud routes: exact model name -> end of the window
+#: (UTC, inclusive minute). Only on loopback Ollama (/v1 on :11434), only text, never owner
+#: memory, never a private/local_only task. After the window the model is refused like any other
+#: unproven cloud model; nothing has to be switched off by hand.
+#: 2026-10-20: MiniMax M3.1 Flash for code review / audit, free until 2026-10-22T23:59Z.
+FREE_OLLAMA_CLOUD_WINDOWS: dict[str, str] = {
+    "minimax-m3.1-flash:cloud": "2026-10-22T23:59:00Z",
+}
+_clock = time.time        # tests move it
+
+
+def _window_end(model_name: str) -> float | None:
+    raw = FREE_OLLAMA_CLOUD_WINDOWS.get(str(model_name or "").strip().lower())
+    if not raw:
+        return None
+    from datetime import datetime
+    return datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp()
+
+
+def free_ollama_cloud_window(provider: dict, model: dict) -> str:
+    """'open' | 'expired' | '' (not a windowed model) for a FREE_OLLAMA_CLOUD_WINDOWS route."""
+    from .providers import is_ollama_v1_url
+    end = _window_end(str(model.get("name") or ""))
+    if end is None or not is_ollama_v1_url(provider.get("base_url") or ""):
+        return ""
+    return "open" if _clock() <= end else "expired"
+
+
+#: Content parts that carry media (images, audio, files): never sent on a free review route.
+_MEDIA_PARTS = frozenset({"image_url", "image", "input_image", "input_audio", "audio", "file", "video"})
+
+
+def _has_media(messages) -> bool:
+    for m in messages or []:
+        content = m.get("content") if isinstance(m, dict) else None
+        if isinstance(content, list) and any(isinstance(p, dict) and p.get("type") in _MEDIA_PARTS
+                                             for p in content):
+            return True
+    return False
+
+
 def is_governed_local(provider: dict, model: dict) -> bool:
     """Local for the price gate: this machine / the local network."""
     if is_cloud_offload(provider, model):
@@ -93,8 +135,16 @@ def refuses_unknown_price(provider: dict, model: dict) -> bool:
     Same rule as `GovernedAdapter.chat`, for callers that must not queue or
     pick a model that is certain to be refused (admission, recovery)."""
     from .fable_cap import paid_fable_boundary
+    if free_ollama_cloud_window(provider, model) == "open":
+        return False                       # declared free for its window (FREE_OLLAMA_CLOUD_WINDOWS)
     return (not is_governed_local(provider, model) and not paid_fable_boundary(provider)
             and not priced(model))
+
+
+def window_closed_message(model: dict) -> str:
+    name = str(model.get("name") or "?")
+    return (f"Бесплатное окно облачной модели {name} закрыто "
+            f"({FREE_OLLAMA_CLOUD_WINDOWS.get(name.strip().lower(), '?')}): модель отключена автоматически.")
 
 
 def unknown_price_message(model: dict, catalog_state: str | None = None) -> str:
@@ -158,6 +208,12 @@ def free_only_refusal(provider: dict, model: dict) -> str:
     if any(v > 0 for v in prices):
         return (f"Облачная модель {name} платная, а включён режим «только бесплатное»: "
                 f"разрешены локальные модели, модели OpenRouter с суффиксом ':free' и бесплатные тарифы провайдеров.")
+    if offload:
+        window = free_ollama_cloud_window(provider, model)
+        if window == "open":
+            return ""
+        if window == "expired":
+            return window_closed_message(model)
     host = (urlsplit(provider.get("base_url") or "").hostname or "").lower()
     if host.endswith("openrouter.ai") and name.endswith(":free"):
         return ""
@@ -197,12 +253,23 @@ class GovernedAdapter:
         # judge egress by where the prompt really goes: a `:cloud` model on local Ollama is ollama.com
         assert_provider_egress(p["kind"], OLLAMA_CLOUD_EGRESS_URL if offload else (p.get("base_url") or ""))
         local = is_governed_local(p, m)
+        window = free_ollama_cloud_window(p, m) if offload else ""
+        if window == "expired":
+            raise ProviderError(window_closed_message(m), kind="budget")
+        if window == "open":
+            # free review/audit route: text only, never personal media
+            messages = kwargs.get("messages") if "messages" in kwargs else (args[1] if len(args) >= 2 else [])
+            if _has_media(messages):
+                raise ProviderError(f"{m.get('name')}: бесплатный облачный маршрут для ревью кода принимает "
+                                    "только текст; изображения, аудио и файлы сюда не отправляются.",
+                                    kind="policy")
         # CappedAdapter has its own canonical tariff and rejects unknown models before dispatch.
-        if not local and not isinstance(self.adapter, CappedAdapter) and not priced(m):
+        elif not local and not isinstance(self.adapter, CappedAdapter) and not priced(m):
             raise ProviderError(unknown_price_message(m, self.catalog_state), kind="budget")
         # memory follows the actual destination: this machine / the local network
         memory_local = local or (is_local_url(p.get("base_url") or "") and not offload)
-        if not memory_local and not memory_to_cloud_allowed.get():
+        # a windowed free route never gets owner memory, even for a task that opted in
+        if not memory_local and (window == "open" or not memory_to_cloud_allowed.get()):
             args, kwargs, removed = withhold_local_memory(args, kwargs)
             sink = memory_withheld.get()
             if removed and sink is not None:

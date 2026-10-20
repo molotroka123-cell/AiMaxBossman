@@ -266,7 +266,8 @@ class _MsgRecorder:
         return "ok"
 
 
-@pytest.mark.parametrize("name", ["gpt-oss:120b-cloud", "minimax-m3.1-flash:cloud", "qwen3-coder:480b-cloud"])
+@pytest.mark.parametrize("name", ["gpt-oss:120b-cloud", "deepseek-v3.1:671b-cloud", "qwen3-coder:480b-cloud",
+                                  "minimax-m3.1:cloud"])
 def test_an_ollama_cloud_model_on_loopback_is_judged_as_cloud(name, monkeypatch):
     """127.0.0.1:11434 + `:cloud` = the prompt goes to ollama.com. It was judged local:
     owner memory attached, free-only rule and price gate skipped."""
@@ -310,6 +311,88 @@ async def test_a_real_local_ollama_model_keeps_memory_and_privacy():
     with execution_privacy("private"):
         await gov.chat("qwen3:8b", [MEM, USER])
     assert inner.calls == [[MEM, USER]]
+
+
+# ------------------------------------------------------------------ MiniMax M3.1 Flash free review window
+
+MINIMAX = "minimax-m3.1-flash:cloud"
+BEFORE_END = 1792713540.0 - 3600          # 2026-10-22T22:59:00Z
+AFTER_END = 1792713540.0 + 1              # 2026-10-22T23:59:01Z
+
+
+@pytest.fixture
+def at(monkeypatch):
+    from bcc import provider_governance as pg
+    monkeypatch.delenv("BOSSMAN_ALLOW_PAID_CLOUD", raising=False)
+    monkeypatch.delenv("BOSSMAN_LOCAL_ONLY", raising=False)
+    return lambda t: monkeypatch.setattr(pg, "_clock", lambda: t)
+
+
+def test_the_minimax_window_ends_exactly_at_the_owner_deadline():
+    from datetime import datetime, timezone
+    from bcc import provider_governance as pg
+    assert pg._window_end(MINIMAX) == datetime(2026, 10, 22, 23, 59, tzinfo=timezone.utc).timestamp() == 1792713540.0
+
+
+async def test_minimax_on_local_ollama_is_a_free_text_review_route_inside_its_window(at):
+    from bcc.provider_governance import GovernedAdapter, free_only_refusal, refuses_unknown_price
+    at(BEFORE_END)
+    m = _ollama_model(MINIMAX)                                   # no price row: declared free by the window
+    assert free_only_refusal(OLLAMA, m) == "" and refuses_unknown_price(OLLAMA, m) is False
+    inner = _MsgRecorder()
+    await GovernedAdapter(inner, OLLAMA, m).chat(MINIMAX, [MEM, USER])
+    assert inner.calls == [[USER]]                                # owner memory never goes
+
+
+async def test_minimax_never_gets_memory_even_when_the_task_opted_in(at):
+    from bcc.provider_governance import GovernedAdapter, memory_to_cloud_allowed
+    at(BEFORE_END)
+    inner = _MsgRecorder()
+    token = memory_to_cloud_allowed.set(True)
+    try:
+        await GovernedAdapter(inner, OLLAMA, _ollama_model(MINIMAX)).chat(MINIMAX, [MEM, USER])
+    finally:
+        memory_to_cloud_allowed.reset(token)
+    assert inner.calls == [[USER]]
+
+
+async def test_minimax_refuses_media_and_private_tasks(at):
+    from bossman_shared.privacy import execution_privacy
+    from bcc.provider_governance import GovernedAdapter
+    at(BEFORE_END)
+    inner = _MsgRecorder()
+    gov = GovernedAdapter(inner, OLLAMA, _ollama_model(MINIMAX))
+    photo = {"role": "user", "content": [{"type": "text", "text": "посмотри"},
+                                         {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}}]}
+    with pytest.raises(ProviderError) as info:
+        await gov.chat(MINIMAX, [photo])
+    assert info.value.kind == "policy"
+    with execution_privacy("private"):
+        with pytest.raises(PermissionError):
+            await gov.chat(MINIMAX, [USER])
+    assert inner.calls == []
+
+
+async def test_minimax_switches_itself_off_after_the_deadline(at):
+    from bcc.provider_governance import GovernedAdapter, free_only_refusal, refuses_unknown_price
+    at(AFTER_END)
+    m = _ollama_model(MINIMAX)
+    assert "закрыто" in free_only_refusal(OLLAMA, m)
+    assert refuses_unknown_price(OLLAMA, m) is True
+    inner = _MsgRecorder()
+    with pytest.raises(ProviderError) as info:
+        await GovernedAdapter(inner, OLLAMA, m).chat(MINIMAX, [USER])
+    assert info.value.kind == "budget" and inner.calls == []
+
+
+def test_the_window_is_only_for_that_exact_model_on_loopback_ollama(at):
+    from bcc.provider_governance import free_only_refusal
+    at(BEFORE_END)
+    assert free_only_refusal(OLLAMA, _ollama_model("minimax-m3.1:cloud")) != ""          # other tag
+    lan = {"kind": "openai_compat", "base_url": "http://192.168.1.20:11434/v1", "name": "lan"}
+    assert free_only_refusal(lan, _ollama_model(MINIMAX)) != ""                           # not loopback
+    other_port = {"kind": "openai_compat", "base_url": "http://127.0.0.1:8081/v1", "name": "llama"}
+    assert free_only_refusal(other_port, _ollama_model(MINIMAX)) != ""
 
 
 def test_a_finite_worst_case_still_reserves(lr_root):
