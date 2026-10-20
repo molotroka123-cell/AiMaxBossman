@@ -37,3 +37,26 @@ def test_sqlite_search_finds_nfd_note_by_plain_query(tmp_path: Path):
     backend.index_sync([vault])
     assert [h.source for h in backend.search_sync("майка")] == ["route.md"]
     assert [h.source for h in backend.search_sync("елка")] == ["other.md"]
+
+
+def test_sqlite_index_built_by_older_tokenizer_is_rebuilt(tmp_path: Path):
+    import sqlite3
+
+    vault = _vault(tmp_path, {"tree.md": "# Праздник\n\nЁлка стоит в углу"})
+    db = tmp_path / "m.sqlite3"
+    backend = SQLiteMemoryBackend(index_path=db, vault_root=vault)
+    backend.index_sync([vault])
+    # Simulate an index written before normalization: old terms, no version row.
+    conn = sqlite3.connect(db)
+    try:
+        conn.execute("UPDATE postings SET term='ёлк' WHERE term='елк'")
+        conn.execute("DELETE FROM meta WHERE key='tokenizer_version'")
+        conn.commit()
+    finally:
+        conn.close()
+    assert backend.search_sync("елка") == []           # stale postings miss the query
+
+    result = backend.index_sync([vault])                  # file bytes unchanged
+    assert result["updated"] == 1 and result["skipped"] == 0
+    assert [h.source for h in backend.search_sync("елка")] == ["tree.md"]
+    assert backend.index_sync([vault])["skipped"] == 1    # rebuilt once, then incremental
