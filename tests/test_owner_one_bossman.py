@@ -375,3 +375,72 @@ def test_ps1_task_registration_uses_utf8_and_bounded_execution_timeout():
     assert "-ExecutionTimeLimit ([TimeSpan]::Zero)" not in ps1, "Infinite ExecutionTimeLimit wedges IgnoreNew tasks on hang"
     assert "-X utf8" in ps1, "Scheduled task pythonw launcher must run with -X utf8"
 
+
+def test_soak_24h_probe_tracks_backend_pult_mobile_and_manual_restarts(tmp_path, monkeypatch):
+    data = tmp_path / "data"
+    data.mkdir()
+    cfg_dir = tmp_path / "telegram-companion"
+    cfg_dir.mkdir()
+    cfg = cfg_dir / "config.json"
+    cfg.write_text("{}", encoding="utf-8")
+    (cfg_dir / "companion.env").write_text("TG_COMPANION_BOT_TOKEN=123:abc\n", encoding="utf-8")
+    locks = tmp_path / "pollers"
+    monkeypatch.setenv("BOSSMAN_TELEGRAM_POLLER_LOCK_DIR", str(locks))
+    h1 = _hold_lock(cfg_dir / "poller.lock")
+    h2 = _hold_lock(locks / f"{ob.token_fingerprint('123:abc')}.lock")
+    try:
+        monkeypatch.setattr(ob, "backend_holder", lambda d: {"pid": 25328, "port": 8801, "build_sha": "a" * 40})
+        monkeypatch.setattr(ob, "_pid_alive", lambda pid: True)
+        monkeypatch.setattr(ob, "_health", lambda port: {"alive": True, "source_identity": "PASS", "build_sha": "a" * 40})
+        monkeypatch.setattr(ob, "_mobile_health", lambda port: {"ok": True, "backend": "ok"})
+
+        s1 = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0)
+        assert s1["verdict"] == "IN_PROGRESS"
+        assert s1["all_healthy"] is True
+        assert s1["manual_restarts"] == 0
+
+        # Simulate 24 hours elapsed with same backend PID and all services healthy
+        s2 = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0 + 24 * 3600)
+        assert s2["verdict"] == "PASS"
+        assert s2["elapsed_hours"] >= 24.0
+        assert s2["manual_restarts"] == 0
+
+        # Simulate a manual restart (backend PID changed) -> verdict becomes FAIL
+        monkeypatch.setattr(ob, "backend_holder", lambda d: {"pid": 99999, "port": 8801, "build_sha": "a" * 40})
+        s3 = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0 + 24 * 3600 + 300)
+        assert s3["verdict"] == "FAIL"
+        assert s3["manual_restarts"] == 1
+    finally:
+        h1.close()
+        h2.close()
+
+
+def test_limits_out_orchestra_preflight_and_cross_family_guard(tmp_path):
+    spec_orch = importlib.util.spec_from_file_location("limits_out_orchestra", ROOT / "tools" / "limits_out_orchestra.py")
+    orch = importlib.util.module_from_spec(spec_orch)
+    spec_orch.loader.exec_module(orch)
+
+    # Cross-family verification: same model family (qwen verifying qwen) must be rejected
+    ev_same = tmp_path / "ev_same"
+    ev_same.mkdir()
+    (ev_same / "task-1.json").write_text(json.dumps({"model": "qwen/qwen3-coder:free", "cost_usd": 0.0}), encoding="utf-8")
+    (ev_same / "recipe-1.json").write_text(
+        json.dumps({"verifier": {"principal_id": "model:qwen/qwen3-32b", "model_id": "qwen/qwen3-32b", "independence_class": "cross_model"}}),
+        encoding="utf-8",
+    )
+    cf_same = orch.cross_family_check(ev_same)
+    assert cf_same["ok"] is False
+    assert cf_same["worker_family"] == "qwen" and cf_same["verifier_family"] == "qwen"
+
+    # Different family or external_tool holdout passes
+    ev_diff = tmp_path / "ev_diff"
+    ev_diff.mkdir()
+    (ev_diff / "task-2.json").write_text(json.dumps({"model": "qwen/qwen3-coder:free", "cost_usd": 0.0}), encoding="utf-8")
+    (ev_diff / "recipe-2.json").write_text(
+        json.dumps({"verifier": {"principal_id": "tree-holdout:discovery_nonfinite", "independence_class": "external_tool"}}),
+        encoding="utf-8",
+    )
+    cf_diff = orch.cross_family_check(ev_diff)
+    assert cf_diff["ok"] is True
+
+

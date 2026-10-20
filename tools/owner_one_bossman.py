@@ -590,19 +590,107 @@ def apply_agents(port: int, data_dir: Path, plan: list[dict[str, Any]], evidence
 
 # --------------------------------------------------------------------------- status
 
-def status(data_dir: Path, companion_config: Path | None) -> dict[str, Any]:
+def _mobile_health(port: int = 8840) -> dict[str, Any] | None:
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/m/api/health", timeout=5) as r:
+            return json.loads(r.read() or b"null")
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+
+
+def status(data_dir: Path, companion_config: Path | None, mobile_port: int = 8840) -> dict[str, Any]:
     data_dir = Path(data_dir)
     holder = backend_holder(data_dir)
     out: dict[str, Any] = {"data_dir": str(data_dir), "backend": holder,
                            "backend_pid_alive": bool(holder and holder.get("pid") and _pid_alive(int(holder["pid"])))}
     if holder and holder.get("port"):
         out["health"] = _health(int(holder["port"]))
+    out["mobile"] = _mobile_health(mobile_port)
     out["jeff_poller_lock_held"] = lock_held(data_dir / PIT_HOME / "poller.lock")
     if companion_config:
         fp = companion_fingerprint(Path(companion_config))
         out["companion_poller_lock_held"] = lock_held(Path(companion_config).parent / "poller.lock")
         out["companion_token_lock_held"] = bool(fp and lock_held(poller_lock_dir() / f"{fp}.lock"))
     return out
+
+
+def soak_sample(
+    data_dir: Path,
+    companion_config: Path | None = None,
+    *,
+    mobile_port: int = 8840,
+    interval_s: int = 300,
+    window_hours: float = 24.0,
+    now_ts: float | None = None,
+) -> dict[str, Any]:
+    """Record a 5-minute /health sample for backend, pult, and mobile app, and evaluate the 24h soak window."""
+    data_dir = Path(data_dir)
+    ts = float(now_ts if now_ts is not None else time.time())
+    st = status(data_dir, companion_config, mobile_port=mobile_port)
+    health = st.get("health") or {}
+    mobile = st.get("mobile") or {}
+    backend_pid = (st.get("backend") or {}).get("pid")
+    backend_ok = bool(st.get("backend_pid_alive") and health.get("alive") is True and health.get("source_identity") == "PASS")
+    companion_ok = bool(st.get("companion_poller_lock_held") and st.get("companion_token_lock_held")) if companion_config else True
+    mobile_ok = bool(mobile.get("ok") is True)
+
+    sample = {
+        "ts": round(ts, 3),
+        "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ts)),
+        "backend_pid": backend_pid,
+        "backend_ok": backend_ok,
+        "source_identity": health.get("source_identity"),
+        "companion_ok": companion_ok,
+        "mobile_ok": mobile_ok,
+        "all_ok": bool(backend_ok and companion_ok and mobile_ok),
+    }
+    state_dir = data_dir / STATE_DIR
+    state_dir.mkdir(parents=True, exist_ok=True)
+    log_path = state_dir / "soak-24h.jsonl"
+    with open(log_path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(sample, ensure_ascii=False) + "\n")
+
+    cutoff = ts - window_hours * 3600.0
+    samples: list[dict[str, Any]] = []
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if float(row.get("ts") or 0.0) >= cutoff:
+            samples.append(row)
+
+    pids = [r.get("backend_pid") for r in samples if r.get("backend_pid") is not None]
+    manual_restarts = sum(1 for i in range(1, len(pids)) if pids[i] != pids[i - 1])
+    all_healthy = bool(samples) and all(bool(r.get("all_ok")) for r in samples)
+    elapsed_hours = round((float(samples[-1]["ts"]) - float(samples[0]["ts"])) / 3600.0, 4) if len(samples) >= 2 else 0.0
+    if not all_healthy or manual_restarts > 0:
+        verdict = "FAIL"
+    elif elapsed_hours >= window_hours:
+        verdict = "PASS"
+    else:
+        verdict = "IN_PROGRESS"
+
+    summary = {
+        "schema": "bossman.tier1_soak_24h.v1",
+        "verdict": verdict,
+        "window_hours": window_hours,
+        "interval_s": interval_s,
+        "target_samples_24h": int(window_hours * 3600 // interval_s),
+        "samples_in_window": len(samples),
+        "elapsed_hours": elapsed_hours,
+        "manual_restarts": manual_restarts,
+        "all_healthy": all_healthy,
+        "latest": sample,
+        "log_path": str(log_path),
+    }
+    (state_dir / "soak-24h-summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return summary
+
 
 
 # --------------------------------------------------------------------------- find
@@ -780,6 +868,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="keep these kinds down: the periodic --ensure launch will not restart them")
     st = sub.add_parser("status"); st.add_argument("--data-dir", required=True)
     st.add_argument("--companion-config", default=None)
+    sk = sub.add_parser("soak"); sk.add_argument("--data-dir", required=True)
+    sk.add_argument("--companion-config", default=None)
+    sk.add_argument("--mobile-port", type=int, default=8840)
     a = p.parse_args(argv)
     if a.cmd == "backup":
         res = backup(Path(a.src), Path(a.dest)); print(json.dumps(res, ensure_ascii=False, indent=1))
@@ -832,7 +923,13 @@ def main(argv: list[str] | None = None) -> int:
         res = status(Path(a.data_dir), Path(a.companion_config) if a.companion_config else None)
         print(json.dumps(res, ensure_ascii=False, indent=1, default=str))
         return 0
+    if a.cmd == "soak":
+        res = soak_sample(Path(a.data_dir), Path(a.companion_config) if a.companion_config else None,
+                          mobile_port=a.mobile_port)
+        print(json.dumps(res, ensure_ascii=False, indent=1, default=str))
+        return 0 if res["verdict"] in ("PASS", "IN_PROGRESS") else 1
     return 2
+
 
 
 if __name__ == "__main__":

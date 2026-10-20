@@ -339,6 +339,155 @@ def match_log_line(line: str, catalog: dict | None = None) -> list[str]:
     return [e["id"] for e in catalog["entries"] if any(re.search(rx, line) for rx in e.get("symptom_regex") or [])]
 
 
+# ------------------------------------------------------------------ executable top-10 checks
+def _read_if_exists(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+    except OSError:
+        return ""
+
+
+def _check_wmic_missing(repo_root: Path) -> tuple[bool, str]:
+    hits = []
+    for sub in ("command-center/bcc", "bossman-core/bossman"):
+        base = repo_root / sub
+        if not base.is_dir():
+            continue
+        for p in base.rglob("*.py"):
+            txt = _read_if_exists(p)
+            if re.search(r'\bsubprocess\.(?:run|Popen|check_output)\(\s*\[\s*["\']wmic(?:\.exe)?["\']', txt, re.I):
+                hits.append(str(p.relative_to(repo_root)))
+    return (not hits, "0 wmic subprocess calls" if not hits else f"wmic found in {hits}")
+
+
+def _check_pythonpath_posix(repo_root: Path) -> tuple[bool, str]:
+    hits = []
+    for p in (repo_root / "tools").glob("*.py") if (repo_root / "tools").is_dir() else []:
+        txt = _read_if_exists(p)
+        if re.search(r'env\[\s*["\']PYTHONPATH["\']\s*\]\s*=\s*f?["\'][^"\']*:[\\/]', txt):
+            # Windows drive letter C:\ is fine; POSIX colon separator between two paths without ; is not
+            for m in re.finditer(r'env\[\s*["\']PYTHONPATH["\']\s*\]\s*=\s*([^\n]+)', txt):
+                rhs = m.group(1)
+                if "os.pathsep" not in rhs and ";" not in rhs and rhs.count(":") >= 2 and "http" not in rhs:
+                    hits.append(p.name)
+    return (not hits, "PYTHONPATH uses os.pathsep/;" if not hits else f"POSIX PYTHONPATH in {hits}")
+
+
+def _check_pult_owner_only(repo_root: Path) -> tuple[bool, str]:
+    p = repo_root / "command-center/bcc/telegram_companion/service.py"
+    if not p.is_file():
+        return True, "service.py not in partial tree"
+    txt = _read_if_exists(p)
+    ok = ("delivery_allowed" in txt or "authorize_delivery" in txt or '"owner"' in txt)
+    return (ok, "owner-only delivery guard present" if ok else "missing owner-only guard in service.py")
+
+
+def _check_pult_utf8(repo_root: Path) -> tuple[bool, str]:
+    p = repo_root / "tools/pult_note.py"
+    if not p.is_file():
+        return True, "pult_note.py not in partial tree"
+    txt = _read_if_exists(p)
+    ok = 'encoding="utf-8"' in txt and "ensure_ascii=False" in txt
+    return (ok, "UTF-8 enforced in pult_note.py" if ok else "UTF-8 missing in pult_note.py")
+
+
+def _check_companion_launcher_ready(repo_root: Path) -> tuple[bool, str]:
+    p = repo_root / "tools/owner_one_bossman.py"
+    if not p.is_file():
+        return True, "owner_one_bossman.py not in partial tree"
+    txt = _read_if_exists(p)
+    ok = ("_companion_locked" in txt and '"-I", "-X", "utf8"' in txt)
+    return (ok, "isolated UTF-8 launcher + poller lock handshake" if ok else "missing launcher isolation/lock check")
+
+
+def _check_a22_05_restart_recovery(repo_root: Path) -> tuple[bool, str]:
+    p1 = repo_root / "command-center/bcc/direct_gen/service.py"
+    p2 = repo_root / "command-center/bcc/features/qwen_operator.py"
+    if not p1.is_file() and not p2.is_file():
+        return True, "direct_gen/qwen_operator modules not in partial tree"
+    t1, t2 = _read_if_exists(p1), _read_if_exists(p2)
+    ok = ("restart" in t1.lower() or "resume" in t1.lower()) and ("restart" in t2.lower() or "resume" in t2.lower())
+    return (ok, "A22-05 startup auto-resume in direct_gen + qwen_operator" if ok else "missing A22-05 recovery")
+
+
+def _check_gemma_on_demand_unload(repo_root: Path) -> tuple[bool, str]:
+    p = repo_root / "apps/bossman-mobile/bossmobile/api.py"
+    if not p.is_file():
+        return True, "mobile api.py not in partial tree"
+    txt = _read_if_exists(p)
+    ok = "chat_unload" in txt and "keep_alive" in txt
+    return (ok, "Gemma on-demand unload (keep_alive=0) enforced before photo gen" if ok else "missing Gemma unload")
+
+
+def _check_no_os_name_monkeypatch(repo_root: Path) -> tuple[bool, str]:
+    hits = []
+    for sub in ("tests", "command-center/tests"):
+        base = repo_root / sub
+        if not base.is_dir():
+            continue
+        for p in base.rglob("test_*.py"):
+            txt = _read_if_exists(p)
+            if re.search(r'monkeypatch\.setattr\(\s*os\s*,\s*["\']name["\']', txt):
+                hits.append(p.name)
+    return (not hits, "0 os.name monkeypatches in tests" if not hits else f"os.name patched in {hits}")
+
+
+def _check_never_kill_all_python(repo_root: Path) -> tuple[bool, str]:
+    hits = []
+    for p in (repo_root / "tools").glob("*.py") if (repo_root / "tools").is_dir() else []:
+        if p.name == "import_operational_lessons.py":
+            continue
+        txt = _read_if_exists(p)
+        if re.search(r'taskkill[^\n]*/IM\s+python(?:w)?\.exe', txt, re.I):
+            hits.append(p.name)
+    return (not hits, "only targeted /PID kills in tools" if not hits else f"blanket taskkill in {hits}")
+
+
+def _check_swapme_stop_and_pdf(repo_root: Path) -> tuple[bool, str]:
+    q = repo_root / "bossman_shared/exchange_assistant/quote.py"
+    a = repo_root / "bossman_shared/exchange_assistant/agent.py"
+    if not q.is_file() and not a.is_file():
+        return True, "exchange_assistant not in partial tree"
+    tq, ta = _read_if_exists(q), _read_if_exists(a)
+    ok = "render_pdf_document" in tq and "%PDF-1.4" in tq and "default_stop_file" in ta
+    return (ok, "SwapMe STOP gate + deterministic %PDF-1.4 receipt active" if ok else "missing SwapMe STOP or PDF")
+
+
+
+TOP_10_EXECUTABLE_CHECKS = (
+    ("WMIC-MISSING-WIN11", "Отсутствие вызовов wmic.exe в рабочем коде Windows 11", _check_wmic_missing),
+    ("PYTHONPATH-POSIX-WRONG-CHECKOUT", "PYTHONPATH использует разделитель Windows/os.pathsep", _check_pythonpath_posix),
+    ("PULT-OWNER-ONLY-DELIVERY", "Пульт доставляет сообщения строго владельцу", _check_pult_owner_only),
+    ("PULT-UTF8-NO-MOJIBAKE", "Отправка в пульт принудительно использует UTF-8 без кракозябр", _check_pult_utf8),
+    ("COMPANION-LAUNCHER-ISOLATED-READY", "Лаунчер пульта изолирован (-I -X utf8) и ждёт ready.json", _check_companion_launcher_ready),
+    ("A22-05-RESTART-RECOVERY-OR-HONEST-FAIL", "Задачи генерации переживают рестарт (A22-05) или пишут честный FAIL", _check_a22_05_restart_recovery),
+    ("GEMMA-ON-DEMAND-UNLOAD-BEFORE-GEN", "Gemma выгружается (keep_alive=0) перед запуском генерации фото", _check_gemma_on_demand_unload),
+    ("TEST-PATCHED-OS-NAME-WINDOWSPATH", "Тесты не подменяют os.name напрямую (совместимость Linux CI)", _check_no_os_name_monkeypatch),
+    ("NEVER-KILL-ALL-PYTHON", "Скрипты останавливают процессы только по точному PID", _check_never_kill_all_python),
+    ("SWAPME-STOP-AND-PDF-RECEIPT", "Обменник SwapMe проверяет STOP и выпускает PDF-квитанцию (%PDF-1.4)", _check_swapme_stop_and_pdf),
+)
+
+
+def run_executable_checks(repo_root: Path | str = ROOT) -> dict[str, Any]:
+    """Execute the Top-10 recurring operational failure checks against ``repo_root``."""
+    root = Path(repo_root)
+    results = []
+    failed_ids = []
+    for cid, title, fn in TOP_10_EXECUTABLE_CHECKS:
+        passed, detail = fn(root)
+        results.append({"id": cid, "title": title, "passed": bool(passed), "detail": detail})
+        if not passed:
+            failed_ids.append(cid)
+    return {
+        "schema": "bossman.executable_lessons_checks.v1",
+        "total": len(results),
+        "passed": len(results) - len(failed_ids),
+        "failed": len(failed_ids),
+        "failed_ids": failed_ids,
+        "checks": results,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--catalog", default=str(DEFAULT_CATALOG))
@@ -348,7 +497,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--query")
     ap.add_argument("--include-candidates", action="store_true")
     ap.add_argument("--match-line")
+    ap.add_argument("--run-checks", action="store_true", help="Run Top-10 executable recurring-failure checks")
     ns = ap.parse_args(argv)
+    if ns.run_checks:
+        res = run_executable_checks(ns.repo_root)
+        print(json.dumps(res, ensure_ascii=False, indent=2))
+        return 0 if res["failed"] == 0 else 1
     if ns.match_line is not None:
         print(json.dumps(match_log_line(ns.match_line, load_catalog(ns.catalog)), ensure_ascii=False))
         return 0
@@ -369,3 +523,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
+

@@ -1,0 +1,19 @@
+{
+ "worker_free": "ok",
+ "paid_finalizer": "off",
+ "stop": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\computer\\STOP",
+ "cycle_py": "ok",
+ "source_repo": "ok",
+ "backend": "up",
+ "direct_gen": "idle",
+ "free_key_openrouter": "ok",
+ "build_match": "ok",
+ "executable_lessons": "ok (10/10)",
+ "independent_verification": "cross-family + external_tool holdout (same-family rejected)",
+ "priority": "BELOW_NORMAL (this process and the cycle)",
+ "pause_rule": "direct-gen not finished -> kill cycle + cancel task; resume after 2 idle polls of 30s",
+ "concurrency": "1 worker (sequential cycles)",
+ "merges": "never (isolated copies; recipe only after independent verification)",
+ "preflight_infra": "ok",
+ "ready": "NO"
+}

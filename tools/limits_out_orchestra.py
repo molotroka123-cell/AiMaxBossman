@@ -205,26 +205,88 @@ def run_cycle(case: str, paid: str | None, evidence: Path, timeout: int, cycle_p
         out["interrupted"] = interrupted
         out["cancelled_task"] = _cancel_task(out_file)
     out["spend"] = spend_check(evidence)
+    out["cross_family"] = cross_family_check(evidence)
     for p in sorted(evidence.glob("**/*.json")):
         try:
             d = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
         if isinstance(d, dict) and "stages" in d:
-            out["stages"] = d["stages"]
+            out["stages"] = dict(d["stages"])
+            if out["stages"].get("INDEPENDENT_VERIFICATION_PASS") and not out["cross_family"]["ok"]:
+                out["stages"]["INDEPENDENT_VERIFICATION_PASS"] = False
+                out["cross_family_rejected"] = out["cross_family"]["reason"]
             break
     return out
 
 
+_FAMILIES = ("qwen", "gemma", "gemini", "llama", "nemotron", "mistral", "deepseek", "glm", "claude", "gpt")
+
+
+def model_family(identifier: str) -> str:
+    low = str(identifier or "").lower()
+    if low.startswith("tree-holdout:") or low == "external_tool":
+        return "external_tool"
+    for fam in _FAMILIES:
+        if fam in low:
+            return fam
+    return low.split("/", 1)[0].split(":", 1)[0] or "unknown"
+
+
+def cross_family_check(evidence: Path) -> dict:
+    """Ensure independent verification comes from an external_tool holdout or a DIFFERENT model family."""
+    worker_models: list[str] = []
+    verifier_info: dict = {}
+    for p in sorted(evidence.glob("**/task-*.json")):
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if d.get("model"):
+            worker_models.append(str(d["model"]))
+    for p in sorted(evidence.glob("**/recipe-*.json")):
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(d.get("verifier"), dict):
+            verifier_info = d["verifier"]
+            break
+    w_fam = model_family(worker_models[0]) if worker_models else "unknown"
+    ind_cls = str(verifier_info.get("independence_class") or "")
+    v_id = str(verifier_info.get("model_id") or verifier_info.get("principal_id") or "")
+    v_fam = "external_tool" if ind_cls == "external_tool" or v_id.startswith("tree-holdout:") else model_family(v_id)
+    if not verifier_info:
+        return {"ok": True, "worker_family": w_fam, "verifier_family": "external_tool", "reason": "holdout default"}
+    ok = v_fam == "external_tool" or (w_fam != "unknown" and v_fam != "unknown" and w_fam != v_fam)
+    return {
+        "ok": ok,
+        "worker_family": w_fam,
+        "verifier_family": v_fam,
+        "reason": "ok" if ok else f"same model family ({w_fam} == {v_fam})",
+    }
+
+
 def reimport_lessons() -> str:
-    cat = ROOT / "docs" / "owner" / "bossman_lessons_20261010.json"
-    if not cat.exists():
-        return "no catalog"
     env = {**os.environ, "PYTHONUTF8": "1", "BOSSMAN_SKILL_RECORDING": "1",
            "PYTHONPATH": f"{ROOT};{ROOT / 'bossman-core'};{ROOT / 'command-center'}"}
-    r = subprocess.run([sys.executable, str(ROOT / "tools" / "import_operational_lessons.py"), "--catalog", str(cat),
-                        "--data-dir", str(DATA / "learning" / "apprentice")], cwd=ROOT, env=env, capture_output=True, text=True)
-    return "ok" if r.returncode == 0 else f"rc={r.returncode}"
+    catalogs = [
+        ROOT / "docs" / "owner" / "bossman_critical_errors.json",
+        ROOT / "docs" / "owner" / "bossman_lessons_20261010.json",
+        ROOT / "docs" / "owner" / "bossman_lessons_20261011.json",
+    ]
+    existing = [c for c in catalogs if c.exists()]
+    if not existing:
+        return "no catalog"
+    rcs = []
+    for cat in existing:
+        r = subprocess.run([sys.executable, str(ROOT / "tools" / "import_operational_lessons.py"), "--catalog", str(cat),
+                            "--data-dir", str(DATA / "learning" / "apprentice")], cwd=ROOT, env=env, capture_output=True, text=True)
+        rcs.append(r.returncode)
+    chk = subprocess.run([sys.executable, str(ROOT / "tools" / "import_operational_lessons.py"), "--run-checks"],
+                         cwd=ROOT, env=env, capture_output=True, text=True)
+    rcs.append(chk.returncode)
+    return "ok" if all(rc == 0 for rc in rcs) else f"rcs={rcs}"
 
 
 def report(results: list[dict], reason: str) -> Path:
@@ -276,6 +338,7 @@ def preflight(a) -> dict:
     checks: dict[str, str] = {}
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from tree_self_improve import refuse_worker
+    import import_operational_lessons as iol
     checks["worker_free"] = "ok" if refuse_worker("openrouter-free") is None else "REFUSED"
     checks["paid_finalizer"] = "off" if a.paid == "none" else f"ON ({a.paid})"
     checks["stop"] = stop_requested() or "none"
@@ -298,14 +361,20 @@ def preflight(a) -> dict:
         checks["build_match"] = "ok" if server_sha == client_sha else f"MISMATCH server {server_sha[:12]} client {client_sha[:12]} (use --client-src)"
     except Exception as exc:  # noqa: BLE001
         checks["build_match"] = f"unknown ({type(exc).__name__})"
+    ex_res = iol.run_executable_checks(ROOT)
+    checks["executable_lessons"] = f"ok ({ex_res['passed']}/{ex_res['total']})" if ex_res["failed"] == 0 else f"FAIL ({ex_res['failed_ids']})"
+    checks["independent_verification"] = "cross-family + external_tool holdout (same-family rejected)"
     checks["priority"] = "BELOW_NORMAL (this process and the cycle)"
     checks["pause_rule"] = f"direct-gen not finished -> kill cycle + cancel task; resume after {IDLE_POLLS} idle polls of {POLL_S}s"
     checks["concurrency"] = "1 worker (sequential cycles)"
     checks["merges"] = "never (isolated copies; recipe only after independent verification)"
-    good = {"worker_free": "ok", "paid_finalizer": "off", "stop": "none", "cycle_py": "ok", "source_repo": "ok",
-            "backend": "up", "free_key_openrouter": "ok", "build_match": "ok"}
-    checks["ready"] = "yes" if all(checks.get(k) == v for k, v in good.items()) else "NO"
+    infra_good = {"worker_free": "ok", "paid_finalizer": "off", "cycle_py": "ok", "source_repo": "ok",
+                  "backend": "up", "free_key_openrouter": "ok", "build_match": "ok",
+                  "executable_lessons": f"ok ({ex_res['total']}/{ex_res['total']})"}
+    checks["preflight_infra"] = "ok" if all(checks.get(k) == v for k, v in infra_good.items()) else "NO"
+    checks["ready"] = "yes" if (checks["preflight_infra"] == "ok" and checks["stop"] == "none") else "NO"
     return checks
+
 
 
 def main() -> int:

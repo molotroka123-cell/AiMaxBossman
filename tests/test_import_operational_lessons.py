@@ -246,3 +246,32 @@ def test_bad_catalog_is_refused(tmp_path):
     cat["entries"][1]["symptom_regex"] = ["(unclosed"]
     with pytest.raises(imp.CatalogError):
         imp.load_catalog(_write_catalog(tmp_path, cat))
+
+
+def test_top_10_recurring_failures_are_executable_checks_and_pass(tmp_path, rec_on):
+    res = imp.run_executable_checks(ROOT)
+    assert res["total"] >= 10
+    assert res["passed"] == res["total"], f"Failed executable checks: {res['failed_ids']}"
+    ids = {c["id"] for c in res["checks"]}
+    assert {
+        "WMIC-MISSING-WIN11",
+        "PYTHONPATH-POSIX-WRONG-CHECKOUT",
+        "PULT-OWNER-ONLY-DELIVERY",
+        "PULT-UTF8-NO-MOJIBAKE",
+        "COMPANION-LAUNCHER-ISOLATED-READY",
+        "A22-05-RESTART-RECOVERY-OR-HONEST-FAIL",
+        "GEMMA-ON-DEMAND-UNLOAD-BEFORE-GEN",
+        "TEST-PATCHED-OS-NAME-WINDOWSPATH",
+        "NEVER-KILL-ALL-PYTHON",
+        "SWAPME-STOP-AND-PDF-RECEIPT",
+    } <= ids
+    # Regression guard: a synthetic repo that invokes wmic or blanket taskkill python.exe fails the check
+    bad_repo = tmp_path / "bad_repo"
+    (bad_repo / "command-center" / "bcc").mkdir(parents=True)
+    (bad_repo / "command-center" / "bcc" / "bad.py").write_text(
+        'import subprocess\nsubprocess.run(["wmic", "process", "get", "name"])\n',
+        encoding="utf-8",
+    )
+    bad_res = imp.run_executable_checks(bad_repo)
+    assert "WMIC-MISSING-WIN11" in bad_res["failed_ids"]
+
