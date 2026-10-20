@@ -3,7 +3,7 @@
   "as_of": "2026-10-05",
   "source_repo": "https://github.com/molotroka123-cell/AiMaxBossman",
   "selected_branch": "feat/bossman-1.9-final-freeze",
-  "source_sha": "21c62c9a84877d991e18f6acddae286ed89dd0fe",
+  "source_sha": "a516eab8f89e0b951c5aaa06bcba30d2ca29ea99",
   "coverage": {
     "branch_trees": 251,
     "union_paths": 9716,
