@@ -193,6 +193,32 @@ async def test_a_long_run_call_binds_the_provider_to_the_reserved_output_budget(
     assert inner.kwargs[-1]["max_tokens"] == 77                    # an explicit budget is kept
 
 
+def test_settled_cost_without_a_provider_figure_uses_the_registry_units():
+    """Registry prices are USD per 1M tokens; the settle step multiplied raw prices by tokens."""
+    from bcc import long_run
+    from bcc.providers import ChatResult
+    m = {"price_in": 2.0, "price_out": 6.0}                          # USD / 1M tokens
+    res = ChatResult(text="ok", tokens_in=1000, tokens_out=500)
+    assert long_run.actual_eur(m, res) == pytest.approx((1000 * 2.0 + 500 * 6.0) / 1e6)
+    per_token = {"price_in": 2.0e-6, "price_out": 6.0e-6, "price_unit": "per_token"}
+    assert long_run.actual_eur(per_token, res) == pytest.approx(long_run.actual_eur(m, res))
+    # settled <= reserved worst case for the same call (the reservation is an upper bound)
+    worst = long_run.estimate_worst_case_eur(m, [{"role": "user", "content": "x" * 1000}], 500)
+    assert long_run.actual_eur(m, res) <= worst
+
+
+async def test_an_uncosted_paid_call_does_not_close_its_line_for_the_day(lr_root):
+    from bcc import long_run
+    from bcc.provider_governance import GovernedAdapter
+    inner = _Recorder(cost=None, tokens=(1000, 500))
+    gov = GovernedAdapter(inner, {"kind": "openai_compat", "base_url": "https://api.mistral.ai/v1",
+                                  "name": "mistral"}, _paid("mistral-large-4", 2.0, 6.0))
+    for _ in range(3):
+        await gov.chat("mistral-large-4", [{"role": "user", "content": "hi"}], max_tokens=500)
+    assert len(inner.kwargs) == 3
+    assert long_run.LongRunLedger(lr_root).spent_today()["mistral"] == pytest.approx(3 * 0.005)
+
+
 def test_a_finite_worst_case_still_reserves(lr_root):
     from bcc import long_run
     ledger = long_run.LongRunLedger(lr_root)

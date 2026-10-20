@@ -367,8 +367,11 @@ def actual_eur(model: dict, result: Any) -> float | None:
     tin, tout = int(getattr(result, "tokens_in", 0) or 0), int(getattr(result, "tokens_out", 0) or 0)
     if not (tin or tout):
         return None
-    return (tin * float(model.get("price_in") or 0.0) + tout * float(model.get("price_out") or 0.0)) \
-        / USD_PER_EUR_BOOKED
+    # Same units as the reservation (registry prices are USD per 1M tokens). The raw price was
+    # multiplied by tokens here, booking 10^6x the real cost: one Mistral call without a reported
+    # cost "spent" thousands of EUR and closed its line for the rest of the day.
+    pin, pout = _usd_per_token(model)
+    return (tin * pin + tout * pout) / USD_PER_EUR_BOOKED
 
 
 # ------------------------------------------------------------------ CLI
