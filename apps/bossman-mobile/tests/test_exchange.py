@@ -42,6 +42,10 @@ def test_quote_confirm_deals_and_duplicate(authed, tmp_path):
     assert "повтор не создан" in again["reply"]
     deals = authed.c.get("/m/api/exchange/deals").json()["deals"]
     assert len(deals) == 1 and deals[0]["quote_id"] == r["quote_id"] and deals[0]["get_amount"] == "10465.52"
+    assert deals[0]["pdf_url"] == "/m/api/exchange/deals/1/pdf"
+    pdf_resp = authed.c.get("/m/api/exchange/deals/1/pdf")
+    assert pdf_resp.status_code == 200 and pdf_resp.headers["content-type"].startswith("application/pdf")
+    assert pdf_resp.content.startswith(b"%PDF-1.4\n") and b"SwapMe Exchange" in pdf_resp.content
 
 
 def test_stop_blocks_writes_in_the_app(authed, tmp_path):

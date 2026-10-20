@@ -166,6 +166,52 @@ class Store:
         return data
 
     @_locked
+    def quote_object(self, qid: str) -> Quote | None:
+        data = self.quote(qid)
+        if data is None:
+            return None
+        return Quote(
+            id=data["id"],
+            give_ccy=data["give_ccy"],
+            give_amount=Decimal(data["give_amount"]),
+            get_ccy=data["get_ccy"],
+            get_amount=Decimal(data["get_amount"]),
+            mid=Decimal(data["mid"]),
+            client_rate=Decimal(data["client_rate"]),
+            margin=Decimal(data.get("margin", "0.03")),
+            created_at=_dt(data["created_at"]),
+            valid_until=_dt(data["valid_until"]),
+            rates=tuple(data.get("rates") or ()),
+            formula=str(data.get("formula") or ""),
+            fixed_side=str(data.get("fixed_side") or "give"),
+            direction=str(data.get("direction") or "SELL"),
+            manager_margin_decision=str(data.get("manager_margin_decision") or "default"),
+        )
+
+    @_locked
+    def receipt_pdf_path(self, deal_id: int, quote_id: str | None = None) -> Path:
+        if quote_id is None:
+            row = self.db.execute("SELECT quote_id FROM deals WHERE id=?", (deal_id,)).fetchone()
+            if row is None:
+                raise StoreError(f"сделка D-{deal_id} не найдена")
+            quote_id = str(row["quote_id"])
+        rec_dir = self.path.parent / "receipts"
+        rec_dir.mkdir(parents=True, exist_ok=True)
+        return rec_dir / f"SwapMe-D-{deal_id}-{quote_id}.pdf"
+
+    def _write_receipt_pdf(self, deal_row: dict) -> Path:
+        from .quote import render_pdf_document
+        q_obj = self.quote_object(deal_row["quote_id"])
+        if q_obj is None:
+            raise StoreError(f"котировка {deal_row['quote_id']} не найдена")
+        pdf_bytes = render_pdf_document(q_obj, deal=deal_row)
+        target = self.receipt_pdf_path(int(deal_row["id"]), str(deal_row["quote_id"]))
+        tmp = target.with_suffix(".pdf.tmp")
+        tmp.write_bytes(pdf_bytes)
+        os.replace(tmp, target)
+        return target
+
+    @_locked
     def confirm(self, qid: str, now: datetime, by: str, *,
                 crm_status: str = "settled",
                 leg_in_actual: Decimal | None = None,
@@ -181,7 +227,9 @@ class Store:
         existing = self.db.execute("SELECT * FROM deals WHERE quote_id=? OR (idempotency_key IS NOT NULL AND idempotency_key=?)",
                                    (q["id"], idem)).fetchone()
         if existing:
-            return dict(existing), False
+            deal_dict = dict(existing)
+            self._write_receipt_pdf(deal_dict)
+            return deal_dict, False
         if now > _dt(q["valid_until"]):
             raise StoreError(f"котировка {q['id']} просрочена ({q['valid_until']}); сделайте новую котировку")
         in_dec = Decimal(str(leg_in_actual)) if leg_in_actual is not None else Decimal(q["give_amount"])
@@ -209,8 +257,12 @@ class Store:
             row = self.db.execute("SELECT * FROM deals WHERE quote_id=?", (q["id"],)).fetchone()
             if row is None:
                 raise
-            return dict(row), False
-        return dict(self.db.execute("SELECT * FROM deals WHERE id=?", (cur.lastrowid,)).fetchone()), True
+            deal_dict = dict(row)
+            self._write_receipt_pdf(deal_dict)
+            return deal_dict, False
+        deal_dict = dict(self.db.execute("SELECT * FROM deals WHERE id=?", (cur.lastrowid,)).fetchone())
+        self._write_receipt_pdf(deal_dict)
+        return deal_dict, True
 
     @_locked
     def reverse(self, deal_id: int, reason: str, now: datetime, by: str) -> dict:

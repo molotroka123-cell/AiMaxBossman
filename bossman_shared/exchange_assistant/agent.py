@@ -28,6 +28,8 @@ RE_GIVE = re.compile(rf"^(?:котировка|посчитай|сколько)?
 RE_GET = re.compile(rf"^(?:(купить|клиент покупает)|получить|клиент хочет получить|хочет получить)\s+{_NUM}\s*{_CCY}\s+за\s+{_CCY}{_MARGIN_OPT}$")
 RE_CONFIRM = re.compile(rf"^(?:обмен выполнен|подтверждаю|подтвердить)\s+(q-[0-9a-f]{{8}})(?:\s+(?:приняли|факт)\s+{_NUM}\s+(?:выдали)\s+{_NUM})?$")
 RE_REVERSE = re.compile(r"^(?:отмена|отменить)\s+d-?(\d+)\s+(.+)$")
+RE_RECEIPT = re.compile(r"^(?:чек|pdf|пдф|квитанция)\s+d-?(\d+)$")
+RE_DAILY = re.compile(r"^(?:суточный\s+отчет|суточный\s+отчёт|итоги\s+сутки|отчет\s+за\s+сутки|отчёт\s+за\s+сутки)$")
 RE_DASH = re.compile(r"^(?:дашборд|итоги|итог)(?:\s+(сегодня|неделя|месяц))?$")
 
 HELP = ("Команды помощника обменника:\n"
@@ -36,13 +38,15 @@ HELP = ("Команды помощника обменника:\n"
         "• 500 usdt в czk [при 3%] — котировка: клиент отдаёт 500 USDT\n"
         "• получить 10000 czk за usdt [при 3%] — котировка: клиент хочет получить 10000 CZK\n"
         "• купить 1000 usdt за czk при 3% — покупка валюты по согласованной ставке (1 + ставка)\n"
-        "• обмен выполнен Q-XXXXXXXX [приняли <сумма> выдали <сумма>] — записать сделку по котировке\n"
+        "• обмен выполнен Q-XXXXXXXX [приняли <сумма> выдали <сумма>] — записать сделку по котировке и выпустить PDF-чек\n"
+        "• чек D-12 — получить PDF-квитанцию SwapMe по подтверждённой сделке\n"
+        "• суточный отчёт — сводка сделок, оборота и PDF-чеков за 24 ч\n"
         "• отмена D-12 <причина> — отменить сделку (реверс, без удаления)\n"
         "• итоги [сегодня|неделя|месяц] — оборот, позиции, сделки")
 
 
 WRITE_PATTERNS = (RE_MANUAL, RE_CONFIRM, RE_REVERSE)
-ALL_PATTERNS = (RE_RATES, RE_MANUAL, RE_GIVE, RE_GET, RE_CONFIRM, RE_REVERSE, RE_DASH)
+ALL_PATTERNS = (RE_RATES, RE_MANUAL, RE_GIVE, RE_GET, RE_CONFIRM, RE_REVERSE, RE_RECEIPT, RE_DAILY, RE_DASH)
 
 
 def normalize(text: str) -> str:
@@ -130,6 +134,47 @@ class Assistant:
         except (QuoteError, RateError, StoreError) as e:
             return f"Не выполнено: {e}"
 
+    def deal_pdf(self, deal_id: int) -> tuple[str, bytes]:
+        """Return (filename, pdf_bytes) for a confirmed deal."""
+        from .quote import render_pdf_document
+        deal = next((d for d in self.store.deals() if int(d["id"]) == int(deal_id)), None)
+        if deal is None:
+            raise StoreError(f"сделка D-{deal_id} не найдена")
+        q_obj = self.store.quote_object(deal["quote_id"])
+        if q_obj is None:
+            raise StoreError(f"котировка {deal['quote_id']} не найдена")
+        pdf_bytes = render_pdf_document(q_obj, deal=deal)
+        path = self.store.receipt_pdf_path(int(deal["id"]), str(deal["quote_id"]))
+        if not path.is_file():
+            path.write_bytes(pdf_bytes)
+        return path.name, pdf_bytes
+
+    def daily_summary(self, now: datetime | None = None) -> str:
+        """Build a 24h daily SwapMe summary for the owner's Pult."""
+        now = now or self.clock()
+        start, end = now - timedelta(hours=24), now + timedelta(seconds=1)
+        d = self.store.dashboard(start, end)
+        pos = ", ".join(f"{k} {'+' if v >= 0 else ''}{v}" for k, v in d["position_change"].items()) or "—"
+        recent = [
+            row for row in self.store.deals()
+            if row["status"] == "done" and start <= datetime.fromisoformat(row["confirmed_at"]) < end
+        ]
+        receipt_lines = [
+            f"  • D-{r['id']} ({r['quote_id']}): {r.get('leg_in_actual') or r['give_amount']} {r['give_ccy']} → "
+            f"{r.get('leg_out_actual') or r['get_amount']} {r['get_ccy']} | SwapMe-D-{r['id']}-{r['quote_id']}.pdf"
+            for r in recent[-10:]
+        ]
+        lines = [
+            f"Суточный отчёт SwapMe (24 ч до {now.strftime('%d.%m.%Y %H:%M UTC')})",
+            f"Сделок: {d['deals']} (отменено: {d['reversed']})",
+            f"Оборот по USDT-ноге: {d['turnover_usdt']} USDT",
+            f"Изменение кассы: {pos}",
+        ]
+        if receipt_lines:
+            lines.append("Подтверждённые чеки PDF:")
+            lines.extend(receipt_lines)
+        return "\n".join(lines)
+
     def _dispatch(self, t: str, actor: str, now: datetime) -> str:
         if t in ("", "помощь", "help", "/help", "команды"):
             return HELP
@@ -159,8 +204,17 @@ class Assistant:
             head = "Сделка записана" if created else "Эта котировка уже подтверждена, повтор не создан"
             in_shown = d.get("leg_in_actual") or d["give_amount"]
             out_shown = d.get("leg_out_actual") or d["get_amount"]
+            pdf_name = f"SwapMe-D-{d['id']}-{d['quote_id']}.pdf"
             return (f"{head}: D-{d['id']} по {d['quote_id']}\n"
-                    f"Приняли {in_shown} {d['give_ccy']}, выдали {out_shown} {d['get_ccy']}")
+                    f"Приняли {in_shown} {d['give_ccy']}, выдали {out_shown} {d['get_ccy']}\n"
+                    f"Чек PDF: {pdf_name}")
+        if m := RE_RECEIPT.match(t):
+            import hashlib
+            fname, pdf_bytes = self.deal_pdf(int(m[1]))
+            digest = hashlib.sha256(pdf_bytes).hexdigest()[:16]
+            return f"Чек PDF готов: {fname} ({len(pdf_bytes)} байт, SHA-256: {digest})"
+        if RE_DAILY.match(t):
+            return self.daily_summary(now)
         if m := RE_REVERSE.match(t):
             d = self.store.reverse(int(m[1]), m[2], now, actor)
             return f"Сделка D-{d['id']} отменена (реверс записан, ничего не удалено). Причина: {d['reverse_reason']}"

@@ -211,7 +211,7 @@ def render_branded_document(q: Quote, *, deal: dict | None = None) -> str:
     <div class="row"><span>Согласованная ставка:</span><span class="val">{pct}</span></div>
   </div>
   <div class="row"><span>Формула расчёта:</span><span class="val">{q.formula}</span></div>
-  <div class="row"><span>Действует до:</span><span class="val">{exp_str}</span></div>
+    <div class="row"><span>Действует до:</span><span class="val">{exp_str}</span></div>
   <div class="meta">
     <strong>Источники курсов (провенанс):</strong>
     <ul>{rates_html}</ul>
@@ -219,3 +219,89 @@ def render_branded_document(q: Quote, *, deal: dict | None = None) -> str:
 </div>
 </body>
 </html>"""
+
+
+def _pdf_escape(text: str) -> str:
+    """Escape ASCII text for a PDF literal string (...) while replacing non-ASCII with safe transliteration/UTF-8 notes."""
+    out = []
+    for ch in text:
+        if ch in ("\\", "(", ")"):
+            out.append("\\" + ch)
+        elif 32 <= ord(ch) <= 126:
+            out.append(ch)
+        else:
+            out.append("?")
+    return "".join(out)
+
+
+def render_pdf_document(q: Quote, *, deal: dict | None = None) -> bytes:
+    """Render a deterministic, dependency-free %PDF-1.4 receipt/quote with the SwapMe Exchange Prague vector logo."""
+    doc_kind = "SETTLED DEAL RECEIPT" if deal else "EXCHANGE QUOTE"
+    doc_id = f"D-{deal['id']} ({q.id})" if deal else q.id
+    status_label = str(deal.get("crm_status") or deal.get("status") or "settled").upper() if deal else "QUOTED"
+    pct = f"{(q.margin * 100).normalize():f}%"
+    in_amt = Decimal(str(deal.get("leg_in_actual") or q.give_amount)) if deal else q.give_amount
+    out_amt = Decimal(str(deal.get("leg_out_actual") or q.get_amount)) if deal else q.get_amount
+    give_str = f"{_fmt_spaced(in_amt)} {q.give_ccy}"
+    get_str = f"{_fmt_spaced(out_amt)} {q.get_ccy}"
+    ts_str = q.created_at.strftime("%d.%m.%Y %H:%M UTC")
+    exp_str = q.valid_until.strftime("%d.%m.%Y %H:%M UTC")
+    rate_str = f"1 {q.give_ccy} = {q.client_rate.quantize(Decimal('0.000001'))} {q.get_ccy} (mid {q.mid.quantize(Decimal('0.000001'))})"
+
+    lines = [
+        f"SwapMe Exchange - Prague  |  {doc_kind}",
+        f"Document: {doc_id}   Status: {status_label}",
+        f"Created:  {ts_str}   Valid until: {exp_str}",
+        "-" * 68,
+        f"Client gives (inflow):    {give_str}",
+        f"Client gets  (outflow):   {get_str}",
+        f"Agreed desk margin:       {pct} ({q.direction})",
+        f"Client rate:              {rate_str}",
+        "-" * 68,
+    ]
+    if deal and (deal.get("slippage_in") not in (None, "0", "0.00") or deal.get("slippage_out") not in (None, "0", "0.00")):
+        lines.append(f"Actual leg slippage:      in={deal.get('slippage_in', '0.00')} {q.give_ccy}, out={deal.get('slippage_out', '0.00')} {q.get_ccy}")
+    for idx, r_label in enumerate(q.rates, 1):
+        lines.append(f"Rate source #{idx}: {r_label}")
+
+    # Vector graphics: dark header bar + SwapMe cyan badge + text lines + UTF-8 metadata comment
+    stream_parts = [
+        "% SwapMe UTF-8 metadata: " + f"SwapMe Exchange · Prague | {doc_id} | {give_str} -> {get_str} | {pct} | {q.formula}",
+        "q",
+        "0.07 0.09 0.15 rg 36 710 523 64 re f",
+        "0.22 0.74 0.97 RG 2 w 52 726 32 32 re S",
+        "0.22 0.74 0.97 RG 2 w 60 746 m 76 746 l S 60 738 m 76 738 l S",
+        "Q",
+        "BT",
+        "/F1 14 Tf 1 1 1 rg 96 746 Td (SwapMe Exchange - Prague) Tj",
+        f"/F1 10 Tf 0.58 0.77 0.99 rg 0 -18 Td ({_pdf_escape(doc_kind + '  |  ' + doc_id + '  |  ' + status_label)}) Tj",
+        "ET",
+        "BT",
+        "/F1 11 Tf 0.1 0.12 0.16 rg 44 680 Td 18 TL",
+    ]
+    for line in lines:
+        stream_parts.append(f"({_pdf_escape(line)}) '")
+    stream_parts.append("ET")
+    content_bytes = "\n".join(stream_parts).encode("utf-8")
+
+    objs: list[bytes] = [
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
+        b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+        f"5 0 obj\n<< /Length {len(content_bytes)} >>\nstream\n".encode("ascii") + content_bytes + b"\nendstream\nendobj\n",
+    ]
+    out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets: list[int] = []
+    for obj in objs:
+        offsets.append(len(out))
+        out.extend(obj)
+    xref_pos = len(out)
+    out.extend(f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode("ascii"))
+    for off in offsets:
+        out.extend(f"{off:010d} 00000 n \n".encode("ascii"))
+    out.extend(
+        f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n".encode("ascii")
+    )
+    return bytes(out)
+

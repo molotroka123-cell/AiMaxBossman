@@ -715,7 +715,24 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             raise fail(503, "помощник обменника недоступен", "BM_EXCHANGE_UNAVAILABLE", type(exc).__name__) from None
         keep = ("id", "quote_id", "status", "confirmed_at", "give_ccy", "give_amount", "get_ccy", "get_amount",
                 "client_rate", "reversed_at", "reverse_reason")
-        return {"deals": [{k: d.get(k) for k in keep} for d in reversed(a.store.deals()[-50:])]}
+        return {"deals": [({k: d.get(k) for k in keep} | {"pdf_url": f"/m/api/exchange/deals/{d['id']}/pdf"})
+                          for d in reversed(a.store.deals()[-50:])]}
+
+    @app.get("/m/api/exchange/deals/{deal_id}/pdf")
+    async def exchange_deal_pdf(deal_id: int, _=Depends(session)):
+        try:
+            a = exchange()
+        except Exception as exc:  # noqa: BLE001
+            raise fail(503, "помощник обменника недоступен", "BM_EXCHANGE_UNAVAILABLE", type(exc).__name__) from None
+        try:
+            fname, pdf_bytes = a.deal_pdf(deal_id)
+        except Exception as exc:  # noqa: BLE001
+            raise fail(404, str(exc), "BM_DEAL_NOT_FOUND") from None
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="{fname}"', "Cache-Control": "no-store"},
+        )
 
     @app.post("/m/api/photo/jobs/{job_id}/to-pult")
     async def p_to_pult(job_id: str, _=Depends(session)):

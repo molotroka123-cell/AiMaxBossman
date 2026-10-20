@@ -14,6 +14,7 @@ from .config import Person
 EXCHANGE_COMMANDS = {"/swap"}
 EXCHANGE_LABEL = "💱 Обменник"
 _QID = re.compile(r"\bQ-[0-9A-F]{8}\b")
+_DID = re.compile(r"\bD-(\d+)\b")
 
 
 def exchange_phrase(text: str):
@@ -50,5 +51,8 @@ class ExchangeBridgeMixin:
         q = _QID.search(text)
         if q and text.startswith("Котировка"):
             rows.append([b("✅ Обмен выполнен", f"/swap обмен выполнен {q.group(0)}")])
-        rows.append([b("📈 Курсы", "/swap курс"), b("📊 Итоги месяца", "/swap итоги"), b("🗓 Сегодня", "/swap итоги сегодня")])
+        d = _DID.search(text)
+        if d and text.startswith(("Сделка записана", "Эта котировка уже подтверждена")):
+            rows.append([b(f"📄 Чек PDF D-{d.group(1)}", f"/swap чек D-{d.group(1)}")])
+        rows.append([b("📈 Курсы", "/swap курс"), b("📊 Итоги месяца", "/swap итоги"), b("🗓 Сегодня", "/swap суточный отчёт")])
         return Reply(text, rows)

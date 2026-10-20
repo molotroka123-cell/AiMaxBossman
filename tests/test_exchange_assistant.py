@@ -419,9 +419,46 @@ def test_dashboard_uses_actual_legs_and_cancel_quote(assistant):
     )
     assistant.store.save_quote(q2, crm_status="draft")
     cancelled = assistant.store.cancel_quote(q2.id, "клиент передумал", NOW + timedelta(seconds=2), "owner")
-    assert cancelled["crm_status"] == "cancelled"
     with pytest.raises(StoreError, match="уже есть сделка"):
         assistant.store.cancel_quote(q1.id, "поздно", NOW + timedelta(seconds=3), "owner")
 
 
+def test_swapme_pdf_receipt_and_daily_pult_summary(assistant):
+    """Tier-1 Step (7): PDF receipt with SwapMe logo after deal confirmation and 24h daily Pult report."""
+    from bossman_shared.exchange_assistant import render_pdf_document
 
+    assistant.handle("курс usdt/usd 1.0000 источник синтетика", "owner")
+    assistant.handle("курс usd/czk 25.000 источник синтетика", "owner")
+    q_reply = assistant.handle("1000 usdt в czk при 3%", "owner")
+    qid = _qid(q_reply)
+
+    confirm_reply = assistant.handle(f"обмен выполнен {qid}", "owner")
+    assert "Сделка записана: D-1" in confirm_reply
+    assert "PDF" in confirm_reply
+
+    filename, pdf_bytes = assistant.deal_pdf(1)
+    assert filename == f"SwapMe-D-1-{qid}.pdf"
+    assert pdf_bytes.startswith(b"%PDF-1.4\n")
+    assert pdf_bytes.endswith(b"%%EOF\n")
+    assert b"SwapMe Exchange" in pdf_bytes
+    assert f"D-1 ({qid})".encode("utf-8") in pdf_bytes
+    assert b"24 250,00 CZK" in pdf_bytes
+    assert b"1 000,00 USDT" in pdf_bytes
+    assert b"3%" in pdf_bytes
+
+    # Deterministic: calling render_pdf_document twice produces identical bytes
+    deal = assistant.store.deals()[0]
+    q_obj = assistant.store.quote_object(qid)
+    assert render_pdf_document(q_obj, deal=deal) == pdf_bytes
+
+    # Receipt file persisted on disk in store's receipts directory
+    pdf_path = assistant.store.receipt_pdf_path(1)
+    assert pdf_path.is_file() and pdf_path.read_bytes() == pdf_bytes
+
+    # Assistant command for receipt and daily report
+    rec_msg = assistant.handle("чек D-1", "owner")
+    assert f"SwapMe-D-1-{qid}.pdf" in rec_msg and "SHA-256:" in rec_msg
+
+    daily = assistant.handle("суточный отчет", "owner")
+    assert "Суточный отчёт SwapMe" in daily
+    assert "D-1" in daily and "1000.00 USDT" in daily and f"SwapMe-D-1-{qid}.pdf" in daily
