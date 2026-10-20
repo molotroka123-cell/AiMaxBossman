@@ -1,6 +1,6 @@
 {
  "schema": "bossman-tree-registry-1",
- "head": "0762376d4c4955ff3ffc8e741c86abc690793c27",
+ "head": "7d7df887db04d31469e3602cf19850aff9ead4ce",
  "leaves": [
   {
    "id": "jeff",
@@ -2500,7 +2500,7 @@
    "label": "Реестр приложений и лаунчер",
    "zone_parent": "ops",
    "source": "command-center/bcc/features/apps.py",
-   "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+   "sha": "4608cfe0daecc125ac7f2d5893d464ff25335603",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -2930,7 +2930,7 @@
    "label": "Анализ кода через LSP (только чтение)",
    "zone_parent": "ops",
    "source": "command-center/bcc/features/code_intel.py",
-   "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+   "sha": "08da2310d33d9396a2be8f25eaeba722489c1512",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -3081,7 +3081,7 @@
    "label": "Задачи кодирования через OpenHands",
    "zone_parent": "agents",
    "source": "command-center/bcc/features/coding_tasks.py",
-   "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+   "sha": "0762376d4c4955ff3ffc8e741c86abc690793c27",
    "integration_status": "reported",
    "levels": {
     "code": {
@@ -5133,7 +5133,7 @@
    "label": "Умный выбор модели для каждой задачи",
    "zone_parent": "cloud",
    "source": "command-center/bcc/features/router.py",
-   "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+   "sha": "1e0f0b6c4fa0526f1653f48b6192f7ea786c0b3e",
    "integration_status": "reported",
    "levels": {
     "code": {
@@ -5333,7 +5333,7 @@
    "label": "Учёт платных вызовов до старта (выкл.)",
    "zone_parent": "cloud",
    "source": "command-center/bcc/features/spend_meter.py",
-   "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+   "sha": "f84a6c394ca2cb6fa1a34baf5c9924dd7f81bd92",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -5789,7 +5789,7 @@
    "label": "Инструмент: управление рабочим столом (Computer Use)",
    "zone_parent": "computer",
    "source": "command-center/bcc/features/tools_computer.py",
-   "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+   "sha": "0762376d4c4955ff3ffc8e741c86abc690793c27",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -15940,7 +15940,7 @@
    "label": "Изолированные рабочие копии Git для OpenHands",
    "zone_parent": "ops",
    "source": "bossman-core/bossman/apprentice/isolated_worktree.py",
-   "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+   "sha": "0762376d4c4955ff3ffc8e741c86abc690793c27",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -28020,7 +28020,7 @@
    "label": "Долгие задачи, переживающие перезапуск",
    "zone_parent": "jeff",
    "source": "command-center/bcc/pit/tasks.py",
-   "sha": "0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4",
+   "sha": "08da2310d33d9396a2be8f25eaeba722489c1512",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -34016,7 +34016,7 @@
    "label": "Замена лица в видео: FaceFusion, куски без потерь, VFR→CFR",
    "zone_parent": "media",
    "source": "command-center/bcc/direct_gen/faceswap.py",
-   "sha": "0482cf591d387d9bd918018dd968d61edeb63602",
+   "sha": "32690088e9052a8ac65e543da0a89289a47694a9",
    "integration_status": "reported",
    "levels": {
     "code": {
@@ -34088,7 +34088,7 @@
    "label": "Пульт пишет только владельцу",
    "zone_parent": "ux",
    "source": "command-center/bcc/telegram_companion/service.py",
-   "sha": "6273524cd86aaa8aaf40b90075069c60e6f8bd90",
+   "sha": "5d7171282eed88c24b80a073b79ea17e70761d62",
    "integration_status": "reported",
    "levels": {
     "code": {
@@ -34448,7 +34448,7 @@
    "label": "Computer Use: приложения на задачу + привязка к окну HWND/PID",
    "zone_parent": "computer",
    "source": "command-center/bcc/features/tools_computer.py",
-   "sha": "42cf9d062e5eb765cde286d68e43ae6a962aed65",
+   "sha": "0762376d4c4955ff3ffc8e741c86abc690793c27",
    "integration_status": "reported",
    "levels": {
     "code": {
@@ -35852,7 +35852,7 @@
    "label": "Калибровка ETA задач в мобильном UI по истории task_runs",
    "zone_parent": "ux",
    "source": "apps/bossman-mobile/bossmobile/timing.py",
-   "sha": "324cb36370e51581d736426ec6f8a434efcb1959",
+   "sha": "5d7171282eed88c24b80a073b79ea17e70761d62",
    "integration_status": "code",
    "levels": {
     "code": {
