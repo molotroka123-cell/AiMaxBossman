@@ -419,35 +419,65 @@ def _check_pult_owner_only(repo_root: Path) -> tuple[bool, str]:
     return (ok, "owner-only delivery guard present" if ok else "missing owner-only guard in service.py")
 
 
+def _load_tool_module(path: Path, tag: str):
+    """Execute a stdlib-only tool file of ``repo_root`` as an anonymous module.
+
+    The module is not registered in ``sys.modules``: the check exercises the code
+    of the repo being checked, never a copy imported earlier from elsewhere."""
+    import importlib.util
+    digest = hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()[:12]
+    spec = importlib.util.spec_from_file_location(f"_oplesson_{tag}_{digest}", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _check_pult_utf8(repo_root: Path) -> tuple[bool, str]:
-    import ast
+    """Behavioural: the payload pult_note really sends round-trips Cyrillic as UTF-8.
+
+    The former AST check only looked for ``encoding="utf-8"`` / ``ensure_ascii=False``
+    keywords anywhere in the file; a body encoded with cp1251 next to them passed."""
     p = repo_root / "tools/pult_note.py"
     if not p.is_file():
         return False, "missing file: tools/pult_note.py"
-    tree = _parse_ast(p)
-    if tree is None:
-        return False, "syntax error or empty tools/pult_note.py"
-    has_utf8_kw = False
-    has_ensure_ascii_false = False
-    for node in ast.walk(tree):
-        if isinstance(node, ast.keyword):
-            if node.arg == "encoding" and isinstance(node.value, ast.Constant) and str(node.value.value).lower() == "utf-8":
-                has_utf8_kw = True
-            if node.arg == "ensure_ascii" and isinstance(node.value, ast.Constant) and node.value.value is False:
-                has_ensure_ascii_false = True
-    ok = has_utf8_kw and has_ensure_ascii_false
-    return (ok, "UTF-8 enforced in pult_note.py" if ok else "UTF-8 missing in pult_note.py")
+    sample = "Пульт: ёжик, «кавычки» — проверка UTF-8"
+    try:
+        body = _load_tool_module(p, "pult_note").build_payload(1, sample)
+    except Exception as exc:  # noqa: BLE001 - any failure of the real code is a failed check
+        return False, f"pult_note.build_payload failed: {type(exc).__name__}: {str(exc)[:120]}"
+    if not isinstance(body, (bytes, bytearray)):
+        return False, "pult_note.build_payload did not return bytes"
+    try:
+        decoded = json.loads(bytes(body).decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return False, "pult_note payload is not UTF-8 JSON (mojibake on the wire)"
+    ok = isinstance(decoded, dict) and decoded.get("text") == sample and sample.encode("utf-8") in bytes(body)
+    return (ok, "pult_note payload round-trips Cyrillic as literal UTF-8" if ok
+            else "pult_note payload alters or escapes Cyrillic text")
 
 
 def _check_companion_launcher_ready(repo_root: Path) -> tuple[bool, str]:
+    """Behavioural: every launched process (incl. the «Пульт») gets ``-I -X utf8``.
+
+    The former check accepted the string ``"-I", "-X", "utf8"`` anywhere in the file,
+    so a companion command without it passed as long as the backend had it."""
     p = repo_root / "tools/owner_one_bossman.py"
     if not p.is_file():
         return False, "missing file: tools/owner_one_bossman.py"
-    tree = _parse_ast(p)
-    fns = _func_names(tree)
-    txt = _read_if_exists(p)
-    ok = tree is not None and "_companion_locked" in fns and '"-I", "-X", "utf8"' in txt
-    return (ok, "isolated UTF-8 launcher + poller lock handshake" if ok else "missing launcher isolation/lock check")
+    try:
+        mod = _load_tool_module(p, "owner_one_bossman")
+        home, data, cfg = Path("H:/home"), Path("H:/data"), Path("H:/cfg/config.json")
+        bad = [kind for kind in ("backend", "jeff", "companion", "jeff-window")
+               if list(mod.command_for(kind, home, data, 8801, cfg))[1:4] != ["-I", "-X", "utf8"]]
+        locked = callable(getattr(mod, "_companion_locked", None))
+    except Exception as exc:  # noqa: BLE001
+        return False, f"owner_one_bossman launcher failed: {type(exc).__name__}: {str(exc)[:120]}"
+    ok = not bad and locked
+    if ok:
+        return True, "isolated UTF-8 argv for every launched process + poller lock handshake"
+    return False, (f"launcher without -I -X utf8 for {bad}" if bad else "missing poller lock handshake")
 
 
 def _check_a22_05_restart_recovery(repo_root: Path) -> tuple[bool, str]:
