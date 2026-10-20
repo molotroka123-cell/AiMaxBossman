@@ -108,9 +108,13 @@ async def list_skills(request: Request):
     out = []
     # discover() глобит/stat'ит шесть корней (в т.ч. ~/.agents, ~/.claude,
     # ~/.config/opencode) и пере-парсит YAML после смены mtime — не в цикле событий.
-    for sk in await asyncio.to_thread(lib.discover):
+    # Одна карточка на id — ровно та копия, которую запустят run/get (by_id:
+    # ранний корень главнее); остальные копии перечислены в "shadowed".
+    skills, shadowed = await asyncio.to_thread(lambda: (lib.by_id(), lib.shadowed()))
+    for sk in skills.values():
         d = _skill_dict(sk)
         d["agents"] = assigns.get(sk.id, [])
+        d["shadowed"] = shadowed.get(sk.id, [])
         out.append(d)
     return out
 

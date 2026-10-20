@@ -178,6 +178,24 @@ class SkillLibrary:
             out.setdefault(skill.id, skill)
         return out
 
+    def shadowed(self) -> dict[str, list[dict[str, str]]]:
+        """Копии с тем же id из более поздних корней: они НЕ запускаются.
+
+        {id: [{"root", "version", "fingerprint"}]} — без абсолютных путей.
+        Раньше /skills показывал обе карточки, а «Запустить» на второй молча
+        запускал первую."""
+        first: dict[str, Skill] = {}
+        out: dict[str, list[dict[str, str]]] = {}
+        for skill in self.discover():
+            if skill.id not in first:
+                first[skill.id] = skill
+                continue
+            out.setdefault(skill.id, []).append({
+                "root": f"{skill.source_root.parent.name}/{skill.source_root.name}",
+                "version": skill_version(skill.frontmatter or {}),
+                "fingerprint": skill.fingerprint[:16]})
+        return out
+
     def import_skill(self, skill: Skill, *, overwrite: bool = False) -> Skill:
         dest_dir = self.canonical_root / skill.id
         dest = dest_dir / SKILL_FILE
