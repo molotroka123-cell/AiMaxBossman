@@ -27,6 +27,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
 from ..db import settings_kv, utcnow
+from ..plugin_security import redact as _ps_redact
 from ..tools import REGISTRY, ToolResult, ToolSpec
 from ..v2.mcp_hub import MCPServerSpec, command_policy_refusal, namespaced_tool
 from ..v2.mcp_runtime import (MCPCallError, MCPRuntime, MCPUnavailable, sdk_available,
@@ -173,6 +174,29 @@ def bounded_structured(value: Any) -> tuple[Any, bool, str]:
     return value, False, ""
 
 
+def result_secret_values(spec: MCPServerSpec) -> set[str]:
+    """Значения, которые не должны вернуться из MCP-ответа: env, переданный
+    серверу (`env_keys`), креды плагинов и живые секреты web_access (String)."""
+    import os
+
+    from ..web_access import policy as _web_policy
+    from .plugins import _known_secret_values
+    out = {str(os.environ.get(k) or "").strip() for k in (spec.env_keys or [])}
+    out |= _known_secret_values()
+    out |= set(_web_policy._known_secrets)
+    return {v for v in out if v}
+
+
+def redact_result(text: str, structured: Any, spec: MCPServerSpec) -> tuple[str, Any]:
+    """Ответ сервера → (текст, structured) без секретов: по известным значениям
+    и по форме токена (`plugin_security.redact`, scrub_text)."""
+    secrets = result_secret_values(spec)
+    clean_text = _ps_redact(text, secret_values=secrets, scrub_text=True)
+    clean_structured = (_ps_redact(structured, secret_values=secrets, scrub_text=True)
+                        if structured is not None else None)
+    return clean_text, clean_structured
+
+
 def launch_refusal(spec: MCPServerSpec) -> str:
     """Защита в глубину: строка в БД могла появиться до политики или в обход
     POST /api/mcp/servers — команда проверяется и перед запуском процесса."""
@@ -276,11 +300,14 @@ def _handler_for(svc, spec: MCPServerSpec, tool_name: str):
         # limit=50 залил бы десятки килобайт прямо в контекст модели. У
         # terminal.run такой лимит есть, здесь его не было — обрезаем так же,
         # в коде инструмента, а не по просьбе модели.
-        text = res.text or "(пустой ответ MCP)"
+        # Сервер получает env_keys и может вернуть их эхом: секреты вычищаются
+        # ДО лимита и до контекста модели/журнала.
+        clean_text, clean_structured = redact_result(res.text or "", res.structured, spec)
+        text = clean_text or "(пустой ответ MCP)"
         truncated = len(text) > MCP_OUTPUT_LIMIT
         if truncated:
             text = text[:MCP_OUTPUT_LIMIT]
-        structured, omitted, why = bounded_structured(res.structured)
+        structured, omitted, why = bounded_structured(clean_structured)
         data = {"server": spec.id, "tool": tool_name,
                 "structured": structured, "structured_omitted": omitted}
         if omitted:
