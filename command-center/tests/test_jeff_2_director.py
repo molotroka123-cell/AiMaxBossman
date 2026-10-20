@@ -286,6 +286,20 @@ def test_boilerplate_closing_question_is_stripped():
     assert dr.strip_boilerplate(kept) == kept
 
 
+@pytest.mark.parametrize("reply,expected", [
+    ("Готово.\n\nЧем ещё могу помочь?", "Готово."),                  # regression: a paragraph break before the tail
+    ("Как ты? Чем ещё могу помочь?", "Как ты?"),                      # regression: after a question
+    ("Список готов\nЕсть ли ещё вопросы?", "Список готов"),
+])
+def test_boilerplate_tail_after_a_paragraph_or_a_question_is_stripped(reply, expected):
+    assert dr.strip_boilerplate(reply) == expected
+
+
+def test_boilerplate_inside_a_sentence_is_kept_negative_control():
+    body = "Скажи, чем ещё могу помочь? — так спрашивают консультанты."
+    assert dr.strip_boilerplate(body) == body
+
+
 def test_post_reply_trims_extra_questions_when_a_question_was_planned():
     module = DirectorModule()
     plan, c = turn(module, "Напиши письмо", mid="m1")
