@@ -39,6 +39,23 @@ def test_sqlite_search_finds_nfd_note_by_plain_query(tmp_path: Path):
     assert [h.source for h in backend.search_sync("елка")] == ["other.md"]
 
 
+def test_context_pack_keeps_distinct_hits_with_shared_template_prefix():
+    from bcc.v2.memory.context_pack import build_context_pack
+    from bcc.v2.memory.memsearch_bridge import MemoryHit
+
+    header = "Шаблон решения. " * 40                      # > 500 chars of identical text
+    a = MemoryHit(content=header + "Решение: SQLite.", source="a.md", heading="", score=2.0, chunk_hash="a")
+    b = MemoryHit(content=header + "Решение: Postgres.", source="b.md", heading="", score=1.0, chunk_hash="b")
+    pack = build_context_pack("решение", [a, b], max_tokens=20000, per_item_tokens=4000)
+    assert [i.source for i in pack.items] == ["a.md", "b.md"]
+
+    # a true duplicate (case / whitespace / NFD only) is still collapsed
+    dup = MemoryHit(content=unicodedata.normalize("NFD", (header + "Решение: SQLite.").upper()).replace(" ", "  "),
+                    source="a-copy.md", heading="", score=1.5, chunk_hash="c")
+    pack = build_context_pack("решение", [a, dup, b], max_tokens=20000, per_item_tokens=4000)
+    assert [i.source for i in pack.items] == ["a.md", "b.md"]
+
+
 def test_tied_scores_rank_identically_in_json_and_sqlite_backends(tmp_path: Path):
     same = "# Шаблон\n\nОтчёт о смене: всё штатно"
     vault = _vault(tmp_path, {f"shift-{i}.md": same for i in range(6)})
