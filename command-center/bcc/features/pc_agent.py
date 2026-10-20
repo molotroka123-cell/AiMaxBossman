@@ -2791,16 +2791,9 @@ async def _execute_record_screen(
                     pass
                 return found_m
 
-            def _win_count(h_scan: int) -> int:
-                try:
-                    from pywinauto import Desktop as _DeskC
-                    return len(_DeskC(backend="uia").window(handle=h_scan).descendants())
-                except Exception:
-                    return -1
-
             # A window left minimized (e.g. by a capture that was cancelled
-            # before its restore step) has a skeleton UIA tree and does not
-            # navigate on deeplinks — restore all Telegram windows first.
+            # before its restore step) has a skeleton UIA tree — restore all
+            # Telegram windows first.
             with contextlib.suppress(Exception):
                 import ctypes as _ct_r
                 _u_r = _ct_r.windll.user32
@@ -2809,39 +2802,43 @@ async def _execute_record_screen(
                         _u_r.ShowWindow(_h_r, 9)  # SW_RESTORE
             time.sleep(0.4)
 
-            # Phase 1: park every instance on a neutral public channel, then
-            # snapshot the UIA tree sizes. Phase 2: dispatch the real link —
-            # only the member instance navigates, so only its tree changes
-            # materially. (Label presence and foreground both proved
-            # ambiguous: other windows can hold unrelated video posts.)
-            for pid_i, exe_i, wdir_i in tg_instances:
-                with contextlib.suppress(Exception):
-                    subprocess.run([exe_i, *wdir_i, "--",
-                                    "tg://resolve?domain=telegram"],
-                                   timeout=6, check=False)
-            time.sleep(1.5)
-            _cnt1 = {p_i: _win_count(h_i)
-                     for p_i, (h_i, _t_i) in _main_windows().items()}
+            # Navigation signal: Telegram puts the open chat's name into the
+            # main window title (a generic "Telegram..."/"TelegramDesktop"
+            # title means no chat is open). Dispatch the link to every
+            # instance; the member instance is the one whose title becomes a
+            # specific chat name. (Tree-size deltas and label presence both
+            # proved ambiguous — a tiny channel's tree is smaller than a big
+            # public channel's, and any window can hold an unrelated video.)
+            def _generic_title(t_v: str) -> bool:
+                s_v = (t_v or "").strip().lower()
+                return (not s_v) or s_v.startswith("telegram")
+
+            _titles_before = {p_i: t_i for p_i, (_h_i, t_i) in _main_windows().items()}
             for pid_i, exe_i, wdir_i in tg_instances:
                 with contextlib.suppress(Exception):
                     subprocess.run([exe_i, *wdir_i, "--", tg_uri],
                                    timeout=6, check=False)
             time.sleep(2.0)
             _mw_after = _main_windows()
-            _cnt2 = {p_i: _win_count(h_i)
-                     for p_i, (h_i, _t_i) in _mw_after.items()}
-            _best_pid, _best_delta = None, 300
+            _winner = None
             for p_i, (h_i, t_i) in _mw_after.items():
-                _delta = abs(_cnt2.get(p_i, -1) - _cnt1.get(p_i, 0))
-                if _delta > _best_delta:
-                    _best_pid, _best_delta = p_i, _delta
-            dbg_nav.update({"cnt1": _cnt1, "cnt2": _cnt2,
-                            "best_pid": _best_pid, "best_delta": _best_delta,
-                            "mw_after": list(_mw_after.keys()),
+                if not _generic_title(t_i) and t_i != _titles_before.get(p_i):
+                    _winner = p_i
+                    break
+            if _winner is None:
+                # The post may already have been open: take a window with a
+                # specific title that also shows a video duration label.
+                for p_i, (h_i, t_i) in _mw_after.items():
+                    if not _generic_title(t_i) and _label_in_window(h_i) is not None:
+                        _winner = p_i
+                        break
+            dbg_nav.update({"titles_before": _titles_before,
+                            "titles_after": {p_i: t_i for p_i, (_h_i, t_i) in _mw_after.items()},
+                            "winner": _winner,
                             "instances": [p_i for p_i, _e_i, _w_i in tg_instances]})
-            if _best_pid is not None:
+            if _winner is not None:
                 target_hwnd, target_pid, target_title = (
-                    _mw_after[_best_pid][0], _best_pid, _mw_after[_best_pid][1])
+                    _mw_after[_winner][0], _winner, _mw_after[_winner][1])
             if target_hwnd:
                 _s_t = _label_in_window(target_hwnd)
                 if _s_t is not None:
