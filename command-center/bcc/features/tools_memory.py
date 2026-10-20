@@ -30,6 +30,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 
 from ..db import settings_kv
+from ..hybrid.context_filter import SecretMaterialRefused
 from ..tools import REGISTRY, ToolContext, ToolResult, ToolSpec
 from ..v2.memory import (
     LexicalReranker,
@@ -316,6 +317,8 @@ async def http_write(request: Request):
         raise HTTPException(403, {"message": str(exc)})
     except FileExistsError as exc:
         raise HTTPException(409, {"message": f"заметка уже существует: {exc}"})
+    except SecretMaterialRefused as exc:
+        raise HTTPException(422, {"message": f"память не хранит секреты: {exc}"}) from None
     return {"path": str(path)}
 
 
@@ -420,6 +423,8 @@ async def tool_write(args: dict, ctx: ToolContext) -> ToolResult:
                     f"{service.vault.write_folder}/ ({exc})")
     except FileExistsError as exc:
         return _err(f"memory.write: заметка уже существует ({exc})")
+    except SecretMaterialRefused as exc:
+        return _err(f"memory.write отклонён: память не хранит секреты ({exc})")
     except QdrantUnavailable:
         return _err("заметка сохранена, но семантический индекс не обновлён; восстановите embeddings и запустите memory.index")
     try:
