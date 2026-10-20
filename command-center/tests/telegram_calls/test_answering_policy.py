@@ -190,6 +190,13 @@ async def test_a_reply_with_a_secret_is_replaced_in_full_not_cut():
     assert all("0123456789" not in part for part in out), "no part of the secret is ever yielded"
 
 
+async def test_a_reply_with_a_short_provider_key_is_never_spoken_to_a_caller():
+    key = "AK" + "IA" + "QWERTYUIOP" + "ASDFGH"           # 20 chars: below every older generic rule
+    brain = AnsweringBrain(ScriptedBrain([f"Ключ доступа {key}, записывайте."], piece=4))
+    out = await _drain(brain.reply([], "Что у вас?", CancelToken()))
+    assert out == [REFUSAL_TEXT] and "secret_in_reply" in brain.flags
+
+
 async def test_the_summary_never_proposes_tasks_and_survives_a_dead_model():
     class Dead(ScriptedBrain):
         async def summarize(self, turns):

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import re
 
-_SECRET_PATTERNS = (
+#: Value-only token shapes (no keyword context). Public so other redactors (calls worker log,
+#: answering machine) reuse ONE list instead of drifting copies.
+TOKEN_PATTERNS = (
     re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
     re.compile(r"\b\d{6,12}:[A-Za-z0-9_-]{30,}\b"),  # Telegram bot-token shape
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
-    re.compile(r"\b(?:password|passwd|пароль|2fa|otp|seed phrase|private key)\s*[:=]\s*\S+", re.I),
     # Provider token shapes ported from the gitleaks default rules (MIT, github.com/gitleaks/gitleaks,
     # config/gitleaks.toml) and Yelp detect-secrets plugins (Apache-2.0): fixed prefixes, so ordinary
     # prose and commit SHAs are not touched.
@@ -17,6 +18,10 @@ _SECRET_PATTERNS = (
     re.compile(r"\b(?:sk|rk)_(?:live|test)_[0-9A-Za-z]{24,}\b"),                       # Stripe
     re.compile(r"\bhf_[A-Za-z]{34,}\b"),                                               # Hugging Face
     re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),    # JWT
+)
+
+_SECRET_PATTERNS = TOKEN_PATTERNS + (
+    re.compile(r"\b(?:password|passwd|пароль|2fa|otp|seed phrase|private key)\s*[:=]\s*\S+", re.I),
 )
 
 
