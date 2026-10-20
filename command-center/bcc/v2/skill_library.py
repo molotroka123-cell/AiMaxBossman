@@ -23,7 +23,10 @@ class Skill:
     fingerprint: str
 
 def parse_skill(path: Path, source_root: Path) -> Skill:
-    text = path.read_text(encoding="utf-8", errors="replace")
+    # utf-8-sig: Блокнот Windows сохраняет UTF-8 с BOM, и тогда файл начинался
+    # с U+FEFF перед "---" — фронтматтер не распознавался, name/description/инструменты
+    # молча терялись, а весь YAML уходил в тело процесса.
+    text = path.read_text(encoding="utf-8-sig", errors="replace")
     fm: dict[str, Any] = {}
     body = text
     if text.startswith("---\n"):
