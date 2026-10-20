@@ -1,6 +1,6 @@
 
 from fastapi import FastAPI,HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
 from .models import JobCreate,JOB_TYPES
 from .service import JobService
 from .domain import ExamEngine
@@ -10,11 +10,13 @@ APP_ID="exam-trainer-ai"
 class ExamCreate(BaseModel): name:str; language:str="en"; topics:list[dict]
 class Questions(BaseModel): questions:list[dict]
 class Answers(BaseModel): answers:dict[str,str]
-class Mastery(BaseModel): mastery:dict[str,float]={}; count:int=10
+# count drives list slicing/repetition: negative sliced «all but the last», huge built a billion-entry list.
+MAX_COUNT=500
+class Mastery(BaseModel): mastery:dict[str,float]={}; count:int=Field(default=10,ge=1,le=MAX_COUNT)
 class Collect(BaseModel): query:str; exchange_root:str|None=None
 class SessionCreate(BaseModel): learner_id:str; mode:str="adaptive"; language:str|None=None
 class AnswerSubmit(BaseModel): question_id:str; answer:str
-class MockReq(BaseModel): count:int=20
+class MockReq(BaseModel): count:int=Field(default=20,ge=1,le=MAX_COUNT)
 def build_app():
     api=FastAPI(title="Exam Trainer AI",version="0.7.0"); jobs=JobService(APP_ID); eng=ExamEngine(jobs.store)
     @api.get("/")
@@ -49,7 +51,11 @@ def build_app():
     @api.post("/api/exams/{eid}/questions")
     def aq(eid:str,r:Questions):return {"questions":eng.add_questions(eid,r.questions)}
     @api.get("/api/exams/{eid}/questions")
-    def lq(eid:str):return {"questions":eng.questions(eid)}
+    def lq(eid:str,include_answers:bool=False):
+        # Learner-facing by default: the answer key is hidden like in /mock; the author view asks for it explicitly.
+        qs=eng.questions(eid)
+        return {"questions":qs if include_answers else [eng.without_answer_key(q) for q in qs],
+                "answer_key_hidden":not include_answers}
     @api.post("/api/exams/{eid}/diagnostic")
     def diag(eid:str,r:Answers):return eng.diagnostic(eid,r.answers)
     @api.post("/api/exams/{eid}/probability-map")
