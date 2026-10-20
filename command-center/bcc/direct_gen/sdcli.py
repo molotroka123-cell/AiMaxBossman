@@ -23,7 +23,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Awaitable, Callable
 
-from .catalog import UNKNOWN
+from .catalog import UNKNOWN, override_for, override_sha256, override_text
 
 PROGRESS = re.compile(r"\|\s*(\d+)/(\d+)\s*-\s*[\d.]+\s*(?:s/it|it/s)")
 GIB = 1024 ** 3
@@ -210,11 +210,13 @@ def _manifest(root: Path) -> dict:
         data = json.loads((Path(root) / "MANIFEST.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    return data.get("engines", {}) if isinstance(data, dict) else {}
+    engines = data.get("engines") if isinstance(data, dict) else None
+    return engines if isinstance(engines, dict) else {}
 
 
 def _declared_hash(entry: dict, rel: str) -> str:
-    for item in (entry.get("files") or {}).values():
+    files = entry.get("files") if isinstance(entry, dict) else None
+    for item in (files.values() if isinstance(files, dict) else ()):
         if isinstance(item, dict) and item.get("path") == rel and re.fullmatch(r"[0-9a-f]{64}", str(item.get("sha256", ""))):
             return item["sha256"]
     return UNKNOWN
@@ -226,7 +228,8 @@ def resolve_files(spec: SdSpec, root: Path) -> dict[str, Path]:
 
 def describe(spec: SdSpec, root: Path, binary: Path, overrides: dict | None = None) -> dict:
     entry = _manifest(root).get(spec.manifest_key, {}) if spec.manifest_key else {}
-    over = (overrides or {}).get(spec.id, {}) if isinstance(overrides, dict) else {}
+    entry = entry if isinstance(entry, dict) else {}
+    over = override_for(overrides, spec.id)
     weights, missing = [], []
     for role, path in resolve_files(spec, root).items():
         ok = path.is_file() and path.stat().st_size > 0
@@ -253,9 +256,9 @@ def describe(spec: SdSpec, root: Path, binary: Path, overrides: dict | None = No
         "max_refs": ref_capacity(spec), "ref_label": ref_label(spec),
         "default_steps": spec.default_steps, "max_steps": spec.max_steps, "default_resolution": spec.default_resolution,
         "notes": spec.notes,
-        "source": str(over.get("source") or UNKNOWN), "revision": str(over.get("revision") or UNKNOWN),
-        "license": str(over.get("license") or entry.get("license") or spec.license),
-        "sha256": str(over.get("sha256") or (main["sha256"] if main else UNKNOWN)),
+        "source": override_text(over, "source"), "revision": override_text(over, "revision"),
+        "license": override_text(over, "license", override_text(entry, "license", spec.license)),
+        "sha256": override_sha256(over) or (main["sha256"] if main else UNKNOWN),
     }
 
 

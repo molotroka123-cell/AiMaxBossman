@@ -128,6 +128,29 @@ def test_vram_probe_parses_nvidia_smi_csv(monkeypatch):
     assert res._read_free_vram_mb() == 6144 + 12288
 
 
+def test_vram_probe_parses_real_nounits_output(monkeypatch):
+    """`_QUERY` passes `nounits`: nvidia-smi then prints bare MiB numbers.
+    The probe must read that exact format, skip [N/A] rows, and say None
+    (not 0) when no row is a number."""
+    import subprocess
+
+    assert "--format=csv,noheader,nounits" in res._QUERY
+    out = {"stdout": "23879, 24564\n[N/A], [N/A]\n512, 12288\n"}
+
+    class FakeProc:
+        returncode = 0
+        stderr = ""
+
+        @property
+        def stdout(self):
+            return out["stdout"]
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
+    assert res._read_free_vram_mb() == 23879 + 512
+    out["stdout"] = "[N/A], [N/A]\n"
+    assert res._read_free_vram_mb() is None
+
+
 # -- AMD AI Max unified-memory capacity (owner Ryzen AI Max+ 395) ------------------
 
 def _amd_owner_machine(monkeypatch, available_mb: int | None):

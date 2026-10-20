@@ -488,6 +488,12 @@ class OpenAICompatAdapter(_BaseAdapter):
             owner = item.get("owned_by")
             if isinstance(owner, str):
                 model["owned_by"] = owner
+            # The serving window the catalog itself states (Groq `context_window`, OpenRouter/Together
+            # `context_length`, vLLM `max_model_len`, LM Studio `max_context_length`). Absent = unknown;
+            # it is never guessed here.
+            window = reported_context_window(item)
+            if window is not None:
+                model["context_window"] = window
             # These are training/model facts, not measured inference capacity.
             meta = item.get("meta")
             if isinstance(meta, dict):
@@ -541,6 +547,21 @@ class OpenAICompatAdapter(_BaseAdapter):
                     parsed[key] = None
             pricing[item["id"]] = parsed
         return pricing
+
+
+CONTEXT_WINDOW_KEYS = ("context_window", "context_length", "max_model_len", "max_context_length")
+
+
+def reported_context_window(item: Any) -> int | None:
+    """Context window a /models row states, or None. Only a positive integer counts (a bool, a string or a float
+    is not a statement about the window)."""
+    if not isinstance(item, dict):
+        return None
+    for key in CONTEXT_WINDOW_KEYS:
+        value = item.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return value
+    return None
 
 
 def model_catalog_problem(models: list[dict[str, Any]]) -> str:

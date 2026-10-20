@@ -250,12 +250,25 @@ async def _ollama_inventory(base_url: str | None) -> dict[str, dict[str, float]]
     return inventory
 
 
+def _ollama_tag(inventory: dict[str, dict[str, float]], name: str) -> dict[str, float] | None:
+    """Inventory row for a registered model name. Ollama lists every tag with
+    an explicit `:latest`, while the registry may hold the bare name (`qwen3`)
+    — the same tag (see registry._same_model). An exact match wins."""
+    if not name:
+        return None
+    if name in inventory:
+        return inventory[name]
+    key = name.removesuffix(":latest")
+    return next((row for tag, row in inventory.items()
+                 if tag.removesuffix(":latest") == key), None)
+
+
 async def _local_model_memory_mb(m, bench: dict) -> float | None:
     """Extra memory a local model needs now: 0 when resident, else bench/tag size."""
     # Only called for derive_local() models, so the URL is a loopback/LAN
     # endpoint; a non-Ollama server simply answers 404 → unknown size.
     inventory = await _ollama_inventory(m.get("provider_base_url"))
-    tag = inventory.get(str(m.get("name") or ""))
+    tag = _ollama_tag(inventory, str(m.get("name") or ""))
     if tag and tag.get("resident"):
         return 0.0
     if bench.get("ram_mb"):
@@ -270,9 +283,26 @@ def _measure_pool_sync() -> tuple[int | None, str]:
     return _measure_local_capacity()
 
 
+def _memory_headroom_mb(rules: dict) -> int:
+    """Owner headroom from router rules. An explicit 0 is a real setting (the
+    owner gives local models the whole pool), not "unset"; a value that is not
+    a finite non-negative number falls back to the default instead of raising
+    inside pick_model (rules arrive through PATCH /router/rules unvalidated)."""
+    raw = rules.get("memory_headroom_mb")
+    if raw is None or isinstance(raw, bool):
+        return DEFAULT_MEMORY_HEADROOM_MB
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_MEMORY_HEADROOM_MB
+    if value != value or value < 0 or value == float("inf"):
+        return DEFAULT_MEMORY_HEADROOM_MB
+    return int(value)
+
+
 async def live_available_memory_mb(rules: dict) -> tuple[float | None, dict]:
     """Measured free memory minus owner headroom; (None, info) when unmeasured."""
-    headroom = int(rules.get("memory_headroom_mb") or DEFAULT_MEMORY_HEADROOM_MB)
+    headroom = _memory_headroom_mb(rules)
     try:
         free_mb, probe = await asyncio.to_thread(_measure_pool_sync)
     except Exception:  # noqa: BLE001 — telemetry never blocks routing

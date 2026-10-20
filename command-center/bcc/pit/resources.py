@@ -211,14 +211,22 @@ def _read_free_vram_mb() -> int | None:
         total_free = 0
         seen_gpu = False
         for line in proc.stdout.splitlines():
-            parts = [part.strip().lower().replace(",", "") for part in line.split(",")]
-            if len(parts) < 2 or not parts[0].endswith("mib"):
+            # `_QUERY` asks for `nounits`, so real rows are bare MiB numbers
+            # ("23879, 24564"); a " MiB" suffix (older callers / no nounits)
+            # is accepted too. Requiring the suffix made every NVIDIA host
+            # read as "unmeasured" and demoted its local models.
+            parts = [part.strip().lower() for part in line.split(",")]
+            if len(parts) < 2:
                 continue
+            free = parts[0].removesuffix("mib").strip()
             try:
-                total_free += int(float(parts[0].removesuffix("mib")))
-                seen_gpu = True
+                value = float(free)
             except ValueError:
+                continue                    # "[n/a]", header text, garbage
+            if value != value or value < 0 or value == float("inf"):
                 continue
+            total_free += int(value)
+            seen_gpu = True
         if seen_gpu:
             return total_free
     return None

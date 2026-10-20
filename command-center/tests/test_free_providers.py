@@ -10,18 +10,42 @@ CATALOG = ["moonshotai/kimi-k3", "z-ai/glm-5.3", "nvidia/nemotron-3-embed-1b",
            "meta/llama-guard-4-12b", "nvidia/nemotron-3.5-content-safety"]
 
 
+#: what the catalog itself states about the window (Groq-style `context_window`); the others say nothing
+WINDOWS = {"moonshotai/kimi-k3": 262144}
+
+
 @pytest.fixture
 def catalog(monkeypatch):
     seen = {}
 
-    async def fake_list_models(self):
+    async def fake_list_model_info(self):
+        # the real `list_models` is a projection of this, so both entry points see the same fake catalog
         seen["base_url"], seen["key"] = self.base_url, self.api_key
         if self.api_key != KEY:
             raise ProviderError("401 Unauthorized", kind="http")
-        return list(CATALOG)
+        return [{"id": m, **({"context_window": WINDOWS[m]} if m in WINDOWS else {})} for m in CATALOG]
 
-    monkeypatch.setattr(OpenAICompatAdapter, "list_models", fake_list_models)
+    monkeypatch.setattr(OpenAICompatAdapter, "list_model_info", fake_list_model_info)
     return seen
+
+
+async def test_connect_registers_the_window_the_catalog_states(env, catalog):
+    from bcc.features.free_providers import DEFAULT_CONTEXT
+    body = (await env.client.post("/api/free-providers/nvidia_nim/connect", json={"api_key": KEY})).json()
+    windows = {m["name"]: m["context_window"] for m in await env.svc.registry.list_models()
+               if m["provider_id"] == body["provider_id"]}
+    assert windows == {"moonshotai/kimi-k3": 262144, "z-ai/glm-5.3": DEFAULT_CONTEXT}
+
+
+async def test_list_model_info_keeps_only_a_stated_integer_window():
+    import httpx
+    rows = [{"id": "groq", "context_window": 131072}, {"id": "or", "context_length": 200000},
+            {"id": "vllm", "max_model_len": 32768}, {"id": "liar", "context_window": True},
+            {"id": "text", "context_length": "128k"}, {"id": "silent"}]
+    t = httpx.MockTransport(lambda r: httpx.Response(200, json={"object": "list", "data": rows}))
+    info = {m["id"]: m.get("context_window") for m in
+            await OpenAICompatAdapter(base_url="http://127.0.0.1:9/v1", transport=t).list_model_info()}
+    assert info == {"groq": 131072, "or": 200000, "vllm": 32768, "liar": None, "text": None, "silent": None}
 
 
 async def test_connect_registers_only_chat_models_at_zero_price(env, catalog):

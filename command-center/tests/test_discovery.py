@@ -259,6 +259,23 @@ def test_ollama_store_is_read_from_manifests_not_from_gguf(tmp_path):
     assert found[0]["size_gb"] == 4.7
 
 
+def test_ollama_names_keep_namespace_and_registry(tmp_path):
+    """`ollama list` shows community and hf.co models with their namespace.
+    Dropping it named huihui_ai/qwen3-abliterated:8b like a library model
+    and gave two different weights one name."""
+    layer = {"layers": [{"mediaType": "application/vnd.ollama.image.model", "size": 1_000_000_000}]}
+    rel = [("registry.ollama.ai", "library", "qwen3", "8b"),
+           ("registry.ollama.ai", "huihui_ai", "qwen3", "8b"),
+           ("hf.co", "bartowski", "Qwen3-8B-GGUF", "Q4_K_M")]
+    for parts in rel:
+        manifest = tmp_path.joinpath("manifests", *parts)
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps(layer), encoding="utf-8")
+    (tmp_path / "blobs").mkdir()
+    names = sorted(f["name"] for f in _scan_files([str(tmp_path)]))
+    assert names == ["hf.co/bartowski/Qwen3-8B-GGUF:Q4_K_M", "huihui_ai/qwen3:8b", "qwen3:8b"]
+
+
 def test_default_dirs_follow_the_operating_system(monkeypatch):
     """На Windows Linux-каталоги не существуют — скан находил ровно ноль.
 

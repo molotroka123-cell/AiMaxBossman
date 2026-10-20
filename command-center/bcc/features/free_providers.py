@@ -126,7 +126,7 @@ async def connect(name: str, body: ConnectIn, request: Request):
     if not key or any(ch in key for ch in "\r\n\t "):
         raise HTTPException(422, {"message": "пустой или многострочный ключ"})
     try:
-        remote = await build_adapter("openai_compat", preset.base_url, key).list_models()
+        info = await build_adapter("openai_compat", preset.base_url, key).list_model_info()
     except ProviderError as exc:
         if exc.kind == "network":
             # Сеть недоступна: про сам ключ ничего не известно, «не принял ключ» было бы неправдой.
@@ -149,6 +149,11 @@ async def connect(name: str, body: ConnectIn, request: Request):
     existing = await svc.registry.list_models()
     taken = {m.get("alias") for m in existing}
     registered = {m.get("name") for m in existing if m.get("provider_id") == provider_id}
+    # The window the provider's own catalog states (Groq lists `context_window`); DEFAULT_CONTEXT only when the
+    # catalog is silent. Registering every model at one guessed 32k made the router reject long tasks for a 128k
+    # model and accept them for an 8k one.
+    windows = {m["id"]: m.get("context_window") for m in info}
+    remote = [m["id"] for m in info]
     chat = [mid for mid in remote if is_chat_model(mid, preset)]
     added = []
     for mid in chat:
@@ -159,7 +164,7 @@ async def connect(name: str, body: ConnectIn, request: Request):
             continue
         await svc.registry.create_model(
             provider_id=provider_id, name=mid, alias=alias, kind="cloud",
-            context_window=DEFAULT_CONTEXT, price_in=0.0, price_out=0.0,
+            context_window=windows.get(mid) or DEFAULT_CONTEXT, price_in=0.0, price_out=0.0,
             caps={"tools": True, "coding": True, "free_tier": preset.name})
         taken.add(alias)
         added.append(alias)

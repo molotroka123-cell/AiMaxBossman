@@ -175,6 +175,20 @@ def test_a_corrupt_record_reads_as_unmeasured_never_as_healthy():
             assert rec.checked_at is None            # unusable without a timestamp
 
 
+def test_non_finite_or_bogus_latencies_do_not_crash_ranking():
+    """One row with NaN/inf latency (Python's json writes and reads them) raised from `int()` and took down every
+    caller that ranks models. Such values are not observations; real ones survive."""
+    checked = NOW.isoformat()
+    rows = [{"status": mh.HEALTHY, "checked_at": checked, "latency_ms": float("nan")},
+            {"status": mh.HEALTHY, "checked_at": checked, "latency_ms": float("inf"),
+             "latencies_ms": [12, float("nan"), float("-inf"), -3, True, "9", 40.7]},
+            {"status": mh.HEALTHY, "checked_at": checked, "latency_ms": True}]
+    recs = [mh.HealthRecord.from_dict(r) for r in rows]
+    assert [r.latency_ms for r in recs] == [None, None, None]
+    assert recs[1].latencies_ms == (12, 40) and recs[1].p95_latency_ms == 40
+    assert len(mh.rank([(i, r) for i, r in enumerate(recs)], now=NOW)) == 3
+
+
 def test_a_record_round_trips_through_json():
     rec = mh.record_observation(None, mh.HEALTHY, "ok", latency_ms=11, now=NOW)
     again = mh.HealthRecord.from_dict(rec.to_dict())
