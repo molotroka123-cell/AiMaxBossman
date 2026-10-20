@@ -7,22 +7,30 @@ SAFE_LOCAL={"wait","file.copy","file.move","file.mkdir","verify.exists"}
 BOSSMAN_UI={"ui.click","ui.type","ui.wait","app.open","browser.download"}
 DENY={"payment","security.disable","credential.export"}
 
+class InvalidSteps(ValueError):
+    """Steps failed validate_steps(); nothing was stored."""
+    def __init__(self,report):super().__init__(f"invalid steps: {report['errors']}");self.report=report
+
 class Autopilot:
     def __init__(self,store):self.s=store
+    def _require_valid(self,steps):
+        v=self.validate_steps(steps)
+        if not v["valid"]:raise InvalidSteps(v)
     def create_macro(self,name,steps):
+        self._require_valid(steps)
         mid=str(uuid.uuid4()); m={"id":mid,"name":name,"version":1,"steps":steps,"status":"draft"}
-        self.validate_steps(steps);self.s.kv_put("macros",mid,m);return m
+        self.s.kv_put("macros",mid,m);return m
     def validate_steps(self,steps):
         errors=[]
         for i,s in enumerate(steps):
-            typ=s.get("action")
+            typ=s.get("action") if isinstance(s,dict) else None
             if typ in DENY: errors.append({"step":i,"error":"DENY action"})
             elif typ not in SAFE_LOCAL|BOSSMAN_UI:errors.append({"step":i,"error":"unknown action"})
         return {"valid":not errors,"errors":errors}
     def get(self,mid):return self.s.kv_get("macros",mid)
     def list(self):return [x["value"] for x in self.s.kv_list("macros")]
     def new_version(self,mid,steps):
-        old=self.get(mid); self.validate_steps(steps)
+        old=self.get(mid); self._require_valid(steps)
         archive=dict(old); self.s.kv_put("macro_versions",f"{mid}:v{old['version']}",archive)
         old["version"]+=1;old["steps"]=steps;old["status"]="draft";self.s.kv_put("macros",mid,old);return old
     def dry_run(self,mid,variables=None):
