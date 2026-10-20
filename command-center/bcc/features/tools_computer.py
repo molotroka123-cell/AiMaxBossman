@@ -198,6 +198,39 @@ SECRET_TEXT_PATTERNS = (
     ("приватный ключ", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
 )
 _CARD_RX = re.compile(r"(?<!\d)(?:\d[ \-]?){12,18}\d(?!\d)")
+LOG_REDACTED = "[REDACTED]"
+
+
+def _redact_log(value: Any) -> Any:
+    """Secrets out of what Computer Use writes to its step log and the bus.
+
+    Window titles, element names, targets and postcondition notes come from the
+    screen and from the model: a browser tab titled with a token-bearing URL, a
+    Notepad window over `.env`, or `expect.contains_text` naming a key all used to
+    land verbatim in the step log (HTTP /computer/step-log) and in bus events
+    (Flight Recorder). Redaction happens BEFORE any truncation: cutting first could
+    shorten a token below the pattern length and leak its prefix.
+    Uses the platform's own redactor (bossman.obs) plus the Computer Use secret
+    patterns that refuse typing secrets.
+    """
+    if isinstance(value, str):
+        try:
+            from bossman.obs import redact
+            text = redact(value)
+        except Exception:  # noqa: BLE001 — без общего редактора хватит своих шаблонов
+            text = value
+        for _label, rx in SECRET_TEXT_PATTERNS:
+            text = rx.sub(LOG_REDACTED, text)
+        return text
+    if isinstance(value, dict):
+        return {k: _redact_log(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return type(value)(_redact_log(v) for v in value)
+    return value
+
+
+async def _emit_safe(svc, event: str, **fields: Any) -> None:
+    await svc.bus.emit(event, **_redact_log(fields))
 CREDENTIAL_TARGET_TOKENS = ("password", "passwd", "пароль", "passcode", "passphrase", "pin-код",
                             "pin code", "пин-код", "cvv", "cvc", "card number", "номер карты",
                             "секретн", "secret", "api key", "api-key", "token", "токен", "otp",
@@ -339,7 +372,7 @@ class ComputerState:
 
     def record_step(self, phase: str, **details: Any) -> dict[str, Any]:
         entry = {"seq": len(self.step_log) + 1, "phase": phase, "at": time.time(),
-                 "generation": self.generation, "session": self.session, **details}
+                 "generation": self.generation, "session": self.session, **_redact_log(details)}
         self.step_log.append(entry)
         del self.step_log[:-200]
         return entry
@@ -732,14 +765,15 @@ async def observe(svc, *, screenshot: bool = True, window: Any = None,
     obs["fingerprint"] = _fingerprint(win, elements)
     st.last = obs
     st.remember(obs)
-    st.record_step("observe", window=str(win.get("title") or "")[:200],
+    safe_title = _redact_log(str(win.get("title") or ""))[:200]
+    st.record_step("observe", window=safe_title,
                    hwnd=win.get("handle"), pid=win.get("pid"),
                    elements=len(elements), fingerprint=obs["fingerprint"],
                    post_state_sha256=obs["fingerprint"],
                    stopped=obs["stopped"])
-    await svc.bus.emit("computer.observe", generation=st.generation,
-                       window=str(win.get("title") or "")[:200], elements=len(elements),
-                       screenshot=shot)
+    await _emit_safe(svc, "computer.observe", generation=st.generation,
+                     window=safe_title, elements=len(elements),
+                     screenshot=shot)
     return obs
 
 
@@ -1847,14 +1881,15 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                     after_window = bh
         await asyncio.sleep(SETTLE_S)
         pre_sha = (before or {}).get("fingerprint")
-        st.record_step("act", action=kind, target=target[:200],
+        safe_target = _redact_log(target)[:200]
+        st.record_step("act", action=kind, target=safe_target,
                        before_generation=(before or {}).get("generation"),
                        pre_state_sha256=pre_sha,
                        approval_ref=approval_ref, approved_kind=approved_kind if required else None)
         after = await _bounded(st, observe(svc, window=after_window, scope=scope), "наблюдение")
         post_sha = after.get("fingerprint")
         verified, notes = verify(after, args.get("expect"), started_at=started_at)
-        st.record_step("verify", action=kind, target=target[:200],
+        st.record_step("verify", action=kind, target=safe_target,
                        before_generation=(before or {}).get("generation"),
                        after_generation=after["generation"],
                        pre_state_sha256=pre_sha, post_state_sha256=post_sha,
@@ -1868,11 +1903,11 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                   "window": acted_window or {k: (after.get("window") or {}).get(k)
                                              for k in ("handle", "pid", "title", "foreground")},
                   "elapsed_ms": int((time.perf_counter() - t0) * 1000), "observation": after}
-    await svc.bus.emit("computer.act", action=kind, target=target[:200], verified=verified,
-                       before=result["before_generation"], after=result["after_generation"],
-                       approved_kind=result["approved_kind"], approval_id=approval_ref,
-                       window=str((after.get("window") or {}).get("title") or "")[:200],
-                       hwnd=(result["window"] or {}).get("handle"), pid=(result["window"] or {}).get("pid"))
+    await _emit_safe(svc, "computer.act", action=kind, target=safe_target, verified=verified,
+                     before=result["before_generation"], after=result["after_generation"],
+                     approved_kind=result["approved_kind"], approval_id=approval_ref,
+                     window=_redact_log(str((after.get("window") or {}).get("title") or ""))[:200],
+                     hwnd=(result["window"] or {}).get("handle"), pid=(result["window"] or {}).get("pid"))
     return result
 
 
@@ -1979,8 +2014,9 @@ async def _t_act(args, ctx):
             # агента, правило политики, аренда, прямой вызов).
             await claim_approval(ctx.svc, getattr(ctx, "approval_id", None), getattr(ctx, "task", None))
     except ActRefused as exc:
-        await ctx.svc.bus.emit("computer.refused", action=kind[:40], reason=str(exc)[:300],
-                               approval_id=getattr(ctx, "approval_id", None))
+        await _emit_safe(ctx.svc, "computer.refused", action=kind[:40],
+                         reason=_redact_log(str(exc))[:300],
+                         approval_id=getattr(ctx, "approval_id", None))
         return ToolResult(content=f"действие не выполнено: {exc}", one_line="computer.act: отказ",
                           error=True)
     approved_kind, approval_ref = approved_consequence(args, ctx)
@@ -2168,11 +2204,11 @@ async def pause_for_takeover(svc, reason: str = "owner_takeover") -> dict[str, A
     ставит явный стоп, фиксирует шаг takeover_pause и блокирует действия агента."""
     st = _owner_state(svc)
     st.takeover_active = True
-    st.takeover_reason = str(reason or "owner_takeover")[:200]
+    st.takeover_reason = _redact_log(str(reason or "owner_takeover"))[:200]
     st.set_stop("owner_takeover")
     step = st.record_step("takeover_pause", by="owner", reason=st.takeover_reason)
-    await svc.bus.emit("computer.takeover.paused", by="owner", reason=st.takeover_reason,
-                       generation=st.generation)
+    await _emit_safe(svc, "computer.takeover.paused", by="owner", reason=st.takeover_reason,
+                     generation=st.generation)
     return {"stopped": True, "takeover_active": True, "reason": st.takeover_reason,
             "generation": st.generation, "step": step}
 

@@ -161,3 +161,31 @@ async def test_act_on_an_unreadable_after_screen_is_not_reported_verified(env, d
 
     res = await act_then_break()
     assert res["verified"] is False
+
+
+# ------------------------------------------------------------------ 7. secrets out of the step log and bus
+
+async def test_secrets_from_screen_and_expect_never_reach_step_log_or_bus(env, desk, monkeypatch):
+    import json
+
+    token = "ghp_" + "Ab3" * 12                       # built at runtime: not a real key
+    api_key = "sk-" + "Zx9" * 9
+    events: list[tuple[str, dict]] = []
+    orig_emit = env.svc.bus.emit
+
+    async def recording_emit(event, **kw):
+        events.append((event, kw))
+        return await orig_emit(event, **kw)
+
+    monkeypatch.setattr(env.svc.bus, "emit", recording_emit)
+    desk.desktop.title = f"{token} — Блокнот"            # e.g. a .env opened in Notepad
+    g = (await tc.observe(env.svc))["generation"]
+    await tc.act(env.svc, {"action": "hotkey", "keys": ["ctrl", "s"], "generation": g,
+                           "expect": {"contains_text": api_key}})
+    await tc.pause_for_takeover(env.svc, reason=f"enter {api_key} manually")
+    blob = json.dumps({"log": desk.step_log, "events": events}, ensure_ascii=False, default=str)
+    assert token not in blob and token[:20] not in blob
+    assert api_key not in blob and api_key[:12] not in blob
+    assert "REDACTED" in blob
+    # positive control: ordinary text survives
+    assert "Блокнот" in blob
