@@ -235,18 +235,27 @@ class HealthRecord:
         status = str(data.get("status") or UNMEASURED)
         if status not in ALL_STATUSES:
             status = UNMEASURED
-        latency = data.get("latency_ms")
         raw_lat = data.get("latencies_ms")
-        latencies = tuple(int(v) for v in raw_lat
-                          if isinstance(v, (int, float)) and not isinstance(v, bool)
+        latencies = tuple(v for v in map(_latency, raw_lat) if v is not None
                           )[-LATENCY_WINDOW:] if isinstance(raw_lat, list) else ()
         return cls(latencies_ms=latencies,
-status=status, detail=str(data.get("detail") or ""),
+                   status=status, detail=str(data.get("detail") or ""),
                    checked_at=_dt("checked_at"), last_success_at=_dt("last_success_at"),
                    consecutive_failures=_int("consecutive_failures"),
                    successes=_int("successes"), samples=_int("samples"),
                    cooldown_until=_dt("cooldown_until"),
-                   latency_ms=int(latency) if isinstance(latency, (int, float)) else None)
+                   latency_ms=_latency(data.get("latency_ms")))
+
+
+def _latency(value: Any) -> int | None:
+    """A stored latency only when it is a finite, non-negative number. NaN/inf made ``int()`` raise, which turned
+    one corrupt row into a crash of every caller that ranks models (router, engine fallback, health); ``True`` read
+    as 1 ms. Unreadable is "no observation", consistent with the rest of ``from_dict``."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or value < 0:
+        return None
+    return int(value)
 
 
 ALL_STATUSES = frozenset({HEALTHY, SILENT, MALFORMED, THROTTLED, UNAUTHORIZED,
