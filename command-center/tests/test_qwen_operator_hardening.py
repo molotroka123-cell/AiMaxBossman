@@ -58,6 +58,25 @@ async def test_truncation_flag_forces_retry_even_with_few_tokens():
     assert qo.ctx_report([run.usage(res, "planner")])["truncated"] is True
 
 
+async def test_pressure_is_measured_against_the_loaded_window_not_the_request():
+    """Ollama clamps num_ctx to what the model supports and reports the loaded window in /api/ps. 30k prompt tokens
+    in a 32k loaded window is ~98% full, not ~49% of the requested 64k; and asking for 128k again would only get the
+    same clamp, so there is no retry, only a recorded shortfall."""
+    calls = []
+
+    async def chat(model, messages, **kw):
+        calls.append(kw.get("num_ctx"))
+        return {"ok": True, "model": model, "text": "x", "tokens_in": 30000, "tokens_out": 3,
+                "truncated": False, "seconds": 0.1, "context_length_loaded": 32768}
+
+    run = _run(chat)
+    res = await run.chat("planner", [{"role": "user", "content": "hi"}])
+    assert calls == [65536]
+    assert res["ctx_pressure_pct"] > 90
+    assert res["ctx_clamped"] == {"requested": 65536, "loaded": 32768}
+    assert qo.ctx_report([run.usage(res, "planner")])["insufficient"] is True
+
+
 async def test_no_retry_above_the_top_of_the_ladder():
     chat, calls = _chat_factory(250000)
     run = _run(chat, num_ctx=qo.CTX_256K)

@@ -293,6 +293,17 @@ def next_ctx(n: int) -> int | None:
     return next((c for c in CTX_LADDER if c > n), None)
 
 
+def effective_ctx(res: dict, requested: int) -> int:
+    """The window the call really ran with. Ollama clamps ``num_ctx`` to what the model/runner supports and reports
+    the loaded window in /api/ps (``context_length_loaded``); measuring pressure against the REQUESTED 64k when 32k
+    was loaded under-reports it by half and hides truncation. Unknown -> the requested value (old behaviour)."""
+    for key in ("num_ctx_effective", "context_length_loaded"):
+        value = res.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and 0 < value < requested:
+            return value
+    return requested
+
+
 def ctx_pressure(res: dict, num_ctx: int, reserve: int = 2048) -> dict:
     """How full the context was: prompt tokens + the room the answer needs, against num_ctx. A call that
     Ollama truncated counts as insufficient whatever the percentage."""
@@ -410,9 +421,10 @@ async def ollama_chat(model: str, messages: list[dict], *, num_ctx: int = CTX_DE
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
     loaded = next((m for m in ps if m.get("name") == model or m.get("model") == model), {})
     tin = int(data.get("prompt_eval_count") or 0)
+    window = effective_ctx({"context_length_loaded": loaded.get("context_length")}, num_ctx)
     return {"ok": True, "model": model, "text": text, "tokens_in": data.get("prompt_eval_count", 0),
-            # Ollama silently drops the oldest prompt tokens when the prompt fills the window
-            "truncated": tin >= int(num_ctx * 0.98),
+            # Ollama silently drops the oldest prompt tokens when the prompt fills the (loaded) window
+            "truncated": tin >= int(window * 0.98), "num_ctx_effective": window,
             "tokens_out": data.get("eval_count", 0), "cost_usd": 0.0,
             "seconds": round(time.monotonic() - started, 1),
             "load_seconds": round((data.get("load_duration") or 0) / 1e9, 1),
@@ -534,7 +546,8 @@ class Run:
                "tokens_out": res.get("tokens_out", 0), "cost_usd": res.get("cost_usd", 0.0),
                "seconds": res.get("seconds"), "ok": res.get("ok", False)}
         for k in ("num_ctx_requested", "context_length_loaded", "size_bytes", "size_vram_bytes", "load_seconds",
-                  "error", "provider", "task_id", "run_id", "ctx_pressure_pct", "ctx_truncated", "ctx_retry"):
+                  "error", "provider", "task_id", "run_id", "ctx_pressure_pct", "ctx_truncated", "ctx_retry",
+                  "num_ctx_effective", "ctx_clamped"):
             if res.get(k) is not None:
                 row[k] = res[k]
         self.rec["model_calls"].append(row)
@@ -557,14 +570,20 @@ class Run:
         n = int(cfg.get("num_ctx") or CTX_DEFAULT)
         kw: dict[str, Any] = {"json_mode": True} if json_mode else {}
         res = await self.local_chat(cfg["model"], messages, num_ctx=n, **kw)
-        p = ctx_pressure(res, n, num_predict) if res.get("ok") else {"pct": None, "truncated": False, "over": False}
+        window = effective_ctx(res, n)
+        p = ctx_pressure(res, window, num_predict) if res.get("ok") else {"pct": None, "truncated": False, "over": False}
         nxt = next_ctx(n)
+        if res.get("ok") and window < n:
+            # The runner clamped the request: asking for an even larger window gets the same clamp, so the retry
+            # would only double the cost. The shortfall is recorded instead of being retried away.
+            res["ctx_clamped"] = {"requested": n, "loaded": window}
+            nxt = None
         if res.get("ok") and p["over"] and nxt:
             again = await self.local_chat(cfg["model"], messages, num_ctx=nxt, **kw)
             if again.get("ok"):
                 again["ctx_retry"] = {"from": n, "to": nxt, "first_pct": p["pct"], "first_truncated": p["truncated"]}
                 cfg["num_ctx"] = nxt                       # later calls of this task start at the larger ctx
-                res, p = again, ctx_pressure(again, nxt, num_predict)
+                res, p = again, ctx_pressure(again, effective_ctx(again, nxt), num_predict)
                 res["num_ctx_requested"] = nxt
         res["ctx_pressure_pct"] = p["pct"]
         res["ctx_truncated"] = p["truncated"]
