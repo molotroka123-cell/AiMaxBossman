@@ -632,8 +632,19 @@ async def call(ref: str, request: Request):
     except MCPCallError as exc:
         await _emit_failure(svc, row["name"], tool, str(exc))
         raise HTTPException(502, {"message": str(exc)})
-    return {"server": row["name"], "tool": tool, "is_error": res.is_error,
-            "text": res.text, "structured": res.structured}
+    # Те же границы, что у вызова моделью: секреты вычищены, текст и structured
+    # ограничены — ответ чужого сервера не уходит в браузер/пульт целиком.
+    text, structured = redact_result(res.text or "", res.structured, spec)
+    truncated = len(text) > MCP_OUTPUT_LIMIT
+    if truncated:
+        text = text[:MCP_OUTPUT_LIMIT]
+    structured, omitted, why = bounded_structured(structured)
+    out = {"server": row["name"], "tool": tool, "is_error": res.is_error,
+           "text": text, "truncated": truncated,
+           "structured": structured, "structured_omitted": omitted}
+    if omitted:
+        out["structured_note"] = why
+    return out
 
 
 # ---------------------------------------------------------------- Feature
