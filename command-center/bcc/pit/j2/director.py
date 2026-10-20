@@ -528,7 +528,8 @@ _BOILERPLATE = re.compile(
     r"есть\s+ли\s+(?:у\s+вас\s+)?(?:ещё|еще)\s+(?:вопросы|что-то)|нужна\s+ли\s+(?:вам\s+)?(?:ещё\s+|еще\s+)?(?:дополнительная\s+)?помощь|"
     r"могу\s+ли\s+я\s+(?:ещё|еще)\s+(?:чем-то\s+)?помочь|если\s+(?:у\s+вас\s+)?(?:будут|появятся)\s+(?:ещё\s+|еще\s+)?вопросы[^?]{0,40}"
     r"|тебе\s+удобнее,?\s+когда\s+я\s+предлагаю\s+следующий\s+шаг)\s*\?\s*$", re.I)
-_SENTENCE = re.compile(r"[^.!?…]*[.!?…]+|[^.!?…]+$", re.S)
+# closing quotes/brackets belong to the sentence they end: «где ты?» is not a sentence break inside the quote
+_SENTENCE = re.compile(r"[^.!?…]*[.!?…]+[»\"'”)\]]*|[^.!?…]+$", re.S)
 
 
 def split_sentences(text: str) -> list[str]:

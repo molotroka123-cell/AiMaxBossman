@@ -279,6 +279,12 @@ def test_trim_questions_never_touches_questions_in_the_body_or_a_single_question
     assert dr.trim_questions(single, 1) == single
 
 
+def test_trim_questions_keeps_a_quoted_question_whole():
+    """Regression: the split happened at the "?" before "»", so the quote was cut and the real question dropped."""
+    assert dr.trim_questions("Он сказал «где ты?» Ты где? Что делаешь?", 1) == "Он сказал «где ты?» Ты где?"
+    assert dr.split_sentences("Она спросила (зачем?) и ушла.") == ["Она спросила (зачем?)", " и ушла."]
+
+
 def test_boilerplate_closing_question_is_stripped():
     reply = "Вот план на неделю: пн, ср, пт. Чем ещё могу помочь?"
     assert dr.strip_boilerplate(reply) == "Вот план на неделю: пн, ср, пт."
