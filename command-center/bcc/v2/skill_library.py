@@ -43,11 +43,33 @@ class Skill:
     body: str
     fingerprint: str
 
-def parse_skill(path: Path, source_root: Path) -> Skill:
+#: Самый большой навык в поставке — ~33 КБ. Всё, что больше 256 КБ, — не
+#: методика, а мусор или атака на память: такой файл не читается целиком.
+MAX_SKILL_BYTES = 256 * 1024
+
+
+class SkillLoadError(ValueError):
+    """Навык нельзя загрузить; сообщение — по-русски и без абсолютных путей."""
+
+
+def _too_big(skill_id: str, size: int, limit: int = MAX_SKILL_BYTES) -> str:
+    return (f"Навык «{skill_id}»: SKILL.md занимает {size} байт, допустимо не больше {limit}. "
+            "Сократите текст или вынесите справку в отдельный файл.")
+
+
+def parse_skill(path: Path, source_root: Path, *, max_bytes: int = MAX_SKILL_BYTES) -> Skill:
+    size = path.stat().st_size
+    if size > max_bytes:
+        raise SkillLoadError(_too_big(path.parent.name, size, max_bytes))
+    with path.open("rb") as fh:
+        raw = fh.read(max_bytes + 1)          # файл мог вырасти между stat и read
+    if len(raw) > max_bytes:
+        raise SkillLoadError(_too_big(path.parent.name, len(raw), max_bytes))
     # utf-8-sig: Блокнот Windows сохраняет UTF-8 с BOM, и тогда файл начинался
     # с U+FEFF перед "---" — фронтматтер не распознавался, name/description/инструменты
-    # молча терялись, а весь YAML уходил в тело процесса.
-    text = path.read_text(encoding="utf-8-sig", errors="replace")
+    # молча терялись, а весь YAML уходил в тело процесса. Переводы строк
+    # нормализуются так же, как это делал read_text (universal newlines).
+    text = raw.decode("utf-8-sig", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
     fm: dict[str, Any] = {}
     body = text
     if text.startswith("---\n"):
@@ -63,6 +85,9 @@ def parse_skill(path: Path, source_root: Path) -> Skill:
                 # вложенные поля (metadata.version), и версия скилла
                 # становится невидимой.
                 fm = _quoted_retry(text[4:end]) or _lenient_frontmatter(text[4:end])
+            if not isinstance(fm, dict):
+                # фронтматтер-список или строка: fm.get() ронял весь discovery
+                fm = _lenient_frontmatter(text[4:end])
             body = text[end + 4:].lstrip("\r\n")
     sid = path.parent.name
     name = str(fm.get("name") or sid)  # noqa: E501 (см. _lenient_frontmatter ниже)
@@ -78,6 +103,9 @@ class SkillLibrary:
         self.canonical_root = Path(canonical_root).expanduser().resolve()
         self._cache: list[Skill] | None = None
         self._cache_key: tuple | None = None
+        #: навыки, которые не загрузились при последнем discover():
+        #: [{"skill": id, "root": имя корня, "message": по-русски}]
+        self.errors: list[dict[str, str]] = []
 
     def _scan_key(self) -> tuple:
         """Дешёвый ключ состояния ФС: (путь, mtime) каждого SKILL.md.
@@ -103,6 +131,7 @@ class SkillLibrary:
         if self._cache is not None and self._cache_key == key:
             return list(self._cache)          # копия: кэш не мутируем наружу
         found: list[Skill] = []
+        errors: list[dict[str, str]] = []
         seen_paths: set[Path] = set()
         for root in self.roots:
             if not root.is_dir():
@@ -112,9 +141,20 @@ class SkillLibrary:
                 if rp in seen_paths:
                     continue
                 seen_paths.add(rp)
-                found.append(parse_skill(rp, root))
+                # один битый/огромный/нечитаемый SKILL.md не должен обнулять
+                # весь список навыков владельца
+                try:
+                    found.append(parse_skill(rp, root))
+                except SkillLoadError as exc:
+                    errors.append({"skill": path.parent.name, "root": root.name,
+                                   "message": str(exc)})
+                except OSError as exc:
+                    errors.append({"skill": path.parent.name, "root": root.name,
+                                   "message": f"Навык «{path.parent.name}»: SKILL.md не читается "
+                                              f"({exc.__class__.__name__})."})
         self._cache = found
         self._cache_key = key
+        self.errors = errors
         return list(found)
 
     def by_id(self) -> dict[str, Skill]:
@@ -137,6 +177,9 @@ class SkillLibrary:
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,62}", skill_id):
             raise ValueError("Имя навыка: 2–63 символа, только строчные латинские буквы, цифры и дефис "
                              "(например, my-skill). Русские буквы и пробелы не подходят.")
+        size = len(content.encode("utf-8"))
+        if size > MAX_SKILL_BYTES:
+            raise SkillLoadError(_too_big(skill_id, size))
         dest = self.canonical_root / skill_id / SKILL_FILE
         if dest.exists() and not overwrite:
             raise FileExistsError(dest)

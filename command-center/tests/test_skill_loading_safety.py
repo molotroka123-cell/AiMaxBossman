@@ -79,6 +79,53 @@ def test_yaml_alias_bomb_is_not_expanded(tmp_path):
     assert ok.frontmatter["required_tools"] == ["a.b"]
 
 
+def test_non_mapping_frontmatter_does_not_break_discovery(tmp_path):
+    _write(tmp_path, "list-skill", "---\n- just\n- a list\n---\n# Body\n")
+    _write(tmp_path, "clean-skill", CLEAN)
+    lib = SkillLibrary([tmp_path], tmp_path)
+    found = {s.id: s for s in lib.discover()}
+    assert set(found) == {"list-skill", "clean-skill"}
+    assert found["list-skill"].frontmatter == {}
+    assert found["list-skill"].name == "list-skill"
+
+
+# ---------------------------------------------------------------------- size
+
+def test_oversized_skill_is_skipped_with_russian_error(tmp_path):
+    from bcc.v2 import skill_library as sl
+    big = CLEAN.replace("1. step", "x" * (sl.MAX_SKILL_BYTES + 10))
+    _write(tmp_path, "huge-skill", big.replace("clean-skill", "huge-skill"))
+    _write(tmp_path, "clean-skill", CLEAN)
+    lib = SkillLibrary([tmp_path], tmp_path)
+    assert [s.id for s in lib.discover()] == ["clean-skill"]
+    assert [e["skill"] for e in lib.errors] == ["huge-skill"]
+    msg = lib.errors[0]["message"]
+    assert "huge-skill" in msg and "не больше" in msg
+    assert str(tmp_path) not in msg          # no absolute paths for the owner UI
+
+
+def test_create_refuses_oversized_content_before_writing(tmp_path):
+    import pytest
+    from bcc.v2 import skill_library as sl
+    lib = SkillLibrary([tmp_path], tmp_path)
+    with pytest.raises(ValueError, match="не больше"):
+        lib.create("huge-skill", CLEAN + "x" * sl.MAX_SKILL_BYTES)
+    assert not (tmp_path / "huge-skill").exists()
+    assert lib.create("clean-skill", CLEAN).name == "clean-skill"
+
+
+async def test_load_errors_endpoint(env, tmp_path):
+    from bcc.v2 import skill_library as sl
+    root = tmp_path / "ws" / ".agents" / "skills"
+    _write(root, "huge-skill", "---\nname: huge-skill\n---\n" + "x" * (sl.MAX_SKILL_BYTES + 1))
+    _write(root, "clean-skill", CLEAN)
+    env.svc.skills = SkillLibrary([root], root)
+    ids = [s["id"] for s in (await env.client.get("/api/skills")).json()]
+    errs = (await env.client.get("/api/skill-load-errors")).json()
+    assert ids == ["clean-skill"]
+    assert [e["skill"] for e in errs["errors"]] == ["huge-skill"]
+
+
 def test_yaml_python_tags_never_execute(tmp_path, monkeypatch):
     import os
     calls = []

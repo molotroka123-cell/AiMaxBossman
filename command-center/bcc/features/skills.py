@@ -113,6 +113,17 @@ async def list_skills(request: Request):
     return out
 
 
+@router.get("/skill-load-errors")
+async def skill_load_errors(request: Request):
+    """Навыки, которые НЕ попали в список, и почему (по-русски, без путей).
+
+    Без этого огромный или нечитаемый SKILL.md просто пропадал из /skills, и
+    владелец не мог понять, куда делся его навык."""
+    lib = _lib(request.app.state.svc)
+    await asyncio.to_thread(lib.discover)
+    return {"errors": list(getattr(lib, "errors", []) or [])}
+
+
 @router.get("/skills/{skill_id}")
 async def get_skill(skill_id: str, request: Request):
     svc = request.app.state.svc
@@ -716,7 +727,10 @@ async def forge_apply(request: Request):
     current = lib.by_id().get(sid)
     old_tools = set(skill_contract(current).required_tools) if current else set()
     old_perms = set(skill_contract(current).permissions) if current else set()
-    new = _parse_draft(content)
+    try:
+        new = _parse_draft(content)
+    except ValueError as exc:                      # SkillLoadError: слишком большой черновик
+        raise HTTPException(422, {"message": str(exc)}) from None
     added_tools = sorted(set(new["required_tools"]) - old_tools)
     added_perms = sorted(set(new["permissions"]) - old_perms)
 
