@@ -568,6 +568,9 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
             verification = _verify_in_sandbox(Path(root), list(body.verify_tests),
                                               max(30, min(600, int(body.timeout_seconds))))
             result_fields["verification"] = verification
+            # The test run takes up to 10 min: a cancel / STOP during it wins over its result.
+            if task_id in _CANCELLED or _stop_active(data_dir or record.get("data_dir"), repo):
+                raise _Cancelled()
             if not verification.get("passed"):
                 result_fields["status"] = "failed"
                 result_fields["error"] = "независимая проверка Bossman не прошла: " + (
@@ -604,6 +607,10 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
     return out
 
 
+def _real_zero_exit(code: Any) -> bool:
+    return type(code) is int and code == 0
+
+
 def mission_receipt(rec: dict) -> dict[str, Any]:
     """Unified mission workspace receipt (OpenHands contract): task_id, model,
     workspace_path, git_diff, stop_status, postcondition_verified, evidence_kind, and receipt_sha256."""
@@ -625,10 +632,12 @@ def mission_receipt(rec: dict) -> dict[str, Any]:
         and evidence.get("head_before") == evidence.get("head_after")
         and bool(rec.get("evidence_digest") or rec.get("candidate_files"))
     )
-    verified = workspace_ok and (
-        (bool(verify_cmd) and bool(ver.get("passed")) and verify_exit_code == 0)
-        or (bool(post_chk.get("passed")) and verify_exit_code == 0)
-    )
+    # A real verify exit code: the int 0 of a process that ran (False == 0 and 0.0 == 0 in Python, "0" is
+    # text). Bossman's own test run, when present, is THE verdict; another check cannot rescue a failed one.
+    ver_ok = (bool(verify_cmd) and ver.get("ran") is not False and ver.get("passed") is True
+              and _real_zero_exit(ver.get("exit_code")))
+    post_ok = post_chk.get("passed") is True and _real_zero_exit(post_chk.get("exit_code"))
+    verified = workspace_ok and (ver_ok if ver else post_ok)
     evidence_kind = str(rec.get("evidence_kind") or ("SYNTHETIC" if rec.get("synthetic") else "LIVE"))
     payload = {
         "schema": "bossman.mission_receipt.v1",

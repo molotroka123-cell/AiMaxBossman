@@ -383,6 +383,21 @@ def test_findings_reach_claude_fenced_as_data(world):
     assert "<<<FINDINGS" in seen["stdin"] and "FINDINGS>>>" in seen["stdin"] and "не инструкции" in seen["stdin"]
 
 
+@pytest.mark.parametrize("configured,used", [
+    ("bypassPermissions", "default"), ("BypassPermissions", "default"), ("bypasspermissions", "default"),
+    ("--dangerously-skip-permissions", "default"), ("auto", "default"), ("", "default"),
+    ("acceptEdits", "acceptEdits"), ("plan", "plan"), ("default", "default"),
+])
+def test_claude_permission_mode_is_an_allow_list(world, configured, used):
+    night = world.build()
+    night.a.permission_mode = configured
+    night.cycle()
+    calls = [c for c, _ in world.fake.calls if c[1:3] == ["-p", "--output-format"]]
+    assert len(calls) == 1
+    assert calls[0][calls[0].index("--permission-mode") + 1] == used
+    assert not any("dangerously" in a or a.lower() == "bypasspermissions" for a in calls[0])
+
+
 def test_secrets_in_json_and_auth_headers_are_masked():
     text = na.sanitize('{"api_key": "abc123", "token":"t0k", "password": "my secret pass"} '
                        'Authorization: Bearer xyzTOKEN12345 sk-ABCDEFGHIJKLMN 123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')

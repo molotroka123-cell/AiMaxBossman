@@ -307,7 +307,9 @@ async def test_three_attempts_then_stop_with_clean_lab(stack, repo):
 async def test_no_verifier_cloud_falls_back_to_fresh_local_and_says_so(stack, repo):
     svc, _c, _a = stack
     rec = await run_task(svc, repo, Fakes(repo, PLAN, cloud_ok=False))
-    assert rec["status"] == "completed_with_pending_decisions"
+    # the same-model fallback is reported, but it never opens the merge-into-main button (fail closed, A3)
+    assert rec["status"] == "completed" and rec["commit_sha"]
+    assert not [d for d in rec["decisions"] if d["category"] == "release_main"]
     assert rec["verifier"]["independence"].startswith("NOT_INDEPENDENT")
     assert any(s["kind"] == "worker_draft" and s["status"] == "NOT_RUN" for s in rec["steps"])
 

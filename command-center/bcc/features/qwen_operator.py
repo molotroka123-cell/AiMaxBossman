@@ -148,6 +148,16 @@ def lab_push_kind(argv: Any) -> str | None:
         return "lab_push"
     return "release_main" if dst == "main" else None
 
+#: The only verifier result that may open / execute a merge into main (A3: the executor never verifies itself).
+INDEPENDENT_VERIFIER = "different_family_free_cloud"
+
+
+def release_review_ok(verifier: Any) -> bool:
+    """Fail closed: an explicit APPROVE from a verifier that ran AND is of another model family."""
+    return (isinstance(verifier, dict) and verifier.get("verdict") == "APPROVE"
+            and verifier.get("independence") == INDEPENDENT_VERIFIER and verifier.get("ran", True) is True)
+
+
 RELEASE_STEPS_RU = (
     "Продвижение кандидата в основной проект делает только владелец (конституция v1, правило 4): "
     "1) посмотреть diff коммита на ветке lab/*; 2) Claude и Codex одобряют ОДИН и тот же SHA; "
@@ -501,17 +511,25 @@ def run_in_lab(scope: OperatorScope, argv: list[str], *, cwd: str = ".", timeout
 
 def run_on_host(argv: list[str], *, cwd: str, timeout_s: int = 600) -> dict:
     """The computer itself, outside the lab: argv-only, no shell, child env without secrets. Called ONLY for
-    an exact argv the owner approved with the button (``gate_host_command`` parks it, never runs it)."""
+    an exact argv the owner approved with the button (``gate_host_command`` parks it, never runs it).
+
+    Runs through the autonomy executor rooted at ``cwd``: on timeout the WHOLE process tree is killed
+    (psutil, ``kill_process_group``). ``subprocess.run`` killed only the direct child, and a grandchild that
+    kept the output pipe open (a started server, ``cmd /c start ...``) made it block past its timeout."""
+    from ..autonomy.hands import SubprocessExecutor
+    from ..autonomy.policy import Scope
+    from ..autonomy.types import HandRequest
     out = {"argv": argv, "cwd": cwd, "exit_code": None, "timed_out": False, "error": "", "stdout": "", "stderr": ""}
-    try:
-        p = subprocess.run(argv, cwd=cwd, env=_env_factory(), capture_output=True, timeout=timeout_s, check=False,
-                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-        out.update(exit_code=p.returncode, stdout=p.stdout.decode("utf-8", "replace")[-6000:],
-                   stderr=p.stderr.decode("utf-8", "replace")[-3000:])
-    except subprocess.TimeoutExpired:
-        out.update(timed_out=True, error="timeout")
-    except OSError as exc:
-        out.update(error=str(exc)[:300])
+    if not Path(cwd).is_dir():
+        out["error"] = "cwd is not a directory"
+        return out
+    req = HandRequest(goal_id="operator", requested_by="operator", action="run_command", target=".",
+                      arguments={"argv": argv, "cwd": "."}, expected_evidence=(), risk_class="high",
+                      timeout_s=timeout_s, rollback="owner-approved host command: no automatic rollback")
+    res = SubprocessExecutor(env_factory=_env_factory)(req, Scope(worktree=Path(cwd)))
+    out.update(exit_code=res.exit_code, timed_out=res.timed_out,
+               error="timeout" if res.timed_out else res.error[:300],
+               stdout=res.stdout.decode("utf-8", "replace")[-6000:], stderr=res.stderr.decode("utf-8", "replace")[-3000:])
     return out
 
 
@@ -594,6 +612,11 @@ class Run:
                    argv: list[str] | None = None, path: str | None = None, executable: bool = False) -> dict:
         preview = (f"Решение владельца · {category}\nДействие: {action}\nЗачем: {why}\n"
                    f"Рекомендация оператора: {recommendation}\nОпасения: {concerns}")
+        for prior in self.rec["decisions"]:
+            # Idempotency marker: a step re-run after a restart / resume never asks the owner twice for the
+            # same action (and never re-opens one the owner already answered).
+            if prior.get("preview") == preview and prior.get("argv") == argv and prior.get("path") == path:
+                return prior
         appr = await self.svc.approvals.create(DECISION_KIND, preview)
         decision = {"approval_id": appr.get("id"), "category": category, "action": action, "why": why,
                     "recommendation": recommendation, "concerns": concerns, "argv": argv, "path": path,
@@ -748,11 +771,16 @@ class Run:
         elif kind == "release_main":
             wt = self.scope.worktree
             head = (await asyncio.to_thread(_git, wt, "rev-parse", "HEAD")).stdout.decode().strip()
-            verdict = (self.rec.get("verifier") or {}).get("verdict")
+            ver = self.rec.get("verifier") or {}
+            verdict = ver.get("verdict")
             if not self.rec.get("commit_sha") or head != self.rec.get("commit_sha"):
                 refuse = "HEAD лаборатории не совпадает с проверенным коммитом"
             elif verdict == "REJECT":
                 refuse = "независимый проверяющий отклонил изменения (REJECT)"
+            elif not release_review_ok(ver):
+                # fail closed: no verdict, a verifier that did not run or the same-model fallback is not an approval
+                refuse = (f"нет одобрения независимого проверяющего (verdict={verdict or 'нет'}, "
+                          f"independence={ver.get('independence') or 'нет'})")
             else:
                 base = (await asyncio.to_thread(_git, wt, "merge-base", "HEAD", "origin/main")).stdout.decode().strip()
                 names = (await asyncio.to_thread(_git, wt, "diff", "--name-only", f"{base or 'origin/main'}..HEAD")
@@ -1041,6 +1069,8 @@ async def _execute(run: Run) -> dict:
             _save(svc, rec)
     if plan is None:
         return await run.finish("failed", "планировщик не дал валидный план")
+    if (why := run.stopped()):                     # STOP pressed while the planner ran: no step after it starts
+        return await run.finish("stopped", why)
 
     # parked owner decisions come first so the owner sees them while the work goes on
     paths_ok: list[str] = []
@@ -1134,7 +1164,7 @@ async def _execute(run: Run) -> dict:
             "verifier", "Ты — независимый рецензент изменений. Ответь: VERDICT: APPROVE или REJECT, затем 2-4 "
             "предложения с причинами. Проверяй только присланный diff и результат тестов.",
             f"ЗАДАЧА:\n{task[:1500]}\n\nDIFF:\n{final_diff[:12000]}\n\nТЕСТЫ:\n{rec.get('test_summary', '')[:1500]}")
-        independence = "different_family_free_cloud"
+        independence = INDEPENDENT_VERIFIER
         if not review.get("ok"):
             cloud_error = review.get("error")
             review = await local_verifier(run, task, final_diff)
@@ -1152,7 +1182,8 @@ async def _execute(run: Run) -> dict:
     ver = rec.get("verifier") or {}
     branch = (rec.get("lab") or {}).get("branch") or ""
     has_release_decision = any(d.get("category") == "release_main" for d in rec.get("decisions", []))
-    if (commit_sha and not run.stopped() and ver.get("verdict") == "APPROVE"
+    # Only an INDEPENDENT approval opens the merge button: the same-model fallback reviewer is reported, not trusted.
+    if (commit_sha and not run.stopped() and release_review_ok(ver)
             and LAB_BRANCH_RE.match(branch) and not has_release_decision):
         run.phase("release_request")
         await run.gate_command(
@@ -1166,7 +1197,8 @@ async def _execute(run: Run) -> dict:
                         "lab_branch": rec.get("lab", {}).get("branch"), "commit": commit_sha or None}
     pending = [d for d in rec["decisions"] if d["status"] == "PENDING"]
     if rec.get("edit_failed"):
-        return await run.finish("failed", rec["edit_failed"])
+        return await run.finish("stopped" if str(rec["edit_failed"]).startswith("stopped:") else "failed",
+                                rec["edit_failed"])
     return await run.finish("completed_with_pending_decisions" if pending else "completed")
 
 
@@ -1224,6 +1256,11 @@ async def edit_loop(run: Run, plan: dict, paths: list[str], draft: str) -> tuple
                                        "ctx_truncated": bool(coded.get("truncated")),
                                        "ctx_pressure_pct": (round(100.0 * (coded["max_prompt_tokens"] + 2048) / cur)
                                                             if coded.get("max_prompt_tokens") else None)})
+        if (why := run.stopped()):
+            # STOP / cancel while the coder ran (up to 2 h): what it produced is not applied, tested or committed
+            rec["edit_failed"] = f"stopped: {why}"
+            run.step("edit_discarded", "stopped", attempt=attempt, reason=why[:200])
+            return "", ""
         problem = ""
         diff = coded.get("diff") or ""
         if not coded.get("ok") or not diff:
@@ -1245,6 +1282,12 @@ async def edit_loop(run: Run, plan: dict, paths: list[str], draft: str) -> tuple
                                else f"тесты в лаборатории упали (exit {ran.get('exit_code')}): "
                                     + rec["test_summary"][-800:])
                     run.step("rollback", "done", attempt=attempt, reason=problem[:200])
+                elif (why := run.stopped()):
+                    # STOP during the lab tests: the owner's kill-switch wins over a green result - no commit
+                    await asyncio.to_thread(rollback_in_lab, scope, diff)
+                    rec["edit_failed"] = f"stopped: {why}"
+                    run.step("rollback", "done", attempt=attempt, reason=f"stopped: {why}"[:200])
+                    return "", ""
                 else:
                     run.phase("commit")
                     sha = await asyncio.to_thread(commit_in_lab, run, applied["paths"], rec["task"])
@@ -1354,9 +1397,20 @@ async def run_sidecar(run: Run, instruction: str, paths: list[str], tests: list[
               "diff": "", "error": "", "evidence": None, "sandbox_cleanup": None, "operator_task": rec["id"],
               "authority": {"push": False, "merge": False, "deploy": False}}
     def _go():                      # env probing and the clone/sidecar run stay off the event loop
-        return ct._execute(record, run.scope.worktree, body, context, ct._verify_python_env(), argv)
-    final = await asyncio.to_thread(_go)
-    ct._write(svc, final)
+        out = ct._execute(record, run.scope.worktree, body, context, ct._verify_python_env(), argv)
+        ct._write(svc, out)         # written by the worker thread: a cancelled operator still gets a terminal record
+        return out
+    try:
+        final = await asyncio.to_thread(_go)
+    except asyncio.CancelledError:
+        # Cancelling the operator task cancels only this coroutine; the worker thread and the sidecar's process
+        # tree (a model + tool loop) would keep running. Cancel the coding task the same way its own STOP does.
+        ct._CANCELLED.add(record["id"])
+        tree = ct._ACTIVE.get(record["id"])
+        if tree is not None:
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(tree.kill)
+        raise
     side = final.get("sidecar") or {}
     ok = final.get("status") == "completed" and bool(final.get("diff"))
     return {"ok": ok, "model": model, "diff": final.get("diff", ""), "changed_files": final.get("changed_files"),

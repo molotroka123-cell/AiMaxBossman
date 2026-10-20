@@ -182,22 +182,34 @@ def run_cycle(case: str, paid: str | None, evidence: Path, timeout: int, cycle_p
         env["PYTHONPATH"] = os.pathsep.join(str(Path(client_src) / d) for d in ("command-center", "bossman-core", "."))
     out_file = evidence / "cycle.out"
     t0 = time.time()
+    if stop_requested():
+        # STOP pressed after the idle wait / client sync: the cycle (and its coding task) is never started
+        return {"case": case, "rc": -2, "minutes": 0.0, "tail": "", "interrupted": "STOP", "not_started": True}
     with open(out_file, "wb") as fh:
         proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=fh, stderr=subprocess.STDOUT,
                                 creationflags=0x00004000 | 0x08000000)       # BELOW_NORMAL | CREATE_NO_WINDOW
         interrupted = ""
-        while proc.poll() is None:
-            time.sleep(POLL_S)
-            busy = direct_gen_busy()
-            if busy:
-                interrupted = "direct-gen busy: " + ",".join(sorted(set(busy)))
-            elif stop_requested():
-                interrupted = "STOP"
-            elif time.time() > t0 + timeout + 300 or (deadline and time.time() > deadline):
-                interrupted = "timeout"
-            if interrupted:
+        try:
+            while proc.poll() is None:
+                time.sleep(POLL_S)
+                busy = direct_gen_busy()
+                if busy:
+                    interrupted = "direct-gen busy: " + ",".join(sorted(set(busy)))
+                elif stop_requested():
+                    interrupted = "STOP"
+                elif time.time() > t0 + timeout + 300 or (deadline and time.time() > deadline):
+                    interrupted = "timeout"
+                if interrupted:
+                    _kill_tree(proc)
+                    break
+        finally:
+            # Any other way out (Ctrl+C, a crash in a poll) must not leave the cycle tree running unattended.
+            if proc.poll() is None:
                 _kill_tree(proc)
-                break
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                pass
     out = {"case": case, "rc": proc.returncode if not interrupted else -2, "minutes": round((time.time() - t0) / 60, 1)}
     tail = out_file.read_text(encoding="utf-8", errors="replace")[-600:]
     out["tail"] = tail

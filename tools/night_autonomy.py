@@ -56,6 +56,8 @@ SECRET_ENV_RE = re.compile(r"TOKEN|SECRET|PASSW|API_KEY|_KEY$|^BCC_|^TG_COMPANIO
 SECRET_TEXT_RE = re.compile(r"(?i)(?<![A-Za-z])(token|secret|api[_-]?key|key|passw(?:or)?d|credential)([\"']?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\s\"',}]+)")
 SECRET_AUTH_RE = re.compile(r"(?i)\b(authorization|bearer|basic)(\s*:?\s+)(?:bearer\s+|basic\s+)?[A-Za-z0-9._~+/=-]{8,}")
 SECRET_SHAPE_RE = re.compile(r"\b(?:sk-[A-Za-z0-9_-]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abpr]-[A-Za-z0-9-]{10,}|\d{8,10}:[A-Za-z0-9_-]{30,})")
+#: Claude Code permission modes the night may pass to `claude -p`; everything else runs as "default".
+CLAUDE_PERMISSION_MODES = frozenset({"default", "acceptEdits", "plan"})
 MAX_CONSECUTIVE_CRASHES = 3
 MAX_WIN_PATH = 260
 # The code that MEASURES the product. A change here between a baseline and a fix makes the two
@@ -429,7 +431,9 @@ class Night:
             env = {k: v for k, v in os.environ.items()
                    if k not in ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SSE_PORT") and not SECRET_ENV_RE.search(k)}
             raw_mode = getattr(self.a, "permission_mode", "default") or "default"
-            safe_mode = "default" if raw_mode in ("bypassPermissions", "--dangerously-skip-permissions") else raw_mode
+            # Allow-list, not a deny-list: any spelling of a skip-permissions / auto-approve mode falls back to
+            # the asking mode (A22-04: an unattended agent never gets skip-permissions by configuration).
+            safe_mode = raw_mode if raw_mode in CLAUDE_PERMISSION_MODES else "default"
             code, out = self.runner([binary, "-p", "--output-format", "json", "--permission-mode", safe_mode],
                                     cwd=REPO, timeout=self.budget(CLAUDE_TIMEOUT_S), env=env,
                                     stdin=question["text"].encode("utf-8"))
