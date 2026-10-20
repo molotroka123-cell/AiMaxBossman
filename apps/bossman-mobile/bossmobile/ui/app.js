@@ -15,8 +15,53 @@
   const stRu = (s) => (s && TASK_ST[s]) || s || '';
   const tap = () => { try { navigator.vibrate && navigator.vibrate(8); } catch { /* iOS: no vibrate */ } };
 
+  /* a list that failed to load says so and offers «Повторить» (it used to stay silently empty or stale); what was
+     already shown stays under the message; the next successful load replaces both */
+  function loadFailed(box, err, retry) {
+    if (!box || (err && err.status === 401)) return;            // 401 already shows the login
+    box.querySelectorAll(':scope > .load-error').forEach((n) => n.remove());
+    const row = el('div', 'load-error'); row.setAttribute('role', 'status');
+    row.appendChild(el('span', '', `Не загрузилось: ${(err && err.message) || 'нет связи с ПК'}`));
+    const b = el('button', 'btn small', 'Повторить'); b.type = 'button';
+    b.addEventListener('click', () => { tap(); b.disabled = true; retry(); });
+    row.appendChild(b); box.prepend(row);
+  }
+
   let toastTimer = 0;
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3200); }
+
+  /* модальные слои (выбор модели, ящик чатов, просмотр фото/видео, «Удалить навсегда»): Tab остаётся внутри слоя
+     (focus-trap 7.8.0 + tabbable 6.5.0, MIT, ui/vendor/), Escape закрывает верхний слой, фокус возвращается на кнопку,
+     которая слой открыла. Без библиотеки (старый кэш) работают Escape и возврат фокуса. */
+  const layers = [];
+  const focusQuiet = (n) => { try { n.focus({ preventScroll: true }); } catch { /* detached */ } };
+  function layerClose(node, silent) {
+    const i = layers.findIndex((x) => x.node === node); if (i < 0) return;
+    const [ly] = layers.splice(i, 1);
+    if (ly.trap) { try { ly.trap.deactivate(); } catch { /* already off */ } }
+    if (!silent && ly.opener && ly.opener.isConnected && ly.opener !== document.body) focusQuiet(ly.opener);
+  }
+  function layerOpen(node, close, initial) {
+    const opener = layers.some((x) => x.node === node) ? layers.find((x) => x.node === node).opener : document.activeElement;
+    layerClose(node, true);
+    if (!node.hasAttribute('tabindex')) node.tabIndex = -1;   // fallback focus target when nothing inside is tabbable
+    const ly = { node, close, opener, trap: null }; const FT = window.focusTrap;
+    if (FT && typeof FT.createFocusTrap === 'function') {
+      try {
+        // a function: when a layer above closes, focus-trap re-runs it on unpause — keep the element we just returned to
+        const first = () => { const a = document.activeElement; return a && a !== node && node.contains(a) ? a : (initial || undefined); };
+        ly.trap = FT.createFocusTrap(node, { initialFocus: first, fallbackFocus: node, escapeDeactivates: false,
+          allowOutsideClick: true, returnFocusOnDeactivate: false, preventScroll: true });
+        ly.trap.activate();
+      } catch { ly.trap = null; }
+    }
+    if (!ly.trap) focusQuiet(initial || node);
+    layers.push(ly);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !layers.length) return;
+    e.preventDefault(); layers[layers.length - 1].close();
+  });
 
   class ApiError extends Error { constructor(status, body) { const d = (body && (body.detail || body.error)) || {}; super(typeof d === 'string' ? d : (d.message || `HTTP ${status}`)); this.status = status; this.code = d.code || ''; } }
   let panelCsrf = '';
@@ -61,15 +106,21 @@
   /* ================= вход ================= */
   function showLogin(msg) { $('app').hidden = true; $('login').hidden = false; $('login-error').textContent = msg || ''; }
   async function login(token) {
-    const res = await fetch('/m/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ token }) });
+    let res;   // a dead connection used to surface the browser's English «Failed to fetch» / «Load failed»
+    try { res = await fetch('/m/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ token }) }); }
+    catch { throw new Error('Нет связи с ПК — проверьте, что Bossman на ПК запущен и телефон в той же сети.'); }
     let data = null; try { data = await res.json(); } catch { /* */ }
     if (!res.ok) { const d = (data && data.detail) || {}; throw new Error(res.status === 429 ? `Слишком много попыток. Подождите ${d.retry_after_s || 60} с.` : (d.message || 'Неверный код')); }
     S.csrf = data.csrf;
   }
   $('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const form = $('login-form'); const btn = form.querySelector('button[type="submit"]');
+    if (btn.disabled) return;                       // one attempt at a time: a double tap must not burn the rate limit
+    btn.disabled = true; form.setAttribute('aria-busy', 'true'); $('login-error').textContent = '';
     try { await login($('login-token').value.trim()); $('login-token').value = ''; start(); }
     catch (err) { $('login-error').textContent = err.message; }
+    finally { btn.disabled = false; form.setAttribute('aria-busy', 'false'); }
   });
 
   async function boot() {
@@ -82,7 +133,8 @@
     $('login').hidden = true; $('app').hidden = false;
     loadAgents(); loadThreads(); refreshApprovals();
     const tid = store.get('thread'); if (tid) openThread(tid);
-    setInterval(refreshApprovals, 20000);
+    // once per page: start() runs again after every re-login (expired session) and used to stack another 20 s poller
+    if (!approvalsTimer) approvalsTimer = setInterval(refreshApprovals, 20000);
     refreshStop(); if (!stopTimer) stopTimer = setInterval(refreshStop, 30000);
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' }).catch(() => {});
   }
@@ -121,7 +173,10 @@
   /* ================= вкладки ================= */
   function showTab(name) {
     document.querySelectorAll('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
-    document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.tab').forEach((t) => {   // aria-current: screen readers say which tab is open, not only the colour
+      const on = t.dataset.tab === name; t.classList.toggle('active', on);
+      if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+    });
     if (name === 'photo') openPhoto();
     if (name === 'video') openVideo();
     if (name === 'panel') openPanel();
@@ -311,7 +366,8 @@
       });
     } catch (err) { box.textContent = 'Ошибка: ' + err.message; }
   }
-  $('swap-form').addEventListener('submit', (e) => { e.preventDefault(); const v = $('swap-input').value.trim(); tap(); swapSend(v); });
+  // own id: «swap-form» is the face-swap form in «Видео» (a duplicate id left «Ок» without a handler -> page reload)
+  $('exchange-form').addEventListener('submit', (e) => { e.preventDefault(); const v = $('swap-input').value.trim(); tap(); swapSend(v); });
   $('swap-quick').addEventListener('click', (e) => { const b = e.target.closest('[data-cmd]'); if (b) { tap(); swapSend(b.dataset.cmd); } });
   $('swap-confirm').addEventListener('click', () => {
     if (!swapQuote) return;
@@ -343,15 +399,21 @@
       const b = el('button', 'model-opt' + (a.id === S.agentId ? ' sel' : ''));
       const t = el('div', 'mtxt'); t.append(el('b', '', a.name), el('span', '', `${(a.model && (a.model.alias || a.model.name)) || '—'}${a.tools.length ? ' · инструменты: ' + a.tools.join(', ') : ''}`));
       b.append(el('span', 'dot'), t, el('span', 'badge-local', 'локально'));
-      b.addEventListener('click', () => { tap(); S.agentId = a.id; store.set('agent', a.id); renderModelChip(); $('model-sheet').hidden = true; });
+      b.addEventListener('click', () => { tap(); S.agentId = a.id; store.set('agent', a.id); renderModelChip(); closeModelSheet(); });
       list.appendChild(b);
     });
     $('model-sheet').hidden = false;
+    layerOpen($('model-sheet'), closeModelSheet, list.querySelector('.model-opt.sel') || undefined);
   });
-  $('model-sheet').addEventListener('click', (e) => { if (e.target === $('model-sheet')) $('model-sheet').hidden = true; });
+  function closeModelSheet() { $('model-sheet').hidden = true; layerClose($('model-sheet')); }
+  $('model-sheet').addEventListener('click', (e) => { if (e.target === $('model-sheet')) closeModelSheet(); });
 
   /* ================= ящик с чатами ================= */
-  function drawer(open) { $('drawer').classList.toggle('open', open); $('scrim').hidden = !open; if (open) loadThreads(); }
+  function drawer(open) {        // closed = off-screen AND inert: not reachable by Tab / VoiceOver swipe any more
+    const dr = $('drawer'); dr.classList.toggle('open', open); $('scrim').hidden = !open;
+    dr.toggleAttribute('inert', !open); dr.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) { layerOpen(dr, () => drawer(false)); loadThreads(); } else layerClose(dr);
+  }
   $('btn-drawer').addEventListener('click', () => { tap(); drawer(true); });
   $('scrim').addEventListener('click', () => drawer(false));
   async function loadThreads() {
@@ -365,7 +427,7 @@
         list.appendChild(b);
       });
       if (!list.children.length) list.appendChild(el('p', 'muted pad', 'Чатов пока нет'));
-    } catch { /* offline */ }
+    } catch (err) { loadFailed($('thread-list'), err, loadThreads); }
   }
   function newChat() { closeStream(); S.threadId = null; store.set('thread', null); clearMessages(); drawer(false); $('input').focus(); }
   $('btn-new').addEventListener('click', () => { tap(); newChat(); });
@@ -586,12 +648,17 @@
 
   /* ================= отправка ================= */
   const input = $('input');
-  input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 160) + 'px'; });
+  const grow = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 160) + 'px'; };
+  /* unsent text survives iOS killing the PWA in the background / a reload (this phone's storage only) */
+  const DRAFT_MAX = 8000;
+  const saveDraft = () => store.set('draft', input.value ? input.value.slice(0, DRAFT_MAX) : null);
+  input.addEventListener('input', () => { grow(); saveDraft(); });
+  { const d0 = store.get('draft'); if (d0 && !input.value) { input.value = d0; grow(); } }
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); $('composer').requestSubmit(); } });
   document.querySelectorAll('[data-suggest]').forEach((c) => c.addEventListener('click', () => { input.value = c.dataset.suggest; input.dispatchEvent(new Event('input')); input.focus(); }));
   $('composer').addEventListener('submit', async (e) => {
     e.preventDefault(); const text = input.value.trim(); if (!text || S.sending) return;
-    tap(); input.value = ''; input.style.height = 'auto'; const photo = S.photoMode; setPhotoMode(false); await send(text, { photo });
+    tap(); input.value = ''; saveDraft(); input.style.height = 'auto'; const photo = S.photoMode; setPhotoMode(false); await send(text, { photo });
   });
   $('btn-stop').addEventListener('click', async () => { tap(); if (!S.threadId) return; try { await api('POST', `/threads/${encodeURIComponent(S.threadId)}/stop`); toast('Остановлено'); } catch (err) { toast(err.message); } });
   function busy(on) { S.sending = on; $('btn-send').hidden = on; $('btn-stop').hidden = !on; }
@@ -781,8 +848,15 @@
   }
 
   /* ================= одобрения (значок на вкладке «Панель») ================= */
+  let approvalsTimer = 0;
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('app').hidden) refreshApprovals(); });
   async function refreshApprovals() {
-    try { const r = await api('GET', '/approvals'); const n = (r.items || []).length; const bd = $('badge-approvals'); bd.hidden = !n; bd.textContent = n; } catch { /* */ }
+    if (document.hidden || $('app').hidden) return;             // no polling from a phone in the pocket / on the login screen
+    try {
+      const r = await api('GET', '/approvals'); const n = (r.items || []).length; const bd = $('badge-approvals'); bd.hidden = !n; bd.textContent = n ? String(n) : '';
+      // the red number alone was read as «Панель 3»: name the tab with what the number means
+      const tab = bd.closest('.tab'); if (n) tab.setAttribute('aria-label', `Панель, ждут вашего решения: ${n}`); else tab.removeAttribute('aria-label');
+    } catch { /* */ }
   }
 
   /* ================= В пульт: по кнопке, один файл (владелец 18.10: автодоставки нет) ================= */
@@ -804,10 +878,12 @@
       const card = el('div', 'confirm-card'); card.appendChild(el('p', '', 'Удалить навсегда с ПК? Это нельзя отменить.'));
       const row = el('div', 'row'); const no = el('button', 'btn', 'Отмена'); no.type = 'button'; no.dataset.act = 'cancel';
       const yes = el('button', 'btn destroy', 'Удалить'); yes.type = 'button'; yes.dataset.act = 'confirm';
-      const done = (v) => { wrap.remove(); resolve(v); };
+      let settled = false;
+      const done = (v) => { if (settled) return; settled = true; layerClose(wrap); wrap.remove(); resolve(v); };
       no.addEventListener('click', (e) => { e.stopPropagation(); done(false); }); yes.addEventListener('click', (e) => { e.stopPropagation(); done(true); });
       wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
-      row.append(no, yes); card.appendChild(row); wrap.appendChild(card); document.body.appendChild(wrap); no.focus();
+      row.append(no, yes); card.appendChild(row); wrap.appendChild(card); document.body.appendChild(wrap);
+      layerOpen(wrap, () => done(false), no);           // Escape = «Отмена»; focus starts on the safe choice
     });
   }
   async function deleteForever(kind, jobId, btn) {
@@ -817,8 +893,8 @@
     try {
       await api('POST', `/${kind}/jobs/${jobId}/delete`);
       document.querySelectorAll(`[data-job="${jobId}"]`).forEach((n) => n.remove());
-      if (viewing && viewing.job_id === jobId) { viewing = null; $('viewer').hidden = true; }
-      if (vviewing && vviewing.job_id === jobId) { vviewing = null; const v = $('vviewer-video'); try { v.pause(); } catch { /* */ } v.removeAttribute('src'); $('vviewer').hidden = true; }
+      if (viewing && viewing.job_id === jobId) { viewing = null; closeViewer(); }
+      if (vviewing && vviewing.job_id === jobId) { vviewing = null; const v = $('vviewer-video'); try { v.pause(); } catch { /* */ } v.removeAttribute('src'); $('vviewer').hidden = true; layerClose($('vviewer')); }
       toast('Удалено с ПК');
       if (kind === 'photo') { const g = $('gallery'); if (g && !g.children.length) g.appendChild(el('p', 'muted', 'Пока пусто')); loadGallery(); loadQueue(); }
       else { loadVideos(); loadVQueue(); }
@@ -923,9 +999,25 @@
       box.appendChild(r);
     });
   }
+  /* segmented choice = WAI-ARIA radio group: aria-checked says which one is on (screen readers heard only «radio»
+     before), one Tab stop (roving tabindex), arrow keys move + pick like native radios */
   function seg(id, opts, cur, onPick) {
     const box = $(id); box.replaceChildren();
-    opts.forEach(([v, label]) => { const b = el('button', v === cur ? 'on' : '', label); b.type = 'button'; b.setAttribute('role', 'radio'); b.addEventListener('click', () => { tap(); box.querySelectorAll('button').forEach((x) => x.classList.remove('on')); b.classList.add('on'); onPick(v); }); box.appendChild(b); });
+    const mark = (on) => box.querySelectorAll('button').forEach((x) => {
+      const yes = x === on; x.classList.toggle('on', yes); x.setAttribute('aria-checked', yes ? 'true' : 'false'); x.tabIndex = yes ? 0 : -1;
+    });
+    opts.forEach(([v, label]) => {
+      const b = el('button', '', label); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.v = String(v);
+      b.addEventListener('click', () => { tap(); mark(b); onPick(v); }); box.appendChild(b);
+    });
+    const sel = Array.from(box.children).find((b, i) => opts[i][0] === cur);
+    mark(sel || null); if (!sel && box.firstChild) box.firstChild.tabIndex = 0;
+    box.onkeydown = (e) => {
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]; if (!step) return;
+      const all = Array.from(box.querySelectorAll('button')).filter((x) => !x.disabled); if (!all.length) return;
+      const i = all.indexOf(e.target); const next = all[((i < 0 ? 0 : i + step) + all.length) % all.length];
+      e.preventDefault(); next.focus(); next.click();
+    };
   }
   function resolution(m) {
     const [a, c] = aspectOf(S.aspect, S.refWH); const k = m.side_multiple || 16; const max = m.max_side || 1536; const min = m.min_side || 256;
@@ -1158,7 +1250,7 @@
   // С шагами (steps): реальный процент (не выше 99) и «осталось» только из темпа, измеренного на ЭТОЙ задаче.
   const fmtElapsed = (s) => { s = Math.max(0, Math.floor(s || 0)); return s < 60 ? `${s} с` : `${Math.floor(s / 60)} мин`; };
   function liveElapsed(sec) { const e = el('span', 'live-elapsed', fmtElapsed(sec)); e.dataset.base = String(sec || 0); e.dataset.at = String(Date.now()); return e; }
-  setInterval(() => { document.querySelectorAll('.live-elapsed').forEach((e) => { e.textContent = fmtElapsed(Number(e.dataset.base) + (Date.now() - Number(e.dataset.at)) / 1000); }); }, 1000);
+  setInterval(() => { if (document.hidden) return; document.querySelectorAll('.live-elapsed').forEach((e) => { e.textContent = fmtElapsed(Number(e.dataset.base) + (Date.now() - Number(e.dataset.at)) / 1000); }); }, 1000);
   function renderRunning(j, u, card, stats, unitDefault) {
     const loading = u.indeterminate || (!u.real && (j.stage || j.status) === 'loading');
     const bar = el('div', loading ? 'bar indet' : 'bar'); const i = el('i'); bar.appendChild(i); card.appendChild(bar);
@@ -1209,7 +1301,7 @@
       const jobs = r.jobs || []; jobs.forEach((j) => box.appendChild(renderQueueItem(j)));
       if (!jobs.length) box.appendChild(el('p', 'muted', 'Очередь пуста'));
       busy = jobs.some((j) => j.ui && (j.ui.state === 'running' || j.ui.state === 'queued'));
-    } catch (err) { if (err.status === 401) return; }
+    } catch (err) { if (err.status === 401) return; loadFailed($('photo-queue-list'), err, loadQueue); }
     if (busy && !document.hidden) queueTimer = setTimeout(loadQueue, 4000);   // опрос только пока есть активные задачи
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && $('photo-queue-list')) loadQueue(); });
@@ -1219,7 +1311,7 @@
       const done = (r.jobs || []).filter((j) => j.status === 'completed' && j.result && String(j.result.mime || '').startsWith('image/'));
       done.forEach((j) => { const b = el('button', 'thumb'); b.dataset.job = j.job_id; const img = el('img'); img.loading = 'lazy'; img.src = `/m/api/photo/jobs/${j.job_id}/file`; img.alt = j.raw_prompt || ''; b.appendChild(img); b.addEventListener('click', () => openViewer(j)); g.appendChild(b); });
       if (!done.length) g.appendChild(el('p', 'muted', 'Пока пусто'));
-    } catch { /* */ }
+    } catch (err) { loadFailed($('gallery'), err, loadGallery); }
   }
   async function photoStatus() {
     try { const s = await api('GET', '/photo/status'); const q = s.queue || {}; $('photo-queue').textContent = q.running ? `идёт генерация · ждут ${q.waiting || 0}` : (q.waiting ? `ждут ${q.waiting}` : 'ПК свободен'); } catch { /* */ }
@@ -1231,9 +1323,10 @@
     const un = $('viewer-unlocked'); un.hidden = !(j.result_unlocked); un.textContent = 'До FaceLock'; un.dataset.on = '';
     const m = S.photoModels.find((x) => x.id === j.model);
     $('viewer-meta').textContent = `${j.raw_prompt || ''}\n${m ? m.label : j.model} · ${j.params ? j.params.width + '×' + j.params.height + ' · сид ' + j.params.seed : ''} · ${fmtS(j.elapsed_s)}`;
-    $('viewer').hidden = false;
+    $('viewer').hidden = false; layerOpen($('viewer'), closeViewer, $('viewer-close'));
   }
-  $('viewer-close').addEventListener('click', () => { $('viewer').hidden = true; });
+  function closeViewer() { $('viewer').hidden = true; layerClose($('viewer')); }
+  $('viewer-close').addEventListener('click', closeViewer);
   $('viewer-pult').addEventListener('click', () => { if (viewing) toPult('photo', viewing.job_id, $('viewer-pult')); });
   $('viewer-delete').addEventListener('click', () => { if (viewing) deleteForever('photo', viewing.job_id, $('viewer-delete')); });
   $('viewer-unlocked').addEventListener('click', () => {      // flip between the locked result and the model's own picture
@@ -1250,7 +1343,7 @@
     } catch (err) { if (err && err.name === 'AbortError') return; }
     window.open(url + '?download=1', '_blank');
   });
-  $('viewer-reuse').addEventListener('click', () => { if (!viewing) return; $('viewer').hidden = true; $('photo-prompt').value = viewing.raw_prompt || ''; showTab('photo'); $('photo-prompt').focus(); });
+  $('viewer-reuse').addEventListener('click', () => { if (!viewing) return; closeViewer(); $('photo-prompt').value = viewing.raw_prompt || ''; showTab('photo'); $('photo-prompt').focus(); });
 
   /* ================= Видео: модели Bossman + замена лица FaceFusion ================= */
   // Время: загрузка + шаги × с/шаг × масштаб(объём ролика) + сборка (bossmobile/video_timing.py, та же формула)
@@ -1575,7 +1668,7 @@
       active = jobs.some((j) => j.ui && (j.ui.state === 'running' || j.ui.state === 'queued'));
       if (!active && box.dataset.active === '1') loadVideos();
       box.dataset.active = active ? '1' : '';
-    } catch (err) { if (err.status === 401) return; }
+    } catch (err) { if (err.status === 401) return; loadFailed($('video-queue-list'), err, loadVQueue); }
     if (active && !document.hidden && !$('view-video').hidden) vqTimer = setTimeout(loadVQueue, 5000);
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('view-video').hidden) loadVQueue(); });
@@ -1593,7 +1686,7 @@
         row.append(play, dl, pultButton('video', j.job_id)); c.appendChild(row); c.appendChild(deleteButton('video', j.job_id)); box.appendChild(c);
       });
       if (!done.length) box.appendChild(el('p', 'muted', 'Пока нет готовых видео'));
-    } catch { /* */ }
+    } catch (err) { loadFailed($('video-list'), err, loadVideos); }
   }
   let vviewing = null;
   function openVViewer(j) {
@@ -1604,9 +1697,13 @@
     $('vviewer-note').hidden = !webm; $('vviewer-note').textContent = webm ? 'Формат WebM: если iPhone не воспроизводит, нажмите «Скачать» и откройте в VLC.' : '';
     v.onerror = () => { $('vviewer-note').hidden = false; $('vviewer-note').textContent = 'Телефон не может воспроизвести этот файл — нажмите «Скачать».'; };
     $('vviewer-download').href = url + '?download=1'; $('vviewer-reuse').hidden = !j.raw_prompt;
-    $('vviewer').hidden = false;
+    $('vviewer').hidden = false; layerOpen($('vviewer'), closeVViewer, $('vviewer-close'));
   }
-  $('vviewer-close').addEventListener('click', () => { const v = $('vviewer-video'); v.pause(); v.removeAttribute('src'); v.load(); $('vviewer').hidden = true; });
+  function closeVViewer() {
+    const v = $('vviewer-video'); try { v.pause(); } catch { /* not loaded */ } v.removeAttribute('src'); try { v.load(); } catch { /* jsdom */ }
+    $('vviewer').hidden = true; layerClose($('vviewer'));
+  }
+  $('vviewer-close').addEventListener('click', closeVViewer);
   $('vviewer-pult').addEventListener('click', () => { if (vviewing) toPult('video', vviewing.job_id, $('vviewer-pult')); });
   $('vviewer-delete').addEventListener('click', () => { if (vviewing) deleteForever('video', vviewing.job_id, $('vviewer-delete')); });
   $('vviewer-save').addEventListener('click', async () => {
@@ -1645,7 +1742,7 @@
       const dg = s.direct_gen || {}; const q = dg.queue || {}; const mem = dg.memory || {};
       body.appendChild(stat('Прямой генератор', dg.sd_cli ? dg.sd_cli.present : null, [kv('сейчас', q.running ? 'идёт генерация' : 'свободен'), kv('в очереди', q.waiting), kv('ОЗУ свободно', mem.measured ? `${(mem.free_mb / 1024).toFixed(1)} из ${(mem.total_mb / 1024).toFixed(0)} ГБ` : '—')]));
       const w = s.war_terminal || {}; body.appendChild(stat('War Terminal', w.up, [kv('состояние', w.up ? `работает · ${w.version || ''} ${w.mode || ''}` : 'не запущен')]));
-      const mob = s.mobile || {}; const out = el('button', 'btn danger', 'Выйти на этом телефоне'); out.addEventListener('click', async () => { try { await api('POST', '/logout'); } catch { /* */ } showLogin(); });
+      const mob = s.mobile || {}; const out = el('button', 'btn danger', 'Выйти на этом телефоне'); out.addEventListener('click', async () => { try { await api('POST', '/logout'); } catch { /* */ } store.set('draft', null); input.value = ''; showLogin(); });
       body.appendChild(stat('Bossman Mobile', true, [kv('версия', mob.version), kv('активных сессий', mob.sessions), kv('модели чата', 'только локальные (сервер отклоняет облачные)'), out]));
     } catch (err) { body.replaceChildren(el('p', 'error-text pad', err.message)); }
   }

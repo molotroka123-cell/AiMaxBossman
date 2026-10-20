@@ -21,7 +21,7 @@ build-backend = "setuptools.build_meta"
 packages = ["bossmobile"]
 
 [tool.setuptools.package-data]
-bossmobile = ["ui/*", "ui/icons/*"]
+bossmobile = ["ui/*", "ui/icons/*", "ui/vendor/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

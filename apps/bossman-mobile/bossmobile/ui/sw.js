@@ -1,8 +1,9 @@
 /* Service worker: caches ONLY the app shell. API answers, photos and the panel always go to the network. */
 'use strict';
-const CACHE = 'bossman-shell-v14';
+const CACHE = 'bossman-shell-v15';
 const SHELL = ['/m/', '/m/index.html', '/m/app.css', '/m/app.js', '/m/manifest.webmanifest',
-  '/m/icons/apple-touch-icon.png', '/m/icons/icon-192.png', '/m/icons/icon-512.png'];
+  '/m/icons/apple-touch-icon.png', '/m/icons/icon-192.png', '/m/icons/icon-512.png',
+  '/m/vendor/tabbable.umd.min.js', '/m/vendor/focus-trap.umd.min.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
