@@ -2676,6 +2676,18 @@ async def _execute_record_screen(
         paid_stars_locked = False
         wins = tc._top_windows() if hasattr(tc, "_top_windows") else []
         tg_pids = {pid_i for pid_i, _, _ in tg_instances}
+        # Primary Telegram instance = the default profile (no -workdir). Extra
+        # instances (a second account, e.g. for calls) may not be members of the
+        # owner's private channel, so their windows must not win the fallback.
+        # (fix 2026-10-20: an Acc2 window stuck on an unrelated search was
+        # picked as the target and the recording captured the wrong account.)
+        primary_pid: int | None = None
+        for pid_i, _exe_i, wdir_i in tg_instances:
+            if not wdir_i:
+                primary_pid = int(pid_i)
+                break
+        if primary_pid is None and tg_instances:
+            primary_pid = int(tg_instances[0][0])
 
         if os.name == "nt" and wins:
             with contextlib.suppress(Exception):
@@ -2683,7 +2695,8 @@ async def _execute_record_screen(
                 d_uia = Desktop(backend="uia")
                 for h_w, t_w, p_w in wins:
                     if (p_w in tg_pids or "telegram" in (t_w or "").lower()) and t_w and t_w != "TelegramDesktop":
-                        if fallback_win is None or not str(t_w).strip().lower().startswith("telegram"):
+                        if (primary_pid is None or int(p_w) == int(primary_pid)) and (
+                                fallback_win is None or not str(t_w).strip().lower().startswith("telegram")):
                             fallback_win = (int(h_w), int(p_w), str(t_w))
                         w_obj = d_uia.window(handle=h_w)
                         if channel_id:
