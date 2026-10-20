@@ -120,10 +120,10 @@
           <label class="consent" id="facelock-row" hidden><input type="checkbox" id="photo-facelock"><span>FaceLock (оставить лицо как на фото)</span></label>
           <p class="hint" id="facelock-hint" hidden>После генерации лицо с @1 вставляется в картинку один в один (по точкам лица, с мягким краем и подгонкой цвета). Если лицо не нашлось, лиц разное число или ракурс сильно другой — вставки не будет, и в карточке будет написано почему. Картинка модели сохраняется отдельно.</p>
         </div>
-        <label class="lbl">Формат</label>
-        <div class="seg" id="photo-aspect" role="radiogroup"></div>
-        <label class="lbl">Размер</label>
-        <div class="seg" id="photo-side" role="radiogroup"></div>
+        <label class="lbl" id="photo-aspect-lbl">Формат</label>
+        <div class="seg" id="photo-aspect" role="radiogroup" aria-labelledby="photo-aspect-lbl"></div>
+        <label class="lbl" id="photo-side-lbl">Размер</label>
+        <div class="seg" id="photo-side" role="radiogroup" aria-labelledby="photo-side-lbl"></div>
         <label class="lbl" for="photo-steps">Шаги: <b id="steps-val"></b> <span class="muted" id="steps-range"></span></label>
         <div class="steps-row">
           <button type="button" class="icon-btn small" id="steps-minus" aria-label="Меньше шагов">−</button>
@@ -159,7 +159,7 @@
     <header class="topbar plain"><h1 class="serif title">Видео</h1><span class="pill" id="video-gpu"></span></header>
     <div class="scroll" id="video-scroll">
       <div class="warn-card" id="video-warn" role="note"><b>Видео занимает видеокарту ПК целиком</b> на всё время генерации — от нескольких минут до часа и дольше. Фото, другие видео и замена лица в это время ждут в общей очереди.</div>
-      <div class="seg mode-seg" id="video-mode" role="radiogroup"></div>
+      <div class="seg mode-seg" id="video-mode" role="radiogroup" aria-label="Режим видео"></div>
 
       <form id="video-form" class="card form" autocomplete="off">
         <label class="lbl" for="video-model">Модель</label>
@@ -191,10 +191,10 @@
           <input id="video-dur" type="range" min="1" max="5" step="1" value="2">
           <button type="button" class="icon-btn small" id="vdur-plus" aria-label="Длиннее">+</button>
         </div>
-        <label class="lbl">Формат</label>
-        <div class="seg" id="video-aspect" role="radiogroup"></div>
-        <label class="lbl">Размер (длинная сторона)</label>
-        <div class="seg" id="video-side" role="radiogroup"></div>
+        <label class="lbl" id="video-aspect-lbl">Формат</label>
+        <div class="seg" id="video-aspect" role="radiogroup" aria-labelledby="video-aspect-lbl"></div>
+        <label class="lbl" id="video-side-lbl">Размер (длинная сторона)</label>
+        <div class="seg" id="video-side" role="radiogroup" aria-labelledby="video-side-lbl"></div>
         <div id="vsteps-block">
           <label class="lbl" for="video-steps">Шаги: <b id="vsteps-val"></b> <span class="muted" id="vsteps-range"></span></label>
           <div class="steps-row">
@@ -234,11 +234,11 @@
         <div class="ref-row faces-row" id="swap-faces-row">
           <label class="btn ghost file-btn"><input id="swap-faces" type="file" accept="image/*" multiple hidden><svg><use href="#i-plus"/></svg><span>Добавить фото</span></label>
         </div>
-        <label class="lbl">Пресет</label>
-        <div class="seg" id="swap-preset" role="radiogroup"></div>
+        <label class="lbl" id="swap-preset-lbl">Пресет</label>
+        <div class="seg" id="swap-preset" role="radiogroup" aria-labelledby="swap-preset-lbl"></div>
         <p class="hint" id="swap-preset-hint"></p>
-        <label class="lbl">Кадр</label>
-        <div class="seg" id="swap-frame" role="radiogroup"></div>
+        <label class="lbl" id="swap-frame-lbl">Кадр</label>
+        <div class="seg" id="swap-frame" role="radiogroup" aria-labelledby="swap-frame-lbl"></div>
         <label class="consent"><input type="checkbox" id="swap-consent"><span>Человек на фото согласен, чтобы его лицо использовали в этом видео</span></label>
         <div class="time-box" id="swap-time" aria-live="polite"></div>
         <button class="btn primary big" id="swap-go" type="submit"><svg><use href="#i-video"/></svg>Заменить лицо на ПК</button>

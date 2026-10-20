@@ -924,9 +924,25 @@
       box.appendChild(r);
     });
   }
+  /* segmented choice = WAI-ARIA radio group: aria-checked says which one is on (screen readers heard only «radio»
+     before), one Tab stop (roving tabindex), arrow keys move + pick like native radios */
   function seg(id, opts, cur, onPick) {
     const box = $(id); box.replaceChildren();
-    opts.forEach(([v, label]) => { const b = el('button', v === cur ? 'on' : '', label); b.type = 'button'; b.setAttribute('role', 'radio'); b.addEventListener('click', () => { tap(); box.querySelectorAll('button').forEach((x) => x.classList.remove('on')); b.classList.add('on'); onPick(v); }); box.appendChild(b); });
+    const mark = (on) => box.querySelectorAll('button').forEach((x) => {
+      const yes = x === on; x.classList.toggle('on', yes); x.setAttribute('aria-checked', yes ? 'true' : 'false'); x.tabIndex = yes ? 0 : -1;
+    });
+    opts.forEach(([v, label]) => {
+      const b = el('button', '', label); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.v = String(v);
+      b.addEventListener('click', () => { tap(); mark(b); onPick(v); }); box.appendChild(b);
+    });
+    const sel = Array.from(box.children).find((b, i) => opts[i][0] === cur);
+    mark(sel || null); if (!sel && box.firstChild) box.firstChild.tabIndex = 0;
+    box.onkeydown = (e) => {
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]; if (!step) return;
+      const all = Array.from(box.querySelectorAll('button')).filter((x) => !x.disabled); if (!all.length) return;
+      const i = all.indexOf(e.target); const next = all[((i < 0 ? 0 : i + step) + all.length) % all.length];
+      e.preventDefault(); next.focus(); next.click();
+    };
   }
   function resolution(m) {
     const [a, c] = aspectOf(S.aspect, S.refWH); const k = m.side_multiple || 16; const max = m.max_side || 1536; const min = m.min_side || 256;
