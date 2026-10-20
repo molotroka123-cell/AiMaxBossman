@@ -300,13 +300,32 @@ _RE_TXT_TOKENLIKE = re.compile(
     r"\b(?:sk-[A-Za-z0-9_\-]{8,}|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|"
     r"xox[baprs]-[A-Za-z0-9\-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{20,}|hf_[A-Za-z0-9]{20,}|"
     r"BOSSMAN_TEST_SECRET_[A-Za-z0-9]{4,})\b")
+# Приватный ключ — БЛОКОМ, а не только строкой заголовка: правило private-key
+# из gitleaks (MIT, github.com/gitleaks/gitleaks, config/gitleaks.toml).
+_RE_TXT_PEM = re.compile(
+    r"-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\s\S]*?"
+    r"-----END[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----")
+# Пароль в userinfo URL (`https://user:pass@host`): имя и хост остаются для диагностики.
+_RE_TXT_URL_USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://[^/\s:@'\"<>]+:)([^@\s/'\"<>]+)(@)")
+
+
+def _shared_token_patterns() -> tuple:
+    """Единый список форм токенов (`bcc.pit.secret_filter.TOKEN_PATTERNS`, правила
+    gitleaks MIT / detect-secrets Apache-2.0): Telegram bot-токен, github_pat_,
+    JWT, Stripe… Своя копия не заводится — иначе списки расходятся."""
+    from .pit.secret_filter import TOKEN_PATTERNS
+    return TOKEN_PATTERNS
 
 
 def redact_text(text: str) -> str:
     """Вычистить секреты из свободного текста (идемпотентно)."""
     if not text:
         return text
+    text = _RE_TXT_PEM.sub("***REDACTED***", text)
+    text = _RE_TXT_URL_USERINFO.sub(lambda m: f"{m.group(1)}***REDACTED***{m.group(3)}", text)
     text = _RE_TXT_BEARER.sub(lambda m: f"{m.group(1)} ***REDACTED***", text)
     text = _RE_TXT_KV.sub(lambda m: f"{m.group(1)}{m.group(2)}***REDACTED***{m.group(4)}", text)
     text = _RE_TXT_TOKENLIKE.sub("***REDACTED***", text)
+    for pattern in _shared_token_patterns():
+        text = pattern.sub("***REDACTED***", text)
     return text
