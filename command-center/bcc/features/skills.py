@@ -364,28 +364,60 @@ async def _persist_skill_version(svc, con, description: str = "") -> int:
     return vid
 
 
-_TYPES = {"string": str, "number": (int, float), "integer": int, "boolean": bool,
-          "array": list, "object": dict}
+_MAX_INPUT_ERRORS = 20
+
+
+def _ru_schema_error(err) -> str:
+    """Одна ошибка jsonschema → понятная владельцу фраза по-русски."""
+    where = ".".join(str(p) for p in err.absolute_path) or "вход"
+    kind, val = err.validator, err.validator_value
+    if kind == "required":
+        missing = err.message.split("'")[1] if err.message.count("'") >= 2 else err.message
+        return f"нет обязательного поля {missing}" if where == "вход" else \
+            f"{where}: нет обязательного поля {missing}"
+    if kind == "type":
+        return f"{where} должно быть типа {val}"
+    if kind == "additionalProperties":
+        known = set((err.schema.get("properties") or {}))
+        extra = sorted(k for k in (err.instance or {}) if k not in known)
+        return f"{where}: лишние поля {', '.join(extra)} — навык их не принимает"
+    if kind == "enum":
+        return f"{where}: допустимо только {', '.join(map(str, val))}"
+    if kind in ("maxLength", "maxItems", "maxProperties"):
+        return f"{where}: слишком длинно, не больше {val}"
+    if kind in ("minLength", "minItems", "minProperties"):
+        return f"{where}: слишком коротко, не меньше {val}"
+    if kind in ("maximum", "exclusiveMaximum"):
+        return f"{where}: значение больше допустимого {val}"
+    if kind in ("minimum", "exclusiveMinimum"):
+        return f"{where}: значение меньше допустимого {val}"
+    if kind == "pattern":
+        return f"{where}: не подходит под шаблон {val}"
+    if kind == "oneOf":
+        return f"{where}: нужно заполнить ровно один из вариантов входа"
+    if kind == "anyOf":
+        return f"{where}: не подходит ни под один вариант входа"
+    if kind == "const":
+        return f"{where}: должно быть {val!r}"
+    return f"{where}: {err.message}"
 
 
 def _validate_input(schema: dict, data: dict) -> list[str]:
-    """Минимальный валидатор required/type (jsonschema не тянем)."""
-    errors: list[str] = []
-    for field in schema.get("required", []):
-        if field not in data:
-            errors.append(f"нет обязательного поля {field}")
-    for name, spec in (schema.get("properties") or {}).items():
-        if name not in data or not isinstance(spec, dict):
-            continue
-        expected = _TYPES.get(str(spec.get("type") or ""))
-        if expected is None:
-            continue
-        value = data[name]
-        if expected is not bool and isinstance(value, bool):
-            errors.append(f"{name} должно быть типа {spec.get('type')}")
-        elif not isinstance(value, expected):
-            errors.append(f"{name} должно быть типа {spec.get('type')}")
-    return errors
+    """Проверка входа по ПОЛНОЙ JSON Schema навыка (jsonschema, MIT).
+
+    Самописный валидатор смотрел только required/type: oneOf,
+    additionalProperties, enum, maxLength у mimik/open-news не проверялись,
+    и в задачу уходил вход, который навык явно запрещает."""
+    if not schema:
+        return []
+    from jsonschema import Draft202012Validator, exceptions, validators
+    cls = validators.validator_for(schema, default=Draft202012Validator)
+    try:
+        cls.check_schema(schema)
+    except exceptions.SchemaError as exc:
+        return [f"схема входа навыка некорректна: {exc.message} — исправьте input_schema в SKILL.md"]
+    errs = sorted(cls(schema).iter_errors(data), key=lambda e: [str(p) for p in e.absolute_path])
+    return [_ru_schema_error(e) for e in errs[:_MAX_INPUT_ERRORS]]
 
 
 class AssignmentsUnreadable(RuntimeError):
