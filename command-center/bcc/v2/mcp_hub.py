@@ -35,7 +35,62 @@ class MCPServerSpec:
             errors.append("http MCP requires url")
         if self.transport not in ("stdio", "http"):
             errors.append("invalid MCP transport")
+        errors.extend(_manifest_errors(self))
         return errors
+
+
+# ----------------------------------------------------------- манифест сервера
+# Границы манифеста. Новые ошибки — сразу по-русски (их показывают владельцу);
+# три старых английских кода выше переводит `features/skills._MCP_RU`.
+NAME_MAX = 80
+TIMEOUT_MIN_S = 1
+TIMEOUT_MAX_S = 600
+_ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
+_NAME_BAD_RE = re.compile(r"[\x00-\x1f\x7f-\x9f​-‏ -‮⁠-⁤﻿]")
+
+
+def _url_error(url: str) -> str:
+    from urllib.parse import urlsplit
+    raw = str(url or "")
+    if any(c.isspace() for c in raw) or _NAME_BAD_RE.search(raw):
+        return "адрес MCP-сервера содержит пробелы или управляющие символы"
+    try:
+        parts = urlsplit(raw)
+        _ = parts.port
+    except ValueError:
+        return "адрес MCP-сервера не разбирается как URL"
+    if parts.scheme not in ("http", "https"):
+        return (f"адрес MCP-сервера: разрешены только http/https, "
+                f"а не {parts.scheme or 'пусто'!r} (file://, ftp:// и т.п. запрещены)")
+    if not parts.hostname:
+        return "в адресе MCP-сервера нет хоста"
+    if parts.username or parts.password:
+        return ("адрес MCP-сервера с логином/паролем запрещён: секрет подставляется "
+                "из vault шаблоном {secret:ИМЯ}, а не хранится в адресе")
+    return ""
+
+
+def _manifest_errors(spec: "MCPServerSpec") -> list[str]:
+    errors: list[str] = []
+    for value in {str(spec.id), str(spec.name)}:
+        if not value.strip():
+            errors.append("имя MCP-сервера пустое")
+        elif len(value) > NAME_MAX:
+            errors.append(f"имя MCP-сервера длиннее {NAME_MAX} символов")
+        elif _NAME_BAD_RE.search(value):
+            errors.append("имя MCP-сервера содержит управляющие/невидимые символы")
+    if spec.transport == "http" and spec.url:
+        why = _url_error(spec.url)
+        if why:
+            errors.append(why)
+    t = spec.timeout_seconds
+    if isinstance(t, bool) or not isinstance(t, (int, float)) or not (TIMEOUT_MIN_S <= t <= TIMEOUT_MAX_S):
+        errors.append(f"таймаут MCP-сервера должен быть от {TIMEOUT_MIN_S} до {TIMEOUT_MAX_S} с, "
+                      f"получено {t!r}")
+    bad_keys = [str(k) for k in (spec.env_keys or []) if not _ENV_KEY_RE.match(str(k))]
+    if bad_keys:
+        errors.append("недопустимые имена переменных окружения: " + ", ".join(bad_keys[:5]))
+    return errors
 
 @dataclass(slots=True)
 class MCPToolView:

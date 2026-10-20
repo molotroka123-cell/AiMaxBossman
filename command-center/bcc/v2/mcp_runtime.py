@@ -203,9 +203,14 @@ class _Connection:
         try:
             return await asyncio.wait_for(await_shared(fut), timeout=limit)
         except asyncio.TimeoutError:
-            fut.cancel()
+            fut.cancel()                       # _pump отменит сам вызов SDK
             raise MCPCallError(
                 f"MCP {self.spec.id}.{method}: таймаут {limit:.0f} с") from None
+        except asyncio.CancelledError:
+            # Отмена вызывающего (Hard Cancel, таймаут execute_tool) обязана дойти
+            # до вызова: иначе зависший инструмент держит очередь сервера.
+            fut.cancel()
+            raise
 
     # ---- внутренняя петля
 
@@ -294,25 +299,41 @@ class _Connection:
             if item is _STOP:
                 return
             method, args, kwargs, fut = item
+            if fut.done():                     # вызывающий ушёл, пока вызов стоял в очереди
+                continue
+            # Вызов SDK — отдельная задача: отказ вызывающего (таймаут/отмена его
+            # future) отменяет именно её, и очередь сервера не стоит за зависшим.
+            call = asyncio.ensure_future(getattr(client, method)(*args, **kwargs))
+
+            def _abandon(f: asyncio.Future, call: asyncio.Future = call) -> None:
+                if f.cancelled() and not call.done():
+                    call.cancel()
+            fut.add_done_callback(_abandon)
             try:
-                value = await getattr(client, method)(*args, **kwargs)
+                await asyncio.wait({call})
             except asyncio.CancelledError:
+                call.cancel()
                 if not fut.done():
                     fut.set_exception(MCPCallError(f"MCP {self.spec.id}: вызов прерван"))
                 raise
-            except BaseException as exc:
+            if call.cancelled():               # отменён по уходу вызывающего (или изнутри SDK)
                 if not fut.done():
-                    fut.set_exception(MCPCallError(redact(
-                        f"MCP {self.spec.id}.{method}: {type(exc).__name__}: {exc}")))
-                if _is_transport_dead(exc):
-                    self.health.status = "unhealthy"
-                    self.health.connected = False
-                    self.health.detail = redact(f"{type(exc).__name__}: {exc}")[:400]
-                    await self._notify_crash(self.health.detail)
-                    return
-            else:
+                    fut.set_exception(MCPCallError(f"MCP {self.spec.id}: вызов прерван"))
+                continue
+            exc = call.exception()
+            if exc is None:
                 if not fut.done():
-                    fut.set_result(value)
+                    fut.set_result(call.result())
+                continue
+            if not fut.done():
+                fut.set_exception(MCPCallError(redact(
+                    f"MCP {self.spec.id}.{method}: {type(exc).__name__}: {exc}")))
+            if _is_transport_dead(exc):
+                self.health.status = "unhealthy"
+                self.health.connected = False
+                self.health.detail = redact(f"{type(exc).__name__}: {exc}")[:400]
+                await self._notify_crash(self.health.detail)
+                return
 
     def _drain(self, crash: BaseException | None) -> None:
         while not self._queue.empty():
@@ -417,7 +438,9 @@ class MCPRuntime:
         return conn.health
 
     def statuses(self) -> list[dict]:
-        return [c.health.as_dict() for c in self._conns.values()]
+        # running — жива ли задача-водитель: после неудачной пробы connected=False,
+        # но соединение может работать, и health-check обязан проверить его снова.
+        return [{**c.health.as_dict(), "running": c.running} for c in self._conns.values()]
 
     async def probe(self, server_id: str) -> ServerHealth:
         """Живая проверка: реальный `tools/list` (ClientSession не кэширует)."""
@@ -436,6 +459,7 @@ class MCPRuntime:
         conn.health.connected = True
         conn.health.tools = len(getattr(result, "tools", []) or [])
         conn.health.detail = ""
+        conn._crashed_notified = False         # следующий сбой снова попадёт в ленту
         return conn.health
 
     # ---- протокол

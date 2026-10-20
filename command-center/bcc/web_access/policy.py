@@ -138,6 +138,8 @@ _PRIVATE_SUFFIXES = (".local", ".localhost", ".internal", ".lan", ".home", ".cor
                      ".ts.net", ".onion", ".test", ".invalid", ".example")
 
 
+_NUMERIC_LABEL_RE = re.compile(r"\d+|0x[0-9a-f]*", re.I)
+
 _DENY_CACHE: tuple[str, frozenset[str]] | None = None
 
 
@@ -249,6 +251,11 @@ def check_public_url(url: object) -> str:
                 or ip.is_unspecified or (ip.version == 4 and ip in ipaddress.ip_network("100.64.0.0/10"))):
             raise PolicyRefusal("private, loopback or tailnet addresses are refused")
         raise PolicyRefusal("bare IP addresses are refused; use a public domain name")
+    # WHATWG URL «ends in a number»: хост, чья последняя метка — число (127.1,
+    # 0x7f.0.0.1, 10.1, 192.168.1), браузер и inet_aton читают как IPv4. TLD
+    # числовым не бывает, значит это сокращённая запись IP — тот же отказ.
+    if _NUMERIC_LABEL_RE.fullmatch(host.rsplit(".", 1)[-1]):
+        raise PolicyRefusal("bare IP addresses are refused (shorthand IPv4 form); use a public domain name")
     if "." not in host or host == "localhost" or host.endswith(_PRIVATE_SUFFIXES):
         raise PolicyRefusal("local/private host names are refused")
     if not re.fullmatch(r"[a-z0-9.-]+", host):

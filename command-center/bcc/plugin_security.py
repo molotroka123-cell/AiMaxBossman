@@ -198,6 +198,14 @@ class PinnedTransport(httpx.AsyncHTTPTransport):
         self._pool = httpcore.AsyncConnectionPool(network_backend=_PinnedBackend(pins))
 
 
+_CREDENTIAL_HEADERS = frozenset({"authorization", "proxy-authorization", "cookie",
+                                 "x-api-key", "api-key", "x-auth-token"})
+
+
+def _origin(u: httpx.URL) -> tuple[str, str, int | None]:
+    return (u.scheme, u.host, u.port or {"http": 80, "https": 443}.get(u.scheme))
+
+
 async def safe_get(url: str, *, allow_private: bool = False,
                    allowed_hosts: set[str] | None = None,
                    max_bytes: int = 1_000_000, timeout: float = 15.0,
@@ -220,6 +228,7 @@ async def safe_get(url: str, *, allow_private: bool = False,
     hops = 0
     current = url
     pins: dict[str, str] = {}
+    send_headers = dict(headers or {})
     while True:
         _, host = validate_url(current, allow_private=allow_private, allowed_hosts=allowed_hosts)
         ip = resolve_pinned_ip(host, allow_private=allow_private)
@@ -233,7 +242,7 @@ async def safe_get(url: str, *, allow_private: bool = False,
                                      transport=PinnedTransport(pins)) as c:
             async with c.stream("GET", current,
                                 headers={"User-Agent": "BossmanPlugins/1.0",
-                                         **(headers or {})}) as r:
+                                         **send_headers}) as r:
                 if r.is_redirect:
                     loc = r.headers.get("location")
                     if not loc:
@@ -241,7 +250,13 @@ async def safe_get(url: str, *, allow_private: bool = False,
                     hops += 1
                     if hops > max_redirects:
                         raise PluginSecurityError("too many redirects")
-                    current = httpx.URL(r.request.url).join(loc).__str__()
+                    nxt = httpx.URL(r.request.url).join(loc)
+                    if _origin(nxt) != _origin(httpx.URL(r.request.url)):
+                        # Как httpx/requests при своём следовании redirect'ам: креды
+                        # вызывающего чужому origin не передаются.
+                        send_headers = {k: v for k, v in send_headers.items()
+                                        if k.lower() not in _CREDENTIAL_HEADERS}
+                    current = str(nxt)
                     continue  # revalidate next hop before following
                 chunks: list[bytes] = []
                 total = 0
@@ -300,13 +315,32 @@ _RE_TXT_TOKENLIKE = re.compile(
     r"\b(?:sk-[A-Za-z0-9_\-]{8,}|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|"
     r"xox[baprs]-[A-Za-z0-9\-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{20,}|hf_[A-Za-z0-9]{20,}|"
     r"BOSSMAN_TEST_SECRET_[A-Za-z0-9]{4,})\b")
+# Приватный ключ — БЛОКОМ, а не только строкой заголовка: правило private-key
+# из gitleaks (MIT, github.com/gitleaks/gitleaks, config/gitleaks.toml).
+_RE_TXT_PEM = re.compile(
+    r"-----BEGIN[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----[\s\S]*?"
+    r"-----END[ A-Z0-9_-]{0,100}PRIVATE KEY(?: BLOCK)?-----")
+# Пароль в userinfo URL (`https://user:pass@host`): имя и хост остаются для диагностики.
+_RE_TXT_URL_USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://[^/\s:@'\"<>]+:)([^@\s/'\"<>]+)(@)")
+
+
+def _shared_token_patterns() -> tuple:
+    """Единый список форм токенов (`bcc.pit.secret_filter.TOKEN_PATTERNS`, правила
+    gitleaks MIT / detect-secrets Apache-2.0): Telegram bot-токен, github_pat_,
+    JWT, Stripe… Своя копия не заводится — иначе списки расходятся."""
+    from .pit.secret_filter import TOKEN_PATTERNS
+    return TOKEN_PATTERNS
 
 
 def redact_text(text: str) -> str:
     """Вычистить секреты из свободного текста (идемпотентно)."""
     if not text:
         return text
+    text = _RE_TXT_PEM.sub("***REDACTED***", text)
+    text = _RE_TXT_URL_USERINFO.sub(lambda m: f"{m.group(1)}***REDACTED***{m.group(3)}", text)
     text = _RE_TXT_BEARER.sub(lambda m: f"{m.group(1)} ***REDACTED***", text)
     text = _RE_TXT_KV.sub(lambda m: f"{m.group(1)}{m.group(2)}***REDACTED***{m.group(4)}", text)
     text = _RE_TXT_TOKENLIKE.sub("***REDACTED***", text)
+    for pattern in _shared_token_patterns():
+        text = pattern.sub("***REDACTED***", text)
     return text
