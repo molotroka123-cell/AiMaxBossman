@@ -777,6 +777,23 @@ def _mcp_blocked(why: str, line: str) -> ToolResult:
                       data={"performed": False})
 
 
+def _agent_denies_target(canonical: str, call_args: dict, agent: dict) -> str:
+    """Причина DENY по правам агента для ЦЕЛЕВОГО `mcp:<server>:<tool>`; "" — не запрещён.
+
+    Плагин — обходной маршрут к тому же инструменту, поэтому правила агента
+    (`permissions.tool_rules`) оцениваются тем же `decide_effect`, что и для
+    прямого вызова. Блокируется только DENY: ASK уже покрыт одобрением плагина."""
+    from ..tools import agent_policy_rules, decide_effect
+
+    async def _never(args, ctx):                 # оценка политики, не исполнение
+        raise RuntimeError("policy probe only")
+    target = REGISTRY.get(canonical) or ToolSpec(
+        name=canonical, description="", handler=_never, source="mcp", default_effect="ask",
+        category="exec")
+    effect, reason = decide_effect(target, dict(call_args or {}), agent, agent_policy_rules(agent))
+    return reason if effect == "deny" else ""
+
+
 async def _h_mcp_tool_call(args, ctx: ToolContext) -> ToolResult:
     """Вызов инструмента УЖЕ настроенного MCP-сервера — тем же путём, что `mcp:<server>:<tool>`.
 
@@ -812,6 +829,9 @@ async def _h_mcp_tool_call(args, ctx: ToolContext) -> ToolResult:
     canonical = namespaced_tool(spec.id, tool)
     if str((await _m._policy(svc)).get(canonical) or "ask") == "deny":
         return _mcp_blocked(f"{canonical} запрещён политикой владельца (mcp.policy=deny)", "denied by policy")
+    agent_denial = _agent_denies_target(canonical, call_args, getattr(ctx, "agent", None) or {})
+    if agent_denial:
+        return _mcp_blocked(f"{canonical} запрещён правами агента: {agent_denial}", "denied by agent rule")
     refusal = _m.launch_refusal(spec)
     if refusal:
         return _mcp_blocked(refusal, "blocked (allowlist)")
