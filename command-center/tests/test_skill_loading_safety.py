@@ -126,6 +126,49 @@ async def test_load_errors_endpoint(env, tmp_path):
     assert [e["skill"] for e in errs["errors"]] == ["huge-skill"]
 
 
+# --------------------------------------------------------------- containment
+
+def _link_dir(link: Path, target: Path) -> None:
+    import os
+
+    import pytest
+    try:
+        os.symlink(target, link, target_is_directory=True)
+        return
+    except (OSError, NotImplementedError):
+        pass
+    if os.name == "nt":
+        import _winapi
+        try:
+            _winapi.CreateJunction(str(target), str(link))   # no admin/dev-mode needed
+            return
+        except OSError:
+            pass
+    pytest.skip("symlink/junction not supported here")
+
+
+def test_skill_linked_from_outside_the_root_is_refused(tmp_path):
+    root = tmp_path / "skills"
+    outside = tmp_path / "elsewhere"
+    _write(outside, "planted", "---\nname: planted\ndescription: чужой файл\n---\n# x\n")
+    _write(root, "clean-skill", CLEAN)
+    _link_dir(root / "planted", outside / "planted")
+    lib = SkillLibrary([root], root)
+    assert [s.id for s in lib.discover()] == ["clean-skill"]
+    assert [e["skill"] for e in lib.errors] == ["planted"]
+    assert "вне папки навыков" in lib.errors[0]["message"]
+    assert str(outside) not in lib.errors[0]["message"]
+
+
+def test_skill_link_inside_the_same_root_still_loads(tmp_path):
+    root = tmp_path / "skills"
+    _write(root / "_store", "real-skill", CLEAN.replace("clean-skill", "real-skill"))
+    _link_dir(root / "real-skill", root / "_store" / "real-skill")
+    lib = SkillLibrary([root], root)
+    assert [s.id for s in lib.discover()] == ["real-skill"]
+    assert lib.errors == []
+
+
 def test_yaml_python_tags_never_execute(tmp_path, monkeypatch):
     import os
     calls = []

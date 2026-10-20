@@ -138,6 +138,15 @@ class SkillLibrary:
                 continue
             for path in sorted(root.glob(f"*/{SKILL_FILE}")):
                 rp = path.resolve()
+                # Ссылка/junction из папки навыков наружу подсовывала бы как
+                # «навык» любой файл машины (в т.ч. с required_tools/permissions).
+                # Ссылки внутри того же корня допустимы.
+                if not rp.is_relative_to(root):
+                    errors.append({"skill": path.parent.name, "root": root.name,
+                                   "message": f"Навык «{path.parent.name}» — ссылка на файл вне папки "
+                                              "навыков; такой навык не загружается. Скопируйте его "
+                                              "внутрь папки вместо ссылки."})
+                    continue
                 if rp in seen_paths:
                     continue
                 seen_paths.add(rp)
