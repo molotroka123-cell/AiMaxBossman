@@ -78,6 +78,15 @@ def test_spoken_text_does_not_speak_html_or_markdown_syntax():
     assert spoken_reply_text("<b>Привет &amp; пока</b>\n### **Детали**") == "Привет & пока\nДетали"
 
 
+def test_spoken_text_does_not_spell_out_bare_links_or_emoji():
+    """Regression: a bare URL or an emoji went to Piper as is (a voice reply spelled the link letter by letter)."""
+    said = spoken_reply_text("Готово 👍 Подробности тут: https://example.org/a/b?x=1 и на www.example.com, пиши ✅")
+    assert said == "Готово Подробности тут: и на, пиши"
+    assert spoken_reply_text("[Статья](https://example.org/x) понравилась 😀") == "Статья понравилась"
+    # negative control: ordinary words, numbers and punctuation are kept
+    assert spoken_reply_text("Встреча в 10:30, адрес на почте.") == "Встреча в 10:30, адрес на почте."
+
+
 def _telegram(handler):
     person = Person(user_id=101, chat_id=101, role="owner")
     settings = SimpleNamespace(bot_token="test-bot-token", core_token="test-core-token",

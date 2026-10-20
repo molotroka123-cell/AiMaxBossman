@@ -26,6 +26,19 @@ def test_redact_removes_registered_values_and_secret_shaped_strings():
     assert out.count(h.MARK) >= 4
 
 
+@pytest.mark.parametrize("token", [
+    "sk" + "-" + "Zk" * 12,                              # shorter than the generic 40-char token rule
+    "AK" + "IA" + "QWERTYUIOP" + "ASDFGH",                # AWS access key id (20 chars)
+    "AI" + "za" + "Sy" + "Gk" * 16 + "Q",                 # Google API key (39 chars)
+    "xo" + "xb-" + "1234567890-" + "Gk" * 8,              # Slack
+])
+def test_redact_uses_jeffs_provider_token_shapes(token):
+    """Regression: the calls log/answering redactor only knew bot tokens, hex32 and 40+ char blobs, so shorter provider
+    keys reached worker.log and could be spoken to a caller. It now reuses bcc.pit.secret_filter.TOKEN_PATTERNS."""
+    out = h.redact(f"error from provider with key {token} retry")
+    assert token not in out and h.MARK in out and out.startswith("error from provider") and out.endswith(" retry")
+
+
 def test_redact_does_not_eat_ordinary_log_text_negative_control():
     text = "call c-42 outcome=completed turns=7 latency_p50=812.5 model=fast:qwen barge_ins=1"
     assert h.redact(text) == text

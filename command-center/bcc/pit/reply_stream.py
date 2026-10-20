@@ -95,6 +95,7 @@ class EditPacer:
 
 
 CURSOR = " ▍"
+DISCARDED = "…"             # what a draft shows while a discarded attempt is being retried
 DRAFT_LIMIT = 3900          # below Telegram's 4096; longer replies are delivered the normal way
 FIRST_DRAFT_MIN_CHARS = 40
 
@@ -130,7 +131,20 @@ class TelegramDraft:
         if self.disabled:
             return
         if piece is None:
+            # The shown text belongs to a failed/refused attempt: take it off the screen now and
+            # restart pacing from zero, otherwise the retry's (often shorter) text never passes
+            # ``min_chars`` past the old length and the discarded text stays visible until the end.
             self.text = ""
+            self.pacer.last_len = 0
+            if self.message_id is not None and self.shown:
+                try:
+                    await self.telegram.edit_message(self.person, self.message_id, DISCARDED + CURSOR)
+                    self.shown, self.edits = DISCARDED, self.edits + 1
+                    self.pacer.mark(0)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:  # noqa: BLE001 — finalize/discard still replace or remove it
+                    self.disabled = True
             return
         self.text += piece
         visible = self.text[:DRAFT_LIMIT]

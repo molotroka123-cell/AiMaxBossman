@@ -279,11 +279,31 @@ def test_trim_questions_never_touches_questions_in_the_body_or_a_single_question
     assert dr.trim_questions(single, 1) == single
 
 
+def test_trim_questions_keeps_a_quoted_question_whole():
+    """Regression: the split happened at the "?" before "»", so the quote was cut and the real question dropped."""
+    assert dr.trim_questions("Он сказал «где ты?» Ты где? Что делаешь?", 1) == "Он сказал «где ты?» Ты где?"
+    assert dr.split_sentences("Она спросила (зачем?) и ушла.") == ["Она спросила (зачем?)", " и ушла."]
+
+
 def test_boilerplate_closing_question_is_stripped():
     reply = "Вот план на неделю: пн, ср, пт. Чем ещё могу помочь?"
     assert dr.strip_boilerplate(reply) == "Вот план на неделю: пн, ср, пт."
     kept = "Чем ещё могу помочь?"
     assert dr.strip_boilerplate(kept) == kept
+
+
+@pytest.mark.parametrize("reply,expected", [
+    ("Готово.\n\nЧем ещё могу помочь?", "Готово."),                  # regression: a paragraph break before the tail
+    ("Как ты? Чем ещё могу помочь?", "Как ты?"),                      # regression: after a question
+    ("Список готов\nЕсть ли ещё вопросы?", "Список готов"),
+])
+def test_boilerplate_tail_after_a_paragraph_or_a_question_is_stripped(reply, expected):
+    assert dr.strip_boilerplate(reply) == expected
+
+
+def test_boilerplate_inside_a_sentence_is_kept_negative_control():
+    body = "Скажи, чем ещё могу помочь? — так спрашивают консультанты."
+    assert dr.strip_boilerplate(body) == body
 
 
 def test_post_reply_trims_extra_questions_when_a_question_was_planned():

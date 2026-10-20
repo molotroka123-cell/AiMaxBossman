@@ -59,12 +59,14 @@ class SentenceChunker:
         if _END_RE.search(self._buf):
             self.end_call = True
             self._buf = _END_RE.sub("", self._buf)
-        # never split inside an unfinished marker
+        # never split inside an unfinished marker: cut only what precedes the last "[" and keep
+        # BOTH the uncut rest of that head and the tail (dropping either silently lost speech,
+        # e.g. a farewell right before "[конец]" was never spoken)
         if "[" in self._buf[-8:]:
-            head = self._buf[: self._buf.rfind("[")]
-            tail = self._buf[self._buf.rfind("["):]
+            at = self._buf.rfind("[")
+            head, tail = self._buf[:at], self._buf[at:]
             out = self._cut(head)
-            self._buf = tail if len(tail) < 8 else ""
+            self._buf += tail
             return out
         out = self._cut(self._buf)
         return out

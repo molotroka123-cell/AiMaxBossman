@@ -209,6 +209,18 @@ def _hour_with_period(hour: int, period: str | None) -> int | None:
     return hour + 12 if 1 <= hour <= 6 else hour
 
 
+_EXTRA_MIN = re.compile(r"\s*(?:и\s+)?(\d{1,2})\s*мин\w*")
+
+
+def _extra_minutes(work: list[str], at: int) -> timedelta:
+    """«через 1 час 30 минут»: the minutes right after an hour count belong to the same span (masked too)."""
+    m = _EXTRA_MIN.match("".join(work), at)
+    if not m or int(m.group(1)) > 59:
+        return timedelta(0)
+    _mask(work, m)
+    return timedelta(minutes=int(m.group(1)))
+
+
 def _add_months(day: date, months: int) -> date:
     index = day.month - 1 + months
     year, month = day.year + index // 12, index % 12 + 1
@@ -260,7 +272,7 @@ def _scan(text: str, now: float, tz_min: int):
             if unit.startswith("мин"):
                 delta = timedelta(minutes=n)
             elif unit.startswith("час") or unit == "ч":
-                delta = timedelta(hours=n)
+                delta = timedelta(hours=n) + _extra_minutes(work, m.end())
             elif unit.startswith("нед"):
                 day_shift, used_relative_days = 7 * n, True
             elif unit.startswith("месяц"):
@@ -275,7 +287,7 @@ def _scan(text: str, now: float, tz_min: int):
             if unit == "минуту":
                 delta = timedelta(minutes=1)
             elif unit == "час":
-                delta = timedelta(hours=1)
+                delta = timedelta(hours=1) + _extra_minutes(work, m.end())
             elif unit == "день":
                 day_shift, used_relative_days = 1, True
             elif unit == "неделю":
@@ -427,7 +439,8 @@ _RECUR = re.compile(
     r"(?:(?P<daily>каждый\s+день|ежедневно)|кажд(?:ое|ый)\s+(?P<part>утро|вечер)|"
     rf"по\s+(?P<plural>{_RECUR_WD})|кажд(?:ый|ую|ое)\s+(?P<single>{_RECUR_WD})|"
     rf"каждую\s+неделю\s+(?:во?\s+)(?P<weekword>{_RECUR_WD}))"
-    r"(?:\s+[вк]\s+(?P<hour>\d{1,2})(?:[:.](?P<minute>\d{2}))?(?:\s*(?:час\w*|ч)\b)?)?"
+    r"(?:\s+[вк]\s+(?P<hour>\d{1,2})(?:[:.](?P<minute>\d{2}))?(?:\s*(?:час\w*|ч)\b)?"
+    r"(?:\s+(?P<period>утра|дня|вечера|ночи)\b)?)?"
     r"(?:\s+(?P<what>.*))?$", re.S)
 
 
@@ -442,11 +455,17 @@ def parse_recurrence(text: str) -> dict[str, Any] | None:
     hour = int(m["hour"]) if m["hour"] is not None else None
     minute = int(m["minute"]) if m["minute"] is not None else 0
     rest = m["what"] or ""
+    period = m["period"]
     if hour is None:                                       # «напоминай каждый день пить воду в 9»: time at the end
-        tail = re.search(r"\s+[вк]\s+(\d{1,2})(?:[:.](\d{2}))?(?:\s*(?:час\w*|ч)\b)?\W*$", " " + rest)
+        tail = re.search(r"\s+[вк]\s+(\d{1,2})(?:[:.](\d{2}))?(?:\s*(?:час\w*|ч)\b)?"
+                         r"(?:\s+(утра|дня|вечера|ночи)\b)?\W*$", " " + rest)
         if tail:
-            hour, minute = int(tail.group(1)), int(tail.group(2) or 0)
+            hour, minute, period = int(tail.group(1)), int(tail.group(2) or 0), tail.group(3)
             rest = (" " + rest)[: tail.start()]
+    if hour is not None and period:                        # «в 9 вечера» is 21:00, not 09:00 + «вечера» in the text
+        hour = _hour_with_period(hour, period)
+        if hour is None:
+            return None
     if m["part"]:
         base = _RECUR_PART[m["part"]]
         hour = base if hour is None else (hour + 12 if m["part"] == "вечер" and hour < 12 else hour)

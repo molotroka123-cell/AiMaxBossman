@@ -15,8 +15,17 @@ SECRETS = {
     "password-en": "pass" + "word: hunter2",
     "password-ru": "Пароль = qwerty123",
     "seed": "seed" + " phrase: abandon abandon abandon",
+    # provider shapes (gitleaks MIT / detect-secrets Apache-2.0 rules)
+    "github-classic": "token " + "gh" + "p_" + "Gh7" * 12,
+    "github-fine-grained": "github" + "_pat_" + "11ABCDEFG0" + "Gh7" * 10,
+    "aws-key-id": "AK" + "IA" + "QWERTYUIOP" + "ASDFGH",
+    "google-api": "AI" + "za" + "Sy" + "Gk" * 16 + "Q",
+    "slack": "xo" + "xb-" + "1234567890-" + "Gk" * 8,
+    "stripe": "sk" + "_live_" + "Gh7" * 10,
+    "huggingface": "hf" + "_" + "Hg" * 17,
+    "jwt": "ey" + "JhbGciOiJIUzI1NiJ9." + "ey" + "JzdWIiOiIxMjM0In0." + "Sg" * 10,
 }
-FILLS = (_FILL, "Qa" * 17, "hunter2", "qwerty123")
+FILLS = (_FILL, "Qa" * 17, "hunter2", "qwerty123", "Gh7" * 10, "QWERTYUIOP", "Gk" * 8, "Hg" * 17, "Sg" * 10)
 
 
 @pytest.mark.parametrize("name,text", SECRETS.items())
@@ -44,6 +53,12 @@ def test_redaction_keeps_the_surrounding_words_and_hits_every_secret():
     assert clean.count("[REDACTED_SECRET]") == 2 and "s3cr3t" not in clean
 
 
-def test_a_secret_shape_outside_the_patterns_is_NOT_caught():
-    """Documented limit (negative control for the claim above): only these shapes are filtered, a GitHub token is not."""
-    assert not contains_secret_hint("ghp_" + "a" * 36)
+@pytest.mark.parametrize("text", [
+    "commit 05096a2d" + "4f2e0558" * 4,                 # a git SHA Jeff reports is not a secret
+    "id 123e4567-e89b-12d3-a456-426614174000",          # a UUID
+    "the prefixes gh" + "p_ AK" + "IA AI" + "za xo" + "xb- hf" + "_ ey" + "J alone",
+    "gh" + "p_" + "short",
+])
+def test_a_shape_outside_the_patterns_is_NOT_caught(text):
+    """Documented limit (negative control for the claims above): only fixed-prefix shapes of full length are filtered."""
+    assert not contains_secret_hint(text)

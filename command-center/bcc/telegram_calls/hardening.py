@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
 
+from bcc.pit.secret_filter import TOKEN_PATTERNS
+
 MARK = "[REDACTED]"
 _MIN_SECRET_LEN = 6
 
@@ -81,6 +83,8 @@ def redact(text: str, secrets: Iterable[str] = ()) -> str:
     for value in sorted({s for s in secrets if isinstance(s, str) and len(s) >= _MIN_SECRET_LEN}, key=len, reverse=True):
         text = text.replace(value, MARK)
     text = _TG_BOT.sub(MARK, text)
+    for pattern in TOKEN_PATTERNS:     # Jeff's provider token shapes (sk-, GitHub, AWS, Google, Slack, JWT, …)
+        text = pattern.sub(MARK, text)
     text = _CODE_AFTER_WORD.sub(lambda m: f"{m.group(1)}{m.group(2)}{MARK}", text)
     text = _PHONE.sub(MARK, text)
     text = _HEX32.sub(MARK, text)

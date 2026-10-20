@@ -55,6 +55,11 @@ def ctx(text, mid="1", key=PK_A):
     ("напомни каждый день в 7:05 зарядка", {"every": "daily", "hour": 7, "minute": 5, "what": "зарядка"}),
     ("Напоминай каждый день пить воду в 8:30", {"every": "daily", "hour": 8, "minute": 30, "what": "пить воду"}),
     ("напоминай каждый день", {"every": "daily", "hour": 9, "minute": 0, "what": ""}),
+    # regression: «утра/вечера» after the hour was left in the text and the hour kept (a pill reminder 12 h early)
+    ("напоминай каждый день в 9 вечера пить таблетки", {"every": "daily", "hour": 21, "minute": 0, "what": "пить таблетки"}),
+    ("напоминай по пятницам в 7 утра бегать", {"every": "weekly", "weekday": 4, "hour": 7, "minute": 0, "what": "бегать"}),
+    ("напоминай каждый день в 3 часа дня обед", {"every": "daily", "hour": 15, "minute": 0, "what": "обед"}),
+    ("напоминай каждый день полить цветы в 8 вечера", {"every": "daily", "hour": 20, "minute": 0, "what": "полить цветы"}),
 ])
 def test_recurrence_parser(text, expected):
     assert P.parse_recurrence(text) == expected
