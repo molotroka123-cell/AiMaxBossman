@@ -261,6 +261,29 @@ async def _probe(label: str, base_url: str, transport: Any = None) -> dict:
                 "detail": detail, "models": []}
 
 
+OLLAMA_DEFAULT_REGISTRY = "registry.ollama.ai"
+
+
+def _ollama_model_name(parts: tuple[str, ...]) -> str:
+    """The name `ollama list` / `/api/tags` uses for a manifest path.
+
+    manifests/<registry>/<namespace>/<model>/<tag>:
+      registry.ollama.ai/library/qwen2.5/7b          -> qwen2.5:7b
+      registry.ollama.ai/huihui_ai/qwen3-abliterated/8b -> huihui_ai/qwen3-abliterated:8b
+      hf.co/bartowski/Qwen3-8B-GGUF/Q4_K_M            -> hf.co/bartowski/Qwen3-8B-GGUF:Q4_K_M
+    Keeping only `<model>:<tag>` named a community model as if it were the
+    library one (two different weights, one name) and never matched Ollama's
+    own list, so the registry could not tell which file a model is."""
+    if len(parts) < 2:
+        return ""
+    *path, tag = parts
+    if len(path) >= 2 and path[0] == OLLAMA_DEFAULT_REGISTRY:
+        path = path[1:]
+    if len(path) >= 2 and path[0] == "library":
+        path = path[1:]
+    return "/".join(path) + ":" + tag
+
+
 def _scan_ollama(base: Path) -> list[dict]:
     """Модели Ollama из манифестов: `blobs/` + `manifests/` вместо `*.gguf`."""
     manifests = base / "manifests"
@@ -281,9 +304,7 @@ def _scan_ollama(base: Path) -> list[dict]:
                      if isinstance(l, dict) and l.get("mediaType") == OLLAMA_MODEL_MEDIA), 0)
         if not size:
             continue
-        # .../manifests/registry.ollama.ai/library/qwen2.5/7b -> qwen2.5:7b
-        parts = path.relative_to(manifests).parts
-        name = f"{parts[-2]}:{parts[-1]}" if len(parts) >= 2 else path.name
+        name = _ollama_model_name(path.relative_to(manifests).parts) or path.name
         found.append({"path": str(path), "name": name, "runner": "ollama",
                       "size_gb": round(size / 1e9, 2)})
         if len(found) >= MAX_FILES:
