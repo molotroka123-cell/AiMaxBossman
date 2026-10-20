@@ -1,0 +1,73 @@
+{
+ "schema": "bossman.direct-gen.warm-queue-bench/1",
+ "at": "20261020T050237Z",
+ "model": "z-image-turbo",
+ "size": "512x512",
+ "steps": 8,
+ "seed": 424242,
+ "cli_bin": "C:\\Users\\asd\\Bossman\\media-runtime\\sdcpp\\vulkan\\sd-cli.exe",
+ "server_bin": "C:\\Users\\asd\\Bossman\\media-runtime\\sdcpp\\vulkan\\sd-server.exe",
+ "thresholds": {
+  "max_warm_load_share": 0.25,
+  "max_mean_abs_diff": 0.03
+ },
+ "server_plan_fallback": null,
+ "gpu_check": {
+  "foreign_engines": [],
+  "live_backend_jobs": 0
+ },
+ "runs": {
+  "cli": {
+   "returncode": 0,
+   "total_s": 31.02,
+   "load_s": 17.83,
+   "log_tail": [
+    "[INFO   ] image.cpp:619  - decode_first_stage completed, taking 1.99s",
+    "[INFO   ] image.cpp:1039 - generate_image completed in 27.60s",
+    "[INFO   ] main.cpp:504  - save result image 0 to 'C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\direct-gen\\bench\\20261020T050237Z-z-image-turbo\\cli.png' (success)",
+    "[INFO   ] main.cpp:580  - 1/1 images saved"
+   ]
+  },
+  "server1": {
+   "returncode": 0,
+   "total_s": 20.42,
+   "warm": false,
+   "ready_s": 0.55,
+   "first_step_s": 7.5,
+   "progress_lines": true,
+   "engine": "sd-server (resident)",
+   "fallback": "",
+   "startup_s": 0.55,
+   "log_tail": [
+    "[INFO   ] model_loader.cpp:1309 - loading tensors completed, taking 0.21s (read: 0.02s, memcpy: 0.00s, convert: 0.01s, copy_to_backend: 0.00s)",
+    "[INFO   ] image.cpp:615  - latent 1 decoded, taking 2.00s",
+    "[INFO   ] image.cpp:619  - decode_first_stage completed, taking 2.00s",
+    "[INFO   ] image.cpp:1039 - generate_image completed in 19.56s"
+   ]
+  },
+  "server2": {
+   "returncode": 0,
+   "total_s": 16.62,
+   "warm": true,
+   "ready_s": 0.0,
+   "first_step_s": 3.58,
+   "progress_lines": true,
+   "engine": "sd-server (resident)",
+   "fallback": "",
+   "startup_s": 0.0,
+   "log_tail": [
+    "[INFO   ] image.cpp:549  - decoding 1 latents",
+    "[INFO   ] image.cpp:615  - latent 1 decoded, taking 1.71s",
+    "[INFO   ] image.cpp:619  - decode_first_stage completed, taking 1.71s",
+    "[INFO   ] image.cpp:1039 - generate_image completed in 16.05s"
+   ]
+  },
+  "server_starts": 1
+ },
+ "parity": {
+  "cli_vs_server1": 0.0,
+  "server1_vs_server2": 0.0
+ },
+ "verdict": "PASS",
+ "reasons": []
+}
