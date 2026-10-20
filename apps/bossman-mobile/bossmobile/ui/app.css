@@ -82,6 +82,13 @@ button, .chip, .tab, .thumb { transition: transform .16s ease, background-color 
 .topbar.plain { padding-left: 20px; padding-right: 12px; }
 .topbar .title { font-size: 28px; margin: 6px 0; }
 .topbar .actions { display: flex; gap: 2px; }
+/* общий STOP: над вкладками, на всех экранах; без анимации (prefers-reduced-motion не нужен) */
+.stop-banner { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: calc(8px + var(--sat)) 16px 8px;
+  background: color-mix(in srgb, var(--err) 14%, var(--surface)); border-bottom: 1px solid color-mix(in srgb, var(--err) 45%, transparent);
+  color: var(--text); z-index: 11; }
+.stop-text { flex: 1 1 200px; min-width: 0; margin: 0; font-size: 14px; line-height: 1.35; font-weight: 600; overflow-wrap: anywhere; }
+.stop-resume { flex: none; background: var(--err); color: var(--surface); border-color: transparent; }
+.app.stop-on .topbar { padding-top: 6px; }   /* the banner already took the safe-area inset */
 .scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 16px 24px; }
 .pill { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--bg2); color: var(--muted); }
 .pill:empty { display: none; }

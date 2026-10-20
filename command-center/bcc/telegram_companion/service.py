@@ -10,6 +10,7 @@ import random
 import re
 import secrets
 import time
+from pathlib import Path
 
 from .adapters import (CURRENT_PRIORITY, IMAGE_MAX_BYTES, IMAGE_MIMES, OLLAMA_VISION_MODEL, Core, Models,
                        RateLimited, Telegram, image_mime, scrub)
@@ -40,6 +41,8 @@ from .secret_intake import (
 SWEET_DROPS_PACK = "SweetDrops"  # https://t.me/addstickers/SweetDrops
 SWEET_DROPS_MIN_CHARS = 200
 SWEET_DROPS_ENABLED = True
+STOP_REMIND_AFTER_S = 60 * 60          # global STOP older than this -> one reminder to the owner (owner 20.10)
+STOP_REMIND_EVERY_S = 3 * 60 * 60      # then at most once per this while the same STOP stays on
 
 
 HELP = ("Я Bossman, ваш ИИ-помощник на локальных моделях. Можно просто написать мне.\n\n"
@@ -2113,6 +2116,50 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             except CompanionError:
                 continue
 
+    def global_stop_file(self) -> Path | None:
+        """The owner's global STOP of the Bossman this pult serves: ``<core data>/computer/STOP``."""
+        from .backend_target import default_core_data_dir
+        data_dir = self.settings.core_data_dir or default_core_data_dir()
+        return Path(data_dir) / "computer" / "STOP" if data_dir else None
+
+    async def notify_stop_reminder(self, now: float | None = None):
+        """Owner 20.10: STOP stayed on for hours after a test and nobody noticed. When the global STOP is older than
+        60 min, tell the OWNER (one recipient) once, then at most every 3 h while the same STOP stays on.
+
+        The episode is the file's mtime (a new /stop rewrites it). The record is written BEFORE the send and lives in
+        the encrypted companion store: a restart or an uncertain send never produces a second message inside the
+        window. Read-only: this never clears the STOP; that stays /resume or «Продолжить»."""
+        owner = next((p for p in self.settings.people if p.role == "owner"), None)
+        path = self.global_stop_file()
+        if owner is None or path is None:
+            return
+        try:
+            since = path.stat().st_mtime
+        except FileNotFoundError:
+            if self.store.get("stop_reminder") is not None:
+                self.store.put("stop_reminder", None)   # STOP is off: the next STOP is a new episode
+            return
+        except OSError:
+            return                                      # cannot tell: say nothing rather than guess
+        now = time.time() if now is None else now
+        age = now - since
+        if age < STOP_REMIND_AFTER_S:
+            return
+        state = self.store.get("stop_reminder")
+        if (isinstance(state, dict) and state.get("since") == since
+                and now - float(state.get("sent_at") or 0) < STOP_REMIND_EVERY_S):
+            return
+        try:
+            if owner not in self.policy_provider().people:
+                return
+        except (OSError, ValueError, TypeError):
+            return
+        self.store.put("stop_reminder", {"since": since, "sent_at": now})
+        text = f"⛔ STOP включён уже {max(1, int(age // 3600))} ч — нажми /resume или кнопку «Продолжить»"
+        keyboard = [[self.button(owner, "▶️ Продолжить", "/resume")]] if self.console_allowed(owner) else None
+        with contextlib.suppress(CompanionError):
+            await self.telegram.send(owner, text, keyboard)
+
     async def monitor(self):
         owner = next(p for p in self.settings.people if p.role == "owner")
         ticks = 0
@@ -2128,6 +2175,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             await self.notify_zone_reports()
             await self.notify_answering_reports()
             await self.notify_jeff_digests()
+            with contextlib.suppress(Exception):
+                await self.notify_stop_reminder()
             with contextlib.suppress(Exception):
                 await self.recover_operator_tasks()
             with contextlib.suppress(CompanionError):

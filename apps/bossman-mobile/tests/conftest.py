@@ -57,6 +57,8 @@ class FakeBossman:
         self.calls: list[dict] = []
         self.sessions = {SID}
         self.logins = 0
+        self.stop_file = None       # the owner's global STOP file this fake Bossman clears on POST /api/computer/resume
+        self.resume_clears = True
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
@@ -82,6 +84,10 @@ class FakeBossman:
             return httpx.Response(401, json={"error": {"message": "нужна аутентификация"}})
         if method not in ("GET", "HEAD") and request.headers.get("x-bcc-csrf") != REAL_CSRF:
             return httpx.Response(403, json={"error": {"message": "csrf", "code": "csrf"}})
+        if path == "/api/computer/resume" and method == "POST":
+            if self.stop_file is not None and self.resume_clears:
+                self.stop_file.unlink(missing_ok=True)
+            return httpx.Response(200, json={"stopped": False, "generation": 3})
         if path == "/api/chat/options":
             return httpx.Response(200, json=OPTIONS)
         if path == "/api/agents":
@@ -237,7 +243,10 @@ class Env:
         tok = tmp_path / "bcc-token"
         tok.write_text(BOSS_TOKEN, encoding="utf-8")
         self.fake = FakeBossman()
-        st = Settings(bossman_url="http://127.0.0.1:8801", token_file=tok, data_dir=tmp_path / "mobile")
+        # stop_file in tmp: a test must never read (or be blocked by) the owner's live %LOCALAPPDATA% STOP
+        st = Settings(bossman_url="http://127.0.0.1:8801", token_file=tok, data_dir=tmp_path / "mobile",
+                      stop_file=tmp_path / "bcc" / "computer" / "STOP")
+        self.fake.stop_file = st.stop_file
         self.app = create_app(st, bossman_transport=httpx.MockTransport(self.fake.handler),
                               ollama_transport=httpx.MockTransport(fake_ollama), war_transport=httpx.MockTransport(war_down),
                               pairing_token=PAIR)

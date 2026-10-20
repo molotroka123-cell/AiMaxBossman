@@ -61,6 +61,11 @@
 
 <!-- ================= Приложение ================= -->
 <main id="app" class="app" hidden>
+  <!-- Общий STOP: виден на каждой вкладке, пока файл STOP существует (owner 20.10) -->
+  <div class="stop-banner" id="stop-banner" role="alert" hidden>
+    <p class="stop-text" id="stop-text">⛔ STOP включён — действия ПК и записи обменника заблокированы</p>
+    <button class="btn small stop-resume" id="stop-resume" type="button">Продолжить</button>
+  </div>
   <!-- Чат -->
   <section class="view" id="view-chat" data-view="chat">
     <header class="topbar">
