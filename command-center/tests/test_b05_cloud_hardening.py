@@ -100,3 +100,37 @@ async def test_a_400_stays_an_http_error_without_retry_after():
     with pytest.raises(ProviderError) as info:
         await adapter.chat("m", [{"role": "user", "content": "hi"}])
     assert (info.value.kind, info.value.retry_after) == ("http", None)
+
+
+# ------------------------------------------------------------------ health cooldown honours Retry-After
+
+def test_the_health_cooldown_is_never_shorter_than_the_providers_retry_after():
+    from datetime import datetime, timedelta, timezone
+    now = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)
+    rec = mh.record_observation(None, mh.THROTTLED, "429", now=now, retry_after_s=900)
+    assert rec.cooldown_until - now == timedelta(seconds=900)          # not the 60 s default
+    capped = mh.record_observation(None, mh.THROTTLED, "429", now=now, retry_after_s=10 ** 9)
+    assert capped.cooldown_until - now == timedelta(seconds=mh.MAX_COOLDOWN_SECONDS)
+    short = mh.record_observation(None, mh.THROTTLED, "429", now=now, retry_after_s=5)
+    assert short.cooldown_until - now == timedelta(seconds=mh.BASE_COOLDOWN_SECONDS)  # never shortened
+    ok = mh.record_observation(None, mh.HEALTHY, "", now=now, retry_after_s=900)
+    assert ok.cooldown_until is None
+
+
+async def test_a_probe_hit_by_429_parks_the_model_for_the_providers_window(env):
+    from .conftest import FakeAdapter
+    from .helpers import make_stack
+
+    class RateLimited(FakeAdapter):
+        async def chat(self, model, messages, **kw):
+            raise ProviderError("лимит запросов провайдера (429)", kind="rate_limit",
+                                status_code=429, retry_after=1200.0)
+
+    stack = await make_stack(env.client)
+    mid = stack["model"]["id"]
+    env.svc.registry.adapter_factory = lambda m, p: RateLimited()
+    with pytest.raises(ProviderError):
+        await env.svc.registry.test_model(mid)
+    record = await env.svc.registry.model_health(mid)
+    assert record.status == mh.THROTTLED
+    assert (record.cooldown_until - record.checked_at).total_seconds() >= 1200

@@ -245,11 +245,13 @@ class Registry:
         return mh.HealthRecord.from_dict(row[0] if row is not None else None)
 
     async def record_model_health(self, model_id: int, status: str, detail: str = "",
-                                  *, latency_ms: int | None = None):
+                                  *, latency_ms: int | None = None,
+                                  retry_after_s: float | None = None):
         """Сложить одно измерение в запись здоровья и сохранить её."""
         from . import model_health as mh
         prior = await self.model_health(model_id)
-        record = mh.record_observation(prior, status, detail, latency_ms=latency_ms)
+        record = mh.record_observation(prior, status, detail, latency_ms=latency_ms,
+                                       retry_after_s=retry_after_s)
         async with self.db.session() as s:
             await s.execute(sa.update(models_t).where(models_t.c.id == model_id).values(
                 health=record.to_dict()))
@@ -294,7 +296,8 @@ class Registry:
             await self._set_status(model_id, status, str(exc))
             from . import model_health as mh
             kind, detail = mh.classify_exception(exc)
-            await self.record_model_health(model_id, kind, detail)
+            await self.record_model_health(model_id, kind, detail,
+                                           retry_after_s=getattr(exc, "retry_after", None))
             await self.bus.emit("model.status", id=model_id, alias=model["alias"],
                                 status=status, detail=str(exc))
             raise

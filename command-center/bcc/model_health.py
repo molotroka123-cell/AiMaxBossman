@@ -322,8 +322,13 @@ def cooldown_for(status: str, consecutive_failures: int) -> timedelta:
 
 def record_observation(prior: HealthRecord | None, status: str, detail: str = "",
                        *, latency_ms: int | None = None,
-                       now: datetime | None = None) -> HealthRecord:
-    """Fold one measurement into the record. Pure — the caller persists it."""
+                       now: datetime | None = None,
+                       retry_after_s: float | None = None) -> HealthRecord:
+    """Fold one measurement into the record. Pure — the caller persists it.
+
+    ``retry_after_s`` is the provider's own Retry-After for this failure: the cooldown is never
+    shorter than what the provider asked for (re-probing a free tier before its window resets
+    is how the probe budget is eaten), and never longer than MAX_COOLDOWN_SECONDS."""
     at = now or _now()
     rec = prior or HealthRecord()
     out = HealthRecord(
@@ -339,6 +344,9 @@ def record_observation(prior: HealthRecord | None, status: str, detail: str = ""
                       if latency_ms is not None else rec.latencies_ms),
     )
     cooldown = cooldown_for(status, out.consecutive_failures)
+    if (status != HEALTHY and isinstance(retry_after_s, (int, float))
+            and not isinstance(retry_after_s, bool) and math.isfinite(retry_after_s) and retry_after_s > 0):
+        cooldown = max(cooldown, timedelta(seconds=min(float(retry_after_s), MAX_COOLDOWN_SECONDS)))
     out.cooldown_until = None if not cooldown else at + cooldown
     return out
 
