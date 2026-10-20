@@ -113,3 +113,32 @@ async def test_stop_before_the_uia_effect_is_honoured(monkeypatch, kind):
     stop.clear()
     ok, _ = await desktop._uia(ComputerAction.make(kind, target="Сохранить"))
     assert ok is True and len(log) == 1
+
+
+# ------------------------------------------------------------------ window identity right before the effect
+
+@pytest.mark.parametrize("kind,args", SINGLE_SHOT)
+async def test_single_shot_input_refused_when_foreground_is_another_window(pg, kind, args):
+    desktop = WindowsDesktop()
+    desktop.set_interrupt(threading.Event())
+    desktop._foreground_hwnd = lambda: 99           # a popup took the foreground
+    with pytest.raises(RuntimeError, match="foreground window changed"):
+        await desktop._input(ComputerAction.make(kind, args={**args, "foreground_handle": 7}))
+    assert pg.sent == []
+    desktop._foreground_hwnd = lambda: 7            # positive control: the checked window
+    await desktop._input(ComputerAction.make(kind, args={**args, "foreground_handle": 7}))
+    assert len(pg.sent) == 1
+
+
+@pytest.mark.parametrize("kind", [ActionKind.FOCUS, ActionKind.UI_INVOKE])
+async def test_uia_target_is_not_searched_in_a_foreign_foreground_window(monkeypatch, kind):
+    log: list[str] = []
+    monkeypatch.setattr(WindowsDesktop, "_active_window", staticmethod(lambda: _Win(log, handle=99)))
+    desktop = WindowsDesktop()
+    desktop.set_interrupt(threading.Event())
+    ok, reason = await desktop._uia(ComputerAction.make(kind, target="Удалить",
+                                                        args={"foreground_handle": 7}))
+    assert ok is False and "foreground window changed" in reason
+    assert log == []
+    ok, _ = await desktop._uia(ComputerAction.make(kind, target="Удалить", args={"foreground_handle": 99}))
+    assert ok is True and len(log) == 1

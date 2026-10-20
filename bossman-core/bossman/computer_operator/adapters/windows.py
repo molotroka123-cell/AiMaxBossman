@@ -226,6 +226,15 @@ class WindowsDesktop:
         def g():
             try:
                 w=self._active_window()
+                # UIA-путь ищет цель в ТЕКУЩЕМ окне переднего плана. Если это не
+                # то окно, которое проверил вызывающий, элемент с тем же именем
+                # («Удалить», «Сохранить») нашёлся бы в чужом окне.
+                want=a.args.get("foreground_handle")
+                if want:
+                    try: got=int(getattr(w,"handle",0) or 0)
+                    except (TypeError,ValueError): got=0
+                    if got!=int(want):
+                        return False,f"foreground window changed (hwnd {got}, expected {int(want)})"
                 cands=w.descendants(title=a.target)
                 if not cands: return False,"element not found"
                 c=cands[0]
@@ -418,6 +427,12 @@ class WindowsDesktop:
                 # пришедший после последней проверки вызывающего, но до старта
                 # потока, иначе исполнялся бы. Проверяем здесь, вплотную к вводу.
                 self._stop_before_effect(a.kind)
+                # Идентичность окна — вплотную к эффекту, как у набора: клик или
+                # Ctrl+S, ушедшие в окно, которое всплыло после проверки
+                # вызывающего, — это эффект в чужом окне.
+                want=a.args.get("foreground_handle")
+                if want and self._foreground_hwnd()!=int(want):
+                    raise RuntimeError(f"foreground window changed before {a.kind.value} — input not sent")
             if a.kind is ActionKind.CLICK: pyautogui.click(*self._xy(a))
             elif a.kind is ActionKind.DOUBLE_CLICK: pyautogui.doubleClick(*self._xy(a))
             elif a.kind is ActionKind.TYPE:
