@@ -2166,6 +2166,27 @@ async def resume_after_takeover(svc, expect: dict[str, Any] | None = None) -> di
     старые наблюдения и при заданном expect проверяет постусловие (verify)."""
     st = _owner_state(svc)
     obs = await observe(svc, screenshot=False)
+    # «Успешное наблюдение» — это прочитанное окно, а не просто вернувшийся
+    # вызов: адаптер отдаёт {"error": ...} без окна, когда UIA не ответил, и
+    # снимать «Стоп» по такому экрану — значит вернуть управление вслепую.
+    # Заданное владельцем постусловие, которое НЕ подтвердилось, тоже держит
+    # «Стоп»: ручной шаг не дал того, ради чего был перехват.
+    win = obs.get("window") or {}
+    verified, checks = verify(obs, expect)
+    refusal = None
+    if win.get("error") or not win.get("handle"):
+        refusal = (f"экран не прочитан ({win.get('error') or 'окно переднего плана не определено'}) — "
+                   f"«Стоп» не снят, повторите возврат управления")
+    elif verified is False:
+        refusal = "постусловие владельца не подтвердилось на свежем экране — «Стоп» не снят"
+    if refusal:
+        step = st.record_step("takeover_resume_refused", by="owner", reason=refusal,
+                              verified=verified, checks=list(checks))
+        await svc.bus.emit("computer.takeover.resume_refused", by="owner", reason=refusal,
+                           generation=obs.get("generation"))
+        return {"stopped": True, "takeover_active": st.takeover_active, "refused": refusal,
+                "generation": obs.get("generation"), "verified": verified, "checks": checks,
+                "observation": obs, "step": step}
     st.clear_stop()
     st.takeover_active = False
     st.takeover_reason = ""
@@ -2173,7 +2194,6 @@ async def resume_after_takeover(svc, expect: dict[str, Any] | None = None) -> di
     obs["generation"] = st.generation
     st.last = obs
     st.remember(obs)
-    verified, checks = verify(obs, expect)
     step = st.record_step("takeover_resume", by="owner", after_generation=obs["generation"],
                           verified=verified, checks=list(checks))
     await svc.bus.emit("computer.takeover.resumed", by="owner", generation=obs["generation"],
@@ -2208,9 +2228,13 @@ async def http_takeover_resume(request: Request):
         body = {}
     expect = (body or {}).get("expect") if isinstance(body, dict) else None
     try:
-        return await resume_after_takeover(request.app.state.svc, expect=expect)
+        out = await resume_after_takeover(request.app.state.svc, expect=expect)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(503, {"message": f"возврат после перехвата недоступен: {exc}"})
+    if out.get("refused"):
+        raise HTTPException(409, {"message": out["refused"], "stopped": True,
+                                  "verified": out.get("verified"), "checks": out.get("checks")})
+    return out
 
 
 @router.get("/computer/catalog")

@@ -65,3 +65,39 @@ async def test_resume_after_file_stop_really_clears_the_interrupt(env, desk):
     res = await tc.act(env.svc, {"action": "type", "generation": g, "text": "ok",
                                  "expect": {"contains_text": "ok"}})
     assert res["verified"] is True
+
+
+# ------------------------------------------------------------------ 2. takeover resume = successful observe
+
+class UnreadableDesktop(FakeDesktop):
+    """UIA did not answer: the adapter returns a window with `error` and no handle."""
+
+    async def snapshot(self):
+        return {"title": "", "app": "", "error": "COMError"}, None
+
+
+async def test_takeover_resume_keeps_stop_when_the_screen_was_not_read(env, desk):
+    await env.client.post("/api/computer/takeover/pause", json={"reason": "2FA"})
+    desk.desktop = UnreadableDesktop()
+    r = await env.client.post("/api/computer/takeover/resume", json={})
+    assert r.status_code == 409
+    assert desk.stopped() is True and desk.stop_path.is_file()
+    assert desk.takeover_active is True
+    out = await tc.resume_after_takeover(env.svc)
+    assert out["stopped"] is True and out["refused"]
+    assert desk.stopped() is True
+    assert any(e["phase"] == "takeover_resume_refused" for e in desk.step_log)
+
+
+async def test_takeover_resume_keeps_stop_when_owner_postcondition_fails(env, desk):
+    await env.client.post("/api/computer/takeover/pause", json={"reason": "manual"})
+    r = await env.client.post("/api/computer/takeover/resume",
+                              json={"expect": {"contains_text": "ПОДТВЕРЖДЕНО ВЛАДЕЛЬЦЕМ"}})
+    assert r.status_code == 409
+    assert desk.stopped() is True and desk.takeover_active is True
+    # positive control: the owner finishes the manual step, the same resume clears STOP
+    desk.desktop.doc = "ПОДТВЕРЖДЕНО ВЛАДЕЛЬЦЕМ"
+    r = await env.client.post("/api/computer/takeover/resume",
+                              json={"expect": {"contains_text": "ПОДТВЕРЖДЕНО ВЛАДЕЛЬЦЕМ"}})
+    assert r.status_code == 200 and r.json()["verified"] is True
+    assert desk.stopped() is False and desk.takeover_active is False
