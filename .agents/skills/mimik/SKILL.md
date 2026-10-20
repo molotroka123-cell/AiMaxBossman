@@ -7,6 +7,7 @@ metadata:
   version: "1.0"
   upstream: "westpoint-io/mimik"
   upstream_commit: "905098ac005a7caad68949189a81e43ac8c327a1"
+  license: MIT
   integration: "text_export_adapter"
 required_tools:
   - mimik.guide
