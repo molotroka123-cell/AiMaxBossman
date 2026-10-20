@@ -37,6 +37,7 @@ No upstream script, hook, example or reference file is ever imported or run.
 """
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import re
@@ -441,6 +442,23 @@ _META_STOP = frozenset({"use", "when", "for", "and", "the", "with", "from", "int
                         "skill", "skills", "before", "after", "using", "create", "creating"})
 
 
+def _norm_text(text: str) -> str:
+    """Регистр и «ё/е» не различаются: владелец пишет и «отчёт», и «отчет»."""
+    return text.lower().replace("ё", "е")
+
+
+@functools.lru_cache(maxsize=1024)
+def _trigger_rx(trigger: str) -> re.Pattern:
+    """Каждое слово триггера — основа в НАЧАЛЕ слова задачи; слова фразы идут
+    подряд, разделитель — пробелы или дефис. Так «отдельн рабоч» находит
+    «отдельную рабочую», а «пул-реквест» — «пул реквест» и «пулл-реквест».
+    Раньше фраза сравнивалась буквально и основы в ней не срабатывали никогда."""
+    words = [w for w in re.split(r"[\s\-]+", trigger.strip()) if w]
+    if not words:
+        return re.compile(r"(?!x)x")
+    return re.compile(r"(?<![\w])" + r"\w*[\s\-]+".join(re.escape(w) for w in words))
+
+
 def score_skill(task_text: str, triggers: Iterable[str], *,
                 name: str = "", description: str = "") -> tuple[int, list[str]]:
     """Each trigger is a word stem or phrase matched at a word start
@@ -449,15 +467,15 @@ def score_skill(task_text: str, triggers: Iterable[str], *,
     When explicit triggers score < MIN_SCORE, distinct >=5-char keywords from
     skill name/description provide a secondary boost so specific queries find
     the right skill without noisy false positives."""
-    low = (task_text or "").lower()
+    low = _norm_text(task_text or "")
     matched = []
     score = 0
     for t in triggers:
-        if t and re.search(r"(?<![\w])" + re.escape(t), low):
+        if t and _trigger_rx(_norm_text(t)).search(low):
             matched.append(t)
             score += 2 if " " in t else 1
     if (name or description) and score < MIN_SCORE:
-        meta_tokens = {w for w in re.findall(r"[a-zа-яё]{5,}", f"{name} {description}".lower())
+        meta_tokens = {w for w in re.findall(r"[a-zа-яё]{5,}", _norm_text(f"{name} {description}"))
                        if w not in _META_STOP}
         task_tokens = set(re.findall(r"[a-zа-яё]{5,}", low))
         overlap = sorted(meta_tokens & task_tokens)
