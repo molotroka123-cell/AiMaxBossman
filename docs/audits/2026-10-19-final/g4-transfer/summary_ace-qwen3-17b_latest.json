@@ -1,0 +1,34 @@
+{
+  "model": "ace-qwen3-17b:latest",
+  "head_sha": "246d967a4d03647e0c3f409ff350eed15fe6a801",
+  "learning_dir": "docs\\audits\\2026-10-19-final\\learning-store",
+  "branches_verified_in_lessonbook": 15,
+  "coding_recipes_verified_in_lessonbook": 3,
+  "untrained_agent": {
+    "total": 6,
+    "strict_pass": 2,
+    "answer_ok": 2,
+    "tool_tasks_total": 3,
+    "tool_tasks_strict_pass": 1,
+    "rule_tasks_total": 3,
+    "rule_tasks_strict_pass": 1,
+    "rule_tasks_answer_ok": 1,
+    "recalled_lessons_count": 0,
+    "mean_elapsed_s": 14.6
+  },
+  "trained_elder_brother": {
+    "total": 6,
+    "strict_pass": 5,
+    "answer_ok": 5,
+    "tool_tasks_total": 3,
+    "tool_tasks_strict_pass": 2,
+    "rule_tasks_total": 3,
+    "rule_tasks_strict_pass": 3,
+    "rule_tasks_answer_ok": 3,
+    "recalled_lessons_count": 6,
+    "mean_elapsed_s": 17.05
+  },
+  "delta_strict_pass": 3,
+  "delta_tool_strict_pass": 1,
+  "delta_rule_strict_pass": 2
+}

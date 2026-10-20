@@ -182,6 +182,58 @@ class TaskStore:
         self._move(task, "RUNNING", why="input")
         return task
 
+    def update_input_on_change(self, owner: str, task_id: str, step_id: str, value: Any, *,
+                               reason: str = "owner_input_changed") -> dict[str, Any]:
+        """Update or supply input for a pending/waiting step at a checkpoint without
+        repeating any already-COMPLETED steps or external actions."""
+        task = self.get(owner, task_id)
+        if task["state"] in TERMINAL:
+            raise TaskError("task is already finished")
+        if redact_secrets(json.dumps(value, ensure_ascii=False))[1]:
+            raise TaskError("input must not contain secrets")
+        step = next((s for s in task["steps"] if s["id"] == step_id), None)
+        if step is None:
+            raise TaskError("step not found")
+        if step["status"] == "DONE":
+            raise TaskError("cannot change input of an already completed step")
+        previous = task["inputs"].get(step_id)
+        changed = step_id in task["inputs"] and previous != value
+        task["inputs"][step_id] = value
+        history = task.setdefault("input_revisions", [])
+        history.append({"step": step_id, "changed": changed, "reason": str(reason)[:120], "at": _now()})
+        if task["state"] == "WAITING_INPUT" and (task.get("awaited_input") or {}).get("step") == step_id:
+            task["awaited_input"] = None
+            self._move(task, "RUNNING", why="input_changed" if changed else "input")
+        else:
+            self._save(task)
+            self._event(task, "input_changed" if changed else "input_set", step=step_id,
+                        reason=str(reason)[:120])
+        return task
+
+    def checkpoint_snapshot(self, owner: str, task_id: str) -> dict[str, Any]:
+        """Return a deterministic LangGraph-style checkpoint snapshot of the task's
+        current progress, completed actions, and pending interrupt (input/approval)."""
+        task = self.get(owner, task_id)
+        completed_actions = sorted(k for k, a in (task.get("actions") or {}).items()
+                                   if a.get("status") == "COMPLETED")
+        payload = {
+            "task_id": task["id"],
+            "owner": task["owner"],
+            "state": task["state"],
+            "done_steps": list(task.get("done") or []),
+            "pending_steps": [s["id"] for s in task.get("steps") or [] if s.get("status") != "DONE"],
+            "awaited_input": task.get("awaited_input"),
+            "awaited_approval": task.get("awaited_approval"),
+            "completed_action_keys": completed_actions,
+            "inputs": dict(task.get("inputs") or {}),
+            "approval_refs": list(task.get("approval_refs") or []),
+            "build_sha": task.get("build_sha"),
+        }
+        digest = hashlib.sha256(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return {**payload, "checkpoint_id": f"chk-{task['id']}-{digest[:12]}", "checkpoint_sha256": digest}
+
     def approve(self, owner: str, task_id: str, step_id: str, approval_ref: str) -> dict[str, Any]:
         task = self.get(owner, task_id)
         if task["state"] != "WAITING_APPROVAL" or task.get("awaited_approval") != step_id:

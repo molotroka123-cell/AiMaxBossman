@@ -570,3 +570,43 @@ async def test_status_endpoint_is_honest(env, monkeypatch):
     body = (await env.client.get("/api/computer/status")).json()
     assert body["available"] is False and "Windows" in body["detail"]
     assert "computer.act" in body["tools"]
+
+
+async def test_oav_step_log_and_owner_takeover_flow(env, desk):
+    """Tier 5 Open Interpreter + Copilot Studio extension: explicit observe->act->verify step log
+    and owner takeover pause/resume with fresh re-observation."""
+    obs = await tc.observe(env.svc)
+    g0 = obs["generation"]
+    res = await tc.act(env.svc, {"action": "type", "generation": g0, "text": "Шаг 1",
+                                 "expect": {"contains_text": "Шаг 1"}})
+    assert res["verified"] is True
+
+    log_body = (await env.client.get("/api/computer/step-log")).json()
+    phases = [entry["phase"] for entry in log_body["step_log"]]
+    assert "observe" in phases and "act" in phases and "verify" in phases
+    act_entry = next(e for e in log_body["step_log"] if e["phase"] == "act")
+    verify_entry = next(e for e in log_body["step_log"] if e["phase"] == "verify")
+    assert act_entry.get("pre_state_sha256") == obs["fingerprint"]
+    assert verify_entry.get("pre_state_sha256") == obs["fingerprint"]
+    assert verify_entry.get("post_state_sha256") == res["observation"]["fingerprint"]
+    assert len(verify_entry.get("post_state_sha256") or "") == 24
+
+    # Owner initiates manual takeover (e.g., to complete a 2FA/confirmation step)
+    paused = (await env.client.post("/api/computer/takeover/pause",
+                                    json={"reason": "Владелец вводит подтверждение вручную"})).json()
+    assert paused["takeover_active"] is True
+    assert paused["stopped"] is True
+
+    # While in takeover, agent actions are blocked
+    with pytest.raises(tc.ActRefused, match="Стоп"):
+        await tc.act(env.svc, {"action": "type", "generation": res["after_generation"], "text": "x"})
+
+    # Owner modifies the desktop state manually during takeover and resumes with postcondition check
+    desk.desktop.doc += " [ПОДТВЕРЖДЕНО ВЛАДЕЛЬЦЕМ]"
+    resumed = (await env.client.post("/api/computer/takeover/resume",
+                                     json={"expect": {"contains_text": "ПОДТВЕРЖДЕНО ВЛАДЕЛЬЦЕМ"}})).json()
+    assert resumed["takeover_active"] is False
+    assert resumed["stopped"] is False
+    assert resumed["verified"] is True
+    assert resumed["generation"] > res["after_generation"]
+

@@ -6,7 +6,17 @@ No network writes, no transfers, no messages to clients. Money is Decimal; the l
 model never does arithmetic. See docs/owner/BOSSMAN_AI_ASSISTANT_SPEC_RU.md.
 """
 from .agent import Assistant
-from .quote import Quote, QuoteError, build_quote
-from .rates import Rate, RateBook, RateError
+from .quote import Quote, QuoteError, build_quote, render_branded_document
+from .rates import Rate, RateBook, RateError, licensed_xe_feed_status
 
-__all__ = ["Assistant", "Quote", "QuoteError", "Rate", "RateBook", "RateError", "build_quote"]
+__all__ = [
+    "Assistant",
+    "Quote",
+    "QuoteError",
+    "Rate",
+    "RateBook",
+    "RateError",
+    "build_quote",
+    "licensed_xe_feed_status",
+    "render_branded_document",
+]

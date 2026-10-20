@@ -296,6 +296,17 @@ class ComputerState:
     # hwnd -> {"task_id", "pid", "app"}: окна, которые запустил Computer Use.
     # Только в памяти: после перезапуска окно надо запустить заново (fail closed).
     launched: dict[int, dict[str, Any]] = field(default_factory=dict)
+    # Явный журнал шагов observe -> act -> verify и режим перехвата владельцем (takeover).
+    step_log: list[dict[str, Any]] = field(default_factory=list)
+    takeover_active: bool = False
+    takeover_reason: str = ""
+
+    def record_step(self, phase: str, **details: Any) -> dict[str, Any]:
+        entry = {"seq": len(self.step_log) + 1, "phase": phase, "at": time.time(),
+                 "generation": self.generation, "session": self.session, **details}
+        self.step_log.append(entry)
+        del self.step_log[:-200]
+        return entry
 
     @property
     def unknown_path(self) -> Path | None:
@@ -680,6 +691,11 @@ async def observe(svc, *, screenshot: bool = True, window: Any = None,
     obs["fingerprint"] = _fingerprint(win, elements)
     st.last = obs
     st.remember(obs)
+    st.record_step("observe", window=str(win.get("title") or "")[:200],
+                   hwnd=win.get("handle"), pid=win.get("pid"),
+                   elements=len(elements), fingerprint=obs["fingerprint"],
+                   post_state_sha256=obs["fingerprint"],
+                   stopped=obs["stopped"])
     await svc.bus.emit("computer.observe", generation=st.generation,
                        window=str(win.get("title") or "")[:200], elements=len(elements),
                        screenshot=shot)
@@ -1758,11 +1774,24 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                 if fgh != bh and await _root_of(st, fgh) != bh:
                     after_window = bh
         await asyncio.sleep(SETTLE_S)
+        pre_sha = (before or {}).get("fingerprint")
+        st.record_step("act", action=kind, target=target[:200],
+                       before_generation=(before or {}).get("generation"),
+                       pre_state_sha256=pre_sha,
+                       approval_ref=approval_ref, approved_kind=approved_kind if required else None)
         after = await _bounded(st, observe(svc, window=after_window, scope=scope), "наблюдение")
+        post_sha = after.get("fingerprint")
         verified, notes = verify(after, args.get("expect"), started_at=started_at)
+        st.record_step("verify", action=kind, target=target[:200],
+                       before_generation=(before or {}).get("generation"),
+                       after_generation=after["generation"],
+                       pre_state_sha256=pre_sha, post_state_sha256=post_sha,
+                       verified=verified, checks=list(notes))
         result = {"action": kind, "target": target, "coordinates": [x, y] if coords else None,
                   "before_generation": (before or {}).get("generation"),
-                  "after_generation": after["generation"], "verified": verified, "checks": notes,
+                  "after_generation": after["generation"],
+                  "pre_state_sha256": pre_sha, "post_state_sha256": post_sha,
+                  "verified": verified, "checks": notes,
                   "approved_kind": approved_kind if required else None, "approval_ref": approval_ref,
                   "window": acted_window or {k: (after.get("window") or {}).get(k)
                                              for k in ("handle", "pid", "title", "foreground")},
@@ -2055,8 +2084,74 @@ async def http_resume(request: Request):
     svc = request.app.state.svc
     st = _owner_state(svc)
     st.clear_stop()
+    st.takeover_active = False
+    st.takeover_reason = ""
+    st.record_step("resume", by="owner")
     await svc.bus.emit("computer.resume", by="owner", generation=st.generation)
     return {"stopped": False, "generation": st.generation}
+
+
+async def pause_for_takeover(svc, reason: str = "owner_takeover") -> dict[str, Any]:
+    """Перехват управления владельцем (Open Interpreter / Copilot Studio):
+    ставит явный стоп, фиксирует шаг takeover_pause и блокирует действия агента."""
+    st = _owner_state(svc)
+    st.takeover_active = True
+    st.takeover_reason = str(reason or "owner_takeover")[:200]
+    st.set_stop("owner_takeover")
+    step = st.record_step("takeover_pause", by="owner", reason=st.takeover_reason)
+    await svc.bus.emit("computer.takeover.paused", by="owner", reason=st.takeover_reason,
+                       generation=st.generation)
+    return {"stopped": True, "takeover_active": True, "reason": st.takeover_reason,
+            "generation": st.generation, "step": step}
+
+
+async def resume_after_takeover(svc, expect: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Возврат управления агенту после ручного шага владельца: снимает стоп,
+    обесценивает старые наблюдения, перечитывает экран (observe) и при заданном
+    expect проверяет постусловие (verify)."""
+    st = _owner_state(svc)
+    st.clear_stop()
+    st.takeover_active = False
+    st.takeover_reason = ""
+    obs = await observe(svc, screenshot=False)
+    verified, checks = verify(obs, expect)
+    step = st.record_step("takeover_resume", by="owner", after_generation=obs["generation"],
+                          verified=verified, checks=list(checks))
+    await svc.bus.emit("computer.takeover.resumed", by="owner", generation=obs["generation"],
+                       verified=verified)
+    return {"stopped": False, "takeover_active": False, "generation": obs["generation"],
+            "verified": verified, "checks": checks, "observation": obs, "step": step}
+
+
+@router.get("/computer/step-log")
+async def http_step_log(request: Request):
+    st = _owner_state(request.app.state.svc)
+    items = list(st.step_log)
+    return {"session": st.session, "generation": st.generation,
+            "takeover_active": st.takeover_active, "items": items, "step_log": items}
+
+
+@router.post("/computer/takeover/pause")
+async def http_takeover_pause(request: Request):
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    reason = str((body or {}).get("reason") or "owner_takeover") if isinstance(body, dict) else "owner_takeover"
+    return await pause_for_takeover(request.app.state.svc, reason=reason)
+
+
+@router.post("/computer/takeover/resume")
+async def http_takeover_resume(request: Request):
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    expect = (body or {}).get("expect") if isinstance(body, dict) else None
+    try:
+        return await resume_after_takeover(request.app.state.svc, expect=expect)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(503, {"message": f"возврат после перехвата недоступен: {exc}"})
 
 
 @router.get("/computer/catalog")

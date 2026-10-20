@@ -18,6 +18,12 @@ def _git(repository: Path, *args: str) -> bytes:
     return result.stdout
 
 
+# Per-file blob SHA-1 cache keyed by (resolved_path, st_mtime_ns, st_size, st_ino).
+# Preserves full byte verification when a file is first seen or its stat changes, while
+# avoiding re-reading 1,000+ unchanged tracked files on repeated calls in the same process.
+_BLOB_HASH_CACHE: dict[tuple[str, int, int, int], str] = {}
+
+
 def source_identity(repository: Path) -> dict:
     """Unknown Git identity is unmeasured; any extra packaged input is dirty.
 
@@ -31,6 +37,13 @@ def source_identity(repository: Path) -> dict:
             raise ValueError("unmeasured source SHA")
         tracked = set()
         dirty = bool(_git(repository, "status", "--porcelain", "--untracked-files=normal"))
+        # Detect hidden index flags (--assume-unchanged -> 'h', --skip-worktree -> 'S')
+        has_hidden_index_flags = False
+        for line in _git(repository, "ls-files", "-v", "-z").split(b"\0"):
+            if line and line[:1] in (b"h", b"S"):
+                has_hidden_index_flags = True
+                break
+        repo_str = str(repository)
         for entry in _git(repository, "ls-tree", "-r", "-z", sha).split(b"\0"):
             if not entry:
                 continue
@@ -43,12 +56,24 @@ def source_identity(repository: Path) -> dict:
                 dirty = True  # submodule content is not attested here
                 continue
             try:
-                data = os.fsencode(os.readlink(path)) if mode == b"120000" else path.read_bytes()
-                actual = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data,
-                                      usedforsecurity=False).hexdigest()
-                dirty |= (actual != expected.decode() or (mode == b"120000") != path.is_symlink())
+                st = path.lstat()
+                is_link = (st.st_mode & 0o170000) == 0o120000
+                if mode == b"120000":
+                    data = os.fsencode(os.readlink(path))
+                    actual = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data,
+                                          usedforsecurity=False).hexdigest()
+                else:
+                    cache_key = (f"{repo_str}/{relative}", st.st_mtime_ns, st.st_size, st.st_ino)
+                    actual = None if has_hidden_index_flags else _BLOB_HASH_CACHE.get(cache_key)
+                    if actual is None:
+                        data = path.read_bytes()
+                        actual = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data,
+                                              usedforsecurity=False).hexdigest()
+                        if not has_hidden_index_flags and len(_BLOB_HASH_CACHE) < 16384:
+                            _BLOB_HASH_CACHE[cache_key] = actual
+                dirty |= (actual != expected.decode() or (mode == b"120000") != is_link)
                 if os.name != "nt" and mode in {b"100644", b"100755"}:
-                    dirty |= bool(path.stat().st_mode & 0o111) != (mode == b"100755")
+                    dirty |= bool(st.st_mode & 0o111) != (mode == b"100755")
             except OSError:
                 dirty = True
         inputs = [repository / name for name in

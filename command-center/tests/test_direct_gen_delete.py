@@ -67,3 +67,40 @@ async def test_bad_and_unknown_ids_are_404_and_nothing_outside_is_touched(env, t
         r = await delete(env, bad)
         assert r.status_code in (404, 405), (bad, r.status_code)
     assert keep.exists() and svc.store.job_dir("owner", job_id).exists()
+
+
+async def test_misspelled_or_conflicting_participant_header_never_gets_owner_effect(env, tmp_path):
+    """RT-01 regression: X-BCC-Participant or conflicting dual participant headers must not silently default to owner."""
+    svc = install(env, tmp_path, FakeSd)
+    job_id = (await create(env)).json()["job_id"]
+    assert (await finish(env, job_id))["status"] == "completed"
+    folder = svc.store.job_dir("owner", job_id)
+    assert folder.exists()
+
+    # 1. Invalid X-BCC-Participant (e.g. "guest" without X-Participant) -> 422 invalid_participant, NOT silent owner delete
+    r_invalid = await env.client.delete(
+        f"/api/direct-gen/jobs/{job_id}",
+        headers={"X-BCC-Participant": "guest"},
+    )
+    assert r_invalid.status_code == 422
+    assert r_invalid.json()["error"]["code"] == "invalid_participant"
+    assert folder.exists()
+
+    # 2. Valid non-owner PIT key passed via X-BCC-Participant -> 403 owner_only, NOT silent owner delete
+    r_pit_alias = await env.client.delete(
+        f"/api/direct-gen/jobs/{job_id}",
+        headers={"X-BCC-Participant": "b" * 64},
+    )
+    assert r_pit_alias.status_code == 403
+    assert r_pit_alias.json()["error"]["code"] == "owner_only"
+    assert folder.exists()
+
+    # 3. Conflicting X-Participant and X-BCC-Participant -> 400 conflicting_participant_headers
+    r_conflict = await env.client.delete(
+        f"/api/direct-gen/jobs/{job_id}",
+        headers={"X-Participant": "owner", "X-BCC-Participant": "b" * 64},
+    )
+    assert r_conflict.status_code == 400
+    assert r_conflict.json()["error"]["code"] == "conflicting_participant_headers"
+    assert folder.exists()
+

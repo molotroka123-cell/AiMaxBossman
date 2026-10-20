@@ -138,15 +138,32 @@ _PRIVATE_SUFFIXES = (".local", ".localhost", ".internal", ".lan", ".home", ".cor
                      ".ts.net", ".onion", ".test", ".invalid", ".example")
 
 
+_DENY_CACHE: tuple[str, frozenset[str]] | None = None
+
+
 def deny_domains() -> frozenset[str]:
-    extra = {d.strip().lower().lstrip(".") for d in os.environ.get(EXTRA_DENY_ENV, "").split(",")
-             if d.strip()}
-    return DEFAULT_DENY_DOMAINS | extra
+    global _DENY_CACHE
+    raw_extra = os.environ.get(EXTRA_DENY_ENV, "")
+    if _DENY_CACHE is not None and _DENY_CACHE[0] == raw_extra:
+        return _DENY_CACHE[1]
+    extra = {d.strip().lower().lstrip(".") for d in raw_extra.split(",") if d.strip()}
+    combined = DEFAULT_DENY_DOMAINS | extra
+    _DENY_CACHE = (raw_extra, combined)
+    return combined
 
 
 def domain_denied(host: str) -> bool:
     host = host.lower().rstrip(".")
-    return any(host == d or host.endswith("." + d) for d in deny_domains())
+    denied = deny_domains()
+    if host in denied:
+        return True
+    idx = host.find(".")
+    while idx != -1:
+        suffix = host[idx + 1:]
+        if suffix in denied:
+            return True
+        idx = host.find(".", idx + 1)
+    return False
 
 
 # --------------------------------------------------------------------- sensitive text
@@ -172,6 +189,8 @@ _PERSONAL_PATTERNS = [
                r"100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+)\b"),
     re.compile(r"\b(localhost|127\.0\.0\.1)\b", re.I),
 ]
+_COMBINED_SECRET_RE = re.compile("|".join(f"(?:{p.pattern})" for p in _SECRET_PATTERNS), re.I)
+_COMBINED_PERSONAL_RE = re.compile("|".join(f"(?:{p.pattern})" for p in _PERSONAL_PATTERNS), re.I)
 
 
 def sensitive_reason(text: str) -> str:
@@ -179,12 +198,14 @@ def sensitive_reason(text: str) -> str:
     for secret in _known_secrets:
         if secret in text:
             return "contains a stored secret"
-    for pat in _SECRET_PATTERNS:
-        if pat.search(text):
-            return "looks like a secret/token"
-    for pat in _PERSONAL_PATTERNS:
-        if pat.search(text):
-            return "contains personal data, a local path or a private address"
+    if _COMBINED_SECRET_RE.search(text):
+        for pat in _SECRET_PATTERNS:
+            if pat.search(text):
+                return "looks like a secret/token"
+    if _COMBINED_PERSONAL_RE.search(text):
+        for pat in _PERSONAL_PATTERNS:
+            if pat.search(text):
+                return "contains personal data, a local path or a private address"
     return ""
 
 

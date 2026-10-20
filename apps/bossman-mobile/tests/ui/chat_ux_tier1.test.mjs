@@ -114,8 +114,8 @@ test('1. Auto-scroll only when near bottom + floating #btn-scroll-down button', 
   assert.ok(scrollBtn, '#btn-scroll-down must exist in index.html');
   assert.equal(scrollBtn.hidden, true, '#btn-scroll-down initially hidden when at bottom');
 
-  // Set up geometry: scrollable container (scrollHeight=1200, clientHeight=600)
-  let currentScrollTop = 600;
+  // Set up geometry: scrollable container (scrollHeight=1200, clientHeight=600, max scrollTop=600)
+  let currentScrollTop = 550;
   Object.defineProperty(msgs, 'scrollHeight', { get: () => 1200, configurable: true });
   Object.defineProperty(msgs, 'clientHeight', { get: () => 600, configurable: true });
   Object.defineProperty(msgs, 'scrollTop', {
@@ -131,10 +131,10 @@ test('1. Auto-scroll only when near bottom + floating #btn-scroll-down button', 
   await until(() => FakeEventSource.instances.length === 1, 'SSE stream opened');
   const es = FakeEventSource.instances[0];
 
-  // Emit first delta while user is at the bottom (scrollTop=600, scrollHeight-scrollTop-clientHeight = 0)
+  // Emit first delta while user is at the bottom (distance from bottom = 50 <= NEAR_PX)
   es.emit({ kind: 'run.answer_delta', text: 'Часть 1. ' });
   await sleep(30);
-  assert.equal(currentScrollTop, 1200, 'auto-scrolls when user is at bottom');
+  assert.ok(currentScrollTop >= 600, 'auto-scrolls when user is at bottom');
 
   // Now simulate user scrolling up to read (scrollTop=120, distance from bottom = 480 > threshold)
   currentScrollTop = 120;

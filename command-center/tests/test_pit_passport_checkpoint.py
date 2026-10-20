@@ -41,3 +41,60 @@ def test_checkpoint_reads_only_consented_facts_and_marks_unknown(tmp_path: Path)
     assert len(model.calls) == 1
     assert "PRIVATE_CHAT_TEXT" not in str(model.calls)
     assert (save_checkpoint(settings, report)).is_file()
+
+
+def test_taskstore_checkpoint_snapshot_and_update_input_on_change(tmp_path: Path):
+    """Tier 5 LangGraph extension: durable checkpoint snapshot and input update on change
+    without repeating completed external actions."""
+    from bcc.pit.tasks import TaskStore
+
+    store = TaskStore(tmp_path)
+    executed_calls = []
+
+    def exec_quote(key, params):
+        executed_calls.append(("quote", key))
+        return "Q-12345678"
+
+    def exec_settle(key, params):
+        executed_calls.append(("settle", key))
+        return "D-1"
+
+    task = store.create(
+        "owner", "Оформить обмен 1000 USDT",
+        steps=[
+            {"id": "quote", "title": "Котировка", "kind": "issue_quote"},
+            {"id": "settle", "title": "Расчёт", "kind": "settle_deal", "needs_input": True},
+        ],
+    )
+    tid = task["id"]
+    t1 = asyncio.run(store.run("owner", tid, {"issue_quote": exec_quote, "settle_deal": exec_settle}))
+    assert t1["state"] == "WAITING_INPUT"
+    assert len(executed_calls) == 1
+
+    snap1 = store.checkpoint_snapshot("owner", tid)
+    assert snap1["done_steps"] == ["quote"]
+    assert snap1["pending_steps"] == ["settle"]
+    assert snap1["awaited_input"]["step"] == "settle"
+    assert len(snap1["completed_action_keys"]) == 1
+    assert len(snap1["checkpoint_sha256"]) == 64
+
+    # Supply initial input and then update it on change before running step 2
+    store.update_input_on_change("owner", tid, "settle", "3%", reason="initial")
+    t_same = store.update_input_on_change("owner", tid, "settle", "3%", reason="same")
+    assert t_same["input_revisions"][-1]["changed"] is False
+
+    t_changed = store.update_input_on_change(
+        "owner", tid, "settle", "2.5%", reason="Менеджер согласовал скидку"
+    )
+    assert t_changed["input_revisions"][-1]["changed"] is True
+    snap2 = store.checkpoint_snapshot("owner", tid)
+    assert snap2["done_steps"] == ["quote"]
+    assert snap2["inputs"]["settle"] == "2.5%"
+    assert snap2["checkpoint_sha256"] != snap1["checkpoint_sha256"]
+
+    # Resume execution: step 1 ('quote') is NOT repeated; only step 2 ('settle') runs
+    t_done = asyncio.run(store.run("owner", tid, {"issue_quote": exec_quote, "settle_deal": exec_settle}))
+    assert t_done["state"] == "DONE"
+    assert [c[0] for c in executed_calls] == ["quote", "settle"]
+
+
