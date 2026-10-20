@@ -62,6 +62,12 @@ def env(tmp_path, monkeypatch):
     comp.execute("INSERT INTO inbox(who, body) VALUES('owner','sealed')")
     comp.commit()
     comp.close()
+    (data_dir / "pit-v1.7").mkdir(parents=True, exist_ok=True)
+    jeff = sqlite3.connect(data_dir / "pit-v1.7" / "companion.sqlite3")
+    jeff.execute("CREATE TABLE inbox(id INTEGER PRIMARY KEY, body TEXT)")
+    jeff.execute("INSERT INTO inbox(body) VALUES('sealed')")
+    jeff.commit()
+    jeff.close()
     # <data_dir>/telegram-companion/companion.sqlite3 deliberately absent: "missing" path.
     return {"local": local, "data_dir": data_dir, "dest": tmp_path / "Backups"}
 
@@ -332,7 +338,8 @@ def test_restore_drill_restores_into_temp_and_verifies(env, capsys):
     assert _run(env, "--restore-drill") == nb.EXIT_OK
     report = json.loads(capsys.readouterr().out)
     assert report["status"] == nb.PASS
-    assert {r["name"] for r in report["results"]} == {"bcc", "exchange-assistant", "fx", "telegram-companion"}
+    assert {r["name"] for r in report["results"]} == {"bcc", "exchange-assistant", "fx", "telegram-companion",
+                                                       "jeff-pit"}
     assert all(r["ok"] and r["integrity_check"] == "ok" for r in report["results"])
     workdir = Path(report["workdir"])
     assert not workdir.exists()                       # temp dir removed by default

@@ -88,6 +88,7 @@ SOURCES: tuple[Source, ...] = (
     Source("fx", "{data_dir}/fx/fx.db"),
     Source("telegram-companion", "{bossman}/telegram-companion/companion.sqlite3"),
     Source("telegram-companion-home", "{data_dir}/telegram-companion/companion.sqlite3"),
+    Source("jeff-pit", "{data_dir}/pit-v1.7/companion.sqlite3"),
 )
 
 JobsProbe = Callable[[], list]
