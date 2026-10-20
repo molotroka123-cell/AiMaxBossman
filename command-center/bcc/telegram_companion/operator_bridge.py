@@ -358,6 +358,7 @@ class OperatorBridgeMixin:
                          [[self.button(person, "📋 Статус", f"/work_status {active['id']}"),
                            self.button(person, "✋ Остановить её", f"/work_stop {active['id']}")]])
         self.store.put("operator_last_task", rec["id"])
+        self._operator_track_add(rec["id"])
         queued = busy or rec.get("queue_position")
         self._operator_register(rec["id"], asyncio.create_task(self.work_turn(person, rec["id"])))
         ctx_note = f" · ctx {_k(num_ctx)}" if num_ctx else ""
@@ -370,6 +371,56 @@ class OperatorBridgeMixin:
         return Reply(f"🛠 Оператор Qwen принял задание, задача {rec['id']}{ctx_note}. Работает в лаборатории (ветка "
                      f"{(rec.get('lab') or {}).get('branch')}), в основной проект ничего не попадает. Итог и "
                      "вопросы пришлю сюда.", [[self.button(person, "✋ Стоп оператору", "/work_stop")]])
+
+    def _operator_track_add(self, task_id: str) -> None:
+        if not task_id:
+            return
+        with contextlib.suppress(Exception):
+            cur = list(self.store.get("operator_active_tasks", []) or [])
+            if task_id not in cur:
+                cur.append(task_id)
+                self.store.put("operator_active_tasks", cur)
+
+    def _operator_track_remove(self, task_id: str) -> None:
+        if not task_id:
+            return
+        with contextlib.suppress(Exception):
+            cur = [t for t in (self.store.get("operator_active_tasks", []) or []) if t != task_id]
+            self.store.put("operator_active_tasks", cur)
+
+    async def recover_operator_tasks(self) -> list[str]:
+        """A22-05: on companion startup/monitor, deliver unsent receipts and re-attach watches for active /work tasks."""
+        owner = next((p for p in getattr(self.settings, "people", ()) if p.role == "owner"), None)
+        if owner is None or self.agent_policy(owner) is None:
+            return []
+        recovered: list[str] = []
+        unsent = str(self.store.get("operator_unsent_receipt", "") or "").strip()
+        if unsent:
+            with contextlib.suppress(Exception):
+                rec = await self.core.operator_task(unsent)
+                if rec and await self._send_reliable(owner, receipt_text(rec)):
+                    self.store.put("operator_unsent_receipt", "")
+                    self._operator_track_remove(unsent)
+                    recovered.append(unsent)
+        active_ids = list(self.store.get("operator_active_tasks", []) or [])
+        for tid in active_ids:
+            if not tid or tid == unsent:
+                continue
+            existing = self.agent_jobs.get(f"operator:{tid}")
+            if existing is not None and not existing.done():
+                continue
+            with contextlib.suppress(Exception):
+                rec = await self.core.operator_task(tid)
+                if not isinstance(rec, dict):
+                    continue
+                if rec.get("status") in TERMINAL:
+                    if await self._send_reliable(owner, receipt_text(rec)):
+                        self._operator_track_remove(tid)
+                        recovered.append(tid)
+                else:
+                    self._operator_register(tid, asyncio.create_task(self.work_turn(owner, tid)))
+                    recovered.append(tid)
+        return recovered
 
     async def _send_reliable(self, person: Person, text: str, keyboard=None) -> bool:
         """Final receipts and decisions must reach the owner: retry with backoff, re-checking the owner policy."""
@@ -428,6 +479,7 @@ class OperatorBridgeMixin:
                 if self.store.get("delegation_locked", False):
                     with contextlib.suppress(Exception):
                         await self.core.operator_cancel(task_id)
+                    self._operator_track_remove(task_id)
                     return
                 for d in rec.get("decisions", []):
                     aid = d.get("approval_id")
@@ -442,6 +494,7 @@ class OperatorBridgeMixin:
                         await self._send_reliable(person, f"Решение {aid} · задача {task_id}: {outcome_text(d)}")
                 status = rec.get("status")
                 if status in TERMINAL:
+                    self._operator_track_remove(task_id)
                     if not await self._send_reliable(person, receipt_text(rec)):
                         with contextlib.suppress(Exception):
                             self.store.put("operator_unsent_receipt", task_id)
@@ -457,8 +510,9 @@ class OperatorBridgeMixin:
                                 + (f" · сейчас: {ph}" if ph else ""))
                     with contextlib.suppress(Exception):
                         await self.telegram.send(person, f"{beat} · задача {task_id}")
-                await asyncio.sleep(POLL_SECONDS)
+                await asyncio.sleep(getattr(self, "POLL_SECONDS", POLL_SECONDS))
         except asyncio.CancelledError:
+            self._operator_track_remove(task_id)
             with contextlib.suppress(Exception):
                 await self.core.operator_cancel(task_id)
             if self.agent_policy(person) is not None:

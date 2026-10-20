@@ -1000,7 +1000,13 @@ async def _execute(run: Run) -> dict:
     run.phase("resolve_models")
     await resolve_local_roles(run)
     run.phase("plan")
-    plan = await run.plan(task)
+    if isinstance(rec.get("plan"), dict):
+        plan = rec["plan"]
+        run.step("plan_resumed", "ok")
+    else:
+        plan = await run.plan(task)
+        if plan is not None:
+            _save(svc, rec)
     if plan is None:
         return await run.finish("failed", "планировщик не дал валидный план")
 
@@ -1056,8 +1062,8 @@ async def _execute(run: Run) -> dict:
             run.phase("bossman_api")
             await run.gate_bossman_api(c)
 
-    draft = ""
-    if str(plan.get("worker_prompt") or "").strip() and not run.stopped():
+    draft = str(rec.get("worker_draft") or "")
+    if not draft and str(plan.get("worker_prompt") or "").strip() and not run.stopped():
         run.phase("worker")
         res = await run.cloud("worker", "Ты — независимый помощник. Отвечай коротко и по делу.",
                               str(plan["worker_prompt"])[:4000])
@@ -1065,13 +1071,17 @@ async def _execute(run: Run) -> dict:
         run.step("worker_draft", "ok" if res.get("ok") else "NOT_RUN", model=res.get("model"),
                  error=res.get("error"), attempts=res.get("attempts"))
         draft = res.get("text", "") if res.get("ok") else ""
+        rec["worker_draft"] = draft
+        _save(svc, rec)
 
-    commit_sha, final_diff = "", ""
-    if paths_ok:
-        commit_sha, final_diff = await edit_loop(run, plan, paths_ok, draft)
-    elif not rec["decisions"] and not rec.get("bossman_calls"):
-        return await run.finish("failed", "в плане нет файлов, которые оператор может менять")
-    rec["commit_sha"], rec["diff"] = commit_sha, final_diff
+    commit_sha, final_diff = str(rec.get("commit_sha") or ""), str(rec.get("diff") or "")
+    if not (commit_sha and final_diff):
+        if paths_ok:
+            commit_sha, final_diff = await edit_loop(run, plan, paths_ok, draft)
+        elif not rec["decisions"] and not rec.get("bossman_calls"):
+            return await run.finish("failed", "в плане нет файлов, которые оператор может менять")
+        rec["commit_sha"], rec["diff"] = commit_sha, final_diff
+        _save(svc, rec)
 
     if final_diff and not run.stopped():
         run.phase("verify")
@@ -1096,7 +1106,9 @@ async def _execute(run: Run) -> dict:
 
     ver = rec.get("verifier") or {}
     branch = (rec.get("lab") or {}).get("branch") or ""
-    if commit_sha and not run.stopped() and ver.get("verdict") == "APPROVE" and LAB_BRANCH_RE.match(branch):
+    has_release_decision = any(d.get("category") == "release_main" for d in rec.get("decisions", []))
+    if (commit_sha and not run.stopped() and ver.get("verdict") == "APPROVE"
+            and LAB_BRANCH_RE.match(branch) and not has_release_decision):
         run.phase("release_request")
         await run.gate_command(
             ["git", "push", "origin", f"{branch}:main"], why="слить проверенный коммит в main",
@@ -1354,16 +1366,26 @@ async def start_task(svc, task: str, *, source_repo: str | None = None, base_ref
            "operator_agent_id": int(row["id"]), "lab": lab, "steps": [], "model_calls": [], "commands": [],
            "decisions": [], "attempts": [], "constitution": await asyncio.to_thread(constitution_state),
            "authority": {"push": False, "merge": False, "deploy": False, "level": "L1 Lab"},
-           "roles": load_config(svc), "cost_usd": 0.0}
+           "roles": load_config(svc), "cost_usd": 0.0, "decision_wait_s": decision_wait_s}
     if num_ctx is not None:
         for role in LOCAL_ROLES:
             rec["roles"][role]["num_ctx"] = int(num_ctx)
         rec["num_ctx_override"] = int(num_ctx)
     _save(svc, rec)
-    run = Run(svc, rec, rec["roles"], OperatorScope(Path(lab["path"]), data_dir=Path(svc.settings.data_dir)),
-              decision_wait_s=DEFAULT_DECISION_WAIT_S if decision_wait_s is None else decision_wait_s, **inject)
+    return _spawn_task(svc, rec, decision_wait_s=decision_wait_s, **inject)
 
-    _QUEUE.append(rid)           # synchronously, so the position is right the moment this returns
+
+def _spawn_task(svc, rec: dict, *, decision_wait_s: float | None = None, **inject: Any) -> dict:
+    rid = rec["id"]
+    lab = rec.get("lab") or {}
+    roles = rec.get("roles") or load_config(svc)
+    rec["roles"] = roles
+    wait_s = rec.get("decision_wait_s", DEFAULT_DECISION_WAIT_S) if decision_wait_s is None else decision_wait_s
+    run = Run(svc, rec, roles, OperatorScope(Path(lab["path"]), data_dir=Path(svc.settings.data_dir)),
+              decision_wait_s=wait_s, **inject)
+
+    if rid not in _QUEUE:
+        _QUEUE.append(rid)       # synchronously, so the position is right the moment this returns
 
     async def go():
         try:
@@ -1389,6 +1411,82 @@ async def start_task(svc, task: str, *, source_repo: str | None = None, base_ref
     pos = queue_position(rid)
     rec["queue_position"] = pos if (_LOCK.locked() or (pos or 0) > 1) else None
     return rec
+
+
+async def recover_interrupted_tasks(svc, *, resume: bool | None = None,
+                                    decision_wait_s: float | None = None, **inject: Any) -> list[dict[str, Any]]:
+    """A22-05: reconcile unfinished qwen_operator tasks on startup.
+
+    Resumes queued/running tasks in their existing lab worktree (preserving checkpointed plan/worker_draft/commit)
+    when ``resume`` is True (or ``svc.start_workers`` is True by default) and the lab directory is intact.
+    Otherwise marks the task honestly as ``failed`` (or ``stopped`` when STOP is active) with ``error_code =
+    'interrupted_by_restart'`` and a clear reason so tasks never hang forever in ``running``/``queued``.
+    """
+    should_resume = bool(getattr(svc, "start_workers", False)) if resume is None else bool(resume)
+    stop_why = stop_reason(svc)
+    candidates: list[dict] = []
+    for p in _store(svc).glob("*.json"):
+        if not re.fullmatch(r"[a-f0-9]{12}\.json", p.name):
+            continue
+        try:
+            rec = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        rid = str(rec.get("id") or "")
+        if not rid or rec.get("status") in TERMINAL:
+            continue
+        live = _JOBS.get(rid)
+        if live is not None and not live.done():
+            continue
+        candidates.append(rec)
+
+    candidates.sort(key=lambda r: float(r.get("created_at") or 0.0))
+    outcomes: list[dict[str, Any]] = []
+    for rec in candidates:
+        rid = rec["id"]
+        lab_path_raw = str((rec.get("lab") or {}).get("path") or "")
+        lab_ok = bool(lab_path_raw and Path(lab_path_raw).is_dir())
+        resumed_count = int(rec.get("resumed_count") or 0)
+        if stop_why:
+            rec["status"] = "stopped"
+            rec["error_code"] = "interrupted_by_restart"
+            rec["error"] = f"interrupted_by_restart: остановлено при перезапуске из-за активного STOP ({stop_why})"
+            rec["finished_at"] = _now()
+            rec.setdefault("steps", []).append({"name": "interrupted_by_restart", "status": "stopped", "at": _now()})
+            _save(svc, rec)
+            outcomes.append({"id": rid, "action": "stopped", "reason": stop_why})
+            continue
+        if should_resume and lab_ok and resumed_count < MAX_ATTEMPTS:
+            prev_phase = (rec.get("phase") or {}).get("name") or rec.get("status")
+            rec["resumed_count"] = resumed_count + 1
+            rec["status"] = "queued"
+            rec["error"] = ""
+            rec.pop("error_code", None)
+            rec.setdefault("steps", []).append({
+                "name": "recovered_after_restart",
+                "status": "ok",
+                "at": _now(),
+                "resumed_from": prev_phase,
+                "resumed_count": rec["resumed_count"],
+            })
+            _save(svc, rec)
+            _spawn_task(svc, rec, decision_wait_s=decision_wait_s, **inject)
+            outcomes.append({"id": rid, "action": "resumed", "resumed_count": rec["resumed_count"]})
+        else:
+            why = ("лимит перезапусков задачи исчерпан" if resumed_count >= MAX_ATTEMPTS
+                   else "лабораторное окружение отсутствует" if not lab_ok
+                   else "фоновые воркеры выключены при старте")
+            rec["status"] = "failed"
+            rec["error_code"] = "interrupted_by_restart"
+            rec["error"] = f"interrupted_by_restart: Bossman перезапустился во время задачи ({why})"
+            rec["finished_at"] = _now()
+            rec["timings"] = timings(rec)
+            rec["ctx_report"] = ctx_report(rec.get("model_calls") or [])
+            rec.setdefault("steps", []).append({"name": "interrupted_by_restart", "status": "failed",
+                                                "at": _now(), "reason": why})
+            _save(svc, rec)
+            outcomes.append({"id": rid, "action": "failed", "reason": why})
+    return outcomes
 
 
 def public(rec: dict) -> dict:
@@ -1525,7 +1623,11 @@ async def command(rid: str, body: CommandIn, request: Request):
     return {**out, "verdict": scope.check_command(body.argv).kind}
 
 
-FEATURE = Feature(name="qwen_operator", router=router)
+async def setup(svc) -> None:
+    await recover_interrupted_tasks(svc)
+
+
+FEATURE = Feature(name="qwen_operator", router=router, setup=setup)
 
 __all__ = ["OPERATOR_ROLE", "OPERATOR_NAME", "OperatorScope", "Verdict", "agent_values", "start_task",
-           "DEFAULT_ROLES", "MAX_ATTEMPTS", "RELEASE_STEPS_RU", "FEATURE"]
+           "recover_interrupted_tasks", "DEFAULT_ROLES", "MAX_ATTEMPTS", "RELEASE_STEPS_RU", "FEATURE"]

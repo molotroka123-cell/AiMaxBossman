@@ -188,10 +188,89 @@ class DirectGenService:
     def active_tasks(self) -> int:
         return sum(1 for t in self._tasks.values() if not t.done())
 
+    def _recover_completed_output(self, job: dict, folder: Path) -> bool:
+        """If the engine already finished writing a valid output file before :8801 restarted, recover it."""
+        result_dir = folder / "result"
+        if not result_dir.is_dir():
+            return False
+        kind = job.get("kind")
+        if kind == "photo":
+            out = result_dir / "image.png"
+            size = sdcli.png_size(out) if out.is_file() and out.stat().st_size > 0 else None
+            if size is None:
+                return False
+            job["result"] = {"file": out.name, "bytes": out.stat().st_size, "sha256": _sha256_file(out),
+                             "mime": "image/png", "verified": True, "width": size[0], "height": size[1]}
+        elif kind in ("video", "faceswap"):
+            out = result_dir / ("video.mp4" if kind == "faceswap" else "video.webm")
+            if not out.is_file() or out.stat().st_size <= 0:
+                return False
+            try:
+                check = self.verify(out)
+            except Exception:  # noqa: BLE001
+                return False
+            if check.get("playable") is False:
+                return False
+            mime = "video/mp4" if out.suffix == ".mp4" else "video/webm"
+            extra = {k: v for k, v in check.items() if k in ("verified", "reason", "duration_s", "codec", "width", "height")}
+            job["result"] = {"file": out.name, "bytes": out.stat().st_size, "sha256": _sha256_file(out), "mime": mime, **extra}
+        else:
+            return False
+        job["status"], job["stage"] = "completed", "completed"
+        job["error"] = None
+        job["finished_at"] = now_iso()
+        job["timeline"].append({"stage": "completed", "at": job["finished_at"], "note": "recovered_after_restart"})
+        self._record_timing(job)
+        self.store.save(job)
+        return True
+
+    def _recover_load_images(self, folder: Path) -> list[bytes]:
+        images: list[bytes] = []
+        p1 = folder / "input_image.bin"
+        if p1.is_file():
+            images.append(p1.read_bytes())
+        extra = sorted(folder.glob("input_image_*.bin"),
+                       key=lambda q: int(q.stem.rsplit("_", 1)[-1]) if q.stem.rsplit("_", 1)[-1].isdigit() else 999)
+        for q in extra:
+            if q.is_file():
+                images.append(q.read_bytes())
+        return images
+
     def _recover(self) -> None:
-        for job in self.store.all_unfinished():
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        unfinished = sorted(self.store.all_unfinished(), key=lambda j: str(j.get("created_at") or ""))
+        for job in unfinished:
+            job_id = job["job_id"]
+            folder = self.store.job_dir(job["participant"], job_id)
+            if self._recover_completed_output(job, folder):
+                continue
+            runtime = (job.get("provenance") or {}).get("runtime")
+            spec = sdcli.BY_ID.get(job.get("model", "")) if runtime == "sdcpp" else None
+            resumed_count = int(job.get("resumed_count") or 0)
+            if loop is not None and spec is not None and resumed_count < 2:
+                images = self._recover_load_images(folder)
+                if not spec.requires_image or images:
+                    job["resumed_count"] = resumed_count + 1
+                    job["status"], job["stage"] = "queued", "queued"
+                    job["error"] = None
+                    job["timeline"].append({"stage": "queued", "at": now_iso(), "note": "resumed_after_restart"})
+                    self.store.save(job)
+                    if self._resident is not None:
+                        self._warm_keys[job_id] = self._load_key(spec, job, len(images))
+                    self._waiting.append(job_id)
+                    self._tasks[job_id] = loop.create_task(self._run_sd(job, spec, images),
+                                                           name=f"direct-gen-{job_id[:8]}")
+                    continue
+            reason = ("exceeded_restart_resume_limit" if runtime == "sdcpp" and resumed_count >= 2
+                      else "missing_reference_image" if runtime == "sdcpp" and spec is not None and spec.requires_image
+                      else "external_runtime_not_resumable")
             job["status"], job["stage"] = "failed", "failed"
-            job["error"] = {"code": "interrupted", "message": "Bossman restarted while this job was running; the run was not resumed."}
+            job["error"] = {"code": "interrupted",
+                            "reason": reason,
+                            "message": "Bossman restarted while this job was running; the run was not resumed."}
             job["finished_at"] = now_iso()
             job["timeline"].append({"stage": "failed", "at": job["finished_at"], "note": "interrupted"})
             self.store.save(job)

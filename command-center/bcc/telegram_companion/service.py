@@ -2128,6 +2128,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             await self.notify_zone_reports()
             await self.notify_answering_reports()
             await self.notify_jeff_digests()
+            with contextlib.suppress(Exception):
+                await self.recover_operator_tasks()
             with contextlib.suppress(CompanionError):
                 await self.refresh_profiles()
             if not self.store.get("watch", False):
@@ -2157,6 +2159,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
     async def run(self):
         await self.telegram.preflight()
         self.store.recover()
+        with contextlib.suppress(Exception):
+            await self.recover_operator_tasks()
         try:
             await self._ensure_sweet_drops()
         except Exception:
