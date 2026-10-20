@@ -45,6 +45,7 @@ class FaceInfo:
     lm68: np.ndarray            # (68, 2) float, x/y in the picture
     score: float                # detector confidence
     lm_score: float = 1.0       # landmarker confidence
+    embedding: np.ndarray | None = None     # FaceFusion's normalised recognizer embedding (video gate only)
 
 
 Detector = Callable[[np.ndarray], "list[FaceInfo]"]
@@ -115,9 +116,12 @@ def match_colour(warped: np.ndarray, result: np.ndarray, core: np.ndarray) -> tu
 
 
 def facelock(reference: np.ndarray, result: np.ndarray, detect: Detector, *, min_score: float = MIN_DETECTOR_SCORE,
-             min_lm_score: float = MIN_LANDMARK_SCORE) -> tuple[np.ndarray | None, dict]:
-    """(locked BGR image, report) or (None, report with status 'skipped' and a reason). Inputs are never modified."""
-    ref_faces, res_faces = detect(reference), detect(result)
+             min_lm_score: float = MIN_LANDMARK_SCORE,
+             ref_faces: "list[FaceInfo] | None" = None) -> tuple[np.ndarray | None, dict]:
+    """(locked BGR image, report) or (None, report with status 'skipped' and a reason). Inputs are never modified.
+    ``ref_faces``: the reference's faces detected once already (video: one reference, many frames)."""
+    ref_faces = detect(reference) if ref_faces is None else ref_faces
+    res_faces = detect(result)
     n_ref, n_res = len(ref_faces), len(res_faces)
     counts = {"faces_reference": n_ref, "faces_result": n_res}
     if n_ref == 0:
@@ -196,13 +200,140 @@ def facefusion_detector() -> Detector:
         out = []
         for f in get_many_faces([img]):
             lm = np.asarray(f.landmark_set["68"], np.float64)
+            emb = getattr(f, "embedding_norm", None)
             out.append(FaceInfo(tuple(float(v) for v in f.bounding_box), lm, float(f.score_set["detector"]),
-                                float(f.score_set.get("landmarker", 1.0))))
+                                float(f.score_set.get("landmarker", 1.0)),
+                                None if emb is None else np.asarray(emb, np.float64)))
         return out
     return detect
 
 
+
+
+# ----------------------------------------------------------------------------- video: many frames, one reference
+#
+# The video path reuses facelock() frame by frame (no other face model): the reference is detected ONCE, every frame of
+# the clip gets the same treatment as a photo, and a frame FaceLock refuses keeps exactly what the model drew. The
+# caller (bcc.direct_gen.video_facelock) decides from the counts whether the clip as a whole may ship locked.
+
+PASSTHROUGH_OK = ("no_face_in_result",)   # the face left the frame: nothing to lock, the frame is right as it is
+
+
+def _read(path: Path) -> np.ndarray | None:
+    return cv2.imdecode(np.fromfile(str(path), np.uint8), cv2.IMREAD_COLOR)
+
+
+def _write_png(path: Path, img: np.ndarray) -> bool:
+    ok, buf = cv2.imencode(".png", img)
+    if not ok:
+        return False
+    tmp = path.with_name(path.name + ".part")
+    tmp.write_bytes(buf.tobytes())
+    tmp.replace(path)
+    return True
+
+
+def lock_frames(reference: np.ndarray, frames: "list[tuple[str, np.ndarray]]", detect: Detector, write,
+                progress=None) -> dict:
+    """FaceLock on every frame. ``write(name, image)`` stores the frame that ships (locked, or the model's own);
+    ``progress(done, total)`` after each frame. Returns counts + the per-frame status (``a`` applied, ``n`` no face in
+    the frame, ``r`` refused) so the caller can pick gate samples among frames that really carry the locked face."""
+    ref_faces = detect(reference)
+    if len(ref_faces) != 1:
+        reason = "no_face_in_reference" if not ref_faces else f"multiple_faces_unsupported n={len(ref_faces)}"
+        return {"status": "skipped", "reason": reason, "frames": len(frames), "applied": 0}
+    applied, no_face, refused, reasons, marks = 0, 0, 0, {}, []
+    for i, (name, img) in enumerate(frames, start=1):
+        locked, rep = facelock(reference, img, detect, ref_faces=ref_faces)
+        if locked is not None:
+            applied += 1
+            marks.append("a")
+            write(name, locked)
+        else:
+            key = str(rep.get("reason", "")).split(" ", 1)[0]
+            if key in PASSTHROUGH_OK:
+                no_face += 1
+                marks.append("n")
+            else:
+                refused += 1
+                marks.append("r")
+                reasons[key] = reasons.get(key, 0) + 1
+            write(name, img)
+        if progress is not None:
+            progress(i, len(frames))
+    return {"status": "done", "reason": "", "frames": len(frames), "applied": applied, "no_face": no_face,
+            "refused": refused, "refusals": reasons, "marks": "".join(marks)}
+
+
+def cosine(a: np.ndarray, b: np.ndarray) -> float:
+    a, b = np.asarray(a, np.float64).ravel(), np.asarray(b, np.float64).ravel()
+    return float(a @ b / max(1e-12, float(np.linalg.norm(a) * np.linalg.norm(b))))
+
+
+def similarities(reference: np.ndarray, samples: "list[tuple[str, np.ndarray]]", detect: Detector) -> dict:
+    """Identity similarity (cosine of FaceFusion's recognizer embeddings) of the reference face and the face in each
+    sampled frame. A sample without exactly one face, or without an embedding, is reported as not measured (None)."""
+    ref = detect(reference)
+    if len(ref) != 1 or ref[0].embedding is None:
+        return {"status": "skipped", "reason": "reference_not_measurable", "samples": []}
+    out = []
+    for name, img in samples:
+        faces = detect(img)
+        if len(faces) != 1 or faces[0].embedding is None:
+            out.append({"file": name, "similarity": None, "reason": f"faces={len(faces)}"})
+        else:
+            out.append({"file": name, "similarity": round(cosine(ref[0].embedding, faces[0].embedding), 4), "reason": ""})
+    return {"status": "done", "reason": "", "samples": out}
+
+
+def _frames_in(folder: Path) -> list[Path]:
+    return sorted(p for p in folder.iterdir() if p.suffix.lower() == ".png")
+
+
+def main_frames(ref_p: Path, frames_dir: Path, out_dir: Path, rep_p: Path, detect: Detector) -> int:
+    reference = _read(ref_p)
+    if reference is None:
+        rep_p.write_text(json.dumps({"status": "skipped", "reason": "unreadable_reference"}), encoding="utf-8")
+        return 0
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths = _frames_in(frames_dir)
+    frames = []
+    for p in paths:
+        img = _read(p)
+        if img is None:
+            rep_p.write_text(json.dumps({"status": "skipped", "reason": f"unreadable_frame {p.name}"}), encoding="utf-8")
+            return 0
+        frames.append((p.name, img))
+
+    def write(name: str, img: np.ndarray) -> None:
+        if not _write_png(out_dir / name, img):
+            raise RuntimeError(f"encode_failed {name}")
+
+    def progress(done: int, total: int) -> None:
+        print(f"FACELOCK {done}/{total}", flush=True)
+
+    report = lock_frames(reference, frames, detect, write, progress)
+    rep_p.write_text(json.dumps(report), encoding="utf-8")
+    return 0
+
+
+def main_similarity(ref_p: Path, samples_dir: Path, rep_p: Path, detect: Detector) -> int:
+    reference = _read(ref_p)
+    samples = [(p.name, img) for p in _frames_in(samples_dir) if (img := _read(p)) is not None]
+    report = (similarities(reference, samples, detect) if reference is not None
+              else {"status": "skipped", "reason": "unreadable_reference", "samples": []})
+    rep_p.write_text(json.dumps(report), encoding="utf-8")
+    return 0
+
+
 def main(argv: list[str]) -> int:
+    """photo: reference result out report.json
+    video frames: --frames reference frames_dir out_dir report.json   (prints «FACELOCK i/n» per frame)
+    video gate:   --similarity reference samples_dir report.json"""
+    if len(argv) == 5 and argv[0] == "--frames":
+        return main_frames(Path(argv[1]), Path(argv[2]), Path(argv[3]), Path(argv[4]), facefusion_detector())
+    if len(argv) == 4 and argv[0] == "--similarity":
+        return main_similarity(Path(argv[1]), Path(argv[2]), Path(argv[3]), facefusion_detector())
     if len(argv) != 4:
         print("usage: facelock_worker.py reference result out report.json", file=sys.stderr)
         return 2

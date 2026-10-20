@@ -19,6 +19,7 @@ import os
 import re
 import secrets
 import shutil
+import statistics
 import subprocess
 import time
 import uuid
@@ -28,7 +29,7 @@ from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
 from ..single_flight import await_shared
-from . import catalog, faceswap, genjutsu, pult, ref_tags, resident, sdcli, timings, video_progress
+from . import catalog, faceswap, genjutsu, pult, ref_tags, resident, sdcli, timings, video_facelock, video_progress
 from .faceswap import python_of as _ff_python
 from .client import ComfyUIVideoClient, classify_error, validate_template
 from .prompt_vault import PromptVault
@@ -174,6 +175,11 @@ class DirectGenService:
         self.genjutsu_model = genjutsu.default_segformer_model()
         self.masks_runner: Callable[[list[str], Path, float], Any] = self._run_masks
         self.facelock_runner: Callable[[list[str], Path, float], Any] = self._run_masks   # subprocess.run shape
+        # Video FaceLock: ffprobe/ffmpeg and the worker as killable child processes (video_facelock.run_proc shape);
+        # tests inject a fake worker. media_tools() -> (ffmpeg, ffprobe) or None.
+        self.facelock_video_runner: Callable[..., Awaitable[Any]] = video_facelock.run_proc
+        self.media_tools: Callable[[], tuple[str, str] | None] = video_facelock.tools
+        self.stop_poll_seconds = 0.5
         self.pult_config: Path | None = None                       # None = the installed companion config
         self.pult_transport: Any = None                            # tests: an httpx transport instead of api.telegram.org
         self._masks_lock: asyncio.Lock | None = None
@@ -752,6 +758,12 @@ class DirectGenService:
         ref_count = 1 if "image" in inputs else 0
         effective, refs = self._apply_ref_tags(effective, body, ref_count, "image" in needs,
                                                ref_tags.START_IMAGE)
+        facelock = body.get("facelock", False)
+        if not isinstance(facelock, bool):
+            raise DirectGenError(422, "facelock_invalid", "facelock must be true or false")
+        if facelock and "image" not in inputs:
+            raise DirectGenError(422, "facelock_needs_reference",
+                                 "FaceLock needs a reference photo (the face is taken from @1; for a video: the start picture)")
         try:
             await asyncio.wait_for(self.client.health(), 5)
         except Exception as exc:  # noqa: BLE001
@@ -773,6 +785,8 @@ class DirectGenService:
             "refs": refs,
             "timeline": [{"stage": "queued", "at": now_iso()}],
         }
+        if facelock:
+            job["facelock"] = {"requested": True, "status": "pending", "reason": ""}
         folder = self.store.job_dir(participant, job_id)
         folder.mkdir(parents=True, exist_ok=True)
         for k, data in inputs.items():
@@ -823,9 +837,9 @@ class DirectGenService:
         facelock = body.get("facelock", False)
         if not isinstance(facelock, bool):
             raise DirectGenError(422, "facelock_invalid", "facelock must be true or false")
-        if facelock and (not images or spec.kind != "photo"):
+        if facelock and not images:
             raise DirectGenError(422, "facelock_needs_reference",
-                                 "FaceLock needs a photo model with a reference photo (the face is taken from @1)")
+                                 "FaceLock needs a reference photo (the face is taken from @1; for a video: the start picture)")
         image = images[0] if images else None
         job_id = uuid.uuid4().hex
         job = {
@@ -1223,7 +1237,10 @@ class DirectGenService:
                 await self._set(job, "postprocessing")
                 await self._collect_sd(job, spec, out)
                 if (job.get("facelock") or {}).get("requested") and images:
-                    await self._facelock(job, folder, bytes(images[0]), out)
+                    if spec.kind == "video":
+                        await self._facelock_video(job, folder, bytes(images[0]), out)
+                    else:
+                        await self._facelock(job, folder, bytes(images[0]), out)
                 job["finished_at"] = now_iso()
                 await self._set(job, "completed")
         except asyncio.CancelledError:
@@ -1291,6 +1308,198 @@ class DirectGenService:
         job["facelock"] = {"requested": True, **report}
         job["provenance"]["facelock"] = ("applied" if report.get("status") == "applied"
                                          else f"skipped({report.get('reason', '')})")
+
+    async def _facelock_video(self, job: dict, folder: Path, reference: bytes, out: Path) -> None:
+        """Video post-process: the face of the job's own start picture (@1) into every frame, checked on many frames
+        (video_facelock). Never fails the job and never hides a refusal: on any doubt the model's video stays the
+        result and job["facelock"]["label"] says «FaceLock не применён: <причина>». STOP before or during the stage:
+        the stage does not start / the worker is killed. Cancel: the worker is killed, the job is cancelled."""
+        work = folder / "facelock-tmp"
+        part = out.with_name(out.name + ".part")
+        try:
+            report = await self._facelock_video_steps(job, work, reference, out, part)
+        except asyncio.CancelledError:
+            shutil.rmtree(work, ignore_errors=True)
+            with contextlib.suppress(OSError):
+                part.unlink(missing_ok=True)
+            raise
+        except asyncio.TimeoutError:
+            report = {"status": "skipped", "reason": "worker_timeout"}
+        except Exception as exc:  # noqa: BLE001 - a failed post-process must not lose the generated video
+            report = {"status": "skipped", "reason": f"worker_error {type(exc).__name__}: {str(exc)[:160]}"}
+        shutil.rmtree(work, ignore_errors=True)
+        with contextlib.suppress(OSError):
+            part.unlink(missing_ok=True)
+        if report.get("status") == "applied":
+            report["label"] = "FaceLock применён: лицо со стартового кадра в кадрах с лицом"
+        else:
+            report["status"] = "skipped"
+            report["label"] = video_facelock.label(str(report.get("reason") or "unknown"))
+        job["facelock"] = {"requested": True, "kind": "video", **report}
+        job["provenance"]["facelock"] = ("applied" if report["status"] == "applied"
+                                         else f"skipped({report.get('reason', '')})")
+        if report.get("gate"):
+            job["provenance"]["facelock_gate"] = report["gate"]
+        if isinstance(job.get("progress_detail"), dict) and job["progress_detail"].get("stage") == "facelock":
+            job["progress_detail"] = None
+
+    async def _until_done_or_stop(self, task: asyncio.Future) -> bool:
+        """Wait for a FaceLock child; True = STOP appeared and the child was killed."""
+        try:
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=self.stop_poll_seconds)
+                if done:
+                    return False
+                if self._stop_active():
+                    task.cancel()
+                    with contextlib.suppress(BaseException):
+                        await task
+                    return True
+        except asyncio.CancelledError:
+            task.cancel()
+            with contextlib.suppress(BaseException):
+                await task
+            raise
+
+    async def _facelock_video_steps(self, job: dict, work: Path, reference: bytes, out: Path, part: Path) -> dict:
+        vf = video_facelock
+
+        def skip(reason: str, **extra) -> dict:
+            return {"status": "skipped", "reason": reason, **extra}
+
+        if self._stop_active():
+            return skip("stop_active")
+        if not (self.faceswap_home / "facefusion.py").is_file() or not _ff_python(self.faceswap_home).is_file():
+            return skip("detector_unavailable (FaceFusion is not installed)")
+        found = self.media_tools()
+        if not found:
+            return skip("ffmpeg_unavailable")
+        ffmpeg, ffprobe = found
+        run = self.facelock_video_runner
+        await self._set(job, "facelock", status="postprocessing", note="facelock")
+        work.mkdir(parents=True, exist_ok=True)
+        frames_dir, locked_dir, samples_dir = work / "frames", work / "locked", work / "samples"
+        for d in (frames_dir, locked_dir, samples_dir):
+            d.mkdir(exist_ok=True)
+        ref_p = work / f"reference{sdcli.image_extension(reference) or '.png'}"
+        ref_p.write_bytes(reference)
+        worker = str(Path(__file__).with_name("facelock_worker.py"))
+        py = str(_ff_python(self.faceswap_home))
+
+        async def probe(path: Path) -> dict | None:
+            res = await run(vf.probe_argv(ffprobe, path), work, vf.FFMPEG_TIMEOUT_S)
+            if res.returncode != 0:
+                return None
+            try:
+                return vf.parse_probe("\n".join(res.output))
+            except (ValueError, TypeError):
+                return None
+
+        src = await probe(out)
+        if src is None:
+            return skip("probe_failed")
+        n = src["frames"]
+        job["progress"] = {"kind": "frames", "value": 0, "max": n, "percent": 0.0}
+        ex = await run(vf.extract_argv(ffmpeg, out, frames_dir), work, vf.FFMPEG_TIMEOUT_S)
+        got = len(list(frames_dir.glob("*.png")))
+        if ex.returncode != 0 or got != n:
+            return skip(f"extract_failed frames={got}/{n}")
+        if self._stop_active():
+            return skip("stop_active")
+
+        state = {"at": 0.0}
+
+        async def on_line(line: str) -> None:
+            m = re.fullmatch(r"FACELOCK (\d+)/(\d+)", line)
+            if not m:
+                return
+            value, top = int(m.group(1)), max(1, int(m.group(2)))
+            pct = round(100.0 * value / top, 1)
+            job["progress"] = {"kind": "frames", "value": value, "max": top, "percent": pct}
+            job["progress_detail"] = {"known": True, "stage": "facelock", "phase": "facelock", "pct": pct,
+                                      "frame": value, "frames": top, "step": None, "steps": None,
+                                      "eta_s": None, "eta_source": None, "source": "facelock worker"}
+            now = time.monotonic()
+            if value >= top or now - state["at"] >= DETAIL_SAVE_EVERY_S:
+                state["at"] = now
+                self.store.save(job)
+                await self._emit(job)
+
+        rep_p = work / "frames.json"
+        task = asyncio.ensure_future(run([py, worker, "--frames", str(ref_p), str(frames_dir), str(locked_dir), str(rep_p)],
+                                         self.faceswap_home, vf.LOCK_TIMEOUT_S, on_line))
+        if await self._until_done_or_stop(task):
+            return skip("stop_active (FaceLock прерван)")
+        res = task.result()
+        if res.returncode != 0 or not rep_p.is_file():
+            return skip(f"worker_error code={res.returncode} {' | '.join(res.output[-3:])[:200]}".strip())
+        lock = json.loads(rep_p.read_text(encoding="utf-8"))
+        if lock.get("status") != "done":
+            return skip(str(lock.get("reason") or "worker_error"))
+        counts = {k: int(lock.get(k) or 0) for k in ("frames", "applied", "no_face", "refused")}
+        marks = str(lock.get("marks") or "")
+        if counts["applied"] == 0:
+            return skip("no_locked_frames", **counts)
+        with_face = counts["applied"] + counts["refused"]
+        if counts["refused"] > vf.MAX_REFUSED_SHARE * with_face:
+            return skip(f"too_many_refused refused={counts['refused']}/{with_face}", **counts,
+                        refusals=lock.get("refusals") or {})
+        if len(marks) != n or len(list(locked_dir.glob("*.png"))) != n:
+            return skip("worker_error locked frames missing", **counts)
+        asm = await run(vf.assemble_argv(ffmpeg, locked_dir, src["fps"], out, part, src["has_audio"]), work,
+                        vf.FFMPEG_TIMEOUT_S)
+        if asm.returncode != 0 or not part.is_file():
+            return skip(f"assemble_failed {' | '.join(asm.output[-2:])[:200]}".strip(), **counts)
+        built = await probe(part)
+        if (built is None or built["frames"] != n or (built["width"], built["height"]) != (src["width"], src["height"])
+                or built["has_audio"] != src["has_audio"] or built["fps"] != src["fps"]):
+            return skip("assembled_mismatch", **counts)
+        check = await asyncio.to_thread(self.verify, part)
+        if check.get("playable") is False:
+            return skip("assembled_mismatch (not playable)", **counts)
+        # Gate on what SHIPS: frames of the assembled file, spread over the whole clip, never one frame.
+        picked = vf.sample_indices([i for i, c in enumerate(marks) if c == "a"])
+        if len(picked) < vf.GATE_MIN_SAMPLES:
+            g = vf.gate([None] * len(picked))
+            return skip(g["reason"], **counts, gate={**g, "frames": picked})
+        for video, prefix in ((part, "s"), (out, "u")):
+            sel = await run(vf.select_argv(ffmpeg, video, picked, samples_dir, prefix), work, vf.FFMPEG_TIMEOUT_S)
+            if sel.returncode != 0:
+                return skip("gate_failed (sample extraction)", **counts)
+        if self._stop_active():
+            return skip("stop_active (FaceLock прерван)", **counts)
+        sim_p = work / "similarity.json"
+        task = asyncio.ensure_future(run([py, worker, "--similarity", str(ref_p), str(samples_dir), str(sim_p)],
+                                         self.faceswap_home, vf.LOCK_TIMEOUT_S))
+        if await self._until_done_or_stop(task):
+            return skip("stop_active (FaceLock прерван)", **counts)
+        res = task.result()
+        if res.returncode != 0 or not sim_p.is_file():
+            return skip("gate_failed (similarity worker)", **counts)
+        sims = json.loads(sim_p.read_text(encoding="utf-8"))
+        rows = {str(r.get("file")): r.get("similarity") for r in sims.get("samples") or [] if isinstance(r, dict)}
+        locked_vals = [rows.get(f"s{i:03d}.png") for i in range(1, len(picked) + 1)]
+        unlocked_vals = [v for v in (rows.get(f"u{i:03d}.png") for i in range(1, len(picked) + 1))
+                         if isinstance(v, (int, float))]
+        g = {**vf.gate(locked_vals), "frames": picked, "measured_on": "assembled file",
+             "unlocked_median": round(statistics.median(unlocked_vals), 4) if unlocked_vals else None}
+        if not g["passed"]:
+            return skip(g["reason"], **counts, gate=g)
+        if self._stop_active():
+            return skip("stop_active (FaceLock прерван)", **counts, gate=g)
+        unlocked = out.with_name(f"{out.stem}_unlocked{out.suffix}")
+        tmp = unlocked.with_name(unlocked.name + ".part")
+        shutil.copyfile(out, tmp)                       # keep the model's own video, written atomically
+        os.replace(tmp, unlocked)
+        os.replace(part, out)
+        mime = job["result"].get("mime") or "video/webm"
+        job["result_unlocked"] = {"file": unlocked.name, "bytes": unlocked.stat().st_size,
+                                  "sha256": _sha256_file(unlocked), "mime": mime}
+        job["result"].update(bytes=out.stat().st_size, sha256=_sha256_file(out),
+                             **{k: v for k, v in check.items() if k in ("verified", "reason", "duration_s", "codec",
+                                                                       "width", "height")})
+        return {"status": "applied", "reason": "", **counts, "gate": g, "fps": src["fps"],
+                "audio": "copied" if src["has_audio"] else "none"}
 
     async def _collect_sd(self, job: dict, spec: sdcli.SdSpec, out: Path) -> None:
         if not out.is_file() or out.stat().st_size <= 0:
@@ -1482,6 +1691,10 @@ class DirectGenService:
                 outputs = await self._watch(job, prompt_id)
                 await self._set(job, "postprocessing")
                 await self._collect(job, outputs)
+                if (job.get("facelock") or {}).get("requested") and "image" in inputs:
+                    folder = self.store.job_dir(job["participant"], job_id)
+                    await self._facelock_video(job, folder, inputs["image"],
+                                               folder / "result" / job["result"]["file"])
                 job["finished_at"] = now_iso()
                 await self._set(job, "completed")
         except asyncio.CancelledError:
