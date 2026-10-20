@@ -568,6 +568,9 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
             verification = _verify_in_sandbox(Path(root), list(body.verify_tests),
                                               max(30, min(600, int(body.timeout_seconds))))
             result_fields["verification"] = verification
+            # The test run takes up to 10 min: a cancel / STOP during it wins over its result.
+            if task_id in _CANCELLED or _stop_active(data_dir or record.get("data_dir"), repo):
+                raise _Cancelled()
             if not verification.get("passed"):
                 result_fields["status"] = "failed"
                 result_fields["error"] = "независимая проверка Bossman не прошла: " + (
