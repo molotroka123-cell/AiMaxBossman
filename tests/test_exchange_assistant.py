@@ -716,3 +716,21 @@ def test_today_dashboard_is_the_prague_day_not_the_utc_day(assistant):
     out = assistant.handle("итоги сегодня", "owner")
     assert "Итоги: 20.10.2026 — 20.10.2026" in out
     assert "Сделок: 1 " in out
+
+
+def test_restore_is_a_write_and_obeys_stop(assistant, tmp_path):
+    """Restoring replaces the whole book: under STOP it must be refused and leave the live book untouched."""
+    assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+    copy = assistant.store.backup(tmp_path / "bk" / "empty-of-deals.db")
+    qid = _qid(assistant.handle("100 usdt в czk при 3%", "owner"))
+    assistant.handle(f"обмен выполнен {qid} приняли 100 выдали 2093,10", "owner")
+    assistant.stop_file.write_text("stop", encoding="utf-8")
+    try:
+        with pytest.raises(StoreError, match="СТОП"):
+            assistant.store.restore(copy)
+        assert len(assistant.store.deals()) == 1
+        assert not assistant.store.path.with_suffix(".before-restore.db").exists()
+    finally:
+        assistant.stop_file.unlink(missing_ok=True)
+    assistant.store.restore(copy)
+    assert assistant.store.deals() == []
