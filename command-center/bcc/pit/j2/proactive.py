@@ -209,6 +209,18 @@ def _hour_with_period(hour: int, period: str | None) -> int | None:
     return hour + 12 if 1 <= hour <= 6 else hour
 
 
+_EXTRA_MIN = re.compile(r"\s*(?:и\s+)?(\d{1,2})\s*мин\w*")
+
+
+def _extra_minutes(work: list[str], at: int) -> timedelta:
+    """«через 1 час 30 минут»: the minutes right after an hour count belong to the same span (masked too)."""
+    m = _EXTRA_MIN.match("".join(work), at)
+    if not m or int(m.group(1)) > 59:
+        return timedelta(0)
+    _mask(work, m)
+    return timedelta(minutes=int(m.group(1)))
+
+
 def _add_months(day: date, months: int) -> date:
     index = day.month - 1 + months
     year, month = day.year + index // 12, index % 12 + 1
@@ -260,7 +272,7 @@ def _scan(text: str, now: float, tz_min: int):
             if unit.startswith("мин"):
                 delta = timedelta(minutes=n)
             elif unit.startswith("час") or unit == "ч":
-                delta = timedelta(hours=n)
+                delta = timedelta(hours=n) + _extra_minutes(work, m.end())
             elif unit.startswith("нед"):
                 day_shift, used_relative_days = 7 * n, True
             elif unit.startswith("месяц"):
@@ -275,7 +287,7 @@ def _scan(text: str, now: float, tz_min: int):
             if unit == "минуту":
                 delta = timedelta(minutes=1)
             elif unit == "час":
-                delta = timedelta(hours=1)
+                delta = timedelta(hours=1) + _extra_minutes(work, m.end())
             elif unit == "день":
                 day_shift, used_relative_days = 1, True
             elif unit == "неделю":
