@@ -2939,8 +2939,19 @@ async def _execute_record_screen(
             if proc.stdin is not None:
                 with contextlib.suppress(Exception):
                     proc.stdin.close()
-            with contextlib.suppress(Exception):
+            try:
                 proc.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                # ffmpeg, не закончивший за 20 с после закрытия stdin, раньше
+                # снимался с учёта и оставался жить: STOP его уже не видел.
+                with contextlib.suppress(Exception):
+                    _taskkill_tree(int(proc.pid or 0))
+                with contextlib.suppress(Exception):
+                    proc.kill()
+                with contextlib.suppress(Exception):
+                    proc.wait(timeout=5)
+            except Exception:  # noqa: BLE001
+                pass
             if proc.pid:
                 rt.active_procs.pop(proc.pid, None)
 

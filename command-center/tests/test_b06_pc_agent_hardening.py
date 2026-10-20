@@ -175,6 +175,24 @@ async def test_record_screen_stops_and_discards_when_a_protected_window_comes_fo
     assert not list((rt.data_dir / "pc-agent" / "recordings").glob("*.png"))
 
 
+async def test_record_screen_kills_an_encoder_that_does_not_exit(fake_svc, capture, monkeypatch):  # noqa: F811
+    tree_kills: list[int] = []
+    monkeypatch.setattr(pca, "_taskkill_tree", lambda pid: tree_kills.append(pid))
+    FakeFfmpeg.hang = True
+    rt, res = await _record(fake_svc)
+    enc = FakeFfmpeg.made[0]
+    assert enc.killed is True, "a hung ffmpeg was left running after the recording step"
+    assert tree_kills == [enc.pid]
+    assert enc.pid not in rt.active_procs
+    assert res["verified"] is False                 # no valid MP4 was produced
+
+
+async def test_record_screen_normal_encoder_exit_is_not_killed(fake_svc, capture, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(pca, "_taskkill_tree", lambda pid: pytest.fail("killed a healthy encoder"))
+    _rt, _res = await _record(fake_svc)
+    assert FakeFfmpeg.made[0].killed is False
+
+
 def test_protection_probe_is_fail_closed(monkeypatch):
     """A window whose affinity cannot be read counts as protected; a closed one is skipped."""
     monkeypatch.setattr(pca.os, "name", "nt")
