@@ -198,6 +198,14 @@ class PinnedTransport(httpx.AsyncHTTPTransport):
         self._pool = httpcore.AsyncConnectionPool(network_backend=_PinnedBackend(pins))
 
 
+_CREDENTIAL_HEADERS = frozenset({"authorization", "proxy-authorization", "cookie",
+                                 "x-api-key", "api-key", "x-auth-token"})
+
+
+def _origin(u: httpx.URL) -> tuple[str, str, int | None]:
+    return (u.scheme, u.host, u.port or {"http": 80, "https": 443}.get(u.scheme))
+
+
 async def safe_get(url: str, *, allow_private: bool = False,
                    allowed_hosts: set[str] | None = None,
                    max_bytes: int = 1_000_000, timeout: float = 15.0,
@@ -220,6 +228,7 @@ async def safe_get(url: str, *, allow_private: bool = False,
     hops = 0
     current = url
     pins: dict[str, str] = {}
+    send_headers = dict(headers or {})
     while True:
         _, host = validate_url(current, allow_private=allow_private, allowed_hosts=allowed_hosts)
         ip = resolve_pinned_ip(host, allow_private=allow_private)
@@ -233,7 +242,7 @@ async def safe_get(url: str, *, allow_private: bool = False,
                                      transport=PinnedTransport(pins)) as c:
             async with c.stream("GET", current,
                                 headers={"User-Agent": "BossmanPlugins/1.0",
-                                         **(headers or {})}) as r:
+                                         **send_headers}) as r:
                 if r.is_redirect:
                     loc = r.headers.get("location")
                     if not loc:
@@ -241,7 +250,13 @@ async def safe_get(url: str, *, allow_private: bool = False,
                     hops += 1
                     if hops > max_redirects:
                         raise PluginSecurityError("too many redirects")
-                    current = httpx.URL(r.request.url).join(loc).__str__()
+                    nxt = httpx.URL(r.request.url).join(loc)
+                    if _origin(nxt) != _origin(httpx.URL(r.request.url)):
+                        # Как httpx/requests при своём следовании redirect'ам: креды
+                        # вызывающего чужому origin не передаются.
+                        send_headers = {k: v for k, v in send_headers.items()
+                                        if k.lower() not in _CREDENTIAL_HEADERS}
+                    current = str(nxt)
                     continue  # revalidate next hop before following
                 chunks: list[bytes] = []
                 total = 0
