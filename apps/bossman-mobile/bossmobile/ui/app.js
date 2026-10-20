@@ -18,6 +18,39 @@
   let toastTimer = 0;
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3200); }
 
+  /* модальные слои (выбор модели, ящик чатов, просмотр фото/видео, «Удалить навсегда»): Tab остаётся внутри слоя
+     (focus-trap 7.8.0 + tabbable 6.5.0, MIT, ui/vendor/), Escape закрывает верхний слой, фокус возвращается на кнопку,
+     которая слой открыла. Без библиотеки (старый кэш) работают Escape и возврат фокуса. */
+  const layers = [];
+  const focusQuiet = (n) => { try { n.focus({ preventScroll: true }); } catch { /* detached */ } };
+  function layerClose(node, silent) {
+    const i = layers.findIndex((x) => x.node === node); if (i < 0) return;
+    const [ly] = layers.splice(i, 1);
+    if (ly.trap) { try { ly.trap.deactivate(); } catch { /* already off */ } }
+    if (!silent && ly.opener && ly.opener.isConnected && ly.opener !== document.body) focusQuiet(ly.opener);
+  }
+  function layerOpen(node, close, initial) {
+    const opener = layers.some((x) => x.node === node) ? layers.find((x) => x.node === node).opener : document.activeElement;
+    layerClose(node, true);
+    if (!node.hasAttribute('tabindex')) node.tabIndex = -1;   // fallback focus target when nothing inside is tabbable
+    const ly = { node, close, opener, trap: null }; const FT = window.focusTrap;
+    if (FT && typeof FT.createFocusTrap === 'function') {
+      try {
+        // a function: when a layer above closes, focus-trap re-runs it on unpause — keep the element we just returned to
+        const first = () => { const a = document.activeElement; return a && a !== node && node.contains(a) ? a : (initial || undefined); };
+        ly.trap = FT.createFocusTrap(node, { initialFocus: first, fallbackFocus: node, escapeDeactivates: false,
+          allowOutsideClick: true, returnFocusOnDeactivate: false, preventScroll: true });
+        ly.trap.activate();
+      } catch { ly.trap = null; }
+    }
+    if (!ly.trap) focusQuiet(initial || node);
+    layers.push(ly);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !layers.length) return;
+    e.preventDefault(); layers[layers.length - 1].close();
+  });
+
   class ApiError extends Error { constructor(status, body) { const d = (body && (body.detail || body.error)) || {}; super(typeof d === 'string' ? d : (d.message || `HTTP ${status}`)); this.status = status; this.code = d.code || ''; } }
   let panelCsrf = '';
   async function callPassthrough(method, path, body) {
@@ -347,15 +380,21 @@
       const b = el('button', 'model-opt' + (a.id === S.agentId ? ' sel' : ''));
       const t = el('div', 'mtxt'); t.append(el('b', '', a.name), el('span', '', `${(a.model && (a.model.alias || a.model.name)) || '—'}${a.tools.length ? ' · инструменты: ' + a.tools.join(', ') : ''}`));
       b.append(el('span', 'dot'), t, el('span', 'badge-local', 'локально'));
-      b.addEventListener('click', () => { tap(); S.agentId = a.id; store.set('agent', a.id); renderModelChip(); $('model-sheet').hidden = true; });
+      b.addEventListener('click', () => { tap(); S.agentId = a.id; store.set('agent', a.id); renderModelChip(); closeModelSheet(); });
       list.appendChild(b);
     });
     $('model-sheet').hidden = false;
+    layerOpen($('model-sheet'), closeModelSheet, list.querySelector('.model-opt.sel') || undefined);
   });
-  $('model-sheet').addEventListener('click', (e) => { if (e.target === $('model-sheet')) $('model-sheet').hidden = true; });
+  function closeModelSheet() { $('model-sheet').hidden = true; layerClose($('model-sheet')); }
+  $('model-sheet').addEventListener('click', (e) => { if (e.target === $('model-sheet')) closeModelSheet(); });
 
   /* ================= ящик с чатами ================= */
-  function drawer(open) { $('drawer').classList.toggle('open', open); $('scrim').hidden = !open; if (open) loadThreads(); }
+  function drawer(open) {        // closed = off-screen AND inert: not reachable by Tab / VoiceOver swipe any more
+    const dr = $('drawer'); dr.classList.toggle('open', open); $('scrim').hidden = !open;
+    dr.toggleAttribute('inert', !open); dr.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) { layerOpen(dr, () => drawer(false)); loadThreads(); } else layerClose(dr);
+  }
   $('btn-drawer').addEventListener('click', () => { tap(); drawer(true); });
   $('scrim').addEventListener('click', () => drawer(false));
   async function loadThreads() {
@@ -808,10 +847,12 @@
       const card = el('div', 'confirm-card'); card.appendChild(el('p', '', 'Удалить навсегда с ПК? Это нельзя отменить.'));
       const row = el('div', 'row'); const no = el('button', 'btn', 'Отмена'); no.type = 'button'; no.dataset.act = 'cancel';
       const yes = el('button', 'btn destroy', 'Удалить'); yes.type = 'button'; yes.dataset.act = 'confirm';
-      const done = (v) => { wrap.remove(); resolve(v); };
+      let settled = false;
+      const done = (v) => { if (settled) return; settled = true; layerClose(wrap); wrap.remove(); resolve(v); };
       no.addEventListener('click', (e) => { e.stopPropagation(); done(false); }); yes.addEventListener('click', (e) => { e.stopPropagation(); done(true); });
       wrap.addEventListener('click', (e) => { if (e.target === wrap) done(false); });
-      row.append(no, yes); card.appendChild(row); wrap.appendChild(card); document.body.appendChild(wrap); no.focus();
+      row.append(no, yes); card.appendChild(row); wrap.appendChild(card); document.body.appendChild(wrap);
+      layerOpen(wrap, () => done(false), no);           // Escape = «Отмена»; focus starts on the safe choice
     });
   }
   async function deleteForever(kind, jobId, btn) {
@@ -821,8 +862,8 @@
     try {
       await api('POST', `/${kind}/jobs/${jobId}/delete`);
       document.querySelectorAll(`[data-job="${jobId}"]`).forEach((n) => n.remove());
-      if (viewing && viewing.job_id === jobId) { viewing = null; $('viewer').hidden = true; }
-      if (vviewing && vviewing.job_id === jobId) { vviewing = null; const v = $('vviewer-video'); try { v.pause(); } catch { /* */ } v.removeAttribute('src'); $('vviewer').hidden = true; }
+      if (viewing && viewing.job_id === jobId) { viewing = null; closeViewer(); }
+      if (vviewing && vviewing.job_id === jobId) { vviewing = null; const v = $('vviewer-video'); try { v.pause(); } catch { /* */ } v.removeAttribute('src'); $('vviewer').hidden = true; layerClose($('vviewer')); }
       toast('Удалено с ПК');
       if (kind === 'photo') { const g = $('gallery'); if (g && !g.children.length) g.appendChild(el('p', 'muted', 'Пока пусто')); loadGallery(); loadQueue(); }
       else { loadVideos(); loadVQueue(); }
@@ -1251,9 +1292,10 @@
     const un = $('viewer-unlocked'); un.hidden = !(j.result_unlocked); un.textContent = 'До FaceLock'; un.dataset.on = '';
     const m = S.photoModels.find((x) => x.id === j.model);
     $('viewer-meta').textContent = `${j.raw_prompt || ''}\n${m ? m.label : j.model} · ${j.params ? j.params.width + '×' + j.params.height + ' · сид ' + j.params.seed : ''} · ${fmtS(j.elapsed_s)}`;
-    $('viewer').hidden = false;
+    $('viewer').hidden = false; layerOpen($('viewer'), closeViewer, $('viewer-close'));
   }
-  $('viewer-close').addEventListener('click', () => { $('viewer').hidden = true; });
+  function closeViewer() { $('viewer').hidden = true; layerClose($('viewer')); }
+  $('viewer-close').addEventListener('click', closeViewer);
   $('viewer-pult').addEventListener('click', () => { if (viewing) toPult('photo', viewing.job_id, $('viewer-pult')); });
   $('viewer-delete').addEventListener('click', () => { if (viewing) deleteForever('photo', viewing.job_id, $('viewer-delete')); });
   $('viewer-unlocked').addEventListener('click', () => {      // flip between the locked result and the model's own picture
@@ -1270,7 +1312,7 @@
     } catch (err) { if (err && err.name === 'AbortError') return; }
     window.open(url + '?download=1', '_blank');
   });
-  $('viewer-reuse').addEventListener('click', () => { if (!viewing) return; $('viewer').hidden = true; $('photo-prompt').value = viewing.raw_prompt || ''; showTab('photo'); $('photo-prompt').focus(); });
+  $('viewer-reuse').addEventListener('click', () => { if (!viewing) return; closeViewer(); $('photo-prompt').value = viewing.raw_prompt || ''; showTab('photo'); $('photo-prompt').focus(); });
 
   /* ================= Видео: модели Bossman + замена лица FaceFusion ================= */
   // Время: загрузка + шаги × с/шаг × масштаб(объём ролика) + сборка (bossmobile/video_timing.py, та же формула)
@@ -1624,9 +1666,13 @@
     $('vviewer-note').hidden = !webm; $('vviewer-note').textContent = webm ? 'Формат WebM: если iPhone не воспроизводит, нажмите «Скачать» и откройте в VLC.' : '';
     v.onerror = () => { $('vviewer-note').hidden = false; $('vviewer-note').textContent = 'Телефон не может воспроизвести этот файл — нажмите «Скачать».'; };
     $('vviewer-download').href = url + '?download=1'; $('vviewer-reuse').hidden = !j.raw_prompt;
-    $('vviewer').hidden = false;
+    $('vviewer').hidden = false; layerOpen($('vviewer'), closeVViewer, $('vviewer-close'));
   }
-  $('vviewer-close').addEventListener('click', () => { const v = $('vviewer-video'); v.pause(); v.removeAttribute('src'); v.load(); $('vviewer').hidden = true; });
+  function closeVViewer() {
+    const v = $('vviewer-video'); try { v.pause(); } catch { /* not loaded */ } v.removeAttribute('src'); try { v.load(); } catch { /* jsdom */ }
+    $('vviewer').hidden = true; layerClose($('vviewer'));
+  }
+  $('vviewer-close').addEventListener('click', closeVViewer);
   $('vviewer-pult').addEventListener('click', () => { if (vviewing) toPult('video', vviewing.job_id, $('vviewer-pult')); });
   $('vviewer-delete').addEventListener('click', () => { if (vviewing) deleteForever('video', vviewing.job_id, $('vviewer-delete')); });
   $('vviewer-save').addEventListener('click', async () => {

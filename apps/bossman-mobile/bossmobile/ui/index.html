@@ -16,6 +16,8 @@
 <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="stylesheet" href="app.css">
+<script src="vendor/tabbable.umd.min.js" defer></script>
+<script src="vendor/focus-trap.umd.min.js" defer></script>
 <script src="app.js" defer></script>
 </head>
 <body>
@@ -384,14 +386,14 @@
 
 <!-- Ящик чатов -->
 <div class="scrim" id="scrim" hidden></div>
-<aside class="drawer" id="drawer" aria-label="Чаты">
+<aside class="drawer" id="drawer" aria-label="Чаты" inert aria-hidden="true">
   <div class="drawer-head"><h2 class="serif">Чаты</h2>
     <button class="btn small primary" id="drawer-new"><svg><use href="#i-plus"/></svg>Новый</button></div>
   <div class="thread-list" id="thread-list"></div>
 </aside>
 
 <!-- Выбор модели -->
-<div class="sheet" id="model-sheet" hidden role="dialog" aria-label="Модель">
+<div class="sheet" id="model-sheet" hidden role="dialog" aria-modal="true" aria-label="Модель">
   <div class="sheet-card">
     <div class="grab"></div>
     <h3 class="serif">Локальная модель</h3>
@@ -401,7 +403,7 @@
 </div>
 
 <!-- Просмотр фото -->
-<div class="viewer" id="viewer" hidden role="dialog" aria-label="Просмотр">
+<div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-label="Просмотр">
   <button class="icon-btn viewer-close" id="viewer-close" aria-label="Закрыть"><svg><use href="#i-close"/></svg></button>
   <img id="viewer-img" alt="">
   <div class="viewer-bar">
@@ -418,7 +420,7 @@
 </div>
 
 <!-- Просмотр видео -->
-<div class="viewer" id="vviewer" hidden role="dialog" aria-label="Просмотр видео">
+<div class="viewer" id="vviewer" hidden role="dialog" aria-modal="true" aria-label="Просмотр видео">
   <button class="icon-btn viewer-close" id="vviewer-close" aria-label="Закрыть"><svg><use href="#i-close"/></svg></button>
   <video id="vviewer-video" controls playsinline preload="metadata"></video>
   <div class="viewer-bar">
