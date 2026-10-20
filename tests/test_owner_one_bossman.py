@@ -394,20 +394,40 @@ def test_soak_24h_probe_tracks_backend_pult_mobile_and_manual_restarts(tmp_path,
         monkeypatch.setattr(ob, "_health", lambda port: {"alive": True, "source_identity": "PASS", "build_sha": "a" * 40})
         monkeypatch.setattr(ob, "_mobile_health", lambda port: {"ok": True, "backend": "ok"})
 
-        s1 = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0)
+        s1 = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0, scheduler_running=True)
         assert s1["verdict"] == "IN_PROGRESS"
         assert s1["all_healthy"] is True
         assert s1["manual_restarts"] == 0
 
-        # Simulate 24 hours elapsed with same backend PID and all services healthy
-        s2 = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0 + 24 * 3600)
+        # Sparse 2-sample jump across 24h must be rejected (density_ok=False)
+        sparse = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0 + 24 * 3600, scheduler_running=True)
+        assert sparse["verdict"] == "FAIL"
+        assert sparse["density_ok"] is False
+
+        # Populate dense 5-minute samples across 24h with same backend PID and all services healthy
+        log_file = data / ob.STATE_DIR / "soak-24h.jsonl"
+        dense_rows = [
+            json.dumps({
+                "ts": 1000.0 + i * 300,
+                "backend_pid": 25328,
+                "build_sha": "a" * 40,
+                "backend_ok": True,
+                "pult_ok": True,
+                "jeff_ok": True,
+                "mobile_ok": True,
+                "all_ok": True,
+            })
+            for i in range(288)
+        ]
+        log_file.write_text("\n".join(dense_rows) + "\n", encoding="utf-8")
+        s2 = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0 + 24 * 3600, scheduler_running=True)
         assert s2["verdict"] == "PASS"
         assert s2["elapsed_hours"] >= 24.0
         assert s2["manual_restarts"] == 0
 
         # Simulate a manual restart (backend PID changed) -> verdict becomes FAIL
         monkeypatch.setattr(ob, "backend_holder", lambda d: {"pid": 99999, "port": 8801, "build_sha": "a" * 40})
-        s3 = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0 + 24 * 3600 + 300)
+        s3 = ob.soak_sample(data, cfg, mobile_port=8840, now_ts=1000.0 + 24 * 3600 + 300, scheduler_running=True)
         assert s3["verdict"] == "FAIL"
         assert s3["manual_restarts"] == 1
     finally:
