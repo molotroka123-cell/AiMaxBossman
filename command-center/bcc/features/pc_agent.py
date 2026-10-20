@@ -2754,6 +2754,23 @@ async def _execute_record_screen(
                 draw.rectangle((lx, ty, rx, by), fill=(23, 33, 43))
             return frame_img
 
+        # Foreground discipline (fix 2026-10-20): minimize the OTHER Telegram
+        # instances' main windows and raise the target, so the desktop grab
+        # shows the target account for the whole recording.
+        if os.name == "nt" and target_hwnd and tg_pids:
+            with contextlib.suppress(Exception):
+                import ctypes
+                from pywinauto import Desktop as _UIADesktop
+                _u32b = ctypes.windll.user32
+                for w_b in _UIADesktop(backend="uia").windows():
+                    with contextlib.suppress(Exception):
+                        if "MainWindow" not in str(w_b.element_info.class_name or ""):
+                            continue
+                        if w_b.process_id() in tg_pids and int(w_b.handle) != int(target_hwnd):
+                            _u32b.ShowWindow(int(w_b.handle), 6)  # SW_MINIMIZE
+                _u32b.ShowWindow(target_hwnd, 3)
+                _u32b.SetForegroundWindow(target_hwnd)
+
         try:
             first_img = _mask_sensitive(ImageGrab.grab().convert("RGB"))
         except Exception:
@@ -2801,22 +2818,18 @@ async def _execute_record_screen(
 
         total_frames = max(6, int(round(duration_s * fps)))
         # Screen-record scenario (fix 2026-10-20): open the post IMMEDIATELY,
-        # click the video so the Telegram media viewer starts playback, probe
-        # the viewer for the real duration, restart playback from 0, go
-        # fullscreen, then record until the viewer clock reaches the total.
-        # The old schedule (open at 20%, jump to post+1 at 60%, refocus at 80%)
-        # was built for channel-browsing verification and ruined recordings.
+        # click the video bubble (found by its duration label) so the Telegram
+        # media viewer starts playback from 0, go fullscreen, then record
+        # until the playback time runs out. The old schedule (open at 20%,
+        # jump to post+1 at 60%, refocus at 80%) was built for channel-browsing
+        # verification and ruined recordings.
         nav_frame = 2
         play_frame = nav_frame + max(2, int(fps * 1.2))
-        probe_frame = play_frame + max(2, int(fps * 1.0))
-        reopen_frame = probe_frame + max(2, int(fps * 0.6))
-        fs_frame = reopen_frame + max(2, int(fps * 0.8))
+        fs_frame = play_frame + max(2, int(fps * 1.0))
         frames_written = 0
         last_img = first_img
         nav_dispatched = False
         play_clicked = False
-        probed = False
-        reopened = False
         fs_tried = False
         detected_total_s: float | None = None
         last_time_probe_f = -10 ** 9
@@ -2876,6 +2889,33 @@ async def _execute_record_screen(
 
         _TIME_PAIR_RE = re.compile(r"(\d{1,3}):(\d{2})\s*/\s*(\d{1,3}):(\d{2})")
         _TIME_ONE_RE = re.compile(r"^(\d{1,3}):(\d{2})$")
+
+        def _find_video_point() -> tuple[int, int, float | None] | None:
+            """Locate the opened post's video bubble by its duration label
+            (a bare "M:SS" element on the thumbnail) in the target window.
+            Returns (x, y, total_s). Only the label text is read."""
+            if os.name != "nt" or not target_hwnd:
+                return None
+            try:
+                from pywinauto import Desktop
+                w_obj = Desktop(backend="uia").window(handle=target_hwnd)
+                for el in w_obj.descendants()[:2000]:
+                    nm_el = str(getattr(el.element_info, "name", "") or "").strip()
+                    m_one = _TIME_ONE_RE.match(nm_el)
+                    if not m_one:
+                        continue
+                    tot_s = float(int(m_one.group(1)) * 60 + int(m_one.group(2)))
+                    if tot_s < 3:
+                        continue
+                    r_el = el.rectangle()
+                    cx_v = (r_el.left + r_el.right) // 2
+                    cy_v = (r_el.top + r_el.bottom) // 2
+                    # The label sits on the video thumbnail: click above it,
+                    # near the middle of the bubble.
+                    return (cx_v, max(0, cy_v - 120), tot_s)
+            except Exception:
+                pass
+            return None
 
         def _probe_player_time() -> tuple[float | None, float | None]:
             """(current_s, total_s) of the Telegram media viewer, best effort.
@@ -2952,30 +2992,28 @@ async def _execute_record_screen(
                     _dispatch_uri(tg_uri)
                 elif tg_uri and idx_f == play_frame and not play_clicked:
                     play_clicked = True
-                    pt_click = _video_click_point()
-                    if pt_click:
-                        _click_at(pt_click[0], pt_click[1])
-                elif tg_uri and idx_f == probe_frame and not probed:
-                    probed = True
-                    _cur_probe, detected_total_s = _probe_player_time()
-                elif tg_uri and idx_f == reopen_frame and not reopened:
-                    reopened = True
-                    # Restart playback from the beginning: close the viewer and
-                    # click the video again (Telegram restarts viewer playback).
-                    _press_key(0x1B)  # VK_ESCAPE
-                    time.sleep(0.4)
-                    pt_click = _video_click_point()
-                    if pt_click:
-                        _click_at(pt_click[0], pt_click[1])
+                    found_v = _find_video_point()
+                    if found_v is not None:
+                        detected_total_s = found_v[2]
+                        _click_at(found_v[0], found_v[1])
+                    else:
+                        pt_click = _video_click_point()
+                        if pt_click:
+                            _click_at(pt_click[0], pt_click[1])
                 elif tg_uri and idx_f == fs_frame and not fs_tried:
                     fs_tried = True
                     _try_fullscreen()
-                elif (tg_uri and fs_tried and detected_total_s
-                      and idx_f - last_time_probe_f >= max(10, fps * 2)):
-                    last_time_probe_f = idx_f
-                    cur_now_s, _tot_now_s = _probe_player_time()
-                    if cur_now_s is not None and cur_now_s >= detected_total_s - 1.0:
+
+                # End of playback: wall-clock (the viewer plays in real time)
+                # with the viewer clock as a backup signal.
+                if tg_uri and play_clicked and detected_total_s:
+                    if idx_f - play_frame >= int((detected_total_s + 3.0) * fps):
                         break
+                    if idx_f - last_time_probe_f >= max(10, fps * 2):
+                        last_time_probe_f = idx_f
+                        cur_now_s, _tot_now_s = _probe_player_time()
+                        if cur_now_s is not None and cur_now_s >= detected_total_s - 1.0:
+                            break
 
                 if idx_f == 0:
                     img = first_img
