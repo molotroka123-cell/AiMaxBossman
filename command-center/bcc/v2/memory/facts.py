@@ -171,7 +171,7 @@ def validate_statement(statement: str, *, subject: str = "", object: str = "",
          присутствуют в тексте дословно;
       6. если факт кого-то перекрывает — переход назван явно.
     """
-    text = " ".join(str(statement or "").split())
+    text = _canon(statement)
     if not text:
         raise FactFormError("пустой факт: нужно самодостаточное утверждение")
 
@@ -217,9 +217,20 @@ def validate_statement(statement: str, *, subject: str = "", object: str = "",
 
 # ------------------------------------------------------------------ И-2: дедуп
 
+def _canon(text: Any) -> str:
+    """Каноническая запись поля факта: NFC и одиночные пробелы.
+
+    NFC не меняет смысла (канонически эквивалентная форма), но без него «й»,
+    набранная как «и» + U+0306, давала другую строку: SQL-фильтр по subject
+    не находил факт, а дедуп писал второй экземпляр того же утверждения."""
+    return " ".join(unicodedata.normalize("NFC", str(text or "")).split())
+
+
 def fact_hash(subject: str, predicate: str, object: str, statement: str) -> str:
-    """sha256 нормализованного факта — ключ дедупа (у mem0 md5, берём sha256)."""
-    blob = "\x1f".join(" ".join(str(p or "").lower().split())
+    """sha256 нормализованного факта — ключ дедупа (у mem0 md5, берём sha256).
+
+    Регистр (casefold) и Unicode-форма (NFKC) не делают факт новым."""
+    blob = "\x1f".join(" ".join(unicodedata.normalize("NFKC", str(p or "")).casefold().split())
                        for p in (subject, predicate, object, statement))
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -307,9 +318,9 @@ async def write_fact(session, *, subject: str, predicate: str, statement: str,
 
     Возвращает `{"fact": row, "deduped": bool, "superseded": row|None}`.
     """
-    subject = " ".join(str(subject or "").split())
-    predicate = " ".join(str(predicate or "").split())
-    object = " ".join(str(object or "").split())
+    subject = _canon(subject)
+    predicate = _canon(predicate)
+    object = _canon(object)
     if not subject or not predicate:
         raise FactFormError("нужны subject и predicate: факт — это утверждение "
                             "о конкретной сущности")
@@ -397,9 +408,9 @@ async def query_facts(session, *, subject: str | None = None,
     """
     query = sa.select(facts_t)
     if subject:
-        query = query.where(facts_t.c.subject == " ".join(str(subject).split()))
+        query = query.where(facts_t.c.subject == _canon(subject))
     if predicate:
-        query = query.where(facts_t.c.predicate == " ".join(str(predicate).split()))
+        query = query.where(facts_t.c.predicate == _canon(predicate))
     if source_run_id is not None:
         query = query.where(facts_t.c.source_run_id == int(source_run_id))
 
@@ -521,7 +532,7 @@ async def decision_timeline(session, target_kind: str, target_id: int, *,
             sa.select(facts_t).where(facts_t.c.source_run_id.in_(sorted(wanted)))))
     if subject:
         fact_rows += _rows(await session.execute(
-            sa.select(facts_t).where(facts_t.c.subject == " ".join(subject.split()))))
+            sa.select(facts_t).where(facts_t.c.subject == _canon(subject))))
     seen: set[int] = set()
     for row in fact_rows:
         fid = int(row["id"])

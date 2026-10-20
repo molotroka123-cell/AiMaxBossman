@@ -18,3 +18,18 @@ async def test_text_query_is_applied_before_the_limit(env):
     assert [h["subject"] for h in hits] == ["b08:needle"]
     # limit still bounds the answer
     assert len(await store.search(query="healthy", limit=2)) == 2
+
+
+async def test_same_fact_in_nfd_form_is_deduped_and_found_by_subject(env):
+    import unicodedata
+
+    store = FactStore(env.svc)
+    subject, statement = "Сервер Майка", "Сервер Майка B08DEDUP работает на Windows"
+    first = await store.add(subject=subject, predicate="os", statement=statement, valid_at="2026-05-01")
+    second = await store.add(subject=unicodedata.normalize("NFD", subject), predicate="os",
+                             statement=unicodedata.normalize("NFD", statement), valid_at="2026-05-01")
+    assert second["id"] == first["id"]                     # one fact, not two
+    history = await store.history(subject=subject)
+    assert len(history) == 1
+    found = await store.search(subject=unicodedata.normalize("NFD", subject))
+    assert [f["id"] for f in found] == [first["id"]]
