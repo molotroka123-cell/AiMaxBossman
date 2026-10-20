@@ -64,7 +64,9 @@ class WebAccess:
         self.audit = policy.AuditWriter(audit_path)
         self.timeout = timeout
         self.spec = MCPServerSpec(id=SERVER_ID, name=SERVER_ID, transport="http",
-                                  url=ENDPOINT_TEMPLATE, timeout_seconds=int(timeout))
+                                  url=ENDPOINT_TEMPLATE,
+                                  # манифест требует 1..600 с (MCPServerSpec.validate)
+                                  timeout_seconds=max(1, min(600, int(timeout))))
 
     async def has_key(self) -> bool:
         return bool(await self._key_getter())
