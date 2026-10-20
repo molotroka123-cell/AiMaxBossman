@@ -56,6 +56,10 @@ QUARANTINED = "QUARANTINED"
 REVOKED = "REVOKED"
 SELECTABLE = (UNVERIFIED, VERIFIED)
 
+#: Импорт текста методики допустим только под разрешительной лицензией
+#: (правило владельца: MIT/Apache/BSD; source-available docx/pdf/pptx/xlsx не берём).
+PERMISSIVE_LICENSES = frozenset({"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "0BSD"})
+
 #: What the local coding student (bossman.apprentice.local_sidecar) can do.
 #: Kept as a literal so this module does not import bossman-core; the test
 #: suite pins it against the real ``TOOL_NAMES`` when that package is present.
@@ -305,6 +309,22 @@ class SkillCatalog:
         # one library root per upstream source; canonical_root is never written to
         self.library = SkillLibrary(sources, self.root)
 
+    def _license_problem(self, skill_dir: Path, prov: Mapping[str, Any]) -> str | None:
+        """Импортный текст без разрешительной лицензии, лежащей в самом каталоге
+        (то есть в wheel), не выдаётся ученику. None — лицензия в порядке."""
+        lic = prov.get("license") if isinstance(prov.get("license"), dict) else {}
+        spdx = str(lic.get("spdx") or "").strip()
+        if not spdx:
+            return "в provenance не указана лицензия (license.spdx)"
+        if spdx not in PERMISSIVE_LICENSES:
+            return (f"лицензия {spdx} не из разрешённых для импорта "
+                    f"({', '.join(sorted(PERMISSIVE_LICENSES))})")
+        rel = str(lic.get("file") or "")
+        path = (skill_dir / rel).resolve() if rel else None
+        if path is None or not path.is_relative_to(self.root) or not path.is_file():
+            return "файл лицензии из provenance не найден внутри каталога скиллов"
+        return None
+
     def _load(self, sk: Skill) -> CatalogSkill:
         source = sk.source_root.name
         sid = f"{source}/{sk.id}"
@@ -326,6 +346,8 @@ class SkillCatalog:
                 status, reason = QUARANTINED, "неизвестная схема provenance"
             elif prov.get("sha256") != sha:
                 status, reason = QUARANTINED, "SKILL.md изменён после импорта (sha256 не совпадает)"
+            elif (lic_problem := self._license_problem(sk.path.parent, prov)) is not None:
+                status, reason = QUARANTINED, lic_problem
             elif prov.get("status") == VERIFIED:
                 status, reason = VERIFIED, "проверен владельцем"
         violations = scan_policy(sk.body)

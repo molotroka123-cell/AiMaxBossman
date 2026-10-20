@@ -39,6 +39,8 @@ def write_skill(root: Path, source: str, name: str, content: str, *,
     d = root / source / name
     d.mkdir(parents=True, exist_ok=True)
     (d / "SKILL.md").write_text(content, encoding="utf-8")
+    # provenance points at ../LICENSE: ship it, like the real catalog does
+    (root / source / "LICENSE").write_text("MIT License (fixture)\n", encoding="utf-8")
     sha = hashlib.sha256(content.encode("utf-8")).hexdigest()
     prov = {"schema": sc.PROVENANCE_SCHEMA, "id": f"{source}/{name}",
             "source": {"repo": f"example/{source}", "commit": "0" * 40,
