@@ -2818,7 +2818,7 @@ async def _execute_record_screen(
             _mw_after = _main_windows()
             _best_pid, _best_delta = None, 300
             for p_i, (h_i, t_i) in _mw_after.items():
-                _delta = _win_count(h_i) - _cnt1.get(p_i, 0)
+                _delta = abs(_win_count(h_i) - _cnt1.get(p_i, 0))
                 if _delta > _best_delta:
                     _best_pid, _best_delta = p_i, _delta
             if _best_pid is not None:
