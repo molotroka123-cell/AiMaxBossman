@@ -1645,8 +1645,11 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                                  f"Computer Use учётные данные не вводит")
             if len(editable) == 1:
                 _stop_check(st, "фокус поля", epoch)
+                bh = int((before.get("window") or {}).get("handle") or 0)
                 await _bounded(st, st.desktop.execute(
-                    core["ComputerAction"].make(AK.FOCUS, target=editable[0]["name"]), None), "фокус поля")
+                    core["ComputerAction"].make(AK.FOCUS, target=editable[0]["name"],
+                                                args={"foreground_handle": bh} if bh else {}),
+                    None), "фокус поля")
             elif kind == "type" and len(editable) > 1:
                 raise ActRefused("в окне несколько полей ввода: "
                                  + ", ".join(f"«{e['name']}»" for e in editable[:8])
@@ -1708,8 +1711,10 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
         # Последняя проверка «Стоп» — непосредственно перед эффектом.
         _stop_check(st, "перед эффектом", epoch)
         if kind == "type" and args.get("replace"):
+            bh = int((before.get("window") or {}).get("handle") or 0)
             await _bounded(st, st.desktop.execute(core["ComputerAction"].make(
-                AK.HOTKEY, args={"keys": ["ctrl", "a"]}), None), "выделение")
+                AK.HOTKEY, args={"keys": ["ctrl", "a"], **({"foreground_handle": bh} if bh else {})}),
+                None), "выделение")
         t0 = time.perf_counter()
         after_window: int | None = None
         acted_window: dict[str, Any] | None = None
@@ -1814,8 +1819,9 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             after_window = int(wins[0][0])
         else:
             _stop_check(st, "действие", epoch)
-            if kind == "type":
-                # Адаптер сверяет окно переднего плана перед КАЖДОЙ порцией ввода.
+            if kind in INPUT_KINDS:
+                # Адаптер сверяет окно переднего плана вплотную к эффекту: перед
+                # КАЖДОЙ порцией набора, перед кликом/хоткеем и в UIA-пути.
                 want = int((before.get("window") or {}).get("handle") or 0)
                 if want:
                     a.args["foreground_handle"] = want

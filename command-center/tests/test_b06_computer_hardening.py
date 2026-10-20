@@ -101,3 +101,22 @@ async def test_takeover_resume_keeps_stop_when_owner_postcondition_fails(env, de
                               json={"expect": {"contains_text": "ПОДТВЕРЖДЕНО ВЛАДЕЛЬЦЕМ"}})
     assert r.status_code == 200 and r.json()["verified"] is True
     assert desk.stopped() is False and desk.takeover_active is False
+
+
+# ------------------------------------------------------------------ 5. every input step carries the window identity
+
+@pytest.mark.parametrize("args", [
+    {"action": "hotkey", "keys": ["ctrl", "s"]},
+    {"action": "scroll", "clicks": -2},
+    {"action": "click", "target": "Файл"},                       # UIA path
+    {"action": "click", "target": "Файл", "x": 25, "y": 15, "coordinate_fallback": True},
+    {"action": "type", "text": "abc", "replace": True},          # incl. Ctrl+A and focus sub-steps
+])
+async def test_every_desktop_input_carries_the_observed_window_handle(env, desk, args):
+    """The adapter can only verify the window right before the effect when the caller
+    tells it which window was checked; earlier only TYPE carried `foreground_handle`."""
+    g = (await tc.observe(env.svc))["generation"]
+    await tc.act(env.svc, {**args, "generation": g})
+    assert desk.desktop.executed, "nothing was dispatched"
+    for kind, target, _text, a_args in desk.desktop.executed:
+        assert a_args.get("foreground_handle") == 1, (kind, target, a_args)
