@@ -53,8 +53,11 @@ class Autopilot:
                 s=entry["step"];a=s["action"]
                 if a=="wait":time.sleep(min(float(s.get("seconds",0)),2))
                 elif a=="file.mkdir":Path(s["path"]).mkdir(parents=True,exist_ok=True)
-                elif a=="file.copy":shutil.copy2(s["src"],s["dst"])
-                elif a=="file.move":shutil.move(s["src"],s["dst"])
+                elif a in("file.copy","file.move"):
+                    dst=Path(s["dst"])
+                    target=dst/Path(s["src"]).name if dst.is_dir() else dst
+                    if target.exists():raise FileExistsError(f"refusing to overwrite: {target}")   # never destroy a file silently
+                    (shutil.copy2 if a=="file.copy" else shutil.move)(s["src"],s["dst"])
                 elif a=="verify.exists":
                     if not Path(s["path"]).exists():raise RuntimeError(f"missing: {s['path']}")
                 executed.append(s)
