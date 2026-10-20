@@ -11,6 +11,27 @@ import yaml
 
 SKILL_FILE = "SKILL.md"
 
+
+class _NoAliasSafeLoader(yaml.SafeLoader):
+    """SafeLoader без YAML-ссылок (``&anchor`` / ``*alias``).
+
+    SafeLoader уже не исполняет код (``!!python/...`` — ошибка), но ссылки
+    разворачивает: десяток строк «alias bomb» дают дерево из миллионов узлов,
+    которое ``/api/skills/{id}`` честно сериализует в JSON. В манифесте навыка
+    ссылки не нужны, поэтому они просто запрещены."""
+
+    def compose_node(self, parent, index):  # noqa: D401 — pyyaml hook
+        if self.check_event(yaml.events.AliasEvent):
+            event = self.peek_event()
+            raise yaml.composer.ComposerError(
+                None, None, "ссылки YAML (*alias) во фронтматтере навыка запрещены",
+                event.start_mark)
+        return super().compose_node(parent, index)
+
+
+def _load_yaml(raw: str) -> Any:
+    return yaml.load(raw, Loader=_NoAliasSafeLoader)  # noqa: S506 — SafeLoader subclass
+
 @dataclass(slots=True)
 class Skill:
     id: str
@@ -35,7 +56,7 @@ def parse_skill(path: Path, source_root: Path) -> Skill:
             # устойчивость: битый YAML (напр. двоеточие в description) не должен
             # ронять discovery — извлекаем хотя бы name/description построчно
             try:
-                fm = yaml.safe_load(text[4:end]) or {}
+                fm = _load_yaml(text[4:end]) or {}
             except yaml.YAMLError:
                 # Двоеточие внутри значения ломает YAML. Сначала пробуем
                 # починить кавычками и разобрать НОРМАЛЬНО — иначе теряются
@@ -243,7 +264,7 @@ def _quoted_retry(raw: str) -> dict[str, Any] | None:
         else:
             fixed.append(line)
     try:
-        data = yaml.safe_load("\n".join(fixed))
+        data = _load_yaml("\n".join(fixed))
     except yaml.YAMLError:
         return None
     return data if isinstance(data, dict) else None
