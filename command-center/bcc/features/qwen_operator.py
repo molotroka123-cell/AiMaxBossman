@@ -148,6 +148,16 @@ def lab_push_kind(argv: Any) -> str | None:
         return "lab_push"
     return "release_main" if dst == "main" else None
 
+#: The only verifier result that may open / execute a merge into main (A3: the executor never verifies itself).
+INDEPENDENT_VERIFIER = "different_family_free_cloud"
+
+
+def release_review_ok(verifier: Any) -> bool:
+    """Fail closed: an explicit APPROVE from a verifier that ran AND is of another model family."""
+    return (isinstance(verifier, dict) and verifier.get("verdict") == "APPROVE"
+            and verifier.get("independence") == INDEPENDENT_VERIFIER and verifier.get("ran", True) is True)
+
+
 RELEASE_STEPS_RU = (
     "Продвижение кандидата в основной проект делает только владелец (конституция v1, правило 4): "
     "1) посмотреть diff коммита на ветке lab/*; 2) Claude и Codex одобряют ОДИН и тот же SHA; "
@@ -748,11 +758,16 @@ class Run:
         elif kind == "release_main":
             wt = self.scope.worktree
             head = (await asyncio.to_thread(_git, wt, "rev-parse", "HEAD")).stdout.decode().strip()
-            verdict = (self.rec.get("verifier") or {}).get("verdict")
+            ver = self.rec.get("verifier") or {}
+            verdict = ver.get("verdict")
             if not self.rec.get("commit_sha") or head != self.rec.get("commit_sha"):
                 refuse = "HEAD лаборатории не совпадает с проверенным коммитом"
             elif verdict == "REJECT":
                 refuse = "независимый проверяющий отклонил изменения (REJECT)"
+            elif not release_review_ok(ver):
+                # fail closed: no verdict, a verifier that did not run or the same-model fallback is not an approval
+                refuse = (f"нет одобрения независимого проверяющего (verdict={verdict or 'нет'}, "
+                          f"independence={ver.get('independence') or 'нет'})")
             else:
                 base = (await asyncio.to_thread(_git, wt, "merge-base", "HEAD", "origin/main")).stdout.decode().strip()
                 names = (await asyncio.to_thread(_git, wt, "diff", "--name-only", f"{base or 'origin/main'}..HEAD")
@@ -1136,7 +1151,7 @@ async def _execute(run: Run) -> dict:
             "verifier", "Ты — независимый рецензент изменений. Ответь: VERDICT: APPROVE или REJECT, затем 2-4 "
             "предложения с причинами. Проверяй только присланный diff и результат тестов.",
             f"ЗАДАЧА:\n{task[:1500]}\n\nDIFF:\n{final_diff[:12000]}\n\nТЕСТЫ:\n{rec.get('test_summary', '')[:1500]}")
-        independence = "different_family_free_cloud"
+        independence = INDEPENDENT_VERIFIER
         if not review.get("ok"):
             cloud_error = review.get("error")
             review = await local_verifier(run, task, final_diff)
@@ -1154,7 +1169,8 @@ async def _execute(run: Run) -> dict:
     ver = rec.get("verifier") or {}
     branch = (rec.get("lab") or {}).get("branch") or ""
     has_release_decision = any(d.get("category") == "release_main" for d in rec.get("decisions", []))
-    if (commit_sha and not run.stopped() and ver.get("verdict") == "APPROVE"
+    # Only an INDEPENDENT approval opens the merge button: the same-model fallback reviewer is reported, not trusted.
+    if (commit_sha and not run.stopped() and release_review_ok(ver)
             and LAB_BRANCH_RE.match(branch) and not has_release_decision):
         run.phase("release_request")
         await run.gate_command(

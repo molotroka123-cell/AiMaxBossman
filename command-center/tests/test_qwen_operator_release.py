@@ -134,6 +134,24 @@ async def test_release_refused_for_protected_files_reject_or_moved_head(tmp_path
     assert ran == []                                                       # nothing was pushed in any case
 
 
+@pytest.mark.parametrize("verifier", [
+    {"verdict": "NO_VERDICT", "independence": "different_family_free_cloud"},
+    {"verdict": "APPROVE", "independence": "NOT_INDEPENDENT_same_model_fresh_context (no free cloud verifier answered)"},
+    {"verdict": "APPROVE", "independence": "different_family_free_cloud", "ran": False},
+    {},
+])
+async def test_release_fails_closed_without_an_independent_approval(tmp_path, monkeypatch, verifier):
+    ran = []
+    monkeypatch.setattr(qo, "run_on_host", lambda *a, **k: ran.append(a) or {"exit_code": 0, "stderr": "", "error": ""})
+    run, rec, fake_git = _run_for_release(tmp_path)
+    rec["verifier"] = verifier
+    monkeypatch.setattr(qo, "_git", fake_git)
+    d = {"argv": ["git", "push", "origin", f"{BRANCH}:main"], "approval_id": 1, "status": "PENDING"}
+    await run.apply_lab_push(d, "release_main")
+    assert d["status"] == "APPROVED_REFUSED" and "независимого" in d["note"], d
+    assert ran == []
+
+
 async def test_other_tasks_branch_is_refused(tmp_path, monkeypatch):
     run, rec, fake_git = _run_for_release(tmp_path)
     monkeypatch.setattr(qo, "_git", fake_git)
