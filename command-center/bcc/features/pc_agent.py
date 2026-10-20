@@ -762,6 +762,26 @@ def _scrubbed_env() -> dict[str, str]:
     return clean
 
 
+def _taskkill_tree(pid: int) -> None:
+    """Windows: убить процесс ВМЕСТЕ с потомками (proc.kill() убивает только корень)."""
+    if os.name == "nt" and pid > 0:
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=3, check=False)
+
+
+async def _reap_child(proc: Any, pid: int) -> None:
+    """Дочерний процесс команды не переживает свой шаг: дерево убито, корень дождан.
+
+    Блокирующий taskkill — в потоке, а не в цикле событий; ожидание завершения
+    ограничено, чтобы зависший драйвер не держал шаг вечно.
+    """
+    with contextlib.suppress(Exception):
+        await asyncio.to_thread(_taskkill_tree, pid)
+    with contextlib.suppress(Exception):
+        proc.kill()
+    with contextlib.suppress(Exception):
+        await asyncio.wait_for(proc.wait(), timeout=3.0)
+
+
 async def execute_pc_step(
     svc: Any,
     rt: PCAgentRuntime,
@@ -1511,10 +1531,7 @@ async def execute_pc_step(
         try:
             stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
         except asyncio.TimeoutError:
-            with contextlib.suppress(Exception):
-                if os.name == "nt" and pid > 0:
-                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=3, check=False)
-                proc.kill()
+            await _reap_child(proc, pid)
             return {
                 "ok": False,
                 "verified": False,
@@ -1523,6 +1540,14 @@ async def execute_pc_step(
                 "summary": f"Таймаут команды {argv[0]} ({timeout_s:.0f} с).",
                 "duration_ms": round((time.perf_counter() - t0) * 1000),
             }
+        except BaseException:
+            # Отмена шага (STOP владельца, внешний таймаут, остановка задачи)
+            # раньше только снимала pid с учёта: дочерний процесс и его
+            # потомки жили дальше уже без присмотра. Сначала убить, потом
+            # пробросить отмену.
+            if proc.returncode is None:
+                await _reap_child(proc, pid)
+            raise
         finally:
             rt.active_procs.pop(pid, None)
 
