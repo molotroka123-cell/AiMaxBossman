@@ -511,17 +511,25 @@ def run_in_lab(scope: OperatorScope, argv: list[str], *, cwd: str = ".", timeout
 
 def run_on_host(argv: list[str], *, cwd: str, timeout_s: int = 600) -> dict:
     """The computer itself, outside the lab: argv-only, no shell, child env without secrets. Called ONLY for
-    an exact argv the owner approved with the button (``gate_host_command`` parks it, never runs it)."""
+    an exact argv the owner approved with the button (``gate_host_command`` parks it, never runs it).
+
+    Runs through the autonomy executor rooted at ``cwd``: on timeout the WHOLE process tree is killed
+    (psutil, ``kill_process_group``). ``subprocess.run`` killed only the direct child, and a grandchild that
+    kept the output pipe open (a started server, ``cmd /c start ...``) made it block past its timeout."""
+    from ..autonomy.hands import SubprocessExecutor
+    from ..autonomy.policy import Scope
+    from ..autonomy.types import HandRequest
     out = {"argv": argv, "cwd": cwd, "exit_code": None, "timed_out": False, "error": "", "stdout": "", "stderr": ""}
-    try:
-        p = subprocess.run(argv, cwd=cwd, env=_env_factory(), capture_output=True, timeout=timeout_s, check=False,
-                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-        out.update(exit_code=p.returncode, stdout=p.stdout.decode("utf-8", "replace")[-6000:],
-                   stderr=p.stderr.decode("utf-8", "replace")[-3000:])
-    except subprocess.TimeoutExpired:
-        out.update(timed_out=True, error="timeout")
-    except OSError as exc:
-        out.update(error=str(exc)[:300])
+    if not Path(cwd).is_dir():
+        out["error"] = "cwd is not a directory"
+        return out
+    req = HandRequest(goal_id="operator", requested_by="operator", action="run_command", target=".",
+                      arguments={"argv": argv, "cwd": "."}, expected_evidence=(), risk_class="high",
+                      timeout_s=timeout_s, rollback="owner-approved host command: no automatic rollback")
+    res = SubprocessExecutor(env_factory=_env_factory)(req, Scope(worktree=Path(cwd)))
+    out.update(exit_code=res.exit_code, timed_out=res.timed_out,
+               error="timeout" if res.timed_out else res.error[:300],
+               stdout=res.stdout.decode("utf-8", "replace")[-6000:], stderr=res.stderr.decode("utf-8", "replace")[-3000:])
     return out
 
 

@@ -159,3 +159,23 @@ async def test_cancelling_the_operator_kills_the_coder_sidecar_and_records_it(tm
             break
         await asyncio.sleep(0.1)
     assert [(r["status"], r["outcome"], r["operator_task"]) for r in recs] == [("failed", "CANCELLED", "0123456789ab")]
+
+
+def test_a_host_command_timeout_kills_the_whole_tree_and_returns_on_time(tmp_path):
+    """An approved host command that starts a long-lived child (a server, ``start ...``) must not hold the
+    operator past its timeout: the child inherits the output pipe."""
+    import sys
+    import time
+    code = ("import subprocess, sys, time; "
+            "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(40)']); time.sleep(40)")
+    t0 = time.monotonic()
+    out = qo.run_on_host([sys.executable, "-c", code], cwd=str(tmp_path), timeout_s=2)
+    elapsed = time.monotonic() - t0
+    assert out["timed_out"] is True and out["exit_code"] is None and out["error"] == "timeout"
+    assert elapsed < 20, f"run_on_host blocked {elapsed:.0f}s past a 2s timeout"
+
+
+def test_a_host_command_still_runs_and_reports_its_exit_code(tmp_path):
+    import sys
+    out = qo.run_on_host([sys.executable, "-c", "import sys; print('ok'); sys.exit(3)"], cwd=str(tmp_path))
+    assert (out["exit_code"], out["timed_out"], out["stdout"].strip()) == (3, False, "ok")
