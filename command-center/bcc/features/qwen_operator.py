@@ -604,6 +604,11 @@ class Run:
                    argv: list[str] | None = None, path: str | None = None, executable: bool = False) -> dict:
         preview = (f"Решение владельца · {category}\nДействие: {action}\nЗачем: {why}\n"
                    f"Рекомендация оператора: {recommendation}\nОпасения: {concerns}")
+        for prior in self.rec["decisions"]:
+            # Idempotency marker: a step re-run after a restart / resume never asks the owner twice for the
+            # same action (and never re-opens one the owner already answered).
+            if prior.get("preview") == preview and prior.get("argv") == argv and prior.get("path") == path:
+                return prior
         appr = await self.svc.approvals.create(DECISION_KIND, preview)
         decision = {"approval_id": appr.get("id"), "category": category, "action": action, "why": why,
                     "recommendation": recommendation, "concerns": concerns, "argv": argv, "path": path,

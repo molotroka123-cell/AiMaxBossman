@@ -97,6 +97,27 @@ async def test_stop_pressed_while_the_planner_runs_starts_no_further_step(stack,
     assert f.coder_calls == 0 and not saved.get("worker_draft")
 
 
+async def test_a_resumed_task_never_asks_the_owner_twice_for_the_same_decision(stack, repo):  # noqa: F811
+    svc, _c, _a = stack
+    plan = {**PLAN, "read_files": ["docs/secrets/notes.md"]}              # a credential read parks a decision
+    f = Fakes(repo, plan)
+    first = await _run(svc, repo, f)
+    cats = sorted(d["category"] for d in first["decisions"])
+    assert cats == ["credentials", "release_main"], cats
+    task_file = Path(svc.settings.data_dir) / "qwen-operator" / f"{first['id']}.json"
+    first["status"], first["finished_at"] = "running", None                 # killed mid-run after these steps
+    task_file.write_text(json.dumps(first, ensure_ascii=False), encoding="utf-8")
+    qo._JOBS.clear()
+    qo._QUEUE.clear()
+    out = await qo.recover_interrupted_tasks(svc, resume=True, decision_wait_s=0, local_chat=f.local_chat,
+                                             free_cloud=f.free_cloud, coder=f.coder)
+    assert [o["action"] for o in out] == ["resumed"]
+    await qo._JOBS[first["id"]]
+    final = _saved(svc, first["id"])
+    assert sorted(d["category"] for d in final["decisions"]) == cats
+    assert len(await svc.approvals.list("pending")) == 2                    # no second approvals row
+
+
 async def test_cancelling_the_operator_kills_the_coder_sidecar_and_records_it(tmp_path, monkeypatch):
     """asyncio cancel stops only the coroutine; the coder runs in a worker thread with its own process tree."""
     from bcc.features import coding_tasks as ct
