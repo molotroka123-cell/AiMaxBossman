@@ -1143,6 +1143,7 @@
     stats.appendChild(el('span', '', u.phase));
     if (u.remaining_s != null) stats.appendChild(el('span', '', `≈ осталось ${fmtMin(u.remaining_s)}`));
     else if (!u.real) stats.appendChild(el('span', 'muted', 'дольше обычного'));
+    if (u.eta_source !== undefined && u.label) stats.appendChild(el('span', 'muted', u.label));   // откуда взято «осталось» (вывод движка)
   }
   function renderQueued(u, stats, withTotal) {
     stats.appendChild(el('b', '', `в очереди №${u.position}`));
