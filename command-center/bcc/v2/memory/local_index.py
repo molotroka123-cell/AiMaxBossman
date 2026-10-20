@@ -24,6 +24,7 @@ import hashlib
 import json
 import math
 import re
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -66,8 +67,25 @@ def stem(word: str) -> str:
     return word
 
 
+#: Версия правил нормализации/токенизации. Производный индекс, построенный по
+#: другим правилам, хранит другие термы — его надо перестроить (sqlite_index).
+TOKENIZER_VERSION = 2
+
+
+def normalize_text(text: str) -> str:
+    """Одна каноническая форма текста для индекса И для запроса.
+
+    * NFKC: «й», набранная как «и» + U+0306 (так её отдают macOS/часть
+      редакторов), и полноширинные/лигатурные символы сводятся к обычным —
+      иначе `\\w+` рвёт слово на комбинирующем знаке и запрос не находит заметку;
+    * casefold вместо lower: регистронезависимость и для «ß»/«ﬁ»;
+    * «ё» → «е»: в русских заметках пишут и так, и так («ещё/еще»).
+    """
+    return unicodedata.normalize("NFKC", text or "").casefold().replace("ё", "е")
+
+
 def tokenize(text: str) -> list[str]:
-    return [stem(w) for w in _WORD.findall(text.lower()) if len(w) > 1]
+    return [stem(w) for w in _WORD.findall(normalize_text(text)) if len(w) > 1]
 
 
 # ------------------------------------------------------------------ чанки
