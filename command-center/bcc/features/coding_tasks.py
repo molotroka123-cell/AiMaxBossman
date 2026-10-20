@@ -176,7 +176,7 @@ _CANCELLED: set[str] = set()
 
 class TaskIn(BaseModel):
     instruction: str = Field(min_length=1, max_length=8000)
-    source_repo: str = Field(min_length=1, max_length=1000)
+    source_repo: str = Field(default="self", min_length=1, max_length=1000)
     allowed_paths: list[str] = Field(default_factory=list, max_length=64)
     protected_paths: list[str] = Field(default_factory=list, max_length=64)
     model: str | None = Field(default=None, max_length=200)
@@ -187,29 +187,192 @@ class TaskIn(BaseModel):
     verify_tests: list[str] = Field(default_factory=list, max_length=32)
     #: Optional cloud worker from the fixed WORKERS allowlist; None = the configured local sidecar.
     worker: str | None = Field(default=None, max_length=40)
+    #: Optional fallback cloud workers tried in order if the primary worker hits upstream model_error before any edit.
+    fallback_workers: list[str] = Field(default_factory=list, max_length=8)
+    #: When True (or when source_repo is "self"/"bossman"), targets Bossman's own repository checkout.
+    self_target: bool = False
 
 
-#: Cloud workers the owner can pick per task. Fixed allowlist: endpoint, model and the
-#: credential name never come from the request. Verified live on the owner box 2026-10-05
-#: (forced tool call): the :free models cost $0, GLM 5.3 Flash ~$0.00004 per call.
+#: Cloud workers the owner can pick per task in the OpenCode Web Pult. Fixed allowlist:
+#: endpoint, model and the credential name never come from the request.
+#: Includes both curated FREE cloud coding models ($0) and PAID top cloud coding models.
 WORKERS: dict[str, dict[str, str]] = {
-    "openrouter-free": {"endpoint": "https://openrouter.ai/api/v1", "model": "nvidia/nemotron-3-super-120b-a12b:free",
-                        "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Nemotron 3 Super 120B (free)"},
-    "openrouter-code-free": {"endpoint": "https://openrouter.ai/api/v1", "model": "cohere/north-mini-code:free",
-                             "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Cohere North Mini Code (free)"},
-    "nvidia-nim": {"endpoint": "https://integrate.api.nvidia.com/v1", "model": "nvidia/nemotron-3-super-120b-a12b",
-                   "key": "NVIDIA_API_KEY", "label": "NVIDIA NIM · Nemotron 3 Super 120B"},
-    "nemotron-ultra-free": {"endpoint": "https://openrouter.ai/api/v1", "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
-                            "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Nemotron 3 Ultra 550B (free)"},
-    "glm-flash": {"endpoint": "https://openrouter.ai/api/v1", "model": "z-ai/glm-5.3-flash",
-                  "key": "OPENROUTER_API_KEY", "label": "OpenRouter · GLM 5.3 Flash (paid, ~$0.00004/call)"},
+    "openrouter-free": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "nvidia/nemotron-3-super-120b-a12b:free",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · Nemotron 3 Super 120B (free)",
+        "tier": "free",
+        "provider": "OpenRouter",
+        "price_display": "$0 / 1M (free)",
+        "context_window": "128K",
+    },
+    "openrouter-code-free": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "cohere/north-mini-code:free",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · Cohere North Mini Code (free)",
+        "tier": "free",
+        "provider": "OpenRouter",
+        "price_display": "$0 / 1M (free)",
+        "context_window": "128K",
+    },
+    "poolside-laguna-free": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "poolside/laguna-s-2.1:free",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · Poolside Laguna S 2.1 Code (free)",
+        "tier": "free",
+        "provider": "OpenRouter",
+        "price_display": "$0 / 1M (free)",
+        "context_window": "128K",
+    },
+    "minimax-m31-free": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "minimax/minimax-m3.1-flash:free",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · MiniMax M3.1 Flash Code (free)",
+        "tier": "free",
+        "provider": "OpenRouter",
+        "price_display": "$0 / 1M (free)",
+        "context_window": "200K",
+    },
+    "nemotron-35-free": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "nvidia/nemotron-3.5-lightning:free",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · Nemotron 3.5 Lightning (free)",
+        "tier": "free",
+        "provider": "OpenRouter",
+        "price_display": "$0 / 1M (free)",
+        "context_window": "128K",
+    },
+    "groq-qwen38-free": {
+        "endpoint": "https://api.groq.com/openai/v1",
+        "model": "qwen/qwen3.8-27b",
+        "key": "GROQ_API_KEY",
+        "label": "Groq Cloud · Qwen 3.8 27B Coder (free tier)",
+        "tier": "free",
+        "provider": "Groq",
+        "price_display": "$0 / 1M (free tier)",
+        "context_window": "128K",
+    },
+    "groq-gpt-oss-120b-free": {
+        "endpoint": "https://api.groq.com/openai/v1",
+        "model": "openai/gpt-oss-120b",
+        "key": "GROQ_API_KEY",
+        "label": "Groq Cloud · GPT-OSS 120B (free tier)",
+        "tier": "free",
+        "provider": "Groq",
+        "price_display": "$0 / 1M (free tier)",
+        "context_window": "128K",
+    },
+    "gemini-3-flash-free": {
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "model": "gemini-3-flash-preview",
+        "key": "GEMINI_API_KEY",
+        "label": "Google AI Studio · Gemini 3 Flash (free tier)",
+        "tier": "free",
+        "provider": "Google AI Studio",
+        "price_display": "$0 / 1M (free tier)",
+        "context_window": "1M",
+    },
+    "nvidia-nim": {
+        "endpoint": "https://integrate.api.nvidia.com/v1",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "key": "NVIDIA_API_KEY",
+        "label": "NVIDIA NIM · Nemotron 3 Super 120B",
+        "tier": "free",
+        "provider": "NVIDIA NIM",
+        "price_display": "$0 / 1M (free credits)",
+        "context_window": "128K",
+    },
+    "nemotron-ultra-free": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · Nemotron 3 Ultra 550B (free)",
+        "tier": "free",
+        "provider": "OpenRouter",
+        "price_display": "$0 / 1M (free)",
+        "context_window": "128K",
+    },
+    "deepseek-v4.1-flash": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "deepseek/deepseek-v4.1-flash",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · DeepSeek V4.1 Flash (paid, fast)",
+        "tier": "paid",
+        "provider": "OpenRouter",
+        "price_display": "$0.14 / $0.28 per 1M",
+        "context_window": "128K",
+    },
+    "glm-flash": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "z-ai/glm-5.3-flash",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · GLM 5.3 Flash (paid, ~$0.00004/call)",
+        "tier": "paid",
+        "provider": "OpenRouter",
+        "price_display": "~$0.00004 / call",
+        "context_window": "128K",
+    },
     # owner 07.10: Haiku 5.5 via OpenRouter ($0.10/$0.50 per M, tools, 1M ctx) for self-repair step 3 and audits
-    "haiku-5.5": {"endpoint": "https://openrouter.ai/api/v1", "model": "anthropic/claude-haiku-5.5",
-                  "key": "OPENROUTER_API_KEY", "label": "OpenRouter · Claude Haiku 5.5 (paid, cheap)"},
+    "haiku-5.5": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "anthropic/claude-haiku-5.5",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · Claude Haiku 5.5 (paid, cheap)",
+        "tier": "paid",
+        "provider": "OpenRouter",
+        "price_display": "$0.10 / $0.50 per 1M",
+        "context_window": "200K",
+    },
+    "qwen3-coder-paid": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "qwen/qwen3-coder",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · Qwen3 Coder 480B (paid SLA)",
+        "tier": "paid",
+        "provider": "OpenRouter",
+        "price_display": "$0.20 / $0.60 per 1M",
+        "context_window": "128K",
+    },
+    "claude-sonnet-4": {
+        "endpoint": "https://openrouter.ai/api/v1",
+        "model": "anthropic/claude-sonnet-4",
+        "key": "OPENROUTER_API_KEY",
+        "label": "OpenRouter · Claude Sonnet 4 (paid, architect)",
+        "tier": "paid",
+        "provider": "OpenRouter",
+        "price_display": "$3.00 / $15.00 per 1M",
+        "context_window": "200K",
+    },
 }
+ALLOWED_WORKER_KEY_ENVS = frozenset({"OPENROUTER_API_KEY", "NVIDIA_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY"})
 #: The owner's local provider key file (user ACL); read only when the vault/env has no key.
 OWNER_KEYS_FILE = Path(os.environ.get("LOCALAPPDATA", "")) / "Bossman" / "keys" / "provider-keys.env"
 _WORKER_KEY_ENV = "BOSSMAN_WORKER_API_KEY"
+
+
+async def _worker_key_with_source(name: str, svc) -> tuple[str | None, str]:
+    """Return (key_value, source_label) where source_label is 'owner_keys_file', 'vault_or_env', or 'missing'."""
+    try:
+        for line in OWNER_KEYS_FILE.read_text(encoding="utf-8").splitlines():
+            if line.startswith(name + "="):
+                value = line.split("=", 1)[1].strip().strip('"').strip("'")
+                if value:
+                    return value, "owner_keys_file"
+    except OSError:
+        pass
+    try:
+        from .plugins import resolve_cred
+        val = await resolve_cred(name, svc) or None
+        if val:
+            return val, "vault_or_env"
+    except Exception:  # noqa: BLE001 — no key anywhere: the task fails visibly
+        pass
+    return None, "missing"
 
 
 async def _worker_key(name: str, svc) -> str | None:
@@ -218,25 +381,14 @@ async def _worker_key(name: str, svc) -> str | None:
     Live 2026-10-05: with vault/env first every cloud worker task failed on its first call
     (HTTPError) while the same sidecar with the key-file key fixed a planted bug end to end.
     """
-    try:
-        for line in OWNER_KEYS_FILE.read_text(encoding="utf-8").splitlines():
-            if line.startswith(name + "="):
-                value = line.split("=", 1)[1].strip().strip('"')
-                if value:
-                    return value
-    except OSError:
-        pass
-    try:
-        from .plugins import resolve_cred
-        return await resolve_cred(name, svc) or None
-    except Exception:  # noqa: BLE001 — no key anywhere: the task fails visibly
-        return None
+    val, _ = await _worker_key_with_source(name, svc)
+    return val
 
 
 def _missing_key_hint(name: str) -> str:
     """What the owner does about a missing worker key (the generic 5xx hint pointed to server logs)."""
-    where = (f"подключите OpenRouter с ключом на странице «OpenRouter» (или строкой {name}=… в {OWNER_KEYS_FILE})"
-             if name == "OPENROUTER_API_KEY" else f"добавьте строку {name}=… в {OWNER_KEYS_FILE}")
+    where = (f"подключите OpenRouter с ключом на странице «OpenRouter» или в панели OpenCode (или строкой {name}=… в {OWNER_KEYS_FILE})"
+             if name == "OPENROUTER_API_KEY" else f"подключите ключ {name} в панели OpenCode или добавьте строку {name}=… в {OWNER_KEYS_FILE}")
     return f"Ключ не подключён: {where}. Без ключа выберите исполнителя «Локальная модель Bossman»."
 
 
@@ -750,18 +902,60 @@ async def _skills_context(svc, body: TaskIn) -> tuple[list[dict], dict]:
     return skills, info
 
 
+def _call_execute(record: dict, repo: Path, body: TaskIn, context: dict | None,
+                  env: dict[str, str] | None, command: list[str] | None,
+                  data_dir: str | os.PathLike | None) -> dict:
+    import inspect  # noqa: WPS433
+    try:
+        param_count = len(inspect.signature(_execute).parameters)
+    except (TypeError, ValueError):
+        param_count = 7
+    if param_count >= 7:
+        return _execute(record, repo, body, context, env, command, data_dir)
+    return _execute(record, repo, body, context, env, command)
+
+
 async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None = None) -> None:
     try:
-        command = None
+        data_dir = getattr(getattr(svc, "settings", None), "data_dir", None)
         if body.worker:
-            # A cloud worker gets ONLY its own key (a fixed name the sidecar pops at start) plus the test interpreter path.
-            key = await _worker_key(WORKERS[body.worker]["key"], svc)
-            if not key:
+            candidates = [body.worker] + [
+                w for w in (body.fallback_workers or []) if w in WORKERS and w != body.worker
+            ]
+            attempts: list[dict[str, Any]] = []
+            final: dict[str, Any] | None = None
+            for idx, wid in enumerate(candidates):
+                key = await _worker_key(WORKERS[wid]["key"], svc)
+                if not key:
+                    if idx == 0 and len(candidates) == 1:
+                        raise RuntimeError(f"нет ключа {WORKERS[wid]['key']} для исполнителя {wid}")
+                    attempts.append({"worker": wid, "model": WORKERS[wid]["model"], "skipped": "missing_key"})
+                    continue
+                env = {_WORKER_KEY_ENV: key, **_verify_python_env()}
+                command = _worker_command(wid)
+                attempt_rec = {**record, "worker": wid, "model": WORKERS[wid]["model"]}
+                attempt_body = body.model_copy(update={"worker": wid, "model": WORKERS[wid]["model"]})
+                final = await asyncio.to_thread(_call_execute, attempt_rec, repo, attempt_body, context, env, command, data_dir)
+                sidecar_info = final.get("sidecar") if isinstance(final.get("sidecar"), dict) else {}
+                stop_reason = sidecar_info.get("stop_reason") or ""
+                attempts.append({
+                    "worker": wid,
+                    "model": WORKERS[wid]["model"],
+                    "tier": WORKERS[wid].get("tier", "cloud"),
+                    "status": final.get("status"),
+                    "stop_reason": stop_reason,
+                    "steps": sidecar_info.get("steps", 0),
+                })
+                if final.get("status") == "completed" or final.get("changed_files") or stop_reason != "model_error":
+                    break
+            if final is None:
                 raise RuntimeError(f"нет ключа {WORKERS[body.worker]['key']} для исполнителя {body.worker}")
-            env, command = {_WORKER_KEY_ENV: key, **_verify_python_env()}, _worker_command(body.worker)
+            if len(attempts) > 1 or body.fallback_workers:
+                final["worker_attempts"] = attempts
+                final["receipt"] = mission_receipt(final)
         else:
             env = await _sidecar_env(svc)
-        final = await asyncio.to_thread(_execute, record, repo, body, context, env, command, svc.settings.data_dir)
+            final = await asyncio.to_thread(_call_execute, record, repo, body, context, env, None, data_dir)
     except Exception as exc:  # noqa: BLE001
         final = {**record, "status": "failed", "error": f"{type(exc).__name__}: {exc}"[:800],
                  "finished_at": time.time()}
@@ -1171,9 +1365,244 @@ def invoke_sparse_coder_helper(
     }
 
 
+SELF_CODING_PRESETS: list[dict[str, Any]] = [
+    {
+        "id": "self-opencode-diagnostics",
+        "title": "Самокодинг: диагностика и метрики OpenCode в Bossman",
+        "instruction": (
+            "Изучи модуль command-center/bcc/features/coding_tasks.py и добавь чистую вспомогательную "
+            "функцию summarize_opencode_roster() (или обнови существующую), а также напиши для неё "
+            "проверочный unit-тест и убедись, что run_tests проходит."
+        ),
+        "allowed_paths": ["command-center/bcc/features", "command-center/tests"],
+        "protected_paths": [".github", "secrets", "bossman-core/bossman/apprentice/proc_tree.py"],
+        "verify_tests": ["command-center/tests/test_coding_workers.py"],
+    },
+    {
+        "id": "self-zone-bugfix",
+        "title": "Самокодинг: найти и починить точечный баг с unit-тестом",
+        "instruction": (
+            "Проанализируй указанные модули Bossman, воспроизведи крайний случай unit-тестом, "
+            "внеси минимальное исправление в разрешённых путях и запусти run_tests до зелёного результата."
+        ),
+        "allowed_paths": ["command-center/bcc/features", "command-center/tests"],
+        "protected_paths": [".github", "secrets"],
+        "verify_tests": ["command-center/tests/test_coding_workers.py"],
+    },
+]
+
+
+def _is_bossman_repo(path: Path) -> bool:
+    try:
+        return (
+            (path / ".git").exists()
+            and (path / "command-center" / "bcc").is_dir()
+            and (path / "bossman-core").is_dir()
+        )
+    except OSError:
+        return False
+
+
+def _canonical_bossman_repo() -> Path:
+    from ..config import ROOT  # noqa: WPS433
+    return ROOT.parent.resolve()
+
+
+async def _resolve_self_repo(svc, *, ensure_allowed: bool = False) -> tuple[Path, bool]:
+    roots = await allowed_roots(svc)
+    for r in roots:
+        if _is_bossman_repo(r):
+            return r.resolve(), True
+    canonical = _canonical_bossman_repo()
+    in_roots = any(_within(canonical, [r]) for r in roots)
+    if ensure_allowed and not in_roots and getattr(svc, "db", None) is not None and getattr(svc, "vault", None) is not None:
+        from .tools_code import CODE_ROOTS_KEY, _setting_json, _write_setting_json  # noqa: WPS433
+        current = await _setting_json(svc, CODE_ROOTS_KEY, None)
+        updated = list(current) if isinstance(current, list) else [str(r) for r in roots]
+        if str(canonical) not in updated:
+            updated.append(str(canonical))
+            await _write_setting_json(svc, CODE_ROOTS_KEY, updated)
+        in_roots = True
+    return canonical, in_roots
+
+
+def _mask_key(raw: str | None) -> str:
+    if not raw:
+        return ""
+    s = str(raw).strip()
+    if len(s) <= 8:
+        return "***"
+    return f"{s[:4]}…{s[-3:]}"
+
+
+async def opencode_workers_catalog(svc) -> dict[str, Any]:
+    key_cache: dict[str, tuple[str | None, str]] = {}
+    keys_info: list[dict[str, Any]] = []
+    for kname in sorted(ALLOWED_WORKER_KEY_ENVS):
+        val, src = await _worker_key_with_source(kname, svc)
+        key_cache[kname] = (val, src)
+        keys_info.append({
+            "key_env": kname,
+            "connected": bool(val),
+            "source": src,
+            "masked_preview": _mask_key(val),
+        })
+    workers_out: list[dict[str, Any]] = []
+    for wid, spec in WORKERS.items():
+        kname = spec["key"]
+        if kname not in key_cache:
+            key_cache[kname] = await _worker_key_with_source(kname, svc)
+        val, src = key_cache[kname]
+        tier = spec.get("tier") or ("free" if ":free" in spec["model"] or wid == "nvidia-nim" else "paid")
+        workers_out.append({
+            "id": wid,
+            "label": spec["label"],
+            "provider": spec.get("provider") or ("OpenRouter" if "openrouter" in spec["endpoint"] else "Cloud"),
+            "endpoint": spec["endpoint"],
+            "model": spec["model"],
+            "tier": tier,
+            "key_env": kname,
+            "key_connected": bool(val),
+            "key_source": src,
+            "price_display": spec.get("price_display") or ("$0 / 1M (free)" if tier == "free" else "paid"),
+            "context_window": spec.get("context_window") or "128K",
+            "supports_tools": True,
+        })
+    self_repo, in_roots = await _resolve_self_repo(svc, ensure_allowed=False)
+    free_list = [w for w in workers_out if w["tier"] == "free"]
+    paid_list = [w for w in workers_out if w["tier"] == "paid"]
+    ready_free = [w["id"] for w in free_list if w["key_connected"]]
+    ready_paid = [w["id"] for w in paid_list if w["key_connected"]]
+    return {
+        "workers": workers_out,
+        "keys": keys_info,
+        "local": {
+            "default_sparse_helper": SPARSE_HELPER_DEFAULT,
+            "models": LOCAL_CODER_PROFILES,
+        },
+        "self_coding": {
+            "source_repo": str(self_repo),
+            "in_allowed_roots": in_roots,
+            "is_bossman_checkout": _is_bossman_repo(self_repo),
+            "presets": SELF_CODING_PRESETS,
+        },
+        "summary": {
+            "total_cloud_workers": len(workers_out),
+            "free_cloud_workers": len(free_list),
+            "paid_cloud_workers": len(paid_list),
+            "connected_cloud_workers": len(ready_free) + len(ready_paid),
+            "any_cloud_ready": bool(ready_free or ready_paid),
+            "ready_free_workers": ready_free,
+            "ready_paid_workers": ready_paid,
+        },
+    }
+
+
+def summarize_opencode_roster() -> dict[str, Any]:
+    """Deterministic summary of Bossman's curated OpenCode cloud & local coding models."""
+    free_ids = [wid for wid, s in WORKERS.items() if s.get("tier") == "free"]
+    paid_ids = [wid for wid, s in WORKERS.items() if s.get("tier") == "paid"]
+    providers = sorted({s.get("provider", "Cloud") for s in WORKERS.values()})
+    return {
+        "total_cloud": len(WORKERS),
+        "free_cloud_ids": free_ids,
+        "paid_cloud_ids": paid_ids,
+        "local_coder_ids": list(LOCAL_CODER_PROFILES),
+        "providers": providers,
+    }
+
+
+class ConnectWorkerKeyIn(BaseModel):
+    key_env: str = Field(min_length=3, max_length=64)
+    api_key: str = Field(min_length=4, max_length=512)
+    persist_to_owner_file: bool = False
+
+
+class SelfTargetIn(BaseModel):
+    ensure_allowed_root: bool = True
+
+
+@router.get("/coding-tasks/workers")
+async def get_workers_catalog(request: Request):
+    return await opencode_workers_catalog(request.app.state.svc)
+
+
+@router.post("/coding-tasks/connect-key")
+async def connect_worker_key(body: ConnectWorkerKeyIn, request: Request):
+    key_env = body.key_env.strip().upper()
+    if key_env not in ALLOWED_WORKER_KEY_ENVS:
+        raise HTTPException(422, {
+            "code": "UNSUPPORTED_WORKER_KEY",
+            "message": f"ключ {key_env} не входит в список ключей облачных кодеров",
+            "allowed_keys": sorted(ALLOWED_WORKER_KEY_ENVS),
+        })
+    secret = body.api_key.strip().strip('"').strip("'")
+    if not secret:
+        raise HTTPException(422, {"code": "EMPTY_API_KEY", "message": "ключ не может быть пустым"})
+    svc = request.app.state.svc
+    saved_to: list[str] = []
+    if getattr(svc, "db", None) is not None and getattr(svc, "vault", None) is not None:
+        import sqlalchemy as sa  # noqa: WPS433
+        from ..db import settings_kv  # noqa: WPS433
+        setting_key = f"cred.{key_env}"
+        enc = svc.vault.encrypt(secret)
+        async with svc.db.session() as s:
+            await s.execute(sa.delete(settings_kv).where(settings_kv.c.key == setting_key))
+            await s.execute(sa.insert(settings_kv).values(key=setting_key, value_enc=enc))
+            await s.commit()
+        saved_to.append("vault")
+    if body.persist_to_owner_file:
+        try:
+            OWNER_KEYS_FILE.parent.mkdir(parents=True, exist_ok=True)
+            lines = OWNER_KEYS_FILE.read_text(encoding="utf-8").splitlines() if OWNER_KEYS_FILE.exists() else []
+            out_lines: list[str] = []
+            replaced = False
+            for line in lines:
+                if line.startswith(key_env + "="):
+                    out_lines.append(f"{key_env}={secret}")
+                    replaced = True
+                else:
+                    out_lines.append(line)
+            if not replaced:
+                out_lines.append(f"{key_env}={secret}")
+            OWNER_KEYS_FILE.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+            saved_to.append("owner_keys_file")
+        except OSError as exc:
+            raise HTTPException(500, {"code": "KEY_FILE_WRITE_FAILED", "message": str(exc)[:300]}) from exc
+    unlocked = [wid for wid, spec in WORKERS.items() if spec["key"] == key_env]
+    return {
+        "ok": True,
+        "key_env": key_env,
+        "connected": True,
+        "saved_to": saved_to,
+        "masked_preview": _mask_key(secret),
+        "workers_unlocked": unlocked,
+    }
+
+
+@router.post("/coding-tasks/self-target")
+async def post_self_target(body: SelfTargetIn, request: Request):
+    svc = request.app.state.svc
+    repo, in_roots = await _resolve_self_repo(svc, ensure_allowed=body.ensure_allowed_root)
+    head_proc = _git_b(repo, "rev-parse", "--verify", "HEAD") if (repo / ".git").exists() else None
+    head = head_proc.stdout.decode("utf-8", "replace").strip() if head_proc and not head_proc.returncode else None
+    return {
+        "ok": True,
+        "source_repo": str(repo),
+        "in_allowed_roots": in_roots,
+        "is_bossman_checkout": _is_bossman_repo(repo),
+        "head_commit": head,
+        "default_allowed_paths": ["command-center/bcc/features", "command-center/tests"],
+        "default_protected_paths": [".github", "secrets"],
+        "presets": SELF_CODING_PRESETS,
+    }
+
+
 @router.get("/coding-tasks/readiness")
-async def get_readiness(request: Request):
-    return await readiness(request.app.state.svc)
+async def get_readiness(request: Request, worker: str | None = None):
+    if worker is None:
+        return await readiness(request.app.state.svc)
+    return await readiness(request.app.state.svc, worker)
 
 
 @router.get("/coding-tasks/local-coders")
@@ -1239,13 +1668,20 @@ async def create_task(body: TaskIn, request: Request):
         raise HTTPException(423, {"code": "OWNER_STOP", "message": "Остановлено владельцем (STOP)"})
     if body.worker is not None and body.worker not in WORKERS:
         raise HTTPException(422, {"code": "UNKNOWN_WORKER", "workers": sorted(WORKERS)})
+    for fw in body.fallback_workers or []:
+        if fw not in WORKERS:
+            raise HTTPException(422, {"code": "UNKNOWN_WORKER", "workers": sorted(WORKERS)})
     ready = await readiness(svc, body.worker)
     if not ready["available"]:
         raise HTTPException(503, {"code": "OPENHANDS_UNAVAILABLE", "message": ready["reason"],
                                   **({"hint": ready["hint"]} if ready.get("hint") else {}), "readiness": ready})
     if not body.allowed_paths:
         raise HTTPException(422, {"message": "allowed_paths обязателен: агент должен получить явную область правок"})
-    repo = await _confined_repo(svc, body.source_repo)
+    raw_repo = body.source_repo
+    if body.self_target or raw_repo.strip().lower() in {"self", "bossman"}:
+        self_repo, _ = await _resolve_self_repo(svc, ensure_allowed=True)
+        raw_repo = str(self_repo)
+    repo = await _confined_repo(svc, raw_repo)
     profile = await _agent_profile(svc, body.agent_id)
     context, memory = await _memory_context(svc, body, profile)
     skills, skills_info = await _skills_context(svc, body)
@@ -1261,6 +1697,8 @@ async def create_task(body: TaskIn, request: Request):
               "source_repo": str(repo), "allowed_paths": list(body.allowed_paths),
               "protected_paths": list(body.protected_paths),
               "model": WORKERS[body.worker]["model"] if body.worker else body.model, "worker": body.worker,
+              "fallback_workers": list(body.fallback_workers or []),
+              "self_target": bool(body.self_target or body.source_repo.strip().lower() in {"self", "bossman"}),
               "created_at": time.time(), "finished_at": None, "changed_files": [], "diff": "",
               "error": "", "evidence": None, "sandbox_cleanup": None,
               "authority": {"push": False, "merge": False, "deploy": False}}

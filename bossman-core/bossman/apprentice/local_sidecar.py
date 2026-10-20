@@ -287,6 +287,10 @@ with open(os.path.join(os.environ["BOSSMAN_SIDECAR_SCRATCH"], "guard", "sitecust
 _ws = os.environ["BOSSMAN_SIDECAR_WORKSPACE"]
 if _ws not in sys.path:
     sys.path.insert(0, _ws)
+for _sub in ("bossman-shared", "bossman-core", "command-center"):
+    _sub_p = os.path.join(_ws, _sub)
+    if os.path.isdir(_sub_p) and _sub_p not in sys.path:
+        sys.path.insert(0, _sub_p)
 _mod = sys.argv[1]
 sys.argv = [_mod] + sys.argv[2:]
 runpy.run_module(_mod, run_name="__main__", alter_sys=True)
@@ -302,9 +306,15 @@ def _scratch_env(scratch: Path, workspace: Path) -> dict[str, str]:
     for d in (home, tmp, scratch / "guard"):
         d.mkdir(parents=True, exist_ok=True)
     (scratch / "guard" / "sitecustomize.py").write_text(_GUARD_SOURCE, encoding="utf-8")
+    pp_items = [str(scratch / "guard")]
+    for sub in ("command-center", "bossman-core", "bossman-shared"):
+        sub_p = workspace / sub
+        if sub_p.is_dir():
+            pp_items.append(str(sub_p))
+    pp_items.append(str(workspace))
     env.update({"HOME": str(home), "USERPROFILE": str(home), "APPDATA": str(home), "LOCALAPPDATA": str(home),
                 "TMP": str(tmp), "TEMP": str(tmp), "TMPDIR": str(tmp),
-                "PYTHONPATH": os.pathsep.join([str(scratch / "guard"), str(workspace)]),
+                "PYTHONPATH": os.pathsep.join(pp_items),
                 "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1", "PYTHONUTF8": "1",
                 "PYTHONIOENCODING": "utf-8",
                 "BOSSMAN_SIDECAR_WORKSPACE": str(workspace), "BOSSMAN_SIDECAR_SCRATCH": str(scratch)})
@@ -423,7 +433,12 @@ TOOL_SPECS = [
 
 
 def _http(url: str, payload: dict | None, *, api_key: str | None, timeout: float) -> dict:
-    headers = {"Content-Type": "application/json"}
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Bossman-OpenCode/2.6",
+        "HTTP-Referer": "https://bossman.local",
+        "X-Title": "Bossman OpenCode",
+    }
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     # A lone surrogate (a file read with surrogateescape, a cut emoji) must not kill the call: NVIDIA's
@@ -440,7 +455,7 @@ def _http(url: str, payload: dict | None, *, api_key: str | None, timeout: float
 class Model:
     def __init__(self, endpoint: str, model: str, api_key: str | None):
         base = endpoint.rstrip("/")
-        self.base = base if base.endswith("/v1") else base + "/v1"
+        self.base = base if base.endswith("/v1") or base.endswith("/openai") else base + "/v1"
         self.model = model
         self.api_key = api_key
         #: A loopback runtime (Ollama/llama.cpp) is asked not to think. In thinking mode
@@ -471,10 +486,10 @@ class Model:
                 body = _http(url, payload, api_key=self.api_key, timeout=timeout)
                 break
             except urllib.error.HTTPError as exc:
-                # Relax one optional field per 400, oldest first, and remember it.
-                if exc.code == 400 and self.tool_choice != "auto":
+                # Relax one optional field per 400/422, oldest first, and remember it.
+                if exc.code in (400, 422) and self.tool_choice != "auto":
                     self.tool_choice = payload["tool_choice"] = "auto"
-                elif exc.code == 400 and "reasoning_effort" in payload:
+                elif exc.code in (400, 422) and "reasoning_effort" in payload:
                     self.no_think = False
                     payload.pop("reasoning_effort")
                 else:
