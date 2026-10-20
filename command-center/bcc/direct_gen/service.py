@@ -599,7 +599,9 @@ class DirectGenService:
         spec = catalog.BY_ID.get(body.get("model"))
         if spec is None:
             raise DirectGenError(404, "unknown_model", "no such model")
-        info = catalog.describe(spec, self.models_dir, self.workflows_dir, None)
+        # Same owner overrides as the listing (and as the sd-cli path): the job's provenance must not say UNKNOWN for
+        # a source/licence the catalogue the owner chose from showed.
+        info = catalog.describe(spec, self.models_dir, self.workflows_dir, catalog.overrides(self.data_dir))
         if not info["available"]:
             raise DirectGenError(409, "model_unavailable", info["reason"])
         mode, raw, negative, effective, assist_model = self._text_fields(participant, body)

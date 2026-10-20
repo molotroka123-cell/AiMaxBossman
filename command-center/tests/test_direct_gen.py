@@ -160,6 +160,21 @@ def test_malformed_owner_overrides_do_not_break_or_forge_the_catalogue(tmp_path)
     assert len(sdcli.list_models(media, tmp_path / "sd-cli.exe", None)) == len(sdcli.SPECS)
 
 
+async def test_job_provenance_uses_the_same_owner_overrides_as_the_listing(env, tmp_path):
+    svc = install(env, tmp_path, FakeComfy())
+    svc.data_dir.mkdir(parents=True, exist_ok=True)
+    (svc.data_dir / "models.json").write_text(json.dumps({"wan2.1-t2v-1.3b": {
+        "source": "https://example.invalid/wan", "revision": "r1", "license": "Apache-2.0"}}), encoding="utf-8")
+    listed = {m["id"]: m for m in (await env.client.get("/api/direct-gen/models")).json()["models"]}["wan2.1-t2v-1.3b"]
+    assert listed["license"] == "Apache-2.0"
+    resp = await create(env)
+    assert resp.status_code == 202, resp.text
+    prov = resp.json()["provenance"]
+    assert (prov["source"], prov["revision"], prov["license"]) == (
+        listed["source"], listed["revision"], listed["license"])
+    await finish(env, resp.json()["job_id"])
+
+
 async def test_missing_template_makes_model_unavailable_with_reason(env, tmp_path):
     install(env, tmp_path, FakeComfy(), template=False)
     wan = {m["id"]: m for m in (await env.client.get("/api/direct-gen/models")).json()["models"]}["wan2.1-t2v-1.3b"]
