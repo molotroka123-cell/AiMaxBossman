@@ -2788,6 +2788,59 @@ async def _execute_record_screen(
                 _u32b.ShowWindow(target_hwnd, 3)
                 _u32b.SetForegroundWindow(target_hwnd)
 
+        def _fg_pid() -> int | None:
+            if os.name != "nt":
+                return None
+            import ctypes
+            _u = ctypes.windll.user32
+            _h = _u.GetForegroundWindow()
+            if not _h:
+                return None
+            _p = ctypes.c_ulong(0)
+            _u.GetWindowThreadProcessId(_h, ctypes.byref(_p))
+            return int(_p.value)
+
+        def _assert_foreground() -> None:
+            """Keep the target Telegram (and its media viewer) above every
+            other window for the recording: TOPMOST + foreground, re-applied
+            periodically. Other apps keep running untouched behind it."""
+            if os.name != "nt" or not target_hwnd:
+                return
+            import ctypes
+            _u = ctypes.windll.user32
+            _swp = 0x0001 | 0x0002 | 0x0040  # NOSIZE | NOMOVE | SHOWWINDOW
+            with contextlib.suppress(Exception):
+                _u.SetWindowPos(target_hwnd, -1, 0, 0, 0, 0, _swp)  # HWND_TOPMOST
+                _u.ShowWindow(target_hwnd, 3)
+                _u.SetForegroundWindow(target_hwnd)
+            if target_pid:
+                with contextlib.suppress(Exception):
+                    from pywinauto import Desktop as _Desk3
+                    for w_d in _Desk3(backend="uia").windows():
+                        with contextlib.suppress(Exception):
+                            if int(w_d.process_id()) == int(target_pid) \
+                                    and int(w_d.handle) != int(target_hwnd):
+                                _u.SetWindowPos(int(w_d.handle), -1, 0, 0, 0, 0, _swp)
+
+        def _release_topmost() -> None:
+            if os.name != "nt" or not target_hwnd:
+                return
+            import ctypes
+            _u = ctypes.windll.user32
+            _swp = 0x0001 | 0x0002 | 0x0040
+            with contextlib.suppress(Exception):
+                _u.SetWindowPos(target_hwnd, -2, 0, 0, 0, 0, _swp)  # HWND_NOTOPMOST
+            if target_pid:
+                with contextlib.suppress(Exception):
+                    from pywinauto import Desktop as _Desk4
+                    for w_d in _Desk4(backend="uia").windows():
+                        with contextlib.suppress(Exception):
+                            if int(w_d.process_id()) == int(target_pid) \
+                                    and int(w_d.handle) != int(target_hwnd):
+                                _u.SetWindowPos(int(w_d.handle), -2, 0, 0, 0, 0, _swp)
+
+        _assert_foreground()
+
         try:
             first_img = _mask_sensitive(ImageGrab.grab().convert("RGB"))
         except Exception:
@@ -3006,10 +3059,15 @@ async def _execute_record_screen(
                     stopped_mid = True
                     break
                 t_frame = time.perf_counter()
+                if tg_uri and idx_f % max(10, fps * 2) == 0:
+                    _assert_foreground()
+                # Never click blind: if another app owns the foreground, the
+                # click would land inside it. The fs-frame chain retries.
+                can_click = bool(target_pid is not None and _fg_pid() == int(target_pid))
                 if tg_uri and idx_f == nav_frame and not nav_dispatched:
                     nav_dispatched = True
                     _dispatch_uri(tg_uri)
-                elif tg_uri and idx_f == play_frame and not play_clicked:
+                elif tg_uri and idx_f == play_frame and not play_clicked and can_click:
                     found_v = _find_video_point()
                     if found_v is not None:
                         detected_total_s = found_v[2]
@@ -3025,14 +3083,15 @@ async def _execute_record_screen(
                 elif tg_uri and idx_f == fs_frame and not fs_tried:
                     if not play_clicked:
                         # The video was not clickable yet (window still
-                        # restoring/navigating): retry the click now and
-                        # postpone fullscreen by a second.
-                        found_v = _find_video_point()
-                        if found_v is not None:
-                            detected_total_s = found_v[2]
-                            _click_at(found_v[0], found_v[1])
-                            play_clicked = True
-                            play_done_frame = idx_f
+                        # restoring/navigating or not in front): retry the
+                        # click now and postpone fullscreen by a second.
+                        if can_click:
+                            found_v = _find_video_point()
+                            if found_v is not None:
+                                detected_total_s = found_v[2]
+                                _click_at(found_v[0], found_v[1])
+                                play_clicked = True
+                                play_done_frame = idx_f
                         fs_frame = idx_f + max(2, int(fps))
                     else:
                         fs_tried = True
@@ -3073,6 +3132,8 @@ async def _execute_record_screen(
                 proc.wait(timeout=20)
             if proc.pid:
                 rt.active_procs.pop(proc.pid, None)
+
+        _release_topmost()
 
         if stopped_mid:
             with contextlib.suppress(Exception):
