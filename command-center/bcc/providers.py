@@ -35,7 +35,8 @@ class ProviderError(RuntimeError):
     """
 
     def __init__(self, message: str, *, kind: str = "http", hint: str | None = None,
-                 status_code: int | None = None, timed_out: bool = False):
+                 status_code: int | None = None, timed_out: bool = False,
+                 retry_after: float | None = None):
         super().__init__(message)
         self.kind = kind
         self.hint = hint
@@ -43,6 +44,36 @@ class ProviderError(RuntimeError):
         # True when the endpoint did not answer inside the timeout (kind stays "network"):
         # health classification needs "slow" apart from "down" without parsing the text.
         self.timed_out = timed_out
+        # Seconds the provider asked us to wait (HTTP Retry-After), bounded; None = not said.
+        self.retry_after = retry_after
+
+
+#: A Retry-After longer than this is not honoured as-is (a broken header must not park a route
+#: for a day); the health cooldown has its own, equal ceiling.
+MAX_RETRY_AFTER_S = 3600.0
+
+
+def parse_retry_after(value: str | None, *, now: float | None = None) -> float | None:
+    """RFC 9110 Retry-After: delta-seconds or an HTTP-date. Bounded to [0, MAX_RETRY_AFTER_S].
+
+    Anything unparseable is None ("the provider did not say"), never 0 ("retry at once")."""
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    if raw.isdigit():
+        return min(float(raw), MAX_RETRY_AFTER_S)
+    try:
+        from email.utils import parsedate_to_datetime
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        from datetime import timezone
+        when = when.replace(tzinfo=timezone.utc)
+    delta = when.timestamp() - (time.time() if now is None else now)
+    return min(max(0.0, delta), MAX_RETRY_AFTER_S)
 
 
 @dataclass
@@ -312,8 +343,17 @@ class _BaseAdapter:
             raise ProviderError(f"нет связи с {_host(url)}: {net_reason(exc)}", kind="network",
                                 hint="проверьте base_url и что endpoint поднят") from None
         if resp.status_code >= 400:
-            raise ProviderError(self._scrub(_explain(resp)), kind="http", status_code=resp.status_code)
+            raise self._http_error(resp)
         return resp
+
+    def _http_error(self, resp: httpx.Response) -> ProviderError:
+        """HTTP >= 400 as a ProviderError. A 429 is a rate limit (kind="rate_limit", the same
+        kind an in-body 429 gets), with the provider's Retry-After when it sent one."""
+        code = resp.status_code
+        retry_after = parse_retry_after(resp.headers.get("retry-after")) if code in (429, 503) else None
+        return ProviderError(self._scrub(_explain(resp)),
+                             kind="rate_limit" if code == 429 else "http",
+                             status_code=code, retry_after=retry_after)
 
     async def _health_via(self, url: str, headers: dict | None = None) -> Health:
         t0 = time.perf_counter()
@@ -452,8 +492,7 @@ class OpenAICompatAdapter(_BaseAdapter):
                         await resp.aread()
                         if resp.status_code in _STREAM_REJECTED:
                             return None
-                        raise ProviderError(self._scrub(_explain(resp)), kind="http",
-                                            status_code=resp.status_code)
+                        raise self._http_error(resp)
                     if "text/event-stream" not in resp.headers.get("content-type", "").lower():
                         await resp.aread()
                         data = _response_object(resp, what="chat/completions")
