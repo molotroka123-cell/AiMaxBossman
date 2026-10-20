@@ -2884,39 +2884,44 @@ async def _execute_record_screen(
                     pass
                 return found_m
 
+            def _win_count(h_scan: int) -> int:
+                try:
+                    from pywinauto import Desktop as _DeskC
+                    return len(_DeskC(backend="uia").window(handle=h_scan).descendants())
+                except Exception:
+                    return -1
+
+            # Phase 1: park every instance on a neutral public channel, then
+            # snapshot the UIA tree sizes. Phase 2: dispatch the real link —
+            # only the member instance navigates, so only its tree changes
+            # materially. (Label presence and foreground both proved
+            # ambiguous: other windows can hold unrelated video posts.)
             for pid_i, exe_i, wdir_i in tg_instances:
                 with contextlib.suppress(Exception):
-                    subprocess.run([exe_i, *wdir_i, "--", tg_uri], timeout=6, check=False)
-            time.sleep(2.0)
-            # Candidates: windows displaying a video post in the history pane
-            # after the dispatch. The instance that actually handled the link
-            # also raises its window — foreground ownership breaks the tie
-            # (another window may merely have some other video post open).
-            _mw_after = _main_windows()
-            _scan_after = {p_i: _label_in_window(h_i)
-                           for p_i, (h_i, _t_i) in _mw_after.items()}
-            _cands = {p_i: _mw_after[p_i] for p_i, s_i in _scan_after.items()
-                      if s_i is not None}
-            if _cands:
-                _fg_pid_v = None
+                    subprocess.run([exe_i, *wdir_i, "--",
+                                    "tg://resolve?domain=telegram"],
+                                   timeout=6, check=False)
+            time.sleep(1.5)
+            _cnt1 = {p_i: _win_count(h_i)
+                     for p_i, (h_i, _t_i) in _main_windows().items()}
+            for pid_i, exe_i, wdir_i in tg_instances:
                 with contextlib.suppress(Exception):
-                    import ctypes as _ct_v
-                    _u_v = _ct_v.windll.user32
-                    _h_v = _u_v.GetForegroundWindow()
-                    if _h_v:
-                        _p_v = _ct_v.c_ulong(0)
-                        _u_v.GetWindowThreadProcessId(_h_v, _ct_v.byref(_p_v))
-                        _fg_pid_v = int(_p_v.value)
-                if _fg_pid_v in _cands:
-                    target_hwnd, target_pid, target_title = (
-                        _cands[_fg_pid_v][0], _fg_pid_v, _cands[_fg_pid_v][1])
-                elif target_pid not in _cands:
-                    _p_first = next(iter(_cands))
-                    target_hwnd, target_pid, target_title = (
-                        _cands[_p_first][0], _p_first, _cands[_p_first][1])
-            if target_pid in _scan_after and _scan_after[target_pid] is not None:
-                _s_t = _scan_after[target_pid]
-                nav_hint = (_s_t[1], _s_t[2], _s_t[0])
+                    subprocess.run([exe_i, *wdir_i, "--", tg_uri],
+                                   timeout=6, check=False)
+            time.sleep(2.0)
+            _mw_after = _main_windows()
+            _best_pid, _best_delta = None, 300
+            for p_i, (h_i, t_i) in _mw_after.items():
+                _delta = _win_count(h_i) - _cnt1.get(p_i, 0)
+                if _delta > _best_delta:
+                    _best_pid, _best_delta = p_i, _delta
+            if _best_pid is not None:
+                target_hwnd, target_pid, target_title = (
+                    _mw_after[_best_pid][0], _best_pid, _mw_after[_best_pid][1])
+            if target_hwnd:
+                _s_t = _label_in_window(target_hwnd)
+                if _s_t is not None:
+                    nav_hint = (_s_t[1], _s_t[2], _s_t[0])
 
         # 3. Захват первого кадра и запуск FFmpeg для кодирования H.264 MP4 в высоком качестве
         from PIL import Image, ImageDraw, ImageGrab
