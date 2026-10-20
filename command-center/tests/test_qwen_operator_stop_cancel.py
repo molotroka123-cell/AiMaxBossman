@@ -2,8 +2,13 @@
 the start of an attempt. Offline: the planner, the coder and the cloud are the fakes of test_qwen_operator.py."""
 from __future__ import annotations
 
+import asyncio
 import json
+import threading
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from bcc.features import qwen_operator as qo
 
@@ -90,3 +95,46 @@ async def test_stop_pressed_while_the_planner_runs_starts_no_further_step(stack,
         stop.unlink(missing_ok=True)
     assert saved["status"] == "stopped"
     assert f.coder_calls == 0 and not saved.get("worker_draft")
+
+
+async def test_cancelling_the_operator_kills_the_coder_sidecar_and_records_it(tmp_path, monkeypatch):
+    """asyncio cancel stops only the coroutine; the coder runs in a worker thread with its own process tree."""
+    from bcc.features import coding_tasks as ct
+    started, killed = threading.Event(), threading.Event()
+
+    class Tree:
+        def kill(self):
+            killed.set()
+
+    def fake_execute(record, repo, body, context, env, command, data_dir=None):
+        ct._ACTIVE[record["id"]] = Tree()
+        started.set()
+        killed.wait(3)                                      # a real sidecar would run until its process dies
+        ct._ACTIVE.pop(record["id"], None)
+        cancelled = record["id"] in ct._CANCELLED
+        ct._CANCELLED.discard(record["id"])
+        return {**record, "status": "failed", "outcome": "CANCELLED" if cancelled else "", "finished_at": 1.0}
+
+    async def variant(base, n, transport=None):
+        return {"ok": True, "tag": base, "created": False}
+    monkeypatch.setattr(ct, "_runtime", lambda: (object(), object(), ""))
+    monkeypatch.setattr(ct, "_execute", fake_execute)
+    monkeypatch.setattr(qo, "ensure_ctx_variant", variant)
+    (tmp_path / "lab").mkdir()
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=str(tmp_path / "data")))
+    run = qo.Run(svc, {"id": "0123456789ab", "operator_agent_id": None},
+                 {"coder": {"model": "m", "num_ctx": 4096, "ctx_variant": {"tag": "m"}}},
+                 qo.OperatorScope(tmp_path / "lab", data_dir=tmp_path / "data"))
+    task = asyncio.create_task(qo.run_sidecar(run, "x", ["pkg/mod.py"], ["tests/test_mod.py"], 1))
+    assert await asyncio.to_thread(started.wait, 5)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert await asyncio.to_thread(killed.wait, 2), "the coder's process tree was left running"
+    store = tmp_path / "data" / "coding-tasks"
+    for _ in range(50):                                     # the worker thread writes the terminal record
+        recs = [json.loads(p.read_text("utf-8")) for p in store.glob("*.json")] if store.is_dir() else []
+        if recs:
+            break
+        await asyncio.sleep(0.1)
+    assert [(r["status"], r["outcome"], r["operator_task"]) for r in recs] == [("failed", "CANCELLED", "0123456789ab")]

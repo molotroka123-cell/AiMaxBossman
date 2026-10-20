@@ -1368,9 +1368,20 @@ async def run_sidecar(run: Run, instruction: str, paths: list[str], tests: list[
               "diff": "", "error": "", "evidence": None, "sandbox_cleanup": None, "operator_task": rec["id"],
               "authority": {"push": False, "merge": False, "deploy": False}}
     def _go():                      # env probing and the clone/sidecar run stay off the event loop
-        return ct._execute(record, run.scope.worktree, body, context, ct._verify_python_env(), argv)
-    final = await asyncio.to_thread(_go)
-    ct._write(svc, final)
+        out = ct._execute(record, run.scope.worktree, body, context, ct._verify_python_env(), argv)
+        ct._write(svc, out)         # written by the worker thread: a cancelled operator still gets a terminal record
+        return out
+    try:
+        final = await asyncio.to_thread(_go)
+    except asyncio.CancelledError:
+        # Cancelling the operator task cancels only this coroutine; the worker thread and the sidecar's process
+        # tree (a model + tool loop) would keep running. Cancel the coding task the same way its own STOP does.
+        ct._CANCELLED.add(record["id"])
+        tree = ct._ACTIVE.get(record["id"])
+        if tree is not None:
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(tree.kill)
+        raise
     side = final.get("sidecar") or {}
     ok = final.get("status") == "completed" and bool(final.get("diff"))
     return {"ok": ok, "model": model, "diff": final.get("diff", ""), "changed_files": final.get("changed_files"),
