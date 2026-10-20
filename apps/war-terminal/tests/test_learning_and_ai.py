@@ -87,3 +87,19 @@ def test_redaction_hits_free_text_but_never_dates_or_numbers():
     sent = json.dumps(ai.build_messages(t), ensure_ascii=False)
     assert "[phone]" in sent and "[email]" in sent and "777" not in sent
     assert "2026-11-24T23:59:59Z" in sent and "16873200" in sent and "15131000" in sent        # regression: ISO date used to be eaten as a phone
+
+
+def test_dataset_export_keeps_dates_cpv_and_large_values_intact():
+    """Regression: redacting the serialized facts turned dates/CPV into [phone] and broke JSON for values >= 10M."""
+    class _Store:
+        def docs(self, kind):
+            return [{"tender_key": "EU:X", "decision": "go", "reasons": "ring +420 777 123 456", "predicted": {}}] if kind == "decisions" else []
+
+        def get_tender(self, key):
+            return {"title": "Fuel, call +420 777 123 456", "category": "fuel_energy", "country": "CZE", "estimated_value": 15000000.0,
+                    "currency": "EUR", "deadline": "2026-11-24T23:59:59Z", "cpv": ["09134200"], "demo": False}
+    row = json.loads(learning.export_dataset(_Store()).splitlines()[0])
+    assert row["input"]["estimated_value"] == 15000000.0
+    assert row["input"]["deadline"] == "2026-11-24T23:59:59Z" and row["input"]["cpv"] == ["09134200"]
+    assert "[phone]" in row["input"]["title"] and "777" not in row["input"]["title"]
+    assert "[phone]" in row["owner_reasons"]

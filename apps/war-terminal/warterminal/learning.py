@@ -91,6 +91,9 @@ def export_dataset(store) -> str:
     for d in store.docs("decisions"):
         t = store.get_tender(d["tender_key"]) or {}
         facts = {k: t.get(k) for k in ("title", "category", "country", "estimated_value", "currency", "deadline", "cpv")}
-        lines.append(json.dumps({"input": json.loads(redact(json.dumps(facts, ensure_ascii=False))), "predicted": d.get("predicted", {}).get("tier_if_cleared"),
+        # only free text is redacted (as in ai.build_messages): the phone pattern would eat ISO dates, CPV codes
+        # and long numbers, and redacting serialized JSON could even break it (15000000.0 -> [phone])
+        facts["title"] = redact(str(facts["title"] or ""))
+        lines.append(json.dumps({"input": facts, "predicted": d.get("predicted", {}).get("tier_if_cleared"),
                                  "owner_decision": d["decision"], "owner_reasons": redact(d.get("reasons", "")), "demo": bool(t.get("demo"))}, ensure_ascii=False))
     return "\n".join(lines)
