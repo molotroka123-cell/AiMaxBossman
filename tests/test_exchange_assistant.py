@@ -701,3 +701,18 @@ def test_soft_limit_refusal_names_round_margin_plainly(assistant, pct):
     assert f"ставка {pct}% превышает мягкий лимит" in refused and "E+" not in refused
     ok = assistant.handle(f"500 usdt в czk при {pct}% подтверждаю ставку", "owner")
     assert f"наценка {pct}%" in ok and "E+" not in ok
+
+
+def test_today_dashboard_is_the_prague_day_not_the_utc_day(assistant):
+    """At 00:30 Prague (22:30 UTC) «итоги сегодня» is the new Prague day: a deal at 23:30 Prague yesterday is out."""
+    clock = assistant.clock_ref
+    for t in (datetime(2026, 10, 19, 21, 30, tzinfo=timezone.utc),     # 23:30 Prague, 19.10
+              datetime(2026, 10, 19, 22, 10, tzinfo=timezone.utc)):    # 00:10 Prague, 20.10
+        clock["now"] = t
+        assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+        qid = _qid(assistant.handle("100 usdt в czk при 3%", "owner"))
+        assert "Сделка записана" in assistant.handle(f"обмен выполнен {qid} приняли 100 выдали 2093,10", "owner")
+    clock["now"] = datetime(2026, 10, 19, 22, 30, tzinfo=timezone.utc)
+    out = assistant.handle("итоги сегодня", "owner")
+    assert "Итоги: 20.10.2026 — 20.10.2026" in out
+    assert "Сделок: 1 " in out
