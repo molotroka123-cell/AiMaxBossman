@@ -134,3 +134,38 @@ async def test_a_probe_hit_by_429_parks_the_model_for_the_providers_window(env):
     record = await env.svc.registry.model_health(mid)
     assert record.status == mh.THROTTLED
     assert (record.cooldown_until - record.checked_at).total_seconds() >= 1200
+
+
+# ------------------------------------------------------------------ long-run spend caps
+
+OR = "https://openrouter.ai/api/v1"
+
+
+@pytest.fixture
+def lr_root(tmp_path, monkeypatch):
+    from bcc import long_run
+    monkeypatch.delenv("BOSSMAN_ALLOW_PAID_CLOUD", raising=False)
+    monkeypatch.delenv("BOSSMAN_LOCAL_ONLY", raising=False)
+    root = tmp_path / "autonomy"
+    monkeypatch.setenv("BOSSMAN_AUTONOMY_ROOT", str(root))
+    long_run.write_profile(enable=True, root=root)
+    return root
+
+
+@pytest.mark.parametrize("worst", [float("nan"), float("inf"), "n/a", None])
+def test_an_unknown_worst_case_is_refused_not_booked_as_free(lr_root, worst):
+    """max(0.0, nan) == 0.0: a NaN estimate was reserved as a zero-cost call and passed the cap."""
+    from bcc import long_run
+    ledger = long_run.LongRunLedger(lr_root)
+    with pytest.raises(long_run.LongRunRefused, match="unknown|CAP HIT"):
+        ledger.reserve("glm", worst, model="z-ai/glm-5.3-flash")
+    rows = ledger._rows()
+    assert not [r for r in rows if r.get("kind") == "reserve"]
+    assert [r for r in rows if r.get("kind") == "refusal"]
+
+
+def test_a_finite_worst_case_still_reserves(lr_root):
+    from bcc import long_run
+    ledger = long_run.LongRunLedger(lr_root)
+    assert ledger.reserve("glm", 0.01, model="z-ai/glm-5.3-flash")
+    assert ledger.spent_today()["glm"] == pytest.approx(0.01)

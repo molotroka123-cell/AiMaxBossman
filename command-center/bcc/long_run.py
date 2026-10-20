@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import time
 import uuid
@@ -262,7 +263,18 @@ class LongRunLedger:
             self._refuse(provider, model, 0.0, f"STOP active: {why}")
             raise LongRunRefused(f"LONG-RUN REFUSED: {why}; paid calls are blocked until the STOP "
                                  "file is removed")
-        worst = max(0.0, float(worst_case_eur))
+        try:
+            worst = float(worst_case_eur)
+        except (TypeError, ValueError):
+            worst = float("nan")
+        if not math.isfinite(worst):
+            # max(0.0, nan) is 0.0: an unknown worst case used to be booked as a FREE call
+            # and passed every cap. Unknown cost is refused, never assumed to be zero.
+            msg = (f"LONG-RUN REFUSED: the worst-case cost of this {FAMILIES[provider]['label']} call "
+                   f"is unknown ({worst_case_eur!r}); the call was NOT made.")
+            self._refuse(provider, model, 0.0, msg)
+            raise LongRunRefused(msg)
+        worst = max(0.0, worst)
         with file_lock(self._lock()):
             cap = self.caps()[provider]
             spent = self._spent_by_provider(self._rows())[provider]
