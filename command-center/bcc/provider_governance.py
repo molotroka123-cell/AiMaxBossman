@@ -206,6 +206,10 @@ class GovernedAdapter:
         # the model could answer far past the booked worst case and one call overshot the cap.
         kwargs = {**kwargs, "max_tokens": max_out}
         ledger = long_run.LongRunLedger()
+        problem = long_run.paid_price_problem(m, family)
+        if problem:
+            ledger._refuse(family, str(m.get("name") or ""), 0.0, problem)
+            raise ProviderError(problem, kind="budget")
         worst = long_run.estimate_worst_case_eur(m, messages or [], max_out, kwargs.get("tools"))
         try:
             rid = ledger.reserve(family, worst, model=str(m.get("name") or ""),

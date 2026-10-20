@@ -219,6 +219,33 @@ async def test_an_uncosted_paid_call_does_not_close_its_line_for_the_day(lr_root
     assert long_run.LongRunLedger(lr_root).spent_today()["mistral"] == pytest.approx(3 * 0.005)
 
 
+@pytest.mark.parametrize("pin,pout", [(0, 0), (0.5, 0), (0, 2.0)])
+async def test_a_paid_family_priced_zero_is_refused_before_the_call(lr_root, pin, pout):
+    """0/0 on glm-5.3-flash (a hand-typed row, a stale catalog) booked every call as EUR 0:
+    the daily cap could never bind before the money was spent."""
+    from bcc import long_run
+    from bcc.provider_governance import GovernedAdapter
+    inner = _Recorder(cost=None)
+    gov = GovernedAdapter(inner, {"kind": "openai_compat", "base_url": OR, "name": "or"},
+                          _paid(pin=pin, pout=pout))
+    with pytest.raises(ProviderError) as info:
+        await gov.chat("z-ai/glm-5.3-flash", [{"role": "user", "content": "hi"}], max_tokens=10)
+    assert info.value.kind == "budget" and "zero price" in str(info.value)
+    assert inner.kwargs == []                                                     # nothing sent
+    rows = long_run.LongRunLedger(lr_root)._rows()
+    assert [r for r in rows if r.get("kind") == "refusal"] and not [r for r in rows if r.get("kind") == "reserve"]
+
+
+async def test_a_free_variant_priced_zero_is_not_affected(lr_root):
+    """Negative control: ':free' is not a long-run family, its 0/0 stays legitimate."""
+    from bcc.provider_governance import GovernedAdapter
+    inner = _Recorder(cost=None)
+    gov = GovernedAdapter(inner, {"kind": "openai_compat", "base_url": OR, "name": "or"},
+                          _paid("z-ai/glm-5.3-flash:free", 0, 0))
+    await gov.chat("z-ai/glm-5.3-flash:free", [{"role": "user", "content": "hi"}], max_tokens=10)
+    assert len(inner.kwargs) == 1
+
+
 def test_a_finite_worst_case_still_reserves(lr_root):
     from bcc import long_run
     ledger = long_run.LongRunLedger(lr_root)

@@ -347,6 +347,20 @@ def _usd_per_token(model: dict) -> tuple[float, float]:
     return (float(model.get("price_in") or 0.0) * scale, float(model.get("price_out") or 0.0) * scale)
 
 
+def paid_price_problem(model: dict, provider: str) -> str:
+    """'' when a PAID family model carries a usable price, else why the call must not go out.
+
+    A long-run family is billed per token by definition. A registry row that says 0 for it is
+    not "free", it is a price nobody knows: the worst case would be booked as EUR 0, every call
+    would pass the daily cap and only a provider-reported cost could ever count against it."""
+    pin, pout = _usd_per_token(model)
+    if pin > 0 and pout > 0:
+        return ""
+    return (f"LONG-RUN REFUSED: {FAMILIES[provider]['label']} ({model.get('name') or '?'}) has a zero price "
+            f"in the registry (in={model.get('price_in')!r}, out={model.get('price_out')!r} USD/1M); a paid "
+            "family cannot be capped at price 0 - refresh the provider catalog. The call was NOT made.")
+
+
 def estimate_worst_case_eur(model: dict, messages: list, max_tokens: int, tools: Any = None) -> float:
     """Upper bound: one token per character sent, every output token at the output price."""
     payload: list[Any] = [messages]
