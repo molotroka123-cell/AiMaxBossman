@@ -294,6 +294,13 @@ def classify_exception(exc: BaseException) -> tuple[str, str]:
         return UNAUTHORIZED, f"{name}: {text}"[:300]
     if kind == "rate_limit":
         return THROTTLED, f"{name}: {text}"[:300]
+    # ProviderError carries the HTTP status (or the gateway's in-body code). The adapters raise a
+    # rejected key as kind="http" with status_code=401 — never kind="auth" — so without this a 401
+    # read as provider_down: a 60 s cooldown and the same rejected key re-sent every minute.
+    code = getattr(exc, "status_code", None)
+    if isinstance(code, int) and not isinstance(code, bool) and code >= 400:
+        status, why = classify_status_code(code)
+        return status, f"{why}: {text}"[:300]
     return PROVIDER_DOWN, f"{name}: {text}"[:300]
 
 
