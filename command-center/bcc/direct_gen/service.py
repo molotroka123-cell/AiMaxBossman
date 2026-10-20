@@ -235,6 +235,7 @@ class DirectGenService:
         job["finished_at"] = now_iso()
         job["timeline"].append({"stage": "completed", "at": job["finished_at"], "note": "recovered_after_restart"})
         self._record_timing(job)
+        self._record_artifact_provenance(job)
         self.store.save(job)
         return True
 
@@ -367,8 +368,53 @@ class DirectGenService:
         job["timeline"].append({"stage": stage, "at": now_iso(), **({"note": note} if note else {})})
         if stage in TERMINAL:
             self._record_timing(job)
+        if stage == "completed":
+            self._record_artifact_provenance(job)
         self.store.save(job)
         await self._emit(job)
+
+    def _record_artifact_provenance(self, job: dict) -> None:
+        """B07 Media Provenance: record input/output SHA-256, model_id, params, timings, and privacy_scope."""
+        try:
+            folder = self.store.job_dir(job["participant"], job["job_id"])
+            input_hashes: list[str] = []
+            if folder.is_dir():
+                for inp in sorted(folder.glob("input_*")):
+                    if inp.is_file():
+                        input_hashes.append(_sha256_file(inp))
+            prompt_text = str(job.get("effective_prompt") or job.get("raw_prompt") or "")
+            prompt_sha256 = hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()
+            input_sha256 = (
+                hashlib.sha256("|".join(input_hashes).encode("ascii")).hexdigest()
+                if input_hashes
+                else prompt_sha256
+            )
+            res = job.get("result") or {}
+            receipt = {
+                "job_id": job["job_id"],
+                "model_id": job.get("model"),
+                "kind": job.get("kind"),
+                "input_sha256": input_sha256,
+                "prompt_sha256": prompt_sha256,
+                "output_sha256": res.get("sha256"),
+                "output_bytes": res.get("bytes"),
+                "params": dict(job.get("params") or {}),
+                "timings": dict(job.get("timing") or {}),
+                "privacy_scope": "local_owner_only",
+                "recorded_at": job.get("finished_at") or now_iso(),
+            }
+            prov = job.setdefault("provenance", {})
+            prov["privacy_scope"] = "local_owner_only"
+            prov["input_sha256"] = input_sha256
+            prov["output_sha256"] = res.get("sha256")
+            prov["artifact_receipt"] = receipt
+            res_dir = folder / "result"
+            if res_dir.is_dir():
+                (res_dir / "provenance_receipt.json").write_text(
+                    json.dumps(receipt, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logging.getLogger("bcc.direct_gen").warning("direct_gen.provenance not recorded: %s", type(exc).__name__)
 
     def _video_tracker(self, job: dict, spec: Any) -> video_progress.VideoProgress | None:
         """Stage/step/ETA parser of one video job; ETA fallback = timing medians of the same model/size/frames."""
@@ -1389,7 +1435,7 @@ class DirectGenService:
             raise DirectGenError(500, "delete_failed", "не удалось удалить файлы с ПК")
         logging.getLogger("bcc.direct_gen").info("direct_gen.delete job=%s kind=%s model=%s at=%s", job_id,
                                                   job.get("kind", ""), job.get("model", ""), now_iso())
-        return {"ok": True, "deleted": True, "job_id": job_id}
+        return {"ok": True, "deleted": True, "provenance_deleted": True, "job_id": job_id}
 
     # ---------- STOP ----------
 

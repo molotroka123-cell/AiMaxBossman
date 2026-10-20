@@ -819,19 +819,19 @@ def _health_router() -> APIRouter:
 
     @router.get("/health/live")
     async def liveness():
-        from .build_identity import source_identity
-        return {"app": APP_IDENTITY, "alive": True, "status": "ALIVE",
+        from .build_identity import RELEASE_VERSION, source_identity
+        return {"app": APP_IDENTITY, "version": RELEASE_VERSION, "alive": True, "status": "ALIVE",
                 **source_identity()}
 
     @router.get("/health")
     @router.get("/healthz")
     async def readiness(svc: Services = Depends(services)):
-        from .build_identity import source_identity
+        from .build_identity import RELEASE_VERSION, source_identity
         from .health import snapshot
         state = snapshot(svc, await _health(svc), public=True)
         # Та же личность источника, что у /api/identity. Здоровье без имени
         # кода — это «что-то живо», а не «живо ИМЕННО это».
-        return JSONResponse({"app": APP_IDENTITY, **source_identity(), **state},
+        return JSONResponse({"app": APP_IDENTITY, "version": RELEASE_VERSION, **source_identity(), **state},
                             status_code=200 if state["ready"] else 503)
 
     return router
@@ -844,10 +844,10 @@ def _api_router() -> APIRouter:
 
     @router.get("/health")
     async def health(svc: Services = Depends(services)):
-        from .build_identity import source_identity
+        from .build_identity import RELEASE_VERSION, source_identity
         from .health import snapshot
         state = snapshot(svc, await _health(svc), public=False)
-        return JSONResponse({"app": APP_IDENTITY, **source_identity(), **state},
+        return JSONResponse({"app": APP_IDENTITY, "version": RELEASE_VERSION, **source_identity(), **state},
                             status_code=200 if state["ready"] else 503)
 
     @router.get("/system")

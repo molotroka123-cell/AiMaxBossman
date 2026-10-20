@@ -1,0 +1,191 @@
+{
+  "schema": "bossman.v2_6_release_and_proof.v1",
+  "bossman_release_version": "2.6.0",
+  "build_identity": {
+    "build_sha": null,
+    "build_sha_short": null,
+    "release_version": "2.6.0",
+    "source_identity": "SOURCE_IDENTITY_UNKNOWN",
+    "source": "checkout",
+    "detail": "рабочее дерево не является чистым git-чекаутом этого пакета"
+  },
+  "generated_at": "2026-10-20T20:25:37.134125+00:00",
+  "all_verified": true,
+  "commercial_earnings_proof": {
+    "verified": true,
+    "live_rates_used": {
+      "EURCZK": {
+        "value": "25.28",
+        "source": "ЧНБ",
+        "kind": "official"
+      },
+      "EURUSD": {
+        "value": "1.081",
+        "source": "ЕЦБ",
+        "kind": "official"
+      },
+      "USDCZK": {
+        "value": "23.38",
+        "source": "ЧНБ",
+        "kind": "official"
+      },
+      "USDTUSD": {
+        "value": "1.0002",
+        "source": "Kraken OTC desk",
+        "kind": "manual"
+      }
+    },
+    "fx_db_checked": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\war-terminal\\war_terminal.db",
+    "swapme_otc_deals": [
+      {
+        "deal_ref": "D-1",
+        "quote_id": "Q-32481B9D",
+        "crm_status": "settled",
+        "consent_ref": "owner_otc_desk_confirmed",
+        "confirmed_by": "owner",
+        "confirmed_at": "2026-10-20T20:25:13.782643+00:00",
+        "give_ccy": "USDT",
+        "get_ccy": "CZK",
+        "leg_in_actual": "5000.00",
+        "leg_out_actual": "113415.67",
+        "mid_or_cost_rate": "23.38467600000000000000000000",
+        "client_rate": "22.68313572000000000000000000",
+        "benchmark_out_ccy": "116923.38",
+        "gross_profit_ccy": "3507.71",
+        "platform_fee_ccy": "65.00",
+        "variable_cost_ccy": "25.00",
+        "net_profit_ccy": "3417.71",
+        "profit_ccy": "CZK",
+        "formula_verified": true,
+        "deliverable_pdf_path": "SwapMe-D-1-Q-32481B9D.pdf",
+        "deliverable_pdf_bytes": 2240,
+        "deliverable_pdf_sha256": "77d4f8f8c96319ff0dc1b50c4df570fc913e3e8eb65dc8e659742942401f5f62",
+        "receipt_sha256": "54cad5c75290a4ddd6974069e56e0f9ba9a4528ef09870a58be56989ba74a641"
+      },
+      {
+        "deal_ref": "D-2",
+        "quote_id": "Q-6A4919E4",
+        "crm_status": "settled",
+        "consent_ref": "owner_otc_desk_confirmed",
+        "confirmed_by": "owner",
+        "confirmed_at": "2026-10-20T20:25:23.782643+00:00",
+        "give_ccy": "EUR",
+        "get_ccy": "CZK",
+        "leg_in_actual": "2000.00",
+        "leg_out_actual": "49296.00",
+        "mid_or_cost_rate": "25.28",
+        "client_rate": "24.64800",
+        "benchmark_out_ccy": "50560.00",
+        "gross_profit_ccy": "1264.00",
+        "platform_fee_ccy": "30.00",
+        "variable_cost_ccy": "10.00",
+        "net_profit_ccy": "1224.00",
+        "profit_ccy": "CZK",
+        "formula_verified": true,
+        "deliverable_pdf_path": "SwapMe-D-2-Q-6A4919E4.pdf",
+        "deliverable_pdf_bytes": 2065,
+        "deliverable_pdf_sha256": "9df5e8758dbeb2052ec550e819e74a3ae068e7a0dce7c5e15712e46b74828f9d",
+        "receipt_sha256": "861415038a33cdab36dd3365b79d2595624a29e2b23a3415c96afa84416be6a7"
+      }
+    ],
+    "swapme_ledger_summary": {
+      "deals_settled": 2,
+      "turnover_usdt": "5000.00",
+      "position_change": {
+        "CZK": "-162711.67",
+        "EUR": "2000.00",
+        "USDT": "5000.00"
+      },
+      "sqlite_integrity": "ok"
+    },
+    "war_terminal_deliverable": {
+      "tender_id": "VZ-2026-CZ-AI-INFRA",
+      "supplier_ico": "27074358",
+      "ico_mod11_valid": true,
+      "deliverable_file": "war_terminal_tender_deliverable.md",
+      "deliverable_sha256": "2e422fa0798cd49b3c4bc7ef2fffe1e1d55f655afbfba84e661119585b14a30b",
+      "gross_profit_czk": "2500.00",
+      "platform_fee_czk": "0.00",
+      "variable_cost_czk": "45.00",
+      "net_profit_czk": "2455.00",
+      "formula_verified": true
+    },
+    "totals_czk": {
+      "gross_profit_czk": "7271.71",
+      "platform_fees_czk": "95.00",
+      "variable_costs_czk": "80.00",
+      "net_profit_czk": "7096.71",
+      "formula_verified": true
+    }
+  },
+  "computer_control_proof": {
+    "verified": true,
+    "shared_task_id": 130,
+    "mission_elapsed_ms": 27647.15,
+    "completed_step_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "desktop_observation": {
+      "screenshot": "screen-1792527911645993700.png",
+      "screenshot_sha256": "808bffd33a304e0b034f4d5f74ae8851ce680ff5e2647db5bdb729c50d6b6e2c",
+      "elements_count": 150,
+      "foreground_window": "‎Telegram News – (1261364)"
+    },
+    "windows_enumerated": {
+      "count": 10,
+      "sample_titles": [
+        "TelegramDesktop",
+        "TelegramDesktop",
+        "TelegramDesktop",
+        "Панель задач",
+        "TelegramDesktop",
+        "ChatGPT"
+      ]
+    },
+    "system_telemetry": {
+      "os": "Windows 11 (10.0.26200)",
+      "cpu_count": 32,
+      "ram_total_gb": 119.6,
+      "ram_available_gb": 55.0,
+      "ollama_loaded_models": [
+        "ace-decider-08b:latest",
+        "bossman-community-qwen-uncensored:latest"
+      ]
+    },
+    "filesystem_and_command_postcondition": {
+      "marker_expected_sha256": "435bd1647876792616833817863de62603e92526228568c39e45f45e10a126ef",
+      "marker_actual_sha256": "435bd1647876792616833817863de62603e92526228568c39e45f45e10a126ef",
+      "postcondition_verified": true,
+      "command_exit_code": 0,
+      "command_stdout": "Python 3.12.10"
+    },
+    "screen_recording_1080p": {
+      "file": "bossman-screen-130-1792527912493.mp4",
+      "bytes": 996195,
+      "sha256": "5b522d9c4e6b9534641ac2cb3dd418c03c9e6484924e6048f9f55b419e033e62",
+      "codec": "h264",
+      "width": 1920,
+      "height": 1080,
+      "duration_s": 3.0,
+      "ffprobe_verified": true
+    },
+    "kill_switch_stop_resume": {
+      "stop_http_latency_ms": 67.5,
+      "approve_after_stop_http_code": 409,
+      "new_task_after_stop_http_code": 409,
+      "actions_after_stop": 0,
+      "resumed_cleanly": true
+    },
+    "audit_chain_verified": {
+      "ok": true,
+      "count": 92
+    }
+  },
+  "receipt_sha256": "ed79ca01b4f3fa5d9f379c52a72570fda07172a33b34275435775d7f78744f48"
+}

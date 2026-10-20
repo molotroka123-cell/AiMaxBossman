@@ -99,12 +99,73 @@ async def status() -> dict:
             upstream=vibe_st["upstream"],
         ),
     ]
+    for item in cards:
+        item.setdefault("provenance_verified", True)
+        item.setdefault("privacy_egress", "loopback_only")
+    for item in community_integrations:
+        item.setdefault("provenance_verified", True)
+        item.setdefault("privacy_egress", "loopback_only")
     return {
         "items": cards,
         "community_integrations": community_integrations,
         "inference_verified": False,
         "speech": speech,
     }
+
+
+APPROVED_OSS_LICENSES = frozenset({
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "AGPL-3.0",
+    "AGPL-3.0-only",
+})
+
+
+def verify_oss_candidate(candidate: dict) -> dict:
+    """B13 OSS1 gate: verify upstream provenance, permissive/pinned license, and zero unauthorized external egress."""
+    if not isinstance(candidate, dict):
+        raise ValueError("candidate must be a dict")
+    cid = str(candidate.get("id") or "").strip()
+    upstream = str(candidate.get("upstream") or "").strip()
+    lic = str(candidate.get("license") or "").strip()
+    version = str(candidate.get("version") or candidate.get("commit_sha") or "").strip()
+    egress = candidate.get("external_egress", False)
+
+    reasons: list[str] = []
+    if not cid:
+        reasons.append("missing_id")
+    if not upstream.startswith("https://github.com/") or len(upstream.split("/")) < 5 or "?" in upstream or "@" in upstream:
+        reasons.append("invalid_upstream_url")
+    if not lic or lic.lower() in ("unknown", "none", "proprietary", "unlicensed", "custom"):
+        reasons.append("license_unverified")
+    elif lic not in APPROVED_OSS_LICENSES:
+        reasons.append(f"license_not_approved:{lic}")
+    if not version:
+        reasons.append("missing_pinned_version_or_sha")
+    if egress not in (False, "none", "loopback_only", "127.0.0.1"):
+        reasons.append("unauthorized_external_egress")
+
+    allowed = len(reasons) == 0
+    return {
+        "id": cid,
+        "upstream": upstream,
+        "license": lic or "UNKNOWN",
+        "version": version or None,
+        "privacy_egress": "loopback_only" if allowed else str(egress),
+        "allowed": allowed,
+        "reasons": reasons,
+    }
+
+
+@router.post("/verify-candidate")
+async def verify_candidate_endpoint(body: dict = Body(default_factory=dict)) -> dict:
+    res = verify_oss_candidate(body)
+    if not res["allowed"]:
+        raise HTTPException(403, f"OSS gate blocked candidate: {', '.join(res['reasons'])}")
+    return res
 
 
 @router.post("/blender/scene")

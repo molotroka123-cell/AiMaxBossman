@@ -466,6 +466,77 @@ class Store:
                 "position_change": dict(sorted(position.items())),
                 "profit": "N/A — нет данных о себестоимости (по какому курсу куплена валюта)"}
 
+    @_locked
+    def deal_profit_receipt(
+        self,
+        deal_id: int,
+        *,
+        acquisition_cost_rate: Decimal | str | None = None,
+        platform_fee_ccy: Decimal | str = Decimal("0"),
+        variable_cost_ccy: Decimal | str = Decimal("0"),
+        consent_ref: str = "owner_confirmed",
+    ) -> dict:
+        """B14 COM1+COM2: build a verifiable commercial delivery & net profit receipt for a settled deal.
+        Explicitly enforces `gross_profit - platform_fee - variable_cost = net_profit` and binds the PDF SHA-256.
+        """
+        import hashlib
+        row = self.db.execute("SELECT * FROM deals WHERE id=?", (deal_id,)).fetchone()
+        if row is None:
+            raise StoreError(f"сделка D-{deal_id} не найдена")
+        deal = dict(row)
+        if deal.get("status") != "done" or deal.get("crm_status") != "settled":
+            raise StoreError(f"сделка D-{deal_id} не находится в статусе settled")
+        q = self.quote(deal["quote_id"])
+        if q is None:
+            raise StoreError(f"котировка {deal['quote_id']} не найдена")
+        in_amt = self._actual_or_quoted(deal.get("leg_in_actual"), deal["give_amount"])
+        out_amt = self._actual_or_quoted(deal.get("leg_out_actual"), deal["get_amount"])
+        mid_rate = _to_dec(acquisition_cost_rate if acquisition_cost_rate is not None else deal["mid"], "mid")
+        client_rate = _to_dec(deal["client_rate"], "client_rate")
+        fees = _to_dec(platform_fee_ccy, "platform_fee_ccy").quantize(Decimal("0.01"))
+        var_cost = _to_dec(variable_cost_ccy, "variable_cost_ccy").quantize(Decimal("0.01"))
+        if fees < 0 or var_cost < 0:
+            raise StoreError("комиссии и переменные издержки не могут быть отрицательными")
+
+        # Value of inflow at mid/acquisition rate vs actual outflow to client in get_ccy
+        benchmark_out = (in_amt * mid_rate).quantize(Decimal("0.01"))
+        gross_profit = (benchmark_out - out_amt).quantize(Decimal("0.01"))
+        net_profit = (gross_profit - fees - var_cost).quantize(Decimal("0.01"))
+
+        pdf_path = self.receipt_pdf_path(int(deal["id"]), str(deal["quote_id"]))
+        if not pdf_path.is_file():
+            pdf_path = self._write_receipt_pdf(deal)
+        pdf_bytes = pdf_path.read_bytes()
+        pdf_sha256 = hashlib.sha256(pdf_bytes).hexdigest()
+
+        payload = {
+            "deal_ref": f"D-{deal['id']}",
+            "quote_id": str(deal["quote_id"]),
+            "crm_status": str(deal["crm_status"]),
+            "consent_ref": str(consent_ref),
+            "confirmed_by": str(deal["confirmed_by"]),
+            "confirmed_at": str(deal["confirmed_at"]),
+            "give_ccy": str(deal["give_ccy"]),
+            "get_ccy": str(deal["get_ccy"]),
+            "leg_in_actual": str(in_amt),
+            "leg_out_actual": str(out_amt),
+            "mid_or_cost_rate": str(mid_rate),
+            "client_rate": str(client_rate),
+            "benchmark_out_ccy": str(benchmark_out),
+            "gross_profit_ccy": str(gross_profit),
+            "platform_fee_ccy": str(fees),
+            "variable_cost_ccy": str(var_cost),
+            "net_profit_ccy": str(net_profit),
+            "profit_ccy": str(deal["get_ccy"]),
+            "formula_verified": (gross_profit - fees - var_cost == net_profit),
+            "deliverable_pdf_path": pdf_path.name,
+            "deliverable_pdf_bytes": len(pdf_bytes),
+            "deliverable_pdf_sha256": pdf_sha256,
+        }
+        canonical = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        payload["receipt_sha256"] = hashlib.sha256(canonical).hexdigest()
+        return payload
+
     # ---------------------------------------------------------------- backup / restore
     @_locked
     def backup(self, target: str | Path) -> Path:

@@ -33,6 +33,7 @@ STALE = "SOURCE_IDENTITY_STALE"
 # from /api/identity and cannot check SHA. A different marker makes them refuse
 # a new backend instead of silently attaching an old window to it.
 DESKTOP_APP_IDENTITY = "bossman-command-center-build-bound-v1"
+RELEASE_VERSION = "2.6.0"
 
 _HEX40 = re.compile(r"[0-9a-f]{40}")
 
@@ -58,12 +59,14 @@ def _resolve() -> dict[str, Any]:
     if not isinstance(sha, str) or sha == NOT_CAPTURED or not _HEX40.fullmatch(sha):
         # Доказать не удалось. Это ответ, а не пропуск поля.
         return {"build_sha": None, "build_sha_short": None,
+                "release_version": RELEASE_VERSION,
                 "source_identity": UNKNOWN,
                 "source": "installed_build" if installed else "checkout",
                 "detail": ("установленная сборка без bcc/_build.json"
                            if installed else
                            "рабочее дерево не является чистым git-чекаутом этого пакета")}
     return {"build_sha": sha, "build_sha_short": sha[:12],
+            "release_version": RELEASE_VERSION,
             "source_identity": "PASS",
             "source": "installed_build" if installed else "checkout",
             "detail": ""}
