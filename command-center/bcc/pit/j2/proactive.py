@@ -427,7 +427,8 @@ _RECUR = re.compile(
     r"(?:(?P<daily>каждый\s+день|ежедневно)|кажд(?:ое|ый)\s+(?P<part>утро|вечер)|"
     rf"по\s+(?P<plural>{_RECUR_WD})|кажд(?:ый|ую|ое)\s+(?P<single>{_RECUR_WD})|"
     rf"каждую\s+неделю\s+(?:во?\s+)(?P<weekword>{_RECUR_WD}))"
-    r"(?:\s+[вк]\s+(?P<hour>\d{1,2})(?:[:.](?P<minute>\d{2}))?(?:\s*(?:час\w*|ч)\b)?)?"
+    r"(?:\s+[вк]\s+(?P<hour>\d{1,2})(?:[:.](?P<minute>\d{2}))?(?:\s*(?:час\w*|ч)\b)?"
+    r"(?:\s+(?P<period>утра|дня|вечера|ночи)\b)?)?"
     r"(?:\s+(?P<what>.*))?$", re.S)
 
 
@@ -442,11 +443,17 @@ def parse_recurrence(text: str) -> dict[str, Any] | None:
     hour = int(m["hour"]) if m["hour"] is not None else None
     minute = int(m["minute"]) if m["minute"] is not None else 0
     rest = m["what"] or ""
+    period = m["period"]
     if hour is None:                                       # «напоминай каждый день пить воду в 9»: time at the end
-        tail = re.search(r"\s+[вк]\s+(\d{1,2})(?:[:.](\d{2}))?(?:\s*(?:час\w*|ч)\b)?\W*$", " " + rest)
+        tail = re.search(r"\s+[вк]\s+(\d{1,2})(?:[:.](\d{2}))?(?:\s*(?:час\w*|ч)\b)?"
+                         r"(?:\s+(утра|дня|вечера|ночи)\b)?\W*$", " " + rest)
         if tail:
-            hour, minute = int(tail.group(1)), int(tail.group(2) or 0)
+            hour, minute, period = int(tail.group(1)), int(tail.group(2) or 0), tail.group(3)
             rest = (" " + rest)[: tail.start()]
+    if hour is not None and period:                        # «в 9 вечера» is 21:00, not 09:00 + «вечера» in the text
+        hour = _hour_with_period(hour, period)
+        if hour is None:
+            return None
     if m["part"]:
         base = _RECUR_PART[m["part"]]
         hour = base if hour is None else (hour + 12 if m["part"] == "вечер" and hour < 12 else hour)
