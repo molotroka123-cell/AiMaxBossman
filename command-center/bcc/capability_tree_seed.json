@@ -3,7 +3,7 @@
   "as_of": "2026-10-05",
   "source_repo": "https://github.com/molotroka123-cell/AiMaxBossman",
   "selected_branch": "feat/bossman-1.9-final-freeze",
-  "source_sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+  "source_sha": "7d7df887db04d31469e3602cf19850aff9ead4ce",
   "coverage": {
     "branch_trees": 251,
     "union_paths": 9716,
@@ -1347,7 +1347,7 @@
         {
           "path": "command-center/bcc/features/apps.py",
           "branch": "feat/bossman-1.9-final-freeze",
-          "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+          "sha": "4608cfe0daecc125ac7f2d5893d464ff25335603",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/apps.py"
         },
         {
@@ -1644,7 +1644,7 @@
         {
           "path": "command-center/bcc/features/code_intel.py",
           "branch": "feat/bossman-1.9-final-freeze",
-          "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+          "sha": "08da2310d33d9396a2be8f25eaeba722489c1512",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/code_intel.py"
         },
         {
@@ -1758,7 +1758,7 @@
         {
           "path": "command-center/bcc/features/coding_tasks.py",
           "branch": "feat/bossman-1.9-final-freeze",
-          "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+          "sha": "0762376d4c4955ff3ffc8e741c86abc690793c27",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/coding_tasks.py"
         },
         {
@@ -3239,7 +3239,7 @@
         {
           "path": "command-center/bcc/features/router.py",
           "branch": "feat/bossman-1.9-final-freeze",
-          "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+          "sha": "1e0f0b6c4fa0526f1653f48b6192f7ea786c0b3e",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/router.py"
         },
         {
@@ -3383,7 +3383,7 @@
         {
           "path": "command-center/bcc/features/spend_meter.py",
           "branch": "feat/bossman-1.9-final-freeze",
-          "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+          "sha": "f84a6c394ca2cb6fa1a34baf5c9924dd7f81bd92",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/spend_meter.py"
         },
         {
@@ -3701,7 +3701,7 @@
         {
           "path": "command-center/bcc/features/tools_computer.py",
           "branch": "feat/bossman-1.9-final-freeze",
-          "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+          "sha": "0762376d4c4955ff3ffc8e741c86abc690793c27",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/command-center/bcc/features/tools_computer.py"
         },
         {
@@ -9824,7 +9824,7 @@
         {
           "path": "bossman-core/bossman/apprentice/isolated_worktree.py",
           "branch": "feat/bossman-1.9-final-freeze",
-          "sha": "e4539337d97134e6d77d13eb00fe9d8f2d36237c",
+          "sha": "0762376d4c4955ff3ffc8e741c86abc690793c27",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/e4539337d97134e6d77d13eb00fe9d8f2d36237c/bossman-core/bossman/apprentice/isolated_worktree.py"
         },
         {
@@ -18473,7 +18473,7 @@
         {
           "path": "command-center/bcc/pit/tasks.py",
           "branch": "claude/bossman-1.9-owner-bugtest-20260930",
-          "sha": "0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4",
+          "sha": "08da2310d33d9396a2be8f25eaeba722489c1512",
           "url": "https://github.com/molotroka123-cell/AiMaxBossman/blob/0ec2ff5292cc8a9aab0a1ea946819963ec4dcff4/command-center/bcc/pit/tasks.py"
         },
         {
@@ -19865,7 +19865,8 @@
           "path": "command-center/bcc/v2/skill_library.py"
         },
         {
-          "path": "command-center/bcc/v2/skill_catalog.py"
+          "path": "command-center/bcc/v2/skill_catalog.py",
+          "sha": "b76c6ba44a2621e748c0e03259a09d4c827696a1"
         },
         {
           "path": "command-center/bcc/v2/skill_evaluation.py"
@@ -22093,7 +22094,7 @@
       "sources": [
         {
           "path": "command-center/bcc/direct_gen/faceswap.py",
-          "sha": "0482cf591d387d9bd918018dd968d61edeb63602"
+          "sha": "32690088e9052a8ac65e543da0a89289a47694a9"
         },
         {
           "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010b.json#reg-faceswap_video_job",
@@ -22141,7 +22142,7 @@
       "sources": [
         {
           "path": "command-center/bcc/telegram_companion/service.py",
-          "sha": "6273524cd86aaa8aaf40b90075069c60e6f8bd90"
+          "sha": "5d7171282eed88c24b80a073b79ea17e70761d62"
         },
         {
           "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010b.json#reg-pult_owner_only",
@@ -22339,7 +22340,7 @@
       "sources": [
         {
           "path": "command-center/bcc/features/tools_computer.py",
-          "sha": "42cf9d062e5eb765cde286d68e43ae6a962aed65"
+          "sha": "0762376d4c4955ff3ffc8e741c86abc690793c27"
         },
         {
           "path": "docs/architecture/bossman-tree-20261005/evidence/l2-20261010.json#reg-cu_task_scoped_apps",
@@ -22614,7 +22615,8 @@
       "detail": "Новое продуктовое направление: спрос, предложение, заказ, качество, доставка, поддержка и экономика четырёх коммерческих сценариев. Реальные продажи не подтверждены.",
       "sources": [
         {
-          "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md"
+          "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Принять первый безопасный сценарий и отдельно собрать доказательства."
@@ -22627,7 +22629,8 @@
       "detail": "Новое направление: второй собственный ПК, безопасное подключение, отзыв доступа, выбор устройства, ресурсы и восстановление связи. Живое подключение не подтверждено.",
       "sources": [
         {
-          "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md"
+          "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Принять первый безопасный сценарий и отдельно собрать доказательства."
@@ -22641,7 +22644,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22658,7 +22661,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22675,7 +22678,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22692,7 +22695,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22709,7 +22712,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22726,7 +22729,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22743,7 +22746,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22760,7 +22763,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22777,7 +22780,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22794,7 +22797,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22811,7 +22814,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -22828,7 +22831,7 @@
       "sources": [
         {
           "path": "docs/owner/TREE_15_DIRECTIONS_20261014_RU.md",
-          "sha": ""
+          "sha": "9953701b8a04d808baefaaf351c61ef68742ba88"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
@@ -23053,7 +23056,7 @@
       "sources": [
         {
           "path": "apps/bossman-mobile/bossmobile/timing.py",
-          "sha": "324cb36370e51581d736426ec6f8a434efcb1959"
+          "sha": "5d7171282eed88c24b80a073b79ea17e70761d62"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
