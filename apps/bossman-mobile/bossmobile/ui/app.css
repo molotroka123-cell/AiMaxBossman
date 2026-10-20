@@ -295,9 +295,10 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
 .stat { padding: 14px 16px; margin-bottom: 12px; display: grid; gap: 6px; }
 .stat h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px; }
 .stat .big { font-family: var(--serif); font-size: 22px; font-weight: 600; }
-.stat .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
-.stat .kv span:first-child { color: var(--muted); }
-.stat .kv span:last-child { text-align: right; overflow-wrap: anywhere; }
+/* key/value rows: «Статус» cards and the «Звонки» summary (there label and value used to run together) */
+.stat .kv, .calls-summary .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.stat .kv span:first-child, .calls-summary .kv span:first-child { color: var(--muted); }
+.stat .kv span:last-child, .calls-summary .kv span:last-child { text-align: right; overflow-wrap: anywhere; min-width: 0; }
 .led { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
 .led.on { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
 .led.off { background: var(--err); }
