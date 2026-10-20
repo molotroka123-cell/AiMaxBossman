@@ -19,7 +19,11 @@
 
 ## Воспроизведение и границы
 
-Скрипт `repro_synthetic.py` рядом с этим файлом запускается в чистом checkout: `python docs/audits/2026-10-20-independent-redteam/repro_synthetic.py`. Ожидаемый вывод на `6342a18d`: `STOP_WRITE False`, `quotes_before 0`, `quotes_after 1`; `NO_MARGIN_AUTO_3_PERCENT True`; `STALE_RATE_SELECTED 20`. Эти результаты — FAIL проверяемых требований, а не атака на реальные данные. Runtime API мы проверили только безопасным `GET /health/live`; Windows GUI, активный Telegram, физическая камера, реальные сделки, платные модели, 24/48-часовой soak и полный CI этим аудитом **NOT_RUN**.
+Скрипт `repro_synthetic.py` рядом с этим файлом запускается в чистом checkout: `python docs/audits/2026-10-20-independent-redteam/repro_synthetic.py`. Вывод на `6342a18d`: `STOP_WRITE False`, `quotes_before 0`, `quotes_after 1`; `NO_MARGIN_AUTO_3_PERCENT True`; `STALE_RATE_SELECTED 20`. Эти результаты — FAIL проверяемых требований, а не атака на реальные данные. Runtime API мы проверили только безопасным `GET /health/live`; Windows GUI, активный Telegram, физическая камера, реальные сделки, платные модели и 24/48-часовой soak этим аудитом **NOT_RUN**.
+
+### Удалённый CI и локальные JUnit
+
+Анонимный GitHub Checks API на точном `origin/main=f6467b7d` вернул **73 проверки: 65 success, 6 failure, 2 skipped**. Упали `pytest (py3.11/py3.12)` и `root pytest + hygiene (py3.11/py3.12)` в двух workflow. Сырые логи GitHub Jobs API отдал как `403 Forbidden`, поэтому причины этих шести падений **не установлены**; переносить зелёные локальные тесты на удалённый CI нельзя. В ветке Argon локальные JUnit XML действительно содержат `204 tests / 0 failures / 0 errors / 1 skipped` и `132 tests / 0 failures / 0 errors / 0 skipped`. Это подтверждает ограниченные локальные наборы, а не полный CI и не живую приёмку. Перед продвижением зафиксировать exact commit нового PR и снять его собственные обязательные checks; локальный файл отчёта со статусом `CI UNVERIFIED` уже устарел по сравнению с публичным API.
 
 ## Что нужно сделать интегратору
 
