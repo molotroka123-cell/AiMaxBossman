@@ -2807,6 +2807,20 @@ async def _execute_record_screen(
                 if target_hwnd is None and fallback_win is not None:
                     target_hwnd, target_pid, target_title = fallback_win
 
+        # Fallback (fix 2026-10-20): _top_windows can miss a minimized main
+        # window; find the primary instance's MainWindow through UIA instead.
+        if os.name == "nt" and target_hwnd is None and primary_pid is not None:
+            with contextlib.suppress(Exception):
+                from pywinauto import Desktop as _Desk2
+                for w_c in _Desk2(backend="uia").windows():
+                    with contextlib.suppress(Exception):
+                        if "MainWindow" in str(w_c.element_info.class_name or "") \
+                                and int(w_c.process_id()) == int(primary_pid):
+                            target_hwnd, target_pid, target_title = (
+                                int(w_c.handle), int(primary_pid),
+                                str(w_c.window_text() or ""))
+                            break
+
         if os.name == "nt" and target_hwnd:
             with contextlib.suppress(Exception):
                 import ctypes
@@ -2927,6 +2941,7 @@ async def _execute_record_screen(
         last_img = first_img
         nav_dispatched = False
         play_clicked = False
+        play_done_frame: int | None = None
         fs_tried = False
         detected_total_s: float | None = None
         last_time_probe_f = -10 ** 9
@@ -3008,9 +3023,10 @@ async def _execute_record_screen(
                     r_el = el.rectangle()
                     cx_v = (r_el.left + r_el.right) // 2
                     cy_v = (r_el.top + r_el.bottom) // 2
-                    # The label sits on the video thumbnail: click above it,
-                    # near the middle of the bubble.
-                    return (cx_v, max(0, cy_v - 120), tot_s)
+                    # The label is drawn ON the video thumbnail (top-left):
+                    # clicking it opens the media viewer like any thumbnail
+                    # click.
+                    return (cx_v, cy_v, tot_s)
             except Exception:
                 pass
             return None
@@ -3092,23 +3108,38 @@ async def _execute_record_screen(
                     nav_dispatched = True
                     _dispatch_uri(tg_uri)
                 elif tg_uri and idx_f == play_frame and not play_clicked:
-                    play_clicked = True
                     found_v = _find_video_point()
                     if found_v is not None:
                         detected_total_s = found_v[2]
                         _click_at(found_v[0], found_v[1])
+                        play_clicked = True
+                        play_done_frame = idx_f
                     else:
                         pt_click = _video_click_point()
                         if pt_click:
                             _click_at(pt_click[0], pt_click[1])
+                            play_clicked = True
+                            play_done_frame = idx_f
                 elif tg_uri and idx_f == fs_frame and not fs_tried:
-                    fs_tried = True
-                    _try_fullscreen()
+                    if not play_clicked:
+                        # The video was not clickable yet (window still
+                        # restoring/navigating): retry the click now and
+                        # postpone fullscreen by a second.
+                        found_v = _find_video_point()
+                        if found_v is not None:
+                            detected_total_s = found_v[2]
+                            _click_at(found_v[0], found_v[1])
+                            play_clicked = True
+                            play_done_frame = idx_f
+                        fs_frame = idx_f + max(2, int(fps))
+                    else:
+                        fs_tried = True
+                        _try_fullscreen()
 
                 # End of playback: wall-clock (the viewer plays in real time)
                 # with the viewer clock as a backup signal.
-                if tg_uri and play_clicked and detected_total_s:
-                    if idx_f - play_frame >= int((detected_total_s + 3.0) * fps):
+                if tg_uri and play_clicked and detected_total_s and play_done_frame is not None:
+                    if idx_f - play_done_frame >= int((detected_total_s + 3.0) * fps):
                         break
                     if idx_f - last_time_probe_f >= max(10, fps * 2):
                         last_time_probe_f = idx_f
