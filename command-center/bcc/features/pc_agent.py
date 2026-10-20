@@ -2745,20 +2745,60 @@ async def _execute_record_screen(
                     if nm_el == "Invoice amount" or "xtr " in nm_el.lower():
                         paid_stars_locked = True
 
-        # Если нужно показать живой переход к целевому посту (например post=15) на записи,
-        # перед стартом записи выставляем начало ленты (post=3), а в ходе записи переходим к post_id.
-        if tg_uri and channel_id and post_id and post_id.isdecimal() and int(post_id) > 3:
-            pre_uri = f"tg://privatepost?channel={channel_id}&post=3"
+        # Navigation-based targeting (fix 2026-10-20): a private channel may
+        # be joined on ANY of the Telegram instances, and a deeplink silently
+        # does nothing on accounts that are not members. Dispatch the link to
+        # every instance, then keep as target the window where a video
+        # duration label appeared in the history pane (i.e. the post opened).
+        # (The old pre-open of post=3 for a "live transition" is removed: a
+        # recording must start at the requested post.)
+        if os.name == "nt" and tg_uri and tg_instances:
+            def _label_in_window(h_scan: int) -> float | None:
+                try:
+                    from pywinauto import Desktop as _DeskL
+                    w_l = _DeskL(backend="uia").window(handle=h_scan)
+                    r_w = w_l.rectangle()
+                    x_min = r_w.left + int((r_w.right - r_w.left) * 0.32)
+                    for el_l in w_l.descendants()[:3000]:
+                        nm_l = str(getattr(el_l.element_info, "name", "") or "").strip()
+                        mm_l = re.match(r"^(\d{1,3}):(\d{2})$", nm_l)
+                        if not mm_l:
+                            continue
+                        tot_l = float(int(mm_l.group(1)) * 60 + int(mm_l.group(2)))
+                        if tot_l < 3:
+                            continue
+                        r_l = el_l.rectangle()
+                        if (r_l.left + r_l.right) // 2 > x_min:
+                            return tot_l
+                except Exception:
+                    pass
+                return None
+
+            def _main_windows() -> dict[int, tuple[int, str]]:
+                found_m: dict[int, tuple[int, str]] = {}
+                try:
+                    from pywinauto import Desktop as _DeskM
+                    for w_mn in _DeskM(backend="uia").windows():
+                        with contextlib.suppress(Exception):
+                            if "MainWindow" in str(w_mn.element_info.class_name or "") \
+                                    and int(w_mn.process_id()) in tg_pids:
+                                found_m[int(w_mn.process_id())] = (
+                                    int(w_mn.handle), str(w_mn.window_text() or ""))
+                except Exception:
+                    pass
+                return found_m
+
+            _mw_before = _main_windows()
+            _lbl_before = {p_i: _label_in_window(h_i)
+                           for p_i, (h_i, _t_i) in _mw_before.items()}
             for pid_i, exe_i, wdir_i in tg_instances:
-                if target_pid is None or pid_i == target_pid:
-                    with contextlib.suppress(Exception):
-                        subprocess.run([exe_i, *wdir_i, "--", pre_uri], timeout=5, check=False)
-            if os.name == "nt" and target_hwnd:
                 with contextlib.suppress(Exception):
-                    import ctypes
-                    ctypes.windll.user32.ShowWindow(target_hwnd, 3)
-                    ctypes.windll.user32.SetForegroundWindow(target_hwnd)
-            time.sleep(0.5)
+                    subprocess.run([exe_i, *wdir_i, "--", tg_uri], timeout=6, check=False)
+            time.sleep(2.0)
+            for p_i, (h_i, t_i) in _main_windows().items():
+                if _lbl_before.get(p_i) is None and _label_in_window(h_i) is not None:
+                    target_hwnd, target_pid, target_title = h_i, p_i, t_i
+                    break
 
         # 3. Захват первого кадра и запуск FFmpeg для кодирования H.264 MP4 в высоком качестве
         from PIL import Image, ImageDraw, ImageGrab
@@ -3005,6 +3045,8 @@ async def _execute_record_screen(
             try:
                 from pywinauto import Desktop
                 w_obj = Desktop(backend="uia").window(handle=target_hwnd)
+                r_win = w_obj.rectangle()
+                x_min_v = r_win.left + int((r_win.right - r_win.left) * 0.32)
                 for el in w_obj.descendants()[:2000]:
                     nm_el = str(getattr(el.element_info, "name", "") or "").strip()
                     m_one = _TIME_ONE_RE.match(nm_el)
@@ -3016,6 +3058,10 @@ async def _execute_record_screen(
                     r_el = el.rectangle()
                     cx_v = (r_el.left + r_el.right) // 2
                     cy_v = (r_el.top + r_el.bottom) // 2
+                    # Only the history pane counts: the chat list on the left
+                    # carries clock labels ("6:16") that are not videos.
+                    if cx_v <= x_min_v:
+                        continue
                     # The label is drawn ON the video thumbnail (top-left):
                     # clicking it opens the media viewer like any thumbnail
                     # click.
