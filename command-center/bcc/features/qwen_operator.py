@@ -1041,6 +1041,8 @@ async def _execute(run: Run) -> dict:
             _save(svc, rec)
     if plan is None:
         return await run.finish("failed", "планировщик не дал валидный план")
+    if (why := run.stopped()):                     # STOP pressed while the planner ran: no step after it starts
+        return await run.finish("stopped", why)
 
     # parked owner decisions come first so the owner sees them while the work goes on
     paths_ok: list[str] = []
@@ -1166,7 +1168,8 @@ async def _execute(run: Run) -> dict:
                         "lab_branch": rec.get("lab", {}).get("branch"), "commit": commit_sha or None}
     pending = [d for d in rec["decisions"] if d["status"] == "PENDING"]
     if rec.get("edit_failed"):
-        return await run.finish("failed", rec["edit_failed"])
+        return await run.finish("stopped" if str(rec["edit_failed"]).startswith("stopped:") else "failed",
+                                rec["edit_failed"])
     return await run.finish("completed_with_pending_decisions" if pending else "completed")
 
 
@@ -1224,6 +1227,11 @@ async def edit_loop(run: Run, plan: dict, paths: list[str], draft: str) -> tuple
                                        "ctx_truncated": bool(coded.get("truncated")),
                                        "ctx_pressure_pct": (round(100.0 * (coded["max_prompt_tokens"] + 2048) / cur)
                                                             if coded.get("max_prompt_tokens") else None)})
+        if (why := run.stopped()):
+            # STOP / cancel while the coder ran (up to 2 h): what it produced is not applied, tested or committed
+            rec["edit_failed"] = f"stopped: {why}"
+            run.step("edit_discarded", "stopped", attempt=attempt, reason=why[:200])
+            return "", ""
         problem = ""
         diff = coded.get("diff") or ""
         if not coded.get("ok") or not diff:
@@ -1245,6 +1253,12 @@ async def edit_loop(run: Run, plan: dict, paths: list[str], draft: str) -> tuple
                                else f"тесты в лаборатории упали (exit {ran.get('exit_code')}): "
                                     + rec["test_summary"][-800:])
                     run.step("rollback", "done", attempt=attempt, reason=problem[:200])
+                elif (why := run.stopped()):
+                    # STOP during the lab tests: the owner's kill-switch wins over a green result - no commit
+                    await asyncio.to_thread(rollback_in_lab, scope, diff)
+                    rec["edit_failed"] = f"stopped: {why}"
+                    run.step("rollback", "done", attempt=attempt, reason=f"stopped: {why}"[:200])
+                    return "", ""
                 else:
                     run.phase("commit")
                     sha = await asyncio.to_thread(commit_in_lab, run, applied["paths"], rec["task"])
