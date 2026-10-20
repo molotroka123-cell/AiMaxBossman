@@ -18,13 +18,13 @@ def next_slots(cfg: dict, taken: list[str], n: int, now: datetime | None = None)
     """Next n free slots (ISO 8601 UTC 'Z'), strictly in the future (+15 min), never two items in one slot."""
     cfg = {**DEFAULT, **(cfg or {})}
     tz = _tz(cfg["tz"])
-    times = sorted(cfg["times"])[: max(1, int(cfg["per_day"]))]
+    # Clock order, not text order: "9:30" < "10:00" (as strings "10:00" sorts first and 9:30 was cut by per_day).
+    times = sorted({tuple(map(int, str(hhmm).split(":"))) for hhmm in cfg["times"]})[: max(1, int(cfg["per_day"]))]
     now = (now or datetime.now(timezone.utc)).astimezone(tz)
     taken_set = set(taken)
     out, day = [], now.date()
     while len(out) < n and day <= now.date() + timedelta(days=60):
-        for hhmm in times:
-            h, m = map(int, hhmm.split(":"))
+        for h, m in times:
             dt = datetime.combine(day, time(h, m), tzinfo=tz)
             iso = dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             if dt > now + timedelta(minutes=15) and iso not in taken_set:
