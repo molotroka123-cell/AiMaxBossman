@@ -198,6 +198,39 @@ SECRET_TEXT_PATTERNS = (
     ("приватный ключ", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
 )
 _CARD_RX = re.compile(r"(?<!\d)(?:\d[ \-]?){12,18}\d(?!\d)")
+LOG_REDACTED = "[REDACTED]"
+
+
+def _redact_log(value: Any) -> Any:
+    """Secrets out of what Computer Use writes to its step log and the bus.
+
+    Window titles, element names, targets and postcondition notes come from the
+    screen and from the model: a browser tab titled with a token-bearing URL, a
+    Notepad window over `.env`, or `expect.contains_text` naming a key all used to
+    land verbatim in the step log (HTTP /computer/step-log) and in bus events
+    (Flight Recorder). Redaction happens BEFORE any truncation: cutting first could
+    shorten a token below the pattern length and leak its prefix.
+    Uses the platform's own redactor (bossman.obs) plus the Computer Use secret
+    patterns that refuse typing secrets.
+    """
+    if isinstance(value, str):
+        try:
+            from bossman.obs import redact
+            text = redact(value)
+        except Exception:  # noqa: BLE001 — без общего редактора хватит своих шаблонов
+            text = value
+        for _label, rx in SECRET_TEXT_PATTERNS:
+            text = rx.sub(LOG_REDACTED, text)
+        return text
+    if isinstance(value, dict):
+        return {k: _redact_log(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return type(value)(_redact_log(v) for v in value)
+    return value
+
+
+async def _emit_safe(svc, event: str, **fields: Any) -> None:
+    await svc.bus.emit(event, **_redact_log(fields))
 CREDENTIAL_TARGET_TOKENS = ("password", "passwd", "пароль", "passcode", "passphrase", "pin-код",
                             "pin code", "пин-код", "cvv", "cvc", "card number", "номер карты",
                             "секретн", "secret", "api key", "api-key", "token", "токен", "otp",
@@ -264,6 +297,38 @@ def _element_with_rect(c) -> dict[str, Any]:
     return item
 
 
+class StopSignal(threading.Event):
+    """«Стоп» для потока ввода: `is_set()` читает ещё и файл STOP — без кэша.
+
+    Адаптер проверяет прерывание между порциями набора через `is_set()`. Обычный
+    `threading.Event` видел только «Стоп», нажатый в ЭТОМ процессе: файл STOP,
+    записанный другим процессом (второй backend, CLI владельца, пульт), до
+    следующего `stopped()` не замечался, и набор шёл до конца. Теперь каждая
+    проверка смотрит на диск; найденный файл взводит флаг, чтобы дальнейшие
+    проверки были дешёвыми.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.path_of = lambda: None
+
+    def is_set(self) -> bool:
+        if super().is_set():
+            return True
+        path = self.path_of()
+        if path is not None:
+            try:
+                present = os.path.exists(path)
+            except Exception:  # noqa: BLE001 — сломанный путь не повод печатать
+                present = False
+            if present:
+                super().set()
+                return True
+        return False
+
+    isSet = is_set
+
+
 @dataclass
 class ComputerState:
     # Поколение уникально для ПРОЦЕССА: после перезапуска backend числа не
@@ -271,7 +336,7 @@ class ComputerState:
     generation: int = field(default_factory=lambda: int(time.time()) * 1000)
     session: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     last: dict[str, Any] = field(default_factory=dict)
-    stop: threading.Event = field(default_factory=threading.Event)
+    stop: threading.Event = field(default_factory=StopSignal)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     desktop: Any = None
     shots: Any = None
@@ -301,9 +366,13 @@ class ComputerState:
     takeover_active: bool = False
     takeover_reason: str = ""
 
+    def __post_init__(self) -> None:
+        if isinstance(self.stop, StopSignal):
+            self.stop.path_of = lambda: self.stop_path
+
     def record_step(self, phase: str, **details: Any) -> dict[str, Any]:
         entry = {"seq": len(self.step_log) + 1, "phase": phase, "at": time.time(),
-                 "generation": self.generation, "session": self.session, **details}
+                 "generation": self.generation, "session": self.session, **_redact_log(details)}
         self.step_log.append(entry)
         del self.step_log[:-200]
         return entry
@@ -414,12 +483,14 @@ class ComputerState:
 
     def clear_stop(self) -> None:
         self.stop_epoch += 1
-        self.stop.clear()
+        # Сначала файл, потом флаг: StopSignal читает файл и иначе тут же
+        # взвёл бы флаг обратно.
         if self.stop_path is not None:
             try:
                 self.stop_path.unlink(missing_ok=True)
             except OSError:
                 pass
+        self.stop.clear()
         # «Продолжить» ≠ «доиграть очередь»: всё, что планировалось по экрану
         # до «Стоп», обесценивается — модель обязана перечитать экран. Это
         # касается и уже одобренных, но не исполненных действий.
@@ -694,14 +765,15 @@ async def observe(svc, *, screenshot: bool = True, window: Any = None,
     obs["fingerprint"] = _fingerprint(win, elements)
     st.last = obs
     st.remember(obs)
-    st.record_step("observe", window=str(win.get("title") or "")[:200],
+    safe_title = _redact_log(str(win.get("title") or ""))[:200]
+    st.record_step("observe", window=safe_title,
                    hwnd=win.get("handle"), pid=win.get("pid"),
                    elements=len(elements), fingerprint=obs["fingerprint"],
                    post_state_sha256=obs["fingerprint"],
                    stopped=obs["stopped"])
-    await svc.bus.emit("computer.observe", generation=st.generation,
-                       window=str(win.get("title") or "")[:200], elements=len(elements),
-                       screenshot=shot)
+    await _emit_safe(svc, "computer.observe", generation=st.generation,
+                     window=safe_title, elements=len(elements),
+                     screenshot=shot)
     return obs
 
 
@@ -753,6 +825,17 @@ def verify(obs: dict, expect: Any, *, started_at: float | None = None) -> tuple[
     notes: list[str] = []
     ok = True
     checks = 0
+    # Экран, который не прочитан (UIA не ответил) или скрыт (окно вне
+    # разрешения задачи), не свидетельствует ни о чём. Иначе `absent_text`
+    # подтверждался бы пустотой: «ошибки нет» — потому что нет НИЧЕГО.
+    window_error = (obs.get("window") or {}).get("error")
+    screen_keys = [k for k in ("window_title_contains", "contains_text", "absent_text") if k in cleaned]
+    if screen_keys and (window_error or obs.get("hidden")):
+        why = f"окно не прочитано ({window_error})" if window_error else "окно скрыто (вне разрешения задачи)"
+        ok = False
+        checks += 1
+        notes.append(f"{why} — экранные проверки ({', '.join(screen_keys)}) НЕ подтверждены")
+        cleaned = {k: v for k, v in cleaned.items() if k not in screen_keys}
     if "window_title_contains" in cleaned:
         hit = cleaned["window_title_contains"].lower() in title
         ok &= hit
@@ -1607,8 +1690,11 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                                  f"Computer Use учётные данные не вводит")
             if len(editable) == 1:
                 _stop_check(st, "фокус поля", epoch)
+                bh = int((before.get("window") or {}).get("handle") or 0)
                 await _bounded(st, st.desktop.execute(
-                    core["ComputerAction"].make(AK.FOCUS, target=editable[0]["name"]), None), "фокус поля")
+                    core["ComputerAction"].make(AK.FOCUS, target=editable[0]["name"],
+                                                args={"foreground_handle": bh} if bh else {}),
+                    None), "фокус поля")
             elif kind == "type" and len(editable) > 1:
                 raise ActRefused("в окне несколько полей ввода: "
                                  + ", ".join(f"«{e['name']}»" for e in editable[:8])
@@ -1670,8 +1756,10 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
         # Последняя проверка «Стоп» — непосредственно перед эффектом.
         _stop_check(st, "перед эффектом", epoch)
         if kind == "type" and args.get("replace"):
+            bh = int((before.get("window") or {}).get("handle") or 0)
             await _bounded(st, st.desktop.execute(core["ComputerAction"].make(
-                AK.HOTKEY, args={"keys": ["ctrl", "a"]}), None), "выделение")
+                AK.HOTKEY, args={"keys": ["ctrl", "a"], **({"foreground_handle": bh} if bh else {})}),
+                None), "выделение")
         t0 = time.perf_counter()
         after_window: int | None = None
         acted_window: dict[str, Any] | None = None
@@ -1776,8 +1864,9 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
             after_window = int(wins[0][0])
         else:
             _stop_check(st, "действие", epoch)
-            if kind == "type":
-                # Адаптер сверяет окно переднего плана перед КАЖДОЙ порцией ввода.
+            if kind in INPUT_KINDS:
+                # Адаптер сверяет окно переднего плана вплотную к эффекту: перед
+                # КАЖДОЙ порцией набора, перед кликом/хоткеем и в UIA-пути.
                 want = int((before.get("window") or {}).get("handle") or 0)
                 if want:
                     a.args["foreground_handle"] = want
@@ -1792,14 +1881,15 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                     after_window = bh
         await asyncio.sleep(SETTLE_S)
         pre_sha = (before or {}).get("fingerprint")
-        st.record_step("act", action=kind, target=target[:200],
+        safe_target = _redact_log(target)[:200]
+        st.record_step("act", action=kind, target=safe_target,
                        before_generation=(before or {}).get("generation"),
                        pre_state_sha256=pre_sha,
                        approval_ref=approval_ref, approved_kind=approved_kind if required else None)
         after = await _bounded(st, observe(svc, window=after_window, scope=scope), "наблюдение")
         post_sha = after.get("fingerprint")
         verified, notes = verify(after, args.get("expect"), started_at=started_at)
-        st.record_step("verify", action=kind, target=target[:200],
+        st.record_step("verify", action=kind, target=safe_target,
                        before_generation=(before or {}).get("generation"),
                        after_generation=after["generation"],
                        pre_state_sha256=pre_sha, post_state_sha256=post_sha,
@@ -1813,11 +1903,11 @@ async def act(svc, args: dict, *, approved_kind: str | None = None,
                   "window": acted_window or {k: (after.get("window") or {}).get(k)
                                              for k in ("handle", "pid", "title", "foreground")},
                   "elapsed_ms": int((time.perf_counter() - t0) * 1000), "observation": after}
-    await svc.bus.emit("computer.act", action=kind, target=target[:200], verified=verified,
-                       before=result["before_generation"], after=result["after_generation"],
-                       approved_kind=result["approved_kind"], approval_id=approval_ref,
-                       window=str((after.get("window") or {}).get("title") or "")[:200],
-                       hwnd=(result["window"] or {}).get("handle"), pid=(result["window"] or {}).get("pid"))
+    await _emit_safe(svc, "computer.act", action=kind, target=safe_target, verified=verified,
+                     before=result["before_generation"], after=result["after_generation"],
+                     approved_kind=result["approved_kind"], approval_id=approval_ref,
+                     window=_redact_log(str((after.get("window") or {}).get("title") or ""))[:200],
+                     hwnd=(result["window"] or {}).get("handle"), pid=(result["window"] or {}).get("pid"))
     return result
 
 
@@ -1924,8 +2014,9 @@ async def _t_act(args, ctx):
             # агента, правило политики, аренда, прямой вызов).
             await claim_approval(ctx.svc, getattr(ctx, "approval_id", None), getattr(ctx, "task", None))
     except ActRefused as exc:
-        await ctx.svc.bus.emit("computer.refused", action=kind[:40], reason=str(exc)[:300],
-                               approval_id=getattr(ctx, "approval_id", None))
+        await _emit_safe(ctx.svc, "computer.refused", action=kind[:40],
+                         reason=_redact_log(str(exc))[:300],
+                         approval_id=getattr(ctx, "approval_id", None))
         return ToolResult(content=f"действие не выполнено: {exc}", one_line="computer.act: отказ",
                           error=True)
     approved_kind, approval_ref = approved_consequence(args, ctx)
@@ -2113,11 +2204,11 @@ async def pause_for_takeover(svc, reason: str = "owner_takeover") -> dict[str, A
     ставит явный стоп, фиксирует шаг takeover_pause и блокирует действия агента."""
     st = _owner_state(svc)
     st.takeover_active = True
-    st.takeover_reason = str(reason or "owner_takeover")[:200]
+    st.takeover_reason = _redact_log(str(reason or "owner_takeover"))[:200]
     st.set_stop("owner_takeover")
     step = st.record_step("takeover_pause", by="owner", reason=st.takeover_reason)
-    await svc.bus.emit("computer.takeover.paused", by="owner", reason=st.takeover_reason,
-                       generation=st.generation)
+    await _emit_safe(svc, "computer.takeover.paused", by="owner", reason=st.takeover_reason,
+                     generation=st.generation)
     return {"stopped": True, "takeover_active": True, "reason": st.takeover_reason,
             "generation": st.generation, "step": step}
 
@@ -2128,6 +2219,27 @@ async def resume_after_takeover(svc, expect: dict[str, Any] | None = None) -> di
     старые наблюдения и при заданном expect проверяет постусловие (verify)."""
     st = _owner_state(svc)
     obs = await observe(svc, screenshot=False)
+    # «Успешное наблюдение» — это прочитанное окно, а не просто вернувшийся
+    # вызов: адаптер отдаёт {"error": ...} без окна, когда UIA не ответил, и
+    # снимать «Стоп» по такому экрану — значит вернуть управление вслепую.
+    # Заданное владельцем постусловие, которое НЕ подтвердилось, тоже держит
+    # «Стоп»: ручной шаг не дал того, ради чего был перехват.
+    win = obs.get("window") or {}
+    verified, checks = verify(obs, expect)
+    refusal = None
+    if win.get("error") or not win.get("handle"):
+        refusal = (f"экран не прочитан ({win.get('error') or 'окно переднего плана не определено'}) — "
+                   f"«Стоп» не снят, повторите возврат управления")
+    elif verified is False:
+        refusal = "постусловие владельца не подтвердилось на свежем экране — «Стоп» не снят"
+    if refusal:
+        step = st.record_step("takeover_resume_refused", by="owner", reason=refusal,
+                              verified=verified, checks=list(checks))
+        await svc.bus.emit("computer.takeover.resume_refused", by="owner", reason=refusal,
+                           generation=obs.get("generation"))
+        return {"stopped": True, "takeover_active": st.takeover_active, "refused": refusal,
+                "generation": obs.get("generation"), "verified": verified, "checks": checks,
+                "observation": obs, "step": step}
     st.clear_stop()
     st.takeover_active = False
     st.takeover_reason = ""
@@ -2135,7 +2247,6 @@ async def resume_after_takeover(svc, expect: dict[str, Any] | None = None) -> di
     obs["generation"] = st.generation
     st.last = obs
     st.remember(obs)
-    verified, checks = verify(obs, expect)
     step = st.record_step("takeover_resume", by="owner", after_generation=obs["generation"],
                           verified=verified, checks=list(checks))
     await svc.bus.emit("computer.takeover.resumed", by="owner", generation=obs["generation"],
@@ -2170,9 +2281,13 @@ async def http_takeover_resume(request: Request):
         body = {}
     expect = (body or {}).get("expect") if isinstance(body, dict) else None
     try:
-        return await resume_after_takeover(request.app.state.svc, expect=expect)
+        out = await resume_after_takeover(request.app.state.svc, expect=expect)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(503, {"message": f"возврат после перехвата недоступен: {exc}"})
+    if out.get("refused"):
+        raise HTTPException(409, {"message": out["refused"], "stopped": True,
+                                  "verified": out.get("verified"), "checks": out.get("checks")})
+    return out
 
 
 @router.get("/computer/catalog")

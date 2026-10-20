@@ -762,6 +762,26 @@ def _scrubbed_env() -> dict[str, str]:
     return clean
 
 
+def _taskkill_tree(pid: int) -> None:
+    """Windows: убить процесс ВМЕСТЕ с потомками (proc.kill() убивает только корень)."""
+    if os.name == "nt" and pid > 0:
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=3, check=False)
+
+
+async def _reap_child(proc: Any, pid: int) -> None:
+    """Дочерний процесс команды не переживает свой шаг: дерево убито, корень дождан.
+
+    Блокирующий taskkill — в потоке, а не в цикле событий; ожидание завершения
+    ограничено, чтобы зависший драйвер не держал шаг вечно.
+    """
+    with contextlib.suppress(Exception):
+        await asyncio.to_thread(_taskkill_tree, pid)
+    with contextlib.suppress(Exception):
+        proc.kill()
+    with contextlib.suppress(Exception):
+        await asyncio.wait_for(proc.wait(), timeout=3.0)
+
+
 async def execute_pc_step(
     svc: Any,
     rt: PCAgentRuntime,
@@ -1511,10 +1531,7 @@ async def execute_pc_step(
         try:
             stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
         except asyncio.TimeoutError:
-            with contextlib.suppress(Exception):
-                if os.name == "nt" and pid > 0:
-                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=3, check=False)
-                proc.kill()
+            await _reap_child(proc, pid)
             return {
                 "ok": False,
                 "verified": False,
@@ -1523,6 +1540,14 @@ async def execute_pc_step(
                 "summary": f"Таймаут команды {argv[0]} ({timeout_s:.0f} с).",
                 "duration_ms": round((time.perf_counter() - t0) * 1000),
             }
+        except BaseException:
+            # Отмена шага (STOP владельца, внешний таймаут, остановка задачи)
+            # раньше только снимала pid с учёта: дочерний процесс и его
+            # потомки жили дальше уже без присмотра. Сначала убить, потом
+            # пробросить отмену.
+            if proc.returncode is None:
+                await _reap_child(proc, pid)
+            raise
         finally:
             rt.active_procs.pop(pid, None)
 
@@ -2609,6 +2634,59 @@ def _to_telegram_deeplink(url: str) -> tuple[str | None, str, str]:
     return None, "", ""
 
 
+WDA_NONE = 0
+
+
+def _display_affinity(hwnd: int) -> int | None:
+    """SetWindowDisplayAffinity окна: != 0 — приложение просит ОС не отдавать его в захват
+    (защищённый контент). None — узнать не удалось."""
+    import ctypes
+    from ctypes import wintypes
+    aff = wintypes.DWORD(0)
+    ok = ctypes.windll.user32.GetWindowDisplayAffinity(wintypes.HWND(int(hwnd)), ctypes.byref(aff))
+    return int(aff.value) if ok else None
+
+
+def _capture_protected_windows() -> list[str]:
+    """Видимые окна, защищённые от захвата экрана. Запись экрана их не снимает.
+
+    Сомнение — это защита: если окна не перечислить или аффинитет не прочитать,
+    запись не начинается (возвращается причина вместо пустого списка).
+    """
+    if os.name != "nt":
+        return []
+    try:
+        wins = tc._top_windows()
+    except Exception as exc:  # noqa: BLE001
+        return [f"(окна не перечислены: {type(exc).__name__})"]
+    out: list[str] = []
+    for h_w, t_w, _p_w in wins:
+        try:
+            aff = _display_affinity(int(h_w))
+        except Exception:  # noqa: BLE001
+            aff = None
+        if aff is None and not tc._is_window(h_w):
+            continue                      # окно закрылось между перечислением и запросом
+        if aff is None or aff != WDA_NONE:
+            out.append(str(t_w or f"hwnd={h_w}")[:80])
+    return out
+
+
+def _foreground_capture_protected() -> bool:
+    """Окно переднего плана защищено от захвата (или это не узнать) — кадр не пишется."""
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes
+        hwnd = int(ctypes.windll.user32.GetForegroundWindow() or 0)
+        if not hwnd:
+            return False
+        aff = _display_affinity(hwnd)
+    except Exception:  # noqa: BLE001
+        return True
+    return aff is None or aff != WDA_NONE
+
+
 async def _execute_record_screen(
     svc: Any,
     rt: PCAgentRuntime,
@@ -2630,6 +2708,22 @@ async def _execute_record_screen(
             "stopped": True,
             "error": "Остановлено владельцем (STOP)",
             "summary": "Остановлено владельцем (STOP)",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    # Защищённый от захвата контент (окно попросило ОС исключить его из
+    # захвата — так делают приложения и чаты с запретом сохранения) не
+    # записывается вовсе: ни до начала записи, ни кадром посреди неё.
+    protected = await asyncio.to_thread(_capture_protected_windows)
+    if protected:
+        reason = ("Запись экрана не начата: на экране окна, защищённые от захвата "
+                  f"({'; '.join(protected[:4])}) — их содержимое не записывается")
+        return {
+            "ok": False,
+            "verified": False,
+            "protected": True,
+            "error": reason,
+            "summary": reason,
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
@@ -2794,6 +2888,7 @@ async def _execute_record_screen(
         last_img = first_img
         nav_dispatched = False
         stopped_mid = False
+        protected_mid = False
 
         def _dispatch_uri(uri_to_open: str) -> None:
             for pid_i, exe_i, wdir_i in tg_instances:
@@ -2810,6 +2905,9 @@ async def _execute_record_screen(
             for idx_f in range(total_frames):
                 if rt.is_stopped(svc):
                     stopped_mid = True
+                    break
+                if _foreground_capture_protected():
+                    stopped_mid = protected_mid = True
                     break
                 t_frame = time.perf_counter()
                 if tg_uri and idx_f == nav_frame and not nav_dispatched:
@@ -2841,15 +2939,26 @@ async def _execute_record_screen(
             if proc.stdin is not None:
                 with contextlib.suppress(Exception):
                     proc.stdin.close()
-            with contextlib.suppress(Exception):
+            try:
                 proc.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                # ffmpeg, не закончивший за 20 с после закрытия stdin, раньше
+                # снимался с учёта и оставался жить: STOP его уже не видел.
+                with contextlib.suppress(Exception):
+                    _taskkill_tree(int(proc.pid or 0))
+                with contextlib.suppress(Exception):
+                    proc.kill()
+                with contextlib.suppress(Exception):
+                    proc.wait(timeout=5)
+            except Exception:  # noqa: BLE001
+                pass
             if proc.pid:
                 rt.active_procs.pop(proc.pid, None)
 
         if stopped_mid:
             with contextlib.suppress(Exception):
                 mp4_path.unlink(missing_ok=True)
-            return {"stopped": True, "frames_written": frames_written}
+            return {"stopped": True, "protected": protected_mid, "frames_written": frames_written}
 
         with contextlib.suppress(Exception):
             last_img.save(png_path)
@@ -2889,6 +2998,18 @@ async def _execute_record_screen(
         }
 
     cap_info = await asyncio.to_thread(_run_capture_sync)
+    if cap_info.get("protected"):
+        reason = ("Запись экрана остановлена и удалена: впереди оказалось окно, защищённое "
+                  "от захвата — его содержимое не записывается")
+        return {
+            "ok": False,
+            "verified": False,
+            "stopped": True,
+            "protected": True,
+            "error": reason,
+            "summary": reason,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
     if cap_info.get("stopped") or rt.is_stopped(svc):
         return {
             "ok": False,
