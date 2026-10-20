@@ -77,23 +77,28 @@ def resolve_settings(config: Path) -> PITSettings:
 
 # -- run lock (cross-process: CLI, Bossman button, пульт) --------------------------------
 @contextlib.contextmanager
-def run_lock(home: Path):
+def run_lock(home: Path, *, probe: bool = False):
     home.mkdir(parents=True, exist_ok=True)
     handle = (home / "run.lock").open("a+b")
     try:
         if handle.seek(0, 2) == 0:
             handle.write(b"0")
             handle.flush()
-        handle.seek(0)
-        try:
-            if os.name == "nt":
-                import msvcrt
-                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            raise AlreadyRunning("MASTER_PARSE_ALREADY_RUNNING") from None
+        attempts = 1 if probe else 20
+        for attempt in range(attempts):
+            handle.seek(0)
+            try:
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if attempt + 1 >= attempts:
+                    raise AlreadyRunning("MASTER_PARSE_ALREADY_RUNNING") from None
+                time.sleep(0.005)
         try:
             yield
         finally:
@@ -114,7 +119,7 @@ def is_running(data_dir: Path) -> bool:
     if not (home / "run.lock").exists():
         return False
     try:
-        with run_lock(home):
+        with run_lock(home, probe=True):
             return False
     except AlreadyRunning:
         return True

@@ -103,4 +103,3 @@ async def test_misspelled_or_conflicting_participant_header_never_gets_owner_eff
     assert r_conflict.status_code == 400
     assert r_conflict.json()["error"]["code"] == "conflicting_participant_headers"
     assert folder.exists()
-

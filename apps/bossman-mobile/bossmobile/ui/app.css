@@ -1,4 +1,4 @@
-/* Bossman Mobile — Claude-mobile-like: warm neutral, quiet chrome, content first. No external fonts. */
+/* Bossman Mobile — warm neutral palette, quiet chrome, content first. No external fonts. */
 :root {
   --bg: #f5f3ee; --bg2: #efece4; --surface: #ffffff; --surface2: #f8f6f1; --line: #e3dfd4; --line2: #d6d0c2;
   --text: #1f1e1d; --muted: #6f6b62; --faint: #736e64; /* faint >= 4.5:1 on --bg/--surface (was #9a958a, 2.7:1) */

@@ -474,7 +474,7 @@ def _gate(metrics: dict[str, Any], cases: list[dict[str, Any]], baseline: dict[s
     classes = evidence_classes or {}
     real_n = classes.get("REAL_SANDBOX", 0) + classes.get("LIVE", 0)
     if tier in STRICT_TIERS:
-        # Fable-originated improvement (review 1377c9e): optional manifest MAC pinning.
+        # Optional manifest MAC pinning:
         # OFF unless BENCHMARK_MANIFEST_SECRET is set; ON, a forged manifest is refused.
         secret = os.environ.get("BENCHMARK_MANIFEST_SECRET", "")
         if secret:

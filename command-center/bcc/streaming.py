@@ -63,10 +63,9 @@ PROVIDER_FAILED = "provider_failed"
 #
 # `status` says what the stream tells the router about the MODEL (does it
 # stream?). `completion` says what it tells the caller about THIS ANSWER, and
-# the two were conflated: Astra/Codex F3 (2026-09-08) — HTTP 200, one content
-# delta, then `{broken-json`, EOF, no finish_reason, no [DONE] — came back as
-# `stream_degraded`, `ok=True`. A truncated, corrupted answer advertised as
-# usable. The protocol defines a successful terminal state (a finish_reason
+# the two must not be conflated: an HTTP 200 with one content delta followed by
+# `{broken-json`, EOF, no finish_reason, and no `[DONE]` must not return as a
+# usable answer. The protocol defines a successful terminal state (a finish_reason
 # and/or the `[DONE]` sentinel); anything short of it is not "complete".
 COMPLETE = "complete"            # terminal state observed, no corrupt frames
 CAPPED = "capped"                # the CALLER stopped reading at max_chunks

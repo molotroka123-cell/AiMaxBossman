@@ -392,6 +392,8 @@ async def test_api_key_roundtrip_stores_only_in_vault(tmp_path):
                                    .where(settings_kv.c.key == string_mcp.SETTING_KEY))).scalar()
         assert enc and key not in enc
     finally:
+        from bcc.features import web_access
+        web_access._sync_tools(False)
         await svc.stop()
 
 

@@ -823,8 +823,7 @@ PICKER_JS = r"""(function () {
       // The host re-loaded the frame after an edit and still holds the OLD
       // description of the selected element (text, styles). Re-describe the
       // same element from the fresh DOM so the inspector shows what IS, not
-      // what WAS: without this, "Apply" twice reverted the first edit
-      // (Astra/Codex UI observation, 2026-09-08).
+      // what WAS: without this, "Apply" twice reverted the first edit.
       var again = document.querySelector('[data-bd-id="' + String(d.bd_id).replace(/"/g, '') + '"]');
       if (again) select(again);
       else parent.postMessage({ source: 'bd-preview', type: 'lost', nonce: NONCE, bd_id: d.bd_id }, '*');

@@ -56,8 +56,8 @@ class IsolatedWorktree:
         self.post_run_state: Dict[str, Any] = {}
         # Cleanup is a claim about the disk, so it is recorded, not assumed:
         # `cleanup_error` names the last failure, `cleanup_removed` says whether
-        # the sandbox is really gone. Astra F4 (2026-09-08): `rmtree(ignore_errors
-        # =True)` on Windows left the checkout in place and reported nothing.
+        # the sandbox is really gone (`rmtree(ignore_errors=True)` on Windows can
+        # leave locked checkouts in place if not verified).
         self.cleanup_error: Optional[str] = None
         self.cleanup_removed: Optional[bool] = None
         self._tempdir: Optional[Path] = None

@@ -298,8 +298,34 @@ async def test_mission_receipt_endpoint_returns_signed_workspace_receipt(env, re
     assert len(rc["receipt_sha256"]) == 64
     assert rc["receipt_id"].startswith("rcpt-")
 
-    # Fail-closed check: if head_before is missing/None and verify_tests is empty, postcondition_verified is False
-    unverified_rc = ct.mission_receipt({"id": "deadbeef1234", "status": "completed", "evidence": {}})
+    # Fail-closed check: if head_before is missing/None or candidate_files/evidence_digest is missing when verify_tests is empty, postcondition_verified is False
+    unverified_rc = ct.mission_receipt({"id": "deadbeef1234", "status": "completed", "evidence": {"head_before": "a", "head_after": "a"}})
     assert unverified_rc["postcondition_verified"] is False
 
 
+async def test_sparse_coder_helper_vram_budget_and_local_coders_api(env):
+    """Sparse MoE helper sub-agent (qwen3-coder:30b, 3.3B active weights out of 30.5B) fits within
+    <= 50% VRAM of the 36 GB main model (18 GB / 36 GB = 0.50), while heavy 70B uncensored coder
+    (42 GB) is refused when max_vram_ratio=0.50."""
+    res = await env.client.get("/api/coding-tasks/local-coders")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["default_sparse_helper"] == "qwen3-coder:30b"
+    qwen_moe = body["models"]["qwen3-coder:30b"]
+    assert qwen_moe["active_params_b"] == 3.3
+    assert qwen_moe["vram_ratio_of_main"] <= 0.50
+    assert qwen_moe["within_50pct_vram_budget"] is True
+
+    r1_70b = body["models"]["r1-70b-abliterated:latest"]
+    assert r1_70b["uncensored"] is True
+    assert r1_70b["total_params_b"] >= 70.0
+
+    # Refuses 42 GB 70B model when called as a <= 50% VRAM helper sub-agent
+    over_budget = ct.invoke_sparse_coder_helper(
+        "write binary search",
+        model="r1-70b-abliterated:latest",
+        max_vram_ratio=0.50,
+    )
+    assert over_budget["ok"] is False
+    assert over_budget["within_50pct_vram_budget"] is False
+    assert "превышает лимит" in over_budget["error"]

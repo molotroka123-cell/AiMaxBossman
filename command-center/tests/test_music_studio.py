@@ -44,3 +44,12 @@ async def test_generate_maps_to_official_acestep_release_task(monkeypatch):
     assert seen["payload"]["bpm"]==140
     assert seen["payload"]["audio_duration"]==60
     assert seen["payload"]["model"]=="acestep-v15-turbo"
+
+
+def test_studio_master_filters_and_vocal_cover_chain():
+    assert "studio_veo" in music.STUDIO_MASTER_FILTERS
+    assert "vocal_cover" in music.STUDIO_MASTER_FILTERS
+    assert "loudnorm=I=-14:TP=-1.0:LRA=11" in music.STUDIO_MASTER_FILTERS["studio_veo"]
+    assert "loudnorm=I=-14:TP=-1.0:LRA=11[out]" in music.STUDIO_MASTER_FILTERS["vocal_cover"]
+    assert "equalizer=f=6800" in music.STUDIO_MASTER_FILTERS["vocal_cover"]
+    assert "equalizer=f=2800" in music.STUDIO_MASTER_FILTERS["vocal_cover"]

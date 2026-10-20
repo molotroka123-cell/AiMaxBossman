@@ -274,4 +274,3 @@ def test_top_10_recurring_failures_are_executable_checks_and_pass(tmp_path, rec_
     )
     bad_res = imp.run_executable_checks(bad_repo)
     assert "WMIC-MISSING-WIN11" in bad_res["failed_ids"]
-

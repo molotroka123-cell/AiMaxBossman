@@ -215,12 +215,12 @@ _TERMINAL_FILE_RE = re.compile(
 
 # ------------------------------------------------------------------- negation
 #
-# Astra/Codex F7 (2026-09-08, 2/2 on 45027d3): "Calculate 17*23. Do not use
-# tools or write any file." classified as TERMINAL_FILE_ACTION, so an answer
-# that obeyed the owner's prohibition failed the gate. A prohibition is not a
-# request. The negated SPAN is dropped — from the negation marker to the end of
-# the clause or to a contrasting conjunction ("but"/"а"/"но") — not the whole
-# sentence, so "do not use the terminal, but create a file" keeps its request,
+# Example: "Calculate 17*23. Do not use tools or write any file." must not
+# classify as TERMINAL_FILE_ACTION, otherwise an answer that obeys the owner's
+# prohibition fails the gate. A prohibition is not a request. The negated SPAN
+# is dropped — from the negation marker to the end of the clause or to a
+# contrasting conjunction ("but"/"а"/"но") — not the whole sentence, so
+# "do not use the terminal, but create a file" keeps its request,
 # and "не забудь"/"don't forget" (a reminder, not a prohibition) is kept whole.
 _NEGATION_KEEP_RE = re.compile(
     r"(?iu)\b(do\s*n['o]?t|never)\s+forget(\s+to)?\b|не\s+забудь\w*|не\s+забывай\w*")

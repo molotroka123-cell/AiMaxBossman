@@ -67,7 +67,8 @@ async def master_parse_status(request: Request):
     from bcc.pit.config import config_path
     from bcc.pit.master_parser import is_running, read_report, read_status
     data_dir = _data_dir(request)
-    running = is_running(data_dir)
+    thread = _JOB.get("thread")
+    running = (thread is not None and thread.is_alive()) or is_running(data_dir)
     return {"configured": config_path(data_dir).is_file(), "running": running,
             "status": read_status(data_dir), "last_error": _JOB.get("error"),
             "report": _summary(read_report(data_dir))}

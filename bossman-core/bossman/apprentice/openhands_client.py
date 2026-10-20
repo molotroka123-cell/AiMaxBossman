@@ -343,11 +343,10 @@ def _untracked_files(workspace: Path) -> tuple[str, ...]:
 # ----------------------------------------------------------------------------
 # Evidence derived from the FILESYSTEM against HEAD, not from the index.
 #
-# Astra/Codex F1 (2026-09-08, reproduced 2/2 on 45027d3): the sidecar ran
-# `git update-index --assume-unchanged protected.txt`, rewrote protected.txt and
-# returned `completed`. `git diff HEAD` and `git status` trust the index's
-# "unchanged" flag, so Bossman saw `changed_files=()`, an empty diff, and admitted
-# a protected-file mutation with empty evidence. `--skip-worktree`, a poisoned
+# If the sidecar runs `git update-index --assume-unchanged protected.txt`,
+# rewrites protected.txt and returns `completed`, `git diff HEAD` and
+# `git status` trust the index's "unchanged" flag and would report
+# `changed_files=()` and an empty diff. `--skip-worktree`, a poisoned
 # `.git/info/exclude` or a new `.gitignore` hide changes the same way.
 #
 # Invariant: THE UNTRUSTED PRODUCER CANNOT CONTROL THE EVIDENCE USED TO ADMIT

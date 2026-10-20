@@ -80,7 +80,88 @@ RUNTIME_MODULE = "bossman.apprentice.openhands_client"
 WORKTREE_MODULE = "bossman.apprentice.isolated_worktree"
 COMMAND_ENV = "BOSSMAN_OPENHANDS_COMMAND"
 _OLLAMA_TAGS = "http://127.0.0.1:11434/api/tags"
-_LOCAL_CODING_MODELS = ("bossman-fast-qwen36-35b-a3b-q5:latest",)
+_OLLAMA_CHAT = "http://127.0.0.1:11434/api/chat"
+_LOCAL_CODING_MODELS = (
+    "bossman-fast-qwen36-35b-a3b-q5:latest",
+    "qwen3-coder:30b",
+    "r1-70b-abliterated:latest",
+    "qwen38-27b-uncensored:latest",
+    "gemma4-31b-uncensored:latest",
+)
+#: Local coder & sparse MoE sub-agent profiles (VRAM footprint vs 36 GB main / 42 GB 70B uncensored).
+LOCAL_CODER_PROFILES: dict[str, dict[str, Any]] = {
+    "qwen3-coder:30b": {
+        "role": "sparse_helper_subagent",
+        "architecture": "qwen3moe",
+        "total_params_b": 30.5,
+        "active_params_b": 3.3,
+        "active_weights_pct": 10.8,
+        "vram_gb": 18.0,
+        "main_vram_gb": 36.0,
+        "vram_ratio_of_main": 0.50,
+        "vram_ratio_of_70b": round(18.0 / 42.0, 4),
+        "within_50pct_vram_budget": True,
+        "uncensored": False,
+        "description": "MoE 30.5B coder activating only 3.3B expert weights per token (18 GB VRAM = 50% of 36 GB main, 42.9% of 70B).",
+    },
+    "bossman-fast-qwen36-35b-a3b-q5:latest": {
+        "role": "primary_moe_coder",
+        "architecture": "qwen35moe",
+        "total_params_b": 35.0,
+        "active_params_b": 3.0,
+        "active_weights_pct": 8.6,
+        "vram_gb": 26.0,
+        "main_vram_gb": 36.0,
+        "vram_ratio_of_main": round(26.0 / 36.0, 4),
+        "vram_ratio_of_70b": round(26.0 / 42.0, 4),
+        "within_50pct_vram_budget": False,
+        "uncensored": False,
+        "description": "Fast MoE 35B-A3B Q5 primary local coding model (3B active weights per token).",
+    },
+    "r1-70b-abliterated:latest": {
+        "role": "heavy_uncensored_70b_coder",
+        "architecture": "llama-70b-dense",
+        "total_params_b": 70.6,
+        "active_params_b": 70.6,
+        "active_weights_pct": 100.0,
+        "vram_gb": 42.0,
+        "main_vram_gb": 36.0,
+        "vram_ratio_of_main": round(42.0 / 36.0, 4),
+        "vram_ratio_of_70b": 1.0,
+        "within_50pct_vram_budget": False,
+        "uncensored": True,
+        "description": "70B abliterated/uncensored deep reasoning and coding model (42 GB VRAM on 80 GB ROCm GPU).",
+    },
+    "qwen38-27b-uncensored:latest": {
+        "role": "uncensored_coder",
+        "architecture": "qwen35-dense",
+        "total_params_b": 27.0,
+        "active_params_b": 27.0,
+        "active_weights_pct": 100.0,
+        "vram_gb": 29.0,
+        "main_vram_gb": 36.0,
+        "vram_ratio_of_main": round(29.0 / 36.0, 4),
+        "vram_ratio_of_70b": round(29.0 / 42.0, 4),
+        "within_50pct_vram_budget": False,
+        "uncensored": True,
+        "description": "27B uncensored local coding and reasoning model.",
+    },
+    "qwen38-pi-ab:latest": {
+        "role": "compact_uncensored_helper",
+        "architecture": "qwen35-abliterated",
+        "total_params_b": 27.0,
+        "active_params_b": 27.0,
+        "active_weights_pct": 100.0,
+        "vram_gb": 17.0,
+        "main_vram_gb": 36.0,
+        "vram_ratio_of_main": round(17.0 / 36.0, 4),
+        "vram_ratio_of_70b": round(17.0 / 42.0, 4),
+        "within_50pct_vram_budget": True,
+        "uncensored": True,
+        "description": "17 GB abliterated helper (47.2% VRAM of 36 GB main).",
+    },
+}
+SPARSE_HELPER_DEFAULT = "qwen3-coder:30b"
 TERMINAL = ("completed", "failed", "blocked")
 _ID_RE = re.compile(r"^[a-z0-9]{12}$")
 #: Identifies THIS server process; a running record from another boot is orphaned.
@@ -513,6 +594,7 @@ def mission_receipt(rec: dict) -> dict[str, Any]:
         status == "completed"
         and bool(evidence.get("head_before"))
         and evidence.get("head_before") == evidence.get("head_after")
+        and bool(rec.get("evidence_digest") or rec.get("candidate_files"))
     )
     payload = {
         "schema": "bossman.mission_receipt.v1",
@@ -939,9 +1021,135 @@ async def apply_candidate(task_id: str, body: ApplyIn, request: Request):
     return JSONResponse(payload, status_code=status)
 
 
+class HelperAssistIn(BaseModel):
+    prompt: str = Field(min_length=1, max_length=8000)
+    code_context: str = Field(default="", max_length=16000)
+    model: str = Field(default=SPARSE_HELPER_DEFAULT, max_length=120)
+    max_vram_ratio: float = Field(default=0.50, ge=0.10, le=1.0)
+    num_ctx: int = Field(default=8192, ge=1024, le=32768)
+    timeout_seconds: float = Field(default=90.0, ge=5.0, le=300.0)
+
+
+def invoke_sparse_coder_helper(
+    prompt: str,
+    *,
+    code_context: str = "",
+    model: str = SPARSE_HELPER_DEFAULT,
+    max_vram_ratio: float = 0.50,
+    num_ctx: int = 8192,
+    timeout: float = 90.0,
+) -> dict[str, Any]:
+    """Invoke a local sparse-activation (MoE) or compact helper coder sub-agent that uses
+    <= 50% VRAM of the main model (e.g. qwen3-coder:30b at 18 GB = 50% of 36 GB main,
+    activating only 3.3B expert weights out of 30.5B per token)."""
+    profile = LOCAL_CODER_PROFILES.get(model)
+    if profile is None:
+        return {
+            "ok": False,
+            "error": f"модель {model!r} не входит в разрешённый список локальных кодеров",
+            "allowed_models": list(LOCAL_CODER_PROFILES),
+        }
+    vram_ratio = float(profile["vram_ratio_of_main"])
+    if vram_ratio > max_vram_ratio:
+        return {
+            "ok": False,
+            "error": (
+                f"модель {model} требует {profile['vram_gb']} ГБ VRAM "
+                f"({vram_ratio * 100:.1f}% от основной 36 ГБ), что превышает лимит {max_vram_ratio * 100:.1f}%"
+            ),
+            "model": model,
+            "vram_gb": profile["vram_gb"],
+            "vram_ratio_of_main": vram_ratio,
+            "within_50pct_vram_budget": False,
+        }
+    user_text = prompt if not code_context else f"{prompt}\n\n```python\n{code_context}\n```"
+    req_body = json.dumps({
+        "model": model,
+        "stream": False,
+        "think": False,
+        "keep_alive": "5m",
+        "options": {"num_ctx": int(num_ctx), "temperature": 0.1},
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are Bossman's sparse MoE coding helper sub-agent. "
+                    "Return clean, production-grade code or exact patch diff without filler."
+                ),
+            },
+            {"role": "user", "content": user_text},
+        ],
+    }).encode("utf-8")
+    t0 = time.perf_counter()
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        req = urllib.request.Request(
+            _OLLAMA_CHAT,
+            data=req_body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with opener.open(req, timeout=timeout) as resp:
+            raw = resp.read(524_288)
+        data = json.loads(raw)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "model": model,
+            "profile": profile,
+            "within_50pct_vram_budget": vram_ratio <= 0.50,
+            "error": f"{type(exc).__name__}: {exc}"[:400],
+        }
+    elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+    msg = data.get("message") or {}
+    content = str(msg.get("content") or msg.get("thinking") or "").strip()
+    eval_count = int(data.get("eval_count") or 0)
+    eval_dur_ns = int(data.get("eval_duration") or 0)
+    eval_tps = round(eval_count / (eval_dur_ns / 1e9), 2) if eval_dur_ns > 0 else 0.0
+    return {
+        "ok": bool(content),
+        "model": model,
+        "architecture": profile["architecture"],
+        "total_params_b": profile["total_params_b"],
+        "active_params_b": profile["active_params_b"],
+        "active_weights_pct": profile["active_weights_pct"],
+        "vram_gb": profile["vram_gb"],
+        "main_vram_gb": profile["main_vram_gb"],
+        "vram_ratio_of_main": vram_ratio,
+        "vram_ratio_of_70b": profile["vram_ratio_of_70b"],
+        "within_50pct_vram_budget": vram_ratio <= 0.50,
+        "num_ctx": int(num_ctx),
+        "tokens_out": eval_count,
+        "eval_tps": eval_tps,
+        "elapsed_ms": elapsed_ms,
+        "response": content,
+    }
+
+
 @router.get("/coding-tasks/readiness")
 async def get_readiness(request: Request):
     return await readiness(request.app.state.svc)
+
+
+@router.get("/coding-tasks/local-coders")
+async def get_local_coders():
+    return {
+        "default_sparse_helper": SPARSE_HELPER_DEFAULT,
+        "models": LOCAL_CODER_PROFILES,
+    }
+
+
+@router.post("/coding-tasks/helper-assist")
+async def post_helper_assist(body: HelperAssistIn):
+    return await asyncio.to_thread(
+        invoke_sparse_coder_helper,
+        body.prompt,
+        code_context=body.code_context,
+        model=body.model,
+        max_vram_ratio=body.max_vram_ratio,
+        num_ctx=body.num_ctx,
+        timeout=body.timeout_seconds,
+    )
 
 
 @router.get("/coding-tasks")

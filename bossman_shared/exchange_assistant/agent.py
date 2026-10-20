@@ -45,7 +45,7 @@ HELP = ("Команды помощника обменника:\n"
         "• итоги [сегодня|неделя|месяц] — оборот, позиции, сделки")
 
 
-WRITE_PATTERNS = (RE_MANUAL, RE_CONFIRM, RE_REVERSE)
+WRITE_PATTERNS = (RE_MANUAL, RE_GIVE, RE_GET, RE_CONFIRM, RE_REVERSE)
 ALL_PATTERNS = (RE_RATES, RE_MANUAL, RE_GIVE, RE_GET, RE_CONFIRM, RE_REVERSE, RE_RECEIPT, RE_DAILY, RE_DASH)
 
 
@@ -185,9 +185,10 @@ class Assistant:
             return f"Записан ручной курс: {r.label()}"
         if m := RE_GET.match(t):
             buy_verb = bool(m[1])
-            margin_kw = {"margin": parse_decimal(m[5], "наценка") / 100} if m[5] else {}
+            margin_kw = {"margin": parse_decimal(m[5], "наценка") / 100} if m[5] else ({"margin": None} if buy_verb else {})
             q = build_quote(self.book(), give_ccy=ccy(m[4]), get_ccy=ccy(m[3]), now=now,
                             get_amount=parse_decimal(m[2], "сумма"),
+                            require_explicit_margin=buy_verb,
                             client_buys_get=buy_verb, **margin_kw)
             self.store.save_quote(q)
             return q.text()

@@ -193,4 +193,3 @@ def test_unified_memory_persists_and_recalls_across_independent_tasks_and_restar
     assert cross_receipt["reader_task_id"] == task_id_2
     assert cross_receipt["hit"] is True
     assert [c for c in opened if _is_open(c)] == [], "SQLite handle leaked after Task B recall"
-

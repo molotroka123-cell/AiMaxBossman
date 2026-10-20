@@ -138,11 +138,10 @@ def classify_failure(error: str, *, kind: str | None = None) -> str:
 #:
 #:     transitions <= max_retries + MAX_STRATEGY_CHANGES, then human escalation
 #:
-#: Astra/Codex F6 (2026-09-08, 2/2, 24 persisted transitions): `from_dict`
-#: discarded the spent rungs whenever the failure CLASS changed, so a provider
-#: alternating "unsupported tool use" / "empty response" re-earned the degraded
-#: path on every transition and the run stayed `queued` indefinitely. A path
-#: that was tried is tried, whatever the label on the next error.
+#: `from_dict` retains spent rungs even when the failure CLASS changes, so a
+#: provider alternating "unsupported tool use" / "empty response" cannot re-earn
+#: the degraded path on every transition and keep the run `queued` indefinitely.
+#: A path that was tried is tried, whatever the label on the next error.
 MAX_STRATEGY_CHANGES = 2
 STRATEGY_RUNGS = (ALTERNATE_MODEL, DEGRADED_PATH)
 

@@ -1,4 +1,4 @@
-"""Benchmark-proven Bossman hot-path speedup (Argon Tier 5).
+"""Benchmark-proven Bossman hot-path speedup.
 
 Measures BEFORE vs AFTER across N >= 50 iterations on real hot paths:
 1. Exchange Assistant Official FX Rate Loader (`rates.load_official` over SQLite `fx_obs`)

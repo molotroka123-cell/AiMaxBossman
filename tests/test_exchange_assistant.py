@@ -462,3 +462,34 @@ def test_swapme_pdf_receipt_and_daily_pult_summary(assistant):
     daily = assistant.handle("суточный отчет", "owner")
     assert "Суточный отчёт SwapMe" in daily
     assert "D-1" in daily and "1000.00 USDT" in daily and f"SwapMe-D-1-{qid}.pdf" in daily
+
+
+def test_redteam_rt20_stop_quote_explicit_buy_margin_and_manual_rate_ordering(assistant):
+    """Regression coverage for RT20-01 (STOP blocks quote creation), RT20-02 (buy requires explicit margin),
+    and RT20-03 (older manual rate never overwrites a newer manual rate in RateBook)."""
+    assistant.handle("курс usdt/usd 1.0000 источник синтетика", "owner")
+    assistant.handle("курс usd/czk 25.000 источник синтетика", "owner")
+
+    # RT20-01: STOP active -> quote commands (RE_GET / RE_GIVE) are blocked and write 0 rows to quotes
+    before_q = assistant.store.db.execute("SELECT COUNT(*) FROM quotes").fetchone()[0]
+    assistant.stop_file.write_text("stop", encoding="utf-8")
+    try:
+        ans_stop_buy = assistant.handle("купить 1000 usdt за czk при 3%", "owner")
+        ans_stop_sell = assistant.handle("1000 usdt в czk при 3%", "owner")
+        after_q = assistant.store.db.execute("SELECT COUNT(*) FROM quotes").fetchone()[0]
+        assert "СТОП" in ans_stop_buy and "СТОП" in ans_stop_sell
+        assert after_q == before_q
+    finally:
+        assistant.stop_file.unlink(missing_ok=True)
+
+    # RT20-02: buy command without explicit margin is refused instead of silently applying 3%
+    ans_no_margin = assistant.handle("купить 1000 usdt за czk", "owner")
+    assert "Не выполнено" in ans_no_margin and "явную ставку" in ans_no_margin
+    assert "наценка 3%" not in ans_no_margin
+
+    # RT20-03: older manual rate never overwrites newer manual rate in RateBook.put
+    newer = Rate("USDCZK", Decimal("25"), "synthetic", NOW, "manual", NOW + timedelta(hours=12))
+    older = Rate("USDCZK", Decimal("20"), "older-synthetic", NOW - timedelta(hours=1), "manual", NOW + timedelta(hours=12))
+    rb = RateBook([newer])
+    rb.put(older)
+    assert rb.get("USDCZK", NOW).value == Decimal("25")

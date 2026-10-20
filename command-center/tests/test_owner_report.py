@@ -151,4 +151,3 @@ def test_owner_report_repairs_cp1251_mojibake_and_strips_utf8_bom(tmp_path, monk
     assert not FakeTransport.instances[-1].sent[-1][1].startswith("\ufeff")
     assert orp.main(["--text", clean_ru, "--send"]) == 0
     assert FakeTransport.instances[-1].sent[-1][1] == clean_ru
-

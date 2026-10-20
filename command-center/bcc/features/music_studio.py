@@ -762,7 +762,124 @@ async def presets():
         {"id": "ultrafunk", "label": "Ultra Funk", "prompt": "ultrafunk, heavy club bass, chopped rhythmic vocal textures, aggressive electronic percussion", "bpm": 130},
         {"id": "nightcore", "label": "Nightcore", "prompt": "fast bright nightcore-inspired electronic pop, energetic drums, high-register vocal treatment", "bpm": 170},
         {"id": "electro", "label": "Electro", "prompt": "energetic electronic dance track, driving kick, bright synth hook, club arrangement", "bpm": 128},
+        {"id": "cinematic-veo", "label": "Studio VEO Master", "prompt": "studio mastered cinematic electronic pop and instrumental arrangement, deep warm sub-bass, crisp de-essed vocals, wide stereo synth pads, punchy transient drums, high dynamic clarity", "bpm": 124},
     ]}
+
+
+# ------------------------------------------------------------------ studio mastering DSP
+STUDIO_MASTER_FILTERS: dict[str, str] = {
+    "studio_veo": (
+        "highpass=f=28:poles=2,"
+        "equalizer=f=65:t=q:w=1.2:g=1.8,"
+        "equalizer=f=280:t=q:w=1.8:g=-2.0,"
+        "equalizer=f=3200:t=q:w=1.4:g=1.5,"
+        "treble=g=2.0:f=10500,"
+        "acompressor=threshold=-16dB:ratio=2.5:attack=15:release=180:makeup=2,"
+        "extrastereo=m=1.18,"
+        "loudnorm=I=-14:TP=-1.0:LRA=11"
+    ),
+    "vocal_cover": (
+        "[0:a]highpass=f=95:poles=2,"
+        "equalizer=f=260:t=q:w=1.8:g=-2.5,"
+        "equalizer=f=3500:t=q:w=1.3:g=2.5,"
+        "equalizer=f=6800:t=q:w=2.5:g=-3.5,"
+        "acompressor=threshold=-20dB:ratio=3.5:attack=8:release=120:makeup=4,"
+        "acompressor=threshold=-12dB:ratio=2.0:attack=25:release=220:makeup=1.5,"
+        "aecho=0.85:0.88:35|55:0.16|0.11,"
+        "treble=g=2.2:f=11000,"
+        "volume=1.35[v];"
+        "[1:a]highpass=f=25:poles=2,"
+        "equalizer=f=2800:t=q:w=1.2:g=-2.5,"
+        "volume=0.82[b];"
+        "[v][b]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0,"
+        "acompressor=threshold=-14dB:ratio=2.0:attack=20:release=200:makeup=1.5,"
+        "extrastereo=m=1.12,"
+        "loudnorm=I=-14:TP=-1.0:LRA=11[out]"
+    ),
+}
+
+
+def _find_ffmpeg() -> str | None:
+    import shutil
+    which = shutil.which("ffmpeg")
+    if which:
+        return which
+    for candidate in (
+        Path.home() / "Bossman" / "media-runtime" / "ffmpeg" / "bin" / "ffmpeg.exe",
+        Path("C:/Users/asd/Bossman/media-runtime/ffmpeg/bin/ffmpeg.exe"),
+    ):
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def master_audio_track(
+    input_path: Path | None = None,
+    output_path: Path | None = None,
+    *,
+    preset: str = "studio_veo",
+    vocal_path: Path | None = None,
+    instrumental_path: Path | None = None,
+    bitrate: str = "320k",
+    also_ogg: bool = False,
+) -> dict[str, Any]:
+    """Run local deterministic FFmpeg studio mastering (EQ, de-esser, 2-stage compression,
+    vocal-pocket carving, stereo widening, and EBU R128 -14 LUFS / -1.0 dBTP loudness normalization)."""
+    ffmpeg = _find_ffmpeg()
+    if not ffmpeg:
+        raise RuntimeError("ffmpeg не найден для мастеринга аудио")
+    eff_vocal = vocal_path if vocal_path is not None else (input_path if instrumental_path is not None else None)
+    if eff_vocal is not None and instrumental_path is not None:
+        v_path = Path(eff_vocal).resolve()
+        i_path = Path(instrumental_path).resolve()
+        if not v_path.is_file() or not i_path.is_file():
+            raise FileNotFoundError("не найден файл вокала или инструментала")
+        out = Path(output_path) if output_path else v_path.with_name(f"{v_path.stem}_mastered.mp3")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        codec_args = ["-b:a", bitrate] if out.suffix.lower() in (".mp3", ".ogg", ".opus", ".m4a") else []
+        argv = [
+            ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+            "-i", str(v_path), "-i", str(i_path),
+            "-filter_complex", STUDIO_MASTER_FILTERS["vocal_cover"],
+            "-map", "[out]", "-ar", "44100", *codec_args, str(out),
+        ]
+    else:
+        if input_path is None:
+            raise ValueError("укажите input_path или пару vocal_path + instrumental_path")
+        src = Path(input_path).resolve()
+        if not src.is_file():
+            raise FileNotFoundError(f"исходный аудиофайл не найден: {src}")
+        chain = STUDIO_MASTER_FILTERS.get(preset) or STUDIO_MASTER_FILTERS["studio_veo"]
+        out = Path(output_path) if output_path else src.with_name(f"{src.stem}_mastered{src.suffix}")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        codec_args = ["-b:a", bitrate] if out.suffix.lower() in (".mp3", ".ogg", ".opus", ".m4a") else []
+        argv = [
+            ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+            "-i", str(src), "-af", chain, "-ar", "44100", *codec_args, str(out),
+        ]
+    proc = subprocess.run(argv, capture_output=True, text=True, timeout=180, check=False)
+    if proc.returncode != 0 or not out.is_file() or out.stat().st_size < 1024:
+        raise RuntimeError(f"ошибка мастеринга ffmpeg (exit={proc.returncode}): {(proc.stderr or '').strip()[:300]}")
+    ogg_path: str | None = None
+    if also_ogg and out.suffix.lower() != ".ogg":
+        ogg_target = out.with_suffix(".ogg")
+        ogg_proc = subprocess.run(
+            [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(out), "-c:a", "libopus", "-b:a", "192k", str(ogg_target)],
+            capture_output=True, text=True, timeout=120, check=False,
+        )
+        if ogg_proc.returncode == 0 and ogg_target.is_file():
+            ogg_path = str(ogg_target)
+    data = out.read_bytes()
+    return {
+        "status": "mastered",
+        "preset": "vocal_cover" if (eff_vocal and instrumental_path) else preset,
+        "output_path": str(out),
+        "ogg_path": ogg_path,
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "target_lufs": -14.0,
+        "true_peak_dbtp": -1.0,
+    }
 
 
 FEATURE = Feature(name="music_studio", router=router)

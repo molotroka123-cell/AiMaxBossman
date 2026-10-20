@@ -609,4 +609,3 @@ async def test_oav_step_log_and_owner_takeover_flow(env, desk):
     assert resumed["stopped"] is False
     assert resumed["verified"] is True
     assert resumed["generation"] > res["after_generation"]
-

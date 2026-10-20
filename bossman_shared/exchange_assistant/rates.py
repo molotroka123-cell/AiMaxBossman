@@ -110,7 +110,7 @@ class RateBook:
         check_bounds(r.pair, r.value)
         cur = self._r.get(r.pair)
         # a manual rate overrides an official one; among the same kind the newest wins
-        if cur is None or r.kind == "manual" or (cur.kind == r.kind and r.as_of >= cur.as_of):
+        if cur is None or (r.kind == "manual" and cur.kind != "manual") or (cur.kind == r.kind and r.as_of >= cur.as_of):
             self._r[r.pair] = r
 
     def get(self, pair: str, now: datetime) -> Rate:
@@ -188,4 +188,3 @@ def default_fx_db(env: dict | None = None) -> Path:
     if env.get("BOSSMAN_FX_DIR"):
         return Path(env["BOSSMAN_FX_DIR"]) / "fx.db"
     return Path(env.get("LOCALAPPDATA", str(Path.home()))) / "Bossman" / "CommandCenter" / "fx" / "fx.db"
-

@@ -1,6 +1,6 @@
 {
   "schema": "bossman.argon_tier5_verification.v1",
-  "verified_at_utc": "2026-10-20T04:52:26.845417+00:00",
+  "verified_at_utc": "2026-10-20T10:39:47.891584+00:00",
   "G1_owner_e2e": {
     "status": "PASS",
     "exchange_assistant": {
@@ -15,7 +15,7 @@
       "slippage_in": "0.00",
       "slippage_out": "0.00",
       "idempotency_key": "Q-D73DD816",
-      "branded_html_bytes": 2624,
+      "branded_html_bytes": 2626,
       "xe_feed_status": "N/A",
       "xe_fallback_mode": "MANUAL_ENTRY",
       "rate_provenance": {
@@ -30,13 +30,13 @@
       }
     },
     "langgraph_checkpoint": {
-      "checkpoint_id": "chk-7374abdbe9a093d5-848d6e91c853",
-      "checkpoint_sha256": "848d6e91c853f6c02f2b468b73f85734b26ec0ed4ab3281dbeda46f16cbd3c65",
+      "checkpoint_id": "chk-001a95f90368b51e-51b0952106f5",
+      "checkpoint_sha256": "51b0952106f53c2dcf602afd9c8d9c978356eff6af01369ee4bc5655b91b68bc",
       "done_steps_at_checkpoint": [
         "quote"
       ],
       "completed_action_keys": [
-        "027aeaae284169360ec75d27269f4e6b"
+        "01f882a654fc167ee5def375b28e2a26"
       ],
       "noop_update_triggered": false,
       "changed_update_triggered": true,
@@ -46,18 +46,18 @@
       ]
     },
     "openhands_mission_receipt": {
-      "receipt_id": "rcpt-e2e-coding-01-8d39d54f5b8d",
-      "receipt_sha256": "8d39d54f5b8dbfedde077f190f050bff08e6d339adcaaec14073ba09b5cd98c3",
+      "receipt_id": "rcpt-e2e-coding-01-e24c8f600ecb",
+      "receipt_sha256": "e24c8f600ecb648fc185bb68b961cc4bbe9141ee33fd8eddc41a80a9af7f92d8",
       "postcondition_verified": true,
       "sandbox_removed": true
     },
     "unified_cross_task_memory": {
-      "writer_task_id": "b5b606c0cf84bfd4",
-      "reader_task_id": "5718df5c5f04a7da",
+      "writer_task_id": "16ee2a60fd2bd4c6",
+      "reader_task_id": "f99ae684a5444f6a",
       "hit": true,
-      "source_ref": "BOSSMAN Memory/2026-10-20-0452-SwapMe-VIP-Rule-b5b606c0cf84bfd4.md",
-      "sqlite_chunk_hash": "a4f10c315beaa5f6",
-      "payload_sha256": "e63b3561afbc4b6d8b3a0e5debb05a1f0679f2343dd059bf9afb811eb0f100a6"
+      "source_ref": "BOSSMAN Memory/2026-10-20-1039-SwapMe-VIP-Rule-16ee2a60fd2bd4c6.md",
+      "sqlite_chunk_hash": "fe4f54dc5dd5a449",
+      "payload_sha256": "c1eddd44744b3915accd899b1e71932a3baa6c07e4b2e9a1f08b61824f111e87"
     }
   },
   "G2_sealed_holdout": {
@@ -88,7 +88,7 @@
   },
   "G3_stop_switch": {
     "status": "PASS",
-    "stop_latency_ms": 0.5817,
+    "stop_latency_ms": 1.1465,
     "stop_latency_limit_ms": 2000.0,
     "actions_after_stop": 0,
     "post_stop_action_refused": true,
@@ -117,5 +117,5 @@
       "audit_seq_14_sha256": "f4ee800aa01dea39867acc7f9f4b6c28bc368d9fca049500179aeaeb68a16f09"
     }
   },
-  "receipt_sha256": "9043b64fa14059066b6a63e682cef60e41d2f56c99ff0ca6aece4b7e5ef102d9"
+  "receipt_sha256": "40f15f0d95535b38bcd68f18afaf6b9bf1069f2a38f8f59112206b1b94a51db5"
 }

@@ -115,6 +115,9 @@ def _isolate_process_tables():
     доказав, — или, наоборот, упал бы в чужом файле. Снимок берётся до, разница
     снимается после.
     """
+    for name in list(REGISTRY.names()):
+        if name.startswith("web."):
+            REGISTRY.unregister(name)
     tools_before = set(REGISTRY.names())
     parsers_before = dict(osiris.PARSERS)
     yield

@@ -96,5 +96,3 @@ def test_taskstore_checkpoint_snapshot_and_update_input_on_change(tmp_path: Path
     t_done = asyncio.run(store.run("owner", tid, {"issue_quote": exec_quote, "settle_deal": exec_settle}))
     assert t_done["state"] == "DONE"
     assert [c[0] for c in executed_calls] == ["quote", "settle"]
-
-

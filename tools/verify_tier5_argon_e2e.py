@@ -1,7 +1,7 @@
-"""Argon Tier 5 End-to-End Owner Scenario & STOP Latency Verifier (G1 + G2 + G3).
+"""End-to-End Owner Scenario & STOP Latency Verifier (G1 + G2 + G3).
 
 Runs and records cryptographically hashed receipts for:
-1. G1: Live End-to-End Owner Scenario across the integrated Bossman Tier 5 modules:
+1. G1: End-to-End Owner Scenario across the integrated Bossman modules:
    - Step 1 (Agentforce + Xe): Verified quote & deal in `exchange_assistant` with explicit 3% margin
      (`1 000 USDT` at `25 CZK/USD` -> `25 750.00 CZK` buy and `24 250.00 CZK` sell), CRM lifecycle
      (`draft` -> `quoted` -> `accepted` -> `settled`), actual legs, Xe provenance (`N/A` / `MANUAL_ENTRY`
@@ -105,6 +105,7 @@ def run_g1_owner_e2e(tmp_dir: Path) -> dict:
     assert t_final["state"] == "DONE" and exec_log == ["quote", "confirm"]
 
     # 3. OpenHands Unified Mission Workspace Receipt
+    sample_diff = "--- a/quote.py\n+++ b/quote.py\n@@ -1 +1 @@\n+# verified\n"
     sample_rec = {
         "id": "e2e-coding-01",
         "status": "completed",
@@ -112,8 +113,12 @@ def run_g1_owner_e2e(tmp_dir: Path) -> dict:
         "model": "bossman-fast-qwen36-35b-a3b-q5:latest",
         "source_repo": str(ROOT),
         "changed_files": ["bossman_shared/exchange_assistant/quote.py"],
-        "diff": "--- a/quote.py\n+++ b/quote.py\n@@ -1 +1 @@\n+# verified\n",
-        "diff_bytes": 54,
+        "diff": sample_diff,
+        "diff_bytes": len(sample_diff),
+        "evidence_digest": "sha256:" + hashlib.sha256(sample_diff.encode("utf-8")).hexdigest(),
+        "candidate_files": {"bossman_shared/exchange_assistant/quote.py": {"deleted": False}},
+        "verify_tests": ["tests/test_exchange_assistant.py"],
+        "verification": {"ran": True, "passed": True, "exit_code": 0},
         "evidence": {"head_before": "246d967a4d03647e0c3f409ff350eed15fe6a801", "head_after": "246d967a4d03647e0c3f409ff350eed15fe6a801"},
         "sandbox_cleanup": {"removed": True},
         "finished_at": time.time(),
@@ -389,7 +394,7 @@ def main() -> int:
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     payload["receipt_sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-    out_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    out_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps(payload, indent=2, ensure_ascii=False))
     return 0 if (g1["status"] == "PASS" and g2["status"] == "PASS" and g3["status"] == "PASS") else 1
 

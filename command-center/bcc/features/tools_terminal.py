@@ -333,11 +333,11 @@ async def _tool_run(args: dict, ctx) -> ToolResult:
     if mode not in ("sandbox", "project_host", "system_admin"):
         mode = "sandbox"
     own_scratch = scratch.for_context(ctx)
-    # F-009 (Fable 5.1 HIGH): раньше sandbox брал effective_roots=[cwd] — то есть
-    # модель сама объявляла корнем ЛЮБОЙ каталог хоста и он уходил RW в
-    # `-v cwd:/work` без approval. Теперь для ВСЕХ режимов корни одни:
-    # разрешённые владельцем + личная scratch-область. Контейнер остаётся
-    # защитой в глубину, но не заменяет авторизацию пути на хосте.
+    # Earlier sandbox runs took effective_roots=[cwd] — allowing the model to
+    # declare any host directory as root and mount `-v cwd:/work` RW without
+    # approval. Now all modes use the same roots: owner-allowed roots plus the
+    # private scratch area. The container remains defense in depth, not a
+    # substitute for host path authorization.
     effective_roots = list(roots)
     if own_scratch not in effective_roots:
         effective_roots.append(own_scratch)     # своя область доступна всегда

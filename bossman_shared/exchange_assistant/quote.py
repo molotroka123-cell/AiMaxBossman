@@ -304,4 +304,3 @@ def render_pdf_document(q: Quote, *, deal: dict | None = None) -> bytes:
         f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n".encode("ascii")
     )
     return bytes(out)
-
