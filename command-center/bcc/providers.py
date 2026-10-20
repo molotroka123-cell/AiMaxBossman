@@ -35,11 +35,45 @@ class ProviderError(RuntimeError):
     """
 
     def __init__(self, message: str, *, kind: str = "http", hint: str | None = None,
-                 status_code: int | None = None):
+                 status_code: int | None = None, timed_out: bool = False,
+                 retry_after: float | None = None):
         super().__init__(message)
         self.kind = kind
         self.hint = hint
         self.status_code = status_code
+        # True when the endpoint did not answer inside the timeout (kind stays "network"):
+        # health classification needs "slow" apart from "down" without parsing the text.
+        self.timed_out = timed_out
+        # Seconds the provider asked us to wait (HTTP Retry-After), bounded; None = not said.
+        self.retry_after = retry_after
+
+
+#: A Retry-After longer than this is not honoured as-is (a broken header must not park a route
+#: for a day); the health cooldown has its own, equal ceiling.
+MAX_RETRY_AFTER_S = 3600.0
+
+
+def parse_retry_after(value: str | None, *, now: float | None = None) -> float | None:
+    """RFC 9110 Retry-After: delta-seconds or an HTTP-date. Bounded to [0, MAX_RETRY_AFTER_S].
+
+    Anything unparseable is None ("the provider did not say"), never 0 ("retry at once")."""
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    if raw.isdigit():
+        return min(float(raw), MAX_RETRY_AFTER_S)
+    try:
+        from email.utils import parsedate_to_datetime
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        from datetime import timezone
+        when = when.replace(tzinfo=timezone.utc)
+    delta = when.timestamp() - (time.time() if now is None else now)
+    return min(max(0.0, delta), MAX_RETRY_AFTER_S)
 
 
 @dataclass
@@ -281,6 +315,20 @@ class _BaseAdapter:
     def _client(self, timeout: float) -> httpx.AsyncClient:
         return http_client(self.base_url, timeout=timeout, transport=self.transport)
 
+    def _scrub(self, text: str) -> str:
+        """Provider-written error text without credentials.
+
+        The error body is the provider's text, shown in the UI, events and logs. Gateways and
+        proxies do echo the key they rejected ("invalid api key sk-…", a reflected
+        Authorization header), so the adapter's own key is cut out exactly and known token
+        shapes are masked by the shared free-text redactor."""
+        from .plugin_security import redact_text
+        out = str(text or "")
+        key = self.api_key or ""
+        if len(key) >= 8:
+            out = out.replace(key, "***REDACTED***")
+        return redact_text(out)
+
     async def _request(self, method: str, url: str, *, timeout: float,
                        headers: dict | None = None, json: dict | None = None) -> httpx.Response:
         from bossman_shared.privacy import assert_provider_egress
@@ -290,13 +338,22 @@ class _BaseAdapter:
                 resp = await client.request(method, url, headers=headers, json=json)
         except httpx.TimeoutException:
             raise ProviderError(f"{_host(url)} не ответил за {int(timeout)} с", kind="network",
-                                hint="проверьте, что сервер модели запущен") from None
+                                hint="проверьте, что сервер модели запущен", timed_out=True) from None
         except httpx.HTTPError as exc:
             raise ProviderError(f"нет связи с {_host(url)}: {net_reason(exc)}", kind="network",
                                 hint="проверьте base_url и что endpoint поднят") from None
         if resp.status_code >= 400:
-            raise ProviderError(_explain(resp), kind="http", status_code=resp.status_code)
+            raise self._http_error(resp)
         return resp
+
+    def _http_error(self, resp: httpx.Response) -> ProviderError:
+        """HTTP >= 400 as a ProviderError. A 429 is a rate limit (kind="rate_limit", the same
+        kind an in-body 429 gets), with the provider's Retry-After when it sent one."""
+        code = resp.status_code
+        retry_after = parse_retry_after(resp.headers.get("retry-after")) if code in (429, 503) else None
+        return ProviderError(self._scrub(_explain(resp)),
+                             kind="rate_limit" if code == 429 else "http",
+                             status_code=code, retry_after=retry_after)
 
     async def _health_via(self, url: str, headers: dict | None = None) -> Health:
         t0 = time.perf_counter()
@@ -362,6 +419,7 @@ class OpenAICompatAdapter(_BaseAdapter):
             if upstream is None:
                 break
             code, message = upstream
+            message = self._scrub(message)
             if code not in _TRANSIENT_CODES:
                 raise ProviderError(f"провайдер отказал ({code}): {message}", kind="http",
                                     status_code=code or None)
@@ -421,10 +479,10 @@ class OpenAICompatAdapter(_BaseAdapter):
             shown = True
             await on_delta(text)
 
-        async def discard(reason: str) -> ProviderError:
+        async def discard(reason: str, *, timed_out: bool = False) -> ProviderError:
             if shown:
                 await on_delta(None)
-            return ProviderError(reason, kind="network",
+            return ProviderError(reason, kind="network", timed_out=timed_out,
                                  hint="ответ оборван на середине: шаг будет повторён")
 
         try:
@@ -434,14 +492,14 @@ class OpenAICompatAdapter(_BaseAdapter):
                         await resp.aread()
                         if resp.status_code in _STREAM_REJECTED:
                             return None
-                        raise ProviderError(_explain(resp), kind="http", status_code=resp.status_code)
+                        raise self._http_error(resp)
                     if "text/event-stream" not in resp.headers.get("content-type", "").lower():
                         await resp.aread()
                         data = _response_object(resp, what="chat/completions")
                         return None if _in_body_error(data) else self._result_from(data, model)
                     cs = await read_chat_stream(resp.aiter_lines(), push)
         except httpx.TimeoutException:
-            raise await discard(f"{_host(url)} не ответил за {int(timeout)} с") from None
+            raise await discard(f"{_host(url)} не ответил за {int(timeout)} с", timed_out=True) from None
         except httpx.HTTPError as exc:
             raise await discard(f"нет связи с {_host(url)}: {net_reason(exc)}") from None
         if cs.error or not (cs.terminated or cs.finish_reason):

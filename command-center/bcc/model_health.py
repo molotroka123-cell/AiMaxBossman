@@ -296,13 +296,22 @@ def classify_status_code(status_code: int) -> tuple[str, str]:
 def classify_exception(exc: BaseException) -> tuple[str, str]:
     name = type(exc).__name__
     text = str(exc)
-    if "Timeout" in name or "timed out" in text.lower():
+    # ProviderError.timed_out: the adapters word a timeout in Russian ("не ответил за N с"),
+    # so the English text test alone filed every provider timeout as provider_down.
+    if "Timeout" in name or "timed out" in text.lower() or getattr(exc, "timed_out", False) is True:
         return TIMEOUT, f"{name}: {text}"[:300]
     kind = getattr(exc, "kind", None)
     if kind == "auth":
         return UNAUTHORIZED, f"{name}: {text}"[:300]
     if kind == "rate_limit":
         return THROTTLED, f"{name}: {text}"[:300]
+    # ProviderError carries the HTTP status (or the gateway's in-body code). The adapters raise a
+    # rejected key as kind="http" with status_code=401 — never kind="auth" — so without this a 401
+    # read as provider_down: a 60 s cooldown and the same rejected key re-sent every minute.
+    code = getattr(exc, "status_code", None)
+    if isinstance(code, int) and not isinstance(code, bool) and code >= 400:
+        status, why = classify_status_code(code)
+        return status, f"{why}: {text}"[:300]
     return PROVIDER_DOWN, f"{name}: {text}"[:300]
 
 
@@ -322,8 +331,13 @@ def cooldown_for(status: str, consecutive_failures: int) -> timedelta:
 
 def record_observation(prior: HealthRecord | None, status: str, detail: str = "",
                        *, latency_ms: int | None = None,
-                       now: datetime | None = None) -> HealthRecord:
-    """Fold one measurement into the record. Pure — the caller persists it."""
+                       now: datetime | None = None,
+                       retry_after_s: float | None = None) -> HealthRecord:
+    """Fold one measurement into the record. Pure — the caller persists it.
+
+    ``retry_after_s`` is the provider's own Retry-After for this failure: the cooldown is never
+    shorter than what the provider asked for (re-probing a free tier before its window resets
+    is how the probe budget is eaten), and never longer than MAX_COOLDOWN_SECONDS."""
     at = now or _now()
     rec = prior or HealthRecord()
     out = HealthRecord(
@@ -339,6 +353,9 @@ def record_observation(prior: HealthRecord | None, status: str, detail: str = ""
                       if latency_ms is not None else rec.latencies_ms),
     )
     cooldown = cooldown_for(status, out.consecutive_failures)
+    if (status != HEALTHY and isinstance(retry_after_s, (int, float))
+            and not isinstance(retry_after_s, bool) and math.isfinite(retry_after_s) and retry_after_s > 0):
+        cooldown = max(cooldown, timedelta(seconds=min(float(retry_after_s), MAX_COOLDOWN_SECONDS)))
     out.cooldown_until = None if not cooldown else at + cooldown
     return out
 

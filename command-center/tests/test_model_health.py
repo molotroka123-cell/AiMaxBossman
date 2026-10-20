@@ -77,6 +77,21 @@ def test_provider_error_kinds_are_respected():
     assert mh.classify_exception(ProviderError("boom", kind="network"))[0] == mh.PROVIDER_DOWN
 
 
+@pytest.mark.parametrize("code,expected", [
+    (401, mh.UNAUTHORIZED), (403, mh.UNAUTHORIZED), (429, mh.THROTTLED), (402, mh.THROTTLED),
+    (500, mh.PROVIDER_DOWN), (404, mh.MALFORMED),
+])
+def test_the_status_code_the_adapter_really_raises_is_classified(code, expected):
+    """The adapters raise HTTP failures as kind="http" + status_code — never kind="auth".
+    A rejected key (401) classified as provider_down got a 60 s cooldown and was re-sent
+    every minute: the exact "hammering a rejected key" this module exists to prevent."""
+    exc = ProviderError(f"провайдер ответил {code}", kind="http", status_code=code)
+    status, _ = mh.classify_exception(exc)
+    assert status == expected
+    if code == 401:
+        assert mh.cooldown_for(status, 1) == timedelta(seconds=mh.MAX_COOLDOWN_SECONDS)
+
+
 # ------------------------------------------------------------ cooldown/backoff
 
 def test_transient_failures_back_off_exponentially_but_are_bounded():

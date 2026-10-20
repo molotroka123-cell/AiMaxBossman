@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import time
 import uuid
@@ -262,7 +263,18 @@ class LongRunLedger:
             self._refuse(provider, model, 0.0, f"STOP active: {why}")
             raise LongRunRefused(f"LONG-RUN REFUSED: {why}; paid calls are blocked until the STOP "
                                  "file is removed")
-        worst = max(0.0, float(worst_case_eur))
+        try:
+            worst = float(worst_case_eur)
+        except (TypeError, ValueError):
+            worst = float("nan")
+        if not math.isfinite(worst):
+            # max(0.0, nan) is 0.0: an unknown worst case used to be booked as a FREE call
+            # and passed every cap. Unknown cost is refused, never assumed to be zero.
+            msg = (f"LONG-RUN REFUSED: the worst-case cost of this {FAMILIES[provider]['label']} call "
+                   f"is unknown ({worst_case_eur!r}); the call was NOT made.")
+            self._refuse(provider, model, 0.0, msg)
+            raise LongRunRefused(msg)
+        worst = max(0.0, worst)
         with file_lock(self._lock()):
             cap = self.caps()[provider]
             spent = self._spent_by_provider(self._rows())[provider]
@@ -335,6 +347,20 @@ def _usd_per_token(model: dict) -> tuple[float, float]:
     return (float(model.get("price_in") or 0.0) * scale, float(model.get("price_out") or 0.0) * scale)
 
 
+def paid_price_problem(model: dict, provider: str) -> str:
+    """'' when a PAID family model carries a usable price, else why the call must not go out.
+
+    A long-run family is billed per token by definition. A registry row that says 0 for it is
+    not "free", it is a price nobody knows: the worst case would be booked as EUR 0, every call
+    would pass the daily cap and only a provider-reported cost could ever count against it."""
+    pin, pout = _usd_per_token(model)
+    if pin > 0 and pout > 0:
+        return ""
+    return (f"LONG-RUN REFUSED: {FAMILIES[provider]['label']} ({model.get('name') or '?'}) has a zero price "
+            f"in the registry (in={model.get('price_in')!r}, out={model.get('price_out')!r} USD/1M); a paid "
+            "family cannot be capped at price 0 - refresh the provider catalog. The call was NOT made.")
+
+
 def estimate_worst_case_eur(model: dict, messages: list, max_tokens: int, tools: Any = None) -> float:
     """Upper bound: one token per character sent, every output token at the output price."""
     payload: list[Any] = [messages]
@@ -355,8 +381,11 @@ def actual_eur(model: dict, result: Any) -> float | None:
     tin, tout = int(getattr(result, "tokens_in", 0) or 0), int(getattr(result, "tokens_out", 0) or 0)
     if not (tin or tout):
         return None
-    return (tin * float(model.get("price_in") or 0.0) + tout * float(model.get("price_out") or 0.0)) \
-        / USD_PER_EUR_BOOKED
+    # Same units as the reservation (registry prices are USD per 1M tokens). The raw price was
+    # multiplied by tokens here, booking 10^6x the real cost: one Mistral call without a reported
+    # cost "spent" thousands of EUR and closed its line for the rest of the day.
+    pin, pout = _usd_per_token(model)
+    return (tin * pin + tout * pout) / USD_PER_EUR_BOOKED
 
 
 # ------------------------------------------------------------------ CLI
