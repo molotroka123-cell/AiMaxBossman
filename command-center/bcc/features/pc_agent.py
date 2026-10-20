@@ -2882,17 +2882,34 @@ async def _execute_record_screen(
                     pass
                 return found_m
 
-            _mw_before = _main_windows()
-            _lbl_before = {p_i: _label_in_window(h_i)
-                           for p_i, (h_i, _t_i) in _mw_before.items()}
             for pid_i, exe_i, wdir_i in tg_instances:
                 with contextlib.suppress(Exception):
                     subprocess.run([exe_i, *wdir_i, "--", tg_uri], timeout=6, check=False)
             time.sleep(2.0)
-            for p_i, (h_i, t_i) in _main_windows().items():
-                if _lbl_before.get(p_i) is None and _label_in_window(h_i) is not None:
-                    target_hwnd, target_pid, target_title = h_i, p_i, t_i
-                    break
+            # Candidates: windows displaying a video post in the history pane
+            # after the dispatch. The instance that actually handled the link
+            # also raises its window — foreground ownership breaks the tie
+            # (another window may merely have some other video post open).
+            _mw_after = _main_windows()
+            _cands = {p_i: (h_i, t_i) for p_i, (h_i, t_i) in _mw_after.items()
+                      if _label_in_window(h_i) is not None}
+            if _cands:
+                _fg_pid_v = None
+                with contextlib.suppress(Exception):
+                    import ctypes as _ct_v
+                    _u_v = _ct_v.windll.user32
+                    _h_v = _u_v.GetForegroundWindow()
+                    if _h_v:
+                        _p_v = _ct_v.c_ulong(0)
+                        _u_v.GetWindowThreadProcessId(_h_v, _ct_v.byref(_p_v))
+                        _fg_pid_v = int(_p_v.value)
+                if _fg_pid_v in _cands:
+                    target_hwnd, target_pid, target_title = (
+                        _cands[_fg_pid_v][0], _fg_pid_v, _cands[_fg_pid_v][1])
+                elif target_pid not in _cands:
+                    _p_first = next(iter(_cands))
+                    target_hwnd, target_pid, target_title = (
+                        _cands[_p_first][0], _p_first, _cands[_p_first][1])
 
         # 3. Захват первого кадра и запуск FFmpeg для кодирования H.264 MP4 в высоком качестве
         from PIL import Image, ImageDraw, ImageGrab
