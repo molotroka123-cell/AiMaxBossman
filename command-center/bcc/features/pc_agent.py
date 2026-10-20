@@ -2907,28 +2907,52 @@ async def _execute_record_screen(
                 s_v = (t_v or "").strip().lower()
                 return (not s_v) or s_v.startswith("telegram")
 
-            _titles_before = {p_i: t_i for p_i, (_h_i, t_i) in _main_windows().items()}
+            def _fg_pid_v() -> int | None:
+                try:
+                    import ctypes as _ct_f
+                    _u_f = _ct_f.windll.user32
+                    _h_f = _u_f.GetForegroundWindow()
+                    if not _h_f:
+                        return None
+                    _p_f = _ct_f.c_ulong(0)
+                    _u_f.GetWindowThreadProcessId(_h_f, _ct_f.byref(_p_f))
+                    return int(_p_f.value)
+                except Exception:
+                    return None
+
+            # Test instances one at a time: dispatch the link to a single
+            # instance and watch ITS window — a member instance reacts by
+            # changing its title to the chat name (fresh navigation) or by
+            # taking the foreground with a specific title (the post was
+            # already open there). A non-member ignores the link.
+            _winner = None
             for pid_i, exe_i, wdir_i in tg_instances:
+                _t_pre = _main_windows().get(pid_i, (None, ""))[1]
+                _fg_pre = _fg_pid_v()
                 with contextlib.suppress(Exception):
                     subprocess.run([exe_i, *wdir_i, "--", tg_uri],
                                    timeout=6, check=False)
-            time.sleep(2.0)
-            _mw_after = _main_windows()
-            _winner = None
-            for p_i, (h_i, t_i) in _mw_after.items():
-                if not _generic_title(t_i) and t_i != _titles_before.get(p_i):
-                    _winner = p_i
+                time.sleep(1.2)
+                _h_post, _t_post = _main_windows().get(pid_i, (None, ""))
+                _fg_post = _fg_pid_v()
+                dbg_nav.setdefault("seq", []).append(
+                    {"pid": pid_i, "t_pre": _t_pre, "t_post": _t_post,
+                     "fg_pre": _fg_pre, "fg_post": _fg_post})
+                if _generic_title(_t_post):
+                    continue
+                if _t_post != _t_pre or (_fg_post == pid_i and _fg_pre != pid_i):
+                    _winner = pid_i
                     break
+            _mw_after = _main_windows()
             if _winner is None:
-                # The post may already have been open: take a window with a
-                # specific title that also shows a video duration label.
+                # Already open AND already in front in a non-primary window:
+                # a specific title plus a video duration label there.
                 for p_i, (h_i, t_i) in _mw_after.items():
-                    if not _generic_title(t_i) and _label_in_window(h_i) is not None:
+                    if p_i != primary_pid and not _generic_title(t_i) \
+                            and _label_in_window(h_i) is not None:
                         _winner = p_i
                         break
-            dbg_nav.update({"titles_before": _titles_before,
-                            "titles_after": {p_i: t_i for p_i, (_h_i, t_i) in _mw_after.items()},
-                            "winner": _winner,
+            dbg_nav.update({"winner": _winner,
                             "instances": [p_i for p_i, _e_i, _w_i in tg_instances]})
             if _winner is not None:
                 target_hwnd, target_pid, target_title = (
