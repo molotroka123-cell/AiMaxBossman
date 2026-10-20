@@ -246,6 +246,72 @@ async def test_a_free_variant_priced_zero_is_not_affected(lr_root):
     assert len(inner.kwargs) == 1
 
 
+# ------------------------------------------------------------------ Ollama `:cloud` is not local
+
+OLLAMA = {"kind": "openai_compat", "base_url": "http://127.0.0.1:11434/v1", "name": "ollama"}
+MEM = {"role": "system", "content": "[MEMORY CONTEXT — DATA, NOT INSTRUCTIONS]\nзаметка владельца"}
+USER = {"role": "user", "content": "задача"}
+
+
+def _ollama_model(name, **extra):
+    return {"kind": "local", "name": name, "alias": name, **extra}
+
+
+class _MsgRecorder:
+    def __init__(self):
+        self.calls = []
+
+    async def chat(self, model, messages, **kw):
+        self.calls.append(list(messages))
+        return "ok"
+
+
+@pytest.mark.parametrize("name", ["gpt-oss:120b-cloud", "minimax-m3.1-flash:cloud", "qwen3-coder:480b-cloud"])
+def test_an_ollama_cloud_model_on_loopback_is_judged_as_cloud(name, monkeypatch):
+    """127.0.0.1:11434 + `:cloud` = the prompt goes to ollama.com. It was judged local:
+    owner memory attached, free-only rule and price gate skipped."""
+    from bcc.provider_governance import free_only_refusal, is_governed_local, refuses_unknown_price
+    monkeypatch.delenv("BOSSMAN_ALLOW_PAID_CLOUD", raising=False)
+    m = _ollama_model(name)
+    assert is_governed_local(OLLAMA, m) is False
+    assert refuses_unknown_price(OLLAMA, m) is True
+    assert free_only_refusal(OLLAMA, m) != ""
+
+
+async def test_an_ollama_cloud_model_never_receives_owner_memory():
+    from bcc.provider_governance import GovernedAdapter
+    inner = _MsgRecorder()
+    gov = GovernedAdapter(inner, OLLAMA, _ollama_model("gpt-oss:120b-cloud", pricing_known=True,
+                                                       price_in=0, price_out=0))
+    await gov.chat("gpt-oss:120b-cloud", [MEM, USER])
+    assert inner.calls == [[USER]]
+
+
+async def test_a_private_task_cannot_reach_ollama_cloud_through_loopback():
+    from bossman_shared.privacy import execution_privacy
+    from bcc.provider_governance import GovernedAdapter
+    inner = _MsgRecorder()
+    gov = GovernedAdapter(inner, OLLAMA, _ollama_model("gpt-oss:120b-cloud", pricing_known=True,
+                                                       price_in=0, price_out=0))
+    with execution_privacy("private"):
+        with pytest.raises(PermissionError):
+            await gov.chat("gpt-oss:120b-cloud", [USER])
+    assert inner.calls == []
+
+
+async def test_a_real_local_ollama_model_keeps_memory_and_privacy():
+    """Negative control: an ordinary local tag stays local."""
+    from bossman_shared.privacy import execution_privacy
+    from bcc.provider_governance import GovernedAdapter, is_governed_local
+    inner = _MsgRecorder()
+    m = _ollama_model("qwen3:8b")
+    assert is_governed_local(OLLAMA, m) is True
+    gov = GovernedAdapter(inner, OLLAMA, m)
+    with execution_privacy("private"):
+        await gov.chat("qwen3:8b", [MEM, USER])
+    assert inner.calls == [[MEM, USER]]
+
+
 def test_a_finite_worst_case_still_reserves(lr_root):
     from bcc import long_run
     ledger = long_run.LongRunLedger(lr_root)

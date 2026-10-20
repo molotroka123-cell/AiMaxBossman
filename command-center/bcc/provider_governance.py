@@ -1,6 +1,7 @@
 """Check actual provider locality and price on EVERY inference, including fallback."""
 import math
 import os
+import re
 from contextvars import ContextVar
 from urllib.parse import urlsplit
 
@@ -56,8 +57,27 @@ _UNKNOWN_PRICE_WHY = {
 }
 
 
+#: Ollama's own marker for a model it does NOT run here: `gpt-oss:120b-cloud`,
+#: `minimax-m3.1-flash:cloud`. Same pattern as the ollama.chat plugin (features.plugins).
+_OLLAMA_CLOUD_TAG = re.compile(r"(?i)[:-]cloud\b")
+#: Where such a request really goes; used for the privacy egress check instead of 127.0.0.1.
+OLLAMA_CLOUD_EGRESS_URL = "https://ollama.com"
+
+
+def is_cloud_offload(provider: dict, model: dict) -> bool:
+    """A local Ollama endpoint serving a `:cloud`/`-cloud` model forwards the prompt to ollama.com.
+
+    The base_url is 127.0.0.1, but the data leaves the machine: for memory, privacy, price and
+    the free-only rule such a model is a CLOUD model. Erring this way is the safe direction."""
+    if not is_local_url(provider.get("base_url") or ""):
+        return False
+    return any(n and _OLLAMA_CLOUD_TAG.search(str(n)) for n in (model.get("name"), model.get("alias")))
+
+
 def is_governed_local(provider: dict, model: dict) -> bool:
     """Local for the price gate: this machine / the local network."""
+    if is_cloud_offload(provider, model):
+        return False
     base = provider.get("base_url") or ""
     local, _ = derive_local(model.get("kind", ""), provider["kind"], base)
     return local or (provider["kind"] == "anthropic" and is_local_url(base))
@@ -122,8 +142,9 @@ def free_only_refusal(provider: dict, model: dict) -> str:
     banned = banned_model_refusal(model)
     if banned:
         return banned                  # owner ban: local or cloud, paid opt-out or not
+    offload = is_cloud_offload(provider, model)
     if (not free_only_policy_active() or is_governed_local(provider, model)
-            or paid_fable_boundary(provider) or is_local_url(provider.get("base_url") or "")):
+            or paid_fable_boundary(provider) or (is_local_url(provider.get("base_url") or "") and not offload)):
         return ""
     # Owner-enabled long-run profile (bcc.long_run): exactly Mistral Large 4,
     # GLM 5.3 Flash and Haiku 5.5 on their own hosts pass THIS gate; the daily
@@ -172,13 +193,15 @@ class GovernedAdapter:
         banned = banned_model_refusal(m)
         if banned:
             raise ProviderError(banned, kind="budget")
-        assert_provider_egress(p["kind"], p.get("base_url") or "")
+        offload = is_cloud_offload(p, m)
+        # judge egress by where the prompt really goes: a `:cloud` model on local Ollama is ollama.com
+        assert_provider_egress(p["kind"], OLLAMA_CLOUD_EGRESS_URL if offload else (p.get("base_url") or ""))
         local = is_governed_local(p, m)
         # CappedAdapter has its own canonical tariff and rejects unknown models before dispatch.
         if not local and not isinstance(self.adapter, CappedAdapter) and not priced(m):
             raise ProviderError(unknown_price_message(m, self.catalog_state), kind="budget")
         # memory follows the actual destination: this machine / the local network
-        memory_local = local or is_local_url(p.get("base_url") or "")
+        memory_local = local or (is_local_url(p.get("base_url") or "") and not offload)
         if not memory_local and not memory_to_cloud_allowed.get():
             args, kwargs, removed = withhold_local_memory(args, kwargs)
             sink = memory_withheld.get()
