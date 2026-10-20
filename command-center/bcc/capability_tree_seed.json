@@ -23071,5 +23071,6 @@
     "authority": "reference_only",
     "promotion_rule": "Never infer PASS from code, filenames, branch names or model claims. Store SHA, environment, date, postcondition receipt and negative controls. Do not promote without independent verification.",
     "on_error": "Link failure to node; retain original status; add reproduction and candidate fix; re-run postcondition, regression, restart and isolation when applicable."
-  }
+  },
+  "baseline_sha": "5daa3a14"
 }
