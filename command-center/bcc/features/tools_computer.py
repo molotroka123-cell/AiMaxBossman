@@ -264,6 +264,38 @@ def _element_with_rect(c) -> dict[str, Any]:
     return item
 
 
+class StopSignal(threading.Event):
+    """«Стоп» для потока ввода: `is_set()` читает ещё и файл STOP — без кэша.
+
+    Адаптер проверяет прерывание между порциями набора через `is_set()`. Обычный
+    `threading.Event` видел только «Стоп», нажатый в ЭТОМ процессе: файл STOP,
+    записанный другим процессом (второй backend, CLI владельца, пульт), до
+    следующего `stopped()` не замечался, и набор шёл до конца. Теперь каждая
+    проверка смотрит на диск; найденный файл взводит флаг, чтобы дальнейшие
+    проверки были дешёвыми.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.path_of = lambda: None
+
+    def is_set(self) -> bool:
+        if super().is_set():
+            return True
+        path = self.path_of()
+        if path is not None:
+            try:
+                present = os.path.exists(path)
+            except Exception:  # noqa: BLE001 — сломанный путь не повод печатать
+                present = False
+            if present:
+                super().set()
+                return True
+        return False
+
+    isSet = is_set
+
+
 @dataclass
 class ComputerState:
     # Поколение уникально для ПРОЦЕССА: после перезапуска backend числа не
@@ -271,7 +303,7 @@ class ComputerState:
     generation: int = field(default_factory=lambda: int(time.time()) * 1000)
     session: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     last: dict[str, Any] = field(default_factory=dict)
-    stop: threading.Event = field(default_factory=threading.Event)
+    stop: threading.Event = field(default_factory=StopSignal)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     desktop: Any = None
     shots: Any = None
@@ -300,6 +332,10 @@ class ComputerState:
     step_log: list[dict[str, Any]] = field(default_factory=list)
     takeover_active: bool = False
     takeover_reason: str = ""
+
+    def __post_init__(self) -> None:
+        if isinstance(self.stop, StopSignal):
+            self.stop.path_of = lambda: self.stop_path
 
     def record_step(self, phase: str, **details: Any) -> dict[str, Any]:
         entry = {"seq": len(self.step_log) + 1, "phase": phase, "at": time.time(),
@@ -414,12 +450,14 @@ class ComputerState:
 
     def clear_stop(self) -> None:
         self.stop_epoch += 1
-        self.stop.clear()
+        # Сначала файл, потом флаг: StopSignal читает файл и иначе тут же
+        # взвёл бы флаг обратно.
         if self.stop_path is not None:
             try:
                 self.stop_path.unlink(missing_ok=True)
             except OSError:
                 pass
+        self.stop.clear()
         # «Продолжить» ≠ «доиграть очередь»: всё, что планировалось по экрану
         # до «Стоп», обесценивается — модель обязана перечитать экран. Это
         # касается и уже одобренных, но не исполненных действий.
