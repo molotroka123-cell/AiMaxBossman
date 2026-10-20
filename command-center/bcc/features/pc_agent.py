@@ -2826,38 +2826,47 @@ async def _execute_record_screen(
                 except Exception:
                     return None
 
+            def _norm_title(t_v: str) -> str:
+                # Telegram titles look like "<chat> – (1263554)": the number
+                # is a live counter that ticks on its own — strip it before
+                # comparing, or every busy channel looks like a navigation.
+                return re.sub(r"\s*[–—-]?\s*\(\d+\)\s*$", "", (t_v or "").strip())
+
             # Test instances one at a time: dispatch the link to a single
-            # instance and watch ITS window — a member instance reacts by
-            # changing its title to the chat name (fresh navigation) or by
-            # taking the foreground with a specific title (the post was
-            # already open there). A non-member ignores the link.
+            # instance and watch ITS window title — a member instance reacts
+            # by changing its (normalized) title to the chat name. A
+            # non-member ignores the link; note it may still raise its
+            # window, so foreground takeover is NOT a membership signal.
+            _fg0 = _fg_pid_v()
             _winner = None
             for pid_i, exe_i, wdir_i in tg_instances:
                 _t_pre = _main_windows().get(pid_i, (None, ""))[1]
-                _fg_pre = _fg_pid_v()
                 with contextlib.suppress(Exception):
                     subprocess.run([exe_i, *wdir_i, "--", tg_uri],
                                    timeout=6, check=False)
                 time.sleep(1.2)
                 _h_post, _t_post = _main_windows().get(pid_i, (None, ""))
-                _fg_post = _fg_pid_v()
                 dbg_nav.setdefault("seq", []).append(
-                    {"pid": pid_i, "t_pre": _t_pre, "t_post": _t_post,
-                     "fg_pre": _fg_pre, "fg_post": _fg_post})
+                    {"pid": pid_i, "t_pre": _t_pre, "t_post": _t_post})
                 if _generic_title(_t_post):
                     continue
-                if _t_post != _t_pre or (_fg_post == pid_i and _fg_pre != pid_i):
+                if _norm_title(_t_post) != _norm_title(_t_pre):
                     _winner = pid_i
                     break
             _mw_after = _main_windows()
+            if _winner is None and _fg0 in _mw_after:
+                # The post was already open: the window the owner left in
+                # front, showing a specific chat with a video duration label.
+                _h_0, _t_0 = _mw_after[_fg0]
+                if not _generic_title(_t_0) and _label_in_window(_h_0) is not None:
+                    _winner = _fg0
             if _winner is None:
-                # Already open AND already in front in a non-primary window:
-                # a specific title plus a video duration label there.
                 for p_i, (h_i, t_i) in _mw_after.items():
                     if p_i != primary_pid and not _generic_title(t_i) \
                             and _label_in_window(h_i) is not None:
                         _winner = p_i
                         break
+            dbg_nav.update({"fg0": _fg0})
             dbg_nav.update({"winner": _winner,
                             "instances": [p_i for p_i, _e_i, _w_i in tg_instances]})
             if _winner is not None:
