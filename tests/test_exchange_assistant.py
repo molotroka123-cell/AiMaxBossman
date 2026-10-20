@@ -677,3 +677,60 @@ def test_claude_audit_p1_items_5_to_11(assistant, tmp_path):
         assert d_legacy["crm_status"] == "cancelled"
     finally:
         migrated_store.close()
+
+
+@pytest.mark.parametrize("pct", ["10", "3.5"])
+def test_round_margin_is_shown_as_plain_percent_not_scientific(assistant, pct):
+    """Decimal('10.0').normalize() is Decimal('1E+1'): the owner must read «наценка 10%», never «1E+1%»."""
+    from bossman_shared.exchange_assistant import render_branded_document
+    from bossman_shared.exchange_assistant.quote import render_pdf_document
+    assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+    out = assistant.handle(f"500 usdt в czk при {pct}%", "owner")
+    assert f"наценка {pct}%" in out
+    assert "E+" not in out
+    q = assistant.store.quote_object(_qid(out))
+    assert f"{pct}%" in render_branded_document(q) and "E+" not in render_branded_document(q)
+    assert f"{pct}%".encode() in render_pdf_document(q) and b"E+" not in render_pdf_document(q)
+
+
+@pytest.mark.parametrize("pct", ["20", "40"])
+def test_soft_limit_refusal_names_round_margin_plainly(assistant, pct):
+    """The >10% soft-limit question must say «ставка 20%», not «ставка 2E+1%»; confirmed it quotes «наценка 20%»."""
+    assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+    refused = assistant.handle(f"500 usdt в czk при {pct}%", "owner")
+    assert f"ставка {pct}% превышает мягкий лимит" in refused and "E+" not in refused
+    ok = assistant.handle(f"500 usdt в czk при {pct}% подтверждаю ставку", "owner")
+    assert f"наценка {pct}%" in ok and "E+" not in ok
+
+
+def test_today_dashboard_is_the_prague_day_not_the_utc_day(assistant):
+    """At 00:30 Prague (22:30 UTC) «итоги сегодня» is the new Prague day: a deal at 23:30 Prague yesterday is out."""
+    clock = assistant.clock_ref
+    for t in (datetime(2026, 10, 19, 21, 30, tzinfo=timezone.utc),     # 23:30 Prague, 19.10
+              datetime(2026, 10, 19, 22, 10, tzinfo=timezone.utc)):    # 00:10 Prague, 20.10
+        clock["now"] = t
+        assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+        qid = _qid(assistant.handle("100 usdt в czk при 3%", "owner"))
+        assert "Сделка записана" in assistant.handle(f"обмен выполнен {qid} приняли 100 выдали 2093,10", "owner")
+    clock["now"] = datetime(2026, 10, 19, 22, 30, tzinfo=timezone.utc)
+    out = assistant.handle("итоги сегодня", "owner")
+    assert "Итоги: 20.10.2026 — 20.10.2026" in out
+    assert "Сделок: 1 " in out
+
+
+def test_restore_is_a_write_and_obeys_stop(assistant, tmp_path):
+    """Restoring replaces the whole book: under STOP it must be refused and leave the live book untouched."""
+    assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
+    copy = assistant.store.backup(tmp_path / "bk" / "empty-of-deals.db")
+    qid = _qid(assistant.handle("100 usdt в czk при 3%", "owner"))
+    assistant.handle(f"обмен выполнен {qid} приняли 100 выдали 2093,10", "owner")
+    assistant.stop_file.write_text("stop", encoding="utf-8")
+    try:
+        with pytest.raises(StoreError, match="СТОП"):
+            assistant.store.restore(copy)
+        assert len(assistant.store.deals()) == 1
+        assert not assistant.store.path.with_suffix(".before-restore.db").exists()
+    finally:
+        assistant.stop_file.unlink(missing_ok=True)
+    assistant.store.restore(copy)
+    assert assistant.store.deals() == []

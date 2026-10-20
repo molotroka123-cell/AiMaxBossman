@@ -155,9 +155,17 @@ def overall(gates: list[dict]) -> str:
     return "BLOCKED" if "BLOCKED" in st else "REVIEW_REQUIRED" if "REVIEW_REQUIRED" in st else "PASS"
 
 
+# legal forms and filler words: they never decide whether two names are the same party
+_NAME_STOP = frozenset({"ltd", "llc", "inc", "gmbh", "sro", "as", "the", "of", "co", "company",
+                        "oao", "ooo", "zao", "pao", "ao", "jsc", "pjsc", "ojsc", "cjsc", "plc",
+                        "ооо", "оао", "зао", "пао", "ао"})
+
+
 def _norm(s: str) -> set[str]:
-    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower()
-    return {t for t in re.split(r"[^a-z0-9]+", s) if len(t) > 1 and t not in ("ltd", "llc", "inc", "gmbh", "sro", "as", "the", "of", "co", "company")}
+    """Name tokens for screening: accents stripped (město -> mesto) but non-Latin letters KEPT, so a Cyrillic
+    or Greek name is screened against same-script list entries instead of folding to an empty set (= PASS)."""
+    s = "".join(ch for ch in unicodedata.normalize("NFKD", s or "") if not unicodedata.combining(ch)).casefold()
+    return {t for t in re.split(r"[\W_]+", s) if len(t) > 1 and t not in _NAME_STOP}
 
 
 class SanctionsIndex:
@@ -184,14 +192,16 @@ class SanctionsIndex:
 
 
 def screen_party(name: str, sanctions) -> dict | None:
-    """Token overlap against a sanctions list. exact=all tokens of the entry match (BLOCK); partial >=0.6 => human review."""
+    """Token overlap against a sanctions list. exact = same token set (BLOCK); a name that CONTAINS every token
+    of a list entry (e.g. «Rosoboronexport Moscow Branch») or a Jaccard overlap >= 0.6 => human review."""
     a = _norm(name)
     best = None
     pairs = sanctions.candidates(a) if isinstance(sanctions, SanctionsIndex) else ((e, _norm(e)) for e in sanctions)
     for entry, b in pairs:
         if not a or not b:
             continue
-        j = len(a & b) / len(a | b)
-        if best is None or j > best["score"]:
-            best = {"entry": entry, "score": j, "exact": a == b}
+        exact = a == b
+        score = 1.0 if b <= a else len(a & b) / len(a | b)
+        if best is None or (exact, score) > (best["exact"], best["score"]):
+            best = {"entry": entry, "score": score, "exact": exact}
     return best if best and best["score"] >= 0.6 else None

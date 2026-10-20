@@ -29,6 +29,11 @@ class ExamEngine:
     def questions(self,exam_id):
         return [x["value"] for x in self.s.kv_list("questions") if x["value"]["exam_id"]==exam_id]
 
+    @staticmethod
+    def without_answer_key(q):
+        """A question as a learner may see it: answers are checked server-side (submit_answer), never shipped."""
+        return {k:v for k,v in q.items() if k not in ("answer","explanation")}
+
     def diagnostic(self,exam_id,answers):
         qs={q["id"]:q for q in self.questions(exam_id)}; by=defaultdict(lambda:[0,0]); correct=0
         for qid,ans in answers.items():
@@ -58,9 +63,10 @@ class ExamEngine:
         # Produce safe variants only for simple numeric questions, otherwise reuse as practice.
         out=[]
         for q in selected:
-            item=dict(q); item["variant_of"]=q["id"]
+            item=self.without_answer_key(q); item["variant_of"]=q["id"]
             out.append(item)
-        return {"questions":out,"note":"Variants engine intentionally does not copy leaked/access-controlled exam content."}
+        return {"questions":out,"answer_key_hidden":True,
+                "note":"Variants engine intentionally does not copy leaked/access-controlled exam content."}
 
     def readiness(self,exam_id,mastery):
         exam=self.s.kv_get("exams",exam_id)
@@ -97,7 +103,7 @@ class ExamEngine:
     def mock_exam(self,exam_id,count=20):
         qs=self.questions(exam_id)
         random.Random(exam_id+str(count)).shuffle(qs)
-        return {"exam_id":exam_id,"questions":[{k:v for k,v in q.items() if k not in ("answer","explanation")} for q in qs[:count]],
+        return {"exam_id":exam_id,"questions":[self.without_answer_key(q) for q in qs[:count]],
                 "answer_key_hidden":True}
 
     def usage_minutes(self,learner_id):

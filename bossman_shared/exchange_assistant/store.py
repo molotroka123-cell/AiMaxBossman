@@ -500,7 +500,11 @@ class Store:
 
     @_locked
     def restore(self, source: str | Path) -> None:
-        """Replace the live book with a verified copy; the current book is saved next to it first."""
+        """Replace the live book with a verified copy; the current book is saved next to it first.
+
+        Restoring rewrites the whole book, so it is a write: refused under STOP like every other write.
+        """
+        self._check_stop()
         Store.verify(source)
         self.backup(self.path.with_suffix(".before-restore.db"))
         src = sqlite3.connect(f"file:{Path(source).as_posix()}?mode=ro", uri=True)

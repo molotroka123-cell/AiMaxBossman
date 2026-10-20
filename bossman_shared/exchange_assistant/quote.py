@@ -26,6 +26,11 @@ class QuoteError(Exception):
     pass
 
 
+def margin_pct(margin: Decimal) -> str:
+    """Margin as a plain percent string: 0.10 -> '10', 0.035 -> '3.5' (never scientific '1E+1')."""
+    return f"{(margin * 100).normalize():f}"
+
+
 @dataclass(frozen=True, slots=True)
 class Quote:
     id: str
@@ -45,7 +50,7 @@ class Quote:
     manager_margin_decision: str = "default"  # "explicit" when manager specified margin, else "default"
 
     def text(self) -> str:
-        pct = (self.margin * 100).normalize()
+        pct = margin_pct(self.margin)
         dir_label = "Покупка клиентом" if self.direction == "BUY" else "Продажа клиентом"
         return "\n".join([
             f"Котировка {self.id} ({dir_label})",
@@ -135,7 +140,7 @@ def build_quote(book: RateBook, *, give_ccy: str, get_ccy: str, now: datetime, g
     if not margin.is_finite() or not (Decimal(0) <= margin < Decimal("0.5")):
         raise QuoteError("наценка вне 0–50%")
     if margin > SOFT_MARGIN_LIMIT and not confirm_high_margin:
-        pct_str = (margin * 100).normalize()
+        pct_str = margin_pct(margin)
         raise QuoteError(
             f"ставка {pct_str}% превышает мягкий лимит 10% — подтвердите высокую наценку "
             f"(добавьте «подтверждаю ставку» или укажите ставку до 10%)"
@@ -204,7 +209,7 @@ def render_branded_document(q: Quote, *, deal: dict | None = None) -> str:
     doc_id = esc(f"D-{deal['id']} (по {q.id})" if deal else q.id)
     status_raw = "CANCELLED / VOID" if is_cancelled else (str(deal.get("crm_status") or deal.get("status") or "settled").upper() if deal else "QUOTED")
     status_label = esc(status_raw)
-    pct = esc(f"{(q.margin * 100).normalize():f}%")
+    pct = esc(f"{margin_pct(q.margin)}%")
     give_str = esc(f"{_fmt_spaced(q.give_amount)} {q.give_ccy}")
     get_str = esc(f"{_fmt_spaced(q.get_amount)} {q.get_ccy}")
     ts_str = esc(q.created_at.strftime("%d.%m.%Y %H:%M UTC"))
@@ -291,7 +296,7 @@ def render_pdf_document(q: Quote, *, deal: dict | None = None) -> bytes:
     status_label = "CANCELLED / VOID (ОТМЕНЕНА)" if is_cancelled else (
         str(deal.get("crm_status") or deal.get("status") or "settled").upper() if deal else "QUOTED"
     )
-    pct = f"{(q.margin * 100).normalize():f}%"
+    pct = f"{margin_pct(q.margin)}%"
     raw_in = deal.get("leg_in_actual") if deal else None
     raw_out = deal.get("leg_out_actual") if deal else None
     in_amt = Decimal(str(raw_in)) if raw_in and str(raw_in) != "unknown" else q.give_amount

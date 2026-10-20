@@ -74,13 +74,24 @@ def ccy(word: str) -> str:
     raise QuoteError(f"не знаю валюту «{word}» (есть: {', '.join(CURRENCIES)})")
 
 
-def business_month(now: datetime) -> tuple[datetime, datetime]:
-    """Owner's business month: 21st of one month to 20th of the next, inclusive (Europe/Prague)."""
+def desk_tz():
+    """The desk's local time zone (Europe/Prague); UTC only when no tz database is installed."""
     try:
         from zoneinfo import ZoneInfo
-        tz = ZoneInfo("Europe/Prague")
+        return ZoneInfo("Europe/Prague")
     except Exception:  # noqa: BLE001 - no tz database: fall back to UTC
-        tz = timezone.utc
+        return timezone.utc
+
+
+def desk_day_start(now: datetime) -> datetime:
+    """Local midnight of the desk's current day (so «сегодня» at 00:30 Prague is the new Prague day)."""
+    local = now.astimezone(desk_tz())
+    return local.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def business_month(now: datetime) -> tuple[datetime, datetime]:
+    """Owner's business month: 21st of one month to 20th of the next, inclusive (Europe/Prague)."""
+    tz = desk_tz()
     local = now.astimezone(tz)
     y, m = local.year, local.month
     if local.day < 21:
@@ -275,7 +286,7 @@ class Assistant:
 
     def _dashboard(self, period: str, now: datetime) -> str:
         if period == "сегодня":
-            start, end = now.replace(hour=0, minute=0, second=0), now + timedelta(seconds=1)
+            start, end = desk_day_start(now), now + timedelta(seconds=1)
         elif period == "неделя":
             start, end = now - timedelta(days=7), now + timedelta(seconds=1)
         else:
@@ -283,7 +294,8 @@ class Assistant:
         d = self.store.dashboard(start, end)
         pos = ", ".join(f"{k} {'+' if v >= 0 else ''}{v}" for k, v in d["position_change"].items()) or "—"
         return "\n".join([
-            f"Итоги: {start.strftime('%d.%m.%Y')} — {(end - timedelta(seconds=1)).strftime('%d.%m.%Y')}",
+            f"Итоги: {start.astimezone(desk_tz()).strftime('%d.%m.%Y')} — "
+            f"{(end - timedelta(seconds=1)).astimezone(desk_tz()).strftime('%d.%m.%Y')}",
             f"Сделок: {d['deals']} (отменено: {d['reversed']})",
             f"Оборот по USDT-ноге: {d['turnover_usdt']} USDT"
             + (f" (ещё {d['deals_without_usdt_leg']} сделок без USDT в оборот не вошли)" if d["deals_without_usdt_leg"] else ""),

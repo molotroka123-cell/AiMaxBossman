@@ -1,7 +1,22 @@
 
 from __future__ import annotations
 import uuid
+import math
 from datetime import date, timedelta
+
+
+def _money(value, name: str) -> float:
+    """A price component: a finite number >= 0 (NaN/Infinity/text/negative raise ValueError)."""
+    if isinstance(value, bool):
+        raise ValueError(f"{name}: not a price ({value!r})")
+    try:
+        x = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name}: not a number ({value!r})") from None
+    if not math.isfinite(x) or x < 0:
+        raise ValueError(f"{name}: must be a finite amount >= 0 ({value!r})")
+    return x
+
 
 class TravelEngine:
     def __init__(self,store):self.s=store
@@ -10,7 +25,8 @@ class TravelEngine:
     def add_offer(self,trip_id,offer):
         self.s.kv_get("trips",trip_id)
         oid=str(uuid.uuid4()); fees=offer.get("fees",{})
-        base=float(offer.get("base_price",0)); extras=sum(float(v or 0) for v in fees.values())
+        base=_money(offer.get("base_price",0),"base_price")
+        extras=sum(_money(v or 0,f"fees.{k}") for k,v in fees.items())
         item={"id":oid,"trip_id":trip_id,**offer,"true_price":round(base+extras,2)}
         self.s.kv_put("offers",oid,item);return item
     def offers(self,trip_id):

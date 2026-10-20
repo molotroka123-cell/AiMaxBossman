@@ -5,12 +5,63 @@ from datetime import date
 from typing import Any
 import hashlib
 import math
+import re
 
 INCOME_CATS = {"sales","revenue","services","interest","other_income"}
 
 def tx_id(tx: dict) -> str:
     raw = "|".join(str(tx.get(k,"")) for k in ("date","amount","currency","description","counterparty"))
     return hashlib.sha256(raw.encode()).hexdigest()[:24]
+
+
+def parse_amount(value: Any) -> float | None:
+    """Amount from a bank export: 1234.56, «1,234.56», «1.234,56», «1 234,56», «12,5». None if unusable.
+
+    With both separators the last one is the decimal point; a single separator repeated is a thousands
+    separator; one comma alone is the Czech decimal comma. NaN/Infinity are unusable (they 500 every report).
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        x = float(value)
+    else:
+        s = re.sub(r"[\s  ']", "", str(value))
+        if not s:
+            return None
+        if "," in s and "." in s:
+            dec, thou = (",", ".") if s.rfind(",") > s.rfind(".") else (".", ",")
+            s = s.replace(thou, "").replace(dec, ".")
+        elif "," in s:
+            s = s.replace(",", "") if s.count(",") > 1 else s.replace(",", ".")
+        elif s.count(".") > 1:
+            s = s.replace(".", "")
+        try:
+            x = float(s)
+        except ValueError:
+            return None
+    return x if math.isfinite(x) else None
+
+
+_ISO_DAY = re.compile(r"^(\d{4})-(\d{2})-(\d{2})(?:$|[T ])")
+_CZ_DAY = re.compile(r"^(\d{1,2})\.\s?(\d{1,2})\.\s?(\d{4})(?:$|\s)")
+
+
+def parse_day(value: Any) -> str | None:
+    """Booking day as ISO YYYY-MM-DD from «2026-08-31», «2026-08-31T23:00:00+02:00», «31.08.2026 14:30»."""
+    s = str(value or "").strip()
+    m = _ISO_DAY.match(s)
+    if m:
+        y, mo, d = m.groups()
+    else:
+        m = _CZ_DAY.match(s)
+        if not m:
+            return None
+        d, mo, y = m.groups()
+    try:
+        return date(int(y), int(mo), int(d)).isoformat()
+    except ValueError:
+        return None
+
 
 class AccountantEngine:
     def __init__(self, store):
@@ -19,18 +70,20 @@ class AccountantEngine:
     def import_transactions(self, rows: list[dict]):
         added=0; duplicates=0; rejected=0
         for row in rows:
-            amount = float(row["amount"])
-            if not math.isfinite(amount):
-                # NaN/inf cannot be summed or serialised; one such row would 500 every report.
+            amount = parse_amount(row.get("amount"))
+            day = parse_day(row.get("date"))
+            if amount is None or day is None:
+                # NaN/inf/text amounts cannot be summed or serialised; a non-ISO or timestamped date would fall
+                # out of every period filter. Such rows are counted, never stored.
                 rejected += 1
                 continue
             item = {
-                "id": row.get("id") or tx_id(row),
-                "date": row["date"], "amount": amount,
+                "id": row.get("id") or tx_id({**row, "date": day}),
+                "date": day, "amount": amount,
                 "currency": row.get("currency","CZK"),
                 "description": row.get("description",""),
                 "counterparty": row.get("counterparty",""),
-                "category": row.get("category") or self.auto_category(row),
+                "category": row.get("category") or self.auto_category({**row, "amount": amount}),
                 "document_id": row.get("document_id"),
             }
             try: self.s.kv_get("transactions", item["id"]); duplicates += 1
@@ -60,7 +113,7 @@ class AccountantEngine:
         for t in txs: bycat[t["category"]]+=t["amount"]
         return {"start":start,"end":end,"income":round(income,2),"expenses":round(expenses,2),
                 "profit":round(income-expenses,2),"margin_pct":round((income-expenses)/income*100,2) if income else None,
-                "by_category":dict(sorted(bycat.items()))}
+                "by_category":{k:round(v,2) for k,v in sorted(bycat.items())}}
 
     def cashflow(self):
         months=defaultdict(float)
@@ -109,15 +162,12 @@ class AccountantEngine:
         reader=csv.DictReader(io.StringIO(text), delimiter=delimiter)
         rows=[]
         for r in reader:
-            # tolerant aliases
+            # tolerant aliases; amount/date are parsed (and bad rows counted) in import_transactions
             amount=r.get("amount") or r.get("Amount") or r.get("částka") or r.get("castka")
             dt=r.get("date") or r.get("Date") or r.get("datum")
-            if amount is None or dt is None: 
-                continue
-            try: amount=float(str(amount).replace(" ","").replace(",","."))
-            except ValueError: continue
+            parsed=parse_amount(amount)
             rows.append({
-                "date":str(dt)[:10], "amount":amount,
+                "date":dt, "amount":parsed if parsed is not None else amount,
                 "currency":r.get("currency") or r.get("Currency") or "CZK",
                 "description":r.get("description") or r.get("Description") or r.get("message") or "",
                 "counterparty":r.get("counterparty") or r.get("Counterparty") or r.get("name") or ""
