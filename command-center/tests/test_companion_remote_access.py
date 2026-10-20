@@ -95,13 +95,14 @@ def test_stop_blocks_launch_and_reboot_but_not_status(tmp_path, monkeypatch):
 
 
 # ------------------------------------------------------------------ remote control
-def test_remote_starts_the_launcher_once_with_the_configured_mode(tmp_path, monkeypatch):
+def test_remote_starts_the_launcher_once_never_with_skip_permissions(tmp_path, monkeypatch):
+    # The config's ceiling is bypassPermissions (fixture); A22-04: a pult-started agent never gets it by config.
     c = companion(tmp_path, monkeypatch)
     reply = run(c.remote_command(OWNER, "/remote", "", msg("/remote")))
-    assert "Запускаю Remote Control" in reply and "bypassPermissions" in reply
+    assert "Запускаю Remote Control" in reply and "bypassPermissions" not in reply and "(режим default)" in reply
     args, cwd = c.spawned[0]
     assert args[:2] == ["powershell", "-NoProfile"] and "-Once" in args
-    assert args[args.index("-PermissionMode") + 1] == "bypassPermissions"
+    assert args[args.index("-PermissionMode") + 1] == "default" and "bypassPermissions" not in args
     assert args[args.index("-Name") + 1] == "Bossman-Owner-PC" and cwd == str(tmp_path)
     assert c.store.get("remote_launch")["pid"] == 4242
 
@@ -235,7 +236,12 @@ def test_owner_phrases_map_to_commands(text, command, arg):
 
 def test_plan_mode_is_not_accepted_by_the_starter_and_falls_back_to_default():
     assert RemoteAccessMixin.remote_mode(SimpleNamespace(claude_permission_mode="plan")) == "default"
-    assert RemoteAccessMixin.remote_mode(SimpleNamespace(claude_permission_mode="bypassPermissions")) == "bypassPermissions"
+    assert RemoteAccessMixin.remote_mode(SimpleNamespace(claude_permission_mode="acceptEdits")) == "acceptEdits"
+
+
+@pytest.mark.parametrize("mode", ["bypassPermissions", "BypassPermissions", "dontAsk", "auto", ""])
+def test_skip_permissions_from_config_never_reaches_remote_control(mode):
+    assert RemoteAccessMixin.remote_mode(SimpleNamespace(claude_permission_mode=mode)) == "default"
 
 
 def test_unrelated_text_is_not_a_phrase():

@@ -56,6 +56,9 @@ IS_WINDOWS = os.name == "nt"
 SESSION_NAME = "Bossman-Owner-PC"
 CHATGPT_APP_ID = "OpenAI.Codex_2p2nqsd0c76g0!App"
 STARTER_MODES = ("default", "acceptEdits", "bypassPermissions")   # ValidateSet of start_claude_remote.ps1
+# What /remote may actually start (A22-04 / A18 §5.2): the configured bypassPermissions is only a ceiling for a
+# per-call, one-time owner approval (agent_bridge); a Remote Control session started from the pult never gets it.
+PULT_REMOTE_MODES = ("default", "acceptEdits")
 
 
 def remote_dir() -> Path:
@@ -191,9 +194,10 @@ class RemoteAccessMixin:
     # ------------------------------------------------------------ remote control
     @staticmethod
     def remote_mode(current) -> str:
-        """The owner's Claude permission mode (claude_permission_mode) when the starter accepts it."""
+        """The owner's Claude permission mode (claude_permission_mode) when it is an asking mode the starter
+        accepts; skip-permissions (and anything unknown) starts in "default"."""
         mode = getattr(current, "claude_permission_mode", "default")
-        return mode if mode in STARTER_MODES else "default"
+        return mode if mode in PULT_REMOTE_MODES and mode in STARTER_MODES else "default"
 
     def remote_start(self, current) -> str:
         name = SESSION_NAME
