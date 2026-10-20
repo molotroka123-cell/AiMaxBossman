@@ -127,7 +127,8 @@
     $('login').hidden = true; $('app').hidden = false;
     loadAgents(); loadThreads(); refreshApprovals();
     const tid = store.get('thread'); if (tid) openThread(tid);
-    setInterval(refreshApprovals, 20000);
+    // once per page: start() runs again after every re-login (expired session) and used to stack another 20 s poller
+    if (!approvalsTimer) approvalsTimer = setInterval(refreshApprovals, 20000);
     refreshStop(); if (!stopTimer) stopTimer = setInterval(refreshStop, 30000);
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' }).catch(() => {});
   }
@@ -836,7 +837,10 @@
   }
 
   /* ================= одобрения (значок на вкладке «Панель») ================= */
+  let approvalsTimer = 0;
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('app').hidden) refreshApprovals(); });
   async function refreshApprovals() {
+    if (document.hidden || $('app').hidden) return;             // no polling from a phone in the pocket / on the login screen
     try { const r = await api('GET', '/approvals'); const n = (r.items || []).length; const bd = $('badge-approvals'); bd.hidden = !n; bd.textContent = n; } catch { /* */ }
   }
 
@@ -1231,7 +1235,7 @@
   // С шагами (steps): реальный процент (не выше 99) и «осталось» только из темпа, измеренного на ЭТОЙ задаче.
   const fmtElapsed = (s) => { s = Math.max(0, Math.floor(s || 0)); return s < 60 ? `${s} с` : `${Math.floor(s / 60)} мин`; };
   function liveElapsed(sec) { const e = el('span', 'live-elapsed', fmtElapsed(sec)); e.dataset.base = String(sec || 0); e.dataset.at = String(Date.now()); return e; }
-  setInterval(() => { document.querySelectorAll('.live-elapsed').forEach((e) => { e.textContent = fmtElapsed(Number(e.dataset.base) + (Date.now() - Number(e.dataset.at)) / 1000); }); }, 1000);
+  setInterval(() => { if (document.hidden) return; document.querySelectorAll('.live-elapsed').forEach((e) => { e.textContent = fmtElapsed(Number(e.dataset.base) + (Date.now() - Number(e.dataset.at)) / 1000); }); }, 1000);
   function renderRunning(j, u, card, stats, unitDefault) {
     const loading = u.indeterminate || (!u.real && (j.stage || j.status) === 'loading');
     const bar = el('div', loading ? 'bar indet' : 'bar'); const i = el('i'); bar.appendChild(i); card.appendChild(bar);
