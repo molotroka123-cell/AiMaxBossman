@@ -231,3 +231,35 @@ async def test_health_live_answers_within_a_second_during_slow_lab_creation(stac
     assert worst < 1.0, worst
     rec = await starter
     await qo._JOBS[rec["id"]]
+
+
+# ---------------------------------------------------------------- derived ctx tags never alias another model
+async def test_ctx_variant_of_another_tag_is_not_reused():
+    """qwen3:8b and qwen3:14b at 64k must get two derived tags; reusing the 8b one for 14b is a silent model
+    swap. A ':latest' base keeps its historical name (tags already on the owner host stay valid)."""
+    import httpx
+
+    existing = ["qwen3-ctx64k:latest", "bossman-community-qwen-uncensored-ctx64k:latest"]
+    created: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": [{"name": n} for n in existing]})
+        if request.url.path == "/api/create":
+            body = json.loads(request.content)
+            created.append(body)
+            existing.append(body["model"])
+            return httpx.Response(200, json={"status": "success"})
+        return httpx.Response(404)
+
+    t = httpx.MockTransport(handler)
+    big = await qo.ensure_ctx_variant("qwen3:14b", 65536, transport=t)
+    assert big["ok"] and big["created"] and big["tag"] != "qwen3-ctx64k:latest"
+    assert created == [{"model": big["tag"], "from": "qwen3:14b", "stream": False,
+                        "parameters": {"num_ctx": 65536}}]
+    small = await qo.ensure_ctx_variant("qwen3:8b", 65536, transport=t)
+    assert small["tag"] not in (big["tag"], "qwen3-ctx64k:latest") and small["created"]
+    same = await qo.ensure_ctx_variant("bossman-community-qwen-uncensored:latest", 65536, transport=t)
+    assert same == {"ok": True, "tag": "bossman-community-qwen-uncensored-ctx64k:latest", "created": False}
+    odd = await qo.ensure_ctx_variant("qwen3:14b", 65536 + 512, transport=t)
+    assert odd["tag"] != big["tag"]
