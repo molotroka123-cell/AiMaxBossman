@@ -160,6 +160,7 @@ def timing_for(model_id: str, history: dict[str, dict] | None = None) -> dict[st
 # ------------------------------------------------- live stage/ETA parsed from the engine output (Bossman 20.10)
 STAGE_RU = {"load": "загрузка модели", "encode": "разбор промпта", "sample": "генерация",
             "decode": "сборка кадров (VAE)", "save": "сохранение", "verify": "проверка файла"}
+FACELOCK_PHASE = "FaceLock: лицо со стартовой картинки"     # Bossman's post-process stage, not an engine stage
 ETA_LABEL = {"tqdm": "осталось — по счётчику движка", "engine_estimate": "осталось — оценка движка",
              "s_per_it": "осталось — по темпу шагов", "timings_median": "осталось — по замерам прошлых запусков",
              "decode_tiles": "осталось — по тайлам VAE", "done": "движок закончил"}
@@ -182,6 +183,12 @@ def detail_view(d: dict, elapsed: float, total: float, measured: bool) -> dict[s
         label += ", без сборки кадров"
     pct = d.get("pct")
     pct = min(float(pct), 99.0) if isinstance(pct, (int, float)) and not isinstance(pct, bool) else 0.0
+    if stage == "facelock":                     # Bossman's FaceLock worker counts the frames it has done
+        frame, frames = d.get("frame"), d.get("frames")
+        ok = isinstance(frame, int) and isinstance(frames, int) and frames > 0
+        return {"percent": pct, "real": True, "step": frame if ok else None, "steps": frames if ok else None,
+                "unit": "кадр", "phase": FACELOCK_PHASE, "remaining_s": None, "elapsed_s": elapsed,
+                "label": "кадры — по счётчику FaceLock", "eta_source": None, "eta_scope": None}
     step, steps = d.get("step"), d.get("steps") or d.get("total")
     with_steps = stage == "sample" and isinstance(step, int) and isinstance(steps, int) and steps > 0
     return {"percent": pct, "real": True, "step": step if with_steps else None, "steps": steps if with_steps else None,

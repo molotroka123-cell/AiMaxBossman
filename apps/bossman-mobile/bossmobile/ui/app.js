@@ -1159,6 +1159,7 @@
     const f = j && j.facelock; if (!f || !f.requested) return null;
     if (f.status === 'applied') return { ok: true, text: 'FaceLock: лицо с @1 вставлено' };
     if (f.status === 'pending') return { ok: false, text: 'FaceLock: будет применён после генерации' };
+    if (f.label) return { ok: f.status === 'applied', text: String(f.label) };   // video: Bossman's own line
     const r = String(f.reason || ''); const hit = FL_REASONS.find(([k]) => r.startsWith(k));
     return { ok: false, text: `FaceLock пропущен: ${hit ? hit[1] : (r || 'причина не указана')}` };
   }
@@ -1207,7 +1208,7 @@
   });
   $('photo-facelock').checked = store.get('facelock') === '1';
   $('photo-facelock').addEventListener('change', () => store.set('facelock', $('photo-facelock').checked ? '1' : '0'));
-  const STAGES = { lost: 'Связь потеряна', queued: 'В очереди', loading: 'Загрузка модели', generating: 'Генерация', encoding: 'Сохранение', completed: 'Готово', failed: 'Ошибка', cancelled: 'Отменено' };
+  const STAGES = { lost: 'Связь потеряна', queued: 'В очереди', loading: 'Загрузка модели', generating: 'Генерация', encoding: 'Сохранение', facelock: 'FaceLock', postprocessing: 'Сборка файла', completed: 'Готово', failed: 'Ошибка', cancelled: 'Отменено' };
   function renderJob(card, j) {
     card.replaceChildren();
     const p = j.progress || {}; const pct = typeof p.percent === 'number' ? p.percent : null;
@@ -1503,6 +1504,8 @@
   function vGo() {
     const m = curV(); const b = $('video-go'); if (!m) { b.disabled = true; return; }
     b.disabled = V.busy || !m.ready || (m.requires_image && !V.image) || (m.requires_audio && !V.audio);
+    const fl = !!(V.image && m.accepts_image);   // FaceLock, like photo: only with a start picture attached (@1)
+    $('vfacelock-row').hidden = !fl; $('vfacelock-hint').hidden = !fl;
   }
   function videoSegs() {
     seg('video-aspect', (V.refWH ? [['ref', refLabel(V.refWH)]] : []).concat(ASPECTS), V.aspect, (v) => { V.aspect = v; vTime(); });
@@ -1511,6 +1514,8 @@
   function clearVImage() {
     V.refWH = null; if (V.aspect === 'ref') { const m = curV(); V.aspect = (m && m.default_aspect) || '16:9'; if (V.sides) videoSegs(); }
     V.image = null; V.imageURL = null; $('video-image').value = ''; $('vimg-thumb').hidden = true; $('vimg-clear').hidden = true; $('vimg-label').textContent = 'Выбрать из «Фото»'; }
+  $('video-facelock').checked = store.get('vfacelock') === '1';
+  $('video-facelock').addEventListener('change', () => store.set('vfacelock', $('video-facelock').checked ? '1' : '0'));
   function clearVAudio() { V.audio = null; V.audioDur = null; $('video-audio').value = ''; $('vaud-clear').hidden = true; $('vaud-label').textContent = 'Выбрать аудио'; }
   $('video-model').addEventListener('change', onVModel);
   $('video-dur').addEventListener('input', () => setVDur($('video-dur').value));
@@ -1554,6 +1559,7 @@
     if (m.steps) fd.append('steps', String(s.steps));
     const seed = $('video-seed').value.trim(); if (seed) fd.append('seed', seed);
     if (V.image && m.accepts_image) fd.append('image', V.image, 'start.jpg');
+    if (V.image && m.accepts_image && $('video-facelock').checked) fd.append('facelock', 'true');
     if (V.audio && m.accepts_audio) fd.append('audio', V.audio, V.audio.name || 'voice');
     V.busy = true; vGo();
     try {
@@ -1648,6 +1654,7 @@
       renderQueued(u, stats, true);
     } else if (u.state === 'done') {
       stats.appendChild(el('b', '', `готово за ${fmtDone(u.elapsed_s)}`));
+      const flq = facelockText(j); if (flq) stats.appendChild(el('span', flq.ok ? '' : 'muted', flq.text));
       if (j.result && /^video\//.test(String(j.result.mime || ''))) { const b = el('button', 'btn small primary'); b.type = 'button'; b.append(icon('play'), document.createTextNode('Смотреть')); b.addEventListener('click', () => openVViewer(j)); head.append(b, pultButton('video', j.job_id)); card.appendChild(deleteButton('video', j.job_id)); }
     } else {
       stats.appendChild(el('span', '', STAGES[j.stage || j.status] || j.status));
@@ -1680,6 +1687,7 @@
         const c = el('div', 'card vcard'); c.dataset.job = j.job_id; const res = j.result || {};
         c.appendChild(el('b', '', jobLabel(j)));
         if (j.raw_prompt) c.appendChild(el('div', 'vp', j.raw_prompt));
+        const flb = facelockBadge(j); if (flb) c.appendChild(flb);
         c.appendChild(el('div', 'muted small', [res.width && `${res.width}×${res.height}`, res.duration_s && `${Number(res.duration_s).toFixed(1)} с`, res.codec, res.bytes && mb(res.bytes), (j.created_at || '').replace('T', ' ').slice(0, 16)].filter(Boolean).join(' · ')));
         const row = el('div', 'row'); const play = el('button', 'btn small primary'); play.type = 'button'; play.append(icon('play'), document.createTextNode('Смотреть')); play.addEventListener('click', () => openVViewer(j));
         const dl = el('a', 'btn small'); dl.href = `/m/api/video/jobs/${j.job_id}/file?download=1`; dl.setAttribute('download', ''); dl.append(icon('down'), document.createTextNode('Скачать'));
@@ -1692,7 +1700,8 @@
   function openVViewer(j) {
     vviewing = j; const v = $('vviewer-video'); const url = `/m/api/video/jobs/${j.job_id}/file`; v.src = url;
     const res = j.result || {};
-    $('vviewer-meta').textContent = `${j.raw_prompt || ''}\n${jobLabel(j)} · ${res.width ? res.width + '×' + res.height : ''} · ${res.duration_s ? Number(res.duration_s).toFixed(1) + ' с' : ''} · ${fmtS(j.elapsed_s)}`;
+    const flv = facelockText(j);
+    $('vviewer-meta').textContent = `${j.raw_prompt || ''}\n${jobLabel(j)} · ${res.width ? res.width + '×' + res.height : ''} · ${res.duration_s ? Number(res.duration_s).toFixed(1) + ' с' : ''} · ${fmtS(j.elapsed_s)}${flv ? '\n' + flv.text : ''}`;
     const webm = String(res.mime || '').includes('webm');
     $('vviewer-note').hidden = !webm; $('vviewer-note').textContent = webm ? 'Формат WebM: если iPhone не воспроизводит, нажмите «Скачать» и откройте в VLC.' : '';
     v.onerror = () => { $('vviewer-note').hidden = false; $('vviewer-note').textContent = 'Телефон не может воспроизвести этот файл — нажмите «Скачать».'; };
