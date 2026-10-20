@@ -9,6 +9,12 @@ from pathlib import Path
 from typing import Iterable, Literal, Any
 
 MemoryKind = Literal["decision", "lesson", "fact", "task", "session", "note"]
+MEMORY_KINDS: tuple[str, ...] = ("decision", "lesson", "fact", "task", "session", "note")
+
+
+def _one_line(value: str) -> str:
+    """A frontmatter scalar: no line breaks (incl. U+2028/U+0085), single spaces."""
+    return " ".join(str(value or "").split())
 
 DEFAULT_EXCLUDES = {
     ".obsidian",
@@ -140,10 +146,19 @@ class ObsidianVault:
             redactions.update(res.redactions)
             return res.body
 
+        # Provenance lives in the frontmatter (`kind`, `source: bossman`,
+        # `source_run_id`). A newline in any single-line field used to start a
+        # new YAML key — `kind="note\nsource: owner"` forged owner provenance,
+        # a title with "\n---\n" ended the frontmatter early. Kind is a closed
+        # set; every single-line field is collapsed to one line.
+        if kind not in MEMORY_KINDS:
+            raise ValueError(f"unknown memory kind {kind!r}; allowed: {', '.join(MEMORY_KINDS)}")
         content = _clean(str(content or ""), allow_empty=False)
-        title = _clean(str(title or "")) or "memory"
-        project = _clean(str(project or ""))
-        tags = [t for t in (_clean(str(t)) for t in (tags or [])) if t]
+        title = _one_line(_clean(str(title or ""))) or "memory"
+        project = _one_line(_clean(str(project or "")))
+        tags = [t for t in (_one_line(_clean(str(t))).strip("[]") for t in (tags or [])) if t]
+        if source_run_id is not None:
+            source_run_id = _one_line(str(source_run_id)) or None
         now = datetime.now(timezone.utc)
         stem = filename or f"{now:%Y-%m-%d-%H%M}-{safe_slug(title)}.md"
         dest = (self.write_root / stem).resolve()
