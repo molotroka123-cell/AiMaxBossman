@@ -708,6 +708,8 @@ class TelegramSender:
         person = self._resolve(person_key)
         if person is None:
             return "undeliverable"                      # Jeff window or unknown surface: shown next turn
+        from ..outbound_guard import set_context
+        set_context(origin="proactive")                 # audit label; the transport guard decides
         await self.runtime.telegram.send(person, text)
         return "sent"
 

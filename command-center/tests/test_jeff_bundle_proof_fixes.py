@@ -110,6 +110,9 @@ def test_d2_a_spawned_guest_worker_does_not_replace_the_configured_owner_when_th
     sender = TelegramSender(runtime)
     resolved = sender._resolve(owner_key)
     assert resolved == owner and resolved.role == "owner"                       # the configured Person won
+    # The outbound guard (incident 19.10) lets Jeff write only into a chat that wrote within 30 min unless the owner
+    # switch + opt-in allow it; this test is about WHO receives, so the owner has just written.
+    runtime.outbound_guard.note_inbound(owner.chat_id)
     assert asyncio.run(sender(owner_key, "Задача готова: итог", "task-1")) == "sent"
     delivered = [row for row in api.sent if "Задача готова" in row.get("text", "")]
     assert len(delivered) == 1 and delivered[0]["chat_id"] == owner.chat_id     # exactly once, to the owner
@@ -123,6 +126,7 @@ def test_d2_guests_are_still_resolved_when_the_allowlist_is_open(tmp_path):
     guest_key = runtime.vault.key_for_telegram(guest_id)
     resolved = sender._resolve(guest_key)
     assert resolved is not None and resolved.role == "guest" and resolved.user_id == guest_id
+    runtime.outbound_guard.note_inbound(guest_id)                               # see the D2 owner test above
     assert asyncio.run(sender(guest_key, "Напоминание", "rem-1")) == "sent"
     assert [row["chat_id"] for row in api.sent] == [guest_id]
     # negative control: with the allowlist closed an unknown (never configured) guest is NOT deliverable

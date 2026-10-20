@@ -57,7 +57,9 @@ DAY = 86400.0
 _MONTHS = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября",
            "ноября", "декабря")
 PultSender = Callable[[str], Awaitable[Any]]
-OUTBOX_ID = re.compile(r"jd-\d{4}-W\d{2}(?:-f\d{1,12})?")
+#: ``jd-…`` weekly digests; ``jg-…`` outbound-guard notices (bcc.pit.outbound_guard, owner Pult only).
+OUTBOX_ID = re.compile(r"jd-\d{4}-W\d{2}(?:-f\d{1,12})?|jg-\d{9,12}-[0-9a-f]{8}")
+OUTBOX_KINDS = ("weekly_digest", "jeff_outbound_guard")
 
 
 # ---------------------------------------------------------------------------------------------------------
@@ -536,13 +538,13 @@ class InsightsCollector:
         The text is the digest itself (numbers and neutral #labels only, no participant text)."""
         rows: dict[str, dict[str, Any]] = {}
         for row in _tail_rows(self._outbox_path()):
-            if row.get("kind") != "weekly_digest" or not isinstance(row.get("text"), str):
+            if row.get("kind") not in OUTBOX_KINDS or not isinstance(row.get("text"), str):
                 continue
             item_id = str(row.get("id") or f"jd-{row.get('week')}")
             if not OUTBOX_ID.fullmatch(item_id):
                 continue
             rows.pop(item_id, None)
-            rows[item_id] = {"id": item_id, "kind": "weekly_digest", "week": str(row.get("week") or ""),
+            rows[item_id] = {"id": item_id, "kind": row["kind"], "week": str(row.get("week") or ""),
                              "at": row.get("at"), "text": row["text"][:3500]}
         done = set(self._delivered_ids())
         return [r for r in rows.values() if r["id"] not in done][: max(1, min(int(limit), 20))]

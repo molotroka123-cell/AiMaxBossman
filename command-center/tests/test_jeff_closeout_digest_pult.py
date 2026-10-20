@@ -202,4 +202,6 @@ def test_companion_adapter_validates_ids():
     from bcc.telegram_companion.adapters import JEFF_DIGEST_ID
     assert JEFF_DIGEST_ID.fullmatch("jd-2026-W41") and JEFF_DIGEST_ID.fullmatch("jd-2026-W41-f1759640000")
     assert not JEFF_DIGEST_ID.fullmatch("jd-2026-W41/../x") and not JEFF_DIGEST_ID.fullmatch("ar-0123456789ab")
-    assert Path(I.__file__).read_text(encoding="utf-8").count('OUTBOX_ID = re.compile(r"jd-\\d{4}-W\\d{2}(?:-f\\d{1,12})?")') == 1
+    # Outbound-guard notices (bcc.pit.outbound_guard) share the outbox; both regexes must stay identical.
+    assert JEFF_DIGEST_ID.fullmatch("jg-1790000000-0123abcd") and not JEFF_DIGEST_ID.fullmatch("jg-1/../x")
+    assert JEFF_DIGEST_ID.pattern == I.OUTBOX_ID.pattern

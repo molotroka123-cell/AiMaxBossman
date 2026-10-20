@@ -34,6 +34,9 @@ Contract:
   it on for every chat, ``users.<person key>.roast: true|false`` overrides it for one chat. Written only when set
   (``defaults.roast`` only when true), so a default file stays readable by an older build. Owner-only: the panel API
   and the owner's Telegram ``/roast`` write it, a participant can only opt out of it.
+- ``jeff_unsolicited_enabled`` (OWNER DECISION, default OFF, incident 2026-10-19) — whether Jeff may ever write first
+  (reminders, follow-ups, any message that does not answer the chat's own message of the last 30 min). Enforced by
+  ``bcc.pit.outbound_guard`` below every sender. Written only when true (same compatibility rule).
 """
 from __future__ import annotations
 
@@ -222,12 +225,15 @@ def normalize(raw: Any) -> dict[str, Any]:
     if raw.get("version", SCHEMA_VERSION) != SCHEMA_VERSION:
         raise OverlayError("unsupported overlay version")
     unknown = set(raw) - {"version", "defaults", "users", "budgets", "cloud_session_context", "math_assist",
-                          "style_expires_at", "j2_modules", "tz_offset_min"}
+                          "style_expires_at", "j2_modules", "tz_offset_min", "jeff_unsolicited_enabled"}
     if unknown:
         raise OverlayError("unknown overlay field")
     session_flag = raw.get("cloud_session_context", False)
     if not isinstance(session_flag, bool):
         raise OverlayError("cloud_session_context must be true or false")
+    unsolicited_flag = raw.get("jeff_unsolicited_enabled", False)
+    if not isinstance(unsolicited_flag, bool):
+        raise OverlayError("jeff_unsolicited_enabled must be true or false")
     math_flag = raw.get("math_assist", True)
     if not isinstance(math_flag, bool):
         raise OverlayError("math_assist must be true or false")
@@ -261,6 +267,8 @@ def normalize(raw: Any) -> dict[str, Any]:
         out["style_expires_at"] = parsed.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     if session_flag:
         out["cloud_session_context"] = True
+    if unsolicited_flag:
+        out["jeff_unsolicited_enabled"] = True
     if not math_flag:
         out["math_assist"] = False
     modules_off = normalize_j2_modules(raw.get("j2_modules"))
@@ -476,6 +484,32 @@ def cloud_session_context(data_dir: Path | str) -> bool:
     except Exception:  # noqa: BLE001
         return False
     return bool(overlay and overlay.get("cloud_session_context") is True)
+
+
+def unsolicited_enabled(data_dir: Path | str) -> bool:
+    """OWNER switch ``jeff_unsolicited_enabled`` (default False): may Jeff ever write FIRST (``bcc.pit.outbound_guard``)?
+
+    Even when on, every unsolicited message still needs the participant's own opt-in and stays within one per chat
+    per 24 h and the fan-out breaker. An absent, unreadable or invalid file means OFF."""
+    try:
+        overlay, _ = read_overlay(settings_path(data_dir))
+    except Exception:  # noqa: BLE001
+        return False
+    return bool(overlay and overlay.get("jeff_unsolicited_enabled") is True)
+
+
+def set_unsolicited_enabled(data_dir: Path | str, value: bool) -> dict[str, Any]:
+    """OWNER-ONLY writer for ``jeff_unsolicited_enabled``. An unreadable file is never overwritten blind."""
+    path = settings_path(data_dir)
+    if path.is_file():
+        try:
+            overlay = normalize(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as exc:
+            raise OverlayError(f"jeff-settings.json is unreadable, nothing changed: {str(exc)[:120]}") from None
+    else:
+        overlay = empty_overlay()
+    overlay["jeff_unsolicited_enabled"] = bool(value)
+    return write_overlay(path, overlay)
 
 
 def math_assist_enabled(data_dir: Path | str) -> bool:

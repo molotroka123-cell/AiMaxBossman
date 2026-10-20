@@ -68,6 +68,11 @@ async def send(data_dir: Path | str, text: str) -> dict:
     settings = pc.load(pc.config_path(Path(data_dir)))
     blocklist = PrivateBlocklist.from_settings(settings)
     telegram = Telegram(_transport_settings(settings))
+    # Incident 2026-10-19: a broadcast reaches past contacts who did not write recently, i.e. it is unsolicited by
+    # definition. The outbound guard (same state as Jeff's poller) decides per message and trips on fan-out.
+    from . import outbound_guard
+    outbound_guard.ensure(telegram, settings)
+    outbound_guard.set_context(origin="jeff.broadcast")
     base = telegram.authorize_delivery
     telegram.authorize_delivery = lambda p: (not blocklist.blocks_person(p)) and (settings.allowlist_open or bool(base(p)))
     sent = failed = blocked = 0

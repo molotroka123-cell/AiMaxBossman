@@ -506,6 +506,7 @@ def test_12_buy_tells_the_participant_when_there_are_too_many_open_invoices(tmp_
     api = StarsBotAPI([])
     runtime = stars_runtime(tmp_path, api)
     person, key = person_of(runtime, GUEST), key_of(runtime, GUEST)
+    runtime.outbound_guard.note_inbound(GUEST)      # the /buy commands just arrived (in production: via getUpdates)
     for _ in range(MAX_PENDING_ORDERS):
         assert asyncio.run(runtime._paid_docs_command(person, key, "/buy", "")) == ""
     reply = asyncio.run(runtime._paid_docs_command(person, key, "/buy", ""))
