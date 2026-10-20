@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
@@ -683,18 +684,34 @@ def parse_time(value: Any, *, default: datetime | None = None) -> datetime:
     return to_naive_utc(value)
 
 
-def _filter_query(rows: list[dict], query: str | None) -> list[dict]:
-    """Подстрочный фильтр поиска (case-insensitive) по текстовым полям факта."""
-    needle = " ".join(str(query or "").split()).lower()
+#: Потолок выборки, из которой подстрочный фильтр выбирает совпадения
+#: (тот же, что у `query_facts`).
+_FILTER_POOL = 200
+
+
+def _fold(text: str) -> str:
+    return " ".join(unicodedata.normalize("NFKC", text or "").casefold().replace("ё", "е").split())
+
+
+def _filter_query(rows: list[dict], query: str | None, limit: int | None = None) -> list[dict]:
+    """Подстрочный фильтр поиска (регистр, «ё/е» и Unicode-форма не важны)."""
+    needle = _fold(str(query or ""))
     if not needle:
-        return rows
+        return rows if limit is None else rows[:max(1, int(limit))]
     out = []
     for row in rows:
-        haystack = " ".join(str(row.get(k) or "") for k in
-                            ("subject", "predicate", "object", "statement")).lower()
+        haystack = _fold(" ".join(str(row.get(k) or "") for k in
+                                  ("subject", "predicate", "object", "statement")))
         if needle in haystack:
             out.append(row)
-    return out
+    return out if limit is None else out[:max(1, int(limit))]
+
+
+def _pool_limit(limit: int, query: str | None) -> int:
+    """LIMIT для SQL. С текстовым фильтром LIMIT раньше резал выборку ДО
+    фильтра: `search(query=X, limit=5)` смотрел на 5 старейших фактов и
+    отвечал «ничего», хотя X лежал шестым. Фильтр получает весь пул."""
+    return _FILTER_POOL if _fold(str(query or "")) else limit
 
 
 def public_fact(row: dict) -> dict:
@@ -764,8 +781,9 @@ class FactStore:
             include_superseded = not current_only
         async with self.svc.db.session() as session:
             rows = await query_facts(session, subject=subject, predicate=predicate,
-                                     include_superseded=include_superseded, limit=limit)
-        return [public_fact(r) for r in _filter_query(rows, query)]
+                                     include_superseded=include_superseded,
+                                     limit=_pool_limit(limit, query))
+        return [public_fact(r) for r in _filter_query(rows, query, limit)]
 
     async def as_of(self, *, world_at: Any = None, when: Any = None,
                     subject: str | None = None, predicate: str | None = None,
@@ -782,8 +800,8 @@ class FactStore:
             rows = await query_facts(session, subject=subject, predicate=predicate,
                                      as_of=parse_time(moment),
                                      known_as_of=parse_time(known) if known else None,
-                                     limit=limit)
-        return [public_fact(r) for r in _filter_query(rows, query)]
+                                     limit=_pool_limit(limit, query))
+        return [public_fact(r) for r in _filter_query(rows, query, limit)]
 
     async def history(self, *, subject: str, predicate: str | None = None,
                       limit: int = 100) -> list[dict]:
