@@ -240,8 +240,10 @@ def render_pdf_document(q: Quote, *, deal: dict | None = None) -> bytes:
     doc_id = f"D-{deal['id']} ({q.id})" if deal else q.id
     status_label = str(deal.get("crm_status") or deal.get("status") or "settled").upper() if deal else "QUOTED"
     pct = f"{(q.margin * 100).normalize():f}%"
-    in_amt = Decimal(str(deal.get("leg_in_actual") or q.give_amount)) if deal else q.give_amount
-    out_amt = Decimal(str(deal.get("leg_out_actual") or q.get_amount)) if deal else q.get_amount
+    raw_in = deal.get("leg_in_actual") if deal else None
+    raw_out = deal.get("leg_out_actual") if deal else None
+    in_amt = Decimal(str(raw_in)) if raw_in and str(raw_in) != "unknown" else q.give_amount
+    out_amt = Decimal(str(raw_out)) if raw_out and str(raw_out) != "unknown" else q.get_amount
     give_str = f"{_fmt_spaced(in_amt)} {q.give_ccy}"
     get_str = f"{_fmt_spaced(out_amt)} {q.get_ccy}"
     ts_str = q.created_at.strftime("%d.%m.%Y %H:%M UTC")

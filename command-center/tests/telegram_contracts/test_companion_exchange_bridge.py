@@ -60,11 +60,15 @@ def test_phrases_are_routed_only_when_they_are_exchange_commands():
 def test_owner_quote_has_confirm_button_and_same_book(tmp_path):
     f = Fake(tmp_path)
     assert "Записан ручной курс" in str(f.exchange_command(OWNER, "курс usdt/usd 0.999 источник binance"))
-    reply = f.exchange_command(OWNER, "500 usdt в czk")
+    assert "явную ставку" in str(f.exchange_command(OWNER, "500 usdt в czk"))
+    reply = f.exchange_command(OWNER, "500 usdt в czk при 3%")
     assert str(reply).startswith("Котировка Q-")
     assert _labels(reply)[0] == "✅ Обмен выполнен"
     confirm = f.pressed[reply.keyboard[0][0][1]]
     assert confirm.startswith("/swap обмен выполнен Q-")
+    qid = next(w for w in str(reply).split() if w.startswith("Q-"))
+    assert "фактические суммы обеих сторон" in str(f.exchange_command(OWNER, f"обмен выполнен {qid}"))
+    assert f._exchange.store.deals() == []
     assert "Сделка записана: D-1" in str(f.exchange_command(OWNER, confirm.partition(" ")[2]))
     assert "повтор не создан" in str(f.exchange_command(OWNER, confirm.partition(" ")[2]))
     assert len(f._exchange.store.deals()) == 1
@@ -72,7 +76,7 @@ def test_owner_quote_has_confirm_button_and_same_book(tmp_path):
 
 def test_guest_is_refused_and_nothing_written(tmp_path):
     f = Fake(tmp_path)
-    for cmd in ("курс", "500 usdt в czk", "курс usdt/usd 1 источник x"):
+    for cmd in ("курс", "500 usdt в czk при 3%", "курс usdt/usd 1 источник x"):
         assert f.exchange_command(GUEST, cmd) == "Помощник обменника доступен только владельцу."
     assert f._exchange.store.manual_rates() == []
 
@@ -80,15 +84,16 @@ def test_guest_is_refused_and_nothing_written(tmp_path):
 def test_stop_blocks_writes_but_not_reads(tmp_path):
     f = Fake(tmp_path)
     f.exchange_command(OWNER, "курс usdt/usd 0.999 источник binance")
-    qid = next(w for w in str(f.exchange_command(OWNER, "100 usdt в czk")).split() if w.startswith("Q-"))
+    qid = next(w for w in str(f.exchange_command(OWNER, "100 usdt в czk при 3%")).split() if w.startswith("Q-"))
     f.store.d["delegation_locked"] = True
-    assert "СТОП" in str(f.exchange_command(OWNER, f"обмен выполнен {qid}"))
+    assert "СТОП" in str(f.exchange_command(OWNER, f"обмен выполнен {qid} приняли 100 выдали 2093.10"))
+    assert "СТОП" in str(f.exchange_command(OWNER, "100 usdt в czk при 3%"))
     assert "СТОП" in str(f.exchange_command(OWNER, "курс usdt/usd 0.998 источник x"))
     assert f._exchange.store.deals() == []
     assert "Курсы" in str(f.exchange_command(OWNER, "курс"))
     assert "Итоги" in str(f.exchange_command(OWNER, "итоги"))
     f.store.d["delegation_locked"] = False
-    assert "Сделка записана" in str(f.exchange_command(OWNER, f"обмен выполнен {qid}"))
+    assert "Сделка записана" in str(f.exchange_command(OWNER, f"обмен выполнен {qid} приняли 100 выдали 2093.10"))
 
 
 def test_swap_is_control_lane_and_in_main_menu():

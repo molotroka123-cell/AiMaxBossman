@@ -34,11 +34,15 @@ def test_exchange_needs_login_and_csrf(env, tmp_path):
 def test_quote_confirm_deals_and_duplicate(authed, tmp_path):
     authed.app.state.exchange = _assistant(tmp_path)
     assert authed.post("/m/api/exchange", json={"text": "курс usdt/usd 0.999 источник binance"}).json()["ok"]
-    r = authed.post("/m/api/exchange", json={"text": "500 usdt в czk"}).json()
+    no_margin = authed.post("/m/api/exchange", json={"text": "500 usdt в czk"}).json()
+    assert not no_margin["ok"] and "явную ставку" in no_margin["reply"]
+    r = authed.post("/m/api/exchange", json={"text": "500 usdt в czk при 3%"}).json()
     assert r["ok"] and r["quote_id"].startswith("Q-") and "10465.52 CZK" in r["reply"]
-    done = authed.post("/m/api/exchange", json={"text": f"обмен выполнен {r['quote_id']}"}).json()
+    no_legs = authed.post("/m/api/exchange", json={"text": f"обмен выполнен {r['quote_id']}"}).json()
+    assert not no_legs["ok"] and "фактические суммы обеих сторон" in no_legs["reply"]
+    done = authed.post("/m/api/exchange", json={"text": f"обмен выполнен {r['quote_id']} приняли 500 выдали 10465.52"}).json()
     assert done["ok"] and "D-1" in done["reply"]
-    again = authed.post("/m/api/exchange", json={"text": f"обмен выполнен {r['quote_id']}"}).json()
+    again = authed.post("/m/api/exchange", json={"text": f"обмен выполнен {r['quote_id']} приняли 500 выдали 10465.52"}).json()
     assert "повтор не создан" in again["reply"]
     deals = authed.c.get("/m/api/exchange/deals").json()["deals"]
     assert len(deals) == 1 and deals[0]["quote_id"] == r["quote_id"] and deals[0]["get_amount"] == "10465.52"
@@ -51,9 +55,11 @@ def test_quote_confirm_deals_and_duplicate(authed, tmp_path):
 def test_stop_blocks_writes_in_the_app(authed, tmp_path):
     a = authed.app.state.exchange = _assistant(tmp_path)
     authed.post("/m/api/exchange", json={"text": "курс usdt/usd 0.999 источник binance"})
-    qid = authed.post("/m/api/exchange", json={"text": "100 usdt в czk"}).json()["quote_id"]
+    qid = authed.post("/m/api/exchange", json={"text": "100 usdt в czk при 3%"}).json()["quote_id"]
     a.stop_file.write_text("stop")
-    r = authed.post("/m/api/exchange", json={"text": f"обмен выполнен {qid}"}).json()
+    r_q = authed.post("/m/api/exchange", json={"text": "100 usdt в czk при 3%"}).json()
+    assert not r_q["ok"] and r_q["stopped"] and "СТОП" in r_q["reply"]
+    r = authed.post("/m/api/exchange", json={"text": f"обмен выполнен {qid} приняли 100 выдали 2093.10"}).json()
     assert not r["ok"] and r["stopped"] and "СТОП" in r["reply"]
     assert authed.c.get("/m/api/exchange/deals").json()["deals"] == []
 

@@ -173,6 +173,50 @@ class FakeBossman:
             return httpx.Response(307, headers={"location": "http://127.0.0.1:8801/api/elsewhere"})
         if path == "/api/system":
             return httpx.Response(200, json={"ok": True})
+        if path.startswith("/api/telegram/calls/"):
+            sub = path[len("/api/telegram/calls/"):]
+            payload = json.loads(body) if body else {}
+            if sub == "status" and method == "GET":
+                return httpx.Response(200, json={
+                    "mode": "telegram", "transport": "telegram", "enabled": True,
+                    "settings": {"enabled": True, "barge_in": True, "greeting": "Привет", "answering_machine": False,
+                                 "answer_ring_delay_s": 12, "answer_allow_unknown": True, "answer_greeting": "Автоответчик"},
+                    "peer": {"user_id": 7459432800, "label": "Plug @bushidoprague"},
+                    "account": {"state": "ready", "has_api": True, "api_id": "…2999", "phone": "+••••9637", "has_session": True},
+                    "stop": {"call": False, "global": False, "active": False},
+                    "answering": {"enabled": False, "armed": False, "listening": False},
+                    "deps": {"ready": True, "missing": []},
+                })
+            if sub == "settings" and method in ("GET", "PUT"):
+                return httpx.Response(200, json={"enabled": True, "barge_in": True, **payload})
+            if sub == "credentials" and method == "POST":
+                return httpx.Response(200, json={"ok": True, "credentials": {"has_api": True, "api_id": f"…{str(payload.get('api_id', ''))[-4:]}"}})
+            if sub in ("login/start", "login/code", "login/password", "logout") and method == "POST":
+                return httpx.Response(200, json={"state": "ready" if sub != "logout" else "logged_out"})
+            if sub == "contacts" and method == "GET":
+                return httpx.Response(200, json={"contacts": [{"id": 7459432800, "label": "Plug", "username": "bushidoprague"}]})
+            if sub == "peer" and method == "PUT":
+                return httpx.Response(200, json={"peer": {"user_id": payload.get("user_id") or 7459432800, "label": payload.get("username") or "Plug"}, "enabled": True})
+            if sub == "peer" and method == "DELETE":
+                return httpx.Response(200, json={"peer": None})
+            if sub == "call" and method == "POST":
+                return httpx.Response(200, json={"call_id": "call-test-01", "accepted": True, "transport": "telegram"})
+            if sub == "hangup" and method == "POST":
+                return httpx.Response(200, json={"ended": True})
+            if sub == "stop" and method == "POST":
+                return httpx.Response(200, json={"stopped": True, "persisted": True, "stop_flag": True})
+            if sub == "resume" and method == "POST":
+                return httpx.Response(200, json={"stop_flag": False, "global_stop": False})
+            if sub == "history" and method == "GET":
+                return httpx.Response(200, json={"items": [{"call_id": "call-test-01", "outcome": "completed", "turns": 3}]})
+            if sub in ("answering", "answering/start", "answering/stop"):
+                return httpx.Response(200, json={"answering": {"enabled": True, "armed": sub != "answering/stop", "listening": sub == "answering/start"}})
+            if sub == "answering/reports" and method == "GET":
+                return httpx.Response(200, json={"items": [{"id": "ar-000000000001", "outcome": "answered", "summary": "Просил перезвонить"}]})
+            if sub == "selftest" and method == "POST":
+                return httpx.Response(200, json={"ok": True, "scenario": payload.get("scenario", "all"), "passed": True})
+            if sub == "doctor" and method == "POST":
+                return httpx.Response(200, json={"verdict": "PASS", "rows": [{"check": "Зависимости", "status": "PASS", "detail": "ок", "remedy": ""}]})
         return httpx.Response(404, json={"error": {"message": "not found"}})
 
 

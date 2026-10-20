@@ -19,6 +19,23 @@
   function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3200); }
 
   class ApiError extends Error { constructor(status, body) { const d = (body && (body.detail || body.error)) || {}; super(typeof d === 'string' ? d : (d.message || `HTTP ${status}`)); this.status = status; this.code = d.code || ''; } }
+  let panelCsrf = '';
+  async function callPassthrough(method, path, body) {
+    const headers = { Accept: 'application/json' };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (method !== 'GET') {
+      if (!panelCsrf) {
+        const lr = await fetch('/api/login', { method: 'POST', credentials: 'same-origin' });
+        let ld = null; try { ld = await lr.json(); } catch { /* */ }
+        panelCsrf = (ld && ld.csrf) || '';
+      }
+      headers['X-BCC-CSRF'] = panelCsrf;
+    }
+    const res = await fetch('/api/telegram' + path, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
+    let data = null; try { data = await res.json(); } catch { /* */ }
+    if (!res.ok) throw new ApiError(res.status, data);
+    return data;
+  }
   async function api(method, path, body, retried) {
     const headers = { Accept: 'application/json' };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -28,6 +45,9 @@
     catch { throw new ApiError(0, { detail: { message: 'нет связи с ПК' } }); }
     let data = null; try { data = await res.json(); } catch { /* empty */ }
     if (res.status === 401) { showLogin(); throw new ApiError(401, data); }
+    if (res.status === 404 && path.startsWith('/calls/') && ((data && data.detail) || {}).code === 'BM_NOT_ALLOWED') {
+      return callPassthrough(method, path, body);
+    }
     // A newer login (e.g. the pinned «вход в одно касание» link in another tab) replaced the session cookie, so this
     // page's CSRF token is stale: fetch the current one and repeat the request ONCE (owner 19.10, «не пройдена CSRF»).
     if (res.status === 403 && !retried && method !== 'GET' && ((data && data.detail) || {}).code === 'csrf') {
@@ -75,7 +95,158 @@
     if (name === 'panel') openPanel();
     if (name === 'status') loadStatus();
     if (name === 'swap') loadSwapDeals();
+    if (name === 'calls') loadCallsView();
     store.set('tab', name);
+  }
+
+  /* ================= звонки Telegram ================= */
+  const ACCT_RU = { ready: 'вход выполнен', logged_out: 'не выполнен вход', no_credentials: 'нет API ключей', code_sent: 'ожидает код из Telegram', password_required: 'ожидает 2FA пароль', error: 'ошибка ключей' };
+  async function loadCallsView() {
+    const sum = $('calls-summary');
+    if (!sum) return;
+    try {
+      const [st, hist, reps] = await Promise.all([
+        api('GET', '/calls/status'),
+        api('GET', '/calls/history?limit=10').catch(() => ({ items: [] })),
+        api('GET', '/calls/answering/reports?limit=10').catch(() => ({ items: [] })),
+      ]);
+      sum.replaceChildren();
+      const acct = st.account || {};
+      const peer = st.peer || {};
+      const stop = st.stop || {};
+      const ans = st.answering || {};
+      const cfg = st.settings || {};
+      sum.append(
+        kv('Аккаунт Telegram', `${ACCT_RU[acct.state] || acct.state || '—'}${acct.phone ? ' (' + acct.phone + ')' : ''}${acct.api_id ? ' · API ' + acct.api_id : ''}`),
+        kv('Собеседник', peer.user_id ? `${peer.label || ''} (ID ${peer.user_id})` : 'не выбран'),
+        kv('Исходящие звонки', st.enabled ? 'разрешены' : 'выключены'),
+        kv('Линия сейчас', st.call_active && st.call ? `${st.call.state || 'звонок'} (${st.call.call_id || ''})` : 'свободна'),
+        kv('СТОП звонков', stop.active ? `АКТИВЕН (${stop.call ? 'звонки' : ''}${stop.global ? ' общий' : ''})` : 'снят'),
+        kv('Автоответчик', ans.listening ? 'слушает входящие' : (ans.enabled ? 'включён в настройках (не запущен)' : 'выключен')),
+        kv('Пакеты звонков', (st.deps && st.deps.ready) ? 'установлены' : 'не все пакеты')
+      );
+      $('calls-enabled').checked = !!cfg.enabled;
+      $('calls-barge-in').checked = cfg.barge_in !== false;
+      if (cfg.greeting != null && !$('calls-greeting').matches(':focus')) $('calls-greeting').value = cfg.greeting;
+      $('calls-answering-enabled').checked = !!cfg.answering_machine;
+      $('calls-allow-unknown').checked = cfg.answer_allow_unknown !== false;
+      if (cfg.answer_ring_delay_s != null && !$('calls-ring-delay').matches(':focus')) $('calls-ring-delay').value = cfg.answer_ring_delay_s;
+      if (cfg.answer_greeting != null && !$('calls-answer-greeting').matches(':focus')) $('calls-answer-greeting').value = cfg.answer_greeting;
+      $('calls-peer-current').textContent = peer.user_id ? `Текущий собеседник: ${peer.label || 'без имени'} (ID ${peer.user_id})` : 'Текущий собеседник: не выбран';
+      const hbox = $('calls-history'); hbox.replaceChildren();
+      const items = (hist && hist.items) || [];
+      const ritems = (reps && reps.items) || [];
+      if (!items.length && !ritems.length) {
+        hbox.appendChild(el('p', 'muted', 'Звонков и отчётов автоответчика пока нет.'));
+      } else {
+        items.forEach((c) => {
+          const row = el('div', 'swap-deal');
+          row.appendChild(el('b', '', `${c.call_id || 'звонок'} · ${c.outcome || 'завершён'}`));
+          row.appendChild(el('span', '', ` · реплик: ${c.turns || 0}`));
+          if (c.summary && c.summary.text) row.appendChild(el('small', 'muted', c.summary.text));
+          hbox.appendChild(row);
+        });
+        ritems.forEach((r) => {
+          const row = el('div', 'swap-deal');
+          row.appendChild(el('b', '', `Автоответчик ${r.id || ''} · ${r.outcome || ''}`));
+          if (r.summary) row.appendChild(el('small', 'muted', r.summary));
+          hbox.appendChild(row);
+        });
+      }
+    } catch (err) {
+      sum.replaceChildren(el('p', 'error-text', 'Ошибка: ' + err.message));
+    }
+  }
+  async function callsAct(fn, label) {
+    const out = $('calls-live-output');
+    if (out) out.textContent = label + '…';
+    try {
+      const r = await fn();
+      if (out) out.textContent = typeof r === 'string' ? r : JSON.stringify(r, null, 2);
+      await loadCallsView();
+    } catch (err) {
+      if (out) out.textContent = 'Ошибка: ' + err.message;
+      toast(err.message);
+    }
+  }
+  if ($('calls-reload')) {
+    $('calls-reload').addEventListener('click', () => { tap(); loadCallsView(); });
+    $('calls-dial-btn').addEventListener('click', () => { tap(); callsAct(() => api('POST', '/calls/call', { confirm_unknown: true }), 'Набор номера'); });
+    $('calls-hangup-btn').addEventListener('click', () => { tap(); callsAct(() => api('POST', '/calls/hangup', {}), 'Сброс звонка'); });
+    $('calls-stop-btn').addEventListener('click', () => { tap(); callsAct(() => api('POST', '/calls/stop', {}), 'Активация СТОП звонков'); });
+    $('calls-resume-btn').addEventListener('click', () => { tap(); callsAct(() => api('POST', '/calls/resume', {}), 'Снятие СТОП звонков'); });
+    $('calls-selftest-btn').addEventListener('click', () => { tap(); callsAct(() => api('POST', '/calls/selftest', { scenario: 'all' }), 'Проверка аудиоконтура без Telegram'); });
+    $('calls-doctor-btn').addEventListener('click', () => {
+      tap();
+      callsAct(async () => {
+        const d = await api('POST', '/calls/doctor', {});
+        const lines = [`Вердикт: ${d.verdict}`].concat((d.rows || []).map((r) => `[${r.status}] ${r.check}: ${r.detail}${r.remedy ? ' -> ' + r.remedy : ''}`));
+        return lines.join('\n');
+      }, 'Диагностика звонков');
+    });
+    $('calls-settings-form').addEventListener('submit', (e) => {
+      e.preventDefault(); tap();
+      const body = {
+        enabled: $('calls-enabled').checked,
+        barge_in: $('calls-barge-in').checked,
+        greeting: $('calls-greeting').value.trim(),
+        answering_machine: $('calls-answering-enabled').checked,
+        answer_allow_unknown: $('calls-allow-unknown').checked,
+        answer_ring_delay_s: Math.min(60, Math.max(5, Number($('calls-ring-delay').value) || 12)),
+        answer_greeting: $('calls-answer-greeting').value.trim(),
+      };
+      callsAct(() => api('PUT', '/calls/settings', body), 'Сохранение настроек');
+    });
+    $('calls-answering-start').addEventListener('click', () => { tap(); callsAct(() => api('POST', '/calls/answering/start', {}), 'Запуск автоответчика'); });
+    $('calls-answering-stop').addEventListener('click', () => { tap(); callsAct(() => api('POST', '/calls/answering/stop', {}), 'Остановка автоответчика'); });
+    $('calls-peer-form').addEventListener('submit', (e) => {
+      e.preventDefault(); tap();
+      const raw = $('calls-peer-input').value.trim();
+      if (!raw) { toast('Укажите @username или ID собеседника'); return; }
+      const body = { confirm: $('calls-peer-confirm').checked };
+      if (/^\d+$/.test(raw)) body.user_id = Number(raw);
+      else body.username = raw.replace(/^@/, '');
+      callsAct(() => api('PUT', '/calls/peer', body), 'Выбор собеседника');
+    });
+    $('calls-peer-clear').addEventListener('click', () => { tap(); callsAct(() => api('DELETE', '/calls/peer'), 'Сброс собеседника'); });
+    $('calls-save-creds').addEventListener('click', () => {
+      tap();
+      const api_id = Number($('calls-api-id').value.trim());
+      const api_hash = $('calls-api-hash').value.trim();
+      if (!api_id || api_hash.length !== 32) { toast('Введите числовой API ID и 32-символьный API Hash'); return; }
+      callsAct(async () => {
+        const res = await api('POST', '/calls/credentials', { api_id, api_hash });
+        $('calls-api-hash').value = '';
+        return res;
+      }, 'Сохранение API ключей');
+    });
+    $('calls-send-code').addEventListener('click', () => {
+      tap();
+      const phone = $('calls-phone').value.trim();
+      if (!phone) { toast('Введите номер телефона (+...)'); return; }
+      callsAct(() => api('POST', '/calls/login/start', { phone }), 'Запрос кода входа Telegram');
+    });
+    $('calls-submit-code').addEventListener('click', () => {
+      tap();
+      const code = $('calls-code').value.trim();
+      if (!code) { toast('Введите код из Telegram'); return; }
+      callsAct(async () => {
+        const res = await api('POST', '/calls/login/code', { code });
+        $('calls-code').value = '';
+        return res;
+      }, 'Вход по коду');
+    });
+    $('calls-submit-2fa').addEventListener('click', () => {
+      tap();
+      const password = $('calls-2fa').value;
+      if (!password) { toast('Введите облачный пароль 2FA'); return; }
+      callsAct(async () => {
+        const res = await api('POST', '/calls/login/password', { password });
+        $('calls-2fa').value = '';
+        return res;
+      }, 'Подтверждение 2FA');
+    });
+    $('calls-logout-btn').addEventListener('click', () => { tap(); callsAct(() => api('POST', '/calls/logout', {}), 'Выход из аккаунта звонков'); });
   }
 
   /* ================= обменник: тот же помощник, что в пульте ================= */

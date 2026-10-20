@@ -359,7 +359,10 @@ async def build_jeff_engines(settings: CallSettings, *, pit_settings: Any | None
         raise CallError("PEER_NOT_SELECTED")
     if pit_settings is None:
         try:
-            pit_settings = pit_config.load(pit_config.config_path(dd))
+            try:
+                pit_settings = pit_config.load(pit_config.config_path(dd), ignore_generation_cloud=True)
+            except TypeError:
+                pit_settings = pit_config.load(pit_config.config_path(dd))
         except (OSError, ValueError):
             raise CallError("BRAIN_NOT_CONFIGURED", detail="pit_not_configured") from None
     if not pit_settings.local_models:

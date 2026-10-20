@@ -1,8 +1,230 @@
 {
-  "schema": "bossman.argon_tier5_verification.v1",
-  "verified_at_utc": "2026-10-20T10:39:47.891584+00:00",
+  "schema": "bossman.argon_tier5_verification.v2",
+  "verified_at_utc": "2026-10-20T12:10:44.126668+00:00",
+  "tier5_status": "NOT_PROVEN",
+  "tier5_verdict_ru": "Tier 5 пока не доказан",
+  "tier5_remaining_gates": {
+    "precommitted_15x3_blind_holdout": "NOT_RUN",
+    "unassisted_local_model_weight_transfer": "NOT_RUN",
+    "soak_24h_48h_single_sha": "NOT_RUN",
+    "audited_external_revenue_documents": "BLOCKED"
+  },
+  "evidence_classes": {
+    "SYNTHETIC": {
+      "G1_synthetic_contract": {
+        "evidence_kind": "SYNTHETIC",
+        "status": "PASS",
+        "rt20_regressions": {
+          "RT20-01_stop_blocks_quote_write": true,
+          "RT20-02_explicit_margin_required": true,
+          "RT20-03_newest_manual_rate_selected": true,
+          "RT20-04_actual_legs_required_before_settled": true,
+          "RT20-05_empty_verify_cmd_not_marked_verified": true
+        },
+        "exchange_assistant": {
+          "buy_1000_usdt_czk": "25750.00",
+          "buy_direction": "BUY",
+          "sell_1000_usdt_czk": "24250.00",
+          "sell_direction": "SELL",
+          "manager_margin_decision": "explicit",
+          "deal_crm_status": "settled",
+          "leg_in_actual": "1000.00",
+          "leg_out_actual": "24250.00",
+          "slippage_in": "0.00",
+          "slippage_out": "0.00",
+          "idempotency_key": "Q-E423B33C",
+          "branded_html_bytes": 2626,
+          "xe_feed_status": "N/A",
+          "xe_fallback_mode": "MANUAL_ENTRY"
+        },
+        "langgraph_checkpoint": {
+          "checkpoint_id": "chk-fa2e4f8994860782-d79110b89049",
+          "checkpoint_sha256": "d79110b89049f25f718623c068482b697c2cc8b1de6c963b98d99083ccad601c",
+          "done_steps_at_checkpoint": [
+            "quote"
+          ],
+          "completed_action_keys": [
+            "beb183c186daeebadbb707792ab90807"
+          ],
+          "noop_update_triggered": false,
+          "changed_update_triggered": true,
+          "external_calls_sequence": [
+            "quote",
+            "confirm"
+          ]
+        },
+        "openhands_mission_receipt_synthetic": {
+          "evidence_kind": "SYNTHETIC",
+          "unverified_when_no_tests": true,
+          "verified_receipt_id": "rcpt-synth-coding-verified-8c35abbd579e",
+          "verified_receipt_sha256": "8c35abbd579e02a9bfb6f0bdcda911b43cd52432f829d7193b5b6cd848ab35e5",
+          "verify_cmd": [
+            "tests/test_exchange_assistant.py"
+          ],
+          "verify_exit_code": 0,
+          "postcondition_verified": true
+        },
+        "unified_cross_task_memory": {
+          "writer_task_id": "d41c817af52c700f",
+          "reader_task_id": "e6562956bb5cfbf0",
+          "hit": true,
+          "source_ref": "BOSSMAN Memory/2026-10-20-1210-SwapMe-VIP-Rule-d41c817af52c700f.md",
+          "sqlite_chunk_hash": "49eb95da5a4cd716",
+          "payload_sha256": "0a5b9d0af528ceccf67945586307e57dfc68dfab1022963ff68cdd6d4f0ad4ab"
+        }
+      },
+      "G2_sealed_holdout": {
+        "evidence_kind": "SYNTHETIC",
+        "status": "PASS",
+        "secret_holdout_leak_blocked": true,
+        "holdout_suites": {
+          "discovery_nonfinite": {
+            "passed": true,
+            "total": 72,
+            "failed": 0
+          },
+          "goal_budget_nonfinite": {
+            "passed": true,
+            "total": 9,
+            "failed": 0
+          },
+          "atomic_json_replace": {
+            "passed": true,
+            "total": 10,
+            "failed": 0
+          },
+          "cli_task_paging": {
+            "passed": true,
+            "total": 7,
+            "failed": 0
+          }
+        }
+      },
+      "G3_synthetic_desktop_stop": {
+        "evidence_kind": "SYNTHETIC",
+        "status": "PASS",
+        "harness": "FastFakeDesktop",
+        "stop_latency_ms": 0.863,
+        "stop_latency_limit_ms": 2000.0,
+        "actions_after_stop": 0,
+        "post_stop_action_refused": true,
+        "takeover_pause_verified": true,
+        "takeover_resume_verified": true,
+        "step_log_entries": 4
+      }
+    },
+    "HISTORICAL_LIVE": {
+      "telegram_stop_20261019": {
+        "evidence_kind": "HISTORICAL_LIVE",
+        "status": "PASS",
+        "historical_sha_at_event": "6342a18d71867879d7b1e39dd743d2b9db21258e",
+        "verified_from_disk_files": true,
+        "companion_db_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\telegram-companion\\companion.sqlite3",
+        "audit_jsonl_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\pc-agent\\audit.jsonl",
+        "inbox_record": {
+          "update_id": 974334929,
+          "who": "386321847:386321847",
+          "lane": "control",
+          "phase": "done",
+          "created_epoch": 1792471328.6959
+        },
+        "audit_seq_13": {
+          "seq": 13,
+          "ts": 1792471328.8209987,
+          "iso_ts": "2026-10-20T04:42:08.820998",
+          "tool": "pc.stop",
+          "entry_hash": "935e7897270dc00246b7a96c4c67aac21f813e7dea3a7e6e5e582585bf4c4a5c"
+        },
+        "audit_seq_14": {
+          "seq": 14,
+          "ts": 1792471328.8446481,
+          "iso_ts": "2026-10-20T04:42:08.844648",
+          "tool": "pc.stop",
+          "entry_hash": "f4ee800aa01dea39867acc7f9f4b6c28bc368d9fca049500179aeaeb68a16f09"
+        },
+        "audit_hash_chain": {
+          "ok": true,
+          "count": 37
+        }
+      }
+    },
+    "CURRENT_LIVE": {
+      "pc_agent_safe_mission_and_stop": {
+        "evidence_kind": "CURRENT_LIVE",
+        "status": "PASS",
+        "live_runtime_sha": "7bf26ae76d5dde3df0f4e91456190b105e0786c7",
+        "source_identity": "PASS",
+        "shared_task_id": 111,
+        "shared_run_id": 108,
+        "mission_elapsed_ms": 123.05,
+        "surfaces_verified": {
+          "pc_agent_status_before_stop": "waiting_approval",
+          "pc_agent_status_after_stop": "stopped",
+          "command_center_tasks_db_id": 111,
+          "command_center_tasks_db_status_before_stop": "waiting_approval",
+          "command_center_tasks_db_status_after_stop": "stopped",
+          "audit_jsonl_entries_for_task": [
+            {
+              "seq": 40,
+              "tool": "pc.write_file",
+              "decision": "auto",
+              "verified": true,
+              "entry_hash": "8b0c9e1c32dae2f4ffb86671912a091c4f1e97ecccd4fa68ea58e8fa2588d29c"
+            },
+            {
+              "seq": 41,
+              "tool": "pc.read_file",
+              "decision": "auto",
+              "verified": true,
+              "entry_hash": "31a3b53b009fda08dfc940d028e28c0bfaced73e4813052a5dd43dcdd2fa1b33"
+            },
+            {
+              "seq": 42,
+              "tool": "pc.delete_file",
+              "decision": "ask",
+              "verified": null,
+              "entry_hash": "7def40c4aa493438027af37f6582d27fcea15c47ce6a6311619b2d86f75c1d02"
+            }
+          ]
+        },
+        "independent_postcondition": {
+          "marker_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\pc-agent\\workspace\\current_live_mission_6c1307c7a965.json",
+          "file_exists_after_write_and_stop": true,
+          "expected_sha256": "e8e1cdf89d92cf2120ca3e53d41dda8c507b68a7ddd6e258e3e0352e1212299b",
+          "independent_sha256": "e8e1cdf89d92cf2120ca3e53d41dda8c507b68a7ddd6e258e3e0352e1212299b",
+          "verified": true
+        },
+        "live_stop_gate": {
+          "stop_http_latency_ms": 30.5,
+          "stop_engine_latency_ms": 7.83,
+          "stop_latency_limit_ms": 2000.0,
+          "stop_files_created": true,
+          "approve_after_stop_http_code": 409,
+          "new_task_after_stop_http_code": 409,
+          "new_task_after_stop_error_code": "PC_AGENT_STOPPED",
+          "actions_after_stop": 0,
+          "marker_file_preserved_from_step3_delete": true,
+          "forbidden_file_created": false,
+          "resumed_cleanly_after_test": true
+        },
+        "audit_chain_verified": {
+          "ok": true,
+          "count": 45
+        },
+        "audit_lines_before_stop": 42
+      }
+    }
+  },
   "G1_owner_e2e": {
+    "evidence_kind": "SYNTHETIC",
     "status": "PASS",
+    "rt20_regressions": {
+      "RT20-01_stop_blocks_quote_write": true,
+      "RT20-02_explicit_margin_required": true,
+      "RT20-03_newest_manual_rate_selected": true,
+      "RT20-04_actual_legs_required_before_settled": true,
+      "RT20-05_empty_verify_cmd_not_marked_verified": true
+    },
     "exchange_assistant": {
       "buy_1000_usdt_czk": "25750.00",
       "buy_direction": "BUY",
@@ -14,29 +236,19 @@
       "leg_out_actual": "24250.00",
       "slippage_in": "0.00",
       "slippage_out": "0.00",
-      "idempotency_key": "Q-D73DD816",
+      "idempotency_key": "Q-E423B33C",
       "branded_html_bytes": 2626,
       "xe_feed_status": "N/A",
-      "xe_fallback_mode": "MANUAL_ENTRY",
-      "rate_provenance": {
-        "pair": "USDCZK",
-        "pair_display": "USD/CZK",
-        "value": "25.000",
-        "source": "ЧНБ",
-        "kind": "official",
-        "timestamp_utc": "2026-10-19T11:00:00+00:00",
-        "expires_at_utc": null,
-        "raw_receipt": "ЧНБ:USDCZK:2026-10-19T11:00:00+00:00"
-      }
+      "xe_fallback_mode": "MANUAL_ENTRY"
     },
     "langgraph_checkpoint": {
-      "checkpoint_id": "chk-001a95f90368b51e-51b0952106f5",
-      "checkpoint_sha256": "51b0952106f53c2dcf602afd9c8d9c978356eff6af01369ee4bc5655b91b68bc",
+      "checkpoint_id": "chk-fa2e4f8994860782-d79110b89049",
+      "checkpoint_sha256": "d79110b89049f25f718623c068482b697c2cc8b1de6c963b98d99083ccad601c",
       "done_steps_at_checkpoint": [
         "quote"
       ],
       "completed_action_keys": [
-        "01f882a654fc167ee5def375b28e2a26"
+        "beb183c186daeebadbb707792ab90807"
       ],
       "noop_update_triggered": false,
       "changed_update_triggered": true,
@@ -45,22 +257,28 @@
         "confirm"
       ]
     },
-    "openhands_mission_receipt": {
-      "receipt_id": "rcpt-e2e-coding-01-e24c8f600ecb",
-      "receipt_sha256": "e24c8f600ecb648fc185bb68b961cc4bbe9141ee33fd8eddc41a80a9af7f92d8",
-      "postcondition_verified": true,
-      "sandbox_removed": true
+    "openhands_mission_receipt_synthetic": {
+      "evidence_kind": "SYNTHETIC",
+      "unverified_when_no_tests": true,
+      "verified_receipt_id": "rcpt-synth-coding-verified-8c35abbd579e",
+      "verified_receipt_sha256": "8c35abbd579e02a9bfb6f0bdcda911b43cd52432f829d7193b5b6cd848ab35e5",
+      "verify_cmd": [
+        "tests/test_exchange_assistant.py"
+      ],
+      "verify_exit_code": 0,
+      "postcondition_verified": true
     },
     "unified_cross_task_memory": {
-      "writer_task_id": "16ee2a60fd2bd4c6",
-      "reader_task_id": "f99ae684a5444f6a",
+      "writer_task_id": "d41c817af52c700f",
+      "reader_task_id": "e6562956bb5cfbf0",
       "hit": true,
-      "source_ref": "BOSSMAN Memory/2026-10-20-1039-SwapMe-VIP-Rule-16ee2a60fd2bd4c6.md",
-      "sqlite_chunk_hash": "fe4f54dc5dd5a449",
-      "payload_sha256": "c1eddd44744b3915accd899b1e71932a3baa6c07e4b2e9a1f08b61824f111e87"
+      "source_ref": "BOSSMAN Memory/2026-10-20-1210-SwapMe-VIP-Rule-d41c817af52c700f.md",
+      "sqlite_chunk_hash": "49eb95da5a4cd716",
+      "payload_sha256": "0a5b9d0af528ceccf67945586307e57dfc68dfab1022963ff68cdd6d4f0ad4ab"
     }
   },
   "G2_sealed_holdout": {
+    "evidence_kind": "SYNTHETIC",
     "status": "PASS",
     "secret_holdout_leak_blocked": true,
     "holdout_suites": {
@@ -87,35 +305,66 @@
     }
   },
   "G3_stop_switch": {
+    "evidence_kind": "COMPOSITE_SYNTHETIC_AND_LIVE",
     "status": "PASS",
-    "stop_latency_ms": 1.1465,
-    "stop_latency_limit_ms": 2000.0,
-    "actions_after_stop": 0,
-    "post_stop_action_refused": true,
-    "takeover_pause_verified": true,
-    "takeover_resume_verified": true,
-    "step_log_entries": 4,
-    "live_telegram_stop": {
+    "synthetic_desktop_stop": {
+      "evidence_kind": "SYNTHETIC",
       "status": "PASS",
-      "update_id": 974334929,
-      "message_id": 2310,
-      "owner_chat_id": 386321847,
-      "text": "/stop",
-      "lane": "control",
-      "phase": "done",
-      "ingested_at_epoch": 1792471328.6959,
-      "pc_agent_stop_at_epoch": 1792471328.821,
-      "computer_stop_at_epoch": 1792471328.8386,
-      "telegram_calls_stop_at_epoch": 1792471328.8457,
-      "roundtrip_reply_at_epoch": 1792471328.9961,
-      "stop_propagation_latency_ms": 149.8,
-      "full_roundtrip_latency_ms": 300.2,
-      "pc_stop_exec_latency_ms": 7.15,
-      "computer_stop_exec_latency_ms": 0.99,
+      "harness": "FastFakeDesktop",
+      "stop_latency_ms": 0.863,
+      "stop_latency_limit_ms": 2000.0,
       "actions_after_stop": 0,
-      "audit_seq_13_sha256": "935e7897270dc00246b7a96c4c67aac21f813e7dea3a7e6e5e582585bf4c4a5c",
-      "audit_seq_14_sha256": "f4ee800aa01dea39867acc7f9f4b6c28bc368d9fca049500179aeaeb68a16f09"
+      "post_stop_action_refused": true,
+      "takeover_pause_verified": true,
+      "takeover_resume_verified": true,
+      "step_log_entries": 4
+    },
+    "historical_live_telegram_stop": {
+      "evidence_kind": "HISTORICAL_LIVE",
+      "status": "PASS",
+      "historical_sha_at_event": "6342a18d71867879d7b1e39dd743d2b9db21258e",
+      "verified_from_disk_files": true,
+      "companion_db_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\telegram-companion\\companion.sqlite3",
+      "audit_jsonl_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\pc-agent\\audit.jsonl",
+      "inbox_record": {
+        "update_id": 974334929,
+        "who": "386321847:386321847",
+        "lane": "control",
+        "phase": "done",
+        "created_epoch": 1792471328.6959
+      },
+      "audit_seq_13": {
+        "seq": 13,
+        "ts": 1792471328.8209987,
+        "iso_ts": "2026-10-20T04:42:08.820998",
+        "tool": "pc.stop",
+        "entry_hash": "935e7897270dc00246b7a96c4c67aac21f813e7dea3a7e6e5e582585bf4c4a5c"
+      },
+      "audit_seq_14": {
+        "seq": 14,
+        "ts": 1792471328.8446481,
+        "iso_ts": "2026-10-20T04:42:08.844648",
+        "tool": "pc.stop",
+        "entry_hash": "f4ee800aa01dea39867acc7f9f4b6c28bc368d9fca049500179aeaeb68a16f09"
+      },
+      "audit_hash_chain": {
+        "ok": true,
+        "count": 37
+      }
+    },
+    "current_live_mission_stop": {
+      "stop_http_latency_ms": 30.5,
+      "stop_engine_latency_ms": 7.83,
+      "stop_latency_limit_ms": 2000.0,
+      "stop_files_created": true,
+      "approve_after_stop_http_code": 409,
+      "new_task_after_stop_http_code": 409,
+      "new_task_after_stop_error_code": "PC_AGENT_STOPPED",
+      "actions_after_stop": 0,
+      "marker_file_preserved_from_step3_delete": true,
+      "forbidden_file_created": false,
+      "resumed_cleanly_after_test": true
     }
   },
-  "receipt_sha256": "40f15f0d95535b38bcd68f18afaf6b9bf1069f2a38f8f59112206b1b94a51db5"
+  "receipt_sha256": "a73475f3383cdbfc6d5a40328e6573c71e5e37d7a5d958a74569204c956cb105"
 }

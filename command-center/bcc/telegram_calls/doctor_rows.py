@@ -58,7 +58,10 @@ def model_row(data_dir: Path, *, probe: bool = True, timeout: float = 2.0) -> di
     name = "Локальная модель Jeff"
     try:
         from bcc.pit import config as pit_config
-        settings = pit_config.load(pit_config.config_path(Path(data_dir)))
+        try:
+            settings = pit_config.load(pit_config.config_path(Path(data_dir)), ignore_generation_cloud=True)
+        except TypeError:
+            settings = pit_config.load(pit_config.config_path(Path(data_dir)))
     except Exception:  # noqa: BLE001 - not configured / unreadable: both mean "Jeff has no brain for the call yet"
         return _row(name, WARN, "Jeff не настроен в этом каталоге данных", "Один раз выполните настройку Jeff (web-setup с локальной моделью)")
     if not settings.local_models:

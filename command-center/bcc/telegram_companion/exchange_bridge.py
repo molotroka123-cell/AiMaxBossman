@@ -50,7 +50,10 @@ class ExchangeBridgeMixin:
         rows = []
         q = _QID.search(text)
         if q and text.startswith("Котировка"):
-            rows.append([b("✅ Обмен выполнен", f"/swap обмен выполнен {q.group(0)}")])
+            m_in = re.search(r"Клиент отдаёт:\s*([\d.]+)", text)
+            m_out = re.search(r"Клиент получает:\s*([\d.]+)", text)
+            legs = f" приняли {m_in.group(1)} выдали {m_out.group(1)}" if (m_in and m_out) else ""
+            rows.append([b("✅ Обмен выполнен", f"/swap обмен выполнен {q.group(0)}{legs}")])
         d = _DID.search(text)
         if d and text.startswith(("Сделка записана", "Эта котировка уже подтверждена")):
             rows.append([b(f"📄 Чек PDF D-{d.group(1)}", f"/swap чек D-{d.group(1)}")])

@@ -90,6 +90,55 @@ class WorkerHeartbeatIn(BaseModel):
     active_task_id: str | int | None = None
 
 
+class CallCredentialsIn(BaseModel):
+    api_id: int = Field(gt=0, lt=2**31)
+    api_hash: str = Field(min_length=32, max_length=32)
+
+
+class CallLoginStartIn(BaseModel):
+    phone: str = Field(min_length=5, max_length=32)
+
+
+class CallLoginCodeIn(BaseModel):
+    code: str = Field(min_length=3, max_length=16)
+
+
+class CallLoginPasswordIn(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+
+
+class CallPeerIn(BaseModel):
+    user_id: int | None = Field(default=None, gt=0, lt=2**52)
+    username: str | None = Field(default=None, min_length=1, max_length=40)
+    confirm: bool = False
+
+
+class CallDialIn(BaseModel):
+    confirm_unknown: bool = False
+
+
+class CallSelftestIn(BaseModel):
+    scenario: str = Field(default="all", min_length=1, max_length=32)
+
+
+class CallSettingsIn(BaseModel):
+    enabled: bool | None = None
+    max_call_s: int | None = None
+    ring_timeout_s: int | None = None
+    idle_prompt_s: int | None = None
+    idle_hangup_s: int | None = None
+    barge_in: bool | None = None
+    echo_mode: str | None = None
+    vad: str | None = None
+    greeting: str | None = Field(default=None, max_length=200)
+    auto_save_to_bossman_memory: bool | None = None
+    answering_machine: bool | None = None
+    answer_ring_delay_s: int | None = None
+    answer_max_call_s: int | None = None
+    answer_allow_unknown: bool | None = None
+    answer_greeting: str | None = Field(default=None, max_length=240)
+
+
 MAX_REFS = 6  # API ceiling; each model states its own (max_refs), the editors take 3
 
 
@@ -733,6 +782,105 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             media_type="application/pdf",
             headers={"Content-Disposition": f'inline; filename="{fname}"', "Cache-Control": "no-store"},
         )
+
+    # ------------------------------------------------------------------ telegram calls (owner 20.10)
+    @app.get("/m/api/calls/status")
+    async def calls_status(_=Depends(session)):
+        return await call("GET", "/api/telegram/calls/status")
+
+    @app.get("/m/api/calls/settings")
+    async def calls_get_settings(_=Depends(session)):
+        return await call("GET", "/api/telegram/calls/settings")
+
+    @app.put("/m/api/calls/settings")
+    async def calls_put_settings(body: CallSettingsIn, _=Depends(session)):
+        payload = {k: getattr(body, k) for k in body.model_fields_set if getattr(body, k) is not None}
+        return await call("PUT", "/api/telegram/calls/settings", json=payload)
+
+    @app.post("/m/api/calls/credentials")
+    async def calls_credentials(body: CallCredentialsIn, _=Depends(session)):
+        return await call("POST", "/api/telegram/calls/credentials",
+                          json={"api_id": body.api_id, "api_hash": body.api_hash})
+
+    @app.post("/m/api/calls/login/start")
+    async def calls_login_start(body: CallLoginStartIn, _=Depends(session)):
+        return await call("POST", "/api/telegram/calls/login/start", json={"phone": body.phone}, timeout=65)
+
+    @app.post("/m/api/calls/login/code")
+    async def calls_login_code(body: CallLoginCodeIn, _=Depends(session)):
+        return await call("POST", "/api/telegram/calls/login/code", json={"code": body.code}, timeout=65)
+
+    @app.post("/m/api/calls/login/password")
+    async def calls_login_password(body: CallLoginPasswordIn, _=Depends(session)):
+        return await call("POST", "/api/telegram/calls/login/password", json={"password": body.password}, timeout=65)
+
+    @app.post("/m/api/calls/logout")
+    async def calls_logout(_=Depends(session)):
+        return await call("POST", "/api/telegram/calls/logout", timeout=35)
+
+    @app.get("/m/api/calls/contacts")
+    async def calls_contacts(q: str = "", _=Depends(session)):
+        return await call("GET", "/api/telegram/calls/contacts", params={"q": q[:60]}, timeout=65)
+
+    @app.put("/m/api/calls/peer")
+    async def calls_put_peer(body: CallPeerIn, _=Depends(session)):
+        payload: dict[str, Any] = {"confirm": body.confirm}
+        if body.user_id is not None:
+            payload["user_id"] = body.user_id
+        if body.username is not None:
+            payload["username"] = body.username
+        return await call("PUT", "/api/telegram/calls/peer", json=payload, timeout=50)
+
+    @app.delete("/m/api/calls/peer")
+    async def calls_delete_peer(_=Depends(session)):
+        return await call("DELETE", "/api/telegram/calls/peer")
+
+    @app.post("/m/api/calls/call")
+    async def calls_dial(body: CallDialIn | None = None, _=Depends(session)):
+        return await call("POST", "/api/telegram/calls/call",
+                          json={"confirm_unknown": bool(body and body.confirm_unknown)}, timeout=95)
+
+    @app.post("/m/api/calls/hangup")
+    async def calls_hangup(_=Depends(session)):
+        return await call("POST", "/api/telegram/calls/hangup", timeout=15)
+
+    @app.post("/m/api/calls/stop")
+    async def calls_stop(_=Depends(session)):
+        workers.trigger_global_stop()
+        return await call("POST", "/api/telegram/calls/stop", timeout=15)
+
+    @app.post("/m/api/calls/resume")
+    async def calls_resume(_=Depends(session)):
+        return await call("POST", "/api/telegram/calls/resume", timeout=10)
+
+    @app.get("/m/api/calls/history")
+    async def calls_history(limit: int = 20, _=Depends(session)):
+        return await call("GET", "/api/telegram/calls/history", params={"limit": min(max(1, limit), 50)})
+
+    @app.get("/m/api/calls/answering")
+    async def calls_answering(_=Depends(session)):
+        return await call("GET", "/api/telegram/calls/answering")
+
+    @app.post("/m/api/calls/answering/start")
+    async def calls_answering_start(_=Depends(session)):
+        return await call("POST", "/api/telegram/calls/answering/start", timeout=95)
+
+    @app.post("/m/api/calls/answering/stop")
+    async def calls_answering_stop(_=Depends(session)):
+        return await call("POST", "/api/telegram/calls/answering/stop", timeout=20)
+
+    @app.get("/m/api/calls/answering/reports")
+    async def calls_answering_reports(limit: int = 20, _=Depends(session)):
+        return await call("GET", "/api/telegram/calls/answering/reports", params={"limit": min(max(1, limit), 50)})
+
+    @app.post("/m/api/calls/selftest")
+    async def calls_selftest(body: CallSelftestIn | None = None, _=Depends(session)):
+        return await call("POST", "/api/telegram/calls/selftest",
+                          json={"scenario": body.scenario if body else "all"}, timeout=430)
+
+    @app.post("/m/api/calls/doctor")
+    async def calls_doctor(_=Depends(session)):
+        return await call("POST", "/api/telegram/calls/doctor", json={}, timeout=30)
 
     @app.post("/m/api/photo/jobs/{job_id}/to-pult")
     async def p_to_pult(job_id: str, _=Depends(session)):

@@ -108,6 +108,8 @@ class Assistant:
         self.owner_ids = set(owner_ids)
         self.clock = clock or (lambda: datetime.now(timezone.utc).replace(microsecond=0))
         self.stop_file = Path(stop_file) if stop_file else default_stop_file()
+        if getattr(self.store, "stop_file", None) is None:
+            self.store.stop_file = self.stop_file
 
     def global_stop(self) -> bool:
         try:
@@ -127,10 +129,10 @@ class Assistant:
             return "Помощник обменника доступен только владельцу."
         t = normalize(text)
         if (stopped or self.global_stop()) and is_write(t):
-            return "⛔ Действует СТОП/пауза: записи (курс, сделка, отмена) заблокированы до «Продолжить». Чтение работает."
+            return "⛔ Действует СТОП/пауза: записи (курс, котировка, сделка, отмена) заблокированы до «Продолжить». Чтение работает."
         now = self.clock()
         try:
-            return self._dispatch(t, actor, now)
+            return self._dispatch(t, actor, now, stopped=stopped)
         except (QuoteError, RateError, StoreError) as e:
             return f"Не выполнено: {e}"
 
@@ -157,7 +159,8 @@ class Assistant:
         pos = ", ".join(f"{k} {'+' if v >= 0 else ''}{v}" for k, v in d["position_change"].items()) or "—"
         recent = [
             row for row in self.store.deals()
-            if row["status"] == "done" and start <= datetime.fromisoformat(row["confirmed_at"]) < end
+            if row["status"] == "done" and row.get("crm_status", "settled") == "settled"
+            and start <= datetime.fromisoformat(row["confirmed_at"]) < end
         ]
         receipt_lines = [
             f"  • D-{r['id']} ({r['quote_id']}): {r.get('leg_in_actual') or r['give_amount']} {r['give_ccy']} → "
@@ -175,33 +178,59 @@ class Assistant:
             lines.extend(receipt_lines)
         return "\n".join(lines)
 
-    def _dispatch(self, t: str, actor: str, now: datetime) -> str:
+    def _ensure_not_stopped(self, stopped: bool = False) -> None:
+        if stopped or self.global_stop():
+            raise StoreError("⛔ Действует СТОП/пауза: записи (курс, котировка, сделка, отмена) заблокированы до «Продолжить».")
+
+    def _dispatch(self, t: str, actor: str, now: datetime, *, stopped: bool = False) -> str:
         if t in ("", "помощь", "help", "/help", "команды"):
             return HELP
         if RE_RATES.match(t):
             return self._rates(now)
         if m := RE_MANUAL.match(t):
+            self._ensure_not_stopped(stopped)
             r = self.store.set_manual_rate(ccy(m[1]) + ccy(m[2]), parse_decimal(m[3], "курс"), m[4], now, actor)
             return f"Записан ручной курс: {r.label()}"
         if m := RE_GET.match(t):
+            self._ensure_not_stopped(stopped)
             buy_verb = bool(m[1])
-            margin_kw = {"margin": parse_decimal(m[5], "наценка") / 100} if m[5] else ({"margin": None} if buy_verb else {})
+            margin_val = parse_decimal(m[5], "наценка") / 100 if m[5] else None
             q = build_quote(self.book(), give_ccy=ccy(m[4]), get_ccy=ccy(m[3]), now=now,
                             get_amount=parse_decimal(m[2], "сумма"),
-                            require_explicit_margin=buy_verb,
-                            client_buys_get=buy_verb, **margin_kw)
+                            margin=margin_val,
+                            require_explicit_margin=True,
+                            client_buys_get=buy_verb)
+            self._ensure_not_stopped(stopped)
             self.store.save_quote(q)
             return q.text()
         if m := RE_GIVE.match(t):
-            margin_kw = {"margin": parse_decimal(m[4], "наценка") / 100} if m[4] else {}
+            self._ensure_not_stopped(stopped)
+            margin_val = parse_decimal(m[4], "наценка") / 100 if m[4] else None
             q = build_quote(self.book(), give_ccy=ccy(m[2]), get_ccy=ccy(m[3]), now=now,
-                            give_amount=parse_decimal(m[1], "сумма"), **margin_kw)
+                            give_amount=parse_decimal(m[1], "сумма"),
+                            margin=margin_val,
+                            require_explicit_margin=True)
+            self._ensure_not_stopped(stopped)
             self.store.save_quote(q)
             return q.text()
         if m := RE_CONFIRM.match(t):
+            self._ensure_not_stopped(stopped)
             in_actual = parse_decimal(m[2], "приняли").quantize(Decimal("0.01")) if m[2] else None
             out_actual = parse_decimal(m[3], "выдали").quantize(Decimal("0.01")) if m[3] else None
-            d, created = self.store.confirm(m[1], now, actor, leg_in_actual=in_actual, leg_out_actual=out_actual)
+            if in_actual is None or out_actual is None:
+                q_row = self.store.quote(m[1])
+                if q_row is None:
+                    raise StoreError(f"котировка {m[1]} не найдена")
+                if now > datetime.fromisoformat(q_row["valid_until"]):
+                    raise StoreError(f"котировка {q_row['id']} просрочена ({q_row['valid_until']}); сделайте новую котировку")
+                return (
+                    f"Не выполнено: укажите фактические суммы обеих сторон перед записью проведённой сделки по {q_row['id']} "
+                    f"(фактические суммы: неизвестно; расчёт: приняли {q_row['give_amount']} {q_row['give_ccy']}, "
+                    f"выдали {q_row['get_amount']} {q_row['get_ccy']}):\n"
+                    f"обмен выполнен {q_row['id']} приняли <сумма> выдали <сумма>"
+                )
+            d, created = self.store.confirm(m[1], now, actor, crm_status="settled",
+                                            leg_in_actual=in_actual, leg_out_actual=out_actual)
             head = "Сделка записана" if created else "Эта котировка уже подтверждена, повтор не создан"
             in_shown = d.get("leg_in_actual") or d["give_amount"]
             out_shown = d.get("leg_out_actual") or d["get_amount"]

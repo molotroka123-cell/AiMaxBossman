@@ -79,9 +79,10 @@ def _locked(fn):
 
 
 class Store:
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, *, stop_file: str | Path | None = None):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.stop_file: Path | None = Path(stop_file) if stop_file else None
         self.lock = threading.RLock()
         self._manual_rates_cache: list[Rate] | None = None
         self.db = sqlite3.connect(str(self.path), check_same_thread=False, timeout=10)
@@ -90,6 +91,15 @@ class Store:
         self.db.execute("PRAGMA busy_timeout=10000")
         self.db.executescript(SCHEMA)
         self._migrate()
+
+    def _check_stop(self) -> None:
+        if self.stop_file is not None:
+            try:
+                stopped = self.stop_file.is_file()
+            except OSError:
+                stopped = True
+            if stopped:
+                raise StoreError("⛔ Действует СТОП/пауза: записи (курс, котировка, сделка, отмена) заблокированы до «Продолжить».")
 
     def _migrate(self) -> None:
         qcols = {r[1] for r in self.db.execute("PRAGMA table_info(quotes)")}
@@ -116,6 +126,7 @@ class Store:
     @_locked
     def set_manual_rate(self, pair: str, value: Decimal, source: str, now: datetime, set_by: str,
                         ttl=MANUAL_DEFAULT_TTL) -> Rate:
+        self._check_stop()
         pair = pair.upper()
         check_bounds(pair, value)
         if not source.strip():
@@ -133,19 +144,24 @@ class Store:
         if self._manual_rates_cache is not None:
             return list(self._manual_rates_cache)
         rows = self.db.execute(
-            "SELECT pair, value, source, set_at, expires_at, MAX(id) AS max_id "
-            "FROM manual_rates GROUP BY pair ORDER BY max_id"
+            "SELECT id, pair, value, source, set_at, expires_at "
+            "FROM manual_rates ORDER BY id ASC"
         ).fetchall()
-        res = [
-            Rate(row["pair"], Decimal(row["value"]), row["source"], _dt(row["set_at"]), "manual", _dt(row["expires_at"]))
-            for row in rows
-        ]
+        chosen: dict[str, tuple[datetime, int, Rate]] = {}
+        for row in rows:
+            as_of = _dt(row["set_at"])
+            rate = Rate(row["pair"], Decimal(row["value"]), row["source"], as_of, "manual", _dt(row["expires_at"]))
+            prev = chosen.get(row["pair"])
+            if prev is None or (as_of, int(row["id"])) >= (prev[0], prev[1]):
+                chosen[row["pair"]] = (as_of, int(row["id"]), rate)
+        res = [item[2] for item in chosen.values()]
         self._manual_rates_cache = res
         return list(res)
 
     # ---------------------------------------------------------------- quotes and deals
     @_locked
     def save_quote(self, q: Quote, *, crm_status: str = "quoted") -> None:
+        self._check_stop()
         if crm_status not in ("draft", "quoted"):
             raise StoreError(f"недопустимый статус котировки: {crm_status}")
         with self.db:
@@ -217,27 +233,70 @@ class Store:
                 leg_in_actual: Decimal | None = None,
                 leg_out_actual: Decimal | None = None,
                 idempotency_key: str | None = None) -> tuple[dict, bool]:
-        """Record 'exchange done' for a quote. Returns (deal, created). A second confirmation returns the same deal."""
+        """Record deal confirmation for a quote.
+        - Settled deals (`crm_status='settled'`) require explicit `leg_in_actual` and `leg_out_actual`
+          from the manager; quote amounts are never silently copied into actual legs.
+        - Accepted deals (`crm_status='accepted'`) without actual amounts record `'unknown'` until settled.
+        """
+        self._check_stop()
         if crm_status not in ("accepted", "settled"):
             raise StoreError(f"недопустимый CRM-статус подтверждения: {crm_status}")
+        if crm_status == "settled" and (leg_in_actual is None or leg_out_actual is None):
+            raise StoreError(
+                "укажите фактические суммы обеих сторон (приняли и выдали) перед записью проведённой сделки "
+                "(пока суммы неизвестны, статус: unknown / accepted)"
+            )
         q = self.quote(qid)
         if q is None:
             raise StoreError(f"котировка {qid} не найдена")
+        if q.get("crm_status") == "cancelled":
+            raise StoreError(f"котировка {q['id']} отменена")
         idem = (idempotency_key or q["id"]).strip()
         existing = self.db.execute("SELECT * FROM deals WHERE quote_id=? OR (idempotency_key IS NOT NULL AND idempotency_key=?)",
                                    (q["id"], idem)).fetchone()
         if existing:
-            deal_dict = dict(existing)
-            self._write_receipt_pdf(deal_dict)
-            return deal_dict, False
+            existing_dict = dict(existing)
+            if existing_dict.get("crm_status") == "accepted" and crm_status == "settled" and leg_in_actual is not None and leg_out_actual is not None:
+                in_dec = Decimal(str(leg_in_actual)).quantize(Decimal("0.01"))
+                out_dec = Decimal(str(leg_out_actual)).quantize(Decimal("0.01"))
+                if in_dec <= 0 or out_dec <= 0:
+                    raise StoreError("фактические суммы обеих сторон должны быть больше 0")
+                in_act = str(in_dec)
+                out_act = str(out_dec)
+                slip_in = str(in_dec - Decimal(q["give_amount"]))
+                slip_out = str(out_dec - Decimal(q["get_amount"]))
+                with self.db:
+                    self.db.execute(
+                        "UPDATE deals SET crm_status='settled', confirmed_at=?, confirmed_by=?, "
+                        "leg_in_actual=?, leg_out_actual=?, slippage_in=?, slippage_out=? WHERE id=?",
+                        (_iso(now), by, in_act, out_act, slip_in, slip_out, existing_dict["id"]),
+                    )
+                    self.db.execute("UPDATE quotes SET crm_status='settled' WHERE id=?", (q["id"],))
+                    self._event(now, "deal_settled", f"D-{existing_dict['id']}",
+                                {"quote": q["id"], "by": by, "crm_status": "settled",
+                                 "leg_in_actual": in_act, "leg_out_actual": out_act,
+                                 "slippage_in": slip_in, "slippage_out": slip_out})
+                deal_dict = dict(self.db.execute("SELECT * FROM deals WHERE id=?", (existing_dict["id"],)).fetchone())
+                self._write_receipt_pdf(deal_dict)
+                return deal_dict, True
+            self._write_receipt_pdf(existing_dict)
+            return existing_dict, False
         if now > _dt(q["valid_until"]):
             raise StoreError(f"котировка {q['id']} просрочена ({q['valid_until']}); сделайте новую котировку")
-        in_dec = Decimal(str(leg_in_actual)) if leg_in_actual is not None else Decimal(q["give_amount"])
-        out_dec = Decimal(str(leg_out_actual)) if leg_out_actual is not None else Decimal(q["get_amount"])
-        in_act = str(in_dec)
-        out_act = str(out_dec)
-        slip_in = str(in_dec - Decimal(q["give_amount"]))
-        slip_out = str(out_dec - Decimal(q["get_amount"]))
+        if leg_in_actual is not None and leg_out_actual is not None:
+            in_dec = Decimal(str(leg_in_actual)).quantize(Decimal("0.01"))
+            out_dec = Decimal(str(leg_out_actual)).quantize(Decimal("0.01"))
+            if in_dec <= 0 or out_dec <= 0:
+                raise StoreError("фактические суммы обеих сторон должны быть больше 0")
+            in_act = str(in_dec)
+            out_act = str(out_dec)
+            slip_in = str(in_dec - Decimal(q["give_amount"]))
+            slip_out = str(out_dec - Decimal(q["get_amount"]))
+        else:
+            in_act = str(Decimal(str(leg_in_actual)).quantize(Decimal("0.01"))) if leg_in_actual is not None else "unknown"
+            out_act = str(Decimal(str(leg_out_actual)).quantize(Decimal("0.01"))) if leg_out_actual is not None else "unknown"
+            slip_in = "unknown"
+            slip_out = "unknown"
         fee_rate = str(q.get("margin", "0.03"))
         try:
             with self.db:
@@ -247,13 +306,13 @@ class Store:
                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (q["id"], "done", crm_status, _iso(now), by, q["give_ccy"], q["give_amount"], q["get_ccy"], q["get_amount"],
                      in_act, out_act, fee_rate, slip_in, slip_out, idem, q["client_rate"], q["mid"]))
+                self.db.execute("UPDATE quotes SET crm_status=? WHERE id=?", (crm_status, q["id"]))
                 self._event(now, "deal_done", f"D-{cur.lastrowid}",
                             {"quote": q["id"], "by": by, "crm_status": crm_status,
                              "leg_in_actual": in_act, "leg_out_actual": out_act,
                              "slippage_in": slip_in, "slippage_out": slip_out,
                              "idempotency_key": idem, "fee_rate": fee_rate})
         except sqlite3.IntegrityError:
-            # the pult and the phone app are separate processes on one file: the other one confirmed first
             row = self.db.execute("SELECT * FROM deals WHERE quote_id=?", (q["id"],)).fetchone()
             if row is None:
                 raise
@@ -266,6 +325,7 @@ class Store:
 
     @_locked
     def reverse(self, deal_id: int, reason: str, now: datetime, by: str) -> dict:
+        self._check_stop()
         row = self.db.execute("SELECT * FROM deals WHERE id=?", (deal_id,)).fetchone()
         if row is None:
             raise StoreError(f"сделка D-{deal_id} не найдена")
@@ -282,6 +342,7 @@ class Store:
     @_locked
     def cancel_quote(self, qid: str, reason: str, now: datetime, by: str) -> dict:
         """Cancel an unconfirmed quote (draft/quoted -> cancelled)."""
+        self._check_stop()
         q = self.quote(qid)
         if q is None:
             raise StoreError(f"котировка {qid} не найдена")
@@ -299,14 +360,22 @@ class Store:
     def deals(self) -> list[dict]:
         return [dict(r) for r in self.db.execute("SELECT * FROM deals ORDER BY id")]
 
+    @staticmethod
+    def _actual_or_quoted(raw_actual: str | None, quoted: str) -> Decimal:
+        if raw_actual and str(raw_actual) != "unknown":
+            return Decimal(str(raw_actual))
+        return Decimal(str(quoted))
+
     @_locked
     def legs(self) -> list[dict]:
-        """Ledger view: each deal = two legs from the desk's side; a reversal adds two opposite legs."""
+        """Ledger view: each settled deal = two legs from the desk's side; a reversal adds two opposite legs."""
         out = []
         for d in self.deals():
+            if d.get("crm_status") == "accepted" and (d.get("leg_in_actual") == "unknown" or d.get("leg_out_actual") == "unknown"):
+                continue
             ref = f"D-{d['id']}"
-            in_amt = Decimal(d.get("leg_in_actual") or d["give_amount"])
-            out_amt = Decimal(d.get("leg_out_actual") or d["get_amount"])
+            in_amt = self._actual_or_quoted(d.get("leg_in_actual"), d["give_amount"])
+            out_amt = self._actual_or_quoted(d.get("leg_out_actual"), d["get_amount"])
             out += [dict(ref=ref, ts=d["confirmed_at"], ccy=d["give_ccy"], amount=in_amt, kind="inflow"),
                     dict(ref=ref, ts=d["confirmed_at"], ccy=d["get_ccy"], amount=-out_amt, kind="outflow")]
             if d["status"] == "reversed":
@@ -322,7 +391,9 @@ class Store:
         active = [
             d for d in all_deals
             if d["status"] == "done"
-            and d.get("crm_status", "settled") in ("accepted", "settled")
+            and d.get("crm_status", "settled") == "settled"
+            and d.get("leg_in_actual") != "unknown"
+            and d.get("leg_out_actual") != "unknown"
             and start <= _dt(d["confirmed_at"]) < end
         ]
         reversed_n = sum(
@@ -333,8 +404,8 @@ class Store:
         turnover, no_usdt = Decimal(0), 0
         position: dict[str, Decimal] = {}
         for d in active:
-            in_amt = Decimal(d.get("leg_in_actual") or d["give_amount"])
-            out_amt = Decimal(d.get("leg_out_actual") or d["get_amount"])
+            in_amt = self._actual_or_quoted(d.get("leg_in_actual"), d["give_amount"])
+            out_amt = self._actual_or_quoted(d.get("leg_out_actual"), d["get_amount"])
             if d["give_ccy"] == "USDT":
                 turnover += in_amt
             elif d["get_ccy"] == "USDT":

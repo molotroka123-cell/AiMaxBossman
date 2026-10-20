@@ -271,7 +271,7 @@ def _read_credentials(home: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def load(path: Path) -> PITSettings:
+def load(path: Path, *, ignore_generation_cloud: bool = False) -> PITSettings:
     """Load config.json + encrypted credentials + env overrides.
 
     Secret values never belong in the public configuration file; providing
@@ -325,10 +325,10 @@ def load(path: Path) -> PITSettings:
     if data["web_only"]:
         # A web-only data dir never holds a bot token, even from the environment.
         data["bot_token"] = ""
-    override = generation_cloud_override(path.parent)
+    override = None if ignore_generation_cloud else generation_cloud_override(path.parent)
     if override is not None:
         apply_generation_cloud(data, override)
-    elif JEFF_LOCAL_ONLY:
+    elif JEFF_LOCAL_ONLY or ignore_generation_cloud:
         enforce_local_only(data)
     return PITSettings(**data)
 

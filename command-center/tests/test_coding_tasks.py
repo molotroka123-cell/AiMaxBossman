@@ -272,14 +272,23 @@ async def test_a_task_running_in_a_previous_server_process_is_not_shown_as_runni
 
 async def test_mission_receipt_endpoint_returns_signed_workspace_receipt(env, repo, monkeypatch, tmp_path):
     """Tier 5 OpenHands extension: unified mission workspace receipt with base_commit,
-    changed_files, git_diff, diff_digest, stop_status, postcondition_verified, and receipt_sha256."""
+    changed_files, git_diff, diff_digest, stop_status, postcondition_verified (requiring
+    verify_cmd and verify_exit_code == 0), and receipt_sha256."""
+    (repo / "tests").mkdir(exist_ok=True)
+    (repo / "tests" / "test_main.py").write_text(
+        "import pathlib\ndef test_v3():\n    assert 'v3' in pathlib.Path('app/main.py').read_text()\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", "tests/test_main.py")
+    git(repo, "commit", "-qm", "add test_main")
     monkeypatch.setenv(ct.COMMAND_ENV, sidecar("pathlib.Path('app/main.py').write_text(\"print('v3')\\n\")"))
     monkeypatch.setenv("TMPDIR", str(tmp_path))
     import tempfile; monkeypatch.setattr(tempfile, "tempdir", None)
     await _allow(env, repo.parent)
     res = await env.client.post("/api/coding-tasks", json={
         "instruction": "update main.py to v3", "source_repo": str(repo),
-        "allowed_paths": ["app"], "protected_paths": ["SECRETS.md"]})
+        "allowed_paths": ["app"], "protected_paths": ["SECRETS.md"],
+        "verify_tests": ["tests/test_main.py"]})
     assert res.status_code == 200
     tid = res.json()["id"]
     rec = await _wait_terminal(env, tid)
@@ -290,17 +299,31 @@ async def test_mission_receipt_endpoint_returns_signed_workspace_receipt(env, re
     assert rc["task_id"] == tid
     assert rc["changed_files"] == ["app/main.py"]
     assert "+print('v3')" in rc["git_diff"]
+    assert rc["verify_cmd"] == ["tests/test_main.py"]
+    assert rc["verify_exit_code"] == 0
+    assert rc["workspace_integrity_verified"] is True
     assert rc["postcondition_verified"] is True
-    assert rc["verify_cmd"] == []
-    assert rc["verify_exit_code"] is None
     assert rc["sandbox_removed"] is True
     assert rc["stop_status"] == "COMPLETED"
     assert len(rc["receipt_sha256"]) == 64
     assert rc["receipt_id"].startswith("rcpt-")
 
-    # Fail-closed check: if head_before is missing/None or candidate_files/evidence_digest is missing when verify_tests is empty, postcondition_verified is False
+    # RT20-05 fail-closed checks:
+    # 1) Empty verify_tests / verify_exit_code=None must NOT set postcondition_verified=True
+    no_verify_rc = ct.mission_receipt({
+        "id": "deadbeef0001",
+        "status": "completed",
+        "evidence": {"head_before": "a", "head_after": "a"},
+        "evidence_digest": "sha256:1234",
+        "verify_tests": [],
+    })
+    assert no_verify_rc["workspace_integrity_verified"] is True
+    assert no_verify_rc["postcondition_verified"] is False
+
+    # 2) Missing candidate_files/evidence_digest -> both workspace_integrity_verified and postcondition_verified are False
     unverified_rc = ct.mission_receipt({"id": "deadbeef1234", "status": "completed", "evidence": {"head_before": "a", "head_after": "a"}})
     assert unverified_rc["postcondition_verified"] is False
+    assert unverified_rc["workspace_integrity_verified"] is False
 
 
 async def test_sparse_coder_helper_vram_budget_and_local_coders_api(env):

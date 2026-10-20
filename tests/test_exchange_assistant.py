@@ -137,13 +137,19 @@ def test_quote_is_deterministic():
 
 # ------------------------------------------------------------------ assistant flow
 def test_full_flow_quote_confirm_duplicate_reverse_dashboard(assistant):
-    assert "USDT/USD" in assistant.handle("500 usdt в czk", "owner")        # no USDT/USD yet -> refused
+    assert "USDT/USD" in assistant.handle("500 usdt в czk при 3%", "owner")        # no USDT/USD yet -> refused
     assert "Записан ручной курс" in assistant.handle("курс usdt/usd 0,999 источник биржа binance", "owner")
-    q = assistant.handle("500 usdt в czk", "owner")
+    # Without explicit manager margin, quote is refused and not saved
+    assert "явную ставку" in assistant.handle("500 usdt в czk", "owner")
+    q = assistant.handle("500 usdt в czk при 3%", "owner")
     assert "10465.52 CZK" in q and "ЧНБ" in q and "наценка 3%" in q
     qid = _qid(q)
-    assert "Сделка записана: D-1" in assistant.handle(f"обмен выполнен {qid}", "owner")
-    assert "повтор не создан" in assistant.handle(f"обмен выполнен {qid}", "owner")
+    # Without actual legs of both sides, CRM asks for actual amounts and does not record a settled deal
+    ask_actuals = assistant.handle(f"обмен выполнен {qid}", "owner")
+    assert "фактические суммы обеих сторон" in ask_actuals and "неизвестно" in ask_actuals
+    assert assistant.store.deals() == []
+    assert "Сделка записана: D-1" in assistant.handle(f"обмен выполнен {qid} приняли 500 выдали 10465,52", "owner")
+    assert "повтор не создан" in assistant.handle(f"обмен выполнен {qid} приняли 500 выдали 10465,52", "owner")
     assert len(assistant.store.deals()) == 1
     dash = assistant.handle("итоги", "owner")
     assert "Сделок: 1" in dash and "500.00 USDT" in dash and "N/A" in dash
@@ -156,14 +162,14 @@ def test_full_flow_quote_confirm_duplicate_reverse_dashboard(assistant):
 
 def test_expired_quote_cannot_be_confirmed(assistant):
     assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
-    qid = _qid(assistant.handle("получить 10000 czk за usdt", "owner"))
+    qid = _qid(assistant.handle("получить 10000 czk за usdt при 3%", "owner"))
     assistant.clock_ref["now"] = NOW + timedelta(minutes=16)
     assert "просрочена" in assistant.handle(f"обмен выполнен {qid}", "owner")
     assert assistant.store.deals() == []
 
 
 def test_non_owner_gets_nothing(assistant):
-    for cmd in ("курс", "500 usdt в czk", "итоги", "курс usdt/usd 1 источник x", "обмен выполнен Q-00000000"):
+    for cmd in ("курс", "500 usdt в czk при 3%", "итоги", "курс usdt/usd 1 источник x", "обмен выполнен Q-00000000"):
         assert assistant.handle(cmd, "stranger") == "Помощник обменника доступен только владельцу."
     assert assistant.store.manual_rates() == [] and assistant.store.deals() == []
 
@@ -191,7 +197,8 @@ def test_unknown_command_and_manual_rate_bounds(assistant):
 # ------------------------------------------------------------------ store safety
 def test_deals_and_events_cannot_be_deleted(assistant):
     assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
-    assistant.handle(f"обмен выполнен {_qid(assistant.handle('100 usdt в eur', 'owner'))}", "owner")
+    qid = _qid(assistant.handle("100 usdt в eur при 3%", "owner"))
+    assistant.handle(f"обмен выполнен {qid} приняли 100 выдали 86,13", "owner")
     with pytest.raises(sqlite3.DatabaseError):
         assistant.store.db.execute("DELETE FROM deals")
     with pytest.raises(sqlite3.DatabaseError):
@@ -200,10 +207,12 @@ def test_deals_and_events_cannot_be_deleted(assistant):
 
 def test_backup_and_restore_roundtrip(assistant, tmp_path):
     assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
-    assistant.handle(f"обмен выполнен {_qid(assistant.handle('100 usdt в eur', 'owner'))}", "owner")
+    qid1 = _qid(assistant.handle("100 usdt в eur при 3%", "owner"))
+    assistant.handle(f"обмен выполнен {qid1} приняли 100 выдали 86,13", "owner")
     copy = assistant.store.backup(tmp_path / "bk" / "copy.db")
     Store.verify(copy)
-    assistant.handle(f"обмен выполнен {_qid(assistant.handle('200 usdt в eur', 'owner'))}", "owner")
+    qid2 = _qid(assistant.handle("200 usdt в eur при 3%", "owner"))
+    assistant.handle(f"обмен выполнен {qid2} приняли 200 выдали 172,27", "owner")
     assert len(assistant.store.deals()) == 2
     assistant.store.restore(copy)
     assert len(assistant.store.deals()) == 1
@@ -217,14 +226,14 @@ def test_backup_and_restore_roundtrip(assistant, tmp_path):
 
 def test_global_stop_file_blocks_writes_everywhere(assistant):
     assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
-    qid = _qid(assistant.handle("100 usdt в czk", "owner"))
+    qid = _qid(assistant.handle("100 usdt в czk при 3%", "owner"))
     assistant.stop_file.write_text("stop")
-    assert "СТОП" in assistant.handle(f"обмен выполнен {qid}", "owner")
+    assert "СТОП" in assistant.handle(f"обмен выполнен {qid} приняли 100 выдали 2093,10", "owner")
     assert "СТОП" in assistant.handle("отмена D-1 x", "owner")
     assert "Курсы" in assistant.handle("курс", "owner")             # reading still works
     assert assistant.store.deals() == []
     assistant.stop_file.unlink()
-    assert "Сделка записана" in assistant.handle(f"обмен выполнен {qid}", "owner")
+    assert "Сделка записана" in assistant.handle(f"обмен выполнен {qid} приняли 100 выдали 2093,10", "owner")
 
 
 def test_two_surfaces_share_one_book(assistant, tmp_path):
@@ -232,9 +241,9 @@ def test_two_surfaces_share_one_book(assistant, tmp_path):
     other = Assistant(Store(assistant.store.path), fx_db=assistant.fx_db, clock=assistant.clock, stop_file=assistant.stop_file)
     try:
         assistant.handle("курс usdt/usd 0.999 источник тест", "owner")
-        qid = _qid(other.handle("100 usdt в czk", "owner"))
-        assert "Сделка записана: D-1" in assistant.handle(f"обмен выполнен {qid}", "owner")
-        assert "повтор не создан" in other.handle(f"обмен выполнен {qid}", "owner")
+        qid = _qid(other.handle("100 usdt в czk при 3%", "owner"))
+        assert "Сделка записана: D-1" in assistant.handle(f"обмен выполнен {qid} приняли 100 выдали 2093,10", "owner")
+        assert "повтор не создан" in other.handle(f"обмен выполнен {qid} приняли 100 выдали 2093,10", "owner")
         assert len(other.store.deals()) == 1
     finally:
         other.store.close()
@@ -304,12 +313,22 @@ def test_crm_statuses_actual_legs_and_branded_document(assistant):
     saved_q = assistant.store.quote(q.id)
     assert saved_q["crm_status"] == "draft"
 
-    deal, created = assistant.store.confirm(
-        q.id, NOW, "owner", crm_status="accepted",
+    # RT20-04: accepted without actual legs records 'unknown'
+    deal_acc, created_acc = assistant.store.confirm(q.id, NOW, "owner", crm_status="accepted")
+    assert created_acc is True
+    assert deal_acc["crm_status"] == "accepted"
+    assert deal_acc["leg_in_actual"] == "unknown"
+    assert deal_acc["leg_out_actual"] == "unknown"
+    assert deal_acc["slippage_in"] == "unknown"
+    assert deal_acc["slippage_out"] == "unknown"
+
+    # Settling transitions accepted -> settled with actual legs
+    deal, settled_ok = assistant.store.confirm(
+        q.id, NOW, "owner", crm_status="settled",
         leg_in_actual=Decimal("1000.00"), leg_out_actual=Decimal("24250.00"),
     )
-    assert created is True
-    assert deal["crm_status"] == "accepted"
+    assert settled_ok is True
+    assert deal["crm_status"] == "settled"
     assert deal["leg_in_actual"] == "1000.00"
     assert deal["leg_out_actual"] == "24250.00"
     assert deal["fee_rate"] == "0.03"
@@ -419,6 +438,7 @@ def test_dashboard_uses_actual_legs_and_cancel_quote(assistant):
     )
     assistant.store.save_quote(q2, crm_status="draft")
     cancelled = assistant.store.cancel_quote(q2.id, "клиент передумал", NOW + timedelta(seconds=2), "owner")
+    assert cancelled["crm_status"] == "cancelled"
     with pytest.raises(StoreError, match="уже есть сделка"):
         assistant.store.cancel_quote(q1.id, "поздно", NOW + timedelta(seconds=3), "owner")
 
@@ -432,7 +452,7 @@ def test_swapme_pdf_receipt_and_daily_pult_summary(assistant):
     q_reply = assistant.handle("1000 usdt в czk при 3%", "owner")
     qid = _qid(q_reply)
 
-    confirm_reply = assistant.handle(f"обмен выполнен {qid}", "owner")
+    confirm_reply = assistant.handle(f"обмен выполнен {qid} приняли 1000 выдали 24250", "owner")
     assert "Сделка записана: D-1" in confirm_reply
     assert "PDF" in confirm_reply
 
@@ -465,31 +485,51 @@ def test_swapme_pdf_receipt_and_daily_pult_summary(assistant):
 
 
 def test_redteam_rt20_stop_quote_explicit_buy_margin_and_manual_rate_ordering(assistant):
-    """Regression coverage for RT20-01 (STOP blocks quote creation), RT20-02 (buy requires explicit margin),
-    and RT20-03 (older manual rate never overwrites a newer manual rate in RateBook)."""
+    """Regression coverage for RT20-01 (STOP blocks quote creation at Assistant and Store levels),
+    RT20-02 (every quote requires explicit manager margin), RT20-03 (newest manual rate wins),
+    and RT20-04 (Store.confirm refuses settled without actual legs and Assistant asks for both actual legs)."""
     assistant.handle("курс usdt/usd 1.0000 источник синтетика", "owner")
     assistant.handle("курс usd/czk 25.000 источник синтетика", "owner")
 
-    # RT20-01: STOP active -> quote commands (RE_GET / RE_GIVE) are blocked and write 0 rows to quotes
+    # RT20-01: STOP active -> quote commands (RE_GET / RE_GIVE) and Store.save_quote write 0 rows to quotes/events
     before_q = assistant.store.db.execute("SELECT COUNT(*) FROM quotes").fetchone()[0]
+    before_ev = assistant.store.db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+    q_pre = build_quote(
+        assistant.book(), give_ccy="USDT", get_ccy="CZK", give_amount=Decimal("1000"),
+        margin=Decimal("0.03"), require_explicit_margin=True, now=NOW,
+    )
     assistant.stop_file.write_text("stop", encoding="utf-8")
     try:
         ans_stop_buy = assistant.handle("купить 1000 usdt за czk при 3%", "owner")
         ans_stop_sell = assistant.handle("1000 usdt в czk при 3%", "owner")
+        with pytest.raises(StoreError, match="СТОП"):
+            assistant.store.save_quote(q_pre)
         after_q = assistant.store.db.execute("SELECT COUNT(*) FROM quotes").fetchone()[0]
+        after_ev = assistant.store.db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
         assert "СТОП" in ans_stop_buy and "СТОП" in ans_stop_sell
-        assert after_q == before_q
+        assert after_q == before_q and after_ev == before_ev
     finally:
         assistant.stop_file.unlink(missing_ok=True)
 
-    # RT20-02: buy command without explicit margin is refused instead of silently applying 3%
-    ans_no_margin = assistant.handle("купить 1000 usdt за czk", "owner")
-    assert "Не выполнено" in ans_no_margin and "явную ставку" in ans_no_margin
-    assert "наценка 3%" not in ans_no_margin
+    # RT20-02: both buy and sell commands without explicit margin are refused and write 0 rows to quotes
+    for cmd_no_margin in ("купить 1000 usdt за czk", "получить 10000 czk за usdt", "1000 usdt в czk"):
+        ans = assistant.handle(cmd_no_margin, "owner")
+        assert "Не выполнено" in ans and "явную ставку" in ans
+        assert "наценка 3%" not in ans
+    assert assistant.store.db.execute("SELECT COUNT(*) FROM quotes").fetchone()[0] == before_q
 
-    # RT20-03: older manual rate never overwrites newer manual rate in RateBook.put
+    # RT20-03: older manual rate never overwrites newer manual rate in RateBook.put or Store.manual_rates
     newer = Rate("USDCZK", Decimal("25"), "synthetic", NOW, "manual", NOW + timedelta(hours=12))
     older = Rate("USDCZK", Decimal("20"), "older-synthetic", NOW - timedelta(hours=1), "manual", NOW + timedelta(hours=12))
     rb = RateBook([newer])
     rb.put(older)
     assert rb.get("USDCZK", NOW).value == Decimal("25")
+    assistant.store.set_manual_rate("EURCZK", Decimal("25.5"), "newer", NOW, "owner")
+    assistant.store.set_manual_rate("EURCZK", Decimal("24.0"), "older", NOW - timedelta(hours=2), "owner")
+    assert assistant.book().get("EURCZK", NOW).value == Decimal("25.5")
+
+    # RT20-04: Store.confirm refuses settled deal without actual legs
+    assistant.store.save_quote(q_pre)
+    with pytest.raises(StoreError, match="фактические суммы обеих сторон"):
+        assistant.store.confirm(q_pre.id, NOW, "owner", crm_status="settled")
+

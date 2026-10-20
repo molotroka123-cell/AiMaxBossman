@@ -580,24 +580,33 @@ def _execute(record: dict, repo: Path, body: TaskIn, context: dict | None = None
 
 def mission_receipt(rec: dict) -> dict[str, Any]:
     """Unified mission workspace receipt (OpenHands contract): task_id, model,
-    workspace_path, git_diff, stop_status, postcondition_verified, and receipt_sha256."""
+    workspace_path, git_diff, stop_status, postcondition_verified, evidence_kind, and receipt_sha256."""
     evidence = rec.get("evidence") if isinstance(rec.get("evidence"), dict) else {}
     sidecar = rec.get("sidecar") if isinstance(rec.get("sidecar"), dict) else {}
     ver = rec.get("verification") if isinstance(rec.get("verification"), dict) else {}
+    post_chk = rec.get("postcondition_check") if isinstance(rec.get("postcondition_check"), dict) else {}
     diff = str(rec.get("diff") or "")
     status = str(rec.get("status") or "unknown")
     outcome = str(rec.get("outcome") or "")
     stop_status = "CANCELLED" if outcome == "CANCELLED" else (
         "INTERRUPTED" if outcome == "UNKNOWN_INTERRUPTED" else status.upper()
     )
-    verified = bool(ver.get("passed")) if rec.get("verify_tests") else (
+    verify_cmd = list(rec.get("verify_tests") or post_chk.get("cmd") or [])
+    verify_exit_code = ver.get("exit_code") if ver else post_chk.get("exit_code")
+    workspace_ok = (
         status == "completed"
         and bool(evidence.get("head_before"))
         and evidence.get("head_before") == evidence.get("head_after")
         and bool(rec.get("evidence_digest") or rec.get("candidate_files"))
     )
+    verified = workspace_ok and (
+        (bool(verify_cmd) and bool(ver.get("passed")) and verify_exit_code == 0)
+        or (bool(post_chk.get("passed")) and verify_exit_code == 0)
+    )
+    evidence_kind = str(rec.get("evidence_kind") or ("SYNTHETIC" if rec.get("synthetic") else "LIVE"))
     payload = {
         "schema": "bossman.mission_receipt.v1",
+        "evidence_kind": evidence_kind,
         "task_id": str(rec.get("id") or ""),
         "model": str(rec.get("model") or sidecar.get("model") or "local_sidecar"),
         "workspace_path": str(rec.get("source_repo") or ""),
@@ -605,9 +614,10 @@ def mission_receipt(rec: dict) -> dict[str, Any]:
         "changed_files": list(rec.get("changed_files") or []),
         "git_diff": diff,
         "diff_digest": rec.get("evidence_digest") or (_diff_digest(diff) if diff else None),
-        "verify_cmd": list(rec.get("verify_tests") or []),
-        "verify_exit_code": ver.get("exit_code") if ver else None,
+        "verify_cmd": verify_cmd,
+        "verify_exit_code": verify_exit_code,
         "stop_status": stop_status,
+        "workspace_integrity_verified": workspace_ok,
         "postcondition_verified": verified,
         "sandbox_removed": bool((rec.get("sandbox_cleanup") or {}).get("removed")),
     }

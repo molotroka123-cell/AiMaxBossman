@@ -107,6 +107,7 @@ class CallParticipantRuntime(ParticipantRuntime):
         # Local-only by construction: a call never spends the cloud budget and never sends call text to a provider.
         settings = dataclasses.replace(
             settings, web_only=True, bot_token="", local_chat_only=True, chat_models=(),
+            generation_cloud=False,
             max_tokens=max(64, min(settings.max_tokens, CALL_MAX_TOKENS)))
         super().__init__(settings)
         # The base class opened the Telegram client and the Telegram conversation store: keep the store (it is Jeff's own

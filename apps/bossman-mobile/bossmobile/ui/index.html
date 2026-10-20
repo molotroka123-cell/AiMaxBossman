@@ -43,6 +43,7 @@
   <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-wand" viewBox="0 0 24 24"><path d="m4 20 10.5-10.5M13 5.5l1-2.5 1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1zM18.5 12l.7-1.6.8 1.6 1.6.7-1.6.8-.8 1.6-.7-1.6-1.6-.8z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5.4 3.8h3.1l1.4 4.1-2 1.8a13.2 13.2 0 0 0 6.4 6.4l1.8-2 4.1 1.4v3.1a1.6 1.6 0 0 1-1.7 1.6A15.8 15.8 0 0 1 3.8 5.5a1.6 1.6 0 0 1 1.6-1.7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
 </svg>
 
 <!-- ================= Вход ================= -->
@@ -281,6 +282,83 @@
     </div>
   </section>
 
+  <!-- Звонки Telegram (управление, настройка, собеседник, автоответчик и тест) -->
+  <section class="view" id="view-calls" data-view="calls" hidden>
+    <header class="topbar plain">
+      <h1 class="serif title">Звонки</h1>
+      <button class="icon-btn" id="calls-reload" aria-label="Обновить"><svg><use href="#i-refresh"/></svg></button>
+    </header>
+    <div class="scroll" id="calls-body">
+      <div class="card form" id="calls-live-card">
+        <div id="calls-summary" class="calls-summary">Загрузка состояния звонков…</div>
+        <div class="calls-actions">
+          <button class="btn primary" id="calls-dial-btn" type="button">📞 Позвонить</button>
+          <button class="btn" id="calls-hangup-btn" type="button">📴 Сбросить</button>
+          <button class="btn danger" id="calls-stop-btn" type="button">⛔ СТОП звонков</button>
+          <button class="btn" id="calls-resume-btn" type="button">▶ Продолжить</button>
+          <button class="btn" id="calls-selftest-btn" type="button">🧪 Тест контура</button>
+          <button class="btn" id="calls-doctor-btn" type="button">🩺 Диагностика</button>
+        </div>
+        <pre class="swap-reply" id="calls-live-output">Готов к управлению звонками Telegram и проверке аудиоконтура.</pre>
+      </div>
+
+      <form class="card form" id="calls-settings-form" autocomplete="off">
+        <h2 class="sub">Настройки звонков и автоответчика</h2>
+        <label class="consent"><input type="checkbox" id="calls-enabled"><span>Разрешить исходящие звонки</span></label>
+        <label class="consent"><input type="checkbox" id="calls-barge-in" checked><span>Разрешить перебивание (barge-in)</span></label>
+        <label class="lbl" for="calls-greeting">Приветствие исходящего звонка</label>
+        <input id="calls-greeting" class="field" maxlength="200" placeholder="Здравствуйте! Это Джефф…">
+        <label class="consent"><input type="checkbox" id="calls-answering-enabled"><span>Включить автоответчик входящих звонков</span></label>
+        <label class="consent"><input type="checkbox" id="calls-allow-unknown" checked><span>Отвечать незнакомым контактам</span></label>
+        <label class="lbl" for="calls-ring-delay">Задержка ответа автоответчика (сек, 5–60)</label>
+        <input id="calls-ring-delay" class="field" type="number" min="5" max="60" value="12">
+        <label class="lbl" for="calls-answer-greeting">Приветствие автоответчика</label>
+        <input id="calls-answer-greeting" class="field" maxlength="240" placeholder="Здравствуйте! Это Джефф, ИИ-ассистент владельца…">
+        <div class="calls-actions">
+          <button class="btn primary" type="submit">Сохранить настройки</button>
+          <button class="btn" id="calls-answering-start" type="button">Включить автоответчик</button>
+          <button class="btn" id="calls-answering-stop" type="button">Выключить автоответчик</button>
+        </div>
+      </form>
+
+      <form class="card form" id="calls-peer-form" autocomplete="off">
+        <h2 class="sub">Собеседник для звонка</h2>
+        <p class="muted small" id="calls-peer-current">Текущий собеседник: —</p>
+        <input id="calls-peer-input" class="field" maxlength="40" placeholder="@username или числовой ID">
+        <label class="consent"><input type="checkbox" id="calls-peer-confirm"><span>Это мой тестовый аккаунт (подтверждаю выбор)</span></label>
+        <div class="calls-actions">
+          <button class="btn primary" type="submit">Выбрать собеседника</button>
+          <button class="btn" id="calls-peer-clear" type="button">Сбросить собеседника</button>
+        </div>
+      </form>
+
+      <details class="card form" id="calls-auth-card">
+        <summary class="sub">Подключение аккаунта Telegram (MTProto)</summary>
+        <p class="muted small">Ключи my.telegram.org и вход по коду сохраняются только в зашифрованном хранилище Bossman на ПК.</p>
+        <label class="lbl" for="calls-api-id">API ID</label>
+        <input id="calls-api-id" class="field mono" type="number" placeholder="12345678">
+        <label class="lbl" for="calls-api-hash">API Hash (32 символа)</label>
+        <input id="calls-api-hash" class="field mono" type="password" maxlength="32" placeholder="0123456789abcdef0123456789abcdef">
+        <button class="btn" id="calls-save-creds" type="button">Сохранить API ключи</button>
+        <label class="lbl" for="calls-phone">Телефон основного аккаунта</label>
+        <input id="calls-phone" class="field mono" placeholder="+420…">
+        <button class="btn" id="calls-send-code" type="button">1. Получить код в Telegram</button>
+        <label class="lbl" for="calls-code">Код из Telegram</label>
+        <input id="calls-code" class="field mono" placeholder="12345">
+        <button class="btn primary" id="calls-submit-code" type="button">2. Войти по коду</button>
+        <label class="lbl" for="calls-2fa">Облачный пароль 2FA (если включён)</label>
+        <input id="calls-2fa" class="field mono" type="password" placeholder="пароль 2FA">
+        <div class="calls-actions">
+          <button class="btn" id="calls-submit-2fa" type="button">3. Подтвердить 2FA</button>
+          <button class="btn danger" id="calls-logout-btn" type="button">Выйти из аккаунта</button>
+        </div>
+      </details>
+
+      <h2 class="section">История звонков и отчёты</h2>
+      <div id="calls-history" class="swap-deals"></div>
+    </div>
+  </section>
+
   <!-- Статус -->
   <section class="view" id="view-status" data-view="status" hidden>
     <header class="topbar plain"><h1 class="serif title">Статус</h1>
@@ -294,6 +372,7 @@
     <button class="tab" data-tab="video"><svg><use href="#i-video"/></svg><span>Видео</span></button>
     <button class="tab" data-tab="panel"><svg><use href="#i-panel"/></svg><span>Панель</span><i class="tab-badge" id="badge-approvals" hidden></i></button>
     <button class="tab" data-tab="swap"><svg><use href="#i-swap"/></svg><span>Обмен</span></button>
+    <button class="tab" data-tab="calls"><svg><use href="#i-phone"/></svg><span>Звонки</span></button>
     <button class="tab" data-tab="status"><svg><use href="#i-status"/></svg><span>Статус</span></button>
   </nav>
 </main>
