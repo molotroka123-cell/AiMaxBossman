@@ -121,7 +121,10 @@
   /* ================= вкладки ================= */
   function showTab(name) {
     document.querySelectorAll('.view').forEach((v) => { v.hidden = v.dataset.view !== name; });
-    document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.tab').forEach((t) => {   // aria-current: screen readers say which tab is open, not only the colour
+      const on = t.dataset.tab === name; t.classList.toggle('active', on);
+      if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
+    });
     if (name === 'photo') openPhoto();
     if (name === 'video') openVideo();
     if (name === 'panel') openPanel();
