@@ -2846,14 +2846,15 @@ async def _execute_record_screen(
         # duration label appeared in the history pane (i.e. the post opened).
         # (The old pre-open of post=3 for a "live transition" is removed: a
         # recording must start at the requested post.)
+        nav_hint: tuple[int, int, float] | None = None
         if os.name == "nt" and tg_uri and tg_instances:
-            def _label_in_window(h_scan: int) -> float | None:
+            def _label_in_window(h_scan: int) -> tuple[float, int, int] | None:
                 try:
                     from pywinauto import Desktop as _DeskL
                     w_l = _DeskL(backend="uia").window(handle=h_scan)
                     r_w = w_l.rectangle()
                     x_min = r_w.left + int((r_w.right - r_w.left) * 0.32)
-                    for el_l in w_l.descendants()[:3000]:
+                    for el_l in w_l.descendants()[:9000]:
                         nm_l = str(getattr(el_l.element_info, "name", "") or "").strip()
                         mm_l = re.match(r"^(\d{1,3}):(\d{2})$", nm_l)
                         if not mm_l:
@@ -2862,8 +2863,9 @@ async def _execute_record_screen(
                         if tot_l < 3:
                             continue
                         r_l = el_l.rectangle()
-                        if (r_l.left + r_l.right) // 2 > x_min:
-                            return tot_l
+                        cx_l = (r_l.left + r_l.right) // 2
+                        if cx_l > x_min:
+                            return (tot_l, cx_l, (r_l.top + r_l.bottom) // 2)
                 except Exception:
                     pass
                 return None
@@ -2891,8 +2893,10 @@ async def _execute_record_screen(
             # also raises its window — foreground ownership breaks the tie
             # (another window may merely have some other video post open).
             _mw_after = _main_windows()
-            _cands = {p_i: (h_i, t_i) for p_i, (h_i, t_i) in _mw_after.items()
-                      if _label_in_window(h_i) is not None}
+            _scan_after = {p_i: _label_in_window(h_i)
+                           for p_i, (h_i, _t_i) in _mw_after.items()}
+            _cands = {p_i: _mw_after[p_i] for p_i, s_i in _scan_after.items()
+                      if s_i is not None}
             if _cands:
                 _fg_pid_v = None
                 with contextlib.suppress(Exception):
@@ -2910,6 +2914,9 @@ async def _execute_record_screen(
                     _p_first = next(iter(_cands))
                     target_hwnd, target_pid, target_title = (
                         _cands[_p_first][0], _p_first, _cands[_p_first][1])
+            if target_pid in _scan_after and _scan_after[target_pid] is not None:
+                _s_t = _scan_after[target_pid]
+                nav_hint = (_s_t[1], _s_t[2], _s_t[0])
 
         # 3. Захват первого кадра и запуск FFmpeg для кодирования H.264 MP4 в высоком качестве
         from PIL import Image, ImageDraw, ImageGrab
@@ -3152,6 +3159,8 @@ async def _execute_record_screen(
             """Locate the opened post's video bubble by its duration label
             (a bare "M:SS" element on the thumbnail) in the target window.
             Returns (x, y, total_s). Only the label text is read."""
+            if nav_hint is not None:
+                return nav_hint
             if os.name != "nt" or not target_hwnd:
                 return None
             try:
@@ -3159,7 +3168,7 @@ async def _execute_record_screen(
                 w_obj = Desktop(backend="uia").window(handle=target_hwnd)
                 r_win = w_obj.rectangle()
                 x_min_v = r_win.left + int((r_win.right - r_win.left) * 0.32)
-                for el in w_obj.descendants()[:2000]:
+                for el in w_obj.descendants()[:9000]:
                     nm_el = str(getattr(el.element_info, "name", "") or "").strip()
                     m_one = _TIME_ONE_RE.match(nm_el)
                     if not m_one:
