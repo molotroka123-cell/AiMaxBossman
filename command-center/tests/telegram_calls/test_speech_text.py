@@ -41,6 +41,26 @@ def test_end_marker_is_removed_and_flags_the_call_end_even_when_split_across_del
     assert "Пока" in " ".join(out)
 
 
+def test_unfinished_sentence_before_a_bracket_is_not_lost():
+    """Regression: text not yet cut when a "[" arrived was overwritten by the bracket tail, so a
+    farewell without a sentence end right before "[конец]" was never spoken (and the call hung up)."""
+    c = SentenceChunker()
+    out = []
+    for piece in ("Хорошо, спасибо ", "за звонок и до ", "встречи [", "конец]"):
+        out += c.feed(piece)
+    out += c.flush()
+    said = " ".join(out)
+    assert c.end_call is True
+    assert "спасибо" in said and "до встречи" in said and "конец" not in said
+
+
+def test_ordinary_brackets_keep_every_word():
+    out = stream(SentenceChunker(), "Скажи мне номер [1] пожалуйста, и всё. Спасибо!", size=4)
+    said = " ".join(out)
+    for word in ("Скажи мне номер", "[1]", "пожалуйста", "Спасибо"):
+        assert word in said, (word, out)
+
+
 def test_no_end_marker_no_hangup_negative_control():
     c = SentenceChunker()
     stream(c, "Понял, продолжаем разговор.")
