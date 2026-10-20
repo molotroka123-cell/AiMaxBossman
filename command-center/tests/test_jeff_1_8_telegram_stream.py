@@ -193,6 +193,27 @@ def test_a_discarded_attempt_is_replaced_in_the_same_draft(tmp_path, monkeypatch
         "Итоговый полный ответ модели."]
 
 
+def test_a_discarded_attempt_leaves_the_screen_at_once_and_a_shorter_retry_is_shown():
+    """Regression: after sink(None) the draft kept the discarded text and its pacer kept the old
+    length, so a shorter retry was never previewed and the refused text stayed until the end."""
+    from bcc.pit.reply_stream import EditPacer, TelegramDraft
+    tg = FakeTelegram()
+    draft = TelegramDraft(tg, object(), reply_to=None, first_chars=10,
+                          pacer=EditPacer(interval=0.0, min_chars=10))
+    discarded = "Отклонённая попытка ответа, которую нельзя показывать дальше. " * 3
+
+    async def go():
+        await draft.sink(discarded)
+        await draft.sink(None)
+        await draft.sink("Новый короткий ответ.")
+    asyncio.run(go())
+    texts = [op[2] for op in tg.ops if op[0] in ("send", "edit")]
+    assert texts[0].startswith("Отклонённая")
+    assert texts[-1] == "Новый короткий ответ." + CURSOR, ("the shorter retry is previewed", texts)
+    assert len(texts) == 3 and "Отклонённая" not in texts[1], "the discarded text leaves the screen at once"
+    assert all(op[1] == tg.ops[0][1] for op in tg.ops if op[0] == "edit"), "still one message"
+
+
 def test_stop_mid_stream_sends_no_final_and_records_nothing(tmp_path, monkeypatch):
     tg = FakeTelegram()
     local = StreamingLocal(chunks=("текст ",) * 300, lead=0.0, gap=0.02)
