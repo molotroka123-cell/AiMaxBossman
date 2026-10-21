@@ -121,6 +121,34 @@ def tokens(text: str) -> list[str]:
     return out
 
 
+def bm25_scores(query_terms: list[str], counters: list[Counter]) -> list[float]:
+    """Plain BM25 (k1=1.5, b=0.75) of ``query_terms`` (already ``tokens()``) against each term counter; 0 = no match.
+
+    Shared by the participant document library and the owner's Jeff manual (``bcc.pit.jeff_kb``)."""
+    n = len(counters)
+    if not n or not query_terms:
+        return [0.0] * n
+    terms = set(query_terms)
+    avg = sum(sum(c.values()) for c in counters) / n or 1.0
+    df = Counter()
+    for c in counters:
+        for term in terms:
+            if term in c:
+                df[term] += 1
+    out: list[float] = []
+    for c in counters:
+        length = sum(c.values()) or 1
+        score = 0.0
+        for term in terms:
+            f = c.get(term, 0)
+            if not f:
+                continue
+            idf = math.log(1 + (n - df[term] + 0.5) / (df[term] + 0.5))
+            score += idf * f * 2.5 / (f + 1.5 * (0.25 + 0.75 * length / avg))
+        out.append(score)
+    return out
+
+
 MAX_UNCOMPRESSED_BYTES = 20 * 1024 * 1024
 MAX_ZIP_ENTRIES = 2000
 MAX_XML_DEPTH = 64                    # real documents nest a handful of levels; the parser is quadratic in depth
@@ -848,23 +876,9 @@ class DocLibrary:
         q = tokens(query)
         if not corpus or not q:
             return []
-        n = len(corpus)
-        avg = sum(sum(c.values()) for _, _, c in corpus) / n or 1.0
-        df = Counter()
-        for _, _, c in corpus:
-            for term in set(q):
-                if term in c:
-                    df[term] += 1
+        scores = bm25_scores(q, [c for _, _, c in corpus])
         scored: list[Hit] = []
-        for did, chunk, c in corpus:
-            length = sum(c.values()) or 1
-            score = 0.0
-            for term in set(q):
-                f = c.get(term, 0)
-                if not f:
-                    continue
-                idf = math.log(1 + (n - df[term] + 0.5) / (df[term] + 0.5))
-                score += idf * f * 2.5 / (f + 1.5 * (0.25 + 0.75 * length / avg))
+        for (did, chunk, _c), score in zip(corpus, scores):
             if score > 0:
                 scored.append(Hit(did, names[did], int(chunk.get("n", 0)), str(chunk.get("ref", "")),
                                   str(chunk.get("text", "")), round(score, 4)))

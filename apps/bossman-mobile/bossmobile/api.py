@@ -162,6 +162,29 @@ class PhotoIn(BaseModel):
     assist: bool = False            # on-demand Gemma prompt refinement -> photo job -> immediate LLM unload
 
 
+JEFF_KB_MAX_BYTES = 8 * 1024 * 1024        # same ceiling as Bossman's /api/jeff-kb/manual
+JEFF_KB_SUFFIXES = (".txt", ".md", ".pdf", ".docx")
+
+
+class JeffManualIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    data_b64: str = Field(min_length=1, max_length=(JEFF_KB_MAX_BYTES * 4) // 3 + 16)
+
+
+class JeffModeIn(BaseModel):
+    strict: bool | None = None
+    scope_all: bool | None = None
+
+
+class JeffCheckIn(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    use_manual: bool = True
+
+
+class JeffModelIn(BaseModel):
+    model: str = Field(min_length=1, max_length=120, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:/\-]{0,119}$")
+
+
 def _client_key(request: Request) -> str:
     host = request.client.host if request.client else "unknown"
     xff = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
@@ -910,6 +933,50 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     @app.post("/m/api/calls/doctor")
     async def calls_doctor(_=Depends(session)):
         return await call("POST", "/api/telegram/calls/doctor", json={}, timeout=30)
+
+    # ------------------------------------------------------------------ Jeff · обучение (owner 21.10)
+    # The owner's manual («методичка») and Jeff's local model. The file goes straight to Bossman (encrypted there);
+    # this gateway keeps nothing and logs nothing of it.
+    @app.get("/m/api/jeff-kb")
+    async def jeff_kb_state(_=Depends(session)):
+        return await call("GET", "/api/jeff-kb")
+
+    @app.get("/m/api/jeff-kb/sections")
+    async def jeff_kb_sections(_=Depends(session)):
+        return await call("GET", "/api/jeff-kb/sections")
+
+    @app.put("/m/api/jeff-kb/manual")
+    async def jeff_kb_upload(body: JeffManualIn, _=Depends(session)):
+        if not body.name.lower().endswith(JEFF_KB_SUFFIXES):
+            raise fail(422, "методичка — файл .txt, .md или .pdf", "BM_JEFF_KB_TYPE")
+        try:
+            size = len(base64.b64decode(body.data_b64, validate=True))
+        except ValueError:
+            raise fail(422, "файл повреждён при передаче", "BM_JEFF_KB_B64") from None
+        if size > JEFF_KB_MAX_BYTES:
+            raise fail(413, f"методичка больше {JEFF_KB_MAX_BYTES // 1048576} МБ", "BM_TOO_LARGE")
+        return await call("PUT", "/api/jeff-kb/manual", json={"name": body.name, "data_b64": body.data_b64},
+                          timeout=120)
+
+    @app.delete("/m/api/jeff-kb/manual")
+    async def jeff_kb_delete(_=Depends(session)):
+        return await call("DELETE", "/api/jeff-kb/manual")
+
+    @app.put("/m/api/jeff-kb/mode")
+    async def jeff_kb_mode(body: JeffModeIn, _=Depends(session)):
+        return await call("PUT", "/api/jeff-kb/mode", json=body.model_dump(exclude_none=True))
+
+    @app.post("/m/api/jeff-kb/check")
+    async def jeff_kb_check(body: JeffCheckIn, _=Depends(session)):
+        return await call("POST", "/api/jeff-kb/check", json=body.model_dump(), timeout=240)
+
+    @app.put("/m/api/jeff-kb/model")
+    async def jeff_model_put(body: JeffModelIn, _=Depends(session)):
+        return await call("PUT", "/api/jeff-model", json={"model": body.model})
+
+    @app.delete("/m/api/jeff-kb/model")
+    async def jeff_model_delete(_=Depends(session)):
+        return await call("DELETE", "/api/jeff-model")
 
     @app.post("/m/api/photo/jobs/{job_id}/to-pult")
     async def p_to_pult(job_id: str, _=Depends(session)):

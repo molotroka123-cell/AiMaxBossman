@@ -223,6 +223,14 @@ class FakeBossman:
                 return httpx.Response(200, json={"ok": True, "scenario": payload.get("scenario", "all"), "passed": True})
             if sub == "doctor" and method == "POST":
                 return httpx.Response(200, json={"verdict": "PASS", "rows": [{"check": "Зависимости", "status": "PASS", "detail": "ок", "remedy": ""}]})
+        if path.startswith("/api/jeff-kb") or path == "/api/jeff-model":
+            payload = json.loads(body) if body else {}
+            if path == "/api/jeff-kb/check" and method == "POST":
+                return httpx.Response(200, json={"mode": "manual" if payload.get("use_manual") else "plain",
+                                                 "answer": "Двенадцать минут (§1)." if payload.get("use_manual")
+                                                 else "Обычно десять.", "cited": [{"n": 1, "title": "Разминка"}]
+                                                 if payload.get("use_manual") else [], "model": "gemma"})
+            return httpx.Response(200, json={"path": path, "method": method, "echo": payload})
         return httpx.Response(404, json={"error": {"message": "not found"}})
 
 

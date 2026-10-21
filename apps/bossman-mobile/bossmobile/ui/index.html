@@ -45,7 +45,8 @@
   <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-wand" viewBox="0 0 24 24"><path d="m4 20 10.5-10.5M13 5.5l1-2.5 1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1zM18.5 12l.7-1.6.8 1.6 1.6.7-1.6.8-.8 1.6-.7-1.6-1.6-.8z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
   <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
-  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5.4 3.8h3.1l1.4 4.1-2 1.8a13.2 13.2 0 0 0 6.4 6.4l1.8-2 4.1 1.4v3.1a1.6 1.6 0 0 1-1.7 1.6A15.8 15.8 0 0 1 3.8 5.5a1.6 1.6 0 0 1 1.6-1.7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7.5h8M8 11h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+  <symbol id="i-phone"viewBox="0 0 24 24"><path d="M5.4 3.8h3.1l1.4 4.1-2 1.8a13.2 13.2 0 0 0 6.4 6.4l1.8-2 4.1 1.4v3.1a1.6 1.6 0 0 1-1.7 1.6A15.8 15.8 0 0 1 3.8 5.5a1.6 1.6 0 0 1 1.6-1.7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
 </svg>
 
 <!-- ================= Вход ================= -->
@@ -366,6 +367,54 @@
     </div>
   </section>
 
+  <!-- Jeff · обучение: методичка, строгий режим, модель и «Проверка» (owner 21.10). Текст методички хранится на ПК
+       зашифрованным; здесь показываются только имя файла, размер и названия разделов. -->
+  <section class="view" id="view-jeff" data-view="jeff" hidden>
+    <header class="topbar plain">
+      <h1 class="serif title">Jeff · обучение</h1>
+      <button class="icon-btn" id="jeff-reload" aria-label="Обновить"><svg><use href="#i-refresh"/></svg></button>
+    </header>
+    <div class="scroll" id="jeff-body">
+      <div class="card form" id="jeff-manual-card">
+        <h2 class="sub">Методичка</h2>
+        <div id="jeff-manual-summary" class="calls-summary">Загрузка состояния…</div>
+        <label class="lbl" for="jeff-file">Файл методички (.txt, .md или .pdf, до 8 МБ)</label>
+        <input id="jeff-file" class="field" type="file" accept=".txt,.md,.pdf,.docx,text/plain,text/markdown,application/pdf">
+        <div class="calls-actions">
+          <button class="btn primary" id="jeff-upload-btn" type="button">Загрузить / заменить</button>
+          <button class="btn danger" id="jeff-delete-btn" type="button">Удалить методичку</button>
+        </div>
+        <details class="more" id="jeff-sections-box">
+          <summary class="sub">Разделы методички</summary>
+          <ol class="jeff-sections" id="jeff-sections"></ol>
+        </details>
+      </div>
+
+      <div class="card form" id="jeff-mode-card">
+        <h2 class="sub">Как отвечает Jeff</h2>
+        <label class="consent"><input type="checkbox" id="jeff-strict"><span>Строго по методичке: только по её разделам, со ссылками (§N); если ответа нет — «В методичке этого нет»</span></label>
+        <label class="consent"><input type="checkbox" id="jeff-scope-all"><span>Для всех участников (по умолчанию — только мой чат с Jeff)</span></label>
+        <p class="muted small" id="jeff-model-line">Модель Jeff: —</p>
+        <div class="calls-actions">
+          <button class="btn" id="jeff-model-gemma" type="button">Модель: Gemma (локально)</button>
+          <button class="btn" id="jeff-model-default" type="button">Модель по умолчанию</button>
+        </div>
+      </div>
+
+      <form class="card form" id="jeff-check-form" autocomplete="off">
+        <h2 class="sub">Проверка</h2>
+        <label class="lbl" for="jeff-question">Вопрос для Jeff</label>
+        <textarea id="jeff-question" class="field area" rows="3" maxlength="2000" placeholder="Например: сколько длится разминка?"></textarea>
+        <label class="consent"><input type="checkbox" id="jeff-compare" checked><span>Сравнить рядом: без методички / с методичкой</span></label>
+        <div class="calls-actions"><button class="btn primary" type="submit" id="jeff-check-btn">Спросить Jeff</button></div>
+        <div class="jeff-compare" id="jeff-results" aria-live="polite">
+          <div class="jeff-col" id="jeff-col-plain" hidden><h3 class="sub">Без методички</h3><pre class="swap-reply" id="jeff-ans-plain"></pre></div>
+          <div class="jeff-col" id="jeff-col-manual" hidden><h3 class="sub">С методичкой</h3><pre class="swap-reply" id="jeff-ans-manual"></pre><p class="muted small" id="jeff-cited"></p></div>
+        </div>
+      </form>
+    </div>
+  </section>
+
   <!-- Статус -->
   <section class="view" id="view-status" data-view="status" hidden>
     <header class="topbar plain"><h1 class="serif title">Статус</h1>
@@ -380,6 +429,7 @@
     <button type="button" class="tab" data-tab="panel"><svg aria-hidden="true"><use href="#i-panel"/></svg><span>Панель</span><i class="tab-badge" id="badge-approvals" aria-hidden="true" hidden></i></button>
     <button type="button" class="tab" data-tab="swap"><svg aria-hidden="true"><use href="#i-swap"/></svg><span>Обмен</span></button>
     <button type="button" class="tab" data-tab="calls"><svg aria-hidden="true"><use href="#i-phone"/></svg><span>Звонки</span></button>
+    <button type="button" class="tab" data-tab="jeff"><svg aria-hidden="true"><use href="#i-book"/></svg><span>Jeff</span></button>
     <button type="button" class="tab" data-tab="status"><svg aria-hidden="true"><use href="#i-status"/></svg><span>Статус</span></button>
   </nav>
 </main>
