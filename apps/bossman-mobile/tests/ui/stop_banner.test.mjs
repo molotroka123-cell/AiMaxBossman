@@ -56,7 +56,11 @@ async function boot(server) {
 }
 
 const since = new Date(Date.now() - 95 * 60 * 1000);
-const hhmm = `${String(since.getHours()).padStart(2, '0')}:${String(since.getMinutes()).padStart(2, '0')}`;
+const pad = (n) => String(n).padStart(2, '0');
+// Before 01:35 local time «95 min ago» is yesterday, and the app then prints «DD.MM HH:MM» (by design).
+const sameDay = since.toDateString() === new Date().toDateString();
+const hhmm = (sameDay ? '' : `${pad(since.getDate())}.${pad(since.getMonth() + 1)} `)
+  + `${pad(since.getHours())}:${pad(since.getMinutes())}`;
 const ACTIVE = { active: true, since: since.toISOString(), age_min: 95 };
 
 test('no banner while STOP is off', { skip }, async () => {
