@@ -596,11 +596,56 @@ def _list(svc) -> list[dict]:
     return items
 
 
+MODEL_TIER_PRIORITY = ("local", "free", "cheap_paid", "premium")
+DEFAULT_TASK_SPEND_CAP_USD = 0.50
+DEFAULT_DAILY_SPEND_CAP_USD = 2.00
+_PAID_STEP_USD: dict[str, float] = {
+    "glm-flash": 0.00004,
+    "deepseek-v4.1-flash": 0.00045,
+    "haiku-5.5": 0.00060,
+    "qwen3-coder-paid": 0.00080,
+    "claude-sonnet-4": 0.01200,
+}
+
+
+def estimate_coding_task_cost(record: dict) -> dict[str, Any]:
+    """Compute deterministic USD cost, tier priority, and spend cap compliance for a coding task."""
+    worker = str(record.get("worker") or "").strip()
+    sidecar = record.get("sidecar") if isinstance(record.get("sidecar"), dict) else {}
+    steps = max(1, int(sidecar.get("steps") or 1)) if record.get("status") in {"completed", "failed"} else 0
+    cap_usd = float(record.get("spend_cap_usd") or os.environ.get("BOSSMAN_CODING_SPEND_CAP_USD") or DEFAULT_TASK_SPEND_CAP_USD)
+    if not worker:
+        cost_usd = 0.0
+        tier = "local"
+        cost_display = "$0.0000 (LOCAL)"
+    else:
+        spec = WORKERS.get(worker) or {}
+        raw_tier = spec.get("tier") or ("free" if ":free" in str(spec.get("model", "")) else "paid")
+        if raw_tier == "free":
+            cost_usd = 0.0
+            tier = "free"
+            cost_display = "$0.0000 (FREE)"
+        else:
+            tier = "premium" if worker == "claude-sonnet-4" else "cheap_paid"
+            per_step = _PAID_STEP_USD.get(worker, 0.0005)
+            cost_usd = round(steps * per_step, 6)
+            cost_display = f"${cost_usd:.4f} ({tier.upper()})"
+    return {
+        "cost_usd": cost_usd,
+        "cost_display": cost_display,
+        "cost_tier": tier,
+        "spend_cap_usd": cap_usd,
+        "within_spend_cap": cost_usd <= cap_usd,
+    }
+
+
 def _public(record: dict) -> dict:
     """The list view: no patch bodies, so the page stays light."""
     out = dict(record)
     out.pop("diff", None)
     out["diff_bytes"] = len(record.get("diff") or "")
+    for k, v in estimate_coding_task_cost(out).items():
+        out.setdefault(k, v)
     return out
 
 
@@ -952,7 +997,7 @@ async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None
                     "stop_reason": stop_reason,
                     "steps": sidecar_info.get("steps", 0),
                 })
-                if final.get("status") == "completed" or final.get("changed_files") or stop_reason != "model_error":
+                if final.get("status") == "completed" or stop_reason != "model_error":
                     break
             if final is None:
                 raise RuntimeError(f"нет ключа {WORKERS[body.worker]['key']} для исполнителя {body.worker}")
@@ -1501,6 +1546,12 @@ async def opencode_workers_catalog(svc) -> dict[str, Any]:
             "ready_free_workers": ready_free,
             "ready_paid_workers": ready_paid,
         },
+        "spend_policy": {
+            "priority_order": list(MODEL_TIER_PRIORITY),
+            "task_spend_cap_usd": DEFAULT_TASK_SPEND_CAP_USD,
+            "daily_spend_cap_usd": DEFAULT_DAILY_SPEND_CAP_USD,
+            "runpod_allowed_without_owner_approval": False,
+        },
     }
 
 
@@ -1515,6 +1566,9 @@ def summarize_opencode_roster() -> dict[str, Any]:
         "paid_cloud_ids": paid_ids,
         "local_coder_ids": list(LOCAL_CODER_PROFILES),
         "providers": providers,
+        "priority_order": list(MODEL_TIER_PRIORITY),
+        "task_spend_cap_usd": DEFAULT_TASK_SPEND_CAP_USD,
+        "daily_spend_cap_usd": DEFAULT_DAILY_SPEND_CAP_USD,
     }
 
 
@@ -1640,6 +1694,8 @@ async def list_tasks(request: Request):
 @router.get("/coding-tasks/{task_id}")
 async def get_task(task_id: str, request: Request):
     rec = _read(request.app.state.svc, task_id)
+    for k, v in estimate_coding_task_cost(rec).items():
+        rec.setdefault(k, v)
     if rec.get("status") in TERMINAL and "receipt" not in rec:
         rec["receipt"] = mission_receipt(rec)
     return rec

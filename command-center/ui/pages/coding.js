@@ -153,6 +153,7 @@ function buildOpenCodeWorkbench(ctx, ready, catalog) {
           `Доступно облачных кодеров: ${summary.connected_cloud_workers || 0} из ${summary.total_cloud_workers || workers.length} `
           + `(FREE: ${(summary.ready_free_workers || []).length}/${freeWorkers.length}, `
           + `PAID: ${(summary.ready_paid_workers || []).length}/${paidWorkers.length}) · `
+          + `Приоритет: Local → Free Cloud → Cheap Paid → Premium · Лимит: $0.50/задача, $2.00/сутки · `
           + `Репозиторий Bossman: ${selfCoding.source_repo || '—'}`)),
       h('div.row.tight', { style: { flexWrap: 'wrap' } },
         actionButton('Подключить API-ключ', () => connectKeyModal(ctx, catalog), { cls: 'btn btn-sm', iconName: 'plus' }),
@@ -207,15 +208,17 @@ const TASK_LABEL = { running: 'выполняется', completed: 'выполн
 function taskCard(t, ctx) {
   const status = t.status || 'running';
   const cleanup = t.sandbox_cleanup || null;
+  const costLabel = t.cost_display || (t.worker ? '$0.0000 (FREE)' : '$0.0000 (LOCAL)');
   return h('div.card', { 'data-coding-task': t.id },
     h('div.card-head',
       h('div', { style: { flex: '1', minWidth: 0 } },
         h('div.card-title.truncate', t.instruction || '—'),
         h('div.card-sub.truncate', t.source_repo || '')),
       statusBadge(status, { live: status === 'running', label: TASK_LABEL[status] || status })),
-    h('div.row.tight',
+    h('div.row.tight', { style: { flexWrap: 'wrap' } },
       t.worker ? h('span.badge', `облако: ${t.worker}`) : h('span.badge', 'локально'),
       t.model ? h('span.badge', `модель: ${t.model}`) : null,
+      h('span.badge', { 'data-task-cost': t.id }, `стоимость: ${costLabel}`),
       t.self_target ? h('span.badge', 'самокодинг Bossman') : null,
       t.applied_at ? h('span.badge', 'ПРИМЕНЕНО В BOSSMAN') : null,
       h('span.badge', `файлов: ${(t.changed_files || []).length}`),
@@ -269,11 +272,14 @@ async function showTask(t, ctx) {
     }, { cls: 'btn btn-primary btn-sm', iconName: 'play' }));
   }
 
+  const modalCostLabel = d.cost_display || (d.worker ? '$0.0000 (FREE)' : '$0.0000 (LOCAL)');
   modal.body.appendChild(h('div.stack',
-    h('div.row.tight',
+    h('div.row.tight', { style: { flexWrap: 'wrap' } },
       statusBadge(d.status, { label: TASK_LABEL[d.status] || d.status }),
       d.worker ? h('span.badge', `исполнитель: ${d.worker}`) : h('span.badge', 'локальный сайдкар'),
       d.model ? h('span.badge', `модель: ${d.model}`) : null,
+      h('span.badge', `стоимость: ${modalCostLabel}`),
+      h('span.badge', `лимит: $${Number(d.spend_cap_usd ?? 0.50).toFixed(2)}`),
       h('span.badge', `файлов: ${(d.changed_files || []).length}`),
       d.duration_seconds != null ? h('span.badge', `${d.duration_seconds} с`) : null,
       sidecar.steps != null ? h('span.badge', `шагов: ${sidecar.steps}`) : null,

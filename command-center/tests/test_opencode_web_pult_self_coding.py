@@ -196,5 +196,14 @@ def test_web_pult_coding_page_contains_opencode_workbench_and_apply_controls():
         "/api/coding-tasks/self-target",
         "/apply",
         "Mission Receipt v1",
+        "data-task-cost",
+        "Local → Free Cloud → Cheap Paid → Premium",
     ):
         assert marker in text, f"missing OpenCode Web Pult marker in coding.js: {marker}"
+
+    local_cost = ct.estimate_coding_task_cost({"status": "completed", "worker": None, "sidecar": {"steps": 4}})
+    assert local_cost["cost_usd"] == 0.0 and local_cost["cost_tier"] == "local" and local_cost["within_spend_cap"] is True
+    free_cost = ct.estimate_coding_task_cost({"status": "completed", "worker": "poolside-laguna-free", "sidecar": {"steps": 5}})
+    assert free_cost["cost_usd"] == 0.0 and free_cost["cost_tier"] == "free" and free_cost["within_spend_cap"] is True
+    paid_cost = ct.estimate_coding_task_cost({"status": "completed", "worker": "deepseek-v4.1-flash", "sidecar": {"steps": 4}})
+    assert paid_cost["cost_usd"] > 0.0 and paid_cost["cost_tier"] == "cheap_paid" and paid_cost["within_spend_cap"] is True

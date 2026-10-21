@@ -1,0 +1,857 @@
+{
+  "schema": "bossman.stage6.learning_proof/1",
+  "generated_at": "2026-10-21T09:18:07.369997+00:00",
+  "run_id": "stage6-20261021T091632Z",
+  "verdict": "PASS",
+  "weights_unchanged": true,
+  "model_tested": "openai/gpt-oss-120b",
+  "endpoint": "https://api.groq.com/openai/v1",
+  "memory_and_privacy": {
+    "restart_persistence_verified": true,
+    "total_notes_persisted": 38,
+    "compact_retrieval_verified": true,
+    "compact_slice_chars": 258,
+    "compact_slice_budget_chars": 450,
+    "cloud_privacy_filter_verified": true,
+    "pure_secret_refused": true,
+    "private_leaks_to_cloud": 0
+  },
+  "teacher_trace_and_holdout_guards": {
+    "poison_filter_rejected_malicious_lesson": true,
+    "rejected_at_write_count": 1,
+    "holdout_leak_guard_raised": true
+  },
+  "lessons_store": {
+    "lessons_at_startup": 0,
+    "verified_lessons_after_restart": 4,
+    "rejected_at_write": 0,
+    "filtered_at_read": 0
+  },
+  "base_model_non_degradation": {
+    "pack": "tests/coaching_pack/holdout (5 general Python tasks)",
+    "pass_at_1_before_lessons": 1.0,
+    "pass_at_1_after_lessons": 1.0,
+    "degradation": 0.0,
+    "verified": true
+  },
+  "unseen_domain_holdout_benchmark": {
+    "learning_gain": {
+      "holdout_pass_at_1_unassisted": 0.0,
+      "holdout_pass_at_1_coached": 0.4,
+      "delta": 0.4,
+      "label": "measured on the configured local endpoint"
+    },
+    "metrics": {
+      "unassisted/train": {
+        "tasks": 5,
+        "pass_at_1": 0.0,
+        "student_pass_any_attempt": 0.0,
+        "teacher_patch_passes_not_student": 0,
+        "attempts": 5,
+        "tool_errors": 1,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 9.047
+      },
+      "unassisted/holdout": {
+        "tasks": 5,
+        "pass_at_1": 0.0,
+        "student_pass_any_attempt": 0.0,
+        "teacher_patch_passes_not_student": 0,
+        "attempts": 5,
+        "tool_errors": 3,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 8.062
+      },
+      "unassisted/all": {
+        "tasks": 10,
+        "pass_at_1": 0.0,
+        "student_pass_any_attempt": 0.0,
+        "teacher_patch_passes_not_student": 0,
+        "attempts": 10,
+        "tool_errors": 4,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 17.109
+      },
+      "teacher_patch/train": {
+        "tasks": 5,
+        "pass_at_1": 0.0,
+        "student_pass_any_attempt": 0.0,
+        "teacher_patch_passes_not_student": 4,
+        "attempts": 5,
+        "tool_errors": 2,
+        "interventions": 5,
+        "lessons_injected": 0,
+        "lessons_written": 4,
+        "lessons_rejected": 0,
+        "wall_time_s": 20.86
+      },
+      "teacher_patch/all": {
+        "tasks": 5,
+        "pass_at_1": 0.0,
+        "student_pass_any_attempt": 0.0,
+        "teacher_patch_passes_not_student": 4,
+        "attempts": 5,
+        "tool_errors": 2,
+        "interventions": 5,
+        "lessons_injected": 0,
+        "lessons_written": 4,
+        "lessons_rejected": 0,
+        "wall_time_s": 20.86
+      },
+      "coached/train": {
+        "tasks": 5,
+        "pass_at_1": 0.6,
+        "student_pass_any_attempt": 0.6,
+        "teacher_patch_passes_not_student": 0,
+        "attempts": 5,
+        "tool_errors": 1,
+        "interventions": 0,
+        "lessons_injected": 4,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 22.14
+      },
+      "coached/holdout": {
+        "tasks": 5,
+        "pass_at_1": 0.4,
+        "student_pass_any_attempt": 0.4,
+        "teacher_patch_passes_not_student": 0,
+        "attempts": 5,
+        "tool_errors": 2,
+        "interventions": 0,
+        "lessons_injected": 4,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 19.282
+      },
+      "coached/all": {
+        "tasks": 10,
+        "pass_at_1": 0.5,
+        "student_pass_any_attempt": 0.5,
+        "teacher_patch_passes_not_student": 0,
+        "attempts": 10,
+        "tool_errors": 3,
+        "interventions": 0,
+        "lessons_injected": 8,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 41.422
+      }
+    },
+    "train_task_ids": [
+      "dom-train-01-stop-error",
+      "dom-train-02-ico-validate",
+      "dom-train-03-pdf-cmap-header",
+      "dom-train-04-deal-receipt",
+      "dom-train-05-mp4-check"
+    ],
+    "unseen_holdout_task_ids": [
+      "dom-holdout-01-approval-stop-rejection",
+      "dom-holdout-02-ico-complete",
+      "dom-holdout-03-cp1251-char-hex",
+      "dom-holdout-04-otc-batch-summary",
+      "dom-holdout-05-pick-verified-mp4"
+    ],
+    "results": [
+      {
+        "task_id": "dom-train-01-stop-error",
+        "split": "train",
+        "task_class": "bossman-stop-envelope",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 0.875,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-train-01-stop-error:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL code, body = format_stop_http_error('owner_halt'); assert code == 409 and body == {'error': {'code': 'BOSSMAN_STOP_ACTIVE', 'reason': 'owner_halt', 'retrya; FAIL code, body = format_stop_http_error('emergency'); assert code == 409 and body['error']['code'] == 'BOSSMAN_STOP_ACTIVE' and body['error']['retryable'] is F",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-02-ico-validate",
+        "split": "train",
+        "task_class": "bossman-ico-mod11",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.937,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-train-02-ico-validate:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL assert validate_czech_ico('25596641') is True",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-03-pdf-cmap-header",
+        "split": "train",
+        "task_class": "bossman-pdf-cmap",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 2.297,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-train-03-pdf-cmap-header:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL m = swapme_cp1251_special_map(); assert m[0xA8] == '0401' and m[0xB8] == '0451' and m[0xC0] == '0410' and m[0xFF] == '044F'",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-04-deal-receipt",
+        "split": "train",
+        "task_class": "bossman-deal-net-profit",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 2.047,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-train-04-deal-receipt:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL r = compute_deal_receipt('1500.005', '65.00', '25.00'); assert r == {'gross_ccy': '1500.00', 'fee_ccy': '65.00', 'var_cost_ccy': '25.00', 'net_profit_ccy':",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-05-mp4-check",
+        "split": "train",
+        "task_class": "bossman-video-container-guard",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 1,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.891,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-train-05-mp4-check:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "candidate did not run: IndentationError: expected an indented block after 'try' statement on line 64",
+            "tool_error": true,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-01-approval-stop-rejection",
+        "split": "holdout",
+        "task_class": "bossman-stop-envelope",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.093,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-holdout-01-approval-stop-rejection:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL code, body = build_approval_stop_rejection('t-42', 'owner'); assert code == 409 and body == {'error': {'code': 'BOSSMAN_STOP_ACTIVE', 'reason': 'approval_b; FAIL code, body = build_approval_stop_rejection('t-99', 'jeff'); assert code == 409 and body['error']['code'] == 'BOSSMAN_STOP_ACTIVE' and body['task_id'] == 't",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-02-ico-complete",
+        "split": "holdout",
+        "task_class": "bossman-ico-mod11",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 1,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 2.141,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-holdout-02-ico-complete:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "candidate did not run: IndentationError: expected an indented block after 'try' statement on line 35",
+            "tool_error": true,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-03-cp1251-char-hex",
+        "split": "holdout",
+        "task_class": "bossman-pdf-cmap",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 1,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.672,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-holdout-03-cp1251-char-hex:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "candidate did not run: IndentationError: expected an indented block after 'try' statement on line 49",
+            "tool_error": true,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-04-otc-batch-summary",
+        "split": "holdout",
+        "task_class": "bossman-deal-net-profit",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.391,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-holdout-04-otc-batch-summary:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL res = summarize_otc_batch([{'gross': '1500.005', 'fee': '65.00', 'var_cost': '25.00'}, {'gross': '800.00', 'fee': '30.00', 'var_cost': '10.00'}]); assert r; FAIL res2 = summarize_otc_batch([]); assert res2 == {'deals_count': 0, 'net_total_czk': '0.00', 'formula_verified': True}",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-05-pick-verified-mp4",
+        "split": "holdout",
+        "task_class": "bossman-video-container-guard",
+        "profile": "unassisted",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 1,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.765,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:unassisted:dom-holdout-05-pick-verified-mp4:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "candidate did not run: IndentationError: expected an indented block after 'try' statement on line 36",
+            "tool_error": true,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-01-stop-error",
+        "split": "train",
+        "task_class": "bossman-stop-envelope",
+        "profile": "teacher_patch",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": true,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 1,
+        "lessons_injected": 0,
+        "lessons_written": 1,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.266,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-01-stop-error:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL code, body = format_stop_http_error('owner_halt'); assert code == 409 and body == {'error': {'code': 'BOSSMAN_STOP_ACTIVE', 'reason': 'owner_halt', 'retrya; FAIL code, body = format_stop_http_error('emergency'); assert code == 409 and body['error']['code'] == 'BOSSMAN_STOP_ACTIVE' and body['error']['retryable'] is F",
+            "tool_error": false,
+            "by": "student"
+          },
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-01-stop-error:teacher",
+            "n": 2,
+            "passed": true,
+            "observation": "2 hidden tests passed",
+            "tool_error": false,
+            "by": "teacher"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-02-ico-validate",
+        "split": "train",
+        "task_class": "bossman-ico-mod11",
+        "profile": "teacher_patch",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": true,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 1,
+        "lessons_injected": 0,
+        "lessons_written": 1,
+        "lessons_rejected": 0,
+        "wall_time_s": 2.828,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-02-ico-validate:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL assert validate_czech_ico('25596641') is True",
+            "tool_error": false,
+            "by": "student"
+          },
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-02-ico-validate:teacher",
+            "n": 2,
+            "passed": true,
+            "observation": "4 hidden tests passed",
+            "tool_error": false,
+            "by": "teacher"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-03-pdf-cmap-header",
+        "split": "train",
+        "task_class": "bossman-pdf-cmap",
+        "profile": "teacher_patch",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": true,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 1,
+        "lessons_injected": 0,
+        "lessons_written": 1,
+        "lessons_rejected": 0,
+        "wall_time_s": 12.391,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-03-pdf-cmap-header:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL m = swapme_cp1251_special_map(); assert m[0xA8] == '0401' and m[0xB8] == '0451' and m[0xC0] == '0410' and m[0xFF] == '044F'",
+            "tool_error": false,
+            "by": "student"
+          },
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-03-pdf-cmap-header:teacher",
+            "n": 2,
+            "passed": true,
+            "observation": "1 hidden tests passed",
+            "tool_error": false,
+            "by": "teacher"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-04-deal-receipt",
+        "split": "train",
+        "task_class": "bossman-deal-net-profit",
+        "profile": "teacher_patch",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": true,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 1,
+        "lessons_injected": 0,
+        "lessons_written": 1,
+        "lessons_rejected": 0,
+        "wall_time_s": 2.156,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-04-deal-receipt:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "FAIL r = compute_deal_receipt('1500.005', '65.00', '25.00'); assert r == {'gross_ccy': '1500.00', 'fee_ccy': '65.00', 'var_cost_ccy': '25.00', 'net_profit_ccy':",
+            "tool_error": false,
+            "by": "student"
+          },
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-04-deal-receipt:teacher",
+            "n": 2,
+            "passed": true,
+            "observation": "1 hidden tests passed",
+            "tool_error": false,
+            "by": "teacher"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-05-mp4-check",
+        "split": "train",
+        "task_class": "bossman-video-container-guard",
+        "profile": "teacher_patch",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 2,
+        "interventions": 1,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 2.219,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-05-mp4-check:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "candidate did not run: IndentationError: expected an indented block after 'try' statement on line 68",
+            "tool_error": true,
+            "by": "student"
+          },
+          {
+            "attempt_id": "stage6-20261021T091632Z:teacher_patch:dom-train-05-mp4-check:teacher",
+            "n": 2,
+            "passed": false,
+            "observation": "candidate did not run: IndentationError: expected an indented block after 'try' statement on line 15",
+            "tool_error": true,
+            "by": "teacher"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-01-stop-error",
+        "split": "train",
+        "task_class": "bossman-stop-envelope",
+        "profile": "coached",
+        "student_pass_at_1": true,
+        "student_passed": true,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 1,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 6.937,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-train-01-stop-error:a1",
+            "n": 1,
+            "passed": true,
+            "observation": "2 hidden tests passed",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-02-ico-validate",
+        "split": "train",
+        "task_class": "bossman-ico-mod11",
+        "profile": "coached",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 1,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.266,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-train-02-ico-validate:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "ERROR assert validate_czech_ico('1234567') is False ValueError INVALID_ICO_PREFIX",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-03-pdf-cmap-header",
+        "split": "train",
+        "task_class": "bossman-pdf-cmap",
+        "profile": "coached",
+        "student_pass_at_1": true,
+        "student_passed": true,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 1,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.703,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-train-03-pdf-cmap-header:a1",
+            "n": 1,
+            "passed": true,
+            "observation": "1 hidden tests passed",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-04-deal-receipt",
+        "split": "train",
+        "task_class": "bossman-deal-net-profit",
+        "profile": "coached",
+        "student_pass_at_1": true,
+        "student_passed": true,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 1,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 10.063,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-train-04-deal-receipt:a1",
+            "n": 1,
+            "passed": true,
+            "observation": "1 hidden tests passed",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-train-05-mp4-check",
+        "split": "train",
+        "task_class": "bossman-video-container-guard",
+        "profile": "coached",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 1,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 2.171,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-train-05-mp4-check:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "candidate did not run: IndentationError: expected an indented block after 'try' statement on line 63",
+            "tool_error": true,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-01-approval-stop-rejection",
+        "split": "holdout",
+        "task_class": "bossman-stop-envelope",
+        "profile": "coached",
+        "student_pass_at_1": true,
+        "student_passed": true,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 1,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.125,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-holdout-01-approval-stop-rejection:a1",
+            "n": 1,
+            "passed": true,
+            "observation": "2 hidden tests passed",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-02-ico-complete",
+        "split": "holdout",
+        "task_class": "bossman-ico-mod11",
+        "profile": "coached",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 1,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 12.875,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-holdout-02-ico-complete:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "candidate did not run: SyntaxError: invalid syntax",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-03-cp1251-char-hex",
+        "split": "holdout",
+        "task_class": "bossman-pdf-cmap",
+        "profile": "coached",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 1,
+        "interventions": 0,
+        "lessons_injected": 1,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.454,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-holdout-03-cp1251-char-hex:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "candidate did not run: IndentationError: expected an indented block after 'try' statement on line 43",
+            "tool_error": true,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-04-otc-batch-summary",
+        "split": "holdout",
+        "task_class": "bossman-deal-net-profit",
+        "profile": "coached",
+        "student_pass_at_1": true,
+        "student_passed": true,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 0,
+        "interventions": 0,
+        "lessons_injected": 1,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 2.171,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-holdout-04-otc-batch-summary:a1",
+            "n": 1,
+            "passed": true,
+            "observation": "2 hidden tests passed",
+            "tool_error": false,
+            "by": "student"
+          }
+        ]
+      },
+      {
+        "task_id": "dom-holdout-05-pick-verified-mp4",
+        "split": "holdout",
+        "task_class": "bossman-video-container-guard",
+        "profile": "coached",
+        "student_pass_at_1": false,
+        "student_passed": false,
+        "teacher_patch_passed": false,
+        "attempts": 1,
+        "tool_errors": 1,
+        "interventions": 0,
+        "lessons_injected": 0,
+        "lessons_written": 0,
+        "lessons_rejected": 0,
+        "wall_time_s": 1.657,
+        "attempt_log": [
+          {
+            "attempt_id": "stage6-20261021T091632Z:coached:dom-holdout-05-pick-verified-mp4:a1",
+            "n": 1,
+            "passed": false,
+            "observation": "candidate did not run: IndentationError: expected an indented block after 'try' statement on line 36",
+            "tool_error": true,
+            "by": "student"
+          }
+        ]
+      }
+    ]
+  }
+}

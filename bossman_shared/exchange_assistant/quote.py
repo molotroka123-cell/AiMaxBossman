@@ -351,8 +351,9 @@ def render_pdf_document(q: Quote, *, deal: dict | None = None) -> bytes:
         b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
         b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
         b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n",
-        b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n",
+        b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 6 0 R >>\nendobj\n",
         f"5 0 obj\n<< /Length {len(content_bytes)} >>\nstream\n".encode("ascii") + content_bytes + b"\nendstream\nendobj\n",
+        b"6 0 obj\n<< /Length 259 >>\nstream\n/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /SwapMe-CP1251-UCS2 def /CMapType 2 def 1 begincodespacerange <00> <FF> endcodespacerange 2 beginbfchar <A8> <0401> <B8> <0451> endbfchar 2 beginbfrange <C0> <DF> <0410> <E0> <FF> <0430> endbfrange endcmap CMapName currentdict /CMap defineresource pop end end\nendstream\nendobj\n",
     ]
     out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
     offsets: list[int] = []

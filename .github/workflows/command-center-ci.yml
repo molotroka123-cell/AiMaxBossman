@@ -39,7 +39,9 @@ jobs:
     # 90m restores headroom; per-test --timeout=180 still catches real hangs.
     # 2026-10-01: the suite now runs on 4 xdist workers (see the Pytest step), ~20-25 min; the cap is 50m, so a
     # return to the serial 60+ min regime fails loudly instead of being absorbed by another timeout bump.
-    timeout-minutes: 50
+    # 2026-10-21: after merging the 15-branch v2.6 expansion (~9,300+ tests), py3.12 coverage tracing takes ~41m
+    # for main pytest + ~9.5m for serial Telegram Calls steps (~52m total); 75m gives runner jitter headroom.
+    timeout-minutes: 75
     # The same installed core runtime is required on all three interpreters:
     # v1.5 imports bossman_v3 and the coding path launches bossman.apprentice
     # from a child process. A source checkout on PYTHONPATH cannot prove that.

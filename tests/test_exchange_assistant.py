@@ -630,6 +630,7 @@ def test_claude_audit_p1_items_5_to_11(assistant, tmp_path):
     _, pdf_bytes = assistant.deal_pdf(1)
     assert pdf_file.exists()
     assert b"/Encoding /WinAnsiEncoding" in pdf_bytes
+    assert b"/ToUnicode 6 0 R" in pdf_bytes and b"beginbfrange <C0> <DF> <0410>" in pdf_bytes
     # "КВИТАНЦИЯ" in cp1251 starts with \xca\xc2\xc8 -> octal \312\302\310
     assert b"\\312\\302\\310" in pdf_bytes
     rev_reply = assistant.handle("отмена D-1 возврат клиенту", "owner")

@@ -1,0 +1,275 @@
+{
+  "generated_at": "2026-10-21T08:59:49.515192+00:00",
+  "verdict": "PASS",
+  "step1_defect_before": {
+    "has_tounicode_cmap": false,
+    "defect_reproduced": true,
+    "pdf_bytes_len": 2158
+  },
+  "task": {
+    "id": "a09abed3e894",
+    "status": "completed",
+    "instruction": "You are self-coding Bossman in an isolated worktree to fix a real Cyrillic PDF defect.\nFollow these exact steps using your tools:\n1. Call `read_file` on `bossman_shared/exchange_assistant/quote.py` with `start_line=348` and `end_line=360`.\n2. Call `edit_file` on `bossman_shared/exchange_assistant/quote.py` with:\n   old_text:\n        b\"4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\\nendobj\\n\",\n        f\"5 0 obj\\n<< /Length {len(content_bytes)} >>\\nstream\\n\".encode(\"ascii\") + content_bytes + b\"\\nendstream\\nendobj\\n\",\n   new_text:\n        b\"4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 6 0 R >>\\nendobj\\n\",\n        f\"5 0 obj\\n<< /Length {len(content_bytes)} >>\\nstream\\n\".encode(\"ascii\") + content_bytes + b\"\\nendstream\\nendobj\\n\",\n        b\"6 0 obj\\n<< /Length 259 >>\\nstream\\n/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /SwapMe-CP1251-UCS2 def /CMapType 2 def 1 begincodespacerange <00> <FF> endcodespacerange 2 beginbfchar <A8> <0401> <B8> <0451> endbfchar 2 beginbfrange <C0> <DF> <0410> <E0> <FF> <0430> endbfrange endcmap CMapName currentdict /CMap defineresource pop end end\\nendstream\\nendobj\\n\",\n3. Call `read_file` on `tests/test_exchange_assistant.py` with `start_line=629` and `end_line=637`.\n4. Call `edit_file` on `tests/test_exchange_assistant.py` with:\n   old_text:\n    assert b\"/Encoding /WinAnsiEncoding\" in pdf_bytes\n   new_text:\n    assert b\"/Encoding /WinAnsiEncoding\" in pdf_bytes\n    assert b\"/ToUnicode 6 0 R\" in pdf_bytes and b\"beginbfrange <C0> <DF> <0410>\" in pdf_bytes\n5. Call `run_tests` with `paths=['tests/test_exchange_assistant.py']` and `runner='pytest'`.\n6. Once `run_tests` passes, call `finish` with a concise summary.",
+    "boot_id": "bea9bdd9e2f5ea01",
+    "agent_id": null,
+    "agent": null,
+    "project_id": null,
+    "memory": {
+      "requested": true,
+      "recalled": false,
+      "sources": [],
+      "recipe_ids": [],
+      "error": ""
+    },
+    "skills": {
+      "ids": [
+        "superpowers/using-git-worktrees",
+        "superpowers/test-driven-development"
+      ],
+      "error": ""
+    },
+    "verify_tests": [
+      "tests/test_exchange_assistant.py"
+    ],
+    "source_repo": "C:\\Users\\asd\\Bossman\\wt-rc-20261019",
+    "allowed_paths": [
+      "bossman_shared/exchange_assistant/quote.py",
+      "tests/test_exchange_assistant.py"
+    ],
+    "protected_paths": [
+      ".github",
+      "secrets"
+    ],
+    "model": "gemini-3-flash-preview",
+    "worker": "gemini-3-flash-free",
+    "fallback_workers": [
+      "gemini-3-flash-free",
+      "openrouter-code-free",
+      "deepseek-v4.1-flash",
+      "haiku-5.5"
+    ],
+    "self_target": true,
+    "created_at": 1792572913.1801512,
+    "finished_at": 1792573184.7276578,
+    "changed_files": [
+      "bossman_shared/exchange_assistant/quote.py",
+      "tests/test_exchange_assistant.py"
+    ],
+    "diff": "diff --git a/bossman_shared/exchange_assistant/quote.py b/bossman_shared/exchange_assistant/quote.py\nindex ea43f08..714f8d5 100644\n--- a/bossman_shared/exchange_assistant/quote.py\n+++ b/bossman_shared/exchange_assistant/quote.py\n@@ -351,8 +351,9 @@ def render_pdf_document(q: Quote, *, deal: dict | None = None) -> bytes:\n         b\"1 0 obj\\n<< /Type /Catalog /Pages 2 0 R >>\\nendobj\\n\",\n         b\"2 0 obj\\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\\nendobj\\n\",\n         b\"3 0 obj\\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\\nendobj\\n\",\n-        b\"4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\\nendobj\\n\",\n+        b\"4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 6 0 R >>\\nendobj\\n\",\n         f\"5 0 obj\\n<< /Length {len(content_bytes)} >>\\nstream\\n\".encode(\"ascii\") + content_bytes + b\"\\nendstream\\nendobj\\n\",\n+        b\"6 0 obj\\n<< /Length 259 >>\\nstream\\n/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /SwapMe-CP1251-UCS2 def /CMapType 2 def 1 begincodespacerange <00> <FF> endcodespacerange 2 beginbfchar <A8> <0401> <B8> <0451> endbfchar 2 beginbfrange <C0> <DF> <0410> <E0> <FF> <0430> endbfrange endcmap CMapName currentdict /CMap defineresource pop end end\\nendstream\\nendobj\\n\",\n     ]\n     out = bytearray(b\"%PDF-1.4\\n%\\xe2\\xe3\\xcf\\xd3\\n\")\n     offsets: list[int] = []\ndiff --git a/tests/test_exchange_assistant.py b/tests/test_exchange_assistant.py\nindex 57ee287..af1efe9 100644\n--- a/tests/test_exchange_assistant.py\n+++ b/tests/test_exchange_assistant.py\n@@ -630,6 +630,7 @@ def test_claude_audit_p1_items_5_to_11(assistant, tmp_path):\n     _, pdf_bytes = assistant.deal_pdf(1)\n     assert pdf_file.exists()\n     assert b\"/Encoding /WinAnsiEncoding\" in pdf_bytes\n+    assert b\"/ToUnicode 6 0 R\" in pdf_bytes and b\"beginbfrange <C0> <DF> <0410>\" in pdf_bytes\n     # \"КВИТАНЦИЯ\" in cp1251 starts with \\xca\\xc2\\xc8 -> octal \\312\\302\\310\n     assert b\"\\\\312\\\\302\\\\310\" in pdf_bytes\n     rev_reply = assistant.handle(\"отмена D-1 возврат клиенту\", \"owner\")\n",
+    "error": "",
+    "evidence": {
+      "modified_files": [
+        "bossman_shared/exchange_assistant/quote.py",
+        "tests/test_exchange_assistant.py"
+      ],
+      "added_files": [],
+      "deleted_files": [],
+      "patches": {
+        "bossman_shared/exchange_assistant/quote.py": "diff --git a/bossman_shared/exchange_assistant/quote.py b/bossman_shared/exchange_assistant/quote.py\nindex ea43f086..714f8d50 100644\n--- a/bossman_shared/exchange_assistant/quote.py\n+++ b/bossman_shared/exchange_assistant/quote.py\n@@ -351,8 +351,9 @@ def render_pdf_document(q: Quote, *, deal: dict | None = None) -> bytes:\n         b\"1 0 obj\\n<< /Type /Catalog /Pages 2 0 R >>\\nendobj\\n\",\n         b\"2 0 obj\\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\\nendobj\\n\",\n         b\"3 0 obj\\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\\nendobj\\n\",\n-        b\"4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\\nendobj\\n\",\n+        b\"4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 6 0 R >>\\nendobj\\n\",\n         f\"5 0 obj\\n<< /Length {len(content_bytes)} >>\\nstream\\n\".encode(\"ascii\") + content_bytes + b\"\\nendstream\\nendobj\\n\",\n+        b\"6 0 obj\\n<< /Length 259 >>\\nstream\\n/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /SwapMe-CP1251-UCS2 def /CMapType 2 def 1 begincodespacerange <00> <FF> endcodespacerange 2 beginbfchar <A8> <0401> <B8> <0451> endbfchar 2 beginbfrange <C0> <DF> <0410> <E0> <FF> <0430> endbfrange endcmap CMapName currentdict /CMap defineresource pop end end\\nendstream\\nendobj\\n\",\n     ]\n     out = bytearray(b\"%PDF-1.4\\n%\\xe2\\xe3\\xcf\\xd3\\n\")\n     offsets: list[int] = []\n",
+        "tests/test_exchange_assistant.py": "diff --git a/tests/test_exchange_assistant.py b/tests/test_exchange_assistant.py\nindex 57ee2874..af1efe99 100644\n--- a/tests/test_exchange_assistant.py\n+++ b/tests/test_exchange_assistant.py\n@@ -630,6 +630,7 @@ def test_claude_audit_p1_items_5_to_11(assistant, tmp_path):\n     _, pdf_bytes = assistant.deal_pdf(1)\n     assert pdf_file.exists()\n     assert b\"/Encoding /WinAnsiEncoding\" in pdf_bytes\n+    assert b\"/ToUnicode 6 0 R\" in pdf_bytes and b\"beginbfrange <C0> <DF> <0410>\" in pdf_bytes\n     # \"КВИТАНЦИЯ\" in cp1251 starts with \\xca\\xc2\\xc8 -> octal \\312\\302\\310\n     assert b\"\\\\312\\\\302\\\\310\" in pdf_bytes\n     rev_reply = assistant.handle(\"отмена D-1 возврат клиенту\", \"owner\")\n"
+      },
+      "head_before": "e723c25bad6f3c7d020645f53868263f09495b52",
+      "head_after": "e723c25bad6f3c7d020645f53868263f09495b52",
+      "untracked_files": []
+    },
+    "sandbox_cleanup": {
+      "removed": true,
+      "path": null,
+      "error": null,
+      "kept_on_purpose": false
+    },
+    "authority": {
+      "push": false,
+      "merge": false,
+      "deploy": false
+    },
+    "sidecar_status": "completed",
+    "sidecar": {
+      "schema": "bossman.openhands.v1",
+      "status": "completed",
+      "summary": "Fixed Cyrillic PDF defect by adding a /ToUnicode CMap to the PDF generation in `bossman_shared/exchange_assistant/quote.py` and updated `tests/test_exchange_assistant.py` to verify the presence of the CMap.",
+      "tests": {
+        "ran": true,
+        "runner": "pytest",
+        "paths": [
+          "tests/test_exchange_assistant.py"
+        ],
+        "exit_code": 0,
+        "passed": true,
+        "timed_out": false
+      },
+      "notes": "stop_reason=finished",
+      "steps": 6,
+      "stop_reason": "finished",
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "read_file",
+          "ok": true,
+          "t": 1.469,
+          "sig": "2e603ef0fb7d",
+          "path": "bossman_shared/exchange_assistant/quote.py"
+        },
+        {
+          "step": 2,
+          "tool": "edit_file",
+          "ok": true,
+          "t": 4.782,
+          "sig": "11ef7cf86029",
+          "path": "bossman_shared/exchange_assistant/quote.py"
+        },
+        {
+          "step": 3,
+          "tool": "read_file",
+          "ok": true,
+          "t": 5.86,
+          "sig": "e2f22b297e90",
+          "path": "tests/test_exchange_assistant.py"
+        },
+        {
+          "step": 4,
+          "tool": "edit_file",
+          "ok": true,
+          "t": 7.469,
+          "sig": "a1915b3b1390",
+          "path": "tests/test_exchange_assistant.py"
+        },
+        {
+          "step": 5,
+          "tool": "run_tests",
+          "ok": true,
+          "t": 8.594,
+          "sig": "bd6b29fff4b6",
+          "paths": [
+            "tests/test_exchange_assistant.py"
+          ],
+          "passed": true,
+          "timed_out": false
+        },
+        {
+          "step": 6,
+          "tool": "finish",
+          "ok": true,
+          "t": 13.469,
+          "sig": "a9a617b514ea"
+        }
+      ],
+      "tool_calls_total": 6,
+      "elapsed_seconds": 13.485,
+      "recipes_applied": [],
+      "profile": "",
+      "memory_used": false,
+      "skills_used": [
+        "superpowers/using-git-worktrees",
+        "superpowers/test-driven-development"
+      ],
+      "executor": "bossman-local-sidecar",
+      "model": "gemini-3-flash-preview",
+      "deterministic_test_model": false,
+      "model_kind": "REAL_MODEL",
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai"
+    },
+    "evidence_digest": "sha256:cbf252d70654396dcf5b244a5092b8ff29bec337deb4ae696d57e17a95721e48",
+    "candidate_files": {
+      "bossman_shared/exchange_assistant/quote.py": {
+        "deleted": false,
+        "sha256": "f3425b23312815322ce88903176ae597d140f19c12d6c1e807567a4f3ab7c148",
+        "sha256_eol": "f3425b23312815322ce88903176ae597d140f19c12d6c1e807567a4f3ab7c148"
+      },
+      "tests/test_exchange_assistant.py": {
+        "deleted": false,
+        "sha256": "63a5a2d3038bd6b5a6f4f7f137fc23dd5a1679599c18f8ec1fbd6e847c170943",
+        "sha256_eol": "63a5a2d3038bd6b5a6f4f7f137fc23dd5a1679599c18f8ec1fbd6e847c170943"
+      }
+    },
+    "verification": {
+      "ran": true,
+      "runner": "pytest",
+      "paths": [
+        "tests/test_exchange_assistant.py"
+      ],
+      "exit_code": 0,
+      "passed": true,
+      "timed_out": false,
+      "output_tail": ".....................................                                    [100%]\r\n37 passed in 2.19s\r\n"
+    },
+    "base_commit": "e723c25bad6f3c7d020645f53868263f09495b52",
+    "duration_seconds": 143.62,
+    "receipt": {
+      "schema": "bossman.mission_receipt.v1",
+      "evidence_kind": "LIVE",
+      "task_id": "a09abed3e894",
+      "model": "gemini-3-flash-preview",
+      "workspace_path": "C:\\Users\\asd\\Bossman\\wt-rc-20261019",
+      "base_commit": "e723c25bad6f3c7d020645f53868263f09495b52",
+      "changed_files": [
+        "bossman_shared/exchange_assistant/quote.py",
+        "tests/test_exchange_assistant.py"
+      ],
+      "git_diff": "diff --git a/bossman_shared/exchange_assistant/quote.py b/bossman_shared/exchange_assistant/quote.py\nindex ea43f08..714f8d5 100644\n--- a/bossman_shared/exchange_assistant/quote.py\n+++ b/bossman_shared/exchange_assistant/quote.py\n@@ -351,8 +351,9 @@ def render_pdf_document(q: Quote, *, deal: dict | None = None) -> bytes:\n         b\"1 0 obj\\n<< /Type /Catalog /Pages 2 0 R >>\\nendobj\\n\",\n         b\"2 0 obj\\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\\nendobj\\n\",\n         b\"3 0 obj\\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\\nendobj\\n\",\n-        b\"4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\\nendobj\\n\",\n+        b\"4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding /ToUnicode 6 0 R >>\\nendobj\\n\",\n         f\"5 0 obj\\n<< /Length {len(content_bytes)} >>\\nstream\\n\".encode(\"ascii\") + content_bytes + b\"\\nendstream\\nendobj\\n\",\n+        b\"6 0 obj\\n<< /Length 259 >>\\nstream\\n/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /SwapMe-CP1251-UCS2 def /CMapType 2 def 1 begincodespacerange <00> <FF> endcodespacerange 2 beginbfchar <A8> <0401> <B8> <0451> endbfchar 2 beginbfrange <C0> <DF> <0410> <E0> <FF> <0430> endbfrange endcmap CMapName currentdict /CMap defineresource pop end end\\nendstream\\nendobj\\n\",\n     ]\n     out = bytearray(b\"%PDF-1.4\\n%\\xe2\\xe3\\xcf\\xd3\\n\")\n     offsets: list[int] = []\ndiff --git a/tests/test_exchange_assistant.py b/tests/test_exchange_assistant.py\nindex 57ee287..af1efe9 100644\n--- a/tests/test_exchange_assistant.py\n+++ b/tests/test_exchange_assistant.py\n@@ -630,6 +630,7 @@ def test_claude_audit_p1_items_5_to_11(assistant, tmp_path):\n     _, pdf_bytes = assistant.deal_pdf(1)\n     assert pdf_file.exists()\n     assert b\"/Encoding /WinAnsiEncoding\" in pdf_bytes\n+    assert b\"/ToUnicode 6 0 R\" in pdf_bytes and b\"beginbfrange <C0> <DF> <0410>\" in pdf_bytes\n     # \"КВИТАНЦИЯ\" in cp1251 starts with \\xca\\xc2\\xc8 -> octal \\312\\302\\310\n     assert b\"\\\\312\\\\302\\\\310\" in pdf_bytes\n     rev_reply = assistant.handle(\"отмена D-1 возврат клиенту\", \"owner\")\n",
+      "diff_digest": "sha256:cbf252d70654396dcf5b244a5092b8ff29bec337deb4ae696d57e17a95721e48",
+      "verify_cmd": [
+        "tests/test_exchange_assistant.py"
+      ],
+      "verify_exit_code": 0,
+      "stop_status": "COMPLETED",
+      "workspace_integrity_verified": true,
+      "postcondition_verified": true,
+      "sandbox_removed": true,
+      "receipt_id": "rcpt-a09abed3e894-09f3ab61106a",
+      "receipt_sha256": "09f3ab61106aa792bffa78f7a58d9a35b51848dd0280e9bc6fc5150c04c03c67",
+      "sha256": "09f3ab61106aa792bffa78f7a58d9a35b51848dd0280e9bc6fc5150c04c03c67"
+    },
+    "worker_attempts": [
+      {
+        "worker": "groq-gpt-oss-120b-free",
+        "model": "openai/gpt-oss-120b",
+        "tier": "free",
+        "status": "failed",
+        "stop_reason": "model_error",
+        "steps": 1
+      },
+      {
+        "worker": "gemini-3-flash-free",
+        "model": "gemini-3-flash-preview",
+        "tier": "free",
+        "status": "completed",
+        "stop_reason": "finished",
+        "steps": 6
+      }
+    ],
+    "cost_usd": 0.0,
+    "cost_display": "$0.0000 (FREE)",
+    "cost_tier": "free",
+    "spend_cap_usd": 0.5,
+    "within_spend_cap": true
+  },
+  "applied": {
+    "state": "APPLIED",
+    "id": "a09abed3e894",
+    "applied_at": 1792573186.3809855,
+    "applied_digest": "sha256:7e565452d812c61638856052dbc7f3d8fc06d42045e633e05eea9b50c8789fbb",
+    "approval_id": 1,
+    "base_commit": "e723c25bad6f3c7d020645f53868263f09495b52",
+    "evidence_digest": "sha256:cbf252d70654396dcf5b244a5092b8ff29bec337deb4ae696d57e17a95721e48",
+    "files": {
+      "bossman_shared/exchange_assistant/quote.py": {
+        "match": "exact",
+        "sha256": "f3425b23312815322ce88903176ae597d140f19c12d6c1e807567a4f3ab7c148"
+      },
+      "tests/test_exchange_assistant.py": {
+        "match": "exact",
+        "sha256": "63a5a2d3038bd6b5a6f4f7f137fc23dd5a1679599c18f8ec1fbd6e847c170943"
+      }
+    },
+    "committed": false,
+    "repo": "C:\\Users\\asd\\Bossman\\wt-rc-20261019"
+  },
+  "step10_post_apply_verification": {
+    "has_tounicode_cmap": true,
+    "defect_reproduced": false,
+    "pdf_bytes_len": 2576,
+    "pytest_exit_code": 0,
+    "pytest_summary": "37 passed in 2.37s"
+  }
+}

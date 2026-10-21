@@ -481,6 +481,7 @@ class Model:
         if self.no_think:
             payload["reasoning_effort"] = "none"
         url = self.base + "/chat/completions"
+        retries_429 = 0
         while True:
             try:
                 body = _http(url, payload, api_key=self.api_key, timeout=timeout)
@@ -492,6 +493,10 @@ class Model:
                 elif exc.code in (400, 422) and "reasoning_effort" in payload:
                     self.no_think = False
                     payload.pop("reasoning_effort")
+                elif exc.code == 429 and retries_429 < 2:
+                    retries_429 += 1
+                    payload["max_tokens"] = 1024
+                    time.sleep(1.5 * retries_429)
                 else:
                     raise
         choice = (body.get("choices") or [{}])[0]
