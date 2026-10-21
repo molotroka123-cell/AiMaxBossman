@@ -93,3 +93,8 @@ This addendum was audited against `main` at `558780932430d2007067d724765269d050e
 **Live CI snapshot:** at the moment of this audit, several workflows for `5587809324` were pending/queued. An earlier 2026-10-21 `main` SHA `09d4a025` had confirmed ASTRA, OSS, installed-product-chain and owner-scenarios workflow success, while its Command Center CI run was cancelled; that does not certify `5587809324`.
 
 **Action:** This is a review-ready audit checkpoint, not a code/data registry change, installed update, or published green-tree refresh. Only run the genuine tree-evidence toolchain on the actual owner machine after the relevant tests and acceptance.
+
+
+### Additional P0: owner AUTO permission semantics
+
+The current `command-center/tests/test_mobile_opencode_agent.py::test_16_owner_auto_bypass_permissions_mode` explicitly asserts `AUTO` sessions set `bypass_permissions=True` and an ASK-level terminal command can execute without a per-command prompt, while a DENY command still returns 403. The API exposes `bypass_permissions` on session/message input. Before North Star agent-authored skills are allowed to use terminal tools, independently prove server-side that only an authenticated, deliberate owner action can enable this permission mode; agents, tool outputs, prompt injection and session replay cannot escalate it. For unattended self-improvement, default to normal ASK authorization and never grant AUTO as part of a generated skill. Treat untested privilege boundaries as BLOCKED.
