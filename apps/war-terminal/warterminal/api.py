@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import API_VERSION, VERSION, ai as ai_mod, finance, firm as firm_mod, fx_tracker as fxt, geo, learning, rules, scoring, sources, translate as tr_mod
-from .connectors import cnb, cz, indicators, gdelt, http as http_mod, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
+from .connectors import cnb, cz, indicators, gdelt, http as http_mod, prozorro, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
 from .provenance import is_real
 from .store import Store, now
 
@@ -50,12 +50,13 @@ def _load_tokens(data_dir: Path) -> dict[str, str]:
 
 
 class IngestIn(BaseModel):
-    source: str = Field(pattern=r"^(ted|sam|usaspending|gdelt|worldbank|cz)$")
+    source: str = Field(pattern=r"^(ted|sam|usaspending|gdelt|worldbank|cz|prozorro)$")
     days: int = Field(default=30, ge=1, le=365)
     cpv_prefixes: list[str] | None = None
     country: str | None = None              # None = all countries (owner: Czech company, whole world)
     limit: int = Field(default=50, ge=1, le=200)
     keyword: str | None = None
+    reset_cursor: bool = False              # prozorro: forget the stored feed cursor and start `days` back
 
 
 class BrowserIngestIn(BaseModel):
@@ -191,7 +192,7 @@ def _now_stamp() -> str:
 
 
 def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, tokens: dict | None = None, post=None, get=None,
-               chat=None, today: date | None = None, download=None, bossman=None) -> FastAPI:
+               chat=None, today: date | None = None, download=None, bossman=None, sleep=None) -> FastAPI:
     data_dir = Path(data_dir or os.environ.get("WAR_TERMINAL_DATA") or Path.home() / ".war-terminal")
     data_dir.mkdir(parents=True, exist_ok=True)
     store = Store(data_dir / "war.db")
@@ -389,6 +390,8 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             store.kv_set("last:worldbank", {"at": t0, "count": len(docs)})
             audit(role, "ingest.worldbank", {"fetched": len(docs), "new": new, "updated": upd, "snapshot": digest})
             return {"source": "worldbank", "fetched": len(docs), "new": new, "updated": upd, "duplicates": len(docs) - new - upd, "snapshot_sha256": digest}
+        if body.source == "prozorro":
+            return _ingest_prozorro(body, role, t0)
         if body.source == "sam":
             if not sam_key:
                 raise HTTPException(409, {"code": "NOT_CONNECTED", "message": "нет SAM_API_KEY (бесплатный ключ на sam.gov)"})
@@ -418,6 +421,39 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         store.kv_set("last:gdelt", {"at": t0, "count": len(items)})
         audit(role, "ingest.gdelt", {"query": body.keyword, "fetched": len(items), "snapshot": digest})
         return {"source": "gdelt", "fetched": len(items), "snapshot_sha256": digest}
+
+    def _ingest_prozorro(body: IngestIn, role: str, t0: str):
+        """Incremental Prozorro feed sync. The cursor is saved after each stored page: a failed run keeps what it stored
+        and the next run resumes at the first unfinished page. `limit` = relevant tenders after which the run stops."""
+        cursor = None if body.reset_cursor else store.kv_get("cursor:prozorro")
+        days = body.days if "days" in body.model_fields_set else prozorro.DEFAULT_DAYS
+        known = {t.get("prozorro_id") for t in store.latest_tenders() if t.get("source_id") == "prozorro" and t.get("prozorro_id")}
+        pget = prozorro.polite(get, **({"sleep": sleep} if sleep else {}))
+        tot = {"pages": 0, "scanned": 0, "details_fetched": 0, "relevant": 0, "new": 0, "updated": 0, "duplicates": 0}
+        snapshots, start, nxt, caught_up = [], cursor, cursor, False
+        for page in prozorro.iter_pages(pget, cursor=cursor, days=days, today=_day(), known=known):
+            docs = []
+            if page["details"]:
+                sid, digest, fresh = store.save_snapshot("prozorro", f"{prozorro.URL}?offset={page['offset']}", page["details"])
+                snapshots.append(digest)
+                docs = prozorro.normalize_all(page["details"], t0, digest, _day())
+            for d in docs:
+                _, version, changed = store.upsert_tender(d)
+                tot["new"] += changed and version == 1
+                tot["updated"] += changed and version > 1
+                tot["duplicates"] += not changed
+            nxt, caught_up = page["next_offset"], page["caught_up"]
+            store.kv_set("cursor:prozorro", nxt)                       # only after the page's tenders are stored
+            tot["pages"] += 1
+            tot["scanned"] += page["scanned"]
+            tot["details_fetched"] = page["details_fetched"]
+            tot["relevant"] += len(docs)
+            if tot["relevant"] >= body.limit:
+                break
+        store.kv_set("last:prozorro", {"at": t0, "count": tot["relevant"]})
+        audit(role, "ingest.prozorro", {**tot, "cursor_from": start, "cursor_to": nxt, "snapshots": snapshots, "caught_up": caught_up})
+        return {"source": "prozorro", "fetched": tot["relevant"], **tot, "cursor": nxt, "caught_up": caught_up,
+                "snapshot_sha256": snapshots[-1] if snapshots else None}
 
     # ------------------------------------------------------------------ conflicts
     @app.post(f"{P}/ingest/browser")
@@ -511,11 +547,13 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     # ------------------------------------------------------------------ tenders
     @app.get(f"{P}/tenders")
     def tenders(status: str | None = None, complexity: str | None = None, tier: str | None = None, jurisdiction: str | None = None,
-                category: str | None = None, country: str | None = None, q: str | None = None,
+                category: str | None = None, country: str | None = None, q: str | None = None, source: str | None = None,
                 limit: int = 200, offset: int = 0, firm=Depends(firm_of), _=Depends(viewer)):
         out = []
         for t in store.latest_tenders():
             if status and t.get("status") != status or jurisdiction and t.get("jurisdiction") != jurisdiction or category and t.get("category") != category:
+                continue
+            if source and t.get("source_id") != source:
                 continue
             if country and (geo.to_iso3(t.get("country")) is None or geo.to_iso3(t.get("country")) != geo.to_iso3(country)):
                 continue                                # region-only tenders (e.g. "Western and Central Africa") never match a country

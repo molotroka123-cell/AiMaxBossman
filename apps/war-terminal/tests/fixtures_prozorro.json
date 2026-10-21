@@ -1,0 +1,445 @@
+{
+ "_source": "public.api.openprocurement.org/api/2.5, fetched 2026-10-21; scrubbed by prozorro.scrub (no contact persons/e-mails/phones/documents)",
+ "feed_page": {
+  "data": [
+   {
+    "dateModified": "2026-10-20T16:57:58.820405+03:00",
+    "tenderID": "UA-2026-10-20-013126-a",
+    "status": "complete",
+    "procurementMethodType": "reporting",
+    "id": "aa8999a2ae514b6aa59f49631e3c800a"
+   },
+   {
+    "dateModified": "2026-10-20T16:57:59.091368+03:00",
+    "tenderID": "UA-2026-10-20-013160-a",
+    "status": "complete",
+    "procurementMethodType": "reporting",
+    "id": "06f7073b39d143a593c0ec46d6cf506d"
+   },
+   {
+    "dateModified": "2026-10-20T16:57:59.678249+03:00",
+    "tenderID": "UA-2026-10-20-013171-a",
+    "status": "complete",
+    "procurementMethodType": "reporting",
+    "id": "39362dd07fbf4a3eb9dd9bb3e5485bca"
+   },
+   {
+    "dateModified": "2026-10-20T16:58:01.025910+03:00",
+    "tenderID": "UA-2026-10-20-013159-a",
+    "status": "complete",
+    "procurementMethodType": "reporting",
+    "id": "bffd4bf1e2fa49768e019cc945f637c1"
+   },
+   {
+    "dateModified": "2026-10-20T16:58:02.165183+03:00",
+    "tenderID": "UA-2026-10-01-003918-a",
+    "status": "active.awarded",
+    "procurementMethodType": "aboveThreshold",
+    "tenderPeriod": {
+     "startDate": "2026-10-01T12:15:00.689563+03:00",
+     "endDate": "2026-10-17T09:00:00+03:00"
+    },
+    "id": "d906868fcf9f4a17a574746467fd6ddc"
+   },
+   {
+    "dateModified": "2026-10-20T16:58:02.746837+03:00",
+    "tenderID": "UA-2026-10-20-013123-a",
+    "status": "complete",
+    "procurementMethodType": "reporting",
+    "id": "ef689649147048f7b358a4bf82924f85"
+   },
+   {
+    "dateModified": "2026-10-20T16:58:03.961898+03:00",
+    "tenderID": "UA-2026-10-20-013169-a",
+    "status": "active.tendering",
+    "tenderPeriod": {
+     "startDate": "2026-10-20T16:58:03.961898+03:00",
+     "endDate": "2026-10-26T10:00:00+02:00"
+    },
+    "procurementMethodType": "priceQuotation",
+    "id": "3519f869b9f64c90a907be686d26dd6d"
+   },
+   {
+    "dateModified": "2026-10-20T16:58:09.304291+03:00",
+    "tenderID": "UA-2026-10-20-013153-a",
+    "status": "complete",
+    "procurementMethodType": "reporting",
+    "id": "8d8fca0e9de94961bb60e6332979d427"
+   }
+  ],
+  "next_page": {
+   "offset": "1792504842.658.1.60a5efc22f5729c7823f87bbd39c3614",
+   "path": "/api/2.5/tenders?limit=100&opt_fields=procurementMethodType%2Cstatus%2CtenderID%2CtenderPeriod&offset=1792504842.658.1.60a5efc22f5729c7823f87bbd39c3614",
+   "uri": "https://public.api.openprocurement.org/api/2.5/tenders?limit=100&opt_fields=procurementMethodType%2Cstatus%2CtenderID%2CtenderPeriod&offset=1792504842.658.1.60a5efc22f5729c7823f87bbd39c3614"
+  }
+ },
+ "details": [
+  {
+   "id": "d720a6f07afd4418a199b966eeb96d3e",
+   "tenderID": "UA-2026-10-20-013721-a",
+   "title": "БпЛА типу DJI Matrice 4Т (або еквівалент)",
+   "description": "4.2. Розрахунок за Товар здійснюється Замовником на підставі належним чином оформлених, рахунків та видаткових накладних Постачальника впродовж 30 (тридцяти) календарних днів з моменту отримання Товару.\n4.3. У разі затримки бюджетного фінансування розрахунок за поставлений Товар здійснюється впродовж 20 (двадцяти) календарних днів з моменту надходження коштів, передбачених на дану закупівлю, на ра",
+   "status": "active.tendering",
+   "procurementMethod": "selective",
+   "procurementMethodType": "priceQuotation",
+   "mainProcurementCategory": "goods",
+   "value": {
+    "amount": 69600000.0,
+    "currency": "UAH",
+    "valueAddedTaxIncluded": false
+   },
+   "procuringEntity": {
+    "name": "Військова частина 9937",
+    "identifier": {
+     "scheme": "UA-EDR",
+     "id": "14321726",
+     "legalName": "Військова частина 9937"
+    },
+    "kind": "defense",
+    "address": {
+     "locality": "Маріуполь",
+     "region": "Донецька область",
+     "countryName": "Україна"
+    }
+   },
+   "items": [
+    {
+     "id": "320ea21337384595bf5639afcdf98673",
+     "description": "Квадрокоптери",
+     "classification": {
+      "description": "Вертольоти, літаки, космічні та інші літальні апарати з двигуном",
+      "scheme": "ДК021",
+      "id": "34710000-7"
+     },
+     "quantity": 400.0,
+     "unit": {
+      "name": "штука",
+      "code": "H87"
+     },
+     "deliveryDate": {
+      "endDate": "2026-11-30T00:00:00+02:00"
+     }
+    }
+   ],
+   "tenderPeriod": {
+    "startDate": "2026-10-20T17:43:13.781730+03:00",
+    "endDate": "2026-10-23T09:00:00+03:00"
+   },
+   "date": "2026-10-20T17:43:13.781730+03:00",
+   "dateCreated": "2026-10-20T17:42:57.171057+03:00",
+   "dateModified": "2026-10-20T17:43:13.781730+03:00"
+  },
+  {
+   "id": "fc30724bf01143cbad055be85be6bbae",
+   "tenderID": "UA-2026-10-16-012729-a",
+   "title": "Магазини",
+   "description": "",
+   "status": "active.enquiries",
+   "procurementMethod": "open",
+   "procurementMethodType": "belowThreshold",
+   "mainProcurementCategory": "goods",
+   "value": {
+    "currency": "UAH",
+    "valueAddedTaxIncluded": true,
+    "amount": 500000.0
+   },
+   "procuringEntity": {
+    "name": "Військова частина А0284",
+    "identifier": {
+     "scheme": "UA-EDR",
+     "id": "08474967",
+     "legalName": "Військова частина А0284"
+    },
+    "kind": "defense",
+    "address": {
+     "locality": "м. Львів",
+     "region": "Львівська область",
+     "countryName": "Україна"
+    }
+   },
+   "items": [
+    {
+     "id": "d32a0816faf54290839ad13c42321d86",
+     "description": "Магазин Leapers UTG PRO, AR15, .223/5.56, 30 патр. .223 Rem black.",
+     "classification": {
+      "description": "Частини вогнепальної зброї та боєприпасів",
+      "scheme": "ДК021",
+      "id": "35340000-9"
+     },
+     "quantity": 300.0,
+     "unit": {
+      "name": "штука",
+      "code": "H87"
+     },
+     "relatedLot": "7ca83dbc208e426fb678d65ac97d30a4",
+     "deliveryDate": {
+      "endDate": "2026-10-31T00:00:00+02:00"
+     }
+    },
+    {
+     "id": "ff49fd5be305432fa98b089f73048a3b",
+     "description": "Магазин Magpul PMAG 5,45х39 30 патр.",
+     "classification": {
+      "description": "Частини вогнепальної зброї та боєприпасів",
+      "scheme": "ДК021",
+      "id": "35340000-9"
+     },
+     "quantity": 300.0,
+     "unit": {
+      "name": "штука",
+      "code": "H87"
+     },
+     "relatedLot": "7ca83dbc208e426fb678d65ac97d30a4",
+     "deliveryDate": {
+      "endDate": "2026-10-31T00:00:00+02:00"
+     }
+    }
+   ],
+   "lots": [
+    {
+     "id": "7ca83dbc208e426fb678d65ac97d30a4",
+     "title": "Магазини",
+     "value": {
+      "currency": "UAH",
+      "valueAddedTaxIncluded": true,
+      "amount": 500000.0
+     },
+     "status": "active"
+    }
+   ],
+   "tenderPeriod": {
+    "startDate": "2026-10-22T08:00:00+03:00",
+    "endDate": "2026-10-28T08:00:00+02:00"
+   },
+   "enquiryPeriod": {
+    "startDate": "2026-10-16T18:28:15.403375+03:00",
+    "endDate": "2026-10-22T08:00:00+03:00",
+    "clarificationsUntil": "2026-10-24T00:00:00+03:00"
+   },
+   "date": "2026-10-16T18:46:02.686361+03:00",
+   "dateCreated": "2026-10-16T18:28:15.403375+03:00",
+   "dateModified": "2026-10-20T17:35:22.470141+03:00"
+  },
+  {
+   "id": "37e63efe648c46438f0bf76bc3bcc453",
+   "tenderID": "UA-2026-10-14-011385-a",
+   "title": "Деконтамінаційна кабіна ОДК-1 або аналогічна за призначенням",
+   "description": "Закупівля проводиться в порядку спрощених закупівель, визначених Законом України “Про публічні закупівлі”, виходячи з вартісних меж, встановлених пунктом 8 Особливостей здійснення оборонних закупівель на період дії правового режиму воєнного стану, затверджених постановою Кабінету Міністрів України від 11.11.2022 № 1275 «Деякі питання здійснення оборонних закупівель на період дії правового режиму в",
+   "status": "active.tendering",
+   "procurementMethod": "open",
+   "procurementMethodType": "belowThreshold",
+   "mainProcurementCategory": "goods",
+   "value": {
+    "currency": "UAH",
+    "valueAddedTaxIncluded": true,
+    "amount": 240042.0
+   },
+   "procuringEntity": {
+    "name": "Військова частина 3045 Національної гвардії України",
+    "identifier": {
+     "scheme": "UA-EDR",
+     "id": "08803715",
+     "legalName": "Військова частина 3045 Національної гвардії України",
+     "uri": "http://ngu.gov.ua/ua"
+    },
+    "kind": "defense",
+    "address": {
+     "region": "Рівненська область",
+     "countryName": "Україна"
+    }
+   },
+   "items": [
+    {
+     "id": "fe04388f17834c68b7e06f9ee3ca90de",
+     "description": "Деконтамінаційна кабіна ОДК-1 або аналогічна за призначенням",
+     "classification": {
+      "description": "Протипожежне, рятувальне та захисне обладнання",
+      "scheme": "ДК021",
+      "id": "35110000-8"
+     },
+     "quantity": 1.0,
+     "unit": {
+      "name": "комплект",
+      "code": "KT"
+     },
+     "relatedLot": "a31289ba9a8d46189f39356e4840744b",
+     "deliveryDate": {
+      "endDate": "2026-11-25T00:00:00+02:00"
+     }
+    }
+   ],
+   "lots": [
+    {
+     "id": "a31289ba9a8d46189f39356e4840744b",
+     "title": "Лот 1.",
+     "value": {
+      "currency": "UAH",
+      "valueAddedTaxIncluded": true,
+      "amount": 240042.0
+     },
+     "status": "active"
+    }
+   ],
+   "tenderPeriod": {
+    "startDate": "2026-10-20T17:00:00+03:00",
+    "endDate": "2026-10-23T00:00:00+03:00"
+   },
+   "enquiryPeriod": {
+    "startDate": "2026-10-14T16:00:01.630017+03:00",
+    "endDate": "2026-10-20T17:00:00+03:00",
+    "clarificationsUntil": "2026-10-22T00:00:00+03:00"
+   },
+   "date": "2026-10-20T17:00:00.303829+03:00",
+   "dateCreated": "2026-10-14T16:00:01.630017+03:00",
+   "dateModified": "2026-10-20T17:00:00.303829+03:00"
+  },
+  {
+   "id": "27bf0ff5b2ba421a911a8bb66717dc7a",
+   "tenderID": "UA-2026-10-21-009863-a",
+   "title": "Електрична енергія, з розподілом",
+   "description": "Фактом подання цінової пропозиції учасник підтверджує, що запропановоний Товар не є походженням з Російської Федерації/Республіки Білорусь/Ісламської Республіки Іран",
+   "status": "active.tendering",
+   "procurementMethod": "selective",
+   "procurementMethodType": "priceQuotation",
+   "mainProcurementCategory": "goods",
+   "value": {
+    "amount": 2349788.58,
+    "currency": "UAH",
+    "valueAddedTaxIncluded": false
+   },
+   "procuringEntity": {
+    "name": "Комунальне некомерційне підприємство \"Павлоградська лікарня інтенсивного лікування\" Павлоградської міської ради",
+    "identifier": {
+     "scheme": "UA-EDR",
+     "id": "01984174",
+     "legalName": "Комунальне некомерційне підприємство \"Павлоградська лікарня інтенсивного лікування\" Павлоградської міської ради",
+     "uri": "https://plil.dp.ua/"
+    },
+    "kind": "general",
+    "address": {
+     "locality": "м. Павлоград",
+     "region": "Дніпропетровська область",
+     "countryName": "Україна"
+    }
+   },
+   "items": [
+    {
+     "id": "9c21cc494a954da7883deb3a50aa1924",
+     "description": "Електрична енергія, з розподілом",
+     "classification": {
+      "description": "Електрична енергія",
+      "scheme": "ДК021",
+      "id": "09310000-5"
+     },
+     "quantity": 254219.0,
+     "unit": {
+      "name": "кіловат-година",
+      "code": "KWH"
+     },
+     "deliveryDate": {
+      "endDate": "2026-12-31T00:00:00+02:00"
+     }
+    }
+   ],
+   "tenderPeriod": {
+    "startDate": "2026-10-21T14:57:15.198811+03:00",
+    "endDate": "2026-10-24T14:00:00+03:00"
+   },
+   "date": "2026-10-21T14:57:15.198811+03:00",
+   "dateCreated": "2026-10-21T14:56:09.175955+03:00",
+   "dateModified": "2026-10-21T14:57:15.198811+03:00"
+  },
+  {
+   "id": "ad8140669e3a4ded85b384d5a67f8e50",
+   "tenderID": "UA-2026-10-21-009843-a",
+   "title": "Лопатка свинна без кістки, заморожена, ГСТУ 46.019; Гомілка куряча, охолоджена, перша категорія, ДСТУ 3143; Філе куряче, охолоджене, перша категорія, ДСТУ 3143; Язик свинний, охолоджений; Печінка яловича, заморожена",
+   "description": "Лопатка свинна без кістки, заморожена, ГСТУ 46.019; Гомілка куряча, охолоджена, перша категорія, ДСТУ 3143; Філе куряче, охолоджене, перша категорія, ДСТУ 3143; Язик свинний, охолоджений",
+   "status": "active.tendering",
+   "procurementMethod": "selective",
+   "procurementMethodType": "priceQuotation",
+   "mainProcurementCategory": "goods",
+   "value": {
+    "amount": 155000.0,
+    "currency": "UAH",
+    "valueAddedTaxIncluded": false
+   },
+   "procuringEntity": {
+    "name": "ПЕТРИКІВСЬКИЙ ОБЛАСНИЙ КОМУНАЛЬНИЙ ДИТЯЧИЙ БУДИНОК-ІНТЕРНАТ",
+    "identifier": {
+     "scheme": "UA-EDR",
+     "id": "03189481",
+     "legalName": "ПЕТРИКІВСЬКИЙ ОБЛАСНИЙ КОМУНАЛЬНИЙ ДИТЯЧИЙ БУДИНОК-ІНТЕРНАТ"
+    },
+    "kind": "general",
+    "address": {
+     "locality": "село Петриків, ",
+     "region": "Тернопільська область",
+     "countryName": "Україна"
+    }
+   },
+   "items": [
+    {
+     "id": "9364f9e523e2400ea82c5392874ce18d",
+     "description": "Лопатка свинна без кістки, заморожена, ГСТУ 46.019",
+     "classification": {
+      "description": "М’ясо",
+      "scheme": "ДК021",
+      "id": "15110000-2"
+     },
+     "quantity": 700.0,
+     "unit": {
+      "name": "кілограм",
+      "code": "KGM"
+     },
+     "deliveryDate": {
+      "startDate": "2026-11-01T00:00:00+02:00",
+      "endDate": "2027-01-31T00:00:00+02:00"
+     }
+    },
+    {
+     "id": "ef46bbc0257d4a47b69be889e2f0a511",
+     "description": "Гомілка куряча, охолоджена, перша категорія, ДСТУ 3143",
+     "classification": {
+      "description": "М’ясо",
+      "scheme": "ДК021",
+      "id": "15110000-2"
+     },
+     "quantity": 80.0,
+     "unit": {
+      "name": "кілограм",
+      "code": "KGM"
+     },
+     "deliveryDate": {
+      "startDate": "2026-11-01T00:00:00+02:00",
+      "endDate": "2027-01-31T00:00:00+02:00"
+     }
+    },
+    {
+     "id": "ed12bfe8c1194a9c99ba64e36c530ca9",
+     "description": "Філе куряче, охолоджене, перша категорія, ДСТУ 3143",
+     "classification": {
+      "description": "М’ясо",
+      "scheme": "ДК021",
+      "id": "15110000-2"
+     },
+     "quantity": 60.0,
+     "unit": {
+      "name": "кілограм",
+      "code": "KGM"
+     },
+     "deliveryDate": {
+      "startDate": "2026-11-01T00:00:00+02:00",
+      "endDate": "2027-01-31T00:00:00+02:00"
+     }
+    }
+   ],
+   "tenderPeriod": {
+    "startDate": "2026-10-21T14:58:09.773348+03:00",
+    "endDate": "2026-10-26T09:00:00+02:00"
+   },
+   "date": "2026-10-21T14:58:09.773348+03:00",
+   "dateCreated": "2026-10-21T14:55:29.231461+03:00",
+   "dateModified": "2026-10-21T14:58:09.773348+03:00"
+  }
+ ]
+}

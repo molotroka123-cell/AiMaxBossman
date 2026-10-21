@@ -6,7 +6,7 @@ const SECTIONS = [
   ["overview", T("Карта")], ["conflicts", T("Конфликты")], ["tenders", T("Закупки")], ["fit", T("Компания")], ["compliance", T("Комплаенс")],
   ["finance", T("Финансы")], ["fx", T("Курсы / FX")], ["deals", T("Сделки")], ["learning", T("Аналитика")], ["sources", T("Источники")], ["approvals", T("Одобрения")],
 ];
-const S = { token: "", role: "viewer", view: "overview", tenders: null, sel: null, filters: { f: "all", q: "", category: "", country: "" },
+const S = { token: "", role: "viewer", view: "overview", tenders: null, sel: null, filters: { f: "all", q: "", category: "", country: "", source: "" },
   lastAssessment: {}, health: null, cache: {}, mapLayer: "conflict", mapSel: null, mapApi: null };
 try { S.token = sessionStorage.getItem("wt_token") || ""; S.role = sessionStorage.getItem("wt_role") || "viewer"; const v = sessionStorage.getItem("wt_view"); if (v && SECTIONS.some((x) => x[0] === v)) S.view = v; } catch (e) { /* storage may be blocked */ }
 
@@ -676,6 +676,7 @@ async function loadTenders() {
   if (f.f === "BLOCKED" || f.f === "REVIEW_REQUIRED") p.set("complexity", f.f);
   if (f.q) p.set("q", f.q);
   if (f.category) p.set("category", f.category);
+  if (f.source) p.set("source", f.source);
   if (!f.country) { p.set("limit", "200"); return GET("/tenders?" + p); }
   await loadGeo().catch(() => null);
   p.set("limit", "1000");
@@ -824,9 +825,11 @@ async function viewTenders(el) {
   const q = h("input", { type: "search", value: S.filters.q, placeholder: T("Поиск"), "aria-label": T("Текстовый поиск") });
   const cat = h("input", { value: S.filters.category, placeholder: T("Категория"), "aria-label": T("Категория"), size: 10 });
   const ctry = h("input", { value: S.filters.country || T("все"), placeholder: T("Страна (ISO) или «все»"), "aria-label": T("Страна (ISO-код или «все» для всего мира)"), title: T("ISO-код страны, например CZE; «все» или пусто — весь мир"), size: 12 });
+  const src = sel("source", [["", T("Все источники")], ...["ted", "cz_nen", "worldbank", "prozorro"].map((id) => [id, srcName(id)])], S.filters.source);
+  src.setAttribute("aria-label", T("Источник"));
   const ALL = ["", T("все"), T("всё"), "all", "*", T("весь мир"), "world"];   // "все", "всё", "весь мир" accepted in either UI language
   const refresh = () => {
-    S.filters.q = q.value.trim(); S.filters.category = cat.value.trim();
+    S.filters.q = q.value.trim(); S.filters.category = cat.value.trim(); S.filters.source = src.value;
     const c = ctry.value.trim(); S.filters.country = ALL.includes(c.toLowerCase()) ? "" : c;
     if (!S.filters.country) ctry.value = T("все");
     renderTenders();
@@ -834,7 +837,8 @@ async function viewTenders(el) {
   for (const [id, l] of FILTERS) bar.append(h("button", { type: "button", class: S.filters.f === id ? "on" : "", "aria-pressed": String(S.filters.f === id), onclick: () => { S.filters.f = id; refresh(); viewRefreshBar(); } }, l));
   function viewRefreshBar() { for (const b of bar.querySelectorAll("button")) { const on = b.textContent === FILTERS.find((x) => x[0] === S.filters.f)[1]; b.className = on ? "on" : ""; b.setAttribute("aria-pressed", String(on)); } }
   for (const i of [q, cat, ctry]) i.addEventListener("keydown", (e) => { if (e.key === "Enter") refresh(); });
-  bar.append(q, cat, ctry, h("button", { type: "button", onclick: refresh }, T("Применить")));
+  src.addEventListener("change", refresh);
+  bar.append(q, cat, ctry, src, h("button", { type: "button", onclick: refresh }, T("Применить")));
   el.append(card(T("Тендеры"), FIRM.data ? null : FIRM.banner(), bar, listBox), det);
   const listNode = (d) => {
     if (!d.items.length) return stateBox("load", T("Нет тендеров по этим фильтрам."));
@@ -1129,7 +1133,7 @@ async function viewSources(el) {
     h("h3", {}, T("Тендеры (роль «аналитик»)")),
     h("div", { class: "bar" }, act(T("TED: Чехия"), "/ingest", { source: "ted", country: "CZE" }, "analyst"),
       act(T("TED: весь мир"), "/ingest", { source: "ted", country: null }, "analyst"), act(T("ISVZ/NEN (Чехия)"), "/ingest", { source: "cz" }, "analyst"),
-      act(T("Всемирный банк (весь мир)"), "/ingest", { source: "worldbank" }, "analyst")),
+      act(T("Всемирный банк (весь мир)"), "/ingest", { source: "worldbank" }, "analyst"), act(T("Prozorro (Украина)"), "/ingest", { source: "prozorro" }, "analyst")),
     h("h3", {}, T("Справочники")),
     h("div", { class: "bar" }, act(T("Загрузить санкции (OFAC+ООН)"), "/sanctions/fetch", { sources: ["ofac", "un"] }, "compliance"), act(T("Курсы ЧНБ"), "/fx/fetch", {}, "analyst"),
       act(T("Конфликты UCDP"), "/conflicts/fetch", {}, "compliance")),

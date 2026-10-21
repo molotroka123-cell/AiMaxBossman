@@ -172,6 +172,8 @@ const EN = {
  "Всего": "Total",
  "Всего в базе": "Total in database",
  "Всемирный банк (весь мир)": "World Bank (whole world)",
+ "Prozorro (Украина)": "Prozorro (Ukraine)",
+ "Все источники": "All sources",
  "Встречный контракт (back-to-back)": "Back-to-back contract",
  "Вход по токену роли": "Sign in with a role token",
  "Выбранный тендер: ": "Selected tender: ",

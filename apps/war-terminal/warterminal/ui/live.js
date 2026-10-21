@@ -2,7 +2,7 @@
 /* Real-data helpers: provenance line (source, link, fetch time, LIVE marker) and the per-source status strip.
    There is no demo mode: a source that cannot be reached is shown as such, never replaced by old or sample data.
    Depends on app.js helpers (h, badge, clear, POST, GET, render) and i18n.js (T, Tf). Loaded after app.js. */
-const SRC_NAME = { ted: "TED", cz_nen: "ISVZ/NEN (CZ)", browser_nen: "NEN (CZ)", nen: "NEN (CZ)", worldbank: "World Bank", sam: "SAM.gov", usaspending: "USAspending", gdelt: "GDELT",
+const SRC_NAME = { ted: "TED", cz_nen: "ISVZ/NEN (CZ)", browser_nen: "NEN (CZ)", nen: "NEN (CZ)", worldbank: "World Bank", prozorro: "Prozorro 🇺🇦", sam: "SAM.gov", usaspending: "USAspending", gdelt: "GDELT",
   ofac: "OFAC", un_sanctions: "UN SC", cnb: "CNB FX", ucdp: "UCDP", worldbank_ind: "World Bank WDI", unhcr: "UNHCR", ecb: "ECB", nominatim: "Nominatim", comtrade: "UN Comtrade" };
 const srcName = (id) => SRC_NAME[id] || String(id || "").replace(/_[\d.]+$/, "") || "—";
 const fetchedAt = (iso) => (iso ? String(iso).slice(0, 16).replace("T", " ") + " UTC" : T("нет данных"));
