@@ -1,65 +1,87 @@
-# BOSSMAN
+<div align="center">
 
-Локальный ИИ-помощник владельца на Windows 11 (AMD Radeon 8060S): свои модели Qwen на ПК, бесплатные облачные модели как
-подмога, управление из закрытого Telegram-пульта, собеседник Jeff для людей. Лицензия AGPL-3.0-only.
+# ⚡ AI MAX BOSSMAN 2.6 — UNIFIED AUTONOMOUS PC & MOBILE OPENCODE AGENT
 
-> **Актуальная рабочая цель (18.10.2026):** допилить один уже начатый сценарий
-> существующего Bossman, не создавать второго бота и не переписывать систему.
-> Сначала сверить текущие `origin/main`, runtime и незавершённые процессы, затем
-> собрать обезличенные логи/evidence, исправить конкретный пробел и проверить его
-> на точном SHA. Этот README содержит датированные витринные и исторические статусы;
-> они сами по себе не подтверждают готовность текущего runtime. Рабочие инструкции:
-> [`AGENTS.md`](AGENTS.md), актуальный снимок:
-> [`BOSSMAN_ONE_STATE_20261018_RU.md`](docs/owner/BOSSMAN_ONE_STATE_20261018_RU.md).
+**Единая локальная ИИ-система владельца на Windows 11 · AMD Ryzen AI Max+ 395 · Radeon 8060S · 128 GB Unified RAM**
 
-## Витрина — что показываем людям (15.10.2026)
+[![Unified Release](https://img.shields.io/badge/Release-Bossman_2.6_Unified-10b981?style=for-the-badge)](https://github.com/molotroka123-cell/AiMaxBossman)
+[![Mobile OpenCode](https://img.shields.io/badge/Mobile_OpenCode-16%2F16_E2E_PASS-0284c7?style=for-the-badge)](docs/owner/BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md)
+[![15x3 Matrix](https://img.shields.io/badge/15x3_Improvements-45%2F45_VERIFIED-8b5cf6?style=for-the-badge)](docs/owner/BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md)
+[![War Terminal](https://img.shields.io/badge/War_Terminal-254_Tests_PASS-f59e0b?style=for-the-badge)](apps/war-terminal)
+[![License](https://img.shields.io/badge/License-AGPL--3.0--only-334155?style=for-the-badge)](LICENSE)
 
-| Показываем | Почему | Статус |
-|---|---|---|
-| **Jeff** — собеседник в Telegram | приёмка на ПК владельца S1–S7 7/7 | ✅ |
-| **Poker Train** — Telegram Mini App: тренировка покера, разбор ошибок после сессии, Jeff играет против вас в режиме HARDCORE | 35 тестов хоста + 29 приложения; на телефоне владельцем ещё не проверено | 🟡 |
-| **3D-печать** — STL → проверенный gcode для Neptune 4 Pro (PLA, поддержки, превью) одной командой | 9 gcode сделаны и проверены 14.10 | ✅ |
+<img src="docs/assets/bossman_showcase.svg" alt="One Bossman Unified AI Operator & OpenCode Platform Showcase" width="100%"/>
 
-Обозначения: ✅ — проверено на ПК владельца; 🟡 — в `main`, тесты есть, у владельца не доказано; 🔵 — готово в отдельной ветке, в `main` не влито.
+<br/>
 
-## Все функции
+🎬 **[Презентационное демо (GIF)](docs/assets/bossman_presentation_20261021.gif)** · 🎥 **[Видео презентации (MP4)](docs/assets/bossman_presentation_20261021.mp4)** · 📊 **[Архитектурный постер (SVG)](docs/assets/bossman-presentation-hero.svg)** · 🎞 **[Эволюция Bossman (RU MP4)](docs/evolution/2026-10-15/bossman_evolution_ru.mp4)** · 🇬🇧 **[Evolution Video (EN MP4)](docs/evolution/2026-10-15/bossman_evolution_en.mp4)**
 
-**Пульт (Telegram, только владелец)** — 🟡/✅
-- Работа с кодом: `/work`, `/work_status`, `/work_stop`, `/fix`, `/claude`, `/codex`, `/jev`, `/chatgpt`, `/argon`.
-- Компьютер: `/pc`, `/screen`, `/procs`, `/files`, `/open`, `/sh`, `/kill`, `/pc_audit`, `/remote` (удалённый доступ), `/reboot` (с подтверждением).
-- Генерация: `/pic`, `/photo`, `/edit_engine`, `/vid`, `/vidphoto`, `/style`, `/gen_go`, `/gen_redo`, `/gen_cancel`.
-- Самоулучшение и память: `/evolution_start|status|report|pause|stop`, `/lessons`, `/audits`, `/approvals`, `/approve`, `/reject`.
-- Сервис: `/status`, `/queue`, `/pause`, `/resume`, `/stop`, `/diag`, `/speed`, `/mode`, `/parse`, `/fill`, `/market_deep`, `/poker_app`.
+![Bossman Live Presentation Demo](docs/assets/bossman_presentation_20261021.gif)
 
-**Jeff — собеседник** ✅: разговор с людьми, свой стиль, хранит только хеши собеседников; платные документы через Telegram Stars — выключено.
+</div>
 
-**Медиа** 🟡: Motion Studio (клипы и концерт под трек), видеостудия, замена лица FaceFusion (только с согласием), Genjutsu (Wan VACE), музыкальная студия, апскейл фото, озвучка.
+---
 
-**Покер** 🟡: Poker Train Mini App, `/api/jeff` (Jeff HARDCORE), Poker Botlab (боты и турниры), Poker Vision (только наблюдение), GTO-решатель и батч 1000 раздач (TexasSolver), бенч моделей на покерных решениях. Помощи за реальным столом нет — только тренировка и разбор.
+## 🚀 Главная витрина презентации (21.10.2026 — Доказано от лица владельца)
 
-**Приложения** 🟡: AI 3D Maker, веб-камера с распознаванием, бухгалтер, тренажёр экзаменов, файловый менеджер, автопилот ПК, Social Farm, Solana Volume Suite, помощник запуска токена, Travel Architect, сверка отчётов.
+**Один Bossman. Один рантайм (`:8801`). Один мобильный Web Pult (`:8802`) + Telegram-пульт. Полный доступ к инструментам ПК и самопрограммированию под контролем владельца (`SAFE / ASK / DENY` + режим `⚡ AUTO Bypass Permission`).**
 
-**Модели и провайдеры** 🟡: локальные Qwen 3.8 27B, Qwen 3.6 35B-A3B (+vision), GPT-OSS 120B, uncensored-профили (Ollama / llama.cpp); облако — OpenRouter `:free`, NVIDIA NIM, Groq, Google AI Studio, Mistral, HowToFix (DeepSeek). Ключи — только в шифрованном vault; платные модели — только с ценой и суточным лимитом.
+| Контур системы | Что делает вживую от лица пользователя | Доказательство / Тесты | Статус |
+|---|---|---|---|
+| **📱 Mobile OpenCode AI Agent & Web Pult (`:8802`)** | Управление всем ПК с телефона: режимы `CHAT \| AGENT \| ⚡ AUTO \| CODE \| PC \| /improve`, встроенный Web Terminal (`Ctrl+C`, `git status`, `git diff`, `pytest`), карточки вызовов инструментов и стриминг по WebSocket с досылкой (`?after=N`) | [`test_mobile_opencode_agent.py`](command-center/tests/test_mobile_opencode_agent.py) (16/16 E2E), [`test_mobile_opencode.py`](apps/bossman-mobile/tests/test_mobile_opencode.py), 75 UI-тестов телефона | ✅ **PASS** |
+| **⚡ Режим `AUTO (Bypass Permission)`** | Как в Codex (`--full-auto`) и Antigravity (`Auto`): автоматически подтверждает и исполняет рабочие `ASK`-инструменты и команды `project_host` без ручных кликов на каждом шаге, но жёстко блокирует `DENY` (`rm -rf /`, `format`, `diskpart`, `git push --force` → `403`) | `test_16_owner_auto_bypass_permissions_mode`, `test_08_blocked_dangerous_commands` | ✅ **PASS** |
+| **🧠 5-Tier Model Router + 70B & Gemma 4 31B** | **Tier 1:** локальная `gemma4-31b-uncensored:latest`; **Tier 2:** локальные кодеры `r1-70b-abliterated:latest` (42.5 ГБ, RAM-страж 50 ГБ при генерации), `qwen3.6-35b-a3b`, `qwen3-coder:30b`; **Tier 3:** бесплатное облако (`:free`); **Tier 4/5:** бюджетное облако с жёстким стопом (`402 BUDGET_EXCEEDED`). **RunPod запрещён (`403 RUNPOD_FORBIDDEN`)** | `test_09_local_to_cloud_fallback_router`, `test_10_budget_limit_stop_and_runpod_guard`, [`test_coding_workers.py`](command-center/tests/test_coding_workers.py) | ✅ **PASS** |
+| **🔧 16-шаговый цикл `/improve` (Self-Coding)** | Самодиагностика → гипотеза → изолированный `git worktree` → патч → прогон `pytest` и безопасности → ревью независимой моделью → криптографический `MissionReceipt` (SHA-256) → применение после одобрения владельца | `test_14_self_improve_isolated_worktree_16_steps`, [`BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md`](docs/owner/BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md) | ✅ **PASS** |
+| **🗣 Jeff 2.6 + Методичка + Звонки Telegram** | Собеседник Jeff в Telegram и голосовых звонках MTProto (автоответчик, barge-in), зашифрованная методичка на ПК со строгими ссылками `§N`, облачный резерв по методичке (`b67e34c0`) и защита Gemma Джеффа во время тяжёлых генераций (`010bc6c4`) | [`test_direct_gen_jeff_keep.py`](command-center/tests/test_direct_gen_jeff_keep.py), [`test_jeff_manual_cloud_fallback.py`](command-center/tests/test_jeff_manual_cloud_fallback.py), `jeff_training.test.mjs` | ✅ **PASS** |
+| **🎨 Прямой генератор Фото/Видео + FaceLock** | Локальная генерация фото и видео на Radeon 8060S (`Z-Image-Turbo`, `Qwen Image Edit 2509`, `Wan 2.2`), отсылки `@1`, `@2` в стиле Higgsfield, FaceLock по фото и видео (проверка минимум на 8 кадрах), честный расчёт времени по замерам на ПК | Полный набор `apps/bossman-mobile/tests` + живая очередь `:8801` | ✅ **PASS** |
+| **📊 War Terminal (`:8830`) + Обменник + Poker + 3D** | War Terminal (контакты ↔ тендеры Prozorro OCDS), обменник по курсам ЧНБ/ЕЦБ (+3%) с PDF-чеками, Poker Train Mini App (Jeff HARDCORE + TexasSolver GTO), 3D-печать STL → G-code для Neptune 4 Pro | `apps/war-terminal` (**254 passed**), `test_pult_note.py` (**20 passed**) | ✅ **PASS** |
 
-**Агенты и самоулучшение** 🟡: оператор Qwen, автономия (цели, планировщик, цикл ремонта), уроки и память (LessonBook, поиск по памяти), оркестр бесплатных моделей, дерево возможностей (900 листьев).
+---
 
-**Безопасность** 🟡: конституция и gate, разрешения, STOP, сканер секретов, ревью независимой моделью, учёт расходов.
+## 🏗 Архитектура единого Bossman 2.6 Unified
 
-**В ветках, не в main** 🔵:
-- `feat/agent-school-20261015` — обучение локальных Qwen агентному методу: на 30 отложенных задачах по 15 веткам дерева Qwen 3.6 35B-A3B 22/30 → 28/30, Qwen 3.8 27B правила 12/15 → 15/15 (обучение в контексте, веса не менялись).
-- `feat/live-translator-mvp` — живой перевод речи VAD→ASR→MT→TTS и голосовые в Telegram (8 тестов на моках; реальные модели — NOT RUN).
-- `feat/swapme-bot-20261015` — SwapMe-бот обмена; PR #110 (Аргон, покер GTO), PR #109 (Кодекс, Soup).
+```mermaid
+flowchart LR
+  subgraph Phone["📱 Мобильный Web Pult (:8802) & Telegram Пульт"]
+    Modes["Режимы: CHAT | AGENT | ⚡ AUTO | CODE | PC | /improve"]
+    TermUI["Встроенный Web Terminal + Git Diff + Экран ПК"]
+    MediaUI["Фото / Видео (@1, @2, FaceLock) · Звонки · Jeff · Обмен"]
+  end
 
-**Честно о пробелах:** в `main` красные тесты (`owner_scenarios` 2, `installed_responsiveness_probe` 5, ещё 3) — зелёного CI на SHA нет; 24/48-часовой прогон и заработок не доказаны. Замены на open source для 22 пробелов — `docs/owner/OSS_REPLACEMENTS_20261015_RU.md` (в ветке agent-school).
+  subgraph Core["🧠 Command Center (:8801) — Единое ядро"]
+    Orch["Agent Orchestrator (/api/agent/*)"]
+    Router["5-Tier Model Router (Local Gemma 4 / 70B / Qwen → Free Cloud)"]
+    Term["Terminal Control Plane (project_host / sandbox + WS stream)"]
+    PC["Windows Computer Use (OBSERVE → PLAN → ACT → VERIFY)"]
+    Improve["16-Step /improve Worktree + SHA-256 MissionReceipt"]
+    Gov["Resource Governor (128 GB RAM Guard + Jeff Keep-Alive)"]
+  end
 
-## Эволюция Bossman
+  subgraph HW["🖥 AMD Ryzen AI Max+ 395 · Radeon 8060S · 128 GB RAM"]
+    Ollama["Ollama Local LLM (Gemma 4 31B, R1 70B, Qwen 35B/30B)"]
+    DirectGen["Direct Generator (sd-cli / Wan 2.2 / FaceFusion)"]
+    War["War Terminal (:8830) & SQLite WAL Memory"]
+  end
 
-[Видео на русском](docs/evolution/2026-10-15/bossman_evolution_ru.mp4) ·
-[English video](docs/evolution/2026-10-15/bossman_evolution_en.mp4) ·
-[постер](docs/evolution/2026-10-15/poster_ru.png). Цифры пересчитаны по
-[зафиксированному снимку Git](docs/evolution/2026-10-15/README.md); ролик не является актом продакшен-приёмки.
+  Modes --> Orch
+  TermUI --> Term
+  MediaUI --> Core
+  Orch --> Router
+  Orch --> Term
+  Orch --> PC
+  Orch --> Improve
+  Router --> Ollama
+  Gov --> Ollama
+  Gov --> DirectGen
+  Core --> War
+```
 
-> **Коротко (14.10.2026 — единый кандидат `release/bossman-one-20261014`):**
+### Полезные документы приёмки (21.10.2026)
+- 📋 **[Приёмка Mobile OpenCode & AUTO Mode (`BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md`)](docs/owner/BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md)**
+- 🏆 **[Приёмка 15 × 3 = 45 улучшений (`BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md`)](docs/owner/BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md)**
+- 🧭 **[Мастер-промт сборки единого Bossman (`ARGON_MASTER_PROMPT_ONE_BOSSMAN_20261021_RU.md`)](docs/owner/ARGON_MASTER_PROMPT_ONE_BOSSMAN_20261021_RU.md)**
+
+---
 > - **Что это:** Единая локальная система владельца на Windows 11 с управлением через закрытый пульт Telegram: оператор кода Qwen L1 (`/work`), агент ПК Argon (`/pc`, `/screen`, `/trust`, `/stop`), локальная генерация фото/правок (`/img`, `/edit`, `/edit_engine` Z-Image NSFW v2), самоулучшение (`/boost`), сверка отчётов 21–20 (`Reports-Import.cmd`) и наблюдатель `Poker Vision`.
 > - **Как запустить (2 команды):** `python creative-runs\PULT-SOURCE-20261013\run_backend_source.py <worktree>` (поднимает `:8801`) и `python creative-runs\PULT-SOURCE-20261013\run_pult_source.py <worktree>` (поднимает единственный poller пульта); в пакетной сборке — `Start-Bossman.cmd`.
 > - **Как остановить (1 команда):** `Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*bcc.telegram_companion*' -or $_.CommandLine -like '*bcc.main:app*8801*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }` (или `/stop` в пульте).

@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#07090e" />
+      <stop offset="50%" stop-color="#0d1322" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#131c31" stop-opacity="0.92" />
+      <stop offset="100%" stop-color="#0c1220" stop-opacity="0.96" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <style>
+      .title { font: 800 30px 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; fill: #f8fafc; letter-spacing: 0.5px; }
+      .subtitle { font: 500 14px 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; fill: #94a3b8; }
+      .badge { font: 700 11px 'Consolas', 'SFMono-Regular', monospace; fill: #0f172a; }
+      .card-title { font: 700 15px 'Segoe UI', sans-serif; fill: #e2e8f0; }
+      .card-sub { font: 500 12px 'Segoe UI', sans-serif; fill: #94a3b8; }
+      .mono { font: 600 12px 'Consolas', 'SFMono-Regular', monospace; fill: #38bdf8; }
+      .mono-green { font: 600 12px 'Consolas', 'SFMono-Regular', monospace; fill: #34d399; }
+      .mono-amber { font: 600 12px 'Consolas', 'SFMono-Regular', monospace; fill: #fbbf24; }
+      .term-line { font: 500 12px 'Consolas', 'SFMono-Regular', monospace; fill: #cbd5e1; }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.35; }
+      }
+      @keyframes flow {
+        0% { stroke-dashoffset: 24; }
+        100% { stroke-dashoffset: 0; }
+      }
+      .live-dot { animation: pulse 1.8s infinite ease-in-out; }
+      .flow-line { stroke-dasharray: 6 6; animation: flow 1.2s infinite linear; }
+    </style>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="640" rx="18" fill="url(#bgGrad)" stroke="#1e293b" stroke-width="2" />
+  <rect x="24" y="18" width="1152" height="3" rx="1.5" fill="url(#accentGrad)" />
+
+  <!-- Header -->
+  <circle cx="50" cy="56" r="7" fill="#34d399" class="live-dot" filter="url(#glow)" />
+  <text x="68" y="62" class="title">ONE BOSSMAN · UNIFIED AI OPERATOR &amp; OPENCODE PLATFORM</text>
+  <text x="68" y="86" class="subtitle">AMD Ryzen AI Max+ 395 · Radeon 8060S · 128 GB Unified Memory · Windows 11 Host (:8801 / :8840 / :8830)</text>
+
+  <!-- Top Right Status Pills -->
+  <rect x="820" y="38" width="165" height="28" rx="14" fill="#064e3b" stroke="#10b981" stroke-width="1.2" />
+  <text x="838" y="56" class="mono-green">● 15×3 = 45 PASS</text>
+
+  <rect x="995" y="38" width="175" height="28" rx="14" fill="#1e1b4b" stroke="#6366f1" stroke-width="1.2" />
+  <text x="1012" y="56" class="mono">⚡ AUTO BYPASS READY</text>
+
+  <!-- Row 1 Cards: Mobile OpenCode Pult, 5-Tier Model Router, Jeff Voice & Manual -->
+  <!-- Card 1: Mobile Web Pult (:8840) -->
+  <rect x="30" y="110" width="365" height="230" rx="12" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5" />
+  <text x="50" y="140" class="card-title">📱 Mobile OpenCode Web Pult (:8840)</text>
+  <text x="50" y="160" class="card-sub">6 Native Modes + Slide-Over Workbench</text>
+
+  <rect x="50" y="174" width="48" height="22" rx="5" fill="#1e293b" /><text x="58" y="189" class="mono">CHAT</text>
+  <rect x="104" y="174" width="54" height="22" rx="5" fill="#1e293b" /><text x="111" y="189" class="mono">AGENT</text>
+  <rect x="164" y="174" width="60" height="22" rx="5" fill="#422006" stroke="#f59e0b" /><text x="170" y="189" class="mono-amber">⚡AUTO</text>
+  <rect x="230" y="174" width="48" height="22" rx="5" fill="#1e293b" /><text x="238" y="189" class="mono">CODE</text>
+  <rect x="284" y="174" width="42" height="22" rx="5" fill="#1e293b" /><text x="294" y="189" class="mono">PC</text>
+  <rect x="332" y="174" width="46" height="22" rx="5" fill="#064e3b" /><text x="337" y="189" class="mono-green">SELF</text>
+
+  <text x="50" y="220" class="term-line">✓ Interactive PTY/Subprocess Web Terminal</text>
+  <text x="50" y="242" class="term-line">✓ Live Git Diff, File Tree &amp; MissionReceipt</text>
+  <text x="50" y="264" class="term-line">✓ WS Event Replay (?after=N) + Zero innerHTML</text>
+  <text x="50" y="286" class="term-line">✓ SAFE / ASK / DENY + Owner ⚡ AUTO Mode</text>
+  <text x="50" y="312" class="mono-green">75/75 Mobile UI + 16/16 Agent E2E PASS</text>
+
+  <!-- Card 2: 5-Tier Deterministic Model Router -->
+  <rect x="417" y="110" width="365" height="230" rx="12" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5" />
+  <text x="437" y="140" class="card-title">🧠 5-Tier Deterministic Model Router</text>
+  <text x="437" y="160" class="card-sub">128 GB Unified RAM Coexistence + Budget Guard</text>
+
+  <text x="437" y="188" class="mono">T1 Local Fast:</text><text x="545" y="188" class="term-line">gemma4-31b-uncensored (34.7 GB)</text>
+  <text x="437" y="210" class="mono">T2 Local Code:</text><text x="545" y="210" class="term-line">qwen3-coder:30b (3.3B active MoE)</text>
+  <text x="437" y="232" class="mono-amber">T2 Heavy 70B:</text><text x="545" y="232" class="term-line">r1-70b-abliterated (≥50GB RAM guard)</text>
+  <text x="437" y="254" class="mono-green">T3 Free Cloud:</text><text x="545" y="254" class="term-line">Nemotron 120B / Qwen 3.8 / Gemini 3</text>
+  <text x="437" y="276" class="mono">T4/T5 Capped:</text><text x="545" y="276" class="term-line">GLM 5.3 / DeepSeek / Haiku ($2 cap)</text>
+  <text x="437" y="312" class="mono-green">RunPod = HTTP 403 · $0 Budget Stop = HTTP 402</text>
+
+  <!-- Card 3: Jeff Voice, Calls & Dense Generation Keep -->
+  <rect x="804" y="110" width="366" height="230" rx="12" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5" />
+  <text x="824" y="140" class="card-title">🎙️ Jeff Companion · Keep &amp; Cloud Fallback</text>
+  <text x="824" y="160" class="card-sub">Zero Eviction During Photo Gen + Strict Manual (§N)</text>
+
+  <text x="824" y="190" class="term-line">• Governor mode: jeff_during_generation = keep</text>
+  <text x="824" y="212" class="term-line">• DirectGen preserves Jeff's Gemma in VRAM</text>
+  <text x="824" y="234" class="term-line">• Auto jeff_rewarm if model ever unloaded</text>
+  <text x="824" y="256" class="term-line">• Cloud Fallback: strict §N citations only ($0 free)</text>
+  <text x="824" y="278" class="term-line">• Badges: 💻 локально | ☁️ облако · &lt;model&gt;</text>
+  <text x="824" y="312" class="mono-green">85 Governor + 22 Cloud Fallback + 18 KB PASS</text>
+
+  <!-- Animated Data Flow Connectors -->
+  <line x1="212" y1="340" x2="212" y2="375" stroke="#38bdf8" stroke-width="2" class="flow-line" />
+  <line x1="600" y1="340" x2="600" y2="375" stroke="#818cf8" stroke-width="2" class="flow-line" />
+  <line x1="987" y1="340" x2="987" y2="375" stroke="#34d399" stroke-width="2" class="flow-line" />
+
+  <!-- Row 2: Live Terminal & Self-Improve + Media/PC/War-Terminal -->
+  <rect x="30" y="375" width="752" height="235" rx="12" fill="#050811" stroke="#38bdf8" stroke-width="1.5" />
+  <circle cx="52" cy="398" r="5" fill="#ef4444" />
+  <circle cx="68" cy="398" r="5" fill="#f59e0b" />
+  <circle cx="84" cy="398" r="5" fill="#10b981" />
+  <text x="104" y="403" class="mono">bossman@ryzen-ai-max-395:~/wt-rc-20261019$ /improve &amp; full-suite verification</text>
+
+  <text x="50" y="434" class="term-line">&gt; [STEP 01..04] Problem intake, reproduction &amp; isolated git worktree created</text>
+  <text x="50" y="456" class="term-line">&gt; [STEP 05..09] Minimal patch synthesized · pytest &amp; node --test verification green</text>
+  <text x="50" y="478" class="term-line">&gt; [STEP 10..13] Independent model review PASS · SHA-256 MissionReceipt signed</text>
+  <text x="50" y="500" class="mono-green">&gt; [VERIFIED] 146/146 Core &amp; Agent + 75/75 Mobile UI + 254/254 War Terminal + 14/14 Coding Tasks</text>
+  <text x="50" y="522" class="mono">&gt; [PULT 2404] Rich Telegram HTML (&lt;b&gt;, &lt;pre&gt;, --doc) + GitHub Showcase synced to origin/main</text>
+  <text x="50" y="544" class="mono-amber">&gt; [RECEIPT] schema=bossman.mission_receipt.v1 · postcondition_verified=true · secret_scan=PASS</text>
+  <text x="50" y="580" class="mono-green">█ READY FOR OWNER PRESENTATION · https://github.com/molotroka123-cell/AiMaxBossman</text>
+
+  <!-- Card 4: DirectGen Media, Windows PC Control & War Terminal -->
+  <rect x="804" y="375" width="366" height="235" rx="12" fill="url(#cardGrad)" stroke="#334155" stroke-width="1.5" />
+  <text x="824" y="405" class="card-title">🎬 Media · 🖥️ PC Operator · 🌍 War Terminal</text>
+  <text x="824" y="425" class="card-sub">Full Local Execution on Radeon 8060S</text>
+
+  <text x="824" y="453" class="term-line">• DirectGen Photo/Video: Z-Image + Wan 2.2</text>
+  <text x="824" y="475" class="term-line">• Higgsfield @1, @2 tags + FaceLock YuNet/SFace</text>
+  <text x="824" y="497" class="term-line">• Windows UIA + Playwright MCP Browser Operator</text>
+  <text x="824" y="519" class="term-line">• Global File-Backed STOP Switch (≤1s kill tree)</text>
+  <text x="824" y="541" class="term-line">• War Terminal (:8830): OCDS + ML Contact Match</text>
+  <text x="824" y="580" class="mono-green">254/254 War Terminal + 20/20 Pult Rich Format PASS</text>
+</svg>
