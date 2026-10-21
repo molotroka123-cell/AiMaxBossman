@@ -99,4 +99,3 @@ def test_local_model_selection_builds_explicit_gemma_sidecar_command(tmp_path, m
     assert seen["command"][1:4] == ["-I", "-m", "bossman.apprentice.local_sidecar"]
     assert seen["command"][seen["command"].index("--model") + 1] == "gemma4-31b-uncensored:latest"
     assert "gemma4-31b-uncensored:latest" in ct.LOCAL_CODER_PROFILES
-
