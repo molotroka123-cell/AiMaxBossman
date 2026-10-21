@@ -196,8 +196,9 @@ def test_vision_route_selection(tmp_path):
     reply, _, _ = run_photo(tmp_path / 'b', world, photo_msg())
     assert reply.startswith(failure_text('NO_VISION_MODEL')) and world.urls('getFile') == []
     assert [label for label, _ in reply.keyboard[0]] == ['🎞 Оживить 5 с', '🎞 Оживить 10 с']
-    # owner extra row (pult 13.10): the photo can go to the Qwen prompt flow
-    assert [label for row in reply.keyboard[1:] for label, _ in row] == ['🧠 Qwen: промпт и сразу оживить 5 с']
+    # owner extra rows (pult 13.10): the photo can go to the Qwen prompt flow; (21.10) the FaceLock switch for the clip
+    assert [label for row in reply.keyboard[1:] for label, _ in row] == ['🧠 Qwen: промпт и сразу оживить 5 с',
+                                                                         '🔓 FaceLock: выкл']
     # explicit owner setting wins without probing
     world = World(main_vision=False, fast_vision=False)
     reply, _, _ = run_photo(tmp_path / 'c', world, photo_msg(), settings=cfg(vision_route='fast'))

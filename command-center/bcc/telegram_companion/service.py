@@ -26,6 +26,7 @@ from .pc_agent_bridge import PC_AGENT_COMMANDS, PCAgentBridgeMixin, pc_phrase
 from .poker_app_bridge import POKER_APP_COMMANDS, poker_app_text
 from .war_terminal_button import TERMINAL_COMMANDS, terminal_text
 from .exchange_bridge import EXCHANGE_COMMANDS, ExchangeBridgeMixin, exchange_phrase
+from .facelock_bridge import NO_START_PICTURE, TOO_LONG, FACELOCK_LENGTHS, FaceLockVideoMixin
 from .gen_refine import GEN_COMMANDS, GenRefineMixin, gen_intent, gen_phrase, photo_kind, safety_violation
 from .gen_progress import GenProgressPlate, measured_eta
 from .store import Store
@@ -234,7 +235,7 @@ BOT_COMMANDS = [("menu", "Пульт с кнопками"), ("status", "Сост
                 ("best", "Отвечать лучшей моделью"), ("fast", "Отвечать самой быстрой"),
                 ("model", "Какая модель отвечает"), ("img", "Нарисовать картинку"), ("imgmodel", "Модель картинок"),
                 ("video", "Снять видео"), ("vid", "Видео: Qwen допишет промпт"), ("pic", "Картинка: Qwen допишет промпт"),
-                ("style", "Мой стиль для промптов"), ("speed", "Замеры скорости генерации"), ("animate", "Оживить фото"), ("cancel", "Отменить генерацию"),
+                ("style", "Мой стиль для промптов"), ("speed", "Замеры скорости генерации"), ("animate", "Оживить фото"), ("facelock", "FaceLock для видео из фото"), ("cancel", "Отменить генерацию"),
                 ("forget", "Очистить историю"), ("help", "Помощь")]
 
 
@@ -289,7 +290,8 @@ def model_name(model_id: str) -> str:
 
 
 class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixin, FormBridgeMixin,
-                ParseBridgeMixin, OperatorBridgeMixin, PCAgentBridgeMixin, GenRefineMixin, ExchangeBridgeMixin):
+                ParseBridgeMixin, OperatorBridgeMixin, PCAgentBridgeMixin, GenRefineMixin, ExchangeBridgeMixin,
+                FaceLockVideoMixin):
     def __init__(self, settings: Settings, store: Store, telegram: Telegram, core: Core, models: Models,
                  *, policy_provider=None, secret_executor=None):
         self.settings, self.store = settings, store
@@ -760,12 +762,15 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                        start_run: str | None = None, size: tuple[int, int] | None = None,
                        reference_runs: list[str] | None = None, return_run: bool = False,
                        timings: dict | None = None, *, model_override: str | None = None,
-                       profile_label: str | None = None) -> str | None:
+                       profile_label: str | None = None, facelock_note: str | None = None) -> str | None:
         """Local text->image / text->video (or photo->video / photo->image edit with start_run) via Bossman Studio;
         media is sent only after byte verification. ``timings`` (pult /vid, /pic) is filled with
-        measured queue/generation seconds and the effective size/frames/steps."""
+        measured queue/generation seconds and the effective size/frames/steps. ``facelock_note``: why this clip goes
+        without FaceLock although the owner switched it on (said in the caption, never silently)."""
         s = self.settings
         video = surface == "video"
+        if video and facelock_note is None and not start_run and self.facelock_on(person):
+            facelock_note = NO_START_PICTURE
         if not s.image_enabled:
             raise CompanionError("IMAGE_GEN_DISABLED")
         if self.store.get("delegation_locked", False):
@@ -776,7 +781,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                 image_run = await self.generate(person, prompt, return_run=True)
                 if not isinstance(image_run, str):
                     raise CompanionError("IMAGE_BYTES_UNVERIFIED")
-                return await self.generate(person, prompt, "video", length=length, start_run=image_run)
+                return await self.generate(person, prompt, "video", length=length, start_run=image_run,
+                                           facelock_note=facelock_note)
             if not video:
                 reference_runs = await self.saved_reference_runs(person)
                 prompt = ("Both reference images show the same consenting person (multiple views may be in each sheet). "
@@ -899,6 +905,8 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                             f"{timings.get('wait_s') or 0:g} с · очередь Студии {timings['queue_s']:g} с · "
                             f"генерация {timings['gen_s']:g} с · всего {timings['total_s']:g} с · "
                             f"шаги {timings['steps'] or 'по умолч.'}")
+            if video and facelock_note:
+                caption += f"\n⚠️ {facelock_note}"
             if video and start_run:
                 caption += f"\nОживлено из фото · {VIDEO_LENGTH_LABEL.get(length, '')}"
                 repeat = f"/animate {next((k for k, v in ANIMATE_LENGTHS.items() if v == length), '5')} run:{start_run} {prompt}"
@@ -1074,11 +1082,17 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             return 0.0
 
     async def animate(self, person: Person, n: str, source: str, prompt: str = "",
-                      timings: dict | None = None) -> str | None:
+                      timings: dict | None = None, facelock: bool | None = None) -> str | None:
         """Photo -> 5/10 s clip: the photo is cropped to Wan's frame, imported into Studio (byte-verified
-        there) and used as the I2V start frame. Source: `tg:<file_id>` (owner's photo) or `run:<id>` (Studio)."""
+        there) and used as the I2V start frame. Source: `tg:<file_id>` (owner's photo) or `run:<id>` (Studio).
+        ``facelock`` (owner's /facelock switch, frozen at enqueue; None = the switch now): a 5 s clip goes through
+        the Direct Generator with FaceLock from this same start picture instead (facelock_bridge)."""
         if self.image_job is not None:
             raise CompanionError("IMAGE_GEN_BUSY")
+        if facelock is None:
+            facelock = self.facelock_on(person)
+        facelock = bool(facelock) and person.role == "owner"
+        length = ANIMATE_LENGTHS.get(n, "5s")
         if source.startswith("tg:"):
             data = await self.telegram.fetch_file(source[3:], IMAGE_MAX_BYTES)
         elif source.startswith("run:"):
@@ -1088,10 +1102,13 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
         if image_mime(data) is None:
             raise CompanionError("IMAGE_NOT_RECOGNISED")
         framed, size = await asyncio.to_thread(frame_for_video, data)
+        if facelock and length in FACELOCK_LENGTHS:
+            return await self.generate_facelock_video(person, prompt.strip() or ANIMATE_PROMPT, framed, size, length,
+                                                      timings)
         start_run = await self.core.studio_reference("telegram-animate.png", framed)
         return await self.generate(person, prompt.strip() or ANIMATE_PROMPT, "video",
-                                   length=ANIMATE_LENGTHS.get(n, "5s"), start_run=start_run, size=size,
-                                   timings=timings)
+                                   length=length, start_run=start_run, size=size,
+                                   timings=timings, facelock_note=TOO_LONG if facelock else None)
 
     async def see(self, person: Person, message: dict) -> str:
         """Photo question: vision-capable local route only; bytes live in memory for this call."""
@@ -1169,6 +1186,7 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
                         self.button(person, "🎞 Оживить 10 с", f"/animate 10 tg:{file_id}")]]
             if person.role == "owner":
                 buttons.append([self.button(person, "🧠 Qwen: промпт и сразу оживить 5 с", f"/vidphoto tg:{file_id}")])
+                buttons.append([self.facelock_button(person)])      # FaceLock for the clip, like the photo form
             try:
                 return Reply(await self.see(person, message), buttons)
             except CompanionError as exc:
