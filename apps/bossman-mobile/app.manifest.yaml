@@ -35,6 +35,10 @@ control:
     photo.job: GET /m/api/photo/jobs/{id}
     photo.cancel: POST /m/api/photo/jobs/{id}/cancel
     photo.file: GET /m/api/photo/jobs/{id}/file
+    agent.palette: GET /m/api/agent/palette?session_id=  # «/» menu: commands, tools, skills (names/descriptions only)
+    agent.context: GET /m/api/agent/sessions/{id}/context  # context gauge: numbers/enums only, never chat text
+    agent.compact: POST /m/api/agent/sessions/{id}/compact  # 202; 409 AGENT_NOTHING_TO_COMPACT | AGENT_COMPACT_RUNNING
+    agent.memory: POST /m/api/agent/sessions/{id}/memory     # only on the owner's confirm; 409 AGENT_NO_SUMMARY
   panel: "/panel/* and every non-/m path -> Bossman 1:1 (all methods, SSE, WebSocket), owner session required"
 
 entrypoints:

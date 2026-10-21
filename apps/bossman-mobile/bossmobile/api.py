@@ -24,7 +24,7 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket
 from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from . import VERSION
 from .auth import COOKIE, CSRF_HEADER, RateLimiter, Sessions, WorkerDeviceRegistry, check_token, load_or_create_pairing
@@ -32,7 +32,7 @@ from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
 from .policy import is_photo_model, local_agents, loopback_url, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
-from . import reftags, video, video_timing
+from . import reftags, slash, video, video_timing
 from .timing import calibrate_task_eta, from_history, queue_view, step_range, timing_for, warm_models
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -70,6 +70,18 @@ class SendIn(BaseModel):
 
 class DecideIn(BaseModel):
     approve: bool
+
+
+class CompactIn(BaseModel):
+    """POST /m/api/agent/sessions/{id}/compact: an optional hint for the summary; nothing else is forwarded."""
+    model_config = ConfigDict(extra="forbid")
+    instruction: str | None = Field(default=None, max_length=2000)
+
+
+class MemoryIn(BaseModel):
+    """POST /m/api/agent/sessions/{id}/memory: the owner's optional note to the common memory entry."""
+    model_config = ConfigDict(extra="forbid")
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class UnloadIn(BaseModel):
@@ -1227,6 +1239,27 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def m_agent_session_stop(session_id: str, _=Depends(session)):
         workers.trigger_global_stop()
         return await call("POST", f"/api/agent/sessions/{_tid(session_id)}/stop")
+
+    # «/» menu + context gauge (owner 21.10). Each answer is cut down to the documented keys (slash.py): the phone gets
+    # numbers, ids and enums, never chat text. Memory is written only by the owner's explicit POST .../memory.
+    @app.get("/m/api/agent/palette")
+    async def m_agent_palette(session_id: str | None = None, _=Depends(session)):
+        params = {"session_id": _tid(session_id)} if session_id else None
+        return slash.palette_view(await call("GET", "/api/agent/palette", params=params))
+
+    @app.get("/m/api/agent/sessions/{session_id}/context")
+    async def m_agent_session_context(session_id: str, _=Depends(session)):
+        return slash.context_view(await call("GET", f"/api/agent/sessions/{_tid(session_id)}/context"))
+
+    @app.post("/m/api/agent/sessions/{session_id}/compact", status_code=202)
+    async def m_agent_session_compact(session_id: str, body: CompactIn | None = None, _=Depends(session)):
+        payload = body.model_dump(exclude_none=True) if body else {}
+        return slash.compact_view(await call("POST", f"/api/agent/sessions/{_tid(session_id)}/compact", json=payload, timeout=60))
+
+    @app.post("/m/api/agent/sessions/{session_id}/memory")
+    async def m_agent_session_memory(session_id: str, body: MemoryIn | None = None, _=Depends(session)):
+        payload = body.model_dump(exclude_none=True) if body else {}
+        return slash.memory_view(await call("POST", f"/api/agent/sessions/{_tid(session_id)}/memory", json=payload, timeout=60))
 
     @app.post("/m/api/agent/tasks/{task_id}/approve")
     async def m_agent_task_approve(task_id: str, request: Request, _=Depends(session)):

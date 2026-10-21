@@ -78,6 +78,13 @@
       </button>
       <button class="icon-btn" id="btn-new" aria-label="Новый чат"><svg><use href="#i-new"/></svg></button>
     </header>
+    <!-- Шкала контекста чата: сколько окна модели занято и сколько осталось (owner 21.10); тап открывает подробности -->
+    <div class="ctx-gauge" id="ctx-gauge" data-level="unknown">
+      <div class="ctx-bar" id="ctx-bar" role="progressbar" aria-label="Заполнение контекста чата" aria-valuemin="0" aria-valuemax="100"><i id="ctx-fill"></i></div>
+      <button type="button" class="ctx-open" id="ctx-open" aria-haspopup="dialog" aria-controls="ctx-sheet" aria-expanded="false">
+        <span class="ctx-ico" id="ctx-ico" aria-hidden="true">○</span><span class="ctx-text" id="ctx-text">Контекст · новый чат</span><span class="ctx-level" id="ctx-level"></span>
+      </button>
+    </div>
     <div class="opencode-strip" id="opencode-strip" role="region" aria-label="Режим и инструменты OpenCode">
       <div class="mode-pills" id="agent-mode-bar" role="radiogroup" aria-label="Режим агента">
         <button type="button" class="mode-pill on" data-mode="CHAT" role="radio" aria-checked="true">CHAT</button>
@@ -152,9 +159,15 @@
       <svg><use href="#i-chev"/></svg><span>Вниз</span>
     </button>
     <form class="composer" id="composer">
+      <!-- «/» в начале строки: команды, tools и skills (как в Claude Code / OpenCode); фокус остаётся в поле ввода -->
+      <div class="slash-menu" id="slash-menu" hidden>
+        <p class="sl-status" id="slash-status" role="status" hidden></p>
+        <div class="sl-list" id="slash-list" role="listbox" aria-label="Команды, tools и skills"></div>
+      </div>
       <button class="down-btn" id="btn-down" type="button" aria-label="Прокрутить вниз к новому тексту" hidden><svg aria-hidden="true"><use href="#i-arrow-down"/></svg><span>вниз</span></button>
       <button class="icon-btn compose-tool" id="btn-photo-mode" type="button" aria-pressed="false" aria-label="Фото по описанию: модель чата напишет промпт" title="Фото по описанию"><svg aria-hidden="true"><use href="#i-wand"/></svg></button>
-      <textarea id="input" rows="1" placeholder="Напишите Bossman…" aria-label="Сообщение" enterkeyhint="send"></textarea>
+      <button class="icon-btn compose-tool" id="btn-slash" type="button" aria-label="Команды, tools и skills" aria-haspopup="listbox" aria-expanded="false" aria-controls="slash-list" title="Команды (/)"><span class="slash-glyph" aria-hidden="true">/</span></button>
+      <textarea id="input" rows="1" placeholder="Напишите Bossman…" aria-label="Сообщение" enterkeyhint="send" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="slash-list" autocapitalize="sentences"></textarea>
       <button class="send-btn" id="btn-send" type="submit" aria-label="Отправить"><svg><use href="#i-send"/></svg></button>
       <button class="send-btn stop" id="btn-stop" type="button" aria-label="Остановить" hidden><svg><use href="#i-stop"/></svg></button>
     </form>
@@ -511,6 +524,38 @@
     <h3 class="serif">Локальная модель</h3>
     <p class="muted small">Только модели на этом ПК. Облачные агенты скрыты и отклоняются сервером.</p>
     <div id="model-list" class="model-list"></div>
+  </div>
+</div>
+
+<!-- Контекст чата: подробности, /compact, /memory -->
+<div class="sheet" id="ctx-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="ctx-sheet-title">
+  <div class="sheet-card">
+    <div class="grab"></div>
+    <h3 class="serif" id="ctx-sheet-title">Контекст чата</h3>
+    <p class="muted small">Контекст каждого чата живёт внутри этого чата. В общую память Bossman он попадает только когда вы сами запишете резюме.</p>
+    <div class="ctx-details" id="ctx-details"></div>
+    <div class="ctx-actions">
+      <button type="button" class="btn primary" id="ctx-compact">Сжать контекст (/compact)</button>
+      <button type="button" class="btn" id="ctx-memory">Записать в общую память (/memory)</button>
+      <button type="button" class="btn ghost" id="ctx-refresh">Обновить</button>
+      <button type="button" class="btn ghost" id="ctx-close">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- Запись резюме чата в общую память: только после подтверждения -->
+<div class="sheet" id="mem-sheet" hidden role="dialog" aria-modal="true" aria-labelledby="mem-title" aria-describedby="mem-text">
+  <div class="sheet-card">
+    <div class="grab"></div>
+    <h3 class="serif" id="mem-title">Записать резюме этого чата в общую память Bossman?</h3>
+    <p class="muted" id="mem-text">В общую память попадёт только краткое резюме этого чата (его делает «Сжать контекст»), а не сами сообщения. Остальные чаты его смогут использовать.</p>
+    <label class="lbl" for="mem-note">Пометка к записи (необязательно)</label>
+    <input class="field" id="mem-note" maxlength="500" autocomplete="off" placeholder="например: решения по заказу">
+    <p class="error-text" id="mem-error" role="alert"></p>
+    <div class="ctx-actions">
+      <button type="button" class="btn primary" id="mem-yes">Записать</button>
+      <button type="button" class="btn ghost" id="mem-no">Отмена</button>
+    </div>
   </div>
 </div>
 

@@ -543,7 +543,7 @@
       if (!list.children.length) list.appendChild(el('p', 'muted pad', 'Чатов пока нет'));
     } catch (err) { loadFailed($('thread-list'), err, loadThreads); }
   }
-  function newChat() { closeStream(); S.threadId = null; store.set('thread', null); clearMessages(); drawer(false); $('input').focus(); }
+  function newChat() { closeStream(); S.threadId = null; store.set('thread', null); clearMessages(); ctxReset(); drawer(false); $('input').focus(); }
   $('btn-new').addEventListener('click', () => { tap(); newChat(); });
   $('drawer-new').addEventListener('click', newChat);
 
@@ -693,8 +693,9 @@
   }
   function approvalCard(b, ev) {
     if (b.cards['ap' + ev.id]) return;
-    const box = el('div', 'approval'); box.appendChild(el('h4', '', 'Нужно ваше решение'));
-    box.appendChild(el('pre', '', ev.preview || ev.approval_kind || 'действие'));
+    const box = el('div', 'approval'); const cloud = isCloudAsk(ev);
+    if (cloud) cloudBody(box, ev);          // «☁️ Отправить в облако?»: модель, точный текст, символы, цена
+    else { box.appendChild(el('h4', '', 'Нужно ваше решение')); box.appendChild(el('pre', '', ev.preview || ev.approval_kind || 'действие')); }
     const row = el('div', 'row'); const no = el('button', 'btn', 'Отклонить'); const yes = el('button', 'btn primary', 'Разрешить');
     row.append(no, yes); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; autoScroll();
     const decide = async (approve, auto) => {
@@ -704,7 +705,9 @@
       catch (err) { yes.disabled = no.disabled = false; if (!auto) toast(err.message); }
     };
     yes.addEventListener('click', () => decide(true, false)); no.addEventListener('click', () => decide(false, false));
-    if (S.agentMode === 'AUTO' && ev.approval_kind !== 'self_improve') decide(true, true);
+    // AUTO never sends text to the cloud for the owner: cloud.ask is decided by a tap, every time
+    if (cloud && S.agentMode === 'AUTO') box.appendChild(el('p', 'cloud-warn', 'Режим AUTO не отправляет текст в облако сам — нужно ваше нажатие.'));
+    if (S.agentMode === 'AUTO' && ev.approval_kind !== 'self_improve' && !cloud) decide(true, true);
   }
   function approvalDecided(b, ev) {
     const box = b.cards['ap' + ev.id]; if (!box) return; const row = box.querySelector('.row');
@@ -742,7 +745,7 @@
     closeStream();
     try {
       const t = await api('GET', `/threads/${encodeURIComponent(id)}`);
-      S.threadId = t.id; store.set('thread', t.id); clearMessages();
+      S.threadId = t.id; store.set('thread', t.id); clearMessages(); ctxReset();
       const turns = t.turns || [];
       for (const turn of turns) {
         const desc = photoDesc(turn.text);
@@ -758,8 +761,8 @@
           api('GET', `/tasks/${turn.task_id}/history`).then((h) => (h.events || []).forEach((ev) => { if (ev.kind.startsWith('run.tool') || ev.kind.startsWith('approval') || ev.kind === 'tool.denied') applyEvent(b, ev, false); })).catch(() => {});
         }
       }
-      autoScroll(true);
-    } catch (err) { if (err.status === 404) { store.set('thread', null); S.threadId = null; } }
+      autoScroll(true); refreshContext().catch(() => {});
+    } catch (err) { if (err.status === 404) { store.set('thread', null); S.threadId = null; ctxReset(); } }
   }
 
   /* ================= отправка ================= */
@@ -770,10 +773,13 @@
   const saveDraft = () => store.set('draft', input.value ? input.value.slice(0, DRAFT_MAX) : null);
   input.addEventListener('input', () => { grow(); saveDraft(); });
   { const d0 = store.get('draft'); if (d0 && !input.value) { input.value = d0; grow(); } }
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); $('composer').requestSubmit(); } });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window) && !slashCapturesEnter()) { e.preventDefault(); $('composer').requestSubmit(); } });
   document.querySelectorAll('[data-suggest]').forEach((c) => c.addEventListener('click', () => { input.value = c.dataset.suggest; input.dispatchEvent(new Event('input')); input.focus(); }));
   $('composer').addEventListener('submit', async (e) => {
-    e.preventDefault(); const text = input.value.trim(); if (!text || S.sending) return;
+    e.preventDefault(); slashClose(); const text = input.value.trim(); if (!text) return;
+    const lc = typedCommand(text);       // «/compact …», «/tools», «/new»…: the phone runs them (also while an answer streams)
+    if (lc && runCommand(lc.name, lc.args)) { tap(); input.value = ''; saveDraft(); input.style.height = 'auto'; return; }
+    if (S.sending) return;
     tap(); input.value = ''; saveDraft(); input.style.height = 'auto'; const photo = S.photoMode; setPhotoMode(false); await send(text, { photo });
   });
   $('btn-stop').addEventListener('click', async () => { tap(); if (!S.threadId) return; try { await api('POST', `/threads/${encodeURIComponent(S.threadId)}/stop`); toast('Остановлено'); } catch (err) { toast(err.message); } });
@@ -859,7 +865,7 @@
     const total = b.t0 ? (performance.now() - b.t0) / 1000 : null; const first = b.first && b.t0 ? (b.first - b.t0) / 1000 : null;
     b.meta.replaceChildren(el('span', 'badge-local', 'локально'), el('span', '', [b.model, taskId ? `#${taskId}` : '', status && status !== 'completed' ? stRu(status) : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
     if (b.photo) photoAfterPrompt(b, status, error); else if (b.text) msgActions(b);
-    loadThreads(); autoScroll();
+    loadThreads(); autoScroll(); refreshContext().catch(() => {});
   }
 
   /* ---- под ответом: «Копировать» и «Повторить» ---- */
@@ -2067,5 +2073,536 @@
     });
   }
 
+  /* ================= «/» команды · tools · skills, шкала контекста, compact, memory (owner 21.10) =================
+     «при нажатии "/" выпадают tools и skills как у тебя, тестируй каждый» и «Добавь шкалу контекста доступного который
+     остался и навык compact, каждый контекст внутри чата, но при вызове промта memory в общую записывается».
+     Контекст каждого чата считает и хранит ПК; здесь только числа (проценты, токены, ходы) и состояние сжатия — текста
+     переписки телефон не получает. В общую память резюме уходит только по явному подтверждению владельца (/memory). */
+  const PALETTE_TTL = 60000;                       // список «/» живёт в кэше столько, потом берём заново
+  const CTX_POLL_MS = 3000;                        // пока идёт сжатие, шкалу обновляем каждые 3 с
+  const COMPACT_GIVE_UP_MS = 10 * 60 * 1000;
+  const HINT_PCT = 85;
+  const enc = encodeURIComponent;
+  const sidNow = () => S.threadId || '';
+  const fmtN = (n) => (n == null || Number.isNaN(Number(n)) ? '—' : String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ' '));
+  const fmtTok = (n) => {
+    if (n == null || Number.isNaN(Number(n))) return '—';
+    const v = Number(n);
+    return v >= 1e6 ? `${(v / 1e6).toFixed(1).replace('.', ',')} млн` : v >= 1e4 ? `${Math.round(v / 1000)} тыс.` : fmtN(v);
+  };
+  const CMD_KIND_RU = { message: 'в чат', action: 'действие', client: 'здесь' };
+  const GROUPS_RU = { commands: 'Команды', tools: 'Tools', skills: 'Skills' };
+  /* Что телефон умеет выполнить сам. Команда из списка с другим kind, или которой здесь нет (undo, cloud, новые),
+     просто вставляется в поле как «/имя » — дальше её разбирает агент на ПК, ничего не запускается молча. */
+  const BUILTIN_CMDS = [
+    { name: 'new', usage: '/new', help: 'Новый чат (текущий останется в списке)', kind: 'client' },
+    { name: 'clear', usage: '/clear', help: 'Очистить контекст: начать новый чат', kind: 'client' },
+    { name: 'help', usage: '/help', help: 'Показать все команды', kind: 'client' },
+  ];
+  const ERR_RU = {
+    AGENT_NOTHING_TO_COMPACT: 'Сжимать пока нечего: в чате слишком мало сообщений.',
+    AGENT_COMPACT_RUNNING: 'Сжатие уже идёт — подождите, шкала обновится сама.',
+    AGENT_NO_SUMMARY: 'Резюме этого чата ещё нет: сначала сожмите контекст (/compact).',
+  };
+  const errText = (err) => ERR_RU[err && err.code] || (err && err.message) || 'нет связи с ПК';
+
+  /* ---------- карточки в чате (видны только на этом телефоне, на ПК не пишутся) ---------- */
+  function sysCard(title, ico) {
+    $('chat-empty').hidden = true;
+    const m = el('div', 'msg sys'); const card = el('section', 'syscard'); card.setAttribute('aria-label', title);
+    const head = el('div', 'syscard-head'); const ic = icon(ico || 'status'); ic.setAttribute('aria-hidden', 'true');
+    const x = el('button', 'syscard-x'); x.type = 'button'; x.setAttribute('aria-label', `Скрыть: ${title}`);
+    const xi = icon('close'); xi.setAttribute('aria-hidden', 'true'); x.appendChild(xi);
+    x.addEventListener('click', () => { tap(); m.remove(); });
+    head.append(ic, el('b', '', title), x);
+    const body = el('div', 'syscard-body');
+    card.append(head, body); m.appendChild(card); msgs.appendChild(m); autoScroll(true);
+    return { m, card, body, head };
+  }
+  function cardNote(c, text, cls) { const p = el('p', 'syscard-note' + (cls ? ' ' + cls : ''), text); c.body.replaceChildren(p); autoScroll(); return p; }
+  function cardRetry(c, label, fn) {
+    const b = el('button', 'btn small', label); b.type = 'button';
+    b.addEventListener('click', () => { tap(); b.disabled = true; fn(); }); c.body.appendChild(b); return b;
+  }
+  function cardList(c, rows, empty) {
+    const box = el('div', 'syscard-list'); box.tabIndex = 0; box.setAttribute('role', 'region'); box.setAttribute('aria-label', `${c.card.getAttribute('aria-label')}: список`);
+    if (!rows.length) box.appendChild(el('p', 'syscard-note', empty));
+    rows.forEach((r) => {
+      if (r.heading) { box.appendChild(el('h4', 'syscard-h', r.heading)); return; }
+      const row = el('div', 'sc-row'); const main = el('div', 'sc-main');
+      main.appendChild(el('b', 'sc-name', r.name));
+      if (r.desc) main.appendChild(el('span', 'sc-desc', r.desc));
+      row.appendChild(main);
+      if (r.badge) row.appendChild(badge(r.badge));
+      box.appendChild(row);
+    });
+    c.body.replaceChildren(box); autoScroll(); return box;
+  }
+  function badge(b) { const s = el('span', 'sl-badge ' + (b.cls || ''), b.text); if (b.title) s.title = b.title; return s; }
+  const riskOf = (t) => {
+    const r = String(t.risk || '').toLowerCase(); const e = String(t.effect || '').toLowerCase();
+    if (e === 'deny' || r === 'deny' || r === 'critical') return 'DENY';
+    if (t.needs_approval === true || e === 'ask' || r === 'ask' || r === 'high' || r === 'medium') return 'ASK';
+    return 'SAFE';
+  };
+  const RISK_TITLE = { SAFE: 'безопасно: выполняется без вопросов', ASK: 'агент спросит вас перед выполнением', DENY: 'запрещено правилами Bossman' };
+  const toolBadge = (t) => {
+    const risk = riskOf(t); const cloud = t.name === 'cloud.ask';
+    return { text: (cloud ? '☁ ' : '') + risk, cls: 'risk-' + risk.toLowerCase(), title: RISK_TITLE[risk] + (cloud ? '; текст уходит в облако только после вашего «Разрешить»' : '') };
+  };
+
+  /* ---------- список «/»: команды, tools, skills ---------- */
+  const SL = { pal: null, busy: null, open: false, state: 'idle', err: '', items: [], active: -1, range: null, sig: '', pointer: false, ptTimer: 0, vvOn: false };
+  const normPalette = (d) => ({ commands: (d && d.commands) || [], tools: (d && d.tools) || [], skills: (d && d.skills) || [], agent: (d && d.agent) || null });
+  const paletteFresh = () => !!(SL.pal && SL.pal.sid === sidNow() && Date.now() - SL.pal.t < PALETTE_TTL);
+  function loadPalette(force) {
+    const sid = sidNow();
+    if (!force && paletteFresh()) return Promise.resolve(SL.pal.data);
+    if (SL.busy && SL.busy.sid === sid && !force) return SL.busy.p;
+    const p = api('GET', '/agent/palette' + (sid ? `?session_id=${enc(sid)}` : '')).then((d) => {
+      const data = normPalette(d); if (sidNow() === sid) SL.pal = { t: Date.now(), sid, data }; return data;
+    }).finally(() => { if (SL.busy && SL.busy.p === p) SL.busy = null; });
+    SL.busy = { sid, p }; return p;
+  }
+  const cmdKind = (name) => {
+    const c = SL.pal && SL.pal.data.commands.find((x) => x.name === name);
+    return c ? c.kind : (BUILTIN_CMDS.find((x) => x.name === name) || {}).kind;
+  };
+  function slashToken() {
+    const v = input.value; const caret = input.selectionStart == null ? v.length : input.selectionStart;
+    if (input.selectionEnd != null && input.selectionEnd !== caret) return null;
+    const ls = caret === 0 ? 0 : v.lastIndexOf('\n', caret - 1) + 1;
+    const m = /^\/([^\s/]*)$/.exec(v.slice(ls, caret));
+    return m ? { start: ls, end: caret, query: m[1] } : null;
+  }
+  function slashFilter(data, q) {
+    const n = q.toLowerCase();
+    const rank = (name, rest) => { const nm = name.toLowerCase(); if (!n || nm.startsWith(n)) return 0; if (nm.includes(n)) return 1; return rest.toLowerCase().includes(n) ? 2 : -1; };
+    const pick = (list, mk) => list.map((x, i) => { const it = mk(x); return { it, r: rank(it.name, it.hay), i }; }).filter((x) => x.r >= 0)
+      .sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.it).slice(0, 80);
+    return [
+      ['commands', pick(data.commands, (c) => ({ group: 'commands', key: 'c:' + c.name, name: c.name, label: '/' + c.name, desc: c.help || c.usage || '', hay: `${c.help} ${c.usage}`,
+        badge: { text: CMD_KIND_RU[c.kind] || c.kind || '', cls: 'kind-' + (c.kind || 'message') }, raw: c }))],
+      ['tools', pick(data.tools, (t) => ({ group: 'tools', key: 't:' + t.name, name: t.name, label: t.name, desc: t.description || t.group || '', hay: `${t.description} ${t.group}`,
+        badge: toolBadge(t), raw: t }))],
+      ['skills', pick(data.skills, (s) => ({ group: 'skills', key: 's:' + s.id, name: s.id, label: s.title && s.title !== s.id ? `${s.id} · ${s.title}` : s.id, desc: (s.triggers || []).join(', '),
+        hay: `${s.title} ${(s.triggers || []).join(' ')}`, badge: { text: s.status || 'skill', cls: 'skill-st' }, raw: s }))],
+    ].filter(([, rows]) => rows.length);
+  }
+  function slashPlace() {
+    const list = $('slash-list'); const vv = window.visualViewport;
+    let top = 0; let vh = window.innerHeight || 600;
+    try { if (vv) { top = vv.offsetTop || 0; vh = vv.height || vh; } } catch { /* old webview */ }
+    let room = 120; try { room = Math.max(120, $('composer').getBoundingClientRect().top - top - 12); } catch { /* detached */ }
+    list.style.maxHeight = `${Math.max(120, Math.min(room, Math.round(vh * 0.5), 360))}px`;
+  }
+  function slashSetOpen(on) {
+    SL.open = on; $('slash-menu').hidden = !on;
+    input.setAttribute('aria-expanded', on ? 'true' : 'false'); $('btn-slash').setAttribute('aria-expanded', on ? 'true' : 'false');
+    const vv = window.visualViewport;
+    if (on && vv && !SL.vvOn) { vv.addEventListener('resize', slashPlace); vv.addEventListener('scroll', slashPlace); SL.vvOn = true; }
+    if (!on && vv && SL.vvOn) { vv.removeEventListener('resize', slashPlace); vv.removeEventListener('scroll', slashPlace); SL.vvOn = false; }
+    if (!on) { input.removeAttribute('aria-activedescendant'); SL.active = -1; SL.sig = ''; SL.items = []; }
+  }
+  function slashClose() { if (SL.open) slashSetOpen(false); }
+  const slashCapturesEnter = () => SL.open && SL.active >= 0;
+  function slashSetActive(i) {
+    SL.active = i;
+    $('slash-list').querySelectorAll('[role="option"]').forEach((n) => n.setAttribute('aria-selected', Number(n.dataset.i) === i ? 'true' : 'false'));
+    const n = i >= 0 ? $(`slash-opt-${i}`) : null;
+    if (n) { input.setAttribute('aria-activedescendant', n.id); try { n.scrollIntoView({ block: 'nearest' }); } catch { /* old webview */ } } else input.removeAttribute('aria-activedescendant');
+  }
+  function renderSlash() {
+    const list = $('slash-list'); const st = $('slash-status');
+    list.replaceChildren(); st.replaceChildren(); st.hidden = true; SL.items = [];
+    const q = SL.range ? SL.range.query : '';
+    const data = SL.state === 'ready' && SL.pal ? SL.pal.data : { commands: SL.state === 'error' ? BUILTIN_CMDS : [], tools: [], skills: [] };
+    if (SL.state === 'loading') { st.hidden = false; st.textContent = 'Загружаю список команд, tools и skills…'; }
+    if (SL.state === 'error') {
+      st.hidden = false; st.appendChild(el('span', '', `Не загрузилось: ${SL.err || 'нет связи с ПК'}`));
+      const b = el('button', 'btn small', 'Повторить'); b.type = 'button';
+      b.addEventListener('click', () => { tap(); slashFetch(true); }); st.appendChild(b);
+    }
+    const groups = slashFilter(data, q);
+    groups.forEach(([g, rows]) => {
+      const box = el('div', 'sl-group'); box.setAttribute('role', 'group');
+      const h = el('div', 'sl-h', GROUPS_RU[g]); h.id = `slash-h-${g}`; box.setAttribute('aria-labelledby', h.id); box.appendChild(h);
+      rows.forEach((it) => {
+        const i = SL.items.length; SL.items.push(it);
+        const row = el('div', 'sl-row'); row.id = `slash-opt-${i}`; row.dataset.i = String(i); row.setAttribute('role', 'option'); row.setAttribute('aria-selected', 'false');
+        const main = el('span', 'sl-main'); main.append(el('span', 'sl-name', it.label), el('span', 'sl-desc', it.desc));
+        row.appendChild(main); if (it.badge && it.badge.text) row.appendChild(badge(it.badge));
+        box.appendChild(row);
+      });
+      list.appendChild(box);
+    });
+    if (!SL.items.length && SL.state === 'ready') { st.hidden = false; st.textContent = q ? `Нет совпадений для «/${q}»` : 'Список пуст'; }
+    slashSetActive(q && SL.items.length ? 0 : -1);          // «/» без букв ничего не выбирает: Enter не запустит команду случайно
+    slashPlace();
+  }
+  function slashFetch(force) {
+    const sid = sidNow(); SL.state = 'loading'; SL.err = '';
+    loadPalette(force).then(() => { SL.state = 'ready'; }, (err) => { SL.state = 'error'; SL.err = (err && err.message) || ''; })
+      .then(() => { if (SL.open && sid === sidNow()) { SL.sig = ''; renderSlash(); } });
+  }
+  function slashUpdate() {
+    const tk = slashToken();
+    if (!tk) { slashClose(); return; }
+    SL.range = tk;
+    if (!SL.open) { slashSetOpen(true); if (paletteFresh()) SL.state = 'ready'; else slashFetch(false); }
+    const sig = `${tk.start}|${tk.query}|${SL.state}|${SL.pal ? SL.pal.t : 0}`;
+    if (sig === SL.sig) return;                              // caret moved, text did not: keep the highlighted row
+    SL.sig = sig; renderSlash();
+  }
+  function slashInsert(tk, text) {
+    const v = input.value; let start = tk.start;
+    if (text === '' && start > 0 && v[start - 1] === '\n' && tk.end === v.length) start -= 1;
+    input.value = v.slice(0, start) + text + v.slice(tk.end);
+    const c = start + text.length; try { input.setSelectionRange(c, c); } catch { /* detached */ }
+    input.dispatchEvent(new Event('input')); input.focus();
+  }
+  function slashChoose(i) {
+    const it = SL.items[i]; if (!it) return;
+    const tk = SL.range; SL.pointer = false; slashClose();
+    if (it.group === 'tools') { slashInsert(tk, `Используй tool ${it.name}: `); return; }
+    if (it.group === 'skills') { slashInsert(tk, `Применяй навык ${it.name}: `); return; }
+    const kind = it.raw.kind;
+    if ((kind === 'action' || kind === 'client') && LOCAL_CMDS[it.name]) { slashInsert(tk, ''); runCommand(it.name, ''); return; }
+    slashInsert(tk, `/${it.name} `);
+  }
+  input.addEventListener('input', () => slashUpdate());
+  input.addEventListener('click', () => slashUpdate());
+  input.addEventListener('keyup', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') slashUpdate(); });
+  input.addEventListener('keydown', (e) => {
+    if (!SL.open || e.isComposing) return;
+    const n = SL.items.length;
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); slashClose(); return; }
+    if (!n) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); slashSetActive(SL.active < 0 ? 0 : (SL.active + 1) % n); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); slashSetActive(SL.active <= 0 ? n - 1 : SL.active - 1); }
+    else if (e.key === 'Enter' && !e.shiftKey && SL.active >= 0) { e.preventDefault(); slashChoose(SL.active); }
+    else if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); slashChoose(SL.active >= 0 ? SL.active : 0); }
+  });
+  input.addEventListener('blur', () => { if (!SL.pointer) slashClose(); });
+  $('slash-menu').addEventListener('mousedown', (e) => e.preventDefault());      // a tap on a row must not take focus from the field
+  $('slash-menu').addEventListener('pointerdown', () => { SL.pointer = true; clearTimeout(SL.ptTimer); SL.ptTimer = setTimeout(() => { SL.pointer = false; }, 700); });
+  $('slash-list').addEventListener('click', (e) => { const row = e.target.closest('[role="option"]'); if (row) { tap(); slashChoose(Number(row.dataset.i)); } });
+  $('btn-slash').addEventListener('click', () => {
+    tap();
+    if (SL.open) { slashClose(); input.focus(); return; }
+    const v = input.value; const caret = input.selectionStart == null ? v.length : input.selectionStart;
+    const ls = caret === 0 ? 0 : v.lastIndexOf('\n', caret - 1) + 1;
+    const atLineStart = v.slice(ls, caret) === '';
+    const pos = atLineStart ? caret : v.length; const ins = atLineStart ? '/' : '\n/';
+    input.value = v.slice(0, pos) + ins + v.slice(pos);
+    try { input.setSelectionRange(pos + ins.length, pos + ins.length); } catch { /* detached */ }
+    input.focus(); input.dispatchEvent(new Event('input'));
+  });
+
+  /* ---------- шкала контекста ---------- */
+  const CX = { timer: 0, inflight: null };
+  const CP = { run: null };                                  // сжатие, запущенное с этого телефона и ещё не завершённое
+  const LEVEL_RU = { ok: 'норма', warn: 'внимание', critical: 'критично', unknown: 'окно неизвестно' };
+  const LEVEL_ICO = { ok: '✓', warn: '⚠', critical: '⛔', unknown: '?' };
+  function ctxLevel(d) {
+    if (!d || !d.context_window || d.used_pct == null) return 'unknown';
+    if (d.level === 'ok' || d.level === 'warn' || d.level === 'critical') return d.level;
+    return d.used_pct >= 90 ? 'critical' : d.used_pct >= 70 ? 'warn' : 'ok';
+  }
+  const ctxLeft = (d) => (d.left_tokens != null ? d.left_tokens : Math.max(0, (d.context_window || 0) - (d.used_tokens || 0)));
+  const ctxNow = () => (S.ctx && S.ctx.sid === sidNow() ? S.ctx.d : null);
+  function renderGauge() {
+    const g = $('ctx-gauge'); const bar = $('ctx-bar'); const sid = sidNow(); const d = ctxNow();
+    const running = !!(d && d.compact && d.compact.state === 'running') || !!(CP.run && CP.run.sid === sid);
+    let level = 'none'; let text; let label = ''; let ico = '○'; let pct = null; let vt;
+    if (!sid) { text = 'Контекст · новый чат'; vt = 'Контекст: новый чат, пока пусто'; }
+    else if (!d) { text = S.ctxErr ? 'Контекст · нет данных' : 'Контекст · загружаю…'; vt = text; }
+    else {
+      level = ctxLevel(d); ico = LEVEL_ICO[level]; label = LEVEL_RU[level];
+      if (level === 'unknown') {
+        text = `Контекст · окно модели неизвестно${d.used_tokens != null ? ` · занято ≈${fmtTok(d.used_tokens)} токенов` : ''}`; vt = text;
+      } else {
+        pct = Math.max(0, Math.min(100, Math.round(d.used_pct)));
+        text = `Контекст · ${pct}% · осталось ≈${fmtTok(ctxLeft(d))} из ${fmtTok(d.context_window)} токенов`;
+        vt = `Занято ${pct}%, осталось примерно ${fmtTok(ctxLeft(d))} из ${fmtTok(d.context_window)} токенов, уровень: ${label}`;
+      }
+    }
+    if (running) { label = 'сжимаю…'; ico = '⟳'; vt += '. Идёт сжатие'; }
+    g.dataset.level = level; g.classList.toggle('compacting', running);
+    $('ctx-text').textContent = text; $('ctx-level').textContent = label; $('ctx-ico').textContent = ico;
+    if (pct == null) bar.removeAttribute('aria-valuenow'); else bar.setAttribute('aria-valuenow', String(pct));
+    bar.setAttribute('aria-valuetext', vt); bar.setAttribute('aria-busy', running ? 'true' : 'false');
+    $('ctx-fill').style.width = pct == null ? '0%' : `${pct}%`;
+    if (!$('ctx-sheet').hidden) renderCtxSheet();
+  }
+  function fetchContext(sid) {
+    if (CX.inflight && CX.inflight.sid === sid) return CX.inflight.p;
+    const p = api('GET', `/agent/sessions/${enc(sid)}/context`).finally(() => { if (CX.inflight && CX.inflight.p === p) CX.inflight = null; });
+    CX.inflight = { sid, p }; return p;
+  }
+  /* Обновляем: при открытии чата, после каждого завершённого ответа/остановки, и каждые 3 с, пока идёт сжатие. */
+  async function refreshContext() {
+    const sid = sidNow();
+    if (!sid) { renderGauge(); return null; }
+    try {
+      const d = await fetchContext(sid);
+      if (sid !== sidNow()) return null;                    // the owner has moved to another chat meanwhile
+      S.ctx = { sid, d, at: Date.now() }; S.ctxErr = false; if (CP.run && CP.run.sid === sid) CP.run.fails = 0; renderGauge();
+      compactStep(sid, d); hintIfFull(sid, d);
+      if (d.compact && d.compact.state === 'running') scheduleCtxPoll(sid);
+      return d;
+    } catch (err) {
+      if (sid !== sidNow()) return null;
+      S.ctxErr = true; if (!ctxNow()) renderGauge();
+      if (CP.run && CP.run.sid === sid && ++CP.run.fails >= 5) compactAbandon('offline'); else if (CP.run && CP.run.sid === sid) scheduleCtxPoll(sid);
+      throw err;
+    }
+  }
+  function scheduleCtxPoll(sid) {
+    if (CX.timer) return;
+    CX.timer = setTimeout(() => { CX.timer = 0; if (sidNow() !== sid) { compactAbandon('moved'); return; } refreshContext().catch(() => {}); }, CTX_POLL_MS);
+  }
+  function ctxReset() {
+    clearTimeout(CX.timer); CX.timer = 0; S.ctx = null; S.ctxErr = false; slashClose(); compactAbandon('moved'); renderGauge();
+  }
+  function hintIfFull(sid, d) {
+    if (sid !== sidNow() || $('app').hidden || d.used_pct == null || d.used_pct < HINT_PCT) return;
+    if (store.get('ctxhint.' + sid)) return;                // once per chat
+    store.set('ctxhint.' + sid, '1');
+    const c = sysCard('Контекст', 'status'); c.m.classList.add('hint-card');
+    const p = el('p', 'syscard-note', 'Контекст почти заполнен — сжать?'); const row = el('div', 'row');
+    const later = el('button', 'btn small', 'Позже'); later.type = 'button'; later.addEventListener('click', () => { tap(); c.m.remove(); });
+    const go = el('button', 'btn small primary', 'Сжать'); go.type = 'button'; go.addEventListener('click', () => { tap(); c.m.remove(); runCompact(''); });
+    row.append(later, go); c.body.replaceChildren(p, row);
+  }
+
+  /* ---------- подробности контекста (лист) ---------- */
+  function ctxDetails(parent, d, sid) {
+    parent.replaceChildren();
+    if (!sid) { parent.appendChild(el('p', 'muted', 'Чата ещё нет: контекст появится после первого сообщения.')); return; }
+    if (!d) { parent.appendChild(el('p', 'muted', S.ctxErr ? 'Не удалось получить данные с ПК. Нажмите «Обновить».' : 'Загружаю…')); return; }
+    const lvl = ctxLevel(d); const rows = [];
+    if (lvl === 'unknown') rows.push(kv('Окно модели', 'неизвестно'), kv('Занято', d.used_tokens != null ? `≈${fmtN(d.used_tokens)} токенов` : '—'));
+    else {
+      rows.push(kv('Занято', `≈${fmtN(d.used_tokens)} из ${fmtN(d.context_window)} токенов (${Math.round(d.used_pct)}%)`),
+        kv('Осталось', `≈${fmtN(ctxLeft(d))} токенов${d.left_pct != null ? ` (${Math.round(d.left_pct)}%)` : ''}`),
+        kv('Уровень', `${LEVEL_ICO[lvl]} ${LEVEL_RU[lvl]}`));
+    }
+    rows.push(kv('Ходов в контексте', `${d.turns_in_context != null ? d.turns_in_context : '—'} из ${d.turns_total != null ? d.turns_total : '—'}`),
+      kv('Резюме', d.compacted ? `есть${d.compacted_at_turn != null ? ` · до хода ${d.compacted_at_turn}` : ''}${d.summary_chars ? ` · ${fmtN(d.summary_chars)} симв.` : ''}` : 'ещё нет (сожмите контекст)'),
+      kv('Источник', d.source === 'provider_usage' ? 'точно по счётчику провайдера' : d.source === 'estimate' ? 'оценка (по длине текста)' : '—'));
+    const cs = d.compact || {};
+    if (cs.state === 'running') rows.push(kv('Сжатие', 'идёт… шкала обновляется сама'));
+    else if (cs.state === 'failed') rows.push(kv('Сжатие', `не удалось: ${cs.error || 'ошибка на ПК'}`));
+    else if (cs.state === 'done') rows.push(kv('Сжатие', 'готово'));
+    rows.forEach((r) => parent.appendChild(r));
+  }
+  function ctxButtons(host) {
+    const d = ctxNow(); const running = !!(d && d.compact && d.compact.state === 'running') || !!CP.run;
+    const row = el('div', 'ctx-actions');
+    const c = el('button', 'btn small primary', running ? 'Сжатие идёт…' : 'Сжать контекст (/compact)'); c.type = 'button'; c.disabled = running;
+    c.addEventListener('click', () => { tap(); runCompact(''); });
+    const m = el('button', 'btn small', 'Записать в общую память (/memory)'); m.type = 'button';
+    m.addEventListener('click', () => { tap(); askMemory(''); });
+    row.append(c, m); host.appendChild(row);
+  }
+  function renderCtxSheet() {
+    const d = ctxNow(); ctxDetails($('ctx-details'), d, sidNow());
+    const running = !!(d && d.compact && d.compact.state === 'running') || !!CP.run;
+    $('ctx-compact').disabled = running || !sidNow(); $('ctx-memory').disabled = !sidNow();
+    $('ctx-compact').textContent = running ? 'Сжатие идёт…' : 'Сжать контекст (/compact)';
+  }
+  function openCtxSheet() {
+    renderCtxSheet(); $('ctx-sheet').hidden = false; $('ctx-open').setAttribute('aria-expanded', 'true');
+    layerOpen($('ctx-sheet'), closeCtxSheet, $('ctx-close'));
+    refreshContext().catch(() => {});
+  }
+  function closeCtxSheet() { $('ctx-sheet').hidden = true; $('ctx-open').setAttribute('aria-expanded', 'false'); layerClose($('ctx-sheet')); }
+  $('ctx-open').addEventListener('click', () => { tap(); openCtxSheet(); });
+  $('ctx-close').addEventListener('click', () => { tap(); closeCtxSheet(); });
+  $('ctx-sheet').addEventListener('click', (e) => { if (e.target === $('ctx-sheet')) closeCtxSheet(); });
+  $('ctx-refresh').addEventListener('click', () => { tap(); refreshContext().catch((err) => toast(`Контекст: ${errText(err)}`)); });
+  $('ctx-compact').addEventListener('click', () => { tap(); closeCtxSheet(); runCompact(''); });
+  $('ctx-memory').addEventListener('click', () => { tap(); askMemory(''); });
+
+  /* ---------- /compact ---------- */
+  function compactSnapshot(sid) { const d = S.ctx && S.ctx.sid === sid ? S.ctx.d : null; return d ? { pct: d.used_pct, tokens: d.used_tokens, turns: d.turns_in_context, at: d.compacted_at_turn, sum: d.summary_chars } : null; }
+  function runLine(run, text) { if (run.line && run.line.textContent !== text) run.line.textContent = text; }
+  async function runCompact(instruction) {
+    const sid = sidNow();
+    if (!sid) { const c = sysCard('Сжатие контекста', 'refresh'); cardNote(c, 'Чата ещё нет — сжимать нечего. Напишите первое сообщение.'); return; }
+    if (CP.run) { toast('Сжатие уже идёт'); return; }
+    const c = sysCard('Сжатие контекста', 'refresh'); const line = cardNote(c, 'Запускаю сжатие…', 'busy');
+    const run = { sid, c, line, before: compactSnapshot(sid), t0: Date.now(), fails: 0, idle: 0, seen: false, instruction };
+    CP.run = run;
+    try { await api('POST', `/agent/sessions/${enc(sid)}/compact`, instruction ? { instruction } : {}); }
+    catch (err) {
+      if (err.code === 'AGENT_COMPACT_RUNNING') { run.seen = true; runLine(run, ERR_RU.AGENT_COMPACT_RUNNING); refreshContext().catch(() => {}); return; }
+      CP.run = null; c.card.dataset.state = 'failed'; cardNote(c, `Не удалось сжать контекст: ${errText(err)}${err.code === 'AGENT_NOTHING_TO_COMPACT' ? '' : ' Чат не изменён.'}`, 'err');
+      if (err.code !== 'AGENT_NOTHING_TO_COMPACT') cardRetry(c, 'Повторить', () => runCompact(instruction));
+      refreshContext().catch(() => {}); return;
+    }
+    runLine(run, 'Сжимаю контекст… (резюме делает модель на ПК)'); renderGauge();
+    refreshContext().catch(() => {});
+  }
+  function compactAbandon(why) {
+    const run = CP.run; if (!run) return; CP.run = null;
+    run.c.card.dataset.state = 'unknown';
+    cardNote(run.c, why === 'offline' ? 'Нет связи с ПК — сжатие могло продолжиться. Откройте шкалу контекста позже.'
+      : why === 'slow' ? 'Сжатие идёт дольше обычного. Шкала обновится, когда оно закончится.' : 'Вы перешли в другой чат. Сжатие продолжится на ПК — вернитесь в чат и откройте шкалу.', 'busy');
+    renderGauge();
+  }
+  function compactStep(sid, d) {
+    const run = CP.run; if (!run || run.sid !== sid) return;
+    const st = (d.compact && d.compact.state) || 'idle';
+    if (st === 'running') {
+      run.seen = true; run.idle = 0; const sec = Math.round((Date.now() - run.t0) / 1000);
+      runLine(run, `Сжимаю контекст… ${sec} с`);
+      if (Date.now() - run.t0 > COMPACT_GIVE_UP_MS) compactAbandon('slow');
+      return;
+    }
+    if (st === 'idle' && !run.seen && ++run.idle < 3) { scheduleCtxPoll(sid); return; }   // the PC has not flipped to «running» yet
+    CP.run = null;
+    const b = run.before;
+    if (st === 'failed') {
+      run.c.card.dataset.state = 'failed';
+      cardNote(run.c, `Не удалось сжать контекст: ${(d.compact && d.compact.error) || 'ошибка на ПК'}. Чат не изменён.`, 'err');
+      cardRetry(run.c, 'Повторить', () => runCompact(run.instruction)); renderGauge(); return;
+    }
+    const changed = !b || d.compacted_at_turn !== b.at || d.summary_chars !== b.sum || d.turns_in_context !== b.turns;
+    if (st === 'idle' && !(d.compacted && changed)) {          // the PC went back to idle and nothing moved
+      run.c.card.dataset.state = 'unchanged'; cardNote(run.c, 'Сжатие завершилось, но контекст не изменился (сжимать было нечего). Чат не изменён.'); renderGauge(); return;
+    }
+    run.c.card.dataset.state = 'done';
+    const bits = [];
+    if (b && b.pct != null && d.used_pct != null) bits.push(`занято ${Math.round(b.pct)}% (≈${fmtTok(b.tokens)} ток.) → ${Math.round(d.used_pct)}% (≈${fmtTok(d.used_tokens)} ток.)`);
+    else if (d.used_pct != null) bits.push(`теперь занято ${Math.round(d.used_pct)}% (≈${fmtTok(d.used_tokens)} ток.)`);
+    if (b && b.turns != null && d.turns_in_context != null) bits.push(`ходов в контексте ${b.turns} → ${d.turns_in_context}`);
+    cardNote(run.c, `Контекст сжат${bits.length ? ': ' + bits.join('; ') : ''}.`, 'ok');
+    renderGauge();
+  }
+
+  /* ---------- /memory: резюме этого чата -> общая память, только после «Записать» ---------- */
+  function askMemory(note) {
+    if (!sidNow()) { const c = sysCard('Общая память', 'book'); cardNote(c, 'Чата ещё нет — записывать нечего.'); return; }
+    closeCtxSheet();
+    $('mem-note').value = (note || '').slice(0, 500); $('mem-error').textContent = ''; $('mem-yes').disabled = false;
+    $('mem-sheet').hidden = false; layerOpen($('mem-sheet'), closeMemSheet, $('mem-no'));
+  }
+  function closeMemSheet() { $('mem-sheet').hidden = true; layerClose($('mem-sheet')); }
+  async function doMemory() {
+    const sid = sidNow(); if (!sid || $('mem-yes').disabled) return;
+    const note = $('mem-note').value.trim(); $('mem-yes').disabled = true; $('mem-error').textContent = '';
+    try {
+      const r = await api('POST', `/agent/sessions/${enc(sid)}/memory`, note ? { note } : {});
+      closeMemSheet(); const c = sysCard('Общая память', 'book');
+      cardNote(c, `Резюме чата записано в общую память Bossman${r && r.chars ? ` (${fmtN(r.chars)} симв.)` : ''}. Сами сообщения не записывались.`, 'ok');
+    } catch (err) { $('mem-error').textContent = `Не записано: ${errText(err)}`; $('mem-yes').disabled = false; }
+  }
+  $('mem-yes').addEventListener('click', () => { tap(); doMemory(); });
+  $('mem-no').addEventListener('click', () => { tap(); closeMemSheet(); });
+  $('mem-sheet').addEventListener('click', (e) => { if (e.target === $('mem-sheet')) closeMemSheet(); });
+
+  /* ---------- остальные команды ---------- */
+  async function cardLoad(title, ico, fn) {
+    const c = sysCard(title, ico); cardNote(c, 'Загружаю…', 'busy');
+    try { await fn(c); } catch (err) { if (err && err.status === 401) return; cardNote(c, `Не удалось: ${errText(err)}`, 'err'); cardRetry(c, 'Повторить', () => { c.m.remove(); cardLoad(title, ico, fn); }); }
+    return c;
+  }
+  const LOCAL_CMDS = {
+    new: () => { newChat(); },
+    clear: () => { newChat(); const c = sysCard('Контекст очищен', 'status'); cardNote(c, 'Начат новый чат с пустым контекстом. Прежний чат остался в списке «Чаты».', 'ok'); },
+    help: () => cardLoad('Команды «/»', 'book', async (c) => {
+      let cmds = BUILTIN_CMDS; try { cmds = (await loadPalette(false)).commands; } catch { /* offline: only the local ones */ }
+      cardList(c, cmds.map((x) => ({ name: x.usage || '/' + x.name, desc: x.help, badge: { text: CMD_KIND_RU[x.kind] || x.kind || '', cls: 'kind-' + (x.kind || 'message') } })), 'Команд нет');
+    }),
+    context: () => cardLoad('Контекст чата', 'status', async (c) => {
+      const sid = sidNow(); if (!sid) { cardNote(c, 'Чата ещё нет: контекст появится после первого сообщения.'); return; }
+      const d = await refreshContext(); if (!d) return;
+      c.body.replaceChildren(); const box = el('div', 'ctx-details'); ctxDetails(box, d, sid); c.body.appendChild(box); ctxButtons(c.body); autoScroll();
+    }),
+    compact: (args) => runCompact(args),
+    memory: (args) => askMemory(args),
+    tools: () => cardLoad('Tools', 'tool', async (c) => {
+      const tools = (await loadPalette(false)).tools; const rows = []; let last = null;
+      tools.forEach((t) => { const g = t.group || 'Прочее'; if (g !== last) { rows.push({ heading: g }); last = g; } rows.push({ name: t.name, desc: t.description, badge: toolBadge(t) }); });
+      cardList(c, rows, 'Список tools пуст'); c.card.setAttribute('aria-label', `Tools: ${tools.length}`);
+    }),
+    skills: () => cardLoad('Skills', 'book', async (c) => {
+      const skills = (await loadPalette(false)).skills;
+      cardList(c, skills.map((s) => ({ name: s.title && s.title !== s.id ? `${s.id} · ${s.title}` : s.id, desc: (s.triggers || []).join(', '), badge: { text: s.status || 'skill', cls: 'skill-st' } })), 'Навыков пока нет');
+    }),
+    models: () => cardLoad('Модели', 'chat', async (c) => {
+      const m = await api('GET', '/agent/models'); const rows = [];
+      (m.tiers || []).forEach((t) => rows.push({ name: `Tier ${t.tier} · ${t.model || t.id}`, desc: t.ready ? '' : (t.reason || ''), badge: { text: t.ready ? 'готова' : 'нет', cls: t.ready ? 'risk-safe' : 'risk-ask' } }));
+      (m.workers || []).forEach((w) => rows.push({ name: `${w.label || w.id} · ${w.model || ''}`, desc: [w.provider, w.price_display].filter(Boolean).join(' · '), badge: { text: w.ready ? 'готов' : 'нет ключа', cls: w.ready ? 'risk-safe' : 'risk-ask' } }));
+      cardList(c, rows, 'Моделей нет');
+      if (m.runpod_policy && String(m.runpod_policy).startsWith('DENY')) c.body.appendChild(el('p', 'syscard-note', 'RunPod: аренда запрещена без явного разрешения владельца.'));
+    }),
+    status: () => cardLoad('Статус', 'status', async (c) => {
+      const s = await api('GET', '/status'); const bm = s.bossman || {}; const o = s.ollama || {};
+      const box = el('div', 'ctx-details'); const ag = (SL.pal && SL.pal.sid === sidNow() && SL.pal.data.agent) || null;
+      box.append(kv('Bossman', bm.up ? `работает${bm.build_sha_short ? ' · ' + bm.build_sha_short : ''}` : 'не отвечает'),
+        kv('Локальные модели', o.up ? `Ollama работает · загружены: ${(o.loaded || []).join(', ') || 'нет'}` : 'Ollama не отвечает'),
+        kv('Ждут вашего решения', s.approvals_pending != null ? s.approvals_pending : '—'), kv('Локальных агентов', s.local_agents != null ? s.local_agents : '—'));
+      if (ag) ['name', 'model', 'mode'].filter((k) => ag[k] != null).forEach((k) => box.appendChild(kv({ name: 'Агент', model: 'Модель агента', mode: 'Режим' }[k], String(ag[k]))));
+      c.body.replaceChildren(box); autoScroll();
+    }),
+    stop: () => cardLoad('Остановка', 'stop', async (c) => {
+      const sid = sidNow(); if (!sid) { cardNote(c, 'Чата ещё нет — останавливать нечего.'); return; }
+      const r = await api('POST', `/agent/sessions/${enc(sid)}/stop`, {});
+      const n = (r.stopped_tasks || []).length; const t = (r.killed_terminals || []).length; const k = (r.cancelled_coding_tasks || []).length;
+      cardNote(c, n || t || k ? `Остановлено: задач ${n}, терминалов ${t}, задач кода ${k}.` : 'Работающих задач в этом чате нет.', 'ok');
+      refreshContext().catch(() => {});
+    }),
+    diff: () => cardLoad('Git diff', 'ext', async (c) => {
+      const d = await api('GET', '/terminal/diff'); const text = `${d.status || ''}\n${d.diff || '(изменений нет)'}`.trim();
+      const pre = el('pre', 'syscard-pre mono', text.length > 6000 ? text.slice(0, 6000) + '\n… (обрезано)' : text); pre.tabIndex = 0; pre.setAttribute('role', 'region'); pre.setAttribute('aria-label', 'git status и diff');
+      c.body.replaceChildren(); if (d.cwd) c.body.appendChild(el('p', 'syscard-note', `Папка: ${d.cwd}`)); c.body.appendChild(pre); autoScroll();
+    }),
+  };
+  /* name + аргументы -> выполнено ли на телефоне. Аргументы допустимы только у /compact (подсказка) и /memory (пометка). */
+  function runCommand(name, args) {
+    const fn = LOCAL_CMDS[name]; if (!fn) return false;
+    if (args && name !== 'compact' && name !== 'memory') return false;
+    const kind = cmdKind(name); if (kind === 'message') return false;
+    fn(args || ''); return true;
+  }
+  function typedCommand(text) {
+    const m = /^\/([A-Za-z][\w-]*)(?:\s+([\s\S]*))?$/.exec(String(text || '').trim());
+    return m ? { name: m[1].toLowerCase(), args: (m[2] || '').trim() } : null;
+  }
+
+  /* ---------- «☁️ Отправить в облако?»: tool cloud.ask, каждый вызов подтверждает владелец ---------- */
+  const flat = (x) => (typeof x === 'string' ? x : x == null ? '' : (() => { try { return JSON.stringify(x); } catch { return ''; } })());
+  function isCloudAsk(ev) { return /\bcloud\.ask\b/i.test([ev.preview, ev.approval_kind, ev.tool, ev.name].map(flat).join(' ')); }
+  function cloudInfo(p) {
+    let o = null; let raw = typeof p === 'string' ? p : '';
+    if (p && typeof p === 'object') { o = p; raw = JSON.stringify(p, null, 2); }
+    else { try { const j = JSON.parse(raw); if (j && typeof j === 'object' && !Array.isArray(j)) o = j; } catch { /* plain text */ } }
+    const pickKey = (...ks) => { for (const k of ks) if (o && o[k] != null && o[k] !== '') return o[k]; return null; };
+    const rx = (re) => { const m = re.exec(raw); return m ? m[1].trim() : null; };
+    const model = pickKey('model', 'model_id') || rx(/(?:model|модель)\s*[:=]\s*([^\n]+)/i);
+    let chars = pickKey('chars', 'char_count', 'length');
+    if (chars == null) chars = rx(/(\d[\d\s]*)\s*(?:chars?|симв)/i) || rx(/(?:chars?|characters?|симв\S*|длина)\s*[:=]\s*(\d[\d\s]*)/i);
+    let cost = pickKey('cost_usd', 'cost_estimate', 'cost'); if (cost == null) cost = rx(/(?:cost|стоимост\S*)[^\d$\n]*\$?\s*([\d.,]+)/i);
+    const text = pickKey('text', 'prompt', 'question', 'message', 'outgoing_text');
+    return { model, chars, cost, text: text != null ? String(text) : raw };
+  }
+  function cloudBody(box, ev) {
+    const info = cloudInfo(ev.preview);
+    box.classList.add('cloud');
+    box.appendChild(el('h4', '', '☁️ Отправить в облако?'));
+    box.appendChild(el('p', 'cloud-warn', 'Локальный агент просит совета у сильной облачной модели. Текст ниже уйдёт с вашего ПК внешнему провайдеру. Решаете вы, каждый раз.'));
+    const meta = el('p', 'cloud-meta');
+    if (info.model) meta.appendChild(el('span', 'cloud-chip', `Модель: ${info.model}`));
+    if (info.chars != null) meta.appendChild(el('span', 'cloud-chip', `${info.chars} симв.`));
+    if (info.cost != null) meta.appendChild(el('span', 'cloud-chip', `≈ $${String(info.cost).replace(/^\$/, '')}`));
+    if (meta.childNodes.length) box.appendChild(meta);
+    const pre = el('pre', 'cloud-text', info.text || '(пусто)'); pre.tabIndex = 0; pre.setAttribute('role', 'region'); pre.setAttribute('aria-label', 'Точный текст, который уйдёт в облако');
+    box.appendChild(pre);
+  }
+
+  renderGauge();
   boot();
 })();
