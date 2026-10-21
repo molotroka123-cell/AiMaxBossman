@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS audit(seq INTEGER PRIMARY KEY, ts TEXT NOT NULL, acto
 CREATE TABLE IF NOT EXISTS decisions(id INTEGER PRIMARY KEY, tender_key TEXT NOT NULL, doc TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS outcomes(id INTEGER PRIMARY KEY, tender_key TEXT NOT NULL, doc TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS deals(id INTEGER PRIMARY KEY, doc TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS contacts(id INTEGER PRIMARY KEY, slug TEXT UNIQUE, doc TEXT NOT NULL, created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS match_feedback(id INTEGER PRIMARY KEY, tender_key TEXT NOT NULL, contact_id INTEGER NOT NULL,
+  vote TEXT NOT NULL, reason TEXT, doc TEXT NOT NULL, actor TEXT NOT NULL, created_at TEXT NOT NULL);
 """
 
 
@@ -151,6 +155,55 @@ class Store:
         rows = self.db.execute(f"SELECT {cols} FROM {table} {where} ORDER BY id", args).fetchall()
         return [dict(json.loads(r["doc"]), id=r["id"], created_at=r["created_at"], **({} if table == "deals" else {"tender_key": r["tender_key"]})) for r in rows]
 
+    # ---- contacts (companies met at events) and owner feedback on tender <-> company matches ----
+    @staticmethod
+    def _contact(r) -> dict:
+        return dict(json.loads(r["doc"]), id=r["id"], slug=r["slug"], created_at=r["created_at"], updated_at=r["updated_at"])
+
+    @_locked
+    def add_contact(self, doc: dict, slug: str | None = None) -> tuple[int, bool]:
+        """(id, created). With a slug the insert is idempotent: an existing record is returned untouched (never overwritten)."""
+        with self._lock:
+            if slug:
+                row = self.db.execute("SELECT id FROM contacts WHERE slug=?", (slug,)).fetchone()
+                if row:
+                    return row["id"], False
+            ts = now()
+            cur = self.db.execute("INSERT INTO contacts(slug,doc,created_at,updated_at) VALUES(?,?,?,?)", (slug, _dump(doc), ts, ts))
+            self.db.commit()
+            return cur.lastrowid, True
+
+    @_locked
+    def get_contact(self, cid: int) -> dict | None:
+        r = self.db.execute("SELECT * FROM contacts WHERE id=?", (cid,)).fetchone()
+        return self._contact(r) if r else None
+
+    @_locked
+    def list_contacts(self) -> list[dict]:
+        return [self._contact(r) for r in self.db.execute("SELECT * FROM contacts ORDER BY id").fetchall()]
+
+    @_locked
+    def update_contact(self, cid: int, doc: dict) -> bool:
+        with self._lock:
+            cur = self.db.execute("UPDATE contacts SET doc=?, updated_at=? WHERE id=?", (_dump(doc), now(), cid))
+            self.db.commit()
+            return cur.rowcount == 1
+
+    @_locked
+    def add_match_feedback(self, tender_key: str, contact_id: int, vote: str, reason: str | None, doc: dict, actor: str) -> int:
+        with self._lock:
+            cur = self.db.execute("INSERT INTO match_feedback(tender_key,contact_id,vote,reason,doc,actor,created_at) VALUES(?,?,?,?,?,?,?)",
+                                  (tender_key, contact_id, vote, reason, _dump(doc), actor, now()))
+            self.db.commit()
+            return cur.lastrowid
+
+    @_locked
+    def match_feedback(self) -> list[dict]:
+        """Every vote ever given, oldest first (nothing is deleted; the latest vote per pair is the effective label)."""
+        rows = self.db.execute("SELECT * FROM match_feedback ORDER BY id").fetchall()
+        return [dict(json.loads(r["doc"]), id=r["id"], tender_key=r["tender_key"], contact_id=r["contact_id"], vote=r["vote"],
+                     reason=r["reason"], actor=r["actor"], created_at=r["created_at"]) for r in rows]
+
     # ---- gate reviews signed by a human ----
     @_locked
     def add_review(self, tender_key: str, gate_id: str, decision: str, reviewer: str, note: str) -> int:
@@ -172,13 +225,23 @@ class Store:
     @_locked
     def audit(self, actor: str, event: str, payload: dict | None = None) -> dict:
         with self._lock:
-            prev = self.db.execute("SELECT hash FROM audit ORDER BY seq DESC LIMIT 1").fetchone()
-            prev_hash = prev["hash"] if prev else "0" * 64
-            ts, text = now(), _dump(payload or {})
-            h = sha(f"{prev_hash}|{ts}|{actor}|{event}|{text}")
-            cur = self.db.execute("INSERT INTO audit(ts,actor,event,payload,prev_hash,hash) VALUES(?,?,?,?,?,?)",
-                                  (ts, actor, event, text, prev_hash, h))
-            self.db.commit()
+            # BEGIN IMMEDIATE: reading the last hash and appending are one write transaction, so a second process on the
+            # same war.db (the seed CLI next to the running server) waits instead of forking the chain.
+            own = not self.db.in_transaction
+            if own:
+                self.db.execute("BEGIN IMMEDIATE")
+            try:
+                prev = self.db.execute("SELECT hash FROM audit ORDER BY seq DESC LIMIT 1").fetchone()
+                prev_hash = prev["hash"] if prev else "0" * 64
+                ts, text = now(), _dump(payload or {})
+                h = sha(f"{prev_hash}|{ts}|{actor}|{event}|{text}")
+                cur = self.db.execute("INSERT INTO audit(ts,actor,event,payload,prev_hash,hash) VALUES(?,?,?,?,?,?)",
+                                      (ts, actor, event, text, prev_hash, h))
+                self.db.commit()
+            except BaseException:
+                if own:
+                    self.db.rollback()
+                raise
             return dict(seq=cur.lastrowid, ts=ts, actor=actor, event=event, hash=h)
 
     @_locked

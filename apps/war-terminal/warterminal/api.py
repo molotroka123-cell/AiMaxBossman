@@ -12,12 +12,13 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from . import API_VERSION, VERSION, ai as ai_mod, finance, firm as firm_mod, fx_tracker as fxt, geo, learning, rules, scoring, sources, translate as tr_mod
+from . import API_VERSION, VERSION, ai as ai_mod, contacts as contacts_mod, finance, firm as firm_mod, fx_tracker as fxt, geo, learning, rules, scoring, sources
+from . import translate as tr_mod
 from .connectors import cnb, cz, indicators, gdelt, http as http_mod, prozorro, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
 from .provenance import is_real
 from .store import Store, now
@@ -187,6 +188,69 @@ class OutcomeIn(BaseModel):
     note: str = ""
 
 
+def _enum_rx(values) -> str:
+    """Pattern built from the module's own enum tuple: the HTTP layer cannot drift from the domain values."""
+    return "^(" + "|".join(re.escape(v) for v in values) + ")$"
+
+
+class KeywordsIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    en: list[str] = Field(default_factory=list, max_length=40)
+    uk: list[str] = Field(default_factory=list, max_length=40)
+    cs: list[str] = Field(default_factory=list, max_length=40)
+    ru: list[str] = Field(default_factory=list, max_length=40)
+
+
+class ContactIn(BaseModel):
+    """A company met at an event. person_* only when the owner types them in; never audited, exported or sent to Bossman."""
+    model_config = ConfigDict(extra="forbid")
+    company: str = Field(min_length=2, max_length=200)
+    country: str | None = Field(default=None, max_length=60)
+    website: str | None = Field(default=None, max_length=300)
+    public_email: str | None = Field(default=None, max_length=200)
+    public_email_source: str | None = Field(default=None, max_length=200)
+    person_name: str | None = Field(default=None, max_length=120)
+    person_phone: str | None = Field(default=None, max_length=40)
+    products: str = Field(default="", max_length=2000)
+    cpv_prefixes: list[str] = Field(default_factory=list, max_length=40)
+    keywords: KeywordsIn = Field(default_factory=KeywordsIn)
+    event: str | None = Field(default=None, max_length=200)
+    source: str | None = Field(default=None, max_length=300)
+    notes: str = Field(default="", max_length=2000)
+    status: str = Field(default="new", pattern=_enum_rx(contacts_mod.STATUSES))
+    next_step: str | None = Field(default=None, max_length=300)
+    next_step_date: str | None = Field(default=None, pattern=r"^(\d{4}-\d{2}-\d{2})?$")
+
+
+class ContactPatch(BaseModel):
+    """Only the fields sent are changed; an empty string or null clears an optional field (e.g. the person's phone)."""
+    model_config = ConfigDict(extra="forbid")
+    company: str | None = Field(default=None, min_length=2, max_length=200)
+    country: str | None = Field(default=None, max_length=60)
+    website: str | None = Field(default=None, max_length=300)
+    public_email: str | None = Field(default=None, max_length=200)
+    public_email_source: str | None = Field(default=None, max_length=200)
+    person_name: str | None = Field(default=None, max_length=120)
+    person_phone: str | None = Field(default=None, max_length=40)
+    products: str | None = Field(default=None, max_length=2000)
+    cpv_prefixes: list[str] | None = Field(default=None, max_length=40)
+    keywords: KeywordsIn | None = None
+    event: str | None = Field(default=None, max_length=200)
+    source: str | None = Field(default=None, max_length=300)
+    notes: str | None = Field(default=None, max_length=2000)
+    status: str | None = Field(default=None, pattern=_enum_rx(contacts_mod.STATUSES))
+    next_step: str | None = Field(default=None, max_length=300)
+    next_step_date: str | None = Field(default=None, pattern=r"^(\d{4}-\d{2}-\d{2})?$")
+
+
+class MatchFeedbackIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tender_key: str = Field(min_length=3, max_length=300)
+    contact_id: int = Field(ge=1)
+    vote: str = Field(pattern=_enum_rx(contacts_mod.VOTES))
+    reason: str | None = Field(default=None, max_length=500)
+
+
 def _now_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d")
 
@@ -221,7 +285,8 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     if chat is None and os.environ.get("WAR_TERMINAL_AI_URL") and os.environ.get("WAR_TERMINAL_AI_MODEL"):
         chat = ai_mod.make_chat(os.environ["WAR_TERMINAL_AI_URL"], os.environ["WAR_TERMINAL_AI_MODEL"], os.environ.get("WAR_TERMINAL_AI_KEY"))
     sam_key = os.environ.get("SAM_API_KEY", "")
-    translator = tr_mod.Translator(store, None if bossman is False else (bossman or tr_mod.gateway_from_env(dict(os.environ))))   # False = off (tests)
+    gateway = None if bossman is False else (bossman or tr_mod.gateway_from_env(dict(os.environ)))     # False = off (tests)
+    translator = tr_mod.Translator(store, gateway)
 
     app = FastAPI(title="Bossman War & Procurement Terminal", version=VERSION, description="API v1. Real data only: every record carries source, link and fetch time; records without provenance are archived and never shown.")
     app.state.store, app.state.live, app.state.tokens, app.state.purge_report = store, live, tokens, purge
@@ -580,6 +645,13 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
                   {"step": "Посчитать landed cost, cashflow и стресс задержки 30/60/90 дней (POST /finance/estimate)", "status": "TODO"},
                   {"step": "Юридическое заключение и подтверждение владельца до любых действий с заказчиком", "status": "REQUIRED"}]
         return {"tender_key": key, "draft": True, "note": "черновик чек-листа; подача заявки этим приложением невозможна", "items": items}
+
+    @app.get(P + "/tenders/{key:path}/matches")                 # «кому предложить»: before /tenders/{key:path}, which would swallow it
+    def tender_matches(key: str, k: int = Query(default=10, ge=1, le=50), include_declined: bool = False, _=Depends(viewer)):
+        t = store.get_tender(key)
+        if not t:
+            raise HTTPException(404, {"message": "тендер не найден"})
+        return contacts_mod.rank_for_tender(store, t, sanctions_index(), k=k, include_declined=include_declined)
 
     @app.get(P + "/tenders/{key:path}")
     def tender_detail(key: str, firm=Depends(firm_of), _=Depends(viewer)):
@@ -963,6 +1035,112 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     @app.get(f"{P}/learning/dataset", response_class=PlainTextResponse)
     def learn_dataset(_=Depends(owner)):
         return learning.export_dataset(store)
+
+    # ------------------------------------------------------------------ contacts + tender <-> company matching (owner request 21.10)
+    def sees_person(role: str) -> bool:
+        return ROLE_RANK[role] >= ROLE_RANK["analyst"]
+
+    def contact_or_404(cid: int) -> dict:
+        c = store.get_contact(cid)
+        if not c:
+            raise HTTPException(404, {"message": "контакт не найден"})
+        return c
+
+    def cleaned(doc: dict) -> dict:
+        try:
+            return contacts_mod.clean(doc)
+        except contacts_mod.ContactError as exc:
+            raise HTTPException(422, {"code": "CONTACT_INVALID", "fields": exc.fields, "message": str(exc)}) from exc
+
+    @app.get(f"{P}/contacts")
+    def contacts_list(status: str | None = Query(default=None, pattern=_enum_rx(contacts_mod.STATUSES)), q: str | None = None, role=Depends(viewer)):
+        items = store.list_contacts()
+        if status:
+            items = [c for c in items if c.get("status") == status]
+        if q:
+            needle = contacts_mod.flat(q)
+            hay = lambda c: " ".join([str(c.get(f) or "") for f in ("company", "products", "event", "country")] + sum((c.get("keywords") or {}).values(), []))  # noqa: E731
+            items = [c for c in items if needle in contacts_mod.flat(hay(c))]
+        return {"items": [contacts_mod.public_view(c, sees_person(role)) for c in items], "total": len(items), "statuses": list(contacts_mod.STATUSES)}
+
+    @app.post(f"{P}/contacts")
+    def contacts_create(body: ContactIn, role=Depends(analyst)):
+        doc = cleaned(body.model_dump())
+        cid, _ = store.add_contact(doc)
+        audit(role, "contact.created", {"contact_id": cid})                       # ids only: no company text, no person data
+        return {"id": cid, "contact": contacts_mod.public_view(store.get_contact(cid), True)}
+
+    @app.get(P + "/contacts/{cid}")
+    def contact_get(cid: int, role=Depends(viewer)):
+        return {"contact": contacts_mod.public_view(contact_or_404(cid), sees_person(role))}
+
+    @app.patch(P + "/contacts/{cid}")
+    def contact_patch(cid: int, body: ContactPatch, role=Depends(analyst)):
+        old = contact_or_404(cid)
+        patch = body.model_dump(exclude_unset=True)
+        merged = {f: old.get(f) for f in contacts_mod.FIELDS}
+        for f, v in patch.items():
+            if v is None and f in ("company", "status", "cpv_prefixes", "keywords"):
+                continue                                                         # null never resets a required field
+            merged[f] = {**(old.get("keywords") or {}), **v} if f == "keywords" else v   # keyword languages sent replace, others stay
+        doc = cleaned(merged)
+        changed = sorted(f for f in contacts_mod.FIELDS if doc.get(f) != old.get(f))
+        if changed:
+            store.update_contact(cid, doc)
+            audit(role, "contact.updated", {"contact_id": cid, "fields": changed})  # field names only, never values
+        return {"id": cid, "changed": changed, "contact": contacts_mod.public_view(store.get_contact(cid), True)}
+
+    @app.get(P + "/contacts/{cid}/matches")
+    def contact_matches(cid: int, k: int = Query(default=10, ge=1, le=50), status: str = Query(default="open", pattern="^(open|all)$"), _=Depends(viewer)):
+        return contacts_mod.rank_for_contact(store, contact_or_404(cid), sanctions_index(), status=status, k=k)
+
+    @app.get(P + "/contacts/{cid}/pitch")
+    def contact_pitch(cid: int, _=Depends(viewer)):
+        """Markdown sales draft with the top-5 open matching tenders (the app has no PDF renderer: markdown only)."""
+        c = contact_or_404(cid)
+        top = contacts_mod.rank_for_contact(store, c, sanctions_index(), status="open", k=5)["items"]
+        md = contacts_mod.pitch_markdown(c, top, _day())
+        return PlainTextResponse(md, media_type="text/markdown", headers={"Content-Disposition": f'attachment; filename="pitch-contact-{cid}.md"'})
+
+    @app.post(P + "/contacts/{cid}/lesson")
+    def contact_lesson(cid: int, role=Depends(analyst)):
+        """Explicit owner/analyst click only: one lesson note into Bossman memory. No person data, e-mail, notes or vote reasons."""
+        c = contact_or_404(cid)
+        writer = getattr(gateway, "memory_write", None)
+        if writer is None:
+            audit(role, "contact.lesson", {"contact_id": cid, "status": "NOT_CONNECTED"})
+            raise HTTPException(409, {"code": "NOT_CONNECTED", "message": "шлюз Bossman не настроен (WAR_TERMINAL_BOSSMAN_URL / токен)"})
+        rows = store.match_feedback()
+        labels = [r for (_, c_id), r in contacts_mod.effective_labels(rows).items() if c_id == cid]
+        top = contacts_mod.rank_for_contact(store, c, sanctions_index(), status="open", k=5)["items"]
+        title, content = contacts_mod.lesson(c, labels, contacts_mod.current_weights(store), top, contacts_mod.precision_report(rows))
+        try:
+            res = writer(title, content, "lesson", ["war-terminal", "tender-matching"])
+        except tr_mod.RouteError as exc:
+            code = "ALREADY_EXISTS" if exc.status == 409 else "BOSSMAN_ERROR"
+            audit(role, "contact.lesson", {"contact_id": cid, "status": code})
+            raise HTTPException(409 if exc.status == 409 else 502, {"code": code, "message": f"Bossman не сохранил урок: {exc}"}) from exc
+        audit(role, "contact.lesson", {"contact_id": cid, "status": "SAVED"})
+        return {"status": "SAVED", "path": (res or {}).get("path"), "title": title, "content": content}
+
+    @app.post(f"{P}/matches/feedback")
+    def match_feedback(body: MatchFeedbackIn, role=Depends(analyst)):
+        t = store.get_tender(body.tender_key)
+        if not t:
+            raise HTTPException(404, {"message": "тендер не найден"})
+        c = contact_or_404(body.contact_id)
+        res = contacts_mod.record_vote(store, t, c, body.vote, (body.reason or "").strip() or None, role)
+        audit(role, "match.feedback", {"feedback_id": res["id"], "contact_id": c["id"], "tender": t["key"], "vote": body.vote})   # the reason text is not audited
+        return res
+
+    @app.get(f"{P}/matches/metrics")
+    def match_metrics(_=Depends(viewer)):
+        return contacts_mod.precision_report(store.match_feedback())
+
+    @app.get(f"{P}/matches/weights")
+    def match_weights(_=Depends(viewer)):
+        w = contacts_mod.current_weights(store)
+        return {"weights": w, "features": len(w), "formula": "w = ln((up+1)/(down+1)); score = base + 10 x sum(w)"}
 
     # ------------------------------------------------------------------ audit + forbidden actions
     @app.get(f"{P}/audit/events")

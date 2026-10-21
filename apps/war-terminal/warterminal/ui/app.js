@@ -3,7 +3,7 @@
 const API = "/api/v1";
 const ROLES = ["viewer", "analyst", "compliance", "owner"];
 const SECTIONS = [
-  ["overview", T("Карта")], ["conflicts", T("Конфликты")], ["tenders", T("Закупки")], ["fit", T("Компания")], ["compliance", T("Комплаенс")],
+  ["overview", T("Карта")], ["conflicts", T("Конфликты")], ["tenders", T("Закупки")], ["contacts", T("Контакты")], ["fit", T("Компания")], ["compliance", T("Комплаенс")],
   ["finance", T("Финансы")], ["fx", T("Курсы / FX")], ["deals", T("Сделки")], ["learning", T("Аналитика")], ["sources", T("Источники")], ["approvals", T("Одобрения")],
 ];
 const S = { token: "", role: "viewer", view: "overview", tenders: null, sel: null, filters: { f: "all", q: "", category: "", country: "", source: "" },
@@ -915,6 +915,7 @@ function detailView(d, cl, host) {
   };
   out.append(h("div", { class: "bar" }, h("button", { type: "button", onclick: () => run(true) }, T("Оценить (пробно)")), h("button", { type: "button", onclick: () => run(false) }, T("Сохранить оценку")),
     h("label", { class: "chk", for: "useai" }, ai, T(" подсказка ИИ")), h("label", { class: "chk", for: "b2b" }, b2b, T(" встречный контракт (back-to-back)"))), res, asBox);
+  out.append(h("h3", {}, T("Кому предложить")), offerBlock(t.key));
   out.append(h("h3", {}, T("Чек-лист (черновик)")));
   if (cl.error) out.append(stateBox("err", cl.error));
   else {
@@ -923,6 +924,173 @@ function detailView(d, cl, host) {
   }
   if ((d.reviews || []).length) { out.append(h("h3", {}, T("Подписанные проверки"))); out.append(table([T("Проверка"), T("Решение"), T("Кто"), T("Заметка")], d.reviews.map((r) => ({ cells: [txt(gname(r.gate_id)), txt(ru(r.decision)), txt(r.reviewer || r.by), txt(r.note)] })))); }
   return out;
+}
+
+/* ---------- contacts: companies met at events, tender <-> company matches, owner votes ----------
+   Matching and scores come from the server (CPV + keywords + learned weights); the page only shows them and sends 👍/👎. */
+const CONTACT_STATUSES = [["new", T("новый")], ["contacted", T("написали")], ["meeting", T("встреча")], ["partner", T("партнёр")], ["declined", T("отказ")]];
+const CST = Object.fromEntries(CONTACT_STATUSES);
+const CST_CLS = { new: "b-info", contacted: "b-warn", meeting: "b-warn", partner: "b-ok", declined: "b-grey" };
+const cstBadge = (s) => badge(CST[s] || s, CST_CLS[s]);
+const KW_LANGS = ["en", "uk", "cs", "ru"];
+const MB_CLS = { REVIEW_REQUIRED: "b-warn", NOT_CONNECTED: "b-grey" };
+const errMsg = (e) => "HTTP " + e.status + " — " + e.message;
+function matchBadges(list) {
+  return h("div", { class: "bar", style: "margin:0" }, (list || []).map((b) => h("span", { class: "badge " + (MB_CLS[b.level] || "b-info"), title: b.why || "" }, srv(b.text))));
+}
+function whyList(it) { return h("ul", { class: "why" }, (it.reasons || []).map((r) => h("li", {}, srv(r)))); }
+function scoreCell(it) {
+  return h("div", {}, h("b", {}, String(it.score)), h("div", { class: "mut" }, Tf(T("база {0} · отзывы {1}"), it.base_score, (it.learned_adjustment >= 0 ? "+" : "") + it.learned_adjustment)));
+}
+function voteBar(tenderKey, contactId, current, onDone) {
+  const reason = h("input", { placeholder: T("причина (необязательно)"), "aria-label": T("Причина оценки"), size: 12, maxlength: 500 });
+  const out = h("span", { class: "mut", role: "status" });
+  const btn = (vote, label, title) => h("button", { type: "button", class: "sm" + (current === vote ? " on" : ""), "aria-pressed": String(current === vote), title, "aria-label": title,
+    onclick: async (ev) => {
+      ev.stopPropagation(); out.textContent = T("сохранение…");
+      try { const r = await POST("/matches/feedback", { tender_key: tenderKey, contact_id: contactId, vote: vote, reason: reason.value.trim() || null }); out.textContent = Tf(T("сохранено · меток всего: {0}"), r.labels); if (onDone) onDone(); }
+      catch (e) { if (e.status !== 401) out.textContent = errMsg(e); }
+    } }, label);
+  return h("div", { class: "bar vote" }, btn("up", "👍", T("Подходит")), btn("down", "👎", T("Не подходит")), reason, out);
+}
+function metricsView(d) {
+  const p = d.precision_at_5;
+  return h("div", {}, h("div", { class: "bar" }, badge(d.status === "OK" ? T("измерено") : T("недостаточно данных"), d.status === "OK" ? "b-ok" : "b-grey"),
+    h("span", { class: "mut" }, Tf(T("меток: {0} (👍 {1}) · обучение: {2} · тест: {3} · порог: {4}"), d.n_labels, d.n_up, d.n_train, d.n_test, d.min_labels))),
+  p ? kv([[T("precision@5 без отзывов"), String(p.baseline)], [T("precision@5 с отзывами"), String(p.learned)], [T("Разница"), (p.delta >= 0 ? "+" : "") + p.delta],
+    [T("Компаний в тесте"), String(d.n_queries)]]) : null,
+  h("p", { class: "mut" }, srv(d.note)),
+  h("p", { class: "mut" }, T("Это ранжирование по вашим отзывам (сглаженные log-odds по CPV, ключевым словам, источнику и стране заказчика), а не обучение модели. Тест — фиксированные 20 % пар.")));
+}
+function contactForm(c, onSave, label) {
+  const res = h("div"), kw = c.keywords || {};
+  const ta = (name, val) => h("textarea", { name, rows: 2 }, val || "");
+  const form = h("form", { class: "form" },
+    field(T("Компания"), inp("company", "text", c.company, { required: true, minlength: 2, maxlength: 200 })),
+    field(T("Страна (ISO или название)"), inp("country", "text", c.country)), field(T("Сайт"), inp("website", "text", c.website)),
+    field(T("Публичный e-mail (только напечатанный)"), inp("public_email", "email", c.public_email)), field(T("Где напечатан e-mail"), inp("public_email_source", "text", c.public_email_source)),
+    field(T("Продукты / возможности"), ta("products", c.products)), field(T("Префиксы CPV (через запятую)"), inp("cpv_prefixes", "text", (c.cpv_prefixes || []).join(", "))),
+    ...KW_LANGS.map((l) => field(Tf(T("Ключевые слова {0} (через запятую; * — начало слова)"), l.toUpperCase()), inp("kw_" + l, "text", (kw[l] || []).join(", ")))),
+    field(T("Событие"), inp("event", "text", c.event)), field(T("Источник"), inp("source", "text", c.source)),
+    field(T("Статус"), sel("status", CONTACT_STATUSES, c.status || "new")), field(T("Следующий шаг"), inp("next_step", "text", c.next_step)),
+    field(T("Дата следующего шага"), inp("next_step_date", "date", c.next_step_date)), field(T("Заметки"), ta("notes", c.notes)),
+    field(T("Имя человека (только если вводите сами)"), inp("person_name", "text", c.person_name, { autocomplete: "off" })),
+    field(T("Телефон человека"), inp("person_phone", "tel", c.person_phone, { autocomplete: "off" })),
+    h("button", { type: "submit" }, label));
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault(); clear(res);
+    const v = formData(form), csv = (s) => String(s || "").split(",").map((x) => x.trim()).filter(Boolean), opt = (s) => String(s || "").trim() || null;
+    const body = { company: v.company.trim(), country: opt(v.country), website: opt(v.website), public_email: opt(v.public_email), public_email_source: opt(v.public_email_source),
+      products: v.products, cpv_prefixes: csv(v.cpv_prefixes), keywords: Object.fromEntries(KW_LANGS.map((l) => [l, csv(v["kw_" + l])])), event: opt(v.event), source: opt(v.source),
+      status: v.status, next_step: opt(v.next_step), next_step_date: opt(v.next_step_date), notes: v.notes, person_name: opt(v.person_name), person_phone: opt(v.person_phone) };
+    try { await onSave(body); res.append(msgBox("ok", T("Сохранено"))); }
+    catch (x) { if (x.status !== 401) res.append(msgBox("err", errMsg(x))); }
+  });
+  return h("div", {}, form, res);
+}
+function matchesForContact(m, id, reload) {
+  const st = sel("mstatus", [["open", T("только открытые")], ["all", T("все статусы")]], S.cmStatus || "open");
+  st.setAttribute("aria-label", T("Какие тендеры показывать"));
+  st.addEventListener("change", () => { S.cmStatus = st.value; reload(); });
+  const head = h("div", { class: "bar" }, st, h("span", { class: "mut" }, Tf(T("найдено: {0} · показано: {1} · ваших отзывов по компании: {2}"), m.total, m.items.length, m.learning.labels)),
+    m.blocked_total ? badge(Tf(T("заблокировано проверками: {0}"), m.blocked_total), "b-bad") : null);
+  const blocked = (m.blocked || []).length ? h("details", {}, h("summary", {}, T("Заблокированные совпадения (санкции / эмбарго)")),
+    h("ul", { class: "list" }, m.blocked.map((b) => h("li", {}, txt(b.title), b.reasons.map((r) => h("div", { class: "mut" }, srv(r))))))) : null;
+  if (!m.items.length) return h("div", {}, head, stateBox("load", T("Совпадений нет: общих CPV и ключевых слов с тендерами в базе не найдено.")), blocked);
+  return h("div", {}, head, table([T("Тендер"), T("Заказчик"), T("Стоимость"), T("Дедлайн"), T("Оценка"), T("Почему"), T("Проверки"), T("Ваш отзыв")], m.items.map((it) => {
+    const t = it.tender;
+    return { cells: [h("div", {}, dual(t.title), h("div", { class: "bar", style: "margin:4px 0 0" }, h("button", { type: "button", class: "sm", onclick: () => { S.sel = t.key; S.filters.country = ""; go("tenders"); } }, T("Открыть")),
+      ru(t.status) ? h("span", { class: "mut" }, ru(t.status)) : null), h("div", { class: "src-l" }, provLine(t))),
+    t.buyer ? dual(t.buyer, { keep: true }) : "—", t.estimated_value == null ? "—" : fmtN(t.estimated_value) + " " + txt(t.currency), txt((t.deadline || "").slice(0, 10)),
+    scoreCell(it), whyList(it), matchBadges(it.badges), voteBar(t.key, id, it.vote, reload)] };
+  })), blocked);
+}
+function download(text, name, type) {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = h("a", { href: url, download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+async function showContact(el, id) {
+  await load(el, async () => {
+    const c = (await GET("/contacts/" + id)).contact;
+    const res = h("div"), pv = h("div"), mBox = h("div");
+    const pitch = h("button", { type: "button", onclick: async () => {
+      clear(pv);
+      try {
+        const r = await raw("GET", "/contacts/" + id + "/pitch");
+        const text = await r.text();
+        if (!r.ok) { let d; try { d = JSON.parse(text).detail; } catch (e) { d = text; } throw new ApiError(r.status, d); }
+        download(text, "pitch-contact-" + id + ".md", "text/markdown");
+        pv.append(h("pre", { class: "msg pitch" }, text));
+      } catch (e) { if (e.status !== 401) pv.append(msgBox("err", errMsg(e))); }
+    } }, T("Предложение (.md): топ-5 открытых тендеров"));
+    const lesson = h("button", { type: "button", title: T("Только по вашему нажатию; без имён, телефонов, e-mail и заметок"), onclick: async () => {
+      clear(res);
+      try { const r = await POST("/contacts/" + id + "/lesson"); res.append(msgBox("ok", Tf(T("Урок сохранён в памяти Bossman: {0}"), txt(r.path)))); }
+      catch (e) { if (e.status !== 401) res.append(msgBox("err", errMsg(e))); }
+    } }, T("Отправить урок в Bossman"));
+    const kwText = KW_LANGS.filter((l) => (c.keywords || {})[l]).map((l) => l.toUpperCase() + ": " + c.keywords[l].join(", ")).join(" · ");
+    const site = c.website ? h("a", { href: /^https?:\/\//i.test(c.website) ? c.website : "https://" + c.website, target: "_blank", rel: "noopener noreferrer" }, c.website) : null;
+    const person = "person_name" in c ? [c.person_name, c.person_phone].filter(Boolean).join(" · ") : (c.has_person ? T("есть (скрыто для вашей роли)") : null);
+    const out = h("div", { class: "card" }, h("h2", {}, c.company), h("div", { class: "bar" }, cstBadge(c.status), c.country ? badge(c.country, "b-grey") : null),
+      kv([[T("Сайт"), site], [T("Публичный e-mail"), c.public_email ? c.public_email + " (" + txt(c.public_email_source) + ")" : null], [T("Продукты / возможности"), c.products],
+        ["CPV", (c.cpv_prefixes || []).join(", ")], [T("Ключевые слова"), kwText], [T("Событие"), c.event], [T("Источник"), c.source],
+        [T("Следующий шаг"), [c.next_step, c.next_step_date].filter(Boolean).join(" · ")], [T("Заметки"), c.notes], [T("Человек"), person || null]]),
+      h("div", { class: "bar" }, pitch, lesson), res, pv,
+      h("details", {}, h("summary", {}, T("Изменить контакт")), contactForm(c, async (body) => { await api("PATCH", "/contacts/" + id, body); showContact(el, id); }, T("Сохранить изменения"))),
+      h("h3", {}, T("Подходящие тендеры")), mBox);
+    const reload = () => load(mBox, async () => {
+      const m = await GET("/contacts/" + id + "/matches?k=20&status=" + (S.cmStatus || "open"));
+      await trLookup(m.items.map((i) => i.tender.title));
+      return matchesForContact(m, id, reload);
+    });
+    reload();
+    return out;
+  });
+  if (el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+}
+async function viewContacts(el) {
+  const listBox = h("div"), det = h("div", { class: "detail" }), metBox = h("div");
+  const st = sel("cstatus", [["", T("Все статусы")], ...CONTACT_STATUSES], S.cfilter || "");
+  st.setAttribute("aria-label", T("Статус контакта"));
+  const q = h("input", { type: "search", value: S.cq || "", placeholder: T("Поиск: компания, продукты, событие"), "aria-label": T("Поиск контактов") });
+  const refresh = () => { S.cfilter = st.value; S.cq = q.value.trim(); renderList(); };
+  st.addEventListener("change", refresh);
+  q.addEventListener("keydown", (e) => { if (e.key === "Enter") refresh(); });
+  const create = contactForm({}, async (body) => { const r = await POST("/contacts", body); S.contact = r.id; renderList(); showContact(det, r.id); }, T("Добавить контакт"));
+  el.append(card(T("Контакты и компании"),
+    h("p", { class: "mut" }, T("Компании с выставок и встреч. Совпадения с тендерами считаются по CPV и ключевым словам; ваши 👍/👎 меняют порядок. Имя и телефон человека видят только аналитик и владелец; в журнал аудита, предложение и урок Bossman они не попадают.")),
+    h("div", { class: "bar" }, st, q, h("button", { type: "button", onclick: refresh }, T("Применить"))), listBox), det,
+  card(T("Новый контакт"), h("details", {}, h("summary", {}, T("Открыть форму")), create)), card(T("Обучение по отзывам"), metBox));
+  async function renderList() {
+    await load(listBox, async () => {
+      const p = new URLSearchParams();
+      if (S.cfilter) p.set("status", S.cfilter);
+      if (S.cq) p.set("q", S.cq);
+      const d = await GET("/contacts" + (p.toString() ? "?" + p : ""));
+      if (!d.items.length) return stateBox("load", T("Контактов нет. Добавьте компанию или запустите seed: python -m warterminal.seed_forum_20261021"));
+      return table([T("Компания"), T("Страна"), T("Статус"), T("Следующий шаг"), T("Дата"), T("Событие")], d.items.map((c) => ({ key: c.id, cls: S.contact === c.id ? "sel" : "", cells: [
+        h("b", {}, c.company), txt(c.country), cstBadge(c.status), txt(c.next_step), txt(c.next_step_date), txt(c.event)] })),
+      (r) => { S.contact = r.key; renderList(); showContact(det, r.key); });
+    });
+  }
+  load(metBox, async () => metricsView(await GET("/matches/metrics")));
+  await renderList();
+  if (S.contact) showContact(det, S.contact);
+}
+function offerBlock(key) {
+  const box = h("div");
+  const reload = () => load(box, async () => {
+    const m = await GET("/tenders/" + encodeURI(key) + "/matches?k=20");
+    const hidden = m.skipped_declined ? " " + Tf(T("(отказавшихся скрыто: {0})"), m.skipped_declined) : "";
+    const blocked = (m.blocked || []).length ? h("div", { class: "mut" }, T("Заблокировано проверками: "), m.blocked.map((b) => h("div", {}, txt(b.company) + " — ", b.reasons.map((r) => srv(r))))) : null;
+    if (!m.items.length) return h("div", {}, stateBox("load", T("Подходящих компаний среди контактов нет.") + hidden), blocked);
+    return h("div", {}, h("div", { class: "mut" }, Tf(T("компаний: {0} · по CPV и ключевым словам с поправкой по вашим отзывам"), m.total) + hidden),
+      table([T("Компания"), T("Статус"), T("Оценка"), T("Почему"), T("Проверки"), T("Ваш отзыв")], m.items.map((it) => ({ cells: [
+        h("div", {}, h("button", { type: "button", class: "lnk", onclick: () => { S.contact = it.contact.id; go("contacts"); } }, it.contact.company), it.contact.country ? h("span", { class: "mut" }, " · " + it.contact.country) : null),
+        cstBadge(it.contact.status), scoreCell(it), whyList(it), matchBadges(it.badges), voteBar(key, it.contact.id, it.vote, reload)] }))), blocked);
+  });
+  reload();
+  return box;
 }
 
 /* ---------- compliance ---------- */
@@ -1181,7 +1349,7 @@ async function viewApprovals(el) {
 }
 
 /* ---------- router ---------- */
-const VIEWS = { overview: viewOverview, conflicts: viewConflicts, tenders: viewTenders, fit: viewFit, compliance: viewCompliance, finance: viewFinance, fx: viewFx, deals: viewDeals,
+const VIEWS = { overview: viewOverview, conflicts: viewConflicts, tenders: viewTenders, contacts: viewContacts, fit: viewFit, compliance: viewCompliance, finance: viewFinance, fx: viewFx, deals: viewDeals,
   learning: viewLearning, sources: viewSources, approvals: viewApprovals };
 async function render() {
   const m = clear($("#main"));
