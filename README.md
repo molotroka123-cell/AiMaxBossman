@@ -1,3 +1,5 @@
+> **OWNER NORTH STAR PERFORMANCE ×2 / Argon–Codex, 23.10.2026:** before coding, read [BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md](docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md) and [AGENTS.md](AGENTS.md). Objective: measured ≥2.00× end-to-end speedup on the preregistered coding/agent suite, no quality or safety regressions. Start with latency traces/baseline. Historical 2.09× MTP **decode** is NOT proof of system-wide 2×. This is a required engineering plan, not an implementation or performance result.
+
 <div align="center">
 
 # ⚡ AI MAX BOSSMAN 2.6 — UNIFIED AUTONOMOUS PC & MOBILE OPENCODE AGENT
