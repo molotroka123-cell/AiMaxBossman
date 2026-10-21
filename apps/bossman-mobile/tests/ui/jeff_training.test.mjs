@@ -99,6 +99,60 @@ test('«Проверка» asks twice and shows both answers side by side with c
   assert.equal($('jeff-col-plain').hidden, true);
 });
 
+test('cloud fallback switch: ON by default, switched off through the owner API, shown in the summary', { skip }, async () => {
+  const log = [];
+  const state = { ...STATE, strict: true, cloud_fallback: true, cloud_calls_today: 2 };
+  const { w, d, $ } = await boot({ routes: routesWith(state, log) });
+  d.querySelector('.tab[data-tab="jeff"]').click();
+  await until(() => $('jeff-manual-summary').querySelector('.kv'), 'summary rows');
+  assert.equal($('jeff-cloud').checked, true);
+  assert.match($('jeff-manual-summary').textContent, /включено · сегодня 2/);
+  assert.match($('jeff-cloud').parentElement.textContent, /Облачный запасной вариант \(разделы методички уходят провайдеру\)/);
+  $('jeff-cloud').checked = false; $('jeff-cloud').dispatchEvent(new w.Event('change'));
+  await until(() => log.some(([k]) => k === 'mode'), 'switch saved');
+  assert.deepEqual(log.find(([k]) => k === 'mode')[1], { cloud_fallback: false });
+  await until(() => /Облако, если ПК занятвыключено/.test($('jeff-manual-summary').textContent), 'off shown');
+  assert.equal($('jeff-cloud').checked, false);
+});
+
+test('«Проверка» shows who answered: 💻 локально or ☁️ облако · model, and an honest error', { skip }, async () => {
+  const log = [];
+  let mode = 'cloud';
+  const routes = (p, m, b) => {
+    if (p === '/jeff-kb/check' && m === 'POST') {
+      log.push(['check', b]);
+      if (!b.use_manual) return { mode: 'plain', answer: 'Обычно минут десять.', cited: [], engine: 'local', provider: 'ollama', model: 'gemma4-31b-uncensored:latest' };
+      if (mode === 'down') return { __status: 503, body: { detail: { code: 'JEFF_NO_MODELS', message: 'Нет связи с моделями: локальная — не ответила вовремя; облако — бесплатные облачные модели не ответили. Ответа по методичке нет.' } } };
+      return mode === 'cloud'
+        ? { mode: 'manual', answer: 'Двенадцать минут (§1).', cited: [{ n: 1, title: 'Разминка' }], retrieved: [1], no_match: false,
+          engine: 'cloud', provider: 'OpenRouter', model: 'vendor/model-x:free', fallback_reason: 'timeout' }
+        : { mode: 'manual', answer: 'Двенадцать минут (§1).', cited: [{ n: 1, title: 'Разминка' }], retrieved: [1], no_match: false,
+          engine: 'local', provider: 'ollama', model: 'gemma4-31b-uncensored:latest' };
+    }
+    return routesWith({ ...STATE, strict: true, cloud_fallback: true }, log)(p, m, b);
+  };
+  const { w, d, $ } = await boot({ css: true, routes });
+  d.querySelector('.tab[data-tab="jeff"]').click();
+  $('jeff-question').value = 'Сколько длится разминка?';
+  $('jeff-check-form').dispatchEvent(new w.Event('submit', { cancelable: true }));
+  await until(() => $('jeff-engine-manual').textContent !== '', 'manual badge');
+  assert.equal($('jeff-engine-manual').textContent, '☁️ облако · vendor/model-x:free');
+  assert.ok($('jeff-engine-manual').classList.contains('badge-cloud'));
+  assert.equal($('jeff-engine-plain').textContent, '💻 локально');
+  assert.ok($('jeff-engine-plain').classList.contains('badge-local'));
+  assert.match($('jeff-cited').textContent, /§1 — Разминка/);
+  // local answer: the badge says so
+  mode = 'local'; $('jeff-compare').checked = false;
+  $('jeff-check-form').dispatchEvent(new w.Event('submit', { cancelable: true }));
+  await until(() => $('jeff-engine-manual').textContent === '💻 локально', 'local badge');
+  // neither answered: an honest error, no answer text and no badge
+  mode = 'down';
+  $('jeff-check-form').dispatchEvent(new w.Event('submit', { cancelable: true }));
+  await until(() => /^Ошибка: Нет связи с моделями/.test($('jeff-ans-manual').textContent), 'honest error');
+  assert.equal($('jeff-engine-manual').textContent, '');
+  assert.equal(w.getComputedStyle($('jeff-engine-manual')).display, 'none');
+});
+
 test('8 tabs fit the bar and the shell cache is bumped for this tab', () => {
   const css = readFileSync(join(UI, 'app.css'), 'utf8');
   const html = readFileSync(join(UI, 'index.html'), 'utf8');
@@ -106,5 +160,5 @@ test('8 tabs fit the bar and the shell cache is bumped for this tab', () => {
   const tabs = (html.match(/class="tab[ "]/g) || []).length;
   assert.equal(tabs, 8);
   assert.match(css, /\.tabbar \{[^}]*grid-template-columns: repeat\(8, 1fr\)/);
-  assert.ok(Number(/bossman-shell-v(\d+)/.exec(sw)[1]) >= 16);
+  assert.ok(Number(/bossman-shell-v(\d+)/.exec(sw)[1]) >= 18, 'v18: cloud fallback switch + engine badge');
 });

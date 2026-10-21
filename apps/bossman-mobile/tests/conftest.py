@@ -229,7 +229,12 @@ class FakeBossman:
                 return httpx.Response(200, json={"mode": "manual" if payload.get("use_manual") else "plain",
                                                  "answer": "Двенадцать минут (§1)." if payload.get("use_manual")
                                                  else "Обычно десять.", "cited": [{"n": 1, "title": "Разминка"}]
-                                                 if payload.get("use_manual") else [], "model": "gemma"})
+                                                 if payload.get("use_manual") else [],
+                                                 # owner 21.10: provenance of the answer (manual = the cloud fallback)
+                                                 "engine": "cloud" if payload.get("use_manual") else "local",
+                                                 "provider": "OpenRouter" if payload.get("use_manual") else "ollama",
+                                                 "model": "vendor/model-x:free" if payload.get("use_manual")
+                                                 else "gemma"})
             return httpx.Response(200, json={"path": path, "method": method, "echo": payload})
         return httpx.Response(404, json={"error": {"message": "not found"}})
 

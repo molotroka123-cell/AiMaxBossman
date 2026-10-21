@@ -396,6 +396,8 @@
         <h2 class="sub">Как отвечает Jeff</h2>
         <label class="consent"><input type="checkbox" id="jeff-strict"><span>Строго по методичке: только по её разделам, со ссылками (§N); если ответа нет — «В методичке этого нет»</span></label>
         <label class="consent"><input type="checkbox" id="jeff-scope-all"><span>Для всех участников (по умолчанию — только мой чат с Jeff)</span></label>
+        <label class="consent"><input type="checkbox" id="jeff-cloud"><span>Облачный запасной вариант (разделы методички уходят провайдеру)</span></label>
+        <p class="muted small" id="jeff-cloud-note">Только когда локальная модель недоступна: бесплатная облачная модель Bossman получает найденные разделы и вопрос — не всю методичку и не память.</p>
         <p class="muted small" id="jeff-model-line">Модель Jeff: —</p>
         <div class="calls-actions">
           <button class="btn" id="jeff-model-gemma" type="button">Модель: Gemma (локально)</button>
@@ -410,8 +412,8 @@
         <label class="consent"><input type="checkbox" id="jeff-compare" checked><span>Сравнить рядом: без методички / с методичкой</span></label>
         <div class="calls-actions"><button class="btn primary" type="submit" id="jeff-check-btn">Спросить Jeff</button></div>
         <div class="jeff-compare" id="jeff-results" aria-live="polite">
-          <div class="jeff-col" id="jeff-col-plain" hidden><h3 class="sub">Без методички</h3><pre class="swap-reply" id="jeff-ans-plain"></pre></div>
-          <div class="jeff-col" id="jeff-col-manual" hidden><h3 class="sub">С методичкой</h3><pre class="swap-reply" id="jeff-ans-manual"></pre><p class="muted small" id="jeff-cited"></p></div>
+          <div class="jeff-col" id="jeff-col-plain" hidden><h3 class="sub">Без методички</h3><pre class="swap-reply" id="jeff-ans-plain"></pre><span class="jeff-engine" id="jeff-engine-plain"></span></div>
+          <div class="jeff-col" id="jeff-col-manual" hidden><h3 class="sub">С методичкой</h3><pre class="swap-reply" id="jeff-ans-manual"></pre><span class="jeff-engine" id="jeff-engine-manual"></span><p class="muted small" id="jeff-cited"></p></div>
         </div>
       </form>
     </div>

@@ -36,7 +36,7 @@ from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from bcc.providers import build_adapter
+from bcc.providers import ChatResult, build_adapter
 from bcc.oss.piper import PiperError, synthesize_ogg
 from bcc.oss.chatterbox_clone import synthesize_ogg as synthesize_cloned_ogg
 from bcc.telegram_companion.adapters import (
@@ -60,6 +60,7 @@ from .resources import LocalCapacityGuard, ollama_resident_probe
 from .models import ConsentState, EvidenceKind, MemoryCandidate, Sensitivity
 from . import crisis
 from . import jeff_kb as pit_jeff_kb
+from . import jeff_kb_cloud as pit_jeff_kb_cloud
 from . import jeff_manual as pit_jeff_manual
 from . import jeff_model as pit_jeff_model
 from . import jeff_settings as pit_jeff_settings
@@ -568,6 +569,9 @@ class DocTurn:
 
 
 doc_turn: contextvars.ContextVar = contextvars.ContextVar("pit_doc_turn", default=None)
+#: Who answered a strict-manual turn ({"engine": "cloud", "provider", "model"}), set by ``_chat_route_core`` and read by
+#: ``_chat_route`` for the owner-only provenance line. A dict holder per turn, never shown to a participant.
+kb_turn: contextvars.ContextVar = contextvars.ContextVar("pit_kb_turn", default=None)
 
 
 def _rewrite_jsonl(path: Path, transform) -> None:
@@ -1128,6 +1132,9 @@ class ParticipantRuntime:
         self._pending_chat_records: dict[int, tuple] = {}
         self._memory_epoch: dict[str, int] = {}
         self._cloud_marked: set[str] = set()
+        # Owner 21.10: a strict-manual turn whose LOCAL model is unavailable may be answered by a FREE cloud model of
+        # Bossman's registry (bcc.pit.jeff_kb_cloud, owner switch ``cloud_fallback``). Built on first use; tests swap it.
+        self.kb_cloud_route = None
         # Local-only Jeff (owner decision 2026-10-17, enforced by config.load): no cloud adapter exists at all, so
         # no code path can reach a provider even by mistake.
         self.adapter = (CloudDisabledAdapter() if settings.local_chat_only
@@ -3047,10 +3054,22 @@ class ParticipantRuntime:
             # Nobody took the file (j2 off, media switched off or broken): never let the model guess at a file it
             # cannot see from the caption alone.
             return self.guard_outgoing(attachment_fallback or MEDIA_UNAVAILABLE_RU)
-        reply = await self._chat_route_core(person, person_key, text, consent, message_id=message_id,
-                                            reply_to=reply_to, update_id=update_id, j2_ctx=ctx,
-                                            session_history=session_history)
+        kb_engine: dict = {}
+        kb_token = kb_turn.set(kb_engine)
+        try:
+            reply = await self._chat_route_core(person, person_key, text, consent, message_id=message_id,
+                                                reply_to=reply_to, update_id=update_id, j2_ctx=ctx,
+                                                session_history=session_history)
+        finally:
+            kb_turn.reset(kb_token)
         final = self.guard_outgoing(await self.j2.post_reply(ctx, reply))
+        if (kb_engine.get("engine") == "cloud" and isinstance(final, str) and final.strip()
+                and person.role == "owner" and person.user_id == person.chat_id
+                and getattr(self, "surface", "telegram") != "call"):
+            # Owner 21.10: a strict answer that came from the free cloud says so — in the owner's OWN chat only. A
+            # participant never gets it (no provider or model name leaves to them), a spoken call never reads it out,
+            # and it is added after memory was recorded, so no later prompt sees a model name.
+            final = final + "\n\n" + pit_jeff_kb_cloud.owner_suffix(kb_engine)
         if self.settings.generation_cloud and person_key not in self._cloud_marked:
             # Owner-visible honesty: the first answer of this cloud session says the chat left the PC.
             from .config import GENERATION_CLOUD_MARKER_RU
@@ -3087,6 +3106,14 @@ class ParticipantRuntime:
                               no_match=not kb_sections, owner_chat=person.role == "owner")
             if not kb_sections:
                 return pit_jeff_kb.NO_ANSWER_RU
+        # Owner 21.10: strict turn + switch on = a FREE cloud model answers by the same sections when the LOCAL model is
+        # unavailable (no local route, timeout, no connection, 5xx, model not loaded); never after a local answer.
+        kb_state = pit_jeff_kb.read_state(self.vault.data_dir) if kb_sections else None
+        kb_cloud_allowed = bool(kb_state and kb_state["cloud_fallback"])
+        kb_local_cap = pit_jeff_kb_cloud.local_timeout_s(kb_state) if kb_cloud_allowed else 0.0
+        kb_local_tried = False
+        kb_local_failure = ""
+        kb_no_route = False
 
         now = time.monotonic()
         if self.catalog_checked_at == 0.0 or self._catalog_refresh_due(now):
@@ -3124,14 +3151,17 @@ class ParticipantRuntime:
                 and pit_jeff_manual.active_manual(self.vault.data_dir) is not None):
             prefer_local = True
         if kb_sections is not None and not self.settings.local_chat_only:
-            prefer_local = True             # strict turns are local only (the manual never leaves the PC)
+            prefer_local = True             # strict turns go to the local model first (jeff_kb_cloud is the fallback)
         try:
             model, is_local = (self._free_route() if self.settings.local_chat_only
                                else self._mixed_route(text, consent, catalog=turn_catalog,
                                                       prefer_local=prefer_local))
         except NoEligibleRoute:
             self._mark_catalog_dirty()
-            return NO_MODEL_RU
+            if not kb_cloud_allowed:
+                return NO_MODEL_RU
+            # No local route at all for this turn (not loaded, GPU busy, Ollama down): straight to the cloud fallback.
+            model, is_local, kb_no_route = "", True, True
         if not is_local and not consent.remote_processing_enabled:
             return NO_REMOTE_RU
 
@@ -3164,7 +3194,9 @@ class ParticipantRuntime:
         attempts: list[tuple[str, object, str]] = []
         local_fallback: str | None = None
         prefer_local_after_refusal = False
-        if is_local:
+        if kb_no_route:
+            pass                            # nothing local to try; the strict cloud fallback below answers or says why
+        elif is_local:
             attempts.append((model, self.local_adapter, "local"))
             if consent.remote_processing_enabled:
                 attempts.extend((fallback, self.adapter, "remote")
@@ -3205,7 +3237,11 @@ class ParticipantRuntime:
             if provider == "remote" and not route_consent.remote_processing_enabled:
                 continue
             if provider == "remote" and kb_sections is not None:
-                continue                    # the owner's manual never leaves the PC: strict turns are local only
+                # Jeff's own chat routes never carry the manual: the only cloud path for a strict turn is the
+                # owner-switched fallback after the loop (minimal request, Bossman's free registry, jeff_kb_cloud).
+                continue
+            if provider == "local" and kb_sections:
+                kb_local_tried = True
             if provider == "remote":
                 blocked = self._cloud_blocked() or (
                     "rate_limited" if self.cloud.model_blocked(route_model) else "")
@@ -3321,9 +3357,13 @@ class ParticipantRuntime:
             try:
                 remaining = deadline - started
                 if remaining < 1:
+                    if provider == "local" and kb_sections:
+                        kb_local_failure = kb_local_failure or "timeout"       # the turn's time ran out first
                     break
                 timeout = min(self.settings.local_timeout if provider == "local"
                               else self.settings.remote_timeout, remaining)
+                if provider == "local" and kb_local_cap:
+                    timeout = min(timeout, kb_local_cap)    # the owner's short «local is unavailable» timeout
                 if provider == "remote":
                     remote_left = sum(kind == "remote" for _, _, kind in attempts[route_index:])
                     # A slow cloud must not eat the local fallback's turn:
@@ -3342,6 +3382,8 @@ class ParticipantRuntime:
                                                        min(4096, self.settings.max_tokens * 2))):
                     remaining = route_deadline - time.monotonic()
                     if remaining < 1:
+                        if provider == "local" and kb_sections and attempt_index == 0:
+                            kb_local_failure = kb_local_failure or "timeout"   # no time left to even ask it
                         result = None
                         break
                     call_timeout = min(timeout, remaining)
@@ -3421,6 +3463,10 @@ class ParticipantRuntime:
                     # Not preferred for follow-up routing for a while; the catalog is re-probed soon.
                     self._local_down_until = time.monotonic() + LOCAL_UNHEALTHY_SECONDS
                     self._mark_catalog_dirty()
+                    if kb_sections:
+                        # Only an AVAILABILITY failure (timeout, connection, 5xx, model not loaded) may hand a strict
+                        # turn to the cloud fallback; an empty answer or a protocol error does not.
+                        kb_local_failure = pit_jeff_kb_cloud.availability_reason(exc) or kb_local_failure
                 if provider == "remote" and is_payment_required(exc):
                     # The route asks for money: it is no longer a free route, whatever
                     # the catalog said. Never continue to a paid route.
@@ -3447,6 +3493,43 @@ class ParticipantRuntime:
                 result = None
         if result is None:
             await turn_stream.reset()
+        if (result is None and kb_cloud_allowed and kb_sections and not incomplete_seen
+                and (kb_local_failure or not kb_local_tried)):
+            # Owner 21.10 «если локальная модель недоступна, пусть отвечает облачная, но тоже по методичке»: the SAME
+            # strict rules and retrieved sections + the question (no memory, persona or history) to a FREE cloud
+            # model of Bossman's registry; the answer passes the same citation check and guards below.
+            kb_reason = kb_local_failure or "no_local_route"
+            if not self.vault.consent(person_key).remote_processing_enabled:
+                pit_jeff_kb.audit(self.vault.data_dir, "cloud_skipped", reason="no_consent", local_reason=kb_reason)
+                self._set_provider_error("kb_cloud_no_consent")
+                return pit_jeff_kb_cloud.NO_LINK_RU
+            messages = pit_jeff_kb.strict_messages(text, kb_sections,
+                                                   extra_system=(FINANCIAL_SAFETY_BRIEF, IDENTITY_REMINDER_RU))
+            if self.kb_cloud_route is None:
+                self.kb_cloud_route = pit_jeff_kb_cloud.BccDbRoute(self.vault.data_dir)
+            started = time.monotonic()
+            outcome = await pit_jeff_kb_cloud.ask_cloud(
+                self.kb_cloud_route, messages, data_dir=self.vault.data_dir, state=kb_state,
+                local_reason=kb_reason, budget_s=pit_jeff_kb_cloud.CHAT_BUDGET_S,
+                surface=str(getattr(self, "surface", "telegram"))[:16])
+            if not outcome.ok:
+                self._set_provider_error("kb_cloud_" + outcome.reason)
+                return pit_jeff_kb_cloud.NO_LINK_RU
+            result = ChatResult(text=outcome.text, tokens_in=outcome.tokens_in, tokens_out=outcome.tokens_out,
+                                model=outcome.model)
+            route_model, provider, served_by = outcome.model, "remote", "remote"
+            context_chars = sum(len(str(m.get("content", ""))) for m in messages)
+            fallback_reason = "kb_cloud_fallback:" + kb_reason
+            self.turn_context[who] = {"pairs": 0, "route": "remote"}
+            if j2_ctx is not None:
+                j2_ctx.extra["served_by"] = "remote"         # model_guard judges only the local model's output
+            self._log_route(person_key=person_key, model=route_model, provider="remote", ok=True,
+                            latency_ms=outcome.latency_ms, context_chars=context_chars,
+                            tokens_in=outcome.tokens_in, tokens_out=outcome.tokens_out, route_reason=fallback_reason)
+            holder = kb_turn.get()
+            if holder is not None:
+                holder.update(pit_jeff_kb_cloud.provenance("cloud", provider=outcome.provider, model=outcome.model,
+                                                           fallback_reason=kb_reason))
         if result is None and cloud_stopped:
             self._set_provider_error("cloud_" + cloud_stopped)
             self._mark_catalog_dirty()
@@ -3462,7 +3545,8 @@ class ParticipantRuntime:
         if kb_sections:
             answer, kb_cited = pit_jeff_kb.finalize_answer(answer, kb_sections)
             pit_jeff_kb.audit(self.vault.data_dir, "strict_answer", cited=len(kb_cited),
-                              no_answer=answer == pit_jeff_kb.NO_ANSWER_RU)
+                              no_answer=answer == pit_jeff_kb.NO_ANSWER_RU,
+                              engine="cloud" if served_by == "remote" else "local")
         if doc_turn.get() is not None and answer.strip():
             doc_turn.get().model_text = True                # a model wrote this; it may still be replaced below
         # Raw model text first: a reply that speaks as the model is replaced whole, before any rewriting guard.
@@ -3502,7 +3586,8 @@ class ParticipantRuntime:
         if question is not None:
             answer += "\n\n" + question.question
         if record_turn:
-            record = (who, person_key, text, answer, list(context.persona_items)[:20],
+            record = (who, person_key, text, answer,
+                      list(context.persona_items)[:20] if context is not None else [],   # None: strict cloud fallback
                       web_sources if web_block else [], message_id, memory_epoch, question)
             if update_id is None:
                 self._record_chat(*record)

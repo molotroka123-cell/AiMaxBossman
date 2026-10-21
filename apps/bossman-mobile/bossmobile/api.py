@@ -174,6 +174,10 @@ class JeffManualIn(BaseModel):
 class JeffModeIn(BaseModel):
     strict: bool | None = None
     scope_all: bool | None = None
+    # owner 21.10: free cloud answers by the manual while the local model is unavailable (sections go to the provider)
+    cloud_fallback: bool | None = None
+    local_timeout_s: int | None = Field(default=None, ge=10, le=300)
+    cloud_daily_max: int | None = Field(default=None, ge=0, le=1000)
 
 
 class JeffCheckIn(BaseModel):

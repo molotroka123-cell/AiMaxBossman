@@ -5,8 +5,12 @@ Mounted under /api with the normal owner session/CSRF or token auth (participant
   PUT    /jeff-kb/manual          — upload / replace: {"name": "x.pdf", "data_b64": "..."} (.txt .md .pdf .docx, <= 8 MB)
   DELETE /jeff-kb/manual          — remove (strict mode goes off)
   GET    /jeff-kb/sections        — numbered section titles (no text)
-  PUT    /jeff-kb/mode            — {"strict": bool, "scope_all": bool} (scope_all = every participant, default off)
+  PUT    /jeff-kb/mode            — {"strict": bool, "scope_all": bool, "cloud_fallback": bool, "local_timeout_s": int,
+                                     "cloud_daily_max": int} (scope_all = every participant, default off;
+                                     cloud_fallback = free cloud answers by the manual when the local model is
+                                     unavailable, default ON — owner 21.10)
   POST   /jeff-kb/check           — owner test: {"question": "...", "use_manual": true|false} -> answer + cited sections
+                                    + provenance: engine local|cloud, provider, model (bcc.pit.jeff_kb_cloud)
   GET    /jeff-model              — configured / chosen / effective local model of Jeff
   PUT    /jeff-model              — {"model": "gemma4-31b-uncensored:latest"}: Jeff answers with it from the next message
   DELETE /jeff-model              — back to the configured model
@@ -15,6 +19,7 @@ Nothing here logs manual content, its name, a section title or a question: the s
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import binascii
 import ipaddress
@@ -26,6 +31,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..pit import jeff_kb as kb
+from ..pit import jeff_kb_cloud as kc
 from ..pit import jeff_model as jm
 from ..pit.config import DEFAULT_LOCAL_URL
 from . import Feature
@@ -44,6 +50,9 @@ class ManualIn(BaseModel):
 class ModeIn(BaseModel):
     strict: bool | None = None
     scope_all: bool | None = None
+    cloud_fallback: bool | None = None
+    local_timeout_s: int | None = Field(default=None, ge=kc.MIN_LOCAL_TIMEOUT_S, le=kc.MAX_LOCAL_TIMEOUT_S)
+    cloud_daily_max: int | None = Field(default=None, ge=0, le=kc.MAX_DAILY_MAX)
 
 
 class CheckIn(BaseModel):
@@ -96,6 +105,19 @@ def default_chat_factory(url: str, model: str):
 chat_factory = default_chat_factory
 
 
+def default_cloud_route(svc):
+    """The strict-manual cloud fallback goes through Bossman's own registry (governed, free-only, health-ranked)."""
+    return kc.RegistryRoute(svc.registry)
+
+
+cloud_route_factory = default_cloud_route
+
+
+def _local_provider(url: str) -> str:
+    from ..pit.ollama_native import is_native_ollama_url
+    return "ollama" if is_native_ollama_url(url) else "local"
+
+
 def _kb_error(exc: Exception, status: int = 422) -> HTTPException:
     return HTTPException(status, {"message": str(exc)[:200], "code": "JEFF_KB"})
 
@@ -137,7 +159,9 @@ async def kb_sections(request: Request):
 async def kb_mode(body: ModeIn, request: Request):
     jeff_dir, _cfg = _jeff(request)
     try:
-        return kb.set_mode(jeff_dir, strict=body.strict, scope_all=body.scope_all)
+        return kb.set_mode(jeff_dir, strict=body.strict, scope_all=body.scope_all,
+                           cloud_fallback=body.cloud_fallback, local_timeout_s=body.local_timeout_s,
+                           cloud_daily_max=body.cloud_daily_max)
     except kb.KBError as exc:
         raise _kb_error(exc, 409) from None
 
@@ -154,16 +178,41 @@ async def kb_check(body: CheckIn, request: Request):
     if not _loopback(url):
         raise _kb_error(ValueError("у Jeff не локальная модель — проверка не запускается"), 409)
     model = jm.status(jeff_dir, _configured_models(cfg))["effective"]
+    local_chat = chat_factory(url, model)
+    fallback = None
+    state = kb.read_state(jeff_dir)
+    if manual is not None and state["cloud_fallback"]:
+        # Owner 21.10: the local model first, with a SHORT timeout that decides «unavailable»; then the same strict
+        # request to a free cloud model of Bossman's registry. Without the switch nothing here changes.
+        limit = kc.local_timeout_s(state)
+        unbounded = local_chat
+
+        async def local_chat(messages: list[dict]) -> str:
+            return await asyncio.wait_for(unbounded(messages), timeout=limit)
+
+        route = cloud_route_factory(request.app.state.svc)
+
+        async def fallback(messages: list[dict], reason: str) -> kc.CloudOutcome:
+            return await kc.ask_cloud(route, messages, data_dir=jeff_dir, state=state, local_reason=reason,
+                                      budget_s=kc.CHECK_BUDGET_S, stop_dir=_cc_data_dir(request), surface="check")
     try:
-        out = await kb.check_answer(chat_factory(url, model), body.question, manual=manual)
+        out = await kb.check_answer(local_chat, body.question, manual=manual, fallback=fallback)
     except kb.KBError as exc:
         raise _kb_error(exc) from None
+    except kc.ModelsUnavailable as exc:
+        kb.audit(jeff_dir, "check", use_manual=True, engine="none", reason=exc.cloud_reason,
+                 local_reason=exc.local_reason)
+        raise HTTPException(503, {"message": str(exc), "code": "JEFF_NO_MODELS",
+                                  "local_reason": exc.local_reason, "cloud_reason": exc.cloud_reason}) from None
     except Exception:  # noqa: BLE001 - provider text never reaches the phone
         raise HTTPException(502, {"message": "локальная модель Jeff не ответила (Ollama запущена?)",
                                   "code": "JEFF_MODEL_DOWN"}) from None
+    if out.get("engine") != "cloud":
+        out = {**out, **kc.provenance("local", provider=_local_provider(url), model=model)}
     kb.audit(jeff_dir, "check", use_manual=bool(body.use_manual), cited=len(out.get("cited") or []),
-             no_match=bool(out.get("no_match")))
-    return {**out, "model": model}
+             no_match=bool(out.get("no_match")), engine=str(out.get("engine")), provider=out.get("provider") or "",
+             model=out.get("model") or "")
+    return {**out, "local_model": model}
 
 
 @router.get("/jeff-model")

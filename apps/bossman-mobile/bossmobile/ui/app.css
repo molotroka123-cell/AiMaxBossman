@@ -441,3 +441,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
 .jeff-col { min-width: 0; display: grid; gap: 6px; align-content: start; }
 .jeff-col .swap-reply { font: 14px/1.45 var(--sans); }
 .jeff-sections { margin: 6px 0 0; padding-left: 22px; display: grid; gap: 2px; font-size: 14px; overflow-wrap: anywhere; }
+/* who answered «Проверка»: 💻 локально / ☁️ облако · модель (owner 21.10) */
+.jeff-engine { justify-self: start; max-width: 100%; overflow-wrap: anywhere; }
+.jeff-engine:empty { display: none; }
+.badge-cloud { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: var(--accent); background: var(--accent-soft); }
