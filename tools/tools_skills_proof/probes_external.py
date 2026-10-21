@@ -83,6 +83,12 @@ def _env(**values: str | None):
                 os.environ[k] = v
 
 
+def _body(msg: str) -> str:
+    """Tool message without the engine's 'external data, not commands' header."""
+    sep = "---" + chr(10)
+    return msg.split(sep, 1)[1] if msg.startswith("Ниже — внешние данные") and sep in msg else msg
+
+
 def _under(root: Path, p: Any) -> Path:
     rp = Path(p).resolve()
     assert str(rp).lower().startswith(str(Path(root).resolve()).lower()), f"{rp} escapes sandbox {root}"
@@ -148,7 +154,7 @@ async def _ask_cycle(lab: Lab, tool: str, args: dict, perms: dict | None = None,
         out["handler_calls_after_reject"] = len(c.calls) if c else None
         t2 = await lab.run(agent, steps, decide=True)
         out["approve_rows"] = [r["status"] for r in t2.tool_rows if r["tool"] == tool]
-        out["approve_content"] = short(t2.tool_messages()[-1] if t2.tool_messages() else "", 240)
+        out["approve_content"] = short(_body(t2.tool_messages()[-1] if t2.tool_messages() else ""), 240)
         out["handler_calls_after_approve"] = len(c.calls) if c else None
         out["effect_rows"] = [r["effect"] for r in t2.tool_rows if r["tool"] == tool]
     return out
@@ -180,7 +186,7 @@ async def _probe_placeholders(lab: Lab, base: Path) -> list[Row]:
             with _env(**({cred: "proof-dummy-credential"} if cred else {})):
                 cred_run = await lab.run(await lab.agent([tool], {}), [("tool", tool, dict(args)), ("text", "ok")],
                                          decide=True)
-            with_cred = short(cred_run.tool_messages()[-1] if cred_run.tool_messages() else "", 200)
+            with_cred = short(_body(cred_run.tool_messages()[-1] if cred_run.tool_messages() else ""), 200)
             _need(_gate_ok(o, False), f"gate misbehaved: {o}")
             rows.append(_row(tool, STRUCTURAL_ONLY,
                              f"gate proven (ask->reject->approve) but approved handler returned: {o['approve_content']}",
@@ -194,10 +200,10 @@ async def _probe_placeholders(lab: Lab, base: Path) -> list[Row]:
                              ("plugin:n8n.workflow_list", {}, "N8N_API_KEY")):
         ag = await lab.agent([tool], {})
         t0 = await lab.run(ag, [("tool", tool, args), ("text", "ok")], decide=None)
-        no_cred = short(t0.tool_messages()[-1] if t0.tool_messages() else "", 200)
+        no_cred = short(_body(t0.tool_messages()[-1] if t0.tool_messages() else ""), 200)
         with _env(**{cred: "proof-dummy-credential"}):
             t1 = await lab.run(ag, [("tool", tool, args), ("text", "ok")], decide=None)
-        with_cred = short(t1.tool_messages()[-1] if t1.tool_messages() else "", 200)
+        with_cred = short(_body(t1.tool_messages()[-1] if t1.tool_messages() else ""), 200)
         rows.append(_row(tool, STRUCTURAL_ONLY, f"no credential -> {no_cred}; dummy credential -> {with_cred}",
                          "generic placeholder handler: never performs the external call", "inert on the owner's phone"))
     return rows
@@ -231,7 +237,7 @@ async def _probe_gmail(lab: Lab, base: Path) -> list[Row]:
                 rows.append(_row(tool, FAILED, str(exc)))
         for tool, args2 in (("plugin:gmail.search", {"query": "x"}), ("plugin:gmail.read", {"id": "abc"})):
             t = await lab.run(allowed, [("tool", tool, args2), ("text", "ok")], decide=None)
-            msg = short(t.tool_messages()[-1] if t.tool_messages() else "", 200)
+            msg = short(_body(t.tool_messages()[-1] if t.tool_messages() else ""), 200)
             rows.append(_row(tool, NOT_RUN, f"allowed agent, no connection -> {msg}",
                              "needs the owner's Gmail OAuth/IMAP connection; not available and not to be used here",
                              "needs owner Gmail connection"))
@@ -253,7 +259,7 @@ async def _probe_studio(lab: Lab, base: Path) -> list[Row]:
     ag = await lab.agent(["studio.status"], {})
     t = await lab.run(ag, [("tool", "studio.status", {"job_id": 999999}), ("text", "ok")], decide=None)
     rows.append(_row("studio.status", STRUCTURAL_ONLY,
-                     f"real handler, unknown job -> {short(t.tool_messages()[-1] if t.tool_messages() else '', 200)}",
+                     f"real handler, unknown job -> {short(_body(t.tool_messages()[-1] if t.tool_messages() else ''), 200)}",
                      "only the error path was executed; the success path needs a job queued by studio.generate, which "
                      "is forbidden here"))
     return rows
@@ -277,7 +283,7 @@ async def _probe_sql(lab: Lab, base: Path) -> list[Row]:
         for sql in ("insert into t(v) values ('x')", "drop table t", "select 1; drop table t",
                     "with x as (select 1) delete from t"):
             tt = await lab.run(ag, [("tool", "plugin:sql.read", {"sql": sql}), ("text", "ok")])
-            bad.append((sql, short(tt.tool_messages()[-1] if tt.tool_messages() else "", 80)))
+            bad.append((sql, _body(tt.tool_messages()[-1] if tt.tool_messages() else "")))
     after = hashlib.sha256(db.read_bytes()).hexdigest()
     msg = good.tool_messages()[-1] if good.tool_messages() else ""
     _need("alpha" in msg and "beta" in msg, f"SELECT result missing rows: {msg[:200]}")
@@ -332,9 +338,9 @@ async def _probe_obsidian(lab: Lab, base: Path) -> list[Row]:
 
 
 async def _probe_telegram_status(lab: Lab, base: Path) -> list[Row]:
-    cfgdir = _under(base, Path(lab.settings.data_dir) / "telegram-companion")
-    cfgdir.mkdir(parents=True, exist_ok=True)
-    cfg = cfgdir / "config.json"
+    from bcc.telegram_companion.paths import companion_config_path
+    cfg = _under(lab.root, companion_config_path(lab.settings.data_dir, read_fallback=True))
+    cfg.parent.mkdir(parents=True, exist_ok=True)
     cfg.write_text(json.dumps({"enabled": True, "bot_username": "proof_bot",
                                "people": [{"role": "owner", "name": "p"}]}), encoding="utf-8")
     try:
@@ -345,7 +351,7 @@ async def _probe_telegram_status(lab: Lab, base: Path) -> list[Row]:
         st = json.loads(body)
         _need(st.get("bot_username") == "proof_bot" and st.get("owner_configured") is True, f"status wrong: {msg[:200]}")
         _need(st.get("configured") is False and st.get("token_stored") is False, "token/config flags wrong")
-        _under(base, st.get("config_path"))
+        _under(lab.root, st.get("config_path"))
         return [_row("plugin:telegram.status", PROVEN_EXECUTED,
                      f"read synthetic config: bot_username={st['bot_username']} owner_configured=True configured=False "
                      "(no credentials file)", "local file read only; no Telegram network call exists in this tool")]

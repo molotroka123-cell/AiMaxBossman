@@ -1,0 +1,607 @@
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+Exception during reset or similar
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 985, in _finalize_fairy
+    fairy._reset(
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1433, in _reset
+    pool._dialect.do_rollback(self)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 711, in do_rollback
+    dbapi_connection.rollback()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 302, in rollback
+    self.await_(self._connection.rollback())
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 197, in rollback
+    await self._execute(self._conn.rollback)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+runtime_s 27.4
+Counter({'NOT_RUN': 33, 'STRUCTURAL_ONLY': 10, 'PROVEN_EXECUTED': 9, 'PROVEN_GATED': 3}) 55
+STRUCTURAL_ONLY  plugin:calendar.create             'gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: calendar.create — '
+STRUCTURAL_ONLY  plugin:drive.write                 'gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: drive.write — нет '
+STRUCTURAL_ONLY  plugin:n8n.workflow_run            'gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: n8n.workflow_run —'
+STRUCTURAL_ONLY  plugin:github.issue_create         'gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: github.issue_creat'
+STRUCTURAL_ONLY  plugin:telegram.send               'gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: telegram.send — не'
+STRUCTURAL_ONLY  plugin:browser.form_submit         'gate proven (ask->reject->approve) but approved handler returned: NOT_TESTED_LIVE: plugin:browser.form_submit '
+STRUCTURAL_ONLY  plugin:calendar.search             'no credential -> SKIP_EXTERNAL_CREDENTIAL: calendar.search — нет креда GOOGLE_OAUTH. Побочного эффекта нет.; d'
+STRUCTURAL_ONLY  plugin:drive.search                'no credential -> SKIP_EXTERNAL_CREDENTIAL: drive.search — нет креда GOOGLE_OAUTH. Побочного эффекта нет.; dumm'
+STRUCTURAL_ONLY  plugin:n8n.workflow_list           'no credential -> SKIP_EXTERNAL_CREDENTIAL: n8n.workflow_list — нет креда N8N_API_KEY. Побочного эффекта нет.; '
+PROVEN_GATED     plugin:gmail.send                  'agent not allowed by owner -> denied without approval; allowed agent -> ASK, reject keeps handler unreached, a'
+PROVEN_GATED     plugin:gmail.draft                 'agent not allowed by owner -> denied without approval; allowed agent -> ASK, reject keeps handler unreached, a'
+NOT_RUN          plugin:gmail.search                'allowed agent, no connection -> SKIP_EXTERNAL_CREDENTIAL: gmail.search — почта владельца не подключена (bossma'
+NOT_RUN          plugin:gmail.read                  'allowed agent, no connection -> SKIP_EXTERNAL_CREDENTIAL: gmail.read — почта владельца не подключена (bossman '
+PROVEN_GATED     studio.generate                    'ask->reject (canary 0 calls)->approve (canary 1 call)'
+STRUCTURAL_ONLY  studio.status                      "real handler, unknown job -> ошибка studio.status: KeyError: 'studio job not found'"
+PROVEN_EXECUTED  plugin:sql.read                    'SELECT returned alpha/beta (auto); 4 write/multi-statement SQLs refused; db sha256 unchanged 2eb6a0dad226'
+PROVEN_EXECUTED  plugin:obsidian.read               'note content returned (auto); ../ traversal and directory read blocked'
+PROVEN_EXECUTED  plugin:obsidian.write              'ask; reject -> no file; approve -> file content verified on disk; approved ../ write blocked, no file outside '
+PROVEN_EXECUTED  plugin:telegram.status             'read synthetic config: bot_username=proof_bot owner_configured=True configured=False (no credentials file)'
+PROVEN_EXECUTED  plugin:http.get                    'auto; body returned wrapped as external data; request seen: https://example.org/page; loopback target refused '
+PROVEN_EXECUTED  plugin:monitor.feed                'auto; body returned wrapped as external data; request seen: https://example.org/feed.xml'
+PROVEN_EXECUTED  plugin:mcp.tool_list               'ask; reject; approve -> real stdio MCP server listed tools: [{"name": "echo", "description": "[MCP-сервер proo'
+PROVEN_EXECUTED  plugin:mcp.tool_call               'ask; reject -> server counter unchanged; approve -> exactly one write_note executed on the server (counter fil'
+PROVEN_EXECUTED  mcp:*dynamic*                      'connect+refresh registered mcp:proofecho:*; echo auto (policy) ran; write_note ask->reject->approve ran exactl'
+NOT_RUN          plugin:browser.open                'needs a live Chromium session on a fixture page; owned by the browser probes (not run here)'
+NOT_RUN          plugin:github.repo_read            'host is hard-coded to https://api.github.com with no override; a loopback fake cannot be wired'
+NOT_RUN          plugin:ollama.chat                 "endpoint hard-coded to 127.0.0.1:11434 (the owner's real Ollama); calling it could load a model"
+NOT_RUN          plugin:openrouter.chat             'cloud call (openrouter.ai) - forbidden here; not gated-checked in this pass'
+NOT_RUN          openclaw.agents                    'probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)'
+NOT_RUN          openclaw.channels                  'probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)'
+NOT_RUN          openclaw.health                    'probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)'
+NOT_RUN          openclaw.send                      'probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)'
+NOT_RUN          openclaw.session_describe          'probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)'
+NOT_RUN          openclaw.sessions                  'probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)'
+NOT_RUN          opencode.abort                     'probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)'
+NOT_RUN          opencode.diff                      'probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)'
+NOT_RUN          opencode.send                      'probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)'
+NOT_RUN          opencode.session.start             'probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)'
+NOT_RUN          opencode.status                    'probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)'
+NOT_RUN          war_terminal.analyze_tender        'probe not completed in this pass (loopback War Terminal API / real app not wired yet)'
+NOT_RUN          war_terminal.check_compliance      'probe not completed in this pass (loopback War Terminal API / real app not wired yet)'
+NOT_RUN          war_terminal.draft_bid_checklist   'probe not completed in this pass (loopback War Terminal API / real app not wired yet)'
+NOT_RUN          war_terminal.estimate_cashflow     'probe not completed in this pass (loopback War Terminal API / real app not wired yet)'
+NOT_RUN          war_terminal.summarize_conflict    'probe not completed in this pass (loopback War Terminal API / real app not wired yet)'
+NOT_RUN          code:definition                    'probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpe'
+NOT_RUN          code:diagnostics                   'probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpe'
+NOT_RUN          code:hover                         'probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpe'
+NOT_RUN          code:references                    'probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpe'
+NOT_RUN          code:symbols                       'probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpe'
+NOT_RUN          web.search                         'probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; n'
+NOT_RUN          web.open                           'probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; n'
+NOT_RUN          web.find                           'probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; n'
+NOT_RUN          web.cite                           'probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; n'
+NOT_RUN          web.fetch                          'probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; n'
+NOT_RUN          web.search@string-mcp              'probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; n'
