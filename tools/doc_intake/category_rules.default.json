@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "_help": "Правила категорий библиотеки. Владелец правит копию <library root>/category_rules.json (создаётся при первом запуске). Порядок: сначала extensions (расширение файла решает сразу), затем keywords: совпадение — начало слова без учёта регистра, стемы работают ('договор' находит 'договора'). Очки: совпадение в имени файла/заголовке x name_weight, в тексте x1 (не больше 5 на слово). Побеждает максимум очков >= min_score, при равенстве — категория выше в списке. Иначе default.",
+  "default": "other",
+  "min_score": 2,
+  "name_weight": 3,
+  "text_chars": 20000,
+  "categories": [
+    {
+      "name": "images",
+      "extensions": [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic"]
+    },
+    {
+      "name": "tenders",
+      "keywords": ["тендер", "закупк", "госзакуп", "44-фз", "223-фз", "аукцион", "котировк", "конкурсн", "извещени",
+                   "tender", "procurement", "rfq", "rfp", "invitation to bid", "contract notice", "tenders electronic daily"]
+    },
+    {
+      "name": "legal",
+      "keywords": ["договор", "соглашени", "контракт", "устав", "доверенност", "лицензионн", "оферт", "претензи",
+                   "исков", "судебн", "арбитраж", "nda", "contract", "agreement", "terms and conditions", "license agreement",
+                   "power of attorney", "lawsuit", "court"]
+    },
+    {
+      "name": "finance",
+      "keywords": ["счёт", "счет-фактур", "акт сверки", "баланс", "бюджет", "налог", "выписк", "банк", "финанс",
+                   "инвестиц", "доходност", "прибыл", "invoice", "balance sheet", "budget", "tax", "bank statement",
+                   "finance", "financial", "investment", "portfolio", "returns", "capital market", "asset allocation",
+                   "equity", "bond", "inflation", "ltcma"]
+    },
+    {
+      "name": "manuals",
+      "keywords": ["методичк", "методическ", "руководство", "инструкци", "памятк", "регламент", "учебн", "пособи",
+                   "manual", "handbook", "guide", "how to", "tutorial", "playbook"]
+    },
+    {
+      "name": "tech",
+      "keywords": ["техническое задание", "тз", "спецификац", "архитектур", "api", "sdk", "протокол", "схема данных",
+                   "datasheet", "specification", "architecture", "python", "docker", "kubernetes", "database", "schema",
+                   "firmware", "endpoint"]
+    }
+  ]
+}
