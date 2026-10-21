@@ -38,6 +38,24 @@ def test_jeff_kb_proxies_to_the_owner_api(authed):
     assert authed.c.delete("/m/api/jeff-kb/manual", headers=h).json()["method"] == "DELETE"
 
 
+def test_jeff_kb_cloud_fallback_switch_and_provenance_go_through_the_real_models(authed):
+    """Owner 21.10: the cloud fallback switch is a field of the mode model; the check's provenance reaches the phone."""
+    h = {"X-BM-CSRF": authed.csrf}
+    r = authed.c.put("/m/api/jeff-kb/mode", headers=h, json={"cloud_fallback": False})
+    assert r.json() == {"path": "/api/jeff-kb/mode", "method": "PUT", "echo": {"cloud_fallback": False}}
+    body = {"cloud_fallback": True, "local_timeout_s": 60, "cloud_daily_max": 50}
+    assert authed.c.put("/m/api/jeff-kb/mode", headers=h, json=body).json()["echo"] == body
+    sent = len(_calls(authed, "/api/jeff-kb/mode"))
+    for bad in ({"cloud_fallback": "maybe"}, {"local_timeout_s": 5}, {"local_timeout_s": 301},
+                {"cloud_daily_max": -1}, {"cloud_daily_max": 5000}):
+        assert authed.c.put("/m/api/jeff-kb/mode", headers=h, json=bad).status_code == 422, bad
+    assert len(_calls(authed, "/api/jeff-kb/mode")) == sent, "refused before Bossman"
+    out = authed.post("/m/api/jeff-kb/check", json={"question": "Сколько?"}).json()
+    assert out["engine"] == "cloud" and out["provider"] == "OpenRouter" and out["model"] == "vendor/model-x:free"
+    plain = authed.post("/m/api/jeff-kb/check", json={"question": "Сколько?", "use_manual": False}).json()
+    assert plain["engine"] == "local"
+
+
 def test_jeff_kb_upload_refuses_wrong_type_bad_base64_and_oversize_before_bossman(authed):
     h = {"X-BM-CSRF": authed.csrf}
     ok_b64 = base64.b64encode(b"x").decode()

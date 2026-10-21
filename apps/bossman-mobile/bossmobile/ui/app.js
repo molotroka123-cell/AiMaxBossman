@@ -350,10 +350,13 @@
       kv('Разделов', st.present ? st.sections : '—'),
       kv('Размер', st.present ? fmtBytes(st.size_bytes) : '—'),
       kv('Строгий режим', st.strict ? (st.scope_all ? 'включён · для всех' : 'включён · только мой чат') : 'выключен'),
+      kv('Облако, если ПК занят', st.cloud_fallback === false ? 'выключено'
+        : `включено${st.cloud_calls_today ? ` · сегодня ${st.cloud_calls_today}` : ''}`),
     );
     $('jeff-strict').checked = !!st.strict;
     $('jeff-strict').disabled = !st.readable;
     $('jeff-scope-all').checked = !!st.scope_all;
+    $('jeff-cloud').checked = st.cloud_fallback !== false;     // owner 21.10: ON unless switched off
     $('jeff-delete-btn').disabled = !st.present;
     $('jeff-model-line').textContent = `Модель Jeff: ${m.effective || '—'}${m.override ? ' (выбрана вами)' : ' (по умолчанию)'}`;
   }
@@ -375,6 +378,14 @@
     try { await fn(); if (done) toast(done); }
     catch (err) { toast(err.message); }
     await loadJeffView();
+  }
+  // Who answered «Проверка»: the PC's own model or the free cloud fallback (provider/model come from Bossman).
+  function jeffEngine(node, r) {
+    if (!node) return;
+    const cloud = r && r.engine === 'cloud';
+    node.className = 'jeff-engine ' + (cloud ? 'badge-cloud' : 'badge-local');
+    node.textContent = !r ? '' : cloud ? `☁️ облако · ${r.model || 'модель'}` : '💻 локально';
+    node.title = cloud ? 'Локальная модель была недоступна — ответила бесплатная облачная модель по тем же разделам' : '';
   }
   function toBase64(buf) {
     const bytes = new Uint8Array(buf); let bin = '';
@@ -404,6 +415,11 @@
       if (on && !confirm('Отвечать строго по методичке ВСЕМ участникам, а не только в вашем чате?')) { $('jeff-scope-all').checked = false; return; }
       jeffAct(() => api('PUT', '/jeff-kb/mode', { scope_all: on }));
     });
+    $('jeff-cloud').addEventListener('change', () => {
+      tap();
+      jeffAct(() => api('PUT', '/jeff-kb/mode', { cloud_fallback: $('jeff-cloud').checked }),
+        $('jeff-cloud').checked ? 'Облачный запасной вариант включён' : 'Только локальная модель');
+    });
     $('jeff-model-gemma').addEventListener('click', () => { tap(); jeffAct(() => api('PUT', '/jeff-kb/model', { model: JEFF_GEMMA }), 'Jeff отвечает через Gemma'); });
     $('jeff-model-default').addEventListener('click', () => { tap(); jeffAct(() => api('DELETE', '/jeff-kb/model'), 'Модель Jeff по умолчанию'); });
     $('jeff-check-form').addEventListener('submit', async (e) => {
@@ -415,16 +431,18 @@
       $('jeff-col-plain').hidden = !compare; $('jeff-col-manual').hidden = false;
       $('jeff-ans-plain').textContent = compare ? 'Jeff думает…' : '';
       $('jeff-ans-manual').textContent = 'Jeff думает…'; $('jeff-cited').textContent = '';
+      jeffEngine($('jeff-engine-plain'), null); jeffEngine($('jeff-engine-manual'), null);
       const ask = (useManual) => api('POST', '/jeff-kb/check', { question, use_manual: useManual });
       try {
         // one after the other: the local model answers one request at a time
         if (compare) {
-          try { $('jeff-ans-plain').textContent = (await ask(false)).answer || '—'; }
+          try { const p = await ask(false); $('jeff-ans-plain').textContent = p.answer || '—'; jeffEngine($('jeff-engine-plain'), p); }
           catch (err) { $('jeff-ans-plain').textContent = 'Ошибка: ' + err.message; }
         }
         try {
           const r = await ask(true);
           $('jeff-ans-manual').textContent = r.answer || '—';
+          jeffEngine($('jeff-engine-manual'), r);
           const cited = (r.cited || []).map((c) => `§${c.n}${c.title ? ' — ' + c.title : ''}`);
           $('jeff-cited').textContent = cited.length ? 'Ссылки: ' + cited.join('; ') : (r.no_match ? 'В методичке не нашлось подходящих разделов.' : 'Без ссылок на разделы.');
         } catch (err) { $('jeff-ans-manual').textContent = 'Ошибка: ' + err.message; }
