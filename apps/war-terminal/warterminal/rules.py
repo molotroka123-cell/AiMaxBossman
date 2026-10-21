@@ -161,11 +161,16 @@ _NAME_STOP = frozenset({"ltd", "llc", "inc", "gmbh", "sro", "as", "the", "of", "
                         "ооо", "оао", "зао", "пао", "ао"})
 
 
+def fold(s: str) -> str:
+    """Accents stripped (město -> mesto), case folded, non-Latin letters KEPT. Shared by sanctions screening and
+    contact keyword matching, so both sides of every comparison are normalized the same way."""
+    return "".join(ch for ch in unicodedata.normalize("NFKD", s or "") if not unicodedata.combining(ch)).casefold()
+
+
 def _norm(s: str) -> set[str]:
     """Name tokens for screening: accents stripped (město -> mesto) but non-Latin letters KEPT, so a Cyrillic
     or Greek name is screened against same-script list entries instead of folding to an empty set (= PASS)."""
-    s = "".join(ch for ch in unicodedata.normalize("NFKD", s or "") if not unicodedata.combining(ch)).casefold()
-    return {t for t in re.split(r"[\W_]+", s) if len(t) > 1 and t not in _NAME_STOP}
+    return {t for t in re.split(r"[\W_]+", fold(s)) if len(t) > 1 and t not in _NAME_STOP}
 
 
 class SanctionsIndex:

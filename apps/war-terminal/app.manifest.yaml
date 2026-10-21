@@ -26,6 +26,12 @@ control:
     draft_bid_checklist: GET /api/v1/tenders/{key}/checklist
     approvals: GET /api/v1/approvals
     fx_report: GET /api/v1/fx/track/report
+    contacts.list: GET /api/v1/contacts
+    contacts.matches: GET /api/v1/contacts/{id}/matches
+    contacts.pitch: GET /api/v1/contacts/{id}/pitch
+    tenders.who_to_offer: GET /api/v1/tenders/{key}/matches
+    matches.feedback: POST /api/v1/matches/feedback
+    matches.metrics: GET /api/v1/matches/metrics
 
 entrypoints:
   standalone: true
