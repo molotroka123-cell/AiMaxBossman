@@ -582,4 +582,3 @@ async def test_16_owner_auto_bypass_permissions_mode(env, mini_repo: Path):
         "bypass_permissions": True,
     })
     assert deny_res.status_code == 403, deny_res.text
-

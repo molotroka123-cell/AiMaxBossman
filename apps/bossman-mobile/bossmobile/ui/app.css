@@ -469,4 +469,3 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
   font: 12px/1.45 var(--mono); max-height: 22vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .oc-term-bar { display: flex; gap: 6px; align-items: center; }
 .oc-term-bar .field { min-height: 38px; padding: 6px 10px; font-size: 13px; }
-
