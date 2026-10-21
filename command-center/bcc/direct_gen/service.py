@@ -559,15 +559,42 @@ class DirectGenService:
         if self._resident is not None and self._resident.alive():
             await self._resident.stop()
 
-    async def _unload_ollama(self, model_name: str | None = None) -> list[str]:
+    def _need_bytes(self, spec: sdcli.SdSpec) -> int | None:
+        """Free memory this sd job needs (the preflight's figure); None = unknown (Jeff's model is then kept)."""
+        try:
+            return sdcli.required_bytes(spec, self.media_dir)
+        except Exception:  # noqa: BLE001 - the preflight reports a real problem itself
+            return None
+
+    def _ollama_kept(self, name: str) -> bool:
+        """Owner 21.10: Jeff keeps answering during dense generation. The prompt helper may be the SAME Ollama model as
+        Jeff (Gemma uncensored); Jeff's current model and BOSSMAN_OLLAMA_KEEP_MODELS are never unloaded here."""
+        try:
+            from ..pit import jeff_model
+            return jeff_model.ollama_key(name) in jeff_model.ollama_keep_models(self.data_dir.parent)
+        except Exception:  # noqa: BLE001 - unknown = today's behaviour (unload the helper)
+            return False
+
+    async def _unload_ollama(self, model_name: str | None = None, need_bytes: int | None = None) -> list[str]:
         """Immediately unload the local Ollama helper model (keep_alive=0) so VRAM is free before photo/video generation.
-        Never unloads all models from /api/ps blindly."""
+        Never unloads all models from /api/ps blindly. Jeff's own model (``_ollama_kept``) stays loaded, unless a job
+        is about to start (``need_bytes``) and the measured free memory is below what it needs: then it is unloaded
+        and the resource governor (keep mode) loads it again once the job is generating."""
         target = (model_name or getattr(self, "_last_assist_model", None) or "").strip() or None
         if target is None:
             with contextlib.suppress(Exception):
                 found = await self.qwen_lookup()
                 if found and len(found) >= 2 and found[1]:
                     target = str(found[1]).strip()
+        if target and self._ollama_kept(target):
+            free = self._free_memory() if need_bytes else None
+            if free is None or free >= need_bytes:
+                logging.getLogger("bcc.direct_gen").info("ollama unload skipped: %s is Jeff's model / a keep model",
+                                                         target)
+                return []
+            logging.getLogger("bcc.direct_gen").warning(
+                "ollama unload of Jeff's model %s: free %.1f GiB < job needs %.1f GiB (governor rewarms it)",
+                target, free / sdcli.GIB, need_bytes / sdcli.GIB)
         hook = getattr(self, "ollama_unload", None)
         if callable(hook):
             res = hook(target)
@@ -1180,7 +1207,8 @@ class DirectGenService:
                     warm = await self._resident.prepare_key(key if runner.use_server else None)
                 else:
                     await self._release_resident()
-                await self._unload_ollama((job.get("provenance") or {}).get("assist_model"))
+                await self._unload_ollama((job.get("provenance") or {}).get("assist_model"),
+                                          need_bytes=0 if warm else self._need_bytes(spec))
                 await asyncio.to_thread(self._preflight, spec, model_resident=warm)
                 folder = self.store.job_dir(job["participant"], job_id)
                 work, result = folder / "work", folder / "result"

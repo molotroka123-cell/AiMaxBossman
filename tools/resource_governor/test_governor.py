@@ -74,6 +74,11 @@ class FakeIO:
         self.ollama.remove(name)
         return True
 
+    def ollama_load(self, name, keep_alive):
+        self.calls.append(("load", name, keep_alive))
+        self.ollama.append(name)
+        return True
+
     def free_catalog(self): return self.catalog
     def provider_rows(self, provider_id): return self.rows
     def violation_read(self): return self.violation
@@ -83,8 +88,18 @@ class FakeIO:
         self.violation = None
 
     # jeff
+    jeff_model_name = "gemma4-31b-uncensored:latest"
+
     def hold_read(self): return self.hold
     def jeff_running(self): return self.jeff_up
+    def jeff_model(self): return self.jeff_model_name
+
+    def hold_clear(self, expected):
+        self.calls.append(("hold_clear", expected))
+        if self.hold != expected:
+            return False
+        self.hold = None
+        return True
 
     def jeff_stop(self, hold):
         self.calls.append(("jeff_stop", hold))
@@ -385,6 +400,7 @@ def test_cloud_free_without_verified_model_falls_back_to_pause():
     io = FakeIO()
     io.catalog = None
     io.rows = []
+    io.avail = 20_000_000_000                                     # RAM does not allow local Jeff (keep_min_free_gb 40)
     io.jeff_up = True
     io.jobs = [job(status="generating")]
     gov = g.Governor(io, cfg(jeff_during_generation="cloud_free", warm={"enabled": False}))
@@ -525,7 +541,7 @@ def test_config_unknown_jeff_mode_becomes_pause(tmp_path):
     p.write_text(json.dumps({"jeff_during_generation": "dance", "warm": {"max_models": 3}}))
     c = g.load_config(p)
     assert c["jeff_during_generation"] == "pause" and c["warm"]["max_models"] == 3 and c["warm"]["idle_s"] == 60
-    assert g.load_config(tmp_path / "missing.json")["jeff_during_generation"] == "cloud_free"
+    assert g.load_config(tmp_path / "missing.json")["jeff_during_generation"] == "keep"     # owner 21.10 default
 
 
 # --------------------------------------------------------------------------- Experiential Labs route + cost guard
@@ -560,6 +576,7 @@ def test_falls_back_to_openrouter_when_the_provider_route_is_unusable():
 
 def test_cost_violation_closes_cloud_bans_it_and_falls_back_to_pause_then_restores_at_the_end():
     io = FakeIO()
+    io.avail = 20_000_000_000                                     # RAM does not allow local Jeff (keep_min_free_gb 40)
     io.jeff_up = True
     io.jobs = [job(status="generating")]
     gov = g.Governor(io, cfg(jeff_during_generation="cloud_free", warm={"enabled": False}))
@@ -894,3 +911,314 @@ def test_preread_dry_run_reads_nothing():
     io.jobs = [job(HOT, status="queued")]
     run_preread_sync(g.Governor(io, cfg(dry_run=True, warm={"hot_models": [HOT]})))
     assert names(io, "preread") == []
+
+
+# ------------------------------------------------------------- 21.10: Jeff keeps answering during dense generation
+GEMMA = "gemma4-31b-uncensored:latest"
+JEFF_SIDE_EFFECTS = ("jeff_stop", "jeff_launch", "flag_write", "flag_remove", "hold_clear")
+
+
+def settle(gov):
+    """Wait for the Jeff-model rewarm thread (keep mode) so call order stays deterministic."""
+    if gov.rewarm_thread:
+        gov.rewarm_thread.join(5)
+
+
+def test_keep_mode_leaves_jeff_alone_and_never_unloads_his_model(tmp_path):
+    io = FakeIO()
+    io.jeff_up = True
+    io.ollama = [GEMMA, "qwen3.6-35b:latest", "bge-m3:latest"]
+    io.jobs = [job(status="generating")]
+    status = tmp_path / "status.json"
+    gov = g.Governor(io, cfg(jeff_during_generation="keep", ollama_unload_every_tick=True, warm={"enabled": False}),
+                     None, status)
+    gov.tick()
+    assert gov.phase == "ACTIVE" and gov.jeff.mode == "keep"
+    assert {c[1] for c in names(io, "unload")} == {"qwen3.6-35b:latest", "bge-m3:latest"} and io.ollama == [GEMMA]
+    body = json.loads(status.read_text(encoding="utf-8"))
+    assert body["ollama_kept"] == [GEMMA] and body["jeff_mode"] == "keep"
+    io.ollama = [GEMMA, "qwen3.6-35b:latest"]                     # a helper is reloaded mid-stream (dense photos)
+    io.jobs = [job(status="generating"), job(status="queued", age_s=10)]
+    gov.tick()
+    assert io.ollama == [GEMMA] and len(names(io, "unload")) == 3
+    io.jobs = [job(ended_ago=1)]
+    gov.tick()
+    assert gov.phase == "IDLE" and gov.jeff.mode is None
+    assert [c for c in io.calls if c[0] in JEFF_SIDE_EFFECTS] == []          # no stop, no hold, no route, no relaunch
+    assert io.jeff_up is True and io.hold is None and io.flag is None
+
+
+def test_keep_mode_matches_jeffs_model_without_tag_or_case():
+    io = FakeIO()
+    io.jeff_model_name = "Gemma4-31B-Uncensored"                  # owner's choice written without ":latest"
+    io.ollama = [GEMMA, "qwen3:8b"]
+    io.jobs = [job(status="loading")]
+    g.Governor(io, cfg(jeff_during_generation="keep", warm={"enabled": False})).tick()
+    assert io.ollama == [GEMMA] and names(io, "unload") == [("unload", "qwen3:8b")]
+    assert g.ollama_key("hf.co/x/Model") == "hf.co/x/model:latest" and g.ollama_key(" a:Q4 ") == "a:q4"
+
+
+def test_keep_mode_respects_ollama_helper_models_restriction():
+    io = FakeIO()
+    io.ollama = [GEMMA, "qwen3:8b", "bge-m3:latest"]
+    io.jobs = [job(status="generating")]
+    g.Governor(io, cfg(jeff_during_generation="keep", ollama_helper_models=[GEMMA, "qwen3:8b"],
+                       warm={"enabled": False})).tick()
+    assert io.ollama == [GEMMA, "bge-m3:latest"]                  # only listed helpers, and never Jeff's model
+
+
+@pytest.mark.parametrize("mode", ["pause", "cloud_free"])
+def test_pause_and_cloud_free_unchanged_but_ollama_keep_models_hold_in_every_mode(mode):
+    io = FakeIO()
+    io.jeff_up = True
+    io.ollama = [GEMMA, "bge-m3:latest", "qwen3:8b"]
+    io.jobs = [job(status="generating")]
+    gov = g.Governor(io, cfg(jeff_during_generation=mode, ollama_keep_models=["BGE-M3"], warm={"enabled": False},
+                             **OR_ONLY))
+    gov.tick()
+    assert io.ollama == ["bge-m3:latest"] and {c[1] for c in names(io, "unload")} == {GEMMA, "qwen3:8b"}
+    assert gov.jeff.mode == mode and names(io, "jeff_stop")      # Jeff handled exactly as before
+
+
+def test_keep_mode_dry_run_unloads_nothing():
+    io = FakeIO()
+    io.ollama = [GEMMA, "qwen3:8b"]
+    io.jobs = [job(status="generating")]
+    gov = g.Governor(io, cfg(dry_run=True, jeff_during_generation="keep"))
+    gov.tick()
+    assert names(io, "unload") == [] and io.ollama == [GEMMA, "qwen3:8b"] and gov.jeff.mode == "keep"
+
+
+def test_unknown_mode_given_directly_still_falls_back_to_pause():
+    io = FakeIO()
+    io.jeff_up = True
+    io.ollama = [GEMMA]
+    io.jobs = [job(status="generating")]
+    gov = g.Governor(io, cfg(jeff_during_generation="dance", warm={"enabled": False}))
+    gov.tick()
+    assert gov.jeff.mode == "pause" and ("jeff_stop", True) in io.calls and io.ollama == []
+
+
+def test_keep_after_a_pause_run_removes_only_the_governors_own_hold_and_relaunches_jeff(tmp_path):
+    io = FakeIO()
+    io.jeff_up = True
+    io.jobs = [job(status="generating")]
+    state = tmp_path / "state.json"
+    g.Governor(io, cfg(warm={"enabled": False}), state).tick()   # 21.10 live: cloud_free fell back to pause + hold
+    assert io.jeff_up is False and io.hold is not None
+    written = io.hold
+    gov = g.Governor(io, cfg(jeff_during_generation="keep", resume_delay_s=120, warm={"enabled": False}), state)
+    gov.tick()                                                    # governor restarted mid-stream with mode keep
+    assert ("hold_clear", written) in io.calls and io.hold is None and io.jeff_up is True
+    assert len(names(io, "jeff_launch")) == 1 and gov.jeff.mode == "keep"     # at once, not after the idle delay
+    saved = json.loads(state.read_text())
+    assert saved["jeff"]["mode"] == "keep" and saved["pending"] is None
+    gov.tick()
+    assert len(names(io, "jeff_launch")) == 1 and len(names(io, "jeff_stop")) == 1
+
+
+def test_keep_recovery_never_touches_a_hold_the_owner_wrote_or_changed(tmp_path):
+    io = FakeIO()
+    io.jeff_up = True
+    io.jobs = [job(status="generating")]
+    state = tmp_path / "state.json"
+    g.Governor(io, cfg(warm={"enabled": False}), state).tick()
+    io.hold = "owner 21.10: Jeff off"                             # the owner re-held Jeff meanwhile
+    gov = g.Governor(io, cfg(jeff_during_generation="keep", warm={"enabled": False}), state)
+    gov.tick()
+    assert names(io, "jeff_launch") == [] and names(io, "hold_clear") == [] and io.hold == "owner 21.10: Jeff off"
+    assert gov.jeff.mode == "keep"
+    io2 = FakeIO()                                                # owner's own hold from before: never ours to undo
+    io2.hold = "owner hold"
+    io2.jobs = [job(status="generating")]
+    state2 = tmp_path / "state2.json"
+    g.Governor(io2, cfg(warm={"enabled": False}), state2).tick()
+    g.Governor(io2, cfg(jeff_during_generation="keep", warm={"enabled": False}), state2).tick()
+    assert names(io2, "jeff_launch") == [] and io2.hold == "owner hold"
+
+
+def test_keep_flushes_a_pending_idle_relaunch_left_by_a_pause_run(tmp_path):
+    io = FakeIO()
+    io.jeff_up = True
+    io.jobs = [job(status="generating")]
+    state = tmp_path / "state.json"
+    gov1 = g.Governor(io, cfg(resume_delay_s=120, warm={"enabled": False}), state)
+    gov1.tick()
+    io.jobs = [job(ended_ago=1)]
+    gov1.tick()                                                   # pause left; local relaunch pending for 120 s
+    assert io.jeff_up is False and json.loads(state.read_text())["pending"]
+    io.jobs = [job(status="queued")]                              # the next photo of the stream is already queued
+    g.Governor(io, cfg(jeff_during_generation="keep", warm={"enabled": False}), state).tick()
+    assert io.jeff_up is True and io.hold is None and len(names(io, "jeff_launch")) == 1
+
+
+def test_keep_recovers_a_persisted_cloud_free_switch_to_local_jeff(tmp_path):
+    io = FakeIO()
+    io.jeff_up = True
+    io.jobs = [job(status="generating")]
+    state = tmp_path / "state.json"
+    g.Governor(io, cfg(jeff_during_generation="cloud_free", warm={"enabled": False}, **OR_ONLY), state).tick()
+    assert io.flag is not None
+    gov = g.Governor(io, cfg(jeff_during_generation="keep", resume_delay_s=120, warm={"enabled": False}), state)
+    gov.tick()
+    assert io.flag is None and io.jeff_up is True and names(io, "jeff_launch")[-1] == ("jeff_launch", False)
+    assert gov.jeff.mode == "keep"
+
+
+def test_cost_violation_falls_back_to_local_jeff_when_ram_allows_and_keeps_his_model():
+    """21.10 14:08 live: a cost violation on deepseek-v4.1-flash-uncensored stopped Jeff with a hold (pause)."""
+    io = FakeIO()
+    io.jeff_up = True
+    io.ollama = ["qwen3:8b"]
+    io.jobs = [job(status="generating")]
+    gov = g.Governor(io, cfg(jeff_during_generation="cloud_free", ollama_unload_every_tick=True, warm={"enabled": False}))
+    gov.tick()
+    assert gov.jeff.mode == "cloud_free" and io.flag is not None
+    io.violation = {"model": "deepseek-v4.1-flash-uncensored", "cost": 0.0002}
+    gov.tick()
+    settle(gov)
+    assert gov.jeff.mode == "keep" and gov.jeff.state["after_violation"] is True and io.violation is None
+    assert io.flag is None and io.jeff_up is True and io.hold is None
+    tail = [c for c in io.calls if c[0] in ("flag_remove", "jeff_stop", "jeff_launch")][-3:]
+    assert tail == [("flag_remove",), ("jeff_stop", False), ("jeff_launch", False)]   # local relaunch, no hold
+    io.ollama = [GEMMA, "qwen3:8b"]                               # local Jeff loads his model again
+    gov.tick()
+    assert io.ollama == [GEMMA]                                   # kept from now on, the helper is still unloaded
+    io.jobs = [job(ended_ago=1)]
+    gov.tick()
+    assert io.jeff_up is True and io.hold is None and gov.jeff.mode is None
+    io.t += 10
+    io.jobs = [job(status="generating")]                          # next generation inside the ban window
+    gov.tick()
+    assert gov.jeff.mode == "keep" and io.flag is None and io.ollama == [GEMMA]
+
+
+def test_cost_violation_keep_fallback_puts_the_owners_old_hold_back_when_configured():
+    io = FakeIO()
+    io.hold = "owner hold"
+    io.jobs = [job(status="generating")]
+    gov = g.Governor(io, cfg(jeff_during_generation="cloud_free", restore_owner_hold=True, warm={"enabled": False}))
+    gov.tick()
+    io.violation = {"model": "m", "cost": 1}
+    gov.tick()
+    settle(gov)
+    assert gov.jeff.mode == "keep" and io.jeff_up is True
+    io.jobs = [job(ended_ago=1)]
+    gov.tick()
+    assert io.jeff_up is False and io.hold is not None and io.calls[-1] == ("jeff_stop", True)
+
+
+def test_no_verified_route_falls_back_to_keep_when_ram_allows_or_jeffs_model_is_loaded():
+    io = FakeIO()
+    io.catalog, io.rows = None, []
+    io.jeff_up = True
+    io.ollama = [GEMMA, "qwen3:8b"]
+    io.avail = 20_000_000_000                                     # little free RAM, but Jeff's model is already loaded
+    io.jobs = [job(status="generating")]
+    gov = g.Governor(io, cfg(jeff_during_generation="cloud_free", warm={"enabled": False}))
+    gov.tick()
+    assert gov.jeff.mode == "keep" and io.ollama == [GEMMA] and io.jeff_up is True
+    assert [c for c in io.calls if c[0] in JEFF_SIDE_EFFECTS] == []
+    io2 = FakeIO()                                                # model not loaded, 60 GB free: keep as well
+    io2.catalog, io2.rows = None, []
+    io2.jobs = [job(status="generating")]
+    gov2 = g.Governor(io2, cfg(jeff_during_generation="cloud_free", warm={"enabled": False}))
+    gov2.tick()
+    assert gov2.jeff.mode == "keep"
+    io3 = FakeIO()                                                # fallback configured as pause: old behaviour
+    io3.catalog, io3.rows = None, []
+    io3.jeff_up = True
+    io3.jobs = [job(status="generating")]
+    gov3 = g.Governor(io3, cfg(jeff_during_generation="cloud_free", cloud_free_fallback="pause",
+                               warm={"enabled": False}))
+    gov3.tick()
+    assert gov3.jeff.mode == "pause" and ("jeff_stop", True) in io3.calls
+
+
+def test_keep_rewarms_jeffs_model_once_a_job_is_generating():
+    """direct-gen had to unload Gemma (free RAM < the job's need): load it again once the job's weights are in."""
+    io = FakeIO()
+    io.jeff_up = True
+    io.jobs = [job(status="loading")]
+    gov = g.Governor(io, cfg(jeff_during_generation="keep", warm={"enabled": False}))
+    gov.tick()
+    settle(gov)
+    assert names(io, "load") == []                                # never while the job's weights are loading
+    io.jobs = [job(status="generating")]
+    gov.tick()
+    settle(gov)
+    assert names(io, "load") == [("load", GEMMA, "2h")] and io.ollama == [GEMMA] and gov.rewarm_log[-1]["ok"] is True
+    gov.tick()
+    settle(gov)
+    assert len(names(io, "load")) == 1                            # loaded: nothing to do
+    io.ollama = []                                                # the next job start needed the memory again
+    io.t += 10
+    gov.tick()
+    settle(gov)
+    assert len(names(io, "load")) == 1                            # at most every min_interval_s
+    io.t += 130
+    gov.tick()
+    settle(gov)
+    assert len(names(io, "load")) == 2
+
+
+def test_no_rewarm_when_jeff_is_down_ram_is_low_another_model_loads_or_not_keep():
+    def loads(mode="keep", up=True, avail=60e9, jobs=None, **over):
+        io = FakeIO()
+        io.jeff_up, io.avail = up, int(avail)
+        io.jobs = jobs or [job(status="generating")]
+        gov = g.Governor(io, cfg(jeff_during_generation=mode, warm={"enabled": False}, **over))
+        gov.tick()
+        settle(gov)
+        return names(io, "load")
+    assert loads() == [("load", GEMMA, "2h")]
+    assert loads(up=False) == []                                  # Jeff stopped (owner hold): his model is not loaded
+    assert loads(avail=20e9) == []                                # below keep_min_free_gb
+    assert loads(jobs=[job(status="generating"), job("flux1-schnell", status="loading")]) == []
+    assert loads(mode="pause") == [] and loads(jeff_rewarm={"enabled": False}) == [] and loads(dry_run=True) == []
+
+
+def test_config_keep_mode_and_keep_models_validation(tmp_path):
+    p = tmp_path / "governor.json"
+    p.write_text(json.dumps({"jeff_during_generation": "keep", "ollama_keep_models": ["bge-m3", "x:1"]}))
+    c = g.load_config(p)
+    assert c["jeff_during_generation"] == "keep" and c["ollama_keep_models"] == ["bge-m3", "x:1"]
+    for bad in ("bge-m3", [1, 2], {"a": 1}, None):
+        p.write_text(json.dumps({"ollama_keep_models": bad}))
+        assert g.load_config(p)["ollama_keep_models"] == []
+    for mode in ("pause", "cloud_free"):                          # the other modes still load as configured
+        p.write_text(json.dumps({"jeff_during_generation": mode}))
+        assert g.load_config(p)["jeff_during_generation"] == mode
+    assert g.DEFAULT_CONFIG["jeff_during_generation"] == "keep" and "keep" in g.JEFF_MODES
+    d = g.load_config(tmp_path / "none.json")
+    assert d["ollama_keep_models"] == [] and d["cloud_free_fallback"] == "keep" and d["keep_min_free_gb"] == 40
+    p.write_text(json.dumps({"cloud_free_fallback": "dance", "keep_min_free_gb": -1}))
+    c = g.load_config(p)
+    assert c["cloud_free_fallback"] == "pause" and c["keep_min_free_gb"] == 40
+    for bad in ("40", True, None):
+        p.write_text(json.dumps({"keep_min_free_gb": bad}))
+        assert g.load_config(p)["keep_min_free_gb"] == 40
+    p.write_text(json.dumps({"keep_min_free_gb": 55.5, "cloud_free_fallback": "pause"}))
+    c = g.load_config(p)
+    assert c["keep_min_free_gb"] == 55.5 and c["cloud_free_fallback"] == "pause"
+
+
+def test_jeff_effective_model_follows_owner_choice_then_config_then_default(tmp_path):
+    pit = tmp_path / "data" / "pit-v1.7"
+    pit.mkdir(parents=True)
+    assert g.jeff_effective_model(pit, env={}) == "bossman-uncensored-chat:latest"
+    (pit / "config.json").write_text(json.dumps({"local_models": ["qwen3:8b"]}))
+    assert g.jeff_effective_model(pit, env={}) == "qwen3:8b"
+    assert g.jeff_effective_model(pit, env={"BOSSMAN_PIT_LOCAL_MODELS": "m1:latest, m2"}) == "m1:latest"
+    (pit / "jeff-model.json").write_text(json.dumps({"schema": "bossman.pit.jeff-model/1", "local_model": GEMMA}))
+    assert g.jeff_effective_model(pit, env={}) == GEMMA
+    for bad in ({"local_model": "liquid/lfm-2"}, {"local_model": "bad id!"}, ["x"]):
+        (pit / "jeff-model.json").write_text(json.dumps(bad))
+        assert g.jeff_effective_model(pit, env={}) == "qwen3:8b"
+    (pit / "jeff-model.json").write_text("{broken")
+    assert g.jeff_effective_model(pit, env={}) == "qwen3:8b"
+    other = tmp_path / "jeffdata"                                 # the PIT config repoints Jeff's data dir
+    (other / "pit-v1.7").mkdir(parents=True)
+    (other / "pit-v1.7" / "jeff-model.json").write_text(json.dumps({"local_model": GEMMA}))
+    (pit / "config.json").write_text(json.dumps({"data_dir": str(other), "local_models": ["qwen3:8b"]}))
+    assert g.jeff_effective_model(pit, env={}) == GEMMA

@@ -8,6 +8,9 @@ generations (photo/video, direct-gen) run. It never restarts or touches the runn
 * GENERATION GUARD (while any job is queued/loading/generating/postprocessing): unloads every Ollama model and keeps them
   unloaded, handles Jeff according to ``jeff_during_generation`` in governor.json, lowers the priority of identifiable
   non-essential Bossman python processes, and restores everything when the last job ends.
+  Owner 21.10 (120 GB unified memory: Jeff's Gemma + the photo model fit together): the default Jeff mode is ``keep`` -
+  Jeff is not touched and his current local model (``<pit home>/jeff-model.json``) is never unloaded; models listed in
+  ``ollama_keep_models`` are never unloaded in any mode.
 
 * LOAD GUARD (19.10, a qwen-image-2.1-uc-edit load sat 697 s at 2-4 MB/s on a 100 %-busy disk): while any job is
   ``loading`` or ``generating``, background python/node/pip/pytest/git/bash processes that are not Bossman services
@@ -46,14 +49,28 @@ LOG_NAME = "governor.log"
 PIT_FLAG = "generation-cloud.json"
 PIT_FLAG_SCHEMA = "bossman.pit.generation-cloud/1"
 PIT_VIOLATION = "generation-cloud-violation.json"
-JEFF_MODES = ("pause", "cloud_free", "cloud", "cpu_small")
+JEFF_MODES = ("keep", "pause", "cloud_free", "cloud", "cpu_small")
+JEFF_MODEL_FILE = "jeff-model.json"                     # bcc/pit/jeff_model.py FILE_NAME
+JEFF_DEFAULT_MODEL = "bossman-uncensored-chat:latest"   # bcc/pit/config.py DEFAULT_LOCAL_MODEL
+_MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/\-]{0,119}$")
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "dry_run": False,
     "poll_s": 10,
     "unknown_leave_s": 180,
-    # pause | cloud_free (default, owner 18.10: free cloud models, $0, chats leave the PC) | cloud (paid, STUB) | cpu_small (design only)
-    "jeff_during_generation": "cloud_free",
+    # keep (default, owner 21.10: Jeff keeps answering locally, his model stays loaded) | pause | cloud_free (owner 18.10:
+    # free cloud models, $0, chats leave the PC) | cloud (paid, STUB) | cpu_small (design only)
+    "jeff_during_generation": "keep",
+    # Ollama models never unloaded by the guard in ANY mode (exact names; ":latest" implied when no tag)
+    "ollama_keep_models": [],
+    # cloud_free unusable (no verified free route, or a cost violation 21.10 14:08): keep = local Jeff keeps answering
+    # when RAM allows (his model already loaded, or free RAM >= keep_min_free_gb: Gemma Q8 ~35 GB), else pause
+    "cloud_free_fallback": "keep",
+    "keep_min_free_gb": 40,
+    # keep: direct-gen unloads Jeff's model at a job start only when free RAM is below that job's need; once the job is
+    # generating (no job loading, Jeff running, free RAM >= keep_min_free_gb) it is loaded again, at most every
+    # min_interval_s
+    "jeff_rewarm": {"enabled": True, "keep_alive": "2h", "min_interval_s": 120},
     # Tried in order; the first route that verifies is used for the whole generation.
     #  bcc_provider: a Bossman provider row (bcc.db) whose listed model ALIASES are priced 0/0 and online there (Experiential
     #    Labs, provider 13: free on the owner's plan; the gateway lists list prices, so the real guard is usage.cost > 0
@@ -161,6 +178,17 @@ def load_config(path: Path | None = None) -> dict:
     if cfg.get("jeff_during_generation") not in JEFF_MODES:
         log.warning("unknown jeff_during_generation %r -> pause", cfg.get("jeff_during_generation"))
         cfg["jeff_during_generation"] = "pause"
+    keep = cfg.get("ollama_keep_models")
+    if not isinstance(keep, list) or not all(isinstance(m, str) for m in keep):
+        log.warning("ollama_keep_models must be a list of model names, got %r -> []", keep)
+        cfg["ollama_keep_models"] = []
+    if cfg.get("cloud_free_fallback") not in ("keep", "pause"):
+        log.warning("unknown cloud_free_fallback %r -> pause", cfg.get("cloud_free_fallback"))
+        cfg["cloud_free_fallback"] = "pause"
+    floor = cfg.get("keep_min_free_gb")
+    if isinstance(floor, bool) or not isinstance(floor, (int, float)) or floor < 0:
+        log.warning("keep_min_free_gb must be a number >= 0, got %r -> %s", floor, DEFAULT_CONFIG["keep_min_free_gb"])
+        cfg["keep_min_free_gb"] = DEFAULT_CONFIG["keep_min_free_gb"]
     return cfg
 
 
@@ -377,6 +405,39 @@ def pick_bcc_provider_models(rows: list[dict] | None, aliases: list[str]) -> lis
     return out[:5]
 
 
+def ollama_key(name: Any) -> str:
+    """Comparable Ollama model name: trimmed, lower case, the implicit ``:latest`` tag made explicit."""
+    key = str(name or "").strip().lower()
+    if key and ":" not in key.rsplit("/", 1)[-1]:
+        key += ":latest"
+    return key
+
+
+def _read_json_dict(path: Path) -> dict:
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def jeff_effective_model(pit_dir: Path, env: Any = None) -> str:
+    """Jeff's current local model, resolved like bcc.pit.jeff_model.effective_model (stdlib mirror, never raises): the
+    PIT config.json may repoint Jeff's data dir; the owner's valid choice in <pit home>/jeff-model.json wins, then
+    BOSSMAN_PIT_LOCAL_MODELS, then config.json ``local_models`` (first), then the default local model."""
+    env = os.environ if env is None else env
+    cfg = _read_json_dict(Path(pit_dir) / "config.json")
+    raw = str(cfg.get("data_dir") or "").strip()
+    home = Path(raw) / Path(pit_dir).name if raw else Path(pit_dir)
+    choice = _read_json_dict(home / JEFF_MODEL_FILE).get("local_model")
+    if isinstance(choice, str) and _MODEL_ID.match(choice.strip()) and not re.search(r"lfm|liquid/", choice, re.I):
+        return choice.strip()
+    configured = [m.strip() for m in str(env.get("BOSSMAN_PIT_LOCAL_MODELS") or "").split(",") if m.strip()]
+    if not configured and isinstance(cfg.get("local_models"), list):
+        configured = [m.strip() for m in cfg["local_models"] if isinstance(m, str) and m.strip()]
+    return configured[0] if configured else JEFF_DEFAULT_MODEL
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # Windows system access
 # ---------------------------------------------------------------------------------------------------------------
@@ -426,6 +487,17 @@ class SystemIO:
     def ollama_unload(self, name: str) -> bool:
         try:
             r = self._http.post(self.paths["ollama_url"] + "/api/generate", json={"model": name, "keep_alive": 0})
+            return r.status_code == 200
+        except Exception:  # noqa: BLE001
+            return False
+
+    def ollama_load(self, name: str, keep_alive: Any) -> bool:
+        """Load a model into Ollama (generate without a prompt). Own client: it runs in the rewarm thread and a load
+        of a 35 GB model takes far longer than the 5 s polling timeout."""
+        import httpx
+        try:
+            with httpx.Client(timeout=300.0) as client:
+                r = client.post(self.paths["ollama_url"] + "/api/generate", json={"model": name, "keep_alive": keep_alive})
             return r.status_code == 200
         except Exception:  # noqa: BLE001
             return False
@@ -480,6 +552,20 @@ class SystemIO:
             return self.hold_path.read_text(encoding="utf-8")
         except OSError:
             return None
+
+    def hold_clear(self, expected: str) -> bool:
+        """Remove hold-jeff only while it still holds exactly what the governor's own stop wrote (ownership)."""
+        try:
+            if self.hold_path.read_text(encoding="utf-8") != expected:
+                return False
+            self.hold_path.unlink()
+            return True
+        except OSError:
+            return False
+
+    def jeff_model(self) -> str:
+        """Jeff's current local model (owner's jeff-model.json in the pit home, else the configured default)."""
+        return jeff_effective_model(data_dir() / "pit-v1.7")
 
     def jeff_running(self) -> bool:
         return _lock_held(data_dir() / "pit-v1.7" / "poller.lock")
@@ -858,11 +944,19 @@ class JeffController:
             if self.mode == "cloud_free":
                 self._maybe_switch_route()
             return self.mode or want
+        if want == "keep":
+            self._enter_keep()
+            return "keep"
         if want == "cloud_free":
             route = self._verified_free_route()
             if route:
                 self._enter_cloud_free(route)
                 return "cloud_free"
+            if self._fallback_keep_ok():
+                log.warning("cloud_free requested but no verified free route (or banned after a cost violation): "
+                            "local Jeff keeps answering (keep, RAM allows)")
+                self._enter_keep()
+                return "keep"
             log.warning("cloud_free requested but no verified free route (or banned after a cost violation): "
                         "falling back to pause")
         elif want in ("cloud", "cpu_small"):
@@ -923,6 +1017,48 @@ class JeffController:
             self.io.jeff_launch()
         self._save()
 
+    def _enter_keep(self) -> None:
+        """Owner 21.10: Jeff keeps answering locally during the generation. Nothing is stopped, no hold is written, no
+        route is switched; the guard only skips Jeff's model when it unloads Ollama (Governor._keep_models)."""
+        self.state = {"mode": "keep", "since": _iso(self.io.now())}
+        self._save()
+        log.info("JEFF keep: Jeff untouched (no stop, no hold, no route switch)")
+
+    def _fallback_keep_ok(self) -> bool:
+        """cloud_free unusable: local Jeff (keep) instead of pause when ``cloud_free_fallback`` is keep and RAM allows -
+        his model is already loaded in Ollama, or free RAM >= ``keep_min_free_gb``. Unknown = pause (old behaviour)."""
+        if self.cfg.get("cloud_free_fallback", "pause") != "keep":
+            return False
+        try:
+            mine = ollama_key(self.io.jeff_model())
+            if any(ollama_key(n) == mine for n in self.io.ollama_ps()):
+                return True
+            return self.io.mem()["available"] >= float(self.cfg["keep_min_free_gb"]) * 1e9
+        except Exception:  # noqa: BLE001 - cannot measure -> the conservative pause
+            return False
+
+    def recover(self) -> None:
+        """Start-up with mode ``keep``: a previous run (pause / cloud_free) may have left Jeff stopped under the hold-jeff
+        it wrote, a cloud flag, or a pending idle relaunch. Undo exactly that, at once (keep = Jeff answers during a
+        generation, so no idle delay). A hold the owner wrote or changed is never touched (same ownership test)."""
+        if self.cfg["jeff_during_generation"] != "keep" or self.dry:
+            return
+        if self.state and self.mode != "keep":
+            log.info("JEFF recovery: the previous run left mode %s, the mode is now keep", self.mode)
+            self.leave("recovery: jeff mode is now keep")
+        pend, self.pending = self.pending, None
+        if pend:
+            written = pend.get("hold_written")
+            if written is not None and self.io.hold_read() != written:
+                log.warning("JEFF recovery: hold-jeff changed after the governor wrote it (owner decision wins)")
+            else:
+                if written is not None:
+                    self.io.hold_clear(written)          # only the hold the governor's own stop wrote
+                if not self.io.jeff_running():
+                    self.io.jeff_launch()
+                log.info("JEFF recovery: governor hold removed, local Jeff relaunched (keep)")
+        self._save()
+
     def _enter_pause(self) -> None:
         held = self.io.hold_read()
         running = self.io.jeff_running() or self._take_pending()
@@ -961,16 +1097,30 @@ class JeffController:
             self.io.cloud_flag_write({"models": self.state.get("models") or [], "provider_id": self.state.get("provider_id")})
 
     def check_violation(self) -> None:
-        """A Jeff reply reported usage.cost > 0: cloud_free is closed for cloud_ban_s and Jeff falls back to pause."""
+        """A Jeff reply reported usage.cost > 0: cloud_free is closed for cloud_ban_s and Jeff falls back to local
+        Jeff (keep) when RAM allows (owner 21.10 14:08: the pause fallback silenced Jeff), else to pause."""
         if self.mode != "cloud_free":
             return
         v = self.io.violation_read()
         if v is None:
             return
-        log.warning("COST VIOLATION: a cloud reply reported cost > 0 (model %s): leaving cloud_free for pause",
-                    str(v.get("model"))[:60])
         st = self.state
         self.banned_until = self.io.now() + float(self.cfg["cloud_ban_s"])
+        if self._fallback_keep_ok():
+            log.warning("COST VIOLATION: a cloud reply reported cost > 0 (model %s): leaving cloud_free for local "
+                        "Jeff (keep)", str(v.get("model"))[:60])
+            self._do("remove generation-cloud flag", lambda: self.io.cloud_flag_remove())   # FIRST: the restart is local
+            self._do("stop cloud Jeff (no hold)", lambda: self.io.jeff_stop(False))
+            self._do("launch local Jeff (no cloud flag)", lambda: self.io.jeff_launch())
+            if not self.dry:
+                self.io.violation_clear()
+            self.state = {"mode": "keep", "since": _iso(self.io.now()), "after_violation": True,
+                          "fallback_from": "cloud_free", "owner_hold_before": st.get("owner_hold_before"),
+                          "was_running_before": st.get("was_running_before")}
+            self._save()
+            return
+        log.warning("COST VIOLATION: a cloud reply reported cost > 0 (model %s): leaving cloud_free for pause",
+                    str(v.get("model"))[:60])
         self._do("remove generation-cloud flag", lambda: self.io.cloud_flag_remove())
         self._do("stop cloud Jeff, hold", lambda: self.io.jeff_stop(True))
         if not self.dry:
@@ -987,7 +1137,13 @@ class JeffController:
         if not st:
             return
         mode = st.get("mode")
-        if mode == "cloud_free":
+        if mode == "keep":
+            # keep touched nothing, so nothing is restored; after a cloud_free fallback only the owner's old hold
+            # comes back when restore_owner_hold is set (same rule as leaving cloud_free)
+            if st.get("fallback_from") and st.get("owner_hold_before") and self.cfg["restore_owner_hold"]:
+                self._do("stop local Jeff, owner's hold back", lambda: self.io.jeff_stop(True))
+                log.info("Jeff restored to the owner's hold (stopped, held)")
+        elif mode == "cloud_free":
             self._do("remove generation-cloud flag", lambda: self.io.cloud_flag_remove())   # FIRST: any restart is local
             restore_hold = bool(st.get("owner_hold_before")) and bool(self.cfg["restore_owner_hold"])
             self._do("stop cloud Jeff", lambda: self.io.jeff_stop(restore_hold))
@@ -1032,7 +1188,12 @@ class Governor:
         self.last_active = 0.0
         self.unknown_since: float | None = None
         self.unloads = 0
+        self.ollama_kept: list[str] = []                   # loaded models the last unload pass left alone (keep)
         self.jeff = JeffController(io, cfg, state_path, self.dry)
+        self._recovered = False
+        self.rewarm_thread: threading.Thread | None = None
+        self.rewarm_log: list[dict] = []
+        self._rewarm_at = -1e18
         self.depri: dict[tuple[int, float], tuple[int, int | None]] = {}
         self.depri_tick = 0
         self.status_path = status_path
@@ -1065,6 +1226,9 @@ class Governor:
 
     # -- one polling step ------------------------------------------------------------------------------------
     def tick(self) -> None:
+        if not self._recovered:
+            self._recovered = True                         # once, inside the loop's exception guard
+            self.jeff.recover()
         now = self.io.now()
         jobs = self.io.fetch_jobs()
         if jobs is None:
@@ -1082,6 +1246,7 @@ class Governor:
             self._load_guard(jobs)
             self._measure_load(jobs, now)
             self._maybe_preread(jobs, now)
+            self._maybe_rewarm_jeff(jobs, now)
         else:
             if self.phase == "ACTIVE":
                 self._leave_active("last job finished")
@@ -1108,9 +1273,9 @@ class Governor:
         kinds = sorted({f"{j.get('kind')}:{j.get('status')}" for j in live})
         self.last_decision = f"ACTIVE {len(live)} job(s) {kinds}"
         log.info("ENTER ACTIVE: %d live job(s) %s dry_run=%s", len(live), kinds, self.dry)
+        mode = self.jeff.enter()             # FIRST (21.10): a keep / fallback-keep decision protects Jeff's model,
+        log.info("jeff handling: %s", mode)  # and a stopped/switched Jeff cannot reload it after the unload
         self._unload_ollama()
-        mode = self.jeff.enter()
-        log.info("jeff handling: %s", mode)
         self._apply_depri()
         self._boost()
 
@@ -1140,13 +1305,27 @@ class Governor:
         self.hot_probed.clear()                 # re-measure the hot weights right after a generation
 
     # -- ollama ----------------------------------------------------------------------------------------------
+    def _keep_models(self) -> set[str]:
+        """Never unloaded: ``ollama_keep_models`` (every mode) and, while Jeff is in ``keep`` (configured, or the
+        cloud_free fallback), Jeff's current local model."""
+        keep = {ollama_key(m) for m in self.cfg.get("ollama_keep_models") or [] if str(m).strip()}
+        if "keep" in (self.cfg["jeff_during_generation"], self.jeff.mode):
+            keep.add(ollama_key(self.io.jeff_model()))
+        keep.discard("")
+        return keep
+
     def _unload_ollama(self, target_models: list[str] | set[str] | None = None) -> None:
         if not self.cfg["ollama_unload"]:
             return
         allowed = target_models if target_models is not None else self.cfg.get("ollama_helper_models")
         allowed_set = {str(m).strip().lower() for m in allowed if str(m).strip()} if allowed else None
+        keep = self._keep_models()
+        kept = []
         for name in list(self.io.ollama_ps()):
             if allowed_set is not None and str(name).strip().lower() not in allowed_set:
+                continue
+            if ollama_key(name) in keep:
+                kept.append(name)
                 continue
             if self.dry:
                 log.info("DRYRUN would unload ollama model %s (keep_alive=0)", name)
@@ -1154,6 +1333,43 @@ class Governor:
             ok = self.io.ollama_unload(name)
             self.unloads += 1 if ok else 0
             log.info("ollama unload %s -> %s", name, "ok" if ok else "FAILED")
+        if kept != self.ollama_kept:
+            log.info("ollama kept loaded (Jeff / ollama_keep_models): %s", kept)
+        self.ollama_kept = kept
+
+    def _maybe_rewarm_jeff(self, jobs: list[dict], now: float) -> None:
+        """keep (21.10): direct-gen unloads Jeff's model at a job start only when free RAM is below the job's need. Once
+        a job is generating (its weights are in memory) and none is loading, Jeff's model is loaded again when Jeff runs
+        and free RAM >= keep_min_free_gb. In a background thread, at most every min_interval_s."""
+        rw = self.cfg.get("jeff_rewarm") or {}
+        if not rw.get("enabled") or self.jeff.mode != "keep":
+            return
+        if self.rewarm_thread and self.rewarm_thread.is_alive():
+            return
+        live = live_jobs(jobs)
+        if not any(j.get("status") == "generating" for j in live) or any(j.get("status") == "loading" for j in live):
+            return
+        if now - self._rewarm_at < float(rw.get("min_interval_s", 120)):
+            return
+        model = self.io.jeff_model()
+        if any(ollama_key(n) == ollama_key(model) for n in self.io.ollama_ps()) or not self.io.jeff_running():
+            return
+        self._rewarm_at = now
+        avail = self.io.mem()["available"]
+        if avail < float(self.cfg["keep_min_free_gb"]) * 1e9:
+            log.info("JEFF rewarm skipped: free RAM %.1f GB < %s GB", avail / 1e9, self.cfg["keep_min_free_gb"])
+            return
+        keep_alive = rw.get("keep_alive", "2h")
+        log.info("JEFF rewarm: %s is not loaded while a job generates -> loading it (keep_alive %s)", model, keep_alive)
+        if self.dry:
+            return
+
+        def work() -> None:
+            ok = self.io.ollama_load(model, keep_alive)
+            self.rewarm_log.append({"model": model, "ok": ok, "at": _iso(self.io.now())})
+            log.info("JEFF rewarm %s -> %s", model, "ok" if ok else "FAILED")
+        self.rewarm_thread = threading.Thread(target=work, name="jeff-rewarm", daemon=True)
+        self.rewarm_thread.start()
 
     # -- priorities ------------------------------------------------------------------------------------------
     def _apply_depri(self) -> None:
@@ -1458,7 +1674,9 @@ class Governor:
         _atomic_json(Path(self.status_path), {
             "at": _iso(self.io.now()), "phase": self.phase, "dry_run": self.dry, "live_jobs": len(live_jobs(jobs)),
             "decision": self.last_decision, "jeff_mode": self.jeff.mode, "jeff_setting": self.cfg["jeff_during_generation"],
-            "ollama_unloads": self.unloads, "depri_processes": len(self.depri), "warm_log": self.warm_log[-6:],
+            "ollama_unloads": self.unloads, "ollama_kept": self.ollama_kept, "jeff_rewarm": self.rewarm_log[-3:],
+            "depri_processes": len(self.depri),
+            "warm_log": self.warm_log[-6:],
             "hot_mb_s": {Path(k).name: round(v) for k, v in self.hot_state.items()},
             "load_read": self.load_read, "load_guard_processes": len(self.guarded),
             "load_guard": [{"pid": pid, "name": v.get("name")} for (pid, _ct), v in list(self.guarded.items())[:12]],

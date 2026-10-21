@@ -15,6 +15,9 @@ Rules:
 - a banned model family (Liquid/LFM) or a malformed id is refused on write and ignored on read;
 - the runtime re-reads it on every turn (mtime cache), so a change applies to the next message without a restart.
   Jeff 2.0 helper modules that captured the model at start (model_guard probe) follow after the next restart.
+- owner 21.10 (Jeff keeps answering during dense photo generation): helpers that unload Ollama models (direct-gen
+  prompt assist) never unload Jeff's current model or a model named in ``BOSSMAN_OLLAMA_KEEP_MODELS``
+  (``ollama_keep_models``). The resource governor (tools/resource_governor, stdlib only) mirrors ``effective_model``.
 """
 from __future__ import annotations
 
@@ -32,6 +35,7 @@ from typing import Any
 FILE_NAME = "jeff-model.json"
 SCHEMA = "bossman.pit.jeff-model/1"
 GEMMA_LOCAL = "gemma4-31b-uncensored:latest"
+KEEP_ENV = "BOSSMAN_OLLAMA_KEEP_MODELS"
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/\-]{0,119}$")
 
 
@@ -117,6 +121,45 @@ def status(data_dir: Path | str, configured: list[str] | tuple[str, ...] = ()) -
     base = configured[0] if configured else DEFAULT_LOCAL_MODEL
     return {"schema": SCHEMA, "configured": base, "override": override or None,
             "effective": override or base, "default_url": DEFAULT_LOCAL_URL, "suggested": GEMMA_LOCAL}
+
+
+def ollama_key(name: Any) -> str:
+    """Comparable Ollama model name: trimmed, lower case, the implicit ``:latest`` tag made explicit."""
+    key = str(name or "").strip().lower()
+    if key and ":" not in key.rsplit("/", 1)[-1]:
+        key += ":latest"
+    return key
+
+
+def effective_model(cc_data_dir: Path | str) -> str:
+    """Jeff's local model right now, resolved like ``GET /api/jeff-model`` (bcc.features.jeff_kb): the PIT config may
+    repoint Jeff's data dir; the owner's choice (jeff-model.json) wins over BOSSMAN_PIT_LOCAL_MODELS / config.json
+    ``local_models``; neither = the default local model."""
+    from .config import pit_home
+    cc = Path(cc_data_dir)
+    try:
+        cfg = json.loads((pit_home(cc) / "config.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        cfg = {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    raw = str(cfg.get("data_dir") or "").strip()
+    env = [m.strip() for m in os.environ.get("BOSSMAN_PIT_LOCAL_MODELS", "").split(",") if m.strip()]
+    listed = cfg.get("local_models") if isinstance(cfg.get("local_models"), list) else []
+    return status(Path(raw) if raw else cc, env or [m for m in listed if isinstance(m, str)])["effective"]
+
+
+def ollama_keep_models(cc_data_dir: Path | str | None) -> set[str]:
+    """Ollama models a helper must never unload (owner 21.10): Jeff's current local model plus the comma list in
+    ``BOSSMAN_OLLAMA_KEEP_MODELS``, as ``ollama_key`` values. Never raises (an unreadable Jeff config = env list only)."""
+    keep = {ollama_key(m) for m in os.environ.get(KEEP_ENV, "").split(",") if m.strip()}
+    if cc_data_dir:
+        try:
+            keep.add(ollama_key(effective_model(cc_data_dir)))
+        except Exception:  # noqa: BLE001 - a broken Jeff config must not break a helper
+            pass
+    keep.discard("")
+    return keep
 
 
 def main(argv: list[str] | None = None) -> int:
