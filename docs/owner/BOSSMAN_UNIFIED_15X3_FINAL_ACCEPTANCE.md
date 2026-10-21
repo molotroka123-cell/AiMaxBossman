@@ -25,10 +25,10 @@
 
 ## 2. 15 × 3 = 45 Verified Improvements Matrix
 
-### Direction 1 — Jeff / Voice / Calls (`J1..J3`)
-- **J1 (Encrypted Methodichka & Section Citations `§N`)**: `command-center/bcc/features/jeff_training.py` — encrypted manual storage + strict section citation mode (`§N`) and side-by-side comparison (`/api/jeff/check`).
-- **J2 (Telegram MTProto Answering Machine & Barge-In)**: `command-center/bcc/features/telegram_calls.py` — configurable ring delay (`5–60s`), barge-in support, and emergency call stop (`/api/calls/stop`).
-- **J3 (Audio Contour Self-Test & Doctor)**: `/api/calls/selftest` and `/api/calls/doctor` exposed in Mobile Web Pult (`#view-calls`).
+### Direction 1 — Jeff / Voice / Calls (`J1..J3` / `B1-a..B1-c`)
+- **J1 / B1-a (`keep` Mode During Dense Photo Generation, `010bc6c4`)**: `tools/resource_governor/governor.py`, `command-center/bcc/direct_gen/service.py`, `command-center/bcc/pit/jeff_model.py` — Jeff's local model (`<pit home>/jeff-model.json`) is kept loaded during photo generation (`jeff_during_generation: keep`), cloud cost violation falls back to local `keep` instead of `pause` when RAM allows, and `jeff_rewarm` reloads Jeff's model if evicted (`85 passed` in `test_governor.py`, `test_direct_gen_jeff_keep.py` PASS).
+- **J2 / B1-b (Strict-Manual Free Cloud Fallback, `b67e34c0`)**: `command-center/bcc/pit/jeff_kb_cloud.py`, `bcc/pit/jeff_kb.py`, `bcc/features/jeff_kb.py`, `apps/bossman-mobile` (`sw.js` `v18`) — when the local model is unavailable, strict-manual answers fall back to verified `$0` free cloud models using only the retrieved manual sections (`§N`) and question (never memory/persona/history), with `💻 локально` / `☁️ облако · <model>` provenance badges (`test_jeff_manual_cloud_fallback.py` + `test_jeff_kb.py` + `jeff_training.test.mjs` PASS).
+- **J3 / B1-c (Encrypted Methodichka, MTProto Calls & Audio Doctor)**: `command-center/bcc/features/jeff_kb.py` + `telegram_calls.py` — encrypted manual storage, side-by-side `/api/jeff-kb/check`, configurable ring delay, barge-in, `/api/calls/selftest`, and `/api/calls/doctor`.
 
 ### Direction 2 — Unified Web Pult UI & Accessibility (`U1..U3`)
 - **U1 (WAI-ARIA Roving Tabindex & Focus Trap)**: `apps/bossman-mobile/bossmobile/ui/app.js` (`seg()`, `layerOpen()`, `layerClose()`) — full keyboard/screen-reader radio groups and modal focus management.
