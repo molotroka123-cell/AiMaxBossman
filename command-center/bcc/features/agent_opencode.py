@@ -109,6 +109,7 @@ from .chat_threads import (
     _thread_summary,
     _touch_meta,
     _turns,
+    next_synthetic_task_id,
 )
 from .coding_tasks import (
     LOCAL_CODER_PROFILES,
@@ -1456,7 +1457,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
         imp_ids = list(cfg.get("improve_ids") or [])
         imp_ids.append(imp_rec["id"])
         await _update_session_cfg(svc, session_id, improve_ids=imp_ids)
-        turn = _new_turn(0, body.text, [])
+        turn = _new_turn(next_synthetic_task_id(), body.text, [])
         turn.update({
             "mode": "SELF-IMPROVE",
             "improve_id": imp_rec["id"],
@@ -1500,7 +1501,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
             if ct_id not in ct_ids:
                 ct_ids.append(ct_id)
             await _update_session_cfg(svc, session_id, coding_task_ids=ct_ids)
-        turn = _new_turn(0, body.text, [])
+        turn = _new_turn(next_synthetic_task_id(), body.text, [])
         turn.update({
             "mode": "CODE",
             "coding_task_id": ct_id,
