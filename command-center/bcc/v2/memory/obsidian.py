@@ -12,6 +12,10 @@ MemoryKind = Literal["decision", "lesson", "fact", "task", "session", "note"]
 MEMORY_KINDS: tuple[str, ...] = ("decision", "lesson", "fact", "task", "session", "note")
 
 
+_FM_KEY = re.compile(r"[a-z][a-z0-9_]{0,31}")
+_FM_RESERVED = frozenset({"title", "kind", "created", "source", "project", "tags", "source_run_id", "redactions"})
+
+
 def _one_line(value: str) -> str:
     """A frontmatter scalar: no line breaks (incl. U+2028/U+0085), single spaces."""
     return " ".join(str(value or "").split())
@@ -115,6 +119,7 @@ class ObsidianVault:
         tags: list[str] | None = None,
         source_run_id: str | int | None = None,
         filename: str | None = None,
+        extra_frontmatter: dict[str, str] | None = None,
     ) -> Path:
         """Write a new BOSSMAN-owned note.
 
@@ -181,6 +186,14 @@ class ObsidianVault:
             fm.append("tags: [" + ", ".join(t.replace(",", "") for t in tags) + "]")
         if source_run_id is not None:
             fm.append(f"source_run_id: {source_run_id}")
+        # Caller-supplied provenance (e.g. a chat summary: session id, agent, model, summary sha256).
+        # Keys are a closed grammar and may not shadow the fields above; values get the same scrub
+        # and single-line treatment as every other free-text field.
+        for key, value in (extra_frontmatter or {}).items():
+            key = str(key)
+            if not _FM_KEY.fullmatch(key) or key in _FM_RESERVED:
+                raise ValueError(f"bad frontmatter key {key!r}")
+            fm.append(f'{key}: "{_one_line(_clean(str(value))).replace(chr(34), chr(39))}"')
         if redactions:
             fm.append("redactions: [" + ", ".join(sorted(redactions)) + "]")
         fm += ["---", ""]
