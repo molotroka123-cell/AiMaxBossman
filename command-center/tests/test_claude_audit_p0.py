@@ -141,7 +141,11 @@ def test_p0_item2_resume_after_takeover_keeps_stop_if_observe_fails(tmp_path: Pa
 
 
 def test_p0_item3_rt01_direct_gen_who_and_mobile_proxy_strip_headers():
+    import sys
     from bcc.features import direct_gen as dg
+    mobile_root = str(Path(__file__).resolve().parents[2] / "apps" / "bossman-mobile")
+    if mobile_root not in sys.path:
+        sys.path.insert(0, mobile_root)
     from bossmobile.proxy import DROP_REQ
 
     def _make_req(headers: list[tuple[bytes, bytes]]) -> Request:

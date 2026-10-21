@@ -919,8 +919,9 @@ async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None
     try:
         data_dir = getattr(getattr(svc, "settings", None), "data_dir", None)
         if body.worker:
+            fallback_list = getattr(body, "fallback_workers", None) or []
             candidates = [body.worker] + [
-                w for w in (body.fallback_workers or []) if w in WORKERS and w != body.worker
+                w for w in fallback_list if w in WORKERS and w != body.worker
             ]
             attempts: list[dict[str, Any]] = []
             final: dict[str, Any] | None = None
@@ -934,7 +935,12 @@ async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None
                 env = {_WORKER_KEY_ENV: key, **_verify_python_env()}
                 command = _worker_command(wid)
                 attempt_rec = {**record, "worker": wid, "model": WORKERS[wid]["model"]}
-                attempt_body = body.model_copy(update={"worker": wid, "model": WORKERS[wid]["model"]})
+                if hasattr(body, "model_copy"):
+                    attempt_body = body.model_copy(update={"worker": wid, "model": WORKERS[wid]["model"]})
+                elif len(candidates) == 1:
+                    attempt_body = body
+                else:
+                    attempt_body = type("TaskBodyProxy", (), {"worker": wid, "model": WORKERS[wid]["model"]})()
                 final = await asyncio.to_thread(_call_execute, attempt_rec, repo, attempt_body, context, env, command, data_dir)
                 sidecar_info = final.get("sidecar") if isinstance(final.get("sidecar"), dict) else {}
                 stop_reason = sidecar_info.get("stop_reason") or ""
@@ -950,7 +956,7 @@ async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None
                     break
             if final is None:
                 raise RuntimeError(f"нет ключа {WORKERS[body.worker]['key']} для исполнителя {body.worker}")
-            if len(attempts) > 1 or body.fallback_workers:
+            if len(attempts) > 1 or getattr(body, "fallback_workers", None):
                 final["worker_attempts"] = attempts
                 final["receipt"] = mission_receipt(final)
         else:

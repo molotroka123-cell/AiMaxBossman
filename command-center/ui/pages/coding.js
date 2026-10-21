@@ -132,31 +132,32 @@ function buildOpenCodeWorkbench(ctx, ready, catalog) {
   const paidWorkers = workers.filter((w) => w.tier === 'paid');
 
   const keyBadges = keys.map((k) => h('span.badge' + (k.connected ? '' : '.badge-warn'),
-    { 'data-key-env': k.key_env },
+    { 'data-key-env': k.key_env, style: { maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' } },
     `${k.key_env}: ${k.connected ? `подключён (${k.masked_preview || 'ok'})` : 'нет ключа'}`));
 
   const renderWorkerChip = (w) => h('button.btn.btn-sm', {
     type: 'button',
     'data-worker-chip': w.id,
     'data-worker-tier': w.tier,
-    style: { textAlign: 'left' },
+    style: { textAlign: 'left', maxWidth: '100%', whiteSpace: 'normal', height: 'auto', lineHeight: '1.3' },
     title: `${w.model} · ${w.price_display} · контекст ${w.context_window}`,
     onClick: () => taskModal(ctx, ready, catalog, { worker: w.id, selfCode: true }),
   },
-  h('span', `${w.key_connected ? '🟢' : '⚪'} ${w.label} · ${w.price_display}`));
+  h('span', { style: { overflowWrap: 'anywhere' } }, `${w.key_connected ? '🟢' : '⚪'} ${w.label} · ${w.price_display}`));
 
-  return h('div.card.stack', { id: 'opencode-workbench', 'data-testid': 'opencode-workbench' },
-    h('div.card-head',
-      h('div', { style: { flex: '1', minWidth: 0 } },
-        h('div.card-title', 'OpenCode Workbench · Облачные и локальные модели для самокодинга Bossman'),
-        h('div.card-sub', `Доступно облачных кодеров: ${summary.connected_cloud_workers || 0} из ${summary.total_cloud_workers || workers.length} `
+  return h('div.card.stack', { id: 'opencode-workbench', 'data-testid': 'opencode-workbench', style: { maxWidth: '100%', overflow: 'hidden' } },
+    h('div.card-head', { style: { flexWrap: 'wrap', gap: '8px' } },
+      h('div', { style: { flex: '1 1 220px', minWidth: 0 } },
+        h('div.card-title', { style: { overflowWrap: 'anywhere' } }, 'OpenCode Workbench · Облачные и локальные модели для самокодинга Bossman'),
+        h('div.card-sub', { style: { overflowWrap: 'anywhere', wordBreak: 'break-word' } },
+          `Доступно облачных кодеров: ${summary.connected_cloud_workers || 0} из ${summary.total_cloud_workers || workers.length} `
           + `(FREE: ${(summary.ready_free_workers || []).length}/${freeWorkers.length}, `
           + `PAID: ${(summary.ready_paid_workers || []).length}/${paidWorkers.length}) · `
           + `Репозиторий Bossman: ${selfCoding.source_repo || '—'}`)),
-      h('div.row.tight',
+      h('div.row.tight', { style: { flexWrap: 'wrap' } },
         actionButton('Подключить API-ключ', () => connectKeyModal(ctx, catalog), { cls: 'btn btn-sm', iconName: 'plus' }),
         actionButton('Написать код самому себе', () => taskModal(ctx, ready, catalog, { selfCode: true }), { cls: 'btn btn-sm btn-primary', iconName: 'bolt' }))),
-    keyBadges.length ? h('div.row.tight', ...keyBadges) : null,
+    keyBadges.length ? h('div.row.tight', { style: { flexWrap: 'wrap' } }, ...keyBadges) : null,
     freeWorkers.length ? h('div.stack.sm',
       h('div.xsmall.dim', 'Бесплатные топовые облачные модели (FREE · $0/1M · с поддержкой инструментов OpenCode):'),
       h('div.row.tight', { style: { flexWrap: 'wrap' } }, ...freeWorkers.map(renderWorkerChip))) : null,

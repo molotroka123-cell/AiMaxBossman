@@ -54,7 +54,10 @@ from typing import Any, Iterator
 # with the official price list on the PRICE_TABLE_AS_OF date.
 PRICE_TABLE_AS_OF = "2026-09-05"
 PRICE_TABLE: dict[str, tuple[float, float, float, float]] = {
+    "claude-sonnet-4": (3.0, 15.0, 0.30, 3.75),
     "claude-sonnet-4-5": (3.0, 15.0, 0.30, 3.75),
+    "claude-sonnet-4.6": (3.0, 15.0, 0.30, 3.75),
+    "claude-sonnet-4-6": (3.0, 15.0, 0.30, 3.75),
     "claude-haiku-4-5": (1.0, 5.0, 0.10, 1.25),
     "claude-haiku-4-5-20251001": (1.0, 5.0, 0.10, 1.25),
     "claude-opus-4-1": (15.0, 75.0, 1.50, 18.75),

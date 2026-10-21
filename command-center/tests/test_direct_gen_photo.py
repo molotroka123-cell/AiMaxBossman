@@ -22,7 +22,7 @@ from .conftest import wait_for
 from .test_direct_gen import FakeComfy, TERMINAL, make_models
 
 NEUTRAL = "a lighthouse at dusk, film photo"
-PNG = b"\x89PNG\r\n\x1a\n" + (13).to_bytes(4, "big") + b"IHDR" + (512).to_bytes(4, "big") + (512).to_bytes(4, "big") + b"\x08\x02\x00\x00\x00"
+PNG = b"\x89PNG\r\n\x1a\n" + (13).to_bytes(4, "big") + b"IHDR" + (512).to_bytes(4, "big") + (512).to_bytes(4, "big") + b"\x08\x02\x00\x00\x00\x00\x00\x00\x00" + sdcli.PNG_IEND
 
 
 def make_media(root: Path, *, only: tuple[str, ...] | None = None) -> tuple[Path, Path]:

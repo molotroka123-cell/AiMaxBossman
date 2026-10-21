@@ -246,8 +246,21 @@ class AgentBridgeMixin:
 
     def cancel_agents(self) -> int:
         n = 0
-        for job in self.agent_jobs.values():
+        stop_set = self.__dict__.setdefault("_operator_stop_requested", set())
+        if hasattr(self, "store") and self.store is not None:
+            with contextlib.suppress(Exception):
+                last_tid = str(self.store.get("operator_last_task", "") or "").strip()
+                if last_tid:
+                    stop_set.add(last_tid)
+                for tid in (self.store.get("operator_active_tasks", []) or []):
+                    if tid:
+                        stop_set.add(str(tid))
+        for k, job in self.agent_jobs.items():
             if job is not None and not job.done():
+                if k == "operator" or k.startswith("operator:"):
+                    stop_set.add("__current__")
+                    if k.startswith("operator:"):
+                        stop_set.add(k.split(":", 1)[1])
                 job.cancel()
                 n += 1
         return n

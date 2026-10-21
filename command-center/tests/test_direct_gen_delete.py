@@ -21,7 +21,7 @@ async def test_delete_removes_files_record_and_urls(env, tmp_path, caplog):
     assert (folder / "result").is_dir() and (folder / "job.json").is_file()
     caplog.set_level(logging.INFO)
     r = await delete(env, job_id)
-    assert r.status_code == 200 and r.json() == {"ok": True, "deleted": True, "job_id": job_id}
+    assert r.status_code == 200 and r.json() == {"ok": True, "deleted": True, "provenance_deleted": True, "job_id": job_id}
     assert not folder.exists()
     ids = [j["job_id"] for j in (await env.client.get("/api/direct-gen/jobs", headers=OWNER)).json()["jobs"]]
     assert job_id not in ids

@@ -46,7 +46,7 @@ NAME_MAX = 80
 TIMEOUT_MIN_S = 1
 TIMEOUT_MAX_S = 600
 _ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
-_NAME_BAD_RE = re.compile(r"[\x00-\x1f\x7f-\x9f​-‏ -‮⁠-⁤﻿]")
+_NAME_BAD_RE = re.compile(r"[\x00-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]")
 
 
 def _url_error(url: str) -> str:
