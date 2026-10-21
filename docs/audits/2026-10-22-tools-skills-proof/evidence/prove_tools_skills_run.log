@@ -153,4 +153,6 @@ Traceback (most recent call last):
            ^^^^^^^^^^^^
 asyncio.exceptions.CancelledError
 TOOLS  {'PROVEN_EXECUTED': 19, 'PROVEN_GATED': 5, 'STRUCTURAL_ONLY': 0, 'FAILED': 1, 'NOT_RUN': 87, 'TOTAL': 112}
+SKILLS {'PROVEN_EXECUTED': 12, 'PROVEN_GATED': 5, 'STRUCTURAL_ONLY': 50, 'FAILED': 0, 'NOT_RUN': 0, 'TOTAL': 67}
 CLAIMS {'PROVEN_EXECUTED': 8, 'PROVEN_GATED': 0, 'STRUCTURAL_ONLY': 9, 'FAILED': 1, 'NOT_RUN': 2, 'TOTAL': 20}
+OUTCOME {"verdict": "OUTCOME_UNPROVEN", "reason": "No evidence that delivering a catalog skill changes a measured outcome. (1) The 12 catalog skills are only selected/delivered here and in test_skill_catalog*; the tests assert text, budget, banner, gates - never a model result. (2) test_executable_lessons_b

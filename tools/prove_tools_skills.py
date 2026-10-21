@@ -79,26 +79,46 @@ async def tools_section(with_forks: bool) -> list[Row]:
     return rows
 
 
-def write_outputs(tools: list[Row], claims: list[Row]) -> None:
+def skills_section() -> tuple[list[Row], dict]:
+    """Catalog/local skills via tools_skills_proof.skills_section (reads saved pytest logs, re-runs selection)."""
+    try:
+        from tools.tools_skills_proof import skills_section as ss
+        root = common.new_sandbox("proof-skills-")
+        return ss.run(root)
+    except Exception as exc:  # noqa: BLE001 - a crashed section is reported, never hidden
+        return ([Row(kind="skill", id="[skills_section]", status=NOT_RUN,
+                     evidence=f"section did not run: {type(exc).__name__}: {exc}"[:200])],
+                {"outcome": {"verdict": "OUTCOME_NOT_RUN", "reason": f"{type(exc).__name__}: {exc}"[:200]}})
+
+
+def write_outputs(tools: list[Row], claims: list[Row], skills: list[Row], outcome: dict) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     allrows = {"tools": [r.as_dict() for r in tools], "claims": [r.as_dict() for r in claims],
-               "counts": {"tools": counts(tools), "claims": counts(claims)},
-               "skills": "NOT_RUN in this WIP driver (skills_section not integrated)"}
+               "skills": [r.as_dict() for r in skills], "outcome": outcome,
+               "counts": {"tools": counts(tools), "claims": counts(claims), "skills": counts(skills)}}
     common.dump_json(OUT / "proof_matrix.json", allrows)
-    ct, cc = counts(tools), counts(claims)
+    ct, cc, cs = counts(tools), counts(claims), counts(skills)
+    verdict = str((outcome.get("outcome") or outcome).get("verdict") or (outcome.get("outcome") or outcome).get("status") or "OUTCOME_NOT_RUN")
     md = ["# Матрица доказательств: инструменты и навыки Bossman (WIP, 22.10.2026)", "",
           "Независимая проверка на `origin/main 09d4a025`, синтетические данные, песочница вместо LOCALAPPDATA. "
-          "Статус не повышался: нет пробы = NOT_RUN. Навыки (skills) в этом WIP-прогоне НЕ проверены (NOT_RUN).", "",
+          "Статус не повышался: нет пробы = NOT_RUN. PROVEN_EXECUTED у навыка = доказан ВЫБОР и ДОСТАВКА текста, "
+          "не изменение результата.", "",
           f"**Инструменты ({ct['TOTAL']}):** " + ", ".join(f"{s}={ct[s]}" for s in STATUSES),
-          f"**Заявления Argon ({cc['TOTAL']}):** " + ", ".join(f"{s}={cc[s]}" for s in STATUSES), "",
+          f"**Навыки ({cs['TOTAL']}):** " + ", ".join(f"{s}={cs[s]}" for s in STATUSES),
+          f"**Заявления Argon ({cc['TOTAL']}):** " + ", ".join(f"{s}={cc[s]}" for s in STATUSES),
+          f"**Меняет ли навык результат:** `{verdict}`", "",
           "## Инструменты", "", "| tool | группа | право | эффект | статус | доказательство | оговорка |", "|---|---|---|---|---|---|---|"]
     for r in tools:
         md.append(f"| {r.id} | {r.group} | {r.permission} | {r.effect} | {r.status} | {r.evidence[:170].replace('|', '/')} | {r.caveat[:110].replace('|', '/')} |")
+    md += ["", "## Навыки", "", "| skill | статус | доказательство | оговорка |", "|---|---|---|---|"]
+    for r in skills:
+        md.append(f"| {r.id} | {r.status} | {r.evidence[:170].replace('|', '/')} | {r.caveat[:110].replace('|', '/')} |")
     md += ["", "## Заявления Argon", "", "| заявление | статус | доказательство |", "|---|---|---|"]
     for r in claims:
         md.append(f"| {r.id} | {r.status} | {r.evidence[:200].replace('|', '/')} |")
     md += ["", "## Что НЕ доказано", "",
-           "- Навыки (bcc/skills_catalog, .agents/skills): не проверены в этом прогоне; выбор навыка не равен изменению результата.",
+           f"- Изменение результата навыком: `{verdict}`. Выбор и доставка текста доказаны для каталога; "
+           "49 локальных .agents/skills только распарсены (STRUCTURAL_ONLY); чат-агент Gemma на телефоне текст навыков не получает вовсе.",
            "- Инструменты со статусом NOT_RUN выше: пробы browser/video/plugin/openclaw/opencode/studio/war_terminal/code:*/web.* не завершены.",
            "- computer.observe не запускался (снимает реальный экран владельца).",
            "- code.expand: обработчик работает, но code.search не печатает chunk_hash, модель не может получить аргумент.",
@@ -110,11 +130,14 @@ def write_outputs(tools: list[Row], claims: list[Row]) -> None:
 def main() -> int:
     tools = asyncio.run(tools_section("--with-forks" in sys.argv))
     claims = [Row(kind="claim", id=c, status=s, evidence=e, caveat=cv) for c, s, e, cv in ARGON]
-    write_outputs(tools, claims)
-    ct, cc = counts(tools), counts(claims)
+    skills, outcome = skills_section()
+    write_outputs(tools, claims, skills, outcome)
+    ct, cc, cs = counts(tools), counts(claims), counts(skills)
     print("TOOLS ", ct)
+    print("SKILLS", cs)
     print("CLAIMS", cc)
-    return 1 if (ct[FAILED] or cc[FAILED]) else 0
+    print("OUTCOME", json.dumps(outcome.get("outcome", outcome), ensure_ascii=False)[:300])
+    return 1 if (ct[FAILED] or cc[FAILED] or cs[FAILED]) else 0
 
 
 if __name__ == "__main__":
