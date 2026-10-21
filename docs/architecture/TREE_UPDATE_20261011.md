@@ -57,3 +57,39 @@ Unchanged, with what is missing:
 2. Owner-PC evidence file via `--owner-evidence`.
 3. Receipts in `docs/architecture/bossman-tree-20261005/evidence/` accepted by `tree_apply_evidence.py` (currently all rejected).
 4. Installed build SHA probe and reconciliation with the post-commit seed SHA.
+
+---
+
+## 2026-10-22 independent 15-workstream North Star reconciliation (documentation-only, NOT a green promotion)
+
+This addendum was audited against `main` at `558780932430d2007067d724765269d050ece5d7`; the snapshot is **not installed-product proof**. Do not equate the 15 logical workstreams with 15 unmerged branches. The `BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md` report enumerates 45 changes across a different 15-direction grouping and claims PASS; this is valuable recorded evidence but does not substitute for the exact-SHA registry/release checks below.
+
+**Registry audit:** `docs/architecture/tree-registry.json` currently has **927 leaves** and its embedded `head` is `a516eab8f89e0b951c5aaa06bcba30d2ca29ea99`, not `558780932430d2007067d724765269d050ece5d7`. `proven_through`: **485 tests**, **358 code**, **84 none**. No leaves report the registry-level `ci` or `owner_pc` evidence fields as proven. These figures describe the **existing registry only**, not current CI test success or actual installed status; no leaves were marked green in this audit. **43 nodes** are higher-level/auxiliary zones beyond the 15 workstreams listed below.
+
+| Workstream (existing registry zone) | Total | `tests` | `code` | `none` | Next evidence, not another feature |
+|---|---:|---:|---:|---:|---|
+| 01 Jeff (`jeff`) | 141 | 58 | 71 | 12 | Restore only after owner approval; live anti-spam, calls and restart |
+| 02 UX/mobile (`ux`) | 35 | 32 | 3 | 0 | Real iPhone -> agent -> terminal -> PC action -> result |
+| 03 Applications (`apps`) | 16 | 11 | 4 | 1 | Same-runtime multi-app call chain and rollback |
+| 04 Local models (`models`) | 9 | 0 | 4 | 5 | On-device tokens/sec, tool schema and model isolation |
+| 05 Cloud/fallback (`cloud`) | 15 | 13 | 1 | 1 | Real 429 fallback with billed cost, approval and no secrets |
+| 06 Computer (`computer`) | 14 | 9 | 5 | 0 | Installed Windows UIA, targeted window and STOP |
+| 07 Media (`media`) | 62 | 30 | 29 | 3 | Real render, cancellation, output integrity |
+| 08 Memory (`memory`) | 62 | 57 | 1 | 4 | Cold restart, novel holdout and no sensitive leakage |
+| 09 Agents (`agents`) | 21 | 17 | 2 | 2 | Persistent multi-agent delegation with independent verifier |
+| 10 Skills (`skills`) | 68 | 1 | 50 | 17 | Autonomous proposal -> SKILL.md -> validation -> owner-approved apply -> unseen reuse |
+| 11 Plugins/MCP (`plugins`) | 30 | 26 | 4 | 0 | Real schema, permissions, cancellation and denial tests |
+| 12 Operations (`ops`) | 271 | 223 | 22 | 26 | Current-SHA CI, installed build SHA, crash/restart/backup |
+| 13 OSS (`oss`) | 126 | 0 | 126 | 0 | Prove execution and license compatibility, not URL/README presence |
+| 14 Commerce (`commerce`) | 7 | 0 | 7 | 0 | Recalculate test transaction and compliance gates |
+| 15 Devices (`devices`) | 7 | 0 | 7 | 0 | Physical Windows/phone access, revocation and resource limits |
+
+**Critical observed gap:** upstream open-source references, `SKILL.md` loaded from disk and green component pytest do **not** establish that North Star has autonomously invented and integrated a useful skill. `.agents/skills/skill-forge/SKILL.md` is an existing instruction template; `command-center/bcc/self_improve/loop.py` implements a bounded hypothesis loop requiring separate proposer/verifier and approval. The 2026-10-18 documented swarm experiment explicitly ended `NOT_RUN` for lack of independent verifier. Later 2026-10-21 acceptance reports describe an applied self-coding task, but it is not yet a same-SHA autonomous **skill creation + unseen transfer** proof.
+
+**North Star 2026-10-23 gates:** (1) freeze source and installed SHA; (2) collect CI for exactly this SHA; (3) run tree scan / registry regeneration and diff; (4) collect owner Windows/iPhone evidence; (5) let North Star select one genuine, repeatable skill gap from observed failures; (6) show RED test; (7) write `SKILL.md` in an isolated worktree via authorized terminal, with license/provenance and schema check; (8) GREEN unit + integration + unseen holdout tests and separate-model review; (9) present diff and receipt; (10) seek owner approval before applying; (11) restart and re-use skill in a different task; (12) apply only validated same-SHA receipts to the tree and regenerate the published website. Do not self-modify approval, STOP, budget or policy code. Cloud paid services and RunPod remain owner-gated.
+
+**Required tools (inspect actual CLI flags before running):** `tools/bossman_capability_scan.py`, `tools/tree_apply_evidence.py`, `tools/tree_registry_sync.py`, `tools/tree_publish_site.py`. Keep `ci` and `owner_pc` as `NOT_RUN` without actual receipts for exact SHA. Preserve unrelated existing leaves and never rewrite the whole seed by hand.
+
+**Live CI snapshot:** at the moment of this audit, several workflows for `5587809324` were pending/queued. An earlier 2026-10-21 `main` SHA `09d4a025` had confirmed ASTRA, OSS, installed-product-chain and owner-scenarios workflow success, while its Command Center CI run was cancelled; that does not certify `5587809324`.
+
+**Action:** This is a review-ready audit checkpoint, not a code/data registry change, installed update, or published green-tree refresh. Only run the genuine tree-evidence toolchain on the actual owner machine after the relevant tests and acceptance.
