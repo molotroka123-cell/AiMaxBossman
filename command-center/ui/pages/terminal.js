@@ -21,6 +21,8 @@ const MODES = [
   { value: 'system_admin', label: 'С правами системы', hint: 'Полный доступ — всегда спрашивает подтверждение.' },
 ];
 
+export const QUICK_COMMANDS = ['git status', 'git log -n 5 --oneline', 'pytest -q'];
+
 // modeChosen: пока владелец сам не выбрал режим, он берётся из честной пробы Docker
 // (GET /api/terminal/capabilities). Раньше по умолчанию всегда стоял «Песочница», и на
 // ПК без Docker каждый запуск падал ошибкой 503.
@@ -78,6 +80,9 @@ function buildRunPanel(ctx, roots) {
   cwdEl.addEventListener('input', () => { termState.cwd = cwdEl.value; });
   const cmdEl = textarea({ rows: 3, class: 'textarea mono', placeholder: 'git status', value: termState.command });
   cmdEl.addEventListener('input', () => { termState.command = cmdEl.value; });
+  const quickRow = h('div.row.tight', QUICK_COMMANDS.map((cmd) => h('button.btn.btn-sm.btn-ghost', {
+    type: 'button', onClick: () => { cmdEl.value = cmd; termState.command = cmd; },
+  }, cmd)));
   const networkEl = h('input', { type: 'checkbox', checked: false });
   const networkField = h('label.check', networkEl, h('span', 'Разрешить доступ в интернет'));
 
@@ -145,6 +150,7 @@ function buildRunPanel(ctx, roots) {
     dockerNote,
     field('В какой папке выполнять', cwdEl),
     field('Команда', cmdEl),
+    field('Быстрые команды', quickRow),
     networkField,
     decisionOut,
     h('div.row', h('div.spacer'),
