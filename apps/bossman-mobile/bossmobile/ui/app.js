@@ -183,6 +183,7 @@
     if (name === 'status') loadStatus();
     if (name === 'swap') loadSwapDeals();
     if (name === 'calls') loadCallsView();
+    if (name === 'jeff') loadJeffView();
     store.set('tab', name);
   }
 
@@ -334,6 +335,101 @@
       }, 'Подтверждение 2FA');
     });
     $('calls-logout-btn').addEventListener('click', () => { tap(); callsAct(() => api('POST', '/calls/logout', {}), 'Выход из аккаунта звонков'); });
+  }
+
+  /* ================= Jeff · обучение: методичка, строгий режим, модель, «Проверка» ================= */
+  // The manual's text never comes to the phone: only its file name, size, section titles and Jeff's test answers.
+  const JEFF_GEMMA = 'gemma4-31b-uncensored:latest';
+  const JEFF_MAX_BYTES = 8 * 1024 * 1024;
+  function fmtBytes(n) { return n == null ? '—' : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} КБ` : `${(n / 1048576).toFixed(1)} МБ`; }
+  function renderJeff(st) {
+    const sum = $('jeff-manual-summary'); sum.replaceChildren();
+    const m = st.model || {};
+    sum.append(
+      kv('Методичка', st.present ? (st.readable ? (st.name || 'загружена') : 'не читается — загрузите заново') : 'не загружена'),
+      kv('Разделов', st.present ? st.sections : '—'),
+      kv('Размер', st.present ? fmtBytes(st.size_bytes) : '—'),
+      kv('Строгий режим', st.strict ? (st.scope_all ? 'включён · для всех' : 'включён · только мой чат') : 'выключен'),
+    );
+    $('jeff-strict').checked = !!st.strict;
+    $('jeff-strict').disabled = !st.readable;
+    $('jeff-scope-all').checked = !!st.scope_all;
+    $('jeff-delete-btn').disabled = !st.present;
+    $('jeff-model-line').textContent = `Модель Jeff: ${m.effective || '—'}${m.override ? ' (выбрана вами)' : ' (по умолчанию)'}`;
+  }
+  async function loadJeffSections() {
+    const list = $('jeff-sections'); list.replaceChildren();
+    try {
+      const r = await api('GET', '/jeff-kb/sections');
+      (r.sections || []).forEach((s) => { const li = el('li', '', s.title || `Раздел ${s.n}`); li.value = s.n; list.appendChild(li); });
+      if (!list.children.length) list.appendChild(el('li', 'muted', 'разделов нет'));
+    } catch (err) { list.appendChild(el('li', 'error-text', err.message)); }
+  }
+  async function loadJeffView() {
+    if (!$('jeff-manual-summary')) return;
+    try { renderJeff(await api('GET', '/jeff-kb')); if ($('jeff-sections-box').open) loadJeffSections(); }
+    catch (err) { $('jeff-manual-summary').replaceChildren(el('p', 'error-text', 'Ошибка: ' + err.message)); }
+  }
+  async function jeffAct(fn, done) {
+    // Every tap is sent (no silent drop while a previous one is still refreshing); the summary is re-read after it.
+    try { await fn(); if (done) toast(done); }
+    catch (err) { toast(err.message); }
+    await loadJeffView();
+  }
+  function toBase64(buf) {
+    const bytes = new Uint8Array(buf); let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  if ($('jeff-reload')) {
+    $('jeff-reload').addEventListener('click', () => { tap(); loadJeffView(); });
+    $('jeff-sections-box').addEventListener('toggle', () => { if ($('jeff-sections-box').open) loadJeffSections(); });
+    $('jeff-upload-btn').addEventListener('click', () => {
+      tap();
+      const f = $('jeff-file').files && $('jeff-file').files[0];
+      if (!f) { toast('Выберите файл методички'); return; }
+      if (!/\.(txt|md|pdf|docx)$/i.test(f.name)) { toast('Методичка — файл .txt, .md или .pdf'); return; }
+      if (f.size > JEFF_MAX_BYTES) { toast('Файл больше 8 МБ'); return; }
+      jeffAct(async () => api('PUT', '/jeff-kb/manual', { name: f.name, data_b64: toBase64(await f.arrayBuffer()) }), 'Методичка загружена');
+    });
+    $('jeff-delete-btn').addEventListener('click', () => {
+      tap();
+      if (!confirm('Удалить методичку? Строгий режим выключится.')) return;
+      jeffAct(() => api('DELETE', '/jeff-kb/manual'), 'Методичка удалена');
+    });
+    $('jeff-strict').addEventListener('change', () => { tap(); jeffAct(() => api('PUT', '/jeff-kb/mode', { strict: $('jeff-strict').checked })); });
+    $('jeff-scope-all').addEventListener('change', () => {
+      tap();
+      const on = $('jeff-scope-all').checked;
+      if (on && !confirm('Отвечать строго по методичке ВСЕМ участникам, а не только в вашем чате?')) { $('jeff-scope-all').checked = false; return; }
+      jeffAct(() => api('PUT', '/jeff-kb/mode', { scope_all: on }));
+    });
+    $('jeff-model-gemma').addEventListener('click', () => { tap(); jeffAct(() => api('PUT', '/jeff-kb/model', { model: JEFF_GEMMA }), 'Jeff отвечает через Gemma'); });
+    $('jeff-model-default').addEventListener('click', () => { tap(); jeffAct(() => api('DELETE', '/jeff-kb/model'), 'Модель Jeff по умолчанию'); });
+    $('jeff-check-form').addEventListener('submit', async (e) => {
+      e.preventDefault(); tap();
+      const question = $('jeff-question').value.trim();
+      if (!question) { toast('Введите вопрос'); return; }
+      const compare = $('jeff-compare').checked;
+      const btn = $('jeff-check-btn'); btn.disabled = true;
+      $('jeff-col-plain').hidden = !compare; $('jeff-col-manual').hidden = false;
+      $('jeff-ans-plain').textContent = compare ? 'Jeff думает…' : '';
+      $('jeff-ans-manual').textContent = 'Jeff думает…'; $('jeff-cited').textContent = '';
+      const ask = (useManual) => api('POST', '/jeff-kb/check', { question, use_manual: useManual });
+      try {
+        // one after the other: the local model answers one request at a time
+        if (compare) {
+          try { $('jeff-ans-plain').textContent = (await ask(false)).answer || '—'; }
+          catch (err) { $('jeff-ans-plain').textContent = 'Ошибка: ' + err.message; }
+        }
+        try {
+          const r = await ask(true);
+          $('jeff-ans-manual').textContent = r.answer || '—';
+          const cited = (r.cited || []).map((c) => `§${c.n}${c.title ? ' — ' + c.title : ''}`);
+          $('jeff-cited').textContent = cited.length ? 'Ссылки: ' + cited.join('; ') : (r.no_match ? 'В методичке не нашлось подходящих разделов.' : 'Без ссылок на разделы.');
+        } catch (err) { $('jeff-ans-manual').textContent = 'Ошибка: ' + err.message; }
+      } finally { btn.disabled = false; }
+    });
   }
 
   /* ================= обменник: тот же помощник, что в пульте ================= */

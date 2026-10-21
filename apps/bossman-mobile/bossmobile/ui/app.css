@@ -93,7 +93,7 @@ button, .chip, .tab, .thumb { transition: transform .16s ease, background-color 
 .pill { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--bg2); color: var(--muted); }
 .pill:empty { display: none; }
 
-.tabbar { display: grid; grid-template-columns: repeat(7, 1fr); padding: 6px 2px calc(6px + var(--sab)); border-top: 1px solid var(--line);
+.tabbar { display: grid; grid-template-columns: repeat(8, 1fr); padding: 6px 2px calc(6px + var(--sab)); border-top: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); z-index: 10; }
 .tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 48px; padding-top: 4px;
   color: var(--faint); font-size: 11px; font-weight: 600; letter-spacing: .01em; }
@@ -435,3 +435,9 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
   border-radius: 12px; font-size: 14px; color: var(--err); background: color-mix(in srgb, var(--err) 8%, var(--surface)); overflow-wrap: anywhere; }
 .load-error .btn { flex: none; color: var(--text); }
 .gallery > .load-error { grid-column: 1 / -1; }
+
+/* Jeff · обучение: два ответа рядом («без методички / с методичкой»), список разделов */
+.jeff-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 6px; }
+.jeff-col { min-width: 0; display: grid; gap: 6px; align-content: start; }
+.jeff-col .swap-reply { font: 14px/1.45 var(--sans); }
+.jeff-sections { margin: 6px 0 0; padding-left: 22px; display: grid; gap: 2px; font-size: 14px; overflow-wrap: anywhere; }
