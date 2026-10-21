@@ -1060,6 +1060,12 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             payload["image_b64"] = base64.b64encode(image).decode()
         if audio is not None:
             payload["audio_b64"] = base64.b64encode(audio).decode()
+        if str(form.get("facelock") or "").lower() in ("1", "true", "yes", "on"):
+            # Same rule as photo: the face is taken only from the picture attached to THIS job (@1 = start picture).
+            if image is None or not spec.get("accepts_image"):
+                raise fail(422, "FaceLock: нужна модель со стартовой картинкой и приложенное фото (лицо берётся с @1)",
+                           "BM_FACELOCK_NEEDS_REF")
+            payload["facelock"] = True
         return job_view(await vcall("POST", "/api/direct-gen/jobs", json=payload, timeout=300))
 
     @app.post("/m/api/video/swap", status_code=202)

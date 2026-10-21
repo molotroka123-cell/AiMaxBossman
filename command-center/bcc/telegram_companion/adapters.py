@@ -381,6 +381,30 @@ class Telegram:
             raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
         return (body.get("result") or {}).get("message_id")
 
+    async def send_media_file(self, person: Person, name: str, data: bytes, mime: str, caption: str, keyboard=None):
+        """A verified non-MP4 clip (WebM from the direct generator) as a document: Telegram plays only MP4 inline.
+        Same identity check and caption egress guard as videos; only video/webm is accepted."""
+        from bossman.notifications.telegram_transport import _egress_guard_text
+        if not self.settings.bot_token:
+            raise CompanionError("TELEGRAM_NOT_CONFIGURED")
+        if not self.authorize_delivery(person):
+            raise CompanionError("IDENTITY_REVOKED")
+        if mime != "video/webm" or data[:4] != b"\x1a\x45\xdf\xa3" or len(data) > 49 * 1024 * 1024:
+            raise CompanionError("IMAGE_BYTES_UNVERIFIED")
+        clean = _egress_guard_text(scrub(caption, (self.settings.bot_token, self.settings.core_token)))[:1000]
+        try:
+            async with asyncio.timeout(300):
+                response = await self.client.post(bot_api_url(self.settings.bot_token, "sendDocument"),
+                                                  data={"chat_id": str(person.chat_id), "caption": clean,
+                                                        **({"reply_markup": json.dumps(markup(keyboard))} if keyboard else {})},
+                                                  files={"document": (name[:120], data, mime)})
+            body = response.json()
+        except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+            raise CompanionError("NETWORK_UNAVAILABLE") from None
+        if not isinstance(body, dict) or body.get("ok") is not True:
+            raise CompanionError("TELEGRAM_DELIVERY_UNVERIFIED")
+        return (body.get("result") or {}).get("message_id")
+
     async def send_photo(self, person: Person, data: bytes, caption: str, keyboard=None):
         """Upload verified PNG/JPEG bytes as a photo; caption passes the same egress guard."""
         from bossman.notifications.telegram_transport import _egress_guard_text
@@ -757,6 +781,45 @@ class Core:
         """Measured per-model medians of the Direct Generator (owner-only endpoint; read-only)."""
         body = await self._request("GET", "/api/direct-gen/timings?limit=1000", timeout=5)
         return body if isinstance(body, dict) else {}
+
+    # ---- Direct Generator jobs (pult FaceLock video: the same job API the phone app uses; owner by default)
+    async def direct_gen_create(self, payload: dict) -> dict:
+        body = await self._request("POST", "/api/direct-gen/jobs", payload, timeout=120)
+        if not isinstance(body, dict) or not re.fullmatch(r"[0-9a-f]{32}", str(body.get("job_id") or "")):
+            raise CompanionError("DIRECT_GEN_JOB_UNKNOWN")
+        return body
+
+    async def direct_gen_job(self, job_id: str) -> dict:
+        if not re.fullmatch(r"[0-9a-f]{32}", str(job_id)):
+            raise CompanionError("DIRECT_GEN_JOB_UNKNOWN")
+        body = await self._request("GET", f"/api/direct-gen/jobs/{job_id}")
+        if not isinstance(body, dict) or body.get("job_id") != job_id:
+            raise CompanionError("DIRECT_GEN_JOB_UNKNOWN")
+        return body
+
+    async def direct_gen_cancel(self, job_id: str) -> dict:
+        if not re.fullmatch(r"[0-9a-f]{32}", str(job_id)):
+            raise CompanionError("DIRECT_GEN_JOB_UNKNOWN")
+        body = await self._request("POST", f"/api/direct-gen/jobs/{job_id}/cancel", timeout=60)
+        return body if isinstance(body, dict) else {}
+
+    async def direct_gen_file(self, job_id: str, max_bytes: int) -> bytes:
+        if not re.fullmatch(r"[0-9a-f]{32}", str(job_id)):
+            raise CompanionError("DIRECT_GEN_JOB_UNKNOWN")
+        data = bytearray()
+        try:
+            async with asyncio.timeout(120):
+                async with self.client.stream("GET", await self.base_url() + f"/api/direct-gen/jobs/{job_id}/file",
+                                              headers={"X-BCC-Token": self.settings.core_token}) as response:
+                    if response.status_code != 200:
+                        raise CompanionError("STUDIO_FILE_UNAVAILABLE")
+                    async for part in response.aiter_bytes():
+                        data.extend(part)
+                        if len(data) > max_bytes:
+                            raise CompanionError("VIDEO_TOO_LARGE_FOR_TELEGRAM")
+        except (httpx.HTTPError, OSError, TimeoutError):
+            raise CompanionError("NETWORK_UNAVAILABLE") from None
+        return bytes(data)
 
     async def studio_job(self, job_id: int) -> dict:
         body = await self._request("GET", f"/api/studio/jobs/{int(job_id)}")

@@ -31,6 +31,7 @@ PHASE_RU = {
     "decode": "сборка кадров (VAE)",
     "save": "сохранение",
     "verify": "проверка файла",
+    "facelock": "🔒 FaceLock: лицо со стартового фото",
 }
 
 
@@ -84,6 +85,8 @@ def progress_line(job: dict | None) -> str:
     value = job.get("progress")
     if (not isinstance(detail, dict) or not detail.get("known")
             or not isinstance(value, (int, float)) or isinstance(value, bool)):
+        if job.get("stage") == "facelock":
+            return PHASE_RU["facelock"] + " · подготовка кадров, прогресс неизвестен"
         return "⏳ прогресс неизвестен"
     fraction = max(0.0, min(1.0, float(value)))
     if status != "completed":
@@ -91,8 +94,11 @@ def progress_line(job: dict | None) -> str:
     parts = [f"{bar(fraction)} {int(fraction * 100)}%"]
     phase = detail.get("phase")
     step, steps = detail.get("step"), detail.get("steps")
+    frame, frames = detail.get("frame"), detail.get("frames")
     if phase == "sample" and isinstance(step, int) and isinstance(steps, int) and steps > 0:
         parts.append(f"шаг {step}/{steps}")
+    elif phase == "facelock" and isinstance(frame, int) and isinstance(frames, int) and frames > 0:
+        parts.append(f"{PHASE_RU['facelock']} · кадр {frame}/{frames}")
     elif phase in PHASE_RU:
         parts.append(PHASE_RU[phase])
     segments = detail.get("segments")
@@ -120,7 +126,7 @@ def plate_job(job: dict | None) -> dict:
     status = job.get("status")
     if status in ("loading", "generating", "postprocessing"):
         status = "running"
-    return {"status": status, "progress": value, "progress_detail": detail}
+    return {"status": status, "progress": value, "progress_detail": detail, "stage": job.get("stage")}
 
 
 class GenProgressPlate:

@@ -65,7 +65,8 @@ FALLBACK_WHY = {"REFINE_UNAVAILABLE": "не ответила (Ollama 127.0.0.1:1
                 "REFINE_TIMEOUT": "не уложилась во время", "REFINE_EMPTY": "вернула пустой ответ",
                 "REFINE_BUSY": "занята другим промптом"}
 
-GEN_COMMANDS = {"/vid", "/pic", "/vidphoto", "/style", "/speed", "/edit_engine", "/genmodel", "/gen_go", "/gen_redo", "/gen_cancel"}
+GEN_COMMANDS = {"/vid", "/pic", "/vidphoto", "/style", "/speed", "/edit_engine", "/genmodel", "/gen_go", "/gen_redo", "/gen_cancel",
+                "/facelock"}
 
 # Owner presets (owner 14.10): persistent switches applied to every /pic, /vid and photo edit, like /style.
 # Fixed English rules for the prompt writer (never owner text, so they cannot carry instructions) + a short
@@ -765,6 +766,9 @@ class GenRefineMixin:
         lengths = self._lengths(draft)
         if kind in {"video", "photo"}:
             target = IMAGE_MODELS[VIDEO_MODEL] + " · " + VIDEO_LENGTH_LABEL[lengths[draft["n"]]]
+            if kind == "photo" and draft.get("facelock"):
+                target += (" · 🔒 FaceLock" if lengths[draft["n"]] == "5s"
+                           else " · FaceLock не применится: только для 5 с")
         elif kind == "edit":
             if draft.get("engine") == "z_image_nsfw_v2":
                 target = (f"Z-Image NSFW v2 · z_image_nsfw_v2 · sdcpp:z-image-turbo "
@@ -795,6 +799,8 @@ class GenRefineMixin:
             return OWNER_ONLY
         if command == "/genmodel":
             return await self._genmodel_command(person, arg)
+        if command == "/facelock":
+            return self.facelock_command(person, arg)
         if command == "/edit_engine":
             return self._edit_engine_command(person, arg)
         if command == "/style":
@@ -1067,6 +1073,8 @@ class GenRefineMixin:
             draft["engine"] = model
             draft["revision"] = "57437632" if lengths else ("c61c0e42" if model == "sdcpp:z-image-turbo" else model)
             draft["inputs"] = [{"role": "start", "source": draft.get("source")}] if kind == "photo" else []
+            if kind == "photo":             # the owner's /facelock switch, frozen with the rest of the job
+                draft["facelock"] = self.facelock_on(person)
         lengths = self._lengths(draft)
         if lengths and draft.get("n") not in lengths:
             draft["n"] = "5"
@@ -1194,7 +1202,8 @@ class GenRefineMixin:
             self._set_state(person, draft, "running")
             try:
                 if kind == "photo":
-                    await self.animate(person, n, draft["source"], draft["prompt"], timings=timings)
+                    await self.animate(person, n, draft["source"], draft["prompt"], timings=timings,
+                                       facelock=bool(draft.get("facelock")))
                 elif kind == "edit":
                     await self._gen_edit(person, item, timings)
                 elif kind == "video":
