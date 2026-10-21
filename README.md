@@ -4,6 +4,49 @@
 
 **Единая локальная ИИ-система владельца на Windows 11 · AMD Ryzen AI Max+ 395 · Radeon 8060S · 128 GB Unified RAM**
 
+</div>
+
+## North Star 23.10.2026 — обязательное чтение Argon
+
+[**Завтрашний мастер-промт Argon**](docs/owner/ARGON_NORTH_STAR_MASTER_PROMPT_20261023_RU.md) ·
+[**аудит 15 зон**](docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md) ·
+[**индекс 912 листьев по каждому ID**](docs/owner/NORTH_STAR_LEAF_INDEX_20261022.json) ·
+[**дерево / честные proof tiers**](docs/owner/NORTH_STAR_TREE_AUDIT_OVERLAY_20261022_RU.md) ·
+[**проверенные свежие OSS releases**](docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md) ·
+[**Итоговый отчёт исполнения Argon (`FINAL_ACCEPTANCE_RU.md`)**](docs/owner/runs/north-star-20261023/FINAL_ACCEPTANCE_RU.md).
+
+Argon должен начать с чтения этих файлов, сверить текущий `main`/runtime SHA и выполнять
+каждый checkpoint через отдельный commit/push. Старые `working` и `PASS` в документации
+не подтверждают самостоятельную работу всех возможностей на текущем ПК владельца.
+**Новый root README не означает, что live runtime уже обновлён.**
+
+### Codex — независимый инженерный взгляд ChatGPT (22.10.2026)
+
+Bossman вырос из набора разрозненных ботов в серьёзную платформу: есть локальные модели,
+мобильный интерфейс, OpenCode/terminal, PC-Agent, агенты, memory и уже работающий код
+бизнес-приложений. Главный технический риск теперь **не нехватка функций, а разрыв между
+наличием кода и проверенной автономностью на одной установленной версии**.
+Качество следует измерять не числом веток, PR, листьев или зелёных unit-тестов, а долей
+успешных end-to-end задач, точностью tools, числом вмешательств владельца,
+стоимостью результата и воспроизводимостью после перезапуска.
+Наиболее полезный следующий milestone: Bossman сам обнаруживает узкий пробел в
+capability registry, создаёт новый skill через изолированный терминал, пишет failing
+test и исправление, проходит независимый verifier и owner approval, затем выбирает
+**свой новый skill** на невиданном входе. Три успешных цикла и измеренный перенос —
+более сильное доказательство прогресса, чем ещё 1000 описательных листьев.
+До этого полного доказательства оценка `UNSUPERVISED_NORTH_STAR=NOT_VERIFIED`.
+В частности, `AUTO bypass_permissions` требует независимого security review: удобство
+не должно означать обход STOP или полномочий владельца.
+*Это инженерная оценка ChatGPT для процедуры ревью Codex/Argon, а не заявление
+о выполненном Codex test-run.*
+
+**Отчёт Argon после исполнения:** [`docs/owner/runs/north-star-20261023/FINAL_ACCEPTANCE_RU.md`](docs/owner/runs/north-star-20261023/FINAL_ACCEPTANCE_RU.md)
+
+<div align="center">
+
+Локальный ИИ-помощник владельца на Windows 11 (AMD Radeon 8060S): свои модели Qwen на ПК, бесплатные облачные модели как
+подмога, управление из закрытого Telegram-пульта, собеседник Jeff для людей. Лицензия AGPL-3.0-only.
+
 [![Unified Release](https://img.shields.io/badge/Release-Bossman_2.6_Unified-10b981?style=for-the-badge)](https://github.com/molotroka123-cell/AiMaxBossman)
 [![Mobile OpenCode](https://img.shields.io/badge/Mobile_OpenCode-16%2F16_E2E_PASS-0284c7?style=for-the-badge)](docs/owner/BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md)
 [![15x3 Matrix](https://img.shields.io/badge/15x3_Improvements-45%2F45_VERIFIED-8b5cf6?style=for-the-badge)](docs/owner/BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md)
@@ -486,3 +529,23 @@ _Среднее (вторично, не авторитетно): 8.0/10. 10.0 = 
 
 Bossman-authored code: [AGPL-3.0-only](LICENSE). Third-party and model terms:
 [LICENSING.md](LICENSING.md).
+
+---
+
+## Codex / ChatGPT — инженерное мнение о едином Bossman (22.10.2026)
+
+**Автор замечаний: ChatGPT (для секции Codex и проверки Argon); это не отчёт о самостоятельном прогоне Codex.**
+
+Bossman заметно перерос стадию простого чат-бота: в репозитории имеются mobile OpenCode и терминал, Windows Computer Use, маршрутизация моделей, Jeff, медиапайплайны, War Terminal/Prozorro, память и механизмы `/improve`. Сильная сторона проекта — широкий набор уже написанных модулей и инженерных проверок. Главный риск — принять **многочисленные коммиты, исторические `working`-листья и успешные unit tests** за доказательство полностью автономного, установленного и безопасного продукта. На North Star важнее доказанная, воспроизводимая работа единого task lifecycle и permission engine, чем ещё один набор функций.
+
+**Архитектурная рекомендация Codex/ChatGPT:** сохранить одну систему (`main` → один candidate → owner-approved release), один task ID, один реестр инструментов, единый STOP и один журнал `MissionReceipt`. Самоулучшение принимать только по циклу: Bossman сам формулирует недостающий навык → пишет `SKILL.md` и код в изолированном worktree → исполняет тесты в реальном терминале → независимая проверка и holdout → разрешение владельца на применение → повторное использование навыка на новой задаче после рестарта. Не ослаблять `AUTO`-permissions, не использовать обход защиты и не обещать прирост способности без слепого сравнения.
+
+**Подтверждённый снимок аудита:** 22.10.2026, baseline `fe5872f337d9272117839d3b8c4e337a3315fe61`. У канонического дерева 904 активных элемента ниже 15 направлений (в том числе вложенные): 836 имеют источник, существующий в том SHA; 45 ссылок указывают на отсутствующие там файлы; 23 не имеют ссылки. **Ни одна эта цифра сама по себе не доказывает live readiness.** Нельзя перекрашивать старые `working`/ `reported` в новую верификацию без test/CI/owner-PC evidence именно на целевом SHA.
+
+**Argon должен дополнять фактический результат отдельно**, со своим runtime SHA, CI URL, владельческими проверками, числом закрытых и заблокированных листьев и ссылкой на PR. Не подменять это мнение отчётом о выполненных действиях.
+
+- [North Star: сводный аудит 15 направлений](docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md)
+- [Проверенные GitHub Releases за последнюю неделю: кандидаты для PoC, не внедрения](docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md)
+- [Поэлементный реестр 904 листьев с source-путями](docs/owner/NORTH_STAR_LEAF_INDEX_20261022.md)
+- [Машиночитаемый журнал проверок (все 904 ID)](docs/owner/north-star-execution-board.jsonl)
+- [North Star Argon: мастер-промт закрытия всех листьев и саморазработки skill](docs/owner/NORTH_STAR_ORCHESTRA_ARGON_MASTER_PROMPT_20261023_RU.md)
