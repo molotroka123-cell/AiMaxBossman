@@ -99,3 +99,23 @@ def test_local_model_selection_builds_explicit_gemma_sidecar_command(tmp_path, m
     assert seen["command"][1:4] == ["-I", "-m", "bossman.apprentice.local_sidecar"]
     assert seen["command"][seen["command"].index("--model") + 1] == "gemma4-31b-uncensored:latest"
     assert "gemma4-31b-uncensored:latest" in ct.LOCAL_CODER_PROFILES
+
+
+def test_70b_uncensored_primary_coder_and_generation_ram_guard(tmp_path, monkeypatch):
+    profile = ct.LOCAL_CODER_PROFILES["r1-70b-abliterated:latest"]
+    assert "Radeon 8060S" in profile["description"]
+    assert "128 GB" in profile["description"]
+    assert profile["min_free_ram_gb_during_gen"] == 50.0
+    assert profile["primary_coder"] is True
+
+    # Guard refuses 70B during generation when free RAM < 50 GB
+    blocked = ct.invoke_sparse_coder_helper(
+        "write binary search",
+        model="r1-70b-abliterated:latest",
+        allow_primary_coder=True,
+        generation_active=True,
+        free_ram_gb=42.0,
+    )
+    assert blocked["ok"] is False
+    assert blocked["code"] == "INSUFFICIENT_RAM_DURING_GENERATION"
+    assert "50" in blocked["error"]

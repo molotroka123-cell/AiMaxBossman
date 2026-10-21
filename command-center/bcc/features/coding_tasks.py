@@ -124,13 +124,16 @@ LOCAL_CODER_PROFILES: dict[str, dict[str, Any]] = {
         "total_params_b": 70.6,
         "active_params_b": 70.6,
         "active_weights_pct": 100.0,
-        "vram_gb": 42.0,
+        "vram_gb": 42.5,
         "main_vram_gb": 36.0,
-        "vram_ratio_of_main": round(42.0 / 36.0, 4),
+        "vram_ratio_of_main": round(42.5 / 36.0, 4),
         "vram_ratio_of_70b": 1.0,
         "within_50pct_vram_budget": False,
+        "primary_coder": True,
+        "min_free_ram_gb_during_gen": 50.0,
+        "hardware": "AMD Ryzen AI Max+ 395 / Radeon 8060S (128 GB unified memory)",
         "uncensored": True,
-        "description": "70B abliterated/uncensored deep reasoning and coding model (42 GB VRAM on 80 GB ROCm GPU).",
+        "description": "70B abliterated/uncensored deep reasoning and coding model (42.5 GB in 128 GB unified memory on Radeon 8060S; requires >= 50 GB free RAM during generation).",
     },
     "qwen38-27b-uncensored:latest": {
         "role": "uncensored_coder",
@@ -1354,7 +1357,10 @@ class HelperAssistIn(BaseModel):
     prompt: str = Field(min_length=1, max_length=8000)
     code_context: str = Field(default="", max_length=16000)
     model: str = Field(default=SPARSE_HELPER_DEFAULT, max_length=120)
-    max_vram_ratio: float = Field(default=0.50, ge=0.10, le=1.0)
+    max_vram_ratio: float = Field(default=0.50, ge=0.10, le=2.0)
+    allow_primary_coder: bool = False
+    generation_active: bool = False
+    free_ram_gb: float | None = None
     num_ctx: int = Field(default=8192, ge=1024, le=32768)
     timeout_seconds: float = Field(default=90.0, ge=5.0, le=300.0)
 
@@ -1365,12 +1371,15 @@ def invoke_sparse_coder_helper(
     code_context: str = "",
     model: str = SPARSE_HELPER_DEFAULT,
     max_vram_ratio: float = 0.50,
+    allow_primary_coder: bool = False,
+    generation_active: bool = False,
+    free_ram_gb: float | None = None,
     num_ctx: int = 8192,
     timeout: float = 90.0,
 ) -> dict[str, Any]:
-    """Invoke a local sparse-activation (MoE) or compact helper coder sub-agent that uses
-    <= 50% VRAM of the main model (e.g. qwen3-coder:30b at 18 GB = 50% of 36 GB main,
-    activating only 3.3B expert weights out of 30.5B per token)."""
+    """Invoke a local sparse-activation (MoE) helper coder sub-agent (<= 50% VRAM of main by default)
+    or a primary local coder (including r1-70b-abliterated:latest when allow_primary_coder=True,
+    guarded by >= 50 GB free RAM when photo/video generation is active)."""
     profile = LOCAL_CODER_PROFILES.get(model)
     if profile is None:
         return {
@@ -1379,7 +1388,29 @@ def invoke_sparse_coder_helper(
             "allowed_models": list(LOCAL_CODER_PROFILES),
         }
     vram_ratio = float(profile["vram_ratio_of_main"])
-    if vram_ratio > max_vram_ratio:
+    min_gen_ram = float(profile.get("min_free_ram_gb_during_gen") or 0.0)
+    if generation_active and min_gen_ram > 0.0:
+        avail_gb = free_ram_gb
+        if avail_gb is None:
+            try:
+                import psutil  # noqa: WPS433
+                avail_gb = round(psutil.virtual_memory().available / (1024 ** 3), 2)
+            except Exception:  # noqa: BLE001
+                avail_gb = None
+        if avail_gb is not None and avail_gb < min_gen_ram:
+            return {
+                "ok": False,
+                "code": "INSUFFICIENT_RAM_DURING_GENERATION",
+                "error": (
+                    f"модель {model} ({profile['vram_gb']} ГБ) не запускается одновременно с генерацией "
+                    f"при свободной памяти {avail_gb:.1f} ГБ < {min_gen_ram:.0f} ГБ"
+                ),
+                "model": model,
+                "vram_gb": profile["vram_gb"],
+                "free_ram_gb": avail_gb,
+                "min_free_ram_gb_during_gen": min_gen_ram,
+            }
+    if not allow_primary_coder and vram_ratio > max_vram_ratio:
         return {
             "ok": False,
             "error": (
@@ -1722,6 +1753,9 @@ async def post_helper_assist(body: HelperAssistIn):
         code_context=body.code_context,
         model=body.model,
         max_vram_ratio=body.max_vram_ratio,
+        allow_primary_coder=body.allow_primary_coder,
+        generation_active=body.generation_active,
+        free_ram_gb=body.free_ram_gb,
         num_ctx=body.num_ctx,
         timeout=body.timeout_seconds,
     )
