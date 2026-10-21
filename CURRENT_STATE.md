@@ -4,6 +4,7 @@ Canonical integration and release destination: **`main`** (owner amendment 2026-
 
 This file is a navigation pointer, not a certificate. Documentation preparation for the 21 September 2026 owner run does not declare the software ready.
 
+- [Runbook 23.10: рой самоулучшения и Tier 5 (план, не сертификат)](docs/owner/TOMORROW_NORTH_STAR_TIER5_RUN_20261022_RU.md) · [аудит утверждений](docs/owner/CLAIMS_AUDIT_20261022_RU.md) · [уборка](docs/owner/CLEANUP_INVENTORY_20261022_RU.md) · [закрытие обучений](docs/owner/TRAINING_CLOSEOUT_20261022_RU.md).
 - [Install the chosen Windows artifact](INSTALL.md).
 - [Owner first-run protocol: HW-01…HW-13](OWNER_ACCEPTANCE.md).
 - [Final integrator instruction](CLAUDE_NEXT_ACTION.md).

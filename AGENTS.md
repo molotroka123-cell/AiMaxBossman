@@ -1,5 +1,9 @@
 # AGENTS.md — Mandatory context for AI contributors
 
+## Старт 23.10.2026 (запись 22.10): рой самоулучшения и Tier 5
+
+Сначала прочитай [`docs/owner/TOMORROW_NORTH_STAR_TIER5_RUN_20261022_RU.md`](docs/owner/TOMORROW_NORTH_STAR_TIER5_RUN_20261022_RU.md) (runbook), затем [`docs/owner/CLAIMS_AUDIT_20261022_RU.md`](docs/owner/CLAIMS_AUDIT_20261022_RU.md), [`docs/owner/CLEANUP_INVENTORY_20261022_RU.md`](docs/owner/CLEANUP_INVENTORY_20261022_RU.md) и [`docs/owner/TRAINING_CLOSEOUT_20261022_RU.md`](docs/owner/TRAINING_CLOSEOUT_20261022_RU.md). Прогресс по лестнице North Star на 22.10: ступень SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT; Tier 5 не доказан (`tier5_status: NOT_PROVEN`), перенос, soak 24/48 ч и выручка — NOT_RUN/BLOCKED. Ничего из этого не ослабляет правила ниже.
+
 ## Актуальный план выпуска и первого коммерческого пилота (21.10.2026)
 
 Перед планированием нового объёма прочитай

@@ -1,4 +1,5 @@
 # OPERATION UNIFIED BOSSMAN: 15 × 3 = 45 VERIFIED IMPROVEMENTS (FINAL ACCEPTANCE REPORT)
+> ⚠ Проверка 22.10: OVERSTATED: «45 VERIFIED» — это описания с указанием файлов; тесты названы лишь для части пунктов, прогона в дереве нет (спецификация/описание не доказательство уровня). `254` тестов war-terminal в дереве собираются (collect-only = 254), результат «passed» не воспроизведён.
 
 - **Repository**: `https://github.com/molotroka123-cell/AiMaxBossman`
 - **Hardware**: AMD Ryzen AI Max+ 395, Radeon 8060S, 128 GB unified RAM, Windows
