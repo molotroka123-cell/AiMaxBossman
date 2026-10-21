@@ -50,3 +50,18 @@ review boundary.
 Current North Star level is not advanced by this feature. It adds visibility and
 durable bookkeeping around `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT`; it is not
 `SELF_REPAIR_SINGLE_CYCLE_PASS` by itself.
+
+## 2026-10-22 North Star skill-forge acceptance addendum
+
+For the 2026-10-23 North Star session, one meaningful tree leaf can become verified **only after** a traceable end-to-end run, not simply because a `SKILL.md` file exists:
+
+1. Observe a real recurring failure or user-requested reusable procedure, and propose a skill under `.agents/skills/<skill-id>/SKILL.md` (see `.agents/skills/skill-forge/SKILL.md`).
+2. Freeze baseline + unseen acceptance set before generation. Writer may use scoped, permission-governed terminal in an isolated worktree. No host-wide permission bypass.
+3. Test a previously absent behavior RED, create skill with portable manifest/provenance/permissions, test GREEN, run new unseen holdout; require separate verifier and measured improvement without regressions.
+4. Record exact source SHA, worktree diff, command transcript (secrets redacted), test counts, model IDs, cost and immutable receipt. Await owner decision before installing/promoting.
+5. Cold-restart Bossman and demonstrate a second different task that automatically selects and successfully executes the new skill with correct permission enforcement. Verify installed SHA and rollout/rollback.
+6. Only after full CI + owner-PC evidence on the correct commit may the registry evidence tooling upgrade the leaf and publish the refreshed site.
+
+Snapshot audit of the **existing** `docs/architecture/tree-registry.json`: 927 leaves; proven through code 358, tests 485, none 84; zero leaves carrying registered CI/owner-PC proof. Registry embedded head `a516eab8` is stale relative to audited `main` `5587809324`. The status of a 2026-10-18 independent self-improvement run was NOT_RUN. Later self-coding reports are not yet end-to-end skill invention evidence. Preserve their exact claims, but do not infer North Star graduation.
+
+See `docs/architecture/TREE_UPDATE_20261011.md` (2026-10-22 reconciliation section). This addendum changes only docs; it does not color any capability leaf green.
