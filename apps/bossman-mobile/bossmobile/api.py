@@ -1175,6 +1175,148 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def v_file(job_id: str, request: Request, download: bool = False, _=Depends(session)):
         return await result_file(job_id, download, request)
 
+    # ------------------------------------------------------------------ mobile OpenCode Agent, Terminal & Computer Use
+    @app.get("/m/api/agent/tools")
+    async def m_agent_tools(_=Depends(session)):
+        return await call("GET", "/api/agent/tools")
+
+    @app.get("/m/api/agent/models")
+    async def m_agent_models(_=Depends(session)):
+        return await call("GET", "/api/agent/models")
+
+    @app.post("/m/api/agent/router/select")
+    async def m_agent_router_select(request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("POST", "/api/agent/router/select", json=body)
+
+    @app.get("/m/api/agent/sessions")
+    async def m_agent_sessions(q: str | None = None, archived: bool = False, limit: int = 100, _=Depends(session)):
+        params: dict[str, Any] = {"archived": str(archived).lower(), "limit": limit}
+        if q:
+            params["q"] = q
+        return await call("GET", "/api/agent/sessions", params=params)
+
+    @app.post("/m/api/agent/sessions", status_code=201)
+    async def m_agent_session_create(request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("POST", "/api/agent/sessions", json=body)
+
+    @app.get("/m/api/agent/sessions/{session_id}")
+    async def m_agent_session_get(session_id: str, _=Depends(session)):
+        return await call("GET", f"/api/agent/sessions/{_tid(session_id)}")
+
+    @app.patch("/m/api/agent/sessions/{session_id}")
+    async def m_agent_session_patch(session_id: str, request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("PATCH", f"/api/agent/sessions/{_tid(session_id)}", json=body)
+
+    @app.post("/m/api/agent/sessions/{session_id}/messages")
+    async def m_agent_session_messages(session_id: str, request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("POST", f"/api/agent/sessions/{_tid(session_id)}/messages", json=body, timeout=180)
+
+    @app.get("/m/api/agent/sessions/{session_id}/events")
+    async def m_agent_session_events(session_id: str, after: int = 0, limit: int = 200, _=Depends(session)):
+        return await call("GET", f"/api/agent/sessions/{_tid(session_id)}/events", params={"after": after, "limit": limit})
+
+    @app.post("/m/api/agent/sessions/{session_id}/stop")
+    async def m_agent_session_stop(session_id: str, _=Depends(session)):
+        workers.trigger_global_stop()
+        return await call("POST", f"/api/agent/sessions/{_tid(session_id)}/stop")
+
+    @app.post("/m/api/agent/tasks/{task_id}/approve")
+    async def m_agent_task_approve(task_id: str, request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("POST", f"/api/agent/tasks/{task_id}/approve", json=body)
+
+    @app.post("/m/api/agent/improve")
+    async def m_agent_improve(request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("POST", "/api/agent/improve", json=body, timeout=180)
+
+    @app.get("/m/api/agent/improve")
+    async def m_agent_improve_list(_=Depends(session)):
+        return await call("GET", "/api/agent/improve")
+
+    @app.get("/m/api/terminal/capabilities")
+    async def m_term_caps(_=Depends(session)):
+        return await call("GET", "/api/terminal/capabilities")
+
+    @app.get("/m/api/terminal/roots")
+    async def m_term_roots(_=Depends(session)):
+        return await call("GET", "/api/terminal/roots")
+
+    @app.post("/m/api/terminal/run")
+    async def m_term_run(request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("POST", "/api/terminal/run", json=body)
+
+    @app.get("/m/api/terminal/sessions")
+    async def m_term_sessions(_=Depends(session)):
+        return await call("GET", "/api/terminal/sessions")
+
+    @app.get("/m/api/terminal/sessions/{session_id}")
+    async def m_term_session(session_id: str, _=Depends(session)):
+        return await call("GET", f"/api/terminal/sessions/{session_id}")
+
+    @app.get("/m/api/terminal/sessions/{session_id}/log")
+    async def m_term_session_log(session_id: str, _=Depends(session)):
+        return await call("GET", f"/api/terminal/sessions/{session_id}/log")
+
+    @app.post("/m/api/terminal/sessions/{session_id}/stdin")
+    async def m_term_stdin(session_id: str, request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("POST", f"/api/terminal/sessions/{session_id}/stdin", json=body)
+
+    @app.post("/m/api/terminal/sessions/{session_id}/sigint")
+    async def m_term_sigint(session_id: str, _=Depends(session)):
+        return await call("POST", f"/api/terminal/sessions/{session_id}/sigint")
+
+    @app.post("/m/api/terminal/sessions/{session_id}/kill")
+    async def m_term_kill(session_id: str, _=Depends(session)):
+        return await call("POST", f"/api/terminal/sessions/{session_id}/kill")
+
+    @app.get("/m/api/terminal/files")
+    async def m_term_files(path: str | None = None, _=Depends(session)):
+        return await call("GET", "/api/terminal/files", params={"path": path} if path else None)
+
+    @app.get("/m/api/terminal/diff")
+    async def m_term_diff(cwd: str | None = None, _=Depends(session)):
+        return await call("GET", "/api/terminal/diff", params={"cwd": cwd} if cwd else None)
+
+    @app.get("/m/api/coding-tasks/status")
+    async def m_coding_status(_=Depends(session)):
+        return await call("GET", "/api/coding-tasks/status")
+
+    @app.get("/m/api/coding-tasks")
+    async def m_coding_list(limit: int = 25, _=Depends(session)):
+        return await call("GET", "/api/coding-tasks", params={"limit": limit})
+
+    @app.post("/m/api/coding-tasks")
+    async def m_coding_create(request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("POST", "/api/coding-tasks", json=body, timeout=180)
+
+    @app.get("/m/api/coding-tasks/{task_id}")
+    async def m_coding_get(task_id: str, _=Depends(session)):
+        return await call("GET", f"/api/coding-tasks/{task_id}")
+
+    @app.post("/m/api/coding-tasks/{task_id}/apply")
+    async def m_coding_apply(task_id: str, _=Depends(session)):
+        return await call("POST", f"/api/coding-tasks/{task_id}/apply", timeout=120)
+
+    @app.post("/m/api/coding-tasks/{task_id}/cancel")
+    async def m_coding_cancel(task_id: str, _=Depends(session)):
+        return await call("POST", f"/api/coding-tasks/{task_id}/cancel")
+
+    @app.websocket("/m/api/agent/sessions/{session_id}/stream")
+    async def m_agent_ws(ws: WebSocket, session_id: str):
+        await _ws(ws, f"api/agent/sessions/{session_id}/stream")
+
+    @app.websocket("/m/api/terminal/sessions/{session_id}/stream")
+    async def m_terminal_ws(ws: WebSocket, session_id: str):
+        await _ws(ws, f"api/terminal/sessions/{session_id}/stream")
+
     @app.api_route("/m/api/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def m_api_unknown(rest: str):
         raise fail(404, "нет такого вызова", "BM_NOT_ALLOWED")

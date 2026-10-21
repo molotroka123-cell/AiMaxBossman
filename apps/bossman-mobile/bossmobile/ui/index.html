@@ -69,15 +69,71 @@
     <p class="stop-text" id="stop-text">⛔ STOP включён — действия ПК и записи обменника заблокированы</p>
     <button class="btn small stop-resume" id="stop-resume" type="button">Продолжить</button>
   </div>
-  <!-- Чат -->
+  <!-- Чат / OpenCode Agent -->
   <section class="view" id="view-chat" data-view="chat">
     <header class="topbar">
       <button class="icon-btn" id="btn-drawer" aria-label="Чаты"><svg><use href="#i-menu"/></svg></button>
       <button class="model-chip" id="btn-model" aria-label="Модель">
-        <span class="dot"></span><span id="model-name">—</span><span class="badge-local">локально</span><svg class="chev"><use href="#i-chev"/></svg>
+        <span class="dot"></span><span id="model-name">—</span><span class="badge-local" id="model-badge-locality">локально</span><svg class="chev"><use href="#i-chev"/></svg>
       </button>
       <button class="icon-btn" id="btn-new" aria-label="Новый чат"><svg><use href="#i-new"/></svg></button>
     </header>
+    <div class="opencode-strip" id="opencode-strip" role="region" aria-label="Режим и инструменты OpenCode">
+      <div class="mode-pills" id="agent-mode-bar" role="radiogroup" aria-label="Режим агента">
+        <button type="button" class="mode-pill on" data-mode="CHAT" role="radio" aria-checked="true">CHAT</button>
+        <button type="button" class="mode-pill" data-mode="AGENT" role="radio" aria-checked="false">AGENT</button>
+        <button type="button" class="mode-pill" data-mode="AUTO" role="radio" aria-checked="false" title="Bypass Permission (авто-подтверждение безопасных/ASK инструментов как в Codex/Antigravity)">⚡ AUTO</button>
+        <button type="button" class="mode-pill" data-mode="CODE" role="radio" aria-checked="false">CODE</button>
+        <button type="button" class="mode-pill" data-mode="COMPUTER" role="radio" aria-checked="false">PC</button>
+        <button type="button" class="mode-pill" data-mode="SELF-IMPROVE" role="radio" aria-checked="false">/improve</button>
+      </div>
+      <div class="opencode-tools-row">
+        <button type="button" class="oc-mini-btn" id="btn-oc-term" aria-expanded="false">⌨ Терминал</button>
+        <button type="button" class="oc-mini-btn" id="btn-oc-code" aria-expanded="false">🧩 Код / Git</button>
+        <button type="button" class="oc-mini-btn" id="btn-oc-pc" aria-expanded="false">🖥 Экран ПК</button>
+        <span class="oc-cost" id="oc-cost-badge" title="Бюджет сессии">$0.00</span>
+      </div>
+    </div>
+    <!-- Встроенная панель Web Terminal / OpenCode / PC (раскрывается поверх чата без потери переписки) -->
+    <div class="oc-workbench" id="oc-workbench" hidden>
+      <div class="oc-wb-panel" id="oc-panel-term" hidden>
+        <div class="oc-wb-head">
+          <b>Web Terminal (project_host)</b>
+          <div class="oc-presets">
+            <button type="button" class="chip small" data-term-cmd="git status --short --branch">git status</button>
+            <button type="button" class="chip small" data-term-cmd="git diff --stat">git diff</button>
+            <button type="button" class="chip small" data-term-cmd="python -m pytest command-center/tests/test_terminal_quick_presets.py -q">pytest</button>
+            <button type="button" class="chip small danger" id="btn-term-sigint">Ctrl+C</button>
+            <button type="button" class="chip small danger" id="btn-term-kill">Kill</button>
+          </div>
+        </div>
+        <pre class="oc-term-out mono" id="oc-term-out">Готов к выполнению команд в разрешённых корнях проекта…</pre>
+        <div class="oc-term-bar">
+          <input id="oc-term-input" class="field mono" placeholder="git status, pytest -q, python -V…" aria-label="Команда терминала">
+          <button type="button" class="btn primary small" id="btn-term-run">Run</button>
+        </div>
+      </div>
+      <div class="oc-wb-panel" id="oc-panel-code" hidden>
+        <div class="oc-wb-head">
+          <b>OpenCode · Worktree &amp; Self-Improve</b>
+          <div class="oc-presets">
+            <button type="button" class="chip small" id="btn-code-diff">Git Diff</button>
+            <button type="button" class="chip small" id="btn-code-tasks">Задачи OpenCode</button>
+            <button type="button" class="chip small" id="btn-code-improve">Запустить /improve</button>
+          </div>
+        </div>
+        <pre class="oc-term-out mono" id="oc-code-out">Нажмите «Git Diff», «Задачи OpenCode» или «Запустить /improve»…</pre>
+      </div>
+      <div class="oc-wb-panel" id="oc-panel-pc" hidden>
+        <div class="oc-wb-head">
+          <b>Windows Computer Use (OBSERVE → ACT → VERIFY)</b>
+          <div class="oc-presets">
+            <button type="button" class="chip small" id="btn-pc-observe">Снимок экрана и окна</button>
+          </div>
+        </div>
+        <pre class="oc-term-out mono" id="oc-pc-out">Нажмите «Снимок экрана и окна» или отправьте задачу в режиме PC…</pre>
+      </div>
+    </div>
     <div class="messages" id="messages" aria-live="polite">
       <div class="empty" id="chat-empty">
         <div class="hello-mark"><svg><use href="#i-bolt"/></svg></div>
@@ -85,6 +141,8 @@
         <p class="muted">Пишите как человеку. Bossman сам вызывает нужные инструменты на ПК — на локальной модели, без облака. Опасные действия он спросит у вас.</p>
         <div class="suggest">
           <button class="chip" data-suggest="Посмотри на экран и скажи, какие окна сейчас открыты. Ничего не нажимай.">Что открыто на ПК?</button>
+          <button class="chip" data-suggest="Проверь git status и запусти быстрый тест через terminal.run">Git &amp; Тесты</button>
+          <button class="chip" data-suggest="/improve Проверь быстрые пресеты терминала и выпусти MissionReceipt">Самоулучшение /improve</button>
           <button class="chip" data-suggest="нарисуй горное озеро на закате, мягкий свет">Фото по описанию</button>
           <button class="chip" data-suggest="Кратко: чем ты можешь помочь мне с телефона?">Что ты умеешь?</button>
         </div>

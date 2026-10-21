@@ -191,6 +191,8 @@ class TerminalSession:
     # или не Windows). Через неё `kill` убивает всё дерево, а не только снимок его.
     job: int | None = None
     _reader: asyncio.Task | None = None
+    seq: int = 0
+    subscribers: set[asyncio.Queue[dict[str, Any]]] = field(default_factory=set)
 
 #: Сколько ЗАВЕРШЁННЫХ сессий держать в памяти. Каждая запись удерживает объект
 #: процесса, его транспорт и буферы каналов; словарь не чистился никогда.
@@ -442,11 +444,27 @@ class TerminalManager:
                 # (cp866/cp1251), а не в UTF-8 — иначе кириллица превращается
                 # в mojibake и вывод теряет смысл.
                 text = line.decode(locale.getpreferredencoding(False), errors="replace")
-            s.output.append(text.rstrip("\r\n"))
+            clean = text.rstrip("\r\n")
+            s.output.append(clean)
+            s.seq += 1
             if len(s.output) > 5000:
                 del s.output[:1000]
+            evt = {"type": "terminal.output", "session_id": s.id, "seq": s.seq, "line": clean}
+            for q in list(s.subscribers):
+                try:
+                    q.put_nowait(evt)
+                except asyncio.QueueFull:
+                    pass
         s.exit_code = await s.proc.wait()
         s.finished = True
+        s.seq += 1
+        exit_evt = {"type": "terminal.exit", "session_id": s.id, "seq": s.seq,
+                    "exit_code": s.exit_code, "finished": True}
+        for q in list(s.subscribers):
+            try:
+                q.put_nowait(exit_evt)
+            except asyncio.QueueFull:
+                pass
         self._close_job(s)
         self._persist_log(s)
         if self.on_finish is not None:
@@ -534,6 +552,7 @@ class TerminalManager:
             "pid": s.proc.pid,
             "finished": s.finished,
             "exit_code": s.exit_code,
+            "seq": s.seq,
             "output_tail": s.output[-200:],
         }
 
@@ -543,6 +562,28 @@ class TerminalManager:
             raise RuntimeError("stdin unavailable")
         s.proc.stdin.write(text.encode())
         await s.proc.stdin.drain()
+
+    async def sigint(self, session_id: str) -> dict[str, Any]:
+        """Отправить Ctrl+C (SIGINT) процессу сессии; если не остановился — мягкий kill дерева."""
+        s = self.sessions[session_id]
+        if s.finished or s.proc.returncode is not None:
+            return {"ok": True, "already_finished": True, "exit_code": s.exit_code}
+        if s.proc.stdin is not None:
+            try:
+                s.proc.stdin.write(b"\x03\n")
+                await s.proc.stdin.drain()
+            except Exception:  # noqa: BLE001
+                pass
+        if os.name != "nt":
+            try:
+                os.killpg(s.proc.pid, signal.SIGINT)
+            except (ProcessLookupError, OSError):
+                pass
+        try:
+            await asyncio.wait_for(s.proc.wait(), timeout=0.6)
+        except asyncio.TimeoutError:
+            await self.kill(session_id)
+        return {"ok": True, "finished": s.finished, "exit_code": s.exit_code}
 
     async def _docker_kill(self, s: TerminalSession) -> None:
         """Остановить КОНТЕЙНЕР песочницы.

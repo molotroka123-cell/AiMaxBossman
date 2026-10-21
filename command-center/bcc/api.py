@@ -492,6 +492,8 @@ def create_app(settings: Settings | None = None, *, start_workers: bool = True,
         if feature.router is not None:
             app.include_router(feature.router, prefix="/api",
                                dependencies=[Depends(require_token)])
+        if getattr(feature, "ws_router", None) is not None:
+            app.include_router(feature.ws_router, prefix="/api")
     _mount_ui(app, svc.settings)
     return app
 

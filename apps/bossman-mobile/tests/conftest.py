@@ -231,6 +231,53 @@ class FakeBossman:
                                                  else "Обычно десять.", "cited": [{"n": 1, "title": "Разминка"}]
                                                  if payload.get("use_manual") else [], "model": "gemma"})
             return httpx.Response(200, json={"path": path, "method": method, "echo": payload})
+        if path == "/api/agent/tools" and method == "GET":
+            return httpx.Response(200, json={"total": 10, "groups": {"Computer": [{"name": "computer.observe"}], "Terminal": [{"name": "terminal.run"}], "Coding": [{"name": "code.search"}]}, "tools": []})
+        if path == "/api/agent/models" and method == "GET":
+            return httpx.Response(200, json={"tiers": [{"tier": 1, "id": "local:gemma4-31b-uncensored:latest", "model": "gemma4-31b-uncensored:latest", "ready": True}], "workers": [], "runpod_policy": "DENY_WITHOUT_EXPLICIT_OWNER_APPROVAL"})
+        if path == "/api/agent/router/select" and method == "POST":
+            payload = json.loads(body) if body else {}
+            return httpx.Response(200, json={"selected_id": "local:gemma4-31b-uncensored:latest", "model": "gemma4-31b-uncensored:latest", "tier": 1, "mode": payload.get("mode", "AGENT")})
+        if path == "/api/agent/sessions" and method == "GET":
+            return httpx.Response(200, json={"items": [{"id": "S1", "title": "OpenCode Session", "mode": "AGENT", "model": "gemma4-31b-uncensored:latest"}], "total": 1})
+        if path == "/api/agent/sessions" and method == "POST":
+            payload = json.loads(body) if body else {}
+            return httpx.Response(201, json={"id": "S1", "title": payload.get("title") or "New", "mode": payload.get("mode", "AGENT"), "model": "gemma4-31b-uncensored:latest", "turns": []})
+        if path == "/api/agent/sessions/S1" and method in ("GET", "PATCH"):
+            payload = json.loads(body) if body else {}
+            return httpx.Response(200, json={"id": "S1", "title": payload.get("title") or "OpenCode Session", "mode": payload.get("mode", "AGENT"), "model": "gemma4-31b-uncensored:latest", "turns": []})
+        if path == "/api/agent/sessions/S1/messages" and method == "POST":
+            payload = json.loads(body) if body else {}
+            return httpx.Response(200, json={"mode": payload.get("mode", "AGENT"), "session_id": "S1", "task_id": 7, "task": {"id": 7, "status": "queued"}})
+        if path == "/api/agent/sessions/S1/events" and method == "GET":
+            return httpx.Response(200, json={"session_id": "S1", "after": 0, "latest_seq": 1, "events": [{"seq": 1, "type": "task.progress", "task_id": 7}]})
+        if path == "/api/agent/sessions/S1/stop" and method == "POST":
+            return httpx.Response(200, json={"ok": True, "session_id": "S1", "stopped_tasks": [7]})
+        if path == "/api/agent/tasks/7/approve" and method == "POST":
+            payload = json.loads(body) if body else {}
+            return httpx.Response(200, json={"ok": True, "task_id": 7, "decision": payload.get("decision", "approve")})
+        if path == "/api/agent/improve" and method == "POST":
+            return httpx.Response(200, json={"id": "imp-test-01", "status": "awaiting_owner_approval", "steps": [{"step": i, "status": "completed"} for i in range(1, 17)], "mission_receipt": {"sha256": "abc123"}})
+        if path == "/api/agent/improve" and method == "GET":
+            return httpx.Response(200, json={"items": [{"id": "imp-test-01", "status": "awaiting_owner_approval"}], "steps_template": []})
+        if path == "/api/terminal/capabilities" and method == "GET":
+            return httpx.Response(200, json={"docker": {"available": False}, "default_mode": "project_host", "modes": ["sandbox", "project_host", "system_admin"]})
+        if path == "/api/terminal/roots" and method == "GET":
+            return httpx.Response(200, json={"roots": ["C:/Users/asd/Bossman"]})
+        if path == "/api/terminal/run" and method == "POST":
+            return httpx.Response(200, json={"session_id": "term-01", "pid": 1234, "mode": "project_host"})
+        if path == "/api/terminal/sessions" and method == "GET":
+            return httpx.Response(200, json=[{"id": "term-01", "command": "git status", "status": "finished", "exit_code": 0}])
+        if path in ("/api/terminal/sessions/term-01", "/api/terminal/sessions/term-01/log") and method == "GET":
+            return httpx.Response(200, json={"id": "term-01", "finished": True, "exit_code": 0, "output": ["On branch main"]})
+        if path in ("/api/terminal/sessions/term-01/stdin", "/api/terminal/sessions/term-01/sigint", "/api/terminal/sessions/term-01/kill") and method == "POST":
+            return httpx.Response(200, json={"ok": True})
+        if path == "/api/terminal/files" and method == "GET":
+            return httpx.Response(200, json={"kind": "dir", "path": "C:/Users/asd/Bossman", "entries": [{"name": "README.md", "is_dir": False}]})
+        if path == "/api/terminal/diff" and method == "GET":
+            return httpx.Response(200, json={"ok": True, "cwd": "C:/Users/asd/Bossman", "status": "## main", "diff": ""})
+        if path.startswith("/api/coding-tasks"):
+            return httpx.Response(200, json={"ok": True, "items": []})
         return httpx.Response(404, json={"error": {"message": "not found"}})
 
 

@@ -441,3 +441,28 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
 .jeff-col { min-width: 0; display: grid; gap: 6px; align-content: start; }
 .jeff-col .swap-reply { font: 14px/1.45 var(--sans); }
 .jeff-sections { margin: 6px 0 0; padding-left: 22px; display: grid; gap: 2px; font-size: 14px; overflow-wrap: anywhere; }
+
+/* OpenCode Agent Strip & Workbench (CHAT | AGENT | CODE | PC | /improve + Web Terminal) */
+.opencode-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 4px 12px 6px;
+  border-bottom: 1px solid var(--line); background: var(--surface2); }
+.mode-pills { display: flex; gap: 4px; overflow-x: auto; max-width: 100%; }
+.mode-pill { min-height: 32px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--muted);
+  border: 1px solid var(--line2); background: var(--surface); white-space: nowrap; }
+.mode-pill.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.opencode-tools-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.oc-mini-btn { min-height: 32px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--surface); border: 1px solid var(--line); color: var(--text); }
+.oc-mini-btn[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.oc-cost { font: 700 12px var(--mono); padding: 3px 8px; border-radius: 999px; background: var(--local-bg); color: var(--local); }
+.oc-workbench { margin: 8px 12px 0; padding: 10px 12px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow); max-height: 44vh; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.oc-wb-panel { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.oc-wb-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; font-size: 13px; }
+.oc-presets { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip.small { min-height: 30px; padding: 2px 10px; font-size: 12px; }
+.chip.small.danger { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, var(--line)); }
+.oc-term-out { margin: 0; padding: 10px; border-radius: 10px; background: var(--bg2); color: var(--text);
+  font: 12px/1.45 var(--mono); max-height: 22vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.oc-term-bar { display: flex; gap: 6px; align-items: center; }
+.oc-term-bar .field { min-height: 38px; padding: 6px 10px; font-size: 13px; }
+

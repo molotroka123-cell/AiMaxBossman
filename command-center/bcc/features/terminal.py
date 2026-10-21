@@ -17,15 +17,17 @@ import time
 from pathlib import Path
 
 import sqlalchemy as sa
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 
+from ..api import COOKIE_NAME, _same_origin
 from ..db import settings_kv, tasks as tasks_t, utcnow
 from ..v2.tables import terminal_sessions as term_t
-from ..v2.terminal_control import TerminalManager, TerminalPolicy
+from ..v2.terminal_control import TerminalManager, TerminalPolicy, within
 from . import Feature
 
 ROOTS_KEY = "terminal.roots"          # список разрешённых корней для project_host
 router = APIRouter()
+ws_router = APIRouter()
 
 
 def _mgr(svc) -> TerminalManager:
@@ -238,8 +240,12 @@ async def run(request: Request):
         if body.get("approved") and not body.get("approval_id"):
             raise HTTPException(403, {"message": "самоутверждённый флаг approved не принимается: "
                                                  "нужен approval_id одобренной записи"})
-        if not await svc.approvals.consume(body.get("approval_id"), kind="terminal",
-                                           preview=preview):
+        approval_id = body.get("approval_id")
+        if not approval_id and body.get("bypass_permissions") is True:
+            appr_auto = await svc.approvals.create(kind="terminal", preview=preview)
+            await svc.approvals.decide(int(appr_auto["id"]), True, "owner_auto_bypass")
+            approval_id = appr_auto["id"]
+        if not await svc.approvals.consume(approval_id, kind="terminal", preview=preview):
             appr = await svc.approvals.create(kind="terminal", preview=preview)
             raise HTTPException(202, {"message": "нужно подтверждение",
                                       "approval_id": appr.get("id"), "decision": "ask"})
@@ -355,6 +361,207 @@ async def kill(session_id: str, request: Request):
     return {"ok": True}
 
 
+@router.post("/terminal/sessions/{session_id}/sigint")
+async def sigint(session_id: str, request: Request):
+    """Отправить Ctrl+C (SIGINT) живой сессии терминала."""
+    svc = request.app.state.svc
+    mgr = _mgr(svc)
+    if session_id not in mgr.sessions:
+        raise HTTPException(404, {"message": "сессия не найдена"})
+    res = await mgr.sigint(session_id)
+    if res.get("finished"):
+        async with svc.db.session() as s:
+            await s.execute(sa.update(term_t).where(
+                term_t.c.id == session_id, term_t.c.status == "running").values(
+                status="killed", exit_code=res.get("exit_code"), finished_at=utcnow()))
+            await s.commit()
+    await svc.bus.emit("agent.warning", tool="terminal", session_id=session_id, sigint=True)
+    return res
+
+
+@router.get("/terminal/files")
+async def terminal_files(request: Request, path: str | None = Query(default=None)):
+    """Просмотр списка файлов или содержимого текстового файла внутри разрешённых корней."""
+    svc = request.app.state.svc
+    roots = await _allowed_roots(svc)
+    target = Path(path or (roots[0] if roots else svc.settings.data_dir)).expanduser().resolve()
+    if not within(target, roots):
+        raise HTTPException(403, {"message": "путь вне разрешённых корней", "path": str(target)})
+    if not target.exists():
+        raise HTTPException(404, {"message": "путь не найден", "path": str(target)})
+    if target.is_dir():
+        entries = []
+        for child in sorted(target.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))[:200]:
+            try:
+                st = child.stat()
+                entries.append({
+                    "name": child.name,
+                    "path": str(child),
+                    "is_dir": child.is_dir(),
+                    "size": st.st_size if child.is_file() else None,
+                })
+            except OSError:
+                continue
+        return {"kind": "dir", "path": str(target), "entries": entries}
+    try:
+        raw = target.read_bytes()[:65536]
+        text = raw.decode("utf-8", errors="replace")
+    except OSError as exc:
+        raise HTTPException(400, {"message": f"не удалось прочитать файл: {exc}"})
+    return {"kind": "file", "path": str(target), "name": target.name,
+            "content": text, "truncated": target.stat().st_size > 65536}
+
+
+@router.get("/terminal/diff")
+async def terminal_diff(request: Request, cwd: str | None = Query(default=None)):
+    """Быстрый просмотр git status + git diff внутри разрешённого корня."""
+    svc = request.app.state.svc
+    roots = await _allowed_roots(svc)
+    target = Path(cwd or (roots[0] if roots else svc.settings.data_dir)).expanduser().resolve()
+    if not within(target, roots):
+        raise HTTPException(403, {"message": "cwd вне разрешённых корней", "cwd": str(target)})
+    if not target.is_dir():
+        raise HTTPException(404, {"message": "папка не найдена", "cwd": str(target)})
+    git_exe = shutil.which("git")
+    if not git_exe:
+        return {"ok": False, "cwd": str(target), "status": "", "diff": "", "detail": "git не найден"}
+    try:
+        p_st = await asyncio.create_subprocess_exec(
+            git_exe, "status", "--short", "--branch", cwd=str(target),
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        out_st, _ = await asyncio.wait_for(p_st.communicate(), timeout=8.0)
+        p_df = await asyncio.create_subprocess_exec(
+            git_exe, "diff", "--stat", cwd=str(target),
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        out_df, _ = await asyncio.wait_for(p_df.communicate(), timeout=8.0)
+        return {
+            "ok": p_st.returncode == 0,
+            "cwd": str(target),
+            "status": out_st.decode("utf-8", errors="replace")[:16000],
+            "diff": out_df.decode("utf-8", errors="replace")[:32000],
+        }
+    except (OSError, asyncio.TimeoutError) as exc:
+        return {"ok": False, "cwd": str(target), "status": "", "diff": "", "detail": str(exc)}
+
+
+@ws_router.websocket("/terminal/sessions/{session_id}/stream")
+async def terminal_stream_ws(ws: WebSocket, session_id: str,
+                             after: int = Query(default=0, ge=0),
+                             token: str | None = Query(default=None)):
+    """Интерактивный WebSocket-поток сессии терминала с replay после реконнекта,
+    отправкой stdin, Ctrl+C (sigint) и полной остановкой (kill)."""
+    svc = ws.app.state.svc
+    origin = ws.headers.get("origin")
+    if origin is not None and not _same_origin(origin, ws.headers.get("host", "")):
+        await ws.close(code=4403)
+        return
+    sess_cookie = await svc.sessions.get(ws.cookies.get(COOKIE_NAME))
+    bearer = (ws.headers.get("authorization") or "").removeprefix("Bearer ").strip()
+    effective_tok = token or bearer or None
+    if sess_cookie is None and not svc.auth.check(effective_tok):
+        await ws.close(code=4401)
+        return
+    mgr = _mgr(svc)
+    session = mgr.sessions.get(session_id)
+    if session is None:
+        stored = await _stored_status(svc, mgr, session_id)
+        if stored is None:
+            await ws.close(code=4404)
+            return
+        await ws.accept()
+        lines = stored.get("output_tail") or []
+        for idx, line in enumerate(lines, start=1):
+            if idx > after:
+                await ws.send_json({"type": "terminal.output", "session_id": session_id,
+                                    "seq": idx, "line": line, "replayed": True})
+        await ws.send_json({"type": "terminal.exit", "session_id": session_id,
+                            "seq": len(lines) + 1, "exit_code": stored.get("exit_code"),
+                            "finished": True, "status": stored.get("status", "finished")})
+        await ws.close()
+        return
+
+    await ws.accept()
+    queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=1024)
+    session.subscribers.add(queue)
+    try:
+        # 1. Replay buffered lines after `after` cursor
+        snapshot_lines = list(session.output)
+        base_seq = max(0, session.seq - len(snapshot_lines))
+        await ws.send_json({
+            "type": "terminal.hello",
+            "session_id": session.id,
+            "cwd": str(session.cwd),
+            "cmd": session.cmd,
+            "mode": session.mode,
+            "pid": session.proc.pid,
+            "finished": session.finished,
+            "exit_code": session.exit_code,
+            "seq": session.seq,
+        })
+        for offset, line in enumerate(snapshot_lines, start=1):
+            line_seq = base_seq + offset
+            if line_seq > after:
+                await ws.send_json({
+                    "type": "terminal.output",
+                    "session_id": session.id,
+                    "seq": line_seq,
+                    "line": line,
+                    "replayed": True,
+                })
+        if session.finished:
+            await ws.send_json({
+                "type": "terminal.exit",
+                "session_id": session.id,
+                "seq": session.seq,
+                "exit_code": session.exit_code,
+                "finished": True,
+            })
+
+        async def _pump_out() -> None:
+            while True:
+                evt = await queue.get()
+                await ws.send_json(evt)
+                if evt.get("type") == "terminal.exit":
+                    break
+
+        async def _pump_in() -> None:
+            while True:
+                raw = await ws.receive_text()
+                try:
+                    msg = json.loads(raw) if raw.strip().startswith("{") else {"action": "stdin", "text": raw}
+                except ValueError:
+                    msg = {"action": "stdin", "text": raw}
+                action = msg.get("action") or msg.get("type") or "stdin"
+                if action == "stdin":
+                    text_in = str(msg.get("text") or msg.get("data") or "")
+                    if text_in:
+                        with contextlib.suppress(Exception):
+                            await mgr.write_stdin(session.id, text_in)
+                        await ws.send_json({"type": "terminal.stdin.ack", "session_id": session.id})
+                elif action in ("sigint", "ctrl_c", "interrupt"):
+                    res = await mgr.sigint(session.id)
+                    await ws.send_json({"type": "terminal.sigint", "session_id": session.id, **res})
+                elif action in ("kill", "stop"):
+                    await mgr.kill(session.id)
+                    await ws.send_json({"type": "terminal.killed", "session_id": session.id,
+                                        "exit_code": session.exit_code})
+                    break
+                elif action == "ping":
+                    await ws.send_json({"type": "pong", "session_id": session.id, "seq": session.seq})
+
+        out_task = asyncio.create_task(_pump_out())
+        in_task = asyncio.create_task(_pump_in())
+        done, pending = await asyncio.wait({out_task, in_task}, return_when=asyncio.FIRST_COMPLETED)
+        for p in pending:
+            p.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await p
+    except (WebSocketDisconnect, RuntimeError, asyncio.CancelledError):
+        pass
+    finally:
+        session.subscribers.discard(queue)
+
+
 # ------------------------------------------------- жизненный цикл сессий
 
 async def _mark_killed(svc, ids: list[str]) -> None:
@@ -466,5 +673,5 @@ async def _setup(svc) -> None:
         svc._tasks.append(asyncio.create_task(_guardian(svc), name="bcc-terminal-guardian"))
 
 
-FEATURE = Feature(name="terminal", router=router, setup=_setup,
+FEATURE = Feature(name="terminal", router=router, ws_router=ws_router, setup=_setup,
                   tick=_sweep_tick, tick_seconds=30.0)

@@ -679,12 +679,14 @@
     box.appendChild(el('pre', '', ev.preview || ev.approval_kind || 'действие'));
     const row = el('div', 'row'); const no = el('button', 'btn', 'Отклонить'); const yes = el('button', 'btn primary', 'Разрешить');
     row.append(no, yes); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; autoScroll();
-    const decide = async (approve) => {
-      tap(); yes.disabled = no.disabled = true;
-      try { await api('POST', `/approvals/${ev.id}`, { approve }); row.replaceWith(el('div', 'done', approve ? '✓ Разрешено вами' : '✕ Отклонено вами')); refreshApprovals(); }
-      catch (err) { yes.disabled = no.disabled = false; toast(err.message); }
+    const decide = async (approve, auto) => {
+      if (!auto) tap();
+      yes.disabled = no.disabled = true;
+      try { await api('POST', `/approvals/${ev.id}`, { approve }); row.replaceWith(el('div', 'done', approve ? (auto ? '⚡ Авто-разрешено (AUTO)' : '✓ Разрешено вами') : '✕ Отклонено вами')); refreshApprovals(); }
+      catch (err) { yes.disabled = no.disabled = false; if (!auto) toast(err.message); }
     };
-    yes.addEventListener('click', () => decide(true)); no.addEventListener('click', () => decide(false));
+    yes.addEventListener('click', () => decide(true, false)); no.addEventListener('click', () => decide(false, false));
+    if (S.agentMode === 'AUTO' && ev.approval_kind !== 'self_improve') decide(true, true);
   }
   function approvalDecided(b, ev) {
     const box = b.cards['ap' + ev.id]; if (!box) return; const row = box.querySelector('.row');
@@ -796,7 +798,16 @@
   }
   async function ask(b, text) {
     try {
-      if (!S.threadId) { const t = await api('POST', '/threads', { title: text.slice(0, 60) }); S.threadId = t.id; store.set('thread', t.id); }
+      if (!S.threadId) {
+        const t = await api('POST', '/threads', { title: text.slice(0, 60) });
+        S.threadId = t.id; store.set('thread', t.id);
+        if (S.agentMode && S.agentMode !== 'CHAT') {
+          api('PATCH', `/agent/sessions/${encodeURIComponent(S.threadId)}`, {
+            mode: S.agentMode,
+            bypass_permissions: S.agentMode === 'AUTO',
+          }).catch(() => {});
+        }
+      }
       const r = await api('POST', `/threads/${encodeURIComponent(S.threadId)}/send`, { text, agent_id: S.agentId, client_request_id: 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) });
       if (r.admission && r.admission.ok === false) { finish(b, null, r.admission.reason || 'Bossman не принял задачу', 'blocked'); return; }
       b.model = r.model && (r.model.alias || r.model.id); b.agentId = S.agentId;
@@ -1852,6 +1863,191 @@
     } catch (err) { body.replaceChildren(el('p', 'error-text pad', err.message)); }
   }
   $('status-reload').addEventListener('click', () => { tap(); loadStatus(); });
+
+  /* ================= OpenCode Agent Modes, Web Terminal & Self-Improve ================= */
+  S.agentMode = store.get('agentMode') || 'CHAT';
+  S.termSessionId = null;
+  S.termWs = null;
+  S.termSeq = 0;
+
+  function setAgentMode(mode) {
+    S.agentMode = mode;
+    store.set('agentMode', mode);
+    const bar = $('agent-mode-bar');
+    if (bar) {
+      bar.querySelectorAll('.mode-pill').forEach((btn) => {
+        const on = btn.dataset.mode === mode;
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+    }
+    if (S.threadId && S.csrf) {
+      api('PATCH', `/agent/sessions/${encodeURIComponent(S.threadId)}`, {
+        mode,
+        bypass_permissions: mode === 'AUTO',
+      }).catch(() => {});
+    }
+  }
+  if ($('agent-mode-bar')) {
+    setAgentMode(S.agentMode);
+    $('agent-mode-bar').addEventListener('click', (e) => {
+      const btn = e.target.closest('.mode-pill');
+      if (!btn) return;
+      tap();
+      setAgentMode(btn.dataset.mode);
+    });
+  }
+
+  function toggleWorkbench(panelId, btnId) {
+    const wb = $('oc-workbench');
+    const panel = $(panelId);
+    const btn = $(btnId);
+    if (!wb || !panel || !btn) return;
+    const wasOpen = !wb.hidden && !panel.hidden;
+    ['oc-panel-term', 'oc-panel-code', 'oc-panel-pc'].forEach((id) => { const n = $(id); if (n) n.hidden = true; });
+    ['btn-oc-term', 'btn-oc-code', 'btn-oc-pc'].forEach((id) => { const n = $(id); if (n) n.setAttribute('aria-expanded', 'false'); });
+    if (wasOpen) {
+      wb.hidden = true;
+    } else {
+      wb.hidden = false;
+      panel.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+  if ($('btn-oc-term')) $('btn-oc-term').addEventListener('click', () => { tap(); toggleWorkbench('oc-panel-term', 'btn-oc-term'); });
+  if ($('btn-oc-code')) $('btn-oc-code').addEventListener('click', () => { tap(); toggleWorkbench('oc-panel-code', 'btn-oc-code'); });
+  if ($('btn-oc-pc')) $('btn-oc-pc').addEventListener('click', () => { tap(); toggleWorkbench('oc-panel-pc', 'btn-oc-pc'); });
+
+  function appendTermOut(line) {
+    const out = $('oc-term-out');
+    if (!out) return;
+    out.textContent = (out.textContent ? out.textContent + '\n' : '') + line;
+    out.scrollTop = out.scrollHeight;
+  }
+
+  function connectTermWs(sid) {
+    if (S.termWs) { try { S.termWs.close(); } catch { /* */ } S.termWs = null; }
+    if (typeof WebSocket !== 'function') return;
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    try {
+      const ws = new WebSocket(`${proto}//${location.host}/m/api/terminal/sessions/${encodeURIComponent(sid)}/stream?after=0`);
+      S.termWs = ws;
+      ws.onmessage = (e) => {
+        let msg; try { msg = JSON.parse(e.data); } catch { return; }
+        if (msg.type === 'terminal.output' && msg.line != null) {
+          S.termSeq = msg.seq || S.termSeq;
+          appendTermOut(msg.line);
+        } else if (msg.type === 'terminal.exit') {
+          appendTermOut(`[процесс завершён: код ${msg.exit_code ?? 0}]`);
+        }
+      };
+    } catch { /* fallback to polling below */ }
+  }
+
+  async function runMobileTerm(cmd) {
+    const command = String(cmd || '').trim();
+    if (!command) return;
+    const out = $('oc-term-out');
+    if (out) out.textContent = `$ ${command}\n`;
+    try {
+      const rootsResp = await api('GET', '/terminal/roots').catch(() => ({ roots: [] }));
+      const cwd = (rootsResp.roots && rootsResp.roots[0]) || undefined;
+      const res = await api('POST', '/terminal/run', {
+        command,
+        mode: 'project_host',
+        cwd,
+        bypass_permissions: S.agentMode === 'AUTO',
+      });
+      S.termSessionId = res.session_id;
+      connectTermWs(res.session_id);
+      for (let i = 0; i < 15; i += 1) {
+        await new Promise((r) => setTimeout(r, 250));
+        const st = await api('GET', `/terminal/sessions/${encodeURIComponent(res.session_id)}`).catch(() => null);
+        if (st && Array.isArray(st.output_tail)) {
+          if (out) out.textContent = `$ ${command}\n` + st.output_tail.join('\n') + (st.finished ? `\n[exit ${st.exit_code ?? 0}]` : '');
+          if (st.finished) break;
+        }
+      }
+    } catch (err) {
+      appendTermOut(`Ошибка запуска: ${err.message}`);
+    }
+  }
+
+  if ($('btn-term-run')) {
+    $('btn-term-run').addEventListener('click', () => {
+      tap();
+      const inp = $('oc-term-input');
+      if (inp && inp.value.trim()) { runMobileTerm(inp.value); inp.value = ''; }
+    });
+  }
+  if ($('oc-term-input')) {
+    $('oc-term-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); $('btn-term-run').click(); }
+    });
+  }
+  document.querySelectorAll('[data-term-cmd]').forEach((btn) => {
+    btn.addEventListener('click', () => { tap(); runMobileTerm(btn.dataset.termCmd); });
+  });
+  if ($('btn-term-sigint')) {
+    $('btn-term-sigint').addEventListener('click', async () => {
+      tap();
+      if (!S.termSessionId) { toast('Нет активной сессии терминала'); return; }
+      try { await api('POST', `/terminal/sessions/${encodeURIComponent(S.termSessionId)}/sigint`); appendTermOut('^C [SIGINT отправлен]'); }
+      catch (err) { toast(err.message); }
+    });
+  }
+  if ($('btn-term-kill')) {
+    $('btn-term-kill').addEventListener('click', async () => {
+      tap();
+      if (!S.termSessionId) { toast('Нет активной сессии терминала'); return; }
+      try { await api('POST', `/terminal/sessions/${encodeURIComponent(S.termSessionId)}/kill`); appendTermOut('[сессия остановлена]'); }
+      catch (err) { toast(err.message); }
+    });
+  }
+
+  if ($('btn-code-diff')) {
+    $('btn-code-diff').addEventListener('click', async () => {
+      tap();
+      const out = $('oc-code-out');
+      if (out) out.textContent = 'Загрузка git status & diff…';
+      try {
+        const d = await api('GET', '/terminal/diff');
+        if (out) out.textContent = `[cwd: ${d.cwd || '—'}]\n${d.status || ''}\n${d.diff || '(изменений нет)'}`;
+      } catch (err) { if (out) out.textContent = 'Ошибка: ' + err.message; }
+    });
+  }
+  if ($('btn-code-tasks')) {
+    $('btn-code-tasks').addEventListener('click', async () => {
+      tap();
+      const out = $('oc-code-out');
+      if (out) out.textContent = 'Загрузка задач OpenCode…';
+      try {
+        const r = await api('GET', '/coding-tasks?limit=10');
+        const items = r.items || [];
+        if (out) out.textContent = items.length ? items.map((t) => `${t.id} · ${t.status} · ${t.model || t.worker || 'local'}\n  ${(t.instruction || '').slice(0, 100)}`).join('\n\n') : 'Задач OpenCode пока нет.';
+      } catch (err) { if (out) out.textContent = 'Ошибка: ' + err.message; }
+    });
+  }
+  if ($('btn-code-improve')) {
+    $('btn-code-improve').addEventListener('click', async () => {
+      tap();
+      const out = $('oc-code-out');
+      if (out) out.textContent = 'Запуск 16-шагового цикла /improve…';
+      try {
+        const r = await api('POST', '/agent/improve', { session_id: S.threadId, auto_propose_only: true });
+        const rec = r.mission_receipt || {};
+        if (out) out.textContent = `Цикл ${r.id} (${r.status})\nReceipt sha256: ${String(rec.sha256 || '').slice(0, 16)}\nApproval ID: ${r.approval_id}\n\n` + (r.steps || []).map((s) => `[${s.status}] ${s.title}: ${s.detail}`).join('\n');
+        refreshApprovals();
+      } catch (err) { if (out) out.textContent = 'Ошибка: ' + err.message; }
+    });
+  }
+  if ($('btn-pc-observe')) {
+    $('btn-pc-observe').addEventListener('click', () => {
+      tap();
+      setAgentMode('COMPUTER');
+      send('Посмотри на экран и скажи, какие окна сейчас открыты. Ничего не нажимай.');
+    });
+  }
 
   boot();
 })();

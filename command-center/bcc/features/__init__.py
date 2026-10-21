@@ -26,6 +26,7 @@ from fastapi import APIRouter
 class Feature:
     name: str
     router: APIRouter | None = None
+    ws_router: APIRouter | None = None
     setup: Callable[[Any], Awaitable[None]] | None = None
     tick: Callable[[Any], Awaitable[None]] | None = None
     tick_seconds: float = 0.0
