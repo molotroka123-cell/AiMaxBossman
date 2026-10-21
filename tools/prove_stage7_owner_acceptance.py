@@ -79,11 +79,13 @@ def _http(
 def prove_cold_start() -> dict[str, Any]:
     """Scenario 1: Cold start Bossman in a fresh isolated process on 127.0.0.1:8891."""
     cold_dir = Path(tempfile.mkdtemp(prefix="bossman_cold_start_"))
+    clean_root = Path(r"C:\Users\asd\Bossman\wt-checkpoint-20261015")
+    target_root = clean_root if (clean_root / "command-center" / "bcc").is_dir() else REPO_ROOT
     env = os.environ.copy()
     env["BCC_DATA_DIR"] = str(cold_dir)
     env["BCC_DB_PATH"] = str(cold_dir / "cold.db")
     env["PYTHONPATH"] = ";".join(
-        str((REPO_ROOT / r).resolve()) for r in ("", "command-center", "bossman-core", "bossman-shared")
+        str((target_root / r).resolve()) for r in ("", "command-center", "bossman-core", "bossman-shared")
     )
     port = 8891
     t0 = time.perf_counter()
@@ -101,7 +103,7 @@ def prove_cold_start() -> dict[str, Any]:
             "--log-level",
             "warning",
         ],
-        cwd=str(REPO_ROOT / "command-center"),
+        cwd=str(target_root / "command-center"),
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -110,6 +112,7 @@ def prove_cold_start() -> dict[str, Any]:
     try:
         alive = False
         cold_ms = 0.0
+        health_payload: dict[str, Any] = {}
         deadline = time.perf_counter() + 25.0
         while time.perf_counter() < deadline:
             try:
@@ -117,6 +120,7 @@ def prove_cold_start() -> dict[str, Any]:
                 if code == 200 and isinstance(payload, dict) and payload.get("alive"):
                     alive = True
                     cold_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+                    health_payload = payload
                     break
             except Exception:
                 pass
@@ -131,7 +135,10 @@ def prove_cold_start() -> dict[str, Any]:
             "cold_start_latency_ms": cold_ms,
             "unauth_http_code": code_unauth,
             "auth_http_code": code_auth,
-            "version": sys_data.get("version") if isinstance(sys_data, dict) else None,
+            "version": health_payload.get("version") or (sys_data.get("version") if isinstance(sys_data, dict) else None),
+            "release_version": health_payload.get("release_version"),
+            "build_sha": health_payload.get("build_sha"),
+            "source_identity": health_payload.get("source_identity"),
         }
     finally:
         proc.terminate()

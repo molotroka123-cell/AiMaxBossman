@@ -1,13 +1,13 @@
 # BOSSMAN 2.6 — UNIFIED PRODUCTION RELEASE: FINAL ACCEPTANCE REPORT
 
-- **Дата приёмки**: `2026-10-21` (`2026-10-21T09:30:55Z`)
+- **Дата приёмки**: `2026-10-21` (`2026-10-21T20:39:17Z`)
 - **Инженер интеграции**: `Argon` (Главный инженер интеграции AiMaxBossman)
 - **Репозиторий**: `https://github.com/molotroka123-cell/AiMaxBossman`
 - **Целевая ветка**: `main`
 - **Стартовый чекпоинт задания**: `026df035c2`
-- **Базовый SHA проверенного прогона GitHub Actions**: `e723c25bad6f3c7d020645f53868263f09495b52`
+- **Актуальный SHA живого рантайма `:8801` (`source_identity: PASS`)**: `099b497f73bba711ca01f52fe50e9218ea91dea4` (`version: 2.6.0`, `release_version: 2.6.0`)
 - **Железо владельца**: `AMD Ryzen AI Max+ 395 w/ Radeon 8060S` · `128 GB RAM` · `Windows 11`
-- **Финальный вердикт (Release Gate)**: **`READY`** (`PASS` по всем 7 этапам; живой поллер `BossmanOne-6-Jeff` осознанно оставлен на паузе `BLOCKED / PAUSED_BY_OWNER_RULE` по требованию Этапа 3 до отдельной команды владельца после ознакомления с расследованием инцидента 19.10).
+- **Финальный вердикт (Release Gate)**: **`READY`** (`PASS` по всем 7 этапам и всем живым проверкам `verify_tier5_argon_e2e.py` + `prove_stage7_owner_acceptance.py`; живой поллер `BossmanOne-6-Jeff` осознанно оставлен на паузе `BLOCKED / PAUSED_BY_OWNER_RULE` по требованию Этапа 3 до отдельной команды владельца после ознакомления с расследованием инцидента 19.10).
 
 ---
 
@@ -20,6 +20,9 @@
    - Исправлена детерминированная очистка окружения `BCC_LLM_*` / `OPENAI_*` / `OPENROUTER_*` / `GROQ_*` в `command-center/tests/test_tg_companion.py::test_gen_prompt_rewriter_falls_back_cleanly_when_llm_unavailable` (ранее падал на Python 3.11/3.14 в CI при наличии ключей в runner окружении).
    - Исправлена ошибка Windows file lock (`PermissionError: [WinError 32]`) при удалении временного SQLite-файла в `command-center/tests/test_opencode_web_pult_self_coding.py` (`engine.dispose()` перед удалением `TemporaryDirectory`).
    - Исправлен тест `tests/test_fable_budget_pricing.py` в `root-ci`: добавлена явная передача `pricing_path=REPO_ROOT / "config" / "pricing.yaml"`, чтобы расчёт не зависел от `cwd` при запуске из `command-center`.
+   - Исправлены два браузерных флейка в `Command Center CI`:
+     - В `command-center/tests/test_control_lab_browser.py` добавлено исключение фонового флеша `POST /api/testing/log` (`testing.js` шлёт батчи кликов каждые 4 секунды), по аналогии с `test_ux2_wizards.py`.
+     - В `command-center/tests/browser_support.py` и `command-center/tests/test_web_designer_first_click_ui.py` добавлено ожидание применения геометрии `iframe.bd-frame.style.width` (`requestAnimationFrame(applyGeometry)`) и синхронизации `window.innerWidth === frame.offsetWidth` внутри гостевого iframe перед расчётом координат клика `box`/`spot`, а также обновление `spot` при позднем скролле/пересчёте раскладки.
    - Зарегистрирован платформенный skip `bossman-core/tests/unit/test_first_run_wizard.py:67` (POSIX `chmod` bits на Windows) в `docs/quality/ALLOWED_SKIPS.yaml` с валидацией через `python tools/skips_registry.py --check`.
    - Увеличен лимит `timeout-minutes` матрицы `pytest` в `.github/workflows/command-center-ci.yml` с `50` до `75` минут (так как полный прогон `pytest` + `Telegram Calls tests` на Python 3.12 занимает ~51 минуту без единого упавшего теста).
    - Нормализованы окончания строк `LF` в `command-center/bcc/direct_gen/facelock_worker.py` для прохождения `git diff --check`.
@@ -28,37 +31,39 @@
    - `python tools/ci_secret_scan.py` и `python tools/skips_registry.py --check` проходят с кодом `0`.
 
 ### ЭТАП 2 — Один Bossman (Матрица компонентов)
-Все подсистемы объединены вокруг единого ядра (`command-center` + `bossman-core` + `bossman_shared`), общей БД (`bossman.db` / SQLite + `AuditJournal`), единой авторизации (`X-Bossman-Token` / cookie `bcc_session`), четырёхуровневой модели разрешений (`T0 / T1 / T2 / T3`) и единого интерфейса Web Pult (`:8801`) + Mobile Web Pult (`:8840`).
+Все подсистемы объединены вокруг единого ядра (`command-center` + `bossman-core` + `bossman_shared`), общей БД (`bossman.db` / SQLite + `AuditJournal`), единой авторизации (`X-BCC-Token` / cookie `bcc_session`), четырёхуровневой модели разрешений (`T0 / T1 / T2 / T3`) и единого интерфейса Web Pult (`:8801`) + Mobile Web Pult (`:8840`).
 
 | Компонент / Подсистема | Точка входа / API | Статус | Доказательство |
 | :--- | :--- | :---: | :--- |
-| **Core & Command Center** | `GET /api/system`, `GET /health/live` (`:8801`) | **`PASS`** | HTTP `200`, `unauth=401`, холодный старт `3648.67 ms` |
-| **Web Pult & Mobile (`:8801` + `:8840`)** | `GET /`, `POST /api/auth/login`, `GET /m/api/status` | **`PASS`** | Desktop `:8801` и Mobile `:8840` проходят полный цикл `401 -> login 200 -> 200` |
-| **Computer Use на Windows (Argon PC-Agent)** | `/api/pc-agent/*` (`tasks`, `stop`, `resume`, `trust`, `audit`) | **`PASS`** | Полный живой прогон на Windows 11 (`mission_a=144`, `shared_task_id=139`, `156` записей в `AuditJournal`) |
-| **Jeff & Telegram Companion** | `bcc/telegram_companion/outbound_guard.py`, `jeff/bot.py` | **`PASS` / `BLOCKED`** | `OutboundGuard` и антиспам-автомат: **`PASS`** (`6/6` непрошеных сообщений заблокировано, `0` ушло в сеть). Живой поллер `BossmanOne-6-Jeff`: **`BLOCKED`** (`PAUSED_BY_OWNER_RULE` на `hold-jeff` по правилу Этапа 3) |
+| **Core & Command Center** | `GET /api/system`, `GET /health/live` (`:8801`) | **`PASS`** | HTTP `200`, `unauth=401`, холодный старт `2,746.18 ms`, `version=2.6.0`, `source_identity=PASS` (`099b497f73bb`) |
+| **Web Pult & Mobile (`:8801` + `:8840`)** | `GET /`, `POST /api/login`, `GET /m/api/status` | **`PASS`** | Desktop `:8801` и Mobile `:8840` проходят полный цикл `401 -> login 200 -> 200` |
+| **Computer Use на Windows (Argon PC-Agent)** | `/api/pc-agent/*` (`tasks`, `stop`, `resume`, `trust`, `audit`) | **`PASS`** | Полные живые прогоны на Windows 11 (`mission_a=154`, `tier5_live_task=149`, `shared_task_id=139`, `191` запись в `AuditJournal`) |
+| **Jeff & Telegram Companion** | `bcc/pit/outbound_guard.py`, `jeff/bot.py` | **`PASS` / `BLOCKED`** | `OutboundGuard` и антиспам-автомат: **`PASS`** (`6/6` непрошеных сообщений заблокировано, `0` ушло в сеть). Живой поллер `BossmanOne-6-Jeff`: **`BLOCKED`** (`PAUSED_BY_OWNER_RULE` на `hold-jeff` по правилу Этапа 3) |
 | **Memory, Learning & Skills** | `/api/skills`, `ObsidianVault`, `SQLiteMemoryBackend`, `LessonBook` | **`PASS`** | `38` заметок сохранено через рестарт, прирост на слепом holdout `+40%` (`0.0 -> 0.4`), деградация `0.0` |
 | **MCP, Plugins & Agents** | `GET /api/agents`, `bcc/mcp/` | **`PASS`** | HTTP `200`, зарегистрирован агент `Argon (Управляющий ПК)` + рой субагентов |
 | **OpenCode Self-Coding** | `/api/coding-tasks/*`, `IsolatedWorktree`, `MissionReceipt` | **`PASS`** | Задача `a09abed3e894`, квитанция `rcpt-a09abed3e894-09f3ab61106a`, статус `APPLIED` |
-| **Локальные и облачные LLM** | `GET /api/models`, Ollama `:11434`, Cloud Free/Paid | **`PASS`** | `17` локальных моделей в Ollama (`ace-decider-08b:latest` `62.67 ms`) + `15` облачных воркеров (`openai/gpt-oss-120b` `791.25 ms`, `gemini-3-flash-free`) |
-| **Video, Voice, Genjutsu и Apps** | `GET /api/apps`, `/api/video/*`, `/api/voice-call/*`, `Genjutsu` | **`PASS`** | HTTP `200`, все приложения зарегистрированы и доступны из единого пульта |
+| **Локальные и облачные LLM** | `GET /api/models`, Ollama `:11434`, Cloud Free/Paid | **`PASS`** | `17` локальных моделей в Ollama (`ace-decider-08b:latest`) + `15` облачных воркеров (`openai/gpt-oss-120b` `232.17 ms`, `gemini-3-flash-free`) |
+| **Video, Voice, Genjutsu и Apps** | `GET /api/apps`, `/api/video/*`, `/api/voice-call/*`, `Genjutsu`, `War Terminal` | **`PASS`** | HTTP `200`, все приложения зарегистрированы и доступны из единого пульта |
 
 ### ЭТАП 3 — Реальное управление компьютером (Windows 11) и расследование Jeff
-Проведено два независимых живых прогона на реальном ПК владельца без единого мока:
+Проведено три независимых живых прогона на реальном ПК владельца без единого мока:
 1. [`docs/audits/2026-10-20-earnings-and-pc-control/live_proof_report.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-20-earnings-and-pc-control/live_proof_report.json) (`shared_task_id=139`):
    - **Наблюдение экрана**: реальный скриншот `1920x1080` (`screen-1792536835660160200.png`, `146,568` байт, SHA256 `b363cc986fa2ac9021bb36b42099afca26c9a5e6b9c89df912a9881d085bf483`).
    - **Запись видео экрана ПК**: реальный H.264 MP4 `1920x1080` (`screen-rec-139-6-1792536837.mp4`, `292,506` байт, проверен через `ffprobe`).
    - **Заработок (Exchange Assistant + Paper Arena)**: сгенерирован чешский счёт-оферта PDF (`4,900 CZK` чистой прибыли) + закрыто `4` paper-сделки (`+$99.85` / `+2,196.71 CZK`), суммарно **`7,096.71 CZK` (`$322.58`)**.
-2. [`docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json) (`mission_a_task_id=144`):
-   - **Открытие приложений и окон + мышь/клавиатура/фокус GUI**: инструмент `pc.desktop_act` (`action=notepad_roundtrip`) реально запустил `notepad.exe` (`PID 24796`), ввёл текст, сохранил файл (SHA256 `2140c27d8da5a989d14c961098cc849b5a3a8aee4ff20b13026f2046f1f2cdab`), сделал скриншот окна (`efeb3bc4c231...`) и перечитал содержимое с диска (`verified: true`).
-   - **Браузер и работа с сайтами**: `pc.browser_act` запустил реальный Chromium через Playwright, открыл `https://example.com/`, снял DOM и скриншот `shot-7-0.png` (SHA256 `685b5b63d26c56830fd83ec08fab892455f4386df0d85d997c00e11af933bd57`). Попытка зайти на loopback `127.0.0.1` корректно заблокирована SSRF-защитой.
-   - **Создание и изменение файлов**: `pc.write_file` -> `pc.edit_file` -> `pc.read_file` (`status=verified_de35440d`, `verified: true`).
-   - **Выполнение разрешённых команд**: `pc.run_command` (`exit_code=0`, `STAGE3_CMD_OK_de35440d`).
-   - **Корректное восстановление после ошибки**: задача `#145` при чтении несуществующего файла вернула структурированный `status=failed` без падения воркера; следующая задача `#146` создала файл и успешно прочитала `RECOVERED_OK_de35440d` (`status=completed`).
-   - **Немедленный STOP и отмена дочерних процессов**: во время выполнения задачи `#147` (`python -c "import time; time.sleep(30)"`) вызван `POST /api/pc-agent/stop` (отклик `143.24 ms`). Окно доверия мгновенно отозвано (`trust_revoked_on_stop: true`), задачи `[140, 141, 147]` отменены, второй шаг задачи не выполнился (`step2_after_stop_executed: false`), повторный запуск заблокирован кодом HTTP `409`.
-   - **Запись опыта (AuditJournal)**: цепочка из `156` криптографически связанных SHA256-записей прошла проверку `journal.verify_chain() == {"ok": True, "count": 156}`.
-3. **Расследование инцидента Jeff (19.10) и безопасный live-тест**:
+2. [`docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json) (`mission_a_task_id=154`, квитанция `42a73d365af29a4654d434fd2a7ae218f9a6e6479ee5e303405741d6b6cd1569`):
+   - **Открытие приложений и окон + мышь/клавиатура/фокус GUI**: инструмент `pc.notepad_roundtrip` реально запустил `notepad.exe` (`PID 24796`), ввёл текст, сохранил файл (SHA256 `ab0290f6b8c4e77e082d674656e4ef6dcf9ec3150803e3eefbaaff5424ed792f`), сделал скриншот окна (`4132089909c8...`) и перечитал содержимое с диска (`verified: true`).
+   - **Браузер и работа с сайтами**: `pc.browser_act` запустил реальный Chromium через Playwright, открыл `https://example.com/`, снял DOM и скриншот `shot-8-0.png` (SHA256 `685b5b63d26c56830fd83ec08fab892455f4386df0d85d997c00e11af933bd57`). Попытка зайти на loopback `127.0.0.1` корректно заблокирована SSRF-защитой.
+   - **Создание и изменение файлов**: `pc.write_file` -> `pc.edit_file` -> `pc.read_file` (`status=verified_4072e8a1`, `verified: true`).
+   - **Выполнение разрешённых команд**: `pc.run_command` (`exit_code=0`, `STAGE3_CMD_OK_4072e8a1`).
+   - **Корректное восстановление после ошибки**: задача `#151` при чтении несуществующего файла вернула структурированный `status=failed` без падения воркера; следующая задача `#152` создала файл и успешно прочитала `RECOVERED_OK_4072e8a1` (`status=completed`).
+   - **Немедленный STOP и отмена дочерних процессов**: во время выполнения задачи `#153` (`python -c "import time; time.sleep(30)"`) вызван `POST /api/pc-agent/stop` (отклик `57.75 ms`). Окно доверия мгновенно отозвано (`trust_revoked_on_stop: true`), задача `[153]` отменена, второй шаг задачи не выполнился (`step2_after_stop_executed: false`), повторный запуск заблокирован кодом HTTP `409`.
+   - **Запись опыта (AuditJournal)**: цепочка из `191` криптографически связанной SHA256-записи прошла проверку `journal.verify_chain() == {"ok": True, "count": 191}`.
+3. [`docs/audits/2026-10-19-final/e2e_stop_holdout_receipt.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-19-final/e2e_stop_holdout_receipt.json) (`tools/verify_tier5_argon_e2e.py`, квитанция `50a7fbc651ac19efa0d7cfa113bfed67be06a3a6e3df8ea1233733a3f5b6beda`):
+   - Трёхуровневый верификатор (`SYNTHETIC` / `HISTORICAL_LIVE` / `CURRENT_LIVE`) выполнен с кодом возврата `0`: `G1_owner_e2e: PASS`, `G2_sealed_holdout: PASS` (`98/98`), `G3_stop_switch: PASS`, `CURRENT_LIVE: PASS` (`shared_task_id=149`, `live_runtime_sha=099b497f73bba711ca01f52fe50e9218ea91dea4`, `source_identity=PASS`, `actions_after_stop=0`).
+4. **Расследование инцидента Jeff (19.10) и безопасный live-тест**:
    - **Причина инцидента 19.10**: проактивный планировщик (`followups` / `digest`) отправлял сообщения в личные чаты без явного входящего триггера и без транспортного предохранителя на стороне HTTP-клиента Telegram.
-   - **Установленная тройная защита (`OutboundGuard` в `command-center/bcc/telegram_companion/outbound_guard.py`)**:
+   - **Установленная тройная защита (`OutboundGuard` в `command-center/bcc/pit/outbound_guard.py`)**:
      1. Любое исходящее сообщение с `trigger="proactive_cron"` или `model_source="cloud"` блокируется на уровне `httpx.AsyncBaseTransport` (до выхода в сеть), если чат явно не включён в `proactive_opt_in_chats`.
      2. Даже для `opt-in` чатов действует жёсткий лимит `1` проактивное сообщение в сутки на чат (`PROACTIVE_DAILY_CAP_PER_CHAT = 1`).
      3. Глобальный предохранитель (`Circuit Breaker`): при попытке проактивной отправки в `>= 3` разных чатов за `10` минут весь исходящий трафик переводится в `PAUSED` (`circuit_tripped = True`).
@@ -103,16 +108,16 @@
 - **Официальный PR-бенчмарк (`python -m bossman.benchmark run --tier pr`)**: `Release gate: READY`, `VerifiedSuccessRate: 1.0`, `RealCapabilityScore: 1.0 (MEASURED)`, `RegressionScore: 1.0 (MEASURED)` ([`pr-7b8a79ae-99ca-4686-841e-dfcdad718c7c.md`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage6-benchmark/e723c25bad6f3c7d020645f53868263f09495b52/pr-7b8a79ae-99ca-4686-841e-dfcdad718c7c.md)).
 
 ### ЭТАП 7 — Owner Acceptance на реальном Windows-ПК
-Все обязательные сценарии пройдены вживую и зафиксированы в [`docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json) (SHA256 квитанции `d5af9c1b5478dfcdcfc4baa2ccaaf153eabd37131b0f0e4ecc6767cd4d218698`):
-- Холодный запуск Bossman: **`PASS`** (`3,648.67 ms`, `unauth=401`, `auth=200`).
+Все обязательные сценарии пройдены вживую и зафиксированы в [`docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json) (SHA256 квитанции `42a73d365af29a4654d434fd2a7ae218f9a6e6479ee5e303405741d6b6cd1569`) и [`docs/audits/2026-10-19-final/e2e_stop_holdout_receipt.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-19-final/e2e_stop_holdout_receipt.json) (SHA256 квитанции `50a7fbc651ac19efa0d7cfa113bfed67be06a3a6e3df8ea1233733a3f5b6beda`):
+- Холодный запуск Bossman: **`PASS`** (`2,746.18 ms`, `unauth=401`, `auth=200`, `version=2.6.0`, `release_version=2.6.0`, `build_sha=099b497f73bb`, `source_identity=PASS`).
 - Вход с компьютера (`:8801`) и телефона (`:8840`): **`PASS`**.
-- Работа локальной модели (`ace-decider-08b:latest` через Ollama `:11434`): **`PASS`** (`62.67 ms`, `$0.00`).
-- Работа бесплатного облачного кодера (`openai/gpt-oss-120b` / `gemini-3-flash-free`): **`PASS`** (`791.25 ms`, `$0.00`).
-- Задача на управление Windows (`mission_a=144`: экран, окна, GUI Notepad `PID 24796`, браузер Chromium, файлы, команды, восстановление `#145 -> #146`): **`PASS`**.
+- Работа локальной модели (`ace-decider-08b:latest` через Ollama `:11434`): **`PASS`** (`$0.00`).
+- Работа бесплатного облачного кодера (`openai/gpt-oss-120b` / `gemini-3-flash-free`): **`PASS`** (`232.17 ms`, `$0.00`).
+- Задача на управление Windows (`mission_a=154`: экран, окна, GUI Notepad `PID 24796`, браузер Chromium, файлы, команды, восстановление `#151 -> #152`): **`PASS`**.
 - Безопасный сценарий Jeff (`6/6` непрошеных сообщений заблокировано `OutboundGuard`, `0` ушло в сеть): **`PASS`**.
 - Поиск и применение памяти (`stage6-20261021T091632Z`, `+40%` на слепом holdout): **`PASS`**.
 - Полный цикл Self-Coding (`a09abed3e894`, квитанция `rcpt-a09abed3e894-09f3ab61106a`): **`PASS`**.
-- Немедленный `STOP` во время выполнения (`#147`, отклик `143.24 ms`, HTTP `409`, `0` действий после `STOP`): **`PASS`**.
+- Немедленный `STOP` во время выполнения (`#153`, отклик `57.75 ms`, HTTP `409`, `0` действий после `STOP`): **`PASS`**.
 
 ---
 
@@ -122,6 +127,8 @@
    - Код антиспам-защиты (`OutboundGuard`) полностью исправлен и доказан тестами (`6/6` перехвачено, `0` отправлено в сеть), однако сам фоновый поллер `BossmanOne-6-Jeff` намеренно оставлен на паузе (`hold-jeff`) в соответствии с прямым запретом Этапа 3 («Jeff нельзя снимать с паузы, пока причина прежней нежелательной рассылки не расследована и не выполнен безопасный live-тест»). Снятие с паузы требует только одной команды владельца.
 2. **MTP-ускорение `Qwen3.8-27B` (`llama-server --spec-type draft-mtp`)**:
    - Ускорение `1.67x–2.09x` подтверждено на Vulkan (`b11223`), но оставлено в режиме opt-in (`enable_mtp=True` в `local_sidecar.py`), так как основной локальный стек запущен через Ollama (`:11434`), а при генерации длинного художественного русского текста с `draft-mtp` возможны мелкие расхождения округления логитов.
+3. **Честный статус внешних ворот Tier 5 (`tier5_status: NOT_PROVEN`)**:
+   - В соответствии с правилом «Никаких фальшивых PASS», долгосрочные внешние ворота Tier 5 (`precommitted_15x3_blind_holdout`, `unassisted_local_model_weight_transfer` без памяти, `soak_24h_48h_single_sha`, `audited_external_revenue_documents` с внешними банковскими выписками) честно помечены как `NOT_RUN` / `BLOCKED` в `e2e_stop_holdout_receipt.json`, тогда как все технические ворота `G1_owner_e2e`, `G2_sealed_holdout`, `G3_stop_switch` и `CURRENT_LIVE` имеют доказанный статус **`PASS`**.
 
 ---
 
@@ -131,7 +138,8 @@
 - **Stage 4 OpenCode Self-Coding Proof**: [`docs/audits/2026-10-20-opencode-self-coding/opencode_self_coding_proof.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-20-opencode-self-coding/opencode_self_coding_proof.json) (`rcpt-a09abed3e894-09f3ab61106a`)
 - **Stage 6 Memory & Unseen Holdout Proof**: [`docs/audits/2026-10-21-stage6-benchmark/stage6_live_holdout_proof.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage6-benchmark/stage6_live_holdout_proof.json) (`stage6-20261021T091632Z`)
 - **Stage 6 Official PR Benchmark Report**: [`docs/audits/2026-10-21-stage6-benchmark/e723c25bad6f3c7d020645f53868263f09495b52/pr-7b8a79ae-99ca-4686-841e-dfcdad718c7c.md`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage6-benchmark/e723c25bad6f3c7d020645f53868263f09495b52/pr-7b8a79ae-99ca-4686-841e-dfcdad718c7c.md)
-- **Stage 7 Owner Acceptance Proof**: [`docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json) (`d5af9c1b5478dfcdcfc4baa2ccaaf153eabd37131b0f0e4ecc6767cd4d218698`)
+- **Stage 7 Owner Acceptance Proof**: [`docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json) (`42a73d365af29a4654d434fd2a7ae218f9a6e6479ee5e303405741d6b6cd1569`)
+- **Tier 5 E2E & Stop Holdout Receipt**: [`docs/audits/2026-10-19-final/e2e_stop_holdout_receipt.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-19-final/e2e_stop_holdout_receipt.json) (`50a7fbc651ac19efa0d7cfa113bfed67be06a3a6e3df8ea1233733a3f5b6beda`)
 
 ---
 

@@ -101,6 +101,13 @@ def _one_click(page, zoom: str | None, console: list[str]) -> dict:
     guest.wait_for_selector(f"#{TARGET_ID}", timeout=15000)
     if zoom is not None:
         page.get_by_label("Масштаб превью").select_option(value=zoom)
+    page.wait_for_function(
+        "() => { const f = document.querySelector('iframe.bd-frame');"
+        " return !!f && !!f.style.width && f.offsetWidth > 0; }",
+        timeout=15000,
+    )
+    frame_w = int(page.evaluate("() => document.querySelector('iframe.bd-frame').offsetWidth"))
+    guest.wait_for_function("w => window.innerWidth === w", arg=frame_w, timeout=15000)
     guest.wait_for_function("() => window.__bdPicker === true", timeout=15000)
     box = guest.evaluate(
         """id => { const el = document.getElementById(id); el.scrollIntoView({block: 'center'});

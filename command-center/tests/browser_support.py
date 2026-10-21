@@ -123,6 +123,13 @@ def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15
     expected_tag = selector.strip().lower() if re.fullmatch(r"[a-z][a-z0-9]*", selector.strip().lower()) else None
     guest = preview_frame(page)
     guest.wait_for_selector(selector, timeout=timeout)
+    page.wait_for_function(
+        "() => { const f = document.querySelector('iframe.bd-frame');"
+        " return !!f && !!f.style.width && f.offsetWidth > 0; }",
+        timeout=timeout,
+    )
+    frame_w = int(page.evaluate("() => document.querySelector('iframe.bd-frame').offsetWidth"))
+    guest.wait_for_function("w => window.innerWidth === w", arg=frame_w, timeout=timeout)
     missed = 0
     wrong: list[str] = []
     for _ in range(4):
@@ -191,7 +198,7 @@ def click_in_preview(page, selector: str, *, index: int = 0, timeout: float = 15
 
 
 def hover_until_acknowledged(page, guest, spot: dict, selector: str, index: int = 0,
-                             budget_ms: int = 2000):
+                             budget_ms: int = 4000):
     """Двигать указатель по цели, пока кадр не подсветит её; None — так и не подсветил.
 
     Нажатие здесь НЕ выполняется: это подготовка к одному клику, а не его
@@ -200,6 +207,32 @@ def hover_until_acknowledged(page, guest, spot: dict, selector: str, index: int 
     started = time.monotonic()
     nudge = 0
     while (time.monotonic() - started) * 1000 < budget_ms:
+        if nudge > 0 and nudge % 4 == 0:
+            fresh_box = guest.evaluate(
+                """([selector, index]) => {
+                  const el = document.querySelectorAll(selector)[index];
+                  if (!el) return null;
+                  el.scrollIntoView({block: 'center'});
+                  const r = el.getBoundingClientRect();
+                  return {x: r.x + r.width / 2, y: r.y + r.height / 2};
+                }""",
+                [selector, index],
+            )
+            if fresh_box:
+                fresh_spot = page.evaluate(
+                    """box => {
+                      const f = document.querySelector('iframe.bd-frame');
+                      if (!f) return null;
+                      f.scrollIntoView({block: 'center'});
+                      const r = f.getBoundingClientRect();
+                      const scale = f.offsetWidth ? r.width / f.offsetWidth : 1;
+                      return {x: r.x + box.x * scale, y: r.y + box.y * scale,
+                              vw: window.innerWidth, vh: window.innerHeight, scale};
+                    }""",
+                    fresh_box,
+                )
+                if fresh_spot and 0 <= fresh_spot["x"] <= fresh_spot["vw"] and 0 <= fresh_spot["y"] <= fresh_spot["vh"]:
+                    spot.update(fresh_spot)
         page.mouse.move(spot["x"] + (nudge % 3) - 1, spot["y"] + ((nudge // 3) % 3) - 1)
         nudge += 1
         page.wait_for_timeout(50)

@@ -160,6 +160,20 @@ LOCAL_CODER_PROFILES: dict[str, dict[str, Any]] = {
         "uncensored": True,
         "description": "17 GB abliterated helper (47.2% VRAM of 36 GB main).",
     },
+    "gemma4-31b-uncensored:latest": {
+        "role": "gemma4_uncensored_coder",
+        "architecture": "gemma4-dense",
+        "total_params_b": 30.7,
+        "active_params_b": 30.7,
+        "active_weights_pct": 100.0,
+        "vram_gb": 20.0,
+        "main_vram_gb": 36.0,
+        "vram_ratio_of_main": round(20.0 / 36.0, 4),
+        "vram_ratio_of_70b": round(20.0 / 42.0, 4),
+        "within_50pct_vram_budget": False,
+        "uncensored": True,
+        "description": "Gemma 4 31B Q4_K_M uncensored local coding, terminal, and tool-use model.",
+    },
 }
 SPARSE_HELPER_DEFAULT = "qwen3-coder:30b"
 TERMINAL = ("completed", "failed", "blocked")
@@ -446,17 +460,21 @@ def _sidecar_command() -> str:
     return os.environ.setdefault(COMMAND_ENV, auto).strip() if auto else ""
 
 
-def _handshake(command: str, env: dict[str, str] | None = None) -> dict:
+def _handshake(command: str | list[str], env: dict[str, str] | None = None) -> dict:
     """Blocking: one handshake with the configured sidecar (cached briefly)."""
+    cache_key = subprocess.list2cmdline(command) if isinstance(command, list) else str(command)
     now = time.monotonic()
-    hit = _handshake_cache.get(command)
+    hit = _handshake_cache.get(cache_key)
     if hit and now - hit[0] < HANDSHAKE_TTL_S:
         return hit[1]
     oc, _wt, reason = _runtime()
     if oc is None:
         return {"ok": False, "reason": reason}
     try:
-        resp = oc.OpenHandsClient(env=env or None).handshake(timeout_seconds=HANDSHAKE_TIMEOUT_S)
+        client_kw: dict[str, Any] = {"env": env or None}
+        if isinstance(command, list):
+            client_kw["command"] = command
+        resp = oc.OpenHandsClient(**client_kw).handshake(timeout_seconds=HANDSHAKE_TIMEOUT_S)
         out = {"ok": True, "executor": resp.get("executor"), "model": resp.get("model"),
                "tools": resp.get("tools"), "tool_call_ok": resp.get("tool_call_ok"),
                "test_runners": resp.get("test_runners"), "isolation": resp.get("isolation"),
@@ -465,7 +483,7 @@ def _handshake(command: str, env: dict[str, str] | None = None) -> dict:
                "endpoint": resp.get("endpoint")}
     except Exception as exc:  # noqa: BLE001 — shown to the owner
         out = {"ok": False, "reason": f"{type(exc).__name__}: {exc}"[:400]}
-    _handshake_cache[command] = (now, out)
+    _handshake_cache[cache_key] = (now, out)
     return out
 
 
@@ -502,7 +520,7 @@ def _verify_python_env() -> dict[str, str]:
     return {}
 
 
-async def readiness(svc, worker: str | None = None) -> dict[str, Any]:
+async def readiness(svc, worker: str | None = None, model: str | None = None) -> dict[str, Any]:
     """Can a coding task start now?
 
     Local sidecar (worker=None): the full ``bossman.openhands.v1`` handshake with the configured
@@ -526,7 +544,18 @@ async def readiness(svc, worker: str | None = None) -> dict[str, Any]:
         else:
             out["available"] = True
         return out
-    command = _sidecar_command() if oc is not None else os.environ.get(COMMAND_ENV, "").strip()
+    explicit_local: list[str] | None = None
+    if (
+        oc is not None
+        and model
+        and model in _LOCAL_CODING_MODELS
+        and "DETERMINISTIC-TEST-MODEL" not in os.environ.get(COMMAND_ENV, "")
+    ):
+        explicit_local = [
+            sys.executable, "-I", "-m", "bossman.apprentice.local_sidecar",
+            "--endpoint", "http://127.0.0.1:11434/v1", "--model", model,
+        ]
+    command: str | list[str] = explicit_local or (_sidecar_command() if oc is not None else os.environ.get(COMMAND_ENV, "").strip())
     out = {"available": False, "runtime": oc is not None, "sidecar_command": bool(command),
            "roots": roots, "reason": "", "handshake": None}
     if oc is None:
@@ -1006,7 +1035,17 @@ async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None
                 final["receipt"] = mission_receipt(final)
         else:
             env = await _sidecar_env(svc)
-            final = await asyncio.to_thread(_call_execute, record, repo, body, context, env, None, data_dir)
+            local_cmd: list[str] | None = None
+            if (
+                body.model
+                and body.model in _LOCAL_CODING_MODELS
+                and "DETERMINISTIC-TEST-MODEL" not in os.environ.get(COMMAND_ENV, "")
+            ):
+                local_cmd = [
+                    sys.executable, "-I", "-m", "bossman.apprentice.local_sidecar",
+                    "--endpoint", "http://127.0.0.1:11434/v1", "--model", body.model,
+                ]
+            final = await asyncio.to_thread(_call_execute, record, repo, body, context, env, local_cmd, data_dir)
     except Exception as exc:  # noqa: BLE001
         final = {**record, "status": "failed", "error": f"{type(exc).__name__}: {exc}"[:800],
                  "finished_at": time.time()}
@@ -1659,7 +1698,9 @@ async def post_self_target(body: SelfTargetIn, request: Request):
 
 
 @router.get("/coding-tasks/readiness")
-async def get_readiness(request: Request, worker: str | None = None):
+async def get_readiness(request: Request, worker: str | None = None, model: str | None = None):
+    if model and model in _LOCAL_CODING_MODELS:
+        return await readiness(request.app.state.svc, worker, model)
     if worker is None:
         return await readiness(request.app.state.svc)
     return await readiness(request.app.state.svc, worker)
@@ -1733,7 +1774,10 @@ async def create_task(body: TaskIn, request: Request):
     for fw in body.fallback_workers or []:
         if fw not in WORKERS:
             raise HTTPException(422, {"code": "UNKNOWN_WORKER", "workers": sorted(WORKERS)})
-    ready = await readiness(svc, body.worker)
+    if body.worker is None and body.model and body.model in _LOCAL_CODING_MODELS:
+        ready = await readiness(svc, body.worker, body.model)
+    else:
+        ready = await readiness(svc, body.worker)
     if not ready["available"]:
         raise HTTPException(503, {"code": "OPENHANDS_UNAVAILABLE", "message": ready["reason"],
                                   **({"hint": ready["hint"]} if ready.get("hint") else {}), "readiness": ready})

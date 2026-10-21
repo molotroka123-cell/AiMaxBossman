@@ -21,7 +21,7 @@ def test_control_lab_live_demo_tree_and_roadmap_are_read_only(live):  # noqa: F8
         page.add_init_script("window.__bxPreload = false;")
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.on("request", lambda request: writes.append(f"{request.method} {request.url}")
-                if "/api/" in request.url and not request.url.endswith("/api/login")
+                if "/api/" in request.url and not request.url.endswith(("/api/login", "/api/testing/log"))
                 and request.method not in {"GET", "HEAD"} else None)
         page.on("request", lambda request: api_reads.append(request.url)
                 if "/api/" in request.url and request.method == "GET" else None)

@@ -78,3 +78,25 @@ def test_unknown_worker_is_refused_before_anything_runs(tmp_path):
         out = client.post("/api/coding-tasks", json={"instruction": "x", "source_repo": str(tmp_path),
                                                      "allowed_paths": ["a.py"], "worker": "evil-endpoint"})
     assert out.status_code == 422 and out.json()["detail"]["code"] == "UNKNOWN_WORKER"
+
+
+def test_local_model_selection_builds_explicit_gemma_sidecar_command(tmp_path, monkeypatch):
+    monkeypatch.delenv(ct.COMMAND_ENV, raising=False)
+    seen = {}
+
+    def fake_execute(record, repo, body, context, env, command):
+        seen.update(env=env, command=command)
+        return {**record, "status": "completed", "finished_at": 1.0}
+    monkeypatch.setattr(ct, "_execute", fake_execute)
+    body = ct.TaskIn(
+        instruction="enhance web terminal",
+        source_repo=str(tmp_path),
+        allowed_paths=["command-center/ui/pages/terminal.js"],
+        model="gemma4-31b-uncensored:latest",
+    )
+    asyncio.run(ct._run(_svc(tmp_path), {"id": "abcdef123456"}, tmp_path, body))
+    assert seen["command"] is not None
+    assert seen["command"][1:4] == ["-I", "-m", "bossman.apprentice.local_sidecar"]
+    assert seen["command"][seen["command"].index("--model") + 1] == "gemma4-31b-uncensored:latest"
+    assert "gemma4-31b-uncensored:latest" in ct.LOCAL_CODER_PROFILES
+

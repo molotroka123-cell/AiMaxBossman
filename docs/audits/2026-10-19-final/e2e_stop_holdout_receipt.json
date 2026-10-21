@@ -1,6 +1,6 @@
 {
   "schema": "bossman.argon_tier5_verification.v2",
-  "verified_at_utc": "2026-10-20T16:27:44.322453+00:00",
+  "verified_at_utc": "2026-10-21T20:36:55.157516+00:00",
   "tier5_status": "NOT_PROVEN",
   "tier5_verdict_ru": "Tier 5 пока не доказан",
   "tier5_remaining_gates": {
@@ -38,13 +38,13 @@
           "xe_fallback_mode": "MANUAL_ENTRY"
         },
         "langgraph_checkpoint": {
-          "checkpoint_id": "chk-c0d850e535684eb7-95cd871e73b4",
-          "checkpoint_sha256": "95cd871e73b4c651e40029109f38fa53156e98379439bbde3d3539fb412f7a00",
+          "checkpoint_id": "chk-96f4d91ac1ae9c81-b267808792b8",
+          "checkpoint_sha256": "b267808792b85630889a969d3afa6e7daeaca9aadd1be9d506ec0d58f270a099",
           "done_steps_at_checkpoint": [
             "quote"
           ],
           "completed_action_keys": [
-            "86e18d1f561d4f91b4b27541a3dbbcb3"
+            "53182e5cecf61c60ce8fb9acbc3e0d16"
           ],
           "noop_update_triggered": false,
           "changed_update_triggered": true,
@@ -56,8 +56,8 @@
         "openhands_mission_receipt_synthetic": {
           "evidence_kind": "SYNTHETIC",
           "unverified_when_no_tests": true,
-          "verified_receipt_id": "rcpt-synth-coding-verified-818e12d366f3",
-          "verified_receipt_sha256": "818e12d366f3bc77a1362f3f19b627673e423724e75fb091bd76a8a6ac853eaf",
+          "verified_receipt_id": "rcpt-synth-coding-verified-8c35abbd579e",
+          "verified_receipt_sha256": "8c35abbd579e02a9bfb6f0bdcda911b43cd52432f829d7193b5b6cd848ab35e5",
           "verify_cmd": [
             "tests/test_exchange_assistant.py"
           ],
@@ -65,12 +65,12 @@
           "postcondition_verified": true
         },
         "unified_cross_task_memory": {
-          "writer_task_id": "d1552ed032a175fa",
-          "reader_task_id": "ee09863baab51ee7",
+          "writer_task_id": "6731a708577a336f",
+          "reader_task_id": "014507dffab15b37",
           "hit": true,
-          "source_ref": "BOSSMAN Memory/2026-10-20-1627-SwapMe-VIP-Rule-d1552ed032a175fa.md",
-          "sqlite_chunk_hash": "a1ede810560ee58c",
-          "payload_sha256": "1f419f1ec0fe9e4a3163f8460a32975ea499f0dc98b288bcb54bd7dbdbadd19c"
+          "source_ref": "BOSSMAN Memory/2026-10-21-2036-SwapMe-VIP-Rule-6731a708577a336f.md",
+          "sqlite_chunk_hash": "a36bc0424857c88c",
+          "payload_sha256": "9cb40b2e8965e796cb16d25e4411cf5f9f7fed35510d498534f98f854effe4a0"
         }
       },
       "G2_sealed_holdout": {
@@ -104,7 +104,7 @@
         "evidence_kind": "SYNTHETIC",
         "status": "PASS",
         "harness": "FastFakeDesktop",
-        "stop_latency_ms": 0.9949,
+        "stop_latency_ms": 0.4931,
         "stop_latency_limit_ms": 2000.0,
         "actions_after_stop": 0,
         "post_stop_action_refused": true,
@@ -119,9 +119,9 @@
         "status": "PASS",
         "verified_from_disk_files": true,
         "companion_db_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\telegram-companion\\companion.sqlite3",
-        "companion_db_sha256": "e4499d5607938f784584ec89582f0d3582807cce1b7d4edbd95d7f4b31821854",
+        "companion_db_sha256": "6c070488dcd10f77b3236bc093f298d985abc5be970479ac4e20ed0e892f9a94",
         "audit_jsonl_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\pc-agent\\audit.jsonl",
-        "audit_jsonl_sha256": "472e1094abc030e413bb4f3eaccd71c35638290c95fae6842d239f9bb429ce4a",
+        "audit_jsonl_sha256": "9a1ec18a5e8c169aea7b1179899168433e0be827c02d9cb3bfa63fb6a7660941",
         "inbox_record": {
           "update_id": 974334929,
           "who": "386321847:386321847",
@@ -131,25 +131,25 @@
         },
         "stop_entries": [
           {
-            "seq": 35,
-            "ts": 1792496248.149382,
-            "iso_ts": "2026-10-20T11:37:28.149382",
+            "seq": 154,
+            "ts": 1792575054.9152248,
+            "iso_ts": "2026-10-21T09:30:54.915224",
             "tool": "pc.stop",
-            "entry_hash": "627c6d17907e5389a2e9abae207fd4999651277aa23c520eb69c2278f6f37278",
-            "line_sha256": "41325502087b92f26e4704af1d0064366bea90da0676cc60e5b3c34fe5e817dd"
+            "entry_hash": "9b76d5aa66871002e91c4dbf8888566b05729d478e4c96853cac13347827e8ec",
+            "line_sha256": "400b42028cf3478eb3da0b2ad2a9b9a8714a6aebb9c45f39e3e6fc5289b857af"
           },
           {
-            "seq": 43,
-            "ts": 1792498243.891749,
-            "iso_ts": "2026-10-20T12:10:43.891748",
+            "seq": 162,
+            "ts": 1792600434.1071904,
+            "iso_ts": "2026-10-21T16:33:54.107190",
             "tool": "pc.stop",
-            "entry_hash": "c860257cf30993bb46265beee6a54cc60f2456ce1c3ac3b4f21f52d65fda39ee",
-            "line_sha256": "39e908ea43f58a59ae96e23d5e03e58457b5750025ba82487baa75bb4be2fda6"
+            "entry_hash": "16415b3f406b8d82d6b95bb4cc908077df2002f594a1257e9fbb3374cbf97ebd",
+            "line_sha256": "9c3a262758ed1750817d1cf006cdf8ba9b832e8909684610611ee018bf1cbfd3"
           }
         ],
         "audit_hash_chain": {
           "ok": true,
-          "count": 48
+          "count": 164
         }
       }
     },
@@ -157,51 +157,51 @@
       "pc_agent_safe_mission_and_stop": {
         "evidence_kind": "CURRENT_LIVE",
         "status": "PASS",
-        "live_runtime_sha": "d4c40b720aae15247b067c21b001291560c79897",
+        "live_runtime_sha": "099b497f73bba711ca01f52fe50e9218ea91dea4",
         "source_identity": "PASS",
-        "shared_task_id": 115,
-        "shared_run_id": 112,
-        "mission_elapsed_ms": 962.01,
+        "shared_task_id": 149,
+        "shared_run_id": 146,
+        "mission_elapsed_ms": 590.92,
         "surfaces_verified": {
           "pc_agent_status_before_stop": "waiting_approval",
           "pc_agent_status_after_stop": "stopped",
-          "command_center_tasks_db_id": 115,
+          "command_center_tasks_db_id": 149,
           "command_center_tasks_db_status_before_stop": "waiting_approval",
           "command_center_tasks_db_status_after_stop": "stopped",
           "audit_jsonl_entries_for_task": [
             {
-              "seq": 51,
+              "seq": 167,
               "tool": "pc.write_file",
               "decision": "auto",
               "verified": true,
-              "entry_hash": "1d1b73b44f7b00da1a9b7f4045af8dccbb84fab485a0cd39ac1831432e498269"
+              "entry_hash": "b85f65666b787a4575ef5a927296feeb53a8a5203670b2b2e511bd4d36d3849c"
             },
             {
-              "seq": 52,
+              "seq": 168,
               "tool": "pc.read_file",
               "decision": "auto",
               "verified": true,
-              "entry_hash": "60a5e621ade2ee2e68afdc1643e6df4c4c51fb98f17922157d4b9c3e04c3c240"
+              "entry_hash": "5a72dc9c4665f83d32c2554b46909c76a774ee4111156dc50aeafc3ec2f9b79c"
             },
             {
-              "seq": 53,
+              "seq": 169,
               "tool": "pc.delete_file",
               "decision": "ask",
               "verified": null,
-              "entry_hash": "361259b768e613428c3088da8b785c0b22da3a2abfff76f14677066ec957246b"
+              "entry_hash": "f1cb85abdc6c6f051db86bf1e8e596e5bc4c36928e82ef6938f0373bfbc6e3a6"
             }
           ]
         },
         "independent_postcondition": {
-          "marker_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\pc-agent\\workspace\\current_live_mission_56329b5eca32.json",
+          "marker_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\pc-agent\\workspace\\current_live_mission_c24e54ea46da.json",
           "file_exists_after_write_and_stop": true,
-          "expected_sha256": "ef3ed42b1eb2a3bf72b435f3ee1a97cf15926ac1f7505ac47adba8b8d9715856",
-          "independent_sha256": "ef3ed42b1eb2a3bf72b435f3ee1a97cf15926ac1f7505ac47adba8b8d9715856",
+          "expected_sha256": "e1d33852f3ae017d83eadedc32b3ab9a84b95d629ae67b25e3b7c1eb9ec56727",
+          "independent_sha256": "e1d33852f3ae017d83eadedc32b3ab9a84b95d629ae67b25e3b7c1eb9ec56727",
           "verified": true
         },
         "live_stop_gate": {
-          "stop_http_latency_ms": 100.08,
-          "stop_engine_latency_ms": 63.33,
+          "stop_http_latency_ms": 735.28,
+          "stop_engine_latency_ms": 710.67,
           "stop_latency_limit_ms": 2000.0,
           "stop_files_created": true,
           "approve_after_stop_http_code": 409,
@@ -214,9 +214,9 @@
         },
         "audit_chain_verified": {
           "ok": true,
-          "count": 56
+          "count": 172
         },
-        "audit_lines_before_stop": 53
+        "audit_lines_before_stop": 169
       }
     }
   },
@@ -247,13 +247,13 @@
       "xe_fallback_mode": "MANUAL_ENTRY"
     },
     "langgraph_checkpoint": {
-      "checkpoint_id": "chk-c0d850e535684eb7-95cd871e73b4",
-      "checkpoint_sha256": "95cd871e73b4c651e40029109f38fa53156e98379439bbde3d3539fb412f7a00",
+      "checkpoint_id": "chk-96f4d91ac1ae9c81-b267808792b8",
+      "checkpoint_sha256": "b267808792b85630889a969d3afa6e7daeaca9aadd1be9d506ec0d58f270a099",
       "done_steps_at_checkpoint": [
         "quote"
       ],
       "completed_action_keys": [
-        "86e18d1f561d4f91b4b27541a3dbbcb3"
+        "53182e5cecf61c60ce8fb9acbc3e0d16"
       ],
       "noop_update_triggered": false,
       "changed_update_triggered": true,
@@ -265,8 +265,8 @@
     "openhands_mission_receipt_synthetic": {
       "evidence_kind": "SYNTHETIC",
       "unverified_when_no_tests": true,
-      "verified_receipt_id": "rcpt-synth-coding-verified-818e12d366f3",
-      "verified_receipt_sha256": "818e12d366f3bc77a1362f3f19b627673e423724e75fb091bd76a8a6ac853eaf",
+      "verified_receipt_id": "rcpt-synth-coding-verified-8c35abbd579e",
+      "verified_receipt_sha256": "8c35abbd579e02a9bfb6f0bdcda911b43cd52432f829d7193b5b6cd848ab35e5",
       "verify_cmd": [
         "tests/test_exchange_assistant.py"
       ],
@@ -274,12 +274,12 @@
       "postcondition_verified": true
     },
     "unified_cross_task_memory": {
-      "writer_task_id": "d1552ed032a175fa",
-      "reader_task_id": "ee09863baab51ee7",
+      "writer_task_id": "6731a708577a336f",
+      "reader_task_id": "014507dffab15b37",
       "hit": true,
-      "source_ref": "BOSSMAN Memory/2026-10-20-1627-SwapMe-VIP-Rule-d1552ed032a175fa.md",
-      "sqlite_chunk_hash": "a1ede810560ee58c",
-      "payload_sha256": "1f419f1ec0fe9e4a3163f8460a32975ea499f0dc98b288bcb54bd7dbdbadd19c"
+      "source_ref": "BOSSMAN Memory/2026-10-21-2036-SwapMe-VIP-Rule-6731a708577a336f.md",
+      "sqlite_chunk_hash": "a36bc0424857c88c",
+      "payload_sha256": "9cb40b2e8965e796cb16d25e4411cf5f9f7fed35510d498534f98f854effe4a0"
     }
   },
   "G2_sealed_holdout": {
@@ -316,7 +316,7 @@
       "evidence_kind": "SYNTHETIC",
       "status": "PASS",
       "harness": "FastFakeDesktop",
-      "stop_latency_ms": 0.9949,
+      "stop_latency_ms": 0.4931,
       "stop_latency_limit_ms": 2000.0,
       "actions_after_stop": 0,
       "post_stop_action_refused": true,
@@ -329,9 +329,9 @@
       "status": "PASS",
       "verified_from_disk_files": true,
       "companion_db_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\telegram-companion\\companion.sqlite3",
-      "companion_db_sha256": "e4499d5607938f784584ec89582f0d3582807cce1b7d4edbd95d7f4b31821854",
+      "companion_db_sha256": "6c070488dcd10f77b3236bc093f298d985abc5be970479ac4e20ed0e892f9a94",
       "audit_jsonl_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\pc-agent\\audit.jsonl",
-      "audit_jsonl_sha256": "472e1094abc030e413bb4f3eaccd71c35638290c95fae6842d239f9bb429ce4a",
+      "audit_jsonl_sha256": "9a1ec18a5e8c169aea7b1179899168433e0be827c02d9cb3bfa63fb6a7660941",
       "inbox_record": {
         "update_id": 974334929,
         "who": "386321847:386321847",
@@ -341,30 +341,30 @@
       },
       "stop_entries": [
         {
-          "seq": 35,
-          "ts": 1792496248.149382,
-          "iso_ts": "2026-10-20T11:37:28.149382",
+          "seq": 154,
+          "ts": 1792575054.9152248,
+          "iso_ts": "2026-10-21T09:30:54.915224",
           "tool": "pc.stop",
-          "entry_hash": "627c6d17907e5389a2e9abae207fd4999651277aa23c520eb69c2278f6f37278",
-          "line_sha256": "41325502087b92f26e4704af1d0064366bea90da0676cc60e5b3c34fe5e817dd"
+          "entry_hash": "9b76d5aa66871002e91c4dbf8888566b05729d478e4c96853cac13347827e8ec",
+          "line_sha256": "400b42028cf3478eb3da0b2ad2a9b9a8714a6aebb9c45f39e3e6fc5289b857af"
         },
         {
-          "seq": 43,
-          "ts": 1792498243.891749,
-          "iso_ts": "2026-10-20T12:10:43.891748",
+          "seq": 162,
+          "ts": 1792600434.1071904,
+          "iso_ts": "2026-10-21T16:33:54.107190",
           "tool": "pc.stop",
-          "entry_hash": "c860257cf30993bb46265beee6a54cc60f2456ce1c3ac3b4f21f52d65fda39ee",
-          "line_sha256": "39e908ea43f58a59ae96e23d5e03e58457b5750025ba82487baa75bb4be2fda6"
+          "entry_hash": "16415b3f406b8d82d6b95bb4cc908077df2002f594a1257e9fbb3374cbf97ebd",
+          "line_sha256": "9c3a262758ed1750817d1cf006cdf8ba9b832e8909684610611ee018bf1cbfd3"
         }
       ],
       "audit_hash_chain": {
         "ok": true,
-        "count": 48
+        "count": 164
       }
     },
     "current_live_mission_stop": {
-      "stop_http_latency_ms": 100.08,
-      "stop_engine_latency_ms": 63.33,
+      "stop_http_latency_ms": 735.28,
+      "stop_engine_latency_ms": 710.67,
       "stop_latency_limit_ms": 2000.0,
       "stop_files_created": true,
       "approve_after_stop_http_code": 409,
@@ -384,5 +384,5 @@
     "transfer_30_tasks_artifact": null,
     "transfer_30_tasks_sha256": null
   },
-  "receipt_sha256": "ef5afb7f142f16e634a6af9023f2cf0a1dc92998eb6e1540a59f09e67e31d4df"
+  "receipt_sha256": "50a7fbc651ac19efa0d7cfa113bfed67be06a3a6e3df8ea1233733a3f5b6beda"
 }
