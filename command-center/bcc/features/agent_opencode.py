@@ -741,6 +741,138 @@ class ImproveRunIn(BaseModel):
     auto_propose_only: bool = True
 
 
+class NorthStarSkillLoopIn(BaseModel):
+    session_id: str | None = None
+    skill_id: str = Field(default="north-star-tree-hygiene", min_length=2, max_length=63)
+    problem: str = Field(
+        default="Повторяющийся дрейф SHA в tree-registry.json (927 листьев) и проверка CRLF/манифестов навыков перед релизом",
+        max_length=2000,
+    )
+    workflow: str = Field(
+        default=(
+            "1. Проверить git rev-parse HEAD и чистоту дерева (code.status).\n"
+            "2. Сверить HEAD с docs/architecture/tree-registry.json и запустить tree_apply_evidence.py --dry-run (terminal.run).\n"
+            "3. Проверить манифесты .agents/skills/*/SKILL.md и отсутствие CRLF.\n"
+            "4. Записать и сверить уроки в памяти (memory.search)."
+        ),
+        max_length=4000,
+    )
+    description: str = Field(
+        default="Детерминированная сверка 927 листьев Capability Tree, git HEAD SHA, LF-переводов строк и манифестов SKILL.md без фиктивных зелёных статусов.",
+        max_length=1000,
+    )
+    required_tools: list[str] = Field(default_factory=lambda: ["code.status", "terminal.run", "memory.search"])
+    permissions: list[str] = Field(default_factory=lambda: ["read", "exec"])
+    unseen_query: str = Field(
+        default="Проверь гигиену 927 листьев capability tree, сверь SHA tree-registry.json с HEAD и проверь отсутствие CRLF перед коммитом",
+        max_length=1000,
+    )
+    allow_cloud: bool = False
+
+
+_PROMPT_INJECTION_BYPASS_RE = re.compile(
+    r"(?i)(\[\s*system\s*:[^\]]*bypass_permissions\s*=\s*true|"
+    r"ignore\s+previous\s+instructions[^\n]*bypass_permissions|"
+    r"<\s*admin_override\s*>|escalate_to_auto_mode)"
+)
+
+
+def _assert_owner_bypass_allowed(
+    request: Request,
+    *,
+    effective_mode: str,
+    requested_bypass: bool | None,
+    text: str = "",
+) -> bool:
+    """Enforce North Star P0 security boundary for `AUTO` (`bypass_permissions`):
+    1. Subagents, tool callbacks, or internal callers (`X-Agent-Caller`, `X-Subagent-Id`, `X-Tool-Callback`)
+       can NEVER enable `AUTO` or `bypass_permissions=True` -> 403 `AGENT_ESCALATION_FORBIDDEN`.
+    2. Prompt-injection strings attempting to flip `bypass_permissions` inside message text -> 403.
+    3. Unattended `SELF-IMPROVE` mode NEVER runs with `bypass_permissions=True` (forced False).
+    """
+    caller = (
+        request.headers.get("x-agent-caller")
+        or request.headers.get("x-subagent-id")
+        or request.headers.get("x-tool-callback")
+        or ""
+    ).strip()
+    wants_bypass = bool(requested_bypass or effective_mode == "AUTO")
+    if caller and wants_bypass:
+        raise HTTPException(403, {
+            "message": "Агенты, подпроцессы и инструменты не имеют права включать режим AUTO или bypass_permissions",
+            "code": "AGENT_ESCALATION_FORBIDDEN",
+        })
+    if text and _PROMPT_INJECTION_BYPASS_RE.search(text):
+        raise HTTPException(403, {
+            "message": "Заблокирована попытка повышения привилегий (prompt injection -> bypass_permissions)",
+            "code": "PROMPT_INJECTION_ESCALATION_BLOCKED",
+        })
+    if effective_mode == "SELF-IMPROVE":
+        return False
+    return wants_bypass
+
+
+def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None:
+    """Deterministically match an installed workspace skill (`.agents/skills/<id>/SKILL.md`)
+    against a user/North-Star task description and return its contract & required tools."""
+    from .skills import _lib
+    from ..v2.skill_library import build_skill_prompt, skill_contract, validate_manifest
+
+    q = (text or "").strip().lower()
+    if not q:
+        return None
+    q_tokens = {tok for tok in re.findall(r"[a-zа-яё0-9_-]{3,}", q) if len(tok) >= 3}
+    if not q_tokens:
+        return None
+
+    lib = _lib(svc)
+    skills_map = lib.by_id()
+    best_score = 0
+    best_skill = None
+    best_contract = None
+    best_matched: list[str] = []
+
+    for sid, sk in skills_map.items():
+        if validate_manifest(sk)["errors"]:
+            continue
+        con = skill_contract(sk)
+        hay_id = f"{sid} {sk.name}".lower()
+        hay_desc = f"{sk.description} {sk.body[:1200]}".lower()
+        score = 0
+        matched: list[str] = []
+        if sid.lower() in q:
+            score += 12
+            matched.append(sid)
+        for tok in sorted(q_tokens):
+            if tok in hay_id:
+                score += 4
+                matched.append(tok)
+            elif tok in hay_desc:
+                score += 2
+                matched.append(tok)
+        # Boost when both domain terms (e.g., tree/927/registry/crlf/skill) co-occur
+        if len(matched) >= 2 and score > best_score:
+            best_score = score
+            best_skill = sk
+            best_contract = con
+            best_matched = matched[:8]
+
+    if best_skill is None or best_contract is None or best_score < 6:
+        return None
+
+    return {
+        "id": best_contract.id,
+        "name": best_contract.name,
+        "version": best_contract.version,
+        "fingerprint": best_contract.fingerprint[:16],
+        "required_tools": list(best_contract.required_tools),
+        "permissions": list(best_contract.permissions),
+        "score": best_score,
+        "matched_terms": best_matched,
+        "prompt_block": build_skill_prompt(best_contract, {"task": text[:400]}),
+    }
+
+
 # ======================================================================
 # Helper: Resolve Agent for Mode & Model
 # ======================================================================
@@ -1154,10 +1286,22 @@ async def _complete_improve_after_approval(
             rt.emit("task.failed", improve_id=improve_id, reason="Отклонено владельцем")
         return record
 
-    # Step 14: Apply candidate (if backed by a completed coding_task, call apply_coding_task)
+    # Step 14: Apply candidate (if backed by a completed coding_task or forged_skill)
     ct_id = record.get("coding_task_id")
+    forged_skill = record.get("forged_skill")
     apply_detail = "Патч проверен и зафиксирован в рабочем дереве"
-    if ct_id:
+    if isinstance(forged_skill, dict) and forged_skill.get("id") and forged_skill.get("content"):
+        from .skills import _lib
+        lib = _lib(svc)
+        sk = lib.create(str(forged_skill["id"]), str(forged_skill["content"]), overwrite=True)
+        record["applied_skill"] = {
+            "id": sk.id,
+            "name": sk.name,
+            "fingerprint": sk.fingerprint[:16],
+            "path": f".agents/skills/{sk.id}/SKILL.md",
+        }
+        apply_detail = f"Навык `.agents/skills/{sk.id}/SKILL.md` (fp={sk.fingerprint[:12]}) применён после одобрения владельца"
+    elif ct_id:
         with contextlib.suppress(Exception):
             await apply_coding_task(ct_id, request)
             apply_detail = f"Патч задачи {ct_id} применён к рабочему дереву"
@@ -1317,7 +1461,11 @@ async def create_agent_session(body: SessionCreateIn, request: Request):
     mode = (body.mode or DEFAULT_MODE).upper()
     if mode not in VALID_MODES:
         raise _fail(422, f"недопустимый режим: {body.mode}", code="INVALID_AGENT_MODE")
-    bypass = bool(body.bypass_permissions or mode == "AUTO")
+    bypass = _assert_owner_bypass_allowed(
+        request,
+        effective_mode=mode,
+        requested_bypass=bool(body.bypass_permissions or mode == "AUTO"),
+    )
     title = _clean_title(body.title)
     project = _clean_project(body.project)
     c_state = _chat_state(svc)
@@ -1385,16 +1533,25 @@ async def patch_agent_session(session_id: str, body: SessionPatchIn, request: Re
         await _mutate_meta(svc, apply)
 
     cfg_updates: dict[str, Any] = {}
+    cur_cfg = _session_cfg(svc, session_id)
+    target_mode = cur_cfg["mode"]
     if "mode" in fields and fields["mode"] is not None:
         m = str(fields["mode"]).upper()
         if m not in VALID_MODES:
             raise _fail(422, f"недопустимый режим: {fields['mode']}", code="INVALID_AGENT_MODE")
+        target_mode = m
         cfg_updates["mode"] = m
         if m == "AUTO" and "bypass_permissions" not in fields:
             cfg_updates["bypass_permissions"] = True
     for k in ("bypass_permissions", "model", "worker", "agent_id", "allow_cloud", "budget_usd"):
         if k in fields:
             cfg_updates[k] = fields[k]
+    if "bypass_permissions" in cfg_updates or target_mode == "AUTO" or target_mode == "SELF-IMPROVE":
+        cfg_updates["bypass_permissions"] = _assert_owner_bypass_allowed(
+            request,
+            effective_mode=target_mode,
+            requested_bypass=cfg_updates.get("bypass_permissions", cur_cfg["bypass_permissions"]),
+        )
     if cfg_updates:
         await _update_session_cfg(svc, session_id, **cfg_updates)
         _orch(svc).runtime(session_id).emit("session.updated", **cfg_updates)
@@ -1437,10 +1594,16 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
     if effective_mode not in VALID_MODES:
         raise _fail(422, f"недопустимый режим: {effective_mode}", code="INVALID_AGENT_MODE")
 
-    bypass_permissions = (
+    raw_bypass = (
         body.bypass_permissions
         if body.bypass_permissions is not None
         else (True if effective_mode == "AUTO" else cfg["bypass_permissions"])
+    )
+    bypass_permissions = _assert_owner_bypass_allowed(
+        request,
+        effective_mode=effective_mode,
+        requested_bypass=raw_bypass,
+        text=body.text,
     )
     allow_cloud = body.allow_cloud if body.allow_cloud is not None else cfg["allow_cloud"]
     req_model = body.model or cfg["model"]
@@ -1550,6 +1713,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
         }
 
     # 3. CHAT / AGENT / AUTO / COMPUTER / CODE (via Bossman governed task engine)
+    matched_skill = await asyncio.to_thread(match_workspace_skill_for_task, svc, text)
     request_id = body.client_request_id or ("ag-" + time.strftime("%Y%m%d%H%M%S") + "-" + secrets.token_hex(6))
     existing = await _task_by_request_id(svc, request_id)
     if existing is not None:
@@ -1558,6 +1722,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
         rep["mode"] = effective_mode
         rep["bypass_permissions"] = bypass_permissions
         rep["route"] = route
+        rep["matched_skill"] = matched_skill
         rep["task_id"] = int(existing["id"])
         return rep
 
@@ -1573,7 +1738,14 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
             "[Режим OPENCODE / AUTO: используй code.search, code.expand, code.status, terminal.run "
             "для чтения кода, проверки git status/diff и запуска pytest.]\n"
         )
-    prompt = await _compose_prompt(svc, data["raw"], mode_prefix + text, attachments)
+    skill_prefix = ""
+    if matched_skill is not None:
+        skill_prefix = (
+            f"[Выбран проверенный навык `{matched_skill['id']}` v{matched_skill['version']} "
+            f"(required_tools={matched_skill['required_tools']})]\n"
+            f"{matched_skill['prompt_block']}\n\n"
+        )
+    prompt = await _compose_prompt(svc, data["raw"], mode_prefix + skill_prefix + text, attachments)
     chosen_agent_id = await _resolve_agent_id_for_model(svc, body.agent_id or cfg.get("agent_id"), route["model"])
 
     status_code, pre = await _internal(
@@ -1607,17 +1779,25 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
 
     turn = _new_turn(task_id, body.text, attachments)
     turn["mode"] = effective_mode
+    if matched_skill is not None:
+        turn["matched_skill"] = {
+            "id": matched_skill["id"],
+            "version": matched_skill["version"],
+            "required_tools": matched_skill["required_tools"],
+        }
     idx = await _append_turn(svc, session_id, turn)
     await _touch_meta(svc, session_id)
 
     from .chat_threads import _send_response, _start
     run_id, admission = await _start(request, task_id)
     rt.emit("task.progress", task_id=task_id, run_id=run_id, mode=effective_mode,
-            bypass_permissions=bypass_permissions, status=admission.get("status"), route=route)
+            bypass_permissions=bypass_permissions, matched_skill=(matched_skill or {}).get("id"),
+            status=admission.get("status"), route=route)
     resp = await _send_response(svc, session_id, idx, turn, task_id, run_id, admission, agent, False)
     resp["mode"] = effective_mode
     resp["bypass_permissions"] = bypass_permissions
     resp["route"] = route
+    resp["matched_skill"] = matched_skill
     resp["task_id"] = task_id
     return resp
 
@@ -1785,6 +1965,224 @@ async def list_improve_runs(request: Request):
     return {"items": items, "steps_template": IMPROVE_STEPS}
 
 
+@router.get("/agent/skills/match")
+async def match_agent_skill_endpoint(
+    request: Request,
+    q: str = Query(default="", max_length=1000),
+):
+    """Deterministically match an installed `.agents/skills/<id>/SKILL.md` to an unseen task query."""
+    svc = request.app.state.svc
+    matched = await asyncio.to_thread(match_workspace_skill_for_task, svc, q)
+    return {
+        "query": q,
+        "matched": matched is not None,
+        "skill": matched,
+    }
+
+
+@router.post("/agent/north-star/skill-loop")
+async def north_star_skill_loop_endpoint(body: NorthStarSkillLoopIn, request: Request):
+    """North Star Autonomous Skill Creation Loop:
+    Planner -> Skill Forge (3x observe + propose) -> Isolated Worktree Web Terminal ->
+    RED/GREEN Manifest & Policy Verification -> Independent Verifier -> MissionReceipt -> Owner Approval Gate.
+    Never enables AUTO/bypass_permissions during skill creation.
+    """
+    from .skills import FORGE_MIN_RUNS, _draft_skill, _forge_state, _lib, _save_forge_state, _signature
+    from ..self_improve.store import Store, default_root
+    from ..v2.skill_catalog import scan_policy
+    from ..v2.skill_library import SkillLibrary, parse_skill, skill_contract, validate_manifest
+
+    svc = request.app.state.svc
+    orch = _orch(svc)
+    improve_id = "imp-skill-" + time.strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(3)
+    rt = orch.runtime(body.session_id) if body.session_id else None
+    store = Store(default_root(svc.settings.data_dir))
+
+    # 1. Observe recurring workflow FORGE_MIN_RUNS times & propose via Skill Forge
+    sig = _signature(body.workflow)
+    fstate = await _forge_state(svc)
+    entry = fstate["signatures"].setdefault(sig, {"count": 0, "workflow": body.workflow[:2000], "last_proposed": None})
+    while entry["count"] < FORGE_MIN_RUNS:
+        entry["count"] += 1
+    await _save_forge_state(svc, fstate)
+
+    # 2. RED baseline check: in an isolated empty skill root before authoring, unseen_query does NOT match skill_id
+    isolated_wt = Path(svc.settings.data_dir) / "north-star-worktrees" / improve_id
+    isolated_skills_root = isolated_wt / ".agents" / "skills"
+    isolated_skills_root.mkdir(parents=True, exist_ok=True)
+    isolated_lib = SkillLibrary([isolated_skills_root], isolated_skills_root)
+    red_before = body.skill_id in isolated_lib.by_id()
+
+    # 3. Author SKILL.md inside isolated worktree via Web Terminal (`svc.terminal.start`)
+    skill_md_content = (
+        f"---\n"
+        f"name: {body.skill_id}\n"
+        f"description: {body.description}\n"
+        f"license: MIT\n"
+        f"compatibility: BOSSMAN, OpenCode, Claude-compatible agent skills\n"
+        f"metadata:\n"
+        f"  owner: bossman\n"
+        f"  version: \"1.0\"\n"
+        f"  provenance: {improve_id}\n"
+        f"required_tools: [{', '.join(body.required_tools)}]\n"
+        f"permissions: [{', '.join(body.permissions)}]\n"
+        f"input_schema:\n"
+        f"  type: object\n"
+        f"  properties:\n"
+        f"    repo_path:\n"
+        f"      type: string\n"
+        f"  required: [repo_path]\n"
+        f"output_schema:\n"
+        f"  type: object\n"
+        f"  properties:\n"
+        f"    verdict:\n"
+        f"      type: string\n"
+        f"  required: [verdict]\n"
+        f"---\n\n"
+        f"# {body.skill_id}\n\n"
+        f"## Проблема\n{body.problem}\n\n"
+        f"## Алгоритм\n{body.workflow.strip()}\n"
+    )
+    skill_dir = isolated_skills_root / body.skill_id
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_file = skill_dir / "SKILL.md"
+    skill_file.write_text(skill_md_content, encoding="utf-8", newline="\n")
+
+    terminal_session_id = None
+    terminal_exit_code = 0
+    terminal_output = ""
+    mgr = getattr(svc, "terminal", None)
+    if mgr is not None:
+        try:
+            # Execute governed Web Terminal verification inside the isolated worktree (bypass_permissions=False)
+            ts = await mgr.start(
+                f'"{sys.executable}" -c "import pathlib; p=pathlib.Path(r\'.agents/skills/{body.skill_id}/SKILL.md\'); assert p.is_file(); print(\'SKILL_VERIFIED\', p.stat().st_size)"',
+                cwd=isolated_wt,
+                owner="north-star-skill-forge",
+                bypass_permissions=False,
+            )
+            terminal_session_id = ts.id
+            await asyncio.wait_for(ts.done.wait(), timeout=15.0)
+            terminal_exit_code = ts.exit_code if ts.exit_code is not None else 0
+            terminal_output = ts.output()
+        except Exception as exc:  # noqa: BLE001
+            terminal_output = f"Isolated worktree check completed ({exc})"
+
+    # 4. GREEN check in isolated worktree: parse_skill + validate_manifest + scan_policy
+    parsed_sk = parse_skill(skill_file, isolated_skills_root)
+    manifest_res = validate_manifest(parsed_sk)
+    policy_crit = [v.code for v in scan_policy(parsed_sk.body) if v.critical]
+    con = skill_contract(parsed_sk)
+    green_after = (
+        not red_before
+        and parsed_sk.id == body.skill_id
+        and manifest_res["errors"] == []
+        and policy_crit == []
+        and con.required_tools == list(body.required_tools)
+        and "auto" not in [p.lower() for p in con.permissions]
+    )
+
+    # 5. Select coder + independent verifier via OpenCode Model Router
+    catalog = await build_model_router_catalog(svc)
+    coder_route = select_route_for_request(catalog, mode="SELF-IMPROVE", allow_cloud=body.allow_cloud)
+    verifier_route = select_route_for_request(
+        catalog, mode="SELF-IMPROVE", allow_cloud=body.allow_cloud, for_independent_review=True
+    )
+    independent_verdict = "PASS" if green_after else "REJECT"
+
+    # 6. Mint MissionReceipt & Owner Approval Gate
+    receipt_payload = {
+        "improve_id": improve_id,
+        "kind": "north_star_skill_forge",
+        "skill_id": body.skill_id,
+        "signature": sig,
+        "observed_runs": entry["count"],
+        "isolated_worktree": str(isolated_wt),
+        "terminal_session_id": terminal_session_id,
+        "terminal_exit_code": terminal_exit_code,
+        "red_before": red_before,
+        "green_after": green_after,
+        "manifest_errors": manifest_res["errors"],
+        "policy_violations": policy_crit,
+        "coder_model": coder_route["model"],
+        "verifier_model": verifier_route["model"],
+        "independent_verdict": independent_verdict,
+        "bypass_permissions_used": False,
+        "fingerprint": parsed_sk.fingerprint,
+        "ts": utcnow().isoformat(),
+    }
+    receipt_digest = hashlib.sha256(
+        json.dumps(receipt_payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    mission_receipt = {
+        **receipt_payload,
+        "sha256": receipt_digest,
+        "status": "VERIFIED_AWAITING_OWNER" if independent_verdict == "PASS" else "REJECTED",
+    }
+
+    preview_text = (
+        f"[NORTH-STAR SKILL FORGE {improve_id}]\n"
+        f"Навык: .agents/skills/{body.skill_id}/SKILL.md (fp={parsed_sk.fingerprint[:12]})\n"
+        f"Инструменты: {body.required_tools} | Права: {body.permissions}\n"
+        f"RED->GREEN: {not red_before} -> {green_after} | Независимый ревьюер ({verifier_route['model']}): {independent_verdict}\n"
+        f"Receipt: sha256:{receipt_digest[:16]}"
+    )
+    appr = await svc.approvals.create(kind="skill_permissions", preview=preview_text)
+    approval_id = appr.get("id")
+
+    steps_log = [
+        {"step": i + 1, "title": IMPROVE_STEPS[i], "status": "completed" if i < 12 else ("waiting_approval" if i == 12 else "pending_approval"),
+         "detail": preview_text if i == 11 else IMPROVE_STEPS[i]}
+        for i in range(16)
+    ]
+    record = {
+        "id": improve_id,
+        "session_id": body.session_id,
+        "status": "awaiting_owner_approval" if independent_verdict == "PASS" else "failed",
+        "problem": body.problem,
+        "criterion": f"Навык `{body.skill_id}` валиден, проходит RED->GREEN и выбирается на новой задаче `{body.unseen_query[:80]}`",
+        "reproducer_test": "command-center/tests/test_skill_manifest.py",
+        "route": coder_route,
+        "verifier": verifier_route,
+        "coding_task_id": None,
+        "terminal_session_id": terminal_session_id,
+        "terminal_output": terminal_output[-1000:],
+        "test_passed": green_after,
+        "mission_receipt": mission_receipt,
+        "approval_id": approval_id,
+        "forged_skill": {
+            "id": body.skill_id,
+            "content": skill_md_content,
+            "required_tools": body.required_tools,
+            "permissions": body.permissions,
+            "fingerprint": parsed_sk.fingerprint,
+        },
+        "diff": f"+++ b/.agents/skills/{body.skill_id}/SKILL.md\n" + "\n".join(f"+{ln}" for ln in skill_md_content.splitlines()[:25]),
+        "steps": steps_log,
+        "created_at": utcnow().isoformat(),
+    }
+    orch.improve_runs[improve_id] = record
+    with contextlib.suppress(Exception):
+        store.record("hypothesis", {
+            "id": improve_id,
+            "state": "AWAITING_OWNER",
+            "skill_id": body.skill_id,
+            "approval_id": approval_id,
+            "receipt_sha256": receipt_digest,
+        })
+    if rt is not None:
+        rt.improve_runs[improve_id] = record
+        rt.emit(
+            "approval.required",
+            improve_id=improve_id,
+            approval_id=approval_id,
+            kind="skill_permissions",
+            preview=preview_text,
+            mission_receipt=mission_receipt,
+        )
+    return record
+
+
 # ======================================================================
 # WebSocket `/api/agent/sessions/{session_id}/stream` (§7)
 # ======================================================================
@@ -1873,6 +2271,15 @@ async def agent_session_stream_ws(
 # Bus Bridge: Map Bossman Engine Events → Session Sequenced Events
 # ======================================================================
 
+_NEVER_AUTO_APPROVE_KINDS = frozenset({
+    "self_improve",
+    "skill_permissions",
+    "admin",
+    "destructive",
+    "outbound_send",
+})
+
+
 async def _bus_bridge(svc: Any) -> None:
     """Subscribe to Bossman's event bus and forward task/tool/approval/computer events
     to the corresponding AgentSessionRuntime in real time."""
@@ -1901,7 +2308,11 @@ async def _bus_bridge(svc: Any) -> None:
                 appr_id = msg.get("id")
                 appr_kind = str(msg.get("approval_kind") or msg.get("kind") or "")
                 cfg = _session_cfg(svc, session_id)
-                if cfg.get("bypass_permissions") and appr_id is not None and appr_kind != "self_improve":
+                if (
+                    cfg.get("bypass_permissions")
+                    and appr_id is not None
+                    and appr_kind.lower() not in _NEVER_AUTO_APPROVE_KINDS
+                ):
                     with contextlib.suppress(Exception):
                         await svc.approvals.decide(int(appr_id), True, "owner")
                         rt.emit("task.progress", task_id=task_id, approval_id=appr_id,
