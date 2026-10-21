@@ -348,6 +348,20 @@ MODEL_TIERS: list[dict[str, Any]] = [
         "modes": ["CODE", "SELF-IMPROVE", "AGENT"],
     },
     {
+        "tier": 2,
+        "id": "local:r1-70b-abliterated:latest",
+        "model": "r1-70b-abliterated:latest",
+        "worker": None,
+        "locality": "local",
+        "role": "heavy_uncensored_70b_coder",
+        "label": "Tier 2 · R1 70B Abliterated Uncensored Primary Coder (42.5 GB, Radeon 8060S)",
+        "price_in_1m": 0.0,
+        "price_out_1m": 0.0,
+        "context_window": 32768,
+        "min_free_ram_gb_during_gen": 50.0,
+        "modes": ["CODE", "SELF-IMPROVE", "AGENT"],
+    },
+    {
         "tier": 3,
         "id": "worker:openrouter-free",
         "model": "nvidia/nemotron-3-super-120b-a12b:free",
@@ -513,6 +527,8 @@ def select_route_for_request(
     budget_remaining_usd: float = DEFAULT_SESSION_BUDGET_USD,
     previous_failures: int = 0,
     for_independent_review: bool = False,
+    generation_active: bool = False,
+    free_ram_gb: float | None = None,
 ) -> dict[str, Any]:
     """Deterministic OpenCode Model Router (§2):
     1. Rejects RunPod unconditionally unless explicitly approved by owner.
@@ -558,6 +574,16 @@ def select_route_for_request(
     # Explicit local model requested
     if requested_model and not requested_model.startswith("worker:"):
         clean_model = requested_model.removeprefix("local:")
+        profile = LOCAL_CODER_PROFILES.get(clean_model) or {}
+        min_free = float(profile.get("min_free_ram_gb_during_gen") or 0.0)
+        if generation_active and min_free > 0.0 and free_ram_gb is not None and float(free_ram_gb) < min_free:
+            raise HTTPException(409, {
+                "message": (
+                    f"Модель {clean_model} ({profile.get('vram_gb', 42.5)} ГБ) не запускается одновременно "
+                    f"с генерацией при свободной RAM {float(free_ram_gb):.1f} ГБ < {min_free:.0f} ГБ"
+                ),
+                "code": "INSUFFICIENT_RAM_DURING_GENERATION",
+            })
         tier_num = 1 if "gemma" in clean_model.lower() else 2
         return {
             "selected_id": f"local:{clean_model}",
@@ -700,6 +726,8 @@ class RouterSelectIn(BaseModel):
     budget_remaining_usd: float = DEFAULT_SESSION_BUDGET_USD
     previous_failures: int = 0
     for_independent_review: bool = False
+    generation_active: bool = False
+    free_ram_gb: float | None = None
 
 
 class ImproveRunIn(BaseModel):
@@ -1234,6 +1262,8 @@ async def router_select_endpoint(body: RouterSelectIn, request: Request):
         budget_remaining_usd=body.budget_remaining_usd,
         previous_failures=body.previous_failures,
         for_independent_review=body.for_independent_review,
+        generation_active=body.generation_active,
+        free_ram_gb=body.free_ram_gb,
     )
 
 

@@ -582,3 +582,26 @@ async def test_16_owner_auto_bypass_permissions_mode(env, mini_repo: Path):
         "bypass_permissions": True,
     })
     assert deny_res.status_code == 403, deny_res.text
+
+    # Verify r1-70b-abliterated:latest is in OpenCode router catalog and enforces 50 GB RAM guard during generation
+    models_res = await env.client.get("/api/agent/models")
+    assert any(t["model"] == "r1-70b-abliterated:latest" for t in models_res.json()["tiers"])
+
+    sel_ok = await env.client.post("/api/agent/router/select", json={
+        "mode": "CODE",
+        "model": "r1-70b-abliterated:latest",
+        "generation_active": True,
+        "free_ram_gb": 58.0,
+    })
+    assert sel_ok.status_code == 200, sel_ok.text
+    assert sel_ok.json()["model"] == "r1-70b-abliterated:latest"
+
+    sel_low_ram = await env.client.post("/api/agent/router/select", json={
+        "mode": "CODE",
+        "model": "r1-70b-abliterated:latest",
+        "generation_active": True,
+        "free_ram_gb": 41.0,
+    })
+    assert sel_low_ram.status_code == 409, sel_low_ram.text
+    err_low = sel_low_ram.json().get("error") or sel_low_ram.json().get("detail") or {}
+    assert err_low["code"] == "INSUFFICIENT_RAM_DURING_GENERATION"
