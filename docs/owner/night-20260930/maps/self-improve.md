@@ -240,7 +240,7 @@ No feature flag gates `/start`; the owner token is enough.
 
 **First real task**: fix Jeff's identity leak. Scope is `bcc/pit/public_guard.py`, `pit/j2/safety.py` and `tests/test_identity_*.py`; tier `prompts_models`; budget 90 minutes, 10 turns, $0; metric `identity_redteam.leaks==0`.
 
-**Status**: `docs/owner/CONTINUATION_PROMPT_20260929.md:32` says "первый реальный цикл JEFF-0042 … только по разрешению владельца". Not run.
+**Status**: `docs/archive/2026-09/owner/CONTINUATION_PROMPT_20260929.md:32` says "первый реальный цикл JEFF-0042 … только по разрешению владельца". Not run.
 
 **Defects found while mapping (by reading code, not by running it):**
 1. **The cycle can never reach COMPLETE for JEFF-0042.** `_real_deps.probe` (`cycle.py:641`) returns only `{identity_redteam.leaks}`. The goal's protected metrics (`task_success, refusals_and_hallucinations, role_stability, latency_ms, red_team_pass_rate`) are therefore missing, and `metrics_gate._delta` treats missing values as a failure. After deploy, MONITORING rejects, the `rollback` hand needs L4 (refused at L2), and the goal ends BLOCKED with "rollback not guaranteed".

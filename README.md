@@ -298,7 +298,7 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 <a id="quick-start"></a>
 ## Следующий прогон начинаем отсюда
 
-**Единая карта прогона:** [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) · [короткий checklist](docs/owner/TOMORROW_CHECKLIST.md) · [дополнение Terminal Run](docs/terminal/ACCEPTANCE_AND_OWNER_RUN.md). При расхождении старых handoff-документов фактический remote HEAD/certifier/artifact определяет техническое состояние, а последнее решение владельца — scope и порядок. Новые команды CLI публикуются как рабочие только после реализации и проверки.
+**Единая карта прогона:** [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) · [короткий checklist](docs/archive/2026-09/owner/TOMORROW_CHECKLIST.md) · [дополнение Terminal Run](docs/terminal/ACCEPTANCE_AND_OWNER_RUN.md). При расхождении старых handoff-документов фактический remote HEAD/certifier/artifact определяет техническое состояние, а последнее решение владельца — scope и порядок. Новые команды CLI публикуются как рабочие только после реализации и проверки.
 
 1. Получить от интегратора **один TESTED_SHA, один Windows-архив, его SHA-256 и результаты обязательных проверок**. Нет этих данных — сборка ещё не передана на приёмку.
 2. Скачать именно этот архив по [инструкции установки](INSTALL.md). Не выбирать просто последний зелёный прогон и не использовать архив другой ветки.
@@ -371,7 +371,7 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 | Как frontier-модели будут проверять и обучать Bossman | [Frontier Council и тренинг — спецификация](docs/evo/FRONTIER_COUNCIL_AND_TRAINING.md) |
 | Как проверить, чему Qwen реально научился на ремонтах | [Local Qwen Apprentice Benchmark](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md) |
 | Как пройти всё в правильном порядке | [Tomorrow Operator Runbook](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) |
-| Как Claude должен экономно работать поверх Qwen | [Qwen-first master prompt](docs/owner/TOMORROW_MASTER_PROMPT_QWEN_FIRST.md) |
+| Как Claude должен экономно работать поверх Qwen | [Qwen-first master prompt](docs/archive/2026-09/owner/TOMORROW_MASTER_PROMPT_QWEN_FIRST.md) |
 | Как Bossman должен помнить опыт между сессиями | [Durable Memory / Always-Remember Contract](docs/evo/DURABLE_MEMORY_OPERATING_CONTRACT.md) |
 | Как сделать терминал без второго Bossman | [Terminal Run 1.2](docs/terminal/TERMINAL_RUN_1_2_MASTER.md) |
 | Как Claude Code учит через терминал | [Teacher runbook](docs/terminal/CLAUDE_TEACHER_TERMINAL.md) |

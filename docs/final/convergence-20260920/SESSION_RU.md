@@ -30,8 +30,8 @@ image branch содержит шесть собственных коммитов
 Особые решения изложены в `MERGE_DECISIONS_RU.md`. PREP-03, open-news, тесты
 отмены telemetry, исправленные таймер/PNG/finite checks, внешний installed runner
 и весь журнал PREPARATION_MEMORY_RU.md сохранены. Старый README canonical сохранён
-как `README_PRE_CONVERGENCE_6cb.md`, расширенный README release —
-`README_GUIDE_20260918.md`; визуальные assets не удалены.
+как `docs/archive/2026-09/README_PRE_CONVERGENCE_6cb.md`, расширенный README release —
+`docs/archive/2026-09/README_GUIDE_20260918.md`; визуальные assets не удалены.
 
 **Image candidate не активирован.** Все пять конечных файлов сохранены побайтно
 под `integrations/openai-image-candidate/source/`, а шесть коммитов — в родительской

@@ -334,10 +334,10 @@ async def observe():
 - `docs/archive/root-history/AUDIT_STATE.md` — текущий статус аудита
 - `LOCAL_MODEL_STRIX_HALO_2026-09-07.md` — Strix Halo специфика
 - `docs/archive/root-history/AUTONOMY_TRAINER_FREEZE_REPORT.md` — freeze отчёт
-- `BUG_MAP.md` — карта багов
-- `KEY_FUNCTION_TOUCH_MATRIX.md` — functional matrix
+- `docs/archive/2026-09/BUG_MAP.md` — карта багов
+- `docs/archive/2026-09/KEY_FUNCTION_TOUCH_MATRIX.md` — functional matrix
 - `docs/archive/root-history/FRESH_FREEZE_BASELINE.md` — freeze baseline
-- `RESTART_RESUME_PROOF.md` — restart proof
+- `docs/archive/2026-09/RESTART_RESUME_PROOF.md` — restart proof
 - `docs/archive/root-history/HANDOFF_STATE.md` — handoff state
 - `docs/archive/root-history/ZIP3_INGEST_REPORT.md` — ZIP ingest
 - `CLAIMS_NOT_PROVEN.md` — недоказанные утверждения

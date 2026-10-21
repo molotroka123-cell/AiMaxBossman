@@ -12,7 +12,7 @@ Next, in this order: (1) read the CI result of the PR head (the `pytest (py3.x)`
 in BL-128 that is NOT proven until CI is green; `root-ci` whitespace failure BL-129 is fixed); (2) the owner-attested
 retention evidence must be produced for the FINAL head SHA (each new commit needs new evidence); (3) official Telegram
 Stars test, key of provider #5 and the other owner steps are listed in section 6 of the final-close document.
-`docs/owner/CURRENT_CLOSEOUT_20261011_RU.md`, `docs/owner/CONTINUATION_20261011.md` and the 11.10 master prompt are
+`docs/archive/2026-10/owner/CURRENT_CLOSEOUT_20261011_RU.md`, `docs/owner/CONTINUATION_20261011.md` and the 11.10 master prompt are
 historical: their SHAs (`4c89ad93`, `928f54d3`) and "uncommitted fixes in Vibe/media/CI" entries are superseded.
 `final=True` from the certifier means runs finished, NOT production freeze.
 Keep the historical evidence below.

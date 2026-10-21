@@ -1,6 +1,6 @@
 # Bossman 1.0 — Tomorrow Checklist
 
-Use with [Tomorrow Operator Runbook](TOMORROW_OPERATOR_RUNBOOK.md).
+Use with [Tomorrow Operator Runbook](../../../owner/TOMORROW_OPERATOR_RUNBOOK.md).
 
 - [ ] Fetch remote; record REMOTE_HEAD.
 - [ ] Read release candidate declaration and certifier.

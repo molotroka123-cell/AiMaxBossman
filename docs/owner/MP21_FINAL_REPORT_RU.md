@@ -9,7 +9,7 @@
 **Ничего не заморожено.** Final Freeze (коммит или тег) НЕ поставлен: условия перечислены в разделе 11.
 
 * Канонический кандидат: ветка `feat/bossman-genjutsu-jeff-unified-20261010`, origin `molotroka123-cell/AiMaxBossman`.
-  Точный SHA после push и результат `git ls-remote` приведены в финальном ответе и в `WHERE_WE_STOPPED_20261011.md`, раздел 1.
+  Точный SHA после push и результат `git ls-remote` приведены в финальном ответе и в `docs/archive/2026-10/owner/WHERE_WE_STOPPED_20261011.md`, раздел 1.
 * Ночная ветка `claude/bossman-final-convergence-hu2702`: все её коммиты до `595133f1` включены в каноническую ветку merge-коммитами.
   Каноническая ветка может быть fast-forward опубликована в ночную. История не переписана, force-push не использовался.
 * Рабочая копия: tracked-файлы чисты; в `wt-unified-20261010` остаются чужие неотслеживаемые `docs/evidence/orchestra-cloud/`,

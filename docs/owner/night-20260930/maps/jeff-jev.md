@@ -219,7 +219,7 @@ Gap: `provider_last_error` and `transport_error` are **sticky**. They are set on
   - (b) is `"Алиса" in stub.last_messages` (`:181-187`);
   - (c) compares bubble counts before and after `p.reload()` (`:201-209`);
   - (a) stops the stub and later restarts it, then expects `soak-ok` (`:211-225`).
-- The tested build per `docs/owner/CONTINUATION_PROMPT_20260929.md:35-43` was `rc19/t-jeff-admin @ 970dbe70`.
+- The tested build per `docs/archive/2026-09/owner/CONTINUATION_PROMPT_20260929.md:35-43` was `rc19/t-jeff-admin @ 970dbe70`.
 
 ### Common trigger (explains all three findings, matches "25→6" exactly)
 

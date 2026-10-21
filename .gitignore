@@ -149,3 +149,16 @@ provider-keys*
 **/keys/*.env
 vault.*
 *.vault
+
+# Hygiene 22.10.2026 (docs/owner/CLEANUP_INVENTORY_20261022_RU.md)
+# Runtime lock of the LearningStore (learning/trace.py opens it with "a+b" on
+# demand). It was committed by accident; it is state, not corpus.
+/data/learning/.lock
+# Stray root scratch entry named "X" seen in owner checkouts; never a project path.
+/X
+/X/
+# Scratch/test debris that must not come back into the tree.
+*.tmp
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

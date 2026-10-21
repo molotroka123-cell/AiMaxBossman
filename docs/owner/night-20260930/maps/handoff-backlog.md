@@ -2,7 +2,7 @@
 
 I read the files and git history, and checked GitHub Actions through the MCP read-only API. I did not run any tests.
 
-**What changed since the last handoff:** several things `docs/owner/CONTINUATION_PROMPT_20260929.md` calls "open" are already done or merged on this branch:
+**What changed since the last handoff:** several things `docs/archive/2026-09/owner/CONTINUATION_PROMPT_20260929.md` calls "open" are already done or merged on this branch:
 - The RC19 cross-layer receipt failure is already fixed by commit `954e1441`. It was a Windows clock-tick problem, not missing wiring.
 - `rc19/t-jeff-admin`, `feat/jeff-2.0`, autonomy lines A/B/C, `claude/rc19-audit-integration` and the three PR #84 commits are all ancestors of HEAD.
 - CI on `0139fe27` finished: all 11 required workflows succeeded.

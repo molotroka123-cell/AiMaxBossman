@@ -157,7 +157,7 @@ PR'ы зависают без action:
 Корень репо захламлён постмортемами и debug-файлами:
 - `docs/archive/root-history/AUTONOMY_TRAINER_FREEZE_REPORT.md`
 - `docs/archive/root-history/FRESH_FREEZE_BASELINE.md`
-- `RESTART_RESUME_PROOF.md`
+- `docs/archive/2026-09/RESTART_RESUME_PROOF.md`
 - `CLAIMS_NOT_PROVEN.md`
 - `docs/archive/root-history/ZIP3_INGEST_REPORT.md`
 - `docs/archive/root-history/HANDOFF_STATE.md`
