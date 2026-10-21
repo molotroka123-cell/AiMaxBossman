@@ -16,7 +16,11 @@ REGISTRY = [
          note="fuel/food/logistics for UN agencies, relevant for Guinea; ToS to check"),
     dict(id="worldbank", name="World Bank procurement notices (worldwide)", kind="procurement", url="https://projects.worldbank.org/en/projects-operations/procurement",
          api="https://search.worldbank.org/api/v2/procnotices", auth="none", adapter=True, note="worldwide notices; terms: attribution (CC BY 4.0 on Finances One copies), API terms page not found"),
-    dict(id="ukfts", name="UK Find a Tender", kind="procurement", url="https://www.find-tender.service.gov.uk/", auth="none", adapter=False, note="to validate"),
+    dict(id="prozorro", name="Prozorro (Ukraine public procurement) 🇺🇦", kind="procurement", url="https://prozorro.gov.ua/",
+         api="https://public.api.openprocurement.org/api/2.5/tenders", auth="none", adapter=True,
+         note="official public read-only OpenProcurement API 2.5 (open data under the Law of Ukraine «On Public Procurement»); incremental feed cursor; "
+              "only defence/security/dual-use tenders (CPV 35*, keywords) are kept; contact persons are not stored"),
+    dict(id="ukfts",name="UK Find a Tender", kind="procurement", url="https://www.find-tender.service.gov.uk/", auth="none", adapter=False, note="to validate"),
     dict(id="cz_nen", name="Czech ISVZ open data (NEN + VVZ, monthly export)", kind="procurement", url="https://isvz.nipez.cz/opendata/nova", auth="none", adapter=True,
          note="ENABLED by owner decision 17.10.2026 despite robots.txt Disallow: only the documented monthly ZIP is downloaded; data lags ~1 month; MMR contact ospevz@mmr.gov.cz"),
     dict(id="cz_vvz", name="Czech Vestnik verejnych zakazek", kind="procurement", url="https://vvz.nipez.cz/", auth="none", adapter=False, note="to validate"),
