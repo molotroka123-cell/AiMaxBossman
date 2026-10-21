@@ -443,6 +443,18 @@ class BossmanGateway:
             raise RouteError(f"HTTP {r.status_code}", r.status_code)
         return r.json()
 
+    def memory_write(self, title: str, content: str, kind: str = "lesson", tags: list[str] | None = None) -> dict:
+        """One note into Bossman memory (POST /api/memory/write as the owner participant). Called only by an explicit owner/analyst click."""
+        import httpx
+        try:
+            r = self._client().post(self.base + "/api/memory/write", headers={**self._headers(), "X-Participant": "owner"}, timeout=60,
+                                    json={"title": title, "content": content, "kind": kind, "tags": list(tags or [])})
+        except httpx.HTTPError as exc:
+            raise RouteError(f"{type(exc).__name__}") from exc
+        if r.status_code >= 400:
+            raise RouteError(f"HTTP {r.status_code}", r.status_code)
+        return r.json()
+
 
 def gateway_from_env(env: dict) -> BossmanGateway | None:
     import os
