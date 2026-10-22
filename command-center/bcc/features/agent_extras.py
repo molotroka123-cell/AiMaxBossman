@@ -138,7 +138,40 @@ def _parse_window(value: Any) -> int | None:
     return int(float(match.group(1)) * scale) or None
 
 
-async def _context_window(svc: Any, cfg: dict) -> tuple[int | None, str | None]:
+async def _resolve_session_agent_id(svc: Any, cfg: dict, raw: dict | None = None) -> int | None:
+    """Найти исполнителя сессии: cfg -> агент последнего хода в базе -> первый включённый локальный агент."""
+    clean = str(cfg.get("model") or "").removeprefix("local:").strip()
+    agent_id = await _resolve_agent_id_for_model(svc, cfg.get("agent_id"), clean)
+    if agent_id is not None:
+        return agent_id
+    if isinstance(raw, dict):
+        turns = _turns(raw)
+        task_ids = [int(t["task_id"]) for _, t in reversed(turns[-12:]) if int(t["task_id"]) > 0]
+        if task_ids:
+            async with svc.db.session() as s:
+                from ..db import tasks as tasks_t
+                row = (await s.execute(sa.select(tasks_t.c.agent_id)
+                                       .where(tasks_t.c.id.in_(task_ids), tasks_t.c.agent_id.is_not(None))
+                                       .order_by(tasks_t.c.id.desc()).limit(1))).first()
+                if row and row[0] is not None:
+                    return int(row[0])
+    agents, models, providers = await _catalog(svc)
+    for a in agents:
+        if not a.get("enabled"):
+            continue
+        m = _model_of_agent_sync(a, models, providers)
+        if m and m.get("locality") == "local":
+            return int(a["id"])
+    return None
+
+
+def _model_of_agent_sync(agent: dict, models: dict[int, dict], providers: dict[int, dict]) -> dict | None:
+    from .chat_threads import _model_view
+    model = models.get(agent.get("model_id")) if agent else None
+    return _model_view(model, providers.get((model or {}).get("provider_id")))
+
+
+async def _context_window(svc: Any, cfg: dict, raw: dict | None = None) -> tuple[int | None, str | None]:
     """Окно выбранной модели сессии: исполнитель -> ярус роутера -> реестр моделей. Нет данных - (None, None)."""
     worker = cfg.get("worker")
     if worker and worker in WORKERS:
@@ -149,10 +182,14 @@ async def _context_window(svc: Any, cfg: dict) -> tuple[int | None, str | None]:
     for tier in MODEL_TIERS:
         if clean and clean in (tier["model"], tier["id"]):
             return int(tier["context_window"]), "router_tier"
-    agent_id = await _resolve_agent_id_for_model(svc, cfg.get("agent_id"), clean)
+    agent_id = await _resolve_session_agent_id(svc, cfg, raw)
     view = await _model_of_agent(svc, agent_id) if agent_id is not None else None
     window = (view or {}).get("context_window")
-    return (int(window), "model_registry") if isinstance(window, int) and window > 0 else (None, None)
+    if isinstance(window, int) and window > 0:
+        return int(window), "model_registry"
+    if view and view.get("locality") == "local":
+        return 32768, "local_default"
+    return (None, None)
 
 
 # ---------------------------------------------------------------------------------------------------- датчик контекста
@@ -200,7 +237,7 @@ async def context_view(svc: Any, session_id: str, raw: dict) -> dict:
         except Exception:  # noqa: BLE001 - датчик не должен падать из-за отказа сборки промпта
             used = estimate_tokens(summary)
         source = "estimate"
-    window, window_source = await _context_window(svc, cfg)
+    window, window_source = await _context_window(svc, cfg, raw)
     pct = round(100.0 * used / window, 1) if window else None
     return {
         "session_id": session_id, "turns_total": len(_turns(raw)), "turns_in_context": min(len(live), max(0, turns_n)),
@@ -352,7 +389,7 @@ async def compact_session(session_id: str, request: Request, body: CompactIn | N
         raise _fail(409, f"действует STOP владельца: {why}", code="AGENT_STOP_ACTIVE")
 
     cfg = _session_cfg(svc, session_id)
-    agent_id = await _resolve_agent_id_for_model(svc, cfg["agent_id"], cfg["model"])
+    agent_id = await _resolve_session_agent_id(svc, cfg, raw)
     if agent_id is None:
         raise _fail(409, "для сессии нет исполнителя с моделью", code="AGENT_COMPACT_NO_AGENT")
     model = await _model_of_agent(svc, agent_id) or {}
@@ -365,7 +402,7 @@ async def compact_session(session_id: str, request: Request, body: CompactIn | N
             raise _fail(402, "Лимит бюджета сессии исчерпан - платные облачные модели заблокированы",
                         code="BUDGET_EXCEEDED")
 
-    ids = [int(t["task_id"]) for t in live]
+    ids = [int(t["task_id"]) for _, t in live if isinstance(t, dict) and isinstance(t.get("task_id"), int)]
     client = _ViewClient(await _task_views(svc, ids))
     snapshot = {"at": _compacted_at(raw), "turns_len": len(raw.get("turns") or []), "summary_chars": _summary_limit(),
                 "summary_sha256": hashlib.sha256(str(raw.get("summary") or "").encode("utf-8")).hexdigest()}
@@ -400,7 +437,7 @@ async def compact_session(session_id: str, request: Request, body: CompactIn | N
                               name=f"bcc-agent-compact-{session_id}")
     if hasattr(svc, "_tasks"):
         svc._tasks.append(job)
-    return {"session_id": session_id, "task_id": task_id, "status": "running"}
+    return {"session_id": session_id, "task_id": task_id, "status": "running", "state": "running"}
 
 
 def _summary_limit() -> int:

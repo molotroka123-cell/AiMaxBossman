@@ -25,6 +25,7 @@ control:
     chat.agents: GET /m/api/agents                      # local agents only
     chat.threads: GET|POST /m/api/threads
     chat.thread: GET /m/api/threads/{id}
+    chat.attachments: POST /m/api/chat/attachments       # upload files (.txt, .md, .py, .json, .csv, .pdf, .docx…) for local model study
     chat.send: POST /m/api/threads/{id}/send             # 403 unless agent_id is a local-only agent
     chat.stop: POST /m/api/threads/{id}/stop
     chat.archive_encrypted: POST /m/api/threads/{id}/archive-encrypted   # AES-256-GCM, key on the PC (DPAPI); long-press menu

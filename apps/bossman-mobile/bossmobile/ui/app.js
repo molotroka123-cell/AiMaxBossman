@@ -2,7 +2,7 @@
 'use strict';
 (() => {
   const $ = (id) => document.getElementById(id);
-  const S = { csrf: '', agents: [], agentId: null, threadId: null, sending: false, task: null, es: null,
+  const S = { csrf: '', agents: [], agentId: null, threadId: null, sending: false, task: null, es: null, chatFiles: [],
     photoModels: [], photoJob: null, refs: [], refsUsed: false, refsLoading: false, photoSending: false, panelLoaded: false, aspect: '1:1', side: 512 };
   const store = {
     get(k) { try { return localStorage.getItem('bm.' + k); } catch { return null; } },
@@ -544,7 +544,7 @@
       if (!list.children.length) list.appendChild(el('p', 'muted pad', 'Чатов пока нет'));
     } catch (err) { loadFailed($('thread-list'), err, loadThreads); }
   }
-  function newChat() { closeStream(); S.threadId = null; store.set('thread', null); clearMessages(); ctxReset(); drawer(false); $('input').focus(); }
+  function newChat() { closeStream(); S.threadId = null; S.chatFiles = []; renderChatFiles(); store.set('thread', null); clearMessages(); ctxReset(); drawer(false); $('input').focus(); }
   $('btn-new').addEventListener('click', () => { tap(); newChat(); });
   $('drawer-new').addEventListener('click', newChat);
 
@@ -598,7 +598,12 @@
   }
   const sheetBtn = (text, cls, act) => { const b = el('button', cls, text); b.type = 'button'; if (act) b.dataset.act = act; return b; };
   const sheetErr = () => { const p = el('p', 'sheet-error'); p.setAttribute('role', 'alert'); p.hidden = true; return p; };
-  const errText = (err, fallback) => (err && err.message ? err.message : fallback);
+  const ERR_RU = {
+    AGENT_NOTHING_TO_COMPACT: 'Сжимать пока нечего: в чате слишком мало сообщений.',
+    AGENT_COMPACT_RUNNING: 'Сжатие уже идёт — подождите, шкала обновится сама.',
+    AGENT_NO_SUMMARY: 'Резюме этого чата ещё нет: сначала сожмите контекст (/compact).',
+  };
+  const errText = (err, fallback) => ERR_RU[err && err.code] || (err && err.message) || fallback || 'нет связи с ПК';
 
   function openChatActions(t) {
     const sid = shortId(t.id); const name = t.title || 'Без названия';
@@ -743,7 +748,20 @@
   if ($('btn-scroll-down')) $('btn-scroll-down').addEventListener('click', scrollToDown);
 
   function clearMessages() { msgs.replaceChildren($('chat-empty')); $('chat-empty').hidden = false; SC.stick = true; showDown(false); }
-  function addUser(text) { $('chat-empty').hidden = true; const m = el('div', 'msg user'); m.appendChild(el('div', 'bubble', text)); msgs.appendChild(m); autoScroll(true); return m; }
+  function addUser(text, files) {
+    $('chat-empty').hidden = true;
+    const m = el('div', 'msg user'); const bub = el('div', 'bubble');
+    if (Array.isArray(files) && files.length) {
+      const strip = el('div', 'msg-files');
+      files.forEach((f) => {
+        const pill = el('span', 'msg-file-pill', `📎 ${f.name || f.id || 'файл'}`);
+        strip.appendChild(pill);
+      });
+      bub.appendChild(strip);
+    }
+    bub.appendChild(document.createTextNode(text || ''));
+    m.appendChild(bub); msgs.appendChild(m); autoScroll(true); return m;
+  }
   function addBot(prompt) {
     $('chat-empty').hidden = true;
     const m = el('div', 'msg bot'); const tools = el('div', 'tools'); const ans = el('div', 'answer'); const meta = el('div', 'meta');
@@ -899,7 +917,7 @@
       const turns = t.turns || [];
       for (const turn of turns) {
         const desc = photoDesc(turn.text);
-        addUser(desc != null ? `${PHOTO_MARK} ${desc}` : turn.text); const b = addBot(turn.text);
+        addUser(desc != null ? `${PHOTO_MARK} ${desc}` : turn.text, turn.attachments); const b = addBot(turn.text);
         b.taskId = turn.task_id; if (desc != null) b.photo = { desc };
         if (turn.status && !['completed', 'failed', 'stopped', 'blocked', 'missing'].includes(turn.status)) { follow(turn.task_id, b); continue; }
         b.ended = true;
@@ -915,7 +933,7 @@
     } catch (err) { if (err.status === 404) { store.set('thread', null); S.threadId = null; ctxReset(); } }
   }
 
-  /* ================= отправка ================= */
+  /* ================= отправка и прикрепление файлов для изучения ================= */
   const input = $('input');
   const grow = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 160) + 'px'; };
   /* unsent text survives iOS killing the PWA in the background / a reload (this phone's storage only) */
@@ -925,12 +943,88 @@
   { const d0 = store.get('draft'); if (d0 && !input.value) { input.value = d0; grow(); } }
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window) && !slashCapturesEnter()) { e.preventDefault(); $('composer').requestSubmit(); } });
   document.querySelectorAll('[data-suggest]').forEach((c) => c.addEventListener('click', () => { input.value = c.dataset.suggest; input.dispatchEvent(new Event('input')); input.focus(); }));
+
+  function renderChatFiles() {
+    const box = $('chat-files'); if (!box) return;
+    box.replaceChildren();
+    const list = S.chatFiles || [];
+    box.hidden = !list.length;
+    if ($('btn-attach')) $('btn-attach').classList.toggle('on', list.length > 0);
+    list.forEach((f, idx) => {
+      const chip = el('div', 'chat-file-chip');
+      const ic = icon('clip'); ic.setAttribute('aria-hidden', 'true');
+      const nm = el('span', 'chat-file-name', f.name || f.id);
+      const kb = f.size ? `${Math.max(1, Math.round(f.size / 1024))} КБ` : (f.busy ? 'загрузка…' : '');
+      const meta = el('span', 'chat-file-meta', kb);
+      const rm = el('button', 'chat-file-rm'); rm.type = 'button'; rm.setAttribute('aria-label', `Убрать файл ${f.name || ''}`);
+      const rmi = icon('close'); rmi.setAttribute('aria-hidden', 'true'); rm.appendChild(rmi);
+      rm.addEventListener('click', () => { tap(); S.chatFiles.splice(idx, 1); renderChatFiles(); });
+      chip.append(ic, nm);
+      if (kb) chip.appendChild(meta);
+      chip.appendChild(rm);
+      box.appendChild(chip);
+    });
+  }
+  function fileToRawB64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => {
+        const s = String(r.result || '');
+        const i = s.indexOf(',');
+        resolve(i >= 0 ? s.slice(i + 1) : s);
+      };
+      r.onerror = () => reject(new Error('Не удалось прочитать файл'));
+      r.readAsDataURL(file);
+    });
+  }
+  async function attachChatFiles(fileList) {
+    const arr = Array.from(fileList || []);
+    if (!arr.length) return;
+    for (const file of arr) {
+      if ((S.chatFiles || []).length >= 8) { toast('Не больше 8 файлов в одном сообщении'); break; }
+      if (file.size > 8 * 1024 * 1024) { toast(`Файл ${file.name} больше 8 МБ`); continue; }
+      const slot = { id: '', name: file.name, size: file.size, busy: true };
+      S.chatFiles.push(slot); renderChatFiles();
+      try {
+        const b64 = await fileToRawB64(file);
+        const res = await api('POST', '/chat/attachments', { name: file.name, data_b64: b64, thread_id: S.threadId || undefined });
+        const att = (res && res.attachment) || {};
+        if (!att.id) throw new Error('Сервер не вернул ID вложения');
+        slot.id = att.id; slot.name = att.name || file.name; slot.size = att.size || file.size; slot.busy = false;
+        renderChatFiles();
+      } catch (err) {
+        const i = S.chatFiles.indexOf(slot); if (i >= 0) S.chatFiles.splice(i, 1);
+        renderChatFiles();
+        toast(errText(err, `Не удалось прикрепить ${file.name}`));
+      }
+    }
+    if (!input.value.trim() && (S.chatFiles || []).some((f) => f.id)) {
+      input.placeholder = 'Что изучить в прикреплённом файле? (или нажмите Отправить)';
+    }
+  }
+  if ($('btn-attach') && $('chat-file-input')) {
+    $('btn-attach').addEventListener('click', () => { tap(); $('chat-file-input').click(); });
+    $('chat-file-input').addEventListener('change', async (e) => {
+      const fl = e.target.files;
+      await attachChatFiles(fl);
+      e.target.value = '';
+      input.focus();
+    });
+  }
+
   $('composer').addEventListener('submit', async (e) => {
-    e.preventDefault(); slashClose(); const text = input.value.trim(); if (!text) return;
+    e.preventDefault(); slashClose();
+    const readyFiles = (S.chatFiles || []).filter((f) => f.id && !f.busy);
+    if ((S.chatFiles || []).some((f) => f.busy)) { toast('Подождите, файл ещё загружается…'); return; }
+    let text = input.value.trim();
+    if (!text && readyFiles.length) text = `Изучи прикреплённый файл (${readyFiles.map((f) => f.name).join(', ')}) и кратко разбери главное.`;
+    if (!text) return;
     const lc = typedCommand(text);       // «/compact …», «/tools», «/new»…: the phone runs them (also while an answer streams)
-    if (lc && runCommand(lc.name, lc.args)) { tap(); input.value = ''; saveDraft(); input.style.height = 'auto'; return; }
+    if (lc && !readyFiles.length && runCommand(lc.name, lc.args)) { tap(); input.value = ''; saveDraft(); input.style.height = 'auto'; return; }
     if (S.sending) return;
-    tap(); input.value = ''; saveDraft(); input.style.height = 'auto'; const photo = S.photoMode; setPhotoMode(false); await send(text, { photo });
+    tap(); input.value = ''; saveDraft(); input.style.height = 'auto';
+    S.chatFiles = []; renderChatFiles(); if (!S.photoMode) input.placeholder = 'Напишите Bossman…';
+    const photo = S.photoMode; setPhotoMode(false); await send(text, { photo, files: readyFiles });
   });
   $('btn-stop').addEventListener('click', async () => { tap(); if (!S.threadId) return; try { await api('POST', `/threads/${encodeURIComponent(S.threadId)}/stop`); toast('Остановлено'); } catch (err) { toast(err.message); } });
   function busy(on) { S.sending = on; $('btn-send').hidden = on; $('btn-stop').hidden = !on; }
@@ -963,18 +1057,20 @@
   const chatPhotoModel = () => S.photoModels.find((x) => x.id === 'z-image-turbo' && x.available) || S.photoModels.find((x) => x.available && !x.requires_image);
 
   async function send(text, opts = {}) {
-    let pm = PHOTO_RE.exec(text);
+    const files = opts.files || [];
+    let pm = !files.length ? PHOTO_RE.exec(text) : null;
     if (pm && /^(экран|скрин|рабоч|окн)/i.test(text.slice(pm[0].length))) pm = null;   // «сделай фото экрана» = the PC operator
     if (opts.photo || pm) return photoFromChat((pm ? text.slice(pm[0].length) : text).replace(/^мне\s+/i, '').trim());
     if (S.agentId == null) { toast('Выберите локальную модель'); return; }
-    busy(true); addUser(text); const b = addBot(text); typing(b, true); b.t0 = performance.now();
-    await ask(b, text);
+    busy(true); addUser(text, files); const b = addBot(text); typing(b, true); b.t0 = performance.now();
+    await ask(b, text, files);
   }
-  async function ask(b, text) {
+  async function ask(b, text, files = []) {
     try {
       if (!S.threadId) {
         const t = await api('POST', '/threads', { title: text.slice(0, 60) });
         S.threadId = t.id; store.set('thread', t.id);
+        renderGauge(); refreshContext().catch(() => {});
         if (S.agentMode && S.agentMode !== 'CHAT') {
           api('PATCH', `/agent/sessions/${encodeURIComponent(S.threadId)}`, {
             mode: S.agentMode,
@@ -982,7 +1078,9 @@
           }).catch(() => {});
         }
       }
-      const r = await api('POST', `/threads/${encodeURIComponent(S.threadId)}/send`, { text, agent_id: S.agentId, client_request_id: 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) });
+      const payload = { text, agent_id: S.agentId, client_request_id: 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) };
+      if (files.length) payload.attachments = files.map((f) => f.id).filter(Boolean);
+      const r = await api('POST', `/threads/${encodeURIComponent(S.threadId)}/send`, payload);
       if (r.admission && r.admission.ok === false) { finish(b, null, r.admission.reason || 'Bossman не принял задачу', 'blocked'); return; }
       b.model = r.model && (r.model.alias || r.model.id); b.agentId = S.agentId;
       follow(r.task.id, b);
@@ -2249,12 +2347,6 @@
     { name: 'clear', usage: '/clear', help: 'Очистить контекст: начать новый чат', kind: 'client' },
     { name: 'help', usage: '/help', help: 'Показать все команды', kind: 'client' },
   ];
-  const ERR_RU = {
-    AGENT_NOTHING_TO_COMPACT: 'Сжимать пока нечего: в чате слишком мало сообщений.',
-    AGENT_COMPACT_RUNNING: 'Сжатие уже идёт — подождите, шкала обновится сама.',
-    AGENT_NO_SUMMARY: 'Резюме этого чата ещё нет: сначала сожмите контекст (/compact).',
-  };
-  const errText = (err) => ERR_RU[err && err.code] || (err && err.message) || 'нет связи с ПК';
 
   /* ---------- карточки в чате (видны только на этом телефоне, на ПК не пишутся) ---------- */
   function sysCard(title, ico) {
@@ -2279,11 +2371,16 @@
     if (!rows.length) box.appendChild(el('p', 'syscard-note', empty));
     rows.forEach((r) => {
       if (r.heading) { box.appendChild(el('h4', 'syscard-h', r.heading)); return; }
-      const row = el('div', 'sc-row'); const main = el('div', 'sc-main');
+      const row = el('div', 'sc-row' + (r.onPick ? ' clickable' : '')); const main = el('div', 'sc-main');
       main.appendChild(el('b', 'sc-name', r.name));
       if (r.desc) main.appendChild(el('span', 'sc-desc', r.desc));
       row.appendChild(main);
       if (r.badge) row.appendChild(badge(r.badge));
+      if (r.onPick) {
+        row.tabIndex = 0; row.setAttribute('role', 'button');
+        row.addEventListener('click', () => { tap(); r.onPick(); });
+        row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); r.onPick(); } });
+      }
       box.appendChild(row);
     });
     c.body.replaceChildren(box); autoScroll(); return box;
@@ -2664,7 +2761,14 @@
     clear: () => { newChat(); const c = sysCard('Контекст очищен', 'status'); cardNote(c, 'Начат новый чат с пустым контекстом. Прежний чат остался в списке «Чаты».', 'ok'); },
     help: () => cardLoad('Команды «/»', 'book', async (c) => {
       let cmds = BUILTIN_CMDS; try { cmds = (await loadPalette(false)).commands; } catch { /* offline: only the local ones */ }
-      cardList(c, cmds.map((x) => ({ name: x.usage || '/' + x.name, desc: x.help, badge: { text: CMD_KIND_RU[x.kind] || x.kind || '', cls: 'kind-' + (x.kind || 'message') } })), 'Команд нет');
+      cardList(c, cmds.map((x) => ({
+        name: x.usage || '/' + x.name, desc: x.help,
+        badge: { text: CMD_KIND_RU[x.kind] || x.kind || '', cls: 'kind-' + (x.kind || 'message') },
+        onPick: () => {
+          if ((x.kind === 'action' || x.kind === 'client') && LOCAL_CMDS[x.name]) { runCommand(x.name, ''); return; }
+          input.value = `/${x.name} `; input.dispatchEvent(new Event('input')); input.focus();
+        },
+      })), 'Команд нет');
     }),
     context: () => cardLoad('Контекст чата', 'status', async (c) => {
       const sid = sidNow(); if (!sid) { cardNote(c, 'Чата ещё нет: контекст появится после первого сообщения.'); return; }
@@ -2675,12 +2779,22 @@
     memory: (args) => askMemory(args),
     tools: () => cardLoad('Tools', 'tool', async (c) => {
       const tools = (await loadPalette(false)).tools; const rows = []; let last = null;
-      tools.forEach((t) => { const g = t.group || 'Прочее'; if (g !== last) { rows.push({ heading: g }); last = g; } rows.push({ name: t.name, desc: t.description, badge: toolBadge(t) }); });
+      tools.forEach((t) => {
+        const g = t.group || 'Прочее'; if (g !== last) { rows.push({ heading: g }); last = g; }
+        rows.push({
+          name: t.name, desc: t.description, badge: toolBadge(t),
+          onPick: () => { input.value = (input.value ? input.value + ' ' : '') + `Используй tool ${t.name}: `; input.dispatchEvent(new Event('input')); input.focus(); },
+        });
+      });
       cardList(c, rows, 'Список tools пуст'); c.card.setAttribute('aria-label', `Tools: ${tools.length}`);
     }),
     skills: () => cardLoad('Skills', 'book', async (c) => {
       const skills = (await loadPalette(false)).skills;
-      cardList(c, skills.map((s) => ({ name: s.title && s.title !== s.id ? `${s.id} · ${s.title}` : s.id, desc: (s.triggers || []).join(', '), badge: { text: s.status || 'skill', cls: 'skill-st' } })), 'Навыков пока нет');
+      cardList(c, skills.map((s) => ({
+        name: s.title && s.title !== s.id ? `${s.id} · ${s.title}` : s.id, desc: (s.triggers || []).join(', '),
+        badge: { text: s.status || 'skill', cls: 'skill-st' },
+        onPick: () => { input.value = (input.value ? input.value + ' ' : '') + `Применяй навык ${s.id}: `; input.dispatchEvent(new Event('input')); input.focus(); },
+      })), 'Навыков пока нет');
     }),
     models: () => cardLoad('Модели', 'chat', async (c) => {
       const m = await api('GET', '/agent/models'); const rows = [];

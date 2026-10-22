@@ -1,0 +1,112 @@
+{
+  "schema": "bossman.perf2x.run/1",
+  "label": "candidate_cp_perf_06_api_overhead",
+  "recorded_at": "2026-10-22T09:55:49Z",
+  "corrected_at": "2026-10-23T04:10:00Z",
+  "repo_head_sha": "ca8eb1aae479fdbef9d6bd258eb035670302c21d",
+  "installed_head_sha": "288f79f56a1aa9d7fca4ff116e0347407acf1237",
+  "scope_note_ru": "Замер только накладных расходов API-пути без инференса модели (снято 219.168 мс на сообщение: 275.241 -> 56.073 мс в сумме критического пути; 92.551 -> 21.558 мс на send_agent_message). При реальной длительности задачи с моделью из cp-perf-00 (≈20–30 с) снятие 219 мс составляет ≈1% от общего времени задачи и НЕ является 2x ускорением end-to-end.",
+  "hardware": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "AMD64 Family 26 Model 112 Stepping 0, AuthenticAMD",
+    "python": "3.12.10",
+    "apu": "AMD Ryzen AI Max+ 395 w/ Radeon 8060S (128 GB UMA)"
+  },
+  "lanes": {
+    "api_overhead_agent_message_ms": {
+      "count": 15,
+      "median_ms": 21.558,
+      "mean_ms": 31.127,
+      "p95_ms": 107.085,
+      "min_ms": 19.202,
+      "max_ms": 107.085
+    },
+    "api_overhead_skill_routed_message_ms": {
+      "count": 15,
+      "median_ms": 28.093,
+      "mean_ms": 51.077,
+      "p95_ms": 182.58,
+      "min_ms": 23.181,
+      "max_ms": 182.58
+    },
+    "api_overhead_list_20_sessions_ms": {
+      "count": 15,
+      "median_ms": 2.902,
+      "mean_ms": 3.079,
+      "p95_ms": 3.925,
+      "min_ms": 2.775,
+      "max_ms": 3.925
+    },
+    "api_overhead_router_catalog_and_select_ms": {
+      "count": 15,
+      "median_ms": 2.695,
+      "mean_ms": 2.796,
+      "p95_ms": 3.309,
+      "min_ms": 2.615,
+      "max_ms": 3.309
+    },
+    "api_overhead_tools_schema_ms": {
+      "count": 15,
+      "median_ms": 10.585,
+      "mean_ms": 15.122,
+      "p95_ms": 71.631,
+      "min_ms": 9.177,
+      "max_ms": 71.631
+    },
+    "api_overhead_combined_critical_path_ms": {
+      "count": 15,
+      "median_ms": 56.073,
+      "mean_ms": 88.079,
+      "p95_ms": 208.913,
+      "min_ms": 51.009,
+      "max_ms": 208.913
+    }
+  },
+  "payload_sizes": {
+    "full_tools_bytes": 174709,
+    "filtered_compact_tools_bytes": 192
+  },
+  "comparison_vs_baseline": {
+    "baseline_file": "cp_perf_00_baseline.json",
+    "baseline_sha": "e8ebcd9b35e135c235ed1c76127c35ebfa185eb2",
+    "note_ru": "Снято 219.168 мс накладных расходов API на сообщение (≈1% от длительности задачи с моделью ~22 с в cp-perf-00). Не является end-to-end ускорением модели.",
+    "api_overhead_deltas": {
+      "api_overhead_agent_message_ms": {
+        "baseline_median_ms": 92.551,
+        "candidate_median_ms": 21.558,
+        "saved_ms": 70.993,
+        "share_of_22s_model_task_pct": 0.32
+      },
+      "api_overhead_skill_routed_message_ms": {
+        "baseline_median_ms": 83.152,
+        "candidate_median_ms": 28.093,
+        "saved_ms": 55.059,
+        "share_of_22s_model_task_pct": 0.25
+      },
+      "api_overhead_list_20_sessions_ms": {
+        "baseline_median_ms": 5.777,
+        "candidate_median_ms": 2.902,
+        "saved_ms": 2.875,
+        "share_of_22s_model_task_pct": 0.01
+      },
+      "api_overhead_router_catalog_and_select_ms": {
+        "baseline_median_ms": 11.183,
+        "candidate_median_ms": 2.695,
+        "saved_ms": 8.488,
+        "share_of_22s_model_task_pct": 0.04
+      },
+      "api_overhead_tools_schema_ms": {
+        "baseline_median_ms": 9.499,
+        "candidate_median_ms": 10.585,
+        "saved_ms": -1.086,
+        "share_of_22s_model_task_pct": 0.0
+      },
+      "api_overhead_combined_critical_path_ms": {
+        "baseline_median_ms": 275.241,
+        "candidate_median_ms": 56.073,
+        "saved_ms": 219.168,
+        "share_of_22s_model_task_pct": 1.0
+      }
+    }
+  }
+}

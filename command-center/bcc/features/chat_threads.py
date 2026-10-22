@@ -853,11 +853,15 @@ def _attachment_block_sync(items: list[dict]) -> str:
                 lines.append(f"Вложение «{name}»: текст, {size}, путь {path} (не встроено: исчерпан "
                              f"общий предел {ATTACHMENT_TEXT_CHARS} символов на вложения)")
                 continue
+            read_path = Path(path)
+            extracted = read_path.parent / "_extracted.txt"
+            if extracted.is_file():
+                read_path = extracted
             try:
                 # newline="": символы считаются так же, как text_chars при загрузке
                 # (CRLF — два символа). Перевод строк при чтении укоротил бы
                 # прочитанное, и файл с CRLF всегда выглядел бы обрезанным.
-                with open(path, encoding="utf-8-sig", errors="replace", newline="") as fh:
+                with open(read_path, encoding="utf-8-sig", errors="replace", newline="") as fh:
                     read = fh.read(budget)
                     cut = bool(fh.read(1))      # за пределом что-то осталось — это и есть обрезка
             except OSError:
@@ -875,6 +879,35 @@ def _attachment_block_sync(items: list[dict]) -> str:
         else:
             lines.append(f"Вложение «{name}»: {kind}, {size}, путь {path} (содержимое не встроено)")
     return "\n\n".join(lines)
+
+
+def _skill_block_for_text(svc: Any, text: str) -> str:
+    """Если владелец выбрал навык из меню «/» (`Применяй навык <id>: ...` или `/skill <id>`),
+    подставляем проверенную инструкцию навыка в блок контекста (до маркера)."""
+    m = re.match(r"^\s*(?:Применяй\s+навык|Используй\s+навык|/skill)\s+([A-Za-z0-9_.-]{2,80})\s*[:\s]", str(text or ""), re.IGNORECASE)
+    if not m:
+        return ""
+    skill_id = m.group(1).strip()
+    try:
+        from . import skills as skills_feature
+        cat = skills_feature._catalog(svc)
+        for entry in cat.entries(frozenset()):
+            if entry.id == skill_id and entry.path and Path(entry.path).is_file():
+                body = _sanitize(Path(entry.path).read_text(encoding="utf-8", errors="replace"))[:6000]
+                fence = _fence(body)
+                return f"Выбранный навык «{skill_id}» ({entry.name}):\n{fence}\n{body}\n{fence}"
+    except Exception:  # noqa: BLE001
+        pass
+    for root in (Path(__file__).resolve().parents[3] / ".agents" / "skills", Path.cwd() / ".agents" / "skills"):
+        cand = root / skill_id / "SKILL.md"
+        if cand.is_file():
+            try:
+                body = _sanitize(cand.read_text(encoding="utf-8", errors="replace"))[:6000]
+                fence = _fence(body)
+                return f"Выбранный навык «{skill_id}»:\n{fence}\n{body}\n{fence}"
+            except OSError:
+                break
+    return ""
 
 
 def _read_attachment_meta(svc: Any, attachment_id: str) -> dict:
@@ -948,8 +981,9 @@ async def _compose_prompt(svc: Any, raw: dict, text: str, attachments: list[dict
             continue                      # как CLI: задача не читается — ход пропускается
         answer = _sanitize(view["result"] or view["error"] or "")[:chars]
         parts.append(f"Владелец: {_sanitize(turn.get('text'))[:chars]}\nBossman: {answer or '—'}")
+    skill_block = await asyncio.to_thread(_skill_block_for_text, svc, text)
     block = (await asyncio.to_thread(_attachment_block_sync, attachments)) if attachments else ""
-    data = [block] if block else []
+    data = [b for b in (skill_block, block) if b]
 
     def assemble(dropped: int) -> str:
         return conversation_context.compose(_dropped_note(dropped, max_prompt) + parts + data) + text
@@ -1370,6 +1404,36 @@ def _utf8_chars(path: Path) -> int | None:
     return chars
 
 
+def _extract_doc_text(path: Path, ext: str) -> int | None:
+    """Извлечь текст из .pdf или .docx в `_extracted.txt` рядом с вложением, чтобы модель могла изучить документ."""
+    text = ""
+    try:
+        if ext == ".pdf":
+            import pypdf
+            reader = pypdf.PdfReader(str(path))
+            pages = [page.extract_text() or "" for page in reader.pages[:80]]
+            text = "\n\n".join(p.strip() for p in pages if p.strip())
+        elif ext == ".docx":
+            import xml.etree.ElementTree as ET
+            import zipfile
+            with zipfile.ZipFile(path) as zf:
+                xml_bytes = zf.read("word/document.xml")
+            root = ET.fromstring(xml_bytes)
+            paras = ["".join(t.text or "" for t in p.iter() if t.tag.endswith("}t"))
+                     for p in root.iter() if p.tag.endswith("}p")]
+            text = "\n".join(p.strip() for p in paras if p.strip())
+    except Exception:  # noqa: BLE001
+        return None
+    clean = text.strip()
+    if not clean:
+        return None
+    try:
+        (path.parent / "_extracted.txt").write_text(clean, encoding="utf-8")
+    except OSError:
+        return None
+    return len(clean)
+
+
 def _classify(path: Path, name: str, declared: str | None) -> tuple[str, str, int | None]:
     ext = os.path.splitext(name)[1].lower()
     mime = mimetypes.guess_type(name)[0]
@@ -1383,6 +1447,10 @@ def _classify(path: Path, name: str, declared: str | None) -> tuple[str, str, in
             if not (mime.startswith("text/") or mime in _TEXT_MIMES):
                 mime = "text/plain"
             return "text", mime, chars
+    if ext in (".pdf", ".docx"):
+        doc_chars = _extract_doc_text(path, ext)
+        if doc_chars is not None:
+            return "text", mime, doc_chars
     if mime.startswith("image/"):
         return "image", mime, None
     return "binary", mime, None
@@ -1393,17 +1461,42 @@ def _too_large() -> HTTPException:
     return _fail(413, f"Максимальный размер вложения — {limit_mib:g} МиБ", code="CHAT_ATTACHMENT_TOO_LARGE")
 
 
-@router.post("/chat/attachments")
-async def upload_attachment(request: Request, filename: str = Query(min_length=1, max_length=255),
+@router.post("/chat/attachments", status_code=201)
+async def upload_attachment(request: Request, filename: str | None = Query(default=None, min_length=1, max_length=255),
                             thread_id: str | None = Query(default=None, max_length=64)):
-    """Файл к сообщению: сырое тело, предел проверяется ПО ХОДУ чтения (даже без
-    Content-Length или с ложным), в память целиком не читается."""
+    """Файл к сообщению: сырое тело с `?filename=...` ИЛИ JSON `{name, data_b64, thread_id}` (с мобильного пульта)."""
     svc = _svc(request)
+    ct_hdr = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+    json_bytes: bytes | None = None
+    if filename is None and ct_hdr == "application/json":
+        try:
+            body_json = await request.json()
+        except Exception:  # noqa: BLE001
+            raise _fail(400, "некорректный JSON вложения", code="CHAT_ATTACHMENT_BAD_JSON") from None
+        if not isinstance(body_json, dict):
+            raise _fail(400, "ожидался JSON-объект", code="CHAT_ATTACHMENT_BAD_JSON")
+        raw_name = str(body_json.get("name") or body_json.get("filename") or "").strip()
+        if not raw_name:
+            raise _fail(422, "не указано имя файла (name/filename)", code="CHAT_ATTACHMENT_NO_NAME")
+        filename = raw_name[:255]
+        if thread_id is None and body_json.get("thread_id"):
+            thread_id = str(body_json["thread_id"]).strip()[:64]
+        b64_str = str(body_json.get("data_b64") or "").strip()
+        if not b64_str:
+            raise _fail(422, "пустой файл", code="CHAT_ATTACHMENT_EMPTY")
+        import base64 as _b64
+        try:
+            json_bytes = _b64.b64decode(b64_str, validate=True)
+        except ValueError:
+            raise _fail(422, "некорректный base64 файла", code="CHAT_ATTACHMENT_BAD_B64") from None
+    elif not filename:
+        raise _fail(422, "не указано имя файла (?filename=...)", code="CHAT_ATTACHMENT_NO_NAME")
+
     if thread_id is not None and _load_session(svc, thread_id) is None:
         raise _fail(404, "чат не найден", code="CHAT_THREAD_NOT_FOUND")
     name = safe_filename(filename)
     length = request.headers.get("content-length")
-    if length is not None:
+    if json_bytes is None and length is not None:
         try:
             declared_size = int(length)
         except ValueError:
@@ -1417,14 +1510,21 @@ async def upload_attachment(request: Request, filename: str = Query(min_length=1
     size = 0
     try:
         with open(part, "wb") as fh:
-            async for chunk in request.stream():
-                if not chunk:
-                    continue
-                size += len(chunk)
+            if json_bytes is not None:
+                size = len(json_bytes)
                 if size > ATTACHMENT_MAX_BYTES:
                     raise _too_large()
-                digest.update(chunk)
-                fh.write(chunk)
+                digest.update(json_bytes)
+                fh.write(json_bytes)
+            else:
+                async for chunk in request.stream():
+                    if not chunk:
+                        continue
+                    size += len(chunk)
+                    if size > ATTACHMENT_MAX_BYTES:
+                        raise _too_large()
+                    digest.update(chunk)
+                    fh.write(chunk)
         if size == 0:
             raise _fail(422, "пустой файл", code="CHAT_ATTACHMENT_EMPTY")
         sha = digest.hexdigest()
@@ -1436,12 +1536,13 @@ async def upload_attachment(request: Request, filename: str = Query(min_length=1
     finally:
         with contextlib.suppress(OSError):
             part.unlink()
-    declared = (request.headers.get("content-type") or "").split(";")[0].strip().lower() or None
+    declared = ct_hdr if json_bytes is None and ct_hdr else None
     kind, mime, text_chars = await asyncio.to_thread(_classify, target, name, declared)
     meta = {"id": attachment_id, "name": name, "size": size, "mime": mime, "kind": kind, "sha256": sha,
             "text_chars": text_chars, "thread_id": thread_id, "created_at": _iso(time.time())}
     await asyncio.to_thread(_write_json_atomic, folder / "meta.json", meta)
-    return _attachment_public(meta)
+    pub = _attachment_public(meta)
+    return {**pub, "attachment": pub}
 
 
 @router.get("/chat/attachments/{attachment_id}")

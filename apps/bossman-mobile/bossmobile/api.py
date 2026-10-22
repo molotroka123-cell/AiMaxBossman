@@ -66,10 +66,27 @@ class DeleteForeverIn(BaseModel):
     confirm: str = Field(min_length=1, max_length=64)
 
 
+CHAT_ATTACH_MAX_BYTES = 8 * 1024 * 1024
+CHAT_ATTACH_SUFFIXES = (
+    ".txt", ".md", ".markdown", ".json", ".jsonl", ".yaml", ".yml", ".toml", ".ini", ".cfg",
+    ".csv", ".tsv", ".log", ".py", ".js", ".mjs", ".ts", ".tsx", ".jsx", ".html", ".css",
+    ".sql", ".xml", ".sh", ".ps1", ".bat", ".pdf", ".docx",
+    ".png", ".jpg", ".jpeg", ".webp", ".gif",
+)
+
+
 class SendIn(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
     agent_id: int | None = None
     client_request_id: str | None = Field(default=None, min_length=8, max_length=128, pattern=REQ_ID)
+    attachments: list[str] = Field(default_factory=list, max_length=8)
+
+
+class ChatAttachmentIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=200)
+    data_b64: str = Field(min_length=1, max_length=(CHAT_ATTACH_MAX_BYTES * 4) // 3 + 64)
+    thread_id: str | None = Field(default=None, max_length=64)
 
 
 class DecideIn(BaseModel):
@@ -563,10 +580,36 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         if agent is None or not agent["local"]:
             why = ", ".join(agent["why_not"]) if agent else "агент не найден"
             raise fail(403, f"Отклонено: мобильный чат работает только на локальных моделях ({why}).", "BM_LOCAL_ONLY")
-        payload = {"text": body.text, "agent_id": body.agent_id}
+        payload: dict[str, Any] = {"text": body.text, "agent_id": body.agent_id}
         if body.client_request_id:
             payload["client_request_id"] = body.client_request_id
+        if body.attachments:
+            payload["attachments"] = [str(a)[:64] for a in body.attachments[:8] if str(a).strip()]
         return await call("POST", f"/api/chat/threads/{tid}/send", json=payload, timeout=120)
+
+    @app.post("/m/api/chat/attachments", status_code=201)
+    async def chat_attachment_upload(body: ChatAttachmentIn, _=Depends(session)):
+        """Upload a file from the phone so the local chat model can study its content."""
+        low = body.name.strip().lower()
+        if not low.endswith(CHAT_ATTACH_SUFFIXES):
+            raise fail(422, "поддерживаются текстовые файлы, код, .pdf, .docx и изображения (.txt, .md, .py, .json, .csv, .pdf, .docx…)",
+                       "BM_CHAT_ATTACH_TYPE")
+        try:
+            raw_bytes = base64.b64decode(body.data_b64, validate=True)
+        except ValueError:
+            raise fail(422, "файл повреждён при передаче", "BM_CHAT_ATTACH_B64") from None
+        if not raw_bytes:
+            raise fail(422, "файл пустой", "BM_CHAT_ATTACH_EMPTY")
+        if len(raw_bytes) > CHAT_ATTACH_MAX_BYTES:
+            raise fail(413, f"файл больше {CHAT_ATTACH_MAX_BYTES // 1048576} МБ", "BM_TOO_LARGE")
+        tid = _tid(body.thread_id) if body.thread_id else None
+        payload: dict[str, Any] = {"name": body.name.strip(), "data_b64": body.data_b64}
+        if tid:
+            payload["thread_id"] = tid
+        res = await call("POST", "/api/chat/attachments", json=payload, timeout=120)
+        att = res.get("attachment") if isinstance(res, dict) and isinstance(res.get("attachment"), dict) else (res if isinstance(res, dict) else {})
+        keep = ("id", "name", "kind", "mime", "size", "sha256", "text_chars", "created_at")
+        return {"ok": True, "attachment": {k: att.get(k) for k in keep if k in att}}
 
     @app.post("/m/api/chat/unload")
     async def chat_unload(body: UnloadIn, _=Depends(session)):
