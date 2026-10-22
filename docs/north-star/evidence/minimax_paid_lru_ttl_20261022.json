@@ -1,0 +1,23 @@
+{
+ "rows": [
+  {
+   "task": "lru_ttl",
+   "sample": 0,
+   "passed": true,
+   "latency_s": 16.5,
+   "tokens_in": 267,
+   "tokens_out": 3228,
+   "finish": "stop",
+   "note": "",
+   "error": null
+  }
+ ],
+ "n": 1,
+ "passed": 1,
+ "pass_rate": 1.0,
+ "avg_latency_s": 16.5,
+ "model": "minimax/minimax-m3",
+ "ts": "2026-10-21T15:36:04",
+ "reasoning_max_tokens": 6000,
+ "max_tokens": 24000
+}
