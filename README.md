@@ -8,6 +8,8 @@
 
 </div>
 
+**Agents, 22.10 — документационный фундамент Кодекса для текущей работы Аргона:** [архитектура, Tasks/Agents UX, модельный каталог, безопасное делегирование и приёмка](docs/agents/2026-10-22-foundation/README_RU.md). Это план поверх существующего Bossman и source review; подключение облачных помощников, обучение и live PASS требуют отдельных evidence.
+
 ## North Star 23.10.2026 — обязательное чтение Argon
 
 [**Завтрашний мастер-промт Argon**](docs/owner/ARGON_NORTH_STAR_MASTER_PROMPT_20261023_RU.md) ·

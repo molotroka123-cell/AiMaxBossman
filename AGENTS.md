@@ -1,5 +1,9 @@
 # AGENTS.md — Mandatory context for AI contributors
 
+## OWNER AGENTS FOUNDATION — 22.10.2026
+
+Latest owner request: extend the existing Tasks/Agents desktop/mobile UX so local Gemma can delegate bounded work to selectable local, free-cloud and paid-cloud specialists. Read [the Codex foundation and Argon handoff](docs/agents/2026-10-22-foundation/README_RU.md) before this work. Reuse current tasks, registry, model routing, memory, permissions and STOP. Source review identifies STOP/idempotency/dependency/shared-budget gaps to verify against current code. The package is a proposal plus source observations, not a live acceptance, spending grant, enabled skill or weight-training result. Argon remains the sole product integrator; docs work must preserve his dirty files. Existing release, privacy, budget, North Star and performance gates still apply.
+
 ## OWNER PERFORMANCE ×2 — 23.10.2026 (P0 READ FIRST FOR ARGON/CODEX)
 
 **New direct owner instruction (22.10): BEFORE ANY North Star code run tomorrow, read [the mandatory 2× performance plan](docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md).** First measure the actual end-to-end bottlenecks from iPhone -> Mobile Pult -> Orchestrator -> model/tools -> verified result, then run targeted llama.cpp Vulkan/MTP, prompt/KV cache, context/skill-routing, API and existing Resource Governor A/B. Do not assume prior 2.09× *decode* implies 2× Bossman, and do not promise an unmeasured gain. **Target** >=2.00× median on preregistered coding/agent suite with equal quality and no permission regression. Push CP-PERF-00..06 with exact runtime SHA, tests, results, owner gates. Do NOT bypass STOP, Jeff hold, T2/T3 approval, RunPod prohibition or paid-model budget. **This is a required next-step document, not authorization to auto-install or auto-merge.**

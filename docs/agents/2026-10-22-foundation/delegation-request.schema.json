@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Proposed Bossman agent.delegate input, design only",
+  "description": "Not an installed tool or runtime configuration. Effective authority, parent/root IDs, grants and prices are derived by the server. Reference validation does not authorize file access or cloud export.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operation_key", "agent_id", "goal", "input_refs", "expected_output", "acceptance_criteria", "deadline_seconds", "max_steps", "max_output_tokens", "requested_cost_cap_usd"],
+  "properties": {
+    "operation_key": {"type": "string", "minLength": 16, "maxLength": 160, "pattern": "^[A-Za-z0-9._:-]+$"},
+    "agent_id": {"type": "string", "minLength": 1, "maxLength": 120},
+    "goal": {"type": "string", "minLength": 1, "maxLength": 6000},
+    "input_refs": {"type": "array", "maxItems": 20, "items": {"type": "object", "additionalProperties": false, "required": ["artifact_ref", "sha256"], "properties": {"artifact_ref": {"type": "string", "minLength": 1, "maxLength": 240}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}},
+    "expected_output": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "acceptance_criteria": {"type": "array", "minItems": 1, "maxItems": 12, "items": {"type": "string", "minLength": 1, "maxLength": 1000}},
+    "requested_route": {"type": "object", "additionalProperties": false, "required": ["model_ref"], "properties": {"model_ref": {"type": "string", "minLength": 1, "maxLength": 240}, "provider_ref": {"type": "string", "minLength": 1, "maxLength": 120}}},
+    "requested_tools": {"type": "array", "maxItems": 30, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]{1,80}$"}},
+    "deadline_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+    "max_steps": {"type": "integer", "minimum": 1, "maximum": 50},
+    "max_output_tokens": {"type": "integer", "minimum": 1, "maximum": 16384},
+    "requested_cost_cap_usd": {"type": "string", "pattern": "^(0|[1-9][0-9]{0,5})(\\.[0-9]{1,6})?$"}
+  }
+}
