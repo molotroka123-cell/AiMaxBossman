@@ -58,6 +58,25 @@ def _locked(fn):
     return wrapper
 
 
+
+def freshen(doc: dict, today=None) -> dict:
+    """Read-time actuality (owner 22.10: listed tenders were dead). Never trust the ingest-time status or URL:
+    an `open` notice whose deadline has passed is shown as `closed`, and TED links use the form that resolves."""
+    from datetime import date
+    out = dict(doc)
+    today = today or date.today()
+    if out.get("status") == "open" and out.get("deadline"):
+        try:
+            if date.fromisoformat(str(out["deadline"])[:10]) < today:
+                out["status"] = "closed"
+                out["status_note"] = "срок подачи прошёл"
+        except ValueError:
+            pass
+    if out.get("source_id") == "ted" and out.get("official_notice_id") and "/-/detail/" not in str(out.get("source_url", "")):
+        out["source_url"] = f"https://ted.europa.eu/en/notice/-/detail/{out['official_notice_id']}"
+    return out
+
+
 class Store:
     def __init__(self, path: str | Path = ":memory:") -> None:
         self.path = str(path)
@@ -108,13 +127,13 @@ class Store:
     @_locked
     def latest_tenders(self) -> list[dict]:
         rows = self.db.execute("SELECT doc FROM tenders t WHERE version=(SELECT MAX(version) FROM tenders WHERE key=t.key)").fetchall()
-        return [d for d in (json.loads(r["doc"]) for r in rows) if is_real(d)]
+        return [freshen(d) for d in (json.loads(r["doc"]) for r in rows) if is_real(d)]
 
     @_locked
     def get_tender(self, key: str) -> dict | None:
         row = self.db.execute("SELECT doc FROM tenders WHERE key=? ORDER BY version DESC LIMIT 1", (key,)).fetchone()
         doc = json.loads(row["doc"]) if row else None
-        return doc if doc is not None and is_real(doc) else None
+        return freshen(doc) if doc is not None and is_real(doc) else None
 
     @_locked
     def tender_versions(self, key: str) -> list[dict]:
