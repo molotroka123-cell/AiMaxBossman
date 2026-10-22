@@ -100,4 +100,15 @@ git merge --no-ff origin/chore/cleanup-north-star-docs-20261022
 4. Отчёт владельцу в пульт через `python tools/pult_note.py --html --file report.html`: жирные заголовки, `<code>` для SHA/веток, `<pre>` для команд; в конце — экономия vs облако и что НЕ доказано.
 5. Draft PR `integrate/north-star-final-20261023 → main` (если `gh` авторизован; иначе — ссылка `pull/new/...` владельцу), без merge.
 
+## 6. Добавлено владельцем 22.10 (после первой версии промта)
+
+- **Пайплайн «Модель → видео» в пульте** — `docs/owner/PULT_MODEL_VIDEO_PIPELINE_20261022_RU.md`: лист зоны `media`
+  (`media.model_video_pipeline`). Порядок: снять `unsupported` у `wan2.2-animate-14b` (вход driving-video), затем первый
+  кадр через `qwen-image-edit-2509` + FaceLock, затем команда `/model_video` в пульте с одобрением между этапами.
+  Облако (Luma/Kling) выключено по умолчанию; личные медиа в облако не уходят; согласие персоны — до первого запуска.
+- **Замер моделей на 20 задачах** (`tools/llm_task_bench.py --suite all`, evidence в `docs/north-star/evidence/bench20/`):
+  результаты и выводы для роутера — в README «Claude — заметки» и в JSON; не переносить в роутер без парных прогонов.
+- **Киберзащита ПК** — первый живой аудит `docs/north-star/evidence/pc_defense_audit_20261022.json` (YELLOW: 27 задач
+  планировщика с PowerShell из `C:\temp`); действия (отключить задачи) — только по «да» владельца, через ASK-инструменты §4 спецификации.
+
 Честный вердикт разрешён и ожидается: `INSUFFICIENT_EVIDENCE` лучше, чем PASS без файла.
