@@ -1,0 +1,27 @@
+{
+  "schema": "bossman.skill_provenance.v1",
+  "status": "VERIFIED",
+  "sha256": "63ab7ae0d551f52969402d11eda3107085e6ab77a7ebfd2b24749bff77eeb921",
+  "imported_at": "2026-10-22T14:54:00Z",
+  "source": {
+    "repo": "https://github.com/molotroka123-cell/AiMaxBossman",
+    "commit": "7824344e",
+    "path": ".agents/skills/active-counter-defense/SKILL.md"
+  },
+  "license": {
+    "spdx": "MIT",
+    "file": "LICENSE"
+  },
+  "selection": {
+    "priority": 10,
+    "triggers": [
+      "встречная атака",
+      "встречный отпор",
+      "активная защита",
+      "ловушка для хакера",
+      "заблокировать ip атакующего",
+      "tarpit",
+      "канарейка"
+    ]
+  }
+}
