@@ -1,5 +1,23 @@
 # AGENTS.md — Mandatory context for AI contributors
 
+## OWNER PERFORMANCE ×2 — 23.10.2026 (P0 READ FIRST FOR ARGON/CODEX)
+
+**New direct owner instruction (22.10): BEFORE ANY North Star code run tomorrow, read [the mandatory 2× performance plan](docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md).** First measure the actual end-to-end bottlenecks from iPhone -> Mobile Pult -> Orchestrator -> model/tools -> verified result, then run targeted llama.cpp Vulkan/MTP, prompt/KV cache, context/skill-routing, API and existing Resource Governor A/B. Do not assume prior 2.09× *decode* implies 2× Bossman, and do not promise an unmeasured gain. **Target** >=2.00× median on preregistered coding/agent suite with equal quality and no permission regression. Push CP-PERF-00..06 with exact runtime SHA, tests, results, owner gates. Do NOT bypass STOP, Jeff hold, T2/T3 approval, RunPod prohibition or paid-model budget. **This is a required next-step document, not authorization to auto-install or auto-merge.**
+
+
+## OWNER NORTH STAR 23.10.2026 — READ BEFORE ARGON/CODEX WORK
+
+Owner explicitly requested tomorrow's autonomous integration run and per-leaf checkpoint pushes.
+Before any coding, **read**:
+- [Master prompt](docs/owner/ARGON_NORTH_STAR_MASTER_PROMPT_20261023_RU.md)
+- [Audited tree overlay](docs/owner/NORTH_STAR_TREE_AUDIT_OVERLAY_20261022_RU.md)
+- [All 912 descendant node IDs, source refs and next actions](docs/owner/NORTH_STAR_LEAF_INDEX_20261022.json)
+- [15-direction exact-SHA audit](docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md)
+- [Recent OSS release candidates, not proven in Bossman](docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md)
+
+These are read-first owner instructions, **not** new execution permission. Follow all restrictions below: no bypass of security/STOP, no unsolicited messages, no RunPod without approval, no auto-merge to main, no stale PASS transfer. For each tested leaf, persist evidence checkpoint, commit and push to integration branch, then update tree only through evidence tooling. `AGENTS.md` by itself cannot trigger an unattended agent; the Argon session must be started or scheduled separately.
+
+
 ## Актуальный план выпуска и первого коммерческого пилота (21.10.2026)
 
 Перед планированием нового объёма прочитай

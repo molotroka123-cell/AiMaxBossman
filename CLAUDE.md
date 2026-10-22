@@ -1,0 +1,15 @@
+# Mandatory startup for Claude / Argon — AiMaxBossman
+
+Read [AGENTS.md](AGENTS.md) first. Follow its owner approval / privacy / STOP / RunPod rules and all existing engineering gates.
+
+## Owner directive for 23 October 2026: verified 2x performance program
+
+**Required read-before-code**: [docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md](docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md).
+
+The user wants a **measured target** of >=2.00x median end-to-end improvement on a preregistered owner-PC coding/agent workload, with no loss of quality, security, permissions or verified outcomes. Start with the P0 trace and baseline: iPhone -> Mobile Web Pult -> Command Center -> Agent Router -> LLM/Tools -> independent verification. Then test optional Vulkan MTP, prompt/KV caching, skill fast paths, serial API overhead and existing Resource Governor under isolated A/B benchmarks.
+
+A historical 2.09x Qwen decode result is not proof that Bossman overall is 2x faster. **Never mark success without end-to-end results** on an exact installed SHA, independent tests, before/after raw metrics and owner acceptance.
+
+Read the 23 October North Star audit and skill-proof receipts, do not assume old green statuses are current. Push evidence checkpoints CP-PERF-00..06 to a work branch and request approval before merging behavioral code to main. These documentation instructions do not permit autonomous production upgrades, costly providers, personal-data uploads, RunPod or permission bypass.
+
+If the agent has only been handed this file, **do not claim the owner machine has been tested**. Ask for owner-PC execution only when necessary; do all noninteractive and local evidence steps first.
