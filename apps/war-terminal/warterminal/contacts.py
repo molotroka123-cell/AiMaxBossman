@@ -382,29 +382,52 @@ def current_weights(store) -> dict[str, dict]:
     return doc.get("weights") or {}
 
 
-def _item(t: dict, prof: Profile, m: dict, weights: dict, sanctions, vote: str | None) -> dict:
+def is_pitch_recommendable(item: dict, reference: datetime | date | None = None) -> bool:
+    """True only when a tender match is open, not expired in UTC, not blocked, and has no REVIEW_REQUIRED military/dual-use/sanctions gate."""
+    t = item.get("tender") or {}
+    if t and rules.effective_status(t, reference) != "open":
+        return False
+    if item.get("blocked"):
+        return False
+    if any(b.get("level") == "REVIEW_REQUIRED" for b in (item.get("badges") or [])):
+        return False
+    if t and rules.is_controlled(t):
+        return False
+    return True
+
+
+def _item(t: dict, prof: Profile, m: dict, weights: dict, sanctions, vote: str | None, *,
+          reference: datetime | date | None = None) -> dict:
     badges, blocks = assess(t, prof, m, sanctions)
     adj, contrib = adjustment(m["features"], weights)
+    has_review_req = any(b.get("level") == "REVIEW_REQUIRED" for b in badges) or rules.is_controlled(t)
+    eff_st = rules.effective_status(t, reference)
+    recommendable = (not blocks) and (not has_review_req) and (eff_st == "open")
     return {"score": round(m["base_score"] + adj, 1), "base_score": m["base_score"], "learned_adjustment": adj, "contributions": contrib,
-            "reasons": m["reasons"], "cpv": m["cpv"], "keywords": m["keywords"], "badges": badges, "blocked": blocks, "vote": vote}
+            "reasons": m["reasons"], "cpv": m["cpv"], "keywords": m["keywords"], "badges": badges, "blocked": blocks, "vote": vote,
+            "recommendable": recommendable,
+            "recommendation_status": "RECOMMENDED" if recommendable else "REVIEW_REQUIRED_DO_NOT_PITCH"}
 
 
 def _order(items: list[dict], key_of) -> list[dict]:
     return sorted(items, key=lambda i: (-i["score"], -i["base_score"], key_of(i)))
 
 
-def rank_for_contact(store, contact: dict, sanctions, *, status: str = "open", k: int = 10) -> dict:
+def rank_for_contact(store, contact: dict, sanctions, *, status: str = "open", k: int = 10,
+                     today: date | datetime | None = None) -> dict:
     prof, weights = Profile(contact), current_weights(store)
     votes = {key: r["vote"] for key, r in effective_labels(store.match_feedback()).items() if key[1] == contact["id"]}
     items, blocked = [], []
     for t in store.latest_tenders():
-        if status == "open" and t.get("status") != "open":
+        eff_st = rules.effective_status(t, today)
+        if status == "open" and eff_st != "open":
             continue
-        m = match(t, prof)
+        t_view = {**t, "status": eff_st} if eff_st != t.get("status") else t
+        m = match(t_view, prof)
         if not m["matched"]:
             continue
-        it = _item(t, prof, m, weights, sanctions, votes.get((t["key"], contact["id"])))
-        it["tender"] = {f: t.get(f) for f in TENDER_BRIEF}
+        it = _item(t_view, prof, m, weights, sanctions, votes.get((t_view["key"], contact["id"])), reference=today)
+        it["tender"] = {f: t_view.get(f) for f in TENDER_BRIEF}
         (blocked if it["blocked"] else items).append(it)
     items = _order(items, lambda i: i["tender"]["key"])
     return {"contact_id": contact["id"], "company": contact["company"], "status_filter": status, "k": k, "total": len(items),
@@ -413,25 +436,28 @@ def rank_for_contact(store, contact: dict, sanctions, *, status: str = "open", k
             "learning": {"labels": len(votes), "method": "base (CPV + keywords) + 10 x sum of smoothed log-odds feature weights from owner votes"}}
 
 
-def rank_for_tender(store, tender: dict, sanctions, *, k: int = 10, include_declined: bool = False) -> dict:
+def rank_for_tender(store, tender: dict, sanctions, *, k: int = 10, include_declined: bool = False,
+                    today: date | datetime | None = None) -> dict:
     weights = current_weights(store)
     votes = {key: r["vote"] for key, r in effective_labels(store.match_feedback()).items() if key[0] == tender["key"]}
-    text = tender_text(tender)
+    eff_st = rules.effective_status(tender, today)
+    t_view = {**tender, "status": eff_st} if eff_st != tender.get("status") else tender
+    text = tender_text(t_view)
     items, blocked, declined = [], [], 0
     for c in store.list_contacts():
         if c.get("status") == "declined" and not include_declined:
             declined += 1
             continue
         prof = Profile(c)
-        m = match(tender, prof, text)
+        m = match(t_view, prof, text)
         if not m["matched"]:
             continue
-        it = _item(tender, prof, m, weights, sanctions, votes.get((tender["key"], c["id"])))
+        it = _item(t_view, prof, m, weights, sanctions, votes.get((t_view["key"], c["id"])), reference=today)
         it["contact"] = {"id": c["id"], "company": c["company"], "country": c.get("country"), "status": c.get("status"),
                          "products": (c.get("products") or "")[:200]}
         (blocked if it["blocked"] else items).append(it)
     items = _order(items, lambda i: i["contact"]["id"])
-    return {"tender_key": tender["key"], "k": k, "total": len(items), "items": items[:k], "skipped_declined": declined,
+    return {"tender_key": t_view["key"], "k": k, "total": len(items), "items": items[:k], "skipped_declined": declined,
             "blocked_total": len(blocked),
             "blocked": [{"contact_id": b["contact"]["id"], "company": b["contact"]["company"], "reasons": b["blocked"]} for b in blocked]}
 
@@ -459,20 +485,42 @@ def _site(url: str | None) -> str | None:
     return url if url.lower().startswith(("http://", "https://")) else "https://" + url
 
 
-def pitch_markdown(contact: dict, items: list[dict], today: date) -> str:
-    """Sales follow-up draft for the owner. No person data, no e-mail, no notes: only public company facts and tenders."""
+def pitch_markdown(contact: dict, items: list[dict], today: date | datetime | None = None, *,
+                   recommendations_only: bool = False) -> str:
+    """Sales follow-up draft for the owner. No person data, no e-mail, no notes: only public company facts and tenders.
+    Expired or blocked tenders never enter the pitch. Military/dual-use REVIEW_REQUIRED tenders are excluded from
+    sales recommendations (when cleared recommendations exist or `recommendations_only=True`) and explicitly flagged as
+    non-recommendable (`REVIEW_REQUIRED — НЕ РЕКОМЕНДАЦИЯ К ПРОДАЖЕ`) when listing a defence-only research view."""
+    ref = today if today is not None else datetime.now(timezone.utc)
+    day_iso = (ref.astimezone(timezone.utc).date() if ref.tzinfo else ref.date()).isoformat() if isinstance(ref, datetime) else ref.isoformat()
     c = contact
+    open_items = [
+        it for it in (items or [])
+        if not it.get("blocked")
+        and rules.effective_status(it.get("tender") or {}, ref) == "open"
+    ]
+    rec_items = [it for it in open_items if is_pitch_recommendable(it, ref)]
+    if recommendations_only or (rec_items and len(rec_items) < len(open_items)):
+        shown_items = rec_items
+    else:
+        shown_items = open_items
     lines = [f"# {_one_line(c['company'])}: подходящие открытые тендеры", "",
-             f"Подготовлено War Terminal {today.isoformat()} для владельца. Черновик для продажи: приложение никому ничего не отправляет.", "",
+             f"Подготовлено War Terminal {day_iso} для владельца. Черновик для продажи: приложение никому ничего не отправляет.", "",
              f"- Компания: {_one_line(c['company'])}" + (f" ({c['country']})" if c.get("country") else ""),
              *([f"- Сайт: {_site(c['website'])}"] if c.get("website") else []),
              *([f"- Продукты: {_one_line(redact(c['products']))}"] if c.get("products") else []),
              f"- Профиль CPV: {', '.join(c.get('cpv_prefixes') or []) or 'не указан'}",
              *([f"- Источник контакта: {_one_line(c['source'])}"] if c.get("source") else []), ""]
-    if not items:
+    if not shown_items:
         lines += ["Открытых подходящих тендеров сейчас нет.", ""]
-    for i, it in enumerate(items, 1):
+    for i, it in enumerate(shown_items, 1):
         t = it["tender"]
+        rec_ok = is_pitch_recommendable(it, ref)
+        rec_line = (
+            "RECOMMENDED (открыт, без REVIEW_REQUIRED блокировок)"
+            if rec_ok
+            else "REVIEW_REQUIRED — НЕ РЕКОМЕНДАЦИЯ К ПРОДАЖЕ (требуется лицензия MPO / юридическая проверка)"
+        )
         value = f"{t['estimated_value']:,.0f} {t.get('currency') or ''}".replace(",", " ").strip() if t.get("estimated_value") is not None else "не указана"
         lines += [f"## {i}. {_one_line(t.get('title'))}", "",
                   f"- Заказчик: {_one_line(t.get('buyer')) or 'не указан'} ({t.get('country') or t.get('jurisdiction') or '—'})",
@@ -481,7 +529,8 @@ def pitch_markdown(contact: dict, items: list[dict], today: date) -> str:
                   f"- Ссылка: {t.get('source_url')} (источник {t.get('source_id')}, получено {str(t.get('retrieved_at') or '')[:16]})",
                   f"- Почему подходит: {'; '.join(it['reasons'])}",
                   f"- Оценка: {it['score']} (база {it['base_score']}, по отзывам владельца {it['learned_adjustment']:+})",
-                  f"- Проверки: {'; '.join(b['text'] for b in it['badges']) or 'нет'}", ""]
+                  f"- Проверки: {'; '.join(b['text'] for b in it['badges']) or 'нет'}",
+                  f"- Статус рекомендации: {rec_line}", ""]
     lines += ["---", "Оценка соответствия — эвристика по CPV и ключевым словам с поправкой по отзывам владельца; "
               "это не вероятность победы и не юридическое заключение. Военные и двухцелевые товары — только после лицензии и юридической проверки."]
     return "\n".join(lines) + "\n"

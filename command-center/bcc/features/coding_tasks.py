@@ -863,10 +863,13 @@ def mission_receipt(rec: dict) -> dict[str, Any]:
     )
     # A real verify exit code: the int 0 of a process that ran (False == 0 and 0.0 == 0 in Python, "0" is
     # text). Bossman's own test run, when present, is THE verdict; another check cannot rescue a failed one.
+    observable_post = post_chk.get("observable_postcondition")
+    has_observable_or_cmd = bool(verify_cmd) or bool(observable_post)
     ver_ok = (bool(verify_cmd) and ver.get("ran") is not False and ver.get("passed") is True
               and _real_zero_exit(ver.get("exit_code")))
-    post_ok = post_chk.get("passed") is True and _real_zero_exit(post_chk.get("exit_code"))
-    verified = workspace_ok and (ver_ok if ver else post_ok)
+    post_ok = (has_observable_or_cmd and post_chk.get("passed") is True
+               and _real_zero_exit(post_chk.get("exit_code")))
+    verified = workspace_ok and has_observable_or_cmd and (ver_ok if ver else post_ok)
     evidence_kind = str(rec.get("evidence_kind") or ("SYNTHETIC" if rec.get("synthetic") else "LIVE"))
     payload = {
         "schema": "bossman.mission_receipt.v1",
@@ -880,6 +883,7 @@ def mission_receipt(rec: dict) -> dict[str, Any]:
         "diff_digest": rec.get("evidence_digest") or (_diff_digest(diff) if diff else None),
         "verify_cmd": verify_cmd,
         "verify_exit_code": verify_exit_code,
+        "observable_postcondition": observable_post,
         "stop_status": stop_status,
         "workspace_integrity_verified": workspace_ok,
         "postcondition_verified": verified,

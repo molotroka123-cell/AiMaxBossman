@@ -55,20 +55,62 @@ def is_controlled(tender: dict) -> bool:
     return any(c.startswith(CONTROLLED_CPV_PREFIXES) for c in tender.get("cpv", [])) or any(w in text for w in CONTROLLED_WORDS)
 
 
-def _days_left(deadline: str | None, today: date) -> int | None:
+def parse_deadline_utc(deadline: str | None) -> datetime | None:
     if not deadline:
         return None
+    s = str(deadline).strip()
+    if not s:
+        return None
     try:
-        return (datetime.fromisoformat(deadline.replace("Z", "+00:00")).date() - today).days
+        if len(s) == 10:
+            d = date.fromisoformat(s)
+            return datetime(d.year, d.month, d.day, 23, 59, 59, tzinfo=timezone.utc)
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt.astimezone(timezone.utc) if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
 
 
+def is_deadline_expired(deadline: str | None, reference: datetime | date | None = None) -> bool:
+    """True when the tender's full UTC deadline has passed relative to `reference` (default: current UTC time)."""
+    dt = parse_deadline_utc(deadline)
+    if dt is None:
+        return False
+    if reference is None:
+        return dt <= datetime.now(timezone.utc)
+    if isinstance(reference, datetime):
+        ref_utc = reference.astimezone(timezone.utc) if reference.tzinfo else reference.replace(tzinfo=timezone.utc)
+        return dt <= ref_utc
+    return dt.date() < reference
+
+
+def effective_status(tender: dict, reference: datetime | date | None = None) -> str:
+    """Recompute tender status on read: an 'open' tender whose UTC deadline has expired becomes 'closed'."""
+    raw = str(tender.get("status") or "unknown")
+    if raw == "open" and is_deadline_expired(tender.get("deadline"), reference):
+        return "closed"
+    return raw
+
+
+def _days_left(deadline: str | None, today: date | datetime) -> int | None:
+    dt = parse_deadline_utc(deadline)
+    if dt is None:
+        return None
+    if isinstance(today, datetime):
+        if is_deadline_expired(deadline, today):
+            return -1
+        today_date = (today.astimezone(timezone.utc) if today.tzinfo else today).date()
+    else:
+        today_date = today
+    return (dt.date() - today_date).days
+
+
 def evaluate_gates(tender: dict, profile: dict | None, reviews: dict[str, dict] | None = None,
-                   sanctions: list[str] | None = None, today: date | None = None) -> list[dict]:
+                   sanctions: list[str] | None = None, today: date | datetime | None = None) -> list[dict]:
     """All gates for one tender. A gate that a human reviewer cleared (signed review) becomes PASS with the signature,
     except hard BLOCKED gates (embargo, expired, cancelled) which a review cannot lift."""
-    today = today or datetime.now(timezone.utc).date()
+    ref_time: date | datetime = today if today is not None else datetime.now(timezone.utc)
+    today_date: date = (ref_time.astimezone(timezone.utc).date() if ref_time.tzinfo else ref_time.date()) if isinstance(ref_time, datetime) else ref_time
     profile = profile or {}
     gates: list[dict] = []
     ctry = country2(tender.get("country")) or country2(tender.get("jurisdiction"))
@@ -97,11 +139,11 @@ def evaluate_gates(tender: dict, profile: dict | None, reviews: dict[str, dict] 
     if tender.get("status") in ("closed", "cancelled"):
         gates.append(_gate("deadline", "BLOCKED", f"тендер {tender['status']}", ""))
     else:
-        left = _days_left(tender.get("deadline"), today)
+        left = _days_left(tender.get("deadline"), ref_time)
         need = int(profile.get("min_prep_days", 7))
         if left is None:
             gates.append(_gate("deadline", "REVIEW_REQUIRED", "срок подачи неизвестен", "срок в документации тендера"))
-        elif left < 0:
+        elif left < 0 or is_deadline_expired(tender.get("deadline"), ref_time):
             gates.append(_gate("deadline", "BLOCKED", "срок подачи прошёл", ""))
         elif left < need:
             gates.append(_gate("deadline", "REVIEW_REQUIRED", f"до срока {left} дн., нужно не меньше {need}", "решение владельца о сжатых сроках"))

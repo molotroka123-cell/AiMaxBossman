@@ -1,0 +1,116 @@
+{
+  "schema": "bossman.d1_swapme_mission_proof.v1",
+  "evidence_kind": "SYNTHETIC",
+  "candidate_sha": "998bc14bd1419b33b4cc8703f720206466b204b6",
+  "task_id": "3b1a49211061925b",
+  "quote_id": "Q-E6524C30",
+  "deal_ref": "D-1",
+  "rates_used": [
+    {
+      "pair": "USDCZK",
+      "pair_display": "USD/CZK",
+      "value": "25.00",
+      "source": "synthetic:cnb-test-fixture",
+      "kind": "manual",
+      "timestamp_utc": "2026-10-23T09:00:00+00:00",
+      "expires_at_utc": "2026-10-23T21:00:00+00:00",
+      "raw_receipt": "synthetic:cnb-test-fixture:USDCZK:2026-10-23T09:00:00+00:00"
+    },
+    {
+      "pair": "USDTUSD",
+      "pair_display": "USDT/USD",
+      "value": "1.000",
+      "source": "synthetic:desk-test-fixture",
+      "kind": "manual",
+      "timestamp_utc": "2026-10-23T09:00:00+00:00",
+      "expires_at_utc": "2026-10-23T21:00:00+00:00",
+      "raw_receipt": "synthetic:desk-test-fixture:USDTUSD:2026-10-23T09:00:00+00:00"
+    }
+  ],
+  "step1_missing_margin_rejected": {
+    "input": "купить 1000 usdt за czk",
+    "reply": "Не выполнено: процент комиссии (margin) не указан менеджером: укажите явную ставку по сделке",
+    "quotes_written": 0,
+    "deals_written": 0
+  },
+  "step2_explicit_margin_quote": {
+    "input": "купить 1000 usdt за czk при 3%",
+    "give_ccy": "CZK",
+    "give_amount": "25750.00",
+    "get_ccy": "USDT",
+    "get_amount": "1000.00",
+    "margin": "0.03",
+    "formula": "1000.00 × [(USDT/USD 1.000) / (1/(USD/CZK 25.00))] × (1 + 0.03) = 25750.00 CZK (покупка USDT, вверх до 0.01)",
+    "task_state_waiting_confirmation": "WAITING_INPUT"
+  },
+  "step3_stop_gate_proof": {
+    "quotes_before_stop": 1,
+    "quotes_after_stop": 1,
+    "deals_before_stop": 0,
+    "deals_after_stop": 0,
+    "dispatches_before_stop": 2,
+    "dispatches_after_stop": 2,
+    "new_quotes_after_stop": 0,
+    "new_deals_after_stop": 0,
+    "resends_after_stop": 0
+  },
+  "step4_confirmed_receipt": {
+    "mission_receipt": {
+      "schema": "bossman.mission_receipt.v1",
+      "evidence_kind": "SYNTHETIC",
+      "task_id": "3b1a49211061925b",
+      "model": "deterministic_decimal_engine",
+      "workspace_path": "C:\\Users\\asd\\Bossman\\wt-rc-20261019",
+      "base_commit": "d1_swapme_head",
+      "changed_files": [
+        "exchange-assistant/receipts/SwapMe-D-1-Q-E6524C30.pdf"
+      ],
+      "git_diff": "+deal_ref=D-1 quote_id=Q-E6524C30 give=25750.00 CZK get=1000.00 USDT\n",
+      "diff_digest": "sha256:aa6c6e4ddefeed3160a2c749bf6d797584d949e57e6cbe54f80eaf6527fa8fa6",
+      "verify_cmd": [
+        "tests/test_exchange_assistant.py"
+      ],
+      "verify_exit_code": 0,
+      "observable_postcondition": null,
+      "stop_status": "COMPLETED",
+      "workspace_integrity_verified": true,
+      "postcondition_verified": true,
+      "sandbox_removed": true,
+      "receipt_id": "rcpt-3b1a49211061925b-9055f1dcb335",
+      "receipt_sha256": "9055f1dcb3358e4b5213bed3b06c458a9e4bba120ab92fb9ec07a2e0a2c5ff22",
+      "sha256": "9055f1dcb3358e4b5213bed3b06c458a9e4bba120ab92fb9ec07a2e0a2c5ff22"
+    },
+    "profit_receipt": {
+      "deal_ref": "D-1",
+      "quote_id": "Q-E6524C30",
+      "crm_status": "settled",
+      "consent_ref": "task:3b1a49211061925b:manager_confirmed",
+      "confirmed_by": "owner",
+      "confirmed_at": "2026-10-23T09:00:00+00:00",
+      "give_ccy": "CZK",
+      "get_ccy": "USDT",
+      "leg_in_actual": "25750.00",
+      "leg_out_actual": "1000.00",
+      "mid_or_cost_rate": "0.04",
+      "client_rate": "0.03883495145631067961165048544",
+      "benchmark_out_ccy": "1030.00",
+      "gross_profit_ccy": "30.00",
+      "platform_fee_ccy": "0.00",
+      "variable_cost_ccy": "0.00",
+      "net_profit_ccy": "30.00",
+      "profit_ccy": "USDT",
+      "formula_verified": true,
+      "deliverable_pdf_path": "SwapMe-D-1-Q-E6524C30.pdf",
+      "deliverable_pdf_bytes": 2730,
+      "deliverable_pdf_sha256": "65201fc420f58eb9a1a790c2593b463bd78e8a29f4b7ab54450f274367e53e47",
+      "receipt_sha256": "aa6c6e4ddefeed3160a2c749bf6d797584d949e57e6cbe54f80eaf6527fa8fa6"
+    }
+  },
+  "step5_restart_persistence": {
+    "task_visible_after_restart": true,
+    "task_state_after_restart": "DONE",
+    "checkpoint_sha256_after_restart": "926dc98459c8654c5b5c4e0d55faf8583173b49b55c4b1992e3f4d61381313a3",
+    "receipt_visible_after_restart": true,
+    "receipt_sha256_match": true
+  }
+}

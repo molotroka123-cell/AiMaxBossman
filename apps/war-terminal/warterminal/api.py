@@ -292,7 +292,14 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     app.state.store, app.state.live, app.state.tokens, app.state.purge_report = store, live, tokens, purge
 
     def _day() -> date:
-        return today or datetime.now(timezone.utc).date()
+        return (today.astimezone(timezone.utc).date() if isinstance(today, datetime) else today) if today is not None else datetime.now(timezone.utc).date()
+
+    def _ref_time() -> date | datetime:
+        return today if today is not None else datetime.now(timezone.utc)
+
+    def _with_effective_status(t: dict) -> dict:
+        eff = rules.effective_status(t, _ref_time())
+        return {**t, "status": eff} if eff != t.get("status") else t
 
     def role_of(request: Request) -> str:
         h = request.headers.get("authorization", "")
@@ -338,8 +345,9 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
 
     # ------------------------------------------------------------------ assessment core
     def assess_tender(t: dict, back_to_back: bool = False, firm: dict | None = None) -> dict:
+        t = _with_effective_status(t)
         profile = firm_mod.to_profile(firm) if firm else {}              # view-only (no firm entered): gates only, fit is not computed
-        gates = rules.evaluate_gates(t, profile, store.reviews(t["key"]), sanctions_index(), _day())
+        gates = rules.evaluate_gates(t, profile, store.reviews(t["key"]), sanctions_index(), _ref_time())
         gate_overall = rules.overall(gates)
         fx = (store.kv_get("fx") or {}).get("rates", {})
         usd = None
@@ -582,6 +590,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             return countries.setdefault(iso3, {"open_tenders": 0, "tenders": 0, "conflict_deaths": 0, "conflict_events": 0, "severity": None, "conflict_year": None,
                                                "military_usd": None, "military_year": None, "refugees": None})
         for t in store.latest_tenders():
+            t = _with_effective_status(t)
             iso3 = geo.to_iso3(t.get("country"))
             if not iso3:
                 unmapped_tenders += 1
@@ -616,6 +625,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
                 limit: int = 200, offset: int = 0, firm=Depends(firm_of), _=Depends(viewer)):
         out = []
         for t in store.latest_tenders():
+            t = _with_effective_status(t)
             if status and t.get("status") != status or jurisdiction and t.get("jurisdiction") != jurisdiction or category and t.get("category") != category:
                 continue
             if source and t.get("source_id") != source:
@@ -638,6 +648,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         t = store.get_tender(key)
         if not t:
             raise HTTPException(404, {"message": "тендер не найден"})
+        t = _with_effective_status(t)
         a = assess_tender(t, firm=firm)
         items = [{"step": f"Снять проверку: {g['id']}", "why": g["reason"], "evidence": g["evidence_needed"], "status": g["status"]} for g in a["gates"] if g["status"] != "PASS"]
         items += [{"step": "Прочитать документацию тендера целиком и выписать требования", "status": "TODO"},
@@ -651,13 +662,14 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         t = store.get_tender(key)
         if not t:
             raise HTTPException(404, {"message": "тендер не найден"})
-        return contacts_mod.rank_for_tender(store, t, sanctions_index(), k=k, include_declined=include_declined)
+        return contacts_mod.rank_for_tender(store, _with_effective_status(t), sanctions_index(), k=k, include_declined=include_declined, today=_ref_time())
 
     @app.get(P + "/tenders/{key:path}")
     def tender_detail(key: str, firm=Depends(firm_of), _=Depends(viewer)):
         t = store.get_tender(key)
         if not t:
             raise HTTPException(404, {"message": "тендер не найден"})
+        t = _with_effective_status(t)
         return {"tender": t, "versions": [v["version"] for v in store.tender_versions(key)], "assessment": assess_tender(t, firm=firm),
                 "firm_checks": firm_checks(t, firm), "firm_entered": firm is not None, "reviews": list(store.reviews(key).values())}
 
@@ -1092,14 +1104,14 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
 
     @app.get(P + "/contacts/{cid}/matches")
     def contact_matches(cid: int, k: int = Query(default=10, ge=1, le=50), status: str = Query(default="open", pattern="^(open|all)$"), _=Depends(viewer)):
-        return contacts_mod.rank_for_contact(store, contact_or_404(cid), sanctions_index(), status=status, k=k)
+        return contacts_mod.rank_for_contact(store, contact_or_404(cid), sanctions_index(), status=status, k=k, today=_ref_time())
 
     @app.get(P + "/contacts/{cid}/pitch")
-    def contact_pitch(cid: int, _=Depends(viewer)):
+    def contact_pitch(cid: int, recommendations_only: bool = False, _=Depends(viewer)):
         """Markdown sales draft with the top-5 open matching tenders (the app has no PDF renderer: markdown only)."""
         c = contact_or_404(cid)
-        top = contacts_mod.rank_for_contact(store, c, sanctions_index(), status="open", k=5)["items"]
-        md = contacts_mod.pitch_markdown(c, top, _day())
+        top = contacts_mod.rank_for_contact(store, c, sanctions_index(), status="open", k=5, today=_ref_time())["items"]
+        md = contacts_mod.pitch_markdown(c, top, _ref_time(), recommendations_only=recommendations_only)
         return PlainTextResponse(md, media_type="text/markdown", headers={"Content-Disposition": f'attachment; filename="pitch-contact-{cid}.md"'})
 
     @app.post(P + "/contacts/{cid}/lesson")
@@ -1112,7 +1124,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
             raise HTTPException(409, {"code": "NOT_CONNECTED", "message": "шлюз Bossman не настроен (WAR_TERMINAL_BOSSMAN_URL / токен)"})
         rows = store.match_feedback()
         labels = [r for (_, c_id), r in contacts_mod.effective_labels(rows).items() if c_id == cid]
-        top = contacts_mod.rank_for_contact(store, c, sanctions_index(), status="open", k=5)["items"]
+        top = contacts_mod.rank_for_contact(store, c, sanctions_index(), status="open", k=5, today=_ref_time())["items"]
         title, content = contacts_mod.lesson(c, labels, contacts_mod.current_weights(store), top, contacts_mod.precision_report(rows))
         try:
             res = writer(title, content, "lesson", ["war-terminal", "tender-matching"])
