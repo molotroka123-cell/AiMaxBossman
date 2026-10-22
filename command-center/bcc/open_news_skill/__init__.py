@@ -14,7 +14,7 @@ import re
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-from xml.etree import ElementTree as ET
+from defusedxml import ElementTree as ET
 
 from ._vendor.summarizer import summarize_text
 from ._vendor.token_filter import filter_articles

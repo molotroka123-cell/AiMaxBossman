@@ -336,3 +336,288 @@ def test_p2_10_classified_documents_and_telegram_exports_retention_acl_and_cloud
     purged = purge_expired_classified_files(tmp_path, now_ts=reg["expires_at"] + 10)
     assert str(tg_file) in purged["deleted"]
     assert not tg_file.exists()
+
+
+def test_p2_11_12_perimeter_defense_neutral_attribution_trusted_proxy_limits_tamper_log_and_typed_rollback(tmp_path: Path):
+    from bcc.features import active_counter_defense as acd
+
+    # 1. Trusted-proxy IP parsing: spoofed X-Forwarded-For from untrusted peer must be ignored
+    obs_untrusted = acd.extract_observed_client_ip(
+        peer_ip="198.51.100.77",
+        x_forwarded_for="203.0.113.5, 10.0.0.1",
+        trusted_proxies=frozenset({"127.0.0.1"}),
+    )
+    assert obs_untrusted["observed_remote_ip"] == "198.51.100.77"
+    assert obs_untrusted["forwarded_header_trusted"] is False
+    assert obs_untrusted["attribution_verified"] is False
+
+    # From trusted reverse proxy, rightmost untrusted hop is extracted
+    obs_trusted = acd.extract_observed_client_ip(
+        peer_ip="127.0.0.1",
+        x_forwarded_for="203.0.113.99",
+        trusted_proxies=frozenset({"127.0.0.1"}),
+    )
+    assert obs_trusted["observed_remote_ip"] == "203.0.113.99"
+    assert obs_trusted["forwarded_header_trusted"] is True
+    assert obs_trusted["attribution_verified"] is False
+
+    # 2. Durable tamper-evident event log + owner notification hook
+    notifications: list[dict] = []
+    log_file = tmp_path / "counter-defense-events.jsonl"
+    state = acd.CounterDefenseState(log_path=log_file, owner_notify_cb=notifications.append)
+
+    ev1 = state.record(
+        kind="canary_hit",
+        remote_ip="198.51.100.77",
+        path="/.env",
+        user_agent="UntrustedInput\r\nInjectedHeader: yes",
+        detail="Probed canary trap",
+    )
+    ev2 = state.record(
+        kind="canary_hit",
+        remote_ip="198.51.100.77",
+        path="/.git/config",
+        user_agent="Scanner/2.0",
+        detail="Second probe",
+    )
+    assert len(notifications) == 2
+    assert ev2.prev_hash == ev1.entry_hash
+    assert state.verify_log_integrity() is True
+
+    # Tampering with the durable log file must be detected by verify_log_integrity()
+    raw_log = log_file.read_text(encoding="utf-8")
+    log_file.write_text(raw_log.replace("/.env", "/. hacked"), encoding="utf-8")
+    assert state.verify_log_integrity() is False
+    log_file.write_text(raw_log, encoding="utf-8")
+    assert state.verify_log_integrity() is True
+
+    # 3. Neutral unverified source IP terminology in dossier + typed action with confirmation and rollback
+    dossier = acd.build_attacker_dossier("198.51.100.77", state=state)
+    assert dossier["observed_remote_ip"] == "198.51.100.77"
+    assert dossier["attribution_status"] == "UNVERIFIED_SOURCE_IP"
+    assert dossier["attribution_verified"] is False
+    assert "Unverified Observed Source IP" in dossier["abuse_report_text"]
+
+    typed_action = acd.propose_firewall_quarantine_action("198.51.100.77", reason="canary_hit")
+    with pytest.raises(PermissionError):
+        typed_action.confirm(owner_confirmed=False)
+    confirmed = typed_action.confirm(owner_confirmed=True, owner_id="owner-local")
+    assert confirmed["status"] == "CONFIRMED_READY"
+    rb = typed_action.rollback_spec()
+    assert rb["action_type"] == "firewall_inbound_quarantine_rollback"
+    assert "Remove-NetFirewallRule" in rb["rollback_command"]
+
+
+def test_p2_13_defusedxml_blocks_xxe_billion_laughs_and_deep_nesting():
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "war-terminal"))
+    from bcc.safe_xml import safe_fromstring
+    from warterminal.connectors.sanctions import parse_un
+
+    billion_laughs = b"""<?xml version="1.0"?>
+    <!DOCTYPE lolz [
+      <!ENTITY lol "lol">
+      <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+    ]>
+    <CONSOLIDATED_LIST>&lol2;</CONSOLIDATED_LIST>
+    """
+    xxe_payload = b"""<?xml version="1.0"?>
+    <!DOCTYPE foo [
+      <!ENTITY xxe SYSTEM "file:///etc/passwd">
+    ]>
+    <CONSOLIDATED_LIST><INDIVIDUAL><FIRST_NAME>&xxe;</FIRST_NAME></INDIVIDUAL></CONSOLIDATED_LIST>
+    """
+    for payload in (billion_laughs, xxe_payload):
+        with pytest.raises(ValueError):
+            safe_fromstring(payload)
+        with pytest.raises(ValueError):
+            parse_un(payload)
+
+    # Deep nesting bomb must also be rejected
+    deep_xml = ("<a>" * 100 + "x" + "</a>" * 100).encode("utf-8")
+    with pytest.raises(ValueError):
+        safe_fromstring(deep_xml, max_depth=32)
+
+
+def test_p2_14_15_war_terminal_egress_allowlist_private_ip_and_redirect_block(monkeypatch: pytest.MonkeyPatch):
+    import socket
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "war-terminal"))
+    from warterminal.connectors import http as wt_http
+
+    # 1. Non-HTTPS, unallowlisted domains, and private/loopback/metadata IPs must be rejected
+    forbidden_urls = [
+        "http://api.sam.gov/opportunities/v2/search",  # plain HTTP forbidden
+        "https://evil.example.com/steal",  # domain not in allowlist
+        "https://127.0.0.1:8801/api/system",  # loopback IP
+        "https://169.254.169.254/latest/meta-data/",  # cloud metadata IP
+        "https://10.0.0.1/internal",  # RFC1918 private IP
+        "https://100.64.0.5/tailscale",  # Tailscale CGNAT IP
+        "file:///C:/Windows/win.ini",  # non-https scheme
+    ]
+    for bad_url in forbidden_urls:
+        with pytest.raises(ValueError):
+            wt_http.validate_egress_url(bad_url, resolve_dns=False)
+
+    # 2. DNS rebinding check: if an allowlisted host resolves to a loopback/private IP, reject!
+    def _fake_rebinding_getaddrinfo(host, port, *args, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", _fake_rebinding_getaddrinfo)
+    with pytest.raises(ValueError, match="non-public IP"):
+        wt_http.validate_egress_url("https://api.sam.gov/opportunities/v2/search", resolve_dns=True)
+
+    # 3. Safe redirect check: redirect from allowlisted host to private/unallowlisted target must be blocked
+    def _fake_public_getaddrinfo(host, port, *args, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", _fake_public_getaddrinfo)
+    with pytest.raises(ValueError):
+        wt_http.validate_redirect_target(
+            "https://api.sam.gov/opportunities/v2/search",
+            "http://169.254.169.254/latest/meta-data/",
+        )
+
+
+def _load_ling_coder():
+    import importlib.util
+    repo_root = Path(__file__).resolve().parents[2]
+    spec = importlib.util.spec_from_file_location(
+        "bossman_15_ling_coder", repo_root / "tools" / "bossman_15_ling_coder.py"
+    )
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_p1_2_ling_coder_rejects_shell_metacharacters_and_unallowlisted_commands(tmp_path: Path):
+    mod = _load_ling_coder()
+    canary = tmp_path / "pwned.txt"
+
+    malicious_commands = [
+        f"pytest -q; echo PWN > {canary.name}",
+        "pytest -q && whoami",
+        "pytest -q | findstr passed",
+        "pytest -q `id`",
+        "pytest -q $(whoami)",
+        "powershell -Command Get-Process",
+        "cmd /c dir",
+        "python -c \"import os; open('pwned.txt','w').write('x')\"",
+        "pytest --rootdir=.. -q",
+        "pytest -o cache_dir=/tmp/evil",
+    ]
+    for cmd in malicious_commands:
+        out = mod.execute(tmp_path, "run_tests", {"command": cmd})
+        assert out.startswith("REFUSED:"), f"Expected REFUSED for {cmd!r}, got {out!r}"
+    assert not canary.exists()
+
+
+def test_p1_2_ling_coder_scrubs_secrets_and_disables_shell_and_network(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    mod = _load_ling_coder()
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-openai-test-value-not-a-real-key")
+    monkeypatch.setenv("BOSSMAN_MASTER_TOKEN", "dummy-master-token-999")
+    monkeypatch.setenv("SOLANA_PRIVATE_KEY", "dummy-solana-priv-888")
+    monkeypatch.setenv("GITHUB_TOKEN", "dummy-github-token-777")
+
+    test_file = tmp_path / "test_sandbox_probe.py"
+    test_file.write_text(
+        "import os\n"
+        "def test_env_scrubbed():\n"
+        "    for k in ('OPENAI_API_KEY', 'BOSSMAN_MASTER_TOKEN', 'SOLANA_PRIVATE_KEY', 'GITHUB_TOKEN'):\n"
+        "        assert k not in os.environ, f'Secret {k} leaked into test env'\n"
+        "    assert os.environ.get('BOSSMAN_OFFLINE_MODE_ENABLED') == '1'\n"
+        "    assert os.environ.get('HTTP_PROXY', '').startswith('http://127.0.0.1:')\n",
+        encoding="utf-8",
+    )
+
+    out = mod.execute(tmp_path, "run_tests", {"command": "pytest -q test_sandbox_probe.py"})
+    assert out.startswith("exit_code=0"), out
+    assert "1 passed" in out
+
+
+def test_p1_2_ling_coder_enforces_path_containment_timeout_and_output_cap(tmp_path: Path):
+    mod = _load_ling_coder()
+
+    escape_read = mod.execute(tmp_path, "read_file", {"path": "../outside.txt"})
+    assert "ERROR:" in escape_read and "escapes worktree" in escape_read
+
+    escape_write = mod.execute(tmp_path, "write_file", {"path": "../outside.txt", "content": "nope"})
+    assert "ERROR:" in escape_write and "escapes worktree" in escape_write
+
+    escape_test = mod.execute(tmp_path, "run_tests", {"command": "pytest ../outside_test.py"})
+    assert escape_test.startswith("REFUSED:"), escape_test
+
+    noisy_test = tmp_path / "test_noisy.py"
+    noisy_test.write_text(
+        "def test_noisy():\n"
+        "    print('A' * 40000)\n"
+        "    assert False\n",
+        encoding="utf-8",
+    )
+    out = mod.execute(tmp_path, "run_tests", {"command": "pytest -s test_noisy.py"})
+    assert len(out) <= mod.MAX_OUTPUT_CHARS + 64
+
+
+@pytest.mark.asyncio
+async def test_owner_safe_runtime_drill_end_to_end(env, mini_repo: Path, tmp_path: Path):
+    """Owner-safe runtime verification on verified build SHA:
+    1. build_sha matches git HEAD
+    2. 1 permission-denied action (403)
+    3. STOP activation and verification
+    4. Token/session revoke in test session (401)
+    5. Recovery on the verified build
+    """
+    import subprocess
+    from bcc.auth import HEADER
+    await _setup_minimal_skill_env(env, mini_repo, tmp_path)
+
+    head_short = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True).strip()
+
+    # 1. Runtime build identity check
+    live = await env.client.get("/health/live")
+    assert live.status_code == 200
+    live_body = live.json()
+    assert live_body["alive"] is True
+    assert live_body["build_sha"].startswith(head_short[:7]) or head_short.startswith(live_body["build_sha"][:7])
+
+    # 2. Permission-denied action (agent scoped token denied on owner approval endpoint & AUTO mode)
+    agent_token = env.svc.auth.issue_agent_token(agent_id="drill-agent-01")
+    h_agent = {HEADER: agent_token}
+    appr = await env.svc.approvals.create(kind="terminal", preview="echo test")
+    denied_resp = await env.client.post(
+        f"/api/approvals/{appr['id']}",
+        headers=h_agent,
+        json={"approve": True},
+    )
+    assert denied_resp.status_code == 403
+    assert "OWNER_CREDENTIAL_REQUIRED" in denied_resp.text or "AGENT_ESCALATION_FORBIDDEN" in denied_resp.text
+
+    # 3. Emergency STOP activation
+    stop_resp = await env.client.post("/api/autonomy/stop", json={"reason": "owner-safe security drill"})
+    assert stop_resp.status_code == 200
+    assert stop_resp.json()["state"]["active"] is True
+    status_during_stop = await env.client.get("/api/autonomy/status")
+    assert status_during_stop.status_code == 200
+    assert status_during_stop.json()["stop"]["active"] is True
+
+    # 4. Token revoke in test session -> 401
+    assert env.svc.auth.revoke_agent_token(agent_token) is True
+    revoked_resp = await env.client.get("/api/agent/sessions", headers=h_agent)
+    assert revoked_resp.status_code == 401
+
+    # 5. Recovery on verified build: resume STOP + verify owner & new safe ASSIST agent session
+    resume_resp = await env.client.post("/api/autonomy/resume")
+    assert resume_resp.status_code == 200
+    assert resume_resp.json()["state"]["active"] is False
+
+    new_agent_token = env.svc.auth.issue_agent_token(agent_id="drill-agent-02")
+    assist_resp = await env.client.post(
+        "/api/agent/sessions",
+        headers={HEADER: new_agent_token},
+        json={"title": "recovered-agent-session", "mode": "AGENT", "bypass_permissions": False},
+    )
+    assert assist_resp.status_code in (200, 201), assist_resp.text
+    assert assist_resp.json()["mode"] == "AGENT"
+
+

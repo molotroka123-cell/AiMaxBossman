@@ -6,10 +6,14 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
-import xml.etree.ElementTree as ET
+import time
+from defusedxml import DefusedXmlException
+from defusedxml import ElementTree as DefusedET
 
 OFAC_URL = "https://www.treasury.gov/ofac/downloads/sdn.csv"
 UN_URL = "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
+MAX_SANCTIONS_XML_BYTES = 32 * 1024 * 1024
+MAX_SANCTIONS_XML_DEPTH = 48
 
 
 def _clean(v: str) -> str:
@@ -28,8 +32,24 @@ def parse_ofac(data: bytes) -> list[dict]:
 
 
 def parse_un(data: bytes) -> list[dict]:
-    root = ET.fromstring(data)
+    if len(data) > MAX_SANCTIONS_XML_BYTES:
+        raise ValueError(f"UN XML exceeds size limit ({len(data)} > {MAX_SANCTIONS_XML_BYTES})")
+    deadline = time.monotonic() + 10.0
+    try:
+        root = DefusedET.fromstring(data, forbid_dtd=True, forbid_entities=True, forbid_external=True)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Unsafe or malformed UN XML rejected: {exc}") from exc
+    stack = [(root, 1)]
+    while stack:
+        if time.monotonic() > deadline:
+            raise ValueError("UN XML parse timed out")
+        el_chk, depth = stack.pop()
+        if depth > MAX_SANCTIONS_XML_DEPTH:
+            raise ValueError(f"UN XML exceeds max depth {MAX_SANCTIONS_XML_DEPTH}")
+        for ch in el_chk:
+            stack.append((ch, depth + 1))
     out = []
+
     for kind, tag, alias_tag in (("individual", "INDIVIDUAL", "INDIVIDUAL_ALIAS"), ("entity", "ENTITY", "ENTITY_ALIAS")):
         for el in root.iter(tag):
             parts = [(el.findtext(t) or "").strip() for t in ("FIRST_NAME", "SECOND_NAME", "THIRD_NAME", "FOURTH_NAME")]
