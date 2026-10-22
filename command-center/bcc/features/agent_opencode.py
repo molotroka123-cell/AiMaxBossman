@@ -122,6 +122,7 @@ from .coding_tasks import (
     get_task as get_coding_task,
     list_tasks as list_coding_tasks,
 )
+from ..perf_trace import GLOBAL_PERF_TRACER, REQUIRED_STAGE_SPANS
 from ..tools import REGISTRY as TOOL_REGISTRY
 
 router = APIRouter()
@@ -1558,248 +1559,297 @@ async def patch_agent_session(session_id: str, body: SessionPatchIn, request: Re
     return await _session_detail(svc, session_id)
 
 
+@router.get("/agent/perf/traces")
+async def get_agent_perf_traces(limit: int = Query(default=50, ge=1, le=250)):
+    """Return sanitized monotonic span traces (`CP-PERF-01`). Never includes prompts or secrets."""
+    traces = GLOBAL_PERF_TRACER.recent_traces(limit=limit)
+    return {
+        "count": len(traces),
+        "required_stage_spans": list(REQUIRED_STAGE_SPANS),
+        "traces": traces,
+    }
+
+
+@router.get("/agent/perf/top-spans")
+async def get_agent_perf_top_spans(limit: int = Query(default=10, ge=1, le=50)):
+    """Return top latency spans ranked by cumulative duration and p95 (`CP-PERF-01`)."""
+    top = GLOBAL_PERF_TRACER.top_spans(limit=limit)
+    return {
+        "count": len(top),
+        "top_spans": top,
+    }
+
+
 @router.post("/agent/sessions/{session_id}/messages")
 async def send_agent_message(session_id: str, body: AgentMessageIn, request: Request):
     """Unified message & task dispatcher across `CHAT | AGENT | AUTO | CODE | COMPUTER | SELF-IMPROVE`."""
     svc = request.app.state.svc
-    data = _require_session(svc, session_id)
-    cfg = _session_cfg(svc, session_id)
-    orch = _orch(svc)
-    rt = orch.runtime(session_id)
+    with GLOBAL_PERF_TRACER.start_trace(
+        route="POST /api/agent/sessions/messages",
+        session_id=session_id,
+        mode=str(body.mode or DEFAULT_MODE),
+    ) as ptrace:
+        with ptrace.span("mobile.request", mode=str(body.mode or DEFAULT_MODE)):
+            with ptrace.span("session.load", cache_hit=False):
+                data = _require_session(svc, session_id)
+                cfg = _session_cfg(svc, session_id)
+                orch = _orch(svc)
+                rt = orch.runtime(session_id)
 
-    text = body.text.strip()
-    if not text:
-        raise _fail(422, "пустое сообщение", code="CHAT_TEXT_EMPTY")
+            text = body.text.strip()
+            if not text:
+                raise _fail(422, "пустое сообщение", code="CHAT_TEXT_EMPTY")
 
-    # Slash-command mode overrides
-    effective_mode = (body.mode or cfg["mode"] or DEFAULT_MODE).upper()
-    if text.startswith("/improve"):
-        effective_mode = "SELF-IMPROVE"
-        text_arg = text[len("/improve"):].strip()
-    elif text.startswith("/auto "):
-        effective_mode = "AUTO"
-        text = text[len("/auto "):].strip()
-        text_arg = text
-    elif text.startswith("/code "):
-        effective_mode = "CODE"
-        text = text[len("/code "):].strip()
-        text_arg = text
-    elif text.startswith("/pc ") or text.startswith("/computer "):
-        effective_mode = "COMPUTER"
-        text = text.split(" ", 1)[1].strip()
-        text_arg = text
-    else:
-        text_arg = text
+            # Slash-command mode overrides
+            effective_mode = (body.mode or cfg["mode"] or DEFAULT_MODE).upper()
+            if text.startswith("/improve"):
+                effective_mode = "SELF-IMPROVE"
+                text_arg = text[len("/improve"):].strip()
+            elif text.startswith("/auto "):
+                effective_mode = "AUTO"
+                text = text[len("/auto "):].strip()
+                text_arg = text
+            elif text.startswith("/code "):
+                effective_mode = "CODE"
+                text = text[len("/code "):].strip()
+                text_arg = text
+            elif text.startswith("/pc ") or text.startswith("/computer "):
+                effective_mode = "COMPUTER"
+                text = text.split(" ", 1)[1].strip()
+                text_arg = text
+            else:
+                text_arg = text
 
-    if effective_mode not in VALID_MODES:
-        raise _fail(422, f"недопустимый режим: {effective_mode}", code="INVALID_AGENT_MODE")
+            if effective_mode not in VALID_MODES:
+                raise _fail(422, f"недопустимый режим: {effective_mode}", code="INVALID_AGENT_MODE")
+            ptrace.mode = effective_mode
 
-    raw_bypass = (
-        body.bypass_permissions
-        if body.bypass_permissions is not None
-        else (True if effective_mode == "AUTO" else cfg["bypass_permissions"])
-    )
-    bypass_permissions = _assert_owner_bypass_allowed(
-        request,
-        effective_mode=effective_mode,
-        requested_bypass=raw_bypass,
-        text=body.text,
-    )
-    allow_cloud = body.allow_cloud if body.allow_cloud is not None else cfg["allow_cloud"]
-    req_model = body.model or cfg["model"]
-    req_worker = body.worker if body.worker is not None else cfg["worker"]
+            with ptrace.span("session.auth", mode=effective_mode):
+                raw_bypass = (
+                    body.bypass_permissions
+                    if body.bypass_permissions is not None
+                    else (True if effective_mode == "AUTO" else cfg["bypass_permissions"])
+                )
+                bypass_permissions = _assert_owner_bypass_allowed(
+                    request,
+                    effective_mode=effective_mode,
+                    requested_bypass=raw_bypass,
+                    text=body.text,
+                )
+            allow_cloud = body.allow_cloud if body.allow_cloud is not None else cfg["allow_cloud"]
+            req_model = body.model or cfg["model"]
+            req_worker = body.worker if body.worker is not None else cfg["worker"]
 
-    # Update persistent session config if changed
-    if (effective_mode != cfg["mode"] or bypass_permissions != cfg["bypass_permissions"]
-            or allow_cloud != cfg["allow_cloud"]
-            or req_model != cfg["model"] or req_worker != cfg["worker"]):
-        cfg = await _update_session_cfg(
-            svc, session_id, mode=effective_mode, bypass_permissions=bypass_permissions,
-            allow_cloud=allow_cloud, model=req_model, worker=req_worker,
-        )
+            # Update persistent session config if changed
+            if (effective_mode != cfg["mode"] or bypass_permissions != cfg["bypass_permissions"]
+                    or allow_cloud != cfg["allow_cloud"]
+                    or req_model != cfg["model"] or req_worker != cfg["worker"]):
+                with ptrace.span("session.load", cache_hit=False):
+                    cfg = await _update_session_cfg(
+                        svc, session_id, mode=effective_mode, bypass_permissions=bypass_permissions,
+                        allow_cloud=allow_cloud, model=req_model, worker=req_worker,
+                    )
 
-    # Check budget before dispatching
-    detail_now = await _session_detail(svc, session_id)
-    budget_rem = detail_now["budget_remaining_usd"]
-    catalog = await build_model_router_catalog(svc)
-    route = select_route_for_request(
-        catalog,
-        mode=effective_mode,
-        requested_model=req_model,
-        requested_worker=req_worker,
-        allow_cloud=allow_cloud,
-        budget_remaining_usd=budget_rem,
-    )
+            # Check budget before dispatching
+            with ptrace.span("session.load", cache_hit=False):
+                detail_now = await _session_detail(svc, session_id)
+                budget_rem = detail_now["budget_remaining_usd"]
+            with ptrace.span("model.catalog", cache_hit=False):
+                catalog = await build_model_router_catalog(svc)
+            with ptrace.span("model.route", mode=effective_mode):
+                route = select_route_for_request(
+                    catalog,
+                    mode=effective_mode,
+                    requested_model=req_model,
+                    requested_worker=req_worker,
+                    allow_cloud=allow_cloud,
+                    budget_remaining_usd=budget_rem,
+                )
 
-    # 1. SELF-IMPROVE mode (`/improve`)
-    if effective_mode == "SELF-IMPROVE":
-        imp_rec = await _run_improve_pipeline(
-            request,
-            svc,
-            ImproveRunIn(
-                session_id=session_id,
-                problem=text_arg or None,
-                model=route["model"],
-                worker=route["worker"],
-                allow_cloud=allow_cloud,
-                auto_propose_only=True,
-            ),
-            session_id=session_id,
-        )
-        imp_ids = list(cfg.get("improve_ids") or [])
-        imp_ids.append(imp_rec["id"])
-        await _update_session_cfg(svc, session_id, improve_ids=imp_ids)
-        turn = _new_turn(0, body.text, [])
-        turn.update({
-            "mode": "SELF-IMPROVE",
-            "improve_id": imp_rec["id"],
-            "synthetic_status": imp_rec["status"],
-            "synthetic_result": (
-                f"Цикл самоулучшения `{imp_rec['id']}` выполнен до гейта одобрения владельца "
-                f"(Receipt `{imp_rec['mission_receipt']['sha256'][:12]}`, approval_id={imp_rec['approval_id']})."
-            ),
-        })
-        idx = await _append_turn(svc, session_id, turn)
-        await _touch_meta(svc, session_id)
-        return {
-            "mode": "SELF-IMPROVE",
-            "bypass_permissions": bypass_permissions,
-            "session_id": session_id,
-            "route": route,
-            "turn": {"idx": idx, **turn},
-            "improve": imp_rec,
-        }
+            # 1. SELF-IMPROVE mode (`/improve`)
+            if effective_mode == "SELF-IMPROVE":
+                imp_rec = await _run_improve_pipeline(
+                    request,
+                    svc,
+                    ImproveRunIn(
+                        session_id=session_id,
+                        problem=text_arg or None,
+                        model=route["model"],
+                        worker=route["worker"],
+                        allow_cloud=allow_cloud,
+                        auto_propose_only=True,
+                    ),
+                    session_id=session_id,
+                )
+                imp_ids = list(cfg.get("improve_ids") or [])
+                imp_ids.append(imp_rec["id"])
+                await _update_session_cfg(svc, session_id, improve_ids=imp_ids)
+                turn = _new_turn(0, body.text, [])
+                turn.update({
+                    "mode": "SELF-IMPROVE",
+                    "improve_id": imp_rec["id"],
+                    "synthetic_status": imp_rec["status"],
+                    "synthetic_result": (
+                        f"Цикл самоулучшения `{imp_rec['id']}` выполнен до гейта одобрения владельца "
+                        f"(Receipt `{imp_rec['mission_receipt']['sha256'][:12]}`, approval_id={imp_rec['approval_id']})."
+                    ),
+                })
+                with ptrace.span("receipt.persist", mode="SELF-IMPROVE"):
+                    idx = await _append_turn(svc, session_id, turn)
+                    await _touch_meta(svc, session_id)
+                return {
+                    "mode": "SELF-IMPROVE",
+                    "bypass_permissions": bypass_permissions,
+                    "session_id": session_id,
+                    "route": route,
+                    "turn": {"idx": idx, **turn},
+                    "improve": imp_rec,
+                    "perf_trace_id": ptrace.trace_id,
+                }
 
-    # 2. CODE mode (OpenCode task in isolated worktree OR agent with coding tools)
-    if effective_mode == "CODE" and (route.get("worker") or body.verify_tests or body.allowed_paths):
-        ct_in = CodingTaskIn(
-            instruction=text,
-            source_repo=body.source_repo or "self",
-            self_target=(body.source_repo in ("self", "bossman", "")),
-            allowed_paths=body.allowed_paths,
-            verify_tests=body.verify_tests,
-            model=route["model"] if route["locality"] == "local" else None,
-            worker=route["worker"],
-            agent_id=body.agent_id or cfg.get("agent_id"),
-        )
-        created_ct = await create_coding_task(ct_in, request)
-        if isinstance(created_ct, JSONResponse):
-            payload = json.loads(created_ct.body.decode("utf-8"))
-            raise HTTPException(created_ct.status_code, payload.get("error") or payload)
-        ct_id = created_ct.get("id")
-        if ct_id:
-            orch.coding_to_session[ct_id] = session_id
-            ct_ids = list(cfg.get("coding_task_ids") or [])
-            if ct_id not in ct_ids:
-                ct_ids.append(ct_id)
-            await _update_session_cfg(svc, session_id, coding_task_ids=ct_ids)
-        turn = _new_turn(0, body.text, [])
-        turn.update({
-            "mode": "CODE",
-            "coding_task_id": ct_id,
-            "synthetic_status": created_ct.get("status", "running"),
-            "synthetic_result": f"Запущена задача OpenCode `{ct_id}` в изолированном worktree ({route['model']}).",
-        })
-        idx = await _append_turn(svc, session_id, turn)
-        await _touch_meta(svc, session_id)
-        rt.emit("task.progress", mode="CODE", coding_task_id=ct_id, status=created_ct.get("status"), route=route)
-        return {
-            "mode": "CODE",
-            "bypass_permissions": bypass_permissions,
-            "session_id": session_id,
-            "route": route,
-            "turn": {"idx": idx, **turn},
-            "coding_task": created_ct,
-        }
+            # 2. CODE mode (OpenCode task in isolated worktree OR agent with coding tools)
+            if effective_mode == "CODE" and (route.get("worker") or body.verify_tests or body.allowed_paths):
+                ct_in = CodingTaskIn(
+                    instruction=text,
+                    source_repo=body.source_repo or "self",
+                    self_target=(body.source_repo in ("self", "bossman", "")),
+                    allowed_paths=body.allowed_paths,
+                    verify_tests=body.verify_tests,
+                    model=route["model"] if route["locality"] == "local" else None,
+                    worker=route["worker"],
+                    agent_id=body.agent_id or cfg.get("agent_id"),
+                )
+                with ptrace.span("task.create", mode="CODE"):
+                    created_ct = await create_coding_task(ct_in, request)
+                if isinstance(created_ct, JSONResponse):
+                    payload = json.loads(created_ct.body.decode("utf-8"))
+                    raise HTTPException(created_ct.status_code, payload.get("error") or payload)
+                ct_id = created_ct.get("id")
+                if ct_id:
+                    orch.coding_to_session[ct_id] = session_id
+                    ct_ids = list(cfg.get("coding_task_ids") or [])
+                    if ct_id not in ct_ids:
+                        ct_ids.append(ct_id)
+                    await _update_session_cfg(svc, session_id, coding_task_ids=ct_ids)
+                turn = _new_turn(0, body.text, [])
+                turn.update({
+                    "mode": "CODE",
+                    "coding_task_id": ct_id,
+                    "synthetic_status": created_ct.get("status", "running"),
+                    "synthetic_result": f"Запущена задача OpenCode `{ct_id}` в изолированном worktree ({route['model']}).",
+                })
+                with ptrace.span("receipt.persist", mode="CODE"):
+                    idx = await _append_turn(svc, session_id, turn)
+                    await _touch_meta(svc, session_id)
+                with ptrace.span("ws.deliver", mode="CODE"):
+                    rt.emit("task.progress", mode="CODE", coding_task_id=ct_id, status=created_ct.get("status"), route=route)
+                return {
+                    "mode": "CODE",
+                    "bypass_permissions": bypass_permissions,
+                    "session_id": session_id,
+                    "route": route,
+                    "turn": {"idx": idx, **turn},
+                    "coding_task": created_ct,
+                    "perf_trace_id": ptrace.trace_id,
+                }
 
-    # 3. CHAT / AGENT / AUTO / COMPUTER / CODE (via Bossman governed task engine)
-    matched_skill = await asyncio.to_thread(match_workspace_skill_for_task, svc, text)
-    request_id = body.client_request_id or ("ag-" + time.strftime("%Y%m%d%H%M%S") + "-" + secrets.token_hex(6))
-    existing = await _task_by_request_id(svc, request_id)
-    if existing is not None:
-        from .chat_threads import _replay
-        rep = await _replay(request, svc, session_id, existing, text, body.attachments)
-        rep["mode"] = effective_mode
-        rep["bypass_permissions"] = bypass_permissions
-        rep["route"] = route
-        rep["matched_skill"] = matched_skill
-        rep["task_id"] = int(existing["id"])
-        return rep
+            # 3. CHAT / AGENT / AUTO / COMPUTER / CODE (via Bossman governed task engine)
+            with ptrace.span("skill.match", mode=effective_mode):
+                matched_skill = await asyncio.to_thread(match_workspace_skill_for_task, svc, text)
+            request_id = body.client_request_id or ("ag-" + time.strftime("%Y%m%d%H%M%S") + "-" + secrets.token_hex(6))
+            existing = await _task_by_request_id(svc, request_id)
+            if existing is not None:
+                from .chat_threads import _replay
+                rep = await _replay(request, svc, session_id, existing, text, body.attachments)
+                rep["mode"] = effective_mode
+                rep["bypass_permissions"] = bypass_permissions
+                rep["route"] = route
+                rep["matched_skill"] = matched_skill
+                rep["task_id"] = int(existing["id"])
+                rep["perf_trace_id"] = ptrace.trace_id
+                return rep
 
-    attachments = _resolve_attachments(svc, body.attachments, session_id)
-    mode_prefix = ""
-    if effective_mode == "COMPUTER":
-        mode_prefix = (
-            "[Режим COMPUTER USE (Windows): следуй циклу OBSERVE -> PLAN -> APPROVE -> ACT -> VERIFY. "
-            "Используй computer.observe / terminal.run / browser.* по выданным правам.]\n"
-        )
-    elif effective_mode in ("CODE", "AUTO"):
-        mode_prefix = (
-            "[Режим OPENCODE / AUTO: используй code.search, code.expand, code.status, terminal.run "
-            "для чтения кода, проверки git status/diff и запуска pytest.]\n"
-        )
-    skill_prefix = ""
-    if matched_skill is not None:
-        skill_prefix = (
-            f"[Выбран проверенный навык `{matched_skill['id']}` v{matched_skill['version']} "
-            f"(required_tools={matched_skill['required_tools']})]\n"
-            f"{matched_skill['prompt_block']}\n\n"
-        )
-    prompt = await _compose_prompt(svc, data["raw"], mode_prefix + skill_prefix + text, attachments)
-    chosen_agent_id = await _resolve_agent_id_for_model(svc, body.agent_id or cfg.get("agent_id"), route["model"])
+            with ptrace.span("memory.retrieve", mode=effective_mode):
+                attachments = _resolve_attachments(svc, body.attachments, session_id)
+                mode_prefix = ""
+                if effective_mode == "COMPUTER":
+                    mode_prefix = (
+                        "[Режим COMPUTER USE (Windows): следуй циклу OBSERVE -> PLAN -> APPROVE -> ACT -> VERIFY. "
+                        "Используй computer.observe / terminal.run / browser.* по выданным правам.]\n"
+                    )
+                elif effective_mode in ("CODE", "AUTO"):
+                    mode_prefix = (
+                        "[Режим OPENCODE / AUTO: используй code.search, code.expand, code.status, terminal.run "
+                        "для чтения кода, проверки git status/diff и запуска pytest.]\n"
+                    )
+                skill_prefix = ""
+                if matched_skill is not None:
+                    skill_prefix = (
+                        f"[Выбран проверенный навык `{matched_skill['id']}` v{matched_skill['version']} "
+                        f"(required_tools={matched_skill['required_tools']})]\n"
+                        f"{matched_skill['prompt_block']}\n\n"
+                    )
+                prompt = await _compose_prompt(svc, data["raw"], mode_prefix + skill_prefix + text, attachments)
+                chosen_agent_id = await _resolve_agent_id_for_model(svc, body.agent_id or cfg.get("agent_id"), route["model"])
 
-    status_code, pre = await _internal(
-        request, "POST", "/api/tasks/preflight",
-        {"prompt": prompt, "agent_id": chosen_agent_id},
-    )
-    if status_code >= 400 or not isinstance(pre, dict):
-        raise _passthrough(status_code, pre)
-    if not pre.get("ok") or not isinstance(pre.get("agent"), dict):
-        raise _fail(
-            409,
-            pre.get("reason") or "исполнитель недоступен",
-            code=pre.get("code") or "BLOCKED_CAPABILITY_UNAVAILABLE",
-            hint=pre.get("hint"),
-        )
-    agent = {"id": pre["agent"].get("id"), "name": pre["agent"].get("name")}
+            with ptrace.span("preflight", mode=effective_mode):
+                status_code, pre = await _internal(
+                    request, "POST", "/api/tasks/preflight",
+                    {"prompt": prompt, "agent_id": chosen_agent_id},
+                )
+            if status_code >= 400 or not isinstance(pre, dict):
+                raise _passthrough(status_code, pre)
+            if not pre.get("ok") or not isinstance(pre.get("agent"), dict):
+                raise _fail(
+                    409,
+                    pre.get("reason") or "исполнитель недоступен",
+                    code=pre.get("code") or "BLOCKED_CAPABILITY_UNAVAILABLE",
+                    hint=pre.get("hint"),
+                )
+            agent = {"id": pre["agent"].get("id"), "name": pre["agent"].get("name")}
 
-    title = re.sub(r"\s+", " ", text)[:80] or text[:80]
-    status_code, created = await _internal(request, "POST", "/api/tasks", {
-        "prompt": prompt,
-        "title": title,
-        "agent_id": agent["id"],
-        "run_now": False,
-        "client_request_id": request_id,
-    })
-    if status_code >= 400 or not isinstance(created, dict) or not isinstance(created.get("task"), dict):
-        raise _passthrough(status_code, created)
-    task = created["task"]
-    task_id = int(task["id"])
-    orch.task_to_session[task_id] = session_id
+            title = re.sub(r"\s+", " ", text)[:80] or text[:80]
+            with ptrace.span("task.create", mode=effective_mode):
+                status_code, created = await _internal(request, "POST", "/api/tasks", {
+                    "prompt": prompt,
+                    "title": title,
+                    "agent_id": agent["id"],
+                    "run_now": False,
+                    "client_request_id": request_id,
+                })
+            if status_code >= 400 or not isinstance(created, dict) or not isinstance(created.get("task"), dict):
+                raise _passthrough(status_code, created)
+            task = created["task"]
+            task_id = int(task["id"])
+            orch.task_to_session[task_id] = session_id
 
-    turn = _new_turn(task_id, body.text, attachments)
-    turn["mode"] = effective_mode
-    if matched_skill is not None:
-        turn["matched_skill"] = {
-            "id": matched_skill["id"],
-            "version": matched_skill["version"],
-            "required_tools": matched_skill["required_tools"],
-        }
-    idx = await _append_turn(svc, session_id, turn)
-    await _touch_meta(svc, session_id)
+            turn = _new_turn(task_id, body.text, attachments)
+            turn["mode"] = effective_mode
+            if matched_skill is not None:
+                turn["matched_skill"] = {
+                    "id": matched_skill["id"],
+                    "version": matched_skill["version"],
+                    "required_tools": matched_skill["required_tools"],
+                }
+            with ptrace.span("receipt.persist", mode=effective_mode):
+                idx = await _append_turn(svc, session_id, turn)
+                await _touch_meta(svc, session_id)
 
-    from .chat_threads import _send_response, _start
-    run_id, admission = await _start(request, task_id)
-    rt.emit("task.progress", task_id=task_id, run_id=run_id, mode=effective_mode,
-            bypass_permissions=bypass_permissions, matched_skill=(matched_skill or {}).get("id"),
-            status=admission.get("status"), route=route)
-    resp = await _send_response(svc, session_id, idx, turn, task_id, run_id, admission, agent, False)
-    resp["mode"] = effective_mode
-    resp["bypass_permissions"] = bypass_permissions
-    resp["route"] = route
-    resp["matched_skill"] = matched_skill
-    resp["task_id"] = task_id
-    return resp
+            from .chat_threads import _send_response, _start
+            with ptrace.span("queue.wait", mode=effective_mode):
+                run_id, admission = await _start(request, task_id)
+            with ptrace.span("ws.deliver", mode=effective_mode):
+                rt.emit("task.progress", task_id=task_id, run_id=run_id, mode=effective_mode,
+                        bypass_permissions=bypass_permissions, matched_skill=(matched_skill or {}).get("id"),
+                        status=admission.get("status"), route=route)
+                resp = await _send_response(svc, session_id, idx, turn, task_id, run_id, admission, agent, False)
+            resp["mode"] = effective_mode
+            resp["bypass_permissions"] = bypass_permissions
+            resp["route"] = route
+            resp["matched_skill"] = matched_skill
+            resp["task_id"] = task_id
+            resp["perf_trace_id"] = ptrace.trace_id
+            return resp
 
 
 @router.get("/agent/sessions/{session_id}/events")
