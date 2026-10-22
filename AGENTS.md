@@ -1,5 +1,9 @@
 # AGENTS.md — Mandatory context for AI contributors
 
+## OWNER FACE-SWAP REFERENCE LESSON — 22.10.2026
+
+For the owner's request to teach reference-based face swap, read [the reviewed existing workflow](docs/owner/face-swap-reference-20261022/WORKFLOW_RU.md) and `.agents/skills/video-face-swap-facefusion/SKILL.md`. Reuse Direct Generator jobs and the current permission boundary. This lesson grants no new tool, filesystem, installation or spending authority; content/consent/QA/STOP checks remain. Multiple-target selection is not exposed in the reviewed swap API. Stored instructions and source review are not a live rendering or weight-training result.
+
 ## OWNER PERFORMANCE ×2 — 23.10.2026 (P0 READ FIRST FOR ARGON/CODEX)
 
 **New direct owner instruction (22.10): BEFORE ANY North Star code run tomorrow, read [the mandatory 2× performance plan](docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md).** First measure the actual end-to-end bottlenecks from iPhone -> Mobile Pult -> Orchestrator -> model/tools -> verified result, then run targeted llama.cpp Vulkan/MTP, prompt/KV cache, context/skill-routing, API and existing Resource Governor A/B. Do not assume prior 2.09× *decode* implies 2× Bossman, and do not promise an unmeasured gain. **Target** >=2.00× median on preregistered coding/agent suite with equal quality and no permission regression. Push CP-PERF-00..06 with exact runtime SHA, tests, results, owner gates. Do NOT bypass STOP, Jeff hold, T2/T3 approval, RunPod prohibition or paid-model budget. **This is a required next-step document, not authorization to auto-install or auto-merge.**
