@@ -1327,6 +1327,10 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def m_agent_session_context(session_id: str, _=Depends(session)):
         return slash.context_view(await call("GET", f"/api/agent/sessions/{_tid(session_id)}/context"))
 
+    @app.get("/m/api/agent/sessions/{session_id}/updates")
+    async def m_agent_session_updates(session_id: str, _=Depends(session)):
+        return slash.updates_view(await call("GET", f"/api/agent/sessions/{_tid(session_id)}/updates"))
+
     @app.post("/m/api/agent/sessions/{session_id}/compact", status_code=202)
     async def m_agent_session_compact(session_id: str, body: CompactIn | None = None, _=Depends(session)):
         payload = body.model_dump(exclude_none=True) if body else {}

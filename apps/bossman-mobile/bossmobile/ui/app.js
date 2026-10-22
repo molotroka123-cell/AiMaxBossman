@@ -2353,6 +2353,7 @@
     { name: 'new', usage: '/new', help: 'Новый чат (текущий останется в списке)', kind: 'client' },
     { name: 'clear', usage: '/clear', help: 'Очистить контекст: начать новый чат', kind: 'client' },
     { name: 'help', usage: '/help', help: 'Показать все команды', kind: 'client' },
+    { name: 'updates', usage: '/updates', help: 'Что нового я усвоил за эту сессию (от первого лица, по журналу)', kind: 'action' },
   ];
 
   /* ---------- карточки в чате (видны только на этом телефоне, на ПК не пишутся) ---------- */
@@ -2784,6 +2785,19 @@
     }),
     compact: (args) => runCompact(args),
     memory: (args) => askMemory(args),
+    updates: () => cardLoad('Что нового я усвоил', 'book', async (c) => {
+      const sid = sidNow(); if (!sid) { cardNote(c, 'Чата ещё нет: я пока ничего не применял, нового усвоенного нет.'); return; }
+      const d = await api('GET', `/agent/sessions/${enc(sid)}/updates`);
+      const LABEL = { new_tool: 'Впервые', practiced_tool: 'Закрепил', failed_tool: 'Не вышло', refusal: 'Мне отказали', delegation: 'Поручил помощнику', compaction: 'Сжал контекст' };
+      const GOOD = { new_tool: 'risk-safe', practiced_tool: 'risk-safe', delegation: 'risk-safe', compaction: 'risk-safe' };
+      const rows = (d.learned || []).map((x) => ({
+        name: LABEL[x.kind] + (x.tool ? ` · ${x.tool}` : ''), desc: x.text,
+        badge: { text: x.kind === 'delegation' && x.state && x.state !== 'SUCCEEDED' ? x.state : (x.count ? `×${x.count}` : ''), cls: x.kind === 'delegation' && x.state !== 'SUCCEEDED' ? 'risk-ask' : (GOOD[x.kind] || 'risk-ask') },
+      }));
+      cardList(c, rows, (d.statements && d.statements[0]) || 'Нового усвоенного нет');
+      if (rows.length && d.statements && d.statements[0]) c.body.insertBefore(el('p', 'syscard-note', d.statements[0]), c.body.firstChild);
+      if (d.disclaimer) c.body.appendChild(el('p', 'syscard-note dim', d.disclaimer));
+    }),
     tools: () => cardLoad('Tools', 'tool', async (c) => {
       const tools = (await loadPalette(false)).tools; const rows = []; let last = null;
       tools.forEach((t) => {

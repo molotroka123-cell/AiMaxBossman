@@ -130,3 +130,37 @@ def memory_view(raw: Any) -> dict:
     if _sid(src.get("note_id")) is not None:
         out["note_id"] = _sid(src.get("note_id"))
     return out
+
+
+UPDATE_KINDS = {"new_tool", "practiced_tool", "failed_tool", "refusal", "delegation", "compaction"}
+MAX_UPDATE_ITEMS = 30
+
+
+def _update_item(it: dict) -> dict | None:
+    kind = _s(it.get("kind"), 24)
+    text = _s(it.get("text"), 400)
+    if kind not in UPDATE_KINDS or not text:
+        return None
+    ids = it.get("task_ids")
+    task_ids = [i for i in (ids[:20] if isinstance(ids, list) else []) if isinstance(i, int) and not isinstance(i, bool)]
+    out: dict[str, Any] = {"kind": kind, "text": text, "count": _i(it.get("count")) or 0, "task_ids": task_ids}
+    if _s(it.get("tool"), 80):
+        out["tool"] = _s(it.get("tool"), 80)
+    if _s(it.get("state"), 32):
+        out["state"] = _s(it.get("state"), 32)
+    return out
+
+
+def updates_view(raw: Any) -> dict:
+    """/updates: first-person report of what Bossman applied and verified in this session. Only documented keys leave."""
+    src = raw if isinstance(raw, dict) else {}
+    counts = src.get("counts") if isinstance(src.get("counts"), dict) else {}
+    stm = src.get("statements")
+    return {
+        "session_id": _s(src.get("session_id"), 64),
+        "statements": [_s(x, 400) for x in (stm[:MAX_UPDATE_ITEMS + 1] if isinstance(stm, list) else []) if _s(x, 400)],
+        "learned": _rows(src, "learned", MAX_UPDATE_ITEMS, _update_item),
+        "counts": {k: _i(counts.get(k)) or 0 for k in ("tasks_considered", "tools_used", "new_tools",
+                                                       "delegations_verified", "refusals")},
+        "disclaimer": _s(src.get("disclaimer"), 400),
+    }

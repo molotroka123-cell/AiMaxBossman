@@ -547,6 +547,114 @@ async def save_summary_to_memory(session_id: str, request: Request, body: Memory
     return saved
 
 
+# ------------------------------------------------------------------------------------------------ /updates (от первого лица)
+
+UPDATES_DISCLAIMER = ("Это отчёт по журналу инструментов и проверок именно этой сессии. Веса модели я не менял: "
+                      "«усвоено» значит применено и подтверждено записью, а не обучено заново.")
+_OK_CALLS = ("executed", "replayed")
+_REFUSED_CALLS = ("denied", "rejected")
+_FAILED_CALLS = ("error", "timeout", "interrupted")
+UPDATES_MAX_ITEMS = 24
+
+
+def _ids(ids: list[int]) -> str:
+    shown = ", ".join(f"#{i}" for i in ids[:5])
+    return shown + (f" и ещё {len(ids) - 5}" if len(ids) > 5 else "")
+
+
+async def session_updates(svc: Any, session_id: str, raw: dict) -> dict:
+    """Что я применил и подтвердил в этой сессии. Только имена инструментов, счётчики, id задач и вердикты проверок."""
+    from ..db import tasks as tasks_t, tool_calls as calls_t
+    from . import tools_agents
+
+    task_ids = sorted({int(t["task_id"]) for _, t in _turns(raw) if int(t["task_id"]) > 0})
+    learned: list[dict] = []
+    tools_used = 0
+    delegations_verified = 0
+
+    if task_ids:
+        async with svc.db.session() as s:
+            rows = (await s.execute(sa.select(calls_t.c.tool, calls_t.c.status, calls_t.c.task_id)
+                                    .where(calls_t.c.task_id.in_(task_ids)).order_by(calls_t.c.id))).all()
+            per: dict[str, dict] = {}
+            for tool, status, tid in rows:
+                slot = per.setdefault(str(tool), {"ok": 0, "refused": 0, "failed": 0, "ids": []})
+                key = "ok" if status in _OK_CALLS else "refused" if status in _REFUSED_CALLS else "failed" \
+                    if status in _FAILED_CALLS else None
+                if key:
+                    slot[key] += 1
+                    if int(tid) not in slot["ids"]:
+                        slot["ids"].append(int(tid))
+            before = {str(r[0]) for r in (await s.execute(
+                sa.select(calls_t.c.tool).where(calls_t.c.tool.in_(list(per) or [""]),
+                                                calls_t.c.status.in_(_OK_CALLS),
+                                                calls_t.c.task_id.notin_(task_ids)).distinct())).all()}
+            children = [int(r[0]) for r in (await s.execute(sa.select(tasks_t.c.id).where(sa.or_(
+                *[sa.cast(tasks_t.c.meta["delegated_by_task"].as_string(), sa.String) == str(i) for i in task_ids]))
+                .order_by(tasks_t.c.id))).all()]
+
+        for tool in sorted(per):
+            slot = per[tool]
+            if slot["ok"]:
+                tools_used += 1
+                if tool not in before:
+                    learned.append({"kind": "new_tool", "tool": tool, "count": slot["ok"], "task_ids": slot["ids"],
+                                    "text": f"Я впервые успешно применил `{tool}` — {slot['ok']} раз(а) за эту сессию "
+                                            f"(задачи {_ids(slot['ids'])})."})
+                else:
+                    extra = f", с ошибкой {slot['failed']}" if slot["failed"] else ""
+                    learned.append({"kind": "practiced_tool", "tool": tool, "count": slot["ok"], "task_ids": slot["ids"],
+                                    "text": f"Я снова применил `{tool}`: успешно {slot['ok']}{extra} "
+                                            f"(задачи {_ids(slot['ids'])}); это закрепление, а не новый навык."})
+            elif slot["failed"]:
+                learned.append({"kind": "failed_tool", "tool": tool, "count": slot["failed"], "task_ids": slot["ids"],
+                                "text": f"Мне не удалось применить `{tool}` ({slot['failed']} раз): я не считаю это освоенным."})
+            if slot["refused"]:
+                learned.append({"kind": "refusal", "tool": tool, "count": slot["refused"], "task_ids": slot["ids"],
+                                "text": f"Мне отказали в `{tool}` ({slot['refused']} раз): я не обхожу такие отказы и не "
+                                        "повторяю попытку без нового разрешения владельца."})
+
+        for cid in children:
+            try:
+                out = await tools_agents.finalize_delegation(svc, cid, persist=False)
+            except LookupError:
+                continue
+            rc, state = out["receipt"], out["state"]
+            if state == "SUCCEEDED" and rc:
+                delegations_verified += 1
+                text = (f"Я поручил задачу #{cid} помощнику, и независимая проверка пройдена (receipt "
+                        f"{rc['receipt_id'][:8]}) — такому способу работы я могу доверять.")
+            elif state in {"FAILED_VERIFICATION", "UNVERIFIED"}:
+                text = (f"Я поручил задачу #{cid} помощнику, но проверка не подтвердила результат ({state}) — "
+                        "готовым я это не считаю.")
+            elif state in {"QUEUED", "RUNNING", "WAITING_APPROVAL"}:
+                text = f"Поручение #{cid} помощнику ещё выполняется ({state}); итога у меня пока нет."
+            else:
+                text = f"Поручение #{cid} помощнику не завершилось ({state}); я не выдаю его за результат."
+            learned.append({"kind": "delegation", "count": 1, "task_ids": [cid], "state": state, "text": text})
+
+    if str(raw.get("summary") or ""):
+        learned.append({"kind": "compaction", "count": 1, "task_ids": [],
+                        "text": "Я сжал контекст этого чата в резюме, чтобы не потерять нить разговора."})
+
+    learned = learned[:UPDATES_MAX_ITEMS]
+    statements = (["Вот что я усвоил за эту сессию — по журналу моих инструментов и проверок:"]
+                  + [item["text"] for item in learned]) if learned else \
+        ["В этой сессии я ещё не применял инструменты и не получал проверенных результатов — нового усвоенного нет."]
+    return {"session_id": session_id, "statements": statements, "learned": learned,
+            "counts": {"tasks_considered": len(task_ids), "tools_used": tools_used,
+                       "new_tools": sum(1 for x in learned if x["kind"] == "new_tool"),
+                       "delegations_verified": delegations_verified,
+                       "refusals": sum(1 for x in learned if x["kind"] == "refusal")},
+            "disclaimer": UPDATES_DISCLAIMER}
+
+
+@router.get("/agent/sessions/{session_id}/updates")
+async def get_session_updates(session_id: str, request: Request):
+    svc = request.app.state.svc
+    return await session_updates(svc, session_id, _require_session(svc, session_id)["raw"])
+
+
 # ---------------------------------------------------------------------------------------------------------- палитра
 
 def _commands() -> list[dict]:
@@ -568,6 +676,8 @@ def _commands() -> list[dict]:
         cmd("compact", "action", f"POST {sid}/compact", "/compact [инструкция]"),
         cmd("memory", "action", f"POST {sid}/memory", "/memory [заметка]",
             "сохранить РЕЗЮМЕ этого чата в общую память (только по вашему вызову; сначала /compact)"),
+        cmd("updates", "action", f"GET {sid}/updates", "/updates",
+            "что нового я усвоил за эту сессию — от первого лица, только по журналу инструментов и проверок"),
         cmd("tools", "action", "GET /api/agent/tools", help_="инструменты агента и их политика"),
         cmd("skills", "action", "GET /api/skill-catalog"),
         cmd("models", "action", "GET /api/agent/models"),
