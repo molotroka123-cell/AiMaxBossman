@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import codecs
 import contextlib
+import copy
 import hashlib
 import json
 import mimetypes
@@ -218,6 +219,17 @@ def _cli_limits() -> tuple[int, int, int]:
 # Сессии (файлы CLI) и метаданные (свой файл рядом)
 # ======================================================================
 
+class SessionUnreadable(Exception):
+    """Файл сессии на месте, но не читается как целая сессия (занят, оборван, `turns`
+    неожиданного вида). Это НЕ «чат удалён»: файл не тронут, запись в него не делается."""
+
+
+#: Windows на миг запирает файл (антивирус, терминал заменяет его через os.replace), а только что
+#: созданный файл бывает виден пустым. Короткие повторы вместо «чат повреждён/удалён».
+_READ_ATTEMPTS = 3
+_READ_BACKOFF_S = 0.03
+
+
 def _read_session_raw(path: Path) -> dict | None:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -226,26 +238,46 @@ def _read_session_raw(path: Path) -> dict | None:
     return raw if isinstance(raw, dict) else None
 
 
+def _read_session_retry(path: Path) -> dict | None:
+    """_read_session_raw с короткими повторами; None — стойко не читается."""
+    for attempt in range(_READ_ATTEMPTS):
+        raw = _read_session_raw(path)
+        if raw is not None:
+            return raw
+        if attempt < _READ_ATTEMPTS - 1:
+            time.sleep(_READ_BACKOFF_S * (attempt + 1))
+    return None
+
+
 def _load_session(svc: Any, thread_id: str, *, strict: bool = False) -> dict | None:
     """{"raw", "mtime"} или None, если файла нет. Разбор кэшируется по
     (mtime_ns, size): список чатов не перечитывает сотню файлов на каждый запрос.
-    strict: повреждённый файл — 422, а не «нет такого чата»."""
+
+    «Нет файла» — только FileNotFoundError. Файл, который на миг не читается (занят,
+    оборван), не исчезает из списка и не становится «чат не найден»: чтение повторяется,
+    а при стойкой ошибке отдаётся последняя целиком прочитанная копия. Нет и её:
+    strict — 422 CHAT_THREAD_UNREADABLE, иначе None."""
     path = _session_path(svc, thread_id)
-    try:
-        st = path.stat()
-    except OSError:
-        return None
     cache = _state(svc).sessions
     hit = cache.get(thread_id)
-    if hit is not None and hit[0] == st.st_mtime_ns and hit[1] == st.st_size:
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        return None
+    except OSError:
+        st = None
+    if st is not None and hit is not None and hit[0] == st.st_mtime_ns and hit[1] == st.st_size:
         return hit[2]
-    raw = _read_session_raw(path)
+    raw = _read_session_retry(path)
     if raw is None:
-        cache.pop(thread_id, None)
+        if hit is not None:
+            return hit[2]
         if strict:
-            raise _fail(422, "файл чата повреждён или пишется прямо сейчас",
+            raise _fail(422, "файл чата сейчас не читается (занят или повреждён), данные не удалены",
                         code="CHAT_THREAD_UNREADABLE", hint=f"файл: {path}")
         return None
+    if st is None:                                  # прочитан, но stat не удался: отдаём без кэша
+        return {"raw": raw, "mtime": time.time()}
     data = {"raw": raw, "mtime": st.st_mtime}
     cache[thread_id] = (st.st_mtime_ns, st.st_size, data)
     return data
@@ -415,21 +447,54 @@ def _clean_project(value: Any) -> str | None:
     return text or None
 
 
+def next_synthetic_task_id() -> int:
+    """Номер служебного хода (`/improve`, CODE): у него нет задачи в базе, поэтому номер
+    отрицательный и уникальный. Раньше все такие ходы имели task_id=0, а запись хода
+    отбрасывала «уже записанный» ход с тем же номером: второй и следующие терялись молча."""
+    return -(time.time_ns() // 1000)
+
+
 def _append_turn_sync(path: Path, thread_id: str, turn: dict) -> int:
     """Добавить ход в файл сессии, сохранив всё, что в нём есть (поля /compact
-    и чужие ключи CLI). Ход с той же задачей второй раз не пишется."""
-    raw = _read_session_raw(path)
+    и чужие ключи CLI). Ход с той же задачей второй раз не пишется.
+
+    FileNotFoundError — файла правда нет. SessionUnreadable — файл есть, но не читается
+    (после повторов) или `turns` не список: он НЕ перезаписывается (раньше `turns`
+    неожиданного вида молча заменялся на `[]`). Перед заменой прежняя целая версия
+    ложится рядом (`<id>.json.bak`) — на случай чужой записи между чтением и заменой."""
+    try:
+        path.stat()
+    except FileNotFoundError:
+        raise
+    except OSError:
+        pass                                        # занят — ниже читаем с повторами
+    raw = _read_session_retry(path)
     if raw is None:
-        raise FileNotFoundError(str(path))
+        if not path.exists():
+            raise FileNotFoundError(str(path))
+        raise SessionUnreadable(f"файл сессии не читается: {path.name}")
     turns = raw.get("turns")
-    if not isinstance(turns, list):
+    if turns is None:
         turns = []
-    for idx, existing in enumerate(turns):
-        if isinstance(existing, dict) and existing.get("task_id") == turn["task_id"]:
-            return idx
+    elif not isinstance(turns, list):
+        raise SessionUnreadable(f"поле turns в {path.name} неожиданного вида ({type(turns).__name__}): файл не тронут")
+    before = copy.deepcopy(raw)
+    task_id = turn["task_id"]
+    if isinstance(task_id, int) and task_id > 0:
+        for idx, existing in enumerate(turns):
+            if isinstance(existing, dict) and existing.get("task_id") == task_id:
+                return idx
+    else:                                           # служебный ход: номера не сливаются
+        used = {t.get("task_id") for t in turns if isinstance(t, dict)}
+        while task_id in used:
+            task_id -= 1
+        turn["task_id"] = task_id
     turns.append(turn)
     raw["turns"] = turns
     raw["id"] = thread_id
+    if before.get("turns"):
+        with contextlib.suppress(OSError):          # копия — страховка, она не должна мешать записи
+            _write_json_atomic(path.with_name(path.name + ".bak"), before)
     _write_json_atomic(path, raw)
     return len(turns) - 1
 
@@ -443,8 +508,10 @@ async def _append_turn(svc: Any, thread_id: str, turn: dict) -> int:
         except FileNotFoundError:
             raise _fail(404, "чат удалён, пока отправлялось сообщение", code="CHAT_THREAD_NOT_FOUND",
                         hint="задача уже создана — её видно в «Задачах»") from None
-        finally:
-            state.sessions.pop(thread_id, None)
+        except SessionUnreadable as exc:
+            raise _fail(503, "файл чата сейчас не читается — сообщение не записано в историю чата",
+                        code="CHAT_THREAD_UNREADABLE",
+                        hint=f"файл не тронут; задача уже создана — её видно в «Задачах». {exc}") from None
     return idx
 
 
@@ -1051,6 +1118,8 @@ async def delete_thread(thread_id: str, request: Request, purge: bool = False):
     async with state.lock:
         with contextlib.suppress(FileNotFoundError):
             await asyncio.to_thread(path.unlink)
+        with contextlib.suppress(OSError):          # «навсегда» — и страховочная копия `<id>.json.bak`
+            await asyncio.to_thread(path.with_name(path.name + ".bak").unlink, True)
         state.sessions.pop(thread_id, None)
     await _mutate_meta(svc, lambda threads: threads.pop(thread_id, None))
     return {"ok": True, "archived": False, "purged": True}
