@@ -4,11 +4,17 @@ description: Swap a consenting person's face into a video locally with FaceFusio
 compatibility: BOSSMAN (Windows, Radeon 8060S, FaceFusion ONNX DirectML, ffmpeg, MediaPipe gate venv)
 metadata:
   owner: bossman
-  version: "1.0"
+  version: "1.1"
   learned_from: owner session 2026-10-10 (5 owner clips, Gate 0/1, two-person clip, Genjutsu comparison)
 ---
 
 # Video face swap (FaceFusion, local, free)
+
+## Current Bossman contract (source reviewed 22.10.2026)
+
+Read `docs/owner/face-swap-reference-20261022/WORKFLOW_RU.md` before a run. This skill is an instruction, not an enabled model tool or a live acceptance. Use the current permission-checked Direct Generator API/UI; if the agent has no allowed dispatch capability, return BLOCKED instead of using a shell or owner token to bypass that boundary. The reviewed main source was `e8ebcd9b`; check current source/runtime identity again.
+
+Do not alter content analysis, consent, QA or STOP settings. A content-analysis refusal is not proof of corrupt weights. A real loading/hash error needs diagnosis against the approved manifest; no automatic replacement with a less restrictive build. Personal inputs remain local. A new delivery requires explicit owner instruction.
 
 ## Consent and scope (before anything)
 
@@ -16,27 +22,33 @@ Only the owner, or people the owner says agreed (owner-supplied photos). No inti
 deception (results are never presented as genuine footage), personal media never leaves the PC, results go only to
 the owner's pult. Genjutsu/Higgsfield and any paid API: never without the owner's explicit yes ("он платный").
 
-## Recipe (executable)
+## Existing backend workflow
 
-1. **References** (`gf-refs-all/pick.py` pattern): arcface consistency matrix, drop blurry/outlier photos (cos < ~0.5 to the
-   median), keep big sharp frontal faces; frames from the person's own video circles are excellent (consistency 0.87-0.92).
-   Max 5 photos (`faceswap.MAX_SOURCES`). Joint photos: crop to one person or FaceFusion averages two faces.
-2. **Run through Bossman** (UI «Замена лица в видео» / `POST /api/direct-gen/swap-jobs`, preset `quality`), or the same
-   steps by script (`scratchpad/run_final.py` pattern = `DirectGenService._run_swap`):
+1. **References**: explicitly identify 1..5 owner-authorized face photos of ONE consenting identity, and a separate target
+   video. Use clear, sufficiently sharp photos; no automatic discovery or analysis of old private reference folders.
+   A reference sheet with several different people is not one identity. Do not invent consent from file ownership.
+2. **Run through Bossman** (existing UI «Замена лица в видео» / `POST /api/direct-gen/swap-jobs`, preset `quality`).
+   `faces_b64` contains the identity photos; `video_b64` contains the target clip. Choose `frame: original`.
+   GET `/api/direct-gen/faceswap` reports installation/presets, not successful inference. Use only allowed capabilities.
+   The existing service performs the following steps; do not start duplicate processes or reimplement them in scratch scripts:
    - VFR source (phones, screen recordings) -> `normalize_cfr` at its own average rate (else chunks drift from audio);
    - `plan_chunks` + `cut_lossless` (H.264 -qp 0) -> 2 FaceFusion processes, each with its OWN `--temp-path` and
      `--jobs-path` (shared jobs dir: the 2nd process exits 1 silently); 64.7 s -> 40.5 s, bit-identical frames;
-   - `join` (concat copy) -> **pose gate** -> `finish` (H.264 crf 16, source audio, `-fps_mode passthrough`,
+   - `join` (concat copy) -> **pose gate** -> `finish` (the current source-controlled delivery settings, source audio, `-fps_mode passthrough`,
      `-t` = video length, never `-shortest`).
-3. Preset `quality` = hyperswap_1a_256, pixel boost 1024, mask box+occlusion (xseg_1), gfpgan_1.4 blend 50,
-   `--execution-thread-count 1` (several models x threads -> segfault 139 on DirectML; xseg_2 crashes). 1.2-1.7 frame/s.
-4. Only one person should change: `--face-selector-mode reference --reference-frame-number 0 --reference-face-distance 0.5`
-   and ONE process (the reference is taken from the first frame of each process's own input). Two different people
-   (owner + partner): split by scenes, `many` per scene with that person's photos — reference mode put the wrong face
-   on the other person.
+3. At the reviewed SHA, preset `quality` = hyperswap_1a_256, pixel boost 1024, mask box+occlusion (xseg_1),
+   gfpgan_1.4 blend 25, one execution thread. Read the current preset definition rather than copying historical flags.
+   Earlier timings below are historical measurements, not a speed guarantee or a current live PASS.
+4. **Target identity limitation**: the current API uses `face-selector-mode many` and has no target-person selector.
+   Start only with an unambiguous single-subject clip. If a clip has several people and only one must change, return
+   BLOCKED_TARGET_SELECTION and request a supported selection workflow; do not claim reference targeting exists in this API.
 5. Never refit/stretch to 16:9 (owner: «растянул коряво»): keep the source resolution, framing, timing and audio.
-6. Pult: `/tmp/send_vid2.py` pattern (owner only); files > 49 MB are refused -> re-encode crf 20. Caption with honest
-   numbers (identity before/after, frames, seconds, resolution, what was gated).
+6. Preserve one returned job ID; monitor GET `/api/direct-gen/jobs/{id}`. Cancel through POST
+   `/api/direct-gen/jobs/{id}/cancel` and verify terminal state. A create timeout does not authorize a duplicate job.
+7. After `completed`, inspect the actual `/jobs/{id}/file`, metadata/hash and `provenance.qa_gate`. Full animation Gate 1
+   and delivery QA are different checks. On an explicit owner request use POST `/api/direct-gen/jobs/{id}/send-to-pult`
+   once, after QA; retain its delivery confirmation. This endpoint does not supply durable deduplication: do not repeat
+   after an unknown delivery outcome. Label the result as a synthetic edit and give measured values only.
 
 ## Pose gate + source outside the face (`bcc/direct_gen/pose_gate_worker.py`)
 

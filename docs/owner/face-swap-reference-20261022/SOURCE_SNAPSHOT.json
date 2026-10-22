@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "author": "Codex",
+  "snapshot_utc": "2026-10-22T20:43:37.362785+00:00",
+  "base_sha": "e8ebcd9b35e135c235ed1c76127c35ebfa185eb2",
+  "scope": "INSTRUCTION_AND_MEMORY_ONLY",
+  "runtime_health": {
+    "app": "bossman-command-center",
+    "version": "2.6.0",
+    "alive": true,
+    "status": "ALIVE",
+    "build_sha": null,
+    "build_sha_short": null,
+    "release_version": "2.6.0",
+    "source_identity": "SOURCE_IDENTITY_UNKNOWN",
+    "source": "checkout",
+    "detail": "рабочее дерево не является чистым git-чекаутом этого пакета"
+  },
+  "source_files": [
+    {
+      "path": "command-center/bcc/features/direct_gen.py",
+      "sha256": "5524b9d9586b2c557ca4658e961dd84683b9ab54b156f111ff6fa9bd19865539"
+    },
+    {
+      "path": "command-center/bcc/direct_gen/faceswap.py",
+      "sha256": "1ce72df417d25bee43f555e63e99085cfa2a470f85a7739a680ab3ab27d99279"
+    },
+    {
+      "path": "command-center/bcc/direct_gen/service.py",
+      "sha256": "2b92d915cefe2240f0fe50aed8898ebc41061ae58219b6958fd130c5f21e9449"
+    },
+    {
+      "path": "apps/bossman-mobile/bossmobile/api.py",
+      "sha256": "492af4da8643a44f49535c715dd08ad97bba3aa6c0a133ceec0a5ae70af405d9"
+    }
+  ],
+  "engine_probe": {
+    "available": true,
+    "preset_ids": [
+      "fast",
+      "quality",
+      "lively"
+    ],
+    "type": "INSTALLATION_ONLY",
+    "engine": "facefusion"
+  },
+  "memory": {
+    "status": "RETRIEVAL_CONFIRMED",
+    "retrieval_confirmed": true,
+    "lesson_sha256": "79ea5a0ab5d9390d01128fb4e6817a4b5e42990edae1d6ca63e5ccf15590833c",
+    "note_sha256": "327a513b7c7cad23aad53ccc0a4b5e44e2ff33e31afb32fcc468e9f5f28307ac"
+  },
+  "render_status": "NOT_RUN",
+  "personal_media_read": false,
+  "models_called": 0,
+  "weights_downloaded": false,
+  "filters_modified": false,
+  "mobile_ui_modified": false,
+  "paid_cost_usd": "0",
+  "delivery": "NOT_REQUESTED_NOT_SENT",
+  "content_filter_bypass_request": "NOT_IMPLEMENTED"
+}
