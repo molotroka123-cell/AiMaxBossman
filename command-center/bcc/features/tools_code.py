@@ -104,6 +104,9 @@ async def extra_ignores(svc) -> list[str]:
 
 
 async def resolve_root(svc, raw: str | None, workspace: str = "", ctx=None) -> Path:
+    blocked_raw, reason_raw = is_private_chat_or_personal_path(raw)
+    if blocked_raw:
+        raise PermissionError(reason_raw)
     roots = await allowed_roots(svc)
     if ctx is not None and str(raw or "").strip() == SCRATCH_ALIAS:
         return scratch.ensure(scratch.for_context(ctx))
@@ -112,6 +115,9 @@ async def resolve_root(svc, raw: str | None, workspace: str = "", ctx=None) -> P
         candidate = candidate.resolve()
     except OSError as exc:
         raise PermissionError(f"code root недоступен: {candidate}: {exc}") from exc
+    blocked_cand, reason_cand = is_private_chat_or_personal_path(candidate)
+    if blocked_cand:
+        raise PermissionError(reason_cand)
     # V2.2 §9: рабочая область соседнего агента лежит внутри разрешённого корня,
     # поэтому общая проверка корней её пропустила бы — закрываем до неё.
     if ctx is not None:
@@ -279,6 +285,10 @@ async def http_search(request: Request):
     query = str(body.get("query") or "").strip()
     if not query:
         raise HTTPException(400, {"message": "query пуст"})
+    path_prefix = str(body.get("path_prefix") or "")
+    blocked_pfx, reason_pfx = is_private_chat_or_personal_path(path_prefix)
+    if blocked_pfx:
+        raise HTTPException(403, {"message": reason_pfx})
     try:
         root = await resolve_root(svc, body.get("root"))
     except (PermissionError, FileNotFoundError) as exc:
@@ -289,7 +299,7 @@ async def http_search(request: Request):
         handle.index,
         query,
         top_k=max(1, min(int(body.get("top_k") or DEFAULT_RESULTS), MAX_RESULTS)),
-        path_prefix=str(body.get("path_prefix") or ""),
+        path_prefix=path_prefix,
     )
     return {"root": str(root), "query": query, "items": hits, "total": len(hits)}
 
@@ -329,6 +339,10 @@ async def tool_code_search(args: dict, ctx: ToolContext) -> ToolResult:
     query = str(args.get("query") or "").strip()
     if not query:
         return _err("code.search: нужен query")
+    path_prefix = str(args.get("path_prefix") or "")
+    blocked_pfx, reason_pfx = is_private_chat_or_personal_path(path_prefix)
+    if blocked_pfx:
+        return _err(f"code.search: {reason_pfx}")
     try:
         root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace, ctx)
         handle = await get_handle(ctx.svc, root)
@@ -337,7 +351,7 @@ async def tool_code_search(args: dict, ctx: ToolContext) -> ToolResult:
             handle.index,
             query,
             top_k=max(1, min(int(args.get("top_k") or DEFAULT_RESULTS), MAX_RESULTS)),
-            path_prefix=str(args.get("path_prefix") or ""),
+            path_prefix=path_prefix,
         )
     except (PermissionError, FileNotFoundError) as exc:
         return _err(f"code.search: {exc}")
@@ -420,6 +434,605 @@ async def tool_code_status(args: dict, ctx: ToolContext) -> ToolResult:
     )
 
 
+# ------------------------------------------------------------------ Gemma 4 Autonomous Workspace Kit & Privacy Guard
+
+import os
+import re
+import subprocess
+import sys
+from urllib.parse import urlparse
+
+import httpx
+
+PRIVATE_CHAT_AND_PERSONAL_DATA_DENY_RE = re.compile(
+    r"(?i)(?:^|[/\\])(?:"
+    r"telegram(?:\s*desktop)?|tdata|whatsapp|signal|viber|discord|skype|"
+    r"user\s*data|login\s*data|web\s*data|cookies|browser[-_]?profile|"
+    r"chat[-_]?archive[-_]?private|personal[-_]?chats?|local[-_]?chats?|"
+    r"contacts|pictures|photos|videos|music|onedrive|"
+    r"provider-keys(?:\.env|\.dpapi)?|free-provider-keys\.txt|"
+    r"openrouter(?:-[a-z0-9_-]+)?\.env|\.dpapi$|\.env(?:\.[a-z0-9_-]+)?$"
+    r")(?:$|[/\\])"
+)
+
+_SENSITIVE_ENV_KEY_RE = re.compile(
+    r"(?i)(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|DPAPI|VAULT|AUTH|COOKIE|SESSION|SEED|PRIVATE)"
+)
+
+ALLOWED_LOCAL_DEV_PORTS = frozenset({3000, 4096, 5173, 8000, 8080, 8801, 8840, 11434})
+
+GEMMA4_DEFAULT_MODEL = "gemma4-31b-uncensored:latest"
+GEMMA4_KIT_TOOLS = [
+    "code.search",
+    "code.expand",
+    "code.index",
+    "code.status",
+    "code.workspace_map",
+    "code.probe_endpoint",
+    "sandbox.run_check",
+    "terminal.run",
+    "terminal.status",
+    "computer.observe",
+    "computer.act",
+    "browser.open",
+    "browser.read_dom",
+    "browser.screenshot",
+    "opencode.status",
+    "opencode.diff",
+    "opencode.abort",
+    "agents.list",
+    "call_agent",
+    "agents.result",
+]
+GEMMA4_KIT_PERMISSIONS = {
+    "use_memory": False,
+    "filesystem.read": True,
+    "terminal.read": True,
+    "terminal.run": True,
+    "git.read": True,
+    "browser.read": True,
+    "computer.observe": True,
+}
+
+
+def is_private_chat_or_personal_path(raw: str | Path | None) -> tuple[bool, str]:
+    """Hard T3 privacy invariant: local chats, messenger stores, browser profiles,
+    personal media, and plaintext/DPAPI secret files are strictly off-limits."""
+    text = str(raw or "").strip().replace("\\", "/")
+    if not text:
+        return False, ""
+    if PRIVATE_CHAT_AND_PERSONAL_DATA_DENY_RE.search(text):
+        return True, (
+            f"доступ к локальным чатам, личным данным или секретам запрещён политикой безопасности (T3): {text}"
+        )
+    return False, ""
+
+
+def _parse_project_dependencies(root: Path) -> dict[str, Any]:
+    """Extract project dependencies from pyproject.toml, package.json, and requirements*.txt."""
+    deps: dict[str, Any] = {"pyproject": {}, "package_json": {}, "requirements": {}}
+    candidates = [
+        root / "pyproject.toml",
+        root / "bossman-core" / "pyproject.toml",
+        root / "command-center" / "pyproject.toml",
+        root / "apps" / "war-terminal" / "pyproject.toml",
+    ]
+    dep_line_re = re.compile(r'^\s*"([A-Za-z0-9_.\-\[\]>=<~]+)"\s*,?\s*$')
+    for p in candidates:
+        if p.is_file():
+            try:
+                rel = str(p.relative_to(root)).replace("\\", "/")
+                lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+                extracted = []
+                in_deps = False
+                for ln in lines:
+                    s = ln.strip()
+                    if s.startswith("dependencies") and "[" in s:
+                        in_deps = True
+                        continue
+                    if in_deps:
+                        if s.startswith("]"):
+                            in_deps = False
+                            continue
+                        m = dep_line_re.match(ln)
+                        if m:
+                            extracted.append(m.group(1))
+                deps["pyproject"][rel] = extracted[:60]
+            except OSError:
+                continue
+
+    pkg_json = root / "package.json"
+    if pkg_json.is_file():
+        try:
+            doc = json.loads(pkg_json.read_text(encoding="utf-8", errors="replace"))
+            deps["package_json"]["package.json"] = {
+                "dependencies": sorted((doc.get("dependencies") or {}).keys())[:50],
+                "devDependencies": sorted((doc.get("devDependencies") or {}).keys())[:50],
+            }
+        except Exception:
+            pass
+
+    for req_file in sorted(root.glob("requirements*.txt"))[:5]:
+        if req_file.is_file():
+            try:
+                rel = str(req_file.relative_to(root)).replace("\\", "/")
+                reqs = [
+                    ln.strip()
+                    for ln in req_file.read_text(encoding="utf-8", errors="replace").splitlines()
+                    if ln.strip() and not ln.strip().startswith("#")
+                ]
+                deps["requirements"][rel] = reqs[:60]
+            except OSError:
+                continue
+    return deps
+
+
+def _collect_workspace_tree(root: Path, max_depth: int = 2, max_entries: int = 120) -> list[str]:
+    """Return a clean relative directory/file structure inside root, excluding ignored & private paths."""
+    ignore_names = {
+        ".git", ".hg", ".svn", "node_modules", "__pycache__", ".venv", "venv",
+        ".mypy_cache", ".pytest_cache", ".ruff_cache", "dist", "build", ".next",
+    }
+    entries: list[str] = []
+
+    def _walk(curr: Path, depth: int) -> None:
+        if len(entries) >= max_entries or depth > max_depth:
+            return
+        try:
+            children = sorted(curr.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+        except OSError:
+            return
+        for child in children:
+            if len(entries) >= max_entries:
+                break
+            if child.name in ignore_names or child.name.startswith(".pytest"):
+                continue
+            rel = str(child.relative_to(root)).replace("\\", "/")
+            blocked, _ = is_private_chat_or_personal_path(rel)
+            if blocked:
+                continue
+            if child.is_dir():
+                entries.append(f"{rel}/")
+                if depth < max_depth:
+                    _walk(child, depth + 1)
+            else:
+                entries.append(rel)
+
+    _walk(root, 1)
+    return entries
+
+
+def _collect_git_history(root: Path, limit: int = 10) -> dict[str, Any]:
+    """Read current branch, HEAD SHA, and recent commit log safely via argv (no shell)."""
+    limit = max(1, min(int(limit or 10), 30))
+    info: dict[str, Any] = {"branch": None, "head_sha": None, "recent_commits": []}
+    try:
+        br = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=str(root), capture_output=True, text=True, timeout=5, check=False,
+        )
+        if br.returncode == 0:
+            info["branch"] = br.stdout.strip()
+        sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(root), capture_output=True, text=True, timeout=5, check=False,
+        )
+        if sha.returncode == 0:
+            info["head_sha"] = sha.stdout.strip()
+        log = subprocess.run(
+            ["git", "log", f"-n{limit}", "--oneline", "--no-decorate"],
+            cwd=str(root), capture_output=True, text=True, timeout=8, check=False,
+        )
+        if log.returncode == 0:
+            info["recent_commits"] = [ln.strip() for ln in log.stdout.splitlines() if ln.strip()]
+    except Exception as exc:
+        info["error"] = f"{type(exc).__name__}: {exc}"
+    return info
+
+
+async def build_workspace_map(svc, raw_root: str | None = None, workspace: str = "",
+                              ctx=None, max_depth: int = 2, git_commits: int = 10) -> dict[str, Any]:
+    blocked, reason = is_private_chat_or_personal_path(raw_root)
+    if blocked:
+        raise PermissionError(reason)
+    root = await resolve_root(svc, raw_root, workspace, ctx)
+    blocked_root, reason_root = is_private_chat_or_personal_path(root)
+    if blocked_root:
+        raise PermissionError(reason_root)
+
+    handle = await get_handle(svc, root)
+    await ensure_index(handle)
+    max_depth = max(1, min(int(max_depth or 2), 4))
+    tree = _collect_workspace_tree(root, max_depth=max_depth)
+    deps = _parse_project_dependencies(root)
+    git_info = _collect_git_history(root, limit=git_commits)
+    return {
+        "root": str(root),
+        "tree": tree,
+        "dependencies": deps,
+        "git": git_info,
+        "bm25_index": handle.index.stats(),
+        "privacy_guard": {
+            "local_chats_blocked": True,
+            "personal_data_blocked": True,
+            "secrets_blocked": True,
+        },
+    }
+
+
+async def tool_code_workspace_map(args: dict, ctx: ToolContext) -> ToolResult:
+    try:
+        data = await build_workspace_map(
+            ctx.svc,
+            raw_root=args.get("root"),
+            workspace=ctx.workspace,
+            ctx=ctx,
+            max_depth=int(args.get("max_depth") or 2),
+            git_commits=int(args.get("git_commits") or 10),
+        )
+    except (PermissionError, FileNotFoundError) as exc:
+        return _err(f"code.workspace_map: {exc}")
+    except Exception as exc:
+        return _err(f"code.workspace_map: {type(exc).__name__}: {exc}")
+
+    text = json.dumps(data, ensure_ascii=False, indent=2)
+    truncated = len(text) > OUTPUT_LIMIT
+    return ToolResult(
+        content=text[:OUTPUT_LIMIT] if truncated else text,
+        one_line=(
+            f"code.workspace_map: {len(data['tree'])} путей, "
+            f"ветка {data['git'].get('branch')}, коммитов {len(data['git'].get('recent_commits') or [])}"
+        ),
+        truncated=truncated,
+        more="уменьшите max_depth или используйте code.search" if truncated else "",
+        data=data,
+    )
+
+
+def validate_probe_url(url: str) -> tuple[bool, str]:
+    """Validate that an endpoint probe URL is either an allowed local project dev port
+    or a safe public HTTP(S) endpoint passing SSRF checks."""
+    raw = str(url or "").strip()
+    if not raw:
+        return False, "пустой URL"
+    try:
+        parsed = urlparse(raw)
+    except Exception as exc:
+        return False, f"некорректный URL: {exc}"
+    if parsed.scheme not in ("http", "https"):
+        return False, f"разрешены только схемы http/https (получено {parsed.scheme!r})"
+    if parsed.username or parsed.password:
+        return False, "учётные данные в URL запрещены"
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False, "не указан хост"
+    if host in ("127.0.0.1", "localhost", "::1"):
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        if port not in ALLOWED_LOCAL_DEV_PORTS:
+            return False, (
+                f"локальный порт {port} не входит в список разрешённых dev-портов проекта "
+                f"({sorted(ALLOWED_LOCAL_DEV_PORTS)})"
+            )
+        return True, ""
+    from ..v2.browser_control import resolved_target_refusal
+    refusal = resolved_target_refusal(raw)
+    if refusal:
+        return False, f"запрос заблокирован сетевым фильтром (SSRF/LAN): {refusal}"
+    return True, ""
+
+
+async def tool_code_probe_endpoint(args: dict, ctx: ToolContext) -> ToolResult:
+    url = str(args.get("url") or "").strip()
+    method = str(args.get("method") or "GET").upper().strip()
+    if method not in ("GET", "HEAD"):
+        return _err(f"code.probe_endpoint: разрешены только безопасные методы GET и HEAD (получено {method!r})")
+    ok, reason = validate_probe_url(url)
+    if not ok:
+        return _err(f"code.probe_endpoint: {reason}")
+    try:
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=False, trust_env=False) as client:
+            resp = await client.request(method, url, headers={"Accept": "application/json, text/plain, */*"})
+            body_preview = resp.text[:4000] if method == "GET" else ""
+            payload = {
+                "url": url,
+                "method": method,
+                "status_code": resp.status_code,
+                "content_type": resp.headers.get("content-type", ""),
+                "body_preview": body_preview,
+            }
+    except Exception as exc:
+        return _err(f"code.probe_endpoint: {type(exc).__name__}: {exc}")
+
+    return ToolResult(
+        content=json.dumps(payload, ensure_ascii=False, indent=2),
+        one_line=f"code.probe_endpoint: {method} {url} -> HTTP {payload['status_code']}",
+        data=payload,
+        external=True,
+    )
+
+
+def _scrubbed_sandbox_env(scratch_dir: Path) -> dict[str, str]:
+    """Build a secret-free, network-disabled environment for isolated sandbox test/syntax runs."""
+    clean: dict[str, str] = {}
+    for k, v in os.environ.items():
+        if _SENSITIVE_ENV_KEY_RE.search(k):
+            continue
+        clean[k] = v
+    clean["PYTHONDONTWRITEBYTECODE"] = "1"
+    clean["PYTHONUTF8"] = "1"
+    clean["NO_PROXY"] = "*"
+    clean["HTTP_PROXY"] = "http://127.0.0.1:9"
+    clean["HTTPS_PROXY"] = "http://127.0.0.1:9"
+    clean["ALL_PROXY"] = "http://127.0.0.1:9"
+    clean["PIP_NO_INDEX"] = "1"
+    clean["PIP_DISABLE_PIP_VERSION_CHECK"] = "1"
+    clean["TMP"] = str(scratch_dir)
+    clean["TEMP"] = str(scratch_dir)
+    clean["TMPDIR"] = str(scratch_dir)
+    return clean
+
+
+async def tool_sandbox_run_check(args: dict, ctx: ToolContext) -> ToolResult:
+    """Run an allowlisted verification check (pytest, compileall, ast_check) inside
+    an isolated sandbox environment with scrubbed secrets and disabled network."""
+    target_raw = str(args.get("target") or "").strip()
+    check_kind = str(args.get("check_kind") or "pytest").strip().lower()
+    if check_kind not in ("pytest", "compileall", "ast_check"):
+        return _err(f"sandbox.run_check: недопустимый check_kind={check_kind!r} (разрешены pytest, compileall, ast_check)")
+    if not target_raw:
+        return _err("sandbox.run_check: нужен относительный путь target внутри проекта")
+    if any(ch in target_raw for ch in (";", "|", "&", "`", "$", ">", "<", "\n", "\r")):
+        return _err("sandbox.run_check: метасимволы оболочки в target запрещены")
+
+    blocked, reason = is_private_chat_or_personal_path(target_raw)
+    if blocked:
+        return _err(f"sandbox.run_check: {reason}")
+
+    try:
+        root = await resolve_root(ctx.svc, args.get("root"), ctx.workspace, ctx)
+    except (PermissionError, FileNotFoundError) as exc:
+        return _err(f"sandbox.run_check: {exc}")
+
+    candidate = (root / target_raw).resolve()
+    if not _within(candidate, [root]):
+        return _err(f"sandbox.run_check: путь {target_raw!r} выходит за пределы корня проекта {root}")
+    blocked_cand, reason_cand = is_private_chat_or_personal_path(candidate)
+    if blocked_cand:
+        return _err(f"sandbox.run_check: {reason_cand}")
+    if not candidate.exists():
+        return _err(f"sandbox.run_check: путь не найден: {candidate}")
+
+    own_scratch = scratch.ensure(scratch.for_context(ctx))
+    sandbox_tmp = own_scratch / "sandbox_tmp"
+    sandbox_tmp.mkdir(parents=True, exist_ok=True)
+    env = _scrubbed_sandbox_env(sandbox_tmp)
+
+    if check_kind == "pytest":
+        argv = [
+            sys.executable, "-m", "pytest", str(candidate),
+            "-q", "--basetemp", str(sandbox_tmp / "pytest"),
+        ]
+    elif check_kind == "compileall":
+        argv = [sys.executable, "-m", "compileall", "-q", str(candidate)]
+    else:
+        if not candidate.is_file():
+            return _err("sandbox.run_check: ast_check требует путь к файлу .py")
+        try:
+            import ast as _ast
+            _ast.parse(candidate.read_text(encoding="utf-8"), filename=str(candidate))
+            return ToolResult(
+                content=f"AST check PASS: {candidate.relative_to(root)}",
+                one_line=f"sandbox.run_check: ast_check PASS ({candidate.name})",
+                data={"exit_code": 0, "check_kind": "ast_check", "target": str(candidate.relative_to(root))},
+            )
+        except SyntaxError as exc:
+            return ToolResult(
+                content=f"AST SyntaxError: {exc}",
+                one_line=f"sandbox.run_check: ast_check FAIL ({candidate.name})",
+                error=True,
+                data={"exit_code": 1, "check_kind": "ast_check", "error": str(exc)},
+            )
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            cwd=str(root),
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        try:
+            out_bytes, _ = await asyncio.wait_for(proc.communicate(), timeout=60.0)
+        except asyncio.TimeoutError:
+            proc.kill()
+            return _err("sandbox.run_check: превышен лимит времени 60с")
+        exit_code = int(proc.returncode or 0)
+        output = (out_bytes or b"").decode("utf-8", errors="replace")
+    except Exception as exc:
+        return _err(f"sandbox.run_check: {type(exc).__name__}: {exc}")
+
+    truncated = len(output) > OUTPUT_LIMIT
+    return ToolResult(
+        content=output[:OUTPUT_LIMIT] if truncated else output,
+        one_line=f"sandbox.run_check ({check_kind}): exit_code={exit_code}",
+        truncated=truncated,
+        more="сузьте target до конкретного тестового файла" if truncated else "",
+        error=(exit_code != 0),
+        data={
+            "exit_code": exit_code,
+            "check_kind": check_kind,
+            "target": str(candidate.relative_to(root)).replace("\\", "/"),
+            "network_isolated": True,
+            "secrets_scrubbed": True,
+        },
+    )
+
+
+@router.get("/code/workspace-map")
+async def http_workspace_map(request: Request, root: str = "", max_depth: int = 2, git_commits: int = 10):
+    svc = request.app.state.svc
+    try:
+        return await build_workspace_map(
+            svc, raw_root=root or None, max_depth=max_depth, git_commits=git_commits,
+        )
+    except (PermissionError, FileNotFoundError) as exc:
+        raise HTTPException(403, {"message": str(exc)})
+
+
+@router.post("/code/probe-endpoint")
+async def http_probe_endpoint(request: Request):
+    body = await request.json()
+    url = str(body.get("url") or "").strip()
+    method = str(body.get("method") or "GET").upper().strip()
+    if method not in ("GET", "HEAD"):
+        raise HTTPException(400, {"message": "разрешены только GET и HEAD"})
+    ok, reason = validate_probe_url(url)
+    if not ok:
+        raise HTTPException(403, {"message": reason})
+    res = await tool_code_probe_endpoint({"url": url, "method": method}, ToolContext(svc=request.app.state.svc, task={}, run_id=0, agent={}))
+    if res.error:
+        raise HTTPException(502, {"message": res.content})
+    return res.data
+
+
+@router.get("/code/gemma-kit")
+async def http_gemma_kit_status(request: Request):
+    svc = request.app.state.svc
+    roots = [str(x) for x in await allowed_roots(svc)]
+    return {
+        "model": GEMMA4_DEFAULT_MODEL,
+        "tools": GEMMA4_KIT_TOOLS,
+        "permissions": GEMMA4_KIT_PERMISSIONS,
+        "allowed_roots": roots,
+        "allowed_local_dev_ports": sorted(ALLOWED_LOCAL_DEV_PORTS),
+        "policy_boundaries": {
+            "auto": [
+                "code.search (BM25)", "code.expand", "code.index", "code.status",
+                "code.workspace_map (tree + dependencies + git log)",
+                "code.probe_endpoint (safe HTTP GET/HEAD readiness)",
+                "sandbox.run_check (isolated pytest/compileall/ast_check, no secrets, no network)",
+                "terminal.run (git status/diff/log, pytest, ruff, npm test in project root)",
+                "computer.observe (allowlisted project windows)",
+                "browser.open / browser.read_dom / browser.screenshot",
+            ],
+            "ask_owner_approval": [
+                "terminal.run: pip/npm/uv install, docker compose up, git push, network in sandbox",
+                "computer.act: one-shot approval per desktop action (bound to generation + hwnd + pid, instant STOP)",
+                "coding-tasks apply: applying verified isolated worktree patch to canonical branch",
+            ],
+            "hard_deny": [
+                "local chats & messengers (Telegram tdata, WhatsApp, Signal, Viber, Discord, private chat archives)",
+                "personal data & browser profiles (User Data, cookies, Pictures, Videos, Contacts)",
+                "secrets & keys (.env, .dpapi, provider-keys, wallets, SSH keys)",
+                "destructive & offensive commands (git push --force, git reset --hard, disk format, nmap/exploits)",
+            ],
+        },
+    }
+
+
+@router.post("/code/gemma-kit/provision")
+async def http_gemma_kit_provision(request: Request):
+    """Provision or update the local Gemma 4 agent with the full governed Workspace Kit."""
+    from ..db import agents as agents_t, models as models_t, providers as providers_t, utcnow
+
+    svc = request.app.state.svc
+    body = await request.json() if await request.body() else {}
+    model_name = str(body.get("model") or GEMMA4_DEFAULT_MODEL).strip()
+    agent_name = str(body.get("agent_name") or "Gemma 4 Workspace Engineer").strip()
+
+    repo = _repo_root()
+    current_roots = [str(x) for x in await allowed_roots(svc)]
+    if str(repo) not in current_roots:
+        current_roots.append(str(repo))
+    await _write_setting_json(svc, CODE_ROOTS_KEY, current_roots)
+    await _write_setting_json(svc, TERMINAL_ROOTS_KEY, current_roots)
+
+    async with svc.db.session() as s:
+        prov_row = (await s.execute(
+            sa.select(providers_t.c.id).where(providers_t.c.name == "Local Ollama")
+        )).first()
+        if prov_row:
+            provider_id = int(prov_row[0])
+        else:
+            res_p = await s.execute(sa.insert(providers_t).values(
+                name="Local Ollama",
+                kind="openai_compat",
+                base_url="http://127.0.0.1:11434/v1",
+                created_at=utcnow(),
+            ))
+            provider_id = int(res_p.inserted_primary_key[0])
+
+        mod_row = (await s.execute(
+            sa.select(models_t.c.id).where(models_t.c.name == model_name)
+        )).first()
+        if mod_row:
+            model_id = int(mod_row[0])
+            await s.execute(sa.update(models_t).where(models_t.c.id == model_id).values(
+                caps={"chat": True, "tools": True, "code": True},
+                context_window=32768,
+            ))
+        else:
+            res_m = await s.execute(sa.insert(models_t).values(
+                provider_id=provider_id,
+                name=model_name,
+                alias=model_name,
+                caps={"chat": True, "tools": True, "code": True},
+                context_window=32768,
+            ))
+            model_id = int(res_m.inserted_primary_key[0])
+
+        ag_row = (await s.execute(
+            sa.select(agents_t.c.id).where(agents_t.c.name == agent_name)
+        )).first()
+        sys_prompt = (
+            "Ты — Gemma 4 Workspace Engineer в составе команды Bossman. "
+            "Работай автономно в рамках разрешённого workspace проекта: используй code.workspace_map и code.search (BM25) "
+            "для анализа архитектуры, зависимостей и истории коммитов; sandbox.run_check и terminal.run — для запуска тестов; "
+            "code.probe_endpoint и browser.* — для проверки API и фронтенда; computer.observe — для мониторинга окон. "
+            "Строго запрещено обращаться к локальным чатам, мессенджерам, личным данным и секретам владельца."
+        )
+        if ag_row:
+            agent_id = int(ag_row[0])
+            await s.execute(sa.update(agents_t).where(agents_t.c.id == agent_id).values(
+                model_id=model_id,
+                system_prompt=sys_prompt,
+                tools=GEMMA4_KIT_TOOLS,
+                permissions=GEMMA4_KIT_PERMISSIONS,
+                max_steps=12,
+                max_tokens=4096,
+            ))
+        else:
+            res_a = await s.execute(sa.insert(agents_t).values(
+                name=agent_name,
+                model_id=model_id,
+                system_prompt=sys_prompt,
+                tools=GEMMA4_KIT_TOOLS,
+                permissions=GEMMA4_KIT_PERMISSIONS,
+                max_steps=12,
+                max_tokens=4096,
+                created_at=utcnow(),
+            ))
+            agent_id = int(res_a.inserted_primary_key[0])
+        await s.commit()
+
+    return {
+        "provisioned": True,
+        "provider_id": provider_id,
+        "model_id": model_id,
+        "model_name": model_name,
+        "agent_id": agent_id,
+        "agent_name": agent_name,
+        "tools": GEMMA4_KIT_TOOLS,
+        "permissions": GEMMA4_KIT_PERMISSIONS,
+        "allowed_roots": current_roots,
+        "privacy_guard": {
+            "local_chats_blocked": True,
+            "personal_data_blocked": True,
+            "secrets_blocked": True,
+        },
+    }
+
+
 SPECS = [
     ToolSpec(
         name="code.search", handler=tool_code_search, source="builtin", category="read",
@@ -447,6 +1060,32 @@ SPECS = [
         default_effect="auto", timeout_seconds=30.0,
         description="Статус локального индекса кода.",
         input_schema={"root": {"type": "string"}}),
+    ToolSpec(
+        name="code.workspace_map", handler=tool_code_workspace_map, source="builtin", category="read",
+        permission="filesystem.read", default_effect="auto", timeout_seconds=60.0,
+        description="Карта workspace проекта: структура папок, зависимости (pyproject/package.json), ветка и история коммитов Git, статус BM25-индекса.",
+        input_schema={
+            "root": {"type": "string"},
+            "max_depth": {"type": "integer", "minimum": 1, "maximum": 4},
+            "git_commits": {"type": "integer", "minimum": 1, "maximum": 30},
+        }),
+    ToolSpec(
+        name="code.probe_endpoint", handler=tool_code_probe_endpoint, source="builtin", category="read",
+        permission="browser.read", default_effect="auto", timeout_seconds=10.0, external_output=True,
+        description="Безопасная проверка доступности (HTTP GET/HEAD) локальных dev-серверов проекта или публичных HTTPS API с защитой от SSRF.",
+        input_schema={
+            "url": {"type": "string"},
+            "method": {"type": "string", "enum": ["GET", "HEAD"]},
+        }, required=["url"]),
+    ToolSpec(
+        name="sandbox.run_check", handler=tool_sandbox_run_check, source="builtin", category="exec",
+        permission="terminal.run", default_effect="auto", timeout_seconds=65.0,
+        description="Запустить изолированную проверку (pytest, compileall, ast_check) в песочнице проекта без секретов в окружении и без доступа к сети.",
+        input_schema={
+            "target": {"type": "string"},
+            "check_kind": {"type": "string", "enum": ["pytest", "compileall", "ast_check"]},
+            "root": {"type": "string"},
+        }, required=["target"]),
 ]
 
 
