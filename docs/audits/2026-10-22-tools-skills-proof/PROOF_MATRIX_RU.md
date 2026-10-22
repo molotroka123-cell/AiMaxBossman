@@ -3,7 +3,7 @@
 Независимая проверка на `origin/main 09d4a025`, синтетические данные, песочница вместо LOCALAPPDATA. Статус не повышался: нет пробы = NOT_RUN. PROVEN_EXECUTED у навыка = доказан ВЫБОР и ДОСТАВКА текста, не изменение результата.
 
 **Инструменты (112):** PROVEN_EXECUTED=19, PROVEN_GATED=5, STRUCTURAL_ONLY=0, FAILED=1, NOT_RUN=87
-**Навыки (67):** PROVEN_EXECUTED=12, PROVEN_GATED=5, STRUCTURAL_ONLY=50, FAILED=0, NOT_RUN=0
+**Навыки (68):** PROVEN_EXECUTED=12, PROVEN_GATED=5, STRUCTURAL_ONLY=51, FAILED=0, NOT_RUN=0
 **Заявления Argon (20):** PROVEN_EXECUTED=8, PROVEN_GATED=0, STRUCTURAL_ONLY=9, FAILED=1, NOT_RUN=2
 **Меняет ли навык результат:** `OUTCOME_UNPROVEN`
 
@@ -14,18 +14,18 @@
 | terminal.run | Terminal | terminal.run | ask | PROVEN_EXECUTED | ASK->approve wrote marker (pre-approval absent=True, content proof-42); reject/deny/self-approve/outside-root all blocked | executes via project_host only (sandbox needs docker); python -c is ASK even when terminal.run is granted |
 | terminal.stdin | Terminal | terminal.run | ask | PROVEN_EXECUTED | stdin 'abcdef' -> process printed got:fedcba, read back via terminal.status; effect=('auto', 'executed') | granted terminal.run lets stdin/kill run without a fresh ask (by design: effect auto when the permission is he |
 | terminal.status | Terminal | terminal.read | auto | PROVEN_EXECUTED | returned live output of the running session; unknown session refused ('не найдена') |  |
-| terminal.kill | Terminal | terminal.run | auto | PROVEN_EXECUTED | pid 28392 alive before, gone after (tasklist, independent of the tool) |  |
+| terminal.kill | Terminal | terminal.run | auto | PROVEN_EXECUTED | pid 18496 alive before, gone after (tasklist, independent of the tool) |  |
 | memory.index | Memory |  | auto | PROVEN_EXECUTED | forced index of 3 synthetic notes ('индекс обновлён'), a later new note became searchable after re-index | BM25 lexical backend (sqlite) on a 3-note synthetic vault; semantic/qdrant backends not exercised |
 | memory.stats | Memory |  | auto | PROVEN_EXECUTED | stats string returned for the indexed vault | BM25 lexical backend (sqlite) on a 3-note synthetic vault; semantic/qdrant backends not exercised |
 | memory.search | Memory |  | auto | PROVEN_EXECUTED | payments-rollback.md ranked first for the rollback query; nonsense query returned 'ничего не найдено' | BM25 lexical backend (sqlite) on a 3-note synthetic vault; semantic/qdrant backends not exercised |
 | memory.expand | Memory |  | auto | PROVEN_EXECUTED | chunk_hash taken from the search output expanded to the full 'Payments rollback' section | BM25 lexical backend (sqlite) on a 3-note synthetic vault; semantic/qdrant backends not exercised |
-| memory.write | Memory | filesystem.write | ask | PROVEN_EXECUTED | ASK->approve; vault had no BOSSMAN Memory notes before approval, note ['2026-10-21-2237-Latency-budget-lesson.md'] with the content after; an sk- key inside the text was  | BM25 lexical backend (sqlite) on a 3-note synthetic vault; semantic/qdrant backends not exercised |
+| memory.write | Memory | filesystem.write | ask | PROVEN_EXECUTED | ASK->approve; vault had no BOSSMAN Memory notes before approval, note ['2026-10-22-1000-Latency-budget-lesson.md'] with the content after; an sk- key inside the text was  | BM25 lexical backend (sqlite) on a 3-note synthetic vault; semantic/qdrant backends not exercised |
 | memory.fact.add | Memory | filesystem.write | ask | PROVEN_EXECUTED | 2 adds each ASK->approve->executed; preview names tool | SQLite fact store on a synthetic subject; no LLM involved |
 | memory.fact.search | Memory |  | auto | PROVEN_EXECUTED | current-only search returns Team Beta only (Alpha invalidated by replace-current) | SQLite fact store on a synthetic subject; no LLM involved |
 | memory.fact.at_time | Memory |  | auto | PROVEN_EXECUTED | world_at 2025-06 -> Alpha only; world_at 2026-06 -> Beta only (bi-temporal) | SQLite fact store on a synthetic subject; no LLM involved |
 | memory.fact.history | Memory |  | auto | PROVEN_EXECUTED | history lists both facts | SQLite fact store on a synthetic subject; no LLM involved |
 | code.index | Files |  | auto | PROVEN_EXECUTED | background index started over a 2-file synthetic repo ('индексация запущена') |  |
-| code.status | Files |  | auto | PROVEN_EXECUTED | index stats returned ({"files": 2, "chunks": 2, "terms": 42, "index_path": "C:\\Users\\asd\\AppData\\Local\\Temp\\proof-y…) |  |
+| code.status | Files |  | auto | PROVEN_EXECUTED | index stats returned ({"files": 2, "chunks": 2, "terms": 42, "index_path": "C:\\Users\\asd\\AppData\\Local\\Temp\\proof-t…) |  |
 | code.search | Files |  | auto | PROVEN_EXECUTED | top-1 hit = billing/invoice.py::compute_invoice_total for the invoice query and auth/login.py::verify_password for the password query | local BM25 over a tiny repo |
 | code.expand | Files |  | auto | FAILED | handler works with a hash from the index, BUT code.search's text never prints chunk_hash, so the model has no way to obtain a valid argument | USABILITY DEFECT: memory.search prints 'chunk_hash:' but code.search does not (data.chunk_hashes is dropped by |
 | mimik.guide | Diagnostics |  | auto | PROVEN_EXECUTED | 2 action steps -> checklist with execution_status NOT_RUN, network_requests=0; an embedded 'run rm -rf /' step stayed text; both inputs refused | text-to-checklist adapter only: it does not record the screen or execute steps (its own limitations list says  |
@@ -173,6 +173,7 @@
 | agents-skills/model-eval | STRUCTURAL_ONLY | parsed; manifest errors=0, warnings=0; required_tools=-; body=948 chars | registered/parses/manifest-valid only; not run through /api/skills/{id}/run and the engine in this section (ti |
 | agents-skills/motion-graphics-effectcraft | STRUCTURAL_ONLY | parsed; manifest errors=0, warnings=0; required_tools=-; body=2732 chars | registered/parses/manifest-valid only; not run through /api/skills/{id}/run and the engine in this section (ti |
 | agents-skills/night-mission | STRUCTURAL_ONLY | parsed; manifest errors=0, warnings=0; required_tools=-; body=922 chars | registered/parses/manifest-valid only; not run through /api/skills/{id}/run and the engine in this section (ti |
+| agents-skills/north-star-tree-hygiene | STRUCTURAL_ONLY | parsed; manifest errors=0, warnings=0; required_tools=['code.status', 'terminal.run', 'memory.search']; body=1620 chars | registered/parses/manifest-valid only; not run through /api/skills/{id}/run and the engine in this section (ti |
 | agents-skills/obsidian-knowledge | STRUCTURAL_ONLY | parsed; manifest errors=0, warnings=0; required_tools=-; body=376 chars | registered/parses/manifest-valid only; not run through /api/skills/{id}/run and the engine in this section (ti |
 | agents-skills/open-news | STRUCTURAL_ONLY | parsed; manifest errors=0, warnings=0; required_tools=['open_news.process', 'open_news.search']; body=2263 chars | registered/parses/manifest-valid only; not run through /api/skills/{id}/run and the engine in this section (ti |
 | agents-skills/openrouter-sync | STRUCTURAL_ONLY | parsed; manifest errors=0, warnings=0; required_tools=-; body=1339 chars | registered/parses/manifest-valid only; not run through /api/skills/{id}/run and the engine in this section (ti |
