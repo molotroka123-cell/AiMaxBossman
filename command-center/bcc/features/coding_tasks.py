@@ -51,6 +51,7 @@ real tool call — or the page shows the handshake's reason.
 from __future__ import annotations
 
 import asyncio
+import logging
 import hashlib
 import importlib
 import json
@@ -996,6 +997,21 @@ def _call_execute(record: dict, repo: Path, body: TaskIn, context: dict | None,
     return _execute(record, repo, body, context, env, command)
 
 
+async def _refresh_free_workers(svc, candidates: list[str], data_dir) -> None:
+    """OpenRouter rotates ``:free`` models; swap retired/unavailable ones for live free ones (cached 6 h).
+    Never fatal: on any error the configured model is used and fails visibly as before."""
+    if not any(str(WORKERS[w].get("model", "")).endswith(":free") for w in candidates):
+        return
+    try:
+        from .. import free_models
+        key = await _worker_key("OPENROUTER_API_KEY", svc)
+        if key:
+            await asyncio.to_thread(free_models.refresh_workers, WORKERS, key,
+                                    Path(data_dir) if data_dir else None)
+    except Exception:  # noqa: BLE001
+        logging.getLogger(__name__).warning("free model refresh failed", exc_info=True)
+
+
 async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None = None) -> None:
     try:
         data_dir = getattr(getattr(svc, "settings", None), "data_dir", None)
@@ -1006,6 +1022,7 @@ async def _run(svc, record: dict, repo: Path, body: TaskIn, context: dict | None
             ]
             attempts: list[dict[str, Any]] = []
             final: dict[str, Any] | None = None
+            await _refresh_free_workers(svc, candidates, data_dir)
             for idx, wid in enumerate(candidates):
                 key = await _worker_key(WORKERS[wid]["key"], svc)
                 if not key:
