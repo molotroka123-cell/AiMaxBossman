@@ -153,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
     rep = run_audit()
     print(to_html(rep) if a.pult else json.dumps(rep, ensure_ascii=False, indent=1))
     if a.json:
-        with open(a.json, "w", encoding="utf-8") as fh:
+        with open(a.json, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(rep, fh, ensure_ascii=False, indent=1)
     if a.pult:
         from tools import pult_note
