@@ -214,6 +214,26 @@ async def _usage_anchor(svc: Any, live: list[tuple[int, dict]]) -> tuple[int, in
     return None
 
 
+async def _fixed_overhead(svc: Any, agent_id: int | None) -> tuple[int, int]:
+    """(токены, число инструментов): системный промпт агента + схемы РЕАЛЬНО выданных ему инструментов.
+
+    Это то, что уходит модели в каждом запросе помимо истории. Берётся из того же места, что и у движка
+    (`_executable_and_presented_tools`), поэтому в режиме code-mode считаются два фасадных инструмента."""
+    if agent_id is None:
+        return 0, 0
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(agents_t).where(agents_t.c.id == agent_id))).first()
+    if row is None:
+        return 0, 0
+    agent = dict(row._mapping)
+    from ..engine import _executable_and_presented_tools
+    _specs, schemas = _executable_and_presented_tools({}, agent)
+    schemas = schemas or []
+    tokens = estimate_tokens(str(agent.get("system_prompt") or ""))
+    tokens += sum(estimate_tokens(json.dumps(sc, ensure_ascii=False)) for sc in schemas)
+    return tokens, len(schemas)
+
+
 async def context_view(svc: Any, session_id: str, raw: dict) -> dict:
     """Датчик контекста сессии. Только числа и статусы: текст ходов сюда не попадает."""
     cfg = _session_cfg(svc, session_id)
@@ -221,6 +241,11 @@ async def context_view(svc: Any, session_id: str, raw: dict) -> dict:
     summary = str(raw.get("summary") or "")
     turns_n, chars, _max_prompt = _cli_limits()
     anchor = await _usage_anchor(svc, live)
+    overhead, tools_count = 0, 0
+    try:
+        overhead, tools_count = await _fixed_overhead(svc, await _resolve_session_agent_id(svc, cfg, raw))
+    except Exception:  # noqa: BLE001 - датчик не падает из-за каталога инструментов
+        overhead, tools_count = 0, 0
     if anchor is not None:
         anchor_idx, anchored = anchor
         since = [(i, t) for i, t in live if i > anchor_idx][-SINCE_ANCHOR_TURNS:]
@@ -230,12 +255,13 @@ async def context_view(svc: Any, session_id: str, raw: dict) -> dict:
             view = views.get(int(turn["task_id"])) or {}
             extra += (estimate_tokens(_sanitize(turn.get("text"))[:chars])
                       + estimate_tokens(_sanitize(view.get("result") or view.get("error") or "")[:chars]))
-        used, source = anchored + extra, "provider_usage"
+        used, source = anchored + extra, "provider_usage"      # tokens_in провайдера уже включает схемы и промпт
     else:
         try:
             used = estimate_tokens(await _compose_prompt(svc, raw, "", []))
         except Exception:  # noqa: BLE001 - датчик не должен падать из-за отказа сборки промпта
             used = estimate_tokens(summary)
+        used += overhead
         source = "estimate"
     window, window_source = await _context_window(svc, cfg, raw)
     pct = round(100.0 * used / window, 1) if window else None
@@ -247,6 +273,7 @@ async def context_view(svc: Any, session_id: str, raw: dict) -> dict:
         "left_pct": round(max(0.0, 100.0 - pct), 1) if pct is not None else None,
         "level": level_of(100.0 * used / window if window else None), "source": source,
         "compact": _compact_view(svc, session_id), "context_window_source": window_source,
+        "fixed_overhead_tokens": overhead, "tools_count": tools_count,
     }
 
 
