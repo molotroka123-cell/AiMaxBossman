@@ -190,5 +190,18 @@ async def test_agent_message_emits_sanitized_perf_spans_and_top_spans(tmp_path: 
             assert top_resp.status_code == 200
             top_data = top_resp.json()
             assert len(top_data["top_spans"]) >= 5
+
+            # CP-PERF-03: Verify skill fast_path and filtered_tools
+            assert body["matched_skill"] is not None
+            assert body["matched_skill"]["fast_path"] is True
+            assert "code.status" in body["matched_skill"]["filtered_tools"]
+
+            # CP-PERF-03: Verify compact mode-filtered tools payload reduction
+            full_tools = await client.get("/api/agent/tools")
+            compact_tools = await client.get("/api/agent/tools", params={"mode": "CODE", "compact": "1"})
+            assert full_tools.status_code == 200 and compact_tools.status_code == 200
+            assert len(compact_tools.content) < len(full_tools.content) * 0.45
+            assert compact_tools.json()["compact"] is True
+            assert compact_tools.json()["mode_filter"] == "CODE"
     finally:
         await svc.stop()

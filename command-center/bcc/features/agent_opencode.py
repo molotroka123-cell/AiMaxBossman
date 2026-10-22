@@ -225,6 +225,9 @@ def append_session_event(app_state: Any, session_id: str, event_type: str, paylo
     return _orch(svc).runtime(session_id).emit(event_type, **payload)
 
 
+ROUTER_CATALOG_TTL_S = 5.0
+
+
 class _OrchestratorState:
     def __init__(self) -> None:
         self.sessions: dict[str, AgentSessionRuntime] = {}
@@ -233,6 +236,10 @@ class _OrchestratorState:
         self.term_to_session: dict[str, str] = {}
         self.improve_runs: dict[str, dict[str, Any]] = {}
         self.lock = asyncio.Lock()
+        self.agent_meta_cache: tuple[int, int, dict[str, dict[str, Any]]] | None = None
+        self.router_catalog_cache: tuple[float, dict[str, Any], tuple[list, dict, dict]] | None = None
+        self.skill_index_cache: dict[str, tuple[str, dict[str, Any]]] = {}
+        self.tools_schema_cache: dict[tuple[str, bool], dict[str, Any]] = {}
 
     def runtime(self, session_id: str) -> AgentSessionRuntime:
         rt = self.sessions.get(session_id)
@@ -248,16 +255,31 @@ def _orch(svc: Any) -> _OrchestratorState:
     return st
 
 
+def invalidate_router_catalog_cache(svc: Any) -> None:
+    _orch(svc).router_catalog_cache = None
+
+
 def _agent_meta_path(svc: Any) -> Path:
     return Path(svc.settings.data_dir) / "terminal" / "agent-sessions-meta.json"
 
 
 def _read_agent_meta(svc: Any) -> dict[str, dict[str, Any]]:
     path = _agent_meta_path(svc)
+    st_orch = _orch(svc)
+    try:
+        st = path.stat()
+    except OSError:
+        st_orch.agent_meta_cache = None
+        return {}
+    hit = st_orch.agent_meta_cache
+    if hit is not None and hit[0] == st.st_mtime_ns and hit[1] == st.st_size:
+        return hit[2]
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(raw, dict) and isinstance(raw.get("sessions"), dict):
-            return raw["sessions"]
+            sessions = raw["sessions"]
+            st_orch.agent_meta_cache = (st.st_mtime_ns, st.st_size, sessions)
+            return sessions
     except (OSError, ValueError):
         pass
     return {}
@@ -269,6 +291,9 @@ def _write_agent_meta(svc: Any, sessions: dict[str, dict[str, Any]]) -> None:
     tmp = path.with_name(f".agent-meta.{secrets.token_hex(4)}.tmp")
     tmp.write_text(json.dumps({"version": 1, "sessions": sessions}, ensure_ascii=False, indent=1), encoding="utf-8")
     os.replace(tmp, path)
+    with contextlib.suppress(OSError):
+        st = path.stat()
+        _orch(svc).agent_meta_cache = (st.st_mtime_ns, st.st_size, dict(sessions))
 
 
 def _session_cfg(svc: Any, session_id: str) -> dict[str, Any]:
@@ -456,8 +481,26 @@ MODEL_TIERS: list[dict[str, Any]] = [
 ]
 
 
-async def build_model_router_catalog(svc: Any) -> dict[str, Any]:
+async def _cached_catalog(svc: Any) -> tuple[list, dict, dict]:
+    st_orch = _orch(svc)
+    now = time.monotonic()
+    hit = st_orch.router_catalog_cache
+    if hit is not None and (now - hit[0]) < ROUTER_CATALOG_TTL_S:
+        return hit[2]
+    await build_model_router_catalog(svc)
+    if st_orch.router_catalog_cache is not None:
+        return st_orch.router_catalog_cache[2]
+    return await _catalog(svc)
+
+
+async def build_model_router_catalog(svc: Any, *, force_refresh: bool = False) -> dict[str, Any]:
     """Return full OpenCode Model Router status across Tiers 1–5 + live DB registry."""
+    st_orch = _orch(svc)
+    now = time.monotonic()
+    hit = st_orch.router_catalog_cache
+    if not force_refresh and hit is not None and (now - hit[0]) < ROUTER_CATALOG_TTL_S:
+        return hit[1]
+
     agents, models, providers = await _catalog(svc)
     key_cache: dict[str, tuple[bool, str]] = {}
     for w_spec in WORKERS.values():
@@ -508,7 +551,7 @@ async def build_model_router_catalog(svc: Any) -> dict[str, Any]:
             "credential_source": key_src,
         })
 
-    return {
+    result = {
         "tiers": tiers_out,
         "workers": workers_out,
         "local_profiles": LOCAL_CODER_PROFILES,
@@ -516,6 +559,8 @@ async def build_model_router_catalog(svc: Any) -> dict[str, Any]:
         "default_chat_model": "gemma4-31b-uncensored:latest",
         "default_code_model": "qwen3-coder:30b",
     }
+    st_orch.router_catalog_cache = (time.monotonic(), result, (agents, models, providers))
+    return result
 
 
 def select_route_for_request(
@@ -828,45 +873,69 @@ def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None
 
     lib = _lib(svc)
     skills_map = lib.by_id()
+    st_orch = _orch(svc)
+    idx_cache = st_orch.skill_index_cache
+
     best_score = 0
-    best_skill = None
-    best_contract = None
+    best_entry: dict[str, Any] | None = None
     best_matched: list[str] = []
 
+    sorted_q_tokens = sorted(q_tokens)
     for sid, sk in skills_map.items():
-        if validate_manifest(sk)["errors"]:
+        fp = getattr(sk, "fingerprint", "")
+        cached = idx_cache.get(sid)
+        if cached is not None and cached[0] == fp:
+            entry = cached[1]
+        else:
+            valid_errors = validate_manifest(sk)["errors"]
+            if valid_errors:
+                idx_cache[sid] = (fp, {"valid": False})
+                continue
+            con = skill_contract(sk)
+            entry = {
+                "valid": True,
+                "contract": con,
+                "sid_low": sid.lower(),
+                "hay_id": f"{sid} {sk.name}".lower(),
+                "hay_desc": f"{sk.description} {sk.body[:1200]}".lower(),
+            }
+            idx_cache[sid] = (fp, entry)
+
+        if not entry.get("valid"):
             continue
-        con = skill_contract(sk)
-        hay_id = f"{sid} {sk.name}".lower()
-        hay_desc = f"{sk.description} {sk.body[:1200]}".lower()
+
+        hay_id = entry["hay_id"]
+        hay_desc = entry["hay_desc"]
         score = 0
         matched: list[str] = []
-        if sid.lower() in q:
+        if entry["sid_low"] in q:
             score += 12
             matched.append(sid)
-        for tok in sorted(q_tokens):
+        for tok in sorted_q_tokens:
             if tok in hay_id:
                 score += 4
                 matched.append(tok)
             elif tok in hay_desc:
                 score += 2
                 matched.append(tok)
-        # Boost when both domain terms (e.g., tree/927/registry/crlf/skill) co-occur
         if len(matched) >= 2 and score > best_score:
             best_score = score
-            best_skill = sk
-            best_contract = con
+            best_entry = entry
             best_matched = matched[:8]
 
-    if best_skill is None or best_contract is None or best_score < 6:
+    if best_entry is None or best_score < 6:
         return None
 
+    best_contract = best_entry["contract"]
+    req_tools = list(best_contract.required_tools)
     return {
         "id": best_contract.id,
         "name": best_contract.name,
         "version": best_contract.version,
         "fingerprint": best_contract.fingerprint[:16],
-        "required_tools": list(best_contract.required_tools),
+        "required_tools": req_tools,
+        "filtered_tools": req_tools,
+        "fast_path": best_score >= 8,
         "permissions": list(best_contract.permissions),
         "score": best_score,
         "matched_terms": best_matched,
@@ -881,7 +950,7 @@ def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None
 async def _resolve_agent_id_for_model(svc: Any, requested_agent_id: int | None, model_name: str | None) -> int | None:
     if requested_agent_id is not None:
         return requested_agent_id
-    agents, models, _providers = await _catalog(svc)
+    agents, models, _providers = await _cached_catalog(svc)
     if model_name:
         clean = model_name.removeprefix("local:").strip().lower()
         for ag in agents:
@@ -1339,51 +1408,90 @@ async def _complete_improve_after_approval(
 # API Endpoints (§7 & §8 Contracts)
 # ======================================================================
 
+_MODE_RELEVANT_TOOL_GROUPS: dict[str, frozenset[str]] = {
+    "CHAT": frozenset({"memory", "code", "git_worktree"}),
+    "CODE": frozenset({"code", "terminal", "git_worktree", "memory"}),
+    "COMPUTER": frozenset({"computer", "browser", "terminal", "memory"}),
+    "SELF-IMPROVE": frozenset({"code", "terminal", "git_worktree", "self_improve", "memory"}),
+}
+
+
 @router.get("/agent/tools")
-async def list_agent_tools(request: Request):
-    """Unified Tool Registry grouped by category (§8)."""
+async def list_agent_tools(
+    request: Request,
+    mode: str | None = Query(default=None),
+    compact: bool = Query(default=False),
+):
+    """Unified Tool Registry grouped by category (§8), with optional mode-based filtering and compact schema (`CP-PERF-03`)."""
+    svc = request.app.state.svc
+    st_orch = _orch(svc)
+    mode_key = (mode or "").strip().upper()
+    allowed_groups = _MODE_RELEVANT_TOOL_GROUPS.get(mode_key)
     specs = TOOL_REGISTRY.all()
+    cache_key = (f"{mode_key}:{len(specs)}", bool(compact))
+    cached = st_orch.tools_schema_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     grouped: dict[str, list[dict[str, Any]]] = {g: [] for g in TOOL_GROUPS}
     flat: list[dict[str, Any]] = []
 
     for spec in specs:
         group = classify_tool_group(spec.name, spec.source)
+        if allowed_groups is not None and group not in allowed_groups:
+            continue
         risk = classify_risk_level(spec.category, spec.default_effect, spec.permission)
-        item = {
-            "name": spec.name,
-            "api_name": spec.api_name,
-            "description": spec.description,
-            "category": spec.category,
-            "group": group,
-            "input_schema": {
-                "type": "object",
-                "properties": spec.input_schema or {},
+        if compact:
+            item = {
+                "name": spec.name,
+                "api_name": spec.api_name,
+                "description": (spec.description or "")[:160],
+                "category": spec.category,
+                "group": group,
                 "required": list(spec.required),
-            },
-            "output_schema": {
-                "type": "object",
-                "properties": {
-                    "content": {"type": "string"},
-                    "error": {"type": "boolean"},
-                    "truncated": {"type": "boolean"},
-                    "data": {"type": "object"},
+                "risk_level": risk,
+                "required_permissions": [spec.permission] if spec.permission else [],
+            }
+        else:
+            item = {
+                "name": spec.name,
+                "api_name": spec.api_name,
+                "description": spec.description,
+                "category": spec.category,
+                "group": group,
+                "input_schema": {
+                    "type": "object",
+                    "properties": spec.input_schema or {},
+                    "required": list(spec.required),
                 },
-            },
-            "risk_level": risk,
-            "default_effect": spec.default_effect,
-            "required_permissions": [spec.permission] if spec.permission else [],
-            "timeout": spec.timeout_seconds,
-            "execution_adapter": spec.source,
-            "idempotent": spec.idempotent,
-        }
+                "output_schema": {
+                    "type": "object",
+                    "properties": {
+                        "content": {"type": "string"},
+                        "error": {"type": "boolean"},
+                        "truncated": {"type": "boolean"},
+                        "data": {"type": "object"},
+                    },
+                },
+                "risk_level": risk,
+                "default_effect": spec.default_effect,
+                "required_permissions": [spec.permission] if spec.permission else [],
+                "timeout": spec.timeout_seconds,
+                "execution_adapter": spec.source,
+                "idempotent": spec.idempotent,
+            }
         grouped.setdefault(group, []).append(item)
         flat.append(item)
 
-    return {
+    payload = {
         "total": len(flat),
+        "mode_filter": mode_key or None,
+        "compact": bool(compact),
         "groups": grouped,
         "tools": flat,
     }
+    st_orch.tools_schema_cache[cache_key] = payload
+    return payload
 
 
 @router.get("/agent/models")
