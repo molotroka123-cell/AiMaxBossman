@@ -19,6 +19,12 @@ DANGEROUS = [
     re.compile(r"(?i)\brm\s+-rf\s+/(?:\s|$)"),
     re.compile(r"(?i)\bgit\s+push\b.*--force"),
     re.compile(r"(?i)\bgit\s+reset\s+--hard\b"),
+    re.compile(
+        r"(?i)\b(?:nmap|masscan|zmap|sqlmap|hydra|medusa|ncrack|john|hashcat|"
+        r"metasploit|msfconsole|msfvenom|nuclei|nikto|gobuster|ffuf|dirbuster|"
+        r"mimikatz|responder|impacket(?:-[a-z0-9_]+)?|crackmapexec|netexec|"
+        r"bloodhound|chisel|ligolo(?:-ng)?)\b"
+    ),
 ]
 #: Цели, рекурсивное удаление которых необратимо и агенту не нужно НИКОГДА:
 #: домашний каталог владельца и корни операционной системы. `rm -rf /` в

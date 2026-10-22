@@ -86,7 +86,7 @@ def check_tasks(f: list[dict]) -> None:
               " ForEach-Object { [pscustomobject]@{Name=$_.TaskName;Path=$_.TaskPath;Exec=($_.Actions | ForEach-Object { $_.Execute + ' ' + $_.Arguments }) -join ' | '} }")
     for t in _list(ps_json(script, timeout=120)):
         ex = str((t or {}).get("Exec") or "").lower()
-        if any(s in ex for s in ("\\temp\\", "\\appdata\\local\\temp", "-enc ", "-encodedcommand", "bitsadmin", "mshta", "wscript")):
+        if any(s in ex for s in ("\\temp\\", "/temp/", "c:/temp", "\\appdata\\local\\temp", "/appdata/local/temp", "-enc ", "-encodedcommand", "bitsadmin", "mshta", "wscript")):
             f.append({"severity": "MEDIUM", "check": "tasks", "detail": f"{t.get('Path')}{t.get('Name')}: {ex[:120]}"})
 
 

@@ -63,6 +63,10 @@ async def status() -> dict:
         dict(id="grapesjs", name="GrapesJS", page="web_designer", state="integrated",
              detail="Конструктор блоков в существующем редакторе сайтов.",
              upstream="https://github.com/GrapesJS/grapesjs"),
+        dict(id="obs_lite", name="obs-lite", page="control",
+             state="installed" if __import__("bcc.features.obs_lite_recorder", fromlist=["find_obs_lite_exe"]).find_obs_lite_exe() else "needs_setup",
+             detail="Аппаратная запись экрана H.264 (Rust, AMD 8060S Media Foundation) и автообрезка краёв через ffmpeg.",
+             upstream="https://github.com/25Dark25/obs-lite"),
     ]
     community_integrations = [
         dict(

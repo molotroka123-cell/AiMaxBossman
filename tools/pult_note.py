@@ -224,6 +224,41 @@ def send_document(path: Path, caption: str = "", *, html: bool = True, cdir: Pat
     return {"message_id": res["result"]["message_id"]}
 
 
+def build_video(chat, path: Path, caption: str = "", *, html: bool = True) -> tuple[bytes, str]:
+    """multipart/form-data body for sendVideo with supports_streaming=true."""
+    caption = (caption or "").strip()
+    if len(caption) > CAPTION_MAX:
+        caption = strip_tags(caption)[: CAPTION_MAX - 1] + "…"
+        html = False
+    boundary = uuid.uuid4().hex
+    fields = [("chat_id", str(chat)), ("supports_streaming", "true")] + ([("caption", caption)] if caption else [])
+    if caption and html:
+        fields.append(("parse_mode", "HTML"))
+    parts = [f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode("utf-8")
+             for k, v in fields]
+    name = path.name.replace('"', "")
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="video"; filename="{name}"\r\n'
+                 f"Content-Type: video/mp4\r\n\r\n".encode("utf-8") + path.read_bytes() + b"\r\n")
+    parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(parts), f"multipart/form-data; boundary={boundary}"
+
+
+def send_video(path: Path, caption: str = "", *, html: bool = True, cdir: Path | None = None,
+               post=_post_multipart) -> dict:
+    path = Path(path)
+    if not path.is_file():
+        raise PultNoteError(f"нет файла {path}")
+    cdir = cdir or companion_dir()
+    chat = owner_chat(cdir)
+    api = f"https://api.telegram.org/bot{read_token(cdir)}"
+    res = post(f"{api}/sendVideo", *build_video(chat, path, caption, html=html))
+    if not res.get("ok") and html and caption and "parse" in str(res.get("description", "")).lower():
+        res = post(f"{api}/sendVideo", *build_video(chat, path, strip_tags(caption), html=False))
+    if not res.get("ok"):
+        raise PultNoteError(f"Telegram отказал: {res.get('description', 'без описания')}")
+    return {"message_id": res["result"]["message_id"]}
+
+
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -233,6 +268,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--pin", action="store_true", help="закрепить сообщение")
     ap.add_argument("--html", action="store_true", help="Telegram HTML: <b>, <code>, <pre>; длинное делится по блокам")
     ap.add_argument("--doc", help="отправить файл; текст становится HTML-подписью (до 1024 символов)")
+    ap.add_argument("--video", help="отправить MP4-видео; текст становится HTML-подписью (до 1024 символов)")
     ap.add_argument("--dry-run", action="store_true", help="не отправлять, показать размер того, что уйдёт")
     a = ap.parse_args(argv)
     text = Path(a.file).read_text(encoding="utf-8-sig") if a.file else a.text
@@ -245,6 +281,9 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             body = build_payload(chat, text)
             print(json.dumps({"would_send_chars": len(json.loads(body)["text"]), "utf8_bytes": len(body)}))
+            return 0
+        if a.video:
+            print(json.dumps(send_video(Path(a.video), text)))
             return 0
         if a.doc:
             print(json.dumps(send_document(Path(a.doc), text)))

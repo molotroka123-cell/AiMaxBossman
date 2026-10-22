@@ -54,25 +54,25 @@ COMPANIES: list[dict] = [
                   "cs": ["řízen* střel*", "balistick* střel*", "bezpilot*"],
                   "uk": ["крилат* ракет*", "балістичн* ракет*", "бпла", "бпак", "безпілотн*", "ударн* дрон*"],
                   "ru": ["крылат* ракет*", "баллистическ* ракет*", "бпла", "беспилотн*", "ударн* дрон*"]}},
-    {"company": "Origin", "products": "VTOL-дроны и дроны-перехватчики, дроновые платформы",
-     "cpv_prefixes": ["35613000", "34711200"],
-     "keywords": {"en": ["vtol", "interceptor drone*", "uav", "uas", "unmanned aerial", "drone*"],
-                  "cs": ["dron*", "bezpilot*"],
-                  "uk": ["дрон*", "бпла", "безпілотн*", "перехоплювач*"],
-                  "ru": ["дрон*", "бпла", "беспилотн*", "перехватчик*"]}},
-    {"company": "Česká zbrojovka (CZ)", "country": "CZ", "products": "CZ BREN 2 BR 7.62×51",
-     "cpv_prefixes": ["35321000", "35341000"],
-     "keywords": {"en": ["rifle*", "carbine*", "small arms", "7.62"],
-                  "cs": ["pušk*", "pušek", "útočn* pušk*", "ručn* paln* zbra*"],
-                  "uk": ["гвинтівк*", "стрілецьк* збро*", "автомат* гвинтівк*"],
-                  "ru": ["винтовк*", "стрелков* оруж*"]}},
+    {"company": "Origin", "products": "VTOL-дроны и дроны-перехватчики, дроновые платформы, FPV-комплексы и аккумуляторы БПЛА",
+     "cpv_prefixes": ["35613000", "34711200", "31400000"],
+     "keywords": {"en": ["vtol", "interceptor drone*", "uav", "uas", "unmanned aerial", "drone*", "fpv"],
+                  "cs": ["dron*", "bezpilot*", "fpv", "baterie*"],
+                  "uk": ["дрон*", "бпла", "безпілотн*", "перехоплювач*", "fpv", "окуляри fpv", "акумулятор*", "matrice", "tulip tech"],
+                  "ru": ["дрон*", "бпла", "беспилотн*", "перехватчик*", "fpv", "аккумулятор*"]}},
+    {"company": "Česká zbrojovka (CZ)", "country": "CZ", "products": "CZ BREN 2 BR 7.62×51, стрелковое оружие, ЗИП, оружейные ремни, мишенные и тренажёрные комплексы",
+     "cpv_prefixes": ["35321000", "35341000", "35340000", "35740000"],
+     "keywords": {"en": ["rifle*", "carbine*", "small arms", "7.62", "weapon sling*", "weapon part*", "shooting simulator*"],
+                  "cs": ["pušk*", "pušek", "útočn* pušk*", "ručn* paln* zbra*", "popruh* na zbra*", "příslušenstv* k zbra*", "náhradn* díl*"],
+                  "uk": ["гвинтівк*", "стрілецьк* збро*", "автомат* гвинтівк*", "очищенн* збро*", "мішен*", "симулятор* бойов*", "тренажерн*", "страйкбольн*"],
+                  "ru": ["винтовк*", "стрелков* оруж*", "чистк* оруж*", "мишен*", "тренажер*"]}},
     {"company": "MKE", "country": "TR",
      "products": "винтовки MPT-76, MKE-300 BLK, KN-12, BORA-12; наземный робот (UGV) с дистанционным боевым модулем",
      "cpv_prefixes": ["35321000", "35400000"],
-     "keywords": {"en": ["rifle*", "shotgun*", "ugv", "unmanned ground vehicle*", "remote weapon station*", "rws"],
-                  "cs": ["pušk*", "pušek", "brokovnic*", "pozemn* robot*"],
-                  "uk": ["гвинтівк*", "рушниц*", "наземн* робот*", "бойов* модул*"],
-                  "ru": ["винтовк*", "ружь*", "наземн* робот*", "боев* модул*"]}},
+     "keywords": {"en": ["rifle*", "shotgun*", "ugv", "unmanned ground vehicle*", "remote weapon station*", "rws", "robotics"],
+                  "cs": ["pušk*", "pušek", "brokovnic*", "pozemn* robot*", "robotik*"],
+                  "uk": ["гвинтівк*", "рушниц*", "наземн* робот*", "бойов* модул*", "робототехнік*"],
+                  "ru": ["винтовк*", "ружь*", "наземн* робот*", "боев* модул*", "робототехник*"]}},
     {"company": "VEX Hungary (Hungarian Defense and Space Export Agency)", "country": "HU",
      "products": "PGSR-3i «Beagle» — радар наземного наблюдения",
      "cpv_prefixes": ["35722000", "38115000"],
@@ -88,12 +88,12 @@ COMPANIES: list[dict] = [
                   "uk": ["бпла", "дрон*", "безпілотн*"],
                   "ru": ["бпла", "дрон*", "беспилотн*"]}},
     {"company": "Omnipol Defence + APS (Advanced Protection Systems)", "country": "CZ",
-     "products": "FIELDctrl Range 3D — радар обнаружения дронов (FMCW 9,7–10 ГГц, микро-БПЛА до 9 км)",
-     "cpv_prefixes": ["35722000", "38115000", "35125000"],
-     "keywords": {"en": ["drone detection", "counter-uas", "c-uas", "counter-drone", "radar*"],
-                  "cs": ["detekc* dron*", "protidronov*", "radar*"],
-                  "uk": ["виявленн* дрон*", "протидрон*", "радар*", "рлс"],
-                  "ru": ["обнаружени* дрон*", "антидрон*", "радар*", "рлс"]},
+     "products": "FIELDctrl Range 3D — радар обнаружения дронов (FMCW 9,7–10 ГГц, микро-БПЛА до 9 км), тактическая радиосвязь и аксессуары",
+     "cpv_prefixes": ["35722000", "38115000", "35125000", "32230000", "32236000"],
+     "keywords": {"en": ["drone detection", "counter-uas", "c-uas", "counter-drone", "radar*", "handheld radio*", "tactical radio*"],
+                  "cs": ["detekc* dron*", "protidronov*", "radar*", "radiostanic*", "komunikačn* prostředk*"],
+                  "uk": ["виявленн* дрон*", "протидрон*", "радар*", "рлс", "радіостанц*"],
+                  "ru": ["обнаружени* дрон*", "антидрон*", "радар*", "рлс", "радиостанц*"]},
      "notes": "общий стенд Omnipol Defence и APS; страна — по Omnipol"},
     {"company": "North Vector Dynamics", "products": "пусковая установка CM-70",
      "cpv_prefixes": ["35322000", "35342000"],
@@ -129,19 +129,19 @@ EXTRA_COMPANIES: list[dict] = [
                   "ru": ["прицел*", "коллиматор*", "тепловизор*", "ночн* видени*", "оптик*"]},
      "notes": "фото стенда forum-17.jpg и forum-18.jpg (Everything You Aim For)"},
     {"company": "GLOMEX Military Supplies", "country": "CZ", "website": "www.glomex-ms.com",
-     "products": "лётные шлемы и кислородные маски (Air Forces), баллистические шлемы, экипировка спецназа (Special Forces), крепления ПНВ",
-     "cpv_prefixes": ["35812000", "35810000", "18444000", "35113400"],
-     "keywords": {"en": ["helmet*", "ballistic helmet*", "flight helmet*", "protective gear", "body armour", "body armor"],
-                  "cs": ["přilb*", "balistick* přilb*", "leteck* přilb*", "výstroj*", "kukla", "vesta balistick*"],
-                  "uk": ["шолом*", "протикулев* шолом*", "балістичн* шолом*", "екіпіруванн*", "бронежилет*"],
-                  "ru": ["шлем*", "баллистическ* шлем*", "защитн* экипировк*", "бронежилет*"]},
+     "products": "лётные шлемы и кислородные маски (Air Forces), баллистические шлемы и жилеты, активные стрелковые наушники, тактическая форма/обувь/обогрев (Special Forces), крепления ПНВ",
+     "cpv_prefixes": ["35812000", "35810000", "18444000", "35113400", "18100000", "18200000", "18800000"],
+     "keywords": {"en": ["helmet*", "ballistic helmet*", "flight helmet*", "protective gear", "body armour", "body armor", "hearing protection", "tactical boots"],
+                  "cs": ["přilb*", "balistick* přilb*", "leteck* přilb*", "výstroj*", "kukla", "vesta balistick*", "střeleck* sluchátk*", "chránič* sluch*", "zimn* bund*", "tričk*", "zásahov* oblek*", "obuv zásahov*"],
+                  "uk": ["шолом*", "протикулев* шолом*", "балістичн* шолом*", "екіпіруванн*", "бронежилет*", "індивідуальн* обігрів*", "активн* навушник*"],
+                  "ru": ["шлем*", "баллистическ* шлем*", "защитн* экипировк*", "бронежилет*", "стрелков* наушник*", "индивидуальн* обогрев*"]},
      "notes": "фото стенда forum-19.jpg (GLOMEX Military Supplies — Air Forces / Special Forces)"},
     {"company": "EVPÚ Defence", "country": "CZ", "website": "www.evpudefence.com",
-     "products": "DSS — оптико-электронная мультисенсорная турель (дневная/тепловизионная камера, лазерный дальномер) и дистанционно управляемые боевые модули",
+     "products": "DSS — оптико-электронная мультисенсорная турель (дневная/тепловизионная камера, лазерный дальномер), носимые/бортовые камеры и дистанционно управляемые боевые модули",
      "cpv_prefixes": ["35720000", "38636000", "35125000", "35420000"],
-     "keywords": {"en": ["electro-optical", "gimbal*", "thermal camera*", "surveillance system*", "remote weapon station*"],
-                  "cs": ["elektrooptick*", "termokamer*", "pozorovac* systém*", "věž*"],
-                  "uk": ["оптико-електронн*", "тепловізор*", "гіростабілізован*", "спостереженн*"],
+     "keywords": {"en": ["electro-optical", "gimbal*", "thermal camera*", "surveillance system*", "remote weapon station*", "body camera*"],
+                  "cs": ["elektrooptick*", "termokamer*", "pozorovac* systém*", "věž*", "body kamer*"],
+                  "uk": ["оптико-електронн*", "тепловізор*", "гіростабілізован*", "спостереженн*", "бодікамер*"],
                   "ru": ["оптико-электронн*", "тепловизионн*", "гиростабилизированн*", "наблюдени*"]},
      "notes": "видео стенда IMG_1390.mov (турель DSS на треноге)"},
     {"company": "Sellier & Bellot", "country": "CZ", "website": "www.sellier-bellot.cz",
@@ -191,34 +191,54 @@ def records(*, include_extra: bool = False) -> list[tuple[str, dict]]:
     return out
 
 
-def seed(store: Store, *, include_extra: bool = False) -> dict:
-    created, existing = [], []
+def seed(store: Store, *, include_extra: bool = False, update_existing: bool = False) -> dict:
+    created, existing, updated = [], [], []
     for slug, doc in records(include_extra=include_extra):
         cid, new = store.add_contact(doc, slug=slug)
-        (created if new else existing).append(cid)
-    if created:                                                    # a re-run that adds nothing leaves no trace
-        store.audit("seed-cli", "contacts.seed", {"seed": "seed_forum_20261021", "created": created, "existing": len(existing)})
-    return {"created": len(created), "existing": len(existing), "total": len(created) + len(existing)}
+        if new:
+            created.append(cid)
+        else:
+            existing.append(cid)
+            if update_existing:
+                cur_doc = store.get_contact(cid) or {}
+                merged = {k: v for k, v in cur_doc.items() if k in contacts.FIELDS}
+                merged.update(doc)
+                store.update_contact(cid, merged)
+                updated.append(cid)
+    if created or updated:                                         # a re-run that adds nothing leaves no trace
+        store.audit("seed-cli", "contacts.seed", {
+            "seed": "seed_forum_20261021",
+            "created": created,
+            "updated": len(updated),
+            "existing": len(existing),
+        })
+    return {
+        "created": len(created),
+        "updated": len(updated),
+        "existing": len(existing),
+        "total": len(created) + len(existing),
+    }
 
 
-def seed_all(store: Store) -> dict:
+def seed_all(store: Store, *, update_existing: bool = False) -> dict:
     """Seed both original 13 forum stands and the 8 additional forum stands (21 total)."""
-    return seed(store, include_extra=True)
+    return seed(store, include_extra=True, update_existing=update_existing)
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m warterminal.seed_forum_20261021", description=__doc__.split("\n\n")[0])
     ap.add_argument("--data", default=None, help="data dir (default WAR_TERMINAL_DATA or ~/.war-terminal)")
     ap.add_argument("--include-extra", action="store_true", help="also seed batch-2 forum companies (21 total)")
+    ap.add_argument("--update-existing", action="store_true", help="update products/CPV/keywords on existing fmf2026 records")
     args = ap.parse_args(argv)
     data_dir = Path(args.data or os.environ.get("WAR_TERMINAL_DATA") or Path.home() / ".war-terminal")
     data_dir.mkdir(parents=True, exist_ok=True)
     store = Store(data_dir / "war.db")
     try:
-        res = seed(store, include_extra=bool(args.include_extra))
+        res = seed(store, include_extra=bool(args.include_extra), update_existing=bool(args.update_existing))
     finally:
         store.db.close()
-    print(f"[seed_forum_20261021] {data_dir / 'war.db'}: created {res['created']}, already present {res['existing']}, total {res['total']}", flush=True)
+    print(f"[seed_forum_20261021] {data_dir / 'war.db'}: created {res['created']}, updated {res.get('updated', 0)}, already present {res['existing']}, total {res['total']}", flush=True)
     return 0
 
 

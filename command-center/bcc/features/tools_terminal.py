@@ -55,6 +55,12 @@ HARD_DENY = [
      "доступ к кошельку/ключам"),
     (re.compile(r"(?i)\b(?:setenforce\s+0|ufw\s+disable|systemctl\s+stop\s+(?:firewalld|apparmor))\b"),
      "отключение защиты ОС"),
+    (re.compile(
+        r"(?i)\b(?:nmap|masscan|zmap|sqlmap|hydra|medusa|ncrack|john|hashcat|"
+        r"metasploit|msfconsole|msfvenom|nuclei|nikto|gobuster|ffuf|dirbuster|"
+        r"mimikatz|responder|impacket(?:-[a-z0-9_]+)?|crackmapexec|netexec|"
+        r"bloodhound|chisel|ligolo(?:-ng)?)\b"
+    ), "наступательные сетевые инструменты и эксплойты"),
 ]
 ASK_EXTRA = [
     (re.compile(r"(?i)\b(?:npm|pnpm|yarn|pip|pip3|poetry|uv)\s+(?:install|add)\b"), "установка пакетов"),

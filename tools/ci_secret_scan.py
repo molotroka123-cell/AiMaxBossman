@@ -46,6 +46,13 @@ PATTERNS = [
     # SEC-004: unquoted `PASSWORD=value` at the start of a line — the shape used by
     # .env files, where there are no quotes at all.
     ("unquoted env password", re.compile(r"(?im)^[A-Z][A-Z0-9_]*(?:PASSWORD|PASSWD)\s*=\s*[^\s\"']{8,}$")),
+    ("database uri credentials", re.compile(
+        r"(?i)\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqp)://"
+        r"[^/\s:@\"']+:[^/\s@\"']{6,}@(?!(?:localhost|127\.0\.0\.1)\b)[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)+"
+    )),
+    ("cloud paas token", re.compile(
+        r"(?i)\b(?:RAILWAY_TOKEN|RAILWAY_API_TOKEN|ZEABUR_TOKEN|ZEABUR_API_KEY|LITELLM_MASTER_KEY)\s*[:=]\s*[\"']?[A-Za-z0-9_.-]{16,}"
+    )),
 ]
 # Энтропия — только для кода и конфигурации; документация/UI-ассеты дают ложные
 # срабатывания на base64-картинках и хешах.
@@ -297,18 +304,43 @@ def _entropy_applies(path: Path) -> bool:
     return path.suffix.lower() in ENTROPY_SUFFIX
 
 
-def main() -> int:
-    findings = scan_paths([p for p in tracked_files() if p.is_file()], ROOT)
-    for p in untracked_files():
-        if not p.is_file():
-            continue
-        rel = p.relative_to(ROOT).as_posix()
-        try:
-            text = p.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        for item in scan_text(text, rel, entropy=_entropy_applies(p)):
-            findings.append(f"{item} (непрослеженный файл на диске)")
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else list(argv)
+    findings: list[str] = []
+    if args:
+        for raw_arg in args:
+            p = Path(raw_arg).resolve()
+            if not p.is_file():
+                findings.append(f"{raw_arg}: unscannable missing file")
+                continue
+            try:
+                rel = p.relative_to(ROOT).as_posix()
+            except ValueError:
+                rel = p.name
+            if any(rx.search(rel) for rx in FORBIDDEN_FILES):
+                findings.append(f"{rel}: forbidden file (.env / private key material)")
+            suffix = p.suffix.lower()
+            if suffix in ZIP_SUFFIX:
+                findings += scan_zip(p, rel)
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                findings.append(f"{rel}: unscannable unreadable file")
+                continue
+            findings += scan_text(text, rel, entropy=_entropy_applies(p))
+    else:
+        findings = scan_paths([p for p in tracked_files() if p.is_file()], ROOT)
+        for p in untracked_files():
+            if not p.is_file():
+                continue
+            rel = p.relative_to(ROOT).as_posix()
+            try:
+                text = p.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            for item in scan_text(text, rel, entropy=_entropy_applies(p)):
+                findings.append(f"{item} (непрослеженный файл на диске)")
     if findings:
         print("Potential secrets detected:", file=sys.stderr)
         for item in findings:

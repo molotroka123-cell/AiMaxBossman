@@ -1,0 +1,26 @@
+{
+  "schema": "bossman.skill_provenance.v1",
+  "status": "VERIFIED",
+  "sha256": "a3d6ea7e24b9662f5b85c633e17df959d2e502026ab1105ce84981de36657fcb",
+  "imported_at": "2026-10-22T14:33:00Z",
+  "source": {
+    "repo": "https://github.com/molotroka123-cell/AiMaxBossman",
+    "commit": "7c876d39",
+    "path": ".agents/skills/incident-response-local/SKILL.md"
+  },
+  "license": {
+    "spdx": "MIT",
+    "file": "LICENSE"
+  },
+  "selection": {
+    "priority": 10,
+    "triggers": [
+      "подозрительно",
+      "взлом",
+      "инцидент",
+      "лишние задачи планировщика",
+      "кто слушает порт",
+      "incident response"
+    ]
+  }
+}

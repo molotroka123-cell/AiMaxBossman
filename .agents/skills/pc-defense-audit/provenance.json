@@ -1,0 +1,25 @@
+{
+  "schema": "bossman.skill_provenance.v1",
+  "status": "VERIFIED",
+  "sha256": "181b8a1e15b7fff58f3ea24f32fc36fc0cab05ec324cdcbf5fb2a90a5a7f12c8",
+  "imported_at": "2026-10-22T14:33:00Z",
+  "source": {
+    "repo": "https://github.com/molotroka123-cell/AiMaxBossman",
+    "commit": "7c876d39",
+    "path": ".agents/skills/pc-defense-audit/SKILL.md"
+  },
+  "license": {
+    "spdx": "MIT",
+    "file": "LICENSE"
+  },
+  "selection": {
+    "priority": 10,
+    "triggers": [
+      "проверь защиту",
+      "аудит безопасности",
+      "киберзащита пк",
+      "pc defense audit",
+      "проверь порты и планировщик"
+    ]
+  }
+}

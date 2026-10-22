@@ -2559,6 +2559,8 @@ _NEVER_AUTO_APPROVE_KINDS = frozenset({
     "admin",
     "destructive",
     "outbound_send",
+    "network_send",
+    "cloud_send",
     "cloud.ask",
 })
 

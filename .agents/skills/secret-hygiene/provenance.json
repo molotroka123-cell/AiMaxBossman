@@ -1,0 +1,26 @@
+{
+  "schema": "bossman.skill_provenance.v1",
+  "status": "VERIFIED",
+  "sha256": "3792f3b02a1d4565b5741b870aaafd1781b20b92eac97d8d45442f453076789c",
+  "imported_at": "2026-10-22T14:33:00Z",
+  "source": {
+    "repo": "https://github.com/molotroka123-cell/AiMaxBossman",
+    "commit": "7c876d39",
+    "path": ".agents/skills/secret-hygiene/SKILL.md"
+  },
+  "license": {
+    "spdx": "MIT",
+    "file": "LICENSE"
+  },
+  "selection": {
+    "priority": 10,
+    "triggers": [
+      "ключи",
+      "секреты",
+      "push",
+      "проверь ключи",
+      "secret scan",
+      "утечка токенов"
+    ]
+  }
+}
