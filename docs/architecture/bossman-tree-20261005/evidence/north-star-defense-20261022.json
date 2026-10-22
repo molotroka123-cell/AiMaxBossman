@@ -1,0 +1,58 @@
+[
+  {
+    "node_id": "reg-pc_defense_two_lines",
+    "sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+    "probe": "Двухконтурная киберзащита ПК: HARD_DENY, Secret Scan, Temp Tasks (11 passed)",
+    "command": "python -m pytest command-center/tests/test_pc_defense_two_lines.py -q",
+    "exit_code": 0,
+    "started_at": "2026-10-22T15:00:32.486940+00:00",
+    "finished_at": "2026-10-22T15:00:35.612698+00:00",
+    "output_sha256": "d0be286a5cb0f936ed0fc097d0a30542ef5a732a771fb0683bf245a93ed614f1",
+    "output_tail": "............................................................             [100%]\n60 passed in 1.83s\n",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "model": "unified-bossman-squad"
+  },
+  {
+    "node_id": "reg-active_counter_defense",
+    "sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+    "probe": "Активная встречная защита периметра: Canary, Tarpit, Dossier, Firewall (11 passed)",
+    "command": "python -m pytest command-center/tests/test_active_counter_defense.py -q",
+    "exit_code": 0,
+    "started_at": "2026-10-22T15:00:35.621199+00:00",
+    "finished_at": "2026-10-22T15:00:37.701929+00:00",
+    "output_sha256": "9db2c0752d67bce85a52720242a462fc9f77a8e91eeee1167eb71aa8226dd004",
+    "output_tail": "...........                                                              [100%]\n11 passed in 0.75s\n",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "model": "unified-bossman-squad"
+  },
+  {
+    "node_id": "reg-obs_lite_screen_recorder",
+    "sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+    "probe": "Запись экрана obs-lite + авто-обрезка краёв ffmpeg",
+    "command": "python -m pytest command-center/tests/test_pc_defense_two_lines.py -q",
+    "exit_code": 0,
+    "started_at": "2026-10-22T15:03:28.625933+00:00",
+    "finished_at": "2026-10-22T15:03:31.415463+00:00",
+    "output_sha256": "4247ac7c5f5e5327d51e22c7a67b8292f6ae5dc9828ec086e50cb3b0e8674a45",
+    "output_tail": "............................................................             [100%]\n60 passed in 1.42s\n",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "model": "unified-bossman-squad"
+  },
+  {
+    "node_id": "reg-war_terminal_forum_seed",
+    "sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+    "probe": "Радар военных тендеров: 21 поставщик с форума + P0 регрессии",
+    "command": "python -m pytest tests/test_redteam_p0_regressions.py -q",
+    "exit_code": 0,
+    "started_at": "2026-10-22T15:00:40.821607+00:00",
+    "finished_at": "2026-10-22T15:00:45.692327+00:00",
+    "output_sha256": "15b1fdb773565fe698645e2266b930aefe2b8eeb678de6544ee50c280f2dff2c",
+    "output_tail": "......                                                                   [100%]\n6 passed in 3.34s\n",
+    "verdict": "PASS",
+    "kind": "pytest",
+    "model": "unified-bossman-squad"
+  }
+]

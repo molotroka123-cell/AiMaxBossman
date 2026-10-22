@@ -212,12 +212,14 @@ def seed(store: Store, *, include_extra: bool = False, update_existing: bool = F
             "updated": len(updated),
             "existing": len(existing),
         })
-    return {
+    res = {
         "created": len(created),
-        "updated": len(updated),
         "existing": len(existing),
         "total": len(created) + len(existing),
     }
+    if update_existing:
+        res["updated"] = len(updated)
+    return res
 
 
 def seed_all(store: Store, *, update_existing: bool = False) -> dict:
@@ -238,7 +240,8 @@ def main(argv: list[str] | None = None) -> int:
         res = seed(store, include_extra=bool(args.include_extra), update_existing=bool(args.update_existing))
     finally:
         store.db.close()
-    print(f"[seed_forum_20261021] {data_dir / 'war.db'}: created {res['created']}, updated {res.get('updated', 0)}, already present {res['existing']}, total {res['total']}", flush=True)
+    upd_part = f", updated {res.get('updated', 0)}" if args.update_existing else ""
+    print(f"[seed_forum_20261021] {data_dir / 'war.db'}: created {res['created']}{upd_part}, already present {res['existing']}, total {res['total']}", flush=True)
     return 0
 
 

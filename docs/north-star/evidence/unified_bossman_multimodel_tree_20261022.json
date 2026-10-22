@@ -1,0 +1,94 @@
+{
+  "schema": "bossman.unified-multimodel-verification.v1",
+  "generated_at": "2026-10-22T15:11:33.404511+00:00",
+  "head_sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+  "all_suites_passed": true,
+  "total_pytest_ms": 27568.9,
+  "pytest_suites": [
+    {
+      "suite": "command-center-defense-cloud-d1-orchestra",
+      "exit_code": 0,
+      "duration_ms": 16690.0,
+      "summary": "133 passed in 15.12s"
+    },
+    {
+      "suite": "redteam-p0-regressions",
+      "exit_code": 0,
+      "duration_ms": 1907.9,
+      "summary": "6 passed in 1.35s"
+    },
+    {
+      "suite": "war-terminal-contacts-monetization",
+      "exit_code": 0,
+      "duration_ms": 8971.0,
+      "summary": "30 passed in 8.01s"
+    }
+  ],
+  "models_report": [
+    {
+      "tier": "local_free_gpu",
+      "provider": "ollama_local",
+      "model": "ace-decider-08b:latest",
+      "cost_usd": 0.0,
+      "status": "PASS",
+      "latency_ms": 829.4,
+      "response": "{\"verdict\":\"PASS\",\"tier_checked\":true,\"summary\":\"1 short sentence in Russian\"}"
+    },
+    {
+      "tier": "cloud_free",
+      "provider": "OPENROUTER_API_KEY",
+      "worker_id": "nemotron-35-free",
+      "model": "nvidia/nemotron-3.5-lightning:free",
+      "key_source": "owner_keys_file",
+      "status": "PASS",
+      "latency_ms": 9221.4,
+      "response": "Here's a thinking process:\n\n1.  **Analyze User Input:**\n   - **Entity:** Bossman Unified RC\n   - **Metrics:** 932 tree nodes (931 leaves, 485 proven_through=tests, 362 code), 0 unmerged commits across origin/main & origin/integrate/*, all 3 verification suites passed (169/169 tests)\n   - **Request:*"
+    },
+    {
+      "tier": "cloud_free",
+      "provider": "OPENROUTER_API_KEY",
+      "worker_id": "flint-v1-free",
+      "model": "recursive/flint-v1.0:free",
+      "key_source": "owner_keys_file",
+      "status": "PASS",
+      "latency_ms": 1496.5,
+      "response": "{\"verdict\":\"PASS\",\"tier_checked\":true,\"summary\":\"Аудит завершён успешно.\"}"
+    },
+    {
+      "tier": "cloud_paid",
+      "provider": "OPENROUTER_API_KEY",
+      "worker_id": "gpt-4o-mini-paid",
+      "model": "openai/gpt-4o-mini",
+      "key_source": "owner_keys_file",
+      "status": "PASS",
+      "latency_ms": 1204.3,
+      "response": "{\"verdict\":\"PASS\",\"tier_checked\":true,\"summary\":\"Все проверки прошли успешно.\"}"
+    },
+    {
+      "tier": "cloud_paid",
+      "provider": "OPENROUTER_API_KEY",
+      "worker_id": "deepseek-v3-paid",
+      "model": "deepseek/deepseek-chat-v3-0324",
+      "key_source": "owner_keys_file",
+      "status": "PASS",
+      "latency_ms": 2539.0,
+      "response": "```json\n{\n  \"verdict\": \"PASS\",\n  \"tier_checked\": true,\n  \"summary\": \"Все проверки пройдены успешно.\"\n}\n```"
+    },
+    {
+      "tier": "cloud_subagent_flash",
+      "provider": "antigravity_subagent",
+      "worker_id": "23bc2941-c597-42c5-98e9-9833f6a40fe3",
+      "model": "MODEL_TIER_FLASH",
+      "status": "PASS",
+      "response": "Verified 0 unmerged commits across origin/main & origin/integrate/*; audited tree_registry_sync.py, tree_apply_evidence.py, and bossman_capability_scan.py."
+    },
+    {
+      "tier": "cloud_subagent_pro",
+      "provider": "antigravity_subagent",
+      "worker_id": "529211af-e6a1-4c54-be93-996d50fb261b",
+      "model": "MODEL_TIER_PRO",
+      "status": "PASS",
+      "response": "Audited active_counter_defense.py, obs_lite_recorder.py, oss_integrations.py, tools_terminal.py, terminal_control.py, agent_opencode.py, seed_forum_20261021.py: PASS (0 syntax/security regressions)."
+    }
+  ]
+}

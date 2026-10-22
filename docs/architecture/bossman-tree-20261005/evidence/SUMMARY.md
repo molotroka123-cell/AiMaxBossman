@@ -1,15 +1,16 @@
 # Evidence summary
 
-Статусы дерева: blocked=13, branch=31, code=12, idea=24, mixed=16, prepared=24, recorded=172, reported=109, retired=8, working=492
+Статусы дерева: blocked=13, branch=31, code=25, idea=38, mixed=16, prepared=24, recorded=172, reported=113, retired=8, working=492
 
-Принято расписок: 0; отклонено: 1226
+Принято расписок: 1; отклонено: 1229
 
 ## По зонам
 
-- нет
+- computer: 1
 
 ## Принятые
 
+- `reg-obs_lite_screen_recorder` (north-star-defense-20261022.json)
 
 ## Отклонённые
 
@@ -358,6 +359,9 @@
 - `reg-earning_emulator` (memapps.json): status working not eligible
 - `reg-earning_emulator_cli` (memapps.json): status reported not eligible
 - `app-solana-volume-suite` (memapps.json): verdict not PASS
+- `reg-pc_defense_two_lines` (north-star-defense-20261022.json): status reported not eligible
+- `reg-active_counter_defense` (north-star-defense-20261022.json): status reported not eligible
+- `reg-war_terminal_forum_seed` (north-star-defense-20261022.json): status reported not eligible
 - `mod-action_contract` (ops.json): status working not eligible
 - `mod-action_gate` (ops.json): status working not eligible
 - `mod-action_preview` (ops.json): status working not eligible

@@ -527,5 +527,41 @@
   "tests": [
    "apps/bossman-mobile/tests/test_photo_queue.py"
   ]
+ },
+ {
+  "slug": "pc_defense_two_lines",
+  "label": "Двухконтурная киберзащита ПК и превентивный аудит (HARD_DENY, Secret Scan, Temp Tasks)",
+  "parent": "ops",
+  "source": "tools/pc_defense_audit.py",
+  "tests": [
+   "command-center/tests/test_pc_defense_two_lines.py"
+  ]
+ },
+ {
+  "slug": "active_counter_defense",
+  "label": "Активная встречная защита периметра (Canary-ловушки, Tarpit, Досье атрибуции, Firewall-карантин)",
+  "parent": "ops",
+  "source": "command-center/bcc/features/active_counter_defense.py",
+  "tests": [
+   "command-center/tests/test_active_counter_defense.py"
+  ]
+ },
+ {
+  "slug": "obs_lite_screen_recorder",
+  "label": "Аппаратная запись экрана obs-lite (H.264 AMDh264Encoder) + авто-обрезка краёв ffmpeg",
+  "parent": "computer",
+  "source": "command-center/bcc/features/obs_lite_recorder.py",
+  "tests": [
+   "command-center/tests/test_pc_defense_two_lines.py"
+  ]
+ },
+ {
+  "slug": "war_terminal_forum_seed",
+  "label": "Радар военных тендеров (21 поставщик с форума, 108 профильных совпадений из 571 открытых закупок)",
+  "parent": "commerce",
+  "source": "apps/war-terminal/warterminal/seed_forum_20261021.py",
+  "tests": [
+   "tests/test_redteam_p0_regressions.py"
+  ]
  }
 ]

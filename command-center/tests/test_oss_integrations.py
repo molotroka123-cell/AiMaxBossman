@@ -15,7 +15,7 @@ async def test_inventory_requires_auth_and_never_claims_inference(env, monkeypat
     response = await client.get("/api/oss/status")
     assert response.status_code == 200
     data = response.json()
-    assert len(data["items"]) == 8
+    assert len(data["items"]) == 9
     assert data["inference_verified"] is False
     assert "private-model" not in response.text
     assert next(x for x in data["items"] if x["id"] == "comfyui")["state"] == "configured"

@@ -1,6 +1,6 @@
 {
  "schema": "bossman-tree-registry-1",
- "head": "343cb430e3663bcff2d399253b753b4f1b17678e",
+ "head": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
  "leaves": [
   {
    "id": "jeff",
@@ -30069,7 +30069,7 @@
    "label": "OSS-движки · инвентарь",
    "zone_parent": "plugins",
    "source": "command-center/bcc/features/oss_integrations.py",
-   "sha": "e385703bdcdc0c93dc0763b109adf3503e9d512a",
+   "sha": "7824344efaa63689faece689981e5e5d3bbcbaeb",
    "integration_status": "working",
    "levels": {
     "code": {
@@ -35780,7 +35780,7 @@
    "label": "Кэш ответов String MCP (WebResultCache) для экономии квоты",
    "zone_parent": "plugins",
    "source": "command-center/bcc/web_access/policy.py",
-   "sha": "08da2310d33d9396a2be8f25eaeba722489c1512",
+   "sha": "46d65470b34db640dd250e3e3da45aeebf4c01a1",
    "integration_status": "code",
    "levels": {
     "code": {
@@ -35882,11 +35882,155 @@
     "ci": null,
     "owner_pc": null
    }
+  },
+  {
+   "id": "reg-pc_defense_two_lines",
+   "label": "Двухконтурная киберзащита ПК и превентивный аудит (HARD_DENY, Secret Scan, Temp Tasks)",
+   "zone_parent": "ops",
+   "source": "tools/pc_defense_audit.py",
+   "sha": "7824344efaa63689faece689981e5e5d3bbcbaeb",
+   "integration_status": "reported",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-active_counter_defense",
+   "label": "Активная встречная защита периметра (Canary-ловушки, Tarpit, Досье атрибуции, Firewall-карантин)",
+   "zone_parent": "ops",
+   "source": "command-center/bcc/features/active_counter_defense.py",
+   "sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+   "integration_status": "reported",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-obs_lite_screen_recorder",
+   "label": "Аппаратная запись экрана obs-lite (H.264 AMDh264Encoder) + авто-обрезка краёв ffmpeg",
+   "zone_parent": "computer",
+   "source": "command-center/bcc/features/obs_lite_recorder.py",
+   "sha": "7824344efaa63689faece689981e5e5d3bbcbaeb",
+   "integration_status": "reported",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
+  },
+  {
+   "id": "reg-war_terminal_forum_seed",
+   "label": "Радар военных тендеров (21 поставщик с форума, 108 профильных совпадений из 571 открытых закупок)",
+   "zone_parent": "commerce",
+   "source": "apps/war-terminal/warterminal/seed_forum_20261021.py",
+   "sha": "7824344efaa63689faece689981e5e5d3bbcbaeb",
+   "integration_status": "reported",
+   "levels": {
+    "code": {
+     "state": "PRESENT"
+    },
+    "tests": {
+     "state": "NOT_RUN",
+     "files": [],
+     "basis": null,
+     "passed": 0,
+     "failed": 0,
+     "skipped": 0
+    },
+    "ci": {
+     "state": "NOT_RUN",
+     "sha": null,
+     "run_url": null
+    },
+    "owner_pc": {
+     "state": "NOT_RUN",
+     "evidence": null
+    }
+   },
+   "proven_through": "code",
+   "evidence": {
+    "audit": "blue-leaf-audit-20261006.json",
+    "ci": null,
+    "owner_pc": null
+   }
   }
  ],
  "proven_through_counts": {
   "none": 84,
-  "code": 358,
+  "code": 362,
   "tests": 485
  },
  "note": "tests = a recorded run in the cloud; ci = green on the stated SHA only when a CI evidence file is supplied; owner_pc only from an owner evidence file."

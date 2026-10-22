@@ -6252,6 +6252,223 @@
    "parent": "media",
    "status": "code",
    "short": "Motion Studio V2 acceptance run: real backend (own port, throwaway data dir) + headless Chromium. One process, low CPU: one backend subprocess, one browser, one"
+  },
+  {
+   "id": "commerce",
+   "label": "Commerce · заработок и клиенты",
+   "parent": "bossman",
+   "status": "idea",
+   "short": "Новое продуктовое направление: спрос, предложение, заказ, качество, доставка, поддержка и экономика четырёх коммерческих сценариев. Реальные продажи не подтверж"
+  },
+  {
+   "id": "devices",
+   "label": "Devices · другие устройства",
+   "parent": "bossman",
+   "status": "idea",
+   "short": "Новое направление: второй собственный ПК, безопасное подключение, отзыв доступа, выбор устройства, ресурсы и восстановление связи. Живое подключение не подтверж"
+  },
+  {
+   "id": "reg-commerce_product_packages",
+   "label": "Четыре продуктовых пакета",
+   "parent": "commerce",
+   "status": "idea",
+   "short": "Reports, Motion, Operations и Jeff: сформировать отдельные пакеты. Stars на паузе; готовность каждого подтверждается отдельно."
+  },
+  {
+   "id": "reg-commerce_buyer_demand",
+   "label": "Проверка покупательского спроса",
+   "parent": "commerce",
+   "status": "idea",
+   "short": "Источники реальных публичных запросов, дата и задача клиента. Объявления продавцов не считать заказами."
+  },
+  {
+   "id": "reg-commerce_offer_cost",
+   "label": "Предложение, цена и себестоимость",
+   "parent": "commerce",
+   "status": "idea",
+   "short": "Описать результат, сроки, ручные шаги, лицензии и затраты; цена пока является гипотезой."
+  },
+  {
+   "id": "reg-commerce_order_delivery",
+   "label": "Заказ, качество и доставка",
+   "parent": "commerce",
+   "status": "idea",
+   "short": "Спроектировать единый путь заказа, проверки качества, выдачи файла и клиентской приёмки."
+  },
+  {
+   "id": "reg-commerce_revenue_accounting",
+   "label": "Выручка, расходы и прибыль",
+   "parent": "commerce",
+   "status": "idea",
+   "short": "Раздельный учёт заказа, платежа, выручки и расходов. Симуляции и оборот не считать прибылью."
+  },
+  {
+   "id": "reg-commerce_support_refunds",
+   "label": "Поддержка и возвраты",
+   "parent": "commerce",
+   "status": "idea",
+   "short": "Подготовить регламент поддержки и возврата с журналом обращений и привязкой к заказу."
+  },
+  {
+   "id": "reg-devices_registry",
+   "label": "Реестр собственных устройств",
+   "parent": "devices",
+   "status": "idea",
+   "short": "План реестра разрешённых устройств, worker-версий, возможностей и статуса связи."
+  },
+  {
+   "id": "reg-devices_pair_revoke",
+   "label": "Подключение и отзыв доступа",
+   "parent": "devices",
+   "status": "idea",
+   "short": "План явного owner pairing и немедленного отзыва доступа без передачи общей учётки."
+  },
+  {
+   "id": "reg-devices_remote_tasks",
+   "label": "Задачи на втором ПК",
+   "parent": "devices",
+   "status": "idea",
+   "short": "Один backend и task lifecycle, выбор устройства, проверка результата и доставка в общий пульт."
+  },
+  {
+   "id": "reg-devices_resource_queue",
+   "label": "Ресурсы и очередь устройств",
+   "parent": "devices",
+   "status": "idea",
+   "short": "План наблюдения CPU/GPU/RAM и распределения разрешённых задач без конфликтующих генераций."
+  },
+  {
+   "id": "reg-devices_file_integrity",
+   "label": "Файлы, доступ и целостность",
+   "parent": "devices",
+   "status": "idea",
+   "short": "План передачи только разрешённых файлов, проверка хешей, запрет экспорта секретов."
+  },
+  {
+   "id": "reg-devices_reconnect_stop",
+   "label": "Потеря связи, recovery и STOP",
+   "parent": "devices",
+   "status": "idea",
+   "short": "План heartbeat/checkpoint/reconnect, без повторных эффектов; общий STOP сохраняет приоритет."
+  },
+  {
+   "id": "reg-pc_agent_runtime",
+   "label": "PC-Agent: исполнитель задач Windows",
+   "parent": "computer",
+   "status": "code",
+   "short": "Argon PC-Agent — управление Windows-компьютером владельца через единое ядро Bossman. Архитектурные инварианты (Stage B, профиль Argon): * Единое ядро: PC-Agent "
+  },
+  {
+   "id": "reg-pc_agent_policy",
+   "label": "PC-Agent: политика действий и защита путей",
+   "parent": "computer",
+   "status": "code",
+   "short": "Чистый модуль политики безопасности Argon PC-Agent (T0 / T1 / T2 / T3). Не содержит вызовов БД, сетевых запросов или побочных эффектов. Код есть; польза и живая"
+  },
+  {
+   "id": "reg-edit_engine_selection",
+   "label": "Выбор edit-engine Qwen / Z-Image",
+   "parent": "media",
+   "status": "code",
+   "short": "Owner-only generation from the pult: /vid, /pic, /img, photo captions, plain talk, /style, /speed. Owner 13.10: «через qwen uncensored в пульте можно было запус"
+  },
+  {
+   "id": "reg-jeff_stars_ledger",
+   "label": "Jeff Stars: учёт платежей и доступа",
+   "parent": "jeff",
+   "status": "code",
+   "short": "Telegram Stars billing ledger for Jeff's paid document assistant. One sqlite file next to Jeff's other stores (``<data_dir>/pit-v1.7/stars-ledger.sqlite3``); no"
+  },
+  {
+   "id": "reg-reports_export",
+   "label": "Reports: сверяемый отчёт из экспорта",
+   "parent": "apps",
+   "status": "code",
+   "short": "Human-readable report over an existing ``exchange_volume`` run (no recalculation, no new numbers). Input: ``volume_result.json`` + ``deals.csv`` written by ``py"
+  },
+  {
+   "id": "reg-blender_adapter",
+   "label": "Blender MCP: адаптер, активация отдельно",
+   "parent": "plugins",
+   "status": "code",
+   "short": "MCP for Blender (`mcp-for-blender`, formerly `blender-mcp`, MIT license). Side-effect-free adapter for prompt-assisted 3D modeling, scene creation, and manipula"
+  },
+  {
+   "id": "reg-fincept_adapter",
+   "label": "Fincept: адаптер, активация отдельно",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Fincept Terminal (`FinceptTerminal`, AGPL-3.0 open-source edition) integration for Bossman. Provides deterministic, read-only market analytics, investment resea"
+  },
+  {
+   "id": "reg-vibe_trading_adapter",
+   "label": "Vibe-Trading: paper-адаптер, активация отдельно",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Vibe-Trading (`vibe-trading` v0.1.15, MIT license) Shadow Account integration for Bossman. Wires Vibe-Trading's personal trading agent capabilities strictly in "
+  },
+  {
+   "id": "reg-nautilus_shadow_analytics",
+   "label": "NAUTILUS: мульти-оконная аналитика, 6 плиток и ДЕМО-защита пульта",
+   "parent": "commerce",
+   "status": "code",
+   "short": "Telegram Pult report formatter, CLI entry point, and owner-only delivery for NAUTILUS. Respects Bossman Eternal Prohibition #1 and Pult owner-only delivery rule"
+  },
+  {
+   "id": "reg-video_pre_send_qa_gate",
+   "label": "QA-гейт 100% кадров перед отправкой видео в Пульт владельца",
+   "parent": "media",
+   "status": "code",
+   "short": "Frame-by-frame artifact audit of a face-swapped video against its source (owner 10.10: «покадрово все разбери»). Per frame, on the SWAPPED face (the source face"
+  },
+  {
+   "id": "reg-web_result_cache",
+   "label": "Кэш ответов String MCP (WebResultCache) для экономии квоты",
+   "parent": "plugins",
+   "status": "code",
+   "short": "Safety policy for public-web access (String MCP). Pure functions plus two small stateful objects (rate limiter, audit writer). No network, no secrets stored her"
+  },
+  {
+   "id": "reg-mobile_worker_device_registry",
+   "label": "Реестр воркер-устройств на одном ядре с общим STOP (<= 2 с)",
+   "parent": "devices",
+   "status": "code",
+   "short": "Phone authentication: one pairing token -> server-side session (HttpOnly cookie) + CSRF token. The pairing token lives in %USERPROFILE%/.bossman-mobile/tokens.j"
+  },
+  {
+   "id": "reg-mobile_calibrate_task_eta",
+   "label": "Калибровка ETA задач в мобильном UI по истории task_runs",
+   "parent": "ux",
+   "status": "code",
+   "short": "Photo section: sensible step ranges and an HONEST generation-time model. time = load_s + steps * s_per_step_512 * (pixels / 512^2) * sd-cli is a fresh process f"
+  },
+  {
+   "id": "reg-pc_defense_two_lines",
+   "label": "Двухконтурная киберзащита ПК и превентивный аудит (HARD_DENY, Secret Scan, Temp Tasks)",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Read-only cyber-defence audit of the owner's Windows PC for Bossman (owner 22.10: «Боссман должен кибер защищать мой ПК»). Observes only: Defender, firewall, li"
+  },
+  {
+   "id": "reg-active_counter_defense",
+   "label": "Активная встречная защита периметра (Canary-ловушки, Tarpit, Досье атрибуции, Firewall-карантин)",
+   "parent": "ops",
+   "status": "reported",
+   "short": "Active Counter-Defense (Активный встречный отпор на собственном периметре): Canary Honeypot Traps, Scanner Tarpit, Attacker Attribution Dossier, and Reversible "
+  },
+  {
+   "id": "reg-obs_lite_screen_recorder",
+   "label": "Аппаратная запись экрана obs-lite (H.264 AMDh264Encoder) + авто-обрезка краёв ffmpeg",
+   "parent": "computer",
+   "status": "reported",
+   "short": "obs-lite v0.3.0 hardware H.264 screen recorder & edge-crop integration for Bossman. Upstream: https://github.com/25Dark25/obs-lite (Rust, Windows Graphics Captu"
+  },
+  {
+   "id": "reg-war_terminal_forum_seed",
+   "label": "Радар военных тендеров (21 поставщик с форума, 108 профильных совпадений из 571 открытых закупок)",
+   "parent": "commerce",
+   "status": "reported",
+   "short": "Idempotent seed: companies from the owner's stand photos at the Future Military Forum 2026 (Prague, 21.10.2026). No personal data: company-level facts only. The"
   }
  ]
 }
