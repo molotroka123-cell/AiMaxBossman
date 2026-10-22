@@ -18,6 +18,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 SYSTEM = "You are a senior Python engineer. Reply with ONE ```python code block containing the complete solution module and nothing else."
@@ -111,9 +112,13 @@ def resolve_key(env_name: str) -> str | None:
     return None
 
 
-def make_chat(base_url: str, model: str, key: str, max_tokens: int, temperature: float, timeout: float = 300.0):
+def make_chat(base_url: str, model: str, key: str, max_tokens: int, temperature: float, timeout: float = 300.0,
+              reasoning_max_tokens: int = 0):
     def chat(messages: list[dict]):
-        body = json.dumps({"model": model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}).encode()
+        payload = {"model": model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens}
+        if reasoning_max_tokens > 0:
+            payload["reasoning"] = {"max_tokens": reasoning_max_tokens}      # OpenRouter unified reasoning control
+        body = json.dumps(payload).encode()
         for attempt in range(5):
             req = urllib.request.Request(base_url.rstrip("/") + "/chat/completions", data=body, headers={
                 "Authorization": "Bearer " + key, "Content-Type": "application/json", "X-Title": "Bossman task bench"})
@@ -126,25 +131,33 @@ def make_chat(base_url: str, model: str, key: str, max_tokens: int, temperature:
                     time.sleep(15 * (attempt + 1))
                     continue
                 raise RuntimeError(f"HTTP {e.code}") from None
+        if not d.get("choices"):                                        # provider error body with HTTP 200
+            raise RuntimeError(str((d.get("error") or d))[:160])
         ch = d["choices"][0]
         return ch["message"].get("content") or "", d.get("usage") or {}, ch.get("finish_reason")
     return chat
 
 
-def run_bench(tasks, chat, samples: int = 1, clock=time.perf_counter) -> dict:
-    rows = []
-    for name, prompt, check in tasks:
-        for i in range(samples):
-            t0 = clock()
-            try:
-                text, usage, finish = chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}])
-                ok, note = run_check(extract_code(text), check)
-                err = None
-            except Exception as e:  # noqa: BLE001
-                usage, finish, ok, note, err = {}, None, False, "", str(e)[:100]
-            rows.append({"task": name, "sample": i, "passed": ok, "latency_s": round(clock() - t0, 1),
-                         "tokens_in": usage.get("prompt_tokens"), "tokens_out": usage.get("completion_tokens"),
-                         "finish": finish, "note": note if not ok else "", "error": err})
+def _one(name: str, prompt: str, check: str, i: int, chat, clock) -> dict:
+    t0 = clock()
+    try:
+        text, usage, finish = chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}])
+        ok, note = run_check(extract_code(text), check)
+        err = None
+    except Exception as e:  # noqa: BLE001
+        usage, finish, ok, note, err = {}, None, False, "", str(e)[:100]
+    return {"task": name, "sample": i, "passed": ok, "latency_s": round(clock() - t0, 1),
+            "tokens_in": usage.get("prompt_tokens"), "tokens_out": usage.get("completion_tokens"),
+            "finish": finish, "note": note if not ok else "", "error": err}
+
+
+def run_bench(tasks, chat, samples: int = 1, clock=time.perf_counter, workers: int = 1) -> dict:
+    jobs = [(name, prompt, check, i) for name, prompt, check in tasks for i in range(samples)]
+    if workers > 1:
+        with ThreadPoolExecutor(workers) as ex:
+            rows = list(ex.map(lambda j: _one(*j, chat, clock), jobs))
+    else:
+        rows = [_one(*j, chat, clock) for j in jobs]
     n = len(rows)
     return {"rows": rows, "n": n, "passed": sum(r["passed"] for r in rows),
             "pass_rate": round(sum(r["passed"] for r in rows) / n, 3) if n else None,
@@ -157,7 +170,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--base-url", default="https://openrouter.ai/api/v1")
     ap.add_argument("--key-env", default="OPENROUTER_API_KEY")
     ap.add_argument("--samples", type=int, default=1)
-    ap.add_argument("--max-tokens", type=int, default=8000)
+    ap.add_argument("--max-tokens", type=int, default=24000)
+    ap.add_argument("--reasoning-max-tokens", type=int, default=6000, help="0 = do not send a reasoning budget")
+    ap.add_argument("--suite", choices=["core", "extended", "all"], default="core")
+    ap.add_argument("--workers", type=int, default=1, help="parallel requests (keep small: provider rate limits)")
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--out", default="")
     a = ap.parse_args(argv)
@@ -165,14 +181,22 @@ def main(argv: list[str] | None = None) -> int:
     if not key:
         print(f"no key: set {a.key_env} or add it to provider-keys.env", file=sys.stderr)
         return 2
-    res = run_bench(TASKS, make_chat(a.base_url, a.model, key, a.max_tokens, a.temperature), a.samples)
-    res.update(model=a.model, base_url=a.base_url, ts=time.strftime("%Y-%m-%dT%H:%M:%S"))
+    try:
+        from tools.llm_bench_tasks import TASKS_EXTENDED            # repo root on sys.path (pytest, -m)
+    except ModuleNotFoundError:                                    # run as a script: python tools/llm_task_bench.py
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from llm_bench_tasks import TASKS_EXTENDED
+    tasks = {"core": TASKS, "extended": TASKS_EXTENDED, "all": TASKS + TASKS_EXTENDED}[a.suite]
+    res = run_bench(tasks, make_chat(a.base_url, a.model, key, a.max_tokens, a.temperature,
+                                     reasoning_max_tokens=a.reasoning_max_tokens), a.samples, workers=a.workers)
+    res.update(model=a.model, base_url=a.base_url, suite=a.suite, max_tokens=a.max_tokens,
+               reasoning_max_tokens=a.reasoning_max_tokens, ts=time.strftime("%Y-%m-%dT%H:%M:%S"))
     for r in res["rows"]:
         print(f"{r['task']:12s} {'PASS' if r['passed'] else 'FAIL'} {r['latency_s']:6.1f}s in={r['tokens_in']} out={r['tokens_out']} "
               f"{r['finish']} {r['error'] or r['note'][:80]}")
     print(f"{a.model}: {res['passed']}/{res['n']} passed, avg {res['avg_latency_s']}s")
     if a.out:
-        Path(a.out).write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+        Path(a.out).write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
     return 0
 
 
