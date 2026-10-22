@@ -168,6 +168,24 @@ class FakeBossman:
             return httpx.Response(200, json=JOB)
         if path == f"/api/direct-gen/jobs/{'a' * 32}/file":
             return httpx.Response(200, content=PNG, headers={"content-type": "image/png"})
+        # ---- long-press chat actions (22.10)
+        if path == "/api/chat/threads/T1/archive-encrypted" and method == "POST":
+            return httpx.Response(200, json={"ok": True, "encrypted": True, "id": "T1", "archived_at": "2026-10-22T10:00:00", "size": 99})
+        if path == "/api/chat/threads/T9/archive-encrypted" and method == "POST":
+            return httpx.Response(503, json={"error": {"message": "ключ шифрованного архива недоступен", "code": "CHAT_ARCHIVE_KEY_UNAVAILABLE"}})
+        if path == "/api/chat/archive" and method == "GET":
+            return httpx.Response(200, json={"items": [{"id": "T1", "title": "Секретный чат", "archived_at": "2026-10-22T10:00:00", "size": 99}], "total": 1})
+        if path == "/api/chat/archive/T1/restore" and method == "POST":
+            return httpx.Response(200, json={"ok": True, "id": "T1", "restored": True})
+        if path == "/api/chat/archive/T8/restore" and method == "POST":
+            return httpx.Response(409, json={"error": {"message": "чат с таким id уже существует", "code": "CHAT_THREAD_EXISTS"}})
+        if path == "/api/chat/archive/T1" and method == "DELETE":
+            return httpx.Response(200, json={"ok": True, "deleted": True})
+        if path == "/api/chat/threads/T1" and method == "DELETE":
+            q = request.url.params
+            if q.get("purge") != "1" or q.get("confirm") != "T1" or request.headers.get("x-bossman-surface") != "mobile":
+                return httpx.Response(422, json={"error": {"message": "нужно подтверждение", "code": "CHAT_PURGE_CONFIRM_REQUIRED"}})
+            return httpx.Response(200, json={"ok": True, "archived": False, "purged": True})
         # ---- panel-only endpoints (generic proxy)
         if path == "/api/echo":
             return httpx.Response(200, json={"method": method, "body": body, "query": dict(request.url.params)})

@@ -165,3 +165,8 @@ vault.*
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# encrypted chat archive (owner 22.10): never tracked
+chat-archive.key
+*.bcarchive
+chat-archive/

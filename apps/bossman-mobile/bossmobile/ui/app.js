@@ -538,6 +538,7 @@
         const b = el('button', 'thread' + (t.id === S.threadId ? ' active' : ''));
         b.append(el('b', '', t.title || 'Без названия'), el('span', '', `${(t.updated_at || '').replace('T', ' ').slice(0, 16)} · ${t.turns || 0} сообщ.`));
         b.addEventListener('click', () => { drawer(false); openThread(t.id); });
+        bindLongPress(b, () => openChatActions(t));
         list.appendChild(b);
       });
       if (!list.children.length) list.appendChild(el('p', 'muted pad', 'Чатов пока нет'));
@@ -546,6 +547,155 @@
   function newChat() { closeStream(); S.threadId = null; store.set('thread', null); clearMessages(); ctxReset(); drawer(false); $('input').focus(); }
   $('btn-new').addEventListener('click', () => { tap(); newChat(); });
   $('drawer-new').addEventListener('click', newChat);
+
+  /* ================= долгое нажатие на чат (владелец 22.10) =================
+     500 мс удержания (pointer events), сдвиг больше 8 px или раннее отпускание — отмена; также контекстное меню
+     (правая кнопка) и клавиши Shift+F10 / ContextMenu. Открывается лист: «Архивировать в зашифрованную папку»,
+     «Удалить навсегда» (нужно набрать последние 6 символов id), «Отмена». Чат пропадает из списка только после
+     успешного ответа сервера: список перечитывается и при ошибке. */
+  const LP_MS = 500, LP_MOVE_PX = 8;
+  function bindLongPress(node, fire) {
+    let timer = 0, sx = 0, sy = 0, down = false, fired = false, lastFire = 0;
+    const cancel = () => { clearTimeout(timer); timer = 0; };
+    const go = () => fire(node);
+    node.addEventListener('pointerdown', (e) => {
+      if (e.isPrimary === false || (e.button != null && e.button > 0)) return;
+      down = true; fired = false; sx = e.clientX; sy = e.clientY; cancel();
+      timer = setTimeout(() => { timer = 0; fired = true; lastFire = Date.now(); tap(); go(); }, LP_MS);
+    });
+    node.addEventListener('pointermove', (e) => { if (timer && Math.hypot(e.clientX - sx, e.clientY - sy) > LP_MOVE_PX) cancel(); });
+    node.addEventListener('pointerup', () => { down = false; cancel(); });
+    node.addEventListener('pointercancel', () => { down = false; cancel(); });
+    node.addEventListener('pointerleave', cancel);
+    // the click that follows a long hold must not also open the chat
+    node.addEventListener('click', (e) => { if (fired) { fired = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+    node.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (Date.now() - lastFire < 1000) return;       // a touch long-press already opened the sheet
+      if (down) { fired = true; cancel(); }
+      go();
+    });
+    node.addEventListener('keydown', (e) => {
+      if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); go(); }
+    });
+  }
+  const shortId = (id) => String(id).slice(-6);
+  function forgetThreadIfCurrent(id) {
+    if (S.threadId !== id) return;
+    closeStream(); S.threadId = null; store.set('thread', null); clearMessages();
+  }
+  function chatSheet(label) {
+    const wrap = el('div', 'sheet chat-actions'); wrap.setAttribute('role', 'dialog'); wrap.setAttribute('aria-modal', 'true'); wrap.setAttribute('aria-label', label);
+    const card = el('div', 'sheet-card'); wrap.appendChild(card);
+    let closed = false;
+    const close = () => { if (closed) return; closed = true; layerClose(wrap); wrap.remove(); };
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
+    document.body.appendChild(wrap);
+    return {
+      wrap, card, close,
+      show(initial, ...kids) { card.replaceChildren(el('div', 'grab'), ...kids); if (layers.some((x) => x.node === wrap)) focusQuiet(initial); else layerOpen(wrap, close, initial); },
+    };
+  }
+  const sheetBtn = (text, cls, act) => { const b = el('button', cls, text); b.type = 'button'; if (act) b.dataset.act = act; return b; };
+  const sheetErr = () => { const p = el('p', 'sheet-error'); p.setAttribute('role', 'alert'); p.hidden = true; return p; };
+  const errText = (err, fallback) => (err && err.message ? err.message : fallback);
+
+  function openChatActions(t) {
+    const sid = shortId(t.id); const name = t.title || 'Без названия';
+    const sh = chatSheet('Действия с чатом');
+    const menu = () => {
+      const arch = sheetBtn('Архивировать в зашифрованную папку', 'btn big', 'archive');
+      const del = sheetBtn('Удалить навсегда', 'btn big destroy', 'delete');
+      const cancel = sheetBtn('Отмена', 'btn big ghost', 'cancel');
+      arch.addEventListener('click', () => { tap(); archiveView(); });
+      del.addEventListener('click', () => { tap(); deleteView(); });
+      cancel.addEventListener('click', sh.close);
+      const col = el('div', 'sheet-actions'); col.append(arch, del, cancel);
+      sh.show(cancel, el('h3', 'serif', name), el('p', 'muted small', `Чат …${sid}`), col);
+    };
+    const archiveView = () => {
+      const err = sheetErr(); const go = sheetBtn('Зашифровать', 'btn big primary', 'archive-confirm'); const back = sheetBtn('Назад', 'btn big ghost', 'back');
+      back.addEventListener('click', menu);
+      go.addEventListener('click', async () => {
+        if (go.disabled) return;
+        go.disabled = true; back.disabled = true; go.textContent = 'Шифрую…'; err.hidden = true;
+        try {
+          await api('POST', `/threads/${encodeURIComponent(t.id)}/archive-encrypted`);
+          forgetThreadIfCurrent(t.id); loadThreads();
+          const ok = sheetBtn('Готово', 'btn big primary', 'done'); ok.addEventListener('click', sh.close);
+          const msg = el('p', 'sheet-ok', 'Зашифровано, чат убран из списка. Ключ хранится на ПК (DPAPI)'); msg.setAttribute('role', 'status');
+          sh.show(ok, el('h3', 'serif', name), msg, ok);
+        } catch (e) {
+          err.textContent = errText(e, 'Не удалось зашифровать чат. Чат остался на месте.'); err.hidden = false;
+          go.disabled = false; back.disabled = false; go.textContent = 'Зашифровать'; loadThreads();
+        }
+      });
+      const col = el('div', 'sheet-actions'); col.append(go, back);
+      sh.show(back, el('h3', 'serif', name), el('p', '', 'Зашифровать этот чат и убрать его из списка? Вернуть его можно из «Зашифрованного архива». Ключ хранится только на ПК (DPAPI).'), err, col);
+    };
+    const deleteView = () => {
+      const err = sheetErr();
+      const lab = el('label', 'sheet-label', `Чтобы удалить навсегда, введите последние 6 символов id чата: ${sid}`); lab.htmlFor = 'chat-confirm-input';
+      const inp = el('input', 'sheet-input'); inp.id = 'chat-confirm-input'; inp.type = 'text'; inp.autocomplete = 'off'; inp.spellcheck = false;
+      inp.setAttribute('autocapitalize', 'off'); inp.setAttribute('autocorrect', 'off'); inp.setAttribute('aria-label', 'Последние 6 символов id чата');
+      const go = sheetBtn('Удалить навсегда', 'btn big destroy', 'delete-confirm'); go.disabled = true;
+      const back = sheetBtn('Назад', 'btn big ghost', 'back');
+      inp.addEventListener('input', () => { go.disabled = inp.value.trim() !== sid; });
+      back.addEventListener('click', menu);
+      go.addEventListener('click', async () => {
+        if (go.disabled || inp.value.trim() !== sid) return;
+        go.disabled = true; back.disabled = true; inp.disabled = true; err.hidden = true;
+        try {
+          await api('POST', `/threads/${encodeURIComponent(t.id)}/delete-forever`, { confirm: inp.value.trim() });
+          forgetThreadIfCurrent(t.id); loadThreads(); sh.close(); toast('Чат удалён навсегда');
+        } catch (e) {
+          err.textContent = errText(e, 'Не удалось удалить чат. Он остался на месте.'); err.hidden = false;
+          back.disabled = false; inp.disabled = false; go.disabled = inp.value.trim() !== sid; loadThreads();
+        }
+      });
+      const col = el('div', 'sheet-actions'); col.append(go, back);
+      sh.show(inp, el('h3', 'serif', name), el('p', '', 'Файл чата будет удалён с ПК без возможности вернуть.'), lab, inp, err, col);
+    };
+    menu();
+  }
+
+  /* ================= зашифрованный архив ================= */
+  function archiveSize(n) { return n >= 1048576 ? `${(n / 1048576).toFixed(1)} МБ` : `${Math.max(1, Math.round((n || 0) / 1024))} КБ`; }
+  async function openArchive() {
+    const sh = chatSheet('Зашифрованный архив'); const list = el('div', 'archive-list');
+    const close = sheetBtn('Закрыть', 'btn big ghost', 'close'); close.addEventListener('click', sh.close);
+    sh.show(close, el('h3', 'serif', 'Зашифрованный архив'),
+      el('p', 'muted small', 'Чаты зашифрованы ключом на ПК (DPAPI). Без ключа их не открыть.'), list, close);
+    const load = async () => {
+      try {
+        const r = await api('GET', '/archive'); list.replaceChildren();
+        (r.items || []).forEach((it) => {
+          const row = el('div', 'archive-row'); row.dataset.id = it.id;
+          const txt = el('div', 'archive-txt');
+          txt.append(el('b', '', it.title || `Чат …${shortId(it.id)}`), el('span', '', `${String(it.archived_at || '').replace('T', ' ').slice(0, 16)} · ${archiveSize(it.size)}`));
+          const rs = sheetBtn('Восстановить', 'btn small', 'restore'); const rm = sheetBtn('Удалить архив', 'btn small danger-text', 'archive-delete');
+          rs.addEventListener('click', async () => {
+            if (rs.disabled) return; rs.disabled = true; rm.disabled = true;
+            try { await api('POST', `/archive/${encodeURIComponent(it.id)}/restore`); toast('Чат восстановлен'); loadThreads(); }
+            catch (e) { toast(errText(e, 'Не удалось восстановить чат')); }
+            await load();
+          });
+          rm.addEventListener('click', async () => {
+            if (rm.disabled) return;
+            if (!(await confirmDelete('Удалить зашифрованный архив навсегда? Чат нельзя будет вернуть.', 'Удалить архив'))) return;
+            rs.disabled = true; rm.disabled = true;
+            try { await api('DELETE', `/archive/${encodeURIComponent(it.id)}`); toast('Архив удалён'); }
+            catch (e) { toast(errText(e, 'Не удалось удалить архив')); }
+            await load();
+          });
+          const acts = el('div', 'archive-acts'); acts.append(rs, rm); row.append(txt, acts); list.appendChild(row);
+        });
+        if (!list.children.length) list.appendChild(el('p', 'muted pad', 'Архив пуст'));
+      } catch (err) { loadFailed(list, err, load); }
+    };
+    await load();
+  }
+  $('drawer-archive').addEventListener('click', () => { tap(); openArchive(); });
 
   /* ================= сообщения ================= */
   const msgs = $('messages');
@@ -1003,12 +1153,12 @@
   }
 
   /* Удалить навсегда с ПК: подтверждение -> POST /{kind}/jobs/{id}/delete -> элемент исчезает без перезагрузки */
-  function confirmDelete() {
+  function confirmDelete(text = 'Удалить навсегда с ПК? Это нельзя отменить.', yesLabel = 'Удалить') {
     return new Promise((resolve) => {
       const wrap = el('div', 'sheet confirm'); wrap.setAttribute('role', 'alertdialog'); wrap.setAttribute('aria-modal', 'true');
-      const card = el('div', 'confirm-card'); card.appendChild(el('p', '', 'Удалить навсегда с ПК? Это нельзя отменить.'));
+      const card = el('div', 'confirm-card'); card.appendChild(el('p', '', text));
       const row = el('div', 'row'); const no = el('button', 'btn', 'Отмена'); no.type = 'button'; no.dataset.act = 'cancel';
-      const yes = el('button', 'btn destroy', 'Удалить'); yes.type = 'button'; yes.dataset.act = 'confirm';
+      const yes = el('button', 'btn destroy', yesLabel); yes.type = 'button'; yes.dataset.act = 'confirm';
       let settled = false;
       const done = (v) => { if (settled) return; settled = true; layerClose(wrap); wrap.remove(); resolve(v); };
       no.addEventListener('click', (e) => { e.stopPropagation(); done(false); }); yes.addEventListener('click', (e) => { e.stopPropagation(); done(true); });
