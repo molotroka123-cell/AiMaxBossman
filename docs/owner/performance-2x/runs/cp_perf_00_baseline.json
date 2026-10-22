@@ -1,0 +1,68 @@
+{
+  "schema": "bossman.perf2x.run/1",
+  "label": "cp-perf-00-baseline",
+  "recorded_at": "2026-10-22T09:26:18Z",
+  "repo_head_sha": "e8ebcd9b35e135c235ed1c76127c35ebfa185eb2",
+  "installed_head_sha": "288f79f56a1aa9d7fca4ff116e0347407acf1237",
+  "hardware": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "AMD64 Family 26 Model 112 Stepping 0, AuthenticAMD",
+    "python": "3.12.10",
+    "apu": "AMD Ryzen AI Max+ 395 w/ Radeon 8060S (128 GB UMA)"
+  },
+  "lanes": {
+    "e2e_agent_message_ms": {
+      "count": 15,
+      "median_ms": 92.551,
+      "mean_ms": 139.511,
+      "p95_ms": 373.495,
+      "min_ms": 46.261,
+      "max_ms": 373.495
+    },
+    "skill_routed_message_ms": {
+      "count": 15,
+      "median_ms": 83.152,
+      "mean_ms": 132.408,
+      "p95_ms": 488.166,
+      "min_ms": 53.663,
+      "max_ms": 488.166
+    },
+    "list_20_sessions_ms": {
+      "count": 15,
+      "median_ms": 5.777,
+      "mean_ms": 5.809,
+      "p95_ms": 6.361,
+      "min_ms": 5.562,
+      "max_ms": 6.361
+    },
+    "router_catalog_and_select_ms": {
+      "count": 15,
+      "median_ms": 11.183,
+      "mean_ms": 21.841,
+      "p95_ms": 69.538,
+      "min_ms": 5.331,
+      "max_ms": 69.538
+    },
+    "tools_schema_ms": {
+      "count": 15,
+      "median_ms": 9.499,
+      "mean_ms": 9.65,
+      "p95_ms": 10.509,
+      "min_ms": 9.149,
+      "max_ms": 10.509
+    },
+    "combined_critical_path_ms": {
+      "count": 15,
+      "median_ms": 275.241,
+      "mean_ms": 299.57,
+      "p95_ms": 883.651,
+      "min_ms": 129.984,
+      "max_ms": 883.651
+    }
+  },
+  "payload_sizes": {
+    "full_tools_bytes": 174674,
+    "filtered_compact_tools_bytes": 174674
+  },
+  "top_spans": []
+}
