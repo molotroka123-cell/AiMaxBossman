@@ -4,7 +4,9 @@
 
 Uses the app's own adapter (apps/ai-3d-maker, ai_3d_maker.orca.resolve_profile) and the OrcaSlicer CLI with a
 private --datadir, so the owner's open Orca and its config are untouched. Skill: .agents/skills/print3d-orca.
-Env: BOSSMAN_ORCA_EXE (orca-slicer.exe), BOSSMAN_PRINT_OUT (output root, default Desktop).
+Env: BOSSMAN_ORCA_EXE (orca-slicer.exe), BOSSMAN_PRINT_OUT (output root, default Desktop),
+     BOSSMAN_PRINT_NOZZLE (default 218; owner 22.10 also uses 220), BOSSMAN_PRINT_BED (e.g. 60: sets EVERY plate type, the
+     Cool Plate profile otherwise heats to 35), BOSSMAN_PRINT_RAFT (raft layers, default 0).
 """
 import json, os, shutil, struct, subprocess, sys, tempfile, time
 from pathlib import Path
@@ -27,7 +29,15 @@ if gentle:
                     "support_bottom_z_distance": "0.24", "support_interface_top_layers": "2",
                     "support_interface_bottom_layers": "0", "support_interface_spacing": "0.4",
                     "support_object_xy_distance": "0.5"})
-PLA218 = {"nozzle_temperature": ["218"], "nozzle_temperature_initial_layer": ["218"]}
+NOZZLE = os.environ.get("BOSSMAN_PRINT_NOZZLE", "218")
+BED = os.environ.get("BOSSMAN_PRINT_BED", "")
+RAFT = os.environ.get("BOSSMAN_PRINT_RAFT", "0")
+PLA218 = {"nozzle_temperature": [NOZZLE], "nozzle_temperature_initial_layer": [NOZZLE]}
+if BED:
+    for _k in ("hot_plate_temp", "cool_plate_temp", "eng_plate_temp", "textured_plate_temp"):
+        PLA218[_k] = [BED]; PLA218[_k + "_initial_layer"] = [BED]
+if RAFT != "0":
+    SUPPORT["raft_layers"] = RAFT
 
 shutil.rmtree(RUN, ignore_errors=True)
 (RUN / "out").mkdir(parents=True)
@@ -53,7 +63,7 @@ for kind, pname in (("machine", PRINTER), ("process", proc), ("filament", FILAME
     p = RUN / f"{kind}.json"
     p.write_text(json.dumps(flat, indent=1, ensure_ascii=False), encoding="utf-8")
     files[kind] = p
-base = f"{name}_{int(L)}mm_PLA218_{tag}"
+base = f"{name}_{int(L)}mm_PLA{NOZZLE}{'_bed' + BED if BED else ''}_{tag}"
 cmd = [EXE, "--datadir", str(RUN / "datadir"), "--load-settings", f"{files['machine']};{files['process']}",
        "--load-filaments", str(files["filament"]), "--arrange", "1", "--orient", "0", "--slice", "0",
        "--outputdir", str(RUN / "out"), "--export-3mf", f"{base}.3mf", str(stl)]
