@@ -117,4 +117,21 @@ async def master_parse_report(request: Request, run_id: str = "latest"):
     return report
 
 
+class HarvestTrainingBody(BaseModel):
+    token_budget: int = Field(default=16_000, ge=256, le=128_000)
+
+
+@router.post("/pit/master-parse/harvest-training")
+async def master_parse_harvest_training(body: HarvestTrainingBody, request: Request):
+    from bcc.pit.master_parser.training_harvester import harvest_training_corpus
+    data_dir = _data_dir(request)
+    return await asyncio.to_thread(harvest_training_corpus, data_dir, token_budget=body.token_budget)
+
+
+@router.get("/pit/master-parse/training-stats")
+async def master_parse_training_stats(request: Request):
+    from bcc.pit.master_parser.training_harvester import read_training_stats
+    return read_training_stats(_data_dir(request))
+
+
 FEATURE = Feature(name="jeff_master_parser", router=router)

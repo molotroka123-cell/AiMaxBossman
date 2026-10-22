@@ -144,6 +144,19 @@ async def kb_upload(body: ManualIn, request: Request):
         raise _kb_error(exc) from None
 
 
+@router.post("/jeff-kb/manual/append")
+async def kb_append(body: ManualIn, request: Request):
+    jeff_dir, _cfg = _jeff(request)
+    try:
+        data = base64.b64decode(body.data_b64, validate=True)
+    except (binascii.Error, ValueError):
+        raise _kb_error(ValueError("файл повреждён при передаче (base64)")) from None
+    try:
+        return await asyncio.to_thread(kb.append_manual, jeff_dir, body.name, data)
+    except kb.KBError as exc:
+        raise _kb_error(exc) from None
+
+
 @router.delete("/jeff-kb/manual")
 async def kb_delete(request: Request):
     jeff_dir, _cfg = _jeff(request)

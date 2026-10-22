@@ -289,6 +289,52 @@ def _export_uid(value) -> int | None:
     return None
 
 
+def _extract_structured_attachment(resolved: Path, suffix: str) -> str:
+    """Safely extract bounded text from .csv, .tsv, .json, .jsonl, .xml, or .html files."""
+    import csv
+    raw_bytes = resolved.read_bytes()
+    if suffix == ".xml":
+        from bcc.safe_xml import safe_fromstring
+        root_el = safe_fromstring(raw_bytes)
+        parts: list[str] = []
+        for elem in root_el.iter():
+            tag = str(elem.tag).split("}", 1)[-1]
+            txt = (elem.text or "").strip()
+            if txt:
+                parts.append(f"{tag}: {txt}")
+        return " | ".join(parts)
+    text = raw_bytes.decode("utf-8-sig", errors="replace")
+    if suffix in {".csv", ".tsv"}:
+        delim = "\t" if suffix == ".tsv" else ","
+        rows: list[str] = []
+        for idx, row in enumerate(csv.reader(text.splitlines(), delimiter=delim)):
+            if idx >= 500:
+                break
+            cleaned_row = [c.strip() for c in row if c and c.strip()]
+            if cleaned_row:
+                rows.append(" | ".join(cleaned_row))
+        return "\n".join(rows)
+    if suffix == ".json":
+        obj = json.loads(text)
+        return json.dumps(obj, ensure_ascii=False)
+    if suffix == ".jsonl":
+        lines_out: list[str] = []
+        for idx, line in enumerate(text.splitlines()):
+            if idx >= 500:
+                break
+            line = line.strip()
+            if not line:
+                continue
+            obj = json.loads(line)
+            lines_out.append(json.dumps(obj, ensure_ascii=False))
+        return "\n".join(lines_out)
+    if suffix == ".html":
+        from ..j2.research import sanitize_fetched
+        safe_txt, _ = sanitize_fetched(text, max_chars=20_000)
+        return safe_txt
+    return text
+
+
 def _export_attachment_text(export_file: Path, relative_file: object,
                             parser: Callable[[Path], str] | None) -> tuple[str, str | None]:
     """Extract bounded text from one Telegram Desktop attachment, never from a URL.
@@ -302,7 +348,8 @@ def _export_attachment_text(export_file: Path, relative_file: object,
     if rel.is_absolute() or rel.drive or ".." in rel.parts:
         return "", "attachment path rejected"
     suffix = rel.suffix.lower()
-    allowed = {".txt", ".md", ".pdf", ".docx", ".pptx", ".xlsx"}
+    structured = {".csv", ".tsv", ".json", ".jsonl", ".xml", ".html"}
+    allowed = {".txt", ".md", ".pdf", ".docx", ".pptx", ".xlsx"} | structured
     if suffix not in allowed:
         return "", "unsupported attachment type"
     try:
@@ -320,6 +367,8 @@ def _export_attachment_text(export_file: Path, relative_file: object,
             return "", "attachment missing or too large"
         if suffix in {".txt", ".md"}:
             extracted = resolved.read_text(encoding="utf-8-sig", errors="replace")
+        elif suffix in structured:
+            extracted = _extract_structured_attachment(resolved, suffix)
         elif parser is None:
             return "", "document parser unavailable"
         else:
@@ -330,10 +379,112 @@ def _export_attachment_text(export_file: Path, relative_file: object,
         return "", f"attachment extraction failed: {type(exc).__name__}"
 
 
+def _parse_telegram_html_export(html_text: str) -> list[dict]:
+    """Safely parse Telegram Desktop HTML export (`messages*.html`) without executing scripts."""
+    from html.parser import HTMLParser
+    import re as _re
+
+    class _TGHTMLParser(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=True)
+            self.header_text: list[str] = []
+            self.messages: list[dict] = []
+            self._in_header = 0
+            self._msg_depth = 0
+            self._cur_msg: dict | None = None
+            self._capture_field: str | None = None
+            self._field_depth = 0
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            attr_map = {k: (v or "") for k, v in attrs}
+            cls = set(attr_map.get("class", "").split())
+            if tag == "div" and "page_header" in cls:
+                self._in_header = 1
+                return
+            if self._in_header > 0 and tag == "div":
+                self._in_header += 1
+            if tag == "div" and "message" in cls and "service" not in cls:
+                self._cur_msg = {
+                    "id": attr_map.get("id", ""),
+                    "peer_id": attr_map.get("data-peer-id", ""),
+                    "from_id": attr_map.get("data-from-id", ""),
+                    "date": "",
+                    "from_name": "",
+                    "text_parts": [],
+                }
+                self._msg_depth = 1
+                return
+            if self._cur_msg is not None:
+                if tag == "div":
+                    self._msg_depth += 1
+                if tag == "div" and "date" in cls and attr_map.get("title"):
+                    self._cur_msg["date"] = attr_map["title"]
+                if tag == "div" and "from_name" in cls:
+                    self._capture_field = "from_name"
+                    self._field_depth = 1
+                elif tag == "div" and "text" in cls:
+                    self._capture_field = "text"
+                    self._field_depth = 1
+                elif self._capture_field and tag == "div":
+                    self._field_depth += 1
+                elif self._capture_field == "text" and tag == "br":
+                    self._cur_msg["text_parts"].append("\n")
+
+        def handle_endtag(self, tag: str) -> None:
+            if self._in_header > 0 and tag == "div":
+                self._in_header -= 1
+            if self._cur_msg is not None and tag == "div":
+                if self._capture_field:
+                    self._field_depth -= 1
+                    if self._field_depth <= 0:
+                        self._capture_field = None
+                self._msg_depth -= 1
+                if self._msg_depth <= 0:
+                    self.messages.append(self._cur_msg)
+                    self._cur_msg = None
+
+        def handle_data(self, data: str) -> None:
+            if self._in_header > 0:
+                self.header_text.append(data)
+            if self._cur_msg is not None:
+                if self._capture_field == "from_name":
+                    self._cur_msg["from_name"] += data
+                elif self._capture_field == "text":
+                    self._cur_msg["text_parts"].append(data)
+
+    parser = _TGHTMLParser()
+    parser.feed(html_text[:8 * 1024 * 1024])
+    parser.close()
+    header_joined = " ".join("".join(parser.header_text).split())
+    header_uid_match = _re.search(r"\b(\d{5,15})\b", header_joined)
+    default_peer = int(header_uid_match.group(1)) if header_uid_match else None
+    out: list[dict] = []
+    for m in parser.messages:
+        text = "".join(m["text_parts"]).strip()
+        if not text:
+            continue
+        peer_str = str(m.get("peer_id") or "").strip()
+        peer_uid = int(peer_str) if peer_str.isdigit() else default_peer
+        from_id = str(m.get("from_id") or "").strip()
+        sender_uid = _export_uid(from_id)
+        if sender_uid is None:
+            fn_match = _re.search(r"\b(\d{5,15})\b", str(m.get("from_name") or ""))
+            if fn_match:
+                sender_uid = int(fn_match.group(1))
+        out.append({
+            "id": m.get("id") or str(len(out) + 1),
+            "peer_uid": peer_uid,
+            "sender_uid": sender_uid,
+            "date": m.get("date") or "",
+            "text": text,
+        })
+    return out
+
+
 def read_exports(inbox: Path, *, known: dict[int, str], cursors: dict[str, str],
                  name: str = "tg-export",
                  document_parser: Callable[[Path], str] | None = None) -> ReadResult:
-    """Telegram Desktop JSON exports. Only known Jeff participants are attributed.
+    """Telegram Desktop JSON and HTML exports. Only known Jeff participants are attributed.
 
     A personal chat with a known participant keeps both sides (the other side
     as context, role ``other``); in any other chat only the known participant's
@@ -412,6 +563,92 @@ def read_exports(inbox: Path, *, known: dict[int, str], cursors: dict[str, str],
                     "", ""))
                 stat.read += 1
         result.cursors[cursor_name] = path.name[:120] or "done"
+
+    for html_path in sorted(Path(inbox).rglob("messages*.html")):
+        try:
+            if html_path.stat().st_size > MAX_EXPORT_BYTES:
+                stat.errors += 1
+                continue
+            raw_html = html_path.read_bytes()
+        except OSError:
+            stat.errors += 1
+            continue
+        digest = hashlib.sha256(raw_html).hexdigest()
+        cursor_name = f"{name}/html-{digest[:32]}"
+        if cursors.get(cursor_name):
+            continue
+        try:
+            parsed_msgs = _parse_telegram_html_export(raw_html.decode("utf-8-sig", errors="replace"))
+        except Exception:  # noqa: BLE001
+            stat.errors += 1
+            continue
+        for item in parsed_msgs:
+            peer_uid = item.get("peer_uid")
+            sender_uid = item.get("sender_uid")
+            if peer_uid in known:
+                owner_uid = peer_uid
+                role = "participant" if (sender_uid == peer_uid or sender_uid is None) else "other"
+            elif sender_uid in known:
+                owner_uid, role = sender_uid, "participant"
+            else:
+                continue
+            text = str(item.get("text") or "").strip()
+            ts = _parse_ts(item.get("date"))
+            kind = "command" if text.startswith("/") else ("text" if text else "empty")
+            result.messages.append(RawMessage(
+                known[owner_uid], "export", name,
+                f"html:{digest[:16]}:{item.get('id')}", role, ts, text, kind, "", ""
+            ))
+            stat.read += 1
+        result.cursors[cursor_name] = html_path.name[:120] or "done"
+    return result
+
+
+def read_call_transcripts(calls_dir: Path, *, cursors: dict[str, str],
+                          name: str = "jeff-calls") -> ReadResult:
+    """Incrementally read voice/call transcript JSONL files (`<pit>/calls/*.jsonl`)."""
+    result = ReadResult()
+    stat = SourceStat(name)
+    result.stats.append(stat)
+    if not Path(calls_dir).is_dir():
+        stat.status = "missing"
+        return result
+    for path in sorted(Path(calls_dir).glob("*.jsonl")):
+        cursor_name = f"{name}/{path.name}"
+        offset = int(cursors.get(cursor_name, "0") or 0)
+        try:
+            size = path.stat().st_size
+            if size < offset:
+                offset = 0
+            with path.open("rb") as handle:
+                handle.seek(offset)
+                chunk = handle.read()
+        except OSError:
+            stat.errors += 1
+            continue
+        consumed = chunk.rfind(b"\n") + 1
+        for idx, line in enumerate(chunk[:consumed].splitlines()):
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                stat.errors += 1
+                continue
+            if not isinstance(rec, dict):
+                continue
+            person_key = str(rec.get("person_key") or "").strip()
+            text = str(rec.get("text") or rec.get("transcript") or "").strip()
+            if not person_key or not text:
+                continue
+            role_raw = str(rec.get("role") or "participant")
+            role = "assistant" if role_raw in {"assistant", "jeff", "bot"} else "participant"
+            ts = _parse_ts(rec.get("ts") or rec.get("created_at") or rec.get("at"))
+            call_id = str(rec.get("call_id") or path.stem)[:40]
+            result.messages.append(RawMessage(
+                person_key, "telegram", name, f"call:{call_id}:{offset}:{idx}",
+                role, ts, text, "voice", "", ""
+            ))
+            stat.read += 1
+        result.cursors[cursor_name] = str(offset + consumed)
     return result
 
 

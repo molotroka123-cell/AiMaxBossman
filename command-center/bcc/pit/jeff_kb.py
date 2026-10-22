@@ -42,7 +42,7 @@ MAX_SECTIONS = 600
 SECTION_CHARS = 1100
 TOP_K = 4
 CONTEXT_CHARS = 6000
-SUFFIXES = (".txt", ".md", ".pdf", ".docx")
+SUFFIXES = (".txt", ".md", ".pdf", ".docx", ".csv", ".tsv", ".json", ".jsonl", ".xml", ".html")
 NO_ANSWER_RU = "В методичке этого нет."
 _NO_ANSWER_KEY = "в методичке этого нет"
 
@@ -106,7 +106,7 @@ def audit(data_dir: Path | str, event: str, **meta: Any) -> None:
     from .config import pit_home
     safe = {k: v for k, v in meta.items()
             if isinstance(v, (bool, int, float)) or (k in _AUDIT_TEXT_KEYS and isinstance(v, str)
-                                                    and len(v) <= _AUDIT_TEXT_KEYS[k])}
+                                                    and len(v <= _AUDIT_TEXT_KEYS[k] if False else v) <= _AUDIT_TEXT_KEYS[k])}
     row = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "event": str(event)[:40], **safe,
            "schema": SCHEMA}
     try:
@@ -132,18 +132,105 @@ def _clean(text: str) -> str:
     return _CONTROL.sub("", _TEMPLATE_TOKEN.sub("", str(text).replace("\r\n", "\n").replace("\r", "\n")))
 
 
+def _extract_structured_kb_text(suffix: str, data: bytes) -> str:
+    import csv
+    if suffix == ".xml":
+        from bcc.safe_xml import safe_fromstring
+        try:
+            root_el = safe_fromstring(data)
+        except ValueError as exc:
+            raise KBError(f"небезопасный или повреждённый XML: {exc}") from None
+        blocks: list[str] = []
+        for elem in root_el.iter():
+            tag = str(elem.tag).split("}", 1)[-1]
+            title_attr = str(elem.attrib.get("title") or elem.attrib.get("name") or "").strip()
+            txt = (elem.text or "").strip()
+            if title_attr and txt:
+                blocks.append(f"# {title_attr}\n{txt}")
+            elif title_attr:
+                blocks.append(f"# {title_attr}")
+            elif txt:
+                blocks.append(f"{tag}: {txt}")
+        return "\n\n".join(blocks)
+
+    raw_text = _decode_text(data)
+    if suffix in (".csv", ".tsv"):
+        delim = "\t" if suffix == ".tsv" else ","
+        out_lines: list[str] = []
+        headers: list[str] = []
+        for line in raw_text.splitlines():
+            s = line.strip()
+            if not s:
+                continue
+            if s.startswith("#"):
+                out_lines.append(s)
+                continue
+            row = next(csv.reader([line], delimiter=delim), [])
+            cells = [c.strip() for c in row if c is not None]
+            if not any(cells):
+                continue
+            if not headers:
+                headers = cells
+                out_lines.append(" | ".join(headers))
+            else:
+                pairs = [f"{headers[i]}: {cells[i]}" if i < len(headers) and headers[i] else cells[i]
+                         for i in range(len(cells)) if cells[i]]
+                out_lines.append("; ".join(pairs))
+        return "\n".join(out_lines)
+
+    if suffix in (".json", ".jsonl"):
+        records: list[Any] = []
+        try:
+            if suffix == ".json":
+                parsed = json.loads(raw_text)
+                records = parsed if isinstance(parsed, list) else [parsed]
+            else:
+                for line in raw_text.splitlines():
+                    if line.strip():
+                        records.append(json.loads(line))
+        except ValueError as exc:
+            raise KBError(f"некорректный JSON: {exc}") from None
+        blocks = []
+        for idx, rec in enumerate(records, 1):
+            if isinstance(rec, dict):
+                title = str(rec.get("title") or rec.get("topic") or rec.get("name") or f"Запись {idx}").strip()
+                body_parts: list[str] = []
+                for k, v in rec.items():
+                    if k in ("title", "topic", "name"):
+                        continue
+                    if isinstance(v, list):
+                        body_parts.append(f"{k}: " + "; ".join(str(x) for x in v))
+                    elif isinstance(v, dict):
+                        body_parts.append(f"{k}: " + json.dumps(v, ensure_ascii=False))
+                    else:
+                        body_parts.append(f"{k}: {v}")
+                blocks.append(f"# {title}\n" + "\n".join(body_parts))
+            else:
+                blocks.append(str(rec))
+        return "\n\n".join(blocks)
+
+    if suffix == ".html":
+        from .j2.research import sanitize_fetched
+        safe_txt, _ = sanitize_fetched(raw_text, max_chars=MAX_TEXT_CHARS)
+        return safe_txt
+
+    return raw_text
+
+
 def extract_text(name: str, data: bytes, *, extractor: Callable[[str, bytes], list] | None = None) -> str:
-    """Plain text of the uploaded manual. .txt/.md are decoded here; .pdf/.docx go through the hardened child-process
-    parser of the document library (pypdf / file_intel, time and memory limits)."""
+    """Plain text of the uploaded manual. .txt/.md and structured formats (.csv/.tsv/.json/.jsonl/.xml/.html) are
+    decoded here; .pdf/.docx go through the hardened child-process parser of the document library."""
     suffix = Path(str(name or "")).suffix.lower()
     if suffix not in SUFFIXES:
-        raise KBError("пришлите методичку как .txt, .md или .pdf")
+        raise KBError("пришлите методичку как .txt, .md, .pdf, .docx, .csv, .json или .xml")
     if not data:
         raise KBError("файл пустой")
     if len(data) > MAX_UPLOAD_BYTES:
         raise KBError(f"файл больше {MAX_UPLOAD_BYTES // (1024 * 1024)} МБ")
     if suffix in (".txt", ".md"):
         text = _decode_text(data)
+    elif suffix in (".csv", ".tsv", ".json", ".jsonl", ".xml", ".html"):
+        text = _extract_structured_kb_text(suffix, data)
     else:
         from . import doc_library
         run = extractor or doc_library.extract_sections
@@ -273,6 +360,49 @@ def save_manual(data_dir: Path | str, name: str, data: bytes, *,
                   "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
     _write_state(data_dir, state)
     audit(data_dir, "manual_saved", size_bytes=len(data), sections=len(sections), sha256=digest[:16], format=fmt)
+    return info(data_dir)
+
+
+def append_manual(data_dir: Path | str, name: str, data: bytes, *,
+                  extractor: Callable[[str, bytes], list] | None = None) -> dict:
+    """Extract, split, and append new sections to the existing encrypted manual (or create if absent)."""
+    existing = load_manual(data_dir)
+    if existing is None or not existing.get("sections"):
+        return save_manual(data_dir, name, data, extractor=extractor)
+    text = extract_text(name, data, extractor=extractor)
+    new_sections = split_sections(text)
+    merged: list[dict] = []
+    seen_norms: set[str] = set()
+    for sec in list(existing["sections"]) + new_sections:
+        norm = " ".join(str(sec.get("text") or "").split()).casefold()
+        if not norm or norm in seen_norms:
+            continue
+        seen_norms.add(norm)
+        merged.append({"title": str(sec.get("title") or "")[:120], "text": str(sec["text"]).strip()})
+    if len(merged) > MAX_SECTIONS:
+        raise KBError(f"слишком много разделов после объединения: {len(merged)}, максимум {MAX_SECTIONS}")
+    for idx, sec in enumerate(merged, 1):
+        sec["n"] = idx
+    combined_digest = hashlib.sha256(
+        (str(existing.get("sha256") or "") + ":" + hashlib.sha256(data).hexdigest()).encode("utf-8")
+    ).hexdigest()
+    fmt = Path(str(name)).suffix.lower().lstrip(".")
+    combined_name = f"{existing.get('name', 'manual')} + {Path(str(name or 'manual')).name}"[:120]
+    payload = {"schema": SCHEMA, "name": combined_name, "sha256": combined_digest, "sections": merged}
+    blob = _vault(data_dir).encrypt(json.dumps(payload, ensure_ascii=False))
+    _atomic_write(kb_dir(data_dir) / MANUAL_FILE, blob or "")
+    state = read_state(data_dir)
+    prev_size = int(state.get("size_bytes") or 0)
+    state.update({
+        "sha256": combined_digest,
+        "format": "multi",
+        "size_bytes": prev_size + len(data),
+        "sections": len(merged),
+        "chars": sum(len(s["text"]) for s in merged),
+        "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    })
+    _write_state(data_dir, state)
+    audit(data_dir, "manual_appended", size_bytes=len(data), sections=len(merged), sha256=combined_digest[:16], format=fmt)
     return info(data_dir)
 
 

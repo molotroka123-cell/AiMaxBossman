@@ -29,16 +29,19 @@ from .policy import PolicyRefusal
 TASK_TYPE = "web_learn"
 MAX_PAGES = 5
 EXCERPT_CHARS = 280
-ORIGINS = ("owner_goal", "failed_test")
+ORIGINS = ("owner_goal", "failed_test", "jeff_research", "tender_intel", "cyber_defense")
 
-# (f) allow-list: the topic must be about public technical knowledge.
+# (f) allow-list: the topic must be about public technical, procurement/tender, or cyber-defense knowledge.
 _ALLOW_RE = re.compile(
     r"\b(release|version|changelog|install|setup|build|compile|error|exception|bug|fix|api|sdk|cli|"
     r"library|framework|package|model|weights|checkpoint|benchmark|inference|quantiz\w*|gguf|onnx|"
     r"docs?|documentation|tutorial|guide|how to|spec|standard|rfc|license|python|rust|node|typescript|"
     r"javascript|windows|linux|docker|git|github|sqlite|fastapi|pytest|ffmpeg|gpu|cuda|vulkan|rocm|"
     r"amd|nvidia|llm|diffusion|lora|comfyui|ollama|mcp|prompt|agent|telegram bot api|http|tls|"
-    r"performance|optimi[sz]\w*|security advisory|cve)\b|\.cpp\b|\.py\b|\.js\b", re.I)
+    r"performance|optimi[sz]\w*|security advisory|cve|owasp|mitre|defusedxml|dpapi|waf|ssrf|xxe|sandbox|"
+    r"supply chain|sbom|tender|procurement|mil-spec|sam\.gov|zakupki|fpga|sdr|rtos|mavlink|telemetry|"
+    r"44-фз|223-фз|гост|тендер\w*|закупк\w*|поставщ\w*|поставк\w*|спецификац\w*|логистик\w*|контракт\w*|"
+    r"радиоэлектрон\w*|телеметри\w*|прошивк\w*|киберзащит\w*|уязвимост\w*|защит\w*)\b|\.cpp\b|\.py\b|\.js\b", re.I)
 # Refused regardless of the allow-list.
 _REFUSE_RES = [
     (re.compile(r"\b(password|passwd|credential|credentials|login|token|api key|apikey|secret|cookie|session)\b.*"

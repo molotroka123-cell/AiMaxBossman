@@ -394,6 +394,8 @@ class MasterParser:
         absorb(src.read_store(self.pit / "web", name="jeff-web", surface="web",
                               key_for_uid=self._web_key, cursors=cursors))
         absorb(src.read_vault_raw(self.pit / "personalities", cursors=cursors))
+        if (self.pit / "calls").is_dir():
+            absorb(src.read_call_transcripts(self.pit / "calls", cursors=cursors))
         for root in self.options.extra_roots:
             root_path = Path(root)
             home = root_path / "pit-v1.7" if (root_path / "pit-v1.7").is_dir() else root_path
