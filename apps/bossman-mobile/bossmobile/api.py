@@ -62,6 +62,10 @@ class ThreadIn(BaseModel):
     title: str | None = Field(default=None, max_length=200)
 
 
+class DeleteForeverIn(BaseModel):
+    confirm: str = Field(min_length=1, max_length=64)
+
+
 class SendIn(BaseModel):
     text: str = Field(min_length=1, max_length=20000)
     agent_id: int | None = None
@@ -587,6 +591,33 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def stop(thread_id: str, _=Depends(session)):
         workers.trigger_global_stop()
         return await call("POST", f"/api/chat/threads/{_tid(thread_id)}/stop")
+
+    # -- long-press actions (owner 22.10): encrypted archive and delete forever. Bossman does the work; this is a proxy.
+    @app.post("/m/api/threads/{thread_id}/archive-encrypted")
+    async def archive_encrypted(thread_id: str, _=Depends(session)):
+        return await call("POST", f"/api/chat/threads/{_tid(thread_id)}/archive-encrypted", timeout=60)
+
+    @app.get("/m/api/archive")
+    async def archive_list(_=Depends(session)):
+        return await call("GET", "/api/chat/archive")
+
+    @app.post("/m/api/archive/{thread_id}/restore")
+    async def archive_restore(thread_id: str, _=Depends(session)):
+        return await call("POST", f"/api/chat/archive/{_tid(thread_id)}/restore", timeout=60)
+
+    @app.delete("/m/api/archive/{thread_id}")
+    async def archive_delete(thread_id: str, _=Depends(session)):
+        return await call("DELETE", f"/api/chat/archive/{_tid(thread_id)}")
+
+    @app.post("/m/api/threads/{thread_id}/delete-forever")
+    async def thread_delete_forever(thread_id: str, body: DeleteForeverIn, _=Depends(session)):
+        """Typed confirmation: the last 6 characters of the chat id (or the whole id). Bossman is asked for the purge
+        with confirm=<id> and the mobile surface header, so it re-checks on its side."""
+        tid = _tid(thread_id)
+        if body.confirm.strip() not in (tid[-6:], tid):
+            raise fail(422, "введите последние 6 символов id чата", "BM_CONFIRM_REQUIRED")
+        return await call("DELETE", f"/api/chat/threads/{tid}", params={"purge": 1, "confirm": tid},
+                          headers={"X-Bossman-Surface": "mobile"}, timeout=60)
 
     @app.get("/m/api/tasks/{task_id}")
     async def task(task_id: int, _=Depends(session)):

@@ -469,3 +469,19 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
   font: 12px/1.45 var(--mono); max-height: 22vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .oc-term-bar { display: flex; gap: 6px; align-items: center; }
 .oc-term-bar .field { min-height: 38px; padding: 6px 10px; font-size: 13px; }
+
+
+/* долгое нажатие на чат, лист действий, зашифрованный архив (22.10) */
+.thread { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+.drawer-archive { margin-top: 8px; width: 100%; }
+.sheet-actions { display: grid; gap: 10px; margin-top: 12px; }
+.sheet-card p { margin: 8px 0; line-height: 1.35; }
+.sheet-label { display: block; margin: 12px 0 6px; font-size: 14px; }
+.sheet-input { width: 100%; min-height: 48px; padding: 0 12px; font-size: 18px; letter-spacing: .08em; border-radius: 12px; border: 1px solid var(--line2); background: var(--bg2); color: var(--text); }
+.sheet-error { color: var(--err); font-size: 14px; }
+.sheet-ok { font-size: 16px; }
+.archive-list { display: grid; gap: 8px; margin: 10px 0; }
+.archive-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--bg2); }
+.archive-txt { min-width: 0; } .archive-txt b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.archive-txt span { font-size: 12px; color: var(--faint); }
+.archive-acts { display: flex; gap: 6px; flex: none; flex-wrap: wrap; justify-content: flex-end; }

@@ -152,3 +152,8 @@ vault.*
 
 # doc_intake dry-run library roots (owner documents never enter git)
 /.tmp-library/
+
+# encrypted chat archive (owner 22.10): never tracked
+chat-archive.key
+*.bcarchive
+chat-archive/

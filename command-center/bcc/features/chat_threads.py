@@ -59,6 +59,8 @@ REQUEST_ID_PATTERN = r"^[A-Za-z0-9._:-]+$"
 _ID_TIME = re.compile(r"(\d{8}-\d{6})-")
 
 META_VERSION = 1
+#: Шлюз телефона ставит его на запросы удаления навсегда (нужен confirm=<id>).
+SURFACE_HEADER = "X-Bossman-Surface"
 DEFAULT_TITLE = "Новый чат"
 TITLE_FALLBACK_CHARS = 60
 TITLE_MAX_CHARS = 120
@@ -1029,11 +1031,18 @@ async def patch_thread(thread_id: str, body: ThreadPatch, request: Request):
 
 
 @router.delete("/chat/threads/{thread_id}")
-async def delete_thread(thread_id: str, request: Request, purge: bool = False):
+async def delete_thread(thread_id: str, request: Request, purge: bool = False,
+                        confirm: str | None = Query(default=None, max_length=64)):
     """Убрать в архив (обратимо). `?purge=1` удаляет файл сессии и метаданные;
-    задачи в базе остаются."""
+    задачи в базе остаются. С телефона (заголовок X-Bossman-Surface: mobile)
+    удаление навсегда требует `confirm=<id чата>`; неверный confirm отвергается
+    всегда."""
     svc = _svc(request)
     path = _session_path(svc, thread_id)
+    if purge and (confirm is not None or request.headers.get(SURFACE_HEADER, "").lower() == "mobile"):
+        if confirm != thread_id:
+            raise _fail(422, "удаление навсегда требует подтверждения id чата",
+                        code="CHAT_PURGE_CONFIRM_REQUIRED", hint="confirm=<id чата>")
     if not path.is_file():
         raise _fail(404, "чат не найден", code="CHAT_THREAD_NOT_FOUND")
     if not purge:

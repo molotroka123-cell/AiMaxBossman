@@ -27,6 +27,11 @@ control:
     chat.thread: GET /m/api/threads/{id}
     chat.send: POST /m/api/threads/{id}/send             # 403 unless agent_id is a local-only agent
     chat.stop: POST /m/api/threads/{id}/stop
+    chat.archive_encrypted: POST /m/api/threads/{id}/archive-encrypted   # AES-256-GCM, key on the PC (DPAPI); long-press menu
+    chat.archive.list: GET /m/api/archive
+    chat.archive.restore: POST /m/api/archive/{id}/restore
+    chat.archive.delete: DELETE /m/api/archive/{id}
+    chat.delete_forever: POST /m/api/threads/{id}/delete-forever       # body {confirm}: last 6 chars of the chat id
     chat.events: GET /m/api/tasks/{id}/events           # SSE, filtered copy of /api/events/stream
     approvals.list: GET /m/api/approvals
     approvals.decide: POST /m/api/approvals/{id}        # only on the owner's tap
