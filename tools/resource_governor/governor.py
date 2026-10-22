@@ -1795,6 +1795,87 @@ def cmd_measure(args: argparse.Namespace) -> int:
     return 0
 
 
+def recommend_uma_residency(
+    cfg: dict[str, Any],
+    mem: dict[str, Any],
+    live_jobs_count: int = 0,
+    requested_lane: str = "agent",
+) -> dict[str, Any]:
+    """Compute 128 GB UMA residency policy across workload lanes (`CP-PERF-04`, §4.5):
+    - `media_generation`: active direct-gen media job -> protect media VRAM/RAM, keep Jeff (`gemma4-31b-uncensored:latest`)
+      only if free RAM >= `keep_min_free_gb` (default 40 GB), unload secondary coders immediately.
+    - `code_or_north_star`: OpenCode / North Star multi-step coding -> keep both `gemma4-31b-uncensored:latest` and
+      primary fast coder (`bossman-fast-qwen36-35b-a3b-q5:latest` / `qwen38-27b-uncensored:latest`) warm when
+      available RAM >= 45 GB to avoid cold-load ping-pong between planner/coder/verifier turns.
+    - `idle_or_chat`: default conversational lane -> keep `gemma4-31b-uncensored:latest` resident (`keep_alive=2h`)
+      and warm OS file cache for hot media models.
+    """
+    avail_gb = round(float(mem.get("available") or 0.0) / 1e9, 1)
+    cache_gb = _gb(mem.get("cache"))
+    keep_min_gb = float(cfg.get("keep_min_free_gb") or 40.0)
+    lane_norm = (requested_lane or "agent").strip().lower()
+
+    if live_jobs_count > 0 or lane_norm in ("media", "media_generation", "direct_gen"):
+        keep_jeff = avail_gb >= keep_min_gb
+        return {
+            "lane": "media_generation",
+            "live_jobs": int(live_jobs_count),
+            "ram_available_gb": avail_gb,
+            "cache_gb": cache_gb,
+            "keep_resident_models": ["gemma4-31b-uncensored:latest"] if keep_jeff else [],
+            "unload_models": [
+                "r1-70b-abliterated:latest",
+                "qwen3-coder:30b",
+                "bossman-fast-qwen36-35b-a3b-q5:latest",
+                "qwen38-27b-uncensored:latest",
+            ],
+            "keep_alive": "2h" if keep_jeff else "0s",
+            "vulkan_mtp_draft_n_max": 0,
+            "reason": "Активна медиа-генерация: приоритет RAM/VRAM у direct-gen и защита Jeff.",
+        }
+
+    if lane_norm in ("code", "north_star", "self_improve", "code_or_north_star"):
+        co_reside = avail_gb >= 45.0
+        keep_list = ["gemma4-31b-uncensored:latest"]
+        if co_reside:
+            keep_list.append("bossman-fast-qwen36-35b-a3b-q5:latest")
+        return {
+            "lane": "code_or_north_star",
+            "live_jobs": 0,
+            "ram_available_gb": avail_gb,
+            "cache_gb": cache_gb,
+            "keep_resident_models": keep_list,
+            "unload_models": ["r1-70b-abliterated:latest"] if avail_gb < 65.0 else [],
+            "keep_alive": "30m",
+            "vulkan_mtp_draft_n_max": 2,
+            "reason": (
+                "Режим OpenCode / North Star: удержание планировщика и кодера в 128 ГБ UMA без холодной перезагрузки."
+                if co_reside else "Ограниченный запас RAM: удерживается только активная модель."
+            ),
+        }
+
+    return {
+        "lane": "idle_or_chat",
+        "live_jobs": 0,
+        "ram_available_gb": avail_gb,
+        "cache_gb": cache_gb,
+        "keep_resident_models": ["gemma4-31b-uncensored:latest"],
+        "unload_models": [],
+        "keep_alive": str((cfg.get("jeff_rewarm") or {}).get("keep_alive") or "2h"),
+        "vulkan_mtp_draft_n_max": 2,
+        "reason": "Штатный режим чата/ожидания: Gemma 4 удерживается тёплой, OS file cache прогрет.",
+    }
+
+
+def cmd_residency(args: argparse.Namespace) -> int:
+    cfg = load_config()
+    io = SystemIO(cfg)
+    jobs = io.jobs() or []
+    rec = recommend_uma_residency(cfg, io.mem(), len(live_jobs(jobs)), getattr(args, "lane", "agent"))
+    print(json.dumps(rec, ensure_ascii=False, indent=2))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1807,6 +1888,9 @@ def main(argv: list[str] | None = None) -> int:
     m = sub.add_parser("measure")
     m.add_argument("file")
     m.set_defaults(fn=cmd_measure)
+    res_p = sub.add_parser("residency")
+    res_p.add_argument("--lane", default="code_or_north_star")
+    res_p.set_defaults(fn=cmd_residency)
     a = ap.parse_args(argv)
     return a.fn(a)
 

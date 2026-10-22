@@ -111,6 +111,7 @@ class _State:
     def __init__(self) -> None:
         self.lock = asyncio.Lock()
         self.sessions: dict[str, tuple[int, int, dict]] = {}
+        self.meta_cache: tuple[int, int, dict[str, dict]] | None = None
         self.subscriptions: tuple[float, list[dict]] | None = None
         self.subscriptions_task: asyncio.Task | None = None
 
@@ -145,11 +146,7 @@ def _session_path(svc: Any, thread_id: str) -> Path:
             or thread_id.upper() in _WINDOWS_DEVICE_NAMES):      # COM1.json на Windows — устройство
         raise _fail(422, "неверный id чата", code="CHAT_THREAD_ID_INVALID",
                     hint="id чата: 4–64 символа A–Z, a–z, 0–9, _ и -")
-    root = _sessions_dir(svc)
-    path = root / f"{thread_id}.json"
-    if path.resolve().parent != root.resolve():
-        raise _fail(422, "неверный id чата", code="CHAT_THREAD_ID_INVALID")
-    return path
+    return _sessions_dir(svc) / f"{thread_id}.json"
 
 
 def _attachment_folder(svc: Any, attachment_id: str) -> Path:
@@ -297,15 +294,29 @@ def _all_thread_ids(svc: Any) -> list[str]:
 
 def _read_meta(svc: Any) -> dict[str, dict]:
     """threads из threads-meta.json; нет файла или он повреждён — пусто."""
+    path = _meta_path(svc)
+    state = _state(svc)
     try:
-        raw = json.loads(_meta_path(svc).read_text(encoding="utf-8"))
+        st = path.stat()
+    except OSError:
+        state.meta_cache = None
+        return {}
+    hit = state.meta_cache
+    if hit is not None and hit[0] == st.st_mtime_ns and hit[1] == st.st_size:
+        return hit[2]
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
+        state.meta_cache = None
         return {}
     threads = raw.get("threads") if isinstance(raw, dict) else None
     if not isinstance(threads, dict):
+        state.meta_cache = None
         return {}
-    return {k: v for k, v in threads.items()
-            if isinstance(k, str) and THREAD_ID_RE.fullmatch(k) and isinstance(v, dict)}
+    parsed = {k: v for k, v in threads.items()
+              if isinstance(k, str) and THREAD_ID_RE.fullmatch(k) and isinstance(v, dict)}
+    state.meta_cache = (st.st_mtime_ns, st.st_size, parsed)
+    return parsed
 
 
 def _mutate_meta_sync(path: Path, fn: Callable[[dict], Any]) -> Any:
@@ -329,8 +340,12 @@ def _mutate_meta_sync(path: Path, fn: Callable[[dict], Any]) -> Any:
 
 async def _mutate_meta(svc: Any, fn: Callable[[dict], Any]) -> Any:
     """Чтение-изменение-запись метаданных под одним замком процесса."""
-    async with _state(svc).lock:
-        return await asyncio.to_thread(_mutate_meta_sync, _meta_path(svc), fn)
+    state = _state(svc)
+    async with state.lock:
+        try:
+            return await asyncio.to_thread(_mutate_meta_sync, _meta_path(svc), fn)
+        finally:
+            state.meta_cache = None
 
 
 def _entry(meta: dict[str, dict], thread_id: str) -> dict:
@@ -852,7 +867,7 @@ async def _compose_prompt(svc: Any, raw: dict, text: str, attachments: list[dict
     turns_n, chars, max_prompt = _cli_limits()
     summary = str(raw.get("summary") or "")
     live = _live_turns(raw)[-turns_n:] if turns_n > 0 else []
-    views = await _task_views(svc, [turn["task_id"] for _, turn in live])
+    views = await _task_views(svc, [turn["task_id"] for _, turn in live]) if live else {}
     parts = [SUMMARY_LABEL + summary] if summary else []
     for _, turn in live:
         view = views.get(int(turn["task_id"]))
@@ -860,7 +875,7 @@ async def _compose_prompt(svc: Any, raw: dict, text: str, attachments: list[dict
             continue                      # как CLI: задача не читается — ход пропускается
         answer = _sanitize(view["result"] or view["error"] or "")[:chars]
         parts.append(f"Владелец: {_sanitize(turn.get('text'))[:chars]}\nBossman: {answer or '—'}")
-    block = await asyncio.to_thread(_attachment_block_sync, attachments)
+    block = (await asyncio.to_thread(_attachment_block_sync, attachments)) if attachments else ""
     data = [block] if block else []
 
     def assemble(dropped: int) -> str:

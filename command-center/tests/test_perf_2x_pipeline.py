@@ -205,3 +205,24 @@ async def test_agent_message_emits_sanitized_perf_spans_and_top_spans(tmp_path: 
             assert compact_tools.json()["mode_filter"] == "CODE"
     finally:
         await svc.stop()
+
+
+def test_uma_residency_policy_lanes() -> None:
+    import sys
+
+    repo_root = Path(__file__).resolve().parents[2]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from tools.resource_governor.governor import DEFAULT_CONFIG, recommend_uma_residency
+
+    mem_rich = {"available": 96_000_000_000, "cache": 24_000_000_000}
+    code_lane = recommend_uma_residency(DEFAULT_CONFIG, mem_rich, live_jobs_count=0, requested_lane="code")
+    assert code_lane["lane"] == "code_or_north_star"
+    assert "gemma4-31b-uncensored:latest" in code_lane["keep_resident_models"]
+    assert "bossman-fast-qwen36-35b-a3b-q5:latest" in code_lane["keep_resident_models"]
+    assert code_lane["vulkan_mtp_draft_n_max"] == 2
+
+    media_lane = recommend_uma_residency(DEFAULT_CONFIG, mem_rich, live_jobs_count=1, requested_lane="code")
+    assert media_lane["lane"] == "media_generation"
+    assert "r1-70b-abliterated:latest" in media_lane["unload_models"]
+    assert media_lane["vulkan_mtp_draft_n_max"] == 0

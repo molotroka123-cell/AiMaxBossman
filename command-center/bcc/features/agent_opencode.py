@@ -1688,6 +1688,100 @@ async def get_agent_perf_top_spans(limit: int = Query(default=10, ge=1, le=50)):
     }
 
 
+async def _session_budget_remaining_usd(
+    svc: Any,
+    raw: dict[str, Any],
+    cfg: dict[str, Any],
+    rt: AgentSessionRuntime,
+) -> float:
+    """Fast session budget computation without full `_session_detail` disk/DB fan-out (`CP-PERF-04`)."""
+    budget = float(cfg.get("budget_usd", DEFAULT_SESSION_BUDGET_USD))
+    if not getattr(rt, "_db_spent_initialized", False):
+        task_ids = [int(t["task_id"]) for _, t in _turns(raw) if int(t.get("task_id") or 0) > 0]
+        if task_ids and cfg.get("allow_cloud"):
+            async with svc.db.session() as s:
+                row = (await s.execute(
+                    sa.select(sa.func.coalesce(sa.func.sum(runs_t.c.cost_usd), 0.0))
+                    .where(runs_t.c.task_id.in_(task_ids))
+                )).first()
+                if row and row[0]:
+                    rt.spent_usd = max(rt.spent_usd, float(row[0]))
+        rt._db_spent_initialized = True  # type: ignore[attr-defined]
+    return round(max(0.0, budget - rt.spent_usd), 6)
+
+
+def _persist_turn_and_touch_sync(
+    svc: Any,
+    session_id: str,
+    turn: dict[str, Any],
+) -> tuple[int, dict[str, Any]]:
+    from .chat_threads import (
+        META_VERSION,
+        _meta_path,
+        _read_session_raw,
+        _session_path,
+        _state,
+        _write_json_atomic,
+    )
+
+    spath = _session_path(svc, session_id)
+    state = _state(svc)
+    cached = state.sessions.get(session_id)
+    raw = (cached[2]["raw"] if cached is not None else None) or _read_session_raw(spath)
+    if raw is None:
+        raise FileNotFoundError(str(spath))
+    turns = raw.get("turns")
+    if not isinstance(turns, list):
+        turns = []
+    idx = -1
+    for i, existing in enumerate(turns):
+        if isinstance(existing, dict) and existing.get("task_id") == turn["task_id"] and int(turn["task_id"]) > 0:
+            idx = i
+            break
+    if idx < 0:
+        turns.append(turn)
+        idx = len(turns) - 1
+    raw["turns"] = turns
+    raw["id"] = session_id
+    _write_json_atomic(spath, raw)
+    st = spath.stat()
+    data = {"raw": raw, "mtime": st.st_mtime}
+    state.sessions[session_id] = (st.st_mtime_ns, st.st_size, data)
+
+    # Update threads-meta.json in the same worker thread hop
+    mpath = _meta_path(svc)
+    now = time.time()
+    m_hit = state.meta_cache
+    threads_dict = dict(m_hit[2]) if m_hit is not None else {}
+    if not threads_dict and mpath.is_file():
+        with contextlib.suppress(OSError, ValueError):
+            mraw = json.loads(mpath.read_text(encoding="utf-8"))
+            if isinstance(mraw, dict) and isinstance(mraw.get("threads"), dict):
+                threads_dict = dict(mraw["threads"])
+    entry = dict(threads_dict.get(session_id) or {})
+    entry["updated_at"] = now
+    threads_dict[session_id] = entry
+    _write_json_atomic(mpath, {"version": META_VERSION, "threads": threads_dict})
+    with contextlib.suppress(OSError):
+        mst = mpath.stat()
+        state.meta_cache = (mst.st_mtime_ns, mst.st_size, threads_dict)
+    return idx, data
+
+
+async def _persist_turn_fast(svc: Any, session_id: str, turn: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    state = _chat_state(svc)
+    async with state.lock:
+        try:
+            return await asyncio.to_thread(_persist_turn_and_touch_sync, svc, session_id, turn)
+        except FileNotFoundError:
+            raise _fail(
+                404,
+                "чат удалён, пока отправлялось сообщение",
+                code="CHAT_THREAD_NOT_FOUND",
+                hint="задача уже создана — её видно в «Задачах»",
+            ) from None
+
+
 @router.post("/agent/sessions/{session_id}/messages")
 async def send_agent_message(session_id: str, body: AgentMessageIn, request: Request):
     """Unified message & task dispatcher across `CHAT | AGENT | AUTO | CODE | COMPUTER | SELF-IMPROVE`."""
@@ -1698,7 +1792,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
         mode=str(body.mode or DEFAULT_MODE),
     ) as ptrace:
         with ptrace.span("mobile.request", mode=str(body.mode or DEFAULT_MODE)):
-            with ptrace.span("session.load", cache_hit=False):
+            with ptrace.span("session.load", cache_hit=True):
                 data = _require_session(svc, session_id)
                 cfg = _session_cfg(svc, session_id)
                 orch = _orch(svc)
@@ -1758,11 +1852,10 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                         allow_cloud=allow_cloud, model=req_model, worker=req_worker,
                     )
 
-            # Check budget before dispatching
-            with ptrace.span("session.load", cache_hit=False):
-                detail_now = await _session_detail(svc, session_id)
-                budget_rem = detail_now["budget_remaining_usd"]
-            with ptrace.span("model.catalog", cache_hit=False):
+            # Fast budget + cached router catalog
+            with ptrace.span("session.load", cache_hit=True):
+                budget_rem = await _session_budget_remaining_usd(svc, data["raw"], cfg, rt)
+            with ptrace.span("model.catalog", cache_hit=orch.router_catalog_cache is not None):
                 catalog = await build_model_router_catalog(svc)
             with ptrace.span("model.route", mode=effective_mode):
                 route = select_route_for_request(
@@ -1803,8 +1896,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                     ),
                 })
                 with ptrace.span("receipt.persist", mode="SELF-IMPROVE"):
-                    idx = await _append_turn(svc, session_id, turn)
-                    await _touch_meta(svc, session_id)
+                    idx, _ = await _persist_turn_fast(svc, session_id, turn)
                 return {
                     "mode": "SELF-IMPROVE",
                     "bypass_permissions": bypass_permissions,
@@ -1847,8 +1939,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                     "synthetic_result": f"Запущена задача OpenCode `{ct_id}` в изолированном worktree ({route['model']}).",
                 })
                 with ptrace.span("receipt.persist", mode="CODE"):
-                    idx = await _append_turn(svc, session_id, turn)
-                    await _touch_meta(svc, session_id)
+                    idx, _ = await _persist_turn_fast(svc, session_id, turn)
                 with ptrace.span("ws.deliver", mode="CODE"):
                     rt.emit("task.progress", mode="CODE", coding_task_id=ct_id, status=created_ct.get("status"), route=route)
                 return {
@@ -1862,10 +1953,10 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                 }
 
             # 3. CHAT / AGENT / AUTO / COMPUTER / CODE (via Bossman governed task engine)
-            with ptrace.span("skill.match", mode=effective_mode):
-                matched_skill = await asyncio.to_thread(match_workspace_skill_for_task, svc, text)
+            with ptrace.span("skill.match", mode=effective_mode, cache_hit=bool(orch.skill_index_cache)):
+                matched_skill = match_workspace_skill_for_task(svc, text)
             request_id = body.client_request_id or ("ag-" + time.strftime("%Y%m%d%H%M%S") + "-" + secrets.token_hex(6))
-            existing = await _task_by_request_id(svc, request_id)
+            existing = (await _task_by_request_id(svc, body.client_request_id)) if body.client_request_id else None
             if existing is not None:
                 from .chat_threads import _replay
                 rep = await _replay(request, svc, session_id, existing, text, body.attachments)
@@ -1878,7 +1969,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                 return rep
 
             with ptrace.span("memory.retrieve", mode=effective_mode):
-                attachments = _resolve_attachments(svc, body.attachments, session_id)
+                attachments = _resolve_attachments(svc, body.attachments, session_id) if body.attachments else []
                 mode_prefix = ""
                 if effective_mode == "COMPUTER":
                     mode_prefix = (
@@ -1900,35 +1991,40 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                 prompt = await _compose_prompt(svc, data["raw"], mode_prefix + skill_prefix + text, attachments)
                 chosen_agent_id = await _resolve_agent_id_for_model(svc, body.agent_id or cfg.get("agent_id"), route["model"])
 
-            with ptrace.span("preflight", mode=effective_mode):
-                status_code, pre = await _internal(
-                    request, "POST", "/api/tasks/preflight",
-                    {"prompt": prompt, "agent_id": chosen_agent_id},
-                )
-            if status_code >= 400 or not isinstance(pre, dict):
-                raise _passthrough(status_code, pre)
-            if not pre.get("ok") or not isinstance(pre.get("agent"), dict):
-                raise _fail(
-                    409,
-                    pre.get("reason") or "исполнитель недоступен",
-                    code=pre.get("code") or "BLOCKED_CAPABILITY_UNAVAILABLE",
-                    hint=pre.get("hint"),
-                )
-            agent = {"id": pre["agent"].get("id"), "name": pre["agent"].get("name")}
+            from ..task_admission import ExecutorUnavailable, select_executor
+            from .chat_threads import _admission_of, _model_view, _turn_view
 
             title = re.sub(r"\s+", " ", text)[:80] or text[:80]
-            with ptrace.span("task.create", mode=effective_mode):
-                status_code, created = await _internal(request, "POST", "/api/tasks", {
-                    "prompt": prompt,
-                    "title": title,
-                    "agent_id": agent["id"],
-                    "run_now": False,
-                    "client_request_id": request_id,
-                })
-            if status_code >= 400 or not isinstance(created, dict) or not isinstance(created.get("task"), dict):
-                raise _passthrough(status_code, created)
-            task = created["task"]
-            task_id = int(task["id"])
+            async with svc.db.session() as s:
+                with ptrace.span("preflight", mode=effective_mode):
+                    try:
+                        chosen = await select_executor(s, prompt=prompt, agent_id=chosen_agent_id)
+                    except ExecutorUnavailable as exc:
+                        raise _fail(
+                            409,
+                            str(exc) or "исполнитель недоступен",
+                            code="BLOCKED_CAPABILITY_UNAVAILABLE",
+                            hint=exc.hint,
+                        ) from None
+                    agent = {"id": int(chosen["id"]), "name": chosen.get("name")}
+
+                with ptrace.span("task.create", mode=effective_mode):
+                    now_dt = utcnow()
+                    res = await s.execute(sa.insert(tasks_t).values(
+                        title=title,
+                        prompt=prompt,
+                        agent_id=agent["id"],
+                        priority=5,
+                        max_retries=2,
+                        status="draft",
+                        created_at=now_dt,
+                        updated_at=now_dt,
+                        meta={"client_request_id": request_id},
+                    ))
+                    task_id = int(res.inserted_primary_key[0])
+                    await s.commit()
+
+            await svc.bus.emit("task.created", task_id=task_id, title=title, agent_id=agent["id"])
             orch.task_to_session[task_id] = session_id
 
             turn = _new_turn(task_id, body.text, attachments)
@@ -1938,25 +2034,55 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                     "id": matched_skill["id"],
                     "version": matched_skill["version"],
                     "required_tools": matched_skill["required_tools"],
+                    "fast_path": matched_skill.get("fast_path", False),
                 }
             with ptrace.span("receipt.persist", mode=effective_mode):
-                idx = await _append_turn(svc, session_id, turn)
-                await _touch_meta(svc, session_id)
+                idx, updated_data = await _persist_turn_fast(svc, session_id, turn)
 
-            from .chat_threads import _send_response, _start
             with ptrace.span("queue.wait", mode=effective_mode):
-                run_id, admission = await _start(request, task_id)
+                run_id = await svc.engine.enqueue(task_id, only_if_idle=True)
+                adm_raw = await svc.engine.admission_result(task_id, run_id)
+                admission = _admission_of(200, adm_raw)
+
             with ptrace.span("ws.deliver", mode=effective_mode):
+                task_status = str(admission.get("status") or "queued")
                 rt.emit("task.progress", task_id=task_id, run_id=run_id, mode=effective_mode,
                         bypass_permissions=bypass_permissions, matched_skill=(matched_skill or {}).get("id"),
-                        status=admission.get("status"), route=route)
-                resp = await _send_response(svc, session_id, idx, turn, task_id, run_id, admission, agent, False)
-            resp["mode"] = effective_mode
-            resp["bypass_permissions"] = bypass_permissions
-            resp["route"] = route
-            resp["matched_skill"] = matched_skill
-            resp["task_id"] = task_id
-            resp["perf_trace_id"] = ptrace.trace_id
+                        status=task_status, route=route)
+                _agents_c, models_c, providers_c = await _cached_catalog(svc)
+                chosen_model_row = models_c.get(chosen.get("model_id")) if chosen else None
+                model_v = (
+                    _model_view(chosen_model_row, providers_c.get((chosen_model_row or {}).get("provider_id")))
+                    if chosen_model_row else None
+                )
+                thread_pub = _public(_summary(
+                    session_id,
+                    updated_data,
+                    _entry(_read_meta(svc), session_id),
+                    {task_id: task_status},
+                ))
+                resp = {
+                    "thread": thread_pub,
+                    "turn": _turn_view(idx, turn),
+                    "task": {"id": task_id, "status": task_status},
+                    "run_id": run_id,
+                    "admission": admission,
+                    "agent": agent,
+                    "model": {
+                        "id": model_v.get("id"),
+                        "alias": model_v.get("alias"),
+                        "locality": model_v.get("locality"),
+                        "locality_detail": model_v.get("locality_detail"),
+                        "billing": model_v.get("billing"),
+                    } if model_v else None,
+                    "replayed": False,
+                    "mode": effective_mode,
+                    "bypass_permissions": bypass_permissions,
+                    "route": route,
+                    "matched_skill": matched_skill,
+                    "task_id": task_id,
+                    "perf_trace_id": ptrace.trace_id,
+                }
             return resp
 
 
