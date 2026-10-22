@@ -68,7 +68,7 @@ const MobilePage = {
     ensureMobileCss();
 
     const [missionsR, approvalsR, agentsR, mapR, sysR, resR, modelsR,
-      termR, browserR, ocR, ocHealthR] = await Promise.allSettled([
+      termR, browserR, ocR, ocHealthR, catalogR] = await Promise.allSettled([
       api.raw('/api/missions'),
       api.approvals('pending'),
       api.agents(),
@@ -80,6 +80,7 @@ const MobilePage = {
       api.raw('/api/browser/sessions'),
       api.raw('/api/opencode/sessions'),
       api.raw('/api/opencode/health'),
+      api.raw('/api/agents/catalog'),
     ]);
 
     const missions = listOf(ok(missionsR, []), 'missions');
@@ -117,7 +118,7 @@ const MobilePage = {
       resourceWarning(resources, sys),
       missionsCard(missions, ctx),
       approvalsCard(approvals, ctx, approvalsError),
-      agentsCard(agents, nodeByAgent, models, ctx),
+      agentsCard(agents, nodeByAgent, models, ctx, ok(catalogR, null)),
       runtimeCard(runtime, ctx),
       healthCard(sys, resources, resR),
       quickCard(agents, ctx));
@@ -282,31 +283,73 @@ function approvalRow(a, ctx) {
 
 /* ---------------- Agents ---------------- */
 
-function agentsCard(agents, nodeByAgent, models, ctx) {
+const GROUP_TITLE = { local: 'Локальные', free: 'Облако · бесплатные', paid: 'Облако · платные', blocked: 'Недоступны' };
+const GROUP_BADGE = { local: 'ok', free: 'ok', paid: 'warn', blocked: 'error' };
+
+function agentsCard(agents, nodeByAgent, models, ctx, catalog) {
   const working = agents.filter((a) => {
     const n = nodeByAgent.get(String(pick(a, ['id'])));
     return n && (n.status === 'working' || n.status === 'queued');
   }).length;
+  const groupOf = new Map();
+  const groups = (catalog && catalog.groups) || null;
+  if (groups) for (const [g, items] of Object.entries(groups)) for (const it of items) groupOf.set(String(it.id), { g, it });
+  const row = (a) => agentRow(a, nodeByAgent.get(String(pick(a, ['id']))), models, ctx, groupOf.get(String(pick(a, ['id']))));
+  let body;
+  if (!agents.length) body = h('div.cmd-empty', 'Агентов пока нет');
+  else if (!groups) body = h('div.stack.sm', agents.map(row));
+  else {
+    body = h('div.stack', ['local', 'free', 'paid', 'blocked'].map((g) => {
+      const list = agents.filter((a) => (groupOf.get(String(pick(a, ['id']))) || { g: 'blocked' }).g === g);
+      if (!list.length) return null;
+      return h('details.cmd-group', { open: g !== 'blocked' },
+        h('summary.cmd-section-title', `${GROUP_TITLE[g]} · ${list.length}`),
+        h('div.stack.sm', list.map(row)));
+    }));
+  }
   return h('div.cmd-card',
     h('div.cmd-title', `Agents${working ? ` · ${working} в работе` : ''}`),
-    agents.length
-      ? h('div.stack.sm', agents.map((a) => agentRow(a, nodeByAgent.get(String(pick(a, ['id']))), models, ctx)))
-      : h('div.cmd-empty', 'Агентов пока нет'));
+    body);
 }
 
-function agentRow(a, node, models, ctx) {
+function agentRow(a, node, models, ctx, info) {
   const status = (node && node.status) || 'idle';
   const taskId = node && node.task ? Number(node.task) : null;
+  const group = info ? info.g : '';
   return h('div.cmd-agent', {
-    onClick: () => openAgentSheet(a, taskId, models, ctx), role: 'button', tabindex: '0',
+    onClick: () => openAgentSheet(a, taskId, models, ctx, info), role: 'button', tabindex: '0',
+    onKeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } },
   },
   dot(status, { live: status === 'working' }),
   h('span.cmd-agent-name', pick(a, ['name'], '')),
+  group ? badge(group === 'paid' ? 'платный' : group === 'free' ? 'free' : group === 'local' ? 'локально' : 'недоступен',
+    GROUP_BADGE[group]) : null,
   h('span.xsmall.dim', taskId ? `задача #${taskId}` : statusLabel(status)));
 }
 
-async function openAgentSheet(a, taskId, models, ctx) {
+async function openAgentSheet(a, taskId, models, ctx, info) {
   const agentId = pick(a, ['id']);
+  const usable = !info || info.it.usable;
+  const jobEl = textarea({ rows: 3, class: 'textarea', placeholder: 'Что поручить этому агенту…' });
+  const giveJob = async () => {
+    const text = jobEl.value.trim();
+    if (!text) { toast('Опишите работу', { type: 'warn' }); return; }
+    try {
+      const res = await api.createTask({ title: titleFromPrompt(text), prompt: text, agent_id: idVal(agentId), priority: 5, run_now: true });
+      const t = (res && res.task) || {};
+      toastOk('Задача поставлена в очередь', t.id ? `#${t.id}` : '');
+      modal.close();
+      ctx.refresh();
+    } catch (e) { toastError(e, 'Не удалось поручить задачу'); }
+  };
+  const jobBlock = h('div.stack.sm',
+    h('div.cmd-title', 'Дать задачу'),
+    usable
+      ? h('div.stack.sm', jobEl,
+        info && info.g === 'paid'
+          ? h('div.xsmall.dim', 'Платная облачная модель: бюджет и подтверждения владельца действуют как обычно.') : null,
+        h('button.cmd-btn.cmd-btn-primary', { type: 'button', onClick: giveJob }, 'Поручить'))
+      : h('div.cmd-empty', 'Агент недоступен', info && info.it.refusal ? h('div.xsmall.dim', info.it.refusal) : null));
   const modal = openModal({
     title: pick(a, ['name'], 'Агент'),
     body: h('div.small.dim', 'Загрузка…'),
@@ -343,6 +386,7 @@ async function openAgentSheet(a, taskId, models, ctx) {
         h('div.cmd-row', statusBadge(status, { live: status === 'running' })),
         h('div.small', { style: { fontWeight: 600 } }, pick(task, ['title'], `задача #${taskId}`)))
       : h('div.cmd-empty', 'Активной задачи нет'),
+    jobBlock,
     h('div.cmd-title', { style: { marginTop: '6px' } }, 'Модель'),
     modelEl,
     h('button.cmd-btn', { type: 'button', style: { marginTop: '8px' }, onClick: switchModel },
