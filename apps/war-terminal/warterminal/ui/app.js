@@ -8,7 +8,7 @@ const SECTIONS = [
 ];
 const S = { token: "", role: "viewer", view: "overview", tenders: null, sel: null, filters: { f: "all", q: "", category: "", country: "", source: "" },
   lastAssessment: {}, health: null, cache: {}, mapLayer: "conflict", mapSel: null, mapApi: null };
-try { S.token = sessionStorage.getItem("wt_token") || ""; S.role = sessionStorage.getItem("wt_role") || "viewer"; const v = sessionStorage.getItem("wt_view"); if (v && SECTIONS.some((x) => x[0] === v)) S.view = v; } catch (e) { /* storage may be blocked */ }
+try { S.token = sessionStorage.getItem("wt_token") || localStorage.getItem("wt_token_saved") || ""; S.role = sessionStorage.getItem("wt_role") || localStorage.getItem("wt_role_saved") || "viewer"; const v = sessionStorage.getItem("wt_view"); if (v && SECTIONS.some((x) => x[0] === v)) S.view = v; } catch (e) { /* storage may be blocked */ }
 
 /* ---------- DOM helpers ---------- */
 function h(tag, attrs, ...kids) {
@@ -112,7 +112,7 @@ function fmtDetail(d) {
 async function raw(method, path, body) {
   const res = await fetch(API + path, { method, headers: Object.assign({ Authorization: "Bearer " + S.token }, firmHeaders(path), body !== undefined ? { "Content-Type": "application/json" } : {}),
     body: body !== undefined ? JSON.stringify(body) : undefined });
-  if (res.status === 401) { showGate(T("Токен не принят (401). Введите токен роли.")); throw new ApiError(401, { code: "TOKEN_REQUIRED", message: T("нужен токен роли") }); }
+  if (res.status === 401) { try { localStorage.removeItem("wt_token_saved"); localStorage.removeItem("wt_role_saved"); } catch (e) { /* ignore */ } showGate(T("Токен не принят (401). Введите токен роли.")); throw new ApiError(401, { code: "TOKEN_REQUIRED", message: T("нужен токен роли") }); }
   return res;
 }
 /* Requests are serialized: the backend shares one sqlite connection across threads and races on concurrent requests (observed: "bad parameter or other API misuse"). */
@@ -275,16 +275,19 @@ function showGate(note) {
   g.style.cssText = "position:fixed;inset:0;background:rgba(3,8,15,.92);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px";
   const tok = h("input", { type: "password", id: "tok", autocomplete: "off", "aria-label": T("Токен роли"), value: S.token, style: "width:100%" });
   const role = sel("role", ROLES.map((x) => [x, ROLE_RU[x]]), S.role); role.setAttribute("aria-label", T("Метка роли"));
+  const remember = h("input", { type: "checkbox", id: "remember-tok" }); remember.checked = true;   // owner 22.10: do not retype the token every visit
   const form = h("form", { class: "card", style: "max-width:420px;width:100%", onsubmit: (e) => {
     e.preventDefault();
     S.token = tok.value.trim(); S.role = role.value;
     try { sessionStorage.setItem("wt_token", S.token); sessionStorage.setItem("wt_role", S.role); } catch (x) { /* ignore */ }
+    try { if (remember.checked) { localStorage.setItem("wt_token_saved", S.token); localStorage.setItem("wt_role_saved", S.role); } else { localStorage.removeItem("wt_token_saved"); localStorage.removeItem("wt_role_saved"); } } catch (x) { /* ignore */ }
     g.hidden = true; clear(g); boot();
   } },
   h("h2", {}, T("Вход по токену роли")),
   note ? msgBox("err", note) : null,
-  h("p", { class: "mut" }, T("Токен хранится только в sessionStorage этой вкладки. Метка роли ниже — подсказка интерфейсу; реальную роль определяет сервер по токену.")),
+  h("p", { class: "mut" }, T("Токен хранится в этом браузере, если отмечено «Запомнить на этом устройстве», иначе только в этой вкладке. Метка роли ниже — подсказка интерфейсу; реальную роль определяет сервер по токену.")),
   h("div", { class: "form", style: "grid-template-columns:1fr" }, field(T("Токен"), tok), field(T("Метка роли"), role)),
+  h("label", { class: "mut", style: "display:flex;gap:8px;align-items:center;margin:8px 0" }, remember, T("Запомнить на этом устройстве")),
   h("div", { class: "bar" }, h("button", { type: "submit" }, T("Войти"))));
   g.append(form);
   tok.focus();
@@ -1400,7 +1403,7 @@ async function boot() {
 }
 document.addEventListener("DOMContentLoaded", () => {
   applyStatic(); tick(); setInterval(tick, 30000);
-  $("#logout").addEventListener("click", () => { try { sessionStorage.removeItem("wt_token"); } catch (e) { /* */ } S.token = ""; clear($("#main")); showGate(); });
+  $("#logout").addEventListener("click", () => { try { sessionStorage.removeItem("wt_token"); localStorage.removeItem("wt_token_saved"); localStorage.removeItem("wt_role_saved"); } catch (e) { /* */ } S.token = ""; clear($("#main")); showGate(); });
   $("#gsearch").addEventListener("keydown", (e) => { if (e.key === "Enter") { S.filters.q = e.target.value.trim(); S.filters.f = "all"; go("tenders"); } });
   loadHealth();
   const fb = $("#firmb");
