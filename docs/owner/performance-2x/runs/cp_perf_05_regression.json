@@ -1,0 +1,34 @@
+{
+  "schema": "bossman.perf2x.regression/1",
+  "recorded_at": "2026-10-22T09:55:45Z",
+  "head_sha": "ca8eb1aae479fdbef9d6bd258eb035670302c21d",
+  "passed_tests": 41,
+  "suites": [
+    "command-center/tests/test_perf_2x_pipeline.py",
+    "command-center/tests/test_mobile_opencode_agent.py",
+    "command-center/tests/test_b11_plugin_mcp_agent_deny.py",
+    "command-center/tests/test_contract_keeps_agent_tools.py"
+  ],
+  "security_invariants": {
+    "stop_preempts_all": "PASS",
+    "auto_agent_escalation_403": "PASS",
+    "prompt_injection_escalation_403": "PASS",
+    "self_improve_never_bypass": "PASS",
+    "runpod_blocked_403": "PASS",
+    "north_star_skill_forge_and_transfer": "PASS"
+  },
+  "uma_residency_probe": {
+    "lane": "code_or_north_star",
+    "live_jobs": 0,
+    "ram_available_gb": 78.9,
+    "cache_gb": 76.8,
+    "keep_resident_models": [
+      "gemma4-31b-uncensored:latest",
+      "bossman-fast-qwen36-35b-a3b-q5:latest"
+    ],
+    "unload_models": [],
+    "keep_alive": "30m",
+    "vulkan_mtp_draft_n_max": 2,
+    "reason": "����� OpenCode / North Star: ��������� ������������ � ������ � 128 �� UMA ��� �������� ������������."
+  }
+}

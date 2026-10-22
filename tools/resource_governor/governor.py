@@ -1870,8 +1870,15 @@ def recommend_uma_residency(
 def cmd_residency(args: argparse.Namespace) -> int:
     cfg = load_config()
     io = SystemIO(cfg)
-    jobs = io.jobs() or []
-    rec = recommend_uma_residency(cfg, io.mem(), len(live_jobs(jobs)), getattr(args, "lane", "agent"))
+    st_path = state_dir() / STATUS_NAME
+    live_cnt = 0
+    if st_path.exists():
+        try:
+            st_data = json.loads(st_path.read_text(encoding="utf-8"))
+            live_cnt = int(st_data.get("live_jobs") or 0)
+        except Exception:
+            live_cnt = 0
+    rec = recommend_uma_residency(cfg, io.mem(), live_cnt, getattr(args, "lane", "agent"))
     print(json.dumps(rec, ensure_ascii=False, indent=2))
     return 0
 
