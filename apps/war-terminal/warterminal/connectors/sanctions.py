@@ -83,11 +83,11 @@ def parse_un(data: bytes) -> list[dict]:
             if name:
                 out.append({"name": name, "type": kind, "program": "UN", "ref": ref, "source": "un_consolidated"})
             for al in el.iter(alias_tag):
-                an = (al.findtext("ALIAS_NAME") or "").strip()
-                if an and an != name:
-                    out.append({"name": an, "type": kind, "program": "UN", "ref": ref, "source": "un_consolidated", "alias_of": name})
+                a = (al.findtext("ALIAS_NAME") or "").strip()
+                if a:
+                    out.append({"name": a, "type": kind, "program": "UN", "ref": ref, "source": "un_consolidated", "alias": True})
     return out
 
 
-def snapshot_hash(data: bytes) -> str:
+def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
