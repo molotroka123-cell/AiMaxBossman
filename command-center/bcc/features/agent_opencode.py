@@ -788,6 +788,110 @@ class ImproveRunIn(BaseModel):
     auto_propose_only: bool = True
 
 
+SKILL_ID_STRICT_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
+
+ALLOWED_SKILL_LOOP_TOOLS: frozenset[str] = frozenset({
+    "code.status",
+    "code.diff",
+    "code.search",
+    "code.expand",
+    "code.read",
+    "code.patch",
+    "terminal.run",
+    "memory.search",
+    "memory.save",
+    "facts.get",
+    "facts.set",
+    "computer.observe",
+    "computer.act",
+    "web.search",
+    "web.fetch",
+    "counter_defense.dossier",
+})
+
+ALLOWED_SKILL_LOOP_PERMISSIONS: frozenset[str] = frozenset({
+    "read",
+    "write",
+    "exec",
+    "computer_read",
+    "computer_act",
+    "memory.read",
+    "memory.write",
+    "terminal.read",
+})
+
+
+def build_safe_skill_markdown(
+    *,
+    skill_id: str,
+    description: str,
+    improve_id: str,
+    required_tools: list[str],
+    permissions: list[str],
+    problem: str,
+    workflow: str,
+) -> str:
+    """Serialize SKILL.md frontmatter strictly through yaml.safe_dump (no f-string YAML)."""
+    import yaml
+
+    if not SKILL_ID_STRICT_RE.fullmatch(skill_id):
+        raise ValueError(f"Invalid skill_id '{skill_id}': must match ^[a-z0-9][a-z0-9-]{{1,62}}$")
+    bad_tools = [t for t in required_tools if t not in ALLOWED_SKILL_LOOP_TOOLS]
+    if bad_tools:
+        raise ValueError(f"Disallowed required_tools: {bad_tools}")
+    bad_perms = [p for p in permissions if p not in ALLOWED_SKILL_LOOP_PERMISSIONS]
+    if bad_perms:
+        raise ValueError(f"Disallowed permissions: {bad_perms}")
+
+    frontmatter_obj: dict[str, Any] = {
+        "name": str(skill_id),
+        "description": str(description),
+        "license": "MIT",
+        "compatibility": "BOSSMAN, OpenCode, Claude-compatible agent skills",
+        "metadata": {
+            "owner": "bossman",
+            "version": "1.0",
+            "provenance": str(improve_id),
+        },
+        "required_tools": [str(t) for t in required_tools],
+        "permissions": [str(p) for p in permissions],
+        "input_schema": {
+            "type": "object",
+            "properties": {"repo_path": {"type": "string"}},
+            "required": ["repo_path"],
+        },
+        "output_schema": {
+            "type": "object",
+            "properties": {"verdict": {"type": "string"}},
+            "required": ["verdict"],
+        },
+    }
+
+    class _NoAliasSafeDumper(yaml.SafeDumper):
+        def ignore_aliases(self, data: Any) -> bool:
+            return True
+
+    yaml_text = yaml.dump(
+        frontmatter_obj,
+        Dumper=_NoAliasSafeDumper,
+        sort_keys=False,
+        allow_unicode=True,
+        default_flow_style=False,
+    ).strip()
+    roundtrip = yaml.safe_load(yaml_text)
+    if not isinstance(roundtrip, dict) or set(roundtrip.keys()) != set(frontmatter_obj.keys()):
+        raise ValueError("YAML frontmatter round-trip integrity check failed")
+
+    safe_problem = str(problem).replace("\r\n", "\n").replace("\r", "\n")
+    safe_workflow = str(workflow).replace("\r\n", "\n").replace("\r", "\n").strip()
+    return (
+        f"---\n{yaml_text}\n---\n\n"
+        f"# {skill_id}\n\n"
+        f"## Проблема\n{safe_problem}\n\n"
+        f"## Алгоритм\n{safe_workflow}\n"
+    )
+
+
 class NorthStarSkillLoopIn(BaseModel):
     session_id: str | None = None
     skill_id: str = Field(default="north-star-tree-hygiene", min_length=2, max_length=63)
@@ -2269,10 +2373,41 @@ async def north_star_skill_loop_endpoint(body: NorthStarSkillLoopIn, request: Re
     RED/GREEN Manifest & Policy Verification -> Independent Verifier -> MissionReceipt -> Owner Approval Gate.
     Never enables AUTO/bypass_permissions during skill creation.
     """
-    from .skills import FORGE_MIN_RUNS, _draft_skill, _forge_state, _lib, _save_forge_state, _signature
+    from .skills import FORGE_MIN_RUNS, _forge_state, _save_forge_state, _signature
     from ..self_improve.store import Store, default_root
     from ..v2.skill_catalog import scan_policy
     from ..v2.skill_library import SkillLibrary, parse_skill, skill_contract, validate_manifest
+    from ..v2.terminal_control import TerminalPolicy
+
+    # P1.1a: Strict skill_id regex validation before any filesystem/state operation
+    if not SKILL_ID_STRICT_RE.fullmatch(body.skill_id):
+        raise HTTPException(
+            422,
+            {
+                "code": "SKILL_ID_INVALID",
+                "message": "skill_id должен соответствовать ^[a-z0-9][a-z0-9-]{1,62}$",
+            },
+        )
+
+    # P1.1b: Closed allowlist for required_tools and permissions
+    disallowed_tools = [t for t in body.required_tools if t not in ALLOWED_SKILL_LOOP_TOOLS]
+    if disallowed_tools:
+        raise HTTPException(
+            422,
+            {
+                "code": "SKILL_TOOLS_NOT_ALLOWED",
+                "message": f"Неразрешённые инструменты в required_tools: {disallowed_tools}",
+            },
+        )
+    disallowed_perms = [p for p in body.permissions if p not in ALLOWED_SKILL_LOOP_PERMISSIONS]
+    if disallowed_perms:
+        raise HTTPException(
+            422,
+            {
+                "code": "SKILL_PERMISSIONS_NOT_ALLOWED",
+                "message": f"Неразрешённые права в permissions: {disallowed_perms}",
+            },
+        )
 
     svc = request.app.state.svc
     orch = _orch(svc)
@@ -2289,74 +2424,108 @@ async def north_star_skill_loop_endpoint(body: NorthStarSkillLoopIn, request: Re
     await _save_forge_state(svc, fstate)
 
     # 2. RED baseline check: in an isolated empty skill root before authoring, unseen_query does NOT match skill_id
-    isolated_wt = Path(svc.settings.data_dir) / "north-star-worktrees" / improve_id
-    isolated_skills_root = isolated_wt / ".agents" / "skills"
+    worktrees_base = (Path(svc.settings.data_dir) / "north-star-worktrees").resolve()
+    isolated_wt = (worktrees_base / improve_id).resolve()
+    if isolated_wt.parent != worktrees_base:
+        raise HTTPException(400, {"code": "ISOLATED_ROOT_ESCAPE", "message": "Некорректный путь изолированного дерева"})
+    isolated_skills_root = (isolated_wt / ".agents" / "skills").resolve()
     isolated_skills_root.mkdir(parents=True, exist_ok=True)
+
+    # P1.1c: Verify resolved skill_dir and skill_file stay strictly inside isolated_skills_root BEFORE write
+    skill_dir = (isolated_skills_root / body.skill_id).resolve()
+    if skill_dir.parent != isolated_skills_root or not skill_dir.is_relative_to(isolated_skills_root):
+        raise HTTPException(
+            400,
+            {"code": "SKILL_PATH_TRAVERSAL", "message": "Путь навыка выходит за пределы изолированного корня"},
+        )
+    skill_file = (skill_dir / "SKILL.md").resolve()
+    if skill_file.parent != skill_dir or not skill_file.is_relative_to(isolated_skills_root):
+        raise HTTPException(
+            400,
+            {"code": "SKILL_PATH_TRAVERSAL", "message": "Файл SKILL.md выходит за пределы изолированного корня"},
+        )
+
     isolated_lib = SkillLibrary([isolated_skills_root], isolated_skills_root)
     red_before = body.skill_id in isolated_lib.by_id()
 
-    # 3. Author SKILL.md inside isolated worktree via Web Terminal (`svc.terminal.start`)
-    skill_md_content = (
-        f"---\n"
-        f"name: {body.skill_id}\n"
-        f"description: {body.description}\n"
-        f"license: MIT\n"
-        f"compatibility: BOSSMAN, OpenCode, Claude-compatible agent skills\n"
-        f"metadata:\n"
-        f"  owner: bossman\n"
-        f"  version: \"1.0\"\n"
-        f"  provenance: {improve_id}\n"
-        f"required_tools: [{', '.join(body.required_tools)}]\n"
-        f"permissions: [{', '.join(body.permissions)}]\n"
-        f"input_schema:\n"
-        f"  type: object\n"
-        f"  properties:\n"
-        f"    repo_path:\n"
-        f"      type: string\n"
-        f"  required: [repo_path]\n"
-        f"output_schema:\n"
-        f"  type: object\n"
-        f"  properties:\n"
-        f"    verdict:\n"
-        f"      type: string\n"
-        f"  required: [verdict]\n"
-        f"---\n\n"
-        f"# {body.skill_id}\n\n"
-        f"## Проблема\n{body.problem}\n\n"
-        f"## Алгоритм\n{body.workflow.strip()}\n"
-    )
-    skill_dir = isolated_skills_root / body.skill_id
+    # 3. P1.1d: Author SKILL.md using safe structured YAML serializer only
+    try:
+        skill_md_content = build_safe_skill_markdown(
+            skill_id=body.skill_id,
+            description=body.description,
+            improve_id=improve_id,
+            required_tools=list(body.required_tools),
+            permissions=list(body.permissions),
+            problem=body.problem,
+            workflow=body.workflow,
+        )
+    except ValueError as vex:
+        raise HTTPException(422, {"code": "SKILL_YAML_INVALID", "message": str(vex)}) from None
+
     skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_file = skill_dir / "SKILL.md"
     skill_file.write_text(skill_md_content, encoding="utf-8", newline="\n")
 
-    terminal_session_id = None
-    terminal_exit_code = 0
-    terminal_output = ""
-    mgr = getattr(svc, "terminal", None)
-    if mgr is not None:
-        try:
-            # Execute governed Web Terminal verification inside the isolated worktree (bypass_permissions=False)
-            ts = await mgr.start(
-                f'"{sys.executable}" -c "import pathlib; p=pathlib.Path(r\'.agents/skills/{body.skill_id}/SKILL.md\'); assert p.is_file(); print(\'SKILL_VERIFIED\', p.stat().st_size)"',
-                cwd=isolated_wt,
-                owner="north-star-skill-forge",
-                bypass_permissions=False,
-            )
-            terminal_session_id = ts.id
-            await asyncio.wait_for(ts.done.wait(), timeout=15.0)
-            terminal_exit_code = ts.exit_code if ts.exit_code is not None else 0
-            terminal_output = ts.output()
-        except Exception as exc:  # noqa: BLE001
-            terminal_output = f"Isolated worktree check completed ({exc})"
+    # P1.1e & P1.1f: Execute static Web Terminal verification without interpolating user values;
+    # any terminal failure must produce FAIL (never VERIFIED).
+    probe_file = (isolated_wt / "test_isolated_skill_probe.py").resolve()
+    probe_file.write_text(
+        "import pathlib\n"
+        "def test_skill_manifest_exists():\n"
+        "    files = list(pathlib.Path('.agents/skills').glob('*/SKILL.md'))\n"
+        "    assert len(files) == 1 and files[0].stat().st_size > 0\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
-    # 4. GREEN check in isolated worktree: parse_skill + validate_manifest + scan_policy
+    terminal_session_id = None
+    terminal_exit_code = -1
+    terminal_output = ""
+    terminal_failed = False
+    mgr = getattr(svc, "terminal", None)
+    if mgr is None:
+        terminal_failed = True
+        terminal_output = "Terminal manager unavailable"
+    else:
+        try:
+            iso_policy = TerminalPolicy(allowed_roots=[isolated_wt], mode="project_host")
+            ts = await mgr.start(
+                "python -m pytest -q test_isolated_skill_probe.py",
+                isolated_wt,
+                iso_policy,
+                approved=False,
+                network=False,
+                owner="north-star-skill-forge",
+            )
+            terminal_session_id = getattr(ts, "id", None)
+            reader_task = getattr(ts, "_reader", None)
+            if reader_task is not None:
+                await asyncio.wait_for(reader_task, timeout=15.0)
+            elif hasattr(ts, "done"):
+                await asyncio.wait_for(ts.done.wait(), timeout=15.0)
+            raw_out = getattr(ts, "output", "")
+            if callable(raw_out):
+                terminal_output = str(raw_out())
+            elif isinstance(raw_out, list):
+                terminal_output = "\n".join(str(x) for x in raw_out)
+            else:
+                terminal_output = str(raw_out)
+            terminal_exit_code = int(ts.exit_code) if getattr(ts, "exit_code", None) is not None else -1
+            if terminal_exit_code != 0:
+                terminal_failed = True
+        except Exception as exc:  # noqa: BLE001
+            terminal_failed = True
+            terminal_exit_code = -1
+            terminal_output = f"Terminal verification failed: {type(exc).__name__}: {exc}"
+
+    # 4. GREEN check in isolated worktree: parse_skill + validate_manifest + scan_policy + terminal_exit_code == 0
     parsed_sk = parse_skill(skill_file, isolated_skills_root)
     manifest_res = validate_manifest(parsed_sk)
     policy_crit = [v.code for v in scan_policy(parsed_sk.body) if v.critical]
     con = skill_contract(parsed_sk)
     green_after = (
-        not red_before
+        not terminal_failed
+        and terminal_exit_code == 0
+        and not red_before
         and parsed_sk.id == body.skill_id
         and manifest_res["errors"] == []
         and policy_crit == []
@@ -2370,9 +2539,9 @@ async def north_star_skill_loop_endpoint(body: NorthStarSkillLoopIn, request: Re
     verifier_route = select_route_for_request(
         catalog, mode="SELF-IMPROVE", allow_cloud=body.allow_cloud, for_independent_review=True
     )
-    independent_verdict = "PASS" if green_after else "REJECT"
+    independent_verdict = "PASS" if green_after else "FAIL"
 
-    # 6. Mint MissionReceipt & Owner Approval Gate
+    # 6. Mint MissionReceipt & Owner Approval Gate (only if PASS)
     receipt_payload = {
         "improve_id": improve_id,
         "kind": "north_star_skill_forge",
@@ -2382,6 +2551,7 @@ async def north_star_skill_loop_endpoint(body: NorthStarSkillLoopIn, request: Re
         "isolated_worktree": str(isolated_wt),
         "terminal_session_id": terminal_session_id,
         "terminal_exit_code": terminal_exit_code,
+        "terminal_failed": terminal_failed,
         "red_before": red_before,
         "green_after": green_after,
         "manifest_errors": manifest_res["errors"],
@@ -2399,7 +2569,7 @@ async def north_star_skill_loop_endpoint(body: NorthStarSkillLoopIn, request: Re
     mission_receipt = {
         **receipt_payload,
         "sha256": receipt_digest,
-        "status": "VERIFIED_AWAITING_OWNER" if independent_verdict == "PASS" else "REJECTED",
+        "status": "VERIFIED_AWAITING_OWNER" if independent_verdict == "PASS" else "FAIL",
     }
 
     preview_text = (
@@ -2409,12 +2579,22 @@ async def north_star_skill_loop_endpoint(body: NorthStarSkillLoopIn, request: Re
         f"RED->GREEN: {not red_before} -> {green_after} | Независимый ревьюер ({verifier_route['model']}): {independent_verdict}\n"
         f"Receipt: sha256:{receipt_digest[:16]}"
     )
-    appr = await svc.approvals.create(kind="skill_permissions", preview=preview_text)
-    approval_id = appr.get("id")
+    approval_id = None
+    if independent_verdict == "PASS":
+        appr = await svc.approvals.create(kind="skill_permissions", preview=preview_text)
+        approval_id = appr.get("id")
 
     steps_log = [
-        {"step": i + 1, "title": IMPROVE_STEPS[i], "status": "completed" if i < 12 else ("waiting_approval" if i == 12 else "pending_approval"),
-         "detail": preview_text if i == 11 else IMPROVE_STEPS[i]}
+        {
+            "step": i + 1,
+            "title": IMPROVE_STEPS[i],
+            "status": (
+                ("completed" if i < 12 else ("waiting_approval" if i == 12 else "pending_approval"))
+                if independent_verdict == "PASS"
+                else ("completed" if i < 9 else "failed")
+            ),
+            "detail": preview_text if i == 11 else IMPROVE_STEPS[i],
+        }
         for i in range(16)
     ]
     record = {
@@ -2447,21 +2627,29 @@ async def north_star_skill_loop_endpoint(body: NorthStarSkillLoopIn, request: Re
     with contextlib.suppress(Exception):
         store.record("hypothesis", {
             "id": improve_id,
-            "state": "AWAITING_OWNER",
+            "state": "AWAITING_OWNER" if independent_verdict == "PASS" else "FAILED",
             "skill_id": body.skill_id,
             "approval_id": approval_id,
             "receipt_sha256": receipt_digest,
         })
     if rt is not None:
         rt.improve_runs[improve_id] = record
-        rt.emit(
-            "approval.required",
-            improve_id=improve_id,
-            approval_id=approval_id,
-            kind="skill_permissions",
-            preview=preview_text,
-            mission_receipt=mission_receipt,
-        )
+        if independent_verdict == "PASS":
+            rt.emit(
+                "approval.required",
+                improve_id=improve_id,
+                approval_id=approval_id,
+                kind="skill_permissions",
+                preview=preview_text,
+                mission_receipt=mission_receipt,
+            )
+        else:
+            rt.emit(
+                "task.failed",
+                improve_id=improve_id,
+                reason="north_star_skill_verification_failed",
+                mission_receipt=mission_receipt,
+            )
     return record
 
 

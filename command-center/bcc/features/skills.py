@@ -688,13 +688,23 @@ async def forge_propose(request: Request):
 
 def _draft_skill(sid: str, name: str, description: str, process: str,
                  tools: list[str], perms: list[str]) -> str:
-    fm = [f"name: {name}", f"description: {description}",
-          "metadata:", "  owner: skill-forge", '  version: "1.0"']
+    import yaml
+
+    fm_obj: dict[str, Any] = {
+        "name": str(name),
+        "description": str(description),
+        "metadata": {
+            "owner": "skill-forge",
+            "version": "1.0",
+        },
+    }
     if tools:
-        fm.append("required_tools: [" + ", ".join(tools) + "]")
+        fm_obj["required_tools"] = [str(t) for t in tools]
     if perms:
-        fm.append("permissions: [" + ", ".join(perms) + "]")
-    return "---\n" + "\n".join(fm) + "\n---\n\n# " + name + "\n\n" + process.strip() + "\n"
+        fm_obj["permissions"] = [str(p) for p in perms]
+    yaml_text = yaml.safe_dump(fm_obj, sort_keys=False, allow_unicode=True, default_flow_style=False).strip()
+    safe_heading = str(name).replace("\r", " ").replace("\n", " ").strip()
+    return f"---\n{yaml_text}\n---\n\n# {safe_heading}\n\n{process.strip()}\n"
 
 
 @router.post("/skills/forge/apply")
