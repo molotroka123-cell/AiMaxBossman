@@ -469,3 +469,79 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
   font: 12px/1.45 var(--mono); max-height: 22vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .oc-term-bar { display: flex; gap: 6px; align-items: center; }
 .oc-term-bar .field { min-height: 38px; padding: 6px 10px; font-size: 13px; }
+
+/* ---------- шкала контекста чата (owner 21.10): сколько окна модели занято и сколько осталось ---------- */
+.ctx-gauge { flex: none; display: flex; flex-direction: column; padding: 0 12px; background: var(--surface2); border-bottom: 1px solid var(--line); }
+.ctx-bar { order: 2; height: 4px; margin: 0 0 5px; border-radius: 2px; background: var(--line2); overflow: hidden; }
+.ctx-bar i { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--faint); transition: width .22s ease; }
+.ctx-gauge[data-level="ok"] .ctx-bar i { background: var(--ok); }
+.ctx-gauge[data-level="warn"] .ctx-bar i { background: var(--warn); }
+.ctx-gauge[data-level="critical"] .ctx-bar i { background: var(--err); }
+.ctx-gauge[data-level="unknown"] .ctx-bar { background: repeating-linear-gradient(90deg, var(--line2) 0 6px, transparent 6px 12px); }
+.ctx-gauge.compacting .ctx-bar i { animation: ctxpulse 1.2s ease-in-out infinite; }
+@keyframes ctxpulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+.ctx-open { order: 1; position: relative; display: flex; align-items: center; gap: 8px; width: 100%; min-height: 30px; padding: 4px 0 2px;
+  text-align: left; font-size: 12px; font-weight: 600; color: var(--text); }
+.ctx-open::before { content: ""; position: absolute; left: -12px; right: -12px; top: -7px; bottom: -7px; }   /* the tap area is 44 px high, the bar stays slim */
+.ctx-ico { flex: none; width: 14px; text-align: center; }
+.ctx-gauge[data-level="ok"] .ctx-ico { color: var(--ok); }
+.ctx-gauge[data-level="warn"] .ctx-ico { color: var(--warn); }
+.ctx-gauge[data-level="critical"] .ctx-ico { color: var(--err); }
+.ctx-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-level { flex: none; font-weight: 700; }
+.ctx-details { display: grid; gap: 6px; margin: 10px 0; }
+.ctx-details .kv, .syscard .kv { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+.ctx-details .kv span:first-child, .syscard .kv span:first-child { color: var(--muted); }
+.ctx-details .kv span:last-child, .syscard .kv span:last-child { text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.ctx-actions { display: grid; gap: 8px; margin-top: 12px; }
+.ctx-actions .btn { width: 100%; }
+
+/* ---------- «/»: команды · tools · skills над полем ввода ---------- */
+#btn-slash { margin-left: -6px; }
+.slash-glyph { font: 700 21px/1 var(--mono); }
+.slash-menu { position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 6; display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--line2); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; animation: rise .15s ease-out both; }
+.sl-status { margin: 0; padding: 8px 12px; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.sl-list { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; max-height: 320px; padding-bottom: 4px; }
+.sl-h { position: sticky; top: 0; z-index: 1; padding: 6px 14px 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); background: var(--surface2); }
+.sl-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 14px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.sl-row[aria-selected="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.sl-row[aria-selected="true"] .sl-desc { color: var(--text); }
+.sl-main { flex: 1; min-width: 0; display: grid; }
+.sl-name { font: 600 14px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-desc { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-badge { flex: none; font: 700 11px var(--sans); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line2); background: var(--surface2); color: var(--muted); }
+.sl-badge.risk-safe { color: var(--local); background: var(--local-bg); border-color: transparent; }
+.sl-badge.risk-ask { color: var(--text); background: var(--accent-soft); border-color: var(--warn); }
+.sl-badge.risk-deny { color: var(--err); border-color: var(--err); }
+
+/* ---------- карточки команд в чате ---------- */
+.msg.sys { max-width: 760px; }
+.syscard { border: 1px solid var(--line2); border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.syscard-head { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 14px; border-bottom: 1px solid var(--line); background: var(--surface2); }
+.syscard-head b { flex: 1; min-width: 0; font-size: 14px; }
+.syscard-head > svg { width: 17px; height: 17px; color: var(--accent); flex: none; }
+.syscard-x { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); flex: none; }
+.syscard-x svg { width: 16px; height: 16px; }
+.syscard-body { display: grid; gap: 10px; padding: 12px 14px; }
+.syscard-note { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.syscard-note.ok { color: var(--ok); font-weight: 600; }
+.syscard-note.err { color: var(--err); font-weight: 600; }
+.syscard-note.busy { color: var(--muted); }
+.syscard-list { max-height: 42vh; overflow-y: auto; overscroll-behavior: contain; display: grid; align-content: start; }
+.syscard-h { margin: 8px 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.sc-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 0; border-top: 1px solid var(--line); }
+.sc-main { flex: 1; min-width: 0; display: grid; }
+.sc-name { font: 600 13px var(--mono); overflow-wrap: anywhere; }
+.sc-desc { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.syscard-pre { margin: 0; padding: 10px; max-height: 42vh; overflow: auto; border-radius: 10px; background: var(--bg2); font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.hint-card .row { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ---------- «☁️ Отправить в облако?» (tool cloud.ask): модель, точный текст, цена; решает только владелец ---------- */
+.approval.cloud { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.cloud-warn { margin: 0 0 8px; font-size: 13px; }
+.cloud-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.cloud-chip { font: 600 12px var(--mono); padding: 3px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line2); overflow-wrap: anywhere; }
+.approval .cloud-text { padding: 10px; border-radius: 10px; background: var(--bg2); }

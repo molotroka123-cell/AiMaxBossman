@@ -1,6 +1,6 @@
 /* Service worker: caches ONLY the app shell. API answers, photos and the panel always go to the network. */
 'use strict';
-const CACHE = 'bossman-shell-v18';   // v18: Jeff cloud fallback switch + «Проверка» engine badge (owner 21.10)
+const CACHE = 'bossman-shell-v19';   // v19: «/» menu (commands/tools/skills), context gauge, /compact, /memory, cloud.ask approval card (owner 21.10)
 const SHELL = ['/m/', '/m/index.html', '/m/app.css', '/m/app.js', '/m/manifest.webmanifest',
   '/m/icons/apple-touch-icon.png', '/m/icons/icon-192.png', '/m/icons/icon-512.png',
   '/m/vendor/tabbable.umd.min.js', '/m/vendor/focus-trap.umd.min.js'];
