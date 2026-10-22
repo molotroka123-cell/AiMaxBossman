@@ -1,0 +1,57 @@
+{
+  "schema": "bossman.rc_final_integrator_receipt.v1",
+  "generated_at": "2026-10-22T18:53:30Z",
+  "audit_baseline": {
+    "canonical_origin_main": "e8ebcd9b35e135c235ed1c76127c35ebfa185eb2",
+    "observed_live_runtime_8801": "288f79f56a1aa9d7fca4ff116e0347407acf1237",
+    "observed_one_bossman_current_json": "6de18f8d9a08831a7d7729e5f69edb7bbec6e8c5",
+    "initial_candidate_sha": "ce149d61e8db1c72e4bbbfdb16883ac3d36717c4",
+    "parent_candidate_sha": "aae0240b38e89d03d87c93aad65d77460824a02f",
+    "merge_base_with_origin_main": "e8ebcd9b35e135c235ed1c76127c35ebfa185eb2"
+  },
+  "owner_safe_e2e_mission": {
+    "test_file": "command-center/tests/test_rc_final_integrator_mission_and_security.py",
+    "test_name": "test_owner_safe_e2e_mission_and_stop_postcondition_receipt",
+    "path_verified": "owner interface (POST /api/coding-tasks) -> unified task_id -> existing orchestrator (bossman.apprentice.openhands_client + IsolatedWorktree) -> safe sandbox action -> independent postcondition (verify_tests exit_code=0) -> UI receipt (GET /api/coding-tasks/{id}) + STOP -> zero actions after STOP",
+    "completed_mission": {
+      "status": "completed",
+      "stop_status": "COMPLETED",
+      "verification": {
+        "ran": true,
+        "passed": true,
+        "exit_code": 0
+      },
+      "postcondition_verified": true,
+      "canonical_repo_untouched_before_apply": true
+    },
+    "stop_interruption_mission": {
+      "task_id": "cafecafecafe",
+      "status": "failed",
+      "outcome": "CANCELLED",
+      "stop_status": "CANCELLED",
+      "postcondition_verified": false,
+      "actions_after_stop_count": 0,
+      "desktop_executed_after_stop": []
+    }
+  },
+  "security_regression_6_vectors": {
+    "test_file": "command-center/tests/test_rc_final_integrator_mission_and_security.py",
+    "test_name": "test_rc_security_regression_all_6_vectors",
+    "vectors": {
+      "1_path_traversal": "PASS (blocked in SKILL_ID_STRICT_RE, _resolve_isolated_skill_dir, and bossman_15_ling_coder.safe)",
+      "2_yaml_injection": "PASS (neutralized via _NoAliasSafeDumper + round-trip key set verification in build_safe_skill_markdown)",
+      "3_arbitrary_command": "PASS (shell=False + strict argv allowlist in tools/bossman_15_ling_coder.py + static terminal command in agent_opencode.py)",
+      "4_spoofed_agent_headers": "PASS (token-scoped AuthPrincipal agtok_... blocks X-Agent-Caller spoofing, AUTO escalation, and owner approval endpoints with 403)",
+      "5_stop_persistence": "PASS (STOP file persists across service restart and blocks tc.act with ActRefused and 0 executed actions)",
+      "6_zero_secrets_in_logs": "PASS (scrubbed_test_env strips all secret keys + tools/ci_secret_scan.py returns 0)"
+    }
+  },
+  "local_ci_suites": {
+    "tree_and_registry_suite": "80 passed in 46.31s",
+    "defensive_security_p1_p2_suite": "18 passed in 18.87s",
+    "jeff_and_bossman_training_suite": "110 passed in 18.55s",
+    "war_terminal_suite": "255 passed in 7.12s",
+    "rc_final_integrator_mission_and_security": "2 passed in 44.16s",
+    "ci_secret_scan": "Secret-pattern scan: PASS (exit_code=0)"
+  }
+}
