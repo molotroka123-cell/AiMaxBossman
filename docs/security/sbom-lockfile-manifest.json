@@ -1,0 +1,31 @@
+{
+  "schema": "bossman.sbom.lockfiles.v1",
+  "generated_for_branch": "integrate/north-star-final-20261023",
+  "lockfiles": [
+    {
+      "path": "tools/windows_bundle_lock.txt",
+      "sha256": "7ee93197a2adb4aae40e0db08998277387ff90f5cf911562d12f5d94716a6714",
+      "hash_entries": 119
+    },
+    {
+      "path": "command-center/requirements.lock",
+      "sha256": "84230b81da27722c4895e91c8076ac8b67dd31db9de1fafadbf0917412f4805c",
+      "hash_entries": 14
+    },
+    {
+      "path": "solana_volume_suite/requirements.lock",
+      "sha256": "a07b2c06f6bc9f84bb8b1ab3f38e16e5d8a83ecec2d909a81f3b32f71fffa8ce",
+      "hash_entries": 11
+    },
+    {
+      "path": "apps/war-terminal/requirements.lock",
+      "sha256": "e3ba93c2e7b05edd9bd07a3f1b403507947e2cf7fdc4b8b549c97f9f0131eb24",
+      "hash_entries": 5
+    },
+    {
+      "path": "apps/swapme-bot/requirements.lock",
+      "sha256": "9d7a5527d1402f362e8512a0928cfb13bb5f140995818496189c312fd6ff7d24",
+      "hash_entries": 3
+    }
+  ]
+}

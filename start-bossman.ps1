@@ -25,6 +25,7 @@
 param(
     [switch]$DoctorOnly,
     [switch]$SkipInstall,
+    [switch]$BootstrapInstall,
     [switch]$EveningTest,
     [int]$Port = 0,
     [switch]$Web
@@ -95,9 +96,8 @@ if (-not (Test-Path $VenvPython)) {
 }
 
 # --------------------------------------------------------------- 3. пакеты
-if (-not $SkipInstall) {
-    Write-Step "Устанавливаю пакеты (первый запуск занимает несколько минут)"
-    & $VenvPython -m pip install --upgrade pip --quiet
+if ($BootstrapInstall -and -not $SkipInstall) {
+    Write-Step "Устанавливаю пакеты (явный режим -BootstrapInstall)"
     $InstallArgs = @("-e", $Repo, "-e", "$(Join-Path $Repo 'command-center')[runtime]", "-e", "$(Join-Path $Repo 'bossman-core')[runtime]")
     Get-ChildItem (Join-Path $Repo "apps") -Directory | Sort-Object Name | ForEach-Object {
         if (Test-Path (Join-Path $_.FullName "pyproject.toml")) { $InstallArgs += @("-e", $_.FullName) }

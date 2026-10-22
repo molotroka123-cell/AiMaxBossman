@@ -18,8 +18,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout exact integration branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # actions/checkout@v4
         with:
+          persist-credentials: false
           ref: claude/v5-closure-at-reconcile-xdh12f
           fetch-depth: 2
 

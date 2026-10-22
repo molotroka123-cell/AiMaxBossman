@@ -50,11 +50,11 @@ jobs:
     steps:
       - name: Preserve source bytes
         run: git config --global core.autocrlf false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # actions/checkout@v4
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: pip
@@ -99,7 +99,7 @@ jobs:
                   raise SystemExit(f'{name}: {len(skipped)} skipped tests; upstream validation incomplete')
       - name: Preserve exact-commit test evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # actions/upload-artifact@v4
         with:
           name: oss-tests-${{ matrix.os }}-${{ github.sha }}
           path: |

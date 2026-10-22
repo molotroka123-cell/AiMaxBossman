@@ -47,6 +47,9 @@ on:
 # Своя группа на ref: прогоны соседних веток друг друга не выбивают, а
 # `cancel-in-progress: false` не даёт новому пушу убить прогон, по которому
 # будет выдаваться сертификат.
+permissions:
+  contents: read
+
 concurrency:
   group: bossman-v2-repair-${{ github.ref }}
   cancel-in-progress: false
@@ -54,6 +57,9 @@ concurrency:
 jobs:
   repair-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     
     timeout-minutes: 30
     services:
@@ -77,17 +83,17 @@ jobs:
           - 5432:5432
     
     steps:
-      - uses: actions/checkout@v4
-        # CI-AUTOREPAIR-REF-001: no hard-coded ref. On push this checks out the
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # actions/checkout@v4
         # pushed commit; on pull_request it checks out the candidate merge
         # commit — the candidate change is what gets tested, not the base branch.
         # CI-HISTORY-001 (same class): the suite executes historical benchmark
         # commits in isolated worktrees; shallow history cannot resolve them.
         with:
+          persist-credentials: false
           fetch-depth: 0
       
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7
         with:
           python-version: '3.12'
       
@@ -140,7 +146,7 @@ jobs:
         # «автоматические мониторинги не включать». На release/** этот шаг
         # открывал бы PR в давно закрытую ветку на каждый красный прогон.
         if: failure() && github.ref == 'refs/heads/claude/bossman-control-v03-43igbk'
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'fix(P0): Auto-repair Bossman V2 critical issues'

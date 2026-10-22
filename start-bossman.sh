@@ -8,11 +8,12 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO"
 export PYTHONIOENCODING=utf-8 PYTHONUTF8=1
 
-DOCTOR_ONLY=0; SKIP_INSTALL=0; EVENING=0; WEB=0
+DOCTOR_ONLY=0; SKIP_INSTALL=0; BOOTSTRAP_INSTALL=0; EVENING=0; WEB=0
 for arg in "$@"; do
   case "$arg" in
     --doctor-only) DOCTOR_ONLY=1 ;;
     --skip-install) SKIP_INSTALL=1 ;;
+    --bootstrap-install) BOOTSTRAP_INSTALL=1 ;;
     --evening-test) EVENING=1 ;;
     --web) WEB=1 ;;
     --port=*) export BCC_PORT="${arg#*=}" ;;
@@ -40,9 +41,8 @@ if [ ! -x "$VENV_PY" ]; then
   "$PY" -m venv "$REPO/.venv"
 fi
 
-if [ "$SKIP_INSTALL" -eq 0 ]; then
-  step "Устанавливаю пакеты (первый запуск занимает несколько минут)"
-  "$VENV_PY" -m pip install --upgrade pip --quiet
+if [ "$BOOTSTRAP_INSTALL" -eq 1 ] && [ "$SKIP_INSTALL" -eq 0 ]; then
+  step "Устанавливаю пакеты (явный режим --bootstrap-install)"
   INSTALL_ARGS=(-e . -e 'command-center[runtime]' -e 'bossman-core[runtime]')
   for project in apps/*/pyproject.toml; do
     [ ! -f "$project" ] || INSTALL_ARGS+=(-e "${project%/pyproject.toml}")

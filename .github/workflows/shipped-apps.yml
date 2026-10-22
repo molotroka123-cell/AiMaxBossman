@@ -18,11 +18,11 @@ jobs:
       matrix:
         python: ['3.11', '3.12']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # actions/checkout@v4
         with:
           ref: ${{ env.BOSSMAN_ACCEPTANCE_SHA }}
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       - name: Record exact source
@@ -55,7 +55,7 @@ jobs:
         run: |
           python -m pytest tests/unit/test_browser_real_chromium.py -q --timeout=90 --junitxml=../../app-acceptance/browser.xml
           python ../../tools/require_acceptance_results.py ../../app-acceptance/browser.xml --minimum-tests 10
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: existing-social-farm-${{ matrix.python }}-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
@@ -70,11 +70,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # actions/checkout@v4
         with:
           ref: ${{ env.BOSSMAN_ACCEPTANCE_SHA }}
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Record exact source
@@ -87,7 +87,7 @@ jobs:
       - name: File effects, policy, receipt and restart contracts
         working-directory: apps/file-commander-mini
         run: python -m pytest tests -q -rs --timeout=90 --junitxml=../../app-acceptance/files.xml
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # actions/upload-artifact@v7
         if: always()
         with:
           name: file-commander-${{ matrix.os }}-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
