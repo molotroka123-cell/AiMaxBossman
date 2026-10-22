@@ -414,11 +414,11 @@ def _order(items: list[dict], key_of) -> list[dict]:
 
 
 def rank_for_contact(store, contact: dict, sanctions, *, status: str = "open", k: int = 10,
-                     today: date | datetime | None = None) -> dict:
+                     today: date | datetime | None = None, tenders: list[dict] | None = None) -> dict:
     prof, weights = Profile(contact), current_weights(store)
     votes = {key: r["vote"] for key, r in effective_labels(store.match_feedback()).items() if key[1] == contact["id"]}
     items, blocked = [], []
-    for t in store.latest_tenders():
+    for t in (tenders if tenders is not None else store.latest_tenders()):
         eff_st = rules.effective_status(t, today)
         if status == "open" and eff_st != "open":
             continue

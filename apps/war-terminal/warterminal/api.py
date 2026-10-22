@@ -17,7 +17,7 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from . import API_VERSION, VERSION, ai as ai_mod, contacts as contacts_mod, finance, firm as firm_mod, fx_tracker as fxt, geo, learning, rules, scoring, sources
+from . import API_VERSION, VERSION, ai as ai_mod, contacts as contacts_mod, finance, firm as firm_mod, fx_tracker as fxt, geo, learning, monetization as mon_mod, rules, scoring, sources
 from . import translate as tr_mod
 from .connectors import cnb, cz, indicators, gdelt, http as http_mod, prozorro, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
 from .provenance import is_real
@@ -1153,6 +1153,45 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
     def match_weights(_=Depends(viewer)):
         w = contacts_mod.current_weights(store)
         return {"weights": w, "features": len(w), "formula": "w = ln((up+1)/(down+1)); score = base + 10 x sum(w)"}
+
+    @app.get(f"{P}/monetization/opportunities")
+    def monetization_list(
+        k_per_contact: int = Query(default=5, ge=1, le=20),
+        max_items: int = Query(default=50, ge=1, le=200),
+        fee_pct: float = Query(default=3.0, ge=0.5, le=25.0),
+        target_margin_pct: float = Query(default=15.0, ge=1.0, le=50.0),
+        _=Depends(viewer),
+    ):
+        return mon_mod.monetization_opportunities(
+            store,
+            sanctions_index(),
+            k_per_contact=k_per_contact,
+            max_items=max_items,
+            today=_ref_time(),
+            fee_pct=fee_pct,
+            target_margin_pct=target_margin_pct,
+        )
+
+    @app.get(f"{P}/monetization/playbook")
+    def monetization_playbook(
+        k_per_contact: int = Query(default=5, ge=1, le=20),
+        max_items: int = Query(default=30, ge=1, le=100),
+        fee_pct: float = Query(default=3.0, ge=0.5, le=25.0),
+        target_margin_pct: float = Query(default=15.0, ge=1.0, le=50.0),
+        _=Depends(viewer),
+    ):
+        rep = mon_mod.monetization_opportunities(
+            store,
+            sanctions_index(),
+            k_per_contact=k_per_contact,
+            max_items=max_items,
+            today=_ref_time(),
+            fee_pct=fee_pct,
+            target_margin_pct=target_margin_pct,
+        )
+        md = mon_mod.playbook_markdown(rep)
+        return PlainTextResponse(md, media_type="text/markdown", headers={"Content-Disposition": 'attachment; filename="monetization-playbook.md"'})
+
 
     # ------------------------------------------------------------------ audit + forbidden actions
     @app.get(f"{P}/audit/events")

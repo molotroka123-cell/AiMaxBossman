@@ -104,9 +104,20 @@ async def test_service_down_is_reported_not_hidden(env, monkeypatch):
 
 
 async def test_model_tools_are_registered_read_only_and_work(env, terminal):
+    from warterminal import seed_forum_20261021 as seed_mod
+    seed_mod.seed_all(terminal.state.store)
     await war_terminal._setup(env.svc)
-    names = {"war_terminal.analyze_tender", "war_terminal.check_compliance", "war_terminal.summarize_conflict",
-             "war_terminal.estimate_cashflow", "war_terminal.draft_bid_checklist"}
+    names = {
+        "war_terminal.analyze_tender",
+        "war_terminal.check_compliance",
+        "war_terminal.summarize_conflict",
+        "war_terminal.estimate_cashflow",
+        "war_terminal.draft_bid_checklist",
+        "war_terminal.list_forum_contacts",
+        "war_terminal.match_supplier_tenders",
+        "war_terminal.draft_supplier_pitch",
+        "war_terminal.monetization_radar",
+    }
     for n in names:
         spec = REGISTRY.get(n)
         assert spec is not None and spec.category == "read" and spec.external_output is True
@@ -114,6 +125,23 @@ async def test_model_tools_are_registered_read_only_and_work(env, terminal):
     assert res.error is False and "REVIEW_REQUIRED" in res.content
     bad = await REGISTRY.get("war_terminal.analyze_tender").handler({"tender_key": "EU:NOPE"}, None)
     assert bad.error is True
+
+    # Verify new forum contacts & monetization tools and proxy endpoints
+    contacts_res = await REGISTRY.get("war_terminal.list_forum_contacts").handler({"q": "GLOMEX"}, None)
+    assert contacts_res.error is False and "GLOMEX Military Supplies" in contacts_res.content
+    glomex_id = next(c["id"] for c in terminal.state.store.list_contacts() if c["company"] == "GLOMEX Military Supplies")
+    matches_res = await REGISTRY.get("war_terminal.match_supplier_tenders").handler({"contact_id": glomex_id, "k": 5}, None)
+    assert matches_res.error is False and '"company": "GLOMEX Military Supplies"' in matches_res.content
+    pitch_res = await REGISTRY.get("war_terminal.draft_supplier_pitch").handler({"contact_id": glomex_id}, None)
+    assert pitch_res.error is False and "GLOMEX Military Supplies: подходящие открытые тендеры" in pitch_res.content
+    radar_res = await REGISTRY.get("war_terminal.monetization_radar").handler({"k_per_contact": 5, "max_items": 10}, None)
+    assert radar_res.error is False and '"contacts_total": 21' in radar_res.content
+
+    http_opp = await env.client.get("/api/war-terminal/monetization/opportunities?max_items=5")
+    assert http_opp.status_code == 200 and http_opp.json()["summary"]["contacts_total"] == 21
+    http_pb = await env.client.get("/api/war-terminal/monetization/playbook")
+    assert http_pb.status_code == 200 and "# Радар монетизации военных и оборонных тендеров" in http_pb.json()["markdown"]
+
 
 
 # ------------------------------------------------------------------ free-only chat gateway used by the terminal's translation

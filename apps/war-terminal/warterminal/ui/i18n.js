@@ -744,7 +744,15 @@ const EN = {
  "(отказавшихся скрыто: {0})": "(declined hidden: {0})",
  "Заблокировано проверками: ": "Blocked by checks: ",
  "Подходящих компаний среди контактов нет.": "No matching companies among the contacts.",
- "компаний: {0} · по CPV и ключевым словам с поправкой по вашим отзывам": "companies: {0} · by CPV and keywords, adjusted by your feedback"
+ "компаний: {0} · по CPV и ключевым словам с поправкой по вашим отзывам": "companies: {0} · by CPV and keywords, adjusted by your feedback",
+ "Радар монетизации тендеров (Форум)": "Tender Monetization Radar (Forum)",
+ "Скачать плейбук монетизации (.md)": "Download monetization playbook (.md)",
+ "Контактов с открытыми тендерами: {0} из {1} · пар: {2} · уникальных тендеров: {3} · быстрый старт: {4} · в лимите $50k: {5} · пайплайн USD: ${6} · агентская база (3%): ${7}": "Contacts with open tenders: {0} of {1} · pairs: {2} · unique tenders: {3} · fast start: {4} · within $50k limit: {5} · pipeline USD: ${6} · agency base (3%): ${7}",
+ "Открытых возможностей монетизации пока нет.": "No open monetization opportunities yet.",
+ "Агентская 3%": "Agency 3%",
+ "Back-to-Back (15% маржа)": "Back-to-Back (15% margin)",
+ "Трек / Лимит": "Track / Limit",
+ "рамочный": "framework"
 };
 function T(s) { return WT_LANG === "en" && Object.prototype.hasOwnProperty.call(EN, s) ? EN[s] : s; }
 function Tf(s, ...a) { return T(s).replace(/\{(\d+)\}/g, (m, i) => (a[+i] == null ? "" : String(a[+i]))); }

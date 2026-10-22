@@ -194,6 +194,52 @@ async def free_chat(body: FreeChatBody, request: Request):
             "finish": res.finish}
 
 
+async def _call_text(method: str, path: str, params: dict | None = None) -> str:
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT, trust_env=False) as c:
+            r = await c.request(method, _base() + "/api/v1" + path, params=params, headers={"Authorization": f"Bearer {_token()}"})
+    except httpx.HTTPError as exc:
+        raise HTTPException(503, {"code": "WT_SERVICE_DOWN", "message": f"War Terminal не отвечает: {type(exc).__name__}"}) from exc
+    if r.status_code >= 400:
+        try:
+            detail = r.json().get("detail", r.text)
+        except ValueError:
+            detail = r.text[:200]
+        raise HTTPException(r.status_code, detail)
+    return r.text
+
+
+@router.get("/contacts")
+async def contacts_list(request: Request):
+    allowed = {"status", "q"}
+    return await _call("GET", "/contacts", params={k: v for k, v in request.query_params.items() if k in allowed})
+
+
+@router.get("/contacts/{cid}/matches")
+async def contact_matches(cid: int, request: Request):
+    allowed = {"k", "status"}
+    return await _call("GET", f"/contacts/{cid}/matches", params={k: v for k, v in request.query_params.items() if k in allowed})
+
+
+@router.get("/contacts/{cid}/pitch")
+async def contact_pitch(cid: int, recommendations_only: bool = False):
+    md = await _call_text("GET", f"/contacts/{cid}/pitch", params={"recommendations_only": str(recommendations_only).lower()})
+    return {"contact_id": cid, "recommendations_only": recommendations_only, "markdown": md}
+
+
+@router.get("/monetization/opportunities")
+async def monetization_opportunities(request: Request):
+    allowed = {"k_per_contact", "max_items", "fee_pct", "target_margin_pct"}
+    return await _call("GET", "/monetization/opportunities", params={k: v for k, v in request.query_params.items() if k in allowed})
+
+
+@router.get("/monetization/playbook")
+async def monetization_playbook(request: Request):
+    allowed = {"k_per_contact", "max_items", "fee_pct", "target_margin_pct"}
+    md = await _call_text("GET", "/monetization/playbook", params={k: v for k, v in request.query_params.items() if k in allowed})
+    return {"markdown": md}
+
+
 # ------------------------------------------------------------------ tools for Bossman's models (read-only)
 def _result(name: str, data) -> ToolResult:
     text = json.dumps(data, ensure_ascii=False, default=str)
@@ -235,6 +281,30 @@ def tool_specs() -> list[ToolSpec]:
     async def draft_bid_checklist(a):
         return await _call("GET", f"/tenders/{a['tender_key']}/checklist")
 
+    async def list_forum_contacts(a):
+        params = {k: a[k] for k in ("status", "q") if a.get(k)}
+        return await _call("GET", "/contacts", params=params)
+
+    async def match_supplier_tenders(a):
+        cid = int(a["contact_id"])
+        params = {"k": int(a.get("k", 10)), "status": a.get("status", "open")}
+        return await _call("GET", f"/contacts/{cid}/matches", params=params)
+
+    async def draft_supplier_pitch(a):
+        cid = int(a["contact_id"])
+        rec_only = bool(a.get("recommendations_only", False))
+        md = await _call_text("GET", f"/contacts/{cid}/pitch", params={"recommendations_only": str(rec_only).lower()})
+        return {"contact_id": cid, "recommendations_only": rec_only, "markdown": md}
+
+    async def monetization_radar(a):
+        params = {
+            "k_per_contact": int(a.get("k_per_contact", 5)),
+            "max_items": int(a.get("max_items", 25)),
+            "fee_pct": float(a.get("fee_pct", 3.0)),
+            "target_margin_pct": float(a.get("target_margin_pct", 15.0)),
+        }
+        return await _call("GET", "/monetization/opportunities", params=params)
+
     return [
         _tool("war_terminal.analyze_tender", "Оценить тендер (dry-run): проверки, объяснимый fit, класс. Это НЕ вероятность победы.", key, ["tender_key"], analyze_tender),
         _tool("war_terminal.check_compliance", "Юридические проверки тендера по правилам; неизвестное = REVIEW_REQUIRED.", key, ["tender_key"], check_compliance),
@@ -242,6 +312,14 @@ def tool_specs() -> list[ToolSpec]:
         _tool("war_terminal.estimate_cashflow", "Расчёт landed cost, маржи, cashflow и стресса задержки оплаты по явным входным данным.",
               {"inputs": {"type": "object", "description": "поля FinanceIn: purchase, bid_price, fx, ..."}}, ["inputs"], estimate_cashflow),
         _tool("war_terminal.draft_bid_checklist", "Черновик чек-листа по тендеру. Подача заявки приложением невозможна.", key, ["tender_key"], draft_bid_checklist),
+        _tool("war_terminal.list_forum_contacts", "Список поставщиков и контактов с выставок/форумов (Future Military Forum 2026 и др.) с CPV и продуктами.",
+              {"q": {"type": "string", "description": "поиск по компании/продуктам/ключевым словам"}, "status": {"type": "string", "description": "new|contacted|meeting|partner|declined"}}, [], list_forum_contacts),
+        _tool("war_terminal.match_supplier_tenders", "Подобрать открытые тендеры под конкретного поставщика из контактов (по CPV, ключевым словам и отзывам владельца).",
+              {"contact_id": {"type": "integer", "description": "ID контакта поставщика"}, "k": {"type": "integer", "description": "макс. тендеров (1..50)"}, "status": {"type": "string", "description": "open|all"}}, ["contact_id"], match_supplier_tenders),
+        _tool("war_terminal.draft_supplier_pitch", "Сформировать готовый Markdown-черновик коммерческого предложения (.md) для поставщика с топ-5 открытыми тендерами (без персональных данных).",
+              {"contact_id": {"type": "integer", "description": "ID контакта поставщика"}, "recommendations_only": {"type": "boolean", "description": "только без REVIEW_REQUIRED"}}, ["contact_id"], draft_supplier_pitch),
+        _tool("war_terminal.monetization_radar", "Радар заработка на военных/оборонных тендерах: ранжирует пары (поставщик форума <-> открытый тендер) и считает 3 модели дохода (агентская комиссия 2-5%, поставка back-to-back с маржой 15% и проверкой лимита $50k USD, локальный субподряд 5%).",
+              {"k_per_contact": {"type": "integer"}, "max_items": {"type": "integer"}, "fee_pct": {"type": "number"}, "target_margin_pct": {"type": "number"}}, [], monetization_radar),
     ]
 
 
@@ -251,3 +329,4 @@ async def _setup(svc) -> None:
 
 
 FEATURE = Feature(name="war_terminal", router=router, setup=_setup)
+

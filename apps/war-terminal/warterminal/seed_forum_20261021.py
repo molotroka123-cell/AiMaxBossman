@@ -110,19 +110,90 @@ COMPANIES: list[dict] = [
                   "ru": ["бронетехник*", "бронированн*", "бтр"]}},
 ]
 
+# Batch 2 (forum-16..20.jpg, IMG_1390.mov, forum-03.jpg background stands):
+EXTRA_COMPANIES: list[dict] = [
+    {"company": "Glock Ges.m.b.H.", "country": "AT",
+     "products": "G49 Gen6 COA (пистолет 9×19 с коллиматорным прицелом Aimpoint COA и адаптерными пластинами)",
+     "cpv_prefixes": ["35321100", "35321000"],
+     "keywords": {"en": ["pistol*", "handgun*", "small arms", "9x19"],
+                  "cs": ["pistol*", "krátk* kulov* zbra*", "ručn* paln* zbra*"],
+                  "uk": ["пістолет*", "стрілецьк* збро*"],
+                  "ru": ["пистолет*", "стрелков* оруж*"]},
+     "notes": "фото стенда forum-16.jpg (G49 Gen6 COA)"},
+    {"company": "Meprolight", "country": "IL",
+     "products": "коллиматорные, тепловизионные и ночные прицелы (Mepro M5, MOR, Foresight, Tru-Vision) для стрелкового оружия и пулемётов",
+     "cpv_prefixes": ["38636000", "38632000", "35221000", "35341000"],
+     "keywords": {"en": ["sight*", "red dot", "thermal*", "night vision", "electro-optical", "optic*"],
+                  "cs": ["zaměřovač*", "kolimátor*", "termoviz*", "nočn* viděn*", "optik*"],
+                  "uk": ["приціл*", "коліматор*", "тепловізор*", "тепловізійн*", "нічн* баченн*", "оптичн*"],
+                  "ru": ["прицел*", "коллиматор*", "тепловизор*", "ночн* видени*", "оптик*"]},
+     "notes": "фото стенда forum-17.jpg и forum-18.jpg (Everything You Aim For)"},
+    {"company": "GLOMEX Military Supplies", "country": "CZ", "website": "www.glomex-ms.com",
+     "products": "лётные шлемы и кислородные маски (Air Forces), баллистические шлемы, экипировка спецназа (Special Forces), крепления ПНВ",
+     "cpv_prefixes": ["35812000", "35810000", "18444000", "35113400"],
+     "keywords": {"en": ["helmet*", "ballistic helmet*", "flight helmet*", "protective gear", "body armour", "body armor"],
+                  "cs": ["přilb*", "balistick* přilb*", "leteck* přilb*", "výstroj*", "kukla", "vesta balistick*"],
+                  "uk": ["шолом*", "протикулев* шолом*", "балістичн* шолом*", "екіпіруванн*", "бронежилет*"],
+                  "ru": ["шлем*", "баллистическ* шлем*", "защитн* экипировк*", "бронежилет*"]},
+     "notes": "фото стенда forum-19.jpg (GLOMEX Military Supplies — Air Forces / Special Forces)"},
+    {"company": "EVPÚ Defence", "country": "CZ", "website": "www.evpudefence.com",
+     "products": "DSS — оптико-электронная мультисенсорная турель (дневная/тепловизионная камера, лазерный дальномер) и дистанционно управляемые боевые модули",
+     "cpv_prefixes": ["35720000", "38636000", "35125000", "35420000"],
+     "keywords": {"en": ["electro-optical", "gimbal*", "thermal camera*", "surveillance system*", "remote weapon station*"],
+                  "cs": ["elektrooptick*", "termokamer*", "pozorovac* systém*", "věž*"],
+                  "uk": ["оптико-електронн*", "тепловізор*", "гіростабілізован*", "спостереженн*"],
+                  "ru": ["оптико-электронн*", "тепловизионн*", "гиростабилизированн*", "наблюдени*"]},
+     "notes": "видео стенда IMG_1390.mov (турель DSS на треноге)"},
+    {"company": "Sellier & Bellot", "country": "CZ", "website": "www.sellier-bellot.cz",
+     "products": "Sniper Line Ammunition — снайперские и стрелковые боеприпасы (5.56×45, 7.62×51, 9×19, .338 Lapua Magnum)",
+     "cpv_prefixes": ["35331000", "35331500", "35330000"],
+     "keywords": {"en": ["ammunition", "cartridge*", "small arms ammunition", "5.56", "7.62", "9x19", "sniper"],
+                  "cs": ["náboj*", "střeliv*", "munic*", "malorážkov*"],
+                  "uk": ["набо*", "патрон*", "боєприпас*"],
+                  "ru": ["патрон*", "боеприпас*"]},
+     "notes": "видео стенда IMG_1390.mov (стенд Sellier & Bellot Sniper Line Ammunition)"},
+    {"company": "Yantra India Limited", "country": "IN",
+     "products": "артиллерийские гильзы, корпуса снарядов, тара для боеприпасов и металлургические комплектующие (A Govt. of India Enterprise)",
+     "cpv_prefixes": ["35330000", "35331000", "35340000"],
+     "keywords": {"en": ["ammunition", "artillery shell*", "ordnance", "mortar*"],
+                  "cs": ["munic*", "dělostřeleck*", "střeliv*"],
+                  "uk": ["боєприпас*", "артилерійськ*", "снаряд*"],
+                  "ru": ["боеприпас*", "артиллерийск*", "снаряд*"]},
+     "notes": "фото стенда forum-17.jpg и forum-18.jpg (стенд на заднем плане)"},
+    {"company": "ERA a.s.", "country": "CZ", "website": "www.era.aero",
+     "products": "VERA-NG — пассивная система радиотехнической разведки и контроля воздушного пространства (Passive ESM Tracker)",
+     "cpv_prefixes": ["35720000", "35730000", "38115000"],
+     "keywords": {"en": ["passive radar*", "surveillance*", "air defence", "electronic warfare", "radar*"],
+                  "cs": ["pasivn* radiolokátor*", "průzkum*", "radar*", "protivzdušn*"],
+                  "uk": ["пасивн* радар*", "радіотехнічн* розвідк*", "рлс", "реб"],
+                  "ru": ["пассивн* радар*", "радиотехническ* разведк*", "рлс", "рэб"]},
+     "notes": "фото зала forum-03.jpg (стенд ERA)"},
+    {"company": "Aero Vodochody Aerospace", "country": "CZ", "website": "www.aero.cz",
+     "products": "учебно-боевой самолёт L-39NG Skyfox, авиационные агрегаты и ТОиР авиатехники",
+     "cpv_prefixes": ["35611000", "34711100", "34730000", "50210000"],
+     "keywords": {"en": ["aircraft*", "aviation", "trainer aircraft*", "aerospace"],
+                  "cs": ["letadl*", "leteck*", "letoun*"],
+                  "uk": ["літак*", "авіаційн*"],
+                  "ru": ["самолет*", "авиационн*"]},
+     "notes": "фото зала forum-03.jpg (стенд AERO)"},
+]
 
-def records() -> list[tuple[str, dict]]:
+ALL_COMPANIES: list[dict] = COMPANIES + EXTRA_COMPANIES
+
+
+def records(*, include_extra: bool = False) -> list[tuple[str, dict]]:
     """(slug, validated record) for every company: the same validation as POST /contacts."""
     out = []
-    for raw in COMPANIES:
+    source_list = ALL_COMPANIES if include_extra else COMPANIES
+    for raw in source_list:
         doc = contacts.clean({"event": EVENT, "source": SOURCE, "status": "new", **raw})
         out.append((contacts.slug(doc["company"], SLUG_PREFIX), doc))
     return out
 
 
-def seed(store: Store) -> dict:
+def seed(store: Store, *, include_extra: bool = False) -> dict:
     created, existing = [], []
-    for slug, doc in records():
+    for slug, doc in records(include_extra=include_extra):
         cid, new = store.add_contact(doc, slug=slug)
         (created if new else existing).append(cid)
     if created:                                                    # a re-run that adds nothing leaves no trace
@@ -130,15 +201,21 @@ def seed(store: Store) -> dict:
     return {"created": len(created), "existing": len(existing), "total": len(created) + len(existing)}
 
 
+def seed_all(store: Store) -> dict:
+    """Seed both original 13 forum stands and the 8 additional forum stands (21 total)."""
+    return seed(store, include_extra=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m warterminal.seed_forum_20261021", description=__doc__.split("\n\n")[0])
     ap.add_argument("--data", default=None, help="data dir (default WAR_TERMINAL_DATA or ~/.war-terminal)")
+    ap.add_argument("--include-extra", action="store_true", help="also seed batch-2 forum companies (21 total)")
     args = ap.parse_args(argv)
     data_dir = Path(args.data or os.environ.get("WAR_TERMINAL_DATA") or Path.home() / ".war-terminal")
     data_dir.mkdir(parents=True, exist_ok=True)
     store = Store(data_dir / "war.db")
     try:
-        res = seed(store)
+        res = seed(store, include_extra=bool(args.include_extra))
     finally:
         store.db.close()
     print(f"[seed_forum_20261021] {data_dir / 'war.db'}: created {res['created']}, already present {res['existing']}, total {res['total']}", flush=True)
@@ -147,3 +224,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

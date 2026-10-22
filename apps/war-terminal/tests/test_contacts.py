@@ -106,17 +106,17 @@ def test_seed_is_idempotent_keeps_owner_edits_and_has_no_personal_data(env, tmp_
 
 def test_every_seed_record_passes_the_http_model(env):
     """The seed bypasses HTTP; the same records must also be accepted by POST /contacts (pydantic + clean)."""
-    for raw in seed_mod.COMPANIES:
+    for raw in seed_mod.ALL_COMPANIES:
         body = {"event": seed_mod.EVENT, "source": seed_mod.SOURCE, "status": "new", **raw}
         r = env.req("POST", "/contacts", "analyst", json=body)
         assert r.status_code == 200, (raw["company"], r.text)
 
 
 def test_seed_cpv_codes_are_cpv_2008_and_radar_is_not_sonar():
-    codes = {c for raw in seed_mod.COMPANIES for c in raw.get("cpv_prefixes", [])}
+    codes = {c for raw in seed_mod.ALL_COMPANIES for c in raw.get("cpv_prefixes", [])}
     assert all(re.fullmatch(r"\d{8}", c) for c in codes)
     assert not any(c.startswith("38113") for c in codes)                  # 38113000 = sonars
-    radar = {c["company"]: c["cpv_prefixes"] for c in seed_mod.COMPANIES if "radar*" in c.get("keywords", {}).get("en", [])}
+    radar = {c["company"]: c["cpv_prefixes"] for c in seed_mod.ALL_COMPANIES if "radar*" in c.get("keywords", {}).get("en", [])}
     assert all(any(p.startswith(("35722", "38115", "3572")) for p in v) for v in radar.values())
     assert "38115" in C.DUAL_USE_CPV and not any(p.startswith("38113") for p in C.DUAL_USE_CPV)
 
@@ -549,3 +549,53 @@ def test_match_explanations_and_badges_have_an_english_form(env):
     assert len(texts) > 10 and any("совпадение со списком санкций (Blocked Buyer)" in t for t in texts) and any("страна заказчика RU" in t for t in texts)
     uncovered = sorted(t for t in texts if not any(rx.search(t) for rx in srv))
     assert uncovered == [], uncovered
+
+
+def test_monetization_opportunities_and_playbook_and_batch2_seed(env):
+    res = seed_mod.seed_all(env.store)
+    assert res == {"created": 21, "existing": 0, "total": 21}
+    names = {c["company"] for c in env.store.list_contacts()}
+    assert {"Glock Ges.m.b.H.", "Meprolight", "GLOMEX Military Supplies", "EVPÚ Defence", "Sellier & Bellot",
+            "Yantra India Limited", "ERA a.s.", "Aero Vodochody Aerospace"} <= names
+    glock_id = next(c["id"] for c in env.store.list_contacts() if c["company"] == "Glock Ges.m.b.H.")
+    assert env.req("PATCH", f"/contacts/{glock_id}", "analyst", json={**PERSON, "notes": "secret booth note"}).status_code == 200
+    assert env.req("PUT", "/fx", "analyst", json={"rates": {"EURUSD": 1.1, "USDCZK": 20.0}, "as_of": "2026-10-22", "source": "test"}).status_code == 200
+
+    k_fast, k_big, k_mil = add(
+        env,
+        tender("MON-FAST", "Protective helmet and technical gloves", ["18444000"], value=20000.0, cur="EUR"),
+        tender("MON-BIG", "Upgrade security camera system", ["35125000"], value=500000.0, cur="EUR"),
+        tender("MON-MIL", "Small arms ammunition 5.56x45", ["35331000"], value=2000000.0, cur="CZK"),
+    )
+    opp = env.req("GET", "/monetization/opportunities?fee_pct=3.0&target_margin_pct=15.0", "viewer")
+    assert opp.status_code == 200, opp.text
+    d = opp.json()
+    assert d["summary"]["contacts_total"] == 21
+    assert d["summary"]["contacts_with_open_matches"] >= 3
+    assert d["summary"]["fast_start_uncontrolled_pairs"] >= 1
+    assert d["summary"]["b2b_within_50k_limit_pairs"] >= 1
+
+    by_key = {(i["contact"]["company"], i["tender"]["key"]): i for i in d["items"]}
+    fast = by_key[("GLOMEX Military Supplies", k_fast)]
+    assert fast["regulatory"]["track"] == "UNCONTROLLED_FAST_START" and fast["regulatory"]["fast_start"] is True
+    assert fast["economics"]["estimated_value_usd"] == "22000.00"
+    assert fast["economics"]["agency_introducer"]["commission_base"] == "600.00"
+    assert fast["economics"]["agency_introducer"]["commission_base_usd"] == "660.00"
+    assert fast["economics"]["back_to_back_supply"]["capital_unmatched"]["status"] == "WITHIN_LIMIT"
+
+    big = by_key[("EVPÚ Defence", k_big)]
+    assert big["economics"]["back_to_back_supply"]["capital_unmatched"]["status"] == "OVER_LIMIT"
+    assert big["economics"]["back_to_back_supply"]["capital_if_matched_deal"]["status"] == "MATCHED_DEAL"
+
+    mil = by_key[("Sellier & Bellot", k_mil)]
+    assert mil["regulatory"]["track"] == "MILITARY_MPO_LICENCE"
+    assert mil["economics"]["estimated_value_usd"] == "100000.00"
+
+    pb = env.req("GET", "/monetization/playbook", "viewer")
+    assert pb.status_code == 200 and pb.headers["content-type"].startswith("text/markdown")
+    md = pb.text
+    assert "# Радар монетизации военных и оборонных тендеров" in md
+    assert "GLOMEX Military Supplies" in md and "Sellier & Bellot" in md
+    for secret in ("Jan Testovaci", "601 234 567", "secret booth note", "info@czechiasystems.com"):
+        assert secret not in md and secret not in opp.text
+

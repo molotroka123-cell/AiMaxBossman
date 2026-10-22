@@ -1048,8 +1048,40 @@ async function showContact(el, id) {
   });
   if (el.scrollIntoView) el.scrollIntoView({ block: "nearest" });
 }
+function monetizationRadarView(d) {
+  const s = d.summary || {}, items = d.items || [], pv = h("div");
+  const dlBtn = h("button", { type: "button", onclick: async () => {
+    clear(pv);
+    try {
+      const r = await raw("GET", "/monetization/playbook");
+      const text = await r.text();
+      if (!r.ok) { let detail; try { detail = JSON.parse(text).detail; } catch (e) { detail = text; } throw new ApiError(r.status, detail); }
+      download(text, "monetization-playbook.md", "text/markdown");
+      pv.append(h("pre", { class: "msg pitch" }, text));
+    } catch (e) { if (e.status !== 401) pv.append(msgBox("err", errMsg(e))); }
+  } }, T("Скачать плейбук монетизации (.md)"));
+  const head = h("div", { class: "bar" },
+    badge(Tf(T("Контактов с открытыми тендерами: {0} из {1} · пар: {2} · уникальных тендеров: {3} · быстрый старт: {4} · в лимите $50k: {5} · пайплайн USD: ${6} · агентская база (3%): ${7}"),
+      s.contacts_with_open_matches, s.contacts_total, s.matched_pairs_total, s.unique_open_tenders_matched, s.fast_start_uncontrolled_pairs, s.b2b_within_50k_limit_pairs, s.unique_pipeline_usd, s.unique_agency_fee_base_usd), "b-ok"),
+    dlBtn);
+  if (!items.length) return h("div", {}, head, stateBox("load", T("Открытых возможностей монетизации пока нет.")));
+  return h("div", {}, head, pv,
+    table([T("Поставщик"), T("Тендер"), T("Стоимость"), T("Агентская 3%"), T("Back-to-Back (15% маржа)"), T("Трек / Лимит"), T("Следующий шаг")], items.slice(0, 15).map((it) => {
+      const c = it.contact, t = it.tender, ec = it.economics, ag = ec.agency_introducer, b2b = ec.back_to_back_supply, reg = it.regulatory;
+      const valTxt = ec.priced ? `${ec.estimated_value} ${ec.currency || ""}` + (ec.estimated_value_usd ? ` (~$${ec.estimated_value_usd})` : "") : T("рамочный");
+      const agTxt = ec.priced ? `${ag.commission_base} ${ec.currency || ""}` + (ag.commission_base_usd ? ` (~$${ag.commission_base_usd})` : "") : "2–5 %";
+      const b2bTxt = b2b ? `${b2b.gross_profit} ${ec.currency || ""}` + (b2b.gross_profit_usd ? ` (~$${b2b.gross_profit_usd})` : "") : "—";
+      const cap = b2b && b2b.capital_unmatched ? b2b.capital_unmatched.status : "WITHIN_LIMIT";
+      return { cells: [
+        h("div", {}, h("b", {}, c.company), c.country ? h("span", { class: "mut" }, " · " + c.country) : null),
+        h("div", {}, txt(t.key), h("div", { class: "mut" }, txt((t.title || "").slice(0, 65)))),
+        txt(valTxt), txt(agTxt), txt(b2bTxt),
+        h("div", { class: "bar", style: "margin:0" }, badge(reg.track, reg.fast_start ? "b-ok" : "b-warn"), sb(cap)),
+        txt(it.next_step_ru)] };
+    })));
+}
 async function viewContacts(el) {
-  const listBox = h("div"), det = h("div", { class: "detail" }), metBox = h("div");
+  const listBox = h("div"), det = h("div", { class: "detail" }), metBox = h("div"), monBox = h("div");
   const st = sel("cstatus", [["", T("Все статусы")], ...CONTACT_STATUSES], S.cfilter || "");
   st.setAttribute("aria-label", T("Статус контакта"));
   const q = h("input", { type: "search", value: S.cq || "", placeholder: T("Поиск: компания, продукты, событие"), "aria-label": T("Поиск контактов") });
@@ -1060,6 +1092,7 @@ async function viewContacts(el) {
   el.append(card(T("Контакты и компании"),
     h("p", { class: "mut" }, T("Компании с выставок и встреч. Совпадения с тендерами считаются по CPV и ключевым словам; ваши 👍/👎 меняют порядок. Имя и телефон человека видят только аналитик и владелец; в журнал аудита, предложение и урок Bossman они не попадают.")),
     h("div", { class: "bar" }, st, q, h("button", { type: "button", onclick: refresh }, T("Применить"))), listBox), det,
+  card(T("Радар монетизации тендеров (Форум)"), monBox),
   card(T("Новый контакт"), h("details", {}, h("summary", {}, T("Открыть форму")), create)), card(T("Обучение по отзывам"), metBox));
   async function renderList() {
     await load(listBox, async () => {
@@ -1073,6 +1106,7 @@ async function viewContacts(el) {
       (r) => { S.contact = r.key; renderList(); showContact(det, r.key); });
     });
   }
+  load(monBox, async () => monetizationRadarView(await GET("/monetization/opportunities?k_per_contact=5&max_items=20")));
   load(metBox, async () => metricsView(await GET("/matches/metrics")));
   await renderList();
   if (S.contact) showContact(det, S.contact);
