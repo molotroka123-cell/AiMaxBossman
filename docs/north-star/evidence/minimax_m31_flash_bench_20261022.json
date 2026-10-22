@@ -1,0 +1,55 @@
+{
+ "rows": [
+  {
+   "task": "money_round",
+   "sample": 0,
+   "passed": false,
+   "latency_s": 109.7,
+   "tokens_in": 325,
+   "tokens_out": 8000,
+   "finish": "length",
+   "note": "Traceback (most recent call last):\n  File \"C:\\Users\\asd\\AppData\\Local\\Temp\\tmphnmugowa\\check.py\", line 2, in <module>\n    from sol import quote\nImportError: cannot import name 'quote' from 'sol' (C:\\Users\\asd\\AppData\\Local\\Temp\\tmphnmugowa\\sol.py)",
+   "error": null
+  },
+  {
+   "task": "tqdm_parse",
+   "sample": 0,
+   "passed": false,
+   "latency_s": 96.1,
+   "tokens_in": 369,
+   "tokens_out": 8000,
+   "finish": "length",
+   "note": "Traceback (most recent call last):\n  File \"C:\\Users\\asd\\AppData\\Local\\Temp\\tmp53ujzy5q\\check.py\", line 2, in <module>\n    from sol import parse\nImportError: cannot import name 'parse' from 'sol' (C:\\Users\\asd\\AppData\\Local\\Temp\\tmp53ujzy5q\\sol.py)",
+   "error": null
+  },
+  {
+   "task": "lru_ttl",
+   "sample": 0,
+   "passed": false,
+   "latency_s": 114.2,
+   "tokens_in": 296,
+   "tokens_out": 8000,
+   "finish": "length",
+   "note": "Traceback (most recent call last):\n  File \"C:\\Users\\asd\\AppData\\Local\\Temp\\tmpn7kwodk7\\check.py\", line 2, in <module>\n    from sol import TTLCache\nImportError: cannot import name 'TTLCache' from 'sol' (C:\\Users\\asd\\AppData\\Local\\Temp\\tmpn7kwodk7\\sol.py)",
+   "error": null
+  },
+  {
+   "task": "safe_path",
+   "sample": 0,
+   "passed": false,
+   "latency_s": 105.0,
+   "tokens_in": 288,
+   "tokens_out": 8000,
+   "finish": "length",
+   "note": "Traceback (most recent call last):\n  File \"C:\\Users\\asd\\AppData\\Local\\Temp\\tmpwv79clq_\\check.py\", line 3, in <module>\n    from sol import safe_join\nImportError: cannot import name 'safe_join' from 'sol' (C:\\Users\\asd\\AppData\\Local\\Temp\\tmpwv79clq_\\sol.py)",
+   "error": null
+  }
+ ],
+ "n": 4,
+ "passed": 0,
+ "pass_rate": 0.0,
+ "avg_latency_s": 106.2,
+ "model": "minimax/minimax-m3.1-flash:free",
+ "base_url": "https://openrouter.ai/api/v1",
+ "ts": "2026-10-21T15:30:56"
+}

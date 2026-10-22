@@ -149,3 +149,6 @@ provider-keys*
 **/keys/*.env
 vault.*
 *.vault
+
+# doc_intake dry-run library roots (owner documents never enter git)
+/.tmp-library/

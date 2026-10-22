@@ -1,0 +1,23 @@
+{
+ "rows": [
+  {
+   "task": "tqdm_parse",
+   "sample": 0,
+   "passed": true,
+   "latency_s": 51.5,
+   "tokens_in": 340,
+   "tokens_out": 6561,
+   "finish": "stop",
+   "note": "",
+   "error": null
+  }
+ ],
+ "n": 1,
+ "passed": 1,
+ "pass_rate": 1.0,
+ "avg_latency_s": 51.5,
+ "model": "minimax/minimax-m3",
+ "ts": "2026-10-21T15:36:39",
+ "reasoning_max_tokens": 6000,
+ "max_tokens": 24000
+}

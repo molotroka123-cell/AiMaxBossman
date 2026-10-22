@@ -33,6 +33,57 @@ from .store import Store
 from . import key_intake
 
 MANUAL_COMMAND = re.compile(r"^/(?:manual|методичка)(?:@\w+)?(?:\s+(\S+))?\s*$", re.I)
+# /doc: the owner's document goes to the local drop folder that tools/doc_intake watches.
+DOC_COMMAND = re.compile(r"^/(?:doc|док|library|библиотека)(?:@\w+)?\s*$", re.I)
+#: Telegram Bot API serves files to bots only up to 20 MB (getFile limit).
+DOC_MAX_BYTES = 20 * 1024 * 1024
+DOC_SUFFIXES = frozenset({".pdf", ".docx", ".xlsx", ".xlsm", ".pptx", ".epub", ".csv", ".tsv", ".txt", ".md",
+                          ".markdown", ".html", ".htm", ".png", ".jpg", ".jpeg", ".webp", ".doc", ".xls", ".ppt",
+                          ".rtf", ".odt", ".ods", ".odp"})
+_WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+
+
+def doc_inbox_name(name: str) -> str:
+    """A safe file name for the drop folder; ValueError for anything that is not a document type."""
+    base = Path(str(name or "").replace("\\", "/")).name
+    base = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", base).strip(" .")
+    suffix = Path(base).suffix.lower()
+    if suffix not in DOC_SUFFIXES:
+        raise ValueError("принимаются документы: PDF, DOCX, XLSX/CSV, TXT/MD, HTML, PPTX/EPUB, фото")
+    stem = Path(base).stem[:100].strip(" .") or "document"
+    if stem.split(".")[0].upper() in _WINDOWS_RESERVED:
+        stem = "doc-" + stem
+    return stem + suffix
+
+
+def save_to_doc_inbox(inbox: Path, name: str, data: bytes) -> tuple[Path, bool]:
+    """Atomically write ``data`` into the drop folder. (path, True) when new; (path, False) when the
+    same bytes are already there. A different file with the same name becomes ``name (2).ext``."""
+    inbox.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256(data).digest()
+    stem, suffix = Path(name).stem, Path(name).suffix
+    for n in range(1, 100):
+        target = inbox / (name if n == 1 else f"{stem} ({n}){suffix}")
+        if target.exists():
+            try:
+                if target.stat().st_size == len(data) and hashlib.sha256(target.read_bytes()).digest() == digest:
+                    return target, False
+            except OSError:
+                pass
+            continue
+        # Dot-prefixed temp name: the watcher skips it; it appears under the real name only when complete.
+        tmp = inbox / f".{target.name}.{os.getpid()}.tmp"
+        try:
+            with open(tmp, "xb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp, target)
+        finally:
+            if tmp.exists():
+                tmp.unlink()
+        return target, True
+    raise ValueError("в папке приёма слишком много одноимённых файлов")
 from .secret_intake import (
     SecretField, SecretIntakeError, SecretIntakeManager, looks_like_secret_message, request_caption,
 )
@@ -531,6 +582,50 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             f"{info['expires_at']} UTC ({minutes} мин). Читает только локальная модель Jeff; в облако не уходит. "
             "Статус: /manual · снять: /manual off"))
 
+    async def _consume_doc_update(self, person: Person, message: dict, update_id: int) -> None:
+        """/doc: put the owner's document into the local drop folder ``<data dir>/inbox-docs``.
+
+        The bytes go straight to disk: never into the pult Store/SQLite, history, learning or a model.
+        Parsing, the library and memory notes happen locally in tools/doc_intake (watch mode). The reply
+        carries only the file name, size and a hash prefix."""
+        if not self.store.acknowledge_without_body(update_id):
+            return
+        from .backend_target import default_core_data_dir
+        data_dir = self.settings.core_data_dir or default_core_data_dir()
+        doc = message.get("document") if isinstance(message.get("document"), dict) else None
+        reply = message.get("reply_to_message") if isinstance(message.get("reply_to_message"), dict) else {}
+        if doc is None and isinstance(reply.get("document"), dict):
+            doc = reply["document"]           # "/doc" sent as a reply to a document already in the chat
+        if doc is None:
+            await self.telegram.send(person, (
+                "📚 Пришлите документ (PDF, DOCX, XLSX/CSV, TXT/MD, HTML, PPTX, фото) с подписью /doc "
+                "или ответьте /doc на уже присланный файл. До 20 МБ (лимит Telegram для ботов). "
+                "Файл ляжет в папку приёма, библиотека разберёт его на этом ПК."))
+            return
+        try:
+            if not data_dir:
+                raise ValueError("папка данных Bossman неизвестна")
+            name = doc_inbox_name(str(doc.get("file_name") or ""))
+            if type(doc.get("file_size")) is int and doc["file_size"] > DOC_MAX_BYTES:
+                raise ValueError("файл больше 20 МБ: Telegram не отдаёт ботам такие файлы — положите его в "
+                                 "папку inbox-docs на ПК")
+            data = bytes(await self.telegram.fetch_file(doc.get("file_id"), max_bytes=DOC_MAX_BYTES))
+            if not data:
+                raise ValueError("пустой файл")
+            saved, fresh = await asyncio.to_thread(save_to_doc_inbox, Path(data_dir) / "inbox-docs", name, data)
+        except CompanionError as exc:
+            reason = "файл больше 20 МБ" if str(exc) == "IMAGE_TOO_LARGE" else f"Telegram не отдал файл ({exc})"
+            await self.telegram.send(person, f"📚 Документ не принят: {reason}")
+            return
+        except (ValueError, OSError) as exc:
+            reason = str(exc) if isinstance(exc, ValueError) else f"запись не удалась ({type(exc).__name__})"
+            await self.telegram.send(person, f"📚 Документ не принят: {reason[:200]}")
+            return
+        await self.telegram.send(person, (
+            f"📥 «{saved.name}» ({max(1, len(data) // 1024)} КБ, sha {hashlib.sha256(data).hexdigest()[:12]}) "
+            f"{'положен в папку приёма' if fresh else 'уже лежит в папке приёма'}. Разбор, библиотека и заметки "
+            "памяти — на этом ПК (doc_intake watch); дальше содержимое никуда не отправляется."))
+
     async def _consume_key_update(self, person: Person, message: dict, update_id: int, text: str) -> None:
         """Store an owner provider key in the local key file; reply with names only."""
         if not self.store.acknowledge_without_body(update_id):
@@ -622,6 +717,9 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             command = text if isinstance(text, str) else message.get("caption")
             if isinstance(command, str) and MANUAL_COMMAND.match(command.strip()):
                 return await self._consume_manual_update(person, message, update["update_id"], command.strip())
+            # Owner document for the knowledge library (/doc): bytes go to the local drop folder only.
+            if isinstance(command, str) and DOC_COMMAND.match(command.strip()):
+                return await self._consume_doc_update(person, message, update["update_id"])
 
         # Secret lane is intercepted BEFORE the durable Store inbox. The next
         # owner text for an active one-time session is never encrypted into

@@ -1,0 +1,146 @@
+{
+ "ts": "2026-10-22T02:42:33",
+ "grade": "YELLOW",
+ "findings": [
+  {
+   "severity": "LOW",
+   "check": "defender",
+   "detail": "быстрое сканирование 15 дн. назад"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\cleanall: powershell -executionpolicy bypass -file c:\\temp\\clean_all.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\cleanscreen: powershell -executionpolicy bypass -file c:\\temp\\clean_screen.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\finalfs: powershell -executionpolicy bypass -file c:\\temp\\final_fullscreen.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\focusbrowser: powershell -executionpolicy bypass -file c:\\temp\\focus_browser.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaCap: powershell -executionpolicy bypass -file c:\\temp\\cap33.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaGitPush: powershell -executionpolicy bypass -file c:\\temp\\push.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaGitPush2: powershell -executionpolicy bypass -file c:\\temp\\push2.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaGitPushMain: powershell -executionpolicy bypass -file c:\\temp\\pushmain.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaRebase: powershell -executionpolicy bypass -file c:\\temp\\reb.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaRebase2: powershell -executionpolicy bypass -file c:\\temp\\reb2.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbe: powershell -executionpolicy bypass -file c:\\temp\\probe_tg.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbe2: powershell -executionpolicy bypass -file c:\\temp\\probe2.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbe3: powershell -executionpolicy bypass -file c:\\temp\\probe3.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbe4: powershell -executionpolicy bypass -file c:\\temp\\probe4.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbe5: powershell -executionpolicy bypass -file c:\\temp\\probe5.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbe6: powershell -executionpolicy bypass -file c:\\temp\\probe6.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbe7: powershell -executionpolicy bypass -file c:\\temp\\probe7.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbe8: powershell -executionpolicy bypass -file c:\\temp\\probe8.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbe9: powershell -executionpolicy bypass -file c:\\temp\\probe9.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbeA: powershell -executionpolicy bypass -file c:\\temp\\probea.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbeB: powershell -executionpolicy bypass -file c:\\temp\\probeb.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbeC: powershell -executionpolicy bypass -file c:\\temp\\probec.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbeD: powershell -executionpolicy bypass -file c:\\temp\\probed.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\LunaTgProbeE: powershell -executionpolicy bypass -file c:\\temp\\probee.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\luna_scrshot: powershell -noprofile -noninteractive -executionpolicy bypass -file c:\\windows\\temp\\shot2.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\minterm: powershell -executionpolicy bypass -file c:\\temp\\min_term.ps1"
+  },
+  {
+   "severity": "MEDIUM",
+   "check": "tasks",
+   "detail": "\\screencap: powershell -executionpolicy bypass -file c:\\temp\\cap33.ps1"
+  }
+ ]
+}

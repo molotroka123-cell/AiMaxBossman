@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 488. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 491. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -391,6 +391,9 @@
 | `bossman-core/tests/test_v3_organization_command_center.py:18` | importorskip | `—` | Command Center (bcc) не установлен рядом с ядром | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_video_factory.py:30` | skipif | `not ffmpeg_available()` | ffmpeg binary not available | Bossman Core | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `bossman-core/tests/test_windows_host_shell.py:50` | skipif | `os.name == "nt"` | POSIX-ветка shell-сборки; Windows-поведение покрывают test_windows_* рядом | Bossman Core | права ФС / платформа | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/doc_intake/test_doc_intake_library.py:261` | importorskip | `—` | нет пакета pypdf | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/doc_intake/test_doc_intake_library.py:292` | importorskip | `—` | нет пакета pypdf | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/doc_intake/test_doc_intake_library.py:301` | importorskip | `—` | нет пакета docx | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/exchange_volume/test_exchange_volume.py:267` | skipif | `not os.environ.get("EXCHANGE_VOLUME_ANON_EXPORT")` | local anonymised copy not provided | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/ops_intake/test_ops_intake.py:573` | importorskip | `—` | нет пакета openpyxl | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/ops_intake/test_ops_intake.py:582` | importorskip | `—` | нет пакета openpyxl | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
