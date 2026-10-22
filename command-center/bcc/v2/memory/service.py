@@ -96,6 +96,7 @@ class ObsidianMemoryService:
         tags: list[str] | None = None,
         source_run_id: str | int | None = None,
         filename: str | None = None,
+        extra_frontmatter: dict[str, str] | None = None,
     ) -> Path:
         path = self.vault.write_memory(
             title=title,
@@ -105,6 +106,7 @@ class ObsidianMemoryService:
             tags=tags,
             source_run_id=source_run_id,
             filename=filename,
+            extra_frontmatter=extra_frontmatter,
         )
         # Критическая правка пути записи (замерено исследованием Qdrant:
         # пересканирование корня стоило 2.4 с на 6k чанков и ~38 с на 100k).
