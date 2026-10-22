@@ -56,6 +56,18 @@ def test_jeff_kb_cloud_fallback_switch_and_provenance_go_through_the_real_models
     assert plain["engine"] == "local"
 
 
+def test_jeff_kb_show_citations_switch_goes_through_and_is_validated(authed):
+    """Owner 22.10 «пусть уберёт отсылки»: the «(§N)» marks are a field of the mode model; junk is refused before Bossman."""
+    h = {"X-BM-CSRF": authed.csrf}
+    r = authed.c.put("/m/api/jeff-kb/mode", headers=h, json={"show_citations": True})
+    assert r.json() == {"path": "/api/jeff-kb/mode", "method": "PUT", "echo": {"show_citations": True}}
+    assert authed.c.put("/m/api/jeff-kb/mode", headers=h, json={"show_citations": False}).json()["echo"] == {"show_citations": False}
+    sent = len(_calls(authed, "/api/jeff-kb/mode"))
+    for bad in ({"show_citations": "maybe"}, {"show_citations": [1]}):
+        assert authed.c.put("/m/api/jeff-kb/mode", headers=h, json=bad).status_code == 422, bad
+    assert len(_calls(authed, "/api/jeff-kb/mode")) == sent, "refused before Bossman"
+
+
 def test_jeff_kb_upload_refuses_wrong_type_bad_base64_and_oversize_before_bossman(authed):
     h = {"X-BM-CSRF": authed.csrf}
     ok_b64 = base64.b64encode(b"x").decode()

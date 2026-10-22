@@ -198,7 +198,7 @@ def test_strict_prompt_contains_retrieved_sections_rules_and_only_the_local_mode
     runtime = _runtime(tmp_path, llm)
     try:
         _upload(runtime.vault.data_dir)
-        kb.set_mode(runtime.vault.data_dir, strict=True)
+        kb.set_mode(runtime.vault.data_dir, strict=True, show_citations=True)     # this test is about the prompt: keep the marks
         answer = _ask(runtime, OWNER, "Сколько минут длится разминка перед игрой?")
         assert "(§1)" in answer and "двенадцать" in answer
         model, messages = llm.calls[-1]
@@ -351,7 +351,8 @@ async def test_api_upload_list_mode_check_and_model(env, pit_setup, monkeypatch)
                                                       "use_manual": False})).json()
     strict = (await c.post("/api/jeff-kb/check", json={"question": "Сколько длится разминка?"})).json()
     assert plain["answer"] == "Обычно минут десять." and plain["cited"] == []
-    assert strict["answer"] == "Двенадцать минут (§1)." and strict["cited"] == [{"n": 1, "title": "Разминка"}]
+    # owner 22.10 «пусть уберёт отсылки»: no «(§N)» in the text by default; the cited list stays for the owner's «Проверка»
+    assert strict["answer"] == "Двенадцать минут." and strict["cited"] == [{"n": 1, "title": "Разминка"}]
     assert prompts[0][0].startswith("http://127.0.0.1:11434") and prompts[0][1] == "bossman-uncensored-chat:latest"
     nothing = (await c.post("/api/jeff-kb/check", json={"question": "Столица Франции?"})).json()
     assert nothing["answer"] == kb.NO_ANSWER_RU and nothing["no_match"] is True and len(prompts) == 2

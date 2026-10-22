@@ -5,10 +5,11 @@ Mounted under /api with the normal owner session/CSRF or token auth (participant
   PUT    /jeff-kb/manual          — upload / replace: {"name": "x.pdf", "data_b64": "..."} (.txt .md .pdf .docx, <= 8 MB)
   DELETE /jeff-kb/manual          — remove (strict mode goes off)
   GET    /jeff-kb/sections        — numbered section titles (no text)
-  PUT    /jeff-kb/mode            — {"strict": bool, "scope_all": bool, "cloud_fallback": bool, "local_timeout_s": int,
-                                     "cloud_daily_max": int} (scope_all = every participant, default off;
-                                     cloud_fallback = free cloud answers by the manual when the local model is
-                                     unavailable, default ON — owner 21.10)
+  PUT    /jeff-kb/mode            — {"strict": bool, "scope_all": bool, "cloud_fallback": bool, "show_citations": bool,
+                                     "local_timeout_s": int, "cloud_daily_max": int} (scope_all = every participant,
+                                     default off; cloud_fallback = free cloud answers by the manual when the local model
+                                     is unavailable, default ON — owner 21.10; show_citations = keep the «(§N)» marks in
+                                     the answers, default OFF — owner 22.10 «пусть уберёт отсылки»)
   POST   /jeff-kb/check           — owner test: {"question": "...", "use_manual": true|false} -> answer + cited sections
                                     + provenance: engine local|cloud, provider, model (bcc.pit.jeff_kb_cloud)
   GET    /jeff-model              — configured / chosen / effective local model of Jeff
@@ -51,6 +52,7 @@ class ModeIn(BaseModel):
     strict: bool | None = None
     scope_all: bool | None = None
     cloud_fallback: bool | None = None
+    show_citations: bool | None = None
     local_timeout_s: int | None = Field(default=None, ge=kc.MIN_LOCAL_TIMEOUT_S, le=kc.MAX_LOCAL_TIMEOUT_S)
     cloud_daily_max: int | None = Field(default=None, ge=0, le=kc.MAX_DAILY_MAX)
 
@@ -160,8 +162,8 @@ async def kb_mode(body: ModeIn, request: Request):
     jeff_dir, _cfg = _jeff(request)
     try:
         return kb.set_mode(jeff_dir, strict=body.strict, scope_all=body.scope_all,
-                           cloud_fallback=body.cloud_fallback, local_timeout_s=body.local_timeout_s,
-                           cloud_daily_max=body.cloud_daily_max)
+                           cloud_fallback=body.cloud_fallback, show_citations=body.show_citations,
+                           local_timeout_s=body.local_timeout_s, cloud_daily_max=body.cloud_daily_max)
     except kb.KBError as exc:
         raise _kb_error(exc, 409) from None
 
@@ -196,7 +198,8 @@ async def kb_check(body: CheckIn, request: Request):
             return await kc.ask_cloud(route, messages, data_dir=jeff_dir, state=state, local_reason=reason,
                                       budget_s=kc.CHECK_BUDGET_S, stop_dir=_cc_data_dir(request), surface="check")
     try:
-        out = await kb.check_answer(local_chat, body.question, manual=manual, fallback=fallback)
+        out = await kb.check_answer(local_chat, body.question, manual=manual, fallback=fallback,
+                                    hide_citations=not state["show_citations"])
     except kb.KBError as exc:
         raise _kb_error(exc) from None
     except kc.ModelsUnavailable as exc:

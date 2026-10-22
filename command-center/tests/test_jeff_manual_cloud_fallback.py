@@ -85,7 +85,8 @@ async def _free_model(env, *, name=FREE, base=OPENROUTER, alias=None, caps=None,
 async def _strict_manual(env):
     data = base64.b64encode(MANUAL_MD.encode("utf-8")).decode()
     assert (await env.client.put("/api/jeff-kb/manual", json={"name": "rules.md", "data_b64": data})).status_code == 200
-    assert (await env.client.put("/api/jeff-kb/mode", json={"strict": True})).json()["strict"] is True
+    # these tests are about the cloud fallback and compare against the cited text: keep the «(§N)» marks (owner 22.10 hides them by default)
+    assert (await env.client.put("/api/jeff-kb/mode", json={"strict": True, "show_citations": True})).json()["strict"] is True
 
 
 def _logs(pit_setup):
@@ -360,7 +361,7 @@ def _strict_runtime(tmp_path, llm, route, **mode):
     runtime = _runtime(tmp_path, llm)
     runtime.kb_cloud_route = route
     _upload(runtime.vault.data_dir)
-    kb.set_mode(runtime.vault.data_dir, strict=True, **mode)
+    kb.set_mode(runtime.vault.data_dir, strict=True, **{"show_citations": True, **mode})   # marks kept unless a test says otherwise
     return runtime
 
 
