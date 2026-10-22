@@ -2277,6 +2277,7 @@ _NEVER_AUTO_APPROVE_KINDS = frozenset({
     "admin",
     "destructive",
     "outbound_send",
+    "cloud.ask",
 })
 
 
@@ -2307,11 +2308,15 @@ async def _bus_bridge(svc: Any) -> None:
             elif kind == "approval.created":
                 appr_id = msg.get("id")
                 appr_kind = str(msg.get("approval_kind") or msg.get("kind") or "")
+                appr_tool = str(msg.get("tool") or "")
+                preview_lc = str(msg.get("preview") or "").lower()
                 cfg = _session_cfg(svc, session_id)
                 if (
                     cfg.get("bypass_permissions")
                     and appr_id is not None
                     and appr_kind.lower() not in _NEVER_AUTO_APPROVE_KINDS
+                    and appr_tool.lower() not in _NEVER_AUTO_APPROVE_KINDS
+                    and "cloud.ask" not in preview_lc
                 ):
                     with contextlib.suppress(Exception):
                         await svc.approvals.decide(int(appr_id), True, "owner")
