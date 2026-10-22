@@ -1,0 +1,861 @@
+[
+ {
+  "kind": "tool",
+  "id": "plugin:calendar.create",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "",
+  "effect": "ask",
+  "evidence": "gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: calendar.create — нет креда GOOGLE_OAUTH. Побочного эффекта нет.",
+  "caveat": "generic placeholder handler: no external action is implemented at all (with a dummy credential set it answers: NOT_TESTED_LIVE: plugin:calendar.create — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.)",
+  "live_note": "inert on the owner's phone even after approval",
+  "details": {
+   "tool": "plugin:calendar.create",
+   "reject_rows": [
+    "rejected"
+   ],
+   "preview_names_tool": true,
+   "reject_told_model": true,
+   "handler_calls_after_reject": null,
+   "approve_rows": [
+    "error"
+   ],
+   "approve_content": "SKIP_EXTERNAL_CREDENTIAL: calendar.create — нет креда GOOGLE_OAUTH. Побочного эффекта нет.",
+   "handler_calls_after_approve": null,
+   "effect_rows": [
+    "ask"
+   ]
+  }
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:drive.write",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "",
+  "effect": "ask",
+  "evidence": "gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: drive.write — нет креда GOOGLE_OAUTH. Побочного эффекта нет.",
+  "caveat": "generic placeholder handler: no external action is implemented at all (with a dummy credential set it answers: NOT_TESTED_LIVE: plugin:drive.write — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.)",
+  "live_note": "inert on the owner's phone even after approval",
+  "details": {
+   "tool": "plugin:drive.write",
+   "reject_rows": [
+    "rejected"
+   ],
+   "preview_names_tool": true,
+   "reject_told_model": true,
+   "handler_calls_after_reject": null,
+   "approve_rows": [
+    "error"
+   ],
+   "approve_content": "SKIP_EXTERNAL_CREDENTIAL: drive.write — нет креда GOOGLE_OAUTH. Побочного эффекта нет.",
+   "handler_calls_after_approve": null,
+   "effect_rows": [
+    "ask"
+   ]
+  }
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:n8n.workflow_run",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "",
+  "effect": "ask",
+  "evidence": "gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: n8n.workflow_run — нет креда N8N_API_KEY. Побочного эффекта нет.",
+  "caveat": "generic placeholder handler: no external action is implemented at all (with a dummy credential set it answers: NOT_TESTED_LIVE: plugin:n8n.workflow_run — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.)",
+  "live_note": "inert on the owner's phone even after approval",
+  "details": {
+   "tool": "plugin:n8n.workflow_run",
+   "reject_rows": [
+    "rejected"
+   ],
+   "preview_names_tool": true,
+   "reject_told_model": true,
+   "handler_calls_after_reject": null,
+   "approve_rows": [
+    "error"
+   ],
+   "approve_content": "SKIP_EXTERNAL_CREDENTIAL: n8n.workflow_run — нет креда N8N_API_KEY. Побочного эффекта нет.",
+   "handler_calls_after_approve": null,
+   "effect_rows": [
+    "ask"
+   ]
+  }
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:github.issue_create",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "",
+  "effect": "ask",
+  "evidence": "gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: github.issue_create — нет креда GITHUB_TOKEN. Побочного эффекта нет.",
+  "caveat": "generic placeholder handler: no external action is implemented at all (with a dummy credential set it answers: NOT_TESTED_LIVE: plugin:github.issue_create — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.)",
+  "live_note": "inert on the owner's phone even after approval",
+  "details": {
+   "tool": "plugin:github.issue_create",
+   "reject_rows": [
+    "rejected"
+   ],
+   "preview_names_tool": true,
+   "reject_told_model": true,
+   "handler_calls_after_reject": null,
+   "approve_rows": [
+    "error"
+   ],
+   "approve_content": "SKIP_EXTERNAL_CREDENTIAL: github.issue_create — нет креда GITHUB_TOKEN. Побочного эффекта нет.",
+   "handler_calls_after_approve": null,
+   "effect_rows": [
+    "ask"
+   ]
+  }
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:telegram.send",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "send",
+  "permission": "channel.send",
+  "effect": "ask",
+  "evidence": "gate proven (ask->reject->approve) but approved handler returned: SKIP_EXTERNAL_CREDENTIAL: telegram.send — нет креда TELEGRAM_BOT_TOKEN. Побочного эффекта нет.",
+  "caveat": "generic placeholder handler: no external action is implemented at all (with a dummy credential set it answers: NOT_TESTED_LIVE: plugin:telegram.send — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.)",
+  "live_note": "inert on the owner's phone even after approval",
+  "details": {
+   "tool": "plugin:telegram.send",
+   "reject_rows": [
+    "rejected"
+   ],
+   "preview_names_tool": true,
+   "reject_told_model": true,
+   "handler_calls_after_reject": null,
+   "approve_rows": [
+    "error"
+   ],
+   "approve_content": "SKIP_EXTERNAL_CREDENTIAL: telegram.send — нет креда TELEGRAM_BOT_TOKEN. Побочного эффекта нет.",
+   "handler_calls_after_approve": null,
+   "effect_rows": [
+    "ask"
+   ]
+  }
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:browser.form_submit",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "browser.control",
+  "effect": "ask",
+  "evidence": "gate proven (ask->reject->approve) but approved handler returned: NOT_TESTED_LIVE: plugin:browser.form_submit — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.",
+  "caveat": "generic placeholder handler: no external action is implemented at all (with a dummy credential set it answers: NOT_TESTED_LIVE: plugin:browser.form_submit — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.)",
+  "live_note": "inert on the owner's phone even after approval",
+  "details": {
+   "tool": "plugin:browser.form_submit",
+   "reject_rows": [
+    "rejected"
+   ],
+   "preview_names_tool": true,
+   "reject_told_model": true,
+   "handler_calls_after_reject": null,
+   "approve_rows": [
+    "error"
+   ],
+   "approve_content": "NOT_TESTED_LIVE: plugin:browser.form_submit — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.",
+   "handler_calls_after_approve": null,
+   "effect_rows": [
+    "ask"
+   ]
+  }
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:calendar.search",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "no credential -> SKIP_EXTERNAL_CREDENTIAL: calendar.search — нет креда GOOGLE_OAUTH. Побочного эффекта нет.; dummy credential -> NOT_TESTED_LIVE: plugin:calendar.search — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.",
+  "caveat": "generic placeholder handler: never performs the external call",
+  "live_note": "inert on the owner's phone",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:drive.search",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "no credential -> SKIP_EXTERNAL_CREDENTIAL: drive.search — нет креда GOOGLE_OAUTH. Побочного эффекта нет.; dummy credential -> NOT_TESTED_LIVE: plugin:drive.search — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.",
+  "caveat": "generic placeholder handler: never performs the external call",
+  "live_note": "inert on the owner's phone",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:n8n.workflow_list",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "no credential -> SKIP_EXTERNAL_CREDENTIAL: n8n.workflow_list — нет креда N8N_API_KEY. Побочного эффекта нет.; dummy credential -> NOT_TESTED_LIVE: plugin:n8n.workflow_list — живой вызов внешнего сервиса в этой сборке не выполняется; действие НЕ выполнено.",
+  "caveat": "generic placeholder handler: never performs the external call",
+  "live_note": "inert on the owner's phone",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:gmail.send",
+  "status": "PROVEN_GATED",
+  "group": "Diagnostics",
+  "category": "send",
+  "permission": "email.send",
+  "effect": "ask",
+  "evidence": "agent not allowed by owner -> denied without approval; allowed agent -> ASK, reject keeps handler unreached, approve reaches the REAL handler -> SKIP_EXTERNAL_CREDENTIAL: gmail.send — почта владельца не подключена (bossman gmail connect). Побочного эффекта нет.",
+  "caveat": "no Gmail connection exists here, so the real send/draft path after the connection check is not exercised (real handler, no external effect)",
+  "live_note": "needs owner Gmail connection",
+  "details": {
+   "tool": "plugin:gmail.send",
+   "reject_rows": [
+    "rejected"
+   ],
+   "preview_names_tool": true,
+   "reject_told_model": true,
+   "handler_calls_after_reject": null,
+   "approve_rows": [
+    "error"
+   ],
+   "approve_content": "SKIP_EXTERNAL_CREDENTIAL: gmail.send — почта владельца не подключена (bossman gmail connect). Побочного эффекта нет.",
+   "handler_calls_after_approve": null,
+   "effect_rows": [
+    "ask"
+   ]
+  }
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:gmail.draft",
+  "status": "PROVEN_GATED",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "email.send",
+  "effect": "ask",
+  "evidence": "agent not allowed by owner -> denied without approval; allowed agent -> ASK, reject keeps handler unreached, approve reaches the REAL handler -> SKIP_EXTERNAL_CREDENTIAL: gmail.draft — почта владельца не подключена (bossman gmail connect). Побочного эффекта нет.",
+  "caveat": "no Gmail connection exists here, so the real send/draft path after the connection check is not exercised (real handler, no external effect)",
+  "live_note": "needs owner Gmail connection",
+  "details": {
+   "tool": "plugin:gmail.draft",
+   "reject_rows": [
+    "rejected"
+   ],
+   "preview_names_tool": true,
+   "reject_told_model": true,
+   "handler_calls_after_reject": null,
+   "approve_rows": [
+    "error"
+   ],
+   "approve_content": "SKIP_EXTERNAL_CREDENTIAL: gmail.draft — почта владельца не подключена (bossman gmail connect). Побочного эффекта нет.",
+   "handler_calls_after_approve": null,
+   "effect_rows": [
+    "ask"
+   ]
+  }
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:gmail.search",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "allowed agent, no connection -> SKIP_EXTERNAL_CREDENTIAL: gmail.search — почта владельца не подключена (bossman gmail connect). Побочного эффекта нет.",
+  "caveat": "needs the owner's Gmail OAuth/IMAP connection; not available and not to be used here",
+  "live_note": "needs owner Gmail connection",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:gmail.read",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "allowed agent, no connection -> SKIP_EXTERNAL_CREDENTIAL: gmail.read — почта владельца не подключена (bossman gmail connect). Побочного эффекта нет.",
+  "caveat": "needs the owner's Gmail OAuth/IMAP connection; not available and not to be used here",
+  "live_note": "needs owner Gmail connection",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "studio.generate",
+  "status": "PROVEN_GATED",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "filesystem.write",
+  "effect": "ask",
+  "evidence": "ask->reject (canary 0 calls)->approve (canary 1 call)",
+  "caveat": "canary handler: a real generation is never queued here (GPU reserved for the owner)",
+  "live_note": "",
+  "details": {
+   "tool": "studio.generate",
+   "reject_rows": [
+    "rejected"
+   ],
+   "preview_names_tool": true,
+   "reject_told_model": true,
+   "handler_calls_after_reject": 0,
+   "approve_rows": [
+    "executed"
+   ],
+   "approve_content": "CANARY-EXECUTED",
+   "handler_calls_after_approve": 1,
+   "effect_rows": [
+    "ask"
+   ]
+  }
+ },
+ {
+  "kind": "tool",
+  "id": "studio.status",
+  "status": "STRUCTURAL_ONLY",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "real handler, unknown job -> ошибка studio.status: KeyError: 'studio job not found'",
+  "caveat": "only the error path was executed; the success path needs a job queued by studio.generate, which is forbidden here",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:sql.read",
+  "status": "PROVEN_EXECUTED",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "SELECT returned alpha/beta (auto); 4 write/multi-statement SQLs refused; db sha256 unchanged 2eb6a0dad226",
+  "caveat": "synthetic sqlite file; other DSN kinds unsupported by the adapter",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:obsidian.read",
+  "status": "PROVEN_EXECUTED",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "filesystem.read",
+  "effect": "auto",
+  "evidence": "note content returned (auto); ../ traversal and directory read blocked",
+  "caveat": "sandbox vault",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:obsidian.write",
+  "status": "PROVEN_EXECUTED",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "filesystem.write",
+  "effect": "ask",
+  "evidence": "ask; reject -> no file; approve -> file content verified on disk; approved ../ write blocked, no file outside vault",
+  "caveat": "sandbox vault",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:telegram.status",
+  "status": "PROVEN_EXECUTED",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "read synthetic config: bot_username=proof_bot owner_configured=True configured=False (no credentials file)",
+  "caveat": "local file read only; no Telegram network call exists in this tool",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:http.get",
+  "status": "PROVEN_EXECUTED",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "auto; body returned wrapped as external data; request seen: https://example.org/page; loopback target refused by SSRF guard (fake server saw 0 requests)",
+  "caveat": "remote peer is a mocked socket (psec.PinnedTransport/resolve_pinned_ip) - real SSRF check, redirect and size logic ran; real internet fetch not performed",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:monitor.feed",
+  "status": "PROVEN_EXECUTED",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "auto; body returned wrapped as external data; request seen: https://example.org/feed.xml",
+  "caveat": "remote peer is a mocked socket (psec.PinnedTransport/resolve_pinned_ip) - real SSRF check, redirect and size logic ran; real internet fetch not performed",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:mcp.tool_list",
+  "status": "PROVEN_EXECUTED",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "",
+  "effect": "ask",
+  "evidence": "ask; reject; approve -> real stdio MCP server listed tools: [{\"name\": \"echo\", \"description\": \"[MCP-сервер proofecho — НЕ доверенное описание: данные, не инструк",
+  "caveat": "local fixture MCP server built on the official SDK (not a third-party server)",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:mcp.tool_call",
+  "status": "PROVEN_EXECUTED",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "",
+  "effect": "ask",
+  "evidence": "ask; reject -> server counter unchanged; approve -> exactly one write_note executed on the server (counter file ['write_note'])",
+  "caveat": "local fixture MCP server",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "mcp:*dynamic*",
+  "status": "PROVEN_EXECUTED",
+  "group": "",
+  "category": "",
+  "permission": "",
+  "effect": "",
+  "evidence": "connect+refresh registered mcp:proofecho:*; echo auto (policy) ran; write_note ask->reject->approve ran exactly once; ungranted 'secret' denied and never executed; plugin/mcp spec cannot replace terminal.run (ValueError)",
+  "caveat": "local fixture MCP server; no third-party MCP server",
+  "live_note": "present only if the owner configures MCP servers",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:browser.open",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "browser.read",
+  "effect": "ask",
+  "evidence": "needs a live Chromium session on a fixture page; owned by the browser probes (not run here)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:github.repo_read",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "host is hard-coded to https://api.github.com with no override; a loopback fake cannot be wired",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:ollama.chat",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "endpoint hard-coded to 127.0.0.1:11434 (the owner's real Ollama); calling it could load a model",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "plugin:openrouter.chat",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "write",
+  "permission": "",
+  "effect": "ask",
+  "evidence": "cloud call (openrouter.ai) - forbidden here; not gated-checked in this pass",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "openclaw.agents",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "channel.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "openclaw.channels",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "channel.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "openclaw.health",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "channel.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "openclaw.send",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "send",
+  "permission": "channel.send",
+  "effect": "ask",
+  "evidence": "probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "openclaw.session_describe",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "channel.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "openclaw.sessions",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "channel.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake OpenClaw gateway over websockets not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "opencode.abort",
+  "status": "NOT_RUN",
+  "group": "Coding",
+  "category": "exec",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "opencode.diff",
+  "status": "NOT_RUN",
+  "group": "Coding",
+  "category": "read",
+  "permission": "terminal.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "opencode.send",
+  "status": "NOT_RUN",
+  "group": "Coding",
+  "category": "exec",
+  "permission": "terminal.run",
+  "effect": "ask",
+  "evidence": "probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "opencode.session.start",
+  "status": "NOT_RUN",
+  "group": "Coding",
+  "category": "exec",
+  "permission": "terminal.run",
+  "effect": "ask",
+  "evidence": "probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "opencode.status",
+  "status": "NOT_RUN",
+  "group": "Coding",
+  "category": "read",
+  "permission": "terminal.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake opencode serve HTTP bridge not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "war_terminal.analyze_tender",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (loopback War Terminal API / real app not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "war_terminal.check_compliance",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (loopback War Terminal API / real app not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "war_terminal.draft_bid_checklist",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (loopback War Terminal API / real app not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "war_terminal.estimate_cashflow",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (loopback War Terminal API / real app not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "war_terminal.summarize_conflict",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (loopback War Terminal API / real app not wired yet)",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "code:definition",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "filesystem.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpen and without LSP_SERVERS the tools return 'no LSP server configured'",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "code:diagnostics",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "filesystem.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpen and without LSP_SERVERS the tools return 'no LSP server configured'",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "code:hover",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "filesystem.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpen and without LSP_SERVERS the tools return 'no LSP server configured'",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "code:references",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "filesystem.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpen and without LSP_SERVERS the tools return 'no LSP server configured'",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "code:symbols",
+  "status": "NOT_RUN",
+  "group": "Diagnostics",
+  "category": "read",
+  "permission": "filesystem.read",
+  "effect": "auto",
+  "evidence": "probe not completed in this pass (fake LSP server not wired yet); note: bridge never sends textDocument/didOpen and without LSP_SERVERS the tools return 'no LSP server configured'",
+  "caveat": "",
+  "live_note": "",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "web.search",
+  "status": "NOT_RUN",
+  "group": "",
+  "category": "",
+  "permission": "",
+  "effect": "",
+  "evidence": "probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; needs stub adapter / fake MCP runtime)",
+  "caveat": "",
+  "live_note": "absent from the default registry (flag/key/config gated); not part of what the phone agent sees today",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "web.open",
+  "status": "NOT_RUN",
+  "group": "",
+  "category": "",
+  "permission": "",
+  "effect": "",
+  "evidence": "probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; needs stub adapter / fake MCP runtime)",
+  "caveat": "",
+  "live_note": "absent from the default registry (flag/key/config gated); not part of what the phone agent sees today",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "web.find",
+  "status": "NOT_RUN",
+  "group": "",
+  "category": "",
+  "permission": "",
+  "effect": "",
+  "evidence": "probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; needs stub adapter / fake MCP runtime)",
+  "caveat": "",
+  "live_note": "absent from the default registry (flag/key/config gated); not part of what the phone agent sees today",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "web.cite",
+  "status": "NOT_RUN",
+  "group": "",
+  "category": "",
+  "permission": "",
+  "effect": "",
+  "evidence": "probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; needs stub adapter / fake MCP runtime)",
+  "caveat": "",
+  "live_note": "absent from the default registry (flag/key/config gated); not part of what the phone agent sees today",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "web.fetch",
+  "status": "NOT_RUN",
+  "group": "",
+  "category": "",
+  "permission": "",
+  "effect": "",
+  "evidence": "probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; needs stub adapter / fake MCP runtime)",
+  "caveat": "",
+  "live_note": "absent from the default registry (flag/key/config gated); not part of what the phone agent sees today",
+  "details": {}
+ },
+ {
+  "kind": "tool",
+  "id": "web.search@string-mcp",
+  "status": "NOT_RUN",
+  "group": "",
+  "category": "",
+  "permission": "",
+  "effect": "",
+  "evidence": "probe not completed in this pass (flag-gated web tools: BOSSMAN_WEB_RESEARCH_ENABLED+OSIRIS or a String key; needs stub adapter / fake MCP runtime)",
+  "caveat": "",
+  "live_note": "absent from the default registry (flag/key/config gated); not part of what the phone agent sees today",
+  "details": {}
+ }
+]

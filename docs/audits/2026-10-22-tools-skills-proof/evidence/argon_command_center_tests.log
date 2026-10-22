@@ -1,0 +1,33 @@
+...................                                                      [100%]C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\_pytest\threadexception.py:58: PytestUnhandledThreadExceptionWarning: Exception in thread Thread-355 (_connection_worker_thread)
+
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 66, in _connection_worker_thread
+    future.get_loop().call_soon_threadsafe(set_result, future, result)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 844, in call_soon_threadsafe
+    self._check_closed()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 545, in _check_closed
+    raise RuntimeError('Event loop is closed')
+RuntimeError: Event loop is closed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\site-packages\aiosqlite\core.py", line 75, in _connection_worker_thread
+    future.get_loop().call_soon_threadsafe(set_exception, future, e)
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 844, in call_soon_threadsafe
+    self._check_closed()
+  File "C:\Users\asd\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 545, in _check_closed
+    raise RuntimeError('Event loop is closed')
+RuntimeError: Event loop is closed
+
+Enable tracemalloc to get traceback where the object was allocated.
+See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+  warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+19 passed in 50.45s
+exit=0
+exit=0
