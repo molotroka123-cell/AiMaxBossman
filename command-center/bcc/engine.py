@@ -376,6 +376,7 @@ class TaskEngine:
             current = str(current)
             if current in ("stopped", "cancelled"):
                 await s.commit()
+                await self._stop_delegated_children(task_id)     # повторный STOP тоже добивает живых детей
                 return {"ok": True, "status": "stopped"}
             if current in ("completed", "failed"):
                 await s.rollback()
@@ -409,7 +410,25 @@ class TaskEngine:
                     # callback unwinds, so only cancel a different worker task.
                     if worker is not asyncio.current_task():
                         worker.cancel()
+        await self._stop_delegated_children(task_id)
         return {"ok": True, "status": "stopped"}
+
+    async def _stop_delegated_children(self, parent_id: int) -> list[int]:
+        """Каскад единого STOP: дети, делегированные этой задачей (`tasks.meta.delegated_by_task`), останавливаются тем же
+        `stop`. Дерево строится вниз по времени создания, поэтому циклов нет. Ошибка одного ребёнка не мешает остальным."""
+        async with self.db.session() as s:
+            rows = (await s.execute(sa.select(tasks_t.c.id, tasks_t.c.status).where(
+                sa.cast(tasks_t.c.meta["delegated_by_task"].as_string(), sa.String) == str(parent_id)))).all()
+        stopped: list[int] = []
+        for child_id, status in rows:
+            if str(status) in ("completed", "failed", "stopped", "cancelled", "blocked"):
+                continue
+            try:
+                await self.stop(int(child_id))
+                stopped.append(int(child_id))
+            except (TaskStateConflict, ValueError):
+                continue
+        return stopped
 
     async def pause(self, task_id: int) -> dict:
         async with self.db.session() as s:

@@ -37,9 +37,16 @@ def test_a_failed_bossman_test_run_is_not_rescued_by_another_check():
                      postcondition_check={"passed": True, "exit_code": 0}) is False
 
 
-def test_a_postcondition_check_alone_still_verifies_with_a_real_exit_code():
-    assert _verified(verify_tests=[], postcondition_check={"passed": True, "exit_code": 0}) is True
-    assert _verified(verify_tests=[], postcondition_check={"passed": True, "exit_code": False}) is False
+def test_a_postcondition_check_alone_does_not_verify_without_observable_proof():
+    # red-team P0 (85784f86): «проверка прошла» без команды проверки и без наблюдаемого постусловия — не доказательство
+    assert _verified(verify_tests=[], postcondition_check={"passed": True, "exit_code": 0}) is False
+
+
+def test_a_postcondition_check_with_observable_proof_verifies_only_with_a_real_exit_code():
+    ok = {"passed": True, "exit_code": 0, "observable_postcondition": "файл report.txt существует, sha256 совпал"}
+    assert _verified(verify_tests=[], postcondition_check=ok) is True
+    assert _verified(verify_tests=[], postcondition_check={**ok, "exit_code": False}) is False
+    assert _verified(verify_tests=[], postcondition_check={**ok, "passed": "yes"}) is False
 
 
 # ---------------------------------------------------------------- cancel / STOP during Bossman's own test run

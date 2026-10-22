@@ -2241,10 +2241,12 @@ async def get_agent_session_events(
     }
 
 
-@router.post("/agent/sessions/{session_id}/stop")
-async def stop_agent_session(session_id: str, request: Request):
-    """Emergency & per-session STOP: stops active tasks, OpenCode worktree tasks, and terminal sessions."""
-    svc = request.app.state.svc
+async def stop_session_core(svc: Any, request_like: Any, session_id: str) -> dict:
+    """Единственная реализация STOP сессии: HTTP, WebSocket, desktop и телефон вызывают её.
+
+    Задачи останавливаются каноническим `TaskEngine.stop` (он же каскадно гасит делегированных детей)."""
+    from ..engine import TaskStateConflict
+
     data = _require_session(svc, session_id)
     cfg = _session_cfg(svc, session_id)
     rt = _orch(svc).runtime(session_id)
@@ -2255,14 +2257,16 @@ async def stop_agent_session(session_id: str, request: Request):
     for tid in reversed(ids):
         st = statuses.get(tid)
         if st and st not in ("completed", "failed", "stopped", "cancelled", "blocked"):
-            code, _payload = await _internal(request, "POST", f"/api/tasks/{tid}/stop")
-            if code < 400:
+            try:
+                await svc.engine.stop(tid)
                 stopped_tasks.append(tid)
+            except (TaskStateConflict, ValueError):
+                continue
 
     cancelled_coding: list[str] = []
     for ct_id in cfg.get("coding_task_ids") or []:
         with contextlib.suppress(Exception):
-            await cancel_coding_task(ct_id, request)
+            await cancel_coding_task(ct_id, request_like)
             cancelled_coding.append(ct_id)
 
     killed_terminals: list[str] = []
@@ -2288,6 +2292,12 @@ async def stop_agent_session(session_id: str, request: Request):
         "cancelled_coding_tasks": cancelled_coding,
         "killed_terminals": killed_terminals,
     }
+
+
+@router.post("/agent/sessions/{session_id}/stop")
+async def stop_agent_session(session_id: str, request: Request):
+    """Emergency & per-session STOP: stops active tasks, OpenCode worktree tasks, and terminal sessions."""
+    return await stop_session_core(request.app.state.svc, request, session_id)
 
 
 @router.post("/agent/tasks/{task_id}/approve")
@@ -2723,8 +2733,11 @@ async def agent_session_stream_ws(
                 if action == "ping":
                     await ws.send_json({"type": "pong", "session_id": session_id, "seq": rt.seq})
                 elif action == "stop":
-                    rt.emit("task.failed", reason="stopped_via_ws")
-                    await ws.send_json({"type": "agent.stopped", "session_id": session_id})
+                    result = await stop_session_core(svc, ws, session_id)
+                    await ws.send_json({"type": "agent.stopped", "session_id": session_id,
+                                        "stopped_tasks": result["stopped_tasks"],
+                                        "cancelled_coding_tasks": result["cancelled_coding_tasks"],
+                                        "killed_terminals": result["killed_terminals"]})
                 elif action == "mode" and msg.get("mode") in VALID_MODES:
                     await _update_session_cfg(svc, session_id, mode=msg["mode"])
                     rt.emit("session.updated", mode=msg["mode"])
