@@ -165,6 +165,7 @@ def test_a3_stale_or_expired_rate_is_never_selected(tmp_path: Path) -> None:
 # an observable postcondition or verification command with exit_code == 0
 # ---------------------------------------------------------------------------
 def test_a4_mission_receipt_requires_observable_postcondition_and_zero_exit() -> None:
+    pytest.importorskip("fastapi", reason="Command Center FastAPI runtime required (runs in command-center-ci)")
     from bcc.features import coding_tasks as ct
 
     diff = "--- a/f.py\n+++ b/f.py\n@@ -1 +1 @@\n+# change\n"
@@ -218,6 +219,7 @@ def test_a4_mission_receipt_requires_observable_postcondition_and_zero_exit() ->
 # A.5 (RT20-06): Historical Telegram STOP separated from fresh live test
 # ---------------------------------------------------------------------------
 def test_a5_evidence_separation_synthetic_historical_and_current_live(tmp_path: Path) -> None:
+    pytest.importorskip("fastapi", reason="Command Center FastAPI runtime required (runs in command-center-ci)")
     from tools import verify_tier5_argon_e2e as v
 
     synth = v.run_synthetic_g1_contracts(tmp_path)
@@ -249,6 +251,7 @@ def test_a5_evidence_separation_synthetic_historical_and_current_live(tmp_path: 
 # military/dual-use tenders excluded from sales pitch recommendations
 # ---------------------------------------------------------------------------
 def test_a6_and_a7_war_terminal_expired_and_review_required_tenders(tmp_path: Path) -> None:
+    pytest.importorskip("fastapi", reason="War Terminal FastAPI runtime required (runs in command-center-ci and war-terminal-ci)")
     from fastapi.testclient import TestClient
     from warterminal import contacts as C, rules
     from warterminal.api import create_app

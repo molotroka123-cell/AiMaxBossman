@@ -1,6 +1,6 @@
 # Реестр пропусков тестов (генерируется `python tools/skips_registry.py`)
 
-Всего записей: 491. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
+Всего записей: 495. Каждая — с причиной, владельцем, зависимостью от окружения и условием пересмотра.
 Пропуск без причины — провал `--check`. Skip не равен PASS: пропущенный тест не является уликой.
 
 | Тест | Вид | Условие | Причина | Владелец | Зависимость | Пересмотр |
@@ -33,6 +33,7 @@
 | `command-center/tests/test_buttons_sweep_1001.py:160` | skip | `—` | node is not installed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_cc_ux_p1_findings.py:167` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_cc_ux_p2_findings.py:19` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `command-center/tests/test_chat_archive.py:289` | skip | `—` | git недоступен | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_chat_technical_log_browser.py:11` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_chat_ui_static.py:272` | skip | `—` | Node unavailable: ui/tests/chat_core.test.mjs was not executed | Command Center | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `command-center/tests/test_chat_ux_browser.py:30` | skipif | `not chromium_available()` | browser_reason() | Command Center | Chromium/Playwright на хосте | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
@@ -456,6 +457,9 @@
 | `tests/test_rc19_side_by_side_refusals.py:202` | skip | `—` | no PowerShell on this machine | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_rc19_side_by_side_refusals.py:90` | skip | `—` | ephemeral port below the script's range | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_rc19_side_by_side_refusals.py:158` | skip | `—` | ephemeral port below the script's range | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_redteam_p0_regressions.py:168` | importorskip | `—` | Command Center FastAPI runtime required (runs in command-center-ci) | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_redteam_p0_regressions.py:222` | importorskip | `—` | Command Center FastAPI runtime required (runs in command-center-ci) | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
+| `tests/test_redteam_p0_regressions.py:254` | importorskip | `—` | War Terminal FastAPI runtime required (runs in command-center-ci and war-terminal-ci) | root (shared/tools) | контейнерный рантайм (docker/gVisor/KVM) | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:84` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:87` | importorskip | `—` | Solana SDK (solders) не установлен — панель безопасности не импортируется | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |
 | `tests/test_solana_safety.py:112` | importorskip | `—` | нет пакета fastapi | root (shared/tools) | условие в коде теста | пересмотреть, когда зависимость появится в CI-окружении (runner/секрет/пакет) |

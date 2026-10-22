@@ -1414,7 +1414,7 @@ def _extract_doc_text(path: Path, ext: str) -> int | None:
             pages = [page.extract_text() or "" for page in reader.pages[:80]]
             text = "\n\n".join(p.strip() for p in pages if p.strip())
         elif ext == ".docx":
-            from defusedxml import ElementTree as ET
+            from .. import safe_xml as ET
             import zipfile
             with zipfile.ZipFile(path) as zf:
                 xml_bytes = zf.read("word/document.xml")

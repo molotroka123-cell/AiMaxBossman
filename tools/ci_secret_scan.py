@@ -305,7 +305,7 @@ def _entropy_applies(path: Path) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = sys.argv[1:] if argv is None else list(argv)
+    args = list(argv) if argv is not None else []
     findings: list[str] = []
     if args:
         for raw_arg in args:
@@ -351,4 +351,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

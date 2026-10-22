@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from defusedxml import ElementTree as ET
+from .. import safe_xml as ET
 from pathlib import Path
 from typing import Any, Callable
 

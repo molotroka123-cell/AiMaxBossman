@@ -227,7 +227,7 @@ async def verify_file(path,surface,*,mock=False):
     from bcc.video_studio.media import probe, digest_file, process, binary, input_args, file_kind
     if not path.is_file() or not 0<path.stat().st_size<=256*1024*1024: raise ValueError('output: missing/empty/too large')
     if mock:
-        from defusedxml import ElementTree as ET
+        from bcc import safe_xml as ET
         raw=path.read_bytes()
         root=ET.fromstring(raw)
         if root.tag!='{http://www.w3.org/2000/svg}svg': raise ValueError('mock: invalid SVG')

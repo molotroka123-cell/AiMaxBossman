@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0",
-  "as_of": "2026-10-05",
+  "as_of": "2026-10-22",
   "source_repo": "https://github.com/molotroka123-cell/AiMaxBossman",
-  "selected_branch": "feat/bossman-1.9-final-freeze",
-  "source_sha": "a516eab8f89e0b951c5aaa06bcba30d2ca29ea99",
+  "selected_branch": "integrate/north-star-final-20261023",
+  "source_sha": "1215678e5c1e33155a05d34a682ff46544a1bb26",
   "coverage": {
     "branch_trees": 251,
     "union_paths": 9716,

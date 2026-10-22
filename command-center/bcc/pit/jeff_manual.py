@@ -60,7 +60,7 @@ def text_from_document(name: str, data: bytes) -> str:
     if suffix == ".docx":
         import io
         import zipfile
-        from defusedxml import ElementTree as ET
+        from .. import safe_xml as ET
         w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zf:
