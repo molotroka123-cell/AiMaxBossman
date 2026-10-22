@@ -1,0 +1,25 @@
+{
+  "schema": "bossman.skill_provenance.v1",
+  "status": "VERIFIED",
+  "sha256": "d3f867433ee58fcbd9b9a7eb034421107ebcbb2c9745ea118a74435cf0decf09",
+  "imported_at": "2026-10-22T20:20:00Z",
+  "source": {
+    "repo": "https://github.com/molotroka123-cell/AiMaxBossman",
+    "commit": "10ff9357",
+    "path": ".agents/skills/browser-parse-tenders/SKILL.md"
+  },
+  "license": {
+    "spdx": "MIT",
+    "file": "LICENSE"
+  },
+  "selection": {
+    "priority": 10,
+    "triggers": [
+      "спарси тендеры браузером",
+      "проверь тендер в браузере",
+      "открой уведомление ted",
+      "parse tenders browser",
+      "спарсить с браузера"
+    ]
+  }
+}

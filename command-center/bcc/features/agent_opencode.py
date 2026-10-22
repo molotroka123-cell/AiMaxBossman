@@ -944,6 +944,22 @@ def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None
     }
 
 
+def _task_meta_for_skill(request_id: str, matched_skill: dict[str, Any] | None) -> dict[str, Any]:
+    """A confidently matched skill (fast_path) narrows the run to the tools its contract declares.
+
+    Without this the model saw every agent tool and a small local model looped on ``terminal.run``
+    instead of the skill's ``browser.open`` (live run 22.10, task 170). Only registered tools are kept;
+    if none of the declared tools exist, the agent's own tool set is used as before (never widened)."""
+    meta: dict[str, Any] = {"client_request_id": request_id}
+    if not matched_skill or not matched_skill.get("fast_path"):
+        return meta
+    names = [n for n in (matched_skill.get("filtered_tools") or []) if TOOL_REGISTRY.get(n) is not None]
+    if names:
+        meta["allowed_tools"] = names
+        meta["skill_id"] = matched_skill.get("id")
+    return meta
+
+
 # ======================================================================
 # Helper: Resolve Agent for Mode & Model
 # ======================================================================
@@ -2017,7 +2033,7 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                         status="draft",
                         created_at=now_dt,
                         updated_at=now_dt,
-                        meta={"client_request_id": request_id},
+                        meta=_task_meta_for_skill(request_id, matched_skill),
                     ))
                     task_id = int(res.inserted_primary_key[0])
                     await s.commit()

@@ -296,6 +296,16 @@ def tool_specs() -> list[ToolSpec]:
         md = await _call_text("GET", f"/contacts/{cid}/pitch", params={"recommendations_only": str(rec_only).lower()})
         return {"contact_id": cid, "recommendations_only": rec_only, "markdown": md}
 
+    async def list_tenders(a):
+        params = {"status": a.get("status", "open"), "limit": max(1, min(int(a.get("limit", 10)), 50))}
+        for k in ("q", "country", "jurisdiction", "category"):
+            if a.get(k):
+                params[k] = a[k]
+        r = await _call("GET", "/tenders", params=params)
+        rows = r.get("items", []) if isinstance(r, dict) else (r or [])
+        keep = ("key", "official_notice_id", "title", "buyer", "country", "status", "deadline", "estimated_value", "currency", "source_id", "source_url")
+        return {"total": r.get("total") if isinstance(r, dict) else len(rows), "items": [{k: t.get(k) for k in keep} for t in rows[:params["limit"]]]}
+
     async def monetization_radar(a):
         params = {
             "k_per_contact": int(a.get("k_per_contact", 5)),
@@ -318,6 +328,8 @@ def tool_specs() -> list[ToolSpec]:
               {"contact_id": {"type": "integer", "description": "ID контакта поставщика"}, "k": {"type": "integer", "description": "макс. тендеров (1..50)"}, "status": {"type": "string", "description": "open|all"}}, ["contact_id"], match_supplier_tenders),
         _tool("war_terminal.draft_supplier_pitch", "Сформировать готовый Markdown-черновик коммерческого предложения (.md) для поставщика с топ-5 открытыми тендерами (без персональных данных).",
               {"contact_id": {"type": "integer", "description": "ID контакта поставщика"}, "recommendations_only": {"type": "boolean", "description": "только без REVIEW_REQUIRED"}}, ["contact_id"], draft_supplier_pitch),
+        _tool("war_terminal.list_tenders", "Список тендеров War Terminal (по умолчанию открытые): ключ, название, заказчик, срок, статус, ссылка source_url на официальное уведомление (TED/Prozorro/NEN) — её открывать browser.open.",
+              {"status": {"type": "string", "description": "open|closed|all"}, "limit": {"type": "integer", "description": "1..50"}, "q": {"type": "string"}, "country": {"type": "string"}, "jurisdiction": {"type": "string"}, "category": {"type": "string"}}, [], list_tenders),
         _tool("war_terminal.monetization_radar", "Радар заработка на военных/оборонных тендерах: ранжирует пары (поставщик форума <-> открытый тендер) и считает 3 модели дохода (агентская комиссия 2-5%, поставка back-to-back с маржой 15% и проверкой лимита $50k USD, локальный субподряд 5%).",
               {"k_per_contact": {"type": "integer"}, "max_items": {"type": "integer"}, "fee_pct": {"type": "number"}, "target_margin_pct": {"type": "number"}}, [], monetization_radar),
     ]

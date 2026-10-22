@@ -144,6 +144,25 @@ async def test_model_tools_are_registered_read_only_and_work(env, terminal):
 
 
 
+async def test_list_tenders_tool_gives_browser_ready_links(env, terminal):
+    """browser-parse-tenders skill: the model gets open tenders with official links to open in the PC browser."""
+    import json as _json
+    await war_terminal._setup(env.svc)
+    spec = REGISTRY.get("war_terminal.list_tenders")
+    assert spec is not None and spec.category == "read" and spec.external_output is True
+    res = await spec.handler({"status": "open", "limit": 2}, None)
+    assert res.error is False
+    data = _json.loads(res.content)
+    assert len(data["items"]) == 2
+    for t in data["items"]:
+        assert t["status"] == "open" and t["key"].startswith("EU:DEMO-")
+        assert t["source_url"].startswith("https://ted.europa.eu/en/notice/-/detail/")
+        assert set(t) == {"key", "official_notice_id", "title", "buyer", "country", "status", "deadline",
+                          "estimated_value", "currency", "source_id", "source_url"}
+    huge = _json.loads((await spec.handler({"limit": 999}, None)).content)
+    assert len(huge["items"]) <= 50
+
+
 # ------------------------------------------------------------------ free-only chat gateway used by the terminal's translation
 def test_free_chat_refusal_is_strict():
     ok = {"price_in": 0.0, "price_out": 0.0, "caps": {"free_tier": "experiential_labs_free_plan"}, "kind": "cloud"}
