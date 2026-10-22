@@ -73,7 +73,10 @@ def test_logout_revokes(authed):
 def test_pairing_token_file(tmp_path):
     tok = load_or_create_pairing(tmp_path)
     assert len(tok) >= 20 and load_or_create_pairing(tmp_path) == tok
-    assert json.loads((tmp_path / "tokens.json").read_text())["pairing_token"] == tok
+    raw_text = (tmp_path / "tokens.json").read_text(encoding="utf-8")
+    doc = json.loads(raw_text)
+    assert "dpapi_b64" in doc and tok not in raw_text
+
 
 
 # ------------------------------------------------------------------ local-only chat

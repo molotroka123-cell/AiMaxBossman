@@ -252,6 +252,120 @@ def _sha(data: bytes) -> str:
 # Архивация и восстановление (синхронно, под замком чатов)
 # ======================================================================
 
+import base64
+import json
+import re
+
+_ATT_ID_SCAN_RE = re.compile(rb"([0-9a-f]{24})")
+
+
+def _attachments_root(svc: Any) -> Path:
+    return Path(svc.settings.data_dir) / "chat" / "attachments"
+
+
+def _encrypt_thread_attachments(svc: Any, key: bytes, thread_id: str, thread_bytes: bytes) -> tuple[bool, int]:
+    """Find attachments referenced in thread_bytes and encrypt their files on disk with AES-256-GCM."""
+    att_root = _attachments_root(svc)
+    if not att_root.is_dir():
+        return True, 0
+    candidate_ids = {m.decode("ascii") for m in _ATT_ID_SCAN_RE.findall(thread_bytes)}
+    encrypted_count = 0
+    all_ok = True
+    for att_id in sorted(candidate_ids):
+        folder = (att_root / att_id).resolve()
+        if folder.parent != att_root.resolve() or not folder.is_dir():
+            continue
+        for fpath in sorted(folder.iterdir()):
+            if not fpath.is_file() or fpath.name.endswith(".enc"):
+                continue
+            try:
+                raw_bytes = fpath.read_bytes()
+                aad = f"{thread_id}:att:{att_id}:{fpath.name}"
+                enc_blob = encrypt_bytes(key, aad, raw_bytes)
+                enc_path = fpath.with_name(fpath.name + ".enc")
+                _write_bytes_atomic(enc_path, enc_blob)
+                back = decrypt_bytes(key, aad, enc_path.read_bytes())
+                if _sha(back) != _sha(raw_bytes):
+                    enc_path.unlink(missing_ok=True)
+                    all_ok = False
+                    continue
+                fpath.unlink()
+                encrypted_count += 1
+            except Exception:  # noqa: BLE001
+                all_ok = False
+    return all_ok, encrypted_count
+
+
+def _restore_thread_attachments(svc: Any, key: bytes, thread_id: str, thread_bytes: bytes) -> int:
+    """Decrypt `.enc` attachment files referenced in thread_bytes back to their original files."""
+    att_root = _attachments_root(svc)
+    if not att_root.is_dir():
+        return 0
+    candidate_ids = {m.decode("ascii") for m in _ATT_ID_SCAN_RE.findall(thread_bytes)}
+    restored_count = 0
+    for att_id in sorted(candidate_ids):
+        folder = (att_root / att_id).resolve()
+        if folder.parent != att_root.resolve() or not folder.is_dir():
+            continue
+        for enc_path in sorted(folder.glob("*.enc")):
+            if not enc_path.is_file():
+                continue
+            orig_name = enc_path.name[:-4]
+            orig_path = folder / orig_name
+            aad = f"{thread_id}:att:{att_id}:{orig_name}"
+            try:
+                raw_bytes = decrypt_bytes(key, aad, enc_path.read_bytes())
+                _write_bytes_atomic(orig_path, raw_bytes)
+                enc_path.unlink(missing_ok=True)
+                restored_count += 1
+            except Exception:  # noqa: BLE001
+                continue
+    return restored_count
+
+
+def _minimize_aux_chat_meta_on_archive(svc: Any, key: bytes, thread_id: str) -> None:
+    """If `<data_dir>/chat/threads-meta.json` exists, encrypt plaintext title into `title_enc`."""
+    aux_meta = Path(svc.settings.data_dir) / "chat" / "threads-meta.json"
+    if not aux_meta.is_file():
+        return
+    try:
+        doc = json.loads(aux_meta.read_text(encoding="utf-8"))
+        threads = doc.get("threads")
+        if isinstance(threads, dict) and isinstance(threads.get(thread_id), dict):
+            entry = threads[thread_id]
+            title = entry.get("title")
+            if isinstance(title, str) and title and title != "[ENCRYPTED]":
+                enc_title = encrypt_bytes(key, f"{thread_id}:title", title.encode("utf-8"))
+                entry["title_enc"] = base64.b64encode(enc_title).decode("ascii")
+                entry["title"] = "[ENCRYPTED]"
+            entry["archived"] = True
+            entry["encrypted"] = True
+            aux_meta.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _restore_aux_chat_meta_on_restore(svc: Any, key: bytes, thread_id: str) -> None:
+    """Restore encrypted `title_enc` in `<data_dir>/chat/threads-meta.json`."""
+    aux_meta = Path(svc.settings.data_dir) / "chat" / "threads-meta.json"
+    if not aux_meta.is_file():
+        return
+    try:
+        doc = json.loads(aux_meta.read_text(encoding="utf-8"))
+        threads = doc.get("threads")
+        if isinstance(threads, dict) and isinstance(threads.get(thread_id), dict):
+            entry = threads[thread_id]
+            title_enc = entry.pop("title_enc", None)
+            if isinstance(title_enc, str):
+                raw_title = decrypt_bytes(key, f"{thread_id}:title", base64.b64decode(title_enc))
+                entry["title"] = raw_title.decode("utf-8")
+            entry["archived"] = False
+            entry.pop("encrypted", None)
+            aux_meta.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _archive_sync(svc: Any, thread_id: str, live: Path, target: Path) -> dict:
     if target.exists():
         raise _fail(409, "архив этого чата уже есть", code="CHAT_ARCHIVE_EXISTS")
@@ -310,8 +424,23 @@ def _archive_sync(svc: Any, thread_id: str, live: Path, target: Path) -> dict:
             with contextlib.suppress(OSError):
                 target.unlink()
         raise
-    log.info("chat-archive: чат %s зашифрован (%d байт)", thread_id, len(data))
-    return {"id": thread_id, "archived_at": _iso(now), "size": target.stat().st_size}
+    att_ok, att_count = _encrypt_thread_attachments(svc, key, thread_id, data)
+    _minimize_aux_chat_meta_on_archive(svc, key, thread_id)
+    log.info("chat-archive: чат %s зашифрован (%d байт, вложений=%d)", thread_id, len(data), att_count)
+    res: dict[str, Any] = {
+        "id": thread_id,
+        "archived_at": _iso(now),
+        "size": target.stat().st_size,
+        "attachments_encrypted": att_ok,
+        "encrypted_attachments_count": att_count,
+        "metadata_limitation_notice": (
+            "Содержимое чата и файлы вложений зашифрованы AES-256-GCM; "
+            "служебные метаданные списка (id, archived_at) хранятся в threads-meta.json."
+        ),
+    }
+    if not att_ok:
+        res["warning"] = "Не все файлы вложений удалось зашифровать автоматически; проверьте каталог chat/attachments."
+    return res
 
 
 def _restore_sync(svc: Any, thread_id: str, source: Path, live: Path) -> dict:
@@ -348,10 +477,13 @@ def _restore_sync(svc: Any, thread_id: str, source: Path, live: Path) -> dict:
             entry.update(archived=False, updated_at=time.time())
 
     _mutate_meta_sync(_meta_path(svc), unmark)
+    restored_atts = _restore_thread_attachments(svc, key, thread_id, data)
+    _restore_aux_chat_meta_on_restore(svc, key, thread_id)
     with contextlib.suppress(OSError):
         source.unlink()
-    log.info("chat-archive: чат %s восстановлен", thread_id)
-    return {"ok": True, "id": thread_id, "restored": True}
+    log.info("chat-archive: чат %s восстановлен (вложений=%d)", thread_id, restored_atts)
+    return {"ok": True, "id": thread_id, "restored": True, "restored_attachments_count": restored_atts}
+
 
 
 # ======================================================================

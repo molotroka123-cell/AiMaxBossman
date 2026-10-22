@@ -58,13 +58,27 @@ def _restrict_to_owner(path: Path) -> None:
                       UserWarning, stacklevel=2)
 
 
+from dataclasses import dataclass
+import hashlib
+from typing import Iterable
+
+
+@dataclass(frozen=True, slots=True)
+class AuthPrincipal:
+    """Verified caller identity derived strictly from server-side credential or token scope (never headers)."""
+    role: str  # "owner" | "agent"
+    agent_id: str | None = None
+    scopes: frozenset[str] = frozenset()
+
+
 class TokenAuth:
-    """Один статический токен на инсталляцию (single-user MVP)."""
+    """Один статический токен владельца на инсталляцию + изолированные scoped-токены для агентов (P2.7)."""
 
     def __init__(self, data_dir: Path, *, announce: bool = True):
         self.path = Path(data_dir) / TOKEN_FILE
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.token, created = self._load_or_create()
+        self._agent_tokens: dict[str, dict] = {}
         if announce:
             self.announce(created)
 
@@ -123,8 +137,71 @@ class TokenAuth:
             except Exception:  # noqa: BLE001 — анонс лишь удобство, не требование
                 pass
 
+    @staticmethod
+    def _hash_token(token: str) -> str:
+        return hashlib.sha256(token.encode("utf-8", "ignore")).hexdigest()
+
+    def issue_agent_token(
+        self,
+        agent_id: str,
+        scopes: Iterable[str] = ("agent.session", "read"),
+        *,
+        ttl_s: int = 3600,
+    ) -> str:
+        """Выпустить короткоживущий scoped-токен для агента/воркера (НИКОГДА не равен owner token)."""
+        clean_agent_id = str(agent_id or "agent").strip()[:120] or "agent"
+        allowed_scopes = frozenset(
+            str(s).strip()
+            for s in scopes
+            if str(s).strip() and str(s).strip().lower() not in ("*", "owner", "auto", "bypass_permissions")
+        )
+        raw_token = "agtok_" + _secrets.token_urlsafe(24)
+        digest = self._hash_token(raw_token)
+        now = time.time()
+        self._agent_tokens[digest] = {
+            "agent_id": clean_agent_id,
+            "scopes": allowed_scopes,
+            "created_at": now,
+            "expires_at": now + max(60, int(ttl_s)),
+        }
+        return raw_token
+
+    def revoke_agent_token(self, token_or_agent_id: str) -> bool:
+        """Отозвать токен агента по значению токена или по agent_id."""
+        if not token_or_agent_id:
+            return False
+        digest = self._hash_token(token_or_agent_id)
+        if digest in self._agent_tokens:
+            del self._agent_tokens[digest]
+            return True
+        removed = False
+        for k in [k for k, v in self._agent_tokens.items() if v.get("agent_id") == token_or_agent_id]:
+            del self._agent_tokens[k]
+            removed = True
+        return removed
+
+    def resolve_principal(self, token: str | None) -> AuthPrincipal | None:
+        """Определить роль вызывающего строго по проверенному токену, а не по HTTP-заголовкам."""
+        if not token:
+            return None
+        if hmac.compare_digest(token.encode("utf-8", "ignore"), self.token.encode()):
+            return AuthPrincipal(role="owner", agent_id=None, scopes=frozenset({"*"}))
+        digest = self._hash_token(token)
+        entry = self._agent_tokens.get(digest)
+        if entry is None:
+            return None
+        if float(entry.get("expires_at", 0)) < time.time():
+            self._agent_tokens.pop(digest, None)
+            return None
+        return AuthPrincipal(
+            role="agent",
+            agent_id=str(entry.get("agent_id") or "agent"),
+            scopes=frozenset(entry.get("scopes") or ()),
+        )
+
     def check(self, token: str | None) -> bool:
         if not token:
             return False
         # сравнение в байтах: строки с не-ASCII compare_digest не принимает
         return hmac.compare_digest(token.encode("utf-8", "ignore"), self.token.encode())
+

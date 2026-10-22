@@ -276,15 +276,25 @@ def services(request: Request) -> Services:
     return request.app.state.svc
 
 
+_OWNER_ONLY_MUTATION_PREFIXES = (
+    "/api/approvals",
+    "/api/providers",
+    "/api/control-plane",
+    "/api/settings",
+)
+
+
 async def require_token(request: Request, x_bcc_token: str | None = Header(default=None)) -> None:
-    """Аутентификация запроса (V2.1 фаза N).
+    """Аутентификация запроса (V2.1 фаза N + P2.7 token-scoped principal).
 
     1) HttpOnly-cookie сессии — основной путь для браузера; изменяющие методы
-       дополнительно требуют CSRF-заголовок из той же сессии;
-    2) заголовок X-BCC-Token — для CLI/скриптов, пока включён legacy-режим.
-       Он не подвержен CSRF (браузер не поставит произвольный заголовок
-       кросс-доменно, CORS мы не включаем).
+       дополнительно требуют CSRF-заголовок из той же сессии (роль = owner);
+    2) заголовок X-BCC-Token — проверяется через `svc.auth.resolve_principal`:
+       различает токен владельца (`role="owner"`) и scoped-токен агента (`role="agent"`).
+       Роль определяется СТРОГО по проверенному токену/сессии, никогда не по HTTP-заголовкам.
     """
+    from .auth import AuthPrincipal
+
     svc: Services = request.app.state.svc
     sess = await svc.sessions.get(request.cookies.get(COOKIE_NAME))
     if sess is not None:
@@ -293,22 +303,35 @@ async def require_token(request: Request, x_bcc_token: str | None = Header(defau
             # В байтах: compare_digest по str с не-ASCII бросает TypeError (500).
             if not sent or not hmac.compare_digest(str(sent).encode("utf-8", "ignore"),
                                                    str(sess["csrf"]).encode()):
-                # code="csrf": UI отличает «сессия есть, но CSRF-токен этой вкладки потерян/чужой»
-                # (лечится повторным входом) от политического 403 (сессия остаётся).
-                # Журнал тестового периода 51307af16b90: 4 таких 403 за 0 мс на POST
-                # /api/providers и /api/browser/.../act выглядели для владельца как «кнопка не работает».
                 raise ApiError("не пройдена CSRF-проверка", status=403, code="csrf",
                                hint=f"передайте заголовок {CSRF_HEADER} из ответа /api/login")
         request.state.session_id = sess["id"]
+        request.state.principal = AuthPrincipal(role="owner", agent_id=None, scopes=frozenset({"*"}))
         await svc.sessions.touch(sess["id"])
         return
-    if svc.settings.legacy_token_auth and svc.auth.check(x_bcc_token):
-        request.state.session_id = None
-        return
+    if svc.settings.legacy_token_auth:
+        resolve_fn = getattr(svc.auth, "resolve_principal", None)
+        principal = resolve_fn(x_bcc_token) if callable(resolve_fn) else (
+            AuthPrincipal(role="owner", agent_id=None, scopes=frozenset({"*"}))
+            if svc.auth.check(x_bcc_token) else None
+        )
+        if principal is not None:
+            request.state.session_id = None
+            request.state.principal = principal
+            if principal.role != "owner" and request.method not in SAFE_METHODS:
+                path = request.url.path
+                if any(path == p or path.startswith(p + "/") for p in _OWNER_ONLY_MUTATION_PREFIXES):
+                    raise ApiError(
+                        "действие разрешено только владельцу (scoped токен агента не имеет прав владельца)",
+                        status=403,
+                        code="OWNER_CREDENTIAL_REQUIRED",
+                    )
+            return
     hint = ("войдите через /api/login — сессия придёт HttpOnly-cookie"
             if not svc.settings.legacy_token_auth
             else f"войдите через /api/login или передайте заголовок {HEADER}")
     raise ApiError("нужна аутентификация", status=401, hint=hint)
+
 
 
 def _same_origin(origin: str, host: str) -> bool:

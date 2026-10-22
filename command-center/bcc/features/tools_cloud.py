@@ -121,7 +121,9 @@ def _header_reserve() -> int:
 
 
 def static_denial(args: dict) -> str | None:
-    """Отказ по одним лишь аргументам (без сервисов): пустой текст, утечка контекста, фото/видео, RunPod, не влезает в окно."""
+    """Отказ по одним лишь аргументам (без сервисов): пустой текст, утечка контекста, классифицированные документы/Telegram-экспорты, фото/видео, RunPod, не влезает в окно."""
+    from ..security_data_governance import DataClassification, classify_text
+
     if not isinstance(args, dict):
         return "CLOUD_ASK_EMPTY: аргументы должны быть объектом"
     raw = args.get("prompt")
@@ -131,6 +133,13 @@ def static_denial(args: dict) -> str | None:
         return f"CLOUD_ASK_TOO_LONG: текст длиннее {MAX_PROMPT_CHARS} знаков"
     if "runpod" in str(args.get("model") or "").lower():
         return "CLOUD_ASK_RUNPOD: RunPod и платные GPU-инстансы запрещены без явного подтверждения владельца"
+    cls = classify_text(raw)
+    if cls in (DataClassification.RESTRICTED_TELEGRAM_EXPORT, DataClassification.RESTRICTED_DOCUMENT):
+        if not bool(args.get("owner_cloud_export_approved")):
+            return (
+                f"CLOUD_ASK_CLASSIFIED_EXPORT ({cls.value}): отправка Telegram-экспортов и классифицированных "
+                "документов в облако запрещена без отдельного подтверждения владельца (owner_cloud_export_approved)"
+            )
     if (any(m in raw for m in _markers()) or _ATTACHMENT_BLOCK.search(raw) or _CHAT_PAIR.search(raw)
             or _LOCAL_DATA_PATH.search(raw)):
         return ("CLOUD_ASK_CONTEXT_LEAK: в тексте контекст чата, вложение или путь к данным Bossman - историю беседы в облако "
@@ -143,6 +152,7 @@ def static_denial(args: dict) -> str | None:
         return (f"CLOUD_ASK_PREVIEW_TOO_LONG: текст не помещается в окно одобрения целиком ({shown} > {room} знаков с "
                 "экранированием); владелец должен видеть весь уходящий текст - сократите вопрос")
     return None
+
 
 
 def _effect(args: dict):

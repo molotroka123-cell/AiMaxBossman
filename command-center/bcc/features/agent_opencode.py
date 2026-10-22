@@ -935,12 +935,16 @@ def _assert_owner_bypass_allowed(
     requested_bypass: bool | None,
     text: str = "",
 ) -> bool:
-    """Enforce North Star P0 security boundary for `AUTO` (`bypass_permissions`):
-    1. Subagents, tool callbacks, or internal callers (`X-Agent-Caller`, `X-Subagent-Id`, `X-Tool-Callback`)
-       can NEVER enable `AUTO` or `bypass_permissions=True` -> 403 `AGENT_ESCALATION_FORBIDDEN`.
-    2. Prompt-injection strings attempting to flip `bypass_permissions` inside message text -> 403.
-    3. Unattended `SELF-IMPROVE` mode NEVER runs with `bypass_permissions=True` (forced False).
+    """Enforce North Star P0 + P2.7 security boundary for `AUTO` (`bypass_permissions`):
+    1. Role is determined strictly by verified credential/token scope (`request.state.principal`):
+       any non-owner principal (`role != "owner"`) is forbidden from enabling `AUTO` or `bypass_permissions=True`,
+       even if client HTTP headers (`X-Agent-Caller`, etc.) are omitted or spoofed.
+    2. Subagent/tool-callback headers remain an additional tripwire -> 403 `AGENT_ESCALATION_FORBIDDEN`.
+    3. Prompt-injection strings attempting to flip `bypass_permissions` inside message text -> 403.
+    4. Unattended `SELF-IMPROVE` mode NEVER runs with `bypass_permissions=True` (forced False).
     """
+    principal = getattr(request.state, "principal", None)
+    is_non_owner_principal = principal is not None and getattr(principal, "role", "owner") != "owner"
     caller = (
         request.headers.get("x-agent-caller")
         or request.headers.get("x-subagent-id")
@@ -948,7 +952,7 @@ def _assert_owner_bypass_allowed(
         or ""
     ).strip()
     wants_bypass = bool(requested_bypass or effective_mode == "AUTO")
-    if caller and wants_bypass:
+    if (is_non_owner_principal or caller) and wants_bypass:
         raise HTTPException(403, {
             "message": "Агенты, подпроцессы и инструменты не имеют права включать режим AUTO или bypass_permissions",
             "code": "AGENT_ESCALATION_FORBIDDEN",
@@ -961,6 +965,7 @@ def _assert_owner_bypass_allowed(
     if effective_mode == "SELF-IMPROVE":
         return False
     return wants_bypass
+
 
 
 def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None:

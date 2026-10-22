@@ -22,16 +22,156 @@ def _h(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+import base64
+import os
+import subprocess
+import warnings
+
+_MOBILE_DPAPI_ENTROPY = b"bossman-mobile-auth-dpapi-v1\x00"
+
+
+def _restrict_to_owner(path: Path) -> None:
+    """Apply owner-only ACL on Windows (icacls) or 0600 on POSIX."""
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    if os.name != "nt":
+        return
+    user = os.environ.get("USERNAME") or ""
+    domain = os.environ.get("USERDOMAIN") or ""
+    principal = f"{domain}\\{user}" if domain and user else (user or "%USERNAME%")
+    grant = f"{principal}:(OI)(CI)F" if os.path.isdir(path) else f"{principal}:F"
+    try:
+        subprocess.run(
+            ["icacls", str(path), "/inheritance:r", "/grant:r", grant],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+            check=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        warnings.warn(f"bossmobile.auth: icacls failed for {path}: {exc!r}", UserWarning, stacklevel=2)
+
+
+def _dpapi_protect(plaintext: bytes) -> bytes:
+    if os.name != "nt":
+        # Non-Windows fallback: obfuscated envelope + 0600 permissions
+        key = hashlib.sha256(_MOBILE_DPAPI_ENTROPY).digest()
+        return bytes(b ^ key[i % len(key)] for i, b in enumerate(plaintext))
+    import ctypes
+    from ctypes import wintypes
+
+    class _BLOB(ctypes.Structure):
+        _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER( ctypes.c_char))]
+
+    crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    crypt32.CryptProtectData.argtypes = [
+        ctypes.POINTER(_BLOB), wintypes.LPCWSTR, ctypes.POINTER(_BLOB),
+        ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(_BLOB),
+    ]
+    crypt32.CryptProtectData.restype = wintypes.BOOL
+    kernel32.LocalFree.argtypes = [ ctypes.c_void_p]
+    kernel32.LocalFree.restype = ctypes.c_void_p
+
+    in_buf = ctypes.create_string_buffer(plaintext, len(plaintext))
+    ent_buf = ctypes.create_string_buffer(_MOBILE_DPAPI_ENTROPY, len(_MOBILE_DPAPI_ENTROPY))
+    in_blob = _BLOB(len(plaintext), ctypes.cast(in_buf, ctypes.POINTER(ctypes.c_char)))
+    ent_blob = _BLOB(len(_MOBILE_DPAPI_ENTROPY), ctypes.cast(ent_buf, ctypes.POINTER(ctypes.c_char)))
+    out_blob = _BLOB()
+    if not crypt32.CryptProtectData(ctypes.byref(in_blob), "bossman-mobile", ctypes.byref(ent_blob), None, None, 0x01, ctypes.byref(out_blob)):
+        raise OSError(f"CryptProtectData failed: {ctypes.get_last_error()}")
+    try:
+        return ctypes.string_at(out_blob.pbData, out_blob.cbData)
+    finally:
+        kernel32.LocalFree(out_blob.pbData)
+
+
+def _dpapi_unprotect(blob: bytes) -> bytes:
+    if os.name != "nt":
+        key = hashlib.sha256(_MOBILE_DPAPI_ENTROPY).digest()
+        return bytes(b ^ key[i % len(key)] for i, b in enumerate(blob))
+    import ctypes
+    from ctypes import wintypes
+
+    class _BLOB(ctypes.Structure):
+        _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
+
+    crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    crypt32.CryptUnprotectData.argtypes = [
+        ctypes.POINTER(_BLOB), ctypes.c_void_p, ctypes.POINTER(_BLOB),
+        ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(_BLOB),
+    ]
+    crypt32.CryptUnprotectData.restype = wintypes.BOOL
+    kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel32.LocalFree.restype = ctypes.c_void_p
+
+    in_buf = ctypes.create_string_buffer(blob, len(blob))
+    ent_buf = ctypes.create_string_buffer(_MOBILE_DPAPI_ENTROPY, len(_MOBILE_DPAPI_ENTROPY))
+    in_blob = _BLOB(len(blob), ctypes.cast(in_buf, ctypes.POINTER(ctypes.c_char)))
+    ent_blob = _BLOB(len(_MOBILE_DPAPI_ENTROPY), ctypes.cast(ent_buf, ctypes.POINTER(ctypes.c_char)))
+    out_blob = _BLOB()
+    if not crypt32.CryptUnprotectData(ctypes.byref(in_blob), None, ctypes.byref(ent_blob), None, None, 0x01, ctypes.byref(out_blob)):
+        raise ValueError(f"CryptUnprotectData failed: {ctypes.get_last_error()}")
+    try:
+        return ctypes.string_at(out_blob.pbData, out_blob.cbData)
+    finally:
+        kernel32.LocalFree(out_blob.pbData)
+
+
+def _write_protected_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    sealed = _dpapi_protect(raw)
+    envelope = json.dumps({"v": 1, "dpapi_b64": base64.b64encode(sealed).decode("ascii")})
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(envelope, encoding="utf-8")
+    _restrict_to_owner(tmp)
+    tmp.replace(path)
+    _restrict_to_owner(path)
+
+
+def _read_protected_json(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    try:
+        outer = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(outer, dict):
+        return None
+    if isinstance(outer.get("dpapi_b64"), str):
+        try:
+            raw = _dpapi_unprotect(base64.b64decode(outer["dpapi_b64"]))
+            inner = json.loads(raw.decode("utf-8"))
+            return inner if isinstance(inner, dict) else None
+        except Exception:  # noqa: BLE001
+            return None
+    # Transparent migration from legacy plaintext JSON to DPAPI-sealed JSON
+    _write_protected_json(path, outer)
+    return outer
+
+
 def load_or_create_pairing(data_dir: Path) -> str:
     data_dir.mkdir(parents=True, exist_ok=True)
+    _restrict_to_owner(data_dir)
     path = data_dir / "tokens.json"
-    if path.exists():
-        doc = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(doc, dict) and isinstance(doc.get("pairing_token"), str) and len(doc["pairing_token"]) >= 16:
-            return doc["pairing_token"]
+    doc = _read_protected_json(path)
+    if isinstance(doc, dict) and isinstance(doc.get("pairing_token"), str) and len(doc["pairing_token"]) >= 16:
+        return doc["pairing_token"]
     token = secrets.token_urlsafe(18)
-    path.write_text(json.dumps({"pairing_token": token, "created_at": int(time.time()),
-                                "note": "Bossman Mobile pairing token. Not the Bossman token."}), encoding="utf-8")
+    _write_protected_json(
+        path,
+        {
+            "pairing_token": token,
+            "created_at": int(time.time()),
+            "note": "Bossman Mobile pairing token (DPAPI-sealed). Not the Bossman master token.",
+        },
+    )
     return token
 
 
@@ -81,17 +221,13 @@ class Sessions:
         self.ttl = ttl_s
         self._lock = threading.Lock()
         self._rows: dict[str, dict] = {}
-        if self.path.exists():
-            try:
-                doc = json.loads(self.path.read_text(encoding="utf-8"))
-                self._rows = {k: v for k, v in doc.items() if isinstance(v, dict) and v.get("expires", 0) > time.time()}
-            except (OSError, ValueError):
-                self._rows = {}
+        doc = _read_protected_json(self.path)
+        if isinstance(doc, dict):
+            now = time.time()
+            self._rows = {k: v for k, v in doc.items() if isinstance(v, dict) and v.get("expires", 0) > now}
 
     def _save(self) -> None:
-        tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self._rows), encoding="utf-8")
-        tmp.replace(self.path)
+        _write_protected_json(self.path, self._rows)
 
     def create(self, label: str = "") -> tuple[str, dict]:
         sid = secrets.token_urlsafe(32)
@@ -119,9 +255,17 @@ class Sessions:
                 self._save()
         return gone
 
+    def revoke_all(self) -> int:
+        with self._lock:
+            n = len(self._rows)
+            self._rows.clear()
+            self._save()
+        return n
+
     def count(self) -> int:
         now = time.time()
         return sum(1 for r in self._rows.values() if r.get("expires", 0) > now)
+
 
 
 def check_token(sent: object, expected: str) -> bool:
