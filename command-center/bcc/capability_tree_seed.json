@@ -3,7 +3,7 @@
   "as_of": "2026-10-22",
   "source_repo": "https://github.com/molotroka123-cell/AiMaxBossman",
   "selected_branch": "integrate/north-star-final-20261023",
-  "source_sha": "d7929b97fdf84ebd3d3961dae78c77b7b0beba4e",
+  "source_sha": "d21bddc0457cc702effc25013f30d518077588c7",
   "coverage": {
     "branch_trees": 251,
     "union_paths": 9716,

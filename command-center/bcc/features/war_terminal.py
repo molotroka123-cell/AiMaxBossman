@@ -329,4 +329,3 @@ async def _setup(svc) -> None:
 
 
 FEATURE = Feature(name="war_terminal", router=router, setup=_setup)
-

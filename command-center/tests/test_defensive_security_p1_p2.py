@@ -619,5 +619,3 @@ async def test_owner_safe_runtime_drill_end_to_end(env, mini_repo: Path, tmp_pat
     )
     assert assist_resp.status_code in (200, 201), assist_resp.text
     assert assist_resp.json()["mode"] == "AGENT"
-
-

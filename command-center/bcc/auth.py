@@ -204,4 +204,3 @@ class TokenAuth:
             return False
         # сравнение в байтах: строки с не-ASCII compare_digest не принимает
         return hmac.compare_digest(token.encode("utf-8", "ignore"), self.token.encode())
-

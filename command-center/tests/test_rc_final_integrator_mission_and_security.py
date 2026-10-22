@@ -311,4 +311,3 @@ async def test_rc_security_regression_all_6_vectors(env, tmp_path, monkeypatch):
     )
     assert scan_proc.returncode == 0, scan_proc.stdout + scan_proc.stderr
     assert "Secret-pattern scan: PASS" in scan_proc.stdout
-
