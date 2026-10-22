@@ -552,7 +552,7 @@
   "parent": "computer",
   "source": "command-center/bcc/features/obs_lite_recorder.py",
   "tests": [
-   "command-center/tests/test_pc_defense_two_lines.py"
+   "command-center/tests/test_obs_lite_recorder.py"
   ]
  },
  {
@@ -561,7 +561,7 @@
   "parent": "commerce",
   "source": "apps/war-terminal/warterminal/seed_forum_20261021.py",
   "tests": [
-   "tests/test_redteam_p0_regressions.py"
+   "apps/war-terminal/tests/test_contacts.py"
   ]
  }
 ]

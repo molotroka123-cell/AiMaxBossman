@@ -23070,7 +23070,7 @@
       "label": "Двухконтурная киберзащита ПК и превентивный аудит (HARD_DENY, Secret Scan, Temp Tasks)",
       "parent": "ops",
       "status": "reported",
-      "detail": "Read-only cyber-defence audit of the owner's Windows PC for Bossman (owner 22.10: «Боссман должен кибер защищать мой ПК»). Observes only: Defender, firewall, listening ports, autoruns, scheduled tasks, failed logons, UAC/SmartScreen, Tailscale funnel. Never re Код есть; польза и живая работа не доказаны. Прогон 2026-10-22 @ 6a763038: Двухконтурная киберзащита ПК: HARD_DENY, Secret Scan, Temp Tasks (11 passed)",
+      "detail": "Read-only cyber-defence audit of the owner's Windows PC for Bossman (owner 22.10: «Боссман должен кибер защищать мой ПК»). Observes only: Defender, firewall, listening ports, autoruns, scheduled tasks, failed logons, UAC/SmartScreen, Tailscale funnel. Never re Код есть; польза и живая работа не доказаны. Прогон 2026-10-22 @ ce149d61: Двухконтурная киберзащита ПК (test_pc_defense_two_lines.py) (60 passed)",
       "sources": [
         {
           "path": "tools/pc_defense_audit.py",
@@ -23079,7 +23079,7 @@
         {
           "path": "docs/architecture/bossman-tree-20261005/evidence/north-star-defense-20261022.json#reg-pc_defense_two_lines",
           "branch": "green/tree-leaves-20261006",
-          "sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+          "sha": "ce149d61e8db1c72e4bbbfdb16883ac3d36717c4",
           "kind": "receipt"
         }
       ],
@@ -23094,7 +23094,7 @@
       "label": "Активная встречная защита периметра (Canary-ловушки, Tarpit, Досье атрибуции, Firewall-карантин)",
       "parent": "ops",
       "status": "reported",
-      "detail": "Active Counter-Defense (Активный встречный отпор на собственном периметре): Canary Honeypot Traps, Scanner Tarpit, Attacker Attribution Dossier, and Reversible Firewall Quarantine. Safety boundary: - Never launches offensive packets, exploits, or DDoS against  Код есть; польза и живая работа не доказаны. Прогон 2026-10-22 @ 6a763038: Активная встречная защита периметра: Canary, Tarpit, Dossier, Firewall (11 passed)",
+      "detail": "Active Counter-Defense (Активный встречный отпор на собственном периметре): Canary Honeypot Traps, Scanner Tarpit, Attacker Attribution Dossier, and Reversible Firewall Quarantine. Safety boundary: - Never launches offensive packets, exploits, or DDoS against  Код есть; польза и живая работа не доказаны. Прогон 2026-10-22 @ ce149d61: Пассивная защита периметра: локальные ловушки Canary, Tarpit, Досье и Inbound Firewall (test_active_counter_defense.py) (11 passed)",
       "sources": [
         {
           "path": "command-center/bcc/features/active_counter_defense.py",
@@ -23103,7 +23103,7 @@
         {
           "path": "docs/architecture/bossman-tree-20261005/evidence/north-star-defense-20261022.json#reg-active_counter_defense",
           "branch": "green/tree-leaves-20261006",
-          "sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+          "sha": "ce149d61e8db1c72e4bbbfdb16883ac3d36717c4",
           "kind": "receipt"
         }
       ],
@@ -23118,7 +23118,7 @@
       "label": "Аппаратная запись экрана obs-lite (H.264 AMDh264Encoder) + авто-обрезка краёв ffmpeg",
       "parent": "computer",
       "status": "reported",
-      "detail": "obs-lite v0.3.0 hardware H.264 screen recorder & edge-crop integration for Bossman. Upstream: https://github.com/25Dark25/obs-lite (Rust, Windows Graphics Capture + Media Foundation H.264). Installed binary: %LOCALAPPDATA%/Programs/obs-lite/obs-lite.exe Experi Код есть; польза и живая работа не доказаны. Прогон 2026-10-22 @ 6a763038: Запись экрана obs-lite + авто-обрезка краёв ffmpeg",
+      "detail": "obs-lite v0.3.0 hardware H.264 screen recorder & edge-crop integration for Bossman. Upstream: https://github.com/25Dark25/obs-lite (Rust, Windows Graphics Capture + Media Foundation H.264). Installed binary: %LOCALAPPDATA%/Programs/obs-lite/obs-lite.exe Experi Код есть; польза и живая работа не доказаны. Прогон 2026-10-22 @ ce149d61: Собственный тест записи экрана obs-lite и авто-обрезки краёв ffmpeg (test_obs_lite_recorder.py) (7 passed)",
       "sources": [
         {
           "path": "command-center/bcc/features/obs_lite_recorder.py",
@@ -23127,14 +23127,14 @@
         {
           "path": "docs/architecture/bossman-tree-20261005/evidence/north-star-defense-20261022.json#reg-obs_lite_screen_recorder",
           "branch": "green/tree-leaves-20261006",
-          "sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+          "sha": "ce149d61e8db1c72e4bbbfdb16883ac3d36717c4",
           "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
       "reference_paths": [
         "command-center/bcc/features/obs_lite_recorder.py",
-        "command-center/tests/test_pc_defense_two_lines.py"
+        "command-center/tests/test_obs_lite_recorder.py"
       ]
     },
     {
@@ -23142,23 +23142,23 @@
       "label": "Радар военных тендеров (21 поставщик с форума, 108 профильных совпадений из 571 открытых закупок)",
       "parent": "commerce",
       "status": "reported",
-      "detail": "Idempotent seed: companies from the owner's stand photos at the Future Military Forum 2026 (Prague, 21.10.2026). No personal data: company-level facts only. The one e-mail is the address printed on the company's own flyer. CPV codes are CPV 2008 (checked again Код есть; польза и живая работа не доказаны. Прогон 2026-10-22 @ 6a763038: Радар военных тендеров: 21 поставщик с форума + P0 регрессии",
+      "detail": "Idempotent seed: companies from the owner's stand photos at the Future Military Forum 2026 (Prague, 21.10.2026). No personal data: company-level facts only. The one e-mail is the address printed on the company's own flyer. CPV codes are CPV 2008 (checked again Код есть; польза и живая работа не доказаны. Прогон 2026-10-22 @ ce149d61: Радар военных тендеров: 21 поставщик с форума и монетизация (test_contacts.py) (30 passed)",
       "sources": [
         {
           "path": "apps/war-terminal/warterminal/seed_forum_20261021.py",
-          "sha": "7824344efaa63689faece689981e5e5d3bbcbaeb"
+          "sha": "ce149d61e8db1c72e4bbbfdb16883ac3d36717c4"
         },
         {
           "path": "docs/architecture/bossman-tree-20261005/evidence/north-star-defense-20261022.json#reg-war_terminal_forum_seed",
           "branch": "green/tree-leaves-20261006",
-          "sha": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+          "sha": "ce149d61e8db1c72e4bbbfdb16883ac3d36717c4",
           "kind": "receipt"
         }
       ],
       "next_action": "Проверить через UX/CMD на ПК владельца и измерить пользу до/после на одинаковых задачах.",
       "reference_paths": [
         "apps/war-terminal/warterminal/seed_forum_20261021.py",
-        "tests/test_redteam_p0_regressions.py"
+        "apps/war-terminal/tests/test_contacts.py"
       ]
     }
   ],

@@ -1,6 +1,6 @@
 {
  "schema": "bossman-tree-registry-1",
- "head": "6a763038ca95dd1c2b36b0e6ffbc8db0b931ec36",
+ "head": "ce149d61e8db1c72e4bbbfdb16883ac3d36717c4",
  "leaves": [
   {
    "id": "jeff",
@@ -35996,7 +35996,7 @@
    "label": "Радар военных тендеров (21 поставщик с форума, 108 профильных совпадений из 571 открытых закупок)",
    "zone_parent": "commerce",
    "source": "apps/war-terminal/warterminal/seed_forum_20261021.py",
-   "sha": "7824344efaa63689faece689981e5e5d3bbcbaeb",
+   "sha": "ce149d61e8db1c72e4bbbfdb16883ac3d36717c4",
    "integration_status": "reported",
    "levels": {
     "code": {
