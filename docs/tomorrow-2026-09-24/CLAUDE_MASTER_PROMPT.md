@@ -20,7 +20,7 @@ git rev-parse origin/release/bossman-owner
 ```
 
 Read:
-- `BOSSMAN_TOMORROW_2026-09-24_START_HERE.md` from main;
+- `docs/archive/2026-09/BOSSMAN_TOMORROW_2026-09-24_START_HERE.md` from main;
 - all `docs/tomorrow-2026-09-24/*.md`.
 
 Implement against the fresh current product line, expected `release/bossman-owner`, preserving all newer fixes.

@@ -4,6 +4,7 @@
 - **Target Product**: Bossman 2.6 Unified (`main`)
 - **Hardware Target**: AMD Ryzen AI Max+ 395 / Radeon 8060S / 128 GB unified RAM / Windows
 - **Status**: **PASS — All 15 Mandatory TDD Scenarios + Owner `AUTO (Bypass Permission)` Mode Verified**
+> ⚠ Проверка 22.10: в заголовке «15 сценариев», в таблице 16; PASS не подкреплён записанным прогоном в дереве (функции `test_01..test_16` существуют).
 
 ---
 
@@ -13,6 +14,7 @@ Bossman Mobile Web Pult (`apps/bossman-mobile`) and Command Center (`command-cen
 
 ```
 Mobile Chat (Web Pult :8802)
+> ⚠ Проверка 22.10: CONTRADICTED: мобильный шлюз слушает `127.0.0.1:8840` (`bossmobile/api.py`, `cli.py`), порта 8802 в коде нет.
   │  Mode Selector: CHAT | AGENT | ⚡ AUTO (Bypass) | CODE | COMPUTER | SELF-IMPROVE
   ▼
 Agent Orchestrator (`command-center/bcc/features/agent_opencode.py` · `/api/agent/*`)

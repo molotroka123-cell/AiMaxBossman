@@ -8,8 +8,8 @@ Claude Code на ПК владельца (Windows, ACEMAGIC) или в обла�
 Связанные документы (читать в этом порядке):
 
 1. `AGENTS.md` — обязательный контекст, North Star, границы автономии.
-2. `docs/owner/HANDOFF_20260930_CHECKPOINT.md` — что сделано / не подтверждено / rollback.
-3. `docs/owner/CONTINUATION_PROMPT_20260930.md` — короткий вариант продолжения.
+2. `docs/archive/2026-09/owner/HANDOFF_20260930_CHECKPOINT.md` — что сделано / не подтверждено / rollback.
+3. `docs/archive/2026-09/owner/CONTINUATION_PROMPT_20260930.md` — короткий вариант продолжения.
 4. `docs/owner/night-20260930/LANE_SPECS.md` — точные задания 10 полос (8 не запускались).
 5. `docs/owner/night-20260930/maps/*.md` — карты подсистем с file:line (8 файлов).
 6. `docs/v1.9/DESKTOP_CHAT_UX.md` — новый чат; **§6 — чек-лист прогона (20 пунктов)**.

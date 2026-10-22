@@ -5,7 +5,7 @@
 ---
 
 ```
-Ты продолжаешь Bossman 1.9. Сначала прочитай AGENTS.md, docs/owner/HANDOFF_20260930_CHECKPOINT.md
+Ты продолжаешь Bossman 1.9. Сначала прочитай AGENTS.md, docs/archive/2026-09/owner/HANDOFF_20260930_CHECKPOINT.md
 и docs/owner/night-20260930/LANE_SPECS.md. Рабочая ветка: claude/bossman-1.9-owner-bugtest-20260930
 (draft PR #89, база feat/bossman-autonomy @ 4c770578). Сверь SHA с `git ls-remote --heads origin`.
 Canonical release/bossman-owner и main не трогать, без --force, без тегов и релизов без команды владельца.

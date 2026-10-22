@@ -5,7 +5,7 @@
 > **Состояние на 18 сентября 2026:** рабочая ветка `claude/bossman-final-convergence-hu2702`, текущий HEAD до этого README — `67c8e757972b568df8efecb8722d9dfb4f6c89df`.  
 > V8 уже имеет многократно зелёную Windows-базу и установленную приёмку **46/46** на проверенном Windows-кандидате. Текущий HEAD содержит более новые оптимизации и Telegram Companion, поэтому **не называем его frozen**, пока новый exact-SHA Windows workflow и владельческий прогон не завершены.
 
-[Установка](INSTALL.md) · [Текущее состояние](docs/final/CURRENT_STATE.md) · [Known-good SHA](docs/final/KNOWN_GOOD_SHAS.json) · [V8 capability matrix](docs/v8/CAPABILITY_MATRIX.md) · [Owner GUI run](docs/v8/OWNER_GUI_START_HERE_RU.md)
+[Установка](../../../INSTALL.md) · [Текущее состояние](../../final/CURRENT_STATE.md) · [Known-good SHA](../../final/KNOWN_GOOD_SHAS.json) · [V8 capability matrix](../../v8/CAPABILITY_MATRIX.md) · [Owner GUI run](../../v8/OWNER_GUI_START_HERE_RU.md)
 
 ## Что это
 

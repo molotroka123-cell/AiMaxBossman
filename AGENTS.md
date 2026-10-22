@@ -15,8 +15,11 @@ Before any coding, **read**:
 - [15-direction exact-SHA audit](docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md)
 - [Recent OSS release candidates, not proven in Bossman](docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md)
 
-These are read-first owner instructions, **not** new execution permission. Follow all restrictions below: no bypass of security/STOP, no unsolicited messages, no RunPod without approval, no auto-merge to main, no stale PASS transfer. For each tested leaf, persist evidence checkpoint, commit and push to integration branch, then update tree only through evidence tooling. `AGENTS.md` by itself cannot trigger an unattended agent; the Argon session must be started or scheduled separately.
+These are read-first owner instructions, **not** new execution permission. Follow all restrictions below: no bypass of security/STOP, no unsolicited messages, no RunPod without approval, no auto-merge to main, no stale PASS transfer. For each tested leaf, persist evidence checkpoint, commit and push to integration branch, then update tree only through evidence tooling. `AGENTS.md` by itself cannot trigger an unattended agent; the Argon session must be start or scheduled separately.
 
+## Старт 23.10.2026 (запись 22.10): рой самоулучшения и Tier 5
+
+Сначала прочитай [`docs/owner/TOMORROW_NORTH_STAR_TIER5_RUN_20261022_RU.md`](docs/owner/TOMORROW_NORTH_STAR_TIER5_RUN_20261022_RU.md) (runbook), затем [`docs/owner/CLAIMS_AUDIT_20261022_RU.md`](docs/owner/CLAIMS_AUDIT_20261022_RU.md), [`docs/owner/CLEANUP_INVENTORY_20261022_RU.md`](docs/owner/CLEANUP_INVENTORY_20261022_RU.md) и [`docs/owner/TRAINING_CLOSEOUT_20261022_RU.md`](docs/owner/TRAINING_CLOSEOUT_20261022_RU.md). Прогресс по лестнице North Star на 22.10: ступень SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT; Tier 5 не доказан (`tier5_status: NOT_PROVEN`), перенос, soak 24/48 ч и выручка — NOT_RUN/BLOCKED. Ничего из этого не ослабляет правила ниже.
 
 ## Актуальный план выпуска и первого коммерческого пилота (21.10.2026)
 

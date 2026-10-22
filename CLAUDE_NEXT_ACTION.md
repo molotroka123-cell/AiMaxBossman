@@ -1,3 +1,9 @@
+# Старт 23.10.2026 (запись 22.10): рой самоулучшения и Tier 5
+
+Сначала прочитай [`docs/owner/TOMORROW_NORTH_STAR_TIER5_RUN_20261022_RU.md`](docs/owner/TOMORROW_NORTH_STAR_TIER5_RUN_20261022_RU.md) (runbook), затем [`docs/owner/CLAIMS_AUDIT_20261022_RU.md`](docs/owner/CLAIMS_AUDIT_20261022_RU.md), [`docs/owner/CLEANUP_INVENTORY_20261022_RU.md`](docs/owner/CLEANUP_INVENTORY_20261022_RU.md) и [`docs/owner/TRAINING_CLOSEOUT_20261022_RU.md`](docs/owner/TRAINING_CLOSEOUT_20261022_RU.md). Прогресс по лестнице North Star на 22.10: ступень SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT; Tier 5 не доказан (`tier5_status: NOT_PROVEN`), перенос, soak 24/48 ч и выручка — NOT_RUN/BLOCKED. Ничего из этого не ослабляет правила ниже.
+
+---
+
 # 13.10.2026 — продолжение без Claude и Codex: читать `docs/owner/CONTINUATION.md` (оператор Qwen, `/work`, карта правил, открытое)
 
 ## 12.10.2026 — актуальное продолжение: CI на головном SHA → подтверждение владельца → PR в `main`
@@ -12,7 +18,7 @@ Next, in this order: (1) read the CI result of the PR head (the `pytest (py3.x)`
 in BL-128 that is NOT proven until CI is green; `root-ci` whitespace failure BL-129 is fixed); (2) the owner-attested
 retention evidence must be produced for the FINAL head SHA (each new commit needs new evidence); (3) official Telegram
 Stars test, key of provider #5 and the other owner steps are listed in section 6 of the final-close document.
-`docs/owner/CURRENT_CLOSEOUT_20261011_RU.md`, `docs/owner/CONTINUATION_20261011.md` and the 11.10 master prompt are
+`docs/archive/2026-10/owner/CURRENT_CLOSEOUT_20261011_RU.md`, `docs/owner/CONTINUATION_20261011.md` and the 11.10 master prompt are
 historical: their SHAs (`4c89ad93`, `928f54d3`) and "uncommitted fixes in Vibe/media/CI" entries are superseded.
 `final=True` from the certifier means runs finished, NOT production freeze.
 Keep the historical evidence below.

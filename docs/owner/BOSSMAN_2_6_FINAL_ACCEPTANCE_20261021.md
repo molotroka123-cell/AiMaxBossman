@@ -8,6 +8,7 @@
 - **Актуальный SHA живого рантайма `:8801` (`source_identity: PASS`)**: `099b497f73bba711ca01f52fe50e9218ea91dea4` (`version: 2.6.0`, `release_version: 2.6.0`)
 - **Железо владельца**: `AMD Ryzen AI Max+ 395 w/ Radeon 8060S` · `128 GB RAM` · `Windows 11`
 - **Финальный вердикт (Release Gate)**: **`READY`** (`PASS` по всем 7 этапам и всем живым проверкам `verify_tier5_argon_e2e.py` + `prove_stage7_owner_acceptance.py`; живой поллер `BossmanOne-6-Jeff` осознанно оставлен на паузе `BLOCKED / PAUSED_BY_OWNER_RULE` по требованию Этапа 3 до отдельной команды владельца после ознакомления с расследованием инцидента 19.10).
+> ⚠ Проверка 22.10: вердикт `READY` относится к перечисленным этапам/скриптам; сам `e2e_stop_holdout_receipt.json` ставит `tier5_status: NOT_PROVEN`, а `G1`/`G2` в нём помечены `SYNTHETIC`. `READY` не означает Tier 5 и не заменяет обязательный CI на точном SHA. Подробности: `docs/owner/CLAIMS_AUDIT_20261022_RU.md`.
 
 ---
 
@@ -28,6 +29,7 @@
    - Нормализованы окончания строк `LF` в `command-center/bcc/direct_gen/facelock_worker.py` для прохождения `git diff --check`.
 3. **Bandit (`B613`) и Security Gates**:
    - В `bossman-core/bossman/SelfImprove/lora_trainer.py` закреплена ревизия базовой модели (`DEFAULT_BASE_MODEL_REVISION = "main"`) при вызовах `AutoTokenizer.from_pretrained(..., revision=...)` и `AutoModelForCausalLM.from_pretrained(..., revision=...)` без отключения проверок Bandit.
+> ⚠ Проверка 22.10: CONTRADICTED: файл `bossman-core/bossman/SelfImprove/lora_trainer.py` по указанному пути в дереве не найден; ревизия `"main"` — плавающая ссылка, а не закрепление.
    - `python tools/ci_secret_scan.py` и `python tools/skips_registry.py --check` проходят с кодом `0`.
 
 ### ЭТАП 2 — Один Bossman (Матрица компонентов)
@@ -40,6 +42,7 @@
 | **Computer Use на Windows (Argon PC-Agent)** | `/api/pc-agent/*` (`tasks`, `stop`, `resume`, `trust`, `audit`) | **`PASS`** | Полные живые прогоны на Windows 11 (`mission_a=154`, `tier5_live_task=149`, `shared_task_id=139`, `191` запись в `AuditJournal`) |
 | **Jeff & Telegram Companion** | `bcc/pit/outbound_guard.py`, `jeff/bot.py` | **`PASS` / `BLOCKED`** | `OutboundGuard` и антиспам-автомат: **`PASS`** (`6/6` непрошеных сообщений заблокировано, `0` ушло в сеть). Живой поллер `BossmanOne-6-Jeff`: **`BLOCKED`** (`PAUSED_BY_OWNER_RULE` на `hold-jeff` по правилу Этапа 3) |
 | **Memory, Learning & Skills** | `/api/skills`, `ObsidianVault`, `SQLiteMemoryBackend`, `LessonBook` | **`PASS`** | `38` заметок сохранено через рестарт, прирост на слепом holdout `+40%` (`0.0 -> 0.4`), деградация `0.0` |
+> ⚠ Проверка 22.10: OVERSTATED: 5 задач, 0/5 → 2/5; у базовой ветки 3 из 5 попыток дали tool_errors; уроки из памяти + веса не менялись — это coaching/recall, не доказанное обучение (AGENTS.md); `stage6_live_holdout_proof.json` подписывает замер «local endpoint», а endpoint — облачный Groq.
 | **MCP, Plugins & Agents** | `GET /api/agents`, `bcc/mcp/` | **`PASS`** | HTTP `200`, зарегистрирован агент `Argon (Управляющий ПК)` + рой субагентов |
 | **OpenCode Self-Coding** | `/api/coding-tasks/*`, `IsolatedWorktree`, `MissionReceipt` | **`PASS`** | Задача `a09abed3e894`, квитанция `rcpt-a09abed3e894-09f3ab61106a`, статус `APPLIED` |
 | **Локальные и облачные LLM** | `GET /api/models`, Ollama `:11434`, Cloud Free/Paid | **`PASS`** | `17` локальных моделей в Ollama (`ace-decider-08b:latest`) + `15` облачных воркеров (`openai/gpt-oss-120b` `232.17 ms`, `gemini-3-flash-free`) |
@@ -51,6 +54,7 @@
    - **Наблюдение экрана**: реальный скриншот `1920x1080` (`screen-1792536835660160200.png`, `146,568` байт, SHA256 `b363cc986fa2ac9021bb36b42099afca26c9a5e6b9c89df912a9881d085bf483`).
    - **Запись видео экрана ПК**: реальный H.264 MP4 `1920x1080` (`screen-rec-139-6-1792536837.mp4`, `292,506` байт, проверен через `ffprobe`).
    - **Заработок (Exchange Assistant + Paper Arena)**: сгенерирован чешский счёт-оферта PDF (`4,900 CZK` чистой прибыли) + закрыто `4` paper-сделки (`+$99.85` / `+2,196.71 CZK`), суммарно **`7,096.71 CZK` (`$322.58`)**.
+> ⚠ Проверка 22.10: OVERSTATED: счёт-оферта PDF и бумажные сделки не являются заработком; `audited_external_revenue_documents` = `BLOCKED` в том же receipt. Файл `docs/audits/2026-10-20-earnings-and-pc-control/live_proof_report.json` в дереве отсутствует (UNVERIFIABLE_FROM_TREE).
 2. [`docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-21-stage7-acceptance/owner_acceptance_proof.json) (`mission_a_task_id=154`, квитанция `42a73d365af29a4654d434fd2a7ae218f9a6e6479ee5e303405741d6b6cd1569`):
    - **Открытие приложений и окон + мышь/клавиатура/фокус GUI**: инструмент `pc.notepad_roundtrip` реально запустил `notepad.exe` (`PID 24796`), ввёл текст, сохранил файл (SHA256 `ab0290f6b8c4e77e082d674656e4ef6dcf9ec3150803e3eefbaaff5424ed792f`), сделал скриншот окна (`4132089909c8...`) и перечитал содержимое с диска (`verified: true`).
    - **Браузер и работа с сайтами**: `pc.browser_act` запустил реальный Chromium через Playwright, открыл `https://example.com/`, снял DOM и скриншот `shot-8-0.png` (SHA256 `685b5b63d26c56830fd83ec08fab892455f4386df0d85d997c00e11af933bd57`). Попытка зайти на loopback `127.0.0.1` корректно заблокирована SSRF-защитой.
@@ -61,6 +65,7 @@
    - **Запись опыта (AuditJournal)**: цепочка из `191` криптографически связанной SHA256-записи прошла проверку `journal.verify_chain() == {"ok": True, "count": 191}`.
 3. [`docs/audits/2026-10-19-final/e2e_stop_holdout_receipt.json`](file:///C:/Users/asd/Bossman/wt-rc-20261019/docs/audits/2026-10-19-final/e2e_stop_holdout_receipt.json) (`tools/verify_tier5_argon_e2e.py`, квитанция `50a7fbc651ac19efa0d7cfa113bfed67be06a3a6e3df8ea1233733a3f5b6beda`):
    - Трёхуровневый верификатор (`SYNTHETIC` / `HISTORICAL_LIVE` / `CURRENT_LIVE`) выполнен с кодом возврата `0`: `G1_owner_e2e: PASS`, `G2_sealed_holdout: PASS` (`98/98`), `G3_stop_switch: PASS`, `CURRENT_LIVE: PASS` (`shared_task_id=149`, `live_runtime_sha=099b497f73bba711ca01f52fe50e9218ea91dea4`, `source_identity=PASS`, `actions_after_stop=0`).
+> ⚠ Проверка 22.10: в receipt `G1_owner_e2e` и `G2_sealed_holdout` имеют `evidence_kind: SYNTHETIC` (98 = 72+9+10+7 тестов внутри дерева), это не слепой holdout Tier 5 (`precommitted_15x3_blind_holdout: NOT_RUN`).
 4. **Расследование инцидента Jeff (19.10) и безопасный live-тест**:
    - **Причина инцидента 19.10**: проактивный планировщик (`followups` / `digest`) отправлял сообщения в личные чаты без явного входящего триггера и без транспортного предохранителя на стороне HTTP-клиента Telegram.
    - **Установленная тройная защита (`OutboundGuard` в `command-center/bcc/pit/outbound_guard.py`)**:

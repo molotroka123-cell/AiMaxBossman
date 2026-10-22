@@ -159,7 +159,7 @@ Bossman использует внешние инструменты как исп
 
 **Что уже есть:** хранилища и проверяемый учебный pipeline. **Что ещё нужно доказать:** автоматический поиск нужного урока после перезапуска и выигрыш на новых заданиях без помощи учителя. Наличие памяти само по себе не означает рост интеллекта; веса моделей в этом контуре не меняются.
 
-[Как устроена долговременная память](docs/evo/DURABLE_MEMORY_OPERATING_CONTRACT.md) · [Как измерять обучение Qwen](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md) · [Как Claude должен помогать ученику](docs/owner/TOMORROW_MASTER_PROMPT_QWEN_FIRST.md)
+[Как устроена долговременная память](docs/evo/DURABLE_MEMORY_OPERATING_CONTRACT.md) · [Как измерять обучение Qwen](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md) · [Как Claude должен помогать ученику](docs/archive/2026-09/owner/TOMORROW_MASTER_PROMPT_QWEN_FIRST.md)
 
 <a id="principles"></a>
 ## Сильный агент — это ещё и контроль
@@ -239,7 +239,7 @@ Bossman использует внешние инструменты как исп
 
 Если программа дала сбой, сохраняем задачу, версию, диагностику и результат. Исправление проходит проверку и попадает в новый кандидат, а не устанавливается незаметной подменой файлов внутри старого архива.
 
-[Порядок owner-run](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) · [Короткий checklist](docs/owner/TOMORROW_CHECKLIST.md) · [Сценарии запуска](START_TOMORROW_RU.md)
+[Порядок owner-run](docs/owner/TOMORROW_OPERATOR_RUNBOOK.md) · [Короткий checklist](docs/archive/2026-09/owner/TOMORROW_CHECKLIST.md) · [Сценарии запуска](START_TOMORROW_RU.md)
 
 <a id="vision"></a>
 ## Куда идём дальше
@@ -296,7 +296,7 @@ Bossman использует внешние инструменты как исп
 | Настоящий видеотест | [Отчёт, кадры, MP4 и JSON](owner-repair/video-length-testrun-20260922/) |
 | Локальная генерация | [SDCPP_ENGINE_RU](docs/media/SDCPP_ENGINE_RU.md) |
 | Память и поиск контекста | [Durable Memory Contract](docs/evo/DURABLE_MEMORY_OPERATING_CONTRACT.md) |
-| Обучение и помощь Claude | [Qwen-first protocol](docs/owner/TOMORROW_MASTER_PROMPT_QWEN_FIRST.md), [Apprentice Benchmark](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md), [Frontier Council](docs/evo/FRONTIER_COUNCIL_AND_TRAINING.md) |
+| Обучение и помощь Claude | [Qwen-first protocol](docs/archive/2026-09/owner/TOMORROW_MASTER_PROMPT_QWEN_FIRST.md), [Apprentice Benchmark](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md), [Frontier Council](docs/evo/FRONTIER_COUNCIL_AND_TRAINING.md) |
 | Ошибки и проверки безопасности | [Full-suite triage](owner-repair/full-suite-triage.md), [Red team](owner-repair/redteam-rc-20260921.md) |
 | Ограничения и откат | [KNOWN_LIMITATIONS](KNOWN_LIMITATIONS.md), [ROLLBACK_RU](docs/owner/ROLLBACK_RU.md) |
 | Что сохранено при сведении веток | [CONVERGENCE_DECISIONS](CONVERGENCE_DECISIONS.md), [Salvage ledger](docs/final/FINAL_SALVAGE_LEDGER.md) |

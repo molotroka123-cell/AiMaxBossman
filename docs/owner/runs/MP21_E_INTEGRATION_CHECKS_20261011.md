@@ -64,6 +64,6 @@ See section "Final state" below (written at push time).
 
 ## 5. Final state (at push time)
 
-Recorded in `docs/owner/WHERE_WE_STOPPED_20261011.md` section 1 and in the final chat report: canonical SHA, night-branch SHA,
+Recorded in `docs/archive/2026-10/owner/WHERE_WE_STOPPED_20261011.md` section 1 and in the final chat report: canonical SHA, night-branch SHA,
 `git merge-base --is-ancestor` results and `git ls-remote` output. They are not repeated here because the commit that
 contains this file cannot name its own SHA.

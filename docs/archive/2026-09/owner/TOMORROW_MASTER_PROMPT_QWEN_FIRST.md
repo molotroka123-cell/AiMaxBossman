@@ -14,7 +14,7 @@ FIRST: fetch the current remote HEAD. Never assume the SHA written in an old han
 
 Read in this order:
 1. docs/owner/TOMORROW_OPERATOR_RUNBOOK.md
-2. docs/owner/TOMORROW_CHECKLIST.md
+2. docs/archive/2026-09/owner/TOMORROW_CHECKLIST.md
 3. owner-repair/CONTINUATION.md
 4. owner-repair/repair-ledger.md
 5. OWNER_ACCEPTANCE.md
