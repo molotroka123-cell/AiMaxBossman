@@ -1,0 +1,22 @@
+{
+  "type": "process",
+  "from": "User",
+  "instantiation": "true",
+  "inherits": "0.28mm Extra Draft @Elegoo N4Pro 0.4 nozzle",
+  "name": "Statue fast 032 @N4Pro 0.4",
+  "layer_height": "0.32",
+  "initial_layer_print_height": "0.25",
+  "wall_loops": "2",
+  "sparse_infill_density": "8%",
+  "sparse_infill_pattern": "lightning",
+  "top_shell_layers": "3",
+  "bottom_shell_layers": "3",
+  "seam_position": "back",
+  "compatible_printers": [
+    "Elegoo Neptune 4 Pro 0.4 nozzle"
+  ],
+  "support_base_pattern_spacing": "3.5",
+  "tree_support_branch_distance_organic": "7",
+  "resolution": "0.08",
+  "enable_arc_fitting": "1"
+}

@@ -6,7 +6,9 @@ Uses the app's own adapter (apps/ai-3d-maker, ai_3d_maker.orca.resolve_profile) 
 private --datadir, so the owner's open Orca and its config are untouched. Skill: .agents/skills/print3d-orca.
 Env: BOSSMAN_ORCA_EXE (orca-slicer.exe), BOSSMAN_PRINT_OUT (output root, default Desktop),
      BOSSMAN_PRINT_NOZZLE (default 218; owner 22.10 also uses 220), BOSSMAN_PRINT_BED (e.g. 60: sets EVERY plate type, the
-     Cool Plate profile otherwise heats to 35), BOSSMAN_PRINT_RAFT (raft layers, default 0).
+     Cool Plate profile otherwise heats to 35), BOSSMAN_PRINT_RAFT (raft layers, default 0),
+     BOSSMAN_PRINT_MIN_LAYER_S (filament min layer time, s; default = profile 8),
+     BOSSMAN_PRINT_MAX_FLOW (max volumetric speed mm3/s; profile 16, owner speed-up 22.10 used 20).
 """
 import json, os, shutil, struct, subprocess, sys, tempfile, time
 from pathlib import Path
@@ -32,10 +34,16 @@ if gentle:
 NOZZLE = os.environ.get("BOSSMAN_PRINT_NOZZLE", "218")
 BED = os.environ.get("BOSSMAN_PRINT_BED", "")
 RAFT = os.environ.get("BOSSMAN_PRINT_RAFT", "0")
+MIN_LAYER_S = os.environ.get("BOSSMAN_PRINT_MIN_LAYER_S", "")    # filament min layer time (Elegoo PLA: 8 s); 5 s halves big statues
 PLA218 = {"nozzle_temperature": [NOZZLE], "nozzle_temperature_initial_layer": [NOZZLE]}
 if BED:
     for _k in ("hot_plate_temp", "cool_plate_temp", "eng_plate_temp", "textured_plate_temp"):
         PLA218[_k] = [BED]; PLA218[_k + "_initial_layer"] = [BED]
+FLOW = os.environ.get("BOSSMAN_PRINT_MAX_FLOW", "")             # mm3/s; Elegoo PLA profile caps at 16
+if FLOW:
+    PLA218["filament_max_volumetric_speed"] = [FLOW]
+if MIN_LAYER_S:
+    PLA218["slow_down_layer_time"] = [MIN_LAYER_S]
 if RAFT != "0":
     SUPPORT["raft_layers"] = RAFT
 
