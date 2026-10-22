@@ -1,0 +1,169 @@
+{
+  "schema": "bossman.perf2x.run/1",
+  "label": "baseline",
+  "recorded_at": "2026-10-22T09:33:47Z",
+  "repo_head_sha": "cec2c3b5eb82e73334f3b5ef798190534edd881d",
+  "installed_head_sha": "288f79f56a1aa9d7fca4ff116e0347407acf1237",
+  "hardware": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "cpu": "AMD64 Family 26 Model 112 Stepping 0, AuthenticAMD",
+    "python": "3.12.10",
+    "apu": "AMD Ryzen AI Max+ 395 w/ Radeon 8060S (128 GB UMA)"
+  },
+  "lanes": {
+    "e2e_agent_message_ms": {
+      "count": 15,
+      "median_ms": 52.631,
+      "mean_ms": 136.38,
+      "p95_ms": 556.967,
+      "min_ms": 44.858,
+      "max_ms": 556.967
+    },
+    "skill_routed_message_ms": {
+      "count": 15,
+      "median_ms": 136.95,
+      "mean_ms": 211.71,
+      "p95_ms": 834.541,
+      "min_ms": 57.815,
+      "max_ms": 834.541
+    },
+    "list_20_sessions_ms": {
+      "count": 15,
+      "median_ms": 8.977,
+      "mean_ms": 14.409,
+      "p95_ms": 87.226,
+      "min_ms": 6.613,
+      "max_ms": 87.226
+    },
+    "router_catalog_and_select_ms": {
+      "count": 15,
+      "median_ms": 10.518,
+      "mean_ms": 17.379,
+      "p95_ms": 75.63,
+      "min_ms": 5.859,
+      "max_ms": 75.63
+    },
+    "tools_schema_ms": {
+      "count": 15,
+      "median_ms": 9.427,
+      "mean_ms": 10.645,
+      "p95_ms": 22.606,
+      "min_ms": 9.024,
+      "max_ms": 22.606
+    },
+    "combined_critical_path_ms": {
+      "count": 15,
+      "median_ms": 263.0,
+      "mean_ms": 379.878,
+      "p95_ms": 914.029,
+      "min_ms": 120.731,
+      "max_ms": 914.029
+    }
+  },
+  "payload_sizes": {
+    "full_tools_bytes": 174674,
+    "filtered_compact_tools_bytes": 174674
+  },
+  "top_spans": [
+    {
+      "stage": "task.create",
+      "count": 30,
+      "median_ms": 11.0655,
+      "mean_ms": 88.5279,
+      "p95_ms": 448.3995,
+      "max_ms": 765.7234,
+      "total_ms": 2655.8375,
+      "share_pct": 53.76
+    },
+    {
+      "stage": "queue.wait",
+      "count": 30,
+      "median_ms": 10.8537,
+      "mean_ms": 28.8956,
+      "p95_ms": 76.8751,
+      "max_ms": 433.9321,
+      "total_ms": 866.8686,
+      "share_pct": 17.55
+    },
+    {
+      "stage": "ws.deliver",
+      "count": 30,
+      "median_ms": 13.9394,
+      "mean_ms": 13.7078,
+      "p95_ms": 16.4701,
+      "max_ms": 17.0334,
+      "total_ms": 411.2348,
+      "share_pct": 8.32
+    },
+    {
+      "stage": "preflight",
+      "count": 30,
+      "median_ms": 9.448,
+      "mean_ms": 12.0069,
+      "p95_ms": 35.9758,
+      "max_ms": 67.37,
+      "total_ms": 360.2082,
+      "share_pct": 7.29
+    },
+    {
+      "stage": "memory.retrieve",
+      "count": 30,
+      "median_ms": 3.319,
+      "mean_ms": 8.5805,
+      "p95_ms": 66.7058,
+      "max_ms": 89.6573,
+      "total_ms": 257.4152,
+      "share_pct": 5.21
+    },
+    {
+      "stage": "session.load",
+      "count": 60,
+      "median_ms": 0.6868,
+      "mean_ms": 2.3444,
+      "p95_ms": 8.5937,
+      "max_ms": 9.1954,
+      "total_ms": 140.6629,
+      "share_pct": 2.85
+    },
+    {
+      "stage": "skill.match",
+      "count": 30,
+      "median_ms": 2.0019,
+      "mean_ms": 3.6127,
+      "p95_ms": 3.8799,
+      "max_ms": 40.9294,
+      "total_ms": 108.3814,
+      "share_pct": 2.19
+    },
+    {
+      "stage": "receipt.persist",
+      "count": 30,
+      "median_ms": 2.293,
+      "mean_ms": 2.564,
+      "p95_ms": 4.378,
+      "max_ms": 4.8641,
+      "total_ms": 76.9193,
+      "share_pct": 1.56
+    },
+    {
+      "stage": "model.catalog",
+      "count": 30,
+      "median_ms": 1.5733,
+      "mean_ms": 2.0708,
+      "p95_ms": 4.2408,
+      "max_ms": 4.7171,
+      "total_ms": 62.1244,
+      "share_pct": 1.26
+    },
+    {
+      "stage": "session.auth",
+      "count": 30,
+      "median_ms": 0.0095,
+      "mean_ms": 0.0099,
+      "p95_ms": 0.0166,
+      "max_ms": 0.0173,
+      "total_ms": 0.2969,
+      "share_pct": 0.01
+    }
+  ]
+}

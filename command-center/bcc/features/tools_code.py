@@ -200,7 +200,7 @@ def _compact_hits(hits: list[dict]) -> tuple[str, bool]:
         blocks.append(
             f"[{i}] {hit.get('source')} :: {hit.get('qualname')} "
             f"({hit.get('kind')}, строки {hit.get('start_line')}-{hit.get('end_line')}, "
-            f"score={hit.get('score')})\n{hit.get('content') or ''}"
+            f"chunk_hash={hit.get('chunk_hash')}, score={hit.get('score')})\n{hit.get('content') or ''}"
         )
     text = "\n\n---\n\n".join(blocks)
     truncated = len(text) > OUTPUT_LIMIT

@@ -1,0 +1,109 @@
+{
+  "schema": "bossman.perf2x.vulkan_mtp_sweep/1",
+  "recorded_at": "2026-10-22T09:37:27Z",
+  "llama_cli_path": "C:\\Users\\asd\\Bossman\\llama-vulkan\\llama-cli.exe",
+  "llama_build": "b11223-4da633776",
+  "device": "AMD Radeon(TM) 8060S Graphics (128 GB UMA, Vulkan)",
+  "governor_before": {
+    "phase": "IDLE",
+    "live_jobs": 0,
+    "ram_available_gb": 83.9,
+    "cache_gb": 65.8
+  },
+  "governor_after": {
+    "phase": "IDLE",
+    "live_jobs": 0,
+    "ram_available_gb": 65.5,
+    "cache_gb": 64.9
+  },
+  "cases": [
+    {
+      "label": "qwen38_27b_q4_mtp_off",
+      "model": "Qwen3.8-27B-UD-Q4_K_M.gguf",
+      "model_size_gb": 16.46,
+      "extra_args": [
+        "--spec-type",
+        "none"
+      ],
+      "n_predict": 48,
+      "exit_code": 0,
+      "wall_time_s": 11.941,
+      "prompt_eval_tps": 36.9,
+      "decode_tps": 10.8,
+      "notes": [],
+      "speedup_vs_qwen38_27b_mtp_off_x": 1.0
+    },
+    {
+      "label": "qwen38_27b_q4_draft_mtp_n1",
+      "model": "Qwen3.8-27B-UD-Q4_K_M.gguf",
+      "model_size_gb": 16.46,
+      "extra_args": [
+        "--spec-type",
+        "draft-mtp",
+        "--spec-draft-n-max",
+        "1"
+      ],
+      "n_predict": 48,
+      "exit_code": 0,
+      "wall_time_s": 10.461,
+      "prompt_eval_tps": 35.2,
+      "decode_tps": 20.3,
+      "notes": [],
+      "speedup_vs_qwen38_27b_mtp_off_x": 1.88
+    },
+    {
+      "label": "qwen38_27b_q4_draft_mtp_n2",
+      "model": "Qwen3.8-27B-UD-Q4_K_M.gguf",
+      "model_size_gb": 16.46,
+      "extra_args": [
+        "--spec-type",
+        "draft-mtp",
+        "--spec-draft-n-max",
+        "2"
+      ],
+      "n_predict": 48,
+      "exit_code": 0,
+      "wall_time_s": 10.863,
+      "prompt_eval_tps": 33.6,
+      "decode_tps": 22.8,
+      "notes": [],
+      "speedup_vs_qwen38_27b_mtp_off_x": 2.111
+    },
+    {
+      "label": "qwen38_27b_q4_draft_mtp_n3",
+      "model": "Qwen3.8-27B-UD-Q4_K_M.gguf",
+      "model_size_gb": 16.46,
+      "extra_args": [
+        "--spec-type",
+        "draft-mtp",
+        "--spec-draft-n-max",
+        "3"
+      ],
+      "n_predict": 48,
+      "exit_code": 0,
+      "wall_time_s": 11.095,
+      "prompt_eval_tps": 31.8,
+      "decode_tps": 23.9,
+      "notes": [],
+      "speedup_vs_qwen38_27b_mtp_off_x": 2.213
+    },
+    {
+      "label": "qwen38_27b_q4_ngram_cache",
+      "model": "Qwen3.8-27B-UD-Q4_K_M.gguf",
+      "model_size_gb": 16.46,
+      "extra_args": [
+        "--spec-type",
+        "ngram-cache",
+        "--cache-ram",
+        "8192"
+      ],
+      "n_predict": 48,
+      "exit_code": 0,
+      "wall_time_s": 16.457,
+      "prompt_eval_tps": 34.3,
+      "decode_tps": 5.7,
+      "notes": [],
+      "speedup_vs_qwen38_27b_mtp_off_x": 0.528
+    }
+  ]
+}

@@ -123,6 +123,7 @@ from .coding_tasks import (
     get_task as get_coding_task,
     list_tasks as list_coding_tasks,
 )
+from ..perf_trace import GLOBAL_PERF_TRACER, REQUIRED_STAGE_SPANS
 from ..tools import REGISTRY as TOOL_REGISTRY
 
 router = APIRouter()
@@ -225,6 +226,9 @@ def append_session_event(app_state: Any, session_id: str, event_type: str, paylo
     return _orch(svc).runtime(session_id).emit(event_type, **payload)
 
 
+ROUTER_CATALOG_TTL_S = 5.0
+
+
 class _OrchestratorState:
     def __init__(self) -> None:
         self.sessions: dict[str, AgentSessionRuntime] = {}
@@ -233,6 +237,10 @@ class _OrchestratorState:
         self.term_to_session: dict[str, str] = {}
         self.improve_runs: dict[str, dict[str, Any]] = {}
         self.lock = asyncio.Lock()
+        self.agent_meta_cache: tuple[int, int, dict[str, dict[str, Any]]] | None = None
+        self.router_catalog_cache: tuple[float, dict[str, Any], tuple[list, dict, dict]] | None = None
+        self.skill_index_cache: dict[str, tuple[str, dict[str, Any]]] = {}
+        self.tools_schema_cache: dict[tuple[str, bool], dict[str, Any]] = {}
 
     def runtime(self, session_id: str) -> AgentSessionRuntime:
         rt = self.sessions.get(session_id)
@@ -248,16 +256,31 @@ def _orch(svc: Any) -> _OrchestratorState:
     return st
 
 
+def invalidate_router_catalog_cache(svc: Any) -> None:
+    _orch(svc).router_catalog_cache = None
+
+
 def _agent_meta_path(svc: Any) -> Path:
     return Path(svc.settings.data_dir) / "terminal" / "agent-sessions-meta.json"
 
 
 def _read_agent_meta(svc: Any) -> dict[str, dict[str, Any]]:
     path = _agent_meta_path(svc)
+    st_orch = _orch(svc)
+    try:
+        st = path.stat()
+    except OSError:
+        st_orch.agent_meta_cache = None
+        return {}
+    hit = st_orch.agent_meta_cache
+    if hit is not None and hit[0] == st.st_mtime_ns and hit[1] == st.st_size:
+        return hit[2]
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(raw, dict) and isinstance(raw.get("sessions"), dict):
-            return raw["sessions"]
+            sessions = raw["sessions"]
+            st_orch.agent_meta_cache = (st.st_mtime_ns, st.st_size, sessions)
+            return sessions
     except (OSError, ValueError):
         pass
     return {}
@@ -269,6 +292,9 @@ def _write_agent_meta(svc: Any, sessions: dict[str, dict[str, Any]]) -> None:
     tmp = path.with_name(f".agent-meta.{secrets.token_hex(4)}.tmp")
     tmp.write_text(json.dumps({"version": 1, "sessions": sessions}, ensure_ascii=False, indent=1), encoding="utf-8")
     os.replace(tmp, path)
+    with contextlib.suppress(OSError):
+        st = path.stat()
+        _orch(svc).agent_meta_cache = (st.st_mtime_ns, st.st_size, dict(sessions))
 
 
 def _session_cfg(svc: Any, session_id: str) -> dict[str, Any]:
@@ -456,8 +482,26 @@ MODEL_TIERS: list[dict[str, Any]] = [
 ]
 
 
-async def build_model_router_catalog(svc: Any) -> dict[str, Any]:
+async def _cached_catalog(svc: Any) -> tuple[list, dict, dict]:
+    st_orch = _orch(svc)
+    now = time.monotonic()
+    hit = st_orch.router_catalog_cache
+    if hit is not None and (now - hit[0]) < ROUTER_CATALOG_TTL_S:
+        return hit[2]
+    await build_model_router_catalog(svc)
+    if st_orch.router_catalog_cache is not None:
+        return st_orch.router_catalog_cache[2]
+    return await _catalog(svc)
+
+
+async def build_model_router_catalog(svc: Any, *, force_refresh: bool = False) -> dict[str, Any]:
     """Return full OpenCode Model Router status across Tiers 1–5 + live DB registry."""
+    st_orch = _orch(svc)
+    now = time.monotonic()
+    hit = st_orch.router_catalog_cache
+    if not force_refresh and hit is not None and (now - hit[0]) < ROUTER_CATALOG_TTL_S:
+        return hit[1]
+
     agents, models, providers = await _catalog(svc)
     key_cache: dict[str, tuple[bool, str]] = {}
     for w_spec in WORKERS.values():
@@ -508,7 +552,7 @@ async def build_model_router_catalog(svc: Any) -> dict[str, Any]:
             "credential_source": key_src,
         })
 
-    return {
+    result = {
         "tiers": tiers_out,
         "workers": workers_out,
         "local_profiles": LOCAL_CODER_PROFILES,
@@ -516,6 +560,8 @@ async def build_model_router_catalog(svc: Any) -> dict[str, Any]:
         "default_chat_model": "gemma4-31b-uncensored:latest",
         "default_code_model": "qwen3-coder:30b",
     }
+    st_orch.router_catalog_cache = (time.monotonic(), result, (agents, models, providers))
+    return result
 
 
 def select_route_for_request(
@@ -828,45 +874,69 @@ def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None
 
     lib = _lib(svc)
     skills_map = lib.by_id()
+    st_orch = _orch(svc)
+    idx_cache = st_orch.skill_index_cache
+
     best_score = 0
-    best_skill = None
-    best_contract = None
+    best_entry: dict[str, Any] | None = None
     best_matched: list[str] = []
 
+    sorted_q_tokens = sorted(q_tokens)
     for sid, sk in skills_map.items():
-        if validate_manifest(sk)["errors"]:
+        fp = getattr(sk, "fingerprint", "")
+        cached = idx_cache.get(sid)
+        if cached is not None and cached[0] == fp:
+            entry = cached[1]
+        else:
+            valid_errors = validate_manifest(sk)["errors"]
+            if valid_errors:
+                idx_cache[sid] = (fp, {"valid": False})
+                continue
+            con = skill_contract(sk)
+            entry = {
+                "valid": True,
+                "contract": con,
+                "sid_low": sid.lower(),
+                "hay_id": f"{sid} {sk.name}".lower(),
+                "hay_desc": f"{sk.description} {sk.body[:1200]}".lower(),
+            }
+            idx_cache[sid] = (fp, entry)
+
+        if not entry.get("valid"):
             continue
-        con = skill_contract(sk)
-        hay_id = f"{sid} {sk.name}".lower()
-        hay_desc = f"{sk.description} {sk.body[:1200]}".lower()
+
+        hay_id = entry["hay_id"]
+        hay_desc = entry["hay_desc"]
         score = 0
         matched: list[str] = []
-        if sid.lower() in q:
+        if entry["sid_low"] in q:
             score += 12
             matched.append(sid)
-        for tok in sorted(q_tokens):
+        for tok in sorted_q_tokens:
             if tok in hay_id:
                 score += 4
                 matched.append(tok)
             elif tok in hay_desc:
                 score += 2
                 matched.append(tok)
-        # Boost when both domain terms (e.g., tree/927/registry/crlf/skill) co-occur
         if len(matched) >= 2 and score > best_score:
             best_score = score
-            best_skill = sk
-            best_contract = con
+            best_entry = entry
             best_matched = matched[:8]
 
-    if best_skill is None or best_contract is None or best_score < 6:
+    if best_entry is None or best_score < 6:
         return None
 
+    best_contract = best_entry["contract"]
+    req_tools = list(best_contract.required_tools)
     return {
         "id": best_contract.id,
         "name": best_contract.name,
         "version": best_contract.version,
         "fingerprint": best_contract.fingerprint[:16],
-        "required_tools": list(best_contract.required_tools),
+        "required_tools": req_tools,
+        "filtered_tools": req_tools,
+        "fast_path": best_score >= 8,
         "permissions": list(best_contract.permissions),
         "score": best_score,
         "matched_terms": best_matched,
@@ -881,7 +951,7 @@ def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None
 async def _resolve_agent_id_for_model(svc: Any, requested_agent_id: int | None, model_name: str | None) -> int | None:
     if requested_agent_id is not None:
         return requested_agent_id
-    agents, models, _providers = await _catalog(svc)
+    agents, models, _providers = await _cached_catalog(svc)
     if model_name:
         clean = model_name.removeprefix("local:").strip().lower()
         for ag in agents:
@@ -1339,51 +1409,91 @@ async def _complete_improve_after_approval(
 # API Endpoints (§7 & §8 Contracts)
 # ======================================================================
 
+_MODE_RELEVANT_TOOL_GROUPS: dict[str, frozenset[str]] = {
+    "CHAT": frozenset({"memory", "code", "git_worktree"}),
+    "CODE": frozenset({"code", "terminal", "git_worktree", "memory"}),
+    "COMPUTER": frozenset({"computer", "browser", "terminal", "memory"}),
+    "SELF-IMPROVE": frozenset({"code", "terminal", "git_worktree", "self_improve", "memory"}),
+}
+
+
 @router.get("/agent/tools")
-async def list_agent_tools(request: Request):
-    """Unified Tool Registry grouped by category (§8)."""
+async def list_agent_tools(
+    request: Request,
+    mode: str | None = None,
+    compact: bool = False,
+):
+    """Unified Tool Registry grouped by category (§8), with optional mode-based filtering and compact schema (`CP-PERF-03`)."""
+    svc = request.app.state.svc
+    st_orch = _orch(svc)
+    mode_key = mode.strip().upper() if isinstance(mode, str) else ""
+    compact_flag = bool(compact) if isinstance(compact, bool) else False
+    allowed_groups = _MODE_RELEVANT_TOOL_GROUPS.get(mode_key)
     specs = TOOL_REGISTRY.all()
+    cache_key = (f"{mode_key}:{len(specs)}", compact_flag)
+    cached = st_orch.tools_schema_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     grouped: dict[str, list[dict[str, Any]]] = {g: [] for g in TOOL_GROUPS}
     flat: list[dict[str, Any]] = []
 
     for spec in specs:
         group = classify_tool_group(spec.name, spec.source)
+        if allowed_groups is not None and group not in allowed_groups:
+            continue
         risk = classify_risk_level(spec.category, spec.default_effect, spec.permission)
-        item = {
-            "name": spec.name,
-            "api_name": spec.api_name,
-            "description": spec.description,
-            "category": spec.category,
-            "group": group,
-            "input_schema": {
-                "type": "object",
-                "properties": spec.input_schema or {},
+        if compact:
+            item = {
+                "name": spec.name,
+                "api_name": spec.api_name,
+                "description": (spec.description or "")[:160],
+                "category": spec.category,
+                "group": group,
                 "required": list(spec.required),
-            },
-            "output_schema": {
-                "type": "object",
-                "properties": {
-                    "content": {"type": "string"},
-                    "error": {"type": "boolean"},
-                    "truncated": {"type": "boolean"},
-                    "data": {"type": "object"},
+                "risk_level": risk,
+                "required_permissions": [spec.permission] if spec.permission else [],
+            }
+        else:
+            item = {
+                "name": spec.name,
+                "api_name": spec.api_name,
+                "description": spec.description,
+                "category": spec.category,
+                "group": group,
+                "input_schema": {
+                    "type": "object",
+                    "properties": spec.input_schema or {},
+                    "required": list(spec.required),
                 },
-            },
-            "risk_level": risk,
-            "default_effect": spec.default_effect,
-            "required_permissions": [spec.permission] if spec.permission else [],
-            "timeout": spec.timeout_seconds,
-            "execution_adapter": spec.source,
-            "idempotent": spec.idempotent,
-        }
+                "output_schema": {
+                    "type": "object",
+                    "properties": {
+                        "content": {"type": "string"},
+                        "error": {"type": "boolean"},
+                        "truncated": {"type": "boolean"},
+                        "data": {"type": "object"},
+                    },
+                },
+                "risk_level": risk,
+                "default_effect": spec.default_effect,
+                "required_permissions": [spec.permission] if spec.permission else [],
+                "timeout": spec.timeout_seconds,
+                "execution_adapter": spec.source,
+                "idempotent": spec.idempotent,
+            }
         grouped.setdefault(group, []).append(item)
         flat.append(item)
 
-    return {
+    payload = {
         "total": len(flat),
+        "mode_filter": mode_key or None,
+        "compact": bool(compact),
         "groups": grouped,
         "tools": flat,
     }
+    st_orch.tools_schema_cache[cache_key] = payload
+    return payload
 
 
 @router.get("/agent/models")
@@ -1559,248 +1669,419 @@ async def patch_agent_session(session_id: str, body: SessionPatchIn, request: Re
     return await _session_detail(svc, session_id)
 
 
+@router.get("/agent/perf/traces")
+async def get_agent_perf_traces(limit: int = Query(default=50, ge=1, le=250)):
+    """Return sanitized monotonic span traces (`CP-PERF-01`). Never includes prompts or secrets."""
+    traces = GLOBAL_PERF_TRACER.recent_traces(limit=limit)
+    return {
+        "count": len(traces),
+        "required_stage_spans": list(REQUIRED_STAGE_SPANS),
+        "traces": traces,
+    }
+
+
+@router.get("/agent/perf/top-spans")
+async def get_agent_perf_top_spans(limit: int = Query(default=10, ge=1, le=50)):
+    """Return top latency spans ranked by cumulative duration and p95 (`CP-PERF-01`)."""
+    top = GLOBAL_PERF_TRACER.top_spans(limit=limit)
+    return {
+        "count": len(top),
+        "top_spans": top,
+    }
+
+
+async def _session_budget_remaining_usd(
+    svc: Any,
+    raw: dict[str, Any],
+    cfg: dict[str, Any],
+    rt: AgentSessionRuntime,
+) -> float:
+    """Fast session budget computation without full `_session_detail` disk/DB fan-out (`CP-PERF-04`)."""
+    budget = float(cfg.get("budget_usd", DEFAULT_SESSION_BUDGET_USD))
+    if not getattr(rt, "_db_spent_initialized", False):
+        task_ids = [int(t["task_id"]) for _, t in _turns(raw) if int(t.get("task_id") or 0) > 0]
+        if task_ids and cfg.get("allow_cloud"):
+            async with svc.db.session() as s:
+                row = (await s.execute(
+                    sa.select(sa.func.coalesce(sa.func.sum(runs_t.c.cost_usd), 0.0))
+                    .where(runs_t.c.task_id.in_(task_ids))
+                )).first()
+                if row and row[0]:
+                    rt.spent_usd = max(rt.spent_usd, float(row[0]))
+        rt._db_spent_initialized = True  # type: ignore[attr-defined]
+    return round(max(0.0, budget - rt.spent_usd), 6)
+
+
+def _persist_turn_and_touch_sync(
+    svc: Any,
+    session_id: str,
+    turn: dict[str, Any],
+) -> tuple[int, dict[str, Any]]:
+    from .chat_threads import (
+        META_VERSION,
+        _append_turn_sync,
+        _meta_path,
+        _read_session_retry,
+        _session_path,
+        _state,
+        _write_json_atomic,
+    )
+
+    spath = _session_path(svc, session_id)
+    state = _state(svc)
+    idx = _append_turn_sync(spath, session_id, turn)
+    raw = _read_session_retry(spath) or {"id": session_id, "turns": [turn]}
+    try:
+        st = spath.stat()
+        data = {"raw": raw, "mtime": st.st_mtime}
+        state.sessions[session_id] = (st.st_mtime_ns, st.st_size, data)
+    except OSError:
+        data = {"raw": raw, "mtime": time.time()}
+
+    # Update threads-meta.json in the same worker thread hop
+    mpath = _meta_path(svc)
+    now = time.time()
+    m_hit = state.meta_cache
+    threads_dict = dict(m_hit[2]) if m_hit is not None else {}
+    if not threads_dict and mpath.is_file():
+        with contextlib.suppress(OSError, ValueError):
+            mraw = json.loads(mpath.read_text(encoding="utf-8"))
+            if isinstance(mraw, dict) and isinstance(mraw.get("threads"), dict):
+                threads_dict = dict(mraw["threads"])
+    entry = dict(threads_dict.get(session_id) or {})
+    entry["updated_at"] = now
+    threads_dict[session_id] = entry
+    _write_json_atomic(mpath, {"version": META_VERSION, "threads": threads_dict})
+    with contextlib.suppress(OSError):
+        mst = mpath.stat()
+        state.meta_cache = (mst.st_mtime_ns, mst.st_size, threads_dict)
+    return idx, data
+
+
+async def _persist_turn_fast(svc: Any, session_id: str, turn: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    from .chat_threads import SessionUnreadable
+    state = _chat_state(svc)
+    async with state.lock:
+        try:
+            return await asyncio.to_thread(_persist_turn_and_touch_sync, svc, session_id, turn)
+        except FileNotFoundError:
+            raise _fail(
+                404,
+                "чат удалён, пока отправлялось сообщение",
+                code="CHAT_THREAD_NOT_FOUND",
+                hint="задача уже создана — её видно в «Задачах»",
+            ) from None
+        except SessionUnreadable as exc:
+            raise _fail(
+                503,
+                "файл чата сейчас не читается — сообщение не записано в историю чата",
+                code="CHAT_THREAD_UNREADABLE",
+                hint=f"файл не тронут; задача уже создана — её видно в «Задачах». {exc}",
+            ) from None
+
+
 @router.post("/agent/sessions/{session_id}/messages")
 async def send_agent_message(session_id: str, body: AgentMessageIn, request: Request):
     """Unified message & task dispatcher across `CHAT | AGENT | AUTO | CODE | COMPUTER | SELF-IMPROVE`."""
     svc = request.app.state.svc
-    data = _require_session(svc, session_id)
-    cfg = _session_cfg(svc, session_id)
-    orch = _orch(svc)
-    rt = orch.runtime(session_id)
+    with GLOBAL_PERF_TRACER.start_trace(
+        route="POST /api/agent/sessions/messages",
+        session_id=session_id,
+        mode=str(body.mode or DEFAULT_MODE),
+    ) as ptrace:
+        with ptrace.span("mobile.request", mode=str(body.mode or DEFAULT_MODE)):
+            with ptrace.span("session.load", cache_hit=True):
+                data = _require_session(svc, session_id)
+                cfg = _session_cfg(svc, session_id)
+                orch = _orch(svc)
+                rt = orch.runtime(session_id)
 
-    text = body.text.strip()
-    if not text:
-        raise _fail(422, "пустое сообщение", code="CHAT_TEXT_EMPTY")
+            text = body.text.strip()
+            if not text:
+                raise _fail(422, "пустое сообщение", code="CHAT_TEXT_EMPTY")
 
-    # Slash-command mode overrides
-    effective_mode = (body.mode or cfg["mode"] or DEFAULT_MODE).upper()
-    if text.startswith("/improve"):
-        effective_mode = "SELF-IMPROVE"
-        text_arg = text[len("/improve"):].strip()
-    elif text.startswith("/auto "):
-        effective_mode = "AUTO"
-        text = text[len("/auto "):].strip()
-        text_arg = text
-    elif text.startswith("/code "):
-        effective_mode = "CODE"
-        text = text[len("/code "):].strip()
-        text_arg = text
-    elif text.startswith("/pc ") or text.startswith("/computer "):
-        effective_mode = "COMPUTER"
-        text = text.split(" ", 1)[1].strip()
-        text_arg = text
-    else:
-        text_arg = text
+            # Slash-command mode overrides
+            effective_mode = (body.mode or cfg["mode"] or DEFAULT_MODE).upper()
+            if text.startswith("/improve"):
+                effective_mode = "SELF-IMPROVE"
+                text_arg = text[len("/improve"):].strip()
+            elif text.startswith("/auto "):
+                effective_mode = "AUTO"
+                text = text[len("/auto "):].strip()
+                text_arg = text
+            elif text.startswith("/code "):
+                effective_mode = "CODE"
+                text = text[len("/code "):].strip()
+                text_arg = text
+            elif text.startswith("/pc ") or text.startswith("/computer "):
+                effective_mode = "COMPUTER"
+                text = text.split(" ", 1)[1].strip()
+                text_arg = text
+            else:
+                text_arg = text
 
-    if effective_mode not in VALID_MODES:
-        raise _fail(422, f"недопустимый режим: {effective_mode}", code="INVALID_AGENT_MODE")
+            if effective_mode not in VALID_MODES:
+                raise _fail(422, f"недопустимый режим: {effective_mode}", code="INVALID_AGENT_MODE")
+            ptrace.mode = effective_mode
 
-    raw_bypass = (
-        body.bypass_permissions
-        if body.bypass_permissions is not None
-        else (True if effective_mode == "AUTO" else cfg["bypass_permissions"])
-    )
-    bypass_permissions = _assert_owner_bypass_allowed(
-        request,
-        effective_mode=effective_mode,
-        requested_bypass=raw_bypass,
-        text=body.text,
-    )
-    allow_cloud = body.allow_cloud if body.allow_cloud is not None else cfg["allow_cloud"]
-    req_model = body.model or cfg["model"]
-    req_worker = body.worker if body.worker is not None else cfg["worker"]
+            with ptrace.span("session.auth", mode=effective_mode):
+                raw_bypass = (
+                    body.bypass_permissions
+                    if body.bypass_permissions is not None
+                    else (True if effective_mode == "AUTO" else cfg["bypass_permissions"])
+                )
+                bypass_permissions = _assert_owner_bypass_allowed(
+                    request,
+                    effective_mode=effective_mode,
+                    requested_bypass=raw_bypass,
+                    text=body.text,
+                )
+            allow_cloud = body.allow_cloud if body.allow_cloud is not None else cfg["allow_cloud"]
+            req_model = body.model or cfg["model"]
+            req_worker = body.worker if body.worker is not None else cfg["worker"]
 
-    # Update persistent session config if changed
-    if (effective_mode != cfg["mode"] or bypass_permissions != cfg["bypass_permissions"]
-            or allow_cloud != cfg["allow_cloud"]
-            or req_model != cfg["model"] or req_worker != cfg["worker"]):
-        cfg = await _update_session_cfg(
-            svc, session_id, mode=effective_mode, bypass_permissions=bypass_permissions,
-            allow_cloud=allow_cloud, model=req_model, worker=req_worker,
-        )
+            # Update persistent session config if changed
+            if (effective_mode != cfg["mode"] or bypass_permissions != cfg["bypass_permissions"]
+                    or allow_cloud != cfg["allow_cloud"]
+                    or req_model != cfg["model"] or req_worker != cfg["worker"]):
+                with ptrace.span("session.load", cache_hit=False):
+                    cfg = await _update_session_cfg(
+                        svc, session_id, mode=effective_mode, bypass_permissions=bypass_permissions,
+                        allow_cloud=allow_cloud, model=req_model, worker=req_worker,
+                    )
 
-    # Check budget before dispatching
-    detail_now = await _session_detail(svc, session_id)
-    budget_rem = detail_now["budget_remaining_usd"]
-    catalog = await build_model_router_catalog(svc)
-    route = select_route_for_request(
-        catalog,
-        mode=effective_mode,
-        requested_model=req_model,
-        requested_worker=req_worker,
-        allow_cloud=allow_cloud,
-        budget_remaining_usd=budget_rem,
-    )
+            # Fast budget + cached router catalog
+            with ptrace.span("session.load", cache_hit=True):
+                budget_rem = await _session_budget_remaining_usd(svc, data["raw"], cfg, rt)
+            with ptrace.span("model.catalog", cache_hit=orch.router_catalog_cache is not None):
+                catalog = await build_model_router_catalog(svc)
+            with ptrace.span("model.route", mode=effective_mode):
+                route = select_route_for_request(
+                    catalog,
+                    mode=effective_mode,
+                    requested_model=req_model,
+                    requested_worker=req_worker,
+                    allow_cloud=allow_cloud,
+                    budget_remaining_usd=budget_rem,
+                )
 
-    # 1. SELF-IMPROVE mode (`/improve`)
-    if effective_mode == "SELF-IMPROVE":
-        imp_rec = await _run_improve_pipeline(
-            request,
-            svc,
-            ImproveRunIn(
-                session_id=session_id,
-                problem=text_arg or None,
-                model=route["model"],
-                worker=route["worker"],
-                allow_cloud=allow_cloud,
-                auto_propose_only=True,
-            ),
-            session_id=session_id,
-        )
-        imp_ids = list(cfg.get("improve_ids") or [])
-        imp_ids.append(imp_rec["id"])
-        await _update_session_cfg(svc, session_id, improve_ids=imp_ids)
-        turn = _new_turn(next_synthetic_task_id(), body.text, [])
-        turn.update({
-            "mode": "SELF-IMPROVE",
-            "improve_id": imp_rec["id"],
-            "synthetic_status": imp_rec["status"],
-            "synthetic_result": (
-                f"Цикл самоулучшения `{imp_rec['id']}` выполнен до гейта одобрения владельца "
-                f"(Receipt `{imp_rec['mission_receipt']['sha256'][:12]}`, approval_id={imp_rec['approval_id']})."
-            ),
-        })
-        idx = await _append_turn(svc, session_id, turn)
-        await _touch_meta(svc, session_id)
-        return {
-            "mode": "SELF-IMPROVE",
-            "bypass_permissions": bypass_permissions,
-            "session_id": session_id,
-            "route": route,
-            "turn": {"idx": idx, **turn},
-            "improve": imp_rec,
-        }
+            # 1. SELF-IMPROVE mode (`/improve`)
+            if effective_mode == "SELF-IMPROVE":
+                imp_rec = await _run_improve_pipeline(
+                    request,
+                    svc,
+                    ImproveRunIn(
+                        session_id=session_id,
+                        problem=text_arg or None,
+                        model=route["model"],
+                        worker=route["worker"],
+                        allow_cloud=allow_cloud,
+                        auto_propose_only=True,
+                    ),
+                    session_id=session_id,
+                )
+                imp_ids = list(cfg.get("improve_ids") or [])
+                imp_ids.append(imp_rec["id"])
+                await _update_session_cfg(svc, session_id, improve_ids=imp_ids)
+                turn = _new_turn(next_synthetic_task_id(), body.text, [])
+                turn.update({
+                    "mode": "SELF-IMPROVE",
+                    "improve_id": imp_rec["id"],
+                    "synthetic_status": imp_rec["status"],
+                    "synthetic_result": (
+                        f"Цикл самоулучшения `{imp_rec['id']}` выполнен до гейта одобрения владельца "
+                        f"(Receipt `{imp_rec['mission_receipt']['sha256'][:12]}`, approval_id={imp_rec['approval_id']})."
+                    ),
+                })
+                with ptrace.span("receipt.persist", mode="SELF-IMPROVE"):
+                    idx, _ = await _persist_turn_fast(svc, session_id, turn)
+                return {
+                    "mode": "SELF-IMPROVE",
+                    "bypass_permissions": bypass_permissions,
+                    "session_id": session_id,
+                    "route": route,
+                    "turn": {"idx": idx, **turn},
+                    "improve": imp_rec,
+                    "perf_trace_id": ptrace.trace_id,
+                }
 
-    # 2. CODE mode (OpenCode task in isolated worktree OR agent with coding tools)
-    if effective_mode == "CODE" and (route.get("worker") or body.verify_tests or body.allowed_paths):
-        ct_in = CodingTaskIn(
-            instruction=text,
-            source_repo=body.source_repo or "self",
-            self_target=(body.source_repo in ("self", "bossman", "")),
-            allowed_paths=body.allowed_paths,
-            verify_tests=body.verify_tests,
-            model=route["model"] if route["locality"] == "local" else None,
-            worker=route["worker"],
-            agent_id=body.agent_id or cfg.get("agent_id"),
-        )
-        created_ct = await create_coding_task(ct_in, request)
-        if isinstance(created_ct, JSONResponse):
-            payload = json.loads(created_ct.body.decode("utf-8"))
-            raise HTTPException(created_ct.status_code, payload.get("error") or payload)
-        ct_id = created_ct.get("id")
-        if ct_id:
-            orch.coding_to_session[ct_id] = session_id
-            ct_ids = list(cfg.get("coding_task_ids") or [])
-            if ct_id not in ct_ids:
-                ct_ids.append(ct_id)
-            await _update_session_cfg(svc, session_id, coding_task_ids=ct_ids)
-        turn = _new_turn(next_synthetic_task_id(), body.text, [])
-        turn.update({
-            "mode": "CODE",
-            "coding_task_id": ct_id,
-            "synthetic_status": created_ct.get("status", "running"),
-            "synthetic_result": f"Запущена задача OpenCode `{ct_id}` в изолированном worktree ({route['model']}).",
-        })
-        idx = await _append_turn(svc, session_id, turn)
-        await _touch_meta(svc, session_id)
-        rt.emit("task.progress", mode="CODE", coding_task_id=ct_id, status=created_ct.get("status"), route=route)
-        return {
-            "mode": "CODE",
-            "bypass_permissions": bypass_permissions,
-            "session_id": session_id,
-            "route": route,
-            "turn": {"idx": idx, **turn},
-            "coding_task": created_ct,
-        }
+            # 2. CODE mode (OpenCode task in isolated worktree OR agent with coding tools)
+            if effective_mode == "CODE" and (route.get("worker") or body.verify_tests or body.allowed_paths):
+                ct_in = CodingTaskIn(
+                    instruction=text,
+                    source_repo=body.source_repo or "self",
+                    self_target=(body.source_repo in ("self", "bossman", "")),
+                    allowed_paths=body.allowed_paths,
+                    verify_tests=body.verify_tests,
+                    model=route["model"] if route["locality"] == "local" else None,
+                    worker=route["worker"],
+                    agent_id=body.agent_id or cfg.get("agent_id"),
+                )
+                with ptrace.span("task.create", mode="CODE"):
+                    created_ct = await create_coding_task(ct_in, request)
+                if isinstance(created_ct, JSONResponse):
+                    payload = json.loads(created_ct.body.decode("utf-8"))
+                    raise HTTPException(created_ct.status_code, payload.get("error") or payload)
+                ct_id = created_ct.get("id")
+                if ct_id:
+                    orch.coding_to_session[ct_id] = session_id
+                    ct_ids = list(cfg.get("coding_task_ids") or [])
+                    if ct_id not in ct_ids:
+                        ct_ids.append(ct_id)
+                    await _update_session_cfg(svc, session_id, coding_task_ids=ct_ids)
+                turn = _new_turn(next_synthetic_task_id(), body.text, [])
+                turn.update({
+                    "mode": "CODE",
+                    "coding_task_id": ct_id,
+                    "synthetic_status": created_ct.get("status", "running"),
+                    "synthetic_result": f"Запущена задача OpenCode `{ct_id}` в изолированном worktree ({route['model']}).",
+                })
+                with ptrace.span("receipt.persist", mode="CODE"):
+                    idx, _ = await _persist_turn_fast(svc, session_id, turn)
+                with ptrace.span("ws.deliver", mode="CODE"):
+                    rt.emit("task.progress", mode="CODE", coding_task_id=ct_id, status=created_ct.get("status"), route=route)
+                return {
+                    "mode": "CODE",
+                    "bypass_permissions": bypass_permissions,
+                    "session_id": session_id,
+                    "route": route,
+                    "turn": {"idx": idx, **turn},
+                    "coding_task": created_ct,
+                    "perf_trace_id": ptrace.trace_id,
+                }
 
-    # 3. CHAT / AGENT / AUTO / COMPUTER / CODE (via Bossman governed task engine)
-    matched_skill = await asyncio.to_thread(match_workspace_skill_for_task, svc, text)
-    request_id = body.client_request_id or ("ag-" + time.strftime("%Y%m%d%H%M%S") + "-" + secrets.token_hex(6))
-    existing = await _task_by_request_id(svc, request_id)
-    if existing is not None:
-        from .chat_threads import _replay
-        rep = await _replay(request, svc, session_id, existing, text, body.attachments)
-        rep["mode"] = effective_mode
-        rep["bypass_permissions"] = bypass_permissions
-        rep["route"] = route
-        rep["matched_skill"] = matched_skill
-        rep["task_id"] = int(existing["id"])
-        return rep
+            # 3. CHAT / AGENT / AUTO / COMPUTER / CODE (via Bossman governed task engine)
+            with ptrace.span("skill.match", mode=effective_mode, cache_hit=bool(orch.skill_index_cache)):
+                matched_skill = match_workspace_skill_for_task(svc, text)
+            request_id = body.client_request_id or ("ag-" + time.strftime("%Y%m%d%H%M%S") + "-" + secrets.token_hex(6))
+            existing = (await _task_by_request_id(svc, body.client_request_id)) if body.client_request_id else None
+            if existing is not None:
+                from .chat_threads import _replay
+                rep = await _replay(request, svc, session_id, existing, text, body.attachments)
+                rep["mode"] = effective_mode
+                rep["bypass_permissions"] = bypass_permissions
+                rep["route"] = route
+                rep["matched_skill"] = matched_skill
+                rep["task_id"] = int(existing["id"])
+                rep["perf_trace_id"] = ptrace.trace_id
+                return rep
 
-    attachments = _resolve_attachments(svc, body.attachments, session_id)
-    mode_prefix = ""
-    if effective_mode == "COMPUTER":
-        mode_prefix = (
-            "[Режим COMPUTER USE (Windows): следуй циклу OBSERVE -> PLAN -> APPROVE -> ACT -> VERIFY. "
-            "Используй computer.observe / terminal.run / browser.* по выданным правам.]\n"
-        )
-    elif effective_mode in ("CODE", "AUTO"):
-        mode_prefix = (
-            "[Режим OPENCODE / AUTO: используй code.search, code.expand, code.status, terminal.run "
-            "для чтения кода, проверки git status/diff и запуска pytest.]\n"
-        )
-    skill_prefix = ""
-    if matched_skill is not None:
-        skill_prefix = (
-            f"[Выбран проверенный навык `{matched_skill['id']}` v{matched_skill['version']} "
-            f"(required_tools={matched_skill['required_tools']})]\n"
-            f"{matched_skill['prompt_block']}\n\n"
-        )
-    prompt = await _compose_prompt(svc, data["raw"], mode_prefix + skill_prefix + text, attachments)
-    chosen_agent_id = await _resolve_agent_id_for_model(svc, body.agent_id or cfg.get("agent_id"), route["model"])
+            with ptrace.span("memory.retrieve", mode=effective_mode):
+                attachments = _resolve_attachments(svc, body.attachments, session_id) if body.attachments else []
+                mode_prefix = ""
+                if effective_mode == "COMPUTER":
+                    mode_prefix = (
+                        "[Режим COMPUTER USE (Windows): следуй циклу OBSERVE -> PLAN -> APPROVE -> ACT -> VERIFY. "
+                        "Используй computer.observe / terminal.run / browser.* по выданным правам.]\n"
+                    )
+                elif effective_mode in ("CODE", "AUTO"):
+                    mode_prefix = (
+                        "[Режим OPENCODE / AUTO: используй code.search, code.expand, code.status, terminal.run "
+                        "для чтения кода, проверки git status/diff и запуска pytest.]\n"
+                    )
+                skill_prefix = ""
+                if matched_skill is not None:
+                    skill_prefix = (
+                        f"[Выбран проверенный навык `{matched_skill['id']}` v{matched_skill['version']} "
+                        f"(required_tools={matched_skill['required_tools']})]\n"
+                        f"{matched_skill['prompt_block']}\n\n"
+                    )
+                prompt = await _compose_prompt(svc, data["raw"], mode_prefix + skill_prefix + text, attachments)
+                chosen_agent_id = await _resolve_agent_id_for_model(svc, body.agent_id or cfg.get("agent_id"), route["model"])
 
-    status_code, pre = await _internal(
-        request, "POST", "/api/tasks/preflight",
-        {"prompt": prompt, "agent_id": chosen_agent_id},
-    )
-    if status_code >= 400 or not isinstance(pre, dict):
-        raise _passthrough(status_code, pre)
-    if not pre.get("ok") or not isinstance(pre.get("agent"), dict):
-        raise _fail(
-            409,
-            pre.get("reason") or "исполнитель недоступен",
-            code=pre.get("code") or "BLOCKED_CAPABILITY_UNAVAILABLE",
-            hint=pre.get("hint"),
-        )
-    agent = {"id": pre["agent"].get("id"), "name": pre["agent"].get("name")}
+            from ..task_admission import ExecutorUnavailable, select_executor
+            from .chat_threads import _admission_of, _model_view, _turn_view
 
-    title = re.sub(r"\s+", " ", text)[:80] or text[:80]
-    status_code, created = await _internal(request, "POST", "/api/tasks", {
-        "prompt": prompt,
-        "title": title,
-        "agent_id": agent["id"],
-        "run_now": False,
-        "client_request_id": request_id,
-    })
-    if status_code >= 400 or not isinstance(created, dict) or not isinstance(created.get("task"), dict):
-        raise _passthrough(status_code, created)
-    task = created["task"]
-    task_id = int(task["id"])
-    orch.task_to_session[task_id] = session_id
+            title = re.sub(r"\s+", " ", text)[:80] or text[:80]
+            async with svc.db.session() as s:
+                with ptrace.span("preflight", mode=effective_mode):
+                    try:
+                        chosen = await select_executor(s, prompt=prompt, agent_id=chosen_agent_id)
+                    except ExecutorUnavailable as exc:
+                        raise _fail(
+                            409,
+                            str(exc) or "исполнитель недоступен",
+                            code="BLOCKED_CAPABILITY_UNAVAILABLE",
+                            hint=exc.hint,
+                        ) from None
+                    agent = {"id": int(chosen["id"]), "name": chosen.get("name")}
 
-    turn = _new_turn(task_id, body.text, attachments)
-    turn["mode"] = effective_mode
-    if matched_skill is not None:
-        turn["matched_skill"] = {
-            "id": matched_skill["id"],
-            "version": matched_skill["version"],
-            "required_tools": matched_skill["required_tools"],
-        }
-    idx = await _append_turn(svc, session_id, turn)
-    await _touch_meta(svc, session_id)
+                with ptrace.span("task.create", mode=effective_mode):
+                    now_dt = utcnow()
+                    res = await s.execute(sa.insert(tasks_t).values(
+                        title=title,
+                        prompt=prompt,
+                        agent_id=agent["id"],
+                        priority=5,
+                        max_retries=2,
+                        status="draft",
+                        created_at=now_dt,
+                        updated_at=now_dt,
+                        meta={"client_request_id": request_id},
+                    ))
+                    task_id = int(res.inserted_primary_key[0])
+                    await s.commit()
 
-    from .chat_threads import _send_response, _start
-    run_id, admission = await _start(request, task_id)
-    rt.emit("task.progress", task_id=task_id, run_id=run_id, mode=effective_mode,
-            bypass_permissions=bypass_permissions, matched_skill=(matched_skill or {}).get("id"),
-            status=admission.get("status"), route=route)
-    resp = await _send_response(svc, session_id, idx, turn, task_id, run_id, admission, agent, False)
-    resp["mode"] = effective_mode
-    resp["bypass_permissions"] = bypass_permissions
-    resp["route"] = route
-    resp["matched_skill"] = matched_skill
-    resp["task_id"] = task_id
-    return resp
+            await svc.bus.emit("task.created", task_id=task_id, title=title, agent_id=agent["id"])
+            orch.task_to_session[task_id] = session_id
+
+            turn = _new_turn(task_id, body.text, attachments)
+            turn["mode"] = effective_mode
+            if matched_skill is not None:
+                turn["matched_skill"] = {
+                    "id": matched_skill["id"],
+                    "version": matched_skill["version"],
+                    "required_tools": matched_skill["required_tools"],
+                    "fast_path": matched_skill.get("fast_path", False),
+                }
+            with ptrace.span("receipt.persist", mode=effective_mode):
+                idx, updated_data = await _persist_turn_fast(svc, session_id, turn)
+
+            with ptrace.span("queue.wait", mode=effective_mode):
+                run_id = await svc.engine.enqueue(task_id, only_if_idle=True)
+                adm_raw = await svc.engine.admission_result(task_id, run_id)
+                admission = _admission_of(200, adm_raw)
+
+            with ptrace.span("ws.deliver", mode=effective_mode):
+                task_status = str(admission.get("status") or "queued")
+                rt.emit("task.progress", task_id=task_id, run_id=run_id, mode=effective_mode,
+                        bypass_permissions=bypass_permissions, matched_skill=(matched_skill or {}).get("id"),
+                        status=task_status, route=route)
+                _agents_c, models_c, providers_c = await _cached_catalog(svc)
+                chosen_model_row = models_c.get(chosen.get("model_id")) if chosen else None
+                model_v = (
+                    _model_view(chosen_model_row, providers_c.get((chosen_model_row or {}).get("provider_id")))
+                    if chosen_model_row else None
+                )
+                thread_pub = _public(_summary(
+                    session_id,
+                    updated_data,
+                    _entry(_read_meta(svc), session_id),
+                    {task_id: task_status},
+                ))
+                resp = {
+                    "thread": thread_pub,
+                    "turn": _turn_view(idx, turn),
+                    "task": {"id": task_id, "status": task_status},
+                    "run_id": run_id,
+                    "admission": admission,
+                    "agent": agent,
+                    "model": {
+                        "id": model_v.get("id"),
+                        "alias": model_v.get("alias"),
+                        "locality": model_v.get("locality"),
+                        "locality_detail": model_v.get("locality_detail"),
+                        "billing": model_v.get("billing"),
+                    } if model_v else None,
+                    "replayed": False,
+                    "mode": effective_mode,
+                    "bypass_permissions": bypass_permissions,
+                    "route": route,
+                    "matched_skill": matched_skill,
+                    "task_id": task_id,
+                    "perf_trace_id": ptrace.trace_id,
+                }
+            return resp
 
 
 @router.get("/agent/sessions/{session_id}/events")
