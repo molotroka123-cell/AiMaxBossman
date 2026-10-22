@@ -352,11 +352,13 @@
       kv('Строгий режим', st.strict ? (st.scope_all ? 'включён · для всех' : 'включён · только мой чат') : 'выключен'),
       kv('Облако, если ПК занят', st.cloud_fallback === false ? 'выключено'
         : `включено${st.cloud_calls_today ? ` · сегодня ${st.cloud_calls_today}` : ''}`),
+      kv('Ссылки (§N) в ответах', st.show_citations ? 'показываются' : 'скрыты'),
     );
     $('jeff-strict').checked = !!st.strict;
     $('jeff-strict').disabled = !st.readable;
     $('jeff-scope-all').checked = !!st.scope_all;
     $('jeff-cloud').checked = st.cloud_fallback !== false;     // owner 21.10: ON unless switched off
+    $('jeff-citations').checked = st.show_citations === true;  // owner 22.10: marks hidden unless switched on
     $('jeff-delete-btn').disabled = !st.present;
     $('jeff-model-line').textContent = `Модель Jeff: ${m.effective || '—'}${m.override ? ' (выбрана вами)' : ' (по умолчанию)'}`;
   }
@@ -419,6 +421,11 @@
       tap();
       jeffAct(() => api('PUT', '/jeff-kb/mode', { cloud_fallback: $('jeff-cloud').checked }),
         $('jeff-cloud').checked ? 'Облачный запасной вариант включён' : 'Только локальная модель');
+    });
+    $('jeff-citations').addEventListener('change', () => {
+      tap();
+      jeffAct(() => api('PUT', '/jeff-kb/mode', { show_citations: $('jeff-citations').checked }),
+        $('jeff-citations').checked ? 'Ссылки на разделы показываются' : 'Jeff отвечает без отсылок');
     });
     $('jeff-model-gemma').addEventListener('click', () => { tap(); jeffAct(() => api('PUT', '/jeff-kb/model', { model: JEFF_GEMMA }), 'Jeff отвечает через Gemma'); });
     $('jeff-model-default').addEventListener('click', () => { tap(); jeffAct(() => api('DELETE', '/jeff-kb/model'), 'Модель Jeff по умолчанию'); });

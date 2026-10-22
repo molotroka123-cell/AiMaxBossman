@@ -3110,6 +3110,7 @@ class ParticipantRuntime:
         # unavailable (no local route, timeout, no connection, 5xx, model not loaded); never after a local answer.
         kb_state = pit_jeff_kb.read_state(self.vault.data_dir) if kb_sections else None
         kb_cloud_allowed = bool(kb_state and kb_state["cloud_fallback"])
+        kb_hide_marks = bool(kb_state) and not kb_state["show_citations"]      # owner 22.10: no «(§N)» in the chat
         kb_local_cap = pit_jeff_kb_cloud.local_timeout_s(kb_state) if kb_cloud_allowed else 0.0
         kb_local_tried = False
         kb_local_failure = ""
@@ -3395,7 +3396,11 @@ class ParticipantRuntime:
                             result = None
                             break
                     await turn_stream.reset()   # a previous attempt's preview is not this answer
-                    stream_kw = ({"on_delta": turn_stream.on_delta}
+                    draft_sink = turn_stream.on_delta
+                    if kb_sections and kb_hide_marks:
+                        # one filter per attempt: the live draft carries no «(§N)» either (a half-typed mark is held back)
+                        draft_sink = pit_jeff_kb.CitationHider(turn_stream.on_delta).on_delta
+                    stream_kw = ({"on_delta": draft_sink}
                                  if provider == "local" or turn_stream.sink is not None else {})
                     if provider == "local":
                         result = await asyncio.wait_for(self._local_chat(
@@ -3543,7 +3548,7 @@ class ParticipantRuntime:
             return INCOMPLETE_REPLY_RU if incomplete_seen else PROVIDER_DOWN_RU
         answer = render_jeff_reply(result.text)
         if kb_sections:
-            answer, kb_cited = pit_jeff_kb.finalize_answer(answer, kb_sections)
+            answer, kb_cited = pit_jeff_kb.finalize_answer(answer, kb_sections, hide_citations=kb_hide_marks)
             pit_jeff_kb.audit(self.vault.data_dir, "strict_answer", cited=len(kb_cited),
                               no_answer=answer == pit_jeff_kb.NO_ANSWER_RU,
                               engine="cloud" if served_by == "remote" else "local")
