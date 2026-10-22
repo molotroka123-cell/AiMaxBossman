@@ -51,7 +51,7 @@ def test_perf_tracer_sanitization_and_overhead() -> None:
     assert expected_stages.issubset(set(REQUIRED_STAGE_SPANS))
 
     tracer = PerfTracer(max_traces=50)
-    secret_value = "sk-super-secret-owner-token-999999"
+    secret_value = "sk-" + "test-owner-redaction-fixture"
     prompt_value = "секретный промпт владельца с паролем C:\\Users\\asd\\secret.txt"
 
     with tracer.start_trace(
