@@ -13,6 +13,8 @@ Guards checked before every cycle and while waiting:
           (``<owner-data-root>/computer/STOP``) -> finish/abort and exit;
 * PAUSE : ``C:\\Users\\asd\\Bossman\\rc19-owner-test.PAUSE`` or ``<state>/PAUSE`` -> wait;
 * owner busy: another (non-allowed) model is resident in Ollama -> wait;
+* owner active: a live owner chat marker (``<owner data>/runtime/owner_active.json``, bcc/owner_activity.py;
+  ``--owner-data-root`` or ``BCC_DATA_DIR``) -> no new cycle, wait (owner rule 23.10);
 * memory headroom below ``--min-free-gb`` -> wait;
 * daily budget (cycles, model calls, wall seconds; cloud $0) -> sleep to next day.
 State is restart-safe: an exclusive PID lock, atomic ``state.json``, fsync'd
@@ -26,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib.util
 import json
 import os
 import subprocess
@@ -40,6 +43,22 @@ from typing import Any, Optional
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+
+def _load_owner_activity():
+    """bcc/owner_activity.py of THIS checkout, loaded by path (``import bcc`` may resolve to the installed live
+    checkout, which may predate it). Stdlib-only; shared with tools/context_probe.py under one module name."""
+    name = "bossman_owner_activity"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, ROOT / "command-center" / "bcc" / "owner_activity.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+owner_activity = _load_owner_activity()
 
 from tools.owner_journeys import route_ladder as rl  # noqa: E402
 from tools.owner_journeys.runtime_guard import PAUSE_FILE, lower_priority  # noqa: E402
@@ -260,10 +279,19 @@ def stop_requested(cfg: Config) -> Optional[str]:
     return None
 
 
+def owner_reason(cfg: Config) -> Optional[str]:
+    """Owner rule 23.10: a live owner chat turn (``<owner data>/runtime/owner_active.json``) beats this loop - no new
+    cycle starts on the local models while it is live (bcc/owner_activity.py)."""
+    return owner_activity.background_gate(data_dir=cfg.owner_data_root) or None
+
+
 def pause_reason(cfg: Config) -> Optional[str]:
     for p in [PAUSE_FILE, cfg.state_dir / "PAUSE", *cfg.pause_files]:
         if p.is_file():
             return f"pause_file:{p.name}"
+    owner = owner_reason(cfg)
+    if owner:
+        return owner
     try:
         with urllib.request.urlopen(f"{OLLAMA}/api/ps", timeout=5) as resp:  # noqa: S310
             resident = [m.get("name") for m in json.loads(resp.read().decode()).get("models", [])]

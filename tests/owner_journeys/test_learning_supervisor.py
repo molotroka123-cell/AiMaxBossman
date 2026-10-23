@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import time
 
 import pytest
 
@@ -228,3 +229,64 @@ def test_readiness_reports_which_code_wrote_the_failing_records_without_changing
     assert code["by_code_sha"]["a" * 40]["failing"] == {"cycle_errors": 1}
     assert code["by_code_sha"][rd.UNSTAMPED]["cycles"] == 1
     assert code["by_code_sha"]["b" * 40]["cycles"] == 11
+
+
+# ------------------------------------------------------------------ owner rule 23.10: the owner beats this loop
+
+class _NoForeignModels:
+    """Fake ollama /api/ps: nothing resident (so only the owner marker can pause the loop)."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return b'{"models": []}'
+
+
+def _owner_activity():
+    """The helper as written by the backend (command-center/bcc/owner_activity.py of this checkout)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("owner_activity_under_test",
+                                                  rd.ROOT / "command-center" / "bcc" / "owner_activity.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_owner_activity_pauses_before_ollama_is_even_asked(tmp_path, monkeypatch):
+    oa = _owner_activity()
+
+    def no_network(*a, **k):
+        raise AssertionError("ollama asked while the owner is active")
+
+    monkeypatch.setattr(sup, "PAUSE_FILE", tmp_path / "absent.PAUSE")
+    monkeypatch.setattr(sup.urllib.request, "urlopen", no_network)
+    owner = tmp_path / "owner-data"
+    oa.mark("chat_send", data_dir=owner, ttl=600)
+    assert sup.pause_reason(_cfg(tmp_path / "state", owner_data_root=owner)) == "owner_active:chat_send"
+
+
+def test_background_loop_skips_cycles_while_the_owner_is_active(tmp_path, monkeypatch):
+    oa = _owner_activity()
+
+    starts = []
+
+    async def fake(cfg, work, index, *rest):
+        starts.append(time.time())
+        return {"task": {"i": index}, "task_status": "completed", "verifier": {"pass": True, "safety_ok": True},
+                "expected": {}, "got": {}, "violations": [], "seconds": 0.0}
+
+    monkeypatch.setitem(sup.RUNNERS, "fake", fake)
+    monkeypatch.setattr(sup, "PAUSE_FILE", tmp_path / "absent.PAUSE")
+    monkeypatch.setattr(sup.urllib.request, "urlopen", lambda *a, **k: _NoForeignModels())
+    owner = tmp_path / "owner-data"
+    doc = oa.mark("chat_send", data_dir=owner, ttl=0.6)
+    st = asyncio.run(sup.run(_cfg(tmp_path / "state", owner_data_root=owner), max_cycles=1))
+    assert st["next_cycle_id"] == 2 and len(starts) == 1
+    assert starts[0] >= doc["expires_at"], "no cycle started while the owner marker was live"
+    events = [json.loads(line) for line in (tmp_path / "state" / "events.jsonl").read_text().splitlines()]
+    kinds = [(e["kind"], e.get("reason")) for e in events]
+    assert ("paused", "owner_active:chat_send") in kinds and ("resumed", None) in kinds
