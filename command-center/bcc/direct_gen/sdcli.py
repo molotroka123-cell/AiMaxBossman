@@ -411,7 +411,10 @@ class SdCliRunner:
             idx_o = exec_argv.index("-o")
             if idx_o + 1 < len(exec_argv) and str(exec_argv[idx_o + 1]).lower().endswith(".png"):
                 final_out = Path(exec_argv[idx_o + 1])
-                part_out = final_out.with_name(f"{final_out.name}.part")
+                # The temp name must still end in .png: sd-cli appends ".png" to any other -o path, so
+                # "image.png.part" became "image.png.part.png" and the finished picture was reported as
+                # empty_output (owner jobs 23.10).
+                part_out = final_out.with_name(f"{final_out.stem}.part{final_out.suffix}")
                 exec_argv[idx_o + 1] = str(part_out)
                 part_pair = (part_out, final_out)
         self.proc = await asyncio.create_subprocess_exec(

@@ -391,3 +391,20 @@ def test_item18_operator_bridge_persists_decisions_and_keeps_backend_task_on_shu
 
     asyncio.run(_shutdown_cancel())
     assert core_run.cancelled == []
+
+
+def test_sd_cli_temp_output_keeps_png_suffix_so_the_picture_is_not_lost(tmp_path: Path):
+    """Real sd-cli appends ".png" to an -o path not ending in .png; the runner's temp name must end in .png
+    or the finished picture lands next to the expected file and the job fails as empty_output (23.10)."""
+    engine = tmp_path / "fake_sd_cli.py"
+    engine.write_text(
+        "import sys\n"
+        "out = sys.argv[sys.argv.index('-o') + 1]\n"
+        "out = out if out.lower().endswith('.png') else out + '.png'\n"
+        "open(out, 'wb').write(bytes([137, 80, 78, 71, 13, 10, 26, 10]) + b'0' * 32)\n", encoding="utf-8")
+    final = tmp_path / "result" / "image.png"
+    final.parent.mkdir()
+    run = asyncio.run(sdcli.SdCliRunner().run([sys.executable, str(engine), "-o", str(final)], cwd=tmp_path))
+    assert run.returncode == 0
+    assert final.is_file(), sorted(p.name for p in final.parent.iterdir())
+    assert sorted(p.name for p in final.parent.iterdir()) == ["image.png"]

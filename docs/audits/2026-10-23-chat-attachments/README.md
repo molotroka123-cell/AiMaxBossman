@@ -10,3 +10,7 @@ Tool: `tools/prove_chat_attachments.py --agent 41` (Gemma 4 uncensored), synthet
 
 Photo → refined prompt → local uncensored Qwen edit (Direct Gen): `tools/prove_chat_photo_edit.py`, receipts
 `photo-edit-*.json` in this folder.
+
+| receipt | verdict | note |
+|---|---|---|
+| `photo-edit-20261023-1022.json` | FAIL (found a real Direct Gen bug) | hand-off 5/5 PASS: Gemma read the code off the picture, wrote its own English edit prompt, queued `qwen-image-2.1-uc-edit` with 1 reference. The edit itself failed `empty_output`: sd-cli writes `image.png.part.png` (it appends `.png` to a non-png `-o`), the runner looked for `image.png.part`. Same cause as an owner job failing earlier on 23.10. Fixed in `bcc/direct_gen/sdcli.py` (temp name `image.part.png`) + regression test with a negative control. |
