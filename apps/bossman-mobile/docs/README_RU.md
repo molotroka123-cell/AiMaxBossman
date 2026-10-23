@@ -104,6 +104,12 @@
 * Выбор локального агента проверяется в момент отправки; если владелец позже сменит агенту модель на облачную,
   следующая отправка будет отклонена, но уже идущий ход Bossman доведёт сам.
 * Запуск: `python -m bossmobile` (из `apps\bossman-mobile`), логи — `%USERPROFILE%\.bossman-mobile\server.*.log`.
+* Живучесть (инцидент 23.10: процесс жив, порт 8840 не отвечает). На Windows стандартный ProactorEventLoop после
+  одной неудачной `accept` (например, `WinError 64`, когда прокси Tailscale сбросил соединение в момент приёма)
+  закрывал слушающий сокет навсегда. Теперь `serve` работает на `bossmobile.serve_loop` (accept перевзводится с
+  паузой 0,05–2 с) под надзором `bossmobile.supervisor`: поток раз в 15 с делает `GET /m/api/health`; после 3 промахов
+  подряд сервер перезапускается внутри процесса (сессии телефона сохраняются в `sessions.json`). Настройки:
+  `BOSSMAN_MOBILE_WATCHDOG_INTERVAL_S`, `BOSSMAN_MOBILE_WATCHDOG_FAILURES`, `BOSSMAN_MOBILE_WATCHDOG_TIMEOUT_S`.
 
 ## Меню “/”, шкала контекста, compact, memory
 

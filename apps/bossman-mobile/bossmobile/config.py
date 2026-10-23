@@ -31,6 +31,10 @@ class Settings:
     session_ttl_s: int = 30 * 24 * 3600
     login_failures_per_min: int = 5
     login_failures_global_per_min: int = 20
+    # serve watchdog (incident 23.10): GET /m/api/health every interval; after `failures` misses the listener is restarted
+    watchdog_interval_s: float = field(default_factory=lambda: float(os.environ.get("BOSSMAN_MOBILE_WATCHDOG_INTERVAL_S", "15")))
+    watchdog_failures: int = field(default_factory=lambda: int(os.environ.get("BOSSMAN_MOBILE_WATCHDOG_FAILURES", "3")))
+    watchdog_probe_timeout_s: float = field(default_factory=lambda: float(os.environ.get("BOSSMAN_MOBILE_WATCHDOG_TIMEOUT_S", "5")))
 
     def __post_init__(self) -> None:
         self.token_file = Path(self.token_file)
