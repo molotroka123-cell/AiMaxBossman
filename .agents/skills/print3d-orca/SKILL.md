@@ -59,3 +59,20 @@ only once a drive letter appears. There is no pult command for this yet; the own
   `BOSSMAN_PRINT_MIN_LAYER_S=5 BOSSMAN_PRINT_MAX_FLOW=20`. Замер Свобода 215 мм: 10 ч 22 → 6 ч 02; ровно вдвое
   упирается в разгоны на мелкой геометрии (~27 с/слой), подача и поддержки не ограничивают. Для ×0.5 — 190 мм (4 ч 46).
 - Проверка перед отправкой: `M190 S60`, `M109 S220`, X/Y ≤ 230, превью `gcode_view.py`; время и граммы в подпись.
+
+## Drones (3D AI Bossman, owner 23.10: «в будущем Bossman сам должен уметь печатать дроны»)
+Proven 23.10 on TBS Source One V6 (github.com/tbs-trappy/source_one, v6, no LICENSE file — personal use only, do not resell prints).
+1. **Fetch** the repo into a temp dir (`git clone --depth 1`). Sort files: `*.stl` = FDM-printable accessories (camera/antenna/GoPro/SMA
+   mounts, skate); `*.dxf/*.dwg` = the frame plates for CNC carbon — **not** FDM-printable, say so instead of slicing them.
+2. **Measure** each STL (they come in mm here) and slice 1:1: `L` = the part's own longest side.
+   `BOSSMAN_PRINT_NOZZLE=220 BOSSMAN_PRINT_BED=60 python tools/print3d/slice_any.py <stl> <L> none "0.20mm Standard @Elegoo N4Pro 0.4 nozzle" PLA220_bed60 1`
+   (gentle tree supports; flat mounts need almost none, the O4 antenna mount needs the most).
+3. **Verify** every gcode: `M109 S220`, `M190 S60`, X/Y ≤ 230, supports present where overhangs exist; take time and grams from the summary.
+4. **Sheets:** `apps-local/figurine/venv/Scripts/python.exe tools/print3d/before_after_sheet.py <stl dir> <out> <gcode root>` → BEFORE (STL)
+   and AFTER (toolpaths zoomed to the part, purge line ignored). Send both to the pult with `tools/pult_note.py --doc`, then one zip of all gcode.
+5. **Material truth:** these mounts are designed for **TPU** (impact absorbing). PLA prints are for fit tests; flying parts in PLA break on
+   the first hard landing — always tell the owner. TPU profile on the Neptune 4 Pro: ~225–235 °C, 50 °C bed, slow (≤ 25 mm/s), no retraction storms.
+Measured 23.10 (PLA 220/60, 0.20): SMA 13 min 2.0 g · AN-cam 13 min 3.7 g · GoPro 22 min 5.1 g · ImT 11 min 2.4 g · O4 antenna 35 min 5.4 g ·
+O4 cam 17 min 4.3 g · skate 35 min 7.6 g — total ≈ 2 h 27, 30.5 g.
+Next for full "Bossman prints a drone": a TPU preset in `tools/print3d/presets/`, a BOM step (motors/ESC/FC/VTX/props are bought, not printed),
+and a pult command that runs steps 1–4 from a repo URL.
