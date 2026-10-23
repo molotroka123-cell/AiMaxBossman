@@ -10,7 +10,8 @@ entities, ASR-suspect words). Word coverage is MEASURED: the sentences must repr
 window is recorded as partial. Output stays UNVERIFIED (claims are not trading rules until independently checked).
 
 Idle gate: nothing is sent while the owner's marker (bcc.owner_activity) is live or Direct Gen has running/waiting jobs.
-Resume: finished windows are cached (`word_analysis/window-NN.json`); re-running continues where it stopped.
+Resume: finished windows are cached (`word_analysis/window-NN.json`); re-running continues where it stopped and
+retries windows that came back empty.
 """
 from __future__ import annotations
 
@@ -172,8 +173,10 @@ def analyze_video(video_id: str, root: Path, api, *, chain=DEFAULT_CHAIN, window
     for n, window in enumerate(windows, 1):
         path = out / f"window-{n:02d}.json"
         if path.exists():
-            results.append(json.loads(path.read_text(encoding="utf-8")))
-            continue
+            cached = json.loads(path.read_text(encoding="utf-8"))
+            if cached.get("sentences"):                       # an EMPTY window is a failure, not progress: ask again
+                results.append(cached)
+                continue
         if gate is not None:
             gate()
         attempt = ask_chain(api, build_prompt(header, marker, n, len(windows), window),

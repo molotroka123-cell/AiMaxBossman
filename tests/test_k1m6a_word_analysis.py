@@ -161,6 +161,16 @@ def test_idle_gate_waits_for_the_generation_queue_and_the_owner_marker(tmp_path)
     assert kw.wait_idle(quiet, sleep=lambda s: None, data_dir=tmp_path, max_wait_s=40) is False
 
 
+def test_rerun_retries_a_window_that_came_back_empty(tmp_path):
+    _video(tmp_path, "vidFFFFFFFF", sentences=8)
+    bad = FakeApi({25: lambda p: ("completed", "The user wants me to parse the window [1s]...", 0.0)})
+    s1 = kw.analyze_video("vidFFFFFFFF", tmp_path, bad, chain=(25,), window_words=200, header="H\n", marker="\nM\n")
+    assert s1["windows_ok"] == 0
+    good = FakeApi({25: _echo})
+    s2 = kw.analyze_video("vidFFFFFFFF", tmp_path, good, chain=(25,), window_words=200, header="H\n", marker="\nM\n")
+    assert good.calls and s2["windows_ok"] == s2["windows"] and s2["coverage"] == 1.0
+
+
 def test_the_gate_is_asked_before_every_new_window(tmp_path):
     _video(tmp_path, "vidEEEEEEEE")
     api = FakeApi({25: _echo})
