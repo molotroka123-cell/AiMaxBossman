@@ -1,0 +1,23 @@
+{
+  "advisory_id": "BLACK-OCTOBER-20261023",
+  "captured": "2026-10-23",
+  "source_note": "Repost from a Telegram channel quoting an X thread (AISafetyMemes). Social post, not a primary source. Only items that touch Bossman's supply chain are encoded here; each one carries its own verification status. Search-engine corroboration is not the same as reading the vendor advisory.",
+  "deny": [
+    {
+      "component": "litellm",
+      "ecosystem": "pypi+docker",
+      "versions": ["1.107.0"],
+      "docker_tags": ["v1.107.0", "latest", "main-latest", "main-stable"],
+      "window_utc": "2026-10-21T11:39/14:20",
+      "status": "CORROBORATED: several security outlets via web search on 23.10.2026; vendor advisory and package diff not fetched by Bossman",
+      "action": "If a host ever imported litellm 1.107.0 or pulled the listed image tags in the window: isolate, rotate every key on that host, look for stray .pth / sitecustomize.py, rebuild the environment. Pin litellm only to a version released outside the window and re-check hashes."
+    }
+  ],
+  "watch": [
+    {"component": "nginx", "patterns": ["nginx"], "status": "CORROBORATED via web search (three critical CVEs, fixed in 1.30.6 / 1.31.7); Bossman does not run nginx unless a manifest says so", "note": "update if any container or host uses it"},
+    {"component": "gitlab", "patterns": ["gitlab"], "status": "CORROBORATED via web search (CVSS 10, self-managed instances)", "note": "self-managed GitLab only; GitHub-hosted workflows are not affected"},
+    {"component": "php", "patterns": ["php[0-9.]*"], "status": "CORROBORATED via web search (PHP2Shell, fixed in 8.5.12 / 8.4.27 / 8.3.36 / 8.2.35)", "note": "any PHP in a container or helper app"},
+    {"component": "wordpress", "patterns": ["wordpress"], "status": "UNVERIFIED (plugin-developer key theft, single social post)", "note": "update plugins only after checking the plugin vendor notice"},
+    {"component": "plex", "patterns": ["plex"], "status": "UNVERIFIED (home media servers, single social post)", "note": "owner-side check; not part of the Bossman repo"}
+  ]
+}
