@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
@@ -14,8 +15,7 @@ GOOD_LOCK = f"numpy==2.3.0 --hash=sha256:{H}\n# comment\ntorch==2.14.0 --hash=sh
 
 
 def _dataset(tmp_path: Path, rows: list[dict], extra_file: bool = False, tamper: bool = False) -> Path:
-    d = tmp_path / "ds"
-    d.mkdir()
+    d = Path(tempfile.mkdtemp(prefix="ds-", dir=tmp_path))   # a fresh dir per call: tests run the gate twice
     corpus = d / "corpus.jsonl"
     corpus.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
     files = [{"path": "corpus.jsonl", "sha256": hashlib.sha256(corpus.read_bytes()).hexdigest(),
