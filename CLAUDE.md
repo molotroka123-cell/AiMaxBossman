@@ -13,3 +13,9 @@ A historical 2.09x Qwen decode result is not proof that Bossman overall is 2x fa
 Read the 23 October North Star audit and skill-proof receipts, do not assume old green statuses are current. Push evidence checkpoints CP-PERF-00..06 to a work branch and request approval before merging behavioral code to main. These documentation instructions do not permit autonomous production upgrades, costly providers, personal-data uploads, RunPod or permission bypass.
 
 If the agent has only been handed this file, **do not claim the owner machine has been tested**. Ask for owner-PC execution only when necessary; do all noninteractive and local evidence steps first.
+
+## Owner rule 23.10: features are proven, not wrapped
+Read the AGENTS.md section «A feature is PROVEN, not wrapped». A capability is "added" only with unit tests, a live
+proof on the owner's PC through the real pult/chat path with a receipt under `docs/audits/`, and that receipt in the
+merge commit. Anything the owner can see broken is a class-1 red and pre-empts other work. Chat attachments (images,
+scans, pdf/docx/xlsx/pptx) must reach the model as content — proof: `tools/prove_chat_attachments.py`.
