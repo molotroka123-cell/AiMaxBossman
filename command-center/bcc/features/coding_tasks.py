@@ -297,9 +297,11 @@ WORKERS: dict[str, dict[str, str]] = {
     },
     "nvidia-nim": {
         "endpoint": "https://integrate.api.nvidia.com/v1",
-        "model": "nvidia/nemotron-3-super-120b-a12b",
+        # 23.10: Super 120B returns 404 "Function not found" on NIM (both via NIM and via
+        # OpenRouter's Nvidia route); Ultra 550B answers in ~1 s with the same key.
+        "model": "nvidia/nemotron-3-ultra-550b-a55b",
         "key": "NVIDIA_API_KEY",
-        "label": "NVIDIA NIM · Nemotron 3 Super 120B",
+        "label": "NVIDIA NIM · Nemotron 3 Ultra 550B",
         "tier": "free",
         "provider": "NVIDIA NIM",
         "price_display": "$0 / 1M (free credits)",
