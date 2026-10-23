@@ -310,6 +310,14 @@ def _turns(raw: dict) -> list[tuple[int, dict]]:
     return out
 
 
+def last_task_id(raw: dict) -> int | None:
+    """task_id последнего хода, не считая служебных заметок (kind=note): по нему — статус треда в списке."""
+    for _, turn in reversed(_turns(raw)):
+        if not _is_note(turn):
+            return int(turn["task_id"])
+    return None
+
+
 def _compacted_at(raw: dict) -> int:
     # Как Session.open: сессии до /compact полей сжатия не имеют.
     turns = raw.get("turns") if isinstance(raw.get("turns"), list) else []
@@ -428,8 +436,8 @@ def _summary(thread_id: str, data: dict, entry: dict, last_status: dict[int, str
     turns = _turns(raw)
     updated = max(float(data["mtime"]), entry["updated_at"] or 0.0)
     last = None
-    if turns:
-        tid = int(turns[-1][1]["task_id"])
+    tid = last_task_id(raw)               # заметка не задача: статус треда — по последней задаче
+    if tid is not None:
         last = {"task_id": tid, "status": last_status.get(tid, "missing")}
     return {"id": thread_id, "title": entry["title"] or _fallback_title(raw),
             "title_is_fallback": entry["title"] is None, "project": entry["project"],
@@ -444,8 +452,8 @@ def _public(summary: dict) -> dict:
 
 async def _thread_summary(svc: Any, thread_id: str) -> dict:
     data = _require_session(svc, thread_id)
-    turns = _turns(data["raw"])
-    statuses = await _task_statuses(svc, [int(turns[-1][1]["task_id"])] if turns else [])
+    last = last_task_id(data["raw"])
+    statuses = await _task_statuses(svc, [last] if last is not None else [])
     return _public(_summary(thread_id, data, _entry(_read_meta(svc), thread_id), statuses))
 
 
@@ -548,6 +556,55 @@ async def _touch_meta(svc: Any, thread_id: str) -> None:
         entry["updated_at"] = now
 
     await _mutate_meta(svc, apply)
+
+
+#: Служебная заметка в треде (не задача): `{"task_id": <отрицательный>, "kind": "note", "note": {...}}`. Так в тред
+#: приходит то, что случилось ПОСЛЕ ответа агента, — например готовая правка фото (features/photo_edit_delivery).
+#: Это ход с отрицательным task_id, как у служебных ходов /improve и CODE: терминал при перезаписи файла его
+#: сохраняет (сливает ходы по task_id), в контекст модели он не идёт (задачи с таким id нет).
+NOTE_KIND = "note"
+
+
+def _is_note(turn: dict) -> bool:
+    return turn.get("kind") == NOTE_KIND and isinstance(turn.get("note"), dict)
+
+
+def _append_note_sync(path: Path, thread_id: str, note: dict, text: str) -> int | None:
+    """Дописать заметку; заметка с тем же `note["key"]` второй раз не пишется (None)."""
+    key = note.get("key")
+    raw = _read_session_retry(path)
+    if raw is None and not path.exists():
+        raise FileNotFoundError(str(path))
+    turns = raw.get("turns") if isinstance(raw, dict) else None
+    if key and isinstance(turns, list):
+        for existing in turns:
+            if isinstance(existing, dict) and _is_note(existing) and existing["note"].get("key") == key:
+                return None
+    turn = {"task_id": next_synthetic_task_id(), "text": _collapse(text)[:TURN_TEXT_CHARS], "at": _now_turn_at(),
+            "kind": NOTE_KIND, "note": note}
+    return _append_turn_sync(path, thread_id, turn)
+
+
+async def append_note(svc: Any, thread_id: str, note: dict, text: str) -> int | None:
+    """Заметка в тред под тем же замком, что и ходы. 404 — чата нет; None — такая заметка уже есть."""
+    path = _session_path(svc, thread_id)
+    state = _state(svc)
+    async with state.lock:
+        try:
+            idx = await asyncio.to_thread(_append_note_sync, path, thread_id, note, text)
+        except FileNotFoundError:
+            raise _fail(404, "чат не найден", code="CHAT_THREAD_NOT_FOUND") from None
+        except SessionUnreadable as exc:
+            raise _fail(503, "файл чата сейчас не читается — заметка не записана", code="CHAT_THREAD_UNREADABLE",
+                        hint=str(exc)) from None
+    if idx is not None:
+        await _touch_meta(svc, thread_id)
+    return idx
+
+
+def thread_of_task(svc: Any, task_id: int) -> str | None:
+    """Тред, в котором ход с этой задачей (None — задача не из веб-чата/терминала)."""
+    return _thread_of_task(svc, int(task_id), exclude="")
 
 
 def _create_session_sync(root: Path) -> str:
@@ -1078,7 +1135,7 @@ async def list_threads(request: Request, q: str | None = Query(default=None, max
             if needle not in haystack.casefold():
                 continue
         rows.append((thread_id, data, entry))
-    last_ids = [int(_turns(d["raw"])[-1][1]["task_id"]) for _, d, _e in rows if _turns(d["raw"])]
+    last_ids = [i for i in (last_task_id(d["raw"]) for _, d, _e in rows) if i is not None]
     statuses = await _task_statuses(svc, last_ids)
     items = [_summary(tid, data, entry, statuses) for tid, data, entry in rows]
     items.sort(key=lambda it: (not it["pinned"], -it["_updated"], it["id"]))
@@ -1135,6 +1192,8 @@ async def get_thread(thread_id: str, request: Request):
                 "run": view["run"] if view else None}
         if isinstance(turn.get("attachments"), list):
             item["attachments"] = [a for a in turn["attachments"] if isinstance(a, dict)]
+        if _is_note(turn):
+            item.update(kind=NOTE_KIND, note=turn["note"])
         items.append(item)
     statuses = {tid: v["status"] for tid, v in views.items()}
     out = _public(_summary(thread_id, data, _entry(_read_meta(svc), thread_id), statuses))

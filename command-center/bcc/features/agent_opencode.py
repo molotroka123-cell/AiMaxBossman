@@ -109,6 +109,7 @@ from .chat_threads import (
     _thread_summary,
     _touch_meta,
     _turns,
+    last_task_id,
     next_synthetic_task_id,
 )
 from .coding_tasks import (
@@ -1672,7 +1673,7 @@ async def list_agent_sessions(
             if needle not in hay.casefold():
                 continue
         rows.append((tid, data, entry))
-    last_ids = [int(_turns(d["raw"])[-1][1]["task_id"]) for _, d, _e in rows if _turns(d["raw"])]
+    last_ids = [i for i in (last_task_id(d["raw"]) for _, d, _e in rows) if i is not None]
     statuses = await _task_statuses(svc, last_ids)
     items = []
     for tid, data, entry in rows:

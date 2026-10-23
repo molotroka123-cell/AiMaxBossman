@@ -205,6 +205,9 @@ button, .chip, .tab, .thumb { transition: transform .16s ease, background-color 
 
 .inline-photo { margin: 0 0 8px; }
 .inline-photo img { display: block; width: 100%; max-width: 420px; border-radius: var(--r); box-shadow: var(--shadow); }
+.msg.note .note-text { margin: 0 0 8px; }
+.msg.note .note-err { color: var(--err); }
+.msg.note .inline-photo img { cursor: zoom-in; }
 
 .composer { display: flex; align-items: flex-end; gap: 8px; margin: 0 12px 10px; padding: 6px 6px 6px 16px; border-radius: 26px;
   background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
