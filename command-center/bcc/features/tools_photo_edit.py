@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import io
+from pathlib import Path
 
 from ..tools import REGISTRY, ToolContext, ToolResult, ToolSpec
 from . import Feature
@@ -38,7 +39,10 @@ def _reference_bytes(svc, attachment_id: str) -> bytes:
         raise ValueError(f"вложение {attachment_id}: {exc.detail}") from None
     if meta.get("kind") != "image":
         raise ValueError(f"вложение «{meta.get('name')}» — не картинка ({meta.get('kind')})")
-    path = ct._attachment_folder(svc, attachment_id) / str(meta.get("name") or "")
+    folder = ct._attachment_folder(svc, attachment_id)
+    path = folder / Path(str(meta.get("name") or "")).name
+    if path.resolve().parent != folder.resolve() or not path.is_file():
+        raise ValueError(f"файл вложения {attachment_id} не найден")
     data = path.read_bytes()
     if data[:8] == b"\x89PNG\r\n\x1a\n" or data[:3] == b"\xff\xd8\xff":
         return data
@@ -109,7 +113,10 @@ async def _t_edit(args: dict, ctx: ToolContext) -> ToolResult:
             "images_b64": [base64.b64encode(b).decode() for b in images],
             "facelock": bool(args.get("facelock", False))}
     if args.get("steps"):
-        body["steps"] = int(args["steps"])
+        try:
+            body["steps"] = int(args["steps"])
+        except (TypeError, ValueError):
+            return ToolResult(content=f"{EDIT_TOOL}: steps должно быть целым числом", error=True)
     resolution = str(args.get("resolution") or "") or _aspect_resolution(model, images[0])
     if resolution:
         body["resolution"] = resolution

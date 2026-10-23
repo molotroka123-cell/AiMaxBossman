@@ -118,3 +118,54 @@ def test_jpeg_downscale_keeps_long_side_within_limit():
     big.save(buf, "PNG")
     out = Image.open(io.BytesIO(cv._jpeg(buf.getvalue())))
     assert max(out.size) <= cv.MAX_SIDE
+
+
+def test_phone_photo_is_described_upright(tmp_path):
+    """EXIF orientation 6 (rotated 90°): the vision model must get the upright picture."""
+    img = Image.new("RGB", (400, 200), "white")
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    out = io.BytesIO()
+    img.save(out, "JPEG", exif=exif)
+    w, h = Image.open(io.BytesIO(cv._jpeg(out.getvalue()))).size
+    assert (w, h) == (200, 400)
+
+
+def test_inline_description_is_bounded_by_the_wait_budget(tmp_path):
+    p = _png(tmp_path)
+    seen = []
+
+    def post(url, body, timeout):
+        seen.append(timeout)
+        return {"response": "ok"}
+    cv.text_for(p, "image", wait_s=20, post=post)
+    assert seen and seen[0] <= 20, "the chat send path must not wait 600 s per image"
+
+
+def test_two_callers_never_describe_one_file_twice(tmp_path):
+    import threading
+    import time as _t
+    p = _png(tmp_path)
+    calls = []
+
+    def slow(url, body, timeout):
+        calls.append(1)
+        _t.sleep(0.5)
+        return {"response": "once"}
+    res = []
+    threads = [threading.Thread(target=lambda: res.append(cv.text_for(p, "image", wait_s=10, post=slow)))
+               for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(calls) == 1 and all(r[0] == "once" for r in res)
+
+
+def test_scanned_pdf_is_not_left_locked(tmp_path):
+    folder = tmp_path / "att"
+    folder.mkdir()
+    pdf = folder / "scan.pdf"
+    Image.new("RGB", (300, 200), "white").save(pdf, "PDF")
+    cv.pdf_page_images(pdf)
+    pdf.rename(folder / "moved.pdf")            # Windows refuses this while a reader still holds the file

@@ -22,6 +22,9 @@ import urllib.request
 from pathlib import Path
 
 OLLAMA = "http://127.0.0.1:11434"
+# Measured 23.10 on gemma4-31b: 355 304 chars of this filler = 63 491 prompt tokens (the old «~3 chars/token» guess built
+# a prompt of HALF the target, so a 124k probe silently tested 63k).
+CHARS_PER_TOKEN = 5.6
 FILLER = ("Запись {i}: температура {t} градусов, влажность {h} процентов, давление {p} мм, ветер {w} м/с. "
           "Record {i}: temperature {t}, humidity {h}, pressure {p}, wind {w}.")
 
@@ -29,12 +32,12 @@ FILLER = ("Запись {i}: температура {t} градусов, вла
 def build_prompt(target_tokens: int, canary: str) -> str:
     rnd = random.Random(7)
     head = f"СЕКРЕТНЫЙ КОД ДЛЯ ПРОВЕРКИ ПАМЯТИ: {canary}. Запомни его; в самом конце я спрошу этот код.\n\n"
-    parts, approx = [head], len(head) // 3
+    parts, approx = [head], len(head) / CHARS_PER_TOKEN
     i = 0
-    while approx < target_tokens * 0.92:          # ~3 chars/token for this mixed RU/EN filler
+    while approx < target_tokens * 0.92:
         line = FILLER.format(i=i, t=rnd.randint(-30, 40), h=rnd.randint(10, 99), p=rnd.randint(700, 790), w=rnd.randint(0, 25))
         parts.append(line + "\n")
-        approx += len(line) // 3
+        approx += len(line) / CHARS_PER_TOKEN
         i += 1
     parts.append("\n\nВОПРОС: какой СЕКРЕТНЫЙ КОД был в самом начале? Ответь только кодом.")
     return "".join(parts)

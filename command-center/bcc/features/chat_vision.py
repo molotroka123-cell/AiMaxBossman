@@ -46,9 +46,9 @@ def ollama_url() -> str:
 
 
 def _jpeg(data: bytes) -> bytes:
-    from PIL import Image
+    from PIL import Image, ImageOps
     img = Image.open(io.BytesIO(data))
-    img = img.convert("RGB")
+    img = ImageOps.exif_transpose(img).convert("RGB")     # phone photos: describe them upright, not sideways
     img.thumbnail((MAX_SIDE, MAX_SIDE))
     out = io.BytesIO()
     img.save(out, "JPEG", quality=88)
@@ -59,10 +59,11 @@ def pdf_page_images(path: Path, max_pages: int = MAX_PDF_PAGES) -> list[bytes]:
     """Scanned PDFs keep each page as an embedded image: take the largest image of each page."""
     import pypdf
     out: list[bytes] = []
-    for page in pypdf.PdfReader(str(path)).pages[:max_pages]:
-        imgs = list(getattr(page, "images", []) or [])
-        if imgs:
-            out.append(max(imgs, key=lambda i: len(i.data)).data)
+    with open(path, "rb") as fh:                          # closed at once: Windows keeps an open PDF locked
+        for page in pypdf.PdfReader(fh).pages[:max_pages]:
+            imgs = list(getattr(page, "images", []) or [])
+            if imgs:
+                out.append(max(imgs, key=lambda i: len(i.data)).data)
     return out
 
 
@@ -95,7 +96,7 @@ def enabled() -> bool:
     return os.environ.get("BOSSMAN_CHAT_VISION", "on").strip().lower() not in ("off", "0", "false", "no")
 
 
-def run(path: Path, kind: str, *, post=None) -> str:
+def run(path: Path, kind: str, *, post=None, timeout: float = 600.0) -> str:
     """Describe now (blocking) and cache; failures are cached too so the prompt can say why."""
     folder = path.parent
     try:
@@ -104,7 +105,7 @@ def run(path: Path, kind: str, *, post=None) -> str:
         images = _images_for(path, kind)
         if not images:
             raise RuntimeError("в PDF нет ни текста, ни изображений страниц")
-        text = describe(images, post=post)
+        text = describe(images, post=post, timeout=timeout)
     except Exception as exc:  # noqa: BLE001 - the reason goes to the model and the owner, not a traceback
         (folder / VISION_ERR).write_text(f"{type(exc).__name__}: {str(exc)[:300]}", encoding="utf-8")
         raise
@@ -134,21 +135,29 @@ def start_background(path: Path, kind: str) -> None:
 
 
 def text_for(path: Path, kind: str, *, wait_s: float = WAIT_S, post=None) -> tuple[str | None, str | None]:
-    """(description, error). Waits for a running background job, else describes inline."""
+    """(description, error). Waits for a running background job, else describes inline — claiming the same
+    `_running` key, so two callers never describe one file at once, and bounded by the same wait budget (the chat
+    send path must not block for minutes per image)."""
     folder = path.parent
+    key = str(path)
     deadline = time.monotonic() + wait_s
     while True:
         done = folder / VISION_FILE
         if done.is_file():
             return done.read_text(encoding="utf-8", errors="replace"), None
         with _lock:
-            busy = str(path) in _running
+            busy = key in _running
+            if not busy:
+                _running.add(key)
         if not busy:
             break
         if time.monotonic() > deadline:
             return None, f"распознавание не успело за {int(wait_s)} с"
         time.sleep(1.0)
     try:
-        return run(path, kind, post=post), None
+        return run(path, kind, post=post, timeout=max(5.0, deadline - time.monotonic())), None
     except Exception as exc:  # noqa: BLE001
         return None, f"{type(exc).__name__}: {str(exc)[:200]}"
+    finally:
+        with _lock:
+            _running.discard(key)
