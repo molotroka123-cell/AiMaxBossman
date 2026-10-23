@@ -79,23 +79,42 @@ async def _write_setting_json(svc, key: str, value: Any) -> None:
         await s.commit()
 
 
-async def allowed_roots(svc) -> list[Path]:
-    raw = await _setting_json(svc, CODE_ROOTS_KEY, None)
+async def _configured_roots(svc, key: str) -> list[Path]:
+    raw = await _setting_json(svc, key, None)
     if isinstance(raw, list) and raw:
         roots = [Path(str(x)).expanduser().resolve() for x in raw]
-        existing = [x for x in roots if x.exists()]
-        if existing:
-            return existing
+        return [x for x in roots if x.exists()]
+    return []
 
-    raw = await _setting_json(svc, TERMINAL_ROOTS_KEY, None)
-    if isinstance(raw, list) and raw:
-        roots = [Path(str(x)).expanduser().resolve() for x in raw]
-        existing = [x for x in roots if x.exists()]
-        if existing:
-            return existing
+
+async def allowed_roots(svc) -> list[Path]:
+    existing = await _configured_roots(svc, CODE_ROOTS_KEY)
+    if existing:
+        return existing
+
+    existing = await _configured_roots(svc, TERMINAL_ROOTS_KEY)
+    if existing:
+        return existing
 
     # Never default to HOME, / or an entire drive.
     return [_repo_root()]
+
+
+async def code_roots(svc) -> list[Path]:
+    """Roots the read-only code.* tools search; the FIRST one is the default root.
+
+    An explicit `code.roots` is used exactly. Without it, allowed_roots() falls back
+    to `terminal.roots`, whose first entry is whatever the terminal was opened on —
+    on the owner PC (23.10) the Python stdlib dir — so code.search without `root`
+    searched the stdlib and returned 0 results 24 times for a Bossman code review.
+    The Bossman repo (the same default allowed_roots() already uses when nothing is
+    configured) is therefore put first. Never HOME / a whole drive; resolve_root()
+    keeps the private-path and scratch checks for every candidate."""
+    explicit = await _configured_roots(svc, CODE_ROOTS_KEY)
+    if explicit:
+        return explicit
+    repo = _repo_root()
+    return [repo] + [x for x in await allowed_roots(svc) if x != repo]
 
 
 async def extra_ignores(svc) -> list[str]:
@@ -107,7 +126,7 @@ async def resolve_root(svc, raw: str | None, workspace: str = "", ctx=None) -> P
     blocked_raw, reason_raw = is_private_chat_or_personal_path(raw)
     if blocked_raw:
         raise PermissionError(reason_raw)
-    roots = await allowed_roots(svc)
+    roots = await code_roots(svc)
     if ctx is not None and str(raw or "").strip() == SCRATCH_ALIAS:
         return scratch.ensure(scratch.for_context(ctx))
     candidate = Path(raw or workspace or str(roots[0])).expanduser()
