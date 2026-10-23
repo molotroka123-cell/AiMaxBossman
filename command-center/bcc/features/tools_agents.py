@@ -218,6 +218,18 @@ async def tool_call_agent(args: dict, ctx: ToolContext) -> ToolResult:
     if _BYPASS_RE.search(description) or _BYPASS_RE.search(ctx_blob):
         return _err("делегирование не может отключать или обходить STOP, права, бюджет и подтверждения владельца")
 
+    # Секреты не пересылаются через делегирование: ключи живут в vault. Фильтр тот же, что у памяти проекта.
+    from ..hybrid.context_filter import SecretMaterialRefused, scrub_for_memory
+    try:
+        scrubbed_desc = scrub_for_memory(description)
+        scrubbed_ctx = scrub_for_memory(ctx_blob) if ctx_blob else None
+    except SecretMaterialRefused:
+        return _err("поручение целиком состоит из секретного материала — ключи не передаются агентам, используйте vault",
+                    "call_agent: секрет в поручении")
+    redactions = sorted(set(scrubbed_desc.redactions) | set(scrubbed_ctx.redactions if scrubbed_ctx else ()))
+    description = scrubbed_desc.body
+    ctx_blob = scrubbed_ctx.body if scrubbed_ctx else ""
+
     why_stop = tools_cloud.stop_reason(ctx.svc)
     if why_stop:
         return _err(f"STOP активен ({why_stop}) — новые делегирования запрещены", "call_agent: STOP")
@@ -242,6 +254,9 @@ async def tool_call_agent(args: dict, ctx: ToolContext) -> ToolResult:
         return _err(f"агент #{agent_id} не найден — вызовите agents.list")
     if not found["usable"]:
         return _err(found["refusal"] or "агент недоступен по политике допуска моделей")
+    if redactions and found["group"] != "local":
+        return _err("в поручении найден секретный материал (" + ", ".join(redactions) + "): облачному агенту он не отправляется — "
+                    "уберите ключи из текста и данных (значение не показывается)", "call_agent: секрет не уйдёт в облако")
     if found["group"] == "paid" and ctx.approval_id is None:
         return _err("платная облачная модель требует подтверждения владельца в этом вызове: "
                     "запустите call_agent через запрос подтверждения, а не напрямую")
@@ -274,7 +289,8 @@ async def tool_call_agent(args: dict, ctx: ToolContext) -> ToolResult:
             "delegation_depth": depth + 1, "delegation_group": found["group"], "root_task_id": root_id,
             "operation_key_hash": op_hash, "operation_key_ref": op_hash[:16], "payload_hash": payload_hash,
             "acceptance_criteria": criteria, "reserved_usd": str(reserved), "approval_id": ctx.approval_id,
-            "allowed_tools": _child_envelope(found["tools"]), "requested_model": found["model"]}
+            "allowed_tools": _child_envelope(found["tools"]), "requested_model": found["model"],
+            "redactions": redactions}
 
     # --- атомарный claim: поиск ключа, лимиты, резерв и вставка — в ОДНОЙ write-транзакции
     replayed = False

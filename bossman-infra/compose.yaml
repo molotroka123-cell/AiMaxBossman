@@ -33,7 +33,10 @@ services:
   # ---------- шлюз: один API, алиасы моделей, ключи per-агент, fallback в облако ----------
   litellm:
     <<: *common
-    image: ghcr.io/berriai/litellm:main-latest
+    # BLACK-OCTOBER-20261023: образ litellm с тегами latest/main-latest/main-stable и v1.107.0 был скомпрометирован 21.10.
+    # Плавающий тег запрещён. Задайте LITELLM_IMAGE_TAG в .env проверенным тегом (вышедшим вне окна 21.10 11:39-14:20 UTC)
+    # или используйте digest: ghcr.io/berriai/litellm@sha256:<64 hex>. Без значения compose не стартует.
+    image: ghcr.io/berriai/litellm:${LITELLM_IMAGE_TAG:?set a verified pinned tag in .env - never latest/main-latest}
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     environment:
       DATABASE_URL: postgresql://bossman:${POSTGRES_PASSWORD}@postgres:5432/litellm
