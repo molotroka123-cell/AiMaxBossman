@@ -125,17 +125,20 @@ def probe(model: str, target: int, timeout: int = 1800, *, send: Callable[..., d
     send = send or post_json
     canary = "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
     prompt = build_prompt(target, canary)
-    body = json.dumps({"model": model, "prompt": prompt, "stream": False,
-                       "options": {"num_ctx": target, "temperature": 0, "num_predict": 32}}).encode()
+    # think=False: a reasoning model (Gemma 4) spent the whole 32-token budget on its «thinking» and returned an EMPTY
+    # answer, which the probe read as «context lost» (23.10: 32k and 49k probes failed that way). Empty ≠ forgotten.
+    body = json.dumps({"model": model, "prompt": prompt, "stream": False, "think": False,
+                       "options": {"num_ctx": target, "temperature": 0, "num_predict": 64}}).encode()
     if before_send is not None:
         before_send()          # building a 127k prompt takes a while: the owner may have arrived meanwhile
     t0 = time.time()
     doc = send(OLLAMA + "/api/generate", body, timeout, should_abort)
     answer = str(doc.get("response") or "")
+    empty_answer = not answer.strip()
     evaluated = int(doc.get("prompt_eval_count") or 0)
     ok = canary in answer and evaluated >= target * 0.85
     return {"model": model, "target_num_ctx": target, "prompt_chars": len(prompt), "prompt_eval_count": evaluated,
-            "canary_recalled": canary in answer, "verdict": "PASS" if ok else "FAIL", "seconds": round(time.time() - t0, 1),
+            "canary_recalled": canary in answer, "empty_answer": empty_answer, "verdict": "PASS" if ok else "FAIL", "seconds": round(time.time() - t0, 1),
             "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
 
