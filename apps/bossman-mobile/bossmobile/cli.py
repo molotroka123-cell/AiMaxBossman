@@ -40,10 +40,12 @@ def main(argv: list[str] | None = None) -> int:
         print("refused: Bossman Mobile binds to loopback only; expose it with `tailscale serve` (never funnel)",
               file=sys.stderr)
         return 2
-    import uvicorn
     from .api import create_app
-    app = create_app(st)
+    from .supervisor import Supervisor
     print(f"[bossman-mobile] http://{args.host}:{args.port}/m/  bossman={st.bossman_url}  "
           f"pairing token file: {st.data_dir / 'tokens.json'}", flush=True)
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info", proxy_headers=False, ws="websockets")
-    return 0
+    # Incident 23.10: a reset connection during accept killed the proactor listener while the process lived on.
+    # The supervisor runs uvicorn on the accept-tolerant loop and restarts it when /m/api/health stops answering.
+    sup = Supervisor(lambda: create_app(st), args.host, args.port, interval_s=st.watchdog_interval_s,
+                     failures=st.watchdog_failures, probe_timeout_s=st.watchdog_probe_timeout_s)
+    return sup.run()
