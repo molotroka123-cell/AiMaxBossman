@@ -153,8 +153,10 @@ class Registry:
     # ---------- адаптеры ----------
 
     def _default_adapter(self, model: dict, provider: dict) -> ProviderAdapter:
+        # context_window goes along: loopback Ollama loads the model with it (other providers ignore it).
         return build_adapter(provider["kind"], provider.get("base_url") or "",
-                             self.vault.decrypt(provider.get("api_key_enc")))
+                             self.vault.decrypt(provider.get("api_key_enc")),
+                             num_ctx=model.get("context_window"))
 
     async def adapter_for(self, model_id: int) -> tuple[ProviderAdapter, dict]:
         """Адаптер и строка модели; расшифрованный ключ дальше этой функции не уходит."""
