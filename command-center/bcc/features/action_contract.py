@@ -69,13 +69,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable
 
 import sqlalchemy as sa
 
 from ..conversation_context import current_request
 from ..db import agents as agents_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow
-from ..tools import REGISTRY, ROUTED_TOOLS_EXTEND_AGENT, allowed_tools_for
+from ..permissions import agent_allowed, is_dangerous
+from ..tools import REGISTRY, ROUTED_TOOLS_EXTEND_AGENT, _agent_tool_names, allowed_tools_for
 from ..v2.verification import ExpectedState
 from . import Feature
 from .action_router import BROWSER_TOOLS
@@ -104,6 +106,10 @@ class Capability:
     # category="read", и без явного списка задача «скачай файл со страницы»
     # получила бы download/click, но не возможность эту страницу открыть.
     attach: tuple[str, ...] = ()
+    # A successful `cli.delegate` (Claude Code / Codex edited files in a candidate worktree) is an executor
+    # of this capability too, see _is_verified_delegate_call. Never for GITHUB_ACTION: delegation does not
+    # push, a push/commit still needs its own verified `git push|commit`.
+    delegate_counts: bool = False
 
 
 def _clause_re(verb_pat: str, topic_pat: str) -> "re.Pattern[str]":
@@ -349,7 +355,7 @@ def _terminal_evidence(prompt: str) -> ExpectedState | None:
     # These built-ins may not have been registered yet when the pre-run hook
     # derives evidence (feature setup order differs in tests and deployments).
     tool_names = set(REGISTRY.names()) | {
-        "terminal.run", "terminal.stdin", "terminal.kill",
+        "terminal.run", "terminal.stdin", "terminal.kill", DELEGATE_TOOL,
     }
     text = current_request(prompt)
     urlish = _urlish_spans(text)
@@ -476,6 +482,71 @@ def _is_verified_app_call(row: dict) -> bool:
             and "Результат: ПРОВЕРЕНО" in str(row.get("result_preview") or ""))
 
 
+# Live 23.10 (task 203): «передай задачу Claude через cli.delegate: создай файл docs/DELEGATE_PROOF.md».
+# Gemma called cli.delegate (tools_cli.py, source="builtin"), Claude Code created the file (rc 0, receipt),
+# but the gate looked only at the terminal family, told the agent to «do it yourself» and failed the task
+# with no_verified_action. A finished delegation is the executor for file/code/terminal actions; the file
+# evidence is still checked fresh — relative to the delegate's repo (_rebase_evidence_on_delegate).
+DELEGATE_TOOL = "cli.delegate"
+_DELEGATE_RC_RE = re.compile(r"\brc=(-?\d+|None)\b")
+
+
+def _is_verified_delegate_call(row: dict) -> bool:
+    """Executed (the tool reported no error) AND its own report says rc=0. No rc in the preview → not
+    proven (fail closed): a STOP/timeout/missing CLI never counts."""
+    if row.get("tool") != DELEGATE_TOOL or row.get("status") != "executed":
+        return False
+    m = _DELEGATE_RC_RE.search(str(row.get("result_preview") or ""))
+    return bool(m) and m.group(1) == "0"
+
+
+async def _verified_delegate_repos(svc, run_id: int) -> list[Path]:
+    async with svc.db.session() as s:
+        rows = (await s.execute(sa.select(tool_calls_t).where(sa.and_(
+            tool_calls_t.c.run_id == run_id, tool_calls_t.c.tool == DELEGATE_TOOL,
+            tool_calls_t.c.status == "executed")).order_by(tool_calls_t.c.id))).fetchall()
+    repos: list[Path] = []
+    for r in rows:
+        row = dict(r._mapping)
+        if not _is_verified_delegate_call(row):
+            continue
+        args = row.get("args") if isinstance(row.get("args"), dict) else {}
+        raw = str(args.get("repo") or "").strip()
+        if raw:
+            repos.append(Path(raw).expanduser())
+    return repos
+
+
+async def _rebase_evidence_on_delegate(svc, task: dict, run_id: int) -> None:
+    """Relative file evidence derived from the prompt («создай файл docs/X.md») names a path in the repo the
+    delegate worked in, not in the verifier's first terminal root. After a verified delegation each relative
+    file target is made absolute under that repo (the first repo where it exists, else the last one), so the
+    unchanged fresh-read verifier checks the right file; containment in the authorized roots still applies."""
+    repos = await _verified_delegate_repos(svc, run_id)
+    if not repos:
+        return
+    meta = await _meta(svc, task["id"])
+    review = meta.get("review") if isinstance(meta.get("review"), dict) else None
+    if not review or not isinstance(review.get("evidence"), list):
+        return
+    changed = False
+    evidence = []
+    for item in review["evidence"]:
+        item = dict(item) if isinstance(item, dict) else item
+        target = str(item.get("target") or "") if isinstance(item, dict) else ""
+        if isinstance(item, dict) and item.get("kind") == "file" and target and not Path(target).is_absolute():
+            base = next((r for r in repos if (r / target).is_file()), repos[-1])
+            item["target"] = str((base / target).resolve())
+            item["delegate_relative_target"] = target
+            changed = True
+        evidence.append(item)
+    if not changed:
+        return
+    meta["review"] = {**review, "evidence": evidence}
+    await _set_meta(svc, task["id"], meta)
+    task["meta"] = meta
+
+
 # Порядок — приоритет из задания (1..12), browser (MODULE 1) исключён намеренно.
 # Исключение — DOWNLOAD_ACTION (см. блок «download» выше): он первым, потому что
 # classify_all вырезает его клаузу до проверки остальных. Инструменты выдаются
@@ -484,11 +555,12 @@ CAPABILITIES: tuple[Capability, ...] = (
     Capability("DOWNLOAD_ACTION", _DOWNLOAD_RE, frozenset({"browser"}),
               call_filter=_is_download_call, attach=BROWSER_TOOLS),
     Capability("TERMINAL_FILE_ACTION", _TERMINAL_FILE_RE, frozenset({"terminal"}),
-              evidence=_terminal_evidence),
+              evidence=_terminal_evidence, delegate_counts=True),
     Capability("APPS_ACTION", _clause_re(_OPEN_VERB, _APP_TOPIC), frozenset({"apps", "computer"}),
               call_filter=_is_verified_app_call, attach=("apps.start", "apps.stop")),
     Capability("CODE_ACTION", _CODE_ACTION_RE,
-              frozenset({"opencode", "terminal"}), call_filter=_is_code_mutation_call),
+              frozenset({"opencode", "terminal"}), call_filter=_is_code_mutation_call,
+              delegate_counts=True),
     Capability("GITHUB_ACTION", re.compile(
         _GIT_VERB_FUSED + "|" + _clause_re(_CREATE_VERB, _GITHUB_TOPIC).pattern,
         re.I | re.U), frozenset({"terminal"}), call_filter=_is_git_mutation_call),
@@ -509,6 +581,52 @@ CAPABILITIES: tuple[Capability, ...] = (
 )
 
 
+# ------------------------------------------------------------- review / analysis
+#
+# Live 23.10 (cloud GLM agent with only code.search/code.expand/code.status): «Сделай код-ревью файлов
+# bcc/…/x.py … найди баги и напиши список» classified as TERMINAL_FILE_ACTION («сделай» + «файлов») and
+# CODE_ACTION («напиши» + «баги»), so the read-only review was handed terminal.* and then failed with
+# no_verified_action because the agent (correctly) changed nothing. In a review/analysis request the review
+# phrase itself («сделай ревью», «run an audit») and «напиши список/отчёт/, что исправить» describe the REPORT,
+# not a side effect, so only those spans are dropped. Every genuine action verb in the same text («исправь»,
+# «измени», «создай файл», «закоммить», «write tests in x.py») still classifies.
+_REVIEW_INTENT_RE = re.compile(
+    r"\bcode[\s-]?review\w*|\breview\w*|\baudit\w*|\banaly[sz]\w*|\binspect\w*|"
+    r"ревью\b|\bаудит\w*|\bпроанализируй\w*|\bанализ\w*|\bпроверь\w*|\bизучи\w*|\bоцени\w*",
+    re.I | re.U)
+_REVIEW_NOUN = (r"(?:code[\s-]?review|review|audit|analysis|(?:код[\s-]?)?ревью|аудит\w*|анализ\w*|"
+                r"проверк\w*)")
+_REVIEW_PHRASE_RE = re.compile(
+    r"(?:\b(?:do|make|perform|run|conduct)\b|сделай\w*|проведи\w*|выполни\w*|запусти\w*)\s+"
+    r"(?:(?:a|an|the|full|quick|thorough|полн\w*|быстр\w*|тщательн\w*)\s+)*" + _REVIEW_NOUN + r"\b",
+    re.I | re.U)
+_REPORT_WRITE_RE = re.compile(
+    r"(?:\b(?:write|compose|draft)\b|напиши\w*|составь\w*)"
+    r"(?=\s*[,:—-]|\s+(?:(?:me|up|down|a|an|the|short|brief|detailed|мне|кратк\w*|коротк\w*|подробн\w*)\s+)*"
+    r"(?:список|перечень|отч[её]т|вывод|замечани|ревью|review|report|list|summary|findings|итог|резюме|"
+    r"рекомендац|issues|problems|проблем|баг|bug|ошибк|что\s|what\s))",
+    re.I | re.U)
+
+
+def _without_report_clauses(text: str) -> str:
+    """Review/analysis request: drop the review phrase and «write the report» verbs (see above)."""
+    if not _REVIEW_INTENT_RE.search(text):
+        return text
+    return _REPORT_WRITE_RE.sub(" ", _REVIEW_PHRASE_RE.sub(" REVIEW ", text))
+
+
+def _without_read_tool_mentions(text: str) -> str:
+    """«найди файлы через code.search» names a READ tool as the means; it is not a request for a
+    terminal/file side effect («файлы» + «через» matched TERMINAL_FILE_ACTION). Only the verb directly
+    followed by a registered category="read" tool name is dropped."""
+    names = sorted((t.name for t in REGISTRY.all() if t.category == "read"), key=len, reverse=True)
+    if not names:
+        return text
+    pattern = (r"(?:" + _USE_VERB + r")\s+(?:the\s+|tool\s+|инструмент\w*\s+)?[`'\"«]?(?:"
+               + "|".join(re.escape(n) for n in names) + r")\b[`'\"»]?")
+    return re.sub(pattern, " ", text, flags=re.I | re.U)
+
+
 def classify_all(prompt: str) -> list[Capability]:
     """ВСЕ подошедшие capability, по приоритету задания. Проверяется ТЕКСТ
     ЗАДАЧИ (симметрично action_router.classify), не ответ модели.
@@ -520,7 +638,7 @@ def classify_all(prompt: str) -> list[Capability]:
     Живой пробой это найдено: `classify()` (только первое совпадение) молча
     завершал «Измени тестовый файл в репозитории, запусти тест и закоммить»,
     когда модель дёрнула ЛЮБОЙ terminal.run и заявила текстом, что запушила."""
-    text = positive_request_text(prompt or "")
+    text = _without_report_clauses(_without_read_tool_mentions(positive_request_text(prompt or "")))
     found = []
     for cap in CAPABILITIES:
         if cap.pattern.search(text):
@@ -609,6 +727,35 @@ async def _agent_has_family_tools(svc, task: dict, tool_sources: frozenset[str])
     return bool(names & set(allowed_tools_for(task, agent)))
 
 
+async def _withheld_from_agent(svc, task: dict, grant: list[str]) -> list[str]:
+    """Routing-grant tools this task's agent must NOT be extended with.
+
+    Live 23.10: a cloud agent the owner scoped to code.search/code.expand/code.status with only
+    {"filesystem.read": true} was handed terminal.run/kill/stdin because its prompt matched a terminal
+    capability. An agent with an explicit tool list is an owner-scoped agent: the routing grant does not
+    add a tool whose permission is DANGEROUS (bcc.permissions) and not granted to that agent — that would
+    be a tool the owner never gave it. Tools the agent already lists, and permission-free/non-dangerous
+    tools (apps.start, HW-02), are still added; agents without a tool list keep the old grant + ASK path."""
+    if not grant or task.get("agent_id") is None:
+        return []
+    async with svc.db.session() as s:
+        row = (await s.execute(sa.select(agents_t).where(agents_t.c.id == task["agent_id"]))).first()
+    if row is None:
+        return []
+    agent = dict(row._mapping)
+    own = set(_agent_tool_names(agent))
+    if not own:
+        return []
+    withheld = []
+    for name in grant:
+        spec = REGISTRY.get(name)
+        perm = spec.permission if spec is not None else ""
+        if (name not in own and perm and is_dangerous(perm)
+                and not agent_allowed(agent, perm)):
+            withheld.append(name)
+    return withheld
+
+
 async def _meta(svc, task_id: int) -> dict:
     async with svc.db.session() as s:
         row = (await s.execute(sa.select(tasks_t.c.meta).where(tasks_t.c.id == task_id))).first()
@@ -671,6 +818,9 @@ async def _before_run(svc):
                 if name not in seen_tools:
                     seen_tools.add(name)
                     family.append(name)
+        withheld = await _withheld_from_agent(svc, task, family)
+        if withheld:
+            family = [name for name in family if name not in withheld]
         if family and "allowed_tools" not in meta:
             new_meta["allowed_tools"] = family
             # Грант семейства ДОБАВЛЯЕТСЯ к инструментам агента, а не заменяет
@@ -700,6 +850,8 @@ async def _before_run(svc):
         cap_names = [cap.name for cap in caps]
         router_meta = dict(new_meta.get("action_contract") or {})
         router_meta.update({"capabilities": cap_names, "tools": family})
+        if withheld:
+            router_meta["withheld_tools"] = withheld
         new_meta["action_contract"] = router_meta
         await _set_meta(svc, task["id"], new_meta)
         task["meta"] = new_meta
@@ -724,8 +876,13 @@ async def _gate(svc):
         # должна закрывать GITHUB_ACTION (push), которого не было. Один
         # исполненный вызов семейства закрывает вопрос только для ТОЙ
         # capability, чьё семейство он покрывает — не для всех сразу.
+        delegated = bool(await _verified_delegate_repos(svc, run_id))
+        if delegated:
+            # Before review_gate/finalize re-read the evidence (they run after this hook).
+            await _rebase_evidence_on_delegate(svc, task, run_id)
         missing = [cap for cap in caps
-                  if not await _has_family_tool_call(svc, run_id, cap.tool_sources, cap.call_filter)]
+                  if not (cap.delegate_counts and delegated)
+                  and not await _has_family_tool_call(svc, run_id, cap.tool_sources, cap.call_filter)]
         if not missing:
             return _verdict("NOT_APPLICABLE")
 
@@ -762,8 +919,18 @@ async def _gate(svc):
     return gate_completion
 
 
+async def _on_step(svc):
+    async def on_step(task, run_id, checkpoint):
+        """Right after a tool step: rebase relative file evidence onto a verified cli.delegate repo, so the
+        review gate sees the right path whatever the gate-hook order (the gate repeats it, idempotent)."""
+        if isinstance(checkpoint, dict) and checkpoint.get("tools"):
+            await _rebase_evidence_on_delegate(svc, task, run_id)
+    return on_step
+
+
 async def _setup(svc):
     svc.engine.add_hook("before_run", await _before_run(svc))
+    svc.engine.add_hook("on_step", await _on_step(svc))
     svc.engine.add_hook("gate_completion", await _gate(svc))
 
 
