@@ -22,13 +22,16 @@ ALL_PERMISSIONS = (
     # Computer Use (tools_computer): смотреть на экран владельца и действовать на
     # нём — оба опасные: снимок экрана тоже выносит чужие данные в контекст модели.
     "computer.observe", "computer.control",
+    # cli.delegate in bypass mode: the external coder CLI runs without its own permission prompts
+    # inside a candidate worktree (owner 23.10). Dangerous: granted explicitly or approved per call.
+    "cli.bypass",
 )
 
 DANGEROUS = frozenset({
     "filesystem.write", "terminal.run", "git.write", "browser.control",
     "model.unload", "email.send", "deploy.preview", "deploy.production",
     "invoice.create", "settings.write", "channel.send",
-    "computer.observe", "computer.control",
+    "computer.observe", "computer.control", "cli.bypass",
 })
 
 
