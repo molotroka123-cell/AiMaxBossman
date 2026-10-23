@@ -867,7 +867,8 @@ def _type_effect(args: dict) -> tuple[str, str] | None:
 
 SPECS = [
     ToolSpec(name="browser.open", description="Открыть URL в браузере и вернуть DOM-снимок "
-                                              "(текст страницы + интерактивные элементы).",
+                                              "(текст страницы + интерактивные элементы). "
+                                              "Open a web page by URL and read its text.",
              handler=_open, input_schema={"url": {"type": "string"}}, required=["url"],
              category="read", permission="browser.read", source="browser",
              default_effect="auto", timeout_seconds=90.0, external_output=True),

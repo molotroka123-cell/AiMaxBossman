@@ -15,6 +15,7 @@ from typing import Any, Iterable, Mapping
 _K1 = 1.5
 _B = 0.4
 _NAME_BONUS = 2.0   # extra weight (x idf) when a query word is a word of the tool NAME itself
+_COVERAGE_BONUS = 1.0   # up to +100% when a tool matches every distinct query word, 0 for a single word
 _SPLIT_CAMEL = re.compile(
     r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|\d+|[^\W_]+"
 )
@@ -163,18 +164,24 @@ class ToolCatalog:
         if not q_tokens or not self._docs:
             return []
         scores: list[tuple[float, str, int]] = []
+        distinct = set(q_tokens)
         for i, (doc, length) in enumerate(zip(self._docs, self._lengths)):
             dl = length or 1
             score = 0.0
-            for term in q_tokens:
+            matched = 0
+            for term in distinct:
                 tf = doc.get(term, 0)
                 if not tf:
                     continue
+                matched += 1
                 idf = self._idf.get(term, 0.0)
                 score += idf * (tf * (_K1 + 1.0)) / (tf + _K1 * (1.0 - _B + _B * dl / (self._avgdl or 1.0)))
-            for term in set(q_tokens) & self._name_terms[i]:
+            for term in distinct & self._name_terms[i]:
                 score += _NAME_BONUS * self._idf.get(term, 0.0)
+            # Coverage: a tool matching several different query words ("open", "web", "page") outranks one
+            # that only shares a generic verb ("read") with many siblings (plugin:*.read, 22.10 regression).
             if score > 0.0:
+                score *= 1.0 + _COVERAGE_BONUS * (matched - 1) / max(1, len(distinct) - 1)
                 scores.append((score, self._doc_names[i], i))
         scores.sort(key=lambda t: (-t[0], t[1]))
         return [self.entries[i] for _, _, i in scores[:k]]
