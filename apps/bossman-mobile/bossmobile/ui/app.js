@@ -859,12 +859,13 @@
     }
     return c;
   }
-  function toolResult(b, ev) {
+  function toolResult(b, ev, live) {
     const c = toolCard(b, ev);
     const st = el('span', 'tstate ' + (ev.ok ? 'ok' : 'err'), ev.ok ? `готово${ev.duration_ms != null ? ' · ' + (ev.duration_ms / 1000).toFixed(1) + ' с' : ''}` : 'ошибка');
     c.st.replaceWith(st); c.st = st;
     if (ev.summary) c.body.appendChild(el('div', '', ev.summary));
     if (ev.preview) c.body.appendChild(el('pre', '', ev.preview + (ev.truncated ? '\n…' : '')));
+    if (live && ev.tool === 'photo.edit' && ev.ok) expectNote(ev);      // the finished edit will come back as a note
   }
   function approvalCard(b, ev) {
     if (b.cards['ap' + ev.id]) return;
@@ -908,7 +909,7 @@
         }
         break;
       case 'run.tool_use': toolCard(b, ev); break;
-      case 'run.tool_result': toolResult(b, ev); break;
+      case 'run.tool_result': toolResult(b, ev, live); break;
       case 'tool.denied': { const c = toolCard(b, { call_id: 'd' + (ev.seq || Math.random()), tool: ev.tool, args: {} }); const st = el('span', 'tstate err', 'запрещено'); c.st.replaceWith(st); c.st = st; if (ev.reason) c.body.appendChild(el('div', '', ev.reason)); break; }
       case 'approval.created': approvalCard(b, ev); break;
       case 'approval.decided': approvalDecided(b, ev); break;
@@ -920,9 +921,10 @@
     closeStream();
     try {
       const t = await api('GET', `/threads/${encodeURIComponent(id)}`);
-      S.threadId = t.id; store.set('thread', t.id); clearMessages(); ctxReset();
+      S.threadId = t.id; store.set('thread', t.id); clearMessages(); ctxReset(); stopNotes(); NW.shown = new Set();
       const turns = t.turns || [];
       for (const turn of turns) {
+        if (turn.kind === 'note') { addNote(turn); continue; }   // Bossman's own note (e.g. the finished photo edit)
         const desc = photoDesc(turn.text);
         addUser(desc != null ? `${PHOTO_MARK} ${desc}` : turn.text, turn.attachments); const b = addBot(turn.text);
         b.taskId = turn.task_id; if (desc != null) b.photo = { desc };
@@ -937,7 +939,79 @@
         }
       }
       autoScroll(true); refreshContext().catch(() => {});
+      if (noteJobs(t.id)) watchNotes(t.id);                       // an edit still on its way: keep listening
     } catch (err) { if (err.status === 404) { store.set('thread', null); S.threadId = null; ctxReset(); } }
+  }
+
+  /* ---- Owner 23.10: the picture of the chat agent's photo.edit ARRIVES BY ITSELF. Bossman appends a note turn
+     (kind=note) to this thread when the Direct Gen job ends; the phone shows it with the picture (tap -> the same
+     full-screen viewer as «Генерации») or the honest failure reason. While an edit is on its way (a photo.edit tool
+     result was seen in this thread; remembered on this phone until it lands or 45 min pass) the open thread is
+     re-read every NOTE_POLL_MS. ---- */
+  const NOTE_POLL_MS = (window.__bmNotePollMs | 0) || 8000;
+  const NOTE_WAIT_MS = 45 * 60 * 1000;
+  const NW = { tid: null, timer: 0, busy: false, shown: new Set() };
+  const noteKey = (tid) => 'noteWait.' + tid;
+  const noteId = (turn) => String((turn.note || {}).job_id || 'i' + turn.idx);
+  function noteJobs(tid) {
+    try { const v = JSON.parse(store.get(noteKey(tid)) || 'null'); return v && v.until > Date.now() && Array.isArray(v.jobs) && v.jobs.length ? v : null; }
+    catch { return null; }
+  }
+  function addNote(turn) {
+    const n = turn.note || {}; $('chat-empty').hidden = true; NW.shown.add(noteId(turn));
+    const m = el('div', 'msg bot note'); m.dataset.idx = String(turn.idx); if (n.job_id) m.dataset.job = n.job_id;
+    const ans = el('div', 'answer'); const meta = el('div', 'meta'); m.append(ans, meta);
+    const ok = n.status === 'completed';
+    ans.appendChild(el('p', ok ? 'note-text' : 'note-text note-err', turn.text || ''));
+    if (ok && n.job_id && /^image\//.test(n.mime || 'image/png')) {
+      const wrap = el('div', 'inline-photo'); wrap.dataset.job = n.job_id; const img = el('img'); img.alt = 'правка фото';
+      img.addEventListener('load', () => autoScroll()); img.addEventListener('click', () => openNoteViewer(n));
+      img.src = `/m/api/photo/jobs/${encodeURIComponent(n.job_id)}/file`; wrap.appendChild(img); ans.appendChild(wrap);
+    }
+    const pult = n.pult || {};
+    const pultTxt = !ok ? '' : pult.sent === true ? 'в Пульте' : pult.sent === false ? 'в Пульт не отправлено' : 'Пульт: проверьте';
+    meta.replaceChildren(el('span', 'badge-local', 'на ПК'), el('span', '', [n.model, n.elapsed_s ? fmtS(Number(n.elapsed_s)) : '',
+      n.job_id ? '#' + String(n.job_id).slice(0, 8) : '', pultTxt].filter(Boolean).join(' · ')));
+    msgs.appendChild(m); autoScroll(); return m;
+  }
+  function openNoteViewer(n) {
+    tap();
+    api('GET', `/photo/jobs/${encodeURIComponent(n.job_id)}`).then((j) => openViewer(j))
+      .catch(() => openViewer({ job_id: n.job_id, model: n.model, elapsed_s: n.elapsed_s }));
+  }
+  function expectNote(ev) {
+    const tid = S.threadId; if (!tid) return;
+    const mm = /\bjob(?:_id=|\s+)([0-9a-f]{8,64})\b/i.exec(`${ev.summary || ''} ${ev.preview || ''}`);
+    const job = mm ? mm[1] : '?';
+    if (NW.shown.has(job)) return;                                // already here (history replay)
+    const cur = noteJobs(tid) || { jobs: [] };
+    if (!cur.jobs.includes(job) || job === '?') cur.jobs.push(job);
+    cur.until = Date.now() + NOTE_WAIT_MS; store.set(noteKey(tid), JSON.stringify(cur));
+    watchNotes(tid);
+  }
+  function stopNotes() { if (NW.timer) clearInterval(NW.timer); NW.timer = 0; NW.tid = null; }
+  function watchNotes(tid) {
+    if (NW.timer && NW.tid === tid) return;
+    stopNotes(); NW.tid = tid;
+    NW.timer = setInterval(async () => {
+      if (S.threadId !== tid) { stopNotes(); return; }
+      const want = noteJobs(tid); if (!want) { store.set(noteKey(tid), null); stopNotes(); return; }
+      if (document.hidden || NW.busy) return;
+      NW.busy = true;
+      try {
+        const t = await api('GET', `/threads/${encodeURIComponent(tid)}`);
+        if (S.threadId !== tid) return;
+        let jobs = want.jobs.slice();
+        for (const x of (t.turns || []).filter((y) => y.kind === 'note')) {
+          const id = noteId(x); const fresh = !NW.shown.has(id);
+          if (fresh) addNote(x);
+          if (jobs.includes(id)) jobs = jobs.filter((j) => j !== id);
+          else if (fresh) { const q = jobs.indexOf('?'); if (q >= 0) jobs.splice(q, 1); }
+        }
+        if (jobs.length) store.set(noteKey(tid), JSON.stringify({ jobs, until: want.until }));
+        else { store.set(noteKey(tid), null); stopNotes(); }
+      } catch { /* next tick */ } finally { NW.busy = false; }
+    }, NOTE_POLL_MS);
   }
 
   /* ================= отправка и прикрепление файлов для изучения ================= */

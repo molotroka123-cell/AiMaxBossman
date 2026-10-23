@@ -6,7 +6,9 @@ Synthetic picture only (white canvas, RED circle, a random code; no person). It 
 thread «PROOF photo edit» and ONE owner-style message asks to turn the circle blue. Checks, in order:
   1. the chat turn completes and the answer does not claim it cannot see the photo;
   2. a NEW Direct Gen job exists: an edit model, ref_images_count >= 1, prompt mentions blue (Gemma's own prompt);
-  3. (--gen-wait > 0) the job completes with verified bytes and the circle area is now blue-dominant.
+  3. (--gen-wait > 0) the job completes with verified bytes and the circle area is now blue-dominant;
+  4. (owner 23.10) the result arrives by itself: a note turn with the picture URL in the same thread, and the file
+     sent to the Telegram pult once (--skip-pult when STOP is on or the pult is not configured).
 Receipt JSON with ids, statuses, timings and the measured colours. Exit 0 only when every requested check passes.
 """
 from __future__ import annotations
@@ -65,6 +67,8 @@ def main(argv=None) -> int:
     ap.add_argument("--agent", type=int, default=41)
     ap.add_argument("--wait", type=int, default=900, help="seconds for the chat turn")
     ap.add_argument("--gen-wait", type=int, default=3600, help="seconds for the edit itself; 0 = only check the hand-off")
+    ap.add_argument("--note-wait", type=int, default=90, help="seconds for the result note after the job ends")
+    ap.add_argument("--skip-pult", action="store_true", help="do not require the Telegram send (e.g. STOP is on)")
     ap.add_argument("--out", default="docs/audits/2026-10-23-chat-attachments")
     a = ap.parse_args(argv)
     c = code()
@@ -112,6 +116,23 @@ def main(argv=None) -> int:
             rgb = circle_colour(raw(f"/api/direct-gen/jobs/{job['job_id']}/file"))
             gen["circle_rgb_after"] = rgb
             checks["circle_now_blue"] = rgb[2] > rgb[0] + 30
+        # 4. owner 23.10: the result arrives BY ITSELF in the same thread (note) and in the Telegram pult
+        if job.get("status") in ("completed", "failed", "cancelled", "stopped"):
+            n0, note = time.time(), {}
+            while time.time() - n0 < a.note_wait:
+                note = next((x for x in api("GET", f"/api/chat/threads/{tid}").get("turns") or []
+                             if x.get("kind") == "note" and (x.get("note") or {}).get("job_id") == job["job_id"]), {})
+                if note:
+                    break
+                time.sleep(3)
+            body = note.get("note") or {}
+            gen.update(note_seconds_after_job=round(time.time() - n0, 1), note_text=note.get("text"),
+                       note_status=body.get("status"), pult=body.get("pult"))
+            checks["note_in_thread"] = bool(note)
+            if job.get("status") == "completed":
+                checks["note_has_picture"] = body.get("file_url") == f"/api/direct-gen/jobs/{job['job_id']}/file"
+                if not a.skip_pult:
+                    checks["pult_sent_once"] = (body.get("pult") or {}).get("sent") is True
     ok = all(checks.values())
     receipt = {"verdict": "PASS" if ok else "FAIL", "agent_id": a.agent, "thread_id": tid, "task_id": task_id,
                "turn_status": status, "turn_seconds": turn_s, "answer_chars": len(answer),

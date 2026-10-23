@@ -9,6 +9,9 @@ edit через чат пульт, а он пишет что не понимае
   * permission `media.generate` (granted per agent → AUTO, otherwise ASK);
   * the pult's fixed rules (gen_refine.safety_violation, photo=True) hold for agents too: no sexual/nude change
     of the person on a real photo, nothing involving minors. Refused before anything is queued.
+  * owner 23.10: the finished picture ARRIVES BY ITSELF — the job is registered with features/photo_edit_delivery,
+    which writes a note with the picture into the same chat thread and sends the file to the Telegram pult (the
+    send-to-pult code path; nothing to Telegram while owner STOP is active).
 """
 from __future__ import annotations
 
@@ -125,10 +128,36 @@ async def _t_edit(args: dict, ctx: ToolContext) -> ToolResult:
     except DirectGenError as exc:
         return ToolResult(content=f"{EDIT_TOOL}: Direct Gen отказал: {exc.detail}", error=True)
     head = f"🎨 Правка фото поставлена в очередь Direct Gen: {_brief(job)}"
-    content = (f"{head}\nПромт (как отправлен модели):\n{prompt}\n\nРезультат появится в «Генерациях» пульта; "
+    thread_id, delivery = await _register_delivery(svc, str(job.get("job_id") or ""), ctx)
+    where = ("Готовая картинка придёт сама в этот чат и в Пульт (Telegram)" if thread_id else
+             "Готовая картинка придёт сама в Пульт (Telegram) и будет в «Генерациях»") if delivery else \
+        "Результат появится в «Генерациях» пульта"
+    content = (f"{head}\nПромт (как отправлен модели):\n{prompt}\n\n{where}; "
                f"проверить — {STATUS_TOOL} job_id={job.get('job_id')}. Очередь — это ещё не готовая картинка.")
     return ToolResult(content=content, one_line=head, external=True,
-                      data={"job_id": job.get("job_id"), "status": job.get("status"), "model": model})
+                      data={"job_id": job.get("job_id"), "status": job.get("status"), "model": model,
+                            "thread_id": thread_id, "auto_delivery": delivery})
+
+
+async def _register_delivery(svc, job_id: str, ctx: ToolContext) -> tuple[str | None, bool]:
+    """Owner 23.10: the finished picture comes back by itself (features/photo_edit_delivery). (thread_id, registered)."""
+    import asyncio
+    import logging
+
+    from . import chat_threads as ct
+    from . import photo_edit_delivery as delivery
+    if not job_id:
+        return None, False
+    task_id = (ctx.task or {}).get("id") if isinstance(ctx.task, dict) else None
+    thread_id = None
+    try:
+        if isinstance(task_id, int) and not isinstance(task_id, bool) and task_id > 0:
+            thread_id = await asyncio.to_thread(ct.thread_of_task, svc, task_id)
+        await delivery.register(svc, job_id, task_id=task_id, thread_id=thread_id)
+    except Exception as exc:  # noqa: BLE001 — the job is queued either way; the owner still has «Генерации»
+        logging.getLogger("bcc.photo_edit").warning("photo.edit: auto-delivery not registered (%s)", type(exc).__name__)
+        return None, False
+    return thread_id, True
 
 
 async def _t_status(args: dict, ctx: ToolContext) -> ToolResult:

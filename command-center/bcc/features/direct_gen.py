@@ -166,7 +166,8 @@ async def delete_job(job_id: str, request: Request, x_participant: str | None = 
 
 @router.post("/jobs/{job_id}/send-to-pult")
 async def send_to_pult(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
-    """On request only: ONE finished file to the owner's Пульт as a Telegram document (no auto-delivery, no dedupe)."""
+    """On request only: ONE finished file to the owner's Пульт as a Telegram document (no dedupe). The only
+    automatic caller is features/photo_edit_delivery — the owner's chat `photo.edit` command, once per job."""
     return await _guard(_svc(request).send_to_pult(_who(x_participant, request), job_id))
 
 

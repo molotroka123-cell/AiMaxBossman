@@ -8,6 +8,10 @@ Safety: the recipient is the ONLY person in the companion config (refused when t
 that person is not the owner); the token and the chat id never leave this module (not in logs, errors or answers —
 httpx error texts can hold the request URL with the token, so they are never forwarded); the 49 MB document limit is
 checked before any network call. There is no de-duplication: each tap sends again.
+
+Owner 23.10: a chat command to edit a photo (`photo.edit`) is also the owner's request for that ONE result:
+features/photo_edit_delivery calls the same DirectGenService.send_to_pult once when that job ends (never twice,
+never while owner STOP is active). Nothing else is pushed automatically.
 """
 from __future__ import annotations
 
