@@ -152,6 +152,21 @@ Before making product, release, training, memory, model-routing or self-improvem
 - `docs/trading/K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md` — owner-authorized 08.10 continuation, independent ten-video audit and blind learning/transfer checks; read for K1m6a work.
 - `docs/audits/2026-10-08-tree-audit-13-zones/README.md` — 08.10 checkpoint of the 13-zone capability-tree audit (what exists, what is missing, where to start) and `BRIEFS.md` (3 auditor roles per branch, 2 open-source candidates per leaf, selection by the existing G·P·D·S·V ≥ 9/10 rule). Status PARTIAL: agent waves failed on session limits; re-run per section 6 of that README before claiming any zone result.
 
+## A feature is PROVEN, not wrapped (owner directive 23.10, class-1 rule)
+
+«Когда я говорю добавлять функции — это значит не обёртку сделать, а протестировать и доказать.» A capability
+counts as added only with all three: (1) unit tests incl. a negative control, (2) a live proof on the owner's PC
+through the real path the owner uses (pult/chat/API), with synthetic inputs and a receipt JSON under
+`docs/audits/<date>-<topic>/`, (3) the receipt referenced in the merge commit. No receipt = `NOT_PROVEN`, not
+"done". A capability the owner can see is broken (e.g. «Gemma не видит изображения») is a **class-1 red**: it
+pre-empts other work, gets a root cause, a fix, a regression test and a live re-proof.
+
+Chat attachments (fixed 23.10): every attachment must reach the chat model as content — text files and
+pdf/docx/xlsx/pptx as extracted text; images and text-less PDFs through the LOCAL vision model
+(`bcc/features/chat_vision.py`, loopback only, never cloud) as an embedded description; a failure is shown to the
+model as «НЕ распознано (причина)» so it tells the owner instead of inventing. Proof: `tools/prove_chat_attachments.py`.
+The local Gemma 4 ollama build has no vision projector — it "sees" only through this path.
+
 ## One runtime = one tree (owner directive 23.10, TZ_POLISH_AND_MERGE_20261023_RU)
 
 When the live candidate changes, repoint ALL five anchors to the same worktree, or `-I` subprocesses (coding
