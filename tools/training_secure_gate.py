@@ -45,6 +45,9 @@ PERSONAL_HINTS = ("AppData\\Local\\Bossman", "AppData/Local/Bossman", "\\keys\\p
                   "lora-datasets-", "voice-train-", "\\datasets\\gf", "/datasets/gf")
 DEFAULT_SOURCES = ("jeff_kb", "training_drops", "passport_facts", "web_learn", "war_terminal", "open_news",
                    "lessons", "owner_docs")
+#: Sources allowed to shape WEIGHTS (owner-provenance only, decision 23.10). web_learn / war_terminal /
+#: open_news are third-party text: RAG only (WEIGHTS_UNCHANGED), never fine-tuning data.
+WEIGHTS_SOURCES = ("jeff_kb", "training_drops", "passport_facts", "lessons", "owner_docs")
 
 
 def _sha256(path: Path) -> str:
@@ -187,6 +190,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--lock", required=True)
     ap.add_argument("--venv", default=None, help="python.exe of the training venv")
     ap.add_argument("--allow-source", action="append", default=None)
+    ap.add_argument("--for-weights", action="store_true",
+                    help="dataset will change weights: only owner-provenance sources (WEIGHTS_SOURCES) are allowed")
     ap.add_argument("--max-injection-rate", type=float, default=0.0)
     ap.add_argument("--require-offline", action="store_true")
     ap.add_argument("--out", default=None)
@@ -196,7 +201,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"usage: dataset dir does not exist: {dataset}", file=sys.stderr)
         return 2
     report = run(dataset, Path(a.lock).expanduser(), python=a.venv,
-                 allowed=tuple(a.allow_source) if a.allow_source else DEFAULT_SOURCES,
+                 allowed=tuple(a.allow_source) if a.allow_source else (WEIGHTS_SOURCES if a.for_weights
+                                                                       else DEFAULT_SOURCES),
                  max_injection_rate=a.max_injection_rate, require_offline=a.require_offline)
     text = json.dumps(report, ensure_ascii=False, indent=1)
     if a.out:

@@ -90,6 +90,16 @@ def test_offline_flags_required_only_when_asked(tmp_path, monkeypatch):
     assert _run(tmp_path, CLEAN, offline=True)["verdict"] == "PASS"
 
 
+def test_for_weights_rejects_third_party_sources(tmp_path):
+    """Decision 23.10: web_learn/war_terminal/open_news feed RAG only, never the weights."""
+    lock = tmp_path / "requirements.lock"
+    lock.write_text(GOOD_LOCK, encoding="utf-8")
+    ds = _dataset(tmp_path, CLEAN + [{"id": "w", "source": "web_learn", "text": "third-party page text"}])
+    assert g.main(["--dataset", str(ds), "--lock", str(lock)]) == 0, "RAG dataset: web_learn is fine"
+    assert g.main(["--dataset", str(ds), "--lock", str(lock), "--for-weights"]) == 1
+    assert set(g.WEIGHTS_SOURCES) < set(g.DEFAULT_SOURCES) and "web_learn" not in g.WEIGHTS_SOURCES
+
+
 def test_cli_exit_codes(tmp_path, capsys):
     lock = tmp_path / "requirements.lock"
     lock.write_text(GOOD_LOCK, encoding="utf-8")
