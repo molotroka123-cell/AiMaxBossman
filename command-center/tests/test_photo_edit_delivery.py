@@ -31,6 +31,7 @@ TASK_ID = 5
 
 @pytest.fixture(autouse=True)
 def _no_env_token(monkeypatch):
+    monkeypatch.setenv("BOSSMAN_PHOTO_EDIT_TO_TELEGRAM", "1")     # the send path is under test; off-by-default has its own test
     for name in ("TG_COMPANION_BOT_TOKEN", "TG_COMPANION_CORE_TOKEN", "TG_COMPANION_PROXY"):
         monkeypatch.delenv(name, raising=False)
 
@@ -222,3 +223,17 @@ async def test_unregistered_jobs_are_never_pushed(env, tmp_path):
     assert await ped.rescan(env.svc) == 0
     await asyncio.sleep(0.2)
     assert bot.requests == []
+
+
+async def test_telegram_delivery_is_off_by_default_and_the_chat_still_gets_the_picture(env, tmp_path, monkeypatch):
+    monkeypatch.delenv("BOSSMAN_PHOTO_EDIT_TO_TELEGRAM", raising=False)
+    bot = BotApi()
+    _setup_direct_gen(env, tmp_path, bot)
+    tid, att = await _chat_with_photo(env)
+    res = await _edit(env, att)
+    _release()
+    turn = await _wait_note(env, tid)
+    note = turn["note"]
+    assert note["status"] == "completed" and note["file_url"] == f"/api/direct-gen/jobs/{res.data['job_id']}/file"
+    assert note["pult"]["sent"] is False and note["pult"]["code"] == "telegram_off"
+    assert bot.requests == [], "nothing may reach Telegram unless the owner switched it on"

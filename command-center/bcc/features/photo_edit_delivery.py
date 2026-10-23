@@ -28,6 +28,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,9 @@ from . import Feature
 log = logging.getLogger("bcc.photo_edit_delivery")
 
 PARTICIPANT = "owner"
+#: Telegram delivery is OFF unless the owner switches it on (owner 23.10: «ничего в пульт не присылай» — the chat
+#: note already shows the picture; a result must not leave the PC for a messenger the owner did not ask for).
+TELEGRAM_ENV = "BOSSMAN_PHOTO_EDIT_TO_TELEGRAM"
 FINAL = frozenset({"completed", "failed", "cancelled", "stopped"})
 RESCAN_SECONDS = 15.0
 KEEP_DELIVERED = 500
@@ -127,6 +131,10 @@ def _job_reason(job: dict) -> str:
     return str(err).strip()
 
 
+def telegram_enabled() -> bool:
+    return os.environ.get(TELEGRAM_ENV, "").strip().lower() in ("1", "on", "true", "yes")
+
+
 def build_note(job_id: str, job: dict | None, pult: dict) -> tuple[dict, str]:
     """(note for the thread, its one-line text)."""
     short = job_id[:8]
@@ -195,6 +203,9 @@ async def deliver(svc: Any, job_id: str) -> dict | None:
             if entry.get("state") == "sending":
                 pult = {"sent": None, "code": "interrupted",
                         "reason": "отправка была прервана перезапуском — проверьте Пульт, повторно не отправляю"}
+            elif not telegram_enabled():
+                pult = {"sent": False, "code": "telegram_off",
+                        "reason": "отправка в Telegram выключена, картинка здесь и в «Генерациях»"}
             elif stop_active(svc):
                 pult = {"sent": False, "code": "owner_stop", "reason": "активен STOP владельца"}
             else:
