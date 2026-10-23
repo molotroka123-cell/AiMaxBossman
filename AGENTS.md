@@ -152,6 +152,15 @@ Before making product, release, training, memory, model-routing or self-improvem
 - `docs/trading/K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md` — owner-authorized 08.10 continuation, independent ten-video audit and blind learning/transfer checks; read for K1m6a work.
 - `docs/audits/2026-10-08-tree-audit-13-zones/README.md` — 08.10 checkpoint of the 13-zone capability-tree audit (what exists, what is missing, where to start) and `BRIEFS.md` (3 auditor roles per branch, 2 open-source candidates per leaf, selection by the existing G·P·D·S·V ≥ 9/10 rule). Status PARTIAL: agent waves failed on session limits; re-run per section 6 of that README before claiming any zone result.
 
+## One runtime = one tree (owner directive 23.10, TZ_POLISH_AND_MERGE_20261023_RU)
+
+When the live candidate changes, repoint ALL five anchors to the same worktree, or `-I` subprocesses (coding
+sidecar, Jeff) silently run another checkout's code: (1) `owner_one_bossman.py launch --src` for backend/jeff/companion,
+(2) scheduled tasks `BossmanOne-*` (`--src`, governor/backup/watchdog tool paths), (3) `one-bossman/governor.json`
+`paths.launcher_src`, (4) pip editables `bossman-core`, `bossman-command-center`, `bossman-mobile`, `bossman-shared`,
+`war-terminal` (`pip install -e <tree>/... --no-deps`), (5) terminal roots for coding tasks. Verify with
+`/health` `build_sha` + `python -I -c "import bossman; print(bossman.__file__)"`.
+
 ## Non-negotiable direction
 
 **NORTH STAR: Bossman = verified continuous self-improvement with retained, applicable experience and owner-approved commercially useful work.**
