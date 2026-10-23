@@ -41,7 +41,8 @@ def circle_colour(data: bytes) -> tuple[int, int, int]:
     img = Image.open(io.BytesIO(data)).convert("RGB")
     sx, sy = img.width / 768, img.height / 432
     box = (int(150 * sx), int(150 * sy), int(270 * sx), int(270 * sy))
-    px = list(img.crop(box).getdata())
+    crop = img.crop(box)
+    px = [crop.getpixel((x, y)) for y in range(crop.height) for x in range(crop.width)]
     return tuple(sum(p[i] for p in px) // len(px) for i in range(3))
 
 
