@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from ..db import providers as providers_t
+from ..pit.model_policy import NON_CHAT_PARTS, is_chat_model_id
 from ..providers import ProviderError, build_adapter
 from ..secrets import mask
 from . import Feature
@@ -73,7 +74,7 @@ def is_chat_model(model_id: str, preset: Preset | None = None) -> bool:
     low = model_id.lower()
     if preset is not None and preset.allow:
         return re.match(preset.allow, low) is not None
-    return not any(part in low for part in _NON_CHAT)
+    return is_chat_model_id(low)
 
 
 def _host(url: str) -> str:

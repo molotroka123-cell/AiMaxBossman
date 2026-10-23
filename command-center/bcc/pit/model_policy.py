@@ -47,6 +47,20 @@ def banned_refusal(model: Any) -> str:
             if is_banned_model(model) else "")
 
 
+#: Model-id fragments that mark a non-chat model (embeddings, rerankers, guards, ASR/TTS, vision
+#: parsers). Lives in the pit so that pit modules (jeff_kb_cloud) can ask without importing bcc.features.
+NON_CHAT_PARTS = ("embed", "rerank", "safety", "guard", "reward", "clip", "parse",
+                  "whisper", "tts", "orpheus", "playai", "distil-whisper", "retriever",
+                  "nemoretriever", "ocr", "detector", "vila", "neva", "kosmos", "deplot",
+                  "paligemma", "fuyu")
+
+
+def is_chat_model_id(model_id: str) -> bool:
+    """True unless the id names a non-chat model (by fragment); presets are judged in free_providers."""
+    low = str(model_id).lower()
+    return not any(part in low for part in NON_CHAT_PARTS)
+
+
 def split_banned(models: Iterable[str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """(kept, rejected) preserving order."""
     kept, rejected = [], []

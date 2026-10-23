@@ -30,7 +30,7 @@ PREFERRED = (
     "nvidia/nemotron-3.5-lightning:free",
     "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
 )
-_EXCLUDE = ("content-safety", "lfm-2.5-2.6b")      # not general workers
+_EXCLUDE = ("content-safety",)      # not general workers; banned families via bcc.pit.model_policy
 
 _cache: dict = {"at": 0.0, "live": [], "ping": {}}
 
@@ -72,8 +72,9 @@ def choose(current: str, live: list[str], probe: Callable[[str], str], tried: di
         return current, "ok"
     why = "retired" if current not in live else f"unavailable:{tried.get(current)}"
     order = [m for m in PREFERRED if m in live] + [m for m in live if m not in PREFERRED]
+    from .pit.model_policy import banned_refusal  # Liquid/LFM ban lives in one place (model policy)
     for mid in order:
-        if mid != current and not any(x in mid for x in _EXCLUDE) and ok(mid):
+        if mid != current and not any(x in mid for x in _EXCLUDE) and not banned_refusal(mid) and ok(mid):
             return mid, f"{why} -> {mid}"
     return current, f"{why}; no live free replacement"
 

@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field
 
 from ..db import agents as agents_t, task_runs as runs_t
 from ..permissions import agent_allowed, is_dangerous
+from ..single_flight import await_shared
 from ..tools import REGISTRY as TOOL_REGISTRY
 from . import Feature, tools_cloud
 from .agent_opencode import (MODEL_TIERS, _orch, _resolve_agent_id_for_model, _session_cfg, _session_detail,
@@ -379,8 +380,11 @@ async def _finish_compaction(svc: Any, replay: _ReplayRequest, session_id: str, 
         error = f"ошибка сжатия: {type(exc).__name__}"
     finally:
         if stop_task:
+            # await_shared, not asyncio.shield: the STOP relay must finish even if this caller is
+            # cancelled, and 3.14's shield reports the shared task as cancelled (bcc/single_flight.py).
+            relay = asyncio.ensure_future(_internal(replay, "POST", f"/api/tasks/{task_id}/stop"))
             try:
-                await asyncio.shield(_internal(replay, "POST", f"/api/tasks/{task_id}/stop"))
+                await await_shared(relay)
             except BaseException:  # noqa: BLE001 - остановка задачи best-effort
                 pass
         record = {"state": "failed" if error else "done", "task_id": task_id,

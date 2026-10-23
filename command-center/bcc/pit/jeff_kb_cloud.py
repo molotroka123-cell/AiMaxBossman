@@ -163,7 +163,7 @@ def free_refusal(provider: dict, model: dict) -> str:
     from bcc.provider_governance import (_free_preset_hosts, banned_model_refusal, free_only_refusal,
                                          is_cloud_offload)
     from bcc.providers import is_local_url
-    from bcc.features.free_providers import is_chat_model
+    from bcc.pit.model_policy import is_chat_model_id as is_chat_model  # pit must not import bcc.features
     name = str(model.get("name") or "")
     base = str(provider.get("base_url") or "")
     caps = _json_field(model.get("caps"))

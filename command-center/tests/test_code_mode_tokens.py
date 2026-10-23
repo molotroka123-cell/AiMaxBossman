@@ -27,7 +27,9 @@ async def test_facade_cost_is_flat_while_the_baseline_grows_with_the_tool_count(
     everything = REGISTRY.all()
     assert len(everything) >= 50, "the real registry must be loaded"
     small = report(everything)
-    large = report(_grow(everything, 1000))
+    # 10x the real registry (at least 1000): the registry outgrew 125 tools on 22.10, and a fixed
+    # 1000 can no longer be > 8x of it whatever the code does; the linear-vs-flat claim is unchanged.
+    large = report(_grow(everything, max(1000, 10 * len(everything))))
 
     print("\nall registered tools:", small["tools"], small["per_call"]["baseline"],
           "facade", small["per_call"]["facade"], small["typical_turn_mean"])
