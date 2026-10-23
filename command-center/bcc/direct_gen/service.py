@@ -1686,6 +1686,29 @@ class DirectGenService:
         await asyncio.wait({task}, timeout=30)
         return self.get(participant, job_id)
 
+    def active_job_ids(self) -> list[str]:
+        """Jobs that have a LIVE task (queued behind the GPU gate or running). A stale row on disk without a task is
+        not stoppable work and must not keep the owner STOP red."""
+        out = []
+        for job in self.store.all_unfinished():
+            task = self._tasks.get(job["job_id"])
+            if task is not None and not task.done():
+                out.append(job["job_id"])
+        return sorted(out)
+
+    async def stop_all(self) -> list[str]:
+        """Owner STOP: cancel every queued and the running job with the same mechanism as the per-job cancel
+        (task cancel -> engine tree kill -> status cancelled, no result kept). Returns the ids it cancelled."""
+        ids = self.active_job_ids()
+        tasks = []
+        for jid in ids:
+            self._stopping.add(jid)
+            tasks.append(self._tasks[jid])
+            self._tasks[jid].cancel()
+        if tasks:
+            await asyncio.wait(tasks, timeout=30)
+        return ids
+
     # ---------- execution ----------
 
     def _gate(self) -> asyncio.Lock:

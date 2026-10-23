@@ -76,7 +76,7 @@ async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]
     active: dict[str, list] = {name: [] for name in (
         "tasks", "terminal", "coding", "command_bar", "browser",
         "evolution", "v15_economy", "v15_owner_run", "pit", "studio",
-        "studio_provider_unknown", "autonomy", "rave", "calls")}
+        "studio_provider_unknown", "autonomy", "rave", "calls", "direct_gen")}
     errors: list[dict[str, str]] = []
 
     def inspect(plane: str, fn) -> None:
@@ -148,6 +148,9 @@ async def _active_owner_work(svc) -> tuple[dict[str, list], list[dict[str, str]]
     inspect("autonomy", lambda: _autonomy_inventory(svc))
     inspect("rave", lambda: _rave_inventory(svc))
     inspect("calls", lambda: _calls_inventory(svc))
+    # Direct Gen (the pult's photo/video generator): live queued + running jobs. Owner 23.10: STOP must reach it.
+    direct_gen = getattr(svc, "direct_gen", None)
+    inspect("direct_gen", lambda: direct_gen.active_job_ids() if direct_gen is not None else [])
     return active, errors
 
 
@@ -270,6 +273,14 @@ async def stop_all_owner_work(request: Request) -> dict[str, Any]:
             errors.append({"plane": "pit", "id": "Jeff",
                            "error": f"{type(exc).__name__}: {exc}"[:300]})
 
+    direct_gen_stopped: list[str] = []
+    if active["direct_gen"]:
+        try:
+            direct_gen_stopped = await svc.direct_gen.stop_all()
+        except Exception as exc:  # noqa: BLE001 — the other planes still get their STOP
+            errors.append({"plane": "direct_gen", "id": "stop_all",
+                           "error": f"{type(exc).__name__}: {exc}"[:300]})
+
     from .studio import cancel as cancel_studio
     cancelled_studio: list[int] = []
     studio_before: dict[int, tuple[str, str]] = {}
@@ -331,6 +342,8 @@ async def stop_all_owner_work(request: Request) -> dict[str, Any]:
     for ident in active["pit"]:
         if not any(e["plane"] == "pit" and e["id"] == ident for e in errors):
             (requested if ident in remaining["pit"] else stopped)["pit"].append(ident)
+    for ident in direct_gen_stopped:
+        (requested if ident in remaining["direct_gen"] else stopped)["direct_gen"].append(ident)
     for plane in ("autonomy", "rave"):
         for ident in active[plane]:
             if not any(e["plane"] == plane for e in errors):
