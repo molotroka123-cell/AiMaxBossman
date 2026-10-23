@@ -29,6 +29,7 @@ class _Fake:
         self.id, self.finished, self.exit_code = sid, finished, code
         self.cwd, self.cmd, self.mode, self.output = "/tmp", f"echo {sid}", "project_host", []
         self.proc = type("P", (), {"pid": 1234})()
+        self.seq = 0
 
 
 def _manager(finished: int, running: int = 0) -> TerminalManager:
