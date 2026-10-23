@@ -373,7 +373,7 @@ async def test_attachment_size_limit_is_enforced_while_streaming(env, monkeypatc
     monkeypatch.setattr(ct, "ATTACHMENT_MAX_BYTES", 1024)
     root = env.settings.data_dir / "chat" / "attachments"
     ok = await _upload(env, "a.txt", b"x" * 1024)
-    assert ok.status_code == 200, ok.text
+    assert ok.status_code == 201, ok.text
     assert ok.json()["size"] == 1024
     big = await _upload(env, "b.txt", b"x" * 1025)
     assert big.status_code == 413 and big.json()["error"]["code"] == "CHAT_ATTACHMENT_TOO_LARGE"
@@ -393,7 +393,7 @@ async def test_attachment_names_cannot_escape_or_collide(env):
              "meta.json": "_meta.json", "a/b\\c:d*?.md": "c_d__.md", "....": "file"}
     for raw, expected in cases.items():
         resp = await _upload(env, raw, "привет".encode("utf-8"))
-        assert resp.status_code == 200, (raw, resp.text)
+        assert resp.status_code == 201, (raw, resp.text)
         meta = resp.json()
         assert meta["name"] == expected, raw
         assert re.fullmatch(r"[0-9a-f]{22}", meta["id"])
