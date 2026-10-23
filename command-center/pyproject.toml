@@ -15,7 +15,7 @@ dependencies = [
     "httpx[socks]>=0.27",
     # 2.1.1's Windows cp314 extension fails to load on the tested host; 2.0.54
     # is already the Windows bundle pin and imports on 3.11/3.12/3.14.
-    "sqlalchemy[asyncio]>=2.0,<2.1",
+    "sqlalchemy[asyncio]>=2.0,<2.2",
     "aiosqlite>=0.20",
     "pydantic>=2.7",
     "psutil>=5.9",
