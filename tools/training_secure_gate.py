@@ -44,10 +44,14 @@ SECRET = re.compile(
 PERSONAL_HINTS = ("AppData\\Local\\Bossman", "AppData/Local/Bossman", "\\keys\\provider-keys", "Гречка",
                   "lora-datasets-", "voice-train-", "\\datasets\\gf", "/datasets/gf")
 DEFAULT_SOURCES = ("jeff_kb", "training_drops", "passport_facts", "web_learn", "war_terminal", "open_news",
-                   "lessons", "owner_docs")
+                   "lessons", "owner_docs", "skills", "rules", "tools")
 #: Sources allowed to shape WEIGHTS (owner-provenance only, decision 23.10). web_learn / war_terminal /
 #: open_news are third-party text: RAG only (WEIGHTS_UNCHANGED), never fine-tuning data.
-WEIGHTS_SOURCES = ("jeff_kb", "training_drops", "passport_facts", "lessons", "owner_docs")
+#: lessons / owner_docs / skills / rules / tools are owner-authored repository files read by
+#: tools/lora_dataset.py (LessonBook JSON, docs/owner runbooks, owner SKILL.md without an upstream,
+#: AGENTS.md/CLAUDE.md, ToolSpec name+description) — owner provenance, so weights-eligible.
+WEIGHTS_SOURCES = ("jeff_kb", "training_drops", "passport_facts", "lessons", "owner_docs", "skills", "rules",
+                   "tools")
 
 
 def _sha256(path: Path) -> str:
