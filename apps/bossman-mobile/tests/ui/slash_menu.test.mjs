@@ -147,7 +147,7 @@ test('every palette command is exercised once; action/client run, message and un
 test('offline palette shows an error with «Повторить» and the local commands', { skip }, async () => {
   const a = await app({ paletteFail: true });
   type(a, '/'); await until(() => a.$('slash-status').textContent.includes('Не загрузилось'), 'error');
-  assert.deepEqual(names(a), ['/new', '/clear', '/help']);
+  assert.deepEqual(names(a), ['/new', '/clear', '/help', '/updates']);
   a.st.paletteFail = false; a.$('slash-status').querySelector('button').click();
   await until(() => rows(a).length > 20, 'retry loads the list');
 });
