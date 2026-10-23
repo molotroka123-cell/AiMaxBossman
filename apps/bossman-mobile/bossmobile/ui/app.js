@@ -1567,13 +1567,15 @@
     } catch (err) { if (err && err.status !== 401) toast(err.message); }
   }
   $('photo-form').addEventListener('submit', async (e) => {
-    e.preventDefault(); tap(); const m = curModel(); if (!m || S.photoSending) return;
+    e.preventDefault(); tap(); const m = curModel();
+    if (S.photoSending) return;
+    if (!m) { toast('Выберите модель'); return; }           // owner 23.10: the button must never do nothing silently
     if (S.refsLoading) { toast('Фото ещё читается — секунду'); return; }
     if (m.requires_image && !S.refs.length) { toast('Этой модели нужно фото-референс'); return; }
     const seed = $('photo-seed').value.trim();
     const body = { model: m.id, prompt: $('photo-prompt').value.trim(), negative: $('photo-negative').value.trim(), resolution: resolution(m), steps: Number($('photo-steps').value) };
     if (seed) body.seed = Number(seed);
-    if (!body.prompt) return;
+    if (!body.prompt) { toast('Напишите промт — что сгенерировать'); try { $('photo-prompt').focus(); } catch { /* */ } return; }
     const refs = m.accepts_image ? S.refs.slice(0, maxRefs(m)) : [];
     const why = m.accepts_image ? checkTags(body.prompt, refs) : ''; if (why) { toast(why); return; }
     if (refs.length === 1) body.image_b64 = refs[0].data; else if (refs.length) body.images_b64 = refs.map((r) => r.data);
