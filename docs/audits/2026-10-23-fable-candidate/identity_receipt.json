@@ -1,0 +1,34 @@
+{
+  "bundle_dirty": null,
+  "bundle_sha": null,
+  "checks": {
+    "bundle_matches_source": false,
+    "ci_mandatory_green": false,
+    "origin_matches_source": false,
+    "registry_matches_source": false,
+    "runtime_matches_source": false,
+    "seed_matches_source": false,
+    "source_clean": false
+  },
+  "ci_status": "unknown",
+  "failed_checks": [
+    "bundle_matches_source",
+    "ci_mandatory_green",
+    "origin_matches_source",
+    "registry_matches_source",
+    "runtime_matches_source",
+    "seed_matches_source",
+    "source_clean"
+  ],
+  "measured_at": "2026-10-23T11:34:46Z",
+  "origin_ref": "origin/integrate/one-bossman-final-20261023",
+  "origin_sha": "d12ca28aac39b2ba1c94f92fe2d6267e2e522e9d",
+  "registry_head": "d21bddc0457cc702effc25013f30d518077588c7",
+  "runtime_build_sha": "56b81f179cc73bea671878c2650b4a7ee4bcc58e",
+  "runtime_source_identity": "SOURCE_IDENTITY_STALE",
+  "schema": "bossman.candidate_identity_receipt.v1",
+  "seed_sha": "d21bddc0457cc702effc25013f30d518077588c7",
+  "source_dirty": true,
+  "source_sha": "a0ea6bda86176b6995b9f575682c679f7e7494d7",
+  "verdict": "SOURCE_IDENTITY_STALE"
+}
