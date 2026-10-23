@@ -145,6 +145,39 @@ def test_dirty_diagnostic_bundle_cannot_publish_verified_acceptance(tmp_path, mo
     assert manifest["checks"]["status"] == "DIRTY_SOURCE_NOT_VERIFIED"
 
 
+def test_candidate_receipt_is_fail_closed_on_every_identity(repository, tmp_path_factory):
+    """Six identities + CI must agree; any gap is SOURCE_IDENTITY_STALE and never READY/PASS."""
+    ext_dir = tmp_path_factory.mktemp("rc")
+    sha = git(repository, "rev-parse", "HEAD")
+    seed_path, reg_path, bundle_path = ext_dir / "seed.json", ext_dir / "reg.json", ext_dir / "manifest.json"
+    seed_path.write_text(json.dumps({"source_sha": sha}), encoding="utf-8")
+    reg_path.write_text(json.dumps({"head": sha}), encoding="utf-8")
+    bundle_path.write_text(json.dumps({"source_sha": sha, "source_dirty": False}), encoding="utf-8")
+    git(repository, "update-ref", "refs/remotes/origin/main", sha)
+    good = dict(origin_ref="origin/main", ci_status="success", seed_path=seed_path, registry_path=reg_path,
+                bundle_manifest_path=bundle_path, runtime={"build_sha": sha, "source_identity": "PASS"})
+
+    res = identity.candidate_receipt(repository, **good)
+    assert res["verdict"] == identity.CANDIDATE_MATCH and res["failed_checks"] == []
+    assert "READY" not in json.dumps(res) and '"PASS"' not in json.dumps({k: v for k, v in res.items()
+                                                                           if k != "runtime_source_identity"})
+
+    # each identity alone flips the verdict to STALE, naming the failed check
+    stale_cases = {
+        "runtime_matches_source": dict(good, runtime={"build_sha": sha, "source_identity": "SOURCE_IDENTITY_STALE"}),
+        "ci_mandatory_green": dict(good, ci_status="unknown"),
+        "origin_matches_source": dict(good, origin_ref="origin/does-not-exist"),
+    }
+    for failed, kwargs in stale_cases.items():
+        res = identity.candidate_receipt(repository, **kwargs)
+        assert res["verdict"] == identity.CANDIDATE_STALE and failed in res["failed_checks"], failed
+    reg_path.write_text(json.dumps({"head": "b" * 40}), encoding="utf-8")
+    res = identity.candidate_receipt(repository, **good)
+    assert res["verdict"] == identity.CANDIDATE_STALE and "registry_matches_source" in res["failed_checks"]
+    res = identity.candidate_receipt(repository, **dict(good, runtime={}))
+    assert res["verdict"] == identity.CANDIDATE_STALE and "runtime_matches_source" in res["failed_checks"]
+
+
 def test_reconcile_four_identities_matches_clean_tree_and_rejects_mismatches(repository, tmp_path_factory):
     ext_dir = tmp_path_factory.mktemp("ext")
     sha = git(repository, "rev-parse", "HEAD")

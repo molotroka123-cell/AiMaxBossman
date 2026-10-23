@@ -152,6 +152,75 @@ def reconcile_four_identities(repository: Path, *, seed_path: Path | None = None
     }
 
 
+CANDIDATE_STALE = "SOURCE_IDENTITY_STALE"
+CANDIDATE_MATCH = "SOURCE_IDENTITY_MATCH"
+MANDATORY_CI_GREEN = "success"
+
+
+def _origin_sha(repository: Path, ref: str) -> str | None:
+    """SHA of a remote-tracking ref (never fetches); None when the ref is unknown."""
+    try:
+        return _git(repository, "rev-parse", "--verify", f"{ref}^{{commit}}").decode().strip() or None
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
+def _runtime_identity(url: str | None, timeout: float = 5.0) -> dict:
+    """{"build_sha", "source_identity"} as the live runtime reports them, {} when unreachable."""
+    if not url:
+        return {}
+    import urllib.request  # noqa: WPS433 - stdlib, only when a URL is given
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310 - loopback health URL
+            doc = json.loads(resp.read().decode("utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {"build_sha": doc.get("build_sha"), "source_identity": doc.get("source_identity")} if isinstance(doc, dict) else {}
+
+
+def candidate_receipt(repository: Path, *, origin_ref: str, ci_status: str | None = None,
+                      runtime: dict | None = None, runtime_url: str | None = None,
+                      seed_path: Path | None = None, registry_path: Path | None = None,
+                      bundle_manifest_path: Path | None = None) -> dict:
+    """Fail-closed identity receipt for a release candidate.
+
+    Six identities must agree on ONE commit: clean source, origin ref, the live runtime
+    (its own `source_identity` must be PASS), tree seed, tree registry head, bundle manifest;
+    plus the mandatory CI status must be "success". Anything unmeasured, dirty, missing or
+    different yields SOURCE_IDENTITY_STALE. The receipt never says READY or PASS.
+    """
+    repository = repository.resolve()
+    four = reconcile_four_identities(repository, seed_path=seed_path, registry_path=registry_path,
+                                     bundle_manifest_path=bundle_manifest_path)
+    source_sha = four["source_sha"]
+    origin_sha = _origin_sha(repository, origin_ref)
+    live = runtime if runtime is not None else _runtime_identity(runtime_url)
+    runtime_sha = live.get("build_sha")
+    ci = (ci_status or "UNKNOWN").strip().lower() or "unknown"
+    checks = {
+        "source_clean": bool(four["matches"]["source_sha"]),
+        "origin_matches_source": bool(source_sha) and origin_sha == source_sha,
+        "runtime_matches_source": bool(source_sha) and runtime_sha == source_sha
+                                   and live.get("source_identity") == "PASS",
+        "seed_matches_source": bool(four["matches"]["seed_sha"]),
+        "registry_matches_source": bool(four["matches"]["registry_head"]),
+        "bundle_matches_source": bool(four["matches"]["bundle_sha"]),
+        "ci_mandatory_green": ci == MANDATORY_CI_GREEN,
+    }
+    return {
+        "schema": "bossman.candidate_identity_receipt.v1",
+        "verdict": CANDIDATE_MATCH if all(checks.values()) else CANDIDATE_STALE,
+        "source_sha": source_sha, "source_dirty": four["source_dirty"],
+        "origin_ref": origin_ref, "origin_sha": origin_sha,
+        "runtime_build_sha": runtime_sha, "runtime_source_identity": live.get("source_identity"),
+        "seed_sha": four["seed_sha"], "registry_head": four["registry_head"],
+        "bundle_sha": four["bundle_sha"], "bundle_dirty": four["bundle_dirty"],
+        "ci_status": ci, "checks": checks,
+        "failed_checks": sorted(name for name, ok in checks.items() if not ok),
+        "measured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+
+
 DEFAULT_FAST_OPS_TESTS = [
     "tests/test_acceptance_registry.py",
     "tests/test_build_source_identity.py",
@@ -210,7 +279,20 @@ def main(argv: list[str] | None = None) -> int:
                         help="run the fast ops tests and emit a receipt")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument("--candidate-receipt", action="store_true",
+                        help="fail-closed receipt: source/origin/runtime/seed/registry/bundle + CI status")
+    parser.add_argument("--origin-ref", default="origin/main")
+    parser.add_argument("--runtime-url", default=None, help="e.g. http://127.0.0.1:8801/health/live")
+    parser.add_argument("--ci-status", default=None, help="mandatory CI conclusion as reported (success/failure/unknown)")
     args = parser.parse_args(argv)
+    if args.candidate_receipt:
+        result = candidate_receipt(args.repository, origin_ref=args.origin_ref, ci_status=args.ci_status,
+                                   runtime_url=args.runtime_url, bundle_manifest_path=args.bundle_manifest)
+        if args.out is not None:
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if result["verdict"] == CANDIDATE_MATCH else 1
     if args.fast_receipt:
         result = run_fast_ops_receipt(args.repository, workers=args.workers, out_path=args.out,
                                       bundle_manifest_path=args.bundle_manifest)
