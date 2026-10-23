@@ -118,6 +118,8 @@ def _serialize_tests_that_bind_the_fixed_app_port(request):
 def _probe_cache_off(monkeypatch):
     """Health probes are cached in the product (bcc.probe_cache); every test measures its own mocked state."""
     monkeypatch.setenv("BCC_PROBE_CACHE", "off")
+    # Chat image/scan attachments call a local vision model (bcc.features.chat_vision); no test may touch ollama.
+    monkeypatch.setenv("BOSSMAN_CHAT_VISION", "off")
 
 
 @pytest.fixture(autouse=True)
