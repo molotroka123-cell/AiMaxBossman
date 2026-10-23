@@ -1,0 +1,132 @@
+{
+ "at": "2026-10-23T19:29:06Z",
+ "os": "Windows-11-10.0.26200-SP0",
+ "python": "3.12.10",
+ "ollama_version": "0.40.9",
+ "ollama_models": [
+  {
+   "name": "ace-decider-08b:latest",
+   "gb": 0.8,
+   "family": "qwen35",
+   "quant": "Q8_0"
+  },
+  {
+   "name": "ace-qwen3-17b:latest",
+   "gb": 2.2,
+   "family": "qwen3",
+   "quant": "Q8_0"
+  },
+  {
+   "name": "bossman-community-qwen-uncensored-ctx256k:latest",
+   "gb": 36.9,
+   "family": "qwen35moe",
+   "quant": "Q8_0"
+  },
+  {
+   "name": "bossman-community-qwen-uncensored-ctx64k:latest",
+   "gb": 36.9,
+   "family": "qwen35moe",
+   "quant": "Q8_0"
+  },
+  {
+   "name": "bossman-community-qwen-uncensored:latest",
+   "gb": 36.9,
+   "family": "qwen35moe",
+   "quant": "Q8_0"
+  },
+  {
+   "name": "bossman-fast-qwen36-35b-a3b-q5:latest",
+   "gb": 26.5,
+   "family": "qwen35moe",
+   "quant": "Q5_K_M"
+  },
+  {
+   "name": "bossman-fast-qwen36-vision:latest",
+   "gb": 27.4,
+   "family": "qwen35moe",
+   "quant": "Q5_K_M"
+  },
+  {
+   "name": "bossman-main-qwen38-27b-q5:latest",
+   "gb": 19.8,
+   "family": "qwen35",
+   "quant": "Q5_K_M"
+  },
+  {
+   "name": "bossman-uncensored-chat:latest",
+   "gb": 36.9,
+   "family": "qwen35moe",
+   "quant": "Q8_0"
+  },
+  {
+   "name": "gemma3-27b-abl-test:latest",
+   "gb": 28.7,
+   "family": "gemma3",
+   "quant": "Q8_0"
+  },
+  {
+   "name": "gemma4-31b-uncensored:latest",
+   "gb": 32.6,
+   "family": "gemma4",
+   "quant": "Q8_0"
+  },
+  {
+   "name": "hf.co/bytkim/Qwen3.8-27B-pi-GGUF:Q4_K_M",
+   "gb": 17.5,
+   "family": "qwen35",
+   "quant": "Q4_K_M"
+  },
+  {
+   "name": "muse-glimmer-30b-q4:latest",
+   "gb": 17.3,
+   "family": "muse-glimmer",
+   "quant": "Q4_K_M"
+  },
+  {
+   "name": "qwen3-coder:30b",
+   "gb": 18.6,
+   "family": "qwen3moe",
+   "quant": "Q4_K_M"
+  },
+  {
+   "name": "qwen38-27b-uncensored:latest",
+   "gb": 29.0,
+   "family": "qwen35",
+   "quant": "Q8_0"
+  },
+  {
+   "name": "qwen38-pi-ab:latest",
+   "gb": 17.5,
+   "family": "qwen35",
+   "quant": "Q4_K_M"
+  },
+  {
+   "name": "r1-70b-abliterated:latest",
+   "gb": 42.5,
+   "family": "llama",
+   "quant": "Q4_K_M"
+  }
+ ],
+ "engine_binaries": {
+  "C:\\Users\\asd\\Bossman\\media-runtime\\sdcpp\\vulkan\\sd-cli.exe": {
+   "version_output": "stable-diffusion.cpp version unknown, commit 74988b2",
+   "mtime": "2026-09-21"
+  },
+  "C:\\Users\\asd\\Bossman\\media-runtime\\sdcpp\\vulkan-20261018\\sd-cli.exe": {
+   "version_output": "stable-diffusion.cpp version unknown, commit 95b3090",
+   "mtime": "2026-10-18"
+  },
+  "C:\\Users\\asd\\Bossman\\media-runtime\\sdcpp\\vulkan\\sd-server.exe": {
+   "version_output": "stable-diffusion.cpp version unknown, commit 74988b2",
+   "mtime": "2026-09-21"
+  },
+  "C:\\Users\\asd\\Bossman\\media-runtime\\sdcpp\\vulkan-20261018\\sd-server.exe": {
+   "version_output": "stable-diffusion.cpp version unknown, commit 95b3090",
+   "mtime": "2026-10-18"
+  },
+  "C:\\Users\\asd\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\llama-server.exe": {
+   "version_output": "",
+   "mtime": "2026-10-23"
+  }
+ }
+}

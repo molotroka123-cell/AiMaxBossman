@@ -265,7 +265,7 @@ def main(argv: list[str] | None = None) -> int:
     report = build_report(findings, advisory_id=str(wl.get("advisory_id", "unknown")))
     report["environments_scanned"] = len(sites)
     if args.json:
-        Path(args.json).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(args.json).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     c = report["counts"]
     print(f"advisory={report['advisory_id']} verdict={report['verdict']} DENY={c['DENY']} UNPINNED={c['UNPINNED']} "
           f"INDICATOR={c['INDICATOR']} PRESENT={c['PRESENT']} environments={report['environments_scanned']}")

@@ -1,0 +1,22 @@
+{
+  "schema": "bossman.advisory_exposure.v1",
+  "advisory_id": "BLACK-OCTOBER-20261023",
+  "generated_at": "2026-10-23T19:30:57+00:00",
+  "verdict": "PASS",
+  "counts": {
+    "DENY": 0,
+    "UNPINNED": 0,
+    "INDICATOR": 0,
+    "PRESENT": 1
+  },
+  "findings": [
+    {
+      "kind": "PRESENT",
+      "component": "litellm",
+      "path": "bossman-infra/compose.yaml",
+      "line": 39,
+      "detail": ""
+    }
+  ],
+  "environments_scanned": 2
+}
