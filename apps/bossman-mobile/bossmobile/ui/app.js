@@ -1710,9 +1710,53 @@
     const un = $('viewer-unlocked'); un.hidden = !(j.result_unlocked); un.textContent = 'До FaceLock'; un.dataset.on = '';
     const m = S.photoModels.find((x) => x.id === j.model);
     $('viewer-meta').textContent = `${j.raw_prompt || ''}\n${m ? m.label : j.model} · ${j.params ? j.params.width + '×' + j.params.height + ' · сид ' + j.params.seed : ''} · ${fmtS(j.elapsed_s)}`;
+    zoomReset(); $('viewer').classList.remove('immersive');
     $('viewer').hidden = false; layerOpen($('viewer'), closeViewer, $('viewer-close'));
   }
-  function closeViewer() { $('viewer').hidden = true; layerClose($('viewer')); }
+  function closeViewer() { $('viewer').hidden = true; zoomReset(); $('viewer').classList.remove('immersive'); layerClose($('viewer')); }
+  // Owner 23.10: the caption bar covered half the photo. Tap = full screen (bar hidden) and back;
+  // pinch / double-tap = zoom 1..6x, drag = pan while zoomed. Pure transform, no reload of the image.
+  const Z = { s: 1, x: 0, y: 0, pts: new Map(), start: null, lastTap: 0, moved: false };
+  function zoomApply() {
+    const img = $('viewer-img'); img.style.transform = Z.s === 1 ? '' : `translate(${Z.x}px, ${Z.y}px) scale(${Z.s})`;
+    $('viewer').classList.toggle('zoomed', Z.s > 1);
+  }
+  function zoomReset() { Z.s = 1; Z.x = 0; Z.y = 0; Z.pts.clear(); Z.start = null; zoomApply(); }
+  function zoomClamp() {
+    Z.s = Math.min(6, Math.max(1, Z.s));
+    if (Z.s === 1) { Z.x = 0; Z.y = 0; return; }
+    const img = $('viewer-img'); const mx = (img.clientWidth * (Z.s - 1)) / 2; const my = (img.clientHeight * (Z.s - 1)) / 2;
+    Z.x = Math.min(mx, Math.max(-mx, Z.x)); Z.y = Math.min(my, Math.max(-my, Z.y));
+  }
+  (() => {
+    const img = $('viewer-img');
+    img.addEventListener('pointerdown', (e) => {
+      img.setPointerCapture?.(e.pointerId); Z.pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); Z.moved = false;
+      const p = [...Z.pts.values()];
+      Z.start = p.length === 2 ? { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), s: Z.s, x: Z.x, y: Z.y }
+        : { px: e.clientX, py: e.clientY, x: Z.x, y: Z.y };
+    });
+    img.addEventListener('pointermove', (e) => {
+      if (!Z.pts.has(e.pointerId) || !Z.start) return;
+      Z.pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); const p = [...Z.pts.values()];
+      if (p.length === 2 && Z.start.d) { Z.s = Z.start.s * (Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) / Z.start.d); Z.moved = true; }
+      else if (p.length === 1 && Z.s > 1 && Z.start.px !== undefined) {
+        const dx = e.clientX - Z.start.px; const dy = e.clientY - Z.start.py;
+        if (Math.abs(dx) + Math.abs(dy) > 6) Z.moved = true; Z.x = Z.start.x + dx; Z.y = Z.start.y + dy;
+      }
+      zoomClamp(); zoomApply();
+    });
+    const up = (e) => {
+      Z.pts.delete(e.pointerId);
+      if (Z.pts.size) { const [q] = Z.pts.values(); Z.start = { px: q.x, py: q.y, x: Z.x, y: Z.y }; return; }
+      Z.start = null; if (Z.moved) return;
+      const now = Date.now();
+      if (now - Z.lastTap < 300) { Z.lastTap = 0; Z.s = Z.s > 1 ? 1 : 2.5; zoomClamp(); zoomApply(); return; }   // double tap
+      Z.lastTap = now;
+      setTimeout(() => { if (Z.lastTap === now) $('viewer').classList.toggle('immersive'); }, 310);            // single tap
+    };
+    img.addEventListener('pointerup', up); img.addEventListener('pointercancel', up);
+  })();
   $('viewer-close').addEventListener('click', closeViewer);
   $('viewer-pult').addEventListener('click', () => { if (viewing) toPult('photo', viewing.job_id, $('viewer-pult')); });
   $('viewer-delete').addEventListener('click', () => { if (viewing) deleteForever('photo', viewing.job_id, $('viewer-delete')); });
