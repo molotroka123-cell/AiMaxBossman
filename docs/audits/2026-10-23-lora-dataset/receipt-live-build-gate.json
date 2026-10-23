@@ -1,0 +1,27 @@
+{
+ "verdict": "PASS",
+ "tool": "tools/lora_dataset.py build + gate",
+ "dataset_id": "ds-20261023-192025-eefe969c",
+ "rows": 52,
+ "train_rows": 45,
+ "holdout_rows": 7,
+ "source_counts": {
+  "jeff_kb": 52
+ },
+ "manifest_sha256": "578c55552a3b7c0a58fc30e2757347a9d1b943e707cd1364dd70c6cb4f7f61a7",
+ "gate": {
+  "verdict": "PASS",
+  "report_sha256": "41dfdcbe79370d4bd7e2003aa8bc23736198b4963bc942d255374c4fe288f0a5",
+  "checks": {
+   "supply_chain": true,
+   "venv": true,
+   "manifest": true,
+   "corpus": true,
+   "personal": true,
+   "offline": true
+  }
+ },
+ "snapshot_location": "C:/Users/asd/Bossman/train-snapshots (outside git, never pushed)",
+ "note": "counts and hashes only; no row text or ids copied here. Corpus is small (52 rows, jeff_kb only): training drops / web-learn / war-terminal sources were empty on 23.10.",
+ "at": "2026-10-23T19:20:25Z"
+}
