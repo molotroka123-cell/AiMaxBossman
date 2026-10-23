@@ -40,7 +40,7 @@ master-parser-documents = ["docling-slim[convert-core,format-pdf,format-office,m
 # av<19: faster-whisper 1.2.1 calls av.open(..., metadata_errors=...), which PyAV 19 removed (TypeError in
 # test_oss_whisper on CI 2026-10-08). The shipped Windows lock already carries av==18.1.0.
 speech = ["faster-whisper==1.2.1", "av>=11,<19"]
-semantic-memory = ["qdrant-client==1.15.1"]
+semantic-memory = ["qdrant-client==1.19.1"]
 # Local TimesFM 2.5 forecasting (bcc.forecast.timesfm_local, POST /api/forecast). OPT-IN and NOT part of `runtime`:
 # it pulls torch. Recommended instead: an isolated venv with this pin + CPU torch, pointed to by BOSSMAN_TIMESFM_PYTHON,
 # so torch never enters the Bossman interpreter. Weights (google/timesfm-2.5-200m-pytorch, Apache-2.0) are downloaded by
