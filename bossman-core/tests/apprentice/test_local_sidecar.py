@@ -598,6 +598,30 @@ class _RawArgs:
 CUT_EDIT = ("edit_file", '{"path": "calc.py", "old": "return a - b", "new": "return a +')
 
 
+class _ProseOnly:
+    """A model that never calls a tool: prose/reasoning in `content`, no `tool_calls`
+    (nemotron-3-ultra:free via OpenRouter on the owner box, 23.10)."""
+
+    def __init__(self):
+        self.turns = 0
+
+    def chat(self, messages, *, tools, timeout):
+        self.turns += 1
+        return {"content": "I will now read the file and then edit it.", "tool_calls": []}
+
+
+def test_a_model_that_never_calls_a_tool_stops_fast_as_a_fail(repo):
+    before = (repo / "calc.py").read_bytes()
+    model = _ProseOnly()
+    res = ls.run_task({"workspace": str(repo), "instruction": "x", "allowed_paths": ["calc.py"],
+                       "protected_paths": []}, model, max_steps=40, test_timeout=30)
+    assert res["status"] == "failed" and res["stop_reason"] == "no_tool_call"
+    assert model.turns == ls.MAX_NO_TOOL_CALL_TURNS, "stop after the bounded retry, not after max_steps"
+    assert all(e["err"] == "no_tool_call" for e in res["tool_calls"])
+    assert (repo / "calc.py").read_bytes() == before
+    assert "without a tool call" in res["summary"]
+
+
 def _run_raw(repo, calls, max_steps=10):
     model = _RawArgs(calls)
     res = ls.run_task({"workspace": str(repo), "instruction": "x", "allowed_paths": ["calc.py"],

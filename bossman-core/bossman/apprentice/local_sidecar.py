@@ -615,6 +615,10 @@ MAX_NO_PROGRESS = 8   # fixed before the 2026-09-23 comparison; do not tune on i
 #: executed; the model is asked to resend it, and after this many turns the attempt stops as a
 #: FAIL (owner box 07.10: the local coder kept emitting cut tool calls until the step budget ran out).
 MAX_BAD_ARGS_TURNS = 3
+#: Turns in a row with no tool call at all (the model answered in prose or spent its budget
+#: reasoning). Owner box 23.10: nemotron-3-ultra:free via OpenRouter did this 40 times in a row
+#: on two tasks, burning the whole step budget (3.5 min each) before `max_steps` stopped it.
+MAX_NO_TOOL_CALL_TURNS = 3
 BAD_ARGS_NOTE = ("ERROR: the arguments of this {name} call are not complete JSON (probably cut off by the "
                  "output limit), so the call was NOT executed. Send it again with complete, valid JSON; "
                  "for a large edit use a smaller old/new fragment.")
@@ -699,6 +703,7 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
     edits = 0
     no_progress = 0
     bad_args_turns = 0
+    no_tool_call_turns = 0
     summary = ""
     stop = "max_steps"
     started = time.monotonic()
@@ -729,7 +734,14 @@ def run_task(req: dict, model: Model, *, max_steps: int, test_timeout: int) -> d
                 messages.append({"role": "user", "content": "Use a tool. When done and tests pass, call finish."})
                 log.append({"step": step, "tool": None, "ok": False, "t": round(time.monotonic() - started, 3),
                             "err": "no_tool_call"})
+                no_tool_call_turns += 1
+                if no_tool_call_turns >= MAX_NO_TOOL_CALL_TURNS:
+                    stop = "no_tool_call"
+                    summary = (f"stopped: {no_tool_call_turns} turns in a row without a tool call; this model "
+                               "does not drive the tool loop (prose or reasoning instead of calls)")
+                    break
                 continue
+            no_tool_call_turns = 0
             finished = False
             if all("__unparsed__" in args for _, _, args in calls):
                 bad_args_turns += 1
