@@ -4,7 +4,7 @@
   "checks": {
     "bundle_matches_source": false,
     "ci_mandatory_green": false,
-    "origin_matches_source": false,
+    "origin_matches_source": true,
     "registry_matches_source": false,
     "runtime_matches_source": false,
     "seed_matches_source": false,
@@ -14,21 +14,20 @@
   "failed_checks": [
     "bundle_matches_source",
     "ci_mandatory_green",
-    "origin_matches_source",
     "registry_matches_source",
     "runtime_matches_source",
     "seed_matches_source",
     "source_clean"
   ],
-  "measured_at": "2026-10-23T11:34:46Z",
+  "measured_at": "2026-10-23T11:35:50Z",
   "origin_ref": "origin/integrate/one-bossman-final-20261023",
-  "origin_sha": "d12ca28aac39b2ba1c94f92fe2d6267e2e522e9d",
+  "origin_sha": "0150363c7229f0626f51441f96fe3b379aaab529",
   "registry_head": "d21bddc0457cc702effc25013f30d518077588c7",
   "runtime_build_sha": "56b81f179cc73bea671878c2650b4a7ee4bcc58e",
   "runtime_source_identity": "SOURCE_IDENTITY_STALE",
   "schema": "bossman.candidate_identity_receipt.v1",
   "seed_sha": "d21bddc0457cc702effc25013f30d518077588c7",
   "source_dirty": true,
-  "source_sha": "a0ea6bda86176b6995b9f575682c679f7e7494d7",
+  "source_sha": "0150363c7229f0626f51441f96fe3b379aaab529",
   "verdict": "SOURCE_IDENTITY_STALE"
 }

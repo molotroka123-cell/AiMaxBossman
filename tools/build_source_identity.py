@@ -290,7 +290,8 @@ def main(argv: list[str] | None = None) -> int:
                                    runtime_url=args.runtime_url, bundle_manifest_path=args.bundle_manifest)
         if args.out is not None:
             args.out.parent.mkdir(parents=True, exist_ok=True)
-            args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            # LF on every platform: a CRLF receipt fails `git diff --check` on Windows checkouts.
+            args.out.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if result["verdict"] == CANDIDATE_MATCH else 1
     if args.fast_receipt:
