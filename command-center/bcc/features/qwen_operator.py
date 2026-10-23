@@ -43,6 +43,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from ..providers import ctx_variant_tag  # one tag name per window, shared with the chat adapter
 from . import Feature
 
 router = APIRouter()
@@ -440,19 +441,6 @@ async def ollama_chat(model: str, messages: list[dict], *, num_ctx: int = CTX_DE
             "load_seconds": round((data.get("load_duration") or 0) / 1e9, 1),
             "num_ctx_requested": num_ctx, "context_length_loaded": loaded.get("context_length"),
             "size_bytes": loaded.get("size"), "size_vram_bytes": loaded.get("size_vram")}
-
-
-def ctx_variant_tag(base: str, num_ctx: int) -> str:
-    """Name of the derived tag. One name per (base tag, num_ctx): ``qwen3:8b`` and ``qwen3:14b`` used to both
-    become ``qwen3-ctx64k:latest``, so the second role silently ran the first model (the tag existed, nothing was
-    re-created). A ``:latest`` (or untagged) base keeps the old name, so tags already created on the owner host stay
-    valid; a window that is not a whole number of KiB is spelled exactly instead of being rounded into a neighbour."""
-    name, _, tag = base.partition(":")
-    stem = name.replace("/", "-")
-    if tag and tag != "latest":
-        stem = f"{stem}-{tag.replace('/', '-')}"
-    size = f"{num_ctx // 1024}k" if num_ctx % 1024 == 0 else str(num_ctx)
-    return f"{stem}-ctx{size}:latest"
 
 
 async def ensure_ctx_variant(base: str, num_ctx: int, *, transport: Any = None) -> dict:

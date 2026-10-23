@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import time
 from dataclasses import dataclass, field
@@ -14,6 +15,8 @@ from typing import Any, Protocol
 
 import httpx
 from urllib.parse import urlparse
+
+log = logging.getLogger(__name__)
 
 CHAT_TIMEOUT = 600.0     # локальная модель на CPU думает долго
 HEALTH_TIMEOUT = 6.0     # проверка доступности должна быть быстрой
@@ -220,6 +223,36 @@ def is_ollama_v1_url(url: str) -> bool:
             and port == 11434 and parts.path.rstrip("/") == "/v1")
 
 
+#: The models.context_window column default. A row at (or below) it is not an owner decision, and the runner's
+#: own window is left as is; only a larger registry window is enforced on Ollama.
+OLLAMA_DEFAULT_NUM_CTX = 8192
+#: (ollama root, model, num_ctx) -> tag that really runs with that window. Process-wide: the derived tag is
+#: created once per window, later chats reuse it without asking Ollama again.
+_OLLAMA_CTX_TAGS: dict[tuple[str, str, int], str] = {}
+
+
+def ctx_variant_tag(base: str, num_ctx: int) -> str:
+    """Name of the derived tag. One name per (base tag, num_ctx): ``qwen3:8b`` and ``qwen3:14b`` used to both
+    become ``qwen3-ctx64k:latest``, so the second role silently ran the first model (the tag existed, nothing was
+    re-created). A ``:latest`` (or untagged) base keeps the old name, so tags already created on the owner host stay
+    valid; a window that is not a whole number of KiB is spelled exactly instead of being rounded into a neighbour."""
+    name, _, tag = base.partition(":")
+    stem = name.replace("/", "-")
+    if tag and tag != "latest":
+        stem = f"{stem}-{tag.replace('/', '-')}"
+    size = f"{num_ctx // 1024}k" if num_ctx % 1024 == 0 else str(num_ctx)
+    return f"{stem}-ctx{size}:latest"
+
+
+def _modelfile_num_ctx(show: dict) -> int | None:
+    """``num_ctx`` baked into the tag's Modelfile (``/api/show`` ``parameters`` text), if any."""
+    for line in str(show.get("parameters") or "").splitlines():
+        key, _, value = line.strip().partition(" ")
+        if key == "num_ctx" and value.strip().isdigit():
+            return int(value.strip())
+    return None
+
+
 def is_local_url(url: str) -> bool:
     """Адрес на этой же машине или в локальной сети.
 
@@ -305,6 +338,7 @@ class _BaseAdapter:
     base_url: str = ""
     api_key: str | None = None
     transport: Any = None            # httpx.MockTransport в тестах
+    num_ctx: int | None = None       # models.context_window; only loopback Ollama needs it sent
 
     # без аннотации: это не поле dataclass, а константа класса-адаптера
     default_base = ""
@@ -383,6 +417,8 @@ class OpenAICompatAdapter(_BaseAdapter):
             # accept several system messages, and a late one can be a
             # deliberate positional reminder, so they get the list as sent.
             messages = merge_system_messages(messages)
+        if self.num_ctx and is_ollama_v1_url(self.base_url):
+            model = await self._ollama_ctx_model(model, int(self.num_ctx))
         payload: dict[str, Any] = {"model": model, "messages": messages}
         for key in ("max_tokens", "temperature", "top_p", "stop"):
             if kw.get(key) is not None:
@@ -430,6 +466,42 @@ class OpenAICompatAdapter(_BaseAdapter):
                                     status_code=code or None)
             await asyncio.sleep(delay)
         return self._result_from(data, model)
+
+    async def _ollama_ctx_model(self, model: str, num_ctx: int) -> str:
+        """The tag that runs ``model`` with the registry window ``num_ctx`` on loopback Ollama.
+
+        Ollama's /v1 ignores any per-request context size (``options``/``num_ctx`` are dropped), so a model
+        without ``num_ctx`` in its Modelfile loads at the server default (8192 seen 23.10 for a 32768 row:
+        every chat silently cut to 8k). The window can only come from the tag itself, so a derived tag with
+        ``num_ctx`` baked in is created once (``/api/create``: metadata only, no weights copied; the same
+        naming as the Qwen operator, so tags it made are reused). A tag that already guarantees the window
+        is used as is; a smaller registry window never shrinks it. Any failure keeps the old behaviour."""
+        if num_ctx <= OLLAMA_DEFAULT_NUM_CTX:
+            return model
+        root = self.base_url[:-len("/v1")]
+        key = (root, model, num_ctx)
+        if key in _OLLAMA_CTX_TAGS:
+            return _OLLAMA_CTX_TAGS[key]
+        try:
+            show = _response_object(await self._request("POST", f"{root}/api/show", timeout=HEALTH_TIMEOUT,
+                                                        json={"model": model}), what="api/show")
+            baked = _modelfile_num_ctx(show)
+            if baked is not None and baked >= num_ctx:
+                _OLLAMA_CTX_TAGS[key] = model
+                return model
+            tag = ctx_variant_tag(model, num_ctx)
+            tags = _response_object(await self._request("GET", f"{root}/api/tags", timeout=HEALTH_TIMEOUT),
+                                    what="api/tags").get("models") or []
+            if not any(isinstance(m, dict) and m.get("name") == tag for m in tags):
+                await self._request("POST", f"{root}/api/create", timeout=120.0,
+                                    json={"model": tag, "from": model, "stream": False,
+                                          "parameters": {"num_ctx": num_ctx}})
+        except ProviderError as exc:
+            log.warning("ollama: no %d-token tag for %s (%s); the server default window applies",
+                        num_ctx, model, exc)
+            return model
+        _OLLAMA_CTX_TAGS[key] = tag
+        return tag
 
     @staticmethod
     def _result_from(data: dict, model: str) -> ChatResult:
@@ -787,12 +859,13 @@ ADAPTERS: dict[str, type[_BaseAdapter]] = {
 
 
 def build_adapter(kind: str, base_url: str = "", api_key: str | None = None,
-                  transport: Any = None) -> ProviderAdapter:
+                  transport: Any = None, num_ctx: int | None = None) -> ProviderAdapter:
     cls = ADAPTERS.get(kind)
     if cls is None:
         raise ProviderError(f"неизвестный вид провайдера: {kind}",
                             hint=f"доступны: {', '.join(ADAPTERS)}")
-    return cls(base_url=base_url, api_key=api_key, transport=transport)  # type: ignore[return-value]
+    return cls(base_url=base_url, api_key=api_key, transport=transport,  # type: ignore[return-value]
+               num_ctx=num_ctx)
 
 
 def net_reason(exc: BaseException) -> str:
