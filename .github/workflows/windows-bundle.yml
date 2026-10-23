@@ -290,7 +290,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # actions/download-artifact@v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8.0.2
         with:
           name: bossman-windows-${{ env.BOSSMAN_ACCEPTANCE_SHA }}
           path: ${{ runner.temp }}/download
@@ -554,7 +554,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # actions/download-artifact@v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # actions/download-artifact@v8.0.2
         with:
           pattern: '*-${{ env.BOSSMAN_ACCEPTANCE_SHA }}'
           path: ${{ runner.temp }}/freeze-evidence
