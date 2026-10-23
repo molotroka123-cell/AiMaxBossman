@@ -41,3 +41,21 @@ Liberty 260 mm (0.20): 13 h 18, 329 g; 130 mm (0.12): 7 h 34.
 ## Not done yet
 The USB stick in the owner's PC was not detected by Windows on 14.10 (no mass-storage device) — copy gcode to `<drive>\models`
 only once a drive letter appears. There is no pult command for this yet; the owner asks in chat and the operator runs the steps.
+
+## Owner rules added 22.10 (Svoboda redo)
+- Temperatures are parameters: `BOSSMAN_PRINT_NOZZLE=220 BOSSMAN_PRINT_BED=60 python tools/print3d/slice_any.py ...`. Name carries them
+  (`..._PLA220_bed60_...`). When the owner says "220 иглы и 60 пола" always set BOTH; without `BOSSMAN_PRINT_BED` the Cool Plate profile heats
+  the bed to 35 C (the 260 mm Svoboda came out with `M190 S35` — wrong). Verify `M190 S60` and `M109 S220` in the gcode before sending.
+- "Подставка / не разъезжалось": `BOSSMAN_PRINT_RAFT=3` plus brim 8 mm. Do not use tall thin tree supports under a lying figure.
+- Orientation: pick by looking at the 4 renders. A statue on a round plinth stays UPRIGHT (`rot=none`, plinth flat on the bed);
+  lying on its back puts the plinth on edge and needs tall support columns (Svoboda horizontal 130 mm: 83 g, 4014 support passes — worse).
+  The owner delegates the choice: "как лучше, лишь бы норм".
+- Always report print TIME and grams per file (owner: «пиши скок делаться будет»), from the slicer summary, plus a preview rendered by
+  `gcode_view.py` using a Python that has matplotlib (`apps-local/figurine/venv`).
+
+## Быстрая печать (владелец 22.10: «в 2 раза меньше печаталось»)
+- 110/130 мм: пресет `0.24mm Draft @Elegoo N4Pro 0.4 nozzle` вместо 0.12 → время ×0.48.
+- Крупные статуи: `tools/print3d/presets/statue_fast_032.json` (слой 0.32, 2 стенки, 8% lightning) +
+  `BOSSMAN_PRINT_MIN_LAYER_S=5 BOSSMAN_PRINT_MAX_FLOW=20`. Замер Свобода 215 мм: 10 ч 22 → 6 ч 02; ровно вдвое
+  упирается в разгоны на мелкой геометрии (~27 с/слой), подача и поддержки не ограничивают. Для ×0.5 — 190 мм (4 ч 46).
+- Проверка перед отправкой: `M190 S60`, `M109 S220`, X/Y ≤ 230, превью `gcode_view.py`; время и граммы в подпись.

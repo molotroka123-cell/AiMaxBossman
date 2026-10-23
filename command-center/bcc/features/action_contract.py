@@ -246,7 +246,18 @@ def positive_request_text(prompt: str) -> str:
     that shares a sentence with a prohibition survives ("do not use the
     terminal, but create result.txt" → "but create result.txt")."""
     text = _NEGATION_KEEP_RE.sub(" ", current_request(prompt))
+    text = _WAR_TERMINAL_APP_RE.sub(" WARTERM ", text)
     return _NEGATION_SPAN_RE.sub(" ", text)
+
+
+# «War Terminal» is the owner's procurement APP, not a shell. Live 22.10 (task 173): «сравни с данными
+# терминала и сделай скриншоты» classified as TERMINAL_FILE_ACTION, so a correct browser-only run
+# (list_tenders -> browser.open -> read_dom) failed review with no_verified_action. Only the app name and
+# «данные/тендеры (из) терминала» are neutralised; «запусти в терминале команду» still classifies.
+_WAR_TERMINAL_APP_RE = re.compile(
+    r"\bwar[\s_-]*terminal\w*|\bвар[\s_-]*терминал\w*|"
+    r"\b(?:данн|тендер)\w*\s+(?:из\s+|в\s+)?терминал\w*",
+    re.I | re.U)
 
 _FILENAME_RE = re.compile(r"\b[\w][\w./-]{0,80}\.[a-zA-Z0-9]{1,8}\b")
 

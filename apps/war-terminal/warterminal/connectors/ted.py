@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation
 from ..store import sha
 
 URL = "https://api.ted.europa.eu/v3/notices/search"
-NOTICE_URL = "https://ted.europa.eu/en/notice/{}"
+NOTICE_URL = "https://ted.europa.eu/en/notice/-/detail/{}"   # the bare /en/notice/<id> form answers 404 (owner 22.10)
 FIELDS = ["publication-number", "notice-title", "buyer-name", "buyer-country", "publication-date", "deadline-receipt-tender-date-lot",
           "estimated-value-lot", "estimated-value-cur-lot", "classification-cpv", "place-of-performance-country-lot", "notice-type"]
 DEFAULT_CPV = ("09", "15", "60", "63", "35")    # fuel/energy, food, transport, logistics + security/defence (monitoring; bids gated)
