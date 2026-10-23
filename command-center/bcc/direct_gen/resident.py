@@ -29,6 +29,14 @@ Modes (``BOSSMAN_DIRECT_GEN_RESIDENT``; owner 19.10: keep the model loaded betwe
                    sd-server binary); every other model stays on sd-cli. No proof file = the old path, unchanged;
   ``0``/``off``    never (an unknown value counts as off).
 Any server error falls back to sd-cli for that job; STOP kills the server.
+
+Keep-warm photo EDIT models (owner 23.10: «Не разгружай модель, пусть подряд генерирует всё»; a lone
+qwen-image-2.1-uc-edit job paid a 1599 s cold sd-cli load while warm jobs loaded in 78 s): for ``KEEP_WARM_MODELS``
+the resident server is used even for a SINGLE job (wherever the mode above already allows the server for that model,
+i.e. on / auto / proven - never when it is off) and stays loaded for ``KEEP_WARM_S`` after each job (the window
+restarts with every job), so the next edit skips the load. It is still released at once for another model / engine,
+on STOP or cancel, on low free memory (``KEEP_WARM_MIN_FREE_GIB``) or an active owner STOP flag (checked after the job
+and every ``KEEP_WARM_CHECK_S`` while kept). ``BOSSMAN_DIRECT_GEN_KEEP_WARM_S=0`` turns keep-warm off.
 """
 from __future__ import annotations
 
@@ -57,6 +65,12 @@ AUTO_IDLE_S = 60.0
 PROOF_FILE = "resident-proof.json"
 PROOF_SCHEMA = "bossman.direct-gen.resident-proof/1"
 MODE_ON, MODE_AUTO, MODE_PROVEN, MODE_OFF = "on", "auto", "auto-if-proven", "off"
+# Keep-warm photo edit models (see the module docstring). Video models are never kept: they are not resident at all.
+ENV_KEEP_WARM = "BOSSMAN_DIRECT_GEN_KEEP_WARM_S"
+KEEP_WARM_MODELS = frozenset({"qwen-image-2.1-uc-edit", "qwen-image-edit-2509"})
+KEEP_WARM_S = 30 * 60.0            # the model stays loaded this long after each job (restarted by every job)
+KEEP_WARM_MIN_FREE_GIB = 16.0      # less free memory than this while kept -> released (other programs need it)
+KEEP_WARM_CHECK_S = 15.0           # how often a kept server re-checks free memory and the owner STOP flag
 
 # Flags that carry the job itself (one HTTP request each) -> aliases normalised to the short form.
 _JOB_VALUE = {"-p": "-p", "--prompt": "-p", "-n": "-n", "--negative-prompt": "-n", "-W": "-W", "--width": "-W",
@@ -92,6 +106,15 @@ def idle_seconds(env: dict | None = None) -> float:
         return max(0.0, float(env.get(ENV_IDLE, default)))
     except (TypeError, ValueError):
         return default
+
+
+def keep_warm_seconds(env: dict | None = None) -> float:
+    """Keep-warm window for ``KEEP_WARM_MODELS`` (0 = keep-warm off; junk -> the default)."""
+    env = env if env is not None else os.environ
+    try:
+        return max(0.0, float(env.get(ENV_KEEP_WARM, KEEP_WARM_S)))
+    except (TypeError, ValueError):
+        return KEEP_WARM_S
 
 
 def proven_models(direct_gen_dir: Path, server_bin: Path) -> set[str]:
@@ -275,6 +298,8 @@ class ResidentEngine:
         self.on_progress: Callable[[int, int], Awaitable[None]] | None = None
         self.starts = 0
         self.busy = False
+        self.keep_until = 0.0               # monotonic deadline of a keep-warm window (0 = none)
+        self.keep_released = ""             # why the last keep-warm window ended early (status only)
         self._reader: asyncio.Task | None = None
         self._idle: asyncio.TimerHandle | None = None
         self._lock = asyncio.Lock()
@@ -286,10 +311,16 @@ class ResidentEngine:
     def holds(self, key: tuple[str, ...]) -> bool:
         return self.alive() and self.key == key
 
+    def kept(self) -> bool:
+        """Inside a keep-warm window: the loaded weights are kept on purpose for the next job of the same model."""
+        return self.alive() and self.keep_until > time.monotonic()
+
     def status(self) -> dict:
         return {"loaded": self.alive(), "tag": self.tag if self.alive() else "", "starts": self.starts,
                 "idle_s": self.idle_s, "busy": self.busy, "binary": self.server_bin.name,
-                "binary_present": self.server_bin.is_file()}
+                "binary_present": self.server_bin.is_file(),
+                "keep_warm_left_s": round(max(0.0, self.keep_until - time.monotonic()), 1) if self.kept() else 0.0,
+                "keep_warm_released": self.keep_released}
 
     @property
     def base(self) -> str:
@@ -385,7 +416,7 @@ class ResidentEngine:
         """STOP: hard-kill the server tree (the API cannot cancel a generating job)."""
         self._cancel_idle()
         self._kill(self.proc)
-        self.key = None
+        self.key, self.keep_until = None, 0.0
 
     async def stop(self) -> None:
         async with self._lock:
@@ -393,7 +424,7 @@ class ResidentEngine:
 
     async def _stop_locked(self) -> None:
         self._cancel_idle()
-        proc, self.proc, self.key, self.tag = self.proc, None, None, ""
+        proc, self.proc, self.key, self.tag, self.keep_until = self.proc, None, None, "", 0.0
         if proc is not None:
             self._kill(proc)
             with contextlib.suppress(Exception):
@@ -409,6 +440,17 @@ class ResidentEngine:
         self._cancel_idle()
         if self.alive():
             self._idle = asyncio.get_running_loop().call_later(self.idle_s, lambda: asyncio.ensure_future(self._idle_stop()))
+
+    def keep_warm(self, seconds: float) -> bool:
+        """After a job of a keep-warm model: keep the loaded weights for ``seconds`` (replaces the idle timer; every job
+        restarts the window). False = nothing to keep (server not running, or keep-warm off)."""
+        self._cancel_idle()
+        if not self.alive() or seconds <= 0:
+            self.keep_until = 0.0
+            return False
+        self.keep_until, self.keep_released = time.monotonic() + seconds, ""
+        self._idle = asyncio.get_running_loop().call_later(seconds, lambda: asyncio.ensure_future(self._idle_stop()))
+        return True
 
     async def _idle_stop(self) -> None:
         if not self.busy and self.alive():
@@ -446,7 +488,7 @@ class ResidentRunner:
         self.warm = False
         self.startup_s = 0.0
         self.use_server = True              # set by the service per job (auto: only inside a same-model queue run)
-        self.decision = ""                  # why the per-job sd-cli path was chosen although the server was possible
+        self.decision = ""                  # why this engine was chosen (sd-cli although the server was possible, keep-warm)
         self.ready_s: float | None = None   # seconds from run() until the server held the weights (None: sd-cli)
         self._killed = False
 

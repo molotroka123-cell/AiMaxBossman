@@ -167,6 +167,11 @@ class DirectGenService:
         self._resident = resident.ResidentEngine(resident.server_binary_for(self.sd_bin), idle_s=resident.idle_seconds()) \
             if sd_runner is None and self._resident_mode != resident.MODE_OFF else None
         self._warm_keys: dict[str, tuple[str, ...] | None] = {}    # job id -> startup flags its engine needs (queued sd jobs)
+        # Keep-warm photo edit models (owner 23.10, resident.KEEP_WARM_MODELS): kept loaded after each job for a window.
+        self.keep_warm_s = resident.keep_warm_seconds()
+        self.keep_warm_min_free = int(resident.KEEP_WARM_MIN_FREE_GIB * sdcli.GIB)
+        self.keep_warm_check_s = resident.KEEP_WARM_CHECK_S
+        self._keep_watch: asyncio.Task | None = None
         self.timing_log = timings.TimingLog(Path(svc.settings.data_dir))
         self._free_memory = free_memory or sdcli.free_memory_bytes
         self._foreign = foreign_engines or sdcli.foreign_engines
@@ -520,7 +525,8 @@ class DirectGenService:
     def _resident_info(self) -> dict | None:
         if self._resident is None:
             return None
-        return {**self._resident.status(), "mode": self._resident_mode, "proven_models": sorted(self._proven())}
+        return {**self._resident.status(), "mode": self._resident_mode, "proven_models": sorted(self._proven()),
+                "keep_warm_s": self.keep_warm_s, "keep_warm_models": sorted(resident.KEEP_WARM_MODELS)}
 
     def _load_key(self, spec: sdcli.SdSpec, job: dict, n_images: int) -> tuple[str, ...] | None:
         """The startup flags the resident server would need for this job (None = it cannot run there). Pure: built from
@@ -536,7 +542,8 @@ class DirectGenService:
         return None if plan.fallback else plan.key
 
     def _resident_wanted(self, exclude: str | None = None) -> bool:
-        """Is the loaded server still needed: the job on the GPU or the NEXT queued job uses exactly its weights/flags."""
+        """Is the loaded server still needed: the job on the GPU or the NEXT queued job uses exactly its weights/flags,
+        or (nothing queued) a keep-warm edit model is inside its keep-warm window."""
         eng = self._resident
         if eng is None or eng.key is None:
             return False
@@ -544,7 +551,61 @@ class DirectGenService:
         if running is not None and self._warm_keys.get(running) == eng.key:
             return True
         nxt = next((j for j in self._waiting if j != exclude), None)
-        return nxt is not None and self._warm_keys.get(nxt) == eng.key
+        if nxt is not None:
+            return self._warm_keys.get(nxt) == eng.key      # another model/engine is next: free the memory now
+        return eng.kept()
+
+    def _keep_warm_for(self, spec: sdcli.SdSpec) -> float:
+        """Keep-warm window (s) for this model: > 0 only for the photo edit models of resident.KEEP_WARM_MODELS."""
+        return self.keep_warm_s if spec.kind == "photo" and spec.id in resident.KEEP_WARM_MODELS else 0.0
+
+    def _keep_warm_block(self) -> str:
+        """Why a kept server must be released now ("" = it may stay): owner STOP flag or low free memory."""
+        if self._stop_active():
+            return "owner STOP flag is active"
+        try:
+            free = self._free_memory()
+        except Exception:  # noqa: BLE001 - unmeasured: keep the existing behaviour (the next job's checks still run)
+            free = None
+        if free is not None and free < self.keep_warm_min_free:
+            return (f"low memory: {free / sdcli.GIB:.1f} GiB free < "
+                    f"{self.keep_warm_min_free / sdcli.GIB:.0f} GiB keep-warm floor")
+        return ""
+
+    async def _keep_warm_after(self, spec: sdcli.SdSpec, runner: "resident.ResidentRunner") -> str:
+        """After a keep-warm model's job: keep its weights loaded for the window, or say honestly why not."""
+        seconds, eng = self._keep_warm_for(spec), self._resident
+        if seconds <= 0 or eng is None:
+            return ""
+        if not (runner.use_server and runner.engine_name.startswith("sd-server") and eng.alive()):
+            return "not kept: the resident server did not run this job"
+        reason = self._keep_warm_block()
+        if reason:
+            eng.keep_released = reason
+            await eng.stop()
+            return f"released after the job: {reason}"
+        eng.keep_warm(seconds)
+        if self._keep_watch is None or self._keep_watch.done():
+            self._keep_watch = asyncio.create_task(self._keep_watch_loop(), name="direct-gen-keep-warm")
+        return f"kept loaded {seconds / 60:g} min after the job"
+
+    async def _keep_watch_loop(self) -> None:
+        """While a server is kept warm and idle: release it as soon as memory runs low or the owner STOP flag appears."""
+        eng = self._resident
+        try:
+            while eng is not None and eng.kept():
+                await asyncio.sleep(self.keep_warm_check_s)
+                if not eng.kept() or eng.busy or self._running is not None:
+                    continue                                 # a job owns the engine now; its own checks apply
+                reason = self._keep_warm_block()
+                if reason:
+                    eng.keep_released = reason
+                    await eng.stop()
+                    return
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - the idle timer still releases the server at the end of the window
+            return
 
     async def _auto_release(self, exclude: str | None = None) -> None:
         """auto/proven mode: the queue run for the loaded model is over -> release its memory now, not after idle."""
@@ -1198,12 +1259,18 @@ class DirectGenService:
                 warm = False
                 if isinstance(runner, resident.ResidentRunner):
                     key = self._warm_keys.get(job_id)
+                    keep_s = self._keep_warm_for(spec)            # > 0: photo edit model kept warm (owner 23.10)
+                    held = key is not None and self._resident.holds(key)
                     if self._mode_for(spec.id) == resident.MODE_AUTO:
-                        # queue run: the server only when its weights are loaded already or the NEXT job needs the same
+                        # queue run: the server only when its weights are loaded already or the NEXT job needs the same;
+                        # a keep-warm edit model uses it even for a single job so the NEXT edit finds it loaded
                         nxt = self._waiting[0] if self._waiting else None
                         runner.use_server = key is not None and (
-                            self._resident.holds(key) or (nxt is not None and self._warm_keys.get(nxt) == key))
+                            held or keep_s > 0 or (nxt is not None and self._warm_keys.get(nxt) == key))
                         runner.decision = "" if runner.use_server else "single job: no queued job of the same model"
+                    if keep_s > 0 and key is not None and runner.use_server:
+                        runner.decision = ("keep-warm edit model: weights still loaded from the previous job" if held
+                                           else "keep-warm edit model: resident engine even for a single job")
                     warm = await self._resident.prepare_key(key if runner.use_server else None)
                 else:
                     await self._release_resident()
@@ -1247,6 +1314,9 @@ class DirectGenService:
                 job["provenance"].update(engine_returncode=run.returncode, engine_seconds=run.elapsed_s,
                                          peak_rss_mb=round(run.peak_rss / 1048576))
                 if isinstance(runner, resident.ResidentRunner):     # which engine really ran, and whether the model was already loaded
+                    note = await self._keep_warm_after(spec, runner)    # keep-warm edit model: kept, or why not
+                    if note:
+                        runner.decision = f"{runner.decision}; {note}" if runner.decision else note
                     job["provenance"].update(engine=runner.engine_name, engine_warm=runner.warm,
                                              engine_start_seconds=runner.startup_s, engine_fallback=runner.fallback_reason,
                                              engine_mode=self._mode_for(spec.id))
