@@ -72,6 +72,8 @@ TURN_TEXT_CHARS = 4000
 TEXT_MAX_CHARS = 20_000
 MAX_ATTACHMENTS = 8
 ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024
+IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".heif"})
+PHOTO_EDIT_TOOL = "photo.edit"   # bcc.features.tools_photo_edit
 ATTACHMENT_TEXT_CHARS = 40_000
 LIST_MAX = 200
 STOP_SCAN_TURNS = 200
@@ -890,6 +892,11 @@ def _attachment_block_sync(items: list[dict]) -> str:
             else:
                 lines.append(f"Вложение «{name}» ({what}, {size}): НЕ распознано ({err}). Скажи владельцу прямо, "
                              f"что содержимое не удалось увидеть, и не придумывай его.")
+            if kind == "image" and item.get("id"):
+                lines.append(f"Это фото можно взять референсом: attachment_id={item['id']}. Если владелец просит "
+                             f"переделать/отредактировать фото — сам доработай промт (английский, подробный, что "
+                             f"изменить и что сохранить) и вызови {PHOTO_EDIT_TOOL} с attachments=[\"{item['id']}\"] "
+                             f"и prompt; модель правки получает сам файл фото.")
         else:
             lines.append(f"Вложение «{name}»: {kind}, {size}, путь {path} (содержимое не встроено)")
     return "\n\n".join(lines)
@@ -1491,14 +1498,16 @@ def _classify(path: Path, name: str, declared: str | None) -> tuple[str, str, in
             return "text", mime, doc_chars
         if ext == ".pdf":
             return "scan", mime, None          # no text layer: pages go through the local vision model
-    if mime.startswith("image/"):
-        return "image", mime, None
+    if mime.startswith("image/") or ext in IMAGE_EXTENSIONS:
+        # Windows' mimetypes table has no .webp: a phone photo must still be seen as a picture.
+        return "image", (mime if mime.startswith("image/") else "image/" + ext.lstrip(".")), None
     return "binary", mime, None
 
 
 def _too_large() -> HTTPException:
     limit_mib = ATTACHMENT_MAX_BYTES / (1024 * 1024)
     return _fail(413, f"Максимальный размер вложения — {limit_mib:g} МиБ", code="CHAT_ATTACHMENT_TOO_LARGE")
+
 
 
 @router.post("/chat/attachments", status_code=201)

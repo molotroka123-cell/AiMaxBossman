@@ -1,0 +1,33 @@
+{
+  "bundle_dirty": null,
+  "bundle_sha": null,
+  "checks": {
+    "bundle_matches_source": false,
+    "ci_mandatory_green": false,
+    "origin_matches_source": true,
+    "registry_matches_source": false,
+    "runtime_matches_source": false,
+    "seed_matches_source": false,
+    "source_clean": false
+  },
+  "ci_status": "unknown",
+  "failed_checks": [
+    "bundle_matches_source",
+    "ci_mandatory_green",
+    "registry_matches_source",
+    "runtime_matches_source",
+    "seed_matches_source",
+    "source_clean"
+  ],
+  "measured_at": "2026-10-23T15:20:31Z",
+  "origin_ref": "origin/main",
+  "origin_sha": "e0a4d714af611bfdb49830abaa3dd33f06f55f69",
+  "registry_head": "d21bddc0457cc702effc25013f30d518077588c7",
+  "runtime_build_sha": null,
+  "runtime_source_identity": null,
+  "schema": "bossman.candidate_identity_receipt.v1",
+  "seed_sha": "d21bddc0457cc702effc25013f30d518077588c7",
+  "source_dirty": true,
+  "source_sha": "e0a4d714af611bfdb49830abaa3dd33f06f55f69",
+  "verdict": "SOURCE_IDENTITY_STALE"
+}

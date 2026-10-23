@@ -1,0 +1,46 @@
+{
+ "verdict": "FAIL",
+ "agent_id": 41,
+ "thread_id": "20261023-092157-93da0a",
+ "task_id": 193,
+ "task_status": "completed",
+ "seconds": 124.6,
+ "files": {
+  "picture.png": {
+   "kind": "image",
+   "code": "KHT2OLL",
+   "seen": false
+  },
+  "scan.pdf": {
+   "kind": "scan",
+   "code": "KLM1KZ9",
+   "seen": false
+  },
+  "text.pdf": {
+   "kind": "text",
+   "code": "KKI6E8H",
+   "seen": false
+  },
+  "doc.docx": {
+   "kind": "text",
+   "code": "KU1IVYH",
+   "seen": false
+  },
+  "table.xlsx": {
+   "kind": "text",
+   "code": "K4LC8NX",
+   "seen": false
+  },
+  "slides.pptx": {
+   "kind": "text",
+   "code": "KTH7IVT",
+   "seen": false
+  },
+  "note.txt": {
+   "kind": "text",
+   "code": "K4XI99S",
+   "seen": false
+  }
+ },
+ "at": "2026-10-23T16:24:02Z"
+}

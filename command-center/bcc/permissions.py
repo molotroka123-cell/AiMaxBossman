@@ -25,6 +25,9 @@ ALL_PERMISSIONS = (
     # cli.delegate in bypass mode: the external coder CLI runs without its own permission prompts
     # inside a candidate worktree (owner 23.10). Dangerous: granted explicitly or approved per call.
     "cli.bypass",
+    # photo.edit (tools_photo_edit): queue a LOCAL Direct Gen edit of a chat reference photo (owner 23.10).
+    # Not dangerous (local queue, owner STOP and the pult's fixed content rules still apply); without the grant → ASK.
+    "media.generate",
 )
 
 DANGEROUS = frozenset({

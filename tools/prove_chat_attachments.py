@@ -142,17 +142,19 @@ def main(argv=None) -> int:
     task_id = sent.get("task_id") or (sent.get("task") or {}).get("id") or (sent.get("turn") or {}).get("task_id")
     answer, status = "", "?"
     while time.time() - t0 < a.wait:
-        t = api("GET", f"/api/tasks/{task_id}")
-        t = t.get("task", t)
-        status = t.get("status")
+        # The answer lives in the thread turn (task-run view), exactly what the pult renders; the bare
+        # /api/tasks/<id> record has no result field.
+        th = api("GET", f"/api/chat/threads/{tid}")
+        turn = next((x for x in th.get("turns") or [] if int(x.get("task_id") or 0) == int(task_id or 0)), {})
+        status = turn.get("status")
         if status in ("completed", "failed", "stopped", "cancelled"):
-            answer = str(t.get("result") or t.get("error") or "")
+            answer = str(turn.get("result") or turn.get("error") or "")
             break
         time.sleep(5)
     rows = {name: {"kind": kinds[name], "code": codes[name], "seen": codes[name] in answer} for name in MAKERS}
     ok = all(r["seen"] for r in rows.values())
     receipt = {"verdict": "PASS" if ok else "FAIL", "agent_id": a.agent, "thread_id": tid, "task_id": task_id,
-               "task_status": status, "seconds": round(time.time() - t0, 1), "files": rows,
+               "task_status": status, "answer_chars": len(answer), "seconds": round(time.time() - t0, 1), "files": rows,
                "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)

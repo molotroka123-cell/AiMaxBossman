@@ -441,6 +441,10 @@ async def test_send_embeds_text_attachments_as_labelled_data(env):
                       + "\n\n" + "Вложение «pic.png» (изображение, 28 Б): НЕ распознано (RuntimeError: распознавание "
                       "изображений выключено (BOSSMAN_CHAT_VISION=off)). Скажи владельцу прямо, что содержимое не "
                       "удалось увидеть, и не придумывай его."
+                      + f"\n\nЭто фото можно взять референсом: attachment_id={pic['id']}. Если владелец просит "
+                      "переделать/отредактировать фото — сам доработай промт (английский, подробный, что изменить и "
+                      f"что сохранить) и вызови photo.edit с attachments=[\"{pic['id']}\"] и prompt; модель правки "
+                      "получает сам файл фото."
                       + conversation_context.MARKER + "Кратко перескажи вложения.")
     turn = Session.open(env.settings.data_dir, thread["id"]).turns[0]
     assert turn["text"] == "Кратко перескажи вложения."
