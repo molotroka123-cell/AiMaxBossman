@@ -45,7 +45,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from .. import conversation_context
+from .. import conversation_context, owner_activity
 from ..db import (agents as agents_t, models as models_t, providers as providers_t,
                   rows_dicts, task_runs as runs_t, tasks as tasks_t)
 from . import Feature
@@ -89,6 +89,9 @@ AUTO_LABEL = "Auto · Local-first"
 SUBSCRIPTIONS_TTL_S = 60.0
 SUBSCRIPTIONS_TIMEOUT_S = 8.0
 INTERNAL_TIMEOUT_S = 60.0
+#: owner_activity: how often a running owner chat task refreshes the marker, and the longest it may do so
+OWNER_KEEP_S = 60.0
+OWNER_KEEP_MAX_S = 3600.0
 _WINDOWS_DEVICE_NAMES = frozenset({"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$",
                                    *(f"COM{i}" for i in range(1, 10)),
                                    *(f"LPT{i}" for i in range(1, 10))})
@@ -119,6 +122,9 @@ class _State:
         self.meta_cache: tuple[int, int, dict[str, dict]] | None = None
         self.subscriptions: tuple[float, list[dict]] | None = None
         self.subscriptions_task: asyncio.Task | None = None
+        #: owner chat tasks still running -> monotonic time they were sent (owner_activity keeper)
+        self.owner_tasks: dict[int, float] = {}
+        self.owner_keeper: asyncio.Task | None = None
 
 
 def _state(svc: Any) -> _State:
@@ -1306,6 +1312,53 @@ async def _replay(request: Request, svc: Any, thread_id: str, task: dict, text: 
     return await _send_response(svc, thread_id, idx, turn, task_id, run_id, admission, agent, True)
 
 
+def _mark_owner_active(svc: Any, source: str) -> None:
+    """Владелец здесь: фоновая работа на локальных моделях уступает (bcc/owner_activity).
+    Сбой записи метки не мешает ходу владельца."""
+    with contextlib.suppress(Exception):
+        owner_activity.mark(source, data_dir=svc.settings.data_dir)
+
+
+async def _owner_keeper(svc: Any) -> None:
+    """Пока задача хода владельца не завершена, метка продлевается (не дольше OWNER_KEEP_MAX_S)."""
+    state = _state(svc)
+    while state.owner_tasks:
+        await asyncio.sleep(OWNER_KEEP_S)
+        now = time.monotonic()
+        for task_id, since in list(state.owner_tasks.items()):
+            if now - since > OWNER_KEEP_MAX_S:
+                state.owner_tasks.pop(task_id, None)
+        ids = list(state.owner_tasks)
+        if not ids:
+            break
+        try:
+            statuses = await _task_statuses(svc, ids)
+        except Exception:  # noqa: BLE001 — база занята: метка просто истечёт сама
+            continue
+        for task_id in ids:
+            if statuses.get(task_id) in TERMINAL_STATUSES or task_id not in statuses:
+                state.owner_tasks.pop(task_id, None)
+        if state.owner_tasks:
+            _mark_owner_active(svc, "chat_run")
+
+
+def _keep_owner_active(svc: Any, task_id: int) -> None:
+    state = _state(svc)
+    state.owner_tasks[int(task_id)] = time.monotonic()
+    if state.owner_keeper is not None and not state.owner_keeper.done():
+        return
+    task = state.owner_keeper = asyncio.create_task(_owner_keeper(svc), name="bcc-chat-owner-activity")
+    tasks = getattr(svc, "_tasks", None)
+    if isinstance(tasks, list):
+        tasks.append(task)              # остановка сервиса отменит продление
+
+        def _forget(done: asyncio.Task) -> None:
+            if done in tasks:
+                tasks.remove(done)
+
+        task.add_done_callback(_forget)
+
+
 @router.post("/chat/threads/{thread_id}/send")
 async def send_turn(thread_id: str, body: SendIn, request: Request):
     """Сообщение в чат = задача Bossman: тот же предпросмотр, создание и запуск,
@@ -1315,6 +1368,9 @@ async def send_turn(thread_id: str, body: SendIn, request: Request):
     text = body.text
     if not text.strip():
         raise _fail(422, "пустое сообщение", code="CHAT_TEXT_EMPTY")
+    # Владелец пишет: фоновые потребители локальных моделей (context_probe,
+    # learning_supervisor) не стартуют, пока метка жива (инцидент 23.10).
+    _mark_owner_active(svc, "chat_send")
     request_id = body.client_request_id or ("chat-" + time.strftime("%Y%m%d%H%M%S") + "-"
                                             + secrets.token_hex(6))
     existing = await _task_by_request_id(svc, request_id)
@@ -1351,6 +1407,8 @@ async def send_turn(thread_id: str, body: SendIn, request: Request):
     idx = await _append_turn(svc, thread_id, turn)
     await _touch_meta(svc, thread_id)
     run_id, admission = await _start(request, int(task["id"]))
+    if admission.get("ok"):
+        _keep_owner_active(svc, int(task["id"]))
     return await _send_response(svc, thread_id, idx, turn, int(task["id"]), run_id, admission,
                                 agent, False)
 
