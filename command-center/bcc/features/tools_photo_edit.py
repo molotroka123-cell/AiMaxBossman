@@ -52,6 +52,28 @@ def _reference_bytes(svc, attachment_id: str) -> bytes:
     return out.getvalue()
 
 
+def _aspect_resolution(model: str, data: bytes) -> str | None:
+    """WxH with the reference's aspect ratio at the model's default pixel budget (an edit must not come back square)."""
+    from PIL import Image
+
+    from ..direct_gen import sdcli
+    spec = sdcli.BY_ID.get(model)
+    if spec is None:
+        return None
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            w, h = img.size
+    except OSError:
+        return None
+    dw, dh = (int(x) for x in spec.default_resolution.split("x"))
+    k = ((dw * dh) / (w * h)) ** 0.5
+    m = spec.side_multiple
+
+    def side(v: float) -> int:
+        return int(min(spec.max_side, max(spec.min_side, round(v * k / m) * m)))
+    return f"{side(w)}x{side(h)}"
+
+
 def _brief(job: dict) -> str:
     return (f"job {job.get('job_id')} · {job.get('model')} · статус {job.get('status')}"
             + (f" · этап {job.get('stage')}" if job.get("stage") and job.get("stage") != job.get("status") else ""))
@@ -88,8 +110,9 @@ async def _t_edit(args: dict, ctx: ToolContext) -> ToolResult:
             "facelock": bool(args.get("facelock", False))}
     if args.get("steps"):
         body["steps"] = int(args["steps"])
-    if args.get("resolution"):
-        body["resolution"] = str(args["resolution"])
+    resolution = str(args.get("resolution") or "") or _aspect_resolution(model, images[0])
+    if resolution:
+        body["resolution"] = resolution
     try:
         job = await service.create(PARTICIPANT, body)
     except DirectGenError as exc:
@@ -131,7 +154,7 @@ SPECS = [
                       "negative": {"type": "string"},
                       "facelock": {"type": "boolean", "description": "вернуть лицо с @1 как на фото"},
                       "steps": {"type": "integer"},
-                      "resolution": {"type": "string", "description": "WxH; по умолчанию — модели"}},
+                      "resolution": {"type": "string", "description": "WxH; по умолчанию — пропорции фото @1"}},
         required=["attachments", "prompt"],
         category="write", permission="media.generate", source="builtin", default_effect="ask",
         idempotent=False, external_output=True,

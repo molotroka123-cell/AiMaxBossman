@@ -101,3 +101,14 @@ async def test_prompt_block_tells_the_agent_how_to_edit(env):
     tid, up = await _upload(env, "ref.png", _img())
     block = ct._attachment_block_sync(ct._resolve_attachments(env.svc, [up["id"]], tid))
     assert up["id"] in block and pe.EDIT_TOOL in block
+
+
+async def test_edit_keeps_the_reference_aspect_ratio(env):
+    out = io.BytesIO()
+    Image.new("RGB", (768, 432), "red").save(out, "PNG")
+    _, up = await _upload(env, "wide.png", out.getvalue())
+    fake = FakeDirectGen()
+    res = await pe._t_edit({"attachments": [up["id"]], "prompt": "make it blue"}, _ctx(env, fake))
+    assert not res.error, res.content
+    w, h = (int(x) for x in fake.calls[0][1]["resolution"].split("x"))
+    assert w % 16 == 0 and h % 16 == 0 and abs(w / h - 768 / 432) < 0.06

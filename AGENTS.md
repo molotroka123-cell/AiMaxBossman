@@ -167,6 +167,14 @@ pdf/docx/xlsx/pptx as extracted text; images and text-less PDFs through the LOCA
 model as «НЕ распознано (причина)» so it tells the owner instead of inventing. Proof: `tools/prove_chat_attachments.py`.
 The local Gemma 4 ollama build has no vision projector — it "sees" only through this path.
 
+Photo edit from the chat (fixed 23.10): every chat picture is offered to the agent with its `attachment_id`; the
+agent refines the prompt itself and calls `photo.edit` (`bcc/features/tools_photo_edit.py`) → a LOCAL Direct Gen job
+of the owner (default `qwen-image-2.1-uc-edit`, the same queue/STOP/FaceLock/history/«send to pult» as the pult
+window), then `photo.status`. Needs the tool in the agent's list + permission `media.generate` (granted → AUTO,
+otherwise ASK). The pult's fixed content rules (`gen_refine.safety_violation(photo=True)`) apply to agents too.
+Pictures never leave the PC. Proof: `tools/prove_chat_photo_edit.py` (hand-off + finished edit + colour check).
+Before restarting the backend check `/api/direct-gen/status` — Direct Gen jobs live inside the backend process.
+
 ## One runtime = one tree (owner directive 23.10, TZ_POLISH_AND_MERGE_20261023_RU)
 
 When the live candidate changes, repoint ALL five anchors to the same worktree, or `-I` subprocesses (coding

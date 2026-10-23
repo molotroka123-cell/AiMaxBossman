@@ -18,4 +18,5 @@ If the agent has only been handed this file, **do not claim the owner machine ha
 Read the AGENTS.md section «A feature is PROVEN, not wrapped». A capability is "added" only with unit tests, a live
 proof on the owner's PC through the real pult/chat path with a receipt under `docs/audits/`, and that receipt in the
 merge commit. Anything the owner can see broken is a class-1 red and pre-empts other work. Chat attachments (images,
-scans, pdf/docx/xlsx/pptx) must reach the model as content — proof: `tools/prove_chat_attachments.py`.
+scans, pdf/docx/xlsx/pptx) must reach the model as content — proof: `tools/prove_chat_attachments.py`. A chat photo
+must be editable by the agent (refined prompt → local Qwen edit via `photo.edit`) — proof: `tools/prove_chat_photo_edit.py`.
