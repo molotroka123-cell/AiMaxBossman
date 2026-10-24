@@ -1,0 +1,263 @@
+{
+ "proof": "studio orders (scenario B: local AI photo/video studio as a service)",
+ "date": "2026-10-24",
+ "verdict": "PASS",
+ "checks": {
+  "delivered": true,
+  "steps_all_200": true,
+  "cost_exact_decimal": true,
+  "margin_is_price_minus_cost": true,
+  "cost_matches_compute_unit_economics": true,
+  "every_file_disclosed": true,
+  "all_negatives_refused": true,
+  "licence_warning_recorded_for_owner": true,
+  "client_view_has_no_cost_margin_or_licence": true,
+  "orders_written_to_temp_data_dir": true
+ },
+ "order": {
+  "lines": "3 x photo_edit + 1 x clip (synthetic jobs, recorded seconds)",
+  "currency": "USD",
+  "price": "30.00",
+  "cost": "0.007777",
+  "margin": "29.992223",
+  "margin_ratio": "0.9997",
+  "seconds": "1036.92",
+  "energy_kwh": "0.051846",
+  "power_watts": "180.00",
+  "kwh_price": "0.15",
+  "cost_basis": "recorded generation seconds x power_watts x kwh_price",
+  "lines_detail": [
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "seconds": "41.37",
+    "energy_kwh": "0.002069",
+    "cost": "0.000310",
+    "jobs": [
+     {
+      "job_id": "92ce183a563d4ed4bf4de72c8eb262c2",
+      "status": "completed",
+      "seconds": "41.37"
+     }
+    ]
+   },
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "seconds": "38.9",
+    "energy_kwh": "0.001945",
+    "cost": "0.000292",
+    "jobs": [
+     {
+      "job_id": "01f91bbb2d014777b4b275165a736253",
+      "status": "completed",
+      "seconds": "38.9"
+     }
+    ]
+   },
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "seconds": "44.05",
+    "energy_kwh": "0.002203",
+    "cost": "0.000330",
+    "jobs": [
+     {
+      "job_id": "1ff6219625eb4d36ba64baf091a58919",
+      "status": "completed",
+      "seconds": "44.05"
+     }
+    ]
+   },
+   {
+    "kind": "clip",
+    "price": "15.00",
+    "seconds": "912.6",
+    "energy_kwh": "0.045630",
+    "cost": "0.006845",
+    "jobs": [
+     {
+      "job_id": "3e018609a2e74fd989216f8d1e09151f",
+      "status": "completed",
+      "seconds": "912.6"
+     }
+    ]
+   }
+  ]
+ },
+ "revenue": {
+  "status": "NOT_RUN",
+  "reason": "no real client and no payment; this receipt proves the order/receipt capability on synthetic jobs, not earned money"
+ },
+ "licence_warnings_owner_only": [
+  {
+   "model": "qwen-image-2.1-uc-edit",
+   "licence": "unknown",
+   "status": "unknown"
+  }
+ ],
+ "client_view": {
+  "order_id": "61a87d1f613442eca64b4b596426df07",
+  "status": "delivered",
+  "brief": "3 product photos + one 9:16 clip for a ceramics shop",
+  "currency": "USD",
+  "price": "30.00",
+  "items": [
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "deliverables": [
+     {
+      "job_id": "92ce183a563d4ed4bf4de72c8eb262c2",
+      "disclosure": "AI-generated · Bossman Motion Studio"
+     }
+    ]
+   },
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "deliverables": [
+     {
+      "job_id": "01f91bbb2d014777b4b275165a736253",
+      "disclosure": "AI-generated · Bossman Motion Studio"
+     }
+    ]
+   },
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "deliverables": [
+     {
+      "job_id": "1ff6219625eb4d36ba64baf091a58919",
+      "disclosure": "AI-generated · Bossman Motion Studio"
+     }
+    ]
+   },
+   {
+    "kind": "clip",
+    "price": "15.00",
+    "deliverables": [
+     {
+      "job_id": "3e018609a2e74fd989216f8d1e09151f",
+      "disclosure": "AI-generated · Bossman Motion Studio"
+     }
+    ]
+   }
+  ],
+  "created_at": "2026-10-24T22:25:45.548759+00:00",
+  "updated_at": "2026-10-24T22:25:45.599797+00:00",
+  "timeline": [
+   {
+    "status": "quoted",
+    "at": "2026-10-24T22:25:45.548759+00:00"
+   },
+   {
+    "status": "accepted",
+    "at": "2026-10-24T22:25:45.562774+00:00"
+   },
+   {
+    "status": "in_work",
+    "at": "2026-10-24T22:25:45.574789+00:00"
+   },
+   {
+    "status": "delivered",
+    "at": "2026-10-24T22:25:45.599797+00:00"
+   }
+  ]
+ },
+ "quote_at_create": {
+  "price": "30.00",
+  "cost": "0.007777",
+  "margin": "29.992223",
+  "cost_complete": true
+ },
+ "cross_check_compute_unit_economics": {
+  "energy_cost_usd_float": 0.0077769,
+  "decimal_cost": "0.007777"
+ },
+ "steps": [
+  {
+   "step": "create",
+   "http": 201,
+   "status": "quoted"
+  },
+  {
+   "step": "accept",
+   "http": 200,
+   "status": "accepted"
+  },
+  {
+   "step": "start",
+   "http": 200,
+   "status": "in_work"
+  },
+  {
+   "step": "disclose",
+   "http": 200,
+   "status": "in_work"
+  },
+  {
+   "step": "deliver",
+   "http": 200,
+   "status": "delivered"
+  }
+ ],
+ "negatives": {
+  "cross_participant_read": {
+   "status": 404,
+   "refused": true
+  },
+  "unfinished_job": {
+   "status": 409,
+   "code": "job_not_completed",
+   "refused": true
+  },
+  "no_disclosure": {
+   "status": 409,
+   "code": "disclosure_missing",
+   "refused": true
+  },
+  "faceswap_without_consent": {
+   "status": 409,
+   "code": "consent_missing",
+   "refused": true
+  },
+  "facelock_without_consent": {
+   "status": 409,
+   "code": "consent_missing",
+   "refused": true
+  },
+  "brand_in_prompt_without_ownership": {
+   "status": 409,
+   "code": "brand_not_cleared",
+   "refused": true
+  },
+  "client_clears_brand_itself": {
+   "status": 403,
+   "refused": true
+  },
+  "zero_price": {
+   "status": 422,
+   "code": "price_not_positive",
+   "refused": true
+  },
+  "negative_price": {
+   "status": 422,
+   "code": "price_not_positive",
+   "refused": true
+  },
+  "cancelled_then_deliver": {
+   "status": 409,
+   "code": "invalid_transition",
+   "refused": true
+  }
+ },
+ "not_proven": [
+  "live run on :8801 through the pult/chat path (owner-gated; backend not restarted by this tool)",
+  "licence table covers only models whose licence the repo states; the rest are warnings, unverified",
+  "brand gate is a word denylist on brief + prompts: it does not see logos in the pixels",
+  "real client payment (no payment flow exists; price/margin are a receipt, not revenue)",
+  "power_watts 180 is a configured default, not a wattmeter measurement of this PC"
+ ],
+ "safety": "temp BCC_DATA_DIR, synthetic jobs, no generation, no model/GPU/network call"
+}
