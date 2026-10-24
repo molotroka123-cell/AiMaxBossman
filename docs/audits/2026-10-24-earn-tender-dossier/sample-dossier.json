@@ -1,0 +1,323 @@
+{
+ "approved": null,
+ "as_of": "2026-10-21T20:00:00+00:00",
+ "delivery": "NOT_SENT",
+ "excluded": [],
+ "footer": "prepared locally by Bossman War Terminal; not legal advice; verify on the official portal",
+ "fx": {
+  "as_of": "2026-10-16",
+  "pairs": [
+   "AUDCZK",
+   "BRLCZK",
+   "CADCZK",
+   "CHFCZK",
+   "CNYCZK",
+   "DKKCZK",
+   "EURCZK",
+   "GBPCZK",
+   "HKDCZK",
+   "HUFCZK",
+   "IDRCZK",
+   "ILSCZK",
+   "INRCZK",
+   "ISKCZK",
+   "JPYCZK",
+   "KRWCZK",
+   "MXNCZK",
+   "MYRCZK",
+   "NOKCZK",
+   "NZDCZK",
+   "PHPCZK",
+   "PLNCZK",
+   "RONCZK",
+   "SEKCZK",
+   "SGDCZK",
+   "THBCZK",
+   "TRYCZK",
+   "USDCZK",
+   "XDRCZK",
+   "ZARCZK"
+  ],
+  "source": "ČNB daily fixing"
+ },
+ "items": [
+  {
+   "badges": [
+    {
+     "id": "sanctions_not_loaded",
+     "level": "NOT_CONNECTED",
+     "text": "санкционные списки не загружены — заказчик и компания не проверены",
+     "why": "Источники → «Загрузить санкции»"
+    }
+   ],
+   "buyer": "Комунальне некомерційне підприємство \"Павлоградська лікарня інтенсивного лікування\" Павлоградської міської ради",
+   "buyer_country": "UA",
+   "capacity_fit": {
+    "reason": "нет курса UAH->EUR",
+    "status": "FX_RATE_MISSING"
+   },
+   "controlled": false,
+   "cpv": [
+    "09310000"
+   ],
+   "currency": "UAH",
+   "days_left": 3,
+   "deadline": "2026-10-24T11:00:00Z",
+   "economics": {
+    "agency_introducer": {
+     "capital_status": "WITHIN_LIMIT",
+     "commission_2pct": "46995.77",
+     "commission_2pct_usd": null,
+     "commission_5pct": "117489.43",
+     "commission_5pct_usd": null,
+     "commission_base": "70493.66",
+     "commission_base_usd": null,
+     "fee_pct": "3.00",
+     "label_ru": "Агентская комиссия / Introducer Fee (без риска оборотного капитала)",
+     "model": "agency_introducer",
+     "note_ru": "Производитель подаёт заявку напрямую; вознаграждение за квалифицированный лид и подготовку досье.",
+     "working_capital_usd": "0.00"
+    },
+    "back_to_back_supply": {
+     "capital_if_matched_deal": {
+      "allowed": false,
+      "needs_owner_approval": true,
+      "reason": "нет курса UAH->USD для проверки лимита 50000.0 USD",
+      "status": "FX_REQUIRED"
+     },
+     "capital_unmatched": {
+      "allowed": false,
+      "needs_owner_approval": true,
+      "reason": "нет курса UAH->USD для проверки лимита 50000.0 USD",
+      "status": "FX_REQUIRED"
+     },
+     "gross_profit": "352468.29",
+     "gross_profit_usd": null,
+     "label_ru": "Поставка Back-to-Back (закупка у производителя + поставка заказчику)",
+     "landed_cost": "1997320.29",
+     "margin_pct": "15.00",
+     "markup_pct": "17.65",
+     "max_supplier_purchase": "1905839.97",
+     "model": "back_to_back_supply",
+     "peak_day": 30,
+     "peak_funding_need": "1959203.49",
+     "peak_funding_need_usd": null,
+     "stress_90d_margin_pct": "12.53",
+     "stress_90d_profit": "294497.34"
+    },
+    "currency": "UAH",
+    "estimated_value": "2349788.58",
+    "estimated_value_eur": null,
+    "estimated_value_usd": null,
+    "fx_status": "FX_RATE_MISSING",
+    "local_subcontract": {
+     "applicable": true,
+     "fee_amount": "117489.43",
+     "fee_amount_usd": null,
+     "fee_pct": "5.00",
+     "label_ru": "Локальное партнёрство / тендерное сопровождение (5 %)",
+     "model": "local_subcontract"
+    },
+    "priced": true,
+    "pricing_status": "PRICED"
+   },
+   "estimated_value": "2349788.58",
+   "estimated_value_eur": null,
+   "estimated_value_usd": null,
+   "flags": [],
+   "fx_status": "FX_RATE_MISSING",
+   "match_score": 60.0,
+   "next_steps": [
+    "Open the official notice and download the tender documents: https://prozorro.gov.ua/tender/UA-2026-10-21-009863-a",
+    "Deadline in 3 day(s): confirm the qualification documents (registration, references, certificates) are ready in time.",
+    "Enter an official FX rate for this currency before comparing the lot with your capacity (no rate is guessed).",
+    "Price check: at a 15.00% target margin your landed cost must stay under 1997320.29 UAH.",
+    "Decide yourself whether to bid; War Terminal does not submit bids or contact buyers."
+   ],
+   "pricing_status": "PRICED",
+   "regulatory": {
+    "compliance_note_ru": "Открытый тендер без признаков контролируемого военного материала и без санкционных блокировок: доступна как агентская комиссия, так и поставка back-to-back в пределах лимита капитала $50 000.",
+    "fast_start": true,
+    "label_ru": "Быстрый старт (без лицензии военного материала MPO)",
+    "recommended_model": "back_to_back_or_agency",
+    "track": "UNCONTROLLED_FAST_START"
+   },
+   "source_id": "prozorro",
+   "source_url": "https://prozorro.gov.ua/tender/UA-2026-10-21-009863-a",
+   "summary": null,
+   "summary_status": "NO_HOOK",
+   "tender_key": "UA:UA-2026-10-21-009863-a",
+   "title": "Електрична енергія, з розподілом",
+   "title_en": null,
+   "why": [
+    "tender CPV 09310000 is inside your CPV 09*"
+   ],
+   "why_ru": [
+    "CPV тендера 09310000 входит в профиль компании 09*"
+   ]
+  },
+  {
+   "badges": [
+    {
+     "id": "sanctions_not_loaded",
+     "level": "NOT_CONNECTED",
+     "text": "санкционные списки не загружены — заказчик и компания не проверены",
+     "why": "Источники → «Загрузить санкции»"
+    }
+   ],
+   "buyer": "ПЕТРИКІВСЬКИЙ ОБЛАСНИЙ КОМУНАЛЬНИЙ ДИТЯЧИЙ БУДИНОК-ІНТЕРНАТ",
+   "buyer_country": "UA",
+   "capacity_fit": {
+    "reason": "нет курса UAH->EUR",
+    "status": "FX_RATE_MISSING"
+   },
+   "controlled": false,
+   "cpv": [
+    "15110000"
+   ],
+   "currency": "UAH",
+   "days_left": 5,
+   "deadline": "2026-10-26T07:00:00Z",
+   "economics": {
+    "agency_introducer": {
+     "capital_status": "WITHIN_LIMIT",
+     "commission_2pct": "3100.00",
+     "commission_2pct_usd": null,
+     "commission_5pct": "7750.00",
+     "commission_5pct_usd": null,
+     "commission_base": "4650.00",
+     "commission_base_usd": null,
+     "fee_pct": "3.00",
+     "label_ru": "Агентская комиссия / Introducer Fee (без риска оборотного капитала)",
+     "model": "agency_introducer",
+     "note_ru": "Производитель подаёт заявку напрямую; вознаграждение за квалифицированный лид и подготовку досье.",
+     "working_capital_usd": "0.00"
+    },
+    "back_to_back_supply": {
+     "capital_if_matched_deal": {
+      "allowed": false,
+      "needs_owner_approval": true,
+      "reason": "нет курса UAH->USD для проверки лимита 50000.0 USD",
+      "status": "FX_REQUIRED"
+     },
+     "capital_unmatched": {
+      "allowed": false,
+      "needs_owner_approval": true,
+      "reason": "нет курса UAH->USD для проверки лимита 50000.0 USD",
+      "status": "FX_REQUIRED"
+     },
+     "gross_profit": "23250.00",
+     "gross_profit_usd": null,
+     "label_ru": "Поставка Back-to-Back (закупка у производителя + поставка заказчику)",
+     "landed_cost": "131750.00",
+     "margin_pct": "15.00",
+     "markup_pct": "17.65",
+     "max_supplier_purchase": "125715.65",
+     "model": "back_to_back_supply",
+     "peak_day": 30,
+     "peak_funding_need": "129235.69",
+     "peak_funding_need_usd": null,
+     "stress_90d_margin_pct": "12.53",
+     "stress_90d_profit": "19426.04"
+    },
+    "currency": "UAH",
+    "estimated_value": "155000.00",
+    "estimated_value_eur": null,
+    "estimated_value_usd": null,
+    "fx_status": "FX_RATE_MISSING",
+    "local_subcontract": {
+     "applicable": true,
+     "fee_amount": "7750.00",
+     "fee_amount_usd": null,
+     "fee_pct": "5.00",
+     "label_ru": "Локальное партнёрство / тендерное сопровождение (5 %)",
+     "model": "local_subcontract"
+    },
+    "priced": true,
+    "pricing_status": "PRICED"
+   },
+   "estimated_value": "155000.00",
+   "estimated_value_eur": null,
+   "estimated_value_usd": null,
+   "flags": [],
+   "fx_status": "FX_RATE_MISSING",
+   "match_score": 60.0,
+   "next_steps": [
+    "Open the official notice and download the tender documents: https://prozorro.gov.ua/tender/UA-2026-10-21-009843-a",
+    "Deadline in 5 day(s): confirm the qualification documents (registration, references, certificates) are ready in time.",
+    "Enter an official FX rate for this currency before comparing the lot with your capacity (no rate is guessed).",
+    "Price check: at a 15.00% target margin your landed cost must stay under 131750.00 UAH.",
+    "Decide yourself whether to bid; War Terminal does not submit bids or contact buyers."
+   ],
+   "pricing_status": "PRICED",
+   "regulatory": {
+    "compliance_note_ru": "Открытый тендер без признаков контролируемого военного материала и без санкционных блокировок: доступна как агентская комиссия, так и поставка back-to-back в пределах лимита капитала $50 000.",
+    "fast_start": true,
+    "label_ru": "Быстрый старт (без лицензии военного материала MPO)",
+    "recommended_model": "back_to_back_or_agency",
+    "track": "UNCONTROLLED_FAST_START"
+   },
+   "source_id": "prozorro",
+   "source_url": "https://prozorro.gov.ua/tender/UA-2026-10-21-009843-a",
+   "summary": null,
+   "summary_status": "NO_HOOK",
+   "tender_key": "UA:UA-2026-10-21-009843-a",
+   "title": "Лопатка свинна без кістки, заморожена, ГСТУ 46.019; Гомілка куряча, охолоджена, перша категорія, ДСТУ 3143; Філе куряче, охолоджене, перша категорія, ДСТУ 3143; Язик свинний, охолоджений; Печінка яловича, заморожена",
+   "title_en": null,
+   "why": [
+    "tender CPV 15110000 is inside your CPV 15*"
+   ],
+   "why_ru": [
+    "CPV тендера 15110000 входит в профиль компании 15*"
+   ]
+  }
+ ],
+ "parameters": {
+  "fast_start_only": true,
+  "fee_pct": "3.00",
+  "max_items": 25,
+  "target_margin_pct": "15.00"
+ },
+ "sanctions_screened": false,
+ "schema": "war-terminal.tender-dossier/1",
+ "summary": {
+  "controlled_listed": 0,
+  "excluded": {
+   "BLOCKED": 0,
+   "CONTROLLED_NOT_APPROVED": 0,
+   "COUNTRY_FILTER": 0,
+   "EXPIRED": 0,
+   "NOT_OPEN": 0,
+   "NO_DEADLINE": 0
+  },
+  "fx_missing_listed": 2,
+  "listed": 2,
+  "listed_introducer_fee_usd": "0.00",
+  "listed_value_usd": "0.00",
+  "matched_open": 2,
+  "no_match": 9,
+  "tenders_considered": 11,
+  "unpriced_listed": 0
+ },
+ "supplier": {
+  "capacity": {
+   "currency": "EUR",
+   "max_contract_value": "100000.00"
+  },
+  "countries": [
+   "CZ",
+   "UA"
+  ],
+  "country": "CZ",
+  "cpv_codes": [
+   "09",
+   "15"
+  ],
+  "keywords": {
+   "en": [
+    "diesel"
+   ]
+  },
+  "name": "Sample fast-start supplier (synthetic profile)"
+ }
+}

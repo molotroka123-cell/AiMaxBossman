@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import API_VERSION, VERSION, ai as ai_mod, contacts as contacts_mod, finance, firm as firm_mod, fx_tracker as fxt, geo, learning, monetization as mon_mod, rules, scoring, sources
-from . import translate as tr_mod
+from . import dossier as dossier_mod, translate as tr_mod
 from .connectors import cnb, cz, indicators, gdelt, http as http_mod, prozorro, sam, sanctions as sanc_conn, ted, ucdp, usaspending, worldbank
 from .provenance import is_real
 from .store import Store, now
@@ -249,6 +249,33 @@ class MatchFeedbackIn(BaseModel):
     contact_id: int = Field(ge=1)
     vote: str = Field(pattern=_enum_rx(contacts_mod.VOTES))
     reason: str | None = Field(default=None, max_length=500)
+
+
+class CapacityIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    max_contract_value: float = Field(gt=0)
+    currency: str = Field(pattern=r"^[A-Za-z]{3}$")
+
+
+class SupplierProfileIn(BaseModel):
+    """A client supplier for a tender-lead dossier: no person data, only what matching needs."""
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(default="", max_length=200)
+    country: str | None = Field(default=None, max_length=60)
+    cpv_codes: list[str] = Field(default_factory=list, max_length=40)
+    keywords: KeywordsIn = Field(default_factory=KeywordsIn)
+    countries: list[str] = Field(default_factory=list, max_length=40)
+    capacity: CapacityIn | None = None
+
+
+class DossierIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    supplier: SupplierProfileIn
+    approved: str | None = Field(default=None, pattern=r"^compliance$")   # controlled items only with a compliance-role token
+    fee_pct: float = Field(default=3.0, ge=0.5, le=25.0)
+    target_margin_pct: float = Field(default=15.0, ge=1.0, le=50.0)
+    max_items: int = Field(default=25, ge=1, le=100)
+    format: str = Field(default="json", pattern=r"^(json|markdown)$")
 
 
 def _now_stamp() -> str:
@@ -1191,6 +1218,29 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
         )
         md = mon_mod.playbook_markdown(rep)
         return PlainTextResponse(md, media_type="text/markdown", headers={"Content-Disposition": 'attachment; filename="monetization-playbook.md"'})
+
+    @app.post(f"{P}/monetization/dossier")
+    def monetization_dossier(body: DossierIn, role=Depends(analyst)):
+        """Per-client tender-lead dossier (Markdown + JSON). Local document only: nothing is sent to the supplier or any buyer.
+        Controlled (military-licence / dual-use) matches only with approved="compliance" AND a compliance-or-higher token."""
+        if body.approved == "compliance" and ROLE_RANK[role] < ROLE_RANK["compliance"]:
+            audit(role, "monetization.dossier", {"status": "APPROVAL_ROLE_TOO_LOW"})
+            raise HTTPException(403, {"code": "ROLE_TOO_LOW", "message": f"включить контролируемые позиции может только роль compliance или owner (у вас {role})"})
+        fx_doc = store.kv_get("fx") or {}
+        try:
+            d = dossier_mod.build_dossier(body.supplier.model_dump(), store.latest_tenders(), today=_ref_time(), fx_rates=fx_doc.get("rates") or {},
+                                          fx_meta=fx_doc, sanctions=sanctions_index(), approved=body.approved, fee_pct=body.fee_pct,
+                                          target_margin_pct=body.target_margin_pct, max_items=body.max_items)
+        except dossier_mod.DossierError as exc:
+            audit(role, "monetization.dossier", {"status": exc.code})
+            raise HTTPException(422, {"code": exc.code, "fields": exc.fields, "message": "; ".join(exc.messages)}) from exc
+        s = d["summary"]
+        audit(role, "monetization.dossier", {"status": "BUILT", "approved": body.approved, "listed": s["listed"],   # counts only, no profile text
+                                             "controlled_listed": s["controlled_listed"], "excluded": s["excluded"]})
+        md = dossier_mod.dossier_markdown(d)
+        if body.format == "markdown":
+            return PlainTextResponse(md, media_type="text/markdown", headers={"Content-Disposition": 'attachment; filename="tender-dossier.md"'})
+        return {"dossier": d, "markdown": md}
 
 
     # ------------------------------------------------------------------ audit + forbidden actions

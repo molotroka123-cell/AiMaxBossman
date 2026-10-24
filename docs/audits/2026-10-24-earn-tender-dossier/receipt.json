@@ -1,0 +1,264 @@
+{
+ "verdict": "PASS",
+ "verdict_scope": "CAPABILITY ONLY: the offline dossier builder works on the real fixtures; not earned money",
+ "revenue": "NOT_RUN",
+ "revenue_note": "no real client, no real payment, no invoice; nothing was sent to any supplier or buyer",
+ "sent_to_anyone": false,
+ "network_attempts": 0,
+ "model_calls": 0,
+ "reference_time": "2026-10-21T20:00:00+00:00",
+ "today_reference_time": "2026-10-24T12:00:00+00:00",
+ "track": "UNCONTROLLED_FAST_START (fuel, food, logistics, general goods)",
+ "sample_profile": {
+  "name": "Sample fast-start supplier (synthetic profile)",
+  "country": "CZ",
+  "cpv_codes": [
+   "09",
+   "15"
+  ],
+  "keywords": {
+   "en": [
+    "diesel"
+   ]
+  },
+  "countries": [
+   "CZ",
+   "UA"
+  ],
+  "capacity": {
+   "max_contract_value": 100000,
+   "currency": "EUR"
+  }
+ },
+ "sample_summary": {
+  "tenders_considered": 11,
+  "no_match": 9,
+  "matched_open": 2,
+  "listed": 2,
+  "controlled_listed": 0,
+  "excluded": {
+   "NOT_OPEN": 0,
+   "EXPIRED": 0,
+   "NO_DEADLINE": 0,
+   "COUNTRY_FILTER": 0,
+   "BLOCKED": 0,
+   "CONTROLLED_NOT_APPROVED": 0
+  },
+  "unpriced_listed": 0,
+  "fx_missing_listed": 2,
+  "listed_value_usd": "0.00",
+  "listed_introducer_fee_usd": "0.00"
+ },
+ "inputs": {
+  "fixtures_cz.json": "94e061ed1fca5cc8f730bf22694219e9c7ab15b1b2929203d20ba34a9194245b",
+  "fixtures_prozorro.json": "e8c26736ca1edfc285603440b365d992d865419c741161c429398b852aaea88c",
+  "fixtures_fx/cnb_daily.txt": "92dfe63c2818caa4ba22f0a2fd3f48461a4c6fe943bb67a0ae62e09f32d22219"
+ },
+ "code": {
+  "apps/war-terminal/warterminal/dossier.py": "e4d435154e08d32ba81505c502fc81db3e65d0ab7aad9f4a77eeb1987285c2f7",
+  "apps/war-terminal/warterminal/monetization.py": "d131d7c007f54e3a26a5048cea49174db7042b5064bc25fc0e662b5921779c25",
+  "tools/prove_tender_dossier.py": "9488fd50dff2838b71aeea32dbad74a9c35263c9dc9f0de62c71a3d0d2bf819c"
+ },
+ "outputs": {
+  "sample-dossier.md": "d8d65cd9ad7d845cc1103bd3fed1da8262acb0387c612bd72c6a76b53092f534",
+  "sample-dossier.json": "c7780a076d6139caf12723dbd0ed246be74760148e33565c671cafdda25a17a3"
+ },
+ "checks": [
+  {
+   "id": "P1_sample_lists_open_fast_start_leads",
+   "kind": "positive",
+   "pass": true,
+   "detail": [
+    {
+     "tender_key": "UA:UA-2026-10-21-009863-a",
+     "track": "UNCONTROLLED_FAST_START"
+    },
+    {
+     "tender_key": "UA:UA-2026-10-21-009843-a",
+     "track": "UNCONTROLLED_FAST_START"
+    }
+   ]
+  },
+  {
+   "id": "P2_every_lead_has_value_buyer_deadline_why_margin_next_steps",
+   "kind": "positive",
+   "pass": true,
+   "detail": [
+    {
+     "tender_key": "UA:UA-2026-10-21-009863-a",
+     "estimated_value": "2349788.58",
+     "currency": "UAH",
+     "margin_pct": "15.00",
+     "deadline": "2026-10-24T11:00:00Z"
+    },
+    {
+     "tender_key": "UA:UA-2026-10-21-009843-a",
+     "estimated_value": "155000.00",
+     "currency": "UAH",
+     "margin_pct": "15.00",
+     "deadline": "2026-10-26T07:00:00Z"
+    }
+   ]
+  },
+  {
+   "id": "P3_deadlines_in_future_of_reference",
+   "kind": "positive",
+   "pass": true,
+   "detail": "2026-10-21T20:00:00+00:00"
+  },
+  {
+   "id": "P4_footer_and_not_sent",
+   "kind": "positive",
+   "pass": true,
+   "detail": {
+    "footer": "prepared locally by Bossman War Terminal; not legal advice; verify on the official portal",
+    "delivery": "NOT_SENT"
+   }
+  },
+  {
+   "id": "N1_controlled_excluded_without_compliance",
+   "kind": "negative",
+   "pass": true,
+   "detail": {
+    "listed": 0,
+    "excluded": [
+     {
+      "tender_key": "UA:UA-2026-10-16-012729-a",
+      "title": "Магазини",
+      "reason": "CONTROLLED_NOT_APPROVED",
+      "track": "MILITARY_MPO_LICENCE",
+      "deadline": "2026-10-28T06:00:00Z",
+      "blocks": []
+     },
+     {
+      "tender_key": "UA:UA-2026-10-20-013721-a",
+      "title": "БпЛА типу DJI Matrice 4Т (або еквівалент)",
+      "reason": "CONTROLLED_NOT_APPROVED",
+      "track": "DUAL_USE_2021_821",
+      "deadline": "2026-10-23T06:00:00Z",
+      "blocks": []
+     }
+    ]
+   }
+  },
+  {
+   "id": "N2_compliance_approved_controlled_included_and_flagged",
+   "kind": "negative",
+   "pass": true,
+   "detail": [
+    {
+     "tender_key": "UA:UA-2026-10-20-013721-a",
+     "track": "DUAL_USE_2021_821",
+     "flags": [
+      "CONTROLLED_COMPLIANCE_APPROVED"
+     ]
+    },
+    {
+     "tender_key": "UA:UA-2026-10-16-012729-a",
+     "track": "MILITARY_MPO_LICENCE",
+     "flags": [
+      "CONTROLLED_COMPLIANCE_APPROVED"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "N3_expired_tender_excluded_at_today",
+   "kind": "negative",
+   "pass": true,
+   "detail": {
+    "reference": "2026-10-24T12:00:00+00:00",
+    "expired": [
+     "UA:UA-2026-10-21-009863-a"
+    ],
+    "still_listed": [
+     "UA:UA-2026-10-21-009843-a"
+    ]
+   }
+  },
+  {
+   "id": "N4_empty_profile_refused",
+   "kind": "negative",
+   "pass": true,
+   "detail": "PROFILE_EMPTY"
+  },
+  {
+   "id": "N5_missing_fx_is_none_not_one_to_one",
+   "kind": "negative",
+   "pass": true,
+   "detail": {
+    "fx_pairs": [
+     "AUDCZK",
+     "BRLCZK",
+     "CADCZK",
+     "CHFCZK",
+     "CNYCZK",
+     "DKKCZK",
+     "EURCZK",
+     "GBPCZK",
+     "HKDCZK",
+     "HUFCZK",
+     "IDRCZK",
+     "ILSCZK",
+     "INRCZK",
+     "ISKCZK",
+     "JPYCZK",
+     "KRWCZK",
+     "MXNCZK",
+     "MYRCZK",
+     "NOKCZK",
+     "NZDCZK",
+     "PHPCZK",
+     "PLNCZK",
+     "RONCZK",
+     "SEKCZK",
+     "SGDCZK",
+     "THBCZK",
+     "TRYCZK",
+     "USDCZK",
+     "XDRCZK",
+     "ZARCZK"
+    ],
+    "fx_missing_items": [
+     [
+      "UA:UA-2026-10-21-009863-a",
+      "UAH",
+      null
+     ],
+     [
+      "UA:UA-2026-10-21-009843-a",
+      "UAH",
+      null
+     ]
+    ]
+   }
+  },
+  {
+   "id": "N6_no_network_attempts",
+   "kind": "negative",
+   "pass": true,
+   "detail": 0
+  },
+  {
+   "id": "N7_no_model_called",
+   "kind": "negative",
+   "pass": true,
+   "detail": "summarizer=None"
+  },
+  {
+   "id": "N8_controlled_absent_from_sample",
+   "kind": "negative",
+   "pass": true,
+   "detail": [
+    "UA:UA-2026-10-16-012729-a",
+    "UA:UA-2026-10-20-013721-a"
+   ]
+  }
+ ],
+ "known_limits": [
+  "fixtures are a few real records, not a live feed; deadlines judged at the fixture retrieval time",
+  "the CNB fixture has no UAH rate, so UAH leads carry no USD/EUR value (by design: no 1:1 fallback)",
+  "sanctions lists not loaded in this offline run: the dossier says buyers are NOT screened"
+ ],
+ "at": "2026-10-24T22:18:23Z"
+}
