@@ -24,7 +24,7 @@
 
 import { api, listOf } from '../api.js';
 import { h, icon, empty, toast, toastOk, toastError, clear } from '../components.js';
-import { appCard, appIcon, appStatusPill } from './appcards.js';
+import { appCard, appIcon, appLifecyclePill, appStatusPill, filterApps } from './appcards.js';
 
 const AppsPage = {
   id: 'apps',
@@ -194,12 +194,43 @@ function grid(apps, ctx) {
   }
 
   const live = apps.filter((a) => a.status === 'LIVE').length;
+  const quarantined = apps.filter((a) => String(a.lifecycle_status || '').toLowerCase() === 'quarantined').length;
+  const search = h('input.bx-input', {
+    type: 'search', placeholder: 'Название, описание, функция…',
+    'aria-label': 'Поиск по приложениям',
+  });
+  const status = h('select.bx-input', { 'aria-label': 'Фильтр состояния' },
+    h('option', { value: 'all' }, 'Все состояния'),
+    h('option', { value: 'running' }, 'В работе'),
+    h('option', { value: 'stopped' }, 'Остановлены'),
+    h('option', { value: 'quarantined' }, 'Карантин'));
+  const resultCount = h('span', { role: 'status', 'aria-live': 'polite' });
+  const entries = apps.map((app) => ({ app, card: cardWithControl(app, ctx) }));
+  const gridEl = h('div.bx-apps-grid', entries.map(({ card }) => card));
+  const noResults = h('section.bx-panel', { hidden: true },
+    h('div.bx-panel-body', h('div.bx-empty',
+      h('div', { style: { fontSize: '15px', color: 'var(--bx-ink)', fontWeight: 650 } }, 'Ничего не найдено'),
+      h('div', 'Измените запрос или сбросьте фильтры.'),
+      h('button.bx-btn.bx-btn-subtle.bx-btn-sm', {
+        type: 'button', onClick: () => { search.value = ''; status.value = 'all'; applyFilters(); search.focus(); },
+      }, 'Сбросить фильтры'))));
+  const applyFilters = () => {
+    const visible = filterApps(apps, { query: search.value, status: status.value });
+    const visibleIds = new Set(visible.map((app) => app.id));
+    for (const { app, card } of entries) card.hidden = !visibleIds.has(app.id);
+    resultCount.textContent = `${visible.length} из ${apps.length} приложений`;
+    noResults.hidden = visible.length !== 0;
+    gridEl.hidden = visible.length === 0;
+  };
+  search.addEventListener('input', applyFilters);
+  status.addEventListener('change', applyFilters);
+  applyFilters();
   return h('div.bx-home',
     h('header.bx-hero',
       h('div',
         h('h1.bx-hero-title', { style: { fontSize: 'var(--bx-h1)' } }, 'Приложения'),
         h('p.bx-hero-sub',
-          `${apps.length} установлено, ${live} в работе. Список читается из манифестов.`)),
+          `${apps.length} приложений, ${live} в работе${quarantined ? `, ${quarantined} в карантине` : ''}. Список читается из манифестов.`)),
       h('div.bx-hero-pills',
         h('button.bx-btn.bx-btn-subtle.bx-btn-sm', {
           type: 'button',
@@ -222,7 +253,9 @@ function grid(apps, ctx) {
           },
         }, icon('retry', 14), h('span', 'Проверить состояние')))),
     policyControl(ctx),
-    h('div.bx-apps-grid', apps.map((app) => cardWithControl(app, ctx))));
+    h('section.bx-panel', h('div.bx-panel-body',
+      h('div.bx-app-filters', search, status, resultCount))),
+    gridEl, noResults);
 }
 
 /**
@@ -234,7 +267,8 @@ function grid(apps, ctx) {
 function cardWithControl(app, ctx) {
   const card = appCard(app, ctx);
   const actions = card.querySelector('.bx-app-actions');
-  if (actions) {
+  const quarantined = String(app.lifecycle_status || '').toLowerCase() === 'quarantined';
+  if (actions && (!quarantined || isRunning(app))) {
     actions.appendChild(controlButton(app, ctx, {
       size: 'lg',
       // Хвост журнала в карточку не помещается — за подробностями открываем
@@ -273,10 +307,14 @@ function appView(app, ctx) {
       }, app.subtitle) : null),
     h('div.bx-spacer'),
     appStatusPill(app),
+    appLifecyclePill(app),
     app.version ? h('span.bx-pill.is-idle', h('span', `v${app.version}`)) : null,
     running ? controlButton(app, ctx) : null);
 
-  const body = running
+  const quarantined = String(app.lifecycle_status || '').toLowerCase() === 'quarantined';
+  const body = quarantined
+    ? quarantineNotice(app, ctx, running)
+    : running
     ? h('div.bx-appview-frame',
       h('iframe', {
         src: app.view_url || app.base_url, title: app.name,
@@ -288,6 +326,23 @@ function appView(app, ctx) {
     : notRunning(app, ctx);
 
   return h('div.bx-appview', { dataset: { appId: app.id } }, head, body);
+}
+
+function quarantineNotice(app, ctx, running) {
+  return h('section.bx-panel',
+    h('div.bx-panel-body',
+      h('div.bx-empty', { role: 'alert' },
+        h('div', { style: { fontSize: '15px', color: 'var(--bx-ink)', fontWeight: 650 } },
+          'Запуск приложения заблокирован'),
+        h('div', app.quarantine_reason || 'В манифесте указано состояние «quarantined».')),
+      h('p', { style: { color: 'var(--bx-ink-3)', margin: '0 0 14px' } },
+        'BOSSMAN не запустит и не откроет это приложение. Причину и статус должен пересмотреть владелец.'),
+      running ? h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+        controlButton(app, ctx), h('span', { style: { color: 'var(--bx-ink-3)' } },
+          'Можно остановить процесс, который запустил BOSSMAN.')) : null,
+      h('button.bx-btn.bx-btn-ghost.bx-btn-sm', {
+        type: 'button', onClick: () => ctx.navigate('apps'),
+      }, 'Назад к списку')));
 }
 
 function codeBlock(text) {

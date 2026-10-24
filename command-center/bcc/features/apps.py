@@ -183,6 +183,11 @@ def _describe(path: Path) -> dict[str, Any] | None:
     return {
         "id": str(raw["id"]),
         "name": str(raw.get("name") or raw["id"]),
+        # Lifecycle is separate from the live health probe. A stopped quarantine
+        # must remain visible to the owner and must never look like an ordinary
+        # app that can simply be started.
+        "lifecycle_status": str(raw.get("status") or "active").strip().lower(),
+        "quarantine_reason": " ".join(str(raw.get("quarantine_reason") or "").split()),
         "subtitle": str(ui.get("subtitle") or "").strip(),
         "description": " ".join(str(raw.get("description") or "").split()),
         "version": str(raw.get("version") or ""),

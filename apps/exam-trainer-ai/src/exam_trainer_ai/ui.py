@@ -1,22 +1,48 @@
-
 from __future__ import annotations
+
 from fastapi.responses import HTMLResponse
 
-def app_shell(title: str, app_id: str, features: list[str]) -> HTMLResponse:
-    cards="".join(f"<li>{x}</li>" for x in features)
-    html=f"""<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title}</title>
+
+def home_page() -> HTMLResponse:
+    """A source-conscious exam authoring and practice flow over the public API."""
+    return HTMLResponse(r"""<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>Exam Trainer AI</title>
+<link rel="icon" href="data:,">
 <style>
-body{{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0e1116;color:#eef2f7;margin:0}}
-main{{max-width:980px;margin:40px auto;padding:0 20px}} .card{{background:#171c24;border:1px solid #2a3340;border-radius:16px;padding:20px;margin:16px 0}}
-code{{background:#10141a;padding:3px 7px;border-radius:8px}} a{{color:#8fc7ff}} li{{margin:8px 0}}
-.small{{opacity:.72}} .ok{{color:#8ee6a1}}
+:root{font:15px/1.5 system-ui,sans-serif;color:#edf2fa;background:#0c1118;--panel:#151d27;--line:#2a3949;--muted:#9aaabd;--blue:#75b9ff;--green:#85d8a5;--red:#ff9d9d}
+*{box-sizing:border-box}body{margin:0}main{max-width:1000px;margin:32px auto;padding:0 20px 48px}h1{font-size:clamp(28px,5vw,42px);line-height:1.1;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}.muted{color:var(--muted)}.eyebrow{color:var(--blue);font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:700}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}.field{display:grid;gap:5px;margin:10px 0}input,select,textarea,button{font:inherit;color:inherit;border-radius:9px;border:1px solid var(--line);background:#0f161f;padding:10px 12px}textarea{min-height:88px;resize:vertical;font-family:ui-monospace,monospace;font-size:13px}button{cursor:pointer;background:#193251;border-color:#315779}button:hover{background:#21466d}button:disabled{opacity:.6;cursor:wait}input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row select{flex:1;min-width:190px}.notice{min-height:1.6em;color:var(--muted)}.notice[data-kind="error"]{color:var(--red)}.notice[data-kind="success"]{color:var(--green)}.question{border-top:1px solid var(--line);padding:14px 0}.question:first-child{border:0}.question p{margin:5px 0 10px}.answer{margin-top:8px;color:var(--green)}.chip{color:#c7d8ea;font-size:12px;border:1px solid var(--line);border-radius:99px;padding:3px 8px}.full{width:100%}code{font-family:ui-monospace,monospace;color:#bddcff}a{color:var(--blue)}
 </style></head><body><main>
-<h1>{title}</h1>
-<p class="small">{app_id} · standalone-first · local-first</p>
-<div class="card"><b class="ok">Service ready</b><p>OpenAPI: <a href="/docs">/docs</a> · Health: <a href="/health">/health</a> · Metrics: <a href="/metrics">/metrics</a></p></div>
-<div class="card"><h3>Implemented features</h3><ul>{cards}</ul></div>
-<div class="card"><h3>Bossman boundary</h3><p>App owns domain/data/jobs. Bossman is optional intelligence/control plane. No Bossman internal imports.</p></div>
-</main></body></html>"""
-    return HTMLResponse(html)
+<p class="eyebrow">Local study workspace</p><h1>Exam Trainer AI</h1>
+<p class="muted">Соберите план подготовки из открытых или собственных материалов, добавьте вопросы и пройдите короткую тренировку. Итоговый балл — оценка по вашему плану, не гарантия результата экзамена.</p>
+<p id="message" class="notice" role="status" aria-live="polite">Данные остаются в локальном хранилище этого сервиса.</p>
+<section class="panel"><h2>1 · Создать план</h2><form id="create-exam" class="grid">
+<label class="field">Название<input name="name" required maxlength="120" placeholder="Например, Czech B2 — reading"></label>
+<label class="field">Язык<select name="language"><option value="cs">Čeština</option><option value="en">English</option><option value="ru">Русский</option></select></label>
+<label class="field full">Темы плана — JSON массив объектов с name, weight и difficulty<textarea name="topics" required>[{"name":"Reading","weight":1,"difficulty":0.5}]</textarea></label>
+<button type="submit">Сохранить план</button></form></section>
+<section class="panel"><h2>2 · Вопросы и практика</h2><div class="row"><label class="field full">Выберите план<select id="exam-select" aria-label="Выберите план подготовки"><option value="">Загружаю…</option></select></label><button id="reload-exams" type="button">Обновить список</button></div>
+<form id="add-question" class="grid">
+<label class="field">Тема<input name="topic" required placeholder="Reading"></label>
+<label class="field">Источник<select name="source_type"><option value="user_supplied">Мой материал</option><option value="official_public">Официальный открытый источник</option><option value="generated_analogue">Сгенерированный аналог</option></select></label>
+<label class="field full">Вопрос<textarea name="prompt" required maxlength="4000" placeholder="Введите вопрос"></textarea></label>
+<label class="field">Правильный ответ<input name="answer" required maxlength="1000"></label>
+<label class="field">Варианты — необязательный JSON массив<textarea name="choices" placeholder='["A", "B", "C"]'></textarea></label>
+<label class="field full">Пояснение<textarea name="explanation" maxlength="2000"></textarea></label>
+<button type="submit">Добавить вопрос</button><button id="start-practice" type="button">Начать тренировку</button>
+</form><div id="practice" class="panel" hidden></div></section>
+<section class="panel"><h2>Границы источников и результата</h2><p class="muted">Используйте только собственные, официальные, открытые или лицензированные материалы. Интерфейс не загружает утечки и закрытые экзаменационные задания. В режиме ученика ключ ответа не отправляется до проверки ответа сервером.</p><a href="/docs">API и схема данных</a></section>
+</main><script>
+const $=(s)=>document.querySelector(s), message=$('#message'), select=$('#exam-select'), practice=$('#practice');
+function say(text,kind=''){message.textContent=text;message.dataset.kind=kind;}
+async function api(path,options={}){const response=await fetch(path,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(typeof data.detail==='string'?data.detail:(data.detail?.message||data.message||`HTTP ${response.status}`));return data}
+const body=(value)=>JSON.stringify(value);
+async function loadExams(preferred=''){const {exams=[]}=await api('/api/exams');select.replaceChildren();for(const exam of exams){const option=document.createElement('option');option.value=exam.id;option.textContent=`${exam.name} · ${exam.language}`;select.append(option)}if(!exams.length){const option=document.createElement('option');option.value='';option.textContent='Сначала создайте план';select.append(option)}select.value=preferred||exams[0]?.id||'';return exams}
+$('#reload-exams').addEventListener('click',async()=>{try{await loadExams(select.value);say('Список планов обновлён.','success')}catch(e){say(e.message,'error')}});
+$('#create-exam').addEventListener('submit',async(event)=>{event.preventDefault();const form=new FormData(event.currentTarget);try{const topics=JSON.parse(form.get('topics'));if(!Array.isArray(topics)||!topics.length)throw new Error('Добавьте хотя бы одну тему в JSON');const exam=await api('/api/exams',{method:'POST',body:body({name:form.get('name'),language:form.get('language'),topics})});await loadExams(exam.id);say(`План «${exam.name}» сохранён. Теперь добавьте вопрос или начните тренировку.`,'success')}catch(e){say(e.message,'error')}});
+$('#add-question').addEventListener('submit',async(event)=>{event.preventDefault();const formElement=event.currentTarget;const examId=select.value;if(!examId){say('Сначала создайте или выберите план.','error');return}const form=new FormData(formElement);try{const rawChoices=String(form.get('choices')||'').trim();const question={topic:form.get('topic'),prompt:form.get('prompt'),answer:form.get('answer'),explanation:form.get('explanation'),source_type:form.get('source_type')};if(rawChoices)question.choices=JSON.parse(rawChoices);await api(`/api/exams/${encodeURIComponent(examId)}/questions`,{method:'POST',body:body({questions:[question]})});formElement.reset();say('Вопрос сохранён. Ключ не показывается в списке ученика.','success');formElement.elements.prompt.focus()}catch(e){say(e.message,'error')}});
+function finishWithReport(sessionId){api(`/api/sessions/${encodeURIComponent(sessionId)}/report`).then((report)=>{practice.replaceChildren();const title=document.createElement('h3');title.textContent='Тренировка завершена';const summary=document.createElement('p');summary.textContent=`Ответов: ${report.diagnostic.answered} · точность: ${Math.round(report.diagnostic.accuracy*100)}% · оценка готовности: ${report.readiness.readiness_score}%`;const caveat=document.createElement('p');caveat.className='muted';caveat.textContent='Оценка учитывает вес тем в вашем плане; это ориентир, а не гарантия результата экзамена.';practice.append(title,summary,caveat);practice.hidden=false;say(`Тренировка завершена. Ответов: ${report.diagnostic.answered}; точность: ${Math.round(report.diagnostic.accuracy*100)}%. Оценка не гарантирует результат экзамена.`,'success')}).catch(e=>say(e.message,'error'))}
+function showQuestion(questions,index,sessionId){practice.replaceChildren();if(index>=questions.length){finishWithReport(sessionId);return}const q=questions[index];const count=document.createElement('span');count.className='chip';count.textContent=`Вопрос ${index+1} из ${questions.length}`;const prompt=document.createElement('p');prompt.textContent=q.prompt;const topic=document.createElement('p');topic.className='muted';topic.textContent=q.topic;const form=document.createElement('form');form.className='field';let answer;if(Array.isArray(q.choices)&&q.choices.length){answer=document.createElement('select');const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Выберите ответ';answer.append(placeholder);for(const choice of q.choices){const option=document.createElement('option');option.value=String(choice);option.textContent=String(choice);answer.append(option)}}else{answer=document.createElement('input');answer.placeholder='Ваш ответ'}answer.required=true;answer.setAttribute('aria-label','Ваш ответ');const submit=document.createElement('button');submit.textContent='Проверить ответ';form.append(answer,submit);form.addEventListener('submit',async(event)=>{event.preventDefault();submit.disabled=true;try{const result=await api(`/api/sessions/${encodeURIComponent(sessionId)}/answer`,{method:'POST',body:body({question_id:q.id,answer:answer.value})});const feedback=document.createElement('p');feedback.className='answer';feedback.setAttribute('role','status');feedback.textContent=`${result.correct?'Верно.':'Пока неверно.'} ${result.explanation||''}`;form.replaceWith(feedback);setTimeout(()=>showQuestion(questions,index+1,sessionId),700)}catch(e){submit.disabled=false;say(e.message,'error')}});practice.append(count,topic,prompt,form);practice.hidden=false;answer.focus()}
+$('#start-practice').addEventListener('click',async()=>{const examId=select.value;if(!examId){say('Сначала создайте или выберите план.','error');return}try{const {questions=[],answer_key_hidden}=await api(`/api/exams/${encodeURIComponent(examId)}/questions`);if(!answer_key_hidden)throw new Error('Сервер не подтвердил скрытие ключа ответа. Тренировка остановлена.');if(!questions.length){say('В этом плане ещё нет вопросов. Добавьте хотя бы один вопрос.','error');return}const session=await api(`/api/exams/${encodeURIComponent(examId)}/sessions`,{method:'POST',body:body({learner_id:'local-learner',mode:'practice',language:null})});say('Тренировка началась. Ответы проверяются сервером.','success');showQuestion(questions,0,session.id)}catch(e){say(e.message,'error')}});
+loadExams().catch(e=>say(`Не удалось загрузить планы: ${e.message}`,'error'));
+</script></body></html>""")

@@ -1,22 +1,52 @@
-
 from __future__ import annotations
+
 from fastapi.responses import HTMLResponse
 
-def app_shell(title: str, app_id: str, features: list[str]) -> HTMLResponse:
-    cards="".join(f"<li>{x}</li>" for x in features)
-    html=f"""<!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title}</title>
+
+def home_page() -> HTMLResponse:
+    """Compare manually entered travel offers; never suggests that prices are live."""
+    return HTMLResponse(r"""<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>Travel Architect / Deal Hunter</title>
+<link rel="icon" href="data:,">
 <style>
-body{{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0e1116;color:#eef2f7;margin:0}}
-main{{max-width:980px;margin:40px auto;padding:0 20px}} .card{{background:#171c24;border:1px solid #2a3340;border-radius:16px;padding:20px;margin:16px 0}}
-code{{background:#10141a;padding:3px 7px;border-radius:8px}} a{{color:#8fc7ff}} li{{margin:8px 0}}
-.small{{opacity:.72}} .ok{{color:#8ee6a1}}
+:root{font:15px/1.5 system-ui,sans-serif;color:#edf2fa;background:#0c1118;--panel:#151d27;--line:#2a3949;--muted:#9aaabd;--blue:#75b9ff;--green:#85d8a5;--red:#ff9d9d;--amber:#ffd48a}*{box-sizing:border-box}body{margin:0}main{max-width:1050px;margin:32px auto;padding:0 20px 48px}h1{font-size:clamp(28px,5vw,42px);line-height:1.1;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}.muted{color:var(--muted)}.eyebrow{color:var(--blue);font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:700}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.field{display:grid;gap:5px;margin:10px 0}input,select,textarea,button{font:inherit;color:inherit;border-radius:9px;border:1px solid var(--line);background:#0f161f;padding:10px 12px}textarea{min-height:84px;resize:vertical;font:13px/1.5 ui-monospace,monospace}button{cursor:pointer;background:#193251;border-color:#315779}button:hover{background:#21466d}button:disabled{opacity:.6;cursor:wait}input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.row .field{flex:1;min-width:220px}.notice{min-height:1.6em;color:var(--muted)}.notice[data-kind="error"]{color:var(--red)}.notice[data-kind="success"]{color:var(--green)}.warning{border-left:3px solid var(--amber);padding:10px 14px;color:#ffe4b1;background:#2b2418;border-radius:6px}.offer{border-top:1px solid var(--line);padding:12px 0;display:grid;grid-template-columns:1fr auto;gap:4px 14px}.offer:first-child{border:0}.price{font-size:18px;font-weight:700;color:var(--green);white-space:nowrap}.pill{font-size:12px;color:#c7d8ea;border:1px solid var(--line);border-radius:99px;padding:2px 8px}.full{grid-column:1/-1}a{color:var(--blue)}
 </style></head><body><main>
-<h1>{title}</h1>
-<p class="small">{app_id} · standalone-first · local-first</p>
-<div class="card"><b class="ok">Service ready</b><p>OpenAPI: <a href="/docs">/docs</a> · Health: <a href="/health">/health</a> · Metrics: <a href="/metrics">/metrics</a></p></div>
-<div class="card"><h3>Implemented features</h3><ul>{cards}</ul></div>
-<div class="card"><h3>Bossman boundary</h3><p>App owns domain/data/jobs. Bossman is optional intelligence/control plane. No Bossman internal imports.</p></div>
-</main></body></html>"""
-    return HTMLResponse(html)
+<p class="eyebrow">Manual offer comparison</p><h1>Travel Architect / Deal Hunter</h1>
+<p class="muted">Сравните полную стоимость вариантов поездки, которые вы внесли сами. Ранжирование использует цены и сборы из формы; живого поиска цен здесь нет.</p>
+<p class="warning"><strong>Только сравнение.</strong> Результаты не являются котировкой перевозчика. Приложение не бронирует поездки и не покупает билеты.</p>
+<p id="message" class="notice" role="status" aria-live="polite">Поездки и предложения хранятся локально в SQLite этого сервиса.</p>
+<section class="panel"><h2>1 · Поездка</h2><form id="create-trip" class="grid">
+<label class="field">Откуда — коды или города через запятую<input name="origin" required placeholder="PRG, VIE"></label>
+<label class="field">Куда<input name="destination" required placeholder="Lisbon"></label>
+<label class="field">Дата начала<input name="start" type="date" required></label>
+<label class="field">Дата окончания<input name="end" type="date" required></label>
+<label class="field">Путешественников<input name="travelers" type="number" min="1" max="30" value="1" required></label>
+<label class="field">Бюджет — необязательно<input name="budget" type="number" min="0" step="0.01" placeholder="1200"></label>
+<label class="field">Валюта бюджета<select name="budget_currency"><option value="EUR">EUR</option><option value="CZK">CZK</option><option value="USD">USD</option></select></label>
+<label class="field full">Ограничения — JSON объект<textarea name="constraints">{}</textarea></label>
+<button type="submit">Сохранить поездку</button></form></section>
+<section class="panel"><h2>2 · Предложения вручную</h2><div class="row"><label class="field">Выберите поездку<select id="trip-select" aria-label="Выберите поездку"><option value="">Загружаю…</option></select></label><button id="reload-trips" type="button">Обновить список</button><button id="compare" type="button">Сравнить общую цену</button></div>
+<form id="add-offer" class="grid">
+<label class="field">Тип<select name="kind"><option value="package">Пакет</option><option value="diy">Собираю сам</option></select></label>
+<label class="field">Поставщик / название<input name="provider" required maxlength="160" placeholder="Поставщик или ссылка на оффер"></label>
+<label class="field">Базовая цена<input name="base_price" type="number" min="0" step="0.01" required></label>
+<label class="field">Валюта<input name="currency" value="EUR" maxlength="6" required></label>
+<label class="field">Сборы — JSON объект, например baggage/seat<textarea name="fees">{}</textarea></label>
+<label class="field">Оценка качества 0–5<input name="quality_score" type="number" min="0" max="5" step="0.1" value="0"></label>
+<label class="field full">URL источника — необязательно<input name="url" type="url" placeholder="https://…"></label>
+<button type="submit">Добавить предложение</button></form><div id="results" aria-live="polite"></div></section>
+<section class="panel"><h2>Как пользоваться сравнением</h2><p class="muted">Внесите одинаковый состав поездки в каждое предложение и включите обязательные сборы, багаж, налоги и доплаты. Результат — вычисление по предоставленным вами цифрам; проверьте цену и условия на сайте поставщика перед покупкой.</p><a href="/docs">API и схема данных</a></section>
+</main><script>
+const $=(s)=>document.querySelector(s),message=$('#message'),select=$('#trip-select'),results=$('#results');
+function say(text,kind=''){message.textContent=text;message.dataset.kind=kind}
+async function api(path,options={}){const response=await fetch(path,{...options,headers:{'content-type':'application/json',...(options.headers||{})}});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(typeof data.detail==='string'?data.detail:(data.detail?.message||data.message||`HTTP ${response.status}`));return data}
+const body=(value)=>JSON.stringify(value);
+async function loadTrips(preferred=''){const {trips=[]}=await api('/api/trips');select.replaceChildren();for(const trip of trips){const option=document.createElement('option');option.value=trip.id;option.textContent=`${trip.origin.join(', ')} → ${trip.destination} · ${trip.start}`;select.append(option)}if(!trips.length){const option=document.createElement('option');option.value='';option.textContent='Сначала создайте поездку';select.append(option)}select.value=preferred||trips[0]?.id||''}
+$('#create-trip').addEventListener('submit',async(event)=>{event.preventDefault();const form=new FormData(event.currentTarget);try{const origin=String(form.get('origin')).split(',').map(x=>x.trim()).filter(Boolean);if(!origin.length)throw new Error('Укажите хотя бы одну точку отправления.');const budget=String(form.get('budget')).trim();const trip=await api('/api/trips',{method:'POST',body:body({origin,destination:form.get('destination'),start:form.get('start'),end:form.get('end'),travelers:Number(form.get('travelers')),budget:budget?Number(budget):null,budget_currency:form.get('budget_currency'),constraints:JSON.parse(form.get('constraints'))})});await loadTrips(trip.id);results.replaceChildren();say('Поездка сохранена. Добавьте вручную найденные предложения в валюте бюджета, затем сравните их.','success')}catch(e){say(e.message,'error')}});
+$('#reload-trips').addEventListener('click',()=>loadTrips(select.value).then(()=>say('Список поездок обновлён.','success')).catch(e=>say(e.message,'error')));
+$('#add-offer').addEventListener('submit',async(event)=>{event.preventDefault();if(!select.value){say('Сначала создайте или выберите поездку.','error');return}const form=new FormData(event.currentTarget);try{const url=String(form.get('url')||'').trim();const currency=String(form.get('currency')).trim().toUpperCase();const tripList=await api('/api/trips');const trip=tripList.trips.find(item=>item.id===select.value);if(trip?.budget!=null&&String(trip.budget_currency||'EUR').toUpperCase()!==currency)throw new Error(`Валюта предложения должна совпадать с валютой бюджета (${trip.budget_currency||'EUR'}).`);const current=await api(`/api/trips/${encodeURIComponent(select.value)}/compare`);if(current.offers.some((item)=>String(item.currency).toUpperCase()!==currency))throw new Error('Для одного сравнения введите все предложения в одной валюте: конвертация не выполняется.');const offer=await api(`/api/trips/${encodeURIComponent(select.value)}/offers`,{method:'POST',body:body({kind:form.get('kind'),provider:form.get('provider'),base_price:Number(form.get('base_price')),currency,fees:JSON.parse(form.get('fees')),quality_score:Number(form.get('quality_score')),url:url||null})});say(`Предложение сохранено. Итоговая цена с внесёнными сборами: ${offer.true_price} ${offer.currency}.`,'success');$('#compare').click()}catch(e){say(e.message,'error')}});
+function renderOffers(offers,best){results.replaceChildren();if(!offers.length){const p=document.createElement('p');p.className='muted';p.textContent='Для этой поездки ещё нет предложений.';results.append(p);return}for(const offer of offers){const row=document.createElement('article');row.className='offer';const left=document.createElement('div');const title=document.createElement('strong');title.textContent=offer.provider;const meta=document.createElement('div');meta.className='muted';meta.textContent=`${offer.kind==='package'?'Пакет':'Собираю сам'} · база ${offer.base_price} ${offer.currency} · сборы ${Number(offer.true_price-offer.base_price).toFixed(2)} ${offer.currency}`;left.append(title,meta);if(offer.id===best?.id){const tag=document.createElement('span');tag.className='pill';tag.textContent='Самая низкая цена';left.append(tag)}const price=document.createElement('div');price.className='price';price.textContent=`${offer.true_price} ${offer.currency}`;row.append(left,price);results.append(row)}}
+$('#compare').addEventListener('click',async()=>{if(!select.value){say('Сначала создайте или выберите поездку.','error');return}try{const result=await api(`/api/trips/${encodeURIComponent(select.value)}/compare`);if(result.comparable===false){results.replaceChildren();say('Нельзя сравнить разные валюты без конвертации. Приведите все предложения к одной валюте.','error');return}renderOffers(result.offers,result.best);say(result.best?`Сравнено предложений: ${result.offers.length}. Самая низкая внесённая цена — ${result.best.true_price} ${result.best.currency}.`:'Добавьте предложения, чтобы сравнить стоимость.',result.best?'success':'')}catch(e){say(e.message,'error')}});
+loadTrips().catch(e=>say(`Не удалось загрузить поездки: ${e.message}`,'error'));
+</script></body></html>""")
