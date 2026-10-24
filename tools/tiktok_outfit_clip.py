@@ -45,7 +45,8 @@ def gen(a) -> int:
     missing = [k for k, f in FILES.items() if not f.is_file()]
     if missing:
         raise SystemExit(f"LTX files missing: {missing}")
-    out = WORK / f"seg-{a.look}.mp4"
+    out = Path(a.out_dir or WORK) / f"seg-{a.look}.mp4"
+    out.parent.mkdir(parents=True, exist_ok=True)
     # Q6_K by choice 24.10: Q8_0 at 720x1280x121 pushed the PC to critical memory and the run was reaped
     # distilled (8 steps, cfg 1) after the dev model needed >90 min for one 5 s segment on this PC (24.10)
     diffusion = LTX / a.variant / f"ltx-2.5-22b-{a.variant}-transformer-{a.quant}.gguf"
@@ -59,7 +60,7 @@ def gen(a) -> int:
     t0 = time.time()
     r = subprocess.run(argv, capture_output=True, text=True, errors="replace")
     secs = round(time.time() - t0, 1)
-    (WORK / f"seg-{a.look}.log").write_text((r.stdout or "")[-20000:] + "\n--- stderr ---\n" + (r.stderr or "")[-20000:],
+    (out.parent / f"seg-{a.look}.log").write_text((r.stdout or "")[-20000:] + "\n--- stderr ---\n" + (r.stderr or "")[-20000:],
                                            encoding="utf-8")
     avi = out.with_name(out.name + ".avi")             # sd-cli appends .avi to an .mp4 target (seen 24.10)
     if r.returncode == 0 and not out.is_file() and avi.is_file():
@@ -94,7 +95,8 @@ def beat_cuts(audio: Path, targets=(5.0, 10.0), window=0.35) -> list[float]:
 
 def assemble(a) -> int:
     audio = WORK / "audio-65-80.m4a"
-    segs = [WORK / f"seg-{k}.mp4" for k in ORDER]
+    seg_dir = Path(a.seg_dir or WORK)
+    segs = [seg_dir / f"seg-{k}.mp4" for k in ORDER]
     missing = [s.name for s in segs if not s.is_file()]
     if missing:
         raise SystemExit(f"segments missing: {missing}")
@@ -108,7 +110,7 @@ def assemble(a) -> int:
           f"[cat]drawbox=x=0:y=0:w=iw:h=ih:color=white@0.85:t=fill:enable='{flash}',"
           f"drawtext=fontfile='{font}':text='Bossman Motion Studio':fontsize=30:fontcolor=white@0.88:"
           "shadowcolor=black@0.55:shadowx=2:shadowy=2:x=w-tw-28:y=h-th-40[out]")
-    out = WORK / "bossman-motion-studio-outfit-dance-720p.mp4"
+    out = Path(a.out) if a.out else WORK / "bossman-motion-studio-outfit-dance-720p.mp4"
     argv = ["ffmpeg", "-v", "error", "-y", *sum([["-i", str(s)] for s in segs], []), "-i", str(audio),
             "-filter_complex", fc, "-map", "[out]", "-map", "3:a", "-t", "15", "-c:v", "libx264", "-preset", "slow",
             "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out)]
@@ -137,7 +139,10 @@ def main(argv=None) -> int:
     g.add_argument("--width", type=int, default=576)
     g.add_argument("--height", type=int, default=1024)
     g.add_argument("--seed", type=int, default=1)
-    sub.add_parser("assemble")
+    g.add_argument("--out-dir", default="")     # keep variants apart (plan D 24.10: distilled-720 / dev-576)
+    s = sub.add_parser("assemble")
+    s.add_argument("--seg-dir", default="")
+    s.add_argument("--out", default="")
     a = ap.parse_args(argv)
     return gen(a) if a.cmd == "gen" else assemble(a)
 
