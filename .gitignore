@@ -170,3 +170,9 @@ vault.*
 chat-archive.key
 *.bcarchive
 chat-archive/
+
+# Privacy 24.10.2026: session transcripts and the owner's personal screenshots never enter git.
+# (Earlier copies remain in git history; untracking does not rewrite history.)
+/docs/testing/sessions/*.jsonl
+/docs/reference-images/owner-screenshots/
+/docs/owner/screenshots/

@@ -166,7 +166,9 @@ async function publish() {
   try {
     await flush();                       // сначала доложить всё, что накопилось
     const res = await api.raw('/api/testing/publish', { method: 'POST', body: {} });
-    if (res.published) {
+    if (res.published && res.local_only) {
+      say(`сохранено на этом ПК: ${res.dir} · ${res.summary?.total ?? 0} записей · вычищено ${res.redactions}`);
+    } else if (res.published) {
       say(`отправлено: ${res.sha} · ${res.summary?.total ?? 0} записей · вычищено ${res.redactions}`);
     } else {
       // Отказ — это результат, а не молчание: показываем причину как есть.

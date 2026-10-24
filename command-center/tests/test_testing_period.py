@@ -154,43 +154,92 @@ async def test_publish_writes_a_clean_bundle_and_never_leaks_the_token(env, tmp_
                              "data": {"error": f"провал с токеном {token}"}},
                             ensure_ascii=False) + "\n")
 
-    repo = tmp_path / "repo"
-    _make_repo(repo)
-    monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
-
     res = await env.client.post("/api/testing/publish")
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["redactions"] >= 1, "чистка обязана была сработать"
 
-    published = list((repo / tp.PUBLISH_SUBDIR).glob("*"))
+    published = list(tp.publish_dir(env.settings.data_dir).glob("*"))
     assert len(published) == 2, "отчёт и полный журнал"
     for path in published:
         assert token not in path.read_text(encoding="utf-8"), f"токен уцелел в {path.name}"
 
 
-async def test_publish_commits_to_the_current_branch_without_force(env, tmp_path, monkeypatch):
+# Владелец 24.10.2026: журналы сессий — личная переписка с системой, в git им не
+# место. Публикация пишет в data_dir и не делает ни add, ни commit, ни push.
+
+def test_publish_dir_lives_in_the_data_dir_not_in_docs(tmp_path):
+    out = tp.publish_dir(tmp_path)
+    assert out == tmp_path / "testing" / "published"
+    assert "docs" not in tp.PUBLISH_SUBDIR.parts
+
+
+async def test_publish_saves_locally_and_never_runs_git_add_commit_push(env, tmp_path,
+                                                                       monkeypatch):
     await env.client.post("/api/testing/log", json={"events": [
         {"kind": "ui.click", "data": {"element": "кнопка"}}]})
     repo = tmp_path / "repo"
     _make_repo(repo)
     monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
+    head_before = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True,
+                                 text=True).stdout.strip()
+    real_git = tp._git
+    calls: list[list[str]] = []
 
-    body = (await env.client.post("/api/testing/publish")).json()
+    def watching_git(args, cwd, timeout=None):
+        calls.append(list(args))
+        assert args[0] not in {"add", "commit", "push"}, f"публикация запустила git {args[0]}"
+        return real_git(args, cwd, timeout)
 
-    steps = {s["step"] for s in body["steps"]}
-    assert {"add", "commit", "push"} <= steps
-    push = next(s for s in body["steps"] if s["step"] == "push")
-    assert "--force" not in json.dumps(body), "force не делаем никогда"
-    # Тестовый remote — обычный каталог, поэтому push проходит по-настоящему.
-    assert push["code"] == 0, push
-    assert body["published"] is True and len(body["sha"]) == 12
+    monkeypatch.setattr(tp, "_git", watching_git)
 
-    # git пишет UTF-8; без явной кодировки Windows прочла бы тему коммита в
-    # cp1251, и проверка ниже падала бы на правильном коммите (триаж №48).
-    log = subprocess.run(["git", "log", "--oneline", "-1"], cwd=repo,
-                         capture_output=True, text=True, encoding="utf-8").stdout
-    assert "журнал тестового периода" in log
+    res = await env.client.post("/api/testing/publish")
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["published"] is True and body["local_only"] is True and body["steps"] == []
+    out = tp.publish_dir(env.settings.data_dir)
+    assert sorted(p.name for p in out.glob("*")) == sorted(body["files"])
+    assert not any(c[0] in {"add", "commit", "push"} for c in calls)
+    # Негатив: в рабочей копии ничего не появилось и коммита нет.
+    assert not (repo / "docs" / "testing" / "sessions").exists()
+    head_after = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True,
+                                text=True).stdout.strip()
+    assert head_after == head_before
+
+
+async def test_publish_refuses_when_the_data_dir_is_tracked_by_git(env, tmp_path, monkeypatch):
+    await env.client.post("/api/testing/log", json={"events": [
+        {"kind": "ui.click", "data": {"element": "кнопка"}}]})
+    repo = tmp_path / "repo"
+    _make_repo(repo, with_remote=False)
+    target = repo / "data" / "testing" / "published"
+    monkeypatch.setattr(tp, "publish_dir", lambda _data_dir: target)
+
+    res = await env.client.post("/api/testing/publish")
+
+    assert res.status_code == 409, res.text
+    assert "git" in res.text
+    assert not target.exists() or not any(target.iterdir()), "отказ не должен оставлять файлы"
+
+
+async def test_publish_accepts_a_data_dir_that_git_ignores(env, tmp_path, monkeypatch):
+    """Позитивный контроль к отказу выше: так устроен data_dir исходной установки."""
+    await env.client.post("/api/testing/log", json={"events": [
+        {"kind": "ui.click", "data": {"element": "кнопка"}}]})
+    repo = tmp_path / "repo"
+    _make_repo(repo, with_remote=False)
+    (repo / ".gitignore").write_text("data/\n", encoding="utf-8")
+    target = repo / "data" / "testing" / "published"
+    monkeypatch.setattr(tp, "publish_dir", lambda _data_dir: target)
+
+    res = await env.client.post("/api/testing/publish")
+
+    assert res.status_code == 200, res.text
+    assert len(list(target.glob("*"))) == 2
+    status = subprocess.run(["git", "status", "--porcelain"], cwd=repo, capture_output=True,
+                            text=True).stdout
+    assert "data/" not in status
 
 
 async def test_publish_refuses_when_the_log_is_empty(env, tmp_path, monkeypatch):
@@ -202,19 +251,6 @@ async def test_publish_refuses_when_the_log_is_empty(env, tmp_path, monkeypatch)
     assert res.status_code in (200, 400)
     if res.status_code == 400:
         assert "пуст" in res.text
-
-
-async def test_publish_reports_a_failed_push_instead_of_forcing(env, tmp_path, monkeypatch):
-    await env.client.post("/api/testing/log", json={"events": [
-        {"kind": "ui.click", "data": {"element": "кнопка"}}]})
-    repo = tmp_path / "repo"
-    _make_repo(repo, with_remote=False)          # remote нет — push обязан провалиться
-    monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
-
-    body = (await env.client.post("/api/testing/publish")).json()
-
-    assert body["published"] is False and body.get("committed") is True
-    assert "force" in body["reason"], "отказ обязан объяснить, почему не форсим"
 
 
 async def test_mode_off_disables_everything(tmp_path, monkeypatch):
@@ -691,80 +727,51 @@ async def test_a_malformed_body_is_a_bad_request_not_a_server_error(env):
 # git не нашёлся, исключение вышло из ручки как голый 500, кнопка не объяснила
 # ничего, и владелец жал её снова (ui.rage_click в том же журнале).
 
-async def test_publish_without_git_on_path_is_a_typed_refusal_not_a_500(
-        env, tmp_path, monkeypatch):
-    await env.client.post("/api/testing/log", json={"events": [
-        {"kind": "ui.click", "data": {"element": "кнопка"}}]})
-    repo = tmp_path / "repo"
-    _make_repo(repo)
-    monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
-    empty = tmp_path / "no-git-here"
-    empty.mkdir()
-    monkeypatch.setenv("PATH", str(empty))
+# С 24.10.2026 публикация локальная: git ей больше не нужен. Тот же журнал
+# владельца теперь проверяет обе стороны: без git сохранение работает, а если
+# папка данных лежит в рабочей копии и git не может подтвердить, что путь
+# игнорируется, — отказ (fail closed), а не голый 500.
 
-    res = await env.client.post("/api/testing/publish")
-
-    assert res.status_code == 503, res.text
-    assert "git" in res.text.lower()
-
-
-async def test_repo_lookup_without_git_is_the_same_typed_refusal(env, tmp_path, monkeypatch):
+async def test_publish_without_git_on_path_still_saves_locally(env, tmp_path, monkeypatch):
     await env.client.post("/api/testing/log", json={"events": [
         {"kind": "ui.click", "data": {"element": "кнопка"}}]})
     empty = tmp_path / "no-git-here"
     empty.mkdir()
     monkeypatch.setenv("PATH", str(empty))
-    res = await env.client.post("/api/testing/publish")
-    assert res.status_code == 503, res.text
-
-
-async def test_a_git_step_that_hangs_is_reported_as_a_timeout_not_a_500(
-        env, tmp_path, monkeypatch):
-    import shutil
-    import stat
-    import sys
-
-    real_git = shutil.which("git")
-    assert real_git
-    await env.client.post("/api/testing/log", json={"events": [
-        {"kind": "ui.click", "data": {"element": "кнопка"}}]})
-    repo = tmp_path / "repo"
-    _make_repo(repo)
-    monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
-    # On POSIX the shim is a real executable and tests process termination.
-    # Windows CreateProcess does not execute a shebang-only file named `git`,
-    # so inject the same OS TimeoutExpired at the subprocess boundary while
-    # all preceding git steps still run against the real binary.
-    if os.name == "nt":
-        real_run = subprocess.run
-
-        def timeout_push(args, *a, **kw):
-            if args and Path(args[0]).name.lower() in {"git", "git.exe"} and "push" in args[1:]:
-                raise subprocess.TimeoutExpired(args, kw.get("timeout", 1.0))
-            return real_run(args, *a, **kw)
-
-        monkeypatch.setattr(tp.subprocess, "run", timeout_push)
-    else:
-        bindir = tmp_path / "bin"
-        bindir.mkdir()
-        fake = bindir / "git"
-        fake.write_text(
-            f"#!{sys.executable}\n"
-            "import os, sys, time\n"
-            "if 'push' in sys.argv[1:]:\n"
-            "    time.sleep(5)\n"
-            f"os.execv({real_git!r}, [{real_git!r}, *sys.argv[1:]])\n", encoding="utf-8")
-        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
-        monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
-    monkeypatch.setattr(tp, "GIT_TIMEOUT_S", 1.0, raising=False)
 
     res = await env.client.post("/api/testing/publish")
 
     assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["published"] is False and body.get("committed") is True
-    push = next(s for s in body["steps"] if s["step"] == "push")
-    assert push["code"] != 0 and "не ответил" in push["err"], push
+    assert len(list(tp.publish_dir(env.settings.data_dir).glob("*"))) == 2
+
+
+async def test_data_dir_in_a_worktree_without_git_is_refused_not_a_500(env, tmp_path,
+                                                                      monkeypatch):
+    await env.client.post("/api/testing/log", json={"events": [
+        {"kind": "ui.click", "data": {"element": "кнопка"}}]})
+    repo = tmp_path / "repo"
+    _make_repo(repo, with_remote=False)
+    (repo / ".gitignore").write_text("data/\n", encoding="utf-8")
+    target = repo / "data" / "testing" / "published"
+    monkeypatch.setattr(tp, "publish_dir", lambda _data_dir: target)
+    empty = tmp_path / "no-git-here"
+    empty.mkdir()
+    monkeypatch.setenv("PATH", str(empty))
+
+    res = await env.client.post("/api/testing/publish")
+
+    assert res.status_code == 409, res.text
+    assert not target.exists()
+
+
+def test_a_git_call_that_hangs_is_reported_as_a_timeout_not_an_exception(tmp_path, monkeypatch):
+    """`_git` по-прежнему используется (проверка check-ignore): зависание — код 124."""
+    def hang(args, *a, **kw):
+        raise subprocess.TimeoutExpired(args, kw.get("timeout", 1.0))
+
+    monkeypatch.setattr(tp.subprocess, "run", hang)
+    proc = tp._git(["check-ignore", "-q", "--", "x"], tmp_path, timeout=1.0)
+    assert proc.returncode == 124 and "не ответил" in proc.stderr
 
 
 def test_git_output_is_utf8_even_when_the_process_code_page_is_not(tmp_path):
@@ -903,14 +910,10 @@ async def test_publish_filters_to_current_session_and_blocks_synthetic_canaries(
     for c in canaries:
         assert c not in preview_blob, f"Канарейка {c!r} утекла в /testing/preview!"
 
-    # Проверяем реальную публикацию в тестовый git-репозиторий
-    repo = tmp_path / "repo"
-    _make_repo(repo)
-    monkeypatch.setattr(tp, "_repo_root", lambda _start: repo)
-
+    # Проверяем реальную публикацию (с 24.10.2026 — в data_dir, не в git)
     res = await env.client.post("/api/testing/publish")
     assert res.status_code == 200, res.text
-    published = list((repo / tp.PUBLISH_SUBDIR).glob("*"))
+    published = list(tp.publish_dir(env.settings.data_dir).glob("*"))
     assert len(published) == 2
     for path in published:
         content = path.read_text(encoding="utf-8")

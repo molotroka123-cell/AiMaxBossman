@@ -28,10 +28,10 @@
 «флаг выключен»: тестовый период на то и период, что его включают и потом
 снимают одной переменной.
 
-Публикация — единственная операция, выходящая наружу. Она делается только по
-нажатию владельца, коммитит в текущую ветку и не делает force. Если ветка ушла
-вперёд, публикация честно отказывается и говорит об этом, а не переписывает
-чужую работу.
+Публикация делается только по нажатию владельца. С 24.10.2026 (решение
+владельца о приватности) она НЕ коммитит и НЕ пушит: вычищенный журнал
+сохраняется в `data_dir/testing/published/` этой машины. Абзацы выше про git и
+GitHub описывают прежнее поведение; чистка секретов осталась прежней.
 """
 from __future__ import annotations
 
@@ -59,7 +59,11 @@ FLAG = "BOSSMAN_TESTING_PERIOD"
 router = APIRouter()
 
 LOG_DIRNAME = "testing"
-PUBLISH_SUBDIR = Path("docs/testing/sessions")
+# Куда кнопка «опубликовать» складывает вычищенный журнал: ВНУТРИ data_dir
+# инсталляции, а не в docs/ рабочей копии. Владелец 24.10.2026: журналы сессий —
+# личная переписка с системой, в git им не место (прежние копии остались в
+# истории git; новые туда не попадают).
+PUBLISH_SUBDIR = Path("testing") / "published"
 MAX_EVENTS_PER_POST = 200
 MAX_FIELD_CHARS = 2000
 MAX_LOG_BYTES = 32 * 1024 * 1024      # журнал одной инсталляции: дальше не растим
@@ -744,11 +748,10 @@ async def events(request: Request, limit: int = 200):
 
 @router.post("/testing/publish")
 async def publish(request: Request):
-    """Кнопка владельца: вычистить журнал и отправить его в GitHub.
+    """Кнопка владельца: вычистить журнал и сохранить его в data_dir/testing/published.
 
-    Единственная операция модуля, выходящая наружу, и она происходит только по
-    нажатию. Force не делаем никогда: если ветка ушла вперёд, отказываемся и
-    говорим об этом, а не переписываем чужую работу.
+    С 24.10.2026 журнал не коммитится и не пушится: он остаётся на этой машине.
+    Если папка данных лежит в рабочей копии git и не игнорируется — отказ.
     """
     if not enabled():
         raise HTTPException(409, {"message": "режим тестового периода выключен"})
@@ -786,17 +789,19 @@ def _publish_sync(log: SessionLog, svc) -> dict:
 
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
     base = f"{stamp}__{log.session_id}"
-    repo = _repo_root(ROOT)
-    if repo is None:
-        raise HTTPException(400, {"message": "не найден git-репозиторий для публикации"})
-    out_dir = repo / PUBLISH_SUBDIR
+    out_dir = publish_dir(svc.settings.data_dir)
+    if _could_reach_git(out_dir):
+        # data_dir внутри рабочей копии git: файл лёг бы рядом с кодом и уехал бы
+        # с первым же `git add`. Отказ, а не «сохранили куда-то».
+        raise HTTPException(409, {"message": "публикация отменена: папка данных лежит внутри "
+                                             "рабочей копии git — журнал туда не пишем"})
     out_dir.mkdir(parents=True, exist_ok=True)
     md_path = out_dir / f"{base}.md"
     jsonl_path = out_dir / f"{base}.jsonl"
     md_path.write_text(report, encoding="utf-8")
     jsonl_path.write_text(clean_jsonl + "\n", encoding="utf-8")
 
-    # Последняя страховка: секрета, путей диска и медиафайлов не должно быть в том, что уходит в git.
+    # Последняя страховка: секрета не должно быть даже в локальной копии.
     for path in (md_path, jsonl_path):
         body = path.read_text(encoding="utf-8", errors="replace")
         for value in secrets:
@@ -804,38 +809,39 @@ def _publish_sync(log: SessionLog, svc) -> dict:
                 path.unlink(missing_ok=True)
                 raise HTTPException(500, {"message": "публикация отменена: секрет уцелел в файле"})
 
-    rel = [str(p.relative_to(repo)) for p in (md_path, jsonl_path)]
-    steps: list[dict] = []
+    # Ни git add, ни commit, ни push: журнал остаётся на этой машине.
+    return {"published": True, "local_only": True,
+            "dir": mask_home(str(out_dir)),
+            "files": [md_path.name, jsonl_path.name],
+            "redactions": redactions, "summary": summary, "steps": []}
 
-    def _step(name: str, args: list[str]) -> subprocess.CompletedProcess:
-        proc = _git(args, repo)
-        steps.append({"step": name, "code": proc.returncode,
-                      "out": (proc.stdout or "").strip()[:400],
-                      "err": (proc.stderr or "").strip()[:400]})
-        return proc
 
-    add = _step("add", ["add", "--", *rel])
-    if add.returncode != 0:
-        return {"published": False, "reason": "git add не прошёл", "steps": steps,
-                "files": rel, "redactions": redactions}
-    message = (f"chore(testing): журнал тестового периода {log.session_id} "
-               f"({summary['total']} записей, {summary['error_count']} ошибок)")
-    commit = _step("commit", ["commit", "-m", message, "--", *rel])
-    if commit.returncode != 0 and "nothing to commit" not in (commit.stdout or ""):
-        return {"published": False, "reason": "git commit не прошёл", "steps": steps,
-                "files": rel, "redactions": redactions}
+def publish_dir(data_dir) -> Path:
+    """Каталог вычищенных журналов: всегда внутри data_dir инсталляции."""
+    return Path(data_dir) / PUBLISH_SUBDIR
 
-    branch = _git(["rev-parse", "--abbrev-ref", "HEAD"], repo).stdout.strip() or "HEAD"
-    push = _step("push", ["push", "origin", branch])
-    if push.returncode != 0:
-        return {"published": False, "committed": True, "branch": branch,
-                "reason": "коммит создан, но push не прошёл — ветка могла уйти вперёд; "
-                          "force не делаем",
-                "steps": steps, "files": rel, "redactions": redactions,
-                "summary": summary}
-    sha = _git(["rev-parse", "HEAD"], repo).stdout.strip()[:12]
-    return {"published": True, "branch": branch, "sha": sha, "files": rel,
-            "redactions": redactions, "summary": summary, "steps": steps}
+
+def _could_reach_git(path: Path) -> bool:
+    """Может ли журнал из этого каталога попасть в git.
+
+    Каталог вне рабочей копии (маркера .git выше нет) — безопасен. Внутри рабочей
+    копии безопасен только путь, который git игнорирует (так устроен data_dir
+    исходной установки: `command-center/data/` в .gitignore). Если git не
+    отвечает, считаем путь опасным: отказ лучше журнала в коммите.
+    """
+    try:
+        current = Path(path).resolve()
+    except OSError:
+        current = Path(path).absolute()
+    worktree = next((c for c in (current, *current.parents) if (c / ".git").exists()), None)
+    if worktree is None:
+        return False
+    probe = current / "probe.jsonl"
+    try:
+        proc = _git(["check-ignore", "-q", "--", str(probe)], worktree)
+    except GitUnavailable:
+        return True
+    return proc.returncode != 0
 
 
 def _repo_root(start: Path) -> Path | None:
