@@ -145,8 +145,14 @@ def pick_winner(records: list[dict]) -> dict:
 # ----------------------------------------------------------------------------- machine access
 
 def _http(url: str, body: dict | None = None, timeout: float = 60.0) -> dict:
-    req = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None,
-                                 headers={"Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json"}
+    if url.startswith(BACKEND):        # the owner token goes to the loopback Bossman backend only (never to ollama)
+        try:
+            d = Path(os.environ.get("BCC_DATA_DIR") or Path(os.environ["LOCALAPPDATA"]) / "Bossman" / "CommandCenter")
+            headers["X-BCC-Token"] = (d / "token").read_text(encoding="utf-8").strip()
+        except OSError:
+            pass
+    req = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, headers=headers)
     with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req, timeout=timeout) as resp:  # noqa: S310 - loopback
         return json.loads(resp.read().decode("utf-8", "replace") or "null")
 
