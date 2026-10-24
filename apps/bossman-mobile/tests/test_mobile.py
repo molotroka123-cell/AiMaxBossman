@@ -112,10 +112,11 @@ def test_default_prefers_local_gemma_uncensored_over_qwen_uncensored():
     assert pick_default([cloud_gemma, plain_gemma, qwen]) == 39
 
 
-def test_agents_endpoint_lists_only_local(authed):
+def test_agents_endpoint_lists_opted_in_cloud_first_then_local(authed):
     r = authed.c.get("/m/api/agents")
     assert r.status_code == 200
-    assert [a["id"] for a in r.json()["items"]] == [1]
+    items = r.json()["items"]
+    assert [a["id"] for a in items] == [4, 1] and items[0]["provider"] == "7API" and items[0]["cloud"] is True
     assert r.json()["default_agent_id"] == 1 and r.json()["hidden_not_local"] == 2
 
 
@@ -405,3 +406,45 @@ def test_worker_device_endpoints_and_task_eta_runtime_wiring(authed):
     # 5. /m/api/tasks/7 returns calibrated ETA from calibrate_task_eta
     task_resp = authed.c.get("/m/api/tasks/7").json()
     assert "eta" in task_resp and isinstance(task_resp["eta"].get("eta_s"), (int, float))
+
+
+# ------------------------------------------------------------------ owner opt-in cloud agent (24.10)
+def _cloud_fixture(opt_in: bool, enabled: bool = True):
+    prov = [{"id": 15, "name": "7API", "base_url": "https://7api.st/v1"}]
+    mods = [{"id": 105, "provider_id": 15, "kind": "api"}]
+    ags = [{"id": 46, "model_id": 105, "tools": ["code.read"], "permissions": {"mobile_cloud_ok": True} if opt_in else {}},
+           {"id": 1, "model_id": 105, "tools": [], "permissions": {}}]
+    opts = {"agents": [
+        {"id": 46, "name": "GLM 5.3 Flash Uncensored (7API)", "enabled": enabled,
+         "model": {"alias": "glm-5.3-flash-uncensored", "locality_detail": "cloud", "billing": "paid", "usable": True}},
+        {"id": 1, "name": "Local Gemma", "enabled": True,
+         "model": {"alias": "gemma", "locality_detail": "local", "billing": "local", "usable": True}}]}
+    ags[1]["model_id"] = None
+    return opts, ags, mods, prov
+
+
+def test_cloud_agent_without_owner_opt_in_stays_blocked():
+    items = local_agents(*_cloud_fixture(False))
+    by = {a["id"]: a for a in items}
+    assert by[46]["allowed"] is False and by[46]["cloud"] is False and by[1]["allowed"] is True
+
+
+def test_opted_in_cloud_agent_is_listed_first_with_provider_and_local_after():
+    items = local_agents(*_cloud_fixture(True))
+    assert [a["id"] for a in items] == [46, 1]
+    assert items[0]["allowed"] and items[0]["cloud"] and not items[0]["local"] and items[0]["provider"] == "7API"
+    assert pick_default(items) == 1, "a cloud agent is never the default"
+
+
+def test_opt_in_does_not_enable_a_disabled_agent():
+    by = {a["id"]: a for a in local_agents(*_cloud_fixture(True, enabled=False))}
+    assert by[46]["allowed"] is False
+
+
+def test_opted_in_cloud_agent_accepts_text_but_refuses_attachments(authed):
+    ok = authed.post("/m/api/threads/T1/send", json={"text": "привет", "agent_id": 4})
+    assert ok.status_code != 403
+    bad = authed.post("/m/api/threads/T1/send", json={"text": "вот фото", "agent_id": 4, "attachments": ["abc"]})
+    assert bad.status_code == 403 and bad.json()["detail"]["code"] == "BM_CLOUD_NO_ATTACH"
+    local_ok = authed.post("/m/api/threads/T1/send", json={"text": "вот фото", "agent_id": 1, "attachments": ["abc"]})
+    assert local_ok.status_code != 403

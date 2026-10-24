@@ -26,12 +26,18 @@ OPTIONS = {"agents": [
     {"id": 3, "name": "Nemotron", "role": "", "enabled": True,
      "model": {"id": 12, "alias": "nemotron", "name": "nvidia/nemotron:free", "kind": "cloud", "locality": "cloud",
                "locality_detail": "cloud", "billing": "free_cloud", "usable": True, "refusal": ""}},
+    {"id": 4, "name": "GLM 5.3 Flash (7API)", "role": "", "enabled": True,
+     "model": {"id": 13, "alias": "glm-5.3-flash", "name": "glm-5.3-flash", "kind": "cloud", "locality": "cloud",
+               "locality_detail": "cloud", "billing": "paid", "usable": True, "refusal": ""}},
 ], "auto": {"agent": None}}
 AGENTS = [{"id": 1, "tools": ["computer.observe", "computer.act"], "fallback_model_id": None, "permissions": {}},
           {"id": 2, "tools": [], "fallback_model_id": 12, "permissions": {}},
-          {"id": 3, "tools": [], "fallback_model_id": None, "permissions": {}}]
-MODELS = [{"id": 11, "kind": "local", "provider_id": 1}, {"id": 12, "kind": "cloud", "provider_id": 2}]
-PROVIDERS = [{"id": 1, "base_url": "http://127.0.0.1:11434/v1"}, {"id": 2, "base_url": "https://openrouter.ai/api/v1"}]
+          {"id": 3, "tools": [], "fallback_model_id": None, "permissions": {}},
+          {"id": 4, "tools": ["code.read"], "model_id": 13, "fallback_model_id": None, "permissions": {"mobile_cloud_ok": True}}]
+MODELS = [{"id": 11, "kind": "local", "provider_id": 1}, {"id": 12, "kind": "cloud", "provider_id": 2},
+          {"id": 13, "kind": "cloud", "provider_id": 3}]
+PROVIDERS = [{"id": 1, "base_url": "http://127.0.0.1:11434/v1"}, {"id": 2, "base_url": "https://openrouter.ai/api/v1"},
+             {"id": 3, "name": "7API", "base_url": "https://7api.st/v1"}]
 DG_MODELS = {"models": [
     {"id": "z-image-turbo", "label": "Z-Image Turbo", "kind": "photo", "modes": ["T2I"], "available": True, "reason": "",
      "requires_image": False, "accepts_image": False, "default_steps": 8, "max_steps": 20, "default_resolution": "512x512",

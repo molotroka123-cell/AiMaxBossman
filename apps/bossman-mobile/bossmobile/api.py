@@ -548,10 +548,11 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     @app.get("/m/api/agents")
     async def agents(_=Depends(session)):
         items = await agents_view()
-        allowed = [a for a in items if a["local"]]
+        allowed = [a for a in items if a["allowed"]]
         return {"items": allowed, "default_agent_id": pick_default(items),
                 "hidden_not_local": len(items) - len(allowed),
-                "rule": "только локальные модели этого ПК; облачные агенты скрыты и отклоняются сервером"}
+                "rule": "локальные модели этого ПК; облачные только те, которым владелец явно разрешил мобильный доступ "
+                        "(без фото и файлов); остальные облачные скрыты и отклоняются сервером"}
 
     @app.get("/m/api/threads")
     async def threads(_=Depends(session)):
@@ -579,9 +580,12 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         cache.pop("agents", None)                 # decide on fresh data, not a 10 s old list
         items = await agents_view()
         agent = next((a for a in items if a["id"] == body.agent_id), None)
-        if agent is None or not agent["local"]:
+        if agent is None or not agent["allowed"]:
             why = ", ".join(agent["why_not"]) if agent else "агент не найден"
             raise fail(403, f"Отклонено: мобильный чат работает только на локальных моделях ({why}).", "BM_LOCAL_ONLY")
+        if not agent["local"] and body.attachments:
+            raise fail(403, "Облачной модели нельзя отправлять фото и файлы с телефона: выберите локальную модель.",
+                       "BM_CLOUD_NO_ATTACH")
         payload: dict[str, Any] = {"text": body.text, "agent_id": body.agent_id}
         if body.client_request_id:
             payload["client_request_id"] = body.client_request_id

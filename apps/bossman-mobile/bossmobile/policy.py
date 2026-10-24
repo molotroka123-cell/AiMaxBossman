@@ -35,7 +35,19 @@ def _model_local(model: dict | None, providers: dict[int, dict]) -> bool:
     return model.get("kind") == "local" and loopback_url(prov.get("base_url", ""))
 
 
+def _cloud_rank(a: dict) -> tuple:
+    """Cloud agents first, GLM 5.3 Flash at the very top, then the other cloud ones; local ones follow (owner 24.10)."""
+    text = f"{a.get('name') or ''} {(a.get('model') or {}).get('alias') or ''}".lower()
+    glm = "glm" in text and "5.3" in text and "flash" in text
+    return (0 if a.get("cloud") else 1, 0 if glm else 1, (a.get("name") or "").lower())
+
+
 def local_agents(options: dict, agents: list[dict], models: list[dict], providers: list[dict]) -> list[dict]:
+    """Every chat agent with ``local`` (strictly local) and ``allowed`` (may be used from the phone).
+
+    A non-local agent is allowed ONLY when the owner set ``permissions.mobile_cloud_ok = true`` on that agent itself
+    (explicit per-agent opt-in, owner 24.10 for GLM 5.3 Flash via 7API); it is then labelled ``cloud`` with its provider.
+    Disabled / unusable agents are never allowed."""
     by_agent = {int(a["id"]): a for a in agents if isinstance(a, dict) and "id" in a}
     by_model = {int(m["id"]): m for m in models if isinstance(m, dict) and "id" in m}
     by_prov = {int(p["id"]): p for p in providers if isinstance(p, dict) and "id" in p}
@@ -43,6 +55,7 @@ def local_agents(options: dict, agents: list[dict], models: list[dict], provider
     for a in options.get("agents") or []:
         view = a.get("model") or {}
         raw = by_agent.get(int(a.get("id", -1))) or {}
+        perms = raw.get("permissions") or {}
         reasons = []
         if not a.get("enabled"):
             reasons.append("выключен")
@@ -53,15 +66,22 @@ def local_agents(options: dict, agents: list[dict], models: list[dict], provider
         fb = raw.get("fallback_model_id")
         if fb is not None and not _model_local(by_model.get(int(fb)), by_prov):
             reasons.append("запасная модель облачная")
-        if (raw.get("permissions") or {}).get("cloud_allowed") is True:
+        if perms.get("cloud_allowed") is True:
             reasons.append("агенту разрешено облако")
         if not raw:
             reasons.append("агент не найден")
+        local = not reasons
+        usable_ok = a.get("enabled") and view.get("usable") is not False and bool(raw)
+        opted = perms.get("mobile_cloud_ok") is True and bool(usable_ok)
+        model = by_model.get(int(raw["model_id"])) if raw.get("model_id") is not None else None
+        prov = by_prov.get(int((model or {}).get("provider_id", -1))) or {}
         out.append({"id": int(a["id"]), "name": a.get("name"), "role": a.get("role") or "",
                     "tools": list(raw.get("tools") or []),
                     "model": {"alias": view.get("alias"), "name": view.get("name"),
                               "context_window": view.get("context_window"), "health": view.get("health")},
-                    "local": not reasons, "why_not": reasons})
+                    "local": local, "cloud": (not local) and opted, "allowed": local or opted,
+                    "provider": prov.get("name") or "", "why_not": reasons})
+    out.sort(key=_cloud_rank)
     return out
 
 

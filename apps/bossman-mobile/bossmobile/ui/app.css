@@ -584,3 +584,5 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
 .sc-row.clickable { cursor: pointer; border-radius: 8px; padding-left: 6px; padding-right: 6px; }
 .sc-row.clickable:active { background: var(--accent-soft); }
 
+
+.badge-cloud { flex: none; font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 999px; color: #b45309; background: #fef3c7; }

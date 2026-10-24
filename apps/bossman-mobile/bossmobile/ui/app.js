@@ -515,11 +515,11 @@
   }
   $('btn-model').addEventListener('click', () => {
     const list = $('model-list'); list.replaceChildren();
-    if (!S.agents.length) list.appendChild(el('p', 'muted', 'Локальных агентов нет. Создайте агента на локальной модели в Панели.'));
+    if (!S.agents.length) list.appendChild(el('p', 'muted', 'Доступных агентов нет. Создайте агента на локальной модели в Панели.'));
     S.agents.forEach((a) => {
       const b = el('button', 'model-opt' + (a.id === S.agentId ? ' sel' : ''));
       const t = el('div', 'mtxt'); t.append(el('b', '', a.name), el('span', '', `${(a.model && (a.model.alias || a.model.name)) || '—'}${a.tools.length ? ' · инструменты: ' + a.tools.join(', ') : ''}`));
-      b.append(el('span', 'dot'), t, el('span', 'badge-local', 'локально'));
+      b.append(el('span', 'dot'), t, el('span', a.cloud ? 'badge-cloud' : 'badge-local', a.cloud ? `облако · ${a.provider || '—'}` : 'локально'));
       b.addEventListener('click', () => { tap(); S.agentId = a.id; store.set('agent', a.id); renderModelChip(); closeModelSheet(); });
       list.appendChild(b);
     });
