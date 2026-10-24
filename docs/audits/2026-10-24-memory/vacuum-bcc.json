@@ -1,0 +1,26 @@
+{
+ "at": "2026-10-24T11:39:08Z",
+ "source": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\bcc.db",
+ "copy": "D:\\Bossman\\work\\vacuum-20261024\\bcc-copy.db",
+ "seconds": 0.6,
+ "before": {
+  "size_bytes": 26546176,
+  "page_count": 6481,
+  "freelist_pages": 11,
+  "integrity": "ok",
+  "tables": 56,
+  "rows": 43172
+ },
+ "after": {
+  "size_bytes": 26230784,
+  "page_count": 6404,
+  "freelist_pages": 0,
+  "integrity": "ok",
+  "tables": 56,
+  "rows": 43172
+ },
+ "saved_bytes": 315392,
+ "tables_changed": [],
+ "verdict": "PASS",
+ "live_db_modified": false
+}
