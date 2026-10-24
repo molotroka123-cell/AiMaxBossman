@@ -82,7 +82,8 @@ def switch_pointer(pointer: Path, new_root: Path) -> dict:
     """Set ``current_physical_root`` (and remember the previous value for rollback). Returns old and new."""
     doc = json.loads(Path(pointer).read_text(encoding="utf-8"))
     old = doc.get("current_physical_root")
-    doc["previous_physical_root"] = old
+    if old != str(new_root):           # a rerun must not overwrite the rollback target with the new path
+        doc["previous_physical_root"] = old
     doc["current_physical_root"] = str(new_root)
     Path(pointer).write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n")
     return {"old": old, "new": str(new_root)}

@@ -1,0 +1,39 @@
+{
+ "at": "2026-10-24T11:38:02Z",
+ "src": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\learning\\k1m6a-youtube",
+ "dst": "D:\\Bossman\\learning\\k1m6a-youtube",
+ "deleted_anything": false,
+ "before": {
+  "files": 1283,
+  "bytes": 14198501058,
+  "manifest_sha256": "28e375b9d41c6d50d1388865bbe62ac2b0166371a9d27984af9e0b27bf22bef9"
+ },
+ "copy_exit_code": 1,
+ "after": {
+  "files": 1283,
+  "bytes": 14198501058,
+  "manifest_sha256": "28e375b9d41c6d50d1388865bbe62ac2b0166371a9d27984af9e0b27bf22bef9"
+ },
+ "comparison": {
+  "missing": {
+   "count": 0,
+   "first": []
+  },
+  "extra": {
+   "count": 0,
+   "first": []
+  },
+  "changed": {
+   "count": 0,
+   "first": []
+  },
+  "identical": true
+ },
+ "pointer": {
+  "old": "D:\\Bossman\\learning\\k1m6a-youtube",
+  "new": "D:\\Bossman\\learning\\k1m6a-youtube"
+ },
+ "verdict": "PASS",
+ "seconds": 14.8,
+ "note": "source tree kept as the reserve; removing it needs the owner's approval"
+}
