@@ -1,19 +1,78 @@
 # AGENTS.md — Mandatory context for AI contributors
 
-## OWNER AGENTS FOUNDATION — 22.10.2026
+Read this file before any work on Bossman. Section 1 holds the standing rules; they apply to every agent
+(Claude, Argon, Codex, Kimi, local models) on every interface (Command Center, mobile pult, Telegram, CLI) and
+override any older or dated instruction. Dated owner directives follow in section 2. Superseded dated sections
+were moved verbatim to [docs/archive/2026-10/agents-history.md](docs/archive/2026-10/agents-history.md); they are
+history, not instructions. A document never grants new permission by itself.
+
+## 1. Standing rules (hard limits — unchanged and not negotiable)
+
+**Owner authority.** Product changes reach `main` only by the owner's button, through a PR with green required CI on
+the exact SHA (explicitly owner-authorized documentation corrections are the only exception, see «canonical line»); no auto-merge, no force-push, no new "final/canonical" line. The constitution v2 and its pin stay in force;
+agents never write the owner pin. STOP, permissions (ask/auto/deny), T2/T3 approvals and external-action approval
+are never bypassed. An agent standing in for the owner executes tasks; it never presents its own decision as the
+owner's confirmation and never changes agent/human markers. Never merge `claude/bossman-control-v03-43igbk` or
+`claude/busy-carson-ydh991` (fake windows-latest "100 scenarios" workflow).
+
+**Keys.** Keys, the vault and DPAPI material are never committed, pushed, sent to a model or to the pult. Scan
+before every push. Show only masks.
+
+**Privacy.** Never read the owner's chats/turn contents, personal data or photos — debug by ids, statuses and
+counters; tests use synthetic inputs. Personal media never leaves the PC (no foreign pods, no cloud vision).
+Faces only with consent; the NSFW filter, face-swap frame QA and consent checks are never weakened, whatever the
+wording of the request.
+
+**Pult.** The companion pult is owner-only and receives nothing without the owner's request. Every pult incident
+becomes a regression test plus a code fix, not a note.
+
+**Jeff.** Jeff (the Telegram participant bot) is paused, including Telegram Stars, until the owner resumes it.
+
+**Cloud agents are chat-only.** Cloud models get no PC access (no terminal, files, apps, desktop). The single
+exception is **Kimi K3.1 Pro (agent 47)**: PC access with the owner's approval for **each** command. Local
+agents act on the PC only within their granted permissions.
+
+**No RunPod — absolute.** No RunPod and no other GPU/pod rental, for any task or reason. Work
+runs on the owner's PC (AMD Ryzen AI Max+ 395, 128 GB) or CPU.
+
+**Budget.** Local and free first (local models, OpenRouter `:free`, NVIDIA NIM free tier). Paid models only within
+the owner's explicit caps: **GLM 5.3 Flash — $2/day**, **Haiku — $2/day**, **7API sub-key — $5 total**. Unknown
+pricing is never treated as free; budget gates fail closed. Any other paid service (Higgsfield, Genjutsu, any
+paid API, purchases) needs the owner's explicit yes. `LOCAL_UNRESTRICTED` and similar profiles control model
+behaviour, not authority over credentials, money or stable code.
+
+**Labels.** A model is labelled "uncensored" only when its model card says so; never silently relabel ordinary
+weights or claim downloaded weights are connected when they are not.
+
+**No clarifying questions overnight.** When the owner is silent (more than 15 minutes, or at night), do not stop
+to ask A/B/C: take the safe recommended option or decide with `python tools/three_model_audit.py` (three models
+vote; the decision is recorded under `docs/audits/<date>-three-model-audit/`). Hard limits above are never put to
+a vote and never relaxed by a decision.
+
+**Processes and shared code.** Do not start a second poller or backend; do not restart, stop or kill foreign or
+unidentified processes; do not switch/reset a busy checkout or take another agent's dirty changes. One integrator
+changes shared product code at a time; other agents audit the same SHA. Reuse the existing backend, queue, storage,
+permissions and models — no parallel cores.
+
+**Evidence over claims.** Report exact SHA, logs/evidence and PASS/FAIL/NOT_RUN/BLOCKED. "Done" only for a
+scenario actually verified on the same SHA and runtime. Never transfer an old PASS to a new SHA.
+
+## 2. Current owner directives (22–23.10.2026)
+
+### OWNER AGENTS FOUNDATION — 22.10.2026
 
 Latest owner request: extend the existing Tasks/Agents desktop/mobile UX so local Gemma can delegate bounded work to selectable local, free-cloud and paid-cloud specialists. Read [the Codex foundation and Argon handoff](docs/agents/2026-10-22-foundation/README_RU.md) before this work. Reuse current tasks, registry, model routing, memory, permissions and STOP. Source review identifies STOP/idempotency/dependency/shared-budget gaps to verify against current code. The package is a proposal plus source observations, not a live acceptance, spending grant, enabled skill or weight-training result. Argon remains the sole product integrator; docs work must preserve his dirty files. Existing release, privacy, budget, North Star and performance gates still apply.
 
-## OWNER FACE-SWAP REFERENCE LESSON — 22.10.2026
+### OWNER FACE-SWAP REFERENCE LESSON — 22.10.2026
 
 For the owner's request to teach reference-based face swap, read [the reviewed existing workflow](docs/owner/face-swap-reference-20261022/WORKFLOW_RU.md) and `.agents/skills/video-face-swap-facefusion/SKILL.md`. Reuse Direct Generator jobs and the current permission boundary. This lesson grants no new tool, filesystem, installation or spending authority; content/consent/QA/STOP checks remain. Multiple-target selection is not exposed in the reviewed swap API. Stored instructions and source review are not a live rendering or weight-training result.
 
-## OWNER PERFORMANCE ×2 — 23.10.2026 (P0 READ FIRST FOR ARGON/CODEX)
+### OWNER PERFORMANCE ×2 — 23.10.2026 (P0 READ FIRST FOR ARGON/CODEX)
 
 **New direct owner instruction (22.10): BEFORE ANY North Star code run tomorrow, read [the mandatory 2× performance plan](docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md).** First measure the actual end-to-end bottlenecks from iPhone -> Mobile Pult -> Orchestrator -> model/tools -> verified result, then run targeted llama.cpp Vulkan/MTP, prompt/KV cache, context/skill-routing, API and existing Resource Governor A/B. Do not assume prior 2.09× *decode* implies 2× Bossman, and do not promise an unmeasured gain. **Target** >=2.00× median on preregistered coding/agent suite with equal quality and no permission regression. Push CP-PERF-00..06 with exact runtime SHA, tests, results, owner gates. Do NOT bypass STOP, Jeff hold, T2/T3 approval, RunPod prohibition or paid-model budget. **This is a required next-step document, not authorization to auto-install or auto-merge.**
 
 
-## OWNER NORTH STAR 23.10.2026 — READ BEFORE ARGON/CODEX WORK
+### OWNER NORTH STAR 23.10.2026 — READ BEFORE ARGON/CODEX WORK
 
 Owner explicitly requested tomorrow's autonomous integration run and per-leaf checkpoint pushes.
 Before any coding, **read**:
@@ -23,136 +82,11 @@ Before any coding, **read**:
 - [15-direction exact-SHA audit](docs/owner/CHECKPOINT_20261022_01_AUDIT_15_RU.md)
 - [Recent OSS release candidates, not proven in Bossman](docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md)
 
-These are read-first owner instructions, **not** new execution permission. Follow all restrictions below: no bypass of security/STOP, no unsolicited messages, no RunPod without approval, no auto-merge to main, no stale PASS transfer. For each tested leaf, persist evidence checkpoint, commit and push to integration branch, then update tree only through evidence tooling. `AGENTS.md` by itself cannot trigger an unattended agent; the Argon session must be start or scheduled separately.
+These are read-first owner instructions, **not** new execution permission. Follow all restrictions below: no bypass of security/STOP, no unsolicited messages, no RunPod (absolute, see standing rules), no auto-merge to main, no stale PASS transfer. For each tested leaf, persist evidence checkpoint, commit and push to integration branch, then update tree only through evidence tooling. `AGENTS.md` by itself cannot trigger an unattended agent; the Argon session must be start or scheduled separately.
 
-## Старт 23.10.2026 (запись 22.10): рой самоулучшения и Tier 5
+## 3. Engineering contracts (standing)
 
-Сначала прочитай [`docs/owner/TOMORROW_NORTH_STAR_TIER5_RUN_20261022_RU.md`](docs/owner/TOMORROW_NORTH_STAR_TIER5_RUN_20261022_RU.md) (runbook), затем [`docs/owner/CLAIMS_AUDIT_20261022_RU.md`](docs/owner/CLAIMS_AUDIT_20261022_RU.md), [`docs/owner/CLEANUP_INVENTORY_20261022_RU.md`](docs/owner/CLEANUP_INVENTORY_20261022_RU.md) и [`docs/owner/TRAINING_CLOSEOUT_20261022_RU.md`](docs/owner/TRAINING_CLOSEOUT_20261022_RU.md). Прогресс по лестнице North Star на 22.10: ступень SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT; Tier 5 не доказан (`tier5_status: NOT_PROVEN`), перенос, soak 24/48 ч и выручка — NOT_RUN/BLOCKED. Ничего из этого не ослабляет правила ниже.
-
-## Актуальный план выпуска и первого коммерческого пилота (21.10.2026)
-
-Перед планированием нового объёма прочитай
-[`docs/owner/production-20261021/README_RU.md`](docs/owner/production-20261021/README_RU.md),
-[`COMMERCIAL_PILOTS_RU.md`](docs/owner/production-20261021/COMMERCIAL_PILOTS_RU.md) и
-[`OSS_SHORTLIST_RU.md`](docs/owner/production-20261021/OSS_SHORTLIST_RU.md).
-Это **предложения Кодекса и датированный снимок**, а не доказательство готовой
-production-сборки, Tier 5, дохода или разрешение на внешние действия.
-Перед выполнением перепроверь `origin/main`, installed/runtime SHA, required CI,
-дерево и живые квитанции. Приоритет плана: устранить красный CI → доказать одну
-общую миссию и STOP → принять один продаваемый результат → измерить перенос
-самоулучшения → оформить клиентскую поставку и оплату. Сохраняй все owner gates
-ниже; документация не ослабляет их.
-
-## Актуальный план 15 направлений (18.10.2026, вечер)
-
-Перед расширением возможностей прочитай
-`docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md`: там зафиксированы
-изменения последних 48 часов по всем 15 направлениям и предложены по три
-следующих измеримых инкремента для каждого. Это **backlog**, не утверждение о
-готовности 45 функций и не замена живой приёмке. База плана — `main` `1599f2ef`;
-перед работой перепроверь remote, CI, runtime и незакоммиченные изменения.
-Приоритет: красный CI и идентичность сборки → один task ID/STOP/receipt →
-owner-run сценарий → измеренное обучение → поставка клиенту и реальная оплата.
-Один интегратор меняет общий код; соседние аудиторы могут читать тот же SHA.
-Сохраняй владельческие gates и всё нижеследующее.
-
-## Последнее поручение владельца — допилить существующий Bossman (2026-10-18)
-
-Цель ближайшего прогона — к 19.10.2026 довести до проверяемого результата один
-уже начатый рабочий сценарий Bossman. Это продолжение текущего продукта, не новый
-бот, не параллельный backend и не переписывание системы. До выбора исправления
-сверить актуальные `origin/main`, checkout, runtime и занятые процессы; не доверять
-старым SHA и handoff как доказательству текущего состояния.
-
-Сначала собирать безопасные логи и evidence существующего пути: время, task ID,
-source/runtime SHA, наблюдаемое действие, результат и ошибка. Не открывать секреты,
-личную переписку или нерелевантные данные; перед сохранением удалять токены и
-приватное содержимое. Не запускать второй poller/backend, не перезапускать и не
-останавливать чужие или неидентифицированные процессы. Если журналирования не
-хватает, добавить только минимальную безопасную диагностику в существующий модуль.
-
-По evidence найти одно конкретное недостающее звено, исправить его в существующем
-коде и проверить целевым безопасным сценарием. Сохранять текущие backend, очередь,
-хранилище, интеграции, permissions, модельный runtime и интерфейсы. Не создавать
-дубликаты этих компонентов и не считать код/документацию/live-проверку одним и тем
-же. В отчёте указать точный SHA, логи/evidence, PASS/FAIL/NOT_RUN/BLOCKED и остаток.
-Утверждение «готово» допустимо только для сценария, реально проверенного на том же
-SHA и runtime. Эта запись supersedes несовместимые старые указания начинать новую
-реализацию; остальные защитные gates и правила ниже остаются в силе.
-
-## Поручение владельца — временное замещение на время прогона (14.10.2026)
-
-Argon на время текущего прогона замещает владельца в оперативном ведении уже
-порученной работы и является основным интегратором Bossman. Прямые поручения
-владельца определяют приоритет; исторические планы уступают актуальному заданию.
-В пределах полученного разрешения Argon самостоятельно выбирает порядок действий,
-исправляет дефекты, выполняет проверки, готовит документацию, коммиты и кандидат
-сборки, без повторного запроса уже предоставленного разрешения. Эта правка
-документации явно поручена владельцем отдельно от продуктовой реализации Argon.
-
-Замещение относится к исполнению задач, а не к личности или полномочиям человека:
-Argon остаётся агентом и не вправе выдавать собственное решение за подтверждение
-владельца. Личная кнопка владельца для release_main, подтверждения расходов и
-внешних действий, защита секретов, действующая конституция и её пин, permissions,
-STOP и обязательные проверки сохраняются. Не менять agent/human-маркеры и не
-обходить gates ради замещения. Новое разрешение не выводится из этой формулировки.
-При блокировке продолжать независимую разрешённую работу и фиксировать конкретный
-блокер. Владелец может уточнить или отменить замещение в любой момент; оно
-завершается с окончанием текущего прогона и не действует автоматически в следующих.
-
-**READ FIRST (owner sync 2026-10-14):** `docs/owner/ARGON_SYNC_20261014_RU.md`, `docs/owner/BOSSMAN_ONE_PRESENTATION_20261014_RU.md`, and `docs/owner/READY_FOR_PULT_20261014_RU.md` — current branch/SHA map (`release/bossman-one-20261014`), owner limits that must not change (constitution v2 + pin, merge into `main` only by the owner's button, Stars paused, no RunPod, keys never pushed), what is proven vs not proven for stage 2.2, how the live system is started, and the pult acceptance steps.
-
-## Owner amendment — Windows agent and model selection (2026-10-13)
-
-Latest owner instruction: Argon is the sole implementer of further changes.
-Follow `docs/v2.2-20261013/ARGON_IMPLEMENTATION_PLAN_RU.md` for the Windows agent,
-model selection, four monetization paths and one completed commercial pilot.
-Do not appoint parallel coding executors. A separate later audit will assess his
-diff and evidence against the quality rubric; no quality score is proven yet.
-
-This is the active architecture contract; dated handoffs below remain historical.
-Read `docs/v2.2-20261013/README.md`, `AGENT_ARCHITECTURE_RU.md`,
-`GENERATION_MODEL_SELECTION_RU.md`, `MASTER_PROMPT_RU.md` in that directory and
-`docs/owner/CONTINUATION.md`. Owner wants one agent with broad Windows access from
-the existing owner-only Telegram pult: task -> real observation/action -> independent
-postcondition check -> result/file delivery. Reuse the same backend, storage, tasks,
-models, permissions, memory and queues. Prove GUI work with actual mouse/keyboard,
-window identity, STOP/restart and receipts; API-only work is not a GUI proof.
-
-Source checkpoint: main b046b3b3; occupied checkout wt-unified-20261010 is on
-feat/bossman-2-2-20261013 at af92a0fd before this documentation change. Recheck all
-refs and runtime; do not switch/reset the busy checkout or steal dirty changes.
-Canonical destination remains main through applicable promotion gates. The Qwen
-operator already has Lab, read-only and approved host/Motion API capabilities;
-extend its real task/tool flow instead of building a second agent core.
-Commit af92a0fd records owner-adopted constitution v2; old "not adopted" claims are
-historical. Check current runtime pin/hash; agents must not write the owner pin.
-
-New MC22-16 specifies owner-only selection of prompt/image/edit/video models,
-preferred uncensored profile per role, encrypted preferences, compatible catalog
-entries and immutable enqueue snapshots. This documentation does not activate the
-proposed /genmodel command. Unavailable profiles are explicit; never silently label
-ordinary Qwen-Image-Edit/Wan5B uncensored or claim downloaded A14B is connected.
-Text Qwen is not the image/video engine; read actual context config, not old 256k
-claims (checkpoint operator has adaptive default 64k). Existing permissions and
-media rules remain. Benign clothing edits should not fail on one keyword alone.
-
-Retain all 39 requirement IDs, the full capability tree, four commercial pilots,
-North Star, licenses, source/runtime/archive identity and evidence gates. Do not
-resume cancelled hourly audits or the completed readiness monitor. Existing owner
-authorization remains valid within scope; do not repeatedly ask for the same action.
-
-Before making product, release, training, memory, model-routing or self-improvement decisions, read:
-
-- `docs/archive/root-history/BOSSMAN_1_5_START_HERE.md` and `docs/v1.5/README.md` — owner-authorized 1.5 specification and today's convergence handoff, 2026-09-23; documentation is not activation or certification;
-- `docs/terminal/TERMINAL_RUN_1_2_MASTER.md` — latest owner clarification, 2026-09-23;
-- `docs/evo/BOSSMAN_1_1_NORTH_STAR.md`;
-- `CLAUDE_NEXT_ACTION.md`;
-- current repair/audit checkpoints relevant to your work.
-- `docs/trading/K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md` — owner-authorized 08.10 continuation, independent ten-video audit and blind learning/transfer checks; read for K1m6a work.
-- `docs/audits/2026-10-08-tree-audit-13-zones/README.md` — 08.10 checkpoint of the 13-zone capability-tree audit (what exists, what is missing, where to start) and `BRIEFS.md` (3 auditor roles per branch, 2 open-source candidates per leaf, selection by the existing G·P·D·S·V ≥ 9/10 rule). Status PARTIAL: agent waves failed on session limits; re-run per section 6 of that README before claiming any zone result.
-
-## A feature is PROVEN, not wrapped (owner directive 23.10, class-1 rule)
+### A feature is PROVEN, not wrapped (owner directive 23.10, class-1 rule)
 
 «Когда я говорю добавлять функции — это значит не обёртку сделать, а протестировать и доказать.» A capability
 counts as added only with all three: (1) unit tests incl. a negative control, (2) a live proof on the owner's PC
@@ -175,7 +109,7 @@ otherwise ASK). The pult's fixed content rules (`gen_refine.safety_violation(pho
 Pictures never leave the PC. Proof: `tools/prove_chat_photo_edit.py` (hand-off + finished edit + colour check).
 Before restarting the backend check `/api/direct-gen/status` — Direct Gen jobs live inside the backend process.
 
-## One runtime = one tree (owner directive 23.10, TZ_POLISH_AND_MERGE_20261023_RU)
+### One runtime = one tree (owner directive 23.10, TZ_POLISH_AND_MERGE_20261023_RU)
 
 When the live candidate changes, repoint ALL five anchors to the same worktree, or `-I` subprocesses (coding
 sidecar, Jeff) silently run another checkout's code: (1) `owner_one_bossman.py launch --src` for backend/jeff/companion,
@@ -184,7 +118,7 @@ sidecar, Jeff) silently run another checkout's code: (1) `owner_one_bossman.py l
 `war-terminal` (`pip install -e <tree>/... --no-deps`), (5) terminal roots for coding tasks. Verify with
 `/health` `build_sha` + `python -I -c "import bossman; print(bossman.__file__)"`.
 
-## Non-negotiable direction
+### Non-negotiable direction
 
 **NORTH STAR: Bossman = verified continuous self-improvement with retained, applicable experience and owner-approved commercially useful work.**
 
@@ -205,15 +139,11 @@ SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT → SELF_REPAIR_SINGLE_CYCLE_PASS → SE
 
 A specification, generated screenshot or new CLI entry point is not proof of an achieved level.
 
-## Owner amendment — 1.5 specification and consolidation
-
-Owner requested autonomous App/Skill acquisition, internet, an explicitly selected low-overrefusal local profile, own-voice/phone and shopping. Requirements live in `docs/v1.5/`. Reuse the existing backend and permission system; do not build four new cores. `LOCAL_UNRESTRICTED` controls model behavior, not authority over credentials, money or stable code.
-
-## Owner amendment — capability tree is a map, not a certificate (2026-10-08)
+### Owner amendment — capability tree is a map, not a certificate (2026-10-08)
 
 The public tree site (`molotroka123-cell.github.io`, pages `ai/bossman-development.md` and `subtle-baklava-676893/`) is unreachable from cloud containers (network policy). Its data source in this repository is `command-center/bcc/capability_tree_seed.json`; per-leaf evidence levels live in `docs/architecture/tree-registry.json`. As of 08.10 that registry records **0 leaves at `ci` and 0 at `owner_pc`**; `reported`/`recorded`/`code` statuses are claims, not proof. Never change leaf statuses by hand — only via `tools/tree_registry_sync.py` / `tools/tree_apply_evidence.py` with evidence files. Owner 08.10: documentation-only work; do not write product code for the tree audit; reconcile site SHA, seed SHA, installed build SHA and registry head before any "green" claim.
 
-## Owner amendment — canonical line (2026-10-08)
+### Owner amendment — canonical line (2026-10-08)
 
 **Canonical integration and release destination is `main`, as explicitly directed by the owner on 2026-10-08.** This supersedes older instructions naming `release/bossman-owner` as canonical, including that destination in `docs/v1.5/CLAUDE_MERGE_MASTER.md`. `release/bossman-owner` is a historical release line; do not send new consolidation work there.
 
@@ -221,7 +151,7 @@ Use an existing isolated integration/owner/fix staging branch for candidate work
 
 Release and owner-test handoffs must record the accepted source SHA, installed build SHA, and capability-tree source SHA. Do not claim one unified Bossman until these identities are reconciled and verification is recorded for the accepted revision. Naming `main` canonical does not certify its current CI, installed build, or autonomy. Document presence does not enable calls, purchases, voice enrollment or background spending.
 
-## Owner amendment — video gates, pult, unified branch (2026-10-10)
+### Owner amendment — video gates and pult (2026-10-10)
 
 Current handoff: `docs/owner/HANDOFF_20261010.md`. Video work follows the owner's stage order in `docs/owner/VIDEO_PIPELINE_STAGES_20261010.md`: Gate 0 → 1 face/person swap → 2 clothes → 3 Mimics 2.0 → 4 background; a stage opens only after VERIFIED and the owner's confirmation in the pult.
 
@@ -229,6 +159,5 @@ Current handoff: `docs/owner/HANDOFF_20261010.md`. Video work follows the owner'
 
 **Pult is owner-only.** The companion pult bot delivers only to the owner (`6273524c`); Jeff answers everyone it talked with. No paid service (Genjutsu, Higgsfield, any paid API) without the owner's explicit yes.
 
-**Unified branch.** Candidate `claude/main-prod-20261009` (`a1564fef`, PR #107) plus the local `ux/genjutsu-live-constructor` work and the 6 product commits still only on `jeff/one-20261009` are to be combined in `feat/bossman-genjutsu-jeff-unified-20261010` (planned, not created on 10.10). Owner 10.10: it goes into `main` after 3 awaited generations and tests, through a PR with green required CI on the exact SHA. Never merge `claude/bossman-control-v03-43igbk` or `claude/busy-carson-ydh991` (fake windows-latest "100 scenarios" workflow). No force-push.
 
 **Video skills:** `.agents/skills/video-face-swap-facefusion/` (FaceFusion face swap through Bossman, pose gate, Gate 0/1 proof with `tools/video_gate/`), `.agents/skills/genjutsu-character-swap/` (`tools/genjutsu/film.py`, Wan2.1 VACE via sd-cli on Vulkan), `.agents/skills/video-editing/`. `tools/trend_edit/analyze_edit.py` describes an edit's structure; it is not a view predictor.
