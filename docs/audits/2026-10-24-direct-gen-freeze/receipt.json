@@ -1,0 +1,13 @@
+{
+ "schema": "bossman.fix-receipt.v1",
+ "at": "2026-10-24",
+ "incident": "after a backend restart under heavy disk load (254 GB hash verification) every request incl. /api/health timed out for ~1-2 min; port listening, CPU idle",
+ "root_cause": "py-spy: MainThread in JobStore.list -> read_text_retry, called synchronously from the async GET /api/direct-gen/jobs (the pult polls it); a slow disk read blocked the whole event loop",
+ "fix": {"commit": "260f815a", "what": "GET /api/direct-gen/jobs and /jobs/{id} read job.json files via asyncio.to_thread; view() stays on the loop (it reads the in-memory queue the loop mutates); 404 shape unchanged"},
+ "negative_test": "command-center/tests/test_direct_gen_jobs_off_loop.py: store read sleeps 0.6 s; a concurrent /api/direct-gen/models must answer < 0.45 s and the store must never run on the loop thread; unknown id -> 404 unknown_job",
+ "tests": "Direct Gen suites 311 passed",
+ "live": {"runtime_build_sha": "260f815a50f1", "source_identity": "PASS", "jobs_endpoint_ms": [37, 31, 31, 32, 31], "owner_jobs": 101},
+ "verdict": "PASS",
+ "not_proven": "no live re-run under the same disk pressure; the other sync endpoints of the feature (models, delete) still run on the loop",
+ "next_step": "move DirectGenService.delete and models() file walks off the loop as well"
+}
