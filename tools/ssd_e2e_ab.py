@@ -47,6 +47,8 @@ def main(argv=None) -> int:
     ap.add_argument("--model", default="flux1-schnell")
     ap.add_argument("--receipt")
     ap.add_argument("--out", default=str(Path(r"D:\Bossman\work\e2e-ab")))
+    ap.add_argument("--order", default="CD", choices=["CD", "DC"],
+                    help="which drive runs first in each phase (the first cold run also pays GPU/driver warm-up)")
     a = ap.parse_args(argv)
     import model_tournament as mt
     idle, why = mt.bossman_idle()
@@ -60,7 +62,7 @@ def main(argv=None) -> int:
     params = {"width": 512, "height": 512, "steps": spec.default_steps if hasattr(spec, "default_steps") else 4, "seed": 12345}
     runs = []
     for phase in ("cold", "warm", "queue2"):
-        for k in ("C", "D"):
+        for k in a.order:
             out = out_dir / f"{a.model}-{k}-{phase}.png"
             out.unlink(missing_ok=True)
             argv_ = sdcli.build_argv(spec, BIN, ROOTS[k], params, PROMPT, "", out, None)
@@ -69,7 +71,8 @@ def main(argv=None) -> int:
                      out_sha256=hashlib.sha256(out.read_bytes()).hexdigest() if out.is_file() else None,
                      cpu_pct_now=psutil.cpu_percent(interval=None))
             runs.append(r)
-    res = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "model": a.model, "params": params, "prompt": PROMPT, "runs": runs,
+    res = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "model": a.model, "params": params, "prompt": PROMPT,
+           "order": a.order, "runs": runs,
            "runtime_sha": subprocess.run(["git", "rev-parse", "--short=8", "HEAD"], capture_output=True, text=True, cwd=HERE).stdout.strip()}
     ok = all(r["exit"] == 0 and r["out_bytes"] > 0 for r in runs)
     by = lambda root, ph: next(r["seconds"] for r in runs if r["root"] == root and r["phase"] == ph)

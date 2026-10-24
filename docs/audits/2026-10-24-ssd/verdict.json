@@ -1,0 +1,61 @@
+{
+ "schema": "bossman.ssd-verdict.v1",
+ "at": "2026-10-24",
+ "runtime_sha": "7e6950fc",
+ "question": "do media models from D: (new SSD) beat C: on the same sd-cli model and params?",
+ "method": "real sd-cli (Vulkan, Radeon 8060S), same binary/model files (head hash identical)/params/seed, models from C:/Users/asd/Bossman/models/media vs D:/Bossman/models/media; phases cold (file not in OS cache) / warm / queue2; order counterbalanced across the two runs (the first cold run of a session also pays GPU/driver warm-up)",
+ "device_read": {
+  "file": "z_image_turbo-Q8_0.gguf 3 GB",
+  "cold_MBps": {
+   "C": 1803,
+   "D": 6062
+  },
+  "D_over_C": 3.36
+ },
+ "runs": [
+  {
+   "model": "flux1-schnell 512x512 4 steps",
+   "order": "C first (warm-up penalty on C: biased FOR D)",
+   "seconds": {
+    "C:cold": 41.6,
+    "D:cold": 32.6,
+    "C:warm": 27.9,
+    "D:warm": 26.8,
+    "C:queue2": 24.5,
+    "D:queue2": 24.0
+   },
+   "D_over_C": {
+    "cold": 1.28,
+    "warm": 1.04,
+    "queue2": 1.02
+   },
+   "same_image": true
+  },
+  {
+   "model": "z-image-turbo 512x512 8 steps",
+   "order": "D first (warm-up penalty on D: biased AGAINST D)",
+   "seconds": {
+    "D:cold": 74.4,
+    "C:cold": 183.8,
+    "D:warm": 58.6,
+    "C:warm": 56.6,
+    "D:queue2": 52.1,
+    "C:queue2": 48.8
+   },
+   "D_over_C": {
+    "cold": 2.47,
+    "warm": 0.97,
+    "queue2": 0.94
+   },
+   "same_image": true
+  }
+ ],
+ "peak_rss_mb": "12.6-13.1 GB per run (16.6 GB on the very first run of the session)",
+ "verdict": {
+  "cold_load": "PROVEN FASTER from D: - 1.28x (flux, order biased for D) and 2.47x (z-image, order biased AGAINST D); identical output images",
+  "warm": "NO GAIN (0.97-1.04x): the model is already in RAM (120 GB), the drive is not read",
+  "queue_of_two": "NO GAIN (0.94-1.02x): same reason",
+  "practical_meaning": "the first generation after a reboot or a model switch is 9-109 s faster; repeated generations are unchanged"
+ },
+ "limits": "one run per cell per model (2 models); only cpu_pct sampled after each run, GPU % not captured; C: copy kept as reserve, not deleted"
+}

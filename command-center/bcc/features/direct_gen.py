@@ -26,6 +26,7 @@ jobs of one participant are invisible to another.
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -140,12 +141,23 @@ async def create(body: JobIn, request: Request, x_participant: str | None = Head
 
 @router.get("/jobs")
 async def jobs(request: Request, x_participant: str | None = Header(default=None)):
-    return {"jobs": _svc(request).list(_who(x_participant, request))}
+    # 24.10 live: the pult polls this; reading every job.json ON the event loop froze the whole backend (py-spy:
+    # MainThread in read_text_retry) while the disk was busy. Files are read in a worker thread; view() stays on
+    # the loop because it reads the in-memory queue the loop mutates.
+    svc, who = _svc(request), _who(x_participant, request)
+    raw = await asyncio.to_thread(svc.store.list, who)
+    return {"jobs": [svc.view(j) for j in raw]}
 
 
 @router.get("/jobs/{job_id}")
 async def job(job_id: str, request: Request, x_participant: str | None = Header(default=None)):
-    return await _guard(_wrap(lambda: _svc(request).get(_who(x_participant, request), job_id)))
+    svc, who = _svc(request), _who(x_participant, request)
+    try:
+        raw = await asyncio.to_thread(svc.store.load, who, job_id)
+    except KeyError:
+        exc = DirectGenError(404, "unknown_job", "job not found")
+        raise HTTPException(exc.status or 500, exc.detail) from None
+    return svc.view(raw)
 
 
 @router.post("/jobs/{job_id}/cancel")

@@ -1,0 +1,82 @@
+{
+ "at": "2026-10-24T13:47:15Z",
+ "model": "z-image-turbo",
+ "params": {
+  "width": 512,
+  "height": 512,
+  "steps": 8,
+  "seed": 12345
+ },
+ "prompt": "a red apple on a wooden table, studio light",
+ "order": "DC",
+ "runs": [
+  {
+   "seconds": 74.4,
+   "exit": 0,
+   "peak_rss_mb": 12622,
+   "root": "D",
+   "phase": "cold",
+   "out_bytes": 410504,
+   "out_sha256": "3b289739c1381636ad9dfdae5171e3d1abde2eea487b9efc1f10ea5dcb30debb",
+   "cpu_pct_now": 7.3
+  },
+  {
+   "seconds": 183.8,
+   "exit": 0,
+   "peak_rss_mb": 12620,
+   "root": "C",
+   "phase": "cold",
+   "out_bytes": 410504,
+   "out_sha256": "3b289739c1381636ad9dfdae5171e3d1abde2eea487b9efc1f10ea5dcb30debb",
+   "cpu_pct_now": 4.0
+  },
+  {
+   "seconds": 58.6,
+   "exit": 0,
+   "peak_rss_mb": 12625,
+   "root": "D",
+   "phase": "warm",
+   "out_bytes": 410504,
+   "out_sha256": "3b289739c1381636ad9dfdae5171e3d1abde2eea487b9efc1f10ea5dcb30debb",
+   "cpu_pct_now": 4.1
+  },
+  {
+   "seconds": 56.6,
+   "exit": 0,
+   "peak_rss_mb": 12622,
+   "root": "C",
+   "phase": "warm",
+   "out_bytes": 410504,
+   "out_sha256": "3b289739c1381636ad9dfdae5171e3d1abde2eea487b9efc1f10ea5dcb30debb",
+   "cpu_pct_now": 5.1
+  },
+  {
+   "seconds": 52.1,
+   "exit": 0,
+   "peak_rss_mb": 12620,
+   "root": "D",
+   "phase": "queue2",
+   "out_bytes": 410504,
+   "out_sha256": "3b289739c1381636ad9dfdae5171e3d1abde2eea487b9efc1f10ea5dcb30debb",
+   "cpu_pct_now": 5.1
+  },
+  {
+   "seconds": 48.8,
+   "exit": 0,
+   "peak_rss_mb": 12621,
+   "root": "C",
+   "phase": "queue2",
+   "out_bytes": 410504,
+   "out_sha256": "3b289739c1381636ad9dfdae5171e3d1abde2eea487b9efc1f10ea5dcb30debb",
+   "cpu_pct_now": 5.7
+  }
+ ],
+ "runtime_sha": "7e6950fc",
+ "D_over_C": {
+  "cold": 2.47,
+  "warm": 0.97,
+  "queue2": 0.94
+ },
+ "same_image_C_vs_D": true,
+ "verdict": "MEASURED"
+}
