@@ -1,0 +1,484 @@
+{
+ "at": "2026-10-24T15:56:48Z",
+ "source": "D:/Bossman/datasets/tiktok-5.6B/data/2026-*.parquet",
+ "license": "CC-BY-NC-4.0",
+ "videos": 83276887,
+ "dance_videos": 574163,
+ "top_dance_hashtags": [
+  {
+   "tag": "phonk_music",
+   "videos": 1478,
+   "median_views": 11720,
+   "median_er": 0.0934
+  },
+  {
+   "tag": "slowedsongs",
+   "videos": 764,
+   "median_views": 10506,
+   "median_er": 0.0902
+  },
+  {
+   "tag": "slowed",
+   "videos": 1299,
+   "median_views": 9410,
+   "median_er": 0.0898
+  },
+  {
+   "tag": "brazilianphonk",
+   "videos": 995,
+   "median_views": 9424,
+   "median_er": 0.0908
+  },
+  {
+   "tag": "bassboosted",
+   "videos": 532,
+   "median_views": 9995,
+   "median_er": 0.0927
+  },
+  {
+   "tag": "funk",
+   "videos": 2743,
+   "median_views": 7211,
+   "median_er": 0.0899
+  },
+  {
+   "tag": "couple",
+   "videos": 2956,
+   "median_views": 5477,
+   "median_er": 0.0621
+  },
+  {
+   "tag": "fürdich",
+   "videos": 588,
+   "median_views": 6224,
+   "median_er": 0.0747
+  },
+  {
+   "tag": "songs",
+   "videos": 653,
+   "median_views": 6037,
+   "median_er": 0.0905
+  },
+  {
+   "tag": "danse",
+   "videos": 505,
+   "median_views": 4853,
+   "median_er": 0.0982
+  },
+  {
+   "tag": "mukbang",
+   "videos": 609,
+   "median_views": 4613,
+   "median_er": 0.036
+  },
+  {
+   "tag": "phonk",
+   "videos": 6999,
+   "median_views": 2829,
+   "median_er": 0.0878
+  },
+  {
+   "tag": "impossible",
+   "videos": 501,
+   "median_views": 3475,
+   "median_er": 0.0508
+  },
+  {
+   "tag": "humour",
+   "videos": 976,
+   "median_views": 3087,
+   "median_er": 0.0825
+  },
+  {
+   "tag": "bollywood",
+   "videos": 621,
+   "median_views": 2706,
+   "median_er": 0.0698
+  },
+  {
+   "tag": "keşfet",
+   "videos": 1044,
+   "median_views": 2325,
+   "median_er": 0.0504
+  },
+  {
+   "tag": "perte",
+   "videos": 748,
+   "median_views": 2349,
+   "median_er": 0.0584
+  },
+  {
+   "tag": "dancestolearn",
+   "videos": 997,
+   "median_views": 2115,
+   "median_er": 0.0891
+  },
+  {
+   "tag": "tutorial",
+   "videos": 1190,
+   "median_views": 1939,
+   "median_er": 0.0347
+  },
+  {
+   "tag": "pourtoiii",
+   "videos": 713,
+   "median_views": 2063,
+   "median_er": 0.1005
+  },
+  {
+   "tag": "judas",
+   "videos": 729,
+   "median_views": 2041,
+   "median_er": 0.099
+  },
+  {
+   "tag": "pourtoi",
+   "videos": 3782,
+   "median_views": 1539,
+   "median_er": 0.1019
+  },
+  {
+   "tag": "newdance",
+   "videos": 762,
+   "median_views": 1907,
+   "median_er": 0.0969
+  },
+  {
+   "tag": "twins",
+   "videos": 670,
+   "median_views": 1925,
+   "median_er": 0.0969
+  },
+  {
+   "tag": "football",
+   "videos": 1834,
+   "median_views": 1630,
+   "median_er": 0.0787
+  },
+  {
+   "tag": "prank",
+   "videos": 567,
+   "median_views": 1901,
+   "median_er": 0.0559
+  },
+  {
+   "tag": "ترند",
+   "videos": 615,
+   "median_views": 1847,
+   "median_er": 0.0508
+  },
+  {
+   "tag": "fyp",
+   "videos": 130532,
+   "median_views": 978,
+   "median_er": 0.082
+  },
+  {
+   "tag": "comedia",
+   "videos": 809,
+   "median_views": 1719,
+   "median_er": 0.0954
+  },
+  {
+   "tag": "challenge",
+   "videos": 47840,
+   "median_views": 1017,
+   "median_er": 0.0587
+  }
+ ],
+ "rising_dance_hashtags_oct_vs_sep": [
+  {
+   "tag": "phonk_music",
+   "sep": 1362,
+   "oct_per_day_x30": 1150.0,
+   "growth": 0.84
+  },
+  {
+   "tag": "candyasmr",
+   "sep": 332,
+   "oct_per_day_x30": 260.0,
+   "growth": 0.78
+  },
+  {
+   "tag": "slimetok",
+   "sep": 333,
+   "oct_per_day_x30": 260.0,
+   "growth": 0.78
+  },
+  {
+   "tag": "oddlysatisfying",
+   "sep": 346,
+   "oct_per_day_x30": 260.0,
+   "growth": 0.75
+  },
+  {
+   "tag": "slimeasmr",
+   "sep": 353,
+   "oct_per_day_x30": 260.0,
+   "growth": 0.74
+  },
+  {
+   "tag": "satisfyingvideos",
+   "sep": 369,
+   "oct_per_day_x30": 260.0,
+   "growth": 0.7
+  },
+  {
+   "tag": "fouryou",
+   "sep": 357,
+   "oct_per_day_x30": 250.0,
+   "growth": 0.7
+  },
+  {
+   "tag": "ronaldo",
+   "sep": 407,
+   "oct_per_day_x30": 280.0,
+   "growth": 0.69
+  },
+  {
+   "tag": "slowed",
+   "sep": 1215,
+   "oct_per_day_x30": 830.0,
+   "growth": 0.68
+  },
+  {
+   "tag": "brazilianphonk",
+   "sep": 930,
+   "oct_per_day_x30": 630.0,
+   "growth": 0.68
+  },
+  {
+   "tag": "slime",
+   "sep": 393,
+   "oct_per_day_x30": 260.0,
+   "growth": 0.66
+  },
+  {
+   "tag": "bassboosted",
+   "sep": 500,
+   "oct_per_day_x30": 320.0,
+   "growth": 0.64
+  },
+  {
+   "tag": "visibilité",
+   "sep": 344,
+   "oct_per_day_x30": 190.0,
+   "growth": 0.55
+  },
+  {
+   "tag": "slowedsongs",
+   "sep": 723,
+   "oct_per_day_x30": 390.0,
+   "growth": 0.54
+  },
+  {
+   "tag": "vairal",
+   "sep": 467,
+   "oct_per_day_x30": 250.0,
+   "growth": 0.54
+  },
+  {
+   "tag": "songs",
+   "sep": 619,
+   "oct_per_day_x30": 330.0,
+   "growth": 0.53
+  },
+  {
+   "tag": "aveeplayer",
+   "sep": 402,
+   "oct_per_day_x30": 210.0,
+   "growth": 0.52
+  },
+  {
+   "tag": "satisfying",
+   "sep": 1107,
+   "oct_per_day_x30": 560.0,
+   "growth": 0.51
+  },
+  {
+   "tag": "tiktokindia",
+   "sep": 879,
+   "oct_per_day_x30": 430.0,
+   "growth": 0.49
+  },
+  {
+   "tag": "wuwacreator",
+   "sep": 375,
+   "oct_per_day_x30": 180.0,
+   "growth": 0.48
+  }
+ ],
+ "top_dance_sounds": [
+  {
+   "sound_id": 7682372910178192160,
+   "videos": 241,
+   "median_views": 2676
+  },
+  {
+   "sound_id": 7679666101023132423,
+   "videos": 230,
+   "median_views": 2650
+  },
+  {
+   "sound_id": 6817665487665629186,
+   "videos": 201,
+   "median_views": 2614
+  },
+  {
+   "sound_id": 7669064963104819982,
+   "videos": 749,
+   "median_views": 1865
+  },
+  {
+   "sound_id": 7665832218791201556,
+   "videos": 242,
+   "median_views": 1912
+  },
+  {
+   "sound_id": 7002429550756219654,
+   "videos": 553,
+   "median_views": 1629
+  },
+  {
+   "sound_id": 7314081475669265195,
+   "videos": 434,
+   "median_views": 1626
+  },
+  {
+   "sound_id": 7570662594885880587,
+   "videos": 271,
+   "median_views": 1746
+  },
+  {
+   "sound_id": 6729989038423427073,
+   "videos": 266,
+   "median_views": 1697
+  },
+  {
+   "sound_id": 6896403254930918146,
+   "videos": 288,
+   "median_views": 1647
+  },
+  {
+   "sound_id": 7667333600056609550,
+   "videos": 2199,
+   "median_views": 1168
+  },
+  {
+   "sound_id": 7673315582192913166,
+   "videos": 1076,
+   "median_views": 1273
+  },
+  {
+   "sound_id": 7395131280622275333,
+   "videos": 230,
+   "median_views": 1608
+  },
+  {
+   "sound_id": 7391681370873072430,
+   "videos": 664,
+   "median_views": 1339
+  },
+  {
+   "sound_id": 7648818707803753229,
+   "videos": 1834,
+   "median_views": 1148
+  }
+ ],
+ "duration_buckets": [
+  {
+   "seconds": "10-15",
+   "videos": 206705,
+   "median_views": 663,
+   "median_er": 0.0965
+  },
+  {
+   "seconds": "16-30",
+   "videos": 158582,
+   "median_views": 626,
+   "median_er": 0.0926
+  },
+  {
+   "seconds": "31-60",
+   "videos": 73724,
+   "median_views": 673,
+   "median_er": 0.0838
+  },
+  {
+   "seconds": "<10",
+   "videos": 83087,
+   "median_views": 645,
+   "median_er": 0.0904
+  },
+  {
+   "seconds": ">60",
+   "videos": 52065,
+   "median_views": 1543,
+   "median_er": 0.0622
+  }
+ ],
+ "aspect": [
+  {
+   "aspect": "9:16",
+   "videos": 319714,
+   "median_views": 1189
+  },
+  {
+   "aspect": "1:1",
+   "videos": 234073,
+   "median_views": 412
+  },
+  {
+   "aspect": "portrait-other",
+   "videos": 10498,
+   "median_views": 1004
+  },
+  {
+   "aspect": "landscape",
+   "videos": 9878,
+   "median_views": 858
+  }
+ ],
+ "ai_generated": [
+  {
+   "is_ai_generated": 0,
+   "videos": 229204,
+   "median_views": 405,
+   "median_er": 0.0996
+  },
+  {
+   "is_ai_generated": 0,
+   "videos": 332752,
+   "median_views": 1198,
+   "median_er": 0.0841
+  },
+  {
+   "is_ai_generated": 1,
+   "videos": 12207,
+   "median_views": 617,
+   "median_er": 0.0667
+  }
+ ],
+ "best_hours_utc": [
+  {
+   "hour": 11,
+   "median_views": 814
+  },
+  {
+   "hour": 12,
+   "median_views": 793
+  },
+  {
+   "hour": 10,
+   "median_views": 788
+  },
+  {
+   "hour": 9,
+   "median_views": 767
+  },
+  {
+   "hour": 13,
+   "median_views": 742
+  }
+ ]
+}
