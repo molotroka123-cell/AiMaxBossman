@@ -53,7 +53,7 @@
    `REJECT` или `REFERENCE_ONLY`. Чужой код без лицензии в репозитории закрывает
    дорогу к публикации архива.
 2. **Чужой стек.** Интерфейс Боссмана — ванильные ES-модули без npm-сборки
-   (см. `docs/IMAGES_FEATURE_REPORT.md`: «без React, TypeScript, Tailwind, npm и
+   (см. `docs/archive/2026-08/docs-root/IMAGES_FEATURE_REPORT.md`: «без React, TypeScript, Tailwind, npm и
    без единой новой зависимости»). Next.js + React + сборщик внутри
    Windows-архива с Python-рантаймом и Chromium — это второе ядро интерфейса.
 3. **Эгресс байтов владельца.** Загрузки идут в публичный Vercel Blob. Устав V8,

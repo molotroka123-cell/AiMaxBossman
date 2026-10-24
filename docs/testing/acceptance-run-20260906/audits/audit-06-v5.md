@@ -1,7 +1,7 @@
 ﻿# Audit 06 — V5 (bossman_shared/objective_*): research-only
 
 - Repo: `C:\Bossman-acceptance-20260906`, HEAD `6dfb1e9`
-- Scope: `bossman_shared/{objective_spec,objective_store,objective_admission,objective_observer,objective_reconcile,objective_recovery,objective_world_state}.py`, `tests/test_v5_*.py`, `docs/v5/EPOCH_5_PLAN.md` (N0–N8, H01–H10), `docs/v5/V5_RELEASE_SCORECARD.md`
+- Scope: `bossman_shared/{objective_spec,objective_store,objective_admission,objective_observer,objective_reconcile,objective_recovery,objective_world_state}.py`, `tests/test_v5_*.py`, `docs/archive/folders/v5/EPOCH_5_PLAN.md` (N0–N8, H01–H10), `docs/archive/folders/v5/V5_RELEASE_SCORECARD.md`
 - Duplicate-check: `docs/testing/acceptance-run-20260906/OPEN_FINDINGS.json` прочитан; ниже только НОВЫЕ находки (пересечения с HOST-SENSITIVE-PERF-GATES / CC-VIDEO-* явно помечены).
 - Код не изменялся; создан только этот файл.
 
@@ -29,7 +29,7 @@
 - **репродукция**: два активных objective с общим `conflict_key`, A — priority 10, B — priority 5, A циклически пере-admit'ится (свежие наблюдения, cooldown=0); каждый proposal B получает `CONFLICT_HELD` бесконечно; счётчиков/блокера нет — голодание вечное и невидимое владельцу.
 
 ### A6-02 · P2 — Миграции схемы store нет; старая/частичная схема падает неконтролируемо; импорт PAUSED противоречит плану
-- **file:line**: `bossman_shared/objective_store.py:211-220` (проверяется только `int(row["value"]) > SCHEMA_VERSION`; ветка «старее» отсутствует); `objective_store.py:54-100` (SCHEMA только `CREATE TABLE IF NOT EXISTS` — колонки не добавляются); `objective_store.py:244-245` (`create` отказывает в PAUSED); `docs/v5/EPOCH_5_PLAN.md:101` (N1 exit evidence: «migration from populated V4 data»), `:145` (H10 «default paused on migration»), `:191` («Import is DRAFT or PAUSED»).
+- **file:line**: `bossman_shared/objective_store.py:211-220` (проверяется только `int(row["value"]) > SCHEMA_VERSION`; ветка «старее» отсутствует); `objective_store.py:54-100` (SCHEMA только `CREATE TABLE IF NOT EXISTS` — колонки не добавляются); `objective_store.py:244-245` (`create` отказывает в PAUSED); `docs/archive/folders/v5/EPOCH_5_PLAN.md:101` (N1 exit evidence: «migration from populated V4 data»), `:145` (H10 «default paused on migration»), `:191` («Import is DRAFT or PAUSED»).
 - **symptom**: БД, записанная схемой меньшего номера (или с недобавленными колонками), открывается без ошибки, а затем падает с `IndexError`/`sqlite3.OperationalError` на `row["<новая колонка>"]` (`_row_state`, `objective_store.py:180-199`) вместо ясного «needs migration». Пути v4→v5 нет ни в коде, ни в тестах; «default paused on migration» реализовать не на чем (импорт жёстко DRAFT).
 - **root-cause**: инициализация обрабатывает только forward-несовместимость; миграционный шаг H10/N1/N8 не был написан, но N1 в scorecard помечен PASS с «migration» в основании.
 - **fix**: при `version < SCHEMA_VERSION` — либо явный отказ с кодом «migration required», либо реальный мигратор (`ALTER TABLE` + дефолт lifecycle=DRAFT/PAUSED); добавить migration-тест «populate old-schema DB → open → всё читается, lifecycle по умолчанию PAUSED».
@@ -43,7 +43,7 @@
 - **репродукция**: создать/остановить цель owner-1; вызвать `store.set_stopped(oid, False, reason="x", expected_version=store.get(oid).version)` от имени любого другого кода — успех, цель снова admits.
 
 ### A6-04 · P2 — «Invalidate source» (H06) непроверяем на effect boundary: proposal не биндит source_revision
-- **file:line**: `bossman_shared/objective_admission.py:167-200` (`AdmissionProposal` несёт только `observation_digests` — source_revision не извлекаемы для перепроверки); `objective_admission.py:553-579` (`reauthorize_at_effect_boundary` перепроверяет digest/revision/expiry/freshness-по-времени, но не текущие ревизии источников); план: `docs/v5/EPOCH_5_PLAN.md:141` (H06: «…invalidate source; stale evidence cannot admit work»).
+- **file:line**: `bossman_shared/objective_admission.py:167-200` (`AdmissionProposal` несёт только `observation_digests` — source_revision не извлекаемы для перепроверки); `objective_admission.py:553-579` (`reauthorize_at_effect_boundary` перепроверяет digest/revision/expiry/freshness-по-времени, но не текущие ревизии источников); план: `docs/archive/folders/v5/EPOCH_5_PLAN.md:141` (H06: «…invalidate source; stale evidence cannot admit work»).
 - **symptom**: если источник инвалидирован (bump `source_revision`) между proposal и эффектом, READY-бронь и effect-boundary recheck остаются зелёными — единственная защита это time-based `freshness_deadline`. Юнит-покрытие только `tests/test_v5_observers.py:282` (`wrong_source_revision_is_unknown`); end-to-end «source invalidation blocks queued work» отсутствует.
 - **root-cause**: идентичность наблюдения включает source_revision (`objective_observer.py:154-163`), но в payload proposal'а сохраняется лишь дайджест — обратной связи «дайджест ↔ текущая ревизия источника» при повторной проверке нет.
 - **fix**: биндить в `AdmissionProposal`/payload mapping `source_ref → source_revision` (из observation batch при build) и в `reauthorize_at_effect_boundary` сверять с текущим заявленным состоянием источника (новый порт) либо с `store`-уровневым реестром ревизий; отказ с новым кодом `SOURCE_INVALIDATED`.
@@ -71,7 +71,7 @@
 - **репродукция**: `prepare_rollback(...).snapshot()` — ключей spec_json/revision нет; `grep -r "fence" bossman_shared` — только план-данные.
 
 ### A6-08 · P3 — Canary не имеет точки входа в admission: cohort некуда ограничить
-- **file:line**: `bossman_shared/objective_improvement.py:116-150` (`may_promote` возвращает только eligibility); `bossman_shared/objective_admission.py` — нет ни поля canary/cohort, ни порта; план: `docs/v5/EPOCH_5_PLAN.md:192-193` («Canary cohort is opt-in and finite»).
+- **file:line**: `bossman_shared/objective_improvement.py:116-150` (`may_promote` возвращает только eligibility); `bossman_shared/objective_admission.py` — нет ни поля canary/cohort, ни порта; план: `docs/archive/folders/v5/EPOCH_5_PLAN.md:192-193` («Canary cohort is opt-in and finite»).
 - **symptom**: даже при реализации N8 нечем ограничить cohort: spec/admission не несут признака canary, лимита cohort-размера и opt-in флага — canary-«admission» пришлось бы приклеивать снаружи.
 - **fix**: добавить в ObjectiveSpec (или runtime-состояние) `canary_cohort: bool/size` и порт canary-реестра, проверяемый в `AdmissionKernel.admit` до reserve.
 - **репродукция**: grep `canary` в `bossman_shared/objective_admission.py` — 0 вхождений.

@@ -72,8 +72,8 @@ exact SHA/runtime/model/tool/output hash. Затем MC22-16: отдельный
 edit/video, предпочтительный uncensored, snapshot модели в очереди, честная недоступность.
 
 Уже действующие короткие генерационные команды описаны в
-[PULT_GEN_WORKFLOW_20261013_RU.md](PULT_GEN_WORKFLOW_20261013_RU.md), референсы — в
-[PULT_REFERENCE_WORKFLOW_20261013_RU.md](PULT_REFERENCE_WORKFLOW_20261013_RU.md).
+[PULT_GEN_WORKFLOW_20261013_RU.md](../archive/2026-10/owner/PULT_GEN_WORKFLOW_20261013_RU.md), референсы — в
+[PULT_REFERENCE_WORKFLOW_20261013_RU.md](../archive/2026-10/owner/PULT_REFERENCE_WORKFLOW_20261013_RU.md).
 Новая предлагаемая `/genmodel` не объявлена активной. Не запускать личные снимки для smoke.
 
 ## Остаток продукта

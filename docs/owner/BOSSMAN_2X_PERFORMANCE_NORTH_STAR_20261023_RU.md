@@ -12,7 +12,7 @@ GOAL: **>=2.00x median verified end-to-end speedup** in a pre-registered coding/
 - agent_opencode.py::list_agent_tools generates descriptions and schemas for all tools; filter only allowed relevant schema for each model prompt, without removing enforcement from policy engine.
 - tools/resource_governor/governor.py already manages Ollama keep_alive, Jeff keep/hold, file preread, RAM limits and process prioritisation: OPTIMIZE EXISTING, DO NOT BUILD A SECOND GOVERNOR. Avoid GPU memory thrash between 70B coder, Gemma, Jeff and Wan.
 - command-center/bcc/features/coding_tasks.py already caches some sidecar handshakes and runs coding verification/worktrees. Investigate repeated process startup and LLM tool loops, without skipping verifier, approval or rollback.
-- Earlier owner's machine benchmark (docs/owner/BOSSMAN_DAY_20261020_RU.md) separately measured Qwen3.8-27B MTP up to ~2.09x DECODE versus baseline. That does NOT imply installed Bossman 2x end-to-end. Other file: docs/owner/MP21_LOCAL_MODELS_AUTONOMY_20261011.md.
+- Earlier owner's machine benchmark (docs/archive/2026-10/owner/BOSSMAN_DAY_20261020_RU.md) separately measured Qwen3.8-27B MTP up to ~2.09x DECODE versus baseline. That does NOT imply installed Bossman 2x end-to-end. Other file: docs/owner/MP21_LOCAL_MODELS_AUTONOMY_20261011.md.
 
 ## Metric contract: what EXACTLY means 2x
 
@@ -83,4 +83,4 @@ CP-PERF-06 result: final before/after metrics, CI URLs, logs, rollbacks, achieve
 
 Push each CP as an evidence-bearing commit to dedicated integration branch. Owner authorizes publishing THIS documentation to main, not merging new behavioral optimizations directly into main. No RunPod or external paid calls without separate explicit owner approval, no self-escalation through AUTO, no fake tests and no weakening independent verification. If 2x not reached, print measured value and next bottleneck; no false victory.
 
-READ FIRST tomorrow: AGENTS.md, this file, docs/owner/NORTH_STAR_ORCHESTRA_ACCEPTANCE_20261023.md, README.md. Do real baseline BEFORE rewriting architecture.
+READ FIRST tomorrow: AGENTS.md, this file, docs/owner/runs/north-star-20261023/FINAL_ACCEPTANCE_RU.md, README.md. Do real baseline BEFORE rewriting architecture.

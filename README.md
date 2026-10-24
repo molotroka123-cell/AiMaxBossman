@@ -154,7 +154,7 @@ flowchart LR
 ### Полезные документы приёмки (21.10.2026)
 - 📋 **[Приёмка Mobile OpenCode & AUTO Mode (`BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md`)](docs/owner/BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md)**
 - 🏆 **[Приёмка 15 × 3 = 45 улучшений (`BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md`)](docs/owner/BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md)**
-- 🧭 **[Мастер-промт сборки единого Bossman (`ARGON_MASTER_PROMPT_ONE_BOSSMAN_20261021_RU.md`)](docs/owner/ARGON_MASTER_PROMPT_ONE_BOSSMAN_20261021_RU.md)**
+- 🧭 **[Мастер-промт сборки единого Bossman (`ARGON_MASTER_PROMPT_ONE_BOSSMAN_20261021_RU.md`)](docs/archive/2026-10/owner/ARGON_MASTER_PROMPT_ONE_BOSSMAN_20261021_RU.md)**
 
 ---
 > - **Что это:** Единая локальная система владельца на Windows 11 с управлением через закрытый пульт Telegram: оператор кода Qwen L1 (`/work`), агент ПК Argon (`/pc`, `/screen`, `/trust`, `/stop`), локальная генерация фото/правок (`/img`, `/edit`, `/edit_engine` Z-Image NSFW v2), самоулучшение (`/boost`), сверка отчётов 21–20 (`Reports-Import.cmd`) и наблюдатель `Poker Vision`.
@@ -176,7 +176,7 @@ flowchart LR
 | Poker Vision | читатель карт/борда/банка/кнопок; профиль раскладки не `verified` до независимой сессии; режим только наблюдение |
 
 **Что ещё не доказано** (честные пробелы, не провалы): удержание интеллекта (retention, подтверждает владелец), soak 24/48 ч,
-официальный тест Telegram Stars, North Star L3–L8. Подробно — [docs/owner/FINAL_CLOSE_20261012_RU.md](docs/owner/FINAL_CLOSE_20261012_RU.md),
+официальный тест Telegram Stars, North Star L3–L8. Подробно — [docs/archive/2026-10/owner/FINAL_CLOSE_20261012_RU.md](docs/archive/2026-10/owner/FINAL_CLOSE_20261012_RU.md),
 журнал дефектов — [docs/final/BUG_LEDGER.md](docs/final/BUG_LEDGER.md), установка — [INSTALL.md](INSTALL.md).
 
 ### Для тестировщиков
@@ -237,14 +237,14 @@ Poker Vision (только наблюдение), самоулучшение с 
 **Предыдущий срез (8 октября 2026).** Каноническая линия — `main` (решение владельца 08.10, AGENTS.md). Одна версия Bossman:
 последняя `green/tree-leaves-20261006` + прежний `main` + исправления 08.10 (PR #98).
 
-- Простыми словами — что есть, чего нет, с чего начать: [docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md](docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md)
-- Установка одной версии на ПК, проверки и откат: [docs/owner/OWNER_RUN_20261008.md](docs/owner/OWNER_RUN_20261008.md)
+- Простыми словами — что есть, чего нет, с чего начать: [docs/archive/2026-10/owner/BOSSMAN_SIMPLE_STATE_20261008.md](docs/archive/2026-10/owner/BOSSMAN_SIMPLE_STATE_20261008.md)
+- Установка одной версии на ПК, проверки и откат: [docs/archive/2026-10/owner/OWNER_RUN_20261008.md](docs/archive/2026-10/owner/OWNER_RUN_20261008.md)
 - День K1m6a (ролики с #26, экзамен до/после, без надзирателя): [docs/trading/K1M6A_DAY_RUNBOOK_20261008.md](docs/trading/K1M6A_DAY_RUNBOOK_20261008.md) · план владельца: [K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md](docs/trading/K1M6A_RESUME_AND_PROVE_LEARNING_20261008.md)
 - Целевая архитектура следующего автономного этапа (дизайн, ещё не LIVE-доказательство): [Bossman 2.1 — Autonomous Computer Operator](docs/autonomy/BOSSMAN_2_1_AUTONOMOUS_COMPUTER_OPERATOR.md)
 
 Документ не равен проверке: «работает у владельца» — только то, что прошло на ПК владельца на точном SHA.
 
-Историческое (до 08.10): [сводный аудит 2026-10-02](https://github.com/molotroka123-cell/AiMaxBossman/blob/integrate/bossman-1.7-unified-20260925/docs/owner/CURRENT_AUDIT_20261002.md), [рабочая ведомость 26.09](docs/owner/WORKBENCH_20260926.md). Ветки `release/bossman-owner` и `integrate/bossman-1.7-unified-20260925` — исторические.
+Историческое (до 08.10): [сводный аудит 2026-10-02](https://github.com/molotroka123-cell/AiMaxBossman/blob/integrate/bossman-1.7-unified-20260925/docs/owner/CURRENT_AUDIT_20261002.md), [рабочая ведомость 26.09](docs/archive/2026-10/owner/WORKBENCH_20260926.md). Ветки `release/bossman-owner` и `integrate/bossman-1.7-unified-20260925` — исторические.
 
 ## История: суть Bossman 1.6
 
@@ -347,7 +347,7 @@ skill transfer, operating-graph continuity, measured routing и работу п�
 
 Первый реальный production-case уже зафиксирован: 15-секундный hybrid SwapMe video (10 с cloud + local/compositor), который показал возможность экономить cloud spend и одновременно выявлять/исправлять дефекты Studio. Следующий шаг — сделать такой workflow повторяемым из Bossman CMD, а не ручным инженерным процессом.
 
-[Money MVP — продуктовый приоритет и критерии](docs/product/MONEY_MVP.md) · [Bossman 1.5](BOSSMAN_1_5_START_HERE.md)
+[Money MVP — продуктовый приоритет и критерии](docs/product/MONEY_MVP.md) · [Bossman 1.5](docs/archive/root-history/BOSSMAN_1_5_START_HERE.md)
 
 ## Этап 1.2 — тот же Bossman, теперь ещё и в CMD
 
@@ -463,7 +463,7 @@ Bossman уже прошёл первый реальный owner-hardware цик�
 | Где искать актуальные доказательства | [CURRENT_STATE](CURRENT_STATE.md) |
 | Как устроена система | [ARCHITECTURE](ARCHITECTURE.md) |
 | Что ещё не доказано | [KNOWN_LIMITATIONS](KNOWN_LIMITATIONS.md) |
-| Что сохранено из старых веток | [CONVERGENCE_DECISIONS](CONVERGENCE_DECISIONS.md), [salvage ledger](docs/final/FINAL_SALVAGE_LEDGER.md) |
+| Что сохранено из старых веток | [CONVERGENCE_DECISIONS](docs/archive/root-history/CONVERGENCE_DECISIONS.md), [salvage ledger](docs/final/FINAL_SALVAGE_LEDGER.md) |
 | Как разбирать поломку первого прогона | [Hotfix playbook](tests/owner_hardware/HOTSPOTS_AND_HOTFIX_PLAYBOOK.md) |
 | Как frontier-модели будут проверять и обучать Bossman | [Frontier Council и тренинг — спецификация](docs/evo/FRONTIER_COUNCIL_AND_TRAINING.md) |
 | Как проверить, чему Qwen реально научился на ремонтах | [Local Qwen Apprentice Benchmark](docs/evo/LOCAL_QWEN_APPRENTICE_BENCHMARK.md) |

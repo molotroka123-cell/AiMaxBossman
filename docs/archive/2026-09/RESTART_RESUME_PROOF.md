@@ -2,7 +2,7 @@
 
 ## Manager/process restart (mission-level)
 
-- Pre-restart state: capsule `docs/mission/LONGHORIZON-FREEZE-001/capsule.json` written atomically after each atomic unit; manager context rotated multiple times during the session without owner re-prompt.
+- Pre-restart state: capsule `docs/archive/folders/mission/LONGHORIZON-FREEZE-001/capsule.json` written atomically after each atomic unit; manager context rotated multiple times during the session without owner re-prompt.
 - Restart execution: a genuinely separate OS process (pid 39232) was started from a fresh interpreter; it loaded ONLY the capsule (no transcript), asserted `mission_id == LFZ-20260902-GLM-7f13546`, verified repository consistency (git HEAD `b6fd5e1`), appended its restart segment and exited.
 - Continuation: the SAME mission continued afterwards in this session without any owner continuation prompt.
 

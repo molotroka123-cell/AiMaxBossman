@@ -18,6 +18,6 @@
 | 10 | `MP21_10_SECURITY_LIMITS_RU.md` | ограничения безопасности |
 | 11 | `MP21_11_RECOVERY_RU.md` | восстановление и откат |
 
-Первичные треки: `docs/owner/MP21_PROJECT_MAP_20261011.md`, `MP21_LOCAL_MODELS_AUTONOMY_20261011.md`,
+Первичные треки: `docs/archive/2026-10/owner/MP21_PROJECT_MAP_20261011.md`, `MP21_LOCAL_MODELS_AUTONOMY_20261011.md`,
 `MP21_NORTH_STAR_TREE_20261011.md` (A); `docs/owner/runs/MP21_B_*` (B, Poker); `MP21_C_EXCHANGE_CALCULATOR_20261011.md` (C);
 `MP21_D_TRADING_TOKEN_AUDIT_20261011.md` (D); `JEFF_BROWSER_SEARCH_AUDIT_20261011.md` (Jeff).

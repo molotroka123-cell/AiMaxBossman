@@ -15,7 +15,7 @@ Branch claude/bossman-control-v03-43igbk
 | F5 cross-corpus | P1 | P2 | PARTIAL (premise half wrong) — 9/11 fixed, 2 xfail(strict) |
 | F6 cache false savings | P2 | P2 | CONFIRMED at a DIFFERENT location — FIXED |
 
-Details and every disagreement with Fable: `docs/mission/AUDIT-ONLY-001/CORRECTION_REPORT.md`.
+Details and every disagreement with Fable: `docs/archive/folders/mission/AUDIT-ONLY-001/CORRECTION_REPORT.md`.
 The Fable audit log itself is unmodified.
 
 ## Commits

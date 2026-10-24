@@ -13,7 +13,7 @@ GITHUB_TARGET_COMMIT=https://github.com/molotroka123-cell/AiMaxBossman/commit/bb
   `74c28c3 chore: remove scratch ssh-scripts from agents/tmp` — a docs/scratch cleanup only
   (`git diff --stat bb944d4..74c28c3` = 12 shell scripts deleted under `.agents/tmp/`, 0 product code).
   Audit performed against 74c28c3 (current REMOTE HEAD); no unknown local snapshot.
-- Auditor: Fable 5.1, independent. Prior RunPod verdict (`docs/runpod/RUNPOD_FINAL_AUDIT.md`,
+- Auditor: Fable 5.1, independent. Prior RunPod verdict (`docs/archive/folders/runpod/RUNPOD_FINAL_AUDIT.md`,
   "PARTIAL") was **not** taken as ground truth; all claims re-derived from code + controlled PoCs.
 
 ## 1. Scope & method

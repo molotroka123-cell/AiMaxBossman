@@ -22,7 +22,7 @@ on this machine, see `MP21_A_CHECKS_20261011.md`). Solana tests use the isolated
 | `feat/promo-queue-20261010` | `c9c8d07a` | merge | none (not previously on the line: `git cherry` showed `+`) |
 | `feat/video-v2-artifacts-20261010` | `95bd6d97` | merge | none textual; tests re-run |
 | `feat/runpod-lora-v2-20261010`, `feat/mimics-gate-20261010`, `feat/t3-video-eval-20261011` | `2f791573`, `43e8d245`, `bd41f154` | merge | none |
-| night branch `claude/bossman-final-convergence-hu2702` | `e9ac78aa`, `6f6a3873`, `595133f1` | 3 merges | README.md: unified kept, night README archived as `docs/owner/NIGHT_BRANCH_README_ARCHIVE_20261011.md`; `tools/release_candidate.json`: unified kept (night declaration `rc-2026-09-20` is stale); `pyproject.toml`: unified extras + night `setuptools>=68`; `bcc/studio/dispatch.py`: unified kept + night `free_only` passed to the provider; `.agents/skills/solana-volume-suite/SKILL.md`: night body + stricter MP21-D quarantine description |
+| night branch `claude/bossman-final-convergence-hu2702` | `e9ac78aa`, `6f6a3873`, `595133f1` | 3 merges | README.md: unified kept, night README archived as `docs/archive/2026-10/owner/NIGHT_BRANCH_README_ARCHIVE_20261011.md`; `tools/release_candidate.json`: unified kept (night declaration `rc-2026-09-20` is stale); `pyproject.toml`: unified extras + night `setuptools>=68`; `bcc/studio/dispatch.py`: unified kept + night `free_only` passed to the provider; `.agents/skills/solana-volume-suite/SKILL.md`: night body + stricter MP21-D quarantine description |
 
 Skipped (and why): `jeff/one-20261009` (62 commits ahead, old, not on the owner's list), `integrate/bossman-2.1-one-20261006`,
 `consolidate/jeff-20261007`, `audit/motion-concert-20261006`, 17 `worktree-agent-*` branches: pre-date this line or are
@@ -48,7 +48,7 @@ other agents' work; no port without an owner decision.
 
 ## 3. What was NOT run (not a PASS)
 
-* No repo-wide pytest and no `-n` run (owner CPU priority). `docs/owner/MP21_PROJECT_MAP_20261011.md` therefore still has
+* No repo-wide pytest and no `-n` run (owner CPU priority). `docs/archive/2026-10/owner/MP21_PROJECT_MAP_20261011.md` therefore still has
   309 `partial` rows: "not proven here", not "broken".
 * No exact-SHA CI, no Windows archive build, no install, no restart of :8801, no UI sweep, no browser acceptance.
 * No JS tests (token-launch-helper has no `node_modules`; UI node tests not run), no ruff/mypy (not installed).

@@ -15,7 +15,7 @@ Pillow для размеров); сырой результат: `docs/owner/runs
 | Гейты видео | `tools/video_gate/{animation_gate,gate0_passthrough,gate1_faceswap,clothes_gate,background_gate,makeup_gate,artifact_audit}.py` | измеряют кадры, пиксели вне лица, позу, поток, дрожание, личность |
 | Монтаж/эффекты | `tools/trend_edit/*`, `tools/genjutsu/*` | рецепты, перенос волос, фон, одежда |
 
-Пороги гейтов фиксируются коммитом ДО прогона (`docs/owner/VIDEO_PIPELINE_STAGES_20261010.md`, `docs/owner/MIMICS_GATE_20261010.md`,
+Пороги гейтов фиксируются коммитом ДО прогона (`docs/owner/VIDEO_PIPELINE_STAGES_20261010.md`, `docs/archive/2026-10/owner/MIMICS_GATE_20261010.md`,
 `docs/owner/HAIR_MASK_V2_20261010.md`); метод меняется только как исправление со старым результатом рядом.
 
 ## 2. Результаты гейтов (10.10.2026, локально, приватные клипы)
@@ -114,7 +114,7 @@ AdamW8bit, cosine, warmup 50, 1500 шагов, один A100 80GB. Затрач�
 
 ## 7. Редактор V2: приёмка 11.10 (после сверки с кодом)
 
-Полная матрица и доказательства: `docs/owner/MOTION_STUDIO_V2_ACCEPTANCE_20261011.md`; сырой прогон:
+Полная матрица и доказательства: `docs/archive/2026-10/owner/MOTION_STUDIO_V2_ACCEPTANCE_20261011.md`; сырой прогон:
 `docs/owner/runs/STUDIO_V2_E2E_20261011.json` (харнесс `tools/studio_v2_e2e.py`: настоящий backend на свободном порту,
 headless Chromium, одноразовая папка данных). Итог: 12 из 15 строк WORKS, 2 PARTIAL, 1 MISSING; V2 целиком НЕ подтверждена.
 

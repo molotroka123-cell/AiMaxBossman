@@ -154,7 +154,7 @@ by the owner run.
 
 Canonical execution documents:
 - `docs/v1.5/ASTER_SELF_IMPROVEMENT_MASTER_20260925.md`
-- `docs/owner/CODEX_BOSSMAN_1_5_RUN_20260925.md`
+- `docs/archive/2026-10/owner/CODEX_BOSSMAN_1_5_RUN_20260925.md`
 - `docs/v1.5/ECONOMY_ORCHESTRATOR.md`
 - `docs/v1.5/BOSSMAN_1_5_FINAL_CLOSURE_20260925.md`
 
@@ -181,7 +181,7 @@ As soon as Bossman 1.5 reaches OWNER_READY closure — or only explicitly non-bl
 
 [Bossman 1.6 self-evolution branch](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-self-evolution-20260925)
 
-Start with `BOSSMAN_1_6_START_HERE.md`.
+Start with `docs/archive/root-history/BOSSMAN_1_6_START_HERE.md`.
 
 One-run objective:
 

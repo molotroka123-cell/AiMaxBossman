@@ -50,4 +50,4 @@
 | [owner-preflight-05a1bb02/](owner-preflight-05a1bb02/README.md) | README/INSTALL/handoff до подготовки владельческого прогона 21.09 (тот же blob SHA) |
 | [root-history/](root-history/) | исторические корневые отчёты (`AUDIT_STATE`, `HANDOFF_STATE`, `RED_TEAM_HANDOFF` и др.) |
 
-См. также: `docs/REPOSITORY_ARTIFACT_CLEANUP.md` (уборка бинарных архивов из корня, раньше).
+См. также: `docs/archive/2026-08/docs-root/REPOSITORY_ARTIFACT_CLEANUP.md` (уборка бинарных архивов из корня, раньше).

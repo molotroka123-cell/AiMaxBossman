@@ -158,7 +158,7 @@
 > * Табло и реестр — `tests/owner_scenarios/`, раннер `tools/scenario_runner.py`.
 > * Журнал дефектов — `docs/final/BUG_LEDGER.md` (по BL-117 включительно;
 >   пропуски BL-109 и BL-111…BL-113 объяснены там же).
-> * Решения конвергенции — `CONVERGENCE_DECISIONS.md`.
+> * Решения конвергенции — `docs/archive/root-history/CONVERGENCE_DECISIONS.md`.
 > * Гейт выпуска — `tools/exact_sha_certify.py`, достижимость его требований —
 >   `tests/test_required_workflows_are_reachable.py`.
 

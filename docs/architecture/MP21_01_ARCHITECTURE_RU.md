@@ -2,7 +2,7 @@
 
 Сверено с кодом ветки `feat/bossman-genjutsu-jeff-unified-20261010` после слияния MP21 (последний слитый коммит
 `3a6410bb`). Это описание того, что есть в файлах, а не того, что планировалось. Статус каждой функции (works / partial /
-missing) и построчный инвентарь: `docs/owner/MP21_PROJECT_MAP_20261011.md` (186 модулей `bcc`, 55 страниц UI, 143 записи
+missing) и построчный инвентарь: `docs/archive/2026-10/owner/MP21_PROJECT_MAP_20261011.md` (186 модулей `bcc`, 55 страниц UI, 143 записи
 `tools`). Слово «работает» здесь означает только «есть исполненный тест с rc 0», см. `docs/owner/runs/MP21_E_INTEGRATION_CHECKS_20261011.md`.
 
 ## 1. Слои
@@ -33,7 +33,7 @@ missing) и построчный инвентарь: `docs/owner/MP21_PROJECT_MA
 
 запрос (UI / CLI / Telegram-пульт) -> `bcc/api.py` -> `engine.py` (очередь, повтор, отмена) -> адаптер провайдера
 (`bcc/providers.py`) -> перед выходом наружу `assert_provider_egress` (`bossman_shared/privacy.py`) -> результат ->
-событие/журнал. Один backend обслуживает окно, CLI и Telegram-пульт (документ `docs/owner/OWNER_RUN_20261008.md`).
+событие/журнал. Один backend обслуживает окно, CLI и Telegram-пульт (документ `docs/archive/2026-10/owner/OWNER_RUN_20261008.md`).
 
 ## 4. Границы доверия
 
@@ -49,4 +49,4 @@ missing) и построчный инвентарь: `docs/owner/MP21_PROJECT_MA
 * Нет глобального аппаратного hotkey остановки (в репозитории нет `RegisterHotKey`).
 * Нет доказанного 24-часового непрерывного запуска (`docs/autonomy/BOSSMAN_2_1_AUTONOMOUS_COMPUTER_OPERATOR.md`).
 * Нет исполняемого определения ступеней лестницы North Star: ступени живут в документах и данных сайта
-  (`docs/owner/MP21_NORTH_STAR_TREE_20261011.md`).
+  (`docs/archive/2026-10/owner/MP21_NORTH_STAR_TREE_20261011.md`).

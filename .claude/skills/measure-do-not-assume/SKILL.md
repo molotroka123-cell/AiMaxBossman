@@ -39,7 +39,7 @@ metadata:
   и при 100, и при 150 items/metric, а `PASS` наступает только на **189**. При
   одной потерянной задаче на метрику не проходит ни один размер выборки до 4000.
   Число записано в `docs/benchmark/INTELLIGENCE_MEASUREMENT.md` и в
-  `docs/v5/V5_RELEASE_SCORECARD.md`, чтобы длинный локальный прогон не кончился
+  `docs/archive/folders/v5/V5_RELEASE_SCORECARD.md`, чтобы длинный локальный прогон не кончился
   сюрпризом.
 - **Опросить настоящее хранилище.** `0d732c7`, `bossman_shared/objective_admission.py`:
   гипотеза «ключ конфликта не освобождается» проверена против реального store —

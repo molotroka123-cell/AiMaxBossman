@@ -1,7 +1,7 @@
 # Синхронизация для Argon, 14.10.2026 (читать первым, потом работать)
 
 > **Обновление 14.10 ~06:50:** `main` = `1dedfa92` (твоя ветка + исправления Claude влиты). Актуальный статус, цель
-> недели и порядок задач — `docs/owner/MASTER_PROMPT_ARGON_CONTINUE_20261014_RU.md`. Таблица SHA ниже — утренняя,
+> недели и порядок задач — `docs/archive/2026-10/owner/MASTER_PROMPT_ARGON_CONTINUE_20261014_RU.md`. Таблица SHA ниже — утренняя,
 > историческая; границы владельца (раздел 2) действуют без изменений.
 
 ## Поручение владельца — временное замещение на время прогона (14.10.2026)
@@ -57,9 +57,9 @@ git show origin/feat/bossman-2-2-20261013:AGENTS.md
 только из-за старой базы, ты их не удалял):
 
 ```
-git show origin/main:docs/owner/CHECKPOINT_20261013_NIGHT_RU.md
-git show origin/main:docs/owner/MASTER_PROMPT_PC_AGENT_20261013_RU.md
-git show origin/main:docs/owner/MASTER_PROMPT_PC_AGENT_CONTEXT_20261013_RU.md
+git show origin/main:docs/archive/2026-10/owner/CHECKPOINT_20261013_NIGHT_RU.md
+git show origin/main:docs/archive/2026-10/owner/MASTER_PROMPT_PC_AGENT_20261013_RU.md
+git show origin/main:docs/archive/2026-10/owner/MASTER_PROMPT_PC_AGENT_CONTEXT_20261013_RU.md
 ```
 
 Перед любым продвижением в `main`: влить `origin/main` в свою ветку обычным merge (без force, без reset), убедиться,
@@ -86,7 +86,7 @@ git show origin/main:docs/owner/MASTER_PROMPT_PC_AGENT_CONTEXT_20261013_RU.md
 
 ## 3. Что доказано и что нет по этапу 2.2 (не выдавать за готовое)
 
-Доказано живыми запусками 13.10 (источник: `docs/owner/CHECKPOINT_20261013_NIGHT_RU.md` в `main`):
+Доказано живыми запусками 13.10 (источник: `docs/archive/2026-10/owner/CHECKPOINT_20261013_NIGHT_RU.md` в `main`):
 - Правка кода + тесты + коммит + независимая облачная проверка (Nemotron Ultra free): задачи `4766e79c9d65`, `33b5bd4fbffd`.
 - Вызовы Motion Studio по белому списку (`GET … → 200`) и ответ по ним: `87ceb78d18a4`.
 - Самокоррекция на уровне инструмента (код 4 → верный запуск → 11 passed): `33b5bd4fbffd`.

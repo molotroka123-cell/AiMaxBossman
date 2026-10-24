@@ -36,7 +36,7 @@ git status --short ; git worktree list
 git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
 git checkout claude/telegram-live-calls-ah9gwl
 ```
-Прочитать: `AGENTS.md`, `BOSSMAN_1_5_START_HERE.md`, `docs/v1.5/README.md`, `docs/terminal/TERMINAL_RUN_1_2_MASTER.md`, `CLAUDE_NEXT_ACTION.md`, затем весь `docs/telegram-calls/`.
+Прочитать: `AGENTS.md`, `docs/archive/root-history/BOSSMAN_1_5_START_HERE.md`, `docs/v1.5/README.md`, `docs/terminal/TERMINAL_RUN_1_2_MASTER.md`, `CLAUDE_NEXT_ACTION.md`, затем весь `docs/telegram-calls/`.
 Окружение: Python 3.12, `pip install -e bossman-core -e "command-center[dev,terminal,calls]"`. Тесты модуля: `cd command-center && python -m pytest tests/telegram_calls -q` (запускать **из `command-center/`**, не из каталога пакета).
 
 **Устаревшее в `ARCHITECTURE.md` / `ACCEPTANCE.md` / `CONTINUE.md` (поправить первым делом, этот файл главнее):** там ещё «база release/bossman-owner», «1.9 не определена», «brain = telegram_companion», «Bossman-приветствие». Верно: база — линия 1.9, мозг — Jeff (PIT call surface), приветствие — Jeff, хранилище — каталог данных Bossman, API — `/api/telegram/calls/*` (алиас `/api/calls/*` **удалён 2026-09-30**, события шины — только `telegram_call.state` / `telegram_call.ended`). Эти три файла приведены в соответствие 2026-09-30.

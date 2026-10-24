@@ -7,7 +7,7 @@
   на GitHub Actions 86.8 с
   (`cd command-center && timeout 900 python -u -m pytest -q`)
 - **Пропуск** — реальный host-smoke по `opencode serve`: бинаря нет, честно не засчитан
-- **Итог фазы:** [`V2_2_CURRENT_PHASE_FINAL_REPORT.md`](V2_2_CURRENT_PHASE_FINAL_REPORT.md)
+- **Итог фазы:** [`V2_2_CURRENT_PHASE_FINAL_REPORT.md`](archive/2026-08/docs-root/V2_2_CURRENT_PHASE_FINAL_REPORT.md)
 
 Предыдущая версия этого файла (состояние на ночь перед V2.2) описывала
 незакрытые пункты. Все они разобраны ниже — с указанием, что стало.

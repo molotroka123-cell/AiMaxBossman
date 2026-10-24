@@ -226,7 +226,7 @@ Features in `command-center/bcc/features/*.py` are picked up automatically by `f
 
 **Legacy code**: the bossman-core operator routes `POST /tasks`, `/tasks/{i}/pause|resume|take-control|stop` and `/emergency-lock` still exist in `bossman-core/bossman/computer_operator/routes.py`. The backlog asks to retire or re-gate them (item 9).
 
-**Evidence**: `docs/owner/WORKBENCH_20260926.md:291` records a live owner-desktop PASS: Notepad type/save, STOP race, resume, Calculator. The release smoke test `docs/owner/RC19_OWNER_SMOKE.md:165` still contains the unfilled placeholder **`{B_COMPUTER_USE_STEPS}`**. Final installed-bytes CU plus STOP/resume is still open (`TOMORROW_CHECKLIST.md:18`, `TOMORROW_OPERATOR_RUNBOOK.md:77`).
+**Evidence**: `docs/archive/2026-10/owner/WORKBENCH_20260926.md:291` records a live owner-desktop PASS: Notepad type/save, STOP race, resume, Calculator. The release smoke test `docs/owner/RC19_OWNER_SMOKE.md:165` still contains the unfilled placeholder **`{B_COMPUTER_USE_STEPS}`**. Final installed-bytes CU plus STOP/resume is still open (`TOMORROW_CHECKLIST.md:18`, `TOMORROW_OPERATOR_RUNBOOK.md:77`).
 
 **Unfinished**, from `docs/owner/DECISIONS_BACKLOG.md:25-35`:
 

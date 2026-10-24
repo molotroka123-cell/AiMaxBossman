@@ -1,6 +1,6 @@
 # V7 multi-model audit corpus — synthesis against the night branch
 
-Input: the eight pinned branches in `docs/night/V7_MULTIMODEL_AUDIT_REFERENCES_20260908.md`,
+Input: the eight pinned branches in `docs/archive/folders/night/V7_MULTIMODEL_AUDIT_REFERENCES_20260908.md`,
 read at their pinned SHAs. Every one matched.
 
 This file is a record of what was decided, not a substitute for the deciding.

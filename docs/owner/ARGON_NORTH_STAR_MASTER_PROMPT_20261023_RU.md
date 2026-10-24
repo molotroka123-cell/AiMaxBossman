@@ -8,7 +8,7 @@
 3. [NORTH_STAR_LEAF_INDEX_20261022.json](NORTH_STAR_LEAF_INDEX_20261022.json) — индекс **всех 912 дочерних узлов, включая 8 retired**, стабильные IDs и source paths. Активных 904, но это не 904 багов: статус и доказательность проверяются индивидуально.
 4. [CHECKPOINT_20261022_02_FRESH_OSS_RU.md](CHECKPOINT_20261022_02_FRESH_OSS_RU.md) — релизы OSS за последнюю неделю, источники и PoC gates.
 5. [BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md](BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md) и [BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md](BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md) — claims Argon, не переносить их PASS без проверки.
-6. [MP21_NORTH_STAR_TREE_20261011.md](MP21_NORTH_STAR_TREE_20261011.md), [BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md](BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md), `command-center/bcc/capability_tree_seed.json`, `tools/tree_registry_sync.py`, `tools/tree_apply_evidence.py`.
+6. [MP21_NORTH_STAR_TREE_20261011.md](../archive/2026-10/owner/MP21_NORTH_STAR_TREE_20261011.md), [BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md](BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md), `command-center/bcc/capability_tree_seed.json`, `tools/tree_registry_sync.py`, `tools/tree_apply_evidence.py`.
 
 ## Нулевое правило
 

@@ -9,7 +9,7 @@
 Дата снимка: 2026-10-18
 Проверено на: `fb58317fbeea48045bb1ceb78730ce9b9f6cface` (`origin/main`, коммит от 2026-10-18 10:10 -0700)
 Статус документа: сверка кода и запущенных сейчас тестов; **не сертификат, не приёмка, не owner-PC proof**.
-Связанные документы: [`BOSSMAN_2_5_DESIGN_AND_OSS_RU.md`](BOSSMAN_2_5_DESIGN_AND_OSS_RU.md), [`MASTER_PROMPT_BOSSMAN_2_5_ONE_RUN_RU.md`](MASTER_PROMPT_BOSSMAN_2_5_ONE_RUN_RU.md), [`TREE_15_DIRECTIONS_20261014_RU.md`](TREE_15_DIRECTIONS_20261014_RU.md).
+Связанные документы: [`BOSSMAN_2_5_DESIGN_AND_OSS_RU.md`](BOSSMAN_2_5_DESIGN_AND_OSS_RU.md), [`MASTER_PROMPT_BOSSMAN_2_5_ONE_RUN_RU.md`](../archive/2026-10/owner/MASTER_PROMPT_BOSSMAN_2_5_ONE_RUN_RU.md), [`TREE_15_DIRECTIONS_20261014_RU.md`](TREE_15_DIRECTIONS_20261014_RU.md).
 
 > Файл с таким именем в `origin/main` на `fb58317f` не существовал (ни в ветках, ни в соседних
 > checkout-ах). Он создан этим коммитом. Прежних утверждений «15 направлений приняты» не было и нет.

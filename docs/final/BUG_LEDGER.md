@@ -5045,7 +5045,7 @@ FAILED test_three_vanished_targets_demote_the_capability
 (`grep audit.write` вне `session.py` — пусто). Перенести их сейчас значило бы
 завести недостижимый интерфейс. Они переносятся ВМЕСТЕ с тем, кому нужны, —
 адаптером порождения медиа, — и до тех пор остаются записью в
-`CONVERGENCE_DECISIONS.md`, а не кодом.
+`docs/archive/root-history/CONVERGENCE_DECISIONS.md`, а не кодом.
 
 ---
 

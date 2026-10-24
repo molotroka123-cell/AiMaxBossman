@@ -106,7 +106,7 @@
 
 ## Поздняя дельта перед публикацией
 
-Сравнение `692b5c01… → 172d39e1…`: три коммита, без изменений README. Добавлены `CONVERGENCE_DECISIONS.md`, проверка обязательных workflow по exact SHA, её тесты и тест однократного потребления approval; дополнен ledger. Авторский отчёт о новом тесте не заменяет собственный live-прогон.
+Сравнение `692b5c01… → 172d39e1…`: три коммита, без изменений README. Добавлены `docs/archive/root-history/CONVERGENCE_DECISIONS.md`, проверка обязательных workflow по exact SHA, её тесты и тест однократного потребления approval; дополнен ledger. Авторский отчёт о новом тесте не заменяет собственный live-прогон.
 
 Критическое уточнение: прежнее полное отклонение PR #59 было основано на неверной трактовке запроса владельца. Последняя матрица отличает собственный fork внутри Bossman от подключения сервиса. `job_store`, `content_buffer`, `persona`, `segment_qa`, `route_inputs`, `pipeline`, `workspace` и доказательство отправки требуют переноса; канонические media/probe, browser-защиты и protected paths переиспользуются. Этот README не утверждает, что перенос уже сделан, и не сохраняет устаревшее «всё отклонено». Приоритет интегратора P2 не разрешает потерять ранее согласованную способность.
 
@@ -129,7 +129,7 @@
 
 ## Источники и воспроизводимость
 
-Основные локальные документы: [KNOWN_GOOD](../../final/KNOWN_GOOD_SHAS.json), [CURRENT_STATE](../../final/CURRENT_STATE.md), [BUG_LEDGER](../../final/BUG_LEDGER.md), [матрица](../CAPABILITY_MATRIX.md), [бюджеты](../RESPONSIVENESS_BUDGET_RU.md), [метрики](../PERF_METRICS_ASYNC_RU.md), [Telegram](../TELEGRAM_COMPANION_RU.md), [текущие решения](../../../CONVERGENCE_DECISIONS.md), [история salvage](../SALVAGE_PR59_PR60_RU.md).
+Основные локальные документы: [KNOWN_GOOD](../../final/KNOWN_GOOD_SHAS.json), [CURRENT_STATE](../../final/CURRENT_STATE.md), [BUG_LEDGER](../../final/BUG_LEDGER.md), [матрица](../CAPABILITY_MATRIX.md), [бюджеты](../RESPONSIVENESS_BUDGET_RU.md), [метрики](../PERF_METRICS_ASYNC_RU.md), [Telegram](../TELEGRAM_COMPANION_RU.md), [текущие решения](../../archive/root-history/CONVERGENCE_DECISIONS.md), [история salvage](../SALVAGE_PR59_PR60_RU.md).
 
 Проверяемые GitHub точки:
 

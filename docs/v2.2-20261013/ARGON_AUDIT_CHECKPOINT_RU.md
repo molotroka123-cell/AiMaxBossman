@@ -36,7 +36,7 @@ af92 фиксирует owner-adopted конституцию v2; текущий 
 документацией. Обычные Edit2509/Wan5B не uncensored, скачанный A14B не inference PASS.
 Референсы — conditioning, не LoRA. Полный Windows-agent, доход и freeze не доказаны.
 
-Ночной handoff cd71 находится в main: docs/owner/CHECKPOINT_20261013_NIGHT_RU.md,
+Ночной handoff cd71 находится в main: docs/archive/2026-10/owner/CHECKPOINT_20261013_NIGHT_RU.md,
 MASTER_PROMPT_PC_AGENT_20261013_RU.md и MASTER_PROMPT_PC_AGENT_CONTEXT_20261013_RU.md.
 Его live code/tests/Motion результаты и остановка source-сервисов — датированные
 утверждения для сверки по task/evidence IDs, не новый независимый прогон. Платный Jeff

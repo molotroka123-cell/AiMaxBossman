@@ -49,7 +49,7 @@
 
 ## Как судить на слух
 
-Файл: `C:\Users\asd\Bossman\voice-stress-20261011\LISTENING_SHEET.md` (и копия `docs/owner/VOICE_STRESS_LISTENING_SHEET_20261011.md`). Сравнивайте клипы одного номера NN между собой.
+Файл: `C:\Users\asd\Bossman\voice-stress-20261011\LISTENING_SHEET.md` (и копия `docs/archive/2026-10/owner/VOICE_STRESS_LISTENING_SHEET_20261011.md`). Сравнивайте клипы одного номера NN между собой.
 
 1. Начните с `A_plain_NN` (как сейчас) и `F_acute_poly_NN` (новый по умолчанию). Слушайте только перечисленные в листе слова.
 2. Оценка на слово: верно / неверно. Не оценивайте тембр.

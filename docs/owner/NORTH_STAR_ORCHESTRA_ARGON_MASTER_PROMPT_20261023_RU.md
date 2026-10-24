@@ -14,7 +14,7 @@ Read these files first:
 - `docs/owner/CHECKPOINT_20261022_02_FRESH_OSS_RU.md` — upstream releases from 15–22 Oct; **release existence verified, integration not run**.
 - `docs/owner/BOSSMAN_15_VECTORS_45_STEPS_20261019_RU.md` — 15 directions and 45 prioritised increments.
 - `docs/owner/BOSSMAN_UNIFIED_15X3_FINAL_ACCEPTANCE.md` and `docs/owner/BOSSMAN_MOBILE_OPENCODE_ACCEPTANCE.md` — prior Argon **claims**; independently re-verify against exact target SHA.
-- `tools/tree_registry_sync.py`, `tools/tree_apply_evidence.py`, `command-center/bcc/capability_tree_seed.json`, `docs/owner/MP21_NORTH_STAR_TREE_20261011.md`.
+- `tools/tree_registry_sync.py`, `tools/tree_apply_evidence.py`, `command-center/bcc/capability_tree_seed.json`, `docs/archive/2026-10/owner/MP21_NORTH_STAR_TREE_20261011.md`.
 - `README.md` section `Codex / ChatGPT` — independent architecture opinion, not an acceptance certificate.
 
 ## 1 — Materialize a per-leaf execution board before coding

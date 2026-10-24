@@ -12,7 +12,7 @@
 1. `AGENTS.md` — ограничения владельца; North Star ladder; «спецификация ≠ доказательство».
 2. `docs/owner/ARGON_NORTH_STAR_MASTER_PROMPT_20261023_RU.md` + `docs/owner/NORTH_STAR_LEAF_INDEX_20261022.json` — твой манифест листьев.
 3. `docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md` — 2x: **сначала трассировка, потом оптимизация**; 2x — цель, не результат.
-4. `docs/owner/NORTH_STAR_ORCHESTRA_ACCEPTANCE_20261023.md` — твой receipt создания навыка; в этом прогоне его надо **повторить на холодном рантайме** (§3, G5).
+4. `docs/owner/runs/north-star-20261023/FINAL_ACCEPTANCE_RU.md` — твой receipt создания навыка; в этом прогоне его надо **повторить на холодном рантайме** (§3, G5).
 5. `docs/owner/CLAIMS_AUDIT_20261022_RU.md` (ветка `chore/cleanup-north-star-docs-20261022`) — 27 утверждений: 10 VERIFIED_IN_TREE, 4 UNVERIFIABLE, 6 CONTRADICTED, 5 OVERSTATED. Не переносить CONTRADICTED/OVERSTATED в новые отчёты.
 6. `docs/audits/2026-10-22-tools-skills-proof/PROOF_MATRIX_RU.md` (ветка `test/tools-skills-proof-20261021`) — независимая матрица: инструменты 112 → PROVEN_EXECUTED 19, PROVEN_GATED 5, FAILED 1, NOT_RUN 87; навыки 67 → PROVEN_EXECUTED 12, STRUCTURAL_ONLY 50; **меняет ли навык результат — OUTCOME_UNPROVEN**.
 7. `docs/north-star/NORTH_STAR_PREP_20261022_RU.md` (задание владельца дословно) и `docs/north-star/CYBER_DEFENSE_SPEC_20261022_RU.md`.

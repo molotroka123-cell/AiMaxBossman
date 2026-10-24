@@ -1,6 +1,6 @@
 # 08. Калькулятор объёма обменника и SwapMe-bot (сверено 11.10.2026)
 
-Полный аудит, формулы и результаты: `docs/owner/MP21_C_EXCHANGE_CALCULATOR_20261011.md`. Код: `tools/exchange_volume/`
+Полный аудит, формулы и результаты: `docs/archive/2026-10/owner/MP21_C_EXCHANGE_CALCULATOR_20261011.md`. Код: `tools/exchange_volume/`
 (`timeutil.py`, `parse.py`, `calc.py`, `reconcile.py`, `cli.py`), тесты `tests/exchange_volume` (25 passed, 1 skipped).
 Только stdlib и `Decimal`, без сети.
 

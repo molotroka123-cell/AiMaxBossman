@@ -276,7 +276,7 @@ the packages coexist. They are not invented release dates or certifications.
 | Epoch | Architectural stage | Repository basis |
 |---|---|---|
 | 1 | Local agents and policy-controlled tools | Core Gateway, tools, approvals and desktop operator; `docs/context/V1_RC_FINAL_REPORT.md` includes live/host limitations. |
-| 2 | Mission orchestration and operator control | `docs/V2_IMPLEMENTATION_REPORT.md`: feature hooks, persistent missions, worker pool, router, governor, browser, terminal, skills and MCP. |
+| 2 | Mission orchestration and operator control | `docs/archive/2026-08/docs-root/V2_IMPLEMENTATION_REPORT.md`: feature hooks, persistent missions, worker pool, router, governor, browser, terminal, skills and MCP. |
 | 3 | Evidence-bound execution and recoverable coordination | V3 journal/compound/adapters, Organization and Fleet; commits `2c6c1ef`, `558a764`, `000f331`, `db5defb`, `2077bbf`. Current closure is still in progress. |
 | 4 | Bossman Continuity | This defined execution contract; delivery requires the gates below. |
 
@@ -681,13 +681,13 @@ No claim that 128 GB hardware tests ran on a machine not actually available.
 ## Epoch 5
 
 **Bossman Steward** — owner-defined desired state sustained through bounded,
-verified Continuity missions. See [the canonical Epoch 5 plan](../v5/EPOCH_5_PLAN.md).
+verified Continuity missions. See [the canonical Epoch 5 plan](../archive/folders/v5/EPOCH_5_PLAN.md).
 It adds a lifecycle above missions; it does not replace the executor, policy,
 approval, evidence or budget authorities. Implementation has not started.
 
 Owner scope amendment, 2026-09-06:
 WHAT CHANGED: Epoch 5 is now explicitly designed; added the cross-epoch
-[product quality contract](../PRODUCT_EVOLUTION_CONTRACT.md), including UX,
+[product quality contract](../architecture/PRODUCT_EVOLUTION_CONTRACT.md), including UX,
 installation, accessibility, responsiveness and resource budgets.
 WHY: owner explicitly requested both Epochs 4 and 5 while Fable closes V3,
 covering the whole application and conserving usage limits.

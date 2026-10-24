@@ -8,7 +8,7 @@
 
 ## 12.10.2026 — актуальное продолжение: CI на головном SHA → подтверждение владельца → PR в `main`
 
-Read `docs/owner/FINAL_CLOSE_20261012_RU.md` first (verdict, check reconciliation, DEGRADED analysis, CI causes).
+Read `docs/archive/2026-10/owner/FINAL_CLOSE_20261012_RU.md` first (verdict, check reconciliation, DEGRADED analysis, CI causes).
 Verdict there is **CANDIDATE BLOCKED**: source `94e40cd17822ab04877433fa4979a3774485195e` is built, verified,
 accepted on Windows and installed (archive `BOSSMAN-Windows-x64-94e40cd17822.zip`, SHA256 `40cdbc17…a401`), but its CI
 is not certified. `main` = `2f4af952320b9156d066da3778dc7d12c8f0173a`, PR #108 is draft; do not merge before green
@@ -29,7 +29,7 @@ Keep the historical evidence below.
 
 Owner selected AGPL. Continue in `wt-unified-20261010`, branch
 `feat/bossman-genjutsu-jeff-unified-20261010`. Read
-`docs/owner/UNIFIED_AGPL_20261011_RU.md` and its checks JSON before using older
+`docs/archive/2026-10/owner/UNIFIED_AGPL_20261011_RU.md` and its checks JSON before using older
 handoffs below. RC, ads/hair, Motion V2 and Vibe changes have been ported; existing
 Poker/exchange/trading/North Star/Jeff/voice changes were reconciled.
 First compare actual local/remote HEAD and required CI. One real local Ollama
@@ -43,7 +43,7 @@ these test results. Preserve remaining untracked Fable materials. The older
 # 10.10.2026 — video gates, Jeff close-out, unified branch (read first)
 
 Read `docs/owner/HANDOFF_20261010.md` first (state, proof, owner blockers, ordered steps), then
-`docs/owner/VIDEO_PIPELINE_STAGES_20261010.md` and `docs/owner/BOSSMAN_PROD_AUDIT_AND_CLEANUP_TZ_20261010.md`.
+`docs/owner/VIDEO_PIPELINE_STAGES_20261010.md` and `docs/archive/2026-10/owner/BOSSMAN_PROD_AUDIT_AND_CLEANUP_TZ_20261010.md`.
 `main` = `2f4af952` (untouched). Candidate `claude/main-prod-20261009` = `a1564fef`, PR #107 → `main`, CI 76 pass /
 6 fail (root pytest py3.11/3.12, browser-user-paths, retention). Work continues on the local, unpushed
 `ux/genjutsu-live-constructor` (tip `7db5facf`). Installed build `6de18f8d` is 129 commits behind `a1564fef`.
@@ -67,8 +67,8 @@ Pult writes only to the owner; no paid service without an explicit yes; personal
 # 08.10.2026 — one Bossman line
 
 Canonical is `main`. The 2.1 one-line integration (green/tree-leaves 4a14c26c + old main + 08.10 fixes) lands
-through PR #98. Start with `docs/owner/BOSSMAN_SIMPLE_STATE_20261008.md` (what exists / what is missing),
-`docs/owner/OWNER_RUN_20261008.md` (install, checks, rollback) and `docs/trading/K1M6A_DAY_RUNBOOK_20261008.md`
+through PR #98. Start with `docs/archive/2026-10/owner/BOSSMAN_SIMPLE_STATE_20261008.md` (what exists / what is missing),
+`docs/archive/2026-10/owner/OWNER_RUN_20261008.md` (install, checks, rollback) and `docs/trading/K1M6A_DAY_RUNBOOK_20261008.md`
 (K1m6a from #26, sealed reference, BASELINE/LESSONS/RESTART_TRANSFER, unsupervised 2 h). Do not open new final
 branches; work on an isolated branch and integrate into `main` through a PR with green CI.
 The documentation-only checkpoints below (13-zone audit, K1m6a plan) were written earlier the same night; the owner

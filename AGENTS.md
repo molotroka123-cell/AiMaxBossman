@@ -144,7 +144,7 @@ authorization remains valid within scope; do not repeatedly ask for the same act
 
 Before making product, release, training, memory, model-routing or self-improvement decisions, read:
 
-- `BOSSMAN_1_5_START_HERE.md` and `docs/v1.5/README.md` — owner-authorized 1.5 specification and today's convergence handoff, 2026-09-23; documentation is not activation or certification;
+- `docs/archive/root-history/BOSSMAN_1_5_START_HERE.md` and `docs/v1.5/README.md` — owner-authorized 1.5 specification and today's convergence handoff, 2026-09-23; documentation is not activation or certification;
 - `docs/terminal/TERMINAL_RUN_1_2_MASTER.md` — latest owner clarification, 2026-09-23;
 - `docs/evo/BOSSMAN_1_1_NORTH_STAR.md`;
 - `CLAUDE_NEXT_ACTION.md`;

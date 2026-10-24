@@ -20,7 +20,7 @@ from the task description.
 | GitHub default | `799fc3dd8e4327811be9d8f3e33cc43ce8168977` | `main`, not merged |
 
 **BASE_SHA = `5c19eea`** (runtime identical to `910ca90`; the extra commit is
-`docs/final_closure/FINAL_CLOSURE_REPORT.md` and nothing else — verified by
+`docs/archive/folders/final_closure/FINAL_CLOSURE_REPORT.md` and nothing else — verified by
 `git diff --stat`).
 
 ### Why PR60 was ported and not merged

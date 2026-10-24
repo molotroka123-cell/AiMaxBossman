@@ -1,7 +1,7 @@
 # BOSSMAN: сведение и OSS-интеграция — итог с явным вердиктом
 
 Документ требуется спецификацией владельца
-(`docs/convergence/MASTER_PROMPT_CONVERGENCE.md`, раздел 6). Он короткий
+(`docs/archive/folders/convergence/MASTER_PROMPT_CONVERGENCE.md`, раздел 6). Он короткий
 намеренно: подробности лежат в названных ниже файлах, а здесь — вердикт и то,
 на чём он держится.
 
@@ -34,7 +34,7 @@
 | `claude/bossman-final-completion-kymr05` | **0** |
 
 Обе вершины — предки текущей. Проверка и оговорка про подрезанный клон:
-`docs/convergence/REMOTE_TRUTH.md`.
+`docs/archive/folders/convergence/REMOTE_TRUTH.md`.
 
 ### Наборы тестов
 
@@ -130,7 +130,7 @@ REFERENCE_ONLY; LocalAI — REJECT; SDK распознавания лиц — **
 
 | Вопрос | Документ |
 |---|---|
-| удалённая истина и SHA | `docs/convergence/REMOTE_TRUTH.md` |
+| удалённая истина и SHA | `docs/archive/folders/convergence/REMOTE_TRUTH.md` |
 | что сейчас верно про продукт | `docs/final/CURRENT_STATE.md` |
 | почему каждая починка существует | `docs/final/BUG_LEDGER.md` |
 | каждая кнопка нажата | `docs/final/UI_ACCEPTANCE_REPORT.md` |

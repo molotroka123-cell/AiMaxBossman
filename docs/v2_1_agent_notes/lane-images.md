@@ -1,7 +1,7 @@
 # Lane «Изображения» — заметка для лида
 
 Коммит на момент сдачи: `55f976e`. Ветка `claude/bossman-control-v03-43igbk`.
-Полный отчёт — `docs/IMAGES_FEATURE_REPORT.md`. Здесь только то, что важно знать
+Полный отчёт — `docs/archive/2026-08/docs-root/IMAGES_FEATURE_REPORT.md`. Здесь только то, что важно знать
 при слиянии.
 
 ## Что менял

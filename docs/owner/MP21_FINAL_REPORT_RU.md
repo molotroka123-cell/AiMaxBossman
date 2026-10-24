@@ -22,7 +22,7 @@
 |---|---|---|
 | Листья, добавленные в этом проходе | 3, статус `code` (зелёный статус только из квитанций): `reg-local_only_switch`, `reg-offline_smoke_local_only`, `reg-mp21_project_map` | `command-center/bcc/capability_tree_seed.json` (896 узлов), `docs/owner/runs/mp21_a_leaf_manifest_20261011.json` |
 | Листья, закрытые (переведённые в зелёный) | 0 | |
-| Листья с отсутствующими sources | 49 (9 `mod-*`, 19 `module-*`, 12 `cap-*`, 3 skills, 1 app, 5 ci) | `docs/owner/MP21_NORTH_STAR_TREE_20261011.md` |
+| Листья с отсутствующими sources | 49 (9 `mod-*`, 19 `module-*`, 12 `cap-*`, 3 skills, 1 app, 5 ci) | `docs/archive/2026-10/owner/MP21_NORTH_STAR_TREE_20261011.md` |
 | Копии дерева | 3 разных даты: seed 896, publisher 879, развёрнутый клон 836 | там же |
 | Ступень 1 `SELF_IMPROVEMENT_INFRASTRUCTURE_PRESENT` | достигнута (единственная в `ladder.override.json`) | |
 | Ступень 2 `SELF_REPAIR_SINGLE_CYCLE_PASS` | PASS по определению сайта, PARTIAL по строгому порогу документа | `docs/evidence/north-star-ladder-20261010.md` |
@@ -35,7 +35,7 @@
 
 ## 3. Статусы функций
 
-Построчный инвентарь (186 модулей `bcc`, 55 страниц UI, 143 записи `tools`): `docs/owner/MP21_PROJECT_MAP_20261011.md`.
+Построчный инвентарь (186 модулей `bcc`, 55 страниц UI, 143 записи `tools`): `docs/archive/2026-10/owner/MP21_PROJECT_MAP_20261011.md`.
 Сводка: works (исполненный тест с rc 0 импортирует модуль) 23 строки; partial 350 строк (из них 41 «код без тестов»);
 missing и broken без свидетельства не помечались. Все 309+41 `partial` означают «не доказано здесь», а не «сломано».
 Исправления и добавления этого цикла получили собственные прогоны (раздел 4).

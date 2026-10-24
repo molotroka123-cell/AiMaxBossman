@@ -39,8 +39,8 @@ remote_access, исправлено в этом коммите).
 
 ## Незакоммиченная работа (чужая, не трогалась)
 
-`CLAUDE_NEXT_ACTION.md`, `docs/owner/MOTION_STUDIO_V2_ACCEPTANCE_20261011.md`,
-`docs/owner/UNIFIED_AGPL_20261011_RU.md` (правки другого исполнителя); untracked
+`CLAUDE_NEXT_ACTION.md`, `docs/archive/2026-10/owner/MOTION_STUDIO_V2_ACCEPTANCE_20261011.md`,
+`docs/archive/2026-10/owner/UNIFIED_AGPL_20261011_RU.md` (правки другого исполнителя); untracked
 `tools/cloud_*`, `tools/outpaint_test`, `tools/v2_pipeline`, `docs/evidence/limits-out-*`,
 `docs/evidence/orchestra-cloud`, `docs/owner/CONTINUATION_20261011.md`,
 `MASTER_PROMPT_PRODUCTION_CLOSEOUT_20261011_RU.md`, `TELEGRAM_MONETIZATION_WORKFLOW_20261011.md`.

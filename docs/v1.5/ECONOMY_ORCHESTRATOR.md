@@ -145,7 +145,7 @@ As soon as Bossman 1.5 reaches OWNER_READY closure — or only explicitly non-bl
 
 [Bossman 1.6 self-evolution branch](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-self-evolution-20260925)
 
-Start with `BOSSMAN_1_6_START_HERE.md`.
+Start with `docs/archive/root-history/BOSSMAN_1_6_START_HERE.md`.
 
 One-run objective:
 

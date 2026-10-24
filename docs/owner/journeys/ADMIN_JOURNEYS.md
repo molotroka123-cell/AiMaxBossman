@@ -5,7 +5,7 @@ are in `C:\Users\asd\Bossman\evidence\rc19\d\journeys\` (outside Git).
 
 ## Sources of the scenarios
 
-The owner-approved sources are `docs/owner/WORKBENCH_20260926.md` (three source lanes),
+The owner-approved sources are `docs/archive/2026-10/owner/WORKBENCH_20260926.md` (three source lanes),
 `docs/owner/CONTINUE_FREEZE_FINAL.md` item 4 (keep the admin briefs separate; no trading, no
 financial authority, no medical claims, no external publication from a model draft),
 `docs/v1.6/BUSINESS_GROWTH_ENGINE.md` (`swapme`, `fresh_vibes_dental`, `fresh_vibes_beauty`

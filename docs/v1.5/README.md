@@ -83,7 +83,7 @@ Market observation and training may run in parallel with self-repair. Trading ex
 - обычная работа проходит без внешнего auditor/coding agent;
 - открытых P0 и release-blocking P1 по 1.5 surface нет.
 
-Canonical tomorrow directive: [../owner/CODEX_BOSSMAN_1_5_RUN_20260925.md](../owner/CODEX_BOSSMAN_1_5_RUN_20260925.md).
+Canonical tomorrow directive: [../owner/CODEX_BOSSMAN_1_5_RUN_20260925.md](../archive/2026-10/owner/CODEX_BOSSMAN_1_5_RUN_20260925.md).
 
 ---
 

@@ -8,10 +8,10 @@ This file is a navigation pointer, not a certificate. Documentation preparation 
 - [Install the chosen Windows artifact](INSTALL.md).
 - [Owner first-run protocol: HW-01…HW-13](OWNER_ACCEPTANCE.md).
 - [Final integrator instruction](CLAUDE_NEXT_ACTION.md).
-- [Final close 12.10.2026: verdict CANDIDATE BLOCKED for source `94e40cd1`, check reconciliation, DEGRADED analysis, CI causes](docs/owner/FINAL_CLOSE_20261012_RU.md) — facts, not a certificate.
+- [Final close 12.10.2026: verdict CANDIDATE BLOCKED for source `94e40cd1`, check reconciliation, DEGRADED analysis, CI causes](docs/archive/2026-10/owner/FINAL_CLOSE_20261012_RU.md) — facts, not a certificate.
 - [Capability-tree audit checkpoint 08.10 (13 zones, what exists / what is missing / where to start)](docs/audits/2026-10-08-tree-audit-13-zones/README.md) — PARTIAL, not a certificate.
 - [Known limitations](KNOWN_LIMITATIONS.md).
-- [Historical capability decisions](CONVERGENCE_DECISIONS.md).
+- [Historical capability decisions](docs/archive/root-history/CONVERGENCE_DECISIONS.md).
 - [Salvage ledger](docs/final/FINAL_SALVAGE_LEDGER.md).
 
 Authoritative release evidence identifies TESTED_SHA, executed mandatory workflow/job results, artifact source SHA and the SHA-256 of the exact distributed ZIP. Latest remote HEAD is the development tip; it is not automatically the tested install target. A later commit does not invalidate evidence for the older bytes, but cannot inherit it.

@@ -16,7 +16,7 @@ Claude исчерпал лимиты. Ты — исполнитель завер
 Кандидат объединяет опубликованные Fable hardening `9d3f82ac` и Steward `3f8c7171`
 через `945b8f86`. Интеграция не доказывает приёмку. Прочитай:
 `docs/testing/CLOSURE_CHECKPOINT_20260906.md`,
-`docs/v4/EPOCH_4_PLAN.md`, `docs/v5/V5_RELEASE_SCORECARD.md`.
+`docs/v4/EPOCH_4_PLAN.md`, `docs/archive/folders/v5/V5_RELEASE_SCORECARD.md`.
 Исторические PASS не переносить на HEAD. Reference-код из handoffs НЕ runtime.
 Не повторяй уже исправленные FFmpeg/Fleet/DOM задачи без новой репродукции.
 

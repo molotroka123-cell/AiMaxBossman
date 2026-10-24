@@ -3,7 +3,7 @@
 Репозиторий: `molotroka123-cell/AiMaxBossman`.
 ЕДИНСТВЕННАЯ ЦЕЛЕВАЯ ВЕТКА: `release/bossman-owner`.
 
-Нужны фактическое сведение, тесты и push, не новый план. Документация 1.5 уже здесь: `BOSSMAN_1_5_START_HERE.md`, весь `docs/v1.5/`. Сохрани её. Сначала завершить integration сегодняшнего кода; не пытаться за одну сессию реализовать ещё несуществующие телефон/покупки.
+Нужны фактическое сведение, тесты и push, не новый план. Документация 1.5 уже здесь: `docs/archive/root-history/BOSSMAN_1_5_START_HERE.md`, весь `docs/v1.5/`. Сохрани её. Сначала завершить integration сегодняшнего кода; не пытаться за одну сессию реализовать ещё несуществующие телефон/покупки.
 
 ## Сначала
 
@@ -72,7 +72,7 @@ As soon as Bossman 1.5 reaches OWNER_READY closure — or only explicitly non-bl
 
 [Bossman 1.6 self-evolution branch](https://github.com/molotroka123-cell/AiMaxBossman/tree/feat/bossman-1.6-self-evolution-20260925)
 
-Start with `BOSSMAN_1_6_START_HERE.md`.
+Start with `docs/archive/root-history/BOSSMAN_1_6_START_HERE.md`.
 
 One-run objective:
 

@@ -8,7 +8,7 @@ War Terminal :8830, генерация фото и видео, помощник 
 Tier-1: быстро, надёжно, красиво, предсказуемо, безопасно. Не переписывать, не делать второй
 бэкенд, бот или базу. Улучшать то, что есть.
 
-Сначала прочитай: AGENTS.md, docs/owner/BOSSMAN_DAY_20261019_RU.md,
+Сначала прочитай: AGENTS.md, docs/archive/2026-10/owner/BOSSMAN_DAY_20261019_RU.md,
 docs/owner/BOSSMAN_2_5_NEXT_VECTOR_45_RU.md. Сверь origin/main, рабочий чекаут, /health/live
 (source_identity PASS) и очередь генераций.
 
