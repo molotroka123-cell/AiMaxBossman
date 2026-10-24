@@ -1,0 +1,844 @@
+{
+  "receipt": "scenario-D site audit (dental niche) — evidence-only findings, emulator, no outreach",
+  "date": "2026-10-24",
+  "verdict": "PASS",
+  "checks": {
+    "bad_fixture_expected_found": true,
+    "good_fixture_zero_findings": true,
+    "finding_without_evidence_rejected": true,
+    "robots_disallow_respected": true,
+    "discount_above_limit_refused": true,
+    "no_delivery_code": true,
+    "emulator_clean_control_fp_zero": true,
+    "emulator_fabricated_zero": true,
+    "emulator_recall_ge_0_9": true,
+    "example_com_audited": true
+  },
+  "fixtures": {
+    "bad": {
+      "url": "http://127.0.0.1:57558/bad/index.html",
+      "status": "ok",
+      "http_status": 200,
+      "findings": [
+        {
+          "id": "no_viewport_meta",
+          "severity": "high",
+          "evidence": {
+            "meta_viewport": "missing",
+            "mobile_zoom_scale": 0.325
+          }
+        },
+        {
+          "id": "mobile_horizontal_overflow",
+          "severity": "high",
+          "evidence": {
+            "viewport_width_px": 390,
+            "content_width_px": 1200
+          }
+        },
+        {
+          "id": "small_text_mobile",
+          "severity": "medium",
+          "evidence": {
+            "small_text_elements": 10,
+            "text_elements": 10,
+            "min_font_px": 12.0,
+            "samples": [
+              {
+                "selector": "a",
+                "effective_font_px": 3.2,
+                "text": "Uvod"
+              },
+              {
+                "selector": "a",
+                "effective_font_px": 3.2,
+                "text": "O nas"
+              },
+              {
+                "selector": "a",
+                "effective_font_px": 3.2,
+                "text": "Cenik"
+              }
+            ]
+          }
+        },
+        {
+          "id": "small_tap_targets",
+          "severity": "medium",
+          "evidence": {
+            "small_targets": 5,
+            "targets_checked": 5,
+            "min_px": 24.0,
+            "samples": [
+              {
+                "selector": "a",
+                "width_px": 8,
+                "height_px": 4,
+                "text": "Uvod"
+              },
+              {
+                "selector": "a",
+                "width_px": 9,
+                "height_px": 4,
+                "text": "O nas"
+              },
+              {
+                "selector": "a",
+                "width_px": 9,
+                "height_px": 4,
+                "text": "Cenik"
+              }
+            ]
+          }
+        },
+        {
+          "id": "missing_meta_description",
+          "severity": "low",
+          "evidence": {
+            "meta_description": "missing"
+          }
+        },
+        {
+          "id": "missing_h1",
+          "severity": "low",
+          "evidence": {
+            "h1_count": 0
+          }
+        },
+        {
+          "id": "missing_lang",
+          "severity": "low",
+          "evidence": {
+            "html_lang": "missing"
+          }
+        },
+        {
+          "id": "images_without_alt",
+          "severity": "low",
+          "evidence": {
+            "images_without_alt": 2,
+            "images_total": 3,
+            "samples": [
+              "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+              "data:image/gif;base64,R0lGODlhAQABAAAAACw="
+            ]
+          }
+        },
+        {
+          "id": "no_visible_cta",
+          "severity": "high",
+          "evidence": {
+            "tel_links": 0,
+            "mailto_links": 0,
+            "forms": 0,
+            "cta_keyword_matches": 0,
+            "keywords_checked": 23
+          }
+        },
+        {
+          "id": "outdated_copyright",
+          "severity": "low",
+          "evidence": {
+            "copyright_text": "© 2017",
+            "year": 2017,
+            "current_year": 2026
+          }
+        },
+        {
+          "id": "console_errors",
+          "severity": "low",
+          "evidence": {
+            "count": 1,
+            "samples": [
+              "pageerror: legacyCounterInit is not defined"
+            ]
+          }
+        },
+        {
+          "id": "broken_links",
+          "severity": "medium",
+          "evidence": {
+            "broken": [
+              {
+                "url": "http://127.0.0.1:57558/bad/cenik.html",
+                "status": 404
+              }
+            ],
+            "count": 1,
+            "checked": 3
+          }
+        }
+      ],
+      "counts": {
+        "high": 3,
+        "medium": 3,
+        "low": 6
+      },
+      "signals": {
+        "cta": {
+          "tel_links": 0,
+          "mailto_links": 0,
+          "forms": 0,
+          "cta_keywords_in_links_buttons": []
+        },
+        "internal_pages": 5,
+        "language_versions": [],
+        "clinic_keywords": [],
+        "clinic_scale_keywords": [],
+        "foreign_audience_keywords": [],
+        "booking_keywords": [],
+        "eshop_keywords": []
+      },
+      "load_ms": 18,
+      "transfer_bytes": 1475,
+      "requests_made_by_auditor": 5,
+      "screenshots": [
+        {
+          "viewport": "desktop 1366x900",
+          "path": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5\\shots_bad\\127-0-0-1-bad-index-html-desktop.png",
+          "bytes": 12002
+        },
+        {
+          "viewport": "mobile 390x844",
+          "path": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5\\shots_bad\\127-0-0-1-bad-index-html-mobile.png",
+          "bytes": 14730
+        }
+      ],
+      "skipped_checks": [
+        {
+          "check": "https",
+          "reason": "loopback test host – not applicable"
+        }
+      ]
+    },
+    "good": {
+      "url": "http://127.0.0.1:57558/good/index.html",
+      "status": "ok",
+      "http_status": 200,
+      "findings": [],
+      "counts": {
+        "high": 0,
+        "medium": 0,
+        "low": 0
+      },
+      "signals": {
+        "cta": {
+          "tel_links": 1,
+          "mailto_links": 0,
+          "forms": 1,
+          "cta_keywords_in_links_buttons": [
+            "rezerv",
+            "volejte",
+            "zavolej"
+          ]
+        },
+        "internal_pages": 2,
+        "language_versions": [],
+        "clinic_keywords": [],
+        "clinic_scale_keywords": [],
+        "foreign_audience_keywords": [],
+        "booking_keywords": [
+          "rezervovat"
+        ],
+        "eshop_keywords": []
+      },
+      "load_ms": 27,
+      "transfer_bytes": 1616,
+      "requests_made_by_auditor": 3,
+      "screenshots": [
+        {
+          "viewport": "desktop 1366x900",
+          "path": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5\\shots_good\\127-0-0-1-good-index-html-desktop.png",
+          "bytes": 18081
+        },
+        {
+          "viewport": "mobile 390x844",
+          "path": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5\\shots_good\\127-0-0-1-good-index-html-mobile.png",
+          "bytes": 45425
+        }
+      ],
+      "skipped_checks": [
+        {
+          "check": "https",
+          "reason": "loopback test host – not applicable"
+        }
+      ]
+    },
+    "private_robots": {
+      "url": "http://127.0.0.1:57558/private/index.html",
+      "status": "skipped_robots",
+      "http_status": null,
+      "findings": [],
+      "counts": {
+        "high": 0,
+        "medium": 0,
+        "low": 0
+      },
+      "signals": {},
+      "load_ms": null,
+      "transfer_bytes": null,
+      "requests_made_by_auditor": 1,
+      "screenshots": [],
+      "skipped_checks": [
+        {
+          "check": "all",
+          "reason": "robots.txt disallows this URL for our user agent"
+        }
+      ]
+    }
+  },
+  "sample_offer_card": {
+    "json": "docs\\audits\\2026-10-24-earn-site-audit\\offer_card_sample.json",
+    "md": "docs\\audits\\2026-10-24-earn-site-audit\\offer_card_sample.md",
+    "tier": "landing",
+    "price_czk": 14900,
+    "top_findings": [
+      "no_visible_cta",
+      "mobile_horizontal_overflow",
+      "no_viewport_meta"
+    ]
+  },
+  "negatives": {
+    "finding_without_evidence_rejected": true,
+    "good_fixture_findings": [],
+    "robots_disallow_respected": true,
+    "discount_above_limit_refused": true,
+    "no_delivery_code": true
+  },
+  "emulator": {
+    "sites": 16,
+    "clean_controls": 4,
+    "clean_control_false_positives": 0,
+    "fabricated_findings": [],
+    "totals": {
+      "tp": 30,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "per_type": {
+      "broken_links": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "heavy_page": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "images_without_alt": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "missing_h1": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "missing_lang": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "missing_meta_description": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "mobile_horizontal_overflow": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "no_online_booking": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "no_viewport_meta": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "no_visible_cta": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "outdated_copyright": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "single_language_foreign_audience": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "slow_load": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      }
+    },
+    "tier_accuracy": 1.0,
+    "simulated_pipeline": {
+      "SIMULATED": true,
+      "real_money": 0,
+      "label": "SIMULATED pipeline value — not revenue",
+      "sites": 16,
+      "accepted_free_mockup": 1,
+      "pipeline_czk_if_all_accepted_buy": 14900,
+      "rule": "clinic owner accepts free mockup iff >=2 real high-severity findings",
+      "ledger": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5\\emulator\\site_audit_simulated_ledger.jsonl"
+    },
+    "consequence_rule": {
+      "no_viewport": [
+        "small_tap_targets",
+        "small_text_mobile"
+      ],
+      "no_cta": [
+        "no_online_booking"
+      ]
+    },
+    "rows": [
+      {
+        "site": "s00",
+        "kind": "solo",
+        "defects": [
+          "no_viewport",
+          "old_copyright"
+        ],
+        "found": [
+          "no_viewport_meta",
+          "outdated_copyright",
+          "small_tap_targets",
+          "small_text_mobile"
+        ],
+        "tier": "landing",
+        "expected_tier": "landing",
+        "true_high": 1,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.9
+      },
+      {
+        "site": "s01",
+        "kind": "practice",
+        "defects": [
+          "mobile_overflow",
+          "broken_links"
+        ],
+        "found": [
+          "broken_links",
+          "mobile_horizontal_overflow"
+        ],
+        "tier": "business",
+        "expected_tier": "business",
+        "true_high": 1,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.6
+      },
+      {
+        "site": "s02",
+        "kind": "clinic",
+        "defects": [
+          "no_cta",
+          "missing_meta"
+        ],
+        "found": [
+          "missing_meta_description",
+          "no_online_booking",
+          "no_visible_cta"
+        ],
+        "tier": "premium",
+        "expected_tier": "premium",
+        "true_high": 1,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.7
+      },
+      {
+        "site": "s03",
+        "kind": "prague_foreign",
+        "defects": [
+          "cz_only_foreign",
+          "imgs_no_alt"
+        ],
+        "found": [
+          "images_without_alt",
+          "single_language_foreign_audience"
+        ],
+        "tier": "premium",
+        "expected_tier": "premium",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.9
+      },
+      {
+        "site": "s04",
+        "kind": "solo",
+        "defects": [
+          "missing_h1",
+          "missing_lang",
+          "no_online_booking"
+        ],
+        "found": [
+          "missing_h1",
+          "missing_lang",
+          "no_online_booking"
+        ],
+        "tier": "landing",
+        "expected_tier": "landing",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.7
+      },
+      {
+        "site": "s05",
+        "kind": "practice",
+        "defects": [
+          "slow_heavy",
+          "old_copyright"
+        ],
+        "found": [
+          "heavy_page",
+          "outdated_copyright",
+          "slow_load"
+        ],
+        "tier": "business",
+        "expected_tier": "business",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 11.8
+      },
+      {
+        "site": "s06",
+        "kind": "clinic",
+        "defects": [
+          "no_viewport",
+          "broken_links",
+          "imgs_no_alt"
+        ],
+        "found": [
+          "broken_links",
+          "images_without_alt",
+          "no_viewport_meta",
+          "small_tap_targets",
+          "small_text_mobile"
+        ],
+        "tier": "premium",
+        "expected_tier": "premium",
+        "true_high": 1,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.7
+      },
+      {
+        "site": "s07",
+        "kind": "solo",
+        "defects": [
+          "mobile_overflow",
+          "no_cta"
+        ],
+        "found": [
+          "mobile_horizontal_overflow",
+          "no_online_booking",
+          "no_visible_cta"
+        ],
+        "tier": "landing",
+        "expected_tier": "landing",
+        "true_high": 2,
+        "accepted_free_mockup": true,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.6
+      },
+      {
+        "site": "s08",
+        "kind": "prague_foreign",
+        "defects": [
+          "cz_only_foreign",
+          "missing_meta",
+          "no_online_booking"
+        ],
+        "found": [
+          "missing_meta_description",
+          "no_online_booking",
+          "single_language_foreign_audience"
+        ],
+        "tier": "premium",
+        "expected_tier": "premium",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.6
+      },
+      {
+        "site": "s09",
+        "kind": "practice",
+        "defects": [
+          "missing_h1",
+          "missing_lang"
+        ],
+        "found": [
+          "missing_h1",
+          "missing_lang"
+        ],
+        "tier": "business",
+        "expected_tier": "business",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.9
+      },
+      {
+        "site": "s10",
+        "kind": "solo",
+        "defects": [
+          "broken_links",
+          "no_online_booking",
+          "missing_meta"
+        ],
+        "found": [
+          "broken_links",
+          "missing_meta_description",
+          "no_online_booking"
+        ],
+        "tier": "landing",
+        "expected_tier": "landing",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.8
+      },
+      {
+        "site": "s11",
+        "kind": "clinic",
+        "defects": [
+          "slow_heavy",
+          "missing_lang"
+        ],
+        "found": [
+          "heavy_page",
+          "missing_lang",
+          "slow_load"
+        ],
+        "tier": "premium",
+        "expected_tier": "premium",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 11.7
+      },
+      {
+        "site": "s12",
+        "kind": "solo",
+        "defects": [],
+        "found": [],
+        "tier": "landing",
+        "expected_tier": "landing",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.7
+      },
+      {
+        "site": "s13",
+        "kind": "practice",
+        "defects": [],
+        "found": [],
+        "tier": "business",
+        "expected_tier": "business",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.8
+      },
+      {
+        "site": "s14",
+        "kind": "clinic",
+        "defects": [],
+        "found": [],
+        "tier": "premium",
+        "expected_tier": "premium",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.7
+      },
+      {
+        "site": "s15",
+        "kind": "prague_foreign",
+        "defects": [],
+        "found": [],
+        "tier": "premium",
+        "expected_tier": "premium",
+        "true_high": 0,
+        "accepted_free_mockup": false,
+        "text_provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "seconds": 1.6
+      }
+    ],
+    "text_fixture": {
+      "path": "tests\\fixtures\\site_audit\\dental_texts.json",
+      "generated_at": "2026-10-24T22:18:19+00:00",
+      "batches": [
+        {
+          "provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+          "clinics": 4,
+          "failed_before": []
+        },
+        {
+          "provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+          "clinics": 4,
+          "failed_before": []
+        },
+        {
+          "provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+          "clinics": 4,
+          "failed_before": []
+        },
+        {
+          "provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+          "clinics": 4,
+          "failed_before": []
+        }
+      ]
+    }
+  },
+  "real_public_page": {
+    "url": "https://example.com/",
+    "status": "ok",
+    "http_status": 200,
+    "findings": [
+      {
+        "id": "slow_load",
+        "severity": "medium",
+        "evidence": {
+          "load_ms": 3540,
+          "threshold_ms": 3000
+        }
+      },
+      {
+        "id": "small_tap_targets",
+        "severity": "low",
+        "evidence": {
+          "small_targets": 1,
+          "targets_checked": 1,
+          "min_px": 24.0,
+          "samples": [
+            {
+              "selector": "a",
+              "width_px": 80,
+              "height_px": 21,
+              "text": "Learn more"
+            }
+          ]
+        }
+      },
+      {
+        "id": "missing_meta_description",
+        "severity": "low",
+        "evidence": {
+          "meta_description": "missing"
+        }
+      },
+      {
+        "id": "missing_h1",
+        "severity": "low",
+        "evidence": {
+          "h1_count": 0
+        }
+      },
+      {
+        "id": "no_visible_cta",
+        "severity": "high",
+        "evidence": {
+          "tel_links": 0,
+          "mailto_links": 0,
+          "forms": 0,
+          "cta_keyword_matches": 0,
+          "keywords_checked": 23
+        }
+      }
+    ],
+    "counts": {
+      "high": 1,
+      "medium": 1,
+      "low": 3
+    },
+    "signals": {
+      "cta": {
+        "tel_links": 0,
+        "mailto_links": 0,
+        "forms": 0,
+        "cta_keywords_in_links_buttons": []
+      },
+      "internal_pages": 0,
+      "language_versions": [],
+      "clinic_keywords": [],
+      "clinic_scale_keywords": [],
+      "foreign_audience_keywords": [],
+      "booking_keywords": [],
+      "eshop_keywords": []
+    },
+    "load_ms": 3540,
+    "transfer_bytes": 2313,
+    "requests_made_by_auditor": 2,
+    "screenshots": [
+      {
+        "viewport": "desktop 1366x900",
+        "path": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5\\shots_example\\example-com-desktop.png",
+        "bytes": 38397
+      },
+      {
+        "viewport": "mobile 390x844",
+        "path": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5\\shots_example\\example-com-mobile.png",
+        "bytes": 122468
+      }
+    ],
+    "skipped_checks": []
+  },
+  "data_dir_outside_git": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5",
+  "real_money": 0,
+  "outreach_generated": false,
+  "duration_s": 57.9,
+  "caveats": [
+    "Emulator sites and auditor were written by the same agent: perfect scores show internal consistency, not real-world precision. Real-site precision is unmeasured.",
+    "Findings listed in consequence_rule (e.g. small text after a missing viewport) are counted as allowed real consequences, neither TP nor FP.",
+    "Pipeline value is SIMULATED (deterministic owner-reaction rule), real_money = 0."
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "status": "internal offer card — owner only, no outreach",
+  "business_name": "Truhlarstvi Fiktivni (fixture)",
+  "website": "http://127.0.0.1:57558/bad/index.html",
+  "audited_at": "2026-10-24T22:31:58+00:00",
+  "tier": "landing",
+  "tier_label": "Landing / jednoduchý web",
+  "tier_reasons": [
+    "internal pages: 5 (<=5), no clinic-scale/multilingual/e-shop signals"
+  ],
+  "price_czk": 14900,
+  "discount_pct": 0,
+  "max_discount_pct": 10,
+  "final_price_czk": 14900,
+  "first_step": "free audit + first-screen mockup (owner decides whether/how to contact)",
+  "top_findings": [
+    {
+      "id": "no_visible_cta",
+      "severity": "high",
+      "evidence": {
+        "tel_links": 0,
+        "mailto_links": 0,
+        "forms": 0,
+        "cta_keyword_matches": 0,
+        "keywords_checked": 23
+      },
+      "fix_suggestion": "Přidat viditelné tlačítko „Zavolat“ / „Objednat“ / kontaktní formulář do první obrazovky."
+    },
+    {
+      "id": "mobile_horizontal_overflow",
+      "severity": "high",
+      "evidence": {
+        "viewport_width_px": 390,
+        "content_width_px": 1200
+      },
+      "fix_suggestion": "Odstranit pevné šířky (width: 1200px, tabulkové layouty), použít max-width: 100 %."
+    },
+    {
+      "id": "no_viewport_meta",
+      "severity": "high",
+      "evidence": {
+        "meta_viewport": "missing",
+        "mobile_zoom_scale": 0.325
+      },
+      "fix_suggestion": "Přidat <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"> a responzivní CSS."
+    }
+  ],
+  "all_finding_ids": [
+    "no_viewport_meta",
+    "mobile_horizontal_overflow",
+    "small_text_mobile",
+    "small_tap_targets",
+    "missing_meta_description",
+    "missing_h1",
+    "missing_lang",
+    "images_without_alt",
+    "no_visible_cta",
+    "outdated_copyright",
+    "console_errors",
+    "broken_links"
+  ],
+  "severity_counts": {
+    "high": 3,
+    "medium": 3,
+    "low": 6
+  },
+  "screenshots": [
+    {
+      "viewport": "desktop 1366x900",
+      "path": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5\\shots_bad\\127-0-0-1-bad-index-html-desktop.png",
+      "bytes": 12002
+    },
+    {
+      "viewport": "mobile 390x844",
+      "path": "C:\\Users\\asd\\AppData\\Local\\Temp\\bossman_site_audit_proof_3zwcmhb5\\shots_bad\\127-0-0-1-bad-index-html-mobile.png",
+      "bytes": 14730
+    }
+  ],
+  "outreach": null,
+  "created_at": "2026-10-24T22:32:02+00:00"
+}

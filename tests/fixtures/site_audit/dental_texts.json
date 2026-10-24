@@ -1,0 +1,675 @@
+{
+ "SYNTHETIC": true,
+ "generated_at": "2026-10-24T22:18:19+00:00",
+ "note": "Fictional clinics for the site-audit emulator. Not real businesses.",
+ "batches": [
+  {
+   "provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+   "seconds": 47.4,
+   "failed_before": [],
+   "clinics": [
+    {
+     "base_name": "Úsměv Letná",
+     "city": "Praha",
+     "tagline": "Moderní stomatologie s důrazem na pohodu pacienta.",
+     "about": "Ordinační tým používá digitální techniky pro přesnou diagnostiku a měkké léčební postupy. Důraz klademe na prevenci a dlouhodobou udržení zdraví zubů a dásní. Prostředí je navrženo tak, aby minimalizovalo stres u dospělých i dětí.",
+     "services": [
+      "Preventivní prohlídky",
+      "Estetické plomby",
+      "Keramické facetky",
+      "Endodoncie pod mikroskopem",
+      "Dentální hygiena",
+      "Bělění zubů"
+     ],
+     "prices": [
+      {
+       "service": "Preventivní prohlídka",
+       "price_czk": 500
+      },
+      {
+       "service": "Estetická plomba",
+       "price_czk": 2200
+      },
+      {
+       "service": "Keramická facetka",
+       "price_czk": 8500
+      },
+      {
+       "service": "Kořenový kanál (1 kanál)",
+       "price_czk": 3800
+      },
+      {
+       "service": "Dentální hygiena",
+       "price_czk": 1800
+      },
+      {
+       "service": "Bělění zubů (home kit)",
+       "price_czk": 4500
+      }
+     ],
+     "hours": "Po-Pá 8:00-18:00"
+    },
+    {
+     "base_name": "Zdravý Úsměv",
+     "city": "Brno",
+     "tagline": "Komplexní péče o zuby pro celou rodinu.",
+     "about": "Nabízíme širokou škálu stomatologických výkonů od dětství po seniorní věk s využitím moderních materiálů. Tým se neustále vzdělává v oblasti minimálně invazivních technik. Každý léčební plán je přizpůsoben individuálním potřebám pacienta.",
+     "services": [
+      "Dětská stomatologie",
+      "Parodontologie",
+      "Implantáty",
+      "Protetika",
+      "Ortodonckie splývky",
+      "Chirurgické zásahy"
+     ],
+     "prices": [
+      {
+       "service": "Dětská prohlídka",
+       "price_czk": 400
+      },
+      {
+       "service": "Léčba parodontitidy (kvadrant)",
+       "price_czk": 3500
+      },
+      {
+       "service": "Implantát s korunkou",
+       "price_czk": 45000
+      },
+      {
+       "service": "Keramická korunka",
+       "price_czk": 9000
+      },
+      {
+       "service": "Ortodonckie splývky (celá léčba)",
+       "price_czk": 65000
+      },
+      {
+       "service": "Extrakce zubu",
+       "price_czk": 2500
+      }
+     ],
+     "hours": "Po-Čt 7:30-16:30, Pá 7:30-13:00"
+    },
+    {
+     "base_name": "Slezský Úsměv",
+     "city": "Ostrava",
+     "tagline": "Přesná diagnostika a měkká léčba v klidu.",
+     "about": "Využíváme 3D zobrazování pro plánování složitých ingrecí a implantací. Prostředí ordinace podporuje relaxaci, léčba probíhá bezbolestně díky moderním anestetickým metodám. Společně s pacientem volíme optimální řešení pro estetiku i funkci.",
+     "services": [
+      "Digitální rentgen",
+      "Implantologie",
+      "All-on-4",
+      "Keramické inlay/onlay",
+      "Léčba bruxismu",
+      "Estetické konturování"
+     ],
+     "prices": [
+      {
+       "service": "CBCT snímka",
+       "price_czk": 1200
+      },
+      {
+       "service": "Implantát (tyč)",
+       "price_czk": 28000
+      },
+      {
+       "service": "All-on-4 (celá čelist)",
+       "price_czk": 180000
+      },
+      {
+       "service": "Keramický inlay",
+       "price_czk": 5500
+      },
+      {
+       "service": "Mýčky na bruxismus",
+       "price_czk": 3200
+      },
+      {
+       "service": "Konturování zubů",
+       "price_czk": 1500
+      }
+     ],
+     "hours": "Po-Pá 8:00-16:00"
+    },
+    {
+     "base_name": "Plzeňský Úsměv",
+     "city": "Plzeň",
+     "tagline": "Tradiční péče spojená s moderními technologiemi.",
+     "about": "Poskytujeme stomatologii na vysoké úrovni s důrazem na udržitelné výsledky a spokojenost pacientů. Naše zařízení umožňuje same-day keramické náhrady díky CAD/CAM systému. Komunikace je otevřená a transparentní v každé fázi léčby.",
+     "services": [
+      "CEREC korunky za den",
+      "Kořenové kanály",
+      "Dětská prevence",
+      "Bílý zubní kámen odstranění",
+      "Estetické zrnění",
+      "Konzultace léčebního plánu"
+     ],
+     "prices": [
+      {
+       "service": "CEREC korunka",
+       "price_czk": 9500
+      },
+      {
+       "service": "Endodoncie (3 kanály)",
+       "price_czk": 5500
+      },
+      {
+       "service": "Dětské fluoridace",
+       "price_czk": 300
+      },
+      {
+       "service": "Odstranění zubního kamene",
+       "price_czk": 1500
+      },
+      {
+       "service": "Estetické zrnění",
+       "price_czk": 800
+      },
+      {
+       "service": "Konzultace a plán",
+       "price_czk": 600
+      }
+     ],
+     "hours": "Po-Pá 7:00-15:00"
+    }
+   ]
+  },
+  {
+   "provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+   "seconds": 33.5,
+   "failed_before": [],
+   "clinics": [
+    {
+     "base_name": "Perla Olomouc",
+     "city": "Olomouc",
+     "tagline": "Moderní stomatologie s důrazem na pohodu pacienta.",
+     "about": "Ordinační tým klade velký důraz na prevenci a jemný přístup k léčbě. Využíváme digitální technologie pro přesnou diagnostiku a plánování terapie. Prostředí je navrženo tak, aby u pacientů vyvolalo pocit klidu a důvěry.",
+     "services": [
+      "Preventivní prohlídky",
+      "Estetické plomby",
+      "Korunky a mosty",
+      "Implantologie",
+      "Zubní hygiena",
+      "Bělení zubů"
+     ],
+     "prices": [
+      {
+       "service": "Preventivní prohlídka",
+       "price_czk": 0
+      },
+      {
+       "service": "Estetická plomba",
+       "price_czk": 2500
+      },
+      {
+       "service": "Keramická korunka",
+       "price_czk": 8500
+      },
+      {
+       "service": "Implantát s korunou",
+       "price_czk": 35000
+      },
+      {
+       "service": "Profesionální hygiena",
+       "price_czk": 1800
+      },
+      {
+       "service": "Domácí bělení",
+       "price_czk": 4500
+      }
+     ],
+     "hours": "Po-Pá 7:30-15:30"
+    },
+    {
+     "base_name": "Jizera Smile",
+     "city": "Liberec",
+     "tagline": "Komplexní péče o zdraví a estetiku vašeho úsměvu.",
+     "about": "Nabízíme širokou škálu stomatologických výkonů pod jednou střechou s využitím moderních materiálů. Důraz klademe na individuální přístup a podrobné vysvětlení možností léčby. Naše cílem je dlouhodobá funkčnost a přirozený vzhled zubů.",
+     "services": [
+      "Konzervativní léčba",
+      "Endodontie",
+      "Parodontologie",
+      "Protektika",
+      "Ortodoncie",
+      "Chirurgické ingrace"
+     ],
+     "prices": [
+      {
+       "service": "Kořenový kanál (1 kanál)",
+       "price_czk": 3200
+      },
+      {
+       "service": "Keramická náhrada (inlay/onlay)",
+       "price_czk": 7000
+      },
+      {
+       "service": "Parodontologická léčba (kvadrant)",
+       "price_czk": 2800
+      },
+      {
+       "service": "Výukový model ortodoncie",
+       "price_czk": 1500
+      },
+      {
+       "service": "Extrakce zubu",
+       "price_czk": 2000
+      },
+      {
+       "service": "Nocní škrábací splint",
+       "price_czk": 3500
+      }
+     ],
+     "hours": "Po-Čt 8:00-18:00, Pá 8:00-13:00"
+    },
+    {
+     "base_name": "Vltava Dental",
+     "city": "Praha",
+     "tagline": "Kvalitní stomatologie v centru města s moderním vybavením.",
+     "about": "Poskytujeme péči odpovídající aktuálním odborným standardům v příjemném prostředí. Tým specializuje na minimally invazivní postupy a estetické výsledky. Pravidelně se vzděláváme, abychom nabízeli nejlepší dostupné řešení.",
+     "services": [
+      "Digitální rentgen",
+      "CAD/CAM korunky",
+      "Implantátová protetika",
+      "Dětská stomatologie",
+      "Sedace při léčbě",
+      "Estetické facetky"
+     ],
+     "prices": [
+      {
+       "service": "Digitální ortopantomogram",
+       "price_czk": 800
+      },
+      {
+       "service": "Facetka keramická",
+       "price_czk": 9500
+      },
+      {
+       "service": "Implantát (titanový)",
+       "price_czk": 28000
+      },
+      {
+       "service": "Adaptace dětem (první návštěva)",
+       "price_czk": 500
+      },
+      {
+       "service": "Anestezie / Sedace",
+       "price_czk": 2500
+      },
+      {
+       "service": "Celokeramická korunka CAD/CAM",
+       "price_czk": 9000
+      }
+     ],
+     "hours": "Po-Pá 8:00-19:00"
+    },
+    {
+     "base_name": "Králický Úsměv",
+     "city": "Hradec Králové",
+     "tagline": "Tradiční péče spojená s moderními metodami léčby.",
+     "about": "Naše ordinace kombinuje zkušenosti s nejnovějšími technologiemi pro maximální komfort. Specializujeme se na záchranné léčby zubů i složité protetické případy. Každému pacientu věnujeme čas pro osobní konzultaci a výběr optimální varianty.",
+     "services": [
+      "Záchranná endodontie",
+      "Kombinovaná protektika",
+      "Parodontální chirurgie",
+      "Prevence kazu u dětí",
+      "Funkční diagnostika",
+      "Reconstrukce zubní řady"
+     ],
+     "prices": [
+      {
+       "service": "Revize kořenových kanálů",
+       "price_czk": 4500
+      },
+      {
+       "service": "Teleskopická proteza",
+       "price_czk": 25000
+      },
+      {
+       "service": "Kostná augmentace",
+       "price_czk": 12000
+      },
+      {
+       "service": "Lakování zubů (fluoridace)",
+       "price_czk": 600
+      },
+      {
+       "service": "Analýza závěsu (funkční diagnostika)",
+       "price_czk": 3000
+      },
+      {
+       "service": "Provisorium (dočasná náhrada)",
+       "price_czk": 1500
+      }
+     ],
+     "hours": "Po-Út 7:00-15:00, St 7:00-18:00, Čt-Pá 7:00-14:00"
+    }
+   ]
+  },
+  {
+   "provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+   "seconds": 25.8,
+   "failed_before": [],
+   "clinics": [
+    {
+     "base_name": "Perla Vltavy",
+     "city": "České Budějovice",
+     "tagline": "Moderní stomatologie s důrazem na pohodu pacienta.",
+     "about": "Ordinační tým klade velký důraz na preventivní péči a jemný přístup k léčbě. Využíváme digitální technologie pro přesnou diagnostiku a plánování. Prostředí je navrženo tak, aby byl každý návštěvníkem co nejméně stres.",
+     "services": [
+      "Preventivní prohlídky",
+      "Estetické plomby",
+      "Korunky a mosty",
+      "Endodoncie pod mikroskopem",
+      "Zubní hygiena",
+      "Bělení zubů"
+     ],
+     "prices": [
+      {
+       "service": "Preventivní prohlídka",
+       "price_czk": 0
+      },
+      {
+       "service": "Estetická plomba",
+       "price_czk": 2500
+      },
+      {
+       "service": "Keramická korunka",
+       "price_czk": 9500
+      },
+      {
+       "service": "Kořenový kanál (1 kanál)",
+       "price_czk": 4800
+      },
+      {
+       "service": "Zubní hygiena",
+       "price_czk": 1800
+      },
+      {
+       "service": "Domácí bělení",
+       "price_czk": 4500
+      }
+     ],
+     "hours": "Po-Pá 7:30-15:30"
+    },
+    {
+     "base_name": "Úsměv Pardubice",
+     "city": "Pardubice",
+     "tagline": "Komplexní péče o zdraví a estetiku vašeho úsměvu.",
+     "about": "Nabízíme širokou škálu stomatologických výkonů pod jednou střechou, od dětské stomatologie po implantologii. Důraz klademe na důkladné vysvětlení možností léčby a transparentní cenovou politiku. Moderní vybavení umožňuje minimalinvazivní postupy.",
+     "services": [
+      "Dětská stomatologie",
+      "Implantáty",
+      "Proteztika",
+      "Ortodoncie",
+      "Parodontologie",
+      "Chirurgické výkřezy"
+     ],
+     "prices": [
+      {
+       "service": "Dětská prohlídka",
+       "price_czk": 0
+      },
+      {
+       "service": "Implantát (titan)",
+       "price_czk": 28000
+      },
+      {
+       "service": "Celoleptná proteza",
+       "price_czk": 15000
+      },
+      {
+       "service": "Ortodonční konzultace",
+       "price_czk": 500
+      },
+      {
+       "service": "Léčba parodontitidy (kvadrant)",
+       "price_czk": 3200
+      },
+      {
+       "service": "Výkres zubu",
+       "price_czk": 2000
+      }
+     ],
+     "hours": "Po-Čt 8:00-18:00, Pá 8:00-13:00"
+    },
+    {
+     "base_name": "Zlínský úsměv",
+     "city": "Zlín",
+     "tagline": "Rodinná ordinace s tradicí a moderním přístupem.",
+     "about": "Už přes dvacet let dbáme na zubní zdraví celých rodin v regionu. Kombinujeme zkušenosti s nejnovějšími materiály a léčebnými metodami. Každý pacient dostane individuální léčebný plán přizpůsobený jeho potřebám.",
+     "services": [
+      "Rodinná stomatologie",
+      "Keramické facety",
+      "Dentální hygiena",
+      "Léčba zubní kazí",
+      "Nocní bruxism splinty",
+      "Röntgen diagnostika"
+     ],
+     "prices": [
+      {
+       "service": "Prohlídka dospělého",
+       "price_czk": 0
+      },
+      {
+       "service": "Keramická faceta",
+       "price_czk": 8500
+      },
+      {
+       "service": "Profesionální hygiena",
+       "price_czk": 1600
+      },
+      {
+       "service": "Plomba kompositní",
+       "price_czk": 2200
+      },
+      {
+       "service": "Mychovací splint",
+       "price_czk": 3500
+      },
+      {
+       "service": "Panoramatický snímek",
+       "price_czk": 600
+      }
+     ],
+     "hours": "Po-Pá 8:00-16:00"
+    },
+    {
+     "base_name": "Letenský úsměv",
+     "city": "Praha",
+     "tagline": "Precizní stomatologie v klidném prostředí Prahy 7.",
+     "about": "Specializujeme se na estetickou a rekonstruktivní stomatologii s využitím CAD/CAM technologií. Tým lékařů se neustále vzdělává v oblastech implantologie a ortodoncie. Klademe důraz na sterilitu a bezpečnost všech výkonů.",
+     "services": [
+      "Estetická stomatologie",
+      "Implantová proteztika",
+      "Neviditelná ortodoncie",
+      "Chirurgie dutiny úst",
+      "Sedace pro úzkostné pacienty",
+      "Digitální röntgen"
+     ],
+     "prices": [
+      {
+       "service": "Konzultace + plán léčby",
+       "price_czk": 800
+      },
+      {
+       "service": "Implantát se superstrukturou",
+       "price_czk": 45000
+      },
+      {
+       "service": "Neviditelná základa (celá čelist)",
+       "price_czk": 85000
+      },
+      {
+       "service": "Výkres zubu moudrosti",
+       "price_czk": 3500
+      },
+      {
+       "service": "Sedace (analgosedace)",
+       "price_czk": 4000
+      },
+      {
+       "service": "Intraorální sken",
+       "price_czk": 0
+      }
+     ],
+     "hours": "Po-Pá 9:00-17:00"
+    }
+   ]
+  },
+  {
+   "provider": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+   "seconds": 22.1,
+   "failed_before": [],
+   "clinics": [
+    {
+     "base_name": "Perla Jihlava",
+     "city": "Jihlava",
+     "tagline": "Moderní stomatologie s důrazem na pohodu pacienta.",
+     "about": "Poskytujeme komplexní péči od prevence po estetické úpravy v klidném prostředí. Naš tým používá důkazové postupy a měkké techniky pro minimální bolestivost.",
+     "services": [
+      "Preventivní prohlídky",
+      "Bílé výplně",
+      "Korunky a mosty",
+      "Zubní hygiena",
+      "Bělení zubů",
+      "Dětská stomatologie"
+     ],
+     "prices": [
+      {
+       "service": "Preventivní prohlídka",
+       "price_czk": 0
+      },
+      {
+       "service": "Bílá výplně (jednopovrchová)",
+       "price_czk": 1200
+      },
+      {
+       "service": "Keramická korunka",
+       "price_czk": 8500
+      },
+      {
+       "service": "Profesionální zubní hygiena",
+       "price_czk": 1800
+      },
+      {
+       "service": "Domácí bělení (sada)",
+       "price_czk": 3500
+      }
+     ],
+     "hours": "Po-Pá 7:30-15:30"
+    },
+    {
+     "base_name": "Úsměv Brno",
+     "city": "Brno",
+     "tagline": "Rodinná ordinace spojující tradici s moderními technologiemi.",
+     "about": "Dbáme na individuální přístup a důkladnou diagnostiku před každým zákrokem. Prostředí ordinace je navrženo tak, aby pacienti cítili uvolnění a důvěru.",
+     "services": [
+      "Konzervující stomatologie",
+      "Endodontie",
+      "Parodontologie",
+      "Implantologie",
+      "Ortodoncie",
+      "Protetika"
+     ],
+     "prices": [
+      {
+       "service": "Endodontická léčba jednokorunkového zubu",
+       "price_czk": 4500
+      },
+      {
+       "service": "Parodontologická terapie (kvadrant)",
+       "price_czk": 2200
+      },
+      {
+       "service": "Implantát s korunou",
+       "price_czk": 28000
+      },
+      {
+       "service": "Ortodonická oprava (začátek)",
+       "price_czk": 15000
+      },
+      {
+       "service": "Celocelistná proteza",
+       "price_czk": 12000
+      }
+     ],
+     "hours": "Po-Čt 8:00-18:00, Pá 8:00-13:00"
+    },
+    {
+     "base_name": "Svízel Kladno",
+     "city": "Kladno",
+     "tagline": "Přesná diagnostika a měkká léčba pro celou rodinu.",
+     "about": "Využíváme digitální rentgen a intraorální skenery pro maximální přesnost plánování. Důraz klademe na prevenci a vzdělávání pacientů v péči o dutinu úst.",
+     "services": [
+      "Digitální rentgen",
+      "Bezbolestná anestezie",
+      "Keramické facetky",
+      "Léčba bruxismu",
+      "Chirurgické odstranění zubů",
+      "Dětská prevence"
+     ],
+     "prices": [
+      {
+       "service": "Digitální ortopantomogram",
+       "price_czk": 800
+      },
+      {
+       "service": "Keramická facetka",
+       "price_czk": 7000
+      },
+      {
+       "service": "Mýčka na bruxismus",
+       "price_czk": 2500
+      },
+      {
+       "service": "Odstranění zubu 8. (jednoduché)",
+       "price_czk": 1500
+      },
+      {
+       "service": "Floridace zubů (dítě)",
+       "price_czk": 400
+      }
+     ],
+     "hours": "Po-Pá 8:00-16:00"
+    },
+    {
+     "base_name": "Letenský úsměv",
+     "city": "Praha",
+     "tagline": "Estetická stomatologie s ohledem na funkci a harmonii.",
+     "about": "Specializujeme se na estetické rekonstrukce a bezbolestnou péči s využitím mikroskopů a laseru. Každý léčebný plán vychází z detailní analýzy zubní řady a kloubu.",
+     "services": [
+      "Estetické výplně",
+      "Mikroskopická endodontie",
+      "Laserová parodontologie",
+      "Navigovaná implantologie",
+      "Invisalign",
+      "Komplexní rehabilitace"
+     ],
+     "prices": [
+      {
+       "service": "Estetická výplně (vrstvování)",
+       "price_czk": 2500
+      },
+      {
+       "service": "Mikroskopická endodontie (vícekorunkový)",
+       "price_czk": 7000
+      },
+      {
+       "service": "Laserová dezinfekce džípky",
+       "price_czk": 1200
+      },
+      {
+       "service": "Navigovaný implantát",
+       "price_czk": 32000
+      },
+      {
+       "service": "Invisalign (celá léčba)",
+       "price_czk": 85000
+      }
+     ],
+     "hours": "Po-Pá 9:00-17:00"
+    }
+   ]
+  }
+ ]
+}
