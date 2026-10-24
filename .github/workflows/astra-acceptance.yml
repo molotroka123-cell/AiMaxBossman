@@ -28,7 +28,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # actions/setup-python@v7.0.0
         with:
           python-version: '3.12'
       - name: Install
@@ -58,7 +58,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # actions/setup-python@v7.0.0
         with:
           python-version: '3.12'
       - run: python -m pip install -e . -e ./command-center[dev]
@@ -97,7 +97,7 @@ jobs:
           persist-credentials: false
           clean: true
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # actions/setup-python@v7.0.0
         with:
           python-version: '3.12'
       - name: Verify no Docker socket or secret leakage in self-hosted sandbox
