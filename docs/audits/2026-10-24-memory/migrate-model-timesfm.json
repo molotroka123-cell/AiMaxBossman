@@ -1,0 +1,36 @@
+{
+ "at": "2026-10-24T15:26:30Z",
+ "src": "C:\\Users\\asd\\Bossman\\models\\timesfm",
+ "dst": "D:\\Bossman\\models\\timesfm",
+ "deleted_anything": false,
+ "before": {
+  "files": 11,
+  "bytes": 925186889,
+  "manifest_sha256": "0ea089dba8c3910e23a904010e4430d8828300288f9ad033ed6c9064566a00cf"
+ },
+ "copy_exit_code": 1,
+ "after": {
+  "files": 11,
+  "bytes": 925186889,
+  "manifest_sha256": "0ea089dba8c3910e23a904010e4430d8828300288f9ad033ed6c9064566a00cf"
+ },
+ "comparison": {
+  "missing": {
+   "count": 0,
+   "first": []
+  },
+  "extra": {
+   "count": 0,
+   "first": []
+  },
+  "changed": {
+   "count": 0,
+   "first": []
+  },
+  "identical": true
+ },
+ "pointer": "not switched (no --pointer)",
+ "verdict": "PASS",
+ "seconds": 23.6,
+ "note": "source tree kept as the reserve; removing it needs the owner's approval"
+}

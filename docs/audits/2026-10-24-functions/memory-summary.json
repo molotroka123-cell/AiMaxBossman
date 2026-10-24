@@ -1,0 +1,31 @@
+{
+ "function": "memory_summary",
+ "session_id": "20261024-082316-8acebb",
+ "agent_id": 41,
+ "messages_http": [
+  200,
+  200,
+  200
+ ],
+ "compact_http": 202,
+ "summary_chars": 412,
+ "transcript_chars": 269,
+ "summary_keeps_the_fact": true,
+ "summary_drops_chatter": false,
+ "negative_compact_with_no_new_turns": {
+  "http": 409,
+  "code": "{'message': 'сжимать нечего: после последнего /compact новых ходов нет', 'code': 'AGENT_NOTHING_TO_COMPACT'}"
+ },
+ "verdict": "PASS",
+ "runtime_sha": "0f1d64a3b2e1",
+ "seconds": 904.5,
+ "at": "2026-10-24T15:38:20Z",
+ "compact_state": {
+  "state": "done",
+  "task_id": 256,
+  "compacted_at_turn": 3
+ },
+ "probe_fix": "first run read a 'summary' field the session API does not return (the text stays private); state from /context, content from the probe's own session file",
+ "quality_note": "the summary kept the key fact but also kept the filler (cat, lemon tea): compaction is safe, not yet terse",
+ "next_step": "tighten compact_prompt to drop small talk; measure summary/transcript ratio"
+}

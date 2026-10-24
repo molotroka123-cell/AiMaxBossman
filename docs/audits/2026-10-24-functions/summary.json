@@ -27,8 +27,8 @@
    "verdict": "PASS",
    "live": "lesson note written, found at rank 0 by search; a NEW chat task that never mentioned it applied the lesson (GNF) (task 249)",
    "negative": "secret inside text stored only as [REDACTED]; secret-only record refused 422; secret not found in the store",
-   "not_run": "summary (thread/session compaction) not probed",
-   "next_step": "probe /m/api/agent/sessions/{id}/compact summary keeps the probe code and drops filler"
+   "next_step": "probe /m/api/agent/sessions/{id}/compact summary keeps the probe code and drops filler",
+   "summary": "agent session /compact: summary 412 chars kept the key fact (order code), state done, repeat compact -> 409 AGENT_NOTHING_TO_COMPACT; filler not dropped (quality note) - see memory-summary.json"
   },
   {
    "function": "telegram_phone",
@@ -39,7 +39,8 @@
     "pult thread STOP also sets the pult worker-registry global_stop flag, sticky until pult restart",
     "Telegram /stop halts computer/pc-agent/image jobs but does not call /api/tasks/{id}/stop for a delegated chat task (code reading)"
    ],
-   "next_step": "Telegram: live /confirm -> same task id + /stop of that task (owner-pult message needed; not sent without the owner)"
+   "next_step": "Telegram: live /confirm -> same task id + /stop of that task (owner-pult message needed; not sent without the owner)",
+   "fixed_after": "pult «Продолжить» now clears the worker-registry global_stop"
   },
   {
    "function": "pc_agent",
@@ -49,7 +50,8 @@
    "found": [
     "default terminal mode is sandbox, which needs docker (absent on this PC): every terminal task wastes one step before mode=project_host"
    ],
-   "next_step": "pick project_host directly when docker is unavailable (the call still asks the owner; isolation unchanged)"
+   "next_step": "pick project_host directly when docker is unavailable (the call still asks the owner; isolation unchanged)",
+   "fixed_after": "terminal.run description tells the model to use project_host when docker is absent (0f1d64a3)"
   },
   {
    "function": "swapme_reports",
@@ -59,7 +61,8 @@
    "found": [
     "an unrecognised exchange command answers «Не понял команду» with ok:true"
    ],
-   "next_step": "return ok:false for an unrecognised exchange command"
+   "next_step": "return ok:false for an unrecognised exchange command",
+   "fixed_after": "unrecognised command now ok:false"
   }
  ]
 }

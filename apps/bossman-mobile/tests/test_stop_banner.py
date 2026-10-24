@@ -50,6 +50,19 @@ def test_resume_needs_csrf_and_goes_through_bossman(authed):
     assert len(resumes) == 1 and resumes[0]["method"] == "POST"
 
 
+def test_resume_also_clears_the_worker_registry_stop(authed):
+    """Function probe 24.10: a thread STOP set the worker-registry global_stop and only a pult restart cleared it."""
+    authed.app.state.workers.trigger_global_stop()
+    assert authed.app.state.workers.global_stop is True
+    _set_stop(authed, 1)
+    authed.fake.resume_clears = False                       # Bossman says STOP is still on -> the registry stays stopped
+    assert authed.post("/m/api/stop/resume").status_code == 409
+    assert authed.app.state.workers.global_stop is True
+    authed.fake.resume_clears = True
+    assert authed.post("/m/api/stop/resume").status_code == 200
+    assert authed.app.state.workers.global_stop is False
+
+
 def test_resume_clears_via_bossman(authed):
     f, _ = _set_stop(authed, 90)
     authed.fake.resume_clears = True

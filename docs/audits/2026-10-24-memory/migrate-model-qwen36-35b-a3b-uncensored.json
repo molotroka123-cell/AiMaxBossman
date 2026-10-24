@@ -1,0 +1,36 @@
+{
+ "at": "2026-10-24T15:27:41Z",
+ "src": "C:\\Users\\asd\\Bossman\\models\\qwen36-35b-a3b-uncensored",
+ "dst": "D:\\Bossman\\models\\qwen36-35b-a3b-uncensored",
+ "deleted_anything": false,
+ "before": {
+  "files": 6,
+  "bytes": 80849773643,
+  "manifest_sha256": "b23312dda6d3bd3c3a181bff9261bbf6761e0c205d95102106485b6bff708348"
+ },
+ "copy_exit_code": 1,
+ "after": {
+  "files": 6,
+  "bytes": 80849773643,
+  "manifest_sha256": "b23312dda6d3bd3c3a181bff9261bbf6761e0c205d95102106485b6bff708348"
+ },
+ "comparison": {
+  "missing": {
+   "count": 0,
+   "first": []
+  },
+  "extra": {
+   "count": 0,
+   "first": []
+  },
+  "changed": {
+   "count": 0,
+   "first": []
+  },
+  "identical": true
+ },
+ "pointer": "not switched (no --pointer)",
+ "verdict": "PASS",
+ "seconds": 237.3,
+ "note": "source tree kept as the reserve; removing it needs the owner's approval"
+}

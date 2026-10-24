@@ -332,6 +332,13 @@ class WorkerDeviceRegistry:
                 "elapsed_s": round(elapsed, 6),
             }
 
+    def clear_global_stop(self) -> None:
+        """«Продолжить»: worker devices may take tasks again (only after Bossman confirmed STOP is off)."""
+        with self._lock:
+            self.global_stop = False
+            for rec in self._devices.values():
+                rec["stopped"] = False
+
     def snapshot(self) -> dict:
         now = self.clock()
         with self._lock:

@@ -542,6 +542,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         if view["active"]:
             raise fail(409, "Bossman ответил, но STOP всё ещё включён", "BM_STOP_STILL_ACTIVE",
                        "проверьте Bossman на ПК (/resume в пульте)")
+        workers.clear_global_stop()          # function probe 24.10: the worker-registry STOP stayed set until a pult restart
         return {"ok": True, **view, "generation": body.get("generation") if isinstance(body, dict) else None}
 
     # ------------------------------------------------------------------ chat (Bossman chat threads = Bossman tasks)

@@ -421,7 +421,59 @@ def probe_swapme(a) -> dict:
             "reads": out, "negative": neg, "deals_endpoint_http": st_d, "writes_made": 0, "verdict": "PASS" if ok else "FAIL"}
 
 
-PROBES = {"chat": probe_chat, "generation": probe_generation, "memory": probe_memory, "pc": probe_pc,
+# ------------------------------------------------------------------ memory summary (agent session /compact)
+
+def _session(sid):
+    return call("GET", f"/api/agent/sessions/{sid}")[1]
+
+
+def probe_summary(a) -> dict:
+    k = code()
+    st, s = call("POST", "/api/agent/sessions", {"title": "PROOF summary", "mode": "CHAT"})
+    if st >= 400:
+        st, s = call("POST", "/api/agent/sessions", {"title": "PROOF summary"})
+    sid = (s.get("session") or s).get("id") if isinstance(s, dict) else None
+    lines = [f"Ключевой факт этого разговора: номер заказа {k}, доставка в четверг. Ответь коротко: принято.",
+             "Немного болтовни: погода сегодня облачная, я пил чай с лимоном и смотрел в окно. Ответь одним словом.",
+             "Ещё болтовня: соседский кот снова сидит на заборе. Ответь одним словом."]
+    sent = []
+    for text in lines:
+        st, r = call("POST", f"/api/agent/sessions/{sid}/messages", {"text": text, "agent_id": a.agent}, timeout=600)
+        sent.append(st)
+        t0 = time.time()
+        while time.time() - t0 < 300:                                       # wait for the turn to finish
+            v = _session(sid) or {}
+            turns = v.get("turns") or v.get("messages") or []
+            if turns and str((turns[-1] or {}).get("status") or "completed") in ("completed", "failed", "stopped", "cancelled"):
+                break
+            time.sleep(4)
+    transcript_chars = sum(len(x) for x in lines)
+    st_c, c = call("POST", f"/api/agent/sessions/{sid}/compact", {})
+    # the API does not return the summary text (context shows only its size and state); the probe's OWN session file
+    # (synthetic content) is read for the content check
+    summary, state, t0 = "", "", time.time()
+    while time.time() - t0 < 400:
+        _, ctx = call("GET", f"/api/agent/sessions/{sid}/context")
+        state = ((ctx or {}).get("compact") or {}).get("state", "") if isinstance(ctx, dict) else ""
+        if state in ("done", "failed", "error"):
+            break
+        time.sleep(5)
+    sess_file = Path(os.environ.get("BCC_DATA_DIR") or Path(os.environ["LOCALAPPDATA"]) / "Bossman" / "CommandCenter") \
+        / "terminal" / "sessions" / f"{sid}.json"
+    if sess_file.is_file():
+        summary = str(json.loads(sess_file.read_text(encoding="utf-8")).get("summary") or "")
+    st_again, again = call("POST", f"/api/agent/sessions/{sid}/compact", {})
+    keeps = k in summary
+    ok = st_c in (200, 202) and keeps and 0 < len(summary) and st_again == 409
+    return {"function": "memory_summary", "session_id": sid, "agent_id": a.agent, "messages_http": sent,
+            "compact_http": st_c, "summary_chars": len(summary), "transcript_chars": transcript_chars,
+            "summary_keeps_the_fact": keeps, "summary_drops_chatter": not re.search(r"кот|лимон|забор", summary, re.I),
+            "negative_compact_with_no_new_turns": {"http": st_again, "code": _code(again)},
+            "verdict": "PASS" if ok else ("NOT_RUN" if sid is None else "FAIL")}
+
+
+# «memory_summary», not «summary»: summary.json is the step-5 roll-up and must never be overwritten by a probe
+PROBES = {"memory_summary": probe_summary, "chat": probe_chat, "generation": probe_generation, "memory": probe_memory, "pc": probe_pc,
           "phone": probe_phone, "swapme": probe_swapme}
 
 

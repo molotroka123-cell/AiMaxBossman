@@ -1,0 +1,36 @@
+{
+ "at": "2026-10-24T15:17:44Z",
+ "src": "C:\\Users\\asd\\Bossman\\models\\reranker",
+ "dst": "D:\\Bossman\\models\\reranker",
+ "deleted_anything": false,
+ "before": {
+  "files": 48,
+  "bytes": 4775550635,
+  "manifest_sha256": "4b4d4315e81efc1e3fa29aa5a3e4ee409b4e0d9c786d6d68a1a45ed6eddf5b19"
+ },
+ "copy_exit_code": 1,
+ "after": {
+  "files": 48,
+  "bytes": 4775550635,
+  "manifest_sha256": "4b4d4315e81efc1e3fa29aa5a3e4ee409b4e0d9c786d6d68a1a45ed6eddf5b19"
+ },
+ "comparison": {
+  "missing": {
+   "count": 0,
+   "first": []
+  },
+  "extra": {
+   "count": 0,
+   "first": []
+  },
+  "changed": {
+   "count": 0,
+   "first": []
+  },
+  "identical": true
+ },
+ "pointer": "not switched (no --pointer)",
+ "verdict": "PASS",
+ "seconds": 522.7,
+ "note": "source tree kept as the reserve; removing it needs the owner's approval"
+}

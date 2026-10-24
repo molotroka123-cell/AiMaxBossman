@@ -1,0 +1,36 @@
+{
+ "at": "2026-10-24T15:31:38Z",
+ "src": "C:\\Users\\asd\\Bossman\\models\\qwen38-flash-next",
+ "dst": "D:\\Bossman\\models\\qwen38-flash-next",
+ "deleted_anything": false,
+ "before": {
+  "files": 13,
+  "bytes": 81961845081,
+  "manifest_sha256": "9a40dd54e79a190dc81308e771b26a282f04310d6fb1fe17eaaa8d1ead6287d8"
+ },
+ "copy_exit_code": 1,
+ "after": {
+  "files": 13,
+  "bytes": 81961845081,
+  "manifest_sha256": "9a40dd54e79a190dc81308e771b26a282f04310d6fb1fe17eaaa8d1ead6287d8"
+ },
+ "comparison": {
+  "missing": {
+   "count": 0,
+   "first": []
+  },
+  "extra": {
+   "count": 0,
+   "first": []
+  },
+  "changed": {
+   "count": 0,
+   "first": []
+  },
+  "identical": true
+ },
+ "pointer": "not switched (no --pointer)",
+ "verdict": "PASS",
+ "seconds": 136.7,
+ "note": "source tree kept as the reserve; removing it needs the owner's approval"
+}

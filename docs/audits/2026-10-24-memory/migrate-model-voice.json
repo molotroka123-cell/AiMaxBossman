@@ -1,0 +1,36 @@
+{
+ "at": "2026-10-24T15:26:54Z",
+ "src": "C:\\Users\\asd\\Bossman\\models\\voice",
+ "dst": "D:\\Bossman\\models\\voice",
+ "deleted_anything": false,
+ "before": {
+  "files": 54,
+  "bytes": 2481505419,
+  "manifest_sha256": "5777fcf164783a337841437e76fd34fb2a94ed6470c3595db3d1602fc97e6a0a"
+ },
+ "copy_exit_code": 1,
+ "after": {
+  "files": 54,
+  "bytes": 2481505419,
+  "manifest_sha256": "5777fcf164783a337841437e76fd34fb2a94ed6470c3595db3d1602fc97e6a0a"
+ },
+ "comparison": {
+  "missing": {
+   "count": 0,
+   "first": []
+  },
+  "extra": {
+   "count": 0,
+   "first": []
+  },
+  "changed": {
+   "count": 0,
+   "first": []
+  },
+  "identical": true
+ },
+ "pointer": "not switched (no --pointer)",
+ "verdict": "PASS",
+ "seconds": 46.7,
+ "note": "source tree kept as the reserve; removing it needs the owner's approval"
+}
