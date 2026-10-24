@@ -1,0 +1,94 @@
+{
+ "proof": "niche_research 28-day run infrastructure",
+ "date": "2026-10-24T15:46:06-0700",
+ "base_sha": "78279c9921032f6e5e292f54c7d0b89f1a17d7d7",
+ "note": "working tree uncommitted at proof time; scheduled task NOT registered; nothing sent/published",
+ "simulated_day": {
+  "ok": true,
+  "checks": {
+   "started": true,
+   "all_5_roles_done": true,
+   "day_report_exists": true,
+   "day_report_has_disclaimer": true,
+   "sample_exists": true,
+   "proposal_exists": true,
+   "learning_records": 14,
+   "spend_usd": 0.0,
+   "paid_spend_usd": 0.0
+  },
+  "processed": [
+   {
+    "id": 1,
+    "key": "d01:researcher",
+    "outcome": "done"
+   },
+   {
+    "id": 2,
+    "key": "d01:competitor",
+    "outcome": "done"
+   },
+   {
+    "id": 3,
+    "key": "d01:packager",
+    "outcome": "done"
+   },
+   {
+    "id": 4,
+    "key": "d01:draft",
+    "outcome": "done"
+   },
+   {
+    "id": 5,
+    "key": "d01:critic",
+    "outcome": "done"
+   }
+  ],
+  "day_report_head": [
+   "# День 01 — 2026-10-26 — ниша «уборка»",
+   "",
+   "Неделя 1: Локальные услуги для дома. Отчёт обновлён 2026-10-26 10:00 UTC.",
+   "",
+   "> **платёжный спрос не проверен.** Ниже — исследовательские сигналы из открытых источников, а не доказательство спроса и не обещание дохода. Цены конкурентов не доказывают продаж.",
+   ""
+  ]
+ },
+ "real_smoke": {
+  "paid_clients_configured": 0,
+  "model": {
+   "ok": true,
+   "provider": "openrouter",
+   "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+   "answer": "Париж",
+   "tokens_in": 33,
+   "tokens_out": 21,
+   "cost_usd": 0.0,
+   "seconds": 0.9
+  },
+  "model_attempts": [
+   {
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "ok": true,
+    "note": ""
+   }
+  ],
+  "fetch": {
+   "ok": true,
+   "status": 200,
+   "title": "Example Domain",
+   "error": "",
+   "requests": [
+    "https://example.com/robots.txt",
+    "https://example.com/"
+   ],
+   "seconds": 5.1,
+   "rate_limited_ge_5s": true
+  },
+  "spend_usd": 0.0,
+  "paid_spend_usd": 0.0,
+  "ok": true
+ },
+ "spend_usd_total": 0.0,
+ "verdict": "PASS",
+ "payment_status": "платёжный спрос не проверен"
+}
