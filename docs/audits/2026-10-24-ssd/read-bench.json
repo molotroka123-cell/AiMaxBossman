@@ -1,0 +1,51 @@
+{
+ "at": "2026-10-24T11:39:48Z",
+ "file": "z-image-turbo/z_image_turbo-Q8_0.gguf",
+ "bytes_read": 3221225472,
+ "sizes": {
+  "C": 6577440704,
+  "D": 6577440704
+ },
+ "head_sha256": {
+  "C": "6f5bed0f7097f5ce9cd5e88bbe8c68e775e632c29ee0e34635ffe47d414ed27c",
+  "D": "6f5bed0f7097f5ce9cd5e88bbe8c68e775e632c29ee0e34635ffe47d414ed27c"
+ },
+ "identical": true,
+ "cold_unbuffered_MBps": {
+  "C": [
+   1777,
+   1883,
+   1803
+  ],
+  "D": [
+   6062,
+   6108,
+   3228
+  ]
+ },
+ "warm_buffered_MBps": {
+  "C": [
+   1228,
+   3639,
+   3485
+  ],
+  "D": [
+   2927,
+   3271,
+   3290
+  ]
+ },
+ "median": {
+  "cold_unbuffered_MBps": {
+   "C": 1803,
+   "D": 6062
+  },
+  "warm_buffered_MBps": {
+   "C": 3485,
+   "D": 3271
+  }
+ },
+ "D_over_C_cold": 3.36,
+ "verdict": "MEASURED (device read only; end-to-end load not yet compared)",
+ "runtime_sha": "04b0e737"
+}

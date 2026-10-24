@@ -1,0 +1,335 @@
+{
+ "at": "2026-10-24T11:43:41Z",
+ "rule": "owner 24.10: cloud models get no PC access, chat only",
+ "changed": [
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  19,
+  22,
+  25,
+  29,
+  30,
+  31,
+  32,
+  33,
+  34,
+  35,
+  36,
+  37,
+  44,
+  45,
+  46
+ ],
+ "rollback_backup": [
+  {
+   "id": 3,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 4,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 5,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 6,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 7,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 8,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 9,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 10,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 11,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 12,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 13,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 14,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 15,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 19,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 22,
+   "tools": [],
+   "permissions": {
+    "project_id": "BOSSBLOCKS-001",
+    "read_only": true
+   }
+  },
+  {
+   "id": 25,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 29,
+   "tools": [
+    "read_file",
+    "search",
+    "list_dir",
+    "edit_file",
+    "write_file",
+    "run_tests"
+   ],
+   "permissions": {
+    "lab_variant": "RAW",
+    "require_tests_before_finish": false,
+    "use_memory": false
+   }
+  },
+  {
+   "id": 30,
+   "tools": [
+    "read_file",
+    "search",
+    "list_dir",
+    "edit_file",
+    "write_file",
+    "run_tests"
+   ],
+   "permissions": {
+    "lab_variant": "TOOL_FIRST",
+    "require_tests_before_finish": true,
+    "use_memory": false
+   }
+  },
+  {
+   "id": 31,
+   "tools": [
+    "read_file",
+    "search",
+    "list_dir",
+    "edit_file",
+    "write_file",
+    "run_tests"
+   ],
+   "permissions": {
+    "lab_variant": "MEMORY",
+    "require_tests_before_finish": true,
+    "use_memory": true
+   }
+  },
+  {
+   "id": 32,
+   "tools": [
+    "read_file",
+    "search",
+    "list_dir",
+    "edit_file",
+    "write_file",
+    "run_tests"
+   ],
+   "permissions": {
+    "lab_variant": "PLAN_EXECUTE_VERIFY",
+    "require_tests_before_finish": true,
+    "use_memory": false
+   }
+  },
+  {
+   "id": 33,
+   "tools": [
+    "read_file",
+    "search",
+    "list_dir",
+    "edit_file",
+    "write_file",
+    "run_tests"
+   ],
+   "permissions": {
+    "lab_variant": "RED_TEAM",
+    "require_tests_before_finish": true,
+    "use_memory": false
+   }
+  },
+  {
+   "id": 34,
+   "tools": [
+    "read_file",
+    "search",
+    "list_dir",
+    "edit_file",
+    "write_file",
+    "run_tests"
+   ],
+   "permissions": {
+    "lab_variant": "USER_UX",
+    "require_tests_before_finish": true,
+    "use_memory": false
+   }
+  },
+  {
+   "id": 35,
+   "tools": [
+    "read_file",
+    "search",
+    "list_dir"
+   ],
+   "permissions": {
+    "lab_observer": "CLAUDE_AUDITOR",
+    "student": false,
+    "may_edit": false,
+    "use_memory": false,
+    "require_tests_before_finish": false,
+    "outcomes": [
+     "OBSERVE",
+     "CORRECT_LEVEL_1",
+     "CORRECT_LEVEL_2",
+     "CORRECT_LEVEL_3",
+     "STOP_FOR_SAFETY"
+    ]
+   }
+  },
+  {
+   "id": 36,
+   "tools": [
+    "read_file",
+    "search",
+    "list_dir"
+   ],
+   "permissions": {
+    "lab_observer": "RESULT_VERIFIER",
+    "student": false,
+    "may_edit": false,
+    "use_memory": false,
+    "require_tests_before_finish": false,
+    "verifier_module": "bossman_v3.self_improvement.verifier"
+   }
+  },
+  {
+   "id": 37,
+   "tools": [
+    "read_file",
+    "search",
+    "list_dir"
+   ],
+   "permissions": {
+    "lab_observer": "UX_OBSERVER",
+    "student": false,
+    "may_edit": false,
+    "use_memory": false,
+    "require_tests_before_finish": false
+   }
+  },
+  {
+   "id": 44,
+   "tools": [],
+   "permissions": {
+    "filesystem.read": true
+   }
+  },
+  {
+   "id": 45,
+   "tools": [],
+   "permissions": {}
+  },
+  {
+   "id": 46,
+   "tools": [
+    "code.search",
+    "code.expand",
+    "code.status",
+    "terminal.run",
+    "terminal.status",
+    "browser.open",
+    "browser.read_dom",
+    "browser.screenshot"
+   ],
+   "permissions": {
+    "filesystem.read": true,
+    "terminal.read": true,
+    "browser.read": true,
+    "mobile_cloud_ok": true
+   }
+  }
+ ],
+ "remaining_with_pc_access": [],
+ "verdict": "PASS",
+ "live_proof": {
+  "thread": "20261024-044353-91b3dd",
+  "task_id": 228,
+  "status": "waiting_approval",
+  "allowed_tools": [
+   "terminal.kill",
+   "terminal.run",
+   "terminal.stdin"
+  ],
+  "hostname_leaked": false,
+  "cost_usd": 0.000406
+ },
+ "read_only_restored_agent_22": true,
+ "live_proof_before_fix": {
+  "verdict": "FAIL",
+  "tasks": [
+   228,
+   232,
+   233,
+   234
+  ],
+  "observed": "agent 46 with tools=[] still got terminal.run/kill/stdin + apps.start/stop from the routing grant (action_contract: empty own tools = not owner-scoped)",
+  "executed": "nothing: every call parked as ask/pending_approval; approvals 68-73 rejected by claude, tasks 232-234 stopped",
+  "hostname_leaked": false
+ },
+ "code_fix": {
+  "commit": "e33e1b0b",
+  "what": "bcc.tools.chat_only(): permissions.cloud_pc_access=false -> allowed_tools_for returns []; _withheld_from_agent withholds the whole grant",
+  "tests": "command-center/tests/test_cloud_chat_only.py 4 PASS (run path sees no tools for a terminal prompt; ordinary agent keeps the grant = negative control); 89 neighbouring tool tests PASS"
+ },
+ "live_proof_after_fix": {
+  "verdict": "NOT_RUN",
+  "why": "backend pid 10264 still runs pre-fix code; restart would kill the owner's running Direct Gen job ca9caffbab (since 04:41). Rerun the hostname probe after the next restart."
+ }
+}
