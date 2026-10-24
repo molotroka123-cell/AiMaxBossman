@@ -51,3 +51,15 @@
 | [root-history/](root-history/) | исторические корневые отчёты (`AUDIT_STATE`, `HANDOFF_STATE`, `RED_TEAM_HANDOFF` и др.) |
 
 См. также: `docs/archive/2026-08/docs-root/REPOSITORY_ARTIFACT_CLEANUP.md` (уборка бинарных архивов из корня, раньше).
+
+## Уборка 24.10.2026
+
+Перенос по тому же правилу (ноль ссылок из кода, тестов, CI, JSON, `capability_tree_seed.json`, сборщика
+Windows-пакета и квитанций `docs/audits/`); входящие и исходящие относительные ссылки переписаны.
+
+| Папка | Что внутри |
+|---|---|
+| [root-history/](root-history/) | файлы из корня репозитория, в т.ч. [README_full_20261024.md](root-history/README_full_20261024.md) — полный README до 24.10 (байты сохранены) |
+| [2026-08/docs-root/](2026-08/docs-root/) | отчёты и планы августа–сентября из корня `docs/` (V2, V2.1, V4/V5, Command Center) |
+| [folders/](folders/) | целые папки `docs/` без ссылок: apps, astra, company, computer, convergence, fleet, mission, night, rc, runpod, v5 и др. |
+| [2026-10/owner/](2026-10/owner/) | датированные handoff-ы и мастер-промпты владельца до 21.10 |
