@@ -25,11 +25,42 @@ def test_chat_only_agent_gets_nothing_from_any_channel():
     assert allowed_tools_for(routed, agent) == []
 
 
-def test_only_an_explicit_false_makes_an_agent_chat_only():
+def test_chat_only_needs_the_key_and_fails_closed_on_a_hand_edited_value():
     assert not chat_only({"permissions": {}})
-    assert not chat_only({"permissions": {"cloud_pc_access": None}})
     assert not chat_only({"permissions": None})
+    assert not chat_only({"permissions": {"cloud_pc_access": True}})
+    for v in (False, None, "false", "False", "0", 0, "no", "off"):     # GLM review 24.10: «"false"» used to mean «open»
+        assert chat_only({"permissions": {"cloud_pc_access": v}}), v
     assert allowed_tools_for({}, {"tools": ["fs.read"], "permissions": {}}) == ["fs.read"]
+
+
+def test_a_broken_allowed_tools_value_means_no_tools_not_the_agents_full_set():
+    agent = {"tools": ["terminal.run", "fs.read"]}
+    for broken in ("terminal.run", {"terminal.run": True}, None, 5):
+        assert allowed_tools_for({"meta": {"allowed_tools": broken}}, agent) == [], broken
+
+
+def test_dict_tools_and_permissions_grant_only_on_a_real_true():
+    from bcc.permissions import agent_allowed, needs_approval
+    assert allowed_tools_for({}, {"tools": {"terminal.run": "false", "fs.read": True}}) == ["fs.read"]
+    assert not agent_allowed({"permissions": {"terminal.run": "false"}}, "terminal.run")
+    assert needs_approval({"permissions": {"terminal.run": "false"}}, "terminal.run")
+    assert agent_allowed({"permissions": {"terminal.run": True}}, "terminal.run")
+    assert agent_allowed({"permissions": ["terminal.run"]}, "terminal.run")
+
+
+def test_an_unknown_permission_is_dangerous_and_screen_recording_is_registered():
+    from bcc.permissions import ALL_PERMISSIONS, is_dangerous, needs_approval
+    assert is_dangerous("terminal.run ") and is_dangerous("made.up"), "unknown/typo permission must fail closed"
+    assert not is_dangerous("") and not is_dangerous("filesystem.read")
+    assert "desktop.control" in ALL_PERMISSIONS and is_dangerous("desktop.control")
+    assert needs_approval({"permissions": {}}, "made.up")
+
+
+async def test_a_routing_grant_without_an_agent_withholds_dangerous_and_unknown_tools():
+    from bcc.features.action_contract import _withheld_from_agent
+    withheld = await _withheld_from_agent(None, {"agent_id": None}, ["terminal.run", "no.such.tool"])
+    assert "no.such.tool" in withheld and "terminal.run" in withheld
 
 
 async def _first_payload(env, perms, prompt=HOSTNAME):

@@ -736,12 +736,18 @@ async def _withheld_from_agent(svc, task: dict, grant: list[str]) -> list[str]:
     add a tool whose permission is DANGEROUS (bcc.permissions) and not granted to that agent — that would
     be a tool the owner never gave it. Tools the agent already lists, and permission-free/non-dangerous
     tools (apps.start, HW-02), are still added; agents without a tool list keep the old grant + ASK path."""
-    if not grant or task.get("agent_id") is None:
+    if not grant:
         return []
+
+    def dangerous_or_unknown(name: str) -> bool:      # GLM security review 24.10: unknown tool = fail-closed
+        spec = REGISTRY.get(name)
+        return spec is None or (bool(spec.permission) and is_dangerous(spec.permission))
+    if task.get("agent_id") is None:
+        return [n for n in grant if dangerous_or_unknown(n)]
     async with svc.db.session() as s:
         row = (await s.execute(sa.select(agents_t).where(agents_t.c.id == task["agent_id"]))).first()
     if row is None:
-        return []
+        return [n for n in grant if dangerous_or_unknown(n)]
     agent = dict(row._mapping)
     if chat_only(agent):               # owner 24.10: a chat-only (cloud) agent gets no PC tools at all
         return list(grant)
@@ -751,6 +757,9 @@ async def _withheld_from_agent(svc, task: dict, grant: list[str]) -> list[str]:
     withheld = []
     for name in grant:
         spec = REGISTRY.get(name)
+        if spec is None and name not in own:
+            withheld.append(name)
+            continue
         perm = spec.permission if spec is not None else ""
         if (name not in own and perm and is_dangerous(perm)
                 and not agent_allowed(agent, perm)):

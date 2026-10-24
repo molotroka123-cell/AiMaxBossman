@@ -1,0 +1,123 @@
+{
+ "schema": "bossman.security-review.v1",
+ "at": "2026-10-24",
+ "owner_request": "Отправь глм 5,3 флеш uncensored выполнять и анализировать защиту более глубоко для боссмана и внедрять",
+ "reviewer": {
+  "model": "glm-5.3-flash-uncensored (7API, model 105)",
+  "path": "Bossman governed adapter, streamed, NO tools field (chat only per owner rule 24.10)",
+  "sent": "source text of bcc/permissions.py, bcc/tools.py:380-549, bcc/features/action_gate.py, bossmobile/policy.py, action_contract.py:728-760; secret-pattern scan before sending; no owner data",
+  "usage": [
+   {
+    "chunk": "permissions+tools",
+    "seconds": 264.1,
+    "usage": {
+     "tokens_in": 16867,
+     "tokens_out": 13790
+    }
+   },
+   {
+    "chunk": "action_gate",
+    "seconds": 101.6,
+    "usage": {
+     "tokens_in": 16965,
+     "tokens_out": 4503
+    }
+   },
+   {
+    "chunk": "mobile policy",
+    "seconds": 199.7,
+    "usage": {
+     "tokens_in": 16056,
+     "tokens_out": 9240
+    }
+   }
+  ]
+ },
+ "first_attempt_via_agent_46": "tasks 232-234: pre-fix backend still granted terminal.*/apps.* (code text matches the terminal capability); 4 tool calls parked as ask, all rejected, tasks stopped; nothing executed",
+ "found_by_glm": 27,
+ "verified_and_implemented": [
+  {
+   "id": "perm-unknown-dangerous",
+   "glm_sev": "P1",
+   "verdict": "REAL (latent)",
+   "evidence": "obs_lite.record used permission 'desktop.control' absent from ALL_PERMISSIONS/DANGEROUS; default_effect=ask kept it gated, but a grant of it would auto-allow screen recording and any typo'd permission read as safe",
+   "fix": "is_dangerous: unknown non-empty permission = dangerous; desktop.control registered as dangerous"
+  },
+  {
+   "id": "truthy-grant",
+   "glm_sev": "P2",
+   "verdict": "REAL (config hygiene)",
+   "evidence": "agent_allowed used bool(): {'terminal.run': 'false'} granted; live DB has only bool values for permission keys, so no live grant changed",
+   "fix": "agent_allowed / dict tools grant only on a real True"
+  },
+  {
+   "id": "chat-only-string",
+   "glm_sev": "P2",
+   "verdict": "REAL",
+   "evidence": "cloud_pc_access: 'false' did not make an agent chat-only",
+   "fix": "chat_only fails closed on false-like values"
+  },
+  {
+   "id": "allowed-tools-type",
+   "glm_sev": "P2",
+   "verdict": "REAL",
+   "evidence": "meta.allowed_tools as a string fell through to the agent's full tool set",
+   "fix": "broken value = no tools"
+  },
+  {
+   "id": "grant-unknown-tool-or-no-agent",
+   "glm_sev": "P1/P2",
+   "verdict": "REAL (latent)",
+   "evidence": "_withheld_from_agent: tool missing from REGISTRY had perm '' and was added; agent_id None skipped every check",
+   "fix": "unknown tool withheld; no agent = dangerous+unknown withheld"
+  },
+  {
+   "id": "robocopy-symlinks",
+   "glm_sev": "-",
+   "verdict": "found by the HF migration, not GLM",
+   "evidence": "HF cache copy doubled to 60 GB (53 dereferenced snapshot links); comparison FAILED safely, pointer not switched",
+   "fix": "archive_migrate robocopy /SL"
+  }
+ ],
+ "rejected_or_deferred": [
+  {
+   "id": "action_gate any-tool-call",
+   "verdict": "NOT A HOLE",
+   "why": "a quality gate against 'do it manually' refusals by design; not a permission boundary, approvals live in decide_effect"
+  },
+  {
+   "id": "action_gate attempts race",
+   "verdict": "LOW",
+   "why": "one worker owns a task run"
+  },
+  {
+   "id": "execute_tool has no permission check",
+   "verdict": "DEFERRED (defense in depth)",
+   "why": "all callers go through decide_effect; a decide_effect token in ToolContext is a larger refactor - next step"
+  },
+  {
+   "id": "mobile fallback via local proxy to cloud",
+   "verdict": "DEFERRED",
+   "why": "needs the governance view for fallback models; owner-registered proxies only"
+  },
+  {
+   "id": "tool exception text to cloud model",
+   "verdict": "MOOT for chat-only cloud agents",
+   "why": "they get no tools after e33e1b0b"
+  },
+  {
+   "id": "empty own tools = full routing grant",
+   "verdict": "BY DESIGN, gated",
+   "why": "dangerous grant tools still go to ASK; chat-only agents now get nothing"
+  }
+ ],
+ "tests": {
+  "new": "command-center/tests/test_cloud_chat_only.py (9 tests)",
+  "suite": "113 files touching permissions/routing: 2206 passed, 1 failed unrelated (test_owner_safe_runtime_drill_end_to_end: live build_sha None), mobile 252 passed, archive_migrate 6 passed"
+ },
+ "live_proof": {
+  "verdict": "NOT_RUN",
+  "why": "backend restart postponed: owner's Direct Gen job running"
+ },
+ "raw_answers_kept": "not committed (model output about code only; available in the session scratchpad)"
+}

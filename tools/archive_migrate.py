@@ -72,8 +72,12 @@ def compare(before: dict[str, dict], after: dict[str, dict]) -> dict:
 
 
 def robocopy(src: Path, dst: Path, threads: int = 2) -> int:
-    """Exit codes 0-7 are success for robocopy (bit 0 = files copied); >= 8 is a failure."""
-    r = subprocess.run(["robocopy", str(src), str(dst), "/E", "/COPY:DAT", "/DCOPY:DAT", f"/MT:{threads}", "/R:2", "/W:3",
+    """Exit codes 0-7 are success for robocopy (bit 0 = files copied); >= 8 is a failure.
+
+    /SL copies a symbolic link as a link (24.10: the HuggingFace cache keeps snapshots as relative links into blobs/;
+    without /SL robocopy dereferenced 53 of them and the copy doubled to 60 GB). The manifest skips links on both
+    sides, so a dereferenced link would show up as an «extra» file and fail the comparison."""
+    r = subprocess.run(["robocopy", str(src), str(dst), "/E", "/SL", "/COPY:DAT", "/DCOPY:DAT", f"/MT:{threads}", "/R:2", "/W:3",
                         "/NP", "/NFL", "/NDL", "/NJH", "/NJS"], capture_output=True)
     return r.returncode
 

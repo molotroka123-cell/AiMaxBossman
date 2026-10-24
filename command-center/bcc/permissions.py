@@ -28,13 +28,15 @@ ALL_PERMISSIONS = (
     # photo.edit (tools_photo_edit): queue a LOCAL Direct Gen edit of a chat reference photo (owner 23.10).
     # Not dangerous (local queue, owner STOP and the pult's fixed content rules still apply); without the grant → ASK.
     "media.generate",
+    # obs_lite.record: records the owner's screen to a file - the same data exposure as computer.observe.
+    "desktop.control",
 )
 
 DANGEROUS = frozenset({
     "filesystem.write", "terminal.run", "git.write", "browser.control",
     "model.unload", "email.send", "deploy.preview", "deploy.production",
     "invoice.create", "settings.write", "channel.send",
-    "computer.observe", "computer.control", "cli.bypass",
+    "computer.observe", "computer.control", "cli.bypass", "desktop.control",
 })
 
 
@@ -43,16 +45,24 @@ def is_valid(perm: str) -> bool:
 
 
 def is_dangerous(perm: str) -> bool:
-    return perm in DANGEROUS
+    """Fail-closed (GLM security review 24.10): a non-empty permission this module does not know is dangerous.
+
+    A tool whose permission string was never added here (``desktop.control`` until 24.10) or carries a typo
+    used to read as «not dangerous» = no approval. An empty string still means «permission-free tool»."""
+    return perm in DANGEROUS or (bool(perm) and perm not in ALL_PERMISSIONS)
 
 
 def agent_allowed(agent: dict, perm: str) -> bool:
     """Право есть, только если оно явно выдано агенту (permissions: {perm: true}
-    или список строк). Опасные права по умолчанию выключены."""
+    или список строк). Опасные права по умолчанию выключены.
+
+    Only a real ``True`` grants: ``{"terminal.run": "false"}`` from a hand-edited config used to pass ``bool()``."""
     granted = agent.get("permissions") or {}
     if isinstance(granted, list):
         return perm in granted
-    return bool(granted.get(perm))
+    if not isinstance(granted, dict):
+        return False
+    return granted.get(perm) is True
 
 
 def needs_approval(agent: dict, perm: str) -> bool:

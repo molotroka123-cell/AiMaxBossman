@@ -396,7 +396,7 @@ def _agent_tool_names(agent: dict) -> list[str]:
         return [str(x) if not isinstance(x, dict) else str(x.get("name") or "")
                 for x in tools if x]
     if isinstance(tools, dict) and tools:
-        return [k for k, v in tools.items() if v]
+        return [k for k, v in tools.items() if v is True]       # {"terminal.run": "false"} is not a grant
     return []
 
 
@@ -406,7 +406,11 @@ def chat_only(agent: dict) -> bool:
     ``permissions.cloud_pc_access is False`` marks such an agent. An empty ``tools`` list alone is NOT enough:
     a routing grant (action_contract) used to treat «no own tools» as «not owner-scoped» and hand it terminal.*."""
     perms = agent.get("permissions") if isinstance(agent, dict) else None
-    return isinstance(perms, dict) and perms.get("cloud_pc_access") is False
+    if not isinstance(perms, dict) or "cloud_pc_access" not in perms:
+        return False
+    v = perms["cloud_pc_access"]
+    # Fail-closed on a hand-edited config: «"false"», 0, «no» also mean «no PC access» (only a real True grants it).
+    return v is not True and (v is False or v is None or str(v).strip().lower() in ("false", "0", "no", "off", ""))
 
 
 def allowed_tools_for(task: dict, agent: dict) -> list[str]:
@@ -436,6 +440,7 @@ def allowed_tools_for(task: dict, agent: dict) -> list[str]:
             if meta.get(ROUTED_TOOLS_EXTEND_AGENT) is True:
                 names += [n for n in _agent_tool_names(agent) if n not in names]
             return names
+        return []        # the key is there but broken (a string, a dict): «no tools», never the agent's full set
     return _agent_tool_names(agent)
 
 
