@@ -1,0 +1,48 @@
+{
+ "function": "phone",
+ "thread_id": "20261024-070703-8e6289",
+ "agent_id": 41,
+ "send": {
+  "http": 200,
+  "task_id": 243
+ },
+ "status_seen": {
+  "pult": [
+   200,
+   "running"
+  ],
+  "backend": [
+   200,
+   "running"
+  ]
+ },
+ "same_task_id_pult_and_backend": true,
+ "stop_from_pult": {
+  "http": 200,
+  "body": {
+   "ok": true,
+   "task_id": 243,
+   "status": "stopped"
+  },
+  "final_status": "stopped"
+ },
+ "negative": {
+  "no_session": [
+   401,
+   "BM_LOGIN_REQUIRED"
+  ],
+  "auto_agent": [
+   403,
+   "BM_LOCAL_ONLY"
+  ],
+  "no_csrf": [
+   403,
+   "csrf"
+  ]
+ },
+ "side_effect_note": "pult thread STOP also sets the pult worker registry global_stop flag (sticky until pult restart)",
+ "verdict": "PASS",
+ "runtime_sha": "260f815a50f1",
+ "seconds": 7.1,
+ "at": "2026-10-24T14:07:09Z"
+}

@@ -1,0 +1,25 @@
+{
+ "function": "chat",
+ "thread_id": "20261024-065930-8f3ccd",
+ "agent_id": 41,
+ "context": {
+  "code": "K4Y47GR",
+  "turn1": 239,
+  "turn2": 240,
+  "status": "failed",
+  "recalled": false,
+  "seconds": 64.7
+ },
+ "negative_broken_picture": {
+  "upload_http": 201,
+  "upload_kind": "image",
+  "task_id": 241,
+  "status": "completed",
+  "invented_codes": [],
+  "said_unreadable": true
+ },
+ "verdict": "FAIL",
+ "runtime_sha": "260f815a50f1",
+ "seconds": 115.6,
+ "at": "2026-10-24T14:01:26Z"
+}

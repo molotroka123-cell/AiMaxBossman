@@ -1,0 +1,27 @@
+{
+ "function": "memory",
+ "write": {
+  "http": 200,
+  "error": null
+ },
+ "retrieval": {
+  "http": 200,
+  "items": 8,
+  "found_rank": 0,
+  "found": true
+ },
+ "negative_secret_write": {
+  "http": 200,
+  "refused": false
+ },
+ "lesson_transfer_to_new_task": {
+  "task_id": 242,
+  "status": "completed",
+  "uses_GNF": true
+ },
+ "verdict": "FAIL",
+ "note": "PASS = retrieval + secret refusal + a NEW chat task applying the lesson; PARTIAL = memory works, the task did not apply it",
+ "runtime_sha": "260f815a50f1",
+ "seconds": 107.1,
+ "at": "2026-10-24T14:03:13Z"
+}

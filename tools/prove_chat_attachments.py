@@ -39,8 +39,13 @@ def api(method: str, path: str, body=None, raw: bytes | None = None, ctype: str 
         return json.load(resp)
 
 
+# No look-alike glyphs (24.10: the vision model read «K51O45G» as «K51045G» - O and 0 are the same shape in Arial;
+# that was the test's ambiguity, not a blind model). I/1/L, O/0/Q, S/5, Z/2, B/8 are left out.
+ALPHABET = "".join(c for c in string.ascii_uppercase + string.digits if c not in "IL1O0QS5Z2B8")
+
+
 def code() -> str:
-    return "K" + "".join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    return "K" + "".join(random.choice(ALPHABET) for _ in range(6))
 
 
 def _font(size: int):

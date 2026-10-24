@@ -1,0 +1,35 @@
+{
+ "function": "swapme_reports",
+ "local_only": "rule-based, local FX database; no LLM, no payment path exists in code",
+ "reads": {
+  "rates": {
+   "http": 200,
+   "ok": true,
+   "reply_chars": 409,
+   "has_numbers": true
+  },
+  "dashboard": {
+   "http": 200,
+   "ok": true,
+   "reply_chars": 176,
+   "has_numbers": true
+  }
+ },
+ "negative": {
+  "quote_without_margin": {
+   "http": 200,
+   "refused": true,
+   "quote_id": null
+  },
+  "deal_without_amounts": {
+   "http": 200,
+   "refused": true
+  }
+ },
+ "deals_endpoint_http": 200,
+ "writes_made": 0,
+ "verdict": "PASS",
+ "runtime_sha": "260f815a50f1",
+ "seconds": 0.2,
+ "at": "2026-10-24T14:14:01Z"
+}

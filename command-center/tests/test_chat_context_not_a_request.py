@@ -38,6 +38,15 @@ def test_a_remember_request_in_an_earlier_turn_is_not_repeated_by_a_question(tmp
     assert "MEMORY_ACTION" not in names(pre + "Какое кодовое слово я назвал? Одной строкой.")
 
 
+def test_only_the_imperative_is_a_memory_request():
+    """Live 24.10 (tasks 239/240): «запомнить»/«запомнил» are not a command; the turns failed no_verified_action."""
+    for text in ("Какое кодовое слово я просил запомнить? Ответь только им.", "Ответь одним словом: запомнил.",
+                 "Ты запомнила, что я говорил?", "Сложно запомнить такие числа", "Запоминание — навык"):
+        assert "MEMORY_ACTION" not in names(text), text
+    for text in ("Запомни это", "Запомните мой номер", "запомни-ка адрес", "Remember this fact"):
+        assert "MEMORY_ACTION" in names(text), text
+
+
 def test_the_new_message_is_still_classified(tmp_path):
     pre = _preamble(tmp_path, "Сколько будет 2+2?", "4")
     assert "MEMORY_ACTION" in names(pre + "Запомни, что мой любимый город — Прага.")

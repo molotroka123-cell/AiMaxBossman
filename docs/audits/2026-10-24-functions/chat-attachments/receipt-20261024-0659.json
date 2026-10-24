@@ -1,0 +1,47 @@
+{
+ "verdict": "PASS",
+ "agent_id": 41,
+ "thread_id": "20261024-065710-ad7cc8",
+ "task_id": 238,
+ "task_status": "completed",
+ "answer_chars": 133,
+ "seconds": 137.8,
+ "files": {
+  "picture.png": {
+   "kind": "image",
+   "code": "KJFUKMG",
+   "seen": true
+  },
+  "scan.pdf": {
+   "kind": "scan",
+   "code": "KMP67YT",
+   "seen": true
+  },
+  "text.pdf": {
+   "kind": "text",
+   "code": "K96UNU7",
+   "seen": true
+  },
+  "doc.docx": {
+   "kind": "text",
+   "code": "KDUFU7P",
+   "seen": true
+  },
+  "table.xlsx": {
+   "kind": "text",
+   "code": "KXKACUW",
+   "seen": true
+  },
+  "slides.pptx": {
+   "kind": "text",
+   "code": "KW7Y6U6",
+   "seen": true
+  },
+  "note.txt": {
+   "kind": "text",
+   "code": "KMWMDWN",
+   "seen": true
+  }
+ },
+ "at": "2026-10-24T13:59:30Z"
+}

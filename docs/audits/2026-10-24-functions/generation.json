@@ -1,0 +1,45 @@
+{
+ "function": "generation",
+ "model": "z-image-turbo",
+ "job": {
+  "id": "737c271e37134b39b59c24c480e0ce6f",
+  "status": "completed",
+  "model": "z-image-turbo",
+  "seed": null,
+  "elapsed_s": 225.18,
+  "error": null,
+  "result_keys": [
+   "bytes",
+   "file",
+   "height",
+   "mime",
+   "sha256",
+   "verified",
+   "width"
+  ],
+  "receipt_fields": [
+   "created_at",
+   "finished_at",
+   "provenance",
+   "result"
+  ]
+ },
+ "queue_position_of_second": 1,
+ "stop": {
+  "id": "ece1428aa89f4715939b55a9b594e0fb",
+  "cancel_http": 200,
+  "status_after": "cancelled",
+  "has_result": false
+ },
+ "model_root_seen_in_sdcli_cmdline": [
+  "D:"
+ ],
+ "negative": {
+  "unknown_model_http": 404,
+  "steps_999_http": 422
+ },
+ "verdict": "PASS",
+ "runtime_sha": "260f815a50f1",
+ "seconds": 229.0,
+ "at": "2026-10-24T14:07:02Z"
+}
