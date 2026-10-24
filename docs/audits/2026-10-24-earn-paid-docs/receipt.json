@@ -1,0 +1,144 @@
+{
+  "schema": "bossman.proof.jeff-manual-invoice/1",
+  "date": "2026-10-24T15:21:55-0700",
+  "git_head": "659c6cabffda4b29f454d3f5a8a7b158ab023a56",
+  "worktree_note": "proved on the working tree; the module, ledger/paid_docs edits and tests are uncommitted",
+  "scenario": "A: paid document assistant (Jeff), manual bank-transfer invoice while Telegram Stars are paused",
+  "verdict": "PASS",
+  "verdict_scope": "capability only (in-process, synthetic participant, stub model answer)",
+  "revenue": "NOT_RUN",
+  "revenue_note": "no real client and no real payment took part; this receipt is not evidence of earned money",
+  "data_dir": "temporary directory, deleted after the run (owner data never opened)",
+  "model": "STUB answer string; no Ollama, no model, no GPU",
+  "not_covered": [
+    "runtime.py does not yet route /invoice /paid /cancel_invoice /refund_invoice /invoices to PaidDocs.manual_command (owner-chat wiring is a separate change)",
+    "no live proof through the real pult / Telegram chat path"
+  ],
+  "seconds": 0.56,
+  "steps": [
+    {
+      "step": "ledger_in_temp_dir",
+      "pass": true,
+      "ledger": "pit-v1.7\\stars-ledger.sqlite3"
+    },
+    {
+      "step": "owner_issues_invoice",
+      "pass": true,
+      "ref": "JD-20261024-9113EE",
+      "amount": "9.90",
+      "currency": "EUR",
+      "owner_reply": "Счёт JD-20261024-9113EE выписан: 9.90 EUR, пакет «Документы: 30 дней» (150 запросов, до 25 документов, 30 дней), действует до 31.10.2026.\nУчастнику ничего не отправлено: передайте ему реквизиты и назначение платежа «JD-20261024-9113EE» сами. Когда деньги придут: /paid JD-20261024-9113EE."
+    },
+    {
+      "step": "invoice_alone_grants_nothing",
+      "pass": true
+    },
+    {
+      "step": "participant_uploads_synthetic_document",
+      "pass": true,
+      "reply": "Документ №1 «договор.txt» сохранён: 155 симв., 1 фрагм. Спросите: /ask <вопрос>, /summary 1 или /draft <задача>."
+    },
+    {
+      "step": "free_trial_used",
+      "pass": true,
+      "pools": [
+        "trial",
+        "trial",
+        "trial"
+      ]
+    },
+    {
+      "step": "trial_exhausted_refuses",
+      "pass": true,
+      "text": "Пробные запросы закончились. Пакет «Документы: 30 дней» — 199 ⭐ за 150 запросов: /buy. Условия: /terms."
+    },
+    {
+      "step": "owner_marks_paid_grants_docs30",
+      "pass": true,
+      "owner_reply": "Счёт JD-20261024-9113EE отмечен оплаченным. Доступ открыт до 23.11.2026, запросов: 150. Участнику ничего не отправлено; он увидит это в /plan.",
+      "entitlement": {
+        "paid_requests_left": 150,
+        "valid_until": 1795472515.2825768,
+        "doc_limit": 25,
+        "trial_left": 0,
+        "has_paid": true,
+        "expired": false
+      }
+    },
+    {
+      "step": "paid_ask_answered_with_stub_model",
+      "pass": true,
+      "model": "STUB (no model loaded)",
+      "answer": "Срок оплаты — 10 рабочих дней с момента подписания акта [1].\n\nИсточники:\n[1] договор.txt · фрагмент 1 — «Срок оплаты — 10 рабочих дней с момента подписания акта.»"
+    },
+    {
+      "step": "double_mark_paid_is_idempotent",
+      "pass": true,
+      "status": "duplicate"
+    },
+    {
+      "step": "owner_report_shows_money_apart_from_stars",
+      "pass": true,
+      "report": "Платежи Stars (⭐ — не деньги и не прибыль)\n• Получено всего: 0 ⭐\n• Возвращено: 0 ⭐\n• Чистыми: 0 ⭐\n• Не сопоставлено со счётом (нужно решение): 0 ⭐\n• Тестовая среда (не считается): 0 ⭐\n• Выведено: 0 ⭐ → 0 USD (записано вручную)\n• Расходы (записаны): 0 USD\n• Денежный итог по записям: 0 USD (без Stars на балансе, без налогов)\n• На балансе, оценка: 0 ⭐\n• Платящих: 1, активных: 1, открытых обращений: 0\nСчета на перевод (деньги, не ⭐): открытых 0\n• EUR: оплачено 9.90, возвращено 0.00, чистыми 9.90\nКоманды: /refund <charge_id>, /tickets, /ledger_add withdrawal <⭐> <USD> [ссылка], /ledger_add expense <USD> <заметка>, /invoice <telegram_id> docs30 <сумма> <EUR|CZK|RUB>, /paid <счёт>, /cancel_invoice <счёт>, /refund_invoice <счёт>, /invoices."
+    },
+    {
+      "step": "owner_refund_revokes_entitlement",
+      "pass": true,
+      "owner_reply": "Возврат по счёту JD-20261024-9113EE учтён (деньги возвращаете вы, банком). Доступ закрыт, снято запросов: 149."
+    }
+  ],
+  "negative_controls": [
+    {
+      "control": "non_owner_cannot_mark_paid",
+      "pass": true,
+      "api": "NotOwner raised",
+      "guest_command_result": null
+    },
+    {
+      "control": "unknown_ref",
+      "pass": true,
+      "status": "unknown"
+    },
+    {
+      "control": "expired_invoice",
+      "pass": true,
+      "status": "expired"
+    },
+    {
+      "control": "cancelled_then_paid",
+      "pass": true,
+      "status": "cancelled"
+    },
+    {
+      "control": "refunded_invoice_never_regrants",
+      "pass": true,
+      "status": "refunded"
+    },
+    {
+      "control": "amount_le_zero_or_malformed_refused",
+      "pass": true,
+      "results": {
+        "0": "Сумма должна быть больше нуля и не больше 1 000 000.",
+        "-5": "Сумма должна быть больше нуля и не больше 1 000 000.",
+        "abc": "Сумма должна быть числом, например 199 или 199.50.",
+        "nan": "Сумма должна быть больше нуля и не больше 1 000 000.",
+        "1.001": "Не больше двух знаков после запятой."
+      }
+    },
+    {
+      "control": "bad_currency_refused",
+      "pass": true,
+      "results": {
+        "USD": "Валюта: CZK, EUR, RUB.",
+        "XTR": "Валюта: CZK, EUR, RUB.",
+        "<empty>": "Валюта: CZK, EUR, RUB."
+      }
+    },
+    {
+      "control": "no_outbound_send",
+      "pass": true,
+      "network_attempts": 0,
+      "how": "socket.connect, httpx.Client.send and httpx.AsyncClient.send replaced by a refusing recorder"
+    }
+  ]
+}

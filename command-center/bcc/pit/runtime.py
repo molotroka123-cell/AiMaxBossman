@@ -3860,6 +3860,8 @@ class ParticipantRuntime:
             return self._paid_ledger_add(argument)
         if command == "/refund":
             return await self._paid_refund(argument.strip())
+        if command in paid_docs_mod.MANUAL_COMMANDS:      # bank-transfer invoices while Stars are paused (24.10)
+            return pd.manual_command(command, argument, owner=True)
         return None
 
     def _paid_tickets(self, argument: str) -> str:

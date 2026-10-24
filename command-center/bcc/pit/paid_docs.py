@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .doc_library import DocLibrary, Hit, LibraryError, sweep_stale_temp, tokens
+from .manual_invoice import InvoiceRejected, ManualInvoices
 from .stars_ledger import (DAILY_CAP_PAID, TRIAL_DOCS, TRIAL_REQUESTS, PaymentOutcome, RefundOutcome,
                            StarsLedger)
 
@@ -44,6 +45,10 @@ NOT_FOUND_RU = "В ваших документах я не нашёл фрагм
 UNCITED_WARNING_RU = ("⚠ Ответ не сослался на фрагменты документов — проверяйте его по найденным "
                       "фрагментам ниже, а не на слово.")
 _CITE = re.compile(r"\[(\d{1,2})\]")
+#: Owner commands of the bank-transfer path (``manual_invoice``); the runtime routes them to ``manual_command``.
+MANUAL_COMMANDS = frozenset({"/invoice", "/paid", "/cancel_invoice", "/refund_invoice", "/invoices"})
+MANUAL_HELP_RU = ("/invoice <telegram_id> docs30 <сумма> <EUR|CZK|RUB>, /paid <счёт>, /cancel_invoice <счёт>, "
+                  "/refund_invoice <счёт>, /invoices")
 
 
 def enabled() -> bool:
@@ -94,6 +99,7 @@ class PaidDocs:
     data_dir: Path
     vault: object
     ledger: StarsLedger = field(init=False)
+    invoices: ManualInvoices = field(init=False)
     test_env: bool = False
     _parses: dict = field(default_factory=dict, init=False, repr=False)
     _guard: object = field(default_factory=threading.Lock, init=False, repr=False)
@@ -104,6 +110,8 @@ class PaidDocs:
 
     def __post_init__(self) -> None:
         self.ledger = StarsLedger(Path(self.data_dir) / "pit-v1.7" / "stars-ledger.sqlite3")
+        # Bank-transfer invoices while Stars are paused: same ledger file, granted only by the owner's /paid.
+        self.invoices = ManualInvoices(self.ledger, test_env=self.test_env)
         # A crash between "request reserved" and "answer delivered" must not stay charged. Only rows older than the
         # sweep age are touched: a younger one may be a turn another process is running right now.
         self.ledger.sweep_unfinished()
@@ -489,5 +497,74 @@ class PaidDocs:
                    if r["refunds_without_payment"] else "")
                 + (f"• Отклонённых событий оплаты (журнал в ledger): {r['rejected_events']}\n"
                    if r["rejected_events"] else "")
+                + self._manual_report_text()
                 + "Команды: /refund <charge_id>, /tickets, /ledger_add withdrawal <⭐> <USD> [ссылка], "
-                  "/ledger_add expense <USD> <заметка>.")
+                  "/ledger_add expense <USD> <заметка>, " + MANUAL_HELP_RU + ".")
+
+    def _manual_report_text(self) -> str:
+        r = self.invoices.report()
+        if not r["by_currency"] and not r["open_invoices"]:
+            return ""
+        lines = [f"Счета на перевод (деньги, не ⭐): открытых {r['open_invoices']}"]
+        for code, b in r["by_currency"].items():
+            lines.append(f"• {code}: оплачено {b['paid']}, возвращено {b['refunded']}, чистыми {b['net']}"
+                         + (f", тестовые (не считаются) {b['test_paid']}" if b["test_paid"] != "0.00" else ""))
+        return "\n".join(lines) + "\n"
+
+    # -- owner: bank-transfer invoices (Stars paused) -----------------------------------------
+    def manual_command(self, command: str, argument: str, *, owner: bool, now: float | None = None) -> str | None:
+        """Owner-only ``/invoice /paid /cancel_invoice /refund_invoice /invoices``. Returns None for a guest or a
+        command outside this set (the caller keeps dispatching, so guests never learn these exist). The reply goes
+        to the owner only: nothing is ever sent to the participant from here."""
+        if not owner or command not in MANUAL_COMMANDS:
+            return None
+        inv = self.invoices
+        parts = argument.split()
+        try:
+            if command == "/invoice":
+                if len(parts) != 4 or not parts[0].isdigit():
+                    return "Формат: /invoice <telegram_id> <пакет> <сумма> <EUR|CZK|RUB>, например /invoice 123 docs30 9.90 EUR."
+                uid = int(parts[0])
+                row = inv.issue(self.vault.key_for_telegram(uid), uid, parts[1], parts[2], parts[3], owner=True,
+                                now=now)
+                pkg = self.ledger.package
+                return (f"Счёт {row['ref']} выписан: {row['amount']} {row['currency']}, пакет «{pkg.title}» "
+                        f"({pkg.requests} запросов, до {pkg.doc_slots} документов, {pkg.days} дней), действует до "
+                        f"{self._date(row['expires_at'])}." + (" ТЕСТОВАЯ СРЕДА." if row["test_env"] else "")
+                        + "\nУчастнику ничего не отправлено: передайте ему реквизиты и назначение платежа "
+                          f"«{row['ref']}» сами. Когда деньги придут: /paid {row['ref']}.")
+            if command == "/invoices":
+                rows = inv.listing(now=now)
+                if not rows:
+                    return "Счетов на перевод нет. Выписать: /invoice <telegram_id> docs30 <сумма> <валюта>."
+                return "Счета на перевод:\n" + "\n".join(
+                    f"{r['ref']} · {r['user_id']} · {r['amount']} {r['currency']} · {r['status']}"
+                    + (" · тест" if r["test_env"] else "") for r in rows)
+            if len(parts) != 1:
+                return f"Формат: {command} <номер счёта>."
+            ref = parts[0]
+            if command == "/paid":
+                out = inv.mark_paid(ref, owner=True, now=now)
+                if out.status == "granted":
+                    return (f"Счёт {ref} отмечен оплаченным. Доступ открыт до {self._date(out.valid_until)}, "
+                            f"запросов: {out.requests}. Участнику ничего не отправлено; он увидит это в /plan.")
+                return {"duplicate": f"Счёт {ref} уже отмечен оплаченным — доступ не дублируется.",
+                        "unknown": "Счёт с таким номером не найден (/invoices).",
+                        "expired": f"Счёт {ref} просрочен — доступ не выдан. Выпишите новый: /invoice.",
+                        "cancelled": f"Счёт {ref} отменён — доступ не выдан. Выпишите новый: /invoice.",
+                        "refunded": f"Счёт {ref} уже возвращён — доступ не выдан."}[out.status]
+            if command == "/cancel_invoice":
+                out = inv.cancel(ref, owner=True, now=now)
+                return {"cancelled": f"Счёт {ref} отменён; оплатить его больше нельзя.",
+                        "unknown": "Счёт с таким номером не найден (/invoices).",
+                        "paid": f"Счёт {ref} уже оплачен: отмена невозможна, только /refund_invoice {ref}."}.get(
+                            out.status, f"Счёт {ref} уже закрыт ({out.status}).")
+            out = inv.refund(ref, owner=True, now=now)                 # /refund_invoice
+            return {"refunded": f"Возврат по счёту {ref} учтён (деньги возвращаете вы, банком). Доступ закрыт, "
+                                f"снято запросов: {out.revoked_requests}.",
+                    "duplicate": f"Возврат по счёту {ref} уже был учтён.",
+                    "unknown": "Счёт с таким номером не найден (/invoices).",
+                    "not_paid": f"Счёт {ref} не оплачен — возвращать нечего (отменить: /cancel_invoice {ref})."}[
+                        out.status]
+        except InvoiceRejected as exc:
+            return exc.text

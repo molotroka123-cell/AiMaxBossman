@@ -255,18 +255,46 @@ class StarsLedger:
                            (charge_id, str(payload)[:128], person_key, int(user_id), "?", int(total_amount),
                             "unmatched", now, int(test_env)))
                 return PaymentOutcome("unmatched", charge_id, int(total_amount), person_key=person_key)
-            package = self.package
             db.execute("INSERT INTO payments VALUES(?,?,?,?,?,?,?,?,NULL,?)",
                        (charge_id, order["payload"], person_key, int(user_id), order["package"],
                         int(total_amount), "paid", now, int(test_env)))
-            db.execute("INSERT INTO grants(charge_id,person_key,requests,doc_slots,valid_from,valid_until,status,days)"
-                       " VALUES(?,?,?,?,?,?,?,?)",
-                       (charge_id, person_key, package.requests, package.doc_slots, now, now, "active", package.days))
             db.execute("UPDATE orders SET status='paid' WHERE payload=?", (order["payload"],))
-            valid_until = next(end for g, end in self._chain(db, person_key) if g["charge_id"] == charge_id)
-            db.execute("UPDATE grants SET valid_until=? WHERE charge_id=?", (valid_until, charge_id))
-            return PaymentOutcome("granted", charge_id, int(total_amount), package.requests, valid_until,
+            valid_until = self._grant_in(db, charge_id, person_key, now)
+            return PaymentOutcome("granted", charge_id, int(total_amount), self.package.requests, valid_until,
                                   person_key)
+
+    def _grant_in(self, db, charge_id: str, person_key: str, now: float) -> float:
+        """Open the package grant of one booked payment inside the caller's transaction; returns its effective end."""
+        package = self.package
+        db.execute("INSERT INTO grants(charge_id,person_key,requests,doc_slots,valid_from,valid_until,status,days)"
+                   " VALUES(?,?,?,?,?,?,?,?)",
+                   (charge_id, person_key, package.requests, package.doc_slots, now, now, "active", package.days))
+        valid_until = next(end for g, end in self._chain(db, person_key) if g["charge_id"] == charge_id)
+        db.execute("UPDATE grants SET valid_until=? WHERE charge_id=?", (valid_until, charge_id))
+        return valid_until
+
+    def transaction(self):
+        """One write transaction on the ledger file, for a caller that books into it atomically with its own table
+        (``manual_invoice``). Use only with the ``*_in`` methods; every other method opens its own transaction."""
+        return self._tx()
+
+    def book_external_in(self, db, *, charge_id: str, payload: str, person_key: str, user_id: int,
+                         now: float, test_env: bool = False) -> PaymentOutcome:
+        """Book money confirmed OUTSIDE Telegram (an owner-marked bank transfer) and grant the package.
+
+        Called inside ``transaction()``. The payment row carries 0 Stars, so the Stars columns of ``report`` stay
+        Stars-only; the money itself is accounted by the caller in its own currency. Idempotent on ``charge_id``."""
+        charge_id = str(charge_id)
+        if not charge_id:
+            raise ValueError("charge_id is required")
+        prior = db.execute("SELECT person_key FROM payments WHERE charge_id=?", (charge_id,)).fetchone()
+        if prior is not None:
+            return PaymentOutcome("duplicate", charge_id, person_key=prior["person_key"])
+        db.execute("INSERT INTO payments VALUES(?,?,?,?,?,?,?,?,NULL,?)",
+                   (charge_id, str(payload)[:128], person_key, int(user_id), self.package.id, 0, "paid", now,
+                    int(test_env)))
+        valid_until = self._grant_in(db, charge_id, person_key, now)
+        return PaymentOutcome("granted", charge_id, 0, self.package.requests, valid_until, person_key)
 
     def record_refund(self, charge_id: str, now: float | None = None) -> RefundOutcome:
         """Apply a refund (our own ``refundStarPayment`` or Telegram's ``refunded_payment``). Idempotent."""
@@ -281,15 +309,24 @@ class StarsLedger:
                     db.execute("INSERT OR IGNORE INTO refund_tombstones(charge_id, seen_at) VALUES(?,?)",
                                (charge_id, now))
                 return RefundOutcome("unknown", charge_id)
-            if pay["status"] == "refunded":
-                return RefundOutcome("duplicate", charge_id, pay["person_key"], pay["user_id"], 0, pay["stars"])
-            used = db.execute("SELECT COUNT(*) AS n FROM usage WHERE charge_id=? AND voided=0",
-                              (charge_id,)).fetchone()["n"]
-            grant = db.execute("SELECT * FROM grants WHERE charge_id=?", (charge_id,)).fetchone()
-            revoked = max(0, grant["requests"] - used) if grant and grant["status"] == "active" else 0
-            db.execute("UPDATE payments SET status='refunded', refunded_at=? WHERE charge_id=?", (now, charge_id))
-            db.execute("UPDATE grants SET status='revoked' WHERE charge_id=?", (charge_id,))
-            return RefundOutcome("refunded", charge_id, pay["person_key"], pay["user_id"], revoked, pay["stars"])
+            return self.refund_in(db, charge_id, now)
+
+    def refund_in(self, db, charge_id: str, now: float) -> RefundOutcome:
+        """Refund one booked payment inside the caller's transaction: the unused rest of its grant is revoked.
+        An unknown charge leaves no tombstone here (only a Telegram refund event can arrive before its payment)."""
+        charge_id = str(charge_id)
+        pay = db.execute("SELECT * FROM payments WHERE charge_id=?", (charge_id,)).fetchone()
+        if pay is None:
+            return RefundOutcome("unknown", charge_id)
+        if pay["status"] == "refunded":
+            return RefundOutcome("duplicate", charge_id, pay["person_key"], pay["user_id"], 0, pay["stars"])
+        used = db.execute("SELECT COUNT(*) AS n FROM usage WHERE charge_id=? AND voided=0",
+                          (charge_id,)).fetchone()["n"]
+        grant = db.execute("SELECT * FROM grants WHERE charge_id=?", (charge_id,)).fetchone()
+        revoked = max(0, grant["requests"] - used) if grant and grant["status"] == "active" else 0
+        db.execute("UPDATE payments SET status='refunded', refunded_at=? WHERE charge_id=?", (now, charge_id))
+        db.execute("UPDATE grants SET status='revoked' WHERE charge_id=?", (charge_id,))
+        return RefundOutcome("refunded", charge_id, pay["person_key"], pay["user_id"], revoked, pay["stars"])
 
     def payment(self, charge_id: str) -> dict | None:
         with self._lock:
