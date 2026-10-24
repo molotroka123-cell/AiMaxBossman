@@ -1,0 +1,50 @@
+{
+ "at": "2026-10-24T12:53:03Z",
+ "src": "C:\\Users\\asd\\.cache\\huggingface",
+ "dst": "D:\\cache\\huggingface",
+ "deleted_anything": false,
+ "before": {
+  "files": 166,
+  "bytes": 29706394036,
+  "manifest_sha256": "351a4a79b1cf52b001c0f3416f1e562f4d57e38eeb50639a7da89adfdb9380f8"
+ },
+ "copy_exit_code": 1,
+ "after": {
+  "files": 166,
+  "bytes": 29706394036,
+  "manifest_sha256": "351a4a79b1cf52b001c0f3416f1e562f4d57e38eeb50639a7da89adfdb9380f8"
+ },
+ "comparison": {
+  "missing": {
+   "count": 0,
+   "first": []
+  },
+  "extra": {
+   "count": 0,
+   "first": []
+  },
+  "changed": {
+   "count": 0,
+   "first": []
+  },
+  "identical": true
+ },
+ "pointer": "not switched (no --pointer)",
+ "verdict": "PASS",
+ "seconds": 83.7,
+ "note": "source tree kept as the reserve; removing it needs the owner's approval",
+ "first_attempt": "FAIL: robocopy without /SL dereferenced 53 snapshot links (copy 60 GB); pointer not switched; copy removed; fixed in 92684099",
+ "links": {
+  "symbolic": 53,
+  "absolute_to_C": 0,
+  "broken": 0,
+  "form": "relative ..\\..\blobs\\..."
+ },
+ "switch": {
+  "what": "user env HF_HOME=D:\\cache\\huggingface",
+  "check": "huggingface_hub scan_cache_dir: D: 11 repos 25.81 GB 22 warnings == C: 11 repos 25.81 GB 22 warnings (pre-existing partial downloads)",
+  "rollback": "[Environment]::SetEnvironmentVariable('HF_HOME',$null,'User')",
+  "c_copy": "kept as reserve; removal needs the owner's yes",
+  "running_processes": "keep the old path until restarted"
+ }
+}
