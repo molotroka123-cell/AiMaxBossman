@@ -1,0 +1,35 @@
+{
+ "migrate": {
+  "verdict": "PASS",
+  "before": {
+   "files": 85,
+   "bytes": 273259864822,
+   "manifest_sha256": "a1475c7b615ecaea222816c12a9baedea66ad8ee5069b5632631f46362aad999"
+  },
+  "after": {
+   "files": 85,
+   "bytes": 273259864822,
+   "manifest_sha256": "a1475c7b615ecaea222816c12a9baedea66ad8ee5069b5632631f46362aad999"
+  },
+  "comparison": {
+   "missing": {
+    "count": 0,
+    "first": []
+   },
+   "extra": {
+    "count": 0,
+    "first": []
+   },
+   "changed": {
+    "count": 0,
+    "first": []
+   },
+   "identical": true
+  }
+ },
+ "after_restart": {
+  "models_listed": 18,
+  "OLLAMA_MODELS": "D:\\ollama\\models"
+ },
+ "verdict": "PASS"
+}
