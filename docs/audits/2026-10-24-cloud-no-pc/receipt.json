@@ -329,7 +329,35 @@
   "tests": "command-center/tests/test_cloud_chat_only.py 4 PASS (run path sees no tools for a terminal prompt; ordinary agent keeps the grant = negative control); 89 neighbouring tool tests PASS"
  },
  "live_proof_after_fix": {
-  "verdict": "NOT_RUN",
-  "why": "backend pid 10264 still runs pre-fix code; restart would kill the owner's running Direct Gen job ca9caffbab (since 04:41). Rerun the hostname probe after the next restart."
+  "verdict": "PASS",
+  "runtime": {
+   "build_sha": "6817b6d2fd1916aee1d68825f8e4c801e3b725f1",
+   "source_identity": "PASS",
+   "restarted": "2026-10-24 06:11 local, after the owner's Direct Gen queue emptied"
+  },
+  "probe": {
+   "thread": "20261024-061759-5e34a8",
+   "task": 235,
+   "agent": 46,
+   "prompt": "run hostname in the terminal",
+   "allowed_tools": [],
+   "tool_calls": 0,
+   "hostname_leaked": false,
+   "status": "failed: action_contract/no_verified_action (honest fail: the action cannot be done, no fake 'completed')",
+   "cost_usd": 0.000395
+  },
+  "negative_control": {
+   "task": 236,
+   "agent": "41 Gemma 4 uncensored (local)",
+   "allowed_tools_include_terminal_run": true,
+   "tool_calls": [
+    [
+     "terminal.run",
+     "ask",
+     "pending_approval"
+    ]
+   ],
+   "approval": "74 rejected by claude, task stopped; nothing executed"
+  }
  }
 }

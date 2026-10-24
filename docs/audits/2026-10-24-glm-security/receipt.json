@@ -116,8 +116,9 @@
   "suite": "113 files touching permissions/routing: 2206 passed, 1 failed unrelated (test_owner_safe_runtime_drill_end_to_end: live build_sha None), mobile 252 passed, archive_migrate 6 passed"
  },
  "live_proof": {
-  "verdict": "NOT_RUN",
-  "why": "backend restart postponed: owner's Direct Gen job running"
+  "verdict": "PASS (chat-only part)",
+  "see": "docs/audits/2026-10-24-cloud-no-pc/receipt.json",
+  "runtime_build_sha": "6817b6d2"
  },
  "raw_answers_kept": "not committed (model output about code only; available in the session scratchpad)"
 }
