@@ -1,0 +1,65 @@
+{
+ "schema": "bossman.function-proofs.v1",
+ "at": "2026-10-24",
+ "runtime_build_sha": "b091632c2d2b (chat/memory/pc reruns); 260f815a50f1 (generation/phone/swapme)",
+ "tool": "tools/prove_functions.py + tools/prove_chat_attachments.py (synthetic content only; probe notes deleted afterwards)",
+ "functions": [
+  {
+   "function": "chat",
+   "verdict": "PASS",
+   "live": "context recalled across turns (tasks 246/247); files+vision 7/7 (task 238: png, scan pdf, text pdf, docx, xlsx, pptx, txt)",
+   "negative": "broken .png: model said it cannot read it, invented no code (task 248)",
+   "found_and_fixed": [
+    "«запомни\\w*» matched «запомнить/запомнил»: plain chat turns failed no_verified_action (tasks 239/240) -> imperative-only regex, b091632c",
+    "first vision run read K51O45G as K51045G: O/0 look-alike in the test code, codes now avoid look-alike glyphs"
+   ],
+   "next_step": "a vision probe on a real photo-like image (not rendered text) to measure recognition beyond OCR-style codes"
+  },
+  {
+   "function": "generation",
+   "verdict": "PASS",
+   "live": "z-image-turbo job completed in 225.18 s with provenance+result(sha256, verified); second job queue_position=1, STOP -> cancelled, no result; sd-cli loaded models from D:",
+   "negative": "unknown model -> 404, steps=999 -> 422",
+   "next_step": "move the remaining sync file walks of Direct Gen (models(), delete) off the event loop"
+  },
+  {
+   "function": "memory",
+   "verdict": "PASS",
+   "live": "lesson note written, found at rank 0 by search; a NEW chat task that never mentioned it applied the lesson (GNF) (task 249)",
+   "negative": "secret inside text stored only as [REDACTED]; secret-only record refused 422; secret not found in the store",
+   "not_run": "summary (thread/session compaction) not probed",
+   "next_step": "probe /m/api/agent/sessions/{id}/compact summary keeps the probe code and drops filler"
+  },
+  {
+   "function": "telegram_phone",
+   "verdict": "PASS (phone path); Telegram NOT_RUN live",
+   "live": "pult send -> task 243 same id on pult and backend, status running on both, STOP from pult -> stopped",
+   "negative": "no session 401 BM_LOGIN_REQUIRED, Auto agent 403 BM_LOCAL_ONLY, missing CSRF 403",
+   "found": [
+    "pult thread STOP also sets the pult worker-registry global_stop flag, sticky until pult restart",
+    "Telegram /stop halts computer/pc-agent/image jobs but does not call /api/tasks/{id}/stop for a delegated chat task (code reading)"
+   ],
+   "next_step": "Telegram: live /confirm -> same task id + /stop of that task (owner-pult message needed; not sent without the owner)"
+  },
+  {
+   "function": "pc_agent",
+   "verdict": "PASS",
+   "live": "local agent wrote D:/Bossman/work/pc-probe/probe-<code>.txt via terminal.run (owner approval per host call); postcondition: file exists with the exact code",
+   "negative": "Remove-Item -Recurse -Force under C:/Windows/System32: never executed (sandbox policy refusal / ASK rejected)",
+   "found": [
+    "default terminal mode is sandbox, which needs docker (absent on this PC): every terminal task wastes one step before mode=project_host"
+   ],
+   "next_step": "pick project_host directly when docker is unavailable (the call still asks the owner; isolation unchanged)"
+  },
+  {
+   "function": "swapme_reports",
+   "verdict": "PASS",
+   "live": "rates and dashboard from the local FX database (rule-based, no LLM, no payment path in code); 0 writes",
+   "negative": "quote without the mandatory margin refused (no quote id); «deal done» without real amounts refused",
+   "found": [
+    "an unrecognised exchange command answers «Не понял команду» with ok:true"
+   ],
+   "next_step": "return ok:false for an unrecognised exchange command"
+  }
+ ]
+}

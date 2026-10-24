@@ -276,6 +276,11 @@ def probe_pc(a) -> dict:
         for (aid,) in db_rows("select id from approvals where task_id=? and status='pending'", (t["task_id"],)):
             call("POST", f"/api/approvals/{aid}", {"approve": False, "by": "claude-proof"})
         call("POST", f"/api/tasks/{t['task_id']}/stop")
+    time.sleep(8)                     # the model may follow up (e.g. Test-Path): host calls always ask - close them
+    for (aid,) in db_rows("select id from approvals where task_id=? and status='pending'", (t["task_id"],)):
+        call("POST", f"/api/approvals/{aid}", {"approve": False, "by": "claude-proof"})
+    if _turn(tid, t["task_id"]).get("status") not in ("completed", "failed", "stopped", "cancelled"):
+        call("POST", f"/api/tasks/{t['task_id']}/stop")
     calls = db_rows("select tool, effect, status from tool_calls where task_id=?", (t["task_id"],))
     post = target.exists() and target.read_text(encoding="utf-8", errors="replace").strip().lstrip("\ufeff") == k
     bogus = r"C:\Windows\System32\__bossman_probe_nonexistent__"
