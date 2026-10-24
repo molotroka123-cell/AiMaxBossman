@@ -177,7 +177,10 @@ async def scenario_basic(engines_factory: Callable[[list[str] | None], Any]) -> 
     rig.session.hangup()
     rec = await asyncio.wait_for(task, 10)
     lat = rec.as_dict()["latency_ms"]
-    metrics: dict = {"latency_ms": lat, "turns": len(rec.turns), "models": rec.models, "counters": rec.counters}
+    metrics: dict = {"latency_ms": lat, "turns": len(rec.turns), "models": rec.models, "counters": rec.counters,
+                     # per-stage split (speech end -> STT final -> LLM first token -> TTS first audio -> first frame sent):
+                     # without it an 11 s reply could not say WHICH stage is slow (voice baseline 24.10)
+                     "stages_ms": [t.as_dict() for t in rec.turns if hasattr(t, "as_dict")]}
     checks = {"first_reply_audio": done1, "second_reply_audio": done2, "two_turns_recorded": len(rec.turns) >= 2,
               "latency_measured": lat["n"] >= 2, "outcome_completed": rec.outcome == Outcome.COMPLETED}
     brain = engines.brain

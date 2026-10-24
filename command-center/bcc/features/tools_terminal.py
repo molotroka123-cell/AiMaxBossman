@@ -17,7 +17,9 @@ tool-loop с правами AUTO/ASK/DENY.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import hashlib
+import shutil
 import json
 import re
 
@@ -544,9 +546,21 @@ SPECS = [
 ]
 
 
+NO_DOCKER_HINT = (" На этом ПК docker не установлен: режим sandbox недоступен — сразу указывай mode=project_host "
+                  "(каждый такой вызов спрашивает владельца).")
+
+
+def _with_docker_hint(spec: ToolSpec) -> ToolSpec:
+    """Function probe 24.10: without docker every terminal task first called sandbox (an owner approval for a call that
+    could only fail), then retried with project_host. The model is told up front; modes, policy and approvals unchanged."""
+    if spec.name != "terminal.run" or shutil.which("docker") or NO_DOCKER_HINT in spec.description:
+        return spec
+    return dataclasses.replace(spec, description=spec.description + NO_DOCKER_HINT)
+
+
 async def _setup(svc) -> None:
     for spec in SPECS:
-        REGISTRY.register(spec)
+        REGISTRY.register(_with_docker_hint(spec))
 
 
 FEATURE = Feature(name="tools_terminal", setup=_setup)

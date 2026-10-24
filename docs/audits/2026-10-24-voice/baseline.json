@@ -1,0 +1,81 @@
+{
+ "verdict": "PASS",
+ "evidence_level": "loopback",
+ "engines": "real (Jeff/Bossman)",
+ "label": "ТЕСТ БЕЗ TELEGRAM",
+ "results": [
+  {
+   "scenario": "basic",
+   "verdict": "PASS",
+   "evidence_level": "loopback",
+   "checks": {
+    "first_reply_audio": true,
+    "second_reply_audio": true,
+    "two_turns_recorded": true,
+    "latency_measured": true,
+    "outcome_completed": true
+   },
+   "metrics": {
+    "latency_ms": {
+     "n": 2,
+     "p50": 8681.0,
+     "p95": 11043.5,
+     "max": 11306.0,
+     "last": 6056.0
+    },
+    "turns": 2,
+    "models": {
+     "stt": "jeff-whisper:whisper",
+     "llm": "jeff:gemma4-31b-uncensored:latest",
+     "tts": "jeff-piper:ru_RU-ruslan-medium"
+    },
+    "counters": {
+     "barge_ins": 0,
+     "echo_blocked": 0,
+     "echo_text_suppressed": 0,
+     "stt_empty": 0,
+     "stt_errors": 0,
+     "brain_errors": 0,
+     "tts_errors": 0,
+     "rx_dropped": 0,
+     "hangup_confirmed": 1,
+     "playout_underruns": 2
+    },
+    "stages_ms": [
+     {
+      "turn": 1,
+      "response_latency_ms": 11306.0,
+      "stt_final_ms": 509.0,
+      "llm_first_token_ms": 10422.0,
+      "tts_first_audio_ms": 375.0,
+      "send_ms": 0.0,
+      "interrupted": false,
+      "echo_suppressed": 0,
+      "user_chars": 24,
+      "assistant_chars": 78
+     },
+     {
+      "turn": 2,
+      "response_latency_ms": 6056.0,
+      "stt_final_ms": 494.0,
+      "llm_first_token_ms": 5125.0,
+      "tts_first_audio_ms": 437.0,
+      "send_ms": 0.0,
+      "interrupted": false,
+      "echo_suppressed": 0,
+      "user_chars": 17,
+      "assistant_chars": 41
+     }
+    ],
+    "stt_note": "real STT on the engine's own TTS voice (acoustic loopback)"
+   },
+   "duration_s": 43.45,
+   "speech": "engine_tts",
+   "vad": "energy-fallback",
+   "note": ""
+  }
+ ],
+ "at": "2026-10-24T14:48:15Z",
+ "seconds": 44.8,
+ "source_sha": "88392590"
+}

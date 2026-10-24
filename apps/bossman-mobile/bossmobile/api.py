@@ -901,7 +901,8 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             raise fail(503, "помощник обменника недоступен", "BM_EXCHANGE_UNAVAILABLE", type(exc).__name__) from None
         reply = a.handle(body.text, "owner")
         qid = re.search(r"\bQ-[0-9A-F]{8}\b", reply) if reply.startswith("Котировка") else None
-        return {"ok": not reply.startswith(("Не выполнено", "⛔")), "reply": reply,
+        # «Не понял команду» is not a success either (function probe 24.10: it answered ok:true)
+        return {"ok": not reply.startswith(("Не выполнено", "⛔", "Не понял")), "reply": reply,
                 "quote_id": qid.group(0) if qid else None, "stopped": a.global_stop()}
 
     @app.get("/m/api/exchange/deals")

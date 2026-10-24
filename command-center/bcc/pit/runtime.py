@@ -1299,6 +1299,8 @@ class ParticipantRuntime:
     def _sync_model_choice(self) -> None:
         """Apply a changed owner model choice (jeff-model.json) to the next turn: the local half of the catalog is
         dropped so the new model is probed (listed + capacity) before it answers."""
+        if getattr(self, "pinned_local_model", None):     # a call surface pinned its own local model (CallSettings.llm_model)
+            return
         configured = getattr(self, "_configured_local_models", None) or tuple(self.settings.local_models)
         try:
             new = _apply_model_choice(self.settings, configured)

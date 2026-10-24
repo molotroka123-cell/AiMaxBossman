@@ -126,7 +126,8 @@ async def _guard(call):
 
 @router.get("/models")
 async def models(request: Request):
-    return {"models": _svc(request).models()}
+    # walks the model folders on disk: off the event loop for the same reason as /jobs (live freeze 24.10)
+    return {"models": await asyncio.to_thread(_svc(request).models)}
 
 
 @router.get("/status")

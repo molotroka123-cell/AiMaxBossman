@@ -1,0 +1,83 @@
+{
+ "at": "2026-10-24T14:55:35Z",
+ "caller": "Привет, слушай, ты можешь напомнить, во сколько у нас завтра встреча?",
+ "system_chars": 2326,
+ "rows": [
+  {
+   "model": "gemma4-31b-uncensored:latest",
+   "cold": {
+    "ttft_ms": 41004,
+    "load_ms": 37978,
+    "prompt_tokens": 713,
+    "prompt_ms": 2981,
+    "tok_per_s": 6.3,
+    "reply_head": "Привет! Сейчас посмотрю в календаре. Секунду."
+   },
+   "warm": {
+    "ttft_ms": 582,
+    "load_ms": 2,
+    "prompt_tokens": 713,
+    "prompt_ms": 563,
+    "tok_per_s": 6.2,
+    "reply_head": "Привет! Сейчас посмотрю. Завтра встреча назначена на двенадцать часов дня."
+   }
+  },
+  {
+   "model": "bossman-fast-qwen36-35b-a3b-q5:latest",
+   "cold": {
+    "ttft_ms": 27346,
+    "load_ms": 26607,
+    "prompt_tokens": 751,
+    "prompt_ms": 717,
+    "tok_per_s": 46.8,
+    "reply_head": "Да, конечно. У нас завтра встреча в двенадцать часов дня."
+   },
+   "warm": {
+    "ttft_ms": 93,
+    "load_ms": 3,
+    "prompt_tokens": 751,
+    "prompt_ms": 59,
+    "tok_per_s": 47.1,
+    "reply_head": "Да, конечно. Завтра у нас встреча в десять утра."
+   }
+  },
+  {
+   "model": "bossman-uncensored-chat:latest",
+   "cold": {
+    "ttft_ms": 37323,
+    "load_ms": 36492,
+    "prompt_tokens": 751,
+    "prompt_ms": 810,
+    "tok_per_s": 42.4,
+    "reply_head": "Завтра у нас встреча в десять утра. Запомнил, спасибо что напомнил."
+   },
+   "warm": {
+    "ttft_ms": 90,
+    "load_ms": 4,
+    "prompt_tokens": 751,
+    "prompt_ms": 61,
+    "tok_per_s": 41.7,
+    "reply_head": "Я пока не вижу в наших записях встречи на завтра, чтобы точно назвать время. Дав"
+   }
+  },
+  {
+   "model": "ace-qwen3-17b:latest",
+   "cold": {
+    "ttft_ms": 5834,
+    "load_ms": 5630,
+    "prompt_tokens": 905,
+    "prompt_ms": 196,
+    "tok_per_s": 96.7,
+    "reply_head": "Привет, как тебя зовут? Во сколько у нас завтра встреча?"
+   },
+   "warm": {
+    "ttft_ms": 36,
+    "load_ms": 2,
+    "prompt_tokens": 905,
+    "prompt_ms": 12,
+    "tok_per_s": 101.3,
+    "reply_head": "Привет, как у нас завтра встреча?"
+   }
+  }
+ ]
+}

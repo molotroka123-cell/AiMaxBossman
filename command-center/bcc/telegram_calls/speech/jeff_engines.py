@@ -388,9 +388,40 @@ async def build_jeff_engines(settings: CallSettings, *, pit_settings: Any | None
     tts = JeffTTS(synthesize_pcm=synthesize_pcm or piper.synthesize_pcm, exe=exe, model=model, egress_guard=_egress_guard,
                   stopped=stopped, sample_rate=_read_sample_rate(model), audit=make_call_audit(runtime.home / "logs"),
                   model_en=model_en)
-    brain = JeffBrain(runtime, settings.peer_user_id, model=pit_settings.local_models[0], stopped=stopped,
+    llm = pit_settings.local_models[0]
+    if settings.llm_model and settings.llm_model != llm:
+        if not await _installed_on_local_route(pit_settings.local_url, settings.llm_model):
+            await runtime.close()
+            raise CallError("BRAIN_NOT_CONFIGURED", detail="llm_model_not_on_local_route")
+        llm = settings.llm_model
+        # this call's runtime only: Jeff's chats keep the owner's jeff-model.json choice
+        from dataclasses import replace as _replace
+        rest = () if getattr(runtime.settings, "local_chat_only", False) else tuple(m for m in runtime.settings.local_models if m != llm)
+        runtime.settings = _replace(runtime.settings, local_models=(llm, *rest))   # local_chat_only = exactly one model
+        runtime.pinned_local_model = llm
+        runtime.catalog = {k: e for k, e in getattr(runtime, "catalog", {}).items() if not getattr(e, "local", False)}
+        runtime.catalog_checked_at = 0.0
+    brain = JeffBrain(runtime, settings.peer_user_id, model=llm, stopped=stopped,
                       summary_system=summary_system)
     asyncio.get_running_loop().create_task(stt.warmup())
     return Engines(stt=stt, tts=tts, brain=brain, vad=make_vad(settings.vad),
                    notes={"engines": "jeff (local Whisper / Piper / local model)", "stt": stt.model, "tts": tts.voice,
-                          "llm": pit_settings.local_models[0], "surface": "call", **({"mode": "answering"} if answering else {})})
+                          "llm": llm, "surface": "call", **({"mode": "answering"} if answering else {})})
+
+
+async def _installed_on_local_route(local_url: str, model: str) -> bool:
+    """The call LLM override is accepted only when Jeff's local route is loopback AND that runner lists the model:
+    a call never moves to a cloud or remote box through this setting."""
+    from urllib.parse import urlsplit
+    import httpx
+    host = (urlsplit(local_url or "").hostname or "").lower()
+    if host not in ("127.0.0.1", "localhost", "::1"):
+        return False
+    root = local_url.rstrip("/")
+    root = root[:-3] if root.endswith("/v1") else root
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            tags = (await client.get(root + "/api/tags")).json().get("models") or []
+    except Exception:  # noqa: BLE001 - unreachable runner = not installed
+        return False
+    return any(isinstance(m, dict) and model in (m.get("name"), m.get("model")) for m in tags)

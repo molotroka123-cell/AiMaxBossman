@@ -1359,9 +1359,11 @@ class TaskEngine:
         sink = memory_withheld.set(withheld)
         try:
             with execution_privacy(meta.get("privacy", "public")):
-                return await self._call_model_scoped(task, agent, messages, run_id, tools=tools,
-                                                     model_override=model_override,
-                                                     on_delta=on_delta)
+                result, model = await self._call_model_scoped(task, agent, messages, run_id, tools=tools,
+                                                              model_override=model_override,
+                                                              on_delta=on_delta)
+            await self._record_runtime_success(model)
+            return result, model
         finally:
             memory_withheld.reset(sink)
             memory_to_cloud_allowed.reset(allow)
@@ -2476,6 +2478,29 @@ class TaskEngine:
             return out
         except Exception:  # noqa: BLE001
             return []
+
+    RUNTIME_SUCCESS_EVERY_S = 300.0
+
+    async def _record_runtime_success(self, model: dict | None) -> None:
+        """A real answer IS a measurement (24.10): failures were recorded, successes never were.
+
+        With the freshness tick off by design (18.10: its probes woke Ollama) every record aged out, and health showed
+        «0 models available» while the chat answered on 44 agents. A successful real call now refreshes that model's
+        record - at most once per RUNTIME_SUCCESS_EVERY_S per model, no extra request is ever made."""
+        try:
+            model_id = int((model or {}).get("id"))
+        except (TypeError, ValueError):
+            return
+        seen = self.__dict__.setdefault("_runtime_success_at", {})
+        now = time.monotonic()
+        if now - seen.get(model_id, -1e9) < self.RUNTIME_SUCCESS_EVERY_S:
+            return
+        seen[model_id] = now
+        try:
+            from . import model_health as mh
+            await self.registry.record_model_health(model_id, mh.HEALTHY, "runtime: real call answered")
+        except Exception:  # noqa: BLE001 - telemetry never breaks a run
+            pass
 
     async def _record_runtime_failures(self, run_id: int, failures: list) -> None:
         """Сбой настоящего вызова — факт о ТОЙ модели, что упала (RC19).

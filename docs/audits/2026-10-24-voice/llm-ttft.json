@@ -1,0 +1,102 @@
+{
+ "at": "2026-10-24T14:52:54Z",
+ "caller": "Привет, слушай, ты можешь напомнить, во сколько у нас завтра встреча?",
+ "system_chars": 2326,
+ "rows": [
+  {
+   "model": "gemma4-31b-uncensored:latest",
+   "cold": {
+    "ttft_ms": null,
+    "load_ms": 3,
+    "prompt_tokens": 711,
+    "prompt_ms": 2959,
+    "tok_per_s": 6.0,
+    "reply_head": ""
+   },
+   "warm": {
+    "ttft_ms": null,
+    "load_ms": 3,
+    "prompt_tokens": 711,
+    "prompt_ms": 470,
+    "tok_per_s": 6.0,
+    "reply_head": ""
+   }
+  },
+  {
+   "model": "bossman-fast-qwen36-35b-a3b-q5:latest",
+   "cold": {
+    "ttft_ms": null,
+    "load_ms": 22733,
+    "prompt_tokens": 749,
+    "prompt_ms": 720,
+    "tok_per_s": 46.1,
+    "reply_head": ""
+   },
+   "warm": {
+    "ttft_ms": null,
+    "load_ms": 3,
+    "prompt_tokens": 749,
+    "prompt_ms": 57,
+    "tok_per_s": 46.2,
+    "reply_head": ""
+   }
+  },
+  {
+   "model": "bossman-uncensored-chat:latest",
+   "cold": {
+    "ttft_ms": null,
+    "load_ms": 35377,
+    "prompt_tokens": 749,
+    "prompt_ms": 798,
+    "tok_per_s": 41.9,
+    "reply_head": ""
+   },
+   "warm": {
+    "ttft_ms": null,
+    "load_ms": 4,
+    "prompt_tokens": 749,
+    "prompt_ms": 63,
+    "tok_per_s": 42.1,
+    "reply_head": ""
+   }
+  },
+  {
+   "model": "qwen3-coder:30b",
+   "cold": {
+    "ttft_ms": 127961,
+    "load_ms": 127025,
+    "prompt_tokens": 901,
+    "prompt_ms": 916,
+    "tok_per_s": 42.7,
+    "reply_head": "Привет, да, конечно. У нас завтра встреча в девять часов утра."
+   },
+   "warm": {
+    "ttft_ms": 62,
+    "load_ms": 2,
+    "prompt_tokens": 901,
+    "prompt_ms": 18,
+    "tok_per_s": 65.5,
+    "reply_head": "Привет, да, конечно. У нас завтра встреча в девять часов утра. Что либо ещё?"
+   }
+  },
+  {
+   "model": "ace-qwen3-17b:latest",
+   "cold": {
+    "ttft_ms": null,
+    "load_ms": 6922,
+    "prompt_tokens": 901,
+    "prompt_ms": 202,
+    "tok_per_s": 95.6,
+    "reply_head": ""
+   },
+   "warm": {
+    "ttft_ms": null,
+    "load_ms": 3,
+    "prompt_tokens": 901,
+    "prompt_ms": 12,
+    "tok_per_s": 96.1,
+    "reply_head": ""
+   }
+  }
+ ]
+}

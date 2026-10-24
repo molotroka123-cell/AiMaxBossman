@@ -72,6 +72,10 @@ class CallSettings:
     barge_in: bool = True
     echo_mode: str = "guard"                   # guard | half_duplex
     stt_model_path: str = ""                   # override of Jeff's Whisper model dir; empty = BOSSMAN_WHISPER_MODEL_PATH (as Jeff)
+    # override of the LOCAL model the call brain talks to; empty = Jeff's first local model. Must be one of Jeff's
+    # configured local models (same local route): calls never switch to a cloud or an unlisted model (24.10: the
+    # 31B dense model needed 5-10 s to the first token on a call turn; an A3B MoE answers in ~0.1 s).
+    llm_model: str = ""
     greeting: str = "Привет! Это Джефф, ИИ-ассистент. Ты меня слышишь?"
     record_audio: bool = False                 # OFF by default; needs the owner's explicit choice
     auto_save_to_bossman_memory: bool = False  # OFF: the owner saves the summary / drafts tasks with one click (Jeff must not write owner data)
@@ -111,6 +115,8 @@ class CallSettings:
         v = self.stt_model_path
         if not isinstance(v, str) or len(v) > 500 or "\x00" in v:
             bad("stt_model_path invalid")
+        if not isinstance(self.llm_model, str) or len(self.llm_model) > 200 or any(c in self.llm_model for c in "\x00\r\n"):
+            bad("llm_model invalid")
         if not isinstance(self.greeting, str) or len(self.greeting) > 200:
             bad("greeting too long")
         if not isinstance(self.extra, dict):

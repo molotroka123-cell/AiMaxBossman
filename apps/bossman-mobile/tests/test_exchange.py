@@ -31,6 +31,13 @@ def test_exchange_needs_login_and_csrf(env, tmp_path):
     assert r.status_code == 403 and r.json()["detail"]["code"] == "csrf"
 
 
+def test_an_unrecognised_command_is_not_ok(authed, tmp_path):
+    """Function probe 24.10: «Не понял команду» used to come back with ok:true."""
+    authed.app.state.exchange = _assistant(tmp_path)
+    r = authed.post("/m/api/exchange", json={"text": "сделай мне бутерброд"}).json()
+    assert r["reply"].startswith("Не понял") and r["ok"] is False and r["quote_id"] is None
+
+
 def test_quote_confirm_deals_and_duplicate(authed, tmp_path):
     authed.app.state.exchange = _assistant(tmp_path)
     assert authed.post("/m/api/exchange", json={"text": "курс usdt/usd 0.999 источник binance"}).json()["ok"]

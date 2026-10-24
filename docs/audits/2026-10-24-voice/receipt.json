@@ -1,0 +1,113 @@
+{
+ "schema": "bossman.voice-latency.v1",
+ "at": "2026-10-24",
+ "question": "owner 24.10: can we bring a Dessa-like (Block) natural voice to Bossman calls?",
+ "dessa": "closed research preview (waitlist), no weights/code/license; open full-duplex alternative Kyutai Moshi is English/French and has no AMD/Windows path - not adopted",
+ "method": "tools/voice_latency_baseline.py: production call contour on the loopback line with REAL engines (Whisper, Jeff local LLM, Piper), synthetic peer, no Telegram, nobody called",
+ "before": {
+  "llm": "gemma4-31b-uncensored (owner's Jeff choice)",
+  "latency_ms": {
+   "n": 2,
+   "p50": 8681.0,
+   "p95": 11043.5,
+   "max": 11306.0,
+   "last": 6056.0
+  },
+  "stages_ms": [
+   {
+    "turn": 1,
+    "response_latency_ms": 11306.0,
+    "stt_final_ms": 509.0,
+    "llm_first_token_ms": 10422.0,
+    "tts_first_audio_ms": 375.0,
+    "send_ms": 0.0,
+    "interrupted": false,
+    "echo_suppressed": 0,
+    "user_chars": 24,
+    "assistant_chars": 78
+   },
+   {
+    "turn": 2,
+    "response_latency_ms": 6056.0,
+    "stt_final_ms": 494.0,
+    "llm_first_token_ms": 5125.0,
+    "tts_first_audio_ms": 437.0,
+    "send_ms": 0.0,
+    "interrupted": false,
+    "echo_suppressed": 0,
+    "user_chars": 17,
+    "assistant_chars": 41
+   }
+  ]
+ },
+ "llm_ttft_no_think_1k_prompt": [
+  {
+   "model": "gemma4-31b-uncensored:latest",
+   "ttft_ms": 582,
+   "tok_per_s": 6.2,
+   "reply_head": "Привет! Сейчас посмотрю. Завтра встреча назначена на двенадцать часов дня."
+  },
+  {
+   "model": "bossman-fast-qwen36-35b-a3b-q5:latest",
+   "ttft_ms": 93,
+   "tok_per_s": 47.1,
+   "reply_head": "Да, конечно. Завтра у нас встреча в десять утра."
+  },
+  {
+   "model": "bossman-uncensored-chat:latest",
+   "ttft_ms": 90,
+   "tok_per_s": 41.7,
+   "reply_head": "Я пока не вижу в наших записях встречи на завтра, чтобы точно назвать время. Дав"
+  },
+  {
+   "model": "ace-qwen3-17b:latest",
+   "ttft_ms": 36,
+   "tok_per_s": 101.3,
+   "reply_head": "Привет, как у нас завтра встреча?"
+  }
+ ],
+ "after": {
+  "llm": "bossman-uncensored-chat (A3B MoE, local, uncensored) via CallSettings.llm_model for this run only",
+  "latency_ms": {
+   "n": 2,
+   "p50": 4798.0,
+   "p95": 6112.9,
+   "max": 6259.0,
+   "last": 3337.0
+  },
+  "stages_ms": [
+   {
+    "turn": 1,
+    "response_latency_ms": 6259.0,
+    "stt_final_ms": 540.0,
+    "llm_first_token_ms": 3063.0,
+    "tts_first_audio_ms": 2656.0,
+    "send_ms": 0.0,
+    "interrupted": false,
+    "echo_suppressed": 0,
+    "user_chars": 24,
+    "assistant_chars": 56
+   },
+   {
+    "turn": 2,
+    "response_latency_ms": 3337.0,
+    "stt_final_ms": 509.0,
+    "llm_first_token_ms": 1407.0,
+    "tts_first_audio_ms": 1421.0,
+    "send_ms": 0.0,
+    "interrupted": false,
+    "echo_suppressed": 0,
+    "user_chars": 18,
+    "assistant_chars": 84
+   }
+  ]
+ },
+ "verdict": "MEASURED: median reply latency 8.7-11.2 s -> 4.8 s with a call-only local model; not adopted in the owner's config (a voice/model counts as adopted only after the owner has listened)",
+ "code": [
+  "CallSettings.llm_model (call-only, loopback route + model listed by the local runner, else BRAIN_NOT_CONFIGURED)",
+  "runtime pin: Jeff's chats keep jeff-model.json",
+  "selftest basic reports per-stage split (stages_ms)"
+ ],
+ "remaining_bottleneck": "the call brain waits for the WHOLE model reply and Piper synthesises it whole (1.4-2.7 s): stream LLM tokens -> sentence-level TTS is the next step towards a Dessa-like feel",
+ "switch_on": "set llm_model=bossman-uncensored-chat:latest in telegram-calls/config.json (rollback: empty string)"
+}
