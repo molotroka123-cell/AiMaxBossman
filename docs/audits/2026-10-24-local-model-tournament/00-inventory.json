@@ -1,0 +1,475 @@
+{
+ "at": "2026-10-24T07:45:45Z",
+ "ollama_version": "0.40.10",
+ "runtime": {
+  "build_sha": "493c6ed978bc9c2f159634fc26b0995ab56fe7e4",
+  "source_identity": "SOURCE_IDENTITY_STALE",
+  "version": "2.6.0",
+  "error": null
+ },
+ "loaded_now": [
+  {
+   "name": "gemma4-31b-uncensored:latest",
+   "context_length": 8192,
+   "size_gb": 34.7
+  }
+ ],
+ "ram": {
+  "total_gb": 128.5,
+  "free_gb": 81.6
+ },
+ "d_drive_free_gb": 3140,
+ "tags": 17,
+ "unique_weights": 12,
+ "models": [
+  {
+   "name": "r1-70b-abliterated:latest",
+   "digest": "75fe8342761a6a379d6dc6aac804da5efdc60badcf87635e3eb965e5633ec31b",
+   "size_gb": 42.5,
+   "weights_sha256": "2ed91d01c4b7a0f33f578c6389d0dd6a64d071b3f7963c40b4e1e71235dc74d6",
+   "architecture": "llama",
+   "declared_context": 131072,
+   "baked_num_ctx": 8192,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  },
+  {
+   "name": "qwen38-27b-uncensored:latest",
+   "digest": "55bb9bd7145c179a5c4eaa497ff5cc4c69563c103c14984f8c6c1097b423eee4",
+   "size_gb": 29.0,
+   "weights_sha256": "fb2cb9aa5407264aec6698faf41183f337809352abe0bd8fb750c0b689f4ced2",
+   "architecture": "qwen35",
+   "declared_context": 262144,
+   "baked_num_ctx": 8192,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  },
+  {
+   "name": "gemma4-31b-uncensored:latest",
+   "digest": "76f38390d7bc16e1bfeb6ba810d5bc8c7ab2a24d52a31f0c5ed64c0852418469",
+   "size_gb": 32.6,
+   "weights_sha256": "3b3782f07437582910004aed2911dc771c7f29523f717265101ddd21743d82cf",
+   "architecture": "gemma4",
+   "declared_context": 262144,
+   "baked_num_ctx": 8192,
+   "capabilities": [
+    "completion",
+    "tools",
+    "thinking"
+   ]
+  },
+  {
+   "name": "muse-glimmer-30b-q4:latest",
+   "digest": "f2ab9f278035c01e963b76f97eb4dfefce7f8d412442e0a704521ee6f58d01fa",
+   "size_gb": 17.3,
+   "weights_sha256": "0d3fc85f61d10fdc84072f0bba6005d61c1ac5605a2627b0fd5ea4ff8194c384",
+   "architecture": "muse-glimmer",
+   "declared_context": 131072,
+   "baked_num_ctx": null,
+   "capabilities": [
+    "tools",
+    "completion"
+   ]
+  },
+  {
+   "name": "bossman-community-qwen-uncensored-ctx64k:latest",
+   "digest": "8c0cebbd050500dc45b089c5b0337845cff6435c52c6143ec47039d85dab7aa1",
+   "size_gb": 36.9,
+   "weights_sha256": "5f3c5abb86f2aff799032c0e0de9e73087efe80dd46ff171d2d16af6805a04ed",
+   "architecture": "qwen35moe",
+   "declared_context": 262144,
+   "baked_num_ctx": 65536,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  },
+  {
+   "name": "bossman-community-qwen-uncensored-ctx256k:latest",
+   "digest": "be8c5d80773f8262f3b3d2ce45fb04a1c1de34ceefbeb77b9d186b4a764dbc06",
+   "size_gb": 36.9,
+   "weights_sha256": "5f3c5abb86f2aff799032c0e0de9e73087efe80dd46ff171d2d16af6805a04ed",
+   "architecture": "qwen35moe",
+   "declared_context": 262144,
+   "baked_num_ctx": 262144,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  },
+  {
+   "name": "ace-qwen3-17b:latest",
+   "digest": "f45ab00ba3142c9a2e31d73bcb2f518dc52db0cb97cf9ec23aeeb70a20fce968",
+   "size_gb": 2.2,
+   "weights_sha256": "9860780f3a1fab1f8f909a1b549ea3e62c22d19ab1a492b3a1026b38c5bd3ec3",
+   "architecture": "qwen3",
+   "declared_context": 40960,
+   "baked_num_ctx": null,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  },
+  {
+   "name": "ace-decider-08b:latest",
+   "digest": "b3bfd29da90ce05ecf3aa3a03273564b7eed9adef25b631003634dc97cbaea6c",
+   "size_gb": 0.8,
+   "weights_sha256": "2665d08c1052b4e01dabcb08771d25579f6776f7066355e4a0ccc5f74e32d4a2",
+   "architecture": "qwen35",
+   "declared_context": 262144,
+   "baked_num_ctx": null,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  },
+  {
+   "name": "qwen38-pi-ab:latest",
+   "digest": "42fd3d2f752b9a3381d369c19c17550642bc6a56a8cd7acade9f6c38b6829892",
+   "size_gb": 17.5,
+   "weights_sha256": "ddda633d1ecafccb6e77ff55de2d5f78d90a53ab4fed87ca67bc161de75af9f9",
+   "architecture": "qwen35",
+   "declared_context": 262144,
+   "baked_num_ctx": 16384,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion",
+    "vision"
+   ]
+  },
+  {
+   "name": "hf.co/bytkim/Qwen3.8-27B-pi-GGUF:Q4_K_M",
+   "digest": "706935565c4c394bb22ead305ac667f597cbe260aec8767260747a6495fed4a1",
+   "size_gb": 17.5,
+   "weights_sha256": "ddda633d1ecafccb6e77ff55de2d5f78d90a53ab4fed87ca67bc161de75af9f9",
+   "architecture": "qwen35",
+   "declared_context": 262144,
+   "baked_num_ctx": null,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion",
+    "vision"
+   ]
+  },
+  {
+   "name": "bossman-uncensored-chat:latest",
+   "digest": "98b0e3244b8f05e7c9de2a4f02a032c58520c626c668f353c17397e005971e08",
+   "size_gb": 36.9,
+   "weights_sha256": "5f3c5abb86f2aff799032c0e0de9e73087efe80dd46ff171d2d16af6805a04ed",
+   "architecture": "qwen35moe",
+   "declared_context": 262144,
+   "baked_num_ctx": 16384,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  },
+  {
+   "name": "qwen3-coder:30b",
+   "digest": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+   "size_gb": 18.6,
+   "weights_sha256": "1194192cf2a187eb02722edcc3f77b11d21f537048ce04b67ccf8ba78863006a",
+   "architecture": "qwen3moe",
+   "declared_context": 262144,
+   "baked_num_ctx": null,
+   "capabilities": [
+    "completion",
+    "tools"
+   ]
+  },
+  {
+   "name": "gemma3-27b-abl-test:latest",
+   "digest": "6317f91a59a23d39014656b50c1ec75317690b925b84cc0d13a0cde8b50808b8",
+   "size_gb": 28.7,
+   "weights_sha256": "157910b4292f3bc69735dd1d0ef93f02937d84d6921debaef661cac5696baad4",
+   "architecture": "gemma3",
+   "declared_context": 131072,
+   "baked_num_ctx": null,
+   "capabilities": [
+    "completion"
+   ]
+  },
+  {
+   "name": "bossman-community-qwen-uncensored:latest",
+   "digest": "f466375014abe5197b215b1ca08eb7cb38c7bf5b22edd978312c153264c05552",
+   "size_gb": 36.9,
+   "weights_sha256": "5f3c5abb86f2aff799032c0e0de9e73087efe80dd46ff171d2d16af6805a04ed",
+   "architecture": "qwen35moe",
+   "declared_context": 262144,
+   "baked_num_ctx": 32768,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  },
+  {
+   "name": "bossman-fast-qwen36-vision:latest",
+   "digest": "b57650ba770d2003b199f7279bbab5af4996e0bc19ab6f81739bf7ca7843e6ce",
+   "size_gb": 27.4,
+   "weights_sha256": "c13ce26253ea334df472bd8fbd2d6da66d8a41195c17f6fcbf44c4d20ece0932",
+   "architecture": "qwen35moe",
+   "declared_context": 262144,
+   "baked_num_ctx": 16384,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion",
+    "vision"
+   ]
+  },
+  {
+   "name": "bossman-fast-qwen36-35b-a3b-q5:latest",
+   "digest": "0c57084a79bbc9abdd16f4e7e6b189eeeeb389d8644d4c18b38231934bf32a65",
+   "size_gb": 26.5,
+   "weights_sha256": "c13ce26253ea334df472bd8fbd2d6da66d8a41195c17f6fcbf44c4d20ece0932",
+   "architecture": "qwen35moe",
+   "declared_context": 262144,
+   "baked_num_ctx": 32768,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  },
+  {
+   "name": "bossman-main-qwen38-27b-q5:latest",
+   "digest": "1bcff1fd767f368783d1f040645374674b66bdf7a8222c5433c97816285a7fcc",
+   "size_gb": 19.8,
+   "weights_sha256": "2de73110cb254cbf09b54b717578dadff12ef1194e7271527e68202f39ba4bfd",
+   "architecture": "qwen35",
+   "declared_context": 262144,
+   "baked_num_ctx": 65536,
+   "capabilities": [
+    "tools",
+    "thinking",
+    "completion"
+   ]
+  }
+ ],
+ "groups": [
+  {
+   "weights_sha256": "2665d08c1052b4e01dabcb08771d25579f6776f7066355e4a0ccc5f74e32d4a2",
+   "tags": [
+    "ace-decider-08b:latest"
+   ],
+   "size_gb": 0.8,
+   "configurations": [
+    {
+     "tag": "ace-decider-08b:latest",
+     "baked_num_ctx": null,
+     "digest": "b3bfd29da90c"
+    }
+   ],
+   "duplicate": false
+  },
+  {
+   "weights_sha256": "9860780f3a1fab1f8f909a1b549ea3e62c22d19ab1a492b3a1026b38c5bd3ec3",
+   "tags": [
+    "ace-qwen3-17b:latest"
+   ],
+   "size_gb": 2.2,
+   "configurations": [
+    {
+     "tag": "ace-qwen3-17b:latest",
+     "baked_num_ctx": null,
+     "digest": "f45ab00ba314"
+    }
+   ],
+   "duplicate": false
+  },
+  {
+   "weights_sha256": "5f3c5abb86f2aff799032c0e0de9e73087efe80dd46ff171d2d16af6805a04ed",
+   "tags": [
+    "bossman-community-qwen-uncensored-ctx64k:latest",
+    "bossman-community-qwen-uncensored-ctx256k:latest",
+    "bossman-uncensored-chat:latest",
+    "bossman-community-qwen-uncensored:latest"
+   ],
+   "size_gb": 36.9,
+   "configurations": [
+    {
+     "tag": "bossman-community-qwen-uncensored-ctx64k:latest",
+     "baked_num_ctx": 65536,
+     "digest": "8c0cebbd0505"
+    },
+    {
+     "tag": "bossman-community-qwen-uncensored-ctx256k:latest",
+     "baked_num_ctx": 262144,
+     "digest": "be8c5d80773f"
+    },
+    {
+     "tag": "bossman-uncensored-chat:latest",
+     "baked_num_ctx": 16384,
+     "digest": "98b0e3244b8f"
+    },
+    {
+     "tag": "bossman-community-qwen-uncensored:latest",
+     "baked_num_ctx": 32768,
+     "digest": "f466375014ab"
+    }
+   ],
+   "duplicate": true
+  },
+  {
+   "weights_sha256": "c13ce26253ea334df472bd8fbd2d6da66d8a41195c17f6fcbf44c4d20ece0932",
+   "tags": [
+    "bossman-fast-qwen36-vision:latest",
+    "bossman-fast-qwen36-35b-a3b-q5:latest"
+   ],
+   "size_gb": 27.4,
+   "configurations": [
+    {
+     "tag": "bossman-fast-qwen36-vision:latest",
+     "baked_num_ctx": 16384,
+     "digest": "b57650ba770d"
+    },
+    {
+     "tag": "bossman-fast-qwen36-35b-a3b-q5:latest",
+     "baked_num_ctx": 32768,
+     "digest": "0c57084a79bb"
+    }
+   ],
+   "duplicate": true
+  },
+  {
+   "weights_sha256": "2de73110cb254cbf09b54b717578dadff12ef1194e7271527e68202f39ba4bfd",
+   "tags": [
+    "bossman-main-qwen38-27b-q5:latest"
+   ],
+   "size_gb": 19.8,
+   "configurations": [
+    {
+     "tag": "bossman-main-qwen38-27b-q5:latest",
+     "baked_num_ctx": 65536,
+     "digest": "1bcff1fd767f"
+    }
+   ],
+   "duplicate": false
+  },
+  {
+   "weights_sha256": "157910b4292f3bc69735dd1d0ef93f02937d84d6921debaef661cac5696baad4",
+   "tags": [
+    "gemma3-27b-abl-test:latest"
+   ],
+   "size_gb": 28.7,
+   "configurations": [
+    {
+     "tag": "gemma3-27b-abl-test:latest",
+     "baked_num_ctx": null,
+     "digest": "6317f91a59a2"
+    }
+   ],
+   "duplicate": false
+  },
+  {
+   "weights_sha256": "3b3782f07437582910004aed2911dc771c7f29523f717265101ddd21743d82cf",
+   "tags": [
+    "gemma4-31b-uncensored:latest"
+   ],
+   "size_gb": 32.6,
+   "configurations": [
+    {
+     "tag": "gemma4-31b-uncensored:latest",
+     "baked_num_ctx": 8192,
+     "digest": "76f38390d7bc"
+    }
+   ],
+   "duplicate": false
+  },
+  {
+   "weights_sha256": "0d3fc85f61d10fdc84072f0bba6005d61c1ac5605a2627b0fd5ea4ff8194c384",
+   "tags": [
+    "muse-glimmer-30b-q4:latest"
+   ],
+   "size_gb": 17.3,
+   "configurations": [
+    {
+     "tag": "muse-glimmer-30b-q4:latest",
+     "baked_num_ctx": null,
+     "digest": "f2ab9f278035"
+    }
+   ],
+   "duplicate": false
+  },
+  {
+   "weights_sha256": "1194192cf2a187eb02722edcc3f77b11d21f537048ce04b67ccf8ba78863006a",
+   "tags": [
+    "qwen3-coder:30b"
+   ],
+   "size_gb": 18.6,
+   "configurations": [
+    {
+     "tag": "qwen3-coder:30b",
+     "baked_num_ctx": null,
+     "digest": "06c1097efce0"
+    }
+   ],
+   "duplicate": false
+  },
+  {
+   "weights_sha256": "fb2cb9aa5407264aec6698faf41183f337809352abe0bd8fb750c0b689f4ced2",
+   "tags": [
+    "qwen38-27b-uncensored:latest"
+   ],
+   "size_gb": 29.0,
+   "configurations": [
+    {
+     "tag": "qwen38-27b-uncensored:latest",
+     "baked_num_ctx": 8192,
+     "digest": "55bb9bd7145c"
+    }
+   ],
+   "duplicate": false
+  },
+  {
+   "weights_sha256": "ddda633d1ecafccb6e77ff55de2d5f78d90a53ab4fed87ca67bc161de75af9f9",
+   "tags": [
+    "qwen38-pi-ab:latest",
+    "hf.co/bytkim/Qwen3.8-27B-pi-GGUF:Q4_K_M"
+   ],
+   "size_gb": 17.5,
+   "configurations": [
+    {
+     "tag": "qwen38-pi-ab:latest",
+     "baked_num_ctx": 16384,
+     "digest": "42fd3d2f752b"
+    },
+    {
+     "tag": "hf.co/bytkim/Qwen3.8-27B-pi-GGUF:Q4_K_M",
+     "baked_num_ctx": null,
+     "digest": "706935565c4c"
+    }
+   ],
+   "duplicate": true
+  },
+  {
+   "weights_sha256": "2ed91d01c4b7a0f33f578c6389d0dd6a64d071b3f7963c40b4e1e71235dc74d6",
+   "tags": [
+    "r1-70b-abliterated:latest"
+   ],
+   "size_gb": 42.5,
+   "configurations": [
+    {
+     "tag": "r1-70b-abliterated:latest",
+     "baked_num_ctx": 8192,
+     "digest": "75fe8342761a"
+    }
+   ],
+   "duplicate": false
+  }
+ ]
+}

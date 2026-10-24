@@ -225,3 +225,44 @@ def test_one_failing_video_does_not_stop_the_batch(tmp_path):
                          header="H\n", marker="\nM\n", fetch=fetch)
     assert [d["video_id"] for d in state["done"]] == ["vidGOOD0000"]
     assert state["failed"][0]["video_id"] == "vidBAD00000" and "auto-captions" in state["failed"][0]["error"]
+
+
+def test_archive_root_follows_the_storage_pointer_only_when_the_target_exists(tmp_path, monkeypatch):
+    monkeypatch.setenv("BCC_DATA_DIR", str(tmp_path))
+    home = tmp_path / "learning" / "k1m6a-youtube"
+    home.mkdir(parents=True)
+    assert kw.archive_root() == home
+    moved = tmp_path / "D" / "k1m6a"
+    (home / "storage.json").write_text(json.dumps({"current_physical_root": str(moved)}), encoding="utf-8")
+    assert kw.archive_root() == home, "a pointer to a directory that does not exist must not be followed"
+    moved.mkdir(parents=True)
+    assert kw.archive_root() == moved
+
+
+def test_resilient_api_retries_transient_errors_but_not_http_refusals():
+    import urllib.error
+    calls, sleeps = [], []
+
+    def flaky(*a, **k):
+        calls.append(1)
+        if len(calls) < 3:
+            raise TimeoutError("timed out")
+        return {"ok": True}
+    assert kw.resilient_api(flaky, sleep=sleeps.append)("GET", "/x") == {"ok": True} and len(calls) == 3 and sleeps == [15.0, 15.0]
+
+    def refused(*a, **k):
+        raise urllib.error.HTTPError("u", 403, "forbidden", {}, None)
+    seen = []
+    try:
+        kw.resilient_api(lambda *a, **k: (seen.append(1), refused())[1], sleep=lambda s: None)("GET", "/x")
+        raise AssertionError("an HTTP refusal must be raised")
+    except urllib.error.HTTPError:
+        assert len(seen) == 1, "a refusal from the backend is not retried"
+
+    def never(*a, **k):
+        raise ConnectionError("down")
+    try:
+        kw.resilient_api(never, tries=3, sleep=lambda s: None)("GET", "/x")
+        raise AssertionError("persistent failure must surface")
+    except ConnectionError:
+        pass

@@ -40,8 +40,17 @@ BUSY_STATUSES = ("queued", "running", "pending", "waiting_approval")
 
 
 def archive_root() -> Path:
+    """The K1m6a archive. Follows ``storage.json``'s ``current_physical_root`` when the archive was moved to the new SSD
+    (tools/archive_migrate.py switches it only after every file was verified); falls back to the C: tree otherwise."""
     base = os.environ.get("BCC_DATA_DIR") or str(Path(os.environ.get("LOCALAPPDATA", ".")) / "Bossman" / "CommandCenter")
-    return Path(base) / "learning" / "k1m6a-youtube"
+    home = Path(base) / "learning" / "k1m6a-youtube"
+    try:
+        pointed = Path(json.loads((home / "storage.json").read_text(encoding="utf-8")).get("current_physical_root") or "")
+        if pointed != home and pointed.is_dir():
+            return pointed
+    except (OSError, ValueError):
+        pass
+    return home
 
 
 # ----------------------------------------------------------------------------- pure helpers (unit-tested)
@@ -102,6 +111,27 @@ def pending_videos(manifest: dict, root: Path, limit: int | None = None) -> list
     """Manifest order, minus videos whose summary already exists."""
     todo = [v for v in manifest["videos"] if not (Path(root) / v["video_id"] / "word_analysis" / "summary.json").exists()]
     return todo[:limit] if limit else todo
+
+
+# ----------------------------------------------------------------------------- resilient API
+
+def resilient_api(api, *, tries: int = 10, delay_s: float = 15.0, sleep=time.sleep):
+    """A busy backend (disk storm, restart) answers slowly or not at all for a while: retry transient errors instead of
+    failing a whole video. HTTP errors the backend itself reports are NOT retried (a real refusal stays a refusal)."""
+    import urllib.error
+
+    def call(*args, **kwargs):
+        last: Exception | None = None
+        for attempt in range(tries):
+            try:
+                return api(*args, **kwargs)
+            except urllib.error.HTTPError:
+                raise
+            except (TimeoutError, ConnectionError, OSError) as exc:
+                last = exc
+                sleep(delay_s)
+        raise last if last else RuntimeError("unreachable")
+    return call
 
 
 # ----------------------------------------------------------------------------- idle gate
@@ -257,8 +287,9 @@ def main(argv=None) -> int:
     here = Path(__file__).resolve().parent
     sys.path.insert(0, str(here))
     sys.path.insert(0, str(here.parent / "command-center"))
-    from prove_chat_attachments import api
+    from prove_chat_attachments import api as raw_api
     from bcc import conversation_context as cc
+    api = resilient_api(raw_api)
     manifest = json.loads(Path(a.manifest).read_text(encoding="utf-8"))
     state = run_batch(manifest, Path(a.root), api, parallel=a.parallel, limit=a.limit,
                       chain=tuple(int(x) for x in a.chain.split(",")), window_words=a.window_words,
