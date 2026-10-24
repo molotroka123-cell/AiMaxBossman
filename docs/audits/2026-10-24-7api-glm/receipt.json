@@ -1,0 +1,52 @@
+{
+ "verdict": "PASS",
+ "at": "2026-10-24",
+ "provider": {
+  "id": 15,
+  "name": "7API",
+  "kind": "openai_compat",
+  "base_url": "https://7api.st/v1",
+  "key": "in the Bossman vault (mask only), never in git"
+ },
+ "model": {
+  "id": 105,
+  "name": "glm-5.3-flash-uncensored",
+  "context": 1000000,
+  "price_usd_per_mtok": 0.028,
+  "price_source": "GET /v1/models pricing field of the sub-key; BILLING NOT VERIFIED (sub-key cannot log in to the portal)"
+ },
+ "agent": {
+  "id": 46,
+  "name": "GLM 5.3 Flash Uncensored (7API)",
+  "tools": [
+   "code.search",
+   "code.expand",
+   "code.status",
+   "terminal.run",
+   "terminal.status",
+   "browser.open",
+   "browser.read_dom",
+   "browser.screenshot"
+  ],
+  "permissions": {
+   "filesystem.read": true,
+   "terminal.read": true,
+   "browser.read": true
+  },
+  "note": "terminal.run / file writes need the owner's approval per call (not granted)"
+ },
+ "live_proof": {
+  "path": "chat thread -> agent 46",
+  "task_status": "completed",
+  "seconds": 57.2,
+  "tokens_in": 47292,
+  "tokens_out": 312,
+  "cost_usd_by_bossman_price": 0.001333,
+  "answer_checked_against_code": true
+ },
+ "limit": "sub-key budget $5 (set by the owner on 7API); Bossman agent budget $5",
+ "risks": [
+  "third-party reseller, operator unknown, prompts pass through its servers",
+  "no personal photos/chats/memory go to cloud models (existing gate)"
+ ]
+}
