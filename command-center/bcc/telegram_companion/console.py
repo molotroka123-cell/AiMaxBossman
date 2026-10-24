@@ -459,6 +459,17 @@ class ConsoleMixin:
                 cancelled = True
             if self.cancel_agents():
                 lines.append("• Claude/Codex остановлены, их процессы завершены.")
+            # Function probe 24.10: a task delegated from Telegram (/confirm) kept running after /stop - the brake
+            # halted the computer, PC-agent and image jobs but never the delegated Bossman task itself.
+            stopped_tasks = 0
+            if self.core is not None and hasattr(self.core, "task_stop") and hasattr(self.store, "submitted_task_ids"):
+                for task_id in self.store.submitted_task_ids():
+                    try:
+                        stopped_tasks += bool(await self.core.task_stop(task_id))
+                    except CompanionError:
+                        pass
+            if stopped_tasks:
+                lines.append(f"• Поручения из Telegram остановлены: {stopped_tasks}.")
         if self.store.get("pc_agent_trust_active", False) or self.store.get("pc_agent_active", False):
             self.store.put("pc_agent_trust_active", False)
             if self.core is not None and hasattr(self.core, "pc_agent_stop"):

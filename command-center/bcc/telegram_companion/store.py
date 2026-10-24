@@ -304,6 +304,12 @@ class Store:
         self.db.execute("UPDATE proposals SET task_id=?,phase=? WHERE id=? AND who=? AND phase='dispatching'",
                         (task_id, "submitted" if task_id is not None else "dispatch_unknown", nonce, who))
 
+    def submitted_task_ids(self, limit: int = 20) -> list[int]:
+        """The newest Bossman tasks delegated from Telegram (any owner chat): what a full STOP must also halt."""
+        rows = self.db.execute("SELECT DISTINCT task_id FROM proposals WHERE phase='submitted' AND task_id IS NOT NULL "
+                               "ORDER BY rowid DESC LIMIT ?", (int(limit),)).fetchall()
+        return [int(r[0]) for r in rows]
+
     def owns_task(self, who: str, task_id: int) -> bool:
         return self.db.execute("SELECT 1 FROM proposals WHERE who=? AND task_id=? AND phase='submitted'", (who, task_id)).fetchone() is not None
 

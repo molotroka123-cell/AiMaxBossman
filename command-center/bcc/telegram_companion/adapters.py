@@ -907,6 +907,19 @@ class Core:
             raise CompanionError("COMPUTER_STOP_UNCONFIRMED")
         return body
 
+    async def task_stop(self, task_id: int) -> bool:
+        """STOP of ONE Bossman task this companion delegated (POST /api/tasks/{id}/stop). A finished task answers with
+        an error (nothing to stop) - that is not a failure of the brake, so it returns False instead of raising."""
+        try:
+            view = await self._request("GET", f"/api/tasks/{int(task_id)}")
+            view = view.get("task", view) if isinstance(view, dict) else {}
+            if str(view.get("status") or "") in ("completed", "failed", "stopped", "cancelled"):
+                return False                            # already over: nothing to stop, not counted
+            body = await self._request("POST", f"/api/tasks/{int(task_id)}/stop", {})
+        except CompanionError:
+            return False
+        return isinstance(body, dict) and body.get("status") == "stopped"
+
     async def computer_resume(self) -> dict:
         body = await self._request("POST", "/api/computer/resume", {})
         if not isinstance(body, dict) or body.get("stopped") is not False:
