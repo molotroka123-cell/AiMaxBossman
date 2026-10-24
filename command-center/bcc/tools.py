@@ -400,6 +400,15 @@ def _agent_tool_names(agent: dict) -> list[str]:
     return []
 
 
+def chat_only(agent: dict) -> bool:
+    """Owner 24.10: «у облачных моделей не будет доступа к контексту компа, только внутри чатов».
+
+    ``permissions.cloud_pc_access is False`` marks such an agent. An empty ``tools`` list alone is NOT enough:
+    a routing grant (action_contract) used to treat «no own tools» as «not owner-scoped» and hand it terminal.*."""
+    perms = agent.get("permissions") if isinstance(agent, dict) else None
+    return isinstance(perms, dict) and perms.get("cloud_pc_access") is False
+
+
 def allowed_tools_for(task: dict, agent: dict) -> list[str]:
     """Какие инструменты видит модель в этом run'е.
 
@@ -414,7 +423,11 @@ def allowed_tools_for(task: dict, agent: dict) -> list[str]:
     Исключение — грант роутинга (флаг ROUTED_TOOLS_EXTEND_AGENT): он
     объединяется с инструментами агента. Расширения прав это не даёт: агент
     получает только своё + то семейство, которое роутер и раньше выдавал на
-    эту задачу; каждый вызов по-прежнему идёт через decide_effect."""
+    эту задачу; каждый вызов по-прежнему идёт через decide_effect.
+
+    Агент «только чат» (chat_only) не получает НИЧЕГО — ни своих, ни скилла, ни гранта роутинга."""
+    if chat_only(agent):
+        return []
     meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
     if "allowed_tools" in meta:
         explicit = meta.get("allowed_tools")

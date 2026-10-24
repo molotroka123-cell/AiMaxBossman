@@ -77,7 +77,7 @@ import sqlalchemy as sa
 from ..conversation_context import current_request
 from ..db import agents as agents_t, tasks as tasks_t, tool_calls as tool_calls_t, utcnow
 from ..permissions import agent_allowed, is_dangerous
-from ..tools import REGISTRY, ROUTED_TOOLS_EXTEND_AGENT, _agent_tool_names, allowed_tools_for
+from ..tools import REGISTRY, ROUTED_TOOLS_EXTEND_AGENT, _agent_tool_names, allowed_tools_for, chat_only
 from ..v2.verification import ExpectedState
 from . import Feature
 from .action_router import BROWSER_TOOLS
@@ -743,6 +743,8 @@ async def _withheld_from_agent(svc, task: dict, grant: list[str]) -> list[str]:
     if row is None:
         return []
     agent = dict(row._mapping)
+    if chat_only(agent):               # owner 24.10: a chat-only (cloud) agent gets no PC tools at all
+        return list(grant)
     own = set(_agent_tool_names(agent))
     if not own:
         return []
