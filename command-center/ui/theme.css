@@ -390,6 +390,21 @@
   grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   gap: var(--bx-4);
 }
+.bx-app-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px) auto;
+  align-items: center;
+  gap: var(--bx-3);
+}
+.bx-app-filters [role="status"] {
+  color: var(--bx-ink-3);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.bx-apps-grid[hidden] { display: none; }
+@media (max-width: 680px) {
+  .bx-app-filters { grid-template-columns: 1fr; }
+}
 
 .bx-app {
   --bx-accent: var(--bx-azure);

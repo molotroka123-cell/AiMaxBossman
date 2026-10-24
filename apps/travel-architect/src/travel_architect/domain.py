@@ -33,8 +33,12 @@ class TravelEngine:
         return [x["value"] for x in self.s.kv_list("offers") if x["value"]["trip_id"]==trip_id]
     def compare(self,trip_id):
         offers=self.offers(trip_id)
+        currencies={str(x.get("currency","EUR")).strip().upper() for x in offers}
+        if len(currencies)>1:
+            return {"offers":offers,"best":None,"comparable":False,"reason":"mixed_currencies"}
         ranked=sorted(offers,key=lambda x:(x["true_price"],-float(x.get("quality_score",0))))
-        return {"offers":ranked,"best":ranked[0] if ranked else None}
+        return {"offers":ranked,"best":ranked[0] if ranked else None,"comparable":True,
+                "currency":next(iter(currencies),None)}
     def date_candidates(self,start,end,flex_days=3,durations=None):
         s=date.fromisoformat(start); e=date.fromisoformat(end); durations=durations or [(e-s).days]
         rows=[]
@@ -44,12 +48,16 @@ class TravelEngine:
         return rows
     def package_arbitrage(self,trip_id):
         offers=self.offers(trip_id)
+        currencies={str(x.get("currency","EUR")).strip().upper() for x in offers}
+        if len(currencies)>1:
+            return {"best_package":None,"best_diy":None,"diy_saves_vs_package":None,
+                    "comparable":False,"reason":"mixed_currencies"}
         packages=[o for o in offers if o.get("kind")=="package"]; diy=[o for o in offers if o.get("kind")=="diy"]
         bp=min(packages,key=lambda x:x["true_price"]) if packages else None
         bd=min(diy,key=lambda x:x["true_price"]) if diy else None
         saving=None
         if bp and bd:saving=round(bp["true_price"]-bd["true_price"],2)
-        return {"best_package":bp,"best_diy":bd,"diy_saves_vs_package":saving}
+        return {"best_package":bp,"best_diy":bd,"diy_saves_vs_package":saving,"comparable":True}
     def search_task(self,trip_id):
         trip=self.s.kv_get("trips",trip_id)
         return {"task_type":"travel_browser_search","trip":trip,
@@ -78,10 +86,15 @@ class TravelEngine:
 
     def smart_compare(self,trip_id):
         trip=self.s.kv_get("trips",trip_id); rows=[]
-        for o in self.offers(trip_id):
+        offers=self.offers(trip_id)
+        currencies={str(x.get("currency","EUR")).strip().upper() for x in offers}
+        if len(currencies)>1:
+            return {"ranked":[],"recommended":None,"comparable":False,"reason":"mixed_currencies"}
+        for o in offers:
             x=dict(o); x["smart_score"]=self.score_offer(x,trip); rows.append(x)
         rows.sort(key=lambda x:x["smart_score"],reverse=True)
-        return {"ranked":rows,"recommended":rows[0] if rows else None}
+        return {"ranked":rows,"recommended":rows[0] if rows else None,"comparable":True,
+                "currency":next(iter(currencies),None)}
 
     def itinerary(self,trip_id):
         trip=self.s.kv_get("trips",trip_id); best=self.smart_compare(trip_id)["recommended"]
@@ -96,7 +109,12 @@ class TravelEngine:
         trip=self.s.kv_get("trips",trip_id)
         offer=self.s.kv_get("offers",offer_id)
         failures=[]
-        if trip.get("budget") is not None and offer["true_price"]>float(trip["budget"]): failures.append("over_budget")
+        if trip.get("budget") is not None:
+            budget_currency=str(trip.get("budget_currency","EUR")).strip().upper()
+            offer_currency=str(offer.get("currency","EUR")).strip().upper()
+            if budget_currency!=offer_currency:
+                failures.append("budget_currency_mismatch")
+            elif offer["true_price"]>float(trip["budget"]): failures.append("over_budget")
         constraints=trip.get("constraints") or {}
         max_stops=constraints.get("max_stops")
         if max_stops is not None and float(offer.get("metadata",{}).get("stops",0))>float(max_stops): failures.append("too_many_stops")

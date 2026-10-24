@@ -5,7 +5,7 @@ from .models import JobCreate,JOB_TYPES
 from .service import JobService
 from .domain import ExamEngine
 from .bossman_bridge import emit_task,resolve_exchange_root
-from .ui import app_shell
+from .ui import home_page
 APP_ID="exam-trainer-ai"
 class ExamCreate(BaseModel): name:str; language:str="en"; topics:list[dict]
 class Questions(BaseModel): questions:list[dict]
@@ -20,7 +20,7 @@ class MockReq(BaseModel): count:int=Field(default=20,ge=1,le=MAX_COUNT)
 def build_app():
     api=FastAPI(title="Exam Trainer AI",version="0.7.0"); jobs=JobService(APP_ID); eng=ExamEngine(jobs.store)
     @api.get("/")
-    def home(): return app_shell("Exam Trainer AI",APP_ID,["Exam blueprint","Question bank","Diagnostics","Adaptive priority","Mock exams","Readiness score","Training sessions","Multilingual session metadata","Source provenance","Bossman browser collection handoff"])
+    def home(): return home_page()
     @api.get("/health")
     def h():return {"status":"healthy","app":APP_ID,"version":"0.7.0","storage":"sqlite"}
     @api.get("/capabilities")
