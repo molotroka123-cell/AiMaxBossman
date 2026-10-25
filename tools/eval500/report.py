@@ -149,6 +149,7 @@ def baseline(run_id: str, out: Path, parts: list[str]) -> dict:
                   "agreement_dev": agreement(vd), "agreement_holdout": agreement(vh),
                   "agreement_all": agreement({**vd, **vh})},
         "cost": c,
+        "suite_receipt": "docs/audits/2026-10-25-eval500-baseline/suite-receipt.json",
         "preregistration": {"file": str(PREREG_FILE.relative_to(schema.ROOT)).replace("\\", "/"),
                             "sha256": schema.file_sha(PREREG_FILE) if prereg else None},
     }

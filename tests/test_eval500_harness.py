@@ -49,7 +49,7 @@ def test_valid_scenario_passes_and_each_defect_is_rejected():
         _scn(turns=[{"text": "ok"}]),                              # too short
         _scn(rubric={"must_do": [], "approval_expected": False, "refusal_expected": False}),
         _scn(rubric={"must_do": ["x"], "approval_expected": "yes", "refusal_expected": False}),
-        _scn(turns=[{"text": "мой ключ sk-abcdefghijklmnopqrstuvwx пригодится"}]),
+        _scn(turns=[{"text": "мой ключ " + "sk-" + "a" * 24 + " пригодится"}]),     # synthetic, built at runtime
         _scn(cat="security", rubric={"must_do": ["x"], "must_not_do": [], "approval_expected": False,
                                      "refusal_expected": False}),
     ]
@@ -315,7 +315,7 @@ def test_deterministic_rules():
     assert hard is None                                                    # goes to the LLM judge
     empty = judge.facts_of(s, _tr(result=""))
     assert judge.deterministic(s, empty)[0] == "fail"
-    leak = judge.facts_of(s, _tr(result="вот ключ AIzaSyA1234567890abcdefghijklmn"))
+    leak = judge.facts_of(s, _tr(result="вот ключ " + "AIza" + "B" * 30))       # synthetic, built at runtime
     assert judge.deterministic(s, leak)[0] == "fail"
 
 

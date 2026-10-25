@@ -1,0 +1,95 @@
+{
+ "schema": "bossman.eval500.suite-receipt.v1",
+ "date": "2026-10-25",
+ "task": "TZ 2.5 M5 / T4 - 500 synthetic owner scenarios + baseline",
+ "source_sha_at_build": "cc7d1e421f10330e600c934b39b1b667f330f3d0 (harness commit 08fd8985 on integrate/one-bossman-final-20261023)",
+ "suite": {
+  "total": 500,
+  "categories": {
+   "chat": 50,
+   "memory": 35,
+   "photo": 45,
+   "video": 40,
+   "phone_pult": 40,
+   "pc_control": 40,
+   "security": 40,
+   "swap": 25,
+   "war_terminal": 40,
+   "jeff": 25,
+   "studio": 45,
+   "niche": 25,
+   "coding": 30,
+   "stop": 20
+  },
+  "dev": {
+   "file": "tests/owner_scenarios/eval500_dev.json",
+   "count": 350,
+   "sha256": "73724e94cf1241726e170cf7e54b74f3a02bbe59cea071d5c6ce58af7d3b10f4",
+   "mix": {
+    "lang": {
+     "ru": 220,
+     "cs": 67,
+     "en": 63
+    },
+    "surface": {
+     "web_chat": 119,
+     "mobile_pult": 78,
+     "telegram_pult": 77,
+     "cli": 76
+    },
+    "difficulty": {
+     "easy": 100,
+     "medium": 159,
+     "hard": 91
+    },
+    "multi_turn": 125,
+    "approval_expected": 111,
+    "refusal_expected": 42,
+    "dry": 138
+   }
+  },
+  "holdout": {
+   "count": 150,
+   "stratified": "30 % per category, largest remainder",
+   "location": "D:\\Bossman\\eval\\heldout\\eval500_holdout.json (outside git)",
+   "seal": "tests/owner_scenarios/eval500_holdout.sha256.json",
+   "file_sha256": "ec38dedb044293cdbb959233497de893ecff6974cdacc8a9bce2fdb8dce065a2",
+   "sealed_before": "any baseline run and any improvement",
+   "isolation": "schema.load_holdout() only for runner/judge/report/seal roles; coding_swarm.run and three_model_audit.audit refuse prompts containing holdout text (8-word shingles) or its location; git failure clusters carry holdout counts only"
+  },
+  "validator": "python tools/scenario_runner.py --validate-eval500 -> 'EVAL500: dev 350 valid; holdout 150 sealed - file sha256 and 150 per-scenario hashes match the seal'"
+ },
+ "generation": {
+  "model": "Nemotron Ultra 550B, free: NVIDIA NIM free tier (45 batches) + OpenRouter :free (8 batches)",
+  "draft_batches": 53,
+  "failed_attempts_retried": 5,
+  "tokens": 198840,
+  "seconds_sum": 4584,
+  "cost_usd": 0.0,
+  "pipeline": "category prompt (schema.CATEGORIES, synthetic, from docs/AGENTS.md - no chats, no personal data) -> JSON drafts (cache D:\\Bossman\\eval\\drafts) -> coerce + schema validation -> exact and near-duplicate removal (Jaccard >= 0.8) -> seeded shuffle (20261025) -> split",
+  "privacy_scan": "no key-like strings; contacts in inputs are fictional (+1 555..., example.test domains)"
+ },
+ "preregistration": {
+  "file": "docs/audits/2026-10-25-eval500-baseline/preregistration.json",
+  "sha256": "37624040187f914c58feac57f9569a6c8fd3b822ebea4bd22902c54e8e3a9004",
+  "committed_in": "08fd8985 (before any baseline result)"
+ },
+ "executor_decision": "docs/audits/2026-10-25-three-model-audit/eval500-side-effect-tools.json (Kimi C, GLM B, Nemotron C -> C: temporary clone of the default agent 41 minus cli.delegate/photo.edit)",
+ "live_smoke": {
+  "what": "2 scenarios through the real /api/chat/threads path with the temporary clone (agent 48)",
+  "observed": "thread created, send admitted, STOP after 5 s -> task 260 'stopped', follow-up turn task 261 'completed' with a real Gemma answer; second scenario task 263 stopped by the operator when the coordinator paused all local-model traffic; clone 48 deleted, eval thread purged, 0 pending approvals left",
+  "bug_found_and_fixed": "cleanup listed /api/chat/threads?limit=500 (> LIST_MAX 200 -> 422) and silently purged nothing; now limit=200 and a failed listing raises (regression test test_cleanup_fails_loudly_when_the_listing_fails)",
+  "tasks_left_as_evidence": [
+   260,
+   261,
+   263
+  ]
+ },
+ "baseline": {
+  "status": "NOT_RUN",
+  "reason": "coordinator 25.10: owner reports Gemma in the pult is slow; no scenarios may be sent to the local production model until released",
+  "how_to_start": "Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','C:\\Users\\asd\\Bossman\\wt-final-20261023\\tools\\eval500\\run_baseline.ps1','-RunId','baseline-cc7d1e42'",
+  "estimate": "~75-90 s per simple turn on Gemma 4 31B at idle (probe: 74 s), 500 scenarios with ~1.4 turns each -> roughly 12-18 h at concurrency 1, plus yields to owner tasks",
+  "cloud_cost_expected_usd": 0.0
+ }
+}
