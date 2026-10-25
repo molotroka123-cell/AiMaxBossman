@@ -1,0 +1,40 @@
+{
+ "schema": "bossman.three-model-audit.v1",
+ "goal": "Security audit of a private-by-default Bossman git repo (pushed to GitHub). Do not leak owner infrastructure details; do not break live services; no force-push or history rewrite allowed.",
+ "question": "The real Tailscale MagicDNS hostname of the owner's PC is committed in 6 tracked files at HEAD (one is a code default DEFAULT_URL for the Telegram pult /terminal button, others are docs/tests/tool docstrings) and in 6 historical commits (history cannot be rewritten). It is not a credential: reaching it requires tailnet membership. What should this audit do?",
+ "options": {
+  "A": "Replace the hostname in all 6 tracked files with a placeholder now; the code default becomes empty so the /terminal button reads BOSSMAN_WAR_TERMINAL_URL from env (button hidden when unset); report that history still contains it",
+  "B": "Replace it only in docs/tests/docstrings with a placeholder; keep the code default unchanged to avoid changing live pult behaviour; report it",
+  "C": "Change nothing; report the finding only and let the owner decide"
+ },
+ "votes": [
+  {
+   "model": "kimi-k3.1-pro",
+   "choice": null,
+   "why": "",
+   "seconds": 104.5
+  },
+  {
+   "model": "glm-5.3-flash",
+   "choice": "C",
+   "why": "Hostname не креденшел, tailnet-only, история не переписать; изменение кода — риск для прод-поведения без реального снижения экспозиции; аудитор документирует, владелец решает.",
+   "seconds": 16.6
+  },
+  {
+   "model": "nemotron-ultra-free",
+   "choice": "C",
+   "why": "Хостнейм не является секретом (нужен tailnet), репозиторий приватный, история уже содержит его и переписывать нельзя. Любые правки в HEAD не устраняют утечку из истории, а изменение дефолта в коде (A) рискует сломать живую кнопку /terminal. Безопаснее и обратимее — только отчёт, владелец решит, стоит ли ротировать хостнейм или оставить как есть.",
+   "seconds": 7.9
+  },
+  {
+   "model": "gemini-3-flash",
+   "choice": "A",
+   "why": "Устраняет утечку из HEAD, внедряет best practice (env vars) и обеспечивает безопасную деградацию функционала без поломки сервиса.",
+   "seconds": 5.7
+  }
+ ],
+ "decision": "C",
+ "decision_text": "Change nothing; report the finding only and let the owner decide",
+ "verdict": "DECIDED",
+ "at": "2026-10-24T18:52:00"
+}

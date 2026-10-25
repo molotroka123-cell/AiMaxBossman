@@ -1,0 +1,292 @@
+{
+ "audit": "security + open internet with learning records",
+ "date": "2026-10-24",
+ "worktree": "C:/Users/asd/Bossman/wt-final-20261023",
+ "branch": "integrate/one-bossman-final-20261023",
+ "base_sha": "0ff48d4c",
+ "commits": {
+  "c757a7e4": "niche_research: validate every redirect hop (SSRF)",
+  "bc0f8898": "gitignore: companion.env, private keys/certs, keys/",
+  "a9e9788a": "security: cloud models never get PC tools by default or through a fallback",
+  "a4cb3003": "web: polite public-web reader with a learning journal"
+ },
+ "runtime": {
+  "backend": "127.0.0.1:8801 restarted via Start-ScheduledTask BossmanOne-1-Backend (src = this worktree) after the Direct Gen queue was empty (running=null, waiting=0). The sd-cli video job is a separate process (parent tools/tiktok_outfit_clip.py) and was not touched. GET / == 200 after the restart.",
+  "runtime_code_sha": "a4cb3003 (working tree of --src). /health reports SOURCE_IDENTITY_UNKNOWN because the worktree has another session's uncommitted war-terminal edits; /health was already 503 before the restart (models/providers UNHEALTHY).",
+  "pushed": false
+ },
+ "checks": [
+  {
+   "id": "a1_cloud_agents_chat_only_live",
+   "status": "PASS",
+   "evidence": "GET /api/agents (47 agents): every agent whose PRIMARY model is cloud has cloud_pc_access=false (3-15, 19, 22, 25, 44, 45, 46). Agent 47 (Kimi K3.1 Pro, model 106 on 7API) has cloud_pc_access=true, tools code.search/expand/status/workspace_map + terminal.run/status/stdin/kill, and NO terminal.run permission."
+  },
+  {
+   "id": "a2_agent47_terminal_run_needs_approval",
+   "status": "PASS",
+   "evidence": {
+    "live_decide_effect_on_live_row": {
+     "tools_visible": [
+      "code.search",
+      "code.expand",
+      "code.status",
+      "code.workspace_map",
+      "terminal.run",
+      "terminal.status",
+      "terminal.stdin",
+      "terminal.kill"
+     ],
+     "terminal.run(git status)": [
+      "ask",
+      "право terminal.run не выдано агенту"
+     ],
+     "terminal.stdin": "ask",
+     "terminal.kill": "ask"
+    },
+    "test": "command-center/tests/test_agent47_terminal_needs_approval.py (3 passed): terminal.run(git status) = ask 'право terminal.run не выдано агенту'; stdin/kill = ask; status = auto; control: with terminal.run granted the same call is auto."
+   }
+  },
+  {
+   "id": "a3_chat_only_zero_tools_with_routing_grant",
+   "status": "PASS",
+   "evidence": {
+    "live": {
+     "44": [],
+     "45": [],
+     "46": []
+    },
+    "tests": "test_cloud_chat_only.py (7 passed, including a real engine run: a chat-only agent sees no tools for a terminal prompt; the control agent gets terminal.*)."
+   }
+  },
+  {
+   "id": "a4_cloud_default_opt_in",
+   "status": "FAIL_FIXED",
+   "evidence": "Repro: POST /api/agents with a cloud model and no permissions gave chat_only False, so the tools went to the cloud model (4 tests failed before the fix). Fixed in a9e9788a (bcc/api.py); tests/test_cloud_agent_default_chat_only.py 7 passed."
+  },
+  {
+   "id": "a5_cloud_fallback_gets_pc_tools",
+   "status": "FAIL_FIXED",
+   "evidence": "Live: agent 1 = local model 9 + cloud fallback model 6 (OpenRouter nemotron :free); tools computer.observe/act; permissions terminal.run/filesystem.write/channel.send/computer.* granted. Repro test: with the local model down, the cloud fallback received the computer.observe schema. Fixed in a9e9788a: engine._call_model_scoped refuses a cloud model for a run that carries PC tools or tool output unless cloud_pc_access=true. tests/test_cloud_fallback_no_pc_tools.py 3 passed (controls: a tool-less run still falls back; an owner-granted agent keeps the fallback). Live outage on agent 1: NOT_RUN."
+  },
+  {
+   "id": "b_stop_paths",
+   "status": "PASS",
+   "evidence": "Not pressed live (GPU job running). Tests: test_owner_global_stop + test_owner_stop_pit + test_owner_stop_studio + telegram companion owner_console (/stop) + a22_04 pult hardening: 52 passed. apps/bossman-mobile full suite (including /m/api/stop confirm, CSRF, stop banner): 273 passed."
+  },
+  {
+   "id": "c_budgets",
+   "status": "PASS",
+   "evidence": {
+    "tests": "fable_hard_cap, free_only_contract, b05_cloud_hardening, mission_budget, spend_meter, studio_zero_price_is_not_free, secrem_router_failclosed, rc19_model_recovery: 137 passed. telegram_contracts/test_companion.py (cloud_budget) passed in regression run 2.",
+    "live_prices": "Models 105 (0.028/0.028) and 106 (0.1/0.1): pricing_known=true, not refused. Unpriced cloud models 5 and 7 are refused by refuses_unknown_price. 0 unpriced cloud models are not refused.",
+    "niche_research": "paid_usd_limit defaults to 0.0 and is clamped to PAID_DAILY_HARD_CAP 2.0; nan or garbage gives 0."
+   }
+  },
+  {
+   "id": "d_outbound_guard_and_single_pult_recipient",
+   "status": "PASS",
+   "evidence": "test_jeff_outbound_guard + stars_review2 + pc_defense_two_lines: 107 passed (sendInvoice is a payment call; unsolicited messages are limited to 1 per chat per 24 h behind the owner switch). Live companion config %LOCALAPPDATA%/Bossman/telegram-companion/config.json: people length = 1 (ids not printed)."
+  },
+  {
+   "id": "e_secrets_scan",
+   "status": "PASS_WITH_FINDING",
+   "evidence": "git grep at HEAD plus the added lines of the last 30 commits (including this audit's). Patterns: sk-, sk-or-, AIza, gh*_, hf_, xox, Telegram bot token, BEGIN PRIVATE KEY, *.ts.net, owner email. Last-30 diffs: 0 hits. At HEAD every key-shaped hit carries an allow marker (test fixtures: sk-test, fake, ci-secret-scan allow). Owner email: 0 hits. Finding F5: the real tailnet MagicDNS host (masked here) is committed in 6 files: apps/bossman-mobile/docs/README_RU.md:27,31,35; apps/war-terminal/docs/TELEGRAM_MINIAPP_RU.md:71,102,110,111; apps/war-terminal/tests/test_tgapp.py:286,288,301; apps/war-terminal/tools/set_pult_menu_button.py:6,7; command-center/bcc/telegram_companion/war_terminal_button.py:21 (DEFAULT_URL); docs/audits/2026-10-22-pc-defense/AUDIT_RU.md:22. It is also in 6 historical commits. The other *.ts.net hits are placeholders.",
+   "gitignore": "Before: companion.env, *.pem, *.key, id_rsa, secrets.enc and keys/ were NOT ignored; fixed in bc0f8898. vault.*, *.db, *.sqlite3, .env, provider-keys* and /data/* were already ignored."
+  },
+  {
+   "id": "f_listening_ports",
+   "status": "PASS",
+   "evidence": "All Bossman listeners are on 127.0.0.1: 8801 backend, 8840 mobile pult, 8830 war terminal (running; observed, not touched), 8850 one-bossman, 11434 ollama. Tailscale serve (tailnet IP only, Funnel off): :80 -> 127.0.0.1:8840, :8830 -> 127.0.0.1:8830. Non-Bossman on 0.0.0.0/:: : sshd :22 (Windows OpenSSH server), RPC 135, SMB 139 (LAN + tailnet IP), 5040 CDPSvc, 5357, 7680 (Delivery Optimization), 49664-49669 (lsass/wininit/services/spooler). Firewall not changed."
+  },
+  {
+   "id": "g_today_commits_review",
+   "status": "PASS_WITH_FINDINGS",
+   "evidence": "Independent review of 44921ffc, 299cb140, 1c4fd95f, 78279c99, ab4f12bf, d9db685d and 4cb53a04, with repros against a scratch data dir. No auth bypass (no token gives 401; /m/api/* need a session plus CSRF on non-GET; /m/api/stop needs confirm:true). No path traversal (32-hex order ids, 64-hex client keys; traversal gives 404/422). The client view is an allowlist without cost, margin or notes; cross-client access gives 403/404. No key leakage. Niche paid spend defaults to 0. No send code in the site audit, niche research or manual invoice. Suites: mobile parity 19, dossier 23, studio orders + manual invoice 67, niche + three_model_audit passed. test_site_audit NOT_RUN (Playwright/Chromium not installed)."
+  },
+  {
+   "id": "p2_web_reader_learning_records",
+   "status": "PASS",
+   "evidence": {
+    "before": "The main Bossman read the web only through String MCP (a remote fetcher; its audit line keeps the domain only) or OSIRIS web_research (disabled live: BOSSMAN_WEB_RESEARCH_ENABLED unset). Nothing recorded what was read or concluded.",
+    "implementation": "bcc/web_access/polite_reader.py + /api/web-access/{read,note,learning}; agent tools web.read/web.note behind BOSSMAN_WEB_READER_TOOLS=1.",
+    "tests": "tests/test_web_learning_journal.py 9 passed: robots disallow respected (+ control); robots 403/unreachable fail closed; login/CAPTCHA/403 not bypassed and not retried; private, IP, credential and file URLs refused before any request; redirect to a private host refused, public redirect followed, robots checked per hop; 5 s per host; a record has id/date/URL without query/kind; PII stripped; conclusions need a real read.",
+    "live_proof": {
+     "read_example_com": [
+      200,
+      {
+       "ok": true,
+       "status": 200,
+       "url": "https://example.com/",
+       "final_url": "https://example.com/",
+       "title": "Example Domain",
+       "chars": 156,
+       "error": "",
+       "record_id": "6f91364852b3"
+      }
+     ],
+     "robots_disallowed_google_search": [
+      200,
+      {
+       "ok": false,
+       "status": 0,
+       "url": "https://www.google.com/search",
+       "final_url": "https://www.google.com/search",
+       "title": "",
+       "chars": 0,
+       "error": "disallowed by robots.txt",
+       "record_id": "5a768374888f"
+      }
+     ],
+     "private_target_refused": [
+      200,
+      {
+       "ok": false,
+       "status": 0,
+       "url": "http://127.0.0.1:8801/api/agents",
+       "final_url": "",
+       "title": "",
+       "chars": 0,
+       "error": "refused: non-standard ports are refused",
+       "record_id": "e667475d16e4"
+      }
+     ],
+     "note_on_unread_url": [
+      422,
+      {
+       "error": {
+        "message": "source URL was not read through web.read: read it first, then record the conclusion"
+       }
+      }
+     ],
+     "learning_records": [
+      {
+       "id": "6f91364852b3",
+       "date": "2026-10-25T02:18:31Z",
+       "url": "https://example.com/",
+       "kind": "fact",
+       "status": "ok",
+       "source": "api:read"
+      },
+      {
+       "id": "5a768374888f",
+       "date": "2026-10-25T02:18:32Z",
+       "url": "https://www.google.com/search",
+       "kind": "unknown",
+       "status": "not_read",
+       "source": "api:read"
+      },
+      {
+       "id": "e667475d16e4",
+       "date": "2026-10-25T02:18:32Z",
+       "url": "http://127.0.0.1:8801/api/agents",
+       "kind": "unknown",
+       "status": "not_read",
+       "source": "api:read"
+      },
+      {
+       "id": "336b44fc3ac2",
+       "date": "2026-10-25T02:18:32Z",
+       "url": "https://example.com/",
+       "kind": "conclusion",
+       "status": "ok",
+       "source": "api:note"
+      },
+      {
+       "id": "ff0cdc6cf5cf",
+       "date": "2026-10-25T02:18:32Z",
+       "url": "https://example.com/",
+       "kind": "assumption",
+       "status": "ok",
+       "source": "api:note"
+      }
+     ],
+     "no_token": 401
+    },
+    "journal_path": "%LOCALAPPDATA%/Bossman/CommandCenter/web_access/learning.jsonl"
+   }
+  }
+ ],
+ "findings": [
+  {
+   "id": "F1",
+   "severity": "HIGH",
+   "title": "A cloud-model agent was not chat-only by default (the flag was opt-in)",
+   "status": "FIXED a9e9788a"
+  },
+  {
+   "id": "F2",
+   "severity": "HIGH",
+   "title": "A cloud fallback/route/ladder model received PC tools and tool output (live agent 1)",
+   "status": "FIXED a9e9788a (unit-proven; live outage NOT_RUN)"
+  },
+  {
+   "id": "F3",
+   "severity": "MEDIUM",
+   "title": "niche_research PoliteFetcher followed redirects to loopback/metadata addresses (SSRF)",
+   "status": "FIXED c757a7e4"
+  },
+  {
+   "id": "F4",
+   "severity": "LOW",
+   "title": ".gitignore missed companion.env, private keys/certs and keys/",
+   "status": "FIXED bc0f8898"
+  },
+  {
+   "id": "F5",
+   "severity": "LOW",
+   "title": "Real tailnet hostname committed in 6 files and 6 historical commits",
+   "status": "REPORTED (three-model decision-1.json: C = report only; 2 of the 3 models that answered chose C)"
+  },
+  {
+   "id": "F6",
+   "severity": "LOW",
+   "title": "tools/site_audit: _check_link follows redirects without a host/robots check; audit_url accepts file:// (owner-run CLI only)",
+   "status": "OPEN"
+  },
+  {
+   "id": "F7",
+   "severity": "INFO",
+   "title": "Studio participant identity is the X-Participant header, so anyone with the BCC token can act as owner (inherited design)",
+   "status": "OPEN (document that the BCC token is never given to clients)"
+  },
+  {
+   "id": "F8",
+   "severity": "INFO",
+   "title": "/refund manual:<id> goes to Telegram refundStarPayment and fails; use /refund_invoice",
+   "status": "OPEN"
+  },
+  {
+   "id": "F9",
+   "severity": "INFO",
+   "title": "Windows OpenSSH server listens on 0.0.0.0:22 (not Bossman)",
+   "status": "REPORTED"
+  },
+  {
+   "id": "F10",
+   "severity": "INFO",
+   "title": "DNS rebinding between the public-host check and the connect is still possible in both polite fetchers",
+   "status": "OPEN"
+  }
+ ],
+ "tests": {
+  "new_and_changed": "31 passed (test_cloud_agent_default_chat_only 7, test_cloud_fallback_no_pc_tools 3, test_agent47_terminal_needs_approval 3, test_web_learning_journal 9, test_feat_openrouter_agent_flow 1, test_cloud_chat_only 7) + tests/test_niche_research.py 25 passed",
+  "fail_before_fix": "test_cloud_agent_default_chat_only: 4 failed on the old api.py; test_cloud_fallback_no_pc_tools: the leak test failed on the old engine; niche redirect tests: 3 failed on the old web.py",
+  "regression_subset_1": "command-center tests matching fallback|router|recovery|engine|v21|agents|action_contract|cloud|price|budget|stop|approval|permission|tool: 1074 passed, 1 failed, 2 skipped. The failure was test_feat_openrouter_agent_flow, which relied on a cloud agent running terminal.run without a grant; the test now states the owner grant.",
+  "regression_subset_2": "same + web|openrouter + telegram_contracts/test_companion.py: 1574 passed, 4 failed, 2 skipped. The failures were test_web_research_flag: the new web.read/web.note were registered without a flag; the tools are now behind BOSSMAN_WEB_READER_TOOLS.",
+  "after_flag_fix": "test_web_research_flag + test_web_learning_journal + test_web_access + test_web_access_20260930: 132 passed, 3 times",
+  "flaky_observed": "test_web_access.py::test_error_messages_and_audit_hide_the_key failed once in one combined run; not reproduced in 6 reruns (alone and combined)",
+  "stop": "52 passed + mobile 273 passed",
+  "budgets": "137 passed",
+  "outbound": "107 passed",
+  "three_model_audit": "5 passed"
+ },
+ "decisions": [
+  "docs/audits/2026-10-24-security-internet/decision-1.json (tailnet hostname: C, report only)"
+ ],
+ "not_run": [
+  "live STOP press (GPU job running)",
+  "live cloud-fallback outage on agent 1",
+  "test_site_audit (no Playwright)",
+  "push (not requested)"
+ ]
+}
