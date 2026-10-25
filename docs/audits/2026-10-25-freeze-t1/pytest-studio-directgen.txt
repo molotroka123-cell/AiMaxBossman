@@ -1,0 +1,17 @@
+........................................................................ [ 10%]
+........................................................................ [ 21%]
+........................................................................ [ 32%]
+........................................................................ [ 42%]
+........................................................................ [ 53%]
+........................................................................ [ 64%]
+........ss.............................................................. [ 75%]
+........................................................................ [ 85%]
+........................................................................ [ 96%]
+.......................                                                  [100%]
+============================== warnings summary ===============================
+tests/test_studio_vision_review.py::test_owner_feedback_becomes_a_rule_for_the_next_review
+  C:\Users\asd\Bossman\wt-final-20261023\command-center\bcc\v2\memory\facts.py:694: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return to_naive_utc(default if default is not None else datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+669 passed, 2 skipped, 1 warning in 306.77s (0:05:06)

@@ -1,0 +1,20 @@
+{
+ "schema": "bossman.coding-swarm.v1",
+ "label": "t1-review",
+ "at": "2026-10-25T07:08:13",
+ "prompt_chars": 67464,
+ "calls": [
+  {
+   "model": "qwen",
+   "id": "qwen/qwen3.8-flash",
+   "ok": false,
+   "seconds": 389.3,
+   "tokens_in": 18419,
+   "tokens_out": 24000,
+   "tokens_estimated": false,
+   "reasoning_chars": 101522,
+   "cost_usd": 0.014043
+  }
+ ],
+ "cost_usd_total": 0.014043
+}

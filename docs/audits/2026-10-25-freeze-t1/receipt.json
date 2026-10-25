@@ -1,0 +1,174 @@
+{
+ "schema": "bossman.receipt.v1",
+ "task": "TZ 2.5 T1 — Studio order state machine + delivery gate + idempotent retries/event log + F7 client token",
+ "date": "2026-10-25",
+ "base_sha": "424271ff7c95699efafbfb2872598fefca5ddaa3",
+ "base_note": "task named main=cc7d1e42; the shared worktree moved to 424271ff (other agents: eval500, mobile) during the work; none of those commits touch the four T1 files",
+ "changed_files": {
+  "command-center/bcc/direct_gen/orders.py": {
+   "added": 519,
+   "removed": 106
+  },
+  "command-center/bcc/features/studio_orders.py": {
+   "added": 202,
+   "removed": 43
+  },
+  "command-center/tests/test_studio_orders.py": {
+   "added": 568,
+   "removed": 52
+  },
+  "tools/prove_studio_orders.py": {
+   "added": 81,
+   "removed": 33
+  }
+ },
+ "what_changed": {
+  "state_machine": "draft->quoted->accepted->preflight->generating->qc_failed|qc_passed->owner_review->rework|approved->delivered->closed + cancelled + reconcile_required (TRANSITIONS table); new owner steps start/qc/approve/rework/reconcile/watermark/close, GET events",
+  "delivery_gate": [
+   "every job completed with file",
+   "AI-label disclosure bound to file SHA-256",
+   "visible watermark bound to file SHA-256 (owner record or job provenance.watermark)",
+   "consent for face jobs (also at preflight)",
+   "third-party brand blocks unless the owner records ownership (also at preflight)",
+   "owner explicit «yes» bound to every file hash (approval_stale if a file changes)",
+   "model licence: owner-only warning, never a block (owner decision 24.10)"
+  ],
+  "idempotency": "Idempotency-Key header (same step+args -> replayed, other -> 409 idempotency_conflict); keyless retry identical to the last committed step by the same actor = replay; per-order lock; append-only <order_id>.events.jsonl with rev",
+  "migration": "schema-1 orders migrate on load (in_work->generating, unknown->reconcile_required, rev=len(timeline)); reads never write; first committed step logs a 'migrated' event; F7: GET /studio/clients lists clients with orders but no token (needs_token)",
+  "f7": "client identity only from X-Studio-Client-Token (server-issued, 'stc_'+32 random bytes, SHA-256 at rest in direct-gen/studio/clients.json, rotate/revoke/ttl); X-Participant alone -> 403 client_token_required; wrong/revoked/expired -> 401; token+other header -> 403; owner = request.state.principal.role=='owner'; agent-scoped token -> 403 owner_credential_required; token resolution runs off the event loop",
+  "client_view": "internal production states shown as in_work; drafts hidden; allowlisted fields only",
+  "proof_tool": "tools/prove_studio_orders.py updated to the T1 flow (stand-in owner principal middleware, client token for accept, replay + event-log checks, 14 negatives)"
+ },
+ "tests": {
+  "test_studio_orders.py": "81 passed in 12.84s",
+  "studio_orders + all test_direct_gen*.py + all test_studio_*.py": "669 passed, 2 skipped, 1 warning in 306.77s (0:05:06)",
+  "apps/bossman-mobile test_mobile_parity.py (consumer of /api/studio/orders)": "19 passed in 1.28s",
+  "negative_controls": [
+   "header-only X-Participant/X-BCC-Participant -> 403 (GET list/get, accept, cancel)",
+   "wrong/malformed/empty/revoked token -> 401",
+   "token A + X-Participant B -> 403",
+   "token + X-Participant owner -> 403",
+   "agent-scoped X-BCC-Token -> 403",
+   "wrong X-BCC-Token -> 401",
+   "client token on owner routes -> 403",
+   "cross-client with tokens -> 404",
+   "hand-edited clients.json owner/bad key never resolves",
+   "broken clients.json fails closed",
+   "each gate: missing -> 409 code, then positive path delivers",
+   "approve with anything but yes -> 422; client approve -> 403",
+   "11 invalid transitions -> 409 and no event appended",
+   "12 concurrent accepts -> exactly one commit"
+  ],
+  "mutation_check": {
+   "mutants": 9,
+   "killed": 9,
+   "detail": {
+    "F7_header_grants_client": true,
+    "F7_agent_is_owner": true,
+    "approval_any_answer": true,
+    "approval_not_gated": true,
+    "watermark_not_gated": true,
+    "consent_not_in_preflight": true,
+    "no_replay": true,
+    "no_lock": true,
+    "brand_not_gated_at_delivery": true
+   }
+  },
+  "in_process_proof": {
+   "verdict": "PASS",
+   "checks": {
+    "delivered": true,
+    "steps_all_200": true,
+    "client_accepted_with_token": true,
+    "retry_deliver_is_replay": true,
+    "event_log_one_deliver": true,
+    "tokens_hashed_at_rest": true,
+    "cost_exact_decimal": true,
+    "margin_is_price_minus_cost": true,
+    "cost_matches_compute_unit_economics": true,
+    "every_file_disclosed": true,
+    "all_negatives_refused": true,
+    "licence_warning_recorded_for_owner": true,
+    "client_view_has_no_cost_margin_or_licence": true,
+    "orders_written_to_temp_data_dir": true
+   },
+   "negatives_refused": 14,
+   "negatives_total": 14
+  }
+ },
+ "swarm": {
+  "calls": [
+   {
+    "label": "t1-draft",
+    "model": "kimi",
+    "model_id": "kimi-k3.1-pro",
+    "ok": false,
+    "seconds": 773.7,
+    "tokens_in": 11241,
+    "tokens_out": 24000,
+    "cost_usd": 0.003524
+   },
+   {
+    "label": "t1-f7-draft",
+    "model": "kimi",
+    "model_id": "kimi-k3.1-pro",
+    "ok": true,
+    "seconds": 478.4,
+    "tokens_in": 587,
+    "tokens_out": 17138,
+    "cost_usd": 0.001773
+   },
+   {
+    "label": "t1-review",
+    "model": "qwen",
+    "model_id": "qwen/qwen3.8-flash",
+    "ok": false,
+    "seconds": 389.3,
+    "tokens_in": 18419,
+    "tokens_out": 24000,
+    "cost_usd": 0.014043
+   },
+   {
+    "label": "t1-review-free",
+    "model": "nemotron",
+    "model_id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "ok": true,
+    "seconds": 616.1,
+    "tokens_in": 18527,
+    "tokens_out": 24000,
+    "cost_usd": 0.0
+   },
+   {
+    "label": "t1-review-free",
+    "model": "gemini",
+    "model_id": "gemini-3-flash-preview",
+    "ok": true,
+    "seconds": 89.2,
+    "tokens_in": 16948,
+    "tokens_out": 849,
+    "cost_usd": 0.0
+   }
+  ],
+  "cost_usd_total": 0.01934,
+  "contribution": {
+   "t1-draft (Kimi K3.1 Pro, full spec)": "no content: all 24k output tokens spent on reasoning; trace kept locally (D:\\Bossman\\datasets\\cloud-reasoning, PENDING_TERMS_CHECK)",
+   "t1-f7-draft (Kimi, narrowed to F7)": "usable draft matching the integrated design; adopted: revoked_at is rejected even if a hash survived (+ test)",
+   "t1-review (Qwen 3.8 Flash)": "empty answer (24k reasoning cap); finding harvested from its local trace: resolve() must never map a hand-edited key to 'owner' -> fixed with CLIENT_KEY check (+ test)",
+   "t1-review-free (Nemotron :free + Gemini)": "both flagged start from rework/qc_failed/reconcile skipping preflight -> fixed, every attempt re-checks (+ test); Gemini actor-blind replay -> fingerprint includes actor (+ test). Rejected: Gemini 'X-Participant: owner bypass' (owner needs principal role owner, tested), Nemotron now_iso NameError (defined in module)"
+  },
+  "note": "model output treated as proposals; Claude integrated and verified; no secrets/personal data in prompts"
+ },
+ "known_limits": [
+  "watermark is an owner/pipeline attestation bound to the file hash; pixels are not inspected (T2 render pipeline should stamp provenance.watermark)",
+  "event line is appended after the atomic order save: a crash between them leaves order.rev ahead of the log (detectable: last event rev < order rev); not auto-repaired",
+  "explicit-key replay returns the current order state, not the original response body",
+  "a legacy order that is only read (e.g. delivered) never logs its 'migrated' event",
+  "client delivery link (random, time-limited, revocable file link) not built in T1; client token has TTL + revoke; studio routes stay behind the app's owner transport auth (no public route added)",
+  "per-order lock is in-process only (one backend, per AGENTS.md)"
+ ],
+ "not_run": [
+  "live proof on the owner's PC through pult/API (backend not restarted: owner is using Gemma; AGENTS.md 'feature is PROVEN' -> live part NOT_PROVEN)",
+  "no GPU/model loaded, no services restarted"
+ ],
+ "verdict": "PASS (unit + API + in-process proof + mutation) / live NOT_RUN"
+}

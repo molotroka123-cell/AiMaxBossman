@@ -1,0 +1,379 @@
+{
+ "proof": "studio orders (scenario B: local AI photo/video studio as a service)",
+ "date": "2026-10-25",
+ "verdict": "PASS",
+ "checks": {
+  "delivered": true,
+  "steps_all_200": true,
+  "client_accepted_with_token": true,
+  "retry_deliver_is_replay": true,
+  "event_log_one_deliver": true,
+  "tokens_hashed_at_rest": true,
+  "cost_exact_decimal": true,
+  "margin_is_price_minus_cost": true,
+  "cost_matches_compute_unit_economics": true,
+  "every_file_disclosed": true,
+  "all_negatives_refused": true,
+  "licence_warning_recorded_for_owner": true,
+  "client_view_has_no_cost_margin_or_licence": true,
+  "orders_written_to_temp_data_dir": true
+ },
+ "order": {
+  "lines": "3 x photo_edit + 1 x clip (synthetic jobs, recorded seconds)",
+  "currency": "USD",
+  "price": "30.00",
+  "cost": "0.007777",
+  "margin": "29.992223",
+  "margin_ratio": "0.9997",
+  "seconds": "1036.92",
+  "energy_kwh": "0.051846",
+  "power_watts": "180.00",
+  "kwh_price": "0.15",
+  "cost_basis": "recorded generation seconds x power_watts x kwh_price",
+  "lines_detail": [
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "seconds": "41.37",
+    "energy_kwh": "0.002069",
+    "cost": "0.000310",
+    "jobs": [
+     {
+      "job_id": "5e194bb309f140c89563fe45c9d577ac",
+      "status": "completed",
+      "seconds": "41.37"
+     }
+    ]
+   },
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "seconds": "38.9",
+    "energy_kwh": "0.001945",
+    "cost": "0.000292",
+    "jobs": [
+     {
+      "job_id": "8006da72bd4649949e39444343e164a6",
+      "status": "completed",
+      "seconds": "38.9"
+     }
+    ]
+   },
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "seconds": "44.05",
+    "energy_kwh": "0.002203",
+    "cost": "0.000330",
+    "jobs": [
+     {
+      "job_id": "bdc1ca731c8e4ab29165bb953d81909a",
+      "status": "completed",
+      "seconds": "44.05"
+     }
+    ]
+   },
+   {
+    "kind": "clip",
+    "price": "15.00",
+    "seconds": "912.6",
+    "energy_kwh": "0.045630",
+    "cost": "0.006845",
+    "jobs": [
+     {
+      "job_id": "aed582eb8b2d4148bdccd891640fdb1b",
+      "status": "completed",
+      "seconds": "912.6"
+     }
+    ]
+   }
+  ]
+ },
+ "revenue": {
+  "status": "NOT_RUN",
+  "reason": "no real client and no payment; this receipt proves the order/receipt capability on synthetic jobs, not earned money"
+ },
+ "licence_warnings_owner_only": [
+  {
+   "model": "qwen-image-2.1-uc-edit",
+   "licence": "unknown",
+   "status": "unknown"
+  }
+ ],
+ "client_view": {
+  "order_id": "ffa418c4d6454d13b8d75ebbb4a69af5",
+  "status": "delivered",
+  "brief": "3 product photos + one 9:16 clip for a ceramics shop",
+  "currency": "USD",
+  "price": "30.00",
+  "items": [
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "deliverables": [
+     {
+      "job_id": "5e194bb309f140c89563fe45c9d577ac",
+      "disclosure": "AI-generated · Bossman Motion Studio"
+     }
+    ]
+   },
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "deliverables": [
+     {
+      "job_id": "8006da72bd4649949e39444343e164a6",
+      "disclosure": "AI-generated · Bossman Motion Studio"
+     }
+    ]
+   },
+   {
+    "kind": "photo_edit",
+    "price": "5.00",
+    "deliverables": [
+     {
+      "job_id": "bdc1ca731c8e4ab29165bb953d81909a",
+      "disclosure": "AI-generated · Bossman Motion Studio"
+     }
+    ]
+   },
+   {
+    "kind": "clip",
+    "price": "15.00",
+    "deliverables": [
+     {
+      "job_id": "aed582eb8b2d4148bdccd891640fdb1b",
+      "disclosure": "AI-generated · Bossman Motion Studio"
+     }
+    ]
+   }
+  ],
+  "created_at": "2026-10-25T14:31:34.798137+00:00",
+  "updated_at": "2026-10-25T14:31:34.877954+00:00",
+  "timeline": [
+   {
+    "status": "quoted",
+    "at": "2026-10-25T14:31:34.798137+00:00"
+   },
+   {
+    "status": "accepted",
+    "at": "2026-10-25T14:31:34.814702+00:00"
+   },
+   {
+    "status": "in_work",
+    "at": "2026-10-25T14:31:34.826247+00:00"
+   },
+   {
+    "status": "delivered",
+    "at": "2026-10-25T14:31:34.877954+00:00"
+   }
+  ]
+ },
+ "quote_at_create": {
+  "price": "30.00",
+  "cost": "0.007777",
+  "margin": "29.992223",
+  "cost_complete": true
+ },
+ "cross_check_compute_unit_economics": {
+  "energy_cost_usd_float": 0.0077769,
+  "decimal_cost": "0.007777"
+ },
+ "steps": [
+  {
+   "step": "create",
+   "http": 201,
+   "status": "quoted"
+  },
+  {
+   "step": "accept",
+   "http": 200,
+   "status": "accepted"
+  },
+  {
+   "step": "start",
+   "http": 200,
+   "status": "generating"
+  },
+  {
+   "step": "qc",
+   "http": 200,
+   "status": "owner_review"
+  },
+  {
+   "step": "disclose",
+   "http": 200,
+   "status": "owner_review"
+  },
+  {
+   "step": "watermark",
+   "http": 200,
+   "status": "owner_review"
+  },
+  {
+   "step": "approve",
+   "http": 200,
+   "status": "approved"
+  },
+  {
+   "step": "deliver",
+   "http": 200,
+   "status": "delivered"
+  }
+ ],
+ "events": [
+  {
+   "rev": 1,
+   "step": "create",
+   "from": null,
+   "to": "quoted",
+   "actor": "owner"
+  },
+  {
+   "rev": 2,
+   "step": "accept",
+   "from": "quoted",
+   "to": "accepted",
+   "actor": "client"
+  },
+  {
+   "rev": 3,
+   "step": "start",
+   "from": "accepted",
+   "to": "preflight",
+   "actor": "owner"
+  },
+  {
+   "rev": 3,
+   "step": "start",
+   "from": "preflight",
+   "to": "generating",
+   "actor": "owner"
+  },
+  {
+   "rev": 4,
+   "step": "qc",
+   "from": "generating",
+   "to": "qc_passed",
+   "actor": "owner"
+  },
+  {
+   "rev": 4,
+   "step": "qc",
+   "from": "qc_passed",
+   "to": "owner_review",
+   "actor": "owner"
+  },
+  {
+   "rev": 5,
+   "step": "disclose",
+   "from": "owner_review",
+   "to": "owner_review",
+   "actor": "owner"
+  },
+  {
+   "rev": 6,
+   "step": "watermark",
+   "from": "owner_review",
+   "to": "owner_review",
+   "actor": "owner"
+  },
+  {
+   "rev": 7,
+   "step": "approve",
+   "from": "owner_review",
+   "to": "approved",
+   "actor": "owner"
+  },
+  {
+   "rev": 8,
+   "step": "deliver",
+   "from": "approved",
+   "to": "delivered",
+   "actor": "owner"
+  }
+ ],
+ "negatives": {
+  "cross_client_read_with_token": {
+   "status": 404,
+   "refused": true
+  },
+  "header_only_client": {
+   "status": 403,
+   "refused": true
+  },
+  "wrong_client_token": {
+   "status": 401,
+   "refused": true
+  },
+  "unfinished_job": {
+   "step": "qc",
+   "status": 409,
+   "code": "job_not_completed",
+   "refused": true
+  },
+  "no_disclosure": {
+   "step": "deliver",
+   "status": 409,
+   "code": "disclosure_missing",
+   "refused": true
+  },
+  "no_watermark": {
+   "step": "deliver",
+   "status": 409,
+   "code": "watermark_missing",
+   "refused": true
+  },
+  "approval_not_yes": {
+   "step": "approve",
+   "status": 422,
+   "code": "approval_answer_invalid",
+   "refused": true
+  },
+  "faceswap_without_consent": {
+   "step": "start",
+   "status": 409,
+   "code": "consent_missing",
+   "refused": true
+  },
+  "facelock_without_consent": {
+   "step": "start",
+   "status": 409,
+   "code": "consent_missing",
+   "refused": true
+  },
+  "brand_in_prompt_without_ownership": {
+   "step": "start",
+   "status": 409,
+   "code": "brand_not_cleared",
+   "refused": true
+  },
+  "client_clears_brand_itself": {
+   "status": 403,
+   "refused": true
+  },
+  "zero_price": {
+   "status": 422,
+   "code": "price_not_positive",
+   "refused": true
+  },
+  "negative_price": {
+   "status": 422,
+   "code": "price_not_positive",
+   "refused": true
+  },
+  "cancelled_then_deliver": {
+   "status": 409,
+   "code": "invalid_transition",
+   "refused": true
+  }
+ },
+ "not_proven": [
+  "live run on :8801 through the pult/chat path (owner-gated; backend not restarted by this tool)",
+  "licence table covers only models whose licence the repo states; the rest are warnings, unverified",
+  "brand gate is a word denylist on brief + prompts: it does not see logos in the pixels",
+  "real client payment (no payment flow exists; price/margin are a receipt, not revenue)",
+  "power_watts 180 is a configured default, not a wattmeter measurement of this PC"
+ ],
+ "safety": "temp BCC_DATA_DIR, synthetic jobs, no generation, no model/GPU/network call"
+}

@@ -1,0 +1,31 @@
+{
+ "schema": "bossman.coding-swarm.v1",
+ "label": "t1-review-free",
+ "at": "2026-10-25T07:21:41",
+ "prompt_chars": 67795,
+ "calls": [
+  {
+   "model": "nemotron",
+   "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+   "ok": true,
+   "seconds": 616.1,
+   "tokens_in": 18527,
+   "tokens_out": 24000,
+   "tokens_estimated": false,
+   "reasoning_chars": 92255,
+   "cost_usd": 0.0
+  },
+  {
+   "model": "gemini",
+   "id": "gemini-3-flash-preview",
+   "ok": true,
+   "seconds": 89.2,
+   "tokens_in": 16948,
+   "tokens_out": 849,
+   "tokens_estimated": true,
+   "reasoning_chars": 0,
+   "cost_usd": 0.0
+  }
+ ],
+ "cost_usd_total": 0.0
+}

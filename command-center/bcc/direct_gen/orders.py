@@ -1,8 +1,15 @@
 """Studio orders: Direct-Generator jobs sold as a service (scenario B «local AI photo/video studio»).
 
 An order belongs to ONE client participant (the same key as their jobs) and lists line items
-``{kind: photo_edit|image|clip, job_ids: [...]}``. Status: quoted -> accepted -> in_work -> delivered, or cancelled
-from any state before delivered.
+``{kind: photo_edit|image|clip, job_ids: [...]}``. State machine (TZ 2.5 M1/T1, ``TRANSITIONS``):
+draft -> quoted -> accepted -> preflight -> generating -> qc_failed|qc_passed -> owner_review -> rework|approved ->
+delivered -> closed, plus cancelled (any state before delivered) and reconcile_required (a failure with an unknown
+outcome mid-render: never silently re-run, the owner reconciles). Every committed step bumps ``rev`` and appends one
+JSON line per transition to ``<order_id>.events.jsonl`` (append-only; an event is committed with its order rev).
+Retries are idempotent: an ``Idempotency-Key`` already used for the same step + arguments returns the stored state
+(``replayed``), with other arguments it is 409; without a key, repeating the last committed transition step with the
+same arguments (a lost response) is a replay too. A per-order lock serialises concurrent calls. Legacy (schema 1)
+orders migrate on load (in_work -> generating) and log a ``migrated`` event on their first save.
 
 Receipt = price (price list, Decimal) - cost. The cost is NOT estimated: it is the recorded generation seconds of the
 order's own jobs (``job["timing"]["total_s"]``, started -> finished, i.e. GPU-busy time without the queue wait) x the
@@ -17,7 +24,13 @@ Delivery rule (all or nothing, nothing is half-delivered):
     job itself (``provenance.consent_confirmed``) or on the line item when the order was created;
   - no third-party brand (denylist, case-insensitive whole-word) is named in the client brief or in a job's prompt,
     unless the OWNER recorded that the client owns that brand (owner audit 24.10: an SDXL ad carried a Starbucks
-    logo). The negative prompt is not scanned («no Nike logo» is not a request for one).
+    logo). The negative prompt is not scanned («no Nike logo» is not a request for one);
+  - every delivered file carries a visible watermark (``watermark`` records the mark bound to the file's SHA-256, or
+    the job's own ``provenance.watermark`` with the same SHA-256);
+  - the order is ``approved``: the owner answered exactly «yes» and the approval is bound to the SHA-256 of every
+    deliverable (a file changed after the approval is ``approval_stale``).
+Preflight (``start`` from accepted) refuses rendering early on a missing job, a face job without consent or an
+uncleared brand; delivery checks them again.
 Model licence (owner decision 24.10): NOT a delivery gate. Every line records the generating model of each job; a
 model whose licence is unknown or non-commercial in LICENCES (+ optional licences.json) becomes a ``licence_warnings``
 entry in the owner's view and the frozen receipt. It is never part of the client view.
@@ -25,21 +38,30 @@ entry in the owner's view and the frozen receipt. It is never part of the client
 Views: ``view`` is the owner's (cost, margin, licence warnings, brand flags); ``client_view`` is what the client may
 see (price, status, deliverables with their disclosure) - no cost, margin, note, models or warnings.
 
-Layout: <data_dir>/direct-gen/participants/<key>/orders/<order_id>.json (atomic writes, like job.json); optional
-owner config in <data_dir>/direct-gen/studio/: price_list.json, brands.json ({"denylist": [...]}, replaces the
-default list), licences.json ({model_id: {"licence": str, "commercial": true|false|null}}, merged over LICENCES).
-Another participant's order id is simply not found: every path is built from that participant's own key.
+Layout: <data_dir>/direct-gen/participants/<key>/orders/<order_id>.json (atomic writes, like job.json) +
+<order_id>.events.jsonl; optional owner config in <data_dir>/direct-gen/studio/: price_list.json, brands.json
+({"denylist": [...]}, replaces the default list), licences.json ({model_id: {"licence": str, "commercial":
+true|false|null}}, merged over LICENCES). Another participant's order id is simply not found: every path is built from
+that participant's own key.
+
+Client identity (F7, ``ClientTokens``): the owner issues each client a random server-side token; only its SHA-256 is
+stored (studio/clients.json). The API resolves the client key from that token, never from an X-Participant header.
 All methods are synchronous file I/O; the API calls them through asyncio.to_thread.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
+import os
 import re
+import secrets
+import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .store import JOB_ID, JobStore, atomic_write_text, read_text_retry, valid_participant
 
@@ -47,9 +69,34 @@ ORDER_ID = re.compile(r"^[0-9a-f]{32}$")
 KINDS = ("photo_edit", "image", "clip")
 # which Direct-Generator job kinds may stand behind a line item
 JOB_KINDS = {"photo_edit": ("photo", "image"), "image": ("photo", "image"), "clip": ("video", "faceswap")}
-STATUSES = ("quoted", "accepted", "in_work", "delivered", "cancelled")
+SCHEMA = 2
+TRANSITIONS: dict[str, tuple[str, ...]] = {
+    "draft": ("quoted", "cancelled"),
+    "quoted": ("quoted", "accepted", "cancelled"),
+    "accepted": ("preflight", "cancelled"),
+    "preflight": ("generating", "cancelled"),
+    "generating": ("qc_passed", "qc_failed", "reconcile_required", "cancelled"),
+    "qc_failed": ("generating", "rework", "cancelled"),
+    "qc_passed": ("owner_review", "cancelled"),
+    "owner_review": ("approved", "rework", "cancelled"),
+    "rework": ("generating", "cancelled"),
+    "approved": ("delivered", "rework", "cancelled"),
+    "reconcile_required": ("generating", "qc_passed", "qc_failed", "cancelled"),
+    "delivered": ("closed",),
+    "closed": (),
+    "cancelled": (),
+}
+STATUSES = tuple(TRANSITIONS)
+FINAL = ("delivered", "closed", "cancelled")
+# what the client sees: internal production states are one «in_work»
+CLIENT_STATUS = {s: "in_work" for s in ("preflight", "generating", "qc_failed", "qc_passed", "owner_review", "rework",
+                                        "approved", "reconcile_required")}
 DISCLOSURE = "AI-generated · Bossman Motion Studio"
 DISCLOSURE_MARK = "AI-generated"
+WATERMARK = "Bossman Motion Studio"
+APPROVAL_ANSWERS = ("yes", "да")
+CLIENT_KEY = re.compile(r"^[0-9a-f]{64}$")
+IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9._:\-]{1,128}$")
 MAX_ITEMS = 50
 MAX_JOBS_PER_ITEM = 20
 MONEY = Decimal("0.01")
@@ -154,6 +201,129 @@ def consent_recorded(job: dict, item: dict) -> bool:
     return rec.get("confirmed") is True and bool(rec.get("at"))
 
 
+def fingerprint(step: str, args: Any) -> str:
+    """Stable hash of a step and its arguments: what makes two calls «the same retry»."""
+    return hashlib.sha256(json.dumps([step, args], sort_keys=True, default=str).encode()).hexdigest()[:32]
+
+
+def migrate(order: dict) -> dict:
+    """Schema 1 -> 2 in memory (in_work -> generating; an unknown legacy status needs the owner: reconcile_required).
+    The order is written, with a ``migrated`` event, by its next committed step."""
+    if order.get("schema") == SCHEMA:
+        return order
+    legacy = order.get("status")
+    status = "generating" if legacy == "in_work" else legacy if legacy in TRANSITIONS else "reconcile_required"
+    order.update(schema=SCHEMA, status=status, migrated_from={"schema": order.get("schema", 1), "status": legacy})
+    order.setdefault("rev", len(order.get("timeline") or []))
+    order.setdefault("attempt", 1 if status == "generating" else 0)
+    order.setdefault("idempotency", {})
+    order["_migrating"] = status
+    return order
+
+
+class _CommitThenFail(Exception):
+    """Raised by a step that must keep its state change (preflight entered) and still refuse."""
+    def __init__(self, error: OrderError):
+        super().__init__(error.message)
+        self.error = error
+
+
+def token_hash(token: str) -> str:
+    # the token is 32 random bytes, so a plain SHA-256 is enough (no password-style KDF needed)
+    return hashlib.sha256(str(token).encode("utf-8", "ignore")).hexdigest()
+
+
+class ClientTokens:
+    """F7: per-client server-side tokens. The raw token is shown to the owner once; at rest only its SHA-256.
+    One active token per client: issuing again rotates it, revoking removes it. Layout: studio/clients.json
+    {"clients": {<64-hex key>: {"token_sha256", "label", "issued_at", "expires_at", "revoked_at"}}}."""
+    PREFIX = "stc_"
+
+    def __init__(self, data_dir: Path):
+        self.path = Path(data_dir) / "direct-gen" / "studio" / "clients.json"
+        self._lock = threading.Lock()
+
+    def _read(self) -> dict:
+        if not self.path.is_file():
+            return {"clients": {}}
+        try:
+            raw = json.loads(read_text_retry(self.path))
+        except (OSError, ValueError):
+            raise OrderError(409, "studio_config_invalid", "clients.json is not valid JSON") from None
+        if not isinstance(raw, dict) or not isinstance(raw.get("clients"), dict):
+            raise OrderError(409, "studio_config_invalid", 'clients.json must be {"clients": {...}}')
+        return raw
+
+    def _write(self, data: dict) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(self.path, json.dumps(data, ensure_ascii=False, indent=1))
+
+    @staticmethod
+    def _key(client: str) -> str:
+        try:
+            key = valid_participant(client)
+        except ValueError:
+            raise OrderError(422, "invalid_participant", "client must be a 64-hex participant key") from None
+        if key == "owner":
+            raise OrderError(422, "invalid_participant", "the owner does not get a client token")
+        return key
+
+    @staticmethod
+    def _public(key: str, rec: dict) -> dict:
+        return {"client": key, "label": rec.get("label", ""), "issued_at": rec.get("issued_at"),
+                "expires_at": rec.get("expires_at"), "revoked_at": rec.get("revoked_at"),
+                "active": bool(rec.get("token_sha256")) and not rec.get("revoked_at") and not _expired(rec)}
+
+    def issue(self, client: str | None = None, label: str = "", ttl_days: int | None = None) -> dict:
+        key = self._key(client) if client else secrets.token_hex(32)
+        if ttl_days is not None and not (isinstance(ttl_days, int) and 1 <= ttl_days <= 365):
+            raise OrderError(422, "invalid_ttl", "ttl_days must be 1..365")
+        token = self.PREFIX + secrets.token_urlsafe(32)
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            data = self._read()
+            rec = {"token_sha256": token_hash(token), "label": str(label or "")[:80], "issued_at": now.isoformat(),
+                   "expires_at": (now + timedelta(days=ttl_days)).isoformat() if ttl_days else None,
+                   "revoked_at": None}
+            data["clients"][key] = rec
+            self._write(data)
+        return self._public(key, rec) | {"token": token}
+
+    def revoke(self, client: str) -> dict:
+        key = self._key(client)
+        with self._lock:
+            data = self._read()
+            rec = data["clients"].get(key)
+            if rec is None:
+                raise OrderError(404, "unknown_client", "no token was issued for this client")
+            rec.update(token_sha256=None, revoked_at=now_iso())
+            self._write(data)
+        return self._public(key, rec)
+
+    def resolve(self, token: str | None) -> str | None:
+        """The client key of a valid, unrevoked, unexpired token; None otherwise. Every entry is compared in
+        constant time."""
+        if not token or not str(token).startswith(self.PREFIX) or len(token) > 200:
+            return None
+        digest, found = token_hash(token).encode(), None
+        for key, rec in self._read()["clients"].items():
+            stored = rec.get("token_sha256") if isinstance(rec, dict) else None
+            if stored and hmac.compare_digest(digest, str(stored).encode()) and not _expired(rec)                     and not rec.get("revoked_at"):        # revoked even if a hash survived (Kimi draft 25.10)
+                found = key
+        # a hand-edited file must never turn a client token into the owner (Qwen review 25.10)
+        return found if found and CLIENT_KEY.fullmatch(found) else None
+
+    def list(self) -> list[dict]:
+        return [self._public(k, r) for k, r in sorted(self._read()["clients"].items()) if isinstance(r, dict)]
+
+
+def _expired(rec: dict) -> bool:
+    try:
+        return bool(rec.get("expires_at")) and datetime.fromisoformat(rec["expires_at"]) <= datetime.now(timezone.utc)
+    except (TypeError, ValueError):
+        return True
+
+
 class OrderBook:
     def __init__(self, data_dir: Path, jobs: JobStore):
         self.data_dir = Path(data_dir)
@@ -162,6 +332,9 @@ class OrderBook:
         self.price_list_path = studio / "price_list.json"
         self.brands_path = studio / "brands.json"
         self.licences_path = studio / "licences.json"
+        self.tokens = ClientTokens(self.data_dir)
+        self._locks: dict[Path, threading.Lock] = {}
+        self._locks_guard = threading.Lock()
 
     def _config(self, path: Path) -> Any:
         if not path.is_file():
@@ -270,7 +443,7 @@ class OrderBook:
 
     def _load(self, participant: str, order_id: str) -> dict:
         try:
-            return json.loads(read_text_retry(self._path(participant, order_id)))
+            return migrate(json.loads(read_text_retry(self._path(participant, order_id))))
         except (OSError, ValueError):
             raise OrderError(404, "unknown_order", "order not found") from None
 
@@ -279,10 +452,86 @@ class OrderBook:
         out = []
         for path in base.glob("*.json") if base.is_dir() else []:
             try:
-                out.append(json.loads(read_text_retry(path)))
+                out.append(migrate(json.loads(read_text_retry(path))))
             except (OSError, ValueError):
                 continue
+        for o in out:
+            o.pop("_migrating", None)
         return sorted(out, key=lambda o: o.get("created_at", ""), reverse=True)
+
+    def _events_path(self, order: dict) -> Path:
+        return self._dir(order["participant"]) / f"{order['order_id']}.events.jsonl"
+
+    def _append_events(self, order: dict, rows: list[dict]) -> None:
+        """Append-only: one JSON line per event, opened in append mode, flushed to disk before returning."""
+        with open(self._events_path(order), "a", encoding="utf-8") as fh:
+            for row in rows:
+                fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+
+    def events(self, participant: str, order_id: str) -> list[dict]:
+        """The order's event log (owner view). A torn last line from a crash is skipped, never repaired in place."""
+        order = self._load(valid_participant(participant), order_id)
+        path = self._events_path(order)
+        out = []
+        for line in read_text_retry(path).splitlines() if path.is_file() else []:
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                continue
+        return out
+
+    def _lock(self, participant: str, order_id: str) -> threading.Lock:
+        path = self._path(participant, order_id)
+        with self._locks_guard:
+            return self._locks.setdefault(path, threading.Lock())
+
+    def _commit(self, order: dict, step: str, fp: str, actor: str, moves: list[dict], key: str | None,
+                reason: str = "") -> None:
+        """Bump rev, remember the step for replays, save atomically, then append its events."""
+        rows = []
+        migrated = order.pop("_migrating", None)
+        if migrated:
+            rows.append({"step": "migrated", "from": order["migrated_from"].get("status"), "to": migrated,
+                         "actor": "system", "reason": "schema 1 -> 2"})
+        rows += [{"step": step, "from": m["from"], "to": m["to"], "actor": actor, "reason": m.get("reason", "")}
+                 for m in moves] or [{"step": step, "from": order["status"], "to": order["status"], "actor": actor,
+                                      "reason": reason}]
+        order["rev"] = int(order.get("rev") or 0) + 1
+        order["updated_at"] = at = now_iso()
+        order["last_step"] = {"step": step, "fp": fp, "rev": order["rev"]}
+        if key is not None:
+            order.setdefault("idempotency", {})[key] = {"step": step, "fp": fp, "rev": order["rev"], "at": at}
+        self._save(order)
+        self._append_events(order, [{"rev": order["rev"], "at": at, "key": key, **r} for r in rows])
+
+    def _step(self, participant: str, order_id: str, step: str, fn: Callable[[dict, list], dict | None], *,
+              args: Any = None, actor: str = "owner", key: str | None = None, replayable: bool = True,
+              reason: str = "") -> dict:
+        """Run one mutating step under the order's lock: idempotency check, fn(order, moves), commit."""
+        participant = valid_participant(participant)
+        if key is not None and not IDEMPOTENCY_KEY.fullmatch(str(key)):
+            raise OrderError(422, "invalid_idempotency_key", "Idempotency-Key: 1..128 of [A-Za-z0-9._:-]")
+        fp = fingerprint(step, [actor, args])          # an owner's step is not a replay of the client's (and back)
+        with self._lock(participant, order_id):
+            order = self._load(participant, order_id)
+            if key is not None and key in (order.get("idempotency") or {}):
+                if order["idempotency"][key].get("fp") != fp:
+                    raise OrderError(409, "idempotency_conflict", "this Idempotency-Key was used for another request")
+                return self.view(order) | {"replayed": True}
+            if key is None and replayable and (order.get("last_step") or {}).get("fp") == fp:
+                return self.view(order) | {"replayed": True}
+            moves: list[dict] = []
+            try:
+                extra = fn(order, moves) or {}
+            except _CommitThenFail as stop:
+                if moves:                       # keep the state it reached (e.g. preflight); a pure re-check: nothing
+                    self._commit(order, step, fingerprint(step + ":refused", [args, order["rev"]]), actor, moves,
+                                 key=None)
+                raise stop.error from None
+            self._commit(order, step, fp, actor, moves, key, reason)
+            return self.view(order) | extra
 
     def _job(self, participant: str, job_id: str) -> dict:
         try:
@@ -295,7 +544,7 @@ class OrderBook:
     def receipt(self, order: dict) -> dict:
         """Price (frozen in the order), live cost from the jobs' recorded seconds, margin. A delivered order keeps
         the receipt frozen at delivery."""
-        if order.get("status") == "delivered" and order.get("receipt"):
+        if order.get("status") in ("delivered", "closed") and order.get("receipt"):
             return order["receipt"]
         pl = order["pricing"]
         watts, kwh_price = Decimal(pl["power_watts"]), Decimal(pl["kwh_price"])
@@ -335,10 +584,11 @@ class OrderBook:
 
     def view(self, order: dict) -> dict:
         """The OWNER's view: receipt with cost and margin, licence warnings, brand flags."""
-        out = {k: v for k, v in order.items() if k != "receipt"}
+        out = {k: v for k, v in order.items() if k not in ("receipt", "idempotency", "_migrating")}
         out["receipt"] = self.receipt(order)
         out["licence_warnings"] = order.get("licence_warnings") or []
-        if order.get("status") not in ("delivered", "cancelled"):
+        out["next"] = list(TRANSITIONS.get(order.get("status"), ()))
+        if order.get("status") not in FINAL:
             try:
                 out["brand_flags"] = self.brand_flags(order)
             except OrderError as exc:
@@ -356,10 +606,15 @@ class OrderBook:
                           "deliverables": [{"job_id": j, "disclosure": (disc.get(j) or {}).get("caption")}
                                            for j in item["job_ids"]]})
         price = sum((Decimal(i["price"]) for i in order["items"]), Decimal(0))
-        return {"order_id": order["order_id"], "status": order["status"], "brief": order.get("brief", ""),
-                "currency": order["pricing"]["currency"], "price": str(price), "items": items,
-                "created_at": order["created_at"], "updated_at": order["updated_at"],
-                "timeline": [{"status": t["status"], "at": t["at"]} for t in order.get("timeline", [])]}
+        timeline: list[dict] = []
+        for t in order.get("timeline", []):
+            status = CLIENT_STATUS.get(t["status"], t["status"])
+            if not timeline or timeline[-1]["status"] != status:
+                timeline.append({"status": status, "at": t["at"]})
+        return {"order_id": order["order_id"], "status": CLIENT_STATUS.get(order["status"], order["status"]),
+                "brief": order.get("brief", ""), "currency": order["pricing"]["currency"], "price": str(price),
+                "items": items, "created_at": order["created_at"], "updated_at": order["updated_at"],
+                "timeline": timeline}
 
     # ---------- lifecycle ----------
 
@@ -411,15 +666,20 @@ class OrderBook:
             items.append(item)
         pl = self.price_list()
         self._price_items(items, pl)
+        status = "draft" if body.get("draft") is True else "quoted"
+        created = now_iso()
         order = {
-            "order_id": uuid.uuid4().hex, "participant": participant, "status": "quoted",
+            "order_id": uuid.uuid4().hex, "participant": participant, "status": status, "schema": SCHEMA,
+            "rev": 1, "attempt": 0, "idempotency": {},
             "note": str(body.get("note") or "")[:500], "brief": str(body.get("brief") or "")[:2000],
             "items": items, "pricing": self._pricing(pl), "brand_ownership": {},
-            "created_at": now_iso(), "updated_at": now_iso(),
-            "timeline": [{"status": "quoted", "at": now_iso()}],
+            "created_at": created, "updated_at": created,
+            "timeline": [{"status": status, "at": created}],
         }
         order["licence_warnings"] = self.licence_warnings(order)
         self._save(order)
+        self._append_events(order, [{"rev": 1, "at": created, "key": None, "step": "create", "from": None,
+                                     "to": status, "actor": "owner", "reason": ""}])
         return self.view(order)
 
     def get(self, participant: str, order_id: str) -> dict:
@@ -429,65 +689,183 @@ class OrderBook:
         return [self.view(o) for o in self._raw_list(valid_participant(participant))]
 
     def get_for_client(self, participant: str, order_id: str) -> dict:
-        return self.client_view(self._load(valid_participant(participant), order_id))
+        order = self._load(valid_participant(participant), order_id)
+        if order["status"] == "draft":                  # the owner's unpriced draft is not shown to the client
+            raise OrderError(404, "unknown_order", "order not found")
+        return self.client_view(order)
 
     def list_for_client(self, participant: str) -> list[dict]:
-        return [self.client_view(o) for o in self._raw_list(valid_participant(participant))]
+        return [self.client_view(o) for o in self._raw_list(valid_participant(participant)) if o["status"] != "draft"]
+
+    def clients_with_orders(self) -> list[str]:
+        """Client keys that have at least one order on disk (F7 migration: each needs a token from the owner)."""
+        root = self.jobs.root
+        return sorted(p.name for p in (root.iterdir() if root.is_dir() else [])
+                      if p.name != "owner" and any((p / "orders").glob("*.json")))
+
+    def client_tokens(self) -> dict:
+        """Owner view of issued tokens (never the hashes) + the clients with orders that still have no token."""
+        issued = self.tokens.list()
+        with_token = {c["client"] for c in issued if c["active"]}
+        return {"clients": issued, "needs_token": [k for k in self.clients_with_orders() if k not in with_token]}
 
     def set_brand_ownership(self, actor: str, participant: str, order_id: str, brands: list[str],
-                            note: str = "") -> dict:
+                            note: str = "", key: str | None = None) -> dict:
         """OWNER only: record that this client owns the listed brands (clears them for delivery of this order)."""
         if valid_participant(actor) != "owner":
             raise OrderError(403, "owner_only", "only the owner can record brand ownership")
-        order = self._load(valid_participant(participant), order_id)
-        if order["status"] in ("delivered", "cancelled"):
-            raise OrderError(409, "invalid_transition", f"order is {order['status']}")
         names = [str(b).strip()[:80] for b in brands or [] if str(b).strip()]
         if not names:
             raise OrderError(422, "brands_required", "name at least one brand")
-        owned = order.setdefault("brand_ownership", {})
-        for b in names:
-            owned[b.lower()] = {"brand": b, "set_by": "owner", "at": now_iso(), "note": str(note or "")[:200]}
-        order["updated_at"] = now_iso()
-        self._save(order)
-        return self.view(order)
 
-    def _move(self, order: dict, status: str, allowed: tuple[str, ...], note: str = "") -> None:
-        if order["status"] not in allowed:
+        def fn(order: dict, moves: list) -> None:
+            self._open(order)
+            owned = order.setdefault("brand_ownership", {})
+            for b in names:
+                owned[b.lower()] = {"brand": b, "set_by": "owner", "at": now_iso(), "note": str(note or "")[:200]}
+        return self._step(participant, order_id, "brands", fn, args=[names, note], key=key, replayable=False,
+                          reason="brand ownership: " + ", ".join(names))
+
+    @staticmethod
+    def _open(order: dict) -> None:
+        if order["status"] in FINAL:
+            raise OrderError(409, "invalid_transition", f"order is {order['status']}")
+
+    @staticmethod
+    def _move(order: dict, moves: list, status: str, reason: str = "") -> None:
+        """One transition of the state machine (TRANSITIONS); recorded in the timeline and as one event."""
+        if status not in TRANSITIONS.get(order["status"], ()):
             raise OrderError(409, "invalid_transition", f"order is {order['status']}; cannot become {status}")
-        order["status"], order["updated_at"] = status, now_iso()
-        order["timeline"].append({"status": status, "at": order["updated_at"], **({"note": note} if note else {})})
+        moves.append({"from": order["status"], "to": status, "reason": reason})
+        order["status"] = status
+        order["timeline"].append({"status": status, "at": now_iso(), **({"note": reason} if reason else {})})
 
-    def quote(self, participant: str, order_id: str) -> dict:
-        """Re-price a still-quoted order from the current price list (after acceptance the price is frozen)."""
-        order = self._load(valid_participant(participant), order_id)
-        if order["status"] != "quoted":
-            raise OrderError(409, "invalid_transition", f"order is {order['status']}; only a quoted order is re-quoted")
-        pl = self.price_list()
-        self._price_items(order["items"], pl)
-        order["pricing"], order["updated_at"] = self._pricing(pl), now_iso()
-        order["licence_warnings"] = self.licence_warnings(order)
-        order["timeline"].append({"status": "quoted", "at": order["updated_at"], "note": "requoted"})
-        self._save(order)
-        return self.view(order)
+    def quote(self, participant: str, order_id: str, key: str | None = None) -> dict:
+        """Price a draft, or re-price a still-quoted order, from the current price list (frozen once accepted)."""
+        def fn(order: dict, moves: list) -> None:
+            if order["status"] not in ("draft", "quoted"):
+                raise OrderError(409, "invalid_transition",
+                                 f"order is {order['status']}; only a draft or quoted order is (re)quoted")
+            pl = self.price_list()
+            self._price_items(order["items"], pl)
+            order["pricing"] = self._pricing(pl)
+            order["licence_warnings"] = self.licence_warnings(order)
+            self._move(order, moves, "quoted", "requoted" if order["status"] == "quoted" else "")
+        return self._step(participant, order_id, "quote", fn, key=key, replayable=False)
 
-    def accept(self, participant: str, order_id: str) -> dict:
-        order = self._load(valid_participant(participant), order_id)
-        self._move(order, "accepted", ("quoted",))
-        self._save(order)
-        return self.view(order)
+    def accept(self, participant: str, order_id: str, key: str | None = None, actor: str = "owner") -> dict:
+        return self._step(participant, order_id, "accept", lambda o, m: self._move(o, m, "accepted"),
+                          key=key, actor=actor)
 
-    def start(self, participant: str, order_id: str) -> dict:
-        order = self._load(valid_participant(participant), order_id)
-        self._move(order, "in_work", ("accepted",))
-        self._save(order)
-        return self.view(order)
+    def preflight_problems(self, order: dict) -> list[dict]:
+        """Checked before anything is rendered: every job exists, face jobs have consent, no uncleared brand."""
+        problems = []
+        for item in order["items"]:
+            for job_id in item["job_ids"]:
+                try:
+                    job = self.jobs.load(order["participant"], job_id)
+                except KeyError:
+                    problems.append({"job_id": job_id, "code": "unknown_job"})
+                    continue
+                if needs_consent(job, item) and not consent_recorded(job, item):
+                    problems.append({"job_id": job_id, "code": "consent_missing"})
+        problems += [{"code": "brand_not_cleared", "brand": f["brand"], "where": f["where"]}
+                     for f in self.brand_flags(order) if not f["cleared"]]
+        return problems
 
-    def cancel(self, participant: str, order_id: str, reason: str = "") -> dict:
-        order = self._load(valid_participant(participant), order_id)
-        self._move(order, "cancelled", ("quoted", "accepted", "in_work"), str(reason or "")[:200])
-        self._save(order)
-        return self.view(order)
+    def start(self, participant: str, order_id: str, key: str | None = None) -> dict:
+        """accepted -> preflight -> generating (a failed preflight keeps the order in preflight, 409 + problems);
+        preflight (re-check) / rework / qc_failed / reconcile_required -> generating as a new attempt. Preflight is
+        re-checked on every attempt."""
+        def fn(order: dict, moves: list) -> None:
+            if "generating" not in TRANSITIONS.get(order["status"], ()) and order["status"] != "accepted":
+                raise OrderError(409, "invalid_transition", f"order is {order['status']}; cannot become generating")
+            if order["status"] == "accepted":
+                self._move(order, moves, "preflight")
+            # every attempt re-checks: consent/brands may change during rework (Gemini + Nemotron review 25.10)
+            problems = self.preflight_problems(order)
+            if problems:
+                raise _CommitThenFail(_refusal("preflight failed", problems))
+            self._move(order, moves, "generating", f"attempt {int(order.get('attempt') or 0) + 1}")
+            order["attempt"] = int(order.get("attempt") or 0) + 1
+        return self._step(participant, order_id, "start", fn, key=key)
+
+    def _deliverable_hashes(self, order: dict) -> tuple[dict[str, str], list[dict]]:
+        """{job_id: sha256} of every finished deliverable, plus a problem for each job that is not finished."""
+        hashes, problems = {}, []
+        for item in order["items"]:
+            for job_id in item["job_ids"]:
+                try:
+                    job = self.jobs.load(order["participant"], job_id)
+                except KeyError:
+                    problems.append({"job_id": job_id, "code": "unknown_job"})
+                    continue
+                sha = (job.get("result") or {}).get("sha256")
+                if job.get("status") != "completed" or not sha or self._result_file(job) is None:
+                    problems.append({"job_id": job_id, "code": "job_not_completed", "status": job.get("status")})
+                else:
+                    hashes[job_id] = sha
+        return hashes, problems
+
+    def qc(self, participant: str, order_id: str, passed: bool, note: str = "", key: str | None = None) -> dict:
+        """Owner's QC verdict on the rendered files: passed -> qc_passed -> owner_review (every job must be finished),
+        failed -> qc_failed (then start = a new attempt, or rework)."""
+        note = str(note or "")[:200]
+
+        def fn(order: dict, moves: list) -> None:
+            if not passed:
+                self._move(order, moves, "qc_failed", note)
+                return
+            if "qc_passed" not in TRANSITIONS.get(order["status"], ()):
+                raise OrderError(409, "invalid_transition", f"order is {order['status']}; cannot become qc_passed")
+            _, problems = self._deliverable_hashes(order)
+            if problems:
+                raise _refusal("qc cannot pass", problems)
+            self._move(order, moves, "qc_passed", note)
+            self._move(order, moves, "owner_review")
+        return self._step(participant, order_id, "qc", fn, args=[bool(passed), note], key=key)
+
+    def approve(self, actor: str, participant: str, order_id: str, answer: str, key: str | None = None) -> dict:
+        """The OWNER's explicit «yes»: owner_review -> approved, bound to the SHA-256 of every deliverable."""
+        if valid_participant(actor) != "owner":
+            raise OrderError(403, "owner_only", "only the owner approves a delivery")
+        if str(answer or "").strip().lower() not in APPROVAL_ANSWERS:
+            raise OrderError(422, "approval_answer_invalid", "the owner's answer must be exactly «yes»")
+
+        def fn(order: dict, moves: list) -> None:
+            if order["status"] != "owner_review":
+                raise OrderError(409, "invalid_transition", f"order is {order['status']}; cannot become approved")
+            hashes, problems = self._deliverable_hashes(order)
+            if problems:
+                raise _refusal("cannot approve", problems)
+            self._move(order, moves, "approved", "owner: yes")
+            order["owner_approval"] = {"answer": "yes", "by": "owner", "at": now_iso(), "hashes": hashes}
+        return self._step(participant, order_id, "approve", fn, key=key)
+
+    def rework(self, participant: str, order_id: str, reason: str = "", key: str | None = None,
+               actor: str = "owner") -> dict:
+        """qc_failed / owner_review / approved -> rework; any earlier approval is void."""
+        reason = str(reason or "")[:200]
+
+        def fn(order: dict, moves: list) -> None:
+            self._move(order, moves, "rework", reason)
+            order.pop("owner_approval", None)
+        return self._step(participant, order_id, "rework", fn, args=[reason], key=key, actor=actor)
+
+    def reconcile(self, participant: str, order_id: str, reason: str = "", key: str | None = None) -> dict:
+        """generating -> reconcile_required: the render failed with an unknown outcome; nothing is re-run silently."""
+        reason = str(reason or "")[:200]
+        return self._step(participant, order_id, "reconcile",
+                          lambda o, m: self._move(o, m, "reconcile_required", reason), args=[reason], key=key)
+
+    def cancel(self, participant: str, order_id: str, reason: str = "", key: str | None = None,
+               actor: str = "owner") -> dict:
+        reason = str(reason or "")[:200]
+        return self._step(participant, order_id, "cancel", lambda o, m: self._move(o, m, "cancelled", reason),
+                          args=[reason], key=key, actor=actor)
+
+    def close(self, participant: str, order_id: str, key: str | None = None) -> dict:
+        return self._step(participant, order_id, "close", lambda o, m: self._move(o, m, "closed"), key=key)
 
     def _result_file(self, job: dict) -> Path | None:
         res = job.get("result") or {}
@@ -497,39 +875,62 @@ class OrderBook:
         path = self.jobs.job_dir(job["participant"], job["job_id"]) / "result" / name
         return path if path.is_file() else None
 
+    def _bind(self, participant: str, order_id: str, step: str, field: str, record: dict,
+              job_ids: list[str] | None, key: str | None) -> dict:
+        """Bind ``record`` (+ the file's SHA-256) to the finished files of this order (all, or the listed jobs)."""
+        wanted = set(job_ids) if job_ids else None
+
+        def fn(order: dict, moves: list) -> dict:
+            self._open(order)
+            known = {j for it in order["items"] for j in it["job_ids"]}
+            if wanted and not wanted <= known:
+                raise OrderError(422, "unknown_job", "a listed job is not part of this order")
+            done = []
+            for item in order["items"]:
+                for job_id in item["job_ids"]:
+                    if wanted is not None and job_id not in wanted:
+                        continue
+                    job = self._job(order["participant"], job_id)
+                    sha = (job.get("result") or {}).get("sha256")
+                    if job.get("status") != "completed" or not sha or self._result_file(job) is None:
+                        raise OrderError(409, "job_not_completed", f"job {job_id} has no finished file to {step}")
+                    item.setdefault(field, {})[job_id] = {**record, "sha256": sha, "file": job["result"]["file"],
+                                                          "at": now_iso()}
+                    done.append(job_id)
+            return {"disclosed" if step == "disclose" else "watermarked": done}
+        return self._step(participant, order_id, step, fn, args=[sorted(wanted or []), record], key=key,
+                          replayable=False)
+
     def disclose(self, participant: str, order_id: str, job_ids: list[str] | None = None,
-                 caption: str = DISCLOSURE) -> dict:
+                 caption: str = DISCLOSURE, key: str | None = None) -> dict:
         """Record the AI-generated disclosure for the finished files of this order (all, or the listed jobs). The
         caption is bound to the file's SHA-256, so a file swapped afterwards is not covered."""
-        order = self._load(valid_participant(participant), order_id)
-        if order["status"] in ("delivered", "cancelled"):
-            raise OrderError(409, "invalid_transition", f"order is {order['status']}")
         caption = str(caption or "").strip()[:200]
         if DISCLOSURE_MARK.lower() not in caption.lower():
             raise OrderError(422, "disclosure_invalid", f"the caption must say «{DISCLOSURE_MARK}»")
-        wanted = set(job_ids) if job_ids else None
-        known = {j for it in order["items"] for j in it["job_ids"]}
-        if wanted and not wanted <= known:
-            raise OrderError(422, "unknown_job", "a listed job is not part of this order")
-        done = []
-        for item in order["items"]:
-            for job_id in item["job_ids"]:
-                if wanted is not None and job_id not in wanted:
-                    continue
-                job = self._job(order["participant"], job_id)
-                sha = (job.get("result") or {}).get("sha256")
-                if job.get("status") != "completed" or not sha or self._result_file(job) is None:
-                    raise OrderError(409, "job_not_completed", f"job {job_id} has no finished file to disclose")
-                item.setdefault("disclosures", {})[job_id] = {"caption": caption, "sha256": sha,
-                                                               "file": job["result"]["file"], "at": now_iso()}
-                done.append(job_id)
-        order["updated_at"] = now_iso()
-        self._save(order)
-        return self.view(order) | {"disclosed": done}
+        return self._bind(participant, order_id, "disclose", "disclosures", {"caption": caption}, job_ids, key)
+
+    def watermark(self, participant: str, order_id: str, job_ids: list[str] | None = None,
+                  mark: str = WATERMARK, key: str | None = None) -> dict:
+        """Record that the visible watermark ``mark`` is on the finished files, bound to each file's SHA-256 (the
+        render pipeline may instead stamp ``provenance.watermark = {mark, sha256}`` on the job itself)."""
+        mark = str(mark or "").strip()[:120]
+        if not mark:
+            raise OrderError(422, "watermark_invalid", "the watermark text must not be empty")
+        return self._bind(participant, order_id, "watermark", "watermarks", {"mark": mark}, job_ids, key)
+
+    @staticmethod
+    def _watermark_problem(job: dict, item: dict, sha: str) -> str | None:
+        recs = [(item.get("watermarks") or {}).get(job["job_id"]), (job.get("provenance") or {}).get("watermark")]
+        recs = [r for r in recs if isinstance(r, dict) and str(r.get("mark") or "").strip()]
+        if not recs:
+            return "watermark_missing"
+        return None if any(r.get("sha256") == sha for r in recs) else "watermark_stale"
 
     def delivery_problems(self, order: dict) -> list[dict]:
         """Every reason this order cannot be delivered right now (empty list = deliverable)."""
         problems = []
+        approval = order.get("owner_approval") or {}
         for item in order["items"]:
             for job_id in item["job_ids"]:
                 try:
@@ -540,30 +941,42 @@ class OrderBook:
                 if job.get("status") != "completed" or not job.get("result") or self._result_file(job) is None:
                     problems.append({"job_id": job_id, "code": "job_not_completed", "status": job.get("status")})
                     continue
+                sha = job["result"].get("sha256")
                 disc = (item.get("disclosures") or {}).get(job_id) or {}
                 if DISCLOSURE_MARK.lower() not in str(disc.get("caption", "")).lower():
                     problems.append({"job_id": job_id, "code": "disclosure_missing"})
-                elif disc.get("sha256") != job["result"].get("sha256"):
+                elif disc.get("sha256") != sha:
                     problems.append({"job_id": job_id, "code": "disclosure_stale"})
+                wm = self._watermark_problem(job, item, sha)
+                if wm:
+                    problems.append({"job_id": job_id, "code": wm})
                 if needs_consent(job, item) and not consent_recorded(job, item):
                     problems.append({"job_id": job_id, "code": "consent_missing"})
+                if approval and (approval.get("hashes") or {}).get(job_id) != sha:
+                    problems.append({"job_id": job_id, "code": "approval_stale"})
+        if approval.get("answer") != "yes":
+            problems.append({"code": "approval_missing"})
         for flag in self.brand_flags(order):
             if not flag["cleared"]:
                 problems.append({"code": "brand_not_cleared", "brand": flag["brand"], "where": flag["where"]})
         return problems
 
-    def deliver(self, participant: str, order_id: str) -> dict:
-        order = self._load(valid_participant(participant), order_id)
-        if order["status"] not in ("accepted", "in_work"):
-            raise OrderError(409, "invalid_transition", f"order is {order['status']}; cannot become delivered")
-        problems = self.delivery_problems(order)
-        if problems:
-            codes = sorted({p["code"] for p in problems})
-            raise OrderError(409, codes[0] if len(codes) == 1 else "delivery_refused",
-                             "cannot deliver: " + ", ".join(codes), problems)
-        receipt = self.receipt(order)
-        order["licence_warnings"] = self.licence_warnings(order)
-        self._move(order, "delivered", ("accepted", "in_work"))
-        order["receipt"] = receipt | {"frozen_at": order["updated_at"], "licence_warnings": order["licence_warnings"]}
-        self._save(order)
-        return self.view(order)
+    def deliver(self, participant: str, order_id: str, key: str | None = None) -> dict:
+        """approved -> delivered, only when ``delivery_problems`` is empty; the receipt is frozen."""
+        def fn(order: dict, moves: list) -> None:
+            if "delivered" not in TRANSITIONS.get(order["status"], ()):
+                raise OrderError(409, "invalid_transition", f"order is {order['status']}; cannot become delivered")
+            problems = self.delivery_problems(order)
+            if problems:
+                raise _refusal("cannot deliver", problems)
+            receipt = self.receipt(order)
+            order["licence_warnings"] = self.licence_warnings(order)
+            self._move(order, moves, "delivered")
+            order["receipt"] = receipt | {"frozen_at": now_iso(), "licence_warnings": order["licence_warnings"]}
+        return self._step(participant, order_id, "deliver", fn, key=key)
+
+
+def _refusal(what: str, problems: list[dict]) -> OrderError:
+    codes = sorted({p["code"] for p in problems})
+    return OrderError(409, codes[0] if len(codes) == 1 else "delivery_refused", f"{what}: " + ", ".join(codes),
+                      problems)

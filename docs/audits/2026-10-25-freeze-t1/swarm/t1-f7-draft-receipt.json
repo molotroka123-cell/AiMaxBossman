@@ -1,0 +1,20 @@
+{
+ "schema": "bossman.coding-swarm.v1",
+ "label": "t1-f7-draft",
+ "at": "2026-10-25T07:09:42",
+ "prompt_chars": 2010,
+ "calls": [
+  {
+   "model": "kimi",
+   "id": "kimi-k3.1-pro",
+   "ok": true,
+   "seconds": 478.4,
+   "tokens_in": 587,
+   "tokens_out": 17138,
+   "tokens_estimated": false,
+   "reasoning_chars": 67541,
+   "cost_usd": 0.001773
+  }
+ ],
+ "cost_usd_total": 0.001773
+}

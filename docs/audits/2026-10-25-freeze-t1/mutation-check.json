@@ -1,0 +1,38 @@
+{
+ "F7_header_grants_client": {
+  "killed": true,
+  "summary": "1 failed, 75 passed in 9.34s"
+ },
+ "F7_agent_is_owner": {
+  "killed": true,
+  "summary": "1 failed, 77 passed in 9.47s"
+ },
+ "approval_any_answer": {
+  "killed": true,
+  "summary": "1 failed, 36 passed in 2.32s"
+ },
+ "approval_not_gated": {
+  "killed": true,
+  "summary": "1 failed, 36 passed in 2.47s"
+ },
+ "watermark_not_gated": {
+  "killed": true,
+  "summary": "1 failed, 4 passed in 0.90s"
+ },
+ "consent_not_in_preflight": {
+  "killed": true,
+  "summary": "1 failed, 5 passed in 0.82s"
+ },
+ "no_replay": {
+  "killed": true,
+  "summary": "1 failed, 53 passed in 3.60s"
+ },
+ "no_lock": {
+  "killed": true,
+  "summary": "1 failed, 57 passed in 8.93s"
+ },
+ "brand_not_gated_at_delivery": {
+  "killed": true,
+  "summary": "1 failed, 34 passed in 2.78s"
+ }
+}
