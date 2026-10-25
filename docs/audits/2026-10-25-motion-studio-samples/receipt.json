@@ -257,5 +257,10 @@
  "tools_changed": [
   "tools/tiktok_outfit_clip.py: gen --name <slot> / --negative / --receipt (dance --look unchanged)"
  ],
- "work_dir": "D:\\Bossman\\work\\motion-studio-samples-20261025"
+ "work_dir": "D:\\Bossman\\work\\motion-studio-samples-20261025",
+ "dev_pass": {
+  "status": "STOPPED_BY_OWNER",
+  "note": "LTX-2.5 dev 24 steps cfg 3.0 started 05:16 for spin; at 05:40 (1448 s, RAPL 43.99 Wh) the owner ordered the PC freed for Jeff/Gemma - sd-cli killed, no dev clip produced, reveal dev killed at start, lifestyle not started. Published samples are the distilled pass.",
+  "possible_next_step": "re-run dev 24 steps one clip at a time (~85-99 min each) only when the owner frees the PC again"
+ }
 }
