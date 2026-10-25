@@ -1,0 +1,49 @@
+{
+ "schema": "bossman.coding-swarm.v1",
+ "label": "tz-review",
+ "at": "2026-10-25T05:50:00",
+ "prompt_chars": 7499,
+ "calls": [
+  {
+   "model": "kimi",
+   "id": "kimi-k3.1-pro",
+   "ok": false,
+   "seconds": 256.5,
+   "tokens_in": 3156,
+   "tokens_out": 8000,
+   "tokens_estimated": false,
+   "cost_usd": 0.001116
+  },
+  {
+   "model": "qwen",
+   "id": "qwen/qwen3.8-flash",
+   "ok": false,
+   "seconds": 141.2,
+   "tokens_in": 2557,
+   "tokens_out": 8000,
+   "tokens_estimated": false,
+   "cost_usd": 0.004144
+  },
+  {
+   "model": "nemotron",
+   "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+   "ok": true,
+   "seconds": 115.8,
+   "tokens_in": 2746,
+   "tokens_out": 5153,
+   "tokens_estimated": false,
+   "cost_usd": 0.0
+  },
+  {
+   "model": "gemini",
+   "id": "gemini-3-flash-preview",
+   "ok": true,
+   "seconds": 15.0,
+   "tokens_in": 1874,
+   "tokens_out": 1363,
+   "tokens_estimated": true,
+   "cost_usd": 0.0
+  }
+ ],
+ "cost_usd_total": 0.00526
+}

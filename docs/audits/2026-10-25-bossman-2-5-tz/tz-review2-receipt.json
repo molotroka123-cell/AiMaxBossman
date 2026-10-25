@@ -1,0 +1,31 @@
+{
+ "schema": "bossman.coding-swarm.v1",
+ "label": "tz-review2",
+ "at": "2026-10-25T05:56:09",
+ "prompt_chars": 7508,
+ "calls": [
+  {
+   "model": "kimi",
+   "id": "kimi-k3.1-pro",
+   "ok": true,
+   "seconds": 346.1,
+   "tokens_in": 3162,
+   "tokens_out": 11734,
+   "tokens_estimated": false,
+   "reasoning_chars": 38328,
+   "cost_usd": 0.00149
+  },
+  {
+   "model": "qwen",
+   "id": "qwen/qwen3.8-flash",
+   "ok": true,
+   "seconds": 153.2,
+   "tokens_in": 2565,
+   "tokens_out": 7895,
+   "tokens_estimated": false,
+   "reasoning_chars": 19363,
+   "cost_usd": 0.004095
+  }
+ ],
+ "cost_usd_total": 0.005585
+}
