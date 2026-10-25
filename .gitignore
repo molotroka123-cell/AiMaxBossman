@@ -149,6 +149,17 @@ provider-keys*
 **/keys/*.env
 vault.*
 *.vault
+# security audit 24.10: companion bot env, private keys/certs and key folders were not covered
+companion.env
+*.companion.env
+**/keys/
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+secrets.enc
 
 # doc_intake dry-run library roots (owner documents never enter git)
 /.tmp-library/
