@@ -1,0 +1,8 @@
+{
+  "_howto": "PLACEHOLDERS. To publish a sample: put an MP4 (9:16, H.264, muted, <4 MB) into samples/, set src to '/samples/<file>.mp4' (and optional poster JPG), redeploy. Empty src = 'Ukázka brzy' placeholder. Preset ids must match data-slot in index.html.",
+  "samples": [
+    { "preset": "spin", "title": "Otočka 360°", "src": "", "poster": "", "alt": "Ukázka: otočka produktu 360° (AI)" },
+    { "preset": "hand-reveal", "title": "Ruka a odhalení", "src": "", "poster": "", "alt": "Ukázka: ruka odhaluje produkt (AI)" },
+    { "preset": "lifestyle", "title": "Produkt v akci", "src": "", "poster": "", "alt": "Ukázka: produkt v reálné scéně (AI)" }
+  ]
+}
