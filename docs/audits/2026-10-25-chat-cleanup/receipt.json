@@ -4,45 +4,114 @@
   "owner_order": "очисти все диалоги предыдущие в веб приложении и на компе о моих тестовых разговорах, дальше только production version",
   "privacy": "No message body, title, attachment name or memory content was read, printed or logged. Content was handled as opaque bytes (files) and vault-sealed values (companion rows, never decrypted). Only ids, counts, hashes and statuses were looked at.",
   "archive": {
-    "dir": "%LOCALAPPDATA%\Bossman\archive\chats-20261025",
-    "encryption": "Windows DPAPI CryptProtectData, CurrentUser scope, optional entropy b'bossman-chat-cleanup-20261025', header 'BCDPAPI1\n'; payload = JSON bundle",
+    "dir": "%LOCALAPPDATA%\\Bossman\\archive\\chats-20261025",
+    "encryption": "Windows DPAPI CryptProtectData, CurrentUser scope, optional entropy b'bossman-chat-cleanup-20261025', header 'BCDPAPI1\\n'; payload = JSON bundle",
     "manifest": "archive-manifest.json (local only; per-file sha256 of the archived sources)",
     "restore": "CryptUnprotectData with the same entropy as the same Windows user -> JSON -> write files back (base64) / INSERT rows back (bodies are still companion-vault-sealed)"
   },
   "stores": [
     {
       "store": "command-center-chat (web app :8801 + mobile pult :8840 + bossman chat CLI + /api/agent/sessions; one history)",
-      "location": "%LOCALAPPDATA%\Bossman\CommandCenter\terminal\sessions, terminal\threads-meta.json, terminal\agent-sessions-meta.json, terminal\agent-compact.json, terminal\history.txt, chat\attachments",
-      "before": {"threads": 44, "turns": 100, "session_bak_files": 10, "threads_meta_entries": 44, "agent_sessions_meta_entries": 4, "agent_compact_entries": 1, "attachment_folders": 36, "attachment_files": 102, "cli_history_lines": 15, "encrypted_chat_archive_items": 0, "archived_threads": 0},
-      "archived": {"threads": 44, "turns": 100, "session_bak_files": 10, "attachment_folders": 36, "attachment_files": 102, "cli_history_lines": 15, "files_total": 160},
-      "archive_file": "%LOCALAPPDATA%\Bossman\archive\chats-20261025\command-center-chat.dpapi",
+      "location": "%LOCALAPPDATA%\\Bossman\\CommandCenter\\terminal\\sessions, terminal\\threads-meta.json, terminal\\agent-sessions-meta.json, terminal\\agent-compact.json, terminal\\history.txt, chat\\attachments",
+      "before": {
+        "threads": 44,
+        "turns": 100,
+        "session_bak_files": 10,
+        "threads_meta_entries": 44,
+        "agent_sessions_meta_entries": 4,
+        "agent_compact_entries": 1,
+        "attachment_folders": 36,
+        "attachment_files": 102,
+        "cli_history_lines": 15,
+        "encrypted_chat_archive_items": 0,
+        "archived_threads": 0
+      },
+      "archived": {
+        "threads": 44,
+        "turns": 100,
+        "session_bak_files": 10,
+        "attachment_folders": 36,
+        "attachment_files": 102,
+        "cli_history_lines": 15,
+        "files_total": 160
+      },
+      "archive_file": "%LOCALAPPDATA%\\Bossman\\archive\\chats-20261025\\command-center-chat.dpapi",
       "archive_bytes": 6086559,
       "archive_sha256": "028072f37f8a1de4cdb96c4768bb021a37923ad709bda61815472681b62375e6",
       "archive_verified": "decrypted back: same counts, every file sha256 identical to source",
-      "method": "44 x DELETE /api/chat/threads/{id}?purge=1&confirm={id} (official API; removes <id>.json, <id>.json.bak, threads-meta entry) -> 44 purged, 0 errors, 0 skipped (each live file re-hashed against the archive first); agent-sessions-meta/agent-compact entries of purged ids removed (no API); chat\attachments folders removed; terminal\history.txt removed",
-      "after": {"threads_api_active": 0, "threads_api_archived": 0, "agent_sessions_api": 0, "session_files": 0, "session_bak_files": 0, "threads_meta_entries": 0, "agent_sessions_meta_entries": 0, "agent_compact_entries": 0, "attachment_folders": 0, "cli_history": "absent"}
+      "method": "44 x DELETE /api/chat/threads/{id}?purge=1&confirm={id} (official API; removes <id>.json, <id>.json.bak, threads-meta entry) -> 44 purged, 0 errors, 0 skipped (each live file re-hashed against the archive first); agent-sessions-meta/agent-compact entries of purged ids removed (no API); chat\\attachments folders removed; terminal\\history.txt removed",
+      "after": {
+        "threads_api_active": 0,
+        "threads_api_archived": 0,
+        "agent_sessions_api": 0,
+        "session_files": 0,
+        "session_bak_files": 0,
+        "threads_meta_entries": 0,
+        "agent_sessions_meta_entries": 0,
+        "agent_compact_entries": 0,
+        "attachment_folders": 0,
+        "cli_history": "absent"
+      }
     },
     {
       "store": "telegram-companion (pult bot), owner principal only",
-      "location": "%LOCALAPPDATA%\Bossman\telegram-companion\companion.sqlite3",
+      "location": "%LOCALAPPDATA%\\Bossman\\telegram-companion\\companion.sqlite3",
       "principals_in_store": 1,
-      "before": {"history": 3, "learning_log": 63, "inbox": 7, "state_bridge_session_keys": 3, "profiles": 1, "proposals": 2, "state_total": 32},
-      "archived": {"history": 3, "learning_log": 63, "inbox": 7, "state_bridge_session_keys": 3},
-      "archive_file": "%LOCALAPPDATA%\Bossman\archive\chats-20261025\telegram-companion.dpapi",
+      "before": {
+        "history": 3,
+        "learning_log": 63,
+        "inbox": 7,
+        "state_bridge_session_keys": 3,
+        "profiles": 1,
+        "proposals": 2,
+        "state_total": 32
+      },
+      "archived": {
+        "history": 3,
+        "learning_log": 63,
+        "inbox": 7,
+        "state_bridge_session_keys": 3
+      },
+      "archive_file": "%LOCALAPPDATA%\\Bossman\\archive\\chats-20261025\\telegram-companion.dpapi",
       "archive_bytes": 118799,
       "archive_sha256": "9b0007cefd4b11980bdc7309f811feebb9e08bfd02aab6860b68a59bd881b474",
       "archive_verified": "decrypted back: rows identical",
       "method": "one BEGIN IMMEDIATE transaction: DELETE history/learning_log WHERE who=owner; DELETE inbox WHERE who=owner AND phase NOT IN (pending,processing); DELETE state keys agent_session:claude/codex and claude_session for the owner (Claude/Codex bridge conversation pointers)",
-      "after": {"history": 0, "learning_log": 0, "inbox": 0, "state_bridge_session_keys": 0, "profiles": 1, "proposals": 2, "state_total": 29}
+      "after": {
+        "history": 0,
+        "learning_log": 0,
+        "inbox": 0,
+        "state_bridge_session_keys": 0,
+        "profiles": 1,
+        "proposals": 2,
+        "state_total": 29
+      }
     }
   ],
   "mobile_pult_own_store": "none: bossmobile proxies chat to :8801 (/m/api/threads -> /api/chat/threads); its data dir holds only pairing token + phone sessions",
   "kept_intentionally": {
-    "jeff_participant_data": "bcc.pit / CommandCenter\pit-v1.7 (incl. its own companion.sqlite3) not touched: other people's data",
-    "tasks_and_receipts": {"tasks": 258, "task_runs": 255, "note": "evidence, kept; chat turns' prompts and answers are stored in these tasks, so the task list still shows them; the 258th task is the synthetic e2e test"},
-    "memory_facts": {"bcc_db_facts": 5, "facts_source_kind": "human", "memory_index_files": 71, "memory_index_chunks": 507, "memory_index_sections": 261, "note": "memory, not dialogs: owner decides"},
-    "companion_owner_profile": {"profiles": 1, "note": "learned profile/settings, not raw history; /forget in the pult clears it"},
-    "companion_proposals": {"rows": 2, "note": "task delegation bindings used by STOP/owns_task; kept"},
+    "jeff_participant_data": "bcc.pit / CommandCenter\\pit-v1.7 (incl. its own companion.sqlite3) not touched: other people's data",
+    "tasks_and_receipts": {
+      "tasks": 258,
+      "task_runs": 255,
+      "note": "evidence, kept; chat turns' prompts and answers are stored in these tasks, so the task list still shows them; the 258th task is the synthetic e2e test"
+    },
+    "memory_facts": {
+      "bcc_db_facts": 5,
+      "facts_source_kind": "human",
+      "memory_index_files": 71,
+      "memory_index_chunks": 507,
+      "memory_index_sections": 261,
+      "note": "memory, not dialogs: owner decides"
+    },
+    "companion_owner_profile": {
+      "profiles": 1,
+      "note": "learned profile/settings, not raw history; /forget in the pult clears it"
+    },
+    "companion_proposals": {
+      "rows": 2,
+      "note": "task delegation bindings used by STOP/owns_task; kept"
+    },
     "companion_config_keys_media_refs_gen_drafts": "kept",
     "logs": "backend/companion log files may contain fragments of conversations; not touched (not a dialog store)",
     "claude_code_transcripts": "the Claude/Codex bridge sessions themselves (outside Bossman data) were not touched; only Bossman's pointers to them were reset"
@@ -50,7 +119,20 @@
   "verification_after": {
     "web_8801_root": 200,
     "mobile_8840_index": 200,
-    "synthetic_e2e_via_mobile": {"login": 200, "create_thread": 201, "thread_id": "20261025-060458-783d60", "send": 200, "task_id": 258, "admission": "queued", "agent_id": 41, "turn_status": "completed", "result_present": true, "purge_delete_forever": 200, "threads_after": 0, "logout": 200},
+    "synthetic_e2e_via_mobile": {
+      "login": 200,
+      "create_thread": 201,
+      "thread_id": "20261025-060458-783d60",
+      "send": 200,
+      "task_id": 258,
+      "admission": "queued",
+      "agent_id": 41,
+      "turn_status": "completed",
+      "result_present": true,
+      "purge_delete_forever": 200,
+      "threads_after": 0,
+      "logout": 200
+    },
     "restarts": "none (backend, pult and companion kept running)"
   }
 }
