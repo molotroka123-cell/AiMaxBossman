@@ -1,0 +1,33 @@
+{
+ "schema": "bossman.three-model-audit.v1",
+ "goal": "Mobile pult (apps/bossman-mobile, port 8840) must show the status of the 28-day niche research run (python -m niche_research, SQLite DB in %LOCALAPPDATA%/Bossman/niche-research). The backend 8801 has no endpoint for it and must not be restarted in this session (a video generation runs inside it).",
+ "question": "Where should the read-only niche research status for the phone come from?",
+ "options": {
+  "A": "Mobile gateway opens the niche_research SQLite file strictly read-only (sqlite URI mode=ro, no imports of niche_research, counts/spend/day/stopped only, no task content) and serves GET /m/api/niche/status; live-provable now",
+  "B": "Add GET /api/niche-research/status to the Bossman backend and proxy it from mobile; cannot be proven live until the owner restarts the backend"
+ },
+ "votes": [
+  {
+   "model": "kimi-k3.1-pro",
+   "choice": "A",
+   "why": "Проверяется сразу без перезапуска 8801, легко откатывается; строгое чтение и минимальный набор полей снижают риски записи и утечки данных.",
+   "seconds": 24.3
+  },
+  {
+   "model": "glm-5.3-flash",
+   "choice": "A",
+   "why": "Read-only SQLite через mobile gateway: нулевой риск для 8801 и video generation, mode=ro гарантирует отсутствие записи, минимум поверхности (агрегаты без контента), полностью проверяем live прямо сейчас. B требует рестарта, который запрещён условием сессии.",
+   "seconds": 17.1
+  },
+  {
+   "model": "nemotron-ultra-free",
+   "choice": "A",
+   "why": "Мобильный шлюз может сразу читать SQLite в режиме read-only (mode=ro) без перезапуска бэкенда, который занят генерацией видео. Вариант B требует рестарта 8801 — невозможно в текущей сессии. A даёт живой эндпоинт /m/api/niche/status прямо сейчас, с нулевым риском повреждения БД и без зависимостей от niche_research.",
+   "seconds": 10.8
+  }
+ ],
+ "decision": "A",
+ "decision_text": "Mobile gateway opens the niche_research SQLite file strictly read-only (sqlite URI mode=ro, no imports of niche_research, counts/spend/day/stopped only, no task content) and serves GET /m/api/niche/status; live-provable now",
+ "verdict": "DECIDED",
+ "at": "2026-10-24T17:09:49"
+}

@@ -1,0 +1,460 @@
+{
+ "audit": "mobile UX parity: web 8801 vs mobile pult 8840 vs Telegram pult",
+ "date": "2026-10-24",
+ "base_sha": "b37d8266",
+ "branch": "integrate/one-bossman-final-20261023",
+ "runtime": {
+  "backend_8801": "pid 22864 (not restarted)",
+  "mobile_8840_before": "pid 17272 (started 14:37, older code)",
+  "mobile_8840_after": "pid 20504 (restarted 17:23 via one-bossman/Start-BossmanApps.ps1 after tests passed)",
+  "telegram_companion": "pid 13132 (not restarted, not messaged)"
+ },
+ "privacy": "loopback only; ids/statuses/counts recorded, no chat contents/personal data/photos read; one synthetic approval (id 83, kind parity.synthetic) created and rejected; no generation started; no Telegram message sent",
+ "key_finding": "The phone already has the WHOLE web UI 1:1 through the Panel tab (/panel proxy, phone session -> owner session server-side, live 200). Native phone screens were a subset; the gaps that matter on a phone were fixed.",
+ "parity_table": [
+  {
+   "feature": "Chat threads + send (local-only rule)",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "present",
+   "evidence": "GET /m/api/threads 200; send Auto -> 403 BM_LOCAL_ONLY (live); test_mobile.py"
+  },
+  {
+   "feature": "Chat attachments (files/images to local model)",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "partial (photo/vision)",
+   "evidence": "POST /m/api/chat/attachments: unit tests only (live upload not run: would write into owner data)"
+  },
+  {
+   "feature": "Chat archive / delete forever",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "missing",
+   "evidence": "GET /m/api/archive 200; test_mobile_chat_archive.py, test_delete_forever.py"
+  },
+  {
+   "feature": "Agents list / model choice",
+   "web_8801": "present",
+   "mobile_native": "partial (list; CRUD via Panel)",
+   "mobile_panel_1to1": "present",
+   "telegram": "partial (/model,/best,/fast)",
+   "evidence": "GET /m/api/agents 200 (17)"
+  },
+  {
+   "feature": "Tasks list / create",
+   "web_8801": "present",
+   "mobile_native": "partial (per-chat task status/stream; global list via Panel)",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/queue,/task,/result)",
+   "evidence": "GET /m/api/tasks/{id}, /history, /events: unit tests"
+  },
+  {
+   "feature": "Approvals (list + decide)",
+   "web_8801": "present",
+   "mobile_native": "fixed (was: inline in chat stream + badge only)",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/approvals,/approve,/reject)",
+   "evidence": "live: synthetic approval 83 listed on phone, no-CSRF 403, reject 200 status=rejected; UI test parity_status_cards"
+  },
+  {
+   "feature": "Global STOP (press)",
+   "web_8801": "present",
+   "mobile_native": "fixed (was: missing; only per-chat stop)",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/stop,/pause)",
+   "evidence": "GET /m/api/stop/active live 200; POST /m/api/stop live negatives 401/403/422; NOT pressed live (video gen running); unit + UI tests"
+  },
+  {
+   "feature": "Resume after STOP",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/resume)",
+   "evidence": "POST /m/api/stop/resume no-CSRF 403 live; test_stop_banner.py"
+  },
+  {
+   "feature": "Direct Gen photo (models/jobs/queue/status)",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/img,/pic,/edit)",
+   "evidence": "photo/models 200 (11), jobs 200 (97), queue 200, status 200; no new job started"
+  },
+  {
+   "feature": "Direct Gen video + faceswap status",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/video,/vid,/animate)",
+   "evidence": "video/models 200 (9), jobs 200 (13), queue 200"
+  },
+  {
+   "feature": "Memory (search/stats/config)",
+   "web_8801": "present",
+   "mobile_native": "missing natively (Panel only)",
+   "mobile_panel_1to1": "present",
+   "telegram": "missing",
+   "evidence": "/m/api/memory/stats 404 BM_NOT_ALLOWED; /api/memory/stats through the phone session 200"
+  },
+  {
+   "feature": "Telegram calls",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "missing",
+   "evidence": "calls/status, history, answering/reports 200"
+  },
+  {
+   "feature": "War Terminal",
+   "web_8801": "present",
+   "mobile_native": "partial (status in /m/api/status; UI via Panel)",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/terminal button)",
+   "evidence": "/api/war-terminal/status through the phone session 200"
+  },
+  {
+   "feature": "Exchange / swap",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/swap)",
+   "evidence": "GET /m/api/exchange/deals 200"
+  },
+  {
+   "feature": "Provider keys",
+   "web_8801": "present",
+   "mobile_native": "missing natively (Panel only)",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/key intake)",
+   "evidence": "/api/providers through the phone session 200 (15)"
+  },
+  {
+   "feature": "Settings (models/telegram/...)",
+   "web_8801": "present",
+   "mobile_native": "missing natively (Panel only)",
+   "mobile_panel_1to1": "present",
+   "telegram": "partial",
+   "evidence": "/api/telegram/settings through the phone session 200"
+  },
+  {
+   "feature": "Studio orders",
+   "web_8801": "API only (no web page)",
+   "mobile_native": "fixed (read-only summary)",
+   "mobile_panel_1to1": "raw API only",
+   "telegram": "missing",
+   "evidence": "GET /m/api/studio/orders live 200 (0 orders); bad client 422; mutations 404; unit tests"
+  },
+  {
+   "feature": "Jeff KB (manual, mode, check)",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "Jeff bot",
+   "evidence": "GET /m/api/jeff-kb 200"
+  },
+  {
+   "feature": "Jeff paid docs / manual invoices",
+   "web_8801": "Jeff owner commands (bcc.pit), not in web",
+   "mobile_native": "not exposed (Jeff paused by owner rule)",
+   "mobile_panel_1to1": "missing",
+   "telegram": "Jeff bot owner commands",
+   "evidence": "code: bcc/pit/manual_invoice.py, paid_docs.py"
+  },
+  {
+   "feature": "Niche research status",
+   "web_8801": "missing (CLI only)",
+   "mobile_native": "fixed (read-only counters)",
+   "mobile_panel_1to1": "missing",
+   "telegram": "missing",
+   "evidence": "GET /m/api/niche/status live 200 day 1/28; decision-1.json (3/3 votes A)"
+  },
+  {
+   "feature": "Resources / health",
+   "web_8801": "present",
+   "mobile_native": "partial (/m/api/status: bossman, ollama, direct-gen memory, war)",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/status,/diag)",
+   "evidence": "/m/api/status 200; /api/resources through the phone session 200"
+  },
+  {
+   "feature": "Coding tasks",
+   "web_8801": "present",
+   "mobile_native": "fixed (status route was 404)",
+   "mobile_panel_1to1": "present",
+   "telegram": "present (/claude,/codex,/work)",
+   "evidence": "/m/api/coding-tasks/status before 404 -> after 200 (live)"
+  },
+  {
+   "feature": "Terminal",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "absent by rule (no shell from Telegram)",
+   "evidence": "GET /m/api/terminal/roots 200"
+  },
+  {
+   "feature": "OpenCode agent sessions / palette",
+   "web_8801": "present",
+   "mobile_native": "present",
+   "mobile_panel_1to1": "present",
+   "telegram": "partial",
+   "evidence": "agent/models 200, agent/palette 200"
+  }
+ ],
+ "live": {
+  "baseline_status_codes": {
+   "/m/api/health": 200,
+   "/m/api/session": 200,
+   "/m/api/status": 200,
+   "/m/api/stop": 200,
+   "/m/api/agents": 200,
+   "/m/api/threads": 200,
+   "/m/api/approvals": 200,
+   "/m/api/photo/models": 200,
+   "/m/api/photo/status": 200,
+   "/m/api/photo/jobs": 200,
+   "/m/api/photo/queue": 200,
+   "/m/api/video/models": 200,
+   "/m/api/video/queue": 200,
+   "/m/api/video/jobs": 200,
+   "/m/api/exchange/deals": 200,
+   "/m/api/calls/status": 200,
+   "/m/api/calls/history?limit=1": 200,
+   "/m/api/calls/answering/reports?limit=1": 200,
+   "/m/api/jeff-kb": 200,
+   "/m/api/archive": 200,
+   "/m/api/workers": 200,
+   "/m/api/agent/models": 200,
+   "/m/api/agent/palette": 200,
+   "/m/api/terminal/roots": 200,
+   "/m/api/coding-tasks?limit=1": 200,
+   "/m/api/coding-tasks/status": 404,
+   "/m/api/stop/active": 404,
+   "/m/api/studio/orders": 404,
+   "/m/api/niche/status": 404,
+   "/m/api/memory/stats": 404,
+   "/m/api/resources": 404,
+   "/panel/": 200,
+   "/api/control-plane/active": 200,
+   "/api/studio/orders": 200,
+   "/api/resources": 200,
+   "/api/memory/stats": 200,
+   "/api/war-terminal/status": 200,
+   "/api/providers": 200,
+   "/api/telegram/settings": 200
+  },
+  "after_restart_status_codes": {
+   "/m/api/health": 200,
+   "/m/api/session": 200,
+   "/m/api/status": 200,
+   "/m/api/stop": 200,
+   "/m/api/agents": 200,
+   "/m/api/threads": 200,
+   "/m/api/approvals": 200,
+   "/m/api/photo/models": 200,
+   "/m/api/photo/status": 200,
+   "/m/api/photo/jobs": 200,
+   "/m/api/photo/queue": 200,
+   "/m/api/video/models": 200,
+   "/m/api/video/queue": 200,
+   "/m/api/video/jobs": 200,
+   "/m/api/exchange/deals": 200,
+   "/m/api/calls/status": 200,
+   "/m/api/calls/history?limit=1": 200,
+   "/m/api/calls/answering/reports?limit=1": 200,
+   "/m/api/jeff-kb": 200,
+   "/m/api/archive": 200,
+   "/m/api/workers": 200,
+   "/m/api/agent/models": 200,
+   "/m/api/agent/palette": 200,
+   "/m/api/terminal/roots": 200,
+   "/m/api/coding-tasks?limit=1": 200,
+   "/m/api/coding-tasks/status": 200,
+   "/m/api/stop/active": 200,
+   "/m/api/studio/orders": 200,
+   "/m/api/niche/status": 200,
+   "/m/api/memory/stats": 404,
+   "/m/api/resources": 404,
+   "/panel/": 200,
+   "/api/control-plane/active": 200,
+   "/api/studio/orders": 200,
+   "/api/resources": 200,
+   "/api/memory/stats": 200,
+   "/api/war-terminal/status": 200,
+   "/api/providers": 200,
+   "/api/telegram/settings": 200
+  },
+  "negative_controls_before": {
+   "status_no_session": 401,
+   "approvals_no_session": 401,
+   "unknown_route": 404,
+   "stop_resume_no_csrf": 403,
+   "approval_decide_no_csrf": 403,
+   "send_auto_agent": {
+    "status": 403,
+    "keys": [
+     "detail"
+    ],
+    "code": "BM_LOCAL_ONLY"
+   }
+  },
+  "negative_controls_after": {
+   "status_no_session": 401,
+   "approvals_no_session": 401,
+   "unknown_route": 404,
+   "stop_resume_no_csrf": 403,
+   "approval_decide_no_csrf": 403,
+   "send_auto_agent": {
+    "status": 403,
+    "keys": [
+     "detail"
+    ],
+    "code": "BM_LOCAL_ONLY"
+   }
+  },
+  "new_endpoints_live": {
+   "stop_post_no_session": 401,
+   "stop_active_no_session": 401,
+   "studio_no_session": 401,
+   "niche_no_session": 401,
+   "stop_before": false,
+   "stop_post_no_csrf": 403,
+   "stop_post_confirm_false": 422,
+   "stop_post_no_body": 422,
+   "stop_after": false,
+   "workers_global_stop_after": false,
+   "studio_bad_client": 422,
+   "studio_bad_order_id": 404,
+   "studio_mutation_not_exposed": 404,
+   "stop_active_shape": {
+    "count": 1,
+    "planes": {
+     "tasks": 0,
+     "terminal": 0,
+     "coding": 0,
+     "command_bar": 0,
+     "browser": 0,
+     "evolution": 0,
+     "v15_economy": 0,
+     "v15_owner_run": 0,
+     "pit": 1,
+     "studio": 0,
+     "studio_provider_unknown": 0,
+     "autonomy": 0,
+     "rave": 0,
+     "calls": 0,
+     "direct_gen": 0
+    },
+    "errors": 0
+   },
+   "studio_shape": {
+    "total": 0,
+    "by_status": {}
+   },
+   "niche_shape": {
+    "present": true,
+    "readable": true,
+    "started": true,
+    "day": 1,
+    "run_days": 28,
+    "queue": {
+     "pending": 0,
+     "running": 0,
+     "done": 1,
+     "failed": 0
+    },
+    "errors": 0,
+    "paid_today_usd": 0.0,
+    "paid_daily_limit_usd": 0.0,
+    "stopped": null
+   },
+   "coding_shape": {
+    "total": 148,
+    "active": 0,
+    "statuses": [
+     "blocked",
+     "completed",
+     "failed"
+    ]
+   },
+   "ui_has_status_cards": [
+    true,
+    true
+   ],
+   "logout": 200
+  },
+  "synthetic_approval_via_phone": {
+   "create_backend": 200,
+   "approval_id": 83,
+   "listed_on_phone": true,
+   "decide_no_csrf": 403,
+   "decide_reject": 200,
+   "decided": {
+    "id": 83,
+    "status": "rejected",
+    "decided_by": "owner"
+   },
+   "still_pending_after": false,
+   "decide_again": 200,
+   "logout": 200
+  }
+ },
+ "fixes": [
+  {
+   "id": "F1",
+   "kind": "broken",
+   "what": "/m/api/coding-tasks/status proxied a path Bossman does not have (hit /coding-tasks/{task_id} -> 404); now counts the task list (never the readiness probe, which can load a 27 GB local model)"
+  },
+  {
+   "id": "F2",
+   "kind": "missing",
+   "what": "global STOP from the phone: GET /m/api/stop/active (control-plane preview, counts only) + POST /m/api/stop {confirm:true} -> /api/control-plane/stop-all (the dashboard's owner STOP), also stops worker devices; UI card with confirm()"
+  },
+  {
+   "id": "F3",
+   "kind": "missing",
+   "what": "approvals list with Allow/Reject on the Status tab (previously only inline in a chat stream + a badge); reuses GET/POST /m/api/approvals (owner tap only)"
+  },
+  {
+   "id": "F4",
+   "kind": "missing",
+   "what": "Studio orders read-only: GET /m/api/studio/orders, /orders/{id} (status, price, cost, margin, licence warning count; no brief/note/client data; client key validated 64-hex; no mutations on the phone API)"
+  },
+  {
+   "id": "F5",
+   "kind": "missing",
+   "what": "niche research status: GET /m/api/niche/status reads niche_research.sqlite3 strictly read-only (mode=ro), counters only; $2/day clamp mirrored"
+  },
+  {
+   "id": "F6",
+   "kind": "ui",
+   "what": "Status tab cards: approvals, STOP, Studio, niche, coding; each loads on its own; logout button gets id status-logout (b02_draft test now targets it)"
+  }
+ ],
+ "tests": {
+  "bossmobile_pytest": "273 passed, 2 warnings in 81.43s (includes the node UI suite via test_photo_form_ui.py)",
+  "bossmobile_node_ui": "tests 101, pass 101, fail 0",
+  "new_test_files": [
+   "apps/bossman-mobile/tests/test_mobile_parity.py (19 tests, positive + negative controls)",
+   "apps/bossman-mobile/tests/ui/parity_status_cards.test.mjs (3 tests incl. no POST without confirm)"
+  ],
+  "telegram_contracts": "command-center/tests/telegram_contracts: 471 passed in 130.25s (untouched; evidence for the Telegram column)"
+ },
+ "decisions": [
+  "docs/audits/2026-10-24-mobile-parity/decision-1.json: niche status source -> A (mobile reads SQLite mode=ro); votes kimi-k3.1-pro A, glm-5.3-flash A, nemotron-ultra-free A"
+ ],
+ "not_done": [
+  "live press of global STOP not exercised (a video generation is running; STOP would stop owner work) - unit + UI tests and live negatives only",
+  "Telegram pult: no studio orders, niche status, memory or calls commands (companion not changed or restarted in this run)",
+  "memory, provider keys, settings, agent CRUD, global task list stay Panel-only on the phone (they work 1:1 via /panel, live 200)",
+  "chat send / attachment positive path not live-run (would run a model / write into owner data); unit tests only",
+  "observation: control-plane lists plane 'pit' active (bcc.pit.cli start is running) while AGENTS.md says Jeff is paused - not touched, owner to check",
+  "observation: control-plane direct_gen=0 while a video sd-cli run is reported - that run is outside the Direct Gen queue, so STOP-all would not list it"
+ ],
+ "verdict": "PARTIAL",
+ "verdict_reason": "Every web function is reachable from the phone (Panel 1:1, live); the native mobile gaps that matter are fixed and proven live except pressing STOP itself; Telegram gaps remain."
+}

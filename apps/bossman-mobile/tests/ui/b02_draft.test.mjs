@@ -36,8 +36,8 @@ test('«Выйти на этом телефоне» drops the draft', { skip }, 
   const { d, w, $ } = await boot({ routes: (p) => (p === '/status' ? { bossman: {}, ollama: {}, direct_gen: {}, war_terminal: {}, mobile: {} } : routes(p)),
     before: (win) => win.localStorage.setItem('bm.draft', 'личное') });
   d.querySelector('.tab[data-tab="status"]').click();
-  await until(() => $('status-body').querySelector('.btn.danger'), 'logout button');
-  $('status-body').querySelector('.btn.danger').click();
+  await until(() => $('status-logout'), 'logout button');
+  $('status-logout').click();
   await until(() => !$('login').hidden, 'login');
   assert.equal(w.localStorage.getItem('bm.draft'), null); assert.equal($('input').value, '');
 });

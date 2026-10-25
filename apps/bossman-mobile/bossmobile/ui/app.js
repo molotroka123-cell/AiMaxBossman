@@ -2252,16 +2252,81 @@
       const s = await api('GET', '/status'); body.replaceChildren();
       const bmv = s.bossman || {};
       body.appendChild(stat('Bossman', bmv.up, [el('div', 'big', bmv.up ? 'работает' : 'не отвечает'), kv('сборка', bmv.build_sha_short), kv('источник', bmv.source_identity), kv('ждут вашего решения', s.approvals_pending)]));
+      statusExtras(body);
       const o = s.ollama || {}; const tags = el('div', 'tags'); (o.models || []).forEach((m) => tags.appendChild(el('span', '', `${m.name}${m.params ? ' · ' + m.params : ''}`)));
       body.appendChild(stat('Локальные модели (Ollama)', o.up, [kv('моделей', (o.models || []).length), kv('загружены сейчас', (o.loaded || []).join(', ') || 'нет'), kv('локальных агентов для чата', s.local_agents), tags]));
       const dg = s.direct_gen || {}; const q = dg.queue || {}; const mem = dg.memory || {};
       body.appendChild(stat('Прямой генератор', dg.sd_cli ? dg.sd_cli.present : null, [kv('сейчас', q.running ? 'идёт генерация' : 'свободен'), kv('в очереди', q.waiting), kv('ОЗУ свободно', mem.measured ? `${(mem.free_mb / 1024).toFixed(1)} из ${(mem.total_mb / 1024).toFixed(0)} ГБ` : '—')]));
       const w = s.war_terminal || {}; body.appendChild(stat('War Terminal', w.up, [kv('состояние', w.up ? `работает · ${w.version || ''} ${w.mode || ''}` : 'не запущен')]));
-      const mob = s.mobile || {}; const out = el('button', 'btn danger', 'Выйти на этом телефоне'); out.addEventListener('click', async () => { try { await api('POST', '/logout'); } catch { /* */ } store.set('draft', null); input.value = ''; showLogin(); });
+      const mob = s.mobile || {}; const out = el('button', 'btn danger', 'Выйти на этом телефоне'); out.id = 'status-logout'; out.addEventListener('click', async () => { try { await api('POST', '/logout'); } catch { /* */ } store.set('draft', null); input.value = ''; showLogin(); });
       body.appendChild(stat('Bossman Mobile', true, [kv('версия', mob.version), kv('активных сессий', mob.sessions), kv('модели чата', 'только локальные (сервер отклоняет облачные)'), out]));
     } catch (err) { body.replaceChildren(el('p', 'error-text pad', err.message)); }
   }
   $('status-reload').addEventListener('click', () => { tap(); loadStatus(); });
+
+  /* Parity audit 24.10: approvals, global STOP, Studio orders, niche research and coding tasks without the full panel.
+     Each card loads on its own: one failing source shows its error and leaves the others intact. */
+  function statusExtras(body) {
+    const slot = (title, id) => { const c = stat(title, null, [el('p', 'muted', 'загрузка…')]); c.dataset.card = id; body.appendChild(c); return c; };
+    const fill = (c, rows) => { c.querySelectorAll(':scope > :not(h3)').forEach((n) => n.remove()); rows.forEach((r) => c.appendChild(r)); };
+    const failed = (c, err) => fill(c, [el('p', 'error-text', `Не загрузилось: ${(err && err.message) || 'нет связи с ПК'}`)]);
+    const btn = (text, cls, fn) => { const b = el('button', 'btn small ' + cls, text); b.type = 'button'; b.addEventListener('click', () => { tap(); fn(b); }); return b; };
+    const approvals = slot('Ждут вашего решения', 'approvals');
+    const renderApprovals = async () => {
+      try {
+        const r = await api('GET', '/approvals'); const items = r.items || [];
+        if (!items.length) { fill(approvals, [el('p', 'muted', 'Ничего не ждёт решения')]); return; }
+        fill(approvals, items.map((a) => {
+          const row = el('div', 'approval-row'); row.dataset.id = a.id;
+          row.append(el('div', 'kv', `${a.kind || 'действие'}${a.task_id ? ' · задача ' + a.task_id : ''}`), el('div', 'muted', String(a.preview || '').slice(0, 300)));
+          const decide = (approve) => async (b) => {
+            b.disabled = true;
+            try { await api('POST', `/approvals/${a.id}`, { approve }); toast(approve ? 'Разрешено вами' : 'Отклонено вами'); refreshApprovals(); renderApprovals(); }
+            catch (err) { b.disabled = false; toast('Решение не принято: ' + err.message); }
+          };
+          row.append(btn('Разрешить', 'primary', decide(true)), btn('Отклонить', 'danger', decide(false)));
+          return row;
+        }));
+      } catch (err) { failed(approvals, err); }
+    };
+    renderApprovals();
+    const stopCard = slot('Общий STOP', 'stop');
+    const renderStopCard = async () => {
+      try {
+        const r = await api('GET', '/stop/active'); const planes = Object.entries(r.planes || {}).filter(([, n]) => n);
+        const rows = [kv('STOP сейчас', r.stop && r.stop.active ? 'включён' : 'выключен'),
+          kv('активно операций', planes.length ? planes.map(([p, n]) => `${p}: ${n}`).join(', ') : 'нет')];
+        rows.push(btn('⛔ СТОП всё', 'danger', async (b) => {
+          if (!confirm('Остановить все активные операции Bossman? Задачи, терминалы, задачи кода и генерации будут остановлены; новые действия на ПК потребуют «Продолжить».')) return;
+          b.disabled = true;
+          try { const x = await api('POST', '/stop', { confirm: true }); renderStop(x.stop); const n = Object.values(x.stopped || {}).reduce((s, v) => s + v, 0); toast(x.ok ? `STOP подтверждён: остановлено ${n}` : `STOP частично: остановлено ${n}, ошибок ${x.errors || 0}`); }
+          catch (err) { toast('STOP не подтверждён: ' + err.message); }
+          finally { b.disabled = false; renderStopCard(); }
+        }));
+        fill(stopCard, rows);
+      } catch (err) { failed(stopCard, err); }
+    };
+    renderStopCard();
+    const studio = slot('Studio — заказы', 'studio');
+    api('GET', '/studio/orders').then((r) => {
+      const by = Object.entries(r.by_status || {}).map(([k, n]) => `${k}: ${n}`).join(', ');
+      const rows = [kv('заказов', r.total || 0), kv('по статусам', by || 'нет')];
+      (r.orders || []).slice(0, 5).forEach((o) => rows.push(kv(`№ ${String(o.order_id || '').slice(0, 8)} · ${o.status}`, o.price != null ? `${o.price} ${o.currency || ''}` : '—')));
+      fill(studio, rows);
+    }).catch((err) => failed(studio, err));
+    const nicheCard = slot('Исследование ниш', 'niche');
+    api('GET', '/niche/status').then((n) => {
+      if (!n.present || !n.started) { fill(nicheCard, [el('p', 'muted', n.reason || 'запуск ещё не начат')]); return; }
+      const q = n.queue || {};
+      fill(nicheCard, [kv('день', n.stopped ? `остановлено (${(n.stopped && n.stopped.reason) || 'стоп'})` : `${n.day} из ${n.run_days}`),
+        kv('задачи', `готово ${q.done || 0} · в работе ${q.running || 0} · ждут ${q.pending || 0} · ошибки ${q.failed || 0}`),
+        kv('платно сегодня', `$${(n.paid_today_usd || 0).toFixed(3)} из $${(n.paid_daily_limit_usd || 0).toFixed(2)}`), kv('ошибок в журнале', n.errors)]);
+    }).catch((err) => failed(nicheCard, err));
+    const coding = slot('Задачи кода', 'coding');
+    api('GET', '/coding-tasks/status').then((c) => {
+      fill(coding, [kv('всего', c.total), kv('сейчас идут', c.active), kv('по статусам', Object.entries(c.by_status || {}).map(([k, n]) => `${k}: ${n}`).join(', ') || 'нет')]);
+    }).catch((err) => failed(coding, err));
+  }
 
   /* ================= OpenCode Agent Modes, Web Terminal & Self-Improve ================= */
   S.agentMode = store.get('agentMode') || 'CHAT';

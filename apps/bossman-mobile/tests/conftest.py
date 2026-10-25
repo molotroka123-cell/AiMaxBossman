@@ -329,7 +329,7 @@ class Env:
         self.fake = FakeBossman()
         # stop_file in tmp: a test must never read (or be blocked by) the owner's live %LOCALAPPDATA% STOP
         st = Settings(bossman_url="http://127.0.0.1:8801", token_file=tok, data_dir=tmp_path / "mobile",
-                      stop_file=tmp_path / "bcc" / "computer" / "STOP")
+                      stop_file=tmp_path / "bcc" / "computer" / "STOP", niche_dir=tmp_path / "niche")
         self.fake.stop_file = st.stop_file
         self.app = create_app(st, bossman_transport=httpx.MockTransport(self.fake.handler),
                               ollama_transport=httpx.MockTransport(fake_ollama), war_transport=httpx.MockTransport(war_down),

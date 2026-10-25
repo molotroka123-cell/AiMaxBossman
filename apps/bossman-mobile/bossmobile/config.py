@@ -19,6 +19,14 @@ def _default_stop_file() -> Path:
     return Path(data) / "computer" / "STOP"
 
 
+def _default_niche_dir() -> Path:
+    """Data dir of the niche research run (same resolution as niche_research.config.default_data_dir); read-only here."""
+    env = os.environ.get("NICHE_RESEARCH_DIR")
+    if env:
+        return Path(env)
+    return Path(os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")) / "Bossman" / "niche-research"
+
+
 @dataclass
 class Settings:
     bossman_url: str = field(default_factory=lambda: os.environ.get("BOSSMAN_URL", "http://127.0.0.1:8801").rstrip("/"))
@@ -26,6 +34,7 @@ class Settings:
                              else _default_token_file())
     data_dir: Path = field(default_factory=lambda: Path(os.environ.get("BOSSMAN_MOBILE_DATA") or Path.home() / ".bossman-mobile"))
     stop_file: Path = field(default_factory=_default_stop_file)   # read-only here: cleared only by Bossman's resume
+    niche_dir: Path = field(default_factory=_default_niche_dir)   # read-only here (SQLite mode=ro)
     ollama_url: str = field(default_factory=lambda: os.environ.get("BOSSMAN_MOBILE_OLLAMA", "http://127.0.0.1:11434").rstrip("/"))
     war_url: str = field(default_factory=lambda: os.environ.get("BOSSMAN_MOBILE_WAR", "http://127.0.0.1:8830").rstrip("/"))
     session_ttl_s: int = 30 * 24 * 3600
@@ -40,3 +49,4 @@ class Settings:
         self.token_file = Path(self.token_file)
         self.data_dir = Path(self.data_dir)
         self.stop_file = Path(self.stop_file)
+        self.niche_dir = Path(self.niche_dir)

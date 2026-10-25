@@ -18,7 +18,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket
@@ -32,7 +32,7 @@ from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
 from .policy import is_photo_model, local_agents, loopback_url, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
-from . import reftags, slash, video, video_timing
+from . import niche, reftags, slash, video, video_timing
 from .timing import calibrate_task_eta, from_history, queue_view, step_range, timing_for, warm_models
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -91,6 +91,12 @@ class ChatAttachmentIn(BaseModel):
 
 class DecideIn(BaseModel):
     approve: bool
+
+
+class StopAllIn(BaseModel):
+    """POST /m/api/stop: the owner's explicit «СТОП всё» (confirm must be true; nothing else is forwarded)."""
+    model_config = ConfigDict(extra="forbid")
+    confirm: Literal[True]
 
 
 class CompactIn(BaseModel):
@@ -751,6 +757,75 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         row = await call("POST", f"/api/approvals/{approval_id}", json={"approve": body.approve, "by": "owner"})
         return {k: row.get(k) for k in ("id", "status", "kind", "task_id", "decided_at", "decided_by")} if isinstance(row, dict) else row
 
+    # ------------------------------------------------------------------ global STOP from the phone (parity 24.10)
+    def _plane_counts(d: Any) -> dict:
+        return {str(k): len(v) for k, v in d.items() if isinstance(v, list)} if isinstance(d, dict) else {}
+
+    @app.get("/m/api/stop/active")
+    async def stop_active(_=Depends(session)):
+        """What the owner's STOP would stop now: the same preview as the dashboard (/api/control-plane/active),
+        counts per plane only."""
+        body = await call("GET", "/api/control-plane/active")
+        body = body if isinstance(body, dict) else {}
+        return {"count": body.get("count"), "planes": _plane_counts(body.get("active")),
+                "errors": len(body.get("errors") or []), "stop": stop_view()}
+
+    @app.post("/m/api/stop")
+    async def stop_all(body: StopAllIn, _=Depends(session)):
+        """«СТОП всё» = the dashboard's owner STOP (POST /api/control-plane/stop-all): durable computer STOP first, then
+        every execution plane. Needs an explicit confirm=true; «Продолжить» is POST /m/api/stop/resume."""
+        res = await call("POST", "/api/control-plane/stop-all", json={}, timeout=120)
+        res = res if isinstance(res, dict) else {}
+        workers.trigger_global_stop()
+        return {"ok": res.get("ok") is True, "stopped": _plane_counts(res.get("stopped")),
+                "requested": _plane_counts(res.get("requested")), "remaining": _plane_counts(res.get("remaining")),
+                "errors": len(res.get("errors") or []), "provider_outcome_unknown": len(res.get("provider_outcome_unknown") or []),
+                "stop": stop_view()}
+
+    # ------------------------------------------------------------------ Studio orders (read-only on the phone)
+    STUDIO_CLIENT = re.compile(r"^[0-9a-f]{64}$")
+
+    def order_view(o: dict) -> dict:
+        rc = o.get("receipt") if isinstance(o.get("receipt"), dict) else {}
+        tl = o.get("timeline") if isinstance(o.get("timeline"), list) else []
+        return {"order_id": o.get("order_id"), "status": o.get("status"), "created_at": o.get("created_at"),
+                "updated_at": o.get("updated_at"), "items": len(o.get("items") or []),
+                "currency": rc.get("currency"), "price": rc.get("price"), "cost": rc.get("cost"),
+                "margin": rc.get("margin"), "cost_complete": rc.get("cost_complete"),
+                "licence_warnings": len(o.get("licence_warnings") or []),
+                "last_change": tl[-1] if tl and isinstance(tl[-1], dict) else None}
+
+    def studio_params(client: str | None) -> dict | None:
+        if client is None:
+            return None
+        if not STUDIO_CLIENT.match(client):
+            raise fail(422, "неверный ключ клиента", "BM_STUDIO_CLIENT")
+        return {"client": client}
+
+    @app.get("/m/api/studio/orders")
+    async def studio_orders(client: str | None = None, _=Depends(session)):
+        """Studio orders (Direct Gen jobs sold as a service): status, price, cost, margin. Briefs, notes and client
+        data are not sent to the phone; every change of an order stays in the dashboard (Панель)."""
+        body = await call("GET", "/api/studio/orders", params=studio_params(client))
+        rows = [order_view(o) for o in (body.get("orders") or []) if isinstance(o, dict)] if isinstance(body, dict) else []
+        by_status: dict[str, int] = {}
+        for r in rows:
+            by_status[str(r["status"])] = by_status.get(str(r["status"]), 0) + 1
+        rows.sort(key=lambda r: str(r.get("updated_at") or ""), reverse=True)
+        return {"orders": rows, "total": len(rows), "by_status": by_status}
+
+    @app.get("/m/api/studio/orders/{order_id}")
+    async def studio_order(order_id: str, client: str | None = None, _=Depends(session)):
+        if not re.fullmatch(r"[0-9a-f]{32}", order_id):
+            raise fail(404, "заказ не найден", "BM_STUDIO_ORDER")
+        o = await call("GET", f"/api/studio/orders/{order_id}", params=studio_params(client))
+        return order_view(o if isinstance(o, dict) else {})
+
+    # ------------------------------------------------------------------ niche research run (read-only counters)
+    @app.get("/m/api/niche/status")
+    async def niche_status(_=Depends(session)):
+        return await asyncio.to_thread(niche.status, st.niche_dir)
+
     # ------------------------------------------------------------------ photo (Bossman Direct Generator)
     @app.get("/m/api/photo/models")
     async def p_models(_=Depends(session)):
@@ -1409,7 +1484,15 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.get("/m/api/coding-tasks/status")
     async def m_coding_status(_=Depends(session)):
-        return await call("GET", "/api/coding-tasks/status")
+        """Counts of coding tasks by status. Bossman has no /api/coding-tasks/status (that path hit /{task_id} and
+        answered 404 - parity audit 24.10); its readiness probe can load a local model, so the phone counts the list."""
+        body = await call("GET", "/api/coding-tasks")
+        items = [i for i in (body.get("items") or []) if isinstance(i, dict)] if isinstance(body, dict) else []
+        by_status: dict[str, int] = {}
+        for i in items:
+            by_status[str(i.get("status"))] = by_status.get(str(i.get("status")), 0) + 1
+        active = sum(n for s, n in by_status.items() if s in ("queued", "running"))   # = control-plane «active»
+        return {"total": len(items), "active": active, "by_status": by_status}
 
     @app.get("/m/api/coding-tasks")
     async def m_coding_list(limit: int = 25, _=Depends(session)):
