@@ -1059,10 +1059,49 @@ def _api_router() -> APIRouter:
             res = await s.execute(sa.select(agents_t).order_by(agents_t.c.id))
             return rows_dicts(res.fetchall())
 
+    async def _cloud_model_ids(s, *model_ids) -> bool:
+        """True if any of these models sends prompts off the PC (non-local base_url or an Ollama :cloud tag)."""
+        from .providers import is_local_url
+        from .provider_governance import is_cloud_offload
+        for mid in model_ids:
+            if mid is None:
+                continue
+            model = await fetch_one(s, dbm.models, int(mid))
+            prov = await fetch_one(s, dbm.providers, int(model["provider_id"])) if model else None
+            if model is None or prov is None:
+                continue
+            if not is_local_url(prov.get("base_url") or "") or is_cloud_offload(prov, model):
+                return True
+        return False
+
+    async def _default_chat_only(s, values: dict, current: dict | None = None) -> None:
+        """Security audit 24.10: a cloud-model agent is chat-only unless the owner set `cloud_pc_access` himself.
+
+        Standing rule «cloud agents are chat-only» used to be opt-in: an agent created/patched onto a cloud model
+        with no flag got all its PC tools. Only an explicit True (the owner's grant, agent 47) keeps PC access."""
+        merged = {**(current or {}), **values}
+        perms = values.get("permissions", (current or {}).get("permissions"))
+        perms = dict(perms) if isinstance(perms, dict) else {}
+        if "cloud_pc_access" not in perms and current and isinstance(current.get("permissions"), dict) \
+                and "cloud_pc_access" in current["permissions"] \
+                and current["permissions"]["cloud_pc_access"] is not True:
+            # A PATCH that forgets the flag keeps a «no PC» flag; a True grant is never carried over silently.
+            perms["cloud_pc_access"] = current["permissions"]["cloud_pc_access"]
+        if perms.get("cloud_pc_access") is True:
+            if "permissions" in values:
+                values["permissions"] = perms
+            return
+        if await _cloud_model_ids(s, merged.get("model_id")):   # a cloud FALLBACK is refused at run time (engine)
+            perms["cloud_pc_access"] = False
+            values["permissions"] = perms
+        elif "permissions" in values:
+            values["permissions"] = perms
+
     @router.post("/agents")
     async def create_agent(body: AgentIn, svc: Services = Depends(services)):
         values = body.model_dump()
         async with svc.db.session() as s:
+            await _default_chat_only(s, values)
             res = await s.execute(sa.insert(agents_t).values(created_at=utcnow(), **values))
             aid = int(res.inserted_primary_key[0])
             await s.commit()
@@ -1074,6 +1113,9 @@ def _api_router() -> APIRouter:
     async def patch_agent(agent_id: int, body: AgentPatch, svc: Services = Depends(services)):
         values = body.model_dump(exclude_none=True)
         async with svc.db.session() as s:
+            current = await fetch_one(s, agents_t, agent_id) if values else None
+            if current is not None:
+                await _default_chat_only(s, values, current)
             if values:
                 await s.execute(sa.update(agents_t).where(agents_t.c.id == agent_id).values(**values))
                 await s.commit()

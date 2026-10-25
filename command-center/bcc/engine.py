@@ -1419,6 +1419,28 @@ class TaskEngine:
                     f"router policy denied model {model_id}: "
                     + "; ".join(reasons)[:300], kind="policy")
 
+        # Security audit 24.10: a cloud model never gets PC tools or PC tool output unless the owner granted this
+        # agent `cloud_pc_access: true` (agent 47). Before, an outage of a local agent's model handed its
+        # computer.observe/terminal.* schemas and the run's tool results to the cloud fallback/route/ladder model.
+        from .tools import chat_only as _chat_only
+        # A chat-only agent's «tool» messages are only refusals (it executes nothing), not PC data.
+        carries_pc = bool(tools) or (not _chat_only(agent) and any(
+            isinstance(m, dict) and m.get("role") == "tool" for m in messages))
+        pc_granted = (agent.get("permissions") or {}).get("cloud_pc_access") is True \
+            if isinstance(agent.get("permissions"), dict) else False
+
+        async def refuse_cloud_with_pc(model_id: Any) -> None:
+            if not carries_pc or pc_granted or model_id is None:
+                return
+            from .providers import is_local_url
+            from .provider_governance import is_cloud_offload
+            async with self.db.session() as s:
+                m = await fetch_one(s, models_t, int(model_id))
+                p = await fetch_one(s, providers_t, int(m["provider_id"])) if m else None
+            if m is None or p is None or not is_local_url(p.get("base_url") or "") or is_cloud_offload(p, m):
+                raise ProviderError(f"cloud model {model_id} refused: this run carries PC tools/data and the "
+                                    f"agent has no cloud_pc_access grant", kind="policy")
+
         # Every model that failed on this call, for the recovery handler: it
         # records the failure on THAT model (not on the agent's) and does not
         # offer it again as the "different" model.
@@ -1437,6 +1459,7 @@ class TaskEngine:
             # этом те же — меняется исполнитель, а не то, что ему позволено.
             try:
                 await check_fallback_model(model_override, recovery=True)
+                await refuse_cloud_with_pc(model_override)
                 adapter, model = await self.registry.adapter_for(int(model_override))
                 result = await adapter.chat(model["name"], messages, **kw)
                 return result, model
@@ -1455,6 +1478,7 @@ class TaskEngine:
                         route=picked["route"]))
                     await s.commit()
             try:
+                await refuse_cloud_with_pc(model_id)
                 adapter, model = await self.registry.adapter_for(model_id)
                 result = await adapter.chat(model["name"], messages, **kw)
                 return result, model
@@ -1471,6 +1495,7 @@ class TaskEngine:
             # fallback_model, как и сбой провайдера: раньше проверка стояла вне
             # try, и настроенный владельцем fallback даже не пробовался (RC19).
             await check_fallback_model(agent.get("model_id"), configured_agent_model=True)
+            await refuse_cloud_with_pc(agent.get("model_id"))
             try:
                 adapter, model = await self.registry.adapter_for(int(agent["model_id"]))
             except (LookupError, TypeError):
@@ -1488,6 +1513,7 @@ class TaskEngine:
             fb_model: dict | None = None
             try:
                 await check_fallback_model(fb_id, configured_agent_model=True)
+                await refuse_cloud_with_pc(fb_id)
                 fb_adapter, fb_model = await self.registry.adapter_for(int(fb_id))
                 result = await fb_adapter.chat(fb_model["name"], messages, **kw)
             except ProviderError as fb_exc:

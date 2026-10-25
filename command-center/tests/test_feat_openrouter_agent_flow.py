@@ -45,7 +45,10 @@ async def test_env_configured_openrouter_models_drive_the_same_tool_loop(tmp_pat
         async with client_for(app, svc) as client:
             agent = (await client.post("/api/agents", json={"name": "or-agent", "system_prompt": "-", "model_id": glm["id"],
                                                            "max_steps": 3, "tools": ["terminal.run"],
-                                                           "permissions": {"terminal.run": True}})).json()
+                                                           "permissions": {"terminal.run": True,
+                                                                               # owner grant (like agent 47): a cloud
+                                                                               # agent is chat-only without it (audit 24.10)
+                                                                               "cloud_pc_access": True}})).json()
             task = (await client.post("/api/tasks", json={"title": "or", "prompt": "скажи hi через терминал",
                                                          "agent_id": agent["id"], "run_now": True})).json()["task"]
             env = type("E", (), {"svc": svc, "client": client})()
