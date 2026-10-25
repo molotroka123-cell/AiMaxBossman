@@ -569,3 +569,51 @@ def test_cli_start_status_stop_without_network(tmp_path):
     assert PAYMENT_DISCLAIMER in (tmp_path / "run" / "reports" / "final.md").read_text(encoding="utf-8")
     assert cli("tick")[1]["state"] == "stopped"
     assert cli("status")[1]["paid_spend_usd"] == 0.0
+
+
+# ---- security audit 24.10: redirects are validated hop by hop (SSRF via 302 to loopback/metadata) ----------------
+def _redirect_fetcher(tmp_path, pages):
+    seen = []
+
+    def transport(url, headers, timeout):
+        seen.append(url)
+        return pages.get(url, (404, {}, b""))
+
+    store = Store(tmp_path / "r.sqlite3")
+    f = PoliteFetcher(store, ResearchLog(store, tmp_path / "run", Clock()), clock=Clock(), sleeper=lambda s: None,
+                      transport=transport, allow_private=False)
+    f._host_is_public = lambda host: host in ("pub.example.org", "cdn.example.org")   # no DNS in tests
+    return f, seen
+
+
+PAGE = (200, {"Content-Type": "text/html"}, b"<title>ok</title><p>public text</p>")
+
+
+def test_redirect_to_loopback_or_metadata_is_refused(tmp_path):
+    pages = {"https://pub.example.org/robots.txt": (404, {}, b""),
+             "https://pub.example.org/a": (302, {"Location": "http://127.0.0.1:8801/api/agents"}, b""),
+             "https://pub.example.org/b": (301, {"Location": "http://169.254.169.254/latest/meta-data/"}, b"")}
+    f, seen = _redirect_fetcher(tmp_path, pages)
+    for path in ("a", "b"):
+        res = f.fetch(f"https://pub.example.org/{path}")
+        assert not res.ok and "redirect refused" in res.error, res.error
+    assert not any("127.0.0.1" in u or "169.254" in u for u in seen), seen
+
+
+def test_negative_control_public_redirect_is_followed_and_robots_checked_on_the_new_host(tmp_path):
+    pages = {"https://pub.example.org/robots.txt": (404, {}, b""),
+             "https://pub.example.org/move": (301, {"Location": "https://cdn.example.org/page"}, b""),
+             "https://pub.example.org/hide": (302, {"Location": "https://cdn.example.org/private/x"}, b""),
+             "https://cdn.example.org/robots.txt": (200, {}, b"User-agent: *\nDisallow: /private\n"),
+             "https://cdn.example.org/page": PAGE, "https://cdn.example.org/private/x": PAGE}
+    f, seen = _redirect_fetcher(tmp_path, pages)
+    assert f.fetch("https://pub.example.org/move").ok
+    res = f.fetch("https://pub.example.org/hide")
+    assert not res.ok and "robots" in res.error and "https://cdn.example.org/private/x" not in seen
+
+
+def test_robots_redirect_to_a_private_host_means_do_not_fetch(tmp_path):
+    pages = {"https://pub.example.org/robots.txt": (302, {"Location": "http://127.0.0.1/robots.txt"}, b""),
+             "https://pub.example.org/a": PAGE}
+    f, seen = _redirect_fetcher(tmp_path, pages)
+    assert not f.fetch("https://pub.example.org/a").ok and "https://pub.example.org/a" not in seen

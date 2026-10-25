@@ -118,10 +118,26 @@ def html_to_text(html: str) -> tuple[str, str, bool]:
 Transport = Callable[[str, dict, float], tuple[int, dict, bytes]]
 
 
+MAX_REDIRECTS = 3
+_REDIRECTS = (301, 302, 303, 307, 308)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Security audit 24.10: urlopen followed redirects silently, so a public page could 302 the fetcher to
+    127.0.0.1 / 169.254.169.254 past the public-host and robots checks. 3xx now comes back to PoliteFetcher,
+    which validates every hop."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
 def urllib_transport(url: str, headers: dict, timeout: float) -> tuple[int, dict, bytes]:
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with _OPENER.open(req, timeout=timeout) as resp:
             return resp.status, dict(resp.headers), resp.read(MAX_BYTES + 1)
     except urllib.error.HTTPError as exc:
         return exc.code, dict(exc.headers or {}), b""
@@ -192,11 +208,25 @@ class PoliteFetcher:
         parts = urllib.parse.urlsplit(url)
         base = f"{parts.scheme}://{parts.netloc.lower()}"
         if base not in self._robots:
+            target = base + "/robots.txt"
             try:
-                status, _, body = self._request(base + "/robots.txt")
+                for _ in range(MAX_REDIRECTS + 1):
+                    status, headers, body = self._request(target)
+                    if status not in _REDIRECTS:
+                        break
+                    nxt = urllib.parse.urljoin(target, _location(headers))
+                    if not _location(headers) or self._url_refusal(nxt):
+                        status = 0                    # redirect to nowhere / a non-public host = unreachable
+                        break
+                    target = nxt
+                else:
+                    status = 0
             except OSError as exc:
                 self._robots[base] = None
                 return False, f"robots.txt unreachable ({type(exc).__name__})"
+            if status == 0 or status in _REDIRECTS:
+                self._robots[base] = None
+                return False, "robots.txt unreachable (redirect refused)"
             rp = urllib.robotparser.RobotFileParser()
             if status in (401, 403):
                 rp.disallow_all = True
@@ -224,22 +254,39 @@ class PoliteFetcher:
                                 text=f"не прочитано: {res.error}")
         return res
 
-    def _fetch(self, url: str) -> FetchResult:
-        now = self.clock()
+    def _url_refusal(self, url: str) -> str:
         parts = urllib.parse.urlsplit(url)
         if parts.scheme not in ("http", "https") or not parts.hostname:
-            return FetchResult(url, False, error="only public http(s) URLs", fetched_at=now)
+            return "only public http(s) URLs"
         if parts.username or parts.password:
-            return FetchResult(url, False, error="credentials in URL refused", fetched_at=now)
+            return "credentials in URL refused"
         if not self._host_is_public(parts.hostname):
-            return FetchResult(url, False, error="non-public host refused", fetched_at=now)
-        allowed, why = self.robots_allows(url)
-        if not allowed:
-            return FetchResult(url, False, error=why, fetched_at=self.clock())
-        try:
-            status, headers, body = self._request(url)
-        except OSError as exc:
-            return FetchResult(url, False, error=f"network error {type(exc).__name__}", fetched_at=self.clock())
+            return "non-public host refused"
+        return ""
+
+    def _fetch(self, url: str) -> FetchResult:
+        now = self.clock()
+        why = self._url_refusal(url)
+        if why:
+            return FetchResult(url, False, error=why, fetched_at=now)
+        current = url
+        for _hop in range(MAX_REDIRECTS + 1):
+            allowed, why = self.robots_allows(current)          # robots for EVERY hop, not only the first URL
+            if not allowed:
+                return FetchResult(url, False, error=why, fetched_at=self.clock())
+            try:
+                status, headers, body = self._request(current)
+            except OSError as exc:
+                return FetchResult(url, False, error=f"network error {type(exc).__name__}", fetched_at=self.clock())
+            if status not in _REDIRECTS:
+                break
+            nxt = urllib.parse.urljoin(current, _location(headers))
+            why = self._url_refusal(nxt) if _location(headers) else "redirect without Location"
+            if why:
+                return FetchResult(url, False, status, error=f"redirect refused: {why}", fetched_at=self.clock())
+            current = nxt
+        else:
+            return FetchResult(url, False, error=f"more than {MAX_REDIRECTS} redirects", fetched_at=self.clock())
         fetched_at = self.clock()
         if status in (401, 402, 403, 407, 429, 451):
             return FetchResult(url, False, status, error=f"HTTP {status}: access restricted, not bypassed",
@@ -269,6 +316,10 @@ class PoliteFetcher:
                                error="captcha/login/paywall detected: not bypassed", fetched_at=fetched_at)
         return FetchResult(url, True, status, title=strip_pii(title), text=text[:60_000], raw=raw,
                            fetched_at=fetched_at)
+
+
+def _location(headers: dict) -> str:
+    return {k.lower(): v for k, v in (headers or {}).items()}.get("location", "")
 
 
 class SearchProvider(Protocol):
