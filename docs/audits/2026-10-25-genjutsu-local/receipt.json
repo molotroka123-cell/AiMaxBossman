@@ -1,7 +1,7 @@
 {
  "schema": "bossman.genjutsu-local.v1",
  "date": "2026-10-25",
- "status": "BLOCKED BY MEMORY: owner lifted the pause, but Ollama keeps gemma4-31b-uncensored (34 GB) + qwen3-coder-30b (21 GB) loaded with keep_alive Forever (~55 GB). WanGP Animate needs ~50-56 GB, so the RAM guard killed both resume attempts. No output video yet, so no QA, no full render and no side-by-side. Ollama models were NOT touched.",
+ "status": "STOPPED FOR PRIORITY: owner put the 500-scenario eval first. Third smoke run (smoke_b3, clean machine, 107 GB free) was stopped at ~08:43 during task 1 (B replace) step 5/6. No output video yet, so no QA, no full render, no side-by-side. WanGP, runner and Ollama watchdog are not running; no Ollama model was unloaded (watchdog log: nothing unloaded).",
  "private_test_only": "driving video = someone else's Instagram clip; never publish",
  "model": {
   "name": "Wan2.2-Animate-14B (Wan-AI), licence Apache-2.0",
@@ -40,10 +40,11 @@
  "qa": "NOT_RUN (no output)",
  "full_render": "NOT_RUN",
  "resume": [
-  "needs ~60 GB free RAM: the owner/coordinator must let the Ollama models unload (gemma4-31b + qwen3-coder are pinned Forever) or say they may be stopped; then check free >= 60 GB",
-  "Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','D:/Bossman/work/genjutsu-local-20261025/src/run_wgp.ps1','-Settings','D:/Bossman/work/genjutsu-local-20261025/src/smoke_b.json','-OutDir','D:/Bossman/work/genjutsu-local-20261025/out/smoke','-Tag','smoke_b3' -WindowStyle Hidden   (profile 2 = default; keep it)",
-  "QA: python src/qa.py out/smoke/<file>.mp4 5.8 B_replace (same for animate); then full: python src/make_settings.py --jobs B:<mode> --guide D:/Bossman/work/genjutsu-local-20261025/src/original.mp4 --mask D:/Bossman/work/genjutsu-local-20261025/src/original_mask.mp4 --frames 305 --out src/full.json",
-  "after the run the runner kills WanGP on 'Queue completed' (it stays resident ~55 GB otherwise)"
+  "only after the 500-scenario eval is finished and the coordinator says go; check free RAM >= 60 GB (WanGP needs ~46 GB, keep >= 6 GB free)",
+  "Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','D:/Bossman/work/genjutsu-local-20261025/src/run_wgp.ps1','-Settings','D:/Bossman/work/genjutsu-local-20261025/src/smoke_b.json','-OutDir','D:/Bossman/work/genjutsu-local-20261025/out/smoke','-Tag','smoke_b4' -WindowStyle Hidden",
+  "QA: python src/qa.py out/smoke/<file>.mp4 5.8 B_replace (and B_animate); verdict CLOSE/WORSE/BETTER vs src/genjutsu_kitchen.mp4 + src/genjutsu_redsquare.mp4",
+  "if >=1 mode CLOSE/BETTER: python src/make_settings.py --jobs B:<mode> --guide D:/Bossman/work/genjutsu-local-20261025/src/original.mp4 --mask D:/Bossman/work/genjutsu-local-20261025/src/original_mask.mp4 --frames 305 --steps 4 --out src/full.json; run the same runner; then RIFE x2 + side-by-side original|Genjutsu|ours labelled 'AI test - private'",
+  "the runner kills WanGP after 'Queue completed' (otherwise it stays resident)"
  ],
  "smoke_attempts": [
   {
@@ -70,17 +71,36 @@
    "settings": "src/smoke_b.json",
    "profile": 4,
    "result": "GUARD KILL at 376 s (free 0 GB) during VAE encode: gemma4-31b reloaded with keep_alive Forever. Profile 4 also makes text encoding ~4 s/it (slower)."
+  },
+  {
+   "tag": "smoke_b3",
+   "settings": "src/smoke_b.json",
+   "profile": 2,
+   "started": "08:18:55",
+   "timing": {
+    "step1_incl_warmup_s": 396,
+    "step2_s": 286,
+    "step3_s": 281,
+    "step4_s": 283,
+    "post_warmup_s_per_step": "~283 s/step at 480x832, 65 frames @16 fps, alone on the machine (vs ~370 s/step with Ollama models competing)"
+   },
+   "memory": "free 107 GB before -> min 61.1 GB during, i.e. WanGP Animate ~46 GB resident (profile 2)",
+   "result": "stopped at ~1473 s by priority change (step 5/6 of task 1); no video"
   }
  ],
  "blocker_poll": "07:47-08:17 (30 min, every 30 s): free RAM stayed at 56 GB, both Ollama models stayed loaded 'Forever'. Owner process: ollama serve (pid 2996); resource_governor and other agents are running.",
  "estimates": {
-  "one_4s_smoke_task": "~45 min (6 x ~370 s + encode/decode)",
-  "full_19s_16fps_305_frames": "4 windows of 81 (overlap 5), ~8 min/step expected -> ~3-3.5 h at 6 steps, ~2.3 h at 4 steps, plus RIFE 16->32 fps"
+  "one_4s_smoke_task": "~35 min (6 x ~283 s + ~7 min encode/decode/warm-up)",
+  "both_smoke_tasks": "~70 min",
+  "full_19s_16fps_305_frames_4_steps": "~2-2.5 h + RIFE (rife-ncnn-vulkan v4.6 in C:/Users/asd/Bossman/media-runtime/ncnn, MIT)"
  },
  "prepared_for_full_run": {
   "mask": "src/original_mask.mp4 (572 frames, RVM, checked at 1 fps: clean incl. dark end card)",
   "qa_script": "src/qa.py ours.mp4 <t0_in_original> <tag> (2 fps sheet original|Genjutsu kitchen|Genjutsu Red Square|ours, full-res crops at the fastest moments, Laplacian sharpness)"
  },
  "genjutsu_observation": "Genjutsu kitchen result is not a pure replace: it also re-renders the kitchen (wood cabinets, carpet floor) while keeping layout and choreography; Red Square result replaces the whole background; both are 480x854 @24 fps; Red Square keeps the dark end card.",
- "repo_copy": "C:/Users/asd/Bossman/wt-final-20261023/docs/audits/2026-10-25-genjutsu-local/receipt.json; scripts in tools/genjutsu_local/"
+ "repo_copy": "C:/Users/asd/Bossman/wt-final-20261023/docs/audits/2026-10-25-genjutsu-local/receipt.json; scripts in tools/genjutsu_local/",
+ "helpers": {
+  "ollama_unload_watch": "src/ollama_unload_watch.py: while wgp.py runs, unloads any Ollama model with keep_alive=0 (allowed by coordinator 25.10 for that run only; NOT allowed while the eval runs)"
+ }
 }
