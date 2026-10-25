@@ -563,6 +563,33 @@ def print_report(report: dict[str, Any]) -> None:
     print(report["verdict"])
 
 
+def validate_eval500() -> int:
+    """EVAL500 = 500 synthetic chat scenarios run through the live product (tools/eval500). They live next to this
+    registry (tests/owner_scenarios/eval500_dev.json + the holdout seal) and are NOT folded into the OWNER SCENARIOS
+    board: that board counts integrated chains with code per id, EVAL500 counts graded chat transcripts."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    from eval500 import schema as e5
+
+    dev = e5.load_dev()
+    e5.validate_suite(dev, expect_total=len(dev), expect_per_category=e5.dev_expected())
+    seal = json.loads(e5.HOLDOUT_HASH_FILE.read_text(encoding="utf-8"))
+    if seal["count"] != e5.HOLDOUT_TOTAL or len(seal["scenario_sha256"]) != e5.HOLDOUT_TOTAL:
+        print(f"EVAL500 holdout seal has {seal['count']} != {e5.HOLDOUT_TOTAL}", file=sys.stderr)
+        return 1
+    if set(seal["scenario_sha256"]) & {s["id"] for s in dev}:
+        print("EVAL500 holdout ids overlap the dev part", file=sys.stderr)
+        return 1
+    holdout = "sealed file not on this machine (hashes only)"
+    if e5.HOLDOUT_FILE.is_file():
+        e5.verify_holdout()
+        hold = e5.load_holdout("seal")
+        e5.validate_suite(dev + hold, expect_total=e5.TOTAL,
+                          expect_per_category={k: c[0] for k, c in e5.CATEGORIES.items()})
+        holdout = "file sha256 and 150 per-scenario hashes match the seal"
+    print(f"EVAL500: dev {len(dev)} valid; holdout {seal['count']} sealed — {holdout}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Прогон владельческих сценариев")
     parser.add_argument("--dir", type=Path, default=SCENARIO_DIR)
@@ -574,7 +601,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                         help="объявленный ПОЛ зелёных: меньше — отказ. Без него "
                              "тихая деградация зелёного в OWNER_REQUIRED осталась бы "
                              "незамеченной, а прогон — зелёным")
+    parser.add_argument("--validate-eval500", action="store_true",
+                        help="проверить набор EVAL500 (ТЗ 2.5 M5): 350 dev по таблице категорий + печать "
+                             "скрытых 150 (хеши в git совпадают с файлом на D:, если он есть)")
     args = parser.parse_args(argv)
+    if args.validate_eval500:
+        return validate_eval500()
 
     found = discover(args.dir)
     if args.only:

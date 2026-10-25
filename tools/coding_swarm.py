@@ -29,10 +29,22 @@ MODELS = {
     "qwen": ("https://openrouter.ai/api/v1", "qwen/qwen3.8-flash", "OPENROUTER_API_KEY", 0.15, 0.47),
     "glm": ("https://7api.st/v1", "glm-5.3-flash-uncensored", "7api", 0.028, 0.028),
     "nemotron": ("https://openrouter.ai/api/v1", "nvidia/nemotron-3-ultra-550b-a55b:free", "OPENROUTER_API_KEY", 0.0, 0.0),
+    # the same Nemotron Ultra on the NVIDIA NIM free tier (provider 7 in bcc.db); used when OpenRouter :free queues
+    "nemotron-nim": ("https://integrate.api.nvidia.com/v1", "nvidia/nemotron-3-ultra-550b-a55b", "NVIDIA_API_KEY", 0.0, 0.0),
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3-flash-preview", "GEMINI_API_KEY", 0.0, 0.0),
 }
 DEFAULT = ["kimi", "qwen", "nemotron", "gemini"]
 MAX_PROMPT_CHARS = 120_000
+
+
+def leaks_eval_holdout(prompt: str) -> bool:
+    """TZ 2.5 M5: a sealed EVAL500 holdout scenario never reaches a coder/swarm/auditor model."""
+    import sys as _sys
+    tools_dir = str(Path(__file__).resolve().parent)
+    if tools_dir not in _sys.path:
+        _sys.path.insert(0, tools_dir)
+    from eval500.holdout_guard import leaks_holdout
+    return leaks_holdout(prompt)
 
 
 def _call(name: str, prompt: str, max_tokens: int = 24000, timeout: float = 900) -> dict:
@@ -96,6 +108,8 @@ def _save_reasoning(prompt: str, results: list[dict], label: str) -> None:
 def run(prompt: str, models: list[str], out: Path, label: str) -> dict:
     if tma.SECRET.search(prompt):
         raise SystemExit("secret-like string in the prompt: refused")
+    if leaks_eval_holdout(prompt):
+        raise SystemExit("EVAL500 sealed holdout text or location in the prompt: refused (TZ 2.5 M5)")
     if len(prompt) > MAX_PROMPT_CHARS:
         raise SystemExit(f"prompt too long ({len(prompt)} > {MAX_PROMPT_CHARS})")
     unknown = [m for m in models if m not in MODELS]

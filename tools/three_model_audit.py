@@ -36,6 +36,16 @@ FALLBACK = ("gemini-3-flash", "https://generativelanguage.googleapis.com/v1beta/
             "GEMINI_API_KEY")
 
 
+def leaks_eval_holdout(prompt: str) -> bool:
+    """TZ 2.5 M5: a sealed EVAL500 holdout scenario never reaches a coder/swarm/auditor model."""
+    import sys as _sys
+    tools_dir = str(Path(__file__).resolve().parent)
+    if tools_dir not in _sys.path:
+        _sys.path.insert(0, tools_dir)
+    from eval500.holdout_guard import leaks_holdout
+    return leaks_holdout(prompt)
+
+
 def _env_keys() -> dict:
     out = {}
     if KEYS.is_file():
@@ -104,6 +114,8 @@ def audit(goal: str, question: str, options: dict[str, str]) -> dict:
     text = goal + question + json.dumps(options, ensure_ascii=False)
     if SECRET.search(text):
         raise SystemExit("secret-like string in the question: refused")
+    if leaks_eval_holdout(text):
+        raise SystemExit("EVAL500 sealed holdout text or location in the prompt: refused (TZ 2.5 M5)")
     prompt = ("Ты независимый аудитор решения. Цель владельца: " + goal + "\nВопрос: " + question + "\nВарианты:\n"
               + "\n".join(f"{k}: {v}" for k, v in options.items())
               + "\nВыбери лучший вариант для цели (учитывай риск, обратимость, безопасность, стоимость). Ответь в конце "
