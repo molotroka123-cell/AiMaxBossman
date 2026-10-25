@@ -1,0 +1,86 @@
+{
+ "schema": "bossman.genjutsu-local.v1",
+ "date": "2026-10-25",
+ "status": "BLOCKED BY MEMORY: owner lifted the pause, but Ollama keeps gemma4-31b-uncensored (34 GB) + qwen3-coder-30b (21 GB) loaded with keep_alive Forever (~55 GB). WanGP Animate needs ~50-56 GB, so the RAM guard killed both resume attempts. No output video yet, so no QA, no full render and no side-by-side. Ollama models were NOT touched.",
+ "private_test_only": "driving video = someone else's Instagram clip; never publish",
+ "model": {
+  "name": "Wan2.2-Animate-14B (Wan-AI), licence Apache-2.0",
+  "file": "D:/Bossman/models/media/wan22-animate-14b/wan2.2_animate_14B_quanto_bf16_int8.safetensors",
+  "source": "DeepBeepMeep/Wan2.2 (WanGP mirror, quanto bf16/int8)",
+  "bytes": 17933520197,
+  "sha256": "c62c8eb97de825ceb66c0e9123b56b2becf5086eb44264ad020b0db6025c6218",
+  "download_s": 304,
+  "note": "an older bf16 copy (34.9 GB, 10.10) already sits in C:/Users/asd/Bossman/media-runtime/WanGP-viggle/ckpts; not used, not moved",
+  "relighting_lora": "ckpts/wan2.2_animate_relighting_lora.safetensors (2.87 GB, pre-existing, Wan-Animate release, Apache-2.0)",
+  "speed_lora": {
+   "file": "D:/Bossman/models/media/wan22-animate-14b/loras/loras_accelerators/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+   "bytes": 739472104,
+   "licence": "Apache-2.0 (lightx2v)",
+   "use": "6 steps, cfg 1"
+  },
+  "runtime": "WanGP commit b8b18f8, WanGP Community License 2.0, ROCm gfx1151",
+  "finetune": "C:/Users/asd/Bossman/media-runtime/WanGP-viggle/finetunes/animate_14B_local_lightx2v.json"
+ },
+ "wangp_support": "animate = Wan2.2 Animate 14B (modes: animate PVBKI / PVBXAKI, replace PVBAIH# / see-through PVBAI#, '#1' = relighting). Replace + targeted animate need a person mask video (video_mask, white = person). Also present: animate2 / animate2_distilled (newer 'Animate 2', animate-only, licence not checked) and viggle_animate.",
+ "inputs": {
+  "driving_smoke": "D:/Bossman/work/genjutsu-local-20261025/src/drive_s2.mp4 (original 5.8-10.0 s, most energetic part by frame-diff, 720x1280 30 fps)",
+  "mask_smoke": "src/drive_s2_mask.mp4 (Robust Video Matting mobilenetv3 onnx CPU, alpha>0.5, 10 s for 126 frames; RVM licence GPL-3.0, local tool use only)",
+  "ref_A": "D:/Bossman/work/tiktok-trend-20261024/look-casual.png (fictional woman)",
+  "ref_B": "D:/Bossman/work/genjutsu-local-20261025/refs/man.png (fictional young man, Direct Gen z-image-turbo job 729d9b0a102643bbb358960580474a1c, seed 250251, 720x1280, 406 s; request refs/man_req.json)"
+ },
+ "smoke": {
+  "settings": "D:/Bossman/work/genjutsu-local-20261025/src/smoke.json (src/make_settings.py): 4 tasks B:replace(PVBAIH#1), B:animate(PVBXAKI), A:replace, A:animate; 480x832, 65 frames @16 fps (4.0 s), window 81, 6 steps euler, shift 5, cfg 1, mask_expand 20, seed 2510",
+  "started": "2026-10-25T06:26:20",
+  "killed_at_s": 768,
+  "progress": "task 1/4 (B replace): text enc + VAE encode done, denoising step 1/6 done, step 2 running",
+  "timing": "step 1 incl. MIOpen warm-up ~9 min; later steps not measured",
+  "memory": "free RAM 74.9 GB before -> min 18.6 GB during (~56 GB used by WanGP); guard never fired",
+  "outputs": "none"
+ },
+ "qa": "NOT_RUN (no output)",
+ "full_render": "NOT_RUN",
+ "resume": [
+  "needs ~60 GB free RAM: the owner/coordinator must let the Ollama models unload (gemma4-31b + qwen3-coder are pinned Forever) or say they may be stopped; then check free >= 60 GB",
+  "Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','D:/Bossman/work/genjutsu-local-20261025/src/run_wgp.ps1','-Settings','D:/Bossman/work/genjutsu-local-20261025/src/smoke_b.json','-OutDir','D:/Bossman/work/genjutsu-local-20261025/out/smoke','-Tag','smoke_b3' -WindowStyle Hidden   (profile 2 = default; keep it)",
+  "QA: python src/qa.py out/smoke/<file>.mp4 5.8 B_replace (same for animate); then full: python src/make_settings.py --jobs B:<mode> --guide D:/Bossman/work/genjutsu-local-20261025/src/original.mp4 --mask D:/Bossman/work/genjutsu-local-20261025/src/original_mask.mp4 --frames 305 --out src/full.json",
+  "after the run the runner kills WanGP on 'Queue completed' (it stays resident ~55 GB otherwise)"
+ ],
+ "smoke_attempts": [
+  {
+   "tag": "smoke",
+   "settings": "src/smoke.json (4 tasks)",
+   "result": "killed by coordinator (owner pause) at 768 s, task 1 step 2/6"
+  },
+  {
+   "tag": "smoke_b",
+   "settings": "src/smoke_b.json (B:replace PVBAIH#1, B:animate PVBXAKI)",
+   "profile": 2,
+   "timing": {
+    "step1_incl_warmup_s": 480,
+    "step2_s": 370,
+    "step3_s": 365,
+    "step4_s": 387,
+    "post_warmup_s_per_step": "~370 s/step at 480x832, 65 frames @16 fps, 6 steps"
+   },
+   "memory": "free 74.7 GB before; WanGP took ~50-56 GB; free went 21 -> 12 GB once qwen3-coder (21 GB) loaded at 07:35",
+   "result": "GUARD KILL at 2045 s (free 2.73 GB) during task 1 step 5/6, after gemma4-31b (34 GB) was loaded too at 07:36. No video saved."
+  },
+  {
+   "tag": "smoke_b2",
+   "settings": "src/smoke_b.json",
+   "profile": 4,
+   "result": "GUARD KILL at 376 s (free 0 GB) during VAE encode: gemma4-31b reloaded with keep_alive Forever. Profile 4 also makes text encoding ~4 s/it (slower)."
+  }
+ ],
+ "blocker_poll": "07:47-08:17 (30 min, every 30 s): free RAM stayed at 56 GB, both Ollama models stayed loaded 'Forever'. Owner process: ollama serve (pid 2996); resource_governor and other agents are running.",
+ "estimates": {
+  "one_4s_smoke_task": "~45 min (6 x ~370 s + encode/decode)",
+  "full_19s_16fps_305_frames": "4 windows of 81 (overlap 5), ~8 min/step expected -> ~3-3.5 h at 6 steps, ~2.3 h at 4 steps, plus RIFE 16->32 fps"
+ },
+ "prepared_for_full_run": {
+  "mask": "src/original_mask.mp4 (572 frames, RVM, checked at 1 fps: clean incl. dark end card)",
+  "qa_script": "src/qa.py ours.mp4 <t0_in_original> <tag> (2 fps sheet original|Genjutsu kitchen|Genjutsu Red Square|ours, full-res crops at the fastest moments, Laplacian sharpness)"
+ },
+ "genjutsu_observation": "Genjutsu kitchen result is not a pure replace: it also re-renders the kitchen (wood cabinets, carpet floor) while keeping layout and choreography; Red Square result replaces the whole background; both are 480x854 @24 fps; Red Square keeps the dark end card.",
+ "repo_copy": "C:/Users/asd/Bossman/wt-final-20261023/docs/audits/2026-10-25-genjutsu-local/receipt.json; scripts in tools/genjutsu_local/"
+}
