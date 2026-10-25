@@ -1,0 +1,34 @@
+{
+ "schema": "bossman.three-model-audit.v1",
+ "goal": "Bossman 2.5: first paid Motion Studio pilot on local AMD 120GB unified-memory PC, without breaking Jeff/owner chat; owner also wants self-improvement swarm. Existing: out-of-process resource governor (keep Jeff mode), studio_orders, 3 sample clips, landing live.",
+ "question": "What is the order of the first coding work?",
+ "options": {
+  "A": "Governor 2.0 first (measured memory profiles + leases on top of existing governor), then one Studio order end-to-end",
+  "B": "One Studio preset end-to-end first with manual supervision and start selling now, governor hardening second",
+  "C": "Parallel: sell manually now + minimal governor lease core and one Studio vertical in the same first 5 tasks; swarm/eval suite after"
+ },
+ "votes": [
+  {
+   "model": "kimi-k3.1-pro",
+   "choice": "C",
+   "why": "Минимальные leases защищают Jeff, а Studio vertical быстро проверяет путь к оплате; ручные продажи идут параллельно, swarm/eval не отвлекают. A задерживает пилот избыточным Governor 2.0, B рискует стабильностью чата.",
+   "seconds": 42.0
+  },
+  {
+   "model": "glm-5.3-flash",
+   "choice": "B",
+   "why": "Первый платный пилот важнее инфраструктуры: губернатор уже работает, ручной контроль достаточен для одного заказа, а Governor 2.0 лучше строить на реальных метриках прогона.",
+   "seconds": 26.1
+  },
+  {
+   "model": "nemotron-ultra-free",
+   "choice": "B",
+   "why": "Быстрее всего даёт первый платёжный пилот (главная цель) с минимальным риском для Jeff: используем действующий губернатор + ручной надзор на 120 ГБ, не пишем новый код инфраструктуры до валидации воронки. Губернатор 2.0 и рой — после денег и профилей нагрузки.",
+   "seconds": 11.1
+  }
+ ],
+ "decision": "B",
+ "decision_text": "One Studio preset end-to-end first with manual supervision and start selling now, governor hardening second",
+ "verdict": "DECIDED",
+ "at": "2026-10-25T06:01:02"
+}

@@ -1,0 +1,34 @@
+{
+ "schema": "bossman.three-model-audit.v1",
+ "goal": "Bossman 2.5: one product, limited owner time, zero revenue so far. Two candidate commercial verticals exist: Motion Studio (AI product video ads, local generation, landing live, 3 samples) and Czech/EU public procurement workbench (War Terminal app exists with TED data, needs supplier cards, cost/margin, drafts; owner sends).",
+ "question": "Which vertical is the P0 money path in 2.5?",
+ "options": {
+  "A": "Motion Studio P0; procurement workbench P1 after first Studio pilot",
+  "B": "Procurement workbench P0; Studio P1",
+  "C": "Both P0 in parallel"
+ },
+ "votes": [
+  {
+   "model": "kimi-k3.1-pro",
+   "choice": "A",
+   "why": "Studio быстрее и дешевле проверить платным пилотом: лендинг и образцы готовы, локальная генерация ограничивает затраты. Procurement требует доработок, доверия и более длинного цикла продаж, а два P0 распылят ограниченное время владельца.",
+   "seconds": 34.8
+  },
+  {
+   "model": "glm-5.3-flash",
+   "choice": "B",
+   "why": "Существующий TED-актив + доказанная боль поставщиков + слабая конкуренция; Studio — переполненный рынок без доказанного спроса; при малом времени владельца параллель недопустима.",
+   "seconds": 32.4
+  },
+  {
+   "model": "nemotron-ultra-free",
+   "choice": "A",
+   "why": "Motion Studio имеет живой лендинг, работающий локальный генератор и сэмплы — можно продать завтра коротким циклом (B2C/SMB) и получить кэшфлоу при нулевых маржинальных затратах. War Terminal требует доработки критических фич (карточки поставщиков, расчеты, черновики) и имеет длинный.enterprise-цикл продаж (6–18 мес.) с высоким риском нулевой выручки при лимитированном времени владельца. Параллельный запуск (C) размывает фокус и гарантирует провал обоих.",
+   "seconds": 17.5
+  }
+ ],
+ "decision": "A",
+ "decision_text": "Motion Studio P0; procurement workbench P1 after first Studio pilot",
+ "verdict": "DECIDED",
+ "at": "2026-10-25T06:01:07"
+}
