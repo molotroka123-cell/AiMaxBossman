@@ -40,9 +40,9 @@
 
 - Полный инвентарный прогон выполнил локальные тесты приложений по одному пакету за раз (в репозитории одноимённые `tests` import-пути нельзя надёжно собирать в один pytest-процесс).
 - Для `ai-3d-maker`, `ai-webcam-vision` и `shorts-factory` остаются Windows-ограничения/таймауты, описанные выше. Для `token-launch-helper` нужны явно установленные зависимости, а его mainnet simulation намеренно не запускалась.
-- Результаты GitHub CI точной ревизии и приёмка установленного Bossman владельцем: `NOT_RUN`. Owner-PC build SHA и бинарная приёмка: `NOT_RUN`. До такого доказательства состояние результата: `NOT_PROVEN`.
+- Snapshot at audit authoring: exact-SHA GitHub CI = `NOT_RUN`; owner-PC acceptance = `NOT_RUN`. The remote candidate starts its own exact-SHA checks after push. This report records local verification only; the result remains `NOT_PROVEN` until its required evidence exists.
 - Выручка, тендерная ставка, контакт поставщика, покупка, платная публикация, подпись кошелька и запуск реальной автоматизации: `NOT_RUN`.
-- Development was validated from `integrate/one-bossman-final-20261023` at `78279c99`, which is 53 commits ahead of `origin/main` at `61b850f7`. To avoid an oversized main PR, the review candidate is rebuilt from that exact `origin/main` base with only the line-ending CI prerequisite, this app UX change, and this audit. The owner gate and exact-SHA CI still apply.
+- Development started from integration at `78279c99` (53 commits beyond the older main at `61b850f7`). The current review candidate is rebuilt from `origin/main` at `b37d8266` and contains one LF-only CI prerequisite (`tools/tiktok_outfit_clip.py`), the app UX change, and this audit; it does not modify `main`.
 
 ## Положение на лестнице North Star
 
