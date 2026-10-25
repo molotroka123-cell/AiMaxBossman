@@ -27,7 +27,7 @@ def test_mobile_agent_and_terminal_routes(authed):
     assert r_list.status_code == 200
     assert r_list.json()["total"] == 1
 
-    r_msg = authed.post("/m/api/agent/sessions/S1/messages", json={"text": "Run pytest", "mode": "CODE"})
+    r_msg = authed.post("/m/api/agent/sessions/S1/messages", json={"text": "Run pytest", "mode": "CODE", "agent_id": 1})
     assert r_msg.status_code == 200
     assert r_msg.json()["task_id"] == 7
 

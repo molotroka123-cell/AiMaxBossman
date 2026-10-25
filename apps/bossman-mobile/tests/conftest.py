@@ -274,7 +274,7 @@ class FakeBossman:
             return httpx.Response(201, json={"id": "S1", "title": payload.get("title") or "New", "mode": payload.get("mode", "AGENT"), "model": "gemma4-31b-uncensored:latest", "turns": []})
         if path == "/api/agent/sessions/S1" and method in ("GET", "PATCH"):
             payload = json.loads(body) if body else {}
-            return httpx.Response(200, json={"id": "S1", "title": payload.get("title") or "OpenCode Session", "mode": payload.get("mode", "AGENT"), "model": "gemma4-31b-uncensored:latest", "turns": []})
+            return httpx.Response(200, json={"id": "S1", "title": payload.get("title") or "OpenCode Session", "mode": payload.get("mode", "AGENT"), "model": "gemma4-31b-uncensored:latest", "turns": [{"text": "secret turn"}], "spent_usd": 0.0123, "budget_usd": 5.0, "budget_remaining_usd": 4.9877})
         if path == "/api/agent/sessions/S1/messages" and method == "POST":
             payload = json.loads(body) if body else {}
             return httpx.Response(200, json={"mode": payload.get("mode", "AGENT"), "session_id": "S1", "task_id": 7, "task": {"id": 7, "status": "queued"}})
@@ -292,8 +292,17 @@ class FakeBossman:
         if path == "/api/terminal/capabilities" and method == "GET":
             return httpx.Response(200, json={"docker": {"available": False}, "default_mode": "project_host", "modes": ["sandbox", "project_host", "system_admin"]})
         if path == "/api/terminal/roots" and method == "GET":
-            return httpx.Response(200, json={"roots": ["C:/Users/asd/Bossman"]})
+            return httpx.Response(200, json={"roots": ["C:/Users/asd/Bossman", "C:/Users/asd/Bossman/wt-final"]})
         if path == "/api/terminal/run" and method == "POST":
+            payload = json.loads(body) if body else {}
+            if payload.get("command") == "echo test" and not payload.get("approval_id"):
+                # Bossman: a command outside the read-only list -> HTTP 202 + approval id inside `detail`
+                # the real shape: bcc's exception handler answers {"error": <detail>} (live audit 25.10 caught a
+                # fake that said {"detail": ...} and hid a missing approval id)
+                return httpx.Response(202, json={"error": {"message": "нужно подтверждение", "approval_id": 77,
+                                                           "decision": "ask"}})
+            if payload.get("command") == "echo legacy" and not payload.get("approval_id"):
+                return httpx.Response(202, json={"detail": {"approval_id": "78"}})
             return httpx.Response(200, json={"session_id": "term-01", "pid": 1234, "mode": "project_host"})
         if path == "/api/terminal/sessions" and method == "GET":
             return httpx.Response(200, json=[{"id": "term-01", "command": "git status", "status": "finished", "exit_code": 0}])

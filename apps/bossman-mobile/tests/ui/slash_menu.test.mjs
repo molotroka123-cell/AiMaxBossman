@@ -60,6 +60,7 @@ function mk(extra = {}) {
     if (p === '/status') return { bossman: { up: true }, ollama: { up: true, loaded: [] }, approvals_pending: 0, local_agents: 1 };
     if (p === '/threads' && m === 'POST') return { id: 't1' };
     if (p === '/threads/t1/send') return { task: { id: 5 }, model: { alias: 'gemma' } };
+    if (p === '/agent/sessions/t1/messages' && m === 'POST') return { task: { id: 5 }, model: { alias: 'gemma' }, mode: body && body.mode };
     if (p === '/tasks/5') return { id: 5, status: 'running' };
     if (p.startsWith('/approvals/') && m === 'POST') return { id: 9, status: 'approved' };
     return undefined;

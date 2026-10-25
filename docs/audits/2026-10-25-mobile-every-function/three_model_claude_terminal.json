@@ -1,0 +1,39 @@
+{
+ "schema": "bossman.three-model-audit.v1",
+ "goal": "Mobile pult Web Terminal (project_host, non-TTY pipes, every non-read-only command needs owner approval per command) must handle the owner typing 'claude' (Claude Code CLI, an interactive TUI) sensibly. Standing rule: cloud models get no PC access (terminal/files); the only exception is Kimi with per-command approval. Owner may approve terminal commands himself.",
+ "question": "How should the mobile web terminal treat 'claude' commands?",
+ "options": {
+  "A": "Refuse every claude invocation in the web terminal with a clear Russian message: interactive programs are not supported (no TTY); ask Claude through the Chat tab instead. No cloud agent gets the PC through the terminal.",
+  "B": "Refuse bare 'claude' (interactive) with a clear message, but let 'claude -p ...' go through the normal per-command owner approval path, suggesting claude -p in the message."
+ },
+ "votes": [
+  {
+   "model": "kimi-k3.1-pro",
+   "choice": null,
+   "why": "",
+   "seconds": 110.8
+  },
+  {
+   "model": "glm-5.3-flash",
+   "choice": "B",
+   "why": "B: bare 'claude' честно отклонён (не работает без TTY), 'claude -p' идёт через существующий per-command approval — владелец сам контролирует; A режет функциональность без реального выигрыша в безопасности.",
+   "seconds": 20.1
+  },
+  {
+   "model": "nemotron-ultra-free",
+   "choice": "A",
+   "why": "Правило категорично: облачные модели (кроме Kimi) не получают доступ к ПК через терминал. claude -p — это всё равно вызов облачной модели с доступом к файлам/терминалу, что нарушает standing rule. Опция A устанавливает чёткую границу, исключает риск обхода политики, обратима (политику можно менять позже) и безопасна по умолчанию.",
+   "seconds": 43.8
+  },
+  {
+   "model": "gemini-3-flash",
+   "choice": "A",
+   "why": "Claude Code требует TTY (которого нет) и является облачным агентом, доступ которых к ПК запрещен правилами (исключение только для Kimi).",
+   "seconds": 6.1
+  }
+ ],
+ "decision": "A",
+ "decision_text": "Refuse every claude invocation in the web terminal with a clear Russian message: interactive programs are not supported (no TTY); ask Claude through the Chat tab instead. No cloud agent gets the PC through the terminal.",
+ "verdict": "DECIDED",
+ "at": "2026-10-25T06:53:39"
+}

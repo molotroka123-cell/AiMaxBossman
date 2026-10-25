@@ -1,0 +1,42 @@
+# Mobile pult: every function, live 25.10
+
+| control | expected | observed before | observed after | result |
+|---|---|---|---|---|
+| login #pair (device session) | app shown, owner session kept | login 200 | login 200 | PASS |
+| model picker | list loads; switch and back | /agents 200, 17 options; switch+back OK | /agents 200, 17 options, chip='Gemma 4 uncensored · owner-local-gemma4-uncensored' \| 'GLM 5.3 Flash Uncensored (7API) · 7api-glm-5.3-flash-uncensored' -> 'Gemma 4 uncensored · owner-local-gemma4-uncensored' | PASS |
+| context gauge | sheet opens | PASS | text='Контекст · новый чат', sheet=True | PASS |
+| side menu chat list | /threads 200, list rendered (titles not read) | /threads 200 | /threads 200, 3 items, open=drawer open | PASS |
+| side menu archive | /archive 200 | 200 | /archive 200 | PASS |
+| new chat (pencil) | empty chat | PASS | empty visible=True | PASS |
+| mode chip AGENT: selection | aria-checked + persisted + PATCH session | PASS | aria-checked=true, stored=AGENT | PASS |
+| mode chip AUTO: selection | aria-checked + persisted + PATCH session | PASS | aria-checked=true, stored=AUTO | PASS |
+| mode chip CODE: selection | aria-checked + persisted + PATCH session | PASS | aria-checked=true, stored=CODE | PASS |
+| mode chip COMPUTER: selection | aria-checked + persisted + PATCH session | PASS | aria-checked=true, stored=COMPUTER | PASS |
+| mode chip SELF-IMPROVE: selection | aria-checked + persisted + PATCH session | PASS | aria-checked=true, stored=SELF-IMPROVE | PASS |
+| mode chip CHAT: selection | aria-checked + persisted + PATCH session | PASS | aria-checked=true, stored=CHAT | PASS |
+| mode chips: message routing | a message in AGENT/AUTO/CODE/PC//improve reaches the agent dispatcher with that mode | FAIL: AGENT message went to POST /threads/{id}/send; session PATCHed to AGENT but turn mode=None (mode ignored); CODE/PC//improve identical | POST /agent/sessions/{id}/messages 200 with the mode; live turns recorded mode AGENT, CODE, COMPUTER (tasks 266-270 on Gemma agent 41; 267 streamed answer deltas, 268 ran a tool); /improve live: imp-20261025-072333-d5af72 awaiting_owner_approval (approval 94, rejected by the audit) | PASS (fixed) |
+| CHAT mode message | plain chat route, sane answer | POST /threads/{id}/send 200 -> task 265 completed, answer 'Тест' | unchanged code path (CHAT stays on /threads/send; jsdom negative control) | PASS |
+| AUTO / CODE / PC answers to completion | sane answer; PC asks approval; CODE read-only | not reached (mode ignored) | NOT_RUN to completion: Gemma's serial queue was busy with the owner's task; the audit stopped its own tasks 266-270 per task (/api/tasks/{id}/stop, not global STOP). The screenshot gate is code-level: computer.observe default_effect='ask' (command-center/bcc/features/tools_computer.py). | NOT_RUN |
+| $ cost badge | live session spend | FAIL: static '$0.00' in the HTML, no JS updated it | new chat '$0.00'; after the /improve message title 'Бюджет сессии: потрачено $0.0000 из $2.00' (GET /agent/sessions/{id}/cost 200) | PASS (fixed) |
+| Terminal panel | opens | PASS | visible=True | PASS |
+| terminal preset git status | branch + status, exit 0 | run 200; out='$ git status --short --branch\nfatal: not a git repository (or any of the parent directories): .git\n[exit 128]' (cwd = roots[0] = a Python Lib folder) | run 200; out='-10-25-mobile-every-function/\n?? tasks/\n?? tools/prove_geo_terrascope.py\n?? tools/resource_governor/leases.py\n?? tools/resource_governor/test_leases.py\n[exit 0]' | PASS (fixed) |
+| terminal preset git diff | diff --stat, exit 0 | FAIL: git usage text, exit 129 (not a repo) | run 200; out='governor.py               \|  86 ++-\n tools/resource_governor/test_governor.py          \|  45 ++\n 17 files changed, 1802 insertions(+), 279 deletions(-)\n[exit 0]' | PASS (fixed) |
+| terminal preset pytest + Ctrl+C + Kill | starts; Ctrl+C / Kill stop it | FAIL: 'file or directory not found', exit 4 (wrong cwd); sigint/kill 200 only on an already finished session | run 200; out='$ python -m pytest command-center/tests/test_terminal_quick_presets.py -q\n' \| sigint 200; out='st command-center/tests/test_terminal_quick_presets.py -q\n\n^C [SIGINT отправлен]' \| kill 200; out='ython -m pytest command-center/tests/test_terminal_quick_presets.py -q\n\n[exit 1]' | PASS (fixed) |
+| terminal Run python -V | output 'Python 3.x' | FAIL: run 200 but the body was a wrapped 202 (approval needed): no session id, empty output, WS .../undefined/stream 403 | run#1 202, approve 200, run#2 200; out='$ python -V\n\n⏸ Нужно ваше подтверждение (#95): команда не из списка только-чтения.\n[разрешено: #95]\nPython 3.12.10\n[exit 0]' | PASS (fixed) |
+| terminal Run echo test | output 'test' | FAIL: same as python -V | run#1 202, approve 200, run#2 200; out='$ echo test\n\n⏸ Нужно ваше подтверждение (#96): команда не из списка только-чтения.\n[разрешено: #96]\ntest\n[exit 0]' | PASS (fixed) |
+| terminal Run claude | clear refusal (three-model decision A) | FAIL: silent: an approval record was created with no prompt in the UI; approved it would start an interactive TUI on pipes | run 422; out='$ claude\n\n⛔ `claude` в веб-терминале не запускается: это интерактивная программа (нужен TTY), а облачным агентам доступ к ПК через терминал закрыт. Спросите Claude во вкладке «Чат».' | PASS (fixed) |
+| terminal Run vim (other interactive) | clear refusal | not tested | run 422; out='$ vim x\n\n⛔ Интерактивные программы в веб-терминале не поддерживаются (нет TTY): `vim` ждал бы ввода бесконечно. Запустите команду с аргументами, которая завершается сама.' | PASS (new) |
+| Code/Git: Git Diff | status + diff of the repo | 200 but cwd = Python Lib (no repo) | diff 200; out_head='[cwd: C:\\Users\\asd\\Bossman\\wt-final-20261023]\n## integrate/o' | PASS (fixed) |
+| Code/Git: OpenCode tasks | list 200 | 200 | tasks 200; out_head=<task list, instruction text redacted> | PASS |
+| Code/Git: run /improve | 16-step run to the owner gate | not pressed (same pipeline as the /improve chip) | covered by the live /improve chip run above | PASS |
+| PC screen panel + 'screenshot and windows' | owner auth; frame or a clear status | panel opened; the tap left the hint unchanged (looked like nothing happened); message sent with the mode ignored | panel opens; the tap writes a status line and sends a COMPUTER-mode message to the dispatcher (jsdom test); unauthenticated tailnet POST /m/api/terminal/run -> 401; the screenshot itself is gated by computer.observe approval (not approved by the audit) | PASS (fixed) |
+| tab photo | view visible, all calls 2xx | calls=['/m/api/approvals 200', '/m/api/photo/jobs 200', '/m/api/photo/jobs/01dc25ec136f4b00b5cf38a4cacf92a3/file 200', '/m/api/photo/jobs/01dfc1a81a5e403092217353b90738ce/file 200', '/m/api/photo/jobs | calls=[] | PASS |
+| tab video | view visible, all calls 2xx | calls=['/m/api/video/jobs 200', '/m/api/video/models 200', '/m/api/video/queue 200'] | calls=[] | PASS |
+| tab panel | view visible, all calls 2xx | calls=[] iframe title='Главная · BOSSMAN' | calls=['/m/api/approvals 200'] iframe title='BOSSMAN Command Center · UI 2.6.1' | PASS |
+| tab swap | view visible, all calls 2xx | calls=['/m/api/exchange/deals 200'] | calls=['/m/api/exchange/deals 200', '/m/api/photo/models 200', '/m/api/video/models 200'] | PASS |
+| tab calls | view visible, all calls 2xx | calls=['/m/api/calls/answering/reports 200', '/m/api/calls/history 200', '/m/api/calls/status 200'] | calls=['/m/api/calls/answering/reports 200', '/m/api/calls/history 200', '/m/api/calls/status 200', '/m/api/photo/jobs 200', '/m/api/photo/queue 200', '/m/api/photo/status 200', '/m/api/video/jobs 200', '/m/api/video/que | PASS |
+| tab jeff | view visible, all calls 2xx | calls=['/m/api/jeff-kb 200'] | calls=['/m/api/jeff-kb 200'] | PASS |
+| tab status | view visible, all calls 2xx | calls=['/m/api/approvals 200', '/m/api/coding-tasks/status 200', '/m/api/niche/status 200', '/m/api/status 200', '/m/api/stop/active 200', '/m/api/studio/orders 200'] cards=10 error_blocks=0 | calls=['/m/api/approvals 200', '/m/api/coding-tasks/status 200', '/m/api/niche/status 200', '/m/api/status 200', '/m/api/stop/active 200', '/m/api/studio/orders 200'] cards=10 error_blocks=0 | PASS |
+| global STOP | tested via tests only (owner rule) | not pressed live | stop banner / stop routes covered by the suite (309 passed) | PASS (tests) |
+
+Summary: {'rows': 36, 'pass': 35, 'not_run': 1, 'fixed': 10}. Raw evidence and side effects: receipt.json.

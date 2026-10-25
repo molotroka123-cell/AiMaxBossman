@@ -82,6 +82,71 @@ class SendIn(BaseModel):
     attachments: list[str] = Field(default_factory=list, max_length=8)
 
 
+AGENT_MODES = ("CHAT", "AGENT", "AUTO", "CODE", "COMPUTER", "SELF-IMPROVE")
+
+
+class AgentMessageIn(BaseModel):
+    """A chat message sent in an OpenCode mode chip (live audit 25.10: the chips only PATCHed the session while the text
+    still went to /threads/send, so CODE / PC / /improve changed nothing). Strict: no worker, model, cloud switch or
+    repo paths from the phone; the agent must pass the same local-only check as /threads/send."""
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=20000)
+    mode: Literal["CHAT", "AGENT", "AUTO", "CODE", "COMPUTER", "SELF-IMPROVE"]
+    agent_id: int
+    client_request_id: str | None = Field(default=None, min_length=8, max_length=128, pattern=REQ_ID)
+    attachments: list[str] = Field(default_factory=list, max_length=8)
+
+
+# Repo root of the checkout this pult runs from (apps/bossman-mobile/bossmobile/api.py -> repo). The web terminal used
+# roots[0] of Bossman's allowed roots as cwd - on the owner PC that is a Python Lib folder, so «git status» answered
+# «not a git repository» and the pytest preset found no file (live audit 25.10).
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# Web terminal: pipes, no TTY. An interactive program waits for input forever and Kill is the only way out.
+_TERM_SPLIT = re.compile(r"&&|\|\||[;&|\n]")
+_TERM_ALWAYS_INTERACTIVE = {"vim", "vi", "nvim", "nano", "emacs", "less", "more", "top", "htop", "btop", "ssh",
+                            "telnet", "ftp", "sftp", "mysql", "psql", "mongo", "mongosh", "redis-cli", "tmux", "screen",
+                            "watch", "edit", "notepad"}
+_TERM_REPL_WITHOUT_ARGS = {"python", "python3", "py", "node", "ipython", "bash", "sh", "zsh", "fish", "cmd",
+                           "powershell", "pwsh", "irb", "ghci", "lua", "sqlite3", "deno", "bun", "R", "julia"}
+
+
+def _prog_name(tok: str) -> str:
+    name = re.split(r"[\\/]", tok.strip("'\""))[-1]
+    for ext in (".exe", ".cmd", ".bat", ".ps1"):
+        if name.lower().endswith(ext):
+            name = name[: -len(ext)]
+    return name
+
+
+def terminal_refusal(command: str) -> str | None:
+    """Why the web terminal must not start this command, or None. Decision for `claude` recorded in
+    docs/audits/2026-10-25-mobile-every-function/three_model_claude_terminal.json (option A): every claude invocation is
+    refused - it is an interactive TUI here and cloud agents get no PC access through the terminal."""
+    for seg in _TERM_SPLIT.split(command or ""):
+        toks = seg.strip().split()
+        while toks and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", toks[0]):
+            toks = toks[1:]                                  # FOO=bar cmd
+        if toks and toks[0].lower() in ("npx", "pnpx", "bunx") and len(toks) > 1:
+            toks = toks[1:]
+        if not toks:
+            continue
+        prog = _prog_name(toks[0])
+        low = prog.lower()
+        if low in ("claude", "claude-code") or "anthropic-ai/claude-code" in seg:
+            return ("`claude` в веб-терминале не запускается: это интерактивная программа (нужен TTY), а облачным "
+                    "агентам доступ к ПК через терминал закрыт. Спросите Claude во вкладке «Чат».")
+        if low in _TERM_ALWAYS_INTERACTIVE:
+            return (f"Интерактивные программы в веб-терминале не поддерживаются (нет TTY): `{prog}` ждал бы ввода "
+                    "бесконечно. Запустите команду с аргументами, которая завершается сама.")
+        if (low in _TERM_REPL_WITHOUT_ARGS or prog in _TERM_REPL_WITHOUT_ARGS) and len(toks) == 1:
+            return (f"`{prog}` без аргументов открывает интерактивную оболочку, а в веб-терминале нет TTY. "
+                    f"Используйте, например, `{prog} -V`, `{prog} --version` или `{prog} файл`.")
+        if low == "ollama" and len(toks) == 3 and toks[1] == "run":
+            return "`ollama run <модель>` без вопроса открывает интерактивный чат. Добавьте вопрос в кавычках."
+    return None
+
+
 class ChatAttachmentIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=200)
@@ -578,21 +643,26 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def thread(thread_id: str, _=Depends(session)):
         return await call("GET", f"/api/chat/threads/{_tid(thread_id)}")
 
-    @app.post("/m/api/threads/{thread_id}/send")
-    async def send(thread_id: str, body: SendIn, _=Depends(session)):
-        tid = _tid(thread_id)
-        if body.agent_id is None:
+    async def mobile_agent_or_fail(agent_id: int | None, attachments: list[str]) -> dict:
+        """The phone's chat rule, shared by /threads/send and the mode-chip route: only agents allowed for mobile."""
+        if agent_id is None:
             raise fail(403, "Auto отключён в мобильном чате: он может выбрать облачную модель. Выберите локальную модель.",
                        "BM_LOCAL_ONLY")
         cache.pop("agents", None)                 # decide on fresh data, not a 10 s old list
         items = await agents_view()
-        agent = next((a for a in items if a["id"] == body.agent_id), None)
+        agent = next((a for a in items if a["id"] == agent_id), None)
         if agent is None or not agent["allowed"]:
             why = ", ".join(agent["why_not"]) if agent else "агент не найден"
             raise fail(403, f"Отклонено: мобильный чат работает только на локальных моделях ({why}).", "BM_LOCAL_ONLY")
-        if not agent["local"] and body.attachments:
+        if not agent["local"] and attachments:
             raise fail(403, "Облачной модели нельзя отправлять фото и файлы с телефона: выберите локальную модель.",
                        "BM_CLOUD_NO_ATTACH")
+        return agent
+
+    @app.post("/m/api/threads/{thread_id}/send")
+    async def send(thread_id: str, body: SendIn, _=Depends(session)):
+        tid = _tid(thread_id)
+        await mobile_agent_or_fail(body.agent_id, body.attachments)
         payload: dict[str, Any] = {"text": body.text, "agent_id": body.agent_id}
         if body.client_request_id:
             payload["client_request_id"] = body.client_request_id
@@ -1384,9 +1454,29 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         return await call("PATCH", f"/api/agent/sessions/{_tid(session_id)}", json=body)
 
     @app.post("/m/api/agent/sessions/{session_id}/messages")
-    async def m_agent_session_messages(session_id: str, request: Request, _=Depends(session)):
-        body = await request.json()
-        return await call("POST", f"/api/agent/sessions/{_tid(session_id)}/messages", json=body, timeout=180)
+    async def m_agent_session_messages(session_id: str, body: AgentMessageIn, _=Depends(session)):
+        tid = _tid(session_id)
+        await mobile_agent_or_fail(body.agent_id, body.attachments)
+        payload: dict[str, Any] = {"text": body.text, "mode": body.mode, "agent_id": body.agent_id,
+                                   "allow_cloud": False}
+        if body.client_request_id:
+            payload["client_request_id"] = body.client_request_id
+        if body.attachments:
+            payload["attachments"] = [str(a)[:64] for a in body.attachments[:8] if str(a).strip()]
+        return await call("POST", f"/api/agent/sessions/{tid}/messages", json=payload, timeout=180)
+
+    @app.get("/m/api/agent/sessions/{session_id}/cost")
+    async def m_agent_session_cost(session_id: str, _=Depends(session)):
+        """Numbers for the «$» badge only (no chat text): the badge was a static «$0.00» (live audit 25.10)."""
+        d = await call("GET", f"/api/agent/sessions/{_tid(session_id)}")
+        d = d if isinstance(d, dict) else {}
+
+        def num(k: str) -> float | None:
+            v = d.get(k)
+            return round(float(v), 6) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+        return {"spent_usd": num("spent_usd"), "budget_usd": num("budget_usd"),
+                "budget_remaining_usd": num("budget_remaining_usd"),
+                "mode": d.get("mode") if d.get("mode") in AGENT_MODES else None}
 
     @app.get("/m/api/agent/sessions/{session_id}/events")
     async def m_agent_session_events(session_id: str, after: int = 0, limit: int = 200, _=Depends(session)):
@@ -1442,12 +1532,46 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.get("/m/api/terminal/roots")
     async def m_term_roots(_=Depends(session)):
-        return await call("GET", "/api/terminal/roots")
+        body = await call("GET", "/api/terminal/roots")
+        roots = [r for r in (body.get("roots") if isinstance(body, dict) else None) or [] if isinstance(r, str)]
+
+        def norm(p: str) -> str:
+            return str(Path(p)).rstrip("\\/").lower()
+        here = norm(str(REPO_ROOT))
+        # the checkout this pult runs from, when Bossman allows it; else the first allowed root (old behaviour)
+        default = next((r for r in roots if norm(r) == here), roots[0] if roots else None)
+        return {**(body if isinstance(body, dict) else {}), "roots": roots, "default": default}
 
     @app.post("/m/api/terminal/run")
     async def m_term_run(request: Request, _=Depends(session)):
         body = await request.json()
-        return await call("POST", "/api/terminal/run", json=body)
+        if not isinstance(body, dict):
+            raise fail(422, "тело запроса должно быть JSON-объектом", "BM_BAD_REQUEST")
+        why = terminal_refusal(str(body.get("command") or ""))
+        if why:
+            raise fail(422, why, "TERMINAL_INTERACTIVE", "веб-терминал без TTY: только команды, которые завершаются сами")
+        try:
+            status, payload = await bm.json("POST", "/api/terminal/run", json=body)
+        except BossmanUnavailable as exc:
+            raise fail(502, str(exc), "BOSSMAN_UNAVAILABLE", "проверьте, что Bossman запущен на ПК") from None
+        if status == 202:
+            # Bossman answers «needs approval» as HTTP 202 with the id in `detail`; passed through as a 200 body the
+            # phone saw no session id and printed nothing for `python -V` / `echo test` (live audit 25.10).
+            # Bossman's error handler wraps HTTPException details as {"error": {...}} (older shape: {"detail": {...}})
+            det = next((payload.get(k) for k in ("error", "detail")
+                        if isinstance(payload, dict) and isinstance(payload.get(k), dict)), {})
+            aid = det.get("approval_id")
+            aid = int(aid) if isinstance(aid, int) or (isinstance(aid, str) and aid.isdigit()) else None
+            return JSONResponse(status_code=202, content={
+                "approval_required": True, "approval_id": aid, "decision": "ask",
+                "message": "нужно подтверждение владельца: команда не из списка только-чтения"})
+        if status >= 400:
+            err = payload.get("error") if isinstance(payload, dict) else None
+            if isinstance(err, dict):
+                raise HTTPException(status, safe(err))
+            detail = payload.get("detail") if isinstance(payload, dict) else None
+            raise HTTPException(status, safe(detail if isinstance(detail, dict) else {"message": f"Bossman: HTTP {status}"}))
+        return safe(payload)
 
     @app.get("/m/api/terminal/sessions")
     async def m_term_sessions(_=Depends(session)):

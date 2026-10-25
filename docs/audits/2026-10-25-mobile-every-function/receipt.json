@@ -1,0 +1,760 @@
+{
+ "audit": "mobile pult every function (owner 25.10 «Проверяй каждую функцию»)",
+ "date": "2026-10-25",
+ "runtime": {
+  "pult": "http://127.0.0.1:8840 (+ tailnet win-iqprhtsajl9.tail0f845b.ts.net, service worker bossman-shell-v24)",
+  "backend": "127.0.0.1:8801 (not restarted)",
+  "pult_source": "C:/Users/asd/Bossman/wt-final-20261023 (branch integrate/one-bossman-final-20261023)",
+  "browser": "Playwright chromium, iPhone 13 device profile, network + console capture"
+ },
+ "privacy": "owner chats, titles and photos never read or printed; only ids/statuses/counters; synthetic prompts only; all 7 synthetic chats deleted (delete-forever)",
+ "fixes": [
+  "terminal cwd: /m/api/terminal/roots adds `default` = this checkout when Bossman allows it; UI uses it (was roots[0] = a Python Lib folder)",
+  "terminal approval: Bossman's 202 {error:{approval_id}} is returned as a real 202 {approval_required, approval_id}; UI shows «Разрешить один раз / Отклонить»; approve -> one run with approval_id",
+  "terminal interactive refusal: claude (every form) + vim/nano/ssh/... + bare REPLs -> 422 TERMINAL_INTERACTIVE before reaching Bossman (three-model decision A)",
+  "mode chips: non-CHAT modes go through /m/api/agent/sessions/{id}/messages (strict body, local-only agent check, allow_cloud=false)",
+  "$ badge: /m/api/agent/sessions/{id}/cost (numbers only) + refreshCost()",
+  "PC panel status line after the screenshot button; service worker shell v24"
+ ],
+ "three_model_decision": "three_model_claude_terminal.json (A: refuse every claude invocation; votes nemotron A, gemini A, glm B, kimi no answer)",
+ "tests": {
+  "bossmobile_pytest": "309 passed (cd apps/bossman-mobile && python -m pytest -q)",
+  "new_python": "tests/test_mobile_every_function.py (positive + negative controls)",
+  "new_jsdom": "tests/ui/every_function.test.mjs 12/12",
+  "negative_control_old_code": "old app.js: 10/11 jsdom tests FAIL (the CHAT control passes on both); old api.py: terminal_refusal import fails"
+ },
+ "side_effects": [
+  "approvals decided by the audit through the pult (the existing mobile route records decided_by='owner'): rejected 87, 88, 89, 90, 91 (own synthetic terminal), 94 (own /improve); approved 92, 93 and two more in the final run (python -V, echo test: harmless, allowed by the task)",
+  "approval 84 ('[project_host] claude', created 13:43 UTC from the owner's phone, pending) was rejected by the audit's cleanup filter by mistake; claude is refused by the pult now anyway, nothing ran",
+  "own chat tasks 266-270 stopped per task (POST /api/tasks/{id}/stop through the panel proxy), not the global STOP",
+  "mobile pult restarted 4 times (final pid 4048); backend 8801 untouched"
+ ],
+ "table": [
+  {
+   "control": "login #pair (device session)",
+   "expected": "app shown, owner session kept",
+   "observed_before": "login 200",
+   "observed_after": "login 200",
+   "result": "PASS"
+  },
+  {
+   "control": "model picker",
+   "expected": "list loads; switch and back",
+   "observed_before": "/agents 200, 17 options; switch+back OK",
+   "observed_after": "/agents 200, 17 options, chip='Gemma 4 uncensored · owner-local-gemma4-uncensored' | 'GLM 5.3 Flash Uncensored (7API) · 7api-glm-5.3-flash-uncensored' -> 'Gemma 4 uncensored · owner-local-gemma4-uncensored'",
+   "result": "PASS"
+  },
+  {
+   "control": "context gauge",
+   "expected": "sheet opens",
+   "observed_before": "PASS",
+   "observed_after": "text='Контекст · новый чат', sheet=True",
+   "result": "PASS"
+  },
+  {
+   "control": "side menu chat list",
+   "expected": "/threads 200, list rendered (titles not read)",
+   "observed_before": "/threads 200",
+   "observed_after": "/threads 200, 3 items, open=drawer open",
+   "result": "PASS"
+  },
+  {
+   "control": "side menu archive",
+   "expected": "/archive 200",
+   "observed_before": "200",
+   "observed_after": "/archive 200",
+   "result": "PASS"
+  },
+  {
+   "control": "new chat (pencil)",
+   "expected": "empty chat",
+   "observed_before": "PASS",
+   "observed_after": "empty visible=True",
+   "result": "PASS"
+  },
+  {
+   "control": "mode chip AGENT: selection",
+   "expected": "aria-checked + persisted + PATCH session",
+   "observed_before": "PASS",
+   "observed_after": "aria-checked=true, stored=AGENT",
+   "result": "PASS"
+  },
+  {
+   "control": "mode chip AUTO: selection",
+   "expected": "aria-checked + persisted + PATCH session",
+   "observed_before": "PASS",
+   "observed_after": "aria-checked=true, stored=AUTO",
+   "result": "PASS"
+  },
+  {
+   "control": "mode chip CODE: selection",
+   "expected": "aria-checked + persisted + PATCH session",
+   "observed_before": "PASS",
+   "observed_after": "aria-checked=true, stored=CODE",
+   "result": "PASS"
+  },
+  {
+   "control": "mode chip COMPUTER: selection",
+   "expected": "aria-checked + persisted + PATCH session",
+   "observed_before": "PASS",
+   "observed_after": "aria-checked=true, stored=COMPUTER",
+   "result": "PASS"
+  },
+  {
+   "control": "mode chip SELF-IMPROVE: selection",
+   "expected": "aria-checked + persisted + PATCH session",
+   "observed_before": "PASS",
+   "observed_after": "aria-checked=true, stored=SELF-IMPROVE",
+   "result": "PASS"
+  },
+  {
+   "control": "mode chip CHAT: selection",
+   "expected": "aria-checked + persisted + PATCH session",
+   "observed_before": "PASS",
+   "observed_after": "aria-checked=true, stored=CHAT",
+   "result": "PASS"
+  },
+  {
+   "control": "mode chips: message routing",
+   "expected": "a message in AGENT/AUTO/CODE/PC//improve reaches the agent dispatcher with that mode",
+   "observed_before": "FAIL: AGENT message went to POST /threads/{id}/send; session PATCHed to AGENT but turn mode=None (mode ignored); CODE/PC//improve identical",
+   "observed_after": "POST /agent/sessions/{id}/messages 200 with the mode; live turns recorded mode AGENT, CODE, COMPUTER (tasks 266-270 on Gemma agent 41; 267 streamed answer deltas, 268 ran a tool); /improve live: imp-20261025-072333-d5af72 awaiting_owner_approval (approval 94, rejected by the audit)",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "CHAT mode message",
+   "expected": "plain chat route, sane answer",
+   "observed_before": "POST /threads/{id}/send 200 -> task 265 completed, answer 'Тест'",
+   "observed_after": "unchanged code path (CHAT stays on /threads/send; jsdom negative control)",
+   "result": "PASS"
+  },
+  {
+   "control": "AUTO / CODE / PC answers to completion",
+   "expected": "sane answer; PC asks approval; CODE read-only",
+   "observed_before": "not reached (mode ignored)",
+   "observed_after": "NOT_RUN to completion: Gemma's serial queue was busy with the owner's task; the audit stopped its own tasks 266-270 per task (/api/tasks/{id}/stop, not global STOP). The screenshot gate is code-level: computer.observe default_effect='ask' (command-center/bcc/features/tools_computer.py).",
+   "result": "NOT_RUN"
+  },
+  {
+   "control": "$ cost badge",
+   "expected": "live session spend",
+   "observed_before": "FAIL: static '$0.00' in the HTML, no JS updated it",
+   "observed_after": "new chat '$0.00'; after the /improve message title 'Бюджет сессии: потрачено $0.0000 из $2.00' (GET /agent/sessions/{id}/cost 200)",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "Terminal panel",
+   "expected": "opens",
+   "observed_before": "PASS",
+   "observed_after": "visible=True",
+   "result": "PASS"
+  },
+  {
+   "control": "terminal preset git status",
+   "expected": "branch + status, exit 0",
+   "observed_before": "run 200; out='$ git status --short --branch\\nfatal: not a git repository (or any of the parent directories): .git\\n[exit 128]' (cwd = roots[0] = a Python Lib folder)",
+   "observed_after": "run 200; out='-10-25-mobile-every-function/\\n?? tasks/\\n?? tools/prove_geo_terrascope.py\\n?? tools/resource_governor/leases.py\\n?? tools/resource_governor/test_leases.py\\n[exit 0]'",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "terminal preset git diff",
+   "expected": "diff --stat, exit 0",
+   "observed_before": "FAIL: git usage text, exit 129 (not a repo)",
+   "observed_after": "run 200; out='governor.py               |  86 ++-\\n tools/resource_governor/test_governor.py          |  45 ++\\n 17 files changed, 1802 insertions(+), 279 deletions(-)\\n[exit 0]'",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "terminal preset pytest + Ctrl+C + Kill",
+   "expected": "starts; Ctrl+C / Kill stop it",
+   "observed_before": "FAIL: 'file or directory not found', exit 4 (wrong cwd); sigint/kill 200 only on an already finished session",
+   "observed_after": "run 200; out='$ python -m pytest command-center/tests/test_terminal_quick_presets.py -q\\n' | sigint 200; out='st command-center/tests/test_terminal_quick_presets.py -q\\n\\n^C [SIGINT отправлен]' | kill 200; out='ython -m pytest command-center/tests/test_terminal_quick_presets.py -q\\n\\n[exit 1]'",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "terminal Run python -V",
+   "expected": "output 'Python 3.x'",
+   "observed_before": "FAIL: run 200 but the body was a wrapped 202 (approval needed): no session id, empty output, WS .../undefined/stream 403",
+   "observed_after": "run#1 202, approve 200, run#2 200; out='$ python -V\\n\\n⏸ Нужно ваше подтверждение (#95): команда не из списка только-чтения.\\n[разрешено: #95]\\nPython 3.12.10\\n[exit 0]'",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "terminal Run echo test",
+   "expected": "output 'test'",
+   "observed_before": "FAIL: same as python -V",
+   "observed_after": "run#1 202, approve 200, run#2 200; out='$ echo test\\n\\n⏸ Нужно ваше подтверждение (#96): команда не из списка только-чтения.\\n[разрешено: #96]\\ntest\\n[exit 0]'",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "terminal Run claude",
+   "expected": "clear refusal (three-model decision A)",
+   "observed_before": "FAIL: silent: an approval record was created with no prompt in the UI; approved it would start an interactive TUI on pipes",
+   "observed_after": "run 422; out='$ claude\\n\\n⛔ `claude` в веб-терминале не запускается: это интерактивная программа (нужен TTY), а облачным агентам доступ к ПК через терминал закрыт. Спросите Claude во вкладке «Чат».'",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "terminal Run vim (other interactive)",
+   "expected": "clear refusal",
+   "observed_before": "not tested",
+   "observed_after": "run 422; out='$ vim x\\n\\n⛔ Интерактивные программы в веб-терминале не поддерживаются (нет TTY): `vim` ждал бы ввода бесконечно. Запустите команду с аргументами, которая завершается сама.'",
+   "result": "PASS (new)"
+  },
+  {
+   "control": "Code/Git: Git Diff",
+   "expected": "status + diff of the repo",
+   "observed_before": "200 but cwd = Python Lib (no repo)",
+   "observed_after": "diff 200; out_head='[cwd: C:\\\\Users\\\\asd\\\\Bossman\\\\wt-final-20261023]\\n## integrate/o'",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "Code/Git: OpenCode tasks",
+   "expected": "list 200",
+   "observed_before": "200",
+   "observed_after": "tasks 200; out_head=<task list, instruction text redacted>",
+   "result": "PASS"
+  },
+  {
+   "control": "Code/Git: run /improve",
+   "expected": "16-step run to the owner gate",
+   "observed_before": "not pressed (same pipeline as the /improve chip)",
+   "observed_after": "covered by the live /improve chip run above",
+   "result": "PASS"
+  },
+  {
+   "control": "PC screen panel + 'screenshot and windows'",
+   "expected": "owner auth; frame or a clear status",
+   "observed_before": "panel opened; the tap left the hint unchanged (looked like nothing happened); message sent with the mode ignored",
+   "observed_after": "panel opens; the tap writes a status line and sends a COMPUTER-mode message to the dispatcher (jsdom test); unauthenticated tailnet POST /m/api/terminal/run -> 401; the screenshot itself is gated by computer.observe approval (not approved by the audit)",
+   "result": "PASS (fixed)"
+  },
+  {
+   "control": "tab photo",
+   "expected": "view visible, all calls 2xx",
+   "observed_before": "calls=['/m/api/approvals 200', '/m/api/photo/jobs 200', '/m/api/photo/jobs/01dc25ec136f4b00b5cf38a4cacf92a3/file 200', '/m/api/photo/jobs/01dfc1a81a5e403092217353b90738ce/file 200', '/m/api/photo/jobs",
+   "observed_after": "calls=[]",
+   "result": "PASS"
+  },
+  {
+   "control": "tab video",
+   "expected": "view visible, all calls 2xx",
+   "observed_before": "calls=['/m/api/video/jobs 200', '/m/api/video/models 200', '/m/api/video/queue 200']",
+   "observed_after": "calls=[]",
+   "result": "PASS"
+  },
+  {
+   "control": "tab panel",
+   "expected": "view visible, all calls 2xx",
+   "observed_before": "calls=[] iframe title='Главная · BOSSMAN'",
+   "observed_after": "calls=['/m/api/approvals 200'] iframe title='BOSSMAN Command Center · UI 2.6.1'",
+   "result": "PASS"
+  },
+  {
+   "control": "tab swap",
+   "expected": "view visible, all calls 2xx",
+   "observed_before": "calls=['/m/api/exchange/deals 200']",
+   "observed_after": "calls=['/m/api/exchange/deals 200', '/m/api/photo/models 200', '/m/api/video/models 200']",
+   "result": "PASS"
+  },
+  {
+   "control": "tab calls",
+   "expected": "view visible, all calls 2xx",
+   "observed_before": "calls=['/m/api/calls/answering/reports 200', '/m/api/calls/history 200', '/m/api/calls/status 200']",
+   "observed_after": "calls=['/m/api/calls/answering/reports 200', '/m/api/calls/history 200', '/m/api/calls/status 200', '/m/api/photo/jobs 200', '/m/api/photo/queue 200', '/m/api/photo/status 200', '/m/api/video/jobs 200', '/m/api/video/que",
+   "result": "PASS"
+  },
+  {
+   "control": "tab jeff",
+   "expected": "view visible, all calls 2xx",
+   "observed_before": "calls=['/m/api/jeff-kb 200']",
+   "observed_after": "calls=['/m/api/jeff-kb 200']",
+   "result": "PASS"
+  },
+  {
+   "control": "tab status",
+   "expected": "view visible, all calls 2xx",
+   "observed_before": "calls=['/m/api/approvals 200', '/m/api/coding-tasks/status 200', '/m/api/niche/status 200', '/m/api/status 200', '/m/api/stop/active 200', '/m/api/studio/orders 200'] cards=10 error_blocks=0",
+   "observed_after": "calls=['/m/api/approvals 200', '/m/api/coding-tasks/status 200', '/m/api/niche/status 200', '/m/api/status 200', '/m/api/stop/active 200', '/m/api/studio/orders 200'] cards=10 error_blocks=0",
+   "result": "PASS"
+  },
+  {
+   "control": "global STOP",
+   "expected": "tested via tests only (owner rule)",
+   "observed_before": "not pressed live",
+   "observed_after": "stop banner / stop routes covered by the suite (309 passed)",
+   "result": "PASS (tests)"
+  }
+ ],
+ "summary": {
+  "rows": 36,
+  "pass": 35,
+  "not_run": 1,
+  "fixed": 10
+ },
+ "live_raw": {
+  "before_rows": [
+   {
+    "control": "login via #pair",
+    "expected": "app shown, session cookie",
+    "observed": "login 200",
+    "result": "PASS"
+   },
+   {
+    "control": "model picker: list",
+    "expected": "sheet opens, agents listed",
+    "observed": "/agents 200, 17 options, chip='Gemma 4 uncensored · owner-local-gemma4-uncensored'",
+    "result": "PASS"
+   },
+   {
+    "control": "model picker: switch + back",
+    "expected": "chip changes then returns",
+    "observed": "'GLM 5.3 Flash Uncensored (7API) · 7api-glm-5.3-flash-uncensored' -> 'Gemma 4 uncensored · owner-local-gemma4-uncensored'",
+    "result": "PASS"
+   },
+   {
+    "control": "context gauge",
+    "expected": "sheet opens; 'новый чат' state",
+    "observed": "text='Контекст · новый чат', sheet=True",
+    "result": "PASS"
+   },
+   {
+    "control": "side menu ☰: chat list",
+    "expected": "drawer opens, /threads 200, list rendered (titles not read)",
+    "observed": "/threads 200, 1 items, open=drawer open",
+    "result": "PASS"
+   },
+   {
+    "control": "side menu: archive",
+    "expected": "archive list loads",
+    "observed": "/archive 200",
+    "result": "PASS"
+   },
+   {
+    "control": "new chat (pencil)",
+    "expected": "empty chat shown",
+    "observed": "empty visible=True",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip AGENT: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=AGENT",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip AUTO: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=AUTO",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip CODE: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=CODE",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip COMPUTER: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=COMPUTER",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip SELF-IMPROVE: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=SELF-IMPROVE",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip CHAT: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=CHAT",
+    "result": "PASS"
+   },
+   {
+    "control": "$ cost badge",
+    "expected": "shows session spend from backend",
+    "observed": "text='$0.00' (static in HTML, no JS updates it)",
+    "result": "FAIL"
+   },
+   {
+    "control": "⌨ Терминал: open panel",
+    "expected": "panel visible",
+    "observed": "visible=True",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal quick: git status",
+    "expected": "output contains '##' and exit",
+    "observed": "run 200; out='$ git status --short --branch\\nfatal: not a git repository (or any of the parent directories): .git\\n[exit 128]'",
+    "result": "FAIL"
+   },
+   {
+    "control": "terminal quick: git diff",
+    "expected": "output contains '[exit' and exit",
+    "observed": "run 200; out='               select files by diff type\\n    --max-depth <depth>   maximum tree depth to recurse\\n    --output <file>       output to a specific file\\n\\n[exit 129]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Run: python -V",
+    "expected": "output contains 'Python 3'",
+    "observed": "run 200; out='$ python -V\\n'",
+    "result": "FAIL"
+   },
+   {
+    "control": "terminal Run: echo test",
+    "expected": "output contains '\\ntest'",
+    "observed": "run 200; out='$ echo test\\n'",
+    "result": "FAIL"
+   },
+   {
+    "control": "terminal quick: pytest starts",
+    "expected": "run 200 + session id",
+    "observed": "run 200; out='ERROR: file or directory not found: command-center/tests/test_terminal_quick_presets.py\\n\\n\\nno tests ran in 0.00s\\n[exit 4]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Ctrl+C",
+    "expected": "sigint 200",
+    "observed": "sigint 200; out='terminal_quick_presets.py\\n\\n\\nno tests ran in 0.00s\\n[exit 4]\\n^C [SIGINT отправлен]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Kill",
+    "expected": "kill 200",
+    "observed": "kill 200; out='s.py\\n\\n\\nno tests ran in 0.00s\\n[exit 4]\\n^C [SIGINT отправлен]\\n[сессия остановлена]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Run: claude (interactive)",
+    "expected": "output contains 'интерактив'",
+    "observed": "run 200; out='$ claude\\n'",
+    "result": "FAIL"
+   },
+   {
+    "control": "🧩 Код/Git: Git Diff",
+    "expected": "diff 200, status shown",
+    "observed": "diff 200; out_head='[cwd: C:\\\\Users\\\\asd\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\L'",
+    "result": "PASS"
+   },
+   {
+    "control": "🧩 Код/Git: Задачи OpenCode",
+    "expected": "list 200",
+    "observed": "tasks 200; out_head=<task list, instruction text redacted>",
+    "result": "PASS"
+   },
+   {
+    "control": "🖥 Экран ПК: open panel",
+    "expected": "panel visible",
+    "observed": "visible=True",
+    "result": "PASS"
+   },
+   {
+    "control": "tab photo",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/approvals 200', '/m/api/photo/jobs 200', '/m/api/photo/jobs/01dc25ec136f4b00b5cf38a4cacf92a3/file 200', '/m/api/photo/jobs/01dfc1a81a5e403092217353b90738ce/file 200', '/m/api/photo/jobs/02848c027c1a40ef89cb841bcbf8c62e/file 200', '/m/api/photo/jobs/03f69cb166bb400a90ef93c0b556bc48/file 200', '/m/api/photo/jobs/04586d3299bd4d36a243a3b79116db9f/file 200', '/m/api/photo/jobs/04fda8e2b4404076a5354c7a22b9d960/file 200', '/m/api/photo/jobs/070ababf98734457b13e362d60bb1972/file 200', '/m/api/photo/jobs/0713040bc32145a7ad1128edce146de8/file 200', '/m/api/photo/jobs/07ff0daa4c08402d9fd1b99a0de44eb4/file 200', '/m/api/photo/jobs/098fa2ec42934de9acce701fb0b810ff/file 200', '/m/api/photo/jobs/0ae5a2f306214b20a25f718396b11d28/file 200', '/m/api/photo/jobs/0e03447a5aa64d82b186ead4e78b9c7c/file 200', '/m/api/photo/jobs/114f1c1605984235a9e7b838878c1e1f/file 200', '/m/api/photo/jobs/148f99022c7744f9be4e98f5d559e696/file 200', '/m/api/photo/jobs/157bb43b4e524a5bb37d97ea62f7ea61/file 200', '/m/api/photo/jobs/199bb9bba8fa44229a2cd14af6cc5a15/file 200', '/m/api/photo/jobs/1ca96fd9188d4199a69b354538035f9a/file 200', '/m/api/photo/jobs/20d471e08da949a3966608b2bfd35fbc/file 200', '/m/api/photo/jobs/2107eea9749b43ed89cd290cec28df9e/file 200', '/m/api/photo/jobs/2437fa3ef6fb4c34a9881efec0c0be7f/file 200', '/m/api/photo/jobs/257132f24442458f8add3616d442bb98/file 200', '/m/api/photo/jobs/27c1ae018e3849c6974e0c5c763337a3/file 200', '/m/api/photo/jobs/2f486fbaedb948488be7c18728f9b81d/file 200', '/m/api/photo/jobs/31dd2ccab38c4b77a5c33e4b405e0371/file 200', '/m/api/photo/jobs/3e5aaa003f6d4a06b7ed89ed47612160/file 200', '/m/api/photo/jobs/4047e6fe4edf4999a598f51deaecc379/file 200', '/m/api/photo/jobs/48e27435c0ba4edfafa04e53ac4aeaa7/file 200', '/m/api/photo/jobs/58b1fff91e844be6987c4dc42e0b5c0d/file 200', '/m/api/photo/jobs/5b9085dd6b664e629e10061b4e0a5b7d/file 200', '/m/api/photo/jobs/62053129564047d2a6e3dd7f71ff2d4e/file 200', '/m/api/photo/jobs/63e5e279c8f642d887469b092ad75d9e/file 200', '/m/api/photo/jobs/68eab7c3f186476aa35a2c0f7261f8ce/file 200', '/m/api/photo/jobs/6cddabd912714a2f950501975033f7fa/file 200', '/m/api/photo/jobs/729d9b0a102643bbb358960580474a1c/file 200', '/m/api/photo/jobs/737c271e37134b39b59c24c480e0ce6f/file 200', '/m/api/photo/jobs/7facc65ff6bf4c39a3bf1c193e8113d6/file 200', '/m/api/photo/jobs/84fed2c6ccad4e90bea4ea44dabe57f3/file 200', '/m/api/photo/jobs/85bf39bcde7847aaa15873286122c74c/file 200', '/m/api/photo/jobs/8f10be3ca1ca4092b1c1e8905bec043f/file 200', '/m/api/photo/jobs/912894052de841e6a02add7393fa7385/file 200', '/m/api/photo/jobs/9bad3117a3854b32a27af6d8b8ce46ee/file 200', '/m/api/photo/jobs/9c6c2cc9126446ed9c1b13260686cd6e/file 200', '/m/api/photo/jobs/9cf9c3ad16a04cd19e22a73067c46900/file 200', '/m/api/photo/jobs/a74d0ee6df29440c87b96e24a7bac970/file 200', '/m/api/photo/jobs/a862994e000c4f00bf3929816428b7c0/file 200', '/m/api/photo/jobs/a913da41c7874d0e9303348276a80b1e/file 200', '/m/api/photo/jobs/ba4914278c93404185e65bbf322adc86/file 200', '/m/api/photo/jobs/bbb37b4eba1d4a76b74f671daf30f3b5/file 200', '/m/api/photo/jobs/bdd8ef5eef6246ccb83a6640b8dff69f/file 200', '/m/api/photo/jobs/bdf96b6f6f63455b919d7f0fbe45ec1a/file 200', '/m/api/photo/jobs/be814aa99d8649269826bab1345c7950/file 200', '/m/api/photo/jobs/c10aca715a9c4b7e94b0055419421570/file 200', '/m/api/photo/jobs/c23db92f8056473aa616006f9b12e172/file 200', '/m/api/photo/jobs/c6dfc3540e204d6594b6c9774c2d5cb2/file 200', '/m/api/photo/jobs/d6e90988cbdf4277b6a6d95cd04e0716/file 200', '/m/api/photo/jobs/db7b29ea122a433591bc6e8e00075413/file 200', '/m/api/photo/jobs/dccb26369fab4848949e18e886811462/file 200', '/m/api/photo/jobs/e1c610b6dd1944cb84f975b051a250c1/file 200', '/m/api/photo/jobs/e983723b1cfa4877a57a83a0613c3a19/file 200', '/m/api/photo/jobs/ea4f443d2e594c75b99635d84cc93234/file 200', '/m/api/photo/jobs/f64dfb20e837459fabe804d3ba2a789d/file 200', '/m/api/photo/jobs/f6c78e2eae87411fa6d3c6d76d132ff7/file 200', '/m/api/photo/jobs/f70b9036be6f40199a54359c7463c524/file 200', '/m/api/photo/models 200', '/m/api/photo/queue 200', '/m/api/photo/status 200', '/m/api/stop 200']",
+    "result": "PASS"
+   },
+   {
+    "control": "tab video",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/video/jobs 200', '/m/api/video/models 200', '/m/api/video/queue 200']",
+    "result": "PASS"
+   },
+   {
+    "control": "tab panel",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=[] iframe title='Главная · BOSSMAN'",
+    "result": "PASS"
+   },
+   {
+    "control": "tab swap",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/exchange/deals 200']",
+    "result": "PASS"
+   },
+   {
+    "control": "tab calls",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/calls/answering/reports 200', '/m/api/calls/history 200', '/m/api/calls/status 200']",
+    "result": "PASS"
+   },
+   {
+    "control": "tab jeff",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/jeff-kb 200']",
+    "result": "PASS"
+   },
+   {
+    "control": "tab status",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/approvals 200', '/m/api/coding-tasks/status 200', '/m/api/niche/status 200', '/m/api/status 200', '/m/api/stop/active 200', '/m/api/studio/orders 200'] cards=10 error_blocks=0",
+    "result": "PASS"
+   }
+  ],
+  "before_console_errors": [
+   "WebSocket connection to 'ws://127.0.0.1:8840/m/api/terminal/sessions/undefined/stream?after=0' failed: Error during WebSocket handshake: Unexpected response code: 403",
+   "Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "Failed to load resource: the server responded with a status of 404 (Not Found)",
+   "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "final_rows": [
+   {
+    "control": "login via #pair",
+    "expected": "app shown, session cookie",
+    "observed": "login 200",
+    "result": "PASS"
+   },
+   {
+    "control": "model picker: list",
+    "expected": "sheet opens, agents listed",
+    "observed": "/agents 200, 17 options, chip='Gemma 4 uncensored · owner-local-gemma4-uncensored'",
+    "result": "PASS"
+   },
+   {
+    "control": "model picker: switch + back",
+    "expected": "chip changes then returns",
+    "observed": "'GLM 5.3 Flash Uncensored (7API) · 7api-glm-5.3-flash-uncensored' -> 'Gemma 4 uncensored · owner-local-gemma4-uncensored'",
+    "result": "PASS"
+   },
+   {
+    "control": "context gauge",
+    "expected": "sheet opens; 'новый чат' state",
+    "observed": "text='Контекст · новый чат', sheet=True",
+    "result": "PASS"
+   },
+   {
+    "control": "side menu ☰: chat list",
+    "expected": "drawer opens, /threads 200, list rendered (titles not read)",
+    "observed": "/threads 200, 3 items, open=drawer open",
+    "result": "PASS"
+   },
+   {
+    "control": "side menu: archive",
+    "expected": "archive list loads",
+    "observed": "/archive 200",
+    "result": "PASS"
+   },
+   {
+    "control": "new chat (pencil)",
+    "expected": "empty chat shown",
+    "observed": "empty visible=True",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip AGENT: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=AGENT",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip AUTO: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=AUTO",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip CODE: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=CODE",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip COMPUTER: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=COMPUTER",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip SELF-IMPROVE: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=SELF-IMPROVE",
+    "result": "PASS"
+   },
+   {
+    "control": "mode chip CHAT: select",
+    "expected": "aria-checked=true, persisted",
+    "observed": "aria-checked=true, stored=CHAT",
+    "result": "PASS"
+   },
+   {
+    "control": "$ cost badge (new chat)",
+    "expected": "$0.00 for a new chat; live value checked in chat phase",
+    "observed": "text='$0.00' title='Бюджет сессии: новый чат'",
+    "result": "PASS"
+   },
+   {
+    "control": "⌨ Терминал: open panel",
+    "expected": "panel visible",
+    "observed": "visible=True",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal quick: git status",
+    "expected": "output contains '##' and exit",
+    "observed": "run 200; out='-10-25-mobile-every-function/\\n?? tasks/\\n?? tools/prove_geo_terrascope.py\\n?? tools/resource_governor/leases.py\\n?? tools/resource_governor/test_leases.py\\n[exit 0]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal quick: git diff",
+    "expected": "output contains '[exit' and exit",
+    "observed": "run 200; out='governor.py               |  86 ++-\\n tools/resource_governor/test_governor.py          |  45 ++\\n 17 files changed, 1802 insertions(+), 279 deletions(-)\\n[exit 0]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Run: python -V (approval -> run)",
+    "expected": "202 + prompt, owner tap, output 'Python 3'",
+    "observed": "run#1 202, approve 200, run#2 200; out='$ python -V\\n\\n⏸ Нужно ваше подтверждение (#95): команда не из списка только-чтения.\\n[разрешено: #95]\\nPython 3.12.10\\n[exit 0]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Run: echo test (approval -> run)",
+    "expected": "202 + prompt, owner tap, output '\\ntest'",
+    "observed": "run#1 202, approve 200, run#2 200; out='$ echo test\\n\\n⏸ Нужно ваше подтверждение (#96): команда не из списка только-чтения.\\n[разрешено: #96]\\ntest\\n[exit 0]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal quick: pytest starts",
+    "expected": "run 200 + session id",
+    "observed": "run 200; out='$ python -m pytest command-center/tests/test_terminal_quick_presets.py -q\\n'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Ctrl+C",
+    "expected": "sigint 200",
+    "observed": "sigint 200; out='st command-center/tests/test_terminal_quick_presets.py -q\\n\\n^C [SIGINT отправлен]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Kill",
+    "expected": "kill 200",
+    "observed": "kill 200; out='ython -m pytest command-center/tests/test_terminal_quick_presets.py -q\\n\\n[exit 1]'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Run: claude (interactive) refused",
+    "expected": "output contains '⛔'",
+    "observed": "run 422; out='$ claude\\n\\n⛔ `claude` в веб-терминале не запускается: это интерактивная программа (нужен TTY), а облачным агентам доступ к ПК через терминал закрыт. Спросите Claude во вкладке «Чат».'",
+    "result": "PASS"
+   },
+   {
+    "control": "terminal Run: vim (interactive) refused",
+    "expected": "output contains '⛔'",
+    "observed": "run 422; out='$ vim x\\n\\n⛔ Интерактивные программы в веб-терминале не поддерживаются (нет TTY): `vim` ждал бы ввода бесконечно. Запустите команду с аргументами, которая завершается сама.'",
+    "result": "PASS"
+   },
+   {
+    "control": "🧩 Код/Git: Git Diff",
+    "expected": "diff 200, status shown",
+    "observed": "diff 200; out_head='[cwd: C:\\\\Users\\\\asd\\\\Bossman\\\\wt-final-20261023]\\n## integrate/o'",
+    "result": "PASS"
+   },
+   {
+    "control": "🧩 Код/Git: Задачи OpenCode",
+    "expected": "list 200",
+    "observed": "tasks 200; out_head=<task list, instruction text redacted>",
+    "result": "PASS"
+   },
+   {
+    "control": "🖥 Экран ПК: open panel",
+    "expected": "panel visible",
+    "observed": "visible=True",
+    "result": "PASS"
+   },
+   {
+    "control": "tab photo",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=[]",
+    "result": "PASS"
+   },
+   {
+    "control": "tab video",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=[]",
+    "result": "PASS"
+   },
+   {
+    "control": "tab panel",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/approvals 200'] iframe title='BOSSMAN Command Center · UI 2.6.1'",
+    "result": "PASS"
+   },
+   {
+    "control": "tab swap",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/exchange/deals 200', '/m/api/photo/models 200', '/m/api/video/models 200']",
+    "result": "PASS"
+   },
+   {
+    "control": "tab calls",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/calls/answering/reports 200', '/m/api/calls/history 200', '/m/api/calls/status 200', '/m/api/photo/jobs 200', '/m/api/photo/queue 200', '/m/api/photo/status 200', '/m/api/video/jobs 200', '/m/api/video/queue 200']",
+    "result": "PASS"
+   },
+   {
+    "control": "tab jeff",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/jeff-kb 200']",
+    "result": "PASS"
+   },
+   {
+    "control": "tab status",
+    "expected": "view visible, all calls 2xx",
+    "observed": "calls=['/m/api/approvals 200', '/m/api/coding-tasks/status 200', '/m/api/niche/status 200', '/m/api/status 200', '/m/api/stop/active 200', '/m/api/studio/orders 200'] cards=10 error_blocks=0",
+    "result": "PASS"
+   }
+  ],
+  "final_console_errors": [
+   "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)",
+   "Failed to load resource: the server responded with a status of 422 (Unprocessable Entity)"
+  ],
+  "improve_row": [
+   {
+    "mode": "SELF-IMPROVE",
+    "carrier": [
+     {
+      "url": "/m/api/agent/sessions/20261025-072333-f21402/messages",
+      "method": "POST",
+      "status": 200,
+      "keys": [
+       "bypass_permissions",
+       "improve",
+       "mode",
+       "perf_trace_id",
+       "route",
+       "session_id",
+       "turn"
+      ],
+      "mode": "SELF-IMPROVE",
+      "task": null,
+      "improve": {
+       "id": "imp-20261025-072333-d5af72",
+       "status": "awaiting_owner_approval",
+       "approval_id": 94
+      }
+     }
+    ],
+    "patch": [
+     "PATCH 200"
+    ],
+    "answer": "Цикл самоулучшения imp-20261025-072333-d5af72 выполнен до гейта одобрения владельца (Receipt 914790a9291c, approval_id=94).",
+    "meta": "локально\n0.2 с",
+    "state": "busy=0 approval_cards=0",
+    "approval": "",
+    "cost_badge": "$0.00",
+    "cost_title": "Бюджет сессии: потрачено $0.0000 из $2.00",
+    "elapsed_s": 3.0
+   }
+  ]
+ },
+ "source_sha256": {
+  "apps/bossman-mobile/bossmobile/api.py": "cc2a5a5c7801db9fcdf48ba9b80b8b508a581349b36b19671263fe68f1728c09",
+  "apps/bossman-mobile/bossmobile/ui/app.js": "7670c87f6a1a40421af72e2dd54b105ec24e8414f7c386132885a0affd9e44f5",
+  "apps/bossman-mobile/bossmobile/ui/app.css": "fc8939c75a30e1f37f3e918fe8a912c62917e3e7a826349fcb8bbb857bbd97df",
+  "apps/bossman-mobile/bossmobile/ui/sw.js": "0811bd60f998f7d9c8c04747ab40f185e003ddc75cec6f5b8ee310bf83dfeb0e"
+ }
+}

@@ -551,7 +551,7 @@
       if (!list.children.length) list.appendChild(el('p', 'muted pad', 'Чатов пока нет'));
     } catch (err) { loadFailed($('thread-list'), err, loadThreads); }
   }
-  function newChat() { closeStream(); S.threadId = null; S.chatFiles = []; renderChatFiles(); store.set('thread', null); clearMessages(); ctxReset(); drawer(false); $('input').focus(); }
+  function newChat() { closeStream(); S.threadId = null; S.chatFiles = []; renderChatFiles(); store.set('thread', null); clearMessages(); ctxReset(); refreshCost(); drawer(false); $('input').focus(); }
   $('btn-new').addEventListener('click', () => { tap(); newChat(); });
   $('drawer-new').addEventListener('click', newChat);
 
@@ -921,7 +921,7 @@
     closeStream();
     try {
       const t = await api('GET', `/threads/${encodeURIComponent(id)}`);
-      S.threadId = t.id; store.set('thread', t.id); clearMessages(); ctxReset(); stopNotes(); NW.shown = new Set();
+      S.threadId = t.id; store.set('thread', t.id); clearMessages(); ctxReset(); stopNotes(); NW.shown = new Set(); refreshCost();
       const turns = t.turns || [];
       for (const turn of turns) {
         if (turn.kind === 'note') { addNote(turn); continue; }   // Bossman's own note (e.g. the finished photo edit)
@@ -1161,6 +1161,24 @@
       }
       const payload = { text, agent_id: S.agentId, client_request_id: 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10) };
       if (files.length) payload.attachments = files.map((f) => f.id).filter(Boolean);
+      /* Mode chips (live audit 25.10): AGENT / AUTO / CODE / PC / /improve go through the unified agent dispatcher with
+         the mode, so the mode really changes what runs (prompt preamble, AUTO approvals, the /improve pipeline). CHAT and
+         photo prompts stay on the plain chat route. */
+      const mode = b.photo ? 'CHAT' : (S.agentMode || 'CHAT');
+      if (mode !== 'CHAT') {
+        const r = await api('POST', `/agent/sessions/${encodeURIComponent(S.threadId)}/messages`, { ...payload, mode });
+        if (r.improve) {
+          const imp = r.improve;
+          finish(b, (r.turn && r.turn.synthetic_result) || `Цикл самоулучшения ${imp.id}: ${imp.status}`, null, 'completed');
+          refreshApprovals(); return;
+        }
+        if (r.coding_task) { finish(b, (r.turn && r.turn.synthetic_result) || `Задача OpenCode ${r.coding_task.id}`, null, 'completed'); return; }
+        if (r.admission && r.admission.ok === false) { finish(b, null, r.admission.reason || 'Bossman не принял задачу', 'blocked'); return; }
+        if (!r.task || r.task.id == null) { finish(b, null, 'Bossman не вернул задачу', 'error'); return; }
+        b.model = r.model && (r.model.alias || r.model.id); b.agentId = S.agentId;
+        follow(r.task.id, b);
+        return;
+      }
       const r = await api('POST', `/threads/${encodeURIComponent(S.threadId)}/send`, payload);
       if (r.admission && r.admission.ok === false) { finish(b, null, r.admission.reason || 'Bossman не принял задачу', 'blocked'); return; }
       b.model = r.model && (r.model.alias || r.model.id); b.agentId = S.agentId;
@@ -1194,7 +1212,7 @@
     const total = b.t0 ? (performance.now() - b.t0) / 1000 : null; const first = b.first && b.t0 ? (b.first - b.t0) / 1000 : null;
     b.meta.replaceChildren(el('span', 'badge-local', 'локально'), el('span', '', [b.model, taskId ? `#${taskId}` : '', status && status !== 'completed' ? stRu(status) : '', total ? `${total.toFixed(1)} с` : '', first ? `первый токен ${first.toFixed(1)} с` : ''].filter(Boolean).join(' · ')));
     if (b.photo) photoAfterPrompt(b, status, error); else if (b.text) msgActions(b);
-    loadThreads(); autoScroll(); refreshContext().catch(() => {});
+    loadThreads(); autoScroll(); refreshContext().catch(() => {}); refreshCost();
   }
 
   /* ---- под ответом: «Копировать» и «Повторить» ---- */
@@ -2352,6 +2370,19 @@
       }).catch(() => {});
     }
   }
+  /* «$» badge: the session spend from Bossman (numbers only). It was a static «$0.00» in the HTML (live audit 25.10). */
+  async function refreshCost() {
+    const badge = $('oc-cost-badge'); if (!badge) return;
+    const sid = S.threadId;
+    if (!sid) { badge.textContent = '$0.00'; badge.title = 'Бюджет сессии: новый чат'; return; }
+    try {
+      const c = await api('GET', `/agent/sessions/${encodeURIComponent(sid)}/cost`);
+      if (S.threadId !== sid) return;
+      const spent = Number(c.spent_usd) || 0;
+      badge.textContent = `$${spent.toFixed(2)}`;
+      badge.title = c.budget_usd != null ? `Бюджет сессии: потрачено $${spent.toFixed(4)} из $${Number(c.budget_usd).toFixed(2)}` : `Потрачено $${spent.toFixed(4)}`;
+    } catch { badge.title = 'Бюджет сессии: нет данных'; }
+  }
   if ($('agent-mode-bar')) {
     setAgentMode(S.agentMode);
     $('agent-mode-bar').addEventListener('click', (e) => {
@@ -2398,6 +2429,7 @@
       S.termWs = ws;
       ws.onmessage = (e) => {
         let msg; try { msg = JSON.parse(e.data); } catch { return; }
+        if (S.termPolling === sid) return;            // the poller paints the full tail; the stream takes over after it
         if (msg.type === 'terminal.output' && msg.line != null) {
           S.termSeq = msg.seq || S.termSeq;
           appendTermOut(msg.line);
@@ -2408,32 +2440,71 @@
     } catch { /* fallback to polling below */ }
   }
 
-  async function runMobileTerm(cmd) {
-    const command = String(cmd || '').trim();
-    if (!command) return;
+  /* cwd: the checkout the pult runs from (`default` from /terminal/roots), not roots[0] — on the owner PC roots[0] is a
+     Python Lib folder and every preset failed there (live audit 25.10). */
+  async function termCwd() {
+    if (S.termCwd) return S.termCwd;
+    const r = await api('GET', '/terminal/roots').catch(() => ({ roots: [] }));
+    S.termCwd = r.default || (r.roots && r.roots[0]) || undefined;
+    return S.termCwd;
+  }
+  function clearTermApproval() { const box = $('oc-term-approval'); if (box) box.remove(); }
+  /* «Needs approval»: Bossman answers 202 + approval id. The owner decides right here (his tap = the approval), then the
+     same command + cwd is started once with that approval id; a rejected one prints «отклонено». */
+  function termApproval(command, cwd, approvalId) {
+    clearTermApproval();
+    appendTermOut(`⏸ Нужно ваше подтверждение (#${approvalId ?? '—'}): команда не из списка только-чтения.`);
+    if (approvalId == null) return;
+    const box = el('div', 'oc-term-approval'); box.id = 'oc-term-approval'; box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', `Подтверждение команды терминала #${approvalId}`);
+    const yes = el('button', 'btn primary small', 'Разрешить один раз'); yes.type = 'button'; yes.id = 'btn-term-approve';
+    const no = el('button', 'btn small', 'Отклонить'); no.type = 'button'; no.id = 'btn-term-reject';
+    const decide = async (approve) => {
+      tap(); yes.disabled = true; no.disabled = true;
+      try {
+        await api('POST', `/approvals/${approvalId}`, { approve });
+        clearTermApproval(); refreshApprovals();
+        if (!approve) { appendTermOut(`[отклонено: #${approvalId}]`); return; }
+        appendTermOut(`[разрешено: #${approvalId}]`);
+        await startTerm(command, cwd, approvalId);
+      } catch (err) { yes.disabled = false; no.disabled = false; toast(err.message); }
+    };
+    yes.addEventListener('click', () => decide(true)); no.addEventListener('click', () => decide(false));
+    box.append(yes, no);
+    const out = $('oc-term-out'); if (out) out.after(box);
+  }
+  async function startTerm(command, cwd, approvalId) {
     const out = $('oc-term-out');
-    if (out) out.textContent = `$ ${command}\n`;
+    const body = { command, mode: 'project_host', cwd, bypass_permissions: S.agentMode === 'AUTO' };
+    if (approvalId != null) body.approval_id = approvalId;
+    const res = await api('POST', '/terminal/run', body);
+    if (res && res.approval_required) { termApproval(command, cwd, res.approval_id); return; }
+    if (!res || !res.session_id) { appendTermOut('Ошибка запуска: Bossman не вернул сессию'); return; }
+    const sid = res.session_id;
+    S.termSessionId = sid; S.termPolling = sid;
+    connectTermWs(sid);
+    const head = out ? out.textContent.replace(/\s+$/, '') : `$ ${command}`;
     try {
-      const rootsResp = await api('GET', '/terminal/roots').catch(() => ({ roots: [] }));
-      const cwd = (rootsResp.roots && rootsResp.roots[0]) || undefined;
-      const res = await api('POST', '/terminal/run', {
-        command,
-        mode: 'project_host',
-        cwd,
-        bypass_permissions: S.agentMode === 'AUTO',
-      });
-      S.termSessionId = res.session_id;
-      connectTermWs(res.session_id);
-      for (let i = 0; i < 15; i += 1) {
-        await new Promise((r) => setTimeout(r, 250));
-        const st = await api('GET', `/terminal/sessions/${encodeURIComponent(res.session_id)}`).catch(() => null);
-        if (st && Array.isArray(st.output_tail)) {
-          if (out) out.textContent = `$ ${command}\n` + st.output_tail.join('\n') + (st.finished ? `\n[exit ${st.exit_code ?? 0}]` : '');
+      for (let i = 0; i < 240 && S.termSessionId === sid; i += 1) {   // up to ~2 min of polling, then the stream
+        await new Promise((r) => setTimeout(r, i < 20 ? 250 : 500));
+        const st = await api('GET', `/terminal/sessions/${encodeURIComponent(sid)}`).catch(() => null);
+        if (st && Array.isArray(st.output_tail) && S.termSessionId === sid) {
+          if (out) { out.textContent = `${head}\n` + st.output_tail.join('\n') + (st.finished ? `\n[exit ${st.exit_code ?? 0}]` : ''); out.scrollTop = out.scrollHeight; }
           if (st.finished) break;
         }
       }
+    } finally { if (S.termPolling === sid) S.termPolling = null; }
+  }
+  async function runMobileTerm(cmd) {
+    const command = String(cmd || '').trim();
+    if (!command) return;
+    clearTermApproval();
+    const out = $('oc-term-out');
+    if (out) out.textContent = `$ ${command}\n`;
+    try {
+      await startTerm(command, await termCwd(), null);
     } catch (err) {
-      appendTermOut(`Ошибка запуска: ${err.message}`);
+      appendTermOut(err.code === 'TERMINAL_INTERACTIVE' ? `⛔ ${err.message}` : `Ошибка запуска: ${err.message}`);
     }
   }
 
@@ -2475,7 +2546,8 @@
       const out = $('oc-code-out');
       if (out) out.textContent = 'Загрузка git status & diff…';
       try {
-        const d = await api('GET', '/terminal/diff');
+        const cwd = await termCwd();
+        const d = await api('GET', `/terminal/diff${cwd ? `?cwd=${encodeURIComponent(cwd)}` : ''}`);
         if (out) out.textContent = `[cwd: ${d.cwd || '—'}]\n${d.status || ''}\n${d.diff || '(изменений нет)'}`;
       } catch (err) { if (out) out.textContent = 'Ошибка: ' + err.message; }
     });
@@ -2509,6 +2581,9 @@
     $('btn-pc-observe').addEventListener('click', () => {
       tap();
       setAgentMode('COMPUTER');
+      // the panel used to keep its hint, so the tap looked like nothing happened (live audit 25.10)
+      const out = $('oc-pc-out');
+      if (out) out.textContent = 'Задача отправлена в чат в режиме PC. Снимок экрана — инструмент computer.observe: он спросит ваше подтверждение в ответе ниже.';
       send('Посмотри на экран и скажи, какие окна сейчас открыты. Ничего не нажимай.');
     });
   }
@@ -3026,7 +3101,7 @@
       refreshContext().catch(() => {});
     }),
     diff: () => cardLoad('Git diff', 'ext', async (c) => {
-      const d = await api('GET', '/terminal/diff'); const text = `${d.status || ''}\n${d.diff || '(изменений нет)'}`.trim();
+      const cwd = await termCwd(); const d = await api('GET', `/terminal/diff${cwd ? `?cwd=${encodeURIComponent(cwd)}` : ''}`); const text = `${d.status || ''}\n${d.diff || '(изменений нет)'}`.trim();
       const pre = el('pre', 'syscard-pre mono', text.length > 6000 ? text.slice(0, 6000) + '\n… (обрезано)' : text); pre.tabIndex = 0; pre.setAttribute('role', 'region'); pre.setAttribute('aria-label', 'git status и diff');
       c.body.replaceChildren(); if (d.cwd) c.body.appendChild(el('p', 'syscard-note', `Папка: ${d.cwd}`)); c.body.appendChild(pre); autoScroll();
     }),

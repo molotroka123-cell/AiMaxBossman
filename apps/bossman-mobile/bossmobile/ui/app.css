@@ -475,6 +475,7 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
 .chip.small.danger { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, var(--line)); }
 .oc-term-out { margin: 0; padding: 10px; border-radius: 10px; background: var(--bg2); color: var(--text);
   font: 12px/1.45 var(--mono); max-height: 22vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.oc-term-approval { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
 .oc-term-bar { display: flex; gap: 6px; align-items: center; }
 .oc-term-bar .field { min-height: 38px; padding: 6px 10px; font-size: 13px; }
 
