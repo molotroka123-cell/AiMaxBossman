@@ -108,6 +108,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # the file is re-read (low priority). Nothing is ever loaded into VRAM.
         "hot_models": ["qwen-image-2.1-uc-edit"], "hot_probe_s": 120, "hot_probe_mb": 16, "hot_min_mb_s": 1000,
     },
+    # Governor 2.0 (TZ 2.5 T3): lease ledger one-bossman/resource-leases.db shared with /api/resources/*; each poll:
+    # heartbeat expiry, memory guard (free < guard_free_gb -> lowest non-paid lease preempted), queue promotion; restart
+    # recovery re-adopts only processes holding the governor token. Other keys: leases.LEASE_DEFAULTS.
+    "leases": {"enabled": True},
     "paths": {
         "backend_url": "http://127.0.0.1:8801",
         "ollama_url": "http://127.0.0.1:11434",
@@ -194,6 +198,18 @@ def load_config(path: Path | None = None) -> dict:
 
 def expand(p: str) -> Path:
     return Path(os.path.expanduser(p))
+
+
+def leases_module() -> Any:
+    """tools/resource_governor/leases.py, loaded by path (governor.py also runs via spec_from_file_location)."""
+    mod = sys.modules.get("bossman_resource_leases")
+    if mod is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("bossman_resource_leases", Path(__file__).resolve().parent / "leases.py")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["bossman_resource_leases"] = mod
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    return mod
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -676,6 +692,14 @@ class SystemIO:
             return None
 
     # -- load guard ------------------------------------------------------------------------------------------
+    def lease_probe(self, pid: int) -> dict | None:
+        return leases_module().psutil_probe(pid)
+
+    def lease_stop(self, lease: Any) -> bool:
+        """Only called by the ledger after it verified pid + create time + the governor token in the process env."""
+        log.warning("LEASE guard terminates pid %s (%s, token verified)", lease.pid, lease.consumer)
+        return leases_module().psutil_stop_tree(int(lease.pid))
+
     def list_processes(self) -> list[dict]:
         """Every process with parent, name, command line, create time and whether its CPU priority is NORMAL."""
         import psutil
@@ -1181,8 +1205,12 @@ def _iso(t: float) -> str:
 # governor
 # ---------------------------------------------------------------------------------------------------------------
 class Governor:
-    def __init__(self, io: Any, cfg: dict, state_path: Path | None = None, status_path: Path | None = None):
+    def __init__(self, io: Any, cfg: dict, state_path: Path | None = None, status_path: Path | None = None,
+                 lease_db: Path | None = None):
         self.io, self.cfg = io, cfg
+        self.lease_db = lease_db                           # None = lease arbitration off (unit tests of old phases)
+        self.lease_ledger: Any = None
+        self.lease_last: dict = {}
         self.dry = bool(cfg["dry_run"])
         self.phase = "IDLE"
         self.last_active = 0.0
@@ -1229,6 +1257,7 @@ class Governor:
         if not self._recovered:
             self._recovered = True                         # once, inside the loop's exception guard
             self.jeff.recover()
+        self._lease_tick()
         now = self.io.now()
         jobs = self.io.fetch_jobs()
         if jobs is None:
@@ -1257,6 +1286,35 @@ class Governor:
             self.jeff.tick_pending(now)
             self._maybe_warm(jobs, now)
         self._write_status(jobs)
+
+    # -- Governor 2.0 leases (TZ 2.5 T3) ----------------------------------------------------------------------
+    def _lease_tick(self) -> None:
+        lcfg = self.cfg.get("leases") or {}
+        if self.lease_db is None or not lcfg.get("enabled", True):
+            return
+        try:
+            mod = leases_module()
+            avail = self.io.mem().get("available")
+            avail_gb = None if avail is None else avail / 1e9
+            probe = getattr(self.io, "lease_probe", None)
+            if self.lease_ledger is None:
+                self.lease_ledger = mod.LeaseLedger(self.lease_db, {k: v for k, v in lcfg.items() if k != "enabled"},
+                                                    clock=self.io.now)
+                if probe is not None:              # new epoch: re-adopt only processes that hold our token
+                    rec = self.lease_ledger.recover(probe)
+                    log.info("LEASE recovery %s", {k: len(v) for k, v in rec.items()})
+            stop = None if self.dry else getattr(self.io, "lease_stop", None)
+            out = self.lease_ledger.tick(available_gb=avail_gb, stop=stop, probe=probe)
+            if out.get("guard"):
+                log.warning("LEASE guard %s", out["guard"].get("reason"))
+            st = self.lease_ledger.state(available_gb=avail_gb, events=5)
+            self.lease_last = {"committed_gb": st["committed_gb"], "epoch": st["epoch"],
+                               "active": [(x["consumer"], x["priority"], x["state"]) for x in st["leases"]
+                                          if x["state"] != "queued"],
+                               "queue": [(q["consumer"], q["reason"]) for q in st["queue"]][:5],
+                               "guard": out.get("guard"), "expired": len(out.get("expired") or [])}
+        except Exception:  # noqa: BLE001 - lease bookkeeping never breaks the old guard phases
+            log.exception("lease tick failed")
 
     def _unknown(self, now: float) -> None:
         self._stop_warm("jobs unknown")
@@ -1680,7 +1738,7 @@ class Governor:
             "hot_mb_s": {Path(k).name: round(v) for k, v in self.hot_state.items()},
             "load_read": self.load_read, "load_guard_processes": len(self.guarded),
             "load_guard": [{"pid": pid, "name": v.get("name")} for (pid, _ct), v in list(self.guarded.items())[:12]],
-            "preread_log": self.preread_log[-6:],
+            "preread_log": self.preread_log[-6:], "leases": self.lease_last,
             "ram_available_gb": round(m["available"] / 1e9, 1), "cache_gb": _gb(m.get("cache"))})
 
     def shutdown(self) -> None:
@@ -1744,7 +1802,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     except psutil.Error:
         pass
     io = SystemIO(cfg)
-    gov = Governor(io, cfg, state_dir() / STATE_NAME, state_dir() / STATUS_NAME)
+    gov = Governor(io, cfg, state_dir() / STATE_NAME, state_dir() / STATUS_NAME,
+                   lease_db=state_dir() / "resource-leases.db")
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM, getattr(signal, "SIGBREAK", signal.SIGTERM)):
         signal.signal(sig, lambda *_: stop.set())
@@ -1760,6 +1819,22 @@ def cmd_run(args: argparse.Namespace) -> int:
     finally:
         gov.shutdown()
         log.info("governor stopped")
+    return 0
+
+
+def cmd_leases(args: argparse.Namespace) -> int:
+    """Print the lease ledger state; ``--measure CONSUMER PEAK_GB`` records one memory measurement."""
+    mod = leases_module()
+    cfg = load_config()
+    led = mod.LeaseLedger(state_dir() / mod.DB_NAME, {k: v for k, v in (cfg.get("leases") or {}).items()
+                                                      if k != "enabled"})
+    if args.measure:
+        consumer, peak = args.measure
+        print(json.dumps(led.record_measurement(consumer, float(peak), args.config_hash, args.cold),
+                         ensure_ascii=False, indent=1))
+        return 0
+    import psutil
+    print(json.dumps(led.state(available_gb=psutil.virtual_memory().available / 1e9), ensure_ascii=False, indent=1))
     return 0
 
 
@@ -1891,6 +1966,11 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--console", action="store_true")
     r.set_defaults(fn=cmd_run)
     sub.add_parser("status").set_defaults(fn=cmd_status)
+    lp = sub.add_parser("leases")
+    lp.add_argument("--measure", nargs=2, metavar=("CONSUMER", "PEAK_GB"))
+    lp.add_argument("--config-hash", default="")
+    lp.add_argument("--cold", action="store_true")
+    lp.set_defaults(fn=cmd_leases)
     sub.add_parser("init").set_defaults(fn=cmd_init)
     m = sub.add_parser("measure")
     m.add_argument("file")

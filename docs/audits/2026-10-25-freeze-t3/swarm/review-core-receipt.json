@@ -1,0 +1,28 @@
+{
+ "schema": "bossman.coding-swarm.v1",
+ "label": "review-core",
+ "at": "2026-10-25T07:24:31",
+ "prompt_chars": 8925,
+ "calls": [
+  {
+   "model": "qwen",
+   "id": "qwen/qwen3.8-flash",
+   "ok": false,
+   "seconds": 395.6,
+   "tokens_in": 2511,
+   "tokens_out": 24000,
+   "tokens_estimated": false,
+   "reasoning_chars": 101263,
+   "cost_usd": 0.011657
+  },
+  {
+   "model": "gemini",
+   "id": "gemini-3-flash-preview",
+   "ok": false,
+   "seconds": 11.5,
+   "cost_usd": 0.0,
+   "error": "HTTPError: HTTP Error 503: Service Unavailable"
+  }
+ ],
+ "cost_usd_total": 0.011657
+}

@@ -1,0 +1,117 @@
+{
+ "schema": "bossman.audit-receipt/1",
+ "task": "TZ 2.5 Obliterated, T3 / M2: Governor 2.0 (profiles + leases) by EXTENDING tools/resource_governor",
+ "date": "2026-10-25",
+ "base_sha": {
+  "work_started_on": "cc7d1e42",
+  "committed_on_top_of": "d58c2886653995824f53b2a2ac0869a65344ad3a (studio T1, another agent; tests re-run on this tree)"
+ },
+ "commit_sha": "the commit that adds this receipt (see git log)",
+ "verdict": "UNIT_PASS + LIVE_READONLY_PASS; full T3 acceptance NOT_PROVEN (live 20 cycles and >=10-sample measurements NOT_RUN)",
+ "changes": {
+  "tools/resource_governor/leases.py": "new stdlib lease arbiter: consumer registry (P95 seed provisional until >=10 samples incl. a cold start; unknown P95 refused), priorities owner_interactive>jeff_answer>paid_render>background>eval, SQLite WAL ledger with BEGIN IMMEDIATE, idempotency_key, TTL+heartbeat, monotonic fencing tokens, grant rule (sum of active peaks + candidate <= budget-headroom, <=1 gpu_heavy compute, live free - need >= headroom), Ollama keep_alive=0 unload confirmed by /api/ps, cooperative preemption (paid_render never), owner chat makes background GPU yield, memory guard (<3 GB), restart recovery by pid+create_time+env token, Russian human-readable reasons, event journal",
+  "tools/resource_governor/governor.py": "extended, not rebuilt: DEFAULT_CONFIG.leases, Governor(lease_db=...) runs lease recovery once and a lease tick (expiry, guard, promotion) every poll, status.leases, SystemIO.lease_probe/lease_stop (token-verified only, never in dry_run), CLI 'governor.py leases [--measure CONSUMER GB --cold]'",
+  "command-center/bcc/features/resource_leases.py": "new feature: GET /api/resources/state, POST /api/resources/lease (200 granted / 202 queued / 422 refused), GET|DELETE /api/resources/lease/{id}, POST .../heartbeat, .../process, POST /api/resources/measurement; owner-only (verified principal role; participant headers refused); ledger calls via asyncio.to_thread; not /api/governor/* (AI behaviour governor)",
+  "tests": "tools/resource_governor/test_leases.py (new), test_governor.py (+3), command-center/tests/test_resource_leases_api.py (new)"
+ },
+ "file_sha256": {
+  "tools/resource_governor/leases.py": "79b93840ec2f0a78309c3cc5144de1b94eccf7caa428ca0bfa6984426c1a6d52",
+  "tools/resource_governor/test_leases.py": "72f40c775b544c5d7f9203723c3f863df5c6dbfd12b114a0463770a47f35290b",
+  "tools/resource_governor/governor.py": "b8493be3e7867a9285d8bd785ce3e1b10c6580c61c80823a116bda084053a8b5",
+  "tools/resource_governor/test_governor.py": "b9639624b860195308a9582e01f57586a04bd2d85987d1c914a129af475c62cd",
+  "tools/resource_governor/README_RU.md": "449f05c26243dcd885bb0e45ee375efbad3407afd211bec29a1a92014eb2aa6b",
+  "command-center/bcc/features/resource_leases.py": "39157c27618dc48635f49b9bcc8e117ef4529dd31974360054f8a5608dfc6dad",
+  "command-center/tests/test_resource_leases_api.py": "9ac8d4972fe83bedc79b1415247003b26672820160978cdb0ae24d67ea8a6c26"
+ },
+ "tests": {
+  "final_runs": {
+   "tools/resource_governor/test_governor.py+test_leases.py": "118 passed in 30.12s",
+   "command-center/tests/test_resource_leases_api.py": "6 passed in 4.72s"
+  },
+  "api_repeat": "test_resource_leases_api.py 6/6 repeated runs passed",
+  "neighbours": "test_jeff_generation_cloud, test_v6_resources_unmeasured, test_feat_governor_review, test_studio_orders, test_pit_resources + api: 140 passed x3; one earlier run showed 1 failure that did not reproduce and was not the new API test",
+  "pre_existing_unrelated_failure": "tests/test_defensive_security_p1_p2.py::test_owner_safe_runtime_drill_end_to_end fails the same with the new feature file removed (build_sha None in this checkout)",
+  "required_cases": {
+   "property sum<=limit, <=1 heavy GPU, paid never preempted": "test_property_sum_of_active_peaks_never_exceeds_limit: 4 x 250 = 1000 random sequences (request/release/heartbeat/guard/expiry/recovery); negative control test_invariant_checker_catches_a_violation",
+   "50 parallel requests, no double grant": "test_fifty_parallel_requests_never_double_grant, test_concurrent_same_idempotency_key_creates_one_lease",
+   "priority preemption": "test_priority_preemption_frees_memory_for_higher_priority, test_preemption_picks_only_the_victims_that_are_needed",
+   "owner-interactive wins over background (incident 25.10)": "test_owner_interactive_wins_over_background_incident_20261025, test_queued_owner_chat_also_holds_back_new_background_gpu",
+   "no kill of paid render": "test_paid_render_is_never_preempted_for_background_or_owner (incl. memory guard), test_paid_render_not_preempted_through_api, test_governor_lease_guard_dry_run_never_stops_and_foreign_never_adopted",
+   "restart recovery / fencing": "test_restart_recovery_readopts_only_token_holders, test_recovery_keeps_counting_a_live_process_whose_env_is_unreadable, test_ttl_expiry_and_fencing",
+   "memory guard": "test_memory_guard_stops_lowest_priority_and_logs_reason, test_guard_terminates_only_a_process_holding_the_governor_token, test_governor_tick_runs_lease_guard_and_stops_only_token_holder",
+   "unload hook": "test_live_memory_check_and_idle_unload_hook, test_background_request_never_unloads_the_owner_chat_model, test_ollama_unloader_confirms_via_api_ps, test_ollama_unloader_reports_unconfirmed_when_model_stays",
+   "API auth": "test_auth_owner_only (scoped agent token 403, participant header 403, anonymous 401, agent force-release 403)"
+  }
+ },
+ "live": {
+  "readonly_probe": "live-probe.json: real psutil memory + real Ollama /api/ps, scratch ledger, unload disabled. Owner chat granted (Gemma already loaded, counted once), background WanGP queued (owner in chat), paid LTX queued (16.4 GB free live), z_image refused (no P95)",
+  "defect_found_live_and_fixed": "first probe 07:30: the owner's model gemma4-31b-uncensored-ctx32k:latest was not in the exact name list -> owner chat lease would queue; fixed with prefix patterns + regression test",
+  "NOT_RUN": [
+   "live 20 cycles 'Jeff chat + photo' without a Gemma reload (owner is using Gemma; the task forbids starting GPU jobs or restarting services)",
+   ">=10 repeated peak-memory measurements per consumer incl. a cold start (needs real GPU runs): all seeds provisional, z_image unmeasured",
+   "the running governor/backend were not restarted: the new code is NOT live in BossmanOne-6-Governor or :8801 until the owner repoints/restarts",
+   "no generator takes a lease yet (direct-gen / Studio / Jeff / WanGP integration is the next step)"
+  ]
+ },
+ "decisions": {
+  "single writer": "TZ M2 asks for one writer (the governor process); implemented as SQLite WAL + BEGIN IMMEDIATE shared by the governor and the backend API (serialized writers; no double grant proven by the 50-thread test). Deviation recorded.",
+  "cooperative preemption": "victims become 'preempting' and still count until their holder releases / TTL / recovery; the candidate waits. Only the memory guard may terminate, and only a process proven to hold the governor token, never in dry_run, never a paid render",
+  "strict_measured default false": "measurement loop NOT_RUN for the freeze; provisional seeds are flagged in state; set leases.strict_measured=true after measuring",
+  "background never evicts Gemma": "unload keep-set includes resident chat models for requests below paid_render; keep_models + governor.json ollama_keep_models always kept",
+  "unverified process after restart": "same create_time but env unreadable -> lease stays granted (counted, untouched, not told to stop) until its holder stops heartbeating"
+ },
+ "swarm": {
+  "calls": [
+   {
+    "label": "kimi-draft",
+    "model": "kimi-k3.1-pro",
+    "ok": false,
+    "cost_usd": 0.0025,
+    "note": "24000 output tokens all reasoning, empty answer"
+   },
+   {
+    "label": "review-leases",
+    "model": "kimi-k3.1-pro",
+    "ok": false,
+    "cost_usd": 0.003951,
+    "note": "reasoning exhausted max_tokens"
+   },
+   {
+    "label": "review-leases",
+    "model": "qwen/qwen3.8-flash",
+    "ok": false,
+    "cost_usd": 0.013733,
+    "note": "reasoning exhausted max_tokens"
+   },
+   {
+    "label": "review-leases",
+    "model": "nemotron-3-ultra :free",
+    "ok": true,
+    "cost_usd": 0.0,
+    "note": "10 findings: 3 accepted and fixed with tests (a queued owner chat must hold back background GPU; live_blocked = 'only the live check fails'; an unverified live process after restart stays counted); rejected with reason: idempotency and promotion already run inside BEGIN IMMEDIATE, leases are never re-queued, tag matching already handled; unload-keep TOCTOU kept as a residual"
+   },
+   {
+    "label": "review-core",
+    "model": "qwen/qwen3.8-flash",
+    "ok": false,
+    "cost_usd": 0.011657,
+    "note": "2.5k-token prompt, still reasoning-exhausted"
+   },
+   {
+    "label": "review-core",
+    "model": "gemini-3-flash-preview",
+    "ok": false,
+    "cost_usd": 0.0,
+    "note": "HTTP 503"
+   }
+  ],
+  "total_usd": 0.031841,
+  "finding": "tools/coding_swarm.py sends max_tokens=24000 with no reasoning cap; Kimi K3.1 Pro and Qwen 3.8 Flash spend it all on reasoning and return nothing. Not changed here (outside this task's file ownership)."
+ },
+ "known_residuals": [
+  "the unload keep-set is computed just before the write transaction (small TOCTOU vs a concurrently granted resident lease)",
+  "attach_process trusts the reported pid; identity is verified at guard/recovery time",
+  "queue promotion backfills: a small lower-priority lease may start before a large higher-priority one that does not fit yet"
+ ],
+ "privacy_keys": "synthetic inputs only; no chat content, personal data, keys or vault material in code, prompts or receipts"
+}

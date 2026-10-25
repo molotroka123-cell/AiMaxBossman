@@ -1,0 +1,37 @@
+{
+ "schema": "bossman.t3.live-probe/1",
+ "at": "2026-10-25T07:31:28",
+ "mode": "READ_ONLY: real psutil memory + real Ollama /api/ps; scratch ledger; unload hook disabled; no process started/stopped; no service restarted",
+ "total_gb": 128.5,
+ "available_gb": 16.4,
+ "ollama_loaded": [
+  [
+   "gemma4-31b-uncensored-ctx32k:latest",
+   34.72
+  ]
+ ],
+ "sequential_requests_on_empty_ledger": {
+  "gemma_chat": {
+   "priority": "owner_interactive",
+   "state": "granted",
+   "reason": "выдано"
+  },
+  "wangp_vace": {
+   "priority": "background",
+   "state": "queued",
+   "reason": "ждёт: владелец сейчас в чате — фоновая GPU-работа уступает (инцидент 25.10)"
+  },
+  "ltx25_sdcli": {
+   "priority": "paid_render",
+   "state": "queued",
+   "reason": "ждёт: мало свободной памяти сейчас: 16.4 ГБ свободно, нужно 70 ГБ + запас 8 ГБ"
+  },
+  "z_image": {
+   "priority": "background",
+   "state": "refused",
+   "reason": "отказ: у z_image нет замера P95 пика памяти (0 замеров) — запуск «на удачу» запрещён"
+  }
+ },
+ "committed_gb_after": 38.0,
+ "first_probe_defect_fixed": "07:30 probe: gemma_chat queued because the loaded name gemma4-31b-uncensored-ctx32k was not in the exact name list -> prefix patterns + test"
+}

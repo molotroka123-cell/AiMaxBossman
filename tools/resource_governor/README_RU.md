@@ -21,9 +21,20 @@
 Механизм: governor пишет `pit-v1.7\generation-cloud.json` с heartbeat (TTL 300 с). `bcc/pit/config.py` читает его только если он свежий и валидный, иначе действует правило «Jeff только локально» от 17.10. Мёртвый governor -> облачные ответы прекращаются сами; локальная модель при этом не поднимается. Состояние переключения хранится в `governor-state.json`: после падения governor следующий запуск откатывает или продолжает его.
 `restore_owner_hold=false`: старый hold-jeff после генерации не возвращается (владелец хочет Jeff).
 
+## Governor 2.0: аренды памяти/GPU (ТЗ 2.5 T3, 25.10)
+`leases.py` (stdlib) — арбитр тяжёлых потребителей на 120 ГБ общей памяти. Журнал `one-bossman\resource-leases.db` (SQLite WAL, каждая запись в `BEGIN IMMEDIATE`) общий для governor-процесса и API бэкенда `/api/resources/*` (`bcc/features/resource_leases.py`, только владелец; `/api/governor/*` — это поведенческий AI Governor, не это).
+- **Реестр** потребителей с P95 пика: `gemma_chat` 38 ГБ (резидент, чат владельца и Jeff делят одну копию), `wangp_animate`/`wangp_vace` 55, `ltx25_sdcli` 70 (тяжёлые GPU), `z_image` — не замерен → **отказ с причиной**. Оценки — `provisional n/10`, пока нет ≥ 10 замеров с холодным стартом (`governor.py leases --measure <id> <ГБ> --cold`); после — замеренный P95 (nearest-rank). `strict_measured: true` запрещает provisional.
+- **Приоритеты:** чат владельца > ответ Jeff > платный рендер Studio > фон > оценка; очередь: приоритет → aging (не перескакивает класс) → FIFO.
+- **Выдача:** сумма активных аренд + новая ≤ `budget_gb - headroom_gb` (120 − 8), не больше одной тяжёлой GPU-задачи, по живому замеру свободно − нужно ≥ 8 ГБ. Не хватает живой памяти → сначала выгрузка простаивающих моделей Ollama (`keep_alive: 0`, подтверждение по `/api/ps`); модели аренд, `ollama_keep_models` и — для работы ниже платного рендера — Gemma не выгружаются.
+- **Вытеснение:** нижние аренды получают `preempting` (считаются, пока владелец аренды не отпустит; worker видит `stop` в heartbeat и останавливается на checkpoint). **Платный рендер не вытесняется никогда и ничем.** Чат владельца заставляет фоновую GPU-задачу уступить даже при достаточной памяти (инцидент 25.10: WanGP 38 ГБ рядом с Gemma — чат тормозил), новая фоновая GPU-работа ждёт, пока владелец в чате.
+- **Предохранитель:** свободно < 3 ГБ → самая низкая неплатная аренда вытесняется, причина в журнале; процесс завершается, только если доказанно держит токен governor (pid + create_time + `BOSSMAN_RESOURCE_LEASE=<id>.<token>` в окружении), в `dry_run` — никогда.
+- **Fencing и рестарт:** каждый токен монотонный; heartbeat/release/`check_fence` со старым токеном → отказ. Рестарт governor = новый epoch: принимаются обратно только процессы с нашим токеном, мёртвые → `expired`, чужие/переиспользованный pid → аренда снята, процесс не тронут. Ничего не перезапускается (платный рендер не повторяется).
+- API: `GET /api/resources/state`, `POST /api/resources/lease` (200 выдано / 202 очередь с причиной / 422 отказ), `GET|DELETE /api/resources/lease/{id}` (`?token=` или `force=true`), `POST /api/resources/lease/{id}/heartbeat|process`, `POST /api/resources/measurement`. Вызовы журнала — в потоке, не в event loop.
+- Пока ни один генератор не берёт аренду сам (интеграция с direct-gen/Studio/Jeff — следующий шаг); старые фазы governor работают как раньше.
+
 ## Запуск
 `powershell -File tools\resource_governor\register_task.ps1` (логон-задача `BossmanOne-6-Governor`, включена, dry_run=false). `python governor.py run --dry-run --console` — только лог решений. `python governor.py measure <файл>` — холодное/тёплое чтение.
-Тесты: `python -m pytest tools/resource_governor/test_governor.py` и `command-center/tests/test_jeff_generation_cloud.py`.
+Тесты: `python -m pytest tools/resource_governor/test_governor.py tools/resource_governor/test_leases.py`, `command-center/tests/test_resource_leases_api.py` и `command-center/tests/test_jeff_generation_cloud.py`.
 
 ## Известные ограничения
 - Диск при фоновом приоритете даёт ~50-100 МБ/с (холодное чтение 1.2 ГБ: 66 МБ/с; повторное из кэша: ~10 ГБ/с).

@@ -1222,3 +1222,48 @@ def test_jeff_effective_model_follows_owner_choice_then_config_then_default(tmp_
     (other / "pit-v1.7" / "jeff-model.json").write_text(json.dumps({"local_model": GEMMA}))
     (pit / "config.json").write_text(json.dumps({"data_dir": str(other), "local_models": ["qwen3:8b"]}))
     assert g.jeff_effective_model(pit, env={}) == GEMMA
+
+
+# ---------------------------------------------------------------------------------------- Governor 2.0 leases (T3)
+def _lease_io(avail_gb: float, procs: dict | None = None):
+    io = FakeIO()
+    io.avail = int(avail_gb * 1e9)
+    io.stopped = []
+    io.lease_probe = (procs or {}).get
+    io.lease_stop = lambda lease: io.stopped.append(lease.pid) or True
+    return io
+
+
+def test_governor_tick_runs_lease_guard_and_stops_only_token_holder(tmp_path):
+    L = g.leases_module()
+    db = tmp_path / "resource-leases.db"
+    led = L.LeaseLedger(db, {}, clock=lambda: NOW)
+    bg = led.request("wangp_animate", "background", "clip", pid=777, proc_create_time=5.0)
+    io = _lease_io(2.0, {777: {"create_time": 5.0, "env_token": L.lease_env_token(bg["id"], bg["token"])}})
+    gov = g.Governor(io, cfg(warm={"enabled": False}), lease_db=db)
+    gov.tick()
+    assert led.get(bg["id"])["state"] == "preempting" and io.stopped == [777]
+    assert gov.lease_last["guard"]["lease_id"] == bg["id"]
+
+
+def test_governor_lease_guard_dry_run_never_stops_and_foreign_never_adopted(tmp_path):
+    L = g.leases_module()
+    db = tmp_path / "resource-leases.db"
+    led = L.LeaseLedger(db, {}, clock=lambda: NOW)
+    foreign = led.request("wangp_vace", "background", "x", pid=888, proc_create_time=9.0)
+    io = _lease_io(80.0, {888: {"create_time": 9.0, "env_token": "someone-else"}})
+    gov = g.Governor(io, cfg(warm={"enabled": False}), lease_db=db)
+    gov.tick()                                         # first tick = restart recovery
+    assert led.get(foreign["id"])["state"] == "released" and io.stopped == []
+    paid = led.request("ltx25_sdcli", "paid_render", "order", pid=999, proc_create_time=1.0)
+    io2 = _lease_io(1.0, {999: {"create_time": 1.0, "env_token": L.lease_env_token(paid["id"], paid["token"])}})
+    gov2 = g.Governor(io2, cfg(warm={"enabled": False}, dry_run=True), lease_db=db)
+    gov2.tick()
+    assert led.get(paid["id"])["state"] == "granted" and io2.stopped == []   # paid render kept, dry run stops nothing
+
+
+def test_governor_without_lease_db_keeps_old_behaviour(tmp_path):
+    io = _lease_io(1.0)
+    gov = g.Governor(io, cfg(warm={"enabled": False}))
+    gov.tick()
+    assert gov.lease_ledger is None and gov.lease_last == {}
