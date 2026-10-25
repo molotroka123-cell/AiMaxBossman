@@ -1,0 +1,55 @@
+{
+ "schema": "bossman.motion-studio.vace.v1",
+ "date": "2026-10-24",
+ "status": "PARTIAL - STOPPED BY OWNER ORDER (no final clip). Smoke PASS; full 3-segment run killed during segment 1 step 1/6.",
+ "stop": {"time_local": "2026-10-24 ~23:15", "by": "owner via coordinator: stop ALL video generation, do not restart", "generator_processes_after_stop": "none (verified)"},
+ "decision_source": "C:/Users/asd/Bossman/wt-final-20261023/docs/audits/2026-10-24-three-model-audit/dance-artifacts-plan.json (motion transfer, pose-only control)",
+ "driving_video": {
+  "source_page": "https://pixabay.com/videos/dancer-dancing-woman-dancing-happy-108612/",
+  "file_url": "https://cdn.pixabay.com/video/2022/02/23/108612-680697681_large.mp4",
+  "title": "Dancer, dancing, woman dancing", "creator": "patw64 (Pixabay)", "uploaded": "2022-02-23",
+  "license": "Pixabay Content License - free for commercial use, no attribution required (as stated on the page, checked 2026-10-24)",
+  "downloaded": "2026-10-24", "sha256": "567268f181b7fd2cf3159946392f08cb6ad08f166b06820ad5241dff28b8915c",
+  "local_file": "D:/Bossman/work/tiktok-trend-20261024/vace/driving/pixabay-108612-large.mp4",
+  "specs": "1920x1080, 60 fps, 18.99 s, white silhouette on black, single dancer, static camera",
+  "identity_note": "Creator notes say it is an iClone/Character Creator 3D-animated silhouette: no real face or identity exists in the source. Only the derived DWPose skeleton is fed to the generator; the source frames never enter WanGP.",
+  "access_note": "Pexels was dropped: its /download/ path is Disallowed in robots.txt and pages sit behind a Cloudflare challenge. Pixabay page paths are allowed; the file came from cdn.pixabay.com, no login, no API key."
+ },
+ "pose_control": {
+  "tool": "DWPose (yolox_l.onnx + dw-ll_ucoco_384.onnx already in WanGP ckpts/pose, Apache-2.0), CPU onnxruntime, nothing downloaded",
+  "script": "D:/Bossman/work/tiktok-trend-20261024/vace/prep_control.py",
+  "processing": "silhouette-tracked 9:16 crop (crop height 1150 incl. black pad, x-centre Gaussian-smoothed 0.6 s), single best person, body+face only (hands dropped: silhouette hands gave fan-shaped garbage), per-keypoint gap interpolation <=4 frames + [1,2,1] temporal smoothing, 16 fps, 81 frames per segment",
+  "windows_s_of_source": {"casual": [3.5, 8.5], "hype": [13.5, 18.5], "formal": [8.5, 13.5]},
+  "window_note": "the most energetic part (jumps, kicks, arms up) is 13.5-18.5 s, so it goes to the hype segment on the drop; segments are separated by cuts, so chronological order is not needed",
+  "dropouts": "raw detector had 1-3 frames with <10 body keypoints per segment; after interpolation 0 such frames (min 17 of 18 keypoints)",
+  "files": {"480x832": "D:/Bossman/work/tiktok-trend-20261024/vace/control/pose-{look}.mp4", "576x1024": "D:/Bossman/work/tiktok-trend-20261024/vace/control576/pose-{look}.mp4"}
+ },
+ "generator": {
+  "runtime": "WanGP (C:/Users/asd/Bossman/media-runtime/WanGP-viggle, commit b8b18f8, ROCm torch 2.10 rocm7.13, gfx1151), WanGP Community License 2.0 (outputs may be used commercially)",
+  "finetune": "C:/Users/asd/Bossman/media-runtime/WanGP-viggle/finetunes/vace_fun_14B_2_2_local_lightning.json (new file, local paths only, no download)",
+  "model": "Wan2.2-VACE-Fun-A14B, QuantStack Q8_0 GGUF high+low noise (D:/Bossman/models/media/wan22-vace-fun-a14b), base license Apache-2.0 (alibaba-pai)",
+  "loras": "Wan2.2 Lightning T2V v1.1 high/low (lightx2v, Apache-2.0), multipliers 1;0 and 0;1",
+  "text_encoder": "umt5-xxl quanto int8 (WanGP ckpts)",
+  "settings": {"video_prompt_type": "VI (VACE raw control = pose skeleton + people reference)", "remove_background_images_ref": 1, "steps": 6, "guidance": "1 / 1 (2 phases)", "flow_shift": 5, "switch_threshold": 875, "solver": "euler", "fps": 16, "seeds": [4242, 4243, 4244]},
+  "settings_files": {"segments": "D:/Bossman/work/tiktok-trend-20261024/vace/segments576.json", "generator_script": "D:/Bossman/work/tiktok-trend-20261024/vace/make_settings.py", "runner": "D:/Bossman/work/tiktok-trend-20261024/vace/run_wgp.ps1 (detached, RAM sampled every 10 s, kill below 3 GB free, auto-stop after Queue completed)"},
+  "gotchas": [
+   "video_prompt_type UVI (Keep Unchanged) sets mask=0, so VACE just copies the skeleton video (smoke1 output = a skeleton); a pre-made pose video needs VI (raw format)",
+   "GGUF llama.cpp kernels unavailable on ROCm Windows -> PyTorch dense dequant fallback",
+   "wgp.py --process keeps the python process alive after Queue completed, holding ~55 GB; the runner now kills it",
+   "tiktok_outfit_clip.py assemble rewrites the 'assembly' key of D:/Bossman/work/tiktok-trend-20261024/receipt.json (the LTX receipt); backup at vace/ltx-receipt.backup.json"
+  ]
+ },
+ "smoke": [
+  {"id": "smoke1", "res": "480x832", "frames": 33, "mode": "UVI (wrong)", "steps": 6, "step_s": "~97 s/step after a ~180 s first step", "task_total_s": 735, "min_free_ram_gb": 37.1, "result": "FAIL by config: output reproduced the skeleton (Keep Unchanged mode)", "out": "D:/Bossman/work/tiktok-trend-20261024/vace/smoke/smoke1.mp4"},
+  {"id": "smoke2", "res": "576x1024", "frames": 33, "mode": "VI", "look": "hype", "steps": 6, "step_s": "~157 s/step (high->low model switch adds ~60 s)", "task_total_s": 1221, "vae_decode_s": 87, "min_free_ram_gb": 23.89, "result": "PASS: the character from look-hype.png (bucket hat, black graffiti sweatshirt, grey joggers, sneakers) follows the pose incl. kicks and arms-up; limbs stay solid, no dissolving arms, no ghost figure; room consistent. Weak spots: face and hat blur during fast head moves (frames 7 and 25); hands simplified into sleeves. Checked on 11 frames (sheet) + 3 full-res frames only.", "out": "D:/Bossman/work/tiktok-trend-20261024/vace/smoke/smoke2.mp4", "sheets": ["D:/Bossman/work/tiktok-trend-20261024/vace/smoke/sheet2.jpg", "D:/Bossman/work/tiktok-trend-20261024/vace/smoke/full2.jpg"]}
+ ],
+ "full_run": {"settings": "576x1024, 81 frames x 3 segments, 6 steps", "started": "2026-10-24 23:01:24", "killed_at_s": 819, "progress": "segment casual: VAE encode done (157 s), denoising step 1/6 still running after ~9 min (includes warm-up)", "min_free_ram_gb": 28.21, "estimate": "~7-9 min/step at 81 frames -> ~50 min per segment, ~2.5 h for all three + RIFE + assemble", "outputs": "none (gen576 is empty)"},
+ "qa": {"status": "NOT_RUN for the final clip (there is no final clip). Script ready: D:/Bossman/work/tiktok-trend-20261024/vace/qa.py (2 fps contact sheet, 8 fastest-motion frames side by side with final-dev-576-to-720p.mp4, Laplacian sharpness).", "smoke_only_finding": "smoke2 does not show the main LTX defect (arms dissolving / ghost figure) at the fast moves; face blur at fast head turns remains"},
+ "verdict": "NOT_RUN vs LTX (generation stopped by owner). The motion-transfer path works on this PC (smoke2 PASS, lowest free RAM 23.9 GB at 33 frames 576x1024).",
+ "resume": [
+  "Only after the owner lifts the stop: Start-Process powershell -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','D:\\Bossman\\work\\tiktok-trend-20261024\\vace\\run_wgp.ps1','-Settings','D:/Bossman/work/tiktok-trend-20261024/vace/segments576.json','-OutDir','D:\\Bossman\\work\\tiktok-trend-20261024\\vace\\gen576','-Tag','seg576' -WindowStyle Hidden",
+  "Rename the outputs to vace/seg-casual.mp4, seg-hype.mp4, seg-formal.mp4 (WanGP names files by date+prompt; order = casual, hype, formal); optional RIFE x2 16->32 fps",
+  "Back up receipt.json to vace/ltx-receipt.backup.json, then from wt-final run: python tools/tiktok_outfit_clip.py assemble --seg-dir D:\\Bossman\\work\\tiktok-trend-20261024\\vace --out D:\\Bossman\\work\\tiktok-trend-20261024\\final-vace-720p.mp4, then restore the LTX receipt",
+  "python vace/qa.py, review qa/contact-2fps.jpg and the peak*.jpg pairs, then fill in the verdict"
+ ]
+}
