@@ -1,0 +1,70 @@
+{
+ "verdict": "FAIL",
+ "started": "2026-10-25T14:40:20Z",
+ "finished": "2026-10-25T14:46:41Z",
+ "direct": {
+  "results": {},
+  "checks": {},
+  "skipped": true
+ },
+ "chat": {
+  "agent_id": 41,
+  "agent_name": "Gemma 4 uncensored",
+  "agent_tools_before": 14,
+  "agent_tools_after": 14,
+  "geo_added_to_agent": false,
+  "questions": [
+   {
+    "kind": "aircraft",
+    "question": "Сколько самолётов сейчас над Чехией? Назови три рейса (позывные).",
+    "thread_id": "20261025-074020-894383",
+    "task_id": 276,
+    "status": "completed",
+    "seconds": 381.0,
+    "at": "2026-10-25T14:46:41Z",
+    "tools_used": [
+     {
+      "tool": "geo.aircraft",
+      "args": {
+       "region": "Czechia"
+      }
+     }
+    ],
+    "tool_result_previews": [
+     "Самолёты в воздухе — Czechia (внутри границ): 44 (в bbox 75); снимок OpenSky 2026-10-25T14:40:43Z UTC.\n- 9AJIP icao24=501E6E Croatia высота 3810 м скорость 699 км/ч [airliner] (50.115, 13.873)\n- AIC74H icao24=800739 India высота 12192 м скорость 837 км/ч [airliner] (49.219, 14.569)\n- AUA995F icao24=440052 Austria высота 10973 м скорость 799 км/ч [airliner] (50.377, 14.835)\n- BBG274 icao24=4521BF Bulgaria высота 10973 м скорость 767 км/ч [airliner] (50.409, 15.125)\n- BOH212 icao24=49D665 Czech Republic высота 12192 м скорость 692 км/ч [airliner] (50.245, 13.351)\n- CEF146 icao24=498447 Czech Republic высота 1021 м скорость 262 км/ч [light] (50.096, 14.885)\n- CFG2368 icao24=3C7A50 Germany высота 9136 м скорость 947 км/ч [airliner] (49.629, 13.152)\n- CLX9727 icao24=4D012F Luxembourg высота 9449 м скорость 1028 км/ч [airliner] (49.687, 12.839)\n- DLH4YY icao24=3C6447 Germany высота 11285 м скорость 896 км/ч [airliner] (50.268, 16.219)\n- EJU1781 icao24=4409C0 Austria высота 1554 м скорость 329 км/ч [light] (50.188, 14.598)\n(показаны первые 10 из 44)"
+    ],
+    "tool_errors": [],
+    "answer": "Сейчас над Чехией находится 44 самолёта. Вот три из них: 9AJIP, AIC74H и AUA995F.",
+    "called_expected_tool": true,
+    "verify": {
+     "tool_count": "44",
+     "tool_bbox_count": "75",
+     "tool_callsigns": [
+      "9AJIP",
+      "AIC74H",
+      "AUA995F",
+      "BBG274",
+      "BOH212",
+      "CEF146",
+      "CFG2368",
+      "CLX9727",
+      "DLH4YY",
+      "EJU1781"
+     ],
+     "answer_callsigns": [
+      "AIC74H",
+      "AUA995F"
+     ],
+     "count_matches": true,
+     "three_callsigns_from_tool": false,
+     "no_invented_callsigns": true
+    },
+    "pass": false
+   }
+  ],
+  "threads_purged": [
+   "20261025-074020-894383"
+  ],
+  "pass": false
+ }
+}

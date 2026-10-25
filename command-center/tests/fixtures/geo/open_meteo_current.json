@@ -1,0 +1,31 @@
+{
+ "latitude": 50.087627,
+ "longitude": 14.409841,
+ "generationtime_ms": 0.1316070556640625,
+ "utc_offset_seconds": 3600,
+ "timezone": "Europe/Prague",
+ "timezone_abbreviation": "GMT+1",
+ "elevation": 205.0,
+ "current_units": {
+  "time": "iso8601",
+  "interval": "seconds",
+  "temperature_2m": "\u0412\u00b0C",
+  "relative_humidity_2m": "%",
+  "apparent_temperature": "\u0412\u00b0C",
+  "precipitation": "mm",
+  "wind_speed_10m": "km/h",
+  "wind_direction_10m": "\u0412\u00b0",
+  "weather_code": "wmo code"
+ },
+ "current": {
+  "time": "2026-10-25T15:00",
+  "interval": 900,
+  "temperature_2m": 10.5,
+  "relative_humidity_2m": 80,
+  "apparent_temperature": 7.6,
+  "precipitation": 0.0,
+  "wind_speed_10m": 14.5,
+  "wind_direction_10m": 186,
+  "weather_code": 61
+ }
+}

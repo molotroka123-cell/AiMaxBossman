@@ -1,0 +1,472 @@
+{
+ "verdict": "FAIL",
+ "started": "2026-10-25T14:14:54Z",
+ "finished": "2026-10-25T14:39:15Z",
+ "direct": {
+  "results": {
+   "aircraft_czechia": {
+    "ok": true,
+    "at": "2026-10-25T14:14:54Z",
+    "seconds": 0.15,
+    "result": {
+     "source": "OpenSky Network (opensky-network.org)",
+     "area": "Czechia",
+     "bbox": [
+      12.089746,
+      48.576221,
+      18.832227,
+      51.037793
+     ],
+     "within_borders": true,
+     "count": 43,
+     "bbox_count": 67,
+     "data_time_utc": "2026-10-25T14:13:06Z",
+     "items": [
+      {
+       "callsign": "ASL500",
+       "icao24": "4C0224",
+       "origin_country": "Serbia",
+       "lat": 50.383,
+       "lon": 13.062,
+       "altitude_m": 10363,
+       "speed_kmh": 817,
+       "category": "airliner"
+      },
+      {
+       "callsign": "BAW695",
+       "icao24": "40123F",
+       "origin_country": "United Kingdom",
+       "lat": 49.434,
+       "lon": 14.097,
+       "altitude_m": 10371,
+       "speed_kmh": 770,
+       "category": "airliner"
+      },
+      {
+       "callsign": "BAW85U",
+       "icao24": "400B82",
+       "origin_country": "United Kingdom",
+       "lat": 50.082,
+       "lon": 14.053,
+       "altitude_m": 2416,
+       "speed_kmh": 452,
+       "category": "regional"
+      },
+      {
+       "callsign": "BBC201",
+       "icao24": "70209A",
+       "origin_country": "Bangladesh",
+       "lat": 49.798,
+       "lon": 13.748,
+       "altitude_m": 12192,
+       "speed_kmh": 820,
+       "category": "airliner"
+      },
+      {
+       "callsign": "CAI6PT",
+       "icao24": "4BB564",
+       "origin_country": "Turkey",
+       "lat": 49.238,
+       "lon": 14.483,
+       "altitude_m": 10973,
+       "speed_kmh": 749,
+       "category": "airliner"
+      },
+      {
+       "callsign": "CEF146",
+       "icao24": "498447",
+       "origin_country": "Czech Republic",
+       "lat": 49.312,
+       "lon": 16.127,
+       "altitude_m": 3048,
+       "speed_kmh": 301,
+       "category": "light"
+      },
+      {
+       "callsign": "CFG5YU",
+       "icao24": "3C6473",
+       "origin_country": "Germany",
+       "lat": 49.91,
+       "lon": 13.239,
+       "altitude_m": 5357,
+       "speed_kmh": 753,
+       "category": "airliner"
+      },
+      {
+       "callsign": "CFG8KU",
+       "icao24": "3C088D",
+       "origin_country": "Germany",
+       "lat": 48.861,
+       "lon": 14.531,
+       "altitude_m": 8237,
+       "speed_kmh": 861,
+       "category": "airliner"
+      },
+      {
+       "callsign": "CND31BT",
+       "icao24": "48664A",
+       "origin_country": "Kingdom of the Netherlands",
+       "lat": 50.098,
+       "lon": 12.548,
+       "altitude_m": 10973,
+       "speed_kmh": 752,
+       "category": "airliner"
+      },
+      {
+       "callsign": "CYF461",
+       "icao24": "4C808D",
+       "origin_country": "Cyprus",
+       "lat": 49.191,
+       "lon": 15.902,
+       "altitude_m": 8626,
+       "speed_kmh": 905,
+       "category": "airliner"
+      }
+     ],
+     "truncated": true
+    }
+   },
+   "weather_prague": {
+    "ok": true,
+    "at": "2026-10-25T14:14:54Z",
+    "seconds": 0.16,
+    "result": {
+     "source": "Open-Meteo (open-meteo.com)",
+     "place": "Prague",
+     "country": "Czechia",
+     "lat": 50.087,
+     "lon": 14.4229,
+     "local_time": "2026-10-25T15:00",
+     "timezone": "Europe/Prague",
+     "temperature_c": 10.5,
+     "apparent_c": 7.6,
+     "humidity_pct": 80.0,
+     "precipitation_mm": 0.0,
+     "wind_kmh": 14.5,
+     "wind_dir_deg": 186.0,
+     "weather_code": 61,
+     "conditions": "Slight rain"
+    }
+   },
+   "earthquakes_m45_24h": {
+    "ok": true,
+    "at": "2026-10-25T14:14:54Z",
+    "seconds": 0.04,
+    "result": {
+     "source": "USGS Earthquake Hazards Program (earthquake.usgs.gov)",
+     "feed": "4.5_day",
+     "min_magnitude": 4.5,
+     "hours": 24.0,
+     "area": "world",
+     "count": 28,
+     "strongest": {
+      "magnitude": 6.5,
+      "place": "Bonin Islands, Japan region",
+      "time_utc": "2026-10-25T02:09:23Z",
+      "depth_km": 492.4,
+      "lat": 27.795,
+      "lon": 139.618,
+      "tsunami": true,
+      "id": "us6000u4r9"
+     },
+     "items": [
+      {
+       "magnitude": 6.5,
+       "place": "Bonin Islands, Japan region",
+       "time_utc": "2026-10-25T02:09:23Z",
+       "depth_km": 492.4,
+       "lat": 27.795,
+       "lon": 139.618,
+       "tsunami": true,
+       "id": "us6000u4r9"
+      },
+      {
+       "magnitude": 6.1,
+       "place": "25 km ENE of Port-Olry, Vanuatu",
+       "time_utc": "2026-10-25T02:24:00Z",
+       "depth_km": 116.0,
+       "lat": -14.996,
+       "lon": 167.304,
+       "tsunami": false,
+       "id": "us6000u4rf"
+      },
+      {
+       "magnitude": 5.9,
+       "place": "218 km ENE of Nagqu, China",
+       "time_utc": "2026-10-25T11:25:57Z",
+       "depth_km": 7.0,
+       "lat": 32.462,
+       "lon": 94.053,
+       "tsunami": false,
+       "id": "us6000u4ty"
+      },
+      {
+       "magnitude": 5.8,
+       "place": "Bouvet Island region",
+       "time_utc": "2026-10-24T15:24:19Z",
+       "depth_km": 12.5,
+       "lat": -54.03,
+       "lon": 7.015,
+       "tsunami": false,
+       "id": "us6000u4mn"
+      },
+      {
+       "magnitude": 5.4,
+       "place": "33 km ESE of Ambunti, Papua New Guinea",
+       "time_utc": "2026-10-25T10:30:27Z",
+       "depth_km": 72.3,
+       "lat": -4.364,
+       "lon": 143.084,
+       "tsunami": false,
+       "id": "us6000u4tq"
+      },
+      {
+       "magnitude": 5.4,
+       "place": "205 km NW of Port-Olry, Vanuatu",
+       "time_utc": "2026-10-25T08:41:00Z",
+       "depth_km": 10.0,
+       "lat": -13.885,
+       "lon": 165.577,
+       "tsunami": false,
+       "id": "us6000u4tc"
+      },
+      {
+       "magnitude": 5.3,
+       "place": "44 km ESE of Miyazaki, Japan",
+       "time_utc": "2026-10-24T23:59:36Z",
+       "depth_km": 10.0,
+       "lat": 31.823,
+       "lon": 131.873,
+       "tsunami": false,
+       "id": "us6000u4qq"
+      },
+      {
+       "magnitude": 5.3,
+       "place": "101 km SSE of Vilyuchinsk, Russia",
+       "time_utc": "2026-10-24T20:35:04Z",
+       "depth_km": 70.2,
+       "lat": 52.157,
+       "lon": 159.196,
+       "tsunami": false,
+       "id": "us6000u4pa"
+      },
+      {
+       "magnitude": 5.2,
+       "place": "63 km NNE of Lae, Papua New Guinea",
+       "time_utc": "2026-10-25T03:29:10Z",
+       "depth_km": 80.8,
+       "lat": -6.174,
+       "lon": 147.166,
+       "tsunami": false,
+       "id": "us6000u4s5"
+      },
+      {
+       "magnitude": 5.1,
+       "place": "199 km ENE of Nagqu, China",
+       "time_utc": "2026-10-25T11:24:14Z",
+       "depth_km": 10.0,
+       "lat": 32.37,
+       "lon": 93.887,
+       "tsunami": false,
+       "id": "us6000u4tx"
+      }
+     ],
+     "truncated": true,
+     "feed_generated_utc": "2026-10-25T14:12:20Z"
+    }
+   },
+   "daynight_prague": {
+    "ok": true,
+    "at": "2026-10-25T14:14:54Z",
+    "seconds": 0.0,
+    "result": {
+     "source": "Terrascope solar maths (NOAA/Meeus), local",
+     "place": "Prague",
+     "country": "Czechia",
+     "lat": 50.087,
+     "lon": 14.4229,
+     "at_utc": "2026-10-25T14:14:54Z",
+     "sun_elevation_deg": 12.85,
+     "phase": "Day",
+     "is_day": true,
+     "moon_phase": "Full Moon",
+     "moon_illumination_pct": 100,
+     "sunrise_utc": "05:41",
+     "sunset_utc": "15:52"
+    }
+   },
+   "map_europe": {
+    "ok": true,
+    "at": "2026-10-25T14:14:54Z",
+    "seconds": 0.08,
+    "result": {
+     "source": "Terrascope braille renderer + Natural Earth",
+     "area": "europe",
+     "center": [
+      10.0,
+      53.0
+     ],
+     "zoom": 3.13,
+     "width": 80,
+     "height": 24,
+     "legend": [],
+     "first_lines": [
+      "⠀⠀⠀⠀⠀⠀⣶⣶⣺⡗⠒⠂⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⡀",
+      "⠰⠶⢾⣿⣓⣲⡟⠛⠁",
+      "⣴⣶⣶⡲⣄⣹⣳⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠤⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡀⠀⣀⣠⣤⣤⣤⣤⡤⣤⠤⣀⡀",
+      "⣉⣉⡤⠞⠛⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⣴⣴⣶⣛⣻⡿⣭⣌⣁⣀⡩⠊⠉⢩⡿⠛⠓⠛⠳⠖⠢⠤⠤⣀⡀⠀⠀⠀⠀⢀⣀⣀⡀",
+      "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢋⡭⢿⡿⠏⠉⠀⠀⠀⠀⠈⢻⡀⠀⠀⠀⠈⣭⠂⠀⠤⣤⣀⣀⠀⠀⠀⠉⠉⠓⡆⣀⠠⢧⠶⣞⣃",
+      "⠀⠀⠀⠰⣾⣻⣽⠗⠓⠋⠛⠋⠉⠙⣓⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠾⠏⣩⠋⠁⠀⠀⠀⠀⠀⡴⠒⠚⢳⣦⠀⠀⠀⢨⣗⠀⠀⠈⠉⣇⢭⣩⢍⣉⢹⡟⠉⠉⠉⠁"
+     ],
+     "line_count": 24,
+     "max_line_len": 80,
+     "non_blank_cells": 787
+    }
+   }
+  },
+  "checks": {
+   "aircraft_live": true,
+   "weather_live": true,
+   "earthquakes_live": true,
+   "daynight_ok": true,
+   "map_ok": true
+  }
+ },
+ "chat": {
+  "agent_id": 41,
+  "agent_name": "Gemma 4 uncensored",
+  "agent_tools_before": 13,
+  "agent_tools_after": 14,
+  "geo_added_to_agent": true,
+  "questions": [
+   {
+    "kind": "aircraft",
+    "question": "Сколько самолётов сейчас над Чехией? Назови три рейса (позывные).",
+    "thread_id": "20261025-071455-4f1618",
+    "task_id": 268,
+    "status": "stopped",
+    "seconds": 387.5,
+    "at": "2026-10-25T14:21:23Z",
+    "tools_used": [
+     {
+      "tool": "geo.aircraft",
+      "args": {
+       "limit": 3,
+       "region": "Czechia"
+      }
+     }
+    ],
+    "tool_result_previews": [
+     "Самолёты в воздухе — Czechia (внутри границ): 41 (в bbox 67); снимок OpenSky 2026-10-25T14:15:58Z UTC.\n- AIH776 icao24=71BC17 Republic of Korea высота 9449 м скорость 1036 км/ч [airliner] (49.967, 12.802)\n- BAW695 icao24=40123F United Kingdom высота 10363 м скорость 768 км/ч [airliner] (49.639, 13.698)\n- BAW85U icao24=400B82 United Kingdom высота 4755 м скорость 584 км/ч [airliner] (50.205, 13.762)\n(показаны первые 3 из 41)"
+    ],
+    "tool_errors": [],
+    "answer": "",
+    "called_expected_tool": true,
+    "verify": {
+     "tool_count": "41",
+     "tool_bbox_count": "67",
+     "tool_callsigns": [
+      "AIH776",
+      "BAW695",
+      "BAW85U"
+     ],
+     "answer_callsigns": [],
+     "count_matches": false,
+     "three_callsigns_from_tool": false,
+     "no_invented_callsigns": true
+    },
+    "pass": false
+   },
+   {
+    "kind": "weather",
+    "question": "Какая погода в Праге сейчас?",
+    "thread_id": "20261025-072123-53b572",
+    "task_id": 271,
+    "status": "completed",
+    "seconds": 511.0,
+    "at": "2026-10-25T14:29:54Z",
+    "tools_used": [
+     {
+      "tool": "geo.weather",
+      "args": {
+       "city": "Prague"
+      }
+     }
+    ],
+    "tool_result_previews": [
+     "Погода сейчас — Prague, Czechia (местное время 2026-10-25T15:15, Europe/Prague): 10.6 °C, ощущается 7.8 °C, Slight rain (код 61), ветер 14.2 км/ч, направление 187°, влажность 80 %, осадки 0.0 мм. Источник: Open-Meteo (open-meteo.com)."
+    ],
+    "tool_errors": [],
+    "answer": "В Праге сейчас 10,6 °C (ощущается как 7,8 °C). Идёт небольшой дождь, влажность воздуха 80%, ветер около 14 км/ч.",
+    "called_expected_tool": true,
+    "verify": {
+     "tool_temperature": "10.6",
+     "temperature_matches": true,
+     "answer_degree_values": [
+      "10,6",
+      "7,8"
+     ],
+     "no_invented_degrees": true
+    },
+    "pass": true
+   },
+   {
+    "kind": "earthquakes",
+    "question": "Были ли за последние сутки землетрясения сильнее 5 баллов (магнитуда) и где?",
+    "thread_id": "20261025-072954-7c2b9e",
+    "task_id": 273,
+    "status": "completed",
+    "seconds": 561.4,
+    "at": "2026-10-25T14:39:15Z",
+    "tools_used": [
+     {
+      "tool": "geo.earthquakes",
+      "args": {
+       "hours": 24,
+       "min_magnitude": 5
+      }
+     }
+    ],
+    "tool_result_previews": [
+     "Землетрясения M≥5.0 за 24 ч (world): 15. Лента USGS 4.5_day, обновлена 2026-10-25T14:33:22Z UTC.\n- M6.5 Bonin Islands, Japan region — 2026-10-25T02:09:23Z UTC, глубина 492.4 км, ЦУНАМИ-флаг\n- M6.1 25 km ENE of Port-Olry, Vanuatu — 2026-10-25T02:24:00Z UTC, глубина 116.0 км\n- M5.9 218 km ENE of Nagqu, China — 2026-10-25T11:25:57Z UTC, глубина 7.0 км\n- M5.8 Bouvet Island region — 2026-10-24T15:24:19Z UTC, глубина 12.5 км\n- M5.4 33 km ESE of Ambunti, Papua New Guinea — 2026-10-25T10:30:27Z UTC, глубина 72.3 км\n- M5.4 205 km NW of Port-Olry, Vanuatu — 2026-10-25T08:41:00Z UTC, глубина 10.0 км\n- M5.3 44 km ESE of Miyazaki, Japan — 2026-10-24T23:59:36Z UTC, глубина 10.0 км\n- M5.3 101 km SSE of Vilyuchinsk, Russia — 2026-10-24T20:35:04Z UTC, глубина 70.2 км\n- M5.2 63 km NNE of Lae, Papua New Guinea — 2026-10-25T03:29:10Z UTC, глубина 80.8 км\n- M5.1 199 km ENE of Nagqu, China — 2026-10-25T11:24:14Z UTC, глубина 10.0 км\n(показаны 10 сильнейших из 15)"
+    ],
+    "tool_errors": [],
+    "answer": "Да, за последние сутки зафиксировано 15 землетрясений магнитудой более 5.0. Вот самые сильные из них:\n\n1. **M6.5** — регион островов Бонин, **Япония** (глубина 492.4 км).\n2. **M6.1** — **Вануату**, в 25 км к востоку-северо-востоку от Порт-Олри (глубина 116 км).\n3. **M5.9** — **Китай**, в 218 км к востоку-северо-востоку от Нагцю (глубина 7 км).\n4. **M5.8** — регион острова Буве.\n5. **M5.4** — **Папуа-Новая Гвинея**, в 33 км к востоку-юго-востоку от Амбунти.\n6. **M5.4** — **Вануату**, в 205 км к северо-западу от Порт-Олри.\n7. **M5.3** — **Япония**, в 44 км к востоку-юго-востоку от Миядзаки.\n8. **M5.3** — **Россия**, в 101 км к юго-юго-востоку от Вилючинска.\n9. **M5.2** — **Папуа-Новая Гвинея**, в 63 км к северу-северо-востоку от Лаэ.\n10. **M5.1** — **Китай**, в 199 км к востоку-северо-востоку от Нагцю.",
+    "called_expected_tool": true,
+    "verify": {
+     "tool_count": "15",
+     "tool_magnitudes": [
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.8",
+      "5.9",
+      "6.1",
+      "6.5"
+     ],
+     "answer_magnitudes": [
+      "5.0",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.8",
+      "5.9",
+      "6.1",
+      "6.5"
+     ],
+     "strongest": "6.5",
+     "count_or_none_matches": true,
+     "no_invented_magnitudes": false
+    },
+    "pass": false
+   }
+  ],
+  "threads_purged": [
+   "20261025-072123-53b572",
+   "20261025-072954-7c2b9e"
+  ],
+  "pass": false
+ }
+}
