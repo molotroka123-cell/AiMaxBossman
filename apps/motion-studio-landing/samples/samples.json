@@ -1,8 +1,26 @@
 {
-  "_howto": "PLACEHOLDERS. To publish a sample: put an MP4 (9:16, H.264, muted, <4 MB) into samples/, set src to '/samples/<file>.mp4' (and optional poster JPG), redeploy. Empty src = 'Ukázka brzy' placeholder. Preset ids must match data-slot in index.html.",
+  "_howto": "To publish a sample: put an MP4 (9:16, H.264, muted, <4 MB) into samples/, set src to '/samples/<file>.mp4' (and optional poster '/samples/<file>.jpg'), redeploy. build_netlify.py rewrites these root paths to /studio/samples/. Empty src = 'Ukázka brzy' placeholder. Preset ids must match data-slot in index.html. 25.10 samples: fictional unbranded products, generated locally (z-image-turbo still + LTX-2.5 image-to-video), receipt in docs/audits/2026-10-25-motion-studio-samples/receipt.json.",
   "samples": [
-    { "preset": "spin", "title": "Otočka 360°", "src": "", "poster": "", "alt": "Ukázka: otočka produktu 360° (AI)" },
-    { "preset": "hand-reveal", "title": "Ruka a odhalení", "src": "", "poster": "", "alt": "Ukázka: ruka odhaluje produkt (AI)" },
-    { "preset": "lifestyle", "title": "Produkt v akci", "src": "", "poster": "", "alt": "Ukázka: produkt v reálné scéně (AI)" }
+    {
+      "preset": "spin",
+      "title": "Otočka 360°",
+      "src": "/samples/spin.mp4",
+      "poster": "/samples/spin.jpg",
+      "alt": "Ukázka: otočka produktu 360° (AI)"
+    },
+    {
+      "preset": "hand-reveal",
+      "title": "Ruka a odhalení",
+      "src": "/samples/reveal.mp4",
+      "poster": "/samples/reveal.jpg",
+      "alt": "Ukázka: ruka odhaluje produkt (AI)"
+    },
+    {
+      "preset": "lifestyle",
+      "title": "Produkt v akci",
+      "src": "/samples/lifestyle.mp4",
+      "poster": "/samples/lifestyle.jpg",
+      "alt": "Ukázka: produkt v reálné scéně (AI)"
+    }
   ]
 }

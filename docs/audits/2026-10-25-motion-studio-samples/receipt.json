@@ -1,0 +1,261 @@
+{
+ "schema": "bossman.motion-studio.samples.v1",
+ "at": "2026-10-25T05:20:03-0700",
+ "owner_decision": "25.10 «Нужен локальный стек»: no paid cloud generation, everything on the owner's PC; money spent: 0",
+ "products": "fictional, unbranded (no logos/brand names/label text) - checked by eye on stills and on video frames",
+ "licenses": {
+  "z-image-turbo": "Apache-2.0 (commercial OK, per bcc/direct_gen/orders.py)",
+  "LTX-2.5": "Lightricks LTX open-weights licence - NOT_VERIFIED: no licence file next to the local weights and none in bcc/direct_gen/orders.py; owner must check the commercial terms before selling clips made with it",
+  "RIFE v4.6 (rife-ncnn-vulkan)": "MIT",
+  "ffmpeg": "LGPL/GPL build, local tool"
+ },
+ "hardware": "Windows 11, AMD Ryzen AI Max (Strix Halo) + Radeon 8060S iGPU, 120 GB unified RAM",
+ "cost_method": {
+  "MEASURED": "wall time of each generation; SoC package energy from Windows 'Energy Meter' RAPL_Package0_PKG counter (pWh), sampled before/after each clip. Package = CPU+iGPU SoC; excludes PSU losses, board, SSD, fans, monitor -> lower bound.",
+  "ASSUMED": "whole-PC draw 180 W during generation (upper-bound style estimate); electricity price 6.0 Kč/kWh",
+  "power_sensor_note": "no wall-plug meter; HWiNFO/Adrenalin not used"
+ },
+ "memory_guard": "detached runner + guard killing sd-cli if free RAM < 3 GB; never triggered (min free RAM during pass1: 42.4 GB)",
+ "passes": {
+  "pass1": {
+   "spin": {
+    "slot": "spin",
+    "variant": "distilled",
+    "steps": 8,
+    "cfg": 1.0,
+    "seed": 101,
+    "wall_s": 1228.6,
+    "rapl_pkg_wh": 34.14,
+    "rapl_pkg_avg_w": 100.0
+   },
+   "reveal": {
+    "slot": "reveal",
+    "variant": "distilled",
+    "steps": 8,
+    "cfg": 1.0,
+    "seed": 202,
+    "wall_s": 894.5,
+    "rapl_pkg_wh": 27.14,
+    "rapl_pkg_avg_w": 109.2
+   },
+   "lifestyle": {
+    "slot": "lifestyle",
+    "variant": "distilled",
+    "steps": 8,
+    "cfg": 1.0,
+    "seed": 303,
+    "wall_s": 906.4,
+    "rapl_pkg_wh": 27.36,
+    "rapl_pkg_avg_w": 108.7
+   }
+  }
+ },
+ "clips": {
+  "spin": {
+   "preset": "Otočka 360° (slot spin)",
+   "file": "apps/motion-studio-landing/samples/spin.mp4",
+   "poster": "apps/motion-studio-landing/samples/spin.jpg",
+   "bytes": 951779,
+   "sha256": "2d7e4345aabce7e163f7f59f83117e6ab52ae49184692d6ec54388079e26b869",
+   "still": {
+    "model": "z-image-turbo Q8_0 (Apache-2.0) via Direct Gen :8801",
+    "job_id": "f6c78e2eae87411fa6d3c6d76d132ff7",
+    "seed": 11,
+    "resolution": "576x1024",
+    "steps": 8,
+    "prompt": "Professional commercial studio product photograph, vertical composition. A single clean white minimalist leather sneaker with white laces and a white rubber sole, side profile view, standing on a raw grey concrete cylinder plinth. Seamless soft light-grey studio backdrop, soft key light from the left and gentle rim light, subtle soft shadow. Completely plain shoe with no logo, no stripes, no text, no branding. Sharp focus, photorealistic, high detail.",
+    "negative": "text, letters, words, logo, brand name, label text, watermark, signature, blurry, deformed, lowres, people, hands",
+    "seconds_measured": 51.4
+   },
+   "video": {
+    "model": "LTX-2.5 22B distilled Q6_K GGUF, local sd-cli Vulkan (AMD Radeon 8060S)",
+    "pass": "pass1",
+    "prompt": "Commercial product video. A clean white minimalist leather sneaker standing on a grey concrete plinth slowly rotates in place like on a product turntable, smooth continuous slow rotation, the camera stays completely static and locked off. Soft studio lighting with a gentle rim light, seamless light grey backdrop, soft shadow moves with the shoe. The sneaker keeps its exact shape and proportions, sharp detailed leather texture, slow smooth motion, no text.",
+    "negative": "blurry, low quality, deformed, extra fingers, deformed hands, mutated hands, text, letters, words, logo, watermark, warping product, melting, morphing, distorted shape, flicker, frame border, face",
+    "seed": 101,
+    "steps": 8,
+    "cfg": 1.0,
+    "frames": 121,
+    "fps": 24,
+    "size": "576x1024",
+    "wall_seconds_measured": 1228.6
+   },
+   "post": {
+    "chain": "RIFE v4.6 x2 (24->48 fps) -> fps=30 -> lanczos 720x1280 -> drawtext «AI» bottom-left + «Bossman Motion Studio» bottom-right -> libx264 crf 20 preset slow, yuv420p, +faststart, no audio",
+    "post_seconds_measured": 5.3,
+    "duration_s": 5.03
+   },
+   "qa": {
+    "verdict": "PASS",
+    "notes": "2 fps sheet + full-res frames 60/72/118: ~180° smooth turntable turn, static camera, sneaker shape stable (no melting), sole/laces coherent, small blank tongue tag (no text/logo); no text anywhere"
+   },
+   "cost": {
+    "MEASURED_wall_seconds_video": 1228.6,
+    "MEASURED_wall_seconds_still": 51.4,
+    "MEASURED_rapl_package_wh_video": 34.14,
+    "MEASURED_rapl_package_avg_w_video": 100.0,
+    "kc_from_MEASURED_package_energy_video_only": 0.205,
+    "kc_from_ASSUMED_180W_whole_pc_video_plus_still": 0.384
+   }
+  },
+  "reveal": {
+   "preset": "Ruka a odhalení (slot hand-reveal)",
+   "file": "apps/motion-studio-landing/samples/reveal.mp4",
+   "poster": "apps/motion-studio-landing/samples/reveal.jpg",
+   "bytes": 690659,
+   "sha256": "66206a071112896da37eefbffbb906c2562e4a076fb60b46e1b5de176e34df9b",
+   "still": {
+    "model": "z-image-turbo Q8_0 (Apache-2.0) via Direct Gen :8801",
+    "job_id": "0e03447a5aa64d82b186ead4e78b9c7c",
+    "seed": 11,
+    "resolution": "576x1024",
+    "steps": 8,
+    "prompt": "Professional commercial product photograph, vertical composition. A single amber glass cosmetic serum dropper bottle with a black rubber pipette cap, completely blank glass with no label and no text, standing on a white Carrara marble bathroom shelf. Soft diffused daylight, gentle reflections on the glass, a small green eucalyptus sprig and a folded white towel slightly out of focus in the background. Clean minimalist luxury aesthetic, sharp focus on the bottle, photorealistic, 100mm macro lens.",
+    "negative": "text, letters, words, logo, brand name, label text, watermark, signature, blurry, deformed, lowres, people, hands",
+    "seconds_measured": 51.4
+   },
+   "video": {
+    "model": "LTX-2.5 22B distilled Q6_K GGUF, local sd-cli Vulkan (AMD Radeon 8060S)",
+    "pass": "pass1",
+    "prompt": "Commercial cosmetic advertisement video. A graceful woman's hand with natural manicured nails slowly enters the frame from the right side, gently picks up the amber glass dropper bottle from the white marble shelf and slowly lifts it up toward the camera, presenting it. Only the hand and wrist are visible, no face. Soft diffused daylight, static camera, slow smooth elegant motion, five natural fingers, the bottle stays sharp and keeps its exact shape, no text.",
+    "negative": "blurry, low quality, deformed, extra fingers, deformed hands, mutated hands, text, letters, words, logo, watermark, warping product, melting, morphing, distorted shape, flicker, frame border, face",
+    "seed": 202,
+    "steps": 8,
+    "cfg": 1.0,
+    "frames": 121,
+    "fps": 24,
+    "size": "576x1024",
+    "wall_seconds_measured": 894.5
+   },
+   "post": {
+    "chain": "RIFE v4.6 x2 (24->48 fps) -> fps=30 -> lanczos 720x1280 -> drawtext «AI» bottom-left + «Bossman Motion Studio» bottom-right -> libx264 crf 20 preset slow, yuv420p, +faststart, no audio",
+    "post_seconds_measured": 3.5,
+    "duration_s": 4.2,
+    "trim": "first 101 of 121 frames: in the last ~0.8 s the bottle leaves the top of the frame"
+   },
+   "qa": {
+    "verdict": "PASS (trimmed)",
+    "notes": "hand enters from top, pinches the dropper cap and lifts the bottle; 5 fingers, natural nails, no face; bottle shape stable; RIFE in-between frames 95-98 checked, no ghosting; no text/logo"
+   },
+   "cost": {
+    "MEASURED_wall_seconds_video": 894.5,
+    "MEASURED_wall_seconds_still": 51.4,
+    "MEASURED_rapl_package_wh_video": 27.14,
+    "MEASURED_rapl_package_avg_w_video": 109.2,
+    "kc_from_MEASURED_package_energy_video_only": 0.163,
+    "kc_from_ASSUMED_180W_whole_pc_video_plus_still": 0.284
+   }
+  },
+  "lifestyle": {
+   "preset": "Produkt v akci (slot lifestyle)",
+   "file": "apps/motion-studio-landing/samples/lifestyle.mp4",
+   "poster": "apps/motion-studio-landing/samples/lifestyle.jpg",
+   "bytes": 888263,
+   "sha256": "b85fa29fda2c8a4bf5ae5287b08de11e4850840f7cf2b0207b1ed6aff9b20bf7",
+   "still": {
+    "model": "z-image-turbo Q8_0 (Apache-2.0) via Direct Gen :8801",
+    "job_id": "ba4914278c93404185e65bbf322adc86",
+    "seed": 22,
+    "resolution": "576x1024",
+    "steps": 8,
+    "prompt": "Professional commercial product photograph, vertical composition. A plain unbranded kraft-paper coffee bag with a folded top and a small round blank paper sticker, standing upright on a warm oak wooden cafe counter. A white ceramic cup of hot black coffee beside it with soft rising steam. Blurred cozy cafe background with warm bokeh lights, morning sunlight from a window. Sharp focus on the bag, shallow depth of field, photorealistic, 85mm lens. Completely blank packaging, no text, no logo.",
+    "negative": "text, letters, words, logo, brand name, label text, watermark, signature, blurry, deformed, lowres, people, hands",
+    "seconds_measured": 51.3
+   },
+   "video": {
+    "model": "LTX-2.5 22B distilled Q6_K GGUF, local sd-cli Vulkan (AMD Radeon 8060S)",
+    "pass": "pass1",
+    "prompt": "Commercial lifestyle advertisement video in a cozy cafe in the morning. Soft white steam slowly rises and swirls from a cup of hot black coffee next to a kraft paper coffee bag on a warm wooden counter. Warm sunlight gently shifts through the window, background bokeh lights softly shimmer. The camera slowly and smoothly pushes in toward the coffee bag. Cinematic, slow smooth motion, the bag stays sharp and keeps its shape, no text.",
+    "negative": "blurry, low quality, deformed, extra fingers, deformed hands, mutated hands, text, letters, words, logo, watermark, warping product, melting, morphing, distorted shape, flicker, frame border, face",
+    "seed": 303,
+    "steps": 8,
+    "cfg": 1.0,
+    "frames": 121,
+    "fps": 24,
+    "size": "576x1024",
+    "wall_seconds_measured": 906.4
+   },
+   "post": {
+    "chain": "RIFE v4.6 x2 (24->48 fps) -> fps=30 -> lanczos 720x1280 -> drawtext «AI» bottom-left + «Bossman Motion Studio» bottom-right -> libx264 crf 20 preset slow, yuv420p, +faststart, no audio",
+    "post_seconds_measured": 4.8,
+    "duration_s": 5.03
+   },
+   "qa": {
+    "verdict": "PASS",
+    "notes": "smooth strong push-in to the bag, steam from cup in first half, bag keeps shape, round sticker stays blank; blurred background menu board never becomes legible; no logo"
+   },
+   "cost": {
+    "MEASURED_wall_seconds_video": 906.4,
+    "MEASURED_wall_seconds_still": 51.3,
+    "MEASURED_rapl_package_wh_video": 27.36,
+    "MEASURED_rapl_package_avg_w_video": 108.7,
+    "kc_from_MEASURED_package_energy_video_only": 0.164,
+    "kc_from_ASSUMED_180W_whole_pc_video_plus_still": 0.287
+   }
+  }
+ },
+ "rejected_or_unused": {
+  "stills": [
+   "coffee-s11",
+   "serum-s22",
+   "sneaker-s22 (shoe tilted/floating)"
+  ]
+ },
+ "landing": {
+  "samples_json": "apps/motion-studio-landing/samples/samples.json",
+  "build": "python apps/motion-studio-landing/build_netlify.py C:/Users/asd/Bossman/site-subtle-baklava (now rewrites /samples/ -> /studio/samples/ and copies poster JPGs)"
+ },
+ "publish": {
+  "site_repo": "molotroka123-cell/subtle-baklava-676893",
+  "commit": "03be938",
+  "method": "fresh detached worktree of origin/main, copy studio/, push HEAD:main (old local unpushed commit untouched)",
+  "url": "https://subtle-baklava-676893.netlify.app/studio/",
+  "live_check": {
+   "url": "https://subtle-baklava-676893.netlify.app/studio/",
+   "slots": [
+    {
+     "slot": "spin",
+     "has_video": true,
+     "src": "https://subtle-baklava-676893.netlify.app/studio/samples/spin.mp4",
+     "ready": 4,
+     "w": 720,
+     "h": 1280,
+     "t": 3.31986,
+     "paused": false,
+     "muted": true,
+     "err": null
+    },
+    {
+     "slot": "hand-reveal",
+     "has_video": true,
+     "src": "https://subtle-baklava-676893.netlify.app/studio/samples/reveal.mp4",
+     "ready": 4,
+     "w": 720,
+     "h": 1280,
+     "t": 2.4903,
+     "paused": false,
+     "muted": true,
+     "err": null
+    },
+    {
+     "slot": "lifestyle",
+     "has_video": true,
+     "src": "https://subtle-baklava-676893.netlify.app/studio/samples/lifestyle.mp4",
+     "ready": 4,
+     "w": 720,
+     "h": 1280,
+     "t": 2.489943,
+     "paused": false,
+     "muted": true,
+     "err": null
+    }
+   ],
+   "http_errors": [],
+   "horizontal_scroll": false
+  }
+ },
+ "tools_changed": [
+  "tools/tiktok_outfit_clip.py: gen --name <slot> / --negative / --receipt (dance --look unchanged)"
+ ],
+ "work_dir": "D:\\Bossman\\work\\motion-studio-samples-20261025"
+}
