@@ -34,6 +34,7 @@ MODELS = {
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3-flash-preview", "GEMINI_API_KEY", 0.0, 0.0),
 }
 DEFAULT = ["kimi", "qwen", "nemotron", "gemini"]
+REASONING = {"kimi": {"reasoning_effort": "medium"}, "qwen": {"reasoning": {"max_tokens": 6000}}}
 MAX_PROMPT_CHARS = 120_000
 
 
@@ -59,6 +60,12 @@ def _call(name: str, prompt: str, max_tokens: int = 24000, timeout: float = 900)
                 "messages": [{"role": "user", "content": prompt}]}
         if "openrouter" in base:
             body["stream_options"] = {"include_usage": True}
+        # 25.10: on real coding prompts Kimi and Qwen burned the whole output cap on reasoning and answered nothing.
+        # Measured on a short prompt: Qwen reasoning.max_tokens cuts thinking ~14x; Kimi reasoning_effort lowers it
+        # and Kimi's output ceiling is 32k. Reasoning is still collected (owner wants Kimi's traces for the dataset).
+        body.update(REASONING.get(name, {}))
+        if name == "kimi":
+            body["max_tokens"] = max(max_tokens, 32000)
         req = urllib.request.Request(base + "/chat/completions", data=json.dumps(body).encode(), method="POST",
                                      headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
                                               "User-Agent": "Bossman/1.0", "X-Title": "bossman-coding-swarm"})

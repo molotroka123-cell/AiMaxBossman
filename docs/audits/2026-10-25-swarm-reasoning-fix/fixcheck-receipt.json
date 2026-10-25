@@ -1,0 +1,31 @@
+{
+ "schema": "bossman.coding-swarm.v1",
+ "label": "fixcheck",
+ "at": "2026-10-25T07:40:38",
+ "prompt_chars": 46545,
+ "calls": [
+  {
+   "model": "kimi",
+   "id": "kimi-k3.1-pro",
+   "ok": true,
+   "seconds": 269.9,
+   "tokens_in": 11681,
+   "tokens_out": 8866,
+   "tokens_estimated": false,
+   "reasoning_chars": 34400,
+   "cost_usd": 0.002055
+  },
+  {
+   "model": "qwen",
+   "id": "qwen/qwen3.8-flash",
+   "ok": true,
+   "seconds": 130.4,
+   "tokens_in": 12159,
+   "tokens_out": 9346,
+   "tokens_estimated": false,
+   "reasoning_chars": 22719,
+   "cost_usd": 0.006216
+  }
+ ],
+ "cost_usd_total": 0.008271
+}
