@@ -1,0 +1,367 @@
+{
+  "date": "2026-10-25",
+  "author": "Claude (Opus 5.5) for owner",
+  "task": "Strata intermediate test before eval500 resume",
+  "source": {
+    "repo": "https://github.com/Niko1221/Strata",
+    "licence": "MIT",
+    "pinned_commit": "4b9e05a2a806a3fe24f7b2560d98626c37dade35",
+    "clone": "C:\\Users\\asd\\Bossman\\apps-local\\strata",
+    "release_used": "v0.2.6 (Terminal/control 0.1.51, engine 0.1.50 windows-x86_64-hip-rdna3)"
+  },
+  "security_review": {
+    "verdict": "PASS for local use",
+    "SETUP.bat/START-HERE.bat": "source-checkout path only; installs Python per-user via winget or python.org if missing, creates .venv, runs setup.py. Not used (Python present; release Terminal used instead).",
+    "install.ps1": "downloaded locally, sha256 6e0c8b2f... matches GitHub asset digest and SHA256SUMS.txt; downloads Terminal zip, checks SHA-256 against install-manifest.txt (9efdd613...), verifies signed feed (strata update --check), unpacks per-user, adds user PATH unless STRATA_NO_PATH=1. Run with STRATA_NO_PATH=1 -> no PATH change.",
+    "engine": "fetched by strata launch from the signed update feed (strata-feed.json + .sig), per-file hashes checked; release asset sha256 2b6d191b... ; bundles its own amdhip64_7.dll; no ROCm/HIP SDK, no driver install, no admin.",
+    "admin_required": false,
+    "driver_install": false,
+    "registry_writes": "none found (winreg used read-only: fonts, display class, CPU name)",
+    "network": "server binds 127.0.0.1 by default (--access local); 0.0.0.0 only with --access lan/tailscale. Engine (src/) has no network code per SAFETY.md.",
+    "telemetry": "SAFETY.md: none; static grep of strata_cli/strata_control/serve shows only HF, GitHub releases, rocm.nightlies.amd.com, nvidia/amd docs links (plus test example hosts).",
+    "model_downloads": "huggingface.co ISTA-DASLab repo, resumable, files verified by setup ('Checking that the model files are complete').",
+    "residue": [
+      "%LOCALAPPDATA%\\Strata\\components\\engine (0.79 GB engine) + launch logs/config (strata ignores STRATA_DATA_DIR for these)",
+      "D:\\Bossman\\models\\llm\\strata\\terminal (Terminal 0.1.51, no PATH entry)"
+    ]
+  },
+  "deepseek_v4_1_flash_1017": {
+    "tried": false,
+    "reason": "docs/STRIX_HALO.md line 7: 'DeepSeek V4.1-Flash does not run on Strix Halo yet'; v0.2.6 release ships strata-dsv41 only for linux cuda, linux hip-rx9070, windows cuda - no Windows HIP/gfx1151 package. The --plan dry run (ist-das-1.75bpw) claimed it 'fits' (68 GB GPU share + 47 GB CPU experts, 239 GB download) but the engine does not exist for this PC; 239-274 GB download not justified.",
+    "weights_licence": "MIT (ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF card, base deepseek-ai/DeepSeek-V4.1-Flash-1017)"
+  },
+  "model_run": {
+    "name": "Qwen3.8-Flash-Next IQ3_S (ISTA-DASLab GSQ-RCO GGUF)",
+    "hf_repo": "ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF",
+    "hf_sha": "ed59f92082b1e93c0e96d60a8b11aab089b52f09",
+    "files": {
+      "IQ3_S-00001-of-00002.gguf": "51.05 GB",
+      "IQ3_S-00002-of-00002.gguf (lookup table, stays on SSD)": "26.82 GB",
+      "mtp draft layer": "~5.2 GB",
+      "packs/iq3_s dense.bin": "1.43 GB",
+      "total_on_D": "86.0 GB"
+    },
+    "location": "D:\\Bossman\\models\\llm\\strata\\data",
+    "licence": "quant card says apache-2.0, but base Qwen/Qwen3.8-Flash-Next is 'Qwen Community License 1.0' (custom): free use/modify/distribute; >100M MAU or >$20M/month revenue must display model name; a Model-as-a-Service or AI Work Assistant (coding/office) business needs a separate Qwen licence for commercial use; internal use exempt if not exposed to third parties. Treat the base licence as binding.",
+    "download_time": "~30 min at ~64 MB/s (89 GB incl. draft layer) + ~8 min integrity check/packing"
+  },
+  "measurements": {
+    "hardware": "Ryzen AI Max+ 395, Radeon 8060S gfx1151, 128 GB unified, Windows 11 26200; HIP runtime bundled; hipBLASLt table gfx1151 v100500 enabled; 19 gfx1151 default switches",
+    "load_time_s": "~60-75 (engine start 09:56:35 to 'answering'; experts 46.84 GiB read at 4.58 GiB/s; +11 s GEMM warmup)",
+    "peak_ram": {
+      "system_used_gb": 111.8,
+      "baseline_gb": 14.0,
+      "strata_private_gb": 97.6,
+      "note": "Windows commit only 7.3 GiB left of 131.6 GiB at load - nothing else big can run alongside (eval/Ollama must be idle)"
+    },
+    "context_configured": 32768,
+    "speed_4k_prompt": {
+      "prompt_tokens": 4472,
+      "prefill_tok_s_engine": [
+        365.0,
+        401.0
+      ],
+      "decode_tok_s_engine": [
+        41.7,
+        42.7
+      ],
+      "mtp_drafts_accepted": "149/206, 154/225"
+    },
+    "short_prompt_decode_tok_s": "45.5-57.5 (MTP on); short-prompt latency floor ~1.0-1.8 s",
+    "docs_claim": "STRIX_HALO.md: 685 tok/s prompt at 4K on Windows IQ3_S (0.2.3) - measured 365-401 here, lower than claimed (default switches only, opt-in fast set not enabled)",
+    "gemma_baseline": {
+      "model": "Ollama gemma4-31b-uncensored-ctx32k (same weights as gemma4-31b-uncensored)",
+      "prefill_tok_s_4k_cold": 229.6,
+      "decode_tok_s": "5.6-6.4",
+      "note": "its 2nd 4K run hit Ollama prompt cache (excluded)"
+    }
+  },
+  "quality_probe": {
+    "method": "5 prompts, temperature 0.2, max_tokens 2048, automatic checks (ru: 18 & 6; cz: Czech, listopad, 5 dni, <=140 words; py: exec + asserts avg([])==0.0, avg([1,2,3])==2; json: exact fields; tool: OpenAI tool_calls get_weather(city=Prague)). Thinking left at model defaults for both.",
+    "table": [
+      {
+        "probe": "ru_reasoning",
+        "gemma_pass": true,
+        "strata_pass": true,
+        "gemma_completion_tokens": 766,
+        "strata_completion_tokens": 404,
+        "gemma_total_s": 128.01,
+        "strata_total_s": 9.61,
+        "gemma_decode_tok_s": 6.07,
+        "strata_decode_tok_s": 47.49
+      },
+      {
+        "probe": "cz_email",
+        "gemma_pass": true,
+        "strata_pass": true,
+        "gemma_completion_tokens": 666,
+        "strata_completion_tokens": 445,
+        "gemma_total_s": 109.938,
+        "strata_total_s": 10.86,
+        "gemma_decode_tok_s": 6.12,
+        "strata_decode_tok_s": 45.53
+      },
+      {
+        "probe": "py_bugfix",
+        "gemma_pass": true,
+        "strata_pass": true,
+        "gemma_completion_tokens": 455,
+        "strata_completion_tokens": 179,
+        "gemma_total_s": 75.117,
+        "strata_total_s": 4.695,
+        "gemma_decode_tok_s": 6.15,
+        "strata_decode_tok_s": 51.28
+      },
+      {
+        "probe": "json_extract",
+        "gemma_pass": true,
+        "strata_pass": true,
+        "gemma_completion_tokens": 431,
+        "strata_completion_tokens": 210,
+        "gemma_total_s": 71.337,
+        "strata_total_s": 5.389,
+        "gemma_decode_tok_s": 6.16,
+        "strata_decode_tok_s": 51.11
+      },
+      {
+        "probe": "tool_call",
+        "gemma_pass": true,
+        "strata_pass": true,
+        "gemma_completion_tokens": 97,
+        "strata_completion_tokens": 86,
+        "gemma_total_s": 16.3,
+        "strata_total_s": 3.304,
+        "gemma_decode_tok_s": 6.37,
+        "strata_decode_tok_s": 58.31
+      }
+    ],
+    "score": {
+      "gemma": "5/5",
+      "strata_qwen38_iq3s": "5/5"
+    },
+    "manual_notes": [
+      "Both correct on all 5. Strata answers shorter (fewer tokens) and 7-9x faster end to end.",
+      "cz_email: Gemma gave two variants (ignored 'short'), typo 'vykázíte'; Strata one short email, minor grammar 'mi zpozdila výplata' (should be 'se mi zpozdila').",
+      "tool_call: both emitted a correct structured tool call."
+    ],
+    "raw": {
+      "gemma": [
+        {
+          "reasoning_chars": 924,
+          "tool_calls": [],
+          "prompt_tokens": 75,
+          "completion_tokens": 766,
+          "ttft_s": 1.894,
+          "total_s": 128.01,
+          "prefill_tok_s": 39.6,
+          "decode_tok_s": 6.07,
+          "pass": true,
+          "name": "ru_reasoning",
+          "answer_excerpt": "Вот пошаговое решение задачи:\n\n**Шаг 1: Введем переменные**\nПусть количество яблок у Пети будет равно **$x$**.\nТак как у Маши в 3 раза больше яблок, то у неё **$3x$** яблок.\n\n**Шаг 2: Составим уравнение**\nПо условию, если Маша отдаст Пете 6 яблок, их количество станет равным.\n*   У Маши станет: $3x "
+        },
+        {
+          "reasoning_chars": 1127,
+          "tool_calls": [],
+          "prompt_tokens": 69,
+          "completion_tokens": 666,
+          "ttft_s": 1.215,
+          "total_s": 109.938,
+          "prefill_tok_s": 56.8,
+          "decode_tok_s": 6.12,
+          "pass": true,
+          "name": "cz_email",
+          "answer_excerpt": "Zde jsou dvě varianty, podle toho, jaký máte s pronajímatelem vztah:\n\n**Varianta 1: Formální (vhodná, pokud si vykázíte)**\n\nPředmět: Nájem za listopad – [Vaše jméno / adresa bytu]\n\nVážený pane / Vážená paní [Jméno],\n\nchtěl(a) bych Vás informovat, že nájem za listopad zaplatím s pětidenním zpožděním "
+        },
+        {
+          "reasoning_chars": 1109,
+          "tool_calls": [],
+          "prompt_tokens": 97,
+          "completion_tokens": 455,
+          "ttft_s": 1.33,
+          "total_s": 75.117,
+          "prefill_tok_s": 72.9,
+          "decode_tok_s": 6.15,
+          "pass": true,
+          "name": "py_bugfix",
+          "answer_excerpt": "```python\ndef average(nums):\n    if not nums:\n        return 0.0\n    total = 0\n    for i in range(0, len(nums)):\n        total += nums[i]\n    return total / len(nums)\n```"
+        },
+        {
+          "reasoning_chars": 769,
+          "tool_calls": [],
+          "prompt_tokens": 119,
+          "completion_tokens": 431,
+          "ttft_s": 1.543,
+          "total_s": 71.337,
+          "prefill_tok_s": 77.1,
+          "decode_tok_s": 6.16,
+          "pass": true,
+          "name": "json_extract",
+          "answer_excerpt": "```json\n{\n  \"name\": \"Jana Nováková\",\n  \"company\": \"Kovo Brno s.r.o.\",\n  \"email\": \"jana.novakova@kovobrno.cz\",\n  \"phone\": \"+420 603 112 445\",\n  \"meeting_date\": \"2026-11-14\"\n}\n```"
+        },
+        {
+          "reasoning_chars": 246,
+          "tool_calls": [
+            {
+              "name": "get_weather",
+              "arguments": "{\"city\":\"Prague\",\"unit\":\"celsius\"}"
+            }
+          ],
+          "prompt_tokens": 96,
+          "completion_tokens": 97,
+          "ttft_s": 1.222,
+          "total_s": 16.3,
+          "prefill_tok_s": 78.6,
+          "decode_tok_s": 6.37,
+          "pass": true,
+          "name": "tool_call",
+          "answer_excerpt": ""
+        }
+      ],
+      "strata": [
+        {
+          "reasoning_chars": 350,
+          "tool_calls": [],
+          "prompt_tokens": 107,
+          "completion_tokens": 404,
+          "ttft_s": 1.124,
+          "total_s": 9.61,
+          "prefill_tok_s": 95.2,
+          "decode_tok_s": 47.49,
+          "pass": true,
+          "name": "ru_reasoning",
+          "answer_excerpt": "Пусть у Пети было \\(x\\) яблок.\n\n1. Тогда у Маши было в 3 раза больше:  \n   \\[\n   3x\n   \\]\n\n2. Если Маша отдаст Пете 6 яблок, то:\n   - у Маши станет:  \n     \\[\n     3x - 6\n     \\]\n   - у Пети станет:  \n     \\[\n     x + 6\n     \\]\n\n3. По условию после этого у них станет поровну:\n   \\[\n   3x - 6 = x + 6"
+        },
+        {
+          "reasoning_chars": 764,
+          "tool_calls": [],
+          "prompt_tokens": 108,
+          "completion_tokens": 445,
+          "ttft_s": 1.109,
+          "total_s": 10.86,
+          "prefill_tok_s": 97.4,
+          "decode_tok_s": 45.53,
+          "pass": true,
+          "name": "cz_email",
+          "answer_excerpt": "Dobrý den,\n\nomlouvám se, ale nájem za listopad bohužel zaplatím o 5 dní později, protože mi zpozdila výplata. Platbu provedu co nejdříve, nejpozději 5. prosince.\n\nDěkuji za pochopení.\n\nS pozdravem  \n[Jméno]"
+        },
+        {
+          "reasoning_chars": 489,
+          "tool_calls": [],
+          "prompt_tokens": 128,
+          "completion_tokens": 179,
+          "ttft_s": 1.224,
+          "total_s": 4.695,
+          "prefill_tok_s": 104.6,
+          "decode_tok_s": 51.28,
+          "pass": true,
+          "name": "py_bugfix",
+          "answer_excerpt": "```python\ndef average(nums):\n    if not nums:\n        return 0.0\n\n    total = 0\n    for i in range(len(nums)):\n        total += nums[i]\n\n    return total / len(nums)\n```"
+        },
+        {
+          "reasoning_chars": 385,
+          "tool_calls": [],
+          "prompt_tokens": 153,
+          "completion_tokens": 210,
+          "ttft_s": 1.3,
+          "total_s": 5.389,
+          "prefill_tok_s": 117.7,
+          "decode_tok_s": 51.11,
+          "pass": true,
+          "name": "json_extract",
+          "answer_excerpt": "{\n  \"name\": \"Jana Nováková\",\n  \"company\": \"Kovo Brno s.r.o.\",\n  \"email\": \"jana.novakova@kovobrno.cz\",\n  \"phone\": \"+420 603 112 445\",\n  \"meeting_date\": \"2026-11-14\"\n}"
+        },
+        {
+          "reasoning_chars": 184,
+          "tool_calls": [
+            {
+              "name": "get_weather",
+              "arguments": "{\"city\":\"Prague\",\"unit\":\"celsius\"}"
+            }
+          ],
+          "prompt_tokens": 334,
+          "completion_tokens": 86,
+          "ttft_s": 1.847,
+          "total_s": 3.304,
+          "prefill_tok_s": 180.9,
+          "decode_tok_s": 58.31,
+          "pass": true,
+          "name": "tool_call",
+          "answer_excerpt": ""
+        }
+      ],
+      "gemma_speed": [
+        {
+          "reasoning_chars": 1026,
+          "tool_calls": [],
+          "prompt_tokens": 4410,
+          "completion_tokens": 256,
+          "ttft_s": 19.209,
+          "total_s": 64.339,
+          "prefill_tok_s": 229.6,
+          "decode_tok_s": 5.65
+        },
+        {
+          "reasoning_chars": 1012,
+          "tool_calls": [],
+          "prompt_tokens": 4410,
+          "completion_tokens": 256,
+          "ttft_s": 0.956,
+          "total_s": 46.231,
+          "prefill_tok_s": 4614.9,
+          "decode_tok_s": 5.63
+        }
+      ],
+      "strata_speed": [
+        {
+          "reasoning_chars": 1225,
+          "tool_calls": [],
+          "prompt_tokens": 4472,
+          "completion_tokens": 256,
+          "ttft_s": 12.337,
+          "total_s": 18.445,
+          "prefill_tok_s": 362.5,
+          "decode_tok_s": 41.75
+        },
+        {
+          "reasoning_chars": 1235,
+          "tool_calls": [],
+          "prompt_tokens": 4472,
+          "completion_tokens": 256,
+          "ttft_s": 11.22,
+          "total_s": 17.183,
+          "prefill_tok_s": 398.6,
+          "decode_tok_s": 42.77
+        }
+      ]
+    }
+  },
+  "bossman_registration": {
+    "backend": "http://127.0.0.1:8801",
+    "provider": {
+      "id": 16,
+      "name": "Strata local (Qwen3.8-Flash-Next IQ3_S)",
+      "kind": "openai_compat",
+      "base_url": "http://127.0.0.1:8090/v1"
+    },
+    "model": {
+      "id": 107,
+      "name": "qwen3.8-flash-next-iq3_s",
+      "alias": "strata-qwen38-flash-next-iq3s",
+      "context_window": 32768,
+      "price_in": 0,
+      "price_out": 0
+    },
+    "default": false,
+    "assigned_to_agents": false,
+    "catalog_check": "GET /api/providers/16/catalog -> registered:true (while server was up)"
+  },
+  "server_state_at_end": "STOPPED (strata launch --stop; port 8090 closed; system RAM back to 12.7 GB)",
+  "start_command": "D:\\Bossman\\models\\llm\\strata\\terminal\\current\\bin\\strata.cmd launch --family qwen --model iq3_s --context 32k --vision off --tune skip --access local --port 8090 --data-dir D:\\Bossman\\models\\llm\\strata\\data --yes --no-tui   (stop: same strata.cmd launch --stop; ~70 s to ready; needs ~98 GB RAM free - stop Ollama models/eval first)",
+  "verdict": {
+    "works": true,
+    "faster_than_gemma": "yes: decode ~42-57 vs ~6 tok/s (7-9x), 4K prefill ~380 vs ~230 tok/s",
+    "quality": "equal on this 5-prompt probe (5/5 each); not a substitute for the 500-scenario eval",
+    "recommendation": "Keep registered (not default). Candidate for local fast tier; run it through eval500 as a separate arm when the RAM is free. Caveats: experimental Strix Halo support, ~98 GB RAM footprint excludes running alongside other big local models, Qwen Community Licence clause 2 if Bossman is ever offered commercially as a coding/office assistant. DeepSeek V4.1 Flash: not runnable on this PC (no Windows gfx1151 engine)."
+  },
+  "eval_pause": "D:\\Bossman\\eval\\PAUSE deleted at end of this run"
+}
