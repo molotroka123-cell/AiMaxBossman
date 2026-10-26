@@ -454,6 +454,8 @@ def _launch_card(raw: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(raw["id"]),
         "name": str(raw.get("name") or raw["id"]),
+        "lifecycle_status": str(raw.get("status") or "active").strip().lower(),
+        "quarantine_reason": " ".join(str(raw.get("quarantine_reason") or "").split()),
         "port": int(port) if isinstance(port, int) else None,
         "health_path": str(ui.get("health_path")
                            or calls.get("health", "").split(" ")[-1] or "/health"),
@@ -839,6 +841,13 @@ def _spawn(app_id: str, app_dir: Path, card: dict[str, Any],
 async def start_app(app_id: str, data_dir: Path,
                     timeout: float | None = None, *, svc=None) -> dict[str, Any]:
     app_dir, card = _require_app(app_id)
+    if card.get("lifecycle_status") == "quarantined":
+        reason = card.get("quarantine_reason") or "причина не указана в манифесте"
+        raise HTTPException(403, {
+            "code": "APP_QUARANTINED",
+            "message": f"{card['name']} помещено в карантин: {reason}",
+            "hint": "Запуск заблокирован. Для снятия карантина владелец должен изменить статус в манифесте.",
+        })
     port = card.get("port")
     async with _lock:
         if svc is not None:

@@ -107,6 +107,38 @@ export function appStatusPill(app) {
   }, h('span.bx-pill-dot'), h('span', s.label));
 }
 
+const isQuarantined = (app) => String(app.lifecycle_status || '').toLowerCase() === 'quarantined';
+
+export function appLifecyclePill(app) {
+  if (!isQuarantined(app)) return null;
+  return h('span.bx-pill.is-warn', {
+    title: app.quarantine_reason || 'Запуск заблокирован статусом в манифесте',
+    'aria-label': `Карантин: ${app.quarantine_reason || 'причина не указана'}`,
+  }, h('span.bx-pill-dot'), h('span', 'Карантин'));
+}
+
+const searchableText = (app) => [
+  app.id, app.name, app.subtitle, app.description, app.quarantine_reason,
+  ...(Array.isArray(app.facts) ? app.facts.flatMap((fact) => [fact.label, fact.value]) : []),
+  ...(Array.isArray(app.actions) ? app.actions.map((action) => action.label) : []),
+].filter((value) => value !== null && value !== undefined).join(' ')
+  .normalize('NFKD').toLocaleLowerCase().replace(/\p{Diacritic}/gu, '');
+
+/** Pure filter shared with unit tests; quarantined entries never appear in normal status groups. */
+export function filterApps(apps, { query = '', status = 'all' } = {}) {
+  const terms = String(query).trim().normalize('NFKD').toLocaleLowerCase()
+    .replace(/\p{Diacritic}/gu, '').split(/\s+/).filter(Boolean);
+  return apps.filter((app) => {
+    const quarantined = isQuarantined(app);
+    const running = ['LIVE', 'DEGRADED'].includes(String(app.status || '').toUpperCase());
+    const statusMatches = status === 'all' || !['running', 'stopped', 'quarantined'].includes(status)
+      || (status === 'quarantined' && quarantined)
+      || (status === 'running' && !quarantined && running)
+      || (status === 'stopped' && !quarantined && !running);
+    return statusMatches && terms.every((term) => searchableText(app).includes(term));
+  });
+}
+
 /* ---------------------------------------------------------------- карточка */
 
 export function appCard(app, ctx) {
@@ -120,12 +152,17 @@ export function appCard(app, ctx) {
   const primary = actions.find((a) => a.primary) || actions[0];
   const others = actions.filter((a) => a !== primary).slice(0, 1);
 
+  const quarantined = isQuarantined(app);
   const openBtn = h('button.bx-btn.bx-btn-primary.bx-btn-lg', { type: 'button' },
-    h('span', primary.label || 'Открыть'), icon('chevron', 15));
+    h('span', quarantined ? 'Подробнее' : (primary.label || 'Открыть')), icon('chevron', 15));
   openBtn.addEventListener('click', () => ctx.navigate('apps', { open: app.id }));
 
-  return h('article.bx-app', { style: { '--bx-accent': accent } },
-    h('div.bx-app-badge', appStatusPill(app)),
+  return h('article.bx-app', {
+    style: { '--bx-accent': accent },
+    dataset: { appId: app.id, appSearch: searchableText(app),
+      appLifecycle: app.lifecycle_status || 'active', appStatus: app.status || 'STOPPED' },
+  },
+    h('div.bx-app-badge', appStatusPill(app), appLifecyclePill(app)),
     h('div.bx-app-body',
       h('div.bx-app-top',
         h('span.bx-app-icon', appIcon(app.icon)),

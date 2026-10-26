@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import subprocess
 import time
 from pathlib import Path
@@ -31,8 +30,8 @@ NEG = ("blurry, low quality, distorted face, extra limbs, extra fingers, deforme
        "logo, frame border, static, frozen")
 
 
-def _receipt(update: dict, path: str = "") -> None:
-    p = Path(path) if path else WORK / "receipt.json"
+def _receipt(update: dict) -> None:
+    p = WORK / "receipt.json"
     doc = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {"schema": "bossman.motion-studio.v1"}
     for k, v in update.items():
         if isinstance(v, dict) and isinstance(doc.get(k), dict):
@@ -46,16 +45,13 @@ def gen(a) -> int:
     missing = [k for k, f in FILES.items() if not f.is_file()]
     if missing:
         raise SystemExit(f"LTX files missing: {missing}")
-    slot = a.name or a.look                      # --name: any slot (25.10 product ads); --look: the dance looks
-    if not slot:
-        raise SystemExit("--look or --name is required")
-    out = Path(a.out_dir or WORK) / f"seg-{slot}.mp4"
+    out = Path(a.out_dir or WORK) / f"seg-{a.look}.mp4"
     out.parent.mkdir(parents=True, exist_ok=True)
     # Q6_K by choice 24.10: Q8_0 at 720x1280x121 pushed the PC to critical memory and the run was reaped
     # distilled (8 steps, cfg 1) after the dev model needed >90 min for one 5 s segment on this PC (24.10)
     diffusion = LTX / a.variant / f"ltx-2.5-22b-{a.variant}-transformer-{a.quant}.gguf"
     argv = [SD, "-M", "vid_gen", "--diffusion-model", str(diffusion), "--vae", str(FILES["vae"]),
-            "--audio-vae", str(FILES["audio_vae"]), "--llm", str(FILES["llm"]), "-p", a.prompt, "-n", a.negative or NEG,
+            "--audio-vae", str(FILES["audio_vae"]), "--llm", str(FILES["llm"]), "-p", a.prompt, "-n", NEG,
             "--cfg-scale", str(a.cfg), "--sampling-method", "euler", "--steps", str(a.steps), "-W", str(a.width), "-H", str(a.height),
             # --diffusion-fa: without flash attention 720x1280x121 asked for a 35.9 GB compute buffer and crashed (24.10)
             "--video-frames", str(a.frames), "--fps", "24", "-s", str(a.seed), "--offload-to-cpu", "--vae-tiling",
@@ -64,18 +60,18 @@ def gen(a) -> int:
     t0 = time.time()
     r = subprocess.run(argv, capture_output=True, text=True, errors="replace")
     secs = round(time.time() - t0, 1)
-    (out.parent / f"seg-{slot}.log").write_text((r.stdout or "")[-20000:] + "\n--- stderr ---\n" + (r.stderr or "")[-20000:],
+    (out.parent / f"seg-{a.look}.log").write_text((r.stdout or "")[-20000:] + "\n--- stderr ---\n" + (r.stderr or "")[-20000:],
                                            encoding="utf-8")
     avi = out.with_name(out.name + ".avi")             # sd-cli appends .avi to an .mp4 target (seen 24.10)
     if r.returncode == 0 and not out.is_file() and avi.is_file():
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(avi), "-c:v", "libx264", "-preset", "slow", "-crf", "14",
                         "-pix_fmt", "yuv420p", str(out)], capture_output=True)
     ok = r.returncode == 0 and out.is_file() and out.stat().st_size > 10000
-    _receipt({"segments": {slot: {"model": f"LTX-2.5 22B {a.variant} {a.quant} (local sd-cli Vulkan)", "image": a.image,
-                                    "prompt": a.prompt, "negative": a.negative or NEG, "steps": a.steps, "cfg": a.cfg, "frames": a.frames, "fps": 24,
+    _receipt({"segments": {a.look: {"model": f"LTX-2.5 22B {a.variant} {a.quant} (local sd-cli Vulkan)", "image": a.image,
+                                    "prompt": a.prompt, "steps": a.steps, "cfg": a.cfg, "frames": a.frames, "fps": 24,
                                     "size": f"{a.width}x{a.height}", "seed": a.seed, "seconds": secs, "rc": r.returncode,
-                                    "out": str(out) if ok else None}}}, a.receipt)
-    print(json.dumps({"look": slot, "ok": ok, "seconds": secs, "rc": r.returncode}))
+                                    "out": str(out) if ok else None}}})
+    print(json.dumps({"look": a.look, "ok": ok, "seconds": secs, "rc": r.returncode}))
     return 0 if ok else 1
 
 
@@ -127,20 +123,11 @@ def assemble(a) -> int:
     return 0 if ok else 1
 
 
-def _slot_name(v: str) -> str:
-    if not re.fullmatch(r"[a-z0-9-]{1,40}", v):
-        raise argparse.ArgumentTypeError("--name: lowercase a-z, 0-9 and -")
-    return v
-
-
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     g = sub.add_parser("gen")
-    g.add_argument("--look", choices=ORDER)
-    g.add_argument("--name", default="", type=_slot_name)
-    g.add_argument("--negative", default="")
-    g.add_argument("--receipt", default="")     # default: <WORK>/receipt.json (the dance clip)
+    g.add_argument("--look", required=True, choices=ORDER)
     g.add_argument("--image", required=True)
     g.add_argument("--prompt", required=True)
     g.add_argument("--steps", type=int, default=30)

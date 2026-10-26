@@ -182,6 +182,31 @@ async def test_start_refused_while_policy_off_and_nothing_is_spawned(env, apps_r
     assert ctl.port_busy(port) is False
 
 
+async def test_quarantined_app_is_visible_with_reason_and_cannot_start(env, apps_root, flag_on):
+    """Manifest lifecycle is visible to the owner and enforced before spawning."""
+    app_dir, port = make_app(apps_root, "quarantined-app")
+    manifest = app_dir / "app.manifest.yaml"
+    source = manifest.read_text(encoding="utf-8")
+    source = source.replace(
+        "ui:\n",
+        "status: quarantined\nquarantine_reason: 'trading risk: wash trading'\nui:\n",
+    )
+    manifest.write_text(source, encoding="utf-8")
+
+    listed = await env.client.get("/api/apps?refresh=true")
+    assert listed.status_code == 200
+    app = next(row for row in listed.json()["apps"] if row["id"] == "quarantined-app")
+    assert app["lifecycle_status"] == "quarantined"
+    assert app["quarantine_reason"] == "trading risk: wash trading"
+
+    started = await env.client.post("/api/apps/quarantined-app/start")
+    assert started.status_code == 403
+    assert started.json()["error"]["code"] == "APP_QUARANTINED"
+    assert "wash trading" in started.json()["error"]["message"]
+    assert ctl._processes == {}
+    assert ctl.port_busy(port) is False
+
+
 async def test_stop_refused_while_policy_off(env, apps_root, monkeypatch):
     """Гасить процессы без разрешения владельца тоже нельзя."""
     monkeypatch.delenv(ctl.FLAG, raising=False)

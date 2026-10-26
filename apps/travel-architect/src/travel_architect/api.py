@@ -8,11 +8,11 @@ from .service import JobService
 from .domain import TravelEngine
 from .bossman_bridge import emit_task,resolve_exchange_root
 from pathlib import Path
-from .ui import app_shell
+from .ui import home_page
 APP_ID="travel-architect"
 # Money fields are finite and non-negative: NaN/Infinity would poison every ranking and make the JSON response a 500.
 Money=Field(ge=0,allow_inf_nan=False)
-class Trip(BaseModel): origin:list[str]; destination:str; start:str; end:str; travelers:int=1; budget:float|None=Field(default=None,ge=0,allow_inf_nan=False); constraints:dict={}
+class Trip(BaseModel): origin:list[str]; destination:str; start:str; end:str; travelers:int=1; budget:float|None=Field(default=None,ge=0,allow_inf_nan=False); budget_currency:str="EUR"; constraints:dict={}
 class Offer(BaseModel): kind:str; provider:str; base_price:float=Money; currency:str="EUR"; fees:dict={}; quality_score:float=Field(default=0,allow_inf_nan=False); url:str|None=None; metadata:dict={}
 class Flex(BaseModel): start:str; end:str; flex_days:int=3; durations:list[int]|None=None
 class Search(BaseModel): exchange_root:str|None=None
@@ -25,7 +25,7 @@ def build_app():
         detail=[{"loc":list(e.get("loc",())),"msg":str(e.get("msg","")),"type":str(e.get("type",""))} for e in exc.errors()]
         return JSONResponse(status_code=422,content={"detail":detail})
     @api.get("/")
-    def root(): return app_shell("Travel Architect / Deal Hunter",APP_ID,["Trip constraints","True total price","Offer ranking","Flexible date search space","Package vs DIY arbitrage","Smart score","Price watches","Constraint checks","Itinerary skeleton","Bossman browser-search handoff"])
+    def root(): return home_page()
     @api.get("/health")
     def h():return {"status":"healthy","app":APP_ID,"version":"0.7.0","storage":"sqlite"}
     @api.get("/capabilities")

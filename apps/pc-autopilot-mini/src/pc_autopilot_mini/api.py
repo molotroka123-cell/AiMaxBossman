@@ -6,7 +6,7 @@ from .service import JobService
 from .domain import Autopilot
 from .bossman_bridge import emit_task,resolve_exchange_root
 from pathlib import Path
-from .ui import app_shell
+from .ui import home_page
 APP_ID="pc-autopilot-mini"
 class Macro(BaseModel):name:str;steps:list[dict]
 class Version(BaseModel):steps:list[dict]
@@ -18,7 +18,7 @@ class Approve(BaseModel): approve:bool=False
 def build_app():
     api=FastAPI(title="PC Autopilot Mini",version="0.7.0");jobs=JobService(APP_ID);eng=Autopilot(jobs.store)
     @api.get("/")
-    def root(): return app_shell("PC Autopilot Mini",APP_ID,["Teach from event trace","Macro validation","Versions","Variable expansion","Dry run","Deterministic local executor","Bossman UI handoff","Repair proposals","File triggers","Diff/rollback foundation"])
+    def root(): return home_page()
     @api.get("/health")
     def h():return {"status":"healthy","app":APP_ID,"version":"0.7.0","storage":"sqlite"}
     @api.get("/capabilities")
