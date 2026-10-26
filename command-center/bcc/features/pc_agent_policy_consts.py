@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import asdict, dataclass
 
 
@@ -34,10 +35,13 @@ _NCII_RE = re.compile(
     r"без\s+согласия\s+(?:обнаж|разде|интим))\b"
 )
 _CLOUD_PERSONAL_MEDIA_RE = re.compile(
-    r"(?iu)(?:отправ\w*|загруз\w*|upload|send|exfiltrat\w*)\s+[^.!?\n]{0,60}"
-    r"(?:личн\w+\s+фото|мои\s+фото"
+    r"(?iu)(?:отправ\w*|загруз\w*|залей|залить|выгруз\w*"
+    r"|upload|send|share|sync|push|exfiltrat\w*)\s+[^.!?\n]{0,60}"
+    r"(?:личн\w+\s+фото|мои\s+фото|my\s+(?:personal\s+)?photos?"
     r"|personal\s+photo\w*|family\s+photo\w*|camera\s+roll)[^.!?\n]{0,60}"
-    r"(?:в\s+облако|на\s+сервер|в\s+интернет|to\s+cloud|external)"
+    r"(?:в\s+облако|на\s+сервер|в\s+интернет|в\s+google\s*drive|в\s+dropbox"
+    r"|to\s+(?:the\s+)?cloud|external"
+    r"|google\s*drive|dropbox|onedrive|icloud|gmail|telegram|drive)"
 )
 _T3_SECRET_PATTERNS = tuple(
     re.compile(p)
@@ -56,21 +60,70 @@ _T3_SECRET_PATTERNS = tuple(
         r"(?i)(?:^|[\\/])\.(?:git-credentials|netrc|_netrc|npmrc|pypirc|claude\.json)$"
         r"|[\\/]\.(?:aws|azure|kube|docker|codex|claude|ssh)(?:[\\/]|$)"
         r"|\.(?:pem|key|pfx|p12|kdbx)$|\bdpapi\b",
+        r"(?i)[\\/]Windows[\\/]System32[\\/]config[\\/](?:SAM|SECURITY|SYSTEM|SOFTWARE)(?:$|[._-])"
+        r"|(?:^|[\\/])ntds\.dit$|(?:^|[\\/])\.envrc$|(?:^|[\\/])secrets?\.(?:json|ya?ml|toml)$|(?:^|[\\/])NTUSER\.DAT",
     )
 )
 _SENSITIVE_ENV_RE = re.compile(
     r"(?i)(TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|APIKEY|PRIVATE_KEY|VAULT|CREDENTIAL"
     r"|OPENROUTER|ANTHROPIC|OPENAI|GEMINI_API|MISTRAL|DEEPSEEK|TG_COMPANION|BCC_TOKEN)"
 )
-_PROMPT_INJECTION_RE = re.compile(
-    r"(?iu)(?:ignore\s+(?:all\s+)?(?:previous|prior|above)\s+instructions|disregard\s+(?:all\s+)?"
-    r"(?:previous|prior)\s+instructions|system\s*override|new\s+instructions\s*:|игнорируй\w*\s+(?:все\s+)?"
-    r"(?:предыдущ\w+|прежни\w+)\s+(?:инструкц\w+|правил\w+|указани\w+)|"
-    r"забудь\w*\s+(?:все\s+)?"
-    r"(?:предыдущ\w+|прежни\w+)\s+(?:инструкц\w+|правил\w+)|"
-    r"выполни\s+команду\s+в\s+обход"
-    r"|отправь\s+токен|exfiltrate|curl\s+http[^|\n]*\|\s*(?:sh|bash|pwsh|powershell))"
+_PROMPT_INJECTION_PATTERN = re.compile(
+    r"(?iu)(?:"
+    r"(?:ignore|disregard)\s+(?:all\s+)?(?:of\s+)?(?:the\s+)?(?:previous|prior|above|earlier)\s+"
+    r"(?:of\s+the\s+above\s+)?(?:instructions|prompts?|rules|directions|messages)"
+    r"|forget\s+(?:everything|all)\s+(?:above|before|you\s+(?:were\s+)?told|that\s+was\s+said)"
+    r"|system\s*override|new\s+instructions\s*:"
+    r"|игнорируй\w*\s+(?:все\s+|всё\s+)?(?:предыдущ\w+|прежн\w+)"
+    r"\s+(?:инструкц\w+|правил\w+|указани\w+)"
+    r"|игнорируй\w*\s+(?:задач\w+|то\s+что\s+(?:было\s+)?(?:сказано|говорил\w*))"
+    r"|забудь\w*\s+(?:все\s+|всё\s+)?(?:предыдущ\w+|прежн\w+)"
+    r"\s+(?:инструкц\w+|правил\w+)"
+    r"|забудь\w*\s+(?:все\s+|всё\s+)?что\s+(?:тебе\s+)?(?:говорил\w*|сказал\w*)"
+    r"(?:\s+раньше)?"
+    r"|выполни\s+команду\s+в\s+обход"
+    r"|отправ\w*\s+(?:\S+\s+){0,3}(?:токен\w*|парол\w*|секрет\w*|(?<!\w)\.env\b)"
+    r"|send\s+(?:\S+\s+){0,4}(?:(?<!\w)\.env\b|tokens?|passwords?|secrets?|api\s*keys?)(?:\s+file)?\s+to\s+https?"
+    r"|exfiltrate"
+    r"|(?:curl|wget|iwr|irm|invoke-webrequest|invoke-restmethod)\b[^\n|]*\|\s*(?:sudo\s+)?"
+    r"(?:(?:ba|z)?sh|pwsh|powershell|iex|invoke-expression|python3?)\b"
+    r")"
 )
+# Cyrillic look-alikes folded to Latin so «ignоre» (Cyrillic о) cannot dodge the English patterns
+_HOMOGLYPHS = str.maketrans(
+    {"а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j", "ѕ": "s",
+     "А": "A", "Е": "E", "О": "O", "Р": "P", "С": "C", "Т": "T",
+     "Х": "X", "М": "M", "Н": "H", "К": "K", "В": "B"}
+)
+
+
+def _scan_variants(text: object) -> tuple[str, str]:
+    """NFKC (fullwidth -> ASCII), drop zero-width/format/control chars, plus a homoglyph-folded twin."""
+    s = unicodedata.normalize("NFKC", str(text or ""))
+    s = "".join(ch for ch in s if unicodedata.category(ch) not in {"Cf", "Cc"} or ch in "\n\r\t")
+    return s, s.translate(_HOMOGLYPHS)
+
+
+class _NormalizingRegex:
+    """Регулярка для .search() по нормализованному тексту."""
+
+    def __init__(self, rx: re.Pattern[str]) -> None:
+        self._rx = rx
+        self.pattern = rx.pattern
+        self.flags = rx.flags
+
+    def search(self, text: object, *args: object, **kwargs: object):
+        for variant in _scan_variants(text):
+            m = self._rx.search(variant, *args, **kwargs)  # type: ignore[arg-type]
+            if m:
+                return m
+        return None
+
+    def __getattr__(self, name: str):
+        return getattr(self._rx, name)
+
+
+_PROMPT_INJECTION_RE = _NormalizingRegex(_PROMPT_INJECTION_PATTERN)
 PROTECTED_PROCESS_NAMES = frozenset(
     (
         "bcc bcc.exe bossman bossman.exe ollama ollama.exe ollama_llama_server ollama_llama_server.exe "
@@ -100,7 +153,9 @@ PROTECTED_SERVICE_NAMES = frozenset(
 )
 _UNSAFE_WRITE_SUFFIXES = frozenset(
     ".exe .bat .cmd .ps1 .psm1 .psd1 .vbs .vbe .js .jse .wsf .wsh .msi .msp .scr .hta "
-    ".cpl .msc .jar .reg .lnk .url .dll .sys .com .pif .py .pyw .sh .bash".split()
+    ".cpl .msc .jar .reg .lnk .url .dll .sys .com .pif .py .pyw .sh .bash "
+    ".scf .psc1 .sct .ps1xml .settingcontent-ms .appref-ms .inf .xll "
+    ".ocx .wsc .chm .application .theme .msix .appx .gadget".split()
 )
 _PROTECTED_PROC_SUB = "bossman ollama lsass csrss wininit svchost defender msmpeng wdnis sense winlogon dwm".split()
 _PROTECTED_REPO_MARKERS = (
@@ -149,7 +204,16 @@ _T3_CMD_PATTERNS = tuple(
         ),
         (r"\b(?:Set-MpPreference|Add-MpPreference)\b[^\n]*Disable", "disable_defender_forbidden"),
         (r"\bnetsh\b[^\n]*\badvfirewall\b[^\n]*\bstate\s+off\b", "disable_firewall_forbidden"),
-        (r"\breg\s+(?:add|delete)\b[^\n]*Policies\\System[^\n]*EnableLUA", "disable_uac_forbidden"),
+        (r"\breg(?:\.exe)?\s+(?:add|delete)\b[^\n]*Policies\\System[^\n]*EnableLUA", "disable_uac_forbidden"),
+        (
+            r"\b(?:sc|net)(?:\.exe)?\s+(?:stop|config|delete)\s+\"?(?:windefend|mpssvc|wscsvc|sense|wdnissvc"
+            r"|securityhealthservice)\b",
+            "disable_defender_forbidden",
+        ),
+        (r"\bnetsh\b[^\n]*\bfirewall\b[^\n]*\b(?:opmode\s+disable|state\s+off)\b", "disable_firewall_forbidden"),
+        (r"Policies\\Microsoft\\Windows Defender[^\n]*Disable", "disable_defender_forbidden"),
+        (r"-Verb\s+RunAs\b", "privilege_escalation_forbidden"),
+        (r"(?:^|[;&|]\s*|\s)(?:sudo|gsudo)\s+\S", "privilege_escalation_forbidden"),
         (
             r"\b(?:adopt_constitution_v2\.ps1|constitution\.sha256)\b",
             "constitution_pin_owner_only",

@@ -11,6 +11,11 @@ import re
 from pathlib import Path
 from typing import Any
 
+from .pc_agent_policy_guards import (
+    BROWSER_PAY_CLICK_RE,
+    browser_guard_verdict,
+    desktop_guard_verdict,
+)
 from .pc_agent_policy_api import (  # noqa: F401  (ре-экспорт публичных имён)
     classify_bossman_api,
     is_bossman_api_token_allowed,
@@ -74,7 +79,7 @@ _DESKTOP_REVERSIBLE_ACTIONS = set(
     "launch focus focus_window click double_click type key hotkey scroll wait notepad_roundtrip".split()
 )
 _DESKTOP_LAUNCH_ALLOWED = {"notepad", "calc", "mspaint", "charmap"}
-_BROWSER_PAY_CLICK_RE = r"(?iu)\b(оплат\w*|купить|buy|pay|checkout)\b"
+_BROWSER_PAY_CLICK_RE = BROWSER_PAY_CLICK_RE
 _BROWSER_CONSEQUENTIAL_CLICK_RE = r"(?iu)\b(удал\w*|отправ\w*|опублик\w*|delete|submit|send|publish)\b"
 _EARN_T3_ACTIONS = set(
     "pay withdraw live_trade publish_external submit_bid "
@@ -102,6 +107,9 @@ def _classify_desktop_act(
     if semantic in _DESKTOP_PAY_SEMANTICS or re.search(_DESKTOP_PAY_RE, f"{target} {semantic}"):
         reason = f"Цель «{target or semantic}» (T3)."
         return PolicyVerdict("T3", "deny", "desktop_payment_or_gate", reason, True)
+    guard = desktop_guard_verdict(action, target, semantic, args)
+    if guard:
+        return guard
     if action == "notepad_roundtrip" or desk_path:
         if data_dir:
             def_p = Path(data_dir) / "pc-agent" / "workspace" / "notepad_note.txt"
@@ -168,6 +176,9 @@ def _classify_browser_act(args: dict[str, Any], trust_active: bool) -> PolicyVer
         return PolicyVerdict("T0", "auto", "browser_read", f"Чтение браузера ({action}, T0).")
     if action in {"open", "navigate", "click", "type", "select", "back", "reload"}:
         lbl = str(args.get("target") or args.get("selector") or args.get("text") or "")
+        guard = browser_guard_verdict(action, url, lbl)
+        if guard:
+            return guard
         if action == "click" and re.search(_BROWSER_PAY_CLICK_RE, lbl):
             return PolicyVerdict("T3", "deny", "browser_payment_click", f"Клик оплаты «{lbl}» (T3).", True)
         if action == "click" and re.search(_BROWSER_CONSEQUENTIAL_CLICK_RE, lbl):

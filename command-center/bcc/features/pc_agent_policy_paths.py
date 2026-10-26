@@ -55,6 +55,14 @@ def scrub_secrets(text: str, extra_secrets: tuple[str, ...] = ()) -> str:
         r"\1\2[REDACTED]",
         out,
     )
+    # имя с секретным сегментом (DB_PASS, SESSION, my_api_key); «keyboard» не сегмент
+    out = re.sub(
+        r"(?i)(?<![A-Za-z0-9])((?:[A-Za-z0-9]+[_-])*"
+        r"(?:pass|passwd|passphrase|secret|token|apikey|key|session|sessionid|cookie)"
+        r"(?:[_-][A-Za-z0-9]+)*)(\s*[=:]\s*['\"]?)([^'\"\s,;}{]+)",
+        r"\1\2[REDACTED]",
+        out,
+    )
     return redact_text(redact(out))
 
 
@@ -90,6 +98,9 @@ def _has_ntfs_ads(path_str: str) -> bool:
 
 def _is_unc(p: str) -> bool:
     s = str(p or "").strip().replace("\\", "/")
+    low = s.lower()
+    if low.startswith("//?/unc/") or low.startswith("//./"):   # extended-length UNC and device namespace (D-014)
+        return True
     return s.startswith("//") and not s.startswith("//?/")
 
 

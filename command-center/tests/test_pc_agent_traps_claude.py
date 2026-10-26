@@ -45,7 +45,13 @@ WS = Path(r"D:\decoy\ws")  # синтетический безопасный к�
 INJ = pol._PROMPT_INJECTION_RE
 
 
+# fixed on branch agent/claude-20261026 (commit "policy: close D-009..."): these run as ordinary tests now, with the paired negative control
+CLOSED = {"D-009", "D-010", "D-011", "D-014", "D-015", "D-016", "D-017", "D-018", "D-019", "D-020", "D-021", "D-022", "D-023", "D-024"}
+
+
 def xf(defect: str):
+    if defect.split(":")[0].strip() in CLOSED:
+        return pytest.mark.skipif(False, reason=f"{defect} closed")   # no-op mark: runs as an ordinary test
     return pytest.mark.xfail(strict=True, reason=defect)
 
 
@@ -602,7 +608,7 @@ def test_t7_desktop_click_on_approval_control_needs_button(V, target):
     assert gated(V("pc.desktop_act", {"action": "click", "target": target}))
 
 
-@pytest.mark.xfail(strict=True, reason="D-021: набор текста «/pc_yes <nonce>» в чат — T1 auto")
+# D-021 closed: typing «/pc_yes <nonce>» is now T3 deny (self_approval_forbidden)
 def test_t7_typing_pc_yes_command_needs_button(V):
     assert gated(V("pc.desktop_act", {"action": "type", "target": "chat", "text": "/pc_yes 123456"}))
 
