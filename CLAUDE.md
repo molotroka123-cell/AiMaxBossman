@@ -2,6 +2,8 @@
 
 Read [AGENTS.md](AGENTS.md) first. Follow its owner approval / privacy / STOP / RunPod rules and all existing engineering gates.
 
+**Main goal (owner 26.10.2026, AGENTS.md §0):** bring Bossman as far as possible, by the strongest PROVEN means, to the product the owner planned — one local-first Bossman, an operator of the owner's PC, a Higgsfield-level local studio, a stack chosen by measurement. `main` receives only ONE unified finished Bossman version, merged overnight by the Claude integrator under the audit conditions in AGENTS.md §0.
+
 ## Owner directive for 23 October 2026: verified 2x performance program
 
 **Required read-before-code**: [docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md](docs/owner/BOSSMAN_2X_PERFORMANCE_NORTH_STAR_20261023_RU.md).

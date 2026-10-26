@@ -6,6 +6,52 @@ override any older or dated instruction. Dated owner directives follow in sectio
 were moved verbatim to [docs/archive/2026-10/agents-history.md](docs/archive/2026-10/agents-history.md); they are
 history, not instructions. A document never grants new permission by itself.
 
+## 0. MAIN GOAL — owner directive 26.10.2026 (read this before everything else)
+
+**Owner, verbatim:** «Обнови главную документацию … где у них цель максимальным способом максимально довести Боссмана
+до того что задумали мы.» Every agent works toward ONE thing: bring Bossman as far as possible, by the strongest
+verified means, to the product the owner and his agents have planned — and prove each step, not describe it.
+
+**The product we planned** (each line points to the source of truth; read it before touching that area):
+1. **One local-first Bossman.** One backend, one memory, one model fleet; the Command Center, mobile pult and Telegram pult are
+   surfaces of the SAME system (§3 «One runtime = one tree»). Local Gemma 4 31B is the daily driver; Qwen/Strata are
+   measured alternatives, chosen by data, not by parameter count.
+2. **An operator of the owner's PC.** The owner writes a task in the pult or the UX; the local agent plans, acts on the PC
+   (files, processes, shell, windows/UI, browser), verifies the result and may improve its own skills through a safe loop
+   (branch → tests → sandbox → owner confirmation → auto-rollback). It never edits the immutable core (STOP, approvals,
+   protected paths, audit log, keys). Spec: [os-agent master prompt](docs/owner/os-agent-20261026/MASTER_PROMPT_OS_AGENT_RU.md);
+   night protocol for Argon + Codex + Claude: [trio runbook](docs/owner/os-agent-20261026/TRIO_NIGHT_RUNBOOK_RU.md).
+3. **Verified continuous self-improvement → revenue-capable pilot** (the North Star ladder in §3 «Non-negotiable direction»).
+4. **A local creative studio at Higgsfield level.** Local character replacement in real video (`tools/motion_studio/local_genjutsu.py`,
+   `--head-zoom`; measured 26.10: face ArcFace 0.28–0.31 vs Higgsfield 0.40 — NOT yet parity), Motion Studio paid pilot, earning pipelines.
+5. **A model and tool stack chosen by measurement.** Inputs: tournament `D:\Bossman\eval\runs\tournament-full-20261026`
+   (Strata 40/42, Gemma 42/42; both failed several safety/STOP scenarios — fix in the core, not in the prompt) and the
+   open-stack research `D:\Bossman\research\open-stack-20261026\*.md` (every claim there has a URL or is marked UNVERIFIED).
+6. **Speed ×2 and a responsive PC** (§2 performance plan): measured, not assumed.
+
+**Order of work.** (a) class-1 reds the owner can see broken and safety/STOP defects; (b) the PC-operator agent (P0→P5);
+(c) measured performance; (d) studio quality; (e) stack upgrades proven on the owner's PC; (f) everything else. For work of the last
+10 days walk the documents in the trio runbook §7 and fill `docs/audits/trio/COVERAGE_MATRIX.md` (promised → in code → test →
+live receipt → status). «Maximum» means the strongest PROVEN result, never an unproven claim.
+
+**Dated owner amendments recorded 26.10.2026.** They narrow some Section 1 prohibitions ONLY inside the stated scope;
+anything outside the scope stays forbidden, and if unsure follow Section 1. The owner should confirm them once in the pult to
+harmonise the Section 1 wording.
+- *RunPod* (owner 25.10: «Ранпод только для qlora»): allowed ONLY for QLoRA fine-tuning, with an explicit budget cap (current cap $30),
+  key delivered by the owner via pult `/key`, a local watchdog that terminates the pod, no pod left running, NO personal data/photos on
+  the pod, eval500 holdout never in training data. Tournaments, evaluation, generation and everything else stay local.
+- *Merge to main* (owner 26.10: «допилишь сам все в main» and «в мейн теперь вливаем только единую версию Боссман готовую и без моего
+  участия за ночь»): `main` receives ONLY **one unified, finished Bossman version** — a single integration line, never piecemeal branches or
+  half-done features. It may be merged overnight **without the owner's participation**, and only by the **Claude integrator** (not Argon,
+  not Codex), when ALL hold: the whole unified line is green on the exact SHA, secret scan clean, STOP and trap scenarios proven, no
+  class-1 finding, the PC-operator agent passes its acceptance criteria, rollback tag `pre-merge-<time>` created, health and pult checked
+  afterwards (auto-rollback if health fails within 5 minutes), no force, no hook bypass. If any condition fails: do not merge, keep
+  working on the integration line and report what is missing. Other agents never merge.
+- *Paid generation* (owner 26.10): Higgsfield may be used with the balance the owner loaded on his own API key (price observed ≈ $0.22 per
+  second of video, not the advertised «from $0.05»); each use is reported with its cost. Any other paid service still needs his explicit yes.
+- *Bypass modes* (owner 26.10): Claude may run with bypassPermissions and Codex in `--approve-for-me` auto mode in their own worktrees; this
+  removes confirmation prompts, not rules — immutable core, STOP, key/privacy rules and the no-`--no-verify` / no-`git add -A` rules stay in force.
+
 ## 1. Standing rules (hard limits — unchanged and not negotiable)
 
 **Owner authority.** Product changes reach `main` only by the owner's button, through a PR with green required CI on
