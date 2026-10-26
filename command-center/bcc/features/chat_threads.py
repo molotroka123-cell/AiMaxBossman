@@ -1461,10 +1461,11 @@ def _too_large() -> HTTPException:
     return _fail(413, f"Максимальный размер вложения — {limit_mib:g} МиБ", code="CHAT_ATTACHMENT_TOO_LARGE")
 
 
-@router.post("/chat/attachments", status_code=201)
+@router.post("/chat/attachments")
 async def upload_attachment(request: Request, filename: str | None = Query(default=None, min_length=1, max_length=255),
                             thread_id: str | None = Query(default=None, max_length=64)):
     """Файл к сообщению: сырое тело с `?filename=...` ИЛИ JSON `{name, data_b64, thread_id}` (с мобильного пульта)."""
+    from fastapi.responses import JSONResponse
     svc = _svc(request)
     ct_hdr = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
     json_bytes: bytes | None = None
@@ -1542,7 +1543,7 @@ async def upload_attachment(request: Request, filename: str | None = Query(defau
             "text_chars": text_chars, "thread_id": thread_id, "created_at": _iso(time.time())}
     await asyncio.to_thread(_write_json_atomic, folder / "meta.json", meta)
     pub = _attachment_public(meta)
-    return {**pub, "attachment": pub}
+    return JSONResponse({**pub, "attachment": pub}, status_code=201 if json_bytes is not None else 200)
 
 
 @router.get("/chat/attachments/{attachment_id}")

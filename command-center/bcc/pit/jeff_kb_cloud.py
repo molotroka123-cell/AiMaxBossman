@@ -161,9 +161,8 @@ def _json_field(value: Any) -> dict:
 def free_refusal(provider: dict, model: dict) -> str:
     """'' when this registry row is a PROVABLY free cloud chat model for the manual fallback, else a reason code."""
     from bcc.provider_governance import (_free_preset_hosts, banned_model_refusal, free_only_refusal,
-                                         is_cloud_offload)
+                                         is_chat_model, is_cloud_offload)
     from bcc.providers import is_local_url
-    from bcc.features.free_providers import is_chat_model
     name = str(model.get("name") or "")
     base = str(provider.get("base_url") or "")
     caps = _json_field(model.get("caps"))

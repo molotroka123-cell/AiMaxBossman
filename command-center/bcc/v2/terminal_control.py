@@ -558,7 +558,7 @@ class TerminalManager:
             "pid": s.proc.pid,
             "finished": s.finished,
             "exit_code": s.exit_code,
-            "seq": s.seq,
+            "seq": getattr(s, "seq", 0),
             "output_tail": s.output[-200:],
         }
 

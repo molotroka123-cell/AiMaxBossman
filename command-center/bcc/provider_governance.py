@@ -170,6 +170,11 @@ def _free_preset_hosts() -> frozenset:
     return frozenset((urlsplit(p.base_url).hostname or "").lower() for p in PRESETS.values())
 
 
+def is_chat_model(model_id: str) -> bool:
+    from .features.free_providers import is_chat_model as _is_chat_model
+    return _is_chat_model(model_id)
+
+
 def banned_model_refusal(model: dict) -> str:
     """'' unless the model is a banned family (Liquid/LFM, bcc.pit.model_policy)."""
     from .pit.model_policy import banned_refusal

@@ -380,7 +380,8 @@ async def _finish_compaction(svc: Any, replay: _ReplayRequest, session_id: str, 
     finally:
         if stop_task:
             try:
-                await asyncio.shield(_internal(replay, "POST", f"/api/tasks/{task_id}/stop"))
+                from ..single_flight import await_shared
+                await await_shared(asyncio.create_task(_internal(replay, "POST", f"/api/tasks/{task_id}/stop")))
             except BaseException:  # noqa: BLE001 - остановка задачи best-effort
                 pass
         record = {"state": "failed" if error else "done", "task_id": task_id,
