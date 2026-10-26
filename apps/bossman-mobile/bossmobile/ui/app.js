@@ -2270,6 +2270,17 @@
       const s = await api('GET', '/status'); body.replaceChildren();
       const bmv = s.bossman || {};
       body.appendChild(stat('Bossman', bmv.up, [el('div', 'big', bmv.up ? 'работает' : 'не отвечает'), kv('сборка', bmv.build_sha_short), kv('источник', bmv.source_identity), kv('ждут вашего решения', s.approvals_pending)]));
+      if (s.strata || s.pc_agent || s.hibernation) {
+        const st = s.strata || {}; const pca = s.pc_agent || {}; const hib = s.hibernation || {};
+        const stCard = stat('Strata (:8090) & Argon PC-Agent', Boolean(st.up || pca.agent_id), [
+          kv('модель Strata', st.model || 'qwen3.8-flash-next-iq3_s'),
+          kv('агенты Strata', (st.agents && st.agents.length) ? st.agents.join(', ') : 'Argon PC-Agent'),
+          kv('PC-Agent профиль', pca.profile ? `${pca.profile} (T0..T3 · цепь аудита ${pca.audit_chain_valid ? 'OK' : '—'})` : 'Argon PC-Agent'),
+          kv('Infinity RAP срез', hib.protocol ? `${hib.protocol} · спящих: ${hib.hibernated_count || 0} (${hib.total_slice_bytes || 0} Б на диске, 0 Б ОЗУ)` : 'RAP-Infinity-Slice-v1'),
+        ]);
+        stCard.dataset.card = 'strata-pc';
+        body.appendChild(stCard);
+      }
       statusExtras(body);
       const o = s.ollama || {}; const tags = el('div', 'tags'); (o.models || []).forEach((m) => tags.appendChild(el('span', '', `${m.name}${m.params ? ' · ' + m.params : ''}`)));
       body.appendChild(stat('Локальные модели (Ollama)', o.up, [kv('моделей', (o.models || []).length), kv('загружены сейчас', (o.loaded || []).join(', ') || 'нет'), kv('локальных агентов для чата', s.local_agents), tags]));
@@ -2585,6 +2596,74 @@
       const out = $('oc-pc-out');
       if (out) out.textContent = 'Задача отправлена в чат в режиме PC. Снимок экрана — инструмент computer.observe: он спросит ваше подтверждение в ответе ниже.';
       send('Посмотри на экран и скажи, какие окна сейчас открыты. Ничего не нажимай.');
+    });
+  }
+  if ($('btn-pc-windows')) {
+    $('btn-pc-windows').addEventListener('click', async () => {
+      tap();
+      const out = $('oc-pc-out');
+      if (out) out.textContent = 'Чтение открытых окон Windows 11 (T0)…';
+      try {
+        const r = await api('GET', '/pc-agent/windows');
+        const wins = r.windows || r.items || [];
+        if (out) out.textContent = wins.length
+          ? `Открыто окон: ${wins.length}\n` + wins.slice(0, 18).map((w) => `• [${w.process || w.pid || 'win'}] ${w.title || '(без заголовка)'}`).join('\n')
+          : 'Активных видимых окон не найдено.';
+      } catch (err) { if (out) out.textContent = 'Ошибка: ' + err.message; }
+    });
+  }
+  if ($('btn-pc-sysinfo')) {
+    $('btn-pc-sysinfo').addEventListener('click', async () => {
+      tap();
+      const out = $('oc-pc-out');
+      if (out) out.textContent = 'Чтение телеметрии ПК (ЦП, ОЗУ, GPU, диски)…';
+      try {
+        const r = await api('GET', '/pc-agent/sysinfo');
+        const mem = r.memory || {};
+        if (out) out.textContent = [
+          `ОС: ${r.os || 'Windows 11'} · Хост: ${r.hostname || 'ПК'}`,
+          `ЦП: ${r.cpu_percent ?? '—'}% · Ядер: ${r.cpu_count ?? '—'}`,
+          `ОЗУ: свободно ${mem.available_gb ?? '—'} ГБ из ${mem.total_gb ?? '—'} ГБ (${mem.percent ?? '—'}%)`,
+        ].join('\n');
+      } catch (err) { if (out) out.textContent = 'Ошибка: ' + err.message; }
+    });
+  }
+  if ($('btn-pc-status')) {
+    $('btn-pc-status').addEventListener('click', async () => {
+      tap();
+      const out = $('oc-pc-out');
+      if (out) out.textContent = 'Запрос состояния Argon PC-Agent…';
+      try {
+        const r = await api('GET', '/pc-agent/status');
+        if (out) out.textContent = [
+          `Профиль: ${r.profile || 'Argon PC-Agent'} (agent_id=${r.agent_id ?? '—'})`,
+          `STOP: ${r.stopped ? 'ВКЛЮЧЁН' : 'выключен'} · Trust-окно: ${r.trust_active ? 'активно' : 'выключено'}`,
+          `Цепочка аудита SHA-256: ${r.audit_chain_valid ? 'ЦЕЛА (OK)' : 'требует проверки'} (${r.audit_entries ?? 0} записей)`,
+          `Задач в памяти: ${r.tasks_total ?? 0} (активных: ${r.active_tasks ?? 0})`,
+        ].join('\n');
+      } catch (err) { if (out) out.textContent = 'Ошибка: ' + err.message; }
+    });
+  }
+  if ($('btn-pc-hibernate')) {
+    $('btn-pc-hibernate').addEventListener('click', async () => {
+      tap();
+      const out = $('oc-pc-out');
+      if (out) out.textContent = 'Запрос состояния срезов Infinity RAP…';
+      try {
+        if (S.threadId) {
+          const h = await api('POST', `/agent/sessions/${encodeURIComponent(S.threadId)}/hibernate?reason=mobile_pult`);
+          const w = await api('POST', `/agent/sessions/${encodeURIComponent(S.threadId)}/wake`);
+          const st = await api('GET', '/agent/hibernation/status');
+          if (out) out.textContent = [
+            `Протокол: ${st.protocol || 'RAP-Infinity-Slice-v1'}`,
+            `Текущая сессия ${S.threadId}: срез ${h.slice_bytes ?? 0} Б на диске (0 Б в ОЗУ), пробуждение за ${w.wake_ms ?? 0} мс`,
+            `Всего спящих сессий: ${st.hibernated_count ?? 0} · Активных в ОЗУ: ${st.active_ram_sessions ?? 0}`,
+          ].join('\n');
+        } else {
+          const st = await api('GET', '/agent/hibernation/status');
+          if (out) out.textContent = `Протокол: ${st.protocol || 'RAP-Infinity-Slice-v1'}\nСпящих сессий на диске: ${st.hibernated_count ?? 0} (${st.total_slice_bytes ?? 0} Б)\nАктивных сессий в ОЗУ: ${st.active_ram_sessions ?? 0}`;
+        }
+      } catch (err) { if (out) out.textContent = 'Ошибка: ' + err.message; }
     });
   }
 

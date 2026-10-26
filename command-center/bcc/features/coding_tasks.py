@@ -83,6 +83,8 @@ COMMAND_ENV = "BOSSMAN_OPENHANDS_COMMAND"
 _OLLAMA_TAGS = "http://127.0.0.1:11434/api/tags"
 _OLLAMA_CHAT = "http://127.0.0.1:11434/api/chat"
 _LOCAL_CODING_MODELS = (
+    "qwen3.8-flash-next-iq3_s",
+    "strata-qwen38-flash-next-iq3s",
     "bossman-fast-qwen36-35b-a3b-q5:latest",
     "qwen3-coder:30b",
     "r1-70b-abliterated:latest",
@@ -91,6 +93,38 @@ _LOCAL_CODING_MODELS = (
 )
 #: Local coder & sparse MoE sub-agent profiles (VRAM footprint vs 36 GB main / 42 GB 70B uncensored).
 LOCAL_CODER_PROFILES: dict[str, dict[str, Any]] = {
+    "qwen3.8-flash-next-iq3_s": {
+        "role": "strata_primary_moe_coder",
+        "architecture": "qwen3.8-flash-next-moe-mtp",
+        "total_params_b": 235.0,
+        "active_params_b": 22.0,
+        "active_weights_pct": 9.4,
+        "vram_gb": 86.0,
+        "main_vram_gb": 36.0,
+        "vram_ratio_of_main": round(86.0 / 36.0, 4),
+        "vram_ratio_of_70b": round(86.0 / 42.0, 4),
+        "within_50pct_vram_budget": False,
+        "primary_coder": True,
+        "hardware": "AMD Ryzen AI Max+ 395 / Radeon 8060S gfx1151 (128 GB unified memory, Strata v0.2.6 HIP)",
+        "uncensored": False,
+        "description": "Strata local Qwen3.8-Flash-Next IQ3_S + MTP draft layer (45-58 tok/s decode, 365-401 tok/s prefill, 32K ctx, full tool calling & PC control).",
+    },
+    "strata-qwen38-flash-next-iq3s": {
+        "role": "strata_primary_moe_coder",
+        "architecture": "qwen3.8-flash-next-moe-mtp",
+        "total_params_b": 235.0,
+        "active_params_b": 22.0,
+        "active_weights_pct": 9.4,
+        "vram_gb": 86.0,
+        "main_vram_gb": 36.0,
+        "vram_ratio_of_main": round(86.0 / 36.0, 4),
+        "vram_ratio_of_70b": round(86.0 / 42.0, 4),
+        "within_50pct_vram_budget": False,
+        "primary_coder": True,
+        "hardware": "AMD Ryzen AI Max+ 395 / Radeon 8060S gfx1151 (128 GB unified memory, Strata v0.2.6 HIP)",
+        "uncensored": False,
+        "description": "Strata local Qwen3.8-Flash-Next IQ3_S alias for OpenCode & Argon PC-Agent.",
+    },
     "qwen3-coder:30b": {
         "role": "sparse_helper_subagent",
         "architecture": "qwen3moe",

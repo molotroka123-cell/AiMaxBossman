@@ -262,4 +262,18 @@ def classify_pc_action(
         if url_arg and not url_arg.startswith(("https://", "http://", "tg://")):
             return PolicyVerdict("T3", "deny", "record_invalid_url", "Схема URL запрещена (T3).", True)
         return PolicyVerdict("T1", "auto", "screen_record", "Запись экрана (T1).")
+    if tool == "pc.code_act":
+        act_c = str(args.get("action") or "search").strip().lower()
+        path_c = str(args.get("path") or "").strip()
+        ro_c = act_c in {"search", "expand", "status", "workspace_map", "diff"}
+        if path_c:
+            bad_c, why_c = is_t3_secret_or_protected_path(
+                path_c, for_write=(not ro_c), repo_root=repo_root, data_dir=data_dir
+            )
+            if bad_c:
+                return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_c, True)
+        if ro_c:
+            return PolicyVerdict("T0", "auto", "code_read", f"Анализ кода ({act_c}, T0).")
+        return PolicyVerdict("T2", "ask", "code_other", f"Код {act_c} (T2).", True)
     return PolicyVerdict("T2", "ask", "unknown_tool", f"Неизвестный инструмент {tool} (T2).", True)
+

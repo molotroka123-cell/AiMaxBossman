@@ -87,6 +87,8 @@ def test_mobile_ui_contains_opencode_mode_bar_and_terminal_workbench():
     assert 'id="oc-workbench"' in html
     assert 'id="oc-term-out"' in html
     assert 'id="btn-term-sigint"' in html
+    for pc_btn in ('id="btn-pc-observe"', 'id="btn-pc-windows"', 'id="btn-pc-sysinfo"', 'id="btn-pc-status"', 'id="btn-pc-hibernate"'):
+        assert pc_btn in html, f"Missing {pc_btn} in index.html"
 
     # Verify security invariant: no innerHTML in app.js
     assert "innerHTML" not in js

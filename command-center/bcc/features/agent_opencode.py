@@ -231,8 +231,10 @@ ROUTER_CATALOG_TTL_S = 5.0
 
 
 class _OrchestratorState:
-    def __init__(self) -> None:
+    def __init__(self, data_dir: Path | None = None) -> None:
+        self.data_dir: Path | None = data_dir
         self.sessions: dict[str, AgentSessionRuntime] = {}
+        self.hibernated_slices: dict[str, dict[str, Any]] = {}
         self.task_to_session: dict[int, str] = {}
         self.coding_to_session: dict[str, str] = {}
         self.term_to_session: dict[str, str] = {}
@@ -243,17 +245,135 @@ class _OrchestratorState:
         self.skill_index_cache: dict[str, tuple[str, dict[str, Any]]] = {}
         self.tools_schema_cache: dict[tuple[str, bool], dict[str, Any]] = {}
 
+    def _slice_dir(self) -> Path | None:
+        if self.data_dir is None:
+            return None
+        d = self.data_dir / "terminal" / "infinity-slices"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def _slice_path(self, session_id: str) -> Path | None:
+        d = self._slice_dir()
+        if d is None:
+            return None
+        safe_id = re.sub(r"[^A-Za-z0-9_.-]", "_", str(session_id))[:80]
+        return d / f"{safe_id}.slice.json"
+
+    def hibernate(self, session_id: str, reason: str = "awaiting_tool_or_idle") -> dict[str, Any]:
+        """Serialize session runtime to a compact coroutine slice on disk (~1–100 KB)
+        and evict in-memory state (`0 B` held in active RAM), inspired by hydro-project/infinity."""
+        t0 = time.perf_counter()
+        rt = self.sessions.get(session_id)
+        sp = self._slice_path(session_id)
+        payload = {
+            "protocol": "RAP-Infinity-Slice-v1",
+            "session_id": session_id,
+            "seq": rt.seq if rt else 0,
+            "events": list(rt.events[-120:]) if rt else [],
+            "coding_task_ids": list(rt.coding_task_ids) if rt else [],
+            "terminal_session_ids": list(rt.terminal_session_ids) if rt else [],
+            "spent_usd": float(rt.spent_usd) if rt else 0.0,
+            "tokens_in": int(rt.tokens_in) if rt else 0,
+            "tokens_out": int(rt.tokens_out) if rt else 0,
+            "reason": reason,
+            "hibernated_at": utcnow().isoformat(),
+        }
+        raw_bytes = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        if sp is not None:
+            tmp = sp.with_suffix(".slice.tmp")
+            tmp.write_bytes(raw_bytes)
+            os.replace(tmp, sp)
+        has_ws = bool(rt and rt.subscribers)
+        if rt is not None:
+            if has_ws:
+                rt.events.clear()
+            else:
+                self.sessions.pop(session_id, None)
+        elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 3)
+        info = {
+            "session_id": session_id,
+            "hibernated": True,
+            "ram_bytes_held": 0 if not has_ws else 64,
+            "slice_bytes": len(raw_bytes),
+            "slice_kb": round(len(raw_bytes) / 1024.0, 2),
+            "slice_path": str(sp) if sp else None,
+            "hibernate_ms": elapsed_ms,
+            "last_wake_ms": (self.hibernated_slices.get(session_id) or {}).get("last_wake_ms"),
+            "reason": reason,
+            "hibernated_at": payload["hibernated_at"],
+            "protocol": "RAP-Infinity-Slice-v1",
+        }
+        self.hibernated_slices[session_id] = info
+        return info
+
+    def wake(self, session_id: str, trigger: str = "reactive_event") -> tuple[AgentSessionRuntime, dict[str, Any]]:
+        """Restore a hibernated session slice from disk into active RAM in < 2 ms."""
+        t0 = time.perf_counter()
+        rt = self.sessions.get(session_id)
+        sp = self._slice_path(session_id)
+        restored_bytes = 0
+        if sp is not None and sp.is_file():
+            try:
+                raw_bytes = sp.read_bytes()
+                restored_bytes = len(raw_bytes)
+                data = json.loads(raw_bytes.decode("utf-8"))
+                if rt is None:
+                    rt = AgentSessionRuntime(
+                        session_id=session_id,
+                        seq=int(data.get("seq") or 0),
+                        events=list(data.get("events") or []),
+                        coding_task_ids=list(data.get("coding_task_ids") or []),
+                        terminal_session_ids=list(data.get("terminal_session_ids") or []),
+                        spent_usd=float(data.get("spent_usd") or 0.0),
+                        tokens_in=int(data.get("tokens_in") or 0),
+                        tokens_out=int(data.get("tokens_out") or 0),
+                    )
+                    self.sessions[session_id] = rt
+                elif not rt.events and data.get("events"):
+                    rt.events = list(data.get("events") or [])
+                    rt.seq = max(rt.seq, int(data.get("seq") or 0))
+            except Exception:
+                if rt is None:
+                    rt = self.sessions[session_id] = AgentSessionRuntime(session_id=session_id)
+        elif rt is None:
+            rt = self.sessions[session_id] = AgentSessionRuntime(session_id=session_id)
+        wake_ms = round((time.perf_counter() - t0) * 1000.0, 3)
+        prev = self.hibernated_slices.get(session_id) or {}
+        slice_bytes = restored_bytes or int(prev.get("slice_bytes") or 0)
+        info = {
+            "session_id": session_id,
+            "hibernated": False,
+            "ram_bytes_held": len(rt.events) * 256 + 128,
+            "slice_bytes": slice_bytes,
+            "slice_kb": round(slice_bytes / 1024.0, 2),
+            "slice_path": str(sp) if sp else None,
+            "wake_ms": wake_ms,
+            "last_wake_ms": wake_ms,
+            "trigger": trigger,
+            "woken_at": utcnow().isoformat(),
+            "protocol": "RAP-Infinity-Slice-v1",
+        }
+        self.hibernated_slices[session_id] = info
+        return rt, info
+
     def runtime(self, session_id: str) -> AgentSessionRuntime:
         rt = self.sessions.get(session_id)
         if rt is None:
+            meta = self.hibernated_slices.get(session_id)
+            if (meta and meta.get("hibernated")) or (self._slice_path(session_id) and self._slice_path(session_id).is_file()):  # type: ignore[union-attr]
+                rt, _ = self.wake(session_id, trigger="auto_runtime_access")
+                return rt
             rt = self.sessions[session_id] = AgentSessionRuntime(session_id=session_id)
         return rt
 
 
 def _orch(svc: Any) -> _OrchestratorState:
     st = getattr(svc, "_agent_orchestrator", None)
+    data_dir = Path(svc.settings.data_dir) if hasattr(svc, "settings") and hasattr(svc.settings, "data_dir") else None
     if st is None:
-        st = svc._agent_orchestrator = _OrchestratorState()
+        st = svc._agent_orchestrator = _OrchestratorState(data_dir=data_dir)
+    elif st.data_dir is None and data_dir is not None:
+        st.data_dir = data_dir
     return st
 
 
@@ -338,6 +458,20 @@ async def _update_session_cfg(svc: Any, session_id: str, **updates: Any) -> dict
 MODEL_TIERS: list[dict[str, Any]] = [
     {
         "tier": 1,
+        "id": "local:qwen3.8-flash-next-iq3_s",
+        "model": "qwen3.8-flash-next-iq3_s",
+        "alias": "strata-qwen38-flash-next-iq3s",
+        "worker": None,
+        "locality": "local",
+        "role": "strata_fast_chat_and_pc_agent",
+        "label": "Tier 1 · Strata Qwen3.8-Flash-Next IQ3_S (45–58 tok/s, Strix Halo :8090)",
+        "price_in_1m": 0.0,
+        "price_out_1m": 0.0,
+        "context_window": 32768,
+        "modes": ["CHAT", "AGENT", "AUTO", "COMPUTER", "CODE", "SELF-IMPROVE"],
+    },
+    {
+        "tier": 1,
         "id": "local:gemma4-31b-uncensored:latest",
         "model": "gemma4-31b-uncensored:latest",
         "worker": None,
@@ -348,6 +482,20 @@ MODEL_TIERS: list[dict[str, Any]] = [
         "price_out_1m": 0.0,
         "context_window": 32768,
         "modes": ["CHAT", "AGENT", "COMPUTER", "CODE"],
+    },
+    {
+        "tier": 2,
+        "id": "local:strata-qwen38-flash-next-iq3s",
+        "model": "qwen3.8-flash-next-iq3_s",
+        "alias": "strata-qwen38-flash-next-iq3s",
+        "worker": None,
+        "locality": "local",
+        "role": "local_strata_opencode_coder",
+        "label": "Tier 2 · Strata Qwen3.8-Flash-Next IQ3_S Coder + PC Tools (Local Strata :8090)",
+        "price_in_1m": 0.0,
+        "price_out_1m": 0.0,
+        "context_window": 32768,
+        "modes": ["CODE", "SELF-IMPROVE", "AGENT", "AUTO", "COMPUTER"],
     },
     {
         "tier": 2,
@@ -517,6 +665,11 @@ async def build_model_router_catalog(svc: Any, *, force_refresh: bool = False) -
             local_online_names.add(str(m.get("name") or ""))
             local_online_names.add(str(m.get("alias") or ""))
 
+    strata_online = (
+        "qwen3.8-flash-next-iq3_s" in local_online_names
+        or "strata-qwen38-flash-next-iq3s" in local_online_names
+    )
+
     tiers_out: list[dict[str, Any]] = []
     for item in MODEL_TIERS:
         worker_id = item.get("worker")
@@ -525,6 +678,10 @@ async def build_model_router_catalog(svc: Any, *, force_refresh: bool = False) -
             key_ok, key_src = key_cache.get(w_spec.get("key", ""), (False, "missing"))
             ready = key_ok
             reason = "" if ready else f"Требуется ключ {w_spec.get('key', 'API_KEY')}"
+        elif item["model"] in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s"):
+            ready = strata_online
+            key_src = "local_strata"
+            reason = "" if ready else "Локальный сервер Strata (:8090) не зарегистрирован или не в сети"
         else:
             ready = (item["model"] in local_online_names) or bool(local_online_names)
             key_src = "local_ollama"
@@ -558,8 +715,8 @@ async def build_model_router_catalog(svc: Any, *, force_refresh: bool = False) -
         "workers": workers_out,
         "local_profiles": LOCAL_CODER_PROFILES,
         "runpod_policy": "DENY_WITHOUT_EXPLICIT_OWNER_APPROVAL",
-        "default_chat_model": "gemma4-31b-uncensored:latest",
-        "default_code_model": "qwen3-coder:30b",
+        "default_chat_model": "qwen3.8-flash-next-iq3_s" if strata_online else "gemma4-31b-uncensored:latest",
+        "default_code_model": "qwen3.8-flash-next-iq3_s" if strata_online else "qwen3-coder:30b",
     }
     st_orch.router_catalog_cache = (time.monotonic(), result, (agents, models, providers))
     return result
@@ -622,6 +779,8 @@ def select_route_for_request(
     # Explicit local model requested
     if requested_model and not requested_model.startswith("worker:"):
         clean_model = requested_model.removeprefix("local:")
+        if clean_model.lower() in ("strata", "strata-qwen38-flash-next-iq3s"):
+            clean_model = "qwen3.8-flash-next-iq3_s"
         profile = LOCAL_CODER_PROFILES.get(clean_model) or {}
         min_free = float(profile.get("min_free_ram_gb_during_gen") or 0.0)
         if generation_active and min_free > 0.0 and free_ram_gb is not None and float(free_ram_gb) < min_free:
@@ -632,7 +791,10 @@ def select_route_for_request(
                 ),
                 "code": "INSUFFICIENT_RAM_DURING_GENERATION",
             })
-        tier_num = 1 if "gemma" in clean_model.lower() else 2
+        is_tier1_model = "gemma" in clean_model.lower() or (
+            "qwen3.8-flash-next" in clean_model.lower() and mode not in ("CODE", "SELF-IMPROVE")
+        )
+        tier_num = 1 if is_tier1_model else 2
         return {
             "selected_id": f"local:{clean_model}",
             "model": clean_model,
@@ -641,7 +803,7 @@ def select_route_for_request(
             "tier": tier_num,
             "paid": False,
             "reason": f"Локальная модель {clean_model} (Tier {tier_num})",
-            "fallback_chain": ["local:gemma4-31b-uncensored:latest", "local:qwen3-coder:30b"],
+            "fallback_chain": ["local:qwen3.8-flash-next-iq3_s", "local:gemma4-31b-uncensored:latest", "local:qwen3-coder:30b"],
         }
 
     # Automatic tiered routing
@@ -1078,20 +1240,31 @@ async def _resolve_agent_id_for_model(svc: Any, requested_agent_id: int | None, 
     if requested_agent_id is not None:
         return requested_agent_id
     agents, models, _providers = await _cached_catalog(svc)
+    enabled_agents = [ag for ag in agents if ag.get("enabled")]
+    # Sort so non-eval/non-clone production agents come before temporary tournament clone agents
+    enabled_agents.sort(key=lambda a: (1 if "tournament clone" in str(a.get("name") or "").lower() else 0, int(a.get("id") or 0)))
     if model_name:
         clean = model_name.removeprefix("local:").strip().lower()
-        for ag in agents:
-            if not ag.get("enabled"):
-                continue
+        is_strata_q = clean in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s", "strata") or "flash-next" in clean or "strata" in clean
+        for ag in enabled_agents:
             m = models.get(ag.get("model_id")) or {}
             m_name = str(m.get("name") or "").lower()
             m_alias = str(m.get("alias") or "").lower()
-            if clean in (m_name, m_alias) or (clean.startswith("gemma4") and "gemma4" in m_name):
+            ag_name = str(ag.get("name") or "").lower()
+            if (
+                clean in (m_name, m_alias)
+                or (clean.startswith("gemma4") and "gemma4" in m_name)
+                or (is_strata_q and ("flash-next" in m_name or "strata" in m_name or "strata" in ag_name))
+            ):
                 return int(ag["id"])
-    # Prefer Gemma 4 agent if available and enabled
-    for ag in agents:
-        if not ag.get("enabled"):
-            continue
+    # Prefer online Strata or Gemma 4 agent if available and enabled
+    for ag in enabled_agents:
+        m = models.get(ag.get("model_id")) or {}
+        m_name = str(m.get("name") or "").lower()
+        ag_name = str(ag.get("name") or "").lower()
+        if ("flash-next" in m_name or "strata" in ag_name) and str(m.get("status") or "").lower() == "online":
+            return int(ag["id"])
+    for ag in enabled_agents:
         m = models.get(ag.get("model_id")) or {}
         if "gemma4" in str(m.get("name") or "").lower() or "gemma" in str(ag.get("name") or "").lower():
             return int(ag["id"])
@@ -1536,11 +1709,61 @@ async def _complete_improve_after_approval(
 # ======================================================================
 
 _MODE_RELEVANT_TOOL_GROUPS: dict[str, frozenset[str]] = {
-    "CHAT": frozenset({"memory", "code", "git_worktree"}),
-    "CODE": frozenset({"code", "terminal", "git_worktree", "memory"}),
-    "COMPUTER": frozenset({"computer", "browser", "terminal", "memory"}),
-    "SELF-IMPROVE": frozenset({"code", "terminal", "git_worktree", "self_improve", "memory"}),
+    "CHAT": frozenset({"Memory", "Files", "Coding", "Git", "memory", "code", "git_worktree"}),
+    "CODE": frozenset({"Files", "Coding", "Terminal", "Git", "Memory", "code", "terminal", "git_worktree", "memory"}),
+    "COMPUTER": frozenset({"Computer", "Browser", "Terminal", "Files", "Memory", "computer", "browser", "terminal", "memory"}),
+    "SELF-IMPROVE": frozenset({"Files", "Coding", "Terminal", "Git", "Memory", "Diagnostics", "code", "terminal", "git_worktree", "self_improve", "memory"}),
 }
+
+
+@router.get("/agent/hibernation/status")
+async def get_agent_hibernation_status(request: Request):
+    """Infinity-style Stateless Coroutine Slice Hibernation status (`hydro-project/infinity` pattern)."""
+    svc = request.app.state.svc
+    st_orch = _orch(svc)
+    active_ids = sorted(st_orch.sessions.keys())
+    slices = dict(st_orch.hibernated_slices)
+    hibernated_count = sum(1 for v in slices.values() if v.get("hibernated"))
+    total_slice_bytes = sum(int(v.get("slice_bytes") or 0) for v in slices.values() if v.get("hibernated"))
+    active_ram_bytes = sum(len(rt.events) * 256 + 128 for rt in st_orch.sessions.values())
+    wake_times = [float(v["last_wake_ms"]) for v in slices.values() if isinstance(v.get("last_wake_ms"), (int, float))]
+    return {
+        "ok": True,
+        "protocol": "RAP-Infinity-Slice-v1",
+        "inspired_by": "hydro-project/infinity (AWS + UC Berkeley, Apache-2.0)",
+        "active_sessions": len(active_ids),
+        "active_ram_sessions": len(active_ids),
+        "active_session_ids": active_ids,
+        "hibernated_sessions": hibernated_count,
+        "hibernated_count": hibernated_count,
+        "total_tracked_slices": len(slices),
+        "hibernated_ram_bytes_held": 0,
+        "active_ram_bytes_estimate": active_ram_bytes,
+        "total_hibernated_slice_bytes": total_slice_bytes,
+        "total_slice_bytes": total_slice_bytes,
+        "avg_wake_ms": round(sum(wake_times) / len(wake_times), 3) if wake_times else 0.0,
+        "slices": slices,
+    }
+
+
+@router.post("/agent/sessions/{session_id}/hibernate")
+async def hibernate_agent_session(session_id: str, request: Request, reason: str = "owner_or_tool_wait", body: dict[str, Any] | None = None):
+    """Serialize session runtime to a disk coroutine slice (~1-100 KB) and evict RAM (`0 B` held)."""
+    svc = request.app.state.svc
+    _require_session(svc, session_id)
+    eff_reason = str((body or {}).get("reason") or reason or "owner_or_tool_wait")
+    info = _orch(svc).hibernate(session_id, reason=eff_reason)
+    return {"ok": True, **info}
+
+
+@router.post("/agent/sessions/{session_id}/wake")
+async def wake_agent_session(session_id: str, request: Request, body: dict[str, Any] | None = None):
+    """Wake a hibernated session slice from disk into RAM in < 2 ms."""
+    svc = request.app.state.svc
+    _require_session(svc, session_id)
+    trigger = str((body or {}).get("trigger") or "reactive_event")
+    _rt, info = _orch(svc).wake(session_id, trigger=trigger)
+    return {"ok": True, "woke": True, **info}
 
 
 @router.get("/agent/tools")

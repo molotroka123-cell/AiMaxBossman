@@ -715,3 +715,44 @@ async def test_18_north_star_security_auto_escalation_blocked(env, mini_repo: Pa
     })).json()
     assert imp_sess["mode"] == "SELF-IMPROVE"
     assert imp_sess["bypass_permissions"] is False
+
+
+# ---------------------------------------------------------------------------
+# 19. Strata routing, PC-Agent pc.code_act, and Infinity RAP Slice Hibernation
+# ---------------------------------------------------------------------------
+async def test_19_strata_routing_pc_code_act_and_infinity_slice_hibernation(env, mini_repo: Path):
+    await _setup_gemma_stack(env, mini_repo)
+
+    # 1. Verify Strata is registered in Tier 1 & Tier 2 and COMPUTER mode returns Computer tools
+    models_res = await env.client.get("/api/agent/models")
+    assert models_res.status_code == 200
+    t_ids = [t["id"] for t in models_res.json()["tiers"]]
+    assert "local:qwen3.8-flash-next-iq3_s" in t_ids
+
+    comp_tools = await env.client.get("/api/agent/tools", params={"mode": "COMPUTER"})
+    assert comp_tools.status_code == 200
+    assert comp_tools.json()["total"] > 0
+
+    # 2. Verify Infinity RAP Coroutine Slice Hibernation (0 bytes RAM when hibernated, < 2ms wake)
+    sess = (await env.client.post("/api/agent/sessions", json={"title": "Infinity Slice Test", "mode": "COMPUTER"})).json()
+    sid = sess["id"]
+
+    hib_res = await env.client.post(f"/api/agent/sessions/{sid}/hibernate", params={"reason": "waiting_t2_approval"})
+    assert hib_res.status_code == 200, hib_res.text
+    hib_body = hib_res.json()
+    assert hib_body["hibernated"] is True
+    assert hib_body["ram_bytes_held"] == 0
+    assert hib_body["slice_bytes"] > 0
+
+    status_res = await env.client.get("/api/agent/hibernation/status")
+    assert status_res.status_code == 200
+    st_body = status_res.json()
+    assert st_body["protocol"] == "RAP-Infinity-Slice-v1"
+    assert st_body["hibernated_count"] >= 1
+
+    wake_res = await env.client.post(f"/api/agent/sessions/{sid}/wake")
+    assert wake_res.status_code == 200, wake_res.text
+    w_body = wake_res.json()
+    assert w_body["woke"] is True
+    assert w_body["wake_ms"] < 50.0
+

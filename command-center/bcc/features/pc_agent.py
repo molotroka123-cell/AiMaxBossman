@@ -69,7 +69,10 @@ AGENT_NAME = "Argon PC-Agent"
 AGENT_ROLE = "pc-agent:argon"
 
 OLLAMA_BASE = os.environ.get("BOSSMAN_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+STRATA_BASE = os.environ.get("BOSSMAN_STRATA_URL", "http://127.0.0.1:8090/v1").rstrip("/")
 LOCAL_MODELS = (
+    "qwen3.8-flash-next-iq3_s",
+    "strata-qwen38-flash-next-iq3s",
     "bossman-community-qwen-uncensored:latest",
     "bossman-main-qwen38-27b-q5:latest",
     "bossman-fast-qwen36-35b-a3b-q5:latest",
@@ -461,17 +464,56 @@ def get_runtime(svc: Any) -> PCAgentRuntime:
 
 # ------------------------------------------------------------------ DB Synchronization Helpers
 
+ARGON_DEFAULT_TOOLS = [
+    "computer.observe",
+    "computer.act",
+    "terminal.run",
+    "terminal.status",
+    "terminal.stdin",
+    "terminal.kill",
+    "code.search",
+    "code.expand",
+    "code.status",
+    "code.workspace_map",
+    "opencode.search",
+    "opencode.read_symbol",
+    "opencode.patch",
+    "opencode.run_tests",
+    "opencode.git_diff",
+    "browser.open",
+    "browser.read_dom",
+    "browser.screenshot",
+    "browser.click",
+    "browser.type",
+]
+
+
 async def ensure_argon_agent(svc: Any) -> dict[str, Any]:
-    """Гарантирует наличие записи агента Argon PC-Agent в таблице `agents` (строго локальная модель $0)."""
+    """Гарантирует наличие записи агента Argon PC-Agent в таблице `agents` (строго локальная модель $0, с полным набором инструментов OpenCode + PC Control)."""
     async with svc.db.session() as s:
         row = row_dict((await s.execute(sa.select(agents_t).where(agents_t.c.role == AGENT_ROLE))).first())
-        if row:
-            return row
-        # Выбираем только разрешённую локальную модель Qwen ($0); никогда не откатываемся на платные модели
-        model_row = row_dict(
-            (await s.execute(sa.select(models_t).where(models_t.c.name.in_(LOCAL_MODELS)).order_by(models_t.c.id.desc()))).first()
+        # Выбираем только разрешённую локальную модель (Strata / Qwen $0); никогда не откатываемся на платные модели
+        model_rows = rows_dicts(
+            await s.execute(sa.select(models_t).where(models_t.c.name.in_(LOCAL_MODELS)).order_by(models_t.c.id.desc()))
         )
-        model_id = model_row["id"] if model_row else None
+        preferred_model = next(
+            (m for m in model_rows if m.get("name") in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s") and m.get("status") == "online"),
+            next((m for m in model_rows if m.get("name") in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s")), model_rows[0] if model_rows else None),
+        )
+        model_id = preferred_model["id"] if preferred_model else None
+        if row:
+            cur_tools = list(row.get("tools") or [])
+            missing_tools = [t for t in ARGON_DEFAULT_TOOLS if t not in cur_tools]
+            updates: dict[str, Any] = {}
+            if missing_tools:
+                updates["tools"] = cur_tools + missing_tools
+            if model_id is not None and row.get("model_id") != model_id and preferred_model and preferred_model.get("status") == "online":
+                updates["model_id"] = model_id
+            if updates:
+                await s.execute(sa.update(agents_t).where(agents_t.c.id == row["id"]).values(**updates))
+                await s.commit()
+                row = (await fetch_one(s, agents_t, row["id"])) or {**row, **updates}
+            return row
         now = utcnow()
         res = await s.execute(
             sa.insert(agents_t).values(
@@ -480,7 +522,7 @@ async def ensure_argon_agent(svc: Any) -> dict[str, Any]:
                 system_prompt=MANAGER_SYSTEM_PROMPT,
                 model_id=model_id,
                 fallback_model_id=None,
-                tools=["computer.observe", "computer.act", "terminal.run", "browser.open", "browser.read_dom", "browser.screenshot"],
+                tools=list(ARGON_DEFAULT_TOOLS),
                 permissions={
                     "filesystem.read": True,
                     "terminal.read": True,
@@ -1283,6 +1325,85 @@ async def execute_pc_step(
                 f"Ядро Bossman: агентов={agents_count}, задач в работе={running_tasks}, "
                 f"моделей в реестре={models_count}, сборка={str(source_identity().get('build_sha') or '')[:12]}."
             ),
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    if tool == "pc.code_act":
+        act_c = str(args.get("action") or "search").strip().lower()
+        agent_row = (
+            await ensure_argon_agent(svc)
+            if getattr(svc, "db", None) is not None
+            else {"id": 0, "name": "Argon PC-Agent", "tools": list(ARGON_DEFAULT_TOOLS)}
+        )
+        ctx_c = ToolContext(
+            svc=svc,
+            task={"id": task_id, "prompt": str(args.get("prompt") or "")},
+            run_id=run_id,
+            agent=agent_row,
+            step=step_idx,
+        )
+        tool_map = {
+            "search": "code.search",
+            "expand": "code.expand",
+            "status": "code.status",
+            "workspace_map": "code.workspace_map",
+            "diff": "opencode.git_diff",
+        }
+        reg_name = tool_map.get(act_c, "code.search")
+        spec_c = REGISTRY.get(reg_name) or REGISTRY.get("code.search")
+        if spec_c is None:
+            q_str = str(args.get("query") or args.get("q") or "Bossman")
+            lim = max(1, min(int(args.get("limit") or 10), 25))
+            repo_dir = Path(__file__).resolve().parents[3]
+            hits: list[dict[str, Any]] = []
+            for sub in ("command-center/bcc/features", "apps/bossman-mobile/bossmobile"):
+                base_d = repo_dir / sub
+                if not base_d.is_dir():
+                    continue
+                for py_f in sorted(base_d.rglob("*.py")):
+                    with contextlib.suppress(Exception):
+                        for lno, line in enumerate(py_f.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+                            if q_str.lower() in line.lower():
+                                hits.append({"file": str(py_f.relative_to(repo_dir)), "line": lno, "snippet": line.strip()[:140]})
+                                if len(hits) >= lim:
+                                    break
+                    if len(hits) >= lim:
+                        break
+            return {
+                "ok": True,
+                "verified": True,
+                "action": act_c,
+                "tool_used": reg_name,
+                "matches_count": len(hits),
+                "data": {"hits": hits},
+                "summary": f"OpenCode `{reg_name}` ({act_c}): ПРОВЕРЕНО. Найдено совпадений: {len(hits)} по запросу «{q_str}».",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+        call_args: dict[str, Any] = {}
+        if act_c == "search":
+            call_args = {"query": str(args.get("query") or args.get("q") or "Bossman"), "limit": int(args.get("limit") or 10)}
+            if args.get("path"):
+                call_args["path"] = str(args["path"])
+        elif act_c == "expand":
+            call_args = {"path": str(args.get("path") or "command-center/bcc/features/pc_agent.py")}
+            if args.get("symbol"):
+                call_args["symbol"] = str(args["symbol"])
+        elif act_c == "workspace_map":
+            call_args = {"max_files": int(args.get("max_files") or 40)}
+        elif act_c == "diff":
+            call_args = {"cwd": str(args.get("cwd") or Path(__file__).resolve().parents[3])}
+        res_c = await spec_c.handler(call_args, ctx_c)
+        content_c = scrub_secrets(str(res_c.content or ""))
+        ok_c = not bool(res_c.error)
+        return {
+            "ok": ok_c,
+            "verified": ok_c and bool(content_c.strip() or res_c.data),
+            "action": act_c,
+            "tool_used": spec_c.name,
+            "data": res_c.data,
+            "excerpt": EXTERNAL_DATA_HEADER + content_c[:2000] if content_c else "",
+            "tainted": bool(_PROMPT_INJECTION_RE.search(content_c)),
+            "summary": f"OpenCode `{spec_c.name}` ({act_c}): {'ПРОВЕРЕНО' if ok_c else 'ОШИБКА'}. " + (content_c.splitlines()[0][:180] if content_c else "выполнено"),
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
@@ -3947,11 +4068,13 @@ async def call_local_qwen(
                 provider = str(m.get("provider") or "").lower()
                 if ":free" in name or provider in {"openrouter", "openai", "anthropic", "gemini", "google", "groq", "deepseek"}:
                     return False
-                return name in LOCAL_MODELS or any(k in name.lower() for k in ("qwen", "gemma", "llama", "mistral", "deepseek-r1"))
+                return name in LOCAL_MODELS or any(k in name.lower() for k in ("qwen", "gemma", "strata", "llama", "mistral", "deepseek-r1"))
 
-            def _sort_key(m: dict[str, Any]) -> tuple[int, int]:
+            def _sort_key(m: dict[str, Any]) -> tuple[int, int, int]:
                 name = str(m.get("name") or "")
-                return (0 if name in LOCAL_MODELS else 1, int(m.get("id") or 0))
+                is_strata = 0 if name in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s") else 1
+                in_local = 0 if name in LOCAL_MODELS else 1
+                return (is_strata, in_local, int(m.get("id") or 0))
 
             for m in sorted(rows or [], key=_sort_key):
                 mid = m.get("id")
@@ -3984,6 +4107,35 @@ async def call_local_qwen(
                     continue
 
     for model in LOCAL_MODELS:
+        if model in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s"):
+            with contextlib.suppress(Exception):
+                async with httpx.AsyncClient(timeout=min(timeout_s, 15.0), trust_env=False) as client:
+                    resp_s = await client.post(
+                        f"{STRATA_BASE}/chat/completions",
+                        json={
+                            "model": model,
+                            "stream": False,
+                            "think": False,
+                            "temperature": 0.1,
+                            "max_tokens": 512,
+                            "messages": messages,
+                        },
+                    )
+                    if resp_s.status_code == 200:
+                        body_s = resp_s.json()
+                        choices = body_s.get("choices") or []
+                        if choices:
+                            msg_s = ((choices[0].get("message") or {}).get("content")) or ""
+                            if msg_s.strip():
+                                return {
+                                    "ok": True,
+                                    "model": model,
+                                    "text": msg_s.strip(),
+                                    "seconds": round(time.perf_counter() - t0, 2),
+                                    "via": "strata_loopback",
+                                    "local_only": True,
+                                }
+            continue
         try:
             async with httpx.AsyncClient(timeout=timeout_s, trust_env=False) as client:
                 resp = await client.post(
@@ -4295,6 +4447,13 @@ def compile_plan_for_prompt(prompt: str, *, workspace_dir: Path) -> list[dict[st
         dir_match = re.search(r"([A-Za-z]:[\\/][^\s'\"<>]+)", raw)
         target_dir = dir_match.group(1) if dir_match else str(workspace_dir)
         return [{"tool": "pc.list_dir", "args": {"path": target_dir}}]
+    if any(w in low for w in ("найди в коде", "поиск в коде", "code search", "workspace_map", "карта репозитория", "символы в файле", "code status")):
+        if "workspace_map" in low or "карта репозитория" in low:
+            return [{"tool": "pc.code_act", "args": {"action": "workspace_map", "max_files": 40}}]
+        if "code status" in low:
+            return [{"tool": "pc.code_act", "args": {"action": "status"}}]
+        q_code = re.sub(r"(?iu)^.*?(?:найди\s+в\s+коде|поиск\s+в\s+коде|code\s+search)\s*[:—-]?\s*", "", raw).strip(" .,;\"'«»") or "PCAgentRuntime"
+        return [{"tool": "pc.code_act", "args": {"action": "search", "query": q_code, "limit": 10}}]
 
     return []
 
@@ -4329,6 +4488,7 @@ async def plan_pc_task_with_llm(prompt: str, *, svc: Any | None, workspace_dir: 
         "- pc.run_command: {\"argv\": [\"python\", \"-V\"], \"cwd\": \"" + str(workspace_dir).replace("\\", "/") + "\"}\n"
         "- pc.desktop_act: {\"action\": \"launch|focus|click|type|key|hotkey\", \"target\": \"...\"}\n"
         "- pc.browser_act: {\"action\": \"open|read_dom|click|type\", \"url\": \"https://...\"}\n"
+        "- pc.code_act: {\"action\": \"search|expand|status|workspace_map|diff\", \"query\": \"...\", \"path\": \"...\"}\n"
         "- pc.bossman_status: {}\n"
         "- pc.bossman_api: {\"method\": \"GET\", \"path\": \"/api/system\"}\n"
         "- pc.earn: {\"action\": \"status|task|arena|exam|coach|roi|poker|studio|self_improve|boost|oss|product|weekly\", \"brief\": \"...\"}\n"
@@ -4788,7 +4948,7 @@ async def recover_interrupted_tasks(svc: Any) -> list[dict[str, Any]]:
             if dispatched is not None:
                 planned = rec.get("steps_planned") or []
                 step_tool = planned[dispatched].get("tool") if 0 <= dispatched < len(planned) else "unknown"
-                if step_tool not in {"pc.observe_screen", "pc.list_windows", "pc.list_processes", "pc.list_services", "pc.system_info", "pc.bossman_status", "pc.read_file", "pc.list_dir"}:
+                if step_tool not in {"pc.observe_screen", "pc.list_windows", "pc.list_processes", "pc.list_services", "pc.system_info", "pc.bossman_status", "pc.read_file", "pc.list_dir", "pc.code_act"}:
                     msg = f"AMBIGUOUS_PRIOR_EFFECT: шаг #{dispatched + 1} ({step_tool}) был запущен до перезапуска процесса; повторный автоматический запуск заблокирован."
                     rec["status"] = "failed"
                     rec["error"] = msg
@@ -5021,6 +5181,20 @@ async def api_pc_agent_audit(request: Request, limit: int = 50, task_id: int | N
     svc = _svc_of(request)
     rt = get_runtime(svc)
     return {"profile": PROFILE_NAME, "items": rt.journal.read_recent(limit=limit, task_id=task_id)}
+
+
+@router.get("/windows")
+async def api_pc_agent_windows(request: Request):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    return await execute_pc_step(svc, rt, task_id=0, run_id=0, step_idx=0, tool="pc.list_windows", args={})
+
+
+@router.get("/sysinfo")
+async def api_pc_agent_sysinfo(request: Request):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    return await execute_pc_step(svc, rt, task_id=0, run_id=0, step_idx=0, tool="pc.system_info", args={})
 
 
 async def _setup(svc: Any) -> None:

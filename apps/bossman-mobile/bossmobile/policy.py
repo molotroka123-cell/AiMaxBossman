@@ -37,9 +37,10 @@ def _model_local(model: dict | None, providers: dict[int, dict]) -> bool:
 
 def _cloud_rank(a: dict) -> tuple:
     """Cloud agents first, GLM 5.3 Flash at the very top, then the other cloud ones; local ones follow (owner 24.10)."""
-    text = f"{a.get('name') or ''} {(a.get('model') or {}).get('alias') or ''}".lower()
+    text = f"{a.get('name') or ''} {(a.get('model') or {}).get('alias') or ''} {(a.get('model') or {}).get('name') or ''}".lower()
     glm = "glm" in text and "5.3" in text and "flash" in text
-    return (0 if a.get("cloud") else 1, 0 if glm else 1, (a.get("name") or "").lower())
+    strata_or_argon = any(k in text for k in ("strata", "qwen3.8-flash-next", "argon pc-agent"))
+    return (0 if a.get("cloud") else 1, 0 if (glm if a.get("cloud") else strata_or_argon) else 1, (a.get("name") or "").lower())
 
 
 def local_agents(options: dict, agents: list[dict], models: list[dict], providers: list[dict]) -> list[dict]:
@@ -59,6 +60,8 @@ def local_agents(options: dict, agents: list[dict], models: list[dict], provider
         reasons = []
         if not a.get("enabled"):
             reasons.append("выключен")
+        if "eval500 tournament clone" in str(a.get("name") or "").lower():
+            reasons.append("служебный клон турнира EVAL500")
         if view.get("locality_detail") != "local" or view.get("billing") not in ("local",):
             reasons.append("модель не локальная")
         if view.get("usable") is False:
@@ -87,13 +90,13 @@ def local_agents(options: dict, agents: list[dict], models: list[dict], provider
 
 def pick_default(allowed: list[dict]) -> int | None:
     """Owner 17.10: prefer the local uncensored Gemma chat agent («установи Gemma в мобильный app»), then any local
-    uncensored agent (name says «uncensored»), then the local Qwen operator with tools (computer.observe), then any
+    uncensored agent (name says «uncensored»), then the local Qwen/Strata operator with tools (computer.observe), then any
     local agent with tools. Only agents that passed the local-only rule qualify: a cloud agent named «uncensored»
     (or «gemma») is never picked."""
     ok = [a for a in allowed if a["local"]]
     for pred in (lambda a: uncensored_label(a["name"]) and "gemma" in (a["name"] or "").lower(),
                  lambda a: uncensored_label(a["name"]),
-                 lambda a: "computer.observe" in a["tools"] and "оператор" in (a["name"] or "").lower(),
+                 lambda a: "computer.observe" in a["tools"] and any(k in (a["name"] or "").lower() for k in ("оператор", "strata", "argon")),
                  lambda a: bool(a["tools"]), lambda a: True):
         for a in ok:
             if pred(a):

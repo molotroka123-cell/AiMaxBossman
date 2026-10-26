@@ -587,3 +587,17 @@ input[type=range] { width: 100%; accent-color: var(--accent); min-height: 44px; 
 
 
 .badge-cloud { flex: none; font-size: 12px; font-weight: 700; padding: 2px 7px; border-radius: 999px; color: #b45309; background: #fef3c7; }
+
+/* ---------- Modern Responsive UX Polish (26.10: Strata, Argon PC-Agent & Infinity RAP) ---------- */
+@supports (height: 100dvh) {
+  .app, .login { height: 100dvh; }
+}
+#status-body { container-type: inline-size; }
+@container (min-width: 680px) {
+  #status-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 12px; align-content: start; }
+  #status-body > .card.stat { margin: 0; }
+}
+.card.stat[data-card="strata-pc"] { border-color: color-mix(in srgb, var(--local) 42%, var(--line2));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--local-bg) 35%, var(--surface)), var(--surface)); }
+.oc-presets .chip.small:hover { border-color: var(--accent); }
+

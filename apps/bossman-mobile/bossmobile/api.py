@@ -560,10 +560,22 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             except HTTPException as exc:
                 return {**fallback, "error": exc.detail}
 
-        live, oll, wt, dg, ap, ags = await asyncio.gather(
+        live, oll, wt, dg, ap, ags, pca, hib = await asyncio.gather(
             bossman_live(), ollama_info(), war_info(), guarded(call("GET", "/api/direct-gen/status"), {}),
-            guarded(call("GET", "/api/approvals", params={"status": "pending"}), {}), guarded(agents_view(), {}))
+            guarded(call("GET", "/api/approvals", params={"status": "pending"}), {}), guarded(agents_view(), {}),
+            guarded(call("GET", "/api/pc-agent/status"), {}),
+            guarded(call("GET", "/api/agent/hibernation/status"), {}))
+        strata_agents = [
+            a for a in (ags if isinstance(ags, list) else [])
+            if any(k in f"{a.get('name') or ''} {(a.get('model') or {}).get('alias') or ''} {(a.get('model') or {}).get('name') or ''}".lower()
+                   for k in ("strata", "qwen3.8-flash-next"))
+        ]
+        strata_up = any((a.get("model") or {}).get("health") in ("online", "healthy", "ready") or a.get("allowed") for a in strata_agents)
         return safe({"bossman": live, "ollama": oll, "war_terminal": wt, "direct_gen": dg,
+                     "strata": {"up": strata_up, "model": "qwen3.8-flash-next-iq3_s", "endpoint": "http://127.0.0.1:8090/v1",
+                                "agents": [a.get("name") for a in strata_agents if a.get("allowed")]},
+                     "pc_agent": pca if isinstance(pca, dict) else {},
+                     "hibernation": hib if isinstance(hib, dict) else {},
                      "approvals_pending": len(ap) if isinstance(ap, list) else None,
                      "local_agents": len([a for a in ags if a.get("local")]) if isinstance(ags, list) else None,
                      "workers": workers.snapshot(),
@@ -626,9 +638,19 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                 "rule": "локальные модели этого ПК; облачные только те, которым владелец явно разрешил мобильный доступ "
                         "(без фото и файлов); остальные облачные скрыты и отклоняются сервером"}
 
+    def _is_eval_thread(item: Any) -> bool:
+        if not isinstance(item, dict):
+            return False
+        title = str(item.get("title") or "").strip().upper()
+        return title.startswith("EVAL500 ") or title.startswith("EVAL500-")
+
     @app.get("/m/api/threads")
-    async def threads(_=Depends(session)):
-        return await call("GET", "/api/chat/threads", params={"limit": 50})
+    async def threads(include_eval: bool = False, _=Depends(session)):
+        res = await call("GET", "/api/chat/threads", params={"limit": 200 if not include_eval else 50})
+        if not include_eval and isinstance(res, dict) and isinstance(res.get("items"), list):
+            filtered = [t for t in res["items"] if not _is_eval_thread(t)][:50]
+            return {**res, "items": filtered}
+        return res
 
     @app.post("/m/api/threads", status_code=201)
     async def new_thread(body: ThreadIn, _=Depends(session)):
@@ -1433,11 +1455,84 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         return await call("POST", "/api/agent/router/select", json=body)
 
     @app.get("/m/api/agent/sessions")
-    async def m_agent_sessions(q: str | None = None, archived: bool = False, limit: int = 100, _=Depends(session)):
-        params: dict[str, Any] = {"archived": str(archived).lower(), "limit": limit}
+    async def m_agent_sessions(q: str | None = None, archived: bool = False, limit: int = 100, include_eval: bool = False, _=Depends(session)):
+        params: dict[str, Any] = {"archived": str(archived).lower(), "limit": max(limit, 200) if not include_eval else limit}
         if q:
             params["q"] = q
-        return await call("GET", "/api/agent/sessions", params=params)
+        res = await call("GET", "/api/agent/sessions", params=params)
+        if not include_eval and isinstance(res, dict) and isinstance(res.get("items"), list):
+            filtered = [s for s in res["items"] if not _is_eval_thread(s)][:limit]
+            return {**res, "items": filtered, "total": len(filtered)}
+        return res
+
+    @app.get("/m/api/agent/hibernation/status")
+    async def m_agent_hibernation_status(_=Depends(session)):
+        return await call("GET", "/api/agent/hibernation/status")
+
+    @app.post("/m/api/agent/sessions/{session_id}/hibernate")
+    async def m_agent_session_hibernate(session_id: str, reason: str = "waiting_external", _=Depends(session)):
+        return await call("POST", f"/api/agent/sessions/{_tid(session_id)}/hibernate", params={"reason": reason})
+
+    @app.post("/m/api/agent/sessions/{session_id}/wake")
+    async def m_agent_session_wake(session_id: str, _=Depends(session)):
+        return await call("POST", f"/api/agent/sessions/{_tid(session_id)}/wake")
+
+    @app.get("/m/api/pc-agent/status")
+    async def m_pc_agent_status(_=Depends(session)):
+        return await call("GET", "/api/pc-agent/status")
+
+    @app.get("/m/api/pc-agent/tasks")
+    async def m_pc_agent_tasks(limit: int = 20, _=Depends(session)):
+        return await call("GET", "/api/pc-agent/tasks", params={"limit": limit})
+
+    @app.post("/m/api/pc-agent/tasks")
+    async def m_pc_agent_create_task(request: Request, _=Depends(session)):
+        body = await request.json()
+        return await call("POST", "/api/pc-agent/tasks", json=body, timeout=180)
+
+    @app.get("/m/api/pc-agent/windows")
+    async def m_pc_agent_windows(_=Depends(session)):
+        st_w, body_w = await bm.json("GET", "/api/pc-agent/windows")
+        if st_w == 200 and isinstance(body_w, dict):
+            return safe(body_w)
+        # Fallback when :8801 is running an un-restarted tournament process: enumerate visible Win32 windows locally
+        items: list[dict[str, Any]] = []
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+            def _cb(hwnd, _lparam):
+                if user32.IsWindowVisible(hwnd):
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    if length > 0:
+                        buf = ctypes.create_unicode_buffer(length + 1)
+                        user32.GetWindowTextW(hwnd, buf, length + 1)
+                        title = buf.value.strip()
+                        if title:
+                            items.append({"hwnd": int(hwnd), "title": title})
+                return True
+            user32.EnumWindows(WNDENUMPROC(_cb), 0)
+        except Exception:
+            pass
+        return safe({"ok": True, "count": len(items), "windows": items[:40]})
+
+    @app.get("/m/api/pc-agent/sysinfo")
+    async def m_pc_agent_sysinfo(_=Depends(session)):
+        st_s, body_s = await bm.json("GET", "/api/pc-agent/sysinfo")
+        if st_s == 200 and isinstance(body_s, dict):
+            return safe(body_s)
+        st_m, body_m = await bm.json("GET", "/api/system/metrics")
+        if st_m == 200 and isinstance(body_m, dict):
+            return safe({"ok": True, **body_m})
+        import os, platform, shutil
+        du = shutil.disk_usage(str(REPO_ROOT))
+        return safe({
+            "ok": True,
+            "os": f"{platform.system()} {platform.release()}",
+            "cpu_count": os.cpu_count() or 1,
+            "disk_free_gb": round(du.free / (1024 ** 3), 1),
+            "disk_total_gb": round(du.total / (1024 ** 3), 1),
+        })
 
     @app.post("/m/api/agent/sessions", status_code=201)
     async def m_agent_session_create(request: Request, _=Depends(session)):
@@ -1530,17 +1625,20 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def m_term_caps(_=Depends(session)):
         return await call("GET", "/api/terminal/capabilities")
 
-    @app.get("/m/api/terminal/roots")
-    async def m_term_roots(_=Depends(session)):
+    async def _default_term_root() -> tuple[list[str], str | None]:
         body = await call("GET", "/api/terminal/roots")
         roots = [r for r in (body.get("roots") if isinstance(body, dict) else None) or [] if isinstance(r, str)]
 
         def norm(p: str) -> str:
             return str(Path(p)).rstrip("\\/").lower()
         here = norm(str(REPO_ROOT))
-        # the checkout this pult runs from, when Bossman allows it; else the first allowed root (old behaviour)
         default = next((r for r in roots if norm(r) == here), roots[0] if roots else None)
-        return {**(body if isinstance(body, dict) else {}), "roots": roots, "default": default}
+        return roots, default
+
+    @app.get("/m/api/terminal/roots")
+    async def m_term_roots(_=Depends(session)):
+        roots, default = await _default_term_root()
+        return {"roots": roots, "default": default}
 
     @app.post("/m/api/terminal/run")
     async def m_term_run(request: Request, _=Depends(session)):
@@ -1604,7 +1702,10 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.get("/m/api/terminal/diff")
     async def m_term_diff(cwd: str | None = None, _=Depends(session)):
-        return await call("GET", "/api/terminal/diff", params={"cwd": cwd} if cwd else None)
+        target_cwd = cwd
+        if not target_cwd:
+            _, target_cwd = await _default_term_root()
+        return await call("GET", "/api/terminal/diff", params={"cwd": target_cwd} if target_cwd else None)
 
     @app.get("/m/api/coding-tasks/status")
     async def m_coding_status(_=Depends(session)):
