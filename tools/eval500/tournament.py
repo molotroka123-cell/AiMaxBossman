@@ -291,7 +291,7 @@ def run_arm(arm: str, deadline: float) -> dict:
         state["clone"] = {"id": cid, **runner.agent_fingerprint(clone)}
         state["prod_agent"] = {"id": PROD_AGENT, **runner.agent_fingerprint(prod)}
         _save(st_path, state)
-        todo = [s for s in sample() if s["id"] not in state["done"]]
+        todo = [s for s in sample() if s["id"] not in state["done"] or state["done"][s["id"]].get("harness_error")]
         log(f"arm {arm}: model {spec_arm['model_id']} clone {cid}, {len(todo)} to run, "
             f"{round(deadline - time.time())} s of the hour left")
         for s in todo:
@@ -299,7 +299,18 @@ def run_arm(arm: str, deadline: float) -> dict:
                 state["stopped_by_hour_budget"] = True
                 log(f"arm {arm}: 1-hour budget exhausted, {s['id']} and later not started")
                 break
-            y = wait_free(api, cid, deadline - SCENARIO_BUDGET_S)
+            try:
+                y = wait_free(api, cid, deadline - SCENARIO_BUDGET_S)
+            except Exception as exc:  # noqa: BLE001  a backend that is slow after a stopped run must not end the arm
+                log(f"arm {arm}: backend not answering before {s['id']} ({type(exc).__name__}); waiting up to 15 min")
+                for _ in range(90):
+                    time.sleep(10)
+                    try:
+                        api.req("GET", "/agents", timeout=30)
+                        break
+                    except Exception:  # noqa: BLE001
+                        continue
+                y = {"waited_s": 0.0, "reasons": ["backend_unresponsive"]}
             if y.get("deadline_hit"):
                 state["stopped_by_hour_budget"] = True
                 break

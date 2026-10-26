@@ -69,13 +69,14 @@ subprocess.run(["ffmpeg","-v","error","-y","-i",dst+".avi","-c:v","libx264","-cr
     return guide, mask, n
 
 
-def wgp_settings(guide: Path, mask: Path, refs: list[Path], frames: int, prompt: str, seed: int, work: Path) -> Path:
-    t = {"model_type": "animate_14B_local_lightx2v", "prompt": prompt, "negative_prompt": NEG, "resolution": "480x832",
+def wgp_settings(guide: Path, mask: Path, refs: list[Path], frames: int, prompt: str, seed: int, work: Path,
+                 resolution: str = "480x832", n_refs: int = 1, name: str = "wgp.json") -> Path:
+    t = {"model_type": "animate_14B_local_lightx2v", "prompt": prompt, "negative_prompt": NEG, "resolution": resolution,
          "video_length": frames, "sliding_window_size": 81, "sliding_window_overlap": 5, "num_inference_steps": 6, "seed": seed,
          "video_prompt_type": MODE_REPLACE, "video_guide": guide.as_posix(), "video_mask": mask.as_posix(),
-         "image_refs": [r.as_posix() for r in refs[:1]], "mask_expand": 20, "remove_background_images_ref": 0,
+         "image_refs": [r.as_posix() for r in refs[:n_refs]], "mask_expand": 20, "remove_background_images_ref": 0,
          "guidance_phases": 1, "guidance_scale": 1, "flow_shift": 5, "sample_solver": "euler", "force_fps": "16"}
-    p = work / "wgp.json"
+    p = work / name
     p.write_text(json.dumps([t], indent=1), encoding="utf-8")
     return p
 
@@ -125,6 +126,41 @@ def finish(video: Path, source: Path, start: float, seconds: float | None, out: 
     sh(cmd)
 
 
+HEAD_PROMPT = ("Close-up of the head and shoulders of the person from the reference image, natural skin, sharp eyes, "
+               "same head motion as the guide, same lighting.")
+
+
+def head_zoom_pass(gen: Path, video: Path, mask: Path, refs: list[Path], start: float, n: int, seed: int, work: Path,
+                   swap_face: bool) -> Path:
+    """Second Animate run on a tracked 512 head crop of the ORIGINAL video, pasted over the 720x1280 upscaled base (see head_zoom.py).
+    Returns a silent 720x1280 mp4; the caller muxes the original audio."""
+    import head_zoom  # noqa: PLC0415
+
+    hz = head_zoom.crop_heads(str(video), str(mask), start, start + n / 16, str(work / "hz"), mask_t0=start)
+    settings = wgp_settings(Path(hz["guide"]), Path(hz["mask"]), refs, hz["frames"], HEAD_PROMPT, seed + 10, work,
+                            resolution="512x512", n_refs=2, name="wgp_head.json")
+    head = run_wgp(settings, work / "wgp_head_out")
+    if swap_face:
+        head = face_pass(head, refs[0], work / "head_facepass.mp4")
+    base = work / "base720.mp4"
+    sh(["ffmpeg", "-v", "error", "-y", "-i", gen, "-vf", "scale=720:1248:flags=lanczos,pad=720:1280:0:16", "-an",
+        "-c:v", "libx264", "-crf", "12", "-pix_fmt", "yuv420p", base])
+    pasted = work / "head_pasted.mp4"
+    head_zoom.paste_back(str(base), str(head), hz["boxes"], str(pasted), hz["mask"])
+    return pasted
+
+
+def mux_audio(video: Path, source: Path, start: float, seconds: float | None, out: Path):
+    cmd = ["ffmpeg", "-v", "error", "-y", "-i", video]
+    if start:
+        cmd += ["-ss", str(start)]
+    if seconds:
+        cmd += ["-t", str(seconds)]
+    cmd += ["-i", source, "-map", "0:v", "-map", "1:a?", "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "aac",
+            "-shortest", "-movflags", "+faststart", out]
+    sh(cmd)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--video", required=True)
@@ -135,6 +171,8 @@ def main(argv=None) -> int:
     ap.add_argument("--seconds", type=float, default=None)
     ap.add_argument("--seed", type=int, default=2601)
     ap.add_argument("--face-pass", action="store_true")
+    ap.add_argument("--head-zoom", action="store_true",
+                    help="second Animate run on a tracked 512 head crop pasted over the upscaled base (sharper, more recognisable face)")
     ap.add_argument("--work", default=None)
     ap.add_argument("--dry-run", action="store_true", help="prepare guide, mask and settings only")
     a = ap.parse_args(argv)
@@ -150,9 +188,13 @@ def main(argv=None) -> int:
     if a.dry_run:
         return 0
     gen = run_wgp(settings, work / "wgp_out")
-    if a.face_pass:
-        gen = face_pass(gen, refs[0], work / "facepass.mp4")
-    finish(gen, video, a.start, a.seconds, out)
+    if a.head_zoom:
+        pasted = head_zoom_pass(gen, video, mask, refs, a.start, n, a.seed, work, a.face_pass)
+        mux_audio(pasted, video, a.start, a.seconds, out)
+    else:
+        if a.face_pass:
+            gen = face_pass(gen, refs[0], work / "facepass.mp4")
+        finish(gen, video, a.start, a.seconds, out)
     print(json.dumps({"out": str(out), "seconds": round(time.time() - t0)}))
     return 0
 
