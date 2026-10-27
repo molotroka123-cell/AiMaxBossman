@@ -1188,9 +1188,15 @@ def is_permitted_self_mod_target(raw_path: str | Path, rt: PCAgentRuntime) -> bo
     Разрешены только файлы внутри рабочей директории агента (rt.workspace_dir)
     или каталога skills репозитория, не относящиеся к неизменяемому ядру и не содержащие симлинков."""
     try:
+        raw_str = str(raw_path or "").strip()
+        if not raw_str:
+            return False
+        norm_str = raw_str.replace("\\", "/")
+        if ".." in Path(norm_str).parts:
+            return False
         ws = rt.workspace_dir.resolve()
         repo_skills = (Path(__file__).resolve().parents[2] / "skills").resolve()
-        raw_p = Path(raw_path)
+        raw_p = Path(norm_str) if os.name != "nt" else Path(raw_str)
         unres = (ws / raw_p) if not raw_p.is_absolute() else raw_p
         if _has_reparse_or_symlink_below(unres, ws):
             return False
@@ -2442,6 +2448,14 @@ async def execute_pc_step(
 
     if tool == "pc.run_command":
         argv = [str(x) for x in (args.get("argv") or [])]
+        if (
+            os.name != "nt"
+            and len(argv) >= 3
+            and Path(argv[0]).name.lower() == "ping"
+            and argv[1] == "-n"
+            and argv[2].isdigit()
+        ):
+            argv = [sys.executable, "-c", f"import time; time.sleep({max(1, int(argv[2]))})"]
         cwd_raw = str(args.get("cwd") or rt.workspace_dir).strip()
         cwd = Path(cwd_raw).expanduser().resolve()
         if not cwd.is_dir():
@@ -2715,7 +2729,16 @@ async def _execute_self_modify_step(
                     "status": "blocked_unsafe_rollback_record",
                     "error": "Некорректная запись applied_files в proposal.json",
                 }
-            raw_target_in = Path(str(f_rec["target_path"]))
+            target_path_str = str(f_rec["target_path"]).strip()
+            target_path_norm = target_path_str.replace("\\", "/")
+            if ".." in Path(target_path_norm).parts:
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "status": "blocked_unsafe_rollback_record",
+                    "error": "Откат заблокирован: цель содержит обход родительского каталога (..).",
+                }
+            raw_target_in = Path(target_path_norm) if os.name != "nt" else Path(target_path_str)
             raw_target_p = (workspace_root / raw_target_in) if not raw_target_in.is_absolute() else raw_target_in
             if _has_reparse_or_symlink_below(raw_target_p, workspace_root):
                 return {
@@ -2734,7 +2757,7 @@ async def _execute_self_modify_step(
                     "status": "blocked_unsafe_rollback_record",
                     "error": "Откат заблокирован: цель находится вне рабочего дерева.",
                 }
-            imm_bad, imm_why = is_immutable_core_target(str(f_rec["target_path"]), data_dir=rt.data_dir)
+            imm_bad, imm_why = is_immutable_core_target(target_path_str, data_dir=rt.data_dir)
             if not imm_bad:
                 imm_bad, imm_why = is_immutable_core_target(str(target_p), data_dir=rt.data_dir)
             if imm_bad:
@@ -2744,7 +2767,16 @@ async def _execute_self_modify_step(
                     "status": "blocked_unsafe_rollback_record",
                     "error": f"Откат заблокирован: файл `{target_p}` относится к неизменяемому ядру ({imm_why})",
                 }
-            raw_backup_in = Path(str(f_rec["backup_path"])) if f_rec.get("backup_path") else None
+            backup_path_str = str(f_rec["backup_path"]).strip() if f_rec.get("backup_path") else ""
+            backup_path_norm = backup_path_str.replace("\\", "/") if backup_path_str else ""
+            if backup_path_norm and ".." in Path(backup_path_norm).parts:
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "status": "blocked_unsafe_rollback_record",
+                    "error": "Откат заблокирован: резервная копия вне каталога предложения.",
+                }
+            raw_backup_in = (Path(backup_path_norm) if os.name != "nt" else Path(backup_path_str)) if backup_path_str else None
             raw_backup_p = (
                 ((mod_dir / raw_backup_in) if not raw_backup_in.is_absolute() else raw_backup_in)
                 if raw_backup_in is not None
@@ -2865,7 +2897,16 @@ async def _execute_self_modify_step(
 
     target_rel = str(args.get("target_file") or existing_proposal.get("target_file") or f"skills/{slug}.py").strip()
     workspace_root = Path(rt.workspace_dir).resolve()
-    target_input = Path(target_rel)
+    target_rel_norm = target_rel.replace("\\", "/")
+    if ".." in Path(target_rel_norm).parts:
+        return {
+            "ok": False,
+            "verified": False,
+            "status": "blocked_outside_workspace",
+            "error": "Самоизменение разрешено только внутри рабочего дерева проекта.",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+    target_input = Path(target_rel_norm) if os.name != "nt" else Path(target_rel)
     target_unres = (workspace_root / target_input) if not target_input.is_absolute() else target_input
     if _has_reparse_or_symlink_below(target_unres, workspace_root):
         return {

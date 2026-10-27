@@ -70,6 +70,7 @@ jobs:
           # interpreter: child sidecars run with -I, without checkout PYTHONPATH.
           python -m pip install -e .
           python -m pip install -e ./bossman-core
+          python -m pip install -e ./apps/bossman-mobile --no-deps
           # mcp — опциональная группа: без неё рантайм честно отвечает
           # «недоступно», но в CI мы хотим прогонять и его тесты
           python -m pip install -e "./command-center[dev,mcp,browser,media-workers]"

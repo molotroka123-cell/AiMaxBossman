@@ -226,7 +226,7 @@ function watchDeadClick(element, target) {
   let mutated = false;
   const observer = new MutationObserver(() => { mutated = true; });
   for (const root of responseRoots()) {
-    observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true });
+    observer.observe(root, { subtree: true, childList: true, attributes: true });
   }
   const control = target?.closest?.('button, a, [role="button"], input[type="submit"], .btn, .nav-item, [data-page]');
   if (control) {
@@ -267,6 +267,14 @@ function noteRage(element) {
   rage.at = now;
 }
 
+function isBackgroundPollUrl(url) {
+  const u = String(url || '');
+  return u.includes('/api/testing/')
+    || u.includes('/api/evolution/status')
+    || u.includes('/api/command-bar/catalog')
+    || u.includes('/api/command-bar/tasks');
+}
+
 /* Счётчик запросов и отказы: клик и то, чем сервер ответил, надо связать —
    иначе в журнале два независимых потока, которые нельзя сшить. */
 function watchFetch() {
@@ -274,9 +282,9 @@ function watchFetch() {
   if (typeof original !== 'function') return;
   window.fetch = async function patched(input, init) {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
-    // Свои запросы (отправка журнала, опрос счётчика) ответом на клик не являются:
+    // Свои запросы (отправка журнала, опрос счётчика и фоновые пулы) ответом на клик не являются:
     // иначе фоновый опрос выдавал бы мёртвый клик за сработавший.
-    if (!String(url).includes('/api/testing/')) requests += 1;
+    if (!isBackgroundPollUrl(url)) requests += 1;
     const method = (init && init.method) || 'GET';
     const started = performance.now();
     try {

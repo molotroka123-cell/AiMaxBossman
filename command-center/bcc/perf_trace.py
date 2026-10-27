@@ -64,13 +64,8 @@ def _sanitize_meta(meta: dict[str, Any]) -> dict[str, Any]:
         return {}
     clean: dict[str, Any] = {}
     for k, v in meta.items():
-        if k not in _ALLOWED_META_KEYS:
-            continue
-        if isinstance(v, (bool, int, float)):
-            clean[k] = v
-        elif isinstance(v, str):
-            # Cap length and reject path-like or secret-like strings
-            if len(v) <= 64 and "\\" not in v and "/" not in v and "sk-" not in v.lower():
+        if k in _ALLOWED_META_KEYS:
+            if isinstance(v, (bool, int, float)) or (isinstance(v, str) and len(v) <= 64 and "\\" not in v and "/" not in v and "sk-" not in v.lower()):
                 clean[k] = v
     return clean
 
@@ -78,19 +73,17 @@ def _sanitize_meta(meta: dict[str, Any]) -> dict[str, Any]:
 def _sanitize_id(raw_id: str | None) -> str:
     if not raw_id:
         return ""
+    if type(raw_id) is str and len(raw_id) <= 40 and "\\" not in raw_id and "/" not in raw_id:
+        return raw_id
     s = str(raw_id).strip()
-    if len(s) > 40 or "\\" in s or "/" in s:
-        return s[:16]
-    return s
+    return s[:16] if (len(s) > 40 or "\\" in s or "/" in s) else s
 
 
 class SpanRecord:
     __slots__ = ("stage", "duration_ms", "meta")
 
     def __init__(self, stage: str, duration_ms: float, meta: dict[str, Any]) -> None:
-        self.stage = stage
-        self.duration_ms = duration_ms
-        self.meta = meta
+        self.stage, self.duration_ms, self.meta = stage, duration_ms, meta
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -104,18 +97,14 @@ class _SpanContext:
     __slots__ = ("_trace", "_stage", "_meta", "_t0")
 
     def __init__(self, trace: "ActiveTrace", stage: str, meta: dict[str, Any]) -> None:
-        self._trace = trace
-        self._stage = stage
-        self._meta = meta
-        self._t0 = 0
+        self._trace, self._stage, self._meta, self._t0 = trace, stage, meta, 0
 
     def __enter__(self) -> None:
         self._t0 = time.perf_counter_ns()
         return None
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
-        dt_ms = (time.perf_counter_ns() - self._t0) / 1_000_000.0
-        self._trace.spans.append(SpanRecord(self._stage, dt_ms, _sanitize_meta(self._meta)))
+        self._trace.spans.append(SpanRecord(self._stage, (time.perf_counter_ns() - self._t0) / 1_000_000.0, _sanitize_meta(self._meta)))
 
 
 class ActiveTrace:
@@ -138,7 +127,7 @@ class ActiveTrace:
         mode: str = "",
     ) -> None:
         self.trace_id = f"ptrace-{next(_TRACE_COUNTER):012x}"
-        self.route = str(route)[:64]
+        self.route = route if (type(route) is str and len(route) <= 64) else str(route)[:64]
         self.session_id = _sanitize_id(session_id)
         self.mode = _sanitize_id(mode)
         self.started_ns = time.perf_counter_ns()

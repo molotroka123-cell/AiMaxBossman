@@ -416,6 +416,7 @@ def test_dead_click_is_recorded_in_a_real_browser(live):  # noqa: F811
         page.on("pageerror", lambda e: errors.append(str(e)))
         _login(page, live)
         page.wait_for_selector(".bcc-testing-bar", timeout=15000)
+        page.wait_for_selector("#view .bx-home", timeout=15000)
 
         # Кнопка, которая заведомо ничего не делает: вешаем сами, чтобы проверять
         # механизм, а не конкретную страницу. Не в #view — его перерисовщик

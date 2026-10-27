@@ -276,6 +276,8 @@ def test_p1_readonly_tools_audit_hash_chain_and_global_stop_under_5s(tmp_path: P
     assert len(stop_info["killed_pids"]) >= 1
     assert cmd_out["ok"] is False
     assert elapsed_s <= 5.0, f"Глобальный STOP занял {elapsed_s:.2f} с (> 5 с)"
+    assert rt.journal.verify_chain()["ok"] is True
+    assert any(item.get("tool") == "pc.stop" for item in rt.journal.read_recent(limit=20))
 
 
 # =========================================================================== ЭТАП P2: УРОВНИ АВТОНОМИИ L0..L3, 30 СЦЕНАРИЕВ И 10 ЛОВУШЕК

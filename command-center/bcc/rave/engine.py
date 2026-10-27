@@ -325,7 +325,10 @@ class RaveService:
                     raise
             final = {"status": "stopped", "error": "остановлено владельцем (STOP)"}
         except Exception as exc:  # noqa: BLE001 — one agent's crash never touches the others
-            final = {"status": "failed", "error": f"{type(exc).__name__}: {exc}"[:1500]}
+            if runner.stop:
+                final = {"status": "stopped", "error": "остановлено владельцем (STOP)"}
+            else:
+                final = {"status": "failed", "error": f"{type(exc).__name__}: {exc}"[:1500]}
         finally:
             if final:
                 # a second STOP (or shutdown) arriving while the result is being committed must not leave
@@ -1022,7 +1025,10 @@ class AgentCtx:
                 tree.close()
 
         try:
-            return await asyncio.to_thread(wait)
+            res = await asyncio.to_thread(wait)
+            if runner.stop:
+                raise _Stopped()
+            return res
         finally:
             runner.tree = None
             runner.suspended = False
