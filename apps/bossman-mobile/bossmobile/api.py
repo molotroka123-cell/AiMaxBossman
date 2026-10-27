@@ -605,13 +605,19 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     # ------------------------------------------------------------------ global STOP visibility (owner 20.10)
     def stop_view() -> dict:
-        """<bcc data>/computer/STOP: while it exists computer actions and exchange writes are refused. Read-only here."""
-        try:
-            mtime = st.stop_file.stat().st_mtime
-        except FileNotFoundError:
+        """<bcc data>/computer/STOP or <bcc data>/pc-agent/STOP: while either exists computer actions and exchange writes are refused. Read-only here."""
+        pc_stop_file = st.stop_file.parent.parent / "pc-agent" / "STOP"
+        mtimes: list[float] = []
+        for candidate in (st.stop_file, pc_stop_file):
+            try:
+                mtimes.append(candidate.stat().st_mtime)
+            except FileNotFoundError:
+                continue
+            except OSError:                   # cannot tell -> say it is on (same fail-closed rule as the exchange)
+                return {"active": True, "since": None, "age_min": None, "unknown": True}
+        if not mtimes:
             return {"active": False, "since": None, "age_min": None}
-        except OSError:                       # cannot tell -> say it is on (same fail-closed rule as the exchange)
-            return {"active": True, "since": None, "age_min": None, "unknown": True}
+        mtime = min(mtimes)
         since = datetime.fromtimestamp(mtime, timezone.utc).isoformat(timespec="seconds")
         return {"active": True, "since": since, "age_min": max(0, int((time.time() - mtime) // 60))}
 

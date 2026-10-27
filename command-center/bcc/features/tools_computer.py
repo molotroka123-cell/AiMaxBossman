@@ -2177,24 +2177,43 @@ async def http_observe(request: Request):
 @router.post("/computer/stop")
 async def http_stop(request: Request):
     """«Стоп» владельца: обрывает набор текста, блокирует новые действия,
-    переживает перезапуск backend (файл STOP)."""
+    останавливает дочерние процессы PC-Agent и переживает перезапуск backend (файл STOP)."""
     svc = request.app.state.svc
     st = _owner_state(svc)
     st.set_stop("owner")
+    pc_stop_info: dict[str, Any] = {}
+    try:
+        from . import pc_agent
+        pc_stop_info = await pc_agent.get_runtime(svc).trigger_stop(
+            svc, actor="owner", reason="computer_stop"
+        )
+    except Exception:  # noqa: BLE001 — не блокировать основной STOP при сбое подсистемы
+        pass
     await svc.bus.emit("computer.stop", by="owner")
-    return {"stopped": True, "persisted": bool(st.stop_path and st.stop_path.is_file())}
+    return {
+        "stopped": True,
+        "persisted": bool(st.stop_path and st.stop_path.is_file()),
+        "pc_agent_killed_pids": pc_stop_info.get("killed_pids", []),
+        "pc_agent_cancelled_tasks": pc_stop_info.get("cancelled_tasks", []),
+    }
 
 
 @router.post("/computer/resume")
 async def http_resume(request: Request):
     """«Продолжить» владельца. Только через панель (сессия + CSRF); у модели нет
-    инструмента, который сюда доходит. Все прежние наблюдения обесцениваются."""
+    инструмента, который сюда доходит. Все прежние наблюдения обесцениваются.
+    Синхронно снимает STOP в PC-Agent, чтобы пульт и панель не расходились."""
     svc = request.app.state.svc
     st = _owner_state(svc)
     st.clear_stop()
     st.takeover_active = False
     st.takeover_reason = ""
     st.record_step("resume", by="owner")
+    try:
+        from . import pc_agent
+        await pc_agent.get_runtime(svc).resume(svc, actor="owner")
+    except Exception:  # noqa: BLE001
+        pass
     await svc.bus.emit("computer.resume", by="owner", generation=st.generation)
     return {"stopped": False, "generation": st.generation}
 

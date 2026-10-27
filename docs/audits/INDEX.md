@@ -47,6 +47,7 @@
 | 2026-10-24 | [2026-10-24-voice](2026-10-24-voice/) | owner 24.10: can we bring a Dessa-like (Block) natural voice to Bossman calls? | `MEASURED: median reply latency 8.7-11.2 s -> 4.8 s with a call-only…` |
 | 2026-10-25 | [2026-10-25-pult-agent-self-edit](2026-10-25-pult-agent-self-edit/) | Живое доказательство самоправки Bossman через режим AGENT в пульте (:8840 → :8801 → агент 48) + 6 дефектов | `PASS_WITH_DEFECTS` |
 | 2026-10-26 | [2026-10-26-argon-pc-agent-master](2026-10-26-argon-pc-agent-master/) | Мастер-промпт Аргона (P0–P5): закрытие 6 дефектов пульта/агента, уровни автономии L0–L3, инструменты ОС 1–7, `/browser`, контур самоизменения с откатом и 8 правок ядра по турниру | `PASS` |
+| 2026-10-26 | [2026-10-26-integrator-stop-unification](2026-10-26-integrator-stop-unification/) | Интеграторский цикл (Приоритет A): унификация глобального STOP и Resume между Command Center, Mobile Pult, Telegram и PC-Agent | `PASS` |
 | — | [astra-7b1377a](astra-7b1377a/) | Astra forensic audit | в JSON нет поля verdict — см. отчёт |
 
 ## Отдельные файлы

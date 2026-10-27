@@ -73,10 +73,16 @@ class _DummySettings:
         self.port = 8801
 
 
+class _DummyBus:
+    async def emit(self, _event: str, **_fields: Any) -> None:
+        return None
+
+
 class _DummySvc:
     def __init__(self, data_dir: Path) -> None:
         self.settings = _DummySettings(data_dir)
         self.approvals = _DummyApprovals()
+        self.bus = _DummyBus()
         self.db = None
         self._pc_agent_runtime = pc_agent.PCAgentRuntime(data_dir)
 
@@ -679,3 +685,73 @@ def test_p5_tournament_8_security_and_stop_kernel_policy_cases(
 
     feedback_good = ac.validate_kernel_turn_answer(policy, good_answer)
     assert feedback_good is None, f"Кейс {case_id} (позитивный контроль): безопасный ответ отклонён ({feedback_good})"
+
+
+def test_cross_surface_stop_and_resume_unification(tmp_path: Path) -> None:
+    """Сквозная проверка единого STOP/Resume между Command Center (/api/computer/stop, /api/computer/resume),
+    Mobile Pult (/m/api/stop) и PC-Agent Argon (активные дочерние процессы и pc-agent/STOP)."""
+    from bcc.features import tools_computer as tc
+    from bossmobile import api as mobile_api
+    from bossmobile.config import Settings as MobileSettings
+
+    svc = _DummySvc(tmp_path)
+    rt = svc._pc_agent_runtime
+
+    app = FastAPI()
+    app.state.svc = svc
+    app.include_router(tc.router, prefix="/api")
+    app.include_router(pc_agent.router, prefix="/api")
+    client = TestClient(app)
+
+    # 1. Запускаем дочерний процесс PC-Agent и вызываем /api/computer/stop (как это делает /api/control-plane/stop-all и /m/api/stop)
+    async def _run_and_computer_stop() -> tuple[dict[str, Any], dict[str, Any]]:
+        import httpx
+        cmd_task = asyncio.create_task(
+            pc_agent.execute_pc_step(
+                svc,
+                rt,
+                task_id=91,
+                run_id=91,
+                step_idx=1,
+                tool="pc.run_command",
+                args={"argv": ["ping", "-n", "25", "127.0.0.1"], "timeout_s": 30},
+                approved=True,
+            )
+        )
+        await asyncio.sleep(0.35)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as ac_client:
+            stop_resp = (await ac_client.post("/api/computer/stop")).json()
+        cmd_out = await asyncio.wait_for(cmd_task, timeout=4.0)
+        return stop_resp, cmd_out
+
+    stop_resp, cmd_out = asyncio.run(_run_and_computer_stop())
+    assert stop_resp["stopped"] is True
+    assert len(stop_resp["pc_agent_killed_pids"]) >= 1
+    assert cmd_out["ok"] is False
+    assert rt.is_stopped(svc) is True
+    assert rt.stop_file.is_file() is True
+
+    # 2. Проверяем, что Mobile Pult видит STOP даже если существует только pc-agent/STOP (негативный контроль рассинхрона)
+    comp_stop = tmp_path / "computer" / "STOP"
+    comp_stop.unlink(missing_ok=True)
+    assert rt.stop_file.is_file() is True
+
+    m_settings = MobileSettings(
+        bossman_url="http://127.0.0.1:8801",
+        token_file=tmp_path / "token",
+        data_dir=tmp_path / "mobile-data",
+        stop_file=comp_stop,
+    )
+    m_app = mobile_api.create_app(m_settings, pairing_token="test-pair-token-123456")
+    m_client = TestClient(m_app)
+    r_login = m_client.post("/m/api/login", json={"token": "test-pair-token-123456"})
+    assert r_login.status_code == 200
+    assert m_client.get("/m/api/stop").json()["active"] is True
+
+    # 3. Вызываем /api/computer/resume (вызываемый кнопкой «Продолжить» в пульте и панели) — он обязан снять STOP и в PC-Agent
+    res_resp = client.post("/api/computer/resume").json()
+    assert res_resp["stopped"] is False
+    assert rt.is_stopped(svc) is False
+    assert not rt.stop_file.exists()
+    assert m_client.get("/m/api/stop").json()["active"] is False
+

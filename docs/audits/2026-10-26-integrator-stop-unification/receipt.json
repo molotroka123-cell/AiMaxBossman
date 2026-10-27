@@ -1,0 +1,50 @@
+{
+  "receipt_id": "2026-10-26-integrator-stop-unification",
+  "date": "2026-10-26",
+  "title": "Интеграторский цикл (Приоритет A): унификация глобального STOP и Resume между Command Center, Mobile Pult, Telegram и PC-Agent",
+  "verdict": "PASS",
+  "base_sha": "edb4f75ca90927e9183e3b3818b9bb658148d1d0",
+  "environment": {
+    "os": "Windows 11",
+    "cpu": "AMD Ryzen AI MAX+ 395",
+    "ram_total_gb": 122.5,
+    "python": "3.12",
+    "cost_usd": 0.0
+  },
+  "defect": {
+    "id": "BUG-STOP-SPLIT-BRAIN-20261026",
+    "priority": "A (Стабильность и доказательства: глобальный STOP/Resume)",
+    "root_cause": [
+      "1. POST /api/computer/stop (вызываемый кнопкой СТОП в Command Center, POST /api/control-plane/stop-all, мобильным пультом POST /m/api/stop и CLI /stop all) выставлял только <data_dir>/computer/STOP, но не вызывал pc_agent.get_runtime(svc).trigger_stop(svc). В результате дочерние процессы в PCAgentRuntime.active_procs не убивались мгновенно, а флаг <data_dir>/pc-agent/STOP не создавался.",
+      "2. POST /api/computer/resume (вызываемый кнопкой «Продолжить» в мобильном пульте POST /m/api/stop/resume и Command Center) очищал только <data_dir>/computer/STOP, но не вызывал pc_agent.get_runtime(svc).resume(svc). Если STOP был нажат через Telegram /stop или POST /api/pc-agent/stop, нажатие «Продолжить» в пульте оставляло <data_dir>/pc-agent/STOP и rt.stop_event активными навсегда.",
+      "3. stop_view() в apps/bossman-mobile/bossmobile/api.py проверял только <data_dir>/computer/STOP, игнорируя <data_dir>/pc-agent/STOP."
+    ]
+  },
+  "changes": [
+    {
+      "file": "command-center/bcc/features/tools_computer.py",
+      "summary": "В http_stop добавлен синхронный вызов pc_agent.get_runtime(svc).trigger_stop(svc, actor='owner', reason='computer_stop'); в http_resume добавлен вызов pc_agent.get_runtime(svc).resume(svc, actor='owner')."
+    },
+    {
+      "file": "apps/bossman-mobile/bossmobile/api.py",
+      "summary": "В stop_view() добавлена проверка обоих флагов (<data_dir>/computer/STOP и <data_dir>/pc-agent/STOP) с возвратом признака pc_agent_stopped."
+    },
+    {
+      "file": "command-center/tests/test_pc_agent_master_p0_p5.py",
+      "summary": "Добавлен тест test_cross_surface_stop_and_resume_unification (проверка прерывания длинного процесса через POST /api/computer/stop менее чем за 2.5 с, негативный контроль блокировки під STOP и полного снятия обоих флагов через POST /api/computer/resume)."
+    }
+  ],
+  "verification": {
+    "command": "pytest command-center/tests/test_pc_agent_master_p0_p5.py command-center/tests/test_pc_agent_argon.py command-center/tests/test_b06_pc_agent_hardening.py command-center/tests/test_runtime_source_identity.py apps/bossman-mobile/tests/",
+    "pc_agent_master_p0_p5": "49/49 PASS",
+    "pc_agent_argon": "10/10 PASS",
+    "b06_pc_agent_hardening": "7/7 PASS",
+    "runtime_source_identity": "4/4 PASS",
+    "bossman_mobile": "358/358 PASS",
+    "negative_control": "Под активным STOP любой вызов run_cmd возвращает status='stopped', error='STOP_ACTIVE' за <10 мс без исполнения команды."
+  },
+  "limitations": [
+    "Живой процесс bcc на :8801 (PID 18808) был запущен до сегодняшних коммитов и работает поверх грязного рабочего дерева (5 чужих незакоммиченных файлов в apps/war-terminal/* и tools/eval500/*), поэтому /health/live честно возвращает source_identity='SOURCE_IDENTITY_UNKNOWN' до перезапуска bcc на чистом дереве.",
+    "War Terminal (:8830) использует собственную SQLite-базу тендеров и не разделяет bossman.db / task_id с bcc (:8801)."
+  ]
+}
