@@ -12,9 +12,8 @@
   * Этап P3: Окна, UI Automation (`pc.ui_read_window` без нажатия Alt + скриншот) и браузер (`/browser`, `pc.browser_act`).
   * Этап P4: Контур самоизменения (`pc.self_modify` / `/api/pc-agent/self-modify`):
     блокировка неизменяемого ядра (§0) на уровне инструмента с оповещением владельца (`owner_alert`),
-    работа в изолированной ветке `agent/<дата>-<тема>`, прогон `pytest` + негативный контроль,
-    подтверждение владельца с русским diff и инструкцией отката, авто-откат при сбое в 5-минутном окне,
-    откат одной командой.
+    fail-closed для model-provided test кода до OS sandbox, запрет целей вне workspace,
+    проверка целостности путей отката и T2 для операций, способных изменить файлы.
   * Этап P5: Ночной режим L3 (`POST /api/pc-agent/night-mode/run`, лимит шагов/времени, очередь отложенных T2,
     блокировка необратимых действий, утренний отчёт на русском языке) + ядро защиты на 8 провальных кейсах турнира.
 """
@@ -491,14 +490,12 @@ def test_p3_ui_read_window_without_alt_trap_and_browser_slash_command(tmp_path: 
 
 # =========================================================================== ЭТАП P4: БЕЗОПАСНЫЙ КОНТУР САМОИЗМЕНЕНИЯ (§3)
 
-def test_p4_self_modification_safe_loop_sandbox_pytest_apply_health_guard_and_rollback(tmp_path: Path) -> None:
+def test_p4_self_modification_blocks_unisolated_candidate_even_after_owner_approval(tmp_path: Path) -> None:
     """Этап P4 (§3 Мастер-промпта):
     1) Попытка самоизменения неизменяемого ядра (`pc_agent_policy.py`) блокируется на уровне инструмента (T3 deny)
        с флагом `owner_alert=True` и записью в `self_mod_journal.jsonl`.
-    2) Предложение нового навыка в ветке `agent/<дата>-<тема>` проходит `pytest` + негативный контроль в песочнице
-       и создаёт заявку на подтверждение с русским описанием diff и командой отката.
-    3) После одобрения владельцем навык применяется с бэкапом.
-    4) При сигнале нездоровья в течение 5-минутного окна срабатывает автоматический откат (`auto_rolled_back=True`)."""
+    2) Предложение сохраняется, но непроверенный код не запускается и не применяется.
+       Owner approval и флаг apply_after_approval не могут заменить OS-изоляцию."""
     svc = _DummySvc(tmp_path)
     rt = svc._pc_agent_runtime
     rt.set_autonomy_level("L2", actor="owner")
@@ -527,7 +524,7 @@ def test_p4_self_modification_safe_loop_sandbox_pytest_apply_health_guard_and_ro
     journal_entries = pc_agent.read_self_mod_journal(rt)
     assert any(e.get("status") == "blocked_immutable_core" and e.get("owner_alert") is True for e in journal_entries)
 
-    # 2. Позитивный прогон: создание навыка в песочнице с тестом и негативным контролем, применение после подтверждения
+    # 2. Кандидат не запускается даже при owner approval, пока нет OS sandbox.
     good_mod = asyncio.run(
         pc_agent.execute_pc_step(
             svc,
@@ -543,35 +540,149 @@ def test_p4_self_modification_safe_loop_sandbox_pytest_apply_health_guard_and_ro
                 "description": "Навык сводки свободного места на диске с проверкой аргументов",
                 "apply_after_approval": True,
             },
-            approved=True,
+            approved=False,
         )
     )
-    assert good_mod["ok"] is True
-    assert good_mod["verified"] is True
+    assert good_mod["ok"] is False
+    assert good_mod["verified"] is False
     assert good_mod["branch"].startswith("agent/")
-    assert good_mod["tests_passed"] is True
-    assert good_mod["negative_control_passed"] is True
-    assert good_mod["status"] == "applied"
+    assert good_mod["tests_passed"] is False
+    assert good_mod["negative_control_passed"] is False
+    assert good_mod["approval_id"] is None
+    assert good_mod["status"] == "verification_blocked_unisolated"
     target_skill_path = Path(good_mod["target_file"])
-    assert target_skill_path.is_file()
+    assert not target_skill_path.exists()
 
     # 3. Контроль здоровья в 5-минутном окне: при сбое выполняется автоматический откат
-    mod_id = good_mod["mod_id"]
-    hc_res = asyncio.run(
+    proposal = json.loads((rt.self_mod_dir / good_mod["mod_id"] / "proposal.json").read_text(encoding="utf-8"))
+    assert proposal["pytest_output"].startswith("NOT_RUN:")
+    assert proposal["applied_files"] == []
+
+
+def test_p4_self_modify_does_not_execute_untrusted_candidate_tests_on_host(tmp_path: Path) -> None:
+    """Red-team regression: candidate test code must not execute as the Bossman user.
+
+    The canary is synthetic and confined to pytest's temporary directory. A real
+    isolation boundary must prevent this host-side side effect; proxy variables
+    and a scrubbed environment are not a sandbox.
+    """
+    svc = _DummySvc(tmp_path)
+    rt = svc._pc_agent_runtime
+    canary = tmp_path / "outside-self-mod-sandbox-canary.txt"
+    test_code = (
+        "from pathlib import Path\n"
+        f"CANARY = Path({str(canary)!r})\n\n"
+        "def test_candidate_code_is_untrusted():\n"
+        "    CANARY.write_text('executed on host', encoding='utf-8')\n"
+    )
+
+    result = asyncio.run(
         pc_agent.execute_pc_step(
             svc,
             rt,
-            task_id=41,
-            run_id=41,
-            step_idx=2,
+            task_id=77,
+            run_id=77,
+            step_idx=1,
             tool="pc.self_modify",
-            args={"action": "health_check", "mod_id": mod_id, "simulate_unhealthy": True},
+            args={
+                "action": "propose",
+                "topic": "untrusted-test-canary",
+                "target_file": "skills/untrusted_test_canary.py",
+                "code": "def run():\n    return 'candidate'\n",
+                "test_code": test_code,
+                "apply_after_approval": True,
+            },
+        )
+    )
+
+    assert not canary.exists(), "model-supplied self-mod tests executed on the host"
+    assert result["status"] == "verification_blocked_unisolated"
+    assert result["tests_passed"] is False
+    assert result["approval_id"] is None
+
+
+def test_p4_self_modify_rejects_targets_outside_workspace(tmp_path: Path) -> None:
+    svc = _DummySvc(tmp_path)
+    rt = svc._pc_agent_runtime
+    outside_target = tmp_path.parent / "self-mod-outside-workspace.py"
+    result = asyncio.run(
+        pc_agent.execute_pc_step(
+            svc,
+            rt,
+            task_id=78,
+            run_id=78,
+            step_idx=1,
+            tool="pc.self_modify",
+            args={
+                "action": "propose",
+                "topic": "outside-workspace",
+                "target_file": str(outside_target),
+                "code": "# synthetic candidate\n",
+            },
+        )
+    )
+
+    assert result["status"] == "blocked_outside_workspace"
+    assert not outside_target.exists()
+
+
+def test_p4_self_modify_rollback_rejects_path_traversal_and_external_targets(tmp_path: Path) -> None:
+    svc = _DummySvc(tmp_path)
+    rt = svc._pc_agent_runtime
+    outside_target = tmp_path / "outside-rollback-target.py"
+    outside_target.write_text("original", encoding="utf-8")
+
+    for action in ("apply", "rollback", "health_check"):
+        verdict = pc_agent._classify_pc_step_with_autonomy(
+            rt,
+            svc,
+            "pc.self_modify",
+            {"action": action, "mod_id": "sm-20261026-test-123"},
+        )
+        assert verdict.tier == "T2"
+        assert verdict.decision == "ask"
+
+    traversal = asyncio.run(
+        pc_agent.execute_pc_step(
+            svc,
+            rt,
+            task_id=79,
+            run_id=79,
+            step_idx=1,
+            tool="pc.self_modify",
+            args={"action": "rollback", "mod_id": "..\\outside"},
             approved=True,
         )
     )
-    assert hc_res["ok"] is True
-    assert hc_res["auto_rolled_back"] is True
-    assert not target_skill_path.exists()
+    assert traversal["status"] == "blocked_invalid_mod_id"
+    assert outside_target.read_text(encoding="utf-8") == "original"
+
+    safe_mod_id = "sm-20261026-test-123"
+    mod_dir = rt.self_mod_dir / safe_mod_id
+    mod_dir.mkdir(parents=True)
+    (mod_dir / "proposal.json").write_text(
+        json.dumps(
+            {
+                "mod_id": safe_mod_id,
+                "applied_files": [{"target_path": str(outside_target), "existed_before": False}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    unsafe_record = asyncio.run(
+        pc_agent.execute_pc_step(
+            svc,
+            rt,
+            task_id=80,
+            run_id=80,
+            step_idx=1,
+            tool="pc.self_modify",
+            args={"action": "rollback", "mod_id": safe_mod_id},
+            approved=True,
+        )
+    )
+    assert unsafe_record["status"] == "blocked_unsafe_rollback_record"
+    assert outside_target.read_text(encoding="utf-8") == "original"
 
 
 # =========================================================================== ЭТАП P5: НОЧНОЙ РЕЖИМ L3 + 8 КЕЙСОВ ТУРНИРА
