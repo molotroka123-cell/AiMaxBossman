@@ -1,0 +1,143 @@
+{
+  "schema": "bossman.tier4.integration.receipt.v1",
+  "generated_at": "2026-10-27T16:10:00Z",
+  "baseline_sha": "e615c688a2bf9cc329eb6c206daae42133f175d6",
+  "integration_branch": "fix/cross-surface-stop-resume-20261026",
+  "local_tracking_branch": "agent/argon-20261026",
+  "merged_to_main": false,
+  "ci_fixes": [
+    {
+      "id": "CI-1.1",
+      "area": "bossmobile packaging & pythonpath in CI",
+      "failing_jobs_on_e615c688": [
+        122155958321,
+        122155958282,
+        122151907257,
+        122151907231,
+        122151907228
+      ],
+      "root_cause": "apps/bossman-mobile was not installed in command-center-ci.yml test job and missing from command-center/pyproject.toml pythonpath",
+      "files_changed": [
+        ".github/workflows/command-center-ci.yml",
+        "command-center/pyproject.toml",
+        "pyproject.toml"
+      ],
+      "regression_tests": [
+        "command-center/tests/test_pc_agent_master_p0_p5.py::test_p0_6_self_modify_agent_and_mobile_pult_fixes",
+        "command-center/tests/test_pc_agent_master_p0_p5.py::test_p5_end_to_end_pult_pipeline_and_adversarial_traps"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "CI-1.2",
+      "area": "pc.self_modify external path status priority across Windows and POSIX",
+      "root_cause": "On Linux, Path('..\\\\host_target.py') treated backslash as a literal filename character instead of a directory separator, reaching verification_blocked_unisolated instead of blocked_outside_workspace",
+      "files_changed": [
+        "command-center/bcc/features/pc_agent.py"
+      ],
+      "regression_tests": [
+        "command-center/tests/test_pc_agent_master_p0_p5.py::test_self_modify_redteam_blocks_unisolated_code_execution_and_escape_paths"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "CI-1.3",
+      "area": "Audit hash-chain, pc.stop journal event, and cross-OS STOP process termination <= 5s",
+      "root_cause": "['ping', '-n', '25', '127.0.0.1'] used Windows ping flag -n; on Linux -n means numeric output and exited before trigger_stop() ran",
+      "files_changed": [
+        "command-center/bcc/features/pc_agent.py",
+        "command-center/tests/test_pc_agent_master_p0_p5.py"
+      ],
+      "regression_tests": [
+        "command-center/tests/test_pc_agent_master_p0_p5.py::test_p1_readonly_tools_audit_hash_chain_and_global_stop_under_5s"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "CI-1.4",
+      "area": "rave/engine.py test_cli_process_is_killed_on_stop status contract",
+      "root_cause": "RaveService.stop() killed the process tree before cancelling runner.task, causing communicate() to return -9 and ClaudeConnector to raise RuntimeError caught as status='failed' instead of 'stopped'",
+      "files_changed": [
+        "command-center/bcc/rave/engine.py"
+      ],
+      "regression_tests": [
+        "command-center/tests/test_rave_engine.py::test_cli_process_is_killed_on_stop"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "CI-1.5",
+      "area": "Browser dead-click evidence recording without false cancellation from background boot polls",
+      "root_cause": "Background status/testing/command-bar polling and initial HomePage render mutated #view or incremented requests counter during the 900ms DEAD_MS window",
+      "files_changed": [
+        "command-center/ui/testing.js",
+        "command-center/tests/test_testing_period.py"
+      ],
+      "regression_tests": [
+        "command-center/tests/test_testing_period.py::test_dead_click_is_recorded_in_a_real_browser",
+        "tests/test_skips_registry.py::test_registry_is_current_and_every_skip_has_a_reason"
+      ],
+      "status": "PASS"
+    },
+    {
+      "id": "CI-1.6",
+      "area": "Perf tracer overhead < 150.0 us without changing threshold",
+      "root_cause": "Single-pass 50ms wall-clock subtraction on 2-vCPU -n 4 runner suffered from 15ms OS scheduler preemption spikes (>180 us/span); optimized perf_trace hot path and used 5 interleaved rounds minimum delta with unchanged < 150.0 us assertion",
+      "files_changed": [
+        "command-center/bcc/perf_trace.py",
+        "command-center/tests/test_perf_2x_pipeline.py"
+      ],
+      "regression_tests": [
+        "command-center/tests/test_perf_2x_pipeline.py::test_perf_tracer_sanitization_and_overhead"
+      ],
+      "status": "PASS"
+    }
+  ],
+  "live_health_and_runtime_identity": {
+    "live_build_sha": "e615c688a2bf9cc329eb6c206daae42133f175d6",
+    "health_live": {
+      "http_status": 200,
+      "status": "ALIVE",
+      "source_identity": "PASS",
+      "git_clean": true
+    },
+    "health_readiness": {
+      "http_status": 200,
+      "ready": true,
+      "status": "DEGRADED",
+      "recovery_action": "POST /api/models/98/test (owner-local-gemma4-uncensored -> gemma4-31b-uncensored:latest)",
+      "models_status": "DEGRADED",
+      "providers_status": "DEGRADED",
+      "fresh_healthy": 1
+    },
+    "mobile_pult_smoke": {
+      "url": "http://127.0.0.1:8840/m/api/health",
+      "http_status": 200,
+      "ok": true,
+      "ui_http_status": 200
+    }
+  },
+  "self_modify_contract": {
+    "mode": "fail_closed_proposal_only",
+    "host_python_execution": false,
+    "verification_status": "NOT_RUN",
+    "status_code": "verification_blocked_unisolated",
+    "tests_passed": false,
+    "sandbox_design_doc": "docs/audits/2026-10-27-tier4-blue/SELF_MODIFY_SANDBOX_DESIGN_AND_THREAT_MODEL_RU.md"
+  },
+  "north_star_attempt_05": {
+    "run_id": "NORTH-STAR-SELF-IMPROVE-20261027-05",
+    "receipt_path": "C:\\Users\\asd\\Bossman\\creative-runs\\NORTH-STAR-SELF-IMPROVE-20261027-05\\receipt.json",
+    "calibration_sha256": "be8c800c77c43af23a7e15810185086812c46109e340e1aa44a89d68db1bc53c",
+    "holdout_sha256": "0506d02bf024dd8b2f093b86c2966dc4346a34812017eabe4760694ba3a3cd92",
+    "draft_sha256": "3623cfba0a7cb6e6c38d675b2fd0a630be237fb62b40196e7120e3f27ca7a455",
+    "baseline_holdout": "6/10 (0/5 ask_manager, 5/5 quote, 1/5 rate_fidelity)",
+    "candidate_holdout": "10/10 (5/5 ask_manager, 5/5 quote, 5/5 rate_fidelity)",
+    "evaluator": "rules-json-policy-v1",
+    "proposal_status": "AWAITING_OWNER",
+    "applied": false,
+    "journal_seq": 13,
+    "journal_head": "cde1b32bff2cea08dc10bbf4cb00ecb4d1aa48ce68b59dccb77d30c4af47d6a3",
+    "cost_usd": 0.0
+  }
+}
