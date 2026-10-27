@@ -17,6 +17,7 @@ STOP-контроллер (3 уровня), append-only журнал `audit.json
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from ..features.pc_agent import (
@@ -38,6 +39,7 @@ from ..features.pc_agent import (
     PRIMARY_GEMMA_MODELS,
     PROFILE_NAME,
     RATE_LIMIT_PER_MINUTE,
+    STOP_FLAG_PATH,
     STRATA_FALLBACK_MODELS,
     VISION_MODEL,
     AuditJournal,
@@ -68,7 +70,19 @@ from ..features.pc_agent import (
     start_pc_task,
 )
 
+AUTONOMY_LEVELS = AUTONOMY_LEVEL_SPECS
 run_pc_agent_task = start_pc_task
+
+
+@dataclass(frozen=True)
+class OSAgentDescriptor:
+    profile: str = PROFILE_NAME
+    agent_name: str = AGENT_NAME
+    agent_role: str = AGENT_ROLE
+    primary_model: str = PRIMARY_GEMMA_MODELS[0]
+    default_autonomy_level: str = "L1"
+    runtime_autonomy_level: str = "L2"
+
 
 PLANNER_ARCHITECTURE: dict[str, Any] = {
     "profile": PROFILE_NAME,
@@ -103,6 +117,7 @@ def describe_os_agent_architecture() -> dict[str, Any]:
         "autonomy_levels": list(AUTONOMY_LEVEL_SPECS.keys()),
         "permission_key_table": {k: list(v) for k, v in PERMISSION_KEY_TABLE.items()},
         "default_tools": list(ARGON_DEFAULT_TOOLS),
+        "stop_flag_path": str(STOP_FLAG_PATH),
     }
 
 
@@ -110,6 +125,7 @@ __all__ = [
     "AGENT_NAME",
     "AGENT_ROLE",
     "ARGON_DEFAULT_TOOLS",
+    "AUTONOMY_LEVELS",
     "AUTONOMY_LEVEL_SPECS",
     "AuditJournal",
     "DEFAULT_CMD_TIMEOUT_S",
@@ -122,6 +138,7 @@ __all__ = [
     "MAX_REPAIR_ATTEMPTS",
     "MAX_STEPS_PER_TASK",
     "MAX_TRUST_MINUTES",
+    "OSAgentDescriptor",
     "PCAgentRuntime",
     "PERMISSION_KEY_TABLE",
     "PLANNER_ARCHITECTURE",
@@ -130,6 +147,7 @@ __all__ = [
     "PolicyVerdict",
     "PromptIntentReadOnly",
     "RATE_LIMIT_PER_MINUTE",
+    "STOP_FLAG_PATH",
     "STRATA_FALLBACK_MODELS",
     "VISION_MODEL",
     "call_local_qwen",
@@ -151,7 +169,9 @@ __all__ = [
     "local_model_priority_key",
     "normalize_bossman_api_path",
     "normalize_operator_permissions",
+    "plan_pc_task_with_llm",
     "run_pc_agent_task",
     "scrub_secrets",
     "select_preferred_local_model",
+    "start_pc_task",
 ]

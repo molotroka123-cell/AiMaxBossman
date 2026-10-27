@@ -415,9 +415,13 @@ _READONLY_HEADS = frozenset({
 _PWSH_MUTATION_RE = re.compile(
     r"\b(?:set-content|add-content|out-file|clear-content|new-item|remove-item|copy-item|move-item|rename-item|"
     r"start-process|stop-process|stop-service|restart-service|invoke-webrequest|invoke-restmethod|iwr|irm|"
+    r"invoke-expression|iex|invoke-command|icm|tee-object|export-csv|export-clixml|start-job|"
     r"set-item|set-itemproperty|remove-itemproperty|new-itemproperty|writeAllText|writeAllBytes)\b",
     re.I,
 )
+_PWSH_FLAG_WITH_VALUE = frozenset({
+    "-executionpolicy", "-ep", "-windowstyle", "-w", "-inputformat", "-outputformat", "-configurationname",
+})
 # `git` решается по подкоманде: status/diff/log читают, commit/apply/checkout — нет.
 _READONLY_GIT_SUBCOMMANDS = frozenset({
     "status", "diff", "log", "show", "branch", "remote", "rev-parse", "ls-files",
@@ -453,12 +457,31 @@ def _looks_like_mutation(command: str) -> bool:
             tokens = tokens[1:]
         if not tokens:
             continue
-        head = tokens[0].replace("\\", "/").rsplit("/", 1)[-1].lower()
+        head = tokens[0].strip("\"'(").replace("\\", "/").rsplit("/", 1)[-1].lower()
         if head.endswith(".exe"):
             head = head[:-4]
         if head in ("powershell", "pwsh") and len(tokens) > 1:
-            # Unwrap `powershell -NoProfile -Command "Get-Content ..."` when inner command is read-only
-            inner_tokens = [t.strip("\"'") for t in tokens[1:] if not t.startswith("-")]
+            low_toks = [t.lower() for t in tokens[1:]]
+            if any(t.startswith("-enc") or t in ("-e", "-file", "-f") for t in low_toks):
+                return True
+            cmd_idx = next((i for i, t in enumerate(low_toks) if t in ("-command", "-c")), None)
+            if cmd_idx is not None:
+                raw_inner = tokens[1 + cmd_idx + 1:]
+            else:
+                raw_inner = []
+                skip_next = False
+                for tok in tokens[1:]:
+                    if skip_next:
+                        skip_next = False
+                        continue
+                    tl = tok.lower()
+                    if tl in _PWSH_FLAG_WITH_VALUE:
+                        skip_next = True
+                        continue
+                    if tl.startswith("-"):
+                        continue
+                    raw_inner.append(tok)
+            inner_tokens = [t.strip("\"'(") for t in raw_inner if t.strip("\"'(")]
             if not inner_tokens:
                 return True
             head = inner_tokens[0].replace("\\", "/").rsplit("/", 1)[-1].lower()

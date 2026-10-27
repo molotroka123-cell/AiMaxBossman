@@ -1282,9 +1282,21 @@ def _api_router() -> APIRouter:
                                   .order_by(runs_t.c.id))
             runs = [_run_public(r) for r in rows_dicts(res.fetchall())]
         done = [r for r in runs if r["status"] == "completed" and r["result"]]
+        err_val = ((task.get("meta") or {}).get("blocked_reason")
+                   if task["status"] == "blocked" else runs[-1]["error"] if runs else None)
+        failure_summary = None
+        if task["status"] == "failed" and not done:
+            last_res = str((runs[-1] if runs else {}).get("result") or "").strip()
+            if last_res:
+                failure_summary = last_res
+            elif err_val:
+                failure_summary = (
+                    f"Действие не выполнено: запрос отклонён владельцем или инструмент не выполнен ({err_val})."
+                    if ("effectful tool did not succeed" in str(err_val) or "no_verified_action" in str(err_val))
+                    else f"Задача завершилась с ошибкой: {err_val}"
+                )
         return {"task": task, "runs": runs, "result": done[-1]["result"] if done else None,
-                "error": ((task.get("meta") or {}).get("blocked_reason")
-                          if task["status"] == "blocked" else runs[-1]["error"] if runs else None)}
+                "error": err_val, "failure_summary": failure_summary}
 
     @router.post("/tasks/{task_id}/{action}")
     async def task_action(task_id: int, action: str, svc: Services = Depends(services)):

@@ -704,7 +704,7 @@ async def _task_views(svc: Any, ids: list[Any]) -> dict[int, dict]:
             elif error:
                 failure_summary = (
                     f"Действие не выполнено: запрос отклонён владельцем или инструмент не выполнен ({error})."
-                    if "effectful tool did not succeed" in str(error)
+                    if ("effectful tool did not succeed" in str(error) or "no_verified_action" in str(error))
                     else f"Задача завершилась с ошибкой: {error}"
                 )
         out[tid] = {

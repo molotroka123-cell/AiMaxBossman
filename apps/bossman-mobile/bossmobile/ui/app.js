@@ -1211,9 +1211,9 @@
     if (b.done) return; b.done = true; closeStream();
     try { t = t || await api('GET', `/tasks/${taskId}`); } catch { t = t || {}; }
     const lastRunRes = t.runs && t.runs.length ? t.runs[t.runs.length - 1].result : null;
-    const rawErr = lastRunRes || t.error || `задача: ${stRu(t.status)}`;
-    const ruErr = (typeof rawErr === 'string' && rawErr.includes('effectful tool did not succeed'))
-      ? `Действие не выполнено: запрос отклонён вами или инструмент не выполнен (${rawErr}).`
+    const rawErr = t.failure_summary || lastRunRes || t.error || `задача: ${stRu(t.status)}`;
+    const ruErr = (typeof rawErr === 'string' && (rawErr.includes('effectful tool did not succeed') || rawErr.includes('no_verified_action')))
+      ? (rawErr.startsWith('Действие не выполнено:') ? rawErr : `Действие не выполнено: запрос отклонён вами или инструмент не выполнен (${rawErr}).`)
       : rawErr;
     finish(b, t.result, t.status === 'completed' ? null : ruErr, t.status, taskId);
   }
@@ -2655,7 +2655,7 @@
           `Что сейчас делаю: ${r.current_step_summary || 'Ожидание команды оператора (активных задач нет)'}`,
           `STOP: ${r.stopped ? 'ВКЛЮЧЁН' : 'выключен'} · Trust-окно: ${r.trust_active ? 'активно' : 'выключено'}`,
           `Цепочка аудита SHA-256: ${r.audit_chain_valid ? 'ЦЕЛА (OK)' : 'требует проверки'} (${r.audit_entries ?? 0} записей)`,
-          `Задач в памяти: ${r.tasks_total ?? 0} (активных: ${r.active_tasks ?? 0})`,
+          `Задач в памяти: ${r.tasks_total ?? 0} (активных: ${Array.isArray(r.active_tasks) ? r.active_tasks.length : (r.active_tasks ?? 0)})`,
         ].join('\n');
       } catch (err) { if (out) out.textContent = 'Ошибка: ' + err.message; }
     });

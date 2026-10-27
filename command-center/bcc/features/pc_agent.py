@@ -267,6 +267,9 @@ from .pc_agent_policy import (
 
 # ------------------------------------------------------------------ Append-Only Audit Journal
 
+STOP_FLAG_PATH = Path(os.environ.get("BOSSMAN_STOP_FLAG_PATH", r"C:\Users\asd\Bossman\handoff\os-agent\board\STOP"))
+
+
 class AuditJournal:
     """Append-only журнал действий PC-Agent (`audit.jsonl`) с цепочкой SHA-256, якорем головы (`.head`) и очисткой секретов."""
 
@@ -274,6 +277,15 @@ class AuditJournal:
         self.path = Path(path)
         self.anchor_path = self.path.with_name(self.path.name + ".head")
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._head_seq: int = 0
+        self._head_hash: str = ""
+        self._tampered: bool = False
+        if self.anchor_path.is_file():
+            with contextlib.suppress(Exception):
+                anc = json.loads(self.anchor_path.read_text(encoding="utf-8"))
+                self._head_seq = int(anc.get("count") or anc.get("seq") or 0)
+                self._head_hash = str(anc.get("entry_hash") or "")
+                self._tampered = bool(anc.get("tampered", False))
 
     def append(
         self,
@@ -292,15 +304,30 @@ class AuditJournal:
     ) -> dict[str, Any]:
         prev_hash = "0" * 64
         seq = 1
+        existing_lines_count = 0
         if self.path.is_file():
             try:
                 lines = [ln for ln in self.path.read_text(encoding="utf-8", errors="replace").splitlines() if ln.strip()]
+                existing_lines_count = len(lines)
                 if lines:
                     last = json.loads(lines[-1])
                     prev_hash = str(last.get("entry_hash") or prev_hash)
                     seq = int(last.get("seq") or len(lines)) + 1
             except Exception:
-                pass
+                self._tampered = True
+
+        # Detect if the file was truncated or deleted before this append so we never overwrite .head to hide truncation
+        if self.anchor_path.is_file():
+            try:
+                anc = json.loads(self.anchor_path.read_text(encoding="utf-8"))
+                anc_count = int(anc.get("count") or anc.get("seq") or 0)
+                anc_hash = str(anc.get("entry_hash") or "")
+                if anc.get("tampered") or existing_lines_count != anc_count or (anc_count > 0 and prev_hash != anc_hash):
+                    self._tampered = True
+            except Exception:
+                self._tampered = True
+        elif self._head_seq > 0 and (existing_lines_count != self._head_seq or prev_hash != self._head_hash):
+            self._tampered = True
 
         safe_args = json.loads(scrub_secrets(json.dumps(args, ensure_ascii=False, default=str), extra_secrets))
         safe_result = scrub_secrets(
@@ -330,16 +357,21 @@ class AuditJournal:
         line_str = json.dumps(record, ensure_ascii=False) + "\n"
         with self.path.open("a", encoding="utf-8") as fh:
             fh.write(line_str)
-        with contextlib.suppress(OSError):
-            self.anchor_path.write_text(
-                json.dumps({"seq": seq, "count": seq, "entry_hash": record["entry_hash"]}, ensure_ascii=False),
-                encoding="utf-8",
-            )
+        if not self._tampered:
+            self._head_seq = seq
+            self._head_hash = record["entry_hash"]
+            with contextlib.suppress(OSError):
+                tmp_anchor = self.anchor_path.with_name(f".{self.anchor_path.name}.{uuid.uuid4().hex[:8]}.tmp")
+                tmp_anchor.write_text(
+                    json.dumps({"seq": seq, "count": seq, "entry_hash": record["entry_hash"]}, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                tmp_anchor.replace(self.anchor_path)
         return record
 
     def verify_chain(self) -> dict[str, Any]:
         if not self.path.is_file():
-            if self.anchor_path.is_file():
+            if self.anchor_path.is_file() or self._head_seq > 0 or self._tampered:
                 return {"ok": False, "count": 0, "broken_seq": 1, "reason": "audit_file_missing_with_head_anchor"}
             return {"ok": True, "count": 0}
         lines = [ln for ln in self.path.read_text(encoding="utf-8", errors="replace").splitlines() if ln.strip()]
@@ -355,12 +387,19 @@ class AuditJournal:
             if entry_hash != expected:
                 return {"ok": False, "count": idx, "broken_seq": row.get("seq"), "reason": "entry_hash_mismatch"}
             prev_hash = entry_hash
+        if self._tampered:
+            return {
+                "ok": False,
+                "count": len(lines),
+                "broken_seq": self._head_seq or len(lines),
+                "reason": "tail_truncated_or_head_mismatch",
+            }
         if self.anchor_path.is_file():
             try:
                 anchor = json.loads(self.anchor_path.read_text(encoding="utf-8"))
                 expected_count = int(anchor.get("count") or anchor.get("seq") or 0)
                 expected_head = str(anchor.get("entry_hash") or "")
-                if len(lines) != expected_count or prev_hash != expected_head:
+                if anchor.get("tampered") or len(lines) != expected_count or prev_hash != expected_head:
                     return {
                         "ok": False,
                         "count": len(lines),
@@ -369,6 +408,13 @@ class AuditJournal:
                     }
             except Exception:
                 return {"ok": False, "count": len(lines), "broken_seq": len(lines), "reason": "invalid_head_anchor"}
+        elif self._head_seq > 0 and (len(lines) != self._head_seq or prev_hash != self._head_hash):
+            return {
+                "ok": False,
+                "count": len(lines),
+                "broken_seq": self._head_seq,
+                "reason": "tail_truncated_or_head_mismatch",
+            }
         return {"ok": True, "count": len(lines)}
 
     def read_recent(self, limit: int = 50, *, task_id: int | None = None) -> list[dict[str, Any]]:
@@ -404,6 +450,7 @@ class PCAgentRuntime:
         self.pult_outbox_dir = self.root_dir / "pult_outbox"
         self.self_mod_dir = self.root_dir / "self_mod"
         self.stop_file = self.root_dir / "STOP"
+        self.board_stop_file: Path | None = STOP_FLAG_PATH
         for d in (
             self.root_dir,
             self.tasks_dir,
@@ -496,8 +543,11 @@ class PCAgentRuntime:
         )
         return self.get_autonomy_status()
 
+    def get_autonomy_level(self) -> str:
+        return self.autonomy_level if self.autonomy_explicit else "L1"
+
     def get_autonomy_status(self) -> dict[str, Any]:
-        shown_level = self.autonomy_level if self.autonomy_explicit else "L1"
+        shown_level = self.get_autonomy_level()
         return {
             "level": shown_level,
             "default_level": "L1",
@@ -510,6 +560,8 @@ class PCAgentRuntime:
 
     def is_stopped(self, svc: Any = None) -> bool:
         if self.stop_event.is_set() or self.stop_file.is_file():
+            return True
+        if self.board_stop_file is not None and self.board_stop_file.is_file():
             return True
         if svc is not None:
             with contextlib.suppress(Exception):
@@ -685,6 +737,17 @@ class PCAgentRuntime:
         with contextlib.suppress(Exception):
             return json.loads(path.read_text(encoding="utf-8"))
         return None
+
+    @property
+    def tasks(self) -> dict[int, dict[str, Any]]:
+        out: dict[int, dict[str, Any]] = {}
+        for path in sorted(self.tasks_dir.glob("task-*.json")):
+            with contextlib.suppress(Exception):
+                rec = json.loads(path.read_text(encoding="utf-8"))
+                tid = int(rec.get("task_id") or 0)
+                if tid > 0:
+                    out[tid] = rec
+        return out
 
 
 def get_runtime(svc: Any) -> PCAgentRuntime:
@@ -6093,9 +6156,10 @@ async def api_pc_agent_status(request: Request):
     if stopped:
         step_summary = "Остановлен по сигналу STOP владельца"
     elif active_ids:
-        cur_t = rt.tasks.get(active_ids[-1]) or {}
-        steps = cur_t.get("plan") or []
-        done_n = len(cur_t.get("steps") or [])
+        cur_t = rt.load_task_record(active_ids[-1]) or {}
+        steps = cur_t.get("steps_planned") or cur_t.get("plan") or []
+        done_list = cur_t.get("completed_step_indices") or cur_t.get("steps_executed") or cur_t.get("steps") or []
+        done_n = len(done_list)
         total_n = max(len(steps), done_n + 1)
         cur_tool = steps[min(done_n, len(steps) - 1)].get("tool", "шаг") if steps else "выполнение"
         step_summary = f"Задача #{active_ids[-1]}: шаг {done_n + 1} из {total_n} ({cur_tool}), осталось {max(0, total_n - done_n - 1)}"
@@ -6104,6 +6168,8 @@ async def api_pc_agent_status(request: Request):
     return {
         "profile": PROFILE_NAME,
         "agent_id": agent_id,
+        "agent": agent_row if isinstance(agent_row, dict) else {"id": agent_id, "name": AGENT_NAME},
+        "model_id": agent_row.get("model_id") if isinstance(agent_row, dict) else None,
         "agent_name": AGENT_NAME,
         "stopped": stopped,
         "trust_active": rt.trust_active(svc),
@@ -6114,7 +6180,7 @@ async def api_pc_agent_status(request: Request):
         "current_step_summary": step_summary,
         "audit_chain_valid": bool(chain_info.get("ok", True)),
         "audit_entries": int(chain_info.get("count", 0)),
-        "tasks_total": len(rt.tasks),
+        "tasks_total": len(list(rt.tasks_dir.glob("task-*.json"))),
         "active_tasks": active_ids,
         "active_pids": sorted(rt.active_procs.keys()),
         "spawned_pids": sorted(rt.spawned_pids),

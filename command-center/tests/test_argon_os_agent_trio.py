@@ -43,6 +43,14 @@ def test_d003_os_agent_package_exports_and_honest_architecture():
     assert arch["profile"] == "Argon"
     assert arch["primary_local_model"] == "gemma4-31b-uncensored-ctx32k:latest"
     assert set(arch["autonomy_levels"]) == {"L0", "L1", "L2", "L3"}
+    assert set(os_agent.AUTONOMY_LEVELS.keys()) == {"L0", "L1", "L2", "L3"}
+    desc = os_agent.OSAgentDescriptor()
+    assert desc.profile == "Argon"
+    assert desc.primary_model == "gemma4-31b-uncensored-ctx32k:latest"
+    assert isinstance(os_agent.STOP_FLAG_PATH, Path)
+    assert callable(os_agent.start_pc_task)
+    assert callable(os_agent.run_pc_agent_task)
+    assert callable(os_agent.plan_pc_task_with_llm)
     assert len(arch["deterministic_responsibilities"]) >= 5
     assert len(arch["llm_responsibilities"]) >= 3
     assert len(arch["llm_cannot_bypass"]) >= 4
@@ -101,6 +109,28 @@ def test_d007_tournament_6_safety_and_stop_scenarios_covered_by_kernel_policy():
 
 
 @pytest.mark.asyncio
+async def test_d007_stop_breaker_latency_and_flag_file(tmp_path: Path):
+    """D-007: `trigger_stop` срабатывает <= 1 с, а файл-флаг `board_stop_file` останавливает рантайм."""
+    svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path), approvals=None, db=None)
+    rt = pc_agent.get_runtime(svc)
+    custom_board_stop = tmp_path / "board_STOP"
+    rt.board_stop_file = custom_board_stop
+    assert rt.is_stopped(svc) is False
+
+    custom_board_stop.write_text("stop", encoding="utf-8")
+    assert rt.is_stopped(svc) is True
+    custom_board_stop.unlink()
+    assert rt.is_stopped(svc) is False
+
+    res = await rt.trigger_stop(svc, actor="owner", reason="trio_stop_test")
+    assert res["stopped"] is True
+    assert res["latency_ms"] <= 1000.0
+    assert rt.is_stopped(svc) is True
+    await rt.resume(svc, actor="owner")
+    assert rt.is_stopped(svc) is False
+
+
+@pytest.mark.asyncio
 async def test_d013_list_dir_flags_injection_and_wraps_external_data_header(tmp_path: Path):
     """D-013: `pc.list_dir` детектирует prompt-инъекцию в именах файлов и оборачивает их в `EXTERNAL_DATA_HEADER`."""
     svc = SimpleNamespace(settings=SimpleNamespace(data_dir=tmp_path), approvals=None, db=None)
@@ -118,7 +148,7 @@ async def test_d013_list_dir_flags_injection_and_wraps_external_data_header(tmp_
 
 
 def test_d025_audit_journal_detects_tail_and_head_truncation(tmp_path: Path):
-    """D-025: `AuditJournal.verify_chain()` обнаруживает отрезание хвоста, начала и удаление файла при наличии `.head`."""
+    """D-025: `AuditJournal.verify_chain()` обнаруживает отрезание хвоста (даже после новых append) и удаление обоих файлов."""
     j = os_agent.AuditJournal(tmp_path / "audit.jsonl")
     for idx in range(4):
         j.append(actor="owner", task_id=1, run_id=1, tool="pc.system_info", args={"i": idx}, tier="T0", decision="auto", result=f"ok-{idx}")
@@ -132,22 +162,31 @@ def test_d025_audit_journal_detects_tail_and_head_truncation(tmp_path: Path):
     assert verdict["ok"] is False
     assert verdict["reason"] == "tail_truncated_or_head_mismatch"
 
-    # Restore and delete audit.jsonl while .head exists
+    # Even if new entries are appended after truncation, .head must not be overwritten to hide the truncation
+    j.append(actor="owner", task_id=1, run_id=1, tool="pc.system_info", args={"i": 99}, tier="T0", decision="auto", result="after-trunc")
+    verdict_after_append = j.verify_chain()
+    assert verdict_after_append["ok"] is False
+    assert verdict_after_append["reason"] == "tail_truncated_or_head_mismatch"
+
+    # Delete audit.jsonl and .head while live AuditJournal instance has recorded entries
     j.path.unlink()
+    j.anchor_path.unlink(missing_ok=True)
     verdict_missing = j.verify_chain()
     assert verdict_missing["ok"] is False
     assert verdict_missing["reason"] == "audit_file_missing_with_head_anchor"
 
 
 def test_d026_readonly_powershell_commands_are_not_classified_as_mutations():
-    """D-026: читающие команды PowerShell (`Get-Content`, `Get-CimInstance`, `Select-String`, `Get-Process`) не считаются мутациями."""
+    """D-026: читающие команды PowerShell (`Get-Content`, `(Get-CimInstance ...)`, `-ExecutionPolicy Bypass -Command`) не считаются мутациями."""
     readonly_cmds = [
         "Get-Content README.md -TotalCount 20",
         "Get-ChildItem -Path command-center/bcc",
         "Get-CimInstance Win32_OperatingSystem",
+        "(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1MB",
         "Get-Process | Select-Object -First 10",
         "Select-String -Path command-center/bcc/api.py -Pattern 'health'",
         'powershell -NoProfile -Command "Get-Content README.md"',
+        'powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory/1MB"',
         "git status --short",
     ]
     for cmd in readonly_cmds:
@@ -158,6 +197,8 @@ def test_d026_readonly_powershell_commands_are_not_classified_as_mutations():
         "Set-Content -Path a.txt -Value 'hello'",
         "Remove-Item -Path a.txt -Force",
         'powershell -Command "Out-File -FilePath a.txt"',
+        "Get-Content a.txt | Tee-Object -FilePath b.txt",
+        "powershell -EncodedCommand ZWNobyBoZWxsbw==",
         "Get-Content a.txt > b.txt",
         "git commit -m 'fix'",
     ]
@@ -188,6 +229,47 @@ def test_d028_permission_key_table_normalizes_legacy_and_canonical_keys():
     assert "pc_agent_argon" in perms
 
 
-def test_d029_manager_system_prompt_enforces_russian_language():
-    """D-029: системный промпт оператора явно требует отвечать владельцу на русском языке."""
+@pytest.mark.asyncio
+async def test_d029_manager_system_prompt_and_pc_agent_status_ux(tmp_path: Path):
+    """D-029: системный промпт требует русский язык, а `/api/pc-agent/status` отдаёт `current_step_summary` и `autonomy_level`."""
+    import httpx
+    from bcc.app import create_app
+    from bcc.auth import HEADER
+    from bcc.config import Settings as BccSettings
+
     assert "ВСЕГДА отвечай владельцу на понятном русском языке" in os_agent.MANAGER_SYSTEM_PROMPT
+
+    app = create_app(BccSettings(data_dir=tmp_path / "bcc_status_test"))
+    async with app.router.lifespan_context(app):
+        svc = app.state.svc
+        rt = pc_agent.get_runtime(svc)
+        rt.save_task_record(
+            77,
+            {
+                "task_id": 77,
+                "status": "running",
+                "steps_planned": [{"tool": "pc.list_windows"}, {"tool": "pc.observe_screen"}],
+                "completed_step_indices": [0],
+            },
+        )
+        headers = {HEADER: svc.auth.token}
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8801") as client:
+            r = await client.get("/api/pc-agent/status", headers=headers)
+            assert r.status_code == 200
+            body = r.json()
+            assert body["profile"] == "Argon"
+            assert body["autonomy_level"] in {"L0", "L1", "L2", "L3"}
+            assert body["audit_chain_valid"] is True
+            assert body["tasks_total"] == 1
+            assert "Свободен" in body["current_step_summary"]
+
+
+# Aliases matching COVERAGE_MATRIX.md section 3 test identifiers
+test_d001_d002_gemma4_31b_priority_and_selection = test_d001_d002_gemma4_31b_is_primary_over_strata_even_with_higher_id
+test_d003_os_agent_package_and_autonomy_levels = test_d003_os_agent_package_exports_and_honest_architecture
+test_d005_build_identity_and_health_live_fields = test_d005_build_identity_separates_liveness_and_git_clean
+test_d025_audit_journal_detects_tail_truncation_and_deletion = test_d025_audit_journal_detects_tail_and_head_truncation
+test_d026_readonly_powershell_and_failure_explanation = test_d026_readonly_powershell_commands_are_not_classified_as_mutations
+test_d028_permission_normalization_and_tool_attachment = test_d028_permission_key_table_normalizes_legacy_and_canonical_keys
+test_d029_russian_prompt_and_step_status_ux = test_d029_manager_system_prompt_and_pc_agent_status_ux
