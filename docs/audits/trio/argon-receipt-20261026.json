@@ -1,0 +1,60 @@
+{
+  "agent": "Argon",
+  "branch": "agent/argon-20261026",
+  "worktree": "C:\\Users\\asd\\Bossman\\wt-trio-argon",
+  "base_branch": "integrate/one-bossman-final-20261023",
+  "base_sha": "4c7a2bfb",
+  "cherry_picked_claude_commits": [
+    "5b28572a",
+    "e311f045",
+    "870ceea5",
+    "9460cda8",
+    "fef96eaa"
+  ],
+  "timestamp": "2026-10-26T18:24:00-07:00",
+  "closed_defects": [
+    "D-001",
+    "D-002",
+    "D-003",
+    "D-004",
+    "D-005",
+    "D-007",
+    "D-009",
+    "D-010",
+    "D-011",
+    "D-012",
+    "D-013",
+    "D-014",
+    "D-015",
+    "D-016",
+    "D-017",
+    "D-018",
+    "D-019",
+    "D-020",
+    "D-021",
+    "D-022",
+    "D-023",
+    "D-024",
+    "D-025",
+    "D-026",
+    "D-027",
+    "D-028",
+    "D-029"
+  ],
+  "pytest_summary": {
+    "command": "python -m pytest command-center/tests/test_argon_os_agent_trio.py command-center/tests/test_pc_agent_master_p0_p5.py command-center/tests/test_pc_agent_traps_claude.py command-center/tests/test_pc_defense_two_lines.py command-center/tests/test_release_health.py command-center/tests/test_runtime_source_identity.py command-center/tests/test_sandbox_user_run_regressions.py command-center/tests/test_chat_threads.py apps/bossman-mobile/tests/test_mobile.py -q",
+    "passed": 633,
+    "skipped": 1,
+    "failed": 0,
+    "xfailed": 0,
+    "duration_seconds": 45.03
+  },
+  "immutable_core_touched": false,
+  "deliverables": [
+    "command-center/bcc/os_agent/__init__.py",
+    "command-center/tests/test_argon_os_agent_trio.py",
+    "docs/audits/trio/argon-os-agent-architecture.md",
+    "docs/audits/trio/COVERAGE_MATRIX.md",
+    "docs/audits/trio/argon-receipt-20261026.json"
+  ]
+}

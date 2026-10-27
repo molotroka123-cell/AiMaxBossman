@@ -696,8 +696,20 @@ async def _task_views(svc: Any, ids: list[Any]) -> dict[int, dict]:
         error = (meta.get("blocked_reason") if status == "blocked"
                  else task_runs[-1]["error"] if task_runs else None)
         last = task_runs[-1] if task_runs else None
+        failure_summary = None
+        if status == "failed" and not done:
+            last_res = str((last or {}).get("result") or "").strip()
+            if last_res:
+                failure_summary = last_res
+            elif error:
+                failure_summary = (
+                    f"Действие не выполнено: запрос отклонён владельцем или инструмент не выполнен ({error})."
+                    if "effectful tool did not succeed" in str(error)
+                    else f"Задача завершилась с ошибкой: {error}"
+                )
         out[tid] = {
             "status": status, "result": done[-1]["result"] if done else None, "error": error,
+            "failure_summary": failure_summary,
             "run": ({"id": last["id"], "status": last["status"], "model_alias": last["model_alias"],
                      "tokens_in": last["tokens_in"], "tokens_out": last["tokens_out"],
                      "cost_usd": last["cost_usd"],
@@ -1203,6 +1215,7 @@ async def get_thread(thread_id: str, request: Request):
         item = {"idx": idx, "task_id": int(turn["task_id"]), "text": str(turn.get("text") or ""),
                 "at": turn.get("at"), "status": view["status"] if view else "missing",
                 "result": view["result"] if view else None, "error": view["error"] if view else None,
+                "failure_summary": view.get("failure_summary") if view else None,
                 "run": view["run"] if view else None}
         if isinstance(turn.get("attachments"), list):
             item["attachments"] = [a for a in turn["attachments"] if isinstance(a, dict)]

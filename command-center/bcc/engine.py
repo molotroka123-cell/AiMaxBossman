@@ -1338,8 +1338,13 @@ class TaskEngine:
                 # A missed classifier cannot turn a failed effect into success.
                 # Keep the answer (including honest refusals), but do not park
                 # this run behind an approval with no fulfillable obligation.
+                fallback_answer = (
+                    answer
+                    if (answer or "").strip()
+                    else f"Действие не выполнено: запрос отклонён владельцем или инструмент завершился с ошибкой ({decision.reason})."
+                )
                 await self._finish(run_id, task["id"], "failed", error=decision.reason,
-                                   result=answer, tokens_in=tokens_in, tokens_out=tokens_out,
+                                   result=fallback_answer, tokens_in=tokens_in, tokens_out=tokens_out,
                                    cost_usd=round(cost, 6), model_alias=alias)
                 return
             await self._escalate_gate_failure(run_id, task, messages, step,

@@ -38,8 +38,17 @@ def desktop_guard_verdict(
 
 def browser_guard_verdict(action: str, url: str, label: str) -> PolicyVerdict | None:
     if action in {"open", "navigate"} and url:
-        host = (urlsplit(url).hostname or "").lower()
-        if host in {"localhost", "::1"} or host.endswith(".local") or re.match(_INTERNAL_HOST_RE, host):
+        parsed = urlsplit(url)
+        host = (parsed.hostname or "").lower()
+        is_safe_liveness = (
+            action == "open"
+            and host in {"127.0.0.1", "localhost"}
+            and parsed.path.rstrip("/") == "/health/live"
+            and not parsed.query
+        )
+        if not is_safe_liveness and (
+            host in {"localhost", "::1"} or host.endswith(".local") or re.match(_INTERNAL_HOST_RE, host)
+        ):
             reason = f"Внутренний адрес {host} (T2)."
             return PolicyVerdict("T2", "ask", "browser_internal_host", reason, True)
         if scrub_secrets(url) != url:

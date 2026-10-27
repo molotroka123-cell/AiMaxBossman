@@ -71,14 +71,91 @@ AGENT_ROLE = "pc-agent:argon"
 OLLAMA_BASE = os.environ.get("BOSSMAN_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 STRATA_BASE = os.environ.get("BOSSMAN_STRATA_URL", "http://127.0.0.1:8090/v1").rstrip("/")
 LOCAL_MODELS = (
+    "gemma4-31b-uncensored-ctx32k:latest",
     "gemma4-31b-uncensored:latest",
-    "qwen3.8-flash-next-iq3_s",
-    "strata-qwen38-flash-next-iq3s",
+    "gemma4:31b",
     "bossman-main-qwen38-27b-q5:latest",
     "bossman-community-qwen-uncensored:latest",
     "bossman-fast-qwen36-35b-a3b-q5:latest",
+    "qwen3.8-flash-next-iq3_s",
+    "strata-qwen38-flash-next-iq3s",
+)
+PRIMARY_GEMMA_MODELS = (
+    "gemma4-31b-uncensored-ctx32k:latest",
+    "gemma4-31b-uncensored:latest",
+    "gemma4:31b",
+)
+STRATA_FALLBACK_MODELS = (
+    "qwen3.8-flash-next-iq3_s",
+    "strata-qwen38-flash-next-iq3s",
 )
 VISION_MODEL = "bossman-fast-qwen36-vision:latest"
+
+
+def local_model_priority_key(m: dict[str, Any]) -> tuple[int, int, int, int]:
+    """Канонический порядок локальных моделей (D-001/D-002):
+    0) Gemma 4 31B (основная в Ollama)
+    1) Qwen 3.8 27B / 3.6 35B (резервная в Ollama)
+    2) Strata (`qwen3.8-flash-next-iq3_s` / `strata-qwen38-flash-next-iq3s`, опциональный ускоритель)
+    3) Прочие локальные модели."""
+    name = str(m.get("name") or "").strip()
+    low = name.lower()
+    is_online = 0 if str(m.get("status") or "").lower() in {"online", "healthy", "ready"} else 1
+    if name in PRIMARY_GEMMA_MODELS or "gemma4" in low or "gemma-4" in low:
+        tier = 0
+    elif name in STRATA_FALLBACK_MODELS or "strata" in low:
+        tier = 2
+    elif name in LOCAL_MODELS or "qwen" in low:
+        tier = 1
+    else:
+        tier = 3
+    idx = LOCAL_MODELS.index(name) if name in LOCAL_MODELS else len(LOCAL_MODELS)
+    return (is_online, tier, idx, -int(m.get("id") or 0))
+
+
+def select_preferred_local_model(model_rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Выбирает приоритетную локальную модель (Gemma 4 31B -> Qwen -> Strata) из строк таблицы `models`."""
+    if not model_rows:
+        return None
+    ranked = sorted(model_rows, key=local_model_priority_key)
+    return ranked[0] if ranked else None
+
+
+PERMISSION_KEY_TABLE: dict[str, tuple[str, ...]] = {
+    "filesystem.read": ("read",),
+    "filesystem.write": ("write",),
+    "terminal.read": ("read", "exec"),
+    "terminal.run": ("exec",),
+    "browser.read": ("browser", "read"),
+    "computer.observe": ("computer_read", "read"),
+    "computer.control": ("computer_act",),
+}
+
+
+def normalize_operator_permissions(raw_perms: dict[str, Any] | None, *, include_act: bool = False) -> dict[str, Any]:
+    """Приводит права агента-оператора к единой таблице канонических и legacy-ключей (D-028)."""
+    perms: dict[str, Any] = dict(raw_perms or {})
+    default_canonical = (
+        "filesystem.read",
+        "terminal.read",
+        "browser.read",
+        "computer.observe",
+    ) + (("filesystem.write", "terminal.run", "computer.control") if include_act else ())
+    for c_key in default_canonical:
+        if c_key not in perms:
+            perms[c_key] = True
+    for c_key, legacy_keys in PERMISSION_KEY_TABLE.items():
+        active = bool(perms.get(c_key)) or any(bool(perms.get(lk)) for lk in legacy_keys)
+        if active:
+            perms[c_key] = True
+            for lk in legacy_keys:
+                perms.setdefault(lk, True)
+    if "pc_agent_argon" not in perms:
+        perms["pc_agent_argon"] = {
+            "profile": PROFILE_NAME,
+            "tiers": {"T0": "auto", "T1": "auto_with_rollback", "T2": "owner_button_or_trust", "T3": "never"},
+        }
+    return perms
 
 AUTONOMY_LEVEL_SPECS: dict[str, dict[str, Any]] = {
     "L0": {
@@ -143,6 +220,7 @@ MANAGER_SYSTEM_PROMPT = (
     "Стек: ТОЛЬКО ЛОКАЛЬНО (никаких облачных моделей и внешних API; если локальная модель не справляется — скажи честно и разбей на шаги).\n"
     "Цикл: 1) План с критериями готовности -> 2) Выполнение и проверка фактом (тест, запуск, сверка) -> "
     "3) Диагностика и исправление (максимум 3 попытки на ошибку) -> 4) Короткий отчёт в пульт.\n"
+    "Язык ответа: ВСЕГДА отвечай владельцу на понятном русском языке без внутреннего жаргона и английских заглушек.\n"
     "Монетизация (только доказанная): «Доказано» = реальный пользователь + реальная оплата + метрика. Черновики симулятора не называть заработком."
 )
 
@@ -190,10 +268,11 @@ from .pc_agent_policy import (
 # ------------------------------------------------------------------ Append-Only Audit Journal
 
 class AuditJournal:
-    """Append-only журнал действий PC-Agent (`audit.jsonl`) с цепочкой SHA-256 и очисткой секретов."""
+    """Append-only журнал действий PC-Agent (`audit.jsonl`) с цепочкой SHA-256, якорем головы (`.head`) и очисткой секретов."""
 
     def __init__(self, path: Path):
         self.path = Path(path)
+        self.anchor_path = self.path.with_name(self.path.name + ".head")
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def append(
@@ -251,22 +330,45 @@ class AuditJournal:
         line_str = json.dumps(record, ensure_ascii=False) + "\n"
         with self.path.open("a", encoding="utf-8") as fh:
             fh.write(line_str)
+        with contextlib.suppress(OSError):
+            self.anchor_path.write_text(
+                json.dumps({"seq": seq, "count": seq, "entry_hash": record["entry_hash"]}, ensure_ascii=False),
+                encoding="utf-8",
+            )
         return record
 
     def verify_chain(self) -> dict[str, Any]:
         if not self.path.is_file():
+            if self.anchor_path.is_file():
+                return {"ok": False, "count": 0, "broken_seq": 1, "reason": "audit_file_missing_with_head_anchor"}
             return {"ok": True, "count": 0}
         lines = [ln for ln in self.path.read_text(encoding="utf-8", errors="replace").splitlines() if ln.strip()]
         prev_hash = "0" * 64
         for idx, ln in enumerate(lines, 1):
             row = json.loads(ln)
             entry_hash = row.pop("entry_hash", "")
+            if int(row.get("seq") or idx) != idx:
+                return {"ok": False, "count": idx, "broken_seq": row.get("seq"), "reason": "seq_mismatch"}
             if row.get("prev_hash") != prev_hash:
                 return {"ok": False, "count": idx, "broken_seq": row.get("seq"), "reason": "prev_hash_mismatch"}
             expected = hashlib.sha256(json.dumps(row, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
             if entry_hash != expected:
                 return {"ok": False, "count": idx, "broken_seq": row.get("seq"), "reason": "entry_hash_mismatch"}
             prev_hash = entry_hash
+        if self.anchor_path.is_file():
+            try:
+                anchor = json.loads(self.anchor_path.read_text(encoding="utf-8"))
+                expected_count = int(anchor.get("count") or anchor.get("seq") or 0)
+                expected_head = str(anchor.get("entry_hash") or "")
+                if len(lines) != expected_count or prev_hash != expected_head:
+                    return {
+                        "ok": False,
+                        "count": len(lines),
+                        "broken_seq": expected_count,
+                        "reason": "tail_truncated_or_head_mismatch",
+                    }
+            except Exception:
+                return {"ok": False, "count": len(lines), "broken_seq": len(lines), "reason": "invalid_head_anchor"}
         return {"ok": True, "count": len(lines)}
 
     def read_recent(self, limit: int = 50, *, task_id: int | None = None) -> list[dict[str, Any]]:
@@ -626,47 +728,54 @@ async def ensure_argon_agent(svc: Any) -> dict[str, Any]:
     """Гарантирует наличие записи агента Argon PC-Agent в таблице `agents` (строго локальная модель $0, с полным набором инструментов OpenCode + PC Control)."""
     async with svc.db.session() as s:
         row = row_dict((await s.execute(sa.select(agents_t).where(agents_t.c.role == AGENT_ROLE))).first())
-        # Выбираем только разрешённую локальную модель (Gemma 4 31B / Strata / Qwen $0); никогда не откатываемся на платные модели
+        # Выбираем только разрешённую локальную модель (Gemma 4 31B -> Qwen -> Strata $0); никогда не откатываемся на платные модели
         model_rows = rows_dicts(
             await s.execute(sa.select(models_t).where(models_t.c.name.in_(LOCAL_MODELS)).order_by(models_t.c.id.desc()))
         )
-        preferred_model = next(
-            (m for m in model_rows if m.get("name") in ("gemma4-31b-uncensored:latest", "qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s") and m.get("status") == "online"),
-            next((m for m in model_rows if m.get("name") in ("gemma4-31b-uncensored:latest", "qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s")), model_rows[0] if model_rows else None),
-        )
+        preferred_model = select_preferred_local_model(model_rows)
         model_id = preferred_model["id"] if preferred_model else None
 
-        # Defect #5: чиним противоречивый промпт у локального агента Gemma 4 (agent 41) и добавляем code.read/write/patch
+        # Defect #5 & D-028: чиним промпт, права и инструменты чтения у локальных агентов-операторов (Gemma 4 / agent 40, 41, 50)
         with contextlib.suppress(Exception):
-            gemma_rows = rows_dicts(
+            op_rows = rows_dicts(
                 await s.execute(
                     sa.select(agents_t).where(
                         sa.or_(
-                            agents_t.c.role == "owner-local-gemma4-uncensored",
-                            agents_t.c.name == "Gemma 4",
+                            agents_t.c.role.in_(("owner-local-gemma4-uncensored", "operator", "pc-operator", "owner-operator")),
+                            agents_t.c.name.in_(("Gemma 4", "Operator", "PC Operator")),
+                            agents_t.c.id.in_((40, 41, 50)),
                         )
                     )
                 )
             )
-            for grow in gemma_rows:
+            read_and_edit_tools = ("code.read", "code.search", "code.expand", "code.status", "code.workspace_map", "code.write", "code.patch")
+            for grow in op_rows:
                 g_tools = list(grow.get("tools") or [])
                 g_prompt = str(grow.get("system_prompt") or "")
+                g_perms = grow.get("permissions") if isinstance(grow.get("permissions"), dict) else {}
                 g_updates: dict[str, Any] = {}
                 if any(bad_phrase in g_prompt.lower() for bad_phrase in ("only talk", "no actions", "только разговор")):
                     g_updates["system_prompt"] = MANAGER_SYSTEM_PROMPT
-                missing_g = [t for t in ("code.read", "code.write", "code.patch") if t not in g_tools]
-                if missing_g and g_tools:
+                missing_g = [t for t in read_and_edit_tools if t not in g_tools]
+                if missing_g:
                     g_updates["tools"] = g_tools + missing_g
+                norm_perms = normalize_operator_permissions(g_perms, include_act=bool(g_perms.get("computer_act") or g_perms.get("computer.control")))
+                if norm_perms != g_perms:
+                    g_updates["permissions"] = norm_perms
                 if g_updates:
                     await s.execute(sa.update(agents_t).where(agents_t.c.id == grow["id"]).values(**g_updates))
 
         if row:
             cur_tools = list(row.get("tools") or [])
             missing_tools = [t for t in ARGON_DEFAULT_TOOLS if t not in cur_tools]
+            cur_perms = row.get("permissions") if isinstance(row.get("permissions"), dict) else {}
+            norm_argon_perms = normalize_operator_permissions(cur_perms, include_act=False)
             updates: dict[str, Any] = {}
             if missing_tools:
                 updates["tools"] = cur_tools + missing_tools
-            if model_id is not None and row.get("model_id") != model_id and preferred_model and preferred_model.get("status") == "online":
+            if norm_argon_perms != cur_perms:
+                updates["permissions"] = norm_argon_perms
+            if model_id is not None and row.get("model_id") != model_id:
                 updates["model_id"] = model_id
             if updates:
                 await s.execute(sa.update(agents_t).where(agents_t.c.id == row["id"]).values(**updates))
@@ -684,16 +793,7 @@ async def ensure_argon_agent(svc: Any) -> dict[str, Any]:
                 model_id=model_id,
                 fallback_model_id=None,
                 tools=list(ARGON_DEFAULT_TOOLS),
-                permissions={
-                    "filesystem.read": True,
-                    "terminal.read": True,
-                    "browser.read": True,
-                    "computer.observe": True,
-                    "pc_agent_argon": {
-                        "profile": PROFILE_NAME,
-                        "tiers": {"T0": "auto", "T1": "auto_with_rollback", "T2": "owner_button_or_trust", "T3": "never"},
-                    },
-                },
+                permissions=normalize_operator_permissions(None, include_act=False),
                 budget_usd=0.0,
                 enabled=True,
                 created_at=now,
@@ -1876,13 +1976,19 @@ async def execute_pc_step(
         entries = []
         for child in sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))[:100]:
             entries.append({"name": child.name, "kind": "dir" if child.is_dir() else "file"})
+        names_text = ", ".join(e["name"] for e in entries)
+        tainted = bool(_PROMPT_INJECTION_RE.search(names_text))
+        framed_names = EXTERNAL_DATA_HEADER + ", ".join(e["name"] for e in entries[:15])
         return {
             "ok": True,
             "verified": True,
             "path": str(path),
             "entries": entries,
-            "tainted": False,
-            "summary": f"Папка {path} ({len(entries)} эл.): " + ", ".join(e["name"] for e in entries[:15]),
+            "content": EXTERNAL_DATA_HEADER + names_text,
+            "tainted": tainted,
+            "summary": f"Папка {path} ({len(entries)} эл.): "
+                       + (framed_names if tainted else ", ".join(e["name"] for e in entries[:15]))
+                       + (" [ВНИМАНИЕ: в именах элементов обнаружен подозрительный инструктивный текст — помечен как внешние данные]" if tainted else ""),
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
@@ -4978,13 +5084,7 @@ async def call_local_qwen(
                     return False
                 return name in LOCAL_MODELS or any(k in name.lower() for k in ("qwen", "gemma", "strata", "llama", "mistral", "deepseek-r1"))
 
-            def _sort_key(m: dict[str, Any]) -> tuple[int, int, int]:
-                name = str(m.get("name") or "")
-                is_strata = 0 if name in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s") else 1
-                in_local = 0 if name in LOCAL_MODELS else 1
-                return (is_strata, in_local, int(m.get("id") or 0))
-
-            for m in sorted(rows or [], key=_sort_key):
+            for m in sorted(rows or [], key=local_model_priority_key):
                 mid = m.get("id")
                 mname = str(m.get("name") or "")
                 if not isinstance(mid, int) or not mname:
@@ -5984,18 +6084,38 @@ async def api_pc_agent_status(request: Request):
 
     svc = _svc_of(request)
     rt = get_runtime(svc)
-    agent_id = await ensure_argon_agent(svc)
+    agent_row = await ensure_argon_agent(svc)
+    agent_id = agent_row.get("id") if isinstance(agent_row, dict) else agent_row
     edit_eng = rt.get_edit_engine()
+    chain_info = rt.journal.verify_chain()
+    stopped = rt.is_stopped(svc)
+    active_ids = sorted(rt.active_tasks.keys())
+    if stopped:
+        step_summary = "Остановлен по сигналу STOP владельца"
+    elif active_ids:
+        cur_t = rt.tasks.get(active_ids[-1]) or {}
+        steps = cur_t.get("plan") or []
+        done_n = len(cur_t.get("steps") or [])
+        total_n = max(len(steps), done_n + 1)
+        cur_tool = steps[min(done_n, len(steps) - 1)].get("tool", "шаг") if steps else "выполнение"
+        step_summary = f"Задача #{active_ids[-1]}: шаг {done_n + 1} из {total_n} ({cur_tool}), осталось {max(0, total_n - done_n - 1)}"
+    else:
+        step_summary = "Свободен — ожидает команды владельца"
     return {
         "profile": PROFILE_NAME,
         "agent_id": agent_id,
         "agent_name": AGENT_NAME,
-        "stopped": rt.is_stopped(svc),
+        "stopped": stopped,
         "trust_active": rt.trust_active(svc),
         "trust_until": rt.trust_until if rt.trust_active(svc) else None,
         "trust_actor": rt.trust_actor if rt.trust_active(svc) else "",
         "autonomy": rt.get_autonomy_status(),
-        "active_tasks": sorted(rt.active_tasks.keys()),
+        "autonomy_level": rt.get_autonomy_level(),
+        "current_step_summary": step_summary,
+        "audit_chain_valid": bool(chain_info.get("ok", True)),
+        "audit_entries": int(chain_info.get("count", 0)),
+        "tasks_total": len(rt.tasks),
+        "active_tasks": active_ids,
         "active_pids": sorted(rt.active_procs.keys()),
         "spawned_pids": sorted(rt.spawned_pids),
         "local_models": list(LOCAL_MODELS),

@@ -931,7 +931,7 @@
         if (turn.status && !['completed', 'failed', 'stopped', 'blocked', 'missing'].includes(turn.status)) { follow(turn.task_id, b); continue; }
         b.ended = true;
         if (b.photo) { b.text = turn.result || ''; restorePhotoTurn(b, turn); continue; }
-        if (turn.result) { b.text = turn.result; rich(b.ans, turn.result); } else if (turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.error; }
+        if (turn.result) { b.text = turn.result; rich(b.ans, turn.result); } else if (turn.failure_summary || turn.error) { b.ans.classList.add('error'); b.ans.textContent = turn.failure_summary || turn.error; }
         b.meta.textContent = `задача #${turn.task_id} · ${stRu(turn.status)}`;
         if (turn.result) msgActions(b);
         if (turns.indexOf(turn) >= turns.length - 6) {
@@ -1210,7 +1210,12 @@
   async function settle(taskId, b, t) {
     if (b.done) return; b.done = true; closeStream();
     try { t = t || await api('GET', `/tasks/${taskId}`); } catch { t = t || {}; }
-    finish(b, t.result, t.status === 'completed' ? null : (t.error || `задача: ${stRu(t.status)}`), t.status, taskId);
+    const lastRunRes = t.runs && t.runs.length ? t.runs[t.runs.length - 1].result : null;
+    const rawErr = lastRunRes || t.error || `задача: ${stRu(t.status)}`;
+    const ruErr = (typeof rawErr === 'string' && rawErr.includes('effectful tool did not succeed'))
+      ? `Действие не выполнено: запрос отклонён вами или инструмент не выполнен (${rawErr}).`
+      : rawErr;
+    finish(b, t.result, t.status === 'completed' ? null : ruErr, t.status, taskId);
   }
   function finish(b, result, error, status, taskId) {
     busy(false); typing(b, false); b.m.setAttribute('aria-busy', 'false');
@@ -2646,7 +2651,8 @@
       try {
         const r = await api('GET', '/pc-agent/status');
         if (out) out.textContent = [
-          `Профиль: ${r.profile || 'Argon PC-Agent'} (agent_id=${r.agent_id ?? '—'})`,
+          `Профиль: ${r.profile || 'Argon PC-Agent'} (agent_id=${r.agent_id ?? '—'}) · Уровень: ${r.autonomy_level || 'L2'}`,
+          `Что сейчас делаю: ${r.current_step_summary || 'Ожидание команды оператора (активных задач нет)'}`,
           `STOP: ${r.stopped ? 'ВКЛЮЧЁН' : 'выключен'} · Trust-окно: ${r.trust_active ? 'активно' : 'выключено'}`,
           `Цепочка аудита SHA-256: ${r.audit_chain_valid ? 'ЦЕЛА (OK)' : 'требует проверки'} (${r.audit_entries ?? 0} записей)`,
           `Задач в памяти: ${r.tasks_total ?? 0} (активных: ${r.active_tasks ?? 0})`,

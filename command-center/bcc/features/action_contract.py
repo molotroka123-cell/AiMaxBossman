@@ -403,11 +403,21 @@ def _is_git_mutation_call(row: dict) -> bool:
 # тестов: «запустил pytest» — это проверка, а не починка.
 _READONLY_HEADS = frozenset({
     "ls", "dir", "pwd", "cat", "head", "tail", "less", "more", "echo", "printf",
-    "which", "type", "file", "stat", "tree", "env", "printenv", "whoami", "date",
-    "find", "grep", "rg", "ag", "wc", "diff", "du", "df", "uname", "id", "history",
-    "true", "false", ":", "sleep", "test", "sha256sum", "md5sum",
+    "which", "where", "type", "file", "stat", "tree", "env", "printenv", "whoami", "date",
+    "find", "findstr", "grep", "rg", "ag", "wc", "diff", "du", "df", "uname", "id", "history",
+    "true", "false", ":", "sleep", "test", "sha256sum", "md5sum", "hostname", "ipconfig", "tasklist", "systeminfo", "ver",
     "pytest", "tox", "nox", "mypy", "ruff", "flake8", "pylint", "black", "isort",
+    "get-content", "gc", "get-childitem", "gci", "get-item", "gi", "get-location", "gl",
+    "get-process", "gps", "get-service", "gsv", "get-ciminstance", "gcim", "get-wmiobject", "gwmi",
+    "select-string", "sls", "select-object", "select", "where-object", "measure-object", "measure",
+    "test-path", "resolve-path", "format-table", "ft", "format-list", "fl", "out-string", "write-output",
 })
+_PWSH_MUTATION_RE = re.compile(
+    r"\b(?:set-content|add-content|out-file|clear-content|new-item|remove-item|copy-item|move-item|rename-item|"
+    r"start-process|stop-process|stop-service|restart-service|invoke-webrequest|invoke-restmethod|iwr|irm|"
+    r"set-item|set-itemproperty|remove-itemproperty|new-itemproperty|writeAllText|writeAllBytes)\b",
+    re.I,
+)
 # `git` решается по подкоманде: status/diff/log читают, commit/apply/checkout — нет.
 _READONLY_GIT_SUBCOMMANDS = frozenset({
     "status", "diff", "log", "show", "branch", "remote", "rev-parse", "ls-files",
@@ -434,7 +444,7 @@ def _looks_like_mutation(command: str) -> bool:
     cmd = str(command or "").strip()
     if not cmd:
         return False
-    if _WRITE_REDIRECT_RE.search(cmd):
+    if _WRITE_REDIRECT_RE.search(cmd) or _PWSH_MUTATION_RE.search(cmd):
         return True
     for segment in re.split(r"&&|\|\||;|\||\n", cmd):
         tokens = segment.strip().split()
@@ -443,9 +453,20 @@ def _looks_like_mutation(command: str) -> bool:
             tokens = tokens[1:]
         if not tokens:
             continue
-        head = tokens[0].rsplit("/", 1)[-1]
+        head = tokens[0].replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if head.endswith(".exe"):
+            head = head[:-4]
+        if head in ("powershell", "pwsh") and len(tokens) > 1:
+            # Unwrap `powershell -NoProfile -Command "Get-Content ..."` when inner command is read-only
+            inner_tokens = [t.strip("\"'") for t in tokens[1:] if not t.startswith("-")]
+            if not inner_tokens:
+                return True
+            head = inner_tokens[0].replace("\\", "/").rsplit("/", 1)[-1].lower()
+            if head.endswith(".exe"):
+                head = head[:-4]
+            tokens = inner_tokens
         if head == "git":
-            sub = next((t for t in tokens[1:] if not t.startswith("-")), "")
+            sub = next((t.lower() for t in tokens[1:] if not t.startswith("-")), "")
             if sub not in _READONLY_GIT_SUBCOMMANDS:
                 return True
             continue

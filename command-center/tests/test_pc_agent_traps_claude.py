@@ -45,8 +45,8 @@ WS = Path(r"D:\decoy\ws")  # синтетический безопасный к�
 INJ = pol._PROMPT_INJECTION_RE
 
 
-# fixed on branch agent/claude-20261026 (commit "policy: close D-009..."): these run as ordinary tests now, with the paired negative control
-CLOSED = {"D-009", "D-010", "D-011", "D-012", "D-014", "D-015", "D-016", "D-017", "D-018", "D-019", "D-020", "D-021", "D-022", "D-023", "D-024"}
+# fixed on branch agent/claude-20261026 and agent/argon-20261026: these run as ordinary tests now, with the paired negative control
+CLOSED = {"D-009", "D-010", "D-011", "D-012", "D-013", "D-014", "D-015", "D-016", "D-017", "D-018", "D-019", "D-020", "D-021", "D-022", "D-023", "D-024", "D-025"}
 
 
 def xf(defect: str):
@@ -373,7 +373,7 @@ def test_t4_after_taint_followup_actions_are_denied(V):
     assert denied(V("pc.run_command", {"argv": ["cmd", "/c", "del", "x.txt"]}, tainted_by_injection=True))
 
 
-@pytest.mark.xfail(strict=True, reason="D-013: pc.list_dir всегда возвращает tainted=False и не оборачивает имена в EXTERNAL_DATA_HEADER")
+@xf("D-013: pc.list_dir всегда возвращает tainted=False и не оборачивает имена в EXTERNAL_DATA_HEADER")
 def test_t4_list_dir_flags_injection_in_file_names(rt):
     (rt.workspace_dir / INJ_NAME).write_text("x", encoding="utf-8")
     res = step(rt, "pc.list_dir", {"path": str(rt.workspace_dir)})
@@ -697,7 +697,7 @@ def test_t8_audit_chain_detects_tampering(tmp_path, mode):
     assert j.verify_chain()["ok"] is False
 
 
-@pytest.mark.xfail(strict=True, reason="D-025: цепочка без якоря головы - отрезание хвоста журнала verify_chain не замечает")
+@xf("D-025: цепочка без якоря головы - отрезание хвоста журнала verify_chain не замечает")
 def test_t8_audit_chain_detects_tail_truncation(tmp_path):
     j = _journal(tmp_path)
     lines = j.path.read_text(encoding="utf-8").splitlines()

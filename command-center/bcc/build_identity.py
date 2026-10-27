@@ -61,6 +61,7 @@ def _resolve() -> dict[str, Any]:
         return {"build_sha": None, "build_sha_short": None,
                 "release_version": RELEASE_VERSION,
                 "source_identity": UNKNOWN,
+                "git_clean": False if not installed else True,
                 "source": "installed_build" if installed else "checkout",
                 "detail": ("установленная сборка без bcc/_build.json"
                            if installed else
@@ -68,6 +69,7 @@ def _resolve() -> dict[str, Any]:
     return {"build_sha": sha, "build_sha_short": sha[:12],
             "release_version": RELEASE_VERSION,
             "source_identity": "PASS",
+            "git_clean": True,
             "source": "installed_build" if installed else "checkout",
             "detail": ""}
 

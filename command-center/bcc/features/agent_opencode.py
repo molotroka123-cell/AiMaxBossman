@@ -369,7 +369,8 @@ class _OrchestratorState:
 
 def _orch(svc: Any) -> _OrchestratorState:
     st = getattr(svc, "_agent_orchestrator", None)
-    data_dir = Path(svc.settings.data_dir) if hasattr(svc, "settings") and hasattr(svc.settings, "data_dir") else None
+    raw_dir = getattr(getattr(svc, "settings", None), "data_dir", None)
+    data_dir = Path(raw_dir) if raw_dir is not None else None
     if st is None:
         st = svc._agent_orchestrator = _OrchestratorState(data_dir=data_dir)
     elif st.data_dir is None and data_dir is not None:
@@ -381,13 +382,19 @@ def invalidate_router_catalog_cache(svc: Any) -> None:
     _orch(svc).router_catalog_cache = None
 
 
-def _agent_meta_path(svc: Any) -> Path:
-    return Path(svc.settings.data_dir) / "terminal" / "agent-sessions-meta.json"
+def _agent_meta_path(svc: Any) -> Path | None:
+    raw_dir = getattr(getattr(svc, "settings", None), "data_dir", None)
+    if raw_dir is None:
+        return None
+    return Path(raw_dir) / "terminal" / "agent-sessions-meta.json"
 
 
 def _read_agent_meta(svc: Any) -> dict[str, dict[str, Any]]:
     path = _agent_meta_path(svc)
     st_orch = _orch(svc)
+    if path is None:
+        hit = st_orch.agent_meta_cache
+        return dict(hit[2]) if hit is not None and isinstance(hit[2], dict) else {}
     try:
         st = path.stat()
     except OSError:
@@ -409,6 +416,9 @@ def _read_agent_meta(svc: Any) -> dict[str, dict[str, Any]]:
 
 def _write_agent_meta(svc: Any, sessions: dict[str, dict[str, Any]]) -> None:
     path = _agent_meta_path(svc)
+    if path is None:
+        _orch(svc).agent_meta_cache = (0, 0, dict(sessions))
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".agent-meta.{secrets.token_hex(4)}.tmp")
     tmp.write_text(json.dumps({"version": 1, "sessions": sessions}, ensure_ascii=False, indent=1), encoding="utf-8")
