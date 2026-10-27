@@ -1,10 +1,16 @@
 {
   "schema": "bossman.tier4_blue.identity.v2",
-  "evaluated_at": "2026-10-27T09:30:00Z",
+  "evaluated_at": "2026-10-27T10:36:00Z",
   "source_repository": "C:\\Users\\asd\\Bossman\\wt-trio-argon",
-  "source_branch": "agent/argon-20261026",
+  "source_branch": "main",
   "target_remote_branch": "fix/cross-surface-stop-resume-20261026",
-  "code_verification_sha": "3905cd62c41089b4f6b4082759ec92dfd39b1898",
+  "pushed_remote_branches": [
+    "origin/main",
+    "origin/fix/cross-surface-stop-resume-20261026"
+  ],
+  "code_verification_sha": "25653d0cad43fe594ea7bc7fe1157d4dc03997b3",
+  "prior_consolidation_code_sha": "71fcecdd01f8a22f3c8618e0019184323b165da4",
+  "prior_consolidation_docs_sha": "c1dedac3dd132d4529a4a07dc2619f6ebc3431fd",
   "redteam_baseline_sha": "c56a07db7d9905c284e6fa30a33627a22e1a3cb5",
   "runtime_url": "http://127.0.0.1:8801",
   "runtime_live_check": {
@@ -13,6 +19,8 @@
     "status": "ALIVE",
     "source_identity": "PASS",
     "git_clean": true,
+    "code_and_tests_sha": "25653d0cad43fe594ea7bc7fe1157d4dc03997b3",
+    "reconciled_to_head": true,
     "version": "2.6.0"
   },
   "identity_match": true,

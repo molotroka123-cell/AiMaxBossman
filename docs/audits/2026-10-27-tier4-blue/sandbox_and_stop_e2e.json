@@ -1,19 +1,19 @@
 {
   "schema": "bossman.tier4_blue.sandbox_and_stop_e2e.v2",
-  "evaluated_at": "2026-10-27T09:30:00Z",
-  "code_verification_sha": "3905cd62c41089b4f6b4082759ec92dfd39b1898",
+  "evaluated_at": "2026-10-27T10:36:00Z",
+  "code_verification_sha": "25653d0cad43fe594ea7bc7fe1157d4dc03997b3",
   "redteam_baseline_sha": "c56a07db7d9905c284e6fa30a33627a22e1a3cb5",
   "os_sandbox_audit": {
     "host_platform": "Windows 11 (AMD64)",
     "python_executable": "C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
     "python_exe_dacl": "SYSTEM, Administrators, WIN-IQPRHTSAJL9\\asd (No ALL APPLICATION PACKAGES, No Users)",
     "six_criteria_evaluation": {
-      "closed_network": "BLOCKED_ON_HOST (env vars do not block afd.sys sockets; AppContainer blocked by python.exe DACL) -> enforced FAIL_CLOSED via probe_os_sandbox() == False",
-      "minimal_privileges": "BLOCKED_ON_HOST (Low Integrity lacks NO_READ_UP on user files; Restricted Token blocked by python.exe DACL) -> enforced FAIL_CLOSED via probe_os_sandbox() == False",
-      "restricted_filesystem": "PASS_IN_KERNEL_GUARD_BLOCKED_FOR_ARBITRARY_CODE (target_abs.relative_to(workspace_root) + _has_reparse_or_symlink_below enforced; arbitrary code not executed)",
+      "closed_network": "BLOCKED_ON_HOST (env vars do not block afd.sys sockets; AppContainer blocked by python.exe DACL) -> enforced FAIL_CLOSED (no host pytest runner in _execute_self_modify_step)",
+      "minimal_privileges": "BLOCKED_ON_HOST (Low Integrity lacks NO_READ_UP on user files; Restricted Token blocked by python.exe DACL) -> enforced FAIL_CLOSED (no host pytest runner in _execute_self_modify_step)",
+      "restricted_filesystem": "PASS_IN_KERNEL_GUARD_BLOCKED_FOR_ARBITRARY_CODE (target_abs.relative_to(workspace_root) + _has_reparse_or_symlink_below in propose, rollback, and is_permitted_self_mod_target; arbitrary code not executed)",
       "resource_limits_time_mem_cpu": "PARTIAL (30s timeout + taskkill /T /F implemented; OS container cgroup/JobObject pending container runtime)",
       "temp_cleanup": "PASS (--basetemp outside repo + tmp_path_retention_policy=none + isolated self_mod_dir)",
-      "fail_closed_on_unavailability": "PASS (probe_os_sandbox() == False -> status='verification_blocked_unisolated', tests_passed=False, approval_id=None, applied_files=[], approved=True cannot bypass)"
+      "fail_closed_on_unavailability": "PASS (status='verification_blocked_unisolated', tests_passed=False, approval_id=None, applied_files=[], approved=True and apply_after_approval=True cannot bypass even if probe_os_sandbox() is mocked True)"
     },
     "probe_os_sandbox_result": false,
     "enforced_behavior": "FAIL_CLOSED (status='verification_blocked_unisolated', tests_passed=false, approval_id=None)",

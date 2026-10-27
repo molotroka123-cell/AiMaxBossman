@@ -1,7 +1,7 @@
 {
   "schema": "bossman.tier4_blue.receipts_consolidated.v2",
-  "generated_at": "2026-10-27T09:30:00Z",
-  "code_verification_sha": "3905cd62c41089b4f6b4082759ec92dfd39b1898",
+  "generated_at": "2026-10-27T10:36:00Z",
+  "code_verification_sha": "25653d0cad43fe594ea7bc7fe1157d4dc03997b3",
   "redteam_baseline_sha": "c56a07db7d9905c284e6fa30a33627a22e1a3cb5",
   "receipts": [
     {
@@ -49,9 +49,11 @@
     {
       "milestone": "Milestone 5: Red Team Self-Mod Hardening & CI Consolidation",
       "file_path": "docs/audits/2026-10-27-tier4-blue/sandbox_and_stop_e2e.json",
-      "code_verification_sha": "3905cd62c41089b4f6b4082759ec92dfd39b1898",
+      "code_verification_sha": "25653d0cad43fe594ea7bc7fe1157d4dc03997b3",
       "synthetic_sandbox_tests_passed": 7,
-      "master_p0_p5_pytests_passed": 55,
+      "master_p0_p5_pytests_passed": 23,
+      "adversarial_m2_pytests_passed": 55,
+      "total_security_and_pc_agent_pytests_passed": 649,
       "verdict": "PASS_FAIL_CLOSED_CONTAINMENT",
       "evidence_kind": "SYNTHETIC_SECURITY_SUITE_AND_CI_GATES"
     }
