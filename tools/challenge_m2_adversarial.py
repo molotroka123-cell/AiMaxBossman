@@ -259,7 +259,7 @@ def test_challenge_receipt_integrity() -> dict[str, Any]:
             t_receipt["environment"]["build_sha"] = val
         else:
             t_receipt[key] = val
-        
+
         # Verify with evidence.verify
         v_fail = evidence.verify(t_receipt, str(t_receipt.get("sig") or ""))
         tamper_results[f"tamper_{key}"] = {"tampered_val": val, "verify_returned": v_fail, "properly_rejected": v_fail is False}
@@ -274,7 +274,7 @@ def test_challenge_receipt_integrity() -> dict[str, Any]:
     proper_receipt = {**clean_body, **proper_signed_fields}
     v_proper_untampered = evidence.verify_signed(proper_receipt)
     print(f"      Properly signed untampered verify_signed: {v_proper_untampered}")
-    
+
     # Tamper with properly signed receipt
     t_prop = copy.deepcopy(proper_receipt)
     t_prop["verdict"] = "FAIL"

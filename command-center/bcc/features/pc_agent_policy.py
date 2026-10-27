@@ -287,4 +287,3 @@ def classify_pc_action(
             return PolicyVerdict("T0", "auto", "code_read", f"Анализ кода ({act_c}, T0).")
         return PolicyVerdict("T2", "ask", "code_other", f"Код {act_c} (T2).", True)
     return PolicyVerdict("T2", "ask", "unknown_tool", f"Неизвестный инструмент {tool} (T2).", True)
-

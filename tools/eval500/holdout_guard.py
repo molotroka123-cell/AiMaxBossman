@@ -50,4 +50,3 @@ def leaks_holdout(prompt: str, holdout_file: Path | None = None) -> bool:
 def assert_no_holdout(prompt: str, holdout_file: Path | None = None) -> None:
     if leaks_holdout(prompt, holdout_file):
         raise SystemExit("EVAL500 holdout text or location in the prompt: refused (sealed holdout, TZ 2.5 M5)")
-

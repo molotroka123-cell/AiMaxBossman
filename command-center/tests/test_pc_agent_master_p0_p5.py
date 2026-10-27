@@ -1208,4 +1208,3 @@ def test_cross_surface_stop_and_resume_unification(tmp_path: Path) -> None:
     assert rt.is_stopped(svc) is False
     assert not rt.stop_file.exists()
     assert m_client.get("/m/api/stop").json()["active"] is False
-
