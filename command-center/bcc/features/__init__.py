@@ -19,7 +19,10 @@ import pkgutil
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
-from fastapi import APIRouter
+try:
+    from fastapi import APIRouter
+except ModuleNotFoundError:  # pragma: no cover
+    APIRouter = Any  # type: ignore[misc,assignment]
 
 
 @dataclass
