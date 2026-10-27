@@ -674,6 +674,7 @@ def _commands() -> list[dict]:
     return [
         cmd("code", "message", msg, "/code <задача>", "режим CODE: задача кодеру в изолированной копии (OpenCode)"),
         cmd("pc", "message", msg, "/pc <задача>", "режим COMPUTER: действия на ПК под одобрениями"),
+        cmd("browser", "message", msg, "/browser <url | задача>", "режим BROWSER: открыть сайт в управляемом браузере Bossman, прочитать DOM, сделать скриншот или действие (browser.*)"),
         cmd("auto", "message", msg, "/auto <задача>", "режим AUTO: агент действует сам, одобрения принимаются автоматически"),
         cmd("improve", "message", msg, "/improve [что улучшить]", "цикл самоулучшения: доводится до одобрения владельца"),
         cmd("context", "action", f"GET {sid}/context"),

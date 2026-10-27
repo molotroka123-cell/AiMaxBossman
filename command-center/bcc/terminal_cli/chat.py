@@ -211,6 +211,11 @@ def _turn_part(client: Client, turn: dict) -> str | None:
     except BossmanError:
         return None
     answer = sanitize(data.get("result") or data.get("error") or "")[:CONTEXT_CHARS]
+    if not answer and data.get("status") == "stopped":
+        answer = (
+            "[STOP: задача прервана сигналом STOP владельца; status=stopped, "
+            "исход=UNKNOWN_OUTCOME (exit code неизвестен; тихий авто-перезапуск запрещён)]"
+        )
     return f"Владелец: {sanitize(turn.get('text'))[:CONTEXT_CHARS]}\nBossman: {answer or '—'}"
 
 

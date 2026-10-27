@@ -60,8 +60,16 @@ def local_agents(options: dict, agents: list[dict], models: list[dict], provider
         reasons = []
         if not a.get("enabled"):
             reasons.append("выключен")
-        if "eval500 tournament clone" in str(a.get("name") or "").lower():
-            reasons.append("служебный клон турнира EVAL500")
+        name_low = str(a.get("name") or "").strip().lower()
+        if "eval500 tournament clone" in name_low or name_low.startswith((
+            "bossblocks-", "fresh-vibes-", "vault-acl-", "owner-local-", "swapme",
+        )):
+            reasons.append("служебный или архивный тестовый агент")
+        if name_low == "strata (qwen3.8-flash-next)" and any(
+            str(x.get("name") or "").strip().lower() == "argon pc-agent" and x.get("enabled")
+            for x in (options.get("agents") or [])
+        ):
+            reasons.append("объединён в единого рабочего агента Argon PC-Agent")
         if view.get("locality_detail") != "local" or view.get("billing") not in ("local",):
             reasons.append("модель не локальная")
         if view.get("usable") is False:

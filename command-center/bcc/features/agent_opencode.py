@@ -1131,6 +1131,17 @@ def _assert_owner_bypass_allowed(
 
 
 
+_SKILL_MATCH_STOPWORDS: frozenset[str] = frozenset({
+    "bossman", "mobile", "agent", "agents", "code", "mode", "file", "files",
+    "test", "tests", "pytest", "task", "tasks", "run", "check", "status",
+    "read", "write", "patch", "line", "lines", "строка", "строки", "строку",
+    "файл", "файле", "файлы", "код", "кода", "тест", "тесты", "проверь",
+    "исправь", "запусти", "покажи", "пульт", "модель", "версия", "version",
+    "true", "false", "json", "http", "https", "local", "main", "git", "repo",
+    "workspace", "skill", "skills", "tool", "tools", "python", "terminal",
+})
+
+
 def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None:
     """Deterministically match an installed workspace skill (`.agents/skills/<id>/SKILL.md`)
     against a user/North-Star task description and return its contract & required tools."""
@@ -1140,7 +1151,11 @@ def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None
     q = (text or "").strip().lower()
     if not q:
         return None
-    q_tokens = {tok for tok in re.findall(r"[a-zа-яё0-9_-]{3,}", q) if len(tok) >= 3}
+    q_tokens = {
+        tok
+        for tok in re.findall(r"[a-zа-яё0-9_]{3,}", q)
+        if len(tok) >= 3 and tok not in _SKILL_MATCH_STOPWORDS
+    }
     if not q_tokens:
         return None
 
@@ -1157,41 +1172,54 @@ def match_workspace_skill_for_task(svc: Any, text: str) -> dict[str, Any] | None
     for sid, sk in skills_map.items():
         fp = getattr(sk, "fingerprint", "")
         cached = idx_cache.get(sid)
-        if cached is not None and cached[0] == fp:
+        if cached is not None and cached[0] == fp and "hay_id_tokens" in cached[1]:
             entry = cached[1]
         else:
             valid_errors = validate_manifest(sk)["errors"]
             if valid_errors:
-                idx_cache[sid] = (fp, {"valid": False})
+                idx_cache[sid] = (fp, {"valid": False, "hay_id_tokens": frozenset()})
                 continue
             con = skill_contract(sk)
+            hay_id_str = f"{sid} {sk.name}".lower()
+            hay_desc_str = f"{sk.description} {sk.body[:1200]}".lower()
             entry = {
                 "valid": True,
                 "contract": con,
                 "sid_low": sid.lower(),
-                "hay_id": f"{sid} {sk.name}".lower(),
-                "hay_desc": f"{sk.description} {sk.body[:1200]}".lower(),
+                "hay_id": hay_id_str,
+                "hay_desc": hay_desc_str,
+                "hay_id_tokens": frozenset(
+                    t for t in re.findall(r"[a-zа-яё0-9_]{3,}", hay_id_str)
+                    if t not in _SKILL_MATCH_STOPWORDS
+                ),
+                "hay_desc_tokens": frozenset(
+                    t for t in re.findall(r"[a-zа-яё0-9_]{3,}", hay_desc_str)
+                    if t not in _SKILL_MATCH_STOPWORDS
+                ),
             }
             idx_cache[sid] = (fp, entry)
 
         if not entry.get("valid"):
             continue
 
-        hay_id = entry["hay_id"]
-        hay_desc = entry["hay_desc"]
+        hay_id_tokens = entry["hay_id_tokens"]
+        hay_desc_tokens = entry["hay_desc_tokens"]
         score = 0
         matched: list[str] = []
+        id_hits = 0
         if entry["sid_low"] in q:
             score += 12
+            id_hits += 1
             matched.append(sid)
         for tok in sorted_q_tokens:
-            if tok in hay_id:
+            if tok in hay_id_tokens:
                 score += 4
+                id_hits += 1
                 matched.append(tok)
-            elif tok in hay_desc:
+            elif tok in hay_desc_tokens:
                 score += 2
                 matched.append(tok)
-        if len(matched) >= 2 and score > best_score:
+        if (id_hits >= 1 or len(matched) >= 3) and len(matched) >= 2 and score > best_score:
             best_score = score
             best_entry = entry
             best_matched = matched[:8]
@@ -2151,9 +2179,20 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
 
             # Slash-command mode overrides
             effective_mode = (body.mode or cfg["mode"] or DEFAULT_MODE).upper()
+            browser_cmd = False
             if text.startswith("/improve"):
                 effective_mode = "SELF-IMPROVE"
                 text_arg = text[len("/improve"):].strip()
+            elif text == "/browser" or text.startswith("/browser ") or text.startswith("/web "):
+                effective_mode = "COMPUTER"
+                browser_cmd = True
+                raw_b = text.split(" ", 1)[1].strip() if " " in text else "https://example.com"
+                text = (
+                    f"Выполни задачу в браузере (команда /browser): {raw_b}. "
+                    "Используй browser.open, browser.read_dom, browser.screenshot (или pc.browser_act) "
+                    "и проверь результат."
+                )
+                text_arg = raw_b
             elif text.startswith("/auto "):
                 effective_mode = "AUTO"
                 text = text[len("/auto "):].strip()
@@ -2321,12 +2360,14 @@ async def send_agent_message(session_id: str, body: AgentMessageIn, request: Req
                 if effective_mode == "COMPUTER":
                     mode_prefix = (
                         "[Режим COMPUTER USE (Windows): следуй циклу OBSERVE -> PLAN -> APPROVE -> ACT -> VERIFY. "
-                        "Используй computer.observe / terminal.run / browser.* по выданным правам.]\n"
+                        "Используй computer.observe, computer.act, browser.open, browser.read_dom, browser.screenshot, "
+                        "code.read, code.write, code.patch, terminal.run по выданным правам.]\n"
                     )
-                elif effective_mode in ("CODE", "AUTO"):
+                elif effective_mode in ("CODE", "AUTO", "AGENT"):
                     mode_prefix = (
-                        "[Режим OPENCODE / AUTO: используй code.search, code.expand, code.status, terminal.run "
-                        "для чтения кода, проверки git status/diff и запуска pytest.]\n"
+                        "[Режим OPENCODE / AGENT: для чтения и правки файлов (UTF-8) используй нативные "
+                        "инструменты code.read, code.write, code.patch (не используй cmd.exe echo/python -c для записи файлов); "
+                        "для поиска и проверок используй code.search, code.expand, code.status, sandbox.run_check, terminal.run.]\n"
                     )
                 skill_prefix = ""
                 if matched_skill is not None:

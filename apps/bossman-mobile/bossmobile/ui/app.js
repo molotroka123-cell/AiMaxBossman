@@ -1164,7 +1164,17 @@
       /* Mode chips (live audit 25.10): AGENT / AUTO / CODE / PC / /improve go through the unified agent dispatcher with
          the mode, so the mode really changes what runs (prompt preamble, AUTO approvals, the /improve pipeline). CHAT and
          photo prompts stay on the plain chat route. */
-      const mode = b.photo ? 'CHAT' : (S.agentMode || 'CHAT');
+      const lowText = text.trim().toLowerCase();
+      const slashMode = lowText.startsWith('/browser') || lowText.startsWith('/web ') || lowText.startsWith('/pc ') || lowText.startsWith('/computer ')
+        ? 'COMPUTER'
+        : lowText.startsWith('/code ')
+          ? 'CODE'
+          : lowText.startsWith('/auto ')
+            ? 'AUTO'
+            : lowText.startsWith('/improve')
+              ? 'SELF-IMPROVE'
+              : null;
+      const mode = b.photo ? 'CHAT' : (slashMode || S.agentMode || 'CHAT');
       if (mode !== 'CHAT') {
         const r = await api('POST', `/agent/sessions/${encodeURIComponent(S.threadId)}/messages`, { ...payload, mode });
         if (r.improve) {

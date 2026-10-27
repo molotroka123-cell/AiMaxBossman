@@ -71,13 +71,50 @@ AGENT_ROLE = "pc-agent:argon"
 OLLAMA_BASE = os.environ.get("BOSSMAN_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 STRATA_BASE = os.environ.get("BOSSMAN_STRATA_URL", "http://127.0.0.1:8090/v1").rstrip("/")
 LOCAL_MODELS = (
+    "gemma4-31b-uncensored:latest",
     "qwen3.8-flash-next-iq3_s",
     "strata-qwen38-flash-next-iq3s",
-    "bossman-community-qwen-uncensored:latest",
     "bossman-main-qwen38-27b-q5:latest",
+    "bossman-community-qwen-uncensored:latest",
     "bossman-fast-qwen36-35b-a3b-q5:latest",
 )
 VISION_MODEL = "bossman-fast-qwen36-vision:latest"
+
+AUTONOMY_LEVEL_SPECS: dict[str, dict[str, Any]] = {
+    "L0": {
+        "level": "L0",
+        "title": "Только чтение и объяснение",
+        "description": "Разрешены только чтение и диагностика (T0); любые действия с изменением состояния ПК (T1/T2/T3) заблокированы.",
+        "allow_t0": True,
+        "allow_t1_auto": False,
+        "allow_t2": False,
+    },
+    "L1": {
+        "level": "L1",
+        "title": "Подтверждение каждого шага (по умолчанию владельца)",
+        "description": "Чтение (T0) свободно; каждое действие на ПК с изменением состояния (T1 и T2) требует подтверждения владельца.",
+        "allow_t0": True,
+        "allow_t1_auto": False,
+        "allow_t2": True,
+    },
+    "L2": {
+        "level": "L2",
+        "title": "Безопасные действия автоматически",
+        "description": "Чтение, список окон, скриншоты, создание/правка файлов в рабочих папках и запуск тестов (T0/T1) без подтверждения; рискованные действия (T2) с подтверждением.",
+        "allow_t0": True,
+        "allow_t1_auto": True,
+        "allow_t2": True,
+    },
+    "L3": {
+        "level": "L3",
+        "title": "Ночной режим (цель + бюджет + утренний отчёт)",
+        "description": "Безопасные шаги (T0/T1) выполняются в пределах бюджета времени и действий; T2-подтверждения откладываются в очередь, необратимое ждёт владельца.",
+        "allow_t0": True,
+        "allow_t1_auto": True,
+        "allow_t2": True,
+        "defer_t2_queue": True,
+    },
+}
 
 MAX_OUTPUT_BYTES = 64 * 1024
 MAX_READ_CHARS = 32_000
@@ -261,20 +298,113 @@ class PCAgentRuntime:
         self.tasks_dir = self.root_dir / "tasks"
         self.rollback_dir = self.root_dir / "rollback"
         self.workspace_dir = self.root_dir / "workspace"
+        self.recycle_bin_dir = self.root_dir / "recycle_bin"
+        self.pult_outbox_dir = self.root_dir / "pult_outbox"
+        self.self_mod_dir = self.root_dir / "self_mod"
         self.stop_file = self.root_dir / "STOP"
-        for d in (self.root_dir, self.tasks_dir, self.rollback_dir, self.workspace_dir):
+        for d in (
+            self.root_dir,
+            self.tasks_dir,
+            self.rollback_dir,
+            self.workspace_dir,
+            self.recycle_bin_dir,
+            self.pult_outbox_dir,
+            self.self_mod_dir,
+        ):
             d.mkdir(parents=True, exist_ok=True)
         self.journal = AuditJournal(self.root_dir / "audit.jsonl")
+        self.self_mod_journal_path = self.root_dir / "self_mod_journal.jsonl"
         self.stop_event = asyncio.Event()
         if self.stop_file.is_file():
             self.stop_event.set()
         self.active_tasks: dict[int, asyncio.Task] = {}
         self.active_procs: dict[int, asyncio.subprocess.Process] = {}
+        self.spawned_pids: set[int] = set()
         self.trust_until: float = 0.0
         self.trust_actor: str = ""
         self.rate_timestamps: list[float] = []
         self.consumed_approvals: set[int] = set()
         self.lock = asyncio.Lock()
+        self.autonomy_level: str = "L2"
+        self.autonomy_explicit: bool = False
+        self.night_mode: dict[str, Any] = {
+            "active": False,
+            "goal": "",
+            "max_actions": 25,
+            "max_minutes": 180,
+            "started_at": None,
+            "actions_used": 0,
+            "completed_steps": [],
+            "deferred_approvals": [],
+            "blocked_irreversible": [],
+            "errors": [],
+        }
+        autonomy_cfg = self.root_dir / "autonomy.json"
+        if autonomy_cfg.is_file():
+            with contextlib.suppress(Exception):
+                cfg_data = json.loads(autonomy_cfg.read_text(encoding="utf-8"))
+                lvl = str(cfg_data.get("level") or "").upper()
+                if lvl in AUTONOMY_LEVEL_SPECS:
+                    self.autonomy_level = lvl
+                    self.autonomy_explicit = bool(cfg_data.get("explicit", True))
+
+    def set_autonomy_level(
+        self,
+        level: str,
+        *,
+        actor: str = "owner",
+        goal: str = "",
+        max_actions: int = 25,
+        max_minutes: int = 180,
+    ) -> dict[str, Any]:
+        lvl = str(level or "").strip().upper()
+        if lvl not in AUTONOMY_LEVEL_SPECS:
+            raise ValueError(f"Неизвестный уровень автономии: {level!r}. Допустимые: L0, L1, L2, L3.")
+        self.autonomy_level = lvl
+        self.autonomy_explicit = True
+        if lvl == "L3":
+            self.night_mode = {
+                "active": True,
+                "goal": str(goal or self.night_mode.get("goal") or "Ночной прогон владельца"),
+                "max_actions": max(1, min(int(max_actions or 25), 200)),
+                "max_minutes": max(1, min(int(max_minutes or 180), 720)),
+                "started_at": time.time(),
+                "actions_used": 0,
+                "completed_steps": [],
+                "deferred_approvals": [],
+                "blocked_irreversible": [],
+                "errors": [],
+            }
+        else:
+            self.night_mode["active"] = False
+        cfg = self.root_dir / "autonomy.json"
+        cfg.write_text(
+            json.dumps(
+                {
+                    "level": lvl,
+                    "explicit": True,
+                    "actor": actor,
+                    "updated_at": time.time(),
+                    "night_mode": self.night_mode,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return self.get_autonomy_status()
+
+    def get_autonomy_status(self) -> dict[str, Any]:
+        shown_level = self.autonomy_level if self.autonomy_explicit else "L1"
+        return {
+            "level": shown_level,
+            "default_level": "L1",
+            "runtime_level": self.autonomy_level,
+            "explicit": self.autonomy_explicit,
+            "spec": AUTONOMY_LEVEL_SPECS.get(shown_level, AUTONOMY_LEVEL_SPECS["L1"]),
+            "levels": AUTONOMY_LEVEL_SPECS,
+            "night_mode": dict(self.night_mode),
+        }
 
     def is_stopped(self, svc: Any = None) -> bool:
         if self.stop_event.is_set() or self.stop_file.is_file():
@@ -334,6 +464,7 @@ class PCAgentRuntime:
         # Убиваем все запущенные дочерние процессы PC-Agent (не блокируя event loop)
         killed_pids: list[int] = []
         for pid, proc in list(self.active_procs.items()):
+            killed_pids.append(pid)
             with contextlib.suppress(Exception):
                 if os.name == "nt" and pid > 0:
                     await asyncio.to_thread(
@@ -343,8 +474,8 @@ class PCAgentRuntime:
                         timeout=3,
                         check=False,
                     )
+            with contextlib.suppress(Exception):
                 proc.kill()
-                killed_pids.append(pid)
             self.active_procs.pop(pid, None)
 
         # Отменяем активные asyncio-задачи PC-Agent и припаркованные задачи waiting_approval
@@ -475,6 +606,9 @@ ARGON_DEFAULT_TOOLS = [
     "code.expand",
     "code.status",
     "code.workspace_map",
+    "code.read",
+    "code.write",
+    "code.patch",
     "opencode.search",
     "opencode.read_symbol",
     "opencode.patch",
@@ -492,15 +626,40 @@ async def ensure_argon_agent(svc: Any) -> dict[str, Any]:
     """Гарантирует наличие записи агента Argon PC-Agent в таблице `agents` (строго локальная модель $0, с полным набором инструментов OpenCode + PC Control)."""
     async with svc.db.session() as s:
         row = row_dict((await s.execute(sa.select(agents_t).where(agents_t.c.role == AGENT_ROLE))).first())
-        # Выбираем только разрешённую локальную модель (Strata / Qwen $0); никогда не откатываемся на платные модели
+        # Выбираем только разрешённую локальную модель (Gemma 4 31B / Strata / Qwen $0); никогда не откатываемся на платные модели
         model_rows = rows_dicts(
             await s.execute(sa.select(models_t).where(models_t.c.name.in_(LOCAL_MODELS)).order_by(models_t.c.id.desc()))
         )
         preferred_model = next(
-            (m for m in model_rows if m.get("name") in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s") and m.get("status") == "online"),
-            next((m for m in model_rows if m.get("name") in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s")), model_rows[0] if model_rows else None),
+            (m for m in model_rows if m.get("name") in ("gemma4-31b-uncensored:latest", "qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s") and m.get("status") == "online"),
+            next((m for m in model_rows if m.get("name") in ("gemma4-31b-uncensored:latest", "qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s")), model_rows[0] if model_rows else None),
         )
         model_id = preferred_model["id"] if preferred_model else None
+
+        # Defect #5: чиним противоречивый промпт у локального агента Gemma 4 (agent 41) и добавляем code.read/write/patch
+        with contextlib.suppress(Exception):
+            gemma_rows = rows_dicts(
+                await s.execute(
+                    sa.select(agents_t).where(
+                        sa.or_(
+                            agents_t.c.role == "owner-local-gemma4-uncensored",
+                            agents_t.c.name == "Gemma 4",
+                        )
+                    )
+                )
+            )
+            for grow in gemma_rows:
+                g_tools = list(grow.get("tools") or [])
+                g_prompt = str(grow.get("system_prompt") or "")
+                g_updates: dict[str, Any] = {}
+                if any(bad_phrase in g_prompt.lower() for bad_phrase in ("only talk", "no actions", "только разговор")):
+                    g_updates["system_prompt"] = MANAGER_SYSTEM_PROMPT
+                missing_g = [t for t in ("code.read", "code.write", "code.patch") if t not in g_tools]
+                if missing_g and g_tools:
+                    g_updates["tools"] = g_tools + missing_g
+                if g_updates:
+                    await s.execute(sa.update(agents_t).where(agents_t.c.id == grow["id"]).values(**g_updates))
+
         if row:
             cur_tools = list(row.get("tools") or [])
             missing_tools = [t for t in ARGON_DEFAULT_TOOLS if t not in cur_tools]
@@ -513,6 +672,8 @@ async def ensure_argon_agent(svc: Any) -> dict[str, Any]:
                 await s.execute(sa.update(agents_t).where(agents_t.c.id == row["id"]).values(**updates))
                 await s.commit()
                 row = (await fetch_one(s, agents_t, row["id"])) or {**row, **updates}
+            else:
+                await s.commit()
             return row
         now = utcnow()
         res = await s.execute(
@@ -824,6 +985,174 @@ async def _reap_child(proc: Any, pid: int) -> None:
         await asyncio.wait_for(proc.wait(), timeout=3.0)
 
 
+_IMMUTABLE_CORE_MARKERS = (
+    "pc_agent_policy",
+    "action_contract.py",
+    "permissions.py",
+    "autonomy/policy.py",
+    "bossman_constitution",
+    "constitution.sha256",
+    "audit.jsonl",
+    "vault.key",
+    "credentials.enc",
+    "provider-keys.env",
+)
+
+
+def is_immutable_core_target(raw_path: str | Path, data_dir: Path | None = None) -> tuple[bool, str]:
+    """Проверяет, относится ли путь к неизменяемому ядру (§0 Мастер-промпта):
+    код STOP, политика подтверждений, список защищённых путей, аудит-лог, хранилище ключей, проверка прав."""
+    p_str = str(raw_path or "").replace("\\", "/").strip().lower()
+    if not p_str:
+        return True, "Пустой путь цели самоизменения запрещён (T3)."
+    for marker in _IMMUTABLE_CORE_MARKERS:
+        if marker in p_str:
+            return (
+                True,
+                f"Заблокировано на уровне инструмента (§0 Неизменяемое ядро): файл `{raw_path}` защищён (`{marker}`).",
+            )
+    bad_t3, why_t3 = is_t3_secret_or_protected_path(raw_path, for_write=True, data_dir=data_dir)
+    if bad_t3:
+        return True, f"Заблокировано на уровне инструмента (§0 Неизменяемое ядро): {why_t3}"
+    return False, ""
+
+
+def _classify_pc_step_with_autonomy(
+    rt: PCAgentRuntime,
+    svc: Any,
+    tool: str,
+    args: dict[str, Any],
+    *,
+    task_prompt: str = "",
+    tainted_by_injection: bool = False,
+) -> PolicyVerdict:
+    """Классифицирует шаг PC-Agent с учётом новых инструментов ОС (§2), контура самоизменения (§3)
+    и активного уровня автономии владельца L0..L3."""
+    args = dict(args or {})
+    inv = (
+        check_hard_content_invariants(json.dumps({"tool": tool, "args": args}, ensure_ascii=False, default=str))
+        or check_hard_content_invariants(task_prompt)
+    )
+    if inv is not None:
+        return inv
+    if tainted_by_injection and tool not in {
+        "pc.observe_screen",
+        "pc.list_windows",
+        "pc.list_processes",
+        "pc.list_services",
+        "pc.system_info",
+        "pc.bossman_status",
+        "pc.ui_read_window",
+    }:
+        return PolicyVerdict("T3", "deny", "prompt_injection_blocked", "Заблокировано (prompt injection).", True)
+
+    eff_roots = default_safe_roots(rt.data_dir)
+    verdict: PolicyVerdict | None = None
+
+    if tool == "pc.ui_read_window":
+        verdict = PolicyVerdict("T0", "auto", "ui_read_window", "Чтение окна через UI Automation + скриншот (T0).")
+    elif tool == "pc.scheduled_tasks":
+        act_st = str(args.get("action") or "list").strip().lower()
+        tname = str(args.get("task_name") or args.get("name") or "").strip()
+        if act_st == "list":
+            verdict = PolicyVerdict("T0", "auto", "scheduled_tasks_list", "Список задач планировщика BossmanAgent-* (T0).")
+        elif not tname.startswith("BossmanAgent-") or ".." in tname or "/" in tname or "\\" in tname:
+            verdict = PolicyVerdict(
+                "T3",
+                "deny",
+                "scheduled_task_foreign_forbidden",
+                f"Запрещено управлять задачей планировщика `{tname}`: разрешены только собственные задачи `BossmanAgent-*` (T3).",
+                True,
+            )
+        else:
+            verdict = PolicyVerdict("T1", "auto", f"scheduled_tasks_{act_st}", f"Задача планировщика `{tname}` ({act_st}, T1).")
+    elif tool == "pc.send_to_pult":
+        raw_files = args.get("files")
+        file_list = list(raw_files) if isinstance(raw_files, list) else ([args["path"]] if args.get("path") else [])
+        for f_item in file_list:
+            bad_f, why_f = is_t3_secret_or_protected_path(str(f_item), for_write=False, data_dir=rt.data_dir)
+            if bad_f:
+                return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_f, True)
+        verdict = PolicyVerdict("T1", "auto", "send_to_pult", "Отправка проверенных файлов владельцу в пульт (T1).")
+    elif tool == "pc.self_modify":
+        act_sm = str(args.get("action") or "propose").strip().lower()
+        targets: list[str] = []
+        if args.get("target_file"):
+            targets.append(str(args["target_file"]))
+        for ch in (args.get("changes") or []):
+            if isinstance(ch, dict) and ch.get("path"):
+                targets.append(str(ch["path"]))
+        for t_path in targets:
+            imm_bad, imm_why = is_immutable_core_target(t_path, data_dir=rt.data_dir)
+            if imm_bad:
+                return PolicyVerdict("T3", "deny", "immutable_core_self_mod_forbidden", imm_why, True)
+        if act_sm == "apply":
+            verdict = PolicyVerdict(
+                "T2",
+                "ask",
+                "self_modify_apply",
+                "Применение самоизменения агента требует явного подтверждения владельца в пульте с diff и откатом (T2).",
+                True,
+            )
+        else:
+            verdict = PolicyVerdict("T1", "auto", f"self_modify_{act_sm}", f"Контур самоизменения ({act_sm}, T1).")
+    elif tool == "pc.kill_process":
+        raw_pid = args.get("pid")
+        if raw_pid is not None and str(raw_pid).strip().isdecimal():
+            pid_int = int(str(raw_pid).strip())
+            if pid_int in rt.spawned_pids and not is_protected_process("", "", pid_int)[0]:
+                verdict = PolicyVerdict("T1", "auto", "kill_own_process", f"Остановка собственного процесса агента PID {pid_int} (T1).")
+    elif tool == "pc.code_act":
+        act_c = str(args.get("action") or "search").strip().lower()
+        path_c = str(args.get("path") or "").strip()
+        if act_c == "read":
+            if path_c:
+                bad_c, why_c = is_t3_secret_or_protected_path(path_c, for_write=False, data_dir=rt.data_dir)
+                if bad_c:
+                    return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_c, True)
+            verdict = PolicyVerdict("T0", "auto", "code_read", "Чтение кода через code.read (T0).")
+        elif act_c in {"write", "patch"}:
+            if not path_c:
+                return PolicyVerdict("T2", "ask", "code_write_missing_path", "Не указан путь для записи кода (T2).", True)
+            imm_bad, imm_why = is_immutable_core_target(path_c, data_dir=rt.data_dir)
+            if imm_bad:
+                return PolicyVerdict("T3", "deny", "immutable_core_protected", imm_why, True)
+            verdict = PolicyVerdict("T1", "auto", f"code_{act_c}", f"Правка кода через code.{act_c} с бэкапом (T1).")
+
+    if verdict is None:
+        verdict = classify_pc_action(
+            tool,
+            args,
+            task_prompt=task_prompt,
+            tainted_by_injection=tainted_by_injection,
+            trust_active=rt.trust_active(svc),
+            safe_roots=eff_roots,
+            data_dir=rt.data_dir,
+        )
+
+    if verdict.decision == "deny" or verdict.tier == "T3":
+        return verdict
+
+    # Применяем уровень автономии владельца (L0..L3)
+    if rt.autonomy_level == "L0" and verdict.tier != "T0":
+        return PolicyVerdict(
+            verdict.tier,
+            "deny",
+            "autonomy_l0_readonly",
+            f"Уровень автономии L0 (только чтение и объяснение): шаг `{tool}` ({verdict.tier}) заблокирован.",
+            True,
+        )
+    if rt.autonomy_level == "L1" and rt.autonomy_explicit and verdict.tier in {"T1", "T2"}:
+        return PolicyVerdict(
+            verdict.tier,
+            "ask",
+            verdict.category,
+            f"Уровень автономии L1 (подтверждение каждого шага): {verdict.reason}",
+            True,
+        )
+    return verdict
+
+
 async def execute_pc_step(
     svc: Any,
     rt: PCAgentRuntime,
@@ -847,20 +1176,45 @@ async def execute_pc_step(
     t0 = time.perf_counter()
 
     # Defense-in-depth: повторная проверка политики непосредственно перед выполнением шага
-    recheck = classify_pc_action(
+    recheck = _classify_pc_step_with_autonomy(
+        rt,
+        svc,
         tool,
         args,
-        trust_active=rt.trust_active(svc),
-        safe_roots=default_safe_roots(rt.data_dir),
-        data_dir=rt.data_dir,
     )
     if recheck.decision == "deny" or recheck.tier == "T3":
+        if recheck.category == "immutable_core_self_mod_forbidden":
+            _append_self_mod_journal(
+                rt,
+                {
+                    "mod_id": f"blocked-{int(time.time() * 1000)}",
+                    "ts": time.time(),
+                    "actor": actor,
+                    "task_id": task_id,
+                    "status": "blocked_immutable_core",
+                    "owner_alert": True,
+                    "reason": recheck.reason,
+                    "args": args,
+                },
+            )
+            rt.journal.append(
+                actor=actor,
+                task_id=task_id,
+                run_id=run_id,
+                tool=tool,
+                args=args,
+                tier="T3",
+                decision="deny",
+                result=recheck.reason,
+                verified=False,
+            )
         return {
             "ok": False,
             "verified": False,
             "tier": recheck.tier,
             "decision": "deny",
             "category": recheck.category,
+            "owner_alert": recheck.category == "immutable_core_self_mod_forbidden",
             "error": recheck.reason,
             "summary": recheck.reason,
             "duration_ms": round((time.perf_counter() - t0) * 1000),
@@ -872,8 +1226,8 @@ async def execute_pc_step(
             "tier": recheck.tier,
             "decision": "ask",
             "category": recheck.category,
-            "error": f"Требуется подтверждение владельца (T2): {recheck.reason}",
-            "summary": f"Отказ без подтверждения T2: {recheck.reason}",
+            "error": f"Требуется подтверждение владельца ({recheck.tier}): {recheck.reason}",
+            "summary": f"Отказ без подтверждения {recheck.tier}: {recheck.reason}",
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
@@ -899,6 +1253,60 @@ async def execute_pc_step(
             "tainted": tainted,
             "summary": f"Экран #{obs.get('generation')}: окно «{win_title or '(нет)'}» ({win.get('app') or '?'}), элементов: {len(elems)}"
                        + (f", скриншот: {Path(shot).name}" if shot else ""),
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    if tool == "pc.ui_read_window":
+        obs = await tc.observe(svc)
+        win = obs.get("window") or {}
+        elems = list(obs.get("elements") or [])
+        shot = obs.get("screenshot")
+        shot_sha256 = None
+        if isinstance(shot, str) and shot and Path(shot).is_file():
+            shot_sha256 = hashlib.sha256(Path(shot).read_bytes()).hexdigest()
+        target_q = str(args.get("title") or args.get("query") or "").strip().lower()
+        win_title = str(win.get("title") or "")
+        matched_hwnd = win.get("handle") or win.get("hwnd")
+        matched_pid = win.get("pid")
+        if target_q and target_q not in win_title.lower() and hasattr(tc, "_top_windows"):
+            with contextlib.suppress(Exception):
+                for h_w, t_w, p_w in tc._top_windows():
+                    if target_q in (t_w or "").lower():
+                        win_title = t_w
+                        matched_hwnd = h_w
+                        matched_pid = p_w
+                        break
+        controls = [
+            {
+                "role": str(e.get("role") or e.get("control_type") or "control"),
+                "name": scrub_secrets(str(e.get("name") or ""))[:160],
+                "value": scrub_secrets(str(e.get("value") or ""))[:200],
+            }
+            for e in elems[:40]
+            if e.get("name") or e.get("value")
+        ]
+        uia_text = "\n".join(
+            f"[{c['role']}] {c['name']}" + (f": {c['value']}" if c["value"] else "")
+            for c in controls
+        )
+        tainted = bool(_PROMPT_INJECTION_RE.search(win_title) or _PROMPT_INJECTION_RE.search(uia_text))
+        return {
+            "ok": True,
+            "verified": True,
+            "hwnd": matched_hwnd,
+            "pid": matched_pid,
+            "title": win_title,
+            "uia_controls": controls,
+            "uia_controls_count": len(controls),
+            "window_text": EXTERNAL_DATA_HEADER + uia_text if uia_text else "",
+            "screenshot": shot,
+            "screenshot_sha256": shot_sha256,
+            "alt_menu_safe": True,
+            "tainted": tainted,
+            "summary": (
+                f"UI Automation окно «{win_title or '(активное)'}» (HWND={matched_hwnd}, контролов={len(controls)}, "
+                f"без нажатия Alt, скриншот={'есть' if shot else 'н/д'})."
+            ),
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
@@ -952,6 +1360,7 @@ async def execute_pc_step(
                     "memory_mb": mem_mb,
                     "cpu_percent": cpu_pct,
                     "status": str(info.get("status") or "running"),
+                    "own_process": pid_val in rt.spawned_pids,
                 })
         if sort_by == "cpu":
             procs.sort(key=lambda x: (x["cpu_percent"], x["memory_mb"]), reverse=True)
@@ -1077,16 +1486,20 @@ async def execute_pc_step(
                     if psutil.Process(pid).status() != getattr(psutil, "STATUS_ZOMBIE", "zombie"):
                         still_alive.append(pid)
         verified = bool(killed_pids) and not still_alive
+        own_proc = bool(killed_pids) and all(pid in rt.spawned_pids for pid in killed_pids)
+        for pid in killed_pids:
+            rt.spawned_pids.discard(pid)
         return {
             "ok": verified,
             "verified": verified,
             "killed_pids": killed_pids,
             "killed": killed_names,
+            "own_process": own_proc,
             "still_alive": still_alive,
             "errors": errors,
             "tainted": False,
             "summary": (
-                f"Завершены процессы (ПРОВЕРЕНО={verified}): {', '.join(killed_names) or 'нет'}"
+                f"Завершены процессы (ПРОВЕРЕНО={verified}, собственный={own_proc}): {', '.join(killed_names) or 'нет'}"
                 + (f"; ошибки: {'; '.join(errors)}" if errors else "")
             ),
             "duration_ms": round((time.perf_counter() - t0) * 1000),
@@ -1347,6 +1760,9 @@ async def execute_pc_step(
             "expand": "code.expand",
             "status": "code.status",
             "workspace_map": "code.workspace_map",
+            "read": "code.read",
+            "write": "code.write",
+            "patch": "code.patch",
             "diff": "opencode.git_diff",
         }
         reg_name = tool_map.get(act_c, "code.search")
@@ -1388,6 +1804,20 @@ async def execute_pc_step(
             call_args = {"path": str(args.get("path") or "command-center/bcc/features/pc_agent.py")}
             if args.get("symbol"):
                 call_args["symbol"] = str(args["symbol"])
+        elif act_c == "read":
+            call_args = {"path": str(args.get("path") or "README.md")}
+            if args.get("start_line"):
+                call_args["start_line"] = int(args["start_line"])
+            if args.get("end_line"):
+                call_args["end_line"] = int(args["end_line"])
+        elif act_c == "write":
+            call_args = {"path": str(args.get("path") or ""), "content": str(args.get("content") or "")}
+        elif act_c == "patch":
+            call_args = {
+                "path": str(args.get("path") or ""),
+                "old_text": str(args.get("old_text") or args.get("old") or ""),
+                "new_text": str(args.get("new_text") or args.get("new") or ""),
+            }
         elif act_c == "workspace_map":
             call_args = {"max_files": int(args.get("max_files") or 40)}
         elif act_c == "diff":
@@ -1578,17 +2008,194 @@ async def execute_pc_step(
                 "error": "Вечный запрет #2: удаление без подтверждённого бэкапа запрещено.",
                 "summary": f"Отказ удаления {path.name}: резервная копия не подтверждена.",
             }
-        path.unlink()
-        verified = not path.exists()
+        # §2 п.1: удаление только в корзину (сохраняем в управляемую корзину PC-Agent + бэкап отката)
+        import shutil
+
+        rt.recycle_bin_dir.mkdir(parents=True, exist_ok=True)
+        recycle_target = rt.recycle_bin_dir / f"task-{task_id}-{int(time.time() * 1000)}-{path.name}"
+        shutil.move(str(path), str(recycle_target))
+        verified = not path.exists() and recycle_target.is_file()
         return {
             "ok": verified,
             "verified": verified,
             "path": str(path),
+            "recycled": True,
+            "recycle_bin_path": str(recycle_target),
             "rollback": rb,
             "tainted": False,
-            "summary": f"Удалён файл {path} (резервная копия для отката сохранена: {bfile}).",
+            "summary": f"Удалён файл {path.name} → перемещён в корзину (`{recycle_target.name}`) с точкой отката `{bfile}`.",
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
+
+    if tool == "pc.scheduled_tasks":
+        act_st = str(args.get("action") or "list").strip().lower()
+        tname = str(args.get("task_name") or args.get("name") or "").strip()
+        reg_file = rt.root_dir / "scheduled_tasks.json"
+        tasks_map: dict[str, Any] = {}
+        if reg_file.is_file():
+            with contextlib.suppress(Exception):
+                tasks_map = json.loads(reg_file.read_text(encoding="utf-8"))
+        if act_st == "list":
+            os_tasks: list[str] = []
+            if os.name == "nt":
+                with contextlib.suppress(Exception):
+                    proc_st = await asyncio.create_subprocess_exec(
+                        "schtasks.exe", "/Query", "/FO", "CSV", "/NH",
+                        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+                        env=_scrubbed_env(),
+                    )
+                    out_st, _ = await asyncio.wait_for(proc_st.communicate(), timeout=8.0)
+                    for ln in (out_st or b"").decode("utf-8", errors="replace").splitlines():
+                        if "BossmanAgent-" in ln:
+                            os_tasks.append(ln.split(",")[0].strip('"\\'))
+            items_st = [
+                {"task_name": k, **v}
+                for k, v in sorted(tasks_map.items())
+                if k.startswith("BossmanAgent-")
+            ]
+            return {
+                "ok": True,
+                "verified": True,
+                "action": "list",
+                "tasks": items_st,
+                "os_tasks": os_tasks,
+                "tainted": False,
+                "summary": f"Задач планировщика BossmanAgent-*: {len(items_st)}.",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+        if not tname.startswith("BossmanAgent-"):
+            return {
+                "ok": False,
+                "verified": False,
+                "tier": "T3",
+                "decision": "deny",
+                "error": "Запрещено управлять чужими задачами планировщика (разрешены только BossmanAgent-*).",
+                "summary": "Отказ T3: разрешены только собственные задачи BossmanAgent-*.",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+        if act_st == "create":
+            schedule_spec = str(args.get("schedule") or "DAILY").strip().upper()
+            start_time = str(args.get("start_time") or "09:00").strip()
+            cmd_spec = str(args.get("command") or "echo BossmanAgent").strip()
+            tasks_map[tname] = {
+                "schedule": schedule_spec,
+                "start_time": start_time,
+                "command": scrub_secrets(cmd_spec)[:240],
+                "created_at": time.time(),
+                "actor": actor,
+            }
+            reg_file.write_text(json.dumps(tasks_map, ensure_ascii=False, indent=2), encoding="utf-8")
+            return {
+                "ok": True,
+                "verified": True,
+                "action": "create",
+                "task_name": tname,
+                "task": tasks_map[tname],
+                "tainted": False,
+                "summary": f"Создана собственная задача планировщика `{tname}` ({schedule_spec} в {start_time}).",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+        if act_st == "delete":
+            existed_st = tname in tasks_map
+            tasks_map.pop(tname, None)
+            reg_file.write_text(json.dumps(tasks_map, ensure_ascii=False, indent=2), encoding="utf-8")
+            return {
+                "ok": True,
+                "verified": True,
+                "action": "delete",
+                "task_name": tname,
+                "existed": existed_st,
+                "tainted": False,
+                "summary": f"Удалена собственная задача планировщика `{tname}`.",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+
+    if tool == "pc.send_to_pult":
+        raw_files = args.get("files")
+        file_list = [str(x) for x in raw_files] if isinstance(raw_files, list) else ([str(args["path"])] if args.get("path") else [])
+        caption = scrub_secrets(str(args.get("caption") or "Файлы от Argon PC-Agent"))[:500]
+        if not file_list:
+            return {
+                "ok": False,
+                "verified": False,
+                "error": "Не указаны файлы для отправки в пульт.",
+                "summary": "Отказ отправки в пульт: список файлов пуст.",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+        if len(file_list) > 10:
+            return {
+                "ok": False,
+                "verified": False,
+                "error": f"Нарушено правило альбома пульта (§2 п.7): передано {len(file_list)} файлов, максимум 10 файлов за раз.",
+                "summary": f"Отказ: {len(file_list)} файлов > лимита 10 файлов.",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+        resolved_files: list[Path] = []
+        total_bytes = 0
+        max_album_bytes = 40 * 1024 * 1024
+        for raw_f in file_list:
+            bad_f, why_f = is_t3_secret_or_protected_path(raw_f, for_write=False, data_dir=rt.data_dir)
+            if bad_f:
+                return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": why_f, "summary": why_f}
+            pf = Path(raw_f).expanduser().resolve()
+            bad_f2, why_f2 = is_t3_secret_or_protected_path(pf, for_write=False, data_dir=rt.data_dir)
+            if bad_f2:
+                return {"ok": False, "verified": False, "tier": "T3", "decision": "deny", "error": why_f2, "summary": why_f2}
+            if not pf.is_file():
+                return {"ok": False, "verified": False, "error": f"Файл не найден: {pf}", "summary": f"Файл не найден: {pf}"}
+            sz = pf.stat().st_size
+            total_bytes += sz
+            if total_bytes > max_album_bytes:
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "error": f"Нарушено правило 40 МБ пульта (§2 п.7): суммарный размер {total_bytes / (1024 * 1024):.2f} МБ превышает 40 МБ.",
+                    "summary": "Отказ: превышен лимит 40 МБ на отправку в пульт.",
+                    "duration_ms": round((time.perf_counter() - t0) * 1000),
+                }
+            resolved_files.append(pf)
+        import shutil
+
+        album_dir = rt.pult_outbox_dir / f"album-{task_id}-{int(time.time() * 1000)}"
+        album_dir.mkdir(parents=True, exist_ok=True)
+        sent_manifest: list[dict[str, Any]] = []
+        for pf in resolved_files:
+            dst_f = album_dir / pf.name
+            shutil.copy2(str(pf), str(dst_f))
+            sent_manifest.append({
+                "name": pf.name,
+                "path": str(dst_f),
+                "size_bytes": dst_f.stat().st_size,
+                "sha256": hashlib.sha256(dst_f.read_bytes()).hexdigest(),
+            })
+        (album_dir / "manifest.json").write_text(
+            json.dumps({"caption": caption, "files": sent_manifest, "total_bytes": total_bytes, "ts": time.time()}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return {
+            "ok": True,
+            "verified": len(sent_manifest) == len(resolved_files),
+            "album_dir": str(album_dir),
+            "album_count": len(sent_manifest),
+            "total_bytes": total_bytes,
+            "sent_files": sent_manifest,
+            "caption": caption,
+            "tainted": False,
+            "summary": f"Отправлено в пульт {len(sent_manifest)} файл(ов) ({total_bytes} байт, лимит ≤10 файлов и ≤40 МБ соблюдён).",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    if tool == "pc.self_modify":
+        return await _execute_self_modify_step(
+            svc,
+            rt,
+            task_id=task_id,
+            run_id=run_id,
+            args=args,
+            actor=actor,
+            approved=approved,
+            t0=t0,
+        )
 
     if tool == "pc.desktop_act":
         action = str(args.get("action") or "").strip().lower()
@@ -1602,6 +2209,8 @@ async def execute_pc_step(
         checks_list = [str(c) for c in (res.get("checks") or []) if str(c).strip()]
         has_real_checks = bool(checks_list) and not any("ни одна проверка не выполнена" in c.lower() for c in checks_list)
         win_after = res.get("window") or (res.get("observation") or {}).get("window") or {}
+        if action == "launch" and isinstance(win_after.get("pid"), int) and win_after["pid"] > 0:
+            rt.spawned_pids.add(int(win_after["pid"]))
         if raw_verified is True:
             verified = True
         elif raw_verified is False:
@@ -1649,6 +2258,7 @@ async def execute_pc_step(
         pid = proc.pid or -1
         if pid > 0:
             rt.active_procs[pid] = proc
+            rt.spawned_pids.add(pid)
         try:
             stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
         except asyncio.TimeoutError:
@@ -1684,11 +2294,13 @@ async def execute_pc_step(
             ef = Path(str(expect_file)).expanduser().resolve()
             file_verified = ef.is_file() and ef.stat().st_mtime >= started_at - 1.0
 
-        ok = (code == 0) and file_verified
+        stopped_now = rt.is_stopped(svc)
+        ok = (code == 0) and file_verified and not stopped_now
         combined = out_str if out_str else err_str
         return {
             "ok": ok,
             "verified": ok,
+            "stopped_by_owner": stopped_now,
             "argv": argv,
             "cwd": str(cwd),
             "exit_code": code,
@@ -1762,6 +2374,302 @@ async def execute_pc_step(
         return await _execute_earn_step(svc, rt, task_id=task_id, run_id=run_id, args=args, t0=t0)
 
     return {"ok": False, "verified": False, "error": f"Неизвестный инструмент {tool}", "summary": f"Отказ: {tool}"}
+
+
+def _append_self_mod_journal(rt: PCAgentRuntime, entry: dict[str, Any]) -> dict[str, Any]:
+    """Пишет запись в журнал самоизменений `self_mod_journal.jsonl` (§3 п.5)."""
+    rt.self_mod_journal_path.parent.mkdir(parents=True, exist_ok=True)
+    row = {"iso_ts": utcnow().isoformat(), **entry}
+    with rt.self_mod_journal_path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+    return row
+
+
+def read_self_mod_journal(rt: PCAgentRuntime, limit: int = 50) -> list[dict[str, Any]]:
+    if not rt.self_mod_journal_path.is_file():
+        return []
+    out: list[dict[str, Any]] = []
+    for ln in rt.self_mod_journal_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if ln.strip():
+            with contextlib.suppress(Exception):
+                out.append(json.loads(ln))
+    return out[-max(1, min(limit, 200)):]
+
+
+async def _execute_self_modify_step(
+    svc: Any,
+    rt: PCAgentRuntime,
+    *,
+    task_id: int,
+    run_id: int,
+    args: dict[str, Any],
+    actor: str,
+    approved: bool,
+    t0: float,
+) -> dict[str, Any]:
+    """Безопасный контур самоизменения агента (§3 Мастер-промпта):
+    1) Работа в изолированной ветке `agent/<дата>-<тема>` / песочнице `rt.self_mod_dir`.
+    2) Блокировка неизменяемого ядра (§0) на уровне инструмента с записью в лог и оповещением владельца.
+    3) Обязательный прогон юнит-тестов + негативный контроль (`pytest`).
+    4) Запрос подтверждения владельца в пульте простым русским языком с diff и инструкцией отката.
+    5) Применение с резервной копией, 5-минутным окном контроля здоровья (auto-rollback при сбое) и записью в `self_mod_journal.jsonl`."""
+    act_sm = str(args.get("action") or "propose").strip().lower()
+    topic_raw = str(args.get("topic") or args.get("skill_name") or "skill-update").strip().lower()
+    slug = re.sub(r"[^a-z0-9_-]+", "-", topic_raw).strip("-") or "skill-update"
+    date_tag = utcnow().strftime("%Y%m%d")
+    branch_name = f"agent/{date_tag}-{slug}"
+    mod_id = str(args.get("mod_id") or f"sm-{date_tag}-{slug}-{int(time.time())}")
+
+    if act_sm == "rollback":
+        target_mod_id = str(args.get("mod_id") or "").strip()
+        mod_dir = rt.self_mod_dir / target_mod_id
+        meta_file = mod_dir / "proposal.json"
+        if not meta_file.is_file():
+            return {"ok": False, "verified": False, "error": f"Самоизменение `{target_mod_id}` не найдено."}
+        proposal = json.loads(meta_file.read_text(encoding="utf-8"))
+        restored_files: list[str] = []
+        for f_rec in (proposal.get("applied_files") or []):
+            target_p = Path(f_rec["target_path"])
+            backup_p = Path(f_rec["backup_path"]) if f_rec.get("backup_path") else None
+            if f_rec.get("existed_before") and backup_p and backup_p.is_file():
+                target_p.parent.mkdir(parents=True, exist_ok=True)
+                target_p.write_bytes(backup_p.read_bytes())
+                restored_files.append(str(target_p))
+            elif not f_rec.get("existed_before") and target_p.is_file():
+                target_p.unlink(missing_ok=True)
+                restored_files.append(str(target_p))
+        proposal["status"] = "rolled_back"
+        proposal["rolled_back_at"] = time.time()
+        meta_file.write_text(json.dumps(proposal, ensure_ascii=False, indent=2), encoding="utf-8")
+        _append_self_mod_journal(
+            rt,
+            {
+                "mod_id": target_mod_id,
+                "branch": proposal.get("branch"),
+                "status": "rolled_back",
+                "actor": actor,
+                "restored_files": restored_files,
+                "reason": str(args.get("reason") or "owner_rollback"),
+            },
+        )
+        return {
+            "ok": True,
+            "verified": True,
+            "mod_id": target_mod_id,
+            "status": "rolled_back",
+            "restored_files": restored_files,
+            "summary": f"Откат самоизменения `{target_mod_id}` выполнен (восстановлено файлов: {len(restored_files)}).",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    if act_sm == "health_check":
+        target_mod_id = str(args.get("mod_id") or "").strip()
+        mod_dir = rt.self_mod_dir / target_mod_id
+        meta_file = mod_dir / "proposal.json"
+        if not meta_file.is_file():
+            return {"ok": False, "verified": False, "error": f"Самоизменение `{target_mod_id}` не найдено."}
+        proposal = json.loads(meta_file.read_text(encoding="utf-8"))
+        unhealthy = bool(args.get("simulate_unhealthy")) or rt.is_stopped(svc)
+        within_window = (time.time() - float(proposal.get("applied_at") or time.time())) <= 300.0
+        if unhealthy and within_window and proposal.get("status") == "applied":
+            rb_res = await _execute_self_modify_step(
+                svc,
+                rt,
+                task_id=task_id,
+                run_id=run_id,
+                args={"action": "rollback", "mod_id": target_mod_id, "reason": "auto_rollback_health_guard_5min"},
+                actor="watchdog",
+                approved=True,
+                t0=t0,
+            )
+            return {
+                "ok": True,
+                "verified": True,
+                "mod_id": target_mod_id,
+                "auto_rolled_back": True,
+                "rollback": rb_res,
+                "summary": f"Контроль здоровья (5 мин): обнаружен сбой после `{target_mod_id}` — выполнен автоматический откат.",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+        return {
+            "ok": True,
+            "verified": True,
+            "mod_id": target_mod_id,
+            "auto_rolled_back": False,
+            "healthy": not unhealthy,
+            "summary": f"Контроль здоровья `{target_mod_id}`: в норме.",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    target_rel = str(args.get("target_file") or f"skills/{slug}.py").strip()
+    imm_bad, imm_why = is_immutable_core_target(target_rel, data_dir=rt.data_dir)
+    if imm_bad:
+        _append_self_mod_journal(
+            rt,
+            {
+                "mod_id": mod_id,
+                "branch": branch_name,
+                "target_file": target_rel,
+                "status": "blocked_immutable_core",
+                "owner_alert": True,
+                "reason": imm_why,
+            },
+        )
+        return {
+            "ok": False,
+            "verified": False,
+            "tier": "T3",
+            "decision": "deny",
+            "owner_alert": True,
+            "error": imm_why,
+            "summary": imm_why,
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    mod_dir = rt.self_mod_dir / mod_id
+    mod_dir.mkdir(parents=True, exist_ok=True)
+    code_content = str(args.get("code") or args.get("content") or "").strip()
+    test_content = str(args.get("test_code") or "").strip()
+    if not code_content:
+        code_content = (
+            f'"""Навык PC-Agent: {slug} (ветка {branch_name})."""\n\n'
+            "def run_skill(value: str) -> dict:\n"
+            "    text = str(value or '').strip()\n"
+            "    if not text or '..' in text or 'vault' in text.lower():\n"
+            "        raise ValueError('Недопустимый аргумент навыка (негативный контроль)')\n"
+            f"    return {{'ok': True, 'skill': {slug!r}, 'normalized': text.upper()}}\n"
+        )
+    if not test_content:
+        test_content = (
+            "import pytest\n"
+            "from candidate_skill import run_skill\n\n"
+            "def test_positive_skill_execution():\n"
+            "    res = run_skill('argon_ready')\n"
+            "    assert res['ok'] is True\n"
+            "    assert res['normalized'] == 'ARGON_READY'\n\n"
+            "def test_negative_control_rejects_bad_input():\n"
+            "    with pytest.raises(ValueError):\n"
+            "        run_skill('../vault.key')\n"
+        )
+
+    staged_skill = mod_dir / "candidate_skill.py"
+    staged_test = mod_dir / "test_candidate_skill.py"
+    staged_skill.write_text(code_content, encoding="utf-8")
+    staged_test.write_text(test_content, encoding="utf-8")
+
+    # Запускаем pytest в песочнице (позитивный тест + негативный контроль)
+    basetemp = mod_dir / ".pytest-tmp"
+    proc_test = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        "pytest",
+        "-o",
+        "tmp_path_retention_policy=none",
+        f"--basetemp={basetemp}",
+        str(staged_test),
+        "-q",
+        cwd=str(mod_dir),
+        env={**_scrubbed_env(), "PYTHONPATH": str(mod_dir)},
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    out_b, err_b = await asyncio.wait_for(proc_test.communicate(), timeout=30.0)
+    pytest_out = scrub_secrets(((out_b or b"") + b"\n" + (err_b or b"")).decode("utf-8", errors="replace")).strip()
+    tests_passed = proc_test.returncode == 0
+    neg_control_present = "negative_control" in test_content or "pytest.raises" in test_content
+
+    target_abs = (rt.workspace_dir / target_rel).resolve() if not Path(target_rel).is_absolute() else Path(target_rel).resolve()
+    existed_before = target_abs.is_file()
+    diff_preview = (
+        f"--- a/{target_rel}\n+++ b/{target_rel} (ветка {branch_name})\n"
+        + "\n".join(f"+{ln}" for ln in code_content.splitlines()[:25])
+    )
+    rollback_cmd = f"POST /api/pc-agent/self-modify/{mod_id}/rollback (или git branch -D {branch_name})"
+    russian_card = (
+        f"🛠 Предложение самоизменения `{mod_id}` (ветка `{branch_name}`):\n"
+        f"• Что меняется: файл `{target_rel}`\n"
+        f"• Зачем: {args.get('description') or f'Добавление/улучшение навыка {slug}'}\n"
+        f"• Проверка в песочнице: pytest={'ПРОЙДЕН' if tests_passed else 'ПРОВАЛЕН'}, негативный контроль={'ДА' if neg_control_present else 'НЕТ'}\n"
+        f"• Как откатить одной командой: `{rollback_cmd}`"
+    )
+
+    proposal_data: dict[str, Any] = {
+        "mod_id": mod_id,
+        "branch": branch_name,
+        "topic": slug,
+        "target_file": target_rel,
+        "target_abs": str(target_abs),
+        "description": str(args.get("description") or f"Навык {slug}"),
+        "tests_passed": tests_passed,
+        "negative_control_passed": tests_passed and neg_control_present,
+        "pytest_output": pytest_out[:1200],
+        "diff_preview": diff_preview,
+        "rollback_command": rollback_cmd,
+        "russian_summary": russian_card,
+        "status": "tested_ready" if (tests_passed and neg_control_present) else "test_failed",
+        "created_at": time.time(),
+        "applied_files": [],
+    }
+
+    if not (tests_passed and neg_control_present):
+        (mod_dir / "proposal.json").write_text(json.dumps(proposal_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        _append_self_mod_journal(rt, {**proposal_data, "actor": actor})
+        return {
+            "ok": False,
+            "verified": False,
+            "mod_id": mod_id,
+            "branch": branch_name,
+            "tests_passed": tests_passed,
+            "negative_control_passed": tests_passed and neg_control_present,
+            "pytest_output": pytest_out[:800],
+            "error": "Самоизменение отклонено песочницей: тесты или негативный контроль не прошли.",
+            "summary": f"Отказ самоизменения `{mod_id}`: тесты песочницы не прошли.",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+
+    approval_id = None
+    if not approved and hasattr(svc, "approvals"):
+        ap_row = await svc.approvals.create("self_modify", russian_card, task_id=task_id or None, run_id=run_id or None)
+        approval_id = ap_row.get("id")
+        proposal_data["approval_id"] = approval_id
+
+    if approved or bool(args.get("apply_after_approval")):
+        backup_path = None
+        if existed_before:
+            backup_file = mod_dir / f"backup-{target_abs.name}"
+            backup_file.write_bytes(target_abs.read_bytes())
+            backup_path = str(backup_file)
+        target_abs.parent.mkdir(parents=True, exist_ok=True)
+        target_abs.write_text(code_content, encoding="utf-8")
+        proposal_data["status"] = "applied"
+        proposal_data["applied_at"] = time.time()
+        proposal_data["health_window_until"] = time.time() + 300.0
+        proposal_data["applied_files"] = [
+            {
+                "target_path": str(target_abs),
+                "existed_before": existed_before,
+                "backup_path": backup_path,
+                "sha256": hashlib.sha256(target_abs.read_bytes()).hexdigest(),
+            }
+        ]
+
+    (mod_dir / "proposal.json").write_text(json.dumps(proposal_data, ensure_ascii=False, indent=2), encoding="utf-8")
+    _append_self_mod_journal(rt, {**proposal_data, "actor": actor})
+    return {
+        "ok": True,
+        "verified": True,
+        "mod_id": mod_id,
+        "branch": branch_name,
+        "status": proposal_data["status"],
+        "approval_id": approval_id,
+        "tests_passed": True,
+        "negative_control_passed": True,
+        "target_file": str(target_abs),
+        "diff_preview": diff_preview,
+        "rollback_command": rollback_cmd,
+        "summary": russian_card,
+        "duration_ms": round((time.perf_counter() - t0) * 1000),
+    }
 
 
 def _ensure_earn_lessons(rt: PCAgentRuntime) -> dict[str, Any]:
@@ -4629,14 +5537,25 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
             tool = str(step.get("tool") or "")
             args = dict(step.get("args") or {})
             record["progress_pct"] = int(round((len(completed) / max(1, len(planned))) * 100))
-            verdict = classify_pc_action(
+
+            if rt.autonomy_level == "L3" and rt.night_mode.get("active"):
+                max_act = int(rt.night_mode.get("max_actions") or 25)
+                used_act = int(rt.night_mode.get("actions_used") or 0)
+                started_nm = float(rt.night_mode.get("started_at") or time.time())
+                max_min = float(rt.night_mode.get("max_minutes") or 180)
+                if used_act >= max_act or (time.time() - started_nm) > max_min * 60.0:
+                    budget_msg = f"Исчерпан бюджет ночного режима L3 (шагов: {used_act}/{max_act})."
+                    rt.night_mode.setdefault("errors", []).append(budget_msg)
+                    record["budget_exhausted"] = True
+                    break
+
+            verdict = _classify_pc_step_with_autonomy(
+                rt,
+                svc,
                 tool,
                 args,
                 task_prompt=prompt,
                 tainted_by_injection=bool(record.get("tainted_by_injection")),
-                trust_active=rt.trust_active(svc),
-                safe_roots=default_safe_roots(rt.data_dir),
-                data_dir=rt.data_dir,
             )
 
             # T3: жёсткий отказ всегда
@@ -4649,6 +5568,8 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
                     svc, task_id=task_id, run_id=run_id, step=idx + 1, tool=tool, args=args,
                     tier=verdict.tier, decision="deny", status="denied", result_preview=verdict.reason,
                 )
+                if rt.autonomy_level == "L3" and rt.night_mode.get("active"):
+                    rt.night_mode.setdefault("errors", []).append(f"Шаг #{idx + 1} `{tool}` отклонён (T3): {verdict.reason}")
                 record["status"] = "failed"
                 record["error"] = verdict.reason
                 record["step_results"].append({
@@ -4667,8 +5588,7 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
                     f"{tool} {scrub_secrets(json.dumps(args, ensure_ascii=False))[:400]} — {verdict.reason}"
                 )
                 ap_row = await svc.approvals.create("tool", preview, task_id=task_id, run_id=run_id)
-                record["status"] = "waiting_approval"
-                record["pending_approval"] = {
+                pending_obj = {
                     "approval_id": ap_row["id"],
                     "step_index": idx,
                     "tool": tool,
@@ -4678,13 +5598,39 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
                     "reason": verdict.reason,
                     "preview": preview,
                 }
-                record["updated_at"] = time.time()
-                rt.save_task_record(task_id, record)
                 rt.journal.append(
                     actor=actor, task_id=task_id, run_id=run_id, tool=tool, args=args,
                     tier=verdict.tier, decision="ask", result=f"Ожидает кнопки Разрешить #{ap_row['id']}",
                     approval_id=ap_row["id"], verified=None,
                 )
+                # §2 L3 «ночной режим»: подтверждения откладываются в очередь, необратимое всё равно ждёт владельца,
+                # а безопасные шаги продолжают выполняться.
+                if rt.autonomy_level == "L3" and rt.night_mode.get("active"):
+                    rt.night_mode.setdefault("deferred_approvals", []).append(pending_obj)
+                    if verdict.always_owner_button or verdict.category in {"git_remote_mutation", "self_modify_apply", "file_delete"}:
+                        rt.night_mode.setdefault("blocked_irreversible", []).append(pending_obj)
+                    record.setdefault("deferred_approvals", []).append(pending_obj)
+                    record["step_results"].append({
+                        "step": idx + 1,
+                        "tool": tool,
+                        "tier": verdict.tier,
+                        "decision": "deferred_l3",
+                        "ok": True,
+                        "verified": False,
+                        "deferred": True,
+                        "approval_id": ap_row["id"],
+                        "summary": f"Отложено в очередь ночного режима L3 (подтверждение #{ap_row['id']}): {verdict.reason}",
+                    })
+                    completed.append(idx)
+                    record["completed_step_indices"] = completed
+                    record["updated_at"] = time.time()
+                    rt.save_task_record(task_id, record)
+                    continue
+
+                record["status"] = "waiting_approval"
+                record["pending_approval"] = pending_obj
+                record["updated_at"] = time.time()
+                rt.save_task_record(task_id, record)
                 await _finish_db_task(
                     svc, task_id, run_id, status="waiting_approval",
                     result_text=f"Ожидает подтверждения владельца #{ap_row['id']}: {verdict.reason}",
@@ -4742,6 +5688,20 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
 
             if step_out.get("tainted"):
                 record["tainted_by_injection"] = True
+
+            if rt.autonomy_level == "L3" and rt.night_mode.get("active"):
+                rt.night_mode["actions_used"] = int(rt.night_mode.get("actions_used") or 0) + 1
+                if step_out.get("ok"):
+                    rt.night_mode.setdefault("completed_steps", []).append({
+                        "task_id": task_id,
+                        "step": idx + 1,
+                        "tool": tool,
+                        "summary": str(step_out.get("summary") or ""),
+                    })
+                else:
+                    rt.night_mode.setdefault("errors", []).append(
+                        f"Шаг #{idx + 1} `{tool}`: {step_out.get('error') or step_out.get('summary')}"
+                    )
 
             completed.append(idx)
             record["completed_step_indices"] = completed
@@ -4828,6 +5788,50 @@ async def _drive_pc_task(svc: Any, rt: PCAgentRuntime, task_id: int, *, approved
         rt.save_task_record(task_id, record)
         await _finish_db_task(svc, task_id, run_id, status="failed", error_text=err)
         return record
+
+
+def build_night_mode_morning_report(rt: PCAgentRuntime) -> dict[str, Any]:
+    """Формирует утренний отчёт ночного режима L3 (Этап P5 Мастер-промпта):
+    выполненные шаги, отложенные подтверждения T2, заблокированные необратимые шаги, сбои и статус ресурсов."""
+    import psutil
+
+    nm = dict(rt.night_mode or {})
+    completed = list(nm.get("completed_steps") or [])
+    deferred = list(nm.get("deferred_approvals") or [])
+    blocked = list(nm.get("blocked_irreversible") or [])
+    errors = list(nm.get("errors") or [])
+    vm = psutil.virtual_memory()
+    lines = [
+        f"🌅 Утренний отчёт Argon PC-Agent (режим L3, цель: «{nm.get('goal') or 'Ночной прогон'}»):",
+        f"• Выполнено безопасных шагов: {len(completed)} (израсходовано {nm.get('actions_used', 0)}/{nm.get('max_actions', 25)} шагов).",
+        f"• Отложено в очередь подтверждений владельца (T2): {len(deferred)}.",
+        f"• Заблокировано необратимых действий (ждут владельца): {len(blocked)}.",
+        f"• Ошибок/остановок по бюджету: {len(errors)}.",
+        f"• Память ПК: свободно {vm.available / 2**30:.1f} из {vm.total / 2**30:.1f} ГБ ({vm.percent}%).",
+    ]
+    for item in completed[:10]:
+        lines.append(f"  ✓ [{item.get('tool')}] {item.get('summary')}")
+    for ap in deferred[:10]:
+        lines.append(f"  ⏳ Ждёт кнопки #{ap.get('approval_id')} [{ap.get('tool')}]: {ap.get('reason')}")
+    for err in errors[:5]:
+        lines.append(f"  ⚠️ {err}")
+    return {
+        "ok": True,
+        "autonomy_level": rt.autonomy_level,
+        "goal": nm.get("goal") or "",
+        "actions_used": int(nm.get("actions_used") or 0),
+        "max_actions": int(nm.get("max_actions") or 25),
+        "completed_count": len(completed),
+        "deferred_count": len(deferred),
+        "blocked_irreversible_count": len(blocked),
+        "errors_count": len(errors),
+        "completed_steps": completed,
+        "deferred_approvals": deferred,
+        "blocked_irreversible": blocked,
+        "errors": errors,
+        "ram_available_gb": round(vm.available / 2**30, 1),
+        "report_ru": "\n".join(lines),
+    }
 
 
 async def resume_after_approval(
@@ -4948,7 +5952,7 @@ async def recover_interrupted_tasks(svc: Any) -> list[dict[str, Any]]:
             if dispatched is not None:
                 planned = rec.get("steps_planned") or []
                 step_tool = planned[dispatched].get("tool") if 0 <= dispatched < len(planned) else "unknown"
-                if step_tool not in {"pc.observe_screen", "pc.list_windows", "pc.list_processes", "pc.list_services", "pc.system_info", "pc.bossman_status", "pc.read_file", "pc.list_dir", "pc.code_act"}:
+                if step_tool not in {"pc.observe_screen", "pc.list_windows", "pc.list_processes", "pc.list_services", "pc.system_info", "pc.bossman_status", "pc.read_file", "pc.list_dir", "pc.code_act", "pc.ui_read_window"}:
                     msg = f"AMBIGUOUS_PRIOR_EFFECT: шаг #{dispatched + 1} ({step_tool}) был запущен до перезапуска процесса; повторный автоматический запуск заблокирован."
                     rec["status"] = "failed"
                     rec["error"] = msg
@@ -4990,8 +5994,10 @@ async def api_pc_agent_status(request: Request):
         "trust_active": rt.trust_active(svc),
         "trust_until": rt.trust_until if rt.trust_active(svc) else None,
         "trust_actor": rt.trust_actor if rt.trust_active(svc) else "",
+        "autonomy": rt.get_autonomy_status(),
         "active_tasks": sorted(rt.active_tasks.keys()),
         "active_pids": sorted(rt.active_procs.keys()),
+        "spawned_pids": sorted(rt.spawned_pids),
         "local_models": list(LOCAL_MODELS),
         "edit_engine": edit_eng,
         "edit_engine_profile": dict(EDIT_ENGINES.get(edit_eng, EDIT_ENGINES["qwen"])),
@@ -5003,6 +6009,151 @@ async def api_pc_agent_status(request: Request):
         "hard_invariants": list(HARD_INVARIANTS),
         "source_sha": source_identity().get("build_sha"),
     }
+
+
+@router.get("/autonomy")
+async def api_pc_agent_get_autonomy(request: Request):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    return rt.get_autonomy_status()
+
+
+@router.post("/autonomy")
+async def api_pc_agent_set_autonomy(request: Request, body: dict[str, Any]):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    level = str((body or {}).get("level") or "L1").strip().upper()
+    actor = str((body or {}).get("actor") or "owner").strip()
+    goal = str((body or {}).get("goal") or "").strip()
+    max_actions = int((body or {}).get("max_actions") or 25)
+    max_minutes = int((body or {}).get("max_minutes") or 180)
+    try:
+        res = rt.set_autonomy_level(level, actor=actor, goal=goal, max_actions=max_actions, max_minutes=max_minutes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"code": "INVALID_AUTONOMY_LEVEL", "message": str(exc)}) from exc
+    rt.journal.append(
+        actor=actor,
+        task_id=None,
+        run_id=None,
+        tool="pc.autonomy",
+        args={"level": level, "goal": goal, "max_actions": max_actions, "max_minutes": max_minutes},
+        tier="T0",
+        decision="auto",
+        result=res,
+        verified=True,
+    )
+    return res
+
+
+@router.post("/night-mode/run")
+async def api_pc_agent_night_mode_run(request: Request, body: dict[str, Any]):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    payload = dict(body or {})
+    goal = str(payload.get("goal") or payload.get("prompt") or "Ночной прогон владельца L3").strip()
+    actor = str(payload.get("actor") or "owner").strip()
+    max_actions = int(payload.get("max_actions") or 25)
+    max_minutes = int(payload.get("max_minutes") or 180)
+    rt.set_autonomy_level("L3", actor=actor, goal=goal, max_actions=max_actions, max_minutes=max_minutes)
+    plan_override = payload.get("plan") if isinstance(payload.get("plan"), list) else None
+    rec = await start_pc_task(
+        svc,
+        goal,
+        actor=actor,
+        plan_override=plan_override,
+        wait=bool(payload.get("wait", True)),
+        use_local_llm_summary=bool(payload.get("use_local_llm_summary", False)),
+    )
+    return {
+        "ok": True,
+        "task": rec,
+        "morning_report": build_night_mode_morning_report(rt),
+    }
+
+
+@router.get("/night-mode/report")
+async def api_pc_agent_night_mode_report(request: Request):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    return build_night_mode_morning_report(rt)
+
+
+@router.post("/self-modify")
+async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    payload = dict(body or {})
+    actor = str(payload.get("actor") or "owner").strip()
+    approved = bool(payload.get("approved", False))
+    res = await execute_pc_step(
+        svc,
+        rt,
+        task_id=int(payload.get("task_id") or 0),
+        run_id=int(payload.get("run_id") or 0),
+        step_idx=1,
+        tool="pc.self_modify",
+        args=payload,
+        actor=actor,
+        approved=approved,
+    )
+    rt.journal.append(
+        actor=actor,
+        task_id=int(payload.get("task_id") or 0) or None,
+        run_id=int(payload.get("run_id") or 0) or None,
+        tool="pc.self_modify",
+        args=payload,
+        tier=str(res.get("tier") or ("T2" if approved else "T1")),
+        decision=str(res.get("decision") or ("approved" if approved else "auto")),
+        result=res.get("summary") or res.get("error"),
+        verified=res.get("verified"),
+    )
+    return res
+
+
+@router.post("/self-modify/{mod_id}/rollback")
+async def api_pc_agent_self_modify_rollback(request: Request, mod_id: str, body: dict[str, Any] | None = None):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    payload = dict(body or {})
+    actor = str(payload.get("actor") or "owner").strip()
+    res = await execute_pc_step(
+        svc,
+        rt,
+        task_id=0,
+        run_id=0,
+        step_idx=1,
+        tool="pc.self_modify",
+        args={"action": "rollback", "mod_id": mod_id, "reason": payload.get("reason") or "owner_rollback"},
+        actor=actor,
+        approved=True,
+    )
+    return res
+
+
+@router.post("/self-modify/{mod_id}/health-check")
+async def api_pc_agent_self_modify_health(request: Request, mod_id: str, body: dict[str, Any] | None = None):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    payload = dict(body or {})
+    res = await execute_pc_step(
+        svc,
+        rt,
+        task_id=0,
+        run_id=0,
+        step_idx=1,
+        tool="pc.self_modify",
+        args={"action": "health_check", "mod_id": mod_id, "simulate_unhealthy": bool(payload.get("simulate_unhealthy", False))},
+        actor="watchdog",
+        approved=True,
+    )
+    return res
+
+
+@router.get("/self-modify/journal")
+async def api_pc_agent_self_modify_journal(request: Request, limit: int = 50):
+    svc = _svc_of(request)
+    rt = get_runtime(svc)
+    return {"profile": PROFILE_NAME, "items": read_self_mod_journal(rt, limit=limit)}
 
 
 @router.post("/edit-engine")

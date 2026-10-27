@@ -533,6 +533,8 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     async def status(_=Depends(session)):
         async def bossman_live():
             code, body = await bm.public_get("/health/live")
+            if code != 200:
+                code, body = await bm.public_get("/health/live")
             return {"up": code == 200, **({k: body.get(k) for k in ("build_sha_short", "build_sha", "status", "source_identity")}
                                           if isinstance(body, dict) else {})}
 
@@ -1579,7 +1581,6 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
 
     @app.post("/m/api/agent/sessions/{session_id}/stop")
     async def m_agent_session_stop(session_id: str, _=Depends(session)):
-        workers.trigger_global_stop()
         return await call("POST", f"/api/agent/sessions/{_tid(session_id)}/stop")
 
     # «/» menu + context gauge (owner 21.10). Each answer is cut down to the documented keys (slash.py): the phone gets

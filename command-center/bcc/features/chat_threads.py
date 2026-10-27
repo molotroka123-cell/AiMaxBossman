@@ -1064,10 +1064,18 @@ async def _compose_prompt(svc: Any, raw: dict, text: str, attachments: list[dict
         if view is None:
             continue                      # как CLI: задача не читается — ход пропускается
         answer = _sanitize(view["result"] or view["error"] or "")[:chars]
+        if not answer and view.get("status") == "stopped":
+            answer = (
+                "[STOP: задача прервана сигналом STOP владельца; status=stopped, "
+                "исход=UNKNOWN_OUTCOME (exit code неизвестен; тихий авто-перезапуск запрещён)]"
+            )
         parts.append(f"Владелец: {_sanitize(turn.get('text'))[:chars]}\nBossman: {answer or '—'}")
     skill_block = await asyncio.to_thread(_skill_block_for_text, svc, text)
     block = (await asyncio.to_thread(_attachment_block_sync, attachments)) if attachments else ""
-    data = [b for b in (skill_block, block) if b]
+    from .action_contract import check_kernel_turn_policy
+    kernel_pol = check_kernel_turn_policy("\n".join(parts + [text]))
+    pol_block = str(kernel_pol.get("directive") or "") if kernel_pol else ""
+    data = [b for b in (skill_block, block, pol_block) if b]
 
     def assemble(dropped: int) -> str:
         return conversation_context.compose(_dropped_note(dropped, max_prompt) + parts + data) + text

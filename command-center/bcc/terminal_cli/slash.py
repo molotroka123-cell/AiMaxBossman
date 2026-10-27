@@ -29,6 +29,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "stop": ("/stop [task|all]", "остановить задачу; all — глобальный STOP"),
     "resume": ("/resume [task]", "продолжить задачу после паузы"),
     "computer": ("/computer [status|stop|resume]", "управление компьютером"),
+    "browser": ("/browser <url | задача>", "управляемый браузер Bossman: открыть сайт, прочитать DOM, скриншот или действие (browser.*)"),
     "evolve": ("/evolve [status|pause|resume|stop|report]", "цикл самоулучшения 1.1"),
     "keys": ("/keys [set <vendor>|remove <vendor>|import-env]", "ключи облачных моделей"),
     "panel": ("/panel", "панель контекста: workspace, задача, инструменты, память, бюджет"),
@@ -43,7 +44,8 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "exit": ("/exit", "выйти (задачи продолжают работу в Bossman)"),
 }
 ALIASES = {"quit": "exit", "q": "exit", "model": "models", "evolution": "evolve", "?": "help",
-           "agents": "agent", "approval": "approvals", "permissions": "tools", "usage": "cost"}
+           "agents": "agent", "approval": "approvals", "permissions": "tools", "usage": "cost",
+           "web": "browser"}
 
 
 @dataclass

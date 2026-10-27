@@ -9,13 +9,15 @@
 > контролем, живой прогон на ПК владельца через тот же путь, которым он пользуется, и квитанция в
 > [`docs/audits/`](docs/audits/INDEX.md). Без квитанции — `NOT_PROVEN`, даже если код есть.
 
-## Что умеет (срез 24.10.2026)
+## Что умеет (срез 26.10.2026)
 
 Статусы: **PROVEN** — живая квитанция с вердиктом PASS; **BETA** — способность доказана на синтетике или
 эмуляторе, реального клиента/денег ещё не было; **OFF** — выключено решением владельца.
 
 | Возможность | Статус | Квитанция |
 |---|---|---|
+| Локальный агент-оператор ПК (Argon PC-Agent P0–P5): уровни автономии `L0`–`L3`, файлы с корзиной, процессы/службы, песочница Shell, окна и UI Automation без ловушки `Alt`, `/browser`, отправка в пульт (≤10 файлов / ≤40 МБ), безопасный контур самоизменения с откатом и 5-минутным health-guard | PROVEN | [2026-10-26-argon-pc-agent-master](docs/audits/2026-10-26-argon-pc-agent-master/receipt.json), [REPORT_RU.md](docs/audits/2026-10-26-argon-pc-agent-master/REPORT_RU.md) |
+| Самоправка кода Bossman через режим `AGENT` в мобильном пульте (`code.read`, `code.write`, `code.patch`, закрыты все 6 дефектов пульта/агента) | PROVEN | [2026-10-25-pult-agent-self-edit](docs/audits/2026-10-25-pult-agent-self-edit/receipt.json), [2026-10-26-argon-pc-agent-master](docs/audits/2026-10-26-argon-pc-agent-master/receipt.json) |
 | Чат с локальной моделью: контекст между ходами, вложения (png, скан/текстовый pdf, docx, xlsx, pptx) доходят до модели как содержимое через локальное зрение | PROVEN | [2026-10-23-chat-attachments](docs/audits/2026-10-23-chat-attachments/README.md), [2026-10-24-functions](docs/audits/2026-10-24-functions/summary.json) |
 | Правка фото из чата (`photo.edit` → локальная очередь Direct Gen, тот же STOP/история) | PROVEN | [2026-10-23-chat-attachments](docs/audits/2026-10-23-chat-attachments/README.md) |
 | Локальная генерация изображений (sd-cli на Vulkan), очередь, провенанс и sha256 результата | PROVEN | [2026-10-24-functions](docs/audits/2026-10-24-functions/summary.json), [2026-10-24-direct-gen-freeze](docs/audits/2026-10-24-direct-gen-freeze/receipt.json) |
@@ -25,7 +27,7 @@
 | Ревью прав доступа внешней моделью → 3 исправления с тестами | PROVEN | [2026-10-24-glm-security](docs/audits/2026-10-24-glm-security/receipt.json) |
 | Модели на новом SSD D: — холодная загрузка быстрее в 1.28–2.47×, «тёплые» прогоны без выигрыша | PROVEN | [2026-10-24-ssd](docs/audits/2026-10-24-ssd/verdict.json) |
 | Голосовой ответ: медианная задержка 8.7–11.2 с → 4.8 с | PROVEN (измерено) | [2026-10-24-voice](docs/audits/2026-10-24-voice/receipt.json) |
-| Две линии защиты ПК + матрица доказательств инструментов и навыков | PROVEN (частично, см. матрицу) | [2026-10-22-pc-defense](docs/audits/2026-10-22-pc-defense/AUDIT_RU.md), [2026-10-22-tools-skills-proof](docs/audits/2026-10-22-tools-skills-proof/PROOF_MATRIX_RU.md) |
+| Две линии защиты ПК + матрица доказательств инструментов и навыков | PROVEN | [2026-10-22-pc-defense](docs/audits/2026-10-22-pc-defense/AUDIT_RU.md), [2026-10-22-tools-skills-proof](docs/audits/2026-10-22-tools-skills-proof/PROOF_MATRIX_RU.md), [2026-10-26-argon-pc-agent-master](docs/audits/2026-10-26-argon-pc-agent-master/receipt.json) |
 | Заработок B: заказы фотостудии — цена, себестоимость по реальным секундам генерации, маржа | BETA, выручка NOT_RUN | [2026-10-24-earn-studio-orders](docs/audits/2026-10-24-earn-studio-orders/receipt.json) |
 | Заработок A: платный помощник по документам, счёт на банковский перевод | BETA, выручка NOT_RUN | [2026-10-24-earn-paid-docs](docs/audits/2026-10-24-earn-paid-docs/receipt.json) |
 | Заработок C: досье по тендеру из открытых данных (офлайн) | BETA, выручка NOT_RUN | [2026-10-24-earn-tender-dossier](docs/audits/2026-10-24-earn-tender-dossier/receipt.json) |

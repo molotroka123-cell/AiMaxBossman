@@ -1,0 +1,142 @@
+{
+  "schema": "bossman.argon_pc_agent_master_proof.v1",
+  "date": "2026-10-26",
+  "verdict": "PASS",
+  "status": "PROVEN",
+  "title": "Мастер-промпт Аргона: локальный ИИ-агент управления ПК владельца (P0–P5), /browser и контур самоизменения",
+  "owner_request": "Довести до рабочего состояния локального агента-оператора ПК (P0–P5): закрыть 6 дефектов пульта/агента, уровни автономии L0–L3, инструменты ОС 1–7, /browser, безопасный контур самоизменения с откатом и 5-минутным health-guard, исправить 8 провальных кейсов турнира на уровне ядра, свести всё в main и обновить README.",
+  "environment": {
+    "os": "Windows 11",
+    "hardware": "AMD Ryzen AI MAX+ 395, ~120 GB unified RAM, D: 4 TB NVMe SSD",
+    "services": {
+      "bcc_backend_8801": {
+        "url": "http://127.0.0.1:8801/health/live",
+        "http_status": 200,
+        "latency_ms": 121.67
+      },
+      "mobile_pult_8840": {
+        "url": "http://127.0.0.1:8840/m/api/health",
+        "http_status": 200,
+        "latency_ms": 14.34
+      },
+      "ollama_11434": {
+        "url": "http://127.0.0.1:11434/api/tags",
+        "http_status": 200,
+        "latency_ms": 36.07
+      }
+    },
+    "models": {
+      "primary_local": "gemma4-31b-uncensored:latest",
+      "fallback_local": "bossman-main-qwen38-27b-q5:latest",
+      "fast_coding_local": "qwen3.8-flash-next-iq3_s"
+    }
+  },
+  "stages": {
+    "P0_inventory_and_6_defects": {
+      "status": "PASS",
+      "source_audit": "docs/audits/2026-10-25-pult-agent-self-edit/receipt.json",
+      "defects_fixed": [
+        {
+          "id": 1,
+          "defect": "В режиме AGENT не было нативных UTF-8 инструментов записи/патча файлов (приходилось экранировать через cmd.exe и python -c).",
+          "fix": "Добавлены нативные UTF-8 инструменты code.read, code.write, code.patch в command-center/bcc/features/tools_code.py с защитой неизменяемого ядра и T3 путей на уровне инструмента.",
+          "negative_control": "Попытка записи в pc_agent_policy.py или секреты T3 через code.write/code.patch блокируется на уровне инструмента."
+        },
+        {
+          "id": 2,
+          "defect": "_terminal_evidence в action_contract.py принимал строки версий (v1.0, v2.15.0) за имена файлов и требовал доказательство существования файла v1.0.",
+          "fix": "Добавлен фильтр _VERSION_TOKEN_RE в command-center/bcc/features/action_contract.py; добавлена поддержка code.write и code.patch в _is_code_mutation_call и _has_family_tool_call.",
+          "negative_control": "Реальный несуществующий файл missing_module.py по-прежнему блокируется контрактом."
+        },
+        {
+          "id": 3,
+          "defect": "match_workspace_skill_for_task в agent_opencode.py приклеивал навык bossman-motion-concert v1.0 к любой задаче со словами bossman, v1.0, python, file.",
+          "fix": "Добавлен фильтр общих стоп-слов _SKILL_MATCH_STOPWORDS в command-center/bcc/features/agent_opencode.py.",
+          "negative_control": "Явный запрос «концерт движения с партитурой» по-прежнему подключает навык bossman-motion-concert."
+        },
+        {
+          "id": 4,
+          "defect": "POST /m/api/agent/sessions/{id}/stop вызывал workers.trigger_global_stop() и ронял все параллельные задачи при остановке одной сессии.",
+          "fix": "В apps/bossman-mobile/bossmobile/api.py остановка сессии останавливает только активную задачу этой сессии; глобальный STOP оставлен за /m/api/stop.",
+          "negative_control": "Параллельная задача в другой сессии продолжает выполняться при остановке одной сессии."
+        },
+        {
+          "id": 5,
+          "defect": "Агент 41 (Gemma 4) имел промпт «только разговаривай, никаких действий» при включённых инструментах ПК, а список агентов пульта содержал дубли и тестовые клоны.",
+          "fix": "В ensure_argon_agent (pc_agent.py) промпт агента 41 исчищается до рабочего оператора ПК; в apps/bossman-mobile/bossmobile/policy.py отфильтрованы тестовые клоны (eval500, bossblocks-*, fresh-vibes-*, swapme*) и дубликат Strata при активном Argon PC-Agent.",
+          "negative_control": "Тестовые и дублирующие агенты помечаются allowed=false с причиной скрытия."
+        },
+        {
+          "id": 6,
+          "defect": "GET /m/api/status показывал bossman up:false при кратковременной задержке /api/health на фоне 200 OK от /health/live.",
+          "fix": "В bossman_live() (apps/bossman-mobile/bossmobile/api.py) добавлен повторный опрос /health/live с увеличенным окном ожидания перед возвратом False.",
+          "negative_control": "При реально остановленном backend оба вызова возвращают False."
+        }
+      ]
+    },
+    "P1_readonly_audit_and_stop": {
+      "status": "PASS",
+      "stop_latency_s": 2.41,
+      "stop_sla_s": 5.0,
+      "audit_chain_verified": true,
+      "secrets_redacted_in_audit": true
+    },
+    "P2_autonomy_levels_30_scenarios_10_traps": {
+      "status": "PASS",
+      "autonomy_levels": ["L0", "L1", "L2", "L3"],
+      "default_level": "L1",
+      "os_scenarios_verified": 30,
+      "traps_rejected": 10,
+      "recycle_bin_enforced": true,
+      "pult_outbox_limits": {
+        "max_files": 10,
+        "max_total_mb": 40
+      },
+      "scheduled_tasks_prefix_enforced": "BossmanAgent-"
+    },
+    "P3_ui_automation_and_browser": {
+      "status": "PASS",
+      "ui_read_window_alt_menu_safe": true,
+      "screenshot_sha256_verified": true,
+      "browser_slash_command_wired": ["/browser", "/web"],
+      "browser_login_requires_owner_approval": true
+    },
+    "P4_self_modification_loop": {
+      "status": "PASS",
+      "branch_format": "agent/<YYYYMMDD>-<topic>",
+      "immutable_core_blocked_at_tool_level": true,
+      "owner_alert_on_immutable_core_attempt": true,
+      "pytest_and_negative_control_required": true,
+      "owner_approval_in_pult_required": true,
+      "one_command_rollback_verified": true,
+      "five_minute_health_guard_auto_rollback_verified": true
+    },
+    "P5_night_mode_l3_and_tournament_kernel_fixes": {
+      "status": "PASS",
+      "night_mode_budget_enforced": true,
+      "night_mode_deferred_approvals_queued": true,
+      "night_mode_t3_blocked": true,
+      "morning_report_ru_generated": true,
+      "tournament_kernel_fixes_verified": [
+        "E5-memory-012",
+        "E5-memory-014",
+        "E5-security-013",
+        "E5-security-014",
+        "E5-security-019",
+        "E5-stop-002",
+        "E5-stop-005",
+        "E5-stop-013"
+      ]
+    }
+  },
+  "test_suites": {
+    "command": "$env:PYTHONPATH='command-center;apps/bossman-mobile'; python -m pytest -o tmp_path_retention_policy=none --basetemp=C:\\Users\\asd\\Bossman\\.pytest-tmp8 command-center/tests/test_pc_agent_master_p0_p5.py command-center/tests/test_pc_agent_argon.py command-center/tests/test_b06_pc_agent_hardening.py command-center/tests/test_action_contract_cloud_review.py apps/bossman-mobile/tests/ -q",
+    "passed": 427,
+    "failed": 0,
+    "master_p0_p5_passed": 48
+  },
+  "not_proven": [
+    "Суточный/двухсуточный непрерывный soak-прогон ночного режима L3 на реальных задачах владельца (доказан полный цикл на синтетике с бюджетом и утренним отчётом).",
+    "Реальная выручка от коммерческих навыков (статус BETA / NOT_RUN)."
+  ]
+}

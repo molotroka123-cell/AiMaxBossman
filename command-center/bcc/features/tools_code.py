@@ -484,6 +484,9 @@ GEMMA4_DEFAULT_MODEL = "gemma4-31b-uncensored:latest"
 GEMMA4_KIT_TOOLS = [
     "code.search",
     "code.expand",
+    "code.read",
+    "code.write",
+    "code.patch",
     "code.index",
     "code.status",
     "code.workspace_map",
@@ -1052,6 +1055,180 @@ async def http_gemma_kit_provision(request: Request):
     }
 
 
+async def _resolve_code_file_target(
+    ctx: ToolContext,
+    raw_path: str,
+    raw_root: str | None = None,
+    *,
+    for_write: bool = False,
+) -> tuple[Path, Path]:
+    from .pc_agent_policy_paths import is_t3_secret_or_protected_path
+
+    path_s = str(raw_path or "").strip()
+    if not path_s:
+        raise ValueError("нужен путь path к файлу")
+    blocked_priv, reason_priv = is_private_chat_or_personal_path(path_s)
+    if blocked_priv:
+        raise PermissionError(reason_priv)
+    root = await resolve_root(ctx.svc, raw_root, ctx.workspace, ctx)
+    data_dir = Path(ctx.svc.settings.data_dir) if getattr(ctx.svc, "settings", None) else None
+    p = Path(path_s).expanduser()
+    candidate = (p if p.is_absolute() else (root / p)).resolve()
+    if not _within(candidate, [root]):
+        raise PermissionError(f"путь {candidate} выходит за пределы разрешённого корня {root}")
+    blocked_cand_priv, reason_cand_priv = is_private_chat_or_personal_path(candidate)
+    if blocked_cand_priv:
+        raise PermissionError(reason_cand_priv)
+    blocked_t3, reason_t3 = is_t3_secret_or_protected_path(
+        candidate, for_write=for_write, repo_root=root, data_dir=data_dir
+    )
+    if blocked_t3:
+        raise PermissionError(reason_t3)
+    return root, candidate
+
+
+async def tool_code_read(args: dict, ctx: ToolContext) -> ToolResult:
+    try:
+        root, target = await _resolve_code_file_target(
+            ctx, str(args.get("path") or ""), args.get("root"), for_write=False
+        )
+    except (ValueError, PermissionError, FileNotFoundError) as exc:
+        return _err(f"code.read: {exc}")
+    if not target.is_file():
+        return _err(f"code.read: файл не найден: {target}")
+    try:
+        raw_bytes = target.read_bytes()
+        sha256 = hashlib.sha256(raw_bytes).hexdigest()
+        text = raw_bytes.decode("utf-8", errors="replace")
+    except OSError as exc:
+        return _err(f"code.read: {exc}")
+
+    lines = text.splitlines()
+    total_lines = len(lines)
+    start_line = max(1, int(args.get("start_line") or 1))
+    end_line = min(total_lines, int(args.get("end_line") or total_lines)) if total_lines else 0
+    selected = "\n".join(lines[start_line - 1 : end_line]) if total_lines else ""
+    truncated = len(selected) > OUTPUT_LIMIT
+    rel = str(target.relative_to(root)).replace("\\", "/")
+    return ToolResult(
+        content=selected[:OUTPUT_LIMIT] if truncated else selected,
+        one_line=f"code.read: {rel} ({start_line}-{end_line}/{total_lines} строк, sha256={sha256[:12]})",
+        truncated=truncated,
+        more="укажите start_line/end_line для чтения по частям" if truncated else "",
+        data={
+            "root": str(root),
+            "path": rel,
+            "abs_path": str(target),
+            "start_line": start_line,
+            "end_line": end_line,
+            "total_lines": total_lines,
+            "sha256": sha256,
+        },
+    )
+
+
+async def tool_code_write(args: dict, ctx: ToolContext) -> ToolResult:
+    content = args.get("content")
+    if not isinstance(content, str):
+        return _err("code.write: нужен строковый аргумент content (UTF-8)")
+    try:
+        root, target = await _resolve_code_file_target(
+            ctx, str(args.get("path") or ""), args.get("root"), for_write=True
+        )
+    except (ValueError, PermissionError, FileNotFoundError) as exc:
+        return _err(f"code.write: {exc}")
+    try:
+        before_sha = (
+            hashlib.sha256(target.read_bytes()).hexdigest() if target.is_file() else None
+        )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        raw_bytes = content.encode("utf-8")
+        target.write_bytes(raw_bytes)
+        after_sha = hashlib.sha256(raw_bytes).hexdigest()
+        try:
+            handle = await get_handle(ctx.svc, root)
+            await start_background_index(handle, force=True)
+        except Exception:
+            pass
+    except OSError as exc:
+        return _err(f"code.write: {exc}")
+    rel = str(target.relative_to(root)).replace("\\", "/")
+    return ToolResult(
+        content=f"Записан файл {rel} ({len(raw_bytes)} байт UTF-8, sha256={after_sha[:12]})",
+        one_line=f"code.write: {rel} ({len(raw_bytes)} байт, sha256={after_sha[:12]})",
+        data={
+            "root": str(root),
+            "path": rel,
+            "abs_path": str(target),
+            "bytes_written": len(raw_bytes),
+            "before_sha256": before_sha,
+            "after_sha256": after_sha,
+        },
+    )
+
+
+async def tool_code_patch(args: dict, ctx: ToolContext) -> ToolResult:
+    old_text = args.get("old_text") if "old_text" in args else args.get("target_text")
+    new_text = args.get("new_text") if "new_text" in args else args.get("replacement_text")
+    if not isinstance(old_text, str) or not old_text:
+        return _err("code.patch: нужен непустой строковый old_text")
+    if not isinstance(new_text, str):
+        return _err("code.patch: нужен строковый new_text")
+    allow_multiple = bool(args.get("allow_multiple", False))
+    try:
+        root, target = await _resolve_code_file_target(
+            ctx, str(args.get("path") or ""), args.get("root"), for_write=True
+        )
+    except (ValueError, PermissionError, FileNotFoundError) as exc:
+        return _err(f"code.patch: {exc}")
+    if not target.is_file():
+        return _err(f"code.patch: файл не найден: {target}")
+    try:
+        before_bytes = target.read_bytes()
+        before_sha = hashlib.sha256(before_bytes).hexdigest()
+        current = before_bytes.decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        return _err(f"code.patch: ошибка чтения UTF-8: {exc}")
+    occurrences = current.count(old_text)
+    if occurrences == 0:
+        return _err("code.patch: фрагмент old_text не найден в файле")
+    if occurrences > 1 and not allow_multiple:
+        return _err(
+            f"code.patch: фрагмент old_text встретился {occurrences} раз(а); "
+            "добавьте контекст или передайте allow_multiple=true"
+        )
+    updated = (
+        current.replace(old_text, new_text)
+        if allow_multiple
+        else current.replace(old_text, new_text, 1)
+    )
+    try:
+        after_bytes = updated.encode("utf-8")
+        target.write_bytes(after_bytes)
+        after_sha = hashlib.sha256(after_bytes).hexdigest()
+        try:
+            handle = await get_handle(ctx.svc, root)
+            await start_background_index(handle, force=True)
+        except Exception:
+            pass
+    except OSError as exc:
+        return _err(f"code.patch: {exc}")
+    rel = str(target.relative_to(root)).replace("\\", "/")
+    replaced_count = occurrences if allow_multiple else 1
+    return ToolResult(
+        content=f"Обновлён файл {rel}: замен={replaced_count}, sha256={after_sha[:12]}",
+        one_line=f"code.patch: {rel} (замен={replaced_count}, sha256={after_sha[:12]})",
+        data={
+            "root": str(root),
+            "path": rel,
+            "abs_path": str(target),
+            "replaced_count": replaced_count,
+            "before_sha256": before_sha,
+            "after_sha256": after_sha,
+        },
+    )
+
+
 SPECS = [
     ToolSpec(
         name="code.search", handler=tool_code_search, source="builtin", category="read",
@@ -1069,6 +1246,36 @@ SPECS = [
         description="Развернуть code chunk по chunk_hash.",
         input_schema={"chunk_hash": {"type": "string"}, "root": {"type": "string"}},
         required=["chunk_hash"]),
+    ToolSpec(
+        name="code.read", handler=tool_code_read, source="builtin", category="read",
+        permission="filesystem.read", default_effect="auto", timeout_seconds=30.0,
+        description="Прочитать файл (UTF-8) внутри разрешённого workspace с проверкой защищённых путей.",
+        input_schema={
+            "path": {"type": "string"},
+            "root": {"type": "string"},
+            "start_line": {"type": "integer", "minimum": 1},
+            "end_line": {"type": "integer", "minimum": 1},
+        }, required=["path"]),
+    ToolSpec(
+        name="code.write", handler=tool_code_write, source="builtin", category="write",
+        permission="terminal.run", default_effect="auto", timeout_seconds=30.0,
+        description="Записать текстовый файл (UTF-8) внутри разрешённого workspace (защищённое ядро заблокировано).",
+        input_schema={
+            "path": {"type": "string"},
+            "content": {"type": "string"},
+            "root": {"type": "string"},
+        }, required=["path", "content"]),
+    ToolSpec(
+        name="code.patch", handler=tool_code_patch, source="builtin", category="write",
+        permission="terminal.run", default_effect="auto", timeout_seconds=30.0,
+        description="Точечно заменить фрагмент текста (UTF-8) в файле внутри разрешённого workspace (защищённое ядро заблокировано).",
+        input_schema={
+            "path": {"type": "string"},
+            "old_text": {"type": "string"},
+            "new_text": {"type": "string"},
+            "allow_multiple": {"type": "boolean"},
+            "root": {"type": "string"},
+        }, required=["path", "old_text", "new_text"]),
     ToolSpec(
         name="code.index", handler=tool_code_index, source="builtin", category="read",
         default_effect="auto", timeout_seconds=30.0,
