@@ -58,6 +58,13 @@ HARD_DENY = [
     (re.compile(r"(?i)\b(?:setenforce\s+0|ufw\s+disable|systemctl\s+stop\s+(?:firewalld|apparmor))\b"),
      "отключение защиты ОС"),
     (re.compile(
+        r"(?i)\b(?:Add-MpPreference|Set-MpPreference|Remove-MpPreference|"
+        r"DisableRealtimeMonitoring|ExclusionPath|ExclusionProcess|ExclusionExtension)\b"
+    ), "отключение или изменение исключений Защитника Windows (T3)"),
+    (re.compile(
+        r"(?i)\b(?:audit\.jsonl(?:\.head)?|constitution\.sha256|BOSSMAN_CONSTITUTION\.md)\b"
+    ), "модификация или удаление неизменяемого журнала аудита/Конституции (T3)"),
+    (re.compile(
         r"(?i)\b(?:nmap|masscan|zmap|sqlmap|hydra|medusa|ncrack|john|hashcat|"
         r"metasploit|msfconsole|msfvenom|nuclei|nikto|gobuster|ffuf|dirbuster|"
         r"mimikatz|responder|impacket(?:-[a-z0-9_]+)?|crackmapexec|netexec|"

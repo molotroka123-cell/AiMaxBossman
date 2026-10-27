@@ -763,6 +763,12 @@ def get_runtime(svc: Any) -> PCAgentRuntime:
 ARGON_DEFAULT_TOOLS = [
     "computer.observe",
     "computer.act",
+    "pc.list_processes",
+    "pc.system_info",
+    "pc.list_windows",
+    "pc.read_file",
+    "pc.list_dir",
+    "pc.record_screen",
     "terminal.run",
     "terminal.status",
     "terminal.stdin",
@@ -798,7 +804,7 @@ async def ensure_argon_agent(svc: Any) -> dict[str, Any]:
         preferred_model = select_preferred_local_model(model_rows)
         model_id = preferred_model["id"] if preferred_model else None
 
-        # Defect #5 & D-028: чиним промпт, права и инструменты чтения у локальных агентов-операторов (Gemma 4 / agent 40, 41, 50)
+        # Defect #5, D-028 & D-034: чиним промпт, права и инструменты чтения у локальных агентов-операторов (Gemma 4 / agent 40, 41, 50)
         with contextlib.suppress(Exception):
             op_rows = rows_dicts(
                 await s.execute(
@@ -811,7 +817,21 @@ async def ensure_argon_agent(svc: Any) -> dict[str, Any]:
                     )
                 )
             )
-            read_and_edit_tools = ("code.read", "code.search", "code.expand", "code.status", "code.workspace_map", "code.write", "code.patch")
+            read_and_edit_tools = (
+                "code.read",
+                "code.search",
+                "code.expand",
+                "code.status",
+                "code.workspace_map",
+                "code.write",
+                "code.patch",
+                "pc.list_processes",
+                "pc.system_info",
+                "pc.list_windows",
+                "pc.read_file",
+                "pc.list_dir",
+                "pc.record_screen",
+            )
             for grow in op_rows:
                 g_tools = list(grow.get("tools") or [])
                 g_prompt = str(grow.get("system_prompt") or "")
@@ -1545,12 +1565,14 @@ async def execute_pc_step(
         query = str(args.get("query") or args.get("filter") or "").strip().lower()
         sort_by = str(args.get("sort_by") or "memory").strip().lower()
         procs = []
-        for p in psutil.process_iter(["pid", "name", "memory_info", "cpu_percent", "status"]):
+        for p in psutil.process_iter(["pid", "name", "memory_info", "cpu_percent", "status", "cmdline"]):
             with contextlib.suppress(Exception):
                 info = p.info
                 pname = str(info.get("name") or "")
                 pid_val = int(info.get("pid") or 0)
-                if query and query not in pname.lower() and query != str(pid_val):
+                raw_cmd = " ".join(str(x) for x in (info.get("cmdline") or []) if x)
+                cmdline_s = scrub_secrets(raw_cmd)[:200] if raw_cmd else ""
+                if query and query not in pname.lower() and query != str(pid_val) and query not in cmdline_s.lower():
                     continue
                 mem_mb = round((info["memory_info"].rss if info.get("memory_info") else 0) / (1024 * 1024), 1)
                 cpu_pct = round(float(info.get("cpu_percent") or 0.0), 1)
@@ -1560,6 +1582,7 @@ async def execute_pc_step(
                     "memory_mb": mem_mb,
                     "cpu_percent": cpu_pct,
                     "status": str(info.get("status") or "running"),
+                    "cmdline": cmdline_s,
                     "own_process": pid_val in rt.spawned_pids,
                 })
         if sort_by == "cpu":
@@ -1568,13 +1591,21 @@ async def execute_pc_step(
             procs.sort(key=lambda x: x["memory_mb"], reverse=True)
         limit = min(max(5, int(args.get("limit") or 25)), 60)
         top = procs[:limit]
+        joined_cmds = " ".join(p.get("cmdline") or "" for p in top)
+        tainted_p = bool(_PROMPT_INJECTION_RE.search(joined_cmds))
+        top_desc = ", ".join(
+            f"{p['name']} ({p['memory_mb']} МБ, CPU {p['cpu_percent']}%, PID {p['pid']}"
+            + (f", cmd={p['cmdline'][:90]!r}" if p.get("cmdline") and ("python" in p["name"].lower() or query) else "")
+            + ")"
+            for p in top[:10]
+        )
         return {
             "ok": True,
             "verified": True,
             "processes": top,
             "total_processes": len(procs),
-            "tainted": False,
-            "summary": f"Процессов найдено: {len(procs)}. Топ: " + ", ".join(f"{p['name']} ({p['memory_mb']} МБ, PID {p['pid']})" for p in top[:10]),
+            "tainted": tainted_p,
+            "summary": f"Процессов найдено: {len(procs)}. Топ: {top_desc}",
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
@@ -6755,7 +6786,137 @@ async def api_pc_agent_sysinfo(request: Request):
     return await execute_pc_step(svc, rt, task_id=0, run_id=0, step_idx=0, tool="pc.system_info", args={})
 
 
+async def _run_pc_read_tool_spec(tool_name: str, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    svc = ctx.svc
+    rt = get_runtime(svc)
+    task_id = int((ctx.task or {}).get("id") or 0)
+    run_id = int(ctx.run_id or 0)
+    step_idx = int(ctx.step or 0)
+    res = await execute_pc_step(
+        svc,
+        rt,
+        task_id=task_id,
+        run_id=run_id,
+        step_idx=step_idx,
+        tool=tool_name,
+        args=dict(args or {}),
+        actor="agent",
+        approved=False,
+    )
+    if not res.get("ok"):
+        err_msg = str(res.get("error") or res.get("summary") or f"{tool_name} failed")
+        return ToolResult(content=err_msg, one_line=err_msg[:180], data=res, error=True, external=True)
+    content_parts: list[str] = []
+    if res.get("summary"):
+        content_parts.append(str(res["summary"]))
+    if res.get("content"):
+        content_parts.append(str(res["content"]))
+    elif tool_name == "pc.list_processes" and res.get("processes"):
+        lines = [
+            f"PID={p['pid']} name={p['name']} mem={p['memory_mb']}MB cpu={p['cpu_percent']}% cmd={p.get('cmdline', '')}"
+            for p in res["processes"][:25]
+        ]
+        content_parts.append("\n".join(lines))
+    full_text = "\n".join(content_parts) or json.dumps(res, ensure_ascii=False, default=str)
+    return ToolResult(content=full_text, one_line=str(res.get("summary") or full_text)[:180], data=res, error=False, external=True)
+
+
+def _register_pc_read_tools() -> None:
+    specs = [
+        ToolSpec(
+            name="pc.list_processes",
+            description="Безопасное чтение списка процессов Windows (T0, без подтверждения): возвращает топ процессов по ОЗУ или CPU с PID, именем, памятью (МБ), CPU% и командной строкой.",
+            category="read",
+            permission="computer.observe",
+            source="computer",
+            default_effect="auto",
+            external_output=True,
+            input_schema={
+                "query": {"type": "string", "description": "Фильтр по имени процесса, PID или аргументам командной строки (опционально)."},
+                "sort_by": {"type": "string", "enum": ["memory", "cpu"], "default": "memory"},
+                "limit": {"type": "integer", "default": 25},
+            },
+            handler=lambda args, ctx: _run_pc_read_tool_spec("pc.list_processes", args, ctx),
+        ),
+        ToolSpec(
+            name="pc.system_info",
+            description="Безопасное чтение состояния ПК Windows (T0, без подтверждения): возвращает свободную и общую ОЗУ (ГБ), загрузку CPU%, свободное место на диске, GPU и загруженные модели Ollama.",
+            category="read",
+            permission="computer.observe",
+            source="computer",
+            default_effect="auto",
+            external_output=True,
+            input_schema={},
+            handler=lambda args, ctx: _run_pc_read_tool_spec("pc.system_info", args, ctx),
+        ),
+        ToolSpec(
+            name="pc.list_windows",
+            description="Безопасное чтение открытых окон верхнего уровня Windows (T0, без подтверждения): возвращает HWND, заголовок окна и PID.",
+            category="read",
+            permission="computer.observe",
+            source="computer",
+            default_effect="auto",
+            external_output=True,
+            input_schema={
+                "query": {"type": "string", "description": "Фильтр по заголовку окна или PID (опционально)."},
+            },
+            handler=lambda args, ctx: _run_pc_read_tool_spec("pc.list_windows", args, ctx),
+        ),
+        ToolSpec(
+            name="pc.read_file",
+            description="Безопасное чтение текстового файла в разрешённых рабочих папках Bossman (C:\\Users\\asd\\Bossman, D:\\Bossman) (T0, без подтверждения). Секреты и личные пути блокируются T3.",
+            category="read",
+            permission="filesystem.read",
+            source="computer",
+            default_effect="auto",
+            external_output=True,
+            input_schema={
+                "path": {"type": "string", "description": "Путь к файлу внутри разрешённых рабочих каталогов Bossman."},
+            },
+            required=["path"],
+            handler=lambda args, ctx: _run_pc_read_tool_spec("pc.read_file", args, ctx),
+        ),
+        ToolSpec(
+            name="pc.list_dir",
+            description="Безопасное чтение списка файлов и папок в разрешённых рабочих каталогах Bossman (T0, без подтверждения).",
+            category="read",
+            permission="filesystem.read",
+            source="computer",
+            default_effect="auto",
+            external_output=True,
+            input_schema={
+                "path": {"type": "string", "description": "Путь к папке внутри разрешённых рабочих каталогов Bossman."},
+            },
+            required=["path"],
+            handler=lambda args, ctx: _run_pc_read_tool_spec("pc.list_dir", args, ctx),
+        ),
+        ToolSpec(
+            name="pc.record_screen",
+            description="Запись короткого видео экрана (MP4) или открытие/просмотр ссылки (в т.ч. t.me / Telegram Desktop) с извлечением ключевых кадров и проверкой контента.",
+            category="read",
+            permission="computer.observe",
+            source="computer",
+            default_effect="auto",
+            external_output=True,
+            input_schema={
+                "url": {"type": "string", "description": "URL или ссылка t.me/... для открытия перед записью (опционально)."},
+                "duration_s": {"type": "number", "default": 6.0},
+                "fps": {"type": "integer", "default": 10},
+                "send_to_pult": {"type": "boolean", "default": False},
+                "caption": {"type": "string"},
+            },
+            handler=lambda args, ctx: _run_pc_read_tool_spec("pc.record_screen", args, ctx),
+        ),
+    ]
+    for spec in specs:
+        REGISTRY.register(spec)
+
+
+_register_pc_read_tools()
+
+
 async def _setup(svc: Any) -> None:
+    _register_pc_read_tools()
     rt = get_runtime(svc)
     await recover_interrupted_tasks(svc)
 
