@@ -46,7 +46,7 @@ INJ = pol._PROMPT_INJECTION_RE
 
 
 # fixed on branch agent/claude-20261026 (commit "policy: close D-009..."): these run as ordinary tests now, with the paired negative control
-CLOSED = {"D-009", "D-010", "D-011", "D-014", "D-015", "D-016", "D-017", "D-018", "D-019", "D-020", "D-021", "D-022", "D-023", "D-024"}
+CLOSED = {"D-009", "D-010", "D-011", "D-012", "D-014", "D-015", "D-016", "D-017", "D-018", "D-019", "D-020", "D-021", "D-022", "D-023", "D-024"}
 
 
 def xf(defect: str):

@@ -41,6 +41,7 @@ import functools
 import hashlib
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -98,13 +99,26 @@ POLICY_RULES: tuple[PolicyRule, ...] = (
         r"(ba|z|da|k|fi)?sh\b|\b(curl|wget|iwr|irm)\b[^\n]*\|\s*(iex|invoke-expression|python3?|node|perl|ruby)\b"
         r"|\b(ba|z)?sh\s+<\(\s*(curl|wget)|\beval\s+\"?\$\(\s*(curl|wget)"),
         True, False, "выполнение кода, скачанного из сети"),
+    PolicyRule("download_then_run", _rx(
+        r"\b(curl|wget|iwr|irm|invoke-webrequest)\b[^\n]*(\s-o\s|\s--output\s|-outfile\s|>\s*)\S+"
+        r"[^\n]*(&&|;)\s*(sudo\s+)?(sh|bash|python3?|pwsh|powershell|\./|\.\\)"),
+        True, False, "скачать файл и сразу запустить"),
+    PolicyRule("powershell_iex_download", _rx(
+        r"\b(iex|invoke-expression)\b[^\n]*(downloadstring|\biwr\b|\birm\b|invoke-webrequest|net\.webclient)"),
+        True, False, "выполнение кода, скачанного PowerShell"),
+    PolicyRule("powershell_encoded", _rx(
+        r"\b(powershell|pwsh)(\.exe)?\b[^\n]*\s-(e|ec|enc|encodedcommand)\s+[A-Za-z0-9+/=]{8,}"),
+        True, False, "закодированная команда PowerShell"),
     PolicyRule("exfiltration", _rx(
         r"\b(send|post|upload|exfiltrat\w*|transmit|forward|report)\w*\b[^\n]{0,80}"
-        r"\b(tokens?|secrets?|api[_ -]?keys?|passwords?|credentials?|\.env\b|id_rsa|ssh keys?|cookies?)\b"
-        r"[^\n]{0,80}\b(to|https?://)"),
+        r"(?<![\w])(tokens?|secrets?|api[_ -]?keys?|passwords?|credentials?|\.env|id_rsa|ssh keys?|cookies?)\b"
+        r"[^\n]{0,80}(\bto\b|https?://)"
+        r"|(отправ\w*|пришл\w*|передай\w*|залей\w*)[^\n]{0,60}(токен\w*|ключ\w*|парол\w*|секрет\w*|\.env)"),
         True, False, "передача секретов наружу"),
     PolicyRule("instruction_override", _rx(
-        r"\bignore\s+(all\s+)?(previous|prior|above|earlier|system|other|your)\s+(instructions|rules|prompts?|policies)"
+        r"\b(ignore|forget)\s+(all\s+)?(of\s+)?(the\s+)?(previous|prior|above|earlier|system|other|your)"
+        r"\s+(instructions|rules|prompts?|policies)"
+        r"|(игнорируй|забудь)\w*\s+(все\s+|всё\s+)?(предыдущ\w+|прежн\w+)\s+(инструкц\w+|правил\w+)"
         r"|\bdisregard\s+(the\s+|all\s+|your\s+)?(system|previous|prior|above|safety)"
         r"|\boverride\s+(the\s+)?(system|safety|security)\s+(prompt|policy|rules)"),
         True, False, "попытка отменить инструкции системы"),
@@ -178,10 +192,27 @@ _NEG_LEAD = re.compile(r"^\s*(#+\s*)?[*_]*\s*(never|don'?t|do not|red flags?|avo
 _LIST_ITEM = re.compile(r"^\s*([-*+]\s|\d+[.)]\s|\|)")
 
 
+def _logical_lines(text: str) -> list[tuple[int, str]]:
+    """(line_no, line) after NFKC, zero-width/control removal, and joining «\\<newline>» and «<newline>| ...» continuations."""
+    raw = []
+    for ln in unicodedata.normalize("NFKC", text).splitlines():
+        raw.append("".join(ch for ch in ln if unicodedata.category(ch) not in {"Cf", "Cc"} or ch == "\t"))
+    out: list[tuple[int, str]] = []
+    i = 0
+    while i < len(raw):
+        no, cur = i + 1, raw[i]
+        while i + 1 < len(raw) and (cur.rstrip().endswith("\\") or raw[i + 1].lstrip().startswith("|")):
+            cur = cur.rstrip().rstrip("\\") + " " + raw[i + 1].strip()
+            i += 1
+        out.append((no, cur))
+        i += 1
+    return out
+
+
 def scan_policy(text: str) -> list[Violation]:
     found: list[Violation] = []
     neg_block = False          # inside a list under "Never:" / "Red Flags" / a rationalisation table
-    for no, line in enumerate(text.splitlines(), 1):
+    for no, line in _logical_lines(text):
         if line.strip() and not _LIST_ITEM.match(line):
             neg_block = bool(_NEG_LEAD.match(line))
         in_neg_list = neg_block and bool(_LIST_ITEM.match(line))
