@@ -1,0 +1,208 @@
+{
+ "schema": "bossman.genjutsu-local.v2",
+ "date": "2026-10-26",
+ "goal": "local equivalent of Higgsfield Genjutsu Light (replace the person in a real video, keep background/camera/motion)",
+ "method": "Wan2.2 Animate 14B (WanGP, quanto int8 + lightx2v, 6 steps) REPLACE mode PVBAIH#1 with RVM person mask + reference photo, 480x832 16 fps, then optional FaceFusion hyperswap_1a_256 face pass (stock NSFW filter on), lanczos upscale",
+ "runs": {
+  "smoke_a": {
+   "ref": "ref3 only, generic prompt",
+   "time_s": 1246,
+   "min_free_ram_gb": 53.6,
+   "arcface_median": -0.015,
+   "higgsfield_same_window": 0.402,
+   "bg_ssim": 0.725,
+   "bg_flicker": 0.958,
+   "verdict": "identity and outfit wrong"
+  },
+  "smoke_b": {
+   "ref": "ref2 + outfit prompt",
+   "time_s": 1175,
+   "min_free_ram_gb": 52.8,
+   "arcface_median": 0.064,
+   "bg_ssim": 0.724,
+   "bg_flicker": 1.812,
+   "verdict": "outfit/motion/background close to reference, face identity weak"
+  },
+  "smoke_b_ff": {
+   "ref": "smoke_b + face pass with ref3 (18 s CPU)",
+   "arcface_median": 0.578,
+   "arcface_p10": 0.079,
+   "bg_ssim": 0.721,
+   "bg_flicker": 1.847,
+   "faces_detected": "9 sampled frames only (faces tiny)",
+   "verdict": "best man variant; metric above Higgsfield but only on frames where a face is detectable; motion blur stronger than reference"
+  },
+  "her_a": {
+   "source": "owner .mov window 6.06-9.1 s, backlit dark dance studio",
+   "time_s": 1155,
+   "face_found_ratio": 0.36,
+   "arcface_median": 0.085,
+   "verdict": "FAIL gate"
+  },
+  "her_a_ff": {
+   "face_found_ratio": 0.4,
+   "arcface_median_on_found": 0.615,
+   "arcface_max_jump": 0.681,
+   "verdict": "FAIL gate: dark silhouette, face found in 40% of frames, jumps"
+  },
+  "smoke_b_gfpgan": {
+   "ref": "smoke_b + FaceFusion hyperswap_1a_256 + gfpgan_1.4 enhancer blend 80 (CPU, 2 threads, 11 s)",
+   "arcface_median": 0.074,
+   "face_lap_median": 6.8,
+   "faces_detected": 8,
+   "verdict": "WORSE than smoke_b_ff (0.578): enhancer on 480p faces did not raise identity or sharpness; swap-only face pass stays best. Note: HF-window flicker differs between qa runs (1.52 vs 2.72), so flicker is noisy"
+  },
+  "head_zoom": {
+   "method": "headcrop.py (tracked 512 head crop of source, face found 39/49 frames) -> Wan2.2 Animate replace 512x512 49f 6 steps (1124 s, min free RAM 18.2 GB) -> paste_back.py",
+   "v1_ellipse_blend": {
+    "arcface_median": 0.218,
+    "face_lap_median": 6.9,
+    "note": "background halo of the generated head leaks"
+   },
+   "v2_person_mask_blend": {
+    "arcface_median": 0.247,
+    "face_lap_median": 6.8,
+    "note": "halo gone; old head hair still peeks behind new head on turns"
+   },
+   "v3_plus_hyperswap_on_512_head": {
+    "arcface_median": 0.276,
+    "face_lap_median": 6.5,
+    "note": "best local so far on identity; sharpness not improved"
+   },
+   "higgsfield_same_window": {
+    "arcface_median": 0.402,
+    "face_lap_median": 9.1,
+    "faces": 13
+   },
+   "faces_found_local": 6,
+   "verdict": "visibly better head (cap, face, expression) than the 480p full-frame variants but BELOW Higgsfield on both metrics; sharpness is capped by the source's motion blur and 480p base",
+   "not_tried_yet": [
+    "full frame 720x1280 (~2.5x pixels, estimated 50 min per 3 s window, NOT measured)",
+    "head 768 or 2 passes",
+    "more steps than 6",
+    "erase the old head in the base before pasting"
+   ],
+   "v4_head_on_720_base": {
+    "arcface_median": 0.308,
+    "face_lap_median": 7.0,
+    "faces_found": 12,
+    "bg_ssim_outside_mask": 0.741,
+    "bg_flicker": 4.51,
+    "note": "base lanczos-upscaled to 720x1280 before pasting the 512 head: face found in 12 samples (Higgsfield 13); background SSIM vs source 0.741 (Higgsfield 0.707)"
+   },
+   "v5_denoise_unsharp": {
+    "arcface_median": 0.29,
+    "face_lap_median": 10.2,
+    "note": "light unsharp raises the Laplacian metric above Higgsfield (9.1) but that is added edge contrast, not real detail - do NOT count it as parity"
+   },
+   "paused": "owner 26.10 ~13:10: 'турнир резко жестко' - video experiments stopped, tournament full power; resume video after the tournament"
+  },
+  "anim720_full_frame": {
+   "method": "Wan2.2 Animate replace 720x1280 49f 6 steps, 110 min",
+   "arcface_median": 0.074,
+   "face_lap_median": 6.0,
+   "bg_ssim_outside_mask": 0.963,
+   "note": "resolution alone does not fix identity"
+  },
+  "head768_variants_on_720_base": {
+   "head": "tracked 768 crop, 3 refs (ref3,ref2,ref1), 39 min; hyperswap_1a_256 on the head (CPU)",
+   "paste_ellipse_personmask": {
+    "arcface_median": 0.488,
+    "arcface_min": -0.025,
+    "arcface_p10": 0.313,
+    "face_lap_median": 20.3,
+    "visual": "rings/grey patches at the seam, some heads too dark"
+   },
+   "paste_poisson_seamless": {
+    "arcface_median": 0.543,
+    "arcface_min": 0.308,
+    "arcface_p10": 0.325,
+    "face_lap_median": 13.6,
+    "visual": "no seam but heads smeared, cap often lost"
+   },
+   "paste_soft_rvm_alpha_v1": {
+    "arcface_median": 0.523,
+    "arcface_min": 0.052,
+    "arcface_p10": 0.364,
+    "face_lap_median": 11.3,
+    "bg_flicker": 2.228,
+    "visual": "BEST so far: cap+face+expression right, rings gone; pale veil around some heads, head slightly large, warm colour"
+   },
+   "paste_soft_rvm_alpha_v2": {
+    "arcface_median": 0.498,
+    "arcface_min": -0.025,
+    "arcface_p10": 0.357,
+    "visual": "same veil, no better"
+   },
+   "higgsfield_same_window": {
+    "arcface_median": 0.402,
+    "arcface_min": 0.266,
+    "arcface_p10": 0.294,
+    "face_lap_median": 9.1,
+    "bg_ssim_outside_mask": 0.716,
+    "bg_flicker": 1.514
+   },
+   "caveat": "ArcFace is partly circular: hyperswap inserts the reference face that ArcFace is compared to; Laplacian sharpness rises with edge artefacts. Visual parity NOT reached (Higgsfield cleaner, less flicker).",
+   "qa_note": "bg SSIM now uses the window-local mask (earlier 0.70-0.74 values used the wrong part of the mask)",
+   "real_background_composite_bgfix": {
+    "method": "final = Animate+head inside a feathered person mask, REAL source background outside (bgfix.py)",
+    "arcface_median": 0.496,
+    "bg_ssim_outside_mask": 0.984,
+    "bg_flicker": 1.691,
+    "note": "flicker 2.23 -> 1.69 (HF 1.51), background SSIM 0.96 -> 0.98"
+   },
+   "variant_C_head_only_fade_too_high": {
+    "arcface_median": 0.27,
+    "note": "vertical fade started inside the face (cut the chin): identity collapsed — lesson: fade only below the chin"
+   },
+   "variant_D_head_only_fade_below_chin_plus_real_bg": {
+    "arcface_median": 0.479,
+    "arcface_min": 0.031,
+    "arcface_p10": 0.284,
+    "face_lap_median": 10.3,
+    "bg_ssim_outside_mask": 0.984,
+    "bg_flicker": 1.7,
+    "visual": "coherent full frame (no torso smears), cap+face+expression right; pale veil around heads and a white-to-dark gradient on the chest remain; Higgsfield still cleaner"
+   },
+   "scripts": "alpha768.py / alpha768d.py (soft RVM alpha head composite), bgfix*.py (real background), seam768.py (Poisson) in D:\\Bossman\\work\\genjutsu-local-20261026",
+   "variant_E_matte_fgr_head_only_real_bg": {
+    "method": "RVM matte of the GENERATED head (fgr colours + alpha: no background spill), head-only vertical fade 0.74-0.84, colour match to the base person pixels, real source background outside a feathered person mask (alpha768e.py + bgfix)",
+    "arcface_median": 0.516,
+    "arcface_min": 0.196,
+    "arcface_p10": 0.31,
+    "face_lap_median": 12.1,
+    "bg_ssim_outside_mask": 0.984,
+    "bg_flicker": 1.725,
+    "visual": "BEST: pale veil gone, hair/cap edges clean against the background, face+expression sharp, chest gradient mostly gone; remaining: head a bit big/bold, hair bushier, colour warmer than Higgsfield, small dark band at the crop bottom in some frames. Higgsfield still cleaner."
+   },
+   "variant_F_scale92_cooler_shorter_fade": {
+    "arcface_median": 0.438,
+    "arcface_min": 0.081,
+    "arcface_p10": 0.193,
+    "face_lap_median": 9.5,
+    "visual": "dark bottom band mostly gone and slightly cooler, but smaller head lowers identity metrics; trade-off, E stays primary"
+   }
+  }
+ },
+ "reference": {
+  "higgsfield_same_window": {
+   "arcface_median": 0.402,
+   "bg_ssim": 0.716,
+   "bg_flicker": 1.524,
+   "face_lap_median": 9.1
+  }
+ },
+ "not_done": [
+  "full-length 12.5 s run (about 80 min per full pass at 480x832; owner priority moved to the tournament)",
+  "MimicMotion/UniAnimate (not installed)",
+  "her LoRA variant (no trained LoRA with her photos found in the dataset folders checked)"
+ ],
+ "tool": "tools/motion_studio/local_genjutsu.py (steps untested end-to-end as one script; each step was executed by hand with the same commands)",
+ "sheets": "qa/smoke_a-sheet.jpg, smoke_b-sheet.jpg, smoke_b_ff-sheet.jpg (24 frames each: source | Higgsfield | local), her_a_ff-sheet.jpg",
+ "sent_to_pult": [
+  "smoke_a",
+  "smoke_b_ff",
+  "her_a_ff"
+ ],
+ "consent_note": "reference persons' photos ref1-3 are not the girlfriend (ArcFace -0.03..0.07 vs her); consent relayed by coordinator, not verified by me; local only"
+}
