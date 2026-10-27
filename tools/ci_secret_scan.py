@@ -212,7 +212,7 @@ def scan_paths(paths: list[Path], root: Path) -> list[str]:
     findings: list[str] = []
     for path in paths:
         rel = path.relative_to(root).as_posix()
-        if rel.endswith("tools/ci_secret_scan.py") or rel == "tests/owner_scenarios/eval500_dev.json":
+        if rel.endswith("tools/ci_secret_scan.py"):
             continue
         if any(rx.search(rel) for rx in FORBIDDEN_FILES):
             findings.append(f"{rel}: forbidden file in repository (.env / private key material)")

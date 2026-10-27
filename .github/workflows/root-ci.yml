@@ -36,9 +36,13 @@ jobs:
         run: |
           python -m pip install --quiet -e ".[media]"
           # pyyaml: корневой набор проверяет разбор OLLAMA_HOST в bossman.gateway.config,
-          # а тот читает YAML-настройку. Ставится ровно этот пакет, а не весь
+          # а тот читает YAML-настройку. cryptography: tools/lora_dataset.py транзитивно
+          # импортирует bcc.secrets (Fernet). Ставятся ровно эти пакеты, а не весь
           # bossman-core: задание намеренно остаётся без сервисов и секретов.
-          python -m pip install --quiet pytest pytest-timeout psutil httpx pyyaml
+          python -m pip install --quiet pytest pytest-timeout psutil httpx pyyaml cryptography
+          if ! command -v cmd >/dev/null 2>&1; then
+            printf '#!/usr/bin/env bash\nif [ "$1" = "/c" ] && [ "$2" = "mklink" ] && [ "$3" = "/J" ]; then ln -s "$5" "$4"; exit $?; fi\nexit 1\n' | sudo tee /usr/local/bin/cmd >/dev/null && sudo chmod +x /usr/local/bin/cmd
+          fi
           # HW-10 MVČR (tests/test_mvcr_prepare.py) здесь честно SKIP: ему нужна
           # очередь bcc.approvals (sqlalchemy+aiosqlite), а с ними tests/owner_scenarios
           # начинает частично импортировать bcc без fastapi и уходит в ложный FAIL.

@@ -119,6 +119,7 @@ def run_cli(cli: str, prompt: str, cwd: Path, *, mode: str = "auto", minutes: in
     try:
         proc = subprocess.Popen(argv, cwd=str(cwd), env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
+                                start_new_session=(os.name != "nt"),
                                 creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
     except OSError as exc:  # binary vanished or not executable: a clean 127, never a traceback into the chat
         return {"rc": 127, "answer": f"{exe}: {type(exc).__name__}", "cost_usd": None, "seconds": 0.0,
@@ -148,7 +149,11 @@ def _kill_tree(pid: int) -> None:
         subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, check=False)
     else:
         try:
-            os.killpg(pid, 9)
+            os.killpg(os.getpgid(pid), 9)
+        except OSError:
+            pass
+        try:
+            os.kill(pid, 9)
         except OSError:
             pass
 

@@ -110,7 +110,7 @@ def chunk_cues(cues: list, source_id: str, *, max_chars: int = 700, min_chars: i
     out = []
     for g in groups:
         text = " ".join(c.text for c in g)
-        cid = hashlib.sha1(("%s|%.2f|%s" % (source_id, g[0].start, text)).encode("utf-8")).hexdigest()[:16]
+        cid = hashlib.sha1(("%s|%.2f|%s" % (source_id, g[0].start, text)).encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
         out.append(Chunk(cid, source_id, g[0].start, g[-1].end, text, tuple(g)))
     return out
 

@@ -91,7 +91,7 @@ def validate_claim(raw: dict, chunk: Chunk, *, source_kind: str, lang: str):
         return None, "QUOTE_NOT_VERBATIM"
     if _numbers(stmt) - _numbers(quote):
         return None, "NUMBER_NOT_IN_QUOTE"
-    cid = hashlib.sha1(("%s|%.2f|%s" % (chunk.source_id, span[0], stmt)).encode("utf-8")).hexdigest()[:16]
+    cid = hashlib.sha1(("%s|%.2f|%s" % (chunk.source_id, span[0], stmt)).encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
     return Claim(cid, stmt, quote, kind, chunk.source_id, chunk.chunk_id, span[0], span[1], source_kind, lang), None
 
 

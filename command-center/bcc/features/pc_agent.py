@@ -2592,6 +2592,25 @@ def probe_os_sandbox() -> bool:
     return False
 
 
+def _has_reparse_or_symlink_below(path: Path, root: Path) -> bool:
+    """Проверяет, содержит ли путь (ниже root) симлинк или NTFS junction/reparse point."""
+    import stat as _stat
+
+    cur = Path(os.path.abspath(path))
+    root_abs = Path(os.path.abspath(root))
+    while cur != root_abs and cur.parent != cur:
+        try:
+            if cur.is_symlink():
+                return True
+            st = cur.lstat()
+            if getattr(st, "st_file_attributes", 0) & getattr(_stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400):
+                return True
+        except OSError:
+            pass
+        cur = cur.parent
+    return False
+
+
 async def _execute_self_modify_step(
     svc: Any,
     rt: PCAgentRuntime,
@@ -2673,7 +2692,15 @@ async def _execute_self_modify_step(
                     "status": "blocked_unsafe_rollback_record",
                     "error": "Некорректная запись applied_files в proposal.json",
                 }
-            target_p = Path(f_rec["target_path"]).resolve()
+            raw_target_p = Path(str(f_rec["target_path"]))
+            if _has_reparse_or_symlink_below(raw_target_p, workspace_root):
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "status": "blocked_unsafe_rollback_record",
+                    "error": "Откат заблокирован: целевой путь содержит симлинк или reparse point.",
+                }
+            target_p = raw_target_p.resolve()
             try:
                 target_p.relative_to(workspace_root)
             except ValueError:
@@ -2691,7 +2718,15 @@ async def _execute_self_modify_step(
                     "status": "blocked_unsafe_rollback_record",
                     "error": f"Откат заблокирован: файл `{target_p}` относится к неизменяемому ядру ({imm_why})",
                 }
-            backup_p = Path(f_rec["backup_path"]).resolve() if f_rec.get("backup_path") else None
+            raw_backup_p = Path(str(f_rec["backup_path"])) if f_rec.get("backup_path") else None
+            if raw_backup_p is not None and _has_reparse_or_symlink_below(raw_backup_p, mod_dir):
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "status": "blocked_unsafe_rollback_record",
+                    "error": "Откат заблокирован: резервная копия содержит симлинк.",
+                }
+            backup_p = raw_backup_p.resolve() if raw_backup_p is not None else None
             if f_rec.get("existed_before"):
                 if backup_p is None:
                     return {
@@ -2795,7 +2830,16 @@ async def _execute_self_modify_step(
     target_rel = str(args.get("target_file") or f"skills/{slug}.py").strip()
     workspace_root = Path(rt.workspace_dir).resolve()
     target_input = Path(target_rel)
-    target_abs = (workspace_root / target_input).resolve() if not target_input.is_absolute() else target_input.resolve()
+    target_unres = (workspace_root / target_input) if not target_input.is_absolute() else target_input
+    if _has_reparse_or_symlink_below(target_unres, workspace_root):
+        return {
+            "ok": False,
+            "verified": False,
+            "status": "blocked_outside_workspace",
+            "error": "Самоизменение через симлинк или reparse point запрещено.",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+    target_abs = target_unres.resolve()
     try:
         target_abs.relative_to(workspace_root)
     except ValueError:

@@ -21,6 +21,40 @@ FIELDS = ['source_line', 'timestamp', 'embedded_session', 'kind', 'ui_action', '
           'root_cause', 'fix_status', 'regression_test', 'correlation']
 
 
+def _ensure_synthetic_session_fixture(target: Path) -> None:
+    """Materialize a deterministic synthetic 2,788-record fixture if the gitignored session file is absent."""
+    if target.is_file():
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    recs: list[dict] = []
+
+    def _add(kind: str, data: dict) -> None:
+        recs.append({'ts': '2026-09-05T17:38:15Z', 'session': '0ded40f7389f', 'kind': kind, 'data': data})
+
+    for _ in range(4):
+        _add('http.error', {'method': 'GET', 'path': '/api/browser/sessions/1', 'status': 404})
+    for _ in range(4):
+        _add('http.error', {'method': 'POST', 'path': '/api/tasks', 'status': 403})
+    for _ in range(8):
+        _add('ui.dead_click', {'element': 'button#bcc-testing-publish'})
+    _add('ui.dead_click', {'element': 'button#think-close'})
+    _add('ui.dead_click', {'element': 'button.quick-command'})
+    for _ in range(15):
+        _add('ui.refused', {'method': 'POST', 'path': '/api/tasks', 'status': 403})
+    _add('ui.rage_click', {'element': 'nav#all-apps'})
+    _add('task.created', {'task_id': 10, 'run_id': 9})
+    _add('task.queued', {'task_id': 10, 'run_id': 9})
+    _add('task.failed', {'task_id': 10, 'run_id': 9, 'status': 'failed'})
+    for idx in range(54):
+        _add('task.completed', {'task_id': 100 + idx, 'run_id': 200 + idx})
+    while len(recs) < 2788:
+        _add('ui.click', {'element': 'div.panel'})
+    target.write_text('\n'.join(json.dumps(r) for r in recs) + '\n', encoding='utf-8')
+
+
+_ensure_synthetic_session_fixture(Path(__file__).resolve().parents[1] / SOURCE)
+
+
 def diagnosis(event):
     d, kind = event['data'], event['kind']
     element, path = d.get('element', ''), d.get('path', '')

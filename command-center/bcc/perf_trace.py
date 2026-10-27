@@ -15,11 +15,12 @@ Security & Privacy Invariant:
 from __future__ import annotations
 
 from collections import deque
-from contextlib import contextmanager
+import itertools
 import statistics
 import time
-import uuid
-from typing import Any, Iterator
+from typing import Any
+
+_TRACE_COUNTER = itertools.count(1)
 
 REQUIRED_STAGE_SPANS: tuple[str, ...] = (
     "mobile.request",
@@ -99,6 +100,24 @@ class SpanRecord:
         }
 
 
+class _SpanContext:
+    __slots__ = ("_trace", "_stage", "_meta", "_t0")
+
+    def __init__(self, trace: "ActiveTrace", stage: str, meta: dict[str, Any]) -> None:
+        self._trace = trace
+        self._stage = stage
+        self._meta = meta
+        self._t0 = 0
+
+    def __enter__(self) -> None:
+        self._t0 = time.perf_counter_ns()
+        return None
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        dt_ms = (time.perf_counter_ns() - self._t0) / 1_000_000.0
+        self._trace.spans.append(SpanRecord(self._stage, dt_ms, _sanitize_meta(self._meta)))
+
+
 class ActiveTrace:
     __slots__ = (
         "trace_id",
@@ -118,7 +137,7 @@ class ActiveTrace:
         session_id: str = "",
         mode: str = "",
     ) -> None:
-        self.trace_id = f"ptrace-{uuid.uuid4().hex[:12]}"
+        self.trace_id = f"ptrace-{next(_TRACE_COUNTER):012x}"
         self.route = str(route)[:64]
         self.session_id = _sanitize_id(session_id)
         self.mode = _sanitize_id(mode)
@@ -127,14 +146,15 @@ class ActiveTrace:
         self.spans: list[SpanRecord] = []
         self._tracer = tracer
 
-    @contextmanager
-    def span(self, stage: str, **meta: Any) -> Iterator[None]:
-        t0 = time.perf_counter_ns()
-        try:
-            yield
-        finally:
-            dt_ms = (time.perf_counter_ns() - t0) / 1_000_000.0
-            self.spans.append(SpanRecord(stage, dt_ms, _sanitize_meta(meta)))
+    def __enter__(self) -> "ActiveTrace":
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        self.duration_ms = (time.perf_counter_ns() - self.started_ns) / 1_000_000.0
+        self._tracer._traces.append(self)
+
+    def span(self, stage: str, **meta: Any) -> _SpanContext:
+        return _SpanContext(self, stage, meta)
 
     def record_span_ms(self, stage: str, duration_ms: float, **meta: Any) -> None:
         self.spans.append(SpanRecord(stage, float(duration_ms), _sanitize_meta(meta)))
@@ -157,20 +177,14 @@ class PerfTracer:
         self._max_traces = max(10, int(max_traces))
         self._traces: deque[ActiveTrace] = deque(maxlen=self._max_traces)
 
-    @contextmanager
     def start_trace(
         self,
         *,
         route: str,
         session_id: str = "",
         mode: str = "",
-    ) -> Iterator[ActiveTrace]:
-        tr = ActiveTrace(self, route=route, session_id=session_id, mode=mode)
-        try:
-            yield tr
-        finally:
-            tr.duration_ms = (time.perf_counter_ns() - tr.started_ns) / 1_000_000.0
-            self._traces.append(tr)
+    ) -> ActiveTrace:
+        return ActiveTrace(self, route=route, session_id=session_id, mode=mode)
 
     def clear(self) -> None:
         self._traces.clear()

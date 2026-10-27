@@ -688,6 +688,346 @@ def test_p4_self_modify_rollback_rejects_path_traversal_and_external_targets(tmp
     assert outside_target.read_text(encoding="utf-8") == "original"
 
 
+def test_p4_self_modify_blocks_host_secret_read_and_network_egress_in_candidate_code(tmp_path: Path) -> None:
+    """Синтетический аудит песочницы `pc.self_modify`:
+    1) Попытка прочитать хозяйский секретный файл (`vault.key`) или экспортировать его содержимое через кандидат-тест;
+    2) Попытка сетевого доступа (`socket` / `urllib.request`) из кода кандидата/теста;
+    3) Даже при `approved=True` и `apply_after_approval=True` код не исполняется без OS-песочницы (`NOT_RUN`),
+       а прямая попытка указать `vault.key` как `target_file` блокируется T3 `blocked_immutable_core`."""
+    svc = _DummySvc(tmp_path)
+    rt = svc._pc_agent_runtime
+
+    host_secret = tmp_path / "synthetic_host_secret.txt"
+    host_secret.write_text("TOP_SECRET_CANARY_VALUE", encoding="utf-8")
+    exfil_sink = tmp_path / "exfiltrated_secret_or_net.txt"
+
+    malicious_test = (
+        "import socket, urllib.request\n"
+        "from pathlib import Path\n"
+        "def test_steal_secret_and_open_network():\n"
+        f"    secret = Path({str(host_secret)!r}).read_text(encoding='utf-8')\n"
+        f"    Path({str(exfil_sink)!r}).write_text(secret, encoding='utf-8')\n"
+        "    s = socket.socket()\n"
+        "    s.connect(('127.0.0.1', 80))\n"
+    )
+
+    res = asyncio.run(
+        pc_agent.execute_pc_step(
+            svc,
+            rt,
+            task_id=81,
+            run_id=81,
+            step_idx=1,
+            tool="pc.self_modify",
+            args={
+                "action": "propose",
+                "topic": "secret-and-network-probe",
+                "target_file": "skills/secret_net_probe.py",
+                "code": "import urllib.request\ndef run_skill():\n    return urllib.request.urlopen('http://127.0.0.1:9').read()\n",
+                "test_code": malicious_test,
+                "apply_after_approval": True,
+            },
+            approved=True,
+        )
+    )
+    assert res["ok"] is False
+    assert res["verified"] is False
+    assert res["status"] == "verification_blocked_unisolated"
+    assert res["tests_passed"] is False
+    assert res["pytest_output"].startswith("NOT_RUN:")
+    assert not exfil_sink.exists(), "Кандидат-тест не должен был запуститься и прочитать хозяйский секрет"
+    assert not (rt.workspace_dir / "skills" / "secret_net_probe.py").exists()
+
+    # Попытка самоизменения секретного файла vault.key напрямую блокируется T3
+    secret_target_res = asyncio.run(
+        pc_agent.execute_pc_step(
+            svc,
+            rt,
+            task_id=82,
+            run_id=82,
+            step_idx=1,
+            tool="pc.self_modify",
+            args={
+                "action": "propose",
+                "topic": "touch-vault-key",
+                "target_file": "vault.key",
+                "code": "overwritten",
+            },
+            approved=True,
+        )
+    )
+    assert secret_target_res["ok"] is False
+    assert secret_target_res["tier"] == "T3"
+    assert secret_target_res["decision"] == "deny"
+    assert secret_target_res["owner_alert"] is True
+
+
+def test_p4_self_modify_rejects_path_traversal_and_symlink_escape(tmp_path: Path) -> None:
+    """Синтетический аудит песочницы `pc.self_modify`:
+    1) Обход путей `../` в `target_file` (`../escape.py`, `skills/../../escape.py`) -> `blocked_outside_workspace`;
+    2) Обход путей в `mod_id` (`../evil`, `sm-../evil`) -> `blocked_invalid_mod_id`;
+    3) Побег через symlink / NTFS junction внутри `workspace_dir`, ведущий наружу -> `blocked_outside_workspace` (propose)
+       и `blocked_unsafe_rollback_record` (rollback)."""
+    import os
+    import subprocess
+
+    svc = _DummySvc(tmp_path)
+    rt = svc._pc_agent_runtime
+    outside_dir = tmp_path.parent / f"outside-sym-{tmp_path.name}"
+    outside_dir.mkdir(parents=True, exist_ok=True)
+    outside_file = outside_dir / "host_target.py"
+    outside_file.write_text("# original host file\n", encoding="utf-8")
+
+    try:
+        for rel_traversal in ("../host_target.py", "skills/../../host_target.py", "..\\host_target.py"):
+            tr_res = asyncio.run(
+                pc_agent.execute_pc_step(
+                    svc,
+                    rt,
+                    task_id=83,
+                    run_id=83,
+                    step_idx=1,
+                    tool="pc.self_modify",
+                    args={
+                        "action": "propose",
+                        "topic": "traversal-check",
+                        "target_file": rel_traversal,
+                        "code": "# pwned\n",
+                    },
+                    approved=True,
+                )
+            )
+            assert tr_res["ok"] is False
+            assert tr_res["status"] == "blocked_outside_workspace"
+
+        for bad_mod_id in ("../escape", "sm-../escape", "sm-20261026/../../escape"):
+            id_res = asyncio.run(
+                pc_agent.execute_pc_step(
+                    svc,
+                    rt,
+                    task_id=84,
+                    run_id=84,
+                    step_idx=1,
+                    tool="pc.self_modify",
+                    args={
+                        "action": "propose",
+                        "mod_id": bad_mod_id,
+                        "topic": "bad-id",
+                        "target_file": "skills/ok.py",
+                        "code": "# test\n",
+                    },
+                    approved=True,
+                )
+            )
+            assert id_res["ok"] is False
+            assert id_res["status"] == "blocked_invalid_mod_id"
+
+        # Создаём симлинк или NTFS junction внутри workspace_dir/skills/linked_out -> outside_dir
+        skills_dir = rt.workspace_dir / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        link_dir = skills_dir / "linked_out"
+        created_link = False
+        try:
+            link_dir.symlink_to(outside_dir, target_is_directory=True)
+            created_link = True
+        except OSError:
+            if os.name == "nt":
+                cp = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(link_dir), str(outside_dir)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                created_link = cp.returncode == 0 and link_dir.exists()
+        assert created_link, "Не удалось создать тестовый symlink/junction для проверки побега из песочницы"
+
+        sym_res = asyncio.run(
+            pc_agent.execute_pc_step(
+                svc,
+                rt,
+                task_id=85,
+                run_id=85,
+                step_idx=1,
+                tool="pc.self_modify",
+                args={
+                    "action": "propose",
+                    "topic": "symlink-escape",
+                    "target_file": "skills/linked_out/host_target.py",
+                    "code": "# overwritten via symlink\n",
+                },
+                approved=True,
+            )
+        )
+        assert sym_res["ok"] is False
+        assert sym_res["status"] == "blocked_outside_workspace"
+        assert outside_file.read_text(encoding="utf-8") == "# original host file\n"
+
+        # Проверяем блокировку rollback через symlink/junction
+        sym_mod_id = "sm-20261027-symlink-rb"
+        sym_mod_dir = rt.self_mod_dir / sym_mod_id
+        sym_mod_dir.mkdir(parents=True, exist_ok=True)
+        backup_f = sym_mod_dir / "backup-host_target.py"
+        backup_f.write_text("# malicious rollback payload\n", encoding="utf-8")
+        (sym_mod_dir / "proposal.json").write_text(
+            json.dumps(
+                {
+                    "mod_id": sym_mod_id,
+                    "applied_files": [
+                        {
+                            "target_path": str(link_dir / "host_target.py"),
+                            "existed_before": True,
+                            "backup_path": str(backup_f),
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        rb_sym = asyncio.run(
+            pc_agent.execute_pc_step(
+                svc,
+                rt,
+                task_id=86,
+                run_id=86,
+                step_idx=1,
+                tool="pc.self_modify",
+                args={"action": "rollback", "mod_id": sym_mod_id},
+                approved=True,
+            )
+        )
+        assert rb_sym["ok"] is False
+        assert rb_sym["status"] == "blocked_unsafe_rollback_record"
+        assert outside_file.read_text(encoding="utf-8") == "# original host file\n"
+    finally:
+        import shutil
+        if (rt.workspace_dir / "skills" / "linked_out").exists():
+            if os.name == "nt":
+                subprocess.run(["cmd", "/c", "rmdir", str(rt.workspace_dir / "skills" / "linked_out")], capture_output=True, check=False)
+            else:
+                (rt.workspace_dir / "skills" / "linked_out").unlink(missing_ok=True)
+        shutil.rmtree(outside_dir, ignore_errors=True)
+
+
+def test_p4_self_modify_honors_global_stop_and_valid_rollback_with_immutable_core_guard(tmp_path: Path) -> None:
+    """Синтетический аудит `pc.self_modify`:
+    1) Глобальный STOP мгновенно блокирует вызов `pc.self_modify` без модификации файлов;
+    2) Корректный `rollback` восстанавливает исходный файл в `workspace_dir` из валидного бэкапа и пишет в `self_mod_journal.jsonl`;
+    3) Попытка `rollback` на файл неизменяемого ядра (`pc_agent_policy.py`) внутри `workspace_dir` блокируется `blocked_unsafe_rollback_record`;
+    4) `health_check` при сбое в 5-минутном окне выполняет автоматический откат."""
+    svc = _DummySvc(tmp_path)
+    rt = svc._pc_agent_runtime
+
+    # 1. Глобальный STOP блокирует pc.self_modify
+    asyncio.run(rt.trigger_stop(svc, actor="owner", reason="stop_during_self_mod_test"))
+    with pytest.raises(RuntimeError, match="СТОП активен"):
+        asyncio.run(
+            pc_agent.execute_pc_step(
+                svc,
+                rt,
+                task_id=87,
+                run_id=87,
+                step_idx=1,
+                tool="pc.self_modify",
+                args={
+                    "action": "propose",
+                    "topic": "blocked-by-stop",
+                    "target_file": "skills/stop_blocked.py",
+                    "code": "# should not be written\n",
+                },
+                approved=True,
+            )
+        )
+    assert not (rt.workspace_dir / "skills" / "stop_blocked.py").exists()
+    asyncio.run(rt.resume(svc, actor="owner"))
+
+    # 2. Корректный rollback и 5-минутный health_check auto-rollback
+    skill_file = rt.workspace_dir / "skills" / "reversible_skill.py"
+    skill_file.parent.mkdir(parents=True, exist_ok=True)
+    skill_file.write_text("VERSION = 1\n", encoding="utf-8")
+
+    valid_mod_id = "sm-20261027-valid-rb"
+    valid_mod_dir = rt.self_mod_dir / valid_mod_id
+    valid_mod_dir.mkdir(parents=True, exist_ok=True)
+    backup_file = valid_mod_dir / "backup-reversible_skill.py"
+    backup_file.write_text("VERSION = 1\n", encoding="utf-8")
+    skill_file.write_text("VERSION = 2\n", encoding="utf-8")
+
+    (valid_mod_dir / "proposal.json").write_text(
+        json.dumps(
+            {
+                "mod_id": valid_mod_id,
+                "branch": "agent/20261027-valid-rb",
+                "status": "applied",
+                "applied_at": time.time(),
+                "applied_files": [
+                    {
+                        "target_path": str(skill_file),
+                        "existed_before": True,
+                        "backup_path": str(backup_file),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    hc_res = asyncio.run(
+        pc_agent.execute_pc_step(
+            svc,
+            rt,
+            task_id=88,
+            run_id=88,
+            step_idx=1,
+            tool="pc.self_modify",
+            args={"action": "health_check", "mod_id": valid_mod_id, "simulate_unhealthy": True},
+            approved=True,
+        )
+    )
+    assert hc_res["ok"] is True
+    assert hc_res["auto_rolled_back"] is True
+    assert hc_res["rollback"]["status"] == "rolled_back"
+    assert skill_file.read_text(encoding="utf-8") == "VERSION = 1\n"
+
+    # 3. Защита неизменяемого ядра при rollback даже внутри workspace_dir
+    imm_target = rt.workspace_dir / "pc_agent_policy.py"
+    imm_target.write_text("POLICY = 'IMMUTABLE'\n", encoding="utf-8")
+    imm_mod_id = "sm-20261027-imm-rb"
+    imm_mod_dir = rt.self_mod_dir / imm_mod_id
+    imm_mod_dir.mkdir(parents=True, exist_ok=True)
+    imm_backup = imm_mod_dir / "backup-pc_agent_policy.py"
+    imm_backup.write_text("POLICY = 'COMPROMISED'\n", encoding="utf-8")
+    (imm_mod_dir / "proposal.json").write_text(
+        json.dumps(
+            {
+                "mod_id": imm_mod_id,
+                "applied_files": [
+                    {
+                        "target_path": str(imm_target),
+                        "existed_before": True,
+                        "backup_path": str(imm_backup),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    imm_rb = asyncio.run(
+        pc_agent.execute_pc_step(
+            svc,
+            rt,
+            task_id=89,
+            run_id=89,
+            step_idx=1,
+            tool="pc.self_modify",
+            args={"action": "rollback", "mod_id": imm_mod_id},
+            approved=True,
+        )
+    )
+    assert imm_rb["ok"] is False
+    assert imm_rb["status"] == "blocked_unsafe_rollback_record"
+    assert imm_target.read_text(encoding="utf-8") == "POLICY = 'IMMUTABLE'\n"
+
+
 # =========================================================================== ЭТАП P5: НОЧНОЙ РЕЖИМ L3 + 8 КЕЙСОВ ТУРНИРА
 
 def test_p5_night_mode_l3_budget_deferred_queue_and_morning_report(tmp_path: Path) -> None:

@@ -251,18 +251,25 @@ async def rescan(svc: Any) -> int:
 async def _consume(svc: Any) -> None:
     q = svc.bus.subscribe()
     tasks: set[asyncio.Task] = set()
+    getter: asyncio.Task | None = None
     try:
         with contextlib.suppress(Exception):
             await rescan(svc)                              # after a restart: what ended while we were down
         while True:
-            try:
-                msg = await asyncio.wait_for(q.get(), timeout=RESCAN_SECONDS)
-            except asyncio.TimeoutError:
+            # asyncio.wait instead of wait_for(q.get()): on Python 3.11 wait_for can swallow
+            # task cancellation if q.get() resolves on the same tick as svc.stop().
+            getter = asyncio.ensure_future(q.get())
+            done, _ = await asyncio.wait({getter}, timeout=RESCAN_SECONDS)
+            if not done:
+                getter.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await getter
                 if not svc.bus.is_subscribed(q):           # dropped as a lagging reader: subscribe again
                     q = svc.bus.subscribe()
                 with contextlib.suppress(Exception):
                     await rescan(svc)
                 continue
+            msg = getter.result()
             if msg.get("kind") != "direct_gen.job" or msg.get("status") not in FINAL:
                 continue
             job_id = str(msg.get("job_id") or "")
@@ -276,6 +283,8 @@ async def _consume(svc: Any) -> None:
             task.cancel()
         raise
     finally:
+        if getter is not None and not getter.done():
+            getter.cancel()
         svc.bus.unsubscribe(q)
 
 

@@ -31,9 +31,9 @@ _MOBILE_DPAPI_ENTROPY = b"bossman-mobile-auth-dpapi-v1\x00"
 
 
 def _restrict_to_owner(path: Path) -> None:
-    """Apply owner-only ACL on Windows (icacls) or 0600 on POSIX."""
+    """Apply owner-only ACL on Windows (icacls) or 0700/0600 on POSIX."""
     try:
-        os.chmod(path, 0o600)
+        os.chmod(path, 0o700 if path.is_dir() else 0o600)
     except OSError:
         pass
     if os.name != "nt":
