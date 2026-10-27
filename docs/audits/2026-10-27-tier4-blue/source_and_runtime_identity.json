@@ -1,48 +1,23 @@
 {
-  "schema": "bossman.tier4_blue.identity.v1",
-  "evaluated_at": "2026-10-27T08:12:00Z",
+  "schema": "bossman.tier4_blue.identity.v2",
+  "evaluated_at": "2026-10-27T09:30:00Z",
   "source_repository": "C:\\Users\\asd\\Bossman\\wt-trio-argon",
   "source_branch": "agent/argon-20261026",
-  "source_head_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
+  "target_remote_branch": "fix/cross-surface-stop-resume-20261026",
+  "code_verification_sha": "270f0011afa568310ceb8b836d6a1dc7a8df89ff",
+  "redteam_baseline_sha": "c56a07db7d9905c284e6fa30a33627a22e1a3cb5",
   "runtime_url": "http://127.0.0.1:8801",
   "runtime_live_check": {
     "url": "http://127.0.0.1:8801/health/live",
     "http_status": 200,
     "status": "ALIVE",
-    "build_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
-    "build_sha_short": "745c99e6a0e7",
     "source_identity": "PASS",
     "git_clean": true,
     "version": "2.6.0"
   },
-  "runtime_api_identity": {
-    "url": "http://127.0.0.1:8801/api/identity",
-    "http_status": 200,
-    "build_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
-    "source_identity": "PASS",
-    "pid": 24252
-  },
   "identity_match": true,
   "resource_governor_status": {
     "heavy_model_rule": "ONE_HEAVY_MODEL_AT_A_TIME",
-    "live_processes": [
-      {
-        "pid": 27840,
-        "name": "llama-server.exe",
-        "model": "bossman-fast-qwen36-35b-a3b-q5:latest",
-        "working_set_gb": 24.45,
-        "size_vram_gb": 26.93,
-        "role": "heavy_moe"
-      },
-      {
-        "pid": 25484,
-        "name": "llama-server.exe",
-        "model": "ace-decider-08b:latest",
-        "working_set_gb": 1.86,
-        "size_vram_gb": 5.25,
-        "role": "light_router"
-      }
-    ],
     "unauthorized_spend": "$0.00",
     "qlora_runpod_status": "STOPPED"
   },

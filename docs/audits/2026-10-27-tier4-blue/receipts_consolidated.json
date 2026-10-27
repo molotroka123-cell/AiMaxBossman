@@ -1,7 +1,8 @@
 {
-  "schema": "bossman.tier4_blue.receipts_consolidated.v1",
-  "generated_at": "2026-10-27T08:12:00Z",
-  "source_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
+  "schema": "bossman.tier4_blue.receipts_consolidated.v2",
+  "generated_at": "2026-10-27T09:30:00Z",
+  "code_verification_sha": "270f0011afa568310ceb8b836d6a1dc7a8df89ff",
+  "redteam_baseline_sha": "c56a07db7d9905c284e6fa30a33627a22e1a3cb5",
   "receipts": [
     {
       "milestone": "Milestone 1: Source/Runtime Identity & Resource Governor",
@@ -44,6 +45,15 @@
       "pytests_passed": 310,
       "verdict": "PASS",
       "evidence_kind": "UI_COMPONENT_TESTED"
+    },
+    {
+      "milestone": "Milestone 5: Red Team Self-Mod Hardening & CI Consolidation",
+      "file_path": "docs/audits/2026-10-27-tier4-blue/sandbox_and_stop_e2e.json",
+      "code_verification_sha": "270f0011afa568310ceb8b836d6a1dc7a8df89ff",
+      "synthetic_sandbox_tests_passed": 7,
+      "master_p0_p5_pytests_passed": 55,
+      "verdict": "PASS_FAIL_CLOSED_CONTAINMENT",
+      "evidence_kind": "SYNTHETIC_SECURITY_SUITE_AND_CI_GATES"
     }
   ]
 }
