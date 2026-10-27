@@ -181,6 +181,24 @@
     "arcface_p10": 0.193,
     "face_lap_median": 9.5,
     "visual": "dark bottom band mostly gone and slightly cooler, but smaller head lowers identity metrics; trade-off, E stays primary"
+   },
+   "cpu_parameter_sweep_G": {
+    "G1_scale1.0_cooler_fade0.80": {
+     "arcface_median": 0.506,
+     "arcface_min": 0.013,
+     "arcface_p10": 0.107
+    },
+    "G2_scale0.96_cooler_fade0.80": {
+     "arcface_median": 0.473,
+     "arcface_min": 0.138,
+     "arcface_p10": 0.182
+    },
+    "G3_scale1.0_cooler_fade0.84": {
+     "arcface_median": 0.5,
+     "arcface_min": 0.032,
+     "arcface_p10": 0.23
+    },
+    "verdict": "every tweak is at or below variant E (0.516 / min 0.196 / p10 0.31): compositing-parameter tuning is exhausted; the remaining gap is not a parameter problem"
    }
   }
  },
