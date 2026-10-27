@@ -129,7 +129,9 @@ def sign(payload: Mapping[str, Any], *, key: bytes | None = None) -> str:
     return hmac.new(k, canonical(payload), hashlib.sha256).hexdigest()
 
 
-def verify(payload: Mapping[str, Any], sig: str, *, key: bytes | None = None) -> bool:
+def verify(payload: Mapping[str, Any], sig: str | None = None, *, key: bytes | None = None) -> bool:
+    if sig is None:
+        sig = str(payload.get("sig") or "")
     if not sig or not isinstance(sig, str):
         return False
     try:

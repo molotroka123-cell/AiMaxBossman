@@ -1,0 +1,49 @@
+{
+  "schema": "bossman.tier4_blue.receipts_consolidated.v1",
+  "generated_at": "2026-10-27T08:12:00Z",
+  "source_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
+  "receipts": [
+    {
+      "milestone": "Milestone 1: Source/Runtime Identity & Resource Governor",
+      "file_path": "docs/audits/2026-10-27-m1-runtime-identity/receipt.json",
+      "receipt_sha256": "b5519667aa484cd6c36e7a1d93607b7a0ea8018fdee215f7104ca1571c6bfc29",
+      "signer": "bcc.v2.verification",
+      "verdict": "PASS",
+      "evidence_kind": "LIVE_RUNTIME_BOUND"
+    },
+    {
+      "milestone": "Milestone 2: Proven Live E2E Mission & Cross-Surface STOP",
+      "file_path": "docs/audits/2026-10-27-m2-e2e-mission/receipt.json",
+      "receipt_sha256": "09dda1109735dcd5e1dfe616855f89d01d2b2eb9cb92e2acff8d4b12656a6f5e",
+      "signer": "bcc.v2.verification",
+      "verdict": "PASS",
+      "evidence_kind": "LIVE_E2E_PULT_BOUND"
+    },
+    {
+      "milestone": "Milestone 3 Path 1: War Terminal Offline Tender Dossier",
+      "file_path": "docs/audits/2026-10-24-earn-tender-dossier/receipt.json",
+      "verdict": "PASS",
+      "revenue": "NOT_RUN",
+      "network_attempts": 0,
+      "model_calls": 0,
+      "evidence_kind": "OFFLINE_STATIC_FIXTURES"
+    },
+    {
+      "milestone": "Milestone 3 Path 2: SwapMe CRM Quote & Deal Persistence",
+      "file_path": "docs/north-star/d1_swapme_mission_receipt.json",
+      "quote_id": "Q-E6524C30",
+      "deal_ref": "D-1",
+      "receipt_sha256": "9055f1dcb3358e4b5213bed3b06c458a9e4bba120ab92fb9ec07a2e0a2c5ff22",
+      "verdict": "PASS",
+      "evidence_kind": "SYNTHETIC_OFFLINE_CRM"
+    },
+    {
+      "milestone": "Milestone 4: Modern Cosmetic UX Polish",
+      "file_path": "docs/audits/trio/ux-polish-receipt-20261026.json",
+      "commits_applied": ["9a56db80", "7b79ee5a"],
+      "pytests_passed": 310,
+      "verdict": "PASS",
+      "evidence_kind": "UI_COMPONENT_TESTED"
+    }
+  ]
+}

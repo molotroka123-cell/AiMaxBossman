@@ -1629,8 +1629,10 @@ function approvalCard(a, ctx) {
   };
 
   const source = [
+    a.model ? `модель: ${a.model}` : null,
     a.task_id ? `задача #${a.task_id}` : null,
     a.run_id ? `запуск #${a.run_id}` : null,
+    a.cost_usd != null ? `$${Number(a.cost_usd).toFixed(2)}` : '$0.00 / N/A',
   ].filter(Boolean).join(' · ');
 
   return ui.tile({
@@ -1641,6 +1643,7 @@ function approvalCard(a, ctx) {
     statusNode: ui.statusPill(pick(a, ['status'], 'pending')),
     body: [
       ui.codeBlock(String(pick(a, ['preview'], 'Предпросмотр не предоставлен'))),
+      h('div.rollback-hint', a.rollback_hint || 'Как откатить: нажмите «Отклонить» или Стоп — действие не выполнится без вашего подтверждения'),
     ],
     actions: [
       ui.btn('Разрешить', () => decide(true), { variant: 'primary', size: 'sm', iconName: 'check', accent: 'var(--bx-mint)' }),

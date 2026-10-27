@@ -531,7 +531,12 @@ async def test_rt_p4_computer_stop_persists_across_app_restart_and_resume_invali
             svc._computer_state = st
             executed_total.append(st.desktop.executed)
             r = await client.post("/api/computer/stop")
-            assert r.json() == {"stopped": True, "persisted": True}
+            assert r.json() == {
+                "stopped": True,
+                "persisted": True,
+                "pc_agent_cancelled_tasks": [],
+                "pc_agent_killed_pids": [],
+            }
             assert st.stop_path.is_file()
     finally:
         await svc.stop()

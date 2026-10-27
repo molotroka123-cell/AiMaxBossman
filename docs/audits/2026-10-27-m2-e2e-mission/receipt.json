@@ -1,0 +1,120 @@
+{
+  "schema": "bossman.m2_proven_e2e_mission.v1",
+  "receipt_id": "2026-10-27-m2-e2e-mission",
+  "title": "Milestone 2: Proven Live End-to-End Mission (:8840 -> :8801) & Cross-Surface STOP",
+  "nonce": "4b745ac9cba14a5bbcff85117dce3df7",
+  "issued_at": "2026-10-27T08:00:35.507390+00:00",
+  "timestamp": "2026-10-27T08:00:35.501891+00:00",
+  "status": "PROVEN",
+  "verdict": "PASS",
+  "environment": {
+    "worktree": "C:\\Users\\asd\\Bossman\\wt-trio-argon",
+    "branch": "agent/argon-20261026",
+    "build_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
+    "source_identity": "SOURCE_IDENTITY_STALE",
+    "git_clean": true,
+    "os": "Windows 11",
+    "python": "3.12.10"
+  },
+  "live_surfaces": {
+    "mobile_pult": {
+      "url": "http://127.0.0.1:8840",
+      "login_http_status": 200,
+      "authenticated": true,
+      "csrf_protection": true
+    },
+    "command_center": {
+      "url": "http://127.0.0.1:8801",
+      "health_live_status": 200,
+      "build_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
+      "source_identity": "SOURCE_IDENTITY_STALE"
+    }
+  },
+  "e2e_mission": {
+    "user_input": "Milestone 2 E2E Mission 5c9cf85979d5: write marker, verify readback, then hold for owner STOP proof",
+    "shared_task_id": 568,
+    "run_id": 565,
+    "mission_elapsed_ms": 127.49,
+    "synchronization_verified": {
+      "mobile_pult_has_task": true,
+      "command_center_pc_agent_matches": true,
+      "command_center_task_store_matches": true,
+      "journal_entries_recorded": 3
+    },
+    "permitted_tool_execution": [
+      {
+        "step": 1,
+        "tool": "pc.write_file",
+        "tier": "T1",
+        "status": "executed",
+        "verified": true
+      },
+      {
+        "step": 2,
+        "tool": "pc.read_file",
+        "tier": "T0",
+        "status": "executed",
+        "verified": true
+      },
+      {
+        "step": 3,
+        "tool": "pc.delete_file",
+        "tier": "T2",
+        "status": "waiting_approval",
+        "verified": false
+      }
+    ],
+    "independent_postcondition_verification": {
+      "file_path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\pc-agent\\workspace\\live_mission_m2_5c9cf85979d5.json",
+      "file_existed_on_disk": true,
+      "expected_sha256": "1dde23f7dc7a850736308d6c2cb4fbac81c36ed8c6e1545dfcf03c6a183cb6d7",
+      "actual_sha256": "1dde23f7dc7a850736308d6c2cb4fbac81c36ed8c6e1545dfcf03c6a183cb6d7",
+      "sha256_verified": true
+    }
+  },
+  "stop_gate_verification": {
+    "surface_triggered": "Mobile Pult (:8840 /m/api/stop)",
+    "stop_latency_ms": 185.03,
+    "stop_files_created_on_disk": true,
+    "active_task_status_after_stop": "stopped",
+    "post_stop_approval_refused": {
+      "http_status": 409,
+      "refused": true,
+      "marker_file_preserved": true
+    },
+    "post_stop_new_task_refused": {
+      "http_status": 409,
+      "refused": true,
+      "forbidden_file_blocked": true
+    },
+    "actions_after_stop": 0,
+    "actions_after_stop_verified_zero": true,
+    "resume_verified": true
+  },
+  "defect_fixes_attestation": {
+    "D-030": {
+      "summary": "pc.self_modify propose: unisolated candidate code fails closed (verification_blocked_unisolated) via probe_os_sandbox without host execution",
+      "test_suite": "test_pc_agent_master_p0_p5.py & test_pc_agent_selfmod_claude.py",
+      "result": "ALL PASS (0 failed)"
+    },
+    "D-031": {
+      "summary": "pc.self_modify rollback: validated mod_id regex ^sm-[a-z0-9_-]{1,80}$, workspace tree check, and is_immutable_core_target check",
+      "test_suite": "test_pc_agent_master_p0_p5.py & test_pc_agent_selfmod_claude.py",
+      "result": "ALL PASS (0 failed)"
+    },
+    "D-032": {
+      "summary": "Fixed 3 legacy STOP tests to accommodate pc_agent_cancelled_tasks and pc_agent_killed_pids",
+      "tests": [
+        "test_owner_stop_lifecycle.py::test_stop_survives_restart_and_recovery_never_lifts_it (PASS)",
+        "test_rc_final_integrator_mission_and_security.py::test_rc_security_regression_all_6_vectors (PASS)",
+        "test_redteam_rc_20260921.py::test_rt_p4_computer_stop_persists_across_app_restart_and_resume_invalidates (PASS)"
+      ],
+      "result": "100% PASS"
+    }
+  },
+  "unauthorized_spend": "$0.00",
+  "total_duration_ms": 1276.74,
+  "receipt_sha256": "09dda1109735dcd5e1dfe616855f89d01d2b2eb9cb92e2acff8d4b12656a6f5e",
+  "signer": "bcc.v2.verification",
+  "sig": "6e367cb7ca06c47cecc84d7c6ee4fd008194b03caa0d7757098df2e4c2665609"
+}

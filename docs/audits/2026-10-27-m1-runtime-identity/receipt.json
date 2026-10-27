@@ -1,0 +1,207 @@
+{
+  "environment": {
+    "branch": "agent/argon-20261026",
+    "build_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
+    "clean_checkout": true,
+    "os": "Windows 11",
+    "python": "3.12.10",
+    "worktree": "C:\\Users\\asd\\Bossman\\wt-trio-argon"
+  },
+  "issued_at": "2026-10-27T06:39:57.847335+00:00",
+  "live_verification": {
+    "api_identity": {
+      "http_status": 200,
+      "response": {
+        "app": "bossman-command-center-build-bound-v1",
+        "build_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
+        "build_sha_short": "745c99e6a0e7",
+        "data_dir_fingerprint": "7f6ee485aa6c",
+        "detail": "",
+        "git_clean": true,
+        "pid": 24252,
+        "release_version": "2.6.0",
+        "source": "checkout",
+        "source_identity": "PASS",
+        "started_at": "2026-10-27T06:37:31.171270",
+        "version": "0.1.0"
+      }
+    },
+    "backend_lock": {
+      "content": {
+        "build_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
+        "host": "127.0.0.1",
+        "kind": "server",
+        "pid": 24252,
+        "port": 8801,
+        "started_at": 1793083049.9728415
+      },
+      "path": "C:\\Users\\asd\\AppData\\Local\\Bossman\\CommandCenter\\backend.json"
+    },
+    "health_live": {
+      "http_status": 200,
+      "response": {
+        "alive": true,
+        "app": "bossman-command-center",
+        "build_sha": "745c99e6a0e7cf22c056343571710ce62336ad84",
+        "build_sha_short": "745c99e6a0e7",
+        "detail": "",
+        "git_clean": true,
+        "liveness": true,
+        "release_version": "2.6.0",
+        "source": "checkout",
+        "source_identity": "PASS",
+        "status": "ALIVE",
+        "version": "2.6.0"
+      }
+    }
+  },
+  "nonce": "ffd8030fb3ff43af884f321e75ff5e18",
+  "receipt_id": "2026-10-27-m1-runtime-identity",
+  "receipt_sha256": "b5519667aa484cd6c36e7a1d93607b7a0ea8018fdee215f7104ca1571c6bfc29",
+  "resource_governor_audit": {
+    "committed_gb": 0.0,
+    "governor_mechanisms": {
+      "fencing_and_restart_recovery": "Leases carry monotonic fencing tokens; recovery only re-adopts processes with matching PID, create_time, and BOSSMAN_RESOURCE_LEASE env token.",
+      "lease_arbitration": "fits() in leases.py:187-205 enforces at most ONE gpu_heavy compute lease active at a time; rejects with gpu-busy error otherwise.",
+      "non_destructive_cooperative_preemption": "preemptible_by() marks lower-priority leases as preempting for cooperative checkpoint yield; foreign owner processes are never killed via SIGKILL (AGENTS.md guardrail).",
+      "paid_render_protection": "paid_render leases are never preempted automatically by anything."
+    },
+    "governor_phase": "IDLE",
+    "live_jobs": 0,
+    "running_llm_processes": [
+      {
+        "cmdline": [
+          "C:\\Users\\asd\\AppData\\Local\\Programs\\Ollama\\ollama.exe",
+          "serve"
+        ],
+        "model_name": "unknown",
+        "name": "ollama.exe",
+        "pid": 14488,
+        "rss_gb": 0.03,
+        "vms_gb": 0.06
+      },
+      {
+        "cmdline": [
+          "C:\\Users\\asd\\AppData\\Local\\Programs\\Ollama\\ollama app.exe"
+        ],
+        "model_name": "unknown",
+        "name": "ollama app.exe",
+        "pid": 18960,
+        "rss_gb": 0.01,
+        "vms_gb": 0.05
+      },
+      {
+        "cmdline": [
+          "C:\\Users\\asd\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\llama-server.exe",
+          "--model",
+          "D:\\ollama\\models\\blobs\\sha256-2665d08c1052b4e01dabcb08771d25579f6776f7066355e4a0ccc5f74e32d4a2",
+          "--port",
+          "57007",
+          "--host",
+          "127.0.0.1",
+          "--no-webui",
+          "--offline",
+          "-c",
+          "262144",
+          "-np",
+          "1",
+          "--log-verbosity",
+          "4",
+          "--no-log-prefix",
+          "--no-log-timestamps",
+          "--flash-attn",
+          "auto",
+          "-b",
+          "2048",
+          "-ub",
+          "2048",
+          "--context-shift",
+          "--keep",
+          "4"
+        ],
+        "model_name": "ace-decider-08b:latest",
+        "name": "llama-server.exe",
+        "pid": 25484,
+        "rss_gb": 1.74,
+        "vms_gb": 3.39
+      },
+      {
+        "cmdline": [
+          "C:\\Users\\asd\\AppData\\Local\\Programs\\Ollama\\lib\\ollama\\llama-server.exe",
+          "--model",
+          "D:\\ollama\\models\\blobs\\sha256-c13ce26253ea334df472bd8fbd2d6da66d8a41195c17f6fcbf44c4d20ece0932",
+          "--port",
+          "52587",
+          "--host",
+          "127.0.0.1",
+          "--no-webui",
+          "--offline",
+          "-c",
+          "32768",
+          "-np",
+          "1",
+          "--log-verbosity",
+          "4",
+          "--no-log-prefix",
+          "--no-log-timestamps",
+          "--flash-attn",
+          "auto",
+          "-b",
+          "1024",
+          "-ub",
+          "1024",
+          "--context-shift",
+          "--keep",
+          "4"
+        ],
+        "model_name": "bossman-fast-qwen36-35b-a3b-q5:latest",
+        "name": "llama-server.exe",
+        "pid": 27840,
+        "rss_gb": 22.77,
+        "vms_gb": 27.78
+      }
+    ],
+    "standing_rule": "One heavy model in memory at a time (leases.py:187-205)"
+  },
+  "runtime_transition": {
+    "new_backend": {
+      "build_sha_after": "745c99e6a0e7cf22c056343571710ce62336ad84",
+      "checkout": "C:\\Users\\asd\\Bossman\\wt-trio-argon",
+      "command": "C:\\Users\\asd\\AppData\\Local\\Programs\\Python\\Python312\\python.exe -X utf8 -m bcc --host 127.0.0.1 --port 8801",
+      "git_clean": true,
+      "health_live_endpoint": "http://127.0.0.1:8801/health/live",
+      "pid": 24252,
+      "port": 8801,
+      "source_identity_after": "PASS"
+    },
+    "old_backend": {
+      "build_sha_before": null,
+      "checkout": "C:\\Users\\asd\\Bossman\\wt-final-20261023",
+      "pid": 18808,
+      "source_identity_before": "SOURCE_IDENTITY_UNKNOWN",
+      "termination": "graceful SIGTERM/terminate via psutil, port 8801 released"
+    }
+  },
+  "schema": "bossman.runtime_identity_and_governor_audit.v1",
+  "sig": "7d1bcbd54f77db5ad7c882529e9547be0b75f3a53a5f797048635fcc4da89d20",
+  "signer": "bcc.v2.verification",
+  "status": "PROVEN",
+  "test_verification": {
+    "test_release_health": {
+      "command": "pytest command-center/tests/test_release_health.py --basetemp=C:\\Users\\asd\\Bossman\\.pytest-tmp-health",
+      "duration_s": 8.04,
+      "failed": 0,
+      "passed": 14
+    },
+    "test_runtime_source_identity": {
+      "command": "pytest command-center/tests/test_runtime_source_identity.py --basetemp=C:\\Users\\asd\\Bossman\\.pytest-tmp-identity",
+      "duration_s": 3.21,
+      "failed": 0,
+      "passed": 11
+    },
+    "tmp_cleanup_verified": true
+  },
+  "timestamp": "2026-10-27T06:39:57.847335+00:00",
+  "title": "Milestone 1: Runtime Source Identity Transition, Resource Governor & Heavy Model Audit",
+  "verdict": "PASS"
+}

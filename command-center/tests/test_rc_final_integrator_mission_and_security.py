@@ -281,7 +281,12 @@ async def test_rc_security_regression_all_6_vectors(env, tmp_path, monkeypatch):
             st.desktop, st.shots = FakeDesktop(), FakeShots()
             st.desktop.set_interrupt(st.stop)
             res = await client.post("/api/computer/stop")
-            assert res.json() == {"stopped": True, "persisted": True}
+            assert res.json() == {
+                "stopped": True,
+                "persisted": True,
+                "pc_agent_cancelled_tasks": [],
+                "pc_agent_killed_pids": [],
+            }
     finally:
         await svc.stop()
 

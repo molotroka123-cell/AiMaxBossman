@@ -110,10 +110,15 @@ export function approvalCard(a, { onDecide, busy, error }) {
   const statusText = {
     approved: 'Разрешено', rejected: 'Отклонено', revoked: 'Отозвано', expired: 'Истекло', consumed: 'Использовано',
   }[a.status] || (pending ? 'Ждёт решения' : a.status);
+  const costText = a.cost_usd != null ? `$${Number(a.cost_usd).toFixed(2)}` : '$0.00 / N/A';
   return h('div.approval-card', { dataset: { state: pending ? 'pending' : 'done' } },
     h('div.approval-head', icon('shield', 18), h('b', 'Нужно ваше решение'), h('span.approval-kind', a.kind || ''),
+      a.model ? h('span.badge', { dataset: { tone: 'auto' } }, `модель: ${a.model}`) : null,
+      a.task_id != null ? h('span.badge', { dataset: { tone: 'auto' } }, `задача #${a.task_id}`) : null,
+      h('span.badge', { dataset: { tone: a.cost_usd != null ? 'paid' : 'na' } }, costText),
       h('span.approval-state', statusText)),
     a.preview ? h('pre.approval-preview', a.preview) : null,
+    pending ? h('div.rollback-hint', a.rollback_hint || 'Как откатить: нажмите «Отклонить» или ⛔ Стоп — действие не выполнится и изменения не применятся') : null,
     error ? h('div.approval-error', error) : null,
     pending ? h('div.approval-actions',
       h('button.btn.btn-primary', { type: 'button', disabled: busy, 'aria-label': `Разрешить действие ${a.kind || ''}`.trim(),

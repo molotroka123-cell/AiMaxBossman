@@ -871,7 +871,20 @@
     if (b.cards['ap' + ev.id]) return;
     const box = el('div', 'approval'); const cloud = isCloudAsk(ev);
     if (cloud) cloudBody(box, ev);          // «☁️ Отправить в облако?»: модель, точный текст, символы, цена
-    else { box.appendChild(el('h4', '', 'Нужно ваше решение')); box.appendChild(el('pre', '', ev.preview || ev.approval_kind || 'действие')); }
+    else {
+      box.appendChild(el('h4', '', 'Нужно ваше решение'));
+      const meta = el('div', 'approval-meta');
+      meta.appendChild(el('span', 'approval-meta-pill', ev.approval_kind || 'действие'));
+      const model = ev.model || b.model;
+      if (model) meta.appendChild(el('span', 'approval-meta-pill', `модель: ${model}`));
+      const taskId = ev.task_id ?? b.taskId;
+      if (taskId != null) meta.appendChild(el('span', 'approval-meta-pill', `задача #${taskId}`));
+      meta.appendChild(el('span', 'approval-meta-pill', `статус: ${ev.status || 'ждёт решения'}`));
+      meta.appendChild(el('span', 'approval-meta-pill', ev.cost_usd != null ? `$${Number(ev.cost_usd).toFixed(2)}` : '$0.00 / N/A'));
+      box.appendChild(meta);
+      box.appendChild(el('pre', '', ev.preview || ev.approval_kind || 'действие'));
+      box.appendChild(el('p', 'rollback-hint', ev.rollback_hint || 'Как откатить: нажмите «Отклонить» или ⛔ STOP — изменения не применятся (git checkout -- .)'));
+    }
     const row = el('div', 'row'); const no = el('button', 'btn', 'Отклонить'); const yes = el('button', 'btn primary', 'Разрешить');
     row.append(no, yes); box.appendChild(row); b.tools.appendChild(box); b.cards['ap' + ev.id] = box; autoScroll();
     const decide = async (approve, auto) => {
@@ -927,7 +940,7 @@
         if (turn.kind === 'note') { addNote(turn); continue; }   // Bossman's own note (e.g. the finished photo edit)
         const desc = photoDesc(turn.text);
         addUser(desc != null ? `${PHOTO_MARK} ${desc}` : turn.text, turn.attachments); const b = addBot(turn.text);
-        b.taskId = turn.task_id; if (desc != null) b.photo = { desc };
+        b.taskId = turn.task_id; if (turn.model) b.model = turn.model.alias || turn.model.id || turn.model; if (desc != null) b.photo = { desc };
         if (turn.status && !['completed', 'failed', 'stopped', 'blocked', 'missing'].includes(turn.status)) { follow(turn.task_id, b); continue; }
         b.ended = true;
         if (b.photo) { b.text = turn.result || ''; restorePhotoTurn(b, turn); continue; }
@@ -2322,7 +2335,11 @@
         if (!items.length) { fill(approvals, [el('p', 'muted', 'Ничего не ждёт решения')]); return; }
         fill(approvals, items.map((a) => {
           const row = el('div', 'approval-row'); row.dataset.id = a.id;
-          row.append(el('div', 'kv', `${a.kind || 'действие'}${a.task_id ? ' · задача ' + a.task_id : ''}`), el('div', 'muted', String(a.preview || '').slice(0, 300)));
+          row.append(
+            el('div', 'kv', `${a.kind || 'действие'}${a.task_id ? ' · задача ' + a.task_id : ''}`),
+            el('div', 'muted', String(a.preview || '').slice(0, 300)),
+            el('p', 'rollback-hint', a.rollback_hint || 'Как откатить: «Отклонить» или ⛔ СТОП отменяет действие без записи'),
+          );
           const decide = (approve) => async (b) => {
             b.disabled = true;
             try { await api('POST', `/approvals/${a.id}`, { approve }); toast(approve ? 'Разрешено вами' : 'Отклонено вами'); refreshApprovals(); renderApprovals(); }
@@ -2400,14 +2417,21 @@
   async function refreshCost() {
     const badge = $('oc-cost-badge'); if (!badge) return;
     const sid = S.threadId;
-    if (!sid) { badge.textContent = '$0.00'; badge.title = 'Бюджет сессии: новый чат'; return; }
+    if (!sid) { badge.classList.remove('is-na'); badge.textContent = '$0.00'; badge.title = 'Бюджет сессии: новый чат'; return; }
     try {
       const c = await api('GET', `/agent/sessions/${encodeURIComponent(sid)}/cost`);
       if (S.threadId !== sid) return;
-      const spent = Number(c.spent_usd) || 0;
+      const rawCost = c && (c.spent_usd != null ? c.spent_usd : c.total_usd);
+      const hasCostKey = c && ('spent_usd' in c || 'total_usd' in c);
+      if (!c || c.connected === false || (hasCostKey && rawCost == null)) {
+        badge.classList.add('is-na'); badge.textContent = 'N/A'; badge.title = 'Бюджет сессии: N/A (метрика не подключена)';
+        return;
+      }
+      badge.classList.remove('is-na');
+      const spent = Number(rawCost) || 0;
       badge.textContent = `$${spent.toFixed(2)}`;
       badge.title = c.budget_usd != null ? `Бюджет сессии: потрачено $${spent.toFixed(4)} из $${Number(c.budget_usd).toFixed(2)}` : `Потрачено $${spent.toFixed(4)}`;
-    } catch { badge.title = 'Бюджет сессии: нет данных'; }
+    } catch { badge.classList.add('is-na'); badge.textContent = 'N/A'; badge.title = 'Бюджет сессии: нет данных (N/A)'; }
   }
   if ($('agent-mode-bar')) {
     setAgentMode(S.agentMode);

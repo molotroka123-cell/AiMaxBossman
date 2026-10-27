@@ -33,7 +33,8 @@ PAIRS = [  # (what, text token, background token, minimum)
     ("typing label", "muted", "surface2", 4.5), ("copy / regenerate", "muted", "bg", 4.5),
     ("«вниз»", "text", "surface", 4.5), ("prompt text", "text", "bg2", 4.5), ("card note/status", "muted", "surface", 4.5),
     ("card error", "err", "surface", 4.5), ("card hint", "faint", "surface", 4.5), ("«на ПК» badge", "local", "local-bg", 4.5),
-    ("«Запустить» (.btn.primary)", "accent-ink", "accent-strong", 4.5), ("photo-mode icon on", "accent", "accent-soft", 3.0),
+    ("«Запустить» (.btn.primary)", "accent-ink", "accent-strong", 4.5), ("«Продолжить» (.stop-resume)", "ok-ink", "ok", 4.5),
+    ("photo-mode icon on", "accent", "accent-soft", 3.0),
 ]
 
 

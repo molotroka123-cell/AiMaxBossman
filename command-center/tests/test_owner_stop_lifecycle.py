@@ -42,7 +42,12 @@ async def test_stop_survives_restart_and_recovery_never_lifts_it(tmp_path, monke
     try:
         async with client_for(app, svc) as client:
             _attach(svc, settings)
-            assert (await client.post("/api/computer/stop")).json() == {"stopped": True, "persisted": True}
+            assert (await client.post("/api/computer/stop")).json() == {
+                "stopped": True,
+                "persisted": True,
+                "pc_agent_cancelled_tasks": [],
+                "pc_agent_killed_pids": [],
+            }
             assert stop_file.is_file()
     finally:
         await svc.stop()

@@ -166,7 +166,7 @@ def test_model_json_reply_is_validated_and_garbage_is_reported():
 
 
 def test_redact_pii_masks_but_does_not_leak():
-    txt, flags = redact_pii("почта ivan@example.com телефон +7 (999) 123-45-67 ключ sk-ABCDEFGHIJKLMNOP1234")
+    txt, flags = redact_pii("почта ivan@example.com телефон +7 (999) 123-45-67 ключ sk-ABCDEFGHIJKLMNOP1234")  # ci-secret-scan: allow
     assert set(flags) == {"EMAIL", "PHONE", "SECRET_LIKE"}
     assert "ivan@" not in txt and "999" not in txt and "sk-ABC" not in txt
 

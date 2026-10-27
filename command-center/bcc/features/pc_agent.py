@@ -1180,6 +1180,27 @@ def is_immutable_core_target(raw_path: str | Path, data_dir: Path | None = None)
     return False, ""
 
 
+_SELF_MOD_ID_RE = re.compile(r"^sm-[a-z0-9_-]{1,80}$")
+
+
+def is_permitted_self_mod_target(raw_path: str | Path, rt: PCAgentRuntime) -> bool:
+    """Проверяет принадлежность цели самоизменения разрешённому дереву (D-031).
+    Разрешены только файлы внутри рабочей директории агента (rt.workspace_dir)
+    или каталога skills репозитория, не относящиеся к неизменяемому ядру."""
+    try:
+        p = Path(raw_path).resolve()
+        imm_bad, _ = is_immutable_core_target(p, data_dir=rt.data_dir)
+        if imm_bad:
+            return False
+        ws = rt.workspace_dir.resolve()
+        repo_skills = (Path(__file__).resolve().parents[2] / "skills").resolve()
+        if p.is_relative_to(ws) or (repo_skills.is_dir() and p.is_relative_to(repo_skills)):
+            return True
+        return False
+    except Exception:
+        return False
+
+
 def _classify_pc_step_with_autonomy(
     rt: PCAgentRuntime,
     svc: Any,
@@ -1249,12 +1270,12 @@ def _classify_pc_step_with_autonomy(
             imm_bad, imm_why = is_immutable_core_target(t_path, data_dir=rt.data_dir)
             if imm_bad:
                 return PolicyVerdict("T3", "deny", "immutable_core_self_mod_forbidden", imm_why, True)
-        if act_sm == "apply":
+        if act_sm in {"apply", "rollback", "health_check"}:
             verdict = PolicyVerdict(
                 "T2",
                 "ask",
-                "self_modify_apply",
-                "Применение самоизменения агента требует явного подтверждения владельца в пульте с diff и откатом (T2).",
+                "self_modify_apply" if act_sm == "apply" else "self_modify_rollback",
+                "Изменение или автоматический откат результата самоизменения требуют явного подтверждения владельца (T2).",
                 True,
             )
         else:
@@ -2565,6 +2586,12 @@ def read_self_mod_journal(rt: PCAgentRuntime, limit: int = 50) -> list[dict[str,
     return out[-max(1, min(limit, 200)):]
 
 
+def probe_os_sandbox() -> bool:
+    """Проверяет доступность честной OS-песочницы (bwrap/runsc/wsl/docker).
+    На данном Windows 11 хосте без изолированных контейнеров возвращает False."""
+    return False
+
+
 async def _execute_self_modify_step(
     svc: Any,
     rt: PCAgentRuntime,
@@ -2587,24 +2614,117 @@ async def _execute_self_modify_step(
     slug = re.sub(r"[^a-z0-9_-]+", "-", topic_raw).strip("-") or "skill-update"
     date_tag = utcnow().strftime("%Y%m%d")
     branch_name = f"agent/{date_tag}-{slug}"
-    mod_id = str(args.get("mod_id") or f"sm-{date_tag}-{slug}-{int(time.time())}")
+    mod_id_arg = args.get("mod_id")
+    if mod_id_arg:
+        mod_id = str(mod_id_arg).strip()
+        if not _SELF_MOD_ID_RE.match(mod_id):
+            return {
+                "ok": False,
+                "verified": False,
+                "status": "blocked_invalid_mod_id",
+                "error": f"Недопустимый mod_id `{mod_id}`: должен соответствовать ^sm-[a-z0-9_-]{{1,80}}$",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+    else:
+        mod_id = f"sm-{date_tag}-{slug}-{int(time.time())}"
+
+    self_mod_root = Path(rt.self_mod_dir).resolve()
+    mod_dir = (self_mod_root / mod_id).resolve()
+    try:
+        mod_dir.relative_to(self_mod_root)
+    except (ValueError, AttributeError):
+        return {
+            "ok": False,
+            "verified": False,
+            "status": "blocked_invalid_mod_id",
+            "error": "Идентификатор самоизменения выходит за каталог предложений.",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
 
     if act_sm == "rollback":
-        target_mod_id = str(args.get("mod_id") or "").strip()
-        mod_dir = rt.self_mod_dir / target_mod_id
+        target_mod_id = mod_id
         meta_file = mod_dir / "proposal.json"
         if not meta_file.is_file():
-            return {"ok": False, "verified": False, "error": f"Самоизменение `{target_mod_id}` не найдено."}
-        proposal = json.loads(meta_file.read_text(encoding="utf-8"))
-        restored_files: list[str] = []
+            return {
+                "ok": False,
+                "verified": False,
+                "status": "blocked_not_found",
+                "error": f"Самоизменение `{target_mod_id}` не найдено.",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+        try:
+            proposal = json.loads(meta_file.read_text(encoding="utf-8"))
+        except Exception as e:
+            return {
+                "ok": False,
+                "verified": False,
+                "status": "blocked_invalid_proposal",
+                "error": f"Не удалось прочитать proposal.json: {e}",
+                "duration_ms": round((time.perf_counter() - t0) * 1000),
+            }
+
+        workspace_root = Path(rt.workspace_dir).resolve()
+        rollback_plan: list[tuple[Path, bool, Path | None]] = []
         for f_rec in (proposal.get("applied_files") or []):
-            target_p = Path(f_rec["target_path"])
-            backup_p = Path(f_rec["backup_path"]) if f_rec.get("backup_path") else None
-            if f_rec.get("existed_before") and backup_p and backup_p.is_file():
+            if not isinstance(f_rec, dict) or not f_rec.get("target_path"):
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "status": "blocked_unsafe_rollback_record",
+                    "error": "Некорректная запись applied_files в proposal.json",
+                }
+            target_p = Path(f_rec["target_path"]).resolve()
+            try:
+                target_p.relative_to(workspace_root)
+            except ValueError:
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "status": "blocked_unsafe_rollback_record",
+                    "error": "Откат заблокирован: цель находится вне рабочего дерева.",
+                }
+            imm_bad, imm_why = is_immutable_core_target(str(target_p), data_dir=rt.data_dir)
+            if imm_bad:
+                return {
+                    "ok": False,
+                    "verified": False,
+                    "status": "blocked_unsafe_rollback_record",
+                    "error": f"Откат заблокирован: файл `{target_p}` относится к неизменяемому ядру ({imm_why})",
+                }
+            backup_p = Path(f_rec["backup_path"]).resolve() if f_rec.get("backup_path") else None
+            if f_rec.get("existed_before"):
+                if backup_p is None:
+                    return {
+                        "ok": False,
+                        "verified": False,
+                        "status": "blocked_unsafe_rollback_record",
+                        "error": "Откат заблокирован: отсутствует резервная копия.",
+                    }
+                try:
+                    backup_p.relative_to(mod_dir)
+                except ValueError:
+                    return {
+                        "ok": False,
+                        "verified": False,
+                        "status": "blocked_unsafe_rollback_record",
+                        "error": "Откат заблокирован: резервная копия вне каталога предложения.",
+                    }
+                if not backup_p.is_file():
+                    return {
+                        "ok": False,
+                        "verified": False,
+                        "status": "blocked_unsafe_rollback_record",
+                        "error": "Откат заблокирован: резервная копия не найдена.",
+                    }
+            rollback_plan.append((target_p, bool(f_rec.get("existed_before")), backup_p))
+
+        restored_files: list[str] = []
+        for target_p, existed_before, backup_p in rollback_plan:
+            if existed_before and backup_p is not None:
                 target_p.parent.mkdir(parents=True, exist_ok=True)
                 target_p.write_bytes(backup_p.read_bytes())
                 restored_files.append(str(target_p))
-            elif not f_rec.get("existed_before") and target_p.is_file():
+            elif not existed_before and target_p.is_file():
                 target_p.unlink(missing_ok=True)
                 restored_files.append(str(target_p))
         proposal["status"] = "rolled_back"
@@ -2633,6 +2753,8 @@ async def _execute_self_modify_step(
 
     if act_sm == "health_check":
         target_mod_id = str(args.get("mod_id") or "").strip()
+        if not target_mod_id or not _SELF_MOD_ID_RE.match(target_mod_id):
+            return {"ok": False, "verified": False, "error": f"Недопустимый mod_id `{target_mod_id}`."}
         mod_dir = rt.self_mod_dir / target_mod_id
         meta_file = mod_dir / "proposal.json"
         if not meta_file.is_file():
@@ -2671,7 +2793,23 @@ async def _execute_self_modify_step(
         }
 
     target_rel = str(args.get("target_file") or f"skills/{slug}.py").strip()
+    workspace_root = Path(rt.workspace_dir).resolve()
+    target_input = Path(target_rel)
+    target_abs = (workspace_root / target_input).resolve() if not target_input.is_absolute() else target_input.resolve()
+    try:
+        target_abs.relative_to(workspace_root)
+    except ValueError:
+        return {
+            "ok": False,
+            "verified": False,
+            "status": "blocked_outside_workspace",
+            "error": "Самоизменение разрешено только внутри рабочего дерева проекта.",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
+    canonical_target_rel = target_abs.relative_to(workspace_root).as_posix()
     imm_bad, imm_why = is_immutable_core_target(target_rel, data_dir=rt.data_dir)
+    if not imm_bad:
+        imm_bad, imm_why = is_immutable_core_target(canonical_target_rel, data_dir=rt.data_dir)
     if imm_bad:
         _append_self_mod_journal(
             rt,
@@ -2725,6 +2863,61 @@ async def _execute_self_modify_step(
     staged_test = mod_dir / "test_candidate_skill.py"
     staged_skill.write_text(code_content, encoding="utf-8")
     staged_test.write_text(test_content, encoding="utf-8")
+
+    # Model-provided Python tests are executable code. On hosts without an OS-enforced
+    # sandbox (bwrap/runsc/wsl/docker), return fail-closed without running tests or applying files.
+    if not probe_os_sandbox():
+        pytest_out = "NOT_RUN: model-supplied tests require an OS-enforced sandbox."
+        tests_passed = False
+        neg_control_present = False
+        existed_before = target_abs.is_file()
+        diff_preview = (
+            f"--- a/{target_rel}\n+++ b/{target_rel} (ветка {branch_name})\n"
+            + "\n".join(f"+{ln}" for ln in code_content.splitlines()[:25])
+        )
+        rollback_cmd = f"POST /api/pc-agent/self-modify/{mod_id}/rollback (или git branch -D {branch_name})"
+        russian_card = (
+            f"🛠 Предложение самоизменения `{mod_id}` (ветка `{branch_name}`):\n"
+            f"• Что меняется: файл `{target_rel}`\n"
+            f"• Зачем: {args.get('description') or f'Добавление/улучшение навыка {slug}'}\n"
+            "• Проверка: NOT_RUN — изолированная песочница для кода модели не настроена\n"
+            f"• Как откатить одной командой: `{rollback_cmd}`"
+        )
+        proposal_data: dict[str, Any] = {
+            "mod_id": mod_id,
+            "branch": branch_name,
+            "topic": slug,
+            "target_file": target_rel,
+            "target_abs": str(target_abs),
+            "description": str(args.get("description") or f"Навык {slug}"),
+            "tests_passed": tests_passed,
+            "negative_control_passed": False,
+            "pytest_output": pytest_out,
+            "diff_preview": diff_preview,
+            "rollback_command": rollback_cmd,
+            "russian_summary": russian_card,
+            "status": "verification_blocked_unisolated",
+            "created_at": time.time(),
+            "applied_files": [],
+        }
+        (mod_dir / "proposal.json").write_text(json.dumps(proposal_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        _append_self_mod_journal(rt, {**proposal_data, "actor": actor})
+        return {
+            "ok": False,
+            "verified": False,
+            "mod_id": mod_id,
+            "branch": branch_name,
+            "status": "verification_blocked_unisolated",
+            "tests_passed": False,
+            "negative_control_passed": False,
+            "approval_id": None,
+            "target_file": str(target_abs),
+            "diff_preview": diff_preview,
+            "pytest_output": pytest_out[:800],
+            "error": "Самоизменение сохранено как предложение: запуск тестов заблокирован до появления OS-изолированной песочницы.",
+            "summary": f"Предложение `{mod_id}` сохранено без выполнения и применения: sandbox NOT_CONFIGURED.",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
 
     # Запускаем pytest в песочнице (позитивный тест + негативный контроль)
     basetemp = mod_dir / ".pytest-tmp"
@@ -6435,6 +6628,11 @@ async def api_pc_agent_get_task(request: Request, task_id: int):
 async def api_pc_agent_approve_task(request: Request, task_id: int, body: dict[str, Any]):
     svc = _svc_of(request)
     rt = get_runtime(svc)
+    if rt.is_stopped(svc):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "PC_AGENT_STOPPED", "message": "СТОП активен: подтверждение шагов PC-Agent заблокировано до /resume."},
+        )
     rec = rt.load_task_record(task_id)
     if not rec or rec.get("status") != "waiting_approval":
         raise HTTPException(status_code=409, detail={"code": "NOT_WAITING_APPROVAL", "message": f"Задача #{task_id} не ждёт подтверждения."})

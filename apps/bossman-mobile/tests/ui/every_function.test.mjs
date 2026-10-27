@@ -128,3 +128,75 @@ test('«Снимок экрана и окна»: PC mode message goes to the dis
   assert.equal(a.calls.find((c) => c.path === '/agent/sessions/t1/messages').body.mode, 'COMPUTER');
   assert.ok(a.$('oc-pc-out').textContent.includes('computer.observe'));
 });
+
+test('«$» badge shows honest N/A when cost metric is unconnected or errors, and supports total_usd', { skip }, async () => {
+  let costReply = { spent_usd: null, budget_usd: null, budget_remaining_usd: null, mode: 'AGENT' };
+  const base = mk();
+  const a = await boot({
+    routes: (p, m, body) => (p === '/agent/sessions/t1/cost' ? costReply : base.routes(p, m, body)),
+    before: (w) => { w.WebSocket = undefined; w.localStorage.setItem('bm.agentMode', 'AGENT'); },
+  });
+  await until(() => a.$('model-name').textContent.includes('Gemma'), 'agents loaded');
+  send(a, 'привет');
+  await until(() => a.$('oc-cost-badge').textContent === 'N/A', 'null spent_usd -> N/A', 8000);
+  assert.equal(a.$('oc-cost-badge').classList.contains('is-na'), true);
+
+  costReply = { total_usd: 1.25 };
+  send(a, 'второй');
+  await until(() => a.$('oc-cost-badge').textContent === '$1.25', 'total_usd supported', 8000);
+  assert.equal(a.$('oc-cost-badge').classList.contains('is-na'), false);
+
+  costReply = { __status: 502, body: { detail: 'offline' } };
+  send(a, 'третий');
+  await until(() => a.$('oc-cost-badge').textContent === 'N/A', '502 error -> N/A', 8000);
+  assert.equal(a.$('oc-cost-badge').classList.contains('is-na'), true);
+});
+
+test('approvalCard on 320px viewport renders model, task_id, status, $0.00 / N/A pills and rollback-hint', { skip }, async () => {
+  const base = mk();
+  const a = await boot({
+    css: true,
+    routes: (p, m, body) => {
+      if (p === '/tasks/5') return { id: 5, status: 'waiting_approval' };
+      return base.routes(p, m, body);
+    },
+    before: (w) => {
+      w.innerWidth = 320;
+      w.WebSocket = undefined;
+      w.localStorage.setItem('bm.agentMode', 'AGENT');
+      w.EventSource = class {
+        constructor(u) {
+          this.url = u;
+          setTimeout(() => {
+            if (this.onmessage) {
+              this.onmessage({
+                data: JSON.stringify({
+                  kind: 'approval.created',
+                  id: 91,
+                  approval_kind: 'git.push.very_long_action_identifier_for_narrow_screen',
+                  preview: 'git push origin ux/modern-smooth-buttons-20261026',
+                }),
+              });
+            }
+          }, 15);
+        }
+        close() { this.closed = true; }
+      };
+    },
+  });
+  await until(() => a.$('model-name').textContent.includes('Gemma'), 'agents loaded');
+  send(a, 'запушь ветку');
+  await until(() => a.d.querySelector('.approval'), 'approval card rendered');
+  const pills = [...a.d.querySelectorAll('.approval .approval-meta-pill')].map((n) => n.textContent);
+  assert.ok(pills.some((t) => t.startsWith('git.push')), `expected approval_kind pill in ${JSON.stringify(pills)}`);
+  assert.ok(pills.includes('модель: gemma'), `expected model pill in ${JSON.stringify(pills)}`);
+  assert.ok(pills.includes('задача #5'), `expected task pill in ${JSON.stringify(pills)}`);
+  assert.ok(pills.includes('статус: ждёт решения'), `expected status pill in ${JSON.stringify(pills)}`);
+  assert.ok(pills.includes('$0.00 / N/A'), `expected cost pill in ${JSON.stringify(pills)}`);
+  const hint = a.d.querySelector('.approval .rollback-hint');
+  assert.ok(hint && hint.textContent.includes('Как откатить'), 'rollback hint rendered');
+  const btns = [...a.d.querySelectorAll('.approval .row .btn')];
+  assert.equal(btns.length, 2);
+});
+
+

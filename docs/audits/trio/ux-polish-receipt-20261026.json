@@ -1,0 +1,57 @@
+{
+  "worktree": "C:\\Users\\asd\\Bossman\\wt-ux-polish-20261026",
+  "branch": "ux/modern-smooth-buttons-20261026",
+  "base_branch": "agent/argon-20261026",
+  "base_commit": "745c99e6a0e7cf22c056343571710ce62336ad84",
+  "timestamp_utc": "2026-10-26T23:49:00Z",
+  "files_touched": [
+    "apps/bossman-mobile/bossmobile/ui/app.css",
+    "apps/bossman-mobile/bossmobile/ui/app.js",
+    "apps/bossman-mobile/bossmobile/ui/sw.js",
+    "apps/bossman-mobile/tests/test_chat_contrast.py",
+    "apps/bossman-mobile/tests/ui/every_function.test.mjs",
+    "command-center/ui/style.css",
+    "command-center/ui/theme.css",
+    "command-center/ui/pages.js",
+    "command-center/ui/chat/chat.css",
+    "command-center/ui/chat/render.js",
+    "docs/audits/trio/ux-polish-receipt-20261026.json"
+  ],
+  "polish_areas": {
+    "fonts_and_typography": {
+      "sans_stack": "'Inter', 'SF Pro Display', 'Segoe UI Variable Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif",
+      "mono_stack": "'JetBrains Mono', 'Cascadia Code', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+      "antialiasing": "-webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility",
+      "tabular_nums": "font-variant-numeric: tabular-nums on badges, counters, timers, and budget pills"
+    },
+    "smooth_micro_animations_and_tactile_buttons": {
+      "transition": "transform 160ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease, background-color 160ms ease, border-color 160ms ease, opacity 160ms ease",
+      "active_press": "transform: scale(0.97) on :active:not(:disabled)",
+      "primary_highlight": "linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0))",
+      "focus_visible": "2px solid var(--accent) ring with 2px offset"
+    },
+    "stop_and_resume_ux": {
+      "stop_button": "Expressive high-contrast red stop state with subtle @keyframes stop-pulse / cc-stop-pulse glow (disabled when STOP is already active or under prefers-reduced-motion)",
+      "resume_button": "Prominent green-accented «Продолжить» (.stop-resume with --ok/--ok-ink >= 4.5:1 WCAG contrast, and #computer-resume) action button"
+    },
+    "approval_and_rollback_ux": {
+      "approval_meta": "Structured .approval-meta pills showing approval_kind, model, task #id, status, and cost ($0.00 / N/A) with <= 320px narrow-viewport overflow protection",
+      "rollback_hint": "Explicit .rollback-hint instructions rendered in both Bossman Mobile and Command Center approval cards"
+    },
+    "honest_status_and_budget_badges": {
+      "na_badges": "Distinct .is-na / .na-badge / .badge-na styling when metrics or session cost are unconnected (spent_usd: null, connected: false, or fetch error -> N/A instead of misleading $0.00)"
+    }
+  },
+  "verification": {
+    "pytest_mobile_and_cc": {
+      "command": "python -m pytest apps/bossman-mobile/tests/test_mobile.py apps/bossman-mobile/tests/test_chat_contrast.py apps/bossman-mobile/tests/test_stop_banner.py apps/bossman-mobile/tests/test_mobile_opencode.py apps/bossman-mobile/tests/test_mobile_every_function.py apps/bossman-mobile/tests/test_mobile_parity.py apps/bossman-mobile/tests/test_mobile_slash_context.py command-center/tests/test_argon_os_agent_trio.py command-center/tests/test_chat_ui_static.py command-center/tests/test_ui_sweep_regressions.py --basetemp=C:\\Users\\asd\\Bossman\\.pytest-tmp-ux",
+      "passed": 201,
+      "failed": 0
+    },
+    "node_ui_tests_all": {
+      "command": "node --test apps/bossman-mobile/tests/ui/*.test.mjs && node --experimental-detect-module --no-warnings --test command-center/ui/tests/chat_core.test.mjs",
+      "passed": 152,
+      "failed": 0
+    }
+  }
+}
