@@ -861,6 +861,9 @@ def test_p4_self_modify_rejects_path_traversal_and_symlink_escape(tmp_path: Path
         assert sym_res["ok"] is False
         assert sym_res["status"] == "blocked_outside_workspace"
         assert outside_file.read_text(encoding="utf-8") == "# original host file\n"
+        assert pc_agent.is_permitted_self_mod_target("skills/linked_out/host_target.py", rt) is False
+        assert pc_agent.is_permitted_self_mod_target(str(link_dir / "host_target.py"), rt) is False
+        assert pc_agent.is_permitted_self_mod_target("skills/legit_skill.py", rt) is True
 
         # Проверяем блокировку rollback через symlink/junction
         sym_mod_id = "sm-20261027-symlink-rb"
@@ -910,15 +913,28 @@ def test_p4_self_modify_rejects_path_traversal_and_symlink_escape(tmp_path: Path
 
 def test_p4_self_modify_honors_global_stop_and_valid_rollback_with_immutable_core_guard(tmp_path: Path) -> None:
     """Синтетический аудит `pc.self_modify`:
-    1) Глобальный STOP мгновенно блокирует вызов `pc.self_modify` без модификации файлов;
+    1) Глобальный STOP мгновенно блокирует вызов `pc.self_modify` без модификации файлов (и HTTP 409 на `/api/pc-agent/self-modify`);
     2) Корректный `rollback` восстанавливает исходный файл в `workspace_dir` из валидного бэкапа и пишет в `self_mod_journal.jsonl`;
     3) Попытка `rollback` на файл неизменяемого ядра (`pc_agent_policy.py`) внутри `workspace_dir` блокируется `blocked_unsafe_rollback_record`;
-    4) `health_check` при сбое в 5-минутном окне выполняет автоматический откат."""
+    4) `health_check` при сбое в 5-минутном окне выполняет автоматический откат;
+    5) Даже если `probe_os_sandbox` возвращает `True`, хостовый `pytest` не запускается и `apply_after_approval=True` не пишет файлы;
+    6) Агентский `actor="agent"` не может самоутвердить T2 шаг через `approved=True`, а `action="apply"` не затирает существующий `proposal.json`."""
     svc = _DummySvc(tmp_path)
     rt = svc._pc_agent_runtime
 
-    # 1. Глобальный STOP блокирует pc.self_modify
+    app = FastAPI()
+    app.state.svc = svc
+    app.include_router(pc_agent.router, prefix="/api")
+    client = TestClient(app)
+
+    # 1. Глобальный STOP блокирует pc.self_modify (как в execute_pc_step, так и HTTP 409 на /api/pc-agent/self-modify)
     asyncio.run(rt.trigger_stop(svc, actor="owner", reason="stop_during_self_mod_test"))
+    http_stop_res = client.post(
+        "/api/pc-agent/self-modify",
+        json={"action": "propose", "topic": "blocked-http", "target_file": "skills/stop_blocked.py"},
+    )
+    assert http_stop_res.status_code == 409
+    assert http_stop_res.json()["detail"]["code"] == "PC_AGENT_STOPPED"
     with pytest.raises(RuntimeError, match="СТОП активен"):
         asyncio.run(
             pc_agent.execute_pc_step(
@@ -961,15 +977,34 @@ def test_p4_self_modify_honors_global_stop_and_valid_rollback_with_immutable_cor
                 "applied_at": time.time(),
                 "applied_files": [
                     {
-                        "target_path": str(skill_file),
+                        "target_path": "skills/reversible_skill.py",
                         "existed_before": True,
-                        "backup_path": str(backup_file),
+                        "backup_path": "backup-reversible_skill.py",
                     }
                 ],
             }
         ),
         encoding="utf-8",
     )
+
+    # Не-владелец (actor="agent") не может самоутвердить T2 шаг rollback даже с approved=True
+    agent_self_approve = asyncio.run(
+        pc_agent.execute_pc_step(
+            svc,
+            rt,
+            task_id=880,
+            run_id=880,
+            step_idx=1,
+            tool="pc.self_modify",
+            args={"action": "rollback", "mod_id": valid_mod_id},
+            actor="agent",
+            approved=True,
+        )
+    )
+    assert agent_self_approve["ok"] is False
+    assert agent_self_approve["tier"] == "T2"
+    assert agent_self_approve["decision"] == "ask"
+    assert skill_file.read_text(encoding="utf-8") == "VERSION = 2\n"
 
     hc_res = asyncio.run(
         pc_agent.execute_pc_step(
@@ -1026,6 +1061,73 @@ def test_p4_self_modify_honors_global_stop_and_valid_rollback_with_immutable_cor
     assert imm_rb["ok"] is False
     assert imm_rb["status"] == "blocked_unsafe_rollback_record"
     assert imm_target.read_text(encoding="utf-8") == "POLICY = 'IMMUTABLE'\n"
+
+    # 4. Даже если probe_os_sandbox возвращает True, нет неизолированного запуска pytest и записи по apply_after_approval
+    orig_probe = pc_agent.probe_os_sandbox
+    canary_probe = tmp_path / "probe-true-canary.txt"
+    try:
+        pc_agent.probe_os_sandbox = lambda: True
+        probe_res = asyncio.run(
+            pc_agent.execute_pc_step(
+                svc,
+                rt,
+                task_id=90,
+                run_id=90,
+                step_idx=1,
+                tool="pc.self_modify",
+                args={
+                    "action": "propose",
+                    "mod_id": "sm-20261027-probe-true",
+                    "topic": "probe-true-test",
+                    "target_file": "skills/probe_true_skill.py",
+                    "code": "VALUE = 42\n",
+                    "test_code": f"from pathlib import Path\ndef test_canary():\n    Path({str(canary_probe)!r}).write_text('ran', encoding='utf-8')\n",
+                    "apply_after_approval": True,
+                },
+                approved=False,
+            )
+        )
+        assert probe_res["ok"] is False
+        assert probe_res["status"] == "verification_blocked_unisolated"
+        assert not canary_probe.exists()
+        assert not (rt.workspace_dir / "skills" / "probe_true_skill.py").exists()
+
+        # action="apply" по существующему mod_id сохраняет целевой файл в proposal.json и блокируется fail-closed
+        apply_res = asyncio.run(
+            pc_agent.execute_pc_step(
+                svc,
+                rt,
+                task_id=901,
+                run_id=901,
+                step_idx=1,
+                tool="pc.self_modify",
+                args={"action": "apply", "mod_id": "sm-20261027-probe-true"},
+                actor="owner",
+                approved=True,
+            )
+        )
+        assert apply_res["ok"] is False
+        assert apply_res["status"] == "verification_blocked_unisolated"
+        assert apply_res["target_file"].endswith("probe_true_skill.py")
+
+        # Неизвестное действие отклоняется с blocked_invalid_action
+        bad_act = asyncio.run(
+            pc_agent.execute_pc_step(
+                svc,
+                rt,
+                task_id=902,
+                run_id=902,
+                step_idx=1,
+                tool="pc.self_modify",
+                args={"action": "unknown_action", "mod_id": "sm-20261027-probe-true"},
+                actor="owner",
+                approved=True,
+            )
+        )
+        assert bad_act["ok"] is False
+        assert bad_act["status"] == "blocked_invalid_action"
+    finally:
+        pc_agent.probe_os_sandbox = orig_probe
 
 
 # =========================================================================== ЭТАП P5: НОЧНОЙ РЕЖИМ L3 + 8 КЕЙСОВ ТУРНИРА

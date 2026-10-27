@@ -1186,14 +1186,22 @@ _SELF_MOD_ID_RE = re.compile(r"^sm-[a-z0-9_-]{1,80}$")
 def is_permitted_self_mod_target(raw_path: str | Path, rt: PCAgentRuntime) -> bool:
     """Проверяет принадлежность цели самоизменения разрешённому дереву (D-031).
     Разрешены только файлы внутри рабочей директории агента (rt.workspace_dir)
-    или каталога skills репозитория, не относящиеся к неизменяемому ядру."""
+    или каталога skills репозитория, не относящиеся к неизменяемому ядру и не содержащие симлинков."""
     try:
-        p = Path(raw_path).resolve()
-        imm_bad, _ = is_immutable_core_target(p, data_dir=rt.data_dir)
-        if imm_bad:
-            return False
         ws = rt.workspace_dir.resolve()
         repo_skills = (Path(__file__).resolve().parents[2] / "skills").resolve()
+        raw_p = Path(raw_path)
+        unres = (ws / raw_p) if not raw_p.is_absolute() else raw_p
+        if _has_reparse_or_symlink_below(unres, ws):
+            return False
+        if repo_skills.is_dir() and _has_reparse_or_symlink_below(unres, repo_skills):
+            return False
+        p = unres.resolve()
+        imm_bad, _ = is_immutable_core_target(raw_path, data_dir=rt.data_dir)
+        if not imm_bad:
+            imm_bad, _ = is_immutable_core_target(p, data_dir=rt.data_dir)
+        if imm_bad:
+            return False
         if p.is_relative_to(ws) or (repo_skills.is_dir() and p.is_relative_to(repo_skills)):
             return True
         return False
@@ -1356,6 +1364,8 @@ async def execute_pc_step(
         raise RuntimeError("Остановлено владельцем (СТОП активен).")
     if approved_by_owner is not None:
         approved = bool(approved_by_owner)
+    elif str(actor or "").strip().lower() in {"agent", "argon", "claude", "codex", "kimi", "model", "llm", "assistant", "subagent"}:
+        approved = False
 
     t0 = time.perf_counter()
 
@@ -2596,8 +2606,13 @@ def _has_reparse_or_symlink_below(path: Path, root: Path) -> bool:
     """Проверяет, содержит ли путь (ниже root) симлинк или NTFS junction/reparse point."""
     import stat as _stat
 
-    cur = Path(os.path.abspath(path))
     root_abs = Path(os.path.abspath(root))
+    raw_p = Path(path)
+    cur = Path(os.path.abspath(root_abs / raw_p if not raw_p.is_absolute() else raw_p))
+    try:
+        cur.relative_to(root_abs)
+    except ValueError:
+        return False
     while cur != root_abs and cur.parent != cur:
         try:
             if cur.is_symlink():
@@ -2629,6 +2644,14 @@ async def _execute_self_modify_step(
     4) Запрос подтверждения владельца в пульте простым русским языком с diff и инструкцией отката.
     5) Применение с резервной копией, 5-минутным окном контроля здоровья (auto-rollback при сбое) и записью в `self_mod_journal.jsonl`."""
     act_sm = str(args.get("action") or "propose").strip().lower()
+    if act_sm not in {"propose", "apply", "rollback", "health_check"}:
+        return {
+            "ok": False,
+            "verified": False,
+            "status": "blocked_invalid_action",
+            "error": f"Недопустимое действие pc.self_modify `{act_sm}` (разрешены: propose, apply, rollback, health_check).",
+            "duration_ms": round((time.perf_counter() - t0) * 1000),
+        }
     topic_raw = str(args.get("topic") or args.get("skill_name") or "skill-update").strip().lower()
     slug = re.sub(r"[^a-z0-9_-]+", "-", topic_raw).strip("-") or "skill-update"
     date_tag = utcnow().strftime("%Y%m%d")
@@ -2692,7 +2715,8 @@ async def _execute_self_modify_step(
                     "status": "blocked_unsafe_rollback_record",
                     "error": "Некорректная запись applied_files в proposal.json",
                 }
-            raw_target_p = Path(str(f_rec["target_path"]))
+            raw_target_in = Path(str(f_rec["target_path"]))
+            raw_target_p = (workspace_root / raw_target_in) if not raw_target_in.is_absolute() else raw_target_in
             if _has_reparse_or_symlink_below(raw_target_p, workspace_root):
                 return {
                     "ok": False,
@@ -2710,7 +2734,9 @@ async def _execute_self_modify_step(
                     "status": "blocked_unsafe_rollback_record",
                     "error": "Откат заблокирован: цель находится вне рабочего дерева.",
                 }
-            imm_bad, imm_why = is_immutable_core_target(str(target_p), data_dir=rt.data_dir)
+            imm_bad, imm_why = is_immutable_core_target(str(f_rec["target_path"]), data_dir=rt.data_dir)
+            if not imm_bad:
+                imm_bad, imm_why = is_immutable_core_target(str(target_p), data_dir=rt.data_dir)
             if imm_bad:
                 return {
                     "ok": False,
@@ -2718,7 +2744,12 @@ async def _execute_self_modify_step(
                     "status": "blocked_unsafe_rollback_record",
                     "error": f"Откат заблокирован: файл `{target_p}` относится к неизменяемому ядру ({imm_why})",
                 }
-            raw_backup_p = Path(str(f_rec["backup_path"])) if f_rec.get("backup_path") else None
+            raw_backup_in = Path(str(f_rec["backup_path"])) if f_rec.get("backup_path") else None
+            raw_backup_p = (
+                ((mod_dir / raw_backup_in) if not raw_backup_in.is_absolute() else raw_backup_in)
+                if raw_backup_in is not None
+                else None
+            )
             if raw_backup_p is not None and _has_reparse_or_symlink_below(raw_backup_p, mod_dir):
                 return {
                     "ok": False,
@@ -2827,7 +2858,12 @@ async def _execute_self_modify_step(
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
-    target_rel = str(args.get("target_file") or f"skills/{slug}.py").strip()
+    existing_proposal: dict[str, Any] = {}
+    if act_sm == "apply" and (mod_dir / "proposal.json").is_file():
+        with contextlib.suppress(Exception):
+            existing_proposal = json.loads((mod_dir / "proposal.json").read_text(encoding="utf-8"))
+
+    target_rel = str(args.get("target_file") or existing_proposal.get("target_file") or f"skills/{slug}.py").strip()
     workspace_root = Path(rt.workspace_dir).resolve()
     target_input = Path(target_rel)
     target_unres = (workspace_root / target_input) if not target_input.is_absolute() else target_input
@@ -2877,10 +2913,15 @@ async def _execute_self_modify_step(
             "duration_ms": round((time.perf_counter() - t0) * 1000),
         }
 
-    mod_dir = rt.self_mod_dir / mod_id
     mod_dir.mkdir(parents=True, exist_ok=True)
+    staged_skill = mod_dir / "candidate_skill.py"
+    staged_test = mod_dir / "test_candidate_skill.py"
     code_content = str(args.get("code") or args.get("content") or "").strip()
     test_content = str(args.get("test_code") or "").strip()
+    if not code_content and staged_skill.is_file():
+        code_content = staged_skill.read_text(encoding="utf-8").strip()
+    if not test_content and staged_test.is_file():
+        test_content = staged_test.read_text(encoding="utf-8").strip()
     if not code_content:
         code_content = (
             f'"""Навык PC-Agent: {slug} (ветка {branch_name})."""\n\n'
@@ -2903,89 +2944,18 @@ async def _execute_self_modify_step(
             "        run_skill('../vault.key')\n"
         )
 
-    staged_skill = mod_dir / "candidate_skill.py"
-    staged_test = mod_dir / "test_candidate_skill.py"
     staged_skill.write_text(code_content, encoding="utf-8")
     staged_test.write_text(test_content, encoding="utf-8")
 
-    # Model-provided Python tests are executable code. On hosts without an OS-enforced
-    # sandbox (bwrap/runsc/wsl/docker), return fail-closed without running tests or applying files.
-    if not probe_os_sandbox():
-        pytest_out = "NOT_RUN: model-supplied tests require an OS-enforced sandbox."
-        tests_passed = False
-        neg_control_present = False
-        existed_before = target_abs.is_file()
-        diff_preview = (
-            f"--- a/{target_rel}\n+++ b/{target_rel} (ветка {branch_name})\n"
-            + "\n".join(f"+{ln}" for ln in code_content.splitlines()[:25])
-        )
-        rollback_cmd = f"POST /api/pc-agent/self-modify/{mod_id}/rollback (или git branch -D {branch_name})"
-        russian_card = (
-            f"🛠 Предложение самоизменения `{mod_id}` (ветка `{branch_name}`):\n"
-            f"• Что меняется: файл `{target_rel}`\n"
-            f"• Зачем: {args.get('description') or f'Добавление/улучшение навыка {slug}'}\n"
-            "• Проверка: NOT_RUN — изолированная песочница для кода модели не настроена\n"
-            f"• Как откатить одной командой: `{rollback_cmd}`"
-        )
-        proposal_data: dict[str, Any] = {
-            "mod_id": mod_id,
-            "branch": branch_name,
-            "topic": slug,
-            "target_file": target_rel,
-            "target_abs": str(target_abs),
-            "description": str(args.get("description") or f"Навык {slug}"),
-            "tests_passed": tests_passed,
-            "negative_control_passed": False,
-            "pytest_output": pytest_out,
-            "diff_preview": diff_preview,
-            "rollback_command": rollback_cmd,
-            "russian_summary": russian_card,
-            "status": "verification_blocked_unisolated",
-            "created_at": time.time(),
-            "applied_files": [],
-        }
-        (mod_dir / "proposal.json").write_text(json.dumps(proposal_data, ensure_ascii=False, indent=2), encoding="utf-8")
-        _append_self_mod_journal(rt, {**proposal_data, "actor": actor})
-        return {
-            "ok": False,
-            "verified": False,
-            "mod_id": mod_id,
-            "branch": branch_name,
-            "status": "verification_blocked_unisolated",
-            "tests_passed": False,
-            "negative_control_passed": False,
-            "approval_id": None,
-            "target_file": str(target_abs),
-            "diff_preview": diff_preview,
-            "pytest_output": pytest_out[:800],
-            "error": "Самоизменение сохранено как предложение: запуск тестов заблокирован до появления OS-изолированной песочницы.",
-            "summary": f"Предложение `{mod_id}` сохранено без выполнения и применения: sandbox NOT_CONFIGURED.",
-            "duration_ms": round((time.perf_counter() - t0) * 1000),
-        }
-
-    # Запускаем pytest в песочнице (позитивный тест + негативный контроль)
-    basetemp = mod_dir / ".pytest-tmp"
-    proc_test = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "pytest",
-        "-o",
-        "tmp_path_retention_policy=none",
-        f"--basetemp={basetemp}",
-        str(staged_test),
-        "-q",
-        cwd=str(mod_dir),
-        env={**_scrubbed_env(), "PYTHONPATH": str(mod_dir)},
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    out_b, err_b = await asyncio.wait_for(proc_test.communicate(), timeout=30.0)
-    pytest_out = scrub_secrets(((out_b or b"") + b"\n" + (err_b or b"")).decode("utf-8", errors="replace")).strip()
-    tests_passed = proc_test.returncode == 0
-    neg_control_present = "negative_control" in test_content or "pytest.raises" in test_content
-
-    target_abs = (rt.workspace_dir / target_rel).resolve() if not Path(target_rel).is_absolute() else Path(target_rel).resolve()
-    existed_before = target_abs.is_file()
+    # Model-provided Python tests are executable code. The former implementation
+    # ran them as a normal child process under the Bossman account; a scrubbed env
+    # and proxy variables do not provide OS isolation. Until a real OS-enforced sandbox
+    # (bwrap/runsc/wsl/docker) is available, keep the proposal for review but never
+    # execute model tests on the host, never claim verification, and never apply files
+    # even if approved=True or apply_after_approval=True.
+    _ = probe_os_sandbox()
+    pytest_out = "NOT_RUN: model-supplied tests require an OS-enforced sandbox."
+    tests_passed = False
     diff_preview = (
         f"--- a/{target_rel}\n+++ b/{target_rel} (ветка {branch_name})\n"
         + "\n".join(f"+{ln}" for ln in code_content.splitlines()[:25])
@@ -2994,88 +2964,46 @@ async def _execute_self_modify_step(
     russian_card = (
         f"🛠 Предложение самоизменения `{mod_id}` (ветка `{branch_name}`):\n"
         f"• Что меняется: файл `{target_rel}`\n"
-        f"• Зачем: {args.get('description') or f'Добавление/улучшение навыка {slug}'}\n"
-        f"• Проверка в песочнице: pytest={'ПРОЙДЕН' if tests_passed else 'ПРОВАЛЕН'}, негативный контроль={'ДА' if neg_control_present else 'НЕТ'}\n"
+        f"• Зачем: {args.get('description') or existing_proposal.get('description') or f'Добавление/улучшение навыка {slug}'}\n"
+        "• Проверка: NOT_RUN — изолированная песочница для кода модели не настроена\n"
         f"• Как откатить одной командой: `{rollback_cmd}`"
     )
-
     proposal_data: dict[str, Any] = {
         "mod_id": mod_id,
         "branch": branch_name,
         "topic": slug,
         "target_file": target_rel,
         "target_abs": str(target_abs),
-        "description": str(args.get("description") or f"Навык {slug}"),
+        "description": str(args.get("description") or existing_proposal.get("description") or f"Навык {slug}"),
         "tests_passed": tests_passed,
-        "negative_control_passed": tests_passed and neg_control_present,
-        "pytest_output": pytest_out[:1200],
+        "negative_control_passed": False,
+        "pytest_output": pytest_out,
         "diff_preview": diff_preview,
         "rollback_command": rollback_cmd,
         "russian_summary": russian_card,
-        "status": "tested_ready" if (tests_passed and neg_control_present) else "test_failed",
-        "created_at": time.time(),
-        "applied_files": [],
+        "status": "verification_blocked_unisolated",
+        "created_at": existing_proposal.get("created_at") or time.time(),
+        "applied_files": list(existing_proposal.get("applied_files") or []),
     }
-
-    if not (tests_passed and neg_control_present):
-        (mod_dir / "proposal.json").write_text(json.dumps(proposal_data, ensure_ascii=False, indent=2), encoding="utf-8")
-        _append_self_mod_journal(rt, {**proposal_data, "actor": actor})
-        return {
-            "ok": False,
-            "verified": False,
-            "mod_id": mod_id,
-            "branch": branch_name,
-            "tests_passed": tests_passed,
-            "negative_control_passed": tests_passed and neg_control_present,
-            "pytest_output": pytest_out[:800],
-            "error": "Самоизменение отклонено песочницей: тесты или негативный контроль не прошли.",
-            "summary": f"Отказ самоизменения `{mod_id}`: тесты песочницы не прошли.",
-            "duration_ms": round((time.perf_counter() - t0) * 1000),
-        }
-
-    approval_id = None
-    if not approved and hasattr(svc, "approvals"):
-        ap_row = await svc.approvals.create("self_modify", russian_card, task_id=task_id or None, run_id=run_id or None)
-        approval_id = ap_row.get("id")
-        proposal_data["approval_id"] = approval_id
-
-    if approved or bool(args.get("apply_after_approval")):
-        backup_path = None
-        if existed_before:
-            backup_file = mod_dir / f"backup-{target_abs.name}"
-            backup_file.write_bytes(target_abs.read_bytes())
-            backup_path = str(backup_file)
-        target_abs.parent.mkdir(parents=True, exist_ok=True)
-        target_abs.write_text(code_content, encoding="utf-8")
-        proposal_data["status"] = "applied"
-        proposal_data["applied_at"] = time.time()
-        proposal_data["health_window_until"] = time.time() + 300.0
-        proposal_data["applied_files"] = [
-            {
-                "target_path": str(target_abs),
-                "existed_before": existed_before,
-                "backup_path": backup_path,
-                "sha256": hashlib.sha256(target_abs.read_bytes()).hexdigest(),
-            }
-        ]
-
     (mod_dir / "proposal.json").write_text(json.dumps(proposal_data, ensure_ascii=False, indent=2), encoding="utf-8")
-    _append_self_mod_journal(rt, {**proposal_data, "actor": actor})
+    _append_self_mod_journal(rt, {**proposal_data, "actor": actor, "action": act_sm})
     return {
-        "ok": True,
-        "verified": True,
+        "ok": False,
+        "verified": False,
         "mod_id": mod_id,
         "branch": branch_name,
-        "status": proposal_data["status"],
-        "approval_id": approval_id,
-        "tests_passed": True,
-        "negative_control_passed": True,
+        "status": "verification_blocked_unisolated",
+        "tests_passed": False,
+        "negative_control_passed": False,
+        "approval_id": None,
         "target_file": str(target_abs),
         "diff_preview": diff_preview,
-        "rollback_command": rollback_cmd,
-        "summary": russian_card,
+        "pytest_output": pytest_out[:800],
+        "error": "Самоизменение сохранено как предложение: запуск тестов заблокирован до появления OS-изолированной песочницы.",
+        "summary": f"Предложение `{mod_id}` сохранено без выполнения и применения: sandbox NOT_CONFIGURED.",
         "duration_ms": round((time.perf_counter() - t0) * 1000),
     }
+
 
 
 def _ensure_earn_lessons(rt: PCAgentRuntime) -> dict[str, Any]:
@@ -6505,6 +6433,11 @@ async def api_pc_agent_night_mode_report(request: Request):
 async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
     svc = _svc_of(request)
     rt = get_runtime(svc)
+    if rt.is_stopped(svc):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "PC_AGENT_STOPPED", "message": "СТОП активен: операции самоизменения заблокированы до /resume."},
+        )
     payload = dict(body or {})
     actor = str(payload.get("actor") or "owner").strip()
     approved = bool(payload.get("approved", False))
@@ -6537,6 +6470,11 @@ async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
 async def api_pc_agent_self_modify_rollback(request: Request, mod_id: str, body: dict[str, Any] | None = None):
     svc = _svc_of(request)
     rt = get_runtime(svc)
+    if rt.is_stopped(svc):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "PC_AGENT_STOPPED", "message": "СТОП активен: откат самоизменения заблокирован до /resume."},
+        )
     payload = dict(body or {})
     actor = str(payload.get("actor") or "owner").strip()
     res = await execute_pc_step(
