@@ -1,7 +1,7 @@
 {
   "schema": "bossman.tier4_blue.sandbox_and_stop_e2e.v2",
   "evaluated_at": "2026-10-27T09:30:00Z",
-  "code_verification_sha": "270f0011afa568310ceb8b836d6a1dc7a8df89ff",
+  "code_verification_sha": "016fe2a64c0fdfd1ed39b5e95eb74c0c6e6c048c",
   "redteam_baseline_sha": "c56a07db7d9905c284e6fa30a33627a22e1a3cb5",
   "os_sandbox_audit": {
     "host_platform": "Windows 11 (AMD64)",

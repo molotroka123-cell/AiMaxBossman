@@ -2,7 +2,7 @@
 
 - **Date**: `2026-10-27T09:30:00Z`
 - **Worktree**: `C:\Users\asd\Bossman\wt-trio-argon` (branch `agent/argon-20261026` -> `origin/fix/cross-surface-stop-resume-20261026`)
-- **Consolidated Code & Test Verification SHA**: `270f0011afa568310ceb8b836d6a1dc7a8df89ff`
+- **Consolidated Code & Test Verification SHA**: `016fe2a64c0fdfd1ed39b5e95eb74c0c6e6c048c`
 - **Red Team Baseline SHA**: `c56a07db7d9905c284e6fa30a33627a22e1a3cb5`
 - **Blue Team Baseline SHA**: `745c99e6a0e7cf22c056343571710ce62336ad84` / `fa2fe7fe07eb78c2d2361c34886d80cc4c496219`
 - **Verdict**: **Tier 4 Internal Evaluation — Consolidated Candidate Verified / Fail-Closed Guardrails Intact**
@@ -10,7 +10,7 @@
 
 ---
 
-## 1. Consolidated Mapping: Blue Team + Red Team Changes on One Tree (`270f0011afa568310ceb8b836d6a1dc7a8df89ff`)
+## 1. Consolidated Mapping: Blue Team + Red Team Changes on One Tree (`016fe2a64c0fdfd1ed39b5e95eb74c0c6e6c048c`)
 
 | # | Source Team & Scope | What Was Claimed | Code Location | Verification Test | Receipt / Artifact | Final Status |
 |---|---|---|---|---|---|---|
@@ -31,7 +31,7 @@
 1. [`source_and_runtime_identity.json`](source_and_runtime_identity.json) — Source & live `:8801/health/live` identity proof (`source_identity: "PASS"`, `git_clean: true`).
 2. [`ci_and_secret_scan.json`](ci_and_secret_scan.json) — Strict `ci_secret_scan.py` PASS + root cause & fix table for every CI job + pytest verification counts.
 3. [`sandbox_and_stop_e2e.json`](sandbox_and_stop_e2e.json) — 6-criteria OS sandbox audit + 7 synthetic security tests + cross-surface STOP & E2E mission proof.
-4. [`eighteen_branches_convergence_matrix.md`](eighteen_branches_convergence_matrix.md) & [`fifteen_branches_table.md`](fifteen_branches_table.md) — Updated 15/18-direction Bossman matrix on SHA `270f0011afa568310ceb8b836d6a1dc7a8df89ff`.
+4. [`eighteen_branches_convergence_matrix.md`](eighteen_branches_convergence_matrix.md) & [`fifteen_branches_table.md`](fifteen_branches_table.md) — Updated 15/18-direction Bossman matrix on SHA `016fe2a64c0fdfd1ed39b5e95eb74c0c6e6c048c`.
 5. [`redteam_independent_check.md`](redteam_independent_check.md) — Independent re-verification of Red Team findings (`c56a07db`) and sandbox containment.
 6. [`receipts_consolidated.json`](receipts_consolidated.json) — Consolidated cryptographic receipt manifest.
 7. [`limitations_and_remaining_work.md`](limitations_and_remaining_work.md) — Explicit caveats and remaining steps before Tier 5 / Production.

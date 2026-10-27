@@ -1,7 +1,7 @@
 # Ограничения, Остатки и План Развития (Tier 4 Consolidated Assessment)
 
 - **Дата**: `2026-10-27T09:30:00Z`
-- **Проверенный SHA кода и тестов**: `270f0011afa568310ceb8b836d6a1dc7a8df89ff`
+- **Проверенный SHA кода и тестов**: `016fe2a64c0fdfd1ed39b5e95eb74c0c6e6c048c`
 - **Оценка зрелости**: **Зрелый внутренний Tier 3 / Частичный Tier 4 (с честными fail-closed защитами и восстановленным строгим секрет-сканером)**
 - **Обязательное заключительное утверждение**: **«Bossman движется к production; production/freeze/Tier 5 пока не доказан»**
 
@@ -13,7 +13,7 @@
    - На текущем Windows 11 хосте DACL на `python.exe` содержит только `SYSTEM`, `Administrators`, `asd` (отсутствуют `Users` и `ALL APPLICATION PACKAGES`).
    - AppContainer и deny-only Restricted Token получают `STATUS_ACCESS_DENIED (0xC0000022)` при загрузке `python312.dll`.
    - Low Integrity без deny-only не защищает пользовательские секреты (`NO_READ_UP` отсутствует) и сокеты `afd.sys`.
-   - **Решение в коде (`270f0011`)**: `probe_os_sandbox()` возвращает `False`; исполнение кандидатов `pc.self_modify` находится в строгом fail-closed режиме `NOT_RUN` (`status="verification_blocked_unisolated"`, `tests_passed=False`, `approval_id=None`, `applied_files=[]`). Ни `approved=True`, ни `apply_after_approval=True` не могут обойти это ограничение. Дополнительно добавлена защита `_has_reparse_or_symlink_below` от побега через симлинки и NTFS junctions при `propose`, `apply` и `rollback`.
+   - **Решение в коде (`016fe2a6`)**: `probe_os_sandbox()` возвращает `False`; исполнение кандидатов `pc.self_modify` находится в строгом fail-closed режиме `NOT_RUN` (`status="verification_blocked_unisolated"`, `tests_passed=False`, `approval_id=None`, `applied_files=[]`). Ни `approved=True`, ни `apply_after_approval=True` не могут обойти это ограничение. Дополнительно добавлена защита `_has_reparse_or_symlink_below` от побега через симлинки и NTFS junctions при `propose`, `apply` и `rollback`.
 
 2. **Аппаратная приёмка железа (Hardware Acceptance)**:
    - Отчёт `tools/owner_machine_report.py` фиксирует характеристики машины владельца (AMD Ryzen AI MAX+ 395, 120 ГБ ОЗУ), но не заменяет полную аппаратную приёмку `scripts/target_hardware_acceptance.py`.
