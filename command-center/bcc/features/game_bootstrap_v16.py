@@ -179,6 +179,20 @@ def telegram_control() -> dict:
     }
 
 
+from fastapi.responses import HTMLResponse
+
+from ._voxel_director import (
+    BLOCK_PALETTE,
+    CAMERA_PRESETS,
+    WEATHER_PRESETS,
+    GodotExportRequest,
+    VoxelDirectorRequest,
+    apply_voxel_director_command,
+    create_base_voxel_world,
+    export_godot_voxel_project,
+    render_voxel_web_game_html,
+)
+
 router = APIRouter()
 
 
@@ -190,6 +204,12 @@ async def game_bootstrap_status():
         "official_godot_release": OFFICIAL_GODOT_RELEASE,
         "telegram_control": telegram_control(),
         "execution": "PLAN_ONLY; use existing Bossman download/terminal/verifier paths",
+        "voxel_director": {
+            "enabled": True,
+            "weather_presets": list(WEATHER_PRESETS.keys()),
+            "camera_presets": list(CAMERA_PRESETS.keys()),
+            "block_palette": list(BLOCK_PALETTE.values()),
+        },
     }
 
 
@@ -198,4 +218,20 @@ async def game_bootstrap_plan(body: BootstrapRequest):
     return bossblocks_bootstrap_plan(body)
 
 
+@router.post("/game-bootstrap/voxel-director")
+async def game_bootstrap_voxel_director(body: VoxelDirectorRequest):
+    return apply_voxel_director_command(body)
+
+
+@router.post("/game-bootstrap/export-godot")
+async def game_bootstrap_export_godot(body: GodotExportRequest):
+    return export_godot_voxel_project(body)
+
+
+@router.get("/game-bootstrap/play", response_class=HTMLResponse)
+async def game_bootstrap_play(world_id: str = "bossblocks-local-01"):
+    return HTMLResponse(content=render_voxel_web_game_html(world_id=world_id))
+
+
 FEATURE = Feature(name="game_bootstrap_v16", router=router)
+

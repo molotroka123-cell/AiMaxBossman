@@ -1,8 +1,15 @@
+from pathlib import Path
+
 from bcc.features.game_bootstrap_v16 import (
     BootstrapRequest,
+    GodotExportRequest,
+    VoxelDirectorRequest,
     WINDOWS_EDITOR,
     WINDOWS_TEMPLATE,
+    apply_voxel_director_command,
     bossblocks_bootstrap_plan,
+    export_godot_voxel_project,
+    render_voxel_web_game_html,
 )
 
 
@@ -41,3 +48,64 @@ def test_existing_engine_can_skip_primary_download_plan():
     plan = bossblocks_bootstrap_plan(BootstrapRequest(already_has_compatible_engine=True))
     assert plan["steps"] == []
     assert plan["status"] == "PLAN_ONLY"
+
+
+def test_voxel_director_live_scene_mutation_weather_camera_structures_npcs_and_sound():
+    # 1. Инициализация мира и построек по текстовому промпту
+    res1 = apply_voxel_director_command(
+        VoxelDirectorRequest(
+            world_id="test-genie-world",
+            prompt="Смени погоду на грозу, переставь камеру на дрон-облёт, построй башню и дом, добавь торговца и стражника",
+            reset_world=True,
+            use_local_llm=False,
+        )
+    )
+    assert res1["ok"] is True
+    assert res1["cost_usd"] == 0.0
+    assert res1["weather"]["id"] == "storm"
+    assert res1["weather"]["particles"] == "rain_heavy"
+    assert res1["camera"]["mode"] == "drone_orbit"
+    assert res1["camera"]["orbit"] is True
+    assert {s["kind"] for s in res1["structures"]} >= {"tower", "house"}
+    assert len(res1["npcs"]) == 2
+    assert any("Торговец" in n["dialogue"] for n in res1["npcs"])
+    assert res1["soundscape"]["ambient_track"] == "thunder_wind"
+    assert len(res1["soundscape"]["music_scale_hz"]) >= 5
+
+    # 2. Живое изменение погоды и камеры на ходу без сброса построенных зданий
+    blocks_before = res1["block_count"]
+    res2 = apply_voxel_director_command(
+        VoxelDirectorRequest(
+            world_id="test-genie-world",
+            prompt="Смени погоду на снегопад, переставь камеру от третьего лица и построй пирамиду",
+            reset_world=False,
+            use_local_llm=False,
+        )
+    )
+    assert res2["weather"]["id"] == "snow"
+    assert res2["camera"]["mode"] == "third_person"
+    assert res2["block_count"] > blocks_before
+    assert any("Снегопад" in n["dialogue"] for n in res2["npcs"])
+
+
+def test_voxel_web_game_html_and_godot_export(tmp_path: Path):
+    html = render_voxel_web_game_html("test-genie-world")
+    assert "BossBlocks Genie-Local" in html
+    assert "/api/game-bootstrap/voxel-director" in html
+
+    export_res = export_godot_voxel_project(
+        GodotExportRequest(
+            world_id="test-godot-export",
+            prompt="Смени погоду на грозу, поставь камеру от третьего лица, построй башню и дом, добавь стражника",
+            target_dir=str(tmp_path / "godot-voxel"),
+            run_headless_smoke=False,
+            use_local_llm=False,
+        )
+    )
+    assert export_res["ok"] is True
+    proj = Path(export_res["project_dir"])
+    assert (proj / "project.godot").is_file()
+    assert (proj / "scripts" / "main.gd").is_file()
+    assert (proj / "bossblocks_world.json").is_file()
+    assert (proj / "PLAY-BOSSBLOCKS.cmd").is_file()
+
