@@ -2,14 +2,14 @@
 
 - **Дата**: `2026-10-27T09:30:00Z`
 - **Ветка**: `agent/argon-20261026` (`C:\Users\asd\Bossman\wt-trio-argon`)
-- **Проверенный SHA кода и тестов**: `016fe2a64c0fdfd1ed39b5e95eb74c0c6e6c048c`
+- **Проверенный SHA кода и тестов**: `3905cd62c41089b4f6b4082759ec92dfd39b1898`
 - **Коммит Red Team**: `c56a07db7d9905c284e6fa30a33627a22e1a3cb5` (`docs/audits/2026-10-27-redteam-self-mod/README_RU.md`)
 
 ---
 
 ## 1. Аудит предложенной песочницы по 6 обязательным критериям безопасности
 
-| Критерий | Фактическое состояние на Windows 11 хосте | Оценка изоляции процесса | Как защищён контур в коде (`016fe2a6`) |
+| Критерий | Фактическое состояние на Windows 11 хосте | Оценка изоляции процесса | Как защищён контур в коде (`3905cd62`) |
 |---|---|---|---|
 | **1. Закрытая сеть** | Переменные `NO_PROXY=*` / `HTTP_PROXY=http://127.0.0.1:9` блокируют только прокси-зависимые клиенты, но НЕ блокируют прямые `socket.connect` к `afd.sys`. AppContainer без `internetClient` дал бы ядерный запрет сети, но на хосте DACL `python.exe` (`SYSTEM`, `Administrators`, `asd`) не содержит `ALL APPLICATION PACKAGES`, вызывая `0xC0000022 STATUS_ACCESS_DENIED` при загрузке `python312.dll`. | **BLOCKED на уровне ОС хоста** | `probe_os_sandbox()` возвращает `False`; `pc.self_modify` **не запускает** дочерний `pytest` вообще (`NOT_RUN`). Кандидат-код не может открыть сокет. |
 | **2. Минимальные права** | Low Integrity токен без deny-only SID на Windows не имеет `SYSTEM_MANDATORY_LABEL_NO_READ_UP` для файлов профиля пользователя, а deny-only на SID `asd` блокирует чтение самого `python.exe`. | **BLOCKED на уровне ОС хоста** | Запрет исполнения кода кандидата (`probe_os_sandbox() == False`) + очистка секретов окружения `_scrubbed_env()` + запрет T3 секретных путей (`is_t3_secret_or_protected_path`). |
@@ -22,7 +22,7 @@
 
 ## 2. Результаты 7 обязательных синтетических тестов (`command-center/tests/test_pc_agent_master_p0_p5.py`)
 
-Все 7 обязательных векторов проверены реальным запуском `pytest` на SHA `016fe2a64c0fdfd1ed39b5e95eb74c0c6e6c048c` (`55 passed in test_pc_agent_master_p0_p5.py`):
+Все 7 обязательных векторов проверены реальным запуском `pytest` на SHA `3905cd62c41089b4f6b4082759ec92dfd39b1898` (`55 passed in test_pc_agent_master_p0_p5.py`):
 
 1. **Попытка записи вне рабочей папки**:
    - Тест: `test_p4_self_modify_rejects_targets_outside_workspace`

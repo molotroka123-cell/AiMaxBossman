@@ -4,7 +4,7 @@
   "source_repository": "C:\\Users\\asd\\Bossman\\wt-trio-argon",
   "source_branch": "agent/argon-20261026",
   "target_remote_branch": "fix/cross-surface-stop-resume-20261026",
-  "code_verification_sha": "016fe2a64c0fdfd1ed39b5e95eb74c0c6e6c048c",
+  "code_verification_sha": "3905cd62c41089b4f6b4082759ec92dfd39b1898",
   "redteam_baseline_sha": "c56a07db7d9905c284e6fa30a33627a22e1a3cb5",
   "runtime_url": "http://127.0.0.1:8801",
   "runtime_live_check": {
