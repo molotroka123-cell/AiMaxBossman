@@ -48,6 +48,15 @@ def _within(path: Path, roots: list[Path]) -> bool:
         rp = path.expanduser().resolve()
     except OSError:
         return False
+    if sys.platform == "win32":
+        # resolve() already follows junctions; it does NOT refuse alternate data streams (`a.txt:x`), device names
+        # (`NUL`, `CON`) or trailing dots/spaces that Windows drops silently: win_paths does (audit 28.10, CMP-UP-3).
+        from ..security import win_paths
+        try:
+            win_paths._screen(str(path.expanduser()))      # the path as given: resolve() collapses `a.txt::$DATA` to `a.txt`
+            win_paths._screen(str(rp))
+        except win_paths.PathRefused:
+            return False
     for root in roots:
         try:
             rr = root.expanduser().resolve()
