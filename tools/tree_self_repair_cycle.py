@@ -237,6 +237,14 @@ CASES["discovery-none"] = {**CASES["discovery"], "wish": (
     "новых файлов не создавай.")}
 
 
+# Narrowed retry (07.10 pattern): the first attempt's local worker looped on re-reading the huge action_contract.py
+# (21 steps, no_progress_loop, no patch). Same hidden holdout, the same contract; only the way of working is spelled out.
+CASES["ungrounded-screen-append"] = {**CASES["ungrounded-screen"], "wish": (
+    CASES["ungrounded-screen"]["wish"] + " ПОДСКАЗКА ПО РАБОТЕ: файл action_contract.py очень большой, НЕ перечитывай его целиком и не "
+    "читай один и тот же кусок дважды. Сразу допиши новую функцию ungrounded_screen_claim В КОНЕЦ файла (одним действием записи), "
+    "затем допиши тест-функции в конец test_action_contract.py и запусти тесты.")}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--case", choices=sorted(CASES), default="discovery")
