@@ -1,11 +1,39 @@
 {
-  "proof": "splitHealth (ui/health_split.js) run on the REAL /api/system health of the live backend a0d8150f (component names and statuses only)",
-  "date": "2026-10-28",
-  "components_captured": 43,
-  "statuses_seen": ["ok", "error", "stale", "unknown", "empty"],
-  "old_rule_badge": "сбой",
-  "new_result": {"overall": "ok", "core_total": 24, "core_bad": [], "core_warn": [], "optional_total": 19, "optional_not_ready": 19},
-  "badge_would_read": ["ядро в норме", "адаптеры: 19 из 19 не готовы"],
-  "note": "all 19 optional ones are external providers/models/browser; the aggregate `models` reported available=0 at capture time (the local chat model had just been unloaded by Claude for a GPU job and reloads on demand).",
-  "not_proven": "a rendered screenshot of the new topbar: needs the live backend restarted on this branch's build"
+ "proof": "splitHealth (ui/health_split.js) run on the REAL /api/system health of the live backend a0d8150f (component names and statuses only)",
+ "date": "2026-10-28",
+ "components_captured": 43,
+ "statuses_seen": [
+  "ok",
+  "error",
+  "stale",
+  "unknown",
+  "empty"
+ ],
+ "old_rule_badge": "сбой",
+ "new_result": {
+  "overall": "ok",
+  "core_total": 24,
+  "core_bad": [],
+  "core_warn": [],
+  "optional_total": 19,
+  "optional_not_ready": 19
+ },
+ "badge_would_read": [
+  "ядро в норме",
+  "адаптеры: 19 из 19 не готовы"
+ ],
+ "note": "all 19 optional ones are external providers/models/browser; the aggregate `models` reported available=0 at capture time (the local chat model had just been unloaded by Claude for a GPU job and reloads on demand).",
+ "not_proven": "the owner's live :8801 topbar after its restart on this build",
+ "rendered_ui_proof": {
+  "screenshot": "topbar_new_build_candidate_8811.png",
+  "backend": "candidate :8811, build 364525d3, isolated data dir",
+  "visible": [
+   "ядро в норме (green)",
+   "адаптеры: 3 из 3 не готовы (amber)"
+  ],
+  "tooltips": [
+   "Ядро: все компоненты в норме",
+   "Не настроено или недоступно: browser, models, providers"
+  ]
+ }
 }

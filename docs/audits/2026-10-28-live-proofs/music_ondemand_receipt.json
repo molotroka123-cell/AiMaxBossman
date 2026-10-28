@@ -1,0 +1,14 @@
+{
+  "proof": "on-demand ACE-Step start through the real POST /api/music/generate path on a candidate backend built from this branch",
+  "date": "2026-10-28",
+  "backend": {"url": "http://127.0.0.1:8811", "build_sha": "364525d36c4ec2f73767fc5cd0609199ac0b9a69", "source_identity": "PASS", "git_clean": true,
+              "data_dir": "isolated (D:\Bossman\work\cand-8811-data), no owner data"},
+  "before": {"music_health": "NOT_RUNNING", "can_start": true, "resource_brain_enforce": "set to true for the test"},
+  "generate": {"http": 200, "provider": "ACE-Step 1.5", "auto_start": {"state": "started", "waited_s": 174.5, "lease_granted": true},
+               "request": {"duration_s": 15, "bpm": 130, "thinking": false}, "generate_call_seconds": 180, "total_seconds_to_saved_master": 223},
+  "master": {"preset": "hype", "target_lufs": -9.0, "measured_lufs_response": -9.6, "independent_measure": {"lufs": -9.6, "true_peak_dbtp": -1.8, "duration_s": 15.0},
+             "within_tolerance_0.7": true, "true_peak_under_ceiling_-1.0": true, "sha256_matches_response": true},
+  "bpm_measured": 130.0, "requested_bpm": 130, "beats_found_in_15s": 32,
+  "after": "ACE-Step stopped through /api/music/service/stop (pid freed); the lease expires by TTL (900 s), no heartbeat loop by design",
+  "not_proven": "the owner's live backend :8801 (still the old build); musical quality (owner said the earlier tracks were bad); a run with the chat model Gemma loaded AND other heavy jobs queued; enforce=true on the owner's real policy"
+}
