@@ -72,6 +72,30 @@ def test_trailing_silence_is_cut_and_track_ends_at_the_requested_length(tmp_path
     assert "silence_start" not in log
 
 
+def _clicks(path: Path, bpm: float, seconds: int = 20) -> Path:
+    # A kick-like 60 ms burst on every beat over quiet noise: a known tempo to measure against.
+    beat = 60.0 / bpm
+    expr = f"if(lt(mod(t\\,{beat:.6f})\\,0.06)\\,0.8*sin(2*PI*60*t)*exp(-40*mod(t\\,{beat:.6f}))\\,0)+0.01*random(0)"
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                    f"aevalsrc={expr}:s=44100:d={seconds}", str(path)], check=True, capture_output=True)
+    return path
+
+
+@needs_ffmpeg
+@pytest.mark.parametrize("bpm", [128.0, 90.0])
+def test_measure_tempo_finds_the_beat_of_a_known_click_track(tmp_path: Path, bpm: float) -> None:
+    got = music.measure_tempo(_clicks(tmp_path / f"c{int(bpm)}.wav", bpm))
+    assert got is not None and abs(got - bpm) <= 0.02 * bpm, got
+
+
+@needs_ffmpeg
+def test_negative_control_silence_has_no_tempo(tmp_path: Path) -> None:
+    p = tmp_path / "silence.wav"
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+                    "-t", "10", str(p)], check=True, capture_output=True)
+    assert music.measure_tempo(p) is None
+
+
 class _Req:
     def __init__(self, body, data_dir: Path):
         self._body = body

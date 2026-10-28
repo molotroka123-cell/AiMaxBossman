@@ -831,6 +831,40 @@ LUFS_TOLERANCE = 0.7          # corrective pass when the measured loudness misse
 TRUE_PEAK_CEILING_DB = -1.0
 
 
+def measure_tempo(path: Path, ffmpeg: str | None = None, lo_bpm: float = 70.0, hi_bpm: float = 180.0) -> float | None:
+    """Estimate tempo (BPM) from the audio itself: spectral-flux onset envelope + autocorrelation, numpy only.
+    Returns None when the signal has no usable beat (silence, too short). Half/double-tempo ambiguity is inherent."""
+    import numpy as np
+    ffmpeg = ffmpeg or _find_ffmpeg()
+    if not ffmpeg:
+        return None
+    sr = 11025
+    raw = subprocess.run([ffmpeg, "-v", "error", "-i", str(path), "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],
+                         capture_output=True, timeout=180, check=False).stdout
+    x = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    hop, win = 256, 1024
+    if x.size < sr * 4:
+        return None
+    frames = np.lib.stride_tricks.sliding_window_view(x, win)[::hop] * np.hanning(win)
+    mag = np.log1p(np.abs(np.fft.rfft(frames, axis=1)))
+    flux = np.maximum(np.diff(mag, axis=0), 0).sum(axis=1)
+    flux = flux - flux.mean()
+    if not np.any(flux):
+        return None
+    ac = np.correlate(flux, flux, mode="full")[flux.size - 1:]
+    fps = sr / hop
+    lo, hi = int(fps * 60 / hi_bpm), int(fps * 60 / lo_bpm)
+    if hi >= ac.size or lo < 1:
+        return None
+    best = float(lo + int(np.argmax(ac[lo:hi + 1])))
+    i = int(best)
+    if 0 < i < ac.size - 1:                      # parabolic refinement of the peak (sub-frame precision)
+        a, b, c = ac[i - 1], ac[i], ac[i + 1]
+        if (a - 2 * b + c) != 0:
+            best = i + 0.5 * (a - c) / (a - 2 * b + c)
+    return round(60.0 * fps / best, 1) if best > 0 else None
+
+
 def measure_loudness(path: Path, ffmpeg: str | None = None) -> dict[str, float]:
     """Measure integrated loudness (LUFS), true peak (dBTP) and duration with FFmpeg ebur128."""
     ffmpeg = ffmpeg or _find_ffmpeg()
@@ -967,6 +1001,7 @@ def master_audio_track(
         "duration_s": measured["duration_s"],
         "passes": passes,
         "within_tolerance": abs(measured["lufs"] - target) <= LUFS_TOLERANCE,
+        "bpm_measured": measure_tempo(out, ffmpeg),
     }
 
 
