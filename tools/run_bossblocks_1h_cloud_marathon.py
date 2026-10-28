@@ -414,9 +414,9 @@ def execute_wave(wave_cfg: dict[str, Any], thread_id: str, world_id: str = "boss
             timeout=20.0,
         )
         chat_post_ok = True
-        task_id = send_res.get("task_id")
+        task_id = (send_res.get("task") or {}).get("id") or (send_res.get("turn") or {}).get("task_id")
         if task_id:
-            deadline = time.time() + 18.0
+            deadline = time.time() + 24.0
             while time.time() < deadline:
                 time.sleep(2.0)
                 t_info = _api_json("GET", f"/api/tasks/{task_id}", timeout=10.0)
