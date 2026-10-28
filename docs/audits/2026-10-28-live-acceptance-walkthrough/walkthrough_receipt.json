@@ -1,0 +1,95 @@
+{
+  "sha": "da40b2a437f18bb1dabfd1e059ca6d2ea04b18ad",
+  "sections": [
+    {
+      "index": 1,
+      "slug": "home-v3",
+      "title": "Главная (Обзор и здоровье системы)",
+      "screenshot": "walkthrough_01_home_v3.png",
+      "attachment_id": "6d52724276a60065fbc283",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    },
+    {
+      "index": 2,
+      "slug": "apps",
+      "title": "Приложения (13 карточек: War Terminal LIVE, Bossman Mobile LIVE)",
+      "screenshot": "walkthrough_02_apps.png",
+      "attachment_id": "d3cc60e5ecb60d6c924079",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    },
+    {
+      "index": 3,
+      "slug": "resources",
+      "title": "Ресурсы (enforce=true включён, 101 ГБ свободно)",
+      "screenshot": "walkthrough_03_resources.png",
+      "attachment_id": "0aef948c1efcfd1c14cd0d",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    },
+    {
+      "index": 4,
+      "slug": "capability-tree",
+      "title": "Дерево развития (кампания COMPLETED, 0 ошибок, 94 навыка)",
+      "screenshot": "walkthrough_04_capability_tree.png",
+      "attachment_id": "2a4fe1901937f039b5c99b",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    },
+    {
+      "index": 5,
+      "slug": "music-studio",
+      "title": "Music Studio (ACE-Step установлен, мастеринг EBU R128 + BPM)",
+      "screenshot": "walkthrough_05_music_studio.png",
+      "attachment_id": "2c6e777b76e21b3c925297",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    },
+    {
+      "index": 6,
+      "slug": "direct-gen",
+      "title": "Прямой генератор (sd-server.exe + Flux/ControlNet графы)",
+      "screenshot": "walkthrough_06_direct_gen.png",
+      "attachment_id": "79d0c3fd0722c9ab95b162",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    },
+    {
+      "index": 7,
+      "slug": "video-studio",
+      "title": "Video Studio 2.0 (Wan2.1/2.2, LTX-Video, LivePortrait, 7/7 гейтов)",
+      "screenshot": "walkthrough_07_video_studio.png",
+      "attachment_id": "f13ee7c4e531c08d5282ed",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    },
+    {
+      "index": 8,
+      "slug": "motion-studio",
+      "title": "Motion Studio 2.0 (MotionSceneGraph, ASS караоке, 3D LUT)",
+      "screenshot": "walkthrough_08_motion_studio.png",
+      "attachment_id": "a9cced6afb94bf82c4c656",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    },
+    {
+      "index": 9,
+      "slug": "skills",
+      "title": "Навыки (94 валидных навыка, 0 MISSING в tree-registry)",
+      "screenshot": "walkthrough_09_skills.png",
+      "attachment_id": "eec21e17fa2103b5486c35",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    },
+    {
+      "index": 10,
+      "slug": "self-improve",
+      "title": "Самоулучшение (Журнал SHA-256, гипотезы и верификатор)",
+      "screenshot": "walkthrough_10_self_improve.png",
+      "attachment_id": "069d1393eb3d3017b8efae",
+      "page_errors": [],
+      "snippet": "Перейти к содержимому | BOSSMAN | Continuity · Steward | Интерфейс 2.6.1 | сборка da40b2a437f1 | AGPL-3.0 · исходный код | ГЛАВНОЕ | Главная | Агенты | Ждут решения"
+    }
+  ]
+}
