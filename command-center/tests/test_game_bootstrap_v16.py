@@ -9,6 +9,7 @@ from bcc.features.game_bootstrap_v16 import (
     apply_voxel_director_command,
     bossblocks_bootstrap_plan,
     export_godot_voxel_project,
+    render_voxel_scene_screenshot_png,
     render_voxel_web_game_html,
 )
 
@@ -108,3 +109,33 @@ def test_voxel_web_game_html_and_godot_export(tmp_path: Path):
     assert (proj / "scripts" / "main.gd").is_file()
     assert (proj / "bossblocks_world.json").is_file()
     assert (proj / "PLAY-BOSSBLOCKS.cmd").is_file()
+
+
+def test_comedy_3d_models_structures_and_screenshot_png(tmp_path: Path):
+    state = apply_voxel_director_command(
+        VoxelDirectorRequest(
+            world_id="test-comedy-3d",
+            prompt="Смени погоду на ночь, построй джакузи, кровать-сердце, неоновое кабаре и статую Венеры, добавь шуточные интим 3D модели: Леди Вельвет, Мачо Адонис, Купидон-Вышибала и Кибер-Сирена",
+            reset_world=True,
+            use_local_llm=False,
+        )
+    )
+    assert state["ok"] is True
+    struct_kinds = {s["kind"] for s in state["structures"]}
+    assert {"hot_tub", "heart_bed", "neon_cabaret", "statue_venus"} <= struct_kinds
+    npc_roles = {n["role"] for n in state["npcs"]}
+    assert {"velvet_diva", "pool_adonis", "cupid_bouncer", "cyber_siren"} <= npc_roles
+    for npc in state["npcs"]:
+        assert isinstance(npc.get("rig"), list)
+        assert len(npc["rig"]) >= 8
+        parts = {p["part"] for p in npc["rig"]}
+        assert {"leg_l", "leg_r", "head"} <= parts
+
+    shot = render_voxel_scene_screenshot_png(
+        state,
+        tmp_path / "comedy_3d_shot.png",
+        wave_label="Wave 01 Test",
+        agent_summary="3D-модели и неоновое кабаре готовы",
+    )
+    assert shot.is_file()
+    assert shot.stat().st_size > 15000

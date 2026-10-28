@@ -36,6 +36,12 @@ BLOCK_PALETTE: dict[int, dict[str, Any]] = {
     6: {"id": 6, "name": "Water", "title_ru": "Вода / Лёд", "color": "#3b82f6"},
     7: {"id": 7, "name": "GlowCrystal", "title_ru": "Светящийся кристалл", "color": "#f59e0b"},
     8: {"id": 8, "name": "Leaves", "title_ru": "Листва", "color": "#2e7d32"},
+    9: {"id": 9, "name": "VelvetRed", "title_ru": "Красный бархат", "color": "#e11d48"},
+    10: {"id": 10, "name": "SkinPeach", "title_ru": "Телесный воксель (светлый)", "color": "#f4b895"},
+    11: {"id": 11, "name": "SkinBronze", "title_ru": "Бронзовый загар", "color": "#c67d50"},
+    12: {"id": 12, "name": "NeonMagenta", "title_ru": "Неоновый пурпур", "color": "#d946ef"},
+    13: {"id": 13, "name": "GoldTrim", "title_ru": "Золотой декор", "color": "#fbbf24"},
+    14: {"id": 14, "name": "SilkPink", "title_ru": "Розовый шёлк", "color": "#f472b6"},
 }
 
 WEATHER_PRESETS: dict[str, dict[str, Any]] = {
@@ -348,6 +354,67 @@ def _build_structure(world: dict[str, Any], kind: str, origin_x: int, origin_z: 
                         if (dx + dz) % 2 == 0:
                             placed += int(_set_block(world, origin_x + dx, 3, origin_z + dz, 3))
         placed += int(_set_block(world, origin_x, 1, origin_z, 7))
+    elif kind == "hot_tub":
+        # Шуточное VIP-джакузи с тёплой водой, золотыми бортиками и неоновой подсветкой
+        for dx in range(-2, 3):
+            for dz in range(-2, 3):
+                is_rim = abs(dx) == 2 or abs(dz) == 2
+                if is_rim:
+                    placed += int(_set_block(world, origin_x + dx, 0, origin_z + dz, 13))
+                    if abs(dx) == 2 and abs(dz) == 2:
+                        placed += int(_set_block(world, origin_x + dx, 1, origin_z + dz, 12))
+                else:
+                    placed += int(_set_block(world, origin_x + dx, 0, origin_z + dz, 6))
+        placed += int(_set_block(world, origin_x, 1, origin_z, 14))
+    elif kind == "heart_bed":
+        # Королевская шуточная кровать-сердце WooHoo с бархатным балдахином и золотыми стойками
+        for dx in range(-2, 3):
+            for dz in range(-2, 3):
+                placed += int(_set_block(world, origin_x + dx, 0, origin_z + dz, 9))
+        placed += int(_set_block(world, origin_x - 1, 1, origin_z - 2, 14))
+        placed += int(_set_block(world, origin_x + 1, 1, origin_z - 2, 14))
+        for cx, cz in ((-2, -2), (2, -2), (-2, 2), (2, 2)):
+            for y in range(1, 4):
+                placed += int(_set_block(world, origin_x + cx, y, origin_z + cz, 13))
+        for dx in range(-1, 2):
+            placed += int(_set_block(world, origin_x + dx, 4, origin_z - 2, 9))
+            placed += int(_set_block(world, origin_x + dx, 4, origin_z, 14))
+    elif kind == "neon_cabaret":
+        # Неоновая сцена кабаре с бархатными кулисами, подиумом и золотым пилоном
+        for dx in range(-3, 4):
+            for dz in range(-2, 3):
+                placed += int(_set_block(world, origin_x + dx, 0, origin_z + dz, 9 if (dx + dz) % 2 == 0 else 12))
+        for y in range(1, 6):
+            placed += int(_set_block(world, origin_x, y, origin_z, 13))
+            if y < 5:
+                placed += int(_set_block(world, origin_x - 3, y, origin_z - 2, 9))
+                placed += int(_set_block(world, origin_x + 3, y, origin_z - 2, 9))
+        placed += int(_set_block(world, origin_x - 2, 4, origin_z - 2, 12))
+        placed += int(_set_block(world, origin_x + 2, 4, origin_z - 2, 12))
+    elif kind == "statue_venus":
+        # Шуточная анатомическая 3D-скульптура «Венера и Аполлон» с пиксельным сердечком-цензурой
+        for dx in (-1, 0, 1):
+            for dz in (-1, 0, 1):
+                placed += int(_set_block(world, origin_x + dx, 0, origin_z + dz, 13))
+        # Ноги, бёдра, талия, пышный бюст/торс, плечи, голова и сердечко-цензура
+        placed += int(_set_block(world, origin_x - 1, 1, origin_z, 10))
+        placed += int(_set_block(world, origin_x + 1, 1, origin_z, 10))
+        placed += int(_set_block(world, origin_x - 1, 2, origin_z, 10))
+        placed += int(_set_block(world, origin_x + 1, 2, origin_z, 10))
+        placed += int(_set_block(world, origin_x, 2, origin_z, 9))
+        placed += int(_set_block(world, origin_x, 2, origin_z + 1, 14))  # шуточный пиксель-сердечко
+        placed += int(_set_block(world, origin_x - 1, 3, origin_z, 14))
+        placed += int(_set_block(world, origin_x, 3, origin_z, 10))
+        placed += int(_set_block(world, origin_x + 1, 3, origin_z, 14))
+        placed += int(_set_block(world, origin_x - 1, 4, origin_z, 10))
+        placed += int(_set_block(world, origin_x, 4, origin_z, 9))
+        placed += int(_set_block(world, origin_x + 1, 4, origin_z, 10))
+        placed += int(_set_block(world, origin_x - 1, 4, origin_z + 1, 10))  # 3D-рельеф бюста
+        placed += int(_set_block(world, origin_x + 1, 4, origin_z + 1, 10))
+        placed += int(_set_block(world, origin_x - 2, 4, origin_z, 10))      # руки
+        placed += int(_set_block(world, origin_x + 2, 4, origin_z, 10))
+        placed += int(_set_block(world, origin_x, 5, origin_z, 10))          # голова
+        placed += int(_set_block(world, origin_x, 6, origin_z, 13))          # золотая причёска/корона
     else:  # beacon / crystal
         for y in range(0, 4):
             placed += int(_set_block(world, origin_x, y, origin_z, 7 if y >= 2 else 3))
@@ -372,7 +439,7 @@ def _parse_weather_from_prompt(p_low: str) -> str | None:
         return "fog"
     if any(k in p_low for k in ("ночь", "ночн", "лун", "темно", "night")):
         return "night"
-    if any(k in p_low for k in ("закат", "вечер", "рассвет", "sunset", "dusk")):
+    if any(k in p_low for k in ("закат", "вечер", "рассвет", "романт", "интим", "sunset", "dusk")):
         return "sunset"
     if any(k in p_low for k in ("солн", "ясно", "ясн", "день", "sunny", "clear", "day")):
         return "sunny"
@@ -396,6 +463,10 @@ def _parse_camera_from_prompt(p_low: str) -> str | None:
 def _parse_structures_from_prompt(p_low: str) -> list[str]:
     found: list[str] = []
     mapping = [
+        ("hot_tub", ("джакуз", "бассейн", "ванн", "спа", "hot_tub", "jacuzzi", "spa")),
+        ("heart_bed", ("кроват", "сердц", "будуар", "спальн", "woohoo", "heart_bed", "bed")),
+        ("neon_cabaret", ("кабаре", "клуб", "сцен", "пилон", "подиум", "лаунж", "cabaret", "club", "lounge")),
+        ("statue_venus", ("стату", "венер", "скульптур", "3д модел", "3d модел", "интим", "statue", "venus")),
         ("house", ("дом", "изб", "хижин", "коттедж", "house", "hut")),
         ("tower", ("башн", "вышк", "tower")),
         ("pyramid", ("пирамид", "pyramid")),
@@ -410,14 +481,96 @@ def _parse_structures_from_prompt(p_low: str) -> list[str]:
     return found
 
 
+COMEDY_3D_RIGS: dict[str, list[dict[str, Any]]] = {
+    "velvet_diva": [
+        {"part": "leg_l", "dx": -0.22, "dy": 0.35, "dz": 0.0, "sx": 0.22, "sy": 0.7, "sz": 0.22, "color": "#1e1b4b"},
+        {"part": "leg_r", "dx": 0.22, "dy": 0.35, "dz": 0.0, "sx": 0.22, "sy": 0.7, "sz": 0.22, "color": "#1e1b4b"},
+        {"part": "hips", "dx": 0.0, "dy": 0.82, "dz": 0.0, "sx": 0.72, "sy": 0.36, "sz": 0.48, "color": "#e11d48"},
+        {"part": "glute_l", "dx": -0.18, "dy": 0.80, "dz": -0.24, "sx": 0.30, "sy": 0.30, "sz": 0.24, "color": "#e11d48"},
+        {"part": "glute_r", "dx": 0.18, "dy": 0.80, "dz": -0.24, "sx": 0.30, "sy": 0.30, "sz": 0.24, "color": "#e11d48"},
+        {"part": "waist", "dx": 0.0, "dy": 1.12, "dz": 0.0, "sx": 0.46, "sy": 0.32, "sz": 0.34, "color": "#e11d48"},
+        {"part": "torso", "dx": 0.0, "dy": 1.42, "dz": 0.0, "sx": 0.64, "sy": 0.38, "sz": 0.40, "color": "#f4b895"},
+        {"part": "bust_l", "dx": -0.16, "dy": 1.40, "dz": 0.24, "sx": 0.28, "sy": 0.26, "sz": 0.26, "color": "#f472b6"},
+        {"part": "bust_r", "dx": 0.16, "dy": 1.40, "dz": 0.24, "sx": 0.28, "sy": 0.26, "sz": 0.26, "color": "#f472b6"},
+        {"part": "arm_l", "dx": -0.44, "dy": 1.32, "dz": 0.08, "sx": 0.18, "sy": 0.62, "sz": 0.18, "color": "#f4b895"},
+        {"part": "arm_r", "dx": 0.44, "dy": 1.32, "dz": 0.08, "sx": 0.18, "sy": 0.62, "sz": 0.18, "color": "#f4b895"},
+        {"part": "head", "dx": 0.0, "dy": 1.82, "dz": 0.0, "sx": 0.44, "sy": 0.44, "sz": 0.44, "color": "#f4b895"},
+        {"part": "hair", "dx": 0.0, "dy": 1.98, "dz": -0.06, "sx": 0.52, "sy": 0.36, "sz": 0.48, "color": "#fbbf24"},
+        {"part": "ear_l", "dx": -0.16, "dy": 2.28, "dz": 0.0, "sx": 0.12, "sy": 0.38, "sz": 0.10, "color": "#f472b6"},
+        {"part": "ear_r", "dx": 0.16, "dy": 2.28, "dz": 0.0, "sx": 0.12, "sy": 0.38, "sz": 0.10, "color": "#f472b6"},
+    ],
+    "pool_adonis": [
+        {"part": "leg_l", "dx": -0.24, "dy": 0.38, "dz": 0.0, "sx": 0.26, "sy": 0.75, "sz": 0.26, "color": "#c67d50"},
+        {"part": "leg_r", "dx": 0.24, "dy": 0.38, "dz": 0.0, "sx": 0.26, "sy": 0.75, "sz": 0.26, "color": "#c67d50"},
+        {"part": "trunks", "dx": 0.0, "dy": 0.84, "dz": 0.0, "sx": 0.68, "sy": 0.34, "sz": 0.44, "color": "#fbbf24"},
+        {"part": "abs", "dx": 0.0, "dy": 1.16, "dz": 0.04, "sx": 0.58, "sy": 0.36, "sz": 0.38, "color": "#c67d50"},
+        {"part": "chest", "dx": 0.0, "dy": 1.50, "dz": 0.06, "sx": 0.86, "sy": 0.42, "sz": 0.48, "color": "#c67d50"},
+        {"part": "pec_l", "dx": -0.20, "dy": 1.50, "dz": 0.26, "sx": 0.34, "sy": 0.26, "sz": 0.20, "color": "#d97706"},
+        {"part": "pec_r", "dx": 0.20, "dy": 1.50, "dz": 0.26, "sx": 0.34, "sy": 0.26, "sz": 0.20, "color": "#d97706"},
+        {"part": "bicep_l", "dx": -0.58, "dy": 1.52, "dz": 0.12, "sx": 0.28, "sy": 0.56, "sz": 0.28, "color": "#c67d50"},
+        {"part": "bicep_r", "dx": 0.58, "dy": 1.52, "dz": 0.12, "sx": 0.28, "sy": 0.56, "sz": 0.28, "color": "#c67d50"},
+        {"part": "head", "dx": 0.0, "dy": 1.92, "dz": 0.0, "sx": 0.44, "sy": 0.44, "sz": 0.44, "color": "#c67d50"},
+        {"part": "shades", "dx": 0.0, "dy": 1.96, "dz": 0.24, "sx": 0.42, "sy": 0.14, "sz": 0.10, "color": "#0f172a"},
+    ],
+    "cupid_bouncer": [
+        {"part": "leg_l", "dx": -0.20, "dy": 0.32, "dz": 0.0, "sx": 0.24, "sy": 0.64, "sz": 0.24, "color": "#f4b895"},
+        {"part": "leg_r", "dx": 0.20, "dy": 0.32, "dz": 0.0, "sx": 0.24, "sy": 0.64, "sz": 0.24, "color": "#f4b895"},
+        {"part": "shorts", "dx": 0.0, "dy": 0.78, "dz": 0.0, "sx": 0.74, "sy": 0.36, "sz": 0.54, "color": "#f472b6"},
+        {"part": "belly", "dx": 0.0, "dy": 1.18, "dz": 0.08, "sx": 0.78, "sy": 0.52, "sz": 0.62, "color": "#f4b895"},
+        {"part": "wing_l", "dx": -0.48, "dy": 1.38, "dz": -0.28, "sx": 0.42, "sy": 0.50, "sz": 0.12, "color": "#f8fafc"},
+        {"part": "wing_r", "dx": 0.48, "dy": 1.38, "dz": -0.28, "sx": 0.42, "sy": 0.50, "sz": 0.12, "color": "#f8fafc"},
+        {"part": "head", "dx": 0.0, "dy": 1.68, "dz": 0.0, "sx": 0.46, "sy": 0.46, "sz": 0.46, "color": "#f4b895"},
+        {"part": "halo", "dx": 0.0, "dy": 2.04, "dz": 0.0, "sx": 0.48, "sy": 0.10, "sz": 0.48, "color": "#fbbf24"},
+    ],
+    "cyber_siren": [
+        {"part": "leg_l", "dx": -0.20, "dy": 0.36, "dz": 0.0, "sx": 0.22, "sy": 0.72, "sz": 0.22, "color": "#06b6d4"},
+        {"part": "leg_r", "dx": 0.20, "dy": 0.36, "dz": 0.0, "sx": 0.22, "sy": 0.72, "sz": 0.22, "color": "#06b6d4"},
+        {"part": "hips", "dx": 0.0, "dy": 0.84, "dz": 0.0, "sx": 0.70, "sy": 0.36, "sz": 0.46, "color": "#d946ef"},
+        {"part": "torso", "dx": 0.0, "dy": 1.32, "dz": 0.0, "sx": 0.60, "sy": 0.52, "sz": 0.38, "color": "#d946ef"},
+        {"part": "bust_l", "dx": -0.15, "dy": 1.38, "dz": 0.24, "sx": 0.26, "sy": 0.24, "sz": 0.24, "color": "#06b6d4"},
+        {"part": "bust_r", "dx": 0.15, "dy": 1.38, "dz": 0.24, "sx": 0.26, "sy": 0.24, "sz": 0.24, "color": "#06b6d4"},
+        {"part": "head", "dx": 0.0, "dy": 1.80, "dz": 0.0, "sx": 0.42, "sy": 0.42, "sz": 0.42, "color": "#f4b895"},
+        {"part": "visor", "dx": 0.0, "dy": 1.84, "dz": 0.22, "sx": 0.40, "sy": 0.14, "sz": 0.10, "color": "#06b6d4"},
+    ],
+}
+
+
 def _parse_npcs_from_prompt(p_low: str, weather_id: str) -> list[dict[str, Any]]:
     npcs: list[dict[str, Any]] = []
     roles = [
-        ("merchant", "Торговец Борис", "#f59e0b", ("торгов", "купц", "купец", "магаз", "merchant", "trader")),
-        ("guard", "Стражник Гром", "#3b82f6", ("страж", "охран", "рыцар", "воин", "солдат", "guard", "knight")),
-        ("mage", "Архимаг Эфир", "#8b5cf6", ("маг", "волшеб", "мудрец", "учен", "mage", "wizard")),
-        ("miner", "Шахтёр Рудольф", "#ef4444", ("шахтер", "шахтёр", "кузнец", "строител", "miner", "builder")),
-        ("villager", "Жительница Аня", "#10b981", ("человек", "жител", "персонаж", "нпс", "npc", "друг", "путник", "villager", "person")),
+        (
+            "velvet_diva",
+            "Леди Вельвет (3D Кабаре-Дива)",
+            "#e11d48",
+            ("вельвет", "дива", "кабаре", "интим", "шуточн", "красотк", "модел", "бикини", "корсет", "velvet", "diva", "intimate"),
+            "Леди Вельвет: «Ой, Босс, мои воксельные формы прошли строгий 3D-аудит! Запрыгивай в джакузи!» ♥",
+        ),
+        (
+            "pool_adonis",
+            "Мачо Адонис (3D Пляжный Атлет)",
+            "#f59e0b",
+            ("адонис", "мачо", "атлет", "пляж", "качок", "бодибилдер", "интим", "шуточн", "adonis", "hunk"),
+            "Мачо Адонис: «Смотри на эти кубики пресса — чистый 100% воксельный протеин без единого полигона!» ♥",
+        ),
+        (
+            "cupid_bouncer",
+            "Купидон-Вышибала VIP",
+            "#f472b6",
+            ("купидон", "амур", "романт", "сердц", "любов", "вышибал", "cupid", "woohoo"),
+            "Купидон-Вышибала: «Фейс-контроль пройден! В нашем VIP-будуаре сегодня только шуточный флирт и горячие пиксели!» ♥",
+        ),
+        (
+            "cyber_siren",
+            "Кибер-Сирена Неон",
+            "#d946ef",
+            ("сирен", "неон", "танцовщ", "клуб", "тусовк", "siren", "dancer"),
+            "Кибер-Сирена: «Неоновый ритм 128 BPM! Даже видеокарта краснеет от наших танцев!» ♥",
+        ),
+        ("merchant", "Торговец Борис", "#f59e0b", ("торгов", "купц", "купец", "магаз", "merchant", "trader"), ""),
+        ("guard", "Стражник Гром", "#3b82f6", ("страж", "охран", "рыцар", "воин", "солдат", "guard", "knight"), ""),
+        ("mage", "Архимаг Эфир", "#8b5cf6", ("маг", "волшеб", "мудрец", "учен", "mage", "wizard"), ""),
+        ("miner", "Шахтёр Рудольф", "#ef4444", ("шахтер", "шахтёр", "кузнец", "строител", "miner", "builder"), ""),
+        ("villager", "Жительница Аня", "#10b981", ("человек", "жител", "персонаж", "нпс", "npc", "друг", "путник", "villager", "person"), ""),
     ]
     weather_comment = {
         "sunny": "Отличная солнечная погода для стройки!",
@@ -429,14 +582,17 @@ def _parse_npcs_from_prompt(p_low: str, weather_id: str) -> list[dict[str, Any]]
         "night": "Ночью кристаллы светятся особенно ярко.",
     }.get(weather_id, "Приветствую тебя в мире BossBlocks!")
 
-    for role_id, name_ru, color, keywords in roles:
-        if any(k in p_low for k in keywords):
+    seen_roles: set[str] = set()
+    for role_id, name_ru, color, keywords, custom_line in roles:
+        if role_id not in seen_roles and any(k in p_low for k in keywords):
+            seen_roles.add(role_id)
             npcs.append(
                 {
                     "role": role_id,
                     "name": name_ru,
                     "color": color,
-                    "dialogue": f"{name_ru}: «{weather_comment} Чем помочь по хозяйству?»",
+                    "rig": COMEDY_3D_RIGS.get(role_id, COMEDY_3D_RIGS["velvet_diva"]),
+                    "dialogue": custom_line or f"{name_ru}: «{weather_comment} Чем помочь по хозяйству?»",
                 }
             )
     return npcs
@@ -536,6 +692,7 @@ def apply_voxel_director_command(req: VoxelDirectorRequest) -> dict[str, Any]:
             "position": [nx, ny, nz],
             "patrol_radius": 2.5,
             "dialogue": dialogue,
+            "rig": npc.get("rig", COMEDY_3D_RIGS["velvet_diva"]),
         }
         world["npcs"].append(npc_entry)
         actions_applied.append(f"npc:{npc['role']}({npc['name']})")
@@ -574,12 +731,11 @@ def apply_voxel_director_command(req: VoxelDirectorRequest) -> dict[str, Any]:
         "director_source": director_source,
         "weather": weather["id"],
         "camera": world["camera"]["mode"],
-        "total_blocks": len(world["blocks"]),
+        "total_blocks": len(blocks_list := list(world["blocks"].values())),
         "total_npcs": len(world["npcs"]),
     }
     world["director_history"].append(event)
 
-    blocks_list = list(world["blocks"].values())
     state_digest = hashlib.sha256(
         json.dumps(
             {
@@ -613,15 +769,20 @@ def apply_voxel_director_command(req: VoxelDirectorRequest) -> dict[str, Any]:
 
 
 def _generate_godot_main_gd() -> str:
-    """Генерирует GDScript для Godot 4.7.2 с поддержкой вокселей, Режиссёра, погоды, камер, NPC и звука."""
+    """Генерирует GDScript для Godot 4.7.2 с поддержкой вокселей, Режиссёра, погоды, камер, 3D-персонажей и звука."""
     return '''extends Node3D
 
 const SAVE_FILE := "res://bossblocks_world.json"
 const WORLD_EDGE := 10
-const BLOCK_NAMES := ["Grass", "Sand", "Stone", "Wood", "Brick", "Water", "GlowCrystal", "Leaves"]
+const BLOCK_NAMES := [
+	"Grass", "Sand", "Stone", "Wood", "Brick", "Water", "GlowCrystal", "Leaves",
+	"VelvetRed", "SkinPeach", "SkinBronze", "NeonMagenta", "GoldTrim", "SilkPink"
+]
 const BLOCK_COLORS := [
 	Color("69aa56"), Color("d8bc79"), Color("858f9e"), Color("8b5a2b"),
-	Color("b55239"), Color("3b82f6"), Color("f59e0b"), Color("2e7d32")
+	Color("b55239"), Color("3b82f6"), Color("f59e0b"), Color("2e7d32"),
+	Color("e11d48"), Color("f4b895"), Color("c67d50"), Color("d946ef"),
+	Color("fbbf24"), Color("f472b6")
 ]
 
 var save_path := SAVE_FILE
@@ -645,7 +806,7 @@ var weather_id := "sunny"
 var camera_mode := "first_person"
 var orbit_angle := 0.0
 var npcs_data: Array = []
-var last_dialogue := "Нажмите T для текстовой команды Режиссёру (погода, камера, постройки, NPC)"
+var last_dialogue := "Нажмите T для текстовой команды Режиссёру (погода, камера, постройки, 3D-персонажи)"
 
 
 func _ready() -> void:
@@ -664,11 +825,11 @@ func _make_materials() -> void:
 	for i in range(BLOCK_COLORS.size()):
 		var material := StandardMaterial3D.new()
 		material.albedo_color = BLOCK_COLORS[i]
-		material.roughness = 0.85
-		if i == 6:
+		material.roughness = 0.78
+		if i == 6 or i == 11 or i == 12:
 			material.emission_enabled = true
 			material.emission = BLOCK_COLORS[i]
-			material.emission_energy_multiplier = 1.6
+			material.emission_energy_multiplier = 1.4
 		materials.append(material)
 
 
@@ -774,7 +935,7 @@ func _make_hud() -> void:
 	hud.add_theme_font_size_override("font_size", 16)
 	layer.add_child(hud)
 	director_bar = LineEdit.new()
-	director_bar.placeholder_text = "Режиссёр мира (введите команду: дождь / ночь / камера дрон / построй башню / добавь стражника)..."
+	director_bar.placeholder_text = "Режиссёр мира (введите команду: ночь / дрон / джакузи / кровать-сердце / леди вельвет / мачо адонис)..."
 	director_bar.position = Vector2(16, 590)
 	director_bar.size = Vector2(960, 36)
 	director_bar.visible = false
@@ -847,23 +1008,42 @@ func apply_camera_mode(mode: String) -> void:
 	_refresh_hud()
 
 
+func _add_rig_part(parent: Node3D, offset: Vector3, size: Vector3, color_hex: String) -> void:
+	var part := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	part.mesh = box
+	part.position = offset
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(color_hex.trim_prefix("#"))
+	part.material_override = mat
+	parent.add_child(part)
+
+
 func spawn_npc(npc_name: String, role: String, pos: Vector3, dialogue: String) -> Node3D:
 	var npc := Node3D.new()
 	npc.name = "NPC_%s" % role
 	npc.position = pos
-	var body_mesh := MeshInstance3D.new()
-	var capsule := CapsuleMesh.new()
-	capsule.radius = 0.35
-	capsule.height = 1.6
-	body_mesh.mesh = capsule
-	body_mesh.position = Vector3(0, 0.8, 0)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color("f59e0b") if role == "merchant" else Color("3b82f6")
-	body_mesh.material_override = mat
-	npc.add_child(body_mesh)
+	var skin := "#f4b895" if role != "pool_adonis" else "#c67d50"
+	var outfit := "#e11d48" if role == "velvet_diva" else ("#3b82f6" if role == "pool_adonis" else "#f472b6")
+	_add_rig_part(npc, Vector3(-0.18, 0.45, 0.0), Vector3(0.22, 0.85, 0.22), skin)
+	_add_rig_part(npc, Vector3(0.18, 0.45, 0.0), Vector3(0.22, 0.85, 0.22), skin)
+	_add_rig_part(npc, Vector3(0.0, 0.92, 0.0), Vector3(0.62, 0.30, 0.40), outfit)
+	_add_rig_part(npc, Vector3(-0.16, 0.90, -0.22), Vector3(0.26, 0.28, 0.24), outfit)
+	_add_rig_part(npc, Vector3(0.16, 0.90, -0.22), Vector3(0.26, 0.28, 0.24), outfit)
+	_add_rig_part(npc, Vector3(0.0, 1.38, 0.0), Vector3(0.56, 0.56, 0.32), outfit if role == "velvet_diva" else skin)
+	_add_rig_part(npc, Vector3(-0.16, 1.48, 0.24), Vector3(0.28, 0.28, 0.28), skin)
+	_add_rig_part(npc, Vector3(0.16, 1.48, 0.24), Vector3(0.28, 0.28, 0.28), skin)
+	_add_rig_part(npc, Vector3(-0.42, 1.35, 0.0), Vector3(0.18, 0.68, 0.18), skin)
+	_add_rig_part(npc, Vector3(0.42, 1.35, 0.0), Vector3(0.18, 0.68, 0.18), skin)
+	_add_rig_part(npc, Vector3(0.0, 1.92, 0.0), Vector3(0.44, 0.44, 0.44), skin)
+	_add_rig_part(npc, Vector3(0.0, 2.18, -0.05), Vector3(0.50, 0.24, 0.50), "#fbbf24")
+	if role == "velvet_diva":
+		_add_rig_part(npc, Vector3(-0.15, 2.46, 0.0), Vector3(0.12, 0.42, 0.10), "#f472b6")
+		_add_rig_part(npc, Vector3(0.15, 2.46, 0.0), Vector3(0.12, 0.42, 0.10), "#f472b6")
 	var label := Label3D.new()
 	label.text = dialogue
-	label.position = Vector3(0, 2.1, 0)
+	label.position = Vector3(0, 2.8, 0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	npc.add_child(label)
 	npc_root.add_child(npc)
@@ -924,10 +1104,24 @@ func execute_director_prompt(prompt_text: String) -> Dictionary:
 			_add_block(Vector3i(0, y, -5), 4)
 		_add_block(Vector3i(0, 3, -5), 8)
 		applied.append("structure:tree")
+	if p.find("джакуз") != -1 or p.find("hot_tub") != -1:
+		for dx in range(-2, 3):
+			for dz in range(-2, 3):
+				_add_block(Vector3i(4 + dx, 0, 4 + dz), 6 if abs(dx) < 2 and abs(dz) < 2 else 13)
+		applied.append("structure:hot_tub")
+	if p.find("кроват") != -1 or p.find("сердц") != -1 or p.find("будуар") != -1:
+		for dx in range(-2, 3):
+			for dz in range(-2, 3):
+				_add_block(Vector3i(-4 + dx, 0, 4 + dz), 9)
+		applied.append("structure:heart_bed")
+	if p.find("кабаре") != -1 or p.find("неон") != -1:
+		for y in range(0, 5):
+			_add_block(Vector3i(0, y, 5), 13)
+		applied.append("structure:neon_cabaret")
 
-	if p.find("страж") != -1 or p.find("торгов") != -1 or p.find("человек") != -1 or p.find("npc") != -1:
-		spawn_npc("Стражник Гром", "guard", Vector3(2.5, 0.0, -2.5), "Стражник Гром: «Мир под защитой Bossman!»")
-		applied.append("npc:guard")
+	if p.find("страж") != -1 or p.find("торгов") != -1 or p.find("человек") != -1 or p.find("npc") != -1 or p.find("интим") != -1 or p.find("вельвет") != -1 or p.find("адонис") != -1 or p.find("модел") != -1:
+		spawn_npc("Леди Вельвет (3D Кабаре-Дива)", "velvet_diva", Vector3(2.5, 0.0, -2.5), "Леди Вельвет: «Добро пожаловать в VIP-кабаре BossBlocks! ♥»")
+		applied.append("npc:velvet_diva")
 
 	_save_world()
 	_refresh_hud()
@@ -1331,16 +1525,16 @@ def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
     <button class="btn" id="audio-toggle" style="background:linear-gradient(135deg,#059669,#10b981)">Вкл. звук</button>
   </div>
   <div class="chip-row">
+    <button class="chip" data-cmd="Добавь шуточные интим 3D модели: Леди Вельвет, Мачо Адонис и Купидон-Вышибала">🔻 3D-Модели: Кабаре & Будуар ♥</button>
+    <button class="chip" data-cmd="Построй кровать-сердце, джакузи, неоновое кабаре и статую Венеры">🔻 Будуар: Кровать-Сердце + Джакузи</button>
+    <button class="chip" data-cmd="Смени погоду на ночь и переставь камеру на дрон-облёт">🔻 Ночной Неон + Дрон</button>
     <button class="chip" data-cmd="Смени погоду на грозу и шторм">🔻 Погода: Гроза</button>
     <button class="chip" data-cmd="Смени погоду на снегопад">🔻 Погода: Снег</button>
     <button class="chip" data-cmd="Смени погоду на закат">🔻 Погода: Закат</button>
-    <button class="chip" data-cmd="Смени погоду на ночь">🔻 Погода: Ночь</button>
-    <button class="chip" data-cmd="Переставь камеру на дрон-облёт">🔻 Камера: Дрон</button>
     <button class="chip" data-cmd="Переставь камеру на вид сверху">🔻 Камера: Сверху</button>
     <button class="chip" data-cmd="Переставь камеру от первого лица">🔻 Камера: 1-е лицо</button>
     <button class="chip" data-cmd="Построй каменную башню и маяк">🔻 Построить башню</button>
     <button class="chip" data-cmd="Построй пирамиду и мост через реку">🔻 Пирамида + река</button>
-    <button class="chip" data-cmd="Добавь стражника и мага">🔻 Добавить NPC</button>
   </div>
 </div>
 
@@ -1356,7 +1550,9 @@ let tTick = 0;
 
 const COLORS = {{
   1: '#69aa56', 2: '#d8bc79', 3: '#858f9e', 4: '#8b5a2b',
-  5: '#b55239', 6: '#3b82f6', 7: '#f59e0b', 8: '#2e7d32'
+  5: '#b55239', 6: '#3b82f6', 7: '#f59e0b', 8: '#2e7d32',
+  9: '#e11d48', 10: '#f4b895', 11: '#c67d50', 12: '#d946ef',
+  13: '#fbbf24', 14: '#f472b6'
 }};
 
 function resize() {{
@@ -1370,7 +1566,7 @@ function updateHud() {{
   const w = STATE.weather || {{}};
   const c = STATE.camera || {{}};
   document.getElementById('hud-stats').textContent =
-    `Мир: ${{STATE.world_id}} | Погода: ${{w.title_ru || w.id}} | Камера: ${{c.title_ru || c.mode}} | Блоков: ${{STATE.block_count}} | NPC: ${{(STATE.npcs || []).length}} | Выбран блок #${{selectedKind}}`;
+    `Мир: ${{STATE.world_id}} | Погода: ${{w.title_ru || w.id}} | Камера: ${{c.title_ru || c.mode}} | Блоков: ${{STATE.block_count}} | 3D-Персонажей: ${{(STATE.npcs || []).length}} | Выбран блок #${{selectedKind}}`;
   const dlg = (STATE.soundscape && STATE.soundscape.dialogue_tts) || 'Сцена активна.';
   document.getElementById('hud-dialogue').textContent = dlg;
 }}
@@ -1442,10 +1638,28 @@ function render() {{
     if (p) items.push({{ type: 'block', b, p }});
   }}
   for (const n of (STATE.npcs || [])) {{
-    const nx = n.position[0] + Math.sin(tTick * 1.5) * 0.8;
-    const nz = n.position[2] + Math.cos(tTick * 1.5) * 0.8;
-    const p = project3D(nx, n.position[1] + 0.8, nz);
-    if (p) items.push({{ type: 'npc', n, p }});
+    const sway = Math.sin(tTick * 2.4 + (n.position[0] || 0)) * 0.25;
+    const bounce = Math.abs(Math.sin(tTick * 4.8)) * 0.14;
+    const baseNx = n.position[0] + Math.sin(tTick * 1.1) * 0.45;
+    const baseNy = n.position[1] + bounce;
+    const baseNz = n.position[2] + Math.cos(tTick * 1.1) * 0.45;
+    const rigParts = n.rig && n.rig.length ? n.rig : [
+      {{ part: 'legs', dx: 0, dy: 0.45, dz: 0, sx: 0.45, sy: 0.85, sz: 0.25, color: '#f4b895' }},
+      {{ part: 'hips', dx: 0, dy: 0.92, dz: 0, sx: 0.62, sy: 0.30, sz: 0.40, color: n.color || '#e11d48' }},
+      {{ part: 'torso', dx: 0, dy: 1.38, dz: 0, sx: 0.56, sy: 0.55, sz: 0.32, color: n.color || '#e11d48' }},
+      {{ part: 'bust_l', dx: -0.16, dy: 1.48, dz: 0.22, sx: 0.26, sy: 0.26, sz: 0.26, color: '#f4b895' }},
+      {{ part: 'bust_r', dx: 0.16, dy: 1.48, dz: 0.22, sx: 0.26, sy: 0.26, sz: 0.26, color: '#f4b895' }},
+      {{ part: 'head', dx: 0, dy: 1.92, dz: 0, sx: 0.44, sy: 0.44, sz: 0.44, color: '#f4b895' }}
+    ];
+    for (const rp of rigParts) {{
+      const px = baseNx + (rp.dx || 0) + (rp.dy > 1.2 ? sway * 0.15 : 0);
+      const py = baseNy + (rp.dy || 0);
+      const pz = baseNz + (rp.dz || 0);
+      const p = project3D(px, py, pz);
+      if (p) items.push({{ type: 'rig_part', rp, n, p }});
+    }}
+    const headP = project3D(baseNx, baseNy + 2.65, baseNz);
+    if (headP) items.push({{ type: 'npc_label', n, p: headP }});
   }}
   items.sort((a, b) => b.p.depth - a.p.depth);
 
@@ -1456,14 +1670,23 @@ function render() {{
       ctx.fillRect(it.p.sx - s / 2, it.p.sy - s / 2, s, s);
       ctx.strokeStyle = 'rgba(0,0,0,0.28)';
       ctx.strokeRect(it.p.sx - s / 2, it.p.sy - s / 2, s, s);
-    }} else {{
-      ctx.fillStyle = it.n.color || '#f59e0b';
-      ctx.beginPath();
-      ctx.arc(it.p.sx, it.p.sy, s * 0.55, 0, Math.PI * 2);
-      ctx.fill();
+    }} else if (it.type === 'rig_part') {{
+      const pw = Math.max(3, it.p.scale * (it.rp.sx || 0.35) * 1.15);
+      const ph = Math.max(3, it.p.scale * (it.rp.sy || 0.35) * 1.15);
+      ctx.fillStyle = it.rp.color || it.n.color || '#f472b6';
+      ctx.fillRect(it.p.sx - pw / 2, it.p.sy - ph / 2, pw, ph);
+      ctx.strokeStyle = 'rgba(15,23,42,0.45)';
+      ctx.strokeRect(it.p.sx - pw / 2, it.p.sy - ph / 2, pw, ph);
+    }} else if (it.type === 'npc_label') {{
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+      const tag = `♥ ${{it.n.name}}`;
+      ctx.font = 'bold 12px Inter, sans-serif';
+      const tw = ctx.measureText(tag).width + 12;
+      ctx.fillRect(it.p.sx - tw / 2, it.p.sy - 16, tw, 20);
+      ctx.strokeStyle = it.n.color || '#f472b6';
+      ctx.strokeRect(it.p.sx - tw / 2, it.p.sy - 16, tw, 20);
       ctx.fillStyle = '#fff';
-      ctx.font = '12px Inter, sans-serif';
-      ctx.fillText(it.n.name, it.p.sx - 35, it.p.sy - s * 0.7);
+      ctx.fillText(tag, it.p.sx - tw / 2 + 6, it.p.sy - 2);
     }}
   }}
 
@@ -1508,6 +1731,10 @@ function applyClientDirectorFallback(promptText) {{
   if (p.includes('башн') || p.includes('маяк')) {{
     for (let y = 0; y < 6; y++) STATE.blocks.push({{ x: ox, y, z: oz, kind: y === 5 ? 7 : 3 }});
   }}
+  if (p.includes('кроват') || p.includes('сердц') || p.includes('будуар') || p.includes('джакуз')) {{
+    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) STATE.blocks.push({{ x: ox + dx, y: 0, z: oz + dz, kind: 9 }});
+    STATE.blocks.push({{ x: ox, y: 2, z: oz, kind: 13 }});
+  }}
   if (p.includes('пирамид') || p.includes('рек') || p.includes('мост')) {{
     for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) STATE.blocks.push({{ x: ox + dx, y: 0, z: oz + dz, kind: 2 }});
     STATE.blocks.push({{ x: ox, y: 1, z: oz, kind: 7 }});
@@ -1518,10 +1745,10 @@ function applyClientDirectorFallback(promptText) {{
       STATE.blocks.push({{ x: ox + dx, y: 2, z: oz + dz, kind: 5 }});
     }}
   }}
-  if (p.includes('npc') || p.includes('страж') || p.includes('маг') || p.includes('торгов') || p.includes('человек')) {{
-    const nName = p.includes('маг') ? 'Архимаг Эфир' : 'Стражник Гром';
-    const dlg = `${{nName}}: «Сцена обновлена по команде: ${{promptText}}!»`;
-    STATE.npcs.push({{ id: 'npc_' + (STATE.npcs.length + 1), name: nName, role: 'guard', color: '#8b5cf6', position: [ox * 0.6, 0, oz * 0.6], dialogue: dlg }});
+  if (p.includes('npc') || p.includes('страж') || p.includes('маг') || p.includes('торгов') || p.includes('человек') || p.includes('модел') || p.includes('интим') || p.includes('вельвет') || p.includes('адонис')) {{
+    const nName = (p.includes('интим') || p.includes('вельвет') || p.includes('модел')) ? 'Леди Вельвет (3D Кабаре-Дива)' : (p.includes('маг') ? 'Архимаг Эфир' : 'Стражник Гром');
+    const dlg = `${{nName}}: «Сцена обновлена по команде: ${{promptText}}! ♥»`;
+    STATE.npcs.push({{ id: 'npc_' + (STATE.npcs.length + 1), name: nName, role: 'velvet_diva', color: '#e11d48', position: [ox * 0.6, 0, oz * 0.6], dialogue: dlg }});
     STATE.soundscape.dialogue_tts = dlg;
   }} else {{
     STATE.soundscape.dialogue_tts = `Режиссёр BossBlocks: выполнено «${{promptText}}»`;
@@ -1604,3 +1831,243 @@ render();
 </script>
 </body>
 </html>"""
+
+
+def _hex_to_rgb(hex_str: str, brighten: float = 1.0) -> tuple[int, int, int]:
+    h = hex_str.lstrip("#")
+    if len(h) != 6:
+        return (105, 170, 86)
+    r = min(255, max(0, int(int(h[0:2], 16) * brighten)))
+    g = min(255, max(0, int(int(h[2:4], 16) * brighten)))
+    b = min(255, max(0, int(int(h[4:6], 16) * brighten)))
+    return (r, g, b)
+
+
+def render_voxel_scene_screenshot_png(
+    state: dict[str, Any],
+    out_path: str | Path,
+    *,
+    wave_label: str = "BossBlocks Cloud Agent Wave",
+    agent_summary: str = "",
+    camera_yaw: float = 0.58,
+    camera_pitch: float = -0.36,
+) -> Path:
+    """Рендерит 1280x720 3D-скриншот текущего воксельного мира и составных 3D-персонажей в PNG для отправки в Пульт."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    target = Path(out_path).expanduser().resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    width, height = 1280, 720
+    weather = state.get("weather") or {}
+    sky_hex = weather.get("sky_color", "#1e1b4b")
+    img = Image.new("RGB", (width, height), _hex_to_rgb(sky_hex))
+    draw = ImageDraw.Draw(img)
+
+    # Неоновый градиент неба и сетка горизонта
+    top_rgb = _hex_to_rgb(sky_hex, 0.65)
+    bot_rgb = _hex_to_rgb(sky_hex, 1.15)
+    for y in range(height):
+        t = y / float(height)
+        r = int(top_rgb[0] * (1 - t) + bot_rgb[0] * t)
+        g = int(top_rgb[1] * (1 - t) + bot_rgb[1] * t)
+        b = int(top_rgb[2] * (1 - t) + bot_rgb[2] * t)
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+    cam_mode = (state.get("camera") or {}).get("mode", "third_person")
+    if cam_mode == "top_down":
+        cam_x, cam_y, cam_z = 0.0, 15.5, 4.5
+        yaw, pitch = 0.0, -1.15
+    elif cam_mode == "drone_orbit":
+        cam_x, cam_y, cam_z = 7.5, 7.2, 11.5
+        yaw, pitch = 0.54, -0.44
+    else:
+        cam_x, cam_y, cam_z = 4.2, 4.8, 10.2
+        yaw, pitch = camera_yaw, camera_pitch
+
+    cos_y, sin_y = math.cos(yaw), math.sin(yaw)
+    cos_p, sin_p = math.cos(pitch), math.sin(pitch)
+    fov = 690.0
+
+    def project_pt(x: float, y: float, z: float) -> tuple[float, float, float, float] | None:
+        dx, dy, dz = x - cam_x, y - cam_y, z - cam_z
+        rx = dx * cos_y - dz * sin_y
+        rz = dx * sin_y + dz * cos_y
+        ry = dy * cos_p - rz * sin_p
+        fz = dy * sin_p + rz * cos_p
+        if fz <= 0.3:
+            return None
+        sx = width * 0.5 + (rx / fz) * fov
+        sy = height * 0.54 - (ry / fz) * fov
+        return (sx, sy, fz, fov / fz)
+
+    palette_colors = {k: v["color"] for k, v in BLOCK_PALETTE.items()}
+    render_queue: list[tuple[float, str, dict[str, Any]]] = []
+
+    for blk in state.get("blocks") or []:
+        bx, by, bz = float(blk["x"]), float(blk["y"]), float(blk["z"])
+        if by < -1:
+            continue
+        proj = project_pt(bx, by, bz)
+        if proj is None:
+            continue
+        render_queue.append(
+            (
+                proj[2],
+                "block",
+                {
+                    "sx": proj[0],
+                    "sy": proj[1],
+                    "scale": proj[3],
+                    "bx": bx,
+                    "by": by,
+                    "bz": bz,
+                    "color": palette_colors.get(int(blk.get("kind", 1)), "#69aa56"),
+                },
+            )
+        )
+
+    # Расставляем 3D-персонажей ближе к переднему плану для чёткой 3D-детализации на скриншоте
+    npcs = state.get("npcs") or []
+    showcase_slots = [
+        (1.2, 0.0, 3.8),
+        (3.4, 0.0, 4.2),
+        (-1.2, 0.0, 4.0),
+        (2.3, 0.0, 5.4),
+    ]
+    for idx, npc in enumerate(npcs):
+        slot = showcase_slots[idx % len(showcase_slots)]
+        nx, ny, nz = float(slot[0]), float(slot[1]), float(slot[2])
+        rig = npc.get("rig") or COMEDY_3D_RIGS.get(npc.get("role", ""), COMEDY_3D_RIGS["velvet_diva"])
+        for part in rig:
+            px = nx + float(part.get("dx", 0.0))
+            py = ny + float(part.get("dy", 0.0))
+            pz = nz + float(part.get("dz", 0.0))
+            proj = project_pt(px, py, pz)
+            if proj is None:
+                continue
+            render_queue.append(
+                (
+                    proj[2] - 0.08,
+                    "rig_part",
+                    {
+                        "sx": proj[0],
+                        "sy": proj[1],
+                        "scale": proj[3],
+                        "w": float(part.get("sx", 0.3)),
+                        "h": float(part.get("sy", 0.3)),
+                        "d": float(part.get("sz", 0.3)),
+                        "color": str(part.get("color", npc.get("color", "#e11d48"))),
+                        "part": str(part.get("part", "")),
+                    },
+                )
+            )
+        head_proj = project_pt(nx, ny + 2.75, nz)
+        if head_proj is not None:
+            render_queue.append(
+                (
+                    head_proj[2] - 0.25,
+                    "npc_tag",
+                    {
+                        "sx": head_proj[0],
+                        "sy": head_proj[1],
+                        "name": str(npc.get("name", "NPC")),
+                        "role": str(npc.get("role", "npc")),
+                        "color": str(npc.get("color", "#f472b6")),
+                    },
+                )
+            )
+
+    render_queue.sort(key=lambda item: item[0], reverse=True)
+
+    try:
+        font_title = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", 20)
+        font_body = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 15)
+        font_tag = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", 14)
+    except Exception:
+        font_title = ImageFont.load_default()
+        font_body = ImageFont.load_default()
+        font_tag = ImageFont.load_default()
+
+    def draw_iso_box(
+        cx: float,
+        cy: float,
+        w_px: float,
+        h_px: float,
+        depth_px: float,
+        hex_col: str,
+    ) -> None:
+        x0, y0 = cx - w_px * 0.5, cy - h_px * 0.5
+        x1, y1 = cx + w_px * 0.5, cy + h_px * 0.5
+        dx, dy = depth_px * 0.38, -depth_px * 0.32
+        top_poly = [
+            (x0, y0),
+            (x1, y0),
+            (x1 + dx, y0 + dy),
+            (x0 + dx, y0 + dy),
+        ]
+        side_poly = [
+            (x1, y0),
+            (x1 + dx, y0 + dy),
+            (x1 + dx, y1 + dy),
+            (x1, y1),
+        ]
+        front_rect = [x0, y0, x1, y1]
+        draw.polygon(top_poly, fill=_hex_to_rgb(hex_col, 1.18), outline=(15, 23, 42))
+        draw.polygon(side_poly, fill=_hex_to_rgb(hex_col, 0.76), outline=(15, 23, 42))
+        draw.rectangle(front_rect, fill=_hex_to_rgb(hex_col, 1.0), outline=(15, 23, 42))
+
+    for _, kind, payload in render_queue:
+        if kind == "block":
+            s = max(6.0, payload["scale"] * 0.86)
+            draw_iso_box(payload["sx"], payload["sy"], s, s, s * 0.55, payload["color"])
+        elif kind == "rig_part":
+            sc = payload["scale"] * 1.18
+            pw = max(4.0, sc * payload["w"])
+            ph = max(4.0, sc * payload["h"])
+            pd = max(3.0, sc * payload["d"])
+            draw_iso_box(payload["sx"], payload["sy"], pw, ph, pd, payload["color"])
+        elif kind == "npc_tag":
+            tag_text = f"♥ {payload['name']}"
+            tw = len(tag_text) * 8 + 18
+            tx0 = payload["sx"] - tw * 0.5
+            ty0 = payload["sy"] - 24
+            draw.rounded_rectangle(
+                [tx0, ty0, tx0 + tw, ty0 + 24],
+                radius=6,
+                fill=(15, 23, 42),
+                outline=_hex_to_rgb(payload["color"], 1.1),
+                width=2,
+            )
+            draw.text((tx0 + 8, ty0 + 3), tag_text, fill=(255, 255, 255), font=font_tag)
+
+    # HUD карточка сверху
+    draw.rounded_rectangle([18, 16, 1262, 128], radius=12, fill=(11, 15, 25), outline=(217, 70, 239), width=2)
+    w_title = (state.get("weather") or {}).get("title_ru", "Неоновая ночь")
+    c_title = (state.get("camera") or {}).get("title_ru", "От 3-го лица")
+    hud_header = (
+        f"BossBlocks 3D · {wave_label} | Мир: {state.get('world_id')} | "
+        f"Погода: {w_title} | Камера: {c_title} | Блоков: {state.get('block_count', 0)} | 3D-Моделей: {len(npcs)}"
+    )
+    draw.text((34, 26), hud_header, fill=(56, 189, 248), font=font_title)
+
+    dialogue_line = ((state.get("soundscape") or {}).get("dialogue_tts") or "Сцена обновлена облачным агентом.")[:135]
+    draw.text((34, 58), f"Диалог сцены: {dialogue_line}", fill=(244, 114, 182), font=font_body)
+
+    if agent_summary:
+        clean_summary = " ".join(agent_summary.strip().split())[:145]
+        draw.text((34, 88), f"Ответ облачного агента в Пульт: {clean_summary}", fill=(226, 232, 240), font=font_body)
+
+    # Нижняя плашка с перечнем 3D-моделей и построек
+    struct_names = ", ".join(s.get("kind", "") for s in (state.get("structures") or [])[-6:]) or "hot_tub, heart_bed, neon_cabaret"
+    npc_names = ", ".join(n.get("name", "") for n in npcs) or "Леди Вельвет, Мачо Адонис"
+    draw.rounded_rectangle([18, 658, 1262, 706], radius=10, fill=(15, 23, 42), outline=(251, 191, 36), width=2)
+    draw.text(
+        (34, 672),
+        f"3D-Персонажи (составные риги): {npc_names[:65]}  |  Постройки: {struct_names[:45]}",
+        fill=(251, 191, 36),
+        font=font_body,
+    )
+
+    img.save(target, format="PNG")
+    return target

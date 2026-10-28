@@ -184,12 +184,14 @@ from fastapi.responses import HTMLResponse
 from ._voxel_director import (
     BLOCK_PALETTE,
     CAMERA_PRESETS,
+    COMEDY_3D_RIGS,
     WEATHER_PRESETS,
     GodotExportRequest,
     VoxelDirectorRequest,
     apply_voxel_director_command,
     create_base_voxel_world,
     export_godot_voxel_project,
+    render_voxel_scene_screenshot_png,
     render_voxel_web_game_html,
 )
 
