@@ -93,6 +93,9 @@ def test_voxel_web_game_html_and_godot_export(tmp_path: Path):
     html = render_voxel_web_game_html("test-genie-world")
     assert "BossBlocks Genie-Local" in html
     assert "/api/game-bootstrap/voxel-director" in html
+    assert "THREE.WebGLRenderer" in html
+    assert "THREE.LatheGeometry" in html
+    assert "THREE.TubeGeometry" in html
 
     export_res = export_godot_voxel_project(
         GodotExportRequest(
@@ -109,6 +112,8 @@ def test_voxel_web_game_html_and_godot_export(tmp_path: Path):
     assert (proj / "scripts" / "main.gd").is_file()
     assert (proj / "bossblocks_world.json").is_file()
     assert (proj / "PLAY-BOSSBLOCKS.cmd").is_file()
+    assert (proj / "PLAY-IN-BROWSER.html").is_file()
+    assert (proj / "three.min.js").is_file()
 
 
 def test_comedy_3d_models_structures_and_screenshot_png(tmp_path: Path):

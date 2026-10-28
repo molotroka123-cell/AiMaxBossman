@@ -1299,6 +1299,9 @@ def export_godot_voxel_project(req: GodotExportRequest, default_base_dir: Path |
     editor_exe = str(DEFAULT_GODOT_EDITOR_PATH)
     play_cmd = f'@echo off\r\n"{editor_exe}" --path "%~dp0" %*\r\n'
     (project_dir / "PLAY-BOSSBLOCKS.cmd").write_text(play_cmd, encoding="utf-8")
+    vendor_three = Path(__file__).resolve().parent.parent / "ui" / "vendor" / "three.min.js"
+    if vendor_three.is_file():
+        (project_dir / "three.min.js").write_bytes(vendor_three.read_bytes())
     (project_dir / "PLAY-IN-BROWSER.html").write_text(
         render_voxel_web_game_html(world_id=req.world_id),
         encoding="utf-8",
@@ -1356,6 +1359,7 @@ def export_godot_voxel_project(req: GodotExportRequest, default_base_dir: Path |
             "bossblocks_world.json",
             "PLAY-BOSSBLOCKS.cmd",
             "PLAY-IN-BROWSER.html",
+            "three.min.js",
             "tests/owner_director_check.gd",
         ],
         "director_state": director_state,
@@ -1364,7 +1368,7 @@ def export_godot_voxel_project(req: GodotExportRequest, default_base_dir: Path |
 
 
 def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
-    """Возвращает интерактивную 3D-игру с гладкими органическими PBR 3D-моделями персонажей (без квадратиков!)."""
+    """Возвращает настоящую WebGL2 3D-игру на Three.js (LatheGeometry + TubeGeometry + MeshStandardMaterial PBR + WASD + Флирт-Квесты + Школа Аргона)."""
     if world_id not in _WORLD_STORE:
         apply_voxel_director_command(
             VoxelDirectorRequest(
@@ -1384,17 +1388,21 @@ def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BossBlocks Genie-Local — Гладкие 3D-Модели Кабаре & Будуар</title>
+<title>BossBlocks Genie-Local — Three.js WebGL2 3D Boudoir & Школа Боссмана</title>
+<script src="./three.min.js"></script>
+<script>if (!window.THREE) document.write('<scr' + 'ipt src="/api/game-bootstrap/three.min.js"></scr' + 'ipt>');</script>
 <style>
   :root {{
     color-scheme: dark;
-    --bg: #090614;
-    --panel: rgba(15, 12, 32, 0.84);
-    --border: rgba(244, 114, 182, 0.34);
+    --bg: #080512;
+    --panel: rgba(14, 10, 28, 0.84);
+    --border: rgba(244, 114, 182, 0.38);
     --accent: #f472b6;
+    --cyan: #38bdf8;
+    --gold: #fbbf24;
     --text: #f8fafc;
   }}
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; user-select: none; }}
   body {{
     background: var(--bg);
     color: var(--text);
@@ -1412,568 +1420,1069 @@ def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
   #viewport:active {{ cursor: grabbing; }}
   .hud-top {{
     position: fixed;
-    top: 14px;
+    top: 12px;
     left: 14px;
     right: 14px;
     display: flex;
     justify-content: space-between;
+    align-items: flex-start;
     gap: 12px;
     pointer-events: none;
+    z-index: 10;
   }}
   .hud-card {{
     background: var(--panel);
-    backdrop-filter: blur(14px);
+    backdrop-filter: blur(16px);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 12px 16px;
+    padding: 11px 15px;
     pointer-events: auto;
-    max-width: 680px;
-    box-shadow: 0 12px 34px rgba(0,0,0,0.55);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
   }}
   .hud-title {{
-    font-weight: 700;
     font-size: 15px;
-    color: var(--accent);
-    margin-bottom: 4px;
+    font-weight: 800;
+    background: linear-gradient(90deg, #f472b6, #fbbf24, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 3px;
   }}
-  .hud-meta {{
-    font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
-    font-size: 12px;
-    color: #e2e8f0;
-    line-height: 1.45;
+  .hud-sub {{
+    font-size: 11.5px;
+    color: #cbd5e1;
+    line-height: 1.35;
   }}
-  .dialogue-box {{
+  .badges {{
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 7px;
+  }}
+  .badge {{
+    font-size: 10.5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(244, 114, 182, 0.16);
+    border: 1px solid rgba(244, 114, 182, 0.42);
+    color: #fbcfe8;
+    font-weight: 600;
+  }}
+  .badge.cyan {{
+    background: rgba(56, 189, 248, 0.16);
+    border-color: rgba(56, 189, 248, 0.42);
+    color: #bae6fd;
+  }}
+  .badge.gold {{
+    background: rgba(251, 191, 36, 0.16);
+    border-color: rgba(251, 191, 36, 0.45);
+    color: #fde68a;
+  }}
+  .cam-bar {{
+    display: flex;
+    gap: 6px;
     margin-top: 8px;
-    padding: 8px 10px;
-    border-radius: 8px;
-    background: rgba(244, 114, 182, 0.14);
-    border-left: 3px solid var(--accent);
-    font-size: 13px;
-    color: #fff;
+    flex-wrap: wrap;
   }}
-  .director-dock {{
+  .cam-btn {{
+    background: rgba(30, 22, 54, 0.85);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 140ms ease;
+  }}
+  .cam-btn:hover, .cam-btn.active {{
+    background: linear-gradient(135deg, #ec4899, #8b5cf6);
+    border-color: #f472b6;
+    transform: translateY(-1px);
+  }}
+  .quest-box {{
+    min-width: 310px;
+    max-width: 370px;
+  }}
+  .meter-wrap {{
+    margin-top: 6px;
+    background: rgba(15, 23, 42, 0.85);
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid rgba(244, 114, 182, 0.35);
+  }}
+  .meter-fill {{
+    height: 100%;
+    width: 78%;
+    background: linear-gradient(90deg, #ec4899, #fbbf24, #38bdf8);
+    transition: width 300ms ease;
+  }}
+  .dialog-modal {{
     position: fixed;
-    bottom: 16px;
     left: 50%;
+    bottom: 84px;
     transform: translateX(-50%);
-    width: min(960px, calc(100vw - 28px));
+    width: min(760px, calc(100vw - 28px));
+    background: rgba(14, 9, 30, 0.92);
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(251, 191, 36, 0.55);
+    border-radius: 16px;
+    padding: 12px 16px;
+    z-index: 12;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+  }}
+  .dialog-speaker {{
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #fbbf24;
+    margin-bottom: 3px;
+    display: flex;
+    justify-content: space-between;
+  }}
+  .dialog-text {{
+    font-size: 13px;
+    color: #f8fafc;
+    margin-bottom: 8px;
+  }}
+  .dialog-choices {{
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+  }}
+  .choice-btn {{
+    background: rgba(244, 114, 182, 0.16);
+    border: 1px solid rgba(244, 114, 182, 0.45);
+    color: #fdf2f8;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    cursor: pointer;
+    transition: all 140ms ease;
+  }}
+  .choice-btn:hover {{
+    background: rgba(244, 114, 182, 0.35);
+    transform: scale(1.02);
+  }}
+  .hud-bottom {{
+    position: fixed;
+    bottom: 12px;
+    left: 14px;
+    right: 14px;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+  }}
+  .director-bar {{
+    pointer-events: auto;
+    display: flex;
+    gap: 8px;
+    width: min(880px, 100%);
     background: var(--panel);
     backdrop-filter: blur(16px);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 12px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    box-shadow: 0 14px 40px rgba(0,0,0,0.65);
+    border-radius: 14px;
+    padding: 8px 10px;
   }}
-  .director-row {{ display: flex; gap: 8px; }}
-  #director-input {{
+  .director-bar input {{
     flex: 1;
-    background: rgba(9, 6, 20, 0.85);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 14px;
+    background: rgba(8, 6, 20, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    color: #fff;
+    border-radius: 9px;
+    padding: 8px 12px;
+    font-size: 13px;
     outline: none;
   }}
-  #director-input:focus {{ border-color: #38bdf8; }}
-  .btn {{
+  .director-bar button {{
     background: linear-gradient(135deg, #ec4899, #8b5cf6);
-    color: #fff;
     border: none;
-    border-radius: 10px;
-    padding: 9px 16px;
-    font-weight: 600;
-    font-size: 13px;
+    color: #fff;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 9px;
     cursor: pointer;
-    transition: transform 150ms ease, filter 150ms ease;
+    font-size: 12.5px;
   }}
-  .btn:hover {{ filter: brightness(1.14); }}
-  .btn:active {{ transform: scale(0.97); }}
-  .chip-row {{ display: flex; flex-wrap: wrap; gap: 6px; }}
-  .chip {{
-    background: rgba(30, 20, 54, 0.92);
-    color: #f8fafc;
-    border: 1px solid var(--border);
+  .name-tags {{
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }}
+  .char-tag {{
+    position: absolute;
+    transform: translate(-50%, -50%);
+    background: rgba(12, 8, 26, 0.86);
+    border: 1.5px solid #f472b6;
     border-radius: 999px;
-    padding: 5px 12px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 140ms ease, transform 140ms ease;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #f8fafc;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   }}
-  .chip:hover {{ background: rgba(244, 114, 182, 0.28); }}
-  .chip:active {{ transform: scale(0.96); }}
 </style>
 </head>
 <body>
 <canvas id="viewport"></canvas>
+<div id="nameTags" class="name-tags"></div>
 
 <div class="hud-top">
-  <div class="hud-card">
-    <div class="hud-title">BossBlocks Genie-Local · Гладкие 3D-Модели & VIP-Будуар (Subsurface 3D Shader)</div>
-    <div class="hud-meta" id="hud-stats">Загрузка 3D-сцены...</div>
-    <div class="dialogue-box" id="hud-dialogue">Инициализация...</div>
+  <div class="hud-card" style="max-width: 650px;">
+    <div class="hud-title" id="hudTitle">BossBlocks Genie-Local • Three.js WebGL2 Smooth 3D Studio (Мир: {world_id})</div>
+    <div class="hud-sub" id="hudSub">Обучение Боссмана (Школа Аргона): 360° LatheGeometry изгибы тел • MeshStandardMaterial Subsurface Skin & Атлас • 0 квадратиков!</div>
+    <div class="badges">
+      <span class="badge" id="bEngine">Движок: Three.js WebGL2 PBR (64-seg LatheGeometry)</span>
+      <span class="badge cyan" id="bSkill">Навык Боссмана: smooth-3d-webgl-character-architect (v2.0)</span>
+      <span class="badge gold" id="bWeather">Атмосфера: Неоновый VIP-Будуар</span>
+    </div>
+    <div class="cam-bar">
+      <button class="cam-btn active" onclick="setCameraPreset(1)" id="camBtn1">[1] Общий план Кабаре</button>
+      <button class="cam-btn" onclick="setCameraPreset(2)" id="camBtn2">[2] Крупный план: 3D Фигуры & Лица</button>
+      <button class="cam-btn" onclick="setCameraPreset(3)" id="camBtn3">[3] Танец у Пилона & Тверк-Волна</button>
+      <button class="cam-btn" onclick="setCameraPreset(4)" id="camBtn4">[4] VIP-Джакузи & Купидон</button>
+    </div>
   </div>
-  <div class="hud-card">
-    <div class="hud-title">Управление 3D-камерой и сценой</div>
-    <div class="hud-meta">
-      Мышь (Зажать и крутить) — 3D-орбита вокруг моделей · Колесо — зум<br>
-      WASD / Стрелки — перемещение камеры · Клик по чипам — смена поз и света<br>
-      Рендер: Гладкие 3D-эллипсоиды и капсулы с Subsurface Skin & Satin Specular (0 квадратиков!)
+
+  <div class="hud-card quest-box">
+    <div class="hud-title">🥂 Квест Будуара & Уроки Боссмана</div>
+    <div class="hud-sub" id="questStatus">Собрано шампанского: <b id="champCount">3</b>/5 🥂 • Сердец: <b id="heartCount">4</b>/5 💖<br>Уровень Соблазна / Хайпа: <b id="hypeVal">78%</b></div>
+    <div class="meter-wrap"><div class="meter-fill" id="hypeFill" style="width:78%"></div></div>
+    <div class="hud-sub" style="margin-top:6px; font-size:10.5px; color:#94a3b8;">
+      Управление: <b>Мышь</b> — 3D орбита/зум • <b>WASD</b> — движение • <b>Клик по 3D-модели / [1-4]</b> — флирт и смена танца
     </div>
   </div>
 </div>
 
-<div class="director-dock">
-  <div class="director-row">
-    <input id="director-input" type="text" placeholder="Команда Режиссёру: добавь Леди Вельвет и Мачо Адониса у джакузи, включи закат или неоновую ночь..." />
-    <button class="btn" id="director-send">Применить к 3D-сцене</button>
-    <button class="btn" id="pose-toggle" style="background:linear-gradient(135deg,#f59e0b,#ec4899)">Танец / Поза ♥</button>
-    <button class="btn" id="audio-toggle" style="background:linear-gradient(135deg,#059669,#10b981)">Вкл. звук</button>
+<div class="dialog-modal" id="dialogModal">
+  <div class="dialog-speaker">
+    <span id="dlgSpeaker">♥ Леди Вельвет (3D Дива) — Интерактивный Флирт-Диалог</span>
+    <span style="color:#38bdf8; font-size:11px;">[Урок Аргона №3: Живая 3D-мимика и квесты]</span>
   </div>
-  <div class="chip-row">
-    <button class="chip" data-cmd="Добавь шуточные интим 3D модели: Леди Вельвет, Мачо Адонис, Кибер-Сирена и Купидон-Вышибала">💃 Все 4 гладкие 3D-модели крупным планом</button>
-    <button class="chip" data-cmd="Построй кровать-сердце, джакузи, неоновое кабаре и статую Венеры">🛁 VIP-Джакузи + Бархатная Кровать-Сердце</button>
-    <button class="chip" data-cmd="Смени погоду на ночь и переставь камеру на дрон-облёт">🌙 Неоновая Ночь + 3D-Орбита</button>
-    <button class="chip" data-cmd="Смени погоду на закат и переставь камеру от третьего лица">🌅 Романтический Закат (Крупный план)</button>
-    <button class="chip" data-cmd="Переставь камеру на вид сверху">🎥 Камера: Вид сверху</button>
-    <button class="chip" data-cmd="Смени погоду на грозу и шторм">⚡ Погода: Неоновый дождь</button>
+  <div class="dialog-text" id="dlgText">«Ох, Босс! Аргон отучил Боссмана лепить квадратики — теперь у нас настоящие 3D-изгибы LatheGeometry, шёлковые корсеты и горячее джакузи! Выбирай, чем займёмся!»</div>
+  <div class="dialog-choices">
+    <button class="choice-btn" onclick="triggerInteraction('toast')">🥂 Угостить шампанским (+15% Соблазн)</button>
+    <button class="choice-btn" onclick="triggerInteraction('dance')">💃 Включить Синхронный Кабаре-Танец</button>
+    <button class="choice-btn" onclick="triggerInteraction('compliment')">🔥 Сделать комплимент 3D-фигуре</button>
+    <button class="choice-btn" onclick="triggerInteraction('next_char')">✨ Переключить собеседника</button>
+  </div>
+</div>
+
+<div class="hud-bottom">
+  <div class="director-bar">
+    <input id="promptInput" type="text" placeholder="Команда ИИ-Режиссёру Боссмана (например: добавь джакузи, кровать-сердце, смени погоду на закат)..." />
+    <button id="sendBtn" onclick="sendDirectorPrompt()">🎬 Применить к 3D-сцене</button>
   </div>
 </div>
 
 <script>
-const STATE = {state_json};
+const WORLD_ID = {json.dumps(world_id)};
+let worldState = {state_json};
+
+const urlParams = new URLSearchParams(window.location.search);
+const initialCamPreset = parseInt(urlParams.get('cam') || '1', 10);
+const customTitle = urlParams.get('title');
+const customSub = urlParams.get('sub');
+const customDlg = urlParams.get('dlg');
+if (customTitle) document.getElementById('hudTitle').textContent = customTitle;
+if (customSub) document.getElementById('hudSub').textContent = customSub;
+if (customDlg) document.getElementById('dlgText').textContent = customDlg;
+
 const canvas = document.getElementById('viewport');
-const ctx = canvas.getContext('2d');
-let yaw = 0.18, pitch = -0.18, camDist = 7.4;
-let targetX = 0.0, targetY = 1.35, targetZ = 0.0;
-let danceSpeed = 1.0;
-let audioCtx = null, audioEnabled = false, tTick = 0;
+const renderer = new THREE.WebGLRenderer({{ canvas, antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' }});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.94;
 
-function resize() {{
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}}
-window.addEventListener('resize', resize);
-resize();
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0c061a);
+scene.fog = new THREE.FogExp2(0x0c061a, 0.038);
 
-function updateHud() {{
-  const w = STATE.weather || {{}};
-  const c = STATE.camera || {{}};
-  const npcs = STATE.npcs || [];
-  document.getElementById('hud-stats').textContent =
-    `Мир: ${{STATE.world_id}} | Атмосфера: ${{w.title_ru || 'Неоновый будуар'}} | Камера: ${{c.title_ru || 'Крупный 3D-план'}} | Гладких 3D-моделей: ${{Math.max(4, npcs.length)}}`;
-  const dlg = (STATE.soundscape && STATE.soundscape.dialogue_tts) || 'Леди Вельвет: «Добро пожаловать в гладкий 3D VIP-будуар! Никаких квадратиков ♥»';
-  document.getElementById('hud-dialogue').textContent = dlg;
-}}
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 100);
 
-function speakLine(text) {{
-  if (!audioEnabled || !('speechSynthesis' in window)) return;
-  try {{
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ru-RU';
-    u.rate = 1.05;
-    window.speechSynthesis.speak(u);
-  }} catch (_e) {{}}
-}}
+// Освещение VIP-Будуара (сбалансированная экспозиция без пересвета кожи)
+const hemiLight = new THREE.HemisphereLight(0xffb6e6, 0x1a0c32, 0.48);
+scene.add(hemiLight);
 
-function playChord() {{
-  if (!audioEnabled || !audioCtx) return;
-  const scale = (STATE.soundscape && STATE.soundscape.music_scale_hz) || [261.63, 329.63, 392.0, 493.88];
-  const freq = scale[Math.floor(Math.random() * scale.length)];
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.85);
-  osc.connect(gain).connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.88);
-}}
+const keyLight = new THREE.DirectionalLight(0xffe8d6, 0.92);
+keyLight.position.set(3.2, 6.2, 5.8);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.width = 2048;
+keyLight.shadow.mapSize.height = 2048;
+keyLight.shadow.bias = -0.0005;
+scene.add(keyLight);
 
-function getCamPos() {{
-  const cx = targetX + Math.sin(yaw) * Math.cos(pitch) * camDist;
-  const cy = targetY - Math.sin(pitch) * camDist;
-  const cz = targetZ + Math.cos(yaw) * Math.cos(pitch) * camDist;
-  return {{ cx, cy: Math.max(0.5, cy), cz }};
-}}
+const pinkSpot = new THREE.PointLight(0xf472b6, 1.35, 14);
+pinkSpot.position.set(-3.4, 3.6, 2.6);
+scene.add(pinkSpot);
 
-function project3D(x, y, z) {{
-  const {{ cx, cy, cz }} = getCamPos();
-  const fx = targetX - cx, fy = targetY - cy, fz = targetZ - cz;
-  const fl = Math.hypot(fx, fy, fz) || 1;
-  const fwdX = fx / fl, fwdY = fy / fl, fwdZ = fz / fl;
-  let rx = -fwdZ, ry = 0, rz = fwdX;
-  const rl = Math.hypot(rx, rz) || 1;
-  rx /= rl; rz /= rl;
-  const ux = ry * fwdZ - rz * fwdY;
-  const uy = rz * fwdX - rx * fwdZ;
-  const uz = rx * fwdY - ry * fwdX;
+const cyanSpot = new THREE.PointLight(0x38bdf8, 1.25, 14);
+cyanSpot.position.set(3.4, 3.6, 2.6);
+scene.add(cyanSpot);
 
-  const vx = x - cx, vy = y - cy, vz = z - cz;
-  const depth = vx * fwdX + vy * fwdY + vz * fwdZ;
-  if (depth <= 0.3) return null;
-  const px = vx * rx + vy * ry + vz * rz;
-  const py = vx * ux + vy * uy + vz * uz;
-  const fov = Math.min(canvas.width, canvas.height) * 0.92;
-  return {{
-    sx: canvas.width * 0.5 + (px / depth) * fov,
-    sy: canvas.height * 0.54 - (py / depth) * fov,
-    depth,
-    scale: fov / depth
-  }};
-}}
+const goldRim = new THREE.PointLight(0xfbbf24, 1.25, 12);
+goldRim.position.set(0.0, 3.2, -2.5);
+scene.add(goldRim);
 
-function shadeColor(hex, mult, addR = 0, addG = 0, addB = 0) {{
-  const h = (hex || '#f4b895').replace('#', '');
-  const r = Math.min(255, Math.max(0, Math.round(parseInt(h.slice(0,2), 16) * mult + addR)));
-  const g = Math.min(255, Math.max(0, Math.round(parseInt(h.slice(2,4), 16) * mult + addG)));
-  const b = Math.min(255, Math.max(0, Math.round(parseInt(h.slice(4,6), 16) * mult + addB)));
-  return `rgb(${{r}},${{g}},${{b}})`;
-}}
+// 1. Зеркальный пол и круглый подиум кабаре с неоновыми кольцами
+const floorGeo = new THREE.PlaneGeometry(40, 40);
+const floorMat = new THREE.MeshStandardMaterial({{ color: 0x110926, roughness: 0.22, metalness: 0.45 }});
+const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+floorMesh.rotation.x = -Math.PI / 2;
+floorMesh.receiveShadow = true;
+scene.add(floorMesh);
 
-function drawSmooth3DEllipsoid(sx, sy, rx, ry, rotRad, baseHex, sheen = 0.55, rimHex = '#f472b6') {{
-  ctx.save();
-  ctx.translate(sx, sy);
-  ctx.rotate(rotRad);
-  ctx.beginPath();
-  ctx.ellipse(0, 0, Math.max(1.5, rx), Math.max(1.5, ry), 0, 0, Math.PI * 2);
+const stageGroup = new THREE.Group();
+scene.add(stageGroup);
 
-  const grad = ctx.createRadialGradient(-rx * 0.32, -ry * 0.35, Math.max(1, rx * 0.08), 0, 0, Math.max(rx, ry) * 1.08);
-  grad.addColorStop(0.0, shadeColor(baseHex, 1.32, Math.round(75 * sheen), Math.round(55 * sheen), Math.round(65 * sheen)));
-  grad.addColorStop(0.38, shadeColor(baseHex, 1.06, 12, 4, 8));
-  grad.addColorStop(0.78, shadeColor(baseHex, 0.72));
-  grad.addColorStop(0.95, shadeColor(baseHex, 0.48));
-  grad.addColorStop(1.0, rimHex);
+const podiumMat = new THREE.MeshStandardMaterial({{ color: 0x1f113c, roughness: 0.18, metalness: 0.55 }});
+const podiumMesh = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.8, 0.18, 96), podiumMat);
+podiumMesh.position.y = 0.09;
+podiumMesh.receiveShadow = true;
+stageGroup.add(podiumMesh);
 
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.restore();
-}}
+const neonPinkMat = new THREE.MeshBasicMaterial({{ color: 0xf472b6 }});
+const neonRing1 = new THREE.Mesh(new THREE.TorusGeometry(3.62, 0.035, 24, 128), neonPinkMat);
+neonRing1.rotation.x = Math.PI / 2;
+neonRing1.position.y = 0.18;
+stageGroup.add(neonRing1);
 
-function drawSmooth3DCapsule(p1, p2, r1, r2, baseHex, sheen = 0.52) {{
-  const dx = p2.sx - p1.sx, dy = p2.sy - p1.sy;
-  const len = Math.hypot(dx, dy);
-  if (len < 1) {{
-    drawSmooth3DEllipsoid(p1.sx, p1.sy, r1, r1, 0, baseHex, sheen);
-    return;
-  }}
-  const ang = Math.atan2(dy, dx);
-  const nx = -Math.sin(ang), ny = Math.cos(ang);
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(p1.sx, p1.sy, Math.max(1.5, r1), ang + Math.PI * 0.5, ang + Math.PI * 1.5);
-  ctx.lineTo(p2.sx - nx * r2, p2.sy - ny * r2);
-  ctx.arc(p2.sx, p2.sy, Math.max(1.5, r2), ang - Math.PI * 0.5, ang + Math.PI * 0.5);
-  ctx.closePath();
+const neonGoldMat = new THREE.MeshBasicMaterial({{ color: 0xfbbf24 }});
+const neonRing2 = new THREE.Mesh(new THREE.TorusGeometry(2.85, 0.022, 20, 128), neonGoldMat);
+neonRing2.rotation.x = Math.PI / 2;
+neonRing2.position.y = 0.185;
+stageGroup.add(neonRing2);
 
-  const mx = (p1.sx + p2.sx) * 0.5, my = (p1.sy + p2.sy) * 0.5;
-  const maxR = Math.max(r1, r2, 2);
-  const grad = ctx.createLinearGradient(mx - nx * maxR, my - ny * maxR, mx + nx * maxR, my + ny * maxR);
-  grad.addColorStop(0.0, shadeColor(baseHex, 0.52));
-  grad.addColorStop(0.28, shadeColor(baseHex, 1.04, 10, 4, 8));
-  grad.addColorStop(0.56, shadeColor(baseHex, 1.30, Math.round(68 * sheen), Math.round(48 * sheen), Math.round(58 * sheen)));
-  grad.addColorStop(0.88, shadeColor(baseHex, 0.72));
-  grad.addColorStop(1.0, '#f472b6');
+// 2. Латунный шест-пилон, круглая бархатная кровать-сердце и VIP-джакузи с пузырьками
+const poleMat = new THREE.MeshStandardMaterial({{ color: 0xfbbf24, roughness: 0.10, metalness: 0.94 }});
+const poleMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 3.8, 48), poleMat);
+poleMesh.position.set(0.0, 2.08, -0.35);
+poleMesh.castShadow = true;
+stageGroup.add(poleMesh);
 
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.restore();
+// Бархатный диван-кровать слева сзади
+const bedGroup = new THREE.Group();
+bedGroup.position.set(-2.15, 0.18, -1.15);
+stageGroup.add(bedGroup);
+const velvetMat = new THREE.MeshStandardMaterial({{ color: 0xbe123c, roughness: 0.35, metalness: 0.12 }});
+const mattress = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.02, 0.34, 64), velvetMat);
+mattress.position.y = 0.17;
+mattress.scale.set(1.15, 1.0, 0.85);
+mattress.castShadow = true;
+bedGroup.add(mattress);
+
+// Спинка в форме 3D-сердца
+const heartShape = new THREE.Shape();
+heartShape.moveTo(0, 0.25);
+heartShape.bezierCurveTo(0, 0.55, -0.55, 0.55, -0.55, 0.20);
+heartShape.bezierCurveTo(-0.55, -0.12, 0, -0.32, 0, -0.52);
+heartShape.bezierCurveTo(0, -0.32, 0.55, -0.12, 0.55, 0.20);
+heartShape.bezierCurveTo(0.55, 0.55, 0, 0.55, 0, 0.25);
+const heartGeo = new THREE.ExtrudeGeometry(heartShape, {{ depth: 0.14, bevelEnabled: true, bevelSegments: 8, steps: 2, bevelSize: 0.06, bevelThickness: 0.06 }});
+const headboard = new THREE.Mesh(heartGeo, new THREE.MeshStandardMaterial({{ color: 0xe11d48, roughness: 0.28, metalness: 0.18 }}));
+headboard.position.set(0, 0.72, -0.68);
+headboard.scale.set(1.15, 1.15, 1.0);
+bedGroup.add(headboard);
+
+// VIP-Джакузи справа сзади с пенящейся бирюзовой водой
+const tubGroup = new THREE.Group();
+tubGroup.position.set(2.15, 0.18, -1.05);
+stageGroup.add(tubGroup);
+const tubRim = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 0.96, 0.46, 64), new THREE.MeshStandardMaterial({{ color: 0xfbbf24, roughness: 0.22, metalness: 0.65 }}));
+tubRim.position.y = 0.23;
+tubGroup.add(tubRim);
+const waterMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.94, 0.94, 0.05, 64), new THREE.MeshStandardMaterial({{ color: 0x38bdf8, emissive: 0x0ea5e9, emissiveIntensity: 0.45, roughness: 0.08, metalness: 0.2 }}));
+waterMesh.position.y = 0.44;
+tubGroup.add(waterMesh);
+
+const bubbles = [];
+const bubbleMat = new THREE.MeshStandardMaterial({{ color: 0xe0f2fe, emissive: 0x38bdf8, emissiveIntensity: 0.3, roughness: 0.05, transparent: true, opacity: 0.82 }});
+for (let i = 0; i < 18; i++) {{
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.035 + (i % 3) * 0.015, 16, 16), bubbleMat);
+  const ang = (i / 18) * Math.PI * 2;
+  const rad = 0.2 + (i % 4) * 0.18;
+  b.position.set(Math.cos(ang) * rad, 0.46 + (i % 5) * 0.06, Math.sin(ang) * rad);
+  tubGroup.add(b);
+  bubbles.push({{ mesh: b, baseY: 0.46, speed: 0.6 + (i % 5) * 0.2, phase: i }});
 }}
 
-function buildSmoothCharacterPrimitives(charDef, t) {{
-  const prims = [];
-  const bx = charDef.x, by = charDef.y, bz = charDef.z;
-  const phase = charDef.phase || 0;
-  const sway = Math.sin(t * 2.6 * danceSpeed + phase) * 0.12;
-  const breath = Math.sin(t * 3.8 * danceSpeed + phase) * 0.025;
-  const hipShift = Math.sin(t * 2.6 * danceSpeed + phase) * 0.09;
-  const skin = charDef.skin;
-  const outfit = charDef.outfit;
-  const hair = charDef.hair;
-  const isFemale = charDef.gender !== 'male';
-
-  const addSphere = (lx, ly, lz, rx, ry, rz, col, sheen = 0.55, tag = '') => {{
-    const p = project3D(bx + lx, by + ly, bz + lz);
-    if (!p) return;
-    prims.push({{
-      kind: 'ellipsoid',
-      depth: p.depth - (rz * 0.35),
-      sx: p.sx,
-      sy: p.sy,
-      rx: p.scale * rx,
-      ry: p.scale * ry,
-      rot: sway * 0.25,
-      col,
-      sheen,
-      tag
-    }});
-  }};
-
-  const addLimb = (x1, y1, z1, x2, y2, z2, r1, r2, col, sheen = 0.48) => {{
-    const p1 = project3D(bx + x1, by + y1, bz + z1);
-    const p2 = project3D(bx + x2, by + y2, bz + z2);
-    if (!p1 || !p2) return;
-    prims.push({{
-      kind: 'capsule',
-      depth: (p1.depth + p2.depth) * 0.5,
-      p1,
-      p2,
-      r1: p1.scale * r1,
-      r2: p2.scale * r2,
-      col,
-      sheen
-    }});
-  }};
-
-  // Гладкие ступни / каблучки, голени и округлые бёдра
-  addSphere(-0.19, 0.08, 0.08, 0.09, 0.07, 0.14, isFemale ? outfit : '#1e293b', 0.85);
-  addSphere(0.19, 0.08, 0.08, 0.09, 0.07, 0.14, isFemale ? outfit : '#1e293b', 0.85);
-  addLimb(-0.19, 0.10, 0.0, -0.20 + hipShift * 0.3, 0.56, 0.02, 0.075, 0.105, skin, 0.52);
-  addLimb(0.19, 0.10, 0.0, 0.20 + hipShift * 0.3, 0.56, 0.02, 0.075, 0.105, skin, 0.52);
-  addLimb(-0.20 + hipShift * 0.3, 0.56, 0.02, -0.18 + hipShift, 1.04, 0.0, 0.11, isFemale ? 0.165 : 0.155, skin, 0.58);
-  addLimb(0.20 + hipShift * 0.3, 0.56, 0.02, 0.18 + hipShift, 1.04, 0.0, 0.11, isFemale ? 0.165 : 0.155, skin, 0.58);
-
-  // Округлый таз, бёдра и ягодичный рельеф (песочные часы / атлет)
-  const hipW = isFemale ? 0.31 : 0.25;
-  addSphere(hipShift, 1.06, 0.0, hipW, 0.20, 0.22, outfit, 0.78);
-  addSphere(-0.13 + hipShift, 1.03, -0.12, isFemale ? 0.16 : 0.13, 0.16, 0.16, outfit, 0.82);
-  addSphere(0.13 + hipShift, 1.03, -0.12, isFemale ? 0.16 : 0.13, 0.16, 0.16, outfit, 0.82);
-
-  // Осиная талия и гладкий скульптурный торс
-  const waistW = isFemale ? 0.185 : 0.23;
-  addSphere(hipShift * 0.5, 1.28, 0.0, waistW, 0.19, 0.16, isFemale && charDef.corset ? outfit : skin, 0.62);
-  const chestW = isFemale ? 0.25 : 0.32;
-  addSphere(sway * 0.4, 1.54 + breath, 0.0, chestW, 0.24, 0.19, isFemale && charDef.corset ? outfit : skin, 0.68);
-
-  // Рельеф груди / грудных мышц с мягким анатомическим бликом
-  if (isFemale) {{
-    addSphere(-0.125 + sway * 0.4, 1.56 + breath * 1.3, 0.15, 0.135, 0.13, 0.14, skin, 0.76);
-    addSphere(0.125 + sway * 0.4, 1.56 + breath * 1.3, 0.15, 0.135, 0.13, 0.14, skin, 0.76);
-    addSphere(-0.125 + sway * 0.4, 1.53 + breath * 1.3, 0.17, 0.138, 0.105, 0.14, outfit, 0.88);
-    addSphere(0.125 + sway * 0.4, 1.53 + breath * 1.3, 0.17, 0.138, 0.105, 0.14, outfit, 0.88);
-  }} else {{
-    addSphere(-0.13 + sway * 0.4, 1.58 + breath, 0.12, 0.14, 0.11, 0.10, skin, 0.72);
-    addSphere(0.13 + sway * 0.4, 1.58 + breath, 0.12, 0.14, 0.11, 0.10, skin, 0.72);
-    // Кубики пресса и золотая цепь
-    for (let row = 0; row < 3; row++) {{
-      addSphere(-0.055, 1.24 + row * 0.09, 0.14, 0.048, 0.038, 0.04, skin, 0.65);
-      addSphere(0.055, 1.24 + row * 0.09, 0.14, 0.048, 0.038, 0.04, skin, 0.65);
-    }}
-    addSphere(sway * 0.4, 1.72, 0.11, 0.16, 0.04, 0.12, '#fbbf24', 0.95);
-  }}
-
-  // Гладкие плечи, предплечья и кисти рук в грациозной позе
-  const shX = isFemale ? 0.29 : 0.36;
-  const waveArm = Math.sin(t * 3.2 * danceSpeed + phase) * 0.16;
-  addLimb(-shX + sway * 0.4, 1.68, 0.0, -shX - 0.14, 1.38 + waveArm * 0.4, 0.08, 0.075, 0.062, skin, 0.55);
-  addLimb(-shX - 0.14, 1.38 + waveArm * 0.4, 0.08, -0.24 + hipShift, 1.12, 0.12, 0.06, 0.05, skin, 0.55);
-  addLimb(shX + sway * 0.4, 1.68, 0.0, shX + 0.16, 1.48 - waveArm, 0.12, 0.075, 0.062, skin, 0.55);
-  addLimb(shX + 0.16, 1.48 - waveArm, 0.12, shX + 0.06, 1.82 - waveArm, 0.18, 0.06, 0.05, skin, 0.55);
-
-  // Шея, скульптурная голова, пышная причёска, глаза и пухлые губы
-  addLimb(sway * 0.4, 1.74, 0.0, sway * 0.5, 1.92, 0.0, 0.075, 0.07, skin, 0.55);
-  const hx = sway * 0.55, hy = 2.04 + breath * 0.5, hz = 0.02;
-  addSphere(hx, hy, hz, 0.175, 0.205, 0.185, skin, 0.62, 'head');
-
-  // Пышные локоны причёски
-  addSphere(hx, hy + 0.08, hz - 0.04, 0.205, 0.19, 0.20, hair, 0.78);
-  if (isFemale) {{
-    addSphere(hx - 0.16, hy - 0.06, hz - 0.02, 0.095, 0.24, 0.12, hair, 0.75);
-    addSphere(hx + 0.16, hy - 0.06, hz - 0.02, 0.095, 0.24, 0.12, hair, 0.75);
-  }}
-  if (charDef.ears) {{
-    addLimb(hx - 0.11, hy + 0.18, hz, hx - 0.16, hy + 0.48, hz + 0.04, 0.048, 0.032, '#f472b6', 0.85);
-    addLimb(hx + 0.11, hy + 0.18, hz, hx + 0.16, hy + 0.48, hz + 0.04, 0.048, 0.032, '#f472b6', 0.85);
-  }}
-  if (charDef.wings) {{
-    addSphere(sway * 0.4 - 0.28, 1.62, -0.18, 0.24, 0.34, 0.08, '#f8fafc', 0.92);
-    addSphere(sway * 0.4 + 0.28, 1.62, -0.18, 0.24, 0.34, 0.08, '#f8fafc', 0.92);
-  }}
-
-  // Детали лица (выразительные глаза с бликами и пухлые губы)
-  addSphere(hx - 0.062, hy + 0.02, hz + 0.165, 0.032, 0.024, 0.02, '#ffffff', 0.95);
-  addSphere(hx + 0.062, hy + 0.02, hz + 0.165, 0.032, 0.024, 0.02, '#ffffff', 0.95);
-  addSphere(hx - 0.062, hy + 0.02, hz + 0.182, 0.016, 0.016, 0.01, '#1e1b4b', 0.98);
-  addSphere(hx + 0.062, hy + 0.02, hz + 0.182, 0.016, 0.016, 0.01, '#1e1b4b', 0.98);
-  addSphere(hx, hy - 0.075, hz + 0.175, 0.048, 0.022, 0.025, '#e11d48', 0.92);
-
-  const labelP = project3D(bx, by + 2.58, bz);
-  if (labelP) {{
-    prims.push({{
-      kind: 'label',
-      depth: labelP.depth - 0.4,
-      sx: labelP.sx,
-      sy: labelP.sy,
-      name: charDef.name,
-      color: outfit
-    }});
-  }}
-  return prims;
+// 3. ГЕНЕРАТОР ГЛАДКИХ ЗАМКНУТЫХ АНАТОМИЧЕСКИХ 3D-МОДЕЛЕЙ (THREE.LatheGeometry с закрытыми полюсами + Сферические Суставы + PBR)
+function createClosedLathe(points2D, segments = 56, scaleX = 1.0, scaleZ = 1.0, mat) {{
+  const pts = points2D.map(p => new THREE.Vector2(Math.max(0.0005, p[0]), p[1]));
+  const curve = new THREE.SplineCurve(pts);
+  const sampled = curve.getPoints(44);
+  sampled[0].x = 0.0001;
+  sampled[sampled.length - 1].x = 0.0001;
+  const geo = new THREE.LatheGeometry(sampled, segments);
+  geo.scale(scaleX, 1.0, scaleZ);
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
 }}
 
-function render() {{
-  tTick += 0.016;
-  const w = STATE.weather || {{}};
-  if (STATE.camera && STATE.camera.orbit) {{
-    yaw += 0.0035;
-  }}
+function createSmooth3DCharacter(cfg) {{
+  const root = new THREE.Group();
+  root.position.set(cfg.x, 0.18, cfg.z);
+  root.userData = {{ cfg }};
 
-  // Студийный неоновый фон будуара с мягким свечением и зеркальным полом
-  const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  if (w.id === 'sunset') {{
-    bgGrad.addColorStop(0.0, '#2e1035');
-    bgGrad.addColorStop(0.52, '#7c2d52');
-    bgGrad.addColorStop(1.0, '#140c24');
-  }} else {{
-    bgGrad.addColorStop(0.0, '#090616');
-    bgGrad.addColorStop(0.52, '#1e113a');
-    bgGrad.addColorStop(1.0, '#0b0719');
-  }}
-  ctx.fillStyle = bgGrad;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // PBR-материалы: тёплая живая кожа с мягким подповерхностным тоном и глянцевый атлас
+  const skinMat = new THREE.MeshStandardMaterial({{
+    color: cfg.skinHex,
+    emissive: 0x4a160c,
+    emissiveIntensity: 0.18,
+    roughness: 0.36,
+    metalness: 0.03,
+  }});
+  const outfitMat = new THREE.MeshStandardMaterial({{
+    color: cfg.outfitHex,
+    emissive: cfg.outfitHex,
+    emissiveIntensity: 0.14,
+    roughness: 0.18,
+    metalness: 0.26,
+  }});
+  const goldMat = new THREE.MeshStandardMaterial({{
+    color: 0xfbbf24,
+    emissive: 0x78350f,
+    emissiveIntensity: 0.18,
+    roughness: 0.16,
+    metalness: 0.88,
+  }});
+  const hairMat = new THREE.MeshStandardMaterial({{
+    color: cfg.hairHex,
+    roughness: 0.26,
+    metalness: 0.18,
+  }});
 
-  // Мягкие неоновые прожекторы сцены
-  const spot1 = ctx.createRadialGradient(canvas.width * 0.28, canvas.height * 0.22, 10, canvas.width * 0.28, canvas.height * 0.42, canvas.width * 0.45);
-  spot1.addColorStop(0, 'rgba(244, 114, 182, 0.22)');
-  spot1.addColorStop(1, 'rgba(244, 114, 182, 0)');
-  ctx.fillStyle = spot1;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const hipGroup = new THREE.Group();
+  hipGroup.position.y = 0.96;
+  root.add(hipGroup);
 
-  const spot2 = ctx.createRadialGradient(canvas.width * 0.72, canvas.height * 0.25, 10, canvas.width * 0.72, canvas.height * 0.45, canvas.width * 0.45);
-  spot2.addColorStop(0, 'rgba(56, 189, 248, 0.18)');
-  spot2.addColorStop(1, 'rgba(56, 189, 248, 0)');
-  ctx.fillStyle = spot2;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const isF = cfg.isFemale;
 
-  const prims = [];
-
-  // 1. Круглый подиум кабаре, бурлящее круглое VIP-джакузи и бархатная кровать-сердце (гладкие 3D-формы!)
-  const stageP = project3D(0, -0.08, 0);
-  if (stageP) {{
-    prims.push({{
-      kind: 'ellipsoid',
-      depth: stageP.depth + 4.0,
-      sx: stageP.sx,
-      sy: stageP.sy,
-      rx: stageP.scale * 4.8,
-      ry: stageP.scale * 1.35,
-      rot: 0,
-      col: '#1e1b4b',
-      sheen: 0.45
-    }});
-  }}
-  const tubP = project3D(2.9, 0.25, -1.8);
-  if (tubP) {{
-    prims.push({{ kind: 'ellipsoid', depth: tubP.depth + 0.5, sx: tubP.sx, sy: tubP.sy, rx: tubP.scale * 1.45, ry: tubP.scale * 0.52, rot: 0, col: '#fbbf24', sheen: 0.85 }});
-    prims.push({{ kind: 'ellipsoid', depth: tubP.depth + 0.4, sx: tubP.sx, sy: tubP.sy - tubP.scale * 0.08, rx: tubP.scale * 1.25, ry: tubP.scale * 0.40, rot: 0, col: '#38bdf8', sheen: 0.95 }});
-  }}
-  const bedP = project3D(-2.9, 0.28, -1.8);
-  if (bedP) {{
-    prims.push({{ kind: 'ellipsoid', depth: bedP.depth + 0.5, sx: bedP.sx - bedP.scale * 0.42, sy: bedP.sy, rx: bedP.scale * 0.95, ry: bedP.scale * 0.48, rot: -0.25, col: '#e11d48', sheen: 0.78 }});
-    prims.push({{ kind: 'ellipsoid', depth: bedP.depth + 0.5, sx: bedP.sx + bedP.scale * 0.42, sy: bedP.sy, rx: bedP.scale * 0.95, ry: bedP.scale * 0.48, rot: 0.25, col: '#e11d48', sheen: 0.78 }});
-  }}
-
-  // 2. Четыре гладких скульптурных 3D-персонажа на переднем плане
-  const roster = [
-    {{ name: 'Леди Вельвет (3D Кабаре-Дива)', x: -1.85, y: 0.0, z: 0.6, skin: '#f6c2a4', outfit: '#e11d48', hair: '#fbbf24', gender: 'female', corset: true, ears: true, phase: 0.0 }},
-    {{ name: 'Мачо Адонис (3D Пляжный Атлет)', x: -0.55, y: 0.0, z: 0.85, skin: '#c87d52', outfit: '#0284c7', hair: '#27272a', gender: 'male', corset: false, ears: false, phase: 1.4 }},
-    {{ name: 'Кибер-Сирена Неон (3D VIP)', x: 0.75, y: 0.0, z: 0.8, skin: '#f4b895', outfit: '#d946ef', hair: '#38bdf8', gender: 'female', corset: true, ears: false, phase: 2.7 }},
-    {{ name: 'Купидон-Вышибала VIP', x: 2.05, y: 0.0, z: 0.45, skin: '#f4b895', outfit: '#f43f5e', hair: '#fde047', gender: 'female', corset: false, ears: false, wings: true, phase: 4.1 }}
+  // A. Замкнутый бесшовный торс вращения (LatheGeometry от нижнего полюса таза через талию и плечи до макушки шеи)
+  const torsoProfile = isF ? [
+    [0.0001, -0.10],
+    [0.155, -0.06],
+    [0.232, 0.04],   // пышные округлые бёдра
+    [0.195, 0.14],
+    [0.122, 0.27],   // тонкая скульптурная талия («песочные часы»)
+    [0.158, 0.40],
+    [0.185, 0.52],   // грудная клетка
+    [0.198, 0.61],   // плечевой пояс
+    [0.065, 0.68],   // основание шеи
+    [0.054, 0.85],   // верх шеи
+    [0.0001, 0.88],  // закрытый верхний полюс шеи
+  ] : [
+    [0.0001, -0.10],
+    [0.145, -0.05],
+    [0.188, 0.05],   // атлетический таз
+    [0.162, 0.24],   // узкая мужская талия
+    [0.215, 0.44],   // широчайшие мышцы спины (V-торс)
+    [0.258, 0.59],   // широкая мужская грудь
+    [0.272, 0.65],   // мощные плечи
+    [0.075, 0.71],   // шея
+    [0.068, 0.86],
+    [0.0001, 0.89],
   ];
+  const torsoMesh = createClosedLathe(torsoProfile, 64, 1.0, 0.68, skinMat);
+  hipGroup.add(torsoMesh);
 
-  for (const ch of roster) {{
-    prims.push(...buildSmoothCharacterPrimitives(ch, tTick));
-  }}
+  // B. Атласный корсет / боди (замкнутая 3D-оболочка поверх талии и бёдер) или спортивные плавки
+  if (isF) {{
+    const corsetProfile = [
+      [0.0001, -0.08],
+      [0.175, -0.03],
+      [0.236, 0.04],
+      [0.199, 0.14],
+      [0.126, 0.27],
+      [0.162, 0.40],
+      [0.186, 0.48],
+      [0.0001, 0.50],
+    ];
+    const corsetMesh = createClosedLathe(corsetProfile, 64, 1.008, 0.69, outfitMat);
+    hipGroup.add(corsetMesh);
 
-  prims.sort((a, b) => b.depth - a.depth);
+    const waistBelt = new THREE.Mesh(new THREE.TorusGeometry(0.128, 0.009, 16, 64), goldMat);
+    waistBelt.rotation.x = Math.PI / 2;
+    waistBelt.scale.set(1.0, 0.69, 1.0);
+    waistBelt.position.y = 0.27;
+    hipGroup.add(waistBelt);
 
-  for (const pr of prims) {{
-    if (pr.kind === 'ellipsoid') {{
-      drawSmooth3DEllipsoid(pr.sx, pr.sy, pr.rx, pr.ry, pr.rot || 0, pr.col, pr.sheen);
-    }} else if (pr.kind === 'capsule') {{
-      drawSmooth3DCapsule(pr.p1, pr.p2, pr.r1, pr.r2, pr.col, pr.sheen);
-    }} else if (pr.kind === 'label') {{
-      const tag = `♥ ${{pr.name}}`;
-      ctx.font = 'bold 12px Inter, sans-serif';
-      const tw = ctx.measureText(tag).width + 16;
-      ctx.fillStyle = 'rgba(15, 12, 32, 0.86)';
-      ctx.beginPath();
-      ctx.roundRect(pr.sx - tw / 2, pr.sy - 18, tw, 22, 8);
-      ctx.fill();
-      ctx.strokeStyle = pr.color || '#f472b6';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.fillStyle = '#fff';
-      ctx.fillText(tag, pr.sx - tw / 2 + 8, pr.sy - 3);
-    }}
-  }}
+    // Скульптурный 3D-бюст (левая и правая грудь с каплевидным профилем и атласными чашечками)
+    [-1, 1].forEach(sign => {{
+      const bustSkin = new THREE.Mesh(new THREE.SphereGeometry(0.104, 40, 40), skinMat);
+      bustSkin.scale.set(0.95, 0.92, 1.06);
+      bustSkin.position.set(sign * 0.086, 0.50, 0.102);
+      hipGroup.add(bustSkin);
 
-  requestAnimationFrame(render);
-}}
-
-async function sendDirectorPrompt(promptText) {{
-  if (!promptText.trim()) return;
-  try {{
-    const headers = {{ 'Content-Type': 'application/json' }};
-    const tok = localStorage.getItem('bcc_token') || '';
-    if (tok) headers['X-BCC-Token'] = tok;
-    const res = await fetch('/api/game-bootstrap/voxel-director', {{
-      method: 'POST',
-      headers,
-      body: JSON.stringify({{ world_id: STATE.world_id, prompt: promptText }})
+      const bustCup = new THREE.Mesh(new THREE.SphereGeometry(0.107, 40, 40, 0, Math.PI * 2, Math.PI * 0.34, Math.PI * 0.66), outfitMat);
+      bustCup.scale.set(0.96, 0.92, 1.08);
+      bustCup.position.set(sign * 0.086, 0.495, 0.104);
+      hipGroup.add(bustCup);
     }});
-    if (res.ok) {{
-      const next = await res.json();
-      Object.assign(STATE, next);
+
+    // Округлые 3D-ягодицы сзади
+    [-1, 1].forEach(sign => {{
+      const glute = new THREE.Mesh(new THREE.SphereGeometry(0.118, 36, 36), outfitMat);
+      glute.scale.set(0.92, 1.02, 0.95);
+      glute.position.set(sign * 0.085, 0.03, -0.105);
+      hipGroup.add(glute);
+    }});
+  }} else {{
+    const trunksProfile = [
+      [0.0001, -0.09],
+      [0.155, -0.04],
+      [0.192, 0.05],
+      [0.178, 0.12],
+      [0.0001, 0.13],
+    ];
+    const trunksMesh = createClosedLathe(trunksProfile, 56, 1.01, 0.70, outfitMat);
+    hipGroup.add(trunksMesh);
+
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.178, 0.011, 16, 64), goldMat);
+    belt.rotation.x = Math.PI / 2;
+    belt.scale.set(1.0, 0.70, 1.0);
+    belt.position.y = 0.12;
+    hipGroup.add(belt);
+
+    [-1, 1].forEach(sign => {{
+      const pec = new THREE.Mesh(new THREE.SphereGeometry(0.102, 36, 36), skinMat);
+      pec.scale.set(1.12, 0.82, 0.72);
+      pec.position.set(sign * 0.092, 0.54, 0.112);
+      hipGroup.add(pec);
+    }});
+    for (let row = 0; row < 3; row++) {{
+      [-1, 1].forEach(sign => {{
+        const ab = new THREE.Mesh(new THREE.SphereGeometry(0.036, 24, 24), skinMat);
+        ab.scale.set(1.15, 0.85, 0.62);
+        ab.position.set(sign * 0.042, 0.22 + row * 0.078, 0.115);
+        hipGroup.add(ab);
+      }});
     }}
-  }} catch (_e) {{}}
-  updateHud();
-  playChord();
-  if (STATE.soundscape && STATE.soundscape.dialogue_tts) speakLine(STATE.soundscape.dialogue_tts);
+  }}
+
+  // Золотой чокер / медальон на шее
+  const choker = new THREE.Mesh(new THREE.TorusGeometry(isF ? 0.058 : 0.074, 0.008, 16, 48), goldMat);
+  choker.rotation.x = Math.PI / 2;
+  choker.position.y = 0.73;
+  hipGroup.add(choker);
+
+  // C. Замкнутые стройные 3D-ноги со сферическими суставами бедра и колена (никаких срезов цилиндров!)
+  const legGroups = [];
+  [-1, 1].forEach(sign => {{
+    const legRoot = new THREE.Group();
+    legRoot.position.set(sign * (isF ? 0.118 : 0.128), 0.01, 0.0);
+    hipGroup.add(legRoot);
+
+    const thighPts = isF ? [
+      [0.0001, -0.49],
+      [0.066, -0.45],
+      [0.088, -0.26],
+      [0.116, -0.06],
+      [0.105, 0.04],
+      [0.0001, 0.08],
+    ] : [
+      [0.0001, -0.49],
+      [0.072, -0.45],
+      [0.096, -0.26],
+      [0.118, -0.06],
+      [0.108, 0.04],
+      [0.0001, 0.08],
+    ];
+    const thighMesh = createClosedLathe(thighPts, 44, 0.94, 0.96, skinMat);
+    legRoot.add(thighMesh);
+
+    if (isF) {{
+      const garter = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.008, 16, 48), outfitMat);
+      garter.rotation.x = Math.PI / 2;
+      garter.position.y = -0.22;
+      legRoot.add(garter);
+    }}
+
+    const kneeGroup = new THREE.Group();
+    kneeGroup.position.y = -0.45;
+    legRoot.add(kneeGroup);
+
+    const calfPts = [
+      [0.0001, -0.48],
+      [0.042, -0.44],
+      [0.056, -0.28],
+      [0.074, -0.14], // икроножная мышца
+      [0.065, 0.0],
+      [0.0001, 0.04],
+    ];
+    const calfMesh = createClosedLathe(calfPts, 44, 0.94, 0.95, skinMat);
+    kneeGroup.add(calfMesh);
+
+    const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.058, 28, 28), outfitMat);
+    shoe.scale.set(0.82, 0.55, 1.55);
+    shoe.position.set(0, -0.46, 0.035);
+    kneeGroup.add(shoe);
+
+    if (isF) {{
+      const stiletto = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.005, 0.09, 16), goldMat);
+      stiletto.position.set(0, -0.47, -0.025);
+      kneeGroup.add(stiletto);
+    }}
+
+    legGroups.push({{ sign, legRoot, kneeGroup }});
+  }});
+
+  // D. Замкнутые плавные 3D-руки со сферическими плечами и локтями
+  const armGroups = [];
+  [-1, 1].forEach(sign => {{
+    const shGroup = new THREE.Group();
+    shGroup.position.set(sign * (isF ? 0.195 : 0.258), 0.59, 0.0);
+    hipGroup.add(shGroup);
+
+    const deltoid = new THREE.Mesh(new THREE.SphereGeometry(isF ? 0.062 : 0.076, 28, 28), skinMat);
+    shGroup.add(deltoid);
+
+    const upperPts = [
+      [0.0001, -0.30],
+      [0.044, -0.27],
+      [0.054, -0.14],
+      [0.060, 0.0],
+      [0.0001, 0.04],
+    ];
+    const upperArm = createClosedLathe(upperPts, 36, 0.92, 0.92, skinMat);
+    shGroup.add(upperArm);
+
+    const elbowGroup = new THREE.Group();
+    elbowGroup.position.y = -0.27;
+    shGroup.add(elbowGroup);
+
+    const forePts = [
+      [0.0001, -0.28],
+      [0.034, -0.25],
+      [0.042, -0.12],
+      [0.045, 0.0],
+      [0.0001, 0.03],
+    ];
+    const foreArm = createClosedLathe(forePts, 36, 0.90, 0.90, skinMat);
+    elbowGroup.add(foreArm);
+
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.038, 24, 24), skinMat);
+    hand.scale.set(0.75, 1.15, 0.55);
+    hand.position.y = -0.27;
+    elbowGroup.add(hand);
+
+    armGroups.push({{ sign, shGroup, elbowGroup }});
+  }});
+
+  // E. 3D-Голова, Выразительные Глаза, Ресницы, Глянцевые Губы и Объёмные Локоны Волос (TubeGeometry)
+  const headGroup = new THREE.Group();
+  headGroup.position.y = 0.95;
+  hipGroup.add(headGroup);
+
+  const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.146, 48, 48), skinMat);
+  headMesh.scale.set(0.88, 1.06, 0.92);
+  headMesh.castShadow = true;
+  headGroup.add(headMesh);
+
+  // Аккуратный 3D-носик
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.018, 24, 24), skinMat);
+  nose.scale.set(0.75, 1.25, 1.15);
+  nose.position.set(0, -0.01, 0.135);
+  headGroup.add(nose);
+
+  // Миндалевидные 3D-глаза, радужка, зрачок, живой блик и ресницы
+  const scleraMat = new THREE.MeshBasicMaterial({{ color: 0xffffff }});
+  const irisMat = new THREE.MeshBasicMaterial({{ color: cfg.eyeHex }});
+  const pupilMat = new THREE.MeshBasicMaterial({{ color: 0x0f0b1d }});
+  const lashMat = new THREE.MeshBasicMaterial({{ color: 0x1e1122 }});
+
+  [-1, 1].forEach(sign => {{
+    const ex = sign * 0.048;
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.022, 24, 24), scleraMat);
+    sclera.scale.set(1.22, 0.85, 0.55);
+    sclera.position.set(ex, 0.025, 0.125);
+    headGroup.add(sclera);
+
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.013, 20, 20), irisMat);
+    iris.scale.set(1.0, 1.0, 0.45);
+    iris.position.set(ex, 0.025, 0.134);
+    headGroup.add(iris);
+
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.007, 16, 16), pupilMat);
+    pupil.position.set(ex, 0.025, 0.138);
+    headGroup.add(pupil);
+
+    const catchlight = new THREE.Mesh(new THREE.SphereGeometry(0.0032, 12, 12), scleraMat);
+    catchlight.position.set(ex - 0.004, 0.030, 0.141);
+    headGroup.add(catchlight);
+
+    const brow = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.0038, 12, 24, Math.PI * 0.75), lashMat);
+    brow.rotation.z = Math.PI * 0.12 - sign * 0.08;
+    brow.position.set(ex, 0.042, 0.128);
+    headGroup.add(brow);
+  }});
+
+  // Пухлые глянцевые 3D-губы
+  const lipMat = new THREE.MeshStandardMaterial({{ color: isF ? 0xe11d48 : 0xc2594a, roughness: 0.14, metalness: 0.15 }});
+  const lips = new THREE.Mesh(new THREE.SphereGeometry(0.024, 24, 24), lipMat);
+  lips.scale.set(1.38, 0.58, 0.65);
+  lips.position.set(0, -0.058, 0.126);
+  headGroup.add(lips);
+
+  // F. Пышная 3D-причёска из гладких кривых TubeGeometry
+  const crownHair = new THREE.Mesh(new THREE.SphereGeometry(0.154, 40, 40), hairMat);
+  crownHair.scale.set(0.94, 0.95, 0.98);
+  crownHair.position.set(0, 0.035, -0.018);
+  headGroup.add(crownHair);
+
+  if (isF) {{
+    for (let i = 0; i < 12; i++) {{
+      const angle = (i / 11) * Math.PI * 1.35 - Math.PI * 0.175 + Math.PI * 0.5;
+      const side = Math.cos(angle);
+      const back = -Math.abs(Math.sin(angle)) * 0.95;
+      const strandCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(side * 0.08, 0.14, back * 0.06),
+        new THREE.Vector3(side * 0.145, 0.04, back * 0.11 + 0.02),
+        new THREE.Vector3(side * 0.165, -0.14, back * 0.12),
+        new THREE.Vector3(side * 0.145, -0.32, back * 0.09),
+      ]);
+      const strandGeo = new THREE.TubeGeometry(strandCurve, 28, 0.036, 16, false);
+      const strandMesh = new THREE.Mesh(strandGeo, hairMat);
+      headGroup.add(strandMesh);
+    }}
+  }}
+
+  // G. Особые аксессуары (Ушки зайчика Playboy-кабаре или Крылья Купидона)
+  if (cfg.bunnyEars) {{
+    [-1, 1].forEach(sign => {{
+      const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.032, 0.26, 24), outfitMat);
+      ear.scale.set(1.0, 1.0, 0.45);
+      ear.position.set(sign * 0.065, 0.25, 0.0);
+      ear.rotation.z = -sign * 0.16;
+      headGroup.add(ear);
+    }});
+  }}
+  if (cfg.angelWings) {{
+    const wingMat = new THREE.MeshStandardMaterial({{ color: 0xf8fafc, emissive: 0x38bdf8, emissiveIntensity: 0.15, roughness: 0.25 }});
+    [-1, 1].forEach(sign => {{
+      const wingGroup = new THREE.Group();
+      wingGroup.position.set(sign * 0.12, 0.55, -0.11);
+      for (let f = 0; f < 4; f++) {{
+        const feather = new THREE.Mesh(new THREE.SphereGeometry(0.095 - f * 0.012, 24, 24), wingMat);
+        feather.scale.set(1.85, 0.55, 0.28);
+        feather.position.set(sign * (0.14 + f * 0.04), 0.06 - f * 0.065, -0.02);
+        feather.rotation.z = sign * (0.28 - f * 0.14);
+        wingGroup.add(feather);
+      }}
+      hipGroup.add(wingGroup);
+    }});
+  }}
+
+  scene.add(root);
+  return {{ root, hipGroup, headGroup, legGroups, armGroups, cfg }};
 }}
 
-document.getElementById('director-send').addEventListener('click', () => {{
-  const inp = document.getElementById('director-input');
-  sendDirectorPrompt(inp.value);
+const CHAR_CONFIGS = [
+  {{
+    id: 'velvet_diva',
+    name: '♥ Леди Вельвет (3D Дива)',
+    tagColor: '#f472b6',
+    x: -1.68, z: 0.25,
+    isFemale: true,
+    skinHex: 0xe89b78,
+    outfitHex: 0xe11d48,
+    hairHex: 0xfbbf24,
+    eyeHex: 0x38bdf8,
+    bunnyEars: true,
+    phase: 0.0,
+    line: '«Босс, теперь у меня 64-сегментный LatheGeometry корсет и шёлковые изгибы — ни одного вокселя!»'
+  }},
+  {{
+    id: 'pool_adonis',
+    name: '★ Мачо Адонис (3D Атлет)',
+    tagColor: '#38bdf8',
+    x: -0.56, z: 0.12,
+    isFemale: false,
+    skinHex: 0xc6784e,
+    outfitHex: 0x0284c7,
+    hairHex: 0x1e1b2e,
+    eyeHex: 0x10b981,
+    phase: 1.4,
+    line: '«Аргон обучил Боссмана лепить V-торс и 6 кубиков пресса через гладкие сплайны! Шампанское за мой счёт!»'
+  }},
+  {{
+    id: 'cyber_siren',
+    name: '♥ Кибер-Сирена Неон',
+    tagColor: '#c084fc',
+    x: 0.58, z: 0.12,
+    isFemale: true,
+    skinHex: 0xf0a68c,
+    outfitHex: 0x9333ea,
+    hairHex: 0x22d3ee,
+    eyeHex: 0xf472b6,
+    phase: 2.8,
+    line: '«Неоновый шейдер атласа + Subsurface Skin рассеивание света! Нажми [2], чтобы рассмотреть 3D-фигуры вблизи!»'
+  }},
+  {{
+    id: 'cupid_bouncer',
+    name: '♥ Купидон VIP',
+    tagColor: '#fbbf24',
+    x: 1.68, z: 0.25,
+    isFemale: true,
+    skinHex: 0xea9e7c,
+    outfitHex: 0xdb2777,
+    hairHex: 0xfde047,
+    eyeHex: 0x60a5fa,
+    angelWings: true,
+    phase: 4.1,
+    line: '«Крылья Купидона и стрелы соблазна готовы! Мы подняли уровень Боссмана с 5 до 12 лет!»'
+  }}
+];
+
+const characters = CHAR_CONFIGS.map(createSmooth3DCharacter);
+
+// Создаём HTML-бейджи имён под ногами персонажей
+const nameTagsContainer = document.getElementById('nameTags');
+const tagEls = characters.map(ch => {{
+  const el = document.createElement('div');
+  el.className = 'char-tag';
+  el.style.borderColor = ch.cfg.tagColor;
+  el.textContent = ch.cfg.name;
+  nameTagsContainer.appendChild(el);
+  return el;
+}});
+
+// 4. Парящие 3D-сердца и бокалы шампанского вокруг сцены
+const floatingHearts = [];
+for (let i = 0; i < 8; i++) {{
+  const hMesh = new THREE.Mesh(heartGeo, new THREE.MeshStandardMaterial({{ color: i % 2 === 0 ? 0xf472b6 : 0xfbbf24, emissive: 0xbe185d, emissiveIntensity: 0.35, roughness: 0.2 }}));
+  const ang = (i / 8) * Math.PI * 2;
+  hMesh.scale.set(0.18, 0.18, 0.18);
+  hMesh.position.set(Math.cos(ang) * 2.9, 1.4 + (i % 3) * 0.45, Math.sin(ang) * 2.2 - 0.3);
+  scene.add(hMesh);
+  floatingHearts.push({{ mesh: hMesh, ang, baseY: hMesh.position.y, speed: 0.8 + (i % 3) * 0.25 }});
+}}
+
+// 5. Управление 3D-камерой, WASD и 4 кинематографических ракурса (свободный центр экрана для всех 4 голов и фигур!)
+let camYaw = 0.0, camPitch = 0.08, camDist = 5.45;
+let camTarget = new THREE.Vector3(0.0, 1.38, 0.15);
+let danceMode = 1;
+let hypeLevel = 78;
+let champCollected = 3;
+let heartsCollected = 4;
+let activeCharIdx = 0;
+
+function setCameraPreset(preset) {{
+  danceMode = preset;
+  document.querySelectorAll('.cam-btn').forEach((b, idx) => b.classList.toggle('active', idx + 1 === preset));
+  if (preset === 1) {{
+    camYaw = 0.0; camPitch = 0.07; camDist = 5.45;
+    camTarget.set(0.0, 1.38, 0.15);
+  }} else if (preset === 2) {{
+    // Крупный план: изгибы фигур и лица строго в центре экрана ниже HUD
+    camYaw = 0.06; camPitch = 0.04; camDist = 3.85;
+    camTarget.set(0.0, 1.52, 0.18);
+  }} else if (preset === 3) {{
+    // Ракурс 3/4: Танец у пилона и пластика бёдер
+    camYaw = -0.32; camPitch = 0.11; camDist = 5.05;
+    camTarget.set(0.0, 1.36, 0.08);
+  }} else if (preset === 4) {{
+    // VIP-Джакузи и правое крыло сцены
+    camYaw = 0.28; camPitch = 0.12; camDist = 5.10;
+    camTarget.set(0.35, 1.34, -0.05);
+  }}
+}}
+setCameraPreset(initialCamPreset);
+
+function triggerInteraction(action) {{
+  if (action === 'toast') {{
+    champCollected = Math.min(5, champCollected + 1);
+    hypeLevel = Math.min(100, hypeLevel + 15);
+    document.getElementById('dlgText').textContent = '🥂 Шампанское разлито по бокалам! Уровень Соблазна вырос до ' + hypeLevel + '%! Все 4 3D-модели поднимают тост за Босса!';
+  }} else if (action === 'dance') {{
+    setCameraPreset(danceMode === 3 ? 1 : 3);
+    hypeLevel = Math.min(100, hypeLevel + 10);
+    document.getElementById('dlgText').textContent = '💃 Включён режим синхронного Кабаре-Танца! Плавные 3D-вращения талии, бёдер и рук на 60 FPS!';
+  }} else if (action === 'compliment') {{
+    heartsCollected = Math.min(5, heartsCollected + 1);
+    hypeLevel = Math.min(100, hypeLevel + 12);
+    const c = CHAR_CONFIGS[activeCharIdx];
+    document.getElementById('dlgSpeaker').textContent = c.name + ' — В восторге! 💖';
+    document.getElementById('dlgText').textContent = c.line;
+  }} else if (action === 'next_char') {{
+    activeCharIdx = (activeCharIdx + 1) % CHAR_CONFIGS.length;
+    const c = CHAR_CONFIGS[activeCharIdx];
+    document.getElementById('dlgSpeaker').textContent = c.name + ' — Интерактивный Флирт-Диалог';
+    document.getElementById('dlgText').textContent = c.line;
+    camTarget.set(c.x * 0.45, 1.38, 0.18);
+  }}
+  document.getElementById('champCount').textContent = String(champCollected);
+  document.getElementById('heartCount').textContent = String(heartsCollected);
+  document.getElementById('hypeVal').textContent = hypeLevel + '%';
+  document.getElementById('hypeFill').style.width = hypeLevel + '%';
+}}
+
+// Клик по 3D-персонажам через THREE.Raycaster
+const raycaster = new THREE.Raycaster();
+const mouseVec = new THREE.Vector2();
+let isDragging = false, prevX = 0, prevY = 0, dragDelta = 0;
+
+canvas.addEventListener('mousedown', e => {{ isDragging = true; prevX = e.clientX; prevY = e.clientY; dragDelta = 0; }});
+window.addEventListener('mouseup', e => {{
+  if (isDragging && dragDelta < 6) {{
+    mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouseVec, camera);
+    for (let i = 0; i < characters.length; i++) {{
+      const hits = raycaster.intersectObjects(characters[i].root.children, true);
+      if (hits.length > 0) {{
+        activeCharIdx = i;
+        triggerInteraction('compliment');
+        break;
+      }}
+    }}
+  }}
+  isDragging = false;
+}});
+window.addEventListener('mousemove', e => {{
+  if (!isDragging) return;
+  const dx = e.clientX - prevX, dy = e.clientY - prevY;
+  dragDelta += Math.abs(dx) + Math.abs(dy);
+  camYaw -= dx * 0.0065;
+  camPitch = Math.max(-0.15, Math.min(0.65, camPitch + dy * 0.0055));
+  prevX = e.clientX; prevY = e.clientY;
+}});
+canvas.addEventListener('wheel', e => {{
+  camDist = Math.max(2.3, Math.min(9.5, camDist + e.deltaY * 0.003));
+}});
+
+const keys = {{}};
+window.addEventListener('keydown', e => {{
+  keys[e.code] = true;
+  if (e.key === '1') setCameraPreset(1);
+  if (e.key === '2') setCameraPreset(2);
+  if (e.key === '3') setCameraPreset(3);
+  if (e.key === '4') setCameraPreset(4);
+  if (e.code === 'KeyE') triggerInteraction('next_char');
+}});
+window.addEventListener('keyup', e => {{ keys[e.code] = false; }});
+
+async function sendDirectorPrompt() {{
+  const inp = document.getElementById('promptInput');
+  const text = (inp.value || '').trim();
+  if (!text) return;
   inp.value = '';
-}});
-document.getElementById('director-input').addEventListener('keydown', (e) => {{
-  if (e.key === 'Enter') document.getElementById('director-send').click();
-}});
-document.getElementById('pose-toggle').addEventListener('click', () => {{
-  danceSpeed = danceSpeed > 1.5 ? 1.0 : 2.35;
-  playChord();
-}});
-document.querySelectorAll('.chip').forEach((btn) => {{
-  btn.addEventListener('click', () => sendDirectorPrompt(btn.dataset.cmd));
-}});
-document.getElementById('audio-toggle').addEventListener('click', (e) => {{
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  audioEnabled = !audioEnabled;
-  e.target.textContent = audioEnabled ? 'Звук: ВКЛ' : 'Вкл. звук';
-  if (audioEnabled) playChord();
-}});
-
-let dragging = false, lastX = 0, lastY = 0;
-canvas.addEventListener('mousedown', (e) => {{ dragging = true; lastX = e.clientX; lastY = e.clientY; }});
-window.addEventListener('mouseup', () => {{ dragging = false; }});
-window.addEventListener('mousemove', (e) => {{
-  if (!dragging) return;
-  yaw -= (e.clientX - lastX) * 0.006;
-  pitch = Math.max(-0.85, Math.min(0.45, pitch - (e.clientY - lastY) * 0.005));
-  lastX = e.clientX; lastY = e.clientY;
-}});
-canvas.addEventListener('wheel', (e) => {{
-  camDist = Math.max(4.2, Math.min(13.5, camDist + e.deltaY * 0.004));
+  try {{
+    const r = await fetch('/api/game-bootstrap/voxel-director', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{ world_id: WORLD_ID, prompt: text, reset_world: false }})
+    }});
+    if (r.ok) {{
+      worldState = await r.json();
+      document.getElementById('bWeather').textContent = 'Погода: ' + ((worldState.weather && worldState.weather.label) || 'Ночь');
+      document.getElementById('dlgText').textContent = '🎬 Боссман выполнил команду Режиссёра: «' + text + '»!';
+    }}
+  }} catch (err) {{
+    console.warn(err);
+  }}
+}}
+document.getElementById('promptInput').addEventListener('keydown', e => {{
+  if (e.key === 'Enter') sendDirectorPrompt();
 }});
 
-updateHud();
-render();
+window.addEventListener('resize', () => {{
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}});
+
+// 6. Главный 60 FPS WebGL2 цикл анимации (пластика бёдер, дыхание грудной клетки, взмахи рук СНАРУЖИ силуэта)
+const clock = new THREE.Clock();
+function animate() {{
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  const moveSpeed = 0.035;
+  if (keys['KeyW'] || keys['ArrowUp']) camDist = Math.max(2.3, camDist - moveSpeed);
+  if (keys['KeyS'] || keys['ArrowDown']) camDist = Math.min(9.5, camDist + moveSpeed);
+  if (keys['KeyA'] || keys['ArrowLeft']) camYaw -= moveSpeed * 0.6;
+  if (keys['KeyD'] || keys['ArrowRight']) camYaw += moveSpeed * 0.6;
+
+  const speedMult = danceMode === 3 ? 2.1 : 1.15;
+  characters.forEach((ch, idx) => {{
+    const ph = t * speedMult + ch.cfg.phase;
+    const sway = Math.sin(ph * 2.0);
+    const breathe = Math.sin(ph * 3.2) * 0.015;
+
+    // Плавное покачивание бёдер и талии
+    ch.hipGroup.position.x = sway * 0.042;
+    ch.hipGroup.position.y = 0.96 + Math.abs(sway) * 0.020 + breathe;
+    ch.hipGroup.rotation.z = sway * 0.055;
+    ch.hipGroup.rotation.y = Math.cos(ph * 1.5) * (danceMode === 3 ? 0.28 : 0.14);
+
+    // Кокетливый наклон головы
+    ch.headGroup.rotation.z = -sway * 0.07;
+    ch.headGroup.rotation.y = Math.sin(ph * 1.2) * 0.12;
+
+    // Постановка ног (одна нога опорная, другая слегка согнута в колене)
+    ch.legGroups.forEach(lg => {{
+      lg.legRoot.rotation.z = -sway * 0.045;
+      lg.legRoot.rotation.x = lg.sign * sway * 0.07;
+      lg.kneeGroup.rotation.x = Math.max(0, (lg.sign * sway) * 0.18);
+    }});
+
+    // Грациозная пластика рук СНАРУЖИ тела (левая рука на бедре, правая приветствует вверху)
+    ch.armGroups.forEach(ag => {{
+      if (ag.sign < 0) {{
+        // Левая рука (x < 0): плечо отводится влево (-Z rot), локоть сгибается обратно к талии (+Z rot)
+        ag.shGroup.rotation.z = -0.38;
+        ag.shGroup.rotation.x = 0.08;
+        ag.elbowGroup.rotation.z = 0.76 + sway * 0.06;
+        ag.elbowGroup.rotation.x = -0.15;
+      }} else {{
+        // Правая рука (x > 0): плечо отводится вправо (+Z rot), предплечье поднято вверх в приветствии (+Z rot)
+        ag.shGroup.rotation.z = 0.56 + Math.sin(ph * 2.4) * 0.12;
+        ag.shGroup.rotation.x = -0.15;
+        ag.elbowGroup.rotation.z = 1.62 + Math.cos(ph * 2.4) * 0.22;
+        ag.elbowGroup.rotation.x = 0.20;
+      }}
+    }});
+  }});
+
+  // Анимация пузырьков джакузи и парящих сердец
+  bubbles.forEach(b => {{
+    b.mesh.position.y = b.baseY + ((t * b.speed + b.phase) % 0.42);
+  }});
+  floatingHearts.forEach(h => {{
+    h.mesh.position.y = h.baseY + Math.sin(t * h.speed + h.ang) * 0.12;
+    h.mesh.rotation.y = t * 0.9 + h.ang;
+  }});
+
+  camera.position.x = camTarget.x + Math.sin(camYaw) * Math.cos(camPitch) * camDist;
+  camera.position.y = camTarget.y + Math.sin(camPitch) * camDist;
+  camera.position.z = camTarget.z + Math.cos(camYaw) * Math.cos(camPitch) * camDist;
+  camera.lookAt(camTarget);
+
+  renderer.render(scene, camera);
+
+  // Обновляем координаты именных плашек под ногами персонажей
+  characters.forEach((ch, idx) => {{
+    const footPos = new THREE.Vector3(ch.cfg.x, 0.12, ch.cfg.z + 0.22);
+    footPos.project(camera);
+    const sx = (footPos.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-footPos.y * 0.5 + 0.5) * window.innerHeight;
+    tagEls[idx].style.left = sx + 'px';
+    tagEls[idx].style.top = sy + 'px';
+  }});
+}}
+
+animate();
+window.__BOSSBLOCKS_READY = true;
 </script>
 </body>
 </html>"""

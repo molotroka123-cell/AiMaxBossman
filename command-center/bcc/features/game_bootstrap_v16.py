@@ -179,7 +179,8 @@ def telegram_control() -> dict:
     }
 
 
-from fastapi.responses import HTMLResponse
+from pathlib import Path
+from fastapi.responses import HTMLResponse, Response
 
 from ._voxel_director import (
     BLOCK_PALETTE,
@@ -198,6 +199,14 @@ from ._voxel_director import (
 router = APIRouter()
 
 
+@router.get("/game-bootstrap/three.min.js")
+async def game_bootstrap_three_js():
+    vendor_js = Path(__file__).resolve().parent.parent / "ui" / "vendor" / "three.min.js"
+    if vendor_js.is_file():
+        return Response(content=vendor_js.read_bytes(), media_type="application/javascript")
+    return Response(content=b"/* three.min.js not found */", media_type="application/javascript", status_code=404)
+
+
 @router.get("/game-bootstrap/status")
 async def game_bootstrap_status():
     return {
@@ -208,6 +217,7 @@ async def game_bootstrap_status():
         "execution": "PLAN_ONLY; use existing Bossman download/terminal/verifier paths",
         "voxel_director": {
             "enabled": True,
+            "engine": "Three.js WebGL2 Smooth LatheGeometry PBR + Godot 4.7.2 CapsuleMesh",
             "weather_presets": list(WEATHER_PRESETS.keys()),
             "camera_presets": list(CAMERA_PRESETS.keys()),
             "block_palette": list(BLOCK_PALETTE.values()),
@@ -236,3 +246,4 @@ async def game_bootstrap_play(world_id: str = "bossblocks-local-01"):
 
 
 FEATURE = Feature(name="game_bootstrap_v16", router=router)
+
