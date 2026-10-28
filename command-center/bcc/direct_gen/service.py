@@ -506,7 +506,19 @@ class DirectGenService:
             if live.get("ram_total_mb") is not None and live.get("ram_used_mb") is not None:
                 memory = {"measured": True, "total_mb": live["ram_total_mb"], "used_mb": live["ram_used_mb"],
                           "free_mb": live["ram_total_mb"] - live["ram_used_mb"]}
-        return {"runtime": runtime, "sd_cli": {"present": self.sd_bin.is_file()}, "resident": self._resident_info(), "memory": memory, "queue": {"running": self._running, "waiting": len(self._waiting)},
+        resident_info = self._resident_info()
+        photo_ok = self.sd_bin.is_file()
+        photo_active = ("sd-server" if resident_info and resident_info.get("loaded") else "sd-cli") if photo_ok else None
+        # Honest backend indicator (master prompt 28.10): photo models run on sd-cli/sd-server and never need ComfyUI;
+        # video workflow models do. `active` = what would run a job right now, not a wish.
+        backends = {
+            "photo": {"active": photo_active, "available": photo_ok,
+                      "resident_mode": self._resident_mode if resident_info else None,
+                      "reason": "" if photo_ok else "sd-cli не найден: фото-модели недоступны"},
+            "video": {"active": "comfyui" if runtime["reachable"] else None, "available": bool(runtime["reachable"]),
+                      "reason": runtime.get("reason", ""),
+                      "note": "" if runtime["reachable"] else "Видео-модели требуют ComfyUI; фото от него не зависит"}}
+        return {"runtime": runtime, "backends": backends, "sd_cli": {"present": photo_ok}, "resident": resident_info, "memory": memory, "queue": {"running": self._running, "waiting": len(self._waiting)},
                 "assist": await self.assist_status()}
 
     # ---------- warm queue (resident engine) ----------

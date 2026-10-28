@@ -732,6 +732,11 @@ const DirectGenPage = {
         h('div.dg-row',
           pill(st.runtime.reachable ? 'ComfyUI на связи' : 'ComfyUI недоступен', { tone: st.runtime.reachable ? 'ok' : 'warn' }),
           pill(st.sd_cli && st.sd_cli.present ? 'sd-cli на месте' : 'sd-cli не найден', { tone: st.sd_cli && st.sd_cli.present ? 'ok' : 'err' })),
+        st.backends ? h('div.dg-row',
+          pill(st.backends.photo.active ? `Фото: ${st.backends.photo.active === 'sd-server' ? 'резидент sd-server' : 'sd-cli на задачу'}` : 'Фото: нет движка',
+            { tone: st.backends.photo.active ? 'ok' : 'err' }),
+          pill(st.backends.video.active ? 'Видео: ComfyUI' : 'Видео: ComfyUI недоступен', { tone: st.backends.video.active ? 'ok' : 'warn' })) : null,
+        st.backends && st.backends.video.note ? h('div.dg-small', st.backends.video.note) : null,
         st.runtime.reason ? h('div.dg-small', st.runtime.reason) : null,
         st.memory.measured
           ? meter('Память', st.memory.used_mb, st.memory.total_mb, `занято ${Math.round(st.memory.used_mb / 1024)} из ${Math.round(st.memory.total_mb / 1024)} ГБ · свободно ${Math.round(st.memory.free_mb / 1024)} ГБ`)
