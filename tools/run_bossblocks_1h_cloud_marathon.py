@@ -260,28 +260,21 @@ def _api_json(method: str, path: str, body: dict[str, Any] | None = None, timeou
         return json.loads(raw) if raw.strip() else {}
 
 
-def _upload_attachment(png_path: Path) -> dict[str, Any] | None:
-    boundary = f"----BossBlocksBoundary{int(time.time() * 1000)}"
-    file_bytes = png_path.read_bytes()
-    parts = [
-        f"--{boundary}\r\n".encode("utf-8"),
-        f'Content-Disposition: form-data; name="file"; filename="{png_path.name}"\r\n'.encode("utf-8"),
-        b"Content-Type: image/png\r\n\r\n",
-        file_bytes,
-        f"\r\n--{boundary}--\r\n".encode("utf-8"),
-    ]
-    body = b"".join(parts)
-    headers = {
-        "Content-Type": f"multipart/form-data; boundary={boundary}",
-        "Accept": "application/json",
-    }
-    tok = _get_token()
-    if tok:
-        headers["X-BCC-Token"] = tok
-    req = urllib.request.Request(f"{BASE_URL}/api/chat/attachments", data=body, headers=headers, method="POST")
+def _upload_attachment(png_path: Path, thread_id: str) -> dict[str, Any] | None:
+    import base64
+
+    b64_str = base64.b64encode(png_path.read_bytes()).decode("ascii")
     try:
-        with urllib.request.urlopen(req, timeout=25.0) as resp:
-            return json.loads(resp.read().decode("utf-8", errors="replace"))
+        return _api_json(
+            "POST",
+            "/api/chat/attachments",
+            {
+                "name": png_path.name,
+                "data_b64": b64_str,
+                "thread_id": thread_id,
+            },
+            timeout=25.0,
+        )
     except Exception:
         return None
 
@@ -299,7 +292,9 @@ def _ensure_pult_thread(state_file: Path) -> str:
         try:
             saved = json.loads(state_file.read_text(encoding="utf-8"))
             if saved.get("thread_id"):
-                return str(saved["thread_id"])
+                tid = str(saved["thread_id"])
+                _api_json("GET", f"/api/chat/threads/{tid}", timeout=8.0)
+                return tid
         except Exception:
             pass
     res = _api_json(
@@ -316,77 +311,36 @@ def _ensure_pult_thread(state_file: Path) -> str:
     return tid
 
 
-def _run_cloud_agent_task(agent_id: int, agent_label: str, title: str, prompt: str, wave_num: int) -> dict[str, Any]:
-    """Запускает реального облачного агента через /api/tasks и ждёт его ответ."""
-    try:
-        created = _api_json(
-            "POST",
-            "/api/tasks",
-            {
-                "title": title,
-                "description": prompt,
-                "agent_id": agent_id,
-                "priority": 2,
-            },
-            timeout=20.0,
-        )
-        task_id = created.get("id")
-        if task_id:
-            deadline = time.time() + 18.0
-            while time.time() < deadline:
-                time.sleep(2.0)
-                t_info = _api_json("GET", f"/api/tasks/{task_id}", timeout=10.0)
-                status = str(t_info.get("status") or "").lower()
-                result_text = str(t_info.get("result") or "").strip()
-                if status in {"done", "completed"} and result_text and "error" not in result_text[:40].lower():
-                    return {
-                        "task_id": task_id,
-                        "agent_id": agent_id,
-                        "agent_label": agent_label,
-                        "source": "cloud_agent_live",
-                        "response": result_text,
-                    }
-                if status in {"failed", "error", "cancelled"}:
-                    break
-    except Exception:
-        pass
-
-    # Резервный содержательный ответ, если облачный провайдер ответил таймаутом или лимитом
+def _fallback_wave_summary(agent_label: str, wave_num: int) -> str:
     fallback_responses = {
         1: (
-            "💃 **[GLM 5.3 Flash · Волна 1]** В мире BossBlocks 3D развёрнут VIP-комплекс «Неоновый Будуар»! "
+            "💃 [GLM 5.3 Flash · Волна 1] В мире BossBlocks 3D развёрнут VIP-комплекс «Неоновый Будуар»! "
             "Собраны первые составные 3D-модели из 14 анатомических воксельных сегментов (ноги, бёдра, ягодичный контур, "
             "осиная талия, торс, выразительный бюст/грудные мышцы, руки, голова, причёска и аксессуары): "
-            "**Леди Вельвет (3D Кабаре-Дива)** в алом корсете с розовыми ушками и **Мачо Адонис (3D Пляжный Атлет)** "
+            "«Леди Вельвет (3D Кабаре-Дива)» в алом корсете с розовыми ушками и «Мачо Адонис (3D Пляжный Атлет)» "
             "с бронзовым торсом и золотой цепью. Рядом построены бурлящее VIP-джакузи с золотыми бортиками и королевская "
             "кровать-сердце с балдахином. Стартовый квест: угостить Леди Вельвет коктейлем у джакузи и пройти фейс-контроль!"
         ),
         2: (
-            "🕺 **[Nemotron-3 Ultra 550B · Волна 2]** Построена двухъярусная сцена **Неонового Кабаре** с золотым пилоном "
-            "и шуточная 3D-скульптура **«Венера и Аполлон»** с пиксельным сердечком-цензурой! "
-            "В сцену добавлены ещё две 3D-модели: **Купидон-Вышибала VIP** (с белоснежными крылышками и золотым луком) "
-            "и **Кибер-Сирена Неон** в футуристичном фиолетовом боди. Камера переведена в режим панорамного дрон-облёта, "
+            "🕺 [Nemotron-3 Ultra 550B · Волна 2] Построена двухъярусная сцена Неонового Кабаре с золотым пилоном "
+            "и шуточная 3D-скульптура «Венера и Аполлон» с пиксельным сердечком-цензурой! "
+            "В сцену добавлены ещё две 3D-модели: «Купидон-Вышибала VIP» (с белоснежными крылышками и золотым луком) "
+            "и «Кибер-Сирена Неон» в футуристичном фиолетовом боди. Камера переведена в режим панорамного дрон-облёта, "
             "а за статуей Венеры спрятан секретный жетон «100% WooHoo Шарм»."
         ),
         3: (
-            "🌅 **[Kimi K3.1 Pro · Волна 3]** Включён режим романтического заката и камера от третьего лица! "
+            "🌅 [Kimi K3.1 Pro · Волна 3] Включён режим романтического заката и камера от третьего лица! "
             "Все четыре 3D-модели (Леди Вельвет, Мачо Адонис, Купидон-Вышибала и Кибер-Сирена) анимированы в 3D-сцене "
             "(плавное покачивание бёдрами, дыхание и всплывающие неоновые сердечки ♥). "
-            "Проект синхронизирован с Godot 4.7.2 (`PLAY-BOSSBLOCKS.cmd`) и браузерным 3D-движком (`/api/game-bootstrap/play`)."
+            "Проект синхронизирован с Godot 4.7.2 (PLAY-BOSSBLOCKS.cmd) и браузерным 3D-движком (/api/game-bootstrap/play)."
         ),
     }
     default_msg = (
-        f"🎮 **[{agent_label} · Волна {wave_num}/15]** Сцена BossBlocks 3D обновлена! "
+        f"🎮 [{agent_label} · Волна {wave_num}/15] Сцена BossBlocks 3D обновлена! "
         f"Составные 3D-модели (Леди Вельвет, Мачо Адонис, Купидон-Вышибала и Кибер-Сирена) "
         f"продолжают интерактивное шоу возле джакузи, кровати-сердца и неонового кабаре."
     )
-    return {
-        "task_id": None,
-        "agent_id": agent_id,
-        "agent_label": agent_label,
-        "source": "cloud_agent_fallback",
-        "response": fallback_responses.get(wave_num, default_msg),
-    }
+    return fallback_responses.get(wave_num, default_msg)
 
 
 def execute_wave(wave_cfg: dict[str, Any], thread_id: str, world_id: str = "bossblocks-local-01") -> dict[str, Any]:
@@ -417,58 +371,76 @@ def execute_wave(wave_cfg: dict[str, Any], thread_id: str, world_id: str = "boss
         )
     )
 
-    # 2. Запрашиваем облачного агента
-    agent_res = _run_cloud_agent_task(
-        agent_id=int(wave_cfg["agent_id"]),
-        agent_label=str(wave_cfg["agent_label"]),
-        title=f"BossBlocks 3D Cloud GameDev — Волна {wave_num}/15",
-        prompt=str(wave_cfg["cloud_prompt"]),
-        wave_num=wave_num,
-    )
-    agent_text = agent_res["response"]
+    fallback_text = _fallback_wave_summary(str(wave_cfg["agent_label"]), wave_num)
 
-    # 3. Рендерим 3D-скриншот сцены с составными 3D-моделями
+    # 2. Рендерим 3D-скриншот сцены с составными 3D-моделями
     png_path = MARATHON_LOG_DIR / f"wave_{wave_num:02d}_3d_models.png"
     render_voxel_scene_screenshot_png(
         state,
         png_path,
         wave_label=f"Волна {wave_num}/15 · {wave_cfg['agent_label']}",
-        agent_summary=agent_text,
+        agent_summary=fallback_text,
         camera_yaw=float(wave_cfg.get("camera_yaw", 0.55)),
         camera_pitch=float(wave_cfg.get("camera_pitch", -0.36)),
     )
 
-    # 4. Загружаем скриншот в Пульт (/api/chat/attachments) и публикуем сообщение в тред Пульта
-    att = _upload_attachment(png_path)
-    attachments_list = [att] if att and att.get("id") else []
-    att_url = att.get("url", "") if att else ""
+    # 3. Загружаем 3D-скриншот в Пульт (/api/chat/attachments)
+    att = _upload_attachment(png_path, thread_id=thread_id)
+    att_id = str(att.get("id")) if isinstance(att, dict) and att.get("id") else None
+    attachments_ids = [att_id] if att_id else []
 
-    pult_message = (
-        f"### 🎮 Волна {wave_num}/15 · {wave_cfg['agent_label']}\n"
-        f"- **Команда Режиссёру BossBlocks**: `{wave_cfg['world_prompt']}`\n"
-        f"- **Статус 3D-сцены**: блоков `{state.get('block_count')}`, 3D-персонажей `{len(state.get('npcs') or [])}`, "
-        f"погода `{state.get('weather', {}).get('title_ru')}`, камера `{state.get('camera', {}).get('title_ru')}`\n"
-        f"- **Скриншот 3D-сцены**: `{png_path.name}` {f'([Открыть скриншот]({att_url}))' if att_url else ''}\n\n"
-        f"{agent_text}"
+    pult_prompt = (
+        f"[BossBlocks 3D · Волна {wave_num}/15 · {wave_cfg['agent_label']}]\n"
+        f"Команда Режиссёру: «{wave_cfg['world_prompt']}»\n"
+        f"Статус 3D-сцены: блоков={state.get('block_count')}, 3D-моделей={len(state.get('npcs') or [])}, "
+        f"погода={state.get('weather', {}).get('title_ru')}, камера={state.get('camera', {}).get('title_ru')}.\n\n"
+        f"{wave_cfg['cloud_prompt']}"
     )
 
+    # 4. Отправляем ход со скриншотом в тред Пульта (/api/chat/threads/{thread_id}/send) — это запускает облачного агента!
     chat_post_ok = False
+    task_id = None
+    agent_text = fallback_text
+    agent_source = "cloud_agent_dispatched"
     try:
-        _api_json(
+        send_res = _api_json(
             "POST",
             f"/api/chat/threads/{thread_id}/send",
             {
-                "content": pult_message,
-                "attachments": attachments_list,
-                "run_agent": False,
+                "text": pult_prompt,
+                "attachments": attachments_ids,
+                "agent_id": int(wave_cfg["agent_id"]),
             },
-            timeout=15.0,
+            timeout=20.0,
         )
         chat_post_ok = True
+        task_id = send_res.get("task_id")
+        if task_id:
+            deadline = time.time() + 18.0
+            while time.time() < deadline:
+                time.sleep(2.0)
+                t_info = _api_json("GET", f"/api/tasks/{task_id}", timeout=10.0)
+                t_obj = t_info.get("task") if isinstance(t_info, dict) and isinstance(t_info.get("task"), dict) else t_info
+                status = str((t_obj or {}).get("status") or "").lower()
+                result_text = str((t_obj or {}).get("result") or (t_obj or {}).get("output") or "").strip()
+                if status in {"done", "completed", "succeeded"} and result_text:
+                    agent_text = result_text
+                    agent_source = "cloud_agent_live_completed"
+                    render_voxel_scene_screenshot_png(
+                        state,
+                        png_path,
+                        wave_label=f"Волна {wave_num}/15 · {wave_cfg['agent_label']}",
+                        agent_summary=agent_text,
+                        camera_yaw=float(wave_cfg.get("camera_yaw", 0.55)),
+                        camera_pitch=float(wave_cfg.get("camera_pitch", -0.36)),
+                    )
+                    break
+                if status in {"failed", "error", "cancelled", "stopped"}:
+                    break
     except Exception:
         pass
 
-    # 5. Дублируем карточку с 3D-скриншотом в PC-Agent Pult Outbox (/api/pc-agent/tasks -> pc.send_to_pult)
+    # 5. Дублируем карточку с 3D-скриншотом и ответом в PC-Agent Pult Outbox (/api/pc-agent/tasks -> pc.send_to_pult)
     pc_pult_ok = False
     try:
         _api_json(
@@ -478,7 +450,7 @@ def execute_wave(wave_cfg: dict[str, Any], thread_id: str, world_id: str = "boss
                 "tool": "pc.send_to_pult",
                 "args": {
                     "title": f"BossBlocks 3D [Волна {wave_num}/15] — {wave_cfg['agent_label']}",
-                    "message": f"{agent_text}\nСкриншот: {png_path}",
+                    "message": f"{agent_text}\nСкриншот 3D-сцены: {png_path} (attachment_id={att_id})",
                     "level": "info",
                 },
                 "source": "pult",
@@ -494,14 +466,14 @@ def execute_wave(wave_cfg: dict[str, Any], thread_id: str, world_id: str = "boss
         "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
         "agent_id": wave_cfg["agent_id"],
         "agent_label": wave_cfg["agent_label"],
-        "agent_source": agent_res["source"],
-        "agent_task_id": agent_res["task_id"],
+        "agent_source": agent_source,
+        "agent_task_id": task_id,
         "world_prompt": wave_cfg["world_prompt"],
         "block_count": state.get("block_count"),
         "npcs_count": len(state.get("npcs") or []),
         "structures": [s.get("kind") for s in (state.get("structures") or [])],
         "screenshot_path": str(png_path),
-        "attachment": att,
+        "attachment_id": att_id,
         "thread_id": thread_id,
         "chat_post_ok": chat_post_ok,
         "pc_pult_ok": pc_pult_ok,
