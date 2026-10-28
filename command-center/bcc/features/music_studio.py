@@ -722,6 +722,13 @@ async def task(task_id: str, request: Request):
 
 @router.post("/tasks/{task_id}/save")
 async def save(task_id: str, request: Request):
+    body: dict = {}
+    with contextlib.suppress(Exception):
+        raw = await request.json()
+        body = raw if isinstance(raw, dict) else {}
+    master_preset = body.get("master")
+    if master_preset is not None and master_preset not in STUDIO_MASTER_FILTERS:
+        raise HTTPException(422, f"unknown master preset: {str(master_preset)[:40]}")
     state = await task(task_id, request)
     if state.get("status") != "completed":
         raise HTTPException(409, "music task is not completed")
@@ -750,14 +757,24 @@ async def save(task_id: str, request: Request):
     path.write_bytes(payload)
     await request.app.state.svc.bus.emit("music.generation.saved", task_id=task_id,
                                          sha256=digest, bytes=len(payload))
-    return {"task_id": task_id, "status": "saved", "path": str(path),
-            "sha256": digest, "bytes": len(payload), "provider": PROVIDER}
+    out = {"task_id": task_id, "status": "saved", "path": str(path),
+           "sha256": digest, "bytes": len(payload), "provider": PROVIDER}
+    if master_preset:
+        try:
+            out["master"] = await asyncio.to_thread(master_audio_track, path,
+                                                    root / f"{task_id}-{digest[:12]}-{master_preset}.mp3",
+                                                    preset=master_preset)
+        except (RuntimeError, FileNotFoundError, ValueError) as exc:
+            # The raw track is saved either way; a failed master is reported, never silently dropped.
+            out["master"] = {"status": "failed", "preset": master_preset, "error": str(exc)[:300]}
+    return out
 
 
 @router.get("/presets")
 async def presets():
     return {"items": [
         {"id": "phonk", "label": "Phonk", "prompt": "dark aggressive phonk, distorted cowbell melody, punchy 808 bass, Memphis-inspired drums, instrumental", "bpm": 130},
+        {"id": "brazilian-phonk", "label": "Brazilian Phonk", "prompt": "brazilian phonk, hype aggressive funk mandelao drums, heavily distorted 808 bass slides, bright saturated cowbell lead, chopped vocal shouts as texture, instrumental", "bpm": 130, "master": "hype"},
         {"id": "drift-phonk", "label": "Drift Phonk", "prompt": "high-energy drift phonk, saturated cowbells, hard clipped 808, fast driving drums, instrumental", "bpm": 150},
         {"id": "ultrafunk", "label": "Ultra Funk", "prompt": "ultrafunk, heavy club bass, chopped rhythmic vocal textures, aggressive electronic percussion", "bpm": 130},
         {"id": "nightcore", "label": "Nightcore", "prompt": "fast bright nightcore-inspired electronic pop, energetic drums, high-register vocal treatment", "bpm": 170},
@@ -796,7 +813,39 @@ STUDIO_MASTER_FILTERS: dict[str, str] = {
         "extrastereo=m=1.12,"
         "loudnorm=I=-14:TP=-1.0:LRA=11[out]"
     ),
+    # Music 2.0 (27.10): loud club/phonk master. The chain lands NEAR the target; master_audio_track then
+    # measures EBU R128 and corrects the gain, so the number returned is measured, not assumed.
+    "hype": (
+        "highpass=f=30:poles=2,"
+        "equalizer=f=55:t=q:w=1.0:g=2.5,"
+        "equalizer=f=300:t=q:w=1.6:g=-2.0,"
+        "acompressor=threshold=-18dB:ratio=3:attack=10:release=150:makeup=3,"
+        "loudnorm=I=-9:TP=-1.0:LRA=7"
+    ),
 }
+MASTER_TARGET_LUFS: dict[str, float] = {"studio_veo": -14.0, "vocal_cover": -14.0, "hype": -9.0}
+LUFS_TOLERANCE = 0.7          # corrective pass when the measured loudness misses the target by more than this
+TRUE_PEAK_CEILING_DB = -1.0
+
+
+def measure_loudness(path: Path, ffmpeg: str | None = None) -> dict[str, float]:
+    """Measure integrated loudness (LUFS), true peak (dBTP) and duration with FFmpeg ebur128."""
+    ffmpeg = ffmpeg or _find_ffmpeg()
+    if not ffmpeg:
+        raise RuntimeError("ffmpeg не найден для замера громкости")
+    proc = subprocess.run([ffmpeg, "-hide_banner", "-nostats", "-i", str(path), "-af", "ebur128=peak=true",
+                           "-f", "null", "-"], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                          timeout=180, check=False)
+    log = proc.stderr or ""
+    summary = log.rsplit("Summary:", 1)[-1]
+    i_m = re.search(r"I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", summary)
+    p_m = re.search(r"Peak:\s*(-?\d+(?:\.\d+)?|-inf)\s*dBFS", summary)
+    d_m = re.findall(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)", log)
+    if not i_m:
+        raise RuntimeError(f"замер громкости не удался (exit={proc.returncode})")
+    peak = float("-inf") if not p_m or p_m.group(1) == "-inf" else float(p_m.group(1))
+    h, m, s = d_m[-1] if d_m else ("0", "0", "0")
+    return {"lufs": float(i_m.group(1)), "true_peak_dbtp": peak, "duration_s": round(int(h) * 3600 + int(m) * 60 + float(s), 2)}
 
 
 def _find_ffmpeg() -> str | None:
@@ -869,16 +918,38 @@ def master_audio_track(
         )
         if ogg_proc.returncode == 0 and ogg_target.is_file():
             ogg_path = str(ogg_target)
+    eff_preset = "vocal_cover" if (eff_vocal and instrumental_path) else (preset if preset in STUDIO_MASTER_FILTERS else "studio_veo")
+    target = MASTER_TARGET_LUFS.get(eff_preset, -14.0)
+    measured = measure_loudness(out, ffmpeg)
+    passes = 1
+    # Single-pass loudnorm undershoots on dense material (phonk: -10.4 for a -9 target, measured 27.10).
+    # Correct with plain gain into a true-peak limiter, at most twice, and report what was measured.
+    while abs(measured["lufs"] - target) > LUFS_TOLERANCE and passes < 3:
+        gain = target - measured["lufs"]
+        fixed = out.with_name(f"{out.stem}.fix{passes}{out.suffix}")
+        limit = 10 ** (TRUE_PEAK_CEILING_DB / 20)
+        proc = subprocess.run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(out), "-af",
+                               f"volume={gain:.2f}dB,alimiter=limit={limit:.4f}:level=false", "-ar", "44100",
+                               *codec_args, str(fixed)], capture_output=True, text=True, timeout=180, check=False)
+        if proc.returncode != 0 or not fixed.is_file():
+            break
+        fixed.replace(out)
+        measured = measure_loudness(out, ffmpeg)
+        passes += 1
     data = out.read_bytes()
     return {
         "status": "mastered",
-        "preset": "vocal_cover" if (eff_vocal and instrumental_path) else preset,
+        "preset": eff_preset,
         "output_path": str(out),
         "ogg_path": ogg_path,
         "bytes": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
-        "target_lufs": -14.0,
-        "true_peak_dbtp": -1.0,
+        "target_lufs": target,
+        "measured_lufs": measured["lufs"],
+        "true_peak_dbtp": measured["true_peak_dbtp"],
+        "duration_s": measured["duration_s"],
+        "passes": passes,
+        "within_tolerance": abs(measured["lufs"] - target) <= LUFS_TOLERANCE,
     }
 
 
