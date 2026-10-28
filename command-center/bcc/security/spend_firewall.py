@@ -10,12 +10,14 @@ Enforces:
 """
 from __future__ import annotations
 
+import ipaddress
 import os
 import secrets
 import threading
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Mapping
+from urllib.parse import urlsplit
 
 
 class SpendFirewallError(RuntimeError):
@@ -124,68 +126,87 @@ class SpendFirewall:
                 cpu_seconds=self._cost_vector.cpu_seconds,
             )
 
+    @staticmethod
+    def _host(url: str) -> str | None:
+        """Hostname of a URL, parsed (not searched): `http://127.0.0.1@evil.example/` has the host evil.example."""
+        if not url:
+            return None
+        try:
+            host = urlsplit(url if "://" in url else "//" + url).hostname
+        except ValueError:
+            return None
+        return host.lower().rstrip(".") if host else None
+
+    @staticmethod
+    def _is_loopback(host: str) -> bool:
+        if host == "localhost":
+            return True
+        try:
+            return ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return False
+
     def is_free_model(
         self,
         provider: dict[str, Any] | str,
         model: dict[str, Any] | str,
         pricing: Mapping[str, Any] | None = None,
     ) -> bool:
-        """Check if model invocation is provably $0.00 / free."""
-        # 1. Local providers are always zero dollar cost
+        """Check if model invocation is provably $0.00 / free.
+
+        Audit 28.10: this used to look for the text «127.0.0.1»/«localhost» ANYWHERE in the provider URL (a host label like
+        127.0.0.1.attacker.example, a path or user@ part was enough), treated any model name ending in :free as free on every
+        provider, and let a free flag win over a real price. Now: the URL is parsed and only a loopback HOST is local, `:free`
+        counts only on OpenRouter, and an explicit non-zero price makes a non-local call paid whatever the flags say."""
         provider_kind = ""
         provider_url = ""
         if isinstance(provider, dict):
-            provider_kind = str(provider.get("kind") or "")
+            provider_kind = str(provider.get("kind") or "").lower()
             provider_url = str(provider.get("base_url") or "")
         elif isinstance(provider, str):
             provider_url = provider
-
-        is_local = (
-            "127.0.0.1" in provider_url
-            or "localhost" in provider_url
-            or provider_kind in ("ollama", "local", "llama_cpp", "vllm")
-        )
-        if is_local and not any(cloud_tag in str(model).lower() for cloud_tag in (":cloud", "-cloud")):
-            return True
-
-        # 2. OpenRouter or generic model name checks
+        host = self._host(provider_url)
         model_name = ""
         if isinstance(model, dict):
             model_name = str(model.get("name") or model.get("alias") or "")
         elif isinstance(model, str):
             model_name = model
 
-        if model_name.endswith(":free"):
+        # 1. Local: a loopback host. Without any URL only the kind label is left to go on.
+        if host is not None:
+            is_local = self._is_loopback(host)
+        else:
+            is_local = provider_kind in ("ollama", "local", "llama_cpp", "vllm")
+        if is_local and not any(tag in model_name.lower() for tag in (":cloud", "-cloud")):
             return True
 
-        # 3. Check pricing dictionary
+        def _to_float(v: Any) -> float:
+            if v is None:
+                return 0.0
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return 0.0
+
+        prices: list[float] = []
+        prompt_cost = completion_cost = price_in = price_out = None
         if pricing is not None:
-            prompt_cost = pricing.get("prompt")
-            completion_cost = pricing.get("completion")
-            price_in = pricing.get("price_in")
-            price_out = pricing.get("price_out")
+            prompt_cost, completion_cost = pricing.get("prompt"), pricing.get("completion")
+            price_in, price_out = pricing.get("price_in"), pricing.get("price_out")
+            prices = [_to_float(prompt_cost), _to_float(completion_cost), _to_float(price_in), _to_float(price_out)]
+        if any(v > 0.0 for v in prices):
+            return False                              # an explicit price beats every flag and every name
 
-            def _to_float(v: Any) -> float:
-                if v is None:
-                    return 0.0
-                try:
-                    return float(v)
-                except (ValueError, TypeError):
-                    return 0.0
-
-            vals = [
-                _to_float(prompt_cost),
-                _to_float(completion_cost),
-                _to_float(price_in),
-                _to_float(price_out),
-            ]
-            if all(v == 0.0 for v in vals) and (prompt_cost is not None or price_in is not None):
-                return True
-
-        if isinstance(model, dict) and model.get("free") is True:
+        # 2. OpenRouter :free models (the suffix means nothing on any other provider)
+        on_openrouter = provider_kind == "openrouter" or (host is not None and (host == "openrouter.ai" or host.endswith(".openrouter.ai")))
+        if on_openrouter and model_name.endswith(":free"):
             return True
 
-        return False
+        # 3. Declared price of zero (a missing price is NOT zero)
+        if pricing is not None and prices and all(v == 0.0 for v in prices) and (prompt_cost is not None or price_in is not None):
+            return True
+
+        return isinstance(model, dict) and model.get("free") is True
 
     def verify_pre_call_free_or_authorized(
         self,
