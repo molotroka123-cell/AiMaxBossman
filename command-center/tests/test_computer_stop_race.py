@@ -243,7 +243,10 @@ async def test_stop_survives_restart(env, gated):
 async def test_stop_and_resume_are_not_model_callable(env):
     names = set(REGISTRY.names())
     computer = {n for n in names if n.startswith("computer.")}
-    assert computer == {"computer.observe", "computer.act"}
+    # 28.10: computer.processes is a READ-only listing (audit D-034); the set stays pinned so a stop/resume tool
+    # can never slip in unnoticed.
+    assert computer == {"computer.observe", "computer.act", "computer.processes"}
+    assert REGISTRY.get("computer.processes").category == "read"
     assert not any("stop" in n or "resume" in n for n in computer)
     assert "stop" not in tc.KINDS and "resume" not in tc.KINDS
     # A session cookie without the CSRF header is refused: a foreign page cannot press the button.
