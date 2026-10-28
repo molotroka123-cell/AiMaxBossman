@@ -1,0 +1,128 @@
+{
+ "proof": "music-studio-2.0",
+ "sha": "e7fd180b6f995a0356a4f5bc5bdbe8324ccd40c8",
+ "base": "http://127.0.0.1:8811",
+ "service_status": "READY",
+ "date": "2026-10-27T19:41:54",
+ "thresholds_fixed_before_run": true,
+ "verdict_counts": {
+  "PASS": 0,
+  "FAIL": 3
+ },
+ "tracks": [
+  {
+   "id": "phonk_130",
+   "preset": "hype",
+   "bpm_requested": 130,
+   "bpm_measured": "NOT_MEASURED",
+   "verdict": "FAIL",
+   "checks": [
+    {
+     "check": "duration 60±1.5 s",
+     "ok": true
+    },
+    {
+     "check": "loudness -9.0±1.0 LUFS",
+     "ok": true
+    },
+    {
+     "check": "true peak <= -0.9 dBTP",
+     "ok": false
+    },
+    {
+     "check": "no silence > 2 s",
+     "ok": false
+    },
+    {
+     "check": "server-reported loudness matches the file (±0.3)",
+     "ok": true
+    }
+   ],
+   "measured_lufs": -9.5,
+   "true_peak_dbtp": 0.4,
+   "duration_s": 60.0,
+   "max_silence_s": 8.460091,
+   "server_passes": 2,
+   "raw_path": "D:\\Bossman\\work\\music2-sandbox\\data\\music\\fcc2c0ff-4ea8-4847-9491-f712907b1649-a4d9e860ee1a.mp3",
+   "master_path": "D:\\Bossman\\work\\music2-sandbox\\data\\music\\fcc2c0ff-4ea8-4847-9491-f712907b1649-a4d9e860ee1a-hype.mp3",
+   "master_sha256": "5097a3e36083565deb83f0061ef595669483d7288f535aa2820b084884170b73",
+   "gen_seconds": 125
+  },
+  {
+   "id": "brazilian_phonk_140",
+   "preset": "hype",
+   "bpm_requested": 140,
+   "bpm_measured": "NOT_MEASURED",
+   "verdict": "FAIL",
+   "checks": [
+    {
+     "check": "duration 60±1.5 s",
+     "ok": true
+    },
+    {
+     "check": "loudness -9.0±1.0 LUFS",
+     "ok": true
+    },
+    {
+     "check": "true peak <= -0.9 dBTP",
+     "ok": false
+    },
+    {
+     "check": "no silence > 2 s",
+     "ok": false
+    },
+    {
+     "check": "server-reported loudness matches the file (±0.3)",
+     "ok": true
+    }
+   ],
+   "measured_lufs": -9.4,
+   "true_peak_dbtp": 0.3,
+   "duration_s": 60.0,
+   "max_silence_s": 5.908277,
+   "server_passes": 3,
+   "raw_path": "D:\\Bossman\\work\\music2-sandbox\\data\\music\\e6c70efb-83c7-47c4-bbc4-def45ec1234d-ec10389adc9e.mp3",
+   "master_path": "D:\\Bossman\\work\\music2-sandbox\\data\\music\\e6c70efb-83c7-47c4-bbc4-def45ec1234d-ec10389adc9e-hype.mp3",
+   "master_sha256": "f1cd9e245a5f9a2b4ca61f233460d337f187a679e71e0fea5c0b64d709b9358f",
+   "gen_seconds": 112
+  },
+  {
+   "id": "lofi_85",
+   "preset": "studio_veo",
+   "bpm_requested": 85,
+   "bpm_measured": "NOT_MEASURED",
+   "verdict": "FAIL",
+   "checks": [
+    {
+     "check": "duration 60±1.5 s",
+     "ok": true
+    },
+    {
+     "check": "loudness -14.0±1.0 LUFS",
+     "ok": true
+    },
+    {
+     "check": "true peak <= -0.9 dBTP",
+     "ok": false
+    },
+    {
+     "check": "no silence > 2 s",
+     "ok": false
+    },
+    {
+     "check": "server-reported loudness matches the file (±0.3)",
+     "ok": true
+    }
+   ],
+   "measured_lufs": -14.3,
+   "true_peak_dbtp": -0.6,
+   "duration_s": 60.0,
+   "max_silence_s": 4.090748,
+   "server_passes": 1,
+   "raw_path": "D:\\Bossman\\work\\music2-sandbox\\data\\music\\2c6c837a-efdd-4a5f-9792-041bc471c618-2c01f43864a5.mp3",
+   "master_path": "D:\\Bossman\\work\\music2-sandbox\\data\\music\\2c6c837a-efdd-4a5f-9792-041bc471c618-2c01f43864a5-studio_veo.mp3",
+   "master_sha256": "38624374d267f732b5b313c3d4ad5c7ef990e8d4f1f2e0a93a337e2fedde3dd7",
+   "gen_seconds": 110
+  }
+ ]
+}

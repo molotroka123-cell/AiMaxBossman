@@ -45,7 +45,7 @@ def test_hype_master_lands_on_minus_9_with_true_peak_under_ceiling(tmp_path: Pat
     res = music.master_audio_track(_noise(tmp_path / "src.wav"), tmp_path / "out.mp3", preset="hype")
     assert res["target_lufs"] == -9.0
     assert abs(res["measured_lufs"] - -9.0) <= music.LUFS_TOLERANCE, res
-    assert res["true_peak_dbtp"] <= -0.5, res          # mp3 re-encode can add a little overshoot
+    assert res["true_peak_dbtp"] <= -0.9, res          # oversampled limiter keeps mp3 under the ceiling (27.10 proof: was +0.4)
     assert res["within_tolerance"] is True
     # the reported number is the file's real loudness, re-measured independently
     assert abs(music.measure_loudness(Path(res["output_path"]))["lufs"] - res["measured_lufs"]) < 0.2
@@ -56,6 +56,20 @@ def test_negative_control_streaming_preset_keeps_its_own_minus_14_target(tmp_pat
     res = music.master_audio_track(_noise(tmp_path / "src.wav"), tmp_path / "out.mp3", preset="studio_veo")
     assert res["target_lufs"] == -14.0
     assert abs(res["measured_lufs"] - -14.0) <= music.LUFS_TOLERANCE, res
+
+
+@needs_ffmpeg
+def test_trailing_silence_is_cut_and_track_ends_at_the_requested_length(tmp_path: Path) -> None:
+    # 16 s of music + 6 s of dead air, like ACE-Step tails measured 27.10; ask for 14 s.
+    music_part = _noise(tmp_path / "m.wav", seconds=16)
+    padded = tmp_path / "padded.wav"
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(music_part), "-af", "apad=pad_dur=6",
+                    str(padded)], check=True, capture_output=True)
+    res = music.master_audio_track(padded, tmp_path / "out.mp3", preset="hype", target_duration_s=14)
+    assert abs(res["duration_s"] - 14) <= 0.3, res
+    log = subprocess.run([FFMPEG, "-hide_banner", "-nostats", "-i", res["output_path"], "-af", "silencedetect=n=-45dB:d=2",
+                          "-f", "null", "-"], capture_output=True, text=True, errors="replace").stderr
+    assert "silence_start" not in log
 
 
 class _Req:
