@@ -28,16 +28,25 @@
 | Модели на новом SSD D: — холодная загрузка быстрее в 1.28–2.47×, «тёплые» прогоны без выигрыша | PROVEN | [2026-10-24-ssd](docs/audits/2026-10-24-ssd/verdict.json) |
 | Голосовой ответ: медианная задержка 8.7–11.2 с → 4.8 с | PROVEN (измерено) | [2026-10-24-voice](docs/audits/2026-10-24-voice/receipt.json) |
 | Две линии защиты ПК + матрица доказательств инструментов и навыков | PROVEN | [2026-10-22-pc-defense](docs/audits/2026-10-22-pc-defense/AUDIT_RU.md), [2026-10-22-tools-skills-proof](docs/audits/2026-10-22-tools-skills-proof/PROOF_MATRIX_RU.md), [2026-10-26-argon-pc-agent-master](docs/audits/2026-10-26-argon-pc-agent-master/receipt.json) |
+| Верхняя панель: ядро и необязательные адаптеры разделены — внешний провайдер без ключа больше не красит исправный локальный сервер в «сбой» (было «сбой», стало «ядро в норме 24/24») | PROVEN | [topbar_health_split_receipt](docs/audits/2026-10-28-live-proofs/topbar_health_split_receipt.json) |
+| Музыка: ACE-Step запускается по требованию под арендой памяти (старт 174 с, −9.6 LUFS, темп 130 измерен, а не угадан) | PROVEN | [music_ondemand_receipt](docs/audits/2026-10-28-live-proofs/music_ondemand_receipt.json) |
+| Мобильный пульт: голос «удерживай микрофон» (MediaRecorder → ffmpeg → локальный Whisper → текст). Проверено в настоящем Chrome с тестовым микрофоном, на iPhone пока нет | PROVEN (Chrome) | [push_to_talk_receipt](docs/audits/2026-10-28-live-proofs/push_to_talk_receipt.json) |
+| Инструмент `browser.active_tab_info`: настоящие адрес и заголовок активной вкладки Chrome, только чтение, только loopback | PROVEN | [browser_active_tab_info_receipt](docs/audits/2026-10-28-live-proofs/browser_active_tab_info_receipt.json) |
+| Защита Windows: дерево процессов команды убивается Job Object-ом (терминал и `pc.run_command`), PowerShell разбирается по синтаксическому дереву, пути к секретам канонизируются, журнал `audit.jsonl` защищён от 20 из 20 способов тронуть его. Часть блоков ещё не подключена везде | BETA | [FREEZE_AUDIT_FINDINGS_RU](docs/audits/2026-10-28-live-proofs/FREEZE_AUDIT_FINDINGS_RU.md) |
+| Честные статусы: найдены и убраны выдуманные артефакты (Video Studio 2.0 «7 из 7» на деле 0 из 7, не подключено), мобильный пульт без фасадов, фильтр «бесплатных» моделей больше не обходится | PROVEN | [FREEZE_AUDIT_FINDINGS_RU](docs/audits/2026-10-28-live-proofs/FREEZE_AUDIT_FINDINGS_RU.md) |
+| Самоправка по настоящему дефекту (D-036): дефект воспроизведён на `main`, локальные воркеры патча не дали | NOT_PROVEN | [2026-10-28-self-repair-d036](docs/audits/2026-10-28-self-repair-d036) |
 | Заработок B: заказы фотостудии — цена, себестоимость по реальным секундам генерации, маржа | BETA, выручка NOT_RUN | [2026-10-24-earn-studio-orders](docs/audits/2026-10-24-earn-studio-orders/receipt.json) |
 | Заработок A: платный помощник по документам, счёт на банковский перевод | BETA, выручка NOT_RUN | [2026-10-24-earn-paid-docs](docs/audits/2026-10-24-earn-paid-docs/receipt.json) |
 | Заработок C: досье по тендеру из открытых данных (офлайн) | BETA, выручка NOT_RUN | [2026-10-24-earn-tender-dossier](docs/audits/2026-10-24-earn-tender-dossier/receipt.json) |
 | Заработок D: аудит сайта (стоматологии) с уликами на каждую находку, без рассылки | BETA, выручка NOT_RUN | [2026-10-24-earn-site-audit](docs/audits/2026-10-24-earn-site-audit/receipt.json) |
 | Решение спорных вопросов голосованием трёх моделей (`tools/three_model_audit.py`) | BETA | [2026-10-24-three-model-audit](docs/audits/2026-10-24-three-model-audit/trademark-gate.json) |
 | War Terminal (`apps/war-terminal`, :8830) — открытые данные тендеров | BETA | — |
-| Jeff (бот-участник в Telegram) | OFF — пауза, пока владелец не возобновит | — |
+| Jeff (бот-участник в Telegram) | ON — включён владельцем 28.10; причина прежней паузы (непонятная рассылка) до конца не установлена | — |
 | Аренда GPU (RunPod и аналоги) | OFF — запрещено | — |
 
-Что **не** доказано: самоулучшение с переносом опыта (Tier 5), суточный/двухсуточный soak, реальная выручка.
+Что **не** доказано: самоулучшение с переносом опыта (Tier 5), полный цикл самоправки (D-036), суточный/двухсуточный soak,
+реальная выручка. Video Studio 2.0 не подключена к генератору; `SpendFirewall` включается по желанию владельца, а не
+по умолчанию.
 Список таких утверждений — [CLAIMS_NOT_PROVEN.md](CLAIMS_NOT_PROVEN.md) и
 [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md).
 
