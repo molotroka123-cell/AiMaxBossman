@@ -294,12 +294,12 @@ def _is_global_stop_active() -> bool:
         return False
 
 
-def _ensure_pult_thread(state_file: Path) -> int:
+def _ensure_pult_thread(state_file: Path) -> str:
     if state_file.is_file():
         try:
             saved = json.loads(state_file.read_text(encoding="utf-8"))
-            if isinstance(saved.get("thread_id"), int):
-                return int(saved["thread_id"])
+            if saved.get("thread_id"):
+                return str(saved["thread_id"])
         except Exception:
             pass
     res = _api_json(
@@ -310,7 +310,7 @@ def _ensure_pult_thread(state_file: Path) -> int:
             "agent_id": 44,
         },
     )
-    tid = int(res.get("id", 1))
+    tid = str(res.get("id") or res.get("thread_id") or "default")
     state_file.parent.mkdir(parents=True, exist_ok=True)
     state_file.write_text(json.dumps({"thread_id": tid}, ensure_ascii=False, indent=2), encoding="utf-8")
     return tid
@@ -332,9 +332,9 @@ def _run_cloud_agent_task(agent_id: int, agent_label: str, title: str, prompt: s
         )
         task_id = created.get("id")
         if task_id:
-            deadline = time.time() + 38.0
+            deadline = time.time() + 18.0
             while time.time() < deadline:
-                time.sleep(2.2)
+                time.sleep(2.0)
                 t_info = _api_json("GET", f"/api/tasks/{task_id}", timeout=10.0)
                 status = str(t_info.get("status") or "").lower()
                 result_text = str(t_info.get("result") or "").strip()
@@ -389,7 +389,7 @@ def _run_cloud_agent_task(agent_id: int, agent_label: str, title: str, prompt: s
     }
 
 
-def execute_wave(wave_cfg: dict[str, Any], thread_id: int, world_id: str = "bossblocks-local-01") -> dict[str, Any]:
+def execute_wave(wave_cfg: dict[str, Any], thread_id: str, world_id: str = "bossblocks-local-01") -> dict[str, Any]:
     wave_num = int(wave_cfg["wave"])
     MARATHON_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
