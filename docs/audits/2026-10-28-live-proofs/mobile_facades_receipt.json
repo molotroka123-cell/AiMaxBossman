@@ -1,0 +1,13 @@
+{
+  "finding": "five routes of the mobile pult api.py (from the 15-branch 2x freeze) returned invented results",
+  "date": "2026-10-28",
+  "facades": [
+    {"route": "GET /m/api/pc/screen-stream", "was": "a 1x1 blank PNG as the frame, width/height hardcoded 1920x1080, touch_to_act_enabled true, active_window always Desktop", "now": "real PIL ImageGrab frame (JPEG, max 1280 px), real source size and scale, real foreground title, 503 when it cannot be captured, privacy blacklist blocks the whole frame, touch_to_act_enabled false"},
+    {"route": "POST /m/api/pc/touch-preview", "was": "invented element InteractiveControl and tier", "now": "element only if the client sent it, element_resolved false, executed false"},
+    {"route": "POST /m/api/voice/turn", "was": "any audio became 'Голосовая команда владельца' with the reply 'Принял ... Выполняю в контуре' and a made-up task id; nothing was started", "now": "audio goes through ffmpeg and the local Whisper, text passes through, reply empty, task_id null, executed false"},
+    {"route": "POST /m/api/tasks/{id}/rollback", "was": "status rolled_back + 'completed' on ANY upstream failure (the upstream path did not even exist)", "now": "calls the real /api/pc-agent/tasks/{id}/rollback and passes its answer or its error through"},
+    {"route": "GET /m/api/tasks/{id}/blast-radius", "was": "network_used false, cost_usd 0.0, no affected files, empty diff for a route Bossman does not have", "now": "501 BM_BLAST_UNAVAILABLE"}
+  ],
+  "tests": "tests/test_mobile_no_facades.py 16 passed (incl. the real desktop grab by pixel statistics) ; whole mobile suite 333 passed",
+  "not_proven": "the same routes on the owner's live pult :8840 (old build); element lookup under the finger (UIA) and executing a tap from the phone are not built; blast-radius needs a real Bossman route"
+}

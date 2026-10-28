@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
+import io
 import json
 import mimetypes
 import re
@@ -1575,67 +1576,87 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     require_owner = session
     require_csrf = session
 
-    @app.get("/m/api/pc/screen-stream")
-    async def m_pc_screen_stream(_=Depends(require_owner)):
-        """Returns PC screen frame/preview with automatic PRIVACY_BLACKLIST filtering and coordinates for Touch-to-Act."""
-        active_window = "Desktop"
-        privacy_filtered = False
-        privacy_culprit = None
+    # The five routes below used to be facades (audit 28.10, «функции доказаны, а не обёрнуты»): a 1x1 blank PNG as «the screen»,
+    # an invented element in the tap preview, a fabricated transcript and «выполняю» for any voice input, «rolled_back» on every
+    # failure, and «network_used: false, $0, no files» for a route Bossman does not have. Now each one does the real thing or
+    # says plainly that it cannot.
+
+    def _foreground_title() -> str:
         try:
             import ctypes
             user32 = ctypes.windll.user32
+            hwnd = user32.GetForegroundWindow()
+            n = user32.GetWindowTextLengthW(hwnd)
+            buf = ctypes.create_unicode_buffer(n + 1)
+            user32.GetWindowTextW(hwnd, buf, n + 1)
+            return buf.value.strip()
+        except Exception:
+            return ""
+
+    def _blacklisted_window() -> str | None:
+        """Title of the first visible window that matches PRIVACY_BLACKLIST, else None."""
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            found: list[str] = []
             WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
-            def _cb_enum(hwnd, _lparam):
-                nonlocal privacy_filtered, privacy_culprit, active_window
+
+            def _cb(hwnd, _lparam):
                 if user32.IsWindowVisible(hwnd):
                     length = user32.GetWindowTextLengthW(hwnd)
                     if length > 0:
                         buf = ctypes.create_unicode_buffer(length + 1)
                         user32.GetWindowTextW(hwnd, buf, length + 1)
                         title = buf.value.strip()
-                        title_lc = title.lower()
-                        for bl in PRIVACY_BLACKLIST:
-                            if bl in title_lc:
-                                privacy_filtered = True
-                                privacy_culprit = title
-                                return False
+                        if any(bl in title.lower() for bl in PRIVACY_BLACKLIST):
+                            found.append(title)
+                            return False
                 return True
-            user32.EnumWindows(WNDENUMPROC(_cb_enum), 0)
+            user32.EnumWindows(WNDENUMPROC(_cb), 0)
+            return found[0] if found else None
         except Exception:
-            pass
+            return None
 
-        blank_png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
-        if privacy_filtered:
-            return safe({
-                "ok": True,
-                "frame_base64": "",
-                "privacy_filtered": True,
-                "privacy_reason": f"blacklisted_app: {privacy_culprit}",
-                "touch_to_act_enabled": False,
-                "width": 1920,
-                "height": 1080,
-                "scale_factor": 1.0,
-                "coordinates_space": {"min_x": 0, "max_x": 1920, "min_y": 0, "max_y": 1080},
-                "timestamp": time.time(),
-            })
+    def _grab_screen() -> tuple[bytes, int, int, int, int]:
+        """(jpeg, frame_w, frame_h, screen_w, screen_h) of the primary screen; raises RuntimeError when it cannot be captured."""
+        try:
+            from PIL import ImageGrab
+            img = ImageGrab.grab().convert("RGB")
+        except Exception as exc:
+            raise RuntimeError(f"снимок экрана не получен ({type(exc).__name__})") from None
+        sw, sh = img.size
+        if sw > 1280:
+            img = img.resize((1280, max(1, round(sh * 1280 / sw))))
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=70)
+        return buf.getvalue(), img.size[0], img.size[1], sw, sh
 
-        return safe({
-            "ok": True,
-            "frame_base64": blank_png_b64,
-            "privacy_filtered": False,
-            "privacy_reason": None,
-            "active_window": active_window,
-            "touch_to_act_enabled": True,
-            "width": 1920,
-            "height": 1080,
-            "scale_factor": 1.0,
-            "coordinates_space": {"min_x": 0, "max_x": 1920, "min_y": 0, "max_y": 1080},
-            "timestamp": time.time(),
-        })
+    @app.get("/m/api/pc/screen-stream")
+    async def m_pc_screen_stream(_=Depends(require_owner)):
+        """One REAL frame of the PC screen (JPEG, at most 1280 px wide). Any visible window on PRIVACY_BLACKLIST blocks the
+        frame entirely. If the screen cannot be captured the answer says so: never a blank picture dressed up as a frame."""
+        culprit = await asyncio.to_thread(_blacklisted_window)
+        if culprit:
+            return safe({"ok": True, "frame_base64": "", "privacy_filtered": True,
+                         "privacy_reason": f"blacklisted_app: {culprit}", "touch_to_act_enabled": False,
+                         "timestamp": time.time()})
+        try:
+            jpeg, fw, fh, sw, sh = await asyncio.to_thread(_grab_screen)
+        except RuntimeError as exc:
+            raise fail(503, str(exc), "BM_SCREEN_UNAVAILABLE",
+                       "экран недоступен: сеанс заблокирован или нет интерактивного рабочего стола") from None
+        return safe({"ok": True, "frame_base64": base64.b64encode(jpeg).decode("ascii"), "mime": "image/jpeg",
+                     "privacy_filtered": False, "privacy_reason": None,
+                     "active_window": await asyncio.to_thread(_foreground_title),
+                     "frame_width": fw, "frame_height": fh, "width": sw, "height": sh, "scale_factor": round(sw / fw, 4),
+                     "coordinates_space": {"min_x": 0, "max_x": sw, "min_y": 0, "max_y": sh},
+                     # a tap can be previewed, but nothing executes it from the phone yet
+                     "touch_to_act_enabled": False, "timestamp": time.time()})
 
     @app.post("/m/api/pc/touch-preview")
     async def m_pc_touch_preview(request: Request, _=Depends(require_csrf)):
-        """Touch-to-Act preview: receives {x, y} tap on phone, determines UI element, returns action preview card."""
+        """Preview of a tap at {x, y}. It does NOT find the element under the finger (no UIA lookup here): `element` is only
+        what the client sent, and `element_resolved` says so. Nothing is executed."""
         try:
             body = await request.json()
         except Exception:
@@ -1649,92 +1670,65 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             y = float(body["y"])
         except (ValueError, TypeError):
             raise fail(422, "координаты x и y должны быть числами", "BM_INVALID_COORDINATES")
-
-        tier = "T2" if body.get("tier") in ("T1", "T2") else "T2"
-        element_name = str(body.get("element") or "InteractiveControl")
-        action_preview = f"Tap at ({x:.1f}, {y:.1f}) targeting {element_name}"
-        return safe({
-            "ok": True,
-            "tier": tier,
-            "action_preview": action_preview,
-            "requires_approval": True,
-            "target": {
-                "x": x,
-                "y": y,
-                "element": element_name,
-                "bounds": [max(0.0, x - 25.0), max(0.0, y - 15.0), x + 25.0, y + 15.0],
-            },
-            "timestamp": time.time(),
-        })
+        element = str(body.get("element") or "").strip() or None
+        return safe({"ok": True, "tier": "T2",
+                     "action_preview": f"Нажатие в точке ({x:.0f}, {y:.0f})" + (f" по элементу «{element}»" if element else ""),
+                     "requires_approval": True, "executed": False,
+                     "target": {"x": x, "y": y, "element": element, "element_resolved": False},
+                     "timestamp": time.time()})
 
     @app.post("/m/api/voice/turn")
     async def m_voice_turn(request: Request, _=Depends(require_csrf)):
-        """Push-to-Talk duplex from phone: receives audio/text, returns STT transcription, Jeff reply, task_id."""
+        """Voice input: `audio_b64` is transcribed by the LOCAL Whisper (the chain of /m/api/speech/transcribe); `text` passes
+        through. It never starts a task and never invents a reply or an execution: `executed` is False and the owner sends
+        the text to the chat."""
         try:
             body = await request.json()
         except Exception:
             raise fail(422, "тело запроса должно быть JSON", "BM_BAD_REQUEST")
         if not isinstance(body, dict):
             raise fail(422, "тело запроса должно быть JSON-объектом", "BM_BAD_REQUEST")
-
         transcript = str(body.get("text") or body.get("transcript") or "").strip()
         audio_b64 = str(body.get("audio_b64") or "")
-        if not transcript and audio_b64:
-            transcript = "Голосовая команда владельца"
-
         if not transcript and not audio_b64:
             raise fail(422, "требуется text или audio_b64", "BM_MISSING_VOICE_INPUT")
-
-        task_id = f"voice_{int(time.time() * 1000)}_{secrets.token_hex(4)}"
-        reply = f"Принял голосовое поручение: {transcript}. Выполняю в контуре."
-        return safe({
-            "ok": True,
-            "task_id": task_id,
-            "transcript": transcript,
-            "reply": reply,
-            "audio_reply_b64": "",
-            "mode": "push_to_talk",
-            "created_at": time.time(),
-        })
+        if not transcript:
+            try:
+                raw = base64.b64decode(audio_b64, validate=True)
+            except ValueError:
+                raise fail(422, "аудио повреждено при передаче", "BM_VOICE_B64") from None
+            try:
+                wav = await speech_mod.to_wav16k(raw)
+            except speech_mod.SpeechInputError as exc:
+                raise fail(exc.status, exc.message, exc.code) from None
+            res = await call("POST", "/api/oss/speech/transcribe", params={"language": "auto"}, content=wav,
+                             headers={"Content-Type": "audio/wav"}, timeout=180)
+            transcript = str(res.get("text") or "").strip()
+        if not transcript:
+            raise fail(422, "речь не распознана", "BM_VOICE_EMPTY")
+        return safe({"ok": True, "transcript": transcript, "reply": "", "task_id": None, "executed": False,
+                     "mode": "push_to_talk", "note": "поручение не запущено: отправьте текст в чат",
+                     "created_at": time.time()})
 
     @app.post("/m/api/tasks/{task_id}/rollback")
     async def m_task_rollback(task_id: str, _=Depends(require_csrf)):
-        """1-Tap Rollback from phone: reverts changes of task_id."""
-        tid = _tid(task_id)
-        try:
-            st_rb, body_rb = await bm.json("POST", f"/api/tasks/{tid}/rollback")
-            if st_rb == 200 and isinstance(body_rb, dict):
-                return safe(body_rb)
-        except Exception:
-            pass
-        return safe({
-            "ok": True,
-            "task_id": tid,
-            "status": "rolled_back",
-            "reverted_files": [],
-            "rollback_instructions": f"1-Tap Rollback completed for {tid}",
-            "timestamp": time.time(),
-        })
+        """Roll back the files a PC-agent task changed, through Bossman's real endpoint. Its answer (including a refusal or
+        an error) is passed through untouched: this route never says «rolled back» by itself."""
+        if not re.fullmatch(r"[0-9]{1,12}", task_id):
+            raise fail(422, "id задачи агента — число", "BM_BAD_TASK_ID")
+        return await call("POST", f"/api/pc-agent/tasks/{task_id}/rollback", timeout=60)
 
     @app.get("/m/api/tasks/{task_id}/blast-radius")
     async def m_task_blast_radius(task_id: str, _=Depends(require_owner)):
-        """Returns blast-radius: diff, affected files, network_used: False, cost_usd: 0.0 and rollback instructions."""
-        tid = _tid(task_id)
-        try:
-            st_br, body_br = await bm.json("GET", f"/api/tasks/{tid}/blast-radius")
-            if st_br == 200 and isinstance(body_br, dict):
-                return safe(body_br)
-        except Exception:
-            pass
-        return safe({
-            "ok": True,
-            "task_id": tid,
-            "diff": "",
-            "affected_files": [],
-            "network_used": False,
-            "cost_usd": 0.0,
-            "rollback_instructions": f"POST /m/api/tasks/{tid}/rollback",
-        })
+        """What a task changed, as far as Bossman knows. Bossman has no such route today: until it has one this answers 501
+        instead of «no files, no network, $0», which nobody measured."""
+        if not re.fullmatch(r"[0-9]{1,12}", task_id):
+            raise fail(422, "id задачи агента — число", "BM_BAD_TASK_ID")
+        st, body = await bm.json("GET", f"/api/tasks/{task_id}/blast-radius")
+        if st == 200 and isinstance(body, dict):
+            return safe(body)
+        raise fail(501, "Bossman не отдаёт blast-radius задачи: что она изменила, неизвестно", "BM_BLAST_UNAVAILABLE",
+                   "смотрите журнал pc-agent или откатите задачу кнопкой отката")
 
     @app.post("/m/api/agent/sessions", status_code=201)
     async def m_agent_session_create(request: Request, _=Depends(session)):

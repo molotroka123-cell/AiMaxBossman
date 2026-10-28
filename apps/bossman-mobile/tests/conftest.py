@@ -74,6 +74,11 @@ class FakeBossman:
         body = request.content.decode("utf-8", "replace") if request.content else ""
         self.calls.append({"method": method, "path": path, "query": dict(request.url.params), "body": body,
                            "headers": dict(request.headers)})
+        if path.startswith("/api/pc-agent/tasks/") and path.endswith("/rollback") and method == "POST":
+            tid = path.split("/")[4]
+            if tid == "99":
+                return httpx.Response(404, json={"error": {"message": "задача не найдена"}})
+            return httpx.Response(200, json={"ok": True, "restored": ["a.txt"], "task_id": int(tid)})
         if path == "/api/oss/speech/transcribe" and method == "POST":
             self.speech_bytes = request.content
             return httpx.Response(200, json=SPEECH_REPLY)
