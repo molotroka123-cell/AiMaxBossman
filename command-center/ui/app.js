@@ -16,6 +16,7 @@ import { mountTestingPeriod } from './testing.js';
 import { mountCommandBar } from './commandbar.js';
 import { desktopPages, preferredTheme } from './desktop.js';
 import { retainAppFrame } from './app_view.js';
+import { splitHealth } from './health_split.js';
 
 PAGES.push(...FEATURE_PAGES); // V2-страницы встают в общую навигацию
 
@@ -454,8 +455,16 @@ function syncTopStats(sys) {
   if (s) {
     if (s.cpu !== null && s.cpu !== undefined) items.push(h('span.stat', h('span', 'CPU'), h('b', `${Math.round(s.cpu)}%`)));
     if (s.ramTotal) items.push(h('span.stat', h('span', 'RAM'), h('b', `${fmtGb(s.ramUsed)}/${fmtGb(s.ramTotal)} ГБ`)));
-    items.push(h('span.stat', dot(s.overall === 'ok' ? 'online' : s.overall === 'warn' ? 'warning' : 'error'),
-      h('span', s.overall === 'ok' ? 'в норме' : s.overall === 'warn' ? 'предупреждение' : 'сбой')));
+    /* «Ядро» — БД, очередь, планировщик, фоновые задачи. Внешние провайдеры/модели/браузер вынесены в отдельную
+       пометку: нет ключа или оффлайн-модель не красят живой локальный сервер в «сбой». */
+    const coreText = s.overall === 'ok' ? 'ядро в норме' : s.overall === 'warn' ? 'ядро: предупреждение' : 'ядро: сбой';
+    items.push(h('span.stat', { title: s.coreTitle || '' }, dot(s.overall === 'ok' ? 'online' : s.overall === 'warn' ? 'warning' : 'error'),
+      h('span', coreText)));
+    if (s.optionalTotal) {
+      const n = s.optionalNotReady || 0;
+      items.push(h('span.stat', { title: s.optionalTitle || '' }, dot(n ? 'warning' : 'online'),
+        h('span', n ? `адаптеры: ${n} из ${s.optionalTotal} не готовы` : 'адаптеры в норме')));
+    }
   }
   append(el.stats, items);
 }
@@ -854,18 +863,18 @@ async function loadTopStats() {
     const d = raw && typeof raw === 'object' ? raw : {};
     const cur = (d.current && typeof d.current === 'object') ? d.current : d;
     const rawHealth = d.health || d.components || {};
-    const values = Array.isArray(rawHealth)
-      ? rawHealth.map((c) => String(c.status || c.state || 'unknown'))
-      : Object.values(rawHealth).map((v) => (v && typeof v === 'object' ? String(v.status || v.state || 'unknown') : String(v)));
-    const bad = values.some((v) => ['down', 'error', 'failed', 'false', 'offline'].includes(v.toLowerCase()));
-    /* no-fake-green: пустые/неизвестные статусы не могут выглядеть зелёными */
-    const warnSet = ['degraded', 'warning', 'warn', 'unknown', 'empty', 'stale', 'starting', 'stopped'];
-    const warn = values.length === 0 || values.some((v) => warnSet.includes(v.toLowerCase()));
+    const split = splitHealth(rawHealth);
     syncTopStats({
       cpu: cur.cpu_pct === undefined || cur.cpu_pct === null ? null : Number(cur.cpu_pct),
       ramUsed: cur.ram_used_mb === undefined ? null : Number(cur.ram_used_mb),
       ramTotal: cur.ram_total_mb === undefined ? null : Number(cur.ram_total_mb),
-      overall: bad ? 'err' : warn ? 'warn' : 'ok',
+      overall: split.overall,
+      coreTitle: split.core.bad.length || split.core.warn.length
+        ? `Ядро: ${[...split.core.bad, ...split.core.warn].join(', ')}` : 'Ядро: все компоненты в норме',
+      optionalTotal: split.optional.total,
+      optionalNotReady: split.optional.notReady.length,
+      optionalTitle: split.optional.notReady.length
+        ? `Не настроено или недоступно: ${split.optional.notReady.join(', ')}` : '',
     });
   } catch { /* верхняя строка не критична */ }
 }
