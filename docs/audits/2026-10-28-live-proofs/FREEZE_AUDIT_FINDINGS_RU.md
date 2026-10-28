@@ -89,5 +89,9 @@ AST-гейт `bcc/security/powershell_gate.py` блокирует все 12. Ф�
 
 Проверка `_DEFENDER_OR_AUDIT_TAMPER_RE` в `action_contract.py` (перепроверка пункта Аргона 6.3 A4/A2): не ловились `rename audit.jsonl`, `wipe the audit log`, `turn off antivirus`, `отключи STOP`, `переименуй`, `затри журнал аудита`. Добавлены глаголы и формы; безобидные запросы (`покажи audit.jsonl`, `stop the server`, `how does the STOP button work`) не затронуты. Тесты `tests/test_tamper_directive_re.py` (25), регрессия по action_contract: 558 passed. Оговорка: это директива модели, а не исполнительная защита; исполнительная — `is_immutable_audit_log_target` (пункт 11).
 
+### 14. Канонизация путей к секретам (проверка заявления Аргона) — держится
+
+Проба `is_t3_secret_or_protected_path` на 13 написаниях vault.key / credentials.enc / provider-keys.env (точка и пробел в конце, `..`, регистр, 8.3, прямые слеши, `::$DATA`, `\?\`, `%LOCALAPPDATA%`): отказано во всех. Правок кода не нужно; зафиксировано тестом `tests/test_secret_path_variants.py`. Не относится к audit.jsonl: его защищает `is_immutable_audit_log_target` (пункт 11), а не эта функция.
+
 ## Что это значит для слияния
 Пока таблица `PROGRESS_RU.md` называет PASS то, что было фасадом или выдумкой, ей нельзя верить без проверки. Остальные заявления этой таблицы (ветки 3, 5, 6, 7, Cloud Horde, 17 skills) мной не перепроверялись.
