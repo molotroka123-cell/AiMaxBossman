@@ -1,0 +1,21 @@
+{
+ "holdout": "ungrounded_screen_claim/1",
+ "module": "C:\\Users\\asd\\AppData\\Local\\Temp\\selfrepair-fx6hkchb\\wt\\command-center\\bcc\\features\\action_contract.py",
+ "total": 1,
+ "failed": 1,
+ "passed": false,
+ "failures": [
+  {
+   "case": "ungrounded_screen_claim exists in action_contract",
+   "ok": false,
+   "detail": "the function is missing: nothing stops an answer that claims to have seen the screen without observing"
+  }
+ ],
+ "cases": [
+  {
+   "case": "ungrounded_screen_claim exists in action_contract",
+   "ok": false,
+   "detail": "the function is missing: nothing stops an answer that claims to have seen the screen without observing"
+  }
+ ]
+}

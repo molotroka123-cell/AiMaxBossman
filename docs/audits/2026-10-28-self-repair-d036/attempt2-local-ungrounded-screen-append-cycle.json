@@ -1,0 +1,38 @@
+{
+ "task_id": "ddb612622e65",
+ "case": "ungrounded-screen-append",
+ "worker": null,
+ "model": null,
+ "status": "failed",
+ "error": "сайдкар сообщил о неудаче",
+ "base_commit": "a0d8150f52c0efd6e5c75c9a5c257afd819fb64e",
+ "changed_files": [],
+ "verification": {
+  "ran": null,
+  "runner": null,
+  "exit_code": null,
+  "passed": null
+ },
+ "holdout_base": {
+  "total": 1,
+  "failed": 1,
+  "passed": false,
+  "exit_code": 1
+ },
+ "holdout_patched": {
+  "total": null,
+  "failed": null,
+  "passed": null,
+  "exit_code": null
+ },
+ "recipe_saved": null,
+ "stages": {
+  "DEFECT_REPRODUCED": true,
+  "MODEL_PATCH_CREATED": false,
+  "BOSSMAN_ZONE_CHECK_PASS": false,
+  "HOLDOUT_PASS_ON_PATCH": false,
+  "SCOPE_RESPECTED": true,
+  "INDEPENDENT_VERIFICATION_PASS": false,
+  "EXPERIENCE_AUTO_SAVED": false
+ }
+}
