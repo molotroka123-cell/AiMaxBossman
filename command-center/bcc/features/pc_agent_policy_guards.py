@@ -1,6 +1,7 @@
 """Политика Argon PC-Agent: охранные проверки GUI и браузера."""
 from __future__ import annotations
 
+import fnmatch
 import re
 from typing import Any
 from urllib.parse import urlsplit
@@ -61,11 +62,14 @@ def browser_guard_verdict(action: str, url: str, label: str) -> PolicyVerdict | 
 # ----------------------------------------------------------- Immutable Audit Log Guard
 _IMMUTABLE_LOG_TARGETS_RE = re.compile(r"(?i)\b(?:audit\.jsonl(?:\.head)?|docs[\\/]audits|evidence)\b")
 _MUTATION_OR_DELETE_RE = re.compile(
-    r"(?iu)\b(удал\w*|очист\w*|перемест\w*|перезапиш\w*|сотр\w*|затр\w*|сделай\s+бэкап\s+и\s+удали|"
-    r"бэкап\w*\s+и\s+удали|delete|remove|rm|del|clear|truncate|move|mv|wipe|overwrite|erase|"
+    r"(?iu)\b(удал\w*|очист\w*|перемест\w*|перезапиш\w*|сотр\w*|затр\w*|переименов\w*|сделай\s+бэкап\s+и\s+удали|"
+    r"бэкап\w*\s+и\s+удали|delete|remove|rm|del|clear|truncate|move|mv|wipe|overwrite|erase|rename|ren|"
     r"backup\s+and\s+delete)\b"
-    r"|(?:Remove-Item|Clear-Content|Set-Content|Move-Item|\bdel\b|\brm\b|\bmv\b|\bmove\b|>|>>)"
+    r"|(?:Remove-Item|Clear-Content|Set-Content|Add-Content|Move-Item|Rename-Item|Out-File|Tee-Object|\bdel\b|\brm\b|\bmv\b|\bmove\b|\bren\b|\btee\b|>|>>)"
 )
+# copy-family verbs overwrite/truncate only when the protected name is the DESTINATION (the last argument): `copy /y nul audit.jsonl`
+_COPY_RE = re.compile(r"(?i)\b(?:copy|cp|copy-item|xcopy|robocopy)\b")
+_PROTECTED_NAMES = ("audit.jsonl", "audit.jsonl.head")
 
 
 def is_immutable_audit_log_target(text_or_path: str) -> bool:
@@ -91,6 +95,24 @@ def is_immutable_audit_log_target(text_or_path: str) -> bool:
     # Pattern scan over text/commands/prompts
     if _IMMUTABLE_LOG_TARGETS_RE.search(s) and _MUTATION_OR_DELETE_RE.search(s):
         return True
+
+    # Audit 28.10: forms the plain scan above missed.
+    # (a) a name glued together from quoted pieces: 'audit.json'+'l'
+    glued = re.sub(r"[\s'\"+()`]", "", s.lower())
+    if any(n in glued for n in _PROTECTED_NAMES) and _MUTATION_OR_DELETE_RE.search(s):
+        return True
+    # (b) a wildcard that matches the journal: aud*.jsonl, *.jsonl, audit.*
+    if _MUTATION_OR_DELETE_RE.search(s):
+        for token in re.split(r"[\s,;|&()'\"]+", s):
+            if "*" in token or "?" in token:
+                base = token.replace("\\", "/").rsplit("/", 1)[-1].lower()
+                if re.search(r"[a-z]", base) and any(fnmatch.fnmatchcase(n, base) for n in _PROTECTED_NAMES):
+                    return True
+    # (c) copy/cp/xcopy onto the journal (destination = last argument) truncates or replaces it
+    if _COPY_RE.search(s):
+        last = re.split(r"\s+", s.rstrip())[-1].strip("'\"").replace("\\", "/").lower()
+        if last.rsplit("/", 1)[-1] in _PROTECTED_NAMES or last.rsplit("/", 1)[-1].startswith("audit.jsonl:"):
+            return True
     return False
 
 

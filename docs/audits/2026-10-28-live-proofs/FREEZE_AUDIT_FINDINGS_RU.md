@@ -77,5 +77,9 @@ AST-гейт `bcc/security/powershell_gate.py` блокирует все 12. Ф�
 **Telegram Stars BL-121.** `TwoPhaseStarReservation`, `refund_quota_on_delivery_failure`, `reconcile_star_transactions_after_downtime` (`bcc/telegram_companion/stars.py`) не вызываются ни одним боевым модулем (рабочий путь Stars идёт через `bcc/pit/stars_ledger.py`).
 Это проверенные юнит-тестами функции без подключения; живой проверки с Telegram нет, не исправлялось.
 
+### 11. Защита неизменяемого журнала audit.jsonl пропускала 8 из 20 способов
+
+Проба `is_immutable_audit_log_target` (20 команд): защищено 12. Пропускались `Rename-Item`/`ren`, `Out-File`, `copy /y nul audit.jsonl`, маски (`aud*.jsonl`, `*.jsonl`), имя, склеенное из кавычек (`'audit.json'+'l'`), и имя из переменной. Исправлено в `pc_agent_policy_guards.py`: глаголы переименования/перезаписи, назначение copy-семейства, маски через fnmatch, склейка. После исправления 19 из 20; **остаётся пробел**: имя, построенное в переменной (`$f='audit'; Remove-Item ($f+'.jsonl')`) — текстом не видно, его должен отказывать AST-шлюз PowerShell (ещё не подключён к STOP/MCP). Тесты: `tests/test_audit_log_guard_gaps.py` (пробел зафиксирован как strict xfail). Не моё и красное до этого: `test_pc_agent_argon.py::test_bypass_1a_...` — `pc_agent_policy.py` 313 строк при лимите 300.
+
 ## Что это значит для слияния
 Пока таблица `PROGRESS_RU.md` называет PASS то, что было фасадом или выдумкой, ей нельзя верить без проверки. Остальные заявления этой таблицы (ветки 3, 5, 6, 7, Cloud Horde, 17 skills) мной не перепроверялись.
