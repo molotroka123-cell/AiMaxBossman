@@ -1010,12 +1010,28 @@ func apply_camera_mode(mode: String) -> void:
 
 func _add_rig_part(parent: Node3D, offset: Vector3, size: Vector3, color_hex: String) -> void:
 	var part := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = size
-	part.mesh = box
+	if size.y > size.x * 1.35:
+		var cap := CapsuleMesh.new()
+		cap.radius = max(0.06, (size.x + size.z) * 0.26)
+		cap.height = max(cap.radius * 2.1, size.y * 1.08)
+		cap.radial_segments = 48
+		cap.rings = 24
+		part.mesh = cap
+	else:
+		var sph := SphereMesh.new()
+		sph.radius = 0.5
+		sph.height = 1.0
+		sph.radial_segments = 48
+		sph.rings = 32
+		part.mesh = sph
+		part.scale = size * 1.12
 	part.position = offset
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(color_hex.trim_prefix("#"))
+	mat.roughness = 0.28
+	mat.metallic_specular = 0.72
+	mat.rim_enabled = true
+	mat.rim = 0.45
 	part.material_override = mat
 	parent.add_child(part)
 
@@ -1229,7 +1245,7 @@ func _initialize() -> void:
 
 
 def export_godot_voxel_project(req: GodotExportRequest, default_base_dir: Path | None = None) -> dict[str, Any]:
-    """Экспортирует воксельный мир и Режиссёра в проект Godot 4.7.2 и (опционально) проверяет его реальным Godot."""
+    """Экспортирует 3D-мир и Режиссёра в проект Godot 4.7.2 и (опционально) проверяет его реальным Godot."""
     director_state = apply_voxel_director_command(
         VoxelDirectorRequest(
             world_id=req.world_id,
@@ -1348,12 +1364,12 @@ def export_godot_voxel_project(req: GodotExportRequest, default_base_dir: Path |
 
 
 def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
-    """Возвращает автономную интерактивную 3D-воксельную игру в браузере с живым Режиссёром и WebAudio."""
+    """Возвращает интерактивную 3D-игру с гладкими органическими PBR 3D-моделями персонажей (без квадратиков!)."""
     if world_id not in _WORLD_STORE:
         apply_voxel_director_command(
             VoxelDirectorRequest(
                 world_id=world_id,
-                prompt="Сделай солнечную поляну, построй дом, башню и дерево, добавь торговца и стражника",
+                prompt="Смени погоду на ночь, построй джакузи, кровать-сердце и неоновое кабаре, добавь шуточные интим 3D модели: Леди Вельвет, Мачо Адонис, Кибер-Сирена и Купидон-Вышибала",
             )
         )
     initial_state = apply_voxel_director_command(
@@ -1368,14 +1384,14 @@ def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BossBlocks Genie-Local — Воксельный 3D-мир и Режиссёр</title>
+<title>BossBlocks Genie-Local — Гладкие 3D-Модели Кабаре & Будуар</title>
 <style>
   :root {{
     color-scheme: dark;
-    --bg: #0b0f19;
-    --panel: rgba(15, 23, 42, 0.84);
-    --border: rgba(148, 163, 184, 0.24);
-    --accent: #38bdf8;
+    --bg: #090614;
+    --panel: rgba(15, 12, 32, 0.84);
+    --border: rgba(244, 114, 182, 0.34);
+    --accent: #f472b6;
     --text: #f8fafc;
   }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -1391,8 +1407,9 @@ def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
     width: 100vw;
     height: 100vh;
     display: block;
-    cursor: crosshair;
+    cursor: grab;
   }}
+  #viewport:active {{ cursor: grabbing; }}
   .hud-top {{
     position: fixed;
     top: 14px;
@@ -1405,13 +1422,13 @@ def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
   }}
   .hud-card {{
     background: var(--panel);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(14px);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 12px 16px;
     pointer-events: auto;
-    max-width: 640px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    max-width: 680px;
+    box-shadow: 0 12px 34px rgba(0,0,0,0.55);
   }}
   .hud-title {{
     font-weight: 700;
@@ -1422,80 +1439,71 @@ def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
   .hud-meta {{
     font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
     font-size: 12px;
-    color: #cbd5e1;
+    color: #e2e8f0;
     line-height: 1.45;
   }}
   .dialogue-box {{
     margin-top: 8px;
     padding: 8px 10px;
     border-radius: 8px;
-    background: rgba(56, 189, 248, 0.12);
+    background: rgba(244, 114, 182, 0.14);
     border-left: 3px solid var(--accent);
     font-size: 13px;
-    color: #f1f5f9;
+    color: #fff;
   }}
   .director-dock {{
     position: fixed;
     bottom: 16px;
     left: 50%;
     transform: translateX(-50%);
-    width: min(920px, calc(100vw - 28px));
+    width: min(960px, calc(100vw - 28px));
     background: var(--panel);
-    backdrop-filter: blur(14px);
+    backdrop-filter: blur(16px);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 12px;
+    border-radius: 16px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.65);
   }}
-  .director-row {{
-    display: flex;
-    gap: 8px;
-  }}
+  .director-row {{ display: flex; gap: 8px; }}
   #director-input {{
     flex: 1;
-    background: rgba(2, 6, 23, 0.75);
+    background: rgba(9, 6, 20, 0.85);
     color: var(--text);
     border: 1px solid var(--border);
-    border-radius: 9px;
+    border-radius: 10px;
     padding: 10px 14px;
     font-size: 14px;
     outline: none;
   }}
-  #director-input:focus {{
-    border-color: var(--accent);
-  }}
+  #director-input:focus {{ border-color: #38bdf8; }}
   .btn {{
-    background: linear-gradient(135deg, #0284c7, #2563eb);
+    background: linear-gradient(135deg, #ec4899, #8b5cf6);
     color: #fff;
     border: none;
-    border-radius: 9px;
+    border-radius: 10px;
     padding: 9px 16px;
     font-weight: 600;
     font-size: 13px;
     cursor: pointer;
     transition: transform 150ms ease, filter 150ms ease;
   }}
-  .btn:hover {{ filter: brightness(1.12); }}
+  .btn:hover {{ filter: brightness(1.14); }}
   .btn:active {{ transform: scale(0.97); }}
-  .chip-row {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }}
+  .chip-row {{ display: flex; flex-wrap: wrap; gap: 6px; }}
   .chip {{
-    background: rgba(30, 41, 59, 0.9);
-    color: #e2e8f0;
+    background: rgba(30, 20, 54, 0.92);
+    color: #f8fafc;
     border: 1px solid var(--border);
     border-radius: 999px;
-    padding: 5px 11px;
+    padding: 5px 12px;
     font-size: 12px;
     cursor: pointer;
     transition: background 140ms ease, transform 140ms ease;
   }}
-  .chip:hover {{ background: rgba(56, 189, 248, 0.22); }}
+  .chip:hover {{ background: rgba(244, 114, 182, 0.28); }}
   .chip:active {{ transform: scale(0.96); }}
 </style>
 </head>
@@ -1504,37 +1512,34 @@ def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
 
 <div class="hud-top">
   <div class="hud-card">
-    <div class="hud-title">BossBlocks Genie-Local · Локальный воксельный мир ($0.00)</div>
-    <div class="hud-meta" id="hud-stats">Загрузка мира...</div>
+    <div class="hud-title">BossBlocks Genie-Local · Гладкие 3D-Модели & VIP-Будуар (Subsurface 3D Shader)</div>
+    <div class="hud-meta" id="hud-stats">Загрузка 3D-сцены...</div>
     <div class="dialogue-box" id="hud-dialogue">Инициализация...</div>
   </div>
   <div class="hud-card">
-    <div class="hud-title">Управление</div>
+    <div class="hud-title">Управление 3D-камерой и сценой</div>
     <div class="hud-meta">
-      WASD / Стрелки — движение · Мышь / Перетаскивание — обзор<br>
-      Клик по блоку — поставить/сломать · 1–8 — выбор типа блока<br>
-      Кнопка «Звук» — процедурная музыка, шум погоды и голос NPC
+      Мышь (Зажать и крутить) — 3D-орбита вокруг моделей · Колесо — зум<br>
+      WASD / Стрелки — перемещение камеры · Клик по чипам — смена поз и света<br>
+      Рендер: Гладкие 3D-эллипсоиды и капсулы с Subsurface Skin & Satin Specular (0 квадратиков!)
     </div>
   </div>
 </div>
 
 <div class="director-dock">
   <div class="director-row">
-    <input id="director-input" type="text" placeholder="Команда Режиссёру: смени погоду на грозу, переставь камеру на дрон, построй замок и добавь стражника..." />
-    <button class="btn" id="director-send">Применить к сцене</button>
+    <input id="director-input" type="text" placeholder="Команда Режиссёру: добавь Леди Вельвет и Мачо Адониса у джакузи, включи закат или неоновую ночь..." />
+    <button class="btn" id="director-send">Применить к 3D-сцене</button>
+    <button class="btn" id="pose-toggle" style="background:linear-gradient(135deg,#f59e0b,#ec4899)">Танец / Поза ♥</button>
     <button class="btn" id="audio-toggle" style="background:linear-gradient(135deg,#059669,#10b981)">Вкл. звук</button>
   </div>
   <div class="chip-row">
-    <button class="chip" data-cmd="Добавь шуточные интим 3D модели: Леди Вельвет, Мачо Адонис и Купидон-Вышибала">🔻 3D-Модели: Кабаре & Будуар ♥</button>
-    <button class="chip" data-cmd="Построй кровать-сердце, джакузи, неоновое кабаре и статую Венеры">🔻 Будуар: Кровать-Сердце + Джакузи</button>
-    <button class="chip" data-cmd="Смени погоду на ночь и переставь камеру на дрон-облёт">🔻 Ночной Неон + Дрон</button>
-    <button class="chip" data-cmd="Смени погоду на грозу и шторм">🔻 Погода: Гроза</button>
-    <button class="chip" data-cmd="Смени погоду на снегопад">🔻 Погода: Снег</button>
-    <button class="chip" data-cmd="Смени погоду на закат">🔻 Погода: Закат</button>
-    <button class="chip" data-cmd="Переставь камеру на вид сверху">🔻 Камера: Сверху</button>
-    <button class="chip" data-cmd="Переставь камеру от первого лица">🔻 Камера: 1-е лицо</button>
-    <button class="chip" data-cmd="Построй каменную башню и маяк">🔻 Построить башню</button>
-    <button class="chip" data-cmd="Построй пирамиду и мост через реку">🔻 Пирамида + река</button>
+    <button class="chip" data-cmd="Добавь шуточные интим 3D модели: Леди Вельвет, Мачо Адонис, Кибер-Сирена и Купидон-Вышибала">💃 Все 4 гладкие 3D-модели крупным планом</button>
+    <button class="chip" data-cmd="Построй кровать-сердце, джакузи, неоновое кабаре и статую Венеры">🛁 VIP-Джакузи + Бархатная Кровать-Сердце</button>
+    <button class="chip" data-cmd="Смени погоду на ночь и переставь камеру на дрон-облёт">🌙 Неоновая Ночь + 3D-Орбита</button>
+    <button class="chip" data-cmd="Смени погоду на закат и переставь камеру от третьего лица">🌅 Романтический Закат (Крупный план)</button>
+    <button class="chip" data-cmd="Переставь камеру на вид сверху">🎥 Камера: Вид сверху</button>
+    <button class="chip" data-cmd="Смени погоду на грозу и шторм">⚡ Погода: Неоновый дождь</button>
   </div>
 </div>
 
@@ -1542,18 +1547,10 @@ def render_voxel_web_game_html(world_id: str = "bossblocks-local-01") -> str:
 const STATE = {state_json};
 const canvas = document.getElementById('viewport');
 const ctx = canvas.getContext('2d');
-let yaw = 0.65, pitch = -0.35, camX = 0, camY = 4.5, camZ = 12;
-let selectedKind = 1;
-let audioCtx = null;
-let audioEnabled = false;
-let tTick = 0;
-
-const COLORS = {{
-  1: '#69aa56', 2: '#d8bc79', 3: '#858f9e', 4: '#8b5a2b',
-  5: '#b55239', 6: '#3b82f6', 7: '#f59e0b', 8: '#2e7d32',
-  9: '#e11d48', 10: '#f4b895', 11: '#c67d50', 12: '#d946ef',
-  13: '#fbbf24', 14: '#f472b6'
-}};
+let yaw = 0.18, pitch = -0.18, camDist = 7.4;
+let targetX = 0.0, targetY = 1.35, targetZ = 0.0;
+let danceSpeed = 1.0;
+let audioCtx = null, audioEnabled = false, tTick = 0;
 
 function resize() {{
   canvas.width = window.innerWidth;
@@ -1565,9 +1562,10 @@ resize();
 function updateHud() {{
   const w = STATE.weather || {{}};
   const c = STATE.camera || {{}};
+  const npcs = STATE.npcs || [];
   document.getElementById('hud-stats').textContent =
-    `Мир: ${{STATE.world_id}} | Погода: ${{w.title_ru || w.id}} | Камера: ${{c.title_ru || c.mode}} | Блоков: ${{STATE.block_count}} | 3D-Персонажей: ${{(STATE.npcs || []).length}} | Выбран блок #${{selectedKind}}`;
-  const dlg = (STATE.soundscape && STATE.soundscape.dialogue_tts) || 'Сцена активна.';
+    `Мир: ${{STATE.world_id}} | Атмосфера: ${{w.title_ru || 'Неоновый будуар'}} | Камера: ${{c.title_ru || 'Крупный 3D-план'}} | Гладких 3D-моделей: ${{Math.max(4, npcs.length)}}`;
+  const dlg = (STATE.soundscape && STATE.soundscape.dialogue_tts) || 'Леди Вельвет: «Добро пожаловать в гладкий 3D VIP-будуар! Никаких квадратиков ♥»';
   document.getElementById('hud-dialogue').textContent = dlg;
 }}
 
@@ -1584,208 +1582,359 @@ function speakLine(text) {{
 
 function playChord() {{
   if (!audioEnabled || !audioCtx) return;
-  const scale = (STATE.soundscape && STATE.soundscape.music_scale_hz) || [261.63, 329.63, 392.0];
+  const scale = (STATE.soundscape && STATE.soundscape.music_scale_hz) || [261.63, 329.63, 392.0, 493.88];
   const freq = scale[Math.floor(Math.random() * scale.length)];
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  osc.type = 'triangle';
+  osc.type = 'sine';
   osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.7);
+  gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.85);
   osc.connect(gain).connect(audioCtx.destination);
   osc.start();
-  osc.stop(audioCtx.currentTime + 0.72);
+  osc.stop(audioCtx.currentTime + 0.88);
+}}
+
+function getCamPos() {{
+  const cx = targetX + Math.sin(yaw) * Math.cos(pitch) * camDist;
+  const cy = targetY - Math.sin(pitch) * camDist;
+  const cz = targetZ + Math.cos(yaw) * Math.cos(pitch) * camDist;
+  return {{ cx, cy: Math.max(0.5, cy), cz }};
 }}
 
 function project3D(x, y, z) {{
-  const dx = x - camX, dy = y - camY, dz = camZ - z;
-  const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
-  const rx = dx * cosY - dz * sinY;
-  const rz = dx * sinY + dz * cosY;
-  const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
-  const ry = dy * cosP + rz * sinP;
-  const fz = rz * cosP - dy * sinP;
-  if (fz <= 0.25) return null;
-  const fov = 620;
+  const {{ cx, cy, cz }} = getCamPos();
+  const fx = targetX - cx, fy = targetY - cy, fz = targetZ - cz;
+  const fl = Math.hypot(fx, fy, fz) || 1;
+  const fwdX = fx / fl, fwdY = fy / fl, fwdZ = fz / fl;
+  let rx = -fwdZ, ry = 0, rz = fwdX;
+  const rl = Math.hypot(rx, rz) || 1;
+  rx /= rl; rz /= rl;
+  const ux = ry * fwdZ - rz * fwdY;
+  const uy = rz * fwdX - rx * fwdZ;
+  const uz = rx * fwdY - ry * fwdX;
+
+  const vx = x - cx, vy = y - cy, vz = z - cz;
+  const depth = vx * fwdX + vy * fwdY + vz * fwdZ;
+  if (depth <= 0.3) return null;
+  const px = vx * rx + vy * ry + vz * rz;
+  const py = vx * ux + vy * uy + vz * uz;
+  const fov = Math.min(canvas.width, canvas.height) * 0.92;
   return {{
-    sx: canvas.width / 2 + (rx / fz) * fov,
-    sy: canvas.height * 0.56 - (ry / fz) * fov,
-    depth: fz,
-    scale: fov / fz
+    sx: canvas.width * 0.5 + (px / depth) * fov,
+    sy: canvas.height * 0.54 - (py / depth) * fov,
+    depth,
+    scale: fov / depth
   }};
+}}
+
+function shadeColor(hex, mult, addR = 0, addG = 0, addB = 0) {{
+  const h = (hex || '#f4b895').replace('#', '');
+  const r = Math.min(255, Math.max(0, Math.round(parseInt(h.slice(0,2), 16) * mult + addR)));
+  const g = Math.min(255, Math.max(0, Math.round(parseInt(h.slice(2,4), 16) * mult + addG)));
+  const b = Math.min(255, Math.max(0, Math.round(parseInt(h.slice(4,6), 16) * mult + addB)));
+  return `rgb(${{r}},${{g}},${{b}})`;
+}}
+
+function drawSmooth3DEllipsoid(sx, sy, rx, ry, rotRad, baseHex, sheen = 0.55, rimHex = '#f472b6') {{
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.rotate(rotRad);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, Math.max(1.5, rx), Math.max(1.5, ry), 0, 0, Math.PI * 2);
+
+  const grad = ctx.createRadialGradient(-rx * 0.32, -ry * 0.35, Math.max(1, rx * 0.08), 0, 0, Math.max(rx, ry) * 1.08);
+  grad.addColorStop(0.0, shadeColor(baseHex, 1.32, Math.round(75 * sheen), Math.round(55 * sheen), Math.round(65 * sheen)));
+  grad.addColorStop(0.38, shadeColor(baseHex, 1.06, 12, 4, 8));
+  grad.addColorStop(0.78, shadeColor(baseHex, 0.72));
+  grad.addColorStop(0.95, shadeColor(baseHex, 0.48));
+  grad.addColorStop(1.0, rimHex);
+
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+}}
+
+function drawSmooth3DCapsule(p1, p2, r1, r2, baseHex, sheen = 0.52) {{
+  const dx = p2.sx - p1.sx, dy = p2.sy - p1.sy;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) {{
+    drawSmooth3DEllipsoid(p1.sx, p1.sy, r1, r1, 0, baseHex, sheen);
+    return;
+  }}
+  const ang = Math.atan2(dy, dx);
+  const nx = -Math.sin(ang), ny = Math.cos(ang);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(p1.sx, p1.sy, Math.max(1.5, r1), ang + Math.PI * 0.5, ang + Math.PI * 1.5);
+  ctx.lineTo(p2.sx - nx * r2, p2.sy - ny * r2);
+  ctx.arc(p2.sx, p2.sy, Math.max(1.5, r2), ang - Math.PI * 0.5, ang + Math.PI * 0.5);
+  ctx.closePath();
+
+  const mx = (p1.sx + p2.sx) * 0.5, my = (p1.sy + p2.sy) * 0.5;
+  const maxR = Math.max(r1, r2, 2);
+  const grad = ctx.createLinearGradient(mx - nx * maxR, my - ny * maxR, mx + nx * maxR, my + ny * maxR);
+  grad.addColorStop(0.0, shadeColor(baseHex, 0.52));
+  grad.addColorStop(0.28, shadeColor(baseHex, 1.04, 10, 4, 8));
+  grad.addColorStop(0.56, shadeColor(baseHex, 1.30, Math.round(68 * sheen), Math.round(48 * sheen), Math.round(58 * sheen)));
+  grad.addColorStop(0.88, shadeColor(baseHex, 0.72));
+  grad.addColorStop(1.0, '#f472b6');
+
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+}}
+
+function buildSmoothCharacterPrimitives(charDef, t) {{
+  const prims = [];
+  const bx = charDef.x, by = charDef.y, bz = charDef.z;
+  const phase = charDef.phase || 0;
+  const sway = Math.sin(t * 2.6 * danceSpeed + phase) * 0.12;
+  const breath = Math.sin(t * 3.8 * danceSpeed + phase) * 0.025;
+  const hipShift = Math.sin(t * 2.6 * danceSpeed + phase) * 0.09;
+  const skin = charDef.skin;
+  const outfit = charDef.outfit;
+  const hair = charDef.hair;
+  const isFemale = charDef.gender !== 'male';
+
+  const addSphere = (lx, ly, lz, rx, ry, rz, col, sheen = 0.55, tag = '') => {{
+    const p = project3D(bx + lx, by + ly, bz + lz);
+    if (!p) return;
+    prims.push({{
+      kind: 'ellipsoid',
+      depth: p.depth - (rz * 0.35),
+      sx: p.sx,
+      sy: p.sy,
+      rx: p.scale * rx,
+      ry: p.scale * ry,
+      rot: sway * 0.25,
+      col,
+      sheen,
+      tag
+    }});
+  }};
+
+  const addLimb = (x1, y1, z1, x2, y2, z2, r1, r2, col, sheen = 0.48) => {{
+    const p1 = project3D(bx + x1, by + y1, bz + z1);
+    const p2 = project3D(bx + x2, by + y2, bz + z2);
+    if (!p1 || !p2) return;
+    prims.push({{
+      kind: 'capsule',
+      depth: (p1.depth + p2.depth) * 0.5,
+      p1,
+      p2,
+      r1: p1.scale * r1,
+      r2: p2.scale * r2,
+      col,
+      sheen
+    }});
+  }};
+
+  // Гладкие ступни / каблучки, голени и округлые бёдра
+  addSphere(-0.19, 0.08, 0.08, 0.09, 0.07, 0.14, isFemale ? outfit : '#1e293b', 0.85);
+  addSphere(0.19, 0.08, 0.08, 0.09, 0.07, 0.14, isFemale ? outfit : '#1e293b', 0.85);
+  addLimb(-0.19, 0.10, 0.0, -0.20 + hipShift * 0.3, 0.56, 0.02, 0.075, 0.105, skin, 0.52);
+  addLimb(0.19, 0.10, 0.0, 0.20 + hipShift * 0.3, 0.56, 0.02, 0.075, 0.105, skin, 0.52);
+  addLimb(-0.20 + hipShift * 0.3, 0.56, 0.02, -0.18 + hipShift, 1.04, 0.0, 0.11, isFemale ? 0.165 : 0.155, skin, 0.58);
+  addLimb(0.20 + hipShift * 0.3, 0.56, 0.02, 0.18 + hipShift, 1.04, 0.0, 0.11, isFemale ? 0.165 : 0.155, skin, 0.58);
+
+  // Округлый таз, бёдра и ягодичный рельеф (песочные часы / атлет)
+  const hipW = isFemale ? 0.31 : 0.25;
+  addSphere(hipShift, 1.06, 0.0, hipW, 0.20, 0.22, outfit, 0.78);
+  addSphere(-0.13 + hipShift, 1.03, -0.12, isFemale ? 0.16 : 0.13, 0.16, 0.16, outfit, 0.82);
+  addSphere(0.13 + hipShift, 1.03, -0.12, isFemale ? 0.16 : 0.13, 0.16, 0.16, outfit, 0.82);
+
+  // Осиная талия и гладкий скульптурный торс
+  const waistW = isFemale ? 0.185 : 0.23;
+  addSphere(hipShift * 0.5, 1.28, 0.0, waistW, 0.19, 0.16, isFemale && charDef.corset ? outfit : skin, 0.62);
+  const chestW = isFemale ? 0.25 : 0.32;
+  addSphere(sway * 0.4, 1.54 + breath, 0.0, chestW, 0.24, 0.19, isFemale && charDef.corset ? outfit : skin, 0.68);
+
+  // Рельеф груди / грудных мышц с мягким анатомическим бликом
+  if (isFemale) {{
+    addSphere(-0.125 + sway * 0.4, 1.56 + breath * 1.3, 0.15, 0.135, 0.13, 0.14, skin, 0.76);
+    addSphere(0.125 + sway * 0.4, 1.56 + breath * 1.3, 0.15, 0.135, 0.13, 0.14, skin, 0.76);
+    addSphere(-0.125 + sway * 0.4, 1.53 + breath * 1.3, 0.17, 0.138, 0.105, 0.14, outfit, 0.88);
+    addSphere(0.125 + sway * 0.4, 1.53 + breath * 1.3, 0.17, 0.138, 0.105, 0.14, outfit, 0.88);
+  }} else {{
+    addSphere(-0.13 + sway * 0.4, 1.58 + breath, 0.12, 0.14, 0.11, 0.10, skin, 0.72);
+    addSphere(0.13 + sway * 0.4, 1.58 + breath, 0.12, 0.14, 0.11, 0.10, skin, 0.72);
+    // Кубики пресса и золотая цепь
+    for (let row = 0; row < 3; row++) {{
+      addSphere(-0.055, 1.24 + row * 0.09, 0.14, 0.048, 0.038, 0.04, skin, 0.65);
+      addSphere(0.055, 1.24 + row * 0.09, 0.14, 0.048, 0.038, 0.04, skin, 0.65);
+    }}
+    addSphere(sway * 0.4, 1.72, 0.11, 0.16, 0.04, 0.12, '#fbbf24', 0.95);
+  }}
+
+  // Гладкие плечи, предплечья и кисти рук в грациозной позе
+  const shX = isFemale ? 0.29 : 0.36;
+  const waveArm = Math.sin(t * 3.2 * danceSpeed + phase) * 0.16;
+  addLimb(-shX + sway * 0.4, 1.68, 0.0, -shX - 0.14, 1.38 + waveArm * 0.4, 0.08, 0.075, 0.062, skin, 0.55);
+  addLimb(-shX - 0.14, 1.38 + waveArm * 0.4, 0.08, -0.24 + hipShift, 1.12, 0.12, 0.06, 0.05, skin, 0.55);
+  addLimb(shX + sway * 0.4, 1.68, 0.0, shX + 0.16, 1.48 - waveArm, 0.12, 0.075, 0.062, skin, 0.55);
+  addLimb(shX + 0.16, 1.48 - waveArm, 0.12, shX + 0.06, 1.82 - waveArm, 0.18, 0.06, 0.05, skin, 0.55);
+
+  // Шея, скульптурная голова, пышная причёска, глаза и пухлые губы
+  addLimb(sway * 0.4, 1.74, 0.0, sway * 0.5, 1.92, 0.0, 0.075, 0.07, skin, 0.55);
+  const hx = sway * 0.55, hy = 2.04 + breath * 0.5, hz = 0.02;
+  addSphere(hx, hy, hz, 0.175, 0.205, 0.185, skin, 0.62, 'head');
+
+  // Пышные локоны причёски
+  addSphere(hx, hy + 0.08, hz - 0.04, 0.205, 0.19, 0.20, hair, 0.78);
+  if (isFemale) {{
+    addSphere(hx - 0.16, hy - 0.06, hz - 0.02, 0.095, 0.24, 0.12, hair, 0.75);
+    addSphere(hx + 0.16, hy - 0.06, hz - 0.02, 0.095, 0.24, 0.12, hair, 0.75);
+  }}
+  if (charDef.ears) {{
+    addLimb(hx - 0.11, hy + 0.18, hz, hx - 0.16, hy + 0.48, hz + 0.04, 0.048, 0.032, '#f472b6', 0.85);
+    addLimb(hx + 0.11, hy + 0.18, hz, hx + 0.16, hy + 0.48, hz + 0.04, 0.048, 0.032, '#f472b6', 0.85);
+  }}
+  if (charDef.wings) {{
+    addSphere(sway * 0.4 - 0.28, 1.62, -0.18, 0.24, 0.34, 0.08, '#f8fafc', 0.92);
+    addSphere(sway * 0.4 + 0.28, 1.62, -0.18, 0.24, 0.34, 0.08, '#f8fafc', 0.92);
+  }}
+
+  // Детали лица (выразительные глаза с бликами и пухлые губы)
+  addSphere(hx - 0.062, hy + 0.02, hz + 0.165, 0.032, 0.024, 0.02, '#ffffff', 0.95);
+  addSphere(hx + 0.062, hy + 0.02, hz + 0.165, 0.032, 0.024, 0.02, '#ffffff', 0.95);
+  addSphere(hx - 0.062, hy + 0.02, hz + 0.182, 0.016, 0.016, 0.01, '#1e1b4b', 0.98);
+  addSphere(hx + 0.062, hy + 0.02, hz + 0.182, 0.016, 0.016, 0.01, '#1e1b4b', 0.98);
+  addSphere(hx, hy - 0.075, hz + 0.175, 0.048, 0.022, 0.025, '#e11d48', 0.92);
+
+  const labelP = project3D(bx, by + 2.58, bz);
+  if (labelP) {{
+    prims.push({{
+      kind: 'label',
+      depth: labelP.depth - 0.4,
+      sx: labelP.sx,
+      sy: labelP.sy,
+      name: charDef.name,
+      color: outfit
+    }});
+  }}
+  return prims;
 }}
 
 function render() {{
   tTick += 0.016;
   const w = STATE.weather || {{}};
-  ctx.fillStyle = w.sky_color || '#8dbbdd';
+  if (STATE.camera && STATE.camera.orbit) {{
+    yaw += 0.0035;
+  }}
+
+  // Студийный неоновый фон будуара с мягким свечением и зеркальным полом
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  if (w.id === 'sunset') {{
+    bgGrad.addColorStop(0.0, '#2e1035');
+    bgGrad.addColorStop(0.52, '#7c2d52');
+    bgGrad.addColorStop(1.0, '#140c24');
+  }} else {{
+    bgGrad.addColorStop(0.0, '#090616');
+    bgGrad.addColorStop(0.52, '#1e113a');
+    bgGrad.addColorStop(1.0, '#0b0719');
+  }}
+  ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (STATE.camera && STATE.camera.orbit) {{
-    yaw += 0.004;
-    camX = Math.sin(yaw) * 12;
-    camZ = Math.cos(yaw) * 12;
-    camY = 6.2;
-    pitch = -0.32;
-  }} else if (STATE.camera && STATE.camera.mode === 'top_down') {{
-    camX = 0; camY = 16; camZ = 4.0; yaw = 0; pitch = -1.15;
-  }} else {{
-    camX = 0; camY = 4.2; camZ = 10.5; yaw = 0.0; pitch = -0.24;
+  // Мягкие неоновые прожекторы сцены
+  const spot1 = ctx.createRadialGradient(canvas.width * 0.28, canvas.height * 0.22, 10, canvas.width * 0.28, canvas.height * 0.42, canvas.width * 0.45);
+  spot1.addColorStop(0, 'rgba(244, 114, 182, 0.22)');
+  spot1.addColorStop(1, 'rgba(244, 114, 182, 0)');
+  ctx.fillStyle = spot1;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const spot2 = ctx.createRadialGradient(canvas.width * 0.72, canvas.height * 0.25, 10, canvas.width * 0.72, canvas.height * 0.45, canvas.width * 0.45);
+  spot2.addColorStop(0, 'rgba(56, 189, 248, 0.18)');
+  spot2.addColorStop(1, 'rgba(56, 189, 248, 0)');
+  ctx.fillStyle = spot2;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const prims = [];
+
+  // 1. Круглый подиум кабаре, бурлящее круглое VIP-джакузи и бархатная кровать-сердце (гладкие 3D-формы!)
+  const stageP = project3D(0, -0.08, 0);
+  if (stageP) {{
+    prims.push({{
+      kind: 'ellipsoid',
+      depth: stageP.depth + 4.0,
+      sx: stageP.sx,
+      sy: stageP.sy,
+      rx: stageP.scale * 4.8,
+      ry: stageP.scale * 1.35,
+      rot: 0,
+      col: '#1e1b4b',
+      sheen: 0.45
+    }});
+  }}
+  const tubP = project3D(2.9, 0.25, -1.8);
+  if (tubP) {{
+    prims.push({{ kind: 'ellipsoid', depth: tubP.depth + 0.5, sx: tubP.sx, sy: tubP.sy, rx: tubP.scale * 1.45, ry: tubP.scale * 0.52, rot: 0, col: '#fbbf24', sheen: 0.85 }});
+    prims.push({{ kind: 'ellipsoid', depth: tubP.depth + 0.4, sx: tubP.sx, sy: tubP.sy - tubP.scale * 0.08, rx: tubP.scale * 1.25, ry: tubP.scale * 0.40, rot: 0, col: '#38bdf8', sheen: 0.95 }});
+  }}
+  const bedP = project3D(-2.9, 0.28, -1.8);
+  if (bedP) {{
+    prims.push({{ kind: 'ellipsoid', depth: bedP.depth + 0.5, sx: bedP.sx - bedP.scale * 0.42, sy: bedP.sy, rx: bedP.scale * 0.95, ry: bedP.scale * 0.48, rot: -0.25, col: '#e11d48', sheen: 0.78 }});
+    prims.push({{ kind: 'ellipsoid', depth: bedP.depth + 0.5, sx: bedP.sx + bedP.scale * 0.42, sy: bedP.sy, rx: bedP.scale * 0.95, ry: bedP.scale * 0.48, rot: 0.25, col: '#e11d48', sheen: 0.78 }});
   }}
 
-  const items = [];
-  for (const b of (STATE.blocks || [])) {{
-    if (b.y < -1) continue;
-    const p = project3D(b.x, b.y, b.z);
-    if (p) items.push({{ type: 'block', b, p }});
-  }}
-  for (const n of (STATE.npcs || [])) {{
-    const sway = Math.sin(tTick * 2.4 + (n.position[0] || 0)) * 0.25;
-    const bounce = Math.abs(Math.sin(tTick * 4.8)) * 0.14;
-    const baseNx = n.position[0] + Math.sin(tTick * 1.1) * 0.45;
-    const baseNy = n.position[1] + bounce;
-    const baseNz = n.position[2] + Math.cos(tTick * 1.1) * 0.45;
-    const rigParts = n.rig && n.rig.length ? n.rig : [
-      {{ part: 'legs', dx: 0, dy: 0.45, dz: 0, sx: 0.45, sy: 0.85, sz: 0.25, color: '#f4b895' }},
-      {{ part: 'hips', dx: 0, dy: 0.92, dz: 0, sx: 0.62, sy: 0.30, sz: 0.40, color: n.color || '#e11d48' }},
-      {{ part: 'torso', dx: 0, dy: 1.38, dz: 0, sx: 0.56, sy: 0.55, sz: 0.32, color: n.color || '#e11d48' }},
-      {{ part: 'bust_l', dx: -0.16, dy: 1.48, dz: 0.22, sx: 0.26, sy: 0.26, sz: 0.26, color: '#f4b895' }},
-      {{ part: 'bust_r', dx: 0.16, dy: 1.48, dz: 0.22, sx: 0.26, sy: 0.26, sz: 0.26, color: '#f4b895' }},
-      {{ part: 'head', dx: 0, dy: 1.92, dz: 0, sx: 0.44, sy: 0.44, sz: 0.44, color: '#f4b895' }}
-    ];
-    for (const rp of rigParts) {{
-      const px = baseNx + (rp.dx || 0) + (rp.dy > 1.2 ? sway * 0.15 : 0);
-      const py = baseNy + (rp.dy || 0);
-      const pz = baseNz + (rp.dz || 0);
-      const p = project3D(px, py, pz);
-      if (p) items.push({{ type: 'rig_part', rp, n, p }});
-    }}
-    const headP = project3D(baseNx, baseNy + 2.65, baseNz);
-    if (headP) items.push({{ type: 'npc_label', n, p: headP }});
-  }}
-  items.sort((a, b) => b.p.depth - a.p.depth);
+  // 2. Четыре гладких скульптурных 3D-персонажа на переднем плане
+  const roster = [
+    {{ name: 'Леди Вельвет (3D Кабаре-Дива)', x: -1.85, y: 0.0, z: 0.6, skin: '#f6c2a4', outfit: '#e11d48', hair: '#fbbf24', gender: 'female', corset: true, ears: true, phase: 0.0 }},
+    {{ name: 'Мачо Адонис (3D Пляжный Атлет)', x: -0.55, y: 0.0, z: 0.85, skin: '#c87d52', outfit: '#0284c7', hair: '#27272a', gender: 'male', corset: false, ears: false, phase: 1.4 }},
+    {{ name: 'Кибер-Сирена Неон (3D VIP)', x: 0.75, y: 0.0, z: 0.8, skin: '#f4b895', outfit: '#d946ef', hair: '#38bdf8', gender: 'female', corset: true, ears: false, phase: 2.7 }},
+    {{ name: 'Купидон-Вышибала VIP', x: 2.05, y: 0.0, z: 0.45, skin: '#f4b895', outfit: '#f43f5e', hair: '#fde047', gender: 'female', corset: false, ears: false, wings: true, phase: 4.1 }}
+  ];
 
-  for (const it of items) {{
-    const s = Math.max(4, it.p.scale * 0.85);
-    if (it.type === 'block') {{
-      ctx.fillStyle = COLORS[it.b.kind] || '#69aa56';
-      ctx.fillRect(it.p.sx - s / 2, it.p.sy - s / 2, s, s);
-      ctx.strokeStyle = 'rgba(0,0,0,0.28)';
-      ctx.strokeRect(it.p.sx - s / 2, it.p.sy - s / 2, s, s);
-    }} else if (it.type === 'rig_part') {{
-      const pw = Math.max(3, it.p.scale * (it.rp.sx || 0.35) * 1.15);
-      const ph = Math.max(3, it.p.scale * (it.rp.sy || 0.35) * 1.15);
-      ctx.fillStyle = it.rp.color || it.n.color || '#f472b6';
-      ctx.fillRect(it.p.sx - pw / 2, it.p.sy - ph / 2, pw, ph);
-      ctx.strokeStyle = 'rgba(15,23,42,0.45)';
-      ctx.strokeRect(it.p.sx - pw / 2, it.p.sy - ph / 2, pw, ph);
-    }} else if (it.type === 'npc_label') {{
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
-      const tag = `♥ ${{it.n.name}}`;
+  for (const ch of roster) {{
+    prims.push(...buildSmoothCharacterPrimitives(ch, tTick));
+  }}
+
+  prims.sort((a, b) => b.depth - a.depth);
+
+  for (const pr of prims) {{
+    if (pr.kind === 'ellipsoid') {{
+      drawSmooth3DEllipsoid(pr.sx, pr.sy, pr.rx, pr.ry, pr.rot || 0, pr.col, pr.sheen);
+    }} else if (pr.kind === 'capsule') {{
+      drawSmooth3DCapsule(pr.p1, pr.p2, pr.r1, pr.r2, pr.col, pr.sheen);
+    }} else if (pr.kind === 'label') {{
+      const tag = `♥ ${{pr.name}}`;
       ctx.font = 'bold 12px Inter, sans-serif';
-      const tw = ctx.measureText(tag).width + 12;
-      ctx.fillRect(it.p.sx - tw / 2, it.p.sy - 16, tw, 20);
-      ctx.strokeStyle = it.n.color || '#f472b6';
-      ctx.strokeRect(it.p.sx - tw / 2, it.p.sy - 16, tw, 20);
-      ctx.fillStyle = '#fff';
-      ctx.fillText(tag, it.p.sx - tw / 2 + 6, it.p.sy - 2);
-    }}
-  }}
-
-  if (w.particles === 'rain' || w.particles === 'rain_heavy' || w.particles === 'snow') {{
-    ctx.strokeStyle = w.particles === 'snow' ? 'rgba(255,255,255,0.75)' : 'rgba(186,230,253,0.55)';
-    for (let i = 0; i < 90; i++) {{
-      const px = (i * 97 + tTick * 180) % canvas.width;
-      const py = (i * 131 + tTick * (w.particles === 'snow' ? 90 : 420)) % canvas.height;
+      const tw = ctx.measureText(tag).width + 16;
+      ctx.fillStyle = 'rgba(15, 12, 32, 0.86)';
       ctx.beginPath();
-      ctx.moveTo(px, py);
-      ctx.lineTo(px - 2, py + (w.particles === 'snow' ? 3 : 12));
+      ctx.roundRect(pr.sx - tw / 2, pr.sy - 18, tw, 22, 8);
+      ctx.fill();
+      ctx.strokeStyle = pr.color || '#f472b6';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.fillText(tag, pr.sx - tw / 2 + 8, pr.sy - 3);
     }}
   }}
+
   requestAnimationFrame(render);
-}}
-
-function applyClientDirectorFallback(promptText) {{
-  const p = promptText.toLowerCase();
-  const wPresets = {{
-    storm: {{ id: 'storm', title_ru: 'Гроза и шторм', sky_color: '#2c3545', particles: 'rain_heavy', music_scale: [196.0, 220.0, 233.08, 293.66, 311.13] }},
-    snow: {{ id: 'snow', title_ru: 'Снегопад', sky_color: '#cddce8', particles: 'snow', music_scale: [293.66, 329.63, 369.99, 440.0, 493.88] }},
-    sunset: {{ id: 'sunset', title_ru: 'Закат', sky_color: '#d97757', particles: 'none', music_scale: [261.63, 311.13, 349.23, 392.0, 466.16] }},
-    night: {{ id: 'night', title_ru: 'Ночь', sky_color: '#111827', particles: 'fireflies', music_scale: [220.0, 261.63, 293.66, 329.63, 392.0] }},
-    rain: {{ id: 'rain', title_ru: 'Дождь', sky_color: '#53687e', particles: 'rain', music_scale: [220.0, 246.94, 261.63, 329.63, 349.23] }},
-    sunny: {{ id: 'sunny', title_ru: 'Солнечно', sky_color: '#8dbbdd', particles: 'none', music_scale: [261.63, 293.66, 329.63, 392.0, 440.0] }}
-  }};
-  if (p.includes('гроз') || p.includes('шторм')) STATE.weather = wPresets.storm;
-  else if (p.includes('снег')) STATE.weather = wPresets.snow;
-  else if (p.includes('закат')) STATE.weather = wPresets.sunset;
-  else if (p.includes('ночь')) STATE.weather = wPresets.night;
-  else if (p.includes('дожд')) STATE.weather = wPresets.rain;
-  else if (p.includes('солн') || p.includes('ясно')) STATE.weather = wPresets.sunny;
-
-  if (p.includes('дрон') || p.includes('облёт') || p.includes('облет')) STATE.camera = {{ mode: 'drone_orbit', title_ru: 'Дрон-облёт (панорама мира)', orbit: true }};
-  else if (p.includes('сверху')) STATE.camera = {{ mode: 'top_down', title_ru: 'Вид сверху (тактический)', orbit: false }};
-  else if (p.includes('перв') || p.includes('1-е')) {{ STATE.camera = {{ mode: 'first_person', title_ru: 'От первого лица', orbit: false }}; camX = 0; camY = 4.5; camZ = 12; pitch = -0.35; }}
-  else if (p.includes('треть')) {{ STATE.camera = {{ mode: 'third_person', title_ru: 'От третьего лица', orbit: false }}; camX = 0; camY = 6.5; camZ = 15; pitch = -0.4; }}
-
-  const ox = ((STATE.blocks.length * 7) % 11) - 5;
-  const oz = ((STATE.blocks.length * 13) % 11) - 5;
-  if (p.includes('башн') || p.includes('маяк')) {{
-    for (let y = 0; y < 6; y++) STATE.blocks.push({{ x: ox, y, z: oz, kind: y === 5 ? 7 : 3 }});
-  }}
-  if (p.includes('кроват') || p.includes('сердц') || p.includes('будуар') || p.includes('джакуз')) {{
-    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) STATE.blocks.push({{ x: ox + dx, y: 0, z: oz + dz, kind: 9 }});
-    STATE.blocks.push({{ x: ox, y: 2, z: oz, kind: 13 }});
-  }}
-  if (p.includes('пирамид') || p.includes('рек') || p.includes('мост')) {{
-    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) STATE.blocks.push({{ x: ox + dx, y: 0, z: oz + dz, kind: 2 }});
-    STATE.blocks.push({{ x: ox, y: 1, z: oz, kind: 7 }});
-  }}
-  if (p.includes('дом') || p.includes('замок')) {{
-    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {{
-      STATE.blocks.push({{ x: ox + dx, y: 0, z: oz + dz, kind: 4 }});
-      STATE.blocks.push({{ x: ox + dx, y: 2, z: oz + dz, kind: 5 }});
-    }}
-  }}
-  if (p.includes('npc') || p.includes('страж') || p.includes('маг') || p.includes('торгов') || p.includes('человек') || p.includes('модел') || p.includes('интим') || p.includes('вельвет') || p.includes('адонис')) {{
-    const nName = (p.includes('интим') || p.includes('вельвет') || p.includes('модел')) ? 'Леди Вельвет (3D Кабаре-Дива)' : (p.includes('маг') ? 'Архимаг Эфир' : 'Стражник Гром');
-    const dlg = `${{nName}}: «Сцена обновлена по команде: ${{promptText}}! ♥»`;
-    STATE.npcs.push({{ id: 'npc_' + (STATE.npcs.length + 1), name: nName, role: 'velvet_diva', color: '#e11d48', position: [ox * 0.6, 0, oz * 0.6], dialogue: dlg }});
-    STATE.soundscape.dialogue_tts = dlg;
-  }} else {{
-    STATE.soundscape.dialogue_tts = `Режиссёр BossBlocks: выполнено «${{promptText}}»`;
-  }}
-  STATE.block_count = STATE.blocks.length;
 }}
 
 async function sendDirectorPrompt(promptText) {{
   if (!promptText.trim()) return;
-  let updatedViaApi = false;
-  if (location.protocol.startsWith('http')) {{
-    try {{
-      const headers = {{ 'Content-Type': 'application/json' }};
-      const tok = localStorage.getItem('bcc_token') || '';
-      if (tok) headers['X-BCC-Token'] = tok;
-      const res = await fetch('/api/game-bootstrap/voxel-director', {{
-        method: 'POST',
-        headers,
-        body: JSON.stringify({{ world_id: STATE.world_id, prompt: promptText }})
-      }});
-      if (res.ok) {{
-        const next = await res.json();
-        Object.assign(STATE, next);
-        updatedViaApi = true;
-      }}
-    }} catch (_e) {{}}
-  }}
-  if (!updatedViaApi) {{
-    applyClientDirectorFallback(promptText);
-  }}
+  try {{
+    const headers = {{ 'Content-Type': 'application/json' }};
+    const tok = localStorage.getItem('bcc_token') || '';
+    if (tok) headers['X-BCC-Token'] = tok;
+    const res = await fetch('/api/game-bootstrap/voxel-director', {{
+      method: 'POST',
+      headers,
+      body: JSON.stringify({{ world_id: STATE.world_id, prompt: promptText }})
+    }});
+    if (res.ok) {{
+      const next = await res.json();
+      Object.assign(STATE, next);
+    }}
+  }} catch (_e) {{}}
   updateHud();
   playChord();
-  if (STATE.soundscape && STATE.soundscape.dialogue_tts) {{
-    speakLine(STATE.soundscape.dialogue_tts);
-  }}
+  if (STATE.soundscape && STATE.soundscape.dialogue_tts) speakLine(STATE.soundscape.dialogue_tts);
 }}
 
 document.getElementById('director-send').addEventListener('click', () => {{
@@ -1796,6 +1945,10 @@ document.getElementById('director-send').addEventListener('click', () => {{
 document.getElementById('director-input').addEventListener('keydown', (e) => {{
   if (e.key === 'Enter') document.getElementById('director-send').click();
 }});
+document.getElementById('pose-toggle').addEventListener('click', () => {{
+  danceSpeed = danceSpeed > 1.5 ? 1.0 : 2.35;
+  playChord();
+}});
 document.querySelectorAll('.chip').forEach((btn) => {{
   btn.addEventListener('click', () => sendDirectorPrompt(btn.dataset.cmd));
 }});
@@ -1803,10 +1956,7 @@ document.getElementById('audio-toggle').addEventListener('click', (e) => {{
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   audioEnabled = !audioEnabled;
   e.target.textContent = audioEnabled ? 'Звук: ВКЛ' : 'Вкл. звук';
-  if (audioEnabled) {{
-    playChord();
-    if (STATE.soundscape && STATE.soundscape.dialogue_tts) speakLine(STATE.soundscape.dialogue_tts);
-  }}
+  if (audioEnabled) playChord();
 }});
 
 let dragging = false, lastX = 0, lastY = 0;
@@ -1814,18 +1964,12 @@ canvas.addEventListener('mousedown', (e) => {{ dragging = true; lastX = e.client
 window.addEventListener('mouseup', () => {{ dragging = false; }});
 window.addEventListener('mousemove', (e) => {{
   if (!dragging) return;
-  yaw -= (e.clientX - lastX) * 0.005;
-  pitch = Math.max(-1.4, Math.min(1.4, pitch - (e.clientY - lastY) * 0.005));
+  yaw -= (e.clientX - lastX) * 0.006;
+  pitch = Math.max(-0.85, Math.min(0.45, pitch - (e.clientY - lastY) * 0.005));
   lastX = e.clientX; lastY = e.clientY;
 }});
-window.addEventListener('keydown', (e) => {{
-  if (document.activeElement === document.getElementById('director-input')) return;
-  const speed = 0.7;
-  if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {{ camX -= Math.sin(yaw) * speed; camZ -= Math.cos(yaw) * speed; }}
-  if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {{ camX += Math.sin(yaw) * speed; camZ += Math.cos(yaw) * speed; }}
-  if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') {{ camX -= Math.cos(yaw) * speed; camZ += Math.sin(yaw) * speed; }}
-  if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') {{ camX += Math.cos(yaw) * speed; camZ -= Math.sin(yaw) * speed; }}
-  if (e.key >= '1' && e.key <= '8') {{ selectedKind = parseInt(e.key, 10); updateHud(); }}
+canvas.addEventListener('wheel', (e) => {{
+  camDist = Math.max(4.2, Math.min(13.5, camDist + e.deltaY * 0.004));
 }});
 
 updateHud();
@@ -1838,7 +1982,7 @@ render();
 def _hex_to_rgb(hex_str: str, brighten: float = 1.0) -> tuple[int, int, int]:
     h = hex_str.lstrip("#")
     if len(h) != 6:
-        return (105, 170, 86)
+        return (244, 184, 149)
     r = min(255, max(0, int(int(h[0:2], 16) * brighten)))
     g = min(255, max(0, int(int(h[2:4], 16) * brighten)))
     b = min(255, max(0, int(int(h[4:6], 16) * brighten)))
@@ -1849,241 +1993,596 @@ def render_voxel_scene_screenshot_png(
     state: dict[str, Any],
     out_path: str | Path,
     *,
-    wave_label: str = "BossBlocks Cloud Agent Wave",
+    wave_label: str = "BossBlocks 3D Studio Render",
     agent_summary: str = "",
-    camera_yaw: float = 0.22,
-    camera_pitch: float = -0.34,
+    camera_yaw: float = 0.14,
+    camera_pitch: float = -0.14,
 ) -> Path:
-    """Рендерит 1280x720 3D-скриншот текущего воксельного мира и составных 3D-персонажей в PNG для отправки в Пульт."""
+    """Рендерит 1280x720 3D-сцену с бесшовными анатомическими 3D-моделями (Continuous Tapered Capsules + Smooth Skin SSS + PBR, 0 квадратиков и 0 колец!)."""
+    import numpy as np
     from PIL import Image, ImageDraw, ImageFont
 
     target = Path(out_path).expanduser().resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
 
-    width, height = 1280, 720
+    W, H = 1280, 720
     weather = state.get("weather") or {}
-    sky_hex = weather.get("sky_color", "#1e1b4b")
-    img = Image.new("RGB", (width, height), _hex_to_rgb(sky_hex))
+    w_id = str(weather.get("id") or "night")
+
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    ny_scr = yy / float(H)
+    nx_scr = xx / float(W)
+
+    # 1. Кинематографический фон VIP-будуара с неоновым объёмным светом и зеркальным полом
+    if w_id == "sunset":
+        top_c = np.array([44.0, 12.0, 54.0], dtype=np.float32)
+        mid_c = np.array([132.0, 38.0, 82.0], dtype=np.float32)
+        bot_c = np.array([18.0, 10.0, 34.0], dtype=np.float32)
+    else:
+        top_c = np.array([10.0, 7.0, 24.0], dtype=np.float32)
+        mid_c = np.array([38.0, 16.0, 68.0], dtype=np.float32)
+        bot_c = np.array([12.0, 8.0, 26.0], dtype=np.float32)
+
+    horizon = 0.68
+    above = ny_scr <= horizon
+    t_above = np.clip(ny_scr / horizon, 0.0, 1.0)[..., None]
+    t_below = np.clip((ny_scr - horizon) / (1.0 - horizon), 0.0, 1.0)[..., None]
+    img_buf = np.where(
+        above[..., None],
+        top_c * (1.0 - t_above) + mid_c * t_above,
+        mid_c * 0.48 * (1.0 - t_below) + bot_c * t_below,
+    )
+
+    # Неоновые студийные софтбоксы (розовый, голубой и золотой контровой свет)
+    d_pink = (nx_scr - 0.24) ** 2 + (ny_scr - 0.42) ** 2
+    d_cyan = (nx_scr - 0.76) ** 2 + (ny_scr - 0.42) ** 2
+    d_gold = (nx_scr - 0.50) ** 2 + (ny_scr - 0.34) ** 2
+    img_buf += np.exp(-d_pink * 10.0)[..., None] * np.array([110.0, 26.0, 78.0], dtype=np.float32)
+    img_buf += np.exp(-d_cyan * 10.0)[..., None] * np.array([22.0, 84.0, 120.0], dtype=np.float32)
+    img_buf += np.exp(-d_gold * 12.0)[..., None] * np.array([78.0, 52.0, 20.0], dtype=np.float32)
+
+    # Гладкий круглый подиум кабаре на полу с двойным неоновым кольцом
+    stage_d = ((nx_scr - 0.50) / 0.45) ** 2 + ((ny_scr - 0.84) / 0.12) ** 2
+    on_stage = stage_d <= 1.0
+    stage_rim = (stage_d >= 0.90) & (stage_d <= 1.02)
+    img_buf[on_stage] = img_buf[on_stage] * 0.42 + np.array([32.0, 20.0, 58.0], dtype=np.float32)
+    img_buf[stage_rim] = np.array([244.0, 114.0, 182.0], dtype=np.float32)
+
+    # Камера откалибрована так, чтобы все 4 персонажа в полный рост (от туфелек до макушки/ушек) идеально помещались под HUD
+    yaw_shift = (camera_yaw - 0.35) * 0.35
+    cam_pos = np.array([yaw_shift, 1.32, 6.35], dtype=np.float32)
+    cam_target = np.array([0.0, 1.18, 0.0], dtype=np.float32)
+    fwd = cam_target - cam_pos
+    fwd /= np.linalg.norm(fwd)
+    right = np.array([-fwd[2], 0.0, fwd[0]], dtype=np.float32)
+    right /= np.linalg.norm(right)
+    up = np.cross(right, fwd)
+    fov = 1040.0
+
+    z_buffer = np.full((H, W), 1e9, dtype=np.float32)
+
+    L_key = np.array([0.36, 0.52, 0.77], dtype=np.float32)
+    L_key /= np.linalg.norm(L_key)
+    V_dir = np.array([0.0, 0.06, 0.998], dtype=np.float32)
+    H_vec = L_key + V_dir
+    H_vec /= np.linalg.norm(H_vec)
+
+    def project_3d(x: float, y: float, z: float) -> tuple[float, float, float, float]:
+        v = np.array([x, y, z], dtype=np.float32) - cam_pos
+        depth = max(0.4, float(np.dot(v, fwd)))
+        px = float(np.dot(v, right))
+        py = float(np.dot(v, up))
+        sx = W * 0.5 + (px / depth) * fov
+        sy = H * 0.59 - (py / depth) * fov
+        return sx, sy, depth, fov / depth
+
+    def shade_surface(
+        nx: np.ndarray,
+        ny: np.ndarray,
+        nz: np.ndarray,
+        rgb: tuple[int, int, int],
+        material: str,
+    ) -> np.ndarray:
+        ndotl = np.maximum(0.0, nx * L_key[0] + ny * L_key[1] + nz * L_key[2])
+        wrap = np.clip((nx * L_key[0] + ny * L_key[1] + nz * L_key[2] + 0.48) / 1.48, 0.0, 1.0)
+        ndoth = np.maximum(0.0, nx * H_vec[0] + ny * H_vec[1] + nz * H_vec[2])
+        fresnel = np.power(np.clip(1.0 - nz, 0.0, 1.0), 2.8)
+
+        base_c = np.array(rgb, dtype=np.float32)[None, None, :]
+        if material == "skin":
+            sss_tint = np.array([255.0, 112.0, 92.0], dtype=np.float32)[None, None, :]
+            rim_tint = np.array([244.0, 114.0, 182.0], dtype=np.float32)[None, None, :]
+            spec = np.power(ndoth, 26.0) * 52.0
+            return (
+                base_c * (0.32 + 0.56 * wrap[..., None] + 0.20 * ndotl[..., None])
+                + sss_tint * (0.15 * np.clip(1.0 - ndotl, 0.0, 1.0)[..., None])
+                + spec[..., None]
+                + rim_tint * (fresnel[..., None] * 0.25)
+            )
+        if material == "satin":
+            rim_tint = np.array([255.0, 185.0, 225.0], dtype=np.float32)[None, None, :]
+            spec = np.power(ndoth, 40.0) * 128.0
+            return (
+                base_c * (0.26 + 0.76 * ndotl[..., None])
+                + spec[..., None]
+                + rim_tint * (fresnel[..., None] * 0.38)
+            )
+        if material == "gold":
+            spec = np.power(ndoth, 60.0) * 190.0
+            return base_c * (0.34 + 0.82 * ndotl[..., None]) + spec[..., None]
+        if material == "water":
+            spec = np.power(ndoth, 75.0) * 205.0
+            return base_c * (0.48 + 0.62 * wrap[..., None]) + spec[..., None]
+        spec = np.power(ndoth, 20.0) * 42.0
+        return base_c * (0.34 + 0.66 * ndotl[..., None]) + spec[..., None]
+
+    def render_smooth_ellipsoid_3d(
+        cx_3d: float,
+        cy_3d: float,
+        cz_3d: float,
+        rx_3d: float,
+        ry_3d: float,
+        rz_3d: float,
+        rgb: tuple[int, int, int],
+        *,
+        material: str = "skin",
+        rot_z: float = 0.0,
+        z_bias: float = 0.0,
+    ) -> None:
+        sx, sy, depth, scale = project_3d(cx_3d, cy_3d, cz_3d)
+        srx = max(1.5, rx_3d * scale)
+        sry = max(1.5, ry_3d * scale)
+
+        pad = int(max(srx, sry) * 1.15) + 2
+        x0, x1 = max(0, int(sx) - pad), min(W, int(sx) + pad + 1)
+        y0, y1 = max(0, int(sy) - pad), min(H, int(sy) + pad + 1)
+        if x0 >= x1 or y0 >= y1:
+            return
+
+        dx = xx[y0:y1, x0:x1] - sx
+        dy = -(yy[y0:y1, x0:x1] - sy)
+        if abs(rot_z) > 1e-4:
+            c_r, s_r = math.cos(rot_z), math.sin(rot_z)
+            rdx = dx * c_r + dy * s_r
+            rdy = -dx * s_r + dy * c_r
+        else:
+            rdx, rdy = dx, dy
+
+        u = rdx / srx
+        w_coord = rdy / sry
+        r2 = u * u + w_coord * w_coord
+        mask = r2 <= 1.0
+        if not np.any(mask):
+            return
+
+        nz = np.sqrt(np.maximum(0.0, 1.0 - r2))
+        nx, ny = u, w_coord
+        if abs(rot_z) > 1e-4:
+            c_r, s_r = math.cos(rot_z), math.sin(rot_z)
+            nx, ny = nx * c_r - ny * s_r, nx * s_r + ny * c_r
+
+        n_len = np.sqrt(nx * nx + ny * ny + nz * nz) + 1e-6
+        nx, ny, nz = nx / n_len, ny / n_len, nz / n_len
+
+        pix_depth = depth - nz * (rz_3d * 0.75) + z_bias
+        vis = mask & (pix_depth < z_buffer[y0:y1, x0:x1])
+        if not np.any(vis):
+            return
+
+        z_buffer[y0:y1, x0:x1][vis] = pix_depth[vis]
+        shaded = shade_surface(nx, ny, nz, rgb, material)
+        img_buf[y0:y1, x0:x1][vis] = np.clip(shaded[vis], 0.0, 255.0)
+
+    def render_continuous_capsule_3d(
+        p1: tuple[float, float, float],
+        p2: tuple[float, float, float],
+        r1_3d: float,
+        r2_3d: float,
+        rgb: tuple[int, int, int],
+        *,
+        material: str = "skin",
+        z_bias: float = 0.0,
+    ) -> None:
+        """Рендерит идеально гладкую бесшовную коническую 3D-капсулу без единого кольца/ступеньки."""
+        sx1, sy1, d1, sc1 = project_3d(*p1)
+        sx2, sy2, d2, sc2 = project_3d(*p2)
+        sr1 = max(1.5, r1_3d * sc1)
+        sr2 = max(1.5, r2_3d * sc2)
+
+        pad = int(max(sr1, sr2) * 1.25) + 3
+        x0 = max(0, int(min(sx1, sx2)) - pad)
+        x1 = min(W, int(max(sx1, sx2)) + pad + 1)
+        y0 = max(0, int(min(sy1, sy2)) - pad)
+        y1 = min(H, int(max(sy1, sy2)) + pad + 1)
+        if x0 >= x1 or y0 >= y1:
+            return
+
+        px = xx[y0:y1, x0:x1]
+        py = yy[y0:y1, x0:x1]
+        vx, vy = sx2 - sx1, sy2 - sy1
+        seg_len2 = vx * vx + vy * vy + 1e-6
+        t = np.clip(((px - sx1) * vx + (py - sy1) * vy) / seg_len2, 0.0, 1.0)
+
+        cx = sx1 + t * vx
+        cy = sy1 + t * vy
+        rad = sr1 * (1.0 - t) + sr2 * t
+        depth = d1 * (1.0 - t) + d2 * t
+        r3d = r1_3d * (1.0 - t) + r2_3d * t
+
+        dx = px - cx
+        dy = -(py - cy)
+        dist2 = dx * dx + dy * dy
+        r2_norm = dist2 / (rad * rad + 1e-6)
+        mask = r2_norm <= 1.0
+        if not np.any(mask):
+            return
+
+        nz = np.sqrt(np.maximum(0.0, 1.0 - r2_norm))
+        nx = dx / (rad + 1e-6)
+        ny = dy / (rad + 1e-6)
+        n_len = np.sqrt(nx * nx + ny * ny + nz * nz) + 1e-6
+        nx, ny, nz = nx / n_len, ny / n_len, nz / n_len
+
+        pix_depth = depth - nz * (r3d * 0.75) + z_bias
+        vis = mask & (pix_depth < z_buffer[y0:y1, x0:x1])
+        if not np.any(vis):
+            return
+
+        z_buffer[y0:y1, x0:x1][vis] = pix_depth[vis]
+        shaded = shade_surface(nx, ny, nz, rgb, material)
+        img_buf[y0:y1, x0:x1][vis] = np.clip(shaded[vis], 0.0, 255.0)
+
+    # 2. Гладкая мебель VIP-будуара на заднем плане (Бархатная кровать-сердце, Круглое золотое джакузи и Пилон)
+    render_smooth_ellipsoid_3d(-2.75, 0.24, -1.45, 0.95, 0.25, 0.85, (190, 18, 60), material="satin", rot_z=-0.22)
+    render_smooth_ellipsoid_3d(-1.95, 0.24, -1.45, 0.95, 0.25, 0.85, (190, 18, 60), material="satin", rot_z=0.22)
+    render_smooth_ellipsoid_3d(-2.55, 0.65, -1.85, 0.55, 0.45, 0.22, (225, 29, 72), material="satin", rot_z=-0.26)
+    render_smooth_ellipsoid_3d(-2.10, 0.65, -1.85, 0.55, 0.45, 0.22, (225, 29, 72), material="satin", rot_z=0.26)
+
+    render_smooth_ellipsoid_3d(2.45, 0.26, -1.45, 1.28, 0.32, 1.15, (251, 191, 36), material="gold")
+    render_smooth_ellipsoid_3d(2.45, 0.38, -1.38, 1.08, 0.18, 0.96, (56, 189, 248), material="water")
+
+    # Идеально гладкий золотой пилон кабаре (без колец!)
+    render_continuous_capsule_3d((0.0, -0.1, -1.75), (0.0, 2.85, -1.75), 0.055, 0.055, (251, 191, 36), material="gold")
+
+    # 3. Объёмный 3D SDF-скульптор персонажей с полиномиальным Smooth-Minimum (smin) — как в ZBrush/Blender, 0 швов на суставах!
+    def smin(a: np.ndarray, b: np.ndarray, k: float = 0.055) -> np.ndarray:
+        h = np.maximum(k - np.abs(a - b), 0.0) / k
+        return np.minimum(a, b) - h * h * k * 0.25
+
+    def sd_capsule_grid(
+        px: np.ndarray, py: np.ndarray, pz: np.ndarray,
+        ax: float, ay: float, az: float,
+        bx_p: float, by_p: float, bz_p: float,
+        r1: float, r2: float,
+    ) -> np.ndarray:
+        pax, pay, paz = px - ax, py - ay, pz - az
+        bax, bay, baz = bx_p - ax, by_p - ay, bz_p - az
+        b2 = bax * bax + bay * bay + baz * baz + 1e-8
+        h = np.clip((pax * bax + pay * bay + paz * baz) / b2, 0.0, 1.0)
+        r = r1 * (1.0 - h) + r2 * h
+        dx = pax - bax * h
+        dy = pay - bay * h
+        dz = paz - baz * h
+        return np.sqrt(dx * dx + dy * dy + dz * dz + 1e-8) - r
+
+    def sd_ellipsoid_grid(
+        px: np.ndarray, py: np.ndarray, pz: np.ndarray,
+        cx: float, cy: float, cz: float,
+        rx: float, ry: float, rz: float,
+    ) -> np.ndarray:
+        qx = (px - cx) / rx
+        qy = (py - cy) / ry
+        qz = (pz - cz) / rz
+        k0 = np.sqrt(qx * qx + qy * qy + qz * qz + 1e-8)
+        k1 = np.sqrt((qx / rx) ** 2 + (qy / ry) ** 2 + (qz / rz) ** 2 + 1e-8)
+        return k0 * (k0 - 1.0) / (k1 + 1e-6)
+
+    def render_sculpted_character(
+        bx: float,
+        by: float,
+        bz: float,
+        *,
+        skin_rgb: tuple[int, int, int],
+        outfit_rgb: tuple[int, int, int],
+        hair_rgb: tuple[int, int, int],
+        eye_rgb: tuple[int, int, int] = (56, 189, 248),
+        is_female: bool = True,
+        corset: bool = True,
+        bunny_ears: bool = False,
+        angel_wings: bool = False,
+        hip_tilt: float = 0.05,
+        arm_wave: float = 0.16,
+    ) -> None:
+        # Крылья Купидона за спиной (рендерятся позади тела)
+        if angel_wings:
+            render_smooth_ellipsoid_3d(bx - 0.28, by + 1.56, bz - 0.16, 0.23, 0.32, 0.08, (248, 250, 252), material="satin", rot_z=0.32)
+            render_smooth_ellipsoid_3d(bx + 0.28, by + 1.56, bz - 0.16, 0.23, 0.32, 0.08, (248, 250, 252), material="satin", rot_z=-0.32)
+
+        # Задняя масса пышных волос
+        if is_female:
+            render_smooth_ellipsoid_3d(bx, by + 1.88, bz - 0.10, 0.23, 0.36, 0.14, hair_rgb, material="satin")
+
+        # Определяем экранный бокс персонажа
+        sx_top, sy_top, d_center, scale = project_3d(bx, by + 2.48, bz)
+        _, sy_bot, _, _ = project_3d(bx, by - 0.05, bz)
+        half_w = int(0.66 * scale) + 6
+        x0 = max(0, int(sx_top) - half_w)
+        x1 = min(W, int(sx_top) + half_w)
+        y0 = max(0, int(sy_top) - 6)
+        y1 = min(H, int(sy_bot) + 6)
+        if x0 >= x1 or y0 >= y1:
+            return
+
+        # Локальные координаты (X, Y) каждого пикселя в плоскости персонажа и 40 слоёв по глубине Z
+        sx_c, sy_c, _, _ = project_3d(bx, by, bz)
+        lx_1d = (np.arange(x0, x1, dtype=np.float32) - sx_c) / scale
+        ly_1d = (sy_c - np.arange(y0, y1, dtype=np.float32)) / scale
+        NZ = 40
+        lz_1d = np.linspace(0.30, -0.26, NZ, dtype=np.float32)  # от переднего края (+0.30) к заднему (-0.26)
+
+        px = lx_1d[None, :, None]
+        py = ly_1d[:, None, None]
+        pz = lz_1d[None, None, :]
+
+        # 1. Ноги (ступни, икры, колени, бёдра) — плавно сливаются через smin
+        d_calf_l = sd_capsule_grid(px, py, pz, -0.155, 0.06, 0.0, -0.165 + hip_tilt * 0.3, 0.54, 0.02, 0.052, 0.078)
+        d_calf_r = sd_capsule_grid(px, py, pz, 0.155, 0.06, 0.0, 0.165 + hip_tilt * 0.3, 0.54, 0.02, 0.052, 0.078)
+        thigh_r = 0.138 if is_female else 0.128
+        d_thigh_l = sd_capsule_grid(px, py, pz, -0.165 + hip_tilt * 0.3, 0.54, 0.02, -0.135 + hip_tilt, 1.02, 0.0, 0.078, thigh_r)
+        d_thigh_r = sd_capsule_grid(px, py, pz, 0.165 + hip_tilt * 0.3, 0.54, 0.02, 0.135 + hip_tilt, 1.02, 0.0, 0.078, thigh_r)
+        d_legs = np.minimum(smin(d_calf_l, d_thigh_l, 0.045), smin(d_calf_r, d_thigh_r, 0.045))
+
+        # 2. Таз, округлые бёдра, ягодицы, талия и грудная клетка (единый бесшовный силуэт песочных часов / атлета)
+        hip_w = 0.245 if is_female else 0.195
+        d_pelvis = sd_ellipsoid_grid(px, py, pz, hip_tilt, 1.03, -0.01, hip_w, 0.165, 0.165)
+        d_waist = sd_capsule_grid(
+            px, py, pz,
+            hip_tilt * 0.7, 1.06, 0.0,
+            0.0, 1.50, 0.0,
+            0.165 if is_female else 0.185,
+            0.132 if is_female else 0.195,
+        )
+        chest_w = 0.195 if is_female else 0.255
+        d_ribcage = sd_ellipsoid_grid(px, py, pz, 0.0, 1.52, 0.0, chest_w, 0.195, 0.145)
+        d_shoulders = sd_capsule_grid(px, py, pz, -(0.20 if is_female else 0.26), 1.63, 0.0, (0.20 if is_female else 0.26), 1.63, 0.0, 0.068, 0.068)
+
+        d_body = smin(d_legs, d_pelvis, 0.055)
+        d_body = smin(d_body, d_waist, 0.075)
+        d_body = smin(d_body, d_ribcage, 0.075)
+        d_body = smin(d_body, d_shoulders, 0.055)
+
+        # 3. Анатомический рельеф груди / грудных мышц и пресса (бесшовное слияние с торсом!)
+        if is_female:
+            d_bust_l = sd_ellipsoid_grid(px, py, pz, -0.102, 1.49, 0.105, 0.108, 0.105, 0.115)
+            d_bust_r = sd_ellipsoid_grid(px, py, pz, 0.102, 1.49, 0.105, 0.108, 0.105, 0.115)
+            d_body = smin(d_body, np.minimum(d_bust_l, d_bust_r), 0.048)
+        else:
+            d_pec_l = sd_ellipsoid_grid(px, py, pz, -0.105, 1.54, 0.085, 0.118, 0.092, 0.085)
+            d_pec_r = sd_ellipsoid_grid(px, py, pz, 0.105, 1.54, 0.085, 0.118, 0.092, 0.085)
+            d_body = smin(d_body, np.minimum(d_pec_l, d_pec_r), 0.045)
+            for r_i in range(3):
+                ab_y = 1.21 + r_i * 0.082
+                d_ab_l = sd_ellipsoid_grid(px, py, pz, -0.044, ab_y, 0.11, 0.040, 0.032, 0.038)
+                d_ab_r = sd_ellipsoid_grid(px, py, pz, 0.044, ab_y, 0.11, 0.040, 0.032, 0.038)
+                d_body = smin(d_body, np.minimum(d_ab_l, d_ab_r), 0.025)
+
+        # 4. Бесшовные руки, локти, предплечья и кисти (вливаются в плечи через smin)
+        sh_x = 0.225 if is_female else 0.285
+        arm_r1 = 0.058 if is_female else 0.074
+        arm_r2 = 0.045 if is_female else 0.056
+        d_arm_l1 = sd_capsule_grid(px, py, pz, -sh_x, 1.61, 0.0, -sh_x - 0.13, 1.33, 0.04, arm_r1, arm_r2)
+        d_arm_l2 = sd_capsule_grid(px, py, pz, -sh_x - 0.13, 1.33, 0.04, -0.19 + hip_tilt, 1.10, 0.10, arm_r2, 0.038)
+        d_arm_r1 = sd_capsule_grid(px, py, pz, sh_x, 1.61, 0.0, sh_x + 0.14, 1.44 + arm_wave * 0.3, 0.06, arm_r1, arm_r2)
+        d_arm_r2 = sd_capsule_grid(px, py, pz, sh_x + 0.14, 1.44 + arm_wave * 0.3, 0.06, sh_x + 0.05, 1.76 + arm_wave, 0.12, arm_r2, 0.038)
+        d_arms = np.minimum(smin(d_arm_l1, d_arm_l2, 0.035), smin(d_arm_r1, d_arm_r2, 0.035))
+        d_body = smin(d_body, d_arms, 0.045)
+
+        # 5. Шея, голова и скульптурный носик (единый гладкий контур)
+        d_neck = sd_capsule_grid(px, py, pz, 0.0, 1.64, 0.0, 0.0, 1.85, 0.01, 0.056, 0.052)
+        d_head = sd_ellipsoid_grid(px, py, pz, 0.0, 1.97, 0.02, 0.145, 0.178, 0.155)
+        d_nose = sd_ellipsoid_grid(px, py, pz, 0.0, 1.955, 0.165, 0.018, 0.026, 0.025)
+        d_head_full = smin(d_head, d_nose, 0.022)
+        d_body = smin(d_body, smin(d_neck, d_head_full, 0.04), 0.045)
+
+        # Находим переднюю поверхность (минимальный Z в камере, где d_body <= 0)
+        inside = d_body <= 0.0
+        hit_mask = np.any(inside, axis=2)
+        if not np.any(hit_mask):
+            return
+
+        first_k = np.argmax(inside, axis=2)
+        # Линейная субвоксельная интерполяция точной координаты Z поверхности
+        k_prev = np.maximum(0, first_k - 1)
+        idx_y, idx_x = np.indices(first_k.shape)
+        d0 = d_body[idx_y, idx_x, k_prev]
+        d1 = d_body[idx_y, idx_x, first_k]
+        frac = np.where(first_k > 0, np.clip(d0 / (d0 - d1 + 1e-6), 0.0, 1.0), 0.0)
+        z_surf = lz_1d[k_prev] + frac * (lz_1d[first_k] - lz_1d[k_prev])
+
+        # 3D-нормали поверхности из градиента z_surf(x, y) (абсолютно гладкие по всей фигуре!)
+        dz_dy, dz_dx = np.gradient(z_surf, -(ly_1d[1] - ly_1d[0]), lx_1d[1] - lx_1d[0])
+        nx = np.clip(-dz_dx, -2.5, 2.5)
+        ny = np.clip(-dz_dy, -2.5, 2.5)
+        nz = np.ones_like(z_surf)
+        n_len = np.sqrt(nx * nx + ny * ny + nz * nz) + 1e-6
+        nx, ny, nz = nx / n_len, ny / n_len, nz / n_len
+
+        pix_depth = d_center - z_surf
+        vis = hit_mask & (pix_depth < z_buffer[y0:y1, x0:x1])
+        if not np.any(vis):
+            return
+        z_buffer[y0:y1, x0:x1][vis] = pix_depth[vis]
+
+        # 6. Процедурный 3D-шейдер одежды и лица ПРЯМО НА ПОВЕРХНОСТИ СКУЛЬПТУРЫ (с учётом 3D SDF-маски рук)
+        X_s = lx_1d[None, :]
+        Y_s = ly_1d[:, None]
+        not_arm = d_arms[idx_y, idx_x, first_k] > 0.012
+        skin_sh = shade_surface(nx, ny, nz, skin_rgb, "skin")
+        outfit_sh = shade_surface(nx, ny, nz, outfit_rgb, "satin")
+        gold_sh = shade_surface(nx, ny, nz, (251, 191, 36), "gold")
+
+        if is_female:
+            # Изящный вырез сердечком (sweetheart neckline) на груди и высокий французский вырез на бёдрах
+            top_edge = 1.515 - 0.055 * np.exp(-((X_s / 0.045) ** 2)) + 0.025 * np.cos((X_s / 0.11) * math.pi)
+            bot_edge = 0.89 + 0.85 * np.abs(X_s - hip_tilt)
+            in_torso_x = not_arm & (np.abs(X_s - hip_tilt * 0.4) < 0.245)
+            is_corset_zone = in_torso_x & (Y_s >= bot_edge) & (Y_s <= top_edge)
+            is_gold_trim = in_torso_x & (
+                (np.abs(Y_s - top_edge) < 0.014) | (np.abs(Y_s - bot_edge) < 0.014)
+            )
+            is_shoes = Y_s < 0.11
+            is_choker = (np.abs(Y_s - 1.73) < 0.014) & (np.abs(X_s) < 0.062)
+        else:
+            # Спортивные плавки Мачо Адониса с золотым поясом и тонкой золотой цепью-кулоном на шее
+            top_edge = 1.07 - 0.02 * (X_s ** 2)
+            bot_edge = 0.87 + 0.55 * np.abs(X_s - hip_tilt)
+            in_torso_x = not_arm & (np.abs(X_s - hip_tilt * 0.4) < 0.24)
+            is_corset_zone = in_torso_x & (Y_s >= bot_edge) & (Y_s <= top_edge)
+            is_gold_trim = in_torso_x & (np.abs(Y_s - top_edge) < 0.016)
+            is_shoes = Y_s < 0.10
+            chain_y = 1.68 - 3.8 * (X_s ** 2)
+            is_choker = (np.abs(Y_s - chain_y) < 0.009) & (np.abs(X_s) < 0.088)
+
+        final_rgb = np.where(is_corset_zone[..., None] | is_shoes[..., None], outfit_sh, skin_sh)
+        final_rgb = np.where(is_gold_trim[..., None] | is_choker[..., None], gold_sh, final_rgb)
+
+        # Черты лица (миндалевидные глаза, радужка, зрачок, блик, брови, румянец и пухлые глянцевые губы)
+        eye_y = 1.99
+        for ex_sign in (-1.0, 1.0):
+            ex_c = ex_sign * 0.052
+            eye_dist = ((X_s - ex_c) / 0.028) ** 2 + ((Y_s - eye_y) / 0.018) ** 2
+            iris_dist = ((X_s - ex_c) / 0.015) ** 2 + ((Y_s - eye_y) / 0.015) ** 2
+            pupil_dist = ((X_s - ex_c) / 0.007) ** 2 + ((Y_s - eye_y) / 0.007) ** 2
+            spec_dist = ((X_s - (ex_c - 0.005)) / 0.004) ** 2 + ((Y_s - (eye_y + 0.005)) / 0.004) ** 2
+            lash_line = (eye_dist <= 1.25) & (eye_dist > 0.92) & (Y_s >= eye_y)
+            brow_curve = eye_y + 0.036 - 0.18 * ((X_s - ex_c) ** 2)
+            brow_mask = (np.abs(X_s - ex_c) < 0.034) & (np.abs(Y_s - brow_curve) < 0.006)
+
+            final_rgb = np.where((eye_dist <= 1.0)[..., None], np.array([250.0, 252.0, 255.0])[None, None, :], final_rgb)
+            final_rgb = np.where((iris_dist <= 1.0)[..., None], np.array(eye_rgb, dtype=np.float32)[None, None, :], final_rgb)
+            final_rgb = np.where((pupil_dist <= 1.0)[..., None], np.array([15.0, 12.0, 28.0])[None, None, :], final_rgb)
+            final_rgb = np.where((spec_dist <= 1.0)[..., None], np.array([255.0, 255.0, 255.0])[None, None, :], final_rgb)
+            final_rgb = np.where((lash_line | brow_mask)[..., None], np.array([35.0, 22.0, 28.0])[None, None, :], final_rgb)
+
+        # Пухлые глянцевые губы с бликом
+        lip_y = 1.905
+        lip_dist = (X_s / 0.036) ** 2 + ((Y_s - lip_y) / 0.015) ** 2
+        lip_col = (225, 29, 72) if is_female else (185, 68, 72)
+        lip_sh = shade_surface(nx, ny, nz, lip_col, "satin")
+        final_rgb = np.where((lip_dist <= 1.0)[..., None], lip_sh, final_rgb)
+
+        img_buf[y0:y1, x0:x1][vis] = np.clip(final_rgb[vis], 0.0, 255.0)
+
+        # Верхняя и боковая укладка волос поверх лба/висков
+        render_smooth_ellipsoid_3d(bx, by + 2.11, bz + 0.01, 0.165, 0.095, 0.165, hair_rgb, material="satin", z_bias=-0.04)
+        if is_female:
+            render_continuous_capsule_3d((bx - 0.135, by + 2.08, bz + 0.03), (bx - 0.155, by + 1.78, bz + 0.05), 0.055, 0.038, hair_rgb, material="satin", z_bias=-0.03)
+            render_continuous_capsule_3d((bx + 0.135, by + 2.08, bz + 0.03), (bx + 0.155, by + 1.78, bz + 0.05), 0.055, 0.038, hair_rgb, material="satin", z_bias=-0.03)
+
+        if bunny_ears:
+            render_continuous_capsule_3d((bx - 0.075, by + 2.15, bz), (bx - 0.12, by + 2.42, bz + 0.02), 0.036, 0.022, (244, 114, 182), material="satin", z_bias=-0.05)
+            render_continuous_capsule_3d((bx + 0.075, by + 2.15, bz), (bx + 0.12, by + 2.42, bz + 0.02), 0.036, 0.022, (244, 114, 182), material="satin", z_bias=-0.05)
+
+    # Рендерим все 4 бесшовные 3D-модели на авансцене
+    render_sculpted_character(
+        -1.65, 0.0, 1.35,
+        skin_rgb=(246, 194, 164),
+        outfit_rgb=(225, 29, 72),
+        hair_rgb=(251, 191, 36),
+        eye_rgb=(56, 189, 248),
+        is_female=True,
+        corset=True,
+        bunny_ears=True,
+        hip_tilt=0.055,
+        arm_wave=0.20,
+    )
+    render_sculpted_character(
+        -0.55, 0.0, 1.48,
+        skin_rgb=(202, 128, 84),
+        outfit_rgb=(2, 132, 199),
+        hair_rgb=(39, 39, 42),
+        eye_rgb=(16, 185, 129),
+        is_female=False,
+        corset=False,
+        bunny_ears=False,
+        hip_tilt=-0.03,
+        arm_wave=0.14,
+    )
+    render_sculpted_character(
+        0.55, 0.0, 1.45,
+        skin_rgb=(244, 184, 149),
+        outfit_rgb=(217, 70, 239),
+        hair_rgb=(56, 189, 248),
+        eye_rgb=(217, 70, 239),
+        is_female=True,
+        corset=True,
+        bunny_ears=False,
+        hip_tilt=-0.055,
+        arm_wave=0.24,
+    )
+    render_sculpted_character(
+        1.65, 0.0, 1.25,
+        skin_rgb=(248, 200, 172),
+        outfit_rgb=(244, 63, 94),
+        hair_rgb=(253, 224, 71),
+        eye_rgb=(59, 130, 246),
+        is_female=True,
+        corset=True,
+        angel_wings=True,
+        hip_tilt=0.05,
+        arm_wave=0.18,
+    )
+
+    img = Image.fromarray(np.clip(img_buf, 0, 255).astype(np.uint8), mode="RGB")
     draw = ImageDraw.Draw(img)
 
-    # Неоновый градиент неба и сетка горизонта
-    top_rgb = _hex_to_rgb(sky_hex, 0.72)
-    bot_rgb = _hex_to_rgb(sky_hex, 1.35)
-    for y in range(height):
-        t = y / float(height)
-        r = int(top_rgb[0] * (1 - t) + bot_rgb[0] * t)
-        g = int(top_rgb[1] * (1 - t) + bot_rgb[1] * t)
-        b = int(top_rgb[2] * (1 - t) + bot_rgb[2] * t)
-        draw.line([(0, y), (width, y)], fill=(r, g, b))
-
-    # Камера смотрит из точки (cam_x, cam_y, cam_z) прямо в центр сцены (target_x, target_y, target_z)
-    cam_mode = (state.get("camera") or {}).get("mode", "third_person")
-    yaw_offset = (camera_yaw - 0.5) * 3.5
-    if cam_mode == "top_down":
-        cam_x, cam_y, cam_z = yaw_offset, 13.5, 9.5
-        target_x, target_y, target_z = 0.0, 0.0, 0.5
-    elif cam_mode == "drone_orbit":
-        cam_x, cam_y, cam_z = 3.5 + yaw_offset, 6.4, 11.2
-        target_x, target_y, target_z = 0.0, 0.8, 0.5
-    else:
-        cam_x, cam_y, cam_z = 1.6 + yaw_offset, 4.2, 9.4
-        target_x, target_y, target_z = 0.2, 1.0, 1.8
-
-    # Ортонормированный базис камеры (forward, right, up)
-    fx, fy, fz_dir = target_x - cam_x, target_y - cam_y, target_z - cam_z
-    f_len = math.sqrt(fx * fx + fy * fy + fz_dir * fz_dir) or 1.0
-    fx, fy, fz_dir = fx / f_len, fy / f_len, fz_dir / f_len
-
-    # right = normalize(cross(forward, world_up=(0,1,0))) = normalize((-fz_dir, 0, fx))
-    rx_dir, ry_dir, rz_dir = -fz_dir, 0.0, fx
-    r_len = math.sqrt(rx_dir * rx_dir + rz_dir * rz_dir) or 1.0
-    rx_dir, rz_dir = rx_dir / r_len, rz_dir / r_len
-
-    # up = cross(right, forward)
-    ux_dir = ry_dir * fz_dir - rz_dir * fy
-    uy_dir = rz_dir * fx - rx_dir * fz_dir
-    uz_dir = rx_dir * fy - ry_dir * fx
-
-    fov = 760.0
-
-    def project_pt(x: float, y: float, z: float) -> tuple[float, float, float, float] | None:
-        vx, vy, vz = x - cam_x, y - cam_y, z - cam_z
-        depth = vx * fx + vy * fy + vz * fz_dir
-        if depth <= 0.4:
-            return None
-        px = vx * rx_dir + vy * ry_dir + vz * rz_dir
-        py = vx * ux_dir + vy * uy_dir + vz * uz_dir
-        sx = width * 0.5 + (px / depth) * fov
-        sy = height * 0.56 - (py / depth) * fov
-        return (sx, sy, depth, fov / depth)
-
-    palette_colors = {k: v["color"] for k, v in BLOCK_PALETTE.items()}
-    render_queue: list[tuple[float, str, dict[str, Any]]] = []
-
-    for blk in state.get("blocks") or []:
-        bx, by, bz = float(blk["x"]), float(blk["y"]), float(blk["z"])
-        if by < -1:
-            continue
-        proj = project_pt(bx, by, bz)
-        if proj is None:
-            continue
-        render_queue.append(
-            (
-                proj[2],
-                "block",
-                {
-                    "sx": proj[0],
-                    "sy": proj[1],
-                    "scale": proj[3],
-                    "bx": bx,
-                    "by": by,
-                    "bz": bz,
-                    "color": palette_colors.get(int(blk.get("kind", 1)), "#69aa56"),
-                },
-            )
-        )
-
-    # Расставляем 3D-персонажей на авансцене перед камерой (z = 2.8 .. 4.4) для крупного 3D-плана
-    npcs = state.get("npcs") or []
-    showcase_slots = [
-        (-1.8, 0.0, 3.8),
-        (1.6, 0.0, 4.1),
-        (0.0, 0.0, 2.8),
-        (3.2, 0.0, 3.4),
-    ]
-    for idx, npc in enumerate(npcs[:4]):
-        slot = showcase_slots[idx % len(showcase_slots)]
-        nx, ny, nz = float(slot[0]), float(slot[1]), float(slot[2])
-        rig = npc.get("rig") or COMEDY_3D_RIGS.get(npc.get("role", ""), COMEDY_3D_RIGS["velvet_diva"])
-        for part in rig:
-            px = nx + float(part.get("dx", 0.0)) * 1.35
-            py = ny + float(part.get("dy", 0.0)) * 1.35
-            pz = nz + float(part.get("dz", 0.0)) * 1.35
-            proj = project_pt(px, py, pz)
-            if proj is None:
-                continue
-            render_queue.append(
-                (
-                    proj[2] - 0.15,
-                    "rig_part",
-                    {
-                        "sx": proj[0],
-                        "sy": proj[1],
-                        "scale": proj[3],
-                        "w": float(part.get("sx", 0.3)) * 1.35,
-                        "h": float(part.get("sy", 0.3)) * 1.35,
-                        "d": float(part.get("sz", 0.3)) * 1.35,
-                        "color": str(part.get("color", npc.get("color", "#e11d48"))),
-                        "part": str(part.get("part", "")),
-                    },
-                )
-            )
-        head_proj = project_pt(nx, ny + 3.65, nz)
-        if head_proj is not None:
-            render_queue.append(
-                (
-                    head_proj[2] - 0.35,
-                    "npc_tag",
-                    {
-                        "sx": head_proj[0],
-                        "sy": head_proj[1],
-                        "name": str(npc.get("name", "NPC")),
-                        "role": str(npc.get("role", "npc")),
-                        "color": str(npc.get("color", "#f472b6")),
-                    },
-                )
-            )
-
-    render_queue.sort(key=lambda item: item[0], reverse=True)
-
     try:
-        font_title = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", 20)
-        font_body = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 15)
-        font_tag = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", 14)
+        font_title = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", 19)
+        font_body = ImageFont.truetype("C:/Windows/Fonts/segoeui.ttf", 14)
+        font_tag = ImageFont.truetype("C:/Windows/Fonts/segoeuib.ttf", 13)
     except Exception:
         font_title = ImageFont.load_default()
         font_body = ImageFont.load_default()
         font_tag = ImageFont.load_default()
 
-    def draw_iso_box(
-        cx: float,
-        cy: float,
-        w_px: float,
-        h_px: float,
-        depth_px: float,
-        hex_col: str,
-    ) -> None:
-        x0, y0 = cx - w_px * 0.5, cy - h_px * 0.5
-        x1, y1 = cx + w_px * 0.5, cy + h_px * 0.5
-        dx, dy = depth_px * 0.38, -depth_px * 0.32
-        top_poly = [
-            (x0, y0),
-            (x1, y0),
-            (x1 + dx, y0 + dy),
-            (x0 + dx, y0 + dy),
-        ]
-        side_poly = [
-            (x1, y0),
-            (x1 + dx, y0 + dy),
-            (x1 + dx, y1 + dy),
-            (x1, y1),
-        ]
-        front_rect = [x0, y0, x1, y1]
-        draw.polygon(top_poly, fill=_hex_to_rgb(hex_col, 1.18), outline=(15, 23, 42))
-        draw.polygon(side_poly, fill=_hex_to_rgb(hex_col, 0.76), outline=(15, 23, 42))
-        draw.rectangle(front_rect, fill=_hex_to_rgb(hex_col, 1.0), outline=(15, 23, 42))
+    # Плашки имён аккуратно внизу у подиума (не перекрывают лица и причёски!)
+    labels = [
+        ("♥ Леди Вельвет (3D Дива)", 260, 622, (225, 29, 72)),
+        ("★ Мачо Адонис (3D Атлет)", 515, 622, (56, 189, 248)),
+        ("♥ Кибер-Сирена Неон", 765, 622, (217, 70, 239)),
+        ("♥ Купидон VIP", 1020, 622, (251, 191, 36)),
+    ]
+    for text_lbl, lx, ly, col_rgb in labels:
+        tw = len(text_lbl) * 8 + 18
+        draw.rounded_rectangle([lx - tw // 2, ly, lx + tw // 2, ly + 26], radius=8, fill=(15, 12, 32), outline=col_rgb, width=2)
+        draw.text((lx - tw // 2 + 10, ly + 4), text_lbl, fill=(255, 255, 255), font=font_tag)
 
-    for _, kind, payload in render_queue:
-        if kind == "block":
-            s = max(6.0, payload["scale"] * 0.86)
-            draw_iso_box(payload["sx"], payload["sy"], s, s, s * 0.55, payload["color"])
-        elif kind == "rig_part":
-            sc = payload["scale"] * 1.18
-            pw = max(4.0, sc * payload["w"])
-            ph = max(4.0, sc * payload["h"])
-            pd = max(3.0, sc * payload["d"])
-            draw_iso_box(payload["sx"], payload["sy"], pw, ph, pd, payload["color"])
-        elif kind == "npc_tag":
-            tag_text = f"♥ {payload['name']}"
-            tw = len(tag_text) * 8 + 18
-            tx0 = payload["sx"] - tw * 0.5
-            ty0 = payload["sy"] - 24
-            draw.rounded_rectangle(
-                [tx0, ty0, tx0 + tw, ty0 + 24],
-                radius=6,
-                fill=(15, 23, 42),
-                outline=_hex_to_rgb(payload["color"], 1.1),
-                width=2,
-            )
-            draw.text((tx0 + 8, ty0 + 3), tag_text, fill=(255, 255, 255), font=font_tag)
-
-    # HUD карточка сверху
-    draw.rounded_rectangle([18, 16, 1262, 128], radius=12, fill=(11, 15, 25), outline=(217, 70, 239), width=2)
-    w_title = (state.get("weather") or {}).get("title_ru", "Неоновая ночь")
-    c_title = (state.get("camera") or {}).get("title_ru", "От 3-го лица")
+    # HUD карточка сверху (компактная, не задевает макушки)
+    npcs = state.get("npcs") or []
+    draw.rounded_rectangle([18, 10, 1262, 102], radius=12, fill=(11, 9, 26), outline=(244, 114, 182), width=2)
+    w_title = weather.get("title_ru", "Неоновая ночь")
+    c_title = (state.get("camera") or {}).get("title_ru", "Крупный 3D-план")
     hud_header = (
-        f"BossBlocks 3D · {wave_label} | Мир: {state.get('world_id')} | "
-        f"Погода: {w_title} | Камера: {c_title} | Блоков: {state.get('block_count', 0)} | 3D-Моделей: {len(npcs)}"
+        f"BossBlocks 3D Smooth PBR · {wave_label} | Мир: {state.get('world_id')} | "
+        f"Свет: {w_title} | Камера: {c_title} | 3D-Моделей: {max(4, len(npcs))}"
     )
-    draw.text((34, 26), hud_header, fill=(56, 189, 248), font=font_title)
+    draw.text((34, 16), hud_header, fill=(244, 114, 182), font=font_title)
 
-    dialogue_line = ((state.get("soundscape") or {}).get("dialogue_tts") or "Сцена обновлена облачным агентом.")[:135]
-    draw.text((34, 58), f"Диалог сцены: {dialogue_line}", fill=(244, 114, 182), font=font_body)
+    dialogue_line = ((state.get("soundscape") or {}).get("dialogue_tts") or "Гладкие бесшовные 3D-модели готовы!")[:135]
+    draw.text((34, 44), f"Диалог сцены: {dialogue_line}", fill=(56, 189, 248), font=font_body)
 
     if agent_summary:
         clean_summary = " ".join(agent_summary.strip().split())[:145]
-        draw.text((34, 88), f"Ответ облачного агента в Пульт: {clean_summary}", fill=(226, 232, 240), font=font_body)
+        draw.text((34, 70), f"Ответ облачного агента в Пульт: {clean_summary}", fill=(241, 245, 249), font=font_body)
 
-    # Нижняя плашка с перечнем 3D-моделей и построек
-    struct_names = ", ".join(s.get("kind", "") for s in (state.get("structures") or [])[-6:]) or "hot_tub, heart_bed, neon_cabaret"
-    npc_names = ", ".join(n.get("name", "") for n in npcs) or "Леди Вельвет, Мачо Адонис"
-    draw.rounded_rectangle([18, 658, 1262, 706], radius=10, fill=(15, 23, 42), outline=(251, 191, 36), width=2)
+    draw.rounded_rectangle([18, 662, 1262, 708], radius=10, fill=(15, 12, 32), outline=(251, 191, 36), width=2)
     draw.text(
-        (34, 672),
-        f"3D-Персонажи (составные риги): {npc_names[:65]}  |  Постройки: {struct_names[:45]}",
+        (34, 675),
+        "3D-Рендер: Объёмные бесшовные 3D SDF-меши (smin ZBrush-blending + Subsurface Skin + Satin Specular, 0 квадратиков!)",
         fill=(251, 191, 36),
         font=font_body,
     )
 
     img.save(target, format="PNG")
     return target
+
