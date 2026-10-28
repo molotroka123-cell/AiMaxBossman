@@ -165,3 +165,11 @@ def test_blast_radius_is_501_instead_of_invented_zeros(authed):
     assert r.status_code == 501 and r.json()["detail"]["code"] == "BM_BLAST_UNAVAILABLE"
     for invented in ("network_used", "cost_usd", "affected_files", '"diff"'):
         assert invented not in r.text, f"{invented} must not be invented for a route Bossman does not have"
+
+
+def test_a_failed_window_enumeration_is_a_503_not_zero_open_windows(authed, monkeypatch):
+    import ctypes
+    monkeypatch.setattr(ctypes, "windll", None, raising=False)         # EnumWindows cannot run
+    r = authed.c.get("/m/api/pc-agent/windows")                        # the fake Bossman has no such route -> the local fallback
+    assert r.status_code == 503 and r.json()["detail"]["code"] == "BM_WINDOWS_UNAVAILABLE"
+    assert '"count"' not in r.text

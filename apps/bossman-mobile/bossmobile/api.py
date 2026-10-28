@@ -1536,6 +1536,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             return safe(body_w)
         # Fallback when :8801 is running an un-restarted tournament process: enumerate visible Win32 windows locally
         items: list[dict[str, Any]] = []
+        enum_failed = False
         try:
             import ctypes
             user32 = ctypes.windll.user32
@@ -1552,7 +1553,9 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
                 return True
             user32.EnumWindows(WNDENUMPROC(_cb), 0)
         except Exception:
-            pass
+            enum_failed = True
+        if enum_failed and not items:        # a failed enumeration is not «no windows are open»
+            raise fail(503, "список окон не получен", "BM_WINDOWS_UNAVAILABLE", "окна доступны только в интерактивном сеансе ПК")
         return safe({"ok": True, "count": len(items), "windows": items[:40]})
 
     @app.get("/m/api/pc-agent/sysinfo")

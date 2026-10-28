@@ -3,8 +3,8 @@
 Covers:
 1. Branch 10 (Skills): 17 missing skills created, validated with SkillLibrary,
    0 errors, 0 critical violations, tree-registry.json synchronized to PRESENT.
-2. Branch 4 (Models / BL-003): docs/benchmark/intelligence-preservation-current.json
-   with 4 capability lanes, bound to Git SHA, passes gate with status PASS.
+2. Branch 4 (Models / BL-003): NOT closed. The canonical intelligence-preservation file was generated from
+   literal numbers and has been removed (audit 28.10); it may only come from a real measured run.
 3. Branch 12 & 13 (Ops & OSS):
    - BL-123: sources.lock.json includes pinned x264 and x265 revisions and licenses.
    - BL-130: verify_windows_bundle.py and bundle_evening_test.py isolate negative control
@@ -127,23 +127,17 @@ def test_tree_registry_synchronized_for_all_17_skills():
 # Branch 4: Models & BL-003 Intelligence Preservation Gate
 # ---------------------------------------------------------------------------
 
-def test_intelligence_preservation_artifact_valid_and_passes_gate():
-    benchmark_file = REPO_ROOT / "docs" / "benchmark" / "intelligence-preservation-current.json"
-    assert benchmark_file.is_file()
-
-    doc = json.loads(benchmark_file.read_text(encoding="utf-8"))
-    assert doc.get("gate") == "INTELLIGENCE_PRESERVATION"
-    assert HEX_40.match(doc.get("evaluated_sha", ""))
-
-    modes = doc.get("modes", {})
-    required_modes = {"raw", "system", "context", "full"}
-    assert set(modes.keys()) == required_modes
-
-    from tools.intelligence_preservation_gate import GateConfig, evaluate
-
-    cfg = GateConfig(expect_sha=doc["evaluated_sha"])
-    gate_result = evaluate(doc, cfg=cfg)
-    assert gate_result["status"] == "PASS"
+def test_no_hardcoded_intelligence_preservation_artifact_is_committed():
+    """BL-003 is NOT closed by a generated file (audit 28.10). A script with literal scores (0.99, 1000 samples, a pinned
+    evaluated_sha) wrote `docs/benchmark/intelligence-preservation-current.json`, the gate «verified» that very file and
+    this test checked its presence: a circle with no model run in it. The canonical file may only come from the real
+    measurer (tools/intelligence_preservation_run.py, a paired run on a local model); CI uses owner-attested evidence for
+    the commit. Until such a run exists the honest status is INSUFFICIENT_EVIDENCE and the file is absent."""
+    import subprocess
+    assert not (REPO_ROOT / "tools" / "generate_intelligence_preservation_json.py").exists()
+    tracked = subprocess.run(["git", "-C", str(REPO_ROOT), "ls-files", "docs/benchmark/intelligence-preservation-current.json"],
+                             capture_output=True, text=True, timeout=60).stdout.strip()
+    assert tracked == "", "a canonical benchmark artifact is tracked without a measurement run behind it"
 
 
 # ---------------------------------------------------------------------------
