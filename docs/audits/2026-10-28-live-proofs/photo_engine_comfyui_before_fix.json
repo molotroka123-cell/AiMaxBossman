@@ -1,0 +1,49 @@
+{
+ "txt2img_studio": {
+  "http": 400,
+  "error_type": "prompt_outputs_failed_validation",
+  "message": "Prompt outputs failed validation",
+  "node_error_types": {
+   "value_not_in_list": 4
+  },
+  "missing_node_classes": []
+ },
+ "character_lock": {
+  "http": 400,
+  "error_type": "missing_node_type",
+  "message": "Node 'IPAdapterInsightFaceLoader' not found. The custom node may not be installed.",
+  "node_error_types": {},
+  "missing_node_classes": []
+ },
+ "pose_and_structure": {
+  "http": 400,
+  "error_type": "missing_node_type",
+  "message": "Node 'ApplyControlNetUnion' not found. The custom node may not be installed.",
+  "node_error_types": {},
+  "missing_node_classes": []
+ },
+ "inpaint": {
+  "http": 400,
+  "error_type": "prompt_outputs_failed_validation",
+  "message": "Prompt outputs failed validation",
+  "node_error_types": {
+   "value_not_in_list": 4,
+   "custom_validation_failed": 2
+  },
+  "missing_node_classes": []
+ },
+ "outpaint": {
+  "http": 400,
+  "error_type": "missing_node_type",
+  "message": "Node 'PadImageForOutpainting' not found. The custom node may not be installed.",
+  "node_error_types": {},
+  "missing_node_classes": []
+ },
+ "detailer_and_upscale": {
+  "http": 400,
+  "error_type": "missing_node_type",
+  "message": "Node 'UltralyticsDetectorProvider' not found. The custom node may not be installed.",
+  "node_error_types": {},
+  "missing_node_classes": []
+ }
+}

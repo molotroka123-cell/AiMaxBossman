@@ -286,78 +286,49 @@ class DynamicWorkflowCompiler:
         openpose_weight: float = 0.85,
         depth_weight: float = 0.75,
         canny_weight: float = 0.50,
-        model_family: ModelFamily | str = ModelFamily.FLUX_DEV,
+        model_family: ModelFamily | str = ModelFamily.SDXL,
         seed: int = 42,
     ) -> dict[str, Any]:
-        """Mode 3: pose_and_structure with ControlNet Union Multi-Stack (OpenPose + DepthAnythingV2 + Canny)."""
-        base_wf = self.compile_txt2img(prompt=prompt, model_family=model_family, seed=seed)
+        """Mode 3: pose_and_structure with a ControlNet Union stack (OpenPose + Depth + Canny), SDXL only.
+
+        Real ComfyUI chain per condition: LoadImage -> SetUnionControlNetType -> ControlNetApplyAdvanced, passing
+        (positive, negative) from one stage to the next into the KSampler. (`ApplyControlNetUnion` does not exist.)"""
+        family = ModelFamily(model_family) if isinstance(model_family, str) else model_family
+        if family in (ModelFamily.FLUX_DEV, ModelFamily.FLUX_SCHNELL):
+            raise ValueError("controlnet-union-promax-sdxl is an SDXL ControlNet: use model_family sdxl or sdxl_lightning "
+                             "for pose_and_structure (a Flux graph cannot use it)")
+        base_wf = self.compile_txt2img(prompt=prompt, model_family=family, seed=seed)
         nodes = base_wf["nodes"]
 
-        # ControlNet stack nodes
         nodes["20"] = {
             "class_type": "ControlNetLoader",
             "inputs": {"control_net_name": "controlnet-union-promax-sdxl.safetensors"},
         }
-        last_cond = ["4", 0] if "4" in nodes and nodes["4"]["class_type"] == "CLIPTextEncode" else ["2", 0]
-
-        # 1. OpenPose
-        if openpose_image:
-            nodes["21"] = {"class_type": "LoadImage", "inputs": {"image": openpose_image}}
-            nodes["22"] = {
-                "class_type": "ApplyControlNetUnion",
-                "inputs": {
-                    "conditioning": last_cond,
-                    "control_net": ["20", 0],
-                    "image": ["21", 0],
-                    "strength": openpose_weight,
-                    "start_percent": 0.0,
-                    "end_percent": 1.0,
-                    "control_type": "openpose",
-                },
+        pos, neg = ["2", 0], ["3", 0]           # the SDXL base graph: node 2 = positive encode, node 3 = negative encode
+        stages = (
+            (openpose_image, openpose_weight, 0.0, 1.0, "openpose"),
+            (depth_map_image, depth_weight, 0.0, 0.85, "depth"),
+            (canny_image, canny_weight, 0.0, 0.65, "canny/lineart/anime_lineart/mlsd"),
+        )
+        next_id = 21
+        for image, weight, start_pct, end_pct, union_type in stages:
+            if not image:
+                continue
+            img_id, set_id, app_id = str(next_id), str(next_id + 1), str(next_id + 2)
+            next_id += 3
+            nodes[img_id] = {"class_type": "LoadImage", "inputs": {"image": image}}
+            nodes[set_id] = {"class_type": "SetUnionControlNetType",
+                             "inputs": {"control_net": ["20", 0], "type": union_type}}
+            nodes[app_id] = {
+                "class_type": "ControlNetApplyAdvanced",
+                "inputs": {"positive": pos, "negative": neg, "control_net": [set_id, 0], "image": [img_id, 0],
+                           "strength": weight, "start_percent": start_pct, "end_percent": end_pct},
             }
-            last_cond = ["22", 0]
-
-        # 2. Depth Anything v2
-        if depth_map_image:
-            nodes["23"] = {"class_type": "LoadImage", "inputs": {"image": depth_map_image}}
-            nodes["24"] = {
-                "class_type": "ApplyControlNetUnion",
-                "inputs": {
-                    "conditioning": last_cond,
-                    "control_net": ["20", 0],
-                    "image": ["23", 0],
-                    "strength": depth_weight,
-                    "start_percent": 0.0,
-                    "end_percent": 0.85,
-                    "control_type": "depth",
-                },
-            }
-            last_cond = ["24", 0]
-
-        # 3. Canny / LineArt
-        if canny_image:
-            nodes["25"] = {"class_type": "LoadImage", "inputs": {"image": canny_image}}
-            nodes["26"] = {
-                "class_type": "ApplyControlNetUnion",
-                "inputs": {
-                    "conditioning": last_cond,
-                    "control_net": ["20", 0],
-                    "image": ["25", 0],
-                    "strength": canny_weight,
-                    "start_percent": 0.0,
-                    "end_percent": 0.65,
-                    "control_type": "canny",
-                },
-            }
-            last_cond = ["26", 0]
-
-        # Connect composite condition into sampler or flux guidance
-        if "5" in nodes and nodes["5"]["class_type"] == "FluxGuidance":
-            nodes["5"]["inputs"]["conditioning"] = last_cond
-        else:
-            sampler_id = "5" if "5" in nodes and nodes["5"]["class_type"] == "KSampler" else "7"
-            if sampler_id in nodes:
-                nodes[sampler_id]["inputs"]["positive"] = last_cond
+            pos, neg = [app_id, 0], [app_id, 1]
+        sampler = nodes["5"]
+        assert sampler["class_type"] == "KSampler"
+        sampler["inputs"]["positive"] = pos
+        sampler["inputs"]["negative"] = neg
 
         return {
             "mode": WorkflowMode.POSE_AND_STRUCTURE.value,
@@ -391,16 +362,15 @@ class DynamicWorkflowCompiler:
         }
 
         if mode == "outpaint":
+            # ImagePadForOutpaint takes PIXELS (multiples of 8). The source size is not known when the graph is compiled,
+            # so the canvas size of this graph stands in for it: factor 1.5 pads a quarter of the width/height per side.
+            cw, ch = base_wf["resolution"]
+            pad_x = max(8, int(round(cw * (outpaint_factor - 1.0) / 2.0 / 8.0)) * 8)
+            pad_y = max(8, int(round(ch * (outpaint_factor - 1.0) / 2.0 / 8.0)) * 8)
             nodes["33"] = {
-                "class_type": "PadImageForOutpainting",
-                "inputs": {
-                    "image": ["30", 0],
-                    "left_pct": (outpaint_factor - 1.0) / 2.0,
-                    "right_pct": (outpaint_factor - 1.0) / 2.0,
-                    "top_pct": (outpaint_factor - 1.0) / 2.0,
-                    "bottom_pct": (outpaint_factor - 1.0) / 2.0,
-                    "feathering": feather_radius,
-                },
+                "class_type": "ImagePadForOutpaint",
+                "inputs": {"image": ["30", 0], "left": pad_x, "top": pad_y, "right": pad_x, "bottom": pad_y,
+                           "feathering": feather_radius},
             }
             vae_input_img = ["33", 0]
             vae_input_mask = ["33", 1]

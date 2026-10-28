@@ -30,5 +30,17 @@ AST-гейт `bcc/security/powershell_gate.py` блокирует все 12. Ф�
 Сделано: файл `video_engine.py` переписан (конвейеры отказывают `PipelineNotWired`, гейты возвращают `NOT_MEASURED` с последними реальными наблюдениями и источниками, ни одного вписанного числа), каталог не заявляет поддержку, тесты переписаны (3 вместо 5),
 `STATUS_RU.md` возвращён к измеренному и дополнен отзывом, к `art-studio-v2-freeze/receipt.json` добавлен `REVOKED_RU.md`. Не перепроверено: компилятор графов `photo_engine.py` (`DynamicWorkflowCompiler` строит JSON, это может быть реальным кодом) и «Cloud Horde».
 
+## 5. Photo Studio 2.0: графы ComfyUI с несуществующими узлами (частично исправлено)
+Проверено живьём: графы `DynamicWorkflowCompiler` отправлены на `/prompt` установленного ComfyUI v0.37.0 (CPU, без кастомных узлов). До исправления
+(`photo_engine_comfyui_before_fix.json`): `txt2img_studio` и `inpaint` проходили проверку структуры (остальные ошибки: нет файлов моделей и картинок), а четыре режима отвергались `missing_node_type`:
+`pose_and_structure` — `ApplyControlNetUnion` НЕ СУЩЕСТВУЕТ (настоящие узлы `SetUnionControlNetType` + `ControlNetApplyAdvanced`), `outpaint` — `PadImageForOutpainting` НЕ СУЩЕСТВУЕТ (настоящий `ImagePadForOutpaint`, входы
+в пикселях, а не `left_pct`), `character_lock` — нужен пакет IPAdapter_plus, `detailer_and_upscale` — нужен Impact Pack/Ultralytics (оба пакета не установлены).
+Кроме того, `pose_and_structure` по умолчанию брал Flux и подключал к нему SDXL ControlNet Union (несовместимо).
+Сделано: цепочка `LoadImage -> SetUnionControlNetType -> ControlNetApplyAdvanced` с передачей positive и negative в сэмплер, Flux для этого режима отвергается, outpaint на `ImagePadForOutpaint` с отступами в пикселях;
+после исправления ComfyUI принимает структуру обоих режимов (остались только ожидаемые ошибки отсутствующих файлов). Тесты: `tests/test_photo_engine_comfyui_nodes.py` (6, сверяют типы узлов с исходниками установленного ComfyUI).
+НЕ исправлено и НЕ проверено: `character_lock` использует `IPAdapterFaceIDPlusV2`, а в IPAdapter_plus (cubiq) такого узла нет: есть `IPAdapterFaceID` и `IPAdapterUnifiedLoaderFaceID`, а «FaceID Plus V2» — пресет загрузчика
+([runcomfy: IPAdapterFaceID](https://www.runcomfy.com/comfyui-nodes/ComfyUI_IPAdapter_plus/IPAdapterFaceID)). Режим не заработает даже после установки пакета, переписывать его без самого пакета вслепую я не стал.
+Граф `detailer_and_upscale` и узлы `ColorMatch`, `FaceDetailer`, `SAMLoader`, `UltralyticsDetectorProvider` существуют в сторонних пакетах, но их входы не сверены (пакеты не установлены).
+
 ## Что это значит для слияния
 Пока таблица `PROGRESS_RU.md` называет PASS то, что было фасадом или выдумкой, ей нельзя верить без проверки. Остальные заявления этой таблицы (ветки 3, 5, 6, 7, Cloud Horde, 17 skills) мной не перепроверялись.
