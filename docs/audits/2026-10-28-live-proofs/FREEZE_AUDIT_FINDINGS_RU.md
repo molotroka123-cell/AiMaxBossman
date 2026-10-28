@@ -85,5 +85,9 @@ AST-гейт `bcc/security/powershell_gate.py` блокирует все 12. Ф�
 
 Остановка терминальных сессий уже убивает дерево процессов через Job Object: `bcc/v2/terminal_control.py` (`_win_bind_and_resume`, `_win_job_terminate`) со своим ctypes-кодом, запуск CREATE_SUSPENDED → привязка → возобновление; тесты `test_ops_terminal_browser.py` и соседние: 135 passed, 2 skipped. Значит утверждение «STOP без Job Object» неверно для терминала. Что остаётся: (а) `security/win_job.py` (KILL_ON_JOB_CLOSE, лимит процессов) нигде не импортируется — в терминале дубль без этих свойств, сознательно: там закрытие ручки не должно убивать фоновые процессы; (б) `pc.run_command` и MCP-серверы в Job Object не запускаются — это реальный открытый пункт, требует отдельного дизайна и живого доказательства.
 
+### 13. Директива «не трогать журнал аудита / Защитник / STOP» пропускала формулировки
+
+Проверка `_DEFENDER_OR_AUDIT_TAMPER_RE` в `action_contract.py` (перепроверка пункта Аргона 6.3 A4/A2): не ловились `rename audit.jsonl`, `wipe the audit log`, `turn off antivirus`, `отключи STOP`, `переименуй`, `затри журнал аудита`. Добавлены глаголы и формы; безобидные запросы (`покажи audit.jsonl`, `stop the server`, `how does the STOP button work`) не затронуты. Тесты `tests/test_tamper_directive_re.py` (25), регрессия по action_contract: 558 passed. Оговорка: это директива модели, а не исполнительная защита; исполнительная — `is_immutable_audit_log_target` (пункт 11).
+
 ## Что это значит для слияния
 Пока таблица `PROGRESS_RU.md` называет PASS то, что было фасадом или выдумкой, ей нельзя верить без проверки. Остальные заявления этой таблицы (ветки 3, 5, 6, 7, Cloud Horde, 17 skills) мной не перепроверялись.

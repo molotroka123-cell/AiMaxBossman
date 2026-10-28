@@ -683,13 +683,14 @@ _DEFENDER_OR_AUDIT_TAMPER_RE = re.compile(
     r"(?:исключени\w*[^.?!\n]{0,60}(?:Защитник\w*\s+Windows|Windows\s+Defender|Defender\b)|"
     r"(?:Защитник\w*\s+Windows|Windows\s+Defender)[^.?!\n]{0,60}исключени\w*|"
     r"\b(?:Add-MpPreference|Set-MpPreference|DisableRealtimeMonitoring|ExclusionPath)\b|"
-    r"(?:отключ\w+|выключ\w+|disable\w*)\s+(?:[^\n.?!]{0,30}\s+)?(?:Защитник\w*\s+Windows|Windows\s+Defender|антивирус\w*)|"
-    r"(?:удал\w+|очист\w+|сотр\w+|перезапиш\w+|измен\w+|delete\w*|remove\w*|clear\w*|truncate\w*)"
-    r"[^.?!\n]{0,80}(?:\baudit\.jsonl(?:\.head)?\b|журнал\w*\s+аудит\w*|\bconstitution\.sha256\b)|"
-    r"(?:\baudit\.jsonl(?:\.head)?\b|журнал\w*\s+аудит\w*)[^.?!\n]{0,80}"
-    r"(?:удал\w+|очист\w+|сотр\w+|delete\w*|remove\w*|clear\w*)|"
+    r"(?:отключ\w+|выключ\w+|disable\w*|turn\s+off|shut\s*(?:down|off)|stop|kill)\s+(?:[^\n.?!]{0,30}\s+)?(?:Защитник\w*\s+Windows|Windows\s+Defender|антивирус\w*|anti-?virus|Defender\b)|"
+    r"(?:удал\w+|очист\w+|сотр\w+|затр\w+|перезапиш\w+|переимен\w+|перемест\w+|измен\w+|delete\w*|remove\w*|clear\w*|truncate\w*|wipe\w*|erase\w*|rename\w*|overwrit\w*|tamper\w*)"
+    r"[^.?!\n]{0,80}(?:\baudit\.jsonl(?:\.head)?\b|журнал\w*\s+аудит\w*|\baudit\s+(?:log|trail)\b|\bconstitution\.sha256\b)|"
+    r"(?:\baudit\.jsonl(?:\.head)?\b|журнал\w*\s+аудит\w*|\baudit\s+(?:log|trail)\b)[^.?!\n]{0,80}"
+    r"(?:удал\w+|очист\w+|сотр\w+|затр\w+|переимен\w+|delete\w*|remove\w*|clear\w*|wipe\w*|erase\w*|rename\w*)|"
     r"(?:отключ\w+|обойд\w+|заблокиру\w+|удал\w+|disable\w*|bypass\w*)"
-    r"[^.?!\n]{0,60}(?:кнопк\w*\s+STOP\b|сигнал\w*\s+STOP\b|экстренн\w*\s+STOP\b|kill[\s-]?switch))",
+    r"[^.?!\n]{0,60}(?:кнопк\w*\s+STOP\b|сигнал\w*\s+STOP\b|экстренн\w*\s+STOP\b|kill[\s-]?switch)|"
+    r"(?:отключ\w+|обойд\w+|выруби\w*|disable\w*|bypass\w*)\s+(?:the\s+)?STOP\b)",
     re.I | re.U,
 )
 _READONLY_POST_ANALYSIS_RE = re.compile(
