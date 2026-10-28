@@ -60,6 +60,29 @@ CASES: dict[str, dict[str, Any]] = {
                  "всегда срабатывал. Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только "
                  "command-center/bcc/autonomy/goals.py и добавь тест-функции в command-center/tests/test_autonomy_goals.py."),
     },
+    "ungrounded-screen": {
+        # audit D-036 (28.10): a LIVE reproducible defect on main - there is no guard at all, so the hidden holdout fails on base
+        "mode": "task", "target": "command-center/bcc/features/action_contract.py",
+        "holdout": "tools/tree_holdout/ungrounded_screen_claim.py",
+        "verify_tests": ["command-center/tests/test_action_contract.py"],
+        "allowed": ["command-center/bcc/features/action_contract.py", "command-center/tests/test_action_contract.py"],
+        "search": "_looks_like_mutation",
+        "cause": "Ответ агента мог утверждать «на экране я вижу...» без единого вызова инструмента наблюдения",
+        "keywords": ["screen", "observe", "ungrounded", "claim", "экран", "вижу", "скриншот", "computer.observe"],
+        # a symptom, not a patch: the fix has to come from the worker
+        "wish": ("Аудит управления ПК (D-036): агент отвечает владельцу «на экране я вижу окно ...», хотя за весь прогон не "
+                 "вызывал ни computer.observe, ни скриншот, и владелец читает выдумку как факт. Добавь в "
+                 "bcc/features/action_contract.py чистую функцию ungrounded_screen_claim(answer, tools_called) -> bool: True, "
+                 "если ответ утверждает личное наблюдение экрана, окна, страницы или скриншота (по-русски и по-английски), а "
+                 "среди вызванных инструментов нет ни одного инструмента наблюдения (computer.observe, pc.screenshot, "
+                 "pc.record_screen, pc.list_windows, browser.screenshot, browser.read_dom, browser.active_tab_info); False, "
+                 "если такой инструмент вызывался, если утверждения нет, если ответ отрицает или оговаривает («не вижу», "
+                 "«не смотрел», can't see) или только цитирует вопрос владельца. Не строка, не словарь и не None на входе "
+                 "никогда не вызывают исключение (результат False); tools_called может быть списком, кортежем или None. "
+                 "Сначала тест, который падает на старом коде. ОБЪЁМ: меняй только "
+                 "command-center/bcc/features/action_contract.py и добавь тест-функции в "
+                 "command-center/tests/test_action_contract.py; новых файлов не создавай."),
+    },
     "atomic-json": {
         # audit 07.10: found on the owner PC; mode task needs source_repo = a checkout inside the owner's allowed roots
         "mode": "task", "target": "bossman-core/bossman_v3/self_improvement/runner.py",
