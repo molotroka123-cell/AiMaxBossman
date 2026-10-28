@@ -101,6 +101,10 @@ def is_immutable_audit_log_target(text_or_path: str) -> bool:
     glued = re.sub(r"[\s'\"+()`]", "", s.lower())
     if any(n in glued for n in _PROTECTED_NAMES) and _MUTATION_OR_DELETE_RE.search(s):
         return True
+    # (a2) a name assembled from pieces/variables: both halves of the name appear in a mutating command
+    low = s.lower()
+    if "audit" in low and "jsonl" in low and _MUTATION_OR_DELETE_RE.search(s):
+        return True
     # (b) a wildcard that matches the journal: aud*.jsonl, *.jsonl, audit.*
     if _MUTATION_OR_DELETE_RE.search(s):
         for token in re.split(r"[\s,;|&()'\"]+", s):
