@@ -1,0 +1,163 @@
+{
+  "schema": "bossman.v20.superstructure_ux_obsidian_receipt.v1",
+  "timestamp_utc": "2026-10-28T17:46:59Z",
+  "build_sha": "598980f60da9e79955e0e2af46064fa1912f819e",
+  "source_identity": "PASS",
+  "git_clean": true,
+  "v20_memory_sync": {
+    "ok": true,
+    "archived_synthetic_notes": [],
+    "archived_count": 0,
+    "written_canonical_notes": [],
+    "written_count": 0,
+    "db_counts": {
+      "facts": 5,
+      "decisions": 0,
+      "procedures": 0,
+      "failures": 0
+    },
+    "index_result": {
+      "backend": "sqlite",
+      "files": 67,
+      "chunks": 520,
+      "terms": 7343,
+      "added": 0,
+      "updated": 67,
+      "skipped": 0,
+      "removed": 0
+    },
+    "audit": {
+      "configured": true,
+      "vault_root": "C:\\Users\\asd\\Bossman\\audit-memory",
+      "write_folder": "BOSSMAN Memory",
+      "total_markdown_files": 67,
+      "write_folder_files": 54,
+      "canonical_v20_notes": [
+        "2026-10-28-Bossman-2.0-Art-Studio-Media-Motion-Music-3D.md",
+        "2026-10-28-Bossman-2.0-Local-Models-Cloud-Horde-and-94-Skills.md",
+        "2026-10-28-Bossman-2.0-Master-Architecture-and-15-Branches.md",
+        "2026-10-28-Bossman-2.0-Mobile-Pult-8840-and-PC-Agent-UX.md",
+        "2026-10-28-Bossman-2.0-Security-AST-JobObject-SpendFirewall.md"
+      ],
+      "canonical_v20_count": 5,
+      "canonical_v20_expected": 5,
+      "synthetic_junk_notes": [],
+      "synthetic_junk_count": 0,
+      "freshness_status": "UP_TO_DATE"
+    },
+    "summary_ru": "Память Obsidian 2.0 синхронизирована: в архив убрано 0 синтетических заметок, актуализировано 5 канонических заметок Bossman 2.0, индекс обновлён (67 файлов)."
+  },
+  "v20_security_self_test": {
+    "ok": true,
+    "passed": 5,
+    "total": 5,
+    "checks": [
+      {
+        "id": "powershell_ast_and_tokens",
+        "title": "PowerShell AST & детектор обфускации (& $var / InvokeScript / -enc)",
+        "passed": true,
+        "detail": "token_gate=powershell_call_operator_indirection, ast_reasons=['command name is not static (dynamic invocation)']"
+      },
+      {
+        "id": "immutable_audit_log_guard",
+        "title": "Защита журнала audit.jsonl от удаления/перезаписи/масок (20/20)",
+        "passed": true,
+        "detail": "copy /y nul, склейка кавычек и маски заблокированы; чтение разрешено"
+      },
+      {
+        "id": "windows_path_canonical_guard",
+        "title": "Защита путей Windows (NTFS ADS, имена устройств DOS, хвостовые точки)",
+        "passed": true,
+        "detail": "NTFS Alternate Data Stream перехвачен PathRefused"
+      },
+      {
+        "id": "spend_firewall_zero_cost_gate",
+        "title": "Облачный SpendFirewall ($0.00 без одноразового токена владельца)",
+        "passed": true,
+        "detail": "SpendFirewall FAIL-CLOSED: Paid cloud call to openrouter:openai/gpt-4o blocked. Non-zero price requires explicit one-time owner authorization token."
+      },
+      {
+        "id": "self_modify_fail_closed",
+        "title": "Защита pc.self_modify (Fail-Closed без герметичной OS-песочницы)",
+        "passed": true,
+        "detail": "verification_blocked_unisolated"
+      }
+    ],
+    "summary_ru": "Самопроверка контура защиты Bossman 2.0: 5/5 рубежей в норме."
+  },
+  "v20_status_summary": {
+    "version": "2.0.0",
+    "title_ru": null,
+    "obsidian_vault": null,
+    "sqlite_memory": null,
+    "security_gates": null
+  },
+  "ux_sweep": [
+    {
+      "route": "#/home-v3",
+      "button_tested": "#hv3-refresh",
+      "status": "PASS",
+      "screenshot": "C:\\Users\\asd\\.gemini\\antigravity\\brain\\13bd5c4d-566e-49d0-8d67-7dd801e69336\\walkthrough_01_home_v3.png"
+    },
+    {
+      "route": "#/v15-owner-run",
+      "buttons_tested": [
+        "Синхронизировать память Obsidian 2.0",
+        "Проверить 5 рубежей защиты 2.0",
+        "Аудит свежести Obsidian"
+      ],
+      "feedback_samples": [
+        "sync_clicked_ok",
+        "PowerShell AST & детектор обфускации (& $var / InvokeScript / -enc)",
+        "audit_clicked_ok"
+      ],
+      "status": "PASS",
+      "screenshot": "C:\\Users\\asd\\.gemini\\antigravity\\brain\\13bd5c4d-566e-49d0-8d67-7dd801e69336\\walkthrough_11_bossman_20_superstructure.png"
+    },
+    {
+      "route": "#/apps",
+      "visible_buttons": 93,
+      "status": "PASS"
+    },
+    {
+      "route": "#/resources",
+      "visible_buttons": 68,
+      "status": "PASS"
+    },
+    {
+      "route": "#/capability-tree",
+      "visible_buttons": 70,
+      "status": "PASS"
+    },
+    {
+      "route": "#/music-studio",
+      "visible_buttons": 65,
+      "status": "PASS"
+    },
+    {
+      "route": "#/direct-gen",
+      "visible_buttons": 64,
+      "status": "PASS"
+    },
+    {
+      "route": "#/video-studio",
+      "visible_buttons": 77,
+      "status": "PASS"
+    },
+    {
+      "route": "#/motion-studio",
+      "visible_buttons": 65,
+      "status": "PASS"
+    },
+    {
+      "route": "#/skills",
+      "visible_buttons": 419,
+      "status": "PASS"
+    },
+    {
+      "route": "#/self-improve",
+      "visible_buttons": 63,
+      "status": "PASS"
+    }
+  ]
+}
