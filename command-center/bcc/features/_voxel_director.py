@@ -1598,18 +1598,18 @@ function playChord() {{
 }}
 
 function project3D(x, y, z) {{
-  const dx = x - camX, dy = y - camY, dz = z - camZ;
+  const dx = x - camX, dy = y - camY, dz = camZ - z;
   const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
   const rx = dx * cosY - dz * sinY;
   const rz = dx * sinY + dz * cosY;
   const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
-  const ry = dy * cosP - rz * sinP;
-  const fz = dy * sinP + rz * cosP;
-  if (fz <= 0.2) return null;
-  const fov = 560;
+  const ry = dy * cosP + rz * sinP;
+  const fz = rz * cosP - dy * sinP;
+  if (fz <= 0.25) return null;
+  const fov = 620;
   return {{
     sx: canvas.width / 2 + (rx / fz) * fov,
-    sy: canvas.height / 2 - (ry / fz) * fov,
+    sy: canvas.height * 0.56 - (ry / fz) * fov,
     depth: fz,
     scale: fov / fz
   }};
@@ -1623,12 +1623,14 @@ function render() {{
 
   if (STATE.camera && STATE.camera.orbit) {{
     yaw += 0.004;
-    camX = Math.sin(yaw) * 13;
-    camZ = Math.cos(yaw) * 13;
-    camY = 8.5;
-    pitch = -0.45;
+    camX = Math.sin(yaw) * 12;
+    camZ = Math.cos(yaw) * 12;
+    camY = 6.2;
+    pitch = -0.32;
   }} else if (STATE.camera && STATE.camera.mode === 'top_down') {{
-    camX = 0; camY = 18; camZ = 0.5; pitch = -1.45;
+    camX = 0; camY = 16; camZ = 4.0; yaw = 0; pitch = -1.15;
+  }} else {{
+    camX = 0; camY = 4.2; camZ = 10.5; yaw = 0.0; pitch = -0.24;
   }}
 
   const items = [];
@@ -1849,8 +1851,8 @@ def render_voxel_scene_screenshot_png(
     *,
     wave_label: str = "BossBlocks Cloud Agent Wave",
     agent_summary: str = "",
-    camera_yaw: float = 0.58,
-    camera_pitch: float = -0.36,
+    camera_yaw: float = 0.22,
+    camera_pitch: float = -0.34,
 ) -> Path:
     """Рендерит 1280x720 3D-скриншот текущего воксельного мира и составных 3D-персонажей в PNG для отправки в Пульт."""
     from PIL import Image, ImageDraw, ImageFont
@@ -1865,8 +1867,8 @@ def render_voxel_scene_screenshot_png(
     draw = ImageDraw.Draw(img)
 
     # Неоновый градиент неба и сетка горизонта
-    top_rgb = _hex_to_rgb(sky_hex, 0.65)
-    bot_rgb = _hex_to_rgb(sky_hex, 1.15)
+    top_rgb = _hex_to_rgb(sky_hex, 0.72)
+    bot_rgb = _hex_to_rgb(sky_hex, 1.35)
     for y in range(height):
         t = y / float(height)
         r = int(top_rgb[0] * (1 - t) + bot_rgb[0] * t)
@@ -1874,32 +1876,46 @@ def render_voxel_scene_screenshot_png(
         b = int(top_rgb[2] * (1 - t) + bot_rgb[2] * t)
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
+    # Камера смотрит из точки (cam_x, cam_y, cam_z) прямо в центр сцены (target_x, target_y, target_z)
     cam_mode = (state.get("camera") or {}).get("mode", "third_person")
+    yaw_offset = (camera_yaw - 0.5) * 3.5
     if cam_mode == "top_down":
-        cam_x, cam_y, cam_z = 0.0, 15.5, 4.5
-        yaw, pitch = 0.0, -1.15
+        cam_x, cam_y, cam_z = yaw_offset, 13.5, 9.5
+        target_x, target_y, target_z = 0.0, 0.0, 0.5
     elif cam_mode == "drone_orbit":
-        cam_x, cam_y, cam_z = 7.5, 7.2, 11.5
-        yaw, pitch = 0.54, -0.44
+        cam_x, cam_y, cam_z = 3.5 + yaw_offset, 6.4, 11.2
+        target_x, target_y, target_z = 0.0, 0.8, 0.5
     else:
-        cam_x, cam_y, cam_z = 4.2, 4.8, 10.2
-        yaw, pitch = camera_yaw, camera_pitch
+        cam_x, cam_y, cam_z = 1.6 + yaw_offset, 4.2, 9.4
+        target_x, target_y, target_z = 0.2, 1.0, 1.8
 
-    cos_y, sin_y = math.cos(yaw), math.sin(yaw)
-    cos_p, sin_p = math.cos(pitch), math.sin(pitch)
-    fov = 690.0
+    # Ортонормированный базис камеры (forward, right, up)
+    fx, fy, fz_dir = target_x - cam_x, target_y - cam_y, target_z - cam_z
+    f_len = math.sqrt(fx * fx + fy * fy + fz_dir * fz_dir) or 1.0
+    fx, fy, fz_dir = fx / f_len, fy / f_len, fz_dir / f_len
+
+    # right = normalize(cross(forward, world_up=(0,1,0))) = normalize((-fz_dir, 0, fx))
+    rx_dir, ry_dir, rz_dir = -fz_dir, 0.0, fx
+    r_len = math.sqrt(rx_dir * rx_dir + rz_dir * rz_dir) or 1.0
+    rx_dir, rz_dir = rx_dir / r_len, rz_dir / r_len
+
+    # up = cross(right, forward)
+    ux_dir = ry_dir * fz_dir - rz_dir * fy
+    uy_dir = rz_dir * fx - rx_dir * fz_dir
+    uz_dir = rx_dir * fy - ry_dir * fx
+
+    fov = 760.0
 
     def project_pt(x: float, y: float, z: float) -> tuple[float, float, float, float] | None:
-        dx, dy, dz = x - cam_x, y - cam_y, z - cam_z
-        rx = dx * cos_y - dz * sin_y
-        rz = dx * sin_y + dz * cos_y
-        ry = dy * cos_p - rz * sin_p
-        fz = dy * sin_p + rz * cos_p
-        if fz <= 0.3:
+        vx, vy, vz = x - cam_x, y - cam_y, z - cam_z
+        depth = vx * fx + vy * fy + vz * fz_dir
+        if depth <= 0.4:
             return None
-        sx = width * 0.5 + (rx / fz) * fov
-        sy = height * 0.54 - (ry / fz) * fov
-        return (sx, sy, fz, fov / fz)
+        px = vx * rx_dir + vy * ry_dir + vz * rz_dir
+        py = vx * ux_dir + vy * uy_dir + vz * uz_dir
+        sx = width * 0.5 + (px / depth) * fov
+        sy = height * 0.56 - (py / depth) * fov
+        return (sx, sy, depth, fov / depth)
 
     palette_colors = {k: v["color"] for k, v in BLOCK_PALETTE.items()}
     render_queue: list[tuple[float, str, dict[str, Any]]] = []
@@ -1927,46 +1943,46 @@ def render_voxel_scene_screenshot_png(
             )
         )
 
-    # Расставляем 3D-персонажей ближе к переднему плану для чёткой 3D-детализации на скриншоте
+    # Расставляем 3D-персонажей на авансцене перед камерой (z = 2.8 .. 4.4) для крупного 3D-плана
     npcs = state.get("npcs") or []
     showcase_slots = [
-        (1.2, 0.0, 3.8),
-        (3.4, 0.0, 4.2),
-        (-1.2, 0.0, 4.0),
-        (2.3, 0.0, 5.4),
+        (-1.8, 0.0, 3.8),
+        (1.6, 0.0, 4.1),
+        (0.0, 0.0, 2.8),
+        (3.2, 0.0, 3.4),
     ]
-    for idx, npc in enumerate(npcs):
+    for idx, npc in enumerate(npcs[:4]):
         slot = showcase_slots[idx % len(showcase_slots)]
         nx, ny, nz = float(slot[0]), float(slot[1]), float(slot[2])
         rig = npc.get("rig") or COMEDY_3D_RIGS.get(npc.get("role", ""), COMEDY_3D_RIGS["velvet_diva"])
         for part in rig:
-            px = nx + float(part.get("dx", 0.0))
-            py = ny + float(part.get("dy", 0.0))
-            pz = nz + float(part.get("dz", 0.0))
+            px = nx + float(part.get("dx", 0.0)) * 1.35
+            py = ny + float(part.get("dy", 0.0)) * 1.35
+            pz = nz + float(part.get("dz", 0.0)) * 1.35
             proj = project_pt(px, py, pz)
             if proj is None:
                 continue
             render_queue.append(
                 (
-                    proj[2] - 0.08,
+                    proj[2] - 0.15,
                     "rig_part",
                     {
                         "sx": proj[0],
                         "sy": proj[1],
                         "scale": proj[3],
-                        "w": float(part.get("sx", 0.3)),
-                        "h": float(part.get("sy", 0.3)),
-                        "d": float(part.get("sz", 0.3)),
+                        "w": float(part.get("sx", 0.3)) * 1.35,
+                        "h": float(part.get("sy", 0.3)) * 1.35,
+                        "d": float(part.get("sz", 0.3)) * 1.35,
                         "color": str(part.get("color", npc.get("color", "#e11d48"))),
                         "part": str(part.get("part", "")),
                     },
                 )
             )
-        head_proj = project_pt(nx, ny + 2.75, nz)
+        head_proj = project_pt(nx, ny + 3.65, nz)
         if head_proj is not None:
             render_queue.append(
                 (
-                    head_proj[2] - 0.25,
+                    head_proj[2] - 0.35,
                     "npc_tag",
                     {
                         "sx": head_proj[0],
