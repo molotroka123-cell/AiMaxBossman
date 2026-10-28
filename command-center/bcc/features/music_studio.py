@@ -729,6 +729,9 @@ async def save(task_id: str, request: Request):
     master_preset = body.get("master")
     if master_preset is not None and master_preset not in STUDIO_MASTER_FILTERS:
         raise HTTPException(422, f"unknown master preset: {str(master_preset)[:40]}")
+    target_duration = body.get("duration")
+    if target_duration is not None and not (isinstance(target_duration, (int, float)) and 10 <= target_duration <= 600):
+        raise HTTPException(422, "duration must be a number of seconds between 10 and 600")
     state = await task(task_id, request)
     if state.get("status") != "completed":
         raise HTTPException(409, "music task is not completed")
@@ -763,7 +766,7 @@ async def save(task_id: str, request: Request):
         try:
             out["master"] = await asyncio.to_thread(master_audio_track, path,
                                                     root / f"{task_id}-{digest[:12]}-{master_preset}.mp3",
-                                                    preset=master_preset)
+                                                    preset=master_preset, target_duration_s=target_duration)
         except (RuntimeError, FileNotFoundError, ValueError) as exc:
             # The raw track is saved either way; a failed master is reported, never silently dropped.
             out["master"] = {"status": "failed", "preset": master_preset, "error": str(exc)[:300]}
@@ -871,6 +874,7 @@ def master_audio_track(
     instrumental_path: Path | None = None,
     bitrate: str = "320k",
     also_ogg: bool = False,
+    target_duration_s: float | None = None,
 ) -> dict[str, Any]:
     """Run local deterministic FFmpeg studio mastering (EQ, de-esser, 2-stage compression,
     vocal-pocket carving, stereo widening, and EBU R128 -14 LUFS / -1.0 dBTP loudness normalization)."""
@@ -920,20 +924,33 @@ def master_audio_track(
             ogg_path = str(ogg_target)
     eff_preset = "vocal_cover" if (eff_vocal and instrumental_path) else (preset if preset in STUDIO_MASTER_FILTERS else "studio_veo")
     target = MASTER_TARGET_LUFS.get(eff_preset, -14.0)
+
+    def _apply(af: str, tag: str) -> bool:
+        fixed = out.with_name(f"{out.stem}.{tag}{out.suffix}")
+        proc = subprocess.run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(out), "-af", af,
+                               "-ar", "44100", *codec_args, str(fixed)], capture_output=True, text=True, timeout=180, check=False)
+        if proc.returncode != 0 or not fixed.is_file():
+            return False
+        fixed.replace(out)
+        return True
+
+    if target_duration_s:
+        # ACE-Step often ends the music early and pads the tail with silence (27.10: 4-8.5 s of dead air in all three
+        # proof tracks). Drop the trailing silence, then cut to the requested length with a short fade-out.
+        dur = float(target_duration_s)
+        _apply("areverse,silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.3,areverse,"
+               f"atrim=0:{dur:.2f},afade=t=out:st={max(0.0, dur - 1.5):.2f}:d=1.5", "trim")
+    # Single-pass loudnorm undershoots on dense material (phonk: -10.4 for a -9 target) and its peak control is
+    # sample-based (27.10 proof: +0.4 dBTP after mp3). Each pass: gain, then a 4x-oversampled limiter 1 dB under the
+    # ceiling (headroom for the lossy encoder); re-measure; at most 3 passes; report what was measured.
+    limit = 10 ** ((TRUE_PEAK_CEILING_DB - 1.0) / 20)
     measured = measure_loudness(out, ffmpeg)
     passes = 1
-    # Single-pass loudnorm undershoots on dense material (phonk: -10.4 for a -9 target, measured 27.10).
-    # Correct with plain gain into a true-peak limiter, at most twice, and report what was measured.
-    while abs(measured["lufs"] - target) > LUFS_TOLERANCE and passes < 3:
-        gain = target - measured["lufs"]
-        fixed = out.with_name(f"{out.stem}.fix{passes}{out.suffix}")
-        limit = 10 ** (TRUE_PEAK_CEILING_DB / 20)
-        proc = subprocess.run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(out), "-af",
-                               f"volume={gain:.2f}dB,alimiter=limit={limit:.4f}:level=false", "-ar", "44100",
-                               *codec_args, str(fixed)], capture_output=True, text=True, timeout=180, check=False)
-        if proc.returncode != 0 or not fixed.is_file():
+    while passes <= 3 and (abs(measured["lufs"] - target) > LUFS_TOLERANCE or measured["true_peak_dbtp"] > TRUE_PEAK_CEILING_DB + 0.1):
+        gain = target - measured["lufs"] if abs(measured["lufs"] - target) > LUFS_TOLERANCE / 2 else 0.0
+        if not _apply(f"volume={gain:.2f}dB,aresample=176400,alimiter=limit={limit:.4f}:level=false,aresample=44100",
+                      f"fix{passes}"):
             break
-        fixed.replace(out)
         measured = measure_loudness(out, ffmpeg)
         passes += 1
     data = out.read_bytes()
