@@ -98,6 +98,8 @@ SEED_CONSUMERS: dict[str, ConsumerProfile] = {p.id: p for p in (
                     "38-55 GB observed; P95 seed = upper bound"),
     ConsumerProfile("wangp_vace", "WanGP VACE", "compute", True, 55.0, "wangp", (), "38-55 GB observed"),
     ConsumerProfile("ltx25_sdcli", "LTX-2.5 (sd-cli)", "compute", True, 70.0, "sd_cli", (), "60-70 GB observed"),
+    ConsumerProfile("acestep", "ACE-Step 1.5 (Music Studio)", "resident", True, 24.0, "other", (),
+                    "PROVISIONAL seed from the 28.10 master prompt (>= 24 GB free to auto-start); not measured yet"),
     ConsumerProfile("z_image", "z-image (фото)", "compute", True, None, "sd_cli", (), "not measured yet"),
 )}
 

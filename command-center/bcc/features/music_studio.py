@@ -677,17 +677,32 @@ async def generate(body: MusicIn, request: Request):
         payload["bpm"] = body.bpm
     if body.key_scale:
         payload["key_scale"] = body.key_scale
-    try:
+    async def _release_task():
         async with httpx.AsyncClient(timeout=20.0, trust_env=False) as client:
-            data = await _json(client, "POST", "/release_task", json=payload)
+            return await _json(client, "POST", "/release_task", json=payload)
+
+    auto: dict[str, Any] | None = None
+    try:
+        data = await _release_task()
     except (httpx.HTTPError, RuntimeError) as exc:
-        raise await _unavailable(request, exc) from None
+        # master prompt 28.10: installed but not running -> start it on demand under a memory lease, then retry once.
+        from .music_ondemand import ensure_acestep
+        auto = await ensure_acestep(request)
+        if auto["state"] not in ("started", "running"):
+            err = await _unavailable(request, exc)
+            if isinstance(err.detail, dict):
+                err.detail["auto_start"] = auto
+            raise err from None
+        try:
+            data = await _release_task()
+        except (httpx.HTTPError, RuntimeError) as exc2:
+            raise await _unavailable(request, exc2) from None
     task_id = data.get("task_id") if isinstance(data, dict) else None
     if not isinstance(task_id, str) or not task_id:
         raise HTTPException(502, "ACE-Step did not return task_id")
     await request.app.state.svc.bus.emit("music.generation.queued", task_id=task_id,
                                          model=body.model, duration=body.duration)
-    return {"task_id": task_id, "status": "queued", "provider": PROVIDER}
+    return {"task_id": task_id, "status": "queued", "provider": PROVIDER, **({"auto_start": auto} if auto else {})}
 
 
 @router.get("/tasks/{task_id}")
