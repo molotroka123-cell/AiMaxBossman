@@ -420,6 +420,16 @@ def test_cross_family_verifier_success():
     assert receipt["proposer_family"] == "gemma"
     assert receipt["verifier_family"] == "qwen"
     assert len(receipt["sha256_verdict"]) == 64
+    # audit 28.10: without a checker this is a structural check, and the verdict says it is not an independent judgement
+    assert receipt["kind"] == "structural_only" and receipt["independent"] is False
+
+
+def test_cross_family_verifier_uses_a_real_checker_when_given():
+    verifier = CrossFamilyVerifierEngine(verifier_family="qwen")
+    bad = verifier.verify(subtask_id="s", proposer_family="gemma", proposal={"answer": 41}, custom_checker=lambda p: p["answer"] == 42)
+    assert bad["passed"] is False and bad["kind"] == "custom_checker" and bad["independent"] is True
+    good = verifier.verify(subtask_id="s", proposer_family="gemma", proposal={"answer": 42}, custom_checker=lambda p: p["answer"] == 42)
+    assert good["passed"] is True and good["independent"] is True
 
 
 def test_cross_family_verifier_violation_raises():
@@ -432,41 +442,55 @@ def test_cross_family_verifier_violation_raises():
         )
 
 
-@pytest.mark.asyncio
-async def test_swarm_dag_planner_execution():
-    planner = SwarmDAGPlanner(
-        proposer_family="gemma",
-        verifier_family="qwen",
-        max_repairs=2,
-    )
-
-    candidates = [
-        MemoryCandidate(
-            ref="arch_doc_1",
-            tokens=120,
-            signals=Signals(semantic=0.9, verified=0.8),
-            mandatory=True,
-        ),
-        MemoryCandidate(
-            ref="recent_fix",
-            tokens=80,
-            signals=Signals(semantic=0.7, recency=0.9),
-        ),
+def _candidates():
+    return [
+        MemoryCandidate(ref="arch_doc_1", tokens=120, signals=Signals(semantic=0.9, verified=0.8), mandatory=True),
+        MemoryCandidate(ref="recent_fix", tokens=80, signals=Signals(semantic=0.7, recency=0.9)),
     ]
 
-    receipt = await planner.run_dag(
-        goal="Upgrade mobile pult streaming to 250ms",
-        candidates=candidates,
-    )
 
-    assert receipt.status == "SUCCEEDED"
-    assert receipt.cross_family_verified is True
-    assert receipt.proposer_family == "gemma"
-    assert receipt.verifier_family == "qwen"
-    assert receipt.dag_nodes == 3
-    assert receipt.completed_nodes == 3
-    assert receipt.context_tokens_used == 200
-    assert len(receipt.sha256_receipt) == 64
+@pytest.mark.asyncio
+async def test_swarm_dag_without_an_executor_is_plan_only_and_claims_nothing():
+    """Audit 28.10: this used to «execute» three fixed subtasks as a mock and report SUCCEEDED / cross_family_verified True."""
+    planner = SwarmDAGPlanner(proposer_family="gemma", verifier_family="qwen", max_repairs=2)
+    receipt = await planner.run_dag(goal="Upgrade mobile pult streaming to 250ms", candidates=_candidates())
+    assert receipt.status == "PLAN_ONLY" and receipt.executed is False and receipt.verification_kind == "none"
+    assert receipt.dag_nodes == 3 and receipt.completed_nodes == 0
+    assert receipt.cross_family_verified is False
+    assert (receipt.proposer_family, receipt.verifier_family) == ("gemma", "qwen")
+    assert receipt.context_tokens_used == 200 and len(receipt.sha256_receipt) == 64
+
+
+@pytest.mark.asyncio
+async def test_swarm_dag_runs_only_what_an_executor_does_and_is_cross_verified_only_by_a_real_checker():
+    from bcc.v2.swarm_dag import SwarmExecutionError
+    planner = SwarmDAGPlanner(proposer_family="gemma", verifier_family="qwen", max_repairs=1)
+    ran = []
+
+    async def executor(subtask):
+        ran.append(subtask.id)
+        return {"output": f"did {subtask.id}"}
+
+    structural = await planner.run_dag(goal="g", candidates=_candidates(), executor_fn=executor)
+    assert ran == ["task_1_prep", "task_2_execute", "task_3_finalize"]
+    assert structural.status == "SUCCEEDED" and structural.completed_nodes == 3 and structural.executed is True
+    assert structural.cross_family_verified is False and structural.verification_kind == "structural_only"
+
+    checked = await planner.run_dag(goal="g", candidates=_candidates(), executor_fn=executor,
+                                    checker_fn=lambda p: str(p.get("output", "")).startswith("did "))
+    assert checked.cross_family_verified is True and checked.verification_kind == "custom_checker"
+
+    with pytest.raises(SwarmExecutionError):                 # a checker that rejects exhausts the repairs and the DAG fails
+        await planner.run_dag(goal="g", candidates=_candidates(), executor_fn=executor, checker_fn=lambda p: False)
+
+
+@pytest.mark.asyncio
+async def test_execute_subtask_without_an_executor_refuses_to_mock():
+    from bcc.v2.swarm_dag import SwarmNotWired, SwarmSubtask
+    sub = SwarmSubtask(id="t", title="t")
+    with pytest.raises(SwarmNotWired):
+        await SwarmDAGPlanner().execute_subtask(sub)
+    assert sub.status == "NOT_EXECUTED"
 
 
 def test_agent_opencode_swarm_dag_endpoint():
@@ -483,24 +507,17 @@ def test_agent_opencode_swarm_dag_endpoint():
             "verifier_family": "qwen",
             "budget_tokens": 2048,
             "context_candidates": [
-                {
-                    "ref": "dag_spec_v1",
-                    "tokens": 60,
-                    "signals": {"semantic": 0.85, "verified": 0.9},
-                    "mandatory": True,
-                }
+                {"ref": "dag_spec_v1", "tokens": 60, "signals": {"semantic": 0.85, "verified": 0.9}, "mandatory": True}
             ],
         },
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()
-    assert data["ok"] is True
-    assert data["status"] == "SUCCEEDED"
-    assert data["proposer_family"] == "gemma"
-    assert data["verifier_family"] == "qwen"
-    assert data["cross_family_verified"] is True
-    assert data["dag_nodes"] == 3
-    assert len(data["sha256_receipt"]) == 64
+    # audit 28.10: no executor is wired to the endpoint, so it returns a PLAN, not a success
+    assert data["ok"] is False and data["status"] == "PLAN_ONLY" and data["executed"] is False
+    assert data["completed_nodes"] == 0 and data["cross_family_verified"] is False and data["verification_kind"] == "none"
+    assert data["proposer_family"] == "gemma" and data["verifier_family"] == "qwen"
+    assert data["dag_nodes"] == 3 and len(data["sha256_receipt"]) == 64
 
 
 # ---------------------------------------------------------------------------
@@ -622,3 +639,14 @@ def test_camera_probe_sees_the_real_machine_without_capturing():
     assert r["status"] in ("DETECTED", "NO_CAMERA")
     assert r["presence_detected"] is (r["status"] == "DETECTED")
     assert "calibrated" not in r and r.get("status") != "PASS"
+
+
+def test_stop_timings_declare_that_they_measure_an_in_process_flip_only():
+    """Audit 28.10: `cascade_stop_sub_2s` times a field change on an in-memory object; it must say so, not read as a network STOP."""
+    from bcc.devices.worker_node import IN_PROCESS_SCOPE
+    node = RemoteWorkerNode(node_id="n1", hostname="h", shared_secret="s")
+    assert node.emergency_stop()["scope"] == IN_PROCESS_SCOPE
+    coord = WorkerClusterCoordinator()
+    coord.register_node(node_id="n2", hostname="h2", shared_secret="s")
+    report = coord.trigger_cascade_stop()
+    assert report["scope"] == IN_PROCESS_SCOPE and "no remote node" in report["scope"]

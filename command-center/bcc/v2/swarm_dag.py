@@ -36,6 +36,10 @@ class CrossFamilyViolationError(ValueError):
     """Raised when verifier model family is identical to proposer model family."""
 
 
+class SwarmNotWired(RuntimeError):
+    """No executor was supplied: the DAG can be PLANNED but nothing can be run (it used to be «run» as a mock)."""
+
+
 class SwarmExecutionError(RuntimeError):
     """Raised when DAG execution fails beyond repair limits."""
 
@@ -82,6 +86,8 @@ class SwarmPlanReceipt:
     duration_ms: float
     sha256_receipt: str
     status: str
+    executed: bool = True
+    verification_kind: str = "structural_only"
 
 
 class CrossFamilyVerifierEngine:
@@ -99,6 +105,8 @@ class CrossFamilyVerifierEngine:
         expected_condition: str = "",
         custom_checker: Callable[[Any], bool] | None = None,
     ) -> dict[str, Any]:
+        """Without `custom_checker` this is a STRUCTURAL check only (non-empty, no `error` key): it is not an independent
+        judgement by a model of another family and the verdict says so (`kind`, `independent`)."""
         p_fam = normalize_family(proposer_family)
         v_fam = self.verifier_family
 
@@ -139,6 +147,8 @@ class CrossFamilyVerifierEngine:
             "verifier_family": v_fam,
             "passed": passed,
             "reason": reason,
+            "kind": "custom_checker" if custom_checker is not None else "structural_only",
+            "independent": custom_checker is not None,
             "sha256_verdict": receipt_hash,
             "timestamp": time.time(),
         }
@@ -177,8 +187,8 @@ class SwarmDAGPlanner:
         return memory_pack(candidates, budget=limit)
 
     def phase1_decompose(self, goal: str, context_refs: list[str] | None = None) -> list[SwarmSubtask]:
-        """Phase 1: Decompose & Preregister subtasks into an acyclic DAG."""
-        # Structured decomposition of directive
+        """Phase 1: a FIXED three-step template (prepare -> execute -> finalize); the goal only fills the titles.
+        It does not analyse the goal."""
         subtasks = [
             SwarmSubtask(
                 id="task_1_prep",
@@ -220,23 +230,18 @@ class SwarmDAGPlanner:
         self,
         subtask: SwarmSubtask,
         executor_fn: Callable[[SwarmSubtask], Coroutine[Any, Any, Any]] | None = None,
+        checker_fn: Callable[[Any], bool] | None = None,
     ) -> Any:
-        """Phase 2 & Phase 3 & Phase 4 on a single subtask."""
+        """Phase 2 & Phase 3 & Phase 4 on a single subtask. No executor -> SwarmNotWired (no mock execution)."""
+        if executor_fn is None:
+            subtask.status = "NOT_EXECUTED"
+            raise SwarmNotWired("no executor is wired: the subtask was not run")
         subtask.status = "RUNNING"
         repair = 0
         while repair <= subtask.max_repairs:
             subtask.repair_attempts = repair
             # Phase 2: Execution / Proposal
-            if executor_fn is not None:
-                proposal = await executor_fn(subtask)
-            else:
-                # Default mock execution
-                await asyncio.sleep(0.01)
-                proposal = {
-                    "output": f"Completed {subtask.title}",
-                    "subtask_id": subtask.id,
-                    "attempt": repair,
-                }
+            proposal = await executor_fn(subtask)
             subtask.result = proposal
 
             # Phase 3: Independent Cross-Family VerifierEngine
@@ -245,6 +250,7 @@ class SwarmDAGPlanner:
                 proposer_family=subtask.proposer_family,
                 proposal=proposal,
                 expected_condition=subtask.verify_fn,
+                custom_checker=checker_fn,
             )
             subtask.verification_receipt = receipt
 
@@ -268,8 +274,10 @@ class SwarmDAGPlanner:
         goal: str,
         candidates: list[MemoryCandidate] | None = None,
         executor_fn: Callable[[SwarmSubtask], Coroutine[Any, Any, Any]] | None = None,
+        checker_fn: Callable[[Any], bool] | None = None,
     ) -> SwarmPlanReceipt:
-        """Full 4-phase execution of the Swarm DAG."""
+        """Plan the DAG; with an executor also run it. Without one the result is PLAN_ONLY (executed False, completed 0,
+        nothing verified). `cross_family_verified` is True only when `checker_fn` validated every subtask."""
         t0 = time.perf_counter()
 
         # Context assembly via memory_retrieval_v16
@@ -278,6 +286,15 @@ class SwarmDAGPlanner:
 
         # Phase 1: Decompose
         subtasks = self.phase1_decompose(goal, context_refs=[c.ref for c in packed_memory])
+        if executor_fn is None:
+            duration = (time.perf_counter() - t0) * 1000.0
+            plan_data = {"goal": goal, "proposer": self.proposer_family, "verifier": self.verifier_family,
+                         "nodes": len(subtasks), "tokens": used_tokens, "executed": False}
+            return SwarmPlanReceipt(
+                goal=goal, proposer_family=self.proposer_family, verifier_family=self.verifier_family,
+                dag_nodes=len(subtasks), completed_nodes=0, cross_family_verified=False, context_tokens_used=used_tokens,
+                duration_ms=round(duration, 2), sha256_receipt=hashlib.sha256(json.dumps(plan_data, sort_keys=True).encode("utf-8")).hexdigest(),
+                status="PLAN_ONLY", executed=False, verification_kind="none")
 
         # Phase 2-4: Parallel execution respecting DAG dependencies
         completed: dict[str, SwarmSubtask] = {}
@@ -293,7 +310,7 @@ class SwarmDAGPlanner:
                 raise SwarmExecutionError("Deadlock in Swarm DAG: unresolvable dependencies")
 
             # Run ready tasks in parallel
-            tasks = [self.execute_subtask(s, executor_fn=executor_fn) for s in ready]
+            tasks = [self.execute_subtask(s, executor_fn=executor_fn, checker_fn=checker_fn) for s in ready]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
             for s, res in zip(ready, results):
@@ -320,9 +337,11 @@ class SwarmDAGPlanner:
             verifier_family=self.verifier_family,
             dag_nodes=len(subtasks),
             completed_nodes=len(completed),
-            cross_family_verified=True,
+            cross_family_verified=checker_fn is not None and all(c.verification_passed for c in completed.values()),
             context_tokens_used=used_tokens,
             duration_ms=round(duration, 2),
             sha256_receipt=raw_hash,
             status="SUCCEEDED",
+            executed=True,
+            verification_kind="custom_checker" if checker_fn is not None else "structural_only",
         )

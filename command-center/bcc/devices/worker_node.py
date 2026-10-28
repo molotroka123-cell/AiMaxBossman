@@ -1,4 +1,9 @@
-"""Remote Worker Node, Cluster Coordinator, and Virtual UVC Camera Probe (Branch 15 & Stage 6).
+"""Remote Worker Node, Cluster Coordinator, and camera probe (Branch 15 & Stage 6).
+
+HONEST SCOPE (audit 28.10): `RemoteWorkerNode` and `WorkerClusterCoordinator` are an IN-PROCESS MODEL of a worker cluster: there is no
+network transport, no second PC, and nothing outside bcc/devices imports them. `emergency_stop()` flips fields on an in-memory object, so
+its `elapsed_s` / `cascade_stop_sub_2s` measure that flip (microseconds), NOT the time for a stop to reach a remote machine. The HMAC
+signing, T3 screening and SHA-256 artifact checks are real functions; a remote STOP <= 2 s is NOT demonstrated.
 
 Implements:
 1. `RemoteWorkerNode` & `WorkerClusterCoordinator`:
@@ -25,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 CASCADING_STOP_TIMEOUT_SECONDS = 2.0  # Max allowable delay for cascading STOP
 HEARTBEAT_LEASE_TIMEOUT_SECONDS = 2.0
+#: what the stop timings below actually cover (audit 28.10)
+IN_PROCESS_SCOPE = "in_process_state_change_only: no remote node or network was involved"
 
 _T3_FORBIDDEN_PATTERNS = (
     "private_key",
@@ -195,6 +202,7 @@ class RemoteWorkerNode:
             "aborted_task": aborted_task,
             "elapsed_s": round(elapsed, 6),
             "cascade_stop_sub_2s": elapsed <= CASCADING_STOP_TIMEOUT_SECONDS,
+            "scope": IN_PROCESS_SCOPE,
         }
 
     def dispatch_task(
@@ -305,6 +313,7 @@ class WorkerClusterCoordinator:
             "nodes_stopped": len(reports),
             "elapsed_s": round(elapsed, 6),
             "cascade_stop_sub_2s": elapsed <= CASCADING_STOP_TIMEOUT_SECONDS,
+            "scope": IN_PROCESS_SCOPE,
             "node_reports": reports,
         }
 

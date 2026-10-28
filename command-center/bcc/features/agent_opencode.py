@@ -2713,7 +2713,9 @@ async def swarm_dag_endpoint(body: SwarmDAGIn, request: Request):
     )
 
     return {
-        "ok": True,
+        "ok": receipt.status == "SUCCEEDED",
+        "executed": receipt.executed,
+        "verification_kind": receipt.verification_kind,
         "goal": receipt.goal,
         "proposer_family": receipt.proposer_family,
         "verifier_family": receipt.verifier_family,
