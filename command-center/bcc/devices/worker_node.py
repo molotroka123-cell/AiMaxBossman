@@ -8,9 +8,8 @@ Implements:
    - Resource queue (CPU/GPU/RAM metrics and admission control).
    - Cascading STOP <= 2.0s on heartbeat loss (> 2.0s) or explicit STOP signal.
 2. `VirtualUVCCameraProbe`:
-   - Deterministic camera provider for Stage 6 (`Devices / Cam`),
-     allowing verifiable PASS self-tests in CI/CD without physical hardware,
-     with honest mode marking ("virtual_uvc_verified" vs "physical_usb").
+   - Honest camera probe for Stage 6 (`Devices / Cam`): lists the camera devices Windows reports as present
+     (DETECTED / NO_CAMERA); the synthetic self-test is labelled SYNTHETIC_ONLY and proves nothing about hardware.
 """
 from __future__ import annotations
 
@@ -320,54 +319,58 @@ class WorkerClusterCoordinator:
 
 
 class VirtualUVCCameraProbe:
-    """Deterministic camera probe for Stage 6 (Devices / Cam).
+    """Camera probe for Stage 6 (Devices / Cam), HONEST (audit 28.10).
 
-    Provides honest mode marking ('virtual_uvc_verified' vs 'physical_usb')
-    and self-test verification without requiring a physical camera device.
+    It used to hard-code `has_physical = False` and answer PASS / presence_detected / calibrated for a camera it never looked
+    for (this PC has one). Now `probe()` lists the camera devices that Windows reports as present (PnP, no frame is captured,
+    the camera light does not turn on) and says exactly that: DETECTED means «Windows lists a working camera device», nothing
+    more. No resolution, fps or calibration is invented. The synthetic frame hash is a harness check and is labelled so.
     """
 
-    def __init__(self, preferred_mode: str = "auto"):
+    def __init__(self, preferred_mode: str = "auto", enumerate_devices: Callable[[], list[dict[str, str]]] | None = None):
         self.preferred_mode = preferred_mode
+        self._enumerate = enumerate_devices or self._windows_cameras
+
+    @staticmethod
+    def _windows_cameras() -> list[dict[str, str]]:
+        import json as _json
+        import shutil
+        import subprocess
+        exe = shutil.which("powershell") or shutil.which("pwsh")
+        if not exe:
+            return []
+        script = ("Get-PnpDevice -PresentOnly -Class Camera,Image -ErrorAction SilentlyContinue | "
+                  "Select-Object Status,Class,FriendlyName,InstanceId | ConvertTo-Json -Compress")
+        try:
+            out = subprocess.run([exe, "-NoProfile", "-NonInteractive", "-Command", script], capture_output=True, text=True,
+                                 encoding="utf-8", errors="replace", timeout=30).stdout.strip()
+            data = _json.loads(out) if out else []
+        except (OSError, subprocess.SubprocessError, ValueError):
+            return []
+        rows = data if isinstance(data, list) else [data]
+        return [{"status": str(r.get("Status") or ""), "class": str(r.get("Class") or ""),
+                 "name": str(r.get("FriendlyName") or ""), "instance_id": str(r.get("InstanceId") or "")} for r in rows if isinstance(r, dict)]
 
     def probe(self, force_virtual: bool = False) -> dict[str, Any]:
-        """Probes available camera hardware. If no physical USB camera, returns virtual UVC provider."""
-        is_virtual = force_virtual or self.preferred_mode == "virtual"
-        # Check physical camera (mock check for CI/Win32)
-        has_physical = False
-        if not is_virtual and self.preferred_mode != "virtual":
-            # In typical CI or headless environment, physical camera is absent
-            has_physical = False
-
-        if has_physical:
-            return {
-                "mode": "physical_usb",
-                "status": "PASS",
-                "device_id": "USB\\VID_046D&PID_0825\\0001",
-                "resolution": "1920x1080",
-                "fps": 30,
-                "presence_detected": True,
-                "timestamp": time.time(),
-            }
-
-        # Deterministic synthetic frame hash for verifiable self-test
-        synthetic_frame = b"Virtual_UVC_Camera_Calibrated_Test_Frame_Stage6"
-        frame_hash = hashlib.sha256(synthetic_frame).hexdigest()
-
-        return {
-            "mode": "virtual_uvc_verified",
-            "status": "PASS",
-            "device_id": "virtual_uvc_0",
-            "resolution": "1280x720",
-            "fps": 30,
-            "synthetic_frame_sha256": frame_hash,
-            "license": "Apache-2.0",
-            "presence_detected": True,
-            "timestamp": time.time(),
-        }
+        """List present camera devices. `force_virtual` skips the enumeration and reports the synthetic harness only."""
+        synthetic = hashlib.sha256(b"Virtual_UVC_Camera_Calibrated_Test_Frame_Stage6").hexdigest()
+        if force_virtual or self.preferred_mode == "virtual":
+            return {"mode": "synthetic_harness", "status": "SYNTHETIC_ONLY", "presence_detected": False,
+                    "devices": [], "synthetic_frame_sha256": synthetic, "note": "no device was looked at", "timestamp": time.time()}
+        devices = self._enumerate()
+        working = [d for d in devices if d.get("status", "").upper() == "OK"]
+        if working:
+            return {"mode": "physical_usb", "status": "DETECTED", "presence_detected": True,
+                    "devices": [{"name": d["name"], "class": d["class"], "status": d["status"]} for d in working],
+                    "note": "Windows lists a working camera device; no frame was captured, resolution/fps/calibration are unknown",
+                    "timestamp": time.time()}
+        return {"mode": "none", "status": "NO_CAMERA", "presence_detected": False,
+                "devices": [{"name": d["name"], "class": d["class"], "status": d["status"]} for d in devices],
+                "note": "Windows reports no working camera device", "timestamp": time.time()}
 
     def run_self_test(self) -> dict[str, Any]:
-        """Executes Stage 6 camera self-test."""
+        """The synthetic harness check only: it proves nothing about a camera and says so."""
         report = self.probe(force_virtual=True)
-        report["self_test"] = "PASS"
-        report["calibrated"] = True
+        report["self_test"] = "SYNTHETIC_ONLY"
+        report["calibrated"] = False
         return report

@@ -1,4 +1,8 @@
-"""Unified AppActionPassport contract for all Bossman child applications.
+"""AppActionPassport: a passport CONTRACT for child apps. NOT WIRED (audit 28.10): no app and no backend module imports it, only
+tests/test_mobile_dag_devices_upgrade.py does; the receipt is a plain SHA-256 over the fields (an HMAC only when a key is passed).
+It becomes a «unified contract for all child apps» only when each app creates and checks a passport on its real actions.
+
+Intended contract for all Bossman child applications.
 
 Standardized passport contract for child apps:
 - War Terminal

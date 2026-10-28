@@ -294,53 +294,43 @@ def test_mobile_touch_preview(mobile_env):
 
 
 def test_mobile_voice_turn(mobile_env):
+    """Audit 28.10: this used to expect a fabricated task id «voice_...» and a canned reply «Выполняю в контуре» for any input."""
     client = mobile_env["client"]
     csrf = mobile_env["csrf"]
 
-    # 1. Missing CSRF -> 403
     r_no_csrf = client.post("/m/api/voice/turn", json={"text": "Привет, Джефф"})
     assert r_no_csrf.status_code == 403
 
-    # 2. Valid Push-to-Talk speech turn -> 200 with transcript, reply, task_id
-    r_ok = client.post(
-        "/m/api/voice/turn",
-        json={"text": "Запусти аудит безопасности", "mode": "push_to_talk"},
-        headers={"X-BM-CSRF": csrf},
-    )
+    r_ok = client.post("/m/api/voice/turn", json={"text": "Запусти аудит безопасности", "mode": "push_to_talk"},
+                       headers={"X-BM-CSRF": csrf})
     assert r_ok.status_code == 200
     body = r_ok.json()
-    assert body["ok"] is True
-    assert "voice_" in body["task_id"]
-    assert "Запусти аудит безопасности" in body["transcript"]
-    assert len(body["reply"]) > 0
+    assert body["ok"] is True and body["transcript"] == "Запусти аудит безопасности"
+    assert body["executed"] is False and body["task_id"] is None and body["reply"] == ""
+    assert "Выполняю" not in r_ok.text
+
+    assert client.post("/m/api/voice/turn", json={}, headers={"X-BM-CSRF": csrf}).status_code == 422
 
 
 def test_mobile_task_rollback_and_blast_radius(mobile_env):
+    """Audit 28.10: these routes used to answer «rolled_back» and «no network, $0, no files» for ANY id and ANY failure."""
     client = mobile_env["client"]
     csrf = mobile_env["csrf"]
-    task_id = "task_test_99"
 
-    # 1. GET blast-radius
-    r_br = client.get(f"/m/api/tasks/{task_id}/blast-radius")
-    assert r_br.status_code == 200
-    br = r_br.json()
-    assert br["ok"] is True
-    assert br["task_id"] == task_id
-    assert br["network_used"] is False
-    assert br["cost_usd"] == 0.0
-    assert "rollback_instructions" in br
+    # an id that is not a PC-agent task number never reaches Bossman and never gets an invented success
+    for bad in ("task_test_99", "7;rm", "abc"):
+        assert client.get(f"/m/api/tasks/{bad}/blast-radius").status_code == 422
+        r = client.post(f"/m/api/tasks/{bad}/rollback", headers={"X-BM-CSRF": csrf})
+        assert r.status_code == 422 and "rolled_back" not in r.text
 
-    # 2. POST 1-Tap Rollback without CSRF -> 403
-    r_rb_no_csrf = client.post(f"/m/api/tasks/{task_id}/rollback")
-    assert r_rb_no_csrf.status_code == 403
+    assert client.post("/m/api/tasks/7/rollback").status_code == 403           # CSRF is still required
 
-    # 3. POST 1-Tap Rollback with CSRF -> 200
-    r_rb = client.post(f"/m/api/tasks/{task_id}/rollback", headers={"X-BM-CSRF": csrf})
-    assert r_rb.status_code == 200
-    rb = r_rb.json()
-    assert rb["ok"] is True
-    assert rb["status"] == "rolled_back"
-    assert "rollback_instructions" in rb
+    # a numeric id goes to Bossman; whatever it answers (or its absence) is passed through, never replaced by zeros
+    br = client.get("/m/api/tasks/7/blast-radius")
+    assert br.status_code in (200, 501, 502), br.text
+    if br.status_code != 200:
+        for invented in ("network_used", "cost_usd", "affected_files"):
+            assert invented not in br.text
 
 
 # ---------------------------------------------------------------------------
@@ -604,12 +594,31 @@ def test_remote_worker_heartbeat_lease_expiration():
 # 6. VirtualUVCCameraProbe Stage 6 Tests
 # ---------------------------------------------------------------------------
 def test_virtual_uvc_camera_probe_stage6():
-    probe = VirtualUVCCameraProbe()
-    report = probe.run_self_test()
-
-    assert report["self_test"] == "PASS"
-    assert report["status"] == "PASS"
-    assert report["mode"] in ("virtual_uvc_verified", "physical_usb")
-    assert report["presence_detected"] is True
-    assert report["fps"] == 30
+    """Audit 28.10: the probe used to return PASS / presence_detected / calibrated for a camera it never looked for."""
+    # the synthetic self-test is only a harness check and says so
+    report = VirtualUVCCameraProbe().run_self_test()
+    assert report["self_test"] == "SYNTHETIC_ONLY" and report["status"] == "SYNTHETIC_ONLY"
+    assert report["presence_detected"] is False and report["calibrated"] is False and report["devices"] == []
     assert len(report["synthetic_frame_sha256"]) == 64
+
+    # a present, working camera is DETECTED (not PASS) and no resolution/fps is invented
+    cam = [{"status": "OK", "class": "Camera", "name": "Test Camera", "instance_id": "USB-VID-TEST"}]
+    found = VirtualUVCCameraProbe(enumerate_devices=lambda: cam).probe()
+    assert found["status"] == "DETECTED" and found["mode"] == "physical_usb" and found["presence_detected"] is True
+    assert found["devices"] == [{"name": "Test Camera", "class": "Camera", "status": "OK"}]
+    assert "fps" not in found and "resolution" not in found
+
+    # a broken device and an empty list are NO_CAMERA, never a virtual PASS
+    broken = VirtualUVCCameraProbe(enumerate_devices=lambda: [{"status": "Error", "class": "Camera", "name": "Bad", "instance_id": "x"}]).probe()
+    none = VirtualUVCCameraProbe(enumerate_devices=lambda: []).probe()
+    for r in (broken, none):
+        assert r["status"] == "NO_CAMERA" and r["presence_detected"] is False and r["mode"] == "none"
+    assert broken["devices"][0]["status"] == "Error"
+
+
+def test_camera_probe_sees_the_real_machine_without_capturing():
+    """Whatever this machine has, the answer is one of the honest states and never the old fabricated PASS."""
+    r = VirtualUVCCameraProbe().probe()
+    assert r["status"] in ("DETECTED", "NO_CAMERA")
+    assert r["presence_detected"] is (r["status"] == "DETECTED")
+    assert "calibrated" not in r and r.get("status") != "PASS"

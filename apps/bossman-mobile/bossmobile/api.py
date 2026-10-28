@@ -1727,7 +1727,10 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         instead of «no files, no network, $0», which nobody measured."""
         if not re.fullmatch(r"[0-9]{1,12}", task_id):
             raise fail(422, "id задачи агента — число", "BM_BAD_TASK_ID")
-        st, body = await bm.json("GET", f"/api/tasks/{task_id}/blast-radius")
+        try:
+            st, body = await bm.json("GET", f"/api/tasks/{task_id}/blast-radius")
+        except BossmanUnavailable as exc:
+            raise fail(502, str(exc), "BOSSMAN_UNAVAILABLE", "проверьте, что Bossman запущен на ПК") from None
         if st == 200 and isinstance(body, dict):
             return safe(body)
         raise fail(501, "Bossman не отдаёт blast-radius задачи: что она изменила, неизвестно", "BM_BLAST_UNAVAILABLE",
