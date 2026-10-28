@@ -506,7 +506,7 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
     # ------------------------------------------------------------------ public
     @app.get("/m/api/health")
     async def health():
-        return {"app": "bossman-mobile", "version": VERSION, "ok": True}
+        return {"app": "bossman-mobile", "version": VERSION, "ok": True, "status": "ok"}
 
     @app.post("/m/api/login")
     async def login(body: LoginIn, request: Request):

@@ -256,6 +256,8 @@ async def resources(request: Request):
             "reserved_mb": snap.reserved_mb,
             "available_mb": snap.available_for_new_mb if snap.measured else None,
             "reserve_floor_mb": snap.reserve_floor_mb, "policy": policy["policy"],
+            "enforce": bool(policy.get("enforce")),
+            "total_override_mb": policy.get("total_override_mb"),
             "reservations": [dict(r._mapping) for r in held]}
 
 

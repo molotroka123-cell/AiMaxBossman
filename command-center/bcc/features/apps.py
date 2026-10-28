@@ -260,7 +260,7 @@ async def _probe(app: dict[str, Any], client: httpx.AsyncClient | None = None) -
             out["health"] = {}
         payload = out["health"] if isinstance(out["health"], dict) else {}
         reported = str(payload.get("status") or "").upper()
-        if health.status_code == 200 and reported in {"OK", "HEALTHY", "LIVE", "ALIVE", "READY"}:
+        if health.status_code == 200 and (reported in {"OK", "HEALTHY", "LIVE", "ALIVE", "READY"} or (not reported and payload.get("ok") is True)):
             out["status"] = "LIVE"
         elif reported in {"NOT_CONFIGURED", "UNHEALTHY", "DEGRADED"}:
             out["status"] = reported
