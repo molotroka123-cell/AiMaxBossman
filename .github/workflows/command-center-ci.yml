@@ -237,6 +237,9 @@ jobs:
       - name: Secret-pattern scan
         run: python tools/ci_secret_scan.py
 
+      - name: Direct cloud-LLM call linter (CLD-UP-1, SpendFirewall perimeter)
+        run: python tools/check_no_direct_llm_http.py
+
       - name: Install security tools and component
         run: |
           python -m pip install -e .

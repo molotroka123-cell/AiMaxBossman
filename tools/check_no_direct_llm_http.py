@@ -91,10 +91,15 @@ def audit_critical_targets(repo_root: Path) -> list[Violation]:
     for rel_path in AUDITED_CRITICAL_TARGETS:
         p = repo_root / rel_path
         if not p.is_file():
+            # A critical module that is not there must not read as "governed": the check would pass on an empty root.
+            violations.append(Violation(file_path=rel_path, line_number=1, matched_text=rel_path,
+                                        reason="Critical module not found under the scanned root (cannot verify governance)"))
             continue
         content = p.read_text(encoding="utf-8", errors="replace")
+        # Markers only count in code: a comment that merely mentions GovernedAdapter proves nothing.
+        code = "\n".join(line for line in content.splitlines() if not line.lstrip().startswith("#"))
         # Ensure either GovernedAdapter, spend_firewall, or CappedAdapter is present
-        if not any(marker in content for marker in ("GovernedAdapter", "spend_firewall", "CappedAdapter", "SpendFirewall")):
+        if not any(marker in code for marker in ("GovernedAdapter", "spend_firewall", "CappedAdapter", "SpendFirewall")):
             violations.append(
                 Violation(
                     file_path=rel_path,
