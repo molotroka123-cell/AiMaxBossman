@@ -1,0 +1,18 @@
+{
+  "document_path": "docs/audits/2026-10-28-master-audit-5to12-tz/BOSSMAN_FULL_AUDIT_AND_2X_UPGRADE_TZ_RU.md",
+  "document_sha256": "a6f0698e51a7531f41281bc37333ecf09887e0fa712a803866645f9f4c29e887",
+  "document_bytes": 99393,
+  "pult_thread_id": "20261028-011957-3a7b4f",
+  "pult_thread_title": "📋 Полный Аудит 15 Веток Bossman + ТЗ Апгрейда 2x (5 → 12 лет)",
+  "pult_turns_delivered": 15,
+  "marathon_thread_notified": "20261027-200701-399cc6",
+  "cloud_swarm_tasks": [
+    643,
+    645
+  ],
+  "subagent_auditors": [
+    "2f30e0bc-d824-448d-946f-48de485e9061 (15-Branch Audit & Unproven Gaps Researcher)",
+    "f5171dd0-3cfc-4757-884f-3e98c07bd66f (Art Motion/Video/Photo & Mobile Agentic Auditor)"
+  ],
+  "status": "DELIVERED_TO_PULT"
+}
