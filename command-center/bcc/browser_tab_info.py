@@ -71,17 +71,30 @@ def pick_active(targets: list[dict[str, Any]]) -> dict[str, Any] | None:
     return pages[0] if pages else None
 
 
+def _json_even_on_http_error(url: str, timeout: float) -> Any:
+    """GET json; a 5xx still carries the body (the live /health answers 503 while optional parts are down)."""
+    import urllib.error
+    try:
+        return _get_json(url, timeout)
+    except urllib.error.HTTPError as exc:
+        return json.loads(exc.read(200_000).decode("utf-8", "replace"))
+
+
 def build_sha_of(origin_url: str, timeout: float = 3.0) -> str | None:
     p = urlsplit(origin_url)
     if p.scheme not in ("http", "https") or not _is_loopback(p.hostname):
         return None
-    try:
-        host = f"[{p.hostname}]" if ":" in (p.hostname or "") else p.hostname      # origin rebuilt WITHOUT user:password@
-        d = _get_json(f"{p.scheme}://{host}{(':' + str(p.port)) if p.port else ''}/health", timeout)
-    except Exception:
-        return None
-    sha = d.get("build_sha") if isinstance(d, dict) else None
-    return sha if isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{7,64}", sha) else None
+    host = f"[{p.hostname}]" if ":" in (p.hostname or "") else p.hostname      # origin rebuilt WITHOUT user:password@
+    origin = f"{p.scheme}://{host}{(':' + str(p.port)) if p.port else ''}"
+    for path in ("/health/live", "/health"):                  # liveness is always 200; /health may be 503 but has the body
+        try:
+            d = _json_even_on_http_error(origin + path, timeout)
+        except Exception:
+            continue
+        sha = d.get("build_sha") if isinstance(d, dict) else None
+        if isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{7,64}", sha):
+            return sha
+    return None
 
 
 def active_tab_info(base: str | None = None) -> dict[str, Any]:

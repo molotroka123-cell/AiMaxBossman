@@ -1,0 +1,9 @@
+{
+  "proof": "browser.active_tab_info against a REAL Chrome (separate instance, temp profile, --remote-debugging-port=9223)",
+  "date": "2026-10-28",
+  "page_opened": "http://127.0.0.1:8801/ (the live Pult login page, no owner data)",
+  "result": {"url": "http://127.0.0.1:8801/", "title": "BOSSMAN Command Center - UI 2.6.1", "build_sha": "a0d8150f52c0efd6e5c75c9a5c257afd819fb64e", "tabs_open": 1},
+  "matches_live_backend_build": true,
+  "defect_found_by_this_proof": "live /health answers 503 while optional parts are down, urllib raises on 503 -> build_sha was null; fixed (read /health/live, fall back to the body of a 5xx /health); 8 tests green",
+  "not_proven": "the owner's own Chrome (it must be started with --remote-debugging-port=9222); the tool through the agent/pult path"
+}

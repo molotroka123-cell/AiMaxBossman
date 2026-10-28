@@ -26,8 +26,11 @@ def _serve(tabs):
         def do_GET(self):
             if self.path == "/json/list":
                 body = json.dumps(tabs(self.server.server_port)).encode()
-            elif self.path == "/health":
-                body = json.dumps({"app": "bossman-command-center", "build_sha": SHA}).encode()
+            elif self.path == "/health/live":
+                body = json.dumps({"app": "bossman-command-center", "build_sha": SHA, "liveness": True}).encode()
+            elif self.path == "/health":                       # like the live server: 503 while optional parts are down
+                self.send_response(503); self.send_header("Content-Type", "application/json"); self.end_headers()
+                self.wfile.write(json.dumps({"build_sha": SHA, "status": "degraded"}).encode()); return
             else:
                 self.send_response(404); self.end_headers(); return
             self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers()
@@ -103,3 +106,17 @@ def test_tool_handler_returns_data_and_a_clean_error(cdp, monkeypatch):
     monkeypatch.setenv("BOSSMAN_CDP_URL", "http://127.0.0.1:9")
     bad = asyncio.run(tb._active_tab_info({}, SimpleNamespace()))
     assert bad.error and "remote-debugging-port" in bad.content
+
+
+def test_build_sha_falls_back_to_a_503_health_body_when_live_is_missing(monkeypatch):
+    calls = []
+
+    def fake(url, timeout):
+        calls.append(url)
+        if url.endswith("/health/live"):
+            raise OSError("no live route")
+        import urllib.error, io
+        raise urllib.error.HTTPError(url, 503, "down", {}, io.BytesIO(json.dumps({"build_sha": SHA}).encode()))
+
+    monkeypatch.setattr(bti, "_get_json", fake)
+    assert bti.build_sha_of("http://127.0.0.1:8801/") == SHA and calls[-1].endswith("/health")
