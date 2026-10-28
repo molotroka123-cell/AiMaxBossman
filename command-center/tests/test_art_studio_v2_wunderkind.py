@@ -177,113 +177,49 @@ def test_voxel_bridge_compiles_controlnet_render_workflow():
 # SUBSYSTEM 2: VIDEO STUDIO 2.0 PIPELINES & 7/7 QUALITY GATES
 # ==============================================================================
 
-def test_wan21_vace_teacache_acceleration():
-    pipe_13b = Wan21VACEPipeline(variant="1.3b", enable_teacache=True)
-    res_13b = pipe_13b.run("cabaret diva walks in slow motion", frames=49, steps=30)
-    assert res_13b["pipeline"] == "Wan2.1-VACE-1.3B-FP8"
-    assert res_13b["teacache_accelerated"] is True
-    assert res_13b["teacache_speedup_factor"] == 2.5
-    assert res_13b["effective_steps"] < res_13b["total_steps"]
-    assert res_13b["teacache_steps_skipped"] > 0
-    assert res_13b["status"] == "COMPLETED"
-
-    pipe_14b = Wan21VACEPipeline(variant="14b", enable_teacache=True)
-    res_14b = pipe_14b.run("close-up face lighting", frames=33, steps=25)
-    assert res_14b["pipeline"] == "Wan2.1-VACE-14B-FP8"
-    assert res_14b["vram_allocated_gb"] > res_13b["vram_allocated_gb"]
-
-
-def test_wan22_and_ltx_video_pipelines():
-    # Wan 2.2 MoE
-    wan22 = Wan22T2VVACEPipeline(use_distilled_lora=True)
-    res_wan22 = wan22.run("neon lights reflection", frames=81, steps=4)
-    assert res_wan22["pipeline"] == "Wan2.2-T2V-VACE-14B-MoE"
-    assert "low_noise_expert" in res_wan22["experts_dispatched"]
-    assert "high_noise_expert" in res_wan22["experts_dispatched"]
-    assert res_wan22["distilled_lora_steps"] == 4
-
-    # LTX-Video
-    ltx = LTXVideoPipeline()
-    res_ltx = ltx.run("cinematic drone shot", frames=97)
-    assert res_ltx["pipeline"] == "LTX-Video-0.9.5"
-    assert res_ltx["fps"] == 24
-    assert res_ltx["status"] == "COMPLETED"
+def test_video_pipelines_are_described_not_wired_and_never_pretend_to_generate():
+    """Audit 28.10: these classes used to return status COMPLETED, a prompt hash and constants (vram 11.8 GB, teacache 2.5x)
+    without running anything. They must refuse loudly until a real generator is connected."""
+    from bcc.art_v2.video_engine import NOT_WIRED_MESSAGE, WIRED, PipelineNotWired
+    assert WIRED is False
+    cases = [
+        lambda: Wan21VACEPipeline(variant="1.3b", enable_teacache=True).run("cabaret diva walks in slow motion", frames=49, steps=30),
+        lambda: Wan21VACEPipeline(variant="14b").run("close-up face lighting", frames=33, steps=25),
+        lambda: Wan22T2VVACEPipeline(use_distilled_lora=True).run("neon lights reflection", frames=81, steps=4),
+        lambda: LTXVideoPipeline().run("cinematic drone shot", frames=97),
+        lambda: LivePortraitLipSync().process("face.png", "vocals.wav", separate_audio=True),
+        lambda: RIFEInterpolator().interpolate_24_to_60(input_fps=24, target_fps=60, enable_deflicker=True),
+    ]
+    for call in cases:
+        with pytest.raises(PipelineNotWired) as exc:
+            call()
+        assert NOT_WIRED_MESSAGE in str(exc.value)
+    assert issubclass(PipelineNotWired, NotImplementedError)
+    # the description stays: a bad resolution is still a plain input error, not a silent success
+    with pytest.raises(ValueError):
+        LTXVideoPipeline().run("x", resolution="not-a-size")
 
 
-def test_liveportrait_and_rife_interpolation():
-    # LivePortrait
-    lp = LivePortraitLipSync()
-    res_lp = lp.process("face.png", "vocals.wav", separate_audio=True)
-    assert res_lp["pipeline"] == "liveportrait_lipsync"
-    assert res_lp["demucs_v4_separated"] is True
-    assert res_lp["sync_confidence"] >= 0.99
-    assert res_lp["blendshape_dimensions"] == 52
-
-    # RIFE Interpolator
-    rife = RIFEInterpolator()
-    res_rife = rife.interpolate_24_to_60(input_fps=24, target_fps=60, enable_deflicker=True)
-    assert res_rife["pipeline"] == "RIFE_v4_22_Interpolator"
-    assert res_rife["target_fps"] == 60
-    assert res_rife["flow_consistency"] >= 0.92
-    assert res_rife["temporal_deflicker_applied"] is True
-
-
-def test_video_studio_v2_all_7_gates_pass(tmp_path: Path):
-    result = run_video_studio_v2_all_7_gates("test_proj_v2_all7", output_dir=tmp_path)
-    assert result["overall_pass"] is True
-    assert result["gates_passed"] == 7
-    assert result["total_gates"] == 7
-
+def test_video_studio_v2_gates_are_reported_as_not_passed_with_the_last_real_observations(tmp_path: Path):
+    """Audit 28.10: run_video_studio_v2_all_7_gates used to return 7/7 PASS from hard-coded numbers (ArcFace 0.842, LPIPS
+    0.138, sync 0.995 ...). No video had been measured. Now every gate is NOT passed and carries what was really observed."""
+    result = run_video_studio_v2_all_7_gates("test_proj_v2", output_dir=tmp_path)
+    assert result["overall_pass"] is False and result["gates_passed"] == 0 and result["total_gates"] == 7
+    assert result["status"] == "NOT_MEASURED" and result["wired"] is False
     gates = result["gates"]
-
-    # Gate 1: Face Identity (ArcFace Cosine)
-    g1 = gates["face_identity"]
-    assert g1["passed"] is True
-    assert g1["measured"]["arcface_mean"] >= 0.70
-    assert g1["measured"]["max_drift"] <= 0.08
-
-    # Gate 2: Clothes Body (LPIPS + Color Delta)
-    g2 = gates["clothes_body"]
-    assert g2["passed"] is True
-    assert g2["measured"]["lpips"] <= 0.20
-    assert g2["measured"]["color_delta"] <= 0.08
-
-    # Gate 3: Hair Contour (IoU + Feathering)
-    g3 = gates["hair_contour"]
-    assert g3["passed"] is True
-    assert g3["measured"]["hair_iou"] >= 0.88
-    assert g3["measured"]["matte_feathering"] is True
-
-    # Gate 4: Mimic Lip-Sync (Sync Confidence + Demucs)
-    g4 = gates["mimic_lipsync"]
-    assert g4["passed"] is True
-    assert g4["measured"]["sync_confidence"] >= 0.99
-    assert g4["measured"]["demucs_separated"] is True
-
-    # Gate 5: Backgrounds 7/7
-    g5 = gates["backgrounds_7_of_7"]
-    assert g5["passed"] is True
-    assert g5["measured"]["scenes_verified"] == 7
-    assert g5["measured"]["total_scenes"] == 7
-    assert g5["measured"]["ssim_outside_mask"] >= 0.95
-
-    # Gate 6: Sharpness Laplacian
-    g6 = gates["sharpness_laplacian"]
-    assert g6["passed"] is True
-    assert g6["measured"]["laplacian_ratio"] >= 0.85
-
-    # Gate 7: Temporal Deflicker & RIFE 60fps
-    g7 = gates["temporal_deflicker"]
-    assert g7["passed"] is True
-    assert g7["measured"]["flow_consistency"] >= 0.92
-    assert g7["measured"]["rife_fps"] == 60
-
-    # Receipt verification
-    receipt_file = tmp_path / "receipt.json"
-    assert receipt_file.is_file()
-    saved = json.loads(receipt_file.read_text(encoding="utf-8"))
-    assert saved["overall_pass"] is True
-    assert saved["provenance_hash"] == result["provenance_hash"]
+    assert set(gates) == {"face_identity", "clothes_body", "hair_contour", "mimic_lipsync", "backgrounds_7_of_7",
+                          "sharpness_laplacian", "temporal_deflicker"}
+    for g in gates.values():
+        assert g["passed"] is False and g["measured"] is None and g["margin_ratio"] is None
+        assert g["details"]["measured_here"] is False and g["details"]["last_observed"]["source"]
+    assert gates["face_identity"]["details"]["last_observed"]["status"] == "FAIL"
+    assert "0.516" in gates["face_identity"]["details"]["last_observed"]["observed"]
+    assert gates["clothes_body"]["details"]["last_observed"]["status"] == "FAIL"
+    assert gates["hair_contour"]["details"]["last_observed"]["status"] == "NOT_MEASURED"
+    for invented in ("0.842", "0.138", "0.995", "0.961", "0.916", "0.982"):
+        assert invented not in json.dumps(result), f"invented number {invented} is back"
+    saved = json.loads((tmp_path / "receipt.json").read_text(encoding="utf-8"))
+    assert saved["overall_pass"] is False and saved["provenance_hash"] == result["provenance_hash"]
 
 
 # ==============================================================================
@@ -412,32 +348,20 @@ def test_vlm_art_critic_auto_correction_loop_and_signed_receipt():
 # SUBSYSTEM 5: CATALOG INTEGRATION
 # ==============================================================================
 
-def test_motion_workflow_catalog_supports_wan_and_ltx():
-    # Verify Wan 2.1 is supported
-    assert mw_catalog.is_supported("wan2.1-t2v-1.3b") is True
-    assert mw_catalog.is_supported("wan21-vace-1.3b") is True
-    assert mw_catalog.is_supported("wan21-vace-14b") is True
+def test_motion_workflow_catalog_describes_wan_and_ltx_but_claims_no_support_without_a_generator():
+    # Audit 28.10: the catalog used to say «supported» for these models through a facade engine.
+    for model in ("wan2.1-t2v-1.3b", "wan21-vace-1.3b", "wan21-vace-14b", "wan2.2-t2v-vace-a14b", "wan2.2-animate-14b",
+                  "ltx-video", "ltx-video-0.9.5"):
+        assert mw_catalog.is_supported(model) is False, f"{model} cannot be supported while no generator is wired"
 
-    # Verify Wan 2.2 is supported
-    assert mw_catalog.is_supported("wan2.2-t2v-vace-a14b") is True
-    assert mw_catalog.is_supported("wan2.2-animate-14b") is True
+    # the pipeline objects still resolve (the catalog describes them) but they refuse to run
+    assert isinstance(mw_catalog.resolve_pipeline("wan2.1-t2v-1.3b"), Wan21VACEPipeline)
+    assert isinstance(mw_catalog.resolve_pipeline("wan2.2-t2v-vace-a14b"), Wan22T2VVACEPipeline)
+    assert isinstance(mw_catalog.resolve_pipeline("ltx-video"), LTXVideoPipeline)
 
-    # Verify LTX-Video is supported
-    assert mw_catalog.is_supported("ltx-video") is True
-    assert mw_catalog.is_supported("ltx-video-0.9.5") is True
-
-    # Verify resolution to real pipelines
-    pipe_wan = mw_catalog.resolve_pipeline("wan2.1-t2v-1.3b")
-    assert isinstance(pipe_wan, Wan21VACEPipeline)
-
-    pipe_wan22 = mw_catalog.resolve_pipeline("wan2.2-t2v-vace-a14b")
-    assert isinstance(pipe_wan22, Wan22T2VVACEPipeline)
-
-    pipe_ltx = mw_catalog.resolve_pipeline("ltx-video")
-    assert isinstance(pipe_ltx, LTXVideoPipeline)
-
-    # Verify catalogue dictionary representation
     cat = mw_catalog.load_catalog()
     assert cat["engine"] == "art_v2.video_engine"
     ids = {m["id"] for m in cat["models"]}
     assert {"wan2.1-t2v-1.3b", "wan2.2-t2v-vace-a14b", "ltx-video"} <= ids
+    for m in cat["models"]:
+        assert m["supported"] is False and "no video generator connected" in m["unsupported"]

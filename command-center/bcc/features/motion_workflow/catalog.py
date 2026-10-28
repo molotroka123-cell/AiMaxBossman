@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ...art_v2.video_engine import (
+    NOT_WIRED_MESSAGE,
+    WIRED,
     LTXVideoPipeline,
     Wan21VACEPipeline,
     Wan22T2VVACEPipeline,
@@ -201,9 +203,10 @@ def get_model(model_id: str) -> Optional[ModelSpec]:
 
 
 def is_supported(model_id: str) -> bool:
-    """Returns True if model is supported by art_v2.video_engine."""
+    """True only if art_v2.video_engine can really RUN the model: the specs describe models, but no generator is wired
+    (video_engine.WIRED is False), so nothing is «supported» until one is (audit 28.10)."""
     spec = BY_ID.get(model_id)
-    return spec is not None and spec.supported and spec.unsupported == ""
+    return WIRED and spec is not None and spec.supported and spec.unsupported == ""
 
 
 def resolve_pipeline(model_id: str) -> Any:
@@ -233,9 +236,9 @@ def load_catalog() -> dict[str, Any]:
                 "family": s.family,
                 "modes": list(s.modes),
                 "fps": s.fps,
-                "supported": s.supported,
+                "supported": bool(WIRED and s.supported),
                 "workflow_engine": s.workflow_engine,
-                "unsupported": s.unsupported,
+                "unsupported": s.unsupported or ("" if WIRED else NOT_WIRED_MESSAGE),
                 "notes": s.notes,
             }
             for s in SPECS
