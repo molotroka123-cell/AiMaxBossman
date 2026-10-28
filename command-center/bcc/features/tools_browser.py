@@ -363,6 +363,19 @@ async def _read_dom(args, ctx):
                                                 scroll_screens=screens, text_offset=offset))
 
 
+async def _active_tab_info(args, ctx):
+    """Read-only: real URL/title/build_sha of the owner's active Chrome tab via CDP (never guessed from the window title)."""
+    from .. import browser_tab_info as bti
+    try:
+        info = await asyncio.to_thread(bti.active_tab_info)
+    except bti.CdpUnavailable as exc:
+        return ToolResult(content=str(exc), one_line="browser.active_tab_info: CDP недоступен", error=True)
+    sha = info["build_sha"][:12] if info["build_sha"] else "не определён"
+    text = "\n".join([f"url: {info['url']}", f"title: {info['title']}", f"build_sha: {sha}",
+                         f"вкладок: {info['tabs_open']}"])
+    return ToolResult(content=text, one_line=f"active tab: {info['url'][:80]}", data=info, external=True)
+
+
 async def _click(args, ctx):
     sel = str(args.get("selector") or "")
     ref = str(args.get("ref") or "")
@@ -892,6 +905,12 @@ SPECS = [
                            "scroll": {"type": "integer", "minimum": 0, "maximum": 10}},
              required=[], category="read", permission="browser.read",
              source="browser", default_effect="auto", timeout_seconds=60.0, external_output=True),
+    ToolSpec(name="browser.active_tab_info",
+             description="Только чтение: точный URL (без query и #), заголовок и build_sha активной вкладки Chrome "
+                         "владельца через CDP. Не угадывает по заголовку окна; если Chrome запущен без "
+                         "--remote-debugging-port=9222, честно отвечает ошибкой.",
+             handler=_active_tab_info, input_schema={}, required=[], category="read", permission="browser.read",
+             source="browser", default_effect="auto", timeout_seconds=15.0, external_output=True),
     ToolSpec(name="browser.screenshot", description="Скриншот текущей страницы в файл.",
              handler=_screenshot, input_schema={}, category="read", permission="browser.read",
              source="browser", default_effect="auto", timeout_seconds=60.0),
