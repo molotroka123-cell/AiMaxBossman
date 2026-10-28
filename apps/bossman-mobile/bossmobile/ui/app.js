@@ -1037,6 +1037,50 @@
   { const d0 = store.get('draft'); if (d0 && !input.value) { input.value = d0; grow(); } }
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window) && !slashCapturesEnter()) { e.preventDefault(); $('composer').requestSubmit(); } });
   document.querySelectorAll('[data-suggest]').forEach((c) => c.addEventListener('click', () => { input.value = c.dataset.suggest; input.dispatchEvent(new Event('input')); input.focus(); }));
+  /* ================= голос: удерживайте и говорите (Push-to-Talk) ================= */
+  /* Запись MediaRecorder уходит на ПК (/m/api/speech/transcribe): ffmpeg -> WAV, локальный Whisper -> текст в поле ввода. */
+  { const mic = $('btn-mic'); if (mic) {
+    let rec = null, chunks = [], t0 = 0, stream = null, busy = false;
+    const MIN_MS = 500;
+    const supported = !!(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.isSecureContext);
+    const mimeOf = () => ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+    const setRec = (on) => { mic.classList.toggle('rec', on); mic.setAttribute('aria-pressed', on ? 'true' : 'false'); };
+    const stopTracks = () => { if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; } };
+    const onStop = async () => {
+      const ms = Date.now() - t0;
+      const type = (rec && rec.mimeType) || 'audio/webm';
+      rec = null; setRec(false); stopTracks();
+      if (ms < MIN_MS || !chunks.length) { toast('Слишком коротко: удерживайте кнопку, пока говорите'); chunks = []; return; }
+      busy = true; mic.disabled = true; toast('Распознаю…');
+      try {
+        const res = await fetch('/m/api/speech/transcribe?language=auto', { method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': type.split(';')[0], 'X-BM-CSRF': S.csrf }, body: new Blob(chunks, { type }) });
+        const data = await res.json().catch(() => null);
+        if (res.status === 401) { showLogin(); return; }
+        if (!res.ok) { toast(((data && data.detail) || {}).message || 'Не удалось распознать речь'); return; }
+        const text = String(data.text || '').trim();
+        if (!text) { toast('Речь не распознана'); return; }
+        input.value = (input.value ? input.value.trimEnd() + ' ' : '') + text;
+        input.dispatchEvent(new Event('input')); input.focus();
+      } catch { toast('нет связи с ПК'); }
+      finally { busy = false; mic.disabled = false; chunks = []; }
+    };
+    const start = async () => {
+      if (busy || rec) return;
+      if (!supported) { toast(window.isSecureContext ? 'В этом браузере нет записи голоса' : 'Голос работает только по https или на самом ПК'); return; }
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+      catch { toast('Нет доступа к микрофону: разрешите его в настройках браузера'); return; }
+      const mime = mimeOf(); chunks = [];
+      rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      rec.onstop = onStop; t0 = Date.now(); rec.start(); setRec(true);
+    };
+    const stop = () => { if (rec && rec.state === 'recording') rec.stop(); };
+    mic.addEventListener('pointerdown', (e) => { e.preventDefault(); start(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => mic.addEventListener(ev, stop));
+    mic.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); if (rec) stop(); else start(); } });
+    mic.addEventListener('contextmenu', (e) => e.preventDefault());
+  } }
 
   function renderChatFiles() {
     const box = $('chat-files'); if (!box) return;

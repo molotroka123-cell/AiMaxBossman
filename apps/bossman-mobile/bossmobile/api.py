@@ -33,7 +33,7 @@ from .bossman import BossmanClient, BossmanUnavailable, Redactor
 from .config import Settings
 from .policy import is_photo_model, local_agents, loopback_url, pick_default, uncensored_label
 from .proxy import proxy_http, proxy_ws
-from . import niche, reftags, slash, video, video_timing
+from . import niche, reftags, slash, speech as speech_mod, video, video_timing
 from .timing import calibrate_task_eta, from_history, queue_view, step_range, timing_for, warm_models
 
 UI_DIR = Path(__file__).parent / "ui"
@@ -706,6 +706,29 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
         if body.attachments:
             payload["attachments"] = [str(a)[:64] for a in body.attachments[:8] if str(a).strip()]
         return await call("POST", f"/api/chat/threads/{tid}/send", json=payload, timeout=120)
+
+    @app.post("/m/api/speech/transcribe")
+    async def speech_transcribe(request: Request, language: str = "auto", _=Depends(session)):
+        """Push-to-talk: the phone sends one recording (WebM/Opus or MP4/AAC as MediaRecorder made it); the pult converts it
+        to WAV with the host's FFmpeg and Bossman's LOCAL Whisper returns the text. Nothing is stored, no cloud."""
+        if language != "auto" and not re.fullmatch(r"[a-z]{2,3}", language):
+            raise fail(422, "язык: auto или двух-трёхбуквенный код", "BM_SPEECH_LANG")
+        length = request.headers.get("content-length")
+        if length is not None and length.isdigit() and int(length) > speech_mod.MAX_BYTES:
+            raise fail(413, f"запись больше {speech_mod.MAX_BYTES // 1048576} МБ", "BM_SPEECH_TOO_LARGE")
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw.extend(chunk)
+            if len(raw) > speech_mod.MAX_BYTES:
+                raise fail(413, f"запись больше {speech_mod.MAX_BYTES // 1048576} МБ", "BM_SPEECH_TOO_LARGE")
+        try:
+            wav = await speech_mod.to_wav16k(bytes(raw))
+        except speech_mod.SpeechInputError as exc:
+            raise fail(exc.status, exc.message, exc.code) from None
+        res = await call("POST", "/api/oss/speech/transcribe", params={"language": language}, content=wav,
+                         headers={"Content-Type": "audio/wav"}, timeout=180)
+        return {"ok": True, "text": str(res.get("text") or "").strip(), "language": res.get("language"),
+                "duration_s": res.get("duration_seconds")}
 
     @app.post("/m/api/chat/attachments", status_code=201)
     async def chat_attachment_upload(body: ChatAttachmentIn, _=Depends(session)):

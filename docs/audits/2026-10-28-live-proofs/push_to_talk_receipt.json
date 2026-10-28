@@ -1,0 +1,13 @@
+{
+  "proof": "Push-to-Talk in the mobile pult, end to end on this PC",
+  "date": "2026-10-28",
+  "chain": "real Chrome (headless, fake microphone playing a Windows-TTS Russian phrase, no human voice) -> hold the mic button (MediaRecorder) -> mobile pult :8842 -> ffmpeg to 16 kHz mono WAV -> candidate Bossman :8811 /api/oss/speech/transcribe -> local faster-whisper (CPU, no cloud) -> text in the input",
+  "result": {"pressed_state_while_recording": "aria-pressed=true, class rec", "seconds_from_release_to_text": 2.0,
+             "text_in_input": "Открой блокноты напишу привет мир. Открой блокноты напишу...",
+             "spoken_phrase": "Открой блокнот и напиши привет мир", "console_problems": 0},
+  "defect_found_by_this_proof": "the first live run answered 405: Bossman's route is /api/oss/speech/transcribe, not /api/speech/transcribe. The unit tests had passed because the fake Bossman mirrored the same wrong path. Fixed in the endpoint, the fake and the tests.",
+  "also_found": ["ffmpeg writes a WAV to a pipe with unfinished sizes in the header and Whisper rejects it: fix_wav_sizes() rewrites them", "the fake microphone loops the file, so the phrase appears twice"],
+  "accuracy_note": "Whisper base-multilingual made 2 word errors in 7 (блокноты/напишу): larger models are installed (D:\Bossman\models\voice\whisper\faster-whisper-large-v3-turbo) and can be selected with BOSSMAN_WHISPER_MODEL_PATH; not measured here.",
+  "tests": "7 new + the whole mobile suite 317 passed",
+  "not_proven": "a real phone: getUserMedia needs https (tailscale serve) or localhost, iOS Safari MP4/AAC was not tried, a human voice and noise were not tried; the owner's live pult :8840 still runs the old build"
+}

@@ -55,6 +55,8 @@ FACESWAP = None          # GET /api/direct-gen/faceswap (None: 404, as an older 
 SWAP_JOB = {"job_id": "d" * 32, "model": "faceswap-facefusion", "kind": "faceswap", "status": "queued", "stage": "queued",
             "params": {"preset": "fast", "frame": "original", "faces": 1}, "progress": {"kind": "none"}}
 FAIL_NEXT: list = []     # [(status, body)] answered once by POST /api/direct-gen/jobs
+SPEECH_REPLY = {"ok": True, "provider": "faster-whisper", "text": " привет, Босман ", "language": "ru",
+               "duration_seconds": 3.0, "segments": [], "cloud_used": False}
 TIMINGS = None           # GET /api/direct-gen/timings (None: 404, as an older Bossman)
 
 
@@ -65,12 +67,16 @@ class FakeBossman:
         self.logins = 0
         self.stop_file = None       # the owner's global STOP file this fake Bossman clears on POST /api/computer/resume
         self.resume_clears = True
+        self.speech_bytes = b""
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         path, method = request.url.path, request.method
         body = request.content.decode("utf-8", "replace") if request.content else ""
         self.calls.append({"method": method, "path": path, "query": dict(request.url.params), "body": body,
                            "headers": dict(request.headers)})
+        if path == "/api/oss/speech/transcribe" and method == "POST":
+            self.speech_bytes = request.content
+            return httpx.Response(200, json=SPEECH_REPLY)
         if path == "/health/live":
             return httpx.Response(200, json={"alive": True, "build_sha_short": "586345db8270", "status": "ALIVE"})
         if path == "/api/login":

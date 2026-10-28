@@ -1,6 +1,6 @@
 /* Service worker: caches ONLY the app shell. API answers, photos and the panel always go to the network. */
 'use strict';
-const CACHE = 'bossman-shell-v25';   // v25: modern typography, tactile button transitions, green stop-resume, approval meta/rollback & honest N/A cost badge (26.10); v24: mode chips reach the agent dispatcher, terminal cwd/approval/claude refusal, live $ badge (audit 25.10)
+const CACHE = 'bossman-shell-v26';   // v26: push-to-talk mic button (28.10); v25: modern typography, tactile button transitions, green stop-resume, approval meta/rollback & honest N/A cost badge (26.10); v24: mode chips reach the agent dispatcher, terminal cwd/approval/claude refusal, live $ badge (audit 25.10)
 const SHELL = ['/m/', '/m/index.html', '/m/app.css', '/m/app.js', '/m/manifest.webmanifest',
   '/m/icons/apple-touch-icon.png', '/m/icons/icon-192.png', '/m/icons/icon-512.png',
   '/m/vendor/tabbable.umd.min.js', '/m/vendor/focus-trap.umd.min.js'];

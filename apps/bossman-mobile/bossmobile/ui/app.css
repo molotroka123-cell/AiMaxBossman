@@ -177,6 +177,8 @@ button, .chip, .tab, .thumb, .mode-pill, .oc-mini-btn {
 .down-btn:active { transform: translateX(-50%) scale(.96); }
 .compose-tool { margin: 0 -2px 0 -10px; color: var(--muted); flex: none; }
 .compose-tool.on { background: var(--accent-soft); color: var(--accent); }
+.compose-tool.rec { background: var(--err); color: #fff; animation: blink 1s ease-in-out infinite; }
+.compose-tool[disabled] { opacity: .45; }
 .send-btn { animation: pop .18s cubic-bezier(.2, .8, .2, 1) backwards; }
 .offscreen { position: fixed; left: -9999px; top: 0; opacity: 0; }
 /* photo by description: the prompt the chat model wrote, «Изменить» / «Запустить» */
