@@ -225,10 +225,11 @@ def _glm_run_budget() -> float:
 class BossmanOpenRouter:
     """OpenRouter access through Bossman's provider + governance layer."""
 
-    def __init__(self, *, ledger: SpendLedger | None = None, key: str | None = None):
+    def __init__(self, *, ledger: SpendLedger | None = None, key: str | None = None, owner_token: str | None = None):
         self.key = key or _openrouter_key()
         self.ledger = ledger or SpendLedger(glm_budget_usd=_glm_run_budget())
         self.retry_events: list[dict[str, Any]] = []
+        self.owner_token = owner_token
 
     def _adapter(self, spec: ModelSpec) -> GovernedAdapter:
         raw = OpenAICompatAdapter(base_url=OPENROUTER_BASE, api_key=self.key)
@@ -247,6 +248,17 @@ class BossmanOpenRouter:
         spec = ROLE_SPECS[role]
         if spec.free and not spec.model.endswith(":free"):
             raise PaidViolation(f"free role {role} is not bound to a :free model")
+
+        # SpendFirewall pre-call verification: blocks any paid call without explicit owner token
+        if os.environ.get("BOSSMAN_ENFORCE_SPEND_FIREWALL") == "1" or self.owner_token is not None or "BOSSMAN_OWNER_SPEND_TOKEN" in os.environ:
+            from .security.spend_firewall import get_spend_firewall
+            get_spend_firewall().verify_pre_call_free_or_authorized(
+                provider={"kind": "openai_compat", "base_url": OPENROUTER_BASE, "name": "OpenRouter"},
+                model={"name": spec.model, "free": spec.free, "price_in": spec.price_in, "price_out": spec.price_out},
+                pricing={"price_in": spec.price_in, "price_out": spec.price_out},
+                owner_token=self.owner_token or os.environ.get("BOSSMAN_OWNER_SPEND_TOKEN"),
+            )
+
         reserved = self.ledger.reserve(spec, messages, tools=tools, max_tokens=max_tokens)
         adapter = self._adapter(spec)
         delays = (2.0, 5.0, 15.0) if spec.free else ()

@@ -15,6 +15,9 @@ from .pc_agent_policy_guards import (
     BROWSER_PAY_CLICK_RE,
     browser_guard_verdict,
     desktop_guard_verdict,
+    is_immutable_audit_log_target,
+    validate_powershell_ast_or_tokens,
+    canonicalize_windows_path_safe,
 )
 from .pc_agent_policy_api import (  # noqa: F401  (ре-экспорт публичных имён)
     classify_bossman_api,
@@ -236,6 +239,16 @@ def classify_pc_action(
     inv = check_hard_content_invariants(blob) or check_hard_content_invariants(task_prompt)
     if inv is not None:
         return inv
+    if is_immutable_audit_log_target(task_prompt) or (
+        tool not in _OBSERVE_TOOLS and is_immutable_audit_log_target(blob)
+    ):
+        return PolicyVerdict(
+            "T3",
+            "deny",
+            "blocked_immutable_audit_log",
+            "Неизменяемый журнал аудита защищён от удаления и модификации (T3).",
+            True,
+        )
     if tainted_by_injection and tool not in _OBSERVE_TOOLS:
         reason = "Заблокировано (prompt injection)."
         return PolicyVerdict("T3", "deny", "prompt_injection_blocked", reason, True)
@@ -258,6 +271,17 @@ def classify_pc_action(
     if tool == "pc.browser_act":
         return _classify_browser_act(args, trust_active)
     if tool == "pc.run_command":
+        cmd_text = str(args.get("cmd") or args.get("command") or "")
+        if cmd_text:
+            safe_ps, ps_reason = validate_powershell_ast_or_tokens(cmd_text)
+            if not safe_ps:
+                return PolicyVerdict(
+                    "T3",
+                    "deny",
+                    "blocked_powershell_obfuscation",
+                    f"PowerShell обфускация заблокирована: {ps_reason} (T3).",
+                    True,
+                )
         return _classify_run_command(args, task_prompt, trust_active, repo_root, eff_roots, data_dir)
     if tool == "pc.bossman_api":
         return classify_bossman_api(

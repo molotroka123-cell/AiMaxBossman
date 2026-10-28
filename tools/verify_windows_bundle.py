@@ -256,10 +256,38 @@ def evening_negative_control(home: Path, env: dict) -> str:
     doctor = home / "app-support" / "bossman_doctor.py"
     hidden = doctor.with_name("bossman_doctor.py.negative-control")
     doctor.rename(hidden)
+    ctrl_env = dict(env, BOSSMAN_EVENING_NEGATIVE_CONTROL="1")
     try:
-        done, result = run_evening(home, env)
+        done, result = run_evening(home, ctrl_env)
     finally:
         hidden.rename(doctor)
+
+    # BL-130 fix: mark negative_control: True and isolate into negative-control/ subfolder
+    if result is not None:
+        result["negative_control"] = True
+        for line in (done.stdout or "").splitlines():
+            if line.startswith("OWNER_EVENING_EVIDENCE="):
+                evidence_path = Path(line.partition("=")[2].strip())
+                res_file = evidence_path / "OWNER_EVENING_RESULT.json"
+                if res_file.is_file():
+                    try:
+                        record = json.loads(res_file.read_text(encoding="utf-8"))
+                        record["negative_control"] = True
+                        if evidence_path.parent.name != "negative-control" and evidence_path.name != "negative-control":
+                            neg_target = evidence_path.parent / "negative-control" / evidence_path.name
+                            neg_target.mkdir(parents=True, exist_ok=True)
+                            (neg_target / "OWNER_EVENING_RESULT.json").write_text(
+                                json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                            try:
+                                res_file.unlink()
+                            except OSError:
+                                pass
+                        else:
+                            res_file.write_text(
+                                json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                    except Exception:
+                        pass
+
     codes = [reason.get("code") for reason in (result or {}).get("reasons", []) if isinstance(reason, dict)]
     if done.returncode == 1 and result and result.get("verdict") == "FAIL" and "doctor_not_shipped" in codes:
         return "PASS"

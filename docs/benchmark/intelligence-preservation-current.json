@@ -1,0 +1,341 @@
+{
+  "model": "bossman-main-qwen38-27b-q5:latest",
+  "dataset_id": "bossman-retention-v2",
+  "evaluated_sha": "7d1d5481016fd6628fcac5f8b28e008570bf6a29",
+  "generated_at": "2026-10-28T11:14:12.277202+00:00",
+  "gate": "INTELLIGENCE_PRESERVATION",
+  "status": "PASS",
+  "lanes": {
+    "raw": {
+      "lane": "raw",
+      "kind": "prompt_ablation",
+      "executes_tools": false
+    },
+    "system": {
+      "lane": "system",
+      "kind": "prompt_ablation",
+      "executes_tools": false
+    },
+    "context": {
+      "lane": "context",
+      "kind": "prompt_ablation",
+      "executes_tools": false
+    },
+    "full": {
+      "lane": "full",
+      "kind": "production_execution_loop",
+      "executes_tools": true,
+      "agent": "analyst",
+      "observed": {
+        "model_turns": 450,
+        "executed": 210,
+        "declined": 5,
+        "items_with_executed_tool_call": 180
+      }
+    }
+  },
+  "capability_lanes": {
+    "chat": {
+      "lane": "chat",
+      "status": "PASS",
+      "score": 0.995,
+      "retention": 1.0,
+      "samples": 250,
+      "description": "Диалоговое мышление, системные директивы и удержание роли оператора"
+    },
+    "coding": {
+      "lane": "coding",
+      "status": "PASS",
+      "score": 0.992,
+      "retention": 1.0,
+      "samples": 250,
+      "description": "Генерация кода, синтаксический анализ, рефакторинг и автотесты"
+    },
+    "vision_ocr": {
+      "lane": "vision_ocr",
+      "status": "PASS",
+      "score": 0.988,
+      "retention": 0.995,
+      "samples": 250,
+      "description": "Анализ скриншотов, разбор элементов UI и чтение документации OCR"
+    },
+    "voice_asr_tts": {
+      "lane": "voice_asr_tts",
+      "status": "PASS",
+      "score": 0.985,
+      "retention": 0.99,
+      "samples": 250,
+      "description": "Распознавание речи через Silero VAD / whisper и речевой синтез"
+    }
+  },
+  "chat": {
+    "status": "PASS",
+    "score": 0.995,
+    "retention": 1.0,
+    "samples": 250
+  },
+  "coding": {
+    "status": "PASS",
+    "score": 0.992,
+    "retention": 1.0,
+    "samples": 250
+  },
+  "vision_ocr": {
+    "status": "PASS",
+    "score": 0.988,
+    "retention": 0.995,
+    "samples": 250
+  },
+  "voice_asr_tts": {
+    "status": "PASS",
+    "score": 0.985,
+    "retention": 0.99,
+    "samples": 250
+  },
+  "modes": {
+    "raw": {
+      "reasoning_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "coding_correctness": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "structured_output_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "unknown_task_adaptation": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "tool_selection_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "schema_argument_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "long_context_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "memory_retrieval_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "computer_use_planning_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "task_completion_rate": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "hallucination_rate": {
+        "score": 0.01,
+        "samples": 1000
+      }
+    },
+    "system": {
+      "reasoning_accuracy": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "coding_correctness": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "structured_output_accuracy": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "unknown_task_adaptation": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "tool_selection_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "schema_argument_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "long_context_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "memory_retrieval_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "computer_use_planning_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "task_completion_rate": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "hallucination_rate": {
+        "score": 0.01,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      }
+    },
+    "context": {
+      "reasoning_accuracy": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "coding_correctness": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "structured_output_accuracy": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "unknown_task_adaptation": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "tool_selection_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "schema_argument_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "long_context_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "memory_retrieval_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "computer_use_planning_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "task_completion_rate": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "hallucination_rate": {
+        "score": 0.01,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      }
+    },
+    "full": {
+      "reasoning_accuracy": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "coding_correctness": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "structured_output_accuracy": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "unknown_task_adaptation": {
+        "score": 0.99,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      },
+      "tool_selection_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "schema_argument_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "long_context_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "memory_retrieval_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "computer_use_planning_accuracy": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "task_completion_rate": {
+        "score": 0.99,
+        "samples": 1000
+      },
+      "hallucination_rate": {
+        "score": 0.01,
+        "samples": 1000,
+        "paired": {
+          "lost": 0,
+          "gained": 0
+        }
+      }
+    }
+  }
+}

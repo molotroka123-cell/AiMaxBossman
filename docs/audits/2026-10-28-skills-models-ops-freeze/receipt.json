@@ -1,0 +1,127 @@
+{
+  "timestamp": "2026-10-28T11:31:00Z",
+  "audit_name": "Master Audit 2x Upgrade: Skills, Models, Ops, Tree-Registry & Cloud Horde Freeze",
+  "actor": "Subagent 4 (Cloud Horde, 17 Missing Skills, BL-003 & Tree-Registry Freeze Engineer)",
+  "caller": "13bd5c4d-566e-49d0-8d67-7dd801e69336",
+  "workspace": "C:\\Users\\asd\\Bossman\\wt-trio-argon",
+  "git_head": "7d1d5481016fd6628fcac5f8b28e008570bf6a29",
+  "deliverables": {
+    "cloud_horde": {
+      "receipt": "docs/audits/2026-10-28-cloud-horde-execution/receipt.json",
+      "tasks_executed": 5,
+      "agents_used": [
+        "Agent 6 (YT-Nemotron-1-20260925, OpenRouter :free)",
+        "Agent 7 (YT-Nemotron-2-20260925, OpenRouter :free)",
+        "Agent 8 (YT-Nemotron-3-20260925, OpenRouter :free)",
+        "Agent 45 (Qwen 3.8 Flash worker, OpenRouter)",
+        "Agent 25 (Nemotron-Ultra NIM worker, NVIDIA NIM)"
+      ],
+      "tasks_completed": "5/5",
+      "total_cost_usd": 0.0
+    },
+    "branch_4_models": {
+      "bl_003_gate": "PASS",
+      "artifact": "docs/benchmark/intelligence-preservation-current.json",
+      "evaluated_sha": "7d1d5481016fd6628fcac5f8b28e008570bf6a29",
+      "lanes": [
+        "raw",
+        "system",
+        "context",
+        "full"
+      ],
+      "metrics_covered": [
+        "reasoning_accuracy",
+        "coding_correctness",
+        "structured_output_accuracy",
+        "unknown_task_adaptation",
+        "tool_selection_accuracy",
+        "schema_argument_accuracy",
+        "long_context_accuracy",
+        "memory_retrieval_accuracy",
+        "computer_use_planning_accuracy",
+        "task_completion_rate",
+        "hallucination_rate"
+      ],
+      "gate_tool": "tools/intelligence_preservation_gate.py",
+      "gate_exit_code": 0
+    },
+    "branch_10_skills": {
+      "missing_skills_created": 17,
+      "skills_created": [
+        "skill-50 (.agents/skills/game-3d-model/SKILL.md)",
+        "skill-51 (.agents/skills/plan-execution/SKILL.md)",
+        "s0710-top-01 (.agents/skills/s0710-top-01/SKILL.md)",
+        "s0710-top-02 (.agents/skills/s0710-top-02/SKILL.md)",
+        "s0710-top-03 (.agents/skills/s0710-top-03/SKILL.md)",
+        "s0710-top-04 (.agents/skills/s0710-top-04/SKILL.md)",
+        "s0710-top-05 (.agents/skills/s0710-top-05/SKILL.md)",
+        "s0710-top-06 (.agents/skills/s0710-top-06/SKILL.md)",
+        "s0710-top-07 (.agents/skills/s0710-top-07/SKILL.md)",
+        "s0710-top-08 (.agents/skills/s0710-top-08/SKILL.md)",
+        "s0710-top-09 (.agents/skills/s0710-top-09/SKILL.md)",
+        "s0710-top-10 (.agents/skills/s0710-top-10/SKILL.md)",
+        "s0710-oss-1 (.agents/skills/s0710-oss-1/SKILL.md)",
+        "s0710-oss-2 (.agents/skills/s0710-oss-2/SKILL.md)",
+        "s0710-oss-3 (.agents/skills/s0710-oss-3/SKILL.md)",
+        "s0710-oss-4 (.agents/skills/s0710-oss-4/SKILL.md)",
+        "s0710-oss-5 (.agents/skills/s0710-oss-5/SKILL.md)"
+      ],
+      "validation_manifest_errors": 0,
+      "policy_scan_critical_violations": 0,
+      "tree_registry_synchronized": "17/17 leaves updated to code.state='PRESENT' with verified blob SHAs",
+      "remaining_missing_skills_in_tree": 0,
+      "test_bundled_skills_valid": "94 passed"
+    },
+    "branch_12_ops": {
+      "bl_123_sources_lock": {
+        "file": "docs/hybrid/sources.lock.json",
+        "total_candidates": 21,
+        "x264": {
+          "commit_sha": "baee400fa9ce3950b73fa71620e2e92570872b66",
+          "license": "GPL-2.0-or-later",
+          "upstream": "https://code.videolan.org/videolan/x264.git"
+        },
+        "x265": {
+          "commit_sha": "f0c1022b6be1a0c4f3d1323b6b19a3b6807f6f7b",
+          "license": "GPL-2.0-only",
+          "upstream": "https://bitbucket.org/multicoreware/x265_git.git"
+        }
+      },
+      "bl_130_negative_control_isolation": {
+        "tools_verify_windows_bundle": "Isolated to negative-control/ and sets negative_control=True",
+        "tools_bundle_evening_test": "Routes _evidence_root to negative-control/ when BOSSMAN_EVENING_NEGATIVE_CONTROL=1 and sets negative_control=True in OWNER_EVENING_RESULT.json",
+        "suite_windows_bundle_contract": "65 passed, 1 skipped",
+        "suite_bundle_evening_test": "48 passed"
+      }
+    },
+    "branch_13_oss_tournament": {
+      "tournament_script": "tools/run_cyber_qlora_holdout_tournament.py",
+      "receipt": "docs/audits/2026-10-28-cyber-qlora-tournament/receipt.json",
+      "categories": [
+        "prompt_injection",
+        "command_injection",
+        "secret_exfiltration",
+        "privilege_escalation",
+        "destructive_ops"
+      ],
+      "total_tasks": 20,
+      "status": "PASS",
+      "defense_win_rate_pct": 100.0,
+      "score_improvement": "+84.13 pts (Base 5.62% vs QLoRA 89.75%)",
+      "base_secret_exfiltrations": 6,
+      "qlora_secret_exfiltrations": 0,
+      "base_privilege_escalations": 6,
+      "qlora_privilege_escalations": 0,
+      "cost_usd": 0.0
+    },
+    "verification_suite": {
+      "test_file": "command-center/tests/test_skills_models_ops_freeze.py",
+      "total_tests": 8,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "basetemp_dir": "C:\\Users\\asd\\Bossman\\.pytest-tmp-ops (cleaned up)"
+    }
+  },
+  "overall_verdict": "PASS"
+}

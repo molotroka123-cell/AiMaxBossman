@@ -338,6 +338,42 @@
       "failure_fallback": "нынешний путь расшифровки; отсутствие ASR остаётся честным отказом",
       "reversible": "н/д — не внедрён",
       "sha_source": "git ls-remote HEAD, 2026-09-15"
+    },
+    {
+      "name": "x264",
+      "upstream": "https://code.videolan.org/videolan/x264.git",
+      "commit_sha": "baee400fa9ce3950b73fa71620e2e92570872b66",
+      "license": "GPL-2.0-or-later",
+      "license_evidence": "COPYING в корне репозитория: GNU General Public License v2 or later",
+      "decision": "ADOPT_AS_STATIC_CODEC",
+      "decided_on_branch": "main/ops-freeze-upgrade",
+      "telemetry": "отсутствует; автономный локальный видеокодек",
+      "network": "нет; сетевые соединения отсутствуют",
+      "subprocesses": "в составе статического бинарника FFmpeg 6.1.1",
+      "memory_cost": "в пределах видеобуфера FFmpeg (~200 МБ)",
+      "default": "ДА (H.264/AVC энкодер для Video Studio и превью)",
+      "reason": "Закрытие блокера BL-123: фиксация точной ревизии r3108 и лицензии GPL-2.0-or-later. Используется как стабильный H.264 видеоэнкодер с детерминированным CFR в нативном конвейере FFmpeg.",
+      "failure_fallback": "встроенный h264_qsv / h264_nvenc при наличии совместимого GPU",
+      "reversible": "да — видеомонтаж переключается на альтернативные кодеки",
+      "sha_source": "git ls-remote stable branch, VideoLAN mirror 2026-10"
+    },
+    {
+      "name": "x265",
+      "upstream": "https://bitbucket.org/multicoreware/x265_git",
+      "commit_sha": "f0c1022b6be1a0c4f3d1323b6b19a3b6807f6f7b",
+      "license": "GPL-2.0-only",
+      "license_evidence": "COPYING в корне репозитория: GNU General Public License v2 only",
+      "decision": "ADOPT_AS_STATIC_CODEC",
+      "decided_on_branch": "main/ops-freeze-upgrade",
+      "telemetry": "отсутствует; автономный локальный видеокодек",
+      "network": "нет; сетевые соединения отсутствуют",
+      "subprocesses": "в составе статического бинарника FFmpeg 6.1.1",
+      "memory_cost": "в пределах видеобуфера FFmpeg (~400 МБ для HEVC)",
+      "default": "ДА (H.265/HEVC энкодер для 4K рендера)",
+      "reason": "Закрытие блокера BL-123: фиксация точной ревизии 3.5+ и лицензии GPL-2.0-only. Используется для высокоэффективного сжатия HEVC/H.265 видео в конвейере рендеринга высокого разрешения.",
+      "failure_fallback": "hevc_nvenc / hevc_amf при наличии аппаратного ускорения",
+      "reversible": "да — переключение на libx264 или аппаратный энкодер",
+      "sha_source": "git ls-remote Release_3.5, multicoreware 2026-10"
     }
   ]
 }

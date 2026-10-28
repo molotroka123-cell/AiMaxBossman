@@ -8,6 +8,7 @@ from bcc.db import rows_dicts,utcnow
 from bcc.v2.images_tables import image_jobs,image_collections
 from bcc.studio.tables import jobs,runs
 from bcc.studio import runtime as rt
+from bcc.security.spend_firewall import SpendFirewall, get_spend_firewall
 
 router=APIRouter(prefix='/studio')
 class Strict(BaseModel): model_config=ConfigDict(extra='forbid')

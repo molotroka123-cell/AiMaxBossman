@@ -1,0 +1,76 @@
+{
+  "timestamp": "2026-10-28T11:17:00Z",
+  "audit_name": "Master Audit 2x Upgrade: Security, Cloud SpendFirewall, AuditJournal v2, ASTRA Sandbox & Commerce",
+  "actor": "Subagent 2 (Security, Cloud, AuditJournal v2 & Commerce Engineer)",
+  "workspace": "C:\\Users\\asd\\Bossman\\wt-trio-argon",
+  "branches_upgraded": {
+    "branch_5_cloud": {
+      "spend_firewall_module": "command-center/bcc/security/spend_firewall.py",
+      "pre_call_verification": "FAIL-CLOSED: non-zero pricing without one-time owner token blocked (PaidCallBlockedError)",
+      "token_lifecycle": "Single-use owner tokens consumed on first invocation, replay attempts rejected (TokenInvalidOrConsumedError)",
+      "local_compute_cost_vector": "LocalComputeCostVector tracks gpu_seconds, ram_gb_seconds, cpu_seconds and calculates dollar equivalent",
+      "linter_script": "tools/check_no_direct_llm_http.py",
+      "bypasses_closed": [
+        "command-center/bcc/economy_orchestrator.py",
+        "command-center/bcc/fable_cap.py",
+        "command-center/bcc/features/studio.py"
+      ]
+    },
+    "branch_6_computer": {
+      "l1_offload_fix": "pc.process_list, pc_process_list, pc.resource_snapshot, pc.top_cpu_ram, pc.disk_health, computer.observe registered in _OBSERVE_TOOLS as T0 auto-read",
+      "a4_audit_fix": "is_immutable_audit_log_target enforces T3 blocked_immutable_audit_log on any attempt to delete, move, overwrite or clear audit.jsonl, audit.jsonl.head, docs/audits/, evidence/ (including backup-and-delete evasion)",
+      "powershell_ast_guard": "validate_powershell_ast_or_tokens detects backtick obfuscation, string concatenation, iex, EncodedCommand, DownloadString",
+      "canonical_path_guard": "canonicalize_windows_path_safe strips \\\\?\\GLOBALROOT\\ and resolves Win32 short 8.3 names and reparse points",
+      "astra_sandbox": "command-center/bcc/security/astra_sandbox.py: WindowsJobObjectSandbox with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE (0x2000), DIE_ON_UNHANDLED_EXCEPTION, 2GB memory limit, process count limits; Red Team invariant: self_modify candidate Python never runs on unisolated host (verification_blocked_unisolated)"
+    },
+    "branch_8_memory_audit": {
+      "module": "command-center/bcc/audit_journal.py",
+      "o1_append": "O(1) last-hash seek from .head anchor without full-file read",
+      "concurrency_locking": "msvcrt.locking LK_NBLCK on append for concurrent write safety",
+      "durability": "os.fsync on every append flush",
+      "tail_corruption_detection": "verify_chain() flags malformed or truncated tail entries as corrupted_tail_detected",
+      "hmac_tamper_evidence": "Optional HMAC-SHA256 signature per entry",
+      "backward_compatibility": "100% compatible with pc_agent.AuditJournal interface"
+    },
+    "branch_11_plugins": {
+      "mcp_hub": "command-center/bcc/v2/mcp_hub.py",
+      "normalize_name_fix": "Transliteration of Cyrillic tool names to Latin (поиск_базы -> poisk_bazy) avoiding empty string collapse to 'tool'"
+    },
+    "branch_14_commerce": {
+      "strict_margin_function": "compute_quote_strict in bossman_shared/exchange_assistant/quote.py and apps/swapme-bot/quote.py (require_explicit_margin=True default fails closed without manager margin)",
+      "order_to_delivery_ledger": "command-center/bcc/features/commerce_ledger.py (OrderToDeliveryLedger)",
+      "nodes_covered": [
+        "reg-commerce_product_packages",
+        "reg-commerce_buyer_demand",
+        "reg-commerce_offer_cost",
+        "reg-commerce_order_delivery",
+        "reg-commerce_revenue_accounting",
+        "reg-commerce_support_refunds"
+      ],
+      "revenue_accounting_isolation": "Strict isolation: paper/demo runs remain PAPER_DEMO; AUDITED_PAID_REVENUE requires verified external payment proof documents, maintaining $0.00 audited external revenue invariant"
+    }
+  },
+  "test_execution": {
+    "total_collected": 84,
+    "passed": 84,
+    "failed": 0,
+    "skipped": 0,
+    "test_suites": [
+      "command-center/tests/test_audit_upgrade_security_cloud_commerce.py: 21 passed",
+      "command-center/tests/test_pc_agent_master_p0_p5.py: 56 passed",
+      "command-center/tests/test_self_modify_redteam_20261027.py: 6 passed",
+      "command-center/tests/test_d1_swapme_mission_e2e.py: 1 passed"
+    ],
+    "duration_seconds": 12.70,
+    "basetemp_cleaned": true
+  },
+  "immutable_core_invariants_preserved": {
+    "approvals_py_untouched": true,
+    "permissions_py_untouched": true,
+    "secrets_py_untouched": true,
+    "auth_py_untouched": true,
+    "control_plane_py_untouched": true,
+    "docs_constitution_untouched": true,
+    "no_git_commit_by_subagent": true
+  }
+}

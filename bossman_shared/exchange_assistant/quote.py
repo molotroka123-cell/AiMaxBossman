@@ -189,6 +189,45 @@ def build_quote(book: RateBook, *, give_ccy: str, get_ccy: str, now: datetime, g
                  tuple(r.label() for r in used), formula, side, direction, margin_decision)
 
 
+def compute_quote_strict(
+    book: RateBook,
+    *,
+    give_ccy: str,
+    get_ccy: str,
+    now: datetime,
+    give_amount: Decimal | str | int | float | None = None,
+    get_amount: Decimal | str | int | float | None = None,
+    margin: Decimal | str | int | float | None = None,
+    require_explicit_margin: bool = True,
+    confirm_high_margin: bool = False,
+    client_buys_get: bool = False,
+    ttl: timedelta = DEFAULT_TTL,
+) -> Quote:
+    """Strict quote calculation requiring explicit manager margin decision.
+
+    FAIL-CLOSED: if margin is None and require_explicit_margin is True,
+    raises QuoteError refusing to silently use default 3% margin.
+    """
+    if require_explicit_margin and margin is None:
+        raise QuoteError(
+            "COM-UP-1 FAIL-CLOSED: процент комиссии (margin) не указан менеджером. "
+            "Явная ставка обязательна для каждой сделки."
+        )
+    return build_quote(
+        book=book,
+        give_ccy=give_ccy,
+        get_ccy=get_ccy,
+        now=now,
+        give_amount=give_amount,
+        get_amount=get_amount,
+        margin=margin,
+        require_explicit_margin=require_explicit_margin,
+        confirm_high_margin=confirm_high_margin,
+        client_buys_get=client_buys_get,
+        ttl=ttl,
+    )
+
+
 def _fmt_spaced(val: Decimal) -> str:
     q = val.quantize(CENT)
     sign = "-" if q < 0 else ""

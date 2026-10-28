@@ -292,5 +292,9 @@ _DANGEROUS_SHELL_CHAIN_RE = re.compile(
     re.I,
 )
 _OBSERVE_TOOLS = frozenset(
-    "pc.observe_screen pc.list_windows pc.list_processes pc.list_services pc.system_info pc.bossman_status".split()
+    (
+        "pc.observe_screen pc.list_windows pc.list_processes pc.list_services pc.system_info pc.bossman_status "
+        "pc.process_list pc_process_list pc.resource_snapshot pc_resource_snapshot pc.top_cpu_ram pc_top_cpu_ram "
+        "pc.disk_health pc_disk_health computer.observe pc.observe"
+    ).split()
 )

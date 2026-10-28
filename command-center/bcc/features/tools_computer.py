@@ -2079,7 +2079,50 @@ def _act_effect(args: dict):
     return ("ask", "действие на рабочем столе владельца: одно одобрение — одно действие")
 
 
+async def _t_processes(args, ctx):
+    """Read-only top processes by CPU and memory (audit 28.10 / D-034: the chat agent had no way to SEE what loads
+    the PC without an approval for terminal.run). Names, PIDs, CPU %, RSS only — command lines are deliberately left
+    out: they are attacker-controlled text (27.10 load test carried a prompt injection there)."""
+    import psutil  # noqa: PLC0415
+    limit = max(1, min(30, _int_arg((args or {}).get("limit")) or 15))
+
+    def _sample():
+        procs = list(psutil.process_iter(["pid", "name"]))
+        for p in procs:
+            try:
+                p.cpu_percent(None)
+            except (psutil.Error, OSError):
+                pass
+        time.sleep(1.0)
+        rows = []
+        for p in procs:
+            try:
+                rows.append({"pid": p.pid, "name": (p.info.get("name") or "?")[:60],
+                             "cpu": round(p.cpu_percent(None), 1), "rss_mb": round(p.memory_info().rss / 2**20)})
+            except (psutil.Error, OSError):
+                continue
+        return rows
+
+    rows = await asyncio.to_thread(_sample)
+    vm = psutil.virtual_memory()
+    by_cpu = sorted(rows, key=lambda r: r["cpu"], reverse=True)[:limit]
+    by_mem = sorted(rows, key=lambda r: r["rss_mb"], reverse=True)[:limit]
+    fmt = lambda rs: "\n".join(f"{r['pid']:>7} {r['cpu']:>6.1f}% {r['rss_mb']:>7} MB  {r['name']}" for r in rs)  # noqa: E731
+    text = (f"Память: свободно {vm.available / 2**30:.1f} из {vm.total / 2**30:.1f} ГБ, CPU всего {psutil.cpu_percent(None):.0f}%\n"
+            f"Топ по CPU (PID, CPU%, память, имя):\n{fmt(by_cpu)}\nТоп по памяти:\n{fmt(by_mem)}\n"
+            "Снять процесс можно только отдельным действием с одобрением владельца.")
+    return ToolResult(content=text, one_line=f"processes: {len(rows)}",
+                      data={"processes_by_cpu": by_cpu, "processes_by_mem": by_mem}, external=True)
+
+
 SPECS = [
+    ToolSpec(name="computer.processes",
+             description="Только чтение: топ процессов по загрузке CPU и памяти (PID, CPU %, память, имя) и "
+                         "свободная память. Ничего не меняет. Для вопросов «что грузит компьютер».",
+             handler=_t_processes,
+             input_schema={"limit": {"type": "integer", "description": "сколько строк в каждом топе (1-30, по умолчанию 15)"}},
+             category="read", permission="computer.observe",
+             source="computer", default_effect="ask", timeout_seconds=30.0, external_output=True),
     ToolSpec(name="computer.observe",
              description="Посмотреть на рабочий стол: окно (hwnd, pid), элементы (имя, тип, центр x,y, "
                          "значение полей) и скриншот. Возвращает generation для computer.act. "

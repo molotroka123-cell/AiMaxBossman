@@ -103,6 +103,8 @@ def _evidence_root(sha: str) -> Path:
     base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_DATA_HOME")
     root = (Path(base) / "Bossman" / "evening") if base else (HOME / "evidence")
     target = root / sha
+    if os.environ.get("BOSSMAN_EVENING_NEGATIVE_CONTROL") == "1":
+        target = target / "negative-control"
     target.mkdir(parents=True, exist_ok=True)
     return target
 
@@ -566,6 +568,8 @@ def main(argv: list[str] | None = None) -> int:
         "stages": {},
         "reasons": [], "verdict": "FAIL", "exit_code": EXIT_CODES["FAIL"],
     }
+    if os.environ.get("BOSSMAN_EVENING_NEGATIVE_CONTROL") == "1":
+        result["negative_control"] = True
     try:
         verdict = _accept(args, manifest, sha, python, evidence, result)
     except Exception as exc:  # noqa: BLE001 — a crashed check is a FAIL with a name, never a stale PASS

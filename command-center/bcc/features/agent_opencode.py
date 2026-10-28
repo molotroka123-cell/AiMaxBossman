@@ -2672,6 +2672,61 @@ async def match_agent_skill_endpoint(
     }
 
 
+class SwarmDAGIn(BaseModel):
+    goal: str = Field(min_length=1, max_length=10000)
+    proposer_family: str = Field(default="gemma", max_length=64)
+    verifier_family: str = Field(default="qwen", max_length=64)
+    budget_tokens: int = Field(default=4096, ge=1, le=128000)
+    max_repairs: int = Field(default=2, ge=0, le=10)
+    context_candidates: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@router.post("/agent/swarm-dag")
+async def swarm_dag_endpoint(body: SwarmDAGIn, request: Request):
+    """Hierarchical 4-phase Swarm DAG execution with independent cross-family verification
+    and memory_retrieval_v16 context packing.
+    """
+    from ..v2.swarm_dag import SwarmDAGPlanner, MemoryCandidate, Signals
+
+    candidates: list[MemoryCandidate] = []
+    for raw in body.context_candidates:
+        if isinstance(raw, dict) and raw.get("ref"):
+            sig_dict = raw.get("signals") if isinstance(raw.get("signals"), dict) else {}
+            sig_kwargs = {k: float(v) for k, v in sig_dict.items() if hasattr(Signals, k)}
+            candidates.append(MemoryCandidate(
+                ref=str(raw["ref"]),
+                tokens=int(raw.get("tokens") or 100),
+                signals=Signals(**sig_kwargs),
+                mandatory=bool(raw.get("mandatory", False)),
+            ))
+
+    planner = SwarmDAGPlanner(
+        proposer_family=body.proposer_family,
+        verifier_family=body.verifier_family,
+        max_repairs=body.max_repairs,
+        memory_budget_tokens=body.budget_tokens,
+    )
+
+    receipt = await planner.run_dag(
+        goal=body.goal,
+        candidates=candidates,
+    )
+
+    return {
+        "ok": True,
+        "goal": receipt.goal,
+        "proposer_family": receipt.proposer_family,
+        "verifier_family": receipt.verifier_family,
+        "dag_nodes": receipt.dag_nodes,
+        "completed_nodes": receipt.completed_nodes,
+        "cross_family_verified": receipt.cross_family_verified,
+        "context_tokens_used": receipt.context_tokens_used,
+        "duration_ms": receipt.duration_ms,
+        "sha256_receipt": receipt.sha256_receipt,
+        "status": receipt.status,
+    }
+
+
 @router.post("/agent/north-star/skill-loop")
 async def north_star_skill_loop_endpoint(body: NorthStarSkillLoopIn, request: Request):
     """North Star Autonomous Skill Creation Loop:

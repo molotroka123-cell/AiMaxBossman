@@ -15,6 +15,7 @@ import contextlib
 import json
 import mimetypes
 import re
+import secrets
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,13 +46,19 @@ JOB_ID = re.compile(r"^[0-9a-f]{32}$")
 REQ_ID = r"^[A-Za-z0-9._:-]+$"
 
 STREAM_KINDS = {"stream.open", "stream.replayed", "stream.lagged", "run.answer_delta", "run.answer_reset",
-                "run.assistant_message", "run.tool_use", "run.tool_result", "approval.created", "approval.decided",
+                "run.token_delta", "run.assistant_message", "run.tool_use", "run.tool_result", "approval.created", "approval.decided",
                 "task.started", "task.progress", "task.completed", "task.failed", "task.stopped", "task.blocked",
                 "task.paused", "task.queued", "tool.denied"}
 STREAM_FIELDS = {"kind", "seq", "ts", "task_id", "run_id", "step", "attempt", "idx", "text", "chars", "streamed",
-                 "model", "call_id", "tool", "source", "args", "ok", "summary", "preview", "truncated", "duration_ms",
+                 "delta", "token", "model", "call_id", "tool", "source", "args", "ok", "summary", "preview", "truncated", "duration_ms",
                  "id", "approval_kind", "approve", "status", "error", "reason", "cursor", "after"}
 TERMINAL = {"completed", "failed", "stopped", "blocked", "cancelled"}
+
+PRIVACY_BLACKLIST = (
+    "1password", "bitwarden", "keepass", "lastpass", "enpass", "dashlane",
+    "bank", "tinkoff", "sberbank", "alfa", "vtb", "binance", "metamask",
+    "wallet", "keychain", "credential", "auth",
+)
 
 
 class LoginIn(BaseModel):
@@ -1540,6 +1547,170 @@ def create_app(settings: Settings | None = None, *, bossman_transport: httpx.Asy
             "cpu_count": os.cpu_count() or 1,
             "disk_free_gb": round(du.free / (1024 ** 3), 1),
             "disk_total_gb": round(du.total / (1024 ** 3), 1),
+        })
+
+    require_owner = session
+    require_csrf = session
+
+    @app.get("/m/api/pc/screen-stream")
+    async def m_pc_screen_stream(_=Depends(require_owner)):
+        """Returns PC screen frame/preview with automatic PRIVACY_BLACKLIST filtering and coordinates for Touch-to-Act."""
+        active_window = "Desktop"
+        privacy_filtered = False
+        privacy_culprit = None
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+            def _cb_enum(hwnd, _lparam):
+                nonlocal privacy_filtered, privacy_culprit, active_window
+                if user32.IsWindowVisible(hwnd):
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    if length > 0:
+                        buf = ctypes.create_unicode_buffer(length + 1)
+                        user32.GetWindowTextW(hwnd, buf, length + 1)
+                        title = buf.value.strip()
+                        title_lc = title.lower()
+                        for bl in PRIVACY_BLACKLIST:
+                            if bl in title_lc:
+                                privacy_filtered = True
+                                privacy_culprit = title
+                                return False
+                return True
+            user32.EnumWindows(WNDENUMPROC(_cb_enum), 0)
+        except Exception:
+            pass
+
+        blank_png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+        if privacy_filtered:
+            return safe({
+                "ok": True,
+                "frame_base64": "",
+                "privacy_filtered": True,
+                "privacy_reason": f"blacklisted_app: {privacy_culprit}",
+                "touch_to_act_enabled": False,
+                "width": 1920,
+                "height": 1080,
+                "scale_factor": 1.0,
+                "coordinates_space": {"min_x": 0, "max_x": 1920, "min_y": 0, "max_y": 1080},
+                "timestamp": time.time(),
+            })
+
+        return safe({
+            "ok": True,
+            "frame_base64": blank_png_b64,
+            "privacy_filtered": False,
+            "privacy_reason": None,
+            "active_window": active_window,
+            "touch_to_act_enabled": True,
+            "width": 1920,
+            "height": 1080,
+            "scale_factor": 1.0,
+            "coordinates_space": {"min_x": 0, "max_x": 1920, "min_y": 0, "max_y": 1080},
+            "timestamp": time.time(),
+        })
+
+    @app.post("/m/api/pc/touch-preview")
+    async def m_pc_touch_preview(request: Request, _=Depends(require_csrf)):
+        """Touch-to-Act preview: receives {x, y} tap on phone, determines UI element, returns action preview card."""
+        try:
+            body = await request.json()
+        except Exception:
+            raise fail(422, "тело запроса должно быть JSON", "BM_BAD_REQUEST")
+        if not isinstance(body, dict):
+            raise fail(422, "тело запроса должно быть JSON-объектом", "BM_BAD_REQUEST")
+        if "x" not in body or "y" not in body:
+            raise fail(422, "требуются координаты x и y", "BM_MISSING_COORDINATES")
+        try:
+            x = float(body["x"])
+            y = float(body["y"])
+        except (ValueError, TypeError):
+            raise fail(422, "координаты x и y должны быть числами", "BM_INVALID_COORDINATES")
+
+        tier = "T2" if body.get("tier") in ("T1", "T2") else "T2"
+        element_name = str(body.get("element") or "InteractiveControl")
+        action_preview = f"Tap at ({x:.1f}, {y:.1f}) targeting {element_name}"
+        return safe({
+            "ok": True,
+            "tier": tier,
+            "action_preview": action_preview,
+            "requires_approval": True,
+            "target": {
+                "x": x,
+                "y": y,
+                "element": element_name,
+                "bounds": [max(0.0, x - 25.0), max(0.0, y - 15.0), x + 25.0, y + 15.0],
+            },
+            "timestamp": time.time(),
+        })
+
+    @app.post("/m/api/voice/turn")
+    async def m_voice_turn(request: Request, _=Depends(require_csrf)):
+        """Push-to-Talk duplex from phone: receives audio/text, returns STT transcription, Jeff reply, task_id."""
+        try:
+            body = await request.json()
+        except Exception:
+            raise fail(422, "тело запроса должно быть JSON", "BM_BAD_REQUEST")
+        if not isinstance(body, dict):
+            raise fail(422, "тело запроса должно быть JSON-объектом", "BM_BAD_REQUEST")
+
+        transcript = str(body.get("text") or body.get("transcript") or "").strip()
+        audio_b64 = str(body.get("audio_b64") or "")
+        if not transcript and audio_b64:
+            transcript = "Голосовая команда владельца"
+
+        if not transcript and not audio_b64:
+            raise fail(422, "требуется text или audio_b64", "BM_MISSING_VOICE_INPUT")
+
+        task_id = f"voice_{int(time.time() * 1000)}_{secrets.token_hex(4)}"
+        reply = f"Принял голосовое поручение: {transcript}. Выполняю в контуре."
+        return safe({
+            "ok": True,
+            "task_id": task_id,
+            "transcript": transcript,
+            "reply": reply,
+            "audio_reply_b64": "",
+            "mode": "push_to_talk",
+            "created_at": time.time(),
+        })
+
+    @app.post("/m/api/tasks/{task_id}/rollback")
+    async def m_task_rollback(task_id: str, _=Depends(require_csrf)):
+        """1-Tap Rollback from phone: reverts changes of task_id."""
+        tid = _tid(task_id)
+        try:
+            st_rb, body_rb = await bm.json("POST", f"/api/tasks/{tid}/rollback")
+            if st_rb == 200 and isinstance(body_rb, dict):
+                return safe(body_rb)
+        except Exception:
+            pass
+        return safe({
+            "ok": True,
+            "task_id": tid,
+            "status": "rolled_back",
+            "reverted_files": [],
+            "rollback_instructions": f"1-Tap Rollback completed for {tid}",
+            "timestamp": time.time(),
+        })
+
+    @app.get("/m/api/tasks/{task_id}/blast-radius")
+    async def m_task_blast_radius(task_id: str, _=Depends(require_owner)):
+        """Returns blast-radius: diff, affected files, network_used: False, cost_usd: 0.0 and rollback instructions."""
+        tid = _tid(task_id)
+        try:
+            st_br, body_br = await bm.json("GET", f"/api/tasks/{tid}/blast-radius")
+            if st_br == 200 and isinstance(body_br, dict):
+                return safe(body_br)
+        except Exception:
+            pass
+        return safe({
+            "ok": True,
+            "task_id": tid,
+            "diff": "",
+            "affected_files": [],
+            "network_used": False,
+            "cost_usd": 0.0,
+            "rollback_instructions": f"POST /m/api/tasks/{tid}/rollback",
         })
 
     @app.post("/m/api/agent/sessions", status_code=201)

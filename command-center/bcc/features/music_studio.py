@@ -835,8 +835,16 @@ def measure_tempo(path: Path, ffmpeg: str | None = None, lo_bpm: float = 70.0, h
     """Estimate tempo (BPM) from the audio itself: spectral-flux onset envelope + autocorrelation, numpy only.
     Returns None when the signal has no usable beat (silence, too short). Half/double-tempo ambiguity is inherent."""
     import numpy as np
+    try:
+        from ..art_v2.motion_timeline import AudioBeatAnalyzer
+    except ImportError:
+        AudioBeatAnalyzer = None
+
     ffmpeg = ffmpeg or _find_ffmpeg()
     if not ffmpeg:
+        if AudioBeatAnalyzer is not None:
+            res = AudioBeatAnalyzer().analyze_file(path)
+            return res.get("bpm_measured")
         return None
     sr = 11025
     raw = subprocess.run([ffmpeg, "-v", "error", "-i", str(path), "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],
@@ -863,6 +871,54 @@ def measure_tempo(path: Path, ffmpeg: str | None = None, lo_bpm: float = 70.0, h
         if (a - 2 * b + c) != 0:
             best = i + 0.5 * (a - c) / (a - 2 * b + c)
     return round(60.0 * fps / best, 1) if best > 0 else None
+
+
+ONSET_LAG_S = 0.085   # calibrated against synthetic click tracks (tests/test_music_studio_master2.py)
+
+
+def measure_beats(path: Path, ffmpeg: str | None = None, lo_bpm: float = 70.0, hi_bpm: float = 180.0) -> dict[str, Any] | None:
+    """Beat grid from the audio itself (audit 2.3 AudioBeatAnalyzer): tempo from `measure_tempo`, phase fitted to the
+    spectral-flux onsets. Returns {"bpm", "beat_timestamps_ms"} or None when there is no usable beat."""
+    import numpy as np
+    bpm = measure_tempo(path, ffmpeg, lo_bpm, hi_bpm)
+    ffmpeg = ffmpeg or _find_ffmpeg()
+    if not bpm or not ffmpeg:
+        return None
+    sr, hop, win = 11025, 256, 1024
+    raw = subprocess.run([ffmpeg, "-v", "error", "-i", str(path), "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],
+                         capture_output=True, timeout=180, check=False).stdout
+    x = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+    frames = np.lib.stride_tricks.sliding_window_view(x, win)[::hop] * np.hanning(win)
+    mag = np.log1p(np.abs(np.fft.rfft(frames, axis=1)))
+    flux = np.maximum(np.diff(mag, axis=0), 0).sum(axis=1)
+    fps = sr / hop
+    period = fps * 60.0 / bpm                            # beat period in flux frames (fractional)
+    idx = np.arange(flux.size)
+    best_phase, best_score = 0.0, -1.0
+    for phase in np.arange(0.0, period, 0.25):           # score each candidate grid offset by the onset energy it hits
+        pos = np.arange(phase, flux.size - 1, period)
+        score = float(flux[np.clip(np.round(pos).astype(int), 0, idx[-1])].sum())
+        if score > best_score:
+            best_phase, best_score = float(phase), score
+    half = max(1, int(period / 4))
+    ks, ts = [], []
+    k = 0
+    while best_phase + k * period < flux.size - 1:
+        c = int(round(best_phase + k * period))
+        seg = flux[max(0, c - half):c + half + 1]
+        if seg.size and seg.max() > 0:
+            ks.append(k)
+            ts.append(max(0, c - half) + int(np.argmax(seg)))
+        k += 1
+    if len(ks) >= 4:
+        slope, icpt = np.polyfit(np.array(ks, dtype=np.float64), np.array(ts, dtype=np.float64), 1)
+        period, best_phase = float(slope), float(icpt)
+    offset_s = ONSET_LAG_S
+    n = int((x.size / sr) * 60.0 / (period / fps)) + 1
+    beats = [round(((best_phase + k * period) / fps + offset_s) * 1000.0) for k in range(n)]
+    dur_ms = x.size / sr * 1000.0
+    bpm = round(60.0 * fps / period, 1)
+    return {"bpm": bpm, "beat_timestamps_ms": [b for b in beats if 0 <= b <= dur_ms]}
 
 
 def measure_loudness(path: Path, ffmpeg: str | None = None) -> dict[str, float]:
