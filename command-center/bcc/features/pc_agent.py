@@ -992,12 +992,17 @@ def _taskkill_tree(pid: int) -> None:
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=3, check=False)
 
 
-async def _reap_child(proc: Any, pid: int) -> None:
+async def _reap_child(proc: Any, pid: int, job: int | None = None) -> None:
     """Дочерний процесс команды не переживает свой шаг: дерево убито, корень дождан.
 
     Блокирующий taskkill — в потоке, а не в цикле событий; ожидание завершения
-    ограничено, чтобы зависший драйвер не держал шаг вечно.
+    ограничено, чтобы зависший драйвер не держал шаг вечно. Job Object (если команда
+    запущена в нём) убивает и тех потомков, которых снимок `taskkill /T` не видит
+    (рождённых после снимка или осиротевших).
     """
+    if job is not None:
+        from ..v2.terminal_control import _win_job_terminate
+        _win_job_terminate(job)
     with contextlib.suppress(Exception):
         await asyncio.to_thread(_taskkill_tree, pid)
     with contextlib.suppress(Exception):
@@ -2331,21 +2336,24 @@ async def execute_pc_step(
             cwd = rt.workspace_dir
         timeout_s = min(max(1.0, float(args.get("timeout_s") or DEFAULT_CMD_TIMEOUT_S)), MAX_CMD_TIMEOUT_S)
         started_at = time.time()
+        from ..v2.terminal_control import _CREATE_SUSPENDED, _win_bind_and_resume, _win_job_close
         proc = await asyncio.create_subprocess_exec(
             *argv,
             cwd=str(cwd),
             env=_scrubbed_env(),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            **({"creationflags": _CREATE_SUSPENDED} if os.name == "nt" else {}),
         )
         pid = proc.pid or -1
+        job = _win_bind_and_resume(proc)          # Windows: в Job Object и возобновить; иначе None
         if pid > 0:
             rt.active_procs[pid] = proc
             rt.spawned_pids.add(pid)
         try:
             stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
         except asyncio.TimeoutError:
-            await _reap_child(proc, pid)
+            await _reap_child(proc, pid, job)
             return {
                 "ok": False,
                 "verified": False,
@@ -2360,10 +2368,12 @@ async def execute_pc_step(
             # потомки жили дальше уже без присмотра. Сначала убить, потом
             # пробросить отмену.
             if proc.returncode is None:
-                await _reap_child(proc, pid)
+                await _reap_child(proc, pid, job)
             raise
         finally:
             rt.active_procs.pop(pid, None)
+            if job is not None:
+                _win_job_close(job)
 
         out_str = scrub_secrets((stdout_b or b"")[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")).strip()
         err_str = scrub_secrets((stderr_b or b"")[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")).strip()
