@@ -131,7 +131,8 @@ def test_character_lock_ipadapter_and_arcface_threshold():
     )
     assert wf["character_name"] == "velvet_diva"
     assert wf["arcface_target_cosine"] >= 0.78
-    assert wf["nodes"]["13"]["class_type"] == "IPAdapterFaceIDPlusV2"
+    assert wf["nodes"]["13"]["class_type"] == "IPAdapterFaceID"
+    assert wf["nodes"]["14"]["class_type"] == "IPAdapterUnifiedLoaderFaceID"
     assert wf["nodes"]["13"]["inputs"]["weight"] == 0.88
 
 

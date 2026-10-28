@@ -243,14 +243,18 @@ def test_mobile_stream_kinds_includes_token_delta():
     assert "token" in STREAM_FIELDS
 
 
-def test_mobile_screen_stream_auth_and_privacy(mobile_env):
+def test_mobile_screen_stream_auth_and_privacy(mobile_env, monkeypatch):
+    from PIL import Image, ImageGrab
+
     client = mobile_env["client"]
     # 1. Unauthenticated request without cookie -> 401
     unauth_client = TestClient(mobile_env["app"], base_url="http://127.0.0.1:8840")
     r_unauth = unauth_client.get("/m/api/pc/screen-stream")
     assert r_unauth.status_code == 401
 
-    # 2. Authenticated request -> 200 with screen preview and coordinates
+    # 2. Authenticated request with clean desktop -> 200 with screen preview and coordinates
+    monkeypatch.setattr("bossmobile.api.PRIVACY_BLACKLIST", ("zzz-no-such-window-title-zzz",))
+    monkeypatch.setattr(ImageGrab, "grab", lambda *a, **k: Image.new("RGB", (1920, 1080), (40, 80, 120)))
     r_auth = client.get("/m/api/pc/screen-stream")
     assert r_auth.status_code == 200
     data = r_auth.json()
@@ -258,7 +262,7 @@ def test_mobile_screen_stream_auth_and_privacy(mobile_env):
     assert "coordinates_space" in data
     assert data["coordinates_space"]["max_x"] >= 1280
     assert "touch_to_act_enabled" in data
-    assert "privacy_filtered" in data
+    assert data["privacy_filtered"] is False
 
     # 3. Verify privacy blacklist contains critical apps
     for app in ("1password", "bitwarden", "keepass", "bank", "metamask"):

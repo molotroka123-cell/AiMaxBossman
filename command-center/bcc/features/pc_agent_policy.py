@@ -13,11 +13,21 @@ from typing import Any
 
 from .pc_agent_policy_guards import (
     BROWSER_PAY_CLICK_RE,
+    _BROWSER_CONSEQUENTIAL_CLICK_RE,
+    _DESKTOP_CONSEQUENTIAL_RE,
+    _DESKTOP_LAUNCH_ALLOWED,
+    _DESKTOP_PAY_RE,
+    _DESKTOP_PAY_SEMANTICS,
+    _DESKTOP_REVERSIBLE_ACTIONS,
+    _EARN_T0_ACTIONS,
+    _EARN_T3_ACTIONS,
+    _EARN_T3_EDITIONS,
+    _EARN_T3_MODES,
     browser_guard_verdict,
+    canonicalize_windows_path_safe,
     desktop_guard_verdict,
     is_immutable_audit_log_target,
     validate_powershell_ast_or_tokens,
-    canonicalize_windows_path_safe,
 )
 from .pc_agent_policy_api import (  # noqa: F401  (ре-экспорт публичных имён)
     classify_bossman_api,
@@ -72,27 +82,7 @@ from .pc_agent_policy_procs import (  # noqa: F401
     is_protected_service,
 )
 
-_DESKTOP_PAY_SEMANTICS = {"pay", "payment", "purchase", "wallet", "bank_transfer", "resume", "approve yourself"}
-_DESKTOP_PAY_RE = r"(?iu)\b(оплат\w*|перевод\w*|купить|pay|purchase|wallet|bossman\s+approvals)\b"
-_DESKTOP_CONSEQUENTIAL_RE = (
-    r"(?iu)\b(удал\w*|delete|uninstall|форматир\w*|отправ\w*|"
-    r"публик\w*|send|publish|submit)\b"
-)
-_DESKTOP_REVERSIBLE_ACTIONS = set(
-    "launch focus focus_window click double_click type key hotkey scroll wait notepad_roundtrip".split()
-)
-_DESKTOP_LAUNCH_ALLOWED = {"notepad", "calc", "mspaint", "charmap"}
 _BROWSER_PAY_CLICK_RE = BROWSER_PAY_CLICK_RE
-_BROWSER_CONSEQUENTIAL_CLICK_RE = r"(?iu)\b(удал\w*|отправ\w*|опублик\w*|delete|submit|send|publish)\b"
-_EARN_T3_ACTIONS = set(
-    "pay withdraw live_trade publish_external submit_bid "
-    "fincept_enterprise fincept_live_broker vibe_trading_live".split()
-)
-_EARN_T3_MODES = {"live", "real", "real_money", "broker"}
-_EARN_T3_EDITIONS = {"enterprise", "exclusive", "exclusive+", "exclusive_pro", "paid"}
-_EARN_T0_ACTIONS = set(
-    "status arena exam roi poker studio oss product weekly report blender fincept vibe_trading vibe_trade".split()
-)
 
 
 def _classify_desktop_act(
@@ -125,28 +115,15 @@ def _classify_desktop_act(
         if bad_p:
             return PolicyVerdict("T3", "deny", "secret_or_protected_path", why_p, True)
         if PromptIntentReadOnly(task_prompt):
-            return PolicyVerdict(
-                "T3",
-                "deny",
-                "unrequested_mutation",
-                "Запись через GUI в чтении (T3).",
-                True,
-            )
+            return PolicyVerdict("T3", "deny", "unrequested_mutation", "Запись в чтении (T3).", True)
         if not is_within_safe_roots(check_p, eff_roots):
-            reason = f"Путь {check_p} (T2)."
-            return PolicyVerdict("T2", "ask", "filesystem_write_outside_workspace", reason, True)
+            return PolicyVerdict("T2", "ask", "filesystem_write_outside_workspace", f"Путь {check_p} (T2).", True)
     if action == "launch":
         app_raw = str(args.get("app") or target or "notepad").strip()
         has_sep = "/" in app_raw or "\\" in app_raw or ":" in app_raw
         base_app = Path(app_raw).name.lower().removesuffix(".exe")
         if (has_sep and not _is_system32_bin(app_raw)) or base_app not in _DESKTOP_LAUNCH_ALLOWED:
-            return PolicyVerdict(
-                "T2",
-                "ask",
-                "desktop_launch_unlisted",
-                "Запуск требует кнопки (T2).",
-                True,
-            )
+            return PolicyVerdict("T2", "ask", "desktop_launch_unlisted", "Запуск (T2).", True)
     if re.search(_DESKTOP_CONSEQUENTIAL_RE, f"{target} {semantic}"):
         decision = "trust_window" if trust_active else "ask"
         return PolicyVerdict("T2", decision, "desktop_consequential", "T2.")
@@ -159,22 +136,10 @@ def _classify_browser_act(args: dict[str, Any], trust_active: bool) -> PolicyVer
     action = str(args.get("action") or "open").strip().lower()
     url = str(args.get("url") or "").strip()
     if action in {"purchase", "payment", "wallet", "bank_transfer"}:
-        return PolicyVerdict(
-            "T3",
-            "deny",
-            "browser_payment_forbidden",
-            f"Платежи запрещены ({action}).",
-            True,
-        )
+        return PolicyVerdict("T3", "deny", "browser_payment_forbidden", f"Оплата ({action}).", True)
     scheme = url.split(":", 1)[0].lower() if ":" in url else ""
     if url and scheme not in {"http", "https"}:
-        return PolicyVerdict(
-            "T3",
-            "deny",
-            "browser_invalid_scheme",
-            "Разрешены только http/https.",
-            True,
-        )
+        return PolicyVerdict("T3", "deny", "browser_invalid_scheme", "Только http/https.", True)
     if action in {"read_dom", "snapshot", "screenshot"}:
         return PolicyVerdict("T0", "auto", "browser_read", f"Чтение браузера ({action}, T0).")
     if action in {"open", "navigate", "click", "type", "select", "back", "reload"}:
@@ -189,12 +154,7 @@ def _classify_browser_act(args: dict[str, Any], trust_active: bool) -> PolicyVer
         if action in {"click", "type"} and args.get("ref") is not None and not lbl.strip():
             decision = "trust_window" if trust_active else "ask"
             return PolicyVerdict("T2", decision, "browser_opaque_ref", "Ref (T2).")
-        return PolicyVerdict(
-            "T1",
-            "auto",
-            "browser_interactive",
-            f"Действие в браузере ({action}, T1).",
-        )
+        return PolicyVerdict("T1", "auto", "browser_interactive", f"Браузер ({action}, T1).")
     if action in {"submit", "upload", "download", "login"}:
         always_btn = action in {"submit", "login", "upload"}
         dec = "trust_window" if (trust_active and not always_btn) else "ask"
@@ -213,11 +173,9 @@ def _classify_earn(args: dict[str, Any]) -> PolicyVerdict:
         rm = 1.0
     external = action in _EARN_T3_ACTIONS or mode_arg in _EARN_T3_MODES or ed_arg in _EARN_T3_EDITIONS
     if external or rm > 0.0:
-        reason = f"Действие {action} (T3)."
-        return PolicyVerdict("T3", "deny", "earn_external_or_live_forbidden", reason, True)
+        return PolicyVerdict("T3", "deny", "earn_external_or_live_forbidden", f"Действие {action} (T3).", True)
     if action == "fresh_vibes_publish":
-        reason = "Публикация в Instagram (T2)."
-        return PolicyVerdict("T2", "ask", "fresh_vibes_external_publish", reason, True)
+        return PolicyVerdict("T2", "ask", "fresh_vibes_external_publish", "Публикация (T2).", True)
     if action in _EARN_T0_ACTIONS:
         return PolicyVerdict("T0", "auto", f"earn_{action}", f"Чтение Earn ({action}, T0).")
     return PolicyVerdict("T1", "auto", f"earn_{action}", f"Earn ({action}, SIMULATED, T1).")
@@ -243,26 +201,17 @@ def classify_pc_action(
         tool not in _OBSERVE_TOOLS and is_immutable_audit_log_target(blob)
     ):
         return PolicyVerdict(
-            "T3",
-            "deny",
-            "blocked_immutable_audit_log",
-            "Неизменяемый журнал аудита защищён от удаления и модификации (T3).",
-            True,
+            "T3", "deny", "blocked_immutable_audit_log",
+            "Журнал аудита защищён от удаления и модификации (T3).", True,
         )
     if tainted_by_injection and tool not in _OBSERVE_TOOLS:
-        reason = "Заблокировано (prompt injection)."
-        return PolicyVerdict("T3", "deny", "prompt_injection_blocked", reason, True)
+        return PolicyVerdict("T3", "deny", "prompt_injection_blocked", "Prompt injection (T3).", True)
     if tool in _OBSERVE_TOOLS:
         return PolicyVerdict("T0", "auto", "observe", "Чтение состояния ПК (T0).")
     eff_roots = safe_roots if safe_roots is not None else default_safe_roots(data_dir)
     pps = classify_path_proc_service_action(
-        tool,
-        args,
-        task_prompt=task_prompt,
-        trust_active=trust_active,
-        repo_root=repo_root,
-        eff_roots=eff_roots,
-        data_dir=data_dir,
+        tool, args, task_prompt=task_prompt, trust_active=trust_active,
+        repo_root=repo_root, eff_roots=eff_roots, data_dir=data_dir,
     )
     if pps is not None:
         return pps
@@ -276,19 +225,14 @@ def classify_pc_action(
             safe_ps, ps_reason = validate_powershell_ast_or_tokens(cmd_text)
             if not safe_ps:
                 return PolicyVerdict(
-                    "T3",
-                    "deny",
-                    "blocked_powershell_obfuscation",
-                    f"PowerShell обфускация заблокирована: {ps_reason} (T3).",
-                    True,
+                    "T3", "deny", "blocked_powershell_obfuscation",
+                    f"Обфускация PowerShell: {ps_reason} (T3).", True,
                 )
         return _classify_run_command(args, task_prompt, trust_active, repo_root, eff_roots, data_dir)
     if tool == "pc.bossman_api":
         return classify_bossman_api(
-            str(args.get("method") or "GET"),
-            str(args.get("path") or ""),
-            body=args.get("payload") or args.get("body"),
-            data_dir=data_dir,
+            str(args.get("method") or "GET"), str(args.get("path") or ""),
+            body=args.get("payload") or args.get("body"), data_dir=data_dir,
         )
     if tool == "pc.earn":
         return _classify_earn(args)
@@ -311,3 +255,4 @@ def classify_pc_action(
             return PolicyVerdict("T0", "auto", "code_read", f"Анализ кода ({act_c}, T0).")
         return PolicyVerdict("T2", "ask", "code_other", f"Код {act_c} (T2).", True)
     return PolicyVerdict("T2", "ask", "unknown_tool", f"Неизвестный инструмент {tool} (T2).", True)
+

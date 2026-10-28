@@ -14,6 +14,26 @@ BROWSER_PAY_CLICK_RE = (
     r"|confirm\s+(?:purchase|order|payment)|оформить\s+заказ"
     r"|подтвердить\s+(?:заказ|оплату)|transfer\s+funds|перевести\s+средства)\b"
 )
+_DESKTOP_PAY_SEMANTICS = {"pay", "payment", "purchase", "wallet", "bank_transfer", "resume", "approve yourself"}
+_DESKTOP_PAY_RE = r"(?iu)\b(оплат\w*|перевод\w*|купить|pay|purchase|wallet|bossman\s+approvals)\b"
+_DESKTOP_CONSEQUENTIAL_RE = (
+    r"(?iu)\b(удал\w*|delete|uninstall|форматир\w*|отправ\w*|"
+    r"публик\w*|send|publish|submit)\b"
+)
+_DESKTOP_REVERSIBLE_ACTIONS = set(
+    "launch focus focus_window click double_click type key hotkey scroll wait notepad_roundtrip".split()
+)
+_DESKTOP_LAUNCH_ALLOWED = {"notepad", "calc", "mspaint", "charmap"}
+_BROWSER_CONSEQUENTIAL_CLICK_RE = r"(?iu)\b(удал\w*|отправ\w*|опублик\w*|delete|submit|send|publish)\b"
+_EARN_T3_ACTIONS = set(
+    "pay withdraw live_trade publish_external submit_bid "
+    "fincept_enterprise fincept_live_broker vibe_trading_live".split()
+)
+_EARN_T3_MODES = {"live", "real", "real_money", "broker"}
+_EARN_T3_EDITIONS = {"enterprise", "exclusive", "exclusive+", "exclusive_pro", "paid"}
+_EARN_T0_ACTIONS = set(
+    "status arena exam roi poker studio oss product weekly report blender fincept vibe_trading vibe_trade".split()
+)
 # клик или ввод по подтверждению (Approve, /pc_yes): сам себя не одобряем
 _SELF_APPROVAL = "Одобряет только владелец (T3)."
 APPROVAL_UI_RE = r"(?iu)(?:\bapprove\w*\b|одобр\w*|разреш\w*|подтверд\w*|(?<!\w)/?pc_yes\b)"
@@ -62,25 +82,24 @@ def browser_guard_verdict(action: str, url: str, label: str) -> PolicyVerdict | 
 # ----------------------------------------------------------- Immutable Audit Log Guard
 _IMMUTABLE_LOG_TARGETS_RE = re.compile(r"(?i)\b(?:audit\.jsonl(?:\.head)?|docs[\\/]audits|evidence)\b")
 _MUTATION_OR_DELETE_RE = re.compile(
-    r"(?iu)\b(удал\w*|очист\w*|перемест\w*|перезапиш\w*|сотр\w*|затр\w*|переименов\w*|сделай\s+бэкап\s+и\s+удали|"
-    r"бэкап\w*\s+и\s+удали|delete|remove|rm|del|clear|truncate|move|mv|wipe|overwrite|erase|rename|ren|"
-    r"backup\s+and\s+delete)\b"
-    r"|(?:Remove-Item|Clear-Content|Set-Content|Add-Content|Move-Item|Rename-Item|Out-File|Tee-Object|\bdel\b|\brm\b|\bmv\b|\bmove\b|\bren\b|\btee\b|>|>>)"
+    r"(?iu)\b(удал\w*|очист\w*|перемест\w*|перезапиш\w*|"
+    r"сотр\w*|затр\w*|переименов\w*|сделай\s+бэкап\s+и\s+удали|"
+    r"бэкап\w*\s+и\s+удали|delete|remove|rm|del|clear|truncate|"
+    r"move|mv|wipe|overwrite|erase|rename|ren|backup\s+and\s+delete)\b"
+    r"|(?:Remove-Item|Clear-Content|Set-Content|Add-Content|Move-Item|Rename-Item|"
+    r"Out-File|Tee-Object|\bdel\b|\brm\b|\bmv\b|\bmove\b|\bren\b|\btee\b|>|>>)"
 )
-# copy-family verbs overwrite/truncate only when the protected name is the DESTINATION (the last argument): `copy /y nul audit.jsonl`
 _COPY_RE = re.compile(r"(?i)\b(?:copy|cp|copy-item|xcopy|robocopy)\b")
 _PROTECTED_NAMES = ("audit.jsonl", "audit.jsonl.head")
 
 
 def is_immutable_audit_log_target(text_or_path: str) -> bool:
     """Detect any attempt or command to delete, clear, move or overwrite audit.jsonl,
-    audit.jsonl.head, docs/audits/ or evidence/ (including 'backup and delete' evasion)."""
+    audit.jsonl.head, docs/audits/ or evidence/."""
     if not text_or_path or not isinstance(text_or_path, str):
         return False
     s = text_or_path.strip()
     clean = s.replace("\\", "/").lower()
-
-    # Direct target path check
     if (
         clean in ("audit.jsonl", "audit.jsonl.head")
         or clean.endswith("/audit.jsonl")
@@ -91,31 +110,24 @@ def is_immutable_audit_log_target(text_or_path: str) -> bool:
         or "/evidence/" in clean
     ):
         return True
-
-    # Pattern scan over text/commands/prompts
     if _IMMUTABLE_LOG_TARGETS_RE.search(s) and _MUTATION_OR_DELETE_RE.search(s):
         return True
-
-    # Audit 28.10: forms the plain scan above missed.
-    # (a) a name glued together from quoted pieces: 'audit.json'+'l'
     glued = re.sub(r"[\s'\"+()`]", "", s.lower())
     if any(n in glued for n in _PROTECTED_NAMES) and _MUTATION_OR_DELETE_RE.search(s):
         return True
-    # (a2) a name assembled from pieces/variables: both halves of the name appear in a mutating command
     low = s.lower()
     if "audit" in low and "jsonl" in low and _MUTATION_OR_DELETE_RE.search(s):
         return True
-    # (b) a wildcard that matches the journal: aud*.jsonl, *.jsonl, audit.*
     if _MUTATION_OR_DELETE_RE.search(s):
         for token in re.split(r"[\s,;|&()'\"]+", s):
             if "*" in token or "?" in token:
                 base = token.replace("\\", "/").rsplit("/", 1)[-1].lower()
                 if re.search(r"[a-z]", base) and any(fnmatch.fnmatchcase(n, base) for n in _PROTECTED_NAMES):
                     return True
-    # (c) copy/cp/xcopy onto the journal (destination = last argument) truncates or replaces it
     if _COPY_RE.search(s):
         last = re.split(r"\s+", s.rstrip())[-1].strip("'\"").replace("\\", "/").lower()
-        if last.rsplit("/", 1)[-1] in _PROTECTED_NAMES or last.rsplit("/", 1)[-1].startswith("audit.jsonl:"):
+        tail = last.rsplit("/", 1)[-1]
+        if tail in _PROTECTED_NAMES or tail.startswith("audit.jsonl:"):
             return True
     return False
 
@@ -126,44 +138,60 @@ _POWERSHELL_STRING_CONCAT_RE = re.compile(r"['\"][A-Za-z0-9_-]+['\"]\s*\+\s*['\"
 _POWERSHELL_IEX_RE = re.compile(r"(?i)\b(?:iex|invoke-expression)\b")
 _POWERSHELL_ENCODED_CMD_RE = re.compile(r"(?i)(?:^|\s)-(?:e|ec|enc|encodedcommand)\b")
 _POWERSHELL_DOWNLOAD_RE = re.compile(r"(?i)\b(?:downloadstring|downloadfile|downloaddata)\b")
-_POWERSHELL_SUBEXPR_RE = re.compile(r"\$\([^\)]*\)")
+_POWERSHELL_CALL_OP_RE = re.compile(r"(?:^|[;\s|&])[&.]\s*(?:\$[A-Za-z_]\w*|\(|\{)")
+_POWERSHELL_DYNAMIC_INVOKE_RE = re.compile(
+    r"(?i)(?:\binvokescript\b|\[scriptblock\]\s*::\s*create|\.invoke\s*\(|\.\s*delete\s*\()"
+)
+_POWERSHELL_FORMAT_OP_RE = re.compile(r"(?i)['\"][^'\"]*\{\d+\}[^'\"]*['\"]\s*-f\b")
 
 
 def validate_powershell_ast_or_tokens(cmd: str) -> tuple[bool, str]:
-    """Validate PowerShell commands against obfuscation, encoding, string concatenation and stealth downloaders."""
+    """Validate PowerShell commands against obfuscation, encoding, string concatenation,
+    call-operator indirection, InvokeScript/ScriptBlock::Create, and downloaders."""
     if not cmd or not isinstance(cmd, str):
         return True, "ok"
-
     if _POWERSHELL_BACKTICK_OBFUSCATION_RE.search(cmd):
         return False, "powershell_backtick_obfuscation"
-
     if _POWERSHELL_ENCODED_CMD_RE.search(cmd):
         return False, "powershell_encoded_command"
-
     if _POWERSHELL_DOWNLOAD_RE.search(cmd):
         return False, "powershell_download_string"
-
     if _POWERSHELL_IEX_RE.search(cmd):
         return False, "powershell_iex_execution"
-
     if _POWERSHELL_STRING_CONCAT_RE.search(cmd):
         return False, "powershell_string_concatenation_obfuscation"
-
+    if _POWERSHELL_CALL_OP_RE.search(cmd):
+        return False, "powershell_call_operator_indirection"
+    if _POWERSHELL_DYNAMIC_INVOKE_RE.search(cmd):
+        return False, "powershell_dynamic_scriptblock_invoke"
+    if _POWERSHELL_FORMAT_OP_RE.search(cmd):
+        return False, "powershell_format_operator_obfuscation"
     return True, "ok"
 
 
 # ----------------------------------------------------------- Safe Windows Canonical Path
-def canonicalize_windows_path_safe(path: str | Any) -> str:
-    """Canonicalize a Windows path resolving short 8.3 DOS names, junctions,
-    symlinks, and stripping \\\\?\\GLOBALROOT\\ escapes."""
+def canonicalize_windows_path_safe(path: str | Any, *, reject_dangerous: bool = False) -> str:
+    """Canonicalize a Windows path resolving 8.3 names, junctions, symlinks, and GLOBALROOT."""
     import os
     import sys
     raw = str(path or "").strip()
     if not raw:
         return ""
 
+    if reject_dangerous:
+        from ..security.win_paths import _screen
+        _screen(raw)
+
     if "\\globalroot" in raw.lower() or "/globalroot" in raw.lower():
         raw = re.sub(r"(?i)^[\\/]+\?[\\/]globalroot", "", raw)
+
+    # Strip NTFS alternate data stream suffix after drive colon if present
+    s_norm = raw.replace("\\", "/")
+    has_drive = len(s_norm) >= 2 and s_norm[0].isalpha() and s_norm[1] == ":"
+    if ":" in (s_norm[2:] if has_drive else s_norm):
+        head_drive = raw[:2] if has_drive else ""
+        rest_part = (raw[2:] if has_drive else raw).split(":", 1)[0]
+        raw = head_drive + rest_part
 
     if sys.platform == "win32" and os.path.exists(raw):
         try:
@@ -205,4 +233,5 @@ def canonicalize_windows_path_safe(path: str | Any) -> str:
         return os.path.normpath(os.path.realpath(raw))
     except Exception:
         return os.path.normpath(raw)
+
 

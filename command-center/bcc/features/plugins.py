@@ -241,11 +241,12 @@ def _cred(ref: str) -> str | None:
 
 
 async def resolve_cred(ref: str, svc) -> str | None:
-    """Кред с учётом хранилища: для OpenRouter ключ провайдера — источник правды.
+    """Кред с учётом хранилища: для OpenRouter ключ провайдера — источник правды,
+    а для OBSIDIAN_VAULT — настроенный в UI путь settings_kv['memory.vault'].
 
-    Владелец, подключивший OpenRouter на странице поставщика, справедливо ждёт,
-    что плагин заработает от того же ключа; раньше плагин смотрел ТОЛЬКО в
-    окружение и отвечал «нет креда» рядом с работающим провайдером.
+    Владелец, подключивший OpenRouter на странице поставщика или хранилище Obsidian
+    на странице Памяти, справедливо ждёт, что плагин заработает от той же настройки;
+    раньше плагин смотрел ТОЛЬКО в окружение и отвечал «нет креда».
     """
     if ref == "GMAIL_OAUTH":
         # Токены Gmail живут ТОЛЬКО в vault; переменная окружения не считается кредом.
@@ -259,6 +260,20 @@ async def resolve_cred(ref: str, svc) -> str | None:
         except Exception:                       # noqa: BLE001 — БД недоступна: остаётся окружение
             return _cred(ref)
         return found.key or None
+    if ref == "OBSIDIAN_VAULT":
+        env_v = _cred(ref)
+        if env_v:
+            return env_v
+        if svc is not None and getattr(svc, "db", None) is not None:
+            try:
+                from .tools_memory import load_config
+                cfg = await load_config(svc)
+                root = str(cfg.get("root") or "").strip()
+                if root:
+                    return root
+            except Exception:                   # noqa: BLE001
+                pass
+        return None
     return _cred(ref)
 
 
@@ -334,7 +349,7 @@ async def _secret_values_for(svc) -> set[str]:
     if svc is None:
         return out
     for ref in {c.credential_ref for c in MANIFEST}:
-        if not ref:
+        if not ref or ref == "OBSIDIAN_VAULT":
             continue
         val = ((await resolve_cred(ref, svc)) or "").strip()
         if val:
@@ -406,7 +421,7 @@ async def _h_sql_read(args, ctx: ToolContext) -> ToolResult:
 
 
 async def _h_obsidian_read(args, ctx: ToolContext) -> ToolResult:
-    root = _cred("OBSIDIAN_VAULT")
+    root = await resolve_cred("OBSIDIAN_VAULT", getattr(ctx, "svc", None))
     if not root or root == "n/a":
         return _skip_no_cred(next(c for c in MANIFEST if c.tool_name == "plugin:obsidian.read"))
     try:
@@ -430,7 +445,7 @@ async def _h_obsidian_read(args, ctx: ToolContext) -> ToolResult:
 async def _h_obsidian_write(args, ctx: ToolContext) -> ToolResult:
     """Реальная запись заметки внутри vault (confined). Политика ASK применяется
     движком ДО хендлера; здесь — уже подтверждённое действие. Путь строго под vault."""
-    root = _cred("OBSIDIAN_VAULT")
+    root = await resolve_cred("OBSIDIAN_VAULT", getattr(ctx, "svc", None))
     if not root or root == "n/a":
         return _skip_no_cred(next(c for c in MANIFEST if c.tool_name == "plugin:obsidian.write"))
     rel = str(args.get("path") or "")

@@ -21,6 +21,7 @@ import { routeVideoRequest, attachmentInput, attachedFiles } from '../video_chat
 
 import { api, listOf, pick } from '../api.js';
 import { h, icon, select, toast, toastOk, toastError, fmtGb, fmtRelative } from '../components.js';
+import { splitHealth } from '../health_split.js';
 import { errorBanner, humanKind } from './_shared.js';
 import { statusText } from './_ui.js';
 import { appCard, appIcon } from './appcards.js';
@@ -496,21 +497,29 @@ function buildCompute(sys, resources, ctx) {
 
 function buildHealth(sys, models, ctx) {
   const raw = sys && (sys.health || sys.components || sys.checks) || {};
-  const items = Array.isArray(raw)
+  const split = splitHealth(raw);
+  const optionalSet = new Set(split.optional.notReady);
+  const items = (Array.isArray(raw)
     ? raw.map((c) => ({ name: pick(c, ['name', 'component', 'id'], '—'),
       status: pick(c, ['status', 'state'], 'unknown') }))
     : Object.entries(raw).map(([name, v]) => ({
       name,
       status: v && typeof v === 'object' ? pick(v, ['status', 'state'], 'unknown')
         : typeof v === 'boolean' ? (v ? 'ok' : 'down') : String(v),
-    }));
+    }))).filter((c) => !/^(browser|models|providers|provider:\d+)$/.test(c.name) || !optionalSet.has(c.name));
 
   const online = models.filter((m) => String(m.status) === 'online').length;
+  const optReady = Math.max(0, split.optional.total - split.optional.notReady.length);
 
   const body = h('div',
+    line('Ядро системы', null, `${split.core.total - split.core.bad.length}/${split.core.total}`,
+      pill(split.core.bad.length === 0 ? 'в норме' : 'сбой', { tone: split.core.bad.length === 0 ? 'ok' : 'err' })),
     line('Моделей на связи', null, `${online} из ${models.length}`),
+    split.optional.total > 0
+      ? line('Опц. адаптеры', 'внешние ключи и браузер', `${optReady}/${split.optional.total}`)
+      : null,
     items.length
-      ? items.slice(0, 4).map((c) => {
+      ? items.slice(0, 3).map((c) => {
         const st = statusText(c.status);
         return line(healthLabel(c.name), null, null,
           pill(st.word, { tone: st.tone }));
@@ -627,20 +636,20 @@ export function collectAttention({ approvals = [], failedTasks = [], missions = 
   }
 
   const health = (sys && sys.health && typeof sys.health === 'object') ? sys.health : {};
-  for (const [name, value] of Object.entries(health)) {
-    const status = typeof value === 'string' ? value : (value && (value.status || value.state)) || '';
-    if (['error', 'fail', 'failed', 'down', 'critical'].includes(String(status).toLowerCase())) {
-      items.push({
-        kind: 'health', severity: 'block', page: 'system', count: 1,
-        title: `Сбой: ${healthLabel(name)}`,
-        note: typeof value === 'object' && value && value.detail ? String(value.detail) : 'подсистема не отвечает',
-      });
-    }
+  const split = splitHealth(health);
+  for (const name of split.core.bad) {
+    const value = health[name];
+    items.push({
+      kind: 'health', severity: 'block', page: 'system', count: 1,
+      title: `Сбой: ${healthLabel(name)}`,
+      note: typeof value === 'object' && value && value.detail ? String(value.detail) : 'подсистема ядра не отвечает',
+    });
   }
 
+  const onlineModels = models.filter((m) => String(pick(m, ['status'], '')).toLowerCase() === 'online');
   const brokenModels = models.filter((m) => ['error', 'offline', 'unavailable']
     .includes(String(pick(m, ['status'], '')).toLowerCase()));
-  if (brokenModels.length) {
+  if (brokenModels.length && onlineModels.length === 0) {
     items.push({
       kind: 'model', severity: 'warn', page: 'models', count: brokenModels.length,
       title: brokenModels.length === 1 ? 'Модель недоступна' : `${brokenModels.length} моделей недоступны`,

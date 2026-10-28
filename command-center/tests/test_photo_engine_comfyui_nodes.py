@@ -99,5 +99,6 @@ def test_character_lock_and_detailer_declare_the_custom_packs_they_need():
     c = DynamicWorkflowCompiler()
     lock = types(c.compile_character_lock("ref.png", "dancing"))
     det = types(c.compile_detailer_and_upscale("in.png", target_resolution="4k_16:9", upscale_model="RealESRGAN_4x"))
-    assert {"IPAdapterModelLoader", "IPAdapterInsightFaceLoader"} <= lock           # IPAdapter_plus
+    assert "IPAdapterFaceIDPlusV2" not in lock
+    assert {"IPAdapterModelLoader", "IPAdapterInsightFaceLoader", "IPAdapterUnifiedLoaderFaceID", "IPAdapterFaceID"} <= lock
     assert {"FaceDetailer", "UltralyticsDetectorProvider", "SAMLoader"} <= det        # Impact Pack

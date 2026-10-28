@@ -233,21 +233,30 @@ class DynamicWorkflowCompiler:
         base_wf = self.compile_txt2img(prompt=prompt, model_family=model_family, seed=seed)
         nodes = base_wf["nodes"]
 
-        # Insert reference image loader & IP-Adapter FaceID / PuLID nodes
+        # Insert reference image loader & ComfyUI_IPAdapter_plus FaceID nodes
         nodes["10"] = {
             "class_type": "LoadImage",
             "inputs": {"image": reference_image_path},
         }
         nodes["11"] = {
             "class_type": "IPAdapterInsightFaceLoader",
-            "inputs": {"provider": "CPU"},
+            "inputs": {"provider": "CPU", "model_name": "buffalo_l"},
         }
         nodes["12"] = {
             "class_type": "IPAdapterModelLoader",
             "inputs": {"ipadapter_file": "ip-adapter-faceid-plusv2_sdxl.bin"},
         }
+        nodes["14"] = {
+            "class_type": "IPAdapterUnifiedLoaderFaceID",
+            "inputs": {
+                "model": ["1", 0],
+                "preset": "FACEID PLUS V2",
+                "lora_strength": 0.6,
+                "provider": "CPU",
+            },
+        }
         nodes["13"] = {
-            "class_type": "IPAdapterFaceIDPlusV2",
+            "class_type": "IPAdapterFaceID",
             "inputs": {
                 "weight": ip_adapter_weight,
                 "weight_faceidv2": 1.0,
@@ -255,8 +264,9 @@ class DynamicWorkflowCompiler:
                 "combine_embeds": "concat",
                 "start_at": 0.0,
                 "end_at": 0.95,
-                "model": ["1", 0],
-                "ipadapter": ["12", 0],
+                "embeds_scaling": "V only",
+                "model": ["14", 0],
+                "ipadapter": ["14", 1],
                 "image": ["10", 0],
                 "insightface": ["11", 0],
             },
