@@ -1,0 +1,89 @@
+{
+ "diff_sha256": "b2a661bad39cef542aa32814fb5f114382c7a0a25a90d950af8c8aead6928dbb",
+ "diff_chars": 21292,
+ "reviews": [
+  {
+   "model": "gemini-3-flash-preview",
+   "seconds": 50,
+   "verdict": null,
+   "issues": [],
+   "raw_head": "```json\n{\"verdict\":\"REJECT\",\"issues\":[{\"severity\":\"critical\",\"file\":\"command-center/bcc/features/pc_agent.py\",\"problem\":\"Approval Replay/Forgery: The api_pc_agent_self_modify function validates approval_id by checking if it exists and is 'approved' in a persistent store, but it does not verify that the approval is bound to the current request's payload or that it hasn't been used before. This allo"
+  },
+  {
+   "model": "openai/gpt-oss-120b",
+   "seconds": 7,
+   "verdict": "REJECT",
+   "issues": [
+    {
+     "severity": "critical",
+     "file": "command-center/bcc/security/spend_firewall.py",
+     "problem": "Missing import of `Decimal` causes a NameError in `verify_pre_call_free_or_authorized`. The function attempts to validate `estimated_usd` and token limits using `Decimal`, but the name is undefined. This exception propagates out of the spend‑firewall check, potentially bypassing spend verification and allowing unauthorized paid calls or causing a denial‑of‑service.",
+     "fix": "Add `from decimal import Decimal` at the top of the file (or use `float` with proper validation). Ensure the exception is caught and treated as a spend‑firewall failure (e.g., raise `PaidCallBlockedError`)."
+    },
+    {
+     "severity": "major",
+     "file": "command-center/bcc/features/pc_agent.py",
+     "problem": "Approval verification trusts entries in `rt.pending_approvals` solely by ID and status. It does not verify that the pending approval belongs to the requesting principal or that the request originated from the same session. An attacker who can guess a pending approval ID that has been marked `approved` can forge an approval and cause a self‑modify operation to be treated as authorized.",
+     "fix": "When checking `pending_map`, also verify that the pending approval record includes the requesting principal (e.g., `p_rec.get('owner') == principal.id`) and that it is tied to the current session/task. Reject if the ownership does not match."
+    },
+    {
+     "severity": "major",
+     "file": "command-center/bcc/features/pc_agent.py",
+     "problem": "The `actor` is derived from `principal.role` without any authorization check. Any authenticated user, regardless of role, can cause a self‑modify operation to be logged as performed by the \"owner\" role, potentially bypassing role‑based access controls.",
+     "fix": "Introduce an explicit permission check (e.g., `if not principal.has_permission('self_modify'):`) before allowing the operation, and default to the payload‑provided actor only after verification."
+    },
+    {
+     "severity": "minor",
+     "file": "command-center/bcc/security/spend_firewall.py",
+     "problem": "When a token is consumed the audit entry records `\"token_consumed\": True` instead of the actual token value, losing traceability of which token was used.",
+     "fix": "Store the token identifier (or a hash) in the audit log, e.g., `\"token_consumed\": owner_token`."
+    },
+    {
+     "severity": "minor",
+     "file": "command-center/bcc/v2/terminal_control.py",
+     "problem": "`_win_bind_and_resume` raises an `OSError` after killing the process when job attachment fails. Callers may interpret the exception as a launch failure and assume the process is still running, potentially leaving a zombie.",
+     "fix": "After killing the process, return a sentinel value or raise a custom exception that clearly indicates the process has been terminated, and ensure callers do not attempt further interaction with the process."
+    }
+   ],
+   "raw_head": "{\n  \"verdict\": \"REJECT\",\n  \"issues\": [\n    {\n      \"severity\": \"critical\",\n      \"file\": \"command-center/bcc/security/spend_firewall.py\",\n      \"problem\": \"Missing import of `Decimal` causes a NameError in `verify_pre_call_free_or_authorized`. The function attempts to validate `estimated_usd` and token limits using `Decimal`, but the name is undefined. This exception propagates out of the spend‑fi"
+  },
+  {
+   "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+   "seconds": 262,
+   "verdict": "REJECT",
+   "issues": [
+    {
+     "severity": "major",
+     "file": "command-center/bcc/features/pc_agent.py",
+     "problem": "Silent exception suppression in approval verification (line 6370-6385). `contextlib.suppress(Exception)` catches ALL exceptions from `approvals_mgr.get()` including database failures, network partitions, and programming errors, then falls back to in-memory `pending_approvals` map. This masks auth-system degradation/attacks and prevents alerting. While fail-closed (approval_verified stays False), it hides operational incidents.",
+     "fix": "Replace broad suppress with specific exception handling (e.g., catch only expected transient errors like connection timeouts). Log suppressed exceptions at WARNING level with context. Consider circuit-breaker pattern for approval manager."
+    },
+    {
+     "severity": "major",
+     "file": "command-center/bcc/features/tools_cloud.py",
+     "problem": "Audit corruption or any 'billing_unknown' entry triggers total daily budget exhaustion (lines 223-255). `_read_audit` raises ValueError on any malformed line (strict validation), causing `budget_state` to return spent=budget, remaining=0. Additionally, ANY row with status='billing_unknown' today exhausts budget. Failed paid calls (including attacker-triggered errors) log 'billing_unknown', enabling authenticated DoS against daily budget.",
+     "fix": "Make budget_state resilient: on audit read error, log alert but fall back to session budget or last known good state instead of hard fail-closed. For 'billing_unknown', track count/rate and only exhaust budget after threshold (e.g., >3 unknowns/hour) or require manual reset. Keep strict validation but isolate corruption to affected lines."
+    },
+    {
+     "severity": "minor",
+     "file": "command-center/bcc/features/pc_agent.py",
+     "problem": "Type inconsistency in approval_id handling (lines 6371, 6382). First check converts to `int(approval_id_raw)`, second uses `str(approval_id_raw)`. If approval_id_raw='1.5', int() fails (suppressed), then str()='1.5' checks pending_map. Approval IDs should be integers; enforce type at API boundary.",
+     "fix": "Validate approval_id_raw as integer at entry point (e.g., `aid = int(approval_id_raw)` with explicit try/except returning 400). Use integer keys consistently in both approvals_mgr and pending_map."
+    },
+    {
+     "severity": "minor",
+     "file": "command-center/bcc/security/spend_firewall.py",
+     "problem": "OpenRouter free-model check restricted to exact host 'openrouter.ai' (line 215). Legitimate OpenRouter subdomains (e.g., api.openrouter.ai, regional endpoints) will be treated as paid, breaking free-model detection for valid traffic.",
+     "fix": "Allow OpenRouter subdomains: `host == 'openrouter.ai' or host.endswith('.openrouter.ai')` (with validation that host is not attacker-controlled). Or maintain allowlist of known OpenRouter hosts."
+    },
+    {
+     "severity": "minor",
+     "file": "command-center/bcc/security/spend_firewall.py",
+     "problem": "Local model free detection uses substring tag check (line 200). Model named 'llama:cloud' or 'my-model-cloud' incorrectly classified as paid (not free). False positive reduces availability for legitimate local models with coincidental tags.",
+     "fix": "Use exact tag matching (e.g., model_name.endswith(':cloud') or model_name.endswith('-cloud')) or maintain explicit cloud-model registry. Substring match is too broad."
+    }
+   ],
+   "raw_head": "{\"verdict\":\"REJECT\",\"issues\":[{\"severity\":\"major\",\"file\":\"command-center/bcc/features/pc_agent.py\",\"problem\":\"Silent exception suppression in approval verification (line 6370-6385). `contextlib.suppress(Exception)` catches ALL exceptions from `approvals_mgr.get()` including database failures, network partitions, and programming errors, then falls back to in-memory `pending_approvals` map. This mas"
+  }
+ ]
+}
