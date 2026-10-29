@@ -1,0 +1,98 @@
+{
+ "receipt": "harness_coder",
+ "date": "2026-10-29",
+ "base_sha": "6977fab2",
+ "code_head_sha": "fd11affcff536cf558d53eb3fc70c520290449ea",
+ "commits": {
+  "task1_job_kill_on_close": "a19ecd49",
+  "task2_approval_payload_sha256": "c27c6d39",
+  "task3_owner_reconcile_unknown_spend": "67305d9d",
+  "task4_execute_step": "fd11affc"
+ },
+ "tests": {
+  "acceptance_set": "61 passed (test_harness_coder_fixes, test_swarm2_coding_fixes, test_exec_swarm_regressions, test_bossman_20_superstructure, test_run_command_job_object)",
+  "wider_regression": "1152 passed, 3 skipped (pc_agent*, *cloud*, *bossman_20*, *terminal* — 45 files, -n 6)"
+ },
+ "immutable_core_changed": [],
+ "live": {
+  "port": 8801,
+  "health_live_build_sha": "fd11affcff536cf558d53eb3fc70c520290449ea",
+  "source_identity": "PASS",
+  "git_clean": true
+ },
+ "live_learn_steps_via_execute_step": [
+  {
+   "step_id": "harness-t1-job-kill-on-close",
+   "ok": true,
+   "postcondition_detail": "file_contains: found",
+   "db_counts": {
+    "facts": 21,
+    "decisions": 11,
+    "procedures": 9,
+    "failures": 16
+   },
+   "obsidian_written": true,
+   "sha256_receipt": "81b2552b4506976d9ba57408cb88e5c681d26f628af6fac88f73648240f43220",
+   "code": null
+  },
+  {
+   "step_id": "harness-t2-approval-payload-sha",
+   "ok": true,
+   "postcondition_detail": "file_contains: found",
+   "db_counts": {
+    "facts": 22,
+    "decisions": 12,
+    "procedures": 10,
+    "failures": 17
+   },
+   "obsidian_written": true,
+   "sha256_receipt": "3b1018f51f271a3fc9d583aa2c5f5b41622935e47bc2621485e88f84611a8ef3",
+   "code": null
+  },
+  {
+   "step_id": "harness-t3-owner-reconcile-unknown",
+   "ok": true,
+   "postcondition_detail": "file_contains: found",
+   "db_counts": {
+    "facts": 23,
+    "decisions": 13,
+    "procedures": 11,
+    "failures": 18
+   },
+   "obsidian_written": true,
+   "sha256_receipt": "c49757e186bc6a2321f80d6a0fce025127bf1ec074ab46a7ebd4cbe285739678",
+   "code": null
+  },
+  {
+   "step_id": "harness-t4-execute-step",
+   "ok": true,
+   "postcondition_detail": "file_contains: found",
+   "db_counts": {
+    "facts": 24,
+    "decisions": 14,
+    "procedures": 12,
+    "failures": 19
+   },
+   "obsidian_written": true,
+   "sha256_receipt": "5c2195d95f0791cbcc2d6a63f997143c5ca338bce3019818b895a91e32c17255",
+   "code": null
+  }
+ ],
+ "db_counts_growth": {
+  "before_first_step": {
+   "facts": 20,
+   "decisions": 10,
+   "procedures": 8,
+   "failures": 15
+  },
+  "after": {
+   "facts": 24,
+   "decisions": 14,
+   "procedures": 12,
+   "failures": 19
+  }
+ },
+ "not_done": [
+  "Task1 orphan-kill proven by unit test on this PC only; no pult end-to-end scenario yet"
+ ]
+}
