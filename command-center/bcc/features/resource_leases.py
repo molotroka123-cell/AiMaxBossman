@@ -118,7 +118,10 @@ def _build_ledger(data_dir: Path) -> Any:
 
 
 async def _ledger(request: Request) -> Any:
-    svc = request.app.state.svc
+    return await ledger_for(request.app.state.svc)
+
+
+async def ledger_for(svc: Any) -> Any:
     led = getattr(svc, "resource_leases", None)
     if led is None:
         led = await asyncio.to_thread(_build_ledger, Path(svc.settings.data_dir))
@@ -194,6 +197,88 @@ async def resources_release(lease_id: str, request: Request, token: int | None =
 @router.post("/resources/measurement")
 async def resources_measurement(body: MeasurementIn, request: Request):
     return await _call(request, "record_measurement", body.consumer, body.peak_gb, body.config_hash, body.cold)
+
+
+# ------------------------------------------------------------------ TZ 2.5 T3: Direct Gen jobs hold a memory lease
+
+LEASE_WAIT_S = 1800.0          # a queued generation waits this long for memory, then fails with the governor's reason
+LEASE_POLL_S = 5.0
+JOB_LEASE_TTL_S = 300.0
+
+
+def consumer_for_job(job: dict) -> str:
+    """Direct Gen job -> governor consumer profile (seed/measured P95 peak lives in tools/resource_governor/leases.py)."""
+    model = str(job.get("model") or "").lower()
+    if job.get("swap") or model.startswith("swap") or "faceswap" in model:
+        return "faceswap"
+    if model.startswith("ltx"):
+        return "ltx25_sdcli"
+    if "animate" in model:
+        return "wangp_animate"
+    if "vace" in model:
+        return "wangp_vace"
+    if model.startswith("wan"):
+        return "wan_video"
+    return "sdcli_image"
+
+
+class _JobLease:
+    def __init__(self, svc: Any, job: dict, *, enforce: Any, wait_s: float = LEASE_WAIT_S, poll_s: float = LEASE_POLL_S):
+        self.svc, self.job, self.enforce, self.wait_s, self.poll_s = svc, job, enforce, wait_s, poll_s
+        self.lease: dict | None = None
+        self._hb: asyncio.Task | None = None
+
+    async def __aenter__(self) -> "_JobLease":
+        if not await self.enforce():
+            return self                                   # policy «не принуждать»: today's behaviour, no lease
+        from ..direct_gen.service import DirectGenError
+        led = await ledger_for(self.svc)
+        consumer = consumer_for_job(self.job)
+        lease = await asyncio.to_thread(led.request, consumer, "background", f"direct-gen:{self.job.get('job_id', '')[:12]}",
+                                        idempotency_key=f"direct-gen:{self.job.get('job_id')}", ttl_s=JOB_LEASE_TTL_S)
+        waited = 0.0
+        while lease.get("state") == "queued" and waited < self.wait_s:
+            self.job["lease"] = {"state": "queued", "consumer": consumer, "reason": lease.get("reason")}
+            await asyncio.sleep(self.poll_s)
+            waited += self.poll_s
+            await asyncio.to_thread(led.heartbeat, lease["id"], lease.get("token"))
+            lease = {**lease, **await asyncio.to_thread(led.get, lease["id"])}
+        if lease.get("state") not in ("granted", "active"):
+            if lease.get("id") and lease.get("state") == "queued":
+                await asyncio.to_thread(led.release, lease["id"], lease.get("token"), force=False, reason="wait timeout")
+            raise DirectGenError(409, "resource_lease_refused",
+                                 f"аренда памяти для {consumer}: {lease.get('state')} — {lease.get('reason') or 'нет памяти'}")
+        self.lease = lease
+        self.job["lease"] = {"state": "granted", "consumer": consumer, "id": lease["id"]}
+        self._hb = asyncio.create_task(self._heartbeat(led))
+        return self
+
+    async def _heartbeat(self, led: Any) -> None:
+        while True:
+            await asyncio.sleep(JOB_LEASE_TTL_S / 3)
+            try:
+                await asyncio.to_thread(led.heartbeat, self.lease["id"], self.lease.get("token"))
+            except Exception:  # noqa: BLE001 - a lost lease is noticed by the guard; the job is not killed from here
+                return
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        if self._hb is not None:
+            self._hb.cancel()
+        if self.lease is not None:
+            led = await ledger_for(self.svc)
+            try:
+                await asyncio.to_thread(led.release, self.lease["id"], self.lease.get("token"), force=False)
+            except Exception:  # noqa: BLE001 - TTL expiry frees it anyway
+                pass
+            self.job["lease"] = {**(self.job.get("lease") or {}), "state": "released"}
+        return False
+
+
+def direct_gen_lease_provider(svc: Any):
+    async def enforce() -> bool:
+        from . import resources
+        return bool((await resources._policy(svc)).get("enforce"))
+    return lambda job: _JobLease(svc, job, enforce=enforce)
 
 
 FEATURE = Feature(name="resource_leases", router=router)

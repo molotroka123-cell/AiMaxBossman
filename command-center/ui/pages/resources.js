@@ -67,13 +67,47 @@ const ResourcesPage = {
         hint: 'Как только пойдут задачи, требующие памяти, они появятся здесь — и BOSSMAN проследит, чтобы её хватило.',
       });
 
+    let leases = null;                        // TZ 2.5 T3: governor leases — who holds memory and who waits, and why
+    try { leases = await api.raw('/api/resources/state'); } catch (e) { leases = null; }
+
     return h('div.bx-page', head,
       h('div.bx-row', memPanel, policyPanel),
-      resPanel);
+      resPanel,
+      buildLeasesPanel(leases));
   },
 
   onEvent(ev) { return ev.kind.startsWith('resource.'); },
 };
+
+const LEASE_STATE = { granted: 'выдано', active: 'работает', queued: 'ждёт', refused: 'отказ', released: 'отпущено',
+  expired: 'истекло', preempted: 'вытеснено' };
+
+function buildLeasesPanel(st) {
+  if (!st || !Array.isArray(st.leases)) {
+    return blank({ iconName: 'system', title: 'Аренды памяти недоступны',
+      hint: 'Журнал аренд не ответил. Генерации идут по старому правилу, пока защита выключена.' });
+  }
+  const profiles = st.consumers || {};
+  const rows = st.leases.map((l) => {
+    const prof = profiles[l.consumer] || {};
+    return h('div.bx-list-row',
+      h('div', { style: { minWidth: 0 } },
+        h('div.bx-list-name', prof.label || l.consumer),
+        h('div.bx-list-note', l.state === 'queued' ? `Почему ждёт: ${l.reason || 'нет свободной памяти'}` : (l.holder || ''))),
+      h('span.bx-list-end',
+        tag(`${fmtNum(Math.round((l.peak_gb || 0) * 10) / 10)} ГБ`),
+        tag(LEASE_STATE[l.state] || l.state)));
+  });
+  const provisional = Object.entries(profiles).filter(([, p]) => p && p.source !== 'measured').map(([id]) => id);
+  return panel(`Аренды памяти · занято ${fmtNum(st.committed_gb || 0)} из ${fmtNum(st.budget_gb || 0)} ГБ`,
+    h('div.stack.sm',
+      rows.length ? h('div.bx-list', rows)
+        : h('div.bx-list-note', 'Сейчас никто не арендует память — тяжёлые задачи начнут работу сразу.'),
+      provisional.length
+        ? h('div.bx-list-note', `Ещё не замерены (оценка): ${provisional.join(', ')} — замер: tools/resource_governor/measure.py`)
+        : null),
+    { icon: 'system' });
+}
 
 function buildPolicyPanel(data, ctx) {
   const seg = segmented(POLICIES, data.policy, async (value) => {

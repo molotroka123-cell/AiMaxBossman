@@ -138,6 +138,32 @@ def default_verify(path: Path) -> dict:
             "width": video.get("width"), "height": video.get("height")}
 
 
+class _JobGate:
+    """`async with svc._gate(job)`: the GPU lock first, then (optionally) the job's memory lease; released in reverse."""
+
+    def __init__(self, lock: asyncio.Lock, lease_cm: Any | None):
+        self._lock = lock
+        self._lease_cm = lease_cm
+
+    async def __aenter__(self) -> "_JobGate":
+        await self._lock.acquire()
+        if self._lease_cm is not None:
+            try:
+                await self._lease_cm.__aenter__()
+            except BaseException:
+                self._lock.release()
+                raise
+        return self
+
+    async def __aexit__(self, *exc: Any) -> bool:
+        try:
+            if self._lease_cm is not None:
+                await self._lease_cm.__aexit__(*exc)
+        finally:
+            self._lock.release()
+        return False
+
+
 class DirectGenService:
     def __init__(self, svc: Any, *, client: Any = None, models_dir: Path | None = None,
                  workflows_dir: Path | None = None, poll_seconds: float = 1.0,
@@ -194,6 +220,8 @@ class DirectGenService:
         self._running: str | None = None
         self._stopping: set[str] = set()
         self._lock: asyncio.Lock | None = None
+        # TZ 2.5 T3: async context factory job -> memory lease (features/direct_gen wires the governor ledger); None = off
+        self.lease_provider: Callable[[dict], Any] | None = None
         self.qwen_lookup: Callable[[], Awaitable[tuple[Any, str] | None]] = self._default_qwen
         self._recover()
 
@@ -1029,7 +1057,7 @@ class DirectGenService:
         folder = self.store.job_dir(job["participant"], job_id)
         work, result = folder / "work", folder / "result"
         try:
-            async with self._gate():
+            async with self._gate(job):
                 if job_id in self._waiting:
                     self._waiting.remove(job_id)
                 self._running = job_id
@@ -1262,7 +1290,7 @@ class DirectGenService:
         runner = resident.ResidentRunner(self._resident, tag=spec.id, cli_factory=self._sd_runner) \
             if use_resident else self._sd_runner()
         try:
-            async with self._gate():
+            async with self._gate(job):
                 if job_id in self._waiting:
                     self._waiting.remove(job_id)
                 self._running = job_id
@@ -1793,16 +1821,18 @@ class DirectGenService:
 
     # ---------- execution ----------
 
-    def _gate(self) -> asyncio.Lock:
+    def _gate(self, job: dict | None = None) -> "_JobGate":
+        """One job at a time on the GPU; with a job and a lease provider the job also holds a memory lease (T3)."""
         if self._lock is None:
             self._lock = asyncio.Lock()
-        return self._lock
+        provider = self.lease_provider if job is not None else None
+        return _JobGate(self._lock, provider(job) if provider is not None else None)
 
     async def _run(self, job: dict, template: dict, inputs: dict[str, bytes]) -> None:
         prompt_id: str | None = None
         job_id = job["job_id"]
         try:
-            async with self._gate():
+            async with self._gate(job):
                 if job_id in self._waiting:
                     self._waiting.remove(job_id)
                 self._running = job_id

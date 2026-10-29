@@ -101,6 +101,14 @@ SEED_CONSUMERS: dict[str, ConsumerProfile] = {p.id: p for p in (
     ConsumerProfile("acestep", "ACE-Step 1.5 (Music Studio)", "resident", True, 24.0, "other", (),
                     "PROVISIONAL seed from the 28.10 master prompt (>= 24 GB free to auto-start); not measured yet"),
     ConsumerProfile("z_image", "z-image (фото)", "compute", True, None, "sd_cli", (), "not measured yet"),
+    # TZ 2.5 T3 (29.10): Direct Gen jobs take leases; PROVISIONAL seeds until tools/resource_governor/measure.py
+    # records >= min_samples real peaks (the measured P95 then replaces the seed automatically).
+    ConsumerProfile("sdcli_image", "Фото Direct Gen (sd-cli: flux/qwen-image/sdxl)", "compute", True, 30.0, "sd_cli", (),
+                    "PROVISIONAL seed: qwen-image 2.1 is the heaviest photo model; not measured yet"),
+    ConsumerProfile("wan_video", "Видео Wan 2.x (Direct Gen)", "compute", True, 55.0, "wangp", (),
+                    "PROVISIONAL seed = WanGP upper bound"),
+    ConsumerProfile("faceswap", "Замена лица (Direct Gen swap)", "compute", True, 40.0, "other", (),
+                    "PROVISIONAL seed; not measured yet"),
 )}
 
 

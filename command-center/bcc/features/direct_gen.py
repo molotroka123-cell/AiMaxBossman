@@ -249,6 +249,8 @@ async def _wrap(fn):
 
 async def setup(svc):
     svc.direct_gen = DirectGenService(svc)
+    from .resource_leases import direct_gen_lease_provider        # TZ 2.5 T3: jobs hold a memory lease when enforced
+    svc.direct_gen.lease_provider = direct_gen_lease_provider(svc)
 
 
 FEATURE = Feature(name="direct_gen", router=router, setup=setup)
