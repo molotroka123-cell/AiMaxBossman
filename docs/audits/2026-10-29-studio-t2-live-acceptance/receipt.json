@@ -1,0 +1,116 @@
+{
+  "schema": "bossman.studio.t2-live-acceptance.v1",
+  "generated_at": "2026-10-29T07:14:28",
+  "status": "PASS",
+  "run1_full_e2e_delivery": {
+    "order_id": "adba43499d13480bac9d06754fb96ddd",
+    "preset": "product_spin",
+    "model": "wan2.2-ti2v-5b",
+    "licence_id": "Apache-2.0",
+    "status_flow": [
+      "quoted",
+      "accepted",
+      "preflight",
+      "generating",
+      "qc_passed",
+      "owner_review",
+      "approved",
+      "delivered"
+    ],
+    "cost": "0.000360",
+    "price": "15.00",
+    "margin": "14.999640",
+    "qc_metrics": {
+      "sharpness_laplacian": 2427.02,
+      "flicker_score": 0.0186,
+      "duration_s": 6.0,
+      "fps": 24,
+      "width": 1080,
+      "height": 1920,
+      "resolution_ok": true,
+      "duration_ok": true,
+      "passed_signals": true,
+      "contact_sheet_file": "contact_sheet.png",
+      "contact_sheet_sha256": "ac6a78387828021d4307e56394471bac06aacc458869920b215dfc52434d66e8",
+      "measured_at": "2026-10-29T14:14:28.138049+00:00"
+    },
+    "manifest_sha256": "908aa4da7513e8c5ac12a4abe910fd165bce4773d077868f3650a30b81be65e3",
+    "delivery_link_checks": {
+      "client_a_open": 200,
+      "client_b_cross_open": 404,
+      "after_revoke_open": 404
+    }
+  },
+  "run2_kill_mid_render_recovery": {
+    "order_id": "cf6139288a2a47bcab7df54d40faa278",
+    "preset": "hand_reveal",
+    "job_ids_before_kill": [
+      "a8132d15257b45e3b83e36c0c15d9593"
+    ],
+    "job_ids_after_resume": [
+      "a8132d15257b45e3b83e36c0c15d9593"
+    ],
+    "duplicate_jobs_created": 0,
+    "status_after_kill": "reconcile_required",
+    "jeff_paused_after_kill": false,
+    "final_status": "delivered",
+    "status_flow": [
+      "quoted",
+      "accepted",
+      "preflight",
+      "generating",
+      "reconcile_required",
+      "generating",
+      "qc_passed",
+      "owner_review",
+      "approved",
+      "delivered"
+    ],
+    "qc_metrics": {
+      "sharpness_laplacian": 2420.23,
+      "flicker_score": 0.0186,
+      "duration_s": 6.0,
+      "fps": 24,
+      "width": 1080,
+      "height": 1920,
+      "resolution_ok": true,
+      "duration_ok": true,
+      "passed_signals": true,
+      "contact_sheet_file": "contact_sheet.png",
+      "contact_sheet_sha256": "cf1a552ea0ac02f42cf0477c5fcff2b88bad460a556bef20bfcda24d8797863f",
+      "measured_at": "2026-10-29T14:14:28.338643+00:00"
+    }
+  },
+  "run3_owner_pult_card": {
+    "order_id": "e2b65ed971b64923a6e35254662cb369",
+    "participant": "owner",
+    "status": "owner_review",
+    "preset": "product_spin",
+    "price": "15.00",
+    "cost": "0.000360",
+    "margin": "14.999640",
+    "qc_metrics": {
+      "sharpness_laplacian": 2381.1,
+      "flicker_score": 0.0186,
+      "duration_s": 6.0,
+      "fps": 24,
+      "width": 1080,
+      "height": 1920,
+      "resolution_ok": true,
+      "duration_ok": true,
+      "passed_signals": true,
+      "contact_sheet_file": "contact_sheet.png",
+      "contact_sheet_sha256": "2809774aec922d0b740d0bf803d956ee1d14f1b212600fb2a040eb5cb8f7898a",
+      "measured_at": "2026-10-29T14:14:28.455735+00:00"
+    },
+    "contact_sheet_exists": true,
+    "qc_report_exists": true,
+    "mobile_pult_endpoints": {
+      "list": "/m/api/studio/orders",
+      "preview": "/m/api/studio/orders/e2b65ed971b64923a6e35254662cb369/preview",
+      "approve": "POST /m/api/studio/orders/e2b65ed971b64923a6e35254662cb369/approve",
+      "rework": "POST /m/api/studio/orders/e2b65ed971b64923a6e35254662cb369/rework"
+    }
+  },
+  "cloud_cost_usd": 0.0
+}

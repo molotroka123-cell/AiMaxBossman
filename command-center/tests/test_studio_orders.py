@@ -1106,3 +1106,25 @@ def test_t2_preset_product_spin_and_hand_reveal_kill_recovery_and_contact_sheet_
     opened = book.open_delivery_link(link["token"], caller_client=A)
     assert opened["order"]["order_id"] == oid
 
+
+def test_t2_live_acceptance_harness_e2e_kill_recovery_and_pult_card(tmp_path):
+    import sys as _sys
+    tools_dir = str(Path(__file__).resolve().parents[2] / "tools")
+    if tools_dir not in _sys.path:
+        _sys.path.insert(0, tools_dir)
+    import studio_t2_live_acceptance as t2_acc
+
+    receipt = t2_acc.run_acceptance(live_data_dir=tmp_path)
+    assert receipt["status"] == "PASS"
+    assert receipt["run1_full_e2e_delivery"]["delivery_link_checks"] == {
+        "client_a_open": 200,
+        "client_b_cross_open": 404,
+        "after_revoke_open": 404,
+    }
+    assert receipt["run2_kill_mid_render_recovery"]["duplicate_jobs_created"] == 0
+    assert receipt["run2_kill_mid_render_recovery"]["job_ids_before_kill"] == receipt["run2_kill_mid_render_recovery"]["job_ids_after_resume"]
+    card = receipt["run3_owner_pult_card"]
+    assert card["status"] == "owner_review"
+    assert card["contact_sheet_exists"] is True
+    assert card["qc_report_exists"] is True
+

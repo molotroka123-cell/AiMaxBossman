@@ -1,0 +1,118 @@
+{
+  "schema": "bossman.m4.transfer-report.v1",
+  "generated_at": "2026-10-29T07:12:15",
+  "before_run": "baseline-gemma41",
+  "after_run": "m4-lessons-candidate",
+  "dataset": {
+    "dataset_dir": "D:\\Bossman\\datasets\\cloud-reasoning",
+    "files": [
+      "2026-10-25.jsonl",
+      "2026-10-29.jsonl"
+    ],
+    "allowed_by_terms_count": 6,
+    "pending_terms_excluded_count": 8,
+    "exported_clean_count": 6,
+    "pending_export_blocked_verified": true,
+    "lessons_summary": [
+      {
+        "id": "e5e09daa8b82486c8cb9cc3c7a198151",
+        "provider": "7api.st",
+        "model_id": "kimi-k3.1-pro",
+        "task_id": "kimi-draft",
+        "prompt_sha256": "d8cbd5de64d0dc4c792e7ece473c3de88f9d7fe04b06e5277e301581926bfc9a",
+        "reasoning_chars": 105303,
+        "answer_chars": 0,
+        "has_answer": false,
+        "terms_ref": "owner-decision-2026-10-29: owner reviewed Moonshot/7API terms; local GPU training only"
+      },
+      {
+        "id": "9781cf5d47fa4f88bea0faeb05e775e1",
+        "provider": "7api.st",
+        "model_id": "kimi-k3.1-pro",
+        "task_id": "t1-draft",
+        "prompt_sha256": "47eae04dfab4c80b6cc79cc4b9510f7db2c86aacb6d037808be291946d2ddb71",
+        "reasoning_chars": 104792,
+        "answer_chars": 0,
+        "has_answer": false,
+        "terms_ref": "owner-decision-2026-10-29: owner reviewed Moonshot/7API terms; local GPU training only"
+      },
+      {
+        "id": "c2ccfd91d3154e3584195fff53547983",
+        "provider": "7api.st",
+        "model_id": "kimi-k3.1-pro",
+        "task_id": "t1-f7-draft",
+        "prompt_sha256": "217122db0014b378f1479637abe89832e086d15696ac894520c62ba4e8ced85d",
+        "reasoning_chars": 67541,
+        "answer_chars": 6269,
+        "has_answer": true,
+        "terms_ref": "owner-decision-2026-10-29: owner reviewed Moonshot/7API terms; local GPU training only"
+      },
+      {
+        "id": "66332b40944d4ceea24079ae98bffd1a",
+        "provider": "7api.st",
+        "model_id": "kimi-k3.1-pro",
+        "task_id": "t5-kimi-patch",
+        "prompt_sha256": "d33cbda31b3cd5eb36b1e6c36683a57b5dcc15ca34b8c706a68f0ca3fceffb50",
+        "reasoning_chars": 19740,
+        "answer_chars": 4072,
+        "has_answer": true,
+        "terms_ref": "owner-decision-2026-10-29: owner reviewed Moonshot/7API terms; local GPU training only"
+      },
+      {
+        "id": "0ccd23a5454745f5a1527270d6ab8716",
+        "provider": "openrouter.ai",
+        "model_id": "qwen/qwen3.8-flash",
+        "task_id": "t5-review",
+        "prompt_sha256": "3892b1eaf43fcd4cfa6d3a0bfdbd8df4cca2188171d59340f495ed6415ca3bdc",
+        "reasoning_chars": 11234,
+        "answer_chars": 3317,
+        "has_answer": true,
+        "terms_ref": "owner-decision-2026-10-29: owner reviewed Moonshot/7API terms; local GPU training only"
+      },
+      {
+        "id": "e37811cc9ae1403f91da39616d61a7c9",
+        "provider": "openrouter.ai",
+        "model_id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "task_id": "t5-review",
+        "prompt_sha256": "3892b1eaf43fcd4cfa6d3a0bfdbd8df4cca2188171d59340f495ed6415ca3bdc",
+        "reasoning_chars": 12303,
+        "answer_chars": 1129,
+        "has_answer": true,
+        "terms_ref": "owner-decision-2026-10-29: owner reviewed Moonshot/7API terms; local GPU training only"
+      }
+    ]
+  },
+  "holdout_subset": {
+    "categories": [
+      "coding",
+      "pc_control",
+      "security",
+      "stop"
+    ],
+    "counts_by_category": {
+      "pc_control": 12,
+      "security": 12,
+      "coding": 9,
+      "stop": 6
+    },
+    "total_hidden_tasks_in_pool": 39,
+    "min_required_hidden_tasks": 30,
+    "paired_completed_tasks": 0,
+    "holdout_ids_disclosed": false
+  },
+  "statistics": {
+    "baseline_pass_count": 0,
+    "with_lessons_pass_count": 0,
+    "gain_pp": 0.0,
+    "ci95_pp": [
+      0.0,
+      0.0
+    ],
+    "mcnemar_p": 1.0,
+    "pass_to_fail": 0,
+    "fail_to_pass": 0
+  },
+  "verdict": "NO_TRANSFER",
+  "production_prompt_status": "NO_TRANSFER_HELD_BACK",
+  "reason": "paired holdout verdicts=0 < 30 required hidden tasks (pool has 39 sealed tasks across ['coding', 'pc_control', 'security', 'stop']); per TZ 2.5 M4, lessons remain marked NO_TRANSFER and are not injected into production prompts"
+}

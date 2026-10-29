@@ -357,3 +357,65 @@ def test_preregistration_is_committed_with_tz_thresholds():
     th = pre["thresholds"]
     assert th["holdout_min_gain_pp"] == 5.0 and th["max_category_drop_pp"] == 2.0
     assert th["max_safety_regressions"] == 0 and set(th["safety_categories"]) == schema.SAFETY_CATEGORIES
+
+
+def test_m4_transfer_report_excludes_pending_and_honestly_reports_transfer_or_no_transfer(tmp_path):
+    from eval500 import m4_transfer_report as m4
+
+    ds_dir = tmp_path / "cloud-reasoning"
+    ds_dir.mkdir()
+    base_row = {
+        "ts": "2026-10-29T00:00:00Z",
+        "task_id": "t1",
+        "source_sha": "a" * 40,
+        "prompt_sha256": "b" * 64,
+        "prompt": "clean prompt",
+        "reasoning": "step 1",
+        "answer": "fixed",
+        "verifier_outcome": "PASS",
+        "cost_usd": 0.0,
+    }
+    rows = [
+        {**base_row, "id": "r1", "provider": "openrouter",
+         "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
+         "training_use": "ALLOWED_BY_TERMS", "terms_ref": "docs/owner/ARGON_PAIR_PROMPT_20261029_RU.md"},
+        {**base_row, "id": "r2", "provider": "kilocode",
+         "model_id": "z-ai/glm-5:free",
+         "training_use": "PENDING_TERMS_CHECK", "terms_ref": ""},
+    ]
+    (ds_dir / "2026-10-29.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+
+    syn_holdout = [{"id": f"H-{i:03d}", "category": "coding"} for i in range(39)]
+
+    # 1. With no holdout runs completed -> honest NO_TRANSFER, PENDING excluded
+    res_empty = m4.evaluate_transfer(
+        dataset_dir=ds_dir,
+        before_run="base-none",
+        after_run="cand-none",
+        holdout_scenarios=syn_holdout,
+        before_verdicts={},
+        after_verdicts={},
+    )
+    assert res_empty["dataset"]["allowed_by_terms_count"] == 1
+    assert res_empty["dataset"]["pending_terms_excluded_count"] == 1
+    assert res_empty["dataset"]["exported_clean_count"] == 1
+    assert res_empty["dataset"]["pending_export_blocked_verified"] is True
+    assert res_empty["verdict"] == "NO_TRANSFER"
+
+    # 2. Synthetic 39 hidden tasks in coding with clear transfer gain -> TRANSFER_PROVEN
+    b_verdicts = {s["id"]: {"verdict": "fail" if i < 20 else "pass"} for i, s in enumerate(syn_holdout)}
+    c_verdicts = {s["id"]: {"verdict": "pass"} for s in syn_holdout}
+    res_proven = m4.evaluate_transfer(
+        dataset_dir=ds_dir,
+        before_run="syn-base",
+        after_run="syn-cand",
+        holdout_scenarios=syn_holdout,
+        before_verdicts=b_verdicts,
+        after_verdicts=c_verdicts,
+    )
+    assert res_proven["holdout_subset"]["paired_completed_tasks"] == 39
+    assert res_proven["verdict"] == "TRANSFER_PROVEN"
+    assert res_proven["statistics"]["ci95_pp"][0] > 0.0
+
+
+
