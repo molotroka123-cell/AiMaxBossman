@@ -240,14 +240,16 @@ def _kernel32() -> Any:
 _CREATE_SUSPENDED = 0x00000004
 
 
-def _win_bind_and_resume(proc: Any) -> int | None:
+def _win_bind_and_resume(proc: Any, *, kill_on_close: bool = False) -> int | None:
     """Windows: поместить приостановленный процесс в Job Object и возобновить его.
 
     При ошибке привязки или возобновления процесс уничтожается до выполнения;
-    нельзя запускать его без гарантии остановки через Job Object."""
+    нельзя запускать его без гарантии остановки через Job Object.
+    `kill_on_close=True` (шаг `pc.run_command`, аудит трио 29.10, Codex H4-B): закрытие последней ручки задания
+    убивает всех его участников, даже если бэкенд упал; терминальные сессии оставляют прежнее поведение (False)."""
     if os.name != "nt" or getattr(proc, "_transport", None) is None:
         return None                      # не Windows или двойник процесса в тестах
-    job = _win_job_attach(proc)
+    job = _win_job_attach(proc, kill_on_close=kill_on_close)
     if job is None:
         try:
             proc.kill()
@@ -277,10 +279,22 @@ def _win_bind_and_resume(proc: Any) -> int | None:
     return job
 
 
-def _win_job_attach(proc: Any) -> int | None:
+def _set_kill_on_close(job: int) -> bool:
+    """JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE через JobObjectExtendedLimitInformation (9); структуры из bcc.security.win_job."""
+    import ctypes
+
+    from ..security import win_job
+    info = win_job.JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+    info.BasicLimitInformation.LimitFlags = win_job.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    return bool(win_job._k32.SetInformationJobObject(job, win_job.JobObjectExtendedLimitInformation,  # noqa: SLF001
+                                                     ctypes.byref(info), ctypes.sizeof(info)))
+
+
+def _win_job_attach(proc: Any, *, kill_on_close: bool = False) -> int | None:
     """Поместить только что запущенный процесс в новый Job Object (Windows, иначе None).
 
-    При неудаче возвращает None; вызывающая сторона не должна запускать процесс."""
+    При неудаче возвращает None; вызывающая сторона не должна запускать процесс
+    (в том числе когда не удалось выставить KILL_ON_JOB_CLOSE, если он запрошен)."""
     if os.name != "nt":
         return None
     try:
@@ -289,6 +303,9 @@ def _win_job_attach(proc: Any) -> int | None:
         handle = int(popen._handle)                               # noqa: SLF001
         job = k32.CreateJobObjectW(None, None)
         if not job:
+            return None
+        if kill_on_close and not _set_kill_on_close(job):
+            k32.CloseHandle(job)
             return None
         if not k32.AssignProcessToJobObject(job, handle):
             k32.CloseHandle(job)

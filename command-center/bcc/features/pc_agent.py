@@ -2336,7 +2336,7 @@ async def execute_pc_step(
             cwd = rt.workspace_dir
         timeout_s = min(max(1.0, float(args.get("timeout_s") or DEFAULT_CMD_TIMEOUT_S)), MAX_CMD_TIMEOUT_S)
         started_at = time.time()
-        from ..v2.terminal_control import _CREATE_SUSPENDED, _win_bind_and_resume, _win_job_close
+        from ..v2.terminal_control import _CREATE_SUSPENDED, _win_bind_and_resume, _win_job_close, _win_job_terminate
         proc = await asyncio.create_subprocess_exec(
             *argv,
             cwd=str(cwd),
@@ -2346,7 +2346,7 @@ async def execute_pc_step(
             **({"creationflags": _CREATE_SUSPENDED} if os.name == "nt" else {}),
         )
         pid = proc.pid or -1
-        job = _win_bind_and_resume(proc)          # Windows: в Job Object и возобновить; иначе None
+        job = _win_bind_and_resume(proc, kill_on_close=True)   # Windows: в Job Object (убить всё при закрытии) и возобновить
         if pid > 0:
             rt.active_procs[pid] = proc
             rt.spawned_pids.add(pid)
@@ -2373,6 +2373,9 @@ async def execute_pc_step(
         finally:
             rt.active_procs.pop(pid, None)
             if job is not None:
+                # Codex H4-B (29.10): a finished step leaves nothing behind - the descendants it started are terminated
+                # with the job (a child with redirected stdio used to outlive the step after CloseHandle).
+                _win_job_terminate(job)
                 _win_job_close(job)
 
         out_str = scrub_secrets((stdout_b or b"")[:MAX_OUTPUT_BYTES].decode("utf-8", errors="replace")).strip()

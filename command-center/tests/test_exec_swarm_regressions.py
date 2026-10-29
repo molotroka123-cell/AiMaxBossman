@@ -27,7 +27,7 @@ def test_cloud_budget_not_truncated_by_2000_later_events(tmp_path, monkeypatch):
 def test_failed_job_attach_does_not_resume_process(monkeypatch):
     events=[]
     proc=SimpleNamespace(pid=123, _transport=object(), kill=lambda: events.append('kill'))
-    monkeypatch.setattr(terminal_control, '_win_job_attach', lambda p: None)
+    monkeypatch.setattr(terminal_control, '_win_job_attach', lambda p, **kw: None)   # kill_on_close kwarg since 29.10
     import psutil
     monkeypatch.setattr(psutil, 'Process', lambda pid: SimpleNamespace(resume=lambda: events.append('resume')))
     with pytest.raises(OSError):
