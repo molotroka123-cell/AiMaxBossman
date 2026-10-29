@@ -5440,9 +5440,16 @@ def compile_plan_for_prompt(prompt: str, *, workspace_dir: Path) -> list[dict[st
         return [{"tool": "pc.move_file", "args": {"src": move_match.group(1), "dst": move_match.group(2)}}]
     write_match = re.search(r"(?iu)(?:запиши|создай\s+файл|сохрани\s+в\s+файл|write\s+file)\s+([A-Za-z]:[\\/][^\s'\"<>]+|[\w./\\-]+\.[A-Za-z0-9]{1,8})", raw)
     if write_match:
+        # Content: quoted text, else what follows «с текстом / с содержимым / with text». Never an invented placeholder
+        # (demo 29.10: «с текстом: Bossman demo OK» wrote "Argon PC-Agent file content" and still reported verified).
         quote_match = re.search(r"['«\"]([^'»\"\n]{1,1000})['»\"]", raw)
-        content = quote_match.group(1) if quote_match else "Argon PC-Agent file content\n"
-        return [{"tool": "pc.write_file", "args": {"path": write_match.group(1), "content": content}}]
+        text_match = re.search(r"(?iu)(?:с\s+текстом|с\s+содержимым|текстом|содержимое|with\s+(?:the\s+)?text|with\s+content)"
+                               r"\s*[:—-]?\s*(.{1,1000})$", raw)
+        content = quote_match.group(1) if quote_match else (text_match.group(1).strip() if text_match else "")
+        target = write_match.group(1)
+        if not Path(target).is_absolute() and not re.match(r"^[A-Za-z]:", target):
+            target = str(workspace_dir / target)      # «в рабочей папке»: the agent workspace, never the backend's cwd
+        return [{"tool": "pc.write_file", "args": {"path": target, "content": content}}]
 
     # 6. Завершение процесса по PID или имени (T2)
     kill_pid_match = re.search(r"(?iu)(?:убей|заверши|останови|kill)\s+(?:процесс\s+|pid\s*)?(\d+)\b", raw)

@@ -248,3 +248,27 @@ def test_execute_step_under_owner_stop_does_nothing(tmp_path, monkeypatch):
                                                           "postcondition": {"type": "file_exists", "path": __file__}}))
     assert res["code"] == "STOP_ACTIVE"
     assert asyncio.run(b20._db_memory_counts(req.app.state.svc)) == {"facts": 0, "decisions": 0, "procedures": 0, "failures": 0}
+
+
+# ------------------------------------------------------------------ demo rehearsal 29.10: write-file plan
+
+import pytest as _pytest
+
+
+@_pytest.mark.parametrize("prompt,content", [
+    ("Создай файл demo-bossman.txt в рабочей папке с текстом: Bossman demo OK", "Bossman demo OK"),
+    ('Создай файл note.txt с текстом "привет, мир"', "привет, мир"),
+    ("write file x.md with text hello there", "hello there"),
+    ("Создай файл empty.txt", ""),                                     # nothing asked -> empty, never a placeholder
+])
+def test_write_plan_uses_the_owners_text_and_the_agent_workspace(tmp_path, prompt, content):
+    plan = pc_agent.compile_plan_for_prompt(prompt, workspace_dir=tmp_path)
+    assert plan[0]["tool"] == "pc.write_file"
+    assert plan[0]["args"]["content"] == content
+    assert Path(plan[0]["args"]["path"]).parent == tmp_path               # relative name -> workspace, not the cwd
+
+
+def test_absolute_write_path_is_kept(tmp_path):
+    target = str(tmp_path / "abs" / "a.txt")
+    plan = pc_agent.compile_plan_for_prompt(f"Создай файл {target} с текстом: ok", workspace_dir=tmp_path / "ws")
+    assert plan[0]["args"]["path"] == target and plan[0]["args"]["content"] == "ok"

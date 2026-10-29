@@ -74,6 +74,14 @@ def pc_task():
             rec = p.api("GET", f"/api/pc-agent/tasks/{tid}", timeout=30)
             rec = rec.get("task") if isinstance(rec.get("task"), dict) else rec
     status = rec.get("status")
+    # 29.10: the agent once reported «verified» while writing a placeholder — check the file independently via the harness
+    path = next((s.get("path") for s in (rec.get("step_results") or []) if isinstance(s, dict) and s.get("path")), "")
+    if status in ("completed", "done", "succeeded"):
+        chk = p.api("POST", "/api/v20/harness/execute-step", {"step_id": f"demo-file-{tid}", "title": "Демо: файл агента",
+                    "lesson": "Файл агента проверен по содержимому, а не по его отчёту", "topic": "demo",
+                    "postcondition": {"type": "file_contains", "path": path, "text": "Bossman demo OK"}}, timeout=60)
+        if not chk.get("ok"):
+            return False, {"task_id": tid, "status": status, "content_check": chk.get("postcondition_detail"), "path": path}
     return status in ("completed", "done", "succeeded"), {"task_id": tid, "status": status, "owner_approved": approved,
                                                           "summary": str(rec.get("summary") or rec.get("result") or rec.get("error") or "")[:300]}
 
