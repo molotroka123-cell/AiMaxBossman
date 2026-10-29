@@ -1,0 +1,199 @@
+{
+  "audit_id": "2026-10-29-full-emulator-buttons-proof",
+  "timestamp_utc": "2026-10-29T23:04:13Z",
+  "build_sha": "f1367f48ff5e4fdbc6a1efd19d8c35708d09eb05",
+  "build_sha_short": "f1367f48ff5e",
+  "source_identity": "PASS",
+  "total_checks": 37,
+  "passed": 37,
+  "failed": 0,
+  "status": "PASS",
+  "cost_usd": 0.0,
+  "checks": [
+    {
+      "step": "api:8801/health/live",
+      "ok": true,
+      "detail": "status=ALIVE, sha=f1367f48ff5e, identity=PASS"
+    },
+    {
+      "step": "api:8801/api/ai-gateway/status",
+      "ok": true,
+      "detail": "status=active, log_raw_text_default=False"
+    },
+    {
+      "step": "api:8801/api/ai-gateway/inspect (scrubbing)",
+      "ok": true,
+      "detail": "sensitivity=internal, placeholders=['[ПРОЕКТ_1]', '[КЛИЕНТ_1]', '[СЧЕТ_1]', '[ВНУТР_АДРЕС_1]']"
+    },
+    {
+      "step": "api:8801/api/studio/presets",
+      "ok": true,
+      "detail": "HTTP 200, presets loaded"
+    },
+    {
+      "step": "api:8801/api/agents",
+      "ok": true,
+      "detail": "agents_count=51"
+    },
+    {
+      "step": "api:8801/api/computer/status",
+      "ok": true,
+      "detail": "HTTP 200, stopped=False"
+    },
+    {
+      "step": "emulator:8840/login",
+      "ok": true,
+      "detail": "Logged into Mobile Pult (:8840/m/) in 393x852 mobile viewport"
+    },
+    {
+      "step": "emulator:8840/topbar:model-chip-loaded",
+      "ok": true,
+      "detail": "Active local model: Gemma 4 uncensored · owner-local-gemma4-uncensored"
+    },
+    {
+      "step": "emulator:8840/btn-model",
+      "ok": true,
+      "detail": "Opened #model-sheet (13 local model option(s))"
+    },
+    {
+      "step": "emulator:8840/btn-drawer",
+      "ok": true,
+      "detail": "Opened threads drawer (#drawer)"
+    },
+    {
+      "step": "emulator:8840/drawer-new",
+      "ok": true,
+      "detail": "Clicked 'Новый' inside drawer (#drawer-new)"
+    },
+    {
+      "step": "emulator:8840/btn-new",
+      "ok": true,
+      "detail": "Clicked topbar new chat button (#btn-new)"
+    },
+    {
+      "step": "emulator:8840/ctx-open",
+      "ok": true,
+      "detail": "Opened #ctx-sheet (Чата ещё нет: контекст появится после первого сообщения.)"
+    },
+    {
+      "step": "emulator:8840/ctx-refresh",
+      "ok": true,
+      "detail": "Clicked 'Обновить' inside #ctx-sheet"
+    },
+    {
+      "step": "emulator:8840/ctx-memory & ctx-compact guard",
+      "ok": true,
+      "detail": "Correctly disabled on empty new chat before first message"
+    },
+    {
+      "step": "emulator:8840/ctx-close",
+      "ok": true,
+      "detail": "Closed #ctx-sheet (#ctx-close)"
+    },
+    {
+      "step": "emulator:8840/mode-pill:AGENT",
+      "ok": true,
+      "detail": "Mode pill AGENT aria-checked=true"
+    },
+    {
+      "step": "emulator:8840/mode-pill:AUTO",
+      "ok": true,
+      "detail": "Mode pill AUTO aria-checked=true"
+    },
+    {
+      "step": "emulator:8840/mode-pill:CODE",
+      "ok": true,
+      "detail": "Mode pill CODE aria-checked=true"
+    },
+    {
+      "step": "emulator:8840/mode-pill:COMPUTER",
+      "ok": true,
+      "detail": "Mode pill COMPUTER aria-checked=true"
+    },
+    {
+      "step": "emulator:8840/mode-pill:SELF-IMPROVE",
+      "ok": true,
+      "detail": "Mode pill SELF-IMPROVE aria-checked=true"
+    },
+    {
+      "step": "emulator:8840/mode-pill:CHAT",
+      "ok": true,
+      "detail": "Mode pill CHAT aria-checked=true"
+    },
+    {
+      "step": "emulator:8840/btn-oc-term",
+      "ok": true,
+      "detail": "Opened Web Terminal drawer (#oc-panel-term)"
+    },
+    {
+      "step": "emulator:8840/btn-term-run (claude refusal)",
+      "ok": true,
+      "detail": "Refused interactive TUI: $ claude\n\n⛔ `claude` в веб-терминале не запускается: это интерактивная программа"
+    },
+    {
+      "step": "emulator:8840/btn-oc-code + presets",
+      "ok": true,
+      "detail": "OpenCode panel output: 6c651b077bad · failed · nvidia/nemotron-3-ultra-550b-a55b:free\n  Аудит бюджета ц"
+    },
+    {
+      "step": "emulator:8840/btn-oc-pc + btn-pc-status",
+      "ok": true,
+      "detail": "PC-Agent panel output: Профиль: Argon (agent_id=40) · Уровень: L1\nЧто сейчас делаю: Свободен — ожидает "
+    },
+    {
+      "step": "emulator:8840/btn-slash",
+      "ok": true,
+      "detail": "Slash command menu opened with 112 commands/tools/skills"
+    },
+    {
+      "step": "emulator:8840/btn-photo-mode",
+      "ok": true,
+      "detail": "Toggled photo wand aria-pressed: true -> false"
+    },
+    {
+      "step": "emulator:8840/tab:photo + steps buttons",
+      "ok": true,
+      "detail": "Photo view active, steps: 8 -> 9 -> 8"
+    },
+    {
+      "step": "emulator:8840/tab:video + duration/mode controls",
+      "ok": true,
+      "detail": "Video view active, mode buttons=2, aspect buttons=5, duration=2 с->3 с"
+    },
+    {
+      "step": "emulator:8840/tab:panel + panel-reload",
+      "ok": true,
+      "detail": "Panel view active and #panel-reload clicked"
+    },
+    {
+      "step": "emulator:8840/tab:swap + quick chips + deals refresh",
+      "ok": true,
+      "detail": "Swap view active, reply: Команды помощника обменника:\n• курс — текущие курсы с источником и вре"
+    },
+    {
+      "step": "emulator:8840/tab:calls + calls-doctor-btn + calls-reload",
+      "ok": true,
+      "detail": "Calls view active, doctor output: Диагностика звонков…"
+    },
+    {
+      "step": "emulator:8840/tab:jeff + jeff-reload",
+      "ok": true,
+      "detail": "Jeff training view active, summary: Методичкаметодичка.docxРазделов53Размер3.0 МБСтрогий режимвключён · дл"
+    },
+    {
+      "step": "emulator:8840/tab:status",
+      "ok": true,
+      "detail": "Status view rendered (1504 chars)"
+    },
+    {
+      "step": "emulator:8840/stop-banner + stop-resume button",
+      "ok": true,
+      "detail": "STOP banner appeared (True) and cleared via #stop-resume button (True)"
+    },
+    {
+      "step": "emulator:8801/command-center-ui",
+      "ok": true,
+      "detail": "Command Center (:8801) loaded, title='BOSSMAN Command Center · UI 2.6.1', interactive buttons=71"
+    }
+  ]
+}
