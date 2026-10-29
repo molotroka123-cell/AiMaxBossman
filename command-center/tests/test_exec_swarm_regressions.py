@@ -89,8 +89,12 @@ def test_paid_cloud_missing_usage_is_not_a_zero_or_estimated_actual_cost():
     result = SimpleNamespace()
     assert tools_cloud._actual_cost({'paid': True, 'est_cost_usd': 0.3, 'price_in_1m': 1, 'price_out_1m': 2}, result) is None
 
-@pytest.mark.parametrize('rollback_ok', [False, True])
-def test_self_modify_health_reports_actual_rollback_result(tmp_path, monkeypatch, rollback_ok):
+@pytest.mark.parametrize('rollback_ok,rollback_verified,expected', [
+    (False, False, False),
+    (True, False, False),
+    (True, True, True),
+])
+def test_self_modify_health_reports_actual_rollback_result(tmp_path, monkeypatch, rollback_ok, rollback_verified, expected):
     import time
     from bcc.features import pc_agent
     root=tmp_path / 'selfmods'
@@ -101,9 +105,9 @@ def test_self_modify_health_reports_actual_rollback_result(tmp_path, monkeypatch
     original=pc_agent._execute_self_modify_step
     async def fake_nested(*args, **kwargs):
         assert kwargs['args']['action'] == 'rollback'
-        return {'ok':rollback_ok, 'verified':rollback_ok}
+        return {'ok':rollback_ok, 'verified':rollback_verified}
     monkeypatch.setattr(pc_agent, '_execute_self_modify_step', fake_nested)
     result=asyncio.run(original(None,rt,task_id=1,run_id=1,args={'action':'health_check','mod_id':'sm-test','simulate_unhealthy':True},actor='watchdog',approved=True,t0=time.perf_counter()))
-    assert result['ok'] is rollback_ok
-    assert result['verified'] is rollback_ok
-    assert result['auto_rolled_back'] is rollback_ok
+    assert result['ok'] is expected
+    assert result['verified'] is expected
+    assert result['auto_rolled_back'] is expected

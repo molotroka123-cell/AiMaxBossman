@@ -2753,17 +2753,18 @@ async def _execute_self_modify_step(
                 approved=True,
                 t0=t0,
             )
-            rb_ok = bool(rb_res.get("ok"))
-            rb_verified = bool(rb_res.get("verified"))
+            # Codex exec swarm (ported): the restore counts only when the rollback is ok AND verified; an «ok» rollback that
+            # did not verify the restored bytes must not be shown as a successful recovery.
+            rb_done = rb_res.get("ok") is True and rb_res.get("verified") is True
             return {
-                "ok": rb_ok,
-                "verified": rb_verified,
+                "ok": rb_done,
+                "verified": rb_done,
                 "mod_id": target_mod_id,
-                "auto_rolled_back": rb_ok,
+                "auto_rolled_back": rb_done,
                 "rollback": rb_res,
                 "summary": (
                     f"Контроль здоровья (5 мин): обнаружен сбой после `{target_mod_id}` — "
-                    + ("выполнен автоматический откат." if rb_ok else "автоматический откат не удался.")
+                    + ("выполнен автоматический откат." if rb_done else "откат не подтверждён; требуется проверка.")
                 ),
                 "duration_ms": round((time.perf_counter() - t0) * 1000),
             }
