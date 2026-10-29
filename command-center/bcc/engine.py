@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import dataclasses
 import asyncio
 import contextlib
 import json
@@ -1024,7 +1025,9 @@ class TaskEngine:
                 messages.append({"role": "system", "content": recalled})
             messages.append({"role": "user", "content": task["prompt"]})
         step = int(checkpoint.get("step") or 0)
-        max_steps = max(1, int(agent.get("max_steps") or 1))
+        # owner 29.10: «убрать лимиты» — max_steps <= 0 means no step cap; STOP, approvals and $ budget still end a run
+        _ms = agent.get("max_steps")
+        max_steps = 10 ** 9 if _ms is not None and int(_ms) <= 0 else max(1, int(_ms or 1))
         tokens_in = int(run.get("tokens_in") or 0)
         tokens_out = int(run.get("tokens_out") or 0)
         cost = float(run.get("cost_usd") or 0.0)
@@ -1107,7 +1110,11 @@ class TaskEngine:
             cost += _cost(model, result)
             await self._emit_model_step(task, run_id, step, model, result, limits=limits,
                                         tokens_in=tokens_in, tokens_out=tokens_out, cost=cost)
-            breach = _budget.check_spend(limits, tokens_in=tokens_in,
+            # owner 29.10: «TOKEN_BUDGET_EXCEEDED не должно быть никогда». A token ceiling protects money; a run that has
+            # cost nothing (local / free model) has nothing to protect, so only the loop guards and STOP apply to it.
+            # Paid runs keep both the token and the $ ceiling.
+            eff_limits = limits if cost > 0 else dataclasses.replace(limits, max_tokens=0)
+            breach = _budget.check_spend(eff_limits, tokens_in=tokens_in,
                                          tokens_out=tokens_out, cost_usd=cost)
             if breach is not None:
                 await self._budget_stop(run_id, task, messages, step, breach,
@@ -1130,7 +1137,7 @@ class TaskEngine:
             if result.has_tool_calls:
                 messages.append(_assistant_tool_message(result))
                 await self._log(run_id, "info", "run.step",
-                                f"шаг {step}/{max_steps}: {alias} запросил инструменты: "
+                                f"шаг {step}/{max_steps if max_steps < 10 ** 9 else '∞'}: {alias} запросил инструменты: "
                                 + ", ".join(c.name for c in result.tool_calls))
                 await self.bus.emit("task.progress", task_id=task["id"], run_id=run_id,
                                     step=step, max_steps=max_steps, model=alias,

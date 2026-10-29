@@ -132,7 +132,7 @@ ws_router = APIRouter()
 
 VALID_MODES = ("CHAT", "AGENT", "AUTO", "CODE", "COMPUTER", "SELF-IMPROVE")
 DEFAULT_MODE = "AGENT"
-DEFAULT_MAX_LOOP_STEPS = 12
+DEFAULT_MAX_LOOP_STEPS = 0          # 0 = no step cap (owner 29.10); STOP / approvals / $ budget still apply
 DEFAULT_SESSION_BUDGET_USD = 2.00
 
 #: Tool Registry canonical grouping (Master Prompt §8).
