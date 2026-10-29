@@ -1,0 +1,46 @@
+{
+ "receipt": "Outrun DeepSeek V4.1 Flash Uncensored in the mobile pult + dialog cost check",
+ "date": "2026-10-29",
+ "live_build": "fc915317 (:8801, source_identity PASS)",
+ "model": {
+  "id": 109,
+  "provider": "Outrun (17)",
+  "name": "deepseek-v4.1-flash-1017-uncensored-3",
+  "price_usd_per_mtok": {
+   "in": 0.66,
+   "out": 2.64,
+   "cache_read": 0.02
+  },
+  "price_source": "owner 29.10 (Outrun catalog line '1017 compatibility route (3)')"
+ },
+ "openrouter_comparison": {
+  "deepseek/deepseek-v4.1-flash-1017": {
+   "in": 0.15,
+   "out": 0.6,
+   "cache_read": 0.003
+  },
+  "note": "official (censored) model only; Outrun uncensored route ~4.4x pricier"
+ },
+ "agent": {
+  "id": 51,
+  "name": "DeepSeek V4.1 Flash Uncensored (Outrun) — тест приложений",
+  "budget_usd": 5.0,
+  "tools": "code.*, terminal.* (each command approved by the owner in the pult), browser.open/read_dom/screenshot",
+  "desktop_screenshots": "NOT granted (personal data rule); owner can enable explicitly"
+ },
+ "mobile_pult": "bossmobile.policy.local_agents on live data: agent 51 allowed=True cloud=True provider=Outrun",
+ "cost_check": {
+  "tool": "tools/outrun_cost_check.py --agent 51 --turns 2",
+  "tokens_in": 3326,
+  "tokens_out": 612,
+  "bossman_cost_usd": 0.003811,
+  "outrun_debited_usd": 0.00381,
+  "difference_usd": -1e-06,
+  "verdict": "PASS"
+ },
+ "code_fix": "29f2e28e: cached prompt tokens (prompt_tokens_details.cached_tokens / prompt_cache_hit_tokens) billed at caps.price_cache_read; tests/test_dialog_cost_cache.py",
+ "not_proven": [
+  "cache-hit pricing live (this dialog had no cache report); covered by unit tests",
+  "DeepSeek V4 Pro Uncensored (model 108): price unknown -> no agent yet"
+ ]
+}
