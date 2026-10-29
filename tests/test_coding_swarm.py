@@ -72,7 +72,7 @@ def test_a_tracked_source_file_is_allowed(tmp_path):
 
 
 @pytest.mark.parametrize("text", ["token sk-or-v1-" + "a" * 30, "nvapi-" + "b" * 30, 'api_key = "' + "c" * 24 + '"',
-                                  "-----BEGIN RSA PRIVATE KEY-----", r"photos in D:\datasets\gf\x.jpg", "Гречка archive",
+                                  "-----BEGIN RSA " + "PRIVATE KEY-----", r"photos in D:\datasets\gf\x.jpg", "Гречка archive",
                                   "telegram-companion/companion.env"])
 def test_secrets_and_personal_locations_are_refused_before_any_call(monkeypatch, tmp_path, text):
     monkeypatch.setattr(cs, "_call", lambda *a, **k: pytest.fail("network call made"))

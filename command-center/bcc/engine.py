@@ -1110,10 +1110,11 @@ class TaskEngine:
             cost += _cost(model, result)
             await self._emit_model_step(task, run_id, step, model, result, limits=limits,
                                         tokens_in=tokens_in, tokens_out=tokens_out, cost=cost)
-            # owner 29.10: «TOKEN_BUDGET_EXCEEDED не должно быть никогда». A token ceiling protects money; a run that has
-            # cost nothing (local / free model) has nothing to protect, so only the loop guards and STOP apply to it.
-            # Paid runs keep both the token and the $ ceiling.
-            eff_limits = limits if cost > 0 else dataclasses.replace(limits, max_tokens=0)
+            # owner 29.10: «TOKEN_BUDGET_EXCEEDED не должно быть никогда». Money is guarded by the USD ceiling (cached
+            # prompt tokens are cheap: 1.09M input tokens cost $0.51 on DeepSeek), so the raw token ceiling applies only
+            # when the task itself asked for one (meta.max_tokens_total). Loop guards, USD ceiling and STOP stay.
+            _meta = task.get("meta") if isinstance(task.get("meta"), dict) else {}
+            eff_limits = limits if _budget.TOKENS_KEY in _meta else dataclasses.replace(limits, max_tokens=0)
             breach = _budget.check_spend(eff_limits, tokens_in=tokens_in,
                                          tokens_out=tokens_out, cost_usd=cost)
             if breach is not None:
