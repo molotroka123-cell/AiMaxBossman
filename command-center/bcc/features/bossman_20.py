@@ -10,6 +10,8 @@
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -794,11 +796,85 @@ async def http_v20_status(request: Request):
 
 @router.post("/v20/memory/learn-step")
 async def http_memory_learn_step(request: Request, body: dict[str, Any]):
-    """Записывает урок выполненного шага одновременно в таблицы памяти SQLite (facts/decisions/procedures/failures)
-    и в канонический журнал уроков Obsidian (BOSSMAN Memory)."""
+    """Записывает урок выполненного шага (см. record_harness_step_lesson)."""
+    svc = getattr(getattr(request, "app", None), "state", None)
+    svc = getattr(svc, "svc", None)
+    return await record_harness_step_lesson(svc, dict(body or {}))
+
+
+def _check_postcondition(pc: dict[str, Any]) -> tuple[bool, str]:
+    """Real check of a step's postcondition on the file system; no postcondition or an unknown type is NOT ok."""
+    from .pc_agent_policy_paths import is_t3_secret_or_protected_path
+    kind = str((pc or {}).get("type") or "")
+    if kind not in {"file_exists", "file_sha256", "file_contains"}:
+        return False, f"postcondition type not supported: {kind or '(none)'}"
+    path = Path(str(pc.get("path") or ""))
+    refused, why = is_t3_secret_or_protected_path(str(path), for_write=False)
+    if refused:
+        return False, f"postcondition path refused: {why}"
+    if not path.is_file():
+        return False, f"{kind}: file missing"
+    if kind == "file_exists":
+        return True, "file_exists: present"
+    data = path.read_bytes()
+    if kind == "file_sha256":
+        ok = hashlib.sha256(data).hexdigest() == str(pc.get("sha256") or "").lower()
+        return ok, f"file_sha256: {'match' if ok else 'mismatch'}"
+    ok = str(pc.get("text") or "") != "" and str(pc.get("text")) in data.decode("utf-8", errors="replace")
+    return ok, f"file_contains: {'found' if ok else 'not found'}"
+
+
+async def _recall(svc: Any, words: str, limit: int = 5) -> dict[str, list[dict]]:
+    """Relevant past decisions and failures for this step (metadata the harness shows before acting)."""
+    out: dict[str, list[dict]] = {"decisions": [], "failures": []}
+    if svc is None or getattr(svc, "db", None) is None or not words.strip():
+        return out
+    like = f"%{words.strip()[:80]}%"
+    async with svc.db.session() as s:
+        rd = await s.execute(sa.select(dbm.decisions.c.key, dbm.decisions.c.decision)
+                             .where(sa.or_(dbm.decisions.c.key.ilike(like), dbm.decisions.c.decision.ilike(like))).limit(limit))
+        rf = await s.execute(sa.select(dbm.failures.c.symptom, dbm.failures.c.attempted_fix)
+                             .where(dbm.failures.c.symptom.ilike(like)).limit(limit))
+        out["decisions"] = [dict(r._mapping) for r in rd]
+        out["failures"] = [dict(r._mapping) for r in rf]
+    return out
+
+
+@router.post("/v20/harness/execute-step")
+async def http_harness_execute_step(request: Request, body: dict[str, Any]):
+    """One harness cycle for a step that was carried out: STOP check -> recall -> postcondition -> learn-step -> receipt."""
+    from .telegram_calls import global_stop_active
     svc = getattr(getattr(request, "app", None), "state", None)
     svc = getattr(svc, "svc", None)
     payload = dict(body or {})
+    if svc is not None and global_stop_active(svc, fail_closed=True):
+        return {"ok": False, "code": "STOP_ACTIVE", "message": "глобальный STOP владельца активен: шаг не засчитан"}
+    step_id = str(payload.get("step_id") or "").strip()
+    title = str(payload.get("title") or step_id).strip()
+    if not step_id or not title:
+        return {"ok": False, "code": "STEP_ID_REQUIRED", "message": "нужны step_id и title"}
+    recalled = await _recall(svc, str(payload.get("topic") or title))
+    post_ok, post_detail = _check_postcondition(payload.get("postcondition") or {})
+    lesson = str(payload.get("lesson") or "").strip() or (
+        f"Шаг «{title}»: постусловие {'выполнено' if post_ok else 'НЕ выполнено'} ({post_detail})")
+    learned = await record_harness_step_lesson(svc, {
+        "step_id": step_id, "title": title, "lesson": lesson, "root_cause": post_detail,
+        "symptom": None if post_ok else f"постусловие не выполнено: {title}",
+        "attempted_fix": str(payload.get("attempted_fix") or lesson), "files": list(payload.get("files") or []),
+        "test": str(payload.get("test") or ""), "result": "VERIFIED" if post_ok else "POSTCONDITION_FAILED",
+        "procedure_steps": list(payload.get("procedure_steps") or [lesson]),
+    })
+    receipt = {"step_id": step_id, "postcondition_ok": post_ok, "postcondition_detail": post_detail,
+               "recalled": {k: len(v) for k, v in recalled.items()}, "db_counts": learned.get("db_counts"),
+               "obsidian_written": learned.get("obsidian_written"), "ts": datetime.now(timezone.utc).isoformat()}
+    receipt["sha256_receipt"] = hashlib.sha256(json.dumps(receipt, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+    return {"ok": post_ok, "recalled": recalled, **receipt}
+
+
+async def record_harness_step_lesson(svc: Any, payload: dict[str, Any]) -> dict[str, Any]:
+    """Записывает урок выполненного шага одновременно в таблицы памяти SQLite (facts/decisions/procedures/failures)
+    и в канонический журнал уроков Obsidian (BOSSMAN Memory)."""
+    payload = dict(payload or {})
     step_id = str(payload.get("step_id") or payload.get("key") or f"step-{int(datetime.now(timezone.utc).timestamp())}").strip()
     title = str(payload.get("title") or payload.get("symptom") or step_id).strip()
     lesson = str(payload.get("lesson") or payload.get("decision") or payload.get("statement") or "").strip()
@@ -860,7 +936,7 @@ async def http_memory_learn_step(request: Request, body: dict[str, Any]):
                         symptom=str(payload.get("symptom") or title),
                         root_cause=root_cause,
                         attempted_fix=str(payload.get("attempted_fix") or lesson),
-                        result="VERIFIED",
+                        result=str(payload.get("result") or "VERIFIED"),
                         files=files,
                         test=test_ref,
                         created_at=now,

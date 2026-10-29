@@ -186,3 +186,65 @@ def test_unchanged_step_arguments_run_once(tmp_path, monkeypatch):
     rec, calls = _pending_task(tmp_path, monkeypatch, change_args=False)      # positive control
     assert len(calls) == 1 and calls[0]["tool"] == "pc.write_file"
     assert "approval_payload_mismatch" not in str(rec.get("error") or "")
+
+
+# ------------------------------------------------------------------ Task 4: harness execute-step cycle
+
+def _harness_env(tmp_path, monkeypatch, stop=False):
+    from bcc.config import Settings
+    from bcc.db import Database
+    from bcc.features import bossman_20, telegram_calls
+    settings = Settings(data_dir=tmp_path / "data", database_url=f"sqlite+aiosqlite:///{tmp_path/'data/bcc.db'}",
+                        ui_dir=tmp_path / "ui")
+    (tmp_path / "data").mkdir()
+    db = Database(settings.database_url)
+    asyncio.run(db.create_all())
+    vault = tmp_path / "vault"
+    vault.mkdir()
+
+    async def cfg(_svc):
+        return {"root": str(vault), "write_folder": "BOSSMAN Memory"}
+    monkeypatch.setattr(bossman_20, "load_config", cfg)
+    monkeypatch.setattr(telegram_calls, "global_stop_active", lambda _svc, **_k: stop)
+    svc = SimpleNamespace(settings=settings, db=db)
+    req = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(svc=svc)))
+    return bossman_20, req, vault
+
+
+def test_execute_step_checks_the_postcondition_learns_and_returns_a_receipt(tmp_path, monkeypatch):
+    b20, req, vault = _harness_env(tmp_path, monkeypatch)
+    done = tmp_path / "work" / "out.txt"
+    done.parent.mkdir()
+    done.write_text("harness ok", encoding="utf-8")
+    res = asyncio.run(b20.http_harness_execute_step(req, {
+        "step_id": "t4-ok", "title": "write out.txt", "files": [str(done)], "test": "this test",
+        "postcondition": {"type": "file_contains", "path": str(done), "text": "harness ok"}}))
+    assert res["ok"] is True and res["postcondition_ok"] is True
+    assert all(res["db_counts"][k] == 1 for k in ("facts", "decisions", "procedures", "failures")), res["db_counts"]
+    assert len(res["sha256_receipt"]) == 64 and int(res["sha256_receipt"], 16) >= 0
+    assert "[t4-ok]" in (vault / "BOSSMAN Memory" / "2026-10-29-Bossman-Harness-Step-Lessons.md").read_text(encoding="utf-8")
+    # the receipt is the sha256 of its own body: recompute it
+    import hashlib
+    import json
+    body = {k: res[k] for k in ("step_id", "postcondition_ok", "postcondition_detail", "recalled", "db_counts",
+                                "obsidian_written", "ts")}
+    assert hashlib.sha256(json.dumps(body, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest() == res["sha256_receipt"]
+
+
+def test_execute_step_with_a_missing_file_is_not_ok_and_is_learned_as_a_failure(tmp_path, monkeypatch):
+    b20, req, _ = _harness_env(tmp_path, monkeypatch)
+    res = asyncio.run(b20.http_harness_execute_step(req, {
+        "step_id": "t4-bad", "title": "missing file",
+        "postcondition": {"type": "file_exists", "path": str(tmp_path / "nope.txt")}}))
+    assert res["ok"] is False and res["postcondition_ok"] is False
+    assert res["db_counts"]["failures"] == 1
+    none = asyncio.run(b20.http_harness_execute_step(req, {"step_id": "t4-none", "title": "no postcondition"}))
+    assert none["ok"] is False                                                # no postcondition is never a pass
+
+
+def test_execute_step_under_owner_stop_does_nothing(tmp_path, monkeypatch):
+    b20, req, _ = _harness_env(tmp_path, monkeypatch, stop=True)
+    res = asyncio.run(b20.http_harness_execute_step(req, {"step_id": "t4-stop", "title": "x",
+                                                          "postcondition": {"type": "file_exists", "path": __file__}}))
+    assert res["code"] == "STOP_ACTIVE"
+    assert asyncio.run(b20._db_memory_counts(req.app.state.svc)) == {"facts": 0, "decisions": 0, "procedures": 0, "failures": 0}
