@@ -218,3 +218,72 @@ def test_powershell_plain_command_requires_t2_button_even_with_trust_window(tmp_
     assert verdict.tier == "T2"
     assert verdict.decision == "ask"
     assert verdict.always_owner_button is True
+
+
+def test_spend_firewall_openrouter_subdomain_and_local_cloud_suffix():
+    """SpendFirewall must accept api.openrouter.ai for :free and allow local models containing '-cloud-' while blocking ':cloud'."""
+    fw = SpendFirewall()
+
+    # 1. Subdomain api.openrouter.ai with :free must pass as ALLOWED_FREE
+    rec_free = fw.verify_pre_call_free_or_authorized(
+        provider={"name": "openrouter", "base_url": "https://api.openrouter.ai/api/v1"},
+        model={"name": "nvidia/nemotron-3-ultra-550b-a55b:free"},
+        pricing={"prompt": "0", "completion": "0"},
+    )
+    assert rec_free["status"] == "ALLOWED_FREE"
+
+    # 2. Local model with '-cloud-' inside name (not suffix) must pass as ALLOWED_FREE
+    rec_local = fw.verify_pre_call_free_or_authorized(
+        provider={"name": "ollama", "base_url": "http://127.0.0.1:11434"},
+        model={"name": "qwen-cloud-helper:latest"},
+        pricing={"prompt": "0", "completion": "0"},
+    )
+    assert rec_local["status"] == "ALLOWED_FREE"
+
+    # 3. Local model ending with ':cloud' must NOT be treated as FREE_LOCAL
+    with pytest.raises(PaidCallBlockedError):
+        fw.verify_pre_call_free_or_authorized(
+            provider={"name": "ollama", "base_url": "http://127.0.0.1:11434"},
+            model={"name": "qwen3:cloud"},
+            pricing={"prompt": "0", "completion": "0"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_bossman_memory_seed_and_learn_step_populates_all_four_tables(tmp_path):
+    """Every completed step must populate SQLite facts, decisions, procedures, failures and Obsidian vault."""
+    from types import SimpleNamespace
+    from bcc import db as dbm
+    from bcc.features.bossman_20 import _seed_canonical_db_memory, http_memory_learn_step
+
+    db_file = tmp_path / "bossman_test.db"
+    db_inst = dbm.Database(f"sqlite+aiosqlite:///{db_file.as_posix()}")
+    await db_inst.create_all()
+    svc = SimpleNamespace(db=db_inst, data_dir=tmp_path)
+
+    counts = await _seed_canonical_db_memory(svc)
+    assert counts["facts"] >= 4
+    assert counts["decisions"] >= 3
+    assert counts["procedures"] >= 3
+    assert counts["failures"] >= 3
+
+    req = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(svc=svc)))
+    res = await http_memory_learn_step(
+        req,
+        {
+            "step_id": "step-harness-01",
+            "title": "Закрытие жестких дыр после сведения в main",
+            "lesson": "Каждое изменение схемы памяти и безопасности закрепляется парным положительным и негативным тестом.",
+            "root_cause": "Тихое подавление ошибок в _seed_canonical_db_memory",
+            "files": ["command-center/bcc/features/bossman_20.py"],
+            "test": "command-center/tests/test_swarm2_coding_fixes.py",
+            "procedure_steps": ["1. Проверить колонки db.py", "2. Записать урок в SQLite и Obsidian"],
+        },
+    )
+    assert res["ok"] is True
+    assert res["db_counts"]["facts"] >= counts["facts"] + 1
+    assert res["db_counts"]["decisions"] >= counts["decisions"] + 1
+    assert res["db_counts"]["procedures"] >= counts["procedures"] + 1
+    assert res["db_counts"]["failures"] >= counts["failures"] + 1
+    await db_inst.engine.dispose()
+

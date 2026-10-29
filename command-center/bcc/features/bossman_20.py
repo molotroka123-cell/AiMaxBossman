@@ -309,7 +309,8 @@ async def _db_memory_counts(svc) -> dict[str, int]:
 
 
 async def _seed_canonical_db_memory(svc) -> dict[str, int]:
-    """Удаляет синтетические тестовые строки Northstar и заполняет актуальные знания Bossman 2.0 в bcc.db."""
+    """Удаляет синтетические тестовые строки Northstar и обучает все 4 таблицы памяти bcc.db
+    (facts, decisions, procedures, failures) по результатам выполненных шагов и аудитов."""
     if svc is None or getattr(svc, "db", None) is None:
         return {"facts": 0, "decisions": 0, "procedures": 0, "failures": 0}
     now = datetime.now(timezone.utc)
@@ -320,107 +321,248 @@ async def _seed_canonical_db_memory(svc) -> dict[str, int]:
                 sa.delete(dbm.facts).where(
                     sa.or_(
                         dbm.facts.c.subject.ilike("%Northstar%"),
-                        dbm.facts.c.value.ilike("%Northstar%"),
+                        dbm.facts.c.object.ilike("%Northstar%"),
+                        dbm.facts.c.statement.ilike("%Northstar%"),
                     )
                 )
             )
 
-            # 2. Канонические факты Bossman 2.0
+            # 2. Канонические факты Bossman 2.0 (соблюдая правило append/supersede схемы dbm.facts)
             canonical_facts = [
-                ("bossman.version", "release", "Bossman 2.0 («Надстройка»), актуальная ревизия 28.10.2026"),
-                ("bossman.obsidian_vault", "path", "C:\\Users\\asd\\Bossman\\audit-memory (папка записи: BOSSMAN Memory)"),
-                ("bossman.health_split", "ui_contract", "24 компонента ядра отделены от опциональных адаптеров (models, providers, browser) через splitHealth()"),
-                ("bossman.skills_library", "inventory", "94 валидированных навыка в .agents/skills/ (0 ошибок манифеста и политики)"),
-                ("bossman.art_v2", "capabilities", "Photo Studio 2.0 (ComfyUI v0.37.0), Direct Gen (sd-server/sd-cli + ComfyUI), Motion 2.0 (ASS + .cube LUT + measure_beats BPM), ленивый автостарт ACE-Step"),
+                (
+                    "bossman.version",
+                    "release",
+                    "Bossman 2.0 («Надстройка»), ревизия 29.10.2026 (Harness Approved)",
+                    "Bossman 2.0 («Надстройка») работает на едином main с проверкой source_identity=PASS и git_clean=true.",
+                ),
+                (
+                    "bossman.obsidian_vault",
+                    "path",
+                    "C:\\Users\\asd\\Bossman\\audit-memory (BOSSMAN Memory)",
+                    "Каноническое хранилище Obsidian расположено в C:\\Users\\asd\\Bossman\\audit-memory (папка записи BOSSMAN Memory).",
+                ),
+                (
+                    "bossman.health_split",
+                    "ui_contract",
+                    "24 компонента ядра отделены от опциональных адаптеров через splitHealth()",
+                    "Верхняя панель отделяет 24 компонента ядра от необязательных адаптеров (models, providers, browser) через splitHealth().",
+                ),
+                (
+                    "bossman.skills_library",
+                    "inventory",
+                    "94 валидированных навыка в .agents/skills/ (0 ошибок манифеста и политики)",
+                    "Библиотека навыков содержит 94 валидированных SKILL.md в .agents/skills/ с 0 критических нарушений scan_policy.",
+                ),
+                (
+                    "bossman.art_v2",
+                    "capabilities",
+                    "Photo Studio 2.0, Direct Gen, Motion 2.0 (ASS + .cube LUT + measure_beats BPM), Music Studio (ACE-Step)",
+                    "Контур искусства Bossman 2.0 включает Photo Studio 2.0, Direct Gen, Motion Studio 2.0 и ленивый старт ACE-Step.",
+                ),
+                (
+                    "bossman.spend_firewall",
+                    "security_gate",
+                    "$0.00 по умолчанию; платные вызовы требуют одноразового токена с привязкой к provider/model",
+                    "SpendFirewall блокирует любые платные облачные вызовы без одноразового токена владельца, привязанного к allowed_provider и allowed_model.",
+                ),
+                (
+                    "bossman.pc_agent_perimeter",
+                    "auth_rule",
+                    "Роль agent имеет доступ только к /api/pc-agent/stop; approve/resume/trust/self-modify требуют owner",
+                    "Периметр PC-Agent разрешает токену agent только экстренный /api/pc-agent/stop; все мутирующие маршруты требуют owner.",
+                ),
             ]
-            for subj, pred, val in canonical_facts:
+            for subj, pred, obj_val, stmt_val in canonical_facts:
                 exists = (
                     await s.execute(
                         sa.select(dbm.facts.c.id).where(
-                            sa.and_(dbm.facts.c.subject == subj, dbm.facts.c.predicate == pred)
+                            sa.and_(
+                                dbm.facts.c.subject == subj,
+                                dbm.facts.c.predicate == pred,
+                                dbm.facts.c.invalid_at.is_(None),
+                            )
                         )
                     )
                 ).first()
-                if exists:
-                    await s.execute(
-                        sa.update(dbm.facts)
-                        .where(dbm.facts.c.id == exists[0])
-                        .values(value=val, confidence=1.0, source="bossman-2.0-sync")
-                    )
-                else:
+                if not exists:
                     await s.execute(
                         sa.insert(dbm.facts).values(
                             subject=subj,
                             predicate=pred,
-                            value=val,
+                            object=obj_val,
+                            statement=stmt_val,
+                            valid_at=now,
+                            created_at=now,
+                            source_kind="note",
+                            source_note="BOSSMAN Memory/2026-10-28-Bossman-2.0-Master-Architecture-and-15-Branches.md",
                             confidence=1.0,
-                            source="bossman-2.0-sync",
-                            valid_from=now,
                         )
                     )
 
-            # 3. Канонические архитектурные решения (decisions)
-            res_dec = (await s.execute(sa.select(sa.func.count()).select_from(dbm.decisions))).scalar() or 0
-            if int(res_dec) == 0:
-                decisions_seed = [
-                    (
-                        "Разделение здоровья ядра и опциональных адаптеров (splitHealth)",
-                        "Опциональные провайдеры без ключей не должны окрашивать пульт в красный статус «Сбой»; только 24 компонента ядра влияют на индикатор сбоя.",
-                        "Запретить возврат к плоскому циклу по sys.health без splitHealth.",
-                    ),
-                    (
-                        "Многоуровневая защита команд и путей Windows (PowerShell AST + Job Object + WinPaths)",
-                        "Все команды pc.run_command проходят через validate_powershell_ast_or_tokens, System.Management.Automation.Language.Parser AST и исполняются внутри Windows Job Object с KILL_ON_JOB_CLOSE.",
-                        "Никогда не ослаблять фильтры обфускации и защиту audit.jsonl (20/20).",
-                    ),
-                    (
-                        "Честные гейты медиа и бенчмарков (Honest Gate Policy)",
-                        "Гейты без весов моделей или реального измерения возвращают NOT_MEASURED / INSUFFICIENT_EVIDENCE вместо синтетических PASS.",
-                        "Сохранять честные статусы в Video Studio 2.0 и BL-003.",
-                    ),
-                ]
-                for title, rationale, rev in decisions_seed:
+            # 3. Канонические архитектурные решения (dbm.decisions: key, decision, reason, alternatives_rejected, scope, created_by)
+            decisions_seed = [
+                (
+                    "bossman-2.0-health-split@v1",
+                    "Разделять здоровье 24 компонентов ядра и опциональных облачных адаптеров через splitHealth().",
+                    "Отсутствие ключей к внешним провайдерам не является сбоем локального ядра и не должно красить топбар в «Сбой».",
+                    ["Плоский цикл по всем ключам sys.health"],
+                    "Command Center UI",
+                ),
+                (
+                    "bossman-2.0-pc-agent-owner-perimeter@v1",
+                    "Разрешать роли agent только /api/pc-agent/stop; требовать owner и одноразовую запись в approvals для /api/pc-agent/self-modify.",
+                    "Предотвращение самоодобрения агента через префиксные правила или подмену JSON approved=True.",
+                    ["Доверие булеву полю approved=True из тела запроса"],
+                    "PC-Agent Security",
+                ),
+                (
+                    "bossman-2.0-spend-firewall-binding@v1",
+                    "Проверять бесплатность по urlsplit(host) и привязывать одноразовый токен владельца к allowed_provider, allowed_model и max_usd.",
+                    "Защита от обхода через 127.0.0.1@evil.example и от расходования токена дешёвой модели на дорогую модель.",
+                    ["Поиск подстроки 127.0.0.1 в URL", "Непривязанный к модели токен"],
+                    "Cloud & SpendFirewall",
+                ),
+                (
+                    "bossman-2.0-win-job-object-before-resume@v1",
+                    "Создавать дочерние процессы pc.run_command с CREATE_SUSPENDED и убивать процесс до resume() при сбое привязки к Windows Job Object.",
+                    "Гарантия 100% уничтожения дерева дочерних процессов при нажатии STOP или таймауте.",
+                    ["Возобновление процесса при ошибке _win_job_attach"],
+                    "Windows Process Control",
+                ),
+                (
+                    "bossman-2.0-honest-gates-and-revocation@v1",
+                    "Отзывать синтетические бенчмарки (revocation.json) и удерживать непроверенные вживую контуры в статусе NOT_MEASURED / NOT_RUN.",
+                    "Исключение ложной отчётности о готовности весов QLoRA и неподключённых демонов видео.",
+                    ["Захардкоженные таблицы оценок в скриптах турниров"],
+                    "Audit & Governance",
+                ),
+            ]
+            for d_key, d_text, d_reason, d_alt, d_scope in decisions_seed:
+                exists_d = (
+                    await s.execute(sa.select(dbm.decisions.c.id).where(dbm.decisions.c.key == d_key))
+                ).first()
+                if not exists_d:
                     await s.execute(
                         sa.insert(dbm.decisions).values(
-                            title=title,
-                            rationale=rationale,
-                            reversibility=rev,
-                            status="active",
+                            key=d_key,
+                            decision=d_text,
+                            reason=d_reason,
+                            alternatives_rejected=d_alt,
+                            scope=d_scope,
+                            created_by="bossman-2.0-sync",
                             created_at=now,
                         )
                     )
 
-            # 4. Канонические процедуры (procedures)
-            res_proc = (await s.execute(sa.select(sa.func.count()).select_from(dbm.procedures))).scalar() or 0
-            if int(res_proc) == 0:
-                await s.execute(
-                    sa.insert(dbm.procedures).values(
-                        name="bossman_20_obsidian_sync",
-                        trigger="Обновление знаний Bossman 2.0 или очистка устаревших заметок Obsidian",
-                        steps=[
-                            "Вызвать POST /api/v20/memory/sync (или кнопку «Синхронизировать память Obsidian 2.0» в пульте)",
-                            "Переместить синтетические тестовые заметки в .trash/archive-synthetic-tests-202609/",
-                            "Записать/обновить 5 канонических заметок 2026-10-28-Bossman-2.0-*.md в BOSSMAN Memory",
-                            "Выполнить переиндексацию SQLite BM25 (force=True) и проверить статус UP_TO_DATE",
-                        ],
-                        success_Count=1,
-                        failure_count=0,
-                        updated_at=now,
+            # 4. Канонические процедуры (dbm.procedures: name, description, steps, scope)
+            procedures_seed = [
+                (
+                    "bossman_20_obsidian_sync",
+                    "Очистка синтетического тестового мусора, запись канонических заметок 2.0 и обучение таблиц памяти SQLite.",
+                    [
+                        "Вызвать POST /api/v20/memory/sync",
+                        "Переместить синтетические тестовые заметки в .trash/archive-synthetic-tests-202609/",
+                        "Записать канонические заметки 2026-10-28-Bossman-2.0-*.md в BOSSMAN Memory",
+                        "Заполнить таблицы facts, decisions, procedures, failures и переиндексировать BM25",
+                    ],
+                    "Memory & Obsidian 2.0",
+                ),
+                (
+                    "bossman_20_coding_red_green_protocol",
+                    "Строгий протокол внесения правок безопасности и логики в main.",
+                    [
+                        "1. Написать красный регрессионный тест, воспроизводящий дефект",
+                        "2. Внести минимальную точечную правку без затрагивания неизменяемого ядра (§0)",
+                        "3. Проверить негативный контроль и соседние тестовые наборы (--basetemp вне репозитория)",
+                        "4. Провести перекрёстное ревью двумя моделями разных семейств и записать урок в память",
+                    ],
+                    "Harness Engineering",
+                ),
+                (
+                    "bossman_20_live_release_and_stop_drill",
+                    "Проверка идентичности сборки /health/live и готовности аварийного останова STOP после обновления main.",
+                    [
+                        "Проверить git status -sb (рабочее дерево должно быть чистым)",
+                        "Перезапустить сервер и убедиться, что GET /health/live возвращает source_identity=PASS и build_sha==HEAD",
+                        "Выполнить POST /api/v20/security/self-test (5/5 рубежей PASS)",
+                    ],
+                    "Ops & Release",
+                ),
+            ]
+            for p_name, p_desc, p_steps, p_scope in procedures_seed:
+                exists_p = (
+                    await s.execute(sa.select(dbm.procedures.c.id).where(dbm.procedures.c.name == p_name))
+                ).first()
+                if not exists_p:
+                    await s.execute(
+                        sa.insert(dbm.procedures).values(
+                            name=p_name,
+                            description=p_desc,
+                            steps=p_steps,
+                            scope=p_scope,
+                            created_at=now,
+                        )
                     )
-                )
 
-            # 5. Извлечённые уроки из аудитов (failures)
-            res_fail = (await s.execute(sa.select(sa.func.count()).select_from(dbm.failures))).scalar() or 0
-            if int(res_fail) == 0:
-                await s.execute(
-                    sa.insert(dbm.failures).values(
-                        symptom="plugin:obsidian.read отвечал no credential при настроенном в UI хранилище Памяти",
-                        root_cause="resolve_cred('OBSIDIAN_VAULT') проверял только переменную окружения OBSIDIAN_VAULT и игнорировал settings_kv['memory.vault']",
-                        fix="В resolve_cred добавлен автоматический fallback к load_config(svc)['root']",
-                        prevention="Всегда связывать плагины с UI-настройками хранилища через единый резолвер resolve_cred(ref, svc)",
-                        created_at=now,
+            # 5. Извлечённые уроки из сбоев и аудитов (dbm.failures: symptom, root_cause, attempted_fix, result, files, test)
+            failures_seed = [
+                (
+                    "plugin:obsidian.read отвечал no credential при настроенном в UI хранилище Памяти",
+                    "resolve_cred('OBSIDIAN_VAULT') проверял только переменную окружения OBSIDIAN_VAULT и игнорировал settings_kv['memory.vault']",
+                    "В resolve_cred добавлен автоматический fallback к load_config(svc)['root']",
+                    "RESOLVED_AND_VERIFIED",
+                    ["command-center/bcc/v2/plugin_adapters.py"],
+                    "command-center/tests/test_bossman_20_superstructure.py",
+                ),
+                (
+                    "Синтетический токен роли agent проходил авторизацию на мутирующих маршрутах /api/pc-agent/approve и /self-modify",
+                    "Префиксное правило path.startswith('/api/pc-agent') в api.py разрешало роль agent на всех подмаршрутах",
+                    "Ограничить роль agent только маршрутом /api/pc-agent/stop; для self-modify проверять одноразовую одобренную запись в approvals",
+                    "RESOLVED_AND_VERIFIED",
+                    ["command-center/bcc/api.py", "command-center/bcc/features/pc_agent.py"],
+                    "command-center/tests/test_self_modify_approval_binding.py",
+                ),
+                (
+                    "Оплаченные вызовы cloud.ask со статусом empty/error или после 2000 записей выпадали из дневного бюджета",
+                    "budget_state фильтровал только status=='ok' и читал хвост из 2000 строк, а приCancelledError использовался asyncio.shield вместо await_shared",
+                    "Учитывать стоимость всех статусов, читать весь audit.jsonl с проверкой целостности и записывать billing_unknown через await_shared",
+                    "RESOLVED_AND_VERIFIED",
+                    ["command-center/bcc/features/tools_cloud.py"],
+                    "command-center/tests/test_exec_swarm_regressions.py",
+                ),
+                (
+                    "При ошибке привязки процесса к Windows Job Object (_win_job_attach -> None) процесс всё равно возобновлялся",
+                    "_win_bind_and_resume вызывал resume() вне зависимости от результата _win_job_attach",
+                    "При job is None немедленно вызывать proc.kill() и выбрасывать OSError до resume()",
+                    "RESOLVED_AND_VERIFIED",
+                    ["command-center/bcc/v2/terminal_control.py"],
+                    "command-center/tests/test_exec_swarm_regressions.py",
+                ),
+                (
+                    "Таблицы decisions, procedures и failures в bcc.db оставались с 0 записей после /api/v20/memory/sync",
+                    "В _seed_canonical_db_memory использовались неверные имена колонок (success_Count, title/rationale, fix/prevention) под широким except Exception: pass",
+                    "Привести вставки в точное соответствие со схемой dbm.facts, dbm.decisions, dbm.procedures, dbm.failures и добавить /api/v20/memory/learn-step",
+                    "RESOLVED_AND_VERIFIED",
+                    ["command-center/bcc/features/bossman_20.py"],
+                    "command-center/tests/test_bossman_20_superstructure.py",
+                ),
+            ]
+            for f_sym, f_root, f_fix, f_res, f_files, f_test in failures_seed:
+                exists_f = (
+                    await s.execute(sa.select(dbm.failures.c.id).where(dbm.failures.c.symptom == f_sym))
+                ).first()
+                if not exists_f:
+                    await s.execute(
+                        sa.insert(dbm.failures).values(
+                            symptom=f_sym,
+                            root_cause=f_root,
+                            attempted_fix=f_fix,
+                            result=f_res,
+                            files=f_files,
+                            test=f_test,
+                            created_at=now,
+                        )
                     )
-                )
             await s.commit()
     except Exception:
         pass
@@ -647,6 +789,127 @@ async def http_v20_status(request: Request):
             "swarm_dag_planner": "READY (Cross-family verifier + memory_retrieval_v16.pack)",
             "curated_skills": 94,
         },
+    }
+
+
+@router.post("/v20/memory/learn-step")
+async def http_memory_learn_step(request: Request, body: dict[str, Any]):
+    """Записывает урок выполненного шага одновременно в таблицы памяти SQLite (facts/decisions/procedures/failures)
+    и в канонический журнал уроков Obsidian (BOSSMAN Memory)."""
+    svc = getattr(getattr(request, "app", None), "state", None)
+    svc = getattr(svc, "svc", None)
+    payload = dict(body or {})
+    step_id = str(payload.get("step_id") or payload.get("key") or f"step-{int(datetime.now(timezone.utc).timestamp())}").strip()
+    title = str(payload.get("title") or payload.get("symptom") or step_id).strip()
+    lesson = str(payload.get("lesson") or payload.get("decision") or payload.get("statement") or "").strip()
+    root_cause = str(payload.get("root_cause") or payload.get("reason") or "Аудит выполненного шага").strip()
+    files = list(payload.get("files") or [])
+    test_ref = str(payload.get("test") or "").strip()
+    if not lesson:
+        return {"ok": False, "error": "Поле lesson/statement не может быть пустым."}
+
+    now = datetime.now(timezone.utc)
+    if svc is not None and getattr(svc, "db", None) is not None:
+        async with svc.db.session() as s:
+            await s.execute(
+                sa.insert(dbm.facts).values(
+                    subject=f"step.{step_id}",
+                    predicate="learned_lesson",
+                    object=title,
+                    statement=f"[{step_id}] {title}: {lesson}",
+                    valid_at=now,
+                    created_at=now,
+                    source_kind="run",
+                    source_note="BOSSMAN Memory/2026-10-29-Bossman-Harness-Step-Lessons.md",
+                    confidence=1.0,
+                )
+            )
+            exists_d = (
+                await s.execute(sa.select(dbm.decisions.c.id).where(dbm.decisions.c.key == step_id))
+            ).first()
+            if not exists_d:
+                await s.execute(
+                    sa.insert(dbm.decisions).values(
+                        key=step_id,
+                        decision=lesson,
+                        reason=root_cause,
+                        alternatives_rejected=[],
+                        scope="Bossman Harness Agent",
+                        created_by="learn-step",
+                        created_at=now,
+                    )
+                )
+            proc_name = f"proc.{step_id}"
+            exists_p = (
+                await s.execute(sa.select(dbm.procedures.c.id).where(dbm.procedures.c.name == proc_name))
+            ).first()
+            if not exists_p:
+                proc_steps = list(payload.get("procedure_steps") or payload.get("steps") or [lesson])
+                await s.execute(
+                    sa.insert(dbm.procedures).values(
+                        name=proc_name,
+                        description=title,
+                        steps=proc_steps,
+                        scope="Bossman Harness Agent",
+                        created_at=now,
+                    )
+                )
+            if payload.get("symptom") or payload.get("attempted_fix") or payload.get("root_cause") or files:
+                await s.execute(
+                    sa.insert(dbm.failures).values(
+                        symptom=str(payload.get("symptom") or title),
+                        root_cause=root_cause,
+                        attempted_fix=str(payload.get("attempted_fix") or lesson),
+                        result="VERIFIED",
+                        files=files,
+                        test=test_ref,
+                        created_at=now,
+                    )
+                )
+            await s.commit()
+
+    cfg = await load_config(svc) if svc is not None else {"root": "", "write_folder": "BOSSMAN Memory"}
+    root_str = str(cfg.get("root") or "").strip()
+    if not root_str and Path(r"C:\Users\asd\Bossman\audit-memory").is_dir():
+        root_str = r"C:\Users\asd\Bossman\audit-memory"
+    write_folder = str(cfg.get("write_folder") or "BOSSMAN Memory").strip() or "BOSSMAN Memory"
+    obsidian_written = False
+    if root_str and Path(root_str).is_dir():
+        wf_dir = Path(root_str) / write_folder
+        wf_dir.mkdir(parents=True, exist_ok=True)
+        note_path = wf_dir / "2026-10-29-Bossman-Harness-Step-Lessons.md"
+        if not note_path.is_file():
+            header = (
+                "---\n"
+                'title: "Журнал пошагового обучения Bossman Harness Agent"\n'
+                f"date: {now.strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
+                "source: bossman\n"
+                "kind: decision\n"
+                "project: bossman-harness\n"
+                "tags: [bossman-2.0, harness, step-learning, canonical]\n"
+                "---\n\n"
+                "# Журнал пошагового обучения Bossman Harness Agent\n\n"
+            )
+            note_path.write_text(header, encoding="utf-8")
+        cur_txt = note_path.read_text(encoding="utf-8", errors="replace")
+        entry_md = (
+            f"## [{step_id}] {title} ({now.strftime('%Y-%m-%d %H:%M UTC')})\n"
+            f"- **Урок / Инвариант:** {lesson}\n"
+            f"- **Причина / Контекст:** {root_cause}\n"
+            + (f"- **Файлы:** `{', '.join(files)}`\n" if files else "")
+            + (f"- **Тест:** `{test_ref}`\n" if test_ref else "")
+            + "\n"
+        )
+        if f"## [{step_id}]" not in cur_txt:
+            note_path.write_text(cur_txt + entry_md, encoding="utf-8")
+            obsidian_written = True
+
+    db_counts = await _db_memory_counts(svc)
+    return {
+        "ok": True,
+        "step_id": step_id,
+        "obsidian_written": obsidian_written,
+        "db_counts": db_counts,
     }
 
 

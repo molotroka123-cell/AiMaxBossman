@@ -197,7 +197,8 @@ class SpendFirewall:
         else:
             is_local = provider_kind in ("ollama", "local", "llama_cpp", "vllm")
         if is_local:
-            return not any(tag in model_name.lower() for tag in (":cloud", "-cloud"))
+            low_model = model_name.strip().lower()
+            return not (low_model.endswith((":cloud", "-cloud")) or ":cloud-" in low_model)
 
         prices = None
         if pricing:
@@ -218,7 +219,11 @@ class SpendFirewall:
                 return False
 
         # 2. OpenRouter :free models (the suffix means nothing on any other provider)
-        on_openrouter = (host == "openrouter.ai" or (host is None and provider_kind == "openrouter"))
+        on_openrouter = (
+            host == "openrouter.ai"
+            or (host is not None and host.endswith(".openrouter.ai"))
+            or (host is None and provider_kind == "openrouter")
+        )
         if on_openrouter and model_name.endswith(":free"):
             return True
 
@@ -305,6 +310,8 @@ class SpendFirewall:
                 raise PaidCallBlockedError("Paid call requires a valid estimate within the owner token limit") from None
 
             # Consume token
+            import hashlib as _hashlib
+
             meta = self._active_tokens.pop(owner_token)
             self._consumed_tokens.add(owner_token)
             record = {
@@ -313,6 +320,7 @@ class SpendFirewall:
                 "model": m_name,
                 "paid": True,
                 "token_consumed": True,
+                "token_sha256": _hashlib.sha256(owner_token.encode("utf-8")).hexdigest()[:16],
                 "purpose": meta.get("purpose", ""),
                 "max_usd": meta.get("max_usd", 1.0),
             }
