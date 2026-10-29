@@ -6354,7 +6354,6 @@ async def api_pc_agent_night_mode_report(request: Request):
     return build_night_mode_morning_report(rt)
 
 
-@router.post("/self-modify")
 async def _verified_self_modify_approval(svc: Any, rt: Any, approval_id_raw: Any, task_id: int) -> bool:
     """An owner approval authorises ONE self-modify step (audit 28.10 night).
 
@@ -6396,6 +6395,7 @@ async def _verified_self_modify_approval(svc: Any, rt: Any, approval_id_raw: Any
     return True
 
 
+@router.post("/self-modify")
 async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
     svc = _svc_of(request)
     rt = get_runtime(svc)
