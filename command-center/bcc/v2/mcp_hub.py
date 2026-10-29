@@ -240,7 +240,10 @@ def command_policy_refusal(argv: object) -> str:
         return f"бинарник {argv0!r} → {binary} не входит в allowlist." + tail
     flags = _INLINE_CODE_FLAGS.get(_interpreter_key(binary, argv0), frozenset())
     for item in argv[1:]:
-        if item in flags:
+        if item in flags or any(
+            item.startswith(f + "=") or (f in ("-c", "-e") and item.startswith(f) and len(item) > 2 and not item.startswith("--"))
+            for f in flags
+        ):
             return (f"флаг {item!r} выполняет код из аргумента — allowlist разрешает "
                     f"бинарник, а не произвольный код внутри него.") + tail
     return ""

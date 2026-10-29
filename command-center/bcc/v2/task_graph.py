@@ -144,9 +144,10 @@ def validate_graph(graph: TaskGraph,
             errors.append(f"node {node_id!r}: attempts must be a non-negative int")
         if known_action_types is not None and node.action_type not in known_action_types:
             errors.append(f"node {node_id!r}: unknown action type {node.action_type!r}")
-        for dep in node.depends_on:
-            if dep not in nodes:
-                errors.append(f"node {node_id!r}: depends on unknown node {dep!r}")
+        if isinstance(node.depends_on, list):
+            for dep in node.depends_on:
+                if dep not in nodes:
+                    errors.append(f"node {node_id!r}: depends on unknown node {dep!r}")
     errors.extend(_cycle_errors(nodes))
     return errors
 
@@ -187,8 +188,8 @@ def ready_nodes(graph: TaskGraph) -> list[TaskNode]:
     for node in graph.nodes.values():
         if node.status != "PENDING":
             continue
-        if all(graph.nodes[d].status == "SUCCEEDED"
-               for d in node.depends_on if d in graph.nodes):
+        if all(d in graph.nodes and graph.nodes[d].status == "SUCCEEDED"
+               for d in node.depends_on):
             out.append(node)
     return out
 

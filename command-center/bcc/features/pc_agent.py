@@ -5271,10 +5271,17 @@ async def call_local_qwen(
                 except Exception:
                     continue
 
+    strata_dead = False
+    ollama_dead = False
     for model in LOCAL_MODELS:
         if model in ("qwen3.8-flash-next-iq3_s", "strata-qwen38-flash-next-iq3s"):
-            with contextlib.suppress(Exception):
-                async with httpx.AsyncClient(timeout=min(timeout_s, 15.0), trust_env=False) as client:
+            if strata_dead:
+                continue
+            try:
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(min(timeout_s, 15.0), connect=min(timeout_s, 0.25)),
+                    trust_env=False,
+                ) as client:
                     resp_s = await client.post(
                         f"{STRATA_BASE}/chat/completions",
                         json={
@@ -5300,9 +5307,18 @@ async def call_local_qwen(
                                     "via": "strata_loopback",
                                     "local_only": True,
                                 }
+            except (httpx.ConnectError, httpx.ConnectTimeout):
+                strata_dead = True
+            except Exception:
+                pass
+            continue
+        if ollama_dead:
             continue
         try:
-            async with httpx.AsyncClient(timeout=timeout_s, trust_env=False) as client:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(timeout_s, connect=min(timeout_s, 0.25)),
+                trust_env=False,
+            ) as client:
                 resp = await client.post(
                     f"{OLLAMA_BASE}/api/chat",
                     json={
@@ -5325,6 +5341,9 @@ async def call_local_qwen(
                             "via": "ollama_loopback",
                             "local_only": True,
                         }
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            ollama_dead = True
+            continue
         except Exception:
             continue
     return {

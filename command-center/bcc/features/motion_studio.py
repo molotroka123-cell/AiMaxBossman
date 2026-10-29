@@ -210,7 +210,11 @@ def _write_manifest(job: dict[str, Any], report: dict[str, Any]) -> None:
     spec = folder / "spec.json"
     names = sorted(n for n in os.listdir(folder)
                    if (n in OUTPUTS and n != "manifest.json") or (n.startswith("epic-preview-") and n.endswith(".png")))
-    files = [{"name": n, "bytes": (folder / n).stat().st_size, "sha256": _sha256_file(folder / n)} for n in names]
+    files = [{
+        "name": n,
+        "bytes": (folder / n).stat().st_size,
+        "sha256": (report.get("sha256") if n == "video.mp4" and report.get("sha256") else _sha256_file(folder / n)),
+    } for n in names]
     tool = tool_dir() / "make_video.py"
     manifest = {"version": 1, "job_id": job["id"], "mode": job["mode"], "verified": bool(report.get("verified")),
                 "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "style": job.get("style", "epic"),
@@ -227,6 +231,7 @@ def _write_manifest(job: dict[str, Any], report: dict[str, Any]) -> None:
 
 
 def _settle(job: dict[str, Any], code: int | None) -> None:
+    _PROCS.pop(job.get("id", ""), None)
     job["finished"] = time.time()
     recovered = False
     if code is None:

@@ -201,7 +201,14 @@ def _logical_lines(text: str) -> list[tuple[int, str]]:
     i = 0
     while i < len(raw):
         no, cur = i + 1, raw[i]
-        while i + 1 < len(raw) and (cur.rstrip().endswith("\\") or raw[i + 1].lstrip().startswith("|")):
+        while i + 1 < len(raw) and (
+            cur.rstrip().endswith("\\")
+            or (
+                raw[i + 1].lstrip().startswith("|")
+                and not raw[i + 1].rstrip().endswith("|")
+                and not cur.rstrip().endswith("|")
+            )
+        ):
             cur = cur.rstrip().rstrip("\\") + " " + raw[i + 1].strip()
             i += 1
         out.append((no, cur))

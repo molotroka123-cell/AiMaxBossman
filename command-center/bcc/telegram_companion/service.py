@@ -574,7 +574,7 @@ class Companion(AgentBridgeMixin, RemoteAccessMixin, ConsoleMixin, JevBridgeMixi
             data = await self.telegram.fetch_file(doc.get("file_id"), max_bytes=jeff_manual.MAX_DOC_BYTES)
             text = jeff_manual.text_from_document(str(doc.get("file_name") or ""), bytes(data))
             info = await asyncio.to_thread(jeff_manual.set_manual, data_dir, text, minutes=minutes)
-        except (jeff_manual.ManualError, CompanionError, ValueError) as exc:
+        except (jeff_manual.ManualError, CompanionError, ValueError, OSError) as exc:
             await self.telegram.send(person, f"📘 Методичка не принята: {str(exc)[:200]}")
             return
         await self.telegram.send(person, (

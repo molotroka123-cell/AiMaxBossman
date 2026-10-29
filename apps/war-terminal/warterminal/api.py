@@ -286,7 +286,7 @@ def create_app(data_dir: str | Path | None = None, *, live: bool | None = None, 
                chat=None, today: date | None = None, download=None, bossman=None, sleep=None) -> FastAPI:
     data_dir = Path(data_dir or os.environ.get("WAR_TERMINAL_DATA") or Path.home() / ".war-terminal")
     data_dir.mkdir(parents=True, exist_ok=True)
-    store = Store(data_dir / "war.db")
+    store = Store(data_dir / "war.db", today=today)
     live = live if live is not None else os.environ.get("WAR_TERMINAL_LIVE", "true").lower() not in ("0", "false", "no", "off")   # live by default; no demo mode exists
     purge = store.archive_unverified(data_dir / "archive", _now_stamp())          # records without provenance leave every view; archived, not destroyed
     if purge["archived_total"]:

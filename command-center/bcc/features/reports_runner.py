@@ -328,13 +328,23 @@ async def run_exchange_report(
     out_run1 = earn_dir / "exchange_report_run1"
     out_run2 = earn_dir / "exchange_report_run2"
 
-    ok1, sec1, err1 = await asyncio.to_thread(
-        _run_business_once,
-        script_path=script_path,
-        export_path=export_path,
-        workbook_path=workbook_path,
-        out_dir=out_run1,
-        is_synthetic=is_synthetic,
+    (ok1, sec1, err1), (ok2, sec2, err2) = await asyncio.gather(
+        asyncio.to_thread(
+            _run_business_once,
+            script_path=script_path,
+            export_path=export_path,
+            workbook_path=workbook_path,
+            out_dir=out_run1,
+            is_synthetic=is_synthetic,
+        ),
+        asyncio.to_thread(
+            _run_business_once,
+            script_path=script_path,
+            export_path=export_path,
+            workbook_path=workbook_path,
+            out_dir=out_run2,
+            is_synthetic=is_synthetic,
+        ),
     )
     if not ok1:
         return {
@@ -346,15 +356,6 @@ async def run_exchange_report(
             "tainted": False,
             "duration_ms": round((time.perf_counter() - start_t) * 1000),
         }
-
-    ok2, sec2, err2 = await asyncio.to_thread(
-        _run_business_once,
-        script_path=script_path,
-        export_path=export_path,
-        workbook_path=workbook_path,
-        out_dir=out_run2,
-        is_synthetic=is_synthetic,
-    )
     if not ok2:
         return {
             "ok": False,
@@ -376,14 +377,26 @@ async def run_exchange_report(
             hashes_run2[fn] = hashlib.sha256(p2.read_bytes()).hexdigest()
     repeatable_sha = (len(hashes_run1) == len(ARTIFACT_NAMES)) and (hashes_run1 == hashes_run2)
 
-    vol_data = json.loads((out_run1 / "volume_result.json").read_text(encoding="utf-8"))
+    vol_path = out_run1 / "volume_result.json"
+    disp_path = out_run1 / "disputed.csv"
+    if not vol_path.is_file() or not disp_path.is_file():
+        return {
+            "ok": False,
+            "verified": False,
+            "action": "reports",
+            "synthetic": is_synthetic,
+            "error": "Отсутствуют обязательные артефакты отчёта (volume_result.json / disputed.csv)",
+            "tainted": False,
+            "duration_ms": round((time.perf_counter() - start_t) * 1000),
+        }
+    vol_data = json.loads(vol_path.read_text(encoding="utf-8"))
     periods = vol_data.get("periods") or {}
     dups = vol_data.get("duplicates") or {}
     m_cls = vol_data.get("message_classification") or {}
     wb_info = vol_data.get("workbook") or {}
     wb_rec = wb_info.get("reconcile") or {}
     wb_rec_prov = wb_info.get("reconcile_with_provisional_complex") or {}
-    disputed_lines = max(0, len((out_run1 / "disputed.csv").read_text(encoding="utf-8").splitlines()) - 1)
+    disputed_lines = max(0, len(disp_path.read_text(encoding="utf-8").splitlines()) - 1)
 
     period_lines = []
     for p_key, p_val in periods.items():

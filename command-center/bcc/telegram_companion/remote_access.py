@@ -263,7 +263,9 @@ class RemoteAccessMixin:
             return "Из пульта ничего не запускалось — чужой Remote Control не трогаю."
         if IS_WINDOWS:
             self._run_shutdown(["taskkill", "/T", "/F", "/PID", str(launch["pid"])])
-        (remote_dir() / "STOP").write_text("pult", encoding="utf-8")
+        rdir = remote_dir()
+        rdir.mkdir(parents=True, exist_ok=True)
+        (rdir / "STOP").write_text("pult", encoding="utf-8")
         self.store.put("remote_launch", None)
         return "Остановил Remote Control, запущенный из пульта, и поставил STOP для автоперезапуска."
 

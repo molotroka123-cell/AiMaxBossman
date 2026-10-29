@@ -416,7 +416,7 @@ class RedactionSession:
         if not text or not self.placeholder_to_original:
             return text
         out = text
-        for tag, orig in self.placeholder_to_original.items():
+        for tag, orig in sorted(self.placeholder_to_original.items(), key=lambda kv: -len(kv[0])):
             out = out.replace(tag, orig)
         return out
 
@@ -433,7 +433,9 @@ class LocalScrubber:
         )
         self._clean_cache: set[str] = set()
 
-    def scrub_text(self, text: str, session: RedactionSession) -> str:
+    def scrub_text(self, text: str, session: RedactionSession | None = None) -> str:
+        if session is None:
+            session = RedactionSession()
         if not text:
             return text
         if len(text) <= 4096 and text in self._clean_cache:
@@ -579,6 +581,13 @@ class LocalScrubber:
                         part = {**part, "text": self.scrub_text(part["text"], session)}
                     new_parts.append(part)
                 new_msg["content"] = new_parts
+            tcalls = new_msg.get("tool_calls")
+            if isinstance(tcalls, list):
+                for tc in tcalls:
+                    if isinstance(tc, dict) and isinstance(tc.get("function"), dict):
+                        args = tc["function"].get("arguments")
+                        if isinstance(args, str):
+                            tc["function"]["arguments"] = self.scrub_text(args, session)
             scrubbed.append(new_msg)
         return scrubbed
 
@@ -597,6 +606,13 @@ class LocalScrubber:
                 for p in content:
                     if isinstance(p, dict) and isinstance(p.get("text"), str):
                         texts.append(p["text"])
+            tcalls = msg.get("tool_calls")
+            if isinstance(tcalls, list):
+                for tc in tcalls:
+                    if isinstance(tc, dict) and isinstance(tc.get("function"), dict):
+                        args = tc["function"].get("arguments")
+                        if isinstance(args, str):
+                            texts.append(args)
             blob = "\n".join(texts)
             if not allow_memory_opt_in and msg.get("role") == "system" and blob.lstrip().startswith("[MEMORY CONTEXT"):
                 problems.append("memory_context_present")

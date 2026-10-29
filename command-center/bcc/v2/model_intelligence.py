@@ -78,7 +78,7 @@ def capability_from_models_row(row: dict) -> ModelCapabilityRecord:
         provider=str(row.get("provider") or ""),
         local=local,
         capabilities={k: state(k) for k in _CAP_KEYS},
-        vision=bool(caps.get("vision")),
+        vision=bool(caps.get("vision") is True or str(caps.get("vision") or "").upper() == "YES"),
         context_window=cw,
         cost_class=str(row.get("cost_class") or ("local" if local else "cloud")),
         latency_class=str(row.get("latency_class") or "UNKNOWN"))

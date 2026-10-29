@@ -1,0 +1,16 @@
+North Star long horizon claude — 15-branch critical lessons evidence log (afe1a4ba8dc8)
+B01 | NS-LH-B01-JEFF-MANUAL-OSERROR-POLL-GUARD | command-center/bcc/telegram_companion/service.py | FIXED | PermissionError in set_manual during /manual update in poll
+B02 | NS-LH-B02-UX-TASK-STREAM-FILTER-SEED | command-center/bcc/events.py | FIXED | TaskStreamFilter dropped run.log missing in stream for active task_id
+B03 | NS-LH-B03-APPS-WAR-LOOPBACK-CONNECT-TIMEOUT | apps/bossman-mobile/bossmobile/api.py | FIXED | GET /m/api/status took 2327 ms due to war 8830 connect timeout
+B04 | NS-LH-B04-MODELS-VISION-TRUTHY-STRING-BUG | command-center/bcc/v2/model_intelligence.py | FIXED | caps.vision='NO' evaluated to vision: True in capability_from_models_row
+B05 | NS-LH-B05-CLOUD-AI-GATEWAY-TOOL-CALLS-SCRUB | command-center/bcc/security/ai_gateway.py | FIXED | tool_calls function arguments unscrubbed during cloud egress
+B06 | NS-LH-B06-COMPUTER-LOCAL-MODEL-TIMEOUT-CASCADE | command-center/bcc/features/pc_agent.py | FIXED | call_local_qwen stalled on LOCAL_MODELS timeout_s when 11434 was offline
+B07 | NS-LH-B07-MEDIA-MOTION-STUDIO-PROC-AND-SHA-REUSE | command-center/bcc/features/motion_studio.py | FIXED | motion_studio _PROCS leak and duplicate _sha256_file on video.mp4
+B08 | NS-LH-B08-MEMORY-MINUTE-STEM-COLLISION | command-center/bcc/v2/memory/obsidian.py | FIXED | FileExistsError in BOSSMAN Memory/2026-10-29-1625-memory.md
+B09 | NS-LH-B09-AGENTS-DAG-MISSING-DEP-FALSE-READY | command-center/bcc/v2/task_graph.py | FIXED | unknown node in ready_nodes evaluated True via all(... if d in graph.nodes)
+B10 | NS-LH-B10-SKILLS-MARKDOWN-TABLE-PIPE-BYPASS | command-center/bcc/v2/skill_catalog.py | FIXED | _logical_lines startswith("|") collapsed Markdown table policy violation
+B11 | NS-LH-B11-PLUGINS-MCP-ATTACHED-INLINE-FLAG | command-center/bcc/v2/mcp_hub.py | FIXED | command_policy_refusal inline flag --eval= allowlist check
+B12 | NS-LH-B12-OPS-SOURCE-IDENTITY-CLEAN-TREE | command-center/bcc/run_provenance.py | FIXED | GET /health/live returned SOURCE_IDENTITY_STALE before daemon restart
+B13 | NS-LH-B13-OSS-COMFYUI-FAST-CONNECT-PROBE | command-center/bcc/oss/comfyui.py | FIXED | direct-gen/status took 2276.2 ms due to ComfyUIClient.health timeout
+B14 | NS-LH-B14-COMMERCE-PARALLEL-DETERMINISTIC-REPORTS | command-center/bcc/features/reports_runner.py | FIXED | FileNotFoundError: volume_result.json in reports_runner
+B15 | NS-LH-B15-DEVICES-REMOTE-STOP-MKDIR-GUARD | command-center/bcc/telegram_companion/remote_access.py | FIXED | FileNotFoundError: remote/STOP in remote_stop

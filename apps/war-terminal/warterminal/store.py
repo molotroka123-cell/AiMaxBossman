@@ -78,8 +78,9 @@ def freshen(doc: dict, today=None) -> dict:
 
 
 class Store:
-    def __init__(self, path: str | Path = ":memory:") -> None:
+    def __init__(self, path: str | Path = ":memory:", *, today=None) -> None:
         self.path = str(path)
+        self.today = today
         self._lock = threading.RLock()
         self.db = sqlite3.connect(self.path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
@@ -127,13 +128,13 @@ class Store:
     @_locked
     def latest_tenders(self) -> list[dict]:
         rows = self.db.execute("SELECT doc FROM tenders t WHERE version=(SELECT MAX(version) FROM tenders WHERE key=t.key)").fetchall()
-        return [freshen(d) for d in (json.loads(r["doc"]) for r in rows) if is_real(d)]
+        return [freshen(d, today=self.today) for d in (json.loads(r["doc"]) for r in rows) if is_real(d)]
 
     @_locked
     def get_tender(self, key: str) -> dict | None:
         row = self.db.execute("SELECT doc FROM tenders WHERE key=? ORDER BY version DESC LIMIT 1", (key,)).fetchone()
         doc = json.loads(row["doc"]) if row else None
-        return freshen(doc) if doc is not None and is_real(doc) else None
+        return freshen(doc, today=self.today) if doc is not None and is_real(doc) else None
 
     @_locked
     def tender_versions(self, key: str) -> list[dict]:

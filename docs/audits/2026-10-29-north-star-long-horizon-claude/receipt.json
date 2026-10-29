@@ -1,0 +1,319 @@
+{
+  "run_name": "North Star long horizon claude",
+  "run_id": "north-star-long-horizon-claude",
+  "status": "COMPLETED",
+  "build_sha": "afe1a4ba8dc88314e9d764cbac04bb43e7b64d1f",
+  "build_sha_short": "afe1a4ba8dc8",
+  "budget_cap_usd": 1.0,
+  "spent_usd": 0.0,
+  "remaining_usd": 1.0,
+  "within_budget": true,
+  "branches": [
+    {
+      "branch_num": "B01",
+      "node_id": "jeff",
+      "agent_name": "ns-lh-claude-01-jeff",
+      "label": "Jeff — собеседник",
+      "agent_id": 53,
+      "task_id": 783,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B01-JEFF-MANUAL-OSERROR-POLL-GUARD",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B02",
+      "node_id": "ux",
+      "agent_name": "ns-lh-claude-02-ux",
+      "label": "UX — Command Center и интерфейсы",
+      "agent_id": 54,
+      "task_id": 784,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B02-UX-TASK-STREAM-FILTER-SEED",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B03",
+      "node_id": "apps",
+      "agent_name": "ns-lh-claude-03-apps",
+      "label": "Apps — приложения и инструменты",
+      "agent_id": 55,
+      "task_id": 785,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B03-APPS-WAR-LOOPBACK-CONNECT-TIMEOUT",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B04",
+      "node_id": "models",
+      "agent_name": "ns-lh-claude-04-models",
+      "label": "Models — локальные модели",
+      "agent_id": 56,
+      "task_id": 786,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B04-MODELS-VISION-TRUTHY-STRING-BUG",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B05",
+      "node_id": "cloud",
+      "agent_name": "ns-lh-claude-05-cloud",
+      "label": "Cloud — AI Gateway и провайдеры",
+      "agent_id": 57,
+      "task_id": 787,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B05-CLOUD-AI-GATEWAY-TOOL-CALLS-SCRUB",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B06",
+      "node_id": "computer",
+      "agent_name": "ns-lh-claude-06-computer",
+      "label": "Computer — компьютер и браузер",
+      "agent_id": 58,
+      "task_id": 788,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B06-COMPUTER-LOCAL-MODEL-TIMEOUT-CASCADE",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B07",
+      "node_id": "media",
+      "agent_name": "ns-lh-claude-07-media",
+      "label": "Media — Motion, видео, звук",
+      "agent_id": 59,
+      "task_id": 789,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B07-MEDIA-MOTION-STUDIO-PROC-AND-SHA-REUSE",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B08",
+      "node_id": "memory",
+      "agent_name": "ns-lh-claude-08-memory",
+      "label": "Memory — память и обучение",
+      "agent_id": 60,
+      "task_id": 790,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B08-MEMORY-MINUTE-STEM-COLLISION",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B09",
+      "node_id": "agents",
+      "agent_name": "ns-lh-claude-09-agents",
+      "label": "Agents — агенты и оркестрация",
+      "agent_id": 61,
+      "task_id": 791,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B09-AGENTS-DAG-MISSING-DEP-FALSE-READY",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B10",
+      "node_id": "skills",
+      "agent_name": "ns-lh-claude-10-skills",
+      "label": "Skills — навыки",
+      "agent_id": 62,
+      "task_id": 792,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B10-SKILLS-MARKDOWN-TABLE-PIPE-BYPASS",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B11",
+      "node_id": "plugins",
+      "agent_name": "ns-lh-claude-11-plugins",
+      "label": "Plugins — плагины и MCP",
+      "agent_id": 63,
+      "task_id": 793,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B11-PLUGINS-MCP-ATTACHED-INLINE-FLAG",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B12",
+      "node_id": "ops",
+      "agent_name": "ns-lh-claude-12-ops",
+      "label": "Ops — операции и приёмка",
+      "agent_id": 64,
+      "task_id": 794,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B12-OPS-SOURCE-IDENTITY-CLEAN-TREE",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B13",
+      "node_id": "oss",
+      "agent_name": "ns-lh-claude-13-oss",
+      "label": "OSS — открытые проекты",
+      "agent_id": 65,
+      "task_id": 795,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B13-OSS-COMFYUI-FAST-CONNECT-PROBE",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B14",
+      "node_id": "commerce",
+      "agent_name": "ns-lh-claude-14-commerce",
+      "label": "Commerce — заработок и отчёты",
+      "agent_id": 66,
+      "task_id": 796,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B14-COMMERCE-PARALLEL-DETERMINISTIC-REPORTS",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    },
+    {
+      "branch_num": "B15",
+      "node_id": "devices",
+      "agent_name": "ns-lh-claude-15-devices",
+      "label": "Devices — другие устройства",
+      "agent_id": 67,
+      "task_id": 797,
+      "status": "PASS",
+      "lesson_id": "NS-LH-B15-DEVICES-REMOTE-STOP-MKDIR-GUARD",
+      "cost_usd": 0.0,
+      "budget_cap_usd": 0.0667
+    }
+  ],
+  "critical_lessons_recorded": 15,
+  "reflex_verified": 15,
+  "updated_utc": "2026-10-29T23:41:24Z",
+  "duration_s": 2.63,
+  "lessons": [
+    {
+      "branch": "B01",
+      "node_id": "jeff",
+      "id": "NS-LH-B01-JEFF-MANUAL-OSERROR-POLL-GUARD",
+      "severity": "CRITICAL",
+      "title": "Uncaught OSError in _consume_manual_update terminates Telegram Companion polling loop",
+      "fix": "Catch OSError in _consume_manual_update (service.py:577) and notify the owner without crashing poll()."
+    },
+    {
+      "branch": "B02",
+      "node_id": "ux",
+      "id": "NS-LH-B02-UX-TASK-STREAM-FILTER-SEED",
+      "severity": "HIGH",
+      "title": "TaskStreamFilter drops run.log and approval.decided when attached mid-run without history replay",
+      "fix": "Seed TaskStreamFilter.run_ids and approval_ids from task_runs/approvals tables or pass after=0 on stream attach."
+    },
+    {
+      "branch": "B03",
+      "node_id": "apps",
+      "id": "NS-LH-B03-APPS-WAR-LOOPBACK-CONNECT-TIMEOUT",
+      "severity": "HIGH",
+      "title": "Mobile Pult status endpoint stalls 2050 ms when optional War Terminal (:8830) is offline",
+      "fix": "Configure war client with httpx.Timeout(2.0, connect=0.25) so offline loopback fails fast in <250 ms."
+    },
+    {
+      "branch": "B04",
+      "node_id": "models",
+      "id": "NS-LH-B04-MODELS-VISION-TRUTHY-STRING-BUG",
+      "severity": "HIGH",
+      "title": "Truthy evaluation of string capability flag assigns vision=True to models with 'NO'/'UNKNOWN'",
+      "fix": "Use vision=bool(caps.get('vision') is True or str(caps.get('vision') or '').upper() == 'YES')."
+    },
+    {
+      "branch": "B05",
+      "node_id": "cloud",
+      "id": "NS-LH-B05-CLOUD-AI-GATEWAY-TOOL-CALLS-SCRUB",
+      "severity": "CRITICAL",
+      "title": "Unscrubbed tool_calls arguments and multi-digit placeholder collision in AI Gateway",
+      "fix": "Scrub and verify msg['tool_calls'][*]['function']['arguments'] and sort rehydrate tags by -len(tag)."
+    },
+    {
+      "branch": "B06",
+      "node_id": "computer",
+      "id": "NS-LH-B06-COMPUTER-LOCAL-MODEL-TIMEOUT-CASCADE",
+      "severity": "HIGH",
+      "title": "Sequential timeout cascade across 8 local models in call_local_qwen when Ollama/Strata is offline",
+      "fix": "Set httpx.Timeout(..., connect=0.25) and mark strata_dead/ollama_dead on first ConnectError/ConnectTimeout."
+    },
+    {
+      "branch": "B07",
+      "node_id": "media",
+      "id": "NS-LH-B07-MEDIA-MOTION-STUDIO-PROC-AND-SHA-REUSE",
+      "severity": "HIGH",
+      "title": "Process dict leak and duplicate full-file SHA-256 read on video.mp4 in Motion Studio",
+      "fix": "Pop job['id'] in _settle and reuse report['sha256'] for video.mp4 in _write_manifest."
+    },
+    {
+      "branch": "B08",
+      "node_id": "memory",
+      "id": "NS-LH-B08-MEMORY-MINUTE-STEM-COLLISION",
+      "severity": "MEDIUM",
+      "title": "Minute-resolution timestamp collision in ObsidianVault.write_memory",
+      "fix": "Pass unique title/filename or disambiguate colliding stems when writing rapid memory notes."
+    },
+    {
+      "branch": "B09",
+      "node_id": "agents",
+      "id": "NS-LH-B09-AGENTS-DAG-MISSING-DEP-FALSE-READY",
+      "severity": "CRITICAL",
+      "title": "Silent True from all() on filtered generator in TaskGraph ready_nodes",
+      "fix": "Require both membership and SUCCEEDED status inside all(): all(d in graph.nodes and graph.nodes[d].status == 'SUCCEEDED' for d in node.depends_on)."
+    },
+    {
+      "branch": "B10",
+      "node_id": "skills",
+      "id": "NS-LH-B10-SKILLS-MARKDOWN-TABLE-PIPE-BYPASS",
+      "severity": "CRITICAL",
+      "title": "Markdown table rows merged as shell pipe continuations in skill_catalog._logical_lines",
+      "fix": "Do not join lines starting with '|' when the line or previous line also ends with '|' (Markdown table syntax)."
+    },
+    {
+      "branch": "B11",
+      "node_id": "plugins",
+      "id": "NS-LH-B11-PLUGINS-MCP-ATTACHED-INLINE-FLAG",
+      "severity": "CRITICAL",
+      "title": "Bypass of MCP stdio inline-code flag block via attached argument (-c<code>, --eval=<code>)",
+      "fix": "Block both exact matches and attached flag values (item.startswith(f + '=') or attached -c/-e)."
+    },
+    {
+      "branch": "B12",
+      "node_id": "ops",
+      "id": "NS-LH-B12-OPS-SOURCE-IDENTITY-CLEAN-TREE",
+      "severity": "HIGH",
+      "title": "Uncommitted tracked files flip /health/live source_identity to SOURCE_IDENTITY_STALE",
+      "fix": "Commit all tracked changes and restart :8801 daemon on clean HEAD so build_sha == HEAD and git diff is clean."
+    },
+    {
+      "branch": "B13",
+      "node_id": "oss",
+      "id": "NS-LH-B13-OSS-COMFYUI-FAST-CONNECT-PROBE",
+      "severity": "HIGH",
+      "title": "Offline ComfyUI (:8188) blocks status probe for 2050 ms on Windows TCP SYN retransmission",
+      "fix": "Use httpx.Timeout(2.0, connect=0.25) in ComfyUIClient.health() and asyncio.gather in DirectGenService.status()."
+    },
+    {
+      "branch": "B14",
+      "node_id": "commerce",
+      "id": "NS-LH-B14-COMMERCE-PARALLEL-DETERMINISTIC-REPORTS",
+      "severity": "HIGH",
+      "title": "Sequential double-run bottleneck and unguarded artifact read in reports_runner",
+      "fix": "Run _run_business_once for out_run1 and out_run2 concurrently via asyncio.gather and guard volume_result.json / disputed.csv with is_file()."
+    },
+    {
+      "branch": "B15",
+      "node_id": "devices",
+      "id": "NS-LH-B15-DEVICES-REMOTE-STOP-MKDIR-GUARD",
+      "severity": "MEDIUM",
+      "title": "Missing directory creation guard in remote_stop before writing STOP file",
+      "fix": "Ensure remote_dir().mkdir(parents=True, exist_ok=True) before writing STOP in remote_access.py:266."
+    }
+  ]
+}
