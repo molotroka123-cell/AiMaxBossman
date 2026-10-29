@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
+OWNER_REGISTRY_FILE = ROOT / "tests" / "owner_scenarios" / "owner_scenarios.json"
 DEV_FILE = ROOT / "tests" / "owner_scenarios" / "eval500_dev.json"
 HOLDOUT_HASH_FILE = ROOT / "tests" / "owner_scenarios" / "eval500_holdout.sha256.json"
 HOLDOUT_DIR = Path(os.environ.get("BOSSMAN_EVAL_HELDOUT_DIR", r"D:\Bossman\eval\heldout"))
@@ -199,7 +200,26 @@ def dev_expected() -> dict[str, int]:
 
 
 def load_dev(path: Path | None = None) -> list[dict]:
-    doc = json.loads(Path(path or DEV_FILE).read_text(encoding="utf-8"))
+    if path is not None:
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+        if isinstance(doc.get("eval500"), dict) and "scenarios" in doc["eval500"]:
+            return doc["eval500"]["scenarios"]
+        return doc["scenarios"]
+    if OWNER_REGISTRY_FILE.is_file():
+        reg = json.loads(OWNER_REGISTRY_FILE.read_text(encoding="utf-8"))
+        e5 = reg.get("eval500")
+        if isinstance(e5, dict) and isinstance(e5.get("scenarios"), list):
+            scenarios = e5["scenarios"]
+            if DEV_FILE.is_file():
+                dev_doc = json.loads(DEV_FILE.read_text(encoding="utf-8"))
+                if [s.get("id") for s in dev_doc.get("scenarios", [])] != [s.get("id") for s in scenarios]:
+                    raise ScenarioError("owner_scenarios.json['eval500'] and eval500_dev.json scenario IDs drifted")
+            if HOLDOUT_HASH_FILE.is_file() and isinstance(e5.get("holdout_seal"), dict):
+                seal_doc = json.loads(HOLDOUT_HASH_FILE.read_text(encoding="utf-8"))
+                if e5["holdout_seal"].get("file_sha256") != seal_doc.get("file_sha256"):
+                    raise ScenarioError("owner_scenarios.json['eval500']['holdout_seal'] drifted from eval500_holdout.sha256.json")
+            return scenarios
+    doc = json.loads(Path(DEV_FILE).read_text(encoding="utf-8"))
     return doc["scenarios"]
 
 

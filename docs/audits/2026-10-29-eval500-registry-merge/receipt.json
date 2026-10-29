@@ -1,0 +1,18 @@
+{
+  "schema": "bossman.eval500.registry-merge-receipt.v1",
+  "date": "2026-10-29",
+  "lane": "Argon (Task 3.1 — eval500 registry merge into owner_scenarios.json)",
+  "status": "PASS",
+  "registry_file": "tests/owner_scenarios/owner_scenarios.json",
+  "os_scenarios_count": 110,
+  "eval500_total": 500,
+  "eval500_dev_count": 350,
+  "eval500_holdout_sealed_count": 150,
+  "holdout_in_git": false,
+  "validation": {
+    "validate_eval500": "EVAL500: dev 350 valid; holdout 150 sealed — file sha256 and 150 per-scenario hashes match the seal",
+    "test_eval500_harness_passed": 21,
+    "test_eval500_harness_failed": 0,
+    "scenario_runner_discover_os": 110
+  }
+}
