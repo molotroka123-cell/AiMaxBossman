@@ -6355,6 +6355,47 @@ async def api_pc_agent_night_mode_report(request: Request):
 
 
 @router.post("/self-modify")
+async def _verified_self_modify_approval(svc: Any, rt: Any, approval_id_raw: Any, task_id: int) -> bool:
+    """An owner approval authorises ONE self-modify step (audit 28.10 night).
+
+    The swarm-2 check called `svc.approvals.get`, which the real Approvals manager does not have, so in production no approval
+    ever verified (only a test double did), and a record without a `tool` field defaulted to «pc.self_modify», so any approved
+    approval of any kind would have passed once such a getter existed. Now: the row is read from the approvals table; it must be
+    approved, be a PC-agent tool approval that names `pc.self_modify`, belong to the same task when one is given, and is spent on use.
+    """
+    try:
+        aid = int(approval_id_raw)
+    except (TypeError, ValueError):
+        return False
+    used = getattr(rt, "self_modify_used_approvals", None)
+    if used is None:
+        used = set()
+        setattr(rt, "self_modify_used_approvals", used)
+    if aid in used:
+        return False
+    getter = getattr(getattr(svc, "approvals", None), "get", None)
+    if callable(getter):
+        rec = await getter(aid)
+    else:
+        db = getattr(svc, "db", None)
+        if db is None:
+            return False
+        async with db.session() as s:
+            rec = await fetch_one(s, approvals_t, aid)
+    if not isinstance(rec, dict) or rec.get("status") != "approved":
+        return False
+    tool = str(rec.get("tool") or "")
+    if tool:
+        if tool not in {"pc.self_modify", "self_modify"}:
+            return False
+    elif rec.get("kind") != "tool" or "pc.self_modify" not in str(rec.get("preview") or ""):
+        return False
+    if task_id and rec.get("task_id") not in (None, task_id):
+        return False
+    used.add(aid)
+    return True
+
+
 async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
     svc = _svc_of(request)
     rt = get_runtime(svc)
@@ -6371,19 +6412,8 @@ async def api_pc_agent_self_modify(request: Request, body: dict[str, Any]):
     approval_verified = False
     if requested_approved and approval_id_raw is not None:
         with contextlib.suppress(Exception):
-            aid = int(approval_id_raw)
-            approvals_mgr = getattr(svc, "approvals", None)
-            if approvals_mgr is not None and hasattr(approvals_mgr, "get"):
-                rec = await approvals_mgr.get(aid)
-                if isinstance(rec, dict) and rec.get("status") == "approved":
-                    rec_tool = str(rec.get("tool") or "pc.self_modify")
-                    if rec_tool in {"pc.self_modify", "self_modify"}:
-                        approval_verified = True
-            pending_map = getattr(rt, "pending_approvals", None) or {}
-            if not approval_verified and str(approval_id_raw) in pending_map:
-                p_rec = pending_map[str(approval_id_raw)]
-                if isinstance(p_rec, dict) and p_rec.get("status") == "approved":
-                    approval_verified = True
+            approval_verified = await _verified_self_modify_approval(
+                svc, rt, approval_id_raw, int(payload.get("task_id") or 0))
     approved = bool(requested_approved and approval_verified)
     payload["approved"] = approved
     res = await execute_pc_step(
