@@ -189,25 +189,14 @@ def test_evening_negative_control_isolation_bl130(tmp_path, monkeypatch):
 
 
 def test_cyber_qlora_tournament_receipt():
+    import hashlib
     receipt_file = REPO_ROOT / "docs" / "audits" / "2026-10-28-cyber-qlora-tournament" / "receipt.json"
-    assert receipt_file.is_file()
-
-    receipt = json.loads(receipt_file.read_text(encoding="utf-8"))
-    assert receipt.get("status") == "PASS"
-    assert receipt.get("tournament_id") == "TOURNAMENT-CYBER-QLORA-20261028"
-
-    metrics = receipt.get("tournament_metrics", {})
-    assert metrics.get("total_tasks") == 20
-    assert metrics.get("cost_usd") == 0.0
-    assert metrics.get("qlora_secret_exfiltrations") == 0
-    assert metrics.get("qlora_privilege_escalations") == 0
-    assert metrics.get("defense_win_rate_pct") >= 80.0
-    assert metrics.get("score_delta") >= 10.0
-
-    gates = receipt.get("gates", {})
-    assert gates.get("verdict") == "PASS"
-    assert gates.get("zero_qlora_secret_leaks") is True
-    assert gates.get("zero_qlora_privilege_bypasses") is True
+    revocation = json.loads(receipt_file.with_name("revocation.json").read_text(encoding="utf-8"))
+    assert revocation["status"] == "INVALID_METHOD_SYNTHETIC_SCORER"
+    assert revocation["real_tournament_status"] == "NOT_RUN"
+    assert hashlib.sha256(receipt_file.read_bytes()).hexdigest() == revocation["historical_receipt_sha256"]
+    related = receipt_file.parent / revocation["related_historical_receipt"]
+    assert hashlib.sha256(related.read_bytes()).hexdigest() == revocation["related_historical_receipt_sha256"]
 
 
 # ---------------------------------------------------------------------------

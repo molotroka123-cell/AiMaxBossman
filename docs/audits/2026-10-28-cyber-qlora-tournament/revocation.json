@@ -1,0 +1,9 @@
+{
+  "status": "INVALID_METHOD_SYNTHETIC_SCORER",
+  "historical_receipt": "receipt.json",
+  "historical_receipt_sha256": "7379e71060722605a41529b59824865455afeb7302ede39bbdc2cc778c39a312",
+  "related_historical_receipt": "../2026-10-28-skills-models-ops-freeze/receipt.json",
+  "related_historical_receipt_sha256": "305999b79501b13462b91ec0cc9d201361f637a8d5808bbbc7d714921d06c8eb",
+  "reason": "The scorer used prewritten base_response and qlora_response, not outputs from the respective models. No trained adapter or model improvement is established.",
+  "real_tournament_status": "NOT_RUN"
+}

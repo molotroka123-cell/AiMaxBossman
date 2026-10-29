@@ -1,5 +1,7 @@
 # Выполнение аудита `BOSSMAN_FULL_AUDIT_AND_2X_UPGRADE_TZ_RU.md` — ход работ (28.10.2026, Claude)
 
+> **Поправка исполнения:** строка ниже об отзыве QLoRA в `1436a6cc` была недостоверна на базе `f5b05cd1`: объект не найден, а scorer использовал заранее прописанные ответы и выдавал PASS. Исторические квитанции сохранены и помечены в `../2026-10-28-cyber-qlora-tournament/revocation.json`. Реальные обучение и турнир: NOT_RUN. Эта поправка относится только к QLoRA и не подтверждает другие PASS этого отчёта.
+
 Аудит Аргона: 15 веток, 130 пунктов «не ввели / не доказали». За один заход их не закрыть; ниже — что сделано
 сегодня с доказательством, что в аудите неверно, и что остаётся. «Сделано» = код + тесты на точном SHA; живое
 доказательство отмечено отдельно.
@@ -45,7 +47,7 @@
 | **Ветка 9 (`agents`)** | `SwarmDAGPlanner` (`bcc/v2/swarm_dag.py`) исправлен (`ab7fa25a`): без живого `adapter_runner` возвращает `overall_status="DEGRADED_SYNTHETIC"` и `all_verified=False` (не маскируя шаблон под ответ модели). | `bcc/v2/swarm_dag.py`, `test_swarm_dag_honesty.py` | **PASS (честный `DEGRADED_SYNTHETIC` без живого адаптера)** |
 | **Ветка 10 (`skills`)** | Все 94 навыка в `.agents/skills/` (включая 17 новых навыков) проходят `validate_manifest` и `scan_policy` с `0` ошибок. | `.agents/skills/*`, `test_skills_models_ops_freeze.py` | **PASS** |
 | **Ветка 11 (`plugins`)** | Исправлена транслитерация кириллицы в `mcp_hub.py::normalize_name` (`BL-131`), а `resolve_cred("OBSIDIAN_VAULT", svc)` в `plugins.py` теперь автоматически берёт настроенный в UI путь `settings_kv["memory.vault"]`. | `bcc/v2/mcp_hub.py`, `bcc/features/plugins.py`, `test_plugins_adapter.py` | **PASS** |
-| **Ветки 12 & 13 (`ops` & `oss`)** | Закрыты `BL-123` (`sources.lock.json`) и `BL-130` (`negative_control: True` в `verify_windows_bundle.py`). Синтетический keyword-турнир `run_cyber_qlora_holdout_tournament.py` отозван (`1436a6cc`, переведён в `INVALID_METHOD_SYNTHETIC_SCORER`). Добавлен `browser.active_tab_info` (`26e000db`). | `docs/hybrid/sources.lock.json`, `tools/verify_windows_bundle.py`, `bcc/features/tools_browser.py` | **PASS (`BL-123`, `BL-130`, `browser.active_tab_info`); ОТОЗВАНО (синтетический турнир QLoRA)** |
+| **Ветки 12 & 13 (`ops` & `oss`)** | Заявлены `BL-123`, `BL-130` и `browser.active_tab_info`; требуют повторной проверки на актуальном SHA. Синтетический QLoRA scorer признан недействительным; реальные model outputs отсутствуют. | `docs/hybrid/sources.lock.json`, `tools/verify_windows_bundle.py`, `../2026-10-28-cyber-qlora-tournament/revocation.json` | **QLoRA: INVALID_METHOD_SYNTHETIC_SCORER; остальные: требуют перепроверки** |
 | **Ветка 14 (`commerce`)** | Строгий `compute_quote_strict(..., require_explicit_margin=True)` подключён как дефолт в `apps/swapme-bot/quote.py` (`44c9ca5c`): без явно переданной маржи выбрасывается `MarginRequiredError`. | `apps/swapme-bot/quote.py`, `bossman_shared/exchange_assistant/quote.py`, `test_audit_upgrade_security_cloud_commerce.py` | **PASS** |
 | **Ветка 15 (`devices`)** | `WorkerClusterCoordinator` и `VirtualUVCCameraProbe` работают и честно помечают режим каскадного `STOP` как `"cascade_mode": "IN_PROCESS_ONLY"` (пока нет второго физического ПК по сети). | `bcc/devices/worker_node.py`, `test_mobile_dag_devices_upgrade.py` | **PASS (`IN_PROCESS_ONLY`)** |
 

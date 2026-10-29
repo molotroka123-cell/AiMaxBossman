@@ -35,3 +35,7 @@ command-center/bcc/skills_catalog/** -whitespace -text
 # Raw sd-cli and video engine output (carriage-return progress bars, ANSI escapes): parser tests read the exact bytes.
 command-center/tests/fixtures/sdcpp/** binary
 command-center/tests/fixtures/video_progress/** binary
+
+# Revoked audit receipts are retained as byte-identical historical evidence.
+docs/audits/2026-10-28-cyber-qlora-tournament/receipt.json -text
+docs/audits/2026-10-28-skills-models-ops-freeze/receipt.json -text
