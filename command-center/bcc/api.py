@@ -320,7 +320,8 @@ async def require_token(request: Request, x_bcc_token: str | None = Header(defau
             request.state.principal = principal
             if principal.role != "owner" and request.method not in SAFE_METHODS:
                 path = request.url.path
-                if any(path == p or path.startswith(p + "/") for p in _OWNER_ONLY_MUTATION_PREFIXES):
+                pc_owner_action = (path == "/api/pc-agent" or path.startswith("/api/pc-agent/")) and path != "/api/pc-agent/stop"
+                if pc_owner_action or any(path == p or path.startswith(p + "/") for p in _OWNER_ONLY_MUTATION_PREFIXES):
                     raise ApiError(
                         "действие разрешено только владельцу (scoped токен агента не имеет прав владельца)",
                         status=403,

@@ -243,12 +243,17 @@ _CREATE_SUSPENDED = 0x00000004
 def _win_bind_and_resume(proc: Any) -> int | None:
     """Windows: поместить приостановленный процесс в Job Object и возобновить его.
 
-    Возобновление происходит ВСЕГДА (иначе команда висела бы вечно). Если его не
-    удалось выполнить — процесс убивается и бросается OSError: приостановленный
-    процесс, о котором никто не знает, хуже честного отказа запуска."""
+    При ошибке привязки или возобновления процесс уничтожается до выполнения;
+    нельзя запускать его без гарантии остановки через Job Object."""
     if os.name != "nt" or getattr(proc, "_transport", None) is None:
         return None                      # не Windows или двойник процесса в тестах
     job = _win_job_attach(proc)
+    if job is None:
+        try:
+            proc.kill()
+        except (ProcessLookupError, OSError):
+            pass
+        raise OSError(f"не удалось привязать процесс {proc.pid} к Job Object")
     try:
         try:
             import psutil
@@ -275,8 +280,7 @@ def _win_bind_and_resume(proc: Any) -> int | None:
 def _win_job_attach(proc: Any) -> int | None:
     """Поместить только что запущенный процесс в новый Job Object (Windows, иначе None).
 
-    Любая неудача — None, и `kill` остаётся на `taskkill`: безопасность остановки
-    не должна зависеть от того, что ctypes/ручка/вложенные задания доступны."""
+    При неудаче возвращает None; вызывающая сторона не должна запускать процесс."""
     if os.name != "nt":
         return None
     try:

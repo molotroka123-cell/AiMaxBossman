@@ -189,7 +189,7 @@ def _read_audit(svc: Any) -> list[dict]:
     except OSError:
         return []
     out = []
-    for line in lines[-2000:]:
+    for line in lines:
         with contextlib.suppress(ValueError):
             row = json.loads(line)
             if isinstance(row, dict):
@@ -223,6 +223,12 @@ async def _session_of_task(svc: Any, task_id: int | None) -> str | None:
 
 async def budget_state(svc: Any, task_id: int | None) -> dict:
     """Бюджет, из которого платит вызов: сессия агента (учёт роутера) или, вне сессии, сутки по журналу cloud.ask."""
+    rows = await asyncio.to_thread(_read_audit, svc)
+    today_rows = [r for r in rows if str(r.get("ts", ""))[:10] == _today()]
+    if any(r.get("status") == "billing_unknown" for r in today_rows):
+        return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD,
+                "spent_usd": DEFAULT_SESSION_BUDGET_USD, "remaining_usd": 0.0,
+                "billing_unknown": True}
     session_id = await _session_of_task(svc, task_id)
     if session_id:
         try:
@@ -231,8 +237,7 @@ async def budget_state(svc: Any, task_id: int | None) -> dict:
                     "spent_usd": float(detail["spent_usd"]), "remaining_usd": float(detail["budget_remaining_usd"])}
         except Exception:  # noqa: BLE001 - сессия пропала или не читается: считаем по суткам, не по воздуху
             pass
-    spent = sum(float(r.get("cost_usd") or 0.0) for r in await asyncio.to_thread(_read_audit, svc)
-                if str(r.get("ts", ""))[:10] == _today() and r.get("status") == "ok")
+    spent = sum(float(r.get("cost_usd") or 0.0) for r in today_rows)
     return {"scope": "day", "session_id": None, "budget_usd": DEFAULT_SESSION_BUDGET_USD, "spent_usd": round(spent, 6),
             "remaining_usd": round(max(0.0, DEFAULT_SESSION_BUDGET_USD - spent), 6)}
 
@@ -490,9 +495,12 @@ async def _t_ask(args: dict, ctx: ToolContext) -> ToolResult:
         result = await asyncio.wait_for(call(svc, bound, messages, max_tokens=MAX_ANSWER_TOKENS, timeout=CALL_TIMEOUT_S),
                                         timeout=CALL_TIMEOUT_S + 5.0)
     except asyncio.CancelledError:
+        if bound.get("paid"):
+            await asyncio.shield(audit(svc, **base, chars_in=0, cost_usd=0.0, status="billing_unknown", error="CancelledError",
+                                       ms=int((time.monotonic() - started) * 1000)))
         raise
-    except Exception as exc:  # noqa: BLE001 - ошибка облака - данные для модели; текст исключения может эхом вернуть запрос
-        await audit(svc, **base, chars_in=0, cost_usd=0.0, status="error", error=type(exc).__name__,
+    except Exception as exc:  # noqa: BLE001 - не включать текст исключения, он может содержать запрос
+        await audit(svc, **base, chars_in=0, cost_usd=0.0, status="billing_unknown" if bound.get("paid") else "error", error=type(exc).__name__,
                     ms=int((time.monotonic() - started) * 1000))
         return _fail("CLOUD_ASK_FAILED", f"облачная модель не ответила ({type(exc).__name__}); повторите позже или "
                                           "сообщите владельцу")
